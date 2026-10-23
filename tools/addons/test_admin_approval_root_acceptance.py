@@ -231,6 +231,8 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
         try:
             self.assertEqual(examine(self.root, "rectools")["reason"],
                              "unsafe-approval-record")
+            with self.assertRaisesRegex(IssueError, "unsafe-approval-record"):
+                revoke(self.root, "rectools")
         finally:
             linked.unlink()
         self.assertTrue(examine(self.root, "rectools")["consistent"])
@@ -238,6 +240,8 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
         os.mkfifo(self.approval, 0o600)
         self.assertEqual(examine(self.root, "rectools")["reason"],
                          "unsafe-approval-record")
+        with self.assertRaisesRegex(IssueError, "unsafe-approval-record"):
+            revoke(self.root, "rectools")
 
     def test_admin_issuer_refuses_live_root(self):
         with self.assertRaisesRegex(IssueError, "live-root-requires-explicit-confirmation"):

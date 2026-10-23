@@ -320,18 +320,22 @@ def revoke(root: Path, module: str, allow_live_root: bool = False) -> Path:
             raise IssueError("unsafe-approval-parent")
         fcntl.flock(held, fcntl.LOCK_EX)
         name = APPROVAL_PATH.rsplit("/", 1)[-1]
-        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=held)
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW |
+                     os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=held)
         with os.fdopen(fd, "rb") as source:
             original = os.fstat(source.fileno())
             if (not stat.S_ISREG(original.st_mode) or original.st_uid != 0 or
-                    original.st_mode & 0o022 or not 0 < original.st_size <= 4096):
+                    original.st_mode & 0o022 or original.st_nlink != 1 or
+                    not 0 < original.st_size <= 4096):
                 raise IssueError("unsafe-approval-record")
             raw = source.read(4097)
             last = os.fstat(source.fileno())
             if len(raw) != original.st_size or (
-                original.st_dev, original.st_ino, original.st_size,
+                original.st_dev, original.st_ino, original.st_uid,
+                original.st_mode, original.st_nlink, original.st_size,
                 original.st_mtime_ns, original.st_ctime_ns) != (
-                last.st_dev, last.st_ino, last.st_size,
+                last.st_dev, last.st_ino, last.st_uid,
+                last.st_mode, last.st_nlink, last.st_size,
                 last.st_mtime_ns, last.st_ctime_ns):
                 raise IssueError("approval-record-changed")
 
@@ -375,9 +379,11 @@ def revoke(root: Path, module: str, allow_live_root: bool = False) -> Path:
                 target.flush()
                 os.fsync(target.fileno())
             present = os.stat(name, dir_fd=held, follow_symlinks=False)
-            if (present.st_dev, present.st_ino, present.st_size,
+            if (present.st_dev, present.st_ino, present.st_uid,
+                    present.st_mode, present.st_nlink, present.st_size,
                     present.st_mtime_ns, present.st_ctime_ns) != (
-                    original.st_dev, original.st_ino, original.st_size,
+                    original.st_dev, original.st_ino, original.st_uid,
+                    original.st_mode, original.st_nlink, original.st_size,
                     original.st_mtime_ns, original.st_ctime_ns):
                 raise IssueError("approval-record-changed")
             os.replace(temporary, name, src_dir_fd=held, dst_dir_fd=held)
