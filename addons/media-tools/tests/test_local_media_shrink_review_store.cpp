@@ -51,6 +51,25 @@ int main() {
     original.videoRoot = root;
     original.relativeRecording = fs::path("Example") / candidate.filename();
     original.candidateDirectory = candidate;
+    // Persisted Stage attempt identity is irreversible, including a
+    // simulated Agent restart and an altered payload with the same operation.
+    assert(!store.claimStageOnce(
+        "../../unsafe", original.actorId, original.backendId,
+        original.recordingId, original.sourceFingerprint, 7));
+    assert(store.claimStageOnce(
+        original.stageOperationId, original.actorId, original.backendId,
+        original.recordingId, original.sourceFingerprint, 7));
+    assert(!store.claimStageOnce(
+        original.stageOperationId, original.actorId, original.backendId,
+        original.recordingId, "different-source", 7));
+    LocalMediaShrinkReviewStore restartedBeforePublish(state);
+    assert(!restartedBeforePublish.claimStageOnce(
+        original.stageOperationId, original.actorId, original.backendId,
+        original.recordingId, original.sourceFingerprint, 7));
+    assert(restartedBeforePublish.claimStageOnce(
+        "op_stage-b", original.actorId, original.backendId,
+        original.recordingId, original.sourceFingerprint, 7));
+
     const auto id = store.registerCandidate(original);
     assert(id.size() == 36 && id.rfind("shk_", 0) == 0);
     assert(!store.find("../../etc/passwd"));
@@ -87,5 +106,5 @@ int main() {
     assert(store.find(id));
 
     std::cout << "LOCAL_HEVC_OPAQUE_REVIEW=PASS "
-              << "DURABLE_PUBLISH_FENCE=PASS ORIGINAL_PRESERVED=YES\n";
+              << "DURABLE_STAGE_FENCE=PASS DURABLE_PUBLISH_FENCE=PASS ORIGINAL_PRESERVED=YES\n";
 }
