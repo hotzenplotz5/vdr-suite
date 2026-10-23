@@ -404,11 +404,23 @@ bool DaemonRuntime::initialize()
             }
             const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
-            return mediaShrinkOperationFence_->applyResult(
+            const bool committed = mediaShrinkOperationFence_->applyResult(
                 assignment, result, now, reason);
+            if (committed &&
+                assignment.commandType ==
+                    vdrsuite::mediatools::kMediaShrinkStageCommandType)
+                (void)tryReconcileMediaShrinkStage(
+                    assignment, result, now);
+            if (committed &&
+                assignment.commandType ==
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType)
+                recordingCacheRefreshQueue_.request(assignment.backendId);
+            // Failure or unavailable readback keeps the canonical Operation
+            // outcomeUnknown and does not requeue the destructive command.
+            return committed;
         });
-    // This records the unverified outcome only. Separate private-candidate
-    // and VDR Recording readback are still mandatory for success.
+    // Agent receipts remain unverified until a separate candidate readback
+    // or a successfully committed native Recording cache reconciliation.
     mediaImportCatalog_ = std::make_unique<BackendAgentMediaImportCatalog>();
     PublicApiRuntime::instance().registerMediaImportSourceLookup(
         [this](const std::string& actorId, const std::string& backendId)
