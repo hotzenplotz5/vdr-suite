@@ -44,6 +44,8 @@
 #include "VdrRecordingQueryService.h"
 #include "VdrRecordingDuration.h"
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <iostream>
 #include <mutex>
@@ -249,8 +251,8 @@ int runRecordingMediaHttpRuntime(
                 response.contentType = "application/json";
                 response.headers["Cache-Control"] = "no-store";
                 response.headers["X-Content-Type-Options"] = "nosniff";
-                response.body = "{\\"backendId\\":\\"" + backendId +
-                    "\\",\\"items\\":[";
+                response.body = "{\"backendId\":\"" + backendId +
+                    "\",\"items\":[";
                 std::size_t included = 0;
                 for (const auto& item : entries) {
                     if (included >= 50) break;
@@ -268,19 +270,19 @@ int runRecordingMediaHttpRuntime(
                             item.recording.backendNativeId)
                         continue;
                     if (included++ != 0) response.body += ",";
-                    response.body += "{\\"recordingId\\":\\"" + *publicId +
-                        "\\",\\"positionSeconds\\":" +
+                    response.body += "{\"recordingId\":\"" + *publicId +
+                        "\",\"positionSeconds\":" +
                         std::to_string(item.resumePositionSeconds) +
-                        ",\\"durationSeconds\\":";
+                        ",\"durationSeconds\":";
                     if (item.recording.durationKnown &&
                         item.recording.durationSeconds > 0)
                         response.body +=
                             std::to_string(item.recording.durationSeconds);
                     else response.body += "null";
                     response.body +=
-                        ",\\"resumeSupport\\":\\"profile_dependent\\"}";
+                        ",\"resumeSupport\":\"profile_dependent\"}";
                 }
-                response.body += "],\\"limit\\":50}";
+                response.body += "],\"limit\":50}";
                 return response;
             }
             const std::string progressPath = collection + "/progress";
