@@ -142,6 +142,16 @@ RECORDING_ACTION_AUDITED = {
 }
 
 DEVICE_AUDITED = {
+    "/api/v1/recording-playback-sessions/continue-watching": {
+        "get": ('const std::string continuePath = collection + "/continue-watching";',
+                'isPublicDeviceRecordingSessionRead'),
+    },
+    "/api/v1/recording-playback-sessions/progress": {
+        "get": ('const std::string progressPath = collection + "/progress";',
+                'isPublicDeviceRecordingSessionRead'),
+        "post": ('const std::string progressPath = collection + "/progress";',
+                 'isPublicDeviceRecordingProgressUpdate'),
+    },
     "/api/v1/recording-playback-sessions/capabilities": {
         "get": ('const std::string capabilityCollection = collection + "/capabilities";',
                 'isPublicDeviceRecordingSessionRead'),
