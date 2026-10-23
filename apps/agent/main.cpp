@@ -3,6 +3,10 @@
 #include "BackendAgentRecordingMarksModify.h"
 #include "BackendAgentRecordingCut.h"
 #include "BackendAgentMediaImportRuntime.h"
+#include "BackendAgentMediaShrinkAuthorization.h"
+#include "LocalMediaShrinkAgentExecutor.h"
+#include "AddonInstallSnapshot.h"
+#include "MediaShrinkAgentCommand.h"
 #include "MediaToolsAgentExecutor.h"
 #include "SuiteBridgeNativeTimerCreateTransport.h"
 #include "SuiteBridgeNativeTimerDeleteTransport.h"
@@ -21,6 +25,10 @@
 #include <csignal>
 #include <cstdint>
 #include <cstdlib>
+#include <chrono>
+#include <filesystem>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -57,7 +65,8 @@ void usage()
         << "usage: vdr-suite-backend-agent [--config PATH] "
            "[--once | --rotate-credential] "
            "[--native-probe --suitebridge-host LOOPBACK "
-           "--suitebridge-port PORT] [--enable-media-import]" << std::endl;
+           "--suitebridge-port PORT] [--enable-media-import] "
+           "[--enable-media-shrink --media-shrink-state-dir ABSOLUTE]" << std::endl;
 }
 }
 
@@ -68,6 +77,8 @@ int main(int argc, char** argv)
     bool rotateCredential = false;
     bool nativeProbe = false;
     bool enableMediaImport = false;
+    bool enableMediaShrink = false;
+    std::string shrinkStateDirectory;
     std::string suiteBridgeHost;
     std::uint16_t suiteBridgePort = 0;
     for (int index = 1; index < argc; ++index)
@@ -93,6 +104,14 @@ int main(int argc, char** argv)
         {
             enableMediaImport = true;
         }
+        else if (argument == "--enable-media-shrink")
+        {
+            enableMediaShrink = true;
+        }
+        else if (argument == "--media-shrink-state-dir" && index + 1 < argc)
+        {
+            shrinkStateDirectory = argv[++index];
+        }
         else if (argument == "--suitebridge-host" && index + 1 < argc)
         {
             suiteBridgeHost = argv[++index];
@@ -112,7 +131,9 @@ int main(int argc, char** argv)
         }
     }
     if ((once && rotateCredential) ||
-        (enableMediaImport && (nativeProbe || once || rotateCredential)))
+        ((enableMediaImport || enableMediaShrink) &&
+         (nativeProbe || once || rotateCredential)) ||
+        (enableMediaShrink != !shrinkStateDirectory.empty()))
     {
         usage();
         return 64;
@@ -336,6 +357,85 @@ int main(int argc, char** argv)
         config.mediaImportExecutor = mediaImportRuntime.get();
         config.commandTypes.push_back(
             vdrsuite::mediatools::kMediaImportCommandType);
+    }
+    // HEVC is NEVER enabled by COMMAND_TYPES or manifest presence alone.
+    // Only the explicit local CLI opt-in constructs the authenticated,
+    // receipt-revalidating encoder, with an existing private owner-only
+    // journal. No directory is created or permissions repaired implicitly.
+    std::unique_ptr<vdrsuite::mediatools::LocalMediaShrinkReviewStore>
+        shrinkReviews;
+    std::unique_ptr<vdrsuite::agent::ReceiptRevalidatingMediaShrinkAuthorization>
+        shrinkAuthorization;
+    std::unique_ptr<vdrsuite::mediatools::NativeProcessRunner>
+        shrinkRunner;
+    std::unique_ptr<vdrsuite::mediatools::LocalMediaShrinkAgentExecutor>
+        shrinkExecutor;
+    if (enableMediaShrink)
+    {
+        namespace fs = std::filesystem;
+        const fs::path statePath(shrinkStateDirectory);
+        struct stat status{};
+        if (statePath.empty() || !statePath.is_absolute() ||
+            statePath.lexically_normal() != statePath ||
+            shrinkStateDirectory.size() > 2048 ||
+            ::lstat(statePath.c_str(), &status) != 0 ||
+            !S_ISDIR(status.st_mode) || status.st_uid != ::geteuid() ||
+            (status.st_mode & 0077) != 0 ||
+            !vdrsuite::addons::inspectMediaToolsInstallSnapshot(
+                "/").bytesVerified() ||
+            std::find(config.commandTypes.begin(), config.commandTypes.end(),
+                      "probe.noop") != config.commandTypes.end())
+        {
+            std::cerr << "HEVC opt-in requires an approved Media Tools "
+                         "installation and an existing private state directory"
+                      << std::endl;
+            return 78;
+        }
+        shrinkReviews = std::make_unique<
+            vdrsuite::mediatools::LocalMediaShrinkReviewStore>(statePath);
+        shrinkAuthorization = std::make_unique<
+            vdrsuite::agent::ReceiptRevalidatingMediaShrinkAuthorization>(
+                config.commandStatePath, transport, [&]() {
+                    BackendAgentCommandClientContext context;
+                    if (runtimeAccess)
+                    {
+                        const auto& state = runtimeAccess->state();
+                        context.agentId = state.agentId;
+                        context.credentialSecret = state.credentialSecret;
+                        context.backendId = state.backendId;
+                        context.agentInstanceId = runtimeAccess->agentInstanceId();
+                        context.backendGeneration = state.backendGeneration;
+                    }
+                    return context;
+                });
+        shrinkRunner = std::make_unique<
+            vdrsuite::mediatools::NativeProcessRunner>(
+                std::chrono::seconds(4 * 3600));
+        shrinkExecutor = std::make_unique<
+            vdrsuite::mediatools::LocalMediaShrinkAgentExecutor>(
+                *shrinkReviews,
+                [&](const std::string& type) {
+                    return (type ==
+                        vdrsuite::mediatools::kMediaShrinkStageCommandType ||
+                        type ==
+                        vdrsuite::mediatools::kMediaShrinkPublishCommandType) &&
+                        vdrsuite::addons::inspectMediaToolsInstallSnapshot(
+                            "/").bytesVerified();
+                },
+                [&](const BackendAgentCommandAssignment& assignment) {
+                    return shrinkAuthorization->authority(assignment);
+                },
+                [&]() -> vdrsuite::mediatools::ProcessRunner& {
+                    return *shrinkRunner;
+                });
+        config.mediaShrinkExecutor = shrinkExecutor.get();
+        for (const auto* type : {
+                vdrsuite::mediatools::kMediaShrinkStageCommandType,
+                vdrsuite::mediatools::kMediaShrinkPublishCommandType})
+            if (std::find(config.commandTypes.begin(),
+                          config.commandTypes.end(), type) ==
+                config.commandTypes.end())
+                config.commandTypes.emplace_back(type);
     }
     BackendAgentClientRuntime runtime(
         config,
