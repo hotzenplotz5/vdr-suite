@@ -93,7 +93,7 @@ IntentResult outcome(IntentStatus status,
                      const std::string& moduleId,
                      const std::string& backendId)
 {
-    return {status, {moduleId, backendId, false, 0}};
+    return {status, {moduleId, backendId, false, 0, 0, {}, {}}};
 }
 }
 
