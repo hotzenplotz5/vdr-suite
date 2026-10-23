@@ -2232,16 +2232,45 @@ bool DaemonRuntime::initialize()
         [this](const std::string& actor, const std::string& backend,
                const std::string& recording)
         {
-            return mediaShrinkPlanRuntime_->plan(actor, backend, recording);
+            std::uint64_t generation = 0;
+            std::string reason;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const bool enabled = mediaShrinkOperationFence_ &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkStageCommandType,
+                    now, generation, reason);
+            return mediaShrinkPlanRuntime_->plan(
+                actor, backend, recording, enabled);
         },
-        [this](const std::string& backend)
+        [this](const std::string& actor, const std::string& backend)
         {
-            return mediaShrinkPlanRuntime_->capability(backend);
+            std::uint64_t generation = 0;
+            std::string reason;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const bool enabled = mediaShrinkOperationFence_ &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkStageCommandType,
+                    now, generation, reason);
+            return mediaShrinkPlanRuntime_->capability(backend, enabled);
         },
         [this](const std::string& actor, const std::string& backend,
                const std::string& review)
         {
-            return mediaShrinkPlanRuntime_->reviewStatus(actor, backend, review);
+            std::uint64_t generation = 0;
+            std::string reason;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const bool enabled = mediaShrinkOperationFence_ &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType,
+                    now, generation, reason);
+            return mediaShrinkPlanRuntime_->reviewStatus(
+                actor, backend, review, enabled);
         },
         [this](const std::string& actor, const std::string& backend,
                const std::string& operationId)
