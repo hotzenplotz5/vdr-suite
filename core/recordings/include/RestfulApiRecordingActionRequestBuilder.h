@@ -690,6 +690,13 @@ private:
         const RestfulApiRecordingActionBackendConfig& config,
         const RecordingActionJobPayload& payload)
     {
+        // A configured per-backend root is authoritative; the legacy source
+        // inference below is allowed only for existing unconfigured setups.
+        if (config.videoDirectoryExplicit)
+        {
+            return normalizeSlashes(config.videoDirectory);
+        }
+
         const std::string source =
             normalizeSlashes(
                 recordingPath(payload));
