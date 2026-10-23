@@ -161,6 +161,39 @@ double probeDuration(ProcessRunner& runner, const fs::path& input) {
     return duration;
 }
 
+
+ // Probe exactly the same byte-concatenated TS stream used for Stage, without
+ // writing a second snapshot or modifying the live VDR recording. Individual
+ // segment durations cannot be added: PTS/PCR may jump at VDR file boundaries.
+ double probeLiveOriginalDuration(ProcessRunner& runner, const ShrinkPlan& plan) {
+     const fs::path recording = plan.videoRoot / plan.relativeRecording;
+     demand(!plan.segments.empty(), "missing shrink source segments");
+     std::string sourceUrl = "concat:";
+     for (const auto& segment : plan.segments) {
+         const fs::path file = recording / segment.filename;
+         demand(same(identity(file), segment),
+                "source segment changed before duration readback");
+         if (plan.segments.size() == 1) continue;
+         const auto name = file.string();
+         // FFmpeg's concat: protocol separates URLs with '|'. Never let a
+         // recording name introduce another component or another protocol.
+         demand(name.find('|') == std::string::npos &&
+                name.find('\\n') == std::string::npos &&
+                name.find('\\r') == std::string::npos &&
+                sourceUrl.size() + name.size() + 1 <= 32768,
+                "unsafe multi-segment FFprobe source path");
+         if (sourceUrl.size() > 7) sourceUrl += '|';
+         sourceUrl += name;
+     }
+     const double duration = plan.segments.size() == 1
+         ? probeDuration(runner, recording / plan.segments.front().filename)
+         : probeDuration(runner, fs::path(sourceUrl));
+     for (const auto& segment : plan.segments)
+         demand(same(identity(recording / segment.filename), segment),
+                "source segment changed during duration readback");
+     return duration;
+ }
+
 unsigned probeHeight(ProcessRunner& runner, const fs::path& input) {
     const auto result = runner.run({
         "/usr/bin/ffprobe", "-v", "error", "-select_streams", "v:0",
@@ -775,22 +808,9 @@ std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
     demand(parsed == durationText.size() &&
            std::isfinite(originalDuration) && originalDuration > 0,
            "invalid stored HEVC source duration");
-    // Single-segment sources have an independent, read-only duration
-    // reference at publication. Do not regress that check now that a
-    // composite original duration is also carried for multi-segment input.
-    double liveOriginalDuration = 0;
-    // Never rely ONLY on a stored private-stage duration, which may be
-    // accidentally damaged or edited while the Agent was offline. Each
-    // original segment is re-probed read-only on the current source snapshot.
-    // The plan bounds this loop to at most 256 numbered TS files.
-    for (const auto& segment : checked.segments) {
-        const double part = probeDuration(runner,
-            checked.videoRoot / checked.relativeRecording /
-            segment.filename);
-        demand(std::isfinite(liveOriginalDuration + part),
-               "source duration sum overflow");
-        liveOriginalDuration += part;
-    }
+    // Read back the full source TS byte stream independently at Publish.
+    // The staged marker must agree with this live, read-only reference.
+    const double liveOriginalDuration = probeLiveOriginalDuration(runner, checked);
     demand(std::fabs(liveOriginalDuration - originalDuration) <=
            std::max(4.0, liveOriginalDuration * 0.02),
            "staged HEVC source duration disagrees with live source");
