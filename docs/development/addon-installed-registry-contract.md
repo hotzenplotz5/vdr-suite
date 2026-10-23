@@ -85,7 +85,11 @@ The daemon's administrator Browser Session API has an audited, CSRF-protected
 `GET /api/v1/addons/rectools/activation?backendId=...` for the CAS
 revision/desired-state readback. Only global administrators may mutate
 intent; neither caller-provided runtime fields nor installed metadata create
-trust. Enables are bound to current Agent identity/instance/generation.
+trust. Enables are bound to current Agent identity/instance/generation **and
+to the exact independently approved handler SHA-256** in the same audited
+SQLite transaction; an upgrade/revoke cannot silently transfer prior
+activation to different bytes. Legacy rows with no revision-bound handler
+pin remain ineffective.
 The import and HEVC-shrink operation fences independently recheck current
 backend-specific Core approval and Agent evidence at admission and command
 receipt. Revocation or a stale Agent observation denies new work.

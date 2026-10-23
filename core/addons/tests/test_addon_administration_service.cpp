@@ -210,7 +210,8 @@ int main()
            enabled.intent.desiredEnabled && enabled.intent.revision == 2 &&
            enabled.intent.backendGeneration == 19 &&
            enabled.intent.agentId == "agent-a" &&
-           enabled.intent.agentInstanceId == "instance-a");
+           enabled.intent.agentInstanceId == "instance-a" &&
+           enabled.intent.approvedHandlerSha256 == std::string(64, 'a'));
     assert(trustedReads == 1 && audit.listAll().size() == 2);
     assert(f.db.execute(
         "INSERT INTO addon_media_import_maintenance "

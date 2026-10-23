@@ -61,7 +61,12 @@ The authenticated administrator Browser Session API now exposes:
 
 Enabling requires a writable backend, a live exact Agent
 identity/instance/generation, an advertised Media Import command capability
-and the currently matched Core/Agent handler identity. Disabling remains
+and the currently matched Core/Agent handler identity. The approved
+SHA-256 is recorded with the audited activation revision. Handler rotation
+cannot inherit the previous desired-enable authorization: an administrator
+must explicitly re-approve with the current revision after reviewing the new
+expected hash. Migrated desired-enabled rows lacking a hash pin remain
+ineffective. Disabling remains
 available even if the handler disappears or the approval is revoked. The
 existing import and HEVC-shrink Core fences independently recheck trust on
 discovery/reservation and at the Agent receipt. An approval record, a saved

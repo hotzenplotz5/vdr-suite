@@ -145,7 +145,40 @@ int main()
            committed.intent.agentInstanceId == "instance-a");
     auto persistedLease = store.read(actor, "rectools", "backend-a");
     assert(persistedLease.intent.backendGeneration == 19 &&
-           persistedLease.intent.agentInstanceId == "instance-a");
+           persistedLease.intent.agentInstanceId == "instance-a" &&
+           persistedLease.intent.approvedHandlerSha256 == std::string(64, 'a'));
+
+    // A handler hash upgrade cannot reuse an old administrator's enable,
+    // even when Agent identity, process instance and generation are unchanged.
+    auto upgradeBackend = backend();
+    upgradeBackend.backendId = "backend-upgrade";
+    auto upgrade = trustedEvidence();
+    upgrade.backendId = "backend-upgrade";
+    assert(store.update(actor, {"rectools", "backend-upgrade", true, 0},
+        upgradeBackend, upgrade).intent.approvedHandlerSha256 == std::string(64, 'a'));
+    upgrade.approvedHandlerSha256 = std::string(64, 'b');
+    const auto upgraded = store.update(actor,
+        {"rectools", "backend-upgrade", true, 1}, upgradeBackend, upgrade);
+    assert(upgraded.status == IntentStatus::ok &&
+           upgraded.intent.revision == 2 &&
+           upgraded.intent.approvedHandlerSha256 == std::string(64, 'b'));
+    assert(store.read(actor, "rectools", "backend-upgrade")
+           .intent.approvedHandlerSha256 == std::string(64, 'b'));
+    // Migrated/partially restored desiredEnabled rows without the exact
+    // revision-bound handler pin are deliberately not executable.
+    assert(f.database.execute(
+        "DELETE FROM addon_activation_handler_pins "
+        "WHERE module_id='rectools' AND backend_id='backend-upgrade';"));
+    const auto withoutPin = store.read(actor, "rectools", "backend-upgrade");
+    assert(withoutPin.status == IntentStatus::ok &&
+           withoutPin.intent.desiredEnabled && withoutPin.intent.revision == 2 &&
+           withoutPin.intent.backendGeneration == 0 &&
+           withoutPin.intent.approvedHandlerSha256.empty());
+    const auto reaffirmed = store.update(actor,
+        {"rectools", "backend-upgrade", true, 2}, upgradeBackend, upgrade);
+    assert(reaffirmed.status == IntentStatus::ok &&
+           reaffirmed.intent.revision == 3 &&
+           reaffirmed.intent.approvedHandlerSha256 == std::string(64, 'b'));
 
     // A separate backend cannot inherit a prior Agent enrollment or an
     // unbound legacy desired-enable row. Explicit reapproval at a new lease
