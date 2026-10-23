@@ -4,9 +4,11 @@
 #include "MutationOperationRepository.h"
 #include "SearchTimerCreateAdmissionService.h"
 #include "SearchTimerCreateDispatchService.h"
+#include "SearchTimerCreateDeviceAdmissionService.h"
 
 #include <cassert>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -75,10 +77,24 @@ public:
     SearchTimerCreateRequest last;
 };
 
+class Generation : public ISearchTimerBackendGenerationAuthority
+{
+public:
+    std::optional<std::uint64_t> live = 9U;
+    std::optional<std::uint64_t> currentGeneration(
+        const std::string& backend) const override
+    {
+        assert(backend == "default");
+        return live;
+    }
+};
+
 class Source : public ISearchTimerDataSource
 {
 public:
     mutable int reads = 0;
+    Generation* generation = nullptr;
+    bool restartDuringBaseline = false;
     std::vector<SearchTimer> initial;
     std::vector<SearchTimer> finalItems;
     bool failBefore = false;
@@ -87,6 +103,8 @@ public:
     {
         ++reads;
         assert(q.backendId() == "default");
+        if (reads == 1 && restartDuringBaseline && generation)
+            generation->live = 10U;
         if ((reads == 1 && failBefore) || (reads > 1 && failAfter))
             return SearchTimerResult::unavailable(0,0);
         const auto& items = reads == 1 ? initial : finalItems;
@@ -100,15 +118,17 @@ struct Rig
     Database database;
     MutationOperationRepository storage;
     SearchTimerCreateAdmissionService admission;
+    Generation generation;
     SearchTimerCreateDispatchService dispatch;
     Executor executor;
     Source source;
     std::string id;
     explicit Rig(bool historicalActive = false)
-        : storage(database), admission(storage), dispatch(storage)
+        : storage(database), admission(storage), dispatch(storage, generation)
     {
         assert(database.open(":memory:"));
         assert(storage.ensureSchema());
+        source.generation = &generation;
         // Simulate durable active CREATE accepted before inactive-only API v1.
         auto admissionRequest = input();
         admissionRequest.payload.active = historicalActive;
@@ -184,6 +204,37 @@ void assertGuards()
     assert(r.executor.creates == 0);
     assert(r.storage.findById(r.id).operation.state ==
         MutationOperationState::accepted);
+}
+
+void assertBackendRestartCannotDispatch()
+{
+    Rig stale;
+    stale.generation.live = 10U;
+    const auto rejected = stale.dispatch.dispatchOnce(
+        stale.request(), stale.executor, stale.source);
+    assert(rejected.status == SearchTimerCreateDispatchStatus::unavailable);
+    assert(stale.executor.creates == 0);
+    assert(stale.source.reads == 0);
+    assert(stale.storage.findById(stale.id).operation.state ==
+        MutationOperationState::accepted);
+
+    Rig restarted;
+    restarted.source.restartDuringBaseline = true;
+    const auto afterInventory = restarted.dispatch.dispatchOnce(
+        restarted.request(), restarted.executor, restarted.source);
+    assert(afterInventory.status == SearchTimerCreateDispatchStatus::unavailable);
+    assert(restarted.executor.creates == 0);
+    assert(restarted.source.reads == 1);
+    assert(restarted.storage.findById(restarted.id).operation.state ==
+        MutationOperationState::accepted);
+
+    Rig missing;
+    missing.generation.live.reset();
+    assert(missing.dispatch.dispatchOnce(
+        missing.request(), missing.executor, missing.source).status ==
+            SearchTimerCreateDispatchStatus::unavailable);
+    assert(missing.executor.creates == 0);
+    assert(missing.source.reads == 0);
 }
 
 void assertHistoricalActivePayloadNeverDispatches()
@@ -296,6 +347,7 @@ int main()
 {
     assertHappyPathAndNoRetry();
     assertGuards();
+    assertBackendRestartCannotDispatch();
     assertHistoricalActivePayloadNeverDispatches();
     assertAmbiguousOutcomeNeverRetries();
     assertReadbackAndPreexistingIdentity();
