@@ -2,6 +2,9 @@
 
 #include "DaemonRuntimeRecordingCut.h"
 #include "MediaImportOperationAdmission.h"
+#include "MediaShrinkOperationAdmission.h"
+#include "DaemonMediaShrinkAdmissionAuthority.h"
+#include "BackendAgentMediaShrinkAssignment.h"
 #include "BackendAgentMediaImportAssignment.h"
 
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
@@ -2140,6 +2143,130 @@ bool DaemonRuntime::initialize()
                const std::string& review)
         {
             return mediaShrinkPlanRuntime_->reviewStatus(actor, backend, review);
+        });
+
+    // Core-owned HEVC mutation entrypoint. No caller-controlled path,
+    // subprocess or direct write is admitted through public API parsing.
+    // Absent reviewed grants, activation or Agent capability, this is 403/503
+    // and nothing is reserved or dispatched.
+    auto submitMediaShrink = [this](
+        const std::string& actor, const std::string& backend,
+        const std::string& resourceId, const std::string& encoder,
+        unsigned maxHeight, bool nightMode,
+        std::uint64_t revision, const std::string& key,
+        bool publish) -> ApiResponse
+    {
+        using namespace vdrsuite::addons;
+        if (!mutationOperationRepository_ || !mediaShrinkReviewRepository_ ||
+            !mediaShrinkOperationFence_ || !mediaShrinkPlanRuntime_ ||
+            !backendAgentRepository_ || !backendAgentCommandRepository_)
+            return MediaShrinkPlanApiRuntime::problem(
+                503, "HEVC mutation authority unavailable.");
+        const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        DaemonMediaShrinkAdmissionAuthority authority(
+            *mediaShrinkPlanRuntime_, *mediaShrinkOperationFence_,
+            *mediaShrinkReviewRepository_);
+        MediaShrinkOperationAdmissionService service(
+            *mutationOperationRepository_, *mediaShrinkReviewRepository_,
+            authority);
+        MediaShrinkAdmissionResult outcome;
+        if (publish) {
+            MediaShrinkPublishAdmission request;
+            request.actorId = actor;
+            request.backendId = backend;
+            request.reviewId = resourceId;
+            request.expectedRevision = revision;
+            request.idempotencyKey = key;
+            request.now = now;
+            outcome = service.publish(request);
+        } else {
+            const auto fingerprint =
+                mediaShrinkPlanRuntime_->trustedSourceFingerprint(
+                    backend, resourceId);
+            if (!fingerprint)
+                return MediaShrinkPlanApiRuntime::problem(
+                    409, "Recording source is unavailable or changed.");
+            MediaShrinkStageAdmission request;
+            request.actorId = actor;
+            request.backendId = backend;
+            request.recordingId = resourceId;
+            request.sourceFingerprint = *fingerprint;
+            request.idempotencyKey = key;
+            request.encoder = encoder;
+            request.maxHeight = maxHeight;
+            request.nightMode = nightMode;
+            request.now = now;
+            outcome = service.stage(request);
+        }
+        switch (outcome.status) {
+        case MediaShrinkAdmissionStatus::invalid:
+            return MediaShrinkPlanApiRuntime::problem(
+                422, "Invalid HEVC mutation request.");
+        case MediaShrinkAdmissionStatus::forbidden:
+            return MediaShrinkPlanApiRuntime::problem(
+                403, "HEVC mutation permission denied.");
+        case MediaShrinkAdmissionStatus::idempotencyConflict:
+        case MediaShrinkAdmissionStatus::reviewConflict:
+            return MediaShrinkPlanApiRuntime::problem(
+                409, "HEVC operation or review revision conflict.");
+        case MediaShrinkAdmissionStatus::unavailable:
+            return MediaShrinkPlanApiRuntime::problem(
+                503, "HEVC operation repository unavailable.");
+        case MediaShrinkAdmissionStatus::accepted:
+        case MediaShrinkAdmissionStatus::replayed:
+            break;
+        }
+        auto durable = outcome.operation;
+        using State = vdrsuite::operations::MutationOperationState;
+        if (durable.state == State::accepted ||
+            durable.state == State::dispatching)
+        {
+            RequestSecurityContext system;
+            system.authenticationState = AuthenticationState::Authenticated;
+            system.actor = {"media_shrink_admission", ActorType::System,
+                            "HEVC admission", true};
+            vdrsuite::agent::BackendAgentMediaShrinkAssignmentService assigner(
+                *mutationOperationRepository_, *backendAgentCommandRepository_,
+                *backendAgentRepository_, *mediaShrinkOperationFence_);
+            const auto dispatched = assigner.assign(
+                system, durable.operationId, now);
+            if (!dispatched.accepted)
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC Agent dispatch unavailable.");
+            const auto current =
+                mutationOperationRepository_->findById(durable.operationId);
+            if (!current.ok())
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC operation readback unavailable.");
+            durable = current.operation;
+        }
+        return MediaShrinkPlanApiRuntime::json(202,
+            "{\"operationId\":\"" + durable.operationId +
+            "\",\"backendId\":\"" + durable.backendId +
+            "\",\"state\":\"" +
+            vdrsuite::operations::mutationOperationStateName(durable.state) +
+            "\",\"replayed\":" +
+            (outcome.status == MediaShrinkAdmissionStatus::replayed
+                ? "true" : "false") +
+            ",\"originalPreserved\":true}");
+    };
+    MediaShrinkPlanApiRuntime::instance().registerMutationHandlers(
+        [submitMediaShrink](
+            const std::string& actor, const std::string& backend,
+            const std::string& recording, const std::string& encoder,
+            unsigned height, bool nightMode, const std::string& key)
+        {
+            return submitMediaShrink(actor, backend, recording, encoder,
+                                     height, nightMode, 0, key, false);
+        },
+        [submitMediaShrink](
+            const std::string& actor, const std::string& backend,
+            const std::string& review, std::uint64_t revision,
+            const std::string& key)
+        {
+            return submitMediaShrink(actor, backend, review, "",
+                                     0, false, revision, key, true);
         });
 
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
