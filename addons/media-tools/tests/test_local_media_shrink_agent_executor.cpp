@@ -21,6 +21,7 @@ constexpr const char* kRecording = "rec_0123456789abcdef0123456789abcdef";
 
 struct Process final : ProcessRunner {
     unsigned transcodes = 0;
+    bool failTranscode = false;
     ProcessResult run(const std::vector<std::string>& args, bool captured) override {
         const auto has = [&](const std::string& s) {
             return std::find(args.begin(), args.end(), s) != args.end();
@@ -38,6 +39,7 @@ struct Process final : ProcessRunner {
         if (args.at(0) == "/usr/bin/ffmpeg") {
             assert(!captured && has("libx265") && has("-fs"));
             ++transcodes;
+            if (failTranscode) return {1, ""};
             std::ofstream(args.back(), std::ios::binary) <<
                 std::string(8192, 'H');
             return {0, ""};
@@ -184,6 +186,22 @@ int main() {
     assert(restarted.execute(replay) == MediaShrinkAgentOutcome::unknown);
     assert(process.transcodes == 1);
     assert(restarted.takeReviewId().empty());
+
+    // An FFmpeg failure is outcome-unknown once the durable stage start
+    // fence exists. A restart cannot repeat the same failed stage attempt.
+    auto failed = stage;
+    failed.operationId = "op_ffmpeg-failed";
+    failed.commandId = "cmd_ffmpeg-failed";
+    failed.requestFingerprint = "request-ffmpeg-failed";
+    process.failTranscode = true;
+    assert(executor.authorize(failed, "backend-a", 7));
+    assert(executor.execute(failed) == MediaShrinkAgentOutcome::unknown);
+    process.failTranscode = false;
+    const unsigned failedCount = process.transcodes;
+    assert(restarted.authorize(failed, "backend-a", 7));
+    assert(restarted.execute(failed) == MediaShrinkAgentOutcome::unknown);
+    assert(process.transcodes == failedCount);
+    assert(fs::exists(recording / "00001.ts"));
 
     auto publish = stage;
     publish.operationId = "op_publish-a";
