@@ -1306,6 +1306,11 @@
     function startPlayback() {
       if (destroyed) return Promise.resolve('');
       if (started) return sessionCreationPromise;
+      // A fresh explicit user start has a fresh retry budget; automatic
+      // recovery never takes this path.
+      cancelRecovery();
+      recoveryAttempts = 0;
+      stableProgressSince = 0;
       started = true;
       return openBroadcastSession(replacement);
     }
@@ -1374,6 +1379,8 @@
           releaseVideo();
           sourceMode = 'broadcast';
           playbackFailed = false;
+          recoveryAttempts = 0;
+          stableProgressSince = 0;
           return openBroadcastSession('');
         });
       return sourceSwitchPromise;
