@@ -175,6 +175,7 @@ jobs:
           make test-addon-media-shrink-local-review
           make test-addon-media-shrink-agent-executor
           make test-addon-media-shrink-plan-api
+          make test-addon-media-shrink-mutation-api
           make test-addon-media-shrink-core-review
           make test-addon-media-shrink-core-admission
           make test-addon-media-shrink-command-fence
