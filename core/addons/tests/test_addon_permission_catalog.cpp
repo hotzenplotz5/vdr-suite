@@ -13,10 +13,10 @@ int main()
     assert(active.size() == 3);
     assert(active[0].permission == "addons.media.import");
     assert(active[0].selectable);
-    assert(!active[1].selectable && !active[2].selectable);
+    assert(!active[1].selectable && active[2].selectable);
     assert(reviewedAddonPermission("addons.media.import"));
     assert(!reviewedAddonPermission("addons.media.check"));
-    assert(!reviewedAddonPermission("addons.media.shrink"));
+    assert(reviewedAddonPermission("addons.media.shrink"));
     assert(!reviewedAddonPermission("addons.unknown.action"));
     assert(permissionSettingsFor("image", true, true).empty());
     assert(permissionSettingsFor("music", true, true).empty());
