@@ -96,14 +96,23 @@ Result read(Database& database, const std::string& actor,
     review.state = field(q.get(),8);
     const auto revision = sqlite3_column_int64(q.get(),9);
     review.publishedRecordingId = field(q.get(),10);
-    if (generation <= 0 || revision <= 0 ||
+    const bool staged = review.state == "staged" && revision == 1 &&
+        review.publishOperationId.empty() &&
+        review.publishedRecordingId.empty();
+    const bool publishing = review.state == "publishing" && revision == 2 &&
+        identity(review.publishOperationId) &&
+        review.publishedRecordingId.empty();
+    const bool published = review.state == "published" && revision == 3 &&
+        identity(review.publishOperationId) &&
+        opaque(review.publishedRecordingId, "rec_");
+    // Rows that contradict the single-stage/single-publication lifecycle
+    // cannot become executable again after corruption or a stale restart.
+    if (generation <= 0 || !(staged || publishing || published) ||
         !opaque(review.reviewId, "shk_") ||
         !opaque(review.recordingId, "rec_") ||
         !identity(review.actorId) || !identity(review.backendId) ||
         !identity(review.stageOperationId) ||
         !identity(review.sourceFingerprint) ||
-        (review.state != "staged" && review.state != "publishing" &&
-         review.state != "published") ||
         sqlite3_step(q.get()) != SQLITE_DONE)
         return output(Status::unavailable);
     review.backendGeneration = static_cast<std::uint64_t>(generation);
