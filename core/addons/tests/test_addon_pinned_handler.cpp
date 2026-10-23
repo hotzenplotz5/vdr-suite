@@ -57,6 +57,30 @@ int main()
     const std::string root = fixture.root.string();
     auto valid = inspectPinnedMediaToolsHandler(root, ApprovedDigest);
     assert(valid.verified() && valid.descriptor.get() >= 0);
+    assert(pinnedMediaToolsHandlerBytesCurrent(
+        valid.descriptor.get(), ApprovedDigest));
+    assert(!pinnedMediaToolsHandlerBytesCurrent(
+        valid.descriptor.get(), std::string(64, '0')));
+    assert(!pinnedMediaToolsHandlerBytesCurrent(-1, ApprovedDigest));
+
+    // The digest must be read from the held descriptor, not a cached
+    // authorization-time result or a fresh pathname lookup.
+    {
+        std::fstream tamper(fixture.handler,
+                           std::ios::in | std::ios::out | std::ios::binary);
+        assert(static_cast<bool>(tamper));
+        tamper.put('X');
+        tamper.flush();
+        assert(static_cast<bool>(tamper));
+        assert(!pinnedMediaToolsHandlerBytesCurrent(
+            valid.descriptor.get(), ApprovedDigest));
+        tamper.seekp(0);
+        tamper.put(FixtureBytes[0]);
+        tamper.flush();
+        assert(static_cast<bool>(tamper));
+    }
+    assert(pinnedMediaToolsHandlerBytesCurrent(
+        valid.descriptor.get(), ApprovedDigest));
 
     // Replacement after inspection must not redirect the pinned descriptor.
     const fs::path replaced = fixture.handler.string() + ".original";
@@ -71,6 +95,10 @@ int main()
     assert(::read(valid.descriptor.get(), heldBytes.data(), size) ==
            static_cast<ssize_t>(size));
     assert(heldBytes == FixtureBytes);
+    // A path replacement does not invalidate immutable bytes held by fd;
+    // this must still read the ORIGINAL opened inode.
+    assert(pinnedMediaToolsHandlerBytesCurrent(
+        valid.descriptor.get(), ApprovedDigest));
     expect(HandlerDescriptorReason::digestMismatch,
            inspectPinnedMediaToolsHandler(root, ApprovedDigest));
     fs::remove(fixture.handler);
