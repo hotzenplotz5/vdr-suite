@@ -83,6 +83,7 @@ test-recordings2-runtime:
 	node web/frontend/tests/test_recordings2_metadata_detail.js
 	node web/frontend/tests/test_recordings2_hero_detail_contract.js
 	node web/frontend/tests/test_media_check_composition.js
+	node web/frontend/tests/test_media_shrink_hero_flow.js
 	node web/frontend/tests/test_recordings2_hero_prewarm_contract.js
 	node web/frontend/tests/test_recordings2_metadata_assignment.js
 	node web/frontend/tests/test_recordings2_detail_addon_playback_persistence.js
