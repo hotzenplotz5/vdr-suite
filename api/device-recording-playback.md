@@ -65,3 +65,31 @@ The OpenAPI subset and its scoped guard now cover these seven source-backed Devi
 
 - [API entrypoint](README.md)
 - [Documentation index](../docs/index.md)
+
+## P1 recording-progress source candidate (2026-10-23)
+
+`GET /api/v1/recording-playback-sessions/progress?backendId=...&recordingId=rec_...`
+returns `hasProgress`, `positionSeconds`, `revision`,
+`durationSeconds` (nullable) and `resumeSupport: "profile_dependent"`.
+The response contains only public identities. The actual playback engine decides
+whether its selected media profile implements resume; this read does not start it.
+
+`POST /api/v1/recording-playback-sessions/progress` body:
+`{"backendId":"default","recordingId":"rec_<32-lowercase-hex>","operationId":"unique","positionSeconds":120,"expectedRevision":0}`.
+A measured playback position is accepted only under live Device credential +
+current backend play grant and the accepted public Recording resolver.
+Zero resets Resume (revision remains persisted as a tombstone). A position
+at/after a verified duration counts as completed. The backend-derived native
+recording ID is never returned.
+
+Each writer uses read-current-revision/compare-and-swap semantics. A stale
+writer receives 409 with `currentRevision`; exact operation replay is idempotent,
+but modified replays conflict. Browser-CSRF sessions and invented Human/Device
+relationships cannot access these Device routes. The Device's own Service
+actor owns these positions. **Cross-Device Human Account sharing remains
+unimplemented** pending explicit Device-to-Account authorization and selection.
+The established Browser Continue Watching owner is not replaced.
+
+The source-only candidate has not passed the full CI and production integration
+gate as of this documentation edit. No installed yaVDR, real VDR or VIDAA
+acceptance may be inferred from it.
