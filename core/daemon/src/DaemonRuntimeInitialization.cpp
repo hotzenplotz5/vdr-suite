@@ -948,6 +948,19 @@ bool DaemonRuntime::initialize()
             (!explicitlyConfigured || configuredRootAvailable) &&
             !invalidNativeRoot;
         recordingActionConfig.readOnly = !recordingActionConfig.allowExecution;
+        // Local startup evidence for read-only acceptance: the operator can
+        // confirm which root won without invoking any recording mutation.
+        const char* rootSource = configuredRootAvailable ? "configured"
+            : nativeRootAvailable ? "suitebridge-vpath"
+            : invalidNativeRoot ? "invalid-vpath"
+            : explicitlyConfigured ? "invalid-config" : "legacy";
+        std::cout << "recording-root backend="
+                  << backendRuntimeContext->backendId
+                  << " source=" << rootSource
+                  << " path=" << (recordingActionConfig.videoDirectory.empty()
+                        ? "(none)" : recordingActionConfig.videoDirectory)
+                  << " writes=" << (recordingActionConfig.readOnly
+                        ? "blocked" : "policy-eligible") << std::endl;
 
         recordingActionBackendExecutorAdapterRegistry_->registerAdapter(
             std::make_shared<RestfulApiRecordingActionBackendExecutorAdapter>(
