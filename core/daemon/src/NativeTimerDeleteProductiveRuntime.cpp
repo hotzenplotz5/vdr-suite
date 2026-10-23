@@ -48,7 +48,7 @@ bool assignThenClaim(
         operation.resourceType != "NativeTimerBinding" ||
         operation.verificationPolicy !=
             MutationOperationVerificationPolicy::readbackRequired ||
-        operation.deadline != 0 && operation.deadline <= now ||
+        (operation.deadline != 0 && operation.deadline <= now) ||
         now > std::numeric_limits<std::int64_t>::max() - 300)
         return false;
 
