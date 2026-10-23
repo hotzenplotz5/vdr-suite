@@ -283,6 +283,15 @@ function flush(count = 8) {
     }
     syncContext.window.fetch = async function (requestPath, options) {
         syncRequests.push({path: requestPath, options});
+        const body = JSON.parse(options.body);
+        if (body.operation === 'revision') {
+            return {ok: true, status: 200, json: async () => ({revision: 0})};
+        }
+        if (body.expectedRevision !== undefined) {
+            return {ok: true, status: 200, json: async () => ({
+                ok: true, revision: body.expectedRevision + 1
+            })};
+        }
         return {ok: true};
     };
     const decoratedOwner = syncApi.__test.decorateOwner(owner, {id: 'r-lifecycle'}, 'default');
@@ -295,7 +304,9 @@ function flush(count = 8) {
     assert.strictEqual(startCalls, 0, 'owner publication must not synthesize playback commands');
     publish({state: 'stopped', sessionId: null, transition: 'stopped'});
     await flush(16);
-    assert.strictEqual(syncRequests.length, beforeLifecycleRequests + 1);
+    assert.strictEqual(syncRequests.length, beforeLifecycleRequests + 2,
+        'active Browser owner first reads the saved CAS revision, then commits its observed position');
+    assert.strictEqual(JSON.parse(syncRequests[beforeLifecycleRequests].options.body).operation, 'revision');
     const lifecycleBody = JSON.parse(syncRequests[syncRequests.length - 1].options.body);
     assert.strictEqual(lifecycleBody.operation, 'progress');
     assert.strictEqual(lifecycleBody.recordingId, 'r-lifecycle');
