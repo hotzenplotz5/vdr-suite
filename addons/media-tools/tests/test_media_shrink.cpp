@@ -397,6 +397,26 @@ int main() {
     }
     {
         Fixture fixture;
+        // A valid multi-segment source still publishes as one *additional*
+        // HEVC recording after independent duration and metadata readback.
+        const std::string original = fixture.input();
+        std::ofstream(fixture.recording / "00002.ts", std::ios::binary)
+            << std::string(32768, 'X');
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        assert(plan.segments.size() == 2);
+        FakeProcess runner;
+        const auto staged = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        assert(verifyShrinkCandidate(plan, staged, runner) > 0);
+        const auto published = publishShrinkCandidate(plan, staged, runner);
+        assert(fs::exists(published / "00001.ts") &&
+               fs::exists(fixture.recording / "00001.ts") &&
+               fs::exists(fixture.recording / "00002.ts") &&
+               fixture.input() == original);
+        ++checks;
+    }
+    {
+        Fixture fixture;
         // Two source TS segments are combined for HEVC staging. Publication
         // must still reject a subsequently shortened candidate, not skip
         // duration verification merely because the source had segments > 1.

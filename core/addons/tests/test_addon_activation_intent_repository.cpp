@@ -142,13 +142,19 @@ int main()
     assert(replay.status == IntentStatus::ok &&
            replay.intent.desiredEnabled && replay.intent.revision == 1);
     ++checks;
-    assert(f.database.execute(
+    // The maintenance owner may use a different SQLite connection. The
+    // administrator enable CAS must observe its committed global freeze.
+    Database maintenanceOwner;
+    assert(maintenanceOwner.open((f.folder / "state.sqlite").string()));
+    assert(maintenanceOwner.execute(
         "INSERT INTO addon_media_import_maintenance "
         "VALUES ('rectools',1,1,'maintenance-admin');"));
     assert(store.update(actor, {"rectools","backend-a",true,1},
                         b, evidence).status == IntentStatus::ineligible);
     assert(store.read(actor,"rectools","backend-a").intent.revision == 1);
-    assert(f.database.execute("DELETE FROM addon_media_import_maintenance;"));
+    assert(maintenanceOwner.execute(
+        "DELETE FROM addon_media_import_maintenance;"));
+    maintenanceOwner.close();
     ++checks;
     auto stale = store.update(actor, enable, b, evidence);
     assert(stale.status == IntentStatus::revisionConflict);
