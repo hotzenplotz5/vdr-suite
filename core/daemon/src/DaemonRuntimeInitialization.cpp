@@ -1821,8 +1821,10 @@ bool DaemonRuntime::initialize()
                     vdrsuite::operations::MutationOperationState::accepted &&
                 operation.backendGeneration == agent->backendGeneration)
             {
+                SearchTimerCurrentBackendGeneration generations(
+                    *backendAgentRepository_, now);
                 SearchTimerCreateDispatchService dispatch(
-                    *mutationOperationRepository_);
+                    *mutationOperationRepository_, generations);
                 SearchTimerCreateDispatchRequest command;
                 command.operationId = operation.operationId;
                 command.actorId = request.actorRef;
