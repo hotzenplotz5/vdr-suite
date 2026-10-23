@@ -87,6 +87,7 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/platform/deferred-runtime-loader.js $(DESTDIR)$(DATADIR)/web/frontend/platform/deferred-runtime-loader.js
 	$(INSTALL) -m 0644 web/frontend/settings-series-artwork.js $(DESTDIR)$(DATADIR)/web/frontend/settings-series-artwork.js
 	$(INSTALL) -m 0644 web/frontend/settings-account-admin.js $(DESTDIR)$(DATADIR)/web/frontend/settings-account-admin.js
+	$(INSTALL) -m 0644 web/frontend/settings-addons.js $(DESTDIR)$(DATADIR)/web/frontend/settings-addons.js
 	$(INSTALL) -m 0644 web/frontend/locales/de.js $(DESTDIR)$(DATADIR)/web/frontend/locales/de.js
 	$(INSTALL) -m 0644 web/frontend/locales/en.js $(DESTDIR)$(DATADIR)/web/frontend/locales/en.js
 	$(INSTALL) -m 0644 web/frontend/channel-logos.js $(DESTDIR)$(DATADIR)/web/frontend/channel-logos.js
