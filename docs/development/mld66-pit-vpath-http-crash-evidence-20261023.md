@@ -48,6 +48,37 @@ Pit additionally clarifies that the reported VDR restarts occur **only when he i
 
 Ask Pit for the first redacted VDR failure around Suite installation and whether restarts happen **during installation only or periodically afterward**; do not request another install on the production system, do not advise disabling the known-good SuiteBridge plugin, and do not infer a patchable culprit.
 
+## Later evidence — single-item JSON failure and reproducible empty-path defect
+
+Pit measured `GET /recordings.json?start=0&limit=1`: **curl 28, HTTP 000, 0 bytes after 10.002424s**. This is now directly comparable to one-item HTML (HTTP 200 in 0.012861s and 0.001116s). Thus the blocker is specific to additional JSON record processing or serialization, **not** just unbounded catalog size.
+
+### Source-confirmed unbounded loop candidate
+
+The exact pinned RESTfulAPI source `79f9bd26370a08d6c5186c19cefa300c569045ea` has a concrete indefinite-loop defect:
+
+1. `tools.h` defaults `EPG_IMAGE_DIR` to `/var/cache/vdr/epgimages` unless overridden at build time.
+2. `Settings::initDefault()` invokes `SetEpgImageDirectory(EPG_IMAGE_DIR)`. `SetEpgImageDirectory()` sets `epgimage_dir` only if `stat()` of the path succeeds. If it fails and no valid `--epgimages` override is provided, this std::string remains empty.
+3. `JsonRecordingList::addRecording()` invokes TVScraper using `sc.getMedia(recording, am)` when it is installed and service data is available. The media service calls `Scraper2VdrService::cleanImagePath()` on returned image paths.
+4. `cleanImagePath()` invokes `StringExtension::replace(path, epgImagesDir, "")` unconditionally. With `epgImagesDir == ""`, its utility repeatedly finds the empty substring at position 0, replaces it with `""`, then increments the position by zero: **infinite loop**.
+
+This is a **proved source defect conditional on an empty configured EPG image root and the media call reaching `cleanImagePath()`**, NOT proof that Pit's effective EPG image directory is empty. It also does not prove the installed 4-minute crash is caused by this request, though the scenario is worth investigating because the Suite daemon consumes `/recordings.json` and may exercise this RESTfulAPI code path.
+
+Proposed minimal vendor fix (not applied to MLD recipe or upstream):
+[`packaging/mld66/patches/0001-restfulapi-guard-empty-epg-image-root.patch`](../../packaging/mld66/patches/0001-restfulapi-guard-empty-epg-image-root.patch). Add both an empty-prefix guard in `StringExtension::replace()` and a fail-closed empty-root guard in `cleanImagePath()`. The exact seven-line patch was checked against isolated excerpts of the immutable source, and equivalent C++17 guards passed four self-contained assertions. **Full RESTfulAPI compile, native MLD package test and target VDR runtime acceptance remain OPEN.**
+
+### Only requested evidence from Pit (read-only)
+
+```sh
+journalctl -b --no-pager | grep -E 'RESTful-API Settings:|restfulapi: Used settings:' | tail -n 5
+ls -ld /var/cache/vdr/epgimages
+```
+
+The first line reveals RESTfulAPI's actually configured `eimgs:` value; the second checks the known upstream default directory, which might be different in an MLD package. No further timed-out JSON curl, directory creation, symlink manipulation, plugin disabling, VDR restart or package reinstall is needed for this check. If `eimgs:` is nonempty, this particular empty-string loop does **not** explain Pit's failure and a thread stack trace or narrowly instrumented test build would be needed. If `eimgs:` is empty, fix should be validated in isolated MLD build and compared with stable runtime.
+
+### Four-minute VDR restarts
+
+Pit clarified that the VDR starts restarting about four minutes **after VDR-Suite installation**, while **SuiteBridge-only** runs are stable. The daemon can cause private `/recordings.json` calls; if such a request drives a loop inside a VDR plugin, it could indirectly contribute to instability, but **we have no correlation of the crash stack/timing to those calls yet**. A userspace core dump logged by kernel is not necessarily a kernel panic. Capture sanitized `journalctl -b -u vdr -u vdr-suite-daemon --no-pager` around the first fault and any available user-space core backtrace before assigning root cause. Do not re-install the full suite on Pit's stable host merely to reproduce.
+
 ## Independent recording-read blocker
 
 ```text
