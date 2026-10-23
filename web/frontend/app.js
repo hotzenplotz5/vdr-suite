@@ -3667,6 +3667,11 @@ function renderSettingsView(data) {
 
   appendSettingsLanguageCard(panel);
 
+  const addonsSettings = window.VdrSuiteAddonSettings;
+  if (addonsSettings && typeof addonsSettings.render === 'function') {
+    addonsSettings.render(panel, selectedBackendId);
+  }
+
   const accountAdminSettings = window.VdrSuiteAccountAdminSettings;
   if (accountAdminSettings && typeof accountAdminSettings.render === 'function') {
     accountAdminSettings.render(panel);
