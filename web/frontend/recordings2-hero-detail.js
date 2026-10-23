@@ -676,6 +676,7 @@
             throw new Error('Stage-Operation konnte nicht sicher zugeordnet werden.');
           stageOperationId = result.operationId;
           remember('stage', {key: key, operationId: stageOperationId});
+          refreshStage.disabled = false;
           refreshOperation('stage');
         }).catch(function (error) {
           // Request may have reached the backend. Never submit again, even
@@ -713,6 +714,7 @@
             throw new Error('Publish-Operation nicht sicher zugeordnet.');
           publishOperationId = result.operationId;
           remember('publish', {key: key, operationId: publishOperationId});
+          refreshPublish.disabled = false;
           refreshOperation('publish');
         }).catch(function (error) {
           status.textContent = 'Veröffentlichung unklar: ' +
