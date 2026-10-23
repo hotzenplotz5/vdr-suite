@@ -285,6 +285,11 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         approval.origin != snapshot->origin ||
         !vdrsuite::addons::installedMediaToolsManifestMatches(
             root_, snapshot->approvedVersion) ||
+        // A root-controlled file may have been modified in place since
+        // authorization. Do not re-open by name: hash the SAME pinned fd
+        // under the child-inherited shared package-maintenance lock.
+        !vdrsuite::addons::pinnedMediaToolsHandlerBytesCurrent(
+            snapshot->pinnedBinary.get(), snapshot->approvedSha256) ||
         !authorization_.granted(assignment))
         return MediaImportAgentOutcome::rejected;
 
