@@ -14,6 +14,15 @@ assert.ok(frontendHtml.indexOf(playerScript) < frontendHtml.indexOf(liveViewScri
   'Live session owner must load before Live-TV view');
 assert.ok(installRules.includes('web/frontend/api/session-frontend-sync.js $(DESTDIR)$(DATADIR)/web/frontend/api/session-frontend-sync.js'),
   'runtime package must deploy the exact Live session owner JS');
+
+// Test the entire shipped HTML-to-runtime asset graph, not just the new player.
+const htmlRuntimeScripts = [...frontendHtml.matchAll(/<script\b[^>]*\bsrc="\.\.\/frontend\/([^"]+)"/g)]
+  .map(match => match[1]);
+assert.ok(htmlRuntimeScripts.length > 20, 'script inventory unexpectedly incomplete');
+for (const script of htmlRuntimeScripts) {
+  assert.ok(installRules.includes('$(DESTDIR)$(DATADIR)/web/frontend/' + script),
+    'installed page references JS missing from runtime package: ' + script);
+}
 const vm = require('vm');
 
 const source = fs.readFileSync('web/frontend/api/session-frontend-sync.js', 'utf8');
