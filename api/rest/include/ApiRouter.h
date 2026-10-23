@@ -406,7 +406,7 @@ public:
 
         if (MediaShrinkPlanApiRuntime::instance().tryHandlePost(
                 requestTarget, body, actorRef, authorizedBackendRef,
-                contentType, response, idempotencyKey))
+                contentType, response))
         {
             return response;
         }
