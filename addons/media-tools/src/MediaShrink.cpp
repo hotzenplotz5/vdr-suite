@@ -124,6 +124,26 @@ std::string probeCodec(ProcessRunner& runner, const fs::path& input) {
     return parseProbedVideoCodec(result.output);
 }
 
+bool canCopyAudio(ProcessRunner& runner, const fs::path& input) {
+    const auto probe = runner.run({
+        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "a",
+        "-show_entries", "stream=codec_name", "-of",
+        "default=nw=1:nk=1", input.string()
+    }, true);
+    demand(probe.exitCode == 0 && probe.output.size() <= 2048,
+           "cannot inspect shrink source audio");
+    bool compatible = true;
+    std::istringstream streams(probe.output);
+    std::string name;
+    while (std::getline(streams, name)) {
+        if (!name.empty() && name.back() == '\r') name.pop_back();
+        if (!name.empty() && name != "aac" && name != "ac3" &&
+            name != "eac3" && name != "mp2")
+            compatible = false;
+    }
+    return compatible;
+}
+
 double probeDuration(ProcessRunner& runner, const fs::path& input) {
     const auto result = runner.run({
         "/usr/bin/ffprobe", "-v", "error", "-show_entries",
@@ -353,7 +373,7 @@ std::string signature(const ShrinkPlan& plan) {
 std::vector<std::string> ffmpegArguments(
     const ShrinkPlan& plan, const fs::path& input,
     const fs::path& output, std::uint64_t limit,
-    ShrinkEncoder requested, bool scaled)
+    ShrinkEncoder requested, bool scaled, bool copyAudio)
 {
     std::vector<std::string> args = {
         "/usr/bin/ffmpeg", "-nostdin", "-hide_banner", "-v", "error",
@@ -389,8 +409,10 @@ std::vector<std::string> ffmpegArguments(
     if (plan.options.nightMode)
         args.insert(args.end(), {"-c:a", "aac", "-b:a", "192k",
                                  "-ac", "2", "-af", "loudnorm"});
-    else
+    else if (copyAudio)
         args.insert(args.end(), {"-c:a", "copy"});
+    else
+        args.insert(args.end(), {"-c:a", "aac", "-b:a", "192k"});
     args.insert(args.end(), {"-fs", std::to_string(limit),
                              "-f", "mpegts", "-y", output.string()});
     return args;
@@ -503,13 +525,14 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
     demand(codec != "hevc", "recording already contains HEVC video");
     const double originalDuration = probeDuration(runner, source);
     const auto height = probeHeight(runner, source);
+    const bool copyAudio = canCopyAudio(runner, source);
     const bool scaling = current.options.maxHeight != 0 &&
         height > current.options.maxHeight;
     demand(current.totalBytes <= (UINT64_MAX - 16 * MiB) / 2,
            "shrink output limit overflow");
     const auto limit = current.totalBytes * 2 + 16 * MiB;
     auto argv = ffmpegArguments(current, source, output, limit,
-                                 current.options.encoder, scaling);
+                                 current.options.encoder, scaling, copyAudio);
     auto conversion = runner.run(argv, false);
     if (conversion.exitCode != 0 &&
         current.options.encoder != ShrinkEncoder::software) {
@@ -519,7 +542,7 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
         fs::remove(output, error);
         demand(!error, "cannot clear failed hardware candidate");
         argv = ffmpegArguments(current, source, output, limit,
-                               ShrinkEncoder::software, scaling);
+                               ShrinkEncoder::software, scaling, copyAudio);
         conversion = runner.run(argv, false);
     }
     demand(conversion.exitCode == 0 && nonempty(output),
