@@ -172,7 +172,9 @@ class RunnerTests(unittest.TestCase):
                 elif path == "/api/v1/recordings":
                     data = {"items": [{"recordingId": rid}]}
                 elif path == "/api/v1/recordings/" + rid:
-                    data = {"recordingId": rid, "metadata": {"series": None}}
+                    data = {"recordingId": rid, "metadata": {"state": "absent",
+                                                          "source": "none",
+                                                          "contentKind": "unknown"}}
                 elif path == "/api/v1/recordings/" + rid + "/artwork":
                     data = {"recordingId": rid, "items": [
                         {"artworkId": artid, "url": arturl, "kind": "poster"}]}
