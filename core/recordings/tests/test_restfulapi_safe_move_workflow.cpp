@@ -401,6 +401,16 @@ int main()
         const auto traversalResult = blockedAdapter.execute(wrongRoot);
         assert(!traversalResult.success);
         assert(blockedClient.requests().empty());
+
+        wrongRoot.parameters["backendNativeId"] =
+            "/media/mld-recordings/Mission#3A_Impossible/"
+            "2026-05-24.20.13.8-0.rec";
+        wrongRoot.parameters["targetPath"] = "../outside";
+        const auto targetTraversal = blockedAdapter.execute(wrongRoot);
+        assert(!targetTraversal.success);
+        assert(targetTraversal.errors.at(0).find("targetPath") !=
+               std::string::npos);
+        assert(blockedClient.requests().empty());
     }
 
     return 0;
