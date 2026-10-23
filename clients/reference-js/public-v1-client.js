@@ -1039,7 +1039,10 @@
           !Number.isInteger(input.positionSeconds) ||
           input.positionSeconds < 0 || input.positionSeconds > 2147483647 ||
           typeof input.operationId !== 'string' ||
-          !/^[!-~]{1,128}$/.test(input.operationId))
+          !/^[!-~]{1,128}$/.test(input.operationId) ||
+          (input.positionSeconds > 0 &&
+            (typeof input.sessionId !== 'string' ||
+             !/^[!-~]{1,128}$/.test(input.sessionId))))
         throw new Error('Confirmed position, current revision and operationId required');
       const path = '/api/v1/recording-playback-sessions/progress';
       const headers = Object.assign({Accept: 'application/json'}, defaultHeaders,
@@ -1049,6 +1052,7 @@
         expectedRevision: input.expectedRevision,
         operationId: input.operationId
       });
+      if (input.sessionId !== undefined) payload.sessionId = input.sessionId;
       // No automatic retry: on 409 re-read the current revision and let the
       // client decide whether it really observed a newer playback position.
       return fetchImpl(buildUrl(baseUrl, path), {
