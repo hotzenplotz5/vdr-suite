@@ -383,6 +383,123 @@ class RunnerTests(unittest.TestCase):
                 controlled_gate(a)
             self.assertIn("mutation execution intentionally locked", e.exception.detail)
 
+    def test_admin_browser_login_cookie_only_on_authenticated_reads(self):
+        import base64
+        seen = []
+        client = HttpClient("http://127.0.0.1:18080")
+        class Reply:
+            def __init__(self, status, body, headers=None):
+                self.status = status
+                self._body = body
+                self.headers = headers or {"Content-Type":"application/json"}
+            def __enter__(self): return self
+            def __exit__(self,*args): return False
+            def read(self,size): return self._body
+        class Opener:
+            def open(self,req,timeout):
+                url = urllib.parse.urlsplit(req.full_url).path
+                method = req.get_method()
+                cookie = req.get_header("Cookie")
+                basic = req.get_header("Authorization")
+                seen.append((method,url,cookie,basic))
+                if url == "/api/security/browser-sessions":
+                    assert method == "POST"
+                    assert basic == "Basic " + base64.b64encode(b"vdr-suite:somepassword").decode()
+                    assert req.get_header("Origin") == "http://127.0.0.1:18080"
+                    return Reply(200,b'{"csrfToken":"valid-csrf"}',
+                                 {"Content-Type":"application/json",
+                                  "Set-Cookie":"vdr_suite_session=abcde0123456789; HttpOnly; Path=/"})
+                if url == "/api/security/browser-sessions/logout":
+                    assert method == "POST"
+                    assert cookie == "vdr_suite_session=abcde0123456789"
+                    return Reply(200,b'{}')
+                if url == "/api/v1":
+                    assert method == "GET"
+                    return Reply(200,b'{"authentication":{"authenticated":true}}')
+                if url == "/api/v1/backends":
+                    if cookie:
+                        return Reply(200,b'{"items":[{"backendId":"default"}]}')
+                    return Reply(401,b'{"error":{"code":"unauthorized"}}')
+                assert False, url
+        client.opener = Opener()
+        self.assertEqual(client.open_browser_session("vdr-suite","somepassword"),
+                         "administrator-session-created")
+        self.assertTrue(client.expect("/api/v1")[0]["authentication"]["authenticated"])
+        self.assertEqual(client.expect("/api/v1/backends")[0]["items"][0]["backendId"],"default")
+        self.assertEqual(client.get("/api/v1/backends",auth=False)[0],401)
+        self.assertEqual(client.get("/api/v1/backends",invalid=True)[0],401)
+        client.close_browser_session()
+        self.assertIsNone(client.browser_cookie)
+        self.assertEqual([x[0] for x in seen],["POST","GET","GET","GET","GET","POST"])
+        self.assertIsNone(seen[3][2])
+        self.assertIsNone(seen[4][2])
+        self.assertEqual(seen[4][3],"VDR-Suite-Device invalid.invalid")
+        self.assertEqual(seen[0][2],None)
+
+    def test_admin_login_denied_no_session_or_secret_log(self):
+        client = HttpClient("http://127.0.0.1:18080")
+        class FakeOpener:
+            def open(self,req,timeout):
+                raise urllib.error.HTTPError(req.full_url,401,"unauthorized",{},None)
+        import urllib.error
+        client.opener = FakeOpener()
+        with self.assertRaises(Blocked) as error:
+            client.open_browser_session("vdr-suite","DONOTLOGPASSWORD")
+        self.assertNotIn("DONOTLOGPASSWORD",error.exception.detail)
+        self.assertIsNone(client.browser_cookie)
+        self.assertEqual(error.exception.actual,401)
+
+    def test_admin_login_never_uses_remote_plaintext_or_device_secret(self):
+        with self.assertRaises(ConfigError):
+            HttpClient("http://other.example:18080")
+        remote = HttpClient("https://other.example")
+        with self.assertRaises(ConfigError):
+            remote.open_browser_session("vdr-suite","secret")
+        with tempfile.TemporaryDirectory() as out:
+            args = argparse.Namespace(profile="readonly",backend="default",
+                origin="http://127.0.0.1:18080", output_dir=Path(out),
+                approval_file=None,expected_daemon_commit="a"*40,
+                admin_user="vdr-suite")
+            with self.assertRaises(ConfigError):
+                Acceptance(args,{"device":{"credentialId":"id","credentialSecret":"secret"}})
+
+    def test_admin_requires_device_for_playback_owned_reads(self):
+        from cases import require_device, require_actor
+        with tempfile.TemporaryDirectory() as out:
+            args = argparse.Namespace(profile="readonly",backend="default",
+                origin="http://127.0.0.1:18080", output_dir=Path(out),
+                approval_file=None,expected_daemon_commit="a"*40,
+                admin_user="vdr-suite")
+            a = Acceptance(args,{})
+            a.client.browser_cookie = "vdr_suite_session=abcdefgh"
+            require_actor(a)
+            with self.assertRaises(Blocked):
+                require_device(a)
+
+    def test_admin_failed_auth_blocks_dependency_chain(self):
+        from cases import run_cases
+        with tempfile.TemporaryDirectory() as out:
+            args = argparse.Namespace(profile="readonly",backend="default",
+                origin="http://127.0.0.1:18080", output_dir=Path(out),
+                approval_file=None,expected_daemon_commit="a"*40,
+                admin_user="vdr-suite")
+            a = Acceptance(args,{})
+            def fake_root(x): x.context["root"] = {"serverVersion":"git-aaaaaaaaaaaa"}
+            def fake_version(x): x.context["runtime_verified"] = True
+            with patch("cases.root",side_effect=fake_root), \
+                 patch("cases.runtime_match",side_effect=fake_version), \
+                 patch("cases.browser_admin_login",side_effect=Blocked("wrong password")), \
+                 patch("cases.check_source"), patch("cases.check_spec"), \
+                 patch("cases.source_contract_tests"), patch("cases.offline_unit"), \
+                 patch("cases.controlled_contracts_offline"), \
+                 patch.object(a.client,"get",side_effect=AssertionError("unexpected GET")):
+                run_cases(a)
+            statuses = {x["id"]:x["status"] for x in a.results}
+            self.assertEqual(statuses["security.browser-admin-login"],"BLOCKED")
+            self.assertEqual(statuses["backends.authorized"],"BLOCKED")
+            self.assertEqual(statuses["recording.collection"],"BLOCKED")
+            self.assertEqual(a.persist(),"INCOMPLETE")
+
 
 if __name__ == "__main__":
     unittest.main()
