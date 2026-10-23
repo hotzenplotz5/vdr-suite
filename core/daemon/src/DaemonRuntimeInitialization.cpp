@@ -2278,7 +2278,7 @@ bool DaemonRuntime::initialize()
             if (!mutationOperationReadService_)
                 return MediaShrinkPlanApiRuntime::problem(
                     503, "HEVC operation readback unavailable.");
-            const auto found = mutationOperationReadService_->findForActor(
+            auto found = mutationOperationReadService_->findForActor(
                 operationId, actor);
             if (found.status ==
                     vdrsuite::operations::MutationOperationReadStatus::invalid ||
@@ -2289,6 +2289,42 @@ bool DaemonRuntime::initialize()
             if (!found.ok())
                 return MediaShrinkPlanApiRuntime::problem(
                     503, "HEVC operation readback unavailable.");
+            // A process restart must not repeat Stage/Publish. Retry only
+            // the existing readback against already durable Agent evidence.
+            if (found.operation.backendId == backend &&
+                found.operation.state ==
+                    vdrsuite::operations::MutationOperationState::outcomeUnknown) {
+                const bool isStage = found.operation.actionFamily ==
+                    "media.shrink.stage";
+                const bool isPublish = found.operation.actionFamily ==
+                    "media.shrink.publish";
+                if (isStage && backendAgentCommandRepository_) {
+                    const auto assignment =
+                        backendAgentCommandRepository_->findAssignmentForOperation(
+                            backend, operationId,
+                            vdrsuite::mediatools::kMediaShrinkStageCommandType);
+                    if (assignment) {
+                        const auto result =
+                            backendAgentCommandRepository_->resultForCommand(
+                                assignment->commandId);
+                        if (result) {
+                            const auto now =
+                                std::chrono::duration_cast<std::chrono::seconds>(
+                                    std::chrono::system_clock::now()
+                                        .time_since_epoch()).count();
+                            if (tryReconcileMediaShrinkStage(
+                                    *assignment, *result, now)) {
+                                const auto updated =
+                                    mutationOperationReadService_->findForActor(
+                                        operationId, actor);
+                                if (updated.ok()) found = updated;
+                            }
+                        }
+                    }
+                }
+                if (isPublish)
+                    recordingCacheRefreshQueue_.request(backend);
+            }
             const auto& op = found.operation;
             const bool stage = op.actionFamily == "media.shrink.stage" &&
                 op.resourceType == "Recording" &&
