@@ -37,7 +37,10 @@ public:
         const std::filesystem::path normalized = path.lexically_normal();
         if (!normalized.is_absolute() || normalized == normalized.root_path())
             return {};
-        return normalized.string();
+        std::string result = normalized.string();
+        while (result.size() > 1U && result.back() == '/')
+            result.pop_back();
+        return result;
     }
 
     static SuiteBridgeVideoDirectoryDiscoveryResult discover(

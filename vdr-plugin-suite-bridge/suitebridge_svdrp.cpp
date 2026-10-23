@@ -16,6 +16,7 @@
 #include <vdr/tools.h>
 
 #include <cctype>
+#include <cstring>
 #include <strings.h>
 
 namespace {

@@ -25,7 +25,7 @@ test-suite-bridge-video-directory-discovery:
 	$(BUILD_DIR)/test_suite_bridge_video_directory_discovery
 	python3 tools/check_suitebridge_video_directory_wiring.py
 
-test-ci-fast: test-suite-bridge-video-directory-discovery
+test-ci-fast: test-suite-bridge-video-directory-discovery test-suite-bridge-svdrp-transport
 test-fast: test-suite-bridge-video-directory-discovery
 
 test-suite-bridge-svdrp-transport-boundary:
