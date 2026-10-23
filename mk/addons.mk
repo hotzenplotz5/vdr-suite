@@ -93,6 +93,23 @@ test-addon-media-shrink-local-review:
 
 test-ci-fast: test-addon-media-shrink-local-review
 
+# Isolated real stage/publish lifecycle via an explicitly injected
+# authority; all input/output is under disposable fixtures, no VDR host.
+.PHONY: test-addon-media-shrink-agent-executor
+test-addon-media-shrink-agent-executor:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+		-I addons/media-tools/include -I core/agent/include \
+		addons/media-tools/src/MediaImport.cpp \
+		addons/media-tools/src/MediaShrink.cpp \
+		addons/media-tools/src/LocalMediaShrinkReviewStore.cpp \
+		addons/media-tools/src/LocalMediaShrinkAgentExecutor.cpp \
+		addons/media-tools/tests/test_local_media_shrink_agent_executor.cpp \
+		-o "$(BUILD_DIR)/addons/test_local_media_shrink_agent_executor"
+	"$(BUILD_DIR)/addons/test_local_media_shrink_agent_executor"
+
+test-ci-fast: test-addon-media-shrink-agent-executor
+
 .PHONY: test-addon-media-shrink-plan-api
 test-addon-media-shrink-plan-api:
 	mkdir -p "$(BUILD_DIR)/addons"
