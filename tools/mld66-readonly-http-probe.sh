@@ -55,7 +55,7 @@ case "$mode" in
     recordings-sample)
         # Explicit opt-in: even limit=1 can require a full VDR list scan.
         # Only one request, never automatically retry or query the full list.
-        probe recordings-sample 'recordings.json?start=0&limit=1' 30
+        probe recordings-sample 'recordings.json?start=0&limit=1' 10
         ;;
 esac
 printf 'MLD66_HTTP_PROBE=END\n'
