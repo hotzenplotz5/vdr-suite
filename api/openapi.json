@@ -7448,6 +7448,9 @@
               }
             }
           },
+          "422": {
+            "description": "Explicit resume startPositionSeconds outside the verified recording duration."
+          },
           "503": {
             "description": "Backend/owner/metadata/media preparation unavailable.",
             "content": {
@@ -12011,6 +12014,12 @@
           },
           "capabilities": {
             "$ref": "#/components/schemas/DeviceRecordingCapabilities"
+          },
+          "startPositionSeconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "description": "Optional explicit resume attempt; a positive position is only accepted for index-backed HLS playback with verified source duration and suitable profile; never an automatic playback start."
           },
           "capabilityProfile": {
             "$ref": "#/components/schemas/DevicePlayerProfileKey"
