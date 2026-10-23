@@ -592,7 +592,11 @@
     }
 
     function fail(error) {
-      if (destroyed || (error && error.name === 'AbortError')) return;
+      if (destroyed) return;
+      // Only ignore an AbortError caused by our own teardown. A browser
+      // transport can also abort unexpectedly and must report lost Live TV.
+      if (error && error.name === 'AbortError' &&
+          abortController.signal && abortController.signal.aborted) return;
       if (typeof onFailure === 'function') onFailure(error);
     }
 
