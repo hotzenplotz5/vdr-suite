@@ -38,6 +38,50 @@ std::string pathWithoutQuery(const std::string& target)
         : target.substr(0, query);
 }
 
+// P1: exact admin path. Never treat pairing approval as an Account owner.
+bool devicePlaybackAccountPath(const std::string& path, std::string& deviceId)
+{
+    const std::string prefix = "/api/v1/devices/";
+    const std::string suffix = "/playback-account";
+    deviceId.clear();
+    if (path.compare(0, prefix.size(), prefix) != 0 ||
+        path.size() <= prefix.size() + suffix.size() ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        return false;
+    deviceId = path.substr(prefix.size(),
+        path.size() - prefix.size() - suffix.size());
+    return !deviceId.empty() && deviceId.size() <= 128U &&
+        std::all_of(deviceId.begin(),deviceId.end(),[](unsigned char c) {
+            return std::isalnum(c) || c == '-' || c == '_' || c == '.';
+        });
+}
+
+// Refuse unknown/duplicate fields and JSON type coercion. Binding mutation
+// is deliberately tiny, uses no native identity or privileged client claim.
+bool parsePlaybackAccountBinding(const std::string& body,
+                                 std::string& accountId,
+                                 std::int64_t& expectedRevision)
+{
+    if (body.size() > 512U) return false;
+    static const std::regex first(
+        R"(^\s*\{\s*"accountId"\s*:\s*"([A-Za-z0-9_.-]{0,128})"\s*,\s*"expectedRevision"\s*:\s*(0|[1-9][0-9]{0,18})\s*\}\s*$)");
+    static const std::regex second(
+        R"(^\s*\{\s*"expectedRevision"\s*:\s*(0|[1-9][0-9]{0,18})\s*,\s*"accountId"\s*:\s*"([A-Za-z0-9_.-]{0,128})"\s*\}\s*$)");
+    std::smatch match;
+    bool reversed = false;
+    if (!std::regex_match(body,match,first)) {
+        if (!std::regex_match(body,match,second)) return false;
+        reversed = true;
+    }
+    accountId = match[reversed ? 2 : 1].str();
+    try {
+        expectedRevision = std::stoll(match[reversed ? 1 : 2].str());
+    } catch (...) {
+        return false;
+    }
+    return expectedRevision >= 0;
+}
+
 bool sameHeaderName(
     const std::string& left,
     const std::string& right)
