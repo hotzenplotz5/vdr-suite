@@ -7011,6 +7011,102 @@
         }
       }
     },
+    "/api/v1/recording-playback-sessions/continue-watching": {
+      "get": {
+        "tags": [
+          "Device Recording playback"
+        ],
+        "operationId": "listDeviceContinueWatching",
+        "summary": "List currently valid playback positions for the authenticated Device Service actor",
+        "description": "Only Device-actor-private Continue Watching entries; max 50. Each item requires current backend media.recording.play grant and exact public Recording identity admission. Human Account sharing requires an explicit future identity link. No native recording paths, guessed resume profile, or cached metadata.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "Verified Device Credential and media.recording.play@backendId grant, per-entry current rec_ identity admission."
+        },
+        "parameters": [
+          {
+            "in": "query",
+            "name": "backendId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Up to 50 valid current positions; no-state returns empty items.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "backendId",
+                    "items",
+                    "limit"
+                  ],
+                  "properties": {
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "integer",
+                      "const": 50
+                    },
+                    "items": {
+                      "type": "array",
+                      "maxItems": 50,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "recordingId",
+                          "positionSeconds",
+                          "durationSeconds",
+                          "resumeSupport"
+                        ],
+                        "properties": {
+                          "recordingId": {
+                            "type": "string",
+                            "pattern": "^rec_[0-9a-f]{32}$"
+                          },
+                          "positionSeconds": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "durationSeconds": {
+                            "type": [
+                              "integer",
+                              "null"
+                            ]
+                          },
+                          "resumeSupport": {
+                            "type": "string",
+                            "const": "profile_dependent"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid exact backend."
+          },
+          "401": {
+            "description": "Missing Device proof."
+          },
+          "403": {
+            "description": "Missing live Device backend playback grant."
+          },
+          "503": {
+            "description": "Recording backend or progress owner unavailable."
+          }
+        }
+      }
+    },
     "/api/v1/recording-playback-sessions/progress": {
       "get": {
         "tags": [
