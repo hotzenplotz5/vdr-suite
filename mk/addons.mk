@@ -309,6 +309,13 @@ test-addon-handler-registry:
 
 test-ci-fast: test-addon-handler-registry
 
+# Compile the actual Core trust-call site without requiring a full daemon link.
+# The authenticated observation and root-approval reader have separate tests.
+.PHONY: test-addon-core-approval-daemon-compile
+test-addon-core-approval-daemon-compile:
+	$(BUILD_CXX) $(CXXFLAGS) -Werror -fsyntax-only \
+		core/daemon/src/DaemonRuntimeInitialization.cpp
+
 # Non-executable common source/deb provider admission contract.
 .PHONY: test-addon-provider-admission
 test-addon-provider-admission:

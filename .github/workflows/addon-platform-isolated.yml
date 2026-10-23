@@ -103,6 +103,7 @@ jobs:
           echo "TESTED_SHA=$(git rev-parse HEAD)"
           make test-addon-media-import-catalog
           make build-addon-root-approval-test
+          make test-addon-core-approval-daemon-compile
           sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_root_approval"
           sudo env TMPDIR=/root PYTHONDONTWRITEBYTECODE=1 \
             python3 -m unittest discover -s tools/addons \
