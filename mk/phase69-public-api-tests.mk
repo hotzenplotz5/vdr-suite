@@ -553,7 +553,7 @@ test-frontend-contracts: test-phase69f-client-contract-matrix
 
 test-addon-media-import-source-list-api:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_media_import_source_list.cpp \
 		-o $(BUILD_DIR)/test_public_media_import_source_list
 	$(BUILD_DIR)/test_public_media_import_source_list
@@ -562,7 +562,7 @@ test-addon-media-import-source-list-api:
 
 test-addon-media-import-api-admission:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_media_import_admission.cpp \
 		-o $(BUILD_DIR)/test_public_media_import_admission
 	$(BUILD_DIR)/test_public_media_import_admission
@@ -571,7 +571,7 @@ test-addon-media-import-api-admission:
 
 test-addon-media-import-api-capability:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_media_import_capability.cpp \
 		-o $(BUILD_DIR)/test_public_media_import_capability
 	$(BUILD_DIR)/test_public_media_import_capability
