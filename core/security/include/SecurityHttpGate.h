@@ -445,6 +445,9 @@ public:
         bool isPublicMediaCheckCapabilityResource = false;
         bool isPublicMediaCheckCollection = false;
         bool isPublicMediaCheckStatusResource = false;
+        bool isPublicMediaShrinkCapabilityResource = false;
+        bool isPublicMediaShrinkPlanCollection = false;
+        std::string publicMediaShrinkBackendId;
         if (path.compare(0, mediaCheckBase.size(), mediaCheckBase) == 0) {
             const std::size_t split = path.find('/', mediaCheckBase.size());
             if (split != std::string::npos) {
@@ -474,16 +477,26 @@ public:
                         isPublicMediaCheckCollection ||
                         isPublicMediaCheckStatusResource)
                         publicMediaCheckBackendId = candidate;
+                    isPublicMediaShrinkCapabilityResource =
+                        tail == "/capabilities/media-shrink";
+                    isPublicMediaShrinkPlanCollection =
+                        tail == "/media-shrink-plans";
+                    if (isPublicMediaShrinkCapabilityResource ||
+                        isPublicMediaShrinkPlanCollection)
+                        publicMediaShrinkBackendId = candidate;
                 }
             }
         }
         const bool isPublicMediaCheckCreate =
             isPost && isPublicMediaCheckCollection;
+        const bool isPublicMediaShrinkPlanCreate =
+            isPost && isPublicMediaShrinkPlanCollection;
         const bool isPublicBackendRead =
             request.method == "GET" &&
             (isPublicBackendCollection || isPublicMediaImportCapabilityResource ||
              isPublicMediaImportSourcesResource ||
-             isPublicMediaCheckCapabilityResource);
+             isPublicMediaCheckCapabilityResource ||
+             isPublicMediaShrinkCapabilityResource);
         const bool isPublicAccountCollection =
             path == "/api/v1/accounts";
         const std::string publicAccountPrefix =
@@ -935,6 +948,7 @@ public:
             isPublicTimerAssignmentCreate ||
             isPublicMediaImportCreate ||
             isPublicMediaCheckCreate ||
+            isPublicMediaShrinkPlanCreate ||
             isPublicDeviceRecordingSessionCreate ||
             isPublicDeviceRecordingSessionStop ||
             isPublicDeviceRecordingSubtitleSelection || isTimerUpdateAction ||
@@ -2001,6 +2015,14 @@ public:
             requestToAuthorize.permission = "media.recording.play";
             requestToAuthorize.action = "media.recording.check";
             requestToAuthorize.backendId = publicMediaCheckBackendId;
+        }
+        else if (isPublicMediaShrinkPlanCreate)
+        {
+            // Read-only inspection; staging and publishing require a
+            // separate, unimplemented mutation permission and Core operation.
+            requestToAuthorize.permission = "media.recording.play";
+            requestToAuthorize.action = "media.recording.shrink.plan";
+            requestToAuthorize.backendId = publicMediaShrinkBackendId;
         }
         else if (isTimerCreateAction ||
                  isPublicTimerAssignmentCreate)
