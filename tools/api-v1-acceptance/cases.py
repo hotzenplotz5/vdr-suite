@@ -311,6 +311,42 @@ def native_timers(a):
               "native timer items collection missing or unbounded",
               path=V1 + "/native-timers", shape="items: array (max 5)")
     a.require(no_private_paths(d), "native timer leaked private filesystem path")
+    if items:
+        first = items[0]
+        if not isinstance(first, dict) or not re.fullmatch(r"[A-Za-z0-9._:-]{1,160}",
+                                                        str(first.get("timerId", ""))):
+            raise Problem("wrong_json_structure", "invalid public native timer identity")
+        a.context["native_timer"] = first["timerId"]
+
+
+def native_timer_detail(a):
+    path = endpoint(V1 + "/native-timers/" + a.context["native_timer"],
+                    backendId=a.backend)
+    data, headers = a.get_json(path)
+    a.require(data.get("backendId") == a.backend and
+              data.get("timerId") == a.context["native_timer"],
+              "native timer list/detail mismatch", path=path)
+    a.require(no_private_paths(data), "native timer detail leaked a filesystem path")
+    if data.get("bindingState") == "verified":
+        etag = headers.get("etag")
+        a.require(etag and etag.startswith('"') and etag.endswith('"'),
+                  "bound native timer must expose authoritative strong ETag",
+                  path=path, shape="strong ETag")
+    return "native-timer-detail-authoritative"
+
+
+def authorized_operation(a):
+    op_id = a.cfg.get("existingOperationId")
+    if not isinstance(op_id, str) or not re.fullmatch(r"op_[0-9a-f]{32}", op_id):
+        raise Blocked("existing owned Public-v1 Operation ID not configured")
+    path = V1 + "/operations/" + op_id
+    data, headers = a.get_json(path)
+    a.require(data.get("operationId") == op_id,
+              "durable Operation identity mismatch", path=path)
+    if data.get("backendId") != a.backend:
+        raise Blocked("existing Operation belongs to another backend or actor", path=path)
+    a.require(no_private_paths(data), "durable Operation leaked filesystem path")
+    return "operation-state:" + str(data.get("state", "missing"))
 
 
 def searchtimers(a):
@@ -574,7 +610,9 @@ def controlled_gate(a):
     approval = a.args.approval_file
     if not approval:
         raise Blocked("controlled hardware mutation requires a separate operator approval")
-    if approval.is_symlink() or approval.stat().st_mode & 0o077:
+    if not approval.is_file() or approval.is_symlink():
+        raise Blocked("operator approval file missing or unsafe")
+    if approval.stat().st_mode & 0o077:
         raise Blocked("operator approval file must be private mode 0600")
     try:
         payload = json.loads(approval.read_text(encoding="utf-8"))
@@ -634,6 +672,10 @@ def run_cases(a):
     hardware("timer.assignment-detail", "TIMER READ", lambda: timer_detail(a),
             requires=("backend",))
     hardware("timer.native", "TIMER READ", lambda: native_timers(a),
+            requires=("backend",))
+    hardware("timer.native-detail", "TIMER READ", lambda: native_timer_detail(a),
+            requires=("native_timer",))
+    hardware("timer.owned-operation", "TIMER READ", lambda: authorized_operation(a),
             requires=("backend",))
     hardware("searchtimer.list", "SEARCHTIMER", lambda: searchtimers(a),
             requires=("backend",))
