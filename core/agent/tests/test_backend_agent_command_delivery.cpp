@@ -175,6 +175,52 @@ int main()
     shrink.verificationPolicy = "readback_required";
     shrink.requestFingerprint = backendAgentCommandFingerprint(shrink);
     assert(!backendAgentCommandValidAssignment(shrink));
+    // Wire validity must not turn into permission. The server denies both
+    // HEVC operations until the canonical Core fence is explicitly installed.
+    shrink.verificationPolicy = "reconciliation_required";
+    shrink.requestFingerprint = backendAgentCommandFingerprint(shrink);
+    assert(backendAgentCommandValidAssignment(shrink));
+    assert(commands.insertAssignment(shrink));
+    auto shrinkReceipt = receipt;
+    shrinkReceipt.commandId = shrink.commandId;
+    shrinkReceipt.requestFingerprint = shrink.requestFingerprint;
+    shrinkReceipt.jobId = shrink.jobId;
+    shrinkReceipt.attemptId = shrink.attemptId;
+    shrinkReceipt.claimEpoch = shrink.claimEpoch;
+    shrinkReceipt.receivedAt = 112;
+    const auto shrinkDenied = service.receipt(
+        context(ActorType::Agent, "actor_agent"), shrinkReceipt, 112);
+    assert(!shrinkDenied.accepted &&
+        shrinkDenied.reasonCode == "media_shrink_server_fence_unavailable");
+    assert(sqlCount(db.handle(),
+        "SELECT COUNT(*) FROM backend_agent_command_receipts "
+        "WHERE command_id='cmd_shrink_publish_shape';") == 0);
+    bool allowShrink = false;
+    service.setMediaShrinkReceiptFenceCheck(
+        [&](const BackendAgentCommandAssignment& reserved,
+            const BackendAgentCommandReceipt& actual,
+            std::string& gateReason) {
+            assert(reserved.commandId == shrink.commandId);
+            assert(actual.requestFingerprint == reserved.requestFingerprint);
+            gateReason = allowShrink ? "canonical_core_checked" :
+                "shrink_separate_grant_missing";
+            return allowShrink;
+        });
+    const auto deniedGrant = service.receipt(
+        context(ActorType::Agent, "actor_agent"), shrinkReceipt, 113);
+    assert(!deniedGrant.accepted &&
+        deniedGrant.reasonCode == "shrink_separate_grant_missing");
+    allowShrink = true;
+    const auto shrinkAccepted = service.receipt(
+        context(ActorType::Agent, "actor_agent"), shrinkReceipt, 114);
+    assert(shrinkAccepted.accepted);
+    allowShrink = false;
+    assert(!service.receipt(context(ActorType::Agent, "actor_agent"),
+                            shrinkReceipt, 115).accepted);
+    assert(sqlCount(db.handle(),
+        "SELECT COUNT(*) FROM backend_agent_command_receipts "
+        "WHERE command_id='cmd_shrink_publish_shape';") == 1);
+
     assert(commands.insertAssignment(media));
     auto mediaReceipt = receipt;
     mediaReceipt.commandId = media.commandId;
