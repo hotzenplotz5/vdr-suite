@@ -163,6 +163,75 @@ public:
         } catch (...) { return std::nullopt; }
     }
 
+    struct VerifiedStageReadback {
+        std::string reviewId;
+        std::uint64_t sourceBytes = 0;
+        std::uint64_t candidateBytes = 0;
+    };
+    // Independent Core-side readback on a fresh canonical source snapshot.
+    // This deliberately refuses remote backends where Core cannot see the
+    // private Agent candidate on the SAME trusted filesystem.
+    std::optional<VerifiedStageReadback> verifyStagedCandidate(
+        const std::string& actor, const std::string& backend,
+        const std::string& recordingId, const std::string& operationId,
+        const std::string& expectedFingerprint, std::uint64_t generation,
+        const std::string& reviewId,
+        vdrsuite::mediatools::ProcessRunner& runner) const {
+        using namespace vdrsuite::mediatools;
+        namespace fs = std::filesystem;
+        if (!shrinkOpaqueId(recordingId, "rec_") ||
+            !shrinkOpaqueId(operationId, "op_") ||
+            !shrinkOpaqueId(reviewId, "shk_") ||
+            generation == 0)
+            return std::nullopt;
+        const auto paths = trustedSourcePaths(
+            backend, recordingId, expectedFingerprint);
+        if (!paths) return std::nullopt;
+        try {
+            const auto plan = inspectShrink(
+                paths->videoRoot, paths->relativeRecording);
+            if (shrinkSourceFingerprint(plan) != expectedFingerprint)
+                return std::nullopt;
+            unsigned checked = 0;
+            std::optional<VerifiedStageReadback> match;
+            for (const auto& entry :
+                 fs::directory_iterator(paths->videoRoot)) {
+                const std::string leaf =
+                    entry.path().filename().string();
+                if (leaf.rfind(".vdr-suite-shrink-", 0) != 0)
+                    continue;
+                // A cap on all stage dirs prevents unbounded namespace
+                // scans if a malicious producer fills the video root.
+                if (++checked > 128) return std::nullopt;
+                if (!fs::is_directory(entry.symlink_status()))
+                    continue;
+                const auto candidate = entry.path() /
+                    paths->relativeRecording.filename();
+                const auto marker = readShrinkReviewBinding(candidate);
+                if (!marker || marker->reviewId != reviewId)
+                    continue;
+                if (match || marker->actorId != actor ||
+                    marker->backendId != backend ||
+                    marker->recordingId != recordingId ||
+                    marker->stageOperationId != operationId ||
+                    marker->sourceFingerprint != expectedFingerprint ||
+                    marker->backendGeneration != generation)
+                    return std::nullopt;
+                const auto bytes = verifyShrinkCandidate(
+                    plan, candidate, runner);
+                match = VerifiedStageReadback{
+                    reviewId, plan.totalBytes, bytes};
+            }
+            // Source identity is independently rechecked AFTER verifying
+            // the candidate against potentially long FFprobe readback.
+            if (!match ||
+                trustedSourceFingerprint(backend, recordingId) !=
+                    expectedFingerprint)
+                return std::nullopt;
+            return match;
+        } catch (...) { return std::nullopt; }
+    }
+
     ApiResponse reviewStatus(const std::string& actor,
                              const std::string& backend,
                              const std::string& reviewId) const {
