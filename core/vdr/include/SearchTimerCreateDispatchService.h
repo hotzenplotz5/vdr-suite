@@ -7,6 +7,7 @@
 
 class ISearchTimerCommandExecutor;
 class ISearchTimerDataSource;
+class ISearchTimerBackendGenerationAuthority;
 namespace vdrsuite::operations { class MutationOperationRepository; }
 
 enum class SearchTimerCreateDispatchStatus
@@ -39,14 +40,15 @@ struct SearchTimerCreateDispatchResult
     vdrsuite::operations::MutationOperation operation;
 };
 
-// Separate from admission and NOT registered in daemon/Public-v1 yet.
-// A strictly one-shot command guarded by a durable accepted->dispatching CAS;
-// even crash/timeout/invalid readback NEVER induces a second backend POST.
+// Productive one-shot SearchTimer CREATE, guarded by a durable
+// accepted->dispatching CAS and server-owned backend-generation checks.
+// Crash/timeout/invalid readback NEVER induces a second backend POST.
 class SearchTimerCreateDispatchService
 {
 public:
     explicit SearchTimerCreateDispatchService(
-        vdrsuite::operations::MutationOperationRepository& operations);
+        vdrsuite::operations::MutationOperationRepository& operations,
+        const ISearchTimerBackendGenerationAuthority& generations);
 
     SearchTimerCreateDispatchResult dispatchOnce(
         const SearchTimerCreateDispatchRequest& request,
@@ -54,4 +56,5 @@ public:
         ISearchTimerDataSource& readback);
 private:
     vdrsuite::operations::MutationOperationRepository& operations_;
+    const ISearchTimerBackendGenerationAuthority& generations_;
 };

@@ -171,7 +171,20 @@ AtomicAdmissionResult EpgTimerIntentAtomicAdmissionService::admit(
         return fail(AtomicAdmissionStatus::backendUnavailable);
     // Source, generation and exact native scheduling evidence are revalidated
     // under the same transaction before any domain write is admitted.
-    if (!request.revalidateSourceAndNativeSpecification())
+    bool sourceAndNativeCurrent = false;
+    try
+    {
+        sourceAndNativeCurrent =
+            request.revalidateSourceAndNativeSpecification();
+    }
+    catch (...)
+    {
+        // This server-owned callback may contact an unavailable backend.
+        // Never leave the shared SQLite connection inside BEGIN IMMEDIATE
+        // when that lookup throws; no intent/assignment may be persisted.
+        return fail(AtomicAdmissionStatus::backendUnavailable);
+    }
+    if (!sourceAndNativeCurrent)
         return fail(AtomicAdmissionStatus::generationConflict);
 
     // Default one-shot policy never silently creates two native timers for

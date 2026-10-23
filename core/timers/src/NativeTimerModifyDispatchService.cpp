@@ -3,7 +3,10 @@
 #include "MutationOperationRepository.h"
 #include "NativeTimerBindingRepository.h"
 
+#include <charconv>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 
 namespace vdrsuite::timers
 {
@@ -129,6 +132,27 @@ NativeTimerModifyDispatchOutcomeResult outcomeResult(
         result.expectation = *expectation;
     }
     return result;
+}
+
+// A pre-evidence quarantine is revision+1 from the original persisted
+// dispatch claim. Only this exact marker can be resolved by later verified
+// no-effect Agent evidence. Generic outcome_unknown remains readback-only.
+bool exactEvidenceFreeQuarantine(
+    const MutationOperation& current,
+    const NativeTimerModifyDispatchClaim& claim)
+{
+    if (current.state != MutationOperationState::outcomeUnknown ||
+        current.resultReference != "native-timer-modify:missing-result-evidence")
+        return false;
+    std::uint64_t revision = 0;
+    const char* first = claim.operationRevision.data();
+    const char* last = first + claim.operationRevision.size();
+    const auto parsed = std::from_chars(first, last, revision);
+    return parsed.ec == std::errc{} && parsed.ptr == last &&
+        revision > 0 &&
+        revision < static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()) &&
+        current.operationRevision == std::to_string(revision + 1);
 }
 
 bool claimValid(const NativeTimerModifyDispatchClaim& claim)
@@ -359,6 +383,65 @@ NativeTimerModifyDispatchService::applyOutcome(
             operation);
 
     const MutationOperationState target = outcomeState(outcome.category);
+
+    // The runtime can safely quarantine dispatching -> outcome_unknown when
+    // a legacy Agent result lacks command-bound evidence. If an independently
+    // verified "rejected_without_effect" result for THAT EXACT original
+    // claimed attempt arrives later, a second revision-fenced transition may
+    // close the quarantine without performing any native timer command.
+    // A different reason, changed binding, unexpected revision, uncertain
+    // Agent result, or nonzero dispatchStartedAt cannot use this path.
+    if (operation.state == MutationOperationState::outcomeUnknown &&
+        outcome.category ==
+            NativeTimerModifyExecutorOutcomeCategory::rejectedWithoutEffect)
+    {
+        if (!exactEvidenceFreeQuarantine(operation, claim))
+            return outcomeResult(
+                NativeTimerModifyDispatchOutcomeStatus::operationStateConflict,
+                operation);
+        const auto bound =
+            bindingRepository_.findById(claim.payload.nativeTimerBindingId);
+        if (!bound.ok() || !bindingDispatchable(bound.binding, claim.payload))
+            return outcomeResult(
+                NativeTimerModifyDispatchOutcomeStatus::identityConflict,
+                operation);
+        const auto updatedAt =
+            operation.updatedAt > outcome.completedAt
+                ? operation.updatedAt : outcome.completedAt;
+        const auto settled = operationRepository_.transition(
+            operation.operationId,
+            operation.operationRevision,
+            MutationOperationState::outcomeUnknown,
+            MutationOperationState::failedVerified,
+            outcome.evidenceReference,
+            updatedAt);
+        if (settled.status == MutationOperationRepositoryStatus::ok)
+            return outcomeResult(
+                NativeTimerModifyDispatchOutcomeStatus::applied,
+                settled.operation);
+        if (settled.status == MutationOperationRepositoryStatus::idempotentReplay)
+            return outcomeResult(
+                NativeTimerModifyDispatchOutcomeStatus::alreadyApplied,
+                settled.operation);
+        if (settled.status == MutationOperationRepositoryStatus::revisionConflict)
+            return outcomeResult(
+                NativeTimerModifyDispatchOutcomeStatus::operationRevisionConflict,
+                settled.operation);
+        return outcomeResult(
+            NativeTimerModifyDispatchOutcomeStatus::operationStateConflict,
+            settled.operation);
+    }
+    // A missing-evidence quarantine is not an idempotent outcome_unknown
+    // result. No result without verified pre-dispatch rejection may reuse
+    // that state's revision or replace the quarantine marker. In particular,
+    // never reinterpret a possible-effect result as a verified no-effect.
+    if (operation.state == MutationOperationState::outcomeUnknown &&
+        operation.resultReference ==
+            "native-timer-modify:missing-result-evidence")
+        return outcomeResult(
+            NativeTimerModifyDispatchOutcomeStatus::operationStateConflict,
+            operation);
+
     if (operation.state != MutationOperationState::dispatching &&
         operation.state != target)
         return outcomeResult(
