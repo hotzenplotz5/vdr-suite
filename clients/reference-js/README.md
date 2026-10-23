@@ -52,7 +52,7 @@ bundled browser's richer pre-v1 routes are equivalent.
 A currently verified Device with `media.recording.play@backendId` may use
 `getRecordingProgress({backendId, recordingId, headers})` and
 `updateRecordingProgress({backendId, recordingId, operationId,
-positionSeconds, expectedRevision, headers})`. Use
+positionSeconds, expectedRevision, sessionId, headers})`. Use
 `clearRecordingProgress({backendId, recordingId, operationId,
 expectedRevision, headers})` to commit a zero-position reset.
 
@@ -60,7 +60,7 @@ The recording ID is an opaque public `rec_` identity; it is never a VDR path.
 Read `revision` before the first write; send its current value as
 `expectedRevision` on subsequent checkpoints, pause and stop. On 409, re-read
 and resolve the conflict from the client's observed playback, **not** by
-blind retry. Persist only measured playback positions, not elapsed session time.
+blind retry. Persist only measured playback positions, not elapsed session time. Nonzero progress must reference an active, exact-recording, Device-owned `sessionId`; zero reset may omit it.
 Resume playback by explicitly creating the existing Device Recording
 MediaSession with `startPositionSeconds` *only if the chosen profile actually
 supports it*. Session CREATE is not automatically invoked by these helpers.
