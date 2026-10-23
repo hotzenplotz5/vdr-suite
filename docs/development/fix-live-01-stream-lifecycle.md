@@ -36,7 +36,8 @@ Verified in source on the pinned main baseline
   closes its native owner instead of creating replacement workers or growing
   its MSE buffer indefinitely; an explicit foreground resume starts a fenced
   replacement after the best-effort STOP. Ordinary resume gets a grace check.
-  Paused playback is not classified as stalled.
+  The STOP wait has a five-second bound; any later replacement still uses
+  the server's STOP-old-before-OPEN-new contract. Paused playback is not classified as stalled.
   JavaScript throttling can delay these checks; it cannot be prevented.
 - Unexpected Live failures use at most three delayed retries (1/2/4 seconds)
   and preserve server-owned `replacesSessionId` STOP-old-before-OPEN-new
@@ -56,7 +57,8 @@ Verified in source on the pinned main baseline
 
 ## Regression and acceptance matrix
 
-The `test_live_tv_eof_recovery.js` regression tests unexpected MSE EOF,
+The `test_live_tv_eof_recovery.js` regression tests unexpected MSE EOF
+and network AbortError,
 truthful status, BFCache suspension and resumed-tab grace, sequential `replacesSessionId`,
 cleanup of an old reader, explicit stop and bounded failed retries.
 It is included in `test-ci-frontend` through the existing MSE test target.
