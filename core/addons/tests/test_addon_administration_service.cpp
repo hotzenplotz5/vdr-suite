@@ -157,11 +157,48 @@ int main()
     assert(audit.listAll().size() == 1);
     assert(intents.read(actor, "rectools", "backend-a").intent.revision == 1);
 
+    // The adapter must provide BOTH the backend decision and provider facts.
+    // Caller-forged optimistic values are ignored on enable.
+    int trustedReads = 0;
+    AddonAdministrationService trusted(intents, audit,
+        [&](const std::string& module, const std::string& backend)
+            -> std::optional<AddonAdministrationService::TrustedActivationSnapshot> {
+            ++trustedReads;
+            if (module != "rectools" || backend != "backend-a")
+                return std::nullopt;
+            return AddonAdministrationService::TrustedActivationSnapshot{
+                writable, forged};
+        });
+    const auto enabled = trusted.setDesiredState(
+        actor, {"rectools", "backend-a", true, 1}, {}, {},
+        {"event-enabled", "2026-10-20T10:10:00Z"});
+    assert(enabled.status == IntentStatus::ok &&
+           enabled.intent.desiredEnabled && enabled.intent.revision == 2);
+    assert(trustedReads == 1 && audit.listAll().size() == 2);
+    const auto disabledAgain = trusted.setDesiredState(
+        actor, {"rectools", "backend-a", false, 2}, {}, {},
+        {"event-disabled", "2026-10-20T10:11:00Z"});
+    assert(disabledAgain.status == IntentStatus::ok &&
+           !disabledAgain.intent.desiredEnabled &&
+           disabledAgain.intent.revision == 3);
+    assert(trustedReads == 1 && audit.listAll().size() == 3);
+
+    AddonAdministrationService noProvider(intents, audit,
+        [](const std::string&, const std::string&)
+            -> std::optional<AddonAdministrationService::TrustedActivationSnapshot> {
+            return std::nullopt;
+        });
+    assert(noProvider.setDesiredState(
+        actor, {"rectools", "backend-a", true, 3}, writable, forged,
+        {"event-denied", "2026-10-20T10:12:00Z"}).status ==
+        IntentStatus::ineligible);
+    assert(audit.listAll().size() == 3);
+
     // No caller-provided request/correlation identity bypass.
     actor.requestId = "";
     assert(service.setDesiredState(
         actor, {"rectools", "backend-a", false, 1}, {}, {}, another).status ==
         IntentStatus::forbidden);
-    assert(audit.listAll().size() == 1);
+    assert(audit.listAll().size() == 3);
     std::cout << "ADDON_ADMINISTRATION_AUDIT=PASS\n";
 }

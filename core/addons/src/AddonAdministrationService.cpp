@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <utility>
 
 namespace vdrsuite::addons {
 namespace {
@@ -64,14 +65,29 @@ IntentResult AddonAdministrationService::setDesiredState(
                 {mutation.moduleId, mutation.backendId, false, 0}};
     }
 
-    // The administrative facade must not accept optimistic caller-supplied
-    // RuntimeEvidence as live handler provenance. Until the Core-owned
-    // installation verifier/Agent adapter exists, enable is unavailable.
-    // The SQLite intent repository remains a separately tested state
-    // primitive; the production-facing coordinator is stricter.
-    if (mutation.desiredEnabled)
-        return {IntentStatus::ineligible,
-                {mutation.moduleId, mutation.backendId, false, 0}};
+    // Never accept caller-provided RuntimeEvidence as trusted activation.
+    // The live Core provider adapter is the sole source of enable-time facts.
+    // Without that adapter, production behavior remains fail-closed.
+    BackendAccessDecision trustedBackend = backend;
+    RuntimeEvidence trustedEvidence = evidence;
+    if (mutation.desiredEnabled) {
+        if (!trustedProviderRead_)
+            return {IntentStatus::ineligible,
+                    {mutation.moduleId, mutation.backendId, false, 0}};
+        std::optional<TrustedActivationSnapshot> verified;
+        try {
+            verified = trustedProviderRead_(mutation.moduleId,
+                                            mutation.backendId);
+        } catch (...) {
+            return {IntentStatus::ineligible,
+                    {mutation.moduleId, mutation.backendId, false, 0}};
+        }
+        if (!verified)
+            return {IntentStatus::ineligible,
+                    {mutation.moduleId, mutation.backendId, false, 0}};
+        trustedBackend = std::move(verified->backend);
+        trustedEvidence = std::move(verified->provider);
+    }
 
     AccountabilityEvent event;
     event.eventId = context.eventId;
@@ -96,7 +112,8 @@ IntentResult AddonAdministrationService::setDesiredState(
     // append() is the existing Core accountability repository, invoked
     // inside the same SQLite transaction held by updateAudited(). The owning
     // runtime must construct both repositories with the SAME Database.
-    return intents_.updateAudited(actor, mutation, backend, evidence,
+    return intents_.updateAudited(actor, mutation, trustedBackend,
+                                  trustedEvidence,
         [&] { return accountability_.append(event); });
 }
 
