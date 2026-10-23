@@ -628,6 +628,8 @@
       let stageOperationId = '';
       let publishOperationId = '';
       let reviewId = '';
+      let stagePolls = 0;
+      let publishPolls = 0;
 
       const controls = shared.node('div', 'recordings2-media-shrink-controls');
       controls.hidden = true;
@@ -822,6 +824,17 @@
           status.textContent = 'HEVC-' + action + ': ' + operation.state +
             (operation.resultReconciled === true ? ' (verifiziert)' :
               ' (noch nicht reconciled)');
+          // Poll only the canonical read-only status. Never retry Stage or
+          // Publish when their outcome is unclear or still reconciling.
+          if (operation.resultReconciled !== true &&
+              ['accepted', 'queued', 'dispatching', 'executed_unverified',
+                'outcome_unknown'].includes(operation.state) &&
+              typeof global.setTimeout === 'function') {
+            const next = action === 'stage' ? ++stagePolls : ++publishPolls;
+            if (next <= 120) global.setTimeout(function () {
+              if (panel.isConnected !== false) refreshOperation(action);
+            }, 3000);
+          }
           if (action === 'stage' && operation.resultReconciled === true &&
               /^shk_[0-9a-f]{32}$/.test(text(operation.reviewId))) {
             reviewId = operation.reviewId;
