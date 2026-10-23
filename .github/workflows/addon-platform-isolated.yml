@@ -172,6 +172,7 @@ jobs:
           MEDIA_TOOLS_TEST_REAL_VDR=1 make test-addon-media-import-ffmpeg
           make addon-media-import
           make test-addon-media-shrink
+          make test-addon-media-shrink-plan-api
           make addon-media-shrink
           make test-addon-media-check
           make test-addon-media-check-api
