@@ -13,6 +13,15 @@ const client = createClient({
   fetch: async (url, init) => {
     requests.push({url, init});
     const progressPath = 'https://suite.example/api/v1/recording-playback-sessions/progress';
+    if (url === 'https://suite.example/api/v1/recording-playback-sessions/continue-watching?backendId=default') {
+      assert.strictEqual(init.method, 'GET');
+      return {ok: true, status: 200, text: async () => JSON.stringify({
+        backendId: 'default', items: currentPosition > 0 ? [{
+          recordingId, positionSeconds: currentPosition, durationSeconds: 3000,
+          resumeSupport: 'profile_dependent'
+        }] : [], limit: 50
+      })};
+    }
     assert(url.startsWith(progressPath));
     if (init.method === 'GET') {
       assert.strictEqual(url, progressPath + '?backendId=default&recordingId=' + recordingId);
@@ -59,6 +68,9 @@ const identity = {backendId: 'default', recordingId};
   assert.strictEqual(written.revision, 1);
   state = await client.getRecordingProgress(identity);
   assert.strictEqual(state.positionSeconds, 2100);
+  const rail = await client.getContinueWatching({backendId: 'default'});
+  assert.strictEqual(rail.items.length, 1);
+  assert.strictEqual(rail.items[0].recordingId, recordingId);
   await assert.rejects(client.updateRecordingProgress({
     ...identity, positionSeconds: 110, expectedRevision: 0, sessionId: 'owned-session',
     operationId: 'delayed-session'
