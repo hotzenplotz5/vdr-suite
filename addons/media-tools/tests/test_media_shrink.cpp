@@ -260,6 +260,20 @@ int main() {
     }
     {
         Fixture fixture;
+        FakeProcess runner;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        // A candidate must still save space at the separate publication gate.
+        std::ofstream(candidate / "00001.ts", std::ios::binary | std::ios::app)
+            << std::string(32768, 'Z');
+        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(candidate) && fs::exists(fixture.recording / "00001.ts"));
+        assert(!fs::exists(fixture.video / "Sample_HEVC"));
+        ++checks;
+    }
+    {
+        Fixture fixture;
         fs::remove(fixture.recording / "00001.ts");
         fs::create_symlink(fixture.recording / "info",
                            fixture.recording / "00001.ts");
