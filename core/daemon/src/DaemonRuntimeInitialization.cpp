@@ -118,23 +118,26 @@ class SearchTimerCurrentBackendGeneration final :
     public ISearchTimerBackendGenerationAuthority
 {
 public:
-    SearchTimerCurrentBackendGeneration(
-        BackendAgentRepository& agents, std::int64_t now)
-        : agents_(agents), now_(now) {}
+    explicit SearchTimerCurrentBackendGeneration(
+        BackendAgentRepository& agents)
+        : agents_(agents) {}
 
     std::optional<std::uint64_t> currentGeneration(
         const std::string& backendId) const override
     {
+        // A slow inventory/readback can outlive the lease at HTTP admission.
+        // Recheck current wall time at EVERY dispatch generation probe.
+        const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
         const auto agent = agents_.findAgentForBackend(backendId);
         if (!agent || agent->revoked || agent->incompatible ||
             agent->backendGeneration == 0U ||
-            agent->leaseExpiresAt <= now_)
+            agent->leaseExpiresAt <= now)
             return std::nullopt;
         return agent->backendGeneration;
     }
 private:
     BackendAgentRepository& agents_;
-    std::int64_t now_;
 };
 } // namespace
 
@@ -1577,7 +1580,7 @@ bool DaemonRuntime::initialize()
                     std::chrono::system_clock::now().time_since_epoch())
                     .count();
             SearchTimerCurrentBackendGeneration generations(
-                *backendAgentRepository_, now);
+                *backendAgentRepository_);
             const auto liveGeneration =
                 generations.currentGeneration(request.backendId);
             if (!liveGeneration.has_value()) return result;
@@ -1822,7 +1825,7 @@ bool DaemonRuntime::initialize()
                 operation.backendGeneration == agent->backendGeneration)
             {
                 SearchTimerCurrentBackendGeneration generations(
-                    *backendAgentRepository_, now);
+                *backendAgentRepository_);
                 SearchTimerCreateDispatchService dispatch(
                     *mutationOperationRepository_, generations);
                 SearchTimerCreateDispatchRequest command;
