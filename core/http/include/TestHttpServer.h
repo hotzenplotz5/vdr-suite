@@ -48,7 +48,10 @@
 class TestHttpServer : public IHttpServer, public IEpgArtworkHttpProvider
 {
 public:
-    explicit TestHttpServer(ApiRouter& apiRouter);
+    explicit TestHttpServer(
+        ApiRouter& apiRouter,
+        HumanAccountGrantAdministrationService::AddonGrantEligibility
+            addonGrantEligibility = {});
     ~TestHttpServer() override;
 
     HttpServerResponse handleRequest(
