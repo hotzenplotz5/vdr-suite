@@ -63,6 +63,62 @@ class RootOwnedApprovalAcceptance(unittest.TestCase):
                   self.document["sha256"], "manual")
         self.assertEqual(self.approval.read_bytes(), published)
 
+
+    def test_core_expected_only_approval_without_remote_binary(self):
+        # Core control-plane host must not be required to install the
+        # remote backend's executable or manifest just to pin a release.
+        self.approval.unlink()
+        self.handler.unlink()
+        manifest = self.root / "usr/share/vdr-suite/addons/rectools/addon.json"
+        manifest.unlink()
+        with self.assertRaisesRegex(IssueError, "invalid-installed-metadata"):
+            issue(self.root, "rectools", "0.1.0",
+                  self.document["sha256"], "manual")
+        self.assertEqual(issue(self.root, "rectools", "0.1.0",
+                               self.document["sha256"], "manual",
+                               core_expected_only=True), self.approval)
+        original = json.loads(self.approval.read_text())
+        self.assertEqual(original["sha256"], self.document["sha256"])
+        self.assertEqual(stat.S_IMODE(self.approval.stat().st_mode), 0o644)
+        # Expected digest is NEVER derived from or compared to local bytes.
+        rotated = "b" * 64
+        self.assertEqual(rotate(self.root, "rectools", "0.1.0",
+                                self.document["sha256"], rotated, "manual",
+                                core_expected_only=True), self.approval)
+        self.assertEqual(json.loads(self.approval.read_text())["sha256"],
+                         rotated)
+        with self.assertRaisesRegex(IssueError, "stale-approval-rotation"):
+            rotate(self.root, "rectools", "0.1.0",
+                   self.document["sha256"], "c" * 64, "manual",
+                   core_expected_only=True)
+        self.assertEqual(revoke(self.root, "rectools"), self.approval)
+        with self.assertRaisesRegex(IssueError, "approval-revoked"):
+            rotate(self.root, "rectools", "0.1.0",
+                   rotated, "c" * 64, "manual",
+                   core_expected_only=True)
+
+    def test_core_expected_only_is_explicit_cli_opt_in(self):
+        self.approval.unlink()
+        self.handler.unlink()
+        manifest = self.root / "usr/share/vdr-suite/addons/rectools/addon.json"
+        manifest.unlink()
+        command = [
+            sys.executable,
+            str(Path(__file__).with_name("admin_approval_issuer.py")),
+            "issue", "--root", str(self.root), "--module", "rectools",
+            "--version", "0.1.0",
+            "--approved-sha256", self.document["sha256"], "--origin", "debian",
+        ]
+        denied = subprocess.run(command, capture_output=True, text=True,
+                                check=False)
+        self.assertEqual(denied.returncode, 2)
+        self.assertFalse(self.approval.exists())
+        result = subprocess.run(command + ["--core-expected-only"],
+                                capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(self.approval.read_text())["origin"], "debian")
+        self.assertFalse(self.handler.exists())
+
     def test_rotation_requires_exact_old_hash_and_independent_new_bytes(self):
         old = self.document["sha256"]
         self.handler.write_bytes(b"reviewed replacement fixture bytes\n")

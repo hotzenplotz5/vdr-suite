@@ -30,7 +30,8 @@ class IssueError(ValueError):
 
 
 def issue(root: Path, module: str, version: str, approved_sha256: str,
-          origin: str, allow_live_root: bool = False) -> Path:
+          origin: str, allow_live_root: bool = False,
+          core_expected_only: bool = False) -> Path:
     if os.geteuid() != 0:
         raise IssueError("root-administrator-required")
     if not root.is_absolute() or "." in root.parts or ".." in root.parts:
@@ -51,20 +52,24 @@ def issue(root: Path, module: str, version: str, approved_sha256: str,
     if origin not in ("manual", "debian"):
         raise IssueError("invalid-origin")
 
-    # Source metadata is descriptive; it must agree with the independent
-    # approved identity but cannot generate or approve the expected hash.
-    manifest_path = root / "usr/share/vdr-suite/addons/rectools"
-    try:
-        manifest = validate_directory(manifest_path, "rectools")
-    except (ContractError, OSError, UnicodeError, ValueError) as exc:
-        raise IssueError("invalid-installed-metadata") from exc
-    if (manifest["version"] != version or
-            manifest["package"] != "vdr-suite-addon-media-tools"):
-        raise IssueError("approval-metadata-mismatch")
+    # Backend-local issuance MUST inspect exact installed bytes. The
+    # explicitly selected Core control-plane mode pins a separately reviewed
+    # expected digest WITHOUT assuming a remote handler is installed beside
+    # the Core daemon. Neither mode trusts the Agent's reported digest as
+    # the administrator's expected value.
+    if not core_expected_only:
+        manifest_path = root / "usr/share/vdr-suite/addons/rectools"
+        try:
+            manifest = validate_directory(manifest_path, "rectools")
+        except (ContractError, OSError, UnicodeError, ValueError) as exc:
+            raise IssueError("invalid-installed-metadata") from exc
+        if (manifest["version"] != version or
+                manifest["package"] != "vdr-suite-addon-media-tools"):
+            raise IssueError("approval-metadata-mismatch")
 
-    binary = examine_binary(root, module, approved_sha256)
-    if not binary["consistent"]:
-        raise IssueError("binary-" + binary["reason"])
+        binary = examine_binary(root, module, approved_sha256)
+        if not binary["consistent"]:
+            raise IssueError("binary-" + binary["reason"])
 
     # Traverse and create only explicitly reviewed /etc approval directories.
     # All parent directories are pinned via openat and checked as root-owned
@@ -145,7 +150,8 @@ def issue(root: Path, module: str, version: str, approved_sha256: str,
 
 def rotate(root: Path, module: str, version: str, expected_sha256: str,
            approved_sha256: str, origin: str,
-           allow_live_root: bool = False) -> Path:
+           allow_live_root: bool = False,
+           core_expected_only: bool = False) -> Path:
     """CAS-rotate an existing *active* root approval, never resurrect a revoke.
 
     Upgrades to a different handler interface version or install origin must
@@ -170,17 +176,20 @@ def rotate(root: Path, module: str, version: str, expected_sha256: str,
         raise IssueError("invalid-approval-rotation-digests")
     if origin not in ("manual", "debian"):
         raise IssueError("invalid-origin")
-    try:
-        manifest = validate_directory(
-            root / "usr/share/vdr-suite/addons/rectools", "rectools")
-    except (ContractError, OSError, UnicodeError, ValueError) as exc:
-        raise IssueError("invalid-installed-metadata") from exc
-    if (manifest["version"] != version or
-            manifest["package"] != "vdr-suite-addon-media-tools"):
-        raise IssueError("approval-metadata-mismatch")
-    candidate = examine_binary(root, module, approved_sha256)
-    if not candidate["consistent"]:
-        raise IssueError("binary-" + candidate["reason"])
+    # Core's expected hash can rotate independently of remote installation.
+    # Backend-local rotation still requires independently approved real bytes.
+    if not core_expected_only:
+        try:
+            manifest = validate_directory(
+                root / "usr/share/vdr-suite/addons/rectools", "rectools")
+        except (ContractError, OSError, UnicodeError, ValueError) as exc:
+            raise IssueError("invalid-installed-metadata") from exc
+        if (manifest["version"] != version or
+                manifest["package"] != "vdr-suite-addon-media-tools"):
+            raise IssueError("approval-metadata-mismatch")
+        candidate = examine_binary(root, module, approved_sha256)
+        if not candidate["consistent"]:
+            raise IssueError("binary-" + candidate["reason"])
 
     flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
     held = os.open("/", flags)
@@ -419,16 +428,22 @@ def main(argv=None) -> int:
     parser.add_argument("--origin", choices=("manual", "debian"), default="")
     parser.add_argument("--allow-live-root", action="store_true",
                         help="Explicit operator approval to write on / (never used in tests)")
+    parser.add_argument("--core-expected-only", action="store_true",
+                        help="Core-host independently approved expected digest for remote backends; no local handler inspection")
     args = parser.parse_args(argv)
+    if args.core_expected_only and args.command == "revoke":
+        parser.error("--core-expected-only applies only to issue/rotate")
     try:
         if args.command == "issue":
             location = issue(Path(args.root), args.module, args.version,
-                             args.approved_sha256, args.origin, args.allow_live_root)
+                             args.approved_sha256, args.origin, args.allow_live_root,
+                             args.core_expected_only)
             print("ADDON_ADMIN_APPROVAL_ISSUED=" + str(location))
         elif args.command == "rotate":
             location = rotate(Path(args.root), args.module, args.version,
                               args.expected_sha256, args.approved_sha256,
-                              args.origin, args.allow_live_root)
+                              args.origin, args.allow_live_root,
+                              args.core_expected_only)
             print("ADDON_ADMIN_APPROVAL_ROTATED=" + str(location))
         else:
             location = revoke(Path(args.root), args.module, args.allow_live_root)
