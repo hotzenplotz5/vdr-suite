@@ -74,6 +74,42 @@ bool ContinueWatchingService::clear(
         current.has_value() ? current->backendNativeId : std::string());
 }
 
+ContinueWatchingMutationResult ContinueWatchingService::recordProgressConditional(
+    const std::string& actorId,
+    const std::string& backendId,
+    const std::string& recordingId,
+    int positionSeconds,
+    bool resumeSupported,
+    const std::string& operationId,
+    std::int64_t expectedRevision)
+{
+    using Status=ContinueWatchingMutationStatus;
+    if(!validScope(actorId,backendId,recordingId) ||
+       operationId.empty() || expectedRevision<0 || positionSeconds<0 ||
+       (positionSeconds>0 && !resumeSupported))
+        return {Status::invalid,0};
+    const auto current=idResolver_ ?
+        idResolver_(backendId,recordingId) : std::nullopt;
+    if(!current || current->backendNativeId.empty())
+        return {Status::invalid,0};
+    const int stored=current->durationKnown && current->durationSeconds>0 &&
+        positionSeconds>=current->durationSeconds ? 0 : positionSeconds;
+    return repository_.updateConditional(
+        actorId,backendId,recordingId,current->backendNativeId,stored,
+        operationId,expectedRevision);
+}
+
+ContinueWatchingMutationResult ContinueWatchingService::clearConditional(
+    const std::string& actorId,
+    const std::string& backendId,
+    const std::string& recordingId,
+    const std::string& operationId,
+    std::int64_t expectedRevision)
+{
+    return recordProgressConditional(actorId,backendId,recordingId,
+        0,true,operationId,expectedRevision);
+}
+
 std::vector<ContinueWatchingItem> ContinueWatchingService::list(
     const std::string& actorId,
     const std::string& backendId)
@@ -111,6 +147,7 @@ std::vector<ContinueWatchingItem> ContinueWatchingService::list(
         item.recording = *current;
         item.resumePositionSeconds = state.positionSeconds;
         item.lastActivityAt = state.lastActivityAt;
+        item.revision = state.revision;
         items.push_back(std::move(item));
     }
     return items;
