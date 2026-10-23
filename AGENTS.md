@@ -3,6 +3,55 @@
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
 
+## Non-negotiable scope, simplicity, and verification gates
+
+**Priority:** These gates constrain every workstream, including the top-level
+non-stop mandate, GitHub-first execution and commit/CI batching. "Continue
+working" means finish the **already authorized, bounded task**, not discover
+or implement new tasks. No speed, autonomy or non-stop instruction overrides
+these gates.
+
+1. **One task, one verifiable outcome.** Before changing product code, identify
+   the concrete bug or authorized feature, its observable acceptance criterion
+   and the smallest affected surface. Stay inside that boundary. Do not
+   interpret "keep going" as permission to extend the project scope.
+2. **Prove the need before coding.** Reproduce or trace the concrete failure
+   and inspect existing safeguards before adding another guard. Hypothetical
+   risks, possible future features and speculative hardening do not authorize
+   implementation. Record unrelated findings without silently fixing them.
+3. **Reuse existing architecture.** Prefer a small change in the current
+   implementation. New database tables, services, persistent state fields,
+   protocols, cross-cutting abstractions and broad refactors require BOTH
+   evidence that the existing design cannot meet the agreed acceptance
+   criterion AND the user's explicit authorization **before** implementation.
+4. **Validate code before calling it done or stacking commits.** For C++,
+   backend or runtime-contract edits, compile the exact changed candidate and
+   run the smallest relevant functional/regression tests before considering a
+   code commit complete or proceeding with more product-code commits. A
+   successful GitHub write, queued CI run or unit-only mock is not build or
+   integration proof. If required validation is unavailable, do not keep
+   producing speculative code commits: diagnose the exact blocker, continue
+   only independent approved work, and report what remains unverified. For
+   docs-only edits use proportionate documentation checks.
+5. **No chain reaction of adjacent work.** Discovering an issue during a fix
+   does not add it to the authorized task. Note it concisely. Only a proven
+   defect blocking the current acceptance or a verified urgent security issue
+   warrants interrupting the sequence; any required out-of-scope architectural
+   change still needs explicit user authorization.
+6. **Finish and stop at the agreed gate.** Once the bounded acceptance
+   criterion and its required checks pass, report the result and stop. Do not
+   invent follow-up implementation, additional hardening, refactoring,
+   documentation cycles or CI-watching tasks. The non-stop mandate prohibits
+   premature handoff, **not completion**.
+
+**Mandatory pre-change check:** Before every product-code edit and subsequent
+commit, ask: Is this change required for the authorized outcome? What evidence
+demonstrates that? Can the existing design solve it? How will the exact result
+be compiled and tested? If any answer is missing, perform a bounded diagnostic
+instead of writing more code. These scope gates take precedence wherever
+another section could be read as encouraging speculative expansion or
+unverified commit batching.
+
 ## Top-level non-stop execution mandate
 
 Once the user has authorized a bounded workstream, never voluntarily stop,
