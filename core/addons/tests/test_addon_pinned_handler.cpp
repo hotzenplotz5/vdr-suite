@@ -7,7 +7,9 @@
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <cerrno>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
 
@@ -100,4 +102,27 @@ int main()
 
     auto current = inspectPinnedMediaToolsHandler(root, ApprovedDigest);
     assert(current.verified());
+    const pid_t child = ::fork();
+    assert(child >= 0);
+    if (child == 0) {
+        // A service manager is allowed to close all standard descriptors.
+        // The reviewed pinned executable still needs its OWN fd >= 3.
+        ::close(STDIN_FILENO);
+        ::close(STDOUT_FILENO);
+        ::close(STDERR_FILENO);
+        auto lowFd = inspectPinnedMediaToolsHandler(root, ApprovedDigest);
+        if (!lowFd.verified() || lowFd.descriptor.get() < 3)
+            ::_exit(61);
+        std::string observed(std::strlen(FixtureBytes), '\0');
+        if (::read(lowFd.descriptor.get(), observed.data(), observed.size()) !=
+                static_cast<ssize_t>(observed.size()) ||
+            observed != FixtureBytes)
+            ::_exit(62);
+        ::_exit(0);
+    }
+    int status = 0;
+    pid_t waited;
+    do { waited = ::waitpid(child, &status, 0); }
+    while (waited < 0 && errno == EINTR);
+    assert(waited == child && WIFEXITED(status) && WEXITSTATUS(status) == 0);
 }

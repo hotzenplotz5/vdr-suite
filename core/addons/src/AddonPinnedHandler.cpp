@@ -163,6 +163,16 @@ HandlerDescriptorResult inspectPinnedMediaToolsHandler(
         return {HandlerDescriptorReason::digestMismatch, {}};
     if (::lseek(binary.value, 0, SEEK_SET) != 0)
         return {HandlerDescriptorReason::ioError, {}};
+    // A backend Agent may start with stdin/stdout/stderr closed. Never
+    // return a pinned handler descriptor occupying fd 0/1/2: the Import
+    // executor's stdout/stderr dup2 would overwrite that verified fd before
+    // fexecve and break the immutable handler identity.
+    if (binary.value < STDERR_FILENO + 1) {
+        const int safe = ::fcntl(binary.value, F_DUPFD_CLOEXEC, 3);
+        if (safe < 3)
+            return {HandlerDescriptorReason::ioError, {}};
+        binary = Fd(safe);
+    }
     return {HandlerDescriptorReason::verified,
             PinnedAddonHandler(binary.release())};
 }
