@@ -2,6 +2,33 @@
 
 const assert = require('assert');
 const fs = require('fs');
+
+// Production serves the session owner by bundling it into channel-day-program.js.
+// An explicit HTML script would execute the same owner module twice.
+const frontendHtml = fs.readFileSync('web/frontend/index.html', 'utf8');
+const installRules = fs.readFileSync('mk/install.mk', 'utf8');
+const routes = fs.readFileSync('core/http/src/TestHttpServerPaths.inc', 'utf8');
+const scripts = [...frontendHtml.matchAll(/<script\b[^>]*\bsrc="\.\.\/frontend\/([^"]+)"/g)]
+  .map(match => match[1]);
+assert.ok(scripts.includes('channel-day-program.js'),
+  'installed page must request the production session-owner bundle');
+assert.ok(scripts.indexOf('channel-day-program.js') < scripts.indexOf('live-tv-view.js'),
+  'bundled session owner must initialize before the Live-TV view');
+assert.ok(!scripts.includes('api/session-frontend-sync.js'),
+  'owner must not also be loaded directly: it would run twice');
+assert.ok(routes.includes('"/frontend/channel-day-program.js", "channel-day-program.js", "application/javascript; charset=utf-8", "api/session-frontend-sync.js"'),
+  'production HTTP route must bundle session owner onto channel-day-program.js');
+assert.ok(installRules.includes('web/frontend/api/session-frontend-sync.js $(DESTDIR)$(DATADIR)/web/frontend/api/session-frontend-sync.js'),
+  'runtime package must deploy the exact bundled Live session owner source');
+
+// Test the entire shipped HTML-to-runtime asset graph, not just the new player.
+const htmlRuntimeScripts = [...frontendHtml.matchAll(/<script\b[^>]*\bsrc="\.\.\/frontend\/([^"]+)"/g)]
+  .map(match => match[1]);
+assert.ok(htmlRuntimeScripts.length > 20, 'script inventory unexpectedly incomplete');
+for (const script of htmlRuntimeScripts) {
+  assert.ok(installRules.includes('$(DESTDIR)$(DATADIR)/web/frontend/' + script),
+    'installed page references JS missing from runtime package: ' + script);
+}
 const vm = require('vm');
 
 const source = fs.readFileSync('web/frontend/api/session-frontend-sync.js', 'utf8');
