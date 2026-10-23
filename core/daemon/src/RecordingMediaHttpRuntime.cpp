@@ -262,6 +262,16 @@ int runRecordingMediaHttpRuntime(
                     return error(404, "recording_not_found");
                 if (allowed.status != Status::ready)
                     return error(503, "recording_backend_unavailable");
+                // A nonzero position must be evidence from an owned, still
+                // active Recording MediaSession for this exact Recording.
+                // Session elapsed wall time is NEVER treated as a position.
+                if (!body.empty() && progress.positionSeconds > 0) {
+                    const auto owned = deviceSessions.describeOwned(
+                        progress.sessionId, verifiedDevice);
+                    if (!owned || owned->backendId != backendId ||
+                        owned->resourceId != allowed.recording.id)
+                        return error(409, "recording_progress_session_not_owned");
+                }
                 const std::string actorId = verifiedDevice.actor.actorId;
                 return body.empty()
                     ? ContinueWatchingApiRuntime::instance().publicProgressGet(
