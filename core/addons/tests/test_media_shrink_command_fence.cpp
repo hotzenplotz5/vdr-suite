@@ -1,4 +1,5 @@
 #include "MediaShrinkCommandFence.h"
+#include "MediaShrinkAgentExecutor.h"
 
 #include <cassert>
 #include <iostream>
@@ -126,8 +127,17 @@ int main() {
     changed.payload.payloadFingerprint = "different";
     assert(changed.inspect() == Status::payloadMismatch);
 
+    assert(vdrsuite::mediatools::validShrinkReviewEvidence(
+        f.command, review));
+    assert(!vdrsuite::mediatools::validShrinkReviewEvidence(
+        f.command, "/tmp/fake.rec"));
     f.publish();
     assert(f.inspect() == Status::candidateOnly);
+    assert(vdrsuite::mediatools::validShrinkReviewEvidence(
+        f.command, review));
+    assert(!vdrsuite::mediatools::validShrinkReviewEvidence(
+        f.command, "shk_0123456789abcdef0123456789abcdef"));
+
     changed = f;
     changed.op.expectedRevision = "2";
     assert(changed.inspect() == Status::operationMismatch);
