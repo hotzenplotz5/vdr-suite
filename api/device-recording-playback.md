@@ -142,3 +142,19 @@ is restricted to its separate Service-actor history.
 
 This remains **source-candidate behavior** until exact-head CI and real HTTP
 admission tests pass; no Browser, VIDAA or real-yaVDR acceptance is implied.
+
+### Existing Browser Continue Watching concurrency (P1)
+
+The original CSRF-protected `POST /api/media/continue-watching` remains
+backwards compatible. The bundled Browser frontend now calls its bounded,
+authenticated `operation:"revision"` read for one internal Recording,
+including retained zero-position tombstones. Subsequent sampled, pause/stop
+and completed-position writes include `expectedRevision` and use exactly
+the **same ContinueWatchingRepository optimistic compare-and-swap** as Public
+v1 Device clients. A successful write returns a new revision; a competing
+update returns HTTP 409 and blocks that playback owner's further progress
+writes, rather than blindly replaying an obsolete position. A new playback
+owner may establish a fresh revision at user-initiated start. The former
+legacy request without `expectedRevision` is still accepted as a
+migration-compatibility contract and is **not** claimed to be protected
+against competing older clients.
