@@ -75,7 +75,7 @@ The response contains only public identities. The actual playback engine decides
 whether its selected media profile implements resume; this read does not start it.
 
 `POST /api/v1/recording-playback-sessions/progress` body:
-`{"backendId":"default","recordingId":"rec_<32-lowercase-hex>","operationId":"unique","positionSeconds":120,"expectedRevision":0}`.
+`{"backendId":"default","recordingId":"rec_<32-lowercase-hex>","operationId":"unique","sessionId":"active-owned-session","positionSeconds":120,"expectedRevision":0}`. Nonzero positions require the current active, owned Device Recording Session for this exact recording. An explicit zero-position reset may omit `sessionId`.
 A measured playback position is accepted only under live Device credential +
 current backend play grant and the accepted public Recording resolver.
 Zero resets Resume (revision remains persisted as a tombstone). A position
