@@ -36,7 +36,7 @@ public:
         return MediaShrinkPlanApiRuntime::json(200,
             "{\"backendId\":\"" + backend +
             "\",\"capability\":\"addons.media.shrink\",\"available\":" +
-            (ready && authorizedStage ? "true" : "false") + ",\"
+            (ready && authorizedStage ? "true" : "false") + ","
             "\"planningAvailable\":" + (ready ? "true" : "false") +
             ",\"encoders\":[\"software\"]}");
     }
@@ -78,7 +78,7 @@ public:
                 "{\"backendId\":\"" + backend +
                 "\",\"recordingId\":\"" + recordingId +
                 "\",\"readOnly\":true,\"stageAvailable\":" +
-                (authorizedStage ? "true" : "false") + ",\"
+                (authorizedStage ? "true" : "false") + ","
                 "\"originalPreserved\":true,\"sourceBytes\":" +
                 std::to_string(inspected.totalBytes) +
                 ",\"segments\":" +
@@ -265,7 +265,7 @@ public:
             "\",\"state\":\"" + review.state +
             "\",\"revision\":" + std::to_string(review.revision) +
             ",\"readOnly\":true,\"publishAvailable\":" +
-            ((authorizedPublish && review.state == "staged") ? "true" : "false") + ",\"
+            ((authorizedPublish && review.state == "staged") ? "true" : "false") + ","
             "\"publishedRecordingId\":\"" +
             review.publishedRecordingId + "\"}");
     }
