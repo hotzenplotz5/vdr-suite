@@ -1062,7 +1062,7 @@
         operationId: input.operationId
       });
       if (input.sessionId !== undefined) payload.sessionId = input.sessionId;
-      // No automatic retry: on 409 re-read the current revision and let the
+      // No automatic resubmission: on 409 re-read the current revision and let the
       // client decide whether it really observed a newer playback position.
       return fetchImpl(buildUrl(baseUrl, path), {
         method: 'POST', headers: headers,
