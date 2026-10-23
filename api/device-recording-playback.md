@@ -68,6 +68,15 @@ The OpenAPI subset and its scoped guard now cover these seven source-backed Devi
 
 ## P1 recording-progress source candidate (2026-10-23)
 
+`GET /api/v1/recording-playback-sessions/continue-watching?backendId=...`
+returns `{backendId, items: [{recordingId, positionSeconds, durationSeconds,
+resumeSupport}], limit: 50}`. This list is scoped to the Device's own
+Service actor. Entries are reconciled against current recording truth and
+re-admitted through the existing exact-backend Device playback authorization
+before projection. Missing/deleted or unpermitted recordings are omitted.
+No Human Account identity or stored Metadata/Artwork is duplicated.
+
+
 `GET /api/v1/recording-playback-sessions/progress?backendId=...&recordingId=rec_...`
 returns `hasProgress`, `positionSeconds`, `revision`,
 `durationSeconds` (nullable) and `resumeSupport: "profile_dependent"`.
