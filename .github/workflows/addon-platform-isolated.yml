@@ -213,6 +213,8 @@ jobs:
           export TMPDIR="$RUNNER_TEMP"
           test -d "$TMPDIR"
           echo "TESTED_SHA=$(git rev-parse HEAD)"
+          # Exercise the combined Timer/Media Tools Agent receipt fixture early.
+          make test-phase63-command-delivery-runtime
           make check-addon-registry
           make test-addon-handler-registry
           make test-addon-provider-admission
@@ -260,7 +262,6 @@ jobs:
           # Build only: no service start, install, package or recording access.
           make -j2 daemon
           make test-backend-agent-client
-          make test-phase63-command-delivery-runtime
           make test-addon-activation-intent
           make test-addon-administration-service
           make test-addon-maintenance-read
