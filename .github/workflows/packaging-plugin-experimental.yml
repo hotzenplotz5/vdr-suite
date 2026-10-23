@@ -1182,7 +1182,11 @@ jobs:
             test "$(dpkg-query -W -f='${Status}' "$package")" = 'install ok unpacked'
           done
           echo 'P7_INTERRUPTED_UNPACK_STATE=PASS'
-          dpkg --configure -a
+          # Both conffiles have deliberately been modified by the operator.
+          # In noninteractive upgrades, keep the installed config verbatim.
+          # DEBIAN_FRONTEND=noninteractive alone does not answer dpkg's
+          # conffile prompt when the package ships changed defaults.
+          dpkg --force-confold --configure -a
           for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
             test "$(dpkg-query -W -f='${Status}' "$package")" = 'install ok installed'
             test "$(dpkg-query -W -f='${Version}' "$package")" = '0.14.1-1~exp2'
