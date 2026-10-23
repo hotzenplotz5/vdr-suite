@@ -132,6 +132,20 @@ test-security-device-authentication:
 	$(BUILD_DIR)/test_device_credential_authentication
 
 
+.PHONY: test-p1-device-playback-account-binding
+test-p1-device-playback-account-binding:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_REPOSITORY_SRC) \
+		core/security/src/DevicePlaybackAccountBindingService.cpp \
+		core/security/tests/test_device_playback_account_binding_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_device_playback_account_binding
+	$(BUILD_DIR)/test_device_playback_account_binding
+
+test-ci-fast: test-p1-device-playback-account-binding
+test-vdr: test-p1-device-playback-account-binding
+
 test-security-device-grant-administration:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
