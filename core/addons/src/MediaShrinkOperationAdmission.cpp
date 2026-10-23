@@ -265,11 +265,11 @@ MediaShrinkAdmissionResult MediaShrinkOperationAdmissionService::publish(
     // Reserve first, then exact CAS claim: a failed claim leaves an inert
     // accepted Core operation, never an independently executable command.
     // Crash/replay of an already claimed review returns the same operation.
-    const auto claimed = reviews_.claimPublication(
+    const auto claimResult = reviews_.claimPublication(
         req.actorId, req.backendId, req.reviewId, req.expectedRevision,
         result.operation.operationId);
-    if (claimed.status != MediaShrinkReviewStatus::ok &&
-        claimed.status != MediaShrinkReviewStatus::replayed)
+    if (claimResult.status != MediaShrinkReviewStatus::ok &&
+        claimResult.status != MediaShrinkReviewStatus::replayed)
         return out(Status::reviewConflict);
     return result;
 }
