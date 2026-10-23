@@ -17,7 +17,8 @@ public:
     using Plan = std::function<ApiResponse(const std::string&,
                                             const std::string&,
                                             const std::string&)>;
-    using Capability = std::function<ApiResponse(const std::string&)>;
+    using Capability = std::function<ApiResponse(const std::string&,
+                                                     const std::string&)>;
     using ReviewStatus = std::function<ApiResponse(const std::string&,
                                                    const std::string&,
                                                    const std::string&)>;
@@ -126,7 +127,7 @@ public:
             std::lock_guard<std::mutex> lock(mutex_);
             capability = capability_;
         }
-        response = capability ? capability(backend)
+        response = capability ? capability(actor, backend)
                               : problem(503, "Media Shrink unavailable.");
         return true;
     }
