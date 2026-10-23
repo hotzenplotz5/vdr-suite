@@ -47,6 +47,9 @@ for dir in "$SOURCE" "$VIDEO"; do
   [[ "$dir" != *$'\t'* && "$dir" != *$'\n'* ]] || stop "unsafe media path characters"
 done
 [ "$SOURCE" != "$VIDEO" ] || stop "same source and destination"
+# ProtectSystem=strict needs an explicit bounded VDR video write exception.
+[[ "$VIDEO" =~ ^/[a-zA-Z0-9_./-]+$ ]] || stop "video path cannot be safely represented in systemd override"
+case "$SOURCE" in /home/*|/root/*|/run/user/*) stop "source hidden by Backend Agent ProtectHome sandbox";; esac
 [ -f /etc/vdr-suite/backend-agent.conf ] || stop "Agent not configured"
 grep -Fxq "BACKEND_ID=$BACKEND" /etc/vdr-suite/backend-agent.conf || stop "backend mismatch"
 grep -Eq '^CONTROL_PLANE_URL=https://[^[:space:]]+$' /etc/vdr-suite/backend-agent.conf || stop "Agent control plane unavailable"
@@ -177,7 +180,7 @@ create('/etc/vdr-suite/addon-approvals/rectools.import-running.lock', '')
 create('/etc/vdr-suite/addon-sources/media-import.tsv',
        f'{backend}\tlocal-media-import\t{source}\t{video}\t*\n')
 create('/etc/systemd/system/vdr-suite-backend-agent.service.d/20-media-tools.conf',
-       '[Service]\nExecStart=\nExecStart=/usr/sbin/vdr-suite-backend-agent --config /etc/vdr-suite/backend-agent.conf --enable-media-import --enable-media-shrink --media-shrink-state-dir /var/lib/vdr-suite/backend-agent/media-shrink\n')
+       '[Service]\nExecStart=\nExecStart=/usr/sbin/vdr-suite-backend-agent --config /etc/vdr-suite/backend-agent.conf --enable-media-import --enable-media-shrink --media-shrink-state-dir /var/lib/vdr-suite/backend-agent/media-shrink\nReadWritePaths=' + video + '\n')
 PY
 sudo install -d -o vdr -g vdr -m 0700 /var/lib/vdr-suite/backend-agent/media-shrink || stop "private shrink state"
 sudo systemctl daemon-reload || stop "systemd reload"
