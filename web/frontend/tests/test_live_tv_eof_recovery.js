@@ -107,7 +107,7 @@ const window = {
           this.delivered = true;
           return Promise.resolve({done: false, value: init});
         }
-        return new Promise(resolve => pendingReads.push({reader: this, resolve}));
+        return new Promise((resolve, reject) => pendingReads.push({reader: this, resolve, reject}));
       },
       cancel() {this.cancelled = true; return Promise.resolve();}
     };
@@ -225,7 +225,24 @@ function dispatch(name, event) {(listeners[name] || []).slice().forEach(fn => fn
   assert.strictEqual(requests.filter(request => !request.operation).slice(-1)[0].replacesSessionId,
     'live-4', 'resume must use server-fenced STOP-old-before-OPEN-new');
   hidden.destroy();
-  console.log('Live-TV EOF recovery, BFCache, resumed-tab stall, ownership and retry budget: PASS');
+
+  const aborted = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {id: 'C-1-1051-10301'}, 'default', {}
+  );
+  await aborted.start();
+  await flush();
+  const reader = readers[readers.length - 1];
+  const pending = pendingReads.find(entry => entry.reader === reader);
+  assert.ok(pending);
+  pendingReads.splice(pendingReads.indexOf(pending), 1);
+  const abortedError = new Error('unexpected network abort');
+  abortedError.name = 'AbortError';
+  pending.reject(abortedError);
+  await flush();
+  assert.ok(aborted.element.children[1].textContent.includes('Wiederverbindung'),
+    'unexpected AbortError must not be silently suppressed as teardown');
+  aborted.destroy();
+  console.log('Live-TV EOF/AbortError, BFCache, resumed-tab stall, ownership and retry budget: PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});
 
 function runPendingTimers() {
