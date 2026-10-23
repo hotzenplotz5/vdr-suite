@@ -53,6 +53,7 @@ struct Fixture {
 struct FakeProcess final : ProcessRunner {
     bool rejectHardware = false, failEncode = false, failIndex = false;
     bool badDuration = false, badHeight = false;
+    bool incompatibleAudio = false;
     int hardwareCalls = 0, softwareCalls = 0;
     int indexes = 0;
     ProcessResult run(const std::vector<std::string>& args, bool captured) override {
@@ -63,8 +64,11 @@ struct FakeProcess final : ProcessRunner {
         if (args.front() == "/usr/bin/ffprobe") {
             assert(captured);
             const bool isOutput = args.back().find("00001.ts") != std::string::npos;
-            if (contains("stream=codec_name"))
+            if (contains("stream=codec_name")) {
+                if (contains("a"))
+                    return {0, incompatibleAudio ? "opus\n" : "aac\n"};
                 return {0, isOutput ? "hevc\nhevc\n" : "h264\nh264\n"};
+            }
             if (contains("format=duration"))
                 return {0, isOutput && badDuration ? "10.0\n" : "60.0\n"};
             if (contains("stream=height"))
@@ -84,6 +88,8 @@ struct FakeProcess final : ProcessRunner {
                 ++softwareCalls;
             }
             if (hw && rejectHardware) return {1, ""};
+            if (incompatibleAudio)
+                assert(contains("aac") && contains("192k"));
             if (failEncode) return {1, ""};
             std::ofstream(args.back(), std::ios::binary) <<
                 std::string(8192, 'Y');
@@ -163,6 +169,17 @@ int main() {
         assert(fs::exists(staged / "00001.ts"));
         assert(runner.hardwareCalls == 1 && runner.softwareCalls == 1);
         assert(fixture.input().size() == plan.totalBytes);
+        ++checks;
+    }
+    {
+        Fixture fixture;
+        FakeProcess runner;
+        runner.incompatibleAudio = true;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        assert(fs::exists(candidate / "00001.ts") && runner.softwareCalls == 1);
+        assert(fixture.input().size() == 32768);
         ++checks;
     }
     {
