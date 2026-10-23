@@ -7121,7 +7121,7 @@
         ],
         "operationId": "updateDeviceRecordingProgress",
         "summary": "Commit confirmed playback progress with optimistic revision",
-        "description": "Device credential and exact backend play grant required. The caller supplies a measured playback position and last observed revision. Position zero clears the resume cursor while retaining its revision fence. A position at or beyond verified duration is treated as completed; no playback is inferred from session lifetime. 409 requires a fresh GET; never blind retry. One request per deliberate checkpoint, pause or stop, not per frame.",
+        "description": "Device credential and exact backend play grant required. For nonzero progress the caller supplies an active owned sessionId, measured playback position and last observed revision. Position zero clears the resume cursor while retaining its revision fence. A position at or beyond verified duration is treated as completed; no playback is inferred from session lifetime. 409 requires a fresh GET; never blind retry. One request per deliberate checkpoint, pause or stop, not per frame.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Verified current Device credential, media.recording.play@backendId and current public rec_ identity. Own Service-actor progress only; not a Human Account binding."
@@ -7153,6 +7153,12 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 128
+                  },
+                  "sessionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "Required for nonzero progress: still-ready session owned by this exact Device and public Recording. Omit for explicit zero reset."
                   },
                   "positionSeconds": {
                     "type": "integer",
