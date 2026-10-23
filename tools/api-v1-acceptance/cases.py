@@ -3,6 +3,7 @@
 Every live request uses HttpClient.get only. No legacy /api/ probes, no
 validate/dry-run POST, no MediaSession creation and no retry on timeout.
 """
+import getpass
 import json
 from pathlib import Path
 import re
@@ -78,9 +79,48 @@ def get(a, route, **params):
     return a.get_json(endpoint(route, **params))[0]
 
 
+def require_actor(a):
+    if "device" not in a.cfg and not a.client.browser_cookie:
+        raise Blocked("Device credential or existing administrator Browser Session missing")
+
+
 def require_device(a):
     if "device" not in a.cfg:
-        raise Blocked("paired Device credential missing; private 0600 config required")
+        raise Blocked("this Device-owned playback route requires a Device credential; an administrator Browser Session is not a Device")
+
+
+def browser_admin_login(a):
+    if not a.admin_user:
+        raise Skip("no administrator login selected")
+    if not sys.stdin.isatty():
+        raise Blocked("interactive terminal required for administrator password")
+    password = getpass.getpass("VDR-Suite Passwort (" + a.admin_user + "): ")
+    try:
+        a.client.open_browser_session(a.admin_user, password)
+    finally:
+        del password
+    try:
+        document, _ = a.client.expect(V1)
+        a.require(document.get("authentication", {}).get("authenticated") is True,
+                  "administrator login not authenticated at public API root",
+                  path=V1)
+    except BaseException:
+        try:
+            a.client.close_browser_session()
+        except (Blocked, Problem):
+            pass
+        raise
+    a.context["actor_authenticated"] = True
+    return "existing-administrator-session"
+
+
+def admin_accounts_read(a):
+    if not a.client.browser_cookie:
+        raise Blocked("administrator Browser Session unavailable")
+    path = endpoint(V1 + "/accounts", limit=1)
+    data, _ = a.get_json(path)
+    collection(data, path, 1)
+    a.require(no_private_paths(data), "account read exposed private path", path=path)
 
 
 def check_spec(a):
@@ -282,7 +322,7 @@ def invalid_auth(a):
 
 
 def backends(a):
-    require_device(a)
+    require_actor(a)
     d = get(a, V1 + "/backends", limit=10)
     items = collection(d, V1 + "/backends", 10)
     matches = [r for r in items if isinstance(r, dict) and r.get("backendId") == a.backend]
@@ -292,7 +332,7 @@ def backends(a):
 
 
 def isolation(a):
-    require_device(a)
+    require_actor(a)
     denied = a.cfg.get("deniedBackend")
     if not denied or not BACKEND.fullmatch(str(denied)) or denied == a.backend:
         raise Blocked("separate known unauthorized backend ID not configured")
@@ -665,11 +705,7 @@ def searchtimer_bad_public_id(a):
 
 
 def account_admin_read(a):
-    # Admin/Human GET cannot be authenticated with a Device grant alone.
-    # The current configured identity is a paired Device, not a fabricated
-    # Browser Session. Explicitly hold the matrix item open.
-    raise Blocked("admin Browser Session/Human Account context not configured; "
-                  "no guessed cookies, CSRF or privilege elevation")
+    return admin_accounts_read(a)
 
 
 def foreign_device_ownership(a):
@@ -724,11 +760,18 @@ def run_cases(a):
                             required=False)
         if ident not in ("discovery.root", "preflight.source-runtime"):
             requires = ("runtime_verified",) + tuple(requires)
+        if (a.admin_user and ident not in (
+                "discovery.root", "preflight.source-runtime",
+                "security.browser-admin-login", "discovery.capabilities",
+                "security.unauthenticated", "security.invalid-credential")):
+            requires = ("actor_authenticated",) + tuple(requires)
         return a.check(ident, area, task, requires=requires, required=required)
 
     hardware("discovery.root", "DISCOVERY", lambda: root(a))
     hardware("preflight.source-runtime", "INTEGRATION", lambda: runtime_match(a),
             requires=("root",))
+    hardware("security.browser-admin-login", "SECURITY", lambda: browser_admin_login(a),
+             requires=("root",), required=bool(a.admin_user))
     hardware("discovery.capabilities", "DISCOVERY", lambda: discovery(a),
             requires=("root",))
     hardware("security.unauthenticated", "SECURITY", lambda: missing_auth(a),

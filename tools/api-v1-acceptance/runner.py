@@ -6,6 +6,8 @@ The final hardware write matrix is in docs/development/public-v1-final-hardware-
 from __future__ import annotations
 
 import argparse
+import base64
+import getpass
 import datetime as dt
 import json
 import os
@@ -179,6 +181,7 @@ class HttpClient:
     def __init__(self, origin, cfg=None):
         self.origin = origin_ok(origin)
         self.cfg = cfg or {}
+        self.browser_cookie = None
         self.opener = urllib.request.build_opener(
             urllib.request.ProxyHandler({}), NoRedirect())
 
@@ -194,6 +197,8 @@ class HttpClient:
             token = "VDR-Suite-Device invalid.invalid"
         if token:
             headers["Authorization"] = token
+        elif auth and not invalid and self.browser_cookie:
+            headers["Cookie"] = self.browser_cookie
         req = urllib.request.Request(self.origin + path, method="GET", headers=headers)
         status, raw, reply = None, b"", {}
         try:
@@ -235,6 +240,78 @@ class HttpClient:
                                   path=path, actual=status, request_id=cid,
                                   shape="valid JSON object")
         return status, data, header
+
+    def _session_request(self, path, headers):
+        # The only allowed POST operations are login and logout of the
+        # existing administrator's temporary browser session.
+        if path not in ("/api/security/browser-sessions",
+                        "/api/security/browser-sessions/logout"):
+            raise ConfigError("session operation not on the allowlist")
+        if urllib.parse.urlsplit(self.origin).hostname not in ("127.0.0.1", "::1"):
+            raise ConfigError("interactive administrator session requires loopback origin")
+        req = urllib.request.Request(self.origin + path, method="POST", data=b"{}",
+            headers={"Accept": "application/json", "Content-Type": "application/json",
+                     "Origin": self.origin, **headers})
+        try:
+            with self.opener.open(req, timeout=TIMEOUT) as response:
+                return response.status, response.read(65537), dict(response.headers.items())
+        except urllib.error.HTTPError as error:
+            return error.code, error.read(65537), dict(error.headers.items())
+        except (OSError, TimeoutError, urllib.error.URLError) as error:
+            raise Blocked("administrator session service unreachable (" +
+                          type(error).__name__ + ")",
+                          method="POST", path=path)
+
+    def open_browser_session(self, username, password):
+        if self.browser_cookie:
+            raise ConfigError("administrator session already active")
+        if not isinstance(username, str) or not re.fullmatch(r"[A-Za-z0-9_.@-]{1,128}", username):
+            raise ConfigError("invalid administrator login name")
+        if not isinstance(password, str) or not password:
+            raise Blocked("administrator password missing", method="POST",
+                          path="/api/security/browser-sessions")
+        basic = base64.b64encode((username + ":" + password).encode("utf-8")).decode("ascii")
+        status, raw, headers = self._session_request(
+            "/api/security/browser-sessions", {"Authorization": "Basic " + basic})
+        del basic
+        if status != 200:
+            if status in (401, 403, 429, 503):
+                raise Blocked("administrator login rejected (HTTP " + str(status) + ")",
+                              kind="authentication_failed" if status in (401, 403)
+                              else "session_unavailable", method="POST",
+                              path="/api/security/browser-sessions", actual=status)
+            raise Problem("admin_session_http_status", "unexpected HTTP status",
+                          method="POST", path="/api/security/browser-sessions",
+                          actual=status)
+        if len(raw) > 65536:
+            raise Problem("response_too_large", "session reply exceeded 64KiB",
+                          method="POST", path="/api/security/browser-sessions")
+        try:
+            document = json.loads(raw.decode("utf-8"))
+        except (UnicodeError, ValueError):
+            raise Problem("admin_session_response", "invalid session response JSON",
+                          method="POST", path="/api/security/browser-sessions")
+        cookie = {k.lower():v for k,v in headers.items()}.get("set-cookie", "").split(";", 1)[0]
+        csrf = document.get("csrfToken") if isinstance(document, dict) else None
+        if (not re.fullmatch(r"vdr_suite_session=[A-Za-z0-9_.~%+/-]{8,4096}", cookie)
+                or not isinstance(csrf, str) or not csrf
+                or "\r" in csrf or "\n" in csrf):
+            raise Problem("admin_session_response", "session cookie or CSRF missing/invalid",
+                          method="POST", path="/api/security/browser-sessions")
+        self.browser_cookie, self.browser_csrf = cookie, csrf
+        return "administrator-session-created"
+
+    def close_browser_session(self):
+        if not self.browser_cookie:
+            return
+        cookie, csrf = self.browser_cookie, self.browser_csrf
+        self.browser_cookie, self.browser_csrf = None, None
+        status, _, _ = self._session_request("/api/security/browser-sessions/logout",
+                              {"Cookie": cookie, "X-CSRF-Token": csrf})
+        if status not in (200, 204):
+            raise Blocked("administrator logout not confirmed (HTTP " + str(status) + ")",
+                          method="POST", path="/api/security/browser-sessions/logout",
+                          actual=status)
 
     def expect(self, path, *, statuses=(200,), auth=True, invalid=False, binary=False):
         code, data, hdr = self.get(path, auth=auth, invalid=invalid, binary=binary)
@@ -336,6 +413,11 @@ class Acceptance:
                                        or cfg.get("expectedDaemonCommit"))
         if self.expected_daemon_commit is not None and not SHA.fullmatch(self.expected_daemon_commit):
             raise ConfigError("expected daemon commit must be an exact 40-character Git SHA")
+        self.admin_user = getattr(args, "admin_user", None)
+        if self.admin_user and "device" in cfg:
+            raise ConfigError("choose administrator session OR Device credential")
+        if self.admin_user and not re.fullmatch(r"[A-Za-z0-9_.@-]{1,128}", self.admin_user):
+            raise ConfigError("invalid administrator login name")
         self.client = HttpClient(args.origin or cfg.get("origin", DEFAULT_ORIGIN), cfg)
         self.backend = args.backend or cfg.get("backend", "default")
         if not BACKEND.fullmatch(self.backend):
@@ -466,6 +548,7 @@ class Acceptance:
             "Source branch: " + (self.branch or "unknown"),
             "Installed daemon: " + self.runtime_version,
             "Daemon target verification: " + self.evidence,
+            "Authentication: " + ("admin-browser" if self.admin_user else "device" if "device" in self.cfg else "anonymous"),
             "Backend: " + self.backend,
             "Profile: " + self.args.profile, "",
         ]
@@ -517,6 +600,7 @@ def arguments(argv=None):
     p.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     p.add_argument("--origin", help="override origin; HTTP is loopback-only")
     p.add_argument("--backend", help="authorized Public-v1 backend ID")
+    p.add_argument("--admin-user", help="existing Human administrator login; password entered securely at terminal")
     p.add_argument("--expected-daemon-commit",
                    help="exact target daemon Git SHA, never inferred from runner checkout")
     p.add_argument("--output-dir", type=Path, default=DEFAULT_RESULTS)
@@ -543,6 +627,10 @@ def main(argv=None):
         # KeyboardInterrupt and unexpected orchestration exceptions persist.
         acceptance.record("runner.unhandled", "INTEGRATION", "BLOCKED",
                           "execution_aborted: " + type(e).__name__)
+    finally:
+        if acceptance.client.browser_cookie:
+            acceptance.check("security.browser-admin-logout", "SECURITY",
+                             acceptance.client.close_browser_session)
     overall = acceptance.persist()
     print((acceptance.output / "last-summary.txt").read_text())
     return EXIT[overall]

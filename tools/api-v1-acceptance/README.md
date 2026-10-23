@@ -17,7 +17,9 @@ Offline (kein Daemon erforderlich):
     python3 tools/run_api_v1_acceptance.py --profile offline
     python3 -m unittest discover -s tests -p test_api_v1_acceptance_runner.py -v
 
-Der Standard-Origin ist http://127.0.0.1:18080; der Backend ist default. Über CLI --origin und --backend überschreibbar. HTTP nur auf Loopback, HTTPS für entfernte Origins. Ausschließlich serielle GETs, Timeout 8 Sekunden, JSON maximal 1 MiB, Artwork maximal 256 KiB; keine Redirects. Es gibt **keine HTTP-Mutationsfunktion**, keine POST-dry-runs, keine MediaSessions, keine automatischen Retries oder Dienstneustarts.
+Als vorhandener Administrator: `--profile readonly --admin-user vdr-suite --expected-daemon-commit <vollständiger-SHA>`. Der Runner liest das Passwort verdeckt am Root-Terminal ein; es wird weder gespeichert noch protokolliert. Er verwendet eine kurzlebige Browser-Session. **Nur** der fest verdrahtete Session-Login und Session-Logout verwenden POST (Security-Session-Persistenz); sämtliche VDR-/Public-v1-Acceptance-Requests bleiben GET. Keine neuen Konten, Geräte, Grants, Timer oder Aufnahmen. Ein Admin ist kein Device: Device-eigene Playback/Resume-Gates bleiben BLOCKED. Negative Authentifizierungstests senden bewusst keinen Session-Cookie.
+
+Der Standard-Origin ist http://127.0.0.1:18080; der Backend ist default. Über CLI --origin und --backend überschreibbar. HTTP nur auf Loopback, HTTPS für entfernte Origins. Außer ausdrücklich gewähltem Session-Login und -Logout ausschließlich serielle GETs, Timeout 8 Sekunden, JSON maximal 1 MiB, Artwork maximal 256 KiB; keine Redirects. Es gibt **keine produktive VDR-Mutationsfunktion**, keine POST-dry-runs, keine MediaSessions, keine automatischen Retries oder Dienstneustarts.
 
 ## Authentifizierung und private Konfiguration
 
