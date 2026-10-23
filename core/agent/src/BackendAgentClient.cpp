@@ -2017,6 +2017,7 @@ bool BackendAgentClientRuntime::pollCommands(
     commandConfig.legacyOsdInputTransport =
         config_.legacyOsdInputTransport;
     commandConfig.mediaImportExecutor = config_.mediaImportExecutor;
+    commandConfig.mediaShrinkExecutor = config_.mediaShrinkExecutor;
 
     BackendAgentCommandClientContext commandContext{
         state_.agentId,
@@ -2110,6 +2111,7 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
     commandConfig.legacyOsdInputTransport =
         config_.legacyOsdInputTransport;
     commandConfig.mediaImportExecutor = config_.mediaImportExecutor;
+    commandConfig.mediaShrinkExecutor = config_.mediaShrinkExecutor;
     BackendAgentCommandClientContext commandContext{state_.agentId, state_.credentialSecret, state_.backendId, agentInstanceId_, state_.backendGeneration};
     if (!reconcileBackendAgentCommandState(commandConfig, commandContext, transport_, reasonCode))
     {
