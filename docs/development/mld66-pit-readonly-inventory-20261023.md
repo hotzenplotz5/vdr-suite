@@ -47,6 +47,10 @@ Pit now confirms RESTfulAPI `SRC_URI` points to `yavdr/vdr-plugin-restfulapi` `m
 
 Pit ran `recordings.html?start=0&limit=1` twice: HTTP 200 in **0.012861s** and **0.001116s**. This is one HTML item and is **not directly comparable** to the timed-out *full* `recordings.json`. The next controlled measurement is a *single* 10-second bounded `recordings.json?start=0&limit=1` request, if the host remains stable. Pit reports VDR restarts only with **VDR-Suite installed**; the SuiteBridge-only baseline has not displayed those restarts. Determine *install vs service-start vs running workload* and examine the first failure safely before assigning a cause. [Detailed analysis](mld66-pit-vpath-http-crash-evidence-20261023.md).
 
+## Single-item JSON failure and source-confirmed conditional defect
+
+New maintainer measurement: `/recordings.json?start=0&limit=1` **HTTP 000 / curl 28 / 10.002424s / 0 bytes**, directly comparable to the fast one-item HTML result. The pinned RESTfulAPI source contains a conditional endless loop in `cleanImagePath()` → `StringExtension::replace()` if its EPG image path is empty and TVScraper media calls reach that code. An absent default `/var/cache/vdr/epgimages` can leave `Settings::epgimage_dir` empty; the **effective** `eimgs:` configuration on Pit's MLD host has not been checked. Do **not** claim the root cause is confirmed or that this alone causes his ~4-minute VDR restarts after installing full Suite. Read-only proof and proposed vendor patch: [detail](mld66-pit-vpath-http-crash-evidence-20261023.md), [unapplied patch](../../packaging/mld66/patches/0001-restfulapi-guard-empty-epg-image-root.patch).
+
 ## Acceptance status
 
 **MLD.1A** runtime inventory and SuiteBridge read-only `CAPS` and `VPATH 1` responses: **reported PASS**. **MLD.1B** standalone native Suite build/install: **NOT TESTED**. RESTfulAPI recording reads: **FAIL at 30s**. `/change-state` after update: **OPEN**. Native write acceptance, FFmpeg-backed features, network isolation and independent non-root Suite services: **OPEN**.
