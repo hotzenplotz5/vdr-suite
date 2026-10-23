@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
@@ -16,6 +17,21 @@ struct ContinueWatchingState
     int positionSeconds = 0;
     std::string lastActivityAt;
     std::string lastOperationId;
+    std::int64_t revision = 0;
+};
+
+// CAS is scoped to the authenticated actor and recording. Revision zero
+// means the client observed no row. Clearing via CAS keeps a tombstone so
+// delayed updates cannot resurrect a reset position.
+enum class ContinueWatchingMutationStatus
+{
+    applied, replayed, conflict, invalid, unavailable
+};
+
+struct ContinueWatchingMutationResult
+{
+    ContinueWatchingMutationStatus status = ContinueWatchingMutationStatus::unavailable;
+    std::int64_t revision = 0;
 };
 
 struct ContinueWatchingRecordingTruth
@@ -50,6 +66,14 @@ public:
         const std::string& backendNativeId,
         int positionSeconds,
         const std::string& operationId);
+    ContinueWatchingMutationResult updateConditional(
+        const std::string& actorId,
+        const std::string& backendId,
+        const std::string& recordingId,
+        const std::string& backendNativeId,
+        int positionSeconds,
+        const std::string& operationId,
+        std::int64_t expectedRevision);
     bool clear(
         const std::string& actorId,
         const std::string& backendId,
