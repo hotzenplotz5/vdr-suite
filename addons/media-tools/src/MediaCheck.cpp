@@ -128,6 +128,9 @@ void inspectPacket(const unsigned char* p,
     }
     if (pid == 0x1fff) return; // Null PID does not have a useful continuity counter.
     if (discontinuity) counters.reset[pid] = true;
+    if (control == 2 && counters.last[pid] >= 0 &&
+        !counters.reset[pid] && cc != counters.last[pid])
+        ++report.continuityWarnings; // No payload: counter must not advance.
     if (control == 1 || control == 3) {
         if (counters.last[pid] >= 0 && !counters.reset[pid] &&
             cc != ((counters.last[pid] + 1) & 15))
