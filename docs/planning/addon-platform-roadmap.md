@@ -63,12 +63,12 @@ or metadata-only presence may bootstrap trust.
 | A2M. Manual-install registration path | Explicit safe declaration of a source-built, administrator-installed and integrity-pinned backend handler | **Partial:** root-admin issue/revoke, native approval/descriptor and version-matched installed manifest snapshot, nonroot Agent-file-access CI; no automatic activation; disabled Core registry definition | Fixed reviewed module-to-binary mapping, version and digest, secure owner/mode checks, revocation/uninstall detection; no caller-selected executable |
 | A3. Core access/desired-state preview | Canonical actor/backend policy, revision-fenced SQLite intent, read-only eligibility preview | C++ isolated checks 21 + 17 + 20 accepted before TVScraper removal | No execution permit; denied by default and on any lost evidence |
 | A4. Trusted runtime provider | Common core authority over either reviewed manual-install or reviewed Debian package provenance, with fixed binary identity and healthy backend-local handler | **Partial:** disabled Core admission, pinned identity/generation, approval comparison, root-owned installed manifest/revocation checks and unprivileged Agent-path CI; no package-derived Core execution permit | Both paths use the same registry, signed/admin-approved provenance policy and negative trust tests; neither dpkg alone nor source files confer authority |
-| A5. Administration and operation rights | Admin enable/disable with audit/idempotency/migrations; scoped Media Tools grants | Durable audit/CAS and exact backend-scoped import/shrink grants exist; HTTP grant eligibility now checks live Agent capabilities. **Admin enable remains deliberately denied until trusted Core provider and authenticated activation route are integrated and verified.** | Proper grant vocabulary, authorization, CSRF, preconditions, revocation and upgrade/removal semantics |
-| A6. Protected backend execution | Fenced command/worker, bounded resources and crash-safe durable jobs | **Partial:** non-executing canonical command/generation gate plus real Agent-poll denial of unregistered add-on command namespaces; no command adapter/executor | Agent generation and job fencing, cancellation/retry/readback, no arbitrary paths or shell |
+| A5. Administration and operation rights | Admin enable/disable with audit/idempotency/migrations; scoped Media Tools grants | Durable audit/CAS and exact backend-scoped import/shrink grants exist; HTTP grant eligibility checks live Agent capabilities, exact-revision intent no-ops avoid duplicate writes, and desired-enable is now atomically blocked by the global Media Tools maintenance freeze (including cross-connection tests). **Admin enable remains deliberately denied until trusted Core provider and authenticated activation route are integrated and verified.** | Proper grant vocabulary, authorization, CSRF, preconditions, revocation and upgrade/removal semantics |
+| A6. Protected backend execution | Fenced command/worker, bounded resources and crash-safe durable jobs | **Source-integrated, not host-accepted:** canonical operation fences, authenticated Agent-poll and receipt revalidation, optional pinned Import and explicitly opted-in HEVC Stage/Publish executors, durable once-only recovery and child-lifetime maintenance locks. No default add-on activation. | Agent generation and job fencing, cancellation/retry/readback, no arbitrary paths or shell |
 | A7. Public API and client UI | Entitlement-filtered discovery, safe admin surface, addon action/status | **A7.1–A7.5 isolated source implementation and canonical install staging validated; frontend owner-handoff/late-response regressions included. Not deployed.** Capability, opaque source listing, protected admission and actor-owned Operation GET reuse Core and canonical frontend. | Versioned v1 routes, grants/session/CSRF tests, actual UI composition, source expiry and uncertain-state checks; safe install staging and separately authorized host acceptance before production |
-| M1. Media Tools import | Single-file safe remux to VDR recording | Standalone C++ prototype; 11 isolated tests passed; private C++ preview .deb | Fix missing TOCTOU/fd, timeouts, crash recovery and recording reconciliation before live writes |
-| M2. Media Tools Check | Read-only FFprobe/FFmpeg recording integrity report | **M2.0/M2.1 source-stage:** standalone read-only C++ TS checker plus bounded, piped FFmpeg software decode and JSON decoder result; disposable simulated/real TS tests; Web/API jobs and installed runtime remain missing | No markers, messages or recording-file writes; bounded parser/job/tests |
-| M3. Media Tools Shrink | Optional space reduction preserving original until separately verified | **Source-integrated, not runtime-accepted:** C++ stage/review/publish, Core Operations, Agent opt-in, API and Recording Hero exist; HTTP grant eligibility is wired, but trusted administrative activation, build/test and full HEVC host acceptance remain open | Explicit consent, staged output/verification, extra VDR recording reconciliation and original preservation; no silent replacement |
+| M1. Media Tools import | Single-file safe remux to VDR recording | Source-integrated C++ remux/transcode with bounded IO, approved source roots, pinned Agent worker, protected staged VDR result and Core reconciliation; full installed-backend acceptance remains open | Fix missing TOCTOU/fd, timeouts, crash recovery and recording reconciliation before live writes |
+| M2. Media Tools Check | Read-only FFprobe/FFmpeg recording integrity report | **M2.0–M2.2 source-integrated:** bounded read-only TS/FFprobe/FFmpeg checker, canonical recording-ID resolver, backend-local daemon job and actor-owned API/status/Recording UI; remote Agent jobs and installed host acceptance remain open | No markers, messages or recording-file writes; bounded parser/job/tests |
+| M3. Media Tools Shrink | Optional space reduction preserving original until separately verified | **Source-integrated, not runtime-accepted:** C++ stage/review/publish, Core Operations, Agent opt-in, API and Recording Hero exist; HTTP grant eligibility is wired; the global maintenance freeze covers both HEVC actions; a child-inherited package lock protects ffmpeg, and Stage records original duration for single-/multi-segment Publish revalidation. Newly added tests remain source-level; trusted administration and real backend acceptance are still open | Explicit consent, staged output/verification, extra VDR recording reconciliation and original preservation; no silent replacement |
 
 **A1–A3 are foundations, not proof of a usable add-on manager.** The
 non-executing admission preview may report synthetic policy eligibility but
@@ -103,6 +103,19 @@ source/manual staging and future Debian packaging, **not** permission or a
 release-signature substitute. Production activation, upgrade choreography,
 installed-package verification and real-host acceptance remain open.
 
+### A2M/A4 remote-backend trust gap (still open)
+
+The installed snapshot from `inspectMediaToolsInstallSnapshot("/")` is a
+**local filesystem observation only**. Core must NOT treat a binary
+installed beside the daemon as proof of the package on a remote backend,
+even when that backend's Agent advertises the corresponding command.
+The productive provider must obtain authenticated backend-local provenance
+bound to the administrator-approved digest, version, revocation state,
+backend generation and exact Agent handler lease; Core must recheck it at
+dispatch. Capability advertisements alone are insufficient. Until this
+is implemented, desired state is not effective activation, and the
+administrator enable API remains gated.
+
 ## A4 read-only package maintenance admission checkpoint
 
 The new `AddonMediaToolsMaintenanceReadService` queries the **existing**
@@ -121,18 +134,21 @@ must coordinate a durable no-new-admission fence, already executing
 Agent commands, authenticated effective rights, all relevant backends,
 package provenance, rollback and audited administrator intent.
 
-## A4 durable global Media Import reservation freeze (isolated)
+## A4 durable global Media Tools reservation freeze (source integrated)
 
 The Core `AddonMediaImportMaintenanceFence` persists a **global** freeze
-for the fixed `rectools` Media Import action in the *same* SQLite
-authority as ADR-0042 operations. A global administrator changes its state
+for the fixed `rectools` Media Import, HEVC Stage and HEVC Publish
+action families in the *same* SQLite authority as ADR-0042 operations. A global administrator changes its state
 only through a revision-fenced, audited SQLite write transaction. The
 canonical `MutationOperationRepository` now checks the freeze inside
-the SAME `BEGIN IMMEDIATE` transaction used for new `media.import`
+the SAME `BEGIN IMMEDIATE` transaction used for all three Media Tools
 reservations, across all backends and independent SQLite connections.
-New imports cannot slip between a separate preflight read and their
-reservation; an existing exact idempotent replay remains readable.
-Uninitialized/missing gate schema fails closed for Media Import, while
+New Media Tools operations cannot slip between preflight and reservation;
+existing exact idempotent replays remain readable. The administrator
+desired-enable CAS checks this freeze in its own serialized write transaction;
+reaffirmed enable is blocked, but explicit disable remains possible.
+Uninitialized/missing or invalid gate schema fails closed for all three
+actions and for desired-enable, while
 unrelated timer operations keep their original semantics. An explicit,
 audited revision-fenced unfreeze changes only the reservation gate, never
 administrator desired-enabled state or executable permissions.
@@ -149,11 +165,11 @@ is added in this slice.
 A fixed, root-controlled
 `/etc/vdr-suite/addon-approvals/rectools.import-running.lock` inode
 complements the global Core SQLite admission freeze and read-only durable
-operations inspection. Media Import now refuses to run if this protected
-lock inode is missing or unsafe. The pinned Agent executor holds its shared
-`flock` throughout approval revalidation and into the handler's `fexecve`
-lifetime, including descendants, so an Agent crash cannot silently free the
-advisory execution lock while its handler still lives. Disposable CI fixture
+operations inspection. Media Import and HEVC Stage/Publish now refuse to run if the protected
+lock inode is missing or unsafe. Import holds its shared `flock` through
+handler `fexecve`, and the HEVC Agent wrapper passes the same protected
+lock into FFmpeg/VDR `execv` children. An Agent crash must not silently
+release the advisory lock while any writing child still lives. Disposable CI fixture
 tests include an exec'd non-recording child and a blocked exclusive
 maintenance acquisition. This change is source-only: the production install
 has no automatic lock creation and the default-disabled module remains
