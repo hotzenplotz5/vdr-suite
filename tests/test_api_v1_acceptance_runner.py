@@ -648,6 +648,77 @@ class RunnerTests(unittest.TestCase):
         with self.assertRaises(Blocked):
             safe_resource_id("../escape")
 
+    def test_existing_device_audit_proves_only_authorized_gate(self):
+        from inspect_device_auth_audit import inspect
+        import sqlite3
+        import io
+        from contextlib import redirect_stdout
+        import datetime as dt
+        connection=sqlite3.connect(":memory:")
+        connection.execute("CREATE TABLE security_devices (device_id TEXT, actor_id TEXT, display_name TEXT, active INT, revoked_at TEXT)")
+        connection.execute("CREATE TABLE accountability_events (occurred_at TEXT,permission TEXT,backend_id TEXT,event_type TEXT,decision TEXT,authentication_state TEXT,actor_type TEXT,outcome TEXT,device_id TEXT,actor_id TEXT)")
+        connection.execute("INSERT INTO security_devices VALUES (?,?,?,?,?)",
+                           ("device_secret_ID","actor_secret_ID","Hisense VIDAA TV",1,""))
+        now=dt.datetime(2026,10,23,17,0,0,tzinfo=dt.timezone.utc)
+        rows=[
+            (now.isoformat(),"searchtimers.view","default","authorization.allowed","allowed","authenticated","service","dispatch_authorized","device_secret_ID","actor_secret_ID"),
+            (now.isoformat(),"media.recording.play","default","authorization.denied","denied","authenticated","service","dispatch_denied","device_secret_ID","actor_secret_ID"),
+            (now.isoformat(),"timers.view","default","authorization.allowed","allowed","authenticated","user","dispatch_authorized","device_secret_ID","actor_secret_ID"),
+            (now.isoformat(),"epg.view","other","authorization.allowed","allowed","authenticated","service","dispatch_authorized","device_secret_ID","actor_secret_ID")]
+        connection.executemany("INSERT INTO accountability_events VALUES (?,?,?,?,?,?,?,?,?,?)",rows)
+        buf=io.StringIO()
+        with redirect_stdout(buf):
+            self.assertTrue(inspect(connection,"Hisense VIDAA TV",30,current=now))
+        output=buf.getvalue()
+        self.assertIn("searchtimers.view@default: 1",output)
+        self.assertIn("timers.view@default: 0",output)
+        self.assertIn("DEVICE_AUTHENTICATED_GATE: PASS",output)
+        self.assertIn("HTTP_RESPONSE_AND_VDR_OUTCOME: NOT_VERIFIED",output)
+        self.assertNotIn("device_secret_ID",output)
+        self.assertNotIn("actor_secret_ID",output)
+        connection.close()
+
+    def test_existing_device_audit_missing_activity_is_not_pass(self):
+        from inspect_device_auth_audit import inspect, AuditBlocked, parse_iso
+        import sqlite3
+        import io
+        from contextlib import redirect_stdout
+        import datetime as dt
+        c=sqlite3.connect(":memory:")
+        c.execute("CREATE TABLE security_devices (device_id TEXT, actor_id TEXT, display_name TEXT, active INT, revoked_at TEXT)")
+        c.execute("CREATE TABLE accountability_events (occurred_at TEXT,permission TEXT,backend_id TEXT,event_type TEXT,decision TEXT,authentication_state TEXT,actor_type TEXT,outcome TEXT,device_id TEXT,actor_id TEXT)")
+        c.execute("INSERT INTO security_devices VALUES (?,?,?,?,?)",("x","y","Hisense VIDAA TV",1,""))
+        now=dt.datetime(2026,10,23,17,0,tzinfo=dt.timezone.utc)
+        with redirect_stdout(io.StringIO()) as output:
+            self.assertFalse(inspect(c,"Hisense VIDAA TV",30,current=now))
+        self.assertIn("DEVICE_AUTHENTICATED_GATE: NOT_VERIFIED",output.getvalue())
+        self.assertIsNone(parse_iso("not-time"))
+        with self.assertRaises(AuditBlocked):
+            inspect(c,"Unknown TV",30,current=now)
+        c.close()
+
+    def test_existing_device_audit_requires_real_readonly_database(self):
+        from inspect_device_auth_audit import open_ro, AuditBlocked
+        import sqlite3
+        with tempfile.TemporaryDirectory() as root:
+            database=Path(root)/"read.db"
+            conn=sqlite3.connect(database)
+            conn.execute("CREATE TABLE security_devices (device_id TEXT)")
+            conn.execute("CREATE TABLE accountability_events (event_id TEXT)")
+            conn.commit()
+            conn.close()
+            ro=open_ro(str(database))
+            with self.assertRaises(sqlite3.OperationalError):
+                ro.execute("INSERT INTO security_devices VALUES ('forbidden')")
+            ro.close()
+            check=sqlite3.connect(database)
+            self.assertEqual(check.execute("SELECT COUNT(*) FROM security_devices").fetchone()[0],0)
+            check.close()
+            link=Path(root)/"symlink.db"
+            link.symlink_to(database)
+            with self.assertRaises(AuditBlocked):
+                open_ro(str(link))
+
 
 if __name__ == "__main__":
     unittest.main()
