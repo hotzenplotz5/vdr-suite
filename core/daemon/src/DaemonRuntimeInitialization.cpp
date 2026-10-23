@@ -2292,8 +2292,11 @@ bool DaemonRuntime::initialize()
             // A process restart must not repeat Stage/Publish. Retry only
             // the existing readback against already durable Agent evidence.
             if (found.operation.backendId == backend &&
-                found.operation.state ==
-                    vdrsuite::operations::MutationOperationState::outcomeUnknown) {
+                (found.operation.state ==
+                    vdrsuite::operations::MutationOperationState::outcomeUnknown ||
+                 (found.operation.actionFamily == "media.shrink.stage" &&
+                  found.operation.state ==
+                    vdrsuite::operations::MutationOperationState::succeeded))) {
                 const bool isStage = found.operation.actionFamily ==
                     "media.shrink.stage";
                 const bool isPublish = found.operation.actionFamily ==
@@ -2326,6 +2329,21 @@ bool DaemonRuntime::initialize()
                     recordingCacheRefreshQueue_.request(backend);
             }
             const auto& op = found.operation;
+            // If Core crashed between a verified Publish transition and
+            // the Review update, finish that same review without re-publishing.
+            if (op.backendId == backend &&
+                op.actionFamily == "media.shrink.publish" &&
+                op.state ==
+                    vdrsuite::operations::MutationOperationState::succeeded &&
+                mediaShrinkReviewRepository_) {
+                const auto review = mediaShrinkReviewRepository_->find(
+                    actor, backend, op.resourceId);
+                if (review.ok() && review.review.state == "publishing" &&
+                    review.review.revision == 2 &&
+                    review.review.publishOperationId == op.operationId)
+                    (void)mediaShrinkReviewRepository_->completePublication(
+                        actor, backend, op.resourceId, 2);
+            }
             const bool stage = op.actionFamily == "media.shrink.stage" &&
                 op.resourceType == "Recording" &&
                 vdrsuite::mediatools::shrinkOpaqueId(op.resourceId, "rec_");
