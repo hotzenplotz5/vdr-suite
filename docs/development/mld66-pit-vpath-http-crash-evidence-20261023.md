@@ -49,7 +49,10 @@ A new **optional, read-only, bounded** probe is provided at [tools/mld66-readonl
 # Only after the VDR restart problem has been resolved:
 sh tools/mld66-readonly-http-probe.sh --metadata
 
-# Explicitly opt in to exactly one limited recording request, max 30 seconds:
+# One lightweight HTML recording list sample, max 10 seconds:
+sh tools/mld66-readonly-http-probe.sh --recordings-html-sample
+
+# If still needed and safe: one limited JSON recording request, max 30 seconds:
 sh tools/mld66-readonly-http-probe.sh --recordings-sample
 ```
 
