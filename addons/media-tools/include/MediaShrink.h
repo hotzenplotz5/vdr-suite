@@ -56,6 +56,13 @@ fs::path stageShrink(
     const ShrinkPlan& plan, ProcessRunner& runner,
     const std::function<void(const ShrinkPlan&)>& capacityPreflight);
 
+// Independent read-only verification on a fresh source snapshot. Can be
+// used by Core reconciliation without publishing or changing original files.
+// Throws on missing, modified, foreign or incomplete HEVC candidates.
+std::uint64_t verifyShrinkCandidate(
+    const ShrinkPlan& source, const fs::path& candidateDirectory,
+    ProcessRunner& runner);
+
 // A SECOND explicit action publishes a fully verified candidate as a new
 // .rec with RENAME_NOREPLACE. The old recording is retained indefinitely;
 // any later original deletion belongs to Suite's existing Recording owner.
