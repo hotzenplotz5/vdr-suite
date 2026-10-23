@@ -54,7 +54,7 @@ class MldReadOnlyHttpProbeTest(unittest.TestCase):
         self.assertEqual(p.returncode, 0, p.stderr)
         self.assertIn("REQUEST=recordings-sample CURL_EXIT=28", p.stdout)
         self.assertEqual(args.count("http://127.0.0.1:8002/recordings.json?start=0&limit=1"), 1)
-        self.assertIn("30", args)
+        self.assertIn("10", args)
         self.assertNotIn("http://127.0.0.1:8002/recordings.json", args)
 
     def test_recordings_html_sample_one_lightweight_request(self):
