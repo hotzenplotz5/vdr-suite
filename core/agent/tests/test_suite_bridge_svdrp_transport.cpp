@@ -316,6 +316,24 @@ void testOsdSnapshotCommand()
     assert(server.peerClosed());
 }
 
+void testVideoDirectoryCommand()
+{
+    ScriptedSvdrpServer server(
+        "220 local-vdr ready\r\n",
+        "900 /data/tv\r\n");
+    SuiteBridgeSvdrpTransport transport(configFor(server.port()));
+
+    const SuiteBridgeCommandReply reply = transport.execute(
+        SuiteBridgeLocalCommand::VideoDirectory);
+
+    server.wait();
+    assert(reply.transportStatus == SuiteBridgeTransportStatus::Success);
+    assert(reply.replyCode == 900);
+    assert(reply.payload == "/data/tv");
+    assert(server.request() == "PLUG suitebridge VPATH 1\r\n");
+    assert(server.peerClosed());
+}
+
 void testMultilineReply()
 {
     ScriptedSvdrpServer server(
@@ -548,6 +566,7 @@ int main()
     testDiscoverCommandAndSingleLineReply();
     testSnapshotCommandAndLfNormalization();
     testOsdSnapshotCommand();
+    testVideoDirectoryCommand();
     testMultilineReply();
     testRejectedReplyRemainsTransportSuccess();
     testUnexpectedAndMalformedGreeting();

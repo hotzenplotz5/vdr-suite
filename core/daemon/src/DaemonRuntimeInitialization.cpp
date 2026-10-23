@@ -40,6 +40,8 @@
 #include "PublicChannelNeighbor.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "RestfulApiRecordingActionBackendExecutorAdapter.h"
+#include "SuiteBridgeSvdrpTransport.h"
+#include "SuiteBridgeVideoDirectoryDiscovery.h"
 #include "RestfulApiSearchTimerDiscoveryProvider.h"
 #include "SearchTimerPreviewService.h"
 #include "SearchTimerCreateAdmissionService.h"
@@ -898,11 +900,54 @@ bool DaemonRuntime::initialize()
         RestfulApiRecordingActionBackendConfig recordingActionConfig;
         recordingActionConfig.backendId = backendRuntimeContext->backendId;
         recordingActionConfig.basePath = "";
-        recordingActionConfig.videoDirectory = "/srv/vdr/video";
+        // The packaged yaVDR fallback remains for existing installations.
+        // A declared backend-root map is authoritative: missing/invalid
+        // entries must disable native recording writes, not silently write
+        // to another distribution's recording directory.
+        const auto& recordingRoots = config_.recordingVideoRoots();
+        const auto rootIt = recordingRoots.find(backendRuntimeContext->backendId);
+        const bool explicitlyConfigured = config_.recordingVideoRootsSpecified();
+        const bool configuredRootAvailable = rootIt != recordingRoots.end();
+        // VDR owns the authoritative root. Query only the local SuiteBridge
+        // associated with this backend; never reuse its path for another host.
+        // Explicit operator policy always takes precedence and needs no probe.
+        vdrsuite::agent::SuiteBridgeVideoDirectoryDiscoveryResult nativeRoot;
+        const auto& bridge = config_.suiteBridge();
+        if (!explicitlyConfigured && bridge.enabled &&
+            backendRuntimeContext->backendId == bridge.backendId)
+        {
+            vdrsuite::agent::SuiteBridgeSvdrpTransportConfig transportConfig;
+            transportConfig.host = bridge.host;
+            transportConfig.port = bridge.port;
+            transportConfig.connectTimeout =
+                std::chrono::milliseconds(bridge.connectTimeoutMs);
+            transportConfig.ioTimeout =
+                std::chrono::milliseconds(bridge.ioTimeoutMs);
+            transportConfig.operationTimeout =
+                std::chrono::milliseconds(bridge.operationTimeoutMs);
+            vdrsuite::agent::SuiteBridgeSvdrpTransport transport(transportConfig);
+            nativeRoot =
+                vdrsuite::agent::SuiteBridgeVideoDirectoryDiscovery::discover(transport);
+        }
+
+        const bool nativeRootAvailable = !nativeRoot.videoDirectory.empty();
+        // A malformed success response is not a signal to fall back to an
+        // unrelated disk. An older plugin's unsupported VPATH remains legacy.
+        const bool invalidNativeRoot =
+            nativeRoot.authoritativeReply && !nativeRootAvailable;
+        const bool rootAvailable = configuredRootAvailable || nativeRootAvailable;
+        recordingActionConfig.videoDirectory = configuredRootAvailable
+            ? rootIt->second
+            : (nativeRootAvailable ? nativeRoot.videoDirectory
+                : (explicitlyConfigured || invalidNativeRoot
+                    ? std::string() : "/srv/vdr/video"));
+        recordingActionConfig.videoDirectoryExplicit = rootAvailable;
         recordingActionConfig.apiMode =
             RestfulApiRecordingActionApiMode::SafeMutation;
-        recordingActionConfig.allowExecution = true;
-        recordingActionConfig.readOnly = false;
+        recordingActionConfig.allowExecution =
+            (!explicitlyConfigured || configuredRootAvailable) &&
+            !invalidNativeRoot;
+        recordingActionConfig.readOnly = !recordingActionConfig.allowExecution;
 
         recordingActionBackendExecutorAdapterRegistry_->registerAdapter(
             std::make_shared<RestfulApiRecordingActionBackendExecutorAdapter>(

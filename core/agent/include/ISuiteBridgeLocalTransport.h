@@ -9,7 +9,8 @@ enum class SuiteBridgeLocalCommand
 {
     DiscoverSchema1,
     Snapshot,
-    OsdSnapshot
+    OsdSnapshot,
+    VideoDirectory // Optional read-only VPATH 1, independent of CAPS schemas.
 };
 
 enum class SuiteBridgeTransportStatus
