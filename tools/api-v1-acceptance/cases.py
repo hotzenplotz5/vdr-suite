@@ -399,7 +399,26 @@ def metadata(a):
     d = a.context["recording_detail"]
     a.require("metadata" in d and isinstance(d["metadata"], dict),
               "public Recording metadata object absent")
-    a.require(no_private_paths(d["metadata"]), "metadata contains private path")
+    m = d["metadata"]
+    a.require(no_private_paths(m), "metadata contains private path")
+    a.require(m.get("state") in ("absent", "partial", "available"),
+              "metadata state must be explicit")
+    a.require(m.get("contentKind") in ("unknown", "movie", "series", "series-episode"),
+              "invalid contentKind")
+    return "metadata-state:" + m["state"]
+
+
+def rich_metadata(a):
+    m = a.context["recording_detail"]["metadata"]
+    if m.get("state") != "available":
+        raise Blocked("selected recording lacks available enriched metadata")
+    if m.get("contentKind") not in ("series", "series-episode"):
+        raise Blocked("no approved series/episode metadata fixture selected")
+    a.require(isinstance(m.get("seriesTitle"), str) and bool(m["seriesTitle"]),
+              "series metadata must include seriesTitle")
+    if m["contentKind"] == "series-episode":
+        a.require(isinstance(m.get("episodeTitle"), str) and bool(m["episodeTitle"]),
+                  "episode metadata must include episodeTitle")
 
 
 def genre(a):
@@ -434,7 +453,8 @@ def artwork_list(a):
 
 
 def artwork_bytes(a):
-    a.client.expect(a.context["artwork_url"], binary=True)
+    image, _ = a.client.expect(a.context["artwork_url"], binary=True)
+    return image["image_type"] + " bytes:" + str(image["bytes_read"])
 
 
 def playback_capabilities(a):
@@ -469,6 +489,19 @@ def resume_progress(a):
               isinstance(data.get("hasProgress"), bool) and
               type(data.get("revision")) is int and data["revision"] >= 0,
               "P1 persistent progress shape or identity mismatch", path=path)
+
+
+def resume_saved_position(a):
+    require_device(a)
+    path = endpoint(V1 + "/recording-playback-sessions/progress", backendId=a.backend,
+                    recordingId=a.context["recording"])
+    data, _ = a.get_json(path)
+    if not data.get("hasProgress"):
+        raise Blocked("selected Recording has no persisted Device playback position")
+    a.require(type(data.get("positionSeconds")) is int and
+              data["positionSeconds"] > 0,
+              "stored position must be a positive integer", path=path)
+    return "persisted-position-verified"
 
 
 def search_recordings(a):
@@ -624,6 +657,8 @@ def run_cases(a):
             requires=("backend",))
     hardware("recording.metadata", "METADATA", lambda: metadata(a),
             requires=("recording_detail",))
+    hardware("recording.series-episode-metadata", "METADATA", lambda: rich_metadata(a),
+            requires=("recording_detail",))
     hardware("recording.genres", "METADATA", lambda: genre(a),
             requires=("backend",))
     hardware("recording.artwork-list", "ARTWORK", lambda: artwork_list(a),
@@ -639,6 +674,8 @@ def run_cases(a):
     hardware("resume.continue-watching", "RESUME", lambda: continue_watching(a),
             requires=("backend",))
     hardware("resume.progress", "RESUME", lambda: resume_progress(a),
+            requires=("recording",))
+    hardware("resume.saved-position", "RESUME", lambda: resume_saved_position(a),
             requires=("recording",))
     for ident, area in (
         ("playback.session-write", "PLAYBACK"), ("resume.progress-write", "RESUME"),
