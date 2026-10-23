@@ -173,6 +173,7 @@ jobs:
           make addon-media-import
           make test-addon-media-shrink
           make test-addon-media-shrink-local-review
+          make test-addon-media-shrink-agent-executor
           make test-addon-media-shrink-plan-api
           make test-addon-media-shrink-core-review
           make test-addon-media-shrink-core-admission
