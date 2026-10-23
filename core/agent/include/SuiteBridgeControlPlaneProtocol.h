@@ -14,7 +14,10 @@ constexpr std::uint16_t ProtocolMajor = 1;
 constexpr std::uint16_t ProtocolMinor = 0;
 constexpr std::size_t RequestHeaderBytes = 32;
 constexpr std::size_t ResponseHeaderBytes = 32;
-constexpr std::size_t MaximumRequestPayloadBytes = 2048;
+// Preserve the 2048-byte limit for existing operations; only the new
+// native SearchTimer CAS operation may carry a 8192-byte settings payload.
+constexpr std::size_t MaximumRequestPayloadBytes = 12288;
+constexpr std::size_t LegacyMaximumRequestPayloadBytes = 2048;
 constexpr std::size_t MaximumResponsePayloadBytes = 131072;
 constexpr std::size_t MaximumRequestFrameBytes =
     RequestHeaderBytes + MaximumRequestPayloadBytes;
@@ -43,6 +46,9 @@ enum class Operation : std::uint16_t
     EpgArtwork = 18,
     RecordingMetadata = 19,
     EpgTypeSnapshot = 20,
+    SearchTimerCasCapability = 21,
+    SearchTimerCasObserve = 22,
+    SearchTimerCasExecute = 23,
 };
 
 enum class ServiceClass : std::uint16_t
@@ -110,6 +116,9 @@ inline const char* operationName(Operation operation)
         case Operation::EpgArtwork: return "epg-artwork";
         case Operation::RecordingMetadata: return "recording-metadata";
         case Operation::EpgTypeSnapshot: return "epg-type-snapshot";
+        case Operation::SearchTimerCasCapability: return "searchtimer-cas-capability";
+        case Operation::SearchTimerCasObserve: return "searchtimer-cas-observe";
+        case Operation::SearchTimerCasExecute: return "searchtimer-cas-execute";
     }
     return "unknown";
 }
@@ -117,7 +126,7 @@ inline const char* operationName(Operation operation)
 inline bool knownOperation(Operation operation)
 {
     const auto value = static_cast<std::uint16_t>(operation);
-    return value >= 1 && value <= 20;
+    return value >= 1 && value <= 23;
 }
 
 inline ServiceClass serviceClass(Operation operation)
@@ -127,6 +136,8 @@ inline ServiceClass serviceClass(Operation operation)
         case Operation::CapabilityDiscovery:
         case Operation::OsdSnapshot:
         case Operation::OsdInput:
+        case Operation::SearchTimerCasCapability:
+        case Operation::SearchTimerCasObserve:
             return ServiceClass::InteractiveControlRead;
         case Operation::HbbtvDiscovery:
         case Operation::HbbtvRuntime:
@@ -143,6 +154,13 @@ inline ServiceClass serviceClass(Operation operation)
         default:
             return ServiceClass::CriticalControl;
     }
+}
+
+inline std::size_t requestPayloadLimit(Operation operation)
+{
+    return operation == Operation::SearchTimerCasExecute
+        ? MaximumRequestPayloadBytes
+        : LegacyMaximumRequestPayloadBytes;
 }
 
 inline std::uint64_t monotonicNowNanoseconds()
@@ -223,7 +241,7 @@ inline bool encodeRequest(
     if (!knownOperation(request.operation) ||
         request.requestId == 0 ||
         request.deadlineNanoseconds == 0 ||
-        request.payload.size() > MaximumRequestPayloadBytes)
+        request.payload.size() > requestPayloadLimit(request.operation))
         return false;
 
     out.clear();
@@ -292,7 +310,7 @@ inline bool decodeRequest(
         reason = "identity_deadline";
         return false;
     }
-    if (payloadSize > MaximumRequestPayloadBytes ||
+    if (payloadSize > requestPayloadLimit(request.operation) ||
         data.size() != RequestHeaderBytes + payloadSize)
     {
         reason = "request_payload_size";

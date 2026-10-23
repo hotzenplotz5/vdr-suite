@@ -31,6 +31,8 @@ AUDITED = {
     "/api/v1/channels": {"get": "if (path == PublicChannelCollectionPath)"},
     "/api/v1/recordings": {"get": "if (path == PublicRecordingCollectionPath)"},
     "/api/v1/recordings/{recordingId}": {"get": "if (isRecordingDetailPath)"},
+    "/api/v1/recordings/{recordingId}/artwork": {"get": "if (isRecordingArtworkPath)"},
+    "/api/v1/recordings/{recordingId}/artwork/{artworkId}": {"get": "if (isRecordingArtworkPath)"},
     "/api/v1/search/recordings": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)"},
     "/api/v1/search/epg": {"get": "if (path == PublicSearchRecordingPath || path == PublicSearchEpgPath)"},
     "/api/v1/genres": {"get": "if (path == PublicGenreCollectionPath || path == PublicGenreRecordingPath)"},
@@ -51,6 +53,8 @@ AUDITED = {
     "/api/v1/search-timers/{searchTimerId}": {"get": "if (publicSearchTimerDetailPath(path, savedSearchTimerId))"},
     "/api/v1/search-timers/draft-preview": {"get": "if (path == PublicSearchTimerDraftPreviewPath)"},
     "/api/v1/search-timers/{searchTimerId}/preview": {"get": "if (publicSearchTimerPreviewPath(path, previewSearchTimerId))"},
+    "/api/v1/search-timers/{searchTimerId}/version": {"get": "if (publicSearchTimerNativeSubresourcePath("},
+    "/api/v1/search-timers/{searchTimerId}/mutations": {"post": "if (publicSearchTimerNativeSubresourcePath("},
     "/api/v1/timer-assignments/{timerAssignmentId}": {
         "get": "if (publicTimerAssignmentPath(",
         "post": "if (publicTimerAssignmentPath(",
@@ -78,6 +82,9 @@ AUDITED = {
     },
     "/api/v1/device-pairings/{pairingRequestId}/credential": {
         "post": 'const std::string issueSuffix = "/credential";',
+    },
+    "/api/v1/devices": {
+        "get": 'if (path == "/api/v1/devices")',
     },
     "/api/v1/devices/{deviceId}/grants": {
         "get": "if (publicDeviceGrantPath(",
@@ -109,6 +116,16 @@ AUDITED = {
         "post": "if (publicAccountSessionItemPath(",
     },
 }
+
+# M2 EPG routes live in the already authenticated HTTP server;
+# audit the real image dispatcher and SecurityHttpGate, not a fake API marker.
+EPG_ARTWORK_AUDITED = {
+    "/api/v1/epg/artwork": {
+        "get": 'pathWithoutQuery(request.path) == "/api/v1/epg/artwork"'},
+    "/api/v1/epg/preferred-artwork": {
+        "get": 'pathWithoutQuery(request.path) == "/api/v1/epg/preferred-artwork"'},
+}
+EPG_ARTWORK_HTTP = ROOT / "core/http/src/TestHttpServer.cpp"
 
 # Versioned Recording playback is registered in the daemon media composition
 # root, rather than PublicApiRuntime. Require an actual route branch AND its
@@ -176,6 +193,7 @@ NO_ACTOR = {
 }
 
 IF_MATCH = {
+    ("post", "/api/v1/search-timers/{searchTimerId}/mutations"),
     ("post", "/api/v1/native-timers/{timerId}/modifications"),
     ("delete", "/api/v1/native-timers/{timerId}"),
     ("post", "/api/v1/epg/timer-intents"),
@@ -196,6 +214,7 @@ IDEMPOTENCY = {
     ("delete", "/api/v1/native-timers/{timerId}"),
     ("post", "/api/v1/epg/timer-intents"),
     ("post", "/api/v1/search-timers"),
+    ("post", "/api/v1/search-timers/{searchTimerId}/mutations"),
     ("post", "/api/v1/accounts"),
     ("post", "/api/v1/timer-assignments/{timerAssignmentId}"),
 }
@@ -281,6 +300,7 @@ def validate(
     device_source: str | None = None,
     security_source: str | None = None,
     recording_router_source: str | None = None,
+    epg_artwork_http_source: str | None = None,
 ) -> list[str]:
     """Return all detected contract drift without mutating a file or system."""
     errors: list[str] = []
@@ -290,6 +310,8 @@ def validate(
         security_source = DEVICE_GATE.read_text(encoding="utf-8")
     if recording_router_source is None:
         recording_router_source = RECORDING_ROUTER.read_text(encoding="utf-8")
+    if epg_artwork_http_source is None:
+        epg_artwork_http_source = EPG_ARTWORK_HTTP.read_text(encoding="utf-8")
     if not isinstance(spec, dict):
         return ["OpenAPI root must be a JSON object"]
 
@@ -305,7 +327,7 @@ def validate(
     paths = spec.get("paths")
     if not isinstance(paths, dict):
         return errors + ["OpenAPI paths must be an object"]
-    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED)
+    expected_paths = set(AUDITED) | set(DEVICE_AUDITED) | set(RECORDING_ACTION_AUDITED) | set(EPG_ARTWORK_AUDITED)
     if set(paths) != expected_paths:
         missing = sorted(expected_paths - set(paths))
         extra = sorted(set(paths) - expected_paths)
@@ -340,7 +362,8 @@ def validate(
     if device_source.count('apiRouter.setDeviceRecordingPlaybackHandler(') != 2:
         errors.append("Device Recording playback composition handler disappeared")
     for path, methods in {
-        **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED
+        **AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
+        **EPG_ARTWORK_AUDITED
     }.items():
         data = paths.get(path)
         if not isinstance(data, dict):
@@ -352,7 +375,14 @@ def validate(
             errors.append(f"{path}: documented methods changed, expected {sorted(expected)}, got {sorted(current)}")
         for method, marker in methods.items():
             where = f"{method.upper()} {path}"
-            if path in RECORDING_ACTION_AUDITED:
+            if path in EPG_ARTWORK_AUDITED:
+                if marker not in epg_artwork_http_source:
+                    errors.append(
+                        f"{where}: EPG image HTTP route anchor disappeared: {marker}")
+                if path not in security_source or '"epg.view"' not in security_source:
+                    errors.append(
+                        f"{where}: EPG image SecurityHttpGate epg.view admission disappeared")
+            elif path in RECORDING_ACTION_AUDITED:
                 if marker not in recording_router_source:
                     errors.append(
                         f"{where}: Recording ApiRouter route handler anchor disappeared: {marker}")
@@ -452,7 +482,8 @@ def main() -> int:
         for message in errors:
             print(f"- {message}")
         return 1
-    paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED}
+    paths = {**AUDITED, **DEVICE_AUDITED, **RECORDING_ACTION_AUDITED,
+             **EPG_ARTWORK_AUDITED}
     print(f"OPENAPI_DRIFT=PASS paths={len(paths)} methods={sum(len(v) for v in paths.values())} scope=audited-partial")
     return 0
 

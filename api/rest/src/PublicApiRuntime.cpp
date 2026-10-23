@@ -2852,6 +2852,76 @@ bool parsePublicNativeTimerModifyBody(
     return true;
 }
 
+bool publicSearchTimerNativeSubresourcePath(
+    const std::string& path, const char* suffix, std::string& id)
+{
+    const std::string prefix(PublicSearchTimerResourcePrefix);
+    const std::string tail(suffix);
+    if (path.size() != prefix.size() + 35U + tail.size() ||
+        path.compare(0U, prefix.size(), prefix) != 0 ||
+        path.compare(path.size() - tail.size(), tail.size(), tail) != 0)
+        return false;
+    id = path.substr(prefix.size(), 35U);
+    return validPublicSearchTimerId(id);
+}
+
+bool parsePublicSearchTimerNativeMutationBody(
+    const std::string& input, PublicSearchTimerNativeMutationRequest& out)
+{
+    std::size_t pos = 0U;
+    std::vector<std::string> seen;
+    std::string action;
+    skipAccountMutationWhitespace(input, pos);
+    if (pos >= input.size() || input[pos++] != '{') return false;
+    while (true)
+    {
+        skipAccountMutationWhitespace(input, pos);
+        if (pos < input.size() && input[pos] == '}') { ++pos; break; }
+        std::string key;
+        if (!parseAccountMutationJsonString(input, pos, key) ||
+            std::find(seen.begin(), seen.end(), key) != seen.end())
+            return false;
+        seen.push_back(key);
+        skipAccountMutationWhitespace(input, pos);
+        if (pos >= input.size() || input[pos++] != ':') return false;
+        skipAccountMutationWhitespace(input, pos);
+        if (key == "action" || key == "query")
+        {
+            std::string val;
+            if (!parseAccountMutationJsonString(input, pos, val)) return false;
+            if (key == "action") action = std::move(val);
+            else out.query = std::move(val);
+        }
+        else if (key == "confirmed")
+        {
+            if (input.compare(pos, 4U, "true") != 0) return false;
+            pos += 4U;
+            out.confirmed = true;
+        }
+        else return false;
+        skipAccountMutationWhitespace(input, pos);
+        if (pos >= input.size()) return false;
+        if (input[pos] == '}') { ++pos; break; }
+        if (input[pos++] != ',') return false;
+    }
+    skipAccountMutationWhitespace(input, pos);
+    if (pos != input.size() || !out.confirmed ||
+        std::find(seen.begin(), seen.end(), "action") == seen.end())
+        return false;
+    if (action == "update")
+        out.action = PublicSearchTimerNativeAction::update;
+    else if (action == "activate")
+        out.action = PublicSearchTimerNativeAction::activate;
+    else if (action == "deactivate")
+        out.action = PublicSearchTimerNativeAction::deactivate;
+    else if (action == "delete")
+        out.action = PublicSearchTimerNativeAction::remove;
+    else return false;
+    return out.action == PublicSearchTimerNativeAction::update
+        ? !out.query.empty() && out.query.size() <= 200U
+        : out.query.empty();
+}
+
 bool parsePublicSearchTimerCreateBody(
     const std::string& input, PublicSearchTimerCreateRequest& out)
 {
@@ -2911,14 +2981,14 @@ bool parsePublicSearchTimerCreateBody(
     }
     skipAccountMutationWhitespace(input,pos);
     if (pos != input.size()) return false;
-    for (const char* required : {"name","query","mode","compareTitle",
-         "compareSubtitle","compareSummary","confirmed"})
+    for (const char* required : {"name","query","active","mode",
+         "compareTitle","compareSubtitle","compareSummary","confirmed"})
         if (std::find(seen.begin(),seen.end(),required) == seen.end())
             return false;
     // epgsearch /searchtimers represents the rule name by its "search"
     // field. Its backend readback maps name = query; a different title
     // cannot round-trip or be verified as a successful native CREATE.
-    return out.name == out.query &&
+    return !out.active && out.name == out.query &&
         !out.name.empty() && out.name.size() <= 240U &&
         out.query.size() >= 2U && out.query.size() <= 240U &&
         (out.mode == 0 || out.mode == 1 || out.mode == 2 ||
@@ -4524,6 +4594,92 @@ ApiResponse publicDeviceLifecycleResponse(
     return response;
 }
 
+// Device catalogue cursor is an admin-only keyset marker; it never carries
+// credentials, session identifiers or backend secrets.
+struct PublicDeviceCollectionQuery
+{
+    std::size_t limit = 50U;
+    std::string afterDeviceId;
+};
+
+bool publicDeviceCollectionIdentifier(const std::string& value)
+{
+    return !value.empty() && value.size() <= 128U &&
+        std::all_of(value.begin(), value.end(), [](unsigned char c) {
+            return (c >= 'a' && c <= 'z') ||
+                   (c >= 'A' && c <= 'Z') ||
+                   (c >= '0' && c <= '9') ||
+                   c == '_' || c == '-' || c == '.';
+        });
+}
+
+bool parsePublicDeviceCollectionQuery(
+    const std::string& target, PublicDeviceCollectionQuery& query)
+{
+    const std::string args = requestQueryString(target);
+    if (args.empty()) return true;
+    bool sawLimit = false, sawCursor = false;
+    std::size_t begin = 0U;
+    while (begin <= args.size())
+    {
+        const std::size_t end = args.find('&', begin);
+        const std::string pair = args.substr(begin,
+            end == std::string::npos ? std::string::npos : end - begin);
+        const std::size_t eq = pair.find('=');
+        if (eq == std::string::npos || eq == 0U) return false;
+        const std::string key = pair.substr(0U, eq);
+        const std::string val = pair.substr(eq + 1U);
+        if (key == "limit")
+        {
+            std::size_t n = 0U;
+            if (sawLimit || !decimalSize(val, n) || n < 1U || n > 100U)
+                return false;
+            sawLimit = true;
+            query.limit = n;
+        }
+        else if (key == "cursor")
+        {
+            if (sawCursor || val.compare(0U, 4U, "dv1_") != 0 ||
+                !publicDeviceCollectionIdentifier(val.substr(4U)))
+                return false;
+            sawCursor = true;
+            query.afterDeviceId = val.substr(4U);
+        }
+        else return false;
+        if (end == std::string::npos) break;
+        begin = end + 1U;
+    }
+    return true;
+}
+
+ApiResponse publicDeviceCollectionResponse(
+    const PublicDeviceCollectionResult& result,
+    const PublicDeviceCollectionQuery& query,
+    const std::string& requestId, const std::string& correlationId)
+{
+    std::string body = "{\"items\":[";
+    for (std::size_t i = 0; i < result.items.size(); ++i)
+    {
+        const auto& item = result.items[i];
+        if (i) body += ",";
+        body += "{\"deviceId\":\"" + jsonEscape(item.deviceId) +
+            "\",\"actorId\":\"" + jsonEscape(item.actorId) +
+            "\",\"displayName\":\"" + jsonEscape(item.displayName) +
+            "\",\"active\":" + (item.active ? "true" : "false") +
+            ",\"revoked\":" + (item.revoked ? "true" : "false") + "}";
+    }
+    body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
+        ",\"hasMore\":" + (result.hasMore ? "true" : "false") +
+        ",\"nextCursor\":";
+    body += result.hasMore && !result.items.empty()
+        ? "\"dv1_" + jsonEscape(result.items.back().deviceId) + "\""
+        : "null";
+    body += "}}";
+    ApiResponse response = jsonResponse(body, requestId, correlationId);
+    response.headers["Cache-Control"] = "no-store";
+    return response;
+}
+
 ApiResponse publicDeviceGrantSetResponse(
     const PublicDeviceGrantSetResource& grantSet,
     const std::string& path,
@@ -5208,6 +5364,32 @@ bool PublicApiRuntime::timerCreateAdmissionConfigured() const
     std::lock_guard<std::mutex> lock(
         timerCreateAdmissionMutex_);
     return static_cast<bool>(timerCreateAdmission_);
+}
+
+void PublicApiRuntime::registerSearchTimerNativeVersionLookup(
+    SearchTimerNativeVersionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(searchTimerNativeVersionMutex_);
+    searchTimerNativeVersion_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetSearchTimerNativeVersionLookup()
+{
+    std::lock_guard<std::mutex> lock(searchTimerNativeVersionMutex_);
+    searchTimerNativeVersion_ = {};
+}
+
+void PublicApiRuntime::registerSearchTimerNativeMutation(
+    SearchTimerNativeMutation handler)
+{
+    std::lock_guard<std::mutex> lock(searchTimerNativeMutationMutex_);
+    searchTimerNativeMutation_ = std::move(handler);
+}
+
+void PublicApiRuntime::resetSearchTimerNativeMutation()
+{
+    std::lock_guard<std::mutex> lock(searchTimerNativeMutationMutex_);
+    searchTimerNativeMutation_ = {};
 }
 
 void PublicApiRuntime::registerSearchTimerCreate(SearchTimerCreate handler)
@@ -6052,6 +6234,56 @@ bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
     ApiResponse& response) const
 {
     const std::string path = requestPath(requestTarget);
+    std::string versionSearchId;
+    if (publicSearchTimerNativeSubresourcePath(
+            path, "/version", versionSearchId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty() ||
+            requestTarget != path + "?backend=" + authorizedBackendId)
+        {
+            response = invalidRequestProblem(path,
+                "Exactly one authorized backend is required.",
+                requestId, correlationId);
+            return true;
+        }
+        SearchTimerNativeVersionLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(searchTimerNativeVersionMutex_);
+            lookup = searchTimerNativeVersion_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerNativeVersionRequest request;
+        request.backendId = authorizedBackendId;
+        request.publicSearchTimerId = versionSearchId;
+        const auto observed = lookup(request);
+        if (observed.status == PublicSearchTimerNativeVersionStatus::notFound)
+            response = notFoundProblem(path, requestId, correlationId);
+        else if (observed.status != PublicSearchTimerNativeVersionStatus::ok ||
+                 observed.revision.size() != 35U ||
+                 observed.revision.compare(0U, 3U, "sr_") != 0)
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+        else
+        {
+            response = jsonResponse(
+                "{\"searchTimerId\":\"" + jsonEscape(versionSearchId) +
+                "\",\"backendId\":\"" + jsonEscape(authorizedBackendId) +
+                "\",\"revision\":\"" + jsonEscape(observed.revision) +
+                "\"}", requestId, correlationId);
+            response.headers["ETag"] = "\"" + observed.revision + "\"";
+            response.headers["Cache-Control"] = "no-store";
+        }
+        return true;
+    }
     if (path == PublicSearchTimerDraftPreviewPath)
     {
         if (actorRef.empty())
@@ -6551,6 +6783,128 @@ bool PublicApiRuntime::tryHandleBrowseReadGet(
     ApiResponse& response) const
 {
     const std::string path = requestPath(requestTarget);
+    // M2: Backend-scoped image metadata and actual bytes, behind the
+    // same recordings.view gate as Recording detail.
+    const std::string artworkPrefix =
+        std::string(PublicRecordingCollectionPath) + "/";
+    const std::size_t artworkMarker =
+        path.find("/artwork", artworkPrefix.size());
+    if (path.compare(0U, artworkPrefix.size(), artworkPrefix) == 0 &&
+        artworkMarker != std::string::npos &&
+        (artworkMarker + 8U == path.size() ||
+         (artworkMarker + 8U < path.size() &&
+          path[artworkMarker + 8U] == '/')))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        const std::string recordingId = path.substr(
+            artworkPrefix.size(), artworkMarker - artworkPrefix.size());
+        const std::string artworkId = artworkMarker + 8U == path.size()
+            ? std::string()
+            : path.substr(artworkMarker + 9U);
+        const auto validHexId = [](const std::string& id,
+                                    const std::string& prefix) {
+            return id.size() == prefix.size() + 32U &&
+                id.compare(0U, prefix.size(), prefix) == 0 &&
+                std::all_of(id.begin() + prefix.size(), id.end(),
+                    [](unsigned char c) {
+                        return (c >= '0' && c <= '9') ||
+                               (c >= 'a' && c <= 'f');
+                    });
+        };
+        if (!validHexId(recordingId, "rec_") ||
+            (artworkMarker + 8U < path.size() && artworkId.empty()) ||
+            (!artworkId.empty() && !validHexId(artworkId, "")) ||
+            authorizedBackendIds.size() != 1U ||
+            authorizedBackendIds.front().empty() ||
+            authorizedBackendIds.front() == "*" ||
+            requestQueryString(requestTarget) !=
+                "backendId=" + authorizedBackendIds.front())
+        {
+            response = invalidRequestProblem(path,
+                "Valid Recording/artwork IDs and one authorized backendId "
+                "are required.", requestId, correlationId);
+            return true;
+        }
+        const auto found = lookupRecordingArtwork(
+            {authorizedBackendIds.front(), recordingId, artworkId});
+        switch (found.status)
+        {
+            case PublicRecordingArtworkStatus::invalid:
+                response = invalidRequestProblem(path,
+                    "Invalid Recording artwork request.",
+                    requestId, correlationId);
+                return true;
+            case PublicRecordingArtworkStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicRecordingArtworkStatus::unavailable:
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            case PublicRecordingArtworkStatus::ok:
+                break;
+        }
+        if (!artworkId.empty())
+        {
+            if ((found.contentType != "image/jpeg" &&
+                 found.contentType != "image/png" &&
+                 found.contentType != "image/webp") ||
+                found.content.empty())
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            response.statusCode = 200;
+            response.contentType = found.contentType;
+            response.body = found.content;
+            response.headers["Cache-Control"] = "private, max-age=300";
+            response.headers["X-Content-Type-Options"] = "nosniff";
+            return true;
+        }
+        if (found.items.size() > 64U)
+        {
+            response = serviceUnavailableProblem(
+                path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"recordingId\":\"" +
+            jsonEscape(recordingId) + "\",\"backendId\":\"" +
+            jsonEscape(authorizedBackendIds.front()) +
+            "\",\"items\":[";
+        bool first = true;
+        for (const auto& artwork : found.items)
+        {
+            if (!validHexId(artwork.artworkId, "") ||
+                (artwork.kind != "poster" && artwork.kind != "fanart" &&
+                 artwork.kind != "still" && artwork.kind != "banner") ||
+                artwork.width < 0 || artwork.height < 0)
+            {
+                response = serviceUnavailableProblem(
+                    path, requestId, correlationId);
+                return true;
+            }
+            if (!first) body += ",";
+            first = false;
+            body += "{\"artworkId\":\"" + artwork.artworkId +
+                "\",\"kind\":\"" + artwork.kind +
+                "\",\"url\":\"" + path + "/" + artwork.artworkId +
+                "?backendId=" + jsonEscape(authorizedBackendIds.front()) + "\"";
+            if (artwork.width > 0 && artwork.height > 0)
+                body += ",\"width\":" + std::to_string(artwork.width) +
+                    ",\"height\":" + std::to_string(artwork.height);
+            body += "}";
+        }
+        body += "]}";
+        response = jsonResponse(body, requestId, correlationId);
+        response.headers["Cache-Control"] = "no-store";
+        return true;
+    }
+
     // M1: one backend-scoped public rec_ detail, with no native path or
     // provider-specific artwork URL exposed. Reuse the Recording grant gate,
     // the daemon's existing rec_ resolver and the warmed Recording cache.
@@ -7904,6 +8258,44 @@ bool PublicApiRuntime::tryHandleIdentityAdministrationReadGet(
         }
     }
 
+    if (path == "/api/v1/devices")
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        PublicDeviceCollectionQuery query;
+        if (!parsePublicDeviceCollectionQuery(requestTarget, query))
+        {
+            response = invalidRequestProblem(path,
+                "Device collection accepts only bounded limit and cursor.",
+                requestId, correlationId);
+            return true;
+        }
+        DeviceCollectionLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(deviceCollectionLookupMutex_);
+            lookup = deviceCollectionLookup_;
+        }
+        if (!lookup)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const PublicDeviceCollectionResult page = lookup(
+            PublicDeviceCollectionRequest{query.afterDeviceId, query.limit});
+        if (!page.available || page.items.size() > query.limit ||
+            (page.hasMore && page.items.empty()))
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        response = publicDeviceCollectionResponse(
+            page, query, requestId, correlationId);
+        return true;
+    }
+
     std::string deviceGrantDeviceId;
     if (publicDeviceGrantPath(path, deviceGrantDeviceId))
     {
@@ -8361,6 +8753,14 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
     }
 
+    if (path == "/api/v1/devices")
+    {
+        if (tryHandleIdentityAdministrationReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, response))
+            return true;
+    }
+
     std::string deviceGrantDeviceId;
     if (publicDeviceGrantPath(path, deviceGrantDeviceId))
     {
@@ -8417,6 +8817,22 @@ bool PublicApiRuntime::tryHandleGet(
         path.compare(0U, recordingDetailPrefix.size(),
             recordingDetailPrefix) == 0 &&
         path.find('/', recordingDetailPrefix.size()) == std::string::npos;
+    const std::size_t artworkMarker =
+        path.find("/artwork", recordingDetailPrefix.size());
+    const bool isRecordingArtworkPath =
+        path.compare(0U, recordingDetailPrefix.size(),
+            recordingDetailPrefix) == 0 &&
+        artworkMarker != std::string::npos &&
+        (artworkMarker + 8U == path.size() ||
+         (artworkMarker + 8U < path.size() &&
+          path[artworkMarker + 8U] == '/'));
+    if (isRecordingArtworkPath)
+    {
+        if (tryHandleBrowseReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                authorizedBackendIds, response))
+            return true;
+    }
     if (isRecordingDetailPath)
     {
         if (tryHandleBrowseReadGet(
@@ -8498,6 +8914,16 @@ bool PublicApiRuntime::tryHandleGet(
         if (tryHandleChannelCollectionGet(
                 requestTarget, actorRef, requestId, correlationId,
                 authorizedBackendIds, response))
+            return true;
+    }
+
+    std::string versionSearchTimerId;
+    if (publicSearchTimerNativeSubresourcePath(
+            path, "/version", versionSearchTimerId))
+    {
+        if (tryHandleSearchTimerAssignmentReadGet(
+                requestTarget, actorRef, requestId, correlationId,
+                ifNoneMatch, authorizedBackendId, response))
             return true;
     }
 
@@ -10668,6 +11094,115 @@ bool PublicApiRuntime::tryHandleTimerWorkflowPost(
 {
     const std::string path = requestPath(requestTarget);
     std::string timerAssignmentId;
+    std::string mutationSearchId;
+    if (publicSearchTimerNativeSubresourcePath(
+            path, "/mutations", mutationSearchId))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendId.empty() ||
+            requestTarget != path + "?backend=" + authorizedBackendId)
+        {
+            response = invalidRequestProblem(path,
+                "Exactly one authorized backend is required.",
+                requestId, correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(415, "unsupported_media_type",
+                "Unsupported media type", "JSON required.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (body.empty() || body.size() > 1024U ||
+            !JsonSyntaxValidator(body).valid())
+        {
+            response = invalidRequestProblem(path,
+                "Invalid SearchTimer mutation JSON.",
+                requestId, correlationId);
+            return true;
+        }
+        PublicSearchTimerNativeMutationRequest request;
+        if (!parsePublicSearchTimerNativeMutationBody(body, request))
+        {
+            response = problemResponse(422, "validation_error",
+                "Validation failed", "Invalid guarded SearchTimer mutation.",
+                path, requestId, correlationId);
+            return true;
+        }
+        if (!publicIdempotencyKeyValid(idempotencyKey) ||
+            ifMatch.size() != 37U || ifMatch.front() != '"' ||
+            ifMatch.back() != '"' ||
+            ifMatch.compare(1U, 3U, "sr_") != 0)
+        {
+            response = invalidRequestProblem(path,
+                "Valid Idempotency-Key and quoted native revision If-Match required.",
+                requestId, correlationId);
+            return true;
+        }
+        request.actorRef = actorRef;
+        request.backendId = authorizedBackendId;
+        request.publicSearchTimerId = mutationSearchId;
+        request.idempotencyKey = idempotencyKey;
+        request.ifMatch = ifMatch.substr(1U, ifMatch.size() - 2U);
+        SearchTimerNativeMutation handler;
+        {
+            std::lock_guard<std::mutex> lock(searchTimerNativeMutationMutex_);
+            handler = searchTimerNativeMutation_;
+        }
+        if (!handler)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const auto outcome = handler(request);
+        switch (outcome.status)
+        {
+            case PublicSearchTimerNativeMutationStatus::accepted:
+            case PublicSearchTimerNativeMutationStatus::replayed:
+            {
+                const auto& op = outcome.operation;
+                if (op.operationId.empty() || op.state.empty() ||
+                    op.backendId != authorizedBackendId ||
+                    op.resourceRevision.empty())
+                {
+                    response = serviceUnavailableProblem(
+                        path, requestId, correlationId);
+                    return true;
+                }
+                const std::string operationPath =
+                    std::string(PublicOperationPrefix) + op.operationId;
+                response = publicOperationResponse(
+                    op, operationPath, requestId, correlationId, "");
+                response.statusCode = 202;
+                response.headers["Location"] = operationPath;
+                response.headers["Cache-Control"] = "no-store";
+                return true;
+            }
+            case PublicSearchTimerNativeMutationStatus::invalid:
+                response = problemResponse(422, "validation_error",
+                    "Validation failed", "Guarded mutation invalid.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicSearchTimerNativeMutationStatus::conflict:
+                response = problemResponse(409, "version_conflict",
+                    "Conflict", "Native revision or mutation conflict.",
+                    path, requestId, correlationId);
+                return true;
+            case PublicSearchTimerNativeMutationStatus::notFound:
+                response = notFoundProblem(path, requestId, correlationId);
+                return true;
+            case PublicSearchTimerNativeMutationStatus::unavailable:
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+        }
+        response = serviceUnavailableProblem(path, requestId, correlationId);
+        return true;
+    }
 
     if (path == PublicSearchTimerCollectionPath)
     {
@@ -11330,6 +11865,13 @@ bool PublicApiRuntime::tryHandlePost(
             requestTarget, requestId, correlationId, response, body, actorRef, ifMatch, idempotencyKey, contentType, authorizedBackendId))
         return true;
 
+    if (path == "/api/v1/devices")
+    {
+        response = methodNotAllowedProblem(path, requestId,
+            correlationId, "GET");
+        return true;
+    }
+
     if (path == PublicAccountCollectionPath)
     {
         response = methodNotAllowedProblem(
@@ -11514,6 +12056,13 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
     std::string credentialId;
     std::string sessionId;
     std::string pairingRequestId;
+
+    if (path == "/api/v1/devices")
+    {
+        response = methodNotAllowedProblem(
+            path, requestId, correlationId, "GET");
+        return true;
+    }
 
     if (path == PublicDevicePairingCollectionPath)
     {

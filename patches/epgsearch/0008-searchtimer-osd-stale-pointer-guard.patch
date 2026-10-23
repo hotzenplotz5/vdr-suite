@@ -1,0 +1,34 @@
+From: VDR-Suite S1 OSD lifetime regression
+Subject: [PATCH 8/8] epgsearch: revalidate OSD search rule before destructive action
+Upstream-base: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+Apply-after: 0001-0007 in filename order
+
+The native DELETE CAS detaches a live rule and retains its allocation for
+readers. An open OSD delete dialog can hold the old pointer while the
+backend deletes and recreates that numeric ID. Revalidate list membership
+under the owner lock after both confirmations, before deleting any timers
+or unlinking the rule. Never act on a retired pointer.
+
+diff --git a/menu_search.c b/menu_search.c
+--- a/menu_search.c
++++ b/menu_search.c
+@@ -167,7 +167,14 @@
+         if (Interface->Confirm(tr("Edit$Delete search?"))) {
+-            int DelID = curSearchExt->ID;
+-            if (Interface->Confirm(tr("Delete all timers created from this search?")))
+-                curSearchExt->DeleteAllTimers();
+-            LogFile.Log(1, "search timer %s (%d) deleted", curSearchExt->search, curSearchExt->ID);
+-            cMutexLock SearchExtsLock(&SearchExts);
++            const bool deleteTimers =
++                Interface->Confirm(tr("Delete all timers created from this search?"));
++            // While the operator confirmed, native DELETE CAS may have
++            // detached this cached OSD pointer. Do not delete it a second
++            // time or touch timers belonging to a reused numeric ID.
++            cMutexLock SearchExtsLock(&SearchExts);
++            if (!SearchExts.Exists(curSearchExt))
++                return osContinue;
++            int DelID = curSearchExt->ID;
++            if (deleteTimers)
++                curSearchExt->DeleteAllTimers();
++            LogFile.Log(1, "search timer %s (%d) deleted", curSearchExt->search, curSearchExt->ID);
+             SearchExts.Del(curSearchExt);

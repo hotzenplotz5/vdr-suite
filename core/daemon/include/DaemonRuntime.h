@@ -177,6 +177,8 @@
 #include <string>
 #include <vector>
 
+class VdrRecordingArtworkService;
+
 class DaemonRuntime
 {
 public:
@@ -263,6 +265,7 @@ private:
     std::unique_ptr<JobRepository> jobRepository_;
     std::unique_ptr<RecordingRepository> recordingRepository_;
     std::unique_ptr<PublicRecordingIdentityRepository> publicRecordingIdentities_;
+    std::shared_ptr<VdrRecordingArtworkService> recordingArtworkService_;
     std::unique_ptr<PublicSearchTimerIdentityRepository> publicSearchTimerIdentities_;
     std::unique_ptr<MetadataRepository> metadataRepository_;
     std::unique_ptr<HumanAccountRepository> humanAccountRepository_;

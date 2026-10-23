@@ -22,12 +22,22 @@ marks_modify=read("core/agent/src/SuiteBridgeSvdrpRecordingMarksModifyTransport.
 cut_read=read("core/agent/src/SuiteBridgeSvdrpRecordingCutStateTransport.cpp")
 cut_mutation=read("core/agent/src/SuiteBridgeSvdrpRecordingCutTransport.cpp")
 tmpfiles=read("packaging/systemd/vdr-suite-live.conf")
-for marker in ("ProtocolMajor = 1","MaximumRequestPayloadBytes","MaximumResponsePayloadBytes","LiveCapability = 1","LiveOpen = 2","LiveStatus = 3","LiveClose = 4","NativeProbeCapability = 5","NativeProbeExecute = 6","NativeProbeReadback = 7","CapabilityDiscovery = 8","OsdSnapshot = 9","OsdInput = 10","HbbtvDiscovery = 11","HbbtvRuntime = 12","HbbtvPresentation = 13","HbbtvMedia = 14","TeletextCapability = 15","TeletextPage = 16","EpgMetadata = 17","EpgArtwork = 18","RecordingMetadata = 19","EpgTypeSnapshot = 20","CriticalControl = 1","InteractiveControlRead = 2","ExternalPluginInteractive = 3","BackgroundProvider = 4","DeadlineExpired","Overloaded"):
+for marker in ("ProtocolMajor = 1","MaximumRequestPayloadBytes","MaximumResponsePayloadBytes","LiveCapability = 1","LiveOpen = 2","LiveStatus = 3","LiveClose = 4","NativeProbeCapability = 5","NativeProbeExecute = 6","NativeProbeReadback = 7","CapabilityDiscovery = 8","OsdSnapshot = 9","OsdInput = 10","HbbtvDiscovery = 11","HbbtvRuntime = 12","HbbtvPresentation = 13","HbbtvMedia = 14","TeletextCapability = 15","TeletextPage = 16","EpgMetadata = 17","EpgArtwork = 18","RecordingMetadata = 19","EpgTypeSnapshot = 20","SearchTimerCasCapability = 21","SearchTimerCasObserve = 22","SearchTimerCasExecute = 23","CriticalControl = 1","InteractiveControlRead = 2","ExternalPluginInteractive = 3","BackgroundProvider = 4","DeadlineExpired","Overloaded"):
     if marker not in protocol: raise SystemExit(f"control-plane protocol missing {marker}")
 for marker in ("AF_UNIX","SOCK_SEQPACKET","SO_PEERCRED","queues_[lane].size() < queueCapacity_[lane]","ServiceClass::CriticalControl","ServiceClass::InteractiveControlRead","ServiceClass::ExternalPluginInteractive","ServiceClass::BackgroundProvider","deadline_expired_at_admission","deadline_expired_before_execution","queue_full"):
     if marker not in server: raise SystemExit(f"control-plane server missing {marker}")
 for forbidden in ("AF_INET","SOCK_STREAM","runSvdrp","callPlugin","executeNative"):
     if forbidden in server: raise SystemExit(f"control-plane server contains forbidden marker {forbidden}")
+for marker in ("Operation::SearchTimerCasCapability",
+               "Operation::SearchTimerCasObserve",
+               "Operation::SearchTimerCasExecute",
+               "searchCasControl_.Handle"):
+    if marker not in plugin:
+        raise SystemExit(f"native SearchTimer CAS private control-plane missing {marker}")
+for marker in ("discoverSearchTimerCas", "observeSearchTimerCas",
+               "executeSearchTimerCas"):
+    if marker not in client_cpp:
+        raise SystemExit(f"native SearchTimer CAS Agent transport missing {marker}")
 if "SuiteBridgeTransportStatus::Unavailable" not in client_h: raise SystemExit("compatibility fallback must be pre-dispatch Unavailable-only")
 if "SuiteBridgeLocalControlTransport" not in runtime or "SuiteBridgePrioritizedLiveTransport" not in runtime: raise SystemExit("Live runtime not wired to dedicated transport")
 if "SuiteBridgeSvdrpTransport" not in runtime: raise SystemExit("SVDRP compatibility transport unexpectedly removed")
@@ -76,8 +86,8 @@ for marker in ("providerLocalControlTransport","epgArtworkTransport","epgMetadat
     if marker not in daemon_context: raise SystemExit(f"background provider daemon context wiring missing {marker}")
 for marker in ("SuiteBridgePrioritizedArtworkTransport","SuiteBridgePrioritizedMetadataTransport","SuiteBridgePrioritizedRecordingMetadataTransport","SuiteBridgePrioritizedEpgTypeSnapshotTransport","providerLocalControlTransport"):
     if marker not in daemon_backend: raise SystemExit(f"background provider daemon construction missing {marker}")
-if "OperationCount = 20" not in server_h:
-    raise SystemExit("control-plane metrics must include ETYPES operation 20")
+if "OperationCount = 23" not in server_h:
+    raise SystemExit("control-plane metrics must cover the 23 registered operations")
 if "epgTypeSnapshotTransport->requestEpgTypeSnapshot" not in epg_worker:
     raise SystemExit("productive ETYPES worker must use prioritized local control transport")
 if "suiteBridgeTransport->requestEpgTypeSnapshot" in epg_worker:

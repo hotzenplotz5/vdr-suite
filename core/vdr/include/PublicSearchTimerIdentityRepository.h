@@ -16,6 +16,13 @@ public:
     explicit PublicSearchTimerIdentityRepository(Database& database);
     bool ensureSchema();
 
+    // Resolve ONLY an active, non-retired public ID owned by this backend.
+    // This lookup is not native generation evidence: before any mutation the
+    // caller MUST independently observe sg_/sr_ from epgsearch and claim its
+    // durable operation. Never accept native numeric IDs from the Device.
+    std::optional<std::string> resolveActiveNativeId(
+        const std::string& backendId, const std::string& publicSearchTimerId);
+
     // All observations must belong to backendId and comprise one authoritative
     // unfiltered snapshot. The returned IDs align with observations in order.
     // An empty successful snapshot retires all active IDs for that backend.

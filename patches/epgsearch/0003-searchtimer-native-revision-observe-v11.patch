@@ -1,0 +1,234 @@
+From: VDR-Suite S1 native SearchTimer versioned revision
+Subject: [PATCH 3/3] epgsearch: persist rule revisions and offer v1.1 native snapshot
+Upstream-base: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+Apply-after: 0001-searchtimer-owner-lock-legacy-writers.patch
+Apply-after: 0002-searchtimer-native-generation-observe.patch
+
+For each rule, persist an opaque sr_<32 lowercase hex> revision adjacent to
+the immutable native generation in epgsearch.conf comment metadata. Preserve
+it across restarts and change it on each successful Save() that sees changed
+rule settings, including a change then restore. Only a successfully closed
+cSafeFile write marks revised metadata durable. Missing/invalid revisions
+remain unauthenticated until a successful Save().
+
+Observe-v1.1 returns the generation, revision and settings under one
+epgsearch list lock. The observe-v1.0 ABI remains unchanged.
+This adds NO native CAS write capability. Public-v1 mutation endpoints
+MUST remain closed until provider guarded writes and readback are verified.
+Native build and yaVDR runtime acceptance remain outstanding.
+
+diff --git a/epgsearchext.h b/epgsearchext.h
+--- a/epgsearchext.h
++++ b/epgsearchext.h
+@@ -122,6 +122,10 @@
+     // Native identity is not the reusable numeric epgsearch ID.
+     std::string nativeGeneration;
+     bool nativeGenerationDurable;
++    std::string nativeRevision;
++    bool nativeRevisionDurable;
++    // Settings last persisted by the atomic epgsearch.conf writer.
++    std::string lastPersistedText;
+     char     search[MaxFileName];
+     int      useTime;
+     int      startTime;
+diff --git a/epgsearchext.c b/epgsearchext.c
+--- a/epgsearchext.c
++++ b/epgsearchext.c
+@@ -47,6 +47,7 @@
+ 
+ // An opt-in metadata comment; the legacy 59-field rule stays unchanged.
+ static const char nativeGenerationMarker[] = "#vdr-suite-generation:";
++static const char nativeRevisionMarker[] = "#vdr-suite-revision:";
+ 
+ static bool ValidNativeGeneration(const std::string& value)
+ {
+@@ -59,6 +60,17 @@
+     return true;
+ }
+ 
++static bool ValidNativeRevision(const std::string& value)
++{
++    if (value.size() != 35 || value.compare(0, 3, "sr_") != 0)
++        return false;
++    for (size_t i = 3; i < value.size(); ++i)
++        if ((value[i] < '0' || value[i] > '9') &&
++            (value[i] < 'a' || value[i] > 'f'))
++            return false;
++    return true;
++}
++
+ static bool RandomNativeGeneration(std::string& out)
+ {
+     unsigned char bytes[16];
+@@ -79,12 +91,21 @@
+     return true;
+ }
+ 
++static bool RandomNativeRevision(std::string& out)
++{
++    if (!RandomNativeGeneration(out))
++        return false;
++    out[1] = 'r'; // sg_<hex> -> sr_<hex>, same fresh entropy.
++    return true;
++}
++
+ // -- cSearchExt -----------------------------------------------------------------
+ cSearchExt::cSearchExt(void)
+ {
+     buffer = NULL;
+     ID = -1;
+     nativeGenerationDurable = false;
++    nativeRevisionDurable = false;
+     *search = 0;
+     useTime = false;
+     startTime = 0000;
+@@ -1506,6 +1527,7 @@
+             int line = 0;
+             char buffer[MAXPARSEBUFFER];
+             std::string pendingGeneration;
++            std::string pendingRevision;
+             std::set<std::string> seenGenerations;
+             result = true;
+             while (fgets(buffer, sizeof(buffer), f) != NULL) {
+@@ -1517,11 +1539,24 @@
+                     stripspace(value);
+                     pendingGeneration = ValidNativeGeneration(value) ?
+                         std::string(value) : std::string();
++                    pendingRevision.clear();
+                     if (pendingGeneration.empty())
+                         LogFile.eSysLog("invalid native generation in '%s', line %d",
+                                          fileName, line);
+                     continue;
+                 }
++                if (this == &SearchExts &&
++                    strncmp(buffer, nativeRevisionMarker,
++                            sizeof(nativeRevisionMarker) - 1) == 0) {
++                    char *value = buffer + sizeof(nativeRevisionMarker) - 1;
++                    stripspace(value);
++                    pendingRevision = ValidNativeRevision(value) ?
++                        std::string(value) : std::string();
++                    if (pendingRevision.empty())
++                        LogFile.eSysLog("invalid native revision in '%s', line %d",
++                                         fileName, line);
++                    continue;
++                }
+                 char *p = strchr(buffer, '#');
+                 if (p == buffer) *p = 0;
+ 
+@@ -1546,6 +1581,12 @@
+                                 LogFile.eSysLog("duplicate native generation in '%s', line %d",
+                                                 fileName, line);
+                         }
++                        if (search->nativeGenerationDurable &&
++                            !pendingRevision.empty()) {
++                            search->nativeRevision = pendingRevision;
++                            search->nativeRevisionDurable = true;
++                            search->lastPersistedText = search->ToText();
++                        }
+                         Add(search);
+                     } else {
+                         LogFile.eSysLog("error in '%s', line %d\n", fileName, line);
+@@ -1555,6 +1596,7 @@
+                     }
+                 }
+                 pendingGeneration.clear();
++                pendingRevision.clear();
+             }
+             fclose(f);
+         } else {
+@@ -1621,7 +1663,18 @@
+                     return false;
+             } else
+                 assigned.insert(l->nativeGeneration);
++            // Rotate revision on any persisted settings change, even when
++            // an intervening legacy OSD/API write later restores old text.
++            const std::string serialized = l->ToText();
++            if (!ValidNativeRevision(l->nativeRevision) ||
++                l->lastPersistedText != serialized) {
++                std::string fresh;
++                if (!RandomNativeRevision(fresh))
++                    return false;
++                l->nativeRevision = fresh;
++            }
+             l->nativeGenerationDurable = false;
++            l->nativeRevisionDurable = false;
+         }
+     }
+     l = (cSearchExt *)this->First();
+@@ -1634,6 +1687,12 @@
+                 result = false;
+                 break;
+             }
++            if (this == &SearchExts &&
++                fprintf(f, "%s%s\n", nativeRevisionMarker,
++                        l->nativeRevision.c_str()) < 0) {
++                result = false;
++                break;
++            }
+             if (!l->Save(f)) {
+                 result = false;
+                 break;
+@@ -1645,8 +1704,11 @@
+     } else
+         result = false;
+     if (result && this == &SearchExts)
+-        for (l = First(); l; l = Next(l))
++        for (l = First(); l; l = Next(l)) {
+             l->nativeGenerationDurable = true;
++            l->nativeRevisionDurable = true;
++            l->lastPersistedText = l->ToText();
++        }
+     return result;
+ }
+ 
+diff --git a/services.h b/services.h
+--- a/services.h
++++ b/services.h
+@@ -130,6 +130,12 @@
+     std::string settings;      // existing 59-field epgsearch rule format
+ };
+ 
++// v1.1 adds the persistent rule revision without changing the v1.0 ABI.
++struct Epgsearch_searchtimer_observe_v1_1 : Epgsearch_searchtimer_observe_v1_0 {
++    bool revisionPersisted;
++    std::string revision;      // sr_ + 32 lowercase hex digits
++};
++
+ // Data structures for service "Epgsearch-services-v1.0"
+ class cServiceHandler
+ {
+diff --git a/epgsearch.c b/epgsearch.c
+--- a/epgsearch.c
++++ b/epgsearch.c
+@@ -222,6 +222,31 @@
+ 
+ bool cPluginEpgsearch::Service(const char *Id, void *Data)
+ {
++    if (strcmp(Id, "Epgsearch-searchtimer-observe-v1.1") == 0) {
++        if (Data == NULL)
++            return true;
++        Epgsearch_searchtimer_observe_v1_1 *out =
++            (Epgsearch_searchtimer_observe_v1_1 *)Data;
++        out->found = false;
++        out->generationPersisted = false;
++        out->revisionPersisted = false;
++        out->generation.clear();
++        out->revision.clear();
++        out->settings.clear();
++        cMutexLock SearchExtsLock(&SearchExts);
++        cSearchExt *search = SearchExts.GetSearchFromID(out->nativeId);
++        if (search) {
++            out->found = true;
++            out->generationPersisted = search->nativeGenerationDurable;
++            out->revisionPersisted = search->nativeRevisionDurable;
++            if (search->nativeGenerationDurable)
++                out->generation = search->nativeGeneration;
++            if (search->nativeRevisionDurable)
++                out->revision = search->nativeRevision;
++            out->settings = search->ToText();
++        }
++        return true;
++    }
+     if (strcmp(Id, "Epgsearch-searchtimer-observe-v1.0") == 0) {
+         if (Data == NULL)
+             return true;

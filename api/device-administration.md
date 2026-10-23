@@ -46,6 +46,42 @@ Allowed `decision` values are `approve` and `reject` only. Requires `device.pair
 
 A success returns HTTP 200 with updated administrative Pairing Request metadata and a new ETag. **Approval creates no Actor, Device, Credential or grant**. The waiting TV still must separately issue its credential using its own short-lived token.
 
+## 3. List paired Service Devices (new administrator read)
+
+```http
+GET /api/v1/devices?limit=25
+```
+
+Requires the global administrator grant `devices.grants.view@*`. This
+secret-free collection lists **persistent Service Devices** from
+`security_devices`, not Human Account Browser sessions and not the
+pending-only `device-pairings` endpoint. No Credential ID, bearer token,
+pairing token or session information is exposed.
+
+The response contains each real `deviceId`, `actorId`, `displayName`,
+`active` and `revoked`, sorted by `deviceId`. `page.hasMore` and
+`page.nextCursor` implement bounded keyset pagination (1–100 per page);
+the cursor is a versioned `dv1_` marker. A malformed or duplicate query
+parameter is rejected. The route uses `Cache-Control: no-store` and
+returns 503 rather than falsely advertising an empty inventory on DB
+failure. Revoked devices remain visible, but the existing grant mutation
+path prevents authorization through revoked identities.
+
+The frontend's **Settings → Gekoppelte Geräte (TV & Apps)** lists those
+devices separately from Human Accounts. Selecting an active device reads
+its existing `GET /api/v1/devices/{deviceId}/grants` strong ETag.
+Grant and revoke remain explicit `POST /api/v1/devices/{deviceId}/grants`
+operations with Browser CSRF, `If-Match`, actual backend selection and
+user confirmation; a 412 forces a read-only refresh, never an automatic
+mutation retry. `timers.create` and `searchtimers.create` cannot be
+granted to `*`.
+
+Web UI minimum: account administration must remain unchanged, and the
+device admin must never infer a VIDAA Device from a Human session. This
+matches the basic product expectation of separately manageable paired TV
+clients (Kodi/Plex offer managed client/user authorization flows; their
+exact menus and per-backend grant semantics have not been verified here).
+
 ## 3. Read a Device's grants
 
 ```http

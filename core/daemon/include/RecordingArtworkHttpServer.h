@@ -20,12 +20,17 @@ public:
         std::map<std::string, std::string> artworkRootsByBackend,
         std::string previewDirectory = "/var/cache/vdr-suite/artwork-previews");
 
+    RecordingArtworkHttpServer(
+        std::unique_ptr<IHttpServer> delegate,
+        std::shared_ptr<VdrRecordingArtworkService> artworkService,
+        std::string previewDirectory = "/var/cache/vdr-suite/artwork-previews");
+
     HttpServerResponse handleRequest(
         const HttpServerRequest& request) const override;
 
 private:
     std::unique_ptr<IHttpServer> delegate_;
     IEpgArtworkHttpProvider* epgArtworkProvider_;
-    VdrRecordingArtworkService artworkService_;
+    std::shared_ptr<VdrRecordingArtworkService> artworkService_;
     ArtworkPreviewCache previews_;
 };

@@ -6,6 +6,7 @@
 int main()
 {
     const std::string path = "/api/v1/devices/device_10001/grants";
+    const std::string listPath = "/api/v1/devices";
 
     {
         SecurityHttpGateBrowserTestFixture fixture;
@@ -104,6 +105,40 @@ int main()
         const auto decision = fixture.gate.evaluate(post);
         assert(!decision.allowed);
         assert(decision.rejection.statusCode == 403);
+    }
+
+    // Device collection is admin-only under the existing audited grant gate.
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest read;
+        read.method = "GET";
+        read.path = listPath;
+        assert(fixture.gate.evaluate(read).rejection.statusCode == 401);
+        fixture.addBrowserAuthentication(read);
+        assert(fixture.gate.evaluate(read).rejection.statusCode == 403);
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "role.admin", "*"));
+        HttpServerRequest read;
+        read.method = "GET";
+        read.path = listPath;
+        fixture.addBrowserAuthentication(read);
+        const auto decision = fixture.gate.evaluate(read);
+        assert(decision.allowed);
+        assert(decision.authorizationDecision.permission ==
+            "devices.grants.view");
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "role.admin", "default"));
+        HttpServerRequest read;
+        read.method = "GET";
+        read.path = listPath;
+        fixture.addBrowserAuthentication(read);
+        assert(fixture.gate.evaluate(read).rejection.statusCode == 403);
     }
     return 0;
 }

@@ -311,6 +311,19 @@ bool PublicApiRuntime::deviceCredentialRotationConfigured() const
     return static_cast<bool>(deviceCredentialRotation_);
 }
 
+void PublicApiRuntime::registerDeviceCollectionLookup(
+    DeviceCollectionLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(deviceCollectionLookupMutex_);
+    deviceCollectionLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetDeviceCollectionLookup()
+{
+    std::lock_guard<std::mutex> lock(deviceCollectionLookupMutex_);
+    deviceCollectionLookup_ = {};
+}
+
 void PublicApiRuntime::registerDeviceGrantLookup(
     DeviceGrantLookup lookup)
 {

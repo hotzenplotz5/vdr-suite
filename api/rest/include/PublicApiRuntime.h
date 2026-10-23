@@ -114,9 +114,9 @@ struct PublicSearchTimerCollectionRequest
 {
     std::string backendId;
     std::string afterSearchTimerId;
+    std::size_t limit = 30U;
     // Optional exact opaque ID for a single saved-rule lookup.
     std::string searchTimerId;
-    std::size_t limit = 30U;
 };
 
 struct PublicSearchTimerCollectionResult
@@ -138,7 +138,9 @@ struct PublicSearchTimerCreateRequest
     std::string idempotencyKey;
     std::string name;
     std::string query;
-    bool active = true;
+    // Safe creation staging: public-v1 rules are created inactive only.
+    // Activation requires a separately fenced, future mutation workflow.
+    bool active = false;
     int mode = 0;
     int tolerance = 0;
     bool compareTitle = true;
@@ -149,6 +151,48 @@ struct PublicSearchTimerCreateResult
 {
     PublicSearchTimerCreateStatus status =
         PublicSearchTimerCreateStatus::unavailable;
+    PublicOperationResource operation;
+};
+
+enum class PublicSearchTimerNativeAction
+{
+    update, activate, deactivate, remove
+};
+enum class PublicSearchTimerNativeVersionStatus
+{
+    ok, notFound, unavailable
+};
+struct PublicSearchTimerNativeVersionRequest
+{
+    std::string backendId;
+    std::string publicSearchTimerId;
+};
+struct PublicSearchTimerNativeVersionResult
+{
+    PublicSearchTimerNativeVersionStatus status =
+        PublicSearchTimerNativeVersionStatus::unavailable;
+    std::string revision;
+};
+enum class PublicSearchTimerNativeMutationStatus
+{
+    accepted, replayed, invalid, conflict, notFound, unavailable
+};
+struct PublicSearchTimerNativeMutationRequest
+{
+    PublicSearchTimerNativeAction action =
+        PublicSearchTimerNativeAction::update;
+    std::string actorRef;
+    std::string backendId;
+    std::string publicSearchTimerId;
+    std::string ifMatch;
+    std::string idempotencyKey;
+    std::string query;
+    bool confirmed = false;
+};
+struct PublicSearchTimerNativeMutationResult
+{
+    PublicSearchTimerNativeMutationStatus status =
+        PublicSearchTimerNativeMutationStatus::unavailable;
     PublicOperationResource operation;
 };
 
@@ -283,6 +327,30 @@ struct PublicRecordingDetailResult
 {
     PublicRecordingDetailStatus status = PublicRecordingDetailStatus::unavailable;
     PublicRecordingDetailItem item;
+};
+
+// M2: Read-only Recording artwork, projected from the existing cache.
+// Public consumers never see native paths, provider IDs or credentials.
+struct PublicRecordingArtworkRequest
+{
+    std::string backendId;
+    std::string recordingId;
+    std::string artworkId; // empty for list, opaque asset ID for image bytes
+};
+enum class PublicRecordingArtworkStatus { ok, invalid, notFound, unavailable };
+struct PublicRecordingArtworkItem
+{
+    std::string artworkId;
+    std::string kind;
+    int width = 0;
+    int height = 0;
+};
+struct PublicRecordingArtworkResult
+{
+    PublicRecordingArtworkStatus status = PublicRecordingArtworkStatus::unavailable;
+    std::vector<PublicRecordingArtworkItem> items;
+    std::string contentType;
+    std::string content;
 };
 
 enum class PublicSearchStatus { ok, unavailable };
@@ -851,6 +919,29 @@ struct PublicDeviceCredentialRotationResult
     std::string credentialSecret;
 };
 
+// Administrator-only catalogue, populated from the canonical security_devices table.
+struct PublicDeviceCollectionRequest
+{
+    std::string afterDeviceId;
+    std::size_t limit = 50U;
+};
+
+struct PublicDeviceCollectionItem
+{
+    std::string deviceId;
+    std::string actorId;
+    std::string displayName;
+    bool active = false;
+    bool revoked = false;
+};
+
+struct PublicDeviceCollectionResult
+{
+    bool available = false;
+    std::vector<PublicDeviceCollectionItem> items;
+    bool hasMore = false;
+};
+
 enum class PublicDeviceGrantStatus
 {
     ok, invalid, notFound, revisionConflict, unavailable
@@ -1269,6 +1360,13 @@ public:
         std::function<PublicSearchTimerCreateResult(
             const PublicSearchTimerCreateRequest& request)>;
 
+    using SearchTimerNativeVersionLookup =
+        std::function<PublicSearchTimerNativeVersionResult(
+            const PublicSearchTimerNativeVersionRequest&)>;
+    using SearchTimerNativeMutation =
+        std::function<PublicSearchTimerNativeMutationResult(
+            const PublicSearchTimerNativeMutationRequest&)>;
+
     using SearchTimerPreviewLookup =
         std::function<PublicSearchTimerPreviewResult(
             const PublicSearchTimerPreviewRequest& request)>;
@@ -1280,6 +1378,10 @@ public:
     using RecordingDetailLookup =
         std::function<PublicRecordingDetailResult(
             const PublicRecordingDetailRequest&)>;
+
+    using RecordingArtworkLookup =
+        std::function<PublicRecordingArtworkResult(
+            const PublicRecordingArtworkRequest&)>;
 
     using SearchLookup =
         std::function<PublicSearchResult(const PublicSearchRequest&)>;
@@ -1344,6 +1446,10 @@ public:
     using DeviceCredentialRotation =
         std::function<PublicDeviceCredentialRotationResult(
             const PublicDeviceCredentialRotationRequest& request)>;
+
+    using DeviceCollectionLookup =
+        std::function<PublicDeviceCollectionResult(
+            const PublicDeviceCollectionRequest& request)>;
 
     using DeviceGrantLookup =
         std::function<PublicDeviceGrantLookupResult(
@@ -1455,6 +1561,12 @@ public:
     void registerSearchTimerCreate(SearchTimerCreate handler);
     void resetSearchTimerCreate();
 
+    void registerSearchTimerNativeVersionLookup(
+        SearchTimerNativeVersionLookup lookup);
+    void resetSearchTimerNativeVersionLookup();
+    void registerSearchTimerNativeMutation(SearchTimerNativeMutation handler);
+    void resetSearchTimerNativeMutation();
+
     void registerSearchTimerPreviewLookup(SearchTimerPreviewLookup lookup);
     void resetSearchTimerPreviewLookup();
     PublicSearchTimerPreviewResult lookupSearchTimerPreview(
@@ -1470,6 +1582,11 @@ public:
     void resetRecordingDetailLookup();
     PublicRecordingDetailResult lookupRecordingDetail(
         const PublicRecordingDetailRequest& request) const;
+
+    void registerRecordingArtworkLookup(RecordingArtworkLookup lookup);
+    void resetRecordingArtworkLookup();
+    PublicRecordingArtworkResult lookupRecordingArtwork(
+        const PublicRecordingArtworkRequest& request) const;
 
     void registerSearchLookup(SearchLookup lookup);
     void resetSearchLookup();
@@ -1572,6 +1689,8 @@ public:
     void resetDeviceCredentialRotation();
     bool deviceCredentialRotationConfigured() const;
 
+    void registerDeviceCollectionLookup(DeviceCollectionLookup lookup);
+    void resetDeviceCollectionLookup();
     void registerDeviceGrantLookup(DeviceGrantLookup lookup);
     void resetDeviceGrantLookup();
     void registerDeviceGrantMutation(DeviceGrantMutation mutation);
@@ -1860,6 +1979,11 @@ private:
     mutable std::mutex searchTimerCreateMutex_;
     SearchTimerCreate searchTimerCreate_;
 
+    mutable std::mutex searchTimerNativeVersionMutex_;
+    SearchTimerNativeVersionLookup searchTimerNativeVersion_;
+    mutable std::mutex searchTimerNativeMutationMutex_;
+    SearchTimerNativeMutation searchTimerNativeMutation_;
+
     mutable std::mutex searchTimerPreviewLookupMutex_;
     SearchTimerPreviewLookup searchTimerPreviewLookup_;
 
@@ -1868,6 +1992,9 @@ private:
 
     mutable std::mutex recordingDetailLookupMutex_;
     RecordingDetailLookup recordingDetailLookup_;
+
+    mutable std::mutex recordingArtworkLookupMutex_;
+    RecordingArtworkLookup recordingArtworkLookup_;
 
     mutable std::mutex searchLookupMutex_;
     SearchLookup searchLookup_;
@@ -1919,6 +2046,9 @@ private:
     DeviceLifecycleMutation deviceLifecycleMutation_;
     mutable std::mutex deviceCredentialRotationMutex_;
     DeviceCredentialRotation deviceCredentialRotation_;
+
+    mutable std::mutex deviceCollectionLookupMutex_;
+    DeviceCollectionLookup deviceCollectionLookup_;
 
     mutable std::mutex deviceGrantLookupMutex_;
     DeviceGrantLookup deviceGrantLookup_;

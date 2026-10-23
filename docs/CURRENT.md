@@ -1,5 +1,14 @@
 # VDR-Suite Current State
 
+> **Public API v1 final acceptance:** Implementation comes first; real-yaVDR
+> verification happens **once, at the end**, against one exact integration
+> commit. The central [Public-v1 real-VDR acceptance checklist](development/public-v1-final-hardware-acceptance.md)
+> covers every Public-v1 domain and its security/rollback cases. Prior
+> domain-specific test records remain historical evidence, **not** permission
+> to repeat destructive hardware scenarios or claim the new combined build
+> accepted. Do not create parallel S1/test-slice checklists.
+
+
 ## Public-v1 Recording R2/R3 — REAL yaVDR acceptance CLOSED (2026-10-21)
 
 **Exact source and installed daemon:** `13e63d277deb5c9e0230f757a8c5733f6e7b0cbb`. Installed/running SHA-256 matched `aca41b516e59375cca0cfb8d3e0c63043d1cb71d90df0282cf4b73d3b48a82f5`, service active. At this exact source SHA all four GitHub workflow runs passed (R2 Recording + Genre #165, Recording R2 Candidate #124, VDR-Suite CI #10597, VIDAA Device tracks/index/SRT #146).

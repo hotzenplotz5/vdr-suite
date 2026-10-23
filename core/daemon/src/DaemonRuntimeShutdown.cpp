@@ -55,6 +55,8 @@ void DaemonRuntime::shutdown()
 
     httpListener_.reset();
     httpServer_.reset();
+    PublicApiRuntime::instance().resetRecordingArtworkLookup();
+    recordingArtworkService_.reset();
     apiRouter_.reset();
     ManualRecordingMetadataApiRuntime::instance().reset();
     PublicApiRuntime::instance().resetTimerCreateAdmission();
@@ -70,6 +72,8 @@ void DaemonRuntime::shutdown()
     PublicApiRuntime::instance().resetEpgGenreLookup();
     PublicApiRuntime::instance().resetTimerAssignmentCollectionLookup();
     PublicApiRuntime::instance().resetSearchTimerCreate();
+    PublicApiRuntime::instance().resetSearchTimerNativeVersionLookup();
+    PublicApiRuntime::instance().resetSearchTimerNativeMutation();
     PublicApiRuntime::instance().resetSearchTimerCollectionLookup();
     PublicApiRuntime::instance().resetTimerAssignmentLookup();
     PublicApiRuntime::instance().resetOperationLookup();
