@@ -21,6 +21,7 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/platform/deferred-runtime-loader.js", "platform/deferred-runtime-loader.js", "application/javascript; charset=utf-8", "home-recording-discovery-bootstrap.js"},
     {"/frontend/settings-series-artwork.js", "settings-series-artwork.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/settings-account-admin.js", "settings-account-admin.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/settings-addons.js", "settings-addons.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/settings-device-admin.js", "settings-device-admin.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/settings-media-transcode.js", "settings-media-transcode.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/locales/de.js", "locales/de.js", "application/javascript; charset=utf-8", nullptr},
