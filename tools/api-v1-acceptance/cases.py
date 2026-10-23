@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 import time
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlencode, urlsplit, parse_qsl
 
 from runner import ROOT, BACKEND, SHA, Problem, Blocked, Skip, validate
 
@@ -88,6 +88,7 @@ def check_spec(a):
     if not path.is_file():
         raise Blocked("api/openapi.json unavailable at checkout")
     a.spec = json.loads(path.read_text(encoding="utf-8"))
+    a.context["spec"] = True
     a.require(a.spec.get("openapi", "").startswith("3."), "OpenAPI 3 contract required")
     paths = a.spec.get("paths", {})
     missing = REQUIRED_ROUTES - paths.keys()
@@ -406,8 +407,7 @@ def artwork_list(a):
     a.require(isinstance(uri, str) and urlsplit(uri).path == expected and
               not urlsplit(uri).scheme and not urlsplit(uri).netloc and
               not any(k.lower() in ("token", "key", "secret", "credential", "auth")
-                      for k in dict(__import__("urllib.parse", fromlist=["parse_qsl"]).parse_qsl(
-                          urlsplit(uri).query))),
+                      for k in dict(parse_qsl(urlsplit(uri).query))),
               "artwork URL must be relative without credentials", path=path)
     a.context["artwork_url"] = endpoint(expected, backendId=a.backend)
 
@@ -503,10 +503,10 @@ def run_cases(a):
             requires=("root",))
     a.check("security.invalid-credential", "SECURITY", lambda: invalid_auth(a),
             requires=("root",))
-    a.check("security.backend-isolation", "SECURITY", lambda: isolation(a),
-            requires=("backend",))
     a.check("backends.authorized", "BACKENDS", lambda: backends(a),
             requires=("root",))
+    a.check("security.backend-isolation", "SECURITY", lambda: isolation(a),
+            requires=("backend",))
     # All reads depend on an authoritative selected backend.
     a.check("epg.channels", "EPG", lambda: channels(a), requires=("backend",))
     a.check("epg.now-next", "EPG", lambda: now_next(a), requires=("channel",))
