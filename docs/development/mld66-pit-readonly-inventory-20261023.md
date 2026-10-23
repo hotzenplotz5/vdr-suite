@@ -43,6 +43,10 @@ Pit subsequently confirmed read-only `PLUG suitebridge VPATH 1` on VDR 2.8.3, re
 
 Pit now confirms RESTfulAPI `SRC_URI` points to `yavdr/vdr-plugin-restfulapi` `master` and `SRCREV=79f9bd26370a08d6c5186c19cefa300c569045ea`. A full `/recordings.json` timed out after **30.002754 seconds** with HTTP 000 and 0 response bytes, while `/info.json` returned HTTP 200 in **0.001798 seconds**. The exact *declared* source revision is now known; final installed ELF/patch provenance is still unverified. A source audit at this revision identifies a recording-read lock covering list traversal and per-recording JSON metadata / filesystem / scraper processing, not yet an established hang cause. When VDR is stable, the opt-in `--recordings-html-sample` mode can distinguish shared VDR list/lock latency from JSON enrichment. See [detailed analysis](mld66-pit-vpath-http-crash-evidence-20261023.md).
 
+## Later HTML timing and installed-package crash boundary (2026-10-23)
+
+Pit ran `recordings.html?start=0&limit=1` twice: HTTP 200 in **0.012861s** and **0.001116s**. This is one HTML item and is **not directly comparable** to the timed-out *full* `recordings.json`. The next controlled measurement is a *single* 10-second bounded `recordings.json?start=0&limit=1` request, if the host remains stable. Pit reports VDR restarts only with **VDR-Suite installed**; the SuiteBridge-only baseline has not displayed those restarts. Determine *install vs service-start vs running workload* and examine the first failure safely before assigning a cause. [Detailed analysis](mld66-pit-vpath-http-crash-evidence-20261023.md).
+
 ## Acceptance status
 
 **MLD.1A** runtime inventory and SuiteBridge read-only `CAPS` and `VPATH 1` responses: **reported PASS**. **MLD.1B** standalone native Suite build/install: **NOT TESTED**. RESTfulAPI recording reads: **FAIL at 30s**. `/change-state` after update: **OPEN**. Native write acceptance, FFmpeg-backed features, network isolation and independent non-root Suite services: **OPEN**.
