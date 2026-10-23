@@ -2,7 +2,11 @@
 
 [Architecture decision](../docs/adr/ADR-0068-optional-addons-and-source-packaging.md) · [Packaging guide](../docs/development/addon-source-packaging.md) · [Roadmap](../docs/planning/addon-platform-roadmap.md)
 
-This directory owns the *source* of optional product extensions. It is not a runtime plugin loader. The existing browser `VdrSuitePlatform.registerModule()` registers web UI modules only; it does **not** grant backend permissions, register endpoints, or load external executables.
+This directory owns disabled manifest and packaging **metadata** for optional product extensions.
+The Media Tools implementation lives in `addons/media-tools/`, its Suite Core
+integration in `core/addons/media-tools/`, and general platform services in
+`core/addons/`. This is not a runtime plugin loader. Images and Music are
+independent future add-ons and are outside the current Media Tools workstream. The existing browser `VdrSuitePlatform.registerModule()` registers web UI modules only; it does **not** grant backend permissions, register endpoints, or load external executables.
 
 Every subdirectory currently in scope must contain:
 - `addon.json`: versioned metadata, package name, scaffold status and declared capabilities;
@@ -14,11 +18,11 @@ Run `make stage-addon MODULE=rectools DESTDIR=/path/to/isolated-package-root PRE
 
 No add-on is enabled by its presence in the source tree, `make install`, or metadata staging. Activation, public API routes, persistent permissions, protected job execution and web menus require future explicit reviewed implementation. No add-on can bypass the daemon's policy and ownership boundaries.
 
-Current source modules:
+Current inert module manifest identities:
 
 | Module | Intended responsibility | State |
 | --- | --- | --- |
-| [rectools](rectools/README.md) | Media import, read-only checking, optionally guarded shrink | scaffold, no executable integration |
+| [rectools](rectools/README.md) | Media import, read-only checking, optionally guarded shrink | disabled scaffold manifest; source-level Agent/Core integration is separate and has not been runtime-accepted |
 | [image](image/README.md) | Photo library/album/diashow | scaffold |
 | [music](music/README.md) | Audio library/playlists | scaffold |
 The VDR `tvscraper` plugin is **not a Suite add-on**. Native recording/EPG

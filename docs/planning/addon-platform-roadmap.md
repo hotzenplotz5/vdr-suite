@@ -13,7 +13,11 @@ deployment. Live status must be checked against GitHub and docs/CURRENT.md.
 
 ## Product boundary
 
-Three optional Suite add-ons: **Media Tools (Rectools)**, **Images**, **Music**.
+The platform recognizes independent optional identities for **Media Tools (Rectools)**,
+**Images** and **Music**, but **this roadmap's productive implementation and
+acceptance scope is Media Tools only**. Images and Music are separate future
+add-on workstreams, not milestones or prerequisites of Media Tools. Their
+currently inert manifests remain independent package-contract fixtures.
 TVScraper is **not an add-on**: its VDR plugin remains a native metadata
 provider integrated through SuiteBridge and the Suite Core under
 [ADR-0036](../adr/ADR-0036-tvscraper-recording-metadata-integration.md).
@@ -65,7 +69,6 @@ or metadata-only presence may bootstrap trust.
 | M1. Media Tools import | Single-file safe remux to VDR recording | Standalone C++ prototype; 11 isolated tests passed; private C++ preview .deb | Fix missing TOCTOU/fd, timeouts, crash recovery and recording reconciliation before live writes |
 | M2. Media Tools Check | Read-only FFprobe/FFmpeg recording integrity report | **M2.0/M2.1 source-stage:** standalone read-only C++ TS checker plus bounded, piped FFmpeg software decode and JSON decoder result; disposable simulated/real TS tests; Web/API jobs and installed runtime remain missing | No markers, messages or recording-file writes; bounded parser/job/tests |
 | M3. Media Tools Shrink | Optional space reduction preserving original until separately verified | **Source-integrated, not runtime-accepted:** C++ stage/review/publish, Core Operations, Agent opt-in, API and Recording Hero exist; HTTP grant eligibility is wired, but trusted administrative activation, build/test and full HEVC host acceptance remain open | Explicit consent, staged output/verification, extra VDR recording reconciliation and original preservation; no silent replacement |
-| I1. Images and Music | Independent photo and music services via core auth/media APIs | Metadata-only scaffolds | Review separate capability, persistence, playback, source and client contracts |
 
 **A1–A3 are foundations, not proof of a usable add-on manager.** The
 non-executing admission preview may report synthetic policy eligibility but
@@ -256,7 +259,9 @@ No VDR service or real recording is touched.
    source roots, staging, durable jobs, VDR indexing/readback,
    recording reconciliation and no source deletion.
 6. Do not install or enable A7 API/UI in production until separately authorized controlled real yaVDR acceptance; source-level client integration and isolated CI may precede deployment.
-7. Add read-only M2 Check, later M3 Shrink, then independent Images/Music.
+7. Finish read-only M2 Check and non-destructive M3 Shrink with Media Tools
+   installation/Agent/runtime acceptance. Images and Music are independent
+   future workstreams and must not gate this rollout.
 
 ## Validation, release and safety boundaries
 
