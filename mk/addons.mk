@@ -432,6 +432,7 @@ build-addon-global-maintenance-inspection-test:
 		core/addons/src/AddonActivationIntentRepository.cpp \
 		core/addons/media-tools/src/AddonMediaImportMaintenanceFence.cpp \
 		core/addons/media-tools/src/AddonMediaToolsMaintenanceInspection.cpp \
+		addons/media-tools/src/MediaImport.cpp \
 		core/operations/src/MutationOperation.cpp \
 		core/operations/src/MutationOperationRepository.cpp \
 		core/addons/media-tools/tests/test_addon_media_tools_maintenance_inspection.cpp \

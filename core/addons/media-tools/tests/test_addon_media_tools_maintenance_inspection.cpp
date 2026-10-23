@@ -2,9 +2,13 @@
 #include "AddonMediaImportMaintenanceFence.h"
 #include "AddonMediaImportMaintenanceRead.h"
 #include "MediaToolsImportRunLock.h"
+#include "MediaImport.h"
 #include "AccountabilityEventRepository.h"
 
 #include <cassert>
+#include <chrono>
+#include <signal.h>
+#include <sys/wait.h>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -193,6 +197,58 @@ void testDurableOwnership(const Fixture& f) {
     assert(!mediaImportAdmissionUnfrozen(db2));
     assert(audit1.listAll().size() == 4);
 }
+
+void testOrphanedHevcChildRetainsLock(const Fixture& fixture) {
+    using Lock = vdrsuite::mediatools::MediaToolsImportRunLock;
+    const fs::path marker = fixture.root / "hevc-child-started.marker";
+    // The "Agent" process owns a shared lock and starts one harmless fixed
+    // Python child through the real NativeProcessRunner fork/execv path.
+    // Killing just that parent must NOT unlock package maintenance while
+    // the independent child process is still alive.
+    const pid_t agent = ::fork();
+    assert(agent >= 0);
+    if (agent == 0) {
+        auto shared = Lock::tryAcquire(
+            fixture.root.string(), Lock::Mode::sharedExecution);
+        if (!shared || shared->borrowedDescriptorForChild() < 0)
+            ::_exit(91);
+        vdrsuite::mediatools::NativeProcessRunner runner(
+            std::chrono::seconds(7));
+        runner.bindMaintenanceLockFd(shared->borrowedDescriptorForChild());
+        const auto result = runner.run({
+            "/usr/bin/python3", "-c",
+            "import pathlib,sys,time; "
+            "pathlib.Path(sys.argv[1]).write_text('ready'); time.sleep(4)",
+            marker.string()}, false);
+        ::_exit(result.exitCode == 0 ? 0 : 92);
+    }
+    const auto readyDeadline = std::chrono::steady_clock::now() +
+        std::chrono::seconds(3);
+    while (!fs::exists(marker) &&
+           std::chrono::steady_clock::now() < readyDeadline)
+        ::usleep(30000);
+    const bool started = fs::exists(marker);
+    (void)::kill(agent, SIGKILL);
+    int status = 0;
+    while (::waitpid(agent, &status, 0) < 0 && errno == EINTR) {}
+    assert(started);
+    // Only the execv child can still own the lock: its Agent parent is gone.
+    assert(!Lock::tryAcquire(
+        fixture.root.string(), Lock::Mode::exclusiveMaintenance));
+    bool released = false;
+    const auto expiry = std::chrono::steady_clock::now() +
+        std::chrono::seconds(6);
+    while (std::chrono::steady_clock::now() < expiry) {
+        auto exclusive = Lock::tryAcquire(
+            fixture.root.string(), Lock::Mode::exclusiveMaintenance);
+        if (exclusive && exclusive->ownsExclusiveLock()) {
+            released = true;
+            break;
+        }
+        ::usleep(40000);
+    }
+    assert(released);
+}
 }
 
 int main() {
@@ -377,8 +433,10 @@ int main() {
             .has_value());
     assert(db.execute("DELETE FROM backend_agent_command_capabilities;"));
 
+    testOrphanedHevcChildRetainsLock(f);
     testDurableOwnership(f);
     std::cout << "ADDON_MAINTENANCE_OWNER_PERSISTENCE=PASS\n";
     std::cout << "ADDON_GLOBAL_MAINTENANCE_INSPECTION=PASS\n";
     std::cout << "ADDON_MAINTENANCE_EXCLUSIVE_HOLD=PASS\n";
+    std::cout << "HEVC_ORPHAN_CHILD_MAINTENANCE_LOCK=PASS\n";
 }
