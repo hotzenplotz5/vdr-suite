@@ -48,7 +48,8 @@ Verified in source on the pinned main baseline
   authority fail closed. HTTP 401/403/404 media responses retain their
   structured status and do not schedule recovery. Manual stop, page close,
   HbbTV switch and channel handoff cancel retries. Late MSE callbacks are
-  generation-fenced.
+  generation-fenced. An explicit new user start and a new HbbTV-to-broadcast
+  handoff start with a fresh recovery budget; automatic retries do not reset it.
 - `pagehide.persisted` no longer STOPs the live session. A real close keeps
   the keepalive stop request and destroys the browser owner.
 - HTTP writer now has a 15-second *zero-send-progress* limit, not a total
