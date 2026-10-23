@@ -18,7 +18,7 @@ inline bool parseActivationHttpMutation(
 {
     if (body.size() > 512U) return false;
     static const std::regex canonical(
-        R"(^\s*\{\s*"backendId"\s*:\s*"([a-zA-Z0-9_.:-]{1,128})"\s*,\s*"desiredEnabled"\s*:\s*(true|false)\s*,\s*"expectedRevision"\s*:\s*(0|[1-9][0-9]{0,16})\s*\}\s*$)");
+        R"ACT(^\s*\{\s*"backendId"\s*:\s*"([a-zA-Z0-9_.:-]{1,128})"\s*,\s*"desiredEnabled"\s*:\s*(true|false)\s*,\s*"expectedRevision"\s*:\s*(0|[1-9][0-9]{0,16})\s*\}\s*$)ACT");
     std::smatch match;
     if (!std::regex_match(body, match, canonical)) return false;
     const std::string backend = match[1].str();

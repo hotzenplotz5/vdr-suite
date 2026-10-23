@@ -10,7 +10,7 @@ int main() {
     assert(parseActivationHttpMutation(
         R"( { "backendId" : "backend-b", "desiredEnabled" : false, "expectedRevision" : 143 } )",request));
     assert(!request.enabled && request.expectedRevision==143);
-    for(const std::string& invalid : {
+    for(const char* invalid : {
         R"({"backendId":"../etc","desiredEnabled":true,"expectedRevision":0})",
         R"({"backendId":"*","desiredEnabled":true,"expectedRevision":0})",
         R"({"backendId":"backend","desiredEnabled":"true","expectedRevision":0})",
