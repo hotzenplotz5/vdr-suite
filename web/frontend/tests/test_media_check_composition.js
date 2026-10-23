@@ -21,6 +21,7 @@ assert(packaging.includes('node web/frontend/tests/test_media_check_composition.
 const backend = 'local';
 const id = 'rec_' + 'a'.repeat(32);
 const checkId = 'chk_' + 'b'.repeat(32);
+const shrinkReviewId = 'shk_' + 'c'.repeat(32);
 const requests = [];
 let ambiguousRecordings = false;
 function response(status, payload) {
@@ -31,6 +32,11 @@ function response(status, payload) {
 const api = clientFactory.createClient({
   fetch(url, options) {
     requests.push({url, options});
+    if (url.endsWith('/media-shrink-reviews/' + shrinkReviewId))
+      return Promise.resolve(response(200, {
+        backendId: backend, recordingId: id, reviewId: shrinkReviewId,
+        state: 'staged', revision: 1, readOnly: true, publishAvailable: false
+      }));
     if (url.endsWith('/capabilities/media-shrink'))
       return Promise.resolve(response(200, {
         backendId: backend, capability: 'addons.media.shrink',
@@ -102,6 +108,18 @@ const api = clientFactory.createClient({
   assert.strictEqual(sentPlan.options.headers['X-CSRF-Token'], 'hevc-csrf');
   assert.deepStrictEqual(JSON.parse(sentPlan.options.body),
     {recordingId: id});
+  assert.throws(() => api.getMediaShrinkReview({
+    backendId: backend, reviewId: '/tmp/staged.rec'
+  }));
+  const review = await api.getMediaShrinkReview({
+    backendId: backend, reviewId: shrinkReviewId
+  });
+  assert.strictEqual(review.state, 'staged');
+  assert.strictEqual(review.publishAvailable, false);
+  assert.strictEqual(review.readOnly, true);
+  const reviewRequest = requests[requests.length - 1];
+  assert(reviewRequest.url.endsWith('/media-shrink-reviews/' + shrinkReviewId));
+  assert.notStrictEqual(reviewRequest.options.method, 'POST');
   const context = {
     window: null, console,
     VdrSuiteRecordings2Shared: {
