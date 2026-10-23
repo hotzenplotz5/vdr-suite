@@ -86,6 +86,7 @@ test-addon-media-shrink-local-review:
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror \
 		-I addons/media-tools/include \
+		addons/media-tools/src/MediaImport.cpp \
 		addons/media-tools/src/MediaShrink.cpp \
 		addons/media-tools/src/LocalMediaShrinkReviewStore.cpp \
 		addons/media-tools/tests/test_local_media_shrink_review_store.cpp \
