@@ -1,4 +1,5 @@
 #include "LocalMediaShrinkAgentExecutor.h"
+#include "MediaShrinkAuthorityCodec.h"
 
 #include <algorithm>
 #include <cassert>
@@ -109,6 +110,31 @@ int main() {
     const fs::path relative = fs::path("Example") / recording.filename();
     const std::string fingerprint =
         shrinkSourceFingerprint(inspectShrink(root, relative));
+    // Authenticated Agent-only response codec rejects path injection,
+    // noncanonical operation identity and generation manipulation.
+    const LocalMediaShrinkAuthority authoritySample{
+        "actor-a", "backend-a", "op_" + std::string(32, 'a'),
+        kRecording, fingerprint, 7, root, relative
+    };
+    const auto encoded = authoritywire::serialize(authoritySample);
+    assert(!encoded.empty());
+    assert(encoded.find(root.string()) == std::string::npos);
+    const auto decoded = authoritywire::parse(encoded);
+    assert(decoded && decoded->videoRoot == root &&
+           decoded->relativeRecording == relative &&
+           decoded->sourceFingerprint == fingerprint &&
+           decoded->operationId == authoritySample.operationId);
+    assert(!authoritywire::parse(encoded + "junk"));
+    assert(!authoritywire::parse(encoded.substr(0, encoded.size() - 1)));
+    auto malformed = authoritySample;
+    malformed.relativeRecording = "../other.rec";
+    assert(authoritywire::serialize(malformed).empty());
+    malformed = authoritySample;
+    malformed.operationId = "op_/etc/passwd";
+    assert(authoritywire::serialize(malformed).empty());
+    malformed = authoritySample;
+    malformed.backendGeneration = 0;
+    assert(authoritywire::serialize(malformed).empty());
     LocalMediaShrinkReviewStore store(state);
     Process process;
     bool incorrectFingerprint = false;
