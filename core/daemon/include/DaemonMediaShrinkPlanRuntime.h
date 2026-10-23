@@ -6,6 +6,7 @@
 #include "MediaShrinkReviewRepository.h"
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <functional>
 #include <map>
@@ -253,6 +254,25 @@ public:
             return MediaShrinkPlanApiRuntime::problem(
                 503, "Media Shrink review unavailable.");
         const auto& review = result.review;
+        std::string sizeFields;
+        bool reviewedCandidatePresent = false;
+        if (review.state == "staged") {
+            try {
+                vdrsuite::mediatools::NativeProcessRunner runner(
+                    std::chrono::seconds(120));
+                const auto verified = verifyStagedCandidate(
+                    actor, backend, review.recordingId,
+                    review.stageOperationId, review.sourceFingerprint,
+                    review.backendGeneration, review.reviewId, runner);
+                if (verified) {
+                    reviewedCandidatePresent = true;
+                    sizeFields = ",\"sourceBytes\":" +
+                        std::to_string(verified->sourceBytes) +
+                        ",\"candidateBytes\":" +
+                        std::to_string(verified->candidateBytes);
+                }
+            } catch (...) {}
+        }
         if (!review.publishedRecordingId.empty() &&
             !vdrsuite::mediatools::shrinkOpaqueId(
                 review.publishedRecordingId, "rec_"))
@@ -265,9 +285,9 @@ public:
             "\",\"state\":\"" + review.state +
             "\",\"revision\":" + std::to_string(review.revision) +
             ",\"readOnly\":true,\"publishAvailable\":" +
-            ((authorizedPublish && review.state == "staged") ? "true" : "false") + ","
+            ((authorizedPublish && reviewedCandidatePresent) ? "true" : "false") + ","
             "\"publishedRecordingId\":\"" +
-            review.publishedRecordingId + "\"}");
+            review.publishedRecordingId + "\"" + sizeFields + "}");
     }
 
 private:
