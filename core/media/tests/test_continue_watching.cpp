@@ -179,5 +179,51 @@ int main()
     assert(legacyService.list("legacy", "default").empty());
     assert(legacyRepository.findForActorBackend("legacy", "default").empty());
 
+    // Public-v1 optimistic updates: delayed concurrent sessions may not
+    // overwrite newer acknowledged progress or resurrect a reset position.
+    const auto first = repository.updateConditional(
+        "device-1", "default", "r2", "/recordings/r2.rec", 120, "cas-a", 0);
+    assert(first.status == ContinueWatchingMutationStatus::applied);
+    assert(first.revision == 1);
+    const auto duplicate = repository.updateConditional(
+        "device-1", "default", "r2", "/recordings/r2.rec", 120, "cas-a", 0);
+    assert(duplicate.status == ContinueWatchingMutationStatus::replayed);
+    assert(duplicate.revision == 1);
+    const auto changedReplay = repository.updateConditional(
+        "device-1", "default", "r2", "/recordings/r2.rec", 333, "cas-a", 0);
+    assert(changedReplay.status == ContinueWatchingMutationStatus::conflict);
+    const auto next = repository.updateConditional(
+        "device-1", "default", "r2", "/recordings/r2.rec", 220, "cas-b", 1);
+    assert(next.status == ContinueWatchingMutationStatus::applied);
+    assert(next.revision == 2);
+    const auto delayed = repository.updateConditional(
+        "device-1", "default", "r2", "/recordings/r2.rec", 130, "cas-delayed", 1);
+    assert(delayed.status == ContinueWatchingMutationStatus::conflict);
+    auto deviceItems = service.list("device-1", "default");
+    assert(deviceItems.size() == 1 && deviceItems[0].resumePositionSeconds == 220);
+    const auto reset = repository.updateConditional(
+        "device-1", "default", "r2", "/recordings/r2.rec", 0, "cas-clear", 2);
+    assert(reset.status == ContinueWatchingMutationStatus::applied);
+    assert(reset.revision == 3);
+    assert(service.list("device-1", "default").empty());
+    assert(repository.updateConditional(
+        "device-1", "default", "r2", "/recordings/r2.rec", 160, "cas-stale", 2
+    ).status == ContinueWatchingMutationStatus::conflict);
+    // An actual user-initiated seek backwards is permitted with a fresh revision.
+    assert(repository.updateConditional(
+        "device-1", "default", "r2", "/recordings/r2.rec", 40, "cas-seek", 3
+    ).status == ContinueWatchingMutationStatus::applied);
+    assert(service.list("device-1", "default")[0].resumePositionSeconds == 40);
+    // Same Recording is isolated by actor and backend.
+    assert(service.list("actor-a", "other").size() == 1);
+    assert(service.list("device-2", "default").empty());
+    // Re-opening the repository against the same durable DB retains the revision.
+    ContinueWatchingRepository afterRestart(database);
+    assert(afterRestart.ensureSchema());
+    const auto statesAfterRestart = afterRestart.findForActorBackend("device-1", "default");
+    assert(statesAfterRestart.size() == 1);
+    assert(statesAfterRestart[0].positionSeconds == 40);
+    assert(statesAfterRestart[0].revision == 4);
+
     return 0;
 }
