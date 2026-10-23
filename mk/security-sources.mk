@@ -142,6 +142,13 @@ test-p1-device-playback-account-binding:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_device_playback_account_binding
 	$(BUILD_DIR)/test_device_playback_account_binding
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		$(SECURITY_SRC) \
+		core/security/tests/test_p1_playback_account_security.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_p1_playback_account_security
+	$(BUILD_DIR)/test_p1_playback_account_security
 
 test-ci-fast: test-p1-device-playback-account-binding
 test-vdr: test-p1-device-playback-account-binding
