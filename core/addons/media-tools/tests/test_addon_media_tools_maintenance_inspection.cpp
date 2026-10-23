@@ -292,21 +292,7 @@ int main() {
 
     const auto accepted = operations.reserve(pending());
     assert(accepted.ok());
-    assert(fence.setFrozen(actor, true, 0,
-        {"maintenance-freeze-event", "2026-10-22T07:00:00Z"}).status ==
-        MaintenanceFenceStatus::ok);
-    assert(inspect().reason == R::auditedDisableMissing);
-    assert(intents.update(actor, {"rectools","backend-a",false,0},
-                          {}, {}).status == IntentStatus::ok);
-    assert(inspect().reason == R::operationsUnresolved);
-    assert(operations.transition("maintenance-pending-1", "1",
-        MutationOperationState::accepted,
-        MutationOperationState::cancelled, "",101).ok());
-    assert(inspect().locallyQuiescent);
-
-    // A Media Tools package upgrade must not miss concurrent HEVC work.
-    // Neither stage nor publish belongs to the import-only freeze, but
-    // both MUST deny a supposedly quiescent package snapshot.
+    // HEVC tasks already queued before the global maintenance freeze.
     for (const char* action : {"media.shrink.stage", "media.shrink.publish"}) {
         auto shrink = pending();
         const bool stage = std::string(action) == "media.shrink.stage";
@@ -319,11 +305,39 @@ int main() {
         shrink.resourceId = stage ? "rec_0123456789abcdef0123456789abcdef" :
                                     "shk_0123456789abcdef0123456789abcdef";
         assert(operations.reserve(shrink).ok());
+    }
+    assert(fence.setFrozen(actor, true, 0,
+        {"maintenance-freeze-event", "2026-10-22T07:00:00Z"}).status ==
+        MaintenanceFenceStatus::ok);
+    assert(inspect().reason == R::auditedDisableMissing);
+    assert(intents.update(actor, {"rectools","backend-a",false,0},
+                          {}, {}).status == IntentStatus::ok);
+    assert(inspect().reason == R::operationsUnresolved);
+    assert(operations.transition("maintenance-pending-1", "1",
+        MutationOperationState::accepted,
+        MutationOperationState::cancelled, "",101).ok());
+    assert(inspect().reason == R::operationsUnresolved);
+
+    // Import is drained, but both prior HEVC jobs still forbid maintenance.
+    for (const char* action : {"media.shrink.stage", "media.shrink.publish"}) {
+        auto shrink = pending();
+        const bool stage = std::string(action) == "media.shrink.stage";
+        shrink.operationId = stage ? "maintenance-shrink-stage" :
+                                     "maintenance-shrink-publish";
+        shrink.idempotencyKey = stage ? "maintenance-shrink-stage-idem" :
+                                        "maintenance-shrink-publish-idem";
+        shrink.actionFamily = action;
+        shrink.resourceType = stage ? "Recording" : "MediaShrinkReview";
+        shrink.resourceId = stage ? "rec_0123456789abcdef0123456789abcdef" :
+                                    "shk_0123456789abcdef0123456789abcdef";
         assert(inspect().reason == R::operationsUnresolved);
         assert(operations.transition(shrink.operationId, "1",
             MutationOperationState::accepted,
             MutationOperationState::cancelled, "", 101).ok());
-        assert(inspect().locallyQuiescent);
+        if (stage)
+            assert(inspect().reason == R::operationsUnresolved);
+        else
+            assert(inspect().locallyQuiescent);
     }
 
     BackendAccessDecision writable;
