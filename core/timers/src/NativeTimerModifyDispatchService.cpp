@@ -431,6 +431,17 @@ NativeTimerModifyDispatchService::applyOutcome(
             NativeTimerModifyDispatchOutcomeStatus::operationStateConflict,
             settled.operation);
     }
+    // A missing-evidence quarantine is not an idempotent outcome_unknown
+    // result. No result without verified pre-dispatch rejection may reuse
+    // that state's revision or replace the quarantine marker. In particular,
+    // never reinterpret a possible-effect result as a verified no-effect.
+    if (operation.state == MutationOperationState::outcomeUnknown &&
+        operation.resultReference ==
+            "native-timer-modify:missing-result-evidence")
+        return outcomeResult(
+            NativeTimerModifyDispatchOutcomeStatus::operationStateConflict,
+            operation);
+
     if (operation.state != MutationOperationState::dispatching &&
         operation.state != target)
         return outcomeResult(
