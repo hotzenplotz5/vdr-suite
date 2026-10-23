@@ -16,7 +16,10 @@ class IBackendAgentNativeTimerModifyTransport;
 class ISuiteBridgeLegacyOsdInputTransport;
 }
 
-namespace vdrsuite::mediatools { class IMediaImportAgentExecutor; }
+namespace vdrsuite::mediatools {
+class IMediaImportAgentExecutor;
+class IMediaShrinkAgentExecutor;
+}
 
 struct BackendAgentClientConfig
 {
@@ -54,6 +57,7 @@ struct BackendAgentClientConfig
     long requestTimeoutMilliseconds = 10000;
     // Set only by a trusted binary composition root, never parsed from config.
     vdrsuite::mediatools::IMediaImportAgentExecutor* mediaImportExecutor = nullptr;
+    vdrsuite::mediatools::IMediaShrinkAgentExecutor* mediaShrinkExecutor = nullptr;
 };
 
 struct BackendAgentClientState
