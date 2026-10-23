@@ -352,5 +352,45 @@ int main()
         assert(httpClient.requests().size() == 1);
     }
 
+    {
+        // MLD's configured root overrides the original yaVDR-derived source.
+        RestfulApiRecordingActionBackendConfig config = safeConfig(false);
+        config.videoDirectory = "/media/mld-recordings";
+        config.videoDirectoryExplicit = true;
+
+        RecordingActionJobPayload payload = missionPayload(true);
+        payload.parameters["backendNativeId"] =
+            "/media/mld-recordings/Mission#3A_Impossible/"
+            "2026-05-24.20.13.8-0.rec";
+        payload.parameters["targetPath"] = "Archive";
+
+        RestfulApiRecordingActionRequestBuilder builder;
+        const HttpRequest preview =
+            builder.buildSafeMovePreviewRequest(config, payload);
+        assert(preview.body.find(
+            "\\"target_file\\":\\"/media/mld-recordings/Archive/"
+            "Mission#3A_Impossible/2026-05-24.20.13.8-0.rec\\"") !=
+            std::string::npos);
+        assert(preview.body.find("\\"target_file\\":\\"/srv/vdr/video/") ==
+               std::string::npos);
+
+        // A mismatched native source must not reach even the preview route.
+        SequenceHttpClient blockedClient(std::vector<HttpResponse>{});
+        RestfulApiRecordingActionBackendExecutorAdapter blockedAdapter(
+            config, blockedClient);
+        RecordingActionJobPayload wrongRoot = missionPayload(true);
+        const auto wrongResult = blockedAdapter.execute(wrongRoot);
+        assert(!wrongResult.success);
+        assert(wrongResult.errors.at(0).find("outside configured recording") !=
+               std::string::npos);
+        assert(blockedClient.requests().empty());
+
+        wrongRoot.parameters["backendNativeId"] =
+            "/media/mld-recordings/../foreign/2026-05-24.20.13.8-0.rec";
+        const auto traversalResult = blockedAdapter.execute(wrongRoot);
+        assert(!traversalResult.success);
+        assert(blockedClient.requests().empty());
+    }
+
     return 0;
 }
