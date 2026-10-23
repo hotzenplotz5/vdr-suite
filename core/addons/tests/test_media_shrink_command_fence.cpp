@@ -29,7 +29,7 @@ struct Fixture {
         op.resourceType = "Recording";
         op.resourceId = rec;
         op.actionFamily = "media.shrink.stage";
-        op.expectedRevision = "rec-rev-1";
+        op.expectedRevision = "source-v1";
         op.expectedResourceFingerprint = "source_fingerprint_1";
         op.requestFingerprint = "request_fingerprint_1";
         op.verificationPolicy =
@@ -91,6 +91,9 @@ int main() {
     assert(f.inspect() == Status::candidateOnly);
     auto changed = f;
     changed.op.actorId.clear();
+    assert(changed.inspect() == Status::operationMismatch);
+    changed = f;
+    changed.op.expectedRevision = "rec-rev-1";
     assert(changed.inspect() == Status::operationMismatch);
     changed = f;
     changed.op.backendGeneration = 8;
