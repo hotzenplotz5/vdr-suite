@@ -7,6 +7,9 @@ const clientFactory = require('../api/public-v1-client.js');
 const hero = fs.readFileSync('web/frontend/recordings2-hero-detail.js', 'utf8');
 const packaging = fs.readFileSync('mk/recordings2.mk', 'utf8');
 assert(hero.includes("makeButton('Aufnahme prüfen'"));
+assert(hero.includes("makeButton('HEVC-Vorprüfung'"));
+assert(hero.includes("renderMediaShrinkPlan(root, copy, recording, backendId, actions);"));
+assert(hero.includes("client.submitMediaShrinkPlan({"));
 assert(hero.includes('renderMediaCheck(root, copy, recording, backendId, actions);'));
 assert(hero.includes('VdrSuiteBrowserSession'));
 assert(hero.includes('session.csrfHeaders()'));
@@ -28,6 +31,17 @@ function response(status, payload) {
 const api = clientFactory.createClient({
   fetch(url, options) {
     requests.push({url, options});
+    if (url.endsWith('/capabilities/media-shrink'))
+      return Promise.resolve(response(200, {
+        backendId: backend, capability: 'addons.media.shrink',
+        planningAvailable: true, available: false
+      }));
+    if (url.endsWith('/media-shrink-plans'))
+      return Promise.resolve(response(200, {
+        backendId: backend, recordingId: id,
+        readOnly: true, stageAvailable: false, sourceBytes: 32768,
+        segments: 1
+      }));
     if (url.endsWith('/capabilities/media-check'))
       return Promise.resolve(response(200, {
         backendId: backend, capability: 'addons.media.check', available: true
@@ -69,6 +83,25 @@ const api = clientFactory.createClient({
     {recordingId: id, mode: 'decode'});
   const report = await api.getMediaCheckStatus({backendId: backend, checkId});
   assert.strictEqual(report.report.status, 'ok');
+  const shrinkCapability =
+    await api.getMediaShrinkCapability({backendId: backend});
+  assert.strictEqual(shrinkCapability.planningAvailable, true);
+  assert.strictEqual(shrinkCapability.available, false);
+  assert.throws(() => api.submitMediaShrinkPlan({
+    backendId: backend, recordingId: '/tmp/bad.rec'
+  }));
+  const plan = await api.submitMediaShrinkPlan({
+    backendId: backend, recordingId: id,
+    headers: {'X-CSRF-Token': 'hevc-csrf'}
+  });
+  assert.strictEqual(plan.readOnly, true);
+  assert.strictEqual(plan.stageAvailable, false);
+  const sentPlan = requests[requests.length - 1];
+  assert(sentPlan.url.endsWith('/media-shrink-plans'));
+  assert.strictEqual(sentPlan.options.method, 'POST');
+  assert.strictEqual(sentPlan.options.headers['X-CSRF-Token'], 'hevc-csrf');
+  assert.deepStrictEqual(JSON.parse(sentPlan.options.body),
+    {recordingId: id});
   const context = {
     window: null, console,
     VdrSuiteRecordings2Shared: {
