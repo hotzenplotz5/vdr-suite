@@ -41,13 +41,21 @@
     });
   }
   function setGrant(deviceId, etag, permission, backendId, active) {
+    // Server Device-grant admission requires a concrete backend for every
+    // Timer and SearchTimer mutation permission, not only for CREATE.
+    const concreteBackendRequired = [
+      'timers.create', 'timers.modify', 'timers.delete',
+      'searchtimers.create', 'searchtimers.modify',
+      'searchtimers.execute', 'searchtimers.delete'
+    ].includes(permission);
     if (typeof etag !== 'string' || !etag ||
         !/^[A-Za-z0-9_-]{1,128}$/.test(deviceId) ||
         typeof permission !== 'string' ||
         typeof backendId !== 'string' ||
         typeof active !== 'boolean' ||
-        (['searchtimers.create', 'timers.create'].includes(permission)
-          && backendId === '*')) {
+        (concreteBackendRequired &&
+          (backendId === '*' || backendId === '.' || backendId === '..' ||
+            !/^[A-Za-z0-9_.-]{1,128}$/.test(backendId)))) {
       return Promise.reject(new Error('Unsafe Device Grant mutation'));
     }
     return restore(function() {

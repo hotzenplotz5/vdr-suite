@@ -140,6 +140,24 @@ async function run() {
   assert(hisense && hisense.dataset.deviceId === 'device_a');
   assert(named(page, 'summary', 'Gerätekennung (technisch)'));
   assert(named(page, 'p', 'Device-ID: device_a'));
+  // Fail before Browser Session restoration or transport dispatch.
+  for (const permission of [
+    'timers.create', 'timers.modify', 'timers.delete',
+    'searchtimers.create', 'searchtimers.modify',
+    'searchtimers.execute', 'searchtimers.delete'
+  ]) {
+    await assert.rejects(
+      window.VdrSuiteDeviceAdminClientApi.setGrant(
+        'device_a', '"grant-r1"', permission, '*', true),
+      /Unsafe Device Grant mutation/);
+  }
+  for (const invalid of ['', '.', '..', 'backend/other']) {
+    await assert.rejects(
+      window.VdrSuiteDeviceAdminClientApi.setGrant(
+        'device_a', '"grant-r1"', 'searchtimers.modify', invalid, true),
+      /Unsafe Device Grant mutation/);
+  }
+  assert.strictEqual(calls.filter(x => x.kind === 'mutation').length, 0);
   const selects = descendants(page).filter(el => el.tagName === 'SELECT');
   assert.strictEqual(selects.length, 2);
   const grantable = selects[0].options.map(el => el.value);
