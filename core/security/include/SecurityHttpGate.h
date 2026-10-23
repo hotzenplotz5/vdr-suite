@@ -447,8 +447,6 @@ public:
         bool isPublicMediaCheckStatusResource = false;
         bool isPublicMediaShrinkCapabilityResource = false;
         bool isPublicMediaShrinkPlanCollection = false;
-        bool isPublicMediaShrinkStageCollection = false;
-        bool isPublicMediaShrinkPublishCollection = false;
         bool isPublicMediaShrinkReviewResource = false;
         std::string publicMediaShrinkBackendId;
         if (path.compare(0, mediaCheckBase.size(), mediaCheckBase) == 0) {
@@ -484,10 +482,6 @@ public:
                         tail == "/capabilities/media-shrink";
                     isPublicMediaShrinkPlanCollection =
                         tail == "/media-shrink-plans";
-                    isPublicMediaShrinkStageCollection =
-                        tail == "/media-shrink-stages";
-                    isPublicMediaShrinkPublishCollection =
-                        tail == "/media-shrink-publications";
                     const std::string reviewPrefix = "/media-shrink-reviews/";
                     isPublicMediaShrinkReviewResource =
                         tail.compare(0, reviewPrefix.size(), reviewPrefix) == 0 &&
@@ -495,8 +489,6 @@ public:
                         tail.find('/', reviewPrefix.size()) == std::string::npos;
                     if (isPublicMediaShrinkCapabilityResource ||
                         isPublicMediaShrinkPlanCollection ||
-                        isPublicMediaShrinkStageCollection ||
-                        isPublicMediaShrinkPublishCollection ||
                         isPublicMediaShrinkReviewResource)
                         publicMediaShrinkBackendId = candidate;
                 }
@@ -506,10 +498,6 @@ public:
             isPost && isPublicMediaCheckCollection;
         const bool isPublicMediaShrinkPlanCreate =
             isPost && isPublicMediaShrinkPlanCollection;
-        const bool isPublicMediaShrinkStageCreate =
-            isPost && isPublicMediaShrinkStageCollection;
-        const bool isPublicMediaShrinkPublishCreate =
-            isPost && isPublicMediaShrinkPublishCollection;
         const bool isPublicBackendRead =
             request.method == "GET" &&
             (isPublicBackendCollection || isPublicMediaImportCapabilityResource ||
@@ -968,8 +956,6 @@ public:
             isPublicMediaImportCreate ||
             isPublicMediaCheckCreate ||
             isPublicMediaShrinkPlanCreate ||
-            isPublicMediaShrinkStageCreate ||
-            isPublicMediaShrinkPublishCreate ||
             isPublicDeviceRecordingSessionCreate ||
             isPublicDeviceRecordingSessionStop ||
             isPublicDeviceRecordingSubtitleSelection || isTimerUpdateAction ||
@@ -2044,19 +2030,10 @@ public:
         }
         else if (isPublicMediaShrinkPlanCreate)
         {
+            // Read-only inspection; staging and publishing require a
+            // separate, unimplemented mutation permission and Core operation.
             requestToAuthorize.permission = "media.recording.play";
             requestToAuthorize.action = "media.recording.shrink.plan";
-            requestToAuthorize.backendId = publicMediaShrinkBackendId;
-        }
-        else if (isPublicMediaShrinkStageCreate ||
-                 isPublicMediaShrinkPublishCreate)
-        {
-            // Mutations NEVER inherit playback or administrator permission.
-            // Core independently rechecks effective actor grants, backend
-            // generation, addon activation and exact immutable Operation.
-            requestToAuthorize.permission = "addons.media.shrink";
-            requestToAuthorize.action = isPublicMediaShrinkStageCreate
-                ? "media.shrink.stage" : "media.shrink.publish";
             requestToAuthorize.backendId = publicMediaShrinkBackendId;
         }
         else if (isTimerCreateAction ||
