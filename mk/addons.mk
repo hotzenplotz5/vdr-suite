@@ -79,6 +79,20 @@ test-addon-media-shrink:
 		-o "$(BUILD_DIR)/addons/test_media_shrink"
 	"$(BUILD_DIR)/addons/test_media_shrink"
 
+.PHONY: test-addon-media-shrink-plan-api
+test-addon-media-shrink-plan-api:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+		-I addons/media-tools/include -I api/rest/include \
+		-I core/daemon/include \
+		addons/media-tools/src/MediaImport.cpp \
+		addons/media-tools/src/MediaShrink.cpp \
+		addons/media-tools/tests/test_media_shrink_plan_api.cpp \
+		-o "$(BUILD_DIR)/addons/test_media_shrink_plan_api"
+	"$(BUILD_DIR)/addons/test_media_shrink_plan_api"
+
+test-ci-fast: test-addon-media-shrink-plan-api
+
 test-ci-fast: test-addon-media-shrink
 
 # M2: read-only TS and FFmpeg engine, exercised via standalone CLI and
