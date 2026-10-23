@@ -156,6 +156,14 @@ is a foreground browser feature, **not** an unattended daemon scheduler.
 
 ### HEVC shrink: standalone engine and source-integrated workflow
 
+At HEVC Stage, the protected candidate marker records the validated source
+fingerprint **and the exact concatenated TS duration** used to verify encoding.
+The independent Publish candidate verifier now checks that stored duration for
+both single- and multiple-TS recordings; it fails closed on missing/invalid
+marker data or a shortened HEVC candidate. No second source concatenation or
+recording write is required to read back the duration.
+
+
 In the opted-in production Backend Agent, the HEVC executor is wrapped by
 `ProtectedMediaShrinkAgentExecutor`: each stage or publish must acquire the
 same fixed, root-controlled Media Tools shared execution lock as Import,

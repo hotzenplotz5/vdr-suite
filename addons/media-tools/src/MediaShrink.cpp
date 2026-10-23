@@ -579,7 +579,13 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
     std::ofstream review(candidate / ".shrink-review",
                          std::ios::binary | std::ios::trunc);
     demand(static_cast<bool>(review), "cannot create shrink review evidence");
-    review << signature(current);
+    // Persist the ORIGINAL, concatenated TS duration already checked against
+    // the freshly encoded candidate. A single segment has its own readback
+    // reference, but segmented sources cannot safely be summed from separate
+    // ffprobe reads: TS timestamps may restart at segment boundaries.
+    // The original snapshot identity and duration share one protected marker.
+    review << signature(current) << "DURATION/1\n"
+           << std::to_string(originalDuration) << '\n';
     review.flush();
     demand(static_cast<bool>(review), "cannot finish shrink review evidence");
     demand(fs::remove(source), "cannot remove private TS snapshot");
@@ -754,7 +760,21 @@ std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
     demand(length == evidenceStat.st_size,
            "shrink review evidence changed");
     const std::string saved(bytes.data(), static_cast<std::size_t>(length));
-    demand(saved == signature(checked), "candidate belongs to a different recording");
+    const std::string prefix = signature(checked) + "DURATION/1\n";
+    demand(saved.compare(0, prefix.size(), prefix) == 0 &&
+           saved.size() > prefix.size() + 1 && saved.back() == '\n',
+           "candidate source/duration evidence missing or changed");
+    const std::string durationText = saved.substr(
+        prefix.size(), saved.size() - prefix.size() - 1);
+    demand(durationText.find('\n') == std::string::npos,
+           "invalid stored HEVC source duration");
+    std::size_t parsed = 0;
+    double originalDuration = 0;
+    try { originalDuration = std::stod(durationText, &parsed); }
+    catch (...) { throw std::runtime_error("invalid stored HEVC duration"); }
+    demand(parsed == durationText.size() &&
+           std::isfinite(originalDuration) && originalDuration > 0,
+           "invalid stored HEVC source duration");
     demand(nonempty(candidate / "00001.ts") &&
            nonempty(candidate / "index") && nonempty(candidate / "info"),
            "unverified HEVC candidate files");
@@ -764,19 +784,15 @@ std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
            "HEVC candidate no longer saves space");
     demand(probeCodec(runner, candidate / "00001.ts") == "hevc",
            "published candidate is not HEVC");
-    // Recheck duration during independent candidate verification.
-    // For a single VDR TS segment, the original provides an exact
-    // immutable duration reference. Combined TS was checked at staging.
+    // Apply the SAME completeness check at independent publication/readback
+    // for both single- and multi-segment source recordings. The duration was
+    // taken from the validated concatenated TS snapshot at Stage; no mutable
+    // or caller-provided duration can substitute for it at Publish.
     const double candidateDuration = probeDuration(
         runner, candidate / "00001.ts");
-    if (checked.segments.size() == 1) {
-        const double originalDuration = probeDuration(runner,
-            checked.videoRoot / checked.relativeRecording /
-            checked.segments.front().filename);
-        demand(std::fabs(candidateDuration - originalDuration) <=
-               std::max(4.0, originalDuration * 0.02),
-               "HEVC candidate duration differs from original");
-    }
+    demand(std::fabs(candidateDuration - originalDuration) <=
+           std::max(4.0, originalDuration * 0.02),
+           "HEVC candidate duration differs from original");
     struct stat folder{};
     demand(::lstat(candidate.c_str(), &folder) == 0 &&
            S_ISDIR(folder.st_mode) && folder.st_uid == ::geteuid() &&

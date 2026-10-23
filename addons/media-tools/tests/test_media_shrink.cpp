@@ -395,5 +395,50 @@ int main() {
         reject([&] { inspectShrink(fixture.video, fixture.relative()); });
         ++checks;
     }
+    {
+        Fixture fixture;
+        // Two source TS segments are combined for HEVC staging. Publication
+        // must still reject a subsequently shortened candidate, not skip
+        // duration verification merely because the source had segments > 1.
+        std::ofstream(fixture.recording / "00002.ts", std::ios::binary)
+            << std::string(32768, 'X');
+        const auto source = fixture.input();
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        assert(plan.segments.size() == 2);
+        FakeProcess runner;
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        runner.badDuration = true;
+        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(candidate / "00001.ts") &&
+               fs::exists(fixture.recording / "00002.ts") &&
+               fixture.input() == source &&
+               !fs::exists(fixture.video / "Sample_HEVC"));
+        ++checks;
+    }
+    {
+        Fixture fixture;
+        FakeProcess runner;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        // An untrusted edit to the staged duration must not become a
+        // valid publication proof even if all candidate files are present.
+        const auto evidenceFile = candidate / ".shrink-review";
+        std::ifstream saved(evidenceFile, std::ios::binary);
+        const std::string original(
+            std::istreambuf_iterator<char>{saved},
+            std::istreambuf_iterator<char>{});
+        const std::string marker = "DURATION/1\n";
+        const auto at = original.find(marker);
+        assert(at != std::string::npos);
+        std::ofstream(evidenceFile, std::ios::binary | std::ios::trunc)
+            << original.substr(0, at + marker.size()) << "not-a-duration\n";
+        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(candidate / "00001.ts") &&
+               fs::exists(fixture.recording / "00001.ts") &&
+               !fs::exists(fixture.video / "Sample_HEVC"));
+        ++checks;
+    }
     std::cout << "MEDIA_SHRINK_CPP_TEST=PASS checks=" << checks << "\n";
 }
