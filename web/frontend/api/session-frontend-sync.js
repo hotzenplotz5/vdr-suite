@@ -690,8 +690,12 @@
         signal: abortController.signal
       }).then(function (response) {
         if (!response || !response.ok) {
-          throw new Error('Kontinuierlicher fMP4-Stream konnte nicht geladen werden (' +
+          const error = new Error('Kontinuierlicher fMP4-Stream konnte nicht geladen werden (' +
             (response ? response.status : 'network') + ').');
+          // Preserve the structured transport response for fail-closed
+          // recovery: never retry revoked/unauthorized 401/403 streams.
+          error.status = response ? Number(response.status) || 0 : 0;
+          throw error;
         }
         if (!response.body || typeof response.body.getReader !== 'function') {
           throw new Error('Browser stellt für den kontinuierlichen fMP4-Stream keinen Streaming-Reader bereit.');
