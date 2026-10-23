@@ -33,7 +33,7 @@ public:
         BackendAccessPolicy& backendAccess,
         const AddonActivationIntentRepository& activationIntents,
         MediaShrinkReviewRepository& reviews,
-        std::function<bool(const std::string&, std::int64_t)> trustedProviderCheck);
+        std::function<std::string(const std::string&, std::int64_t)> trustedProviderCheck);
 
     bool check(const BackendAgentCommandAssignment& assignment,
                const BackendAgentCommandReceipt& receipt,
@@ -69,6 +69,6 @@ private:
     BackendAccessPolicy& backendAccess_;
     const AddonActivationIntentRepository& activationIntents_;
     MediaShrinkReviewRepository& reviews_;
-    std::function<bool(const std::string&, std::int64_t)> trustedProviderCheck_;
+    std::function<std::string(const std::string&, std::int64_t)> trustedProviderCheck_;
 };
 } // namespace vdrsuite::addons

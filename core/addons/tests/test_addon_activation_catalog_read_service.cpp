@@ -76,6 +76,7 @@ int main()
     evidence.agentId = "agent-a";
     evidence.agentInstanceId = "instance-a";
     evidence.backendGeneration = 19;
+    evidence.approvedHandlerSha256 = std::string(64, 'a');
     evidence.installed = evidence.manifestValid = evidence.packageTrusted =
         evidence.versionCompatible = evidence.handlerRegistered =
         evidence.handlerHealthy = true;

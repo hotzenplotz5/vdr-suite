@@ -64,6 +64,7 @@ RuntimeEvidence trustedEvidence()
     e.agentId = "agent-a";
     e.agentInstanceId = "instance-a";
     e.backendGeneration = 19;
+    e.approvedHandlerSha256 = std::string(64, 'a');
     e.installed = true;
     e.manifestValid = true;
     e.packageTrusted = true;

@@ -48,7 +48,7 @@ MediaImportOperationFence::MediaImportOperationFence(
     BackendRegistryService& backendRegistry,
     BackendAccessPolicy& backendAccess,
     const AddonActivationIntentRepository& activationIntents,
-    std::function<bool(const std::string&, std::int64_t)> trustedProviderCheck)
+    std::function<std::string(const std::string&, std::int64_t)> trustedProviderCheck)
     : operations_(operations), identities_(identities), grants_(grants),
       agents_(agents), commands_(commands),
       backendRegistry_(backendRegistry), backendAccess_(backendAccess),
@@ -134,8 +134,11 @@ bool MediaImportOperationFence::actorBackendAllowed(
 
     // Runtime-owned, independent Core approval MUST still match the
     // authenticated backend observation at each discovery/reservation/receipt.
-    if (!trustedProviderCheck_ ||
-        !trustedProviderCheck_(backendId, now))
+    if (!trustedProviderCheck_)
+        return denied(reason, "media_import_provider_untrusted");
+    const std::string trustedSha = trustedProviderCheck_(backendId, now);
+    if (trustedSha.empty() ||
+        trustedSha != intent.intent.approvedHandlerSha256)
         return denied(reason, "media_import_provider_untrusted");
 
     reason = "media_import_actor_backend_authorized";

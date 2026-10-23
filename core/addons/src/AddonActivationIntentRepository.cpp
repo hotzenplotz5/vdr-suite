@@ -23,7 +23,15 @@ bool safeToken(const std::string& text, std::size_t maximum)
             return (c >= 'a' && c <= 'z') ||
                 (c >= 'A' && c <= 'Z') ||
                 (c >= '0' && c <= '9') ||
-                c == '-' || c == '_' || c == '.';
+                c == '-' || c == '_' || c == '.' || c == ':';
+        });
+}
+
+bool validDigest(const std::string& sha)
+{
+    return sha.size() == 64 &&
+        std::all_of(sha.begin(), sha.end(), [](unsigned char c) {
+            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
         });
 }
 
@@ -93,7 +101,7 @@ IntentResult outcome(IntentStatus status,
                      const std::string& moduleId,
                      const std::string& backendId)
 {
-    return {status, {moduleId, backendId, false, 0, 0, {}, {}}};
+    return {status, {moduleId, backendId, false, 0, 0, {}, {}, {}}};
 }
 }
 
@@ -130,6 +138,16 @@ bool AddonActivationIntentRepository::ensureSchema()
         "backend_generation INTEGER NOT NULL CHECK(backend_generation>0),"
         "agent_id TEXT NOT NULL,"
         "agent_instance_id TEXT NOT NULL,"
+        "PRIMARY KEY(module_id,backend_id)"
+        ");") &&
+        // New independent pin table means legacy Agent-bound intents
+        // cannot become executable after upgrades without admin reapproval.
+        database_.execute(
+        "CREATE TABLE IF NOT EXISTS addon_activation_handler_pins ("
+        "module_id TEXT NOT NULL,"
+        "backend_id TEXT NOT NULL,"
+        "intent_revision INTEGER NOT NULL CHECK(intent_revision>0),"
+        "approved_sha256 TEXT NOT NULL,"
         "PRIMARY KEY(module_id,backend_id)"
         ");");
 }
@@ -195,10 +213,29 @@ IntentResult AddonActivationIntentRepository::readInTransaction(
                 if (safeToken(agent, 128) && agent != "*" &&
                     safeToken(epoch, 128) && epoch != "*" &&
                     sqlite3_step(binding.get()) == SQLITE_DONE) {
-                    result.intent.backendGeneration =
-                        static_cast<std::uint64_t>(boundGeneration);
-                    result.intent.agentId = agent;
-                    result.intent.agentInstanceId = epoch;
+                    Statement pin(database_.handle(),
+                        "SELECT intent_revision,approved_sha256 "
+                        "FROM addon_activation_handler_pins "
+                        "WHERE module_id=? AND backend_id=?;");
+                    if (pin.get() && bindText(pin.get(), 1, moduleId) &&
+                        bindText(pin.get(), 2, backendId) &&
+                        sqlite3_step(pin.get()) == SQLITE_ROW &&
+                        sqlite3_column_type(pin.get(), 0) == SQLITE_INTEGER &&
+                        sqlite3_column_int64(pin.get(), 0) == revision &&
+                        sqlite3_column_type(pin.get(), 1) == SQLITE_TEXT &&
+                        sqlite3_column_bytes(pin.get(), 1) == 64) {
+                        const auto* chars = sqlite3_column_text(pin.get(), 1);
+                        const std::string sha(
+                            reinterpret_cast<const char*>(chars), 64);
+                        if (validDigest(sha) &&
+                            sqlite3_step(pin.get()) == SQLITE_DONE) {
+                            result.intent.backendGeneration =
+                                static_cast<std::uint64_t>(boundGeneration);
+                            result.intent.agentId = agent;
+                            result.intent.agentInstanceId = epoch;
+                            result.intent.approvedHandlerSha256 = sha;
+                        }
+                    }
                 }
             }
         }
@@ -284,6 +321,7 @@ bool AddonActivationIntentRepository::eligibleForFutureEnable(
         safeToken(evidence.agentId, 128) && evidence.agentId != "*" &&
         safeToken(evidence.agentInstanceId, 128) &&
         evidence.agentInstanceId != "*" &&
+        validDigest(evidence.approvedHandlerSha256) &&
         evidence.backendGeneration > 0 &&
         evidence.backendGeneration <=
             static_cast<std::uint64_t>(
@@ -366,7 +404,9 @@ IntentResult AddonActivationIntentRepository::updateInternal(
         (!mutation.desiredEnabled ||
          (current.intent.backendGeneration == evidence.backendGeneration &&
           current.intent.agentId == evidence.agentId &&
-          current.intent.agentInstanceId == evidence.agentInstanceId)))
+          current.intent.agentInstanceId == evidence.agentInstanceId &&
+          current.intent.approvedHandlerSha256 ==
+              evidence.approvedHandlerSha256)))
         return current;
 
     // No variable SQL and no blind-upsert: the CAS is serialized inside the
@@ -413,6 +453,20 @@ IntentResult AddonActivationIntentRepository::updateInternal(
             sqlite3_step(bound.get()) != SQLITE_DONE)
             return outcome(IntentStatus::unavailable,
                            mutation.moduleId, mutation.backendId);
+        Statement pin(database_.handle(),
+            "INSERT INTO addon_activation_handler_pins "
+            "(module_id,backend_id,intent_revision,approved_sha256) "
+            "VALUES (?,?,?,?) ON CONFLICT(module_id,backend_id) "
+            "DO UPDATE SET intent_revision=excluded.intent_revision,"
+            "approved_sha256=excluded.approved_sha256;");
+        if (!pin.get() ||
+            !bindText(pin.get(), 1, mutation.moduleId) ||
+            !bindText(pin.get(), 2, mutation.backendId) ||
+            sqlite3_bind_int64(pin.get(), 3, nextRevision) != SQLITE_OK ||
+            !bindText(pin.get(), 4, evidence.approvedHandlerSha256) ||
+            sqlite3_step(pin.get()) != SQLITE_DONE)
+            return outcome(IntentStatus::unavailable,
+                           mutation.moduleId, mutation.backendId);
     } else {
         Statement clear(database_.handle(),
             "DELETE FROM addon_activation_agent_bindings "
@@ -421,6 +475,15 @@ IntentResult AddonActivationIntentRepository::updateInternal(
             !bindText(clear.get(), 1, mutation.moduleId) ||
             !bindText(clear.get(), 2, mutation.backendId) ||
             sqlite3_step(clear.get()) != SQLITE_DONE)
+            return outcome(IntentStatus::unavailable,
+                           mutation.moduleId, mutation.backendId);
+        Statement clearPin(database_.handle(),
+            "DELETE FROM addon_activation_handler_pins "
+            "WHERE module_id=? AND backend_id=?;");
+        if (!clearPin.get() ||
+            !bindText(clearPin.get(), 1, mutation.moduleId) ||
+            !bindText(clearPin.get(), 2, mutation.backendId) ||
+            sqlite3_step(clearPin.get()) != SQLITE_DONE)
             return outcome(IntentStatus::unavailable,
                            mutation.moduleId, mutation.backendId);
     }
@@ -449,6 +512,7 @@ IntentResult AddonActivationIntentRepository::updateInternal(
         updated.intent.backendGeneration = evidence.backendGeneration;
         updated.intent.agentId = evidence.agentId;
         updated.intent.agentInstanceId = evidence.agentInstanceId;
+        updated.intent.approvedHandlerSha256 = evidence.approvedHandlerSha256;
     }
     return updated;
 }

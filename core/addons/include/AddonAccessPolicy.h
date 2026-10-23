@@ -20,6 +20,8 @@ struct RuntimeEvidence {
     std::string agentId;
     std::string agentInstanceId;
     std::uint64_t backendGeneration = 0;
+    // Core-reviewed handler identity, persisted with admin activation.
+    std::string approvedHandlerSha256;
     bool installed = false;
     bool manifestValid = false;
     bool packageTrusted = false;

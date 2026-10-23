@@ -39,18 +39,24 @@
 #include <utility>
 #include <vector>
 
-bool DaemonRuntime::trustedMediaToolsProvider(
+std::string DaemonRuntime::trustedMediaToolsHandlerDigest(
     const std::string& backendId, std::int64_t now) const
 {
     if (now <= 0 || backendId.empty() || !backendAgentRepository_ ||
         !mediaImportCatalog_)
-        return false;
+        return {};
     const auto agent = backendAgentRepository_->findAgentForBackend(backendId);
-    if (!agent) return false;
+    if (!agent) return {};
     const auto approval =
         vdrsuite::addons::readRootMediaToolsApproval("/", backendId);
     return mediaImportCatalog_->matchesIndependentCoreApproval(
-        *agent, backendId, now, approval);
+        *agent, backendId, now, approval) ? approval.sha256 : std::string{};
+}
+
+bool DaemonRuntime::trustedMediaToolsProvider(
+    const std::string& backendId, std::int64_t now) const
+{
+    return !trustedMediaToolsHandlerDigest(backendId, now).empty();
 }
 
 bool DaemonRuntime::tryReconcileMediaShrinkStage(
@@ -396,7 +402,7 @@ bool DaemonRuntime::initialize()
             *backendAgentCommandRepository_, *backendRegistryService_,
             *backendAccessPolicy_, *mediaImportActivationIntents_,
             [this](const std::string& backendId, std::int64_t now) {
-                return trustedMediaToolsProvider(backendId, now);
+                return trustedMediaToolsHandlerDigest(backendId, now);
             });
     mediaShrinkOperationFence_ =
         std::make_unique<vdrsuite::addons::MediaShrinkOperationFence>(
@@ -406,7 +412,7 @@ bool DaemonRuntime::initialize()
             *backendAccessPolicy_, *mediaImportActivationIntents_,
             *mediaShrinkReviewRepository_,
             [this](const std::string& backendId, std::int64_t now) {
-                return trustedMediaToolsProvider(backendId, now);
+                return trustedMediaToolsHandlerDigest(backendId, now);
             });
     backendAgentCommandDeliveryService_->setMediaShrinkReceiptFenceCheck(
         [this](const BackendAgentCommandAssignment& assignment,
@@ -2616,8 +2622,9 @@ bool DaemonRuntime::initialize()
                 if (moduleId != "rectools") return std::nullopt;
                 const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                     std::chrono::system_clock::now().time_since_epoch()).count();
-                if (!trustedMediaToolsProvider(backendId, now))
-                    return std::nullopt;
+                const std::string trustedSha =
+                    trustedMediaToolsHandlerDigest(backendId, now);
+                if (trustedSha.empty()) return std::nullopt;
                 const auto agent = backendAgentRepository_->findAgentForBackend(
                     backendId);
                 if (!agent || agent->leaseExpiresAt < now ||
@@ -2636,6 +2643,7 @@ bool DaemonRuntime::initialize()
                 evidence.agentId = agent->agentId;
                 evidence.agentInstanceId = agent->agentInstanceId;
                 evidence.backendGeneration = agent->backendGeneration;
+                evidence.approvedHandlerSha256 = trustedSha;
                 // These are TRUE only after independent administrator digest
                 // and authenticated Agent-local manifest/binary verification.
                 evidence.installed = true;

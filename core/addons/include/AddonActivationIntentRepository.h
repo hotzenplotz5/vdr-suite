@@ -30,7 +30,7 @@ struct ActivationIntent {
     std::uint64_t backendGeneration = 0;
     std::string agentId;
     std::string agentInstanceId;
-};
+    std::string approvedHandlerSha256;
 
 struct IntentResult {
     IntentStatus status = IntentStatus::unavailable;

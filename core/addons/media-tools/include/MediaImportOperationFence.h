@@ -37,7 +37,7 @@ public:
         BackendRegistryService& backendRegistry,
         BackendAccessPolicy& backendAccess,
         const AddonActivationIntentRepository& activationIntents,
-        std::function<bool(const std::string&, std::int64_t)> trustedProviderCheck);
+        std::function<std::string(const std::string&, std::int64_t)> trustedProviderCheck);
 
     bool check(const BackendAgentCommandAssignment& assignment,
                const BackendAgentCommandReceipt& receipt,
@@ -88,7 +88,7 @@ private:
     BackendRegistryService& backendRegistry_;
     BackendAccessPolicy& backendAccess_;
     const AddonActivationIntentRepository& activationIntents_;
-    std::function<bool(const std::string&, std::int64_t)> trustedProviderCheck_;
+    std::function<std::string(const std::string&, std::int64_t)> trustedProviderCheck_;
 };
 
 } // namespace vdrsuite::addons

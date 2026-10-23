@@ -45,7 +45,7 @@ MediaShrinkOperationFence::MediaShrinkOperationFence(
     BackendAccessPolicy& backendAccess,
     const AddonActivationIntentRepository& activationIntents,
     MediaShrinkReviewRepository& reviews,
-    std::function<bool(const std::string&, std::int64_t)> trustedProviderCheck)
+    std::function<std::string(const std::string&, std::int64_t)> trustedProviderCheck)
     : operations_(operations), identities_(identities), grants_(grants),
       agents_(agents), commands_(commands),
       backendRegistry_(backendRegistry), backendAccess_(backendAccess),
@@ -248,8 +248,11 @@ bool MediaShrinkOperationFence::effectiveCapability(
         activation.intent.backendGeneration == 0)
         return deny(reason, "media_shrink_activation_agent_stale");
 
-    if (!trustedProviderCheck_ ||
-        !trustedProviderCheck_(backendId, now))
+    if (!trustedProviderCheck_)
+        return deny(reason, "media_shrink_provider_untrusted");
+    const std::string trustedSha = trustedProviderCheck_(backendId, now);
+    if (trustedSha.empty() ||
+        trustedSha != activation.intent.approvedHandlerSha256)
         return deny(reason, "media_shrink_provider_untrusted");
     generation = agent->backendGeneration;
     reason = "media_shrink_core_admission_authorized";
@@ -344,8 +347,12 @@ bool MediaShrinkOperationFence::check(
 
     // A successful command reservation is not a durable execution grant.
     // Re-evaluate the exact Core-approved backend provider at receipt.
-    if (!trustedProviderCheck_ ||
-        !trustedProviderCheck_(assignment.backendId, now))
+    if (!trustedProviderCheck_)
+        return deny(reason, "media_shrink_provider_untrusted");
+    const std::string trustedSha =
+        trustedProviderCheck_(assignment.backendId, now);
+    if (trustedSha.empty() ||
+        trustedSha != activation.intent.approvedHandlerSha256)
         return deny(reason, "media_shrink_provider_untrusted");
 
     if (assignment.commandType ==

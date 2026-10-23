@@ -157,6 +157,7 @@ int main()
     forged.agentId = "agent-a";
     forged.agentInstanceId = "instance-a";
     forged.backendGeneration = 19;
+    forged.approvedHandlerSha256 = std::string(64, 'a');
     forged.installed = true;
     forged.manifestValid = true;
     forged.packageTrusted = true;
