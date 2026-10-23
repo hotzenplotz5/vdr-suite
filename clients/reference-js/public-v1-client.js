@@ -1333,6 +1333,17 @@
             typeof normalizedOptions.active !== 'boolean') {
           throw new Error('Device Grant permission, backendId and active are required');
         }
+        // Mirror DeviceGrantAdministrationService's exact-backend fence
+        // before issuing HTTP, while preserving wildcard read grants.
+        if ([
+          'timers.create', 'timers.modify', 'timers.delete',
+          'searchtimers.create', 'searchtimers.modify',
+          'searchtimers.execute', 'searchtimers.delete'
+        ].includes(normalizedOptions.permission) &&
+            (['*', '.', '..'].includes(normalizedOptions.backendId) ||
+              !/^[A-Za-z0-9_.-]{1,128}$/.test(normalizedOptions.backendId))) {
+          throw new Error('Device Grant requires a concrete backendId');
+        }
         return requestAccountMutation(
           deviceGrantPath(normalizedOptions),
           {permission: normalizedOptions.permission,
