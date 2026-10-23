@@ -2143,6 +2143,52 @@ bool DaemonRuntime::initialize()
                const std::string& review)
         {
             return mediaShrinkPlanRuntime_->reviewStatus(actor, backend, review);
+        },
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& operationId)
+        {
+            if (!mutationOperationReadService_)
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC operation readback unavailable.");
+            const auto found = mutationOperationReadService_->findForActor(
+                operationId, actor);
+            if (found.status ==
+                    vdrsuite::operations::MutationOperationReadStatus::invalid ||
+                found.status ==
+                    vdrsuite::operations::MutationOperationReadStatus::notFound)
+                return MediaShrinkPlanApiRuntime::problem(
+                    404, "Resource not found.");
+            if (!found.ok())
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC operation readback unavailable.");
+            const auto& op = found.operation;
+            const bool stage = op.actionFamily == "media.shrink.stage" &&
+                op.resourceType == "Recording" &&
+                vdrsuite::mediatools::shrinkOpaqueId(op.resourceId, "rec_");
+            const bool publish = op.actionFamily == "media.shrink.publish" &&
+                op.resourceType == "MediaShrinkReview" &&
+                vdrsuite::mediatools::shrinkOpaqueId(op.resourceId, "shk_");
+            if (op.backendId != backend || (!stage && !publish))
+                return MediaShrinkPlanApiRuntime::problem(
+                    404, "Resource not found.");
+            std::string body = "{\"operationId\":\"" + op.operationId +
+                "\",\"backendId\":\"" + backend +
+                "\",\"action\":\"" + (stage ? "stage" : "publish") +
+                "\",\"state\":\"" +
+                vdrsuite::operations::mutationOperationStateName(op.state) +
+                "\",\"resultReconciled\":" +
+                (op.state == vdrsuite::operations::MutationOperationState::succeeded
+                    ? "true" : "false");
+            if (op.state == vdrsuite::operations::MutationOperationState::succeeded) {
+                const char* prefix = stage ? "shk_" : "rec_";
+                if (!vdrsuite::mediatools::shrinkOpaqueId(
+                        op.resultReference, prefix))
+                    return MediaShrinkPlanApiRuntime::problem(
+                        503, "HEVC reconciliation evidence invalid.");
+                body += stage ? ",\"reviewId\":\"" : ",\"publishedRecordingId\":\"";
+                body += op.resultReference + "\"";
+            }
+            return MediaShrinkPlanApiRuntime::json(200, body + "}");
         });
 
     // Core-owned HEVC mutation entrypoint. No caller-controlled path,
