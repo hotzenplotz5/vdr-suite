@@ -49,7 +49,7 @@ void testMaliciousOrInvalidNativeReplyFailsClosed()
 {
     const std::string invalid[] = {
         "", "/", "data/tv", "/data/../etc", "/data/tv\nspoofed",
-        "/data/tv\rspoofed", "/data/tv\0spoofed", "/data/tv\tbad",
+        "/data/tv\rspoofed", std::string("/data/tv\0spoofed", sizeof("/data/tv\0spoofed") - 1U), "/data/tv\tbad",
         "/data/tv\x7f" "bad", std::string(4097, 'x')
     };
     StubTransport transport;
