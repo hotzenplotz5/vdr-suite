@@ -63,7 +63,7 @@ or metadata-only presence may bootstrap trust.
 | A2M. Manual-install registration path | Explicit safe declaration of a source-built, administrator-installed and integrity-pinned backend handler | **Partial:** root-admin issue/revoke, native approval/descriptor and version-matched installed manifest snapshot, nonroot Agent-file-access CI; no automatic activation; disabled Core registry definition | Fixed reviewed module-to-binary mapping, version and digest, secure owner/mode checks, revocation/uninstall detection; no caller-selected executable |
 | A3. Core access/desired-state preview | Canonical actor/backend policy, revision-fenced SQLite intent, read-only eligibility preview | C++ isolated checks 21 + 17 + 20 accepted before TVScraper removal | No execution permit; denied by default and on any lost evidence |
 | A4. Trusted runtime provider | Common core authority over either reviewed manual-install or reviewed Debian package provenance, with fixed binary identity and healthy backend-local handler | **Partial:** disabled Core admission, pinned identity/generation, approval comparison, root-owned installed manifest/revocation checks and unprivileged Agent-path CI; no package-derived Core execution permit. The actual Agent executor now re-hashes the pinned descriptor before exec, under its shared maintenance lock | Both paths use the same registry, signed/admin-approved provenance policy and negative trust tests; neither dpkg alone nor source files confer authority |
-| A5. Administration and operation rights | Admin enable/disable with audit/idempotency/migrations; scoped Media Tools grants | Durable audit/CAS and exact backend-scoped import/shrink grants exist; HTTP grant eligibility checks live Agent capabilities, exact-revision intent no-ops avoid duplicate writes, and desired-enable is now atomically blocked by the global Media Tools maintenance freeze (including cross-connection tests). **Admin enable remains deliberately denied until trusted Core provider and authenticated activation route are integrated and verified.** | Proper grant vocabulary, authorization, CSRF, preconditions, revocation and upgrade/removal semantics |
+| A5. Administration and operation rights | Admin enable/disable with audit/idempotency/migrations; scoped Media Tools grants | Durable audit/CAS and exact backend-scoped import/shrink grants exist; HTTP grant eligibility checks live Agent capabilities, exact-revision intent no-ops avoid duplicate writes, and desired-enable is now atomically blocked by the global Media Tools maintenance freeze (including cross-connection tests). **Desired-enable is now additionally CAS/audit-bound to the exact Agent identity, instance and backend generation. Legacy/unbound enabled rows and later Agent enrollment changes cannot satisfy Import/Shrink operation fences or non-executable admission preview. This does not itself authenticate the provider. Admin enable remains deliberately denied until trusted Core provider and authenticated activation route are integrated and verified.** | Proper grant vocabulary, authorization, CSRF, preconditions, revocation and upgrade/removal semantics |
 | A6. Protected backend execution | Fenced command/worker, bounded resources and crash-safe durable jobs | **Source-integrated, not host-accepted:** canonical operation fences, authenticated Agent-poll and receipt revalidation, optional pinned Import and explicitly opted-in HEVC Stage/Publish executors, durable once-only recovery and child-lifetime maintenance locks. No default add-on activation. | Agent generation and job fencing, cancellation/retry/readback, no arbitrary paths or shell |
 | A7. Public API and client UI | Entitlement-filtered discovery, safe admin surface, addon action/status | **A7.1–A7.5 isolated source implementation and canonical install staging validated; frontend owner-handoff/late-response regressions included. Not deployed.** Capability, opaque source listing, protected admission and actor-owned Operation GET reuse Core and canonical frontend. | Versioned v1 routes, grants/session/CSRF tests, actual UI composition, source expiry and uncertain-state checks; safe install staging and separately authorized host acceptance before production |
 | M1. Media Tools import | Single-file safe remux to VDR recording | Source-integrated C++ remux/transcode with bounded IO, approved source roots, pinned Agent worker, protected staged VDR result and Core reconciliation; full installed-backend acceptance remains open | Fix missing TOCTOU/fd, timeouts, crash recovery and recording reconciliation before live writes |
@@ -107,6 +107,20 @@ disposable fixture installations. This is the same installation contract for
 source/manual staging and future Debian packaging, **not** permission or a
 release-signature substitute. Production activation, upgrade choreography,
 installed-package verification and real-host acceptance remain open.
+
+### A5 Agent-lease activation binding (source integrated)
+
+Explicit desired-enable now persists an additional, exact Agent identity,
+instance and backend-generation binding at the administrator's current
+CAS revision. The binding is written/deleted atomically with the intent and
+accountability event. Reasserting enable for a *different* enrolled Agent
+requires a new revision and an audited administrator action, even when the
+desired boolean remains true. Import, HEVC Stage/Publish and the read-only
+Core admission preview reject bindings that do not match the current Agent.
+Pre-migration enabled rows lack this binding and therefore deny execution,
+but remain readable and explicitly disableable. The new binding is NOT
+proof of installation provenance or package trust; only independently
+approved provider evidence may create a productive enable.
 
 ### A2M/A4 remote-backend trust gap (still open)
 
