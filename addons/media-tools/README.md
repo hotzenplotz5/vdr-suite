@@ -179,6 +179,36 @@ separate authorization for staging and publication. Browser filesystem
 paths remain forbidden. Its invalid-shape regressions run in the existing
 `test-addon-media-shrink` target. No new media mutation is exposed.
 
+### HEVC read-only API v1 and durable Core review lifecycle
+
+The Recording Hero exposes **HEVC-Vorprüfung** only when an explicitly
+configured local backend video root and current snapshot are available.
+Its canonical JS client lives at `clients/reference-js/public-v1-client.js`
+and is reused through the original frontend symlink.
+`POST /api/v1/backends/{backendId}/media-shrink-plans` accepts only an
+opaque `rec_...` identifier; it resolves the path server-side and calls
+`inspectShrink` **read-only**. The security gate requires an authenticated
+actor, backend-specific `media.recording.play`, CSRF and accountability.
+`GET .../capabilities/media-shrink` exposes `planningAvailable` but
+deliberately reports `available:false`: no shrink write action is enabled.
+
+Core `MediaShrinkReviewRepository` stores an actor/backend-scoped review
+binding in the **existing SQLite authority**, not a second job queue.
+A candidate requires a succeeded `media.shrink.stage` Operation with
+matching opaque result reference and generation. A separate reserved
+`media.shrink.publish` Operation claims the review under an exact revision.
+Unresolved/ambiguous publication remains claimed, never freely retryable.
+A succeeded canonical publish Operation with new opaque recording ID is
+necessary to mark the review published. The daemon initializes this schema
+alongside the existing Operations store; disposable tests cover optimistic
+revisions, cross-actor isolation and database restart.
+
+**Not productive execution yet:** there is no Agent-authorized stage/publish
+handler, opaque candidate-to-file binding, dedicated effective shrink grant,
+or recording-cache reconciliation for publication. The UI only performs
+the read-only plan. This checkpoint changes no live recordings and does not
+enable the addon manifest.
+
 ### Administrator-opted unattended imports (source integration)
 
 The **existing daemon event loop** can now evaluate a single backend's
