@@ -211,13 +211,19 @@ function dispatch(name, event) {(listeners[name] || []).slice().forEach(fn => fn
   runTimer(5000);
   assert.strictEqual(sessionSequence, before,
     'background suspension must not be mistaken for a permanent STOP');
+  assert.ok(hidden.element.children[1].textContent.includes('Wiederaufnahme'));
+  assert.strictEqual(requests.filter(request => request.operation === 'stop' &&
+    request.sessionId === 'live-4').length, 1,
+    'a stalled hidden tab releases its native session before retrying');
   document.visibilityState = 'visible';
   dispatch('visibilitychange');
-  fakeNow += 6000;
-  runTimer(5000);
   await flush();
-  assert.ok(hidden.element.children[1].textContent.includes('Wiederverbindung'),
-    'a resumed tab with no frame progress must eventually attempt recovery');
+  runTimer(1000);
+  await flush();
+  assert.strictEqual(sessionSequence, before + 1,
+    'foreground resume creates exactly one replacement session');
+  assert.strictEqual(requests.filter(request => !request.operation).slice(-1)[0].replacesSessionId,
+    'live-4', 'resume must use server-fenced STOP-old-before-OPEN-new');
   hidden.destroy();
   console.log('Live-TV EOF recovery, BFCache, resumed-tab stall, ownership and retry budget: PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});
