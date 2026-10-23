@@ -3984,7 +3984,7 @@ bool DaemonRuntime::initialize()
             // provider epochs or a backend generation mismatch.
             admission.revalidateSourceAndNativeSpecification =
                 [this, selection, observed, original = detail,
-                    agent = *agent, provider = *provider]() {
+                    agent = *agent, provider = *provider, candidate]() {
                     if (!backendRegistryService_ || !backendAccessPolicy_ ||
                         !backendAgentRepository_ || !backendAgentCommandRepository_ ||
                         !backendAccessPolicy_->canWriteToBackend(
@@ -4022,8 +4022,19 @@ bool DaemonRuntime::initialize()
                             liveAgent->backendGeneration,
                             kBackendAgentNativeTimerCreateAuthorityDomain,
                             kBackendAgentNativeTimerCreateCapability, why);
-                    return liveProvider &&
-                        backendAgentLocalProviderSameFence(*liveProvider, provider);
+                    if (!liveProvider ||
+                        !backendAgentLocalProviderSameFence(*liveProvider, provider))
+                        return false;
+                    // Recheck the CURRENT Agent and provider, not only the
+                    // pre-preview copy. A revoke, expired lease, stale
+                    // heartbeat or capability loss during CLOCK/preview must
+                    // not be admitted as a fresh TimerIntent/Assignment.
+                    const auto validatedAt =
+                        std::chrono::duration_cast<std::chrono::seconds>(
+                            std::chrono::system_clock::now().time_since_epoch())
+                            .count();
+                    return currentNativeTimerCreateExecutionAuthority(
+                        *liveAgent, *liveProvider, candidate, validatedAt);
                 };
 
             TimerIntentApplicationService application(
