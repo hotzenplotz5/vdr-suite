@@ -113,6 +113,19 @@ jobs:
             exit 1
           fi
           echo "MEDIA_TOOLS_INSTALLER_FAIL_CLOSED=PASS"
+          # Read-only merge rehearsal in the disposable Actions checkout.
+          # Print actual conflicts rather than hiding them behind a status flag.
+          git fetch --quiet --no-tags --unshallow origin || true
+          git fetch --quiet --no-tags origin main:refs/remotes/origin/main
+          git config user.name 'VDR Suite CI'
+          git config user.email 'ci@vdr-suite.invalid'
+          if git merge --no-commit --no-ff origin/main >/tmp/addon-main-merge.log 2>&1; then
+            echo "ADDON_MAIN_MERGEABLE=YES"
+          else
+            echo "ADDON_MAIN_MERGEABLE=NO"
+            git diff --name-only --diff-filter=U | sed 's/^/MERGE_CONFLICT_PATH=/'
+          fi
+          git merge --abort 2>/dev/null || true
           make test-addon-media-import-catalog
           make test-addon-activation-http-payload
           make build-addon-root-approval-test
