@@ -98,6 +98,38 @@ int main()
     }
 
     {
+        // Admin add-on activation MUST require a Browser Session, CSRF and
+        // explicit global role.admin. No caller-provided trusted evidence.
+        SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest post;
+        post.method = "POST";
+        post.path = "/api/v1/addons/rectools/activation";
+        post.headers["Content-Type"] = "application/json";
+        post.body = R"({"backendId":"backend-a","desiredEnabled":true,"expectedRevision":0})";
+        fixture.addBrowserAuthentication(post, true);
+        const auto denied = fixture.gate.evaluate(post);
+        assert(!denied.allowed && denied.rejection.statusCode == 403);
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "role.admin", "*"));
+        const auto allowed = fixture.gate.evaluate(post);
+        assert(allowed.allowed && allowed.protectedMutation);
+        assert(allowed.browserAuthenticated);
+        assert(allowed.authorizationDecision.permission == "role.admin");
+        assert(allowed.authorizationDecision.action == "addons.intent.update");
+        assert(allowed.authorizationDecision.backendId == "*");
+        post.headers.erase("X-CSRF-Token");
+        const auto csrf = fixture.gate.evaluate(post);
+        assert(!csrf.allowed && csrf.rejection.statusCode == 403);
+        HttpServerRequest anonymous;
+        anonymous.method = "POST";
+        anonymous.path = post.path;
+        anonymous.body = post.body;
+        const auto unauthenticated = fixture.gate.evaluate(anonymous);
+        assert(!unauthenticated.allowed &&
+               unauthenticated.rejection.statusCode == 401);
+    }
+
+    {
         // Protected A7.3 mutation inherits the same CSRF and accountability
         // behavior as other API-v1 operations.
         SecurityHttpGateBrowserTestFixture fixture;
