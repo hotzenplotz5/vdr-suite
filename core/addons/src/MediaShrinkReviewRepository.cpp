@@ -230,9 +230,18 @@ MediaShrinkReviewResult MediaShrinkReviewRepository::claimPublication(
     const auto& review = selected.review;
     if (review.state == "publishing" &&
         review.publishOperationId == publishOperationId &&
-        review.revision == expectedRevision + 1)
+        review.revision == expectedRevision + 1) {
+        // A replay is informative only. In particular, a finished or
+        // outcome-unknown command must never be reissued after a restart.
+        const auto original = operations_.findById(publishOperationId);
+        if (!original.ok() ||
+            !validPublish(original.operation, review, expectedRevision) ||
+            (original.operation.state != MutationOperationState::accepted &&
+             original.operation.state != MutationOperationState::dispatching))
+            return output(Status::conflict);
         return tx.commit() ? output(Status::replayed,review)
                            : output(Status::unavailable);
+    }
     if (review.state != "staged" || review.revision != expectedRevision)
         return output(Status::conflict);
     const auto publish = operations_.findById(publishOperationId);
