@@ -1,6 +1,6 @@
 # MLD 6.6 integration — separate distribution target
 
-**Status:** MLD.1A source/read-only inventory and [maintainer-supplied first MLD runtime observations](../development/mld66-pit-runtime-evidence-20261019.md) recorded; known read-path failures remain open. No MLD recipe inspection, native build, package acceptance or end-to-end acceptance claimed. The source-contract matrix is in [MLD.1A compatibility inventory](../development/mld66-compatibility-inventory.md).
+**Status:** MLD.1A source/read-only inventory, [Oct 19 initial HTTP observations](../development/mld66-pit-runtime-evidence-20261019.md), and [Oct 23 successful SuiteBridge `CAPS 1` plus host/network findings](../development/mld66-pit-readonly-inventory-20261023.md) are documented as maintainer-reported evidence. RESTfulAPI `/recordings.json` still times out; `/change-state.json` is untested after plugin update; the private listener binds every IPv4 interface and network isolation must be verified. No direct MLD recipe inspection, native Suite build/package acceptance or end-to-end acceptance claimed. The source-contract matrix is in [MLD.1A compatibility inventory](../development/mld66-compatibility-inventory.md).
 
 **Dedicated branch:** `work/mld66-platform-integration`
 **Branch baseline:** `main` at `01b74e30ec1a09ee68986059f508284564ef67e1` (2026-10-19).
