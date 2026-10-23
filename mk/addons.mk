@@ -314,7 +314,9 @@ test-ci-fast: test-addon-handler-registry
 .PHONY: test-addon-core-approval-daemon-compile
 test-addon-core-approval-daemon-compile:
 	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include -fsyntax-only \
-		core/daemon/src/DaemonRuntimeInitialization.cpp
+		core/daemon/src/DaemonRuntimeInitialization.cpp \
+		core/addons/media-tools/src/MediaImportOperationFence.cpp \
+		core/addons/media-tools/src/MediaShrinkOperationFence.cpp
 
 # Non-executable common source/deb provider admission contract.
 .PHONY: test-addon-provider-admission
