@@ -10,6 +10,8 @@
 #include "suitebridge_recording_marks_command.h"
 #include "suitebridge_recording_metadata_command.h"
 #include "suitebridge_svdrp_contract.h"
+#include "SuiteBridgeVideoDirectoryDiscovery.h"
+#include <vdr/videodir.h>
 
 #include <vdr/tools.h>
 
@@ -45,6 +47,8 @@ const char **cPluginSuiteBridge::SVDRPHelpPages(void)
       "    Return the read-only VDR-Suite capability discovery payload.",
       "SNAP\n"
       "    Return the current read-only VDR-Suite status payload.",
+      "VPATH 1\n"
+      "    Return VDR's authoritative recording root (read-only).",
       "OSDSNAP\n"
       "    Return the current bounded semantic Legacy OSD full frame; no skin pixels.",
       "OSDINPUT <schema> <command-id> <request-fingerprint> <backend-generation> <surface-id> <osd-epoch> <lease-id> <lease-epoch> <lease-revision> <action> <deadline>\n"
@@ -74,6 +78,23 @@ cString cPluginSuiteBridge::SVDRPCommand(
     const char *Option,
     int &ReplyCode)
 {
+  if (Command != nullptr && strcasecmp(Command, "VPATH") == 0) {
+    if (Option == nullptr || strcmp(Option, "1") != 0) {
+      ReplyCode = 504;
+      return cString::sprintf("VPATH requires schema 1");
+    }
+    const char *vdrRoot = cVideoDirectory::Name();
+    const std::string root =
+        vdrsuite::agent::SuiteBridgeVideoDirectoryDiscovery::validRoot(
+            vdrRoot == nullptr ? std::string() : std::string(vdrRoot));
+    if (root.empty()) {
+      ReplyCode = 451;
+      return cString::sprintf("VDR video directory unavailable");
+    }
+    ReplyCode = 900;
+    return cString::sprintf("%s", root.c_str());
+  }
+
   const SuiteBridgeCommandResult osdInput = osdInput_.Handle(
       Command, Option, statusMonitor_.CaptureOsdSnapshot());
   if (osdInput.handled) return ReturnResult(osdInput, ReplyCode);

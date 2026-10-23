@@ -14,8 +14,10 @@ direct-file channel reader now accepts symlink targets resolving to a regular
 file. Plugin cache/resource directory attachment has not been inspected.
 [Read maintainer-reported filesystem evidence](../development/mld66-pit-filesystem-evidence-20261023.md).
 For the ultimate distribution-independent implementation prefer read-only
-SuiteBridge discovery of VDR's `cVideoDirectory::Name()` and VDR-owned
-recording mutations; automatic root discovery is **not yet implemented**.
+SuiteBridge now has candidate read-only `VPATH 1` discovery for VDR's
+`cVideoDirectory::Name()`, wired to the matching daemon backend with explicit
+root override precedence. It is **not yet verified on a real MLD VDR build**;
+VDR-owned recording mutations remain future work.
 
 **Dedicated branch:** `work/mld66-platform-integration`
 **Branch baseline:** `main` at `01b74e30ec1a09ee68986059f508284564ef67e1` (2026-10-19).

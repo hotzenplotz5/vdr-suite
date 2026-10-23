@@ -17,12 +17,17 @@ referenced screenshot/attachment was not available in the conversation.
 
 See [Pit filesystem evidence](mld66-pit-filesystem-evidence-20261023.md).
 
-**Preferred long-term solution:** a versioned read-only SuiteBridge
-discovery of VDR's authoritative `cVideoDirectory::Name()`, followed
-by VDR-native mutation operations. The daemon cannot call the in-process
-VDR function itself. The current explicit per-backend recording root
-configuration is an **interim opt-in**, not evidence that automatic
-discovery is already implemented. Ubuntu/yaVDR must remain zero-config.
+**Native discovery candidate:** SuiteBridge now exposes a versioned read-only
+`PLUG suitebridge VPATH 1` that obtains `cVideoDirectory::Name()` inside VDR.
+The daemon probes only its matching local SuiteBridge backend when no explicit
+recording-root map is provided. A valid absolute, non-root, traversal-free
+response becomes the authoritative native mutation root with the existing
+cross-root safety checks. A malformed success response disables recording writes;
+old/offline plugins retain legacy Ubuntu behavior. Explicit operator roots always
+take precedence, including invalid explicit roots failing closed. The command
+does not execute filesystem mutations. End-to-end MLD acceptance and a future
+VDR-owned recording mutation implementation remain **not yet validated**.
+Ubuntu/yaVDR must remain zero-config.
 
 ## Mandatory compatibility invariant
 

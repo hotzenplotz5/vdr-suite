@@ -35,6 +35,22 @@ dpkg-buildpackage -B -Pplugin-only -us -uc
 
 For a normal combined packaging build, omit `-Pplugin-only`. A Launchpad PPA source upload normally builds the default profile, producing the packages independently installable through APT; a plugin-only PPA source recipe is a separate future option.
 
+## Native VDR video-root discovery
+
+The optional read-only `PLUG suitebridge VPATH 1` command returns
+VDR's own `cVideoDirectory::Name()` (SVDRP reply 900, single absolute
+normalized path). No startup override, write action or config-file parsing
+is performed by this command. Unsupported schemas return 504; an invalid
+VDR root returns 451. Older plugin builds simply lack this command.
+
+The daemon probes only its matching SuiteBridge backend when no explicit
+per-backend root policy is supplied. A valid response becomes an authoritative
+mutation root with cross-root checks. An invalid successful response disables
+writes; an old/offline plugin preserves Ubuntu's legacy default. For MLD,
+configure `VDR_SUITE_RECORDING_VIDEO_ROOTS` explicitly until the new bridge
+is deployed and the native endpoint verified. MLD recipe and real host validation
+remain separate.
+
 ## Tests and safeguards
 
 ```sh
