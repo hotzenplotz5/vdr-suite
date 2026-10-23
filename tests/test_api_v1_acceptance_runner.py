@@ -935,6 +935,57 @@ class RunnerTests(unittest.TestCase):
             classify(db)
         db.close()
 
+    def test_outcome_unknown_command_evidence_distinct_by_operation(self):
+        from inspect_unknown_operation_delivery import inspect
+        import sqlite3
+        import io
+        from contextlib import redirect_stdout
+        db=sqlite3.connect(":memory:")
+        db.execute("CREATE TABLE mutation_operations (operation_id TEXT,backend_id TEXT,state TEXT)")
+        db.execute("CREATE TABLE backend_agent_command_reservations (operation_id TEXT,backend_id TEXT,command_id TEXT)")
+        db.execute("CREATE TABLE backend_agent_commands (operation_id TEXT,backend_id TEXT,command_id TEXT,state TEXT)")
+        db.execute("CREATE TABLE backend_agent_command_receipts (command_id TEXT)")
+        db.execute("CREATE TABLE backend_agent_command_results (command_id TEXT,result_category TEXT,verification_state TEXT,dispatch_state TEXT)")
+        db.executemany("INSERT INTO mutation_operations VALUES (?,?,?)",[
+            ("secret_op1","default","outcome_unknown"),
+            ("secret_op2","default","outcome_unknown"),
+            ("secret_op3","default","succeeded"),
+            ("secret_op4","other","outcome_unknown")])
+        db.execute("INSERT INTO backend_agent_command_reservations VALUES (?,?,?)",
+                   ("secret_op1","default","secret_command"))
+        db.executemany("INSERT INTO backend_agent_commands VALUES (?,?,?,?)",[
+            ("secret_op1","default","secret_command","waiting_reconciliation"),
+            ("secret_op1","default","secret_command2","completed"),
+            ("secret_op4","other","secret_command3","waiting_reconciliation")])
+        db.execute("INSERT INTO backend_agent_command_receipts VALUES (?)",("secret_command",))
+        db.executemany("INSERT INTO backend_agent_command_results VALUES (?,?,?,?)",[
+            ("secret_command","outcome_unknown","outcome_unknown","accepted_by_executor"),
+            ("secret_command2","outcome_unknown","outcome_unknown","accepted_by_executor")])
+        out=io.StringIO()
+        with redirect_stdout(out):
+            result=inspect(db,"default")
+        self.assertEqual(result["OUTCOME_UNKNOWN_OPERATIONS"],2)
+        self.assertEqual(result["WITH_COMMAND_RESERVATION"],1)
+        self.assertEqual(result["WITH_BACKEND_AGENT_COMMAND"],1)
+        self.assertEqual(result["WITH_WAITING_RECONCILIATION_COMMAND"],1)
+        self.assertEqual(result["WITH_COMMAND_RECEIPT"],1)
+        self.assertEqual(result["WITH_COMMAND_RESULT"],1)
+        self.assertEqual(result["WITH_UNKNOWN_COMMAND_RESULT"],1)
+        self.assertEqual(result["WITH_ACCEPTED_BY_EXECUTOR_RESULT"],1)
+        self.assertIn("MISSING_COMMAND_EVIDENCE_IS_NOT_PROOF_OF_NO_DISPATCH",out.getvalue())
+        for secret in ("secret_op","secret_command"):
+            self.assertNotIn(secret,out.getvalue())
+        db.close()
+
+    def test_unknown_operation_delivery_schema_absence_fails_closed(self):
+        from inspect_unknown_operation_delivery import inspect
+        from inspect_device_auth_audit import AuditBlocked
+        import sqlite3
+        db=sqlite3.connect(":memory:")
+        with self.assertRaises(AuditBlocked):
+            inspect(db)
+        db.close()
+
 
 if __name__ == "__main__":
     unittest.main()
