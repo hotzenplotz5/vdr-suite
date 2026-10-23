@@ -3,6 +3,7 @@
 #include "BackendAccessPolicy.h"
 #include "SecurityIdentity.h"
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -14,6 +15,11 @@ struct RuntimeEvidence {
     std::string moduleId;
     std::string packageName;
     std::string backendId;
+    // Core-resolved current Agent lease identity; never copied from the
+    // manifest or client input. Durable enable must be tied to this lease.
+    std::string agentId;
+    std::string agentInstanceId;
+    std::uint64_t backendGeneration = 0;
     bool installed = false;
     bool manifestValid = false;
     bool packageTrusted = false;
