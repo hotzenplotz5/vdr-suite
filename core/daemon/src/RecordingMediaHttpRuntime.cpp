@@ -255,6 +255,10 @@ int runRecordingMediaHttpRuntime(
                                      "media.recording.play"});
                 if (!grant.allowed)
                     return error(403, "forbidden");
+                // Fence an in-flight Device/Account revocation or reassignment
+                // across owner resolution AND the final ContinueWatching read.
+                // SQLite lease is recursive for all existing domain repositories.
+                auto scopeLease = database.acquireTransactionLease();
                 if (recordingCache.statusForBackend(backendId).state != "ready")
                     return error(503, "recording_backend_unavailable");
                 const auto actor = playbackBinding.resolve(
@@ -345,6 +349,10 @@ int runRecordingMediaHttpRuntime(
                     backendId = progress.backendId;
                     publicRecordingId = progress.recordingId;
                 }
+                // The live grant/identity binding and accepted revision
+                // are one bounded SQL critical section: no race with Browser
+                // administration unlink, account deactivation or grant revoke.
+                auto progressLease = database.acquireTransactionLease();
                 const auto allowed = admission.admit(
                     verifiedDevice, backendId, publicRecordingId);
                 using Status = PublicRecordingDevicePlaybackAdmissionStatus;
