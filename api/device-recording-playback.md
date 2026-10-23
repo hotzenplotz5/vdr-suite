@@ -116,3 +116,29 @@ start position; unsupported/nonready configurations receive 409 and a
 position past the verified duration receives 422. A progress checkpoint
 does not automatically create a media session and a media session does
 not automatically update confirmed playback progress.
+
+### Explicit Human Account binding for shared resume (P1 source candidate)
+
+The Device's canonical Service Actor is never a Human Account. An authorized
+Browser administrator uses `GET /api/v1/devices/{deviceId}/playback-account`
+to obtain `{deviceId, accountId, revision}` (absent: null/0), then
+`POST` to the same resource with
+`{"accountId":"account_<opaque>","expectedRevision":0}`. The browser
+must send its normal authenticated Session and CSRF proof; a Device credential
+cannot perform the binding operation. A subsequent `POST` with an empty
+`accountId` and current revision explicitly unlinks, retaining the durable
+revision fence. Approving Pairing does **not** bind its approver.
+
+When linked, progress GET/POST and Continue Watching list project the existing
+persistent state of the Human Account's explicit Actor, never a supplied
+`actorId` or `accountId` in a Device request. The same authenticated Device
+Session remains the MediaSession owner. To use the linked resume history, the
+server revalidates the Device's active Actor, Device and Credential, current
+`media.recording.play@backendId` grant, the active Human Account and its
+current media playback grant, as well as per-Recording admission. Revoking
+either grant, the Device Credential, the Device, the Account or the explicit
+binding prevents subsequent linked progress operations. An unlinked Device
+is restricted to its separate Service-actor history.
+
+This remains **source-candidate behavior** until exact-head CI and real HTTP
+admission tests pass; no Browser, VIDAA or real-yaVDR acceptance is implied.
