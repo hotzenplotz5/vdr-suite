@@ -2,6 +2,7 @@
 
 #include "ApiRouter.h"
 #include "DaemonMediaCheckRuntime.h"
+#include "DaemonMediaShrinkPlanRuntime.h"
 #include "RecordingCacheRefreshQueue.h"
 #include "RecordingPresentationChangeQueue.h"
 #include "BackendAccessPolicy.h"
@@ -396,6 +397,7 @@ private:
     std::unique_ptr<IHttpServer> httpServer_;
     std::unique_ptr<SimpleHttpListener> httpListener_;
     std::unique_ptr<DaemonMediaCheckRuntime> mediaCheckRuntime_;
+    std::unique_ptr<DaemonMediaShrinkPlanRuntime> mediaShrinkPlanRuntime_;
 
     static std::atomic<bool> shutdownRequested_;
 };
