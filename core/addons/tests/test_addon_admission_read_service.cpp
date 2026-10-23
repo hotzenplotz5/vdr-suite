@@ -125,6 +125,22 @@ int main()
            preview.observedIntentRevision == 1);
     ++checks;
 
+    // Even a still-valid desired-enable cannot follow a re-enrolled backend
+    // or changed Agent process instance until the administrator reapproves.
+    auto staleGeneration = e;
+    staleGeneration.backendGeneration = 20;
+    preview = service.previewMediaImport(a, b, staleGeneration);
+    assert(!preview.policy.allowed &&
+           preview.policy.reason == AccessReason::activationStateUnavailable &&
+           preview.observedIntentRevision == 1 && !preview.executable);
+    auto restartedAgent = e;
+    restartedAgent.agentInstanceId = "new-instance";
+    preview = service.previewMediaImport(a, b, restartedAgent);
+    assert(!preview.policy.allowed &&
+           preview.policy.reason == AccessReason::activationStateUnavailable &&
+           preview.observedIntentRevision == 1 && !preview.executable);
+    ++checks;
+
     // Persisted preference alone cannot override revoked/missing rights.
     a.grants.clear();
     preview = service.previewMediaImport(a, b, e);
