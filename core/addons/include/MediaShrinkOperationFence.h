@@ -37,6 +37,17 @@ public:
                const BackendAgentCommandReceipt& receipt,
                std::int64_t now, std::string& reason) const;
 
+    // Real Core actor/backend/action permission preflight before reserving
+    // an immutable stage/publish Operation. An authorized caller must ALSO
+    // independently resolve the current recording/review and its source
+    // fingerprint; this method never trusts or resolves a browser path.
+    bool effectiveCapability(const std::string& actorId,
+                             const std::string& backendId,
+                             const std::string& commandType,
+                             std::int64_t now,
+                             std::uint64_t& backendGeneration,
+                             std::string& reason) const;
+
     // Non-authorizing structural preflight is in MediaShrinkCommandFence.h;
     // no direct worker execution is exposed from this class.
 private:
