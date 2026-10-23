@@ -13,6 +13,27 @@ svdrpsend.sh plug suitebridge VPATH 1
 
 The VDR-native **read-only VPATH 1** command succeeds on MLD VDR 2.8.3. `/data/tv` is Pit's user-chosen video mount/share, **not** an MLD system default. Pit also reports quieter logs and roughly 40 minutes without erroneous entries. This establishes the SVDRP VPATH command, **not** automatic daemon root discovery, a complete Suite package installation, native write permission, or long-term VDR process stability.
 
+## 21:10 CEST update — exact RESTfulAPI revision and 30-second failure
+
+Pit has now independently reported:
+
+- `GET /recordings.json`: curl exit 28, `HTTP 000`, **30.002754 seconds with 0 response bytes** (`--max-time 30`).
+- `GET /info.json`: `HTTP 200`, **0.001798 seconds**.
+- Exact MLD RESTfulAPI recipe: `SRC_URI = "git://github.com/yavdr/vdr-plugin-restfulapi.git;protocol=https;branch=master"`, `SRCREV = "79f9bd26370a08d6c5186c19cefa300c569045ea"`. The source identity is no longer unknown; the installed ELF SHA/patches remain unverified.
+
+**Source inspection at this immutable revision:** `recordings.cpp` `showRecordings()` holds `LOCK_RECORDINGS_READ` through list traversal. `JsonRecordingList::addRecording()` performs `Scraper2VdrService::getMedia(recording, ...)`, `stat()`, `recording->NumFrames()` (through `VdrExtension::RecordingLengthInSeconds()`), and `recording->FileSizeMB()`. `JsonRecordingList::finish()` serializes the assembled vector, so 0 client bytes at 30 seconds does **not** prove that processing never started. The VDR lock/list traversal, JSON metadata enrichment, filesystem and scraper service may be involved, but no individual call is yet proved to block.
+
+**Focused next comparison, only on a stable test host:** `--recordings-html-sample` sends exactly one `GET /recordings.html?start=0&limit=1` (10s); unlike JSON, the HTML list only prints a recording name and skips metadata enrichment. Then, separately and only if safe, the previously available `--recordings-sample` sends one 30s limited JSON request. Both formats still touch the shared VDR recording lock/list; the limit does **not** avoid traversal.
+
+- HTML fast, JSON slow: focus on JSON per-recording scraper, index/file-size and serializing paths.
+- Both slow: focus on recording lock acquisition, shared listing and underlying VDR/provider response flow.
+- Both fast, full JSON slow: focus on per-recording scaling (catalog size, metadata work or IO).
+- Results inconclusive if the VDR restarts, the cache/recording state changes, or the request times out for another reason.
+
+No change to Suite timeout, no plugin reload, no selective disabling of TVScraper and no native write commands are warranted from these measurements alone.
+
+[Exact pinned source](https://github.com/yavdr/vdr-plugin-restfulapi/tree/79f9bd26370a08d6c5186c19cefa300c569045ea).
+
 ## Independent recording-read blocker
 
 ```text
