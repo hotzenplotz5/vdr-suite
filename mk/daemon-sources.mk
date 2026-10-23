@@ -7,9 +7,11 @@ DAEMON_SRC := \
         core/addons/src/AddonActivationIntentRepository.cpp \
         core/addons/src/MediaImportOperationFence.cpp \
         core/addons/src/MediaShrinkOperationFence.cpp \
+        core/addons/src/MediaShrinkOperationAdmission.cpp \
         core/addons/src/MediaImportOperationAdmission.cpp \
         core/addons/src/MediaShrinkReviewRepository.cpp \
         core/agent/src/BackendAgentMediaImportAssignment.cpp \
+        core/agent/src/BackendAgentMediaShrinkAssignment.cpp \
         core/operations/src/MutationOperationReadService.cpp \
         core/timers/src/TimerIntent.cpp \
         core/timers/src/TimerIntentRepository.cpp \
