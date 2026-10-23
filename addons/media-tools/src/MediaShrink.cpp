@@ -587,6 +587,139 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
     return candidate;
 }
 
+namespace {
+constexpr const char* kCoreReviewMarker = ".shrink-core-review";
+
+bool safeReviewBinding(const ShrinkReviewBinding& e) {
+    auto identifier = [](const std::string& value) {
+        return !value.empty() && value.size() <= 160 &&
+            std::all_of(value.begin(), value.end(), [](unsigned char c) {
+                return (c >= 'a' && c <= 'z') ||
+                       (c >= 'A' && c <= 'Z') ||
+                       (c >= '0' && c <= '9') ||
+                       c == '_' || c == '-' || c == '.' || c == ':';
+            });
+    };
+    auto opaque = [](const std::string& value, const std::string& prefix) {
+        return value.size() == prefix.size() + 32 &&
+            value.compare(0, prefix.size(), prefix) == 0 &&
+            std::all_of(value.begin() + prefix.size(), value.end(),
+                [](unsigned char c) {
+                    return (c >= '0' && c <= '9') ||
+                           (c >= 'a' && c <= 'f');
+                });
+    };
+    return opaque(e.reviewId, "shk_") &&
+        identifier(e.stageOperationId) && identifier(e.actorId) &&
+        identifier(e.backendId) && opaque(e.recordingId, "rec_") &&
+        e.sourceFingerprint.size() == 26 &&
+        e.sourceFingerprint.compare(0, 10, "shrink_v1_") == 0 &&
+        std::all_of(e.sourceFingerprint.begin() + 10,
+            e.sourceFingerprint.end(), [](unsigned char c) {
+                return (c >= '0' && c <= '9') ||
+                       (c >= 'a' && c <= 'f');
+            }) &&
+        e.backendGeneration > 0 &&
+        e.backendGeneration <=
+            static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max());
+}
+std::string serializeBinding(const ShrinkReviewBinding& e) {
+    return "VDR-SUITE-SHRINK-REVIEW/1\n" +
+        e.reviewId + "\n" + e.stageOperationId + "\n" +
+        e.actorId + "\n" + e.backendId + "\n" +
+        e.recordingId + "\n" + e.sourceFingerprint + "\n" +
+        std::to_string(e.backendGeneration) + "\n";
+}
+}
+
+void writeShrinkReviewBinding(const fs::path& candidate,
+                              const ShrinkReviewBinding& binding) {
+    demand(safeReviewBinding(binding) &&
+        candidate.is_absolute() && candidate.lexically_normal() == candidate,
+        "invalid private shrink binding");
+    prohibitSymlinks(candidate);
+    struct stat folder{};
+    demand(::lstat(candidate.c_str(), &folder) == 0 &&
+           S_ISDIR(folder.st_mode) && folder.st_uid == ::geteuid() &&
+           (folder.st_mode & 0077) == 0,
+           "unprotected private HEVC binding destination");
+    const std::string bytes = serializeBinding(binding);
+    demand(bytes.size() <= 1024, "private HEVC binding too large");
+    Descriptor fd(::open((candidate / kCoreReviewMarker).c_str(),
+        O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600));
+    demand(fd.fd >= 0, "cannot create durable Core review marker");
+    std::size_t position = 0;
+    while (position < bytes.size()) {
+        const auto n = ::write(fd.fd, bytes.data() + position,
+                               bytes.size() - position);
+        if (n < 0 && errno == EINTR) continue;
+        demand(n > 0, "cannot persist Core review marker");
+        position += static_cast<std::size_t>(n);
+    }
+    Descriptor directory(::open(candidate.c_str(),
+        O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+    demand(::fsync(fd.fd) == 0 && directory.fd >= 0 &&
+           ::fsync(directory.fd) == 0,
+           "Core review marker not durable");
+}
+
+std::optional<ShrinkReviewBinding> readShrinkReviewBinding(
+    const fs::path& candidate) {
+    try {
+        if (!candidate.is_absolute() ||
+            candidate.lexically_normal() != candidate)
+            return std::nullopt;
+        prohibitSymlinks(candidate);
+        struct stat folder{}, before{}, after{};
+        if (::lstat(candidate.c_str(), &folder) != 0 ||
+            !S_ISDIR(folder.st_mode) || (folder.st_mode & 0077) != 0)
+            return std::nullopt;
+        Descriptor fd(::open((candidate / kCoreReviewMarker).c_str(),
+            O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC));
+        if (fd.fd < 0 || ::fstat(fd.fd, &before) != 0 ||
+            !S_ISREG(before.st_mode) || before.st_uid != folder.st_uid ||
+            (before.st_mode & 0077) != 0 ||
+            before.st_size < 80 || before.st_size > 1024)
+            return std::nullopt;
+        std::string bytes(static_cast<std::size_t>(before.st_size), '\0');
+        std::size_t offset = 0;
+        while (offset < bytes.size()) {
+            const auto n = ::read(fd.fd, &bytes[offset],
+                                  bytes.size() - offset);
+            if (n < 0 && errno == EINTR) continue;
+            if (n <= 0) return std::nullopt;
+            offset += static_cast<std::size_t>(n);
+        }
+        if (::fstat(fd.fd, &after) != 0 ||
+            before.st_dev != after.st_dev || before.st_ino != after.st_ino ||
+            before.st_size != after.st_size ||
+            before.st_mtim.tv_sec != after.st_mtim.tv_sec ||
+            before.st_mtim.tv_nsec != after.st_mtim.tv_nsec)
+            return std::nullopt;
+        std::istringstream input(bytes);
+        std::string header, extra, generation;
+        ShrinkReviewBinding binding;
+        if (!std::getline(input, header) ||
+            header != "VDR-SUITE-SHRINK-REVIEW/1" ||
+            !std::getline(input, binding.reviewId) ||
+            !std::getline(input, binding.stageOperationId) ||
+            !std::getline(input, binding.actorId) ||
+            !std::getline(input, binding.backendId) ||
+            !std::getline(input, binding.recordingId) ||
+            !std::getline(input, binding.sourceFingerprint) ||
+            !std::getline(input, generation) ||
+            std::getline(input, extra) ||
+            generation.empty() || generation.size() > 19 ||
+            std::any_of(generation.begin(), generation.end(),
+                [](unsigned char c) {return c < '0' || c > '9';}))
+            return std::nullopt;
+        binding.backendGeneration = std::stoull(generation);
+        return safeReviewBinding(binding)
+            ? std::optional<ShrinkReviewBinding>(binding) : std::nullopt;
+    } catch (...) { return std::nullopt; }
+}
+
 std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
                                     const fs::path& candidate,
                                     ProcessRunner& runner)
@@ -639,6 +772,12 @@ std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
     std::vector<std::string> expectedFiles = {
         ".shrink-review", "00001.ts", "index", "info"
     };
+    const bool bound = fs::exists(candidate / kCoreReviewMarker);
+    if (bound) {
+        demand(readShrinkReviewBinding(candidate).has_value(),
+               "shrink review binding invalid");
+        expectedFiles.push_back(kCoreReviewMarker);
+    }
     const auto subtitleFiles = subtitleNames(checked);
     expectedFiles.insert(expectedFiles.end(),
                          subtitleFiles.begin(), subtitleFiles.end());
@@ -712,6 +851,9 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
                 ::chmod(file.c_str(), 0644) == 0;
     }
     const auto receipt = destination / ".shrink-review";
+    if (fs::exists(destination / kCoreReviewMarker))
+        ready = ready &&
+            ::unlink((destination / kCoreReviewMarker).c_str()) == 0;
     ready = ready && ::unlink(receipt.c_str()) == 0 &&
             ::chown(destination.c_str(), originalDirectory.st_uid,
                     originalDirectory.st_gid) == 0 &&
