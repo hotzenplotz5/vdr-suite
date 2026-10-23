@@ -296,6 +296,29 @@ bool DaemonRuntime::initialize()
             *mediaImportGrantRepository_, *backendAgentRepository_,
             *backendAgentCommandRepository_, *backendRegistryService_,
             *backendAccessPolicy_, *mediaImportActivationIntents_);
+    mediaShrinkOperationFence_ =
+        std::make_unique<vdrsuite::addons::MediaShrinkOperationFence>(
+            *mutationOperationRepository_, *backendAgentIdentityRepository_,
+            *mediaImportGrantRepository_, *backendAgentRepository_,
+            *backendAgentCommandRepository_, *backendRegistryService_,
+            *backendAccessPolicy_, *mediaImportActivationIntents_,
+            *mediaShrinkReviewRepository_);
+    backendAgentCommandDeliveryService_->setMediaShrinkReceiptFenceCheck(
+        [this](const BackendAgentCommandAssignment& assignment,
+               const BackendAgentCommandReceipt& receipt,
+               std::string& reason)
+        {
+            if (!mediaShrinkOperationFence_) {
+                reason = "media_shrink_operation_fence_unavailable";
+                return false;
+            }
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            return mediaShrinkOperationFence_->check(
+                assignment, receipt, now, reason);
+        });
+    // Result reconciliation is separate and still defaults to DENY.
+    // A valid receipt does not prove a staged or published VDR recording.
     mediaImportCatalog_ = std::make_unique<BackendAgentMediaImportCatalog>();
     PublicApiRuntime::instance().registerMediaImportSourceLookup(
         [this](const std::string& actorId, const std::string& backendId)
