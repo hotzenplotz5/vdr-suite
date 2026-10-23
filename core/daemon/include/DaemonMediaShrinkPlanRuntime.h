@@ -86,6 +86,38 @@ public:
         }
     }
 
+    // Canonical backend-local source revision. HTTP callers never receive a
+    // filesystem path or select a root. Used only by Core mutation admission.
+    std::optional<std::string> trustedSourceFingerprint(
+        const std::string& backend, const std::string& recordingId) const {
+        const auto root = roots_.find(backend);
+        if (root == roots_.end() || !available_ || !available_(backend) ||
+            !resolve_ ||
+            !vdrsuite::mediatools::shrinkOpaqueId(recordingId, "rec_"))
+            return std::nullopt;
+        const auto native = resolve_(backend, recordingId);
+        if (!native) return std::nullopt;
+        namespace fs = std::filesystem;
+        const fs::path videoRoot(root->second), absolute(*native);
+        if (!videoRoot.is_absolute() ||
+            videoRoot.lexically_normal() != videoRoot ||
+            !absolute.is_absolute() ||
+            absolute.lexically_normal() != absolute)
+            return std::nullopt;
+        const fs::path relative = absolute.lexically_relative(videoRoot);
+        if (relative.empty() || relative.is_absolute() ||
+            relative.extension() != ".rec" ||
+            std::any_of(relative.begin(), relative.end(),
+                [](const fs::path& part) {
+                    return part == "." || part == "..";
+                }))
+            return std::nullopt;
+        try {
+            return vdrsuite::mediatools::shrinkSourceFingerprint(
+                vdrsuite::mediatools::inspectShrink(videoRoot, relative));
+        } catch (...) { return std::nullopt; }
+    }
+
     ApiResponse reviewStatus(const std::string& actor,
                              const std::string& backend,
                              const std::string& reviewId) const {
