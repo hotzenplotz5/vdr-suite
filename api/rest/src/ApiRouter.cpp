@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "ApiRouter.h"
 
 #include "BackendRegistryController.h"
@@ -16,6 +17,13 @@
 #include "RecordingActionExecutionController.h"
 #include "RecordingActionPreviewController.h"
 #include "RecordingActionValidationController.h"
+#include "RecordingActionValidationRequestParser.h"
+#include "RecordingActionValidationResult.h"
+#include "RecordingActionValidationResultJsonSerializer.h"
+#include "RecordingActionExecutionController.h"
+#include "PublicRecordingActionProviderPreflight.h"
+#include "PublicProblemDetails.h"
+#include "PublicResourcePreconditions.h"
 #include "RecordingPersonSearchController.h"
 #include "RestQueryParameters.h"
 #include "RestfulApiRecordingActionBackendConfig.h"
@@ -356,9 +364,13 @@ ApiRouter::ApiRouter(
 }
 
 
+
 ApiResponse ApiRouter::handlePost(
     const std::string& requestTarget,
-    const std::string& body)
+    const std::string& body,
+    const std::string& ifMatch,
+    const std::string& requestId,
+    const std::string& correlationId)
 {
     (void)body;
 
@@ -368,6 +380,13 @@ ApiResponse ApiRouter::handlePost(
     const RestQueryParameters queryParameters =
         RestQueryParameters::parse(
             requestQueryString(requestTarget));
+
+    if (path == "/api/v1/recordings/actions/validate")
+        return handlePublicRecordingAction(body, false, ifMatch,
+                                           requestId, correlationId);
+    if (path == "/api/v1/recordings/actions/execute")
+        return handlePublicRecordingAction(body, true, ifMatch,
+                                           requestId, correlationId);
 
     if (path == "/api/recordings/actions/validate" ||
         path == "/api/vdr/recordings/actions/validate")

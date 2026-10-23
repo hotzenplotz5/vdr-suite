@@ -226,6 +226,25 @@ bool upsertEvents(
         return false;
     }
 
+    // Native source ID presence is not reconstructible from a cached
+    // fallback key. Keep it as separate additive evidence, without
+    // changing the epg_events table layout used by older code.
+    sqlite3_stmt* evidence = nullptr;
+    const char* evidenceSql =
+        "INSERT INTO epg_event_id_source_evidence ("
+        "backend_id,channel_id,event_id,source_id_present) "
+        "VALUES (?,?,?,?) "
+        "ON CONFLICT(backend_id,channel_id,event_id) DO UPDATE SET "
+        "source_id_present=excluded.source_id_present "
+        "WHERE epg_event_id_source_evidence.source_id_present "
+        "IS NOT excluded.source_id_present;";
+    if (sqlite3_prepare_v2(
+            database, evidenceSql, -1, &evidence, nullptr) != SQLITE_OK)
+    {
+        sqlite3_finalize(statement);
+        return false;
+    }
+
     for (const VdrEvent& event : events)
     {
         if (event.channelId.empty())
@@ -253,12 +272,27 @@ bool upsertEvents(
 
         if (sqlite3_step(statement) != SQLITE_DONE)
         {
+            sqlite3_finalize(evidence);
+            sqlite3_finalize(statement);
+            return false;
+        }
+        sqlite3_reset(evidence);
+        sqlite3_clear_bindings(evidence);
+        bindText(evidence, 1, backendId);
+        bindText(evidence, 2, event.channelId);
+        bindText(evidence, 3, stableEventId(event));
+        sqlite3_bind_int(evidence, 4, event.id.empty() ? 0 : 1);
+        if (sqlite3_step(evidence) != SQLITE_DONE)
+        {
+            sqlite3_finalize(evidence);
             sqlite3_finalize(statement);
             return false;
         }
     }
 
-    return sqlite3_finalize(statement) == SQLITE_OK;
+    const bool originalOk = sqlite3_finalize(statement) == SQLITE_OK;
+    const bool evidenceOk = sqlite3_finalize(evidence) == SQLITE_OK;
+    return originalOk && evidenceOk;
 }
 
 bool retireMetadataTarget(
@@ -388,7 +422,19 @@ bool EpgEventRepository::ensureSchema()
         "ON epg_events (backend_id,CAST(end_time AS INTEGER),"
         "CAST(start_time AS INTEGER),channel_id,event_id);"
         "CREATE INDEX IF NOT EXISTS idx_epg_events_backend_title "
-        "ON epg_events (backend_id, title);");
+        "ON epg_events (backend_id, title);"
+        "CREATE TABLE IF NOT EXISTS epg_event_id_source_evidence ("
+        "backend_id TEXT NOT NULL,"
+        "channel_id TEXT NOT NULL,"
+        "event_id TEXT NOT NULL,"
+        "source_id_present INTEGER NOT NULL CHECK(source_id_present IN(0,1)),"
+        "PRIMARY KEY (backend_id,channel_id,event_id));"
+        "CREATE TRIGGER IF NOT EXISTS epg_event_id_source_evidence_cleanup "
+        "AFTER DELETE ON epg_events BEGIN "
+        "DELETE FROM epg_event_id_source_evidence "
+        "WHERE backend_id=OLD.backend_id "
+        "AND channel_id=OLD.channel_id AND event_id=OLD.event_id; "
+        "END;");
 }
 
 bool EpgEventRepository::upsertEventsForBackend(
@@ -584,6 +630,90 @@ bool EpgEventRepository::containsEventForBackend(
     return found;
 }
 
+
+bool EpgEventRepository::hasSourceEventIdForBackend(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& eventId) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (backendId.empty() || channelId.empty() || eventId.empty())
+        return false;
+
+    // Inner join prevents stale evidence from validating a removed event.
+    // Unknown historical rows fail closed until re-observed from source.
+    sqlite3_stmt* statement = nullptr;
+    const char* sql =
+        "SELECT e.source_id_present FROM epg_event_id_source_evidence e "
+        "INNER JOIN epg_events v "
+        "ON v.backend_id=e.backend_id AND v.channel_id=e.channel_id "
+        "AND v.event_id=e.event_id "
+        "WHERE e.backend_id=? AND e.channel_id=? AND e.event_id=?;";
+    if (sqlite3_prepare_v2(
+            database_.handle(), sql, -1, &statement,
+            nullptr) != SQLITE_OK)
+        return false;
+    bindText(statement, 1, normalizeBackendId(backendId));
+    bindText(statement, 2, channelId);
+    bindText(statement, 3, eventId);
+    const bool present =
+        sqlite3_step(statement) == SQLITE_ROW &&
+        sqlite3_column_int(statement, 0) == 1;
+    sqlite3_finalize(statement);
+    return present;
+}
+
+
+std::optional<VdrEvent> EpgEventRepository::findSourceEventForBackend(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& nativeEventId) const
+{
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (backendId.empty() || backendId.size() > 128U ||
+        channelId.empty() || channelId.size() > 160U ||
+        nativeEventId.empty() || nativeEventId.size() > 160U)
+        return std::nullopt;
+
+    // One scoped query binds both the actual cached EPG row and durable
+    // evidence that the source supplied its ID. Never resolve an event
+    // through its title, starting time, or a generated fallback cache key.
+    static constexpr const char* Sql =
+        "SELECT v.event_id,v.channel_id,v.title,v.subtitle,v.description,"
+        "v.start_time,v.end_time,v.duration_seconds,v.parental_rating,"
+        "v.content_descriptors "
+        "FROM epg_events v "
+        "INNER JOIN epg_event_id_source_evidence e "
+        "ON e.backend_id=v.backend_id AND e.channel_id=v.channel_id "
+        "AND e.event_id=v.event_id "
+        "WHERE v.backend_id=? AND v.channel_id=? AND v.event_id=? "
+        "AND e.source_id_present=1 LIMIT 2;";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), Sql, -1,
+            &statement, nullptr) != SQLITE_OK)
+        return std::nullopt;
+
+    bindText(statement, 1, normalizeBackendId(backendId));
+    bindText(statement, 2, channelId);
+    bindText(statement, 3, nativeEventId);
+    std::optional<VdrEvent> event;
+    if (sqlite3_step(statement) == SQLITE_ROW)
+    {
+        VdrEvent observed = readEvent(statement);
+        // One row must terminate successfully. An unexpected duplicate,
+        // database error or malformed source observation fails closed.
+        if (sqlite3_step(statement) == SQLITE_DONE &&
+            observed.id == nativeEventId &&
+            observed.channelId == channelId &&
+            !observed.title.empty() &&
+            !observed.startTime.empty() &&
+            !observed.endTime.empty())
+            event = std::move(observed);
+    }
+    sqlite3_finalize(statement);
+    return event;
+}
+
 std::vector<VdrEvent> EpgEventRepository::findNowNextForBackend(
     const std::string& backendId,
     const std::string& channelId,
@@ -694,9 +824,14 @@ std::vector<VdrEvent> EpgEventRepository::findWindowForBackend(
     const std::string& channelId,
     const std::string& fromTime,
     const std::string& untilTime,
-    int eventLimit) const
+    int eventLimit,
+    const std::string& afterStartTime,
+    const std::string& afterEventId) const
 {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
+
+    // Fail closed when a caller only supplies half a cache row key.
+    if (afterStartTime.empty() != afterEventId.empty()) return {};
 
     sqlite3_stmt* stmt = nullptr;
 
@@ -725,6 +860,14 @@ std::vector<VdrEvent> EpgEventRepository::findWindowForBackend(
     if (hasUntil)
     {
         sql += "AND start_time < ? ";
+    }
+
+    if (!afterStartTime.empty())
+    {
+        // Identical starting times are disambiguated by the *cache* event
+        // key, even when that ID lacks native EventID provenance.
+        sql += "AND (start_time > ? OR "
+               "(start_time = ? AND event_id > ?)) ";
     }
 
     sql += "ORDER BY start_time ASC, channel_id ASC, event_id ASC ";
@@ -760,6 +903,13 @@ std::vector<VdrEvent> EpgEventRepository::findWindowForBackend(
         bindText(stmt, bindIndex++, untilTime);
     }
 
+    if (!afterStartTime.empty())
+    {
+        bindText(stmt, bindIndex++, afterStartTime);
+        bindText(stmt, bindIndex++, afterStartTime);
+        bindText(stmt, bindIndex++, afterEventId);
+    }
+
     if (hasLimit)
     {
         sqlite3_bind_int(stmt, bindIndex++, eventLimit);
@@ -770,6 +920,37 @@ std::vector<VdrEvent> EpgEventRepository::findWindowForBackend(
     sqlite3_finalize(stmt);
 
     return events;
+}
+
+bool EpgEventRepository::hasWindowCursorAnchorForBackend(
+    const std::string& backendId,
+    const std::string& channelId,
+    const std::string& fromTime,
+    const std::string& untilTime,
+    const std::string& startTime,
+    const std::string& cacheEventId) const
+{
+    if (channelId.empty() || startTime.empty() || cacheEventId.empty())
+        return false;
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    sqlite3_stmt* stmt = nullptr;
+    const char* sql =
+        "SELECT 1 FROM epg_events WHERE backend_id=? AND channel_id=? "
+        "AND event_id=? AND start_time=? AND end_time>? "
+        "AND start_time<? LIMIT 1;";
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &stmt, nullptr)
+        != SQLITE_OK)
+        return false;
+    int index = 1;
+    bindText(stmt, index++, normalizeBackendId(backendId));
+    bindText(stmt, index++, channelId);
+    bindText(stmt, index++, cacheEventId);
+    bindText(stmt, index++, startTime);
+    bindText(stmt, index++, fromTime);
+    bindText(stmt, index++, untilTime);
+    const bool found = sqlite3_step(stmt) == SQLITE_ROW;
+    sqlite3_finalize(stmt);
+    return found;
 }
 
 bool EpgEventRepository::deleteExpiredForBackend(

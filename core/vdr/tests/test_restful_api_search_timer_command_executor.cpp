@@ -152,6 +152,29 @@ void createFallsBackToReadbackWhenCreateBodyHasNoId()
     assert(httpClient.requests()[1].url == "/searchtimers.json");
 }
 
+void createInactiveStagingNeverEnablesNativeEpgsearchAutomation()
+{
+    HttpResponse createResponse;
+    createResponse.statusCode = 200;
+    createResponse.body = "Id: 79";
+
+    SequencedHttpClient httpClient({createResponse});
+    RestfulApiSearchTimerCommandExecutor executor(httpClient);
+    SearchTimerCreateRequest request = makeCreateRequest("Terra X");
+    request.active = false;
+    const auto created = executor.create(request);
+    assert(created.success);
+    assert(!created.searchTimer.isActive());
+    assert(httpClient.requests().size() == 1);
+    const auto& write = httpClient.requests().front();
+    assert(write.method == "POST");
+    assert(write.url == "/searchtimers");
+    assert(write.body.find("\"use_as_searchtimer\":0") !=
+        std::string::npos);
+    assert(write.body.find("\"use_as_searchtimer\":1") ==
+        std::string::npos);
+}
+
 void createMapsTitleOnlySearchFieldsToRestfulApiBody()
 {
     HttpResponse createResponse;
@@ -370,6 +393,7 @@ int main()
 {
     createUsesReturnedTextIdWhenAvailable();
     createFallsBackToReadbackWhenCreateBodyHasNoId();
+    createInactiveStagingNeverEnablesNativeEpgsearchAutomation();
     createMapsTitleOnlySearchFieldsToRestfulApiBody();
     createMapsSubtitleAndSummarySearchFieldsToRestfulApiBody();
     createSerializesStructuredSearchTimerOptionListsAsJsonArrays();

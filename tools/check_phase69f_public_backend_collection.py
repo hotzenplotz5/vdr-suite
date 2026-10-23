@@ -15,6 +15,8 @@ def require(condition: bool, message: str) -> None:
 
 runtime_h = read("api/rest/include/PublicApiRuntime.h")
 runtime = read("api/rest/src/PublicApiRuntime.cpp")
+discovery = read("api/rest/src/PublicDiscoveryRoutes.cpp")
+backend_lookup = read("api/rest/src/PublicBackendLookupRuntime.cpp")
 security = read("core/security/include/SecurityHttpGate.h")
 daemon = read("core/daemon/src/DaemonRuntimeInitialization.cpp")
 shutdown = read("core/daemon/src/DaemonRuntimeShutdown.cpp")
@@ -56,7 +58,10 @@ for token in (
     "public-api.backends-read",
     "backends-read",
 ):
-    require(token in runtime, "public Backend runtime drifted: " + token)
+    owner = (backend_lookup if token == "registerBackendCollectionLookup"
+             else discovery if token in {"public-api.backends-read", "backends-read"}
+             else runtime)
+    require(token in owner, "public Backend runtime drifted: " + token)
 
 response_start = runtime.find("ApiResponse publicBackendCollectionResponse(")
 response_end = runtime.find("ApiResponse publicAccountResponse(", response_start)
@@ -166,7 +171,7 @@ require(
     "complete public-v1 reference coverage must allow closeout/final state without a preselected route",
 )
 require(
-    "Public-v1 method/resource contracts: 9 accepted, 1 Recording R2 candidate." in matrix_guard
+    "Public-v1 method/resource contracts: 9 accepted, 2 scoped read-only candidates" in matrix_guard
     and "resource_pairs == expected_resource_pairs" in matrix_guard,
     "client matrix guard must count the Backend contract",
 )

@@ -55,6 +55,30 @@ Both require `recordings.view@home`; `genreId` is **required** only on the membe
 
 `GET /genres` items carry `genreId`, `label`, `labelDe`, `labelEn`, `count`. `GET /genres/recordings` items carry `recordingId`, `backendId`, `title`, `recordedAt`, `durationSeconds`, `durationKnown`. Both responses have `items`, `page:{limit,offset,totalCount,hasMore}`, `meta:{partial:false}`. The count is a facet membership count, not evidence that an item can be played with the current Device grants.
 
+## Recording titles and edited cuts: public presentation parity
+
+Public-v1 projects Recording names using the established Web
+\`recordings2-shared.js\` display rules, **on the server**:
+- the last title directory from a VDR recording path (discarding the final
+  \`.rec\` timestamp directory) wins over raw VDR \`Folder~Title\` metadata;
+- if no usable path is present, the last component of the native title wins;
+- VDR \`#XX\` escapes (up to 6 decoding rounds) and underscores are decoded;
+- a **leading** \`%\` is removed only from the visible title and separately
+  advertised as the additive read-only boolean \`edited\`; an embedded percent
+  (e.g. \`100% Abenteuer\`) is never removed.
+
+A path \`/srv/vdr/video/Filme/%Der_Hobbit/2026-10-15.rec\`
+is presented as \`"title":"Der Hobbit","edited":true\`, while the
+unsliced original has \`edited:false\`. The two recordings retain **different
+opaque recordingId values**. No native folder path, source ID, media token,
+mutating rename or cut action leaves the server.
+
+The same projection is used by keyset collection, folder browsing, genre
+memberships and native-title search results. The existing Web global search
+may prefer a manually assigned metadata title; that canonical search title
+is intentionally retained. The \`edited\` marker still comes from the current
+authorized recording identity. Legacy clients can ignore the additive field.
+
 ## 4. EPG now/next (cached read)
 
 ```http

@@ -20,3 +20,23 @@ test-phase64-native-timer-delete-operation-preparation: test-phase64-native-time
 
 test-fast: test-phase64-native-timer-delete-operation-preparation
 test-architecture: test-phase64-native-timer-delete-operation-preparation-architecture
+
+.PHONY: test-public-v1-native-timer-delete-preflight
+test-public-v1-native-timer-delete-preflight:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/tests/test_public_native_timer_delete_preflight.cpp \
+		-o $(BUILD_DIR)/test_public_native_timer_delete_preflight
+	$(BUILD_DIR)/test_public_native_timer_delete_preflight
+
+test-fast: test-public-v1-native-timer-delete-preflight
+
+.PHONY: test-public-v1-native-timer-detail-revision
+test-public-v1-native-timer-detail-revision:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/timers/src/NativeTimerBinding.cpp \
+		core/timers/tests/test_public_native_timer_detail_revision.cpp \
+		-o $(BUILD_DIR)/test_public_native_timer_detail_revision
+	$(BUILD_DIR)/test_public_native_timer_detail_revision
+
+test-fast: test-public-v1-native-timer-detail-revision

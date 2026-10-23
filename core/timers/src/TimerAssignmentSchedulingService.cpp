@@ -280,6 +280,21 @@ TimerAssignmentSchedulingResult
 TimerAssignmentSchedulingService::schedulePrimary(
     const TimerAssignmentPrimarySchedulingRequest& request)
 {
+    return schedulePrimaryImpl(request, false);
+}
+
+TimerAssignmentSchedulingResult
+TimerAssignmentSchedulingService::schedulePrimaryInCurrentTransaction(
+    const TimerAssignmentPrimarySchedulingRequest& request)
+{
+    return schedulePrimaryImpl(request, true);
+}
+
+TimerAssignmentSchedulingResult
+TimerAssignmentSchedulingService::schedulePrimaryImpl(
+    const TimerAssignmentPrimarySchedulingRequest& request,
+    bool currentTransaction)
+{
     if (!validSchedulingRequest(
             request.timerAssignmentId,
             request.timerIntentId,
@@ -363,7 +378,9 @@ TimerAssignmentSchedulingService::schedulePrimary(
             request.createdAt,
             TimerAssignmentRole::primary,
             result.decision);
-    const auto created = assignmentRepository_.create(candidate);
+    const auto created = currentTransaction
+        ? assignmentRepository_.createInCurrentTransaction(candidate)
+        : assignmentRepository_.create(candidate);
     applyCreateResult(
         result,
         assignmentRepository_,

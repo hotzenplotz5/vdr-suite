@@ -71,7 +71,7 @@ dpkg-query -W vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge 2>
 dpkg -L vdr-suite-daemon
 ```
 
-**Nicht alle drei Dienste müssen auf einem Einzelserver aktiv sein.** Die experimentellen Pakete starten oder aktivieren daemon/Agent nicht automatisch; das ist Absicht. Installation, Konfiguration und kontrollierter Dienststart sind verschiedene Schritte.
+**Nicht alle drei Dienste müssen auf einem Einzelserver aktiv sein.** Die experimentellen Pakete starten oder aktivieren daemon/Agent nicht automatisch; das ist Absicht. Der bereits installierte Backend-Agent hat nun einen separaten, geschützten **Abschluss-Schritt nach erfolgreicher Registrierung**: `vdr-suite-backend-agent-autostart --check` und anschließend, nach freigegebener Prüfung, `sudo vdr-suite-backend-agent-autostart --enable`. Der zweite Aufruf setzt den Autostart für spätere Hoststarts, **ohne** den laufenden Dienst neu zu starten oder Geräteidentitäten zu verändern. Die experimentelle Paketinstallation führt diesen Schritt niemals vor dem Enrollment aus; ein fertig integrierter Einrichtungsassistent, der ihn eigenständig nach erfolgreichem Enrollment aufruft, steht noch aus. Näheres im [Backend-Agent-Paketvertrag](../debian/README.md#after-enrollment-boot-activation-operator-opt-in-not-package-auto-start). Installation, Konfiguration und kontrollierter Dienststart sind verschiedene Schritte.
 
 ## 3. Erste Datenbank: Was wird angelegt?
 

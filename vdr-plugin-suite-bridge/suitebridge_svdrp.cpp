@@ -49,7 +49,7 @@ const char **cPluginSuiteBridge::SVDRPHelpPages(void)
       "SNAP\n"
       "    Return the current read-only VDR-Suite status payload.",
       "VPATH 1\n"
-      "    Return VDR's authoritative recording root (read-only).",
+      "    Return VDR\'s authoritative recording root (read-only).",
       "OSDSNAP\n"
       "    Return the current bounded semantic Legacy OSD full frame; no skin pixels.",
       "OSDINPUT <schema> <command-id> <request-fingerprint> <backend-generation> <surface-id> <osd-epoch> <lease-id> <lease-epoch> <lease-revision> <action> <deadline>\n"
@@ -126,6 +126,11 @@ cString cPluginSuiteBridge::SVDRPCommand(
   const SuiteBridgeCommandResult nativeTimerCreate =
       nativeTimerCreate_.Handle(Command, Option);
   if (nativeTimerCreate.handled) return ReturnResult(nativeTimerCreate, ReplyCode);
+
+  const SuiteBridgeCommandResult nativeTimerPreview =
+      nativeTimerPreview_.Handle(Command, Option);
+  if (nativeTimerPreview.handled)
+    return ReturnResult(nativeTimerPreview, ReplyCode);
 
   const SuiteBridgeCommandResult nativeTimerDelete =
       nativeTimerDelete_.Handle(Command, Option);

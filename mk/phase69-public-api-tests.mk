@@ -1,8 +1,122 @@
+# Immutable offline-native-CAS admission, no HTTP/native writer.
+.PHONY: test-searchtimer-native-cas-durable-admission
+test-searchtimer-native-cas-durable-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerNativeCasContract.cpp \
+		core/vdr/src/SearchTimerNativeCasDispatchService.cpp \
+		core/vdr/src/SearchTimerNativeCasAdmissionService.cpp \
+		core/vdr/tests/test_search_timer_native_cas_admission_service.cpp \
+		$(LDFLAGS) -lcrypto -o $(BUILD_DIR)/test_search_timer_native_cas_admission_service
+	$(BUILD_DIR)/test_search_timer_native_cas_admission_service
+
+test-phase: test-searchtimer-native-cas-durable-admission
+test-fast: test-searchtimer-native-cas-durable-admission
+
+
+# One-shot durable SearchTimer native-CAS gate; offline mock provider only.
+.PHONY: test-searchtimer-native-cas-durable-dispatch
+test-searchtimer-native-cas-durable-dispatch:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerNativeCasContract.cpp \
+		core/vdr/src/SearchTimerNativeCasDispatchService.cpp \
+		core/vdr/tests/test_search_timer_native_cas_dispatch_service.cpp \
+		$(LDFLAGS) -lcrypto -o $(BUILD_DIR)/test_search_timer_native_cas_dispatch_service
+	$(BUILD_DIR)/test_search_timer_native_cas_dispatch_service
+
+test-phase: test-searchtimer-native-cas-durable-dispatch
+test-fast: test-searchtimer-native-cas-durable-dispatch
+
+# Provider-native CAS protocol is a mock-only prerequisite. Never
+# substitute a legacy numeric-ID RESTfulAPI/SVDRP writer here.
+.PHONY: test-searchtimer-native-cas-contract
+test-searchtimer-native-cas-contract:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerNativeCasContract.cpp \
+		core/vdr/tests/test_search_timer_native_cas_contract.cpp \
+		-o $(BUILD_DIR)/test_search_timer_native_cas_contract
+	$(BUILD_DIR)/test_search_timer_native_cas_contract
+
+test-phase: test-searchtimer-native-cas-contract
+test-fast: test-searchtimer-native-cas-contract
+
+.PHONY: test-public-epg-timer-intent-admission
+
+test-public-epg-timer-intent-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_epg_timer_intent_admission.cpp \
+		-o $(BUILD_DIR)/test_public_epg_timer_intent_admission
+	$(BUILD_DIR)/test_public_epg_timer_intent_admission
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) $(SECURITY_SRC) \
+		core/security/tests/test_public_epg_timer_intent_security.cpp \
+		$(LDFLAGS) -o $(BUILD_DIR)/test_public_epg_timer_intent_security
+	$(BUILD_DIR)/test_public_epg_timer_intent_security
+
+test-phase: test-public-epg-timer-intent-admission
+
+.PHONY: test-public-v1-native-timer-detail
+test-public-v1-native-timer-detail:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_native_timer_detail.cpp \
+		-o $(BUILD_DIR)/test_public_native_timer_detail
+	$(BUILD_DIR)/test_public_native_timer_detail
+	$(CXX) $(CXXFLAGS) -fsyntax-only core/daemon/src/DaemonRuntimeInitialization.cpp
+
+test-fast: test-public-v1-native-timer-detail
+
+.PHONY: test-public-v1-native-timer-delete
+test-public-v1-native-timer-delete:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_native_timer_delete.cpp \
+		-o $(BUILD_DIR)/test_public_native_timer_delete
+	$(BUILD_DIR)/test_public_native_timer_delete
+
+test-fast: test-public-v1-native-timer-delete
+
+.PHONY: test-public-v1-native-timer-modifications
+test-public-v1-native-timer-modifications:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_native_timer_modifications.cpp \
+		-o $(BUILD_DIR)/test_public_native_timer_modifications
+	$(BUILD_DIR)/test_public_native_timer_modifications
+
+test-fast: test-public-v1-native-timer-modifications
+
+.PHONY: test-phase69-public-epg-timer-intent-draft
+
+test-phase69-public-epg-timer-intent-draft:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		core/timers/src/TimerIntent.cpp \
+		core/timers/tests/test_epg_timer_intent_draft.cpp \
+		-o $(BUILD_DIR)/test_public_epg_timer_intent_draft
+	$(BUILD_DIR)/test_public_epg_timer_intent_draft
+
+.PHONY: test-phase69-public-epg-timer-selection
+
+test-phase69-public-epg-timer-selection:
+	$(BUILD_CXX) $(CXXFLAGS) -Icore/timers/include \
+		core/timers/tests/test_epg_timer_selection_guard.cpp \
+		-o $(BUILD_DIR)/test_public_epg_timer_selection_guard
+	$(BUILD_DIR)/test_public_epg_timer_selection_guard
+	python3 tools/check_public_epg_event_id_provenance.py
+
 .PHONY: test-phase69-public-api-contract-root
 
 test-phase69-public-api-contract-root:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_api_contract_runtime.cpp \
 		-o $(BUILD_DIR)/test_public_api_contract_runtime
 	$(BUILD_DIR)/test_public_api_contract_runtime
@@ -32,7 +146,7 @@ test-phase69-operation-read-facade:
 
 test-phase69-public-operation-resource:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_operation_resource.cpp \
 		-o $(BUILD_DIR)/test_public_operation_resource
 	$(BUILD_DIR)/test_public_operation_resource
@@ -55,7 +169,7 @@ test-phase69-timer-assignment-read-facade:
 
 test-phase69-timer-assignment-runtime-composition:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_timer_assignment_lookup.cpp \
 		-o $(BUILD_DIR)/test_public_timer_assignment_lookup
 	$(BUILD_DIR)/test_public_timer_assignment_lookup
@@ -65,7 +179,7 @@ test-phase69-timer-assignment-runtime-composition:
 
 test-phase69-public-timer-assignment-resource:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_timer_assignment_resource.cpp \
 		-o $(BUILD_DIR)/test_public_timer_assignment_resource
 	$(BUILD_DIR)/test_public_timer_assignment_resource
@@ -131,6 +245,10 @@ test-phase69-atomic-timer-create-admission:
 		core/timers/src/TimerAssignment.cpp \
 		core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
 		core/timers/src/TimerAssignmentRepository.cpp \
+		core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
+		core/timers/src/TimerAssignmentPlanner.cpp \
+		core/timers/src/TimerAssignmentSchedulingService.cpp \
+		core/timers/src/TimerIntentApplicationService.cpp \
 		core/timers/src/NativeTimerBinding.cpp \
 		core/timers/src/NativeTimerBindingIdentity.cpp \
 		core/timers/src/NativeTimerBindingRepository.cpp \
@@ -141,6 +259,9 @@ test-phase69-atomic-timer-create-admission:
 		core/timers/src/NativeTimerCreateOperationPayload.cpp \
 		core/timers/src/NativeTimerCreateOperationPreparationService.cpp \
 		core/timers/src/NativeTimerCreateAdmissionService.cpp \
+		core/timers/src/EpgTimerIntentAdmissionRepository.cpp \
+		core/timers/src/EpgTimerIntentAtomicAdmissionService.cpp \
+		core/agent/src/BackendAgentLocalProvider.cpp \
 		core/timers/tests/test_native_timer_create_admission_service.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_native_timer_create_admission_service
@@ -151,7 +272,7 @@ test-phase69-atomic-timer-create-admission:
 
 test-phase69-public-timer-create-admission:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_timer_create_admission.cpp \
 		-o $(BUILD_DIR)/test_public_timer_create_admission
 	$(BUILD_DIR)/test_public_timer_create_admission
@@ -326,7 +447,7 @@ test-phase69d-timer-assignment-collection-read:
 
 test-phase69d-public-timer-assignment-collection:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_timer_assignment_collection.cpp \
 		-o $(BUILD_DIR)/test_public_timer_assignment_collection
 	$(BUILD_DIR)/test_public_timer_assignment_collection
@@ -339,11 +460,15 @@ test-phase69d-public-timer-assignment-collection:
 	$(BUILD_DIR)/test_public_timer_assignment_collection_security
 	python3 tools/check_phase69d_timer_assignment_collection.py
 
+# SearchTimer inactive-create HTTP regression is included in this compiled
+# Public-v1 collection test. Never rely on an unrun test for write safety.
+test-fast: test-phase69d-public-timer-assignment-collection
+
 .PHONY: test-phase69d-public-channel-collection
 
 test-phase69d-public-channel-collection:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_channel_collection.cpp \
 		-o $(BUILD_DIR)/test_public_channel_collection
 	$(BUILD_DIR)/test_public_channel_collection
@@ -356,6 +481,13 @@ test-phase69d-public-channel-collection:
 	$(BUILD_DIR)/test_public_channel_collection_security
 	python3 tools/check_phase69d_public_channel_collection.py
 
+
+# Compile ONLY the changed daemon composition TU without linking or
+# rebuilding the daemon. Keep deployment and DB state untouched.
+.PHONY: test-phase69d-public-channel-neighbor-daemon-syntax
+
+test-phase69d-public-channel-neighbor-daemon-syntax:
+	$(CXX) $(CXXFLAGS) -Icore/timers/include -fsyntax-only core/daemon/src/DaemonRuntimeInitialization.cpp
 
 .PHONY: test-phase69d-closeout
 
@@ -421,7 +553,7 @@ test-frontend-contracts: test-phase69f-client-contract-matrix
 
 test-phase69f-public-backend-collection:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_backend_collection.cpp \
 		-o $(BUILD_DIR)/test_public_backend_collection
 	$(BUILD_DIR)/test_public_backend_collection
@@ -474,8 +606,15 @@ test-phase69f-public-v1-channel-reference-client:
 
 test-phase69f-public-v1-timer-assignment-collection-reference-client:
 	node clients/reference-js/tests/test_public_v1_timer_assignment_collection_client.js
+	node clients/reference-js/tests/test_public_v1_search_timer_client.js
 	python3 tools/check_phase69f_public_v1_timer_assignment_collection_reference_client.py
 
+
+.PHONY: test-public-v1-searchtimer-safe-client
+test-public-v1-searchtimer-safe-client:
+	node clients/reference-js/tests/test_public_v1_search_timer_client.js
+
+test-fast: test-public-v1-searchtimer-safe-client
 
 .PHONY: test-phase69f-public-v1-timer-assignment-item-reference-client
 
@@ -507,7 +646,7 @@ test-phase69-closeout:
 
 test-public-epg-now-next-api:
 	$(BUILD_CXX) $(CXXFLAGS) \
-		api/rest/src/PublicApiRuntime.cpp \
+		$(REST_PUBLIC_API_SRC) \
 		api/rest/tests/test_public_epg_now_next.cpp \
 		-o $(BUILD_DIR)/test_public_epg_now_next
 	$(BUILD_DIR)/test_public_epg_now_next
@@ -518,3 +657,88 @@ test-public-epg-now-next-api:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_public_epg_now_next_security
 	$(BUILD_DIR)/test_public_epg_now_next_security
+
+# Persistence-only SearchTimer CREATE admission. No RESTfulAPI calls, no
+# mutation registration and no native TimerAssignment execution.
+.PHONY: test-searchtimer-create-durable-admission
+test-searchtimer-create-durable-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/tests/test_search_timer_create_admission_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_admission_service
+	$(BUILD_DIR)/test_search_timer_create_admission_service
+
+# Add this bounded in-memory regression to the phase test graph.
+test-phase: test-searchtimer-create-durable-admission
+
+# Standalone one-shot dispatch safety proof with fake provider (never yaVDR).
+.PHONY: test-searchtimer-create-one-shot-dispatch
+test-searchtimer-create-one-shot-dispatch:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/src/SearchTimerCreateDispatchService.cpp \
+		core/vdr/tests/test_search_timer_create_dispatch_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_dispatch_service
+	$(BUILD_DIR)/test_search_timer_create_dispatch_service
+
+test-phase: test-searchtimer-create-one-shot-dispatch
+
+# Orphan recovery is purely a durable operation CAS; no provider/executor linked.
+.PHONY: test-searchtimer-create-orphan-recovery
+test-searchtimer-create-orphan-recovery:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/src/SearchTimerCreateRecoveryService.cpp \
+		core/vdr/tests/test_search_timer_create_recovery_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_recovery_service
+	$(BUILD_DIR)/test_search_timer_create_recovery_service
+
+test-phase: test-searchtimer-create-orphan-recovery
+
+# Persistence-only Device-scoped CREATE admission (no public handler, no POST).
+.PHONY: test-searchtimer-create-device-admission
+test-searchtimer-create-device-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/VdrConfig.cpp \
+		core/vdr/src/BackendRegistry.cpp \
+		core/vdr/src/BackendRegistryService.cpp \
+		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+		core/vdr/src/SearchTimerCreateDeviceAdmissionService.cpp \
+		core/vdr/tests/test_search_timer_create_device_admission_service.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/test_search_timer_create_device_admission_service
+	$(BUILD_DIR)/test_search_timer_create_device_admission_service
+
+test-phase: test-searchtimer-create-device-admission
+
+.PHONY: test-public-epg-event-detail
+# Authenticated Public-v1 read only, no Timer CREATE mutation.
+test-public-epg-event-detail:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_epg_event_detail.cpp \
+		-o $(BUILD_DIR)/test_public_epg_event_detail
+	$(BUILD_DIR)/test_public_epg_event_detail

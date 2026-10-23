@@ -21,6 +21,7 @@ EXERCISED_BY_P7_CPP = frozenset((
     "core/media/src/ContinueWatchingRepository.cpp",
     "core/media/src/MediaSessionRepository.cpp",
     "core/media/src/MediaTranscodeBackendSettingsRepository.cpp",
+    "core/media/src/DeviceMediaProfileRepository.cpp",
     "core/media/src/RecentlyWatchedRepository.cpp",
     "core/metadata/src/ManualRecordingMetadataAssignmentRepository.cpp",
     "core/metadata/src/RecordingSeriesHierarchyOverrideRepository.cpp",
@@ -38,6 +39,7 @@ EXERCISED_BY_P7_CPP = frozenset((
     "core/security/src/SecurityPermissionGrantRepository.cpp",
     "core/timers/src/NativeTimerBindingRepository.cpp",
     "core/timers/src/TimerAssignmentRepository.cpp",
+    "core/timers/src/EpgTimerIntentAdmissionRepository.cpp",
     "core/timers/src/TimerIntentRepository.cpp",
     "core/vdr/src/EpgArtworkRepository.cpp",
     "core/vdr/src/EpgEventRepository.cpp",
@@ -45,6 +47,7 @@ EXERCISED_BY_P7_CPP = frozenset((
     "core/vdr/src/EpgSeriesArtworkFallbackRepository.cpp",
     "core/vdr/src/EpgSeriesArtworkProviderCacheRepository.cpp",
     "core/vdr/src/GlobalSearchRepository.cpp",
+    "core/vdr/src/PublicSearchTimerIdentityRepository.cpp",
     "core/vdr/src/VdrChannelCacheRepository.cpp",
     "core/vdr/src/VdrRecordingCacheRepository.cpp",
     "core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp",
@@ -98,7 +101,7 @@ class P7SchemaOwnerInventoryTests(unittest.TestCase):
     def test_named_repository_initializers_all_exercised(self):
         # Named ensureSchema coverage is not full SQL-writer/upgrade coverage.
         self.assertFalse(NOT_YET_EXERCISED_BY_P7_CPP)
-        self.assertEqual(len(EXERCISED_BY_P7_CPP), 33)
+        self.assertEqual(len(EXERCISED_BY_P7_CPP), 36)
 
 
 if __name__ == "__main__":

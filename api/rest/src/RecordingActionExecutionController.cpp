@@ -1,6 +1,7 @@
 #include "RecordingActionExecutionController.h"
 
 #include "RecordingActionExecutionResult.h"
+#include "RestfulApiRecordingActionBackendExecutorAdapter.h"
 #include "RecordingActionExecutionResultJsonSerializer.h"
 #include "RecordingActionExecutionService.h"
 #include "RecordingActionValidationRequestParser.h"
@@ -180,63 +181,75 @@ RecordingActionRequest RecordingActionExecutionController::resolveBackendNativeI
     return resolved;
 }
 
+RecordingActionExecutionResult RecordingActionExecutionController::previewBackend(
+    const RecordingActionRequest& request) const
+{
+    if (!request.dryRun)
+        return RecordingActionExecutionResult::failed(
+            request.type, request.recordingId, request.backendId,
+            "recording action preflight must be read-only",
+            {"provider preview must be dry-run"});
+
+    // A legacy adapter can dispatch an actual request even for dryRun.
+    // Only the audited SafeMutation provider preview is safe for Public-v1.
+    const auto adapter = backendExecutorAdapterRegistry_.findAdapter(
+        request.backendId);
+    const auto* safe = adapter.found && adapter.adapter
+        ? dynamic_cast<const RestfulApiRecordingActionBackendExecutorAdapter*>(
+            adapter.adapter.get())
+        : nullptr;
+    if (!safe || safe->config().apiMode !=
+            RestfulApiRecordingActionApiMode::SafeMutation)
+        return RecordingActionExecutionResult::failed(
+            request.type, request.recordingId, request.backendId,
+            "provider preflight unavailable",
+            {"no read-only provider preview is registered"});
+
+    const RecordingActionRequest resolved = resolveBackendNativeId(request);
+    if (backendRegistry_ != nullptr)
+    {
+        const auto lookup = backendPolicyProvider_.policyForBackend(
+            *backendRegistry_, resolved.backendId);
+        return executionService_.execute(
+            resolved, backendExecutorAdapterRegistry_, lookup.policy);
+    }
+    return executionService_.execute(
+        resolved, backendExecutorAdapterRegistry_);
+}
+
+RecordingActionExecutionResult RecordingActionExecutionController::executeResult(
+    const RecordingActionRequest& request)
+{
+    const RecordingActionRequest resolvedRequest =
+        resolveBackendNativeId(request);
+
+    RecordingActionExecutionResult result;
+    if (backendRegistry_ != nullptr)
+    {
+        const auto lookup = backendPolicyProvider_.policyForBackend(
+            *backendRegistry_, resolvedRequest.backendId);
+        result = executionService_.execute(
+            resolvedRequest, backendExecutorAdapterRegistry_, lookup.policy);
+    }
+    else
+    {
+        result = executionService_.execute(
+            resolvedRequest, backendExecutorAdapterRegistry_);
+    }
+
+    const bool readbackVerified = refreshAfterSuccessfulExecution(
+        result, resolvedRequest);
+    return enrichExecutionResult(
+        std::move(result), resolvedRequest, readbackVerified);
+}
+
 ApiResponse RecordingActionExecutionController::execute(
     const RecordingActionRequest& request)
 {
     ApiResponse response;
-
-    const RecordingActionRequest resolvedRequest =
-        resolveBackendNativeId(request);
-
     response.statusCode = 200;
     response.contentType = "application/json";
-    if (backendRegistry_ != nullptr)
-    {
-        const RecordingActionBackendPolicyLookupResult lookup =
-            backendPolicyProvider_.policyForBackend(
-                *backendRegistry_,
-                request.backendId);
-
-        RecordingActionExecutionResult result =
-            executionService_.execute(
-                resolvedRequest,
-                backendExecutorAdapterRegistry_,
-                lookup.policy);
-
-        const bool snapshotRefreshed =
-            refreshAfterSuccessfulExecution(
-                result,
-                resolvedRequest);
-        result =
-            enrichExecutionResult(
-                result,
-                resolvedRequest,
-                snapshotRefreshed);
-
-        response.body =
-            jsonSerializer_.serialize(result);
-
-        return response;
-    }
-
-    RecordingActionExecutionResult result =
-        executionService_.execute(
-            resolvedRequest,
-            backendExecutorAdapterRegistry_);
-
-    const bool snapshotRefreshed =
-        refreshAfterSuccessfulExecution(
-            result,
-            resolvedRequest);
-    result =
-        enrichExecutionResult(
-            result,
-            resolvedRequest,
-            snapshotRefreshed);
-
-    response.body =
-        jsonSerializer_.serialize(result);
-
+    response.body = jsonSerializer_.serialize(executeResult(request));
     return response;
 }
 

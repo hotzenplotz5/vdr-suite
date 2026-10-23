@@ -236,6 +236,8 @@ bool getBoolField(
 
 SearchTimerState mapState(const std::string& objectText)
 {
+    if (objectText.find("\"use_as_searchtimer\"") == std::string::npos)
+        return SearchTimerState::Unknown;
     const int useAsSearchTimer = getIntField(objectText, "use_as_searchtimer", 1);
     return useAsSearchTimer == 0
         ? SearchTimerState::Inactive
@@ -243,6 +245,45 @@ SearchTimerState mapState(const std::string& objectText)
 }
 
 } // namespace
+
+bool RestfulApiSearchTimerMapper::completeCatalogue(
+    const std::string& json, std::size_t parsedCount)
+{
+    const int count = getIntField(json, "count", -1);
+    const int total = getIntField(json, "total", -1);
+    if (count < 0 || count != total ||
+        static_cast<std::size_t>(count) != parsedCount)
+        return false;
+
+    // Do not silently discard array values other than objects, unclosed
+    // objects, missing separators or a trailing comma. The mapper is
+    // intentionally permissive for general reads; lifecycle retirement
+    // requires a much stricter, complete source inventory.
+    const std::string array = getArrayField(json, "searchtimers");
+    if (array.size() < 2U || array.front() != '[' ||
+        array.back() != ']') return false;
+    std::size_t pos = 1U, objects = 0U;
+    bool afterComma = false;
+    for (;;)
+    {
+        pos = skipWhitespace(array, pos);
+        if (pos >= array.size()) return false;
+        if (array[pos] == ']')
+            return !afterComma && pos + 1U == array.size() &&
+                objects == parsedCount;
+        if (array[pos] != '{') return false;
+        const std::size_t close = findMatching(array, pos, '{', '}');
+        if (close == std::string::npos) return false;
+        ++objects;
+        pos = skipWhitespace(array, close + 1U);
+        if (pos >= array.size()) return false;
+        if (array[pos] == ']')
+            return pos + 1U == array.size() && objects == parsedCount;
+        if (array[pos] != ',') return false;
+        ++pos;
+        afterComma = true;
+    }
+}
 
 std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
     const std::string& backendId,

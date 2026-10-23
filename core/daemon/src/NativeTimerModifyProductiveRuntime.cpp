@@ -1,0 +1,488 @@
+#include "NativeTimerModifyProductiveRuntime.h"
+
+#include "NativeTimerModifyResultOutcomeApplication.h"
+#include "NativeTimerModifyOperationPayload.h"
+#include "NativeTimerModifyDispatchService.h"
+#include "NativeTimerModifyReadbackVerificationService.h"
+#include "NativeTimerModifyOperationCompletionService.h"
+#include "NativeTimerBindingRepository.h"
+#include "NativeTimerSpecification.h"
+#include "TimerIntentRepository.h"
+#include "TimerAssignmentRepository.h"
+#include "MutationOperationRepository.h"
+#include "BackendAgentCommandDelivery.h"
+#include "BackendAgentLifecycle.h"
+#include "BackendAgentNativeTimerModify.h"
+#include "BackendAgentNativeTimerModifyPayload.h"
+#include "BackendAgentNativeTimerModifyAssignment.h"
+#include "BackendAgentNativeTimerCreate.h"
+#include "SecurityIdentity.h"
+
+#include <algorithm>
+#include <cstdint>
+#include <limits>
+#include <iostream>
+#include <string>
+
+namespace vdrsuite::daemon {
+namespace {
+using namespace vdrsuite::timers;
+using namespace vdrsuite::agent;
+using namespace vdrsuite::operations;
+
+RequestSecurityContext systemContext()
+{
+    RequestSecurityContext context;
+    context.requestId = "req:native-timer-modify-runtime";
+    context.correlationId = context.requestId;
+    context.authenticationState = AuthenticationState::Authenticated;
+    context.actor = ActorIdentity{
+        "system:native-timer-modify-runtime", ActorType::System,
+        "Native Timer MODIFY runtime", true};
+    context.permissionGrantResolution =
+        PermissionGrantResolutionState::Resolved;
+    return context;
+}
+
+BackendAgentNativeTimerCreateSpecification agentSpecification(
+    const NativeTimerSpecification& s)
+{
+    BackendAgentNativeTimerCreateSpecification v;
+    v.channelId = s.channelId;
+    v.title = s.title;
+    v.directory = s.directory;
+    v.day = s.day;
+    v.weekdays = s.weekdays;
+    v.startTime = s.startTime;
+    v.endTime = s.endTime;
+    v.priority = s.priority;
+    v.lifetime = s.lifetime;
+    v.enabled = s.enabled;
+    v.vps = s.vps;
+    return v;
+}
+
+bool assignAndClaim(
+    const MutationOperation& op,
+    MutationOperationRepository& operations,
+    BackendAgentCommandRepository& commands,
+    BackendAgentRepository& agents,
+    TimerIntentRepository& intents,
+    TimerAssignmentRepository& assignments,
+    NativeTimerBindingRepository& bindings,
+    BackendAgentNativeTimerModifyAssignmentService& assigner,
+    NativeTimerModifyDispatchService& dispatcher,
+    std::int64_t now)
+{
+    if (op.state != MutationOperationState::accepted ||
+        (op.actionFamily != "timer.update" &&
+         op.actionFamily != "timer.toggle") ||
+        op.resourceType != "NativeTimerBinding" ||
+        op.verificationPolicy != MutationOperationVerificationPolicy::readbackRequired ||
+        (op.deadline != 0 && op.deadline <= now) ||
+        now <= 0 || now > std::numeric_limits<std::int64_t>::max() - 300)
+        return false;
+
+    const auto stored = operations.findPayloadByOperationId(op.operationId);
+    if (!stored.ok() || stored.payload.payloadType != "native.timer.modify" ||
+        stored.payload.payloadVersion != 1)
+        return false;
+    NativeTimerModifyOperationPayload payload;
+    if (!parseNativeTimerModifyOperationPayload(stored.payload.payload, payload) ||
+        nativeTimerModifyOperationPayloadFingerprint(payload) !=
+            stored.payload.payloadFingerprint)
+        return false;
+    if (op.actionFamily !=
+        (payload.kind == NativeTimerModifyKind::update
+            ? "timer.update" : "timer.toggle"))
+        return false;
+
+    const auto owned = bindings.findById(payload.nativeTimerBindingId);
+    const auto assigned = assignments.findById(payload.timerAssignmentId);
+    if (!owned.ok() || !assigned.ok())
+        return false;
+    const auto intent = intents.findById(assigned.assignment.timerIntentId);
+    if (!intent.ok()) return false;
+    const auto& b = owned.binding;
+    const auto& a = assigned.assignment;
+    if (b.nativeTimerBindingId != op.resourceId ||
+        b.timerAssignmentId != a.timerAssignmentId ||
+        b.backendId != op.backendId ||
+        b.backendGeneration != op.backendGeneration ||
+        b.backendNativeTimerId != payload.backendNativeTimerId ||
+        b.bindingRevision != payload.expectedBindingRevision ||
+        b.observedFingerprint != payload.expectedCurrentFingerprint ||
+        b.missingSince != 0 ||
+        b.driftState != NativeTimerBindingDriftState::none ||
+        b.observedState.recording || b.observedState.pending ||
+        (b.ownership != NativeTimerBindingOwnership::managed &&
+         b.ownership != NativeTimerBindingOwnership::adopted) ||
+        a.state != TimerAssignmentState::bound ||
+        a.nativeTimerBindingId != b.nativeTimerBindingId ||
+        a.backendId != op.backendId ||
+        a.backendGeneration != op.backendGeneration ||
+        a.assignmentRevision != payload.expectedAssignmentRevision ||
+        a.assignmentEpoch != payload.assignmentEpoch ||
+        a.intentRevision != payload.expectedIntentRevision ||
+        intent.intent.intentRevision != payload.expectedIntentRevision ||
+        (intent.intent.state != TimerIntentState::active &&
+         !(payload.kind == NativeTimerModifyKind::toggle &&
+           intent.intent.state == TimerIntentState::paused)) ||
+        op.expectedRevision != b.bindingRevision ||
+        op.expectedResourceFingerprint != b.observedFingerprint)
+        return false;
+
+    const auto agent = agents.findAgentForBackend(op.backendId);
+    if (!agent || agent->revoked || agent->incompatible ||
+        agent->leaseExpiresAt < now ||
+        agent->backendGeneration != op.backendGeneration)
+        return false;
+    // Admission already required a fresh, fingerprint-bound observation.
+    // Accepted work freezes binding revisions while awaiting owner/Agent
+    // assignment; comparing against *current* time deadlocks deferred work.
+    // Keep the exact admission-time freshness fence instead. The backend
+    // execution still requires provider fencing and live native CAS, and the
+    // durable operation deadline prevents unbounded delayed dispatch.
+    if (op.requestedAt > now || b.lastObservedAt <= 0 ||
+        b.lastObservedAt < op.requestedAt - 300)
+        return false;
+
+    const char* type = payload.kind == NativeTimerModifyKind::toggle
+        ? kBackendAgentNativeTimerToggleCommandType
+        : kBackendAgentNativeTimerUpdateCommandType;
+    const auto previous = commands.findAssignmentForOperation(
+        op.backendId, op.operationId, type);
+    std::int64_t assignedAt = now;
+    if (previous)
+    {
+        BackendAgentNativeTimerModifyPayload p;
+        std::string reason;
+        if (!backendAgentNativeTimerModifyParsePayload(
+                previous->payload, p, reason) ||
+            p.operationRevision != op.operationRevision ||
+            p.timerAssignmentId != payload.timerAssignmentId ||
+            p.expectedBindingRevision != payload.expectedBindingRevision ||
+            p.backendNativeTimerId != payload.backendNativeTimerId ||
+            p.expectedIntentRevision != payload.expectedIntentRevision ||
+            p.expectedAssignmentRevision != payload.expectedAssignmentRevision ||
+            previous->backendGeneration != op.backendGeneration ||
+            p.controlPlaneClaimedAt != previous->assignedAt)
+            return false;
+        assignedAt = previous->assignedAt;
+    }
+
+    const auto specification = agentSpecification(payload.expectedSpecification);
+    BackendAgentNativeTimerModifyAssignmentRequest request;
+    request.kind = payload.kind == NativeTimerModifyKind::toggle
+        ? BackendAgentNativeTimerModifyKind::toggle
+        : BackendAgentNativeTimerModifyKind::update;
+    request.operationId = op.operationId;
+    request.operationRevision = op.operationRevision;
+    request.timerAssignmentId = payload.timerAssignmentId;
+    request.expectedAssignmentRevision = payload.expectedAssignmentRevision;
+    request.expectedIntentRevision = payload.expectedIntentRevision;
+    request.assignmentEpoch = payload.assignmentEpoch;
+    request.nativeTimerBindingId = payload.nativeTimerBindingId;
+    request.expectedBindingRevision = payload.expectedBindingRevision;
+    request.backendId = payload.backendId;
+    request.backendGeneration = payload.backendGeneration;
+    request.backendNativeTimerId = payload.backendNativeTimerId;
+    request.expectedCurrentFingerprint = payload.expectedCurrentFingerprint;
+    request.expectedSpecificationFingerprint =
+        backendAgentNativeTimerCreateSpecificationFingerprint(specification);
+    request.specification = specification;
+    request.controlPlaneClaimedAt = assignedAt;
+
+    // Persist exactly one Agent assignment before entering dispatching.
+    const auto deliver = assigner.assign(
+        systemContext(), request, now, now + 300);
+    if (!deliver.accepted || deliver.assignment.assignedAt != assignedAt)
+        return false;
+    NativeTimerModifyDispatchClaimRequest claim;
+    claim.operationId = op.operationId;
+    claim.expectedOperationRevision = op.operationRevision;
+    return dispatcher.claim(claim, assignedAt).ok();
+}
+
+void advanceFamily(
+    const std::string& family,
+    NativeTimerModifyProductiveSummary& summary,
+    MutationOperationRepository& operations,
+    BackendAgentCommandRepository& commands,
+    BackendAgentRepository& agents,
+    TimerIntentRepository& intents,
+    TimerAssignmentRepository& assignments,
+    NativeTimerBindingRepository& bindings,
+    BackendAgentNativeTimerModifyAssignmentService& assigner,
+    NativeTimerModifyDispatchService& dispatcher,
+    NativeTimerModifyReadbackVerificationService& verifier,
+    NativeTimerModifyOperationCompletionService& completion,
+    const NativeModifyReadbackAcquirer& readback,
+    std::int64_t now)
+{
+    const auto candidates = operations.listByActionFamilyAndStates(
+        family,
+        {MutationOperationState::accepted,
+         MutationOperationState::dispatching,
+         MutationOperationState::executedUnverified,
+         MutationOperationState::outcomeUnknown}, 256);
+    if (!candidates.ok()) return;
+    summary.discovered += candidates.operations.size();
+
+    for (const auto& op : candidates.operations)
+    {
+        // One bounded diagnostic per minute for an already uncertain
+        // operation. This neither changes the operation nor dispatches a
+        // second native command. It pinpoints a failing reconciliation gate.
+        static std::int64_t nextUncertainTraceAt = 0;
+        const bool traceUncertain =
+            op.state == MutationOperationState::outcomeUnknown &&
+            now >= nextUncertainTraceAt;
+        if (traceUncertain)
+        {
+            nextUncertainTraceAt = now + 60;
+            std::cerr << "NATIVE_MODIFY_RECONCILE operation=" << op.operationId
+                      << " stage=selected"
+                      << " revision=" << op.operationRevision
+                      << " backend_generation=" << op.backendGeneration
+                      << std::endl;
+        }
+        if (op.state == MutationOperationState::accepted)
+        {
+            // An expired, never-assigned operation cannot have reached the
+            // native executor. Terminate it without retrying or touching VDR.
+            // If an Agent assignment exists, never claim no side effect:
+            // preserve the operation for explicit reconciliation instead.
+            if (op.deadline != 0 && op.deadline <= now)
+            {
+                const char* commandType = family == "timer.toggle"
+                    ? kBackendAgentNativeTimerToggleCommandType
+                    : kBackendAgentNativeTimerUpdateCommandType;
+                if (commands.findAssignmentForOperation(
+                        op.backendId, op.operationId, commandType))
+                {
+                    ++summary.deferred;
+                    continue;
+                }
+                const auto expired = operations.transition(
+                    op.operationId, op.operationRevision,
+                    MutationOperationState::accepted,
+                    MutationOperationState::failedBeforeDispatch,
+                    "native-timer-modify:expired-before-assignment", now);
+                if (expired.ok()) ++summary.expired;
+                else ++summary.deferred;
+                continue;
+            }
+            if (!assignAndClaim(op, operations, commands, agents, intents,
+                assignments, bindings, assigner, dispatcher, now))
+            {
+                ++summary.deferred;
+                continue;
+            }
+            ++summary.claimed;
+        }
+        const char* type = family == "timer.toggle"
+            ? kBackendAgentNativeTimerToggleCommandType
+            : kBackendAgentNativeTimerUpdateCommandType;
+        const auto assignment = commands.findAssignmentForOperation(
+            op.backendId, op.operationId, type);
+        if (!assignment)
+        {
+            if (traceUncertain)
+                std::cerr << "NATIVE_MODIFY_RECONCILE stage=assignment_missing" << std::endl;
+            ++summary.deferred;
+            continue;
+        }
+        const auto durableResult = commands.resultForCommand(assignment->commandId);
+        if (!durableResult)
+        {
+            if (traceUncertain)
+                std::cerr << "NATIVE_MODIFY_RECONCILE stage=result_unavailable" << std::endl;
+            ++summary.deferred;
+            continue;
+        }
+
+        // A legacy MODIFY result with no command-bound evidence cannot prove
+        // either an execution or a pre-dispatch rejection. Never redispatch,
+        // complete or label it failed_verified. Quarantine only a still-
+        // dispatching operation under its exact revision for reconciliation.
+        if (op.state == MutationOperationState::dispatching &&
+            durableResult->resultEvidence.empty())
+        {
+            const auto quarantined = operations.transition(
+                op.operationId, op.operationRevision,
+                MutationOperationState::dispatching,
+                MutationOperationState::outcomeUnknown,
+                "native-timer-modify:missing-result-evidence", now);
+            if (quarantined.ok()) ++summary.quarantined;
+            else ++summary.deferred; // A conflict preserves existing state.
+            continue;
+        }
+        const auto applied = applyDurableNativeTimerModifyResult(
+            commands, operations, bindings, dispatcher,
+            assignment->commandId);
+        if (!applied.ok())
+        {
+            if (traceUncertain)
+                std::cerr << "NATIVE_MODIFY_RECONCILE stage=outcome_application"
+                          << " status=" << static_cast<int>(applied.status)
+                          << std::endl;
+            ++summary.deferred;
+            continue;
+        }
+        if (applied.status == NativeTimerModifyResultStatus::applied)
+            ++summary.applied;
+        if (!applied.outcome.expectationPresent)
+        {
+            if (traceUncertain)
+                std::cerr << "NATIVE_MODIFY_RECONCILE stage=expectation_missing" << std::endl;
+            continue;
+        }
+
+        const auto observation = readback(applied.outcome.expectation);
+        if (!observation)
+        {
+            if (traceUncertain)
+                std::cerr << "NATIVE_MODIFY_RECONCILE stage=readback_unavailable" << std::endl;
+            ++summary.deferred;
+            continue;
+        }
+        // An EPG event ID may be associated AFTER the native CREATE readback.
+        // Earlier RESTfulAPI null event_id was also misparsed as "weekdays".
+        // Neither changes a timer's actual configuration. For an outcome-
+        // unknown operation, compare ALL durable original timer fields except
+        // that transient EPG ID, and only if the original binding revision,
+        // generation, native identity and fingerprint still match the immutable
+        // request. Do not update the binding or repeat the native command.
+        const auto& expectedPayload = applied.outcome.expectation.payload;
+        const auto storedBinding = bindings.findById(
+            expectedPayload.nativeTimerBindingId);
+        const bool sameOriginalTimerWithoutEpgId =
+            storedBinding.ok() &&
+            storedBinding.binding.backendId == expectedPayload.backendId &&
+            storedBinding.binding.backendGeneration ==
+                expectedPayload.backendGeneration &&
+            storedBinding.binding.backendNativeTimerId ==
+                expectedPayload.backendNativeTimerId &&
+            storedBinding.binding.bindingRevision ==
+                expectedPayload.expectedBindingRevision &&
+            storedBinding.binding.observedFingerprint ==
+                expectedPayload.expectedCurrentFingerprint &&
+            storedBinding.binding.lastVerifiedOperationId != op.operationId &&
+            nativeTimerObservedStateSameExceptEventId(
+                storedBinding.binding.observedState,
+                observation->observedState);
+
+        if (traceUncertain)
+        {
+            const auto& expected = applied.outcome.expectation.payload;
+            std::cerr << "NATIVE_MODIFY_RECONCILE stage=readback_observed"
+                      << " state=" << static_cast<int>(applied.outcome.operation.state)
+                      << " generation=" << observation->backendGeneration
+                      << " fingerprint_original="
+                      << (observation->observedFingerprint ==
+                          expected.expectedCurrentFingerprint ? 1 : 0)
+                      << " original_except_event_id="
+                      << (sameOriginalTimerWithoutEpgId ? 1 : 0)
+                      << " observed_event_id="
+                      << observation->observedState.eventId
+                      << " stored_event_id="
+                      << (storedBinding.ok()
+                          ? storedBinding.binding.observedState.eventId
+                          : "<missing>")
+                      << " postcondition="
+                      << (nativeTimerObservationMatchesSpecification(
+                          expected.expectedSpecification,
+                          observation->observedState) ? 1 : 0)
+                      << " recording=" << (observation->observedState.recording ? 1 : 0)
+                      << " pending=" << (observation->observedState.pending ? 1 : 0)
+                      << std::endl;
+        }
+
+        // An uncertain native MODIFY can no longer execute once the Agent
+        // has durably submitted its result. If a fresh, complete native
+        // readback proves the original timer fingerprint is still present
+        // (and the requested postcondition is absent), close that attempt
+        // as failed_verified. Do not replay the mutation. This also releases
+        // the passive binding/assignment generation refresh after an Agent
+        // restart, which would otherwise stay blocked indefinitely.
+        //
+        // Use the durable outcome state, not the candidate snapshot: the
+        // result application may have changed dispatching -> outcome_unknown
+        // *during this very poll*, leaving op.state stale. Also examine the
+        // full bounded operation backlog so old uncertain work cannot keep
+        // newer accepted/reconcilable operations permanently outside page 1.
+        const auto& persisted = applied.outcome.operation;
+        const auto& expectation = applied.outcome.expectation;
+        const auto& payload = expectation.payload;
+        if (persisted.state == MutationOperationState::outcomeUnknown &&
+            observation->backendId == payload.backendId &&
+            observation->backendGeneration >= payload.backendGeneration &&
+            observation->backendNativeTimerId == payload.backendNativeTimerId &&
+            observation->observedAt >= expectation.readbackNotBefore &&
+            (observation->observedFingerprint == payload.expectedCurrentFingerprint ||
+             sameOriginalTimerWithoutEpgId) &&
+            !observation->observedState.recording &&
+            !observation->observedState.pending &&
+            !nativeTimerObservationMatchesSpecification(
+                payload.expectedSpecification, observation->observedState))
+        {
+            const auto unchanged = operations.transition(
+                persisted.operationId, persisted.operationRevision,
+                MutationOperationState::outcomeUnknown,
+                MutationOperationState::failedVerified,
+                "native-timer-modify:unchanged-after-uncertain-execution", now);
+            if (traceUncertain)
+                std::cerr << "NATIVE_MODIFY_RECONCILE stage=no_effect_resolution"
+                          << " status=" << static_cast<int>(unchanged.status)
+                          << std::endl;
+            if (unchanged.ok()) ++summary.completed;
+            else ++summary.deferred;
+            continue;
+        }
+
+        const auto verified =
+            verifier.verify(applied.outcome.expectation, *observation);
+        if (!verified.ok())
+        {
+            ++summary.deferred;
+            continue;
+        }
+        const auto completed =
+            completion.complete(applied.outcome.expectation, now);
+        if (completed.ok())
+        {
+            if (completed.status ==
+                NativeTimerModifyOperationCompletionStatus::completed)
+                ++summary.completed;
+        }
+        else ++summary.deferred;
+    }
+}
+}
+
+NativeTimerModifyProductiveSummary advanceNativeTimerModifyRuntimeOnce(
+    MutationOperationRepository& operations,
+    BackendAgentCommandRepository& commands,
+    BackendAgentRepository& agents,
+    TimerIntentRepository& intents,
+    TimerAssignmentRepository& assignments,
+    NativeTimerBindingRepository& bindings,
+    BackendAgentNativeTimerModifyAssignmentService& assigner,
+    NativeTimerModifyDispatchService& dispatcher,
+    NativeTimerModifyReadbackVerificationService& verifier,
+    NativeTimerModifyOperationCompletionService& completion,
+    const NativeModifyReadbackAcquirer& readback,
+    std::int64_t now)
+{
+    NativeTimerModifyProductiveSummary summary;
+    if (now <= 0 || !readback) return summary;
+    advanceFamily("timer.update", summary, operations, commands, agents,
+        intents, assignments, bindings, assigner, dispatcher, verifier,
+        completion, readback, now);
+    advanceFamily("timer.toggle", summary, operations, commands, agents,
+        intents, assignments, bindings, assigner, dispatcher, verifier,
+        completion, readback, now);
+    return summary;
+}
+}

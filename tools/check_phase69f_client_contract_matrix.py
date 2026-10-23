@@ -83,6 +83,7 @@ expected_resource_pairs = {
     ("GET", "/api/v1/accounts"),
     ("GET", "/api/v1/operations/{operationId}"),
     ("GET", "/api/v1/timer-assignments?backend={backendId}"),
+    ("GET", "/api/v1/search-timers?backend={backendId}"),
     ("GET", "/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"),
     ("POST", "/api/v1/timer-assignments/{timerAssignmentId}?backend={backendId}"),
     ("GET", "/api/v1/channels?backendId={backendId}"),
@@ -95,6 +96,7 @@ for token in (
     'constexpr const char* PublicApiV1Root = "/api/v1";',
     'constexpr const char* PublicOperationPrefix = "/api/v1/operations/";',
     '"/api/v1/timer-assignments"',
+    '"/api/v1/search-timers"',
     '"/api/v1/backends"',
     '"/api/v1/accounts"',
     '"/api/v1/channels"',
@@ -105,7 +107,6 @@ for token in (
 
 for absent in (
     "/api/v1/program-events",
-    "/api/v1/search-timers",
 ):
     require(absent not in public_runtime, f"new public resource requires an intentional matrix successor slice: {absent}")
 
@@ -114,7 +115,15 @@ require('if (path == "/api/backends")' in api_router, "pre-v1 backend discovery 
 require('if (path == "/api/backends/default")' in api_router, "pre-v1 default-backend route disappeared")
 
 references = matrix.get("publicClientReferences", [])
-require(len(references) == 8, "expected eight public client reference slices including R2 candidate")
+require(len(references) == 9, "expected nine public client reference slices including Recording and SearchTimer candidates")
+searchtimer_reference = next((r for r in references if r.get("id") == "reference-js-search-timer-collection"), None)
+require(searchtimer_reference is not None, "Public SearchTimer reference missing")
+require(searchtimer_reference.get("status") == "candidate", "SearchTimer reference must stay a candidate before acceptance")
+require(searchtimer_reference.get("resources") == [
+    "GET /api/v1/search-timers?backend={backendId}"
+], "SearchTimer reference method/scope drift")
+require("getSearchTimers(options)" in read("clients/reference-js/public-v1-client.js"), "SearchTimer reference method missing")
+
 recording_reference = next((r for r in references if r.get("id") == "reference-js-recording-collection"), None)
 require(recording_reference is not None, "R2 Recording collection reference not inventoried")
 require(recording_reference.get("status") == "candidate", "Recording collection must remain candidate before acceptance")
@@ -351,5 +360,5 @@ require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must inc
 
 print("Phase 69.F client-contract matrix guard passed.")
 print("Classified browser Client API operations: 62 exactly once.")
-print("Public-v1 method/resource contracts: 9 accepted, 1 Recording R2 candidate.")
-print("Nine accepted reference-client contracts retained; Recording R2 candidate is explicitly inventoried and pending validation.")
+print("Public-v1 method/resource contracts: 9 accepted, 2 scoped read-only candidates (Recording R2 and SearchTimer).")
+print("Nine accepted reference-client contracts retained; Recording R2 and SearchTimer post-69 candidates explicitly inventoried.")

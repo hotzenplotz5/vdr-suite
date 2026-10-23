@@ -5,6 +5,13 @@ DAEMON_SRC += \
 	core/media/src/ContinueWatching.cpp \
 	core/media/src/ContinueWatchingRepository.cpp
 
+.PHONY: test-public-v1-recording-progress-client
+
+test-public-v1-recording-progress-client:
+	node clients/reference-js/tests/test_public_v1_recording_progress_client.js
+	node clients/reference-js/tests/test_public_v1_recording_resume_session_client.js
+	node clients/reference-js/tests/test_public_v1_playback_account_binding_client.js
+
 .PHONY: test-continue-watching test-continue-watching-security-request test-phase66-continue-watching-frontend install-phase66-continue-watching-assets test-phase66-continue-watching-install-staging
 
 test-continue-watching:
@@ -26,6 +33,7 @@ test-continue-watching-security-request:
 
 test-phase66-continue-watching-frontend:
 	node web/frontend/tests/test_phase66_continue_watching.js
+	node web/frontend/tests/test_p1_browser_resume_cas.js
 	node web/frontend/tests/test_phase66_continue_watching_artwork.js
 	node web/frontend/tests/test_phase66_continue_watching_resume_ready.js
 	node web/frontend/tests/test_phase66_continue_watching_home_runtime.js
@@ -38,7 +46,7 @@ test-phase66-continue-watching-frontend:
 
 # Slice 66.4 is part of the ordinary regression and hosted-CI surfaces.
 test: test-continue-watching test-continue-watching-security-request test-phase66-continue-watching-frontend
-test-ci-fast: test-continue-watching test-continue-watching-security-request test-test-http-server
+test-ci-fast: test-continue-watching test-continue-watching-security-request test-test-http-server test-public-v1-recording-progress-client
 test-vdr: test-continue-watching test-continue-watching-security-request
 test-frontend-contracts: test-phase66-continue-watching-frontend
 test-ci-frontend: test-phase66-continue-watching-frontend

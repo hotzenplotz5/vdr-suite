@@ -89,6 +89,46 @@ int main()
         assert(decision.authorizedBackendIds.empty());
     }
 
+    // Live TV on one backend includes its channel listing without a
+    // separately stored channels.view grant.
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "media.live.play", "backend-a"));
+        const auto allowed = fixture.gate.evaluate(browserGet(
+            fixture, std::string(Route) + "?backendId=backend-a"));
+        assert(allowed.allowed);
+        assert(allowed.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+    }
+    // A Live grant must never reveal a second, unauthorized backend.
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "media.live.play", "backend-a"));
+        const auto denied = fixture.gate.evaluate(browserGet(
+            fixture, std::string(Route) +
+                "?backendId=backend-a&backendId=backend-b"));
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+        assert(denied.authorizedBackendIds.empty());
+    }
+    // Different grants may authorize different backends in one request;
+    // neither implies playback permission on the other backend.
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "media.live.play", "backend-a"));
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, Permission, "backend-b"));
+        const auto allowed = fixture.gate.evaluate(browserGet(
+            fixture, std::string(Route) +
+                "?backendId=backend-b&backendId=backend-a"));
+        assert(allowed.allowed);
+        assert(allowed.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a", "backend-b"}));
+    }
+
     {
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
@@ -126,6 +166,32 @@ int main()
                 "invalid_backend_scope",
                 "*"));
         }
+    }
+
+    // A neighbor query is the SAME protected Public-v1 Channel resource,
+    // not a bypass for unknown or other backend scope.
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, Permission, "backend-a"));
+        const std::string neighbor =
+            "?limit=1&relativeTo=S19.2E-1-1019-10301&direction=up";
+        const SecurityGateDecision allowed = fixture.gate.evaluate(
+            browserGet(fixture,
+                std::string(Route) + "?backendId=backend-a&" +
+                neighbor.substr(1U)));
+        assert(allowed.allowed);
+        assert(!allowed.protectedMutation);
+        assert(allowed.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+
+        const SecurityGateDecision denied = fixture.gate.evaluate(
+            browserGet(fixture,
+                std::string(Route) + "?backendId=backend-b&" +
+                neighbor.substr(1U)));
+        assert(!denied.allowed);
+        assert(denied.rejection.statusCode == 403);
+        assert(denied.authorizedBackendIds.empty());
     }
 
     {

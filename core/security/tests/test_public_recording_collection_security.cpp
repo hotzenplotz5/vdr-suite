@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -118,6 +119,101 @@ int main()
         assert(decision.rejection.statusCode == 401);
     }
 
+    // M1 detail is authenticated and requires the same per-backend
+    // recordings.view grant as the flat Recording collection.
+    const std::string detail =
+        "/api/v1/recordings/rec_0123456789abcdef0123456789abcdef"
+        "?backendId=backend-a";
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, Permission, "backend-a"));
+        const auto decision = fixture.gate.evaluate(
+            browserGet(fixture, detail));
+        assert(decision.allowed);
+        assert(decision.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, Permission, "backend-b"));
+        const auto blocked = fixture.gate.evaluate(
+            browserGet(fixture, detail));
+        assert(!blocked.allowed);
+        assert(blocked.rejection.statusCode == 403);
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        const auto noGrant = fixture.gate.evaluate(
+            browserGet(fixture, detail));
+        assert(!noGrant.allowed);
+        assert(noGrant.rejection.statusCode == 403);
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        HttpServerRequest anonymous;
+        anonymous.method = "GET";
+        anonymous.path = detail;
+        const auto blocked = fixture.gate.evaluate(anonymous);
+        assert(!blocked.allowed);
+        assert(blocked.rejection.statusCode == 401);
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, Permission, "backend-a"));
+        const auto blocked = fixture.gate.evaluate(
+            browserGet(fixture,
+                "/api/v1/recordings/rec_0123456789abcdef0123456789abcdef"
+                "?backendId=backend-a&backendId=backend-b"));
+        assert(!blocked.allowed);
+        assert(blocked.rejection.statusCode == 400);
+    }
+
+    // M2 Artwork list and binary bytes inherit the exact recordings.view
+    // grant; a different backend grant must never authorize either.
+    const std::string artwork =
+        "/api/v1/recordings/rec_0123456789abcdef0123456789abcdef/artwork";
+    for (const auto& target : {
+        artwork + "?backendId=backend-a",
+        artwork + "/0123456789abcdef0123456789abcdef?backendId=backend-a"})
+    {
+        SecurityHttpGateBrowserTestFixture allowed;
+        assert(allowed.grantRepository.ensureGrant(
+            allowed.actorId, Permission, "backend-a"));
+        const auto decision = allowed.gate.evaluate(browserGet(allowed, target));
+        assert(decision.allowed);
+        assert(decision.authorizedBackendIds ==
+            (std::vector<std::string>{"backend-a"}));
+
+        SecurityHttpGateBrowserTestFixture denied;
+        assert(denied.grantRepository.ensureGrant(
+            denied.actorId, Permission, "backend-b"));
+        const auto blocked = denied.gate.evaluate(browserGet(denied, target));
+        assert(!blocked.allowed);
+        assert(blocked.rejection.statusCode == 403);
+        assert(hasDecision(denied.accountabilityRepository,
+            "backend_scope_denied", "backend-a"));
+
+        SecurityHttpGateBrowserTestFixture unauthenticated;
+        HttpServerRequest request;
+        request.method = "GET";
+        request.path = target;
+        const auto noSession = unauthenticated.gate.evaluate(request);
+        assert(!noSession.allowed);
+        assert(noSession.rejection.statusCode == 401);
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, Permission, "backend-a"));
+        const auto duplicated = fixture.gate.evaluate(browserGet(
+            fixture, artwork + "?backendId=backend-a&backendId=backend-b"));
+        assert(!duplicated.allowed);
+        assert(duplicated.rejection.statusCode == 400);
+    }
+
     // Public-v1 Genre collections use the same recordings.view authorization.
     for (const std::string& target : {
         "/api/v1/genres?backendId=backend-a&limit=30",
@@ -141,6 +237,26 @@ int main()
             browserGet(fixture, "/api/v1/genres?backendId=backend-b"));
         assert(!decision.allowed);
         assert(decision.rejection.statusCode == 403);
+    }
+    for (const auto& scenario : {
+        std::pair<std::string, std::string>{
+            "/api/v1/search/recordings?backendId=backend-a&query=Hobbit",
+            "recordings.view"},
+        {"/api/v1/search/epg?backendId=backend-a&query=Hobbit",
+            "epg.view"}})
+    {
+        SecurityHttpGateBrowserTestFixture granted;
+        assert(granted.grantRepository.ensureGrant(
+            granted.actorId, scenario.second, "backend-a"));
+        assert(granted.gate.evaluate(browserGet(granted, scenario.first)).allowed);
+
+        SecurityHttpGateBrowserTestFixture denied;
+        assert(denied.grantRepository.ensureGrant(
+            denied.actorId, scenario.second, "backend-b"));
+        const auto blocked =
+            denied.gate.evaluate(browserGet(denied, scenario.first));
+        assert(!blocked.allowed);
+        assert(blocked.rejection.statusCode == 403);
     }
     return 0;
 }

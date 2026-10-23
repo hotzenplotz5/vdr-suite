@@ -17,6 +17,7 @@ service_h = read("core/security/include/DevicePairingRequestService.h")
 service_cpp = read("core/security/src/DevicePairingRequestService.cpp")
 public_h = read("api/rest/include/PublicApiRuntime.h")
 public_cpp = read("api/rest/src/PublicApiRuntime.cpp")
+discovery_cpp = read("api/rest/src/PublicDiscoveryRoutes.cpp")
 gate = read("core/security/include/SecurityHttpGate.h")
 server = read("core/http/src/TestHttpServer.cpp")
 client = read("clients/reference-js/public-v1-client.js")
@@ -71,7 +72,9 @@ for token in (
     "public-api.device-pairing-bootstrap",
     "pairing_expired",
 ):
-    require(token in public_h or token in public_cpp,
+    observed = (discovery_cpp if token == "public-api.device-pairing-bootstrap"
+                else public_h + public_cpp)
+    require(token in observed,
             "public Pairing contract drifted: " + token)
 
 require(

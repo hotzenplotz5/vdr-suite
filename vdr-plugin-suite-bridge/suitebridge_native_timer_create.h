@@ -93,6 +93,7 @@ private:
   };
 
   SuiteBridgeCommandResult capability(const char *option) const;
+  SuiteBridgeCommandResult clockEvidence(const char *option) const;
   SuiteBridgeCommandResult execute(const char *option);
   SuiteBridgeNativeTimerCreateMutationResult executeReserved(
       const SuiteBridgeNativeTimerCreateRequest &request,

@@ -8,6 +8,7 @@
 class RecordingActionValidationRequestParser;
 class RecordingActionValidationResultJsonSerializer;
 class RecordingActionValidationService;
+struct RecordingActionValidationResult;
 
 class RecordingActionValidationController
 {
@@ -23,6 +24,9 @@ public:
 
     ApiResponse validate(
         const RecordingActionRequest& request);
+
+    RecordingActionValidationResult validateResult(
+        const RecordingActionRequest& request) const;
 
     ApiResponse validateBody(
         const std::string& body);

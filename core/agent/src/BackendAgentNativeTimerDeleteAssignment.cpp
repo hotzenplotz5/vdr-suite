@@ -108,6 +108,8 @@ bool requestMatches(
 
 } // namespace
 
+// Schema repair must never revoke an Agent's just-advertised native DELETE
+// capability: command polling persists the live provider/instance fence.
 bool BackendAgentCommandRepository::ensureNativeTimerDeleteAssignmentSchema()
 {
     auto transactionLease = database_.acquireTransactionLease();
@@ -119,14 +121,8 @@ bool BackendAgentCommandRepository::ensureNativeTimerDeleteAssignmentSchema()
             "backend_agent_commands(backend_id,operation_id) "
             "WHERE command_type='vdr.timer.delete';") &&
         database_.execute(
-            "DELETE FROM backend_agent_command_capabilities "
-            "WHERE command_type='vdr.timer.delete';") &&
-        database_.execute(
-            "CREATE TRIGGER IF NOT EXISTS "
-            "trg_backend_agent_timer_delete_dormant_capability "
-            "BEFORE INSERT ON backend_agent_command_capabilities "
-            "WHEN NEW.command_type='vdr.timer.delete' "
-            "BEGIN SELECT RAISE(IGNORE); END;");
+            "DROP TRIGGER IF EXISTS "
+            "trg_backend_agent_timer_delete_dormant_capability;");
     if (!ok || !database_.execute("COMMIT;"))
     {
         database_.execute("ROLLBACK;");

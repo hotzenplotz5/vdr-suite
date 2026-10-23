@@ -25,6 +25,10 @@ cPluginSuiteBridge::cPluginSuiteBridge()
       nativeTimerCreate_(
           nativeProbe_.PluginInstanceEpoch(),
           &nativeTimerCreateVdrMutation_),
+      nativeTimerPreview_(nativeProbe_.PluginInstanceEpoch(),
+          [](const SuiteBridgeNativeTimerPreviewVdrRequest& request) {
+            return SuiteBridgeCaptureNativeTimerPreviewVdr(request);
+          }),
       nativeTimerDelete_(
           nativeProbe_.PluginInstanceEpoch(),
           &nativeTimerDeleteVdrMutation_),
@@ -240,6 +244,14 @@ bool cPluginSuiteBridge::Start(void)
                   payload.c_str());
             }
 
+            if (operation == Operation::SearchTimerCasCapability ||
+                operation == Operation::SearchTimerCasObserve ||
+                operation == Operation::SearchTimerCasExecute) {
+              // Only the private SO_PEERCRED-checked control plane carries
+              // native search identities and one-shot CAS requests.
+              return searchCasControl_.Handle(operation, payload);
+            }
+
             const auto fields = split(payload);
             if (operation == Operation::OsdInput) {
               if (fields.size() != 10) {
@@ -354,48 +366,18 @@ void cPluginSuiteBridge::Stop(void)
     const auto controlMetrics = controlPlane_.SnapshotMetrics();
     isyslog(
         "suitebridge: control-plane event=stop admitted=%llu executed=%llu rejected=%llu overloaded=%llu deadline-expired=%llu critical-high-water=%llu interactive-high-water=%llu external-plugin-high-water=%llu background-provider-high-water=%llu",
-        static_cast<unsigned long long>(
-            controlMetrics.admittedByOperation[0] +
-            controlMetrics.admittedByOperation[1] +
-            controlMetrics.admittedByOperation[2] +
-            controlMetrics.admittedByOperation[3] +
-            controlMetrics.admittedByOperation[4] +
-            controlMetrics.admittedByOperation[5] +
-            controlMetrics.admittedByOperation[6] +
-            controlMetrics.admittedByOperation[7] +
-            controlMetrics.admittedByOperation[8] +
-            controlMetrics.admittedByOperation[9] +
-            controlMetrics.admittedByOperation[10] +
-            controlMetrics.admittedByOperation[11] +
-            controlMetrics.admittedByOperation[12] +
-            controlMetrics.admittedByOperation[13] +
-            controlMetrics.admittedByOperation[14] +
-            controlMetrics.admittedByOperation[15] +
-            controlMetrics.admittedByOperation[16] +
-            controlMetrics.admittedByOperation[17] +
-            controlMetrics.admittedByOperation[18] +
-            controlMetrics.admittedByOperation[19]),
-        static_cast<unsigned long long>(
-            controlMetrics.executedByOperation[0] +
-            controlMetrics.executedByOperation[1] +
-            controlMetrics.executedByOperation[2] +
-            controlMetrics.executedByOperation[3] +
-            controlMetrics.executedByOperation[4] +
-            controlMetrics.executedByOperation[5] +
-            controlMetrics.executedByOperation[6] +
-            controlMetrics.executedByOperation[7] +
-            controlMetrics.executedByOperation[8] +
-            controlMetrics.executedByOperation[9] +
-            controlMetrics.executedByOperation[10] +
-            controlMetrics.executedByOperation[11] +
-            controlMetrics.executedByOperation[12] +
-            controlMetrics.executedByOperation[13] +
-            controlMetrics.executedByOperation[14] +
-            controlMetrics.executedByOperation[15] +
-            controlMetrics.executedByOperation[16] +
-            controlMetrics.executedByOperation[17] +
-            controlMetrics.executedByOperation[18] +
-            controlMetrics.executedByOperation[19]),
+        [&]() -> unsigned long long {
+            unsigned long long count = 0;
+            for (auto value : controlMetrics.admittedByOperation)
+              count += value;
+            return count;
+        }(),
+        [&]() -> unsigned long long {
+            unsigned long long count = 0;
+            for (auto value : controlMetrics.executedByOperation)
+              count += value;
+            return count;
+        }(),
         static_cast<unsigned long long>(controlMetrics.rejected),
         static_cast<unsigned long long>(controlMetrics.overloaded),
         static_cast<unsigned long long>(

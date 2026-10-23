@@ -55,10 +55,11 @@ bool nativeTimerDeleteGenericProjection(
     return false;
 }
 
-void createTimerDeleteResult(
+bool createTimerDeleteResult(
     LocalState& state,
     const NativeTimerDeleteGenericProjection& projection,
-    std::int64_t completedAt)
+    const vdrsuite::agent::BackendAgentNativeTimerDeleteEvidence& evidence,
+    std::string& reason)
 {
     state.dispatchState = projection.dispatchState;
     state.resultPresent = true;
@@ -80,7 +81,12 @@ void createTimerDeleteResult(
     result.errorCategory = projection.errorCategory;
     result.retryClassification = projection.retryClassification;
     result.boundedDiagnostics = projection.diagnostics;
-    result.completedAt = completedAt;
+    result.resultEvidence =
+        vdrsuite::agent::backendAgentNativeTimerDeleteResultEvidence(
+            evidence, assignment, reason);
+    result.completedAt = evidence.completedAt;
+    return !result.resultEvidence.empty() &&
+        backendAgentCommandValidResult(result);
 }
 
 bool genericResultMatchesTimerDeleteEvidence(
@@ -89,6 +95,7 @@ bool genericResultMatchesTimerDeleteEvidence(
     const vdrsuite::agent::BackendAgentNativeTimerDeleteEvidence& evidence)
 {
     if (!state.resultPresent) return false;
+    std::string unusedEvidenceReason;
     const auto& result = state.result;
     return state.dispatchState == projection.dispatchState &&
         result.dispatchState == projection.dispatchState &&
@@ -97,6 +104,10 @@ bool genericResultMatchesTimerDeleteEvidence(
         result.errorCategory == projection.errorCategory &&
         result.retryClassification == projection.retryClassification &&
         result.boundedDiagnostics == projection.diagnostics &&
+        result.resultEvidence ==
+            vdrsuite::agent::backendAgentNativeTimerDeleteResultEvidence(
+                evidence, state.assignment, unusedEvidenceReason) &&
+        !result.resultEvidence.empty() &&
         result.completedAt == evidence.completedAt;
 }
 }
@@ -181,7 +192,12 @@ bool backendAgentNativeTimerDeleteCommandReconcileExisting(
     }
     else
     {
-        createTimerDeleteResult(state, projection, recovery.evidence.completedAt);
+        if (!createTimerDeleteResult(
+                state, projection, recovery.evidence, reason))
+        {
+            reason = "native_delete_result_evidence_invalid";
+            return false;
+        }
         stateChanged = true;
     }
 
@@ -291,7 +307,11 @@ bool backendAgentNativeTimerDeleteCommandExecuteFreshStartingAndPersistOutcome(
         reason = "native_delete_executor_outcome_projection_invalid";
         return false;
     }
-    createTimerDeleteResult(state, projection, evidence.completedAt);
+    if (!createTimerDeleteResult(state, projection, evidence, reason))
+    {
+        reason = "native_delete_result_evidence_invalid";
+        return false;
+    }
 
     if (!persist(statePath, state, reason)) return false;
     reason = "native_delete_executor_outcome_persisted";

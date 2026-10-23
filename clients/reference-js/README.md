@@ -46,3 +46,64 @@ retry or route fallback.
 The implementation exists to make the public contract executable for future TV,
 mobile, desktop, Kodi and automation clients without pretending that the
 bundled browser's richer pre-v1 routes are equivalent.
+
+## P1 Device recording progress — source candidate
+
+The client also offers `getContinueWatching({backendId, headers})`: a bounded list of public rec_ IDs, confirmed positions and nullable durations. Both GET variants require an authenticated Device with the exact play grant.
+
+A currently verified Device with `media.recording.play@backendId` may use
+`getRecordingProgress({backendId, recordingId, headers})` and
+`updateRecordingProgress({backendId, recordingId, operationId,
+positionSeconds, expectedRevision, sessionId, headers})`. Use
+`clearRecordingProgress({backendId, recordingId, operationId,
+expectedRevision, headers})` to commit a zero-position reset.
+
+The recording ID is an opaque public `rec_` identity; it is never a VDR path.
+Read `revision` before the first write; send its current value as
+`expectedRevision` on subsequent checkpoints, pause and stop. On 409, re-read
+and resolve the conflict from the client's observed playback, **not** by
+blind retry. Persist only measured playback positions, not elapsed session time. Nonzero progress must reference an active, exact-recording, Device-owned `sessionId`; zero reset may omit it.
+Resume playback by explicitly creating the existing Device Recording
+MediaSession with `startPositionSeconds` *only if the chosen profile actually
+supports it*. Session CREATE is not automatically invoked by these helpers.
+
+Device pairing does not bind its Service Actor to a Human Account. Consequently
+this initial projection is **Device-actor-private**, not cross-account or
+cross-Device shared history; it cannot read a Browser Human Account's saved
+Continue Watching position. Device credentials are provided by the caller,
+never synthesized by the library. The browser uses its original CSRF-protected
+legacy route unchanged; the new route does not accept a browser session.
+
+
+### Explicit Playback MediaSession resume
+
+\`createRecordingPlaybackSession({backendId, recordingId, capabilities,
+startPositionSeconds, headers})\` uses the existing Public-v1 Device Recording
+Session CREATE operation. The caller must supply *actual measured* codec,
+container and protocol capabilities. A positive \`startPositionSeconds\` is
+optional and is only attempted after the user explicitly requests resume;
+the server may reject unsuitable profiles with 409 or out-of-range positions
+with 422. Only index-ready HLS profiles currently provide positive start-at.
+Read the returned \`mediaSession.playback.resume\` before claiming resume worked.
+Use \`getRecordingPlaybackSession({sessionId,headers})\` and
+\`stopRecordingPlaybackSession({sessionId,backendId,headers})\`; the latter
+uses the current owned-device STOP contract. Media grant delivery remains
+the existing guarded gateway, never private /api/media routes.
+
+### Admin-assigned playback ownership
+
+The reference client offers `getDevicePlaybackAccount({deviceId,headers})`
+and `setDevicePlaybackAccount({deviceId,accountId,expectedRevision,headers})`.
+These are strictly **Browser-administrator** operations. Supply the Browser
+Session and CSRF header through the existing credentials and header settings;
+never send a Device Credential to create a Human-Account link. An empty
+`accountId` explicitly unlinks the device with an incremented revision.
+A paired Device without an explicit link continues under its separate Service
+actor. The server never trusts account IDs supplied by a Device while reading
+or updating recording progress.
+
+The bundled browser Continue Watching implementation remains on its
+CSRF-protected established endpoint; it does not call private routes from
+Public-v1 reference clients. It now uses a revision handshake at playback
+owner creation and versioned checkpoints. HTTP 409 intentionally blocks an
+older player from replaying a stale position.

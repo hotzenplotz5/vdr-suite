@@ -115,6 +115,34 @@ static void test_parse_timers_falls_back_to_number_and_flags()
     assert(timers[0].vps);
 }
 
+static void test_parse_timers_does_not_invent_event_from_null()
+{
+    // Live RESTfulAPI may expose event_id:null before VDR associates EPG.
+    // The former string parser consumed the next key ("weekdays") as the
+    // event ID, persisting a bogus observed-state fingerprint.
+    const auto timers = RestfulApiTimerMapper::parseTimers(
+        "{\"timers\":[{\"id\":\"native:1\",\"channel\":\"C-1-1051-10301\","
+        "\"filename\":\"Tagesschau\",\"event_id\":null,"
+        "\"weekdays\":\"-------\",\"day\":\"2026-10-21\","
+        "\"start\":1400,\"stop\":1410,\"flags\":1,"
+        "\"priority\":50,\"lifetime\":99}]}");
+    assert(timers.size() == 1);
+    assert(timers[0].eventId.empty());
+    assert(timers[0].weekdays == "-------");
+
+    const auto numeric = RestfulApiTimerMapper::parseTimers(
+        "{\"timers\":[{\"id\":\"native:2\",\"event_id\":13546,"
+        "\"weekdays\":\"-------\"}]}");
+    assert(numeric.size() == 1);
+    assert(numeric[0].eventId == "13546");
+
+    const auto quoted = RestfulApiTimerMapper::parseTimers(
+        "{\"timers\":[{\"id\":\"native:3\",\"event_id\":\"13546\","
+        "\"weekdays\":\"-------\"}]}");
+    assert(quoted.size() == 1);
+    assert(quoted[0].eventId == "13546");
+}
+
 static void test_parse_timers_ignores_objects_without_id()
 {
     const std::vector<VdrTimer> timers =
@@ -137,6 +165,7 @@ int main()
     test_parse_timers_empty_array();
     test_parse_timers_maps_real_restfulapi_shape();
     test_parse_timers_falls_back_to_number_and_flags();
+    test_parse_timers_does_not_invent_event_from_null();
     test_parse_timers_ignores_objects_without_id();
     test_parse_timers_tolerates_invalid_json();
     return 0;

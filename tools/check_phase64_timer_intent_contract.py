@@ -323,7 +323,45 @@ for marker in [
             "consumer marker: " + marker
         )
 
+# Post-Phase-69 public Timer MODIFY adds one narrowly audited native-effect
+# successor. Only these two integration files can depend on Phase-64 Timer
+# intent/assignment abstractions; the Agent still owns native execution.
+modify_header_path = Path("core/daemon/include/NativeTimerModifyProductiveRuntime.h")
+modify_source_path = Path("core/daemon/src/NativeTimerModifyProductiveRuntime.cpp")
+modify_header = ROOT / modify_header_path
+modify_source = ROOT / modify_source_path
+if not modify_header.is_file() or not modify_source.is_file():
+    raise SystemExit("missing reviewed public-v1 native Timer MODIFY runtime")
+header_text = modify_header.read_text(encoding="utf-8")
+source_text = modify_source.read_text(encoding="utf-8")
+for marker in (
+    "advanceNativeTimerModifyRuntimeOnce(",
+    "TimerIntentRepository&",
+    "TimerAssignmentRepository&",
+    "NativeTimerModifyReadbackVerificationService&",
+):
+    if marker not in header_text:
+        raise SystemExit("native Timer MODIFY runtime header missing fence: " + marker)
+for marker in (
+    "op.verificationPolicy != MutationOperationVerificationPolicy::readbackRequired",
+    "operations.findPayloadByOperationId(",
+    "payload.expectedIntentRevision",
+    "payload.expectedAssignmentRevision",
+    "b.observedState.recording || b.observedState.pending",
+    "agents.findAgentForBackend(op.backendId)",
+    "assigner.assign(",
+    "commands.findAssignmentForOperation(",
+    "applyDurableNativeTimerModifyResult(",
+    "readback(applied.outcome.expectation)",
+    "verifier.verify(",
+    "completion.complete(",
+):
+    if marker not in source_text:
+        raise SystemExit("native Timer MODIFY runtime missing safety fence: " + marker)
+
 reviewed_runtime_files = {
+    modify_header_path,
+    modify_source_path,
     Path("core/agent/src/BackendAgentNativeTimerCreateActivation.cpp"),
     Path("core/agent/tests/test_backend_agent_native_timer_create_activation.cpp"),
     Path("core/daemon/tests/test_native_timer_create_result_outcome_application.cpp"),
@@ -332,9 +370,14 @@ reviewed_runtime_files = {
     Path("core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp"),
     Path("api/rest/include/PublicApiRuntime.h"),
     Path("api/rest/src/PublicApiRuntime.cpp"),
+    # ADR-0068: reviewed byte-exact relocation of read-only lookup methods.
+    Path("api/rest/src/PublicTimerReadLookupRuntime.cpp"),
     Path("api/rest/tests/test_public_timer_assignment_lookup.cpp"),
     Path("api/rest/tests/test_public_timer_assignment_resource.cpp"),
     Path("api/rest/tests/test_public_timer_assignment_collection.cpp"),
+    # Post-Phase-69 reviewed fail-closed EPG TimerIntent admission regression.
+    # The HTTP test may name TimerIntent, but no native mutation runs here.
+    Path("api/rest/tests/test_public_epg_timer_intent_admission.cpp"),
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
     Path("core/daemon/src/DaemonRuntimeShutdown.cpp"),
@@ -352,6 +395,32 @@ for marker in [
             "Phase-69.C productive Timer CREATE guard missing reviewed "
             "TimerAssignment consumer marker: " + marker
         )
+
+# Retain an explicit read-only fence for the newly reviewed lookup owner.
+timer_read_source = (ROOT / "api/rest/src/PublicTimerReadLookupRuntime.cpp")
+if not timer_read_source.is_file():
+    raise SystemExit("missing reviewed ADR-0068 Timer read lookup source")
+timer_read = timer_read_source.read_text(encoding="utf-8")
+for marker in (
+    "PublicApiRuntime::registerTimerAssignmentLookup(",
+    "PublicApiRuntime::resetTimerAssignmentLookup()",
+    "PublicApiRuntime::lookupTimerAssignment(",
+    "timerAssignmentLookupMutex_",
+    "PublicApiRuntime::registerTimerAssignmentCollectionLookup(",
+    "PublicApiRuntime::registerSearchTimerCollectionLookup(",
+    "PublicApiRuntime::registerSearchTimerPreviewLookup(",
+):
+    if marker not in timer_read:
+        raise SystemExit("ADR-0068 Timer read lifecycle marker lost: " + marker)
+for forbidden in (
+    "NativeTimerCreateAdmissionService",
+    "NativeTimerModifyAdmission",
+    "NativeTimerDeleteAdmission",
+    "SearchTimerCreate(",
+    "TimerIntentRepository",
+):
+    if forbidden in timer_read:
+        raise SystemExit("ADR-0068 Timer lookup owner gained mutation authority: " + forbidden)
 
 for reviewed in reviewed_runtime_files:
     if not (ROOT / reviewed).is_file():

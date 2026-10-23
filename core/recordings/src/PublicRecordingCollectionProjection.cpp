@@ -1,6 +1,7 @@
 #include "PublicRecordingCollectionProjection.h"
 
 #include "PublicRecordingIdentityRepository.h"
+#include "PublicRecordingDisplayName.h"
 
 #include <algorithm>
 #include <iostream>
@@ -44,12 +45,19 @@ PublicRecordingReadResult PublicRecordingCollectionProjection::project(
     for (const VdrRecording& source : recordings)
     {
         if (source.backendId != authorizedBackendId ||
-            source.backendNativeId.empty() ||
-            source.title.empty() ||
-            source.durationSeconds < 0)
+            source.backendNativeId.empty())
         {
             std::cerr << "Public-v1 Recording projection unavailable: "
-                         "source identity/metadata invalid" << std::endl;
+                         "source identity invalid (backend scope or missing "
+                         "native identity)" << std::endl;
+            return {};
+        }
+        // RESTfulAPI can report -1 for both measured and event duration on
+        // older recordings. Unknown duration is valid inventory metadata.
+        if (source.durationSeconds < 0 && source.recordingDurationKnown)
+        {
+            std::cerr << "Public-v1 Recording projection unavailable: "
+                         "contradictory known duration" << std::endl;
             return {};
         }
 
@@ -65,10 +73,13 @@ PublicRecordingReadResult PublicRecordingCollectionProjection::project(
         PublicRecordingReadItem item;
         item.recordingId = *publicId;
         item.backendId = source.backendId;
-        item.title = source.title;
+        const auto display = PublicRecordingDisplayName::project(source);
+        item.title = display.title;
+        item.edited = display.edited;
         item.recordedAt = source.startTime;
-        item.durationSeconds = source.durationSeconds;
-        item.durationKnown = source.recordingDurationKnown;
+        item.durationSeconds = std::max(0, source.durationSeconds);
+        item.durationKnown = source.recordingDurationKnown &&
+            source.durationSeconds > 0;
         item.description = boundedDescription(source);
         item.sizeMb = std::max(0LL, source.sizeMb);
         result.items.push_back(std::move(item));

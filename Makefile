@@ -32,6 +32,7 @@ include mk/phase67-teletext-frontend.mk
 include mk/phase67-hbbtv-tests.mk
 include mk/phase68-legacy-osd-tests.mk
 include mk/phase69-public-api-tests.mk
+include mk/slice2-native-timer-preview-tests.mk
 include mk/phase65-media-tests.mk
 include mk/phase65d-media-playback-contract.mk
 include mk/phase65d-playback-owner-lifecycle.mk
@@ -87,6 +88,7 @@ include mk/phase64-native-timer-absence-readback-verification-tests.mk
 include mk/phase64-mutation-operation-repository-tests.mk
 include mk/phase64-native-timer-create-operation-preparation-tests.mk
 include mk/phase64-native-timer-modify-operation-tests.mk
+include mk/phase64-native-timer-binding-freshness-tests.mk
 include mk/phase64-native-timer-modify-dispatch-tests.mk
 include mk/phase64-managed-timer-fulfillment-acceptance.mk
 include mk/phase64-timer-reassignment-failover-tests.mk

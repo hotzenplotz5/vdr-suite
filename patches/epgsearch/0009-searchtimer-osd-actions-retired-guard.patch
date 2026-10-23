@@ -1,0 +1,63 @@
+From: VDR-Suite S1 OSD SearchTimer on/off safe lifetime
+Subject: [PATCH 9/9] epgsearch: prevent OSD timer toggles on retired search IDs
+Upstream-base: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+Apply-after: 0001-0008 in filename order
+
+OSD search actions hold raw pointers across confirmation dialogs. An
+intervening native guarded DELETE may retire that rule and immediately
+allow its numeric ID to be reused. Recheck list membership under the native
+owner lock before OSD toggle or side effects on created VDR timers. Reject
+the post-toggle association action if the rule was deleted/replaced while
+the user was confirming. Also avoid triggering timer changes when saving
+the toggled rule failed.
+
+diff --git a/menu_searchactions.c b/menu_searchactions.c
+--- a/menu_searchactions.c
++++ b/menu_searchactions.c
+@@ -84,20 +84,36 @@
+ eOSState cMenuSearchActions::OnOffSearchtimer(void)
+ {
+     if (search) {
+-        {
+-            cMutexLock SearchExtsLock(&SearchExts);
+-            search->useAsSearchTimer = search->useAsSearchTimer ? 0 : 1;
+-            SearchExts.Save();
+-        }
+-        if (!search->useAsSearchTimer && Interface->Confirm(tr("Disable associated timers too?")))
+-            search->OnOffTimers(false);
+-        if (search->useAsSearchTimer && Interface->Confirm(tr("Activate associated timers too?"))) {
+-            search->OnOffTimers(true);
+-            if (!EPGSearchConfig.useSearchTimers) { // enable search timer thread if necessary
++        bool enabled = false;
++        {
++            cMutexLock SearchExtsLock(&SearchExts);
++            // The OSD may hold a retired pointer after native DELETE.
++            if (!SearchExts.Exists(search))
++                return osBack;
++            search->useAsSearchTimer = search->useAsSearchTimer ? 0 : 1;
++            if (!SearchExts.Save())
++                return osBack;
++            enabled = search->useAsSearchTimer != 0;
++        }
++        if (!enabled && Interface->Confirm(tr("Disable associated timers too?"))) {
++            cMutexLock SearchExtsLock(&SearchExts);
++            if (SearchExts.Exists(search) && !search->useAsSearchTimer)
++                search->OnOffTimers(false);
++        }
++        if (enabled && Interface->Confirm(tr("Activate associated timers too?"))) {
++            bool stillEnabled = false;
++            {
++                cMutexLock SearchExtsLock(&SearchExts);
++                if (SearchExts.Exists(search) && search->useAsSearchTimer) {
++                    search->OnOffTimers(true);
++                    stillEnabled = true;
++                }
++            }
++            if (stillEnabled && !EPGSearchConfig.useSearchTimers) {
+                 cSearchTimerThread::Init((cPluginEpgsearch*) cPluginManager::GetPlugin("epgsearch"), true);
+                 INFO(tr("Search timers activated in setup."));
+             }
+         }
+     }
+     return osBack;
+ }

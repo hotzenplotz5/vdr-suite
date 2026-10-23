@@ -13,6 +13,7 @@ FILES = {
     "gate": ROOT / "core/security/include/SecurityHttpGate.h",
     "runtime_h": ROOT / "api/rest/include/PublicApiRuntime.h",
     "runtime_cpp": ROOT / "api/rest/src/PublicApiRuntime.cpp",
+    "discovery_cpp": ROOT / "api/rest/src/PublicDiscoveryRoutes.cpp",
     "api_test": ROOT / "api/rest/tests/test_public_account_security_metadata.cpp",
     "security_test": ROOT / "core/security/tests/test_public_account_security_metadata_security.cpp",
     "server_cpp": ROOT / "core/http/src/TestHttpServer.cpp",
@@ -91,7 +92,7 @@ def main():
         "publicAccountSessionCollectionResponse",
         "public-api.accounts-credential-session-metadata",
     ):
-        require("runtime_cpp", marker)
+        require("discovery_cpp" if marker == "public-api.accounts-credential-session-metadata" else "runtime_cpp", marker)
 
     for name in ("runtime_cpp", "client"):
         for forbidden in (

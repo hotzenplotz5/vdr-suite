@@ -5,6 +5,9 @@
 
 #include <chrono>
 #include <functional>
+#include <memory>
+
+class DeviceLiveEventSubscription;
 #include <string>
 
 class SimpleHttpListener {
@@ -50,7 +53,8 @@ private:
         int clientSocket,
         std::string& rawResponse,
         bool& imageResponse,
-        std::string& streamBodyPath) const;
+        std::string& streamBodyPath,
+        std::shared_ptr<DeviceLiveEventSubscription>& deviceEvents) const;
 };
 
 #endif

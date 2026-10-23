@@ -144,7 +144,49 @@ if "core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp" not 
         "regression consumer"
     )
 
+# This post-Phase-69 native MODIFY successor is permitted to read the
+# Phase-64 repository only under its explicit provider/readback fences.
+modify_guard = ROOT / "tools/check_phase64_timer_intent_contract.py"
+if not modify_guard.is_file():
+    raise SystemExit("missing native Timer MODIFY successor architecture guard")
+modify_guard_text = modify_guard.read_text(encoding="utf-8")
+modify_header = Path("core/daemon/include/NativeTimerModifyProductiveRuntime.h")
+modify_source = Path("core/daemon/src/NativeTimerModifyProductiveRuntime.cpp")
+for marker in (
+    "modify_header_path = Path",
+    "modify_source_path = Path",
+    "applyDurableNativeTimerModifyResult(",
+    "verifier.verify(",
+    "completion.complete(",
+):
+    if marker not in modify_guard_text:
+        raise SystemExit("native Timer MODIFY successor guard missing fence: " + marker)
+for relative, required in (
+    (modify_header, (
+        "TimerAssignmentRepository&",
+        "NativeTimerModifyReadbackVerificationService&",
+    )),
+    (modify_source, (
+        "a.assignmentRevision != payload.expectedAssignmentRevision",
+        "payload.expectedAssignmentRevision",
+        "b.timerAssignmentId != a.timerAssignmentId",
+        "a.state != TimerAssignmentState::bound",
+        "assigner.assign(",
+        "verifier.verify(",
+        "completion.complete(",
+    )),
+):
+    candidate = ROOT / relative
+    if not candidate.is_file():
+        raise SystemExit("missing audited Timer MODIFY repository consumer: " + str(relative))
+    content = candidate.read_text(encoding="utf-8")
+    for marker in required:
+        if marker not in content:
+            raise SystemExit("Timer MODIFY repository consumer missing fence: " + marker)
+
 reviewed_runtime_files = {
+    modify_header,
+    modify_source,
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
     Path("core/daemon/tests/test_native_timer_create_readback_reconciliation.cpp"),

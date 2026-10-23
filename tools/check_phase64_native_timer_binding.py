@@ -166,6 +166,27 @@ allowed_phase69_daemon_paths = {
     Path("core/daemon/include/DaemonRuntime.h"),
     Path("core/daemon/src/DaemonRuntimeInitialization.cpp"),
 }
+# Passive refresh is a later, expressly fenced runtime successor. Unlike
+# Slice-9 domain-only wiring it requires a strict live readback AND an atomic
+# nonterminal-operation guard. Keep all unrelated daemon files forbidden.
+passive_poll = ROOT / "core/daemon/src/DaemonRuntimePolling.cpp"
+passive_repo = ROOT / "core/timers/src/NativeTimerBindingRepository.cpp"
+passive_service = ROOT / "core/timers/src/NativeTimerBindingReadbackService.cpp"
+passive_refresh_valid = (
+    passive_poll.is_file() and passive_repo.is_file() and
+    passive_service.is_file() and
+    all(t in passive_poll.read_text(encoding="utf-8") for t in [
+        "listManagedForFreshness(", "RestfulApiNativeTimerModifyReadbackReader",
+        "stillAgent->backendGeneration", "service.applyPresentObservation(",
+        "observed.observation, true",
+    ]) and
+    all(t in passive_repo.read_text(encoding="utf-8") for t in [
+        "BEGIN IMMEDIATE TRANSACTION", "passiveFreshnessRefresh",
+        "state NOT IN", "resource_type='NativeTimerBinding'",
+        "sqlite3_step(pending)",
+    ]) and
+    "passiveFreshnessRefresh" in passive_service.read_text(encoding="utf-8")
+)
 allowed_phase69_readback_paths = {
     Path("core/daemon/include/NativeTimerCreateReadbackReconciliation.h"),
     Path("core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp"),
@@ -205,6 +226,61 @@ if productive_successor_guard.is_file():
         "NativeTimerBindingOwnership::managed",
         "reconciliationsCompleted == 1",
     ])
+# The native DELETE successor is a distinct, provider- and revision-fenced
+# Control-Plane path. Do not loosen the old blanket prohibition: admit only
+# explicit audited DELETE source paths when the specific safety markers exist.
+delete_runtime = ROOT / "core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp"
+delete_application = ROOT / "core/daemon/src/NativeTimerDeleteResultOutcomeApplication.cpp"
+delete_runtime_valid = (
+    delete_runtime.is_file() and delete_application.is_file()
+    and all(marker in delete_runtime.read_text(encoding="utf-8") for marker in [
+        "publicNativeTimerDeletePreflight(", "applyDurableNativeTimerDeleteResult(",
+        "verification.verify(", "completion.complete(",
+        "MutationOperationState::outcomeUnknown",
+        "NativeTimerDeleteAssignmentService",
+    ])
+    and all(marker in delete_application.read_text(encoding="utf-8") for marker in [
+        "backendAgentNativeTimerDeleteParseResultEvidence(",
+        "NativeTimerDeleteDispatchService", "dispatchService.applyOutcome(",
+        "NativeTimerBindingOwnership::managed",
+        "NativeTimerBindingOwnership::adopted",
+    ])
+)
+delete_runtime_paths = {
+    Path("core/daemon/include/NativeTimerDeleteProductiveRuntime.h"),
+    Path("core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp"),
+    Path("core/daemon/include/NativeTimerDeleteResultOutcomeApplication.h"),
+    Path("core/daemon/src/NativeTimerDeleteResultOutcomeApplication.cpp"),
+}
+
+modify_runtime_paths = {
+    Path("core/daemon/include/NativeTimerModifyProductiveRuntime.h"),
+    Path("core/daemon/src/NativeTimerModifyProductiveRuntime.cpp"),
+    Path("core/daemon/include/NativeTimerModifyResultOutcomeApplication.h"),
+    Path("core/daemon/src/NativeTimerModifyResultOutcomeApplication.cpp"),
+}
+modify_source = ROOT / "core/daemon/src/NativeTimerModifyProductiveRuntime.cpp"
+modify_outcome = ROOT / "core/daemon/src/NativeTimerModifyResultOutcomeApplication.cpp"
+modify_runtime_valid = (
+    modify_source.is_file() and modify_outcome.is_file()
+    and all(token in modify_source.read_text(encoding="utf-8") for token in [
+        "b.bindingRevision != payload.expectedBindingRevision",
+        "b.observedFingerprint != payload.expectedCurrentFingerprint",
+        "agents.findAgentForBackend(op.backendId)",
+        "assigner.assign(",
+        "applyDurableNativeTimerModifyResult(",
+        "readback(applied.outcome.expectation)",
+        "verifier.verify(",
+        "completion.complete(",
+    ])
+    and all(token in modify_outcome.read_text(encoding="utf-8") for token in [
+        "backendAgentNativeTimerModifyParseResultEvidence(",
+        "NativeTimerBindingOwnership::managed",
+        "NativeTimerBindingOwnership::adopted",
+        "dispatcher.applyOutcome(",
+    ])
+)
+
 productive_paths = {
     Path("core/daemon/include/NativeTimerCreateProductiveRuntime.h"),
     Path("core/daemon/src/NativeTimerCreateProductiveRuntime.cpp"),
@@ -227,11 +303,27 @@ for scan_root in forbidden_roots:
                     "Phase-69.C NativeTimerBinding daemon wiring requires "
                     "the exact dormant fulfillment successor guard")
             continue
+        if relative == Path("core/daemon/src/DaemonRuntimePolling.cpp"):
+            if not passive_refresh_valid:
+                raise SystemExit(
+                    "Passive NativeTimerBinding polling requires strict live "
+                    "readback and atomic pending-mutation revision fence")
+            continue
         if relative in allowed_phase69_readback_paths:
             if not readback_successor_valid:
                 raise SystemExit(
                     "Phase-69.C NativeTimerBinding readback wiring requires "
                     "the exact dormant readback-reconciliation successor guard")
+            continue
+        if relative in delete_runtime_paths:
+            if not delete_runtime_valid:
+                raise SystemExit(
+                    "NativeTimerBinding DELETE runtime needs its explicit "
+                    "typed-evidence and readback successor guard")
+            continue
+        if relative in modify_runtime_paths:
+            if not modify_runtime_valid:
+                raise SystemExit("native MODIFY binding successor lacks durable evidence or readback")
             continue
         if relative in productive_paths:
             if not productive_successor_valid:

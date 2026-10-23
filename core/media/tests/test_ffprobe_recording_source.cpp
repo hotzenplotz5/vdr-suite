@@ -160,6 +160,9 @@ int main()
         assert(video.pixelFormat == "yuv420p10le");
         assert(video.timeBase == "1/90000");
         assert(video.bitRate == 15000000);
+        assert(video.bitDepth == 10);
+        assert(video.codecProfile.empty());
+        assert(video.codecLevel == 0);
         const auto hlg = probe.parse(
             "codec_name=hevc|codec_type=video|width=1920|height=1080|color_transfer=arib-std-b67\n");
         assert(hlg.valid && hlg.source.videoStreams.front().hdr);
@@ -168,6 +171,30 @@ int main()
         assert(unknown.valid);
         assert(!unknown.source.videoStreams.front().hdr);
         assert(unknown.source.videoStreams.front().bitRate == 0);
+    }
+
+    {
+        const auto plan = probe.commandPlan();
+        assert(std::any_of(plan.argv.begin(), plan.argv.end(), [](const std::string& arg) {
+            return arg.find("profile,level,bits_per_raw_sample") != std::string::npos;
+        }));
+        const auto main10 = probe.parse(
+            "codec_name=hevc|codec_type=video|profile=Main 10|level=153|"
+            "pix_fmt=yuv420p10le|bits_per_raw_sample=N/A|width=3840|height=2160\n");
+        assert(main10.valid);
+        assert(main10.source.videoStreams[0].codecProfile == "Main 10");
+        assert(main10.source.videoStreams[0].codecLevel == 153);
+        assert(main10.source.videoStreams[0].bitDepth == 10);
+        const auto conflicting = probe.parse(
+            "codec_name=hevc|codec_type=video|profile=Main 10|"
+            "pix_fmt=yuv420p10le|bits_per_raw_sample=8|width=1920|height=1080\n");
+        assert(conflicting.valid);
+        assert(conflicting.source.videoStreams[0].bitDepth == 0);
+        const auto unknownDepth = probe.parse(
+            "codec_name=hevc|codec_type=video|profile=Main|"
+            "pix_fmt=unknown_fmt|width=1920|height=1080\n");
+        assert(unknownDepth.valid);
+        assert(unknownDepth.source.videoStreams[0].bitDepth == 0);
     }
 
     {

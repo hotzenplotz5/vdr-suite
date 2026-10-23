@@ -156,9 +156,10 @@ int main()
         "WHERE command_id='command:1' AND operation_id='operation:1';") == 1);
     assert(sqlCount(snapshot.handle(),
         "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
-    // P7 additional agent assignment DDL writers. Isolated memory schema
-    // deliberately has dormant capabilities; the real C++ initializers must
-    // retire precisely the fenced command families without modifying probe.
+    // P7 assignment schema: UPDATE/TOGGLE are now live capabilities and must
+    // survive both repeated initialization and a SQLite backup/restore.
+    // The legacy dormant triggers must be retired; recording marks remains
+    // separately gated and probe.noop must remain unchanged.
     Database schemaTests;
     assert(schemaTests.open(":memory:"));
     BackendAgentCommandRepository schemaCommands(schemaTests);
@@ -172,18 +173,29 @@ int main()
         "('backend:1','agent:1','instance:1',7,'vdr.timer.toggle',1),"
         "('backend:1','agent:1','instance:1',7,'vdr.recording.marks.modify',1);"));
 
+    // Simulate an upgrade from a schema containing the old dormant triggers.
+    assert(schemaTests.execute(
+        "CREATE TRIGGER trg_backend_agent_timer_update_dormant_capability "
+        "BEFORE INSERT ON backend_agent_command_capabilities "
+        "WHEN NEW.command_type='vdr.timer.update' "
+        "BEGIN SELECT RAISE(IGNORE); END;"));
+    assert(schemaTests.execute(
+        "CREATE TRIGGER trg_backend_agent_timer_toggle_dormant_capability "
+        "BEFORE INSERT ON backend_agent_command_capabilities "
+        "WHEN NEW.command_type='vdr.timer.toggle' "
+        "BEGIN SELECT RAISE(IGNORE); END;"));
     assert(schemaCommands.ensureNativeTimerModifyAssignmentSchema());
     assert(schemaCommands.ensureNativeTimerModifyAssignmentSchema());
     assert(sqlCount(schemaTests.handle(),
         "SELECT count(*) FROM backend_agent_command_capabilities "
-        "WHERE command_type IN ('vdr.timer.update','vdr.timer.toggle');") == 0);
+        "WHERE command_type IN ('vdr.timer.update','vdr.timer.toggle');") == 2);
     assert(sqlCount(schemaTests.handle(),
         "SELECT count(*) FROM sqlite_master WHERE type='index' AND "
         "name='idx_backend_agent_timer_modify_operation';") == 1);
     assert(sqlCount(schemaTests.handle(),
         "SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name IN "
         "('trg_backend_agent_timer_update_dormant_capability',"
-        "'trg_backend_agent_timer_toggle_dormant_capability');") == 2);
+        "'trg_backend_agent_timer_toggle_dormant_capability');") == 0);
 
     // Cut enables delivery by retiring only its legacy dormant-capability
     // gate; record the old trigger in the private synthetic schema.
@@ -238,7 +250,10 @@ int main()
         "SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name IN "
         "('trg_backend_agent_timer_update_dormant_capability',"
         "'trg_backend_agent_timer_toggle_dormant_capability',"
-        "'trg_backend_agent_recording_marks_modify_dormant_capability');") == 3);
+        "'trg_backend_agent_recording_marks_modify_dormant_capability');") == 1);
+    assert(sqlCount(ddlRestore.handle(),
+        "SELECT count(*) FROM backend_agent_command_capabilities "
+        "WHERE command_type IN ('vdr.timer.update','vdr.timer.toggle');") == 2);
     assert(sqlCount(ddlRestore.handle(),
         "SELECT count(*) FROM backend_agent_command_capabilities "
         "WHERE command_type='probe.noop';") == 1);

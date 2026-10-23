@@ -494,6 +494,40 @@ bool GenreBrowserApiRuntime::tryHandleGet(
     return true;
 }
 
+bool GenreBrowserApiRuntime::epgOverview(
+    const std::string& backendId, const std::string& locale,
+    std::int64_t fromTime, std::int64_t untilTime,
+    GenreEpgBrowseOverview& result) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    GenreIndexRepository* repository = readRepository_ ?
+        readRepository_.get() : writerRepository_.get();
+    if (!repository || backendId.empty() || untilTime <= fromTime)
+        return false;
+    result = repository->epgBrowseOverview(
+        backendId, fromTime, untilTime, locale);
+    return true;
+}
+bool GenreBrowserApiRuntime::epgPage(
+    const std::string& backendId, const std::string& contentClass,
+    const std::string& genreId, std::int64_t fromTime,
+    std::int64_t untilTime, int limit, int offset, GenreEpgPage& result) const
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    GenreIndexRepository* repository = readRepository_ ?
+        readRepository_.get() : writerRepository_.get();
+    if (!repository || backendId.empty() ||
+        !GenreIndexRepository::isEpgBrowseContentClass(contentClass) ||
+        (!genreId.empty() && (contentClass != "movie" ||
+            !GenreIndexRepository::isFilmGenre(genreId))) ||
+        untilTime <= fromTime || limit < 1 || limit > 30 ||
+        offset < 0 || offset > 1000000)
+        return false;
+    result = repository->epgByBrowse(
+        backendId, contentClass, genreId, fromTime, untilTime, limit, offset);
+    return true;
+}
+
 bool GenreBrowserApiRuntime::recordingOverview(
     const std::string& backendId,
     const std::string& locale,

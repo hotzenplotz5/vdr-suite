@@ -55,10 +55,11 @@ bool nativeTimerModifyGenericProjection(
     return false;
 }
 
-void createTimerDeleteResult(
+bool createTimerModifyResult(
     LocalState& state,
     const NativeTimerModifyGenericProjection& projection,
-    std::int64_t completedAt)
+    const vdrsuite::agent::BackendAgentNativeTimerModifyEvidence& evidence,
+    std::string& reason)
 {
     state.dispatchState = projection.dispatchState;
     state.resultPresent = true;
@@ -80,15 +81,21 @@ void createTimerDeleteResult(
     result.errorCategory = projection.errorCategory;
     result.retryClassification = projection.retryClassification;
     result.boundedDiagnostics = projection.diagnostics;
-    result.completedAt = completedAt;
+    result.resultEvidence =
+        vdrsuite::agent::backendAgentNativeTimerModifyResultEvidence(
+            evidence, assignment, reason);
+    result.completedAt = evidence.completedAt;
+    return !result.resultEvidence.empty() &&
+        backendAgentCommandValidResult(result);
 }
 
-bool genericResultMatchesTimerDeleteEvidence(
+bool genericResultMatchesTimerModifyEvidence(
     const LocalState& state,
     const NativeTimerModifyGenericProjection& projection,
     const vdrsuite::agent::BackendAgentNativeTimerModifyEvidence& evidence)
 {
     if (!state.resultPresent) return false;
+    std::string evidenceReason;
     const auto& result = state.result;
     return state.dispatchState == projection.dispatchState &&
         result.dispatchState == projection.dispatchState &&
@@ -97,6 +104,10 @@ bool genericResultMatchesTimerDeleteEvidence(
         result.errorCategory == projection.errorCategory &&
         result.retryClassification == projection.retryClassification &&
         result.boundedDiagnostics == projection.diagnostics &&
+        !result.resultEvidence.empty() &&
+        result.resultEvidence ==
+            vdrsuite::agent::backendAgentNativeTimerModifyResultEvidence(
+                evidence, state.assignment, evidenceReason) &&
         result.completedAt == evidence.completedAt;
 }
 }
@@ -172,7 +183,7 @@ bool backendAgentNativeTimerModifyCommandReconcileExisting(
 
     if (state.resultPresent)
     {
-        if (!genericResultMatchesTimerDeleteEvidence(
+        if (!genericResultMatchesTimerModifyEvidence(
                 state, projection, recovery.evidence))
         {
             reason = "native_modify_result_evidence_conflict";
@@ -181,7 +192,12 @@ bool backendAgentNativeTimerModifyCommandReconcileExisting(
     }
     else
     {
-        createTimerDeleteResult(state, projection, recovery.evidence.completedAt);
+        if (!createTimerModifyResult(
+                state, projection, recovery.evidence, reason))
+        {
+            reason = "native_modify_result_evidence_invalid";
+            return false;
+        }
         stateChanged = true;
     }
 
@@ -291,7 +307,11 @@ bool backendAgentNativeTimerModifyCommandExecuteFreshStartingAndPersistOutcome(
         reason = "native_modify_executor_outcome_projection_invalid";
         return false;
     }
-    createTimerDeleteResult(state, projection, evidence.completedAt);
+    if (!createTimerModifyResult(state, projection, evidence, reason))
+    {
+        reason = "native_modify_result_evidence_invalid";
+        return false;
+    }
 
     if (!persist(statePath, state, reason)) return false;
     reason = "native_modify_executor_outcome_persisted";

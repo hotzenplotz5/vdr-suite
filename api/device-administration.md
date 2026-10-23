@@ -46,6 +46,42 @@ Allowed `decision` values are `approve` and `reject` only. Requires `device.pair
 
 A success returns HTTP 200 with updated administrative Pairing Request metadata and a new ETag. **Approval creates no Actor, Device, Credential or grant**. The waiting TV still must separately issue its credential using its own short-lived token.
 
+## 3. List paired Service Devices (new administrator read)
+
+```http
+GET /api/v1/devices?limit=25
+```
+
+Requires the global administrator grant `devices.grants.view@*`. This
+secret-free collection lists **persistent Service Devices** from
+`security_devices`, not Human Account Browser sessions and not the
+pending-only `device-pairings` endpoint. No Credential ID, bearer token,
+pairing token or session information is exposed.
+
+The response contains each real `deviceId`, `actorId`, `displayName`,
+`active` and `revoked`, sorted by `deviceId`. `page.hasMore` and
+`page.nextCursor` implement bounded keyset pagination (1–100 per page);
+the cursor is a versioned `dv1_` marker. A malformed or duplicate query
+parameter is rejected. The route uses `Cache-Control: no-store` and
+returns 503 rather than falsely advertising an empty inventory on DB
+failure. Revoked devices remain visible, but the existing grant mutation
+path prevents authorization through revoked identities.
+
+The frontend's **Settings → Gekoppelte Geräte (TV & Apps)** lists those
+devices separately from Human Accounts. Selecting an active device reads
+its existing `GET /api/v1/devices/{deviceId}/grants` strong ETag.
+Grant and revoke remain explicit `POST /api/v1/devices/{deviceId}/grants`
+operations with Browser CSRF, `If-Match`, actual backend selection and
+user confirmation; a 412 forces a read-only refresh, never an automatic
+mutation retry. `timers.create` and `searchtimers.create` cannot be
+granted to `*`.
+
+Web UI minimum: account administration must remain unchanged, and the
+device admin must never infer a VIDAA Device from a Human session. This
+matches the basic product expectation of separately manageable paired TV
+clients (Kodi/Plex offer managed client/user authorization flows; their
+exact menus and per-backend grant semantics have not been verified here).
+
 ## 3. Read a Device's grants
 
 ```http
@@ -57,11 +93,16 @@ Requires global `devices.grants.view@*`. The returned representation contains `d
 The supported grant permissions currently are exactly:
 
 - `channels.view`
+- `recordings.view` (read-only Public-v1 recording search)
+- `epg.view` (read-only Public-v1 EPG search and Now/Next)
 - `timers.view`
+- `timers.create` (one EPG-selected native Timer intent, explicit backend only; available as a grant before productive admission is wired)
+- `searchtimers.view` (SearchTimer list and preview, independently of EPG read)
+- `searchtimers.create` (CREATE only on an explicit backend, never `*`)
 - `media.live.play`
 - `media.recording.play`
 
-No `role.admin`, `role.read-only`, `accounts.*`, `remote.control` or arbitrary strings are allowed here. Grant `backendId` is an explicit product Backend identity or the configured wildcard `*`.
+No `role.admin`, `role.read-only`, `accounts.*`, `remote.control` or arbitrary strings are allowed here. Grant `backendId` is an explicit product Backend identity or the configured wildcard `*`, **except** `timers.create` and `searchtimers.create`, both of which require an exact concrete backend.
 
 ## 4. Ensure or revoke one grant
 
@@ -79,6 +120,8 @@ A stale ETag generally yields `412 revision_conflict` unless the tuple is alread
 
 A newly issued Device Credential can subsequently authenticate with `Authorization: VDR-Suite-Device <credentialId>.<credentialSecret>`. Server-side authorization still evaluates its grants on each request.
 
+The native EPG Timer CREATE route (`POST /api/v1/epg/timer-intents`) also accepts a verified Human administrator Browser Session with a matching `role.admin` grant and a valid CSRF token. Ordinary Human users with only `timers.create` are not accepted on this route. Device clients still require a verified Device Credential and the exact `timers.create@<backendId>` grant. This is an explicit administrator capability, not Device impersonation.
+
 ## Source and regression anchors
 
 - [Public REST pairing/Device grant runtime](rest/src/PublicApiRuntime.cpp)
@@ -94,3 +137,13 @@ This documentation does **not** add the Device revoke/rotation, pairing administ
 
 - [API entry](README.md)
 - [Documentation index](../docs/index.md)
+
+### SearchTimer grant and mutation
+
+An administrator may explicitly grant `searchtimers.view` and
+`searchtimers.create` **independently per backend**. The latter permits
+one confirmed `POST /api/v1/search-timers?backend=<id>` through the
+durable, idempotent SearchTimer one-shot operation. This is distinct
+from Suite TimerAssignments and native VDR Timer CREATE. Browser
+sessions and legacy paths never inherit paired Device CREATE rights.
+A 202 response is an Operation, not guaranteed backend recording.

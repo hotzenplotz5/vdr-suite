@@ -8,6 +8,7 @@
 #include "BackendAgentNativeTimerDeleteAdvertisement.h"
 #include "BackendAgentNativeTimerDeletePayload.h"
 #include "BackendAgentNativeTimerModifyPayload.h"
+#include "BackendAgentNativeTimerModifyLocalState.h"
 #include "BackendAgentRecordingMarksModifyPayload.h"
 #include "BackendAgentRecordingCut.h"
 #include "BackendAgentRecordingCutPayload.h"
@@ -160,6 +161,10 @@ bool BackendAgentCommandRepository::ensureSchema()
         "backend_id TEXT PRIMARY KEY,drop_next_receipt INTEGER NOT NULL DEFAULT 0,drop_next_result INTEGER NOT NULL DEFAULT 0); ") &&
         database_.execute(
         "DROP TRIGGER IF EXISTS trg_backend_agent_timer_delete_dormant_capability;") &&
+        database_.execute(
+        "DROP TRIGGER IF EXISTS trg_backend_agent_timer_update_dormant_capability;") &&
+        database_.execute(
+        "DROP TRIGGER IF EXISTS trg_backend_agent_timer_toggle_dormant_capability;") &&
         database_.execute(
         "DROP TRIGGER IF EXISTS trg_backend_agent_recording_marks_modify_dormant_capability;") &&
         database_.execute(
@@ -606,6 +611,10 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
         ok=database_.execute(
             "DROP TRIGGER IF EXISTS trg_backend_agent_timer_delete_dormant_capability;")&&
             database_.execute(
+            "DROP TRIGGER IF EXISTS trg_backend_agent_timer_update_dormant_capability;")&&
+            database_.execute(
+            "DROP TRIGGER IF EXISTS trg_backend_agent_timer_toggle_dormant_capability;")&&
+            database_.execute(
             "DROP TRIGGER IF EXISTS trg_backend_agent_recording_marks_modify_dormant_capability;")&&
             database_.execute(
             "DROP TRIGGER IF EXISTS trg_backend_agent_recording_cut_dormant_capability;");
@@ -920,6 +929,57 @@ BackendAgentCommandResultAck BackendAgentCommandRepository::acceptResult(const B
         sqlite3_finalize(selected);
         if(!recorded)
         {result.reasonCode="local_provider_selection_required";return result;}
+
+        // A generic ACK alone cannot prove that native MODIFY never started.
+        // Require agent-produced, command-bound evidence before persisting any
+        // result. Otherwise dispatching operations become irreconcilable.
+        BackendAgentNativeTimerModifyEvidence evidence;
+        if (r.resultEvidence.empty() ||
+            !backendAgentNativeTimerModifyParseResultEvidence(
+                r.resultEvidence, *durableAssignment, evidence, payloadReason) ||
+            evidence.completedAt != r.completedAt)
+        {
+            result.reasonCode = "native_timer_modify_result_evidence_invalid";
+            return result;
+        }
+        const bool toggle =
+            commandType == kBackendAgentNativeTimerToggleCommandType;
+        if ((modifyPayload.kind == BackendAgentNativeTimerModifyKind::toggle)
+                != toggle)
+        {
+            result.reasonCode = "native_timer_modify_result_evidence_conflict";
+            return result;
+        }
+        bool projectionMatches = false;
+        switch (evidence.outcome)
+        {
+            case BackendAgentNativeTimerModifyOutcomeCategory::rejectedWithoutEffect:
+                projectionMatches = r.dispatchState == "not_started" &&
+                    r.verificationState == "verified" &&
+                    r.resultCategory == "rejected" &&
+                    r.errorCategory == "fenced" &&
+                    r.retryClassification == "none";
+                break;
+            case BackendAgentNativeTimerModifyOutcomeCategory::acceptedUnverified:
+                projectionMatches = r.dispatchState == "accepted_by_executor" &&
+                    r.verificationState == "outcome_unknown" &&
+                    r.resultCategory == "outcome_unknown" &&
+                    r.errorCategory == "none" &&
+                    r.retryClassification == "reconcile_only";
+                break;
+            case BackendAgentNativeTimerModifyOutcomeCategory::outcomeUnknown:
+                projectionMatches = r.dispatchState == "starting" &&
+                    r.verificationState == "outcome_unknown" &&
+                    r.resultCategory == "outcome_unknown" &&
+                    r.errorCategory == "executor_unknown" &&
+                    r.retryClassification == "reconcile_only";
+                break;
+        }
+        if (!projectionMatches)
+        {
+            result.reasonCode = "native_timer_modify_result_evidence_conflict";
+            return result;
+        }
     }
     else if(commandType==kBackendAgentRecordingMarksModifyCommandType)
     {
@@ -1137,15 +1197,49 @@ BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
 {
     BackendAgentCommandResultAck result;
     std::string reason;
-    if (!backendAgentCommandValidResult(value) ||
-        !agentContextMatches(
+    if (!backendAgentCommandValidResult(value))
+    {
+        result.reasonCode = "invalid_command_result";
+        return result;
+    }
+    if (!agentContextMatches(
             context, value.backendId, value.agentId,
             value.agentInstanceId, value.backendGeneration,
             false, now, reason))
     {
-        result.reasonCode =
-            reason.empty() ? "invalid_command_result" : reason;
-        return result;
+        // Accept only a pre-existing, command-bound native MODIFY uncertainty
+        // result from the SAME authenticated Agent after its generation moves
+        // forward. The original assignment and full result evidence remain
+        // immutable and are validated again by acceptResult(). Poll, receipt,
+        // dispatch, and every other command/result retain their strict fence.
+        const auto current = agentRepository_.findAgentForBackend(value.backendId);
+        const auto original = commandRepository_.findAssignment(value.commandId);
+        const bool historicalModifyResult =
+            context.authenticated() &&
+            context.actor.type == ActorType::Agent &&
+            current.has_value() && !current->revoked &&
+            !current->incompatible &&
+            current->actorId == context.actor.actorId &&
+            current->agentId == value.agentId &&
+            current->backendGeneration > value.backendGeneration &&
+            original.has_value() &&
+            original->backendId == value.backendId &&
+            original->agentId == value.agentId &&
+            original->agentInstanceId == value.agentInstanceId &&
+            original->backendGeneration == value.backendGeneration &&
+            original->requestFingerprint == value.requestFingerprint &&
+            (original->commandType == vdrsuite::agent::kBackendAgentNativeTimerUpdateCommandType ||
+             original->commandType == vdrsuite::agent::kBackendAgentNativeTimerToggleCommandType) &&
+            value.resultCategory == "outcome_unknown" &&
+            value.verificationState == "outcome_unknown" &&
+            value.retryClassification == "reconcile_only" &&
+            !value.resultEvidence.empty();
+        if (!historicalModifyResult)
+        {
+            result.reasonCode =
+                reason.empty() ? "command_generation_fenced" : reason;
+            return result;
+        }
     }
 
     const auto assignment = commandRepository_.findAssignment(value.commandId);

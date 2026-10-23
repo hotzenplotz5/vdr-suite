@@ -52,6 +52,18 @@ public:
         const LegacyOsdInputCommand& request,
         const std::string& requestFingerprint) override;
 
+    // One-shot, private SO_PEERCRED control-plane only; never a SVDRP writer.
+    SuiteBridgeCommandReply discoverSearchTimerCas();
+    SuiteBridgeCommandReply observeSearchTimerCas(int nativeId);
+    SuiteBridgeCommandReply executeSearchTimerCas(
+        const std::string& action,
+        const std::string& operationId,
+        const std::string& requestFingerprint,
+        int nativeId,
+        const std::string& generation,
+        const std::string& revision,
+        const std::string& settings);
+
     SuiteBridgeCommandReply discoverNativeProbe() override;
     SuiteBridgeCommandReply executeNativeProbe(
         const SuiteBridgeNativeProbeRequest&) override;

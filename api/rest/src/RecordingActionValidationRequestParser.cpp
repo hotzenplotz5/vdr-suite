@@ -2,6 +2,7 @@
 
 #include "RecordingActionUtils.h"
 
+#include <algorithm>
 #include <map>
 #include <string>
 
@@ -89,7 +90,7 @@ std::string trim(
 }
 
 std::map<std::string, std::string> parseFlatObject(
-    const std::string& body)
+    const std::string& body, bool strictPublic = false)
 {
     std::map<std::string, std::string> values;
     std::size_t position = 0;
@@ -129,10 +130,10 @@ std::map<std::string, std::string> parseFlatObject(
         std::string value;
         if (position < body.size() && body[position] == '"')
         {
-            if (!parseJsonString(body, position, value))
-            {
+            if (strictPublic && (key == "dryRun" || key == "confirmDelete"))
                 return {};
-            }
+            if (!parseJsonString(body, position, value))
+                return {};
         }
         else
         {
@@ -140,16 +141,18 @@ std::map<std::string, std::string> parseFlatObject(
             while (position < body.size() &&
                    body[position] != ',' &&
                    body[position] != '}')
-            {
                 ++position;
-            }
             value = trim(body.substr(valueStart, position - valueStart));
+            if (strictPublic &&
+                ((key != "dryRun" && key != "confirmDelete") ||
+                 (value != "true" && value != "false")))
+                return {};
         }
 
+        if (strictPublic && (key.empty() || values.count(key) != 0U))
+            return {};
         if (!key.empty())
-        {
             values[key] = value;
-        }
 
         skipWhitespace(body, position);
         if (position >= body.size())
@@ -271,4 +274,92 @@ RecordingActionRequest RecordingActionValidationRequestParser::parse(
     }
 
     return request;
+}
+
+
+bool RecordingActionValidationRequestParser::parsePublic(
+    const std::string& body, RecordingActionRequest& request) const
+{
+    request = RecordingActionRequest{};
+    if (body.size() > 4096U)
+        return false;
+
+    const auto values = parseFlatObject(body, true);
+    if (values.size() < 3U)
+        return false;
+    for (const auto& item : values)
+    {
+        if (item.first != "backendId" && item.first != "recordingId" &&
+            item.first != "action" && item.first != "dryRun" &&
+            item.first != "newName" && item.first != "targetFolderId" &&
+            item.first != "confirmDelete")
+            return false;
+    }
+
+    const std::string backend = getValue(values, "backendId");
+    const std::string id = getValue(values, "recordingId");
+    const std::string action = getValue(values, "action");
+    if (backend.empty() || backend.size() > 128U ||
+        !std::all_of(backend.begin(), backend.end(), [](unsigned char c) {
+            return (c >= 'a' && c <= 'z') ||
+                (c >= 'A' && c <= 'Z') ||
+                (c >= '0' && c <= '9') || c == '.' || c == '_' || c == '-';
+        }) ||
+        id.size() != 36U || id.compare(0, 4, "rec_") != 0 ||
+        !std::all_of(id.begin() + 4, id.end(), [](unsigned char c) {
+            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+        }) ||
+        (action != "RENAME" && action != "MOVE" && action != "DELETE"))
+        return false;
+
+    request.backendId = backend;
+    request.recordingId = id;
+    request.type = fromString(action);
+    request.dryRun = parseBool(values, "dryRun", true);
+
+    // Public rename is a single display-name component, not a path.
+    const std::string newName = getValue(values, "newName");
+    if ((!newName.empty() && action != "RENAME") ||
+        newName.size() > 255U ||
+        newName == "." || newName == ".." ||
+        newName.find('/') != std::string::npos ||
+        newName.find('\\') != std::string::npos ||
+        newName.find('~') != std::string::npos ||
+        std::any_of(newName.begin(), newName.end(), [](unsigned char c) {
+            return c < 0x20 || c == 0x7f;
+        }))
+        return false;
+    if (!newName.empty())
+        request.parameters["newName"] = newName;
+
+    // R3: only opaque folder identities from the existing Recording browse
+    // hierarchy are accepted. Client targetPath is never a Public-v1 field.
+    const std::string folderId = getValue(values, "targetFolderId");
+    if (action == "MOVE")
+    {
+        if (folderId.size() != 37U ||
+            folderId.compare(0, 5U, "fld1_") != 0 ||
+            !std::all_of(folderId.begin() + 5, folderId.end(),
+                [](unsigned char c) {
+                    return (c >= '0' && c <= '9') ||
+                           (c >= 'a' && c <= 'f');
+                }))
+            return false;
+        request.parameters["publicTargetFolderId"] = folderId;
+    }
+    else if (!folderId.empty())
+    {
+        return false;
+    }
+
+    const auto confirmation = values.find("confirmDelete");
+    if (confirmation != values.end())
+    {
+        if (action != "DELETE")
+            return false;
+        if (confirmation->second == "true")
+            request.parameters["publicDeleteConfirmed"] = "1";
+    }
+
+    return true;
 }

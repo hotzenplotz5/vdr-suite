@@ -371,5 +371,29 @@ int main()
         assert(httpClient.requests().size() == 1);
     }
 
+    // R2: public If-Match must fence the independently repeated provider
+    // preview, before its validate/execute endpoints are contacted.
+    {
+        SequenceHttpClient httpClient({
+            response(200,
+                "{\"executable\":true,"
+                "\"revision_recordings_state\":111,"
+                "\"revision_timers_state\":222}")
+        });
+        RestfulApiRecordingActionBackendExecutorAdapter adapter(
+            safeConfig(true), httpClient);
+        RecordingActionJobPayload payload = renamePayload(false);
+        payload.parameters["publicExpectedRecordingsState"] = "112";
+        payload.parameters["publicExpectedTimersState"] = "222";
+        const RecordingActionExecutionResult mismatch =
+            adapter.execute(payload);
+        assert(!mismatch.success);
+        assert(mismatch.errors.size() == 1U);
+        assert(mismatch.errors[0] == "public recording revision conflict");
+        assert(httpClient.requests().size() == 1U);
+        assert(httpClient.requests().at(0).url ==
+            "/recordings/rename/preview.json");
+    }
+
     return 0;
 }

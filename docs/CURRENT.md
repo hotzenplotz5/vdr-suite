@@ -1,10 +1,566 @@
 # VDR-Suite Current State
 
+> **P1 Source candidate (23.10.2026; branch `work/public-v1-p1-resume-device-playback-20261023`, not yet merged):** Existing Continue Watching persistence has a revision-based CAS candidate and the established Device Recording playback authority now exposes a **Device-actor-private** progress GET/POST plus a bounded, per-entry-revalidated Continue Watching GET collection. The P1 branch now contains an explicit administrator Browser Session + CSRF + CAS association API for an active Human Account; Pairing alone does **not** link a Human Account. The Device and Account playback grants are intersected on every progress request. Source validation and Real-VDR acceptance are still pending, so Browser→Device / Device→Device Human-Account sharing is **not** proven or released. The new public route is not a replacement for the existing browser Continue Watching flow. Unit, production-composition, CI and Real-VDR evidence must be tracked separately; no live install/restart performed, no Phase 70 kickoff. See `api/device-recording-playback.md`.
+
+> **Public API v1 final acceptance:** Implementation comes first; real-yaVDR
+> verification happens **once, at the end**, against one exact integration
+> commit. The central [Public-v1 real-VDR acceptance checklist](development/public-v1-final-hardware-acceptance.md)
+> covers every Public-v1 domain and its security/rollback cases. Prior
+> domain-specific test records remain historical evidence, **not** permission
+> to repeat destructive hardware scenarios or claim the new combined build
+> accepted. Do not create parallel S1/test-slice checklists.
+
+
+## Public-v1 Recording R2/R3 — REAL yaVDR acceptance CLOSED (2026-10-21)
+
+**Exact source and installed daemon:** `13e63d277deb5c9e0230f757a8c5733f6e7b0cbb`. Installed/running SHA-256 matched `aca41b516e59375cca0cfb8d3e0c63043d1cb71d90df0282cf4b73d3b48a82f5`, service active. At this exact source SHA all four GitHub workflow runs passed (R2 Recording + Genre #165, Recording R2 Candidate #124, VDR-Suite CI #10597, VIDAA Device tracks/index/SRT #146).
+
+**Public Recording collection fixed:** ADR-0035's lightweight VDR startup snapshot intentionally omits Recordings. The flat Public-v1 route mistakenly read this snapshot and returned HTTP 200 with zero items. Commit `13e63d2` switched the flat lookup to the existing backend-scoped `VdrRecordingCacheRepository`, gated on cache state `ready`, without a new loader, index, schema, identity source, or legacy API change. On the real host, the authenticated Public-v1 collection returned **1,037** items *before* the action test and uniquely resolved the approved Brisant source.
+
+**R2/R3 hardware verification PASS:** The user explicitly approved Brisant (`/Brisant/2026-10-21.17.15.1-0.rec`, backend `default`, public ID `rec_f30ec344800ac3135114c7770e823343`, 57 MB) for RENAME → MOVE to the existing `Action` folder → DELETE. Human Account/CSRF and all three Validate/Dry-run pairs passed. Each actual RENAME, MOVE and DELETE succeeded with provider and public-identity readbacks. An initial DELETE-stage HTTP timeout occurred before a real DELETE request; read-only RESTfulAPI inventory confirmed the moved recording was still present; a subsequent expressly authorized DELETE-only invocation performed one real write and verified native absence and public-ID retirement. Final output: `API_V1_RECORDING_HW_ACCEPTANCE=PASS`, `AUTOMATIC_RETRY=DISABLED`. **The fixture is deleted. Never reuse its ID or rerun its destructive acceptance.** See [R2/R3 Real-Hardware Closeout](development/public-v1-recording-r2r3-hardware-acceptance-20261021.md).
+
+**Safety boundary:** This closes only the bounded real-host R2/R3 actions, not crash-durable idempotency, arbitrary productive Recording deletion, or another client's runtime acceptance. Unknown outcomes after real mutation calls remain fail-closed: no blind retries.
+
+## Post-R3 Public-v1 execution checkpoint — ADR-0068 router modularization CLOSED (2026-10-22)
+
+The binding [ADR-0068](adr/ADR-0068-public-api-router-modularization-checkpoint.md) / [Strict Roadmap](planning/roadmap.md) sequence remains R1 → R2 → R3 → **behavior-preserving `ApiRouter` / `PublicApiRuntime` modularization** → E1 → E2 → M1 → M2 → S1 → P1. The bounded R2/R3 hardware proof is complete and is **not** to be repeated for this source refactor.
+
+The ADR-0068 source implementation is assembled through **one branch / [PR #517](https://github.com/hotzenplotz5/vdr-suite/pull/517)**: GET domain dispatch, ordered POST domain dispatch, callback lifecycle separation, source-guard adaptation and a [Public-v1/Legacy method contract reconciliation](development/adr-0068-public-legacy-contract-reconciliation.md). The original route bodies, callback slots, security gates, headers, permissions, identity, persistence, executor and legacy routes have no intended functional change. See the [single-branch implementation record](development/adr-0068-single-branch-read-dispatch-progress.md) for exact provenance and outstanding gates.
+
+**Checkpoint accepted:** PR #517 is merged as `6c05493ad53c82e19fef4a2bc70e09bc1603e0c8`; four CI tracks passed at both the final PR head and merge head. See the exact run links and scope limits below. The separate E1 task follows this documentation closeout; it does **not** reopen Phase 69 or start Phase 70. Device/Multiuser, MLD and Addon workstreams remain independent.
+
+## ADR-0068 closeout — merged and source-CI accepted (2026-10-22)
+
+- Exactly one source branch `work/adr0068-router-modularization-20261022` and [PR #517](https://github.com/hotzenplotz5/vdr-suite/pull/517); final PR head [`867f43b67e88f6b9c904db5b98e99ce1b79ff784`](https://github.com/hotzenplotz5/vdr-suite/commit/867f43b67e88f6b9c904db5b98e99ce1b79ff784) merged at 2026-10-22 06:28 UTC as [`6c05493ad53c82e19fef4a2bc70e09bc1603e0c8`](https://github.com/hotzenplotz5/vdr-suite/commit/6c05493ad53c82e19fef4a2bc70e09bc1603e0c8) on `main`.
+- **Exact PR-head CI: all four SUCCESS.** [VDR-Suite CI #39732810337](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39732810337), [Recording R2 Candidate #39732810313](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39732810313), [R2 Public-v1 Recording + Genre #39732810379](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39732810379), [VIDAA Device tracks/index/SRT #39732810321](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39732810321).
+- **Exact merge-head CI: all four SUCCESS.** [VDR-Suite CI #39734109317](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39734109317), [Recording R2 Candidate #39734109278](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39734109278), [R2 Public-v1 Recording + Genre #39734109337](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39734109337), [VIDAA Device tracks/index/SRT #39734109258](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39734109258).
+- Domain GET dispatch, ordered six-domain POST dispatch, separated callback/admission lifecycle, OpenAPI/source guard updates and [Public-v1/legacy route-contract reconciliation](development/adr-0068-public-legacy-contract-reconciliation.md) are **source-merged without intended behavior change**. Existing security gates, identity owners, response contracts and legacy route ownership remain authoritative.
+- **Limits:** the route reconciliation documents **60 previously audited OpenAPI method/path entries**, not a proof of complete Public-v1 route or schema coverage. Source equivalence plus CI are **not** a claim of installed yaVDR daemon, runtime deployment, full contract conformance, new hardware acceptance, or blanket client acceptance. The historical R2/R3 acceptance is distinct and must not be repeated automatically.
+- **Next:** independently authorized E1 extends existing EPG-cache-window retrieval via bounded deterministic continuation on the single new branch `work/public-v1-e1-epg-window-20261022`. E1 is not part of the ADR-0068 refactor and does not start Phase 70; E2/M1/M2/S1/P1 remain outside E1.
+
+## Public API v1 E1 — source merged, post-merge CI passed (2026-10-22)
+
+- **Only E1 branch / PR:** `work/public-v1-e1-epg-window-20261022`, [PR #519](https://github.com/hotzenplotz5/vdr-suite/pull/519), based directly on `main` at [`6c05493ad53c82e19fef4a2bc70e09bc1603e0c8`](https://github.com/hotzenplotz5/vdr-suite/commit/6c05493ad53c82e19fef4a2bc70e09bc1603e0c8). **Source candidate:** [`508448f8b2e89c980987b1d14ab788f655e0757a`](https://github.com/hotzenplotz5/vdr-suite/commit/508448f8b2e89c980987b1d14ab788f655e0757a).
+- **All four exact-product-head GitHub workflows succeeded:** [VDR-Suite CI #39740219807](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39740219807), [Recording R2 Candidate #39740219731](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39740219731), [R2 Public-v1 Recording + Genre #39740219724](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39740219724), [VIDAA Device tracks/index/SRT #39740219759](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39740219759). Ten individual check runs were successful. A subsequent documentation-only commit may preserve this product evidence without requiring another daemon build.
+- **Scope delivered in source:** `GET /api/v1/epg/window` retains a maximum of 192 events per response but can traverse a larger requested interval through deterministic `ew1_` cache-keyset continuation. It uses the existing EPG repository only, preserves actual native-EventID provenance, rejects invalid/stale cross-scope cursors, and retains single-backend authorization. Focused HTTP, SQLite repository and SecurityHttpGate tests plus [the client contract guide](../api/public-epg-window-pagination.md) cover old 12-hour callers, multi-day pages, equal starts, legacy cache-only identities and error paths.
+- **Non-goals and remaining gates:** No timer writes, provider switch/fallback, new EPG backend cache, installation, MLD/VIDAA deployment or production yaVDR hardware/TV acceptance. E1 was **merged** in [PR #519](https://github.com/hotzenplotz5/vdr-suite/pull/519) at [`ea7acfec7dd1b1f20aa49a479e3ca4a48bab0418`](https://github.com/hotzenplotz5/vdr-suite/commit/ea7acfec7dd1b1f20aa49a479e3ca4a48bab0418). All four post-merge workflows passed: [VDR-Suite CI #39746706005](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39746706005), [Recording R2 Candidate #39746705850](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39746705850), [R2 Public-v1 Recording + Genre #39746705884](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39746705884), [VIDAA Device tracks/index/SRT #39746705799](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39746705799). Deployment remains separately gated. E2/M1/M2/S1/P1 and Phase 70 are not opened by this source candidate.
+
+## Public API v1 E2 — source closeout, bounded native CREATE hardware PASS (2026-10-22)
+
+- **Source FERTIG:** The native one-shot EPG → TimerIntent path from PR #500 is on `main`. Confirmed `registerEpgTimerIntentSubmit` runtime composition, exact event identity/ETag, backend-scoped actor/write authorization, VDR-local native CLOCK plus read-only NTPREVIEW, atomic Intent/Assignment/Operation and scoped durable replay, Agent CREATE and native readback. Public HTTP and security tests, atomic transaction regressions, productive-runtime guards and existing CI cover these paths; no new E2 product implementation is required.
+- **Contract corrected:** `SecurityHttpGate` already allows either an explicitly authorized paired Device with exact `timers.create@backendId`, or an authenticated Browser administrator with `role.admin` on the selected backend (or `*`) and CSRF; ordinary Human `timers.create` alone is insufficient. The OpenAPI/EPG contract previously said Device-only despite the tested administrator branch. E2 documentation now reflects the implemented policy; no privileges were added.
+- **Real hardware FERTIG for one bounded case:** On 2026-10-19 the installed `git-f7e341ad6b97` daemon created precisely one *Tagesschau* timer for 2026-10-20 via Public-v1 Device CREATE and observed `succeeded` plus native readback. No repeat test or second timer required.
+- **Additional real/operational acceptance OPEN:** Backend Agent autostart was disabled; reboot availability, resulting recording/playback, browser-admin live flow, unresolved native `outcome_unknown` recovery and varied devices/tuners/backends remain unverified. Never conflate these with a proven source defect or allow blind retries.
+- **Outside E2:** Hisense app/remote UI acceptance, SearchTimer, MODIFY/DELETE, general multi-backend planner, recurring/encrypted overlap scenarios. E2 source closeout does not approve installation, service restart or timer mutation. Full evidence: [API EPG TimerIntent contract](../api/epg-timer-intents.md).
+
 ## Operational status authority
 
 **This file is the sole repository authority for volatile operational phase status.**
 
 Stable architecture, historical evidence and workflow rules live in their respective ADRs, roadmap and closeout documents. Exact live GitHub state must still be re-read before implementation, review-state or merge actions.
+
+## Consolidated API v1 / VIDAA Timer work (2026-10-19, hardware CREATE accepted for one bounded case)
+
+### Public/native Timer specification boundary preserved (2026-10-19)
+
+The public MODIFY request previously included an internal
+`NativeTimerSpecification` type directly, violating the existing
+Phase-69.C API-domain separation. It now uses a bounded, backend-neutral
+public change-field DTO. Conversion to the internal native specification
+happens only inside the authenticated daemon callback, followed by
+the unchanged native validation before accepting a durable operation.
+No internal TimerAssignment desired specification is exposed publicly.
+
+### Native Timer MODIFY contract, OpenAPI and focused test (2026-10-19)
+
+The POST `/api/v1/native-timers/{timerId}/modifications` contract is now
+audited in the Public-v1 OpenAPI inventory, with one complete UPDATE body
+or one explicit TOGGLE boolean; it requires a device-scoped
+`timers.modify` grant, strong `If-Match`, `Idempotency-Key`, exact backend
+and durable acceptance. The focused HTTP test covers 202/replay,
+revision conflict, external adoption refusal, incomplete/duplicate
+fields, malformed preconditions and missing backend service. Current
+GitHub CI must still verify compilation and route integration.
+
+### Public native Timer modification HTTP request contract (2026-10-19)
+
+A bounded asynchronous `POST /api/v1/native-timers/{timerId}/modifications?backendId=...`
+now exists at PublicApiRuntime source level. The strict JSON body is
+either `{"kind":"toggle","enabled":false}` / `true`, or
+`{"kind":"update",...full native Timer specification...}` with
+exactly 11 specified fields. The route requires exact backend, strong
+`If-Match`, `Idempotency-Key`, valid JSON Content-Type and a
+registered durable operation-admission callback. Unknown/duplicate
+keys, partial field updates and unsafe native command strings are
+rejected. Device authorization and the Daemon admission callback must
+be joined before MODIFY becomes accessible in production.
+
+### Explicit Device grants for timer MODIFY/DELETE (2026-10-19)
+
+The Device-grant administration allowlist previously supported
+`timers.create` but **not** `timers.modify` or `timers.delete`.
+The latter already had an authenticated HTTP route but could never
+be approved for a paired TV. Both rights can now be explicitly granted
+or revoked by an administrator on one concrete backend. Wildcard,
+empty and parent scopes are denied. This does not grant new privileges
+to any existing VIDAA pairing or bypass the exact grant check on a
+public write endpoint. An end-to-end grant/revoke regression is included.
+
+### Native MODIFY joined the productive Daemon polling loop (2026-10-19)
+
+Daemon lifetime now owns the UPDATE/TOGGLE dispatcher, Agent assignment
+service, native Timer observation verifier and completion service.
+Polling enumerates the two MutationOperation families and acquires
+an independently parsed, directly fetched RESTfulAPI Timer observation
+from the exact backend Agent generation. The shared operation is marked
+succeeded only after all requested Timer fields match and the binding
+revision is verified. This source-level production composition does
+not expose MODIFY HTTP admission, require a host restart or imply
+hardware acceptance. Legacy Phase-64 architecture checks must still
+validate this successor.
+
+### Native UPDATE/TOGGLE productive runner (2026-10-19, source)
+
+A bounded Daemon MODIFY runner now shares the Phase-64 operation,
+intent, assignment and native binding repositories. Before claim it
+rechecks the exact current binding fingerprint, assignment/intent
+revisions, backend generation, ownership, active Agent lease and
+observation freshness. It allocates one provider-fenced native
+UPDATE/TOGGLE command, applies only typed result evidence, and
+marks the MutationOperation succeeded **only after** the
+`NativeTimerModifyReadbackVerificationService` verifies the exact
+updated native Timer observation and completion advances the shared
+operation state. Unknown Agent results are reconciled, not resent.
+Production polling composition and authenticated public API admission
+are still outstanding.
+
+### Direct native MODIFY readback reader (2026-10-19)
+
+A new RESTfulAPI readback reader fetches the exact native Timer state
+from VDR, not a cached Daemon snapshot. It requires two successful
+direct reads: a strict complete inventory and a full Timer field
+projection with an identical unique native ID set. HTTP errors,
+truncation, inconsistent snapshots, absent IDs and incomplete Timer
+fields fail closed. The resulting `NativeTimerObservation` is suitable
+for the Phase-64 MODIFY verification service, which must still compare
+all requested fields and update the binding before operation completion.
+No public MODIFY endpoint has been enabled.
+
+### MODIFY durable Control-Plane operation outcomes (2026-10-19)
+
+The Daemon has a typed UPDATE/TOGGLE Agent-result bridge, based on the
+existing Phase-64 `NativeTimerModifyDispatchService`. It validates the
+Agent command envelope, persisted starting/dispatch times, complete
+operation payload, target specification, binding identity and provider
+generation before advancing a shared `MutationOperation`. This bridge
+does **not** by itself mark a Timer modified: the target native Timer must
+still be observed and verified by the separate MODIFY readback stage.
+Polling and public HTTP MODIFY admission are not wired yet.
+
+### MODIFY Agent typed result wired to durable StateStore (2026-10-19)
+
+Native UPDATE and TOGGLE now persist their canonical typed result
+evidence through `BackendAgentCommandStateStore` on successful execution,
+unknown outcomes and subsequent restart/replay. The Agent compares the
+reconstructed result to the exact durable local MODIFY extension before
+resending, and rejects evidence conflicts. The same narrowly defined
+expired-before-dispatch exception applies to MODIFY operations, but no
+operation that might have reached the VDR may omit typed evidence.
+No public mutation or real hardware modification was invoked.
+
+### Timer MODIFY native result evidence (2026-10-19)
+
+Native UPDATE and TOGGLE now have a canonical, bound, length-safe Agent
+result evidence contract, matching the existing DELETE operation pattern.
+It carries the durable local-starting, dispatch and completion times and
+rejects tampered or mismatched Agent assignments. The focused native
+MODIFY contract test checks roundtrip and trailing-field tampering.
+The public write method and Daemon outcome dispatcher remain separate
+work; this change does not modify VDR timers.
+
+### Public Timer MODIFY – Agent capability lifecycle (2026-10-19)
+
+The native UPDATE/TOGGLE Phase-64 assignment helper previously
+revoked every advertised `vdr.timer.update`/`vdr.timer.toggle`
+capability and recreated old dormant triggers each time an operation
+was assigned. This would have made any public MODIFY API permanently
+unexecutable despite a healthy live SuiteBridge capability report.
+The unique operation index remains enforced, but assignment no longer
+removes capabilities. Agent schema initialization and capability refresh
+also remove these legacy triggers, with the architecture guard
+explicitly rejecting capability revocation. Source-level change only;
+public MODIFY and live hardware acceptance are not yet claimed.
+
+### Native Timer DELETE expiry regression (2026-10-19)
+
+The follow-on fast-regression failure at
+`test_backend_agent_timer_delete_fresh_durable_starting.cpp:292`
+was caused by the new typed-result StateStore check: a command
+rejected after its deadline **before dispatch** correctly has no
+native starting extension. The StateStore now accepts that one exact
+expired, effect-free result without a typed native outcome, while
+every started DELETE still requires verified canonical evidence.
+The regression also confirms persisted reload and rejects a changed
+outcome category.
+
+### Agent DELETE result replay persistence corrected (2026-10-19)
+
+Current-head Fast Regression and Recording-R2 builds both failed at
+`test_backend_agent_timer_delete_durable_executor_outcome.cpp:342`:
+fresh DELETE wrote canonical `resultEvidence`, but the Version-3
+`BackendAgentCommandStateStore::load` reconstructed that field only
+for native CREATE and left the DELETE field empty. The subsequent
+reconcile therefore (correctly) rejected the generic result as conflicting
+with its immutable local evidence. DELETE now reconstructs the typed
+result from the completed, validated local extension on reload and
+checks the exact canonical equality before persisting, mirroring
+CREATE's existing guarantee. Focused replay regression asserts
+reload stability and rejects tampered evidence without rerunning VDR.
+
+### Phase-64 Agent DELETE contract check recognizes bounded daemon consumer (2026-10-19)
+
+After three native DELETE source-manifest checks were updated, CI advanced
+to a fourth guard that still prohibited using the pure DELETE domain
+validator inside `mk/daemon-sources.mk`. The later verified daemon
+successor now qualifies as a second audited consumer **only** when
+provider-fenced Agent assignment, typed result correlation and
+complete-inventory absence readback are present. The Agent remains the
+only native executor; other source manifests are still prohibited.
+
+### DELETE successor architecture-check fix (2026-10-19)
+
+Two CI workflows on HEAD `5e7d714` failed at the same legacy Phase-64
+`NativeTimerDeleteOperationCompletionService.cpp` source-manifest
+prohibition. Slice-21/22/23 audit scripts now admit only the actual
+`mk/daemon-sources.mk` successor if it simultaneously links preparation,
+dispatch, completion, typed Agent outcome handling and the bounded DELETE
+runner with existing exact-binding preflight, provider fences and
+native-inventory absence verification. No unrelated manifest, operation,
+API or direct VDR mutation is allowed. The fix addresses the identified
+CI root cause; subsequent CI must still prove C++ build and the
+protected public DELETE regression.
+
+
+
+**Historical consolidation:** Backend [PR #500](https://github.com/hotzenplotz5/vdr-suite/pull/500) merged into `main` as [`ba083044ad661cbd8d979b5dc66b9eb3c3857f98`](https://github.com/hotzenplotz5/vdr-suite/commit/ba083044ad661cbd8d979b5dc66b9eb3c3857f98) on 2026-10-21. The independent VIDAA source branch `work/vidaa-epg-timer-operation-readback-20261017` has separate client/release gates. This merge does not mean the current `main` daemon is installed on yaVDR or the Hisense UI is accepted.
+
+### Real public-v1 one-shot Timer CREATE acceptance (2026-10-19; current evidence)
+
+**Hardware milestone:** The installed daemon identified itself as
+`git-f7e341ad6b97` ([commit](https://github.com/hotzenplotz5/vdr-suite/commit/f7e341ad6b9730bc35bf223c26a04f5b1df39ce8));
+yaVDR ran VDR 2.8.3 with SuiteBridge 0.14.1. An administrator-approved
+**temporary** paired Device received backend `default` permissions
+`epg.view` and `timers.create`. Real public
+`POST /api/v1/epg/timer-intents` with a strong event ETag and unique
+idempotency key returned **202**, durable Operation
+`op_d9589fb8b43b7d91ac4309423a2fc372` became **`succeeded`**,
+and the native VDR readback found **one and only one new** timer for
+**Tagesschau**, channel `C-1-1051-10301`, event `13520`,
+**2026-10-20 20:00–20:15 Europe/Berlin**. Before: 0 VDR Timers;
+after: 1; `VDR_READBACK=PASS`; `TEST_RESULT=PASS`. The temporary
+test Device was revoked, and the administrator logged out. The native
+Timer remains in place. This is an actual Public-v1-to-VDR end-to-end
+test, **not** SVDRP NEWT or a mock. See
+[exact bounded evidence and prerequisites](../api/epg-timer-intents.md).
+
+**Operational finding and remaining gates:** First HTTP **503** was
+caused by inactive/disabled Backend Agent with expired lease, stale
+provider facts and a mismatched SuiteBridge provider epoch. The Agent
+was deliberately started, lease/provider facts refreshed, exact
+backend-local native clock and `NTPREVIEW CHECK 1` returned attested
+`isolated_clear`, and the real POST then succeeded. Agent **autostart
+remains disabled**; host reboot/identity reuse still need verification.
+The actual programme recording on 2026-10-20, subsequent recording
+integrity, ambiguous `outcome_unknown` resolution, restart/reconciliation,
+concurrency, overlaps, encryption, recurrence and multi-backend cases
+are **not yet accepted**. Historical Agent reconciliation records must
+not be replayed/reset; existing VIDAA Device grants stay unchanged.
+See [packaging boot opt-in](../debian/README.md#after-enrollment-boot-activation-operator-opt-in-not-package-auto-start).
+Earlier read-only sections below are timestamped *pre-acceptance*
+checkpoints; assertions there that no live CREATE/readback occurred
+are **superseded for this single case** by the acceptance here.
+
+**Client follow-on:** The separate VIDAA work branch
+`work/vidaa-epg-timer-operation-readback-20261017` now retains the last
+accepted Operation across EPG navigation in the app session, distinguishes
+`outcome_unknown`/conflicts, and does not retry native CREATE. Its
+[exact-head CI #1412](https://github.com/hotzenplotz5/vdr-suite-vidaa/actions/runs/39277372021)
+passed at `b6720d3ab67f86ffc055898c7ca24f568bfb1bc9`.
+**Hisense deployment and functional TV acceptance are still PENDING.**
+PR #500 was merged on 2026-10-21. The installed daemon's recorded source ID
+`git-f7e341ad6b97` is not a proof of the later merged `main` head.
+
+### Native DELETE absence verification now covered by successor guards (2026-10-19)
+
+The original readback expectation and verification architecture guards
+continue rejecting arbitrary runtime uses. Their only newly permitted
+consumers are the explicit daemon DELETE runner and daemon composition
+files, and only when the successor contains exact operation/Agent-result
+fences, a complete generation-fenced native inventory and a
+verification-before-completion sequence. This replaces obsolete
+"readback is always premature" assumptions without bypassing them.
+
+### Typed DELETE executor guard follows its extracted helper (2026-10-19)
+
+The Phase-64 executor architecture check now verifies that the complete
+dedicated Agent handler persists typed result evidence, instead of
+erroneously searching only the fresh-execution subroutine tail for a
+projection helper defined before that subroutine. The one-shot executor
+and receipt/durability fences are unchanged.
+
+### Native DELETE capability lifecycle fixed (2026-10-19)
+
+The Phase-64 `ensureNativeTimerDeleteAssignmentSchema` previously
+deleted the authenticated Agent's `vdr.timer.delete` capability row and
+recreated its obsolete dormant trigger on **every assignment**. The
+productive DELETE loop therefore could never reach an executable Agent
+command after a healthy capability refresh. It now keeps the unique
+operation index, removes the legacy dormant trigger and leaves live
+capability facts to the existing provider-fenced Agent polling path.
+A regression checks that a replay assignment preserves the advertised
+capability. Explicit successor audit rules admit only the named daemon
+native-inventory consumer while retaining the Phase-64 restrictions on
+unrelated callers.
+
+### Native DELETE repository successor boundary (2026-10-19)
+
+The old Phase-64 repository source guard now explicitly audits only
+named daemon DELETE files against the durable typed Agent result and
+native absence readback; it does not permit general API, Agent or VDR
+repository bypasses. The legacy CREATE repository scope is unchanged.
+
+### HTTP DELETE fallback compatibility correction (2026-10-19)
+
+The public DELETE route is dispatched explicitly, but all other
+previously read-only Public-v1 resources must still report HTTP 405
+for DELETE, not fall through unhandled. The public runtime
+unsupported-method matrix is restored to the original GET/POST
+exception while the new audited DELETE handler remains separate.
+The OpenAPI drift guard now anchors on the exact DELETE dispatch
+path check, not its GET equivalent.
+
+### Native DELETE successor architecture guards updated (2026-10-19)
+
+Legacy Phase-64/Phase-69 source guards that universally prohibited
+productive native DELETE source are extended only for the exact named
+DELETE runtime/outcome files. The successor requires typed Agent evidence,
+the existing public DELETE preflight, shared Operation dispatch and complete
+native readback. The previous generic outcome-timestamp string check was
+upgraded to require typed persisted resultEvidence instead. Existing CREATE
+checks remain unchanged. CI is still the actual acceptance authority.
+
+### Native Timer DELETE API-v1 admission integrated (2026-10-19; source)
+
+Public `DELETE /api/v1/native-timers/{timerId}?backendId=...`
+now enters the existing Agent/ADR-0042 pipeline. The HTTP listener routes
+DELETE with strong `If-Match`, `Idempotency-Key`, and the exact backend
+scope admitted by the SecurityHttpGate. Only a verified Device credential
+with exact `timers.delete@backend` is authorized. Admission requires
+the existing bound TimerAssignment and NativeTimerBinding, current snapshot
+fingerprint, generation, active Agent lease and fresh observation, then
+reserves an idempotent `timer.delete` operation. External and unbound
+Timers remain nondeletable until explicit adoption. OpenAPI now audits
+the public method and its headers; the focused runtime test enters
+`test-fast`. Native absence, not command acceptance, defines success.
+Hardware tests and CI confirmation remain outstanding.
+
+### Native DELETE productive daemon pipeline linked (2026-10-19; source)
+
+The existing daemon polling loop now discovers accepted DELETE operations,
+assigns a single provider-fenced command, applies canonical Agent outcome
+evidence, and verifies absence through a **complete native inventory** before
+marking the shared MutationOperation successful. The polling path uses the
+same Phase-64 dispatcher and completion services. Uncertain results are
+reconciled and never blindly repeated. The new source files are included
+in the daemon link source inventory. Public DELETE is not enabled yet
+and the Agent's deliberately dormant DELETE capability has not been
+silently overridden. The running VDR and timer schedule are untouched.
+
+### Native DELETE durable Control-Plane outcome application (2026-10-19)
+
+The daemon-side `NativeTimerDeleteResultOutcomeApplication` now
+consumes the actual typed Agent result, correlates the exact operation,
+binding, provider command identity, accepted-to-dispatching revision and
+persisted assignment timestamp, and delegates to the existing Phase-64
+`NativeTimerDeleteDispatchService::applyOutcome`. A trustworthy
+post-dispatch readback expectation is generated **only** from typed
+dispatch evidence, never from a generic success response. A missing,
+malformed or conflicting result does not mutate the operation.
+This source is not yet composed into the polling loop or publicly
+accessible, and the dormant Agent capability remains disabled.
+
+### Native DELETE Agent typed outcome persistence (2026-10-19; source)
+
+The native DELETE Agent now persists its real local starting/dispatch/completion
+timestamps and immutable operation/provider correlation into typed
+`BackendAgentCommandResult.resultEvidence`, as CREATE already does.
+Recovery checks replay the same canonical evidence; missing or changed evidence
+fails closed instead of manufacturing a readback boundary. The durable result
+can therefore be consumed by a future daemon DELETE outcome-application
+service without guessing native dispatch time. This is an actual delivery-path
+change, but public DELETE and the dormant capability gate are **not enabled**
+by this commit. No backend mutation or host test was performed.
+
+### Integration CI guard correction (2026-10-19)
+
+The new native Timer detail route is explicitly added to the audited
+partial OpenAPI GET inventory and both Phase-69 public route-literal
+classifications. Exact-head CI before this correction failed solely on
+these inventory gates in docs-check and fast-regression. The route is
+still read-only, and native DELETE remains 405. No production host,
+VIDAA identity, other branch or package was modified.
+
+### Public-v1 native Timer detail GET wired (2026-10-19, CI pending)
+
+The existing integration branch now exposes
+\`GET /api/v1/native-timers/{timerId}?backendId=...\`. SecurityHttpGate
+requires the exact \`timers.view\` backend grant. The Daemon resolves
+one matching native snapshot ID, rejects duplicates, checks Backend Agent
+generation and the existing durable NativeTimerBinding using
+\`NativeTimerPublicDetailRevision\`. A strong conditional ETag is
+returned *only* for matched, non-drifted, non-recording managed/adopted
+bindings and verified external bindings (whose \`bindingState\` is
+\`adoption_required\`). Unbound Timer snapshots return a readable
+\`binding_required\` state with **no ETag**. Mismatched fingerprints
+and generation fail closed with 503, never a synthetic revision.
+
+\`DELETE\` remains **405**, not remotely executable; public
+\`timers.delete\`, explicit external adoption, operation idempotency,
+Agent/provider dispatch and post-dispatch absence readback remain
+separately gated. OpenAPI includes this bounded GET only. The focused
+HTTP test and daemon syntax check were added to \`test-fast\` but
+their CI pass is not yet asserted. No yaVDR host changes or merges.
+
+### Native Timer single-resource revision evidence (2026-10-19; source-only)
+
+The new read-only \`NativeTimerPublicDetailRevision.h\` compares the
+full native VDR Timer snapshot against the durable NativeTimerBinding
+observed-state fingerprint and the independently supplied current Agent
+backend generation. Only an exact, present, non-recording, non-drifted
+managed/adopted binding yields a version token; externally owned bindings
+remain \`adoptionRequired\`, and unbound snapshot Timers have no
+write-precondition revision at all. Unsafe mismatches fail closed.
+The focused regression is in \`test-fast\`. This is **not yet a wired
+HTTP GET or DELETE endpoint** and does not add an implicit adoption path.
+The existing production CREATE, VIDAA identity and yaVDR host are unchanged.
+
+### Public-v1 native Timer DELETE source preflight (2026-10-19)
+
+The source-only preflight checks exact backend and native Timer identity,
+backend generation, binding revision, canonical observed-state fingerprint,
+server-required observation freshness, missing/drift and recording state.
+Externally created Timers fail closed with adoptionRequired until an
+explicit, authorized adoption/TimerAssignment relationship exists.
+This is a read-only guard and test-fast regression, not yet an HTTP DELETE
+endpoint, installed feature or hardware acceptance. Public ETag/If-Match,
+timers.delete authorization, idempotency, Agent dispatch, native readback and
+OpenAPI integration remain pending. See
+[Public Native Timer DELETE preflight](development/public-v1-native-timer-delete-preflight.md).
+
+### Agent autostart packaging handoff and next Timer v1 gates (2026-10-19)
+
+On the existing integration branch, the experimental `vdr-suite-backend-agent`
+package now stages a protected post-enrollment helper,
+`/usr/sbin/vdr-suite-backend-agent-autostart`, with `--check` and
+`--enable` and isolated no-root regression contracts. The helper checks the
+already-running `vdr:vdr` unit, local enrolled identity, configured HTTPS
+Control Plane, current online lease and fresh backend-health evidence before
+enabling **future** systemd boot startup; it never requests a service restart.
+The existing `debian/rules` `dh_installsystemd --no-enable --no-start`
+policy remains deliberately unchanged for unconfigured package installs.
+It is **not yet wired into a completed setup/first-run wizard**; it currently
+requires a same-host Control Plane/Agent, and remote-Agent automated readiness
+is a separate design task. Relevant source:
+[helper](../tools/vdr_suite_backend_agent_autostart.py),
+[package integration](../debian/vdr-suite-backend-agent.install),
+[regression test](../tools/test_packaging_backend_agent_autostart.py) and
+[operator guide](../debian/README.md#after-enrollment-boot-activation-operator-opt-in-not-package-auto-start).
+No published PPA package, live yaVDR unit or boot policy changed because of
+these source commits. **Package/CI completion, on-host activation and
+post-reboot evidence remain PENDING.** No claim that a new package installation
+automatically configures and starts an enrolled agent.
+
+**Next Timer API v1 workstream order:** (1) verify current integration
+branch/PR exact-head CI and safe package contracts without rerunning the
+accepted real CREATE; (2) for the already-enrolled yaVDR Agent, first read-only
+host preflight, then independently authorized `systemctl enable` and a later
+controlled reboot with same technical identity, fresh lease/provider facts and
+matching SuiteBridge epoch; (3) after 2026-10-20 20:15 Europe/Berlin, check
+the existing Tagesschau timer's *actual recorded file* and playable integrity
+without creating a second Timer; (4) deploy/test the existing VIDAA code on
+the Hisense TV, including remote focus, one submit, explicit Operation GET and
+uncertain-outcome handling; (5) implement Public-v1 native Timer DELETE and
+then MODIFY/enable-disable with protected permissions, exact native
+identity/revision/generation, idempotency, provider readback and
+reconciliation, including timers not originally created by Suite; and
+(6) separately expand conservative CREATE scheduling to overlaps,
+recurrences, encrypted channels, multiple tuners/backends. Public-v1
+`GET /api/v1/native-timers`, EPG TimerIntent POST, TimerAssignment reads,
+and actor-owned Operation GET already exist in source; the general
+Public-v1 native Timer DELETE/MODIFY APIs are **not yet accepted**. Never
+repeat the successful 2026-10-19 CREATE simply to reproduce it, replay
+historical `waiting_reconciliation` commands, revoke the existing VIDAA
+Device, or merge the draft PR without its outstanding gates.
+
+**Current source wiring, verified by code inspection:** `core/daemon/src/DaemonRuntimeInitialization.cpp` now **does register** `registerEpgTimerIntentSubmit()`. It composes fresh EPG detail/permission/backend policy and backend-generation fences with the read-only native VDR-local `NTCREATE CLOCK 1` projection and `NTPREVIEW CHECK 1` prospective conflict attestation; only then can `EpgTimerIntentAtomicAdmissionService` persist the controlled Intent + Assignment + Operation. The source-level provider/clock/preview checks remain intentionally conservative, especially with overlapping, repeating, encrypted or unverified-device scheduling. The old statements below that “no productive submit is registered” are **historical** and must not be used as current source truth.
+
+**Real yaVDR read-only CLOCK observation (2026-10-19):** The operator's running VDR **2.8.3** and SuiteBridge (still reporting plugin version **0.14.1**) now return `900` for `NTCREATE CAP 1` (`timer-create enabled`) and `900 vdr-suite-ntcreate-clock/1` for the UTC window `1792519200` to `1792522800`, projecting exactly `2026-10-20 20:00–21:00` VDR-local time with `7200`-second offsets at both boundaries. General `CAPS 1` still reports `mutations: disabled`; this is a separate capability. This supersedes the **historical 2026-10-18 `501 unsupported` CLOCK observation** for the *installed CLOCK command only*. The installed plugin binary's provenance/build SHA has not been verified; unchanged `0.14.1` version text is not proof of identical binaries. No plugin build, installation, timer mutation or daemon restart occurred during this read-only observation. **Still not accepted:** valid candidate `NTPREVIEW CHECK 1` on real VDR, exact backend Agent/generation wiring, real public EPG admission, native CREATE dispatch/readback/uncertain outcome, or VIDAA hardware behavior. Do not reinstall or rebuild solely because the earlier historical CLOCK probe failed.
+
+**Real yaVDR read-only NTPREVIEW handler observation (2026-10-19):** With VDR 2.8.3 running, `svdrpsend plug suitebridge NTPREVIEW CHECK 1` returned exactly `501 vdr-suite-ntpreview-rejected/1 invalid_or_stale`, as required by the intentionally incomplete request in `suitebridge_native_timer_preview_service.cpp`. The loaded module was observed in `/proc/<vdr-pid>/maps` as `/usr/lib/vdr/plugins/libvdr-suitebridge.so.14`. This confirms the NTPREVIEW command parser is reachable on the running plugin, **not** a valid signed specification, actual read-only VDR Timer/Device inventory, `isolated_clear`, or Public-v1 HTTP/timer CREATE acceptance. No production Timer was changed. Next read-only checks: determine genuine channel/timer evidence, exact plugin binary provenance, and build a valid bounded candidate without a write. No install or rebuild is justified by this handler probe alone.
+
+**Real yaVDR pre-preview inventory (2026-10-19):** The operator's read-only `LSTC` queries confirmed channel 1 `Das Erste HD`, cable SID `10301`, NID `1`, TID `1051`, RID `0` (candidate canonical VDR channel ID `C-1-1051-10301`), and channel 2 `ZDF HD`, SID `11110`, NID `1`, TID `1079`, RID `0`. `LSTT` returned `550 No timers defined`. Running VDR maps SuiteBridge from `/usr/lib/vdr/plugins/libvdr-suitebridge.so.14`; `dpkg-query -S` reported no owning package for that path, and `sha256sum` reported `735497a2a62b8909b918600b6bb3a06e2b5fdfcfe392e05ea770a5b9e60598d3`. This hash is observational provenance, not a source SHA or deployment proof. A valid, digest-bound `NTPREVIEW CHECK 1` on this real channel is **not yet executed**; none of these reads establishes tuner availability or native conflict clearance. Do not claim a package provenance, run a build, or mutate VDR on the basis of this inventory.
+
+**Real yaVDR valid native preview ACCEPTED (2026-10-19 05:43 VDR-local):** The operator verified `LSTC :ids 1` resolves `Das Erste HD` to the canonical VDR channel ID `C-1-1051-10301`, then issued a complete digest-bound `NTPREVIEW CHECK 1` against the running SuiteBridge process epoch `pie_0da79abd87186f230777a3d079255807`, candidate unix window `1792519200..1792522800` (2026-10-20 20:00–21:00 local). The **real running VDR 2.8.3** returned `900 vdr-suite-ntpreview/1 ... sha256:2637c89aa538f2b208fa07e24c0b5f92987536e74e3a8592f353104f4f6f0b6b ... 1792381404 sha256:fe55def60ee2138de415ab42b376cde5ec7a2dfea30ec4f93f2a1c1e7e7d26a7 0 2 isolated_clear`. Thus, at the observed snapshot, the plugin's complete read-only native Timer and Device inventory evaluated **zero existing Timers and two devices** and certified an isolated, compatible future one-shot candidate. This is a **positive native hardware conflict-preview acceptance**, not merely handler presence; its timestamp-bound proof expires and must be reacquired for each real EPG request. It is **not** evidence that the installed Suite daemon is on this source branch, that the EPG event/paired-Device HTTP contract succeeds, or that any native CREATE/readback took place. No Timer, build, install, or restart was performed. Remaining release gates are runtime source/binary parity, authenticated real EPG event admission, one separately approved safe CREATE with durable Operation/native readback and outcome-unknown handling, then VIDAA TV acceptance.
+
+**Real yaVDR programme identity and running Daemon provenance (2026-10-19):** Immediately after the positive native preview, the operator called `svdrpsend LSTE 1 AT 1792519200`; the running VDR 2.8.3 returned channel `C-1-1051-10301`, event ID `13520`, title **Tagesschau**, start `1792519200` (2026-10-20 20:00 local) and duration `900` seconds (ends **20:15 local**). The prior `NTPREVIEW` was deliberately a **synthetic 20:00–21:00 `VDRSuitePreview` candidate**, not an EPG-derived preview for the Tagesschau: exact title, EPG duration, and native specification digest differ. Its `isolated_clear` result is real but cannot be replayed or promoted into real EPG admission. The running `vdr-suite-daemon` executable is `/usr/sbin/vdr-suite-daemon`, SHA-256 `3f0049ffbb6a0dde92d430cccec6d1d68a2c5861d47586fc3922e9c852152eba`, observed via `/proc/1907/exe`. This is binary identity only; build commit/source parity, runtime EPG event route, paired Device grant, Agent/provider ownership, authenticated GET, native CREATE and operation readback remain unverified. Next steps are **read-only** daemon provenance, listening endpoint and authorized public EPG event lookup; no automatic POST or unapproved installation.
+
+**Real yaVDR EPG identity and running Suite daemon (2026-10-19 05:47 VDR-local):** Operator `svdrpsend LSTE 1 AT 1792519200` read the authoritative VDR EPG entry on `C-1-1051-10301` (`Das Erste HD`): native Event ID `13520`, title `Tagesschau`, Unix start `1792519200`, event duration **900 seconds**, thus EPG end `1792520100` (2026-10-20 20:15 VDR-local). The earlier positive 60-minute preview ending `1792522800` was a *synthetic one-shot candidate*, not the exact EPG event/recording specification; Public-v1 admission must independently re-attest its server-owned actual EPG schedule/defaults and cannot reuse the earlier snapshot revision. The operator read the running Daemon `/proc/1907/exe`, which resolves to `/usr/sbin/vdr-suite-daemon`, with SHA-256 `3f0049ffbb6a0dde92d430cccec6d1d68a2c5861d47586fc3922e9c852152eba`. This **binary checksum does not identify an installed source commit** or prove that consolidated EPG CREATE is live. Next bounded read-only gate: extract the installer's `git-<12hex>` embedded source marker and inspect the listener/public-v1 discovery path, without disclosing credentials; no POST, native CREATE, build, or deployment before explicit authorization.
+
+**Client progress:** VIDAA now implements an explicit EPG programme → confirm → one-shot `POST /api/v1/epg/timer-intents` → deliberate `GET /api/v1/operations/{operationId}` path in source. `202` is an admission only; a lost or ambiguous result does not cause a second CREATE. Hisense deployment and hardware acceptance remain **PENDING**. Exact current GitHub HEAD, relevant source CI and package rehearsal must be checked before any next gate, rather than inferring success from the historical snapshots below.
+
+## Historical 2026-10-18 standalone Slice-2 timeline (superseded as current branch status)
+
+Backend work branch: `work/public-v1-epg-timer-intent-admission-20261017`, current source candidate `e17786ff6f6557a2cc7e5e06e82bca0fbb3351c3`. Last **fully verified** source CI: `911beb67502f679ed88fb0b934243540f00221d4` / [39118345979](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39118345979) (six jobs PASS). The new CLOCK evidence-assembly product commit `e17786ff` has its own [CI 39119610820](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39119610820); its final result must be checked before claiming source acceptance.
+
+**Domain**: atomic EPG Intent + Assignment + Native CREATE Operation + idempotency mapping, exact rollback and replay, source-owned time guard are implemented and source-tested. **HTTP/Daemon**: authorized, read-only replay is now wired. **Productive EPG submit is NOT registered**; public CREATE remains unavailable / `503`. No authentic current proposed-timer conflict, capability/readback and backend-local offset proof has been composed in the runtime. Inspect the actual yaVDR/VDR/epgsearch read-only capabilities before completing this gate; no unsupported fake planner evidence, fallback to private API or unannounced VDR mutation.
+
+**Installed**: no new yaVDR daemon; **TV**: no new Hisense recording acceptance; **merge/main**: no change. See [Public-v1 Coverage Roadmap](planning/public-v1-coverage-roadmap.md) and [EPG Timer intent contract](../api/epg-timer-intents.md).
+
+### Native capability and VDR-local clock findings (2026-10-18)
+
+Real yaVDR read-only observations: VDR **2.8.3**, epgsearch **2.4.6**, RESTfulAPI HTTP conflict endpoint **200**, `PLUG epgsearch LSCC` returns **901 no conflicts found**, native SuiteBridge **0.14.1** responds to `PLUG suitebridge NTCREATE CAP 1` with `vdr-suite-ntcreate-cap/1 ... timer-create enabled suitebridge ... 1 1 enabled`. The general `CAPS 1` discovery's `mutations: disabled` is a distinct general module capability and does not negate this operation-specific native timer CREATE capability. **Neither result proves conflict freedom for a proposed Timer.** The local checkout HEAD `c9f9a1160` differs from this working branch; no live daemon/plugin was installed by these changes.
+
+Source work in `5ddc9d53ffb61fc9daac393254ba87e26f837cf9` adds a **read-only** `PLUG suitebridge NTCREATE CLOCK 1 <unix-start> <unix-stop>` command to the native plugin handler without changing `EXEC`. It returns exact VDR-process-local calendar/HHMM and UTC offsets for both requested times, plus SuiteBridge provider epoch/revisions. Backend Agent commit `ad4d2cd4f2e29c228244cceb6d5c0bc4c25b28af` accepts only a typed response for the exact request, local zone projection and selected provider fence. This new CLOCK command is **not present in the already installed 0.14.1 plugin** until an explicitly approved new plugin build/install. The command is not advertised in public SVDRP HELP because existing architecture security policy forbids advertising native CREATE there. The derived domain provider fence is bounded by SHA-256 in `7b38f93338db8df4c9d1333c17b3b70201114d94`, retaining the 160-byte planner limit.
+
+The source and Agent parsing still require **a real server/Agent runtime wiring and a native proposed-timer conflict preview**, neither of which is supplied by epgsearch `LSCC`. Do not call `confirmedClear`, register the productive submit, activate VIDAA recording actions, or create a native Timer based solely on successful `CAP`/`CLOCK`. The new native plugin code has standalone host CI but not a completed yaVDR/VDR-header/plugin install acceptance. No new CREATE is available on the running daemon.
+
+### Slice-2 backend CLOCK assembly and conflict-interface audit (2026-10-18)
+
+Source commit [`e17786ff`](https://github.com/hotzenplotz5/vdr-suite/commit/e17786ff6f6557a2cc7e5e06e82bca0fbb3351c3) adds `EpgNativeTimerClockAttestation.h`: a checked translation of a previously **typed, backend-originated** SuiteBridge CLOCK projection into backend-/generation-/provider-fenced `ServerOwnedNativeClockEvidence`. Source regression cases reject a mismatched native HHMM, restarted provider, stale Agent generation and wrong requested window. **The helper is not a live data producer and does not register `EpgTimerIntentSubmit`.** CI is separately tracked at [39119610820](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39119610820).
+
+An external source check of [epgsearch SVDRP](https://manpages.debian.org/testing/vdr-plugin-epgsearch/epgsearch.4.en.html) and its [public service interface](https://github.com/vdr-projects/vdr-plugin-epgsearch/blob/master/services.h) confirms `LSCC` / `TimerConflictList` list conflicts for **currently configured** timers. The conflict checker internally clones timers, but its published interface does **not** accept a candidate Timer to simulate. It cannot produce the required `proposedTimerIncluded + allExistingTimersConsidered + devicesConsidered` evidence. No "clear" proof or VDR mutation may be inferred from `901 no conflicts found`, `NTCREATE CAP`, `NTCREATE CLOCK`, or HTTP `200` on the existing conflict endpoint.
+
+Outstanding, **not accepted**: backend-native prospective Timer/device simulation; productive server-owned EPG/Agent/provider/clock/planner composition; registration of `EpgTimerIntentSubmit` only after all real proofs; live VDR-header/SuiteBridge CLOCK build and read-only acceptance; exact final-head CI and native CREATE/readback/outcome-unknown/hardware acceptance. HTTP CREATE remains fail-closed, VIDAA recording action remains disabled. No root change, plugin deployment, daemon restart, CREATE or merge was performed.
+
+### Local installed CLOCK rejection and source hardening (2026-10-18)
+
+Read-only real yaVDR probe at the locally installed checkout `c9f9a116071cf4cf4679e7bd9f39d345cd963d4d` (branch `work/mu10e3-device-credential-rotation`, **not** the Public-v1 Slice-2 source) returned **900 enabled** for `PLUG suitebridge NTCREATE CAP 1`, general `CAPS 1` with `mutations: disabled`, and **501 `vdr-suite-ntcreate-rejected/1 unsupported`** for `PLUG suitebridge NTCREATE CLOCK 1 1792222800 1792226400`. The RESTfulAPI read-only endpoint returned HTTP 200. These outcomes are consistent with an installed SuiteBridge 0.14.1 lacking the newly added CLOCK verb. They do not prove proposed-timer conflict freedom, and no install or VDR mutation was performed.
+
+Source commit `6f736d78` adds a single typed raw CLOCK-reply-to-domain-attestation entry that rejects 501, stale Provider epochs and expired Agent leases; `24111adb` relocates its transport-backed regression to the approved Timer-domain test boundary rather than widening the legacy Phase-64 architecture allowlist. The branch remains **source-only**, with productive EPG CREATE disabled. Exact-head CI: [39121803291](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39121803291), check its final conclusion separately.
+
+### Slice-2 native prospective conflict decision kernel (2026-10-18)
+
+Source commit [`54199108`](https://github.com/hotzenplotz5/vdr-suite/commit/541991083992bf71974b4bcf331a47686297b3cc) introduces a **pure, non-mutating** conservative native Timer-preview decision kernel and focused C++ regressions (`test-slice2-native-timer-preview-kernel`, part of `test-fast`). It can classify a single one-shot as a *potentially clear candidate* only when a complete native Timer snapshot contains no overlapping active timer and a complete device inventory reports a non-preempting, channel-compatible device. Recurrences, overlaps, encrypted channels, unknown future device capacity, invalid or incomplete snapshots all fail closed. This is deliberately not a clone of epgsearch's multi-device scheduling simulation.
+
+**Explicit boundary:** `candidateClear` is a local, untrusted kernel classification, **not** `ProspectiveNativeTimerConflictProof`, `confirmedClear`, a live VDR attestation or permission for CREATE. There is no SuiteBridge VDR producer, provider-bound wire verification, generation-fenced projection, or Daemon submit registration for it yet. Existing `EpgTimerIntentAtomicAdmissionService` therefore cannot accept a new public CREATE via this kernel. The old installed yaVDR plugin remains unchanged. [Kernel CI](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39123447566) must be independently checked; docs-only next head needs its own final CI check for full acceptance.
+
+### Slice-2 native read-only prospective candidate producer (2026-10-18)
+
+Source series `54199108` through `97245f5e` now includes a bounded C++ native VDR snapshot producer, a separate `NTPREVIEW CHECK 1` SuiteBridge SVDRP handler, a typed Backend-Agent transport verifier, and a conversion helper that binds the already verified prospective result to the full native Timer specification, Agent lease/generation and selected Provider epoch/fence. The source snapshot code uses `GetTimersRead`, `GetChannelsRead`, indexed `cDevice::GetDevice(index)`, `ProvidesTransponder`, `MaySwitchTransponder` and a repeated Timer state check; it does **not** write Timers, tune devices, update CAM assignments or invoke Native CREATE. Its conflict checks cover the complete VDR-minute-rounded candidate interval, including subminute edges. The native proof age is counted from the VDR observation time rather than restarted by the receiving Agent. The preview engine only returns `isolated_clear` for a complete read-only native inventory with no active overlapping Timer and at least one unoccupied, compatible device for an exactly projected free-to-air one-shot. Recurrences, overlaps, encrypted channels, races, unavailable device evidence and incomplete snapshots return **unknown**, not `confirmedClear`. A bounded rolling SHA-256 record covers all inspected facts up to 4096 Timers.
+
+**2026-10-18 native audit hardening:** Upstream VDR 2.8.3 `cDevice::GetDevice(channel, ..., Query=true)` can release an inactive CAM slot despite `Query=true`; `cDvbDevice::ProvidesChannel` also modifies its bonded-receiver flag while `const`. Neither method is called in the revised native preview. Source commit [`cd39c4e5`](https://github.com/hotzenplotz5/vdr-suite/commit/cd39c4e5752fd8dad205148ad021bee929476292) passed pinned VDR 2.8.3 header CI [39127037496](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39127037496). Minute-window and boundary regression source commit [`e500da40`](https://github.com/hotzenplotz5/vdr-suite/commit/e500da40a3ae57b3b8f4e2fd2b8d3d0898f6c4b7) also passed [pinned native header CI 39127157793](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39127157793); [full source CI 39127157979](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39127157979) must be checked independently. This is **not** an installed-plugin, production read-only, scheduler or hardware acceptance. Public CREATE remains disabled and VIDAA not accepted.
+
+**Limitations / release gate:** This is a strictly conservative prospective subset, not epgsearch's full tuner-allocation scheduler. A source mock may validate the parser, but its success must NEVER be treated as live VDR evidence. The new native VDR object and SuiteBridge entrypoint/service files now **pass syntax compilation against the exact official VDR 2.8.3 release headers**, pinned to upstream commit `339b9969b0cfaf27d3941f135e17a09b984cd094`, in [native CI 39126057133](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39126057133) on source commit `afb50c4b`. This proves source compatibility only: the plugin is **not built as a deployed binary**, installed, or accepted on real hardware. The existing SuiteBridge on yaVDR still returns `501 unsupported` for `NTCREATE CLOCK`. The Daemon has **not** registered the productive `EpgTimerIntentSubmit` callback, and no public EPG Timer CREATE is enabled. A final full-head CI acceptance plus native build/read-only preview acceptance, exact backend-scoped Daemon composition, Native CREATE/readback/outcome-unknown tests and public HTTP acceptance remain mandatory. Relevant source CI [39125145695](https://github.com/hotzenplotz5/vdr-suite/actions/runs/39125145695) must be checked at the exact head.
 
 ## Navigation
 
@@ -510,3 +1066,11 @@ Exact old candidate SHAs, CI runs and once-open follow-up notes remain valid in 
 MU.10 live authority/gap audit and bounded implementation candidate:
 [MU.10 Device/App Pairing Architecture and Gap Audit](development/post-phase69-mu10-device-app-pairing-audit.md) and
 [MU.10A Device Pairing Bootstrap](development/post-phase69-mu10a-device-pairing-bootstrap.md).
+
+> **P1 Browser CAS source candidate:** Bundled Web frontend sends an actor/
+> Recording-scoped revision read and uses the existing Continue Watching
+> SQLite CAS fence for its own playback checkpoints. Conflicting updates are
+> blocked for the old playback owner. Older nonversioned third-party legacy
+> consumers remain migration compatibility and are not included in the shared
+> race-free P1 acceptance claim. Real Web→Device and Device→Web playback
+> must still be verified on yaVDR after separate authorization.

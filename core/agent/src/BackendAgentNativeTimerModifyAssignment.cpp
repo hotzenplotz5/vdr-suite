@@ -119,16 +119,9 @@ bool BackendAgentCommandRepository::ensureNativeTimerModifyAssignmentSchema()
   "ON backend_agent_commands(backend_id,operation_id) "
   "WHERE command_type IN ('vdr.timer.update','vdr.timer.toggle');")&&
  database_.execute(
-  "DELETE FROM backend_agent_command_capabilities "
-  "WHERE command_type IN ('vdr.timer.update','vdr.timer.toggle');")&&
+  "DROP TRIGGER IF EXISTS trg_backend_agent_timer_update_dormant_capability;")&&
  database_.execute(
-  "CREATE TRIGGER IF NOT EXISTS trg_backend_agent_timer_update_dormant_capability "
-  "BEFORE INSERT ON backend_agent_command_capabilities "
-  "WHEN NEW.command_type='vdr.timer.update' BEGIN SELECT RAISE(IGNORE); END;")&&
- database_.execute(
-  "CREATE TRIGGER IF NOT EXISTS trg_backend_agent_timer_toggle_dormant_capability "
-  "BEFORE INSERT ON backend_agent_command_capabilities "
-  "WHEN NEW.command_type='vdr.timer.toggle' BEGIN SELECT RAISE(IGNORE); END;");
+  "DROP TRIGGER IF EXISTS trg_backend_agent_timer_toggle_dormant_capability;");
  if(!ok||!database_.execute("COMMIT;")){database_.execute("ROLLBACK;");return false;}
  return true;
 }

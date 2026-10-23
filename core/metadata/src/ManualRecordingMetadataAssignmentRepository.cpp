@@ -950,16 +950,48 @@ ManualRecordingMetadataAssignmentRepository::findSelected(
     const std::string& rawBackendId,
     const std::string& resourceKey) const
 {
+    return findSelectedImpl(rawBackendId, resourceKey, true);
+}
+
+ManualRecordingMetadataAssignment
+ManualRecordingMetadataAssignmentRepository::findSelectedReadOnly(
+    const std::string& rawBackendId,
+    const std::string& resourceKey) const
+{
+    return findSelectedImpl(rawBackendId, resourceKey, false);
+}
+
+ManualRecordingMetadataAssignment
+ManualRecordingMetadataAssignmentRepository::findSelectedImpl(
+    const std::string& rawBackendId,
+    const std::string& resourceKey,
+    const bool initializeSchema) const
+{
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     ManualRecordingMetadataAssignment result;
     const std::string backendId = rawBackendId.empty() ? "default" : rawBackendId;
-    if (!ensureSchemaLocked() ||
+    // The public read path must never execute CREATE/ALTER/INSERT on first
+    // access. Schema creation is owned by existing install/mutation paths.
+    const bool schemaAvailable = initializeSchema
+        ? ensureSchemaLocked()
+        : (database_.tableExists("suite_metadata_manual_assignment_values") &&
+           database_.tableExists("suite_metadata_assignments") &&
+           database_.tableExists("suite_metadata_target_bindings"));
+    if (!schemaAvailable ||
         !boundedText(backendId, 128U) ||
         !boundedText(resourceKey, 4096U, false))
         return result;
 
     sqlite3_stmt* statement = nullptr;
-    const char* sql =
+    const std::string activeBinding = initializeSchema
+        ? std::string{}
+        : "JOIN suite_metadata_target_bindings b "
+          "ON b.metadata_target_id=v.metadata_target_id "
+          "AND b.backend_id=v.backend_id "
+          "AND b.resource_key=v.resource_key "
+          "AND b.target_type='recording' "
+          "AND b.lifecycle_state='active' ";
+    const std::string sql =
         "SELECT v.backend_id,v.resource_key,v.metadata_target_id,v.metadata_assignment_id,"
         "a.metadata_entity_id,v.provider_id,v.external_namespace,v.external_id,v.media_type,"
         "v.title,v.original_title,v.overview,v.release_date,v.poster_reference,"
@@ -967,10 +999,11 @@ ManualRecordingMetadataAssignmentRepository::findSelected(
         "v.cast_complete "
         "FROM suite_metadata_manual_assignment_values v "
         "JOIN suite_metadata_assignments a "
-        "ON a.metadata_assignment_id=v.metadata_assignment_id "
+        "ON a.metadata_assignment_id=v.metadata_assignment_id " +
+        activeBinding +
         "WHERE v.backend_id=? AND v.resource_key=? "
         "AND a.assignment_state='selected' AND a.manual_assignment=1 LIMIT 1;";
-    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK)
+    if (sqlite3_prepare_v2(database_.handle(), sql.c_str(), -1, &statement, nullptr) != SQLITE_OK)
         return result;
     if (bindText(statement, 1, backendId) &&
         bindText(statement, 2, resourceKey) &&

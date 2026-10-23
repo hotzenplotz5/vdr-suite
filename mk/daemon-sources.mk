@@ -4,15 +4,27 @@ DAEMON_SRC := \
         core/operations/src/MutationOperationIdentity.cpp \
         core/operations/src/MutationOperationRepository.cpp \
         core/operations/src/MutationOperationReadService.cpp \
+        core/vdr/src/SearchTimerCreateOperationPayload.cpp \
+        core/vdr/src/SearchTimerCreateAdmissionService.cpp \
+        core/vdr/src/SearchTimerCreateDispatchService.cpp \
+        core/vdr/src/SearchTimerNativeCasContract.cpp \
+        core/vdr/src/SearchTimerNativeCasAdmissionService.cpp \
+        core/vdr/src/SearchTimerNativeCasDispatchService.cpp \
+        core/daemon/src/SearchTimerNativeCasLocalProvider.cpp \
         core/timers/src/TimerIntent.cpp \
         core/timers/src/TimerIntentRepository.cpp \
         core/timers/src/TimerAssignment.cpp \
         core/timers/src/TimerAssignmentRepository.cpp \
+        core/timers/src/TimerAssignmentSetRevisionRepository.cpp \
+        core/timers/src/TimerAssignmentPlanner.cpp \
+        core/timers/src/TimerAssignmentSchedulingService.cpp \
+        core/timers/src/TimerIntentApplicationService.cpp \
         core/timers/src/TimerAssignmentDesiredNativeTimerSpecification.cpp \
         core/timers/src/TimerAssignmentReadService.cpp \
         core/timers/src/NativeTimerBinding.cpp \
         core/timers/src/NativeTimerBindingIdentity.cpp \
         core/timers/src/NativeTimerBindingRepository.cpp \
+        core/timers/src/NativeTimerBindingReadbackService.cpp \
         core/timers/src/NativeTimerBindingReadRepository.cpp \
         core/timers/src/NativeTimerBindingWriteRepository.cpp \
         core/timers/src/TimerAssignmentFulfillmentService.cpp \
@@ -20,6 +32,8 @@ DAEMON_SRC := \
         core/timers/src/NativeTimerCreateOperationPayload.cpp \
         core/timers/src/NativeTimerCreateOperationPreparationService.cpp \
         core/timers/src/NativeTimerCreateAdmissionService.cpp \
+        core/timers/src/EpgTimerIntentAdmissionRepository.cpp \
+        core/timers/src/EpgTimerIntentAtomicAdmissionService.cpp \
         core/timers/src/NativeTimerCreateReadbackExpectation.cpp \
         core/timers/src/NativeTimerObservation.cpp \
         core/timers/src/NativeTimerCreateReadbackEvidence.cpp \
@@ -28,15 +42,35 @@ DAEMON_SRC := \
         core/timers/src/NativeTimerCreateOperationCompletionService.cpp \
         core/timers/src/NativeTimerCreateDispatchService.cpp \
         core/daemon/src/NativeTimerCreateResultOutcomeApplication.cpp \
+        core/daemon/src/NativeTimerDeleteResultOutcomeApplication.cpp \
+        core/daemon/src/NativeTimerModifyResultOutcomeApplication.cpp \
+        core/daemon/src/NativeTimerModifyProductiveRuntime.cpp \
+        core/timers/src/NativeTimerModifyOperationPreparationService.cpp \
+        core/timers/src/NativeTimerModifyReadbackVerificationService.cpp \
+        core/timers/src/NativeTimerModifyOperationCompletionService.cpp \
+        core/vdr/src/RestfulApiNativeTimerModifyReadbackReader.cpp \
+        core/timers/src/NativeTimerModifyOperationPayload.cpp \
+        core/timers/src/NativeTimerModifyDispatchService.cpp \
+        core/daemon/src/NativeTimerDeleteProductiveRuntime.cpp \
+        core/timers/src/NativeTimerDeleteOperationPreparationService.cpp \
+        core/timers/src/NativeTimerDeleteDispatchService.cpp \
+        core/timers/src/NativeTimerDeleteOperationCompletionService.cpp \
+        core/timers/src/NativeTimerAbsenceReadbackExpectation.cpp \
+        core/timers/src/NativeTimerAbsenceReadbackVerificationService.cpp \
+        core/agent/src/BackendAgentNativeTimerDelete.cpp \
+        core/agent/src/BackendAgentNativeTimerDeleteAssignment.cpp \
+        core/agent/src/BackendAgentNativeTimerDeleteLocalState.cpp \
         core/daemon/src/NativeTimerCreateReadbackReconciliation.cpp \
         core/daemon/src/NativeTimerCreateProductiveRuntime.cpp \
         core/agent/src/BackendAgentCommandReservation.cpp \
         core/agent/src/BackendAgentNativeTimerCreateReservation.cpp \
         core/agent/src/BackendAgentNativeTimerCreateActivation.cpp \
+        core/agent/src/SuiteBridgeSvdrpNativeTimerCreateTransport.cpp \
         core/recordings/src/JobRepository.cpp \
         core/recordings/src/JobDashboardService.cpp \
         core/recordings/src/RecordingRepository.cpp \
         core/recordings/src/PublicRecordingIdentityRepository.cpp \
+        core/vdr/src/PublicSearchTimerIdentityRepository.cpp \
         core/recordings/src/PublicRecordingPlaybackTargetResolver.cpp \
         core/recordings/src/PublicRecordingDevicePlaybackAdmission.cpp \
         core/recordings/src/PublicRecordingCollectionProjection.cpp \
@@ -130,6 +164,7 @@ DAEMON_SRC := \
         core/vdr/src/RestfulApiVdrTimerActionExecutorAdapter.cpp \
         api/rest/src/VdrTimerActionRequestParser.cpp \
         api/rest/src/ApiRouter.cpp \
+        api/rest/src/ApiRouterPublicRecordingActions.cpp \
         core/http/src/BasicHttpClient.cpp \
         core/http/src/SimpleHttpListener.cpp \
         core/http/src/BrowserSessionCsrfRecoveryService.cpp \
@@ -144,12 +179,19 @@ DAEMON_SRC := \
         core/media/src/FfprobeRecordingSource.cpp \
         core/media/src/FfprobeLiveSource.cpp \
         core/media/src/MediaPresentationSelector.cpp \
+        core/media/src/MediaCapabilityEvidence.cpp \
+        core/media/src/DeviceMediaCapabilityProfile.cpp \
+        core/media/src/DeviceMediaProfileRepository.cpp \
+        core/media/src/DeviceMediaProfileQuery.cpp \
         core/media/src/MediaTranscodePolicy.cpp \
         core/media/src/MediaTranscodeBackendSettingsRepository.cpp \
         core/media/src/FfmpegHlsCommandBuilder.cpp \
         core/media/src/FfmpegLiveStreamCommandBuilder.cpp \
         core/media/src/MediaProcessRunner.cpp \
         core/media/src/ArtworkPreviewCache.cpp \
+        core/media/src/RecordingTrickplayDeviceRequest.cpp \
+        core/media/src/RecordingTrickplayPreviewPlan.cpp \
+        core/media/src/RecordingTrickplayPreviewRenderer.cpp \
         core/media/src/MediaSessionWorkspace.cpp \
         core/media/src/MediaSessionRepository.cpp \
         core/media/src/MediaSessionRepositoryLive.cpp \
@@ -200,6 +242,8 @@ DAEMON_SRC := \
 
 DAEMON_SRC += $(SECURITY_SRC)
 DAEMON_SRC += $(AGENT_CONTROL_PLANE_SRC)
+# Both the local Agent transport and SuiteBridge handshake are included via
+# AGENT_SRC in the daemon link command; do not link them a second time here.
 DAEMON_SRC += $(METADATA_PLATFORM_SRC)
 DAEMON_SRC += $(MANUAL_RECORDING_METADATA_SRC)
 DAEMON_SRC += core/recordings/src/ManualRecordingMetadataRepositoryFacade.cpp
