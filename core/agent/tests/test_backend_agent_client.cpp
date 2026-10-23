@@ -598,6 +598,24 @@ void test_channel_source_and_strict_json_contract()
     assert(snapshot.channels[1].encrypted);
     assert(!snapshot.resourceRevision.empty());
 
+    // MLD-style channels.conf selection: VDR is configured through an
+    // administrator-maintained symlink to a regular channels list.
+    const std::string selectedLink = root + "/selected-channels.conf";
+    assert(symlink("channels.conf", selectedLink.c_str()) == 0);
+    BackendAgentChannelSnapshot linkedSnapshot;
+    assert(readBackendAgentChannelsConfSnapshot(
+        selectedLink, linkedSnapshot, reason));
+    assert(linkedSnapshot.resourceRevision == snapshot.resourceRevision);
+    assert(linkedSnapshot.channels.size() == snapshot.channels.size());
+    assert(unlink(selectedLink.c_str()) == 0);
+
+    // A dangling symlink is not a valid channels.conf source.
+    assert(symlink("missing-channels.conf", selectedLink.c_str()) == 0);
+    assert(!readBackendAgentChannelsConfSnapshot(
+        selectedLink, linkedSnapshot, reason));
+    assert(reason == "channels_conf_unavailable");
+    assert(unlink(selectedLink.c_str()) == 0);
+
     BackendAgentObservationRequest request;
     request.protocolVersion = "vdr-suite-agent/1";
     request.backendId = "default";
