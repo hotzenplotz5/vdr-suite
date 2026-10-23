@@ -242,7 +242,22 @@ function dispatch(name, event) {(listeners[name] || []).slice().forEach(fn => fn
   assert.ok(aborted.element.children[1].textContent.includes('Wiederverbindung'),
     'unexpected AbortError must not be silently suppressed as teardown');
   aborted.destroy();
-  console.log('Live-TV EOF/AbortError, BFCache, resumed-tab stall, ownership and retry budget: PASS');
+
+  // Direct HTMLVideoElement fallback may deliver ended without reader EOF.
+  // PR #289 forbids blindly STOPping on ended; use bounded recovery instead.
+  const ended = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {id: 'C-1-1051-10301'}, 'default', {}
+  );
+  await ended.start();
+  await flush();
+  ended.element.children[2].dispatch('ended');
+  await flush();
+  assert.ok(ended.element.children[1].textContent.includes('Wiederverbindung'));
+  assert.strictEqual(requests.filter(item => item.operation === 'stop' &&
+    item.sessionId === ended.sessionId()).length, 0,
+    'ended must not trigger the old implicit STOP regression');
+  ended.destroy();
+  console.log('Live-TV EOF/AbortError/ended, BFCache, resumed-tab stall, ownership and retry budget: PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});
 
 function runPendingTimers() {
