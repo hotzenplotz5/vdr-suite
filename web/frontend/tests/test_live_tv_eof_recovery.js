@@ -13,6 +13,10 @@ const listeners = {};
 let timerSequence = 0;
 let sessionSequence = 0;
 let failCreates = 0;
+let fakeNow = 1000000;
+class TestDate extends Date {
+  static now() {return fakeNow;}
+}
 
 function bytes() {
   const result = [];
@@ -71,7 +75,7 @@ const document = {
   removeEventListener(key, cb) {listeners[key] = (listeners[key] || []).filter(fn => fn !== cb);}
 };
 const window = {
-  document, console, Date, MediaSource, AbortController,
+  document, console, Date: TestDate, MediaSource, AbortController,
   ReadableStream: function ReadableStream() {},
   performance: {now() {return 1000;}},
   setTimeout(fn, delay) {const id = ++timerSequence; pendingTimers.set(id, {fn, delay}); return id;},
@@ -116,7 +120,7 @@ const window = {
 window.window = window;
 vm.runInContext(source, vm.createContext({
   window, document, console, Object, String, Number, Array, Boolean, Promise,
-  RegExp, Error, JSON, Math, Uint8Array, Date, setTimeout: window.setTimeout,
+  RegExp, Error, JSON, Math, Uint8Array, Date: TestDate, setTimeout: window.setTimeout,
   clearTimeout: window.clearTimeout
 }), {filename: 'session-frontend-sync.js'});
 
@@ -195,7 +199,27 @@ function dispatch(name, event) {(listeners[name] || []).slice().forEach(fn => fn
   assert.ok(failed.element.children[1].textContent.includes('Live-TV beendet'));
   assert.strictEqual(pendingTimers.size, 0, 'retries must be bounded');
   failed.destroy();
-  console.log('Live-TV EOF recovery, BFCache, replacement ownership, manual STOP and retry budget: PASS');
+
+  const hidden = window.VdrSuiteRecordings2Playback.createLivePanel(
+    {id: 'C-1-1051-10301'}, 'default', {}
+  );
+  assert.strictEqual(await hidden.start(), 'live-4');
+  await flush();
+  const before = sessionSequence;
+  document.visibilityState = 'hidden';
+  fakeNow += 30000;
+  runTimer(5000);
+  assert.strictEqual(sessionSequence, before,
+    'background suspension must not be mistaken for a permanent STOP');
+  document.visibilityState = 'visible';
+  dispatch('visibilitychange');
+  fakeNow += 6000;
+  runTimer(5000);
+  await flush();
+  assert.ok(hidden.element.children[1].textContent.includes('Wiederverbindung'),
+    'a resumed tab with no frame progress must eventually attempt recovery');
+  hidden.destroy();
+  console.log('Live-TV EOF recovery, BFCache, resumed-tab stall, ownership and retry budget: PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});
 
 function runPendingTimers() {
