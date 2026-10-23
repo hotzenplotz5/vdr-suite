@@ -54,13 +54,24 @@ def safe_path(path):
     """Log only route structure, never query values or opaque object IDs."""
     p = urllib.parse.urlsplit(path).path
     parts = []
+    redact_after = {"timer-assignments", "operations", "native-timers", "search-timers",
+                    "recordings", "devices", "accounts", "device-pairings",
+                    "live-playback-sessions", "recording-playback-sessions"}
+    static_suffixes = {"artwork", "version", "preview", "draft-preview", "progress",
+                       "capabilities", "continue-watching", "credentials", "sessions",
+                       "grants", "lifecycle", "stop", "tracks", "trickplay", "subtitles",
+                       "mutations", "modifications", "actions", "validate", "execute",
+                       "rotate", "playback-account"}
+    previous = ""
     for element in p.split("/"):
-        if SAFE_ID.fullmatch(element):
+        if (previous in redact_after and element not in static_suffixes) or SAFE_ID.fullmatch(element):
             parts.append("<public-id>")
         elif element and not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", element):
             parts.append("<redacted>")
         else:
             parts.append(element)
+        if element:
+            previous = element
     q = urllib.parse.parse_qsl(urllib.parse.urlsplit(path).query,
                               keep_blank_values=True)
     keys = sorted({k for k, _ in q if re.fullmatch(r"[A-Za-z][A-Za-z0-9-]{0,50}", k)})
@@ -90,8 +101,8 @@ class Problem(Exception):
 
 
 class Blocked(Problem):
-    def __init__(self, detail, **kw):
-        super().__init__("prerequisite_missing", detail, **kw)
+    def __init__(self, detail, *, kind="prerequisite_missing", **kw):
+        super().__init__(kind, detail, **kw)
 
 
 class Skip(Problem):
@@ -205,9 +216,12 @@ class HttpClient:
             try:
                 data = json.loads(raw.decode("utf-8")) if raw else {}
             except (UnicodeError, ValueError):
-                raise Problem("wrong_json_structure", "non-JSON response",
-                              path=path, actual=status, request_id=cid,
-                              shape="valid JSON object")
+                if status in (401, 403, 503):
+                    data = {"error": {"code": "non_json_error"}}
+                else:
+                    raise Problem("wrong_json_structure", "non-JSON response",
+                                  path=path, actual=status, request_id=cid,
+                                  shape="valid JSON object")
         return status, data, header
 
     def expect(self, path, *, statuses=(200,), auth=True, invalid=False, binary=False):
@@ -221,9 +235,13 @@ class HttpClient:
             err = data.get("error") if isinstance(data, dict) else None
             key = err.get("code") if isinstance(err, dict) else (
                 err if isinstance(err, str) else data.get("code") if isinstance(data, dict) else None)
-            raise Problem(kind, "unexpected HTTP status; error_code=" + str(safe_code(key) or "unavailable"),
-                          path=path, expected="/".join(map(str, statuses)), actual=code,
-                          observed="JSON keys: " + ",".join(sorted(data.keys())[:20]) if isinstance(data, dict) else "non-object")
+            detail = "unexpected HTTP status; error_code=" + str(safe_code(key) or "unavailable")
+            info = dict(path=path, expected="/".join(map(str, statuses)), actual=code,
+                        observed="JSON keys: " + ",".join(sorted(data.keys())[:20])
+                        if isinstance(data, dict) else "non-object")
+            if kind in ("authentication_failed", "permission_denied", "provider_unavailable"):
+                raise Blocked(detail, kind=kind, **info)
+            raise Problem(kind, detail, **info)
         if code == 200 and not binary:
             if not isinstance(data, dict):
                 raise Problem("wrong_json_structure", "expected JSON object", path=path,
@@ -362,7 +380,7 @@ class Acceptance:
             return self.record(ident, area, "SKIP", e.detail, method=e.method,
                                path=e.path, required=required)
         except Blocked as e:
-            return self.record(ident, area, "BLOCKED", e.detail, method=e.method,
+            return self.record(ident, area, "BLOCKED", e.kind + ": " + e.detail, method=e.method,
                                path=e.path, expected=e.expected, actual=e.actual,
                                required=required)
         except Problem as e:
