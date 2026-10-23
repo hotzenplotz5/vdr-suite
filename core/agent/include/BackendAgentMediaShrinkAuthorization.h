@@ -1,6 +1,8 @@
 #pragma once
 
 #include "BackendAgentCommandClient.h"
+#include "LocalMediaShrinkAgentExecutor.h"
+#include <optional>
 #include <functional>
 #include <string>
 
@@ -21,6 +23,12 @@ public:
         CurrentContext context);
 
     bool granted(const BackendAgentCommandAssignment& assignment);
+
+    // Authenticated Core authority with a current receipt replay and exact
+    // operation binding. Path-bearing data never enters command payloads or
+    // public/browser responses.
+    std::optional<vdrsuite::mediatools::LocalMediaShrinkAuthority> authority(
+        const BackendAgentCommandAssignment& assignment);
 
 private:
     std::string statePath_;
