@@ -115,6 +115,8 @@ struct PublicSearchTimerCollectionRequest
     std::string backendId;
     std::string afterSearchTimerId;
     std::size_t limit = 30U;
+    // Optional exact opaque ID for a single saved-rule lookup.
+    std::string searchTimerId;
 };
 
 struct PublicSearchTimerCollectionResult

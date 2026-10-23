@@ -843,6 +843,110 @@
         }
       }
     },
+    "/api/v1/search-timers/{searchTimerId}": {
+      "get": {
+        "tags": [
+          "SearchTimers"
+        ],
+        "operationId": "getSearchTimer",
+        "summary": "Get one saved VDR SearchTimer by its opaque Public-v1 ID",
+        "description": "Read-only, single-backend, authoritative epgsearch catalogue lookup after Public-v1 identity reconciliation. Retired IDs return 404; incomplete or unavailable provider inventories return 503. Does not expose native provider IDs or grant permission to modify, activate or delete a rule.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "verified Device and independent searchtimers.view@backend"
+        },
+        "parameters": [
+          {
+            "name": "searchTimerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^st_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One saved SearchTimer; no native ID or recording forecast",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "searchTimerId",
+                    "backendId",
+                    "name",
+                    "query",
+                    "state",
+                    "meta"
+                  ],
+                  "properties": {
+                    "searchTimerId": {
+                      "type": "string",
+                      "pattern": "^st_[0-9a-f]{32}$"
+                    },
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "query": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "inactive",
+                        "unknown"
+                      ]
+                    },
+                    "meta": {
+                      "type": "object",
+                      "required": [
+                        "partial"
+                      ],
+                      "properties": {
+                        "partial": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid opaque ID or noncanonical backend/query"
+          },
+          "401": {
+            "description": "Device authentication absent"
+          },
+          "403": {
+            "description": "Missing exact searchtimers.view grant"
+          },
+          "404": {
+            "description": "Public SearchTimer ID not found or retired"
+          },
+          "503": {
+            "description": "Backend or authoritative catalogue unavailable"
+          }
+        }
+      }
+    },
     "/api/v1/search-timers/{searchTimerId}/preview": {
       "get": {
         "tags": [

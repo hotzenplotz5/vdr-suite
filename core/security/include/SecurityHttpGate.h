@@ -898,9 +898,19 @@ public:
             searchMutationActivate ||
             searchMutationAction == "activate" ? "searchtimers.execute" :
             "searchtimers.modify";
+        // Exactly one non-reserved segment: detail GET uses the collection's
+        // independent Device+searchtimers.view permission, never EPG grants.
+        const bool isPublicSearchTimerDetailResource =
+            path.size() > publicSearchTimerPreviewPrefix.size() &&
+            path.compare(0U, publicSearchTimerPreviewPrefix.size(),
+                publicSearchTimerPreviewPrefix) == 0 &&
+            path.find('/', publicSearchTimerPreviewPrefix.size()) ==
+                std::string::npos &&
+            !isPublicSearchTimerDraftPreview;
         const bool isPublicSearchTimerRead =
             request.method == "GET" &&
             (path == publicSearchTimerCollection ||
+                isPublicSearchTimerDetailResource ||
                 isPublicSearchTimerPreviewResource ||
                 isPublicSearchTimerDraftPreview ||
                 searchVersionEndpoint);
@@ -967,6 +977,7 @@ public:
              (path == publicSearchTimerCollection &&
               !isPublicSearchTimerCreate) ||
              isPublicSearchTimerPreviewResource ||
+             isPublicSearchTimerDetailResource ||
              isPublicSearchTimerDraftPreview ||
              searchVersionEndpoint ||
              isPublicOperationResource ||
