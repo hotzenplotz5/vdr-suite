@@ -154,6 +154,9 @@ int main()
     forged.moduleId = "rectools";
     forged.packageName = "vdr-suite-addon-media-tools";
     forged.backendId = "backend-a";
+    forged.agentId = "agent-a";
+    forged.agentInstanceId = "instance-a";
+    forged.backendGeneration = 19;
     forged.installed = true;
     forged.manifestValid = true;
     forged.packageTrusted = true;
@@ -187,7 +190,10 @@ int main()
         actor, {"rectools", "backend-a", true, 1}, {}, {},
         {"event-enabled", "2026-10-20T10:10:00Z"});
     assert(enabled.status == IntentStatus::ok &&
-           enabled.intent.desiredEnabled && enabled.intent.revision == 2);
+           enabled.intent.desiredEnabled && enabled.intent.revision == 2 &&
+           enabled.intent.backendGeneration == 19 &&
+           enabled.intent.agentId == "agent-a" &&
+           enabled.intent.agentInstanceId == "instance-a");
     assert(trustedReads == 1 && audit.listAll().size() == 2);
     assert(f.db.execute(
         "INSERT INTO addon_media_import_maintenance "
