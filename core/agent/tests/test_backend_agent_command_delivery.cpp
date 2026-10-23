@@ -363,6 +363,10 @@ int main()
     trusted.moduleId = "rectools";
     trusted.packageName = "vdr-suite-addon-media-tools";
     trusted.backendId = "default";
+    // Must match the enrolled Agent used by this real command-delivery fixture.
+    trusted.agentId = "agt_test";
+    trusted.agentInstanceId = "inst_test";
+    trusted.backendGeneration = 7;
     trusted.installed = true;
     trusted.manifestValid = true;
     trusted.packageTrusted = true;
