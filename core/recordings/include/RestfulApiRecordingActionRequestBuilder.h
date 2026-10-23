@@ -429,12 +429,13 @@ private:
     }
 
     static std::vector<std::string> splitRecordingPathSegments(
-        std::string source)
+        std::string source,
+        const bool useYaVdrCompatibility = true)
     {
         const std::string srvPrefix =
             "/srv/vdr/video/";
 
-        if (source.rfind(srvPrefix, 0) == 0) {
+        if (useYaVdrCompatibility && source.rfind(srvPrefix, 0) == 0) {
             source = source.substr(srvPrefix.size());
         }
 
@@ -451,7 +452,7 @@ private:
 
         for (char c : source) {
             if (c == '/') {
-                if (!current.empty() && !isStorageMountSegment(current)) {
+                if (!current.empty() && (!useYaVdrCompatibility || !isStorageMountSegment(current))) {
                     segments.push_back(current);
                 }
 
@@ -462,7 +463,7 @@ private:
             current.push_back(c);
         }
 
-        if (!current.empty() && !isStorageMountSegment(current)) {
+        if (!current.empty() && (!useYaVdrCompatibility || !isStorageMountSegment(current))) {
             segments.push_back(current);
         }
 
@@ -668,10 +669,11 @@ private:
     }
 
     static std::string encodeVdrFilesystemPath(
-        const std::string& path)
+        const std::string& path,
+        const bool useYaVdrCompatibility = true)
     {
         const std::vector<std::string> segments =
-            splitRecordingPathSegments(path);
+            splitRecordingPathSegments(path, useYaVdrCompatibility);
 
         std::vector<std::string> encodedSegments;
         encodedSegments.reserve(segments.size());
@@ -769,7 +771,8 @@ private:
             targetPath == "/"
                 ? ""
                 : encodeVdrFilesystemPath(
-                    targetPath);
+                    targetPath,
+                    !config.videoDirectoryExplicit);
 
         std::string target =
             recordingVideoDirectory(
