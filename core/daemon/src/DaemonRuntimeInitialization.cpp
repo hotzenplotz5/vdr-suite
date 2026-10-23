@@ -30,6 +30,78 @@
 #include <utility>
 #include <vector>
 
+bool DaemonRuntime::tryReconcileMediaShrinkStage(
+    const BackendAgentCommandAssignment& assignment,
+    const BackendAgentCommandResult& result,
+    std::int64_t now)
+{
+    using namespace vdrsuite::mediatools;
+    using State = vdrsuite::operations::MutationOperationState;
+    if (!mediaShrinkPlanRuntime_ || !mediaShrinkOperationFence_ ||
+        !mutationOperationRepository_ || !mediaShrinkReviewRepository_ ||
+        !backendAgentCommandRepository_ ||
+        assignment.commandType != kMediaShrinkStageCommandType ||
+        result.commandId != assignment.commandId ||
+        result.requestFingerprint != assignment.requestFingerprint ||
+        result.resultCategory != "outcome_unknown" ||
+        result.verificationState != "outcome_unknown" ||
+        result.dispatchState != "accepted_by_executor" ||
+        !shrinkOpaqueId(result.resultEvidence, "shk_") ||
+        now <= 0)
+        return false;
+    const auto persisted = backendAgentCommandRepository_->resultForCommand(
+        assignment.commandId);
+    if (!persisted ||
+        backendAgentCommandResultIdentity(*persisted) !=
+            backendAgentCommandResultIdentity(result))
+        return false;
+    const auto selected = mutationOperationRepository_->findById(
+        assignment.operationId);
+    if (!selected.ok()) return false;
+    const auto& op = selected.operation;
+    if (op.operationId != assignment.operationId ||
+        op.backendId != assignment.backendId ||
+        op.backendGeneration != assignment.backendGeneration ||
+        op.actionFamily != "media.shrink.stage" ||
+        op.resourceType != "Recording" ||
+        !shrinkOpaqueId(op.resourceId, "rec_") ||
+        op.state != State::outcomeUnknown &&
+            op.state != State::succeeded)
+        return false;
+    if (op.state == State::succeeded &&
+        op.resultReference != result.resultEvidence)
+        return false;
+    if (op.state == State::outcomeUnknown &&
+        op.resultReference !=
+            "agent.media.shrink:" + assignment.commandId)
+        return false;
+    std::uint64_t effectiveGeneration = 0;
+    std::string reason;
+    if (!mediaShrinkOperationFence_->effectiveCapability(
+            op.actorId, op.backendId, kMediaShrinkStageCommandType,
+            now, effectiveGeneration, reason) ||
+        effectiveGeneration != op.backendGeneration)
+        return false;
+    // Independent media probes happen AFTER durable Agent result ACK;
+    // they cannot be performed by the mutation executor itself.
+    NativeProcessRunner runner(std::chrono::seconds(120));
+    const auto verified = mediaShrinkPlanRuntime_->verifyStagedCandidate(
+        op.actorId, op.backendId, op.resourceId, op.operationId,
+        op.expectedResourceFingerprint, op.backendGeneration,
+        result.resultEvidence, runner);
+    if (!verified) return false;
+    if (op.state != State::succeeded) {
+        const auto advanced = mutationOperationRepository_->transition(
+            op.operationId, op.operationRevision, op.state,
+            State::succeeded, verified->reviewId, now);
+        if (!advanced.ok()) return false;
+    }
+    const auto review = mediaShrinkReviewRepository_->registerStaged(
+        verified->reviewId, op.operationId);
+    return review.ok() ||
+        review.status == vdrsuite::addons::MediaShrinkReviewStatus::replayed;
+}
+
 bool DaemonRuntime::initialize()
 {
     std::cout << "vdr-suite-daemon runtime initializing" << std::endl;
