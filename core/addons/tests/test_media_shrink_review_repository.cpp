@@ -7,6 +7,9 @@
 #include <filesystem>
 #include <vector>
 #include <unistd.h>
+#include <filesystem>
+#include <vector>
+#include <unistd.h>
 #include <iostream>
 #include <string>
 using namespace vdrsuite::operations;
@@ -163,5 +166,69 @@ int main()
             "op-stage-restart").status == MediaShrinkReviewStatus::replayed);
     }
     assert(std::filesystem::remove(dbFile));
+    // Restart recovery: review and its publication claim survive process
+    // lifetime. Only canonical Core operations can promote either phase.
+    std::string pattern = (std::filesystem::temp_directory_path() /
+        "vdr-suite-shrink-review-XXXXXX").string();
+    std::vector<char> filename(pattern.begin(), pattern.end());
+    filename.push_back('\0');
+    const int fd = ::mkstemp(filename.data());
+    assert(fd >= 0 && ::close(fd) == 0);
+    struct Cleanup {
+        std::string name;
+        ~Cleanup() { std::error_code ec; std::filesystem::remove(name, ec); }
+    } cleanup{filename.data()};
+    {
+        Database first;
+        assert(first.open(cleanup.name));
+        MutationOperationRepository operations1(first);
+        assert(operations1.ensureSchema());
+        MediaShrinkReviewRepository reviews1(first, operations1);
+        assert(reviews1.ensureSchema());
+        auto stage = operation("op-restart-stage", "media.shrink.stage",
+            "Recording", recordingId, "revision_1",
+            MutationOperationVerificationPolicy::readbackRequired);
+        assert(operations1.reserve(stage).ok());
+        succeed(operations1,"op-restart-stage",reviewId);
+        assert(reviews1.registerStaged(reviewId,"op-restart-stage").ok());
+    }
+    {
+        Database second;
+        assert(second.open(cleanup.name));
+        MutationOperationRepository operations2(second);
+        assert(operations2.ensureSchema());
+        MediaShrinkReviewRepository reviews2(second, operations2);
+        assert(reviews2.ensureSchema());
+        const auto persisted = reviews2.find("actor-a","backend-a",reviewId);
+        assert(persisted.ok() && persisted.review.state == "staged" &&
+               persisted.review.revision == 1);
+        auto publish = operation("op-restart-publish","media.shrink.publish",
+            "MediaShrinkReview",reviewId,"1",
+            MutationOperationVerificationPolicy::reconciliationRequired);
+        assert(operations2.reserve(publish).ok());
+        assert(reviews2.claimPublication("actor-a","backend-a",reviewId,
+            1,"op-restart-publish").ok());
+    }
+    {
+        Database third;
+        assert(third.open(cleanup.name));
+        MutationOperationRepository operations3(third);
+        assert(operations3.ensureSchema());
+        MediaShrinkReviewRepository reviews3(third, operations3);
+        assert(reviews3.ensureSchema());
+        assert(reviews3.claimPublication("actor-a","backend-a",reviewId,
+            1,"op-restart-publish").status == MediaShrinkReviewStatus::replayed);
+        assert(reviews3.claimPublication("actor-a","backend-a",reviewId,
+            2,"op-restart-publish").status == MediaShrinkReviewStatus::conflict);
+        assert(reviews3.claimPublication("actor-a","backend-a",reviewId,
+            1,"op-other-publish").status == MediaShrinkReviewStatus::conflict);
+        assert(reviews3.completePublication("actor-a","backend-a",reviewId,
+            2).status == MediaShrinkReviewStatus::conflict);
+        succeed(operations3,"op-restart-publish",newRecordingId);
+        const auto completed = reviews3.completePublication(
+            "actor-a","backend-a",reviewId,2);
+        assert(completed.ok() && completed.review.state == "published" &&
+               completed.review.publishedRecordingId == newRecordingId);
+    }
     std::cout << "MEDIA_SHRINK_CORE_REVIEW_TEST=PASS\n";
 }
