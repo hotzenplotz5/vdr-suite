@@ -66,6 +66,7 @@
 #include "MetadataRepository.h"
 #include "MutationOperationReadService.h"
 #include "MutationOperationRepository.h"
+#include "MediaShrinkReviewRepository.h"
 #include "NativeTimerCreateAdmissionService.h"
 #include "NativeTimerCreateDispatchService.h"
 #include "NativeTimerCreateOperationCompletionService.h"
@@ -223,6 +224,8 @@ private:
         mutationOperationRepository_;
     std::unique_ptr<vdrsuite::operations::MutationOperationReadService>
         mutationOperationReadService_;
+    std::unique_ptr<vdrsuite::addons::MediaShrinkReviewRepository>
+        mediaShrinkReviewRepository_;
     std::unique_ptr<vdrsuite::timers::TimerIntentRepository>
         timerIntentRepository_;
     std::unique_ptr<vdrsuite::timers::TimerAssignmentRepository>
