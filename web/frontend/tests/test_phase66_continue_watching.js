@@ -233,15 +233,30 @@ function flush(count = 8) {
     // cannot arrive after the public restart clear and recreate stale truth.
     const serialized = [];
     const serializedBodies = [];
+    let storedRevision = 0;
     let releaseFirst;
     syncContext.window.fetch = function (requestPath, options) {
         const body = JSON.parse(options.body);
         serializedBodies.push(body);
         serialized.push(body.operation + ':' + (body.positionSeconds || 0));
-        if (serialized.length === 1) {
-            return new Promise(resolve => { releaseFirst = () => resolve({ok: true}); });
+        if (body.operation === 'revision') {
+            // The legacy checkpoint completed before the explicit, CAS-fenced reset.
+            return Promise.resolve({ok: true, status: 200,
+                json: async () => ({revision: storedRevision})});
         }
-        return Promise.resolve({ok: true});
+        if (serialized.length === 1) {
+            return new Promise(resolve => {
+                releaseFirst = () => {
+                    storedRevision += 1;
+                    resolve({ok: true});
+                };
+            });
+        }
+        assert.strictEqual(body.operation, 'clear');
+        assert.strictEqual(body.expectedRevision, storedRevision);
+        storedRevision += 1;
+        return Promise.resolve({ok: true, status: 200,
+            json: async () => ({ok: true, revision: storedRevision})});
     };
     const firstMutation = syncApi.__test.enqueue({operation: 'progress', backendId: 'default', recordingId: 'r1', positionSeconds: 30, resumeSupported: true, operationId: 'queue-1'});
     const secondMutation = syncApi.clear('default', 'r1');
@@ -249,11 +264,12 @@ function flush(count = 8) {
     assert.deepStrictEqual(serialized, ['progress:30']);
     releaseFirst();
     await firstMutation;
-    await secondMutation;
-    assert.deepStrictEqual(serialized, ['progress:30', 'clear:0']);
-    assert.strictEqual(serializedBodies[1].backendId, 'default');
-    assert.strictEqual(serializedBodies[1].recordingId, 'r1');
-    assert.match(serializedBodies[1].operationId, /^cw-clear-/);
+    assert.strictEqual(await secondMutation, true, 'explicit clear must receive a CAS acknowledgement');
+    assert.deepStrictEqual(serialized, ['progress:30', 'revision:0', 'clear:0']);
+    assert.strictEqual(serializedBodies[2].backendId, 'default');
+    assert.strictEqual(serializedBodies[2].recordingId, 'r1');
+    assert.strictEqual(serializedBodies[2].expectedRevision, 1);
+    assert.match(serializedBodies[2].operationId, /^cw-clear-/);
 
     // Lifecycle truth comes from the canonical snapshot/subscribe publication.
     // The production-style internal action below never calls a decorated start/stop method.
