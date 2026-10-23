@@ -51,6 +51,45 @@ def safe_class(label, known, *, absent):
 
 
 
+
+def classify_legacy_toggle_evidence(conn, backend):
+    """Count old generic rejection rows without extracting IDs or evidence.
+
+    The immutable result body may be empty for historical records. These
+    columns intentionally do not assert native no-effect, parser validity,
+    authorization to replay a command or authorization to change SQLite.
+    """
+    return conn.execute("""
+        SELECT COUNT(*),
+          COALESCE(SUM(CASE WHEN EXISTS (
+            SELECT 1 FROM backend_agent_commands c
+            JOIN backend_agent_command_results r ON r.command_id=c.command_id
+            WHERE c.backend_id=o.backend_id
+              AND c.operation_id=o.operation_id
+              AND c.command_type='vdr.timer.toggle'
+              AND r.dispatch_state='not_started'
+              AND r.verification_state='verified'
+              AND r.result_category='rejected'
+              AND COALESCE(LENGTH(r.result_evidence),0)=0
+          ) THEN 1 ELSE 0 END),0),
+          COALESCE(SUM(CASE WHEN EXISTS (
+            SELECT 1 FROM backend_agent_commands c
+            JOIN backend_agent_command_results r ON r.command_id=c.command_id
+            WHERE c.backend_id=o.backend_id
+              AND c.operation_id=o.operation_id
+              AND c.command_type='vdr.timer.toggle'
+              AND LENGTH(r.result_evidence)>0
+          ) THEN 1 ELSE 0 END),0)
+        FROM mutation_operations o
+        WHERE o.backend_id=?
+          AND o.state='outcome_unknown'
+          AND o.resource_type='NativeTimerBinding'
+          AND o.action_family='timer.toggle'
+          AND o.result_reference='native-timer-modify:missing-result-evidence'
+    """,(backend,)).fetchone()
+
+
+
 def inspect(conn, backend="default"):
     if not isinstance(backend,str) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,128}",backend):
         raise AuditBlocked("invalid backend scope")
@@ -215,6 +254,12 @@ def inspect(conn, backend="default"):
         if not toggle or len(toggle)!=4 or any(
             not isinstance(x,int) or x<0 for x in toggle):
             raise AuditBlocked("invalid read-only quarantine evidence count")
+        legacy = classify_legacy_toggle_evidence(conn, backend)
+        if not legacy or len(legacy)!=3 or any(
+            not isinstance(x,int) or x<0 for x in legacy):
+            raise AuditBlocked("invalid legacy Agent evidence aggregate")
+        if legacy[0]>toggle[0] or legacy[1]>legacy[0] or legacy[2]>legacy[0]:
+            raise AuditBlocked("inconsistent legacy Agent evidence aggregate")
     except sqlite3.Error as error:
         raise AuditBlocked("read-only command evidence query failed or exceeded budget ("
                            +type(error).__name__+")") from error
@@ -263,6 +308,15 @@ def inspect(conn, backend="default"):
         "WITH_BOTH_SAME_OPERATION",
     ),toggle):
         print(name+":",count)
+    print("=== NATIVE_TOGGLE_LEGACY_EVIDENCE_TRIAGE ===")
+    for name,count in zip((
+        "EXACT_MARKER_UNKNOWN_TOGGLE_OPERATIONS",
+        "WITH_GENERIC_VERIFIED_REJECTION_BUT_EMPTY_OR_NULL_EVIDENCE",
+        "WITH_ANY_NONEMPTY_AGENT_RESULT_EVIDENCE",
+    ),legacy):
+        print(name+":",count)
+    print("TYPED_REJECTION_RECOVERY_GATE:",
+          "CANDIDATE_ONLY" if toggle[3] else "BLOCKED")
     print("NONEMPTY_EVIDENCE_IS_NOT_VALIDATED_AGENT_EVIDENCE: TRUE")
     print("UNCHANGED_BINDING_NOT_PROVEN_BY_THIS_QUERY: TRUE")
     print("RECOVERY_OR_STATE_CHANGE_PERFORMED: FALSE")
