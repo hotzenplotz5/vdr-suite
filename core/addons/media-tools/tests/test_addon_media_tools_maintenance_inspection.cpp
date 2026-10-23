@@ -248,6 +248,28 @@ int main() {
         MutationOperationState::cancelled, "",101).ok());
     assert(inspect().locallyQuiescent);
 
+    // A Media Tools package upgrade must not miss concurrent HEVC work.
+    // Neither stage nor publish belongs to the import-only freeze, but
+    // both MUST deny a supposedly quiescent package snapshot.
+    for (const char* action : {"media.shrink.stage", "media.shrink.publish"}) {
+        auto shrink = pending();
+        const bool stage = std::string(action) == "media.shrink.stage";
+        shrink.operationId = stage ? "maintenance-shrink-stage" :
+                                     "maintenance-shrink-publish";
+        shrink.idempotencyKey = stage ? "maintenance-shrink-stage-idem" :
+                                        "maintenance-shrink-publish-idem";
+        shrink.actionFamily = action;
+        shrink.resourceType = stage ? "Recording" : "MediaShrinkReview";
+        shrink.resourceId = stage ? "rec_0123456789abcdef0123456789abcdef" :
+                                    "shk_0123456789abcdef0123456789abcdef";
+        assert(operations.reserve(shrink).ok());
+        assert(inspect().reason == R::operationsUnresolved);
+        assert(operations.transition(shrink.operationId, "1",
+            MutationOperationState::accepted,
+            MutationOperationState::cancelled, "", 101).ok());
+        assert(inspect().locallyQuiescent);
+    }
+
     BackendAccessDecision writable;
     writable.backendId="backend-b";
     writable.backendFound=true;
@@ -278,6 +300,28 @@ int main() {
                       "VALUES ('addon.media.import');"));
     assert(inspect().reason == R::agentCapabilityStillAdvertised);
     assert(db.execute("DELETE FROM backend_agent_command_capabilities;"));
+
+    // Pending, completed-but-unread and advertised HEVC work must deny the
+    // same package maintenance diagnostic as Media Import work.
+    for (const char* command : {"addon.media.shrink.stage",
+                                "addon.media.shrink.publish"}) {
+        const bool stage = std::string(command) == "addon.media.shrink.stage";
+        const char* id = stage ? "command-hevc-stage" : "command-hevc-publish";
+        assert(db.execute(std::string("INSERT INTO backend_agent_commands VALUES ('") +
+                          id + "','" + command + "','assigned');"));
+        assert(inspect().reason == R::agentCommandsUnresolved);
+        assert(db.execute(std::string("UPDATE backend_agent_commands SET state='completed' ") +
+                          "WHERE command_id='" + id + "';"));
+        assert(inspect().reason == R::agentResultsMissing);
+        assert(db.execute(std::string("INSERT INTO backend_agent_command_results VALUES ('") +
+                          id + "');"));
+        assert(inspect().locallyQuiescent);
+        assert(db.execute(std::string("INSERT INTO backend_agent_command_capabilities ") +
+                          "VALUES ('" + command + "');"));
+        assert(inspect().reason == R::agentCapabilityStillAdvertised);
+        assert(db.execute("DELETE FROM backend_agent_command_capabilities;"));
+        assert(inspect().locallyQuiescent);
+    }
 
     auto shared = vdrsuite::mediatools::MediaToolsImportRunLock::tryAcquire(
         f.root.string(),

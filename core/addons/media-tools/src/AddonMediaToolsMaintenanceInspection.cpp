@@ -107,11 +107,16 @@ MaintenanceInspectionHold AddonMediaToolsMaintenanceInspection::inspectAndHold(
     if (*disabled == 0)
         return deny(Reason::auditedDisableMissing, *revision);
 
-    // This exact action-family query is unbounded: a globally saturated
-    // 256-item listing must not hide an unresolved backend's import.
+    // Inspect EVERY Media Tools mutation family, not just Import. The
+    // same installed package also owns HEVC Stage/Publish executors; even
+    // an otherwise drained Import worker cannot make an active Shrink safe
+    // for package replacement. This unbounded query cannot hide work behind
+    // a saturated 256-operation listing.
     const auto unresolved = scalar(database_,
         "SELECT COUNT(*) FROM mutation_operations "
-        "WHERE action_family='media.import' AND state NOT IN ("
+        "WHERE action_family IN ("
+        "'media.import','media.shrink.stage','media.shrink.publish') "
+        "AND state NOT IN ("
         "'rejected','conflict','succeeded','failed_before_dispatch',"
         "'failed_verified','cancelled');");
     if (!unresolved)
@@ -124,7 +129,9 @@ MaintenanceInspectionHold AddonMediaToolsMaintenanceInspection::inspectAndHold(
     // handler. Only completed commands with a persisted result qualify.
     const auto pendingCommands = scalar(database_,
         "SELECT COUNT(*) FROM backend_agent_commands "
-        "WHERE command_type='addon.media.import' AND state<>'completed';");
+        "WHERE command_type IN ("
+        "'addon.media.import','addon.media.shrink.stage',"
+        "'addon.media.shrink.publish') AND state<>'completed';");
     if (!pendingCommands)
         return deny(Reason::storageUnavailable, *revision);
     if (*pendingCommands != 0)
@@ -134,7 +141,9 @@ MaintenanceInspectionHold AddonMediaToolsMaintenanceInspection::inspectAndHold(
         "SELECT COUNT(*) FROM backend_agent_commands AS c "
         "LEFT JOIN backend_agent_command_results AS r "
         "ON r.command_id=c.command_id "
-        "WHERE c.command_type='addon.media.import' "
+        "WHERE c.command_type IN ("
+        "'addon.media.import','addon.media.shrink.stage',"
+        "'addon.media.shrink.publish') "
         "AND c.state='completed' AND r.command_id IS NULL;");
     if (!missingResults)
         return deny(Reason::storageUnavailable, *revision);
@@ -146,7 +155,9 @@ MaintenanceInspectionHold AddonMediaToolsMaintenanceInspection::inspectAndHold(
     // before even returning a locally quiescent diagnostic snapshot.
     const auto advertised = scalar(database_,
         "SELECT COUNT(*) FROM backend_agent_command_capabilities "
-        "WHERE command_type='addon.media.import';");
+        "WHERE command_type IN ("
+        "'addon.media.import','addon.media.shrink.stage',"
+        "'addon.media.shrink.publish');");
     if (!advertised)
         return deny(Reason::storageUnavailable, *revision);
     if (*advertised != 0)
