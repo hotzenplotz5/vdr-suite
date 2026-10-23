@@ -440,5 +440,27 @@ int main() {
                !fs::exists(fixture.video / "Sample_HEVC"));
         ++checks;
     }
+    {
+        Fixture fixture;
+        FakeProcess runner;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        const auto evidenceFile = candidate / ".shrink-review";
+        std::ifstream input(evidenceFile, std::ios::binary);
+        const std::string evidence(std::istreambuf_iterator<char>{input},
+                                   std::istreambuf_iterator<char>{});
+        const std::string marker = "DURATION/1\n";
+        const auto offset = evidence.find(marker);
+        assert(offset != std::string::npos);
+        // A forged but syntactically valid duration cannot overwrite the
+        // independent original single-segment probe at Publish.
+        std::ofstream(evidenceFile, std::ios::binary | std::ios::trunc)
+            << evidence.substr(0, offset + marker.size()) << "10.0\n";
+        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(fixture.recording / "00001.ts") &&
+               !fs::exists(fixture.video / "Sample_HEVC"));
+        ++checks;
+    }
     std::cout << "MEDIA_SHRINK_CPP_TEST=PASS checks=" << checks << "\n";
 }

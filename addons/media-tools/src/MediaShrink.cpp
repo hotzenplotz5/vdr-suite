@@ -775,6 +775,17 @@ std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
     demand(parsed == durationText.size() &&
            std::isfinite(originalDuration) && originalDuration > 0,
            "invalid stored HEVC source duration");
+    // Single-segment sources have an independent, read-only duration
+    // reference at publication. Do not regress that check now that a
+    // composite original duration is also carried for multi-segment input.
+    if (checked.segments.size() == 1) {
+        const double liveOriginalDuration = probeDuration(runner,
+            checked.videoRoot / checked.relativeRecording /
+            checked.segments.front().filename);
+        demand(std::fabs(liveOriginalDuration - originalDuration) <=
+               std::max(4.0, liveOriginalDuration * 0.02),
+               "staged HEVC source duration disagrees with live source");
+    }
     demand(nonempty(candidate / "00001.ts") &&
            nonempty(candidate / "index") && nonempty(candidate / "info"),
            "unverified HEVC candidate files");
