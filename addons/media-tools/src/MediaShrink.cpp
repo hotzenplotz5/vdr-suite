@@ -764,6 +764,19 @@ std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
            "HEVC candidate no longer saves space");
     demand(probeCodec(runner, candidate / "00001.ts") == "hevc",
            "published candidate is not HEVC");
+    // Recheck duration during independent candidate verification.
+    // For a single VDR TS segment, the original provides an exact
+    // immutable duration reference. Combined TS was checked at staging.
+    const double candidateDuration = probeDuration(
+        runner, candidate / "00001.ts");
+    if (checked.segments.size() == 1) {
+        const double originalDuration = probeDuration(runner,
+            checked.videoRoot / checked.relativeRecording /
+            checked.segments.front().filename);
+        demand(std::fabs(candidateDuration - originalDuration) <=
+               std::max(4.0, originalDuration * 0.02),
+               "HEVC candidate duration differs from original");
+    }
     struct stat folder{};
     demand(::lstat(candidate.c_str(), &folder) == 0 &&
            S_ISDIR(folder.st_mode) && folder.st_uid == ::geteuid() &&

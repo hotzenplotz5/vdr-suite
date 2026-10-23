@@ -64,7 +64,9 @@ struct FakeProcess final : ProcessRunner {
         };
         if (args.front() == "/usr/bin/ffprobe") {
             assert(captured);
-            const bool isOutput = args.back().find("00001.ts") != std::string::npos;
+            const bool isOutput =
+                args.back().find(".vdr-suite-shrink-") != std::string::npos &&
+                args.back().find("00001.ts") != std::string::npos;
             if (contains("stream=codec_name")) {
                 if (contains("a"))
                     return {0, incompatibleAudio ? "opus\n" : "aac\n"};
@@ -312,6 +314,20 @@ int main() {
             << "1\\n00:00:01,000 --> 00:00:02,000\\nHullo\\n";
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(candidate) && fs::exists(fixture.recording / "de.srt"));
+        assert(!fs::exists(fixture.video / "Sample_HEVC"));
+        ++checks;
+    }
+    {
+        Fixture fixture;
+        FakeProcess runner;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto candidate = stageShrink(plan, runner,
+            [](const ShrinkPlan&) {});
+        // A shortened candidate is rejected even with matching codec,
+        // valid index and savings; the original stays untouched.
+        runner.badDuration = true;
+        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(candidate) && fs::exists(fixture.recording / "00001.ts"));
         assert(!fs::exists(fixture.video / "Sample_HEVC"));
         ++checks;
     }
