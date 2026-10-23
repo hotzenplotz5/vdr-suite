@@ -574,20 +574,22 @@
       backendId: backendId, credentials: 'same-origin', cache: 'no-store'
     }).then(function (capability) {
       if (!capability || capability.planningAvailable !== true ||
-          capability.available !== false ||
+          (capability.available !== true && capability.available !== false) ||
           capability.capability !== 'addons.media.shrink' ||
           capability.backendId !== backendId || !actions.parentNode) return;
+
       const panel = shared.node('section', 'recordings2-media-check');
       panel.hidden = true;
       const status = shared.node('p', 'recordings2-media-check-status',
-        'HEVC-Vorprüfung ist nur lesend. Es wird nichts umgewandelt.');
+        'HEVC-Vorprüfung liest die Aufnahme nur. Das Original bleibt erhalten.');
       status.setAttribute('role', 'status');
       const launch = makeButton('Vorprüfung starten', function () {
         launch.disabled = true;
         status.textContent = 'Aufnahme wird zugeordnet …';
         Promise.resolve().then(function () {
           return resolveMediaCheckIdentity(client, recording, backendId);
-        }).then(function (recordingId) {
+        }).then(function (identity) {
+          recordingId = identity;
           const session = global.VdrSuiteBrowserSession;
           if (!session || typeof session.restore !== 'function' ||
               typeof session.csrfHeaders !== 'function')
@@ -599,24 +601,249 @@
             });
           });
         }).then(function (plan) {
-          if (!plan || plan.backendId !== backendId || plan.readOnly !== true ||
-              plan.stageAvailable !== false ||
-              !Number.isSafeInteger(plan.sourceBytes) ||
-              !Number.isSafeInteger(plan.segments))
+          if (!plan || plan.backendId !== backendId ||
+              plan.recordingId !== recordingId || plan.readOnly !== true ||
+              typeof plan.stageAvailable !== 'boolean' ||
+              !Number.isSafeInteger(plan.sourceBytes) || plan.sourceBytes <= 0 ||
+              !Number.isSafeInteger(plan.segments) || plan.segments <= 0)
             throw new Error('Unbekannte HEVC-Vorprüfung.');
-          status.textContent = 'Aufnahme geprüft: ' + plan.segments +
-            ' TS-Segment(e), ' + (plan.sourceBytes / 1048576).toFixed(1) +
-            ' MiB. Die Umwandlung ist noch nicht freigeschaltet.';
+          planReady = plan.stageAvailable === true &&
+            capability.available === true;
+          status.textContent = 'Original: ' +
+            (plan.sourceBytes / 1048576).toFixed(1) + ' MiB, ' +
+            plan.segments + ' TS-Segment(e). ' +
+            (planReady ? 'Konvertierung als privater Kandidat möglich.' :
+              'HEVC-Konvertierung ist auf diesem Backend nicht freigeschaltet.');
+          if (planReady) {
+            controls.hidden = false;
+            restorePending();
+          }
         }).catch(function (error) {
           status.textContent = 'HEVC-Vorprüfung fehlgeschlagen: ' +
             text(error && error.message ? error.message : error);
-        }).then(function () {
-          launch.disabled = false;
+        }).then(function () { launch.disabled = false; });
+      });
+      let recordingId = '';
+      let planReady = false;
+      let stageOperationId = '';
+      let publishOperationId = '';
+      let reviewId = '';
+
+      const controls = shared.node('div', 'recordings2-media-shrink-controls');
+      controls.hidden = true;
+      const encoderLabel = shared.node('label', '', 'HEVC-Encoder');
+      const encoder = shared.node('select', 'recordings2-media-shrink-encoder');
+      const permitted = ['software', 'vaapi', 'qsv', 'nvenc'];
+      const encoders = Array.isArray(capability.encoders)
+        ? capability.encoders.filter(function (value) {
+            return permitted.includes(value);
+          }) : ['software'];
+      encoders.forEach(function (value) {
+        const option = shared.node('option', '', value === 'software' ?
+          'Software (x265)' : value.toUpperCase());
+        option.value = value;
+        encoder.appendChild(option);
+      });
+      encoderLabel.appendChild(encoder);
+      const heightLabel = shared.node('label', '', ' Auf 720p begrenzen');
+      const height = shared.node('input');
+      height.type = 'checkbox';
+      heightLabel.prepend(height);
+      const nightLabel = shared.node('label', '', ' Night-Mode');
+      const night = shared.node('input');
+      night.type = 'checkbox';
+      nightLabel.prepend(night);
+
+      const stage = makeButton('HEVC-Konvertierung starten', function () {
+        if (!planReady || !recordingId || stage.disabled) return;
+        const key = newIdempotencyKey();
+        if (!key || !remember('stage', {key: key, operationId: ''})) {
+          status.textContent = 'Sichere Wiederholsperre nicht verfügbar.';
+          return;
+        }
+        stage.disabled = true;
+        status.textContent = 'HEVC-Staging angefordert; keine automatische Wiederholung.';
+        mutationHeaders().then(function (headers) {
+          return client.submitMediaShrinkStage({
+            backendId: backendId, recordingId: recordingId,
+            encoder: encoder.value, maxHeight: height.checked ? 720 : 0,
+            nightMode: night.checked, idempotencyKey: key,
+            headers: headers, credentials: 'same-origin'
+          });
+        }).then(function (result) {
+          if (!result || result.backendId !== backendId ||
+              !/^op_[0-9a-f]{32}$/.test(text(result.operationId)))
+            throw new Error('Stage-Operation konnte nicht sicher zugeordnet werden.');
+          stageOperationId = result.operationId;
+          remember('stage', {key: key, operationId: stageOperationId});
+          refreshOperation('stage');
+        }).catch(function (error) {
+          // Request may have reached the backend. Never submit again, even
+          // if the response was lost or the browser was reloaded.
+          status.textContent = 'Stage-Ausgang unklar: ' +
+            text(error && error.message ? error.message : error) +
+            '. Bitte nicht erneut starten.';
         });
       });
+      const refreshStage = makeButton('Stage-Status aktualisieren', function () {
+        refreshOperation('stage');
+      });
+      refreshStage.disabled = true;
+      const candidate = shared.node('p', 'recordings2-media-check-status');
+      const publish = makeButton('Kandidaten ausdrücklich veröffentlichen', function () {
+        if (!/^shk_[0-9a-f]{32}$/.test(reviewId) || publish.disabled ||
+            typeof global.confirm !== 'function' ||
+            !global.confirm('HEVC-Kandidat als zusätzliche VDR-Aufnahme veröffentlichen? Das Original bleibt erhalten.'))
+          return;
+        const key = newIdempotencyKey();
+        if (!key || !remember('publish', {key: key, operationId: ''})) {
+          status.textContent = 'Sichere Veröffentlichungs-Sperre nicht verfügbar.';
+          return;
+        }
+        publish.disabled = true;
+        status.textContent = 'Veröffentlichung angefordert; auf Recording-Reconciliation warten.';
+        mutationHeaders().then(function (headers) {
+          return client.submitMediaShrinkPublish({
+            backendId: backendId, reviewId: reviewId, revision: 1,
+            idempotencyKey: key, headers: headers, credentials: 'same-origin'
+          });
+        }).then(function (result) {
+          if (!result || result.backendId !== backendId ||
+              !/^op_[0-9a-f]{32}$/.test(text(result.operationId)))
+            throw new Error('Publish-Operation nicht sicher zugeordnet.');
+          publishOperationId = result.operationId;
+          remember('publish', {key: key, operationId: publishOperationId});
+          refreshOperation('publish');
+        }).catch(function (error) {
+          status.textContent = 'Veröffentlichung unklar: ' +
+            text(error && error.message ? error.message : error) +
+            '. Keine automatische Wiederholung.';
+        });
+      });
+      publish.hidden = true;
+      const refreshPublish = makeButton('Publish-Status aktualisieren', function () {
+        refreshOperation('publish');
+      });
+      refreshPublish.disabled = true;
+
+      function storageName(action) {
+        return 'vdr-suite-hevc-v1.' + backendId + '.' + recordingId +
+          '.' + action;
+      }
+      function remembered(action) {
+        try {
+          const entry = JSON.parse(global.sessionStorage.getItem(storageName(action)));
+          return entry && /^[A-Za-z0-9_.:-]{8,128}$/.test(entry.key) &&
+            (entry.operationId === '' ||
+              /^op_[0-9a-f]{32}$/.test(entry.operationId)) ? entry : null;
+        } catch (_) { return null; }
+      }
+      function remember(action, value) {
+        try {
+          if (!global.sessionStorage || !value || !value.key) return false;
+          global.sessionStorage.setItem(storageName(action), JSON.stringify(value));
+          return true;
+        } catch (_) { return false; }
+      }
+      function newIdempotencyKey() {
+        try {
+          return global.crypto && typeof global.crypto.randomUUID === 'function'
+            ? 'hevc-' + global.crypto.randomUUID() : '';
+        } catch (_) { return ''; }
+      }
+      function mutationHeaders() {
+        const session = global.VdrSuiteBrowserSession;
+        if (!session || typeof session.restore !== 'function' ||
+            typeof session.csrfHeaders !== 'function')
+          return Promise.reject(new Error('Anmeldung erforderlich.'));
+        return Promise.resolve(session.restore()).then(function () {
+          return session.csrfHeaders();
+        });
+      }
+      function restorePending() {
+        const savedStage = remembered('stage');
+        if (savedStage) {
+          stage.disabled = true;
+          stageOperationId = savedStage.operationId;
+          refreshStage.disabled = !stageOperationId;
+          status.textContent = stageOperationId
+            ? 'Gespeicherte Stage-Operation gefunden. Status abfragen.'
+            : 'Unklarer früherer Stage-Start. Aus Sicherheitsgründen gesperrt.';
+          if (stageOperationId) refreshOperation('stage');
+        }
+        if (!encoders.length) stage.disabled = true;
+        const savedPublish = remembered('publish');
+        if (savedPublish) {
+          publish.disabled = true;
+          publishOperationId = savedPublish.operationId;
+          refreshPublish.disabled = !publishOperationId;
+          if (publishOperationId) refreshOperation('publish');
+        }
+      }
+      function fetchReview(id) {
+        if (!/^shk_[0-9a-f]{32}$/.test(id) ||
+            typeof client.getMediaShrinkReview !== 'function') return;
+        client.getMediaShrinkReview({
+          backendId: backendId, reviewId: id, credentials: 'same-origin',
+          cache: 'no-store'
+        }).then(function (review) {
+          if (!review || review.backendId !== backendId ||
+              review.recordingId !== recordingId || review.reviewId !== id)
+            throw new Error('Kandidat passt nicht zu dieser Aufnahme.');
+          const sizes = Number.isSafeInteger(review.candidateBytes) &&
+            Number.isSafeInteger(review.sourceBytes)
+            ? ' Kandidat: ' + (review.candidateBytes / 1048576).toFixed(1) +
+              ' MiB; Einsparung: ' +
+              ((review.sourceBytes - review.candidateBytes) / 1048576).toFixed(1) +
+              ' MiB.' : '';
+          candidate.textContent = 'Review: ' + review.state + '.' + sizes;
+          publish.hidden = review.state !== 'staged' ||
+            review.revision !== 1 || review.publishAvailable !== true;
+          if (remembered('publish')) publish.disabled = true;
+        }).catch(function (error) {
+          candidate.textContent = 'Kandidatenprüfung fehlgeschlagen: ' +
+            text(error && error.message ? error.message : error);
+          publish.hidden = true;
+        });
+      }
+      function refreshOperation(action) {
+        const id = action === 'stage' ? stageOperationId : publishOperationId;
+        if (!/^op_[0-9a-f]{32}$/.test(id) ||
+            typeof client.getMediaShrinkOperation !== 'function') return;
+        client.getMediaShrinkOperation({
+          backendId: backendId, operationId: id, credentials: 'same-origin',
+          cache: 'no-store'
+        }).then(function (operation) {
+          if (!operation || operation.operationId !== id ||
+              operation.backendId !== backendId || operation.action !== action)
+            throw new Error('HEVC-Operation gehört nicht zur gewählten Aufnahme.');
+          status.textContent = 'HEVC-' + action + ': ' + operation.state +
+            (operation.resultReconciled === true ? ' (verifiziert)' :
+              ' (noch nicht reconciled)');
+          if (action === 'stage' && operation.resultReconciled === true &&
+              /^shk_[0-9a-f]{32}$/.test(text(operation.reviewId))) {
+            reviewId = operation.reviewId;
+            fetchReview(reviewId);
+          }
+          if (action === 'publish' && operation.resultReconciled === true &&
+              /^rec_[0-9a-f]{32}$/.test(text(operation.publishedRecordingId))) {
+            status.textContent = 'Neue HEVC-Aufnahme bestätigt: ' +
+              operation.publishedRecordingId + '. Original erhalten.';
+            publish.hidden = true;
+          }
+        }).catch(function (error) {
+          status.textContent = 'HEVC-Status nicht verfügbar: ' +
+            text(error && error.message ? error.message : error) +
+            '. Keine neue Mutation starten.';
+        });
+      }
+
+      controls.append(encoderLabel, heightLabel, nightLabel, stage,
+        refreshStage, candidate, publish, refreshPublish);
       panel.appendChild(shared.node('h4', '', 'HEVC-Speicherplatzoptimierung'));
       panel.appendChild(launch);
       panel.appendChild(status);
+      panel.appendChild(controls);
       const action = makeButton('HEVC-Vorprüfung', function () {
         panel.hidden = false;
         if (typeof panel.scrollIntoView === 'function')
@@ -625,7 +852,7 @@
       actions.appendChild(action);
       copy.appendChild(panel);
     }).catch(function () {
-      // Absent/disabled Media Tools must not affect recording playback.
+      // Inactive or inaccessible HEVC never disrupts playback.
     });
   }
 
