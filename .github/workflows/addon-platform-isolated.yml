@@ -108,7 +108,9 @@ jobs:
           make test-phase69f-public-backend-collection
           export TMPDIR="$RUNNER_TEMP"
           make test-addon-activation-intent
+          make test-addon-admission-preview
           make test-addon-administration-service
+          make test-addon-maintenance-read
           make test-addon-activation-catalog
           sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_root_approval"
           sudo env TMPDIR=/root PYTHONDONTWRITEBYTECODE=1 \
