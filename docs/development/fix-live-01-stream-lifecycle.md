@@ -45,8 +45,10 @@ Verified in source on the pinned main baseline
   and preserve server-owned `replacesSessionId` STOP-old-before-OPEN-new
   semantics. The budget is reset only after 60 seconds of sustained video-time
   progress, not a single decoded frame or a successful HTTP response. Errors indicating unsupported playback or denied
-  authority fail closed. Manual stop, page close, HbbTV switch and channel
-  handoff cancel retries. Late MSE callbacks are generation-fenced.
+  authority fail closed. HTTP 401/403/404 media responses retain their
+  structured status and do not schedule recovery. Manual stop, page close,
+  HbbTV switch and channel handoff cancel retries. Late MSE callbacks are
+  generation-fenced.
 - `pagehide.persisted` no longer STOPs the live session. A real close keeps
   the keepalive stop request and destroys the browser owner.
 - HTTP writer now has a 15-second *zero-send-progress* limit, not a total
@@ -60,7 +62,7 @@ Verified in source on the pinned main baseline
 ## Regression and acceptance matrix
 
 The `test_live_tv_eof_recovery.js` regression tests unexpected MSE EOF
-and network AbortError,
+and network AbortError, native video ended and media HTTP 403,
 truthful status, BFCache suspension and resumed-tab grace, sequential `replacesSessionId`,
 cleanup of an old reader, explicit stop and bounded failed retries.
 It is included in `test-ci-frontend` through the existing MSE test target.
