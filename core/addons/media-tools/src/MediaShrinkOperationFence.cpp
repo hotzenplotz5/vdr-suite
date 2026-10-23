@@ -237,6 +237,13 @@ bool MediaShrinkOperationFence::effectiveCapability(
     if (activation.status != IntentStatus::ok ||
         !activation.intent.desiredEnabled || activation.intent.revision <= 0)
         return deny(reason, "media_shrink_activation_disabled");
+    // Effective activation is tied to an explicitly approved Agent lease,
+    // not just a persisted desired-enabled bit and self-reported capability.
+    if (activation.intent.backendGeneration != agent->backendGeneration ||
+        activation.intent.agentId != agent->agentId ||
+        activation.intent.agentInstanceId != agent->agentInstanceId ||
+        activation.intent.backendGeneration == 0)
+        return deny(reason, "media_shrink_activation_agent_stale");
 
     generation = agent->backendGeneration;
     reason = "media_shrink_core_admission_authorized";
