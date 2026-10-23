@@ -57,6 +57,9 @@ SQLITE_ALLOWED_RUNTIME_ADAPTERS = {
     "api/rest/src/GenreBrowserApiRuntime.cpp",
     "core/daemon/src/EmbeddedBackendLifecycle.cpp",
     "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
+    # P1: explicitly audited, single-SQLite identity binding adapter. No
+    # second authority, opaque external DB, or unrestricted service waiver.
+    "core/security/src/DevicePlaybackAccountBindingService.cpp",
 }
 
 SQLITE_ALLOWED_CONTRACT_TESTS = {
@@ -83,6 +86,8 @@ SQLITE_ALLOWED_CONTRACT_TESTS = {
     "core/metadata/tests/test_recording_series_hierarchy_override_repository.cpp",
     "core/metadata/tests/test_metadata_schema_contract.cpp",
     "core/recordings/tests/test_manual_recording_metadata_revision.cpp",
+    # P1 isolated in-memory MOVE/rebind transaction rollback fixture.
+    "core/recordings/tests/test_public_recording_identity_repository.cpp",
     "core/vdr/tests/test_epg_artwork_repository.cpp",
     "core/vdr/tests/test_epg_event_repository.cpp",
     "core/vdr/tests/test_global_search_repository.cpp",
