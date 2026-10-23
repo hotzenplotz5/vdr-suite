@@ -83,6 +83,8 @@ std::vector<ContinueWatchingItem> ContinueWatchingService::list(
     items.reserve(states.size());
 
     for (const auto& state : states) {
+        // CAS reset tombstones are not playable; retain their revision fence.
+        if (state.positionSeconds == 0) continue;
         if (state.backendNativeId.empty()) {
             repository_.clear(state.actorId, state.backendId, state.recordingId);
             continue;
