@@ -206,6 +206,7 @@ void DaemonRuntime::shutdown()
     timerAssignmentRepository_.reset();
     timerIntentRepository_.reset();
     mutationOperationReadService_.reset();
+    mediaShrinkReviewRepository_.reset();
     mutationOperationRepository_.reset();
 
     std::cout << "API router runtime stopped" << std::endl;
