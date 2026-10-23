@@ -7,6 +7,7 @@
 #include "BackendAgentRecordingCutPayload.h"
 #include "LegacyOsdInputDomain.h"
 #include "MediaToolsAgentExecutor.h"
+#include "MediaShrinkAgentCommand.h"
 
 #include <algorithm>
 #include <cctype>
@@ -57,6 +58,20 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
         return value.payloadVersion == 1 &&
             value.verificationPolicy == "reconciliation_required" &&
             vdrsuite::mediatools::parseMediaImportSelection(value.payload, sourceId);
+    }
+    if (value.commandType ==
+            vdrsuite::mediatools::kMediaShrinkStageCommandType ||
+        value.commandType ==
+            vdrsuite::mediatools::kMediaShrinkPublishCommandType)
+    {
+        vdrsuite::mediatools::MediaShrinkAgentSelection selection;
+        const bool stage = value.commandType ==
+            vdrsuite::mediatools::kMediaShrinkStageCommandType;
+        return value.payloadVersion == 1 &&
+            value.verificationPolicy ==
+                (stage ? "readback_required" : "reconciliation_required") &&
+            vdrsuite::mediatools::parseMediaShrinkAgentSelection(
+                value.commandType, value.payload, selection);
     }
     if (value.commandType == "probe.noop")
     {
