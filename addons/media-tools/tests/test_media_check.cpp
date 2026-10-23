@@ -289,13 +289,26 @@ int main(int argc, char* argv[])
     {
         Fixture f;
         Packet valid = packet(2);
-        valid[3] = 0x20 | 2;
+        valid[3] = 0x20 | 1; // adaptation-only preserves prior payload CC
         valid[4] = 183; // adaptation field occupies the entire packet
         valid[5] = 0; // adaptation flags: no discontinuity indicated
         f.write("00002.ts", {valid});
         const auto result = checkRecordingTransportStream(f.video, f.relative());
         assert(result.status() == "ok" && result.adaptationErrors == 0);
         assert(result.continuityWarnings == 0);
+        ++cases;
+    }
+    {
+        Fixture f;
+        Packet broken = packet(2);
+        broken[3] = 0x20 | 2; // illegally increments CC without payload
+        broken[4] = 183;
+        broken[5] = 0; // no discontinuity
+        f.write("00002.ts", {broken});
+        const auto report = checkRecordingTransportStream(f.video, f.relative());
+        assert(report.status() == "warnings" &&
+               report.continuityWarnings == 1 &&
+               report.segmentReports[1].continuityWarnings == 1);
         ++cases;
     }
     {
