@@ -566,6 +566,69 @@
     });
   }
 
+  function renderMediaShrinkPlan(root, copy, recording, backendId, actions) {
+    const client = mediaCheckClient();
+    if (!client || !/^[-A-Za-z0-9._]{1,128}$/.test(text(backendId)) ||
+        typeof client.getMediaShrinkCapability !== 'function') return;
+    client.getMediaShrinkCapability({
+      backendId: backendId, credentials: 'same-origin', cache: 'no-store'
+    }).then(function (capability) {
+      if (!capability || capability.planningAvailable !== true ||
+          capability.available !== false ||
+          capability.capability !== 'addons.media.shrink' ||
+          capability.backendId !== backendId || !actions.parentNode) return;
+      const panel = shared.node('section', 'recordings2-media-check');
+      panel.hidden = true;
+      const status = shared.node('p', 'recordings2-media-check-status',
+        'HEVC-Vorprüfung ist nur lesend. Es wird nichts umgewandelt.');
+      status.setAttribute('role', 'status');
+      const launch = makeButton('Vorprüfung starten', function () {
+        launch.disabled = true;
+        status.textContent = 'Aufnahme wird zugeordnet …';
+        Promise.resolve().then(function () {
+          return resolveMediaCheckIdentity(client, recording, backendId);
+        }).then(function (recordingId) {
+          const session = global.VdrSuiteBrowserSession;
+          if (!session || typeof session.restore !== 'function' ||
+              typeof session.csrfHeaders !== 'function')
+            throw new Error('Anmeldung erforderlich.');
+          return Promise.resolve(session.restore()).then(function () {
+            return client.submitMediaShrinkPlan({
+              backendId: backendId, recordingId: recordingId,
+              headers: session.csrfHeaders(), credentials: 'same-origin'
+            });
+          });
+        }).then(function (plan) {
+          if (!plan || plan.backendId !== backendId || plan.readOnly !== true ||
+              plan.stageAvailable !== false ||
+              !Number.isSafeInteger(plan.sourceBytes) ||
+              !Number.isSafeInteger(plan.segments))
+            throw new Error('Unbekannte HEVC-Vorprüfung.');
+          status.textContent = 'Aufnahme geprüft: ' + plan.segments +
+            ' TS-Segment(e), ' + (plan.sourceBytes / 1048576).toFixed(1) +
+            ' MiB. Die Umwandlung ist noch nicht freigeschaltet.';
+        }).catch(function (error) {
+          status.textContent = 'HEVC-Vorprüfung fehlgeschlagen: ' +
+            text(error && error.message ? error.message : error);
+        }).then(function () {
+          launch.disabled = false;
+        });
+      });
+      panel.appendChild(shared.node('h4', '', 'HEVC-Speicherplatzoptimierung'));
+      panel.appendChild(launch);
+      panel.appendChild(status);
+      const action = makeButton('HEVC-Vorprüfung', function () {
+        panel.hidden = false;
+        if (typeof panel.scrollIntoView === 'function')
+          panel.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+      });
+      actions.appendChild(action);
+      copy.appendChild(panel);
+    }).catch(function () {
+      // Absent/disabled Media Tools must not affect recording playback.
+    });
+  }
+
   function renderHeroActions(root, copy, recording, backendId, metadata) {
     if (!copy || copy.querySelector('.recordings2-hero-actions')) return;
     const actions = shared.node('div', 'recordings2-hero-actions');
@@ -592,6 +655,7 @@
     }));
     copy.appendChild(actions);
     renderMediaCheck(root, copy, recording, backendId, actions);
+    renderMediaShrinkPlan(root, copy, recording, backendId, actions);
   }
 
   function releaseDate(metadata) {
