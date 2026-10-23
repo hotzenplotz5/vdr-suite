@@ -76,9 +76,20 @@ BackendAgentMediaImportRuntime::execute(
     if (executionConsumed_ || !currentExecution_) return Outcome::rejected;
     executionConsumed_ = true;
     try {
+        // The Agent identity and backend generation may change between
+        // authorize() and execute(). Reject before touching the pinned
+        // executable, independently of the server receipt revalidation.
+        if (!available()) return Outcome::rejected;
+        const auto context = currentContext_();
+        if (context.backendId != backendId_ ||
+            context.backendId != assignment.backendId ||
+            context.backendGeneration != assignment.backendGeneration ||
+            context.agentId != assignment.agentId ||
+            context.agentInstanceId != assignment.agentInstanceId ||
+            context.credentialSecret.empty())
+            return Outcome::rejected;
         // A changed root approval, source or effective server grant is denied
         // again inside the pinned executor immediately before fexecve.
-        if (!available()) return Outcome::rejected;
         return currentExecution_->execute(assignment);
     } catch (...) { return Outcome::unknown; }
 }
