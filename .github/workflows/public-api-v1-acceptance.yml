@@ -20,6 +20,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Python regression tests (no daemon and no secrets)
         run: python3 -m unittest discover -s tests -p test_api_v1_acceptance_runner.py -v
       - name: Offline acceptance matrix (no hardware)
