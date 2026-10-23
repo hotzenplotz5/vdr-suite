@@ -55,7 +55,6 @@ inline MediaShrinkCommandFenceResult inspectMediaShrinkCommandFence(
         durablePayload.payloadVersion != 1 ||
         durablePayload.payloadType != assignment.commandType ||
         durablePayload.payload != assignment.payload ||
-        durablePayload.payloadFingerprint != operation.requestFingerprint ||
         durablePayload.payloadFingerprint.empty())
         return Decision::payloadMismatch;
 
