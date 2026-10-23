@@ -33,6 +33,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: public-v1-offline-acceptance
-          path: $RUNNER_TEMP/api-v1-results/last-*.*
+          path: ${{ runner.temp }}/api-v1-results/last-*.*
           if-no-files-found: warn
           retention-days: 14
