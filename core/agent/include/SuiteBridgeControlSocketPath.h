@@ -49,7 +49,7 @@ inline bool validSuiteBridgeControlSocketPath(const std::string& path)
 inline std::string suiteBridgeControlSocketPathFromEnvironment()
 {
     const char* configured = std::getenv("VDR_SUITE_CONTROL_SOCKET_PATH");
-    if (configured == nullptr)
+    if (configured == nullptr || *configured == '\0')
     {
         return "/run/vdr/vdr-suite-control/control.sock";
     }
