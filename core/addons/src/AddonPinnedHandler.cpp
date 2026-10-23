@@ -2,6 +2,7 @@
 
 #include <openssl/evp.h>
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <cstdint>
@@ -176,4 +177,53 @@ HandlerDescriptorResult inspectPinnedMediaToolsHandler(
     return {HandlerDescriptorReason::verified,
             PinnedAddonHandler(binary.release())};
 }
+bool pinnedMediaToolsHandlerBytesCurrent(
+    int pinnedFd, const std::string& independentlyApprovedSha256)
+{
+    if (pinnedFd < 3 || !validDigest(independentlyApprovedSha256))
+        return false;
+    struct stat before{};
+    if (::fstat(pinnedFd, &before) != 0 ||
+        !S_ISREG(before.st_mode) || before.st_uid != 0 ||
+        (before.st_mode & 0022) != 0 || (before.st_mode & 0100) == 0 ||
+        before.st_nlink != 1 || before.st_size <= 0 ||
+        static_cast<std::uint64_t>(before.st_size) > MaximumBinaryBytes)
+        return false;
+    std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>
+        ctx(EVP_MD_CTX_new(), EVP_MD_CTX_free);
+    if (!ctx || EVP_DigestInit_ex(ctx.get(), EVP_sha256(), nullptr) != 1)
+        return false;
+    std::array<unsigned char, 65536> chunk{};
+    std::uint64_t count = 0;
+    while (count < static_cast<std::uint64_t>(before.st_size)) {
+        const auto wanted = static_cast<std::size_t>(
+            std::min<std::uint64_t>(chunk.size(),
+                static_cast<std::uint64_t>(before.st_size) - count));
+        const ssize_t n = ::pread(pinnedFd, chunk.data(), wanted,
+                                  static_cast<off_t>(count));
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0 || EVP_DigestUpdate(ctx.get(), chunk.data(),
+                                      static_cast<std::size_t>(n)) != 1)
+            return false;
+        count += static_cast<std::uint64_t>(n);
+    }
+    std::array<unsigned char, EVP_MAX_MD_SIZE> digest{};
+    unsigned length = 0;
+    struct stat after{};
+    if (EVP_DigestFinal_ex(ctx.get(), digest.data(), &length) != 1 ||
+        length != 32 || ::fstat(pinnedFd, &after) != 0 ||
+        !sameFile(before, after))
+        return false;
+    constexpr char Hex[] = "0123456789abcdef";
+    std::string actual;
+    actual.reserve(64);
+    for (unsigned i = 0; i < length; ++i) {
+        actual.push_back(Hex[digest[i] >> 4]);
+        actual.push_back(Hex[digest[i] & 0x0f]);
+    }
+    // Unlike lseek/read, pread does not change the fd's position used by
+    // any subsequently executed handler or a different descriptor holder.
+    return actual == independentlyApprovedSha256;
+}
+
 } // namespace vdrsuite::addons
