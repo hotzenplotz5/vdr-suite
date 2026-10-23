@@ -130,7 +130,9 @@ bool MediaShrinkOperationFence::applyResult(
              result.dispatchState == "not_started" &&
              (result.errorCategory == "expired" ||
               result.errorCategory == "fenced"))
-        target = State::failedBeforeDispatch;
+        // The canonical assignment is already dispatching, whose legal
+        // terminal rejection is failedVerified (not failedBeforeDispatch).
+        target = State::failedVerified;
     else if (result.resultCategory == "rejected" &&
              result.verificationState == "outcome_unknown" &&
              result.retryClassification == "none" &&
