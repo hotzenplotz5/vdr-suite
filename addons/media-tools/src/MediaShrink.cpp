@@ -587,8 +587,9 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
     return candidate;
 }
 
-fs::path publishShrinkCandidate(const ShrinkPlan& plan,
-                                const fs::path& candidate, ProcessRunner& runner)
+std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
+                                    const fs::path& candidate,
+                                    ProcessRunner& runner)
 {
     const auto checked = inspectShrink(plan.videoRoot,
         plan.relativeRecording, plan.options);
@@ -658,6 +659,26 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
     }
     demand(seen == expectedFiles.size(),
            "shrink candidate is incomplete");
+    return candidateBytes;
+}
+
+fs::path publishShrinkCandidate(const ShrinkPlan& plan,
+                                const fs::path& candidate, ProcessRunner& runner)
+{
+    // This same verifier is available to an independent, read-only Core
+    // reconciliation. Do not publish based solely on FFmpeg exit status.
+    (void)verifyShrinkCandidate(plan, candidate, runner);
+    const auto checked = inspectShrink(plan.videoRoot,
+        plan.relativeRecording, plan.options);
+    demand(signature(checked) == signature(plan),
+           "original recording changed before publication");
+    const auto privateParent = candidate.parent_path();
+    std::vector<std::string> expectedFiles = {
+        ".shrink-review", "00001.ts", "index", "info"
+    };
+    const auto subtitles = subtitleNames(checked);
+    expectedFiles.insert(expectedFiles.end(),
+                         subtitles.begin(), subtitles.end());
     struct stat originalDirectory{};
     const auto originalPath = checked.videoRoot / checked.relativeRecording;
     demand(::lstat(originalPath.c_str(), &originalDirectory) == 0 &&
