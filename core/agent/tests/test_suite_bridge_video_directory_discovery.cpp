@@ -45,6 +45,17 @@ void testLegacyAndOffline()
     assert(!result.authoritativeReply && result.videoDirectory.empty());
 }
 
+void testNativeRejectionFailsClosed()
+{
+    StubTransport transport;
+    for (const int code : {451, 504})
+    {
+        transport.reply = {SuiteBridgeTransportStatus::Success, code, "unavailable", {}};
+        const auto result = SuiteBridgeVideoDirectoryDiscovery::discover(transport);
+        assert(result.authoritativeReply && result.videoDirectory.empty());
+    }
+}
+
 void testMaliciousOrInvalidNativeReplyFailsClosed()
 {
     const std::string invalid[] = {
@@ -69,6 +80,7 @@ int main()
 {
     testNativeRoot();
     testLegacyAndOffline();
+    testNativeRejectionFailsClosed();
     testMaliciousOrInvalidNativeReplyFailsClosed();
     return 0;
 }

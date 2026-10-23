@@ -22,7 +22,7 @@ See [Pit filesystem evidence](mld66-pit-filesystem-evidence-20261023.md).
 The daemon probes only its matching local SuiteBridge backend when no explicit
 recording-root map is provided. A valid absolute, non-root, traversal-free
 response becomes the authoritative native mutation root with the existing
-cross-root safety checks. A malformed success response disables recording writes;
+cross-root safety checks. A malformed success response or the new command's 451/504 rejection disables recording writes;
 old/offline plugins retain legacy Ubuntu behavior. Explicit operator roots always
 take precedence, including invalid explicit roots failing closed. The command
 does not execute filesystem mutations. End-to-end MLD acceptance and a future

@@ -49,8 +49,12 @@ public:
         const SuiteBridgeCommandReply reply =
             transport.execute(SuiteBridgeLocalCommand::VideoDirectory);
 
-        if (!reply.transportSucceeded() || reply.replyCode != 900)
-            return {}; // Old plugins and offline VDRs keep legacy behavior.
+        if (!reply.transportSucceeded())
+            return {}; // Transport offline: preserve legacy Ubuntu behavior.
+        if (reply.replyCode == 451 || reply.replyCode == 504)
+            return {true, {}}; // Known command, unusable root/schema: deny writes.
+        if (reply.replyCode != 900)
+            return {}; // Older SuiteBridge lacks the VPATH command.
 
         return {true, validRoot(reply.payload)};
     }
