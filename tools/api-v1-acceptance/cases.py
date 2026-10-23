@@ -159,6 +159,72 @@ def source_contract_tests(a):
     a.require(r.returncode == 0, "authoritative OpenAPI drift auditor failed")
 
 
+def controlled_contracts_offline(a):
+    """Verify future controlled scenarios against actual documented DTOs.
+
+    Local JSON fixtures only. This never constructs or sends an HTTP write.
+    """
+    spec = a.spec
+    if spec is None:
+        raise Blocked("OpenAPI contract not yet loaded")
+    refs = spec["components"]["schemas"]
+    plan = [
+        ("/api/v1/recordings/actions/execute", "post",
+         {"backendId": "fixture", "recordingId": "rec_" + "a" * 32,
+          "action": "RENAME", "newName": "ACCEPTANCE-FIXTURE", "dryRun": False},
+         ()),
+        ("/api/v1/epg/timer-intents", "post",
+         {"backendId": "fixture", "channelId": "C-1-1-1",
+          "eventId": "12345"},
+         ("If-Match", "Idempotency-Key")),
+        ("/api/v1/native-timers/{timerId}/modifications", "post",
+         {"kind": "toggle", "enabled": False},
+         ("If-Match", "Idempotency-Key")),
+        ("/api/v1/native-timers/{timerId}", "delete", None,
+         ("If-Match", "Idempotency-Key")),
+        ("/api/v1/search-timers", "post",
+         {"name": "ACCEPTANCE-FIXTURE", "query": "Fixture",
+          "active": False, "confirmed": True, "mode": 0,
+          "compareTitle": True, "compareSubtitle": False,
+          "compareSummary": False}, ("Idempotency-Key",)),
+        ("/api/v1/search-timers/{searchTimerId}/mutations", "post",
+         {"action": "update", "confirmed": True, "query": "Fixture"},
+         ("Idempotency-Key", "If-Match")),
+        ("/api/v1/recording-playback-sessions/progress", "post",
+         {"backendId": "fixture", "recordingId": "rec_" + "a" * 32,
+          "operationId": "fixture-operation", "positionSeconds": 1,
+          "expectedRevision": 0, "sessionId": "ms_" + "b" * 32}, ()),
+        ("/api/v1/recording-playback-sessions/{sessionId}/stop", "post",
+         {"operation": "stop", "backendId": "fixture",
+          "sessionId": "ms_" + "b" * 32}, ()),
+        ("/api/v1/accounts/{accountId}/grants", "post",
+         {"permission": "recordings.view", "backendId": "fixture", "active": False},
+         ("If-Match",)),
+    ]
+    for route, method, body, required_headers in plan:
+        op = spec.get("paths", {}).get(route, {}).get(method)
+        a.require(isinstance(op, dict),
+                  "controlled scenario method absent in documented OpenAPI", shape=route)
+        names = {p.get("name") for p in op.get("parameters", [])
+                 if isinstance(p, dict) and p.get("in") == "header" and p.get("required")}
+        a.require(set(required_headers).issubset(names),
+                  "revision/idempotency contract missing for controlled scenario",
+                  shape=route + " required headers")
+        if body is not None:
+            body_schema = op.get("requestBody", {}).get("content", {}).get(
+                "application/json", {}).get("schema")
+            a.require(isinstance(body_schema, dict) and
+                      validate(body, body_schema, refs),
+                      "local controlled DTO fixture does not match documented schema",
+                      shape=route + " request body")
+    search_create = spec["paths"]["/api/v1/search-timers"]["post"]
+    shape = search_create["requestBody"]["content"]["application/json"]["schema"]
+    bad = dict(plan[4][2], active=True)
+    a.require(not validate(bad, shape, refs),
+              "unsafe active SearchTimer creation fixture was accepted")
+    return "9-controlled-contract-scenarios-validated-offline"
+
+
 def root(a):
     d = get(a, V1)
     a.require(d.get("apiVersion") == "v1", "incorrect API major",
@@ -637,6 +703,8 @@ def run_cases(a):
     a.check("source.v1-contract", "CONTRACT", lambda: source_contract_tests(a),
             requires=("spec",))
     a.check("source.runner-regressions", "CONTRACT", lambda: offline_unit(a))
+    a.check("source.controlled-write-contracts", "CONTRACT",
+            lambda: controlled_contracts_offline(a), requires=("spec",))
     def hardware(ident, area, task, *, requires=(), required=True):
         if a.args.profile == "offline":
             return a.record(ident, area, "SKIP",
