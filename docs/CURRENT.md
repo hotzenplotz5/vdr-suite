@@ -1066,3 +1066,11 @@ Exact old candidate SHAs, CI runs and once-open follow-up notes remain valid in 
 MU.10 live authority/gap audit and bounded implementation candidate:
 [MU.10 Device/App Pairing Architecture and Gap Audit](development/post-phase69-mu10-device-app-pairing-audit.md) and
 [MU.10A Device Pairing Bootstrap](development/post-phase69-mu10a-device-pairing-bootstrap.md).
+
+> **P1 Browser CAS source candidate:** Bundled Web frontend sends an actor/
+> Recording-scoped revision read and uses the existing Continue Watching
+> SQLite CAS fence for its own playback checkpoints. Conflicting updates are
+> blocked for the old playback owner. Older nonversioned third-party legacy
+> consumers remain migration compatibility and are not included in the shared
+> race-free P1 acceptance claim. Real Web→Device and Device→Web playback
+> must still be verified on yaVDR after separate authorization.
