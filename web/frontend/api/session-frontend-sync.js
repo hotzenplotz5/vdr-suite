@@ -116,6 +116,9 @@
   const RECORDING_POST_START_WAITING_LIVENESS_MS = 8000;
   const RECORDING_LIVENESS_PROBE_TIMEOUT_MS = 3000;
   const RECORDING_LIVENESS_PROBE_PATH = '/api/vdr/health';
+  const LIVE_STALL_CHECK_MS = 5000;
+  const LIVE_STALL_THRESHOLD_MS = 20000;
+  const LIVE_RECOVERY_BACKOFF_MS = [1000, 2000, 4000];
 
   function text(value) {
     return value === undefined || value === null ? '' : String(value);
@@ -929,6 +932,14 @@
     let sourceSwitchPromise = Promise.resolve(true);
     let sourceMode = 'broadcast';
     const stoppedSessions = Object.create(null);
+    let transportGeneration = 0;
+    let recoveryEpoch = 0;
+    let recoveryAttempts = 0;
+    let recoveryTimer = null;
+    let recovering = false;
+    let stallTimer = null;
+    let lastProgressAt = 0;
+    let lastPosition = 0;
 
     function setStatus(message, error) {
       status.textContent = message;
@@ -950,7 +961,72 @@
       return stopBroadcastSession(activeSessionId, keepalive);
     }
 
+    function clearStallTimer() {
+      if (stallTimer !== null && typeof global.clearTimeout === 'function') {
+        global.clearTimeout(stallTimer);
+      }
+      stallTimer = null;
+    }
+
+    function cancelRecovery() {
+      recoveryEpoch += 1;
+      if (recoveryTimer !== null && typeof global.clearTimeout === 'function') {
+        global.clearTimeout(recoveryTimer);
+      }
+      recoveryTimer = null;
+      recovering = false;
+      clearStallTimer();
+    }
+
+    function noteFrameProgress() {
+      const position = Number(video.currentTime);
+      if (Number.isFinite(position) && position > lastPosition + 0.25) {
+        lastPosition = position;
+        lastProgressAt = Date.now();
+        recoveryAttempts = 0;
+      }
+    }
+
+    function armStallCheck(delay) {
+      clearStallTimer();
+      if (destroyed || sourceMode !== 'broadcast' || playbackFailed ||
+          recovering || !activeSessionId || typeof global.setTimeout !== 'function') return;
+      stallTimer = global.setTimeout(checkLiveProgress, delay || LIVE_STALL_CHECK_MS);
+    }
+
+    function checkLiveProgress() {
+      stallTimer = null;
+      if (destroyed || sourceMode !== 'broadcast' || playbackFailed ||
+          recovering || !activeSessionId) return;
+      noteFrameProgress();
+      if (global.document && global.document.visibilityState === 'hidden') {
+        armStallCheck();
+        return;
+      }
+      if (!video.paused && lastProgressAt &&
+          Date.now() - lastProgressAt >= LIVE_STALL_THRESHOLD_MS) {
+        failPlayback(new Error('Live-TV-Bild steht seit mindestens 20 Sekunden still.'));
+        return;
+      }
+      armStallCheck();
+    }
+
+    function resumed() {
+      if (destroyed || sourceMode !== 'broadcast' || !activeSessionId) return;
+      if (global.document && global.document.visibilityState === 'hidden') return;
+      noteFrameProgress();
+      if (!recovering && !playbackFailed) {
+        if (Date.now() - lastProgressAt >= LIVE_STALL_THRESHOLD_MS) {
+          // A background page can be suspended. Allow one grace check.
+          lastProgressAt = Date.now() - LIVE_STALL_THRESHOLD_MS + LIVE_STALL_CHECK_MS;
+        }
+        armStallCheck();
+      }
+    }
+
     function releaseVideo() {
+      transportGeneration += 1;
+      clearStallTimer();
       if (continuousTransport) {
         continuousTransport.destroy();
         continuousTransport = null;
@@ -981,10 +1057,15 @@
     ) {
       releaseVideo();
       const shouldAutoPlay = autoPlay !== false;
+      const generation = transportGeneration;
+      const guardedFailure = function (error) {
+        if (!destroyed && generation === transportGeneration &&
+            typeof onFailure === 'function') onFailure(error);
+      };
       continuousTransport = createContinuousFmp4Mse(
         video,
         mediaPath,
-        onFailure,
+        guardedFailure,
         shouldAutoPlay,
         forwardBufferBackpressure,
         sourceMode === 'broadcast'
