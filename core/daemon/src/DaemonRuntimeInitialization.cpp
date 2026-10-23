@@ -765,6 +765,7 @@ bool DaemonRuntime::initialize()
         recordingActionConfig.videoDirectory = configuredRootAvailable
             ? rootIt->second
             : (explicitlyConfigured ? std::string() : "/srv/vdr/video");
+        recordingActionConfig.videoDirectoryExplicit = configuredRootAvailable;
         recordingActionConfig.apiMode =
             RestfulApiRecordingActionApiMode::SafeMutation;
         recordingActionConfig.allowExecution =
