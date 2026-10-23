@@ -163,6 +163,15 @@ MediaShrinkAgentOutcome LocalMediaShrinkAgentExecutor::execute(
                 fresh->videoRoot, fresh->relativeRecording, options(selection));
             if (shrinkSourceFingerprint(plan) != fresh->sourceFingerprint)
                 return MediaShrinkAgentOutcome::rejected;
+            requireShrinkCapacity(plan);
+            // Durable start fence is written before any FFmpeg or staging IO.
+            // An ambiguous prior attempt cannot be silently restarted after
+            // a process crash, dispatch replay or an Agent lease takeover.
+            if (!reviews_.claimStageOnce(
+                    fresh->operationId, fresh->actorId, fresh->backendId,
+                    fresh->recordingId, fresh->sourceFingerprint,
+                    fresh->backendGeneration))
+                return MediaShrinkAgentOutcome::unknown;
             const auto candidate = stageShrink(plan, runner, requireShrinkCapacity);
             LocalMediaShrinkReview local;
             local.actorId = fresh->actorId;
