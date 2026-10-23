@@ -352,7 +352,7 @@ int main()
             assert(request.idempotencyKey == "test-create-unique-1");
             assert(request.name == "Terra X");
             assert(request.query == "Terra X");
-            assert(request.active);
+            assert(!request.active);
             assert(request.mode == 1);
             assert(request.compareTitle);
             assert(!request.compareSubtitle);
@@ -368,7 +368,7 @@ int main()
         });
     const std::string draftBody =
         "{\"name\":\"Terra X\",\"query\":\"Terra X\","
-        "\"confirmed\":true,\"mode\":1,\"compareTitle\":true,"
+        "\"active\":false,\"confirmed\":true,\"mode\":1,\"compareTitle\":true,"
         "\"compareSubtitle\":false,\"compareSummary\":true}";
     ApiResponse acceptedSearch;
     assert(runtime.tryHandlePost(
@@ -382,19 +382,27 @@ int main()
         std::string::npos);
     assert(createCalls == 1);
     for (const std::string& malformed : {
+        // Omitting active used to activate every matching EPG event.
         std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
-            "\"confirmed\":false,\"mode\":1,\"compareTitle\":true,"
+            "\"confirmed\":true,\"mode\":1,\"compareTitle\":true,"
+            "\"compareSubtitle\":false,\"compareSummary\":true}"),
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"active\":true,\"confirmed\":true,\"mode\":1,"
+            "\"compareTitle\":true,\"compareSubtitle\":false,"
+            "\"compareSummary\":true}"),
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"active\":false,\"confirmed\":false,\"mode\":1,\"compareTitle\":true,"
             "\"compareSubtitle\":false,\"compareSummary\":true}"),
         std::string("{\"name\":\"Fremder Anzeigename\","
-            "\"query\":\"Terra X\",\"confirmed\":true,"
+            "\"query\":\"Terra X\",\"active\":false,\"confirmed\":true,"
             "\"mode\":1,\"compareTitle\":true,\"compareSubtitle\":false,"
             "\"compareSummary\":true}"),
         std::string("{\"name\":\"Terra X\",\"name\":\"Duplicate\","
-            "\"query\":\"Terra X\",\"confirmed\":true,"
+            "\"query\":\"Terra X\",\"active\":false,\"confirmed\":true,"
             "\"mode\":1,\"compareTitle\":true,\"compareSubtitle\":false,"
             "\"compareSummary\":true}"),
         std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
-            "\"confirmed\":true,\"mode\":1,\"compareTitle\":true,"
+            "\"active\":false,\"confirmed\":true,\"mode\":1,\"compareTitle\":true,"
             "\"compareSubtitle\":false,\"compareSummary\":true,"
             "\"privateProviderUrl\":\"bad\"}")
     })

@@ -5,6 +5,8 @@
 
 #include <sqlite3.h>
 
+#include <algorithm>
+
 #include <map>
 #include <optional>
 #include <set>
@@ -209,6 +211,57 @@ PublicSearchTimerIdentityRepository::PublicSearchTimerIdentityRepository(
     Database& db)
     : database_(db)
 {
+}
+
+std::optional<std::string>
+PublicSearchTimerIdentityRepository::resolveActiveNativeId(
+    const std::string& backendId, const std::string& publicSearchTimerId)
+{
+    if (backendId.empty() || backendId.size() > 128U ||
+        publicSearchTimerId.size() != 35U ||
+        publicSearchTimerId.compare(0, 3, "st_") != 0 ||
+        !std::all_of(publicSearchTimerId.begin() + 3,
+            publicSearchTimerId.end(), [](unsigned char c) {
+                return (c >= '0' && c <= '9') ||
+                    (c >= 'a' && c <= 'f');
+            }))
+        return std::nullopt;
+
+    auto lease = database_.acquireTransactionLease();
+    sqlite3* db = database_.handle();
+    if (!db) return std::nullopt;
+    sqlite3_stmt* statement = nullptr;
+    constexpr const char* sql =
+        "SELECT i.native_id FROM public_search_timer_identity i "
+        "INNER JOIN public_search_timer_identity_signature s "
+        "ON s.public_id=i.public_id "
+        "WHERE i.backend_id=?1 AND i.public_id=?2 "
+        "AND s.signature<>'' AND NOT EXISTS ("
+        "SELECT 1 FROM public_search_timer_identity_retired r "
+        "WHERE r.public_id=i.public_id) LIMIT 2;";
+    if (sqlite3_prepare_v2(db, sql, -1, &statement, nullptr) != SQLITE_OK)
+        return std::nullopt;
+
+    std::optional<std::string> native;
+    bool ok = bind(statement, 1, backendId) &&
+        bind(statement, 2, publicSearchTimerId);
+    if (ok)
+    {
+        const int first = sqlite3_step(statement);
+        if (first == SQLITE_ROW)
+        {
+            const auto* raw = sqlite3_column_text(statement, 0);
+            if (raw && sqlite3_column_bytes(statement, 0) > 0)
+                native = reinterpret_cast<const char*>(raw);
+            if (sqlite3_step(statement) != SQLITE_DONE)
+                native.reset();
+        }
+        else if (first != SQLITE_DONE)
+            native.reset();
+    }
+    if (sqlite3_finalize(statement) != SQLITE_OK)
+        native.reset();
+    return ok ? native : std::nullopt;
 }
 
 bool PublicSearchTimerIdentityRepository::ensureSchema()

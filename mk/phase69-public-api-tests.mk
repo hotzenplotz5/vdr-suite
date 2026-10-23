@@ -1,3 +1,52 @@
+# Immutable offline-native-CAS admission, no HTTP/native writer.
+.PHONY: test-searchtimer-native-cas-durable-admission
+test-searchtimer-native-cas-durable-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerNativeCasContract.cpp \
+		core/vdr/src/SearchTimerNativeCasDispatchService.cpp \
+		core/vdr/src/SearchTimerNativeCasAdmissionService.cpp \
+		core/vdr/tests/test_search_timer_native_cas_admission_service.cpp \
+		$(LDFLAGS) -lcrypto -o $(BUILD_DIR)/test_search_timer_native_cas_admission_service
+	$(BUILD_DIR)/test_search_timer_native_cas_admission_service
+
+test-phase: test-searchtimer-native-cas-durable-admission
+test-fast: test-searchtimer-native-cas-durable-admission
+
+
+# One-shot durable SearchTimer native-CAS gate; offline mock provider only.
+.PHONY: test-searchtimer-native-cas-durable-dispatch
+test-searchtimer-native-cas-durable-dispatch:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/vdr/src/SearchTimerNativeCasContract.cpp \
+		core/vdr/src/SearchTimerNativeCasDispatchService.cpp \
+		core/vdr/tests/test_search_timer_native_cas_dispatch_service.cpp \
+		$(LDFLAGS) -lcrypto -o $(BUILD_DIR)/test_search_timer_native_cas_dispatch_service
+	$(BUILD_DIR)/test_search_timer_native_cas_dispatch_service
+
+test-phase: test-searchtimer-native-cas-durable-dispatch
+test-fast: test-searchtimer-native-cas-durable-dispatch
+
+# Provider-native CAS protocol is a mock-only prerequisite. Never
+# substitute a legacy numeric-ID RESTfulAPI/SVDRP writer here.
+.PHONY: test-searchtimer-native-cas-contract
+test-searchtimer-native-cas-contract:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/vdr/src/SearchTimerNativeCasContract.cpp \
+		core/vdr/tests/test_search_timer_native_cas_contract.cpp \
+		-o $(BUILD_DIR)/test_search_timer_native_cas_contract
+	$(BUILD_DIR)/test_search_timer_native_cas_contract
+
+test-phase: test-searchtimer-native-cas-contract
+test-fast: test-searchtimer-native-cas-contract
+
 .PHONY: test-public-epg-timer-intent-admission
 
 test-public-epg-timer-intent-admission:
@@ -411,6 +460,10 @@ test-phase69d-public-timer-assignment-collection:
 	$(BUILD_DIR)/test_public_timer_assignment_collection_security
 	python3 tools/check_phase69d_timer_assignment_collection.py
 
+# SearchTimer inactive-create HTTP regression is included in this compiled
+# Public-v1 collection test. Never rely on an unrun test for write safety.
+test-fast: test-phase69d-public-timer-assignment-collection
+
 .PHONY: test-phase69d-public-channel-collection
 
 test-phase69d-public-channel-collection:
@@ -556,6 +609,12 @@ test-phase69f-public-v1-timer-assignment-collection-reference-client:
 	node clients/reference-js/tests/test_public_v1_search_timer_client.js
 	python3 tools/check_phase69f_public_v1_timer_assignment_collection_reference_client.py
 
+
+.PHONY: test-public-v1-searchtimer-safe-client
+test-public-v1-searchtimer-safe-client:
+	node clients/reference-js/tests/test_public_v1_search_timer_client.js
+
+test-fast: test-public-v1-searchtimer-safe-client
 
 .PHONY: test-phase69f-public-v1-timer-assignment-item-reference-client
 

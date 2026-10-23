@@ -341,6 +341,45 @@
     return '?' + params.toString();
   }
 
+  // EPG text matches are a preview, never a recording forecast or a write.
+  function searchTimerDraftPreviewQuery(query) {
+    if (!query || typeof query !== 'object' || Array.isArray(query))
+      throw new Error('SearchTimer draft preview query must be an object');
+    const allowed = new Set(['backendId','query','mode','tolerance',
+      'compareTitle','compareSubtitle','compareSummary','limit']);
+    Object.keys(query).forEach(function (key) {
+      if (!allowed.has(key)) throw new Error('unsupported draft preview field: ' + key);
+    });
+    if (typeof query.backendId !== 'string' ||
+        !/^[A-Za-z0-9._-]{1,128}$/.test(query.backendId) ||
+        typeof query.query !== 'string' ||
+        query.query.length < 2 || query.query.length > 240 ||
+        ![0,1,2,3,5].includes(query.mode) ||
+        typeof query.compareTitle !== 'boolean' ||
+        typeof query.compareSubtitle !== 'boolean' ||
+        typeof query.compareSummary !== 'boolean' ||
+        !(query.compareTitle || query.compareSubtitle || query.compareSummary))
+      throw new Error('invalid SearchTimer draft preview');
+    const tolerance = query.tolerance === undefined ? 0 : query.tolerance;
+    if (!Number.isInteger(tolerance) || tolerance < 0 || tolerance > 3 ||
+        (query.mode !== 5 && tolerance !== 0))
+      throw new Error('invalid SearchTimer draft tolerance');
+    if (query.limit !== undefined &&
+        (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 30))
+      throw new Error('invalid SearchTimer preview limit');
+    const params = new URLSearchParams();
+    params.set('backend',query.backendId);
+    params.set('query',query.query);
+    params.set('mode',String(query.mode));
+    params.set('compareTitle',query.compareTitle ? '1' : '0');
+    params.set('compareSubtitle',query.compareSubtitle ? '1' : '0');
+    params.set('compareSummary',query.compareSummary ? '1' : '0');
+    if (tolerance !== 0) params.set('tolerance',String(tolerance));
+    if (query.limit !== undefined) params.set('limit',String(query.limit));
+    // Preserve spaces as percent-encoded bytes, never form-urlencoded '+'.
+    return '?' + params.toString().replace(/\+/g, '%20');
+  }
+
   function timerAssignmentCollectionQuery(query) {
     if (!query || typeof query !== 'object' || Array.isArray(query)) {
       throw new Error('TimerAssignment collection query must be an object');
@@ -638,6 +677,117 @@
             status: response.status,
             data: payload
           };
+        });
+      });
+    }
+
+    function nativeSearchTimerPath(options, suffix) {
+      const o = options && typeof options === 'object' ? options : {};
+      if (typeof o.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(o.backendId) ||
+          typeof o.searchTimerId !== 'string' ||
+          !/^st_[0-9a-f]{32}$/.test(o.searchTimerId))
+        throw new Error('canonical public SearchTimer ID and backendId required');
+      return '/api/v1/search-timers/' + o.searchTimerId + '/' + suffix +
+        '?backend=' + encodeURIComponent(o.backendId);
+    }
+
+    function nativeSearchTimerMutation(options) {
+      const o = options && typeof options === 'object' ? options : {};
+      const allowed = new Set(['backendId','searchTimerId','action','query',
+        'confirmed','previewAcknowledged','ifMatch','idempotencyKey',
+        'headers','credentials','signal']);
+      Object.keys(o).forEach(function (key) {
+        if (!allowed.has(key))
+          throw new Error('unsupported native SearchTimer mutation option: ' + key);
+      });
+      const path = nativeSearchTimerPath(o, 'mutations');
+      if (!['update','activate','deactivate','delete'].includes(o.action) ||
+          o.confirmed !== true ||
+          typeof o.ifMatch !== 'string' ||
+          !/^"sr_[0-9a-f]{32}"$/.test(o.ifMatch) ||
+          typeof o.idempotencyKey !== 'string' ||
+          !/^[A-Za-z0-9._:-]{1,160}$/.test(o.idempotencyKey))
+        throw new Error('guarded SearchTimer mutation confirmation, revision and idempotency key required');
+      if (o.action === 'activate' && o.previewAcknowledged !== true)
+        throw new Error('activation requires explicit fresh EPG preview acknowledgement');
+      if (o.action === 'update') {
+        if (typeof o.query !== 'string' || o.query.length === 0 ||
+            o.query.length > 200 || /[:\x00-\x1f\x7f]/.test(o.query))
+          throw new Error('unsupported inactive SearchTimer update query');
+      } else if (o.query !== undefined) {
+        throw new Error('query is allowed only for an inactive update');
+      }
+      const headers = Object.assign({Accept:'application/json'},
+        defaultHeaders,copyHeaders(o.headers));
+      headers['Content-Type'] = 'application/json';
+      headers['If-Match'] = o.ifMatch;
+      headers['Idempotency-Key'] = o.idempotencyKey;
+      const payload = {action:o.action,confirmed:true};
+      if (o.action === 'update') payload.query = o.query;
+      return fetchImpl(buildUrl(baseUrl,path), {
+        method:'POST',headers,
+        credentials:o.credentials !== undefined ? o.credentials : normalized.credentials,
+        signal:o.signal,body:JSON.stringify(payload)
+      }).then(function (response) {
+        const location = headerValue(response,'Location');
+        return parseJsonBody(response).then(function (data) {
+          if (!response.ok) throw new VdrSuitePublicClientError(path,response.status,data,response);
+          return {status:response.status,location,data};
+        });
+      });
+    }
+
+    function requestInactiveSearchTimerCreate(options) {
+      const o = options && typeof options === 'object' ? options : {};
+      const allowed = new Set(['backendId','name','query','active','mode',
+        'tolerance','compareTitle','compareSubtitle','compareSummary',
+        'idempotencyKey','previewAcknowledged','confirmed','headers',
+        'credentials','signal']);
+      Object.keys(o).forEach(function (key) {
+        if (!allowed.has(key)) throw new Error('unsupported SearchTimer staging field: ' + key);
+      });
+      if (typeof o.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(o.backendId) ||
+          typeof o.query !== 'string' || o.query.length < 2 ||
+          o.query.length > 240 || o.name !== o.query ||
+          o.active !== false || o.confirmed !== true ||
+          o.previewAcknowledged !== true ||
+          ![0,1,2,3,5].includes(o.mode) ||
+          typeof o.compareTitle !== 'boolean' ||
+          typeof o.compareSubtitle !== 'boolean' ||
+          typeof o.compareSummary !== 'boolean' ||
+          !(o.compareTitle || o.compareSubtitle || o.compareSummary) ||
+          typeof o.idempotencyKey !== 'string' ||
+          !/^[A-Za-z0-9._:-]{1,160}$/.test(o.idempotencyKey))
+        throw new Error('SearchTimer staging requires explicit inactive state, EPG preview acknowledgement and confirmation');
+      const tolerance = o.tolerance === undefined ? 0 : o.tolerance;
+      if (!Number.isInteger(tolerance) || tolerance < 0 ||
+          tolerance > 3 || (o.mode !== 5 && tolerance !== 0))
+        throw new Error('invalid SearchTimer staging tolerance');
+      const path = '/api/v1/search-timers?backend=' + encodeURIComponent(o.backendId);
+      const headers = Object.assign({Accept:'application/json'}, defaultHeaders,
+        copyHeaders(o.headers));
+      if (headers['If-Match'] !== undefined || headers['if-match'] !== undefined)
+        throw new Error('SearchTimer CREATE cannot have If-Match');
+      headers['Content-Type'] = 'application/json';
+      headers['Idempotency-Key'] = o.idempotencyKey;
+      const payload = {
+        name:o.name,query:o.query,active:false,confirmed:true,
+        mode:o.mode,tolerance:tolerance,
+        compareTitle:o.compareTitle,compareSubtitle:o.compareSubtitle,
+        compareSummary:o.compareSummary
+      };
+      return fetchImpl(buildUrl(baseUrl,path), {
+        method:'POST', headers,
+        credentials:o.credentials !== undefined ? o.credentials : normalized.credentials,
+        signal:o.signal,
+        body:JSON.stringify(payload)
+      }).then(function (response) {
+        const location = headerValue(response,'Location');
+        return parseJsonBody(response).then(function (data) {
+          if (!response.ok) throw new VdrSuitePublicClientError(path,response.status,data,response);
+          return {status:response.status,location,data};
         });
       });
     }
@@ -1095,6 +1245,24 @@
           '/api/v1/search-timers' + searchTimerCollectionQuery(normalizedOptions.query),
           normalizedOptions
         );
+      },
+      previewSearchTimerDraft(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return request(
+          '/api/v1/search-timers/draft-preview' +
+          searchTimerDraftPreviewQuery(normalizedOptions.query),
+          normalizedOptions
+        );
+      },
+      createInactiveSearchTimer(options) {
+        return requestInactiveSearchTimerCreate(options);
+      },
+      getSearchTimerVersion(options) {
+        const o = options && typeof options === 'object' ? options : {};
+        return request(nativeSearchTimerPath(o,'version'), o);
+      },
+      mutateSearchTimer(options) {
+        return nativeSearchTimerMutation(options);
       },
       getTimerAssignments(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

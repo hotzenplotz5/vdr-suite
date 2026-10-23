@@ -1,0 +1,91 @@
+name: SearchTimer native epgsearch source compile
+
+on:
+  pull_request:
+    paths:
+      - 'patches/epgsearch/**'
+      - '.github/workflows/searchtimer-native-epgsearch-compile.yml'
+      - 'vdr-plugin-suite-bridge/suitebridge_epgsearch_native_cas*'
+      - 'vdr-plugin-suite-bridge/Makefile'
+      - 'tools/check_epgsearch_service_abi.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  epgsearch-native-source-compile:
+    name: Apply pinned native patches and compile epgsearch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install isolated native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config git patch vdr-dev libpcre2-dev
+
+      - name: Checkout exact epgsearch upstream
+        env:
+          UPSTREAM_SHA: 0118b4129c3601c04c7483f2fd04b604d4a2a980
+        run: |
+          git clone --quiet https://github.com/vdr-projects/vdr-plugin-epgsearch.git "$RUNNER_TEMP/epgsearch"
+          git -C "$RUNNER_TEMP/epgsearch" checkout --quiet --detach "$UPSTREAM_SHA"
+          test "$(git -C "$RUNNER_TEMP/epgsearch" rev-parse HEAD)" = "$UPSTREAM_SHA"
+
+      - name: Check and apply patch series strictly in order
+        run: |
+          for patch_name in \
+            0001-searchtimer-owner-lock-legacy-writers.patch \
+            0002-searchtimer-native-generation-observe.patch \
+            0003-searchtimer-native-revision-observe-v11.patch \
+            0004-searchtimer-native-toggle-cas.patch \
+            0005-searchtimer-native-inactive-update-cas.patch \
+            0006-searchtimer-native-delete-cas.patch \
+            0007-searchtimer-native-metadata-strict.patch \
+            0008-searchtimer-osd-stale-pointer-guard.patch \
+            0009-searchtimer-osd-actions-retired-guard.patch \
+            0010-searchtimer-native-catalogue-clean-fence.patch \
+            0011-searchtimer-osd-retired-edit-and-timers.patch \
+            0012-searchtimer-native-retired-shutdown-cleanup.patch \
+            0013-searchtimer-native-checked-durability.patch
+          do
+            patch_file="$GITHUB_WORKSPACE/patches/epgsearch/$patch_name"
+            test -s "$patch_file"
+            git -C "$RUNNER_TEMP/epgsearch" apply --check "$patch_file"
+            git -C "$RUNNER_TEMP/epgsearch" apply "$patch_file"
+          done
+          git -C "$RUNNER_TEMP/epgsearch" diff --check
+          grep -Fq 'Epgsearch-searchtimer-observe-v1.1' "$RUNNER_TEMP/epgsearch/epgsearch.c"
+
+      - name: Execute actual native DELETE CAS service body with isolated threaded mocks
+        run: |
+          python3 "$GITHUB_WORKSPACE/tools/test_epgsearch_native_delete_cas.py" \
+            --source "$RUNNER_TEMP/epgsearch"
+
+      - name: Exercise UPDATE TOGGLE DELETE native CAS mutation cycle (isolated mocks)
+        run: |
+          python3 "$GITHUB_WORKSPACE/tools/test_epgsearch_native_mutation_cycle.py" \
+            --source "$RUNNER_TEMP/epgsearch"
+
+      - name: Check pinned native epgsearch service ABI against SuiteBridge
+        run: |
+          python3 "$GITHUB_WORKSPACE/tools/check_epgsearch_service_abi.py" \
+            --source "$RUNNER_TEMP/epgsearch" \
+            --bridge "$GITHUB_WORKSPACE/vdr-plugin-suite-bridge/suitebridge_epgsearch_native_cas.h"
+
+      - name: Compile SuiteBridge native epgsearch provider adapter in isolation
+        run: |
+          make -C "$GITHUB_WORKSPACE/vdr-plugin-suite-bridge" \
+            suitebridge_epgsearch_native_cas.o
+          test -s "$GITHUB_WORKSPACE/vdr-plugin-suite-bridge/suitebridge_epgsearch_native_cas.o"
+
+      - name: Compile epgsearch native plugin only (no install or runtime)
+        run: |
+          make -C "$RUNNER_TEMP/epgsearch" \
+            AUTOCONFIG=0 WITHOUT_EPGSEARCHONLY=1 \
+            WITHOUT_CONFLICTCHECKONLY=1 WITHOUT_QUICKSEARCH=1 \
+            -j2 libvdr-epgsearch.so
+          test -s "$RUNNER_TEMP/epgsearch/libvdr-epgsearch.so"

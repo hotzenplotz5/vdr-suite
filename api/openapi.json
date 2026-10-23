@@ -990,7 +990,7 @@
         ],
         "operationId": "createSearchTimer",
         "summary": "Create one backend SearchTimer from a paired Device",
-        "description": "A verified Device with independent searchtimers.create@backend grant may submit one confirmed, durable and idempotent SearchTimer CREATE. Backend must be online and writable with live Agent generation. One-shot provider dispatch and exact native-ID readback; HTTP 202 is an Operation, never a promise of recording. An ambiguous result must not be automatically retried. The native RESTfulAPI mapping uses the search text as the rule name; name must equal query or HTTP 422.",
+        "description": "A verified Device with independent searchtimers.create@backend grant may submit one confirmed, durable and idempotent SearchTimer CREATE, but only with explicitly inactive state (active=false). Missing active or active=true returns HTTP 422; Separate guarded mutations use /api/v1/search-timers/{searchTimerId}/mutations, with independent grants and native generation/revision CAS. Backend must be online and writable with live Agent generation. One-shot provider dispatch and exact native-ID readback; HTTP 202 is an Operation, never a promise of recording. An ambiguous result must not be automatically retried. The native RESTfulAPI mapping uses the search text as the rule name; name must equal query or HTTP 422.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "verified Device and exact searchtimers.create@backend; no Browser/legacy fallback"
@@ -1026,6 +1026,7 @@
                 "required": [
                   "name",
                   "query",
+                  "active",
                   "confirmed",
                   "mode",
                   "compareTitle",
@@ -1047,8 +1048,8 @@
                     "const": true
                   },
                   "active": {
-                    "type": "boolean",
-                    "default": true
+                    "const": false,
+                    "description": "Explicit inactive staging only. Activation requires a separate, confirmed /api/v1/search-timers/{searchTimerId}/mutations request, a strong native revision If-Match, the searchtimers.execute Device/backend grant, and compatible generation-fenced epgsearch CAS. An unpatched provider fails closed."
                   },
                   "mode": {
                     "type": "integer",
@@ -9079,6 +9080,230 @@
           },
           "503": {
             "description": "EPG Artwork owner or backend unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/search-timers/{searchTimerId}/version": {
+      "get": {
+        "tags": [
+          "SearchTimers"
+        ],
+        "operationId": "getSearchTimerNativeVersion",
+        "summary": "Read a backend-scoped SearchTimer mutation revision",
+        "description": "Read-only exact active public SearchTimer binding plus in-process native epgsearch observation. Returns opaque version as strong ETag; no numeric native ID or generation is exposed. Requires Device searchtimers.view@backend. The underlying generation and revision must be persistently attested.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "verified Device, exact searchtimers.view@backend"
+        },
+        "parameters": [
+          {
+            "name": "searchTimerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^st_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current durable search rule revision",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "searchTimerId",
+                    "backendId",
+                    "revision"
+                  ],
+                  "properties": {
+                    "searchTimerId": {
+                      "type": "string",
+                      "pattern": "^st_[0-9a-f]{32}$"
+                    },
+                    "backendId": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "string",
+                      "pattern": "^sr_[0-9a-f]{32}$"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid backend query"
+          },
+          "401": {
+            "description": "Missing Device credential"
+          },
+          "403": {
+            "description": "No exact SearchTimer view grant"
+          },
+          "404": {
+            "description": "No active public SearchTimer binding"
+          },
+          "503": {
+            "description": "Native epgsearch observation unavailable or not durable"
+          }
+        }
+      }
+    },
+    "/api/v1/search-timers/{searchTimerId}/mutations": {
+      "post": {
+        "tags": [
+          "SearchTimers"
+        ],
+        "operationId": "mutateSearchTimerCAS",
+        "summary": "Durable native CAS UPDATE, ACTIVATE, DEACTIVATE or DELETE of one SearchTimer",
+        "description": "One explicit confirmed Device action, never a legacy SVDRP/RESTfulAPI write. Requires exact backend Device grant: searchtimers.modify for update/deactivate, searchtimers.execute for activate, searchtimers.delete for delete. If-Match is the quoted opaque revision from GET /version. Numeric native ID and generation are derived only from the server-owned active identity mapping plus native observe-v1.1. The server reserves an immutable Operation and dispatches at most once. Applied results close only after a separate authoritative native readback. No blind retry of outcome_unknown. UPDATE is restricted to an inactive rule and preserves all other epgsearch settings. Operator must review EPG preview before activating.",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "verified Device plus exact searchtimers.modify/execute/delete@backend grant according to action"
+        },
+        "parameters": [
+          {
+            "name": "searchTimerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^st_[0-9a-f]{32}$"
+            }
+          },
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\"sr_[0-9a-f]{32}\"$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action",
+                  "confirmed"
+                ],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "update",
+                      "activate",
+                      "deactivate",
+                      "delete"
+                    ]
+                  },
+                  "confirmed": {
+                    "const": true
+                  },
+                  "query": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Only for update; inactive native rule, colon/control characters refused."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Durable Operation accepted or idempotently replayed; consult Operation state for succeeded, failed_verified or outcome_unknown",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DurableOperation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed query, If-Match or Idempotency-Key"
+          },
+          "401": {
+            "description": "Missing verified Device credential"
+          },
+          "403": {
+            "description": "Action-specific backend grant denied"
+          },
+          "404": {
+            "description": "Public SearchTimer ID retired/not found"
+          },
+          "409": {
+            "description": "Stale revision or request conflict"
+          },
+          "415": {
+            "description": "Unsupported content type"
+          },
+          "422": {
+            "description": "Invalid mutation, active update or unsupported query"
+          },
+          "503": {
+            "description": "Backend/Agent/native service unavailable; unsafe mutation never dispatched"
           }
         }
       }

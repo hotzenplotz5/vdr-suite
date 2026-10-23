@@ -72,6 +72,8 @@ void DaemonRuntime::shutdown()
     PublicApiRuntime::instance().resetEpgGenreLookup();
     PublicApiRuntime::instance().resetTimerAssignmentCollectionLookup();
     PublicApiRuntime::instance().resetSearchTimerCreate();
+    PublicApiRuntime::instance().resetSearchTimerNativeVersionLookup();
+    PublicApiRuntime::instance().resetSearchTimerNativeMutation();
     PublicApiRuntime::instance().resetSearchTimerCollectionLookup();
     PublicApiRuntime::instance().resetTimerAssignmentLookup();
     PublicApiRuntime::instance().resetOperationLookup();

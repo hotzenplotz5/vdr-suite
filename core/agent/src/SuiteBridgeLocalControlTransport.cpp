@@ -130,6 +130,49 @@ Reply readReply(const SuiteBridgeCommandReply& reply)
 }
 SuiteBridgeLocalControlTransport::SuiteBridgeLocalControlTransport(SuiteBridgeLocalControlTransportConfig c):config_(std::move(c)){}
 bool SuiteBridgeLocalControlTransport::safeToken(const std::string&v){return !v.empty()&&v.size()<=128&&std::all_of(v.begin(),v.end(),[](unsigned char c){return std::isalnum(c)!=0||c=='-'||c=='_'||c=='.'||c==':';});}
+SuiteBridgeCommandReply
+SuiteBridgeLocalControlTransport::discoverSearchTimerCas()
+{
+    return executeOperation(control::Operation::SearchTimerCasCapability, {});
+}
+
+SuiteBridgeCommandReply
+SuiteBridgeLocalControlTransport::observeSearchTimerCas(int nativeId)
+{
+    if (nativeId < 0)
+        return fail(SuiteBridgeTransportStatus::Failed,
+            "negative native search rule ID");
+    return executeOperation(control::Operation::SearchTimerCasObserve,
+        std::to_string(nativeId));
+}
+
+SuiteBridgeCommandReply
+SuiteBridgeLocalControlTransport::executeSearchTimerCas(
+    const std::string& action, const std::string& operationId,
+    const std::string& fingerprint, int nativeId,
+    const std::string& generation, const std::string& revision,
+    const std::string& settings)
+{
+    // The daemon must reserve and exclusively claim the immutable mutation
+    // before calling. This transport must perform exactly one socket send.
+    if ((action != "update" && action != "activate" &&
+         action != "deactivate" && action != "delete") ||
+        nativeId < 0 || !safeToken(operationId) || !safeToken(fingerprint) ||
+        !safeToken(generation) || !safeToken(revision) ||
+        settings.size() > 8192U ||
+        settings.find(char(0)) != std::string::npos ||
+        settings.find(char(10)) != std::string::npos ||
+        settings.find(char(13)) != std::string::npos ||
+        (action == "update" ? settings.empty() : !settings.empty()))
+        return fail(SuiteBridgeTransportStatus::Failed,
+            "invalid native search CAS request");
+    const std::string payload = std::string("1\n") + action + "\n" +
+        operationId + "\n" + fingerprint + "\n" +
+        std::to_string(nativeId) + "\n" + generation + "\n" +
+        revision + "\n" + (settings.empty() ? "-" : settings);
+    return executeOperation(control::Operation::SearchTimerCasExecute, payload);
+}
+
 SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::discoverNativeProbe(){return executeOperation(control::Operation::NativeProbeCapability,{});}
 SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::executeNativeProbe(const SuiteBridgeNativeProbeRequest&r){
  if(!safeToken(r.commandId)||!safeToken(r.requestFingerprint)||!safeToken(r.operationId)||!safeToken(r.jobId)||!safeToken(r.attemptId)||r.claimEpoch==0||!safeToken(r.backendId)||!safeToken(r.agentId)||!safeToken(r.agentInstanceId)||r.backendGeneration==0||!safeToken(r.pluginInstanceEpoch)||!safeToken(r.probeNonce))return fail(SuiteBridgeTransportStatus::Failed,"invalid typed native probe request");
