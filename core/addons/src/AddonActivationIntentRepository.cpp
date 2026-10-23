@@ -119,6 +119,18 @@ bool AddonActivationIntentRepository::ensureSchema()
         "updated_by_actor_id TEXT NOT NULL,"
         "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,"
         "PRIMARY KEY(module_id,backend_id)"
+        ");") &&
+        // Separate binding table avoids silently treating pre-upgrade
+        // desiredEnabled rows as permits for a newly enrolled Agent.
+        database_.execute(
+        "CREATE TABLE IF NOT EXISTS addon_activation_agent_bindings ("
+        "module_id TEXT NOT NULL,"
+        "backend_id TEXT NOT NULL,"
+        "intent_revision INTEGER NOT NULL CHECK(intent_revision>0),"
+        "backend_generation INTEGER NOT NULL CHECK(backend_generation>0),"
+        "agent_id TEXT NOT NULL,"
+        "agent_instance_id TEXT NOT NULL,"
+        "PRIMARY KEY(module_id,backend_id)"
         ");");
 }
 
@@ -149,6 +161,37 @@ IntentResult AddonActivationIntentRepository::readInTransaction(
         return result;
     result.intent.desiredEnabled = enabled == 1;
     result.intent.revision = revision;
+    if (result.intent.desiredEnabled) {
+        // A legacy row without an exact same-revision Agent binding is only
+        // an administrator wish, NEVER effective runtime authorization.
+        Statement binding(database_.handle(),
+            "SELECT intent_revision,backend_generation,agent_id,"
+            "agent_instance_id FROM addon_activation_agent_bindings "
+            "WHERE module_id=? AND backend_id=?;");
+        if (binding.get() &&
+            bindText(binding.get(), 1, moduleId) &&
+            bindText(binding.get(), 2, backendId) &&
+            sqlite3_step(binding.get()) == SQLITE_ROW) {
+            const auto boundRevision = sqlite3_column_int64(binding.get(), 0);
+            const auto boundGeneration = sqlite3_column_int64(binding.get(), 1);
+            const auto* id = sqlite3_column_text(binding.get(), 2);
+            const auto* instance = sqlite3_column_text(binding.get(), 3);
+            if (boundRevision == revision && boundGeneration > 0 &&
+                id != nullptr && instance != nullptr) {
+                const std::string agent(reinterpret_cast<const char*>(id));
+                const std::string epoch(
+                    reinterpret_cast<const char*>(instance));
+                if (safeToken(agent, 128) && agent != "*" &&
+                    safeToken(epoch, 128) && epoch != "*" &&
+                    sqlite3_step(binding.get()) == SQLITE_DONE) {
+                    result.intent.backendGeneration =
+                        static_cast<std::uint64_t>(boundGeneration);
+                    result.intent.agentId = agent;
+                    result.intent.agentInstanceId = epoch;
+                }
+            }
+        }
+    }
     result.status = IntentStatus::ok;
     return result;
 }
@@ -227,6 +270,13 @@ bool AddonActivationIntentRepository::eligibleForFutureEnable(
         evidence.moduleId == "rectools" &&
         evidence.packageName == "vdr-suite-addon-media-tools" &&
         evidence.backendId == mutation.backendId &&
+        safeToken(evidence.agentId, 128) && evidence.agentId != "*" &&
+        safeToken(evidence.agentInstanceId, 128) &&
+        evidence.agentInstanceId != "*" &&
+        evidence.backendGeneration > 0 &&
+        evidence.backendGeneration <=
+            static_cast<std::uint64_t>(
+                std::numeric_limits<std::int64_t>::max()) &&
         evidence.installed && evidence.manifestValid && evidence.packageTrusted &&
         evidence.versionCompatible && evidence.handlerRegistered &&
         evidence.handlerHealthy &&
@@ -301,7 +351,11 @@ IntentResult AddonActivationIntentRepository::updateInternal(
     // Stale revisions always conflict, even when the boolean happens to
     // match, so an intervening enable/disable cannot be mistaken for replay.
     if (current.intent.revision > 0 &&
-        current.intent.desiredEnabled == mutation.desiredEnabled)
+        current.intent.desiredEnabled == mutation.desiredEnabled &&
+        (!mutation.desiredEnabled ||
+         (current.intent.backendGeneration == evidence.backendGeneration &&
+          current.intent.agentId == evidence.agentId &&
+          current.intent.agentInstanceId == evidence.agentInstanceId)))
         return current;
 
     // No variable SQL and no blind-upsert: the CAS is serialized inside the
@@ -324,6 +378,41 @@ IntentResult AddonActivationIntentRepository::updateInternal(
         !bindText(write.get(), 5, actor.actor.actorId) ||
         sqlite3_step(write.get()) != SQLITE_DONE)
         return outcome(IntentStatus::unavailable, mutation.moduleId, mutation.backendId);
+    // Bind a NEW or reaffirmed enable to the exact backend Agent lease in
+    // the SAME transaction as desired state + audit. Legacy rows have no
+    // lease binding and must be reapproved explicitly.
+    if (mutation.desiredEnabled) {
+        Statement bound(database_.handle(),
+            "INSERT INTO addon_activation_agent_bindings "
+            "(module_id,backend_id,intent_revision,backend_generation,"
+            "agent_id,agent_instance_id) VALUES (?,?,?,?,?,?) "
+            "ON CONFLICT(module_id,backend_id) DO UPDATE SET "
+            "intent_revision=excluded.intent_revision,"
+            "backend_generation=excluded.backend_generation,"
+            "agent_id=excluded.agent_id,"
+            "agent_instance_id=excluded.agent_instance_id;");
+        if (!bound.get() ||
+            !bindText(bound.get(), 1, mutation.moduleId) ||
+            !bindText(bound.get(), 2, mutation.backendId) ||
+            sqlite3_bind_int64(bound.get(), 3, nextRevision) != SQLITE_OK ||
+            sqlite3_bind_int64(bound.get(), 4,
+                static_cast<std::int64_t>(evidence.backendGeneration)) != SQLITE_OK ||
+            !bindText(bound.get(), 5, evidence.agentId) ||
+            !bindText(bound.get(), 6, evidence.agentInstanceId) ||
+            sqlite3_step(bound.get()) != SQLITE_DONE)
+            return outcome(IntentStatus::unavailable,
+                           mutation.moduleId, mutation.backendId);
+    } else {
+        Statement clear(database_.handle(),
+            "DELETE FROM addon_activation_agent_bindings "
+            "WHERE module_id=? AND backend_id=?;");
+        if (!clear.get() ||
+            !bindText(clear.get(), 1, mutation.moduleId) ||
+            !bindText(clear.get(), 2, mutation.backendId) ||
+            sqlite3_step(clear.get()) != SQLITE_DONE)
+            return outcome(IntentStatus::unavailable,
+                           mutation.moduleId, mutation.backendId);
+    }
     // Same DB transaction as the desired-state write: a failed accountability
     // append must rollback both state and audit. The callback must use the
     // existing Suite AccountabilityEventRepository on this same Database.
@@ -345,6 +434,11 @@ IntentResult AddonActivationIntentRepository::updateInternal(
     IntentResult updated = outcome(IntentStatus::ok, mutation.moduleId, mutation.backendId);
     updated.intent.desiredEnabled = mutation.desiredEnabled;
     updated.intent.revision = nextRevision;
+    if (mutation.desiredEnabled) {
+        updated.intent.backendGeneration = evidence.backendGeneration;
+        updated.intent.agentId = evidence.agentId;
+        updated.intent.agentInstanceId = evidence.agentInstanceId;
+    }
     return updated;
 }
 
