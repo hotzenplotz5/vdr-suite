@@ -164,6 +164,23 @@ DevicePlaybackAccountResult DevicePlaybackAccountBindingService::set(
     if(!administrator || !administrator->active || administrator->revoked ||
        administrator->type!=ActorType::User)
         return result;
+    // Re-evaluate the current administrator permission while holding the
+    // same SQLite transaction as the association and audit write. A grant
+    // revoked after HTTP admission cannot authorize the eventual commit.
+    const auto currentAdminGrants=grants_.findActiveGrantsForActor(
+        administratorActorId);
+    if(!currentAdminGrants.available) return result;
+    RequestSecurityContext administratorContext;
+    administratorContext.authenticationState=AuthenticationState::Authenticated;
+    administratorContext.actor={administratorActorId,ActorType::User,
+                                administrator->displayName,true};
+    administratorContext.permissionGrantResolution=PermissionGrantResolutionState::Resolved;
+    administratorContext.grants=currentAdminGrants.grants;
+    if(!AuthorizationService().authorize(administratorContext,
+       {"devices.grants.modify","*","devices.playback_account.bind"}).allowed) {
+        result.status=DevicePlaybackAccountStatus::invalid;
+        return result;
+    }
     result=readInActiveTransaction(deviceId);
     if(result.status!=DevicePlaybackAccountStatus::ok)
         return result;
