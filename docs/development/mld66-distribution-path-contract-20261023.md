@@ -107,6 +107,10 @@ The VDR service hosting SuiteBridge must receive the **same**
 `SUITEBRIDGE_CONTROL_SOCKET_PATH` in `/etc/vdr-suite/backend-agent.conf`.
 Leave the variables unset on Ubuntu/yaVDR.
 
+## MLD command validation update (2026-10-23)
+
+Pit has now reported the read-only SuiteBridge `VPATH 1` command returning `900 /data/tv` on MLD VDR 2.8.3. This is a real-host **command-level** result, not proof of daemon root-probe adoption or recording mutation authority. His simultaneous RESTfulAPI five-second recording timeout and recurring VDR restart report remain independent blockers. See [latest evidence](mld66-pit-vpath-http-crash-evidence-20261023.md).
+
 ## Verification boundary
 
 Unit tests cover the default paths, explicit paths, invalid/missing video
