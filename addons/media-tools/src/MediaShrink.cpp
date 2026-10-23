@@ -590,6 +590,10 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
     demand(nonempty(candidate / "00001.ts") &&
            nonempty(candidate / "index") && nonempty(candidate / "info"),
            "unverified HEVC candidate files");
+    std::error_code sizeError;
+    const auto candidateBytes = fs::file_size(candidate / "00001.ts", sizeError);
+    demand(!sizeError && candidateBytes < checked.totalBytes,
+           "HEVC candidate no longer saves space");
     demand(probeCodec(runner, candidate / "00001.ts") == "hevc",
            "published candidate is not HEVC");
     struct stat folder{};
