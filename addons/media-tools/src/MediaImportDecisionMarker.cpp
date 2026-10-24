@@ -62,12 +62,12 @@ bool insideRoot(const std::filesystem::path& root,
 Fd openDirectoryWithoutSymlinks(const std::filesystem::path& absolute)
 {
     Fd current(::open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
-    if (current.get() < 0 || !safeAbsolute(absolute)) return {};
+    if (current.get() < 0 || !safeAbsolute(absolute)) return Fd{};
     for (const auto& part : absolute.relative_path()) {
         if (part.empty()) continue;
         Fd next(::openat(current.get(), part.c_str(),
                          O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
-        if (next.get() < 0) return {};
+        if (next.get() < 0) return Fd{};
         current = std::move(next);
     }
     return current;
