@@ -24,6 +24,22 @@ int main()
     assert(catalog.list(live, "backend", 100, items));
     assert(items == (std::vector<std::string>{"source_00000000001",
                                              "source_00000000002"}));
+    // Advisory names follow their IDs even when Agent order is reversed.
+    // An invalid label must not poison the previous good observation.
+    std::vector<std::string> labels;
+    assert(!catalog.publish(actor, live, "backend", "instance", 7,
+        {"source_00000000002", "source_00000000001"}, 100,
+        "manual", "0.1.0", approvedSha, {"wrong/count"}));
+    assert(!catalog.publish(actor, live, "backend", "instance", 7,
+        {"source_00000000002", "source_00000000001"}, 100,
+        "manual", "0.1.0", approvedSha, {"Only one"}));
+    assert(catalog.publish(actor, live, "backend", "instance", 7,
+        {"source_00000000002", "source_00000000001"}, 100,
+        "manual", "0.1.0", approvedSha, {"Zweiter Film", "Erster Film"}));
+    assert(catalog.list(live, "backend", 100, items, labels));
+    assert(items == (std::vector<std::string>{"source_00000000001",
+                                             "source_00000000002"}));
+    assert(labels == (std::vector<std::string>{"Erster Film", "Zweiter Film"}));
     std::string origin, version, sha256;
     assert(catalog.observedInstallation(
         live, "backend", 100, origin, version, sha256));
