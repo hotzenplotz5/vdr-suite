@@ -114,6 +114,19 @@ A dedicated [Draft PR #7 in `hotzenplotz5/vdr-plugin-restfulapi`](https://github
 
 **Critical integration boundary:** This plugin fork branch contains many RESTfulAPI Suite-specific APIs and **must not be used as an automatic replacement** for Pit's existing `SRCREV=79f9bd26370a08d6c5186c19cefa300c569045ea`. Keep the separate minimal vendor patch on the MLD branch available for Pit's isolated test. A full provider-aware change for MLD requires a separate minimal cherry-pick/port, native BitBake recipe inclusion, and acceptance. Do not claim or attempt unattended VDR restarts/deployments. The four-minute restart remains a separate unproven issue.
 
+## 2026-10-24 — actual full plugin build PASSED, upstream submission permission blocked
+
+The distribution-neutral scraper image fix is now ported onto a **separate, upstream-only branch** `hotzenplotz5/vdr-plugin-restfulapi:fix/upstream-scraper-image-roots`, based exactly on `yavdr/master` at `79f9bd26370a08d6c5186c19cefa300c569045ea`. This is distinct from the Suite feature-rich `vdr-suite-integration` branch. The cross-fork comparison is **8 files ahead and 0 behind**:
+https://github.com/yavdr/vdr-plugin-restfulapi/compare/master...hotzenplotz5:fix/upstream-scraper-image-roots
+
+GitHub Actions [run 40077888633](https://github.com/hotzenplotz5/vdr-plugin-restfulapi/actions/runs/40077888633) completed **SUCCESS**, including:
+- build dependency installation;
+- standalone strict C++17 image-path security regression;
+- complete RESTfulAPI plugin compilation **without** ImageMagick;
+- complete RESTfulAPI plugin compilation **with** ImageMagick.
+
+There is **no** real VDR+TVScraper image/JSON runtime acceptance yet. Attempting to create the cross-fork pull request directly in `yavdr/vdr-plugin-restfulapi` returned GitHub **HTTP 403 Resource not accessible by integration**. The compare link above is ready for authorized human submission; an upstream PR has **not** been created. MLD BitBake `SRCREV` remains unchanged and Pit's live system has not been modified. Full four-minute VDR crash investigation remains separate.
+
 ## Independent recording-read blocker
 
 ```text
