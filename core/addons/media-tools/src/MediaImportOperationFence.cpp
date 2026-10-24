@@ -303,7 +303,8 @@ bool MediaImportOperationFence::applyResult(
     // and readback. This is a source-marker outcome, NOT a VDR recording.
     const bool markerVerified =
         (choice == vdrsuite::mediatools::MediaImportDecision::desktop ||
-         choice == vdrsuite::mediatools::MediaImportDecision::skip) &&
+         choice == vdrsuite::mediatools::MediaImportDecision::skip ||
+         choice == vdrsuite::mediatools::MediaImportDecision::release) &&
         result.dispatchState == "accepted_by_executor" &&
         result.verificationState == "verified" &&
         result.resultCategory == "succeeded" &&

@@ -131,12 +131,12 @@ LocalMediaImportSource toSource(const ImportPlan& plan) {
 
 // Deterministic opaque observation ID, not an authorization token. Core still
 // checks the actor's grant, approved provider and the exact source snapshot.
-std::string scannedId(const std::string& prefix, const ImportPlan& plan) {
+std::string scannedId(const std::string& prefix, const LocalMediaImportSource& source) {
     std::ostringstream identity;
-    identity << prefix << '\n' << plan.sourceFile.generic_string() << '\n'
-        << plan.sourceDevice << ':' << plan.sourceInode << ':'
-        << plan.sourceBytes << ':' << plan.sourceMtimeSeconds << ':'
-        << plan.sourceMtimeNanoseconds;
+    identity << prefix << '\n' << source.sourceFile.generic_string() << '\n'
+        << source.sourceDevice << ':' << source.sourceInode << ':'
+        << source.sourceBytes << ':' << source.sourceMtimeSeconds << ':'
+        << source.sourceMtimeNanoseconds;
     const std::string input = identity.str();
     auto fnv = [](const std::string& value, std::uint64_t seed) {
         std::uint64_t hash = seed;
@@ -165,6 +165,74 @@ bool validConfiguredRoot(const std::filesystem::path& root) {
             return false;
     }
     return fs::is_directory(root);
+}
+
+// Marked names are exposed ONLY as observations. Ordinary imports still
+// require inspectImport(), which categorically rejects them.
+bool inspectMarkedSource(const std::filesystem::path& sourceRoot,
+                         const std::filesystem::path& videoRoot,
+                         const std::filesystem::path& path,
+                         LocalMediaImportSource& out)
+{
+    namespace fs = std::filesystem;
+    out = {};
+    if (!validConfiguredRoot(sourceRoot) ||
+        !validConfiguredRoot(videoRoot) || !path.is_absolute() ||
+        path.lexically_normal() != path || path == sourceRoot ||
+        sourceRoot == videoRoot) return false;
+    const auto relative = path.lexically_relative(sourceRoot);
+    if (relative.empty() || relative.is_absolute()) return false;
+    for (const auto& component : relative)
+        if (component == ".." || component == ".") return false;
+    const auto inside = [](const fs::path& root, const fs::path& child) {
+        const auto relative = child.lexically_relative(root);
+        if (relative.empty() || relative.is_absolute()) return false;
+        for (const auto& item : relative) if (item == "..") return false;
+        return true;
+    };
+    if (inside(sourceRoot, videoRoot) || inside(videoRoot, sourceRoot))
+        return false;
+    const std::string name = path.filename().string();
+    if (name.empty() || name.front() == '.' ||
+        name.size() > 255 || name.find_first_of("\r\n\t") != std::string::npos)
+        return false;
+    std::string ext = path.extension().string();
+    std::string stem = path.stem().string();
+    std::transform(ext.begin(), ext.end(), ext.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    std::transform(stem.begin(), stem.end(), stem.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (ext != ".mkv" && ext != ".mp4" && ext != ".ts" &&
+        ext != ".mov" && ext != ".avi" && ext != ".webm" &&
+        ext != ".m4v") return false;
+    bool marked = false;
+    for (const char* value : {".pc_encode", ".skipped", ".duplicate"}) {
+        const std::string suffix(value);
+        if (stem.size() > suffix.size() &&
+            stem.compare(stem.size() - suffix.size(), suffix.size(), suffix) == 0)
+            marked = true;
+    }
+    if (!marked) return false;
+    fs::path parent = path.parent_path();
+    while (parent != sourceRoot) {
+        const auto status = fs::symlink_status(parent);
+        if (!fs::is_directory(status) || fs::is_symlink(status) ||
+            parent == parent.parent_path()) return false;
+        parent = parent.parent_path();
+    }
+    struct stat st{};
+    if (::lstat(path.c_str(), &st) != 0 || !S_ISREG(st.st_mode) ||
+        st.st_nlink != 1 || st.st_size <= 0 || st.st_dev == 0 || st.st_ino == 0)
+        return false;
+    out.sourceRoot = sourceRoot;
+    out.videoRoot = videoRoot;
+    out.sourceFile = path;
+    out.sourceDevice = static_cast<std::uint64_t>(st.st_dev);
+    out.sourceInode = static_cast<std::uint64_t>(st.st_ino);
+    out.sourceBytes = static_cast<std::uintmax_t>(st.st_size);
+    out.sourceMtimeSeconds = st.st_mtim.tv_sec;
+    out.sourceMtimeNanoseconds = st.st_mtim.tv_nsec;
+    return true;
 }
 
 bool scanDirectory(const std::array<std::string, 5>& entry,
@@ -204,11 +272,15 @@ bool scanDirectory(const std::array<std::string, 5>& entry,
             continue;
         try {
             const auto plan = inspectImport({sourceRoot, videoRoot, path});
-            found.push_back({scannedId(entry[1], plan), toSource(plan)});
+            const auto local = toSource(plan);
+            found.push_back({scannedId(entry[1], local), local});
             if (found.size() > 256) return false;
         } catch (...) {
-            // Source disappeared, unsupported format, symlinked parent or
-            // title already imported: not an executable selection.
+            LocalMediaImportSource marked;
+            if (inspectMarkedSource(sourceRoot, videoRoot, path, marked)) {
+                found.push_back({scannedId(entry[1], marked), marked});
+                if (found.size() > 256) return false;
+            }
         }
     }
     return true;
@@ -243,7 +315,10 @@ bool inventorySources(const std::filesystem::path& root, const std::string& back
                         entry[2], entry[3], entry[4]});
                     sources.push_back({entry[1], toSource(plan)});
                 } catch (...) {
-                    // Explicitly listed source is missing or already imported.
+                    // A marked source is selectable only by an explicit release.
+                    LocalMediaImportSource marked;
+                    if (inspectMarkedSource(entry[2], entry[3], entry[4], marked))
+                        sources.push_back({entry[1], marked});
                 }
             }
         }

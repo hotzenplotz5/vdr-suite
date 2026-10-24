@@ -114,7 +114,8 @@ MediaImportMarkerOutcome markMediaImportSource(
         source.sourceDevice == 0 || source.sourceInode == 0 ||
         source.sourceBytes == 0 ||
         (decision != MediaImportMarkerDecision::desktop &&
-         decision != MediaImportMarkerDecision::skip))
+         decision != MediaImportMarkerDecision::skip &&
+         decision != MediaImportMarkerDecision::release))
         return MediaImportMarkerOutcome::rejected;
 
     const fs::path filename = source.sourceFile.filename();
@@ -129,15 +130,36 @@ MediaImportMarkerOutcome markMediaImportSource(
         [](unsigned char ch) {
             return static_cast<char>(ch >= 'A' && ch <= 'Z' ? ch + 32 : ch);
         });
-    if (!safeExtension(extension) || markedBefore(stem) ||
-        beforeName.empty() || beforeName.front() == '.' ||
-        beforeName.find_first_of("\r\n\t") != std::string::npos)
+    const bool release = decision == MediaImportMarkerDecision::release;
+    const std::string originalStem = filename.stem().string();
+    std::string matchedMarker;
+    for (const char* candidate : {".pc_encode", ".skipped", ".duplicate"}) {
+        const std::string marker(candidate);
+        if (stem.size() >= marker.size() &&
+            stem.compare(stem.size() - marker.size(), marker.size(), marker) == 0) {
+            matchedMarker = marker;
+            break;
+        }
+    }
+    if (!safeExtension(extension) || beforeName.empty() ||
+        beforeName.front() == '.' ||
+        beforeName.find_first_of("\r\n\t") != std::string::npos ||
+        (release ? matchedMarker.empty() : !matchedMarker.empty()))
         return MediaImportMarkerOutcome::rejected;
-    const std::string suffix =
+    const std::string baseStem = release
+        ? originalStem.substr(0, originalStem.size() - matchedMarker.size())
+        : originalStem;
+    std::string checkedStem = baseStem;
+    std::transform(checkedStem.begin(), checkedStem.end(), checkedStem.begin(),
+        [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    if (baseStem.empty() || baseStem.front() == '.' ||
+        markedBefore(checkedStem))
+        return MediaImportMarkerOutcome::rejected;
+    const std::string suffix = release ? "" :
         decision == MediaImportMarkerDecision::desktop ? ".pc_encode" : ".skipped";
     const std::string afterName =
-        filename.stem().string() + suffix + filename.extension().string();
-    if (afterName.size() > 255)
+        baseStem + suffix + filename.extension().string();
+    if (afterName.size() > 255 || afterName == beforeName)
         return MediaImportMarkerOutcome::rejected;
 
     // Open every ancestor with O_NOFOLLOW. The source is fixed by dev/inode,

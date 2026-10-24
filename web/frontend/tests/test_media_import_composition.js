@@ -58,10 +58,14 @@ let sourcesStatus = 200;
 let state = 'dispatching';
 let submitMode = 'accepted';
 let batchSources = null;
+let markedSources = [];
 let batchOperations = [];
 const BATCH_OP_A = 'op_' + 'd'.repeat(32);
 const BATCH_OP_B = 'op_' + 'e'.repeat(32);
 const SOURCE_B = 'source_987654321012345';
+const MARK_PC = 'source_marked_pc_123456';
+const MARK_SKIP = 'source_marked_sk_123456';
+const MARK_DUP = 'source_marked_du_123456';
 let batchStates = Object.create(null);
 let delayedSubmit = null;
 let operationReads = 0;
@@ -89,9 +93,12 @@ function transport(url, options) {
   }
   if (path.endsWith('/media-import-sources')) {
     return Promise.resolve(sourcesStatus === 200
-      ? reply(200, {items: (batchSources || [SOURCE]).map(function (id) {
+      ? reply(200, {items: (batchSources || [SOURCE]).concat(markedSources).map(function (id) {
         return {sourceId: id, label: id === SOURCE
-          ? 'Die Herrschaft des Feuers' : 'Weiterer Film'};
+          ? 'Die Herrschaft des Feuers' :
+            id === MARK_PC ? 'Film.pc_encode' :
+            id === MARK_SKIP ? 'Film.skipped' :
+            id === MARK_DUP ? 'Film.duplicate' : 'Weiterer Film'};
       }), meta: {partial: false}})
       : reply(sourcesStatus, {detail: 'Source unavailable'}));
   }
@@ -542,6 +549,46 @@ function publishHomeResume() {}
   await settle();
   assert(findClass(mount, 'status').textContent.includes('Core-Bestätigung noch ausstehend'));
   assert.strictEqual(findClass(mount, 'media-import-new').hidden, true);
+
+  
+  // The actual production module separates marked files from ordinary
+  // import and dispatches a deliberate release via the existing v1 route.
+  markedSources = [MARK_PC, MARK_SKIP, MARK_DUP];
+  batchSources = [SOURCE];
+  submitMode = 'accepted';
+  for (const markedId of markedSources) {
+    context.resetMediaImportVisibility(true);
+    state = 'succeeded';
+    assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+    context.selectModule('media-import');
+    await settle();
+    const ordinarySelect = findClass(mount, 'media-import-source');
+    const markedSelect = findClass(mount, 'media-import-marked-source');
+    const release = findClass(mount, 'media-import-release');
+    assert(ordinarySelect && ordinarySelect.children.length === 2,
+      'marked sources must not appear among ordinary imports');
+    assert(markedSelect && markedSelect.children.length === 4);
+    assert(release.disabled);
+    markedSelect.value = markedId;
+    markedSelect.listeners.change();
+    assert.strictEqual(release.disabled, false);
+    const before = submits;
+    confirmLocal = false;
+    await release.listeners.click();
+    await settle();
+    assert.strictEqual(submits, before, 'declined release must not dispatch');
+    confirmLocal = true;
+    await release.listeners.click();
+    await settle();
+    assert.strictEqual(submits, before + 1);
+    const last = requests.filter(x => x.options.method === 'POST').slice(-1)[0];
+    assert.strictEqual(last.options.body,
+      JSON.stringify({sourceId: markedId, videoDecision: 'release'}));
+    assert.strictEqual(last.options.headers['X-CSRF-Token'], 'test-csrf');
+    assert(findClass(mount, 'status').textContent.includes('ausdrücklich freigegeben'));
+    assert(findClass(mount, 'status').textContent.includes('noch nicht importiert'));
+    assert(release.disabled, 'no duplicate release while Core operation is held');
+  }
 
     console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {

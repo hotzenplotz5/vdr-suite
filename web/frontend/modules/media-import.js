@@ -91,8 +91,15 @@
     });
   }
 
+  function markerSuffix(item) {
+    if (!item || typeof item.label !== 'string') return '';
+    const match = /\.(pc_encode|skipped|duplicate)$/i.exec(item.label);
+    return match ? match[1].toLowerCase() : '';
+  }
+
   function operationLabel(state, decision) {
-    const marker = decision === 'desktop' || decision === 'skip';
+    const marker = decision === 'desktop' || decision === 'skip' ||
+      decision === 'release';
     const labels = {
       accepted: 'Angenommen – Ausführung noch nicht bestätigt.',
       queued: 'In Warteschlange des bestehenden Backend-Agenten.',
@@ -105,7 +112,9 @@
         ? 'Für PC/HandBrake markiert – Dateimarkierung vom Core bestätigt, keine VDR-Aufnahme.'
         : decision === 'skip'
           ? 'Übersprungen – Dateimarkierung vom Core bestätigt, keine VDR-Aufnahme.'
-          : 'Importiert – neue VDR-Aufnahme wurde unabhängig bestätigt.',
+          : decision === 'release'
+            ? 'Datei ausdrücklich freigegeben – vom Core bestätigt, noch nicht importiert.'
+            : 'Importiert – neue VDR-Aufnahme wurde unabhängig bestätigt.',
       rejected: 'Abgelehnt.',
       conflict: 'Konflikt, keine bestätigte Ausführung.',
       failed_before_dispatch: 'Vor der Ausführung fehlgeschlagen.',
@@ -250,6 +259,8 @@
     view.startButton.disabled = true;
     view.localReencode.disabled = true;
     view.decision.disabled = true;
+    view.markedSelect.disabled = true;
+    view.releaseButton.disabled = true;
     view.reloadButton.disabled = true;
     view.operationDetail.textContent = view.attempt.operationId
       ? 'Vorgang ' + view.attempt.operationId
@@ -275,6 +286,8 @@
     const generation = ++view.sourcesGeneration;
     view.select.disabled = true;
     view.startButton.disabled = true;
+    view.markedSelect.disabled = true;
+    view.releaseButton.disabled = true;
     report(view, 'Autorisierte Importquellen werden geladen …');
     return publicClient().getMediaImportSources(readOptions(view.backendId))
       .then(function (response) {
@@ -289,28 +302,49 @@
                    item.label.length > 0 && item.label.length <= 160 &&
                    !/[\/\r\n\x00-\x1f\x7f]/.test(item.label)));
             })) throw new Error('Ungültige Quellenliste');
-        view.sources = items.map(function (item) { return item.sourceId; });
+        const ordinary = items.filter(function (item) {
+          return !markerSuffix(item);
+        });
+        const marked = items.filter(function (item) {
+          return Boolean(markerSuffix(item));
+        });
+        // Marked sources can only be RELEASED. Never offer one to any
+        // normal import, encoding choice or batch.
+        view.sources = ordinary.map(function (item) { return item.sourceId; });
+        view.markedSources = marked.map(function (item) { return item.sourceId; });
         view.select.replaceChildren();
         const blank = element('option', '', 'Quelle auswählen');
         blank.value = '';
         view.select.appendChild(blank);
-        view.sources.forEach(function (sourceId, index) {
-          // The backend-approved name is display-only; never use HTML.
-          const heading = items[index].label || ('Quelle ' + (index + 1));
-          const option = element('option', '', heading + ' · ' + sourceId);
-          option.value = sourceId;
+        ordinary.forEach(function (item, index) {
+          const option = element('option', '',
+            (item.label || ('Quelle ' + (index + 1))) + ' · ' + item.sourceId);
+          option.value = item.sourceId;
           view.select.appendChild(option);
         });
         view.select.value = '';
-        view.select.disabled = items.length === 0;
+        view.markedSelect.replaceChildren();
+        const markedBlank = element('option', '', 'Markierte Datei auswählen');
+        markedBlank.value = '';
+        view.markedSelect.appendChild(markedBlank);
+        marked.forEach(function (item) {
+          const option = element('option', '',
+            item.label + ' [' + markerSuffix(item) + '] · ' + item.sourceId);
+          option.value = item.sourceId;
+          view.markedSelect.appendChild(option);
+        });
+        view.markedSelect.value = '';
+        view.markedSelect.disabled = marked.length === 0;
+        view.releaseButton.disabled = true;
+        view.select.disabled = ordinary.length === 0;
         view.localReencode.checked = false;
-        view.localReencode.disabled = items.length === 0;
+        view.localReencode.disabled = ordinary.length === 0;
         view.decision.value = 'import';
-        view.decision.disabled = items.length === 0;
+        view.decision.disabled = ordinary.length === 0;
         view.startButton.textContent = 'Import starten';
-        view.batchButton.disabled = items.length < 2;
-        report(view, items.length ? 'Quelle auswählen oder mehrere nacheinander importieren.' :
-          'Keine freigegebenen Importquellen verfügbar.');
+        view.batchButton.disabled = ordinary.length < 2;
+        report(view, ordinary.length + ' Importquellen, ' + marked.length +
+          ' markierte Dateien verfügbar.');
       }).catch(function (error) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
         const message = error && error.status === 503
@@ -322,12 +356,15 @@
       });
   }
 
-  function startImport(view) {
+  function startImport(view, releaseMode) {
     if (!isCurrent(view) || view.submitting || view.attempt) return Promise.resolve();
-    const sourceId = view.batch ? view.batch.remaining[0] : view.select.value;
+    const sourceId = releaseMode ? view.markedSelect.value :
+      view.batch ? view.batch.remaining[0] : view.select.value;
     // Encoding authority is granted per film, per click, never to a batch.
-    const selected = view.batch ? 'import' : view.decision.value;
-    if (!['import', 'desktop', 'skip'].includes(selected)) return Promise.resolve();
+    const selected = releaseMode ? 'release' :
+      view.batch ? 'import' : view.decision.value;
+    if (!['import', 'desktop', 'skip', 'release'].includes(selected) ||
+        (releaseMode && view.batch)) return Promise.resolve();
     const approveVideoReencode = selected === 'import' &&
       !view.batch && view.localReencode.checked === true;
     const videoDecision = selected === 'import'
@@ -341,11 +378,14 @@
           'Es wird keine VDR-Aufnahme importiert.'
         : selected === 'skip'
           ? 'Diesen Film mit .skipped markieren und vom normalen Import ausschließen?'
-          : '';
+          : selected === 'release'
+            ? 'Diese markierte Datei ausdrücklich wieder freigeben? ' +
+              'Es wird noch KEIN Import gestartet. Eine vorhandene Zieldatei wird niemals überschrieben.'
+            : '';
     if (confirmation &&
         (typeof global.confirm !== 'function' || !global.confirm(confirmation)))
       return Promise.resolve();
-    if (!view.sources.includes(sourceId)) {
+    if (!(releaseMode ? view.markedSources : view.sources).includes(sourceId)) {
       if (view.batch) stopBatch(view, 'Quellauswahl nicht mehr verfügbar.');
       return Promise.resolve();
     }
@@ -353,6 +393,8 @@
     view.startButton.disabled = true;
     view.localReencode.disabled = true;
     view.decision.disabled = true;
+    view.markedSelect.disabled = true;
+    view.releaseButton.disabled = true;
     report(view, 'Quelle und Berechtigung werden erneut geprüft …');
     // Source observations are ephemeral: revalidate before choosing the opaque token.
     return checkCapability(view.backendId)
@@ -363,7 +405,8 @@
       }).then(function (sources) {
         if (!isCurrent(view) || !sources) return null;
         if (!sources.items || !sources.items.some(function (item) {
-          return item && item.sourceId === sourceId;
+          return item && item.sourceId === sourceId &&
+            (releaseMode ? Boolean(markerSuffix(item)) : !markerSuffix(item));
         })) {
           throw {status: 503};
         }
@@ -415,6 +458,8 @@
               target.select.disabled = true;
               target.startButton.disabled = true;
               target.decision.disabled = true;
+              target.markedSelect.disabled = true;
+              target.releaseButton.disabled = true;
               target.refreshButton.hidden = true;
               target.newButton.hidden = true;
               target.operationDetail.textContent = '';
@@ -451,6 +496,9 @@
         if (isCurrent(view) && !view.attempt && !view.batch) {
           view.localReencode.disabled = view.decision.value !== 'import';
           view.decision.disabled = false;
+          view.markedSelect.disabled = view.markedSources.length === 0;
+          view.releaseButton.disabled =
+            !view.markedSources.includes(view.markedSelect.value);
         }
       });
   }
@@ -490,6 +538,17 @@
     localReencode.disabled = true;
     encodeLabel.appendChild(localReencode);
     root.appendChild(encodeLabel);
+    const markedLabel = element('label', 'media-import-marked-label',
+      'Markierte Dateien (.pc_encode / .skipped / .duplicate)');
+    const markedSelect = element('select', 'media-import-marked-source');
+    markedSelect.disabled = true;
+    markedLabel.appendChild(markedSelect);
+    root.appendChild(markedLabel);
+    const releaseButton = element('button', 'media-import-release',
+      'Ausgewählte Markierung aufheben');
+    releaseButton.type = 'button';
+    releaseButton.disabled = true;
+    root.appendChild(releaseButton);
     const startButton = element('button', 'media-import-start', 'Import starten');
     startButton.type = 'button';
     startButton.disabled = true;
@@ -525,6 +584,7 @@
     const view = {owner: owner, backendId: backendId, root: root,
       select: select, startButton: startButton, reloadButton: reloadButton,
       localReencode: localReencode, decision: decision,
+      markedSelect: markedSelect, releaseButton: releaseButton, markedSources: [],
       batchButton: batchButton, batchStopButton: batchStopButton,
       batch: activeBatches[backendId] || null,
       refreshButton: refreshButton, newButton: newButton,
@@ -549,6 +609,13 @@
         decision.value === 'skip' ? 'Film überspringen' : 'Import starten';
     });
     startButton.addEventListener('click', function () { return startImport(view); });
+    markedSelect.addEventListener('change', function () {
+      releaseButton.disabled = view.submitting || Boolean(view.attempt) ||
+        !view.markedSources.includes(markedSelect.value);
+    });
+    releaseButton.addEventListener('click', function () {
+      return startImport(view, true);
+    });
     batchButton.addEventListener('click', function () { return startBatch(view); });
     batchStopButton.addEventListener('click', function () {
       stopBatch(view, 'Aktuelle Core-Operation bleibt unverändert.');

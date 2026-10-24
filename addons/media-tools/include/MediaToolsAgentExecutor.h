@@ -66,7 +66,7 @@ inline bool parseMediaImportSelection(const std::string& payload,
 
 // Reuse the one Media Import command; versions 3/4 represent a verified
 // backend-local source marker, NOT a VDR recording.
-enum class MediaImportDecision { import, local, desktop, skip };
+enum class MediaImportDecision { import, local, desktop, skip, release };
 inline bool parseMediaImportSelection(
     const std::string& payload, std::string& sourceId,
     MediaImportDecision& decision)
@@ -81,7 +81,8 @@ inline bool parseMediaImportSelection(
     const std::string prefix = "{\"sourceId\":\"";
     for (const auto& option : {
         std::pair<const char*, MediaImportDecision>{"desktop", MediaImportDecision::desktop},
-        {"skip", MediaImportDecision::skip}
+        {"skip", MediaImportDecision::skip},
+        {"release", MediaImportDecision::release}
     }) {
         const std::string suffix =
             std::string("\",\"videoDecision\":\"") + option.first + "\"}";
@@ -110,6 +111,7 @@ inline unsigned mediaImportSelectionVersion(MediaImportDecision decision)
         case MediaImportDecision::local: return 2U;
         case MediaImportDecision::desktop: return 3U;
         case MediaImportDecision::skip: return 4U;
+        case MediaImportDecision::release: return 5U;
     }
     return 0U;
 }
@@ -123,6 +125,7 @@ inline std::string mediaImportSelectionJson(
         case MediaImportDecision::local: option = "local"; break;
         case MediaImportDecision::desktop: option = "desktop"; break;
         case MediaImportDecision::skip: option = "skip"; break;
+        case MediaImportDecision::release: option = "release"; break;
     }
     return "{\"sourceId\":\"" + sourceId +
         "\",\"videoDecision\":\"" + option + "\"}";
@@ -131,9 +134,11 @@ inline std::string mediaImportMarkerEvidence(
     const std::string& sourceId, MediaImportDecision choice)
 {
     if (choice != MediaImportDecision::desktop &&
-        choice != MediaImportDecision::skip) return {};
+        choice != MediaImportDecision::skip &&
+        choice != MediaImportDecision::release) return {};
     return std::string("media-tools-mark:") +
-        (choice == MediaImportDecision::desktop ? "desktop:" : "skip:") +
+        (choice == MediaImportDecision::desktop ? "desktop:" :
+         choice == MediaImportDecision::skip ? "skip:" : "release:") +
         sourceId;
 }
 

@@ -327,11 +327,14 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         return MediaImportAgentOutcome::rejected;
 
     if (requestedDecision == MediaImportDecision::desktop ||
-        requestedDecision == MediaImportDecision::skip) {
+        requestedDecision == MediaImportDecision::skip ||
+        requestedDecision == MediaImportDecision::release) {
         const auto outcome = markMediaImportSource(
             local, requestedDecision == MediaImportDecision::desktop
                 ? MediaImportMarkerDecision::desktop
-                : MediaImportMarkerDecision::skip);
+                : requestedDecision == MediaImportDecision::skip
+                    ? MediaImportMarkerDecision::skip
+                    : MediaImportMarkerDecision::release);
         if (outcome == MediaImportMarkerOutcome::marked) {
             markerEvidence_ = mediaImportMarkerEvidence(sourceId, requestedDecision);
             return MediaImportAgentOutcome::marked;

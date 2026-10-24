@@ -159,6 +159,18 @@ int main()
     assert(!inventory.resolve("backend", previous[0], scanned) ||
            scanned.sourceFile == fixture.source);
     fixture.write();
+    // A root-approved marked source is observable without becoming importable.
+    const auto held = fixture.source.parent_path() / "clip.pc_encode.ts";
+    fs::rename(fixture.source, held);
+    fixture.write(std::string("backend\t") + Key + "\t" +
+        (fixture.root / "media/input").string() + "\t" +
+        fixture.destination.string() + "\t" + held.string() + "\n");
+    assert(inventory.resolve("backend", Key, selected));
+    assert(selected.sourceFile == held);
+    assert(inventory.listTrustedSourceLabels("backend", labels));
+    assert(labels.size() == 1 && labels[0].label == "clip.pc_encode");
+    fs::rename(held, fixture.source);
+    fixture.write();
 
     // Root-owned inventory is readable by the real unprivileged Agent uid.
     const passwd* nobody = ::getpwnam("nobody");

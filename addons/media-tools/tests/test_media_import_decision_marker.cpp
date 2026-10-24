@@ -70,6 +70,14 @@ int main() {
            MediaImportMarkerOutcome::marked);
     assert(!fs::exists(original));
     assert(contents(deferred) == "unchanged media bytes");
+    const auto held = source(root, video, deferred);
+    assert(markMediaImportSource(identity, MediaImportMarkerDecision::release) ==
+           MediaImportMarkerOutcome::rejected);
+    assert(markMediaImportSource(held, MediaImportMarkerDecision::release) ==
+           MediaImportMarkerOutcome::marked);
+    assert(contents(original) == "unchanged media bytes");
+    assert(markMediaImportSource(source(root, video, original),
+           MediaImportMarkerDecision::desktop) == MediaImportMarkerOutcome::marked);
     assert(markMediaImportSource(identity, MediaImportMarkerDecision::skip) ==
            MediaImportMarkerOutcome::rejected);  // old opaque inventory ID is stale.
     assert(contents(deferred) == "unchanged media bytes");
@@ -88,6 +96,18 @@ int main() {
            MediaImportMarkerOutcome::marked);
     assert(!fs::exists(second));
     assert(contents(secondSkipped) == "unchanged media bytes");
+    write(second, "existing target");
+    assert(markMediaImportSource(source(root, video, secondSkipped),
+           MediaImportMarkerDecision::release) == MediaImportMarkerOutcome::rejected);
+    assert(contents(second) == "existing target");
+    assert(contents(secondSkipped) == "unchanged media bytes");
+    fs::remove(second);
+    assert(markMediaImportSource(source(root, video, secondSkipped),
+           MediaImportMarkerDecision::release) == MediaImportMarkerOutcome::marked);
+    assert(contents(second) == "unchanged media bytes");
+    assert(!fs::exists(secondSkipped));
+    assert(markMediaImportSource(source(root, video, second),
+           MediaImportMarkerDecision::skip) == MediaImportMarkerOutcome::marked);
 
     // No action on already marked or duplicated media.
     assert(markMediaImportSource(source(root, video, secondSkipped),
@@ -98,6 +118,11 @@ int main() {
     assert(markMediaImportSource(source(root, video, duplicate),
            MediaImportMarkerDecision::skip) ==
            MediaImportMarkerOutcome::rejected);
+    assert(markMediaImportSource(source(root, video, duplicate),
+           MediaImportMarkerDecision::release) ==
+           MediaImportMarkerOutcome::marked);
+    assert(!fs::exists(duplicate));
+    assert(contents(root / "folder/Old.mkv") == "unchanged media bytes");
 
     // Stale source identity can never rename a newly replaced file.
     const auto changed = root / "folder" / "Stale.ts";
