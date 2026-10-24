@@ -31,6 +31,35 @@ an add-on or setting COMMAND_TYPES cannot activate imports. No service has been
 installed or restarted as part of this implementation, and the module manifest
 remains disabled.
 
+## MT.I0/MT.I1 — belegte Installationsbasis
+
+Die [MT.I0-Installationsinventur](INSTALLATION-BASELINE.md) trennt die
+tatsächlich fest codierten Runtime-/Handlerpfade, vorhandene
+yaVDR/systemd-Adapter, isolierte Stage-Tests, bestehende Debian-Pakete und
+unbekannte MLD-/openSUSE-Eigenschaften. **Das ist keine neue Host-Abnahme.**
+
+Die bestehende `tools/addons/stage_media_tools_runtime.py` schreibt jetzt
+in die bereits versiegelte `stage-with-media-tools` zusätzlich die
+`usr/share/vdr-suite/addons/rectools/media-tools-install-inventory.json`
+mit Modul-/Paketversion, vorbereitetem Source-Commit, unabhängig
+freigegebenem Import-Handler-SHA256 und Rollen/Hashes/Größen/Modi der
+**sieben** Add-on-Dateien. Die Inventur wird mit der vorhandenen
+`install_runtime_stage.py`-Stage versiegelt und lässt sich ohne
+Produktivänderung lesen/validieren:
+
+```text
+python3 tools/addons/stage_media_tools_runtime.py --verify-stage ABSOLUTE_STAGE \
+  --approved-handler-sha256 UNABHAENGIG_GEPRUEFTER_SHA256
+```
+
+Diese Funktion ist nur eine Offline-Integritätsprüfung, weder Signatur noch
+Installer, Paketbau, Ausführungsrecht, Live-Rechtekorrektur oder Aktivierung.
+Die bisherige `~cpppreview1`-Paketierung liest diese Stage **noch nicht**;
+das ist Gegenstand von MT.I4 und darf nicht als erledigt gemeldet werden.
+Zu MT.I2 gehören gesondert Update-/Rollback-/Besitzprüfungen. Der
+bestehende Live-Installer bleibt bis dahin ausschließlich der ausdrücklich
+genehmigungspflichtige yaVDR-Adapter, nicht das neue universelle CLI.
+
 ## Host installation and activation (Slice 4)
 
 **Status:** Source-level, package-free first-install path under development;
