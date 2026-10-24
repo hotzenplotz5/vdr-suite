@@ -48,8 +48,11 @@ digest for independent review. The **second invocation** installs that
 same preserved build without recompiling it; neither the printed digest nor
 a caller-provided manifest becomes administrative authority on its own. The
 final invocation requires a separately reviewed SHA-256 and the preparation
-work directory. Both invocations run as a normal user with sudo privileges,
-from a clean checkout of `work/addon-platform-registry-lifecycle`:
+work directory. On yaVDR, stay in the existing root shell. Execute the
+`--prepare` call as `yavdr` from its own public-HTTPS, clean checkout. Then
+execute the six-argument installation as root from the **same** checkout
+with a Git process-local exact `safe.directory` value (never global Git
+settings). The installer rejects root compilation. Arguments:
 
 ```bash
 bash tools/addons/install_media_tools.sh \
@@ -66,11 +69,12 @@ The five-argument form still supports a separately prebuilt/reviewed digest,
 but the optional sixth argument is the preferred way to reuse the preparation
 without a second compilation.
 
-**Main integration gate:** the installer fetches current `main` and refuses
-any checkout that does not contain its exact commit, even if the add-on branch
-passed isolated CI. As of the initial Slice 4 installer commit, the add-on
-branch and `main` are divergent; PR #531 documents the integration conflict.
-Do not bypass that guard or install an older Suite runtime over `main`.
+**Immutable candidate provenance:** the installer validates its exact
+40-character Git source SHA against the public add-on branch ref. Main
+ancestry, source branch of the previously installed executable and hosted
+CI completion are **not** execution gates. Verify a current, reviewed
+candidate separately and inspect actual database/schema risk before any
+live full-runtime deployment.
 
 Host prerequisites are a configured/enrolled and running Backend Agent with
 a real HTTPS control-plane URL, matching backend ID, standard Suite systemd
