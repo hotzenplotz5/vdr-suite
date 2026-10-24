@@ -196,6 +196,18 @@ int main() {
         const auto plan = inspectImport(f.request());
         assert(plan.title == "Sample" && plan.sourceBytes > 0);
         assert(!fs::exists(f.video / "Sample"));
+        // An untrusted source selected from an authorized inventory may be
+        // inspected for codec decision without creating recording artifacts.
+        struct Preview final : ProcessRunner {
+            ProcessResult run(const std::vector<std::string>& args, bool output) override {
+                assert(output && args.size() >= 2 && args[0] == "/usr/bin/ffprobe");
+                return {0, "vp9\\n"};
+            }
+        } preview;
+        assert(probeImportVideoCodec(plan, preview) == "vp9");
+        assert(importVideoNeedsReencode(probeImportVideoCodec(plan, preview)));
+        assert(fs::exists(f.source));
+        assert(!fs::exists(f.video / "Sample"));
         ++checks;
     }
     {
