@@ -2071,6 +2071,29 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
             ids.clear();
             break;
         }
+    // Display labels must match the exact opaque source snapshot.
+    std::vector<std::string> labels;
+    std::vector<vdrsuite::mediatools::MediaImportSourceLabel> described;
+    if (!ids.empty() &&
+        config_.mediaImportExecutor->listTrustedSourceLabels(described) &&
+        described.size() == ids.size())
+    {
+        bool consistent = true;
+        for (std::size_t i = 0; i < ids.size(); ++i) {
+            const auto& label = described[i].label;
+            if (described[i].sourceId != ids[i] ||
+                label.empty() || label.size() > 160U ||
+                std::any_of(label.begin(), label.end(), [](unsigned char ch) {
+                    return ch < 0x20 || ch == 0x7f ||
+                           ch == '/' || ch == '\\';
+                })) {
+                consistent = false;
+                break;
+            }
+        }
+        if (consistent)
+            for (const auto& item : described) labels.push_back(item.label);
+    }
     std::ostringstream body;
     body << "{\"backendId\":\"" << jsonEscape(state_.backendId)
          << "\",\"agentInstanceId\":\"" << jsonEscape(agentInstanceId_)
@@ -2080,6 +2103,12 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     {
         if (index != 0U) body << ',';
         body << '"' << ids[index] << '"';
+    }
+    body << "],\"sourceLabels\":[";
+    for (std::size_t index = 0; index < labels.size(); ++index)
+    {
+        if (index != 0U) body << ',';
+        body << '"' << jsonEscape(labels[index]) << '"';
     }
     body << "],\"handlerOrigin\":\"" << jsonEscape(installed.origin)
          << "\",\"handlerVersion\":\"" << jsonEscape(installed.version)
