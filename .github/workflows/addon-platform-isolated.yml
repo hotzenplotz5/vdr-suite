@@ -141,6 +141,8 @@ jobs:
           make test-addon-administration-service
           make test-addon-maintenance-read
           make test-addon-activation-catalog
+          # MT.I1: focused non-root stage+inventory regression, no install.
+          python3 -m unittest discover -s tools/addons -p 'test_stage_media_tools_runtime.py'
           sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_root_approval"
           sudo env TMPDIR=/root PYTHONDONTWRITEBYTECODE=1 \
             python3 -m unittest discover -s tools/addons \
