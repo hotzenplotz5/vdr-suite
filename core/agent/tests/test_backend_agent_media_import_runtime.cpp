@@ -110,7 +110,8 @@ struct Fixture {
         root=name.data();
         binary=root/"usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import";
         approval=root/"etc/vdr-suite/addon-approvals/rectools.json";
-        manifest=root/"usr/share/vdr-suite/addons/rectools/addon.json";
+        // The Agent verifies the root-owned companion beside its pinned handler.
+        manifest=root/"usr/libexec/vdr-suite/addons/rectools/addon.json";
         runLock=approval.parent_path()/vdrsuite::mediatools::kMediaImportRunLockName;
         ledger=root/"etc/vdr-suite/addon-sources/media-import.tsv";
         source=root/"media/in/movie.ts";
@@ -119,6 +120,8 @@ struct Fixture {
         fs::create_directories(binary.parent_path());
         fs::create_directories(approval.parent_path());
         fs::create_directories(manifest.parent_path());
+        // Match the separate descriptive metadata tree in the composed Stage.
+        fs::create_directories(root/"usr/share/vdr-suite/addons/rectools");
         fs::create_directories(ledger.parent_path());
         fs::create_directories(source.parent_path());
         fs::create_directories(video);
