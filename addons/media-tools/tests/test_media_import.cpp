@@ -201,7 +201,7 @@ int main() {
         struct Preview final : ProcessRunner {
             ProcessResult run(const std::vector<std::string>& args, bool output) override {
                 assert(output && args.size() >= 2 && args[0] == "/usr/bin/ffprobe");
-                return {0, "vp9\\n"};
+                return {0, "vp9\n"};
             }
         } preview;
         assert(probeImportVideoCodec(plan, preview) == "vp9");
