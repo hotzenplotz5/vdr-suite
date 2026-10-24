@@ -53,6 +53,7 @@ done
 # ProtectSystem=strict needs an explicit bounded VDR video write exception.
 [[ "$VIDEO" =~ ^/[a-zA-Z0-9_./-]+$ ]] || stop "video path cannot be safely represented in systemd override"
 case "$SOURCE" in /home/*|/root/*|/run/user/*) stop "source hidden by Backend Agent ProtectHome sandbox";; esac
+if [ "$MODE" = install ]; then
 [ -f /etc/vdr-suite/backend-agent.conf ] || stop "Agent not configured"
 grep -Fxq "BACKEND_ID=$BACKEND" /etc/vdr-suite/backend-agent.conf || stop "backend mismatch"
 grep -Eq '^CONTROL_PLANE_URL=https://[^[:space:]]+$' /etc/vdr-suite/backend-agent.conf || stop "Agent control plane unavailable"
@@ -72,6 +73,7 @@ done
 [ -f /var/lib/vdr-suite/vdr-suite.db ] || stop "unknown active database location"
 dpkg -s vdr-suite-addon-media-tools 2>/dev/null | grep -Fq 'Status: install ok installed' && stop "existing installed package needs separate update procedure"
 sudo -u vdr test -r "$SOURCE" && sudo -u vdr test -w "$VIDEO" || stop "vdr media access denied"
+fi
 # The first write is allowed only if every affected FS retains 4 GiB / 15%.
 resource_preflight() {
 python3 - "${PREPARED_WORKDIR:-$HOME}" <<'PY' || stop "resource preflight"
