@@ -66,6 +66,10 @@ install-runtime:
 	$(INSTALL) -d -m 0700 $(DESTDIR)$(STATEDIR)/backend-agent
 	$(INSTALL) -d -m 0700 $(DESTDIR)$(STATEDIR)/secrets
 	$(INSTALL) -d -m 0700 $(DESTDIR)$(STATEDIR)/secrets/series-artwork
+	# The Backend Agent runs as vdr and must traverse this public metadata
+	# ancestor even when staging is performed with umask 077. Only change the
+	# isolated DESTDIR here; the deploy helper never chmods live ancestors.
+	$(INSTALL) -d -m 0755 $(DESTDIR)$(DATADIR)
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/modules
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/platform
