@@ -7,6 +7,7 @@
 #include "BackendAgentNativeTimerModifyExecutor.h"
 #include "ISuiteBridgeLegacyOsdInputTransport.h"
 #include "LegacyOsdInputDomain.h"
+#include "MediaShrinkAgentCommand.h"
 
 #include <algorithm>
 #include <cassert>
@@ -340,6 +341,37 @@ BackendAgentCommandPollRequest capturePoll(
     return request;
 }
 
+void testMediaToolsPollAcceptsReviewedShrinkTypes()
+{
+    using namespace vdrsuite::mediatools;
+    BackendAgentCommandPollRequest poll;
+    poll.backendId = "default";
+    poll.agentInstanceId = "agi_media_tools";
+    poll.backendGeneration = 8;
+    poll.refreshCapabilities = true;
+    poll.supportedCommandTypes = {
+        "addon.media.import",
+        kMediaShrinkStageCommandType,
+        kMediaShrinkPublishCommandType
+    };
+    std::string reason;
+    BackendAgentCommandPollRequest parsed;
+    const auto json = serializeBackendAgentCommandPollRequestJson(poll);
+    assert(parseBackendAgentCommandPollRequestJson(json, parsed, reason));
+    assert(parsed.supportedCommandTypes == poll.supportedCommandTypes);
+    assert(parsed.refreshCapabilities);
+
+    poll.supportedCommandTypes.push_back("addon.media.shrink.unknown");
+    assert(!parseBackendAgentCommandPollRequestJson(
+        serializeBackendAgentCommandPollRequestJson(poll), parsed, reason));
+    assert(reason == "invalid_command_poll_payload");
+    poll.supportedCommandTypes.pop_back();
+    poll.supportedCommandTypes.push_back(kMediaShrinkStageCommandType);
+    assert(!parseBackendAgentCommandPollRequestJson(
+        serializeBackendAgentCommandPollRequestJson(poll), parsed, reason));
+    assert(reason == "invalid_command_poll_payload");
+}
+
 void testAddonCommandsNeverSelfAdvertise()
 {
     const std::string path = "/tmp/vdr-suite-addon-command-advertisement";
@@ -555,6 +587,7 @@ void testOsdInputDispatchAndNoBlindRetry()
 
 int main()
 {
+    testMediaToolsPollAcceptsReviewedShrinkTypes();
     testAddonCommandsNeverSelfAdvertise();
     testTimerAdvertisementActivation();
     testOsdInputAdvertisement();
