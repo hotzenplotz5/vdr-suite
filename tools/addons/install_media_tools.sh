@@ -4,6 +4,16 @@
 # service/config/backup choreography as the installer for MLD or other init systems.
 set -Eeuo pipefail
 stop() { printf 'MEDIA_TOOLS_INSTALL=STOP %s\n' "$*" >&2; exit 1; }
+# MT.I2 same-shape update and rollback rehearsal: synthetic roots ONLY.
+# The real '/' host is denied by the transaction helper before any write.
+if [ "${1:-}" = update ] || [ "${1:-}" = rollback ]; then
+  [ "$#" -eq 7 ] || stop 'Usage: install_media_tools.sh (update|rollback) OLD_STAGE NEW_STAGE SYNTHETIC_ROOT OLD_SHA256 NEW_SHA256 ISOLATED-ONLY'
+  SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd -P) || stop 'script path unavailable'
+  exec python3 "$SCRIPT_DIR/media_tools_runtime_transaction.py" "$1" \
+    --previous-stage "$2" --new-stage "$3" --live-root "$4" \
+    --previous-approved-sha256 "$5" --new-approved-sha256 "$6" \
+    --confirm "$7"
+fi
 # Idempotent MT.I2 prepare: verify and reuse an existing prepared workdir.
 # The old SHA --prepare BACKEND mode remains the explicitly building path.
 if [ "${1:-}" = prepare ]; then
@@ -28,6 +38,7 @@ fi
 if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
   echo 'Usage: install_media_tools.sh COMMIT (--prepare|REVIEWED_SHA256) BACKEND [SOURCE_ROOT VIDEO_ROOT] [PREPARED_WORKDIR]'
   echo 'Reuse prepared: install_media_tools.sh prepare ABSOLUTE_WORKDIR REVIEWED_SHA256'
+  echo 'Isolated test only: install_media_tools.sh (update|rollback) OLD_STAGE NEW_STAGE SYNTHETIC_ROOT OLD_SHA256 NEW_SHA256 ISOLATED-ONLY'
   echo 'Read-only: install_media_tools.sh (check|verify) ABSOLUTE_STAGE ABSOLUTE_ROOT REVIEWED_SHA256'
   echo 'Defaults: SOURCE_ROOT=/srv/video/Filme VIDEO_ROOT=/srv/vdr/video.00'
   echo 'Missing paths are allowed at install time but imports remain unconfigured.'
