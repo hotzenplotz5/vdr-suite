@@ -405,6 +405,20 @@ ImportPlan inspectImport(const ImportRequest& request) {
             "source filename must be absolute and normalized");
     require(isChild(sourceRoot, request.sourceFile),
             "source file is outside the allowed import root");
+    // Legacy Rectools uses filename markers as workflow states, not titles:
+    // .pc_encode = delegated to desktop/HandBrake, .skipped = declined,
+    // .duplicate = already present. Never consume one as ordinary media
+    // until the operator explicitly releases it through Core-owned policy.
+    std::string stem = request.sourceFile.stem().string();
+    std::transform(stem.begin(), stem.end(), stem.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    const auto marked = [&](const std::string& marker) {
+        return stem.size() >= marker.size() &&
+               stem.compare(stem.size() - marker.size(), marker.size(), marker) == 0;
+    };
+    require(!marked(".pc_encode") && !marked(".skipped") &&
+            !marked(".duplicate"),
+            "source has a Rectools deferred/declined/duplicate marker");
     rejectSymlinkComponents(request.sourceFile);
     const auto resolved = fs::canonical(request.sourceFile);
     require(isChild(sourceRoot, resolved), "source resolves outside import root");
