@@ -264,6 +264,10 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         worker.write_bytes(worker.read_bytes() + b"modified")
         with self.assertRaisesRegex(PreflightError, "prepared worker diverges"):
             prepared_state(self.work, self.hash)
+        shutil.copyfile(target / MODULE.WORKER_REL / "vdr-suite-media-check", worker)
+        worker.chmod(0o644)
+        with self.assertRaisesRegex(PreflightError, "nonexecutable prepared worker"):
+            prepared_state(self.work, self.hash)
 
 
 
