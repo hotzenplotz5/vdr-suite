@@ -1,5 +1,16 @@
 # Public API v1 coverage and client migration roadmap
 
+## Coverage-Closeout nach PR #536/#537 (24.10.2026; noch keine API-v1-Releasefreigabe)
+
+**Source-Abschluss:** R1/R2/R3/ADR-0068/E1/E2/M1/M2/S1/P1 und Unified Acceptance Runner sind integriert; Operation-ID-Legacy-Acceptance-Runner [#537](https://github.com/hotzenplotz5/vdr-suite/pull/537) sowie die bereits bestandene Hardware-Evidenz berücksichtigende zentrale Matrix [#536](https://github.com/hotzenplotz5/vdr-suite/pull/536) sind gemergt. Stand der Basis-`main`: `56c5eb021a37ee8ddaab2dc00306a2545e1d56e2`. Das ist ein Source-/Dokumentationscheckpoint, **kein** durchgängig installiertes oder hardwarefreigegebenes API-v1-Release.
+
+**Coverage bereits durch REAL-VDR nachgewiesen:** Native Timer CREATE/UPDATE/TOGGLE OFF/ON/DELETE vollständig am 21.10. (VDR 2.8.3); EPG-TimerIntent/native CREATE am 19.10.; Phase-69.C ein native-Timer-CREATE mit Konflikt/Revisions-/Restart-/Replay-Prüfung auf VDR 2.7.9; Recording RENAME/MOVE/DELETE samt Readback am 21.10.; direkte SearchTimer-RESTfulAPI-Provider-CRUD-Probe inklusive Readback; alte Discovery-/Backend-/EPG-/Recording-/Artwork-/Search-/Genre-/Security-/ETag-/Operation-GETs, Human-/Device-Lifecycle 12 PASS, Playback-Account 11 PASS. **Nicht erneut abnehmen**, solange der betreffende Produktpfad unverändert ist. Direkter SearchTimer-Provider-PASS ist nicht gleich Public-v1-S1-CAS-PASS.
+
+**Coverage offen (nur tatsächlich andere Pfade):** gemeinsame Source-/Build-/SuiteBridge-/patched-epgsearch-/Agent-/Frontend-/JS-/Package-Provenienz, ABI/Release-Installation und `RUNTIME_DEPLOYMENT_MATCH=YES`; Public-v1 SearchTimer S1-UPDATE/ACTIVATE/DEACTIVATE/DELETE native CAS-Ende-zu-Ende und Entscheidung über die nicht native-atomare SearchTimer-CREATE-Garantie; bisher nicht belegter eigenständiger Public-v1-Marks/Cut-Vertrag (gegebenenfalls ausdrücklich vom Scope ausnehmen); partielles OpenAPI-/SDK-Inventar statt vollständiger Parität; nur wirklich neue Crash-/Recovery-/Rollback-/Boot-Pfade sowie P1 Browser↔Device-/Resume-/Media-E2E. Vier historische `outcome_unknown` bleiben isoliert, insbesondere TOGGLE ohne typisierte No-Effect-Evidenz; kein Redispatch/DB-Fix. **Hisense-TV-Zugriff fehlt: `BLOCKED: TV_ACCESS_UNAVAILABLE`**, bis der Betreiber ihn ausdrücklich wieder freigibt.
+
+Die **einzige verbindliche route-/fähigkeitsspezifische Test-Gegenüberstellung** befindet sich in [Public-v1 Real-Hardware Acceptance](../development/public-v1-final-hardware-acceptance.md#eine-zentrale-ergebnis-matrix--kumulativer-stand-24102026-keine-endfreigabe); [Dokumentations-Closeout](../development/public-api-v1-documentation-closeout-20261024.md) fasst CI, Release-Gates und die jeweiligen Originalquellen zusammen. **Kein neuer Slice, keine Neuauflage bereits bestandener Hardware-Prüfungen, Phase 70 NOT STARTED.**
+
+
 > **P1 merged-source checkpoint (23.10.2026):** [PR #524](https://github.com/hotzenplotz5/vdr-suite/pull/524) was merged at `052350714f5b5904a969158925cb05d8f39aed78`. Device-actor Recording progress GET/POST, bounded per-entry Continue Watching GET, revision CAS/reset, administrator Browser+CSRF+CAS Device↔Human Account assignment, current Device/Human grant intersection, frontend CAS opt-in, recording MOVE migration and JS/OpenAPI contracts are integrated **in source**. Real Browser→Device/VIDAA playback and final installed yaVDR acceptance remain open; unversioned legacy clients are not covered by race-free semantics. Phase 70 is NOT STARTED. See `api/device-recording-playback.md`.
 
 > Source audit: 2026-10-18, backend working branch `work/public-v1-epg-timer-intent-admission-20261017`, baseline `987820cf1229a728279a09c9d20a823c442fe386`. **Planning inventory, not a hardware or release acceptance.** For changing runtime, packaging and merge status, [CURRENT](../CURRENT.md) is authoritative; this roadmap records API coverage and work to be done.
@@ -60,7 +71,9 @@ The source and Agent parsing still require **a real server/Agent runtime wiring 
 - Routes listed below are verified from `api/rest/src/PublicApiRuntime.cpp`, `api/rest/src/ApiRouter.cpp` and the [OpenAPI subset](../../api/openapi.json). Paths described as **proposed** are *not* implemented.
 - The machine-readable OpenAPI snapshot has **55 method operations on 43 templates** at the audit baseline. The historical **41/30** in `api/README.md` was stale; **41 audited contracts** may still be a narrower gate in `tools/check_public_v1_openapi.py`, not the file's actual operation count.
 
-## Coverage and migration matrix
+## Historical 2026-10-18 coverage and migration matrix (superseded as current status)
+
+**Historical planning inventory only:** the following old P0/P1/P2 gap and slice estimates are retained for traceability; statements such as “Native MODIFY open”, “Recording R2/R3 mutations open” or “SearchTimer UPDATE/DELETE still legacy” have been superseded by merged source and accepted evidence above. Do **not** use these estimates as outstanding tasks or override the single central acceptance matrix.
 
 | Domain | Existing Public-v1 contracts (source) | Private/legacy parity and reusable domain owners | Real gap / security boundary | Remaining slices (estimate) |
 | --- | --- | --- | --- | --- |
