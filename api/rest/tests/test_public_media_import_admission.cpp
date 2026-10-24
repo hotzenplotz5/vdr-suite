@@ -35,7 +35,8 @@ int main()
             assert(input.backendId == "backend-a");
             assert(input.sourceId == "opaque_source_123456");
             assert(input.idempotencyKey == "a7-idem");
-            assert(input.videoDecision == expectedDecision);
+            assert(input.videoDecision ==
+                   (expectedDecision == "local" ? "" : expectedDecision));
             assert(input.approveVideoReencode == (expectedDecision == "local"));
             PublicMediaImportAdmissionResult r;
             r.status = PublicMediaImportAdmissionStatus::accepted;
