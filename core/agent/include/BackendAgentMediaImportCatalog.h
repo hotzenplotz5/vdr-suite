@@ -28,7 +28,8 @@ public:
                  std::int64_t now,
                  const std::string& handlerOrigin = {},
                  const std::string& handlerVersion = {},
-                 const std::string& handlerSha256 = {})
+                 const std::string& handlerSha256 = {},
+                 const std::vector<std::string>& labels = {})
     {
         if (!actor.authenticated() || actor.actor.type != ActorType::Agent ||
             live.actorId != actor.actor.actorId ||
@@ -54,19 +55,33 @@ public:
         std::sort(sorted.begin(), sorted.end());
         if (std::adjacent_find(sorted.begin(), sorted.end()) != sorted.end())
             return false;
+        if (!labels.empty() && labels.size() != ids.size()) return false;
+        std::map<std::string, std::string> byId;
+        for (std::size_t i = 0; i < labels.size(); ++i) {
+            const auto& label = labels[i];
+            if (label.empty() || label.size() > 160U ||
+                std::any_of(label.begin(), label.end(), [](unsigned char ch) {
+                    return ch < 0x20 || ch == 0x7f ||
+                           ch == '/' || ch == '\\';
+                })) return false;
+            if (!byId.emplace(ids[i], label).second) return false;
+        }
         std::lock_guard<std::mutex> guard(mutex_);
         snapshots_[backendId] = Snapshot{
             live.agentId, live.actorId, instanceId, generation, now,
-            std::move(sorted), handlerOrigin, handlerVersion, handlerSha256};
+            std::move(sorted), handlerOrigin, handlerVersion, handlerSha256,
+            std::move(byId)};
         return true;
     }
 
     bool list(const BackendAgentRecord& live,
               const std::string& backendId,
               std::int64_t now,
-              std::vector<std::string>& ids) const
+              std::vector<std::string>& ids,
+              std::vector<std::string>& labels) const
     {
         ids.clear();
+        labels.clear();
         if (now <= 0 || live.backendId != backendId ||
             live.revoked || live.incompatible || live.leaseExpiresAt < now)
             return false;
@@ -82,7 +97,27 @@ public:
             now - current.capturedAt > 90)
             return false;
         ids = current.ids;
+        if (!current.labels.empty()) {
+            for (const auto& id : ids) {
+                const auto found = current.labels.find(id);
+                if (found == current.labels.end()) {
+                    ids.clear();
+                    labels.clear();
+                    return false;
+                }
+                labels.push_back(found->second);
+            }
+        }
         return true;
+    }
+
+    bool list(const BackendAgentRecord& live,
+              const std::string& backendId,
+              std::int64_t now,
+              std::vector<std::string>& ids) const
+    {
+        std::vector<std::string> ignored;
+        return list(live, backendId, now, ids, ignored);
     }
 
     // An authenticated Agent observation bound to its live lease. This is
@@ -155,6 +190,7 @@ private:
         std::string handlerOrigin;
         std::string handlerVersion;
         std::string handlerSha256;
+        std::map<std::string, std::string> labels;
     };
     mutable std::mutex mutex_;
     std::map<std::string, Snapshot> snapshots_;
