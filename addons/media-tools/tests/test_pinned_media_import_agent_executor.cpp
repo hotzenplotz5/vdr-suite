@@ -84,6 +84,8 @@ struct Fixture {
         fs::create_directories(binary.parent_path());
         fs::create_directories(approval.parent_path());
         fs::create_directories(manifest.parent_path());
+        // The real composed Stage also includes the descriptive share tree.
+        fs::create_directories(root / "usr/share/vdr-suite/addons/rectools");
         for (const char* dir : {"", "usr", "usr/libexec",
             "usr/libexec/vdr-suite", "usr/libexec/vdr-suite/addons",
             "usr/libexec/vdr-suite/addons/rectools", "etc",
