@@ -1,6 +1,6 @@
 # Public API v1 – Dokumentations-Closeout vom 24.10.2026
 
-**Dokumentationsstand: in GitHub als geprüfter Source-/Evidenz-Abgleich abgeschlossen (vor Merge Kandidat). API-v1-Release: NICHT FREIGEGEBEN.** Dies ist **keine zweite Hardware-Abnahmematrix**. Die einzige normative Liste mit dem Routen-/Evidenzvergleich ist [Public-v1 Final Hardware Acceptance](public-v1-final-hardware-acceptance.md#eine-zentrale-ergebnis-matrix--kumulativer-stand-24102026-keine-endfreigabe). [CURRENT](../CURRENT.md) bleibt Quelle für den wechselnden operativen Status.
+**Dokumentationsstand: Source-/Evidenz-Abgleich in [PR #538](https://github.com/hotzenplotz5/vdr-suite/pull/538) abgeschlossen; API-v1-Release: NICHT FREIGEGEBEN.** Dies ist **keine zweite Hardware-Abnahmematrix**. Die einzige normative Liste mit dem Routen-/Evidenzvergleich ist [Public-v1 Final Hardware Acceptance](public-v1-final-hardware-acceptance.md#eine-zentrale-ergebnis-matrix--kumulativer-stand-24102026-keine-endfreigabe). [CURRENT](../CURRENT.md) bleibt Quelle für den wechselnden operativen Status.
 
 ## Verifizierte GitHub- und Quellenprovenienz
 
