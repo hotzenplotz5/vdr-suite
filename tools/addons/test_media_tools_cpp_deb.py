@@ -46,6 +46,13 @@ class CppPackageTests(unittest.TestCase):
             self.assertIn("usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-shrink", listing)
             self.assertIn("usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-check", listing)
             self.assertIn("usr/share/vdr-suite/addons/rectools/AGENTS.md", listing)
+            # dpkg preserves staging directory modes. A root-only 0700
+            # directory makes addon.json invisible to Agent User=vdr, and
+            # therefore fails its HEVC trust preflight with status 78.
+            metadata = [line for line in listing.splitlines()
+                        if line.endswith("./usr/share/vdr-suite/addons/rectools/")]
+            self.assertEqual(len(metadata), 1, listing)
+            self.assertTrue(metadata[0].startswith("drwxr-xr-x "), metadata[0])
             self.assertNotIn("/etc/", listing)
             self.assertNotIn("/lib/systemd/", listing)
             with self.assertRaises(ContractError):
