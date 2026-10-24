@@ -150,6 +150,16 @@ int main() {
         ++checks;
     }
     {
+        assert(!importVideoNeedsReencode("h264"));
+        assert(!importVideoNeedsReencode("hevc"));
+        assert(!importVideoNeedsReencode("mpeg2video"));
+        assert(importVideoNeedsReencode("vp9"));
+        assert(importVideoNeedsReencode("av1"));
+        assert(importVideoNeedsReencode("mpeg4"));
+        assert(importVideoNeedsReencode("unknown"));
+        ++checks;
+    }
+    {
         assert(parseProbedVideoCodec("h264\nh264\n") == "h264");
         assert(parseProbedVideoCodec("hevc\r\n\r\nhevc\n") == "hevc");
         mustFail([] { parseProbedVideoCodec("h264\nhevc\n"); });
@@ -331,7 +341,15 @@ int main() {
         FakeProcess runner;
         runner.codec = "vp9\n";
         auto plan = inspectImport(f.request());
-        const auto output = executeRemuxImport(plan, runner, [](const ImportPlan&) {});
+        // Legacy Rectools asks before hours of encoding. A normal Agent
+        // import selection has no implicit authority to re-encode.
+        mustFail([&] { executeRemuxImport(plan, runner,
+            [](const ImportPlan&) {}); });
+        assert(fs::exists(f.source) && runner.remuxes == 0 &&
+               runner.transcodes == 0 && !fs::exists(f.video / "Sample"));
+        // A distinct, explicit operator approval is required.
+        const auto output = executeRemuxImport(
+            plan, runner, [](const ImportPlan&) {}, true);
         assert(fs::exists(output / "00001.ts") && fs::exists(output / "index"));
         assert(fs::exists(f.source) && runner.remuxes == 0 &&
                runner.transcodes == 1);
