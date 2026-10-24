@@ -62,10 +62,14 @@ genehmigungspflichtige yaVDR-Adapter, nicht das neue universelle CLI.
 
 ## MT.I2 — Installer/Updater: read-only preflight (in Arbeit)
 
-Die **bestehende** `tools/addons/install_media_tools.sh` hat zwei neue,
+Die **bestehende** `tools/addons/install_media_tools.sh` hat drei neue,
 nichtprivilegierte und ausdrücklich **nicht installierende** Befehle:
 
 ```bash
+# Bereits gebaute und versiegelte Stage unverändert wiederverwenden:
+bash tools/addons/install_media_tools.sh prepare \
+  "$WORK" "$INDEPENDENTLY_REVIEWED_HANDLER_SHA256"
+
 bash tools/addons/install_media_tools.sh check \
   "$WORK/stage-with-media-tools" / "$INDEPENDENTLY_REVIEWED_HANDLER_SHA256"
 
@@ -73,8 +77,11 @@ bash tools/addons/install_media_tools.sh verify \
   "$WORK/stage-with-media-tools" / "$INDEPENDENTLY_REVIEWED_HANDLER_SHA256"
 ```
 
-`$WORK` ist das bereits vorbereitete Arbeitsverzeichnis; `--prepare`
-bleibt für die Erstvorbereitung erhalten. Beide Befehle lesen den
+`$WORK` ist das bereits vorbereitete Arbeitsverzeichnis; der bisherige
+`COMMIT --prepare BACKEND`-Aufruf bleibt für einen erforderlichen Neubuild
+erhalten. Der neue `prepare`-Aufruf verifiziert dagegen die **schon
+vorhandenen** drei Binärdateien, `candidate.txt` und die Stage, ohne
+erneut zu kompilieren. `check` und `verify` lesen den
 **gesamten** MT.I1-Stage-Seal, das versionierte Media-Tools-Dateiinventar,
 sämtliche acht Add-on-Dateien (inklusive Inventar), die erkennbaren
 Freigabe-/Quell-/Lock-/Drop-in-Dateien und bei `/` den Debian-Dateibesitz.
