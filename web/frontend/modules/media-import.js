@@ -161,7 +161,8 @@
 
   function startBatch(view) {
     if (!isCurrent(view) || view.batch || view.attempt ||
-        view.submitting || view.sources.length < 2) return;
+        view.submitting || view.sources.length < 2 ||
+        view.localReencode.checked) return;
     const ids = view.sources.slice();
     const batch = {remaining: ids, total: ids.length, completed: 0, waiting: ''};
     view.batch = batch;
@@ -239,6 +240,7 @@
   function showAttempt(view) {
     view.select.disabled = true;
     view.startButton.disabled = true;
+    view.localReencode.disabled = true;
     view.reloadButton.disabled = true;
     view.operationDetail.textContent = view.attempt.operationId
       ? 'Vorgang ' + view.attempt.operationId
@@ -292,6 +294,8 @@
         });
         view.select.value = '';
         view.select.disabled = items.length === 0;
+        view.localReencode.checked = false;
+        view.localReencode.disabled = items.length === 0;
         view.batchButton.disabled = items.length < 2;
         report(view, items.length ? 'Quelle auswählen oder mehrere nacheinander importieren.' :
           'Keine freigegebenen Importquellen verfügbar.');
@@ -309,12 +313,22 @@
   function startImport(view) {
     if (!isCurrent(view) || view.submitting || view.attempt) return Promise.resolve();
     const sourceId = view.batch ? view.batch.remaining[0] : view.select.value;
+    // Encoding authority is granted per film, per click, never to a batch.
+    const approveVideoReencode = !view.batch && view.localReencode.checked === true;
+    if (approveVideoReencode &&
+        (typeof global.confirm !== 'function' ||
+         !global.confirm('Media Tools: Diesen Film bei Bedarf lokal mit FFmpeg ' +
+           'in H.264 umkodieren? Die Originaldatei bleibt unverändert. ' +
+           'Diese Zustimmung gilt nur für diesen Film.'))) {
+      return Promise.resolve();
+    }
     if (!view.sources.includes(sourceId)) {
       if (view.batch) stopBatch(view, 'Quellauswahl nicht mehr verfügbar.');
       return Promise.resolve();
     }
     view.submitting = true;
     view.startButton.disabled = true;
+    view.localReencode.disabled = true;
     report(view, 'Quelle und Berechtigung werden erneut geprüft …');
     // Source observations are ephemeral: revalidate before choosing the opaque token.
     return checkCapability(view.backendId)
@@ -337,10 +351,12 @@
           // Reserve a unique key before dispatch; a lost HTTP response is not a failure.
           const key = makeKey();
           view.attempt = {sourceId: sourceId, key: key, operationId: '',
+            videoDecision: approveVideoReencode ? 'local' : '',
             state: '', pending: true};
           activeAttempts[view.backendId] = view.attempt;
           return publicClient().submitMediaImport({
             backendId: view.backendId, sourceId: sourceId, idempotencyKey: key,
+            ...(approveVideoReencode ? {videoDecision: 'local'} : {}),
             credentials: 'same-origin', headers: session.csrfHeaders()
           });
         });
@@ -407,6 +423,8 @@
         report(view, message, true);
       }).finally(function () {
         view.submitting = false;
+        if (isCurrent(view) && !view.attempt && !view.batch)
+          view.localReencode.disabled = false;
       });
   }
 
@@ -422,6 +440,14 @@
     select.disabled = true;
     label.appendChild(select);
     root.appendChild(label);
+    const encodeLabel = element('label', 'media-import-encode-label',
+      'Lokale Umkodierung bei Bedarf ausdrücklich erlauben (nur dieser Film)');
+    const localReencode = element('input', 'media-import-local-reencode');
+    localReencode.type = 'checkbox';
+    localReencode.checked = false;
+    localReencode.disabled = true;
+    encodeLabel.appendChild(localReencode);
+    root.appendChild(encodeLabel);
     const startButton = element('button', 'media-import-start', 'Import starten');
     startButton.type = 'button';
     startButton.disabled = true;
@@ -456,6 +482,7 @@
     mountTarget.replaceChildren(root);
     const view = {owner: owner, backendId: backendId, root: root,
       select: select, startButton: startButton, reloadButton: reloadButton,
+      localReencode: localReencode,
       batchButton: batchButton, batchStopButton: batchStopButton,
       batch: activeBatches[backendId] || null,
       refreshButton: refreshButton, newButton: newButton,
@@ -465,6 +492,10 @@
     current = view;
     select.addEventListener('change', function () {
       startButton.disabled = view.submitting || !view.sources.includes(select.value);
+    });
+    localReencode.addEventListener('change', function () {
+      if (!isCurrent(view) || view.batch) return;
+      batchButton.disabled = localReencode.checked || view.sources.length < 2;
     });
     startButton.addEventListener('click', function () { return startImport(view); });
     batchButton.addEventListener('click', function () { return startBatch(view); });
@@ -480,6 +511,8 @@
       delete activeAttempts[backendId];
       view.attempt = null;
       view.reads = 0;
+      view.localReencode.checked = false;
+      view.localReencode.disabled = false;
       view.newButton.hidden = true;
       view.refreshButton.hidden = true;
       view.reloadButton.disabled = false;

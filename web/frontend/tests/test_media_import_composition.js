@@ -52,6 +52,8 @@ async function settle() {
   for (let i = 0; i < 14; i++) await flush();
 }
 let allow = true;
+let confirmLocal = true;
+let confirmCalls = 0;
 let sourcesStatus = 200;
 let state = 'dispatching';
 let submitMode = 'accepted';
@@ -155,6 +157,7 @@ const context = {
     }
   },
   location: {origin: 'https://suite.test'},
+  confirm() { ++confirmCalls; return confirmLocal; },
   setTimeout(fn) { timerCallbacks.push(fn); return timerCallbacks.length; },
   clearTimeout() {},
   VdrSuitePlatform: {
@@ -451,6 +454,40 @@ function publishHomeResume() {}
   await settle();
   assert.strictEqual(batchOperations.length, 2);
   assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true);
+
+  // Local encoding is an explicit, single-film v2 request; never batched.
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE];
+  submitMode = 'accepted';
+  state = 'dispatching';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  select = findClass(mount, 'media-import-source');
+  const encode = findClass(mount, 'media-import-local-reencode');
+  assert(encode && encode.type === 'checkbox' && !encode.checked,
+    'local re-encode must default to off');
+  select.value = SOURCE;
+  select.listeners.change();
+  encode.checked = true;
+  encode.listeners.change();
+  const beforeLocal = submits;
+  const confirmationsBefore = confirmCalls;
+  confirmLocal = false;
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeLocal,
+    'refused local conversion confirmation must not dispatch');
+  assert.strictEqual(confirmCalls, confirmationsBefore + 1);
+  confirmLocal = true;
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeLocal + 1);
+  const lastPost = requests.filter(x => x.options.method === 'POST').slice(-1)[0];
+  assert.strictEqual(lastPost.options.body,
+    JSON.stringify({sourceId: SOURCE, videoDecision: 'local'}));
+  assert(findClass(mount, 'media-import-local-reencode').disabled,
+    'consent cannot change during an active operation');
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
