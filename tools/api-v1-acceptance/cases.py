@@ -458,7 +458,8 @@ def authorized_operation(a):
     # must keep supporting historical opaque IDs of at most 160 bytes.
     # Only allow literal URL-path-safe ASCII here: never let an operator-supplied
     # fixture turn into a query, path traversal or secret-bearing log entry.
-    if not isinstance(op_id, str) or not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", op_id):
+    if (not isinstance(op_id, str) or op_id in (".", "..") or
+            not re.fullmatch(r"[A-Za-z0-9_.:-]{1,160}", op_id)):
         raise Blocked("existing owned Public-v1 Operation ID not configured")
     path = V1 + "/operations/" + op_id
     data, headers = a.get_json(path)
