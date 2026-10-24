@@ -231,6 +231,8 @@ jobs:
             test ! -e "modules/rectools/$name"
           done
           make test-addon-media-import
+          # Disposable TMPDIR only: verify PC/Skip rename and collision safety.
+          make test-addon-media-import-decision-markers
           make test-addon-media-import-ffmpeg
           MEDIA_TOOLS_TEST_REAL_VDR=1 make test-addon-media-import-ffmpeg
           make addon-media-import

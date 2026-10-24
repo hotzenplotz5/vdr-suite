@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <string>
+#include <utility>
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -161,7 +162,11 @@ MediaImportMarkerOutcome markMediaImportSource(
         directory.get(), beforeName.c_str(), directory.get(),
         afterName.c_str(), RENAME_NOREPLACE);
     if (renamed != 0)
-        return MediaImportMarkerOutcome::rejected;
+        // Interruption / filesystem I/O can make the exact final state
+        // unknowable. Never treat those as permission for a blind retry.
+        return errno == EINTR || errno == EIO
+            ? MediaImportMarkerOutcome::outcomeUnknown
+            : MediaImportMarkerOutcome::rejected;
 
     // A rename is the sole intentional mutation, never a delete or remux.
     // After the rename there is NO safe blind retry: an unexpected file
