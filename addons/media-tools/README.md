@@ -97,11 +97,45 @@ Suite-Datei-/Frontend-Parität, freie Kapazität, laufende Jobs oder
 ausstehende Migrationen. Ein positiver `check` ist **keine** Erlaubnis,
 `install_media_tools.sh` im bisherigen Live-Installationsmodus aufzurufen.
 Dieser Altmodus aktiviert automatisch Dienste und Zulassungen und ist
-**kein Updater**. Für MT.I2 stehen die sichere, ausdrückliche Installation
-ohne automatische Freigabe, Update-/Rücksetztransaktion, Paketbesitz- und
-Lock-/Freeze-/Backup-Nachweise sowie isolierte Update-/Rollback-Tests noch aus.
+**kein Updater**. Für MT.I2 stehen die sichere, ausdrückliche Live-Installation
+ohne automatische Freigabe, eine produktiv geprüfte Update-/Rücksetztransaktion
+sowie Paketbesitz-, Lock-/Freeze- und SQLite-Backup-Nachweise noch aus.
 Bis dahin **kein** Live-Update und keine Installation eines bereits
 vorhandenen Debian-Pakets mit dem bisherigen Installer.
+
+### MT.I2 — Update/Rollback in isolierten Testwurzeln
+
+Der vorhandene CLI-Einstieg bietet zusätzlich `update` und `rollback`
+**nur für bewusst angelegte, unprivilegierte Testverzeichnisse**. Die
+eingesetzte `media_tools_runtime_transaction.py` führt **keine zweite
+Deploy-Implementierung** ein; sie ruft `tools/install_runtime_stage.py`
+mit den bereits versiegelten vorherigen und neuen Stages auf.
+
+Voraussetzungen für den Test: zwei unabhängig anhand der Handler-SHA256
+geprüfte, verschiedene Stages mit identischer Datei-/Verzeichnisstruktur
+und gleichen Modi; eine exakt zur vorherigen Stage passende Testinstallation;
+ein vorhandener exklusiv übernehmbarer Media-Tools-Wartungslock; eine
+isolierte rootlose Testwurzel im Modus 0700 mit
+`.vdr-suite-mt-i2-test-root` (Inhalt `MT_I2_SYNTHETIC_ROOT`, Modus 0600).
+Das Testverzeichnis wird nicht vom CLI angelegt. Der alte versiegelte
+Stage-Stand ist die bytegenaue Rücksicherungsquelle.
+
+`update` spielt über den bestehenden Deploy die neue Stage ein und
+prüft sie danach. Bei einem Fehler wird **automatisch** die alte Stage
+erneut ausgerollt und verifiziert; `rollback` stellt sie nach einem
+vollständig geprüften Update explizit wieder her. Ein absichtlich
+ausgelöster Fehler, korrekte Vorwärts-/Rückwärtsinstallation, unpassende
+Dateistruktur und fehlende Bestätigung sind isoliert getestet (CI
+`media-tools-trust-gate`, Code-SHA `6473dedef05660219823d555c06f6775e34130e8`).
+
+**Wichtig:** Beide Transaktionsaktionen verweigern den produktiven
+Installationsroot `/` **immer**, auch für root. Sie verändern weder den
+realen Host noch dessen Berechtigungen, Dienste, SQLite, Aufnahmen oder
+Freigaben. Für die echte yaVDR-Updatefähigkeit fehlen noch die verifizierte
+Host-Wartung, Paket-/Dateibesitz- und Versionsmigration, SQLite-Backup,
+sichere Root-kontrollierte Stage und die ausdrücklich bestätigte,
+zustandswahrende Dienststeuerung.
+
 
 ## Host installation and activation (Slice 4)
 
