@@ -66,9 +66,10 @@ install-runtime:
 	$(INSTALL) -d -m 0700 $(DESTDIR)$(STATEDIR)/backend-agent
 	$(INSTALL) -d -m 0700 $(DESTDIR)$(STATEDIR)/secrets
 	$(INSTALL) -d -m 0700 $(DESTDIR)$(STATEDIR)/secrets/series-artwork
-	# The Backend Agent runs as vdr and must traverse this public metadata
-	# ancestor even when staging is performed with umask 077. Only change the
-	# isolated DESTDIR here; the deploy helper never chmods live ancestors.
+	# Public metadata is not private state. Materialize its standard
+	# traversable mode under DESTDIR, independent of the build user's umask.
+	# No service account or host init system is assumed by staging, and
+	# existing live directories are never chmodded by the deploy helper.
 	$(INSTALL) -d -m 0755 $(DESTDIR)$(DATADIR)
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/modules
