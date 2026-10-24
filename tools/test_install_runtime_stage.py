@@ -52,6 +52,9 @@ def main() -> int:
         write(stage / "usr/share/vdr-suite/web/frontend/index.html", "index-v2\n")
         write(stage / "usr/share/vdr-suite/web/frontend/app.js", "app-v2\n")
         write(stage / "usr/share/vdr-suite/web/frontend/composed.js", "part-a\npart-b\n")
+        # Public metadata ancestor must be traversable in sealed stages,
+        # even when the enclosing build uses umask 077.
+        mkdir(stage / "usr/share/vdr-suite", 0o755)
         mkdir(stage / "var/lib/vdr-suite/backend-agent", 0o700)
         mkdir(stage / "var/lib/vdr-suite/secrets/series-artwork", 0o700)
         mkdir(stage / "var/lib/vdr-suite/secrets", 0o700)
@@ -71,6 +74,9 @@ def main() -> int:
         write(live / "usr/share/vdr-suite/web/frontend/app.js", "app-v1-stale\n")
         write(live / "usr/share/vdr-suite/web/frontend/stale-only.js", "stale\n")
         mkdir(live / "usr/share/vdr-suite/web/frontend/stale-empty-dir", 0o755)
+        # Existing host-owned modes are never altered by deployment. An
+        # add-on installer must preflight agent access and refuse this case.
+        mkdir(live / "usr/share/vdr-suite", 0o700)
         for rel in ("usr", "usr/bin", "usr/sbin", "usr/share",
                     "var", "var/lib", "var/cache", "var/lib/vdr-suite"):
             mkdir(live / rel, 0o755)
@@ -90,6 +96,8 @@ def main() -> int:
         assert not (live / "usr/share/vdr-suite/web/frontend/stale-only.js").exists()
         assert not (live / "usr/share/vdr-suite/web/frontend/stale-empty-dir").exists()
         assert (live / "var/lib/vdr-suite/backend-agent").is_dir()
+        assert mode(stage / "usr/share/vdr-suite") == 0o755
+        assert mode(live / "usr/share/vdr-suite") == 0o700
         assert mode(live / "var/lib/vdr-suite/backend-agent") == 0o700
         assert (live / "var/lib/vdr-suite/secrets/series-artwork").is_dir()
         assert mode(live / "var/lib/vdr-suite/secrets/series-artwork") == 0o700
