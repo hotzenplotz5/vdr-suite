@@ -276,7 +276,10 @@ read-only FFprobe to report `VIDEO_CODEC` and
 `VIDEO_REENCODE_REQUIRED=YES|NO`. A normal
 `import ... --confirm-writes` may remux copy-compatible H.264/HEVC/MPEG-2,
 but cannot perform a **video** re-encode without the separate operator-only
-`--approve-video-reencode` CLI flag. The Agent's pinned executor passes
+`--approve-video-reencode` CLI flag. The CLI first checks the current
+codec without staging or recording mutations; if a decision is missing it
+prints `IMPORT_STATUS=DECISION_REQUIRED` and exits 3 with the source intact.
+The Agent's pinned executor passes
 only `--confirm-writes`, so the actor-facing API cannot silently grant local
 video encoding. No source file is deleted or renamed by a refused import.
 C++ and real-FFmpeg regressions cover the refusal and explicit approval,
