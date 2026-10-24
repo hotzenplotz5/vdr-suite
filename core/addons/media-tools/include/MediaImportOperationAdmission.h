@@ -28,6 +28,7 @@ struct MediaImportOperationAdmissionRequest
     std::string backendId;
     std::string sourceId;
     std::string idempotencyKey;
+    bool approveVideoReencode = false;
     std::int64_t now = 0;
 };
 
