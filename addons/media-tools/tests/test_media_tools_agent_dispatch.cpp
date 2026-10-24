@@ -172,6 +172,32 @@ void testStrictPayload()
         a.requestFingerprint = backendAgentCommandFingerprint(a);
         assert(!backendAgentCommandValidAssignment(a));
     }
+    a = assignment("decision");
+    const std::string id = "inventory_12345678";
+    for (const auto decision : {
+             MediaImportDecision::import, MediaImportDecision::local,
+             MediaImportDecision::desktop, MediaImportDecision::skip}) {
+        const std::string payload = mediaImportSelectionJson(id, decision);
+        std::string selected;
+        MediaImportDecision parsed;
+        assert(parseMediaImportSelection(payload, selected, parsed));
+        assert(selected == id && parsed == decision);
+        a.payload = payload;
+        a.payloadVersion = mediaImportSelectionVersion(decision);
+        a.requestFingerprint = backendAgentCommandFingerprint(a);
+        assert(backendAgentCommandValidAssignment(a));
+        if (decision == MediaImportDecision::desktop ||
+            decision == MediaImportDecision::skip)
+            assert(mediaImportMarkerEvidence(id, decision).find(id) !=
+                   std::string::npos);
+    }
+    for (const char* forged : {
+        "{\"sourceId\":\"inventory_12345678\",\"videoDecision\":\"other\"}",
+        "{\"sourceId\":\"../../escape\",\"videoDecision\":\"desktop\"}"}) {
+        std::string selected;
+        MediaImportDecision decision;
+        assert(!parseMediaImportSelection(forged, selected, decision));
+    }
     a = assignment("policy");
     a.verificationPolicy = "none";
     a.requestFingerprint = backendAgentCommandFingerprint(a);

@@ -26,6 +26,7 @@ int main()
                    "a7-idem").statusCode == 503);
 
     unsigned int admissions = 0;
+    std::string expectedDecision;
     api.registerMediaImportAdmission(
         [&](const PublicMediaImportAdmissionRequest& input)
         {
@@ -34,6 +35,8 @@ int main()
             assert(input.backendId == "backend-a");
             assert(input.sourceId == "opaque_source_123456");
             assert(input.idempotencyKey == "a7-idem");
+            assert(input.videoDecision == expectedDecision);
+            assert(input.approveVideoReencode == (expectedDecision == "local"));
             PublicMediaImportAdmissionResult r;
             r.status = PublicMediaImportAdmissionStatus::accepted;
             r.operation.operationId = "op_12345678901234567890123456789012";
@@ -52,6 +55,25 @@ int main()
         std::string::npos);
     assert(admissions == 1);
 
+    // Authenticated Public API path: only explicit known decisions.
+    for (const char* choice : {"local", "desktop", "skip"}) {
+        expectedDecision = choice;
+        const std::string payload =
+            std::string("{\"sourceId\":\"opaque_source_123456\",") +
+            "\"videoDecision\":\"" + choice + "\"}";
+        assert(request(payload, "actor:alice", "backend-a",
+                       "a7-idem").statusCode == 202);
+    }
+    expectedDecision.clear();
+    for (const char* choice : {"unknown", "pc_encode", "../escape", ""}) {
+        const std::string payload =
+            std::string("{\"sourceId\":\"opaque_source_123456\",") +
+            "\"videoDecision\":\"" + choice + "\"}";
+        assert(request(payload, "actor:alice", "backend-a",
+                       "a7-idem").statusCode == 422);
+    }
+    assert(admissions == 4);
+
     assert(request(body, "", "backend-a", "a7-idem").statusCode == 401);
     assert(request(body, "actor:alice", "backend-b",
                    "a7-idem").statusCode == 404);
@@ -62,7 +84,7 @@ int main()
     assert(request("{\"sourceId\":\"opaque_source_123456\",\"sourceId\":\"opaque_source_123456\"}",
                    "actor:alice", "backend-a", "a7-idem").statusCode == 422);
     assert(request(body, "actor:alice", "backend-a", "").statusCode == 400);
-    assert(admissions == 1);
+    assert(admissions == 4);
 
     ApiResponse get;
     assert(api.tryHandleGet(path, "actor:alice", "", "", get));
