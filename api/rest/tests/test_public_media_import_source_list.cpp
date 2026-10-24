@@ -38,6 +38,10 @@ int main()
            std::string::npos);
     assert(ok.body.find("\"sourceId\":\"source_00000000002\"") !=
            std::string::npos);
+    assert(ok.body.find("\"label\":\"Die Herrschaft des Feuers\"") !=
+           std::string::npos);
+    assert(ok.body.find("\"label\":\"Zweiter Film\"") !=
+           std::string::npos);
     assert(ok.body.find("/media/input") == std::string::npos);
     assert(ok.headers.at("Cache-Control") == "no-store");
     assert(get("actor:two", scopes).statusCode == 403);
