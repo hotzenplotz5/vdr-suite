@@ -211,6 +211,8 @@ function publishHomeResume() {}
   let select = findClass(mount, 'media-import-source');
   let start = findClass(mount, 'media-import-start');
   assert(select && start, 'production detail owner must mount real controls');
+  assert(select.children[1].textContent.includes('Die Herrschaft des Feuers'),
+    'backend-approved film title must be visible without HTML rendering');
   assert.strictEqual(start.disabled, true);
   select.value = SOURCE;
   select.listeners.change();
