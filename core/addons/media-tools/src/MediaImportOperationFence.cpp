@@ -173,12 +173,14 @@ bool MediaImportOperationFence::checkCore(
 {
     reason.clear();
     std::string sourceId;
+    bool localReencode = false;
     if (now <= 0 || !backendAgentCommandValidAssignment(assignment) ||
         assignment.commandType != vdrsuite::mediatools::kMediaImportCommandType ||
-        assignment.payloadVersion != 1 ||
         assignment.verificationPolicy != "reconciliation_required" ||
         !vdrsuite::mediatools::parseMediaImportSelection(
-            assignment.payload, sourceId) ||
+            assignment.payload, sourceId, localReencode) ||
+        assignment.payloadVersion !=
+            vdrsuite::mediatools::mediaImportSelectionVersion(localReencode) ||
         assignment.deadline <= now || assignment.assignedAt > now)
         return denied(reason, "media_import_invalid_assignment_fence");
 
@@ -226,7 +228,7 @@ bool MediaImportOperationFence::checkCore(
     // assignment. The operation repository owns idempotency/revisions.
     const auto payload = operations_.findPayloadByOperationId(op.operationId);
     if (!payload.ok() || payload.payload.payloadType != "addon.media.import" ||
-        payload.payload.payloadVersion != 1 ||
+        payload.payload.payloadVersion != assignment.payloadVersion ||
         payload.payload.payload != assignment.payload ||
         payload.payload.payloadFingerprint.empty())
         return denied(reason, "media_import_payload_conflict");
@@ -277,6 +279,7 @@ bool MediaImportOperationFence::applyResult(
         return denied(reason, "media_import_result_operation_missing");
     const auto& op = operation.operation;
     std::string sourceId;
+    bool localReencode = false;
     const auto payload = operations_.findPayloadByOperationId(op.operationId);
     if (op.backendId != assignment.backendId ||
         op.backendGeneration != assignment.backendGeneration ||
@@ -286,10 +289,12 @@ bool MediaImportOperationFence::applyResult(
             vdrsuite::operations::MutationOperationVerificationPolicy::
                 reconciliationRequired ||
         !vdrsuite::mediatools::parseMediaImportSelection(
-            assignment.payload, sourceId) ||
+            assignment.payload, sourceId, localReencode) ||
+        assignment.payloadVersion !=
+            vdrsuite::mediatools::mediaImportSelectionVersion(localReencode) ||
         op.resourceId != sourceId || !payload.ok() ||
         payload.payload.payloadType != "addon.media.import" ||
-        payload.payload.payloadVersion != 1 ||
+        payload.payload.payloadVersion != assignment.payloadVersion ||
         payload.payload.payload != assignment.payload)
         return denied(reason, "media_import_result_operation_conflict");
 
@@ -444,12 +449,15 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
 
         const auto payload = operations_.findPayloadByOperationId(op.operationId);
         std::string sourceId;
+        bool localReencode = false;
         if (!payload.ok() ||
             payload.payload.payloadType != "addon.media.import" ||
-            payload.payload.payloadVersion != 1 ||
             payload.payload.payload != assignment->payload ||
             !vdrsuite::mediatools::parseMediaImportSelection(
-                assignment->payload, sourceId) ||
+                assignment->payload, sourceId, localReencode) ||
+            payload.payload.payloadVersion !=
+                vdrsuite::mediatools::mediaImportSelectionVersion(localReencode) ||
+            assignment->payloadVersion != payload.payload.payloadVersion ||
             op.resourceId != sourceId ||
             op.resourceType != "MediaImportSource" ||
             op.verificationPolicy !=
