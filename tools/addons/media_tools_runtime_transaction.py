@@ -139,7 +139,7 @@ def main() -> int:
                         help="must equal ISOLATED-ONLY")
     args = parser.parse_args()
     if args.confirm != "ISOLATED-ONLY":
-        parser.error("update and rollback are for isolated fixtures ONLY")
+        parser.error("--confirm must equal ISOLATED-ONLY; live installation is forbidden")
     try:
         result = transaction(args.action, args.previous_stage, args.new_stage,
                              args.live_root, args.previous_approved_sha256,
