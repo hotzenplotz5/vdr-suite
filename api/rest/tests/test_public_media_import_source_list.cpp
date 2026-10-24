@@ -29,6 +29,7 @@ int main()
             }
             r.status = PublicApiRuntime::MediaImportSourceStatus::ok;
             r.ids = {"source_00000000001", "source_00000000002"};
+            r.labels = {"Die Herrschaft des Feuers", "Zweiter Film"};
             return r;
         });
     const auto ok = get("actor:one", scopes);
