@@ -271,5 +271,98 @@ class MediaToolsSealedStageTests(unittest.TestCase):
 
 
 
+    def synthetic_update_fixture(self):
+        from install_runtime_stage import deploy, seal
+        from media_tools_runtime_transaction import MARKER, RUN_LOCK
+        MODULE.compose(self.work, self.target, self.hash)
+        previous = self.target
+        candidate = Path(self.temp.name) / "next-stage"
+        shutil.copytree(previous, candidate)
+        description = candidate / MODULE.SHARED_REL / "README.md"
+        description.write_bytes(description.read_bytes() + b"\nMT-I2 fixture update\n")
+        inventory_path = candidate / MODULE.INVENTORY_REL
+        inventory = json.loads(inventory_path.read_text())
+        relative = (MODULE.SHARED_REL / "README.md").as_posix()
+        inventory["files"][relative]["sha256"] = hashlib.sha256(
+            description.read_bytes()).hexdigest()
+        inventory["files"][relative]["size"] = description.stat().st_size
+        inventory_path.write_text(
+            json.dumps(inventory, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
+        seal(candidate)
+        MODULE.verify_media_tools_stage(candidate, self.hash)
+        live = Path(self.temp.name) / "isolated-live"
+        live.mkdir(mode=0o700)
+        (live / MARKER).write_text("MT_I2_SYNTHETIC_ROOT\n")
+        (live / MARKER).chmod(0o600)
+        deploy(previous, live)
+        lock = live / RUN_LOCK
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        lock.write_bytes(b"")
+        lock.chmod(0o644)
+        return previous, candidate, live
+
+    def test_mt_i2_synthetic_update_and_explicit_rollback(self):
+        from media_tools_runtime_transaction import transaction
+        from install_runtime_stage import check
+        previous, candidate, live = self.synthetic_update_fixture()
+        changed = candidate / MODULE.SHARED_REL / "README.md"
+        expected = changed.read_bytes()
+        result = transaction("update", previous, candidate, live,
+                             self.hash, self.hash)
+        assert result == "MEDIA_TOOLS_ISOLATED_UPDATE=PASS"
+        assert (live / MODULE.SHARED_REL / "README.md").read_bytes() == expected
+        check(candidate, live)
+        reverted = transaction("rollback", previous, candidate, live,
+                               self.hash, self.hash)
+        assert reverted == "MEDIA_TOOLS_ISOLATED_ROLLBACK=PASS"
+        check(previous, live)
+
+    def test_mt_i2_synthetic_update_failure_restores_previous(self):
+        from media_tools_runtime_transaction import transaction, PreflightError
+        from install_runtime_stage import deploy, check
+        from unittest.mock import patch
+        previous, candidate, live = self.synthetic_update_fixture()
+        attempts = []
+        def injected(stage, target):
+            attempts.append(stage)
+            deploy(stage, target)
+            if stage == candidate:
+                raise RuntimeError("synthetic post-deploy failure")
+        with patch("media_tools_runtime_transaction.deploy", side_effect=injected):
+            with self.assertRaisesRegex(PreflightError, "AUTOMATIC_ROLLBACK=PASS"):
+                transaction("update", previous, candidate, live,
+                            self.hash, self.hash)
+        assert attempts == [candidate, previous]
+        check(previous, live)
+
+    def test_mt_i2_synthetic_update_rejects_live_host(self):
+        from media_tools_runtime_transaction import transaction, PreflightError
+        with self.assertRaisesRegex(PreflightError, "live root"):
+            transaction("update", Path("/"), Path("/"), Path("/"),
+                        self.hash, self.hash)
+
+    def test_mt_i2_synthetic_update_rejects_stage_tree_migrations(self):
+        from media_tools_runtime_transaction import transaction, PreflightError
+        from install_runtime_stage import seal, check
+        previous, candidate, live = self.synthetic_update_fixture()
+        new_file = candidate / "usr/share/vdr-suite/addons/rectools/new-file.txt"
+        new_file.write_text("extra payload\n")
+        seal(candidate)
+        with self.assertRaisesRegex(PreflightError, "stage tree shape differs"):
+            transaction("update", previous, candidate, live,
+                        self.hash, self.hash)
+        check(previous, live)
+
+    def test_mt_i2_synthetic_cli_update_denies_missing_consent(self):
+        import subprocess
+        import sys
+        command = ["bash", str(HERE / "install_media_tools.sh"),
+                   "update", "/", "/", "/", self.hash, self.hash, "NO"]
+        result = subprocess.run(command, capture_output=True, text=True)
+        assert result.returncode != 0
+        assert "ISOLATED-ONLY" in result.stderr
+
+
 if __name__ == "__main__":
     unittest.main()
