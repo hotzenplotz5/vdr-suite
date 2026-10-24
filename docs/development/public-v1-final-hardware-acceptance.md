@@ -85,8 +85,8 @@ wurde dadurch **nicht** erbracht.
   [PR #537](https://github.com/hotzenplotz5/vdr-suite/pull/537) ist
   nach vollständigem final-head CI **gemergt**; `main` enthält die
   Runner-/OpenAPI-Korrektur seit `24ae37888a810b2058ff8181b680e850e9f4c9d1`.
-  Der separate Matrix-[PR #536](https://github.com/hotzenplotz5/vdr-suite/pull/536)
-  ist noch nicht integriert. Die GitHub-Commit-Statusabfrage allein
+  Die zentrale Matrix bleibt unabhängig von einem PR-Status der
+  einzige Abnahmeort. Die GitHub-Commit-Statusabfrage allein
   belegt weiterhin keine weiteren nicht gelisteten CI-Gates. Ein CI-PASS
   ersetzt keine REAL-VDR- oder installierte Build-Evidenz.
 - `REAL-VDR`: Ergänzend zu den älteren historischen Proben sind akzeptiert:
