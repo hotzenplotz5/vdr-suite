@@ -88,7 +88,8 @@ function transport(url, options) {
   if (path.endsWith('/media-import-sources')) {
     return Promise.resolve(sourcesStatus === 200
       ? reply(200, {items: (batchSources || [SOURCE]).map(function (id) {
-        return {sourceId: id};
+        return {sourceId: id, label: id === SOURCE
+          ? 'Die Herrschaft des Feuers' : 'Weiterer Film'};
       }), meta: {partial: false}})
       : reply(sourcesStatus, {detail: 'Source unavailable'}));
   }
