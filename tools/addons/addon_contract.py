@@ -151,6 +151,11 @@ def stage(root, module, destdir, prefix="/usr"):
             destination = tmp / filename
             shutil.copyfile(root / "modules" / module / filename, destination)
             destination.chmod(0o644)
+        # Temporary staging is mode 0700. The installed add-on metadata
+        # is inert and public; the unprivileged Backend Agent (User=vdr)
+        # must be able to traverse it to verify the root-owned addon.json.
+        # Do not loosen /etc/vdr-suite approvals or private Agent state.
+        tmp.chmod(0o755)
         tmp.rename(target)
     finally:
         if tmp.exists():
