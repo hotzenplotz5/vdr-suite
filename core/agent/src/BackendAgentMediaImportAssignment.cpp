@@ -31,14 +31,21 @@ bool exactExisting(
     const std::string& payload,
     const BackendAgentRecord& agent)
 {
-    return a.commandType == vdrsuite::mediatools::kMediaImportCommandType &&
+    std::string selected;
+    bool localReencode = false;
+    return vdrsuite::mediatools::parseMediaImportSelection(
+               payload, selected, localReencode) &&
+        selected == operation.resourceId &&
+        a.commandType == vdrsuite::mediatools::kMediaImportCommandType &&
         a.operationId == operation.operationId &&
         a.backendId == operation.backendId &&
         a.backendGeneration == operation.backendGeneration &&
         a.agentId == agent.agentId &&
         a.agentInstanceId == agent.agentInstanceId &&
         a.payload == payload &&
-        a.payloadVersion == 1 &&
+        a.payloadVersion ==
+            vdrsuite::mediatools::mediaImportSelectionVersion(
+                localReencode) &&
         a.verificationPolicy == "reconciliation_required" &&
         backendAgentCommandValidAssignment(a);
 }
@@ -80,10 +87,12 @@ BackendAgentMediaImportAssignmentService::assign(
 
     const auto payload = operations_.findPayloadByOperationId(op.operationId);
     std::string selected;
+    bool localReencode = false;
     if (!payload.ok() || payload.payload.payloadType != "addon.media.import" ||
-        payload.payload.payloadVersion != 1 ||
         !vdrsuite::mediatools::parseMediaImportSelection(
-            payload.payload.payload, selected) ||
+            payload.payload.payload, selected, localReencode) ||
+        payload.payload.payloadVersion !=
+            vdrsuite::mediatools::mediaImportSelectionVersion(localReencode) ||
         selected != op.resourceId)
         return deny("media_import_operation_payload_invalid");
 
@@ -128,7 +137,7 @@ BackendAgentMediaImportAssignmentService::assign(
     a.agentInstanceId = agent->agentInstanceId;
     a.backendGeneration = agent->backendGeneration;
     a.commandType = vdrsuite::mediatools::kMediaImportCommandType;
-    a.payloadVersion = 1;
+    a.payloadVersion = payload.payload.payloadVersion;
     a.payload = payload.payload.payload;
     a.verificationPolicy = "reconciliation_required";
     a.assignedAt = now;
