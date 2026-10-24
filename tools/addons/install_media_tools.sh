@@ -4,6 +4,14 @@
 # service/config/backup choreography as the installer for MLD or other init systems.
 set -Eeuo pipefail
 stop() { printf 'MEDIA_TOOLS_INSTALL=STOP %s\n' "$*" >&2; exit 1; }
+# Idempotent MT.I2 prepare: verify and reuse an existing prepared workdir.
+# The old SHA --prepare BACKEND mode remains the explicitly building path.
+if [ "${1:-}" = prepare ]; then
+  [ "$#" -eq 3 ] || stop 'Usage: install_media_tools.sh prepare ABSOLUTE_WORKDIR REVIEWED_SHA256'
+  SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd -P) || stop 'script path unavailable'
+  exec python3 "$SCRIPT_DIR/media_tools_install_preflight.py" prepare \
+    --prepared-workdir "$2" --approved-handler-sha256 "$3"
+fi
 # MT.I2 read-only entrypoints reuse the exact MT.I1 sealed-stage verifier.
 # These operations do not fetch/build, elevate privileges, install or restart.
 if [ "${1:-}" = check ] || [ "${1:-}" = verify ]; then
@@ -19,6 +27,7 @@ if [ "${1:-}" = check ] || [ "${1:-}" = verify ]; then
 fi
 if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
   echo 'Usage: install_media_tools.sh COMMIT (--prepare|REVIEWED_SHA256) BACKEND [SOURCE_ROOT VIDEO_ROOT] [PREPARED_WORKDIR]'
+  echo 'Reuse prepared: install_media_tools.sh prepare ABSOLUTE_WORKDIR REVIEWED_SHA256'
   echo 'Read-only: install_media_tools.sh (check|verify) ABSOLUTE_STAGE ABSOLUTE_ROOT REVIEWED_SHA256'
   echo 'Defaults: SOURCE_ROOT=/srv/video/Filme VIDEO_ROOT=/srv/vdr/video.00'
   echo 'Missing paths are allowed at install time but imports remain unconfigured.'
