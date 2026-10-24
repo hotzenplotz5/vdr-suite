@@ -138,6 +138,8 @@ als frische Source-Fehlerdiagnose oder Erfolg zu werten.
    Finales Freigabeprotokoll verlangt exakte Candidate-/CI- und
    REAL-VDR-Belegkette, nicht nur HTTP 200.
 
+**Operative TV-Zugangsgrenze am 24.10.2026:** Der Betreiber hat derzeit **keinen Zugriff auf den Hisense-TV**. Alle aktuellen VIDAA-/Device-HTTP-/Live-TV-/Playback-/Resume-Handprüfungen sind deshalb ausdrücklich **BLOCKED: TV_ACCESS_UNAVAILABLE**, nicht FAILED und nicht erneut anzufordern. Die bereits akzeptierten 1.895 historischen Device-Gates bleiben unverändert. Bis der Betreiber von sich aus wieder TV-Zugriff bestätigt, ausschließlich unabhängige Source-, CI-, Kompositions-, Security- und dokumentarische Arbeiten fortsetzen. Kein neuer TV-Testblock und kein Credential-/Pairing-Ersatzversuch.
+
 **Safety Gate:** `RELEASE=BLOCKED` bis diese externen Entscheide
 und produktiven Pfadnachweise vorliegen. Keine Installation, kein Build,
 kein VDR-Neustart, keine Mutation und keine Account-Verknüpfung durch
