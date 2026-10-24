@@ -489,7 +489,61 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-local-reencode').disabled,
     'consent cannot change during an active operation');
 
-  console.log('A7.5 real web composition and media import lifecycle: PASS');
+
+  // Desktop/Skip must be chosen explicitly; no claim of a recorded VDR film.
+  for (const [choice, expectedLabel] of [
+    ['desktop', 'Für PC/HandBrake markiert'],
+    ['skip', 'Übersprungen']
+  ]) {
+    context.resetMediaImportVisibility(true);
+    state = 'succeeded';
+    assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+    context.selectModule('media-import');
+    await settle();
+    const sourceSelect = findClass(mount, 'media-import-source');
+    const choiceSelect = findClass(mount, 'media-import-decision');
+    const toggle = findClass(mount, 'media-import-local-reencode');
+    assert(choiceSelect && choiceSelect.value === 'import');
+    sourceSelect.value = SOURCE;
+    sourceSelect.listeners.change();
+    choiceSelect.value = choice;
+    choiceSelect.listeners.change();
+    assert(toggle.disabled && !toggle.checked);
+    assert(findClass(mount, 'media-import-batch').disabled);
+    const before = submits, priorConfirms = confirmCalls;
+    confirmLocal = false;
+    await findClass(mount, 'media-import-start').listeners.click();
+    await settle();
+    assert.strictEqual(submits, before);
+    assert.strictEqual(confirmCalls, priorConfirms + 1);
+    confirmLocal = true;
+    await findClass(mount, 'media-import-start').listeners.click();
+    await settle();
+    assert.strictEqual(submits, before + 1);
+    const post = requests.filter(x => x.options.method === 'POST').slice(-1)[0];
+    assert.strictEqual(post.options.body, JSON.stringify({sourceId: SOURCE, videoDecision: choice}));
+    assert(findClass(mount, 'status').textContent.includes(expectedLabel));
+    assert(findClass(mount, 'status').textContent.includes('keine VDR-Aufnahme'));
+    assert(findClass(mount, 'media-import-decision').disabled);
+    assert(findClass(mount, 'media-import-operation').textContent.includes(OP));
+  }
+  context.resetMediaImportVisibility(true);
+  state = 'executed_unverified';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const pendingSource = findClass(mount, 'media-import-source');
+  pendingSource.value = SOURCE;
+  pendingSource.listeners.change();
+  const pendingChoice = findClass(mount, 'media-import-decision');
+  pendingChoice.value = 'desktop';
+  pendingChoice.listeners.change();
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert(findClass(mount, 'status').textContent.includes('Core-Bestätigung noch ausstehend'));
+  assert.strictEqual(findClass(mount, 'media-import-new').hidden, true);
+
+    console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
   console.error(error);
   process.exitCode = 1;
