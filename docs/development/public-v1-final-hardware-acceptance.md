@@ -155,16 +155,30 @@ als frische Source-Fehlerdiagnose oder Erfolg zu werten.
 
 **Source-Korrektur an echter Abnahmeabweichung:** Separater Draft
 [PR #537](https://github.com/hotzenplotz5/vdr-suite/pull/537) am
-HEAD `d341ee49e1535de0140f01784f231bc0ae85ed68`
+HEAD `e4d9976840823b39fb7af2bec27de7bf38932f28`
 gleicht den read-only Acceptance-Runner an historische persistierte
 Operation-IDs an, ohne das neue `op_`-Ausgabeformat oder den produktiven
 Daemon zu ändern. Neue und historische sichere ID-Fixtures (bis 160
-ASCII-Bytes), negatives `161`-/Query-/Pfadverhalten, OpenAPI und
-README sind konsistent; [Runner CI #64](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40084664255)
-**SUCCESS**. Diese Offline-Korrektur bestätigt **keine** unbekannte
+ASCII-Bytes), negatives `161`-/Query-/Pfadverhalten und insbesondere
+die gefährlichen eigenständigen Pfadsegmente `.` und `..` sind durch
+OpenAPI-/Runner-/README-Abgleich gedeckt;
+[Runner CI #66](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40086067582)
+**SUCCESS**. [Source-CI #11054](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40084664261)
+war für den vorausgehenden Code-HEAD grün; für den letzten
+Pfadsegment-Test-Fix läuft die neue exakte
+[Source-CI #11057](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40086067554)
+und ist vor Merge als gesondertes Gate zu beurteilen.
+Diese Offline-Korrektur bestätigt **keine** unbekannte
 historische Operation und begründet **keine** erneute Hardware-Probe.
 Vor Release den getrennten Fix nach Review in den gemeinsamen Kandidaten
 integrieren; derzeit hat `main` den Fix **noch nicht**.
+
+**OpenAPI-Deckung (Source-Inventar):** Alle **27/27** im bestehenden
+`tools/api-v1-acceptance/cases.py`-Runner erforderlichen Routen
+sind als Pfade in `api/openapi.json` vorhanden. Dies ist
+**nur UNIT/CONTRACT-Inventar**. Die OpenAPI-Datei kennzeichnet sich
+weiterhin als `partial`; ihre vollständige API-v1-Route-/Methoden-
+und SDK-Parität wird durch den 27/27-Abgleich **nicht** behauptet.
 
 **Operative TV-Zugangsgrenze am 24.10.2026:** Der Betreiber hat derzeit **keinen Zugriff auf den Hisense-TV**. Alle aktuellen VIDAA-/Device-HTTP-/Live-TV-/Playback-/Resume-Handprüfungen sind deshalb ausdrücklich **BLOCKED: TV_ACCESS_UNAVAILABLE**, nicht FAILED und nicht erneut anzufordern. Die bereits akzeptierten 1.895 historischen Device-Gates bleiben unverändert. Bis der Betreiber von sich aus wieder TV-Zugriff bestätigt, ausschließlich unabhängige Source-, CI-, Kompositions-, Security- und dokumentarische Arbeiten fortsetzen. Kein neuer TV-Testblock und kein Credential-/Pairing-Ersatzversuch.
 
