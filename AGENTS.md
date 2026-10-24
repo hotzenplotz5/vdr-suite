@@ -1,5 +1,11 @@
 # VDR-Suite Agent and Repository Workflow Rules
 
+## AGENTS.md-Änderungen ausschließlich nach persönlicher Erlaubnis
+
+**Nur Änderungen an Agents.md mit meiner persönlichen Erlaubnis, oder nach meiner Anordnung!**
+
+Diese Regel gilt für jede `AGENTS.md`-Datei im Repository. Ohne die ausdrückliche persönliche Genehmigung oder konkrete Anordnung des Maintainers dürfen Assistenten solche Dateien weder ändern noch vermeintliche Fehler darin eigenmächtig korrigieren.
+
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
 
@@ -807,21 +813,6 @@ approval.
 Keep each implementation slice within its documented boundary. Do not combine
 unrelated phases, runtime installation, broad refactors or deferred features
 merely to reduce the number of commits.
-
-### No branch cascades; preserve independent workstreams (operator clarification 2026-10-24)
-
-**Do not spawn branch cascades or unnecessary successor/stacked branches for
-the same task.** Continue each authorized feature or platform stream on its
-existing development branch. The operator expressly requires retaining
-`work/addon-platform-registry-lifecycle` for Media Tools and
-`work/mld66-platform-integration` for MLD, alongside the protected `main`.
-These are independent, legitimate workstreams, not a prohibited branch cascade.
-
-Before creating any additional development branch, examine the existing task
-branch and avoid a duplicate or successor branch. Consolidate outdated branches
-only when their unique changes, PR dependencies and external consumers are
-verified. Do not delete, rename, merge or close either authorized active branch
-merely to reduce branch count.
 
 ### Main-first branch lifecycle and grandfathered work
 
