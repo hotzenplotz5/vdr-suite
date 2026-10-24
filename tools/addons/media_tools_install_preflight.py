@@ -178,8 +178,8 @@ def prepared_state(work: Path, approved: str) -> dict:
     for worker in ("vdr-suite-media-import", "vdr-suite-media-shrink",
                    "vdr-suite-media-check"):
         path = examined_file(work, "build/addons/" + worker)
-        if not path.is_file() or path.is_symlink():
-            raise PreflightError("missing prepared worker: " + worker)
+        if not path.is_file() or path.is_symlink() or not os.access(path, os.X_OK):
+            raise PreflightError("missing or nonexecutable prepared worker: " + worker)
         rel = "usr/libexec/vdr-suite/addons/rectools/" + worker
         if digest(path) != inventory["files"][rel]["sha256"]:
             raise PreflightError("prepared worker diverges: " + worker)
