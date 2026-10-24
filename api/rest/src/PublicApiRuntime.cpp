@@ -3056,7 +3056,8 @@ bool parsePublicSearchTimerCreateBody(
 
 // A7.3: a single JSON string field, closed grammar; never a source path.
 bool parseMediaImportAdmissionBody(
-    const std::string& input, std::string& sourceId)
+    const std::string& input, std::string& sourceId,
+    bool& approveVideoReencode)
 {
     std::size_t position = 0U;
     skipAccountMutationWhitespace(input, position);
@@ -3071,6 +3072,22 @@ bool parseMediaImportAdmissionBody(
     if (!parseAccountMutationJsonString(input, position, sourceId))
         return false;
     skipAccountMutationWhitespace(input, position);
+    approveVideoReencode = false;
+    if (position < input.size() && input[position] == ',') {
+        ++position;
+        skipAccountMutationWhitespace(input, position);
+        std::string decisionKey;
+        if (!parseAccountMutationJsonString(input, position, decisionKey) ||
+            decisionKey != "videoDecision") return false;
+        skipAccountMutationWhitespace(input, position);
+        if (position >= input.size() || input[position++] != ':') return false;
+        skipAccountMutationWhitespace(input, position);
+        std::string decision;
+        if (!parseAccountMutationJsonString(input, position, decision) ||
+            decision != "local") return false;
+        approveVideoReencode = true;
+        skipAccountMutationWhitespace(input, position);
+    }
     if (position >= input.size() || input[position++] != '}') return false;
     skipAccountMutationWhitespace(input, position);
     if (position != input.size() ||
@@ -12164,11 +12181,13 @@ bool PublicApiRuntime::tryHandlePost(
             return true;
         }
         std::string sourceId;
-        if (!parseMediaImportAdmissionBody(body, sourceId))
+        bool approveVideoReencode = false;
+        if (!parseMediaImportAdmissionBody(
+                body, sourceId, approveVideoReencode))
         {
             response = problemResponse(422, "validation_error",
                 "Validation failed",
-                "Exactly one opaque sourceId string is required.",
+                "A sourceId or explicit local videoDecision is required.",
                 path, requestId, correlationId);
             return true;
         }
@@ -12194,6 +12213,7 @@ bool PublicApiRuntime::tryHandlePost(
         input.backendId = mediaImportBackend;
         input.sourceId = sourceId;
         input.idempotencyKey = idempotencyKey;
+        input.approveVideoReencode = approveVideoReencode;
         const auto result = admit(input);
         switch (result.status)
         {
