@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace vdrsuite::mediatools {
@@ -63,6 +64,79 @@ inline bool parseMediaImportSelection(const std::string& payload,
     return true;
 }
 
+// Reuse the one Media Import command; versions 3/4 represent a verified
+// backend-local source marker, NOT a VDR recording.
+enum class MediaImportDecision { import, local, desktop, skip };
+inline bool parseMediaImportSelection(
+    const std::string& payload, std::string& sourceId,
+    MediaImportDecision& decision)
+{
+    decision = MediaImportDecision::import;
+    bool encode = false;
+    if (parseMediaImportSelection(payload, sourceId, encode)) {
+        decision = encode ? MediaImportDecision::local
+                          : MediaImportDecision::import;
+        return true;
+    }
+    const std::string prefix = "{\"sourceId\":\"";
+    for (const auto& option : {
+        std::pair<const char*, MediaImportDecision>{"desktop", MediaImportDecision::desktop},
+        {"skip", MediaImportDecision::skip}
+    }) {
+        const std::string suffix =
+            std::string("\",\"videoDecision\":\"") + option.first + "\"}";
+        if (payload.size() < prefix.size() + suffix.size() + 16 ||
+            payload.compare(0, prefix.size(), prefix) != 0 ||
+            payload.compare(payload.size() - suffix.size(),
+                            suffix.size(), suffix) != 0)
+            continue;
+        const std::string id = payload.substr(
+            prefix.size(), payload.size() - prefix.size() - suffix.size());
+        if (id.size() > 64 ||
+            !std::all_of(id.begin(), id.end(),
+                [](unsigned char ch) {
+                    return std::isalnum(ch) || ch == '_' || ch == '-';
+                })) return false;
+        sourceId = id;
+        decision = option.second;
+        return true;
+    }
+    return false;
+}
+inline unsigned mediaImportSelectionVersion(MediaImportDecision decision)
+{
+    switch (decision) {
+        case MediaImportDecision::import: return 1U;
+        case MediaImportDecision::local: return 2U;
+        case MediaImportDecision::desktop: return 3U;
+        case MediaImportDecision::skip: return 4U;
+    }
+    return 0U;
+}
+inline std::string mediaImportSelectionJson(
+    const std::string& sourceId, MediaImportDecision choice)
+{
+    const char* option = "";
+    switch (choice) {
+        case MediaImportDecision::import:
+            return "{\"sourceId\":\"" + sourceId + "\"}";
+        case MediaImportDecision::local: option = "local"; break;
+        case MediaImportDecision::desktop: option = "desktop"; break;
+        case MediaImportDecision::skip: option = "skip"; break;
+    }
+    return "{\"sourceId\":\"" + sourceId +
+        "\",\"videoDecision\":\"" + option + "\"}";
+}
+inline std::string mediaImportMarkerEvidence(
+    const std::string& sourceId, MediaImportDecision choice)
+{
+    if (choice != MediaImportDecision::desktop &&
+        choice != MediaImportDecision::skip) return {};
+    return std::string("media-tools-mark:") +
+        (choice == MediaImportDecision::desktop ? "desktop:" : "skip:") +
+        sourceId;
+}
+
 inline unsigned mediaImportSelectionVersion(bool approveVideoReencode)
 {
     return approveVideoReencode ? 2U : 1U;
@@ -85,6 +159,7 @@ struct MediaToolsInstallationEvidence {
 enum class MediaImportAgentOutcome {
     rejected,  // Proven no effect
     submitted, // Handler accepted; recording still needs reconciliation
+    marked,    // Verified source marker; no VDR recording created
     unknown    // Ambiguous effect; never retry blindly
 };
 
@@ -112,6 +187,7 @@ public:
     // One-shot, empty unless the reviewed handler reported a committed
     // recording. Never a reason to mark a VDR recording verified by itself.
     virtual std::string takeRecordingEvidence() { return {}; }
+    virtual std::string takeMarkerEvidence() { return {}; }
 };
 
 } // namespace vdrsuite::mediatools
