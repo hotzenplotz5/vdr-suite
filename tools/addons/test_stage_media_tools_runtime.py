@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import json
 import os
 from pathlib import Path
 import shutil
@@ -79,10 +80,47 @@ class MediaToolsSealedStageTests(unittest.TestCase):
             assert installed.read_bytes() == (
                 self.work / "build/addons" / binary
             ).read_bytes()
+        # This package-ready file list is part of the SAME sealed tree.
+        record = MODULE.verify_media_tools_stage(self.target, self.hash)
+        assert record["version"] == "0.1.0"
+        assert record["package"] == "vdr-suite-addon-media-tools"
+        assert record["prepared_source_sha"] == "1" * 40
+        assert set(record["files"]) == set(MODULE.payload_roles())
+        assert record["files"][
+            "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import"
+        ]["sha256"] == self.hash
+        assert (self.target / MODULE.INVENTORY_REL).is_file()
         assert dirs["usr/share/vdr-suite"] == 0o755
         assert dirs["usr/share/vdr-suite/addons/rectools"] == 0o755
         assert dirs["var/lib/vdr-suite/backend-agent"] == 0o700
         assert not list(self.target.rglob("*.deb"))
+        assert (self.work / "stage/.vdr-suite-install-runtime-manifest.json"
+                ).read_bytes() == self.original_seal
+
+    def test_verifier_rejects_changed_payload_even_if_suite_stage_is_resealed(self):
+        MODULE.compose(self.work, self.target, self.hash)
+        worker = self.target / MODULE.WORKER_REL / "vdr-suite-media-check"
+        worker.write_bytes(worker.read_bytes() + b"changed")
+        # Someone with stage write access can re-seal Suite content; the
+        # add-on inventory still catches this independent payload mismatch.
+        seal(self.target)
+        with self.assertRaisesRegex(ValueError, "payload differs"):
+            MODULE.verify_media_tools_stage(self.target, self.hash)
+
+    def test_verifier_rejects_unreviewed_handler_digest(self):
+        MODULE.compose(self.work, self.target, self.hash)
+        with self.assertRaisesRegex(ValueError, "approval mismatch"):
+            MODULE.verify_media_tools_stage(self.target, "0" * 64)
+
+    def test_inventory_excludes_mutable_config_and_private_state(self):
+        MODULE.compose(self.work, self.target, self.hash)
+        record = json.loads((self.target / MODULE.INVENTORY_REL).read_text())
+        paths = record["files"]
+        assert all(p.startswith(("usr/share/vdr-suite/addons/rectools/",
+                                 "usr/libexec/vdr-suite/addons/rectools/"))
+                   for p in paths)
+        assert not any(p.startswith(("etc/", "var/")) for p in paths)
+        assert len(paths) == 7
         assert (self.work / "stage/.vdr-suite-install-runtime-manifest.json"
                 ).read_bytes() == self.original_seal
 
