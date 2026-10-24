@@ -62,8 +62,19 @@ if [ "$CHECKOUT_SHA" != "$SHA" ]; then
 fi
 # Fetch the exact official branch ref and require the pinned build source to
 # remain part of that branch history. This does not trust an arbitrary local SHA.
-git fetch --quiet --no-tags origin refs/heads/work/addon-platform-registry-lifecycle ||
-  stop "cannot fetch official add-on branch"
+if [ "$(id -u)" -eq 0 ]; then
+  # Root must not leave root-owned Git control files in an unprivileged build
+  # checkout; fetch the provenance ref as the checkout's real owner.
+  OWNER=$(stat -c %U "$ROOT") || stop "cannot inspect checkout owner"
+  [ -n "$OWNER" ] && [ "$OWNER" != UNKNOWN ] ||
+    stop "cannot identify checkout owner"
+  sudo -u "$OWNER" -H git -C "$ROOT" fetch --quiet --no-tags origin \
+    refs/heads/work/addon-platform-registry-lifecycle ||
+    stop "cannot fetch official add-on branch"
+else
+  git fetch --quiet --no-tags origin refs/heads/work/addon-platform-registry-lifecycle ||
+    stop "cannot fetch official add-on branch"
+fi
 REMOTE=$(git rev-parse FETCH_HEAD) || stop "remote branch ref unavailable"
 git merge-base --is-ancestor "$SHA" "$REMOTE" ||
   stop "reviewed commit is no longer in official branch history"
