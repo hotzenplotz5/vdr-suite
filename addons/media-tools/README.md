@@ -94,13 +94,37 @@ bash tools/addons/install_media_tools.sh \
 Webfrontend form/API for media directory administration**. The Agent consumes
 the root-controlled `/etc/vdr-suite/addon-sources/media-import.tsv` and its
 systemd override `20-media-tools.conf`. If a path was missing at installation,
-the TSV is intentionally not created; when changing the video directory, the
-agent's `ReadWritePaths` sandbox must also be adjusted to that verified path.
-Such changes require a separate privileged, validated operator workflow
-and safe agent restart, not a writable public browser pathname or an
-unrestricted API. Future Web settings must use authenticated administrator
-authorization, CSRF and a narrowly scoped backend configuration service;
-client/HTTP requests must never write arbitrary server paths directly.
+the TSV is intentionally not created. The supplied
+[`tools/addons/configure_media_tools_paths.sh`](../../tools/addons/configure_media_tools_paths.sh)
+offers a root-only, **post-install** path change without reinstalling any package.
+On the installed yaVDR, verify no Import/Shrink work is in progress and
+**deliberately** stop only `vdr-suite-backend-agent` before invoking the
+helper from the preserved source checkout:
+
+```bash
+# Root shell, only after confirming there is no running Agent media job:
+systemctl stop vdr-suite-backend-agent
+bash tools/addons/configure_media_tools_paths.sh
+# Or both explicit replacements:
+# bash tools/addons/configure_media_tools_paths.sh /other/source /other/video-root
+# Inspect MEDIA_TOOLS_CONFIG=PASS, the reported backup and paths.
+systemctl start vdr-suite-backend-agent
+```
+
+Run that block **from the matching source checkout** and only after the addon
+package is installed. The helper validates canonical existing directories,
+`vdr` access, the active backend ID, root-owned source inventory and the
+agent's `ReadWritePaths` sandbox. It creates a root backup and replaces the
+single known installer inventory and service override while the Agent is
+inactive. Customized or untrusted source inventories are **refused**, not
+silently rewritten. The helper never stops/starts services by itself.
+Changes are not active until the deliberate Agent restart and must be
+followed by capability/authorization readback. Do **not** treat a generic
+service restart as safe during an unknown or active operation.
+
+A future Web settings form must use authenticated administrator authorization,
+CSRF and a narrowly scoped privileged backend configuration service; browser
+requests must never edit root-controlled paths directly.
 
 The five-argument form still supports a separately prebuilt/reviewed digest,
 but the optional sixth argument is the preferred way to reuse the preparation
