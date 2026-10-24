@@ -39,7 +39,9 @@
           if (!response.ok) {
             const message = body && typeof body.error === 'string'
               ? body.error : 'HTTP ' + response.status;
-            throw new Error(message + ' (' + response.status + ')');
+            const failure = new Error(message + ' (' + response.status + ')');
+            failure.httpStatus = response.status;
+            throw failure;
           }
           if (!body || body.backendId !== backendId ||
               typeof body.desiredEnabled !== 'boolean' ||
@@ -54,6 +56,8 @@
 
   function render(parent, backendId) {
     const card = node('article');
+    // Never flash an administrator-only panel before the protected read.
+    card.hidden = true;
     card.className = 'module-placeholder settings-card settings-addons-card';
     card.appendChild(node('h3', 'Media Tools'));
     card.appendChild(node('p',
@@ -76,6 +80,7 @@
     if (typeof backendId !== 'string' ||
         !/^[a-zA-Z0-9_.:-]{1,128}$/.test(backendId) ||
         backendId === '.' || backendId === '..') {
+      card.hidden = false;
       status.textContent = 'Zuerst ein gültiges Backend auswählen.';
       refresh.disabled = true;
       return card;
@@ -92,6 +97,7 @@
       status.textContent = 'Aktivierung wird geprüft …';
       return request(backendId, false).then(function (result) {
         current = result;
+        card.hidden = false;
         status.textContent = result.desiredEnabled
           ? 'Administratorfreigabe eingeschaltet (Laufzeitstatus gesondert prüfen)'
           : 'Administratorfreigabe ausgeschaltet';
@@ -100,6 +106,13 @@
         toggle.textContent = result.desiredEnabled ? 'Deaktivieren' : 'Aktivieren';
       }).catch(function (error) {
         details.textContent = '';
+        if (error.httpStatus === 403) {
+          // No role.admin grant: no visible administration controls.
+          card.hidden = true;
+          status.textContent = '';
+          return;
+        }
+        card.hidden = false;
         status.textContent = 'Aktivierung nicht verfügbar: ' + error.message;
       }).finally(function () {
         busy = false; controls();
