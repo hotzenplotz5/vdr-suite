@@ -50,6 +50,9 @@ class AddonTests(unittest.TestCase):
             dest = addon.stage(addon.ROOT, "rectools", directory)
             self.assertEqual(dest, Path(directory) / "usr/share/vdr-suite/addons/rectools")
             self.assertEqual({p.name for p in dest.iterdir()}, set(addon.FILES))
+            # Backend Agent runs as vdr, not root: root-owned metadata
+            # directories must be traversable but not user-writable.
+            self.assertEqual(dest.stat().st_mode & 0o777, 0o755)
             for name in addon.FILES:
                 self.assertEqual((dest / name).read_bytes(),
                                  (addon.ROOT / "modules/rectools" / name).read_bytes())
