@@ -1331,6 +1331,7 @@ struct PublicMediaImportAdmissionRequest
     std::string backendId;
     std::string sourceId;
     std::string idempotencyKey;
+    bool approveVideoReencode = false; // immutable, explicitly selected
 };
 
 struct PublicMediaImportAdmissionResult
