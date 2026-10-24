@@ -70,6 +70,7 @@ async function test() {
   await flush();
   const toggle = h.elements.find(e => e.textContent === 'Aktivieren');
   assert.ok(toggle && !toggle.disabled, 'enabled admin activation control');
+  assert.equal(h.parent.children[0].hidden, false, 'authorized admin card visible');
   toggle.handlers.click();
   await flush();
   assert.equal(h.requests.filter(r => r.options.method === 'POST').length, 1);
@@ -82,11 +83,15 @@ async function test() {
   await flush();
   const protectedToggle = forbidden.elements.find(e => e.textContent === 'Aktivieren');
   assert.ok(protectedToggle && protectedToggle.disabled, 'unauthorized controls disabled');
+  assert.equal(forbidden.parent.children[0].hidden, true,
+    'admin-only card must be hidden on HTTP 403');
   assert.equal(forbidden.requests.length, 1);
 
   const invalid = harness(() => {throw Error('must not request');}, {count: 0});
   invalid.window.VdrSuiteAddonSettings.render(invalid.parent, '../bad');
   assert.equal(invalid.requests.length, 0);
+  assert.equal(invalid.parent.children[0].hidden, false,
+    'invalid backend keeps harmless configuration guidance visible');
   console.log('MEDIA_TOOLS_ADMIN_SETTINGS=PASS');
 }
 test().catch(error => {console.error(error);process.exitCode = 1;});
