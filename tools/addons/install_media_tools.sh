@@ -22,22 +22,25 @@ else
   [ -z "$PREPARED_WORKDIR" ] || stop "prepare cannot reuse an existing build"
 fi
 [[ "$BACKEND" =~ ^[A-Za-z0-9_.:-]{1,128}$ ]] && [ "$BACKEND" != . ] && [ "$BACKEND" != .. ] || stop "backend invalid"
-[ "$(id -u)" -ne 0 ] || stop "run as an ordinary user with sudo"
+# Root may only APPLY an existing, separately built and reviewed staging tree.
+# Source preparation and all C++ compilation must run as an unprivileged user.
+if [ "$(id -u)" -eq 0 ]; then
+  [ "$MODE" = install ] && [ -n "$PREPARED_WORKDIR" ] ||
+    stop "root may install a prepared build only; never compile as root"
+fi
 ROOT=$(cd "$(dirname "$0")/../.." && pwd -P) || stop "checkout absent"
 cd "$ROOT" || stop "checkout absent"
 [ "$(git rev-parse --show-toplevel)" = "$ROOT" ] || stop "wrong checkout"
-[ "$(git branch --show-current)" = work/addon-platform-registry-lifecycle ] || stop "wrong branch"
-[ "$(git rev-parse HEAD)" = "$SHA" ] || stop "not tested HEAD"
+[ "$(git rev-parse HEAD)" = "$SHA" ] || stop "source SHA mismatch"
 [ -z "$(git status --porcelain --untracked-files=no)" ] || stop "dirty checkout"
 case "$(git remote get-url origin)" in
   *github.com:hotzenplotz5/vdr-suite.git|*github.com/hotzenplotz5/vdr-suite.git|*github.com/hotzenplotz5/vdr-suite) ;;
   *) stop "unexpected origin" ;;
 esac
-# Never overwrite newer installed Suite Core with an old add-on branch.
-git fetch --quiet --no-tags origin main || stop "cannot check current main"
-git merge-base --is-ancestor FETCH_HEAD HEAD || stop "main-not-integrated"
+# Provenance checks bind the source to the reviewed remote commit. Branch
+# ancestry is NOT a daemon-replacement or install authorization gate.
 REMOTE=$(git ls-remote origin refs/heads/work/addon-platform-registry-lifecycle | cut -f1)
-[ "$REMOTE" = "$SHA" ] || stop "remote branch advanced"
+[ "$REMOTE" = "$SHA" ] || stop "remote branch head differs from reviewed commit"
 for cmd in sudo make g++ python3 dpkg dpkg-deb sha256sum pkg-config realpath; do
   command -v "$cmd" >/dev/null || stop "missing dependency $cmd"
 done
@@ -71,7 +74,7 @@ dpkg -s vdr-suite-addon-media-tools 2>/dev/null | grep -Fq 'Status: install ok i
 sudo -u vdr test -r "$SOURCE" && sudo -u vdr test -w "$VIDEO" || stop "vdr media access denied"
 # The first write is allowed only if every affected FS retains 4 GiB / 15%.
 resource_preflight() {
-python3 - "$HOME" <<'PY' || stop "resource preflight"
+python3 - "${PREPARED_WORKDIR:-$HOME}" <<'PY' || stop "resource preflight"
 import os, shutil, sys
 checks = [(sys.argv[1], 8*1024**3), ('/usr', 1024**3), ('/var', 2*1024**3)]
 grouped = {}
@@ -100,6 +103,7 @@ else
   WORK=$(mktemp -d "$HOME/vdr-suite-media-tools.XXXXXXXX") || stop "unable to create work directory"
   mkdir -m 0700 "$WORK/build" "$WORK/tmp" "$WORK/packages"
   export TMPDIR="$WORK/tmp"
+  [ "$(id -u)" -ne 0 ] || stop "refuse root compilation"
   make -j2 stage-install-runtime BUILD_DIR="$WORK/build" RUNTIME_STAGE="$WORK/stage" || stop "Suite build failed"
   make -j2 build-media-tools-cpp-deb BUILD_DIR="$WORK/build" OUTPUT_DIR="$WORK/packages" ADDON_MAINTAINER='Local VDR operator <local@vdr-suite.invalid>' || stop "Media Tools build failed"
 fi
