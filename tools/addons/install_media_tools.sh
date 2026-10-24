@@ -154,7 +154,7 @@ grouped = {}
 for path, budget in checks:
     device = os.stat(path).st_dev
     original = grouped.get(device, (path, 0))
-    grouped[device] = (old := original)[0], old[1] + budget
+    grouped[device] = (original[0], original[1] + budget)
 ok = True
 for path, budget in grouped.values():
     u = shutil.disk_usage(path)
