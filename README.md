@@ -10,6 +10,7 @@
 | --- | --- |
 | See what VDR-Suite can do | [Feature overview](docs/project-status-dashboard.md) |
 | **Install on Ubuntu / set up the first admin / configure VDR-Suite** | **[Erste Schritte nach der Installation (Deutsch)](docs/erste-schritte-nach-installation.md)** |
+| **Media Tools installieren / Backend-Agent prüfen (Deutsch)** | **[Media Tools: Installation und Diagnose](docs/media-tools-installation.md)** |
 | Explore an existing server or find the installation status | [Getting started](docs/getting-started.md) |
 | Compile and test from a clean checkout | [Developer quickstart](docs/development/quickstart.md) |
 | Contribute a change | [Contributing](CONTRIBUTING.md) |
