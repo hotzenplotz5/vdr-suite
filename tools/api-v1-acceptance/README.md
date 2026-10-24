@@ -31,7 +31,7 @@ Externe Datei: ~/.config/vdr-suite/api-v1-acceptance.json. JSON-Objekt, Dateirec
 | origin, backend | Optionaler Origin / genehmigter Backend |
 | expectedDaemonCommit | Vollständiger 40-stelliger Git-Commit des installierten Daemons, unabhängig vom Runner-Branch |
 | deniedBackend | Nachweislich nicht berechtigter Backend für Negative-Test |
-| existingOperationId | Bereits vorhandene eigene öffentliche `op_`-ID für autorisierten Operation-GET; niemals neu erzeugen |
+| existingOperationId | Bereits vorhandene, dem authentifizierten Actor gehörende Operation-ID für autorisierten GET. Neu ausgestellte IDs nutzen `op_` + 32 Hexzeichen; historische persistierte, URL-pfadsichere ASCII-IDs mit 1–160 Zeichen sind ebenfalls zulässig. Keine Operation erzeugen oder eine fremde ID testen. |
 | mediaProfile.appVersion, mediaProfile.firmwareVersion, mediaProfile.playerVersion, mediaProfile.engine | Tatsächliches Device/Player-Profil |
 
 Alternativ nimmt `--config /pfad/zur/bestehenden-credential-datei.json` eine ausdrücklich ausgewählte, private **flache** Device-Receipt mit `credentialId` und `credentialSecret` entgegen. Dieses Altformat kam bei früheren Hardware-Tests zum Einsatz (historischer Pfad: `/run/vdr-suite-api-v1-hqoedm30.json`). Die Datei wird **nur gelesen**, niemals kopiert oder geändert. Eine fehlende oder ungültige Receipt wird nicht automatisch durch Pairing ersetzt. Keine ungefragte Credentialsuche.
