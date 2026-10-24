@@ -154,14 +154,63 @@ def inspect(stage: Path, root: Path, approved: str,
     }
 
 
+def prepared_state(work: Path, approved: str) -> dict:
+    """Reuse an existing already-compiled and sealed candidate; no rebuild."""
+    work = safe_root(work)
+    record_path = examined_file(work, "candidate.txt")
+    try:
+        if not stat.S_ISREG(record_path.lstat().st_mode):
+            raise PreflightError("unsafe prepared candidate file")
+        candidate = record_path.read_text(encoding="ascii").splitlines()
+    except (OSError, UnicodeError) as exc:
+        raise PreflightError("missing or invalid prepared candidate") from exc
+    if len(candidate) != 2 or len(candidate[0]) != 40 or any(
+            c not in "0123456789abcdef" for c in candidate[0]):
+        raise PreflightError("invalid prepared source SHA")
+    if candidate[1] != approved:
+        raise PreflightError("prepared candidate differs from independent review")
+    stage = work / "stage-with-media-tools"
+    inventory = verify_media_tools_stage(stage, approved)
+    if inventory["prepared_source_sha"] != candidate[0]:
+        raise PreflightError("prepared source differs from sealed inventory")
+    # The already-built workers must agree with the exact packaged payload.
+    # No compilation, package changes, host rights, or installation performed.
+    for worker in ("vdr-suite-media-import", "vdr-suite-media-shrink",
+                   "vdr-suite-media-check"):
+        path = examined_file(work, "build/addons/" + worker)
+        if not path.is_file() or path.is_symlink():
+            raise PreflightError("missing prepared worker: " + worker)
+        rel = "usr/libexec/vdr-suite/addons/rectools/" + worker
+        if digest(path) != inventory["files"][rel]["sha256"]:
+            raise PreflightError("prepared worker diverges: " + worker)
+    return {
+        "mode": "READ_ONLY", "prepared": "verified_existing_artifacts",
+        "stage": str(stage), "source_sha": candidate[0],
+        "version": inventory["version"], "build": "REUSED_NO_COMPILATION",
+        "deployment": "NOT_AUTHORIZED",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("check", "verify"))
-    parser.add_argument("--stage", type=Path, required=True)
-    parser.add_argument("--live-root", type=Path, required=True)
+    parser.add_argument("action", choices=("prepare", "check", "verify"))
+    parser.add_argument("--stage", type=Path)
+    parser.add_argument("--live-root", type=Path)\n    parser.add_argument("--prepared-workdir", type=Path)
     parser.add_argument("--approved-handler-sha256", required=True)
     args = parser.parse_args()
     try:
+        if args.action == "prepare":
+            if (args.prepared_workdir is None or args.stage is not None or
+                    args.live_root is not None):
+                raise PreflightError("prepare needs only --prepared-workdir")
+            report = prepared_state(args.prepared_workdir,
+                                    args.approved_handler_sha256)
+            print(json.dumps(report, sort_keys=True, indent=2))
+            print("MEDIA_TOOLS_PREPARED_REUSE=PASS")
+            return 0
+        if args.stage is None or args.live_root is None or (
+                args.prepared_workdir is not None):
+            raise PreflightError("check/verify need --stage and --live-root")
         report = inspect(args.stage, args.live_root,
                          args.approved_handler_sha256)
         print(json.dumps(report, sort_keys=True, indent=2))
