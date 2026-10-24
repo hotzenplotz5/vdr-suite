@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
+import re
 from pathlib import Path
 import shutil
 import stat
@@ -26,6 +28,71 @@ from addon_contract import validate_directory  # noqa: E402
 WORKERS = ("vdr-suite-media-import", "vdr-suite-media-shrink",
            "vdr-suite-media-check")
 METADATA = ("addon.json", "README.md", "AGENTS.md")
+INVENTORY_REL = Path("usr/share/vdr-suite/addons/rectools/media-tools-install-inventory.json")
+SHARED_REL = Path("usr/share/vdr-suite/addons/rectools")
+WORKER_REL = Path("usr/libexec/vdr-suite/addons/rectools")
+
+
+def payload_roles() -> dict[str, str]:
+    """Exactly the add-on-owned payload inside the canonical Suite runtime stage."""
+    result = {(SHARED_REL / name).as_posix(): "metadata" for name in METADATA}
+    result[(WORKER_REL / "addon.json").as_posix()] = "agent-metadata"
+    result.update({(WORKER_REL / name).as_posix(): "worker" for name in WORKERS})
+    return result
+
+
+def verify_media_tools_stage(stage: Path, approved_sha256: str) -> dict:
+    """Check the sealed stage and its versioned add-on payload; no host writes.
+
+    The stage seal is not a signature and never grants handler execution.
+    Callers must obtain approved_sha256 independently of the stage itself.
+    """
+    if not re.fullmatch(r"[0-9a-f]{64}", approved_sha256):
+        raise ValueError("invalid independently approved handler SHA256")
+    if not stage.is_absolute() or stage.is_symlink():
+        raise ValueError("unsafe Media Tools stage root")
+    _, sealed_files = verify_sealed_stage(stage, load_manifest(stage))
+    inventory_path = stage / INVENTORY_REL
+    if not regular(inventory_path) or inventory_path.stat().st_size > 16384:
+        raise ValueError("missing or invalid Media Tools install inventory")
+    if INVENTORY_REL.as_posix() not in sealed_files:
+        raise ValueError("Media Tools inventory is not in the stage seal")
+    try:
+        record = json.loads(inventory_path.read_text(encoding="utf-8"))
+        module = json.loads((stage / SHARED_REL / "addon.json").read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("invalid Media Tools metadata") from exc
+    if (not isinstance(record, dict) or set(record) != {
+            "schema", "module", "package", "version", "prepared_source_sha",
+            "approved_handler_sha256", "files"} or record["schema"] != 1 or
+            record["module"] != "rectools" or
+            not isinstance(record["prepared_source_sha"], str) or
+            not re.fullmatch(r"[0-9a-f]{40}", record["prepared_source_sha"]) or
+            record["approved_handler_sha256"] != approved_sha256):
+        raise ValueError("Media Tools inventory identity/schema mismatch")
+    if (module.get("state") != "scaffold" or
+            record["version"] != module.get("version") or
+            record["package"] != module.get("package")):
+        raise ValueError("Media Tools staged metadata and version differ")
+    expected = payload_roles()
+    entries = record["files"]
+    if not isinstance(entries, dict) or set(entries) != set(expected):
+        raise ValueError("Media Tools payload inventory is incomplete or unexpected")
+    for rel, role in expected.items():
+        entry = entries[rel]
+        if (rel not in sealed_files or not isinstance(entry, dict) or
+                set(entry) != {"role", "sha256", "size", "mode"} or
+                entry["role"] != role or
+                any(entry[key] != sealed_files[rel][key]
+                    for key in ("sha256", "size", "mode"))):
+            raise ValueError("Media Tools payload differs: " + rel)
+    if entries[(WORKER_REL / WORKERS[0]).as_posix()]["sha256"] != approved_sha256:
+        raise ValueError("Media Tools handler differs from independently approved bytes")
+    if (stage / WORKER_REL / "addon.json").read_bytes() != (
+            stage / SHARED_REL / "addon.json").read_bytes():
+        raise ValueError("Media Tools metadata companion mismatch")
+    return record
+
 
 
 def regular(path: Path) -> bool:
@@ -126,10 +193,35 @@ def compose(work: Path, output: Path, expected_sha: str) -> None:
         agent_manifest = worker_dir / "addon.json"
         shutil.copyfile(source_metadata / "addon.json", agent_manifest)
         os.chmod(agent_manifest, 0o644)
+        # One exact, versioned list for manual deployment and future .deb.
+        # Neither private Suite state nor config files belong in this payload.
+        inventory = {
+            "schema": 1,
+            "module": "rectools",
+            "package": manifest["package"],
+            "version": manifest["version"],
+            "prepared_source_sha": lines[0],
+            "approved_handler_sha256": expected_sha,
+            "files": {
+                rel: {
+                    "role": role,
+                    "sha256": digest(stage / rel),
+                    "size": (stage / rel).stat().st_size,
+                    "mode": stat.S_IMODE((stage / rel).stat().st_mode),
+                }
+                for rel, role in sorted(payload_roles().items())
+            },
+        }
+        inventory_path = stage / INVENTORY_REL
+        inventory_path.write_text(
+            json.dumps(inventory, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        os.chmod(inventory_path, 0o644)
         # Re-seal the complete, immutable Suite + optional add-on output.
         (stage / MANIFEST_NAME).unlink()
         seal(stage)
-        verify_sealed_stage(stage, load_manifest(stage))
+        verify_media_tools_stage(stage, expected_sha)
         os.replace(stage, output)
 
     after = shutil.disk_usage(output.parent)
@@ -147,13 +239,27 @@ def compose(work: Path, output: Path, expected_sha: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--prepared-workdir", required=True, type=Path)
-    parser.add_argument("--output-stage", required=True, type=Path)
+    parser.add_argument("--prepared-workdir", type=Path)
+    parser.add_argument("--output-stage", type=Path)
+    parser.add_argument("--verify-stage", type=Path,
+                        help="read-only stage and add-on inventory verification")
     parser.add_argument("--approved-handler-sha256", required=True)
     args = parser.parse_args()
     try:
-        compose(args.prepared_workdir, args.output_stage,
-                args.approved_handler_sha256)
+        if args.verify_stage is not None:
+            if args.prepared_workdir is not None or args.output_stage is not None:
+                parser.error("--verify-stage cannot compose a stage")
+            record = verify_media_tools_stage(args.verify_stage,
+                                              args.approved_handler_sha256)
+            print("MEDIA_TOOLS_STAGE_INVENTORY=PASS")
+            print("PREPARED_SOURCE_SHA=" + record["prepared_source_sha"])
+            print("MEDIA_TOOLS_PACKAGE=" + record["package"])
+            print("MEDIA_TOOLS_VERSION=" + record["version"])
+        else:
+            if args.prepared_workdir is None or args.output_stage is None:
+                parser.error("composition needs prepared workdir and output stage")
+            compose(args.prepared_workdir, args.output_stage,
+                    args.approved_handler_sha256)
     except (OSError, ValueError, RuntimeError) as exc:
         print("MEDIA_TOOLS_RUNTIME_STAGE=STOP " + str(exc), file=sys.stderr)
         return 1
