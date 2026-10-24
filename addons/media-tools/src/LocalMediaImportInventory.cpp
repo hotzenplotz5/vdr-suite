@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <iomanip>
 #include <fcntl.h>
 #include <set>
@@ -242,27 +243,26 @@ bool scanDirectory(const std::array<std::string, 5>& entry,
     const fs::path sourceRoot(entry[2]), videoRoot(entry[3]);
     if (!validConfiguredRoot(sourceRoot) || !validConfiguredRoot(videoRoot))
         return false;
-    // All candidates are scanned read-only. One subdirectory of depth is
-    // enough for the prior Rectools import convention, with a hard work cap.
+    // Root, one child directory, and one grandchild directory. The second
+    // nested directory is required for real Rectools layouts such as
+    // Serien/Star Wars-Andor/episode.mkv. Never follow directory symlinks,
+    // and retain the global 4096-entry work cap.
     std::vector<fs::path> paths;
     std::size_t entries = 0;
-    const auto addFiles = [&](const fs::path& root, bool descend) {
-        for (const auto& item : fs::directory_iterator(root)) {
+    std::function<bool(const fs::path&, unsigned)> addFiles;
+    addFiles = [&](const fs::path& directory, unsigned depth) {
+        for (const auto& item : fs::directory_iterator(directory)) {
             if (++entries > 4096) return false;
-            if (fs::is_symlink(item.symlink_status())) continue;
-            if (item.is_regular_file()) paths.push_back(item.path());
-            else if (descend && item.is_directory()) {
-                for (const auto& nested : fs::directory_iterator(item.path())) {
-                    if (++entries > 4096) return false;
-                    if (!fs::is_symlink(nested.symlink_status()) &&
-                        nested.is_regular_file())
-                        paths.push_back(nested.path());
-                }
-            }
+            const auto status = item.symlink_status();
+            if (fs::is_symlink(status)) continue;
+            if (fs::is_regular_file(status)) paths.push_back(item.path());
+            else if (depth < 2 && fs::is_directory(status) &&
+                     !addFiles(item.path(), depth + 1))
+                return false;
         }
         return true;
     };
-    if (!addFiles(sourceRoot, true)) return false;
+    if (!addFiles(sourceRoot, 0)) return false;
     std::sort(paths.begin(), paths.end());
     const auto now = fs::file_time_type::clock::now();
     for (const auto& path : paths) {

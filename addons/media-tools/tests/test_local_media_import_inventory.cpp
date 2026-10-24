@@ -137,6 +137,12 @@ int main()
     fs::create_directories(fixture.root / "media/input/subfolder");
     const auto newFile = fixture.root / "media/input/subfolder/new_movie.webm";
     { std::ofstream out(newFile); out << "webm payload"; }
+    const auto seriesDir = fixture.root / "media/input/Serien/Star Wars-Andor";
+    fs::create_directories(seriesDir);
+    const auto seriesFile = seriesDir / "episode_1.mkv";
+    { std::ofstream out(seriesFile); out << "synthetic-series-media"; }
+    fs::last_write_time(seriesFile,
+        fs::file_time_type::clock::now() - std::chrono::minutes(10));
     fs::last_write_time(newFile,
         fs::file_time_type::clock::now() - std::chrono::minutes(10));
     fs::last_write_time(fixture.source,
@@ -145,9 +151,16 @@ int main()
         (fixture.root / "media/input").string() + "\t" +
         fixture.destination.string() + "\t*\n");
     assert(inventory.listTrustedSourceIds("backend", ids));
-    assert(ids.size() == 2);
-    assert(ids[0].rfind("scan_", 0) == 0 &&
-           ids[1].rfind("scan_", 0) == 0);
+    assert(ids.size() == 3);
+    for (const auto& id : ids)
+        assert(id.rfind("scan_", 0) == 0);
+    bool sawSeries = false;
+    for (const auto& id : ids) {
+        LocalMediaImportSource row;
+        assert(inventory.resolve("backend", id, row));
+        sawSeries |= row.sourceFile == seriesFile;
+    }
+    assert(sawSeries);
     LocalMediaImportSource scanned;
     assert(inventory.resolve("backend", ids[0], scanned));
     assert(scanned.sourceFile == fixture.source ||
@@ -155,9 +168,9 @@ int main()
     const auto previous = ids;
     assert(inventory.listTrustedSourceIds("backend", ids) && ids == previous);
     fs::last_write_time(newFile, fs::file_time_type::clock::now());
-    assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 1);
+    assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 2);
     assert(!inventory.resolve("backend", previous[0], scanned) ||
-           scanned.sourceFile == fixture.source);
+           scanned.sourceFile != newFile);
     fixture.write();
     // A root-approved marked source is observable without becoming importable.
     const auto held = fixture.source.parent_path() / "clip.pc_encode.ts";
