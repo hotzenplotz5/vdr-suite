@@ -88,6 +88,20 @@ async function test() {
     e.textContent === 'Durch Administratorinstallation aktiviert'));
   assert.ok(installed.elements.some(e => e.textContent === 'Deaktivieren'));
 
+  const refused = harness((_url, options) => options.method === 'POST'
+    ? response(409, {error: 'provider_not_eligible'})
+    : response(200, {backendId: 'default', desiredEnabled: false, revision: 0}),
+  {count: 0});
+  refused.window.VdrSuiteAddonSettings.render(refused.parent, 'default');
+  await flush();
+  refused.elements.find(e => e.textContent === 'Aktivieren').handlers.click();
+  await flush();
+  const refusedStatus = refused.elements.find(e => e.tag === 'p' &&
+    e.textContent.includes('provider_not_eligible'));
+  assert.ok(refusedStatus, 'server rejection remains visible after readback');
+  assert.equal(refused.parent.children[0].hidden, false);
+  assert.equal(refused.requests.filter(r => r.options.method === 'POST').length, 1);
+
   const forbidden = harness(() => response(403, {error: 'forbidden'}), {count: 0});
   forbidden.window.VdrSuiteAddonSettings.render(forbidden.parent, 'default');
   await flush();

@@ -137,8 +137,14 @@
       request(backendId, true, expectedRevision, wanted).then(function () {
         return reload();
       }).catch(function (error) {
-        status.textContent = 'Änderung abgelehnt: ' + error.message;
-        return reload();
+        // Refresh the authoritative revision, then preserve the failure
+        // message. Previously reload() replaced it immediately and left
+        // operators with a misleading "deaktiviert" message.
+        return reload().then(function () {
+          if (!card.hidden) {
+            status.textContent = 'Änderung abgelehnt: ' + error.message;
+          }
+        });
       }).finally(function () { busy = false; controls(); });
     });
     reload();
