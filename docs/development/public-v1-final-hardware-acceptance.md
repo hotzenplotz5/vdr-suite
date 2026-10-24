@@ -46,9 +46,18 @@ VDR-Videoverzeichnis kontrollieren, keine Annahme aus der Source.
 (d) unbenutzte Helper für NativeTimerDeleteAssignment wurden entfernt;
 die Klammerung einer bestehenden Deadline-Bedingung verändert ihre Semantik
 nicht. Die alten API-Read-PASS sind davon nicht pauschal entwertet.
-Für die geänderten C++-/Transport- und Frontend-Installationsflächen fehlen
-im vorliegenden Protokoll noch **exakte aktuelle Source-CI-/Staging-Belege**.
-Kein impliziter Daemon-/VDR-Build oder Deployment.
+Für dieselbe unveränderte Produkt-Codebasis liegen mittlerweile grüne
+Source-CI-Läufe vor: [VDR-Suite CI #11052](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40083986261)
+für Matrix-Branch `908dbd7e696064f7c3c227eaac10f23600739774` und
+[VDR-Suite CI #11054](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40084664261)
+für den gesonderten Operation-ID-Runner-Fix-Branch
+`d341ee49e1535de0140f01784f231bc0ae85ed68`, jeweils
+**alle sechs Jobs SUCCESS**, inklusive Fast-Regression, Packaging,
+Frontend und Architektur. Die produktiven C++-/Frontend-Installations-
+Änderungen liegen in beiden Fällen unverändert gegenüber `main`.
+Das ist Source-/CI-Evidenz; ein versiegeltes LIVE-Deployment
+(`RUNTIME_DEPLOYMENT_MATCH=YES`) oder eine native VDR-ABI-Prüfung
+wurde dadurch **nicht** erbracht.
 
 **Getrennte Evidenzebenen, ohne überlappende Fallzahlen zu addieren:**
 
@@ -65,11 +74,17 @@ Kein impliziter Daemon-/VDR-Build oder Deployment.
   `RUNTIME_DEPLOYMENT_MATCH=YES`-Nachweis für den *neuen* Kandidaten
   noch das komplette Browser-/Agent-/Client-Ende-zu-Ende.
 - `CI`: Frühere erfolgreiche exakt gepinnte PR-#526-Läufe bleiben
-  gültig für ihre damalige Source-Eingabe. Für den jetzigen
-  `9cf93fc...`-`main` wurde hier noch **kein vollständiger,
-  nachweislich erfolgreicher passender CI-Graph** akzeptiert; eine leere
-  Commit-Statusantwort ist *kein* CI-PASS. Kein Wiederaufbau allein
-  wegen Dokumentationsänderungen.
+  gültig für ihre damalige Source-Eingabe. Am unveränderten
+  `main`-Produktcode `9cf93fc...` sind auf den abgeleiteten Branches
+  nun [CI #11052](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40083986261)
+  (Matrix-Doku) und
+  [CI #11054](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40084664261)
+  (separater Runner-/OpenAPI-Fix) mit jeweils **6/6 erfolgreichen Jobs**
+  abgeschlossen. [API-v1-Acceptance Runner #64](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40084664255)
+  ist für den Fix-HEAD ebenfalls **SUCCESS**. Beide PRs sind noch Draft,
+  nicht nach `main` gemergt. Die GitHub-Commit-Statusabfrage allein
+  belegt weiterhin keine weiteren nicht gelisteten CI-Gates. Ein CI-PASS
+  ersetzt keine REAL-VDR- oder installierte Build-Evidenz.
 - `REAL-VDR`: Ergänzend zu den älteren historischen Proben sind akzeptiert:
   Device-Lifecycle, ETag/304, ohne Auth/401; Human Credential und Session
   Collection/Detail/304; Pending Pairings (0); Admin-Login/Logout:
@@ -137,6 +152,19 @@ als frische Source-Fehlerdiagnose oder Erfolg zu werten.
    zu schließen; alte Unknowns sind kein geeignetes Test-Fixture.
    Finales Freigabeprotokoll verlangt exakte Candidate-/CI- und
    REAL-VDR-Belegkette, nicht nur HTTP 200.
+
+**Source-Korrektur an echter Abnahmeabweichung:** Separater Draft
+[PR #537](https://github.com/hotzenplotz5/vdr-suite/pull/537) am
+HEAD `d341ee49e1535de0140f01784f231bc0ae85ed68`
+gleicht den read-only Acceptance-Runner an historische persistierte
+Operation-IDs an, ohne das neue `op_`-Ausgabeformat oder den produktiven
+Daemon zu ändern. Neue und historische sichere ID-Fixtures (bis 160
+ASCII-Bytes), negatives `161`-/Query-/Pfadverhalten, OpenAPI und
+README sind konsistent; [Runner CI #64](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40084664255)
+**SUCCESS**. Diese Offline-Korrektur bestätigt **keine** unbekannte
+historische Operation und begründet **keine** erneute Hardware-Probe.
+Vor Release den getrennten Fix nach Review in den gemeinsamen Kandidaten
+integrieren; derzeit hat `main` den Fix **noch nicht**.
 
 **Operative TV-Zugangsgrenze am 24.10.2026:** Der Betreiber hat derzeit **keinen Zugriff auf den Hisense-TV**. Alle aktuellen VIDAA-/Device-HTTP-/Live-TV-/Playback-/Resume-Handprüfungen sind deshalb ausdrücklich **BLOCKED: TV_ACCESS_UNAVAILABLE**, nicht FAILED und nicht erneut anzufordern. Die bereits akzeptierten 1.895 historischen Device-Gates bleiben unverändert. Bis der Betreiber von sich aus wieder TV-Zugriff bestätigt, ausschließlich unabhängige Source-, CI-, Kompositions-, Security- und dokumentarische Arbeiten fortsetzen. Kein neuer TV-Testblock und kein Credential-/Pairing-Ersatzversuch.
 
