@@ -62,10 +62,19 @@ std::string parseProbedVideoCodec(const std::string& text);
 
 ImportPlan inspectImport(const ImportRequest& request);
 
+// Read-only source classification for an explicit local/desktop/skip decision.
+// This is informative only; execution probes the pinned source again.
+// An unknown/unsupported video codec never counts as copy-compatible.
+std::string probeImportVideoCodec(const ImportPlan& plan, ProcessRunner& runner);
+bool importVideoNeedsReencode(const std::string& codec);
+
 // Import is intentionally a separate call. Preflight is supplied by the
 // backend-local caller; the CLI always passes the hard reserve policy.
+// Video re-encoding is opt-in. Agent callers get fail-closed by default;
+// a separately authenticated Core decision is required before setting true.
 fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
-                            const std::function<void(const ImportPlan&)>& capacityPreflight);
+                            const std::function<void(const ImportPlan&)>& capacityPreflight,
+                            bool allowVideoReencode = false);
 
 void requireProductionCapacity(const ImportPlan& plan);
 
