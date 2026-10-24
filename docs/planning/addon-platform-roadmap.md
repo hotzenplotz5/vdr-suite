@@ -435,3 +435,10 @@ restart or import write is authorized. A source/manual installer must
 preserve the existing Suite configuration, SQLite DB and recordings;
 Core owns recording identity/reconciliation and TVScraper owns metadata.
 
+## MT — Installation und UX-Folgeroadmap (24.10.2026)
+
+**Geplant, offen:** [Media Tools — Installation, Import und Aufnahmeaktionen](../../addons/media-tools/ROADMAP.md).
+
+- **MT.I0–I5 zuerst:** ein versiegelter Build-/Staging-Vertrag für manuelle Installationen **und** späteren Ubuntu/Debian-`.deb`-Paketbau. yaVDR/Ubuntu: belegte Ausgangsbasis. openSUSE/MLD: nur mit tatsächlich verifizierten Hostparametern, ohne erfundene Dienst-/Pfad-Defaults.
+- **MT.UX0–UX7 danach:** Media Import direkt hinter Aufnahmen; Standardquelle rekursiv lesen, gezielte Auswahl/Explorer, Vorschau und bewusster Import; Shrink als Aufnahmeaktion in Details und Kartenmenü. Kein zweiter Worker oder Rechtepfad.
+- Alte M1.R- und Core-/Agent-/API-Sicherheitsverträge bleiben maßgeblich. Keine Installation, Rechteänderung, Aufnahmeänderung oder automatische Aktivierung durch diese Dokumentation.
