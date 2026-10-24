@@ -122,6 +122,16 @@ for path in /etc/vdr-suite/addon-approvals/rectools.json \
   [ ! -e "$path" ] && [ ! -L "$path" ] || stop "pre-existing Media Tools state: $path"
 done
 [ -f /var/lib/vdr-suite/vdr-suite.db ] || stop "unknown active database location"
+# Media Tools metadata is read by User=vdr from the fixed public Suite
+# inventory. Fail before stopping services or installing files if an
+# existing, host-owned ancestor is inaccessible; never chmod it here.
+for shared in /usr/share/vdr-suite /usr/share/vdr-suite/addons; do
+  if [ -e "$shared" ] || [ -L "$shared" ]; then
+    [ -d "$shared" ] && [ ! -L "$shared" ] &&
+      sudo -u vdr test -x "$shared" ||
+      stop "existing Suite metadata ancestor inaccessible to vdr: $shared (no permissions changed)"
+  fi
+done
 dpkg -s vdr-suite-addon-media-tools 2>/dev/null | grep -Fq 'Status: install ok installed' && stop "existing installed package needs separate update procedure"
 if [ "$SOURCE_CONFIGURED" -eq 1 ]; then
   sudo -u vdr test -r "$SOURCE" || stop "vdr source access denied"
