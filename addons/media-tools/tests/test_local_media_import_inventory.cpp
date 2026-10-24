@@ -86,6 +86,10 @@ int main()
     std::vector<std::string> ids;
     assert(inventory.listTrustedSourceIds("backend", ids));
     assert(ids == std::vector<std::string>{Key});
+    std::vector<MediaImportSourceLabel> labels;
+    assert(inventory.listTrustedSourceLabels("backend", labels));
+    assert(labels.size() == 1 && labels[0].sourceId == Key &&
+           labels[0].label == "clip");
     assert(inventory.listTrustedSourceIds("other", ids));
     assert(ids.empty());
     assert(!inventory.resolve("other", Key, selected));
