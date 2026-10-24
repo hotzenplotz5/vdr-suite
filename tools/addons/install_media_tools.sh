@@ -132,18 +132,33 @@ fi
 fi
 # The first write is allowed only if every affected FS retains 4 GiB / 15%.
 resource_preflight() {
-python3 - "${PREPARED_WORKDIR:-$HOME}" <<'PY' || stop "resource preflight"
-import os, shutil, sys
-checks = [(sys.argv[1], 8*1024**3), ('/usr', 1024**3), ('/var', 2*1024**3)]
+# Reserve for the *actual* database size before backup. After the backup has
+# been written, do not count its size twice; preserve the normal base reserve.
+python3 - "${PREPARED_WORKDIR:-$HOME}" "$MODE" "${1:-before}" <<'PY' || stop "resource preflight"
+import os, shutil, stat, sys
+workdir, mode, phase = sys.argv[1:]
+gib = 1024**3
+work_budget = 8*gib
+if mode == 'install' and phase == 'before':
+    path = '/var/lib/vdr-suite/vdr-suite.db'
+    info = os.lstat(path)
+    if not stat.S_ISREG(info.st_mode) or info.st_size == 0:
+        raise SystemExit('DATABASE_BACKUP_PREFLIGHT=FAIL (not a regular nonempty database)')
+    # SQLite backup can be larger than a sparse source and must have room
+    # to complete while retaining the operator's 15% filesystem reserve.
+    required = info.st_size + max(gib, (info.st_size+4)//5)
+    work_budget = max(work_budget, required)
+    print(f'DATABASE_BYTES={info.st_size} BACKUP_BUDGET={work_budget}')
+checks = [(workdir, work_budget), ('/usr', gib), ('/var', 2*gib)]
 grouped = {}
 for path, budget in checks:
     device = os.stat(path).st_dev
     original = grouped.get(device, (path, 0))
-    grouped[device] = (original[0], original[1] + budget)
+    grouped[device] = (old := original)[0], old[1] + budget
 ok = True
 for path, budget in grouped.values():
     u = shutil.disk_usage(path)
-    reserve = max(4*1024**3, (u.total*15+99)//100)
+    reserve = max(4*gib, (u.total*15+99)//100)
     print(f'RESOURCE_FS={path} FREE={u.free} BUDGET={budget} RESERVE={reserve}')
     ok &= u.free >= budget+reserve
 print('RESOURCE_PREFLIGHT=' + ('PASS' if ok else 'FAIL'))
@@ -189,8 +204,17 @@ if [ "$MODE" = prepare ]; then
   echo 'INSTALL_REQUIRES_INDEPENDENT_APPROVAL=YES'
   exit 0
 fi
-resource_preflight || stop "insufficient capacity after build"
-mkdir -m 0700 "$WORK/backup" || stop "backup directory already present"
+resource_preflight || stop "insufficient capacity for actual database backup"
+# A previous failed attempt may have left an EMPTY root-owned backup folder.
+# Reuse only that precise safe state; never overwrite existing backup bytes.
+if [ -e "$WORK/backup" ] || [ -L "$WORK/backup" ]; then
+  [ -d "$WORK/backup" ] && [ ! -L "$WORK/backup" ] &&
+    [ "$(stat -c '%u:%a' "$WORK/backup")" = '0:700' ] &&
+    [ -z "$(find "$WORK/backup" -mindepth 1 -maxdepth 1 -print -quit)" ] ||
+    stop "existing backup directory is not empty and root-owned 0700"
+else
+  mkdir -m 0700 "$WORK/backup" || stop "cannot create backup directory"
+fi
 # A live database backup must happen with the daemon stopped.
 RESTART=0
 recover() {
@@ -205,16 +229,20 @@ recover() {
 trap recover EXIT
 RESTART=1
 sudo systemctl stop vdr-suite-backend-agent vdr-suite-daemon || stop "could not quiesce Suite"
+# Recheck remaining capacity with services quiesced; never skip the backup.
+resource_preflight || stop "database backup capacity changed after stop"
 sudo python3 - /var/lib/vdr-suite/vdr-suite.db "$WORK/backup/vdr-suite.db" <<'PY'
 import os, sqlite3, sys
 source, dest = sys.argv[1:]
-if os.path.getsize(source) > 3 * 1024**3:
-    raise SystemExit('database too large for reserved backup budget')
+if os.path.lexists(dest):
+    raise SystemExit('refusing to overwrite existing database backup')
+print('DATABASE_BACKUP=START', flush=True)
 with sqlite3.connect(f'file:{source}?mode=ro', uri=True) as db:
     copy = sqlite3.connect(dest)
     try: db.backup(copy)
     finally: copy.close()
 os.chmod(dest, 0o600)
+print('DATABASE_BACKUP=PASS bytes=' + str(os.path.getsize(dest)), flush=True)
 PY
 sudo dpkg -i "$PACKAGE" || stop "add-on package installation"
 sudo make deploy-install-runtime RUNTIME_STAGE="$WORK/stage" LIVE_ROOT=/ || stop "Suite runtime deployment"
@@ -262,7 +290,7 @@ sudo systemctl start vdr-suite-daemon vdr-suite-backend-agent || stop "Suite res
 systemctl is-active --quiet vdr-suite-daemon && systemctl is-active --quiet vdr-suite-backend-agent || stop "Suite/Agent failed to start"
 sudo make check-install-runtime-deployment RUNTIME_STAGE="$WORK/stage" LIVE_ROOT=/ || stop "installed runtime drift"
 RESTART=0
-resource_preflight || stop "post-install reserve insufficient"
+resource_preflight after || stop "post-install reserve insufficient"
 echo "MEDIA_TOOLS_INSTALL=PASS"
 echo "DATABASE_BACKUP=$WORK/backup/vdr-suite.db"
 echo 'IMPORT_AND_SHRINK_AGENT_OPT_IN=YES'
