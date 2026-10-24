@@ -68,6 +68,7 @@ private:
     std::string pendingFingerprint_;
     LocalMediaImportSource pendingSource_;
     bool pendingSourceValid_ = false;
+    bool pendingApproveVideoReencode_ = false;
     std::string recordingEvidence_;
 };
 
