@@ -401,3 +401,37 @@ The source/test/CI owner is `web/frontend/modules/media-import.js`,
 `make test-install-staging` and `make test-install-runtime-deployment`.
 This milestone does not activate Media Check, Shrink or real-host execution,
 and is not a claim of productive deployment.
+
+## M1.R — Rectools-compatible three-way video-encode decision (2026-10-24)
+
+**Product requirement:** Preserve the vdr-rectools develop workflow
+(confirm_encoding, handle_osd_confirm, explorer.php):
+**local re-encode**, **desktop/HandBrake processing** and **skip**.
+The .pc_encode, .skipped and .duplicate suffixes are meaningful source
+states, not media titles or automatic import candidates.
+The obsolete world-writable .vdr-rectools.prompt must never be used.
+
+All slices remain on work/addon-platform-registry-lifecycle.
+This section is a work/acceptance inventory, **not** a capability
+advertisement or authorization to touch live recordings.
+
+| Slice | Required vertical result and acceptance | Verified status |
+| --- | --- | --- |
+| R0 — Baseline and codec admission | Existing importer refuses marker-suffixed inputs; real FFprobe classifies codecs and refuses encoding without independent approval. Regression against the old Die Herrschaft des Feuers.pc_encode.mkv filename and normal compatible remux. | **Source and isolated CI PASS** at 4930162de42a117aa06fa7443aacef5319b810ad. Incorrect fake FFprobe newline fixed. |
+| R1 — Canonical decision ownership | Exact source identity/codec preview from trusted Agent observation; authenticated, backend-scoped, idempotent local / desktop / skip decisions recorded durably by existing ADR-0042 Core Operations. Actor and per-backend rights, revision/lease, handler approval and no-path request contract checked again at dispatch. | **Open**. Current import API accepts only sourceId; that is **not** encode consent. |
+| R2 — Local encoding | A local decision bound to the *same* immutable Core Operation must reach the pinned Agent handler with explicit, single-use encode authority. Time/CPU/disk bounds and source preservation; independent recording index/native cache reconciliation remains the only success gate. | **Open**. Operator-only CLI flag is not a Public-v1 grant. |
+| R3 — PC deferral / skip | Write the requested compatible .pc_encode / .skipped marker atomically under the authorized source root, with no untrusted browser path, source loss, duplicate rename or automatic resumption. .duplicate remains distinguishable; negative tests for links/races/collisions. | **Open**. Markers are currently rejected/hidden, not manageable in Suite. |
+| R4 — Deliberate completion/release | Include marked items in an authenticated read-only, name/codec-aware Media Tools view, separate from runnable sources. Confirm unchanged identity of PC-replaced media before an explicit new release/import; reject old or concurrent approval and uncertain outcomes. | **Open**. Legacy filename recovery is not wired to Core. |
+| R5 — Notification and frontend | Optional information-only email with no approving or unauthenticated action URL; three buttons, deferred/skip/duplicate filters, source identity, reapproval and canonical Operation progress in the existing Webfrontend owner. Pass CSRF, per-backend grants, logout, late reply, duplicate click and production composition regressions. | **Open**. Present UI lists opaque runnable IDs only. |
+| R6 — Install and acceptance | Source/manual installation via a sealed runtime stage, non-duplicated accepted binaries, independent handler approval and Agent opt-in; no dependency on a matching Suite Debian package. Synthetic end-to-end Agent/API/UI plus read-only yaVDR preflight, then separately approved sample-media write acceptance. MLD needs its own service/path adapter. | **Open**. The yaVDR install adapter now accepts a loaded, cleanly inactive Agent but refuses failed units, unsafe metadata parent permissions and unreviewed host/package state. |
+
+**Release blocker:** No productive Media Import, local re-encode or three-way
+frontend activation may be claimed on the basis of R0 or the installer
+preflight correction. The known yaVDR Backend Agent was inactive/dead,
+while Suite daemon was active; its actual service configuration, installed
+metadata ancestor access and independently reviewed candidate still need a
+read-only host check. No automatic chmod/chown, package overlay, VDR
+restart or import write is authorized. A source/manual installer must
+preserve the existing Suite configuration, SQLite DB and recordings;
+Core owns recording identity/reconciliation and TVScraper owns metadata.
+
