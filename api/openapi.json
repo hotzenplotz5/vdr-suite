@@ -3,7 +3,7 @@
   "info": {
     "title": "VDR-Suite Public API v1 — source-verified selected contract subset",
     "version": "1.0.0",
-    "description": "PARTIAL developer reference, source cross-checked against main 8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0 (2026-10-11). Documents original Phase69.F resources plus Human Account lifecycle/CREATE, grant desired-state read/write, Device pairing/approval/credential issuance, Device grant administration, Device/Credential revoke and one-time credential rotation, plus Human Account Credential/Browser Session metadata and item revoke, authorized Recording keyset/folder browse, recording genre facets and EPG now/next cached reads. This is not full current API coverage, complete account/device administration coverage, or installed daemon/VIDAA runtime acceptance."
+    "description": "PARTIAL developer reference, audited against selected runtime and SecurityHttpGate source paths; a current full-release commit and complete hardware acceptance are not implied. Documents original Phase69.F resources plus Human Account lifecycle/CREATE, grant desired-state read/write, Device pairing/approval/credential issuance, Device grant administration, Device/Credential revoke and one-time credential rotation, plus Human Account Credential/Browser Session metadata and item revoke, authorized Recording keyset/folder browse, recording genre facets and EPG now/next cached reads. This is not full current API coverage, complete account/device administration coverage, or installed daemon/VIDAA runtime acceptance."
   },
   "x-vdr-suite-coverage": "partial",
   "tags": [
@@ -2020,10 +2020,11 @@
             "name": "operationId",
             "in": "path",
             "required": true,
-            "description": "Opaque durable Operation ID; only the owning actor may inspect its resource.",
+            "description": "Opaque durable Operation ID; the persisted lookup also accepts historical identifiers up to 160 bytes rather than only the format of newly issued op_ IDs. Only the owning actor may inspect it.",
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 160
             }
           },
           {
