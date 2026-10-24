@@ -155,12 +155,14 @@ int main()
     for (const auto& id : ids)
         assert(id.rfind("scan_", 0) == 0);
     bool sawSeries = false;
+    std::string newMovieId;
     for (const auto& id : ids) {
         LocalMediaImportSource row;
         assert(inventory.resolve("backend", id, row));
         sawSeries |= row.sourceFile == seriesFile;
+        if (row.sourceFile == newFile) newMovieId = id;
     }
-    assert(sawSeries);
+    assert(sawSeries && !newMovieId.empty());
     LocalMediaImportSource scanned;
     assert(inventory.resolve("backend", ids[0], scanned));
     assert(scanned.sourceFile == fixture.source ||
@@ -169,8 +171,7 @@ int main()
     assert(inventory.listTrustedSourceIds("backend", ids) && ids == previous);
     fs::last_write_time(newFile, fs::file_time_type::clock::now());
     assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 2);
-    assert(!inventory.resolve("backend", previous[0], scanned) ||
-           scanned.sourceFile != newFile);
+    assert(!inventory.resolve("backend", newMovieId, scanned));
     fixture.write();
     // A root-approved marked source is observable without becoming importable.
     const auto held = fixture.source.parent_path() / "clip.pc_encode.ts";
