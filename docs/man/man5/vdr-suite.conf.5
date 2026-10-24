@@ -29,6 +29,32 @@ the supported authentication authorities.
 .B VDR_SUITE_DATABASE_PATH
 Overrides the SQLite database path.
 .TP
+.B VDR_SUITE_RECORDING_VIDEO_ROOTS
+Optional semicolon-separated backend-to-absolute-video-directory mappings in
+the form
+.IR backend=/absolute/path .
+The directory is the actual VDR recording root, not a Suite-owned replacement
+for the VDR video directory.
+When a nonempty mapping is configured, recording native mutations for any
+backend with no valid entry are disabled rather than falling back to a guessed
+yaVDR path. Invalid entries and duplicate backend names invalidate the entire
+mapping. The mapping must use absolute, non-root paths.
+This setting is supplied as an environment variable, normally through the
+daemon's systemd EnvironmentFile. The older yaVDR compatibility default is
+preserved for installations with no mapping configured.
+.TP
+.B VDR_SUITE_CONTROL_SOCKET_PATH
+Optional absolute private SuiteBridge control socket below
+.IR /run/ .
+The VDR process hosting SuiteBridge and local daemon/Agent clients must agree
+on the same pathname. The distribution package must create and secure the
+parent directory. Invalid explicit paths are rejected; no silent fallback
+to a different socket. The Backend Agent can independently select the same
+path through
+.B SUITEBRIDGE_CONTROL_SOCKET_PATH
+in its existing
+.IR backend-agent.conf .
+.TP
 .B VDR_SUITE_RECORDING_ARTWORK_ROOTS
 Semicolon-separated mapping of backend IDs to absolute local Recording artwork roots.
 Each entry uses the form

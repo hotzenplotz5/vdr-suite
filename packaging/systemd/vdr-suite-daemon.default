@@ -1,5 +1,11 @@
 # Runtime overrides for vdr-suite-daemon.
 #
+# IMPORTANT: On stock Ubuntu/yaVDR no MLD/distribution-specific path
+# overrides are required. Absent keys preserve every existing runtime
+# default. Only other distributions (or explicit operator opt-ins) supply
+# different recording, socket or artwork paths. Never activate such keys
+# automatically in Ubuntu packages during upgrades.
+#
 # Legacy Basic deployment modes are retired. install-systemd still never
 # overwrites an existing /etc/default/vdr-suite-daemon; stale historical
 # security compatibility settings may therefore remain on upgrades, but the
@@ -15,6 +21,22 @@ VDR_SUITE_SUITE_BRIDGE_ENABLED=true
 VDR_SUITE_SUITE_BRIDGE_BACKEND_ID=default
 VDR_SUITE_SUITE_BRIDGE_HOST=127.0.0.1
 VDR_SUITE_SUITE_BRIDGE_PORT=6419
+
+# Optional private Unix socket. The VDR process hosting SuiteBridge and its
+# local clients must use the same absolute path under /run. The parent directory
+# must be prepared by the distribution, with restricted ownership/mode.
+# VDR_SUITE_CONTROL_SOCKET_PATH=/run/vdr/vdr-suite-control/control.sock
+
+# Optional authoritative per-backend VDR recording roots for native mutations.
+# Set the ACTUAL VDR video directory for every writable backend. Once provided,
+# a missing/invalid entry blocks writes instead of falling back to yaVDR paths.
+# Do not enable until the installed backend's path has been verified.
+# VDR_SUITE_RECORDING_VIDEO_ROOTS=default=/your/actual/vdr/video
+
+# Optional EPG artwork local read allowlist. Unset = existing Ubuntu/yaVDR
+# roots (/var/cache/vdr/plugins/tvscraper;/var/cache/vdr-suite/epg-artwork).
+# When explicitly set, replaces rather than adds to the defaults.
+# VDR_SUITE_EPG_ARTWORK_ROOTS=/your/tvscraper/cache;/your/epg/artwork
 
 # Bounded transport and observation timings in milliseconds.
 VDR_SUITE_SUITE_BRIDGE_CONNECT_TIMEOUT_MS=1000

@@ -1,0 +1,46 @@
+name: MLD native VDR recording-root discovery
+
+on:
+  push:
+    branches:
+      - work/mld66-platform-integration
+    paths:
+      - ".github/workflows/mld-native-video-root.yml"
+      - "core/agent/include/ISuiteBridgeLocalTransport.h"
+      - "core/agent/include/SuiteBridgeVideoDirectoryDiscovery.h"
+      - "core/agent/src/SuiteBridgeSvdrpTransport.cpp"
+      - "core/agent/tests/test_suite_bridge_video_directory_discovery.cpp"
+      - "core/agent/tests/test_suite_bridge_svdrp_transport.cpp"
+      - "core/daemon/src/DaemonRuntimeInitialization.cpp"
+      - "vdr-plugin-suite-bridge/suitebridge_svdrp.cpp"
+      - "mk/agent-tests.mk"
+      - "tools/check_suitebridge_video_directory_wiring.py"
+      - "tools/check_suite_bridge_svdrp_transport_boundary.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-video-root:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate MLD native video-root contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          make test-suite-bridge-video-directory-discovery test-suite-bridge-svdrp-transport test-suite-bridge-svdrp-transport-boundary 2>&1 | tee mld-native-root-test.log
+          echo 'MLD_NATIVE_VDR_ROOT_SOURCE=PASS'
+      - name: Upload validation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mld-native-video-root-test
+          path: mld-native-root-test.log
+          if-no-files-found: warn
+          retention-days: 7

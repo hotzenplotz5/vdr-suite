@@ -1,4 +1,5 @@
 #include "BackendAgentClient.h"
+#include "SuiteBridgeControlSocketPath.h"
 #include "BackendAgentChannelObservation.h"
 #include "BackendAgentChannelObservationJson.h"
 #include "BackendAgentCommandClient.h"
@@ -699,7 +700,7 @@ bool BackendAgentClientRuntime::loadConfig(
         "CONTROL_PLANE_URL", "BACKEND_ID", "IDENTITY_PATH", "ENROLLMENT_PATH",
         "CA_CERTIFICATE_PATH", "CHANNELS_CONF_PATH", "COMMAND_STATE_PATH", "SOFTWARE_VERSION", "ADAPTERS",
         "OBSERVATION_DOMAINS", "COMMAND_TYPES",
-        "SUITEBRIDGE_HOST", "SUITEBRIDGE_PORT",
+        "SUITEBRIDGE_HOST", "SUITEBRIDGE_PORT", "SUITEBRIDGE_CONTROL_SOCKET_PATH",
         "HEARTBEAT_INTERVAL_SECONDS", "RECONNECT_INITIAL_SECONDS",
         "RECONNECT_MAXIMUM_SECONDS", "CONNECT_TIMEOUT_MILLISECONDS",
         "REQUEST_TIMEOUT_MILLISECONDS"};
@@ -727,6 +728,15 @@ bool BackendAgentClientRuntime::loadConfig(
     config.commandTypes = splitCsv(values["COMMAND_TYPES"]);
     config.suiteBridgeHost = values["SUITEBRIDGE_HOST"];
     config.suiteBridgePort = 0;
+    config.suiteBridgeControlSocketPath =
+        values["SUITEBRIDGE_CONTROL_SOCKET_PATH"];
+    if (!config.suiteBridgeControlSocketPath.empty() &&
+        !vdrsuite::agent::validSuiteBridgeControlSocketPath(
+            config.suiteBridgeControlSocketPath))
+    {
+        reasonCode = "invalid_suitebridge_control_socket_path";
+        return false;
+    }
     config.nativeTimerCreateTransport = nullptr;
     config.nativeTimerDeleteTransport = nullptr;
     config.nativeTimerModifyTransport = nullptr;

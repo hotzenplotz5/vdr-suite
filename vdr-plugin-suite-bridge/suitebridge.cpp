@@ -6,6 +6,7 @@
 #include "suitebridge_recording_metadata_command.h"
 #include "suitebridge_osd_snapshot_contract.h"
 #include "suitebridge_plugin_identity.h"
+#include "SuiteBridgeControlSocketPath.h"
 
 #include <vdr/tools.h>
 
@@ -13,7 +14,8 @@
 #include <vector>
 
 cPluginSuiteBridge::cPluginSuiteBridge()
-    : nativeProbe_(GenerateSuiteBridgePluginInstanceEpoch()),
+    : controlPlane_(vdrsuite::agent::suiteBridgeControlSocketPathFromEnvironment()),
+      nativeProbe_(GenerateSuiteBridgePluginInstanceEpoch()),
       liveCapability_(nativeProbe_.PluginInstanceEpoch()),
       liveSource_(nativeProbe_.PluginInstanceEpoch()),
       hbbtvAdapter_(),

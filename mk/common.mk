@@ -1,8 +1,9 @@
-CXX := g++
+CXX ?= g++
+PKG_CONFIG ?= pkg-config
 BUILD_DIR ?= $(CURDIR)/.build
-BUILD_CXX = mkdir -p "$(BUILD_DIR)" && $(CXX)
+BUILD_CXX = mkdir -p "$(BUILD_DIR)" && $(CXX) $(CPPFLAGS)
 VDR_SUITE_SERVER_VERSION ?= $(shell if [ -f VERSION ]; then head -n 1 VERSION; else printf source-unversioned; fi)
-CXXFLAGS := -std=c++17 -Wall -Wextra \
+CXXFLAGS += -std=c++17 -Wall -Wextra \
         -Icore/sqlite/include \
         -Icore/recordings/include \
         -Icore/daemon/include \
@@ -15,7 +16,7 @@ CXXFLAGS := -std=c++17 -Wall -Wextra \
         -Iapi/rest/include \
         -DVDR_SUITE_SERVER_VERSION=\"$(VDR_SUITE_SERVER_VERSION)\"
 
-LDFLAGS := $(shell pkg-config --libs sqlite3)
+LDFLAGS += $(shell $(PKG_CONFIG) --libs sqlite3)
 
 SQLITE_SRC := core/sqlite/src/Database.cpp
 

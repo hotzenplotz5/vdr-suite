@@ -10,6 +10,7 @@
 #include "ISuiteBridgeRecordingMetadataTransport.h"
 #include "ISuiteBridgeLocalTransport.h"
 #include "SuiteBridgeControlPlaneProtocol.h"
+#include "SuiteBridgeControlSocketPath.h"
 #include "SuiteBridgeLiveSourceTransport.h"
 
 #include <atomic>
@@ -21,8 +22,7 @@ namespace vdrsuite::agent
 
 struct SuiteBridgeLocalControlTransportConfig
 {
-    std::string socketPath =
-        "/run/vdr/vdr-suite-control/control.sock";
+    std::string socketPath = suiteBridgeControlSocketPathFromEnvironment();
     std::chrono::milliseconds connectTimeout{250};
     std::chrono::milliseconds ioTimeout{500};
     std::chrono::milliseconds operationTimeout{1000};

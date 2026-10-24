@@ -1,6 +1,8 @@
 #include "EpgArtworkPathPolicy.h"
 
 #include <filesystem>
+#include <cstdlib>
+#include <set>
 
 namespace
 {
@@ -25,10 +27,59 @@ bool isPathWithinRoot(
 
 std::vector<std::string> EpgArtworkPathPolicy::defaultAllowedRoots()
 {
-    return {
-        "/var/cache/vdr/plugins/tvscraper",
-        "/var/cache/vdr-suite/epg-artwork"
-    };
+    const char* configured = std::getenv("VDR_SUITE_EPG_ARTWORK_ROOTS");
+    if (configured == nullptr || *configured == '\0')
+    {
+        return {
+            "/var/cache/vdr/plugins/tvscraper",
+            "/var/cache/vdr-suite/epg-artwork"
+        };
+    }
+
+    // An operator-supplied list replaces rather than widens the defaults.
+    // Malformed overrides deny all local artwork, never fall back to the
+    // distribution-specific default whitelist.
+    std::vector<std::string> roots;
+    std::set<std::string> seen;
+    const std::string value(configured);
+    std::size_t start = 0;
+    while (start <= value.size())
+    {
+        const std::size_t end = value.find(';', start);
+        const std::string item = value.substr(
+            start, end == std::string::npos
+                ? std::string::npos
+                : end - start);
+        const std::filesystem::path path(item);
+        if (item.empty() || item.size() > 4096U ||
+            !path.is_absolute() || path == path.root_path() ||
+            item.find_first_of("\r\n") != std::string::npos ||
+            roots.size() >= 8U)
+        {
+            return {};
+        }
+
+        for (const auto& part : path)
+        {
+            if (part == "." || part == "..")
+            {
+                return {};
+            }
+        }
+
+        const std::string root = path.lexically_normal().string();
+        if (root == "/" || !seen.insert(root).second)
+        {
+            return {};
+        }
+        roots.push_back(root);
+        if (end == std::string::npos)
+        {
+            break;
+        }
+        start = end + 1;
+    }
+    return roots;
 }
 
 bool EpgArtworkPathPolicy::resolveAllowedPath(
