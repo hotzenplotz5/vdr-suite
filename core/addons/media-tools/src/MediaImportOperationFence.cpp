@@ -171,14 +171,14 @@ bool MediaImportOperationFence::checkCore(
 {
     reason.clear();
     std::string sourceId;
-    bool localReencode = false;
+    vdrsuite::mediatools::MediaImportDecision choice;
     if (now <= 0 || !backendAgentCommandValidAssignment(assignment) ||
         assignment.commandType != vdrsuite::mediatools::kMediaImportCommandType ||
         assignment.verificationPolicy != "reconciliation_required" ||
         !vdrsuite::mediatools::parseMediaImportSelection(
-            assignment.payload, sourceId, localReencode) ||
+            assignment.payload, sourceId, choice) ||
         assignment.payloadVersion !=
-            vdrsuite::mediatools::mediaImportSelectionVersion(localReencode) ||
+            vdrsuite::mediatools::mediaImportSelectionVersion(choice) ||
         assignment.deadline <= now || assignment.assignedAt > now)
         return denied(reason, "media_import_invalid_assignment_fence");
 
@@ -262,7 +262,8 @@ bool MediaImportOperationFence::applyResult(
         result.completedAt > now ||
         (!result.resultEvidence.empty() &&
          !vdrsuite::mediatools::validRecordingPathEvidence(
-             result.resultEvidence)))
+             result.resultEvidence) &&
+         result.resultEvidence.compare(0, 17, "media-tools-mark:") != 0))
         return denied(reason, "media_import_result_fence_invalid");
 
     // The existing command/result journal, not the callback argument, is
@@ -277,7 +278,7 @@ bool MediaImportOperationFence::applyResult(
         return denied(reason, "media_import_result_operation_missing");
     const auto& op = operation.operation;
     std::string sourceId;
-    bool localReencode = false;
+    vdrsuite::mediatools::MediaImportDecision choice;
     const auto payload = operations_.findPayloadByOperationId(op.operationId);
     if (op.backendId != assignment.backendId ||
         op.backendGeneration != assignment.backendGeneration ||
@@ -287,9 +288,9 @@ bool MediaImportOperationFence::applyResult(
             vdrsuite::operations::MutationOperationVerificationPolicy::
                 reconciliationRequired ||
         !vdrsuite::mediatools::parseMediaImportSelection(
-            assignment.payload, sourceId, localReencode) ||
+            assignment.payload, sourceId, choice) ||
         assignment.payloadVersion !=
-            vdrsuite::mediatools::mediaImportSelectionVersion(localReencode) ||
+            vdrsuite::mediatools::mediaImportSelectionVersion(choice) ||
         op.resourceId != sourceId || !payload.ok() ||
         payload.payload.payloadType != "addon.media.import" ||
         payload.payload.payloadVersion != assignment.payloadVersion ||
@@ -298,7 +299,21 @@ bool MediaImportOperationFence::applyResult(
 
     using State = vdrsuite::operations::MutationOperationState;
     State target = State::outcomeUnknown;
-    if (result.resultCategory == "outcome_unknown" &&
+    // The authenticated backend Agent verifies a source rename with fsync
+    // and readback. This is a source-marker outcome, NOT a VDR recording.
+    const bool markerVerified =
+        (choice == vdrsuite::mediatools::MediaImportDecision::desktop ||
+         choice == vdrsuite::mediatools::MediaImportDecision::skip) &&
+        result.dispatchState == "accepted_by_executor" &&
+        result.verificationState == "verified" &&
+        result.resultCategory == "succeeded" &&
+        result.errorCategory == "none" &&
+        result.retryClassification == "none" &&
+        result.resultEvidence ==
+            vdrsuite::mediatools::mediaImportMarkerEvidence(sourceId, choice);
+    if (markerVerified)
+        target = State::executedUnverified;
+    else if (result.resultCategory == "outcome_unknown" &&
         result.verificationState == "outcome_unknown" &&
         result.retryClassification == "reconcile_only" &&
         (result.dispatchState == "starting" ||
@@ -321,7 +336,9 @@ bool MediaImportOperationFence::applyResult(
         return denied(reason, "media_import_result_requires_reconciliation");
 
     const std::string reference = "agent.media.import:" + assignment.commandId;
-    if (op.state == target && op.resultReference == reference)
+    if ((!markerVerified && op.state == target ||
+         markerVerified && op.state == State::succeeded) &&
+        op.resultReference == reference)
     {
         reason = "media_import_result_already_applied";
         return true;
@@ -338,6 +355,17 @@ bool MediaImportOperationFence::applyResult(
         reason = "media_import_result_already_verified";
         return true;
     }
+    if (markerVerified && op.state == State::executedUnverified &&
+        op.resultReference == reference) {
+        const auto finished = operations_.transition(
+            op.operationId, op.operationRevision, State::executedUnverified,
+            State::succeeded, reference, now);
+        if (finished.ok()) {
+            reason = "media_import_marker_verified";
+            return true;
+        }
+        return denied(reason, "media_import_marker_transition_failed");
+    }
     if (op.state != State::dispatching)
         return denied(reason, "media_import_result_state_conflict");
 
@@ -350,7 +378,20 @@ bool MediaImportOperationFence::applyResult(
             vdrsuite::operations::MutationOperationRepositoryStatus::
                 idempotentReplay)
     {
-        reason = "media_import_result_applied";
+        if (markerVerified) {
+            // Preserve the canonical dispatching -> executed_unverified ->
+            // succeeded lifecycle. Replay completes an interrupted second CAS.
+            const auto current = operations_.findById(op.operationId);
+            if (!current.ok())
+                return denied(reason, "media_import_marker_missing");
+            const auto finished = operations_.transition(
+                op.operationId, current.operation.operationRevision,
+                State::executedUnverified, State::succeeded, reference, now);
+            if (!finished.ok())
+                return denied(reason, "media_import_marker_transition_failed");
+        }
+        reason = markerVerified
+            ? "media_import_marker_verified" : "media_import_result_applied";
         return true;
     }
     return denied(reason, "media_import_result_transition_failed");
@@ -447,14 +488,14 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
 
         const auto payload = operations_.findPayloadByOperationId(op.operationId);
         std::string sourceId;
-        bool localReencode = false;
+        vdrsuite::mediatools::MediaImportDecision choice;
         if (!payload.ok() ||
             payload.payload.payloadType != "addon.media.import" ||
             payload.payload.payload != assignment->payload ||
             !vdrsuite::mediatools::parseMediaImportSelection(
-                assignment->payload, sourceId, localReencode) ||
+                assignment->payload, sourceId, choice) ||
             payload.payload.payloadVersion !=
-                vdrsuite::mediatools::mediaImportSelectionVersion(localReencode) ||
+                vdrsuite::mediatools::mediaImportSelectionVersion(choice) ||
             assignment->payloadVersion != payload.payload.payloadVersion ||
             op.resourceId != sourceId ||
             op.resourceType != "MediaImportSource" ||

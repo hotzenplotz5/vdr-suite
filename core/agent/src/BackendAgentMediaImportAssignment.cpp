@@ -32,9 +32,9 @@ bool exactExisting(
     const BackendAgentRecord& agent)
 {
     std::string selected;
-    bool localReencode = false;
+    vdrsuite::mediatools::MediaImportDecision choice;
     return vdrsuite::mediatools::parseMediaImportSelection(
-               payload, selected, localReencode) &&
+               payload, selected, choice) &&
         selected == operation.resourceId &&
         a.commandType == vdrsuite::mediatools::kMediaImportCommandType &&
         a.operationId == operation.operationId &&
@@ -45,7 +45,7 @@ bool exactExisting(
         a.payload == payload &&
         a.payloadVersion ==
             vdrsuite::mediatools::mediaImportSelectionVersion(
-                localReencode) &&
+                choice) &&
         a.verificationPolicy == "reconciliation_required" &&
         backendAgentCommandValidAssignment(a);
 }
@@ -87,12 +87,12 @@ BackendAgentMediaImportAssignmentService::assign(
 
     const auto payload = operations_.findPayloadByOperationId(op.operationId);
     std::string selected;
-    bool localReencode = false;
+    vdrsuite::mediatools::MediaImportDecision choice;
     if (!payload.ok() || payload.payload.payloadType != "addon.media.import" ||
         !vdrsuite::mediatools::parseMediaImportSelection(
-            payload.payload.payload, selected, localReencode) ||
+            payload.payload.payload, selected, choice) ||
         payload.payload.payloadVersion !=
-            vdrsuite::mediatools::mediaImportSelectionVersion(localReencode) ||
+            vdrsuite::mediatools::mediaImportSelectionVersion(choice) ||
         selected != op.resourceId)
         return deny("media_import_operation_payload_invalid");
 
