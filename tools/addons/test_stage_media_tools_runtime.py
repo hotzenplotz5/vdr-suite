@@ -207,21 +207,42 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "approval mismatch"):
             inspect(self.target, live, "0" * 64, query_packages=False)
 
-    def test_mt_i2_reports_package_ownership_without_overriding(self):
-        from media_tools_install_preflight import inspect
+    def test_mt_i2_package_ownership_lookup_is_read_only(self):
+        from media_tools_install_preflight import package_owners
         from unittest.mock import patch
+        import subprocess
+        target = "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import"
+        response = subprocess.CompletedProcess(
+            args=["dpkg-query", "-S", "/" + target], returncode=0,
+            stdout="vdr-suite-addon-media-tools: /" + target + "\n", stderr="")
+        with patch("media_tools_install_preflight.subprocess.run",
+                   return_value=response) as call:
+            owners = package_owners([target])
+        assert owners[target].startswith("vdr-suite-addon-media-tools:")
+        call.assert_called_once_with(
+            ["dpkg-query", "-S", "/" + target],
+            capture_output=True, text=True, check=False, timeout=5)
+
+    def test_mt_i2_cli_check_is_read_only_and_verify_fails_closed(self):
+        import subprocess
+        import sys
         MODULE.compose(self.work, self.target, self.hash)
-        # The same package-ownership result is only evidence for no-overwrite,
-        # not permission to migrate/reassign or remove existing package files.
-        with patch("media_tools_install_preflight.package_owners",
-                   return_value={"usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import":
-                                 "vdr-suite-addon-media-tools: /usr/libexec/..."}):
-            with patch("media_tools_install_preflight.Path", wraps=Path):
-                # Non-live synthetic roots must not query host dpkg ownership.
-                live = Path(self.temp.name) / "isolated-live"
-                live.mkdir()
-                report = inspect(self.target, live, self.hash)
-                assert report["install_state"] == "absent"
+        live = Path(self.temp.name) / "isolated-live"
+        live.mkdir()
+        command = [sys.executable,
+                   str(HERE / "media_tools_install_preflight.py"),
+                   "--stage", str(self.target), "--live-root", str(live),
+                   "--approved-handler-sha256", self.hash]
+        before = sorted(live.rglob("*"))
+        check = subprocess.run([*command[:2], "check", *command[2:]],
+                               capture_output=True, text=True)
+        assert check.returncode == 0, check.stderr
+        assert '"install_state": "absent"' in check.stdout
+        verify = subprocess.run([*command[:2], "verify", *command[2:]],
+                                capture_output=True, text=True)
+        assert verify.returncode != 0
+        assert "installed Media Tools payload differs" in verify.stderr
+        assert sorted(live.rglob("*")) == before
 
 
 if __name__ == "__main__":
