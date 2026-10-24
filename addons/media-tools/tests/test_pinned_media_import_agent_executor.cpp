@@ -77,7 +77,9 @@ struct Fixture {
         root = name.data();
         binary = root / "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import";
         approval = root / "etc/vdr-suite/addon-approvals/rectools.json";
-        manifest = root / "usr/share/vdr-suite/addons/rectools/addon.json";
+        // The Agent reads the pinned, root-owned companion beside the handler,
+        // not the separately descriptive /usr/share add-on inventory.
+        manifest = root / "usr/libexec/vdr-suite/addons/rectools/addon.json";
         runLock = approval.parent_path() / kMediaImportRunLockName;
         fs::create_directories(binary.parent_path());
         fs::create_directories(approval.parent_path());
