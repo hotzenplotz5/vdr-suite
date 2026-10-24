@@ -100,8 +100,8 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(fixture.requests,
                              ["/api/v1/operations/" + candidate])
 
-        for invalid in (None, "", "h" * 161, "bad/id", "bad?key=x",
-                        "bad%2Fid", "bad\\nvalue"):
+        for invalid in (None, "", ".", "..", "h" * 161,
+                        "bad/id", "bad?key=x", "bad%2Fid", "bad\\nvalue"):
             fixture = OwnedOperation(invalid)
             with self.assertRaises(Blocked):
                 authorized_operation(fixture)
