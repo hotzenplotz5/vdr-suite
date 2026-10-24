@@ -108,6 +108,12 @@ The pinned RESTfulAPI revision `79f9bd2` does **not** contain a `cEnvironment` d
 
 **Separate follow-up (not yet implemented or tested):** update RESTfulAPI's scraper-provider adapter to use `GetEnvironment` where available; normalize image paths relative to that provider root and serve only paths confined within that root (never arbitrary absolute paths or `..` traversal); preserve separately configured legacy EPG images and support absence of either source without hanging. Account for absence of `GetEnvironment` on older plugins without assuming one universal location. Validate actual TVScraper URL and image behavior, not merely JSON HTTP 200, in a native MLD build. Keep the source-level empty-path guard. Do **not** make EPG image directory creation or symlinks the mandatory fix, and do not force a TVScraper-specific default on Ubuntu.
 
+## 2026-10-24 — distribution-neutral RESTfulAPI fix prepared in plugin fork
+
+A dedicated [Draft PR #7 in `hotzenplotz5/vdr-plugin-restfulapi`](https://github.com/hotzenplotz5/vdr-plugin-restfulapi/pull/7) now implements the full **provider-aware** fix on its own branch `fix/scraper-environment-image-paths`, based on `vdr-suite-integration`. It addresses both the empty-EPG-root infinite-loop and correct TVScraper `GetEnvironment.basePath` integration for recording JSON artwork metadata **and** GET `/scraper/image/` resolution. File reads and private resize writes are confined to their corresponding roots; standalone C++17 path-helper checks passed locally, including a real escaping symlink test. Full plugin build and MLD/yaVDR runtime image acceptance remain unverified because VDR/cxxtools headers are not present in the testing environment.
+
+**Critical integration boundary:** This plugin fork branch contains many RESTfulAPI Suite-specific APIs and **must not be used as an automatic replacement** for Pit's existing `SRCREV=79f9bd26370a08d6c5186c19cefa300c569045ea`. Keep the separate minimal vendor patch on the MLD branch available for Pit's isolated test. A full provider-aware change for MLD requires a separate minimal cherry-pick/port, native BitBake recipe inclusion, and acceptance. Do not claim or attempt unattended VDR restarts/deployments. The four-minute restart remains a separate unproven issue.
+
 ## Independent recording-read blocker
 
 ```text
