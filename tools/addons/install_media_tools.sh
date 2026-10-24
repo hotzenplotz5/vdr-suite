@@ -41,16 +41,33 @@ fi
 ROOT=$(cd "$(dirname "$0")/../.." && pwd -P) || stop "checkout absent"
 cd "$ROOT" || stop "checkout absent"
 [ "$(git rev-parse --show-toplevel)" = "$ROOT" ] || stop "wrong checkout"
-[ "$(git rev-parse HEAD)" = "$SHA" ] || stop "source SHA mismatch"
+CHECKOUT_SHA=$(git rev-parse HEAD) || stop "source checkout absent"
 [ -z "$(git status --porcelain --untracked-files=no)" ] || stop "dirty checkout"
 case "$(git remote get-url origin)" in
   *github.com:hotzenplotz5/vdr-suite.git|*github.com/hotzenplotz5/vdr-suite.git|*github.com/hotzenplotz5/vdr-suite) ;;
   *) stop "unexpected origin" ;;
 esac
-# Provenance checks bind the source to the reviewed remote commit. Branch
-# ancestry is NOT a daemon-replacement or install authorization gate.
-REMOTE=$(git ls-remote origin refs/heads/work/addon-platform-registry-lifecycle | cut -f1)
-[ "$REMOTE" = "$SHA" ] || stop "remote branch head differs from reviewed commit"
+# A prepared, independently reviewed release is pinned to its build commit.
+# A subsequent fast-forward of the official branch must not invalidate that
+# immutable release. No new source may be compiled under the old commit pin.
+if [ "$CHECKOUT_SHA" != "$SHA" ]; then
+  [ "$MODE" = install ] && [ -n "$PREPARED_WORKDIR" ] ||
+    stop "source SHA mismatch (prepare requires exact checkout)"
+  git cat-file -e "$SHA^{commit}" 2>/dev/null ||
+    stop "prepared source commit absent from checkout"
+  git merge-base --is-ancestor "$SHA" "$CHECKOUT_SHA" ||
+    stop "prepared source not ancestor of installer checkout"
+  echo "PREPARED_SOURCE_SHA=$SHA"
+  echo "INSTALLER_CHECKOUT_SHA=$CHECKOUT_SHA"
+fi
+# Fetch the exact official branch ref and require the pinned build source to
+# remain part of that branch history. This does not trust an arbitrary local SHA.
+git fetch --quiet --no-tags origin refs/heads/work/addon-platform-registry-lifecycle ||
+  stop "cannot fetch official add-on branch"
+REMOTE=$(git rev-parse FETCH_HEAD) || stop "remote branch ref unavailable"
+git merge-base --is-ancestor "$SHA" "$REMOTE" ||
+  stop "reviewed commit is no longer in official branch history"
+echo "OFFICIAL_BRANCH_HEAD=$REMOTE"
 for cmd in sudo make g++ python3 dpkg dpkg-deb sha256sum pkg-config realpath; do
   command -v "$cmd" >/dev/null || stop "missing dependency $cmd"
 done
