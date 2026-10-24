@@ -241,6 +241,51 @@ Index-Neuerzeugung, Änderung der Aufnahme, automatische Paketinstallation
 oder Add-on-Aktivierung. Das bestehende Media-Import-Interface bleibt
 unberührt; `addon.json` bewirbt Media Check noch nicht.
 
+## Legacy Rectools: PC delegation and re-encode decision (reference)
+
+Audited reference: `hotzenplotz5/vdr-rectools`, `develop`
+(`6fffd260d913c7ff4094aea0c289bb58026fcc7f`),
+`usr/share/vdr-rectools/functions.sh` (`confirm_encoding`,
+`process_import`, import `find` scan), `rectools_confirm.php`,
+`explorer.php`, `lang/de.sh`.
+
+The old behavior is valuable and must not be mistaken for filename debris:
+
+- Compatible H.264/MPEG-2 imports use remux (stream-copy); codecs needing
+  re-encode cause an explicit choice when `ASK_BEFORE_ENCODE=1`.
+- The request is reported by e-mail, and the user can decide in the
+  dashboard, OSD or console. The old console `confirm` command offers
+  yes/no; the third PC action is available via dashboard/OSD.
+- **YES:** encode on VDR. **NO:** rename the source to
+  `<stem>.skipped.<ext>`. **MANUAL:** rename the source to
+  `<stem>.pc_encode.<ext>`, hand the file to a separate PC (for example
+  HandBrake over SMB), then return/release the completed movie explicitly.
+  Duplicate sources use `.duplicate.` too.
+- The legacy import scan intentionally excludes these marked files.
+  Rectools does **not** execute HandBrakeCLI remotely; the remote processing
+  itself is external/manual. E-mail is a notification, not an authenticated
+  approval endpoint.
+- The old prompt file `.vdr-rectools.prompt`, which was chmodded 0666,
+  must **not** be copied to VDR-Suite's security model.
+
+**Immediate compatibility fix:** The independent C++ importer's
+`inspectImport()` rejects source stems ending in `.pc_encode`,
+`.skipped` or `.duplicate` (case-insensitive) before staging, and
+does not mutate, rename or import them. A focused regression exercises the
+`Die Herrschaft des Feuers.pc_encode.mkv` case along with ordinary files.
+The installed yaVDR binary is still an older revision; this source change
+has not been recompiled or deployed there.
+
+**Feature parity still open:** The optional import UI and Core-owned durable
+Operation must present an explicit decision for re-encoding (local,
+defer-to-PC, skip), optionally notify by e-mail, and support a deliberate
+resumption of a returned file without automatically deleting or mutating the
+original. A third-party desktop tool must never be silently auto-invoked by
+Suite. Reuse existing scoped grants and recording reconciliation, not the
+legacy world-writable prompt, untrusted filename alone as authorization,
+or a second recordings database. None of these UX/Operation features are
+claimed implemented by the filename guard.
+
 ## Importer: source-preserving metadata and codec fallback
 
 The existing backend C++ import implementation remains the only importer.
