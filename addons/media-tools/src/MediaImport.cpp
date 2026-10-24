@@ -444,6 +444,39 @@ ImportPlan inspectImport(const ImportRequest& request) {
             sourceIdentity.nanoseconds};
 }
 
+bool importVideoNeedsReencode(const std::string& codec) {
+    // An unknown codec must never silently take the stream-copy path.
+    return codec != "h264" && codec != "hevc" && codec != "mpeg2video";
+}
+
+std::string probeImportVideoCodec(const ImportPlan& plan, ProcessRunner& runner) {
+    // Read-only observation. The caller must treat this as a preview:
+    // executeRemuxImport repeats the probe on the verified staged snapshot.
+    const auto fresh = inspectImport({plan.sourceRoot, plan.videoRoot, plan.sourceFile});
+    require(fresh.sourceDevice == plan.sourceDevice &&
+            fresh.sourceInode == plan.sourceInode &&
+            fresh.sourceBytes == plan.sourceBytes &&
+            fresh.sourceMtimeSeconds == plan.sourceMtimeSeconds &&
+            fresh.sourceMtimeNanoseconds == plan.sourceMtimeNanoseconds &&
+            fresh.titleDirectory == plan.titleDirectory,
+            "media source changed before codec preview");
+    const auto probe = runner.run({
+        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "v:0",
+        "-show_entries", "stream=codec_name", "-of", "default=nw=1:nk=1",
+        plan.sourceFile.string()
+    }, true);
+    require(probe.exitCode == 0, "cannot inspect source video codec");
+    const auto codec = parseProbedVideoCodec(probe.output);
+    const auto after = signature(plan.sourceFile);
+    require(static_cast<std::uintmax_t>(after.size) == plan.sourceBytes &&
+            static_cast<std::uint64_t>(after.device) == plan.sourceDevice &&
+            static_cast<std::uint64_t>(after.inode) == plan.sourceInode &&
+            after.seconds == plan.sourceMtimeSeconds &&
+            after.nanoseconds == plan.sourceMtimeNanoseconds,
+            "source changed during codec preview");
+    return codec;
+}
+
 void requireProductionCapacity(const ImportPlan& plan) {
     struct statvfs st{};
     require(::statvfs(plan.videoRoot.c_str(), &st) == 0, "destination capacity is unavailable");
@@ -468,7 +501,8 @@ void requireProductionCapacity(const ImportPlan& plan) {
 }
 
 fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
-                            const std::function<void(const ImportPlan&)>& capacityPreflight) {
+                            const std::function<void(const ImportPlan&)>& capacityPreflight,
+                            bool allowVideoReencode) {
     // Re-inspect at execution time: no untrusted request may reuse a stale plan.
     const auto fresh = inspectImport({plan.sourceRoot, plan.videoRoot, plan.sourceFile});
     require(fresh.titleDirectory == plan.titleDirectory &&
@@ -518,8 +552,12 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     }, true);
     require(probe.exitCode == 0, "ffprobe failed");
     const std::string codec = parseProbedVideoCodec(probe.output);
-    const bool copyVideo = codec == "h264" || codec == "hevc" ||
-                           codec == "mpeg2video";
+    const bool copyVideo = !importVideoNeedsReencode(codec);
+    // Local re-encode is an explicit operator decision, not a consequence
+    // of selecting an import source in the Core API. In particular the
+    // existing Agent's --confirm-writes alone never authorizes encoding.
+    require(copyVideo || allowVideoReencode,
+            "REENCODE_APPROVAL_REQUIRED: choose local, PC/HandBrake or skip");
     const double inputDuration = probeDuration(runner, stagedSource);
     const auto audio = runner.run({
         "/usr/bin/ffprobe", "-v", "error", "-select_streams", "a",
