@@ -243,7 +243,9 @@ bool MediaShrinkOperationFence::effectiveCapability(
     if (!trustedProviderCheck_)
         return deny(reason, "media_shrink_provider_untrusted");
     const std::string trustedSha = trustedProviderCheck_(backendId, now);
-    if (trustedSha.empty())
+    if (trustedSha.empty() ||
+        (activation.intent.revision > 0 && activation.intent.desiredEnabled &&
+         trustedSha != activation.intent.approvedHandlerSha256))
         return deny(reason, "media_shrink_provider_untrusted");
     if (!mediaToolsActivationPermits(
             activation.intent, agent->agentId, agent->agentInstanceId,
@@ -339,7 +341,9 @@ bool MediaShrinkOperationFence::check(
         return deny(reason, "media_shrink_provider_untrusted");
     const std::string trustedSha =
         trustedProviderCheck_(assignment.backendId, now);
-    if (trustedSha.empty())
+    if (trustedSha.empty() ||
+        (activation.intent.revision > 0 && activation.intent.desiredEnabled &&
+         trustedSha != activation.intent.approvedHandlerSha256))
         return deny(reason, "media_shrink_provider_untrusted");
     if (!mediaToolsActivationPermits(
             activation.intent, agent->agentId, agent->agentInstanceId,

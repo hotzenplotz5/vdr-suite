@@ -129,7 +129,9 @@ bool MediaImportOperationFence::actorBackendAllowed(
         !trustedProviderCheck_)
         return denied(reason, "media_import_provider_untrusted");
     const std::string trustedSha = trustedProviderCheck_(backendId, now);
-    if (trustedSha.empty())
+    if (trustedSha.empty() ||
+        (intent.intent.revision > 0 && intent.intent.desiredEnabled &&
+         trustedSha != intent.intent.approvedHandlerSha256))
         return denied(reason, "media_import_provider_untrusted");
     if (!mediaToolsActivationPermits(
             intent.intent, activeAgent->agentId,

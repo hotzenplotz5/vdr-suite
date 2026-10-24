@@ -507,18 +507,23 @@ int main()
     assert(!coreFence.effectiveMediaImportCapability(
         "human_media", "default", 118, fenceReason) &&
         fenceReason == "media_import_permission_denied");
-    // Neither role.admin nor generic wildcard can elevate add-on import.
+    // The authenticated global administrator can use an already installed,
+    // independently approved handler without a second user grant.
     assert(mediaGrants.ensureGrant("human_media", "role.admin", "*"));
-    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason));
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
+    assert(mediaGrants.revokeGrant("human_media", "role.admin", "*"));
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_permission_denied");
     assert(mediaGrants.ensureGrant(
         "human_media", "addons.media.import", "other-backend"));
     assert(!coreFence.check(media, mediaReceipt, 118, fenceReason));
     assert(mediaGrants.ensureGrant(
         "human_media", "addons.media.import", "default"));
-    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
-           fenceReason == "media_import_activation_disabled");
+    // Revision 0 is the root administrator's initial installation approval.
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_operation_and_grant_verified");
 
-    // Only a trusted administrative intent transition can enable dispatch.
+    // Explicit later administrator overrides remain audited and lease-bound.
     RequestSecurityContext admin = context(ActorType::User, "admin_media");
     admin.grants.push_back({"role.admin", "*"});
     vdrsuite::addons::RuntimeEvidence trusted;
