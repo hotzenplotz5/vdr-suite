@@ -60,6 +60,42 @@ Zu MT.I2 gehören gesondert Update-/Rollback-/Besitzprüfungen. Der
 bestehende Live-Installer bleibt bis dahin ausschließlich der ausdrücklich
 genehmigungspflichtige yaVDR-Adapter, nicht das neue universelle CLI.
 
+## MT.I2 — Installer/Updater: read-only preflight (in Arbeit)
+
+Die **bestehende** `tools/addons/install_media_tools.sh` hat zwei neue,
+nichtprivilegierte und ausdrücklich **nicht installierende** Befehle:
+
+```bash
+bash tools/addons/install_media_tools.sh check \
+  "$WORK/stage-with-media-tools" / "$INDEPENDENTLY_REVIEWED_HANDLER_SHA256"
+
+bash tools/addons/install_media_tools.sh verify \
+  "$WORK/stage-with-media-tools" / "$INDEPENDENTLY_REVIEWED_HANDLER_SHA256"
+```
+
+`$WORK` ist das bereits vorbereitete Arbeitsverzeichnis; `--prepare`
+bleibt für die Erstvorbereitung erhalten. Beide Befehle lesen den
+**gesamten** MT.I1-Stage-Seal, das versionierte Media-Tools-Dateiinventar,
+sämtliche acht Add-on-Dateien (inklusive Inventar), die erkennbaren
+Freigabe-/Quell-/Lock-/Drop-in-Dateien und bei `/` den Debian-Dateibesitz.
+`check` berichtet `absent`, `identical_payload`,
+`partial_or_different`, `package_owned` oder
+`existing_state_without_payload`; `verify` besteht nur bei exakt
+identischen Add-on-Dateien. Die Diagnose folgt keinen Symlinks im
+Installationsbaum, ändert keine Dateimodi und erstellt keine Dateien.
+
+**Grenze:** Diese Belege bestätigen nur Add-on-Dateiinhalt, **nicht**
+vertrauenswürdige Root-Freigaben, Agent-Dienstbereitschaft, Datenbankbackup,
+Suite-Datei-/Frontend-Parität, freie Kapazität, laufende Jobs oder
+ausstehende Migrationen. Ein positiver `check` ist **keine** Erlaubnis,
+`install_media_tools.sh` im bisherigen Live-Installationsmodus aufzurufen.
+Dieser Altmodus aktiviert automatisch Dienste und Zulassungen und ist
+**kein Updater**. Für MT.I2 stehen die sichere, ausdrückliche Installation
+ohne automatische Freigabe, Update-/Rücksetztransaktion, Paketbesitz- und
+Lock-/Freeze-/Backup-Nachweise sowie isolierte Update-/Rollback-Tests noch aus.
+Bis dahin **kein** Live-Update und keine Installation eines bereits
+vorhandenen Debian-Pakets mit dem bisherigen Installer.
+
 ## Host installation and activation (Slice 4)
 
 **Status:** Source-level, package-free first-install path under development;
