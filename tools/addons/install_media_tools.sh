@@ -4,8 +4,22 @@
 # service/config/backup choreography as the installer for MLD or other init systems.
 set -Eeuo pipefail
 stop() { printf 'MEDIA_TOOLS_INSTALL=STOP %s\n' "$*" >&2; exit 1; }
+# MT.I2 read-only entrypoints reuse the exact MT.I1 sealed-stage verifier.
+# These operations do not fetch/build, elevate privileges, install or restart.
+if [ "${1:-}" = check ] || [ "${1:-}" = verify ]; then
+  [ "$#" -eq 4 ] || stop 'Usage: install_media_tools.sh (check|verify) ABSOLUTE_STAGE ABSOLUTE_ROOT REVIEWED_SHA256'
+  ACTION=$1
+  STAGE=$2
+  TARGET_ROOT=$3
+  APPROVED=$4
+  SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd -P) || stop 'script path unavailable'
+  exec python3 "$SCRIPT_DIR/media_tools_install_preflight.py" "$ACTION" \
+    --stage "$STAGE" --live-root "$TARGET_ROOT" \
+    --approved-handler-sha256 "$APPROVED"
+fi
 if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
   echo 'Usage: install_media_tools.sh COMMIT (--prepare|REVIEWED_SHA256) BACKEND [SOURCE_ROOT VIDEO_ROOT] [PREPARED_WORKDIR]'
+  echo 'Read-only: install_media_tools.sh (check|verify) ABSOLUTE_STAGE ABSOLUTE_ROOT REVIEWED_SHA256'
   echo 'Defaults: SOURCE_ROOT=/srv/video/Filme VIDEO_ROOT=/srv/vdr/video.00'
   echo 'Missing paths are allowed at install time but imports remain unconfigured.'
   exit 0
