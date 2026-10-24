@@ -195,7 +195,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("prepare", "check", "verify"))
     parser.add_argument("--stage", type=Path)
-    parser.add_argument("--live-root", type=Path)\n    parser.add_argument("--prepared-workdir", type=Path)
+    parser.add_argument("--live-root", type=Path)
+    parser.add_argument("--prepared-workdir", type=Path)
     parser.add_argument("--approved-handler-sha256", required=True)
     args = parser.parse_args()
     try:
