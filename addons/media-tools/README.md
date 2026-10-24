@@ -38,8 +38,9 @@ It builds a fresh sealed Suite runtime stage, creates the three Media Tools
 executables as the separately packaged `~cpppreview1` payload, installs it
 using dpkg, verifies the canonical install-runtime deployment, binds a
 separately reviewed SHA-256 to *both* the local Agent approval and the
-backend-specific Core approval, configures a fixed root-owned source inventory
-and maintenance lock, and enables both protected import and HEVC stage/publish
+backend-specific Core approval, configures the maintenance lock and a
+root-owned source inventory **only when both media directories exist**, and
+enables both protected import and HEVC stage/publish
 in the local backend-agent service override. It restarts only the Suite daemon
 and Backend Agent, never VDR or recording mutations.
 
@@ -52,18 +53,54 @@ work directory. On yaVDR, stay in the existing root shell. Execute the
 `--prepare` call as `yavdr` from its own public-HTTPS, clean checkout. Then
 execute the six-argument installation as root from the **same** checkout
 with a Git process-local exact `safe.directory` value (never global Git
-settings). The installer rejects root compilation. Arguments:
+settings). The installer rejects root compilation.
+
+**Standard media paths (confirmed with existing yaVDR Rectools configuration):**
+`/srv/video/Filme` for the import source, and `/srv/vdr/video.00` for
+the VDR recording destination. Both are **defaults, not installation prompts**.
+If either directory is absent, first-time installation can continue without
+creating an unsafe directory or a working import mapping. The backend agent
+remains unable to discover import sources until an administrator configures
+valid paths later. Existing but noncanonical or inaccessible directories
+remain an error. **No import/shrink operation is automatically authorized.**
+
+The short invocation uses both defaults without prompting for paths:
+
+```bash
+# Prepare as yavdr from the clean checkout:
+bash tools/addons/install_media_tools.sh \
+  "$TESTED_COMMIT_SHA" --prepare "$BACKEND_ID"
+
+# Review the reported WORKDIR and handler digest independently.
+# Install as root, using the same preserved prepared workdir:
+bash tools/addons/install_media_tools.sh \
+  "$TESTED_COMMIT_SHA" "$INDEPENDENTLY_APPROVED_HANDLER_SHA256" \
+  "$BACKEND_ID" "$PREPARED_WORKDIR"
+```
+
+To **override both directories explicitly during installation**, the previous
+five-/six-argument forms remain supported:
 
 ```bash
 bash tools/addons/install_media_tools.sh \
   "$TESTED_COMMIT_SHA" --prepare \
   "$BACKEND_ID" "$SOURCE_ROOT" "$VIDEO_ROOT"
-
-# Review the printed WORKDIR and REVIEW_HANDLER_SHA256 independently.
 bash tools/addons/install_media_tools.sh \
   "$TESTED_COMMIT_SHA" "$INDEPENDENTLY_APPROVED_HANDLER_SHA256" \
   "$BACKEND_ID" "$SOURCE_ROOT" "$VIDEO_ROOT" "$PREPARED_WORKDIR"
 ```
+
+**Configuration after installation:** this revision does **not yet ship a
+Webfrontend form/API for media directory administration**. The Agent consumes
+the root-controlled `/etc/vdr-suite/addon-sources/media-import.tsv` and its
+systemd override `20-media-tools.conf`. If a path was missing at installation,
+the TSV is intentionally not created; when changing the video directory, the
+agent's `ReadWritePaths` sandbox must also be adjusted to that verified path.
+Such changes require a separate privileged, validated operator workflow
+and safe agent restart, not a writable public browser pathname or an
+unrestricted API. Future Web settings must use authenticated administrator
+authorization, CSRF and a narrowly scoped backend configuration service;
+client/HTTP requests must never write arbitrary server paths directly.
 
 The five-argument form still supports a separately prebuilt/reviewed digest,
 but the optional sixth argument is the preferred way to reuse the preparation
