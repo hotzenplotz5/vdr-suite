@@ -675,6 +675,10 @@
           !/^[!-~]{1,160}$/.test(requestOptions.idempotencyKey)) {
         throw new Error('Media Import requires valid Idempotency-Key');
       }
+      if (requestOptions.videoDecision !== undefined &&
+          requestOptions.videoDecision !== 'local') {
+        throw new Error('Media Import requires an explicit supported video decision');
+      }
       const headers = Object.assign(
         {Accept: 'application/json'},
         defaultHeaders,
@@ -689,7 +693,9 @@
           ? requestOptions.credentials : normalized.credentials,
         cache: 'no-store',
         signal: requestOptions.signal,
-        body: JSON.stringify({sourceId: requestOptions.sourceId})
+        body: JSON.stringify(requestOptions.videoDecision === 'local'
+          ? {sourceId: requestOptions.sourceId, videoDecision: 'local'}
+          : {sourceId: requestOptions.sourceId})
       }).then(function (response) {
         const location = headerValue(response, 'Location');
         const entityTag = headerValue(response, 'ETag');
