@@ -112,7 +112,23 @@ grep -Fxq "BACKEND_ID=$BACKEND" /etc/vdr-suite/backend-agent.conf || stop "backe
 grep -Eq '^CONTROL_PLANE_URL=https://[^[:space:]]+$' /etc/vdr-suite/backend-agent.conf || stop "Agent control plane unavailable"
 ! grep -q 'example.invalid' /etc/vdr-suite/backend-agent.conf || stop "Agent is still placeholder"
 systemctl is-active --quiet vdr-suite-daemon || stop "Suite daemon not active"
-systemctl is-active --quiet vdr-suite-backend-agent || stop "Backend Agent not active"
+# A newly installed or intentionally stopped Agent need not be running yet:
+# this installer starts it only after the sealed runtime and approvals exist.
+# Require a loaded unit with a clean prior result. A crashed/failed Agent
+# must be diagnosed, never silently treated as an acceptable stopped unit.
+AGENT_LOAD=$(systemctl show -p LoadState --value vdr-suite-backend-agent) ||
+  stop "Backend Agent unit state unavailable"
+AGENT_STATE=$(systemctl show -p ActiveState --value vdr-suite-backend-agent) ||
+  stop "Backend Agent activity unavailable"
+AGENT_RESULT=$(systemctl show -p Result --value vdr-suite-backend-agent) ||
+  stop "Backend Agent result unavailable"
+[ "$AGENT_LOAD" = loaded ] && [ "$AGENT_RESULT" = success ] ||
+  stop "Backend Agent unit missing or failed (load=$AGENT_LOAD result=$AGENT_RESULT)"
+case "$AGENT_STATE" in
+  active|inactive) ;;
+  *) stop "Backend Agent unsafe state before install: $AGENT_STATE" ;;
+esac
+echo "BACKEND_AGENT_PREFLIGHT_STATE=$AGENT_STATE"
 systemctl cat vdr-suite-daemon | grep -Fq 'ExecStart=/usr/sbin/vdr-suite-daemon' || stop "noncanonical Suite service"
 systemctl cat vdr-suite-backend-agent | grep -Fq 'ExecStart=/usr/sbin/vdr-suite-backend-agent --config /etc/vdr-suite/backend-agent.conf' || stop "noncanonical Agent service"
 # Discover the effective service principal instead of presuming the distro
