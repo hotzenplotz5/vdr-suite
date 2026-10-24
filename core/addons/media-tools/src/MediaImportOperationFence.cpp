@@ -118,28 +118,24 @@ bool MediaImportOperationFence::actorBackendAllowed(
     const auto intent = activationIntents_.readForAdmission(
         "rectools", backendId);
     if (intent.status != IntentStatus::ok ||
-        !intent.intent.desiredEnabled || intent.intent.revision <= 0)
+        (intent.intent.revision > 0 && !intent.intent.desiredEnabled))
         return denied(reason, "media_import_activation_disabled");
 
-    // A prior SQLite desired-enable row is never transferable across an
-    // Agent enrollment, instance restart or backend generation change.
-    // Unbound pre-migration intents have empty identity/generation and deny.
+    // An independently authorized root installation is effective by default
+    // when no later administrator override exists. A persisted disable wins.
+    // The trusted handler and live Agent lease must match on every path.
     const auto activeAgent = agents_.findAgentForBackend(backendId);
     if (!activeAgent || activeAgent->revoked || activeAgent->incompatible ||
-        intent.intent.backendGeneration == 0 ||
-        intent.intent.backendGeneration != activeAgent->backendGeneration ||
-        intent.intent.agentId != activeAgent->agentId ||
-        intent.intent.agentInstanceId != activeAgent->agentInstanceId)
-        return denied(reason, "media_import_activation_agent_stale");
-
-    // Runtime-owned, independent Core approval MUST still match the
-    // authenticated backend observation at each discovery/reservation/receipt.
-    if (!trustedProviderCheck_)
+        !trustedProviderCheck_)
         return denied(reason, "media_import_provider_untrusted");
     const std::string trustedSha = trustedProviderCheck_(backendId, now);
-    if (trustedSha.empty() ||
-        trustedSha != intent.intent.approvedHandlerSha256)
+    if (trustedSha.empty())
         return denied(reason, "media_import_provider_untrusted");
+    if (!mediaToolsActivationPermits(
+            intent.intent, activeAgent->agentId,
+            activeAgent->agentInstanceId, activeAgent->backendGeneration,
+            trustedSha))
+        return denied(reason, "media_import_activation_agent_stale");
 
     reason = "media_import_actor_backend_authorized";
     return true;

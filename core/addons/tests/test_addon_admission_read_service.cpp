@@ -106,14 +106,13 @@ int main()
         "revision INTEGER NOT NULL CHECK(revision>0),"
         "updated_by_actor_id TEXT NOT NULL);"));
     preview = service.previewMediaImport(a, b, e);
-    assert(!preview.policy.allowed && preview.policy.reason == AccessReason::disabled &&
-           preview.observedIntentRevision == 0 && !preview.executable);
+    assert(preview.policy.allowed && preview.observedIntentRevision == 0 &&
+           !preview.executable);
     ++checks;
 
-    // Administrator's role does not substitute for scoped media import.
+    // Administrator needs no duplicate add-on-user grant after install.
     preview = service.previewMediaImport(admin, b, e);
-    assert(!preview.policy.allowed &&
-           preview.policy.reason == AccessReason::permissionDenied);
+    assert(preview.policy.allowed && !preview.executable);
     ++checks;
 
     e.administratorEnabled = false;
@@ -195,8 +194,8 @@ int main()
     a.grants.clear();
     a.grants.push_back({"addons.media.import", "backend-b"});
     auto backB = service.previewMediaImport(a, b, e);
-    assert(!backB.policy.allowed && backB.policy.reason == AccessReason::disabled &&
-           backB.observedIntentRevision == 0);
+    assert(backB.policy.allowed && backB.observedIntentRevision == 0 &&
+           !backB.executable);
     ++checks;
 
     // Admin can disable even with failed handler/backend after rev1.

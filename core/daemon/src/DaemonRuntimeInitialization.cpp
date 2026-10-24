@@ -5467,10 +5467,38 @@ bool DaemonRuntime::initialize()
             return response;
         }
         response.statusCode = 200;
+        // Initial root installation already authorized this provider.
+        // Only an explicit later administrator intent overrides that choice.
+        bool installedByAdministrator = false;
+        if (current.intent.revision == 0 && backendAgentRepository_ &&
+            backendAgentCommandRepository_ && backendAccessPolicy_ &&
+            backendRegistryService_)
+        {
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const auto agent = backendAgentRepository_->findAgentForBackend(
+                backendId);
+            const auto backend = backendAccessPolicy_->canWriteToBackend(
+                *backendRegistryService_, backendId);
+            if (agent && !agent->revoked && !agent->incompatible &&
+                agent->leaseExpiresAt >= now && backend.backendFound &&
+                backend.allowed && !backend.readOnly &&
+                backendAgentCommandRepository_->hasCapability(
+                    backendId, agent->agentId, agent->agentInstanceId,
+                    agent->backendGeneration, "addon.media.import"))
+                installedByAdministrator = vdrsuite::addons::mediaToolsActivationPermits(
+                    current.intent, agent->agentId, agent->agentInstanceId,
+                    agent->backendGeneration,
+                    trustedMediaToolsHandlerDigest(backendId, now));
+        }
+        const bool enabled = current.intent.desiredEnabled ||
+            installedByAdministrator;
         response.body = std::string("{\"moduleId\":\"rectools\",\"backendId\":\"") +
             backendId + "\",\"desiredEnabled\":" +
-            (current.intent.desiredEnabled ? "true" : "false") +
-            ",\"revision\":" + std::to_string(current.intent.revision) + "}";
+            (enabled ? "true" : "false") +
+            ",\"revision\":" + std::to_string(current.intent.revision) +
+            ",\"activatedByInstall\":" +
+            (installedByAdministrator ? "true" : "false") + "}";
         return response;
     };
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(

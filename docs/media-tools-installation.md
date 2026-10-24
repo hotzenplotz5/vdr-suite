@@ -4,7 +4,7 @@ Diese Anleitung bezieht sich auf das **erste** lokale Installieren des Media-Too
 
 ## Warum benötigt Media Tools einen Backend-Agenten?
 
-Der Media-Tools-Installer integriert Import- und Shrink-Funktionen in den **bestehenden** VDR-Suite-Backend-Agenten. Dabei wird nach der Paket- und Runtime-Installation ein Agent-systemd-Override mit den expliziten Optionen `--enable-media-import` und `--enable-media-shrink` erzeugt. Anschließend werden Suite-Daemon und Backend-Agent gestartet. Die Funktionen sind danach **noch nicht automatisch für Benutzer freigeschaltet**: Der Installer meldet `CORE_ADMIN_ACTIVATION_AND_USER_GRANTS=PENDING`.
+Der Media-Tools-Installer integriert Import- und Shrink-Funktionen in den **bestehenden** VDR-Suite-Backend-Agenten. Dabei wird nach der Paket- und Runtime-Installation ein Agent-systemd-Override mit den expliziten Optionen `--enable-media-import` und `--enable-media-shrink` erzeugt. Anschließend werden Suite-Daemon und Backend-Agent gestartet. Mit der bewusst durchgeführten Root-Administratorinstallation ist die Aktivierungsentscheidung bereits getroffen. Nach erfolgreicher technischer Agent- und Core-Verifikation werden die Funktionen ohne zweite Admin-Freigabe aktiv. Der Installer meldet `MEDIA_TOOLS_ACTIVATION=AUTOMATIC_WHEN_VERIFIED`; andere Benutzer erhalten weiterhin ihre eigenen Rechte.
 
 Der produktive Installationsweg setzt deshalb voraus:
 
@@ -81,7 +81,7 @@ journalctl -u vdr-suite-backend-agent --since '5 minutes ago' -n 30 --no-pager -
 - Der Checkout muss exakt zum bei der Installation freigegebenen **Commit-PIN** passen. Der Operator-Block und der Installer prüfen zusätzlich den **aktuellen Remote-Head** des Addon-Zweigs. **Jeder Commit auf diesem Zweig, auch reine Dokumentation, macht einen zuvor kopierten PIN-Installationsblock ungültig.** Vor erneuter Verwendung PIN, Checkout und Review-Freigabe anhand des aktuellen Quellstands neu prüfen.
 - Der Quell-Build erfolgt unprivilegiert; die Installationsphase benötigt Root und eine **unabhängig geprüfte** Handler-SHA256. Die vom gleichen Build angezeigte SHA256 einfach zurückzukopieren ist keine unabhängige Freigabe.
 - Während der eigentlichen Installation stoppt das Skript **Suite-Daemon und Backend-Agent**, erstellt ein SQLite-Backup, installiert Paket und staged Suite-Runtime und startet die beiden Dienste wieder. Es enthält keinen expliziten Neustart von `vdr.service`. Das ist kein risikofreier, unterbrechungsfreier Vorgang.
-- Nach `MEDIA_TOOLS_INSTALL=PASS` muss die Administratoraktivierung und Benutzerfreigabe der Funktionen gesondert geprüft werden. Ein installiertes Paket beweist keine im Webfrontend autorisierte und funktionsgeprüfte Import-/Shrink-Aktion.
+- Nach `MEDIA_TOOLS_INSTALL=PASS` ist **keine zweite Administratoraktivierung** erforderlich. Der aktuell geprüfte Handler und Agent müssen jedoch weiterhin technisch zugelassen sein; für andere Benutzer werden Rechte separat vergeben. Ein installiertes Paket beweist keine bereits im Webfrontend funktionsgeprüfte Import-/Shrink-Aktion.
 
 ## Nach dem Installationsversuch
 

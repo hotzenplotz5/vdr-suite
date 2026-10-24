@@ -65,9 +65,11 @@ AccessDecision canUseMediaImport(
         evidence.backendId != backend.backendId)
         return deny(AccessReason::backendUnavailable);
 
-    // Separate import permission. Existing 'recordings.execute', generic
-    // admin and media-play permissions deliberately cannot substitute.
-    if (!std::any_of(actor.grants.begin(), actor.grants.end(),
+    // Installation is the administrator's decision. A global admin may
+    // use it without a second per-user grant; ordinary users remain scoped.
+    if (!(actor.actor.type == ActorType::User &&
+          hasGrant(actor, "role.admin", "*")) &&
+        !std::any_of(actor.grants.begin(), actor.grants.end(),
             [&](const PermissionGrant& grant) {
                 return grant.permission == "addons.media.import" &&
                     grant.backendId == evidence.backendId;

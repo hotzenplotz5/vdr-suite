@@ -238,22 +238,17 @@ bool MediaShrinkOperationFence::effectiveCapability(
     const auto activation = activationIntents_.readForAdmission(
         "rectools", backendId);
     if (activation.status != IntentStatus::ok ||
-        !activation.intent.desiredEnabled || activation.intent.revision <= 0)
+        (activation.intent.revision > 0 && !activation.intent.desiredEnabled))
         return deny(reason, "media_shrink_activation_disabled");
-    // Effective activation is tied to an explicitly approved Agent lease,
-    // not just a persisted desired-enabled bit and self-reported capability.
-    if (activation.intent.backendGeneration != agent->backendGeneration ||
-        activation.intent.agentId != agent->agentId ||
-        activation.intent.agentInstanceId != agent->agentInstanceId ||
-        activation.intent.backendGeneration == 0)
-        return deny(reason, "media_shrink_activation_agent_stale");
-
     if (!trustedProviderCheck_)
         return deny(reason, "media_shrink_provider_untrusted");
     const std::string trustedSha = trustedProviderCheck_(backendId, now);
-    if (trustedSha.empty() ||
-        trustedSha != activation.intent.approvedHandlerSha256)
+    if (trustedSha.empty())
         return deny(reason, "media_shrink_provider_untrusted");
+    if (!mediaToolsActivationPermits(
+            activation.intent, agent->agentId, agent->agentInstanceId,
+            agent->backendGeneration, trustedSha))
+        return deny(reason, "media_shrink_activation_agent_stale");
     generation = agent->backendGeneration;
     reason = "media_shrink_core_admission_authorized";
     return true;
@@ -335,25 +330,21 @@ bool MediaShrinkOperationFence::check(
     const auto activation = activationIntents_.readForAdmission(
         "rectools", assignment.backendId);
     if (activation.status != IntentStatus::ok ||
-        !activation.intent.desiredEnabled || activation.intent.revision <= 0)
+        (activation.intent.revision > 0 && !activation.intent.desiredEnabled))
         return deny(reason, "media_shrink_activation_disabled");
-    // Receipt must honor the same exact administrator-approved Agent lease
-    // already required by effectiveCapability (not only desiredEnabled).
-    if (activation.intent.backendGeneration == 0 ||
-        activation.intent.backendGeneration != agent->backendGeneration ||
-        activation.intent.agentId != agent->agentId ||
-        activation.intent.agentInstanceId != agent->agentInstanceId)
-        return deny(reason, "media_shrink_activation_agent_stale");
 
-    // A successful command reservation is not a durable execution grant.
-    // Re-evaluate the exact Core-approved backend provider at receipt.
+    // Every receipt must recheck independent trust and either initial
+    // installer authorization or the later exact admin override.
     if (!trustedProviderCheck_)
         return deny(reason, "media_shrink_provider_untrusted");
     const std::string trustedSha =
         trustedProviderCheck_(assignment.backendId, now);
-    if (trustedSha.empty() ||
-        trustedSha != activation.intent.approvedHandlerSha256)
+    if (trustedSha.empty())
         return deny(reason, "media_shrink_provider_untrusted");
+    if (!mediaToolsActivationPermits(
+            activation.intent, agent->agentId, agent->agentInstanceId,
+            agent->backendGeneration, trustedSha))
+        return deny(reason, "media_shrink_activation_agent_stale");
 
     if (assignment.commandType ==
         vdrsuite::mediatools::kMediaShrinkPublishCommandType)

@@ -78,6 +78,16 @@ async function test() {
   assert.equal(toggle.textContent, 'Deaktivieren');
   assert.ok(restored.count >= 3, 'session restored for GET, POST and readback');
 
+  const installed = harness(() => response(200, {
+    backendId: 'default', desiredEnabled: true, activatedByInstall: true,
+    revision: 0
+  }), {count: 0});
+  installed.window.VdrSuiteAddonSettings.render(installed.parent, 'default');
+  await flush();
+  assert.ok(installed.elements.some(e =>
+    e.textContent === 'Durch Administratorinstallation aktiviert'));
+  assert.ok(installed.elements.some(e => e.textContent === 'Deaktivieren'));
+
   const forbidden = harness(() => response(403, {error: 'forbidden'}), {count: 0});
   forbidden.window.VdrSuiteAddonSettings.render(forbidden.parent, 'default');
   await flush();

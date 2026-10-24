@@ -15,25 +15,21 @@ AdmissionPreview AddonAdmissionReadService::previewMediaImport(
     if (!independent.allowed)
         return {independent, 0, false};
 
-    // The global administrator role is NOT needed to perform the operation.
-    // This intentionally bypasses only admin inventory visibility, never the
-    // canonical per-operation grant checks above.
+    // The root-admin installation is sufficient to activate a trusted
+    // handler. Ordinary actors still need the canonical scoped grant.
     const IntentResult intent = intents_.readForAdmission(
         "rectools", verified.backendId);
     if (intent.status != IntentStatus::ok)
         return {{false, AccessReason::activationStateUnavailable}, 0, false};
 
-    if (intent.intent.desiredEnabled &&
-        (intent.intent.backendGeneration == 0 ||
-         intent.intent.backendGeneration != verified.backendGeneration ||
-         intent.intent.agentId.empty() ||
-         intent.intent.agentId != verified.agentId ||
-         intent.intent.agentInstanceId.empty() ||
-         intent.intent.agentInstanceId != verified.agentInstanceId))
+    const bool enabled = mediaToolsActivationPermits(
+        intent.intent, verified.agentId, verified.agentInstanceId,
+        verified.backendGeneration, verified.approvedHandlerSha256);
+    if (!enabled && intent.intent.desiredEnabled)
         return {{false, AccessReason::activationStateUnavailable},
                 intent.intent.revision, false};
 
-    verified.administratorEnabled = intent.intent.desiredEnabled;
+    verified.administratorEnabled = enabled;
     const AccessDecision final = canUseMediaImport(actor, backend, verified);
     return {final, intent.intent.revision, false};
 }

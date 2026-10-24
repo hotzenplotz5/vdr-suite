@@ -123,9 +123,10 @@ public:
              request.action == "native_timers.modify") ||
             (request.permission == "timers.delete" &&
              request.action == "native_timers.delete");
-        // Add-on media mutations are deliberately *not* implied by role.admin,
-        // general permission wildcards or backend-wide grants. Only an
-        // explicitly resolved permission on the exact backend qualifies.
+        // Add-on mutations are never implied by generic wildcard grants.
+        // A global, authenticated user administrator may operate the add-on
+        // installed by root without acquiring a second user grant.
+        // Other users still need an exact backend-scoped grant.
         if (request.permission.rfind("addons.", 0) == 0)
         {
             // Grant vocabulary is strictly Core-owned. Future features
@@ -135,6 +136,20 @@ public:
             {
                 decision.reasonCode = "permission_denied";
                 return decision;
+            }
+            if (request.backendId != "*" &&
+                context.actor.type == ActorType::User)
+            {
+                for (const PermissionGrant& grant : context.grants)
+                {
+                    if (grant.permission == "role.admin" &&
+                        grant.backendId == "*")
+                    {
+                        decision.allowed = true;
+                        decision.reasonCode = "role_permission_granted";
+                        return decision;
+                    }
+                }
             }
             for (const PermissionGrant& grant : context.grants)
             {

@@ -68,6 +68,10 @@ int main()
     ++checks;
 
     a = actor();
+    a.grants.push_back({"role.admin", "*"});
+    assert(canUseMediaImport(a, b, e).allowed);
+    ++checks;
+    a.grants.clear();
     assert(canUseMediaImport(a, b, e).reason == AccessReason::permissionDenied);
     ++checks;
     a.grants.push_back({"recordings.execute", "*"});

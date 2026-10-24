@@ -289,7 +289,19 @@ int main()
             kGlobalStaleProbeDeletePermission,
             "*")).allowed);
 
-    // Media Tools import must be an exact backend-scoped permission.
+    // Global administrators can use a root-installed add-on without a second
+    // per-user grant; normal users need exact backend scope.
+    RequestSecurityContext addonAdmin = authenticatedContext();
+    addonAdmin.grants.push_back({"role.admin", "*"});
+    assert(service.authorize(addonAdmin,
+        permissionRequest("addons.media.import", "backend-a")).allowed);
+    assert(service.authorize(addonAdmin,
+        permissionRequest("addons.media.shrink", "backend-a")).allowed);
+    addonAdmin.grants.push_back({"role.read-only", "backend-a"});
+    assert(!service.authorize(addonAdmin,
+        permissionRequest("addons.media.import", "backend-a")).allowed);
+
+    // Media Tools import must be an exact backend-scoped permission for users.
     const auto importRequest = permissionRequest("addons.media.import", "backend-a");
     assert(!service.authorize(adminRole, importRequest).allowed);
     assert(!service.authorize(wildcard, importRequest).allowed);

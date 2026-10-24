@@ -357,4 +357,9 @@ if [ "$SOURCE_CONFIGURED" -eq 1 ] && [ "$VIDEO_CONFIGURED" -eq 1 ]; then
 else
   echo 'MEDIA_TOOLS_PATHS=PENDING'
 fi
-echo 'CORE_ADMIN_ACTIVATION_AND_USER_GRANTS=PENDING'
+# The root administrator approved this installed handler and its Core-side
+# expected identity above. No second in-app administrative approval is needed.
+# Real capability still depends on authenticated Agent attestation, current
+# backend lease and the existing authorization gates.
+echo 'MEDIA_TOOLS_ACTIVATION=AUTOMATIC_WHEN_VERIFIED'
+echo 'OTHER_USER_GRANTS=CONFIGURABLE'

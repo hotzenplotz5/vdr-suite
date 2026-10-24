@@ -62,7 +62,8 @@
     card.appendChild(node('h3', 'Media Tools'));
     card.appendChild(node('p',
       'Import und HEVC-Shrink benötigen einen geprüften Backend-Agent, ' +
-      'Administrator-Freigabe und getrennte Benutzerberechtigungen.'));
+      'sowie aktuelle technische Integritätsprüfungen. Die Installation ' +
+      'aktiviert das Addon; andere Benutzer erhalten getrennte Rechte.'));
     const status = node('p', 'Aktivierung wird geladen …');
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
@@ -98,9 +99,11 @@
       return request(backendId, false).then(function (result) {
         current = result;
         card.hidden = false;
-        status.textContent = result.desiredEnabled
-          ? 'Administratorfreigabe eingeschaltet (Laufzeitstatus gesondert prüfen)'
-          : 'Administratorfreigabe ausgeschaltet';
+        status.textContent = result.activatedByInstall
+          ? 'Durch Administratorinstallation aktiviert'
+          : (result.desiredEnabled
+            ? 'Addon aktiviert (Laufzeitstatus gesondert prüfen)'
+            : 'Addon deaktiviert oder noch nicht installiert');
         details.textContent = 'Backend: ' + backendId +
           ' · Freigabe-Revision: ' + result.revision;
         toggle.textContent = result.desiredEnabled ? 'Deaktivieren' : 'Aktivieren';

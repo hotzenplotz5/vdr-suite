@@ -33,6 +33,33 @@ struct ActivationIntent {
     std::string approvedHandlerSha256;
 };
 
+// A successful root-admin installation is the first activation decision.
+// Revision zero means no subsequent admin override exists: the installed,
+// independently verified provider is enabled without a second approval.
+// Revision > 0 is an explicit administrator decision; disables always win.
+// Neither case bypasses current Agent lease, handler pin or operation grants.
+inline bool mediaToolsActivationPermits(
+    const ActivationIntent& intent,
+    const std::string& agentId,
+    const std::string& instanceId,
+    std::uint64_t generation,
+    const std::string& trustedHandlerSha256)
+{
+    if (intent.moduleId != "rectools" || agentId.empty() ||
+        instanceId.empty() || generation == 0 ||
+        trustedHandlerSha256.size() != 64)
+        return false;
+    if (intent.revision == 0)
+        return !intent.desiredEnabled && intent.backendGeneration == 0 &&
+            intent.agentId.empty() && intent.agentInstanceId.empty() &&
+            intent.approvedHandlerSha256.empty();
+    return intent.desiredEnabled &&
+        intent.backendGeneration == generation &&
+        intent.agentId == agentId &&
+        intent.agentInstanceId == instanceId &&
+        intent.approvedHandlerSha256 == trustedHandlerSha256;
+}
+
 struct IntentResult {
     IntentStatus status = IntentStatus::unavailable;
     ActivationIntent intent;
