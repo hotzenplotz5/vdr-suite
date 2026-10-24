@@ -75,8 +75,8 @@ for file in "$LEDGER" "$OVERRIDE"; do
 done
 if [ -f "$LEDGER" ]; then
   mapfile -t entries < "$LEDGER"
-  [ "\${#entries[@]}" -eq 1 ] &&
-    [[ "\${entries[0]}" = "$BACKEND"$'\t'local-media-import$'\t'* ]] ||
+  [ "${#entries[@]}" -eq 1 ] &&
+    [[ "${entries[0]}" = "$BACKEND"$'\t'local-media-import$'\t'* ]] ||
     stop 'custom source inventory; refuse to overwrite'
 fi
 [ -f "$OVERRIDE" ] && grep -Fxq \
@@ -93,7 +93,7 @@ TEMP_LEDGER=$(mktemp "$LEDGER_DIR/.media-import.tsv.XXXXXXXX") ||
   stop 'cannot stage source inventory'
 TEMP_OVERRIDE=$(mktemp "$OVERRIDE_DIR/.20-media-tools.conf.XXXXXXXX") ||
   stop 'cannot stage service override'
-trap 'rm -f -- "\${TEMP_LEDGER:-}" "\${TEMP_OVERRIDE:-}"' EXIT
+trap 'rm -f -- "${TEMP_LEDGER:-}" "${TEMP_OVERRIDE:-}"' EXIT
 printf '%s\tlocal-media-import\t%s\t%s\t*\n' \
   "$BACKEND" "$SOURCE" "$VIDEO" > "$TEMP_LEDGER"
 printf '%s\n' \
