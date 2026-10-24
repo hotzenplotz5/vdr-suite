@@ -1,6 +1,6 @@
 # Public API v1 – einmalige End-to-End-Abnahme am realen VDR
 
-**Status: VORBEREITET – EINZELNE HISTORISCHE READ-ONLY-/HARDWARE-TEILNACHWEISE VORHANDEN; GEMEINSAME ENDABNAHME NICHT AUSGEFÜHRT.**
+**Status: VORBEREITET – HISTORISCHE REAL-VDR-Lese- UND Schreibnachweise für Native Timer, EPG-TimerIntent, Recording-Aktionen und SearchTimer-RESTfulAPI vorhanden; GEMEINSAME RELEASE-ENDABNAHME NICHT AUSGEFÜHRT.**
 
 **Verbindliche Arbeitsregel (22.10.2026):** Erst die gesamte API-v1-Implementierung vollständig integrieren, dann **eine gemeinsame, nachvollziehbare Endabnahme am echten VDR**. Keine separaten, wiederholten Hardware-Slices je API-Funktion. Automatische Source-CI bei Commits ersetzt die Endabnahme nicht. Eine neue Änderung nach Abnahme erfordert nur die betroffenen Regressionen und die zentralen Pflichtprüfungen, nicht einen Neustart der gesamten Entwicklung.
 
@@ -13,8 +13,8 @@ Diese Checkliste ist der **einzige operative Hardware-Abnahmeplan** für API v1.
 | Quellcode integriert | R1–R3, ADR-0068 (#517), E1 (#519), E2, M1, M2, S1, P1 [#524](https://github.com/hotzenplotz5/vdr-suite/pull/524) merged at `052350714f5b5904a969158925cb05d8f39aed78`; Unified Acceptance Runner [#526](https://github.com/hotzenplotz5/vdr-suite/pull/526) merged at `096a04ad0e6a4eb2555292929d1373df549780bc` | Keine Behauptung einer durchgehenden produktiven Runtime- oder installierten Release-Kette ohne Code-Inventur |
 | Produktivpfad verdrahtet | PR #526 beschreibt die bestehende native SearchTimer UPDATE/ACTIVATE/DEACTIVATE/DELETE-Kette, TimerIntent/Assignment atomare Aufnahme/Agent-/native Readback-Kette sowie P1-Source-Komponenten | Am gemeinsamen HEAD anhand Runtime-Komposition, SecurityHttpGate, Grants, Agent/SuiteBridge, Browser/Device/JS und OpenAPI einzeln nachprüfen; SearchTimer CREATE nutzt weiterhin RESTfulAPI, **keine** native epgsearch-CAS-CREATE-Garantie |
 | Tests / CI | PR #526 nennt die erfolgreichen exakten PR-Head-Läufe [VDR-Suite CI #40008988460](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40008988460) und [Unified Runner #40008988457](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40008988457); SearchTimer CREATE Regression explizit **mock only**. | Ergebnisse gelten für den jeweiligen getesteten HEAD, nicht als automatisch erneute Tests am dokumentationsaktualisierten `main` oder reale Gerätetests; exakte Integrations-SHA-Nachweise vor Release ermitteln |
-| Reales yaVDR | Die untenstehenden bestehenden GET-/Security-/SQLite-Read-only-Teilnachweise gelten mit ihrer jeweiligen installierten Build-Identität; ein früher eng begrenzter EPG/Recording-Hardwarefall ist separat historisch akzeptiert | Kein Deployment des gemeinsamen Kandidaten nachgewiesen; 30 PASS / 7 SKIP / 17 BLOCKED der älteren GET-Probe bleiben unberührt; vier `outcome_unknown`-Operationen nicht erneut ausführen |
-| Offen/blockiert | Finaler einheitlicher Release-Kandidat, Browser↔Device/VIDAA-Playback, vollständige echte Operationen/Readbacks, sichere SearchTimer CREATE Freigabegrenze, Agent-Boot/Recovery | Keine produktiven Mutationen, kein Neustart, keine DB-Reparatur ohne eigene Freigabe; diese **eine** Matrix bleibt maßgeblich |
+| Reales yaVDR | Bestehende GET-/Security-Nachweise **plus echte Schreibabnahmen**: Public-v1 Native Timer CREATE/UPDATE/TOGGLE OFF/TOGGLE ON/DELETE am 21.10.; Public-v1 EPG-TimerIntent CREATE am 19.10.; Public-v1 Recording RENAME/MOVE/DELETE am 21.10.; direkter RESTfulAPI-SearchTimer CREATE/UPDATE/DELETE-Lifecycle mit Readback | Einzelne ACCEPTED-PASS niemals erneut ausführen. Gemeinsamer neuer Installationskandidat, native SearchTimer-Public-v1-CAS-Kette und Geräte-E2E bleiben gesondert; vier historische `outcome_unknown` nie blind wiederholen |
+| Offen/blockiert | Finaler einheitlicher Release-Kandidat, Browser↔Device/VIDAA-Playback, **nur noch nicht abgedeckte** Operations-/Recovery-Randfälle, Public-v1-SearchTimer-CAS und CREATE-Garantie, Agent-Boot/Recovery | Bestehende echten Timer-/Recording-/Provider-Schreib-PASS sind verbindlich zu übernehmen, nicht zu wiederholen; keine neuen produktiven Mutationen, Neustarts oder DB-Reparaturen ohne separate Freigabe |
 
 ## Abgleich der bereits akzeptierten yaVDR-Evidenz (24.10.2026; noch keine Gesamtfreigabe)
 
@@ -106,6 +106,50 @@ wurde dadurch **nicht** erbracht.
   Die ursprüngliche 30-PASS/7-SKIP/17-BLOCKED-Matrixprobe ist
   **nicht** der aktuelle kumulative Abschlussstatus.
 
+**Nachgeholter Abgleich realer Schreibabnahmen (nicht erneut testen):**
+
+- **Public-v1 Native Timer – vollständige reale Hardware-Abnahme 21.10.2026:**
+  [Originalprotokoll](native-timer-api-v1-yavdr-hardware-acceptance-20261021.md),
+  yaVDR VDR 2.8.3, Backend `default`, Native SuiteBridge SVDRP
+  und RESTfulAPI Readback. Zwei eigenständige ausdrücklich testweise
+  angelegte künftige Timer-Fixtures. Nach der ersten
+  `UPDATE=failed_verified`- und späteren `TOGGLE_OFF=failed_verified`-
+  No-Effect-Beobachtung erfolgte **kein Redispatch**. Im zweiten
+  Journal war das kontrollierte Endergebnis
+  `HARDWARE_ACCEPTANCE=PASS CREATE UPDATE TOGGLE_OFF_RECOVERY TOGGLE_ON DELETE`
+  mit nativer Änderung und finaler bestätigter Timer-Abwesenheit.
+  Der Unterschied zwischen erfolgreich kontrolliertem Fixture und
+  weiterhin ungelösten *anderen* historischen Operations ist strikt.
+- **Public-v1 EPG-TimerIntent/native CREATE 19.10.2026:**
+  [Originalvertrag mit Live-Nachweis](../../api/epg-timer-intents.md),
+  installierter `git-f7e341ad6b97`, echter Device-POST
+  `/api/v1/epg/timer-intents` für *Tagesschau* am 20.10.,
+  `OPERATION_STATE=succeeded`, `VDR_READBACK=PASS`,
+  `TEST_RESULT=PASS`; testweises Device widerrufen.
+  [Phase-69.C-Closeout](phase-69c-closeout.md) bestätigt zusätzlich
+  an einer echten gebundenen Native-Timer-CREATE-Fixture auf VDR 2.7.9
+  Replay mit genau einem Command, 409, 412 und Daemon-Neustart
+  ohne erneuten Dispatch. Diese historische 2.7.9-ABI-Besonderheit
+  ist **nicht** als neuer VDR-2.8.3-Buildbeweis auszugeben.
+- **SearchTimer realer Provider-Lifecycle:**
+  [Original yaVDR-Smoke-Protokoll](searchtimer-yavdr-smoke-test-execution-report.md)
+  dokumentiert tatsächliches RESTfulAPI `127.0.0.1:8002`
+  `PASS CREATE/READBACK/UPDATE/READBACK/DELETE/READBACK`,
+  `Result: SUCCESS`, anschließend native Liste wieder leer.
+  Die damalige Suite-Real-Test-Route war absichtlich non-mutating
+  beziehungsweise nicht über das versehentlich geprüfte Rectools
+  `:8080` erreichbar. Daher **Provider-CRUD nachgewiesen**,
+  aber **nicht** als modernes Public-v1-Device-/epgsearch-CAS-HTTP-
+  Mutation-Ende-zu-Ende auszugeben. Insbesondere
+  Public-v1-CREATE-native-CAS wird nicht erfunden.
+- **Public-v1 Recording R2/R3 echte Hardware-Abnahme 21.10.2026:**
+  [Originalprotokoll](public-v1-recording-r2r3-hardware-acceptance-20261021.md),
+  `13e63d277deb5c9e0230f757a8c5733f6e7b0cbb`,
+  ausdrücklich freigegebene *Brisant*-Testaufnahme,
+  RENAME/MOVE/DELETE je ausgeführt und providerverifiziert,
+  `API_V1_RECORDING_HW_ACCEPTANCE=PASS`; Fixture gelöscht.
+  Keine neue Löschung zur bloßen Bestätigung dieser Evidenz.
+
 **Historische Operations und Persistenz:** Vier `outcome_unknown`
 (2x SearchTimer CREATE, 1x TimerAssignment/native CREATE,
 1x NativeTimerBinding TOGGLE), sieben wechselseitig konsistente
@@ -136,13 +180,13 @@ als frische Source-Fehlerdiagnose oder Erfolg zu werten.
    ausnehmen. Die Wahl ist vor Mutationsabnahme ausdrücklich zu genehmigen.
    UPDATE/ACTIVATE/DEACTIVATE/DELETE sind separat am gepatchten nativen
    Provider nachzuweisen.
-3. Hardware-Mutationen erst **nach** Identität/Backup/Restore- und
-   Freigabeentscheidung für genau bezeichnete harmlose Testobjekte.
-   Danach echte TimerIntent-, NativeTimer-, TimerAssignment-,
-   SearchTimer- und Recording-Aktionen einschließlich persistierter
-   Operation-/Replay-/Konflikt-Readbacks gegen autoritative
-   VDR-/SuiteBridge-/epgsearch-Wahrheit. Kein Eingriff in vorhandene
-   Timer, Aufnahmen oder Regeln.
+3. **Bereits bestandene Schreib-Fixtures nicht wiederholen:** Public-v1
+   Native-Timer-Lifecycle, EPG-TimerIntent CREATE, Recording RENAME/MOVE/DELETE
+   und RESTfulAPI-SearchTimer-CRUD sind reale historische PASS (Details unten).
+   Nur tatsächlich *andere* neue Public-v1-/Provider-/Agent-/Recovery-Teile
+   bleiben nach geeigneter Identität/Backup-/Rollback- und gesonderter
+   ausdrücklicher Freigabe noch gezielt abzunehmen. Kein Eingriff in
+   vorhandene Timer, Aufnahmen oder Regeln.
 4. **VIDAA E2E:** Die vorhandenen 1.895 positiven historischen
    Device-SecurityGate-Ereignisse sind gültige Auth-Evidenz, aber
    keine HTTP-Payload-/Live-TV-/Recording-/Track-/Resume-Bestätigung.
@@ -266,7 +310,7 @@ Alle Kästchen dieses Abschnitts müssen vor dem ersten realen VDR-Mutationstest
 
 ## Vorläufige reale yaVDR-Teilnachweise – keine Endabnahme (23.10.2026)
 
-Diese Tabelle dokumentiert bereits vorhandene **produktive Read-only-Evidenz**, ohne die offene Endabnahme-Matrix unten vorzeitig abzuhaken. **Die Phase 0-/Mutation-/TV-Voraussetzungen bleiben offen.** Eine historische Autorisierungsentscheidung und ein gegenwärtiger fachlicher API-Lese-PASS sind unterschiedliche Ebenen.
+Diese Tabelle dokumentiert vorhandene **produktive Lese-Evidenz**; akzeptierte echte Schreib-Evidenz steht nun ausdrücklich in der zentralen kumulativen Matrix und ihrem unmittelbar vorangestellten Quellenabgleich, ohne die offene Gesamt-Release-Abnahme vorzeitig abzuhaken. **Die Phase 0-/Mutation-/TV-Voraussetzungen bleiben offen.** Eine historische Autorisierungsentscheidung und ein gegenwärtiger fachlicher API-Lese-PASS sind unterschiedliche Ebenen.
 
 | Ebene | Exakte Herkunft | Ergebnis | Was dadurch *nicht* nachgewiesen ist |
 | --- | --- | --- | --- |
@@ -304,10 +348,10 @@ Diese Tabelle dokumentiert bereits vorhandene **produktive Read-only-Evidenz**, 
 | Security / Pairing / Grants | Read-/Security-Contracts und P1-Playback-Account-Vertrag bestanden | CI am neuen Candidate nicht endgültig zugeordnet; Browser-/Device-Komposition gesondert | 12 Device-/Human-Lifecycle-PASS, 11 Playback-Account-PASS, 401/304 und historische 1.895 Auth-Gates; aktive Pairing-/Credential-Rotation-/Grant-Revocation-E2E offen | **TEIL-PASS**; Mutationen nur mit Freigabe |
 | Discovery / OpenAPI / SDK | Discovery/Capabilities und GET-Negative-Contracts bestanden | Exakte neue OpenAPI-/SDK-/Client-Vertragsparität nicht endabgenommen | Discovery/Backend-GET erfolgreich; kein komplett gepinnter Client-Endlauf | **TEIL-PASS** |
 | EPG / Channels / Genres / Search | Channels/EPG, EPG-/Recording-Suche und GET-/Paging-Verträge im akzeptierten Umfang bestanden | Geänderte Produktintegration gezielt prüfen | Reale GET-Fälle PASS; nicht geprüfte Randfälle bleiben offen | **TEIL-PASS** |
-| TimerIntent / TimerAssignment / Native Timer | GET/ETag/Grants und Operation-ID 404/400 PASS | Mutations-/Agent-/Native-Readback am gemeinsamen Candidate noch nicht endabgenommen | Native VDR `LSTT=0` entspricht Public-v1 `native-timers=0` (**PASS**); mangels Timer kein Detail-ETag; 7 konsistente historische Bindings, 2 erwartete Drifts, 1 CREATE unknown | **WRITE BLOCKED**, keine produktiven Fixtures genehmigt |
-| SearchTimer Read / CREATE / UPDATE / TOGGLE / DELETE | Leseseite und Einmal-Dispatch-Verträge; CREATE nur RESTfulAPI, **nicht native CAS-CREATE** | CREATE Mock-CI nicht Hardwarebeweis; produktive epgsearch-CAS-Kette und neuer HEAD offen | Reale Such-/Leseproben akzeptiert; 2 historische CREATE unknown; keine genehmigte Regelmutation | **WRITE / CREATE-SCOPE BLOCKED** |
-| Recording / Metadata / Artwork / Marks / Cut | GET-Metadaten/Artwork-Schema und Binär-/ETag-Vertrag bestanden | Install-/Frontend-Staging des neuen Candidate noch offen | Reale Recording-Metadaten/Artwork PASS; Aktionen, Marks/Cut nur nach Testobjekt-Freigabe | **READ TEIL-PASS, ACTIONS BLOCKED** |
+| TimerIntent / TimerAssignment / Native Timer | GET/ETag/Grants und Operation-ID 404/400 PASS; Native-Timer-Mutationsverträge vorhanden | Aktueller gemeinsamer Release-HEAD nicht installiert; das hebt historische hardwaregeprüfte Produktivpfade nicht auf | **REAL-VDR PASS:** 19.10. Public-v1 *Tagesschau* EPG-TimerIntent/native CREATE mit `succeeded`+Readback; 21.10. separater kompletter Public-v1 Native-Timer-Lifecycle CREATE/UPDATE/TOGGLE OFF/TOGGLE ON/DELETE mit readback-verifiziertem PASS; bereits früher 69.C echter Replay 202, Konflikte 409/412 und Daemon-Restart ohne Redispatch PASS. Jetziger `LSTT=0`/Public-v1=0 ebenfalls PASS. Vier *andere* historische Unknowns sind keine Widerlegung der abgeschlossenen Fixtures. | **HISTORISCHE WRITE-PASS ÜBERNEHMEN**, nur ungelöste Alt-Unknowns, neuer Release-Kandidat/Recovery-Teile offen |
+| SearchTimer Read / CREATE / UPDATE / TOGGLE / DELETE | Leseseite und Einmal-Dispatch-Verträge; Public-v1 CREATE nutzt RESTfulAPI, **nicht native CAS-CREATE** | Neuere Public-v1-CAS-Route/Device-Security und einheitlicher Release-HEAD nicht durch die historische Provider-Probe bewiesen; ältere Smoke-Harness-Probe war absichtlich nicht mutierend | **REAL-VDR PROVIDER-WRITE PASS:** eigener yaVDR-RESTfulAPI-Smoke hat CREATE → Readback → UPDATE → Readback → DELETE → Abwesenheit mit `Result: SUCCESS` nachgewiesen, native Liste wieder leer. Dies ist kein identischer HTTP-End-to-End-Beleg für `/api/v1/search-timers/{id}/mutations`. 2 separate historische Public-v1-CREATE-Unknowns bleiben isoliert. | **CRUD-PROVIDER PASS ÜBERNEHMEN; neue Public-v1-CAS-/CREATE-Atomizitätsgrenze separat offen**, kein Wiederholungstest des Provider-CRUD |
+| Recording / Metadata / Artwork / Marks / Cut | GET-Metadaten/Artwork-Schema und Binär-/ETag-Vertrag bestanden | Install-/Frontend-Staging des neuen Candidate noch offen | **REAL-VDR WRITE PASS:** 21.10. Public-v1 *Brisant*-Fixture RENAME → MOVE → DELETE, je Validate/Dry-run, echter Provider-/ID-Readback, `API_V1_RECORDING_HW_ACCEPTANCE=PASS`; Fixture bereits gelöscht. Marks/Cut haben hier keinen gleichwertig belegten konkreten Hardware-Endlauf. | **R2/R3 ACTIONS PASS**, nicht wiederholen; Marks/Cut und neuer Release-Kandidat getrennt |
 | Playback / Resume / Clients | P1 Account-GET-Vertrag bestanden, Client-Lifecycle teilweise abgedeckt | Bundle-/Install-Korrekturen im GitHub-`main`, volle VIDAA-Komposition nicht geprüft | Aktives Hisense gekoppelt, nicht mit Human verknüpft; 1.895 Auth-Gates historisch; Live-TV/Recording-Streams, Ton/Tracks, Sessions/Resume fehlen | **E2E BLOCKED** |
-| Fehlerfälle / Neustart / Recovery / Rollback | 304/401/400/404 und fehlerhafte Operations-ID PASS; Unknown-Quarantäne in Source behandelt | Restart/Crash/Replay/Native-Race und Rollback des Endkandidaten nicht vollständig bewiesen | Vier historische `outcome_unknown` bleiben unangetastet; kein freigegebener sicherer Produktiv-Restart/-Rollback | **TEIL-PASS / REST BLOCKED** |
+| Fehlerfälle / Neustart / Recovery / Rollback | 304/401/400/404 und fehlerhafte Operations-ID PASS; Unknown-Quarantäne in Source behandelt | Restart/Crash-/Recovery- und Rollback des **aktuellen Endkandidaten** nicht vollständig bewiesen | **69.C REAL-VDR PASS**: Timer CREATE exakt ein Command, Replay gleicher Operation, Konflikt 409, Stale 412, Daemon-Restart mit `succeeded`/bound/verified und ohne Redispatch. **Getrennt** vier historische `outcome_unknown`, neue Recovery-/Rollback-Randfälle offen; keine Reparatur. | **EXISTIERENDE REPLAY-/RESTART-PASS ÜBERNEHMEN**, nur abweichende Endkandidaten-/Unknown-Grenzen offen |
 
 **Nicht als fertig markieren**, solange nur GitHub-Mocks laufen, ein Provider bloß ein Interface implementiert oder keine reale Autorisierung/Readback-Verkettung existiert. Keine separat erfundenen „S1a/S1b“-Abnahmephasen.
