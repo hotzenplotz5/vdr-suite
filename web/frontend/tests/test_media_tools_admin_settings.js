@@ -87,6 +87,12 @@ async function test() {
     'admin-only card must be hidden on HTTP 403');
   assert.equal(forbidden.requests.length, 1);
 
+  const loggedOut = harness(() => response(401, {error: 'unauthorized'}), {count: 0});
+  loggedOut.window.VdrSuiteAddonSettings.render(loggedOut.parent, 'default');
+  await flush();
+  assert.equal(loggedOut.parent.children[0].hidden, true,
+    'admin-only card must be hidden on HTTP 401');
+
   const invalid = harness(() => {throw Error('must not request');}, {count: 0});
   invalid.window.VdrSuiteAddonSettings.render(invalid.parent, '../bad');
   assert.equal(invalid.requests.length, 0);
