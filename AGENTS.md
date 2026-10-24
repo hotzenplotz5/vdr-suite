@@ -808,6 +808,23 @@ Keep each implementation slice within its documented boundary. Do not combine
 unrelated phases, runtime installation, broad refactors or deferred features
 merely to reduce the number of commits.
 
+### One active development branch per repository (operator mandate 2026-10-24)
+
+**Do not create or retain parallel development branches for the same VDR-Suite repository.**
+Besides the protected `main`, continue current Media Tools/add-on development
+only on `work/addon-platform-registry-lifecycle` until it is completed and
+integrated. Inspect remote branches before starting new work; do not create a
+new follow-on or stacked branch without explicit operator authorization.
+
+Consolidate redundant branches after checking open PRs, CI/recipes, actual
+unmerged commits and external consumers. Preserve unfinished but useful
+commits in the authorized branch when safely mergeable, or archive the exact
+commit in a Git tag before removing the obsolete development ref. Never
+throw away unique work or merge an untested draft merely to reduce the branch
+count. If branch deletion is unavailable through the connected GitHub tool,
+report that limitation plainly and supply the exact guarded manual command;
+never report `BRANCH=DELETED` without verifying GitHub's remote ref is gone.
+
 ### Main-first branch lifecycle and grandfathered work
 
 Follow [Branch- und Pull-Request-Lebenszyklus](docs/development/branch-pull-request-lifecycle.md).
