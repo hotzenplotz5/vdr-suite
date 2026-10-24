@@ -134,6 +134,14 @@ BackendAgentMediaImportRuntime::execute(
     } catch (...) { return Outcome::unknown; }
 }
 
+std::string BackendAgentMediaImportRuntime::takeMarkerEvidence()
+{
+    if (!executionConsumed_ || !currentExecution_) return {};
+    try {
+        return currentExecution_->takeMarkerEvidence();
+    } catch (...) { return {}; }
+}
+
 std::string BackendAgentMediaImportRuntime::takeRecordingEvidence()
 {
     if (!executionConsumed_ || !currentExecution_) return {};

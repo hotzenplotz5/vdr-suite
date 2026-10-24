@@ -33,6 +33,7 @@ public:
     vdrsuite::mediatools::MediaImportAgentOutcome execute(
         const BackendAgentCommandAssignment& assignment) override;
     std::string takeRecordingEvidence() override;
+    std::string takeMarkerEvidence() override;
 private:
     std::string trustedRoot_;
     std::string backendId_;

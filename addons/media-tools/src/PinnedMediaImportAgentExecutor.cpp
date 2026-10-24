@@ -4,6 +4,7 @@
 #include "AddonInstalledManifest.h"
 #include "MediaImportRecordingEvidence.h"
 #include "MediaToolsImportRunLock.h"
+#include "MediaImportDecisionMarker.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -227,9 +228,10 @@ bool PinnedMediaImportAgentExecutor::authorize(
     pendingFingerprint_.clear();
     pendingSource_ = {};
     pendingSourceValid_ = false;
-    pendingApproveVideoReencode_ = false;
+    pendingDecision_ = MediaImportDecision::import;
+    markerEvidence_.clear();
     std::string sourceId;
-    bool approveVideoReencode = false;
+    MediaImportDecision decision = MediaImportDecision::import;
     if (backendId != backendId_ || generation != generation_ ||
         assignment.backendId != backendId_ ||
         assignment.backendGeneration != generation_ ||
@@ -238,9 +240,9 @@ bool PinnedMediaImportAgentExecutor::authorize(
         assignment.commandType != kMediaImportCommandType ||
         !backendAgentCommandValidAssignment(assignment) ||
         !parseMediaImportSelection(
-            assignment.payload, sourceId, approveVideoReencode) ||
+            assignment.payload, sourceId, decision) ||
         assignment.payloadVersion !=
-            mediaImportSelectionVersion(approveVideoReencode) ||
+            mediaImportSelectionVersion(decision) ||
         !authorization_.granted(assignment))
         return false;
 
@@ -260,7 +262,7 @@ bool PinnedMediaImportAgentExecutor::authorize(
     pendingFingerprint_ = assignment.requestFingerprint;
     pendingSource_ = local;
     pendingSourceValid_ = true;
-    pendingApproveVideoReencode_ = approveVideoReencode;
+    pendingDecision_ = decision;
     return true;
 }
 
@@ -270,7 +272,7 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
     // One-shot permit: even direct repeated calls never run the same handler.
     auto snapshot = std::move(pinned_);
     const auto approvedSource = std::move(pendingSource_);
-    const bool approvedReencode = pendingApproveVideoReencode_;
+    const MediaImportDecision approvedDecision = pendingDecision_;
     const bool matching = pendingSourceValid_ &&
         snapshot && snapshot->bytesVerified() &&
         assignment.commandId == pendingCommandId_ &&
@@ -282,7 +284,8 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
     pendingFingerprint_.clear();
     pendingSource_ = {};
     pendingSourceValid_ = false;
-    pendingApproveVideoReencode_ = false;
+    pendingDecision_ = MediaImportDecision::import;
+    markerEvidence_.clear();
     if (!matching) return MediaImportAgentOutcome::rejected;
     // Grab the kernel lock BEFORE rechecking installed approval, metadata,
     // and source identity. An exclusive maintainer cannot replace anything
@@ -305,11 +308,11 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         return MediaImportAgentOutcome::rejected;
 
     std::string sourceId;
-    bool requestedReencode = false;
+    MediaImportDecision requestedDecision = MediaImportDecision::import;
     LocalMediaImportSource local;
     if (!parseMediaImportSelection(
-            assignment.payload, sourceId, requestedReencode) ||
-        requestedReencode != approvedReencode ||
+            assignment.payload, sourceId, requestedDecision) ||
+        requestedDecision != approvedDecision ||
         !inventory_.resolve(backendId_, sourceId, local) ||
         !safePath(local.sourceRoot) || !safePath(local.videoRoot) ||
         !safePath(local.sourceFile) ||
@@ -323,8 +326,30 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         local.sourceMtimeNanoseconds != approvedSource.sourceMtimeNanoseconds)
         return MediaImportAgentOutcome::rejected;
 
+    if (requestedDecision == MediaImportDecision::desktop ||
+        requestedDecision == MediaImportDecision::skip) {
+        const auto outcome = markMediaImportSource(
+            local, requestedDecision == MediaImportDecision::desktop
+                ? MediaImportMarkerDecision::desktop
+                : MediaImportMarkerDecision::skip);
+        if (outcome == MediaImportMarkerOutcome::marked) {
+            markerEvidence_ = mediaImportMarkerEvidence(sourceId, requestedDecision);
+            return MediaImportAgentOutcome::marked;
+        }
+        return outcome == MediaImportMarkerOutcome::rejected
+            ? MediaImportAgentOutcome::rejected
+            : MediaImportAgentOutcome::unknown;
+    }
     return runPinned(snapshot->pinnedBinary.get(), local, assignment.deadline,
-                     *runLock, recordingEvidence_, approvedReencode);
+                     *runLock, recordingEvidence_,
+                     requestedDecision == MediaImportDecision::local);
+}
+
+std::string PinnedMediaImportAgentExecutor::takeMarkerEvidence()
+{
+    auto value = std::move(markerEvidence_);
+    markerEvidence_.clear();
+    return value;
 }
 
 std::string PinnedMediaImportAgentExecutor::takeRecordingEvidence()

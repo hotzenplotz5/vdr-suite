@@ -809,6 +809,27 @@ bool reconcileBackendAgentCommandState(
         if (outcome == vdrsuite::mediatools::MediaImportAgentOutcome::rejected)
             createResult(state, "starting", "outcome_unknown", "rejected",
                          "fenced", "none", "Media import rejected without effect");
+        else if (outcome == vdrsuite::mediatools::MediaImportAgentOutcome::marked)
+        {
+            createResult(state, "accepted_by_executor", "verified", "succeeded",
+                         "none", "none", "Media Tools source marker read back");
+            try {
+                state.result.resultEvidence =
+                    config.mediaImportExecutor->takeMarkerEvidence();
+            } catch (...) { state.result.resultEvidence.clear(); }
+            std::string sourceId;
+            vdrsuite::mediatools::MediaImportDecision decision;
+            if (!vdrsuite::mediatools::parseMediaImportSelection(
+                    state.assignment.payload, sourceId, decision) ||
+                state.result.resultEvidence !=
+                    vdrsuite::mediatools::mediaImportMarkerEvidence(sourceId, decision))
+            {
+                createResult(state, "starting", "outcome_unknown",
+                             "outcome_unknown", "executor_unknown",
+                             "reconcile_only", "Marker readback proof unavailable");
+                state.result.resultEvidence.clear();
+            }
+        }
         else
             createResult(
                 state,

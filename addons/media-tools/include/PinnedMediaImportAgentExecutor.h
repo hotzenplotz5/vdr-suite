@@ -56,6 +56,7 @@ public:
     MediaImportAgentOutcome execute(
         const BackendAgentCommandAssignment& assignment) override;
     std::string takeRecordingEvidence() override;
+    std::string takeMarkerEvidence() override;
 
 private:
     std::string root_;
@@ -68,8 +69,9 @@ private:
     std::string pendingFingerprint_;
     LocalMediaImportSource pendingSource_;
     bool pendingSourceValid_ = false;
-    bool pendingApproveVideoReencode_ = false;
+    MediaImportDecision pendingDecision_ = MediaImportDecision::import;
     std::string recordingEvidence_;
+    std::string markerEvidence_;
 };
 
 } // namespace vdrsuite::mediatools

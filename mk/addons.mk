@@ -611,6 +611,7 @@ build-media-tools-pinned-agent-executor-test:
 		core/addons/src/AddonPinnedHandler.cpp \
 		core/addons/src/AddonInstallSnapshot.cpp \
 		addons/media-tools/src/PinnedMediaImportAgentExecutor.cpp \
+		addons/media-tools/src/MediaImportDecisionMarker.cpp \
 		addons/media-tools/tests/test_pinned_media_import_agent_executor.cpp \
 		-lcrypto -o "$(BUILD_DIR)/addons/test_pinned_media_import_agent_executor"
 
@@ -654,6 +655,7 @@ build-media-tools-agent-composition-test:
 		addons/media-tools/src/MediaImport.cpp \
 		addons/media-tools/src/LocalMediaImportInventory.cpp \
 		addons/media-tools/src/PinnedMediaImportAgentExecutor.cpp \
+		addons/media-tools/src/MediaImportDecisionMarker.cpp \
 		core/agent/src/BackendAgentMediaImportAuthorization.cpp \
 		core/agent/src/BackendAgentMediaImportRuntime.cpp \
 		core/agent/tests/test_backend_agent_media_import_runtime.cpp \

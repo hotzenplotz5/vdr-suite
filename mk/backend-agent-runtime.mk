@@ -19,6 +19,7 @@ backend-agent:
 		addons/media-tools/src/MediaImport.cpp \
 		addons/media-tools/src/LocalMediaImportInventory.cpp \
 		addons/media-tools/src/PinnedMediaImportAgentExecutor.cpp \
+		addons/media-tools/src/MediaImportDecisionMarker.cpp \
 		core/agent/src/BackendAgentMediaImportAuthorization.cpp \
 		core/agent/src/BackendAgentMediaImportRuntime.cpp \
 		addons/media-tools/src/MediaShrink.cpp \
