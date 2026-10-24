@@ -53,6 +53,17 @@
 | **MT.UX6 – Shrink in Aufnahmeaktionen** | Vorhandenen HEVC-Vorprüf-/Stage-/Publish-Flow aus `recordings2-hero-detail.js` in `recordings2-actions.js` **wiederverwenden**, nicht kopieren. Aufnahmedetails: `Aufnahme verkleinern (HEVC)`; Detailkarte: `⋯`-Aktion bei zulässiger Aufnahme. Status/Auftrag am Aufnahmekontext anzeigen. | Geeignete und freigegebene Aufnahme zeigt Shrink, ungeeignete verständlich nicht verfügbar; Original bleibt erhalten, Publication separat bestätigt. |
 | **MT.UX7 – Einfachheit/Abnahme** | Technische Dropdowns erst nach nachgewiesener Parität entfernen, responsive und tastaturbedienbar, verständliche Fehler, klare leere/teilweise Scans. Isolierte UI/Agent/Core-Kontrakttests und separate read-only-Hostabnahme. | Alltag ohne Tokenkenntnis: `Quelle → Scan → Auswahl → Vorschau → bestätigen`. Keine Rechte-, VDR- oder Aufnahmeänderung durch Leseaktionen. |
 
+## Architektur-Leitplanke: kein weiterer Backend-Agenten-Ausbau für UX/Installation
+
+**KISS ist ein Abnahmekriterium, nicht nur ein Stilwunsch.** Die neue Installations- und UX-Phase ist **keine Erlaubnis**, neue Agenten, Worker-Dienste, Kontrollprotokolle, parallele Job-Queues, Rechte-/Freigabesysteme oder eine zweite Importpipeline zu bauen.
+
+- **Installation und Paketierung** sind Build-/Staging-/Deployment-Aufgaben, **kein Backend-Agent-Feature**. Insbesondere kein Agent zur Selbstinstallation, Paketverwaltung oder Reparatur der Live-Rechte.
+- **Scan/Explorer/Vorschau** sollen die vorhandene Backend-lokale Inventarisierung, Source-IDs und die bestehende Public-v1-/Core-/Agent-Komposition **wiederverwenden**. Für eine reine UI-Änderung niemals einen weiteren Agenten-Layer einführen. Wo lesende Information tatsächlich fehlt, zuerst die vorhandene Read-API gezielt ergänzen statt ein neues Protokoll zu entwerfen.
+- **Import/Shrink** bleiben bei der bestehenden autorisierten Operation/Agent-Ausführung; diese vorhandene Sicherheitsgrenze darf nicht umgangen werden. Aber es gibt **keinen zusätzlichen Agenten** und keinen separaten Executor allein für UX.
+- Eine neue Runtime-Komponente oder ein neues Wire-Protokoll ist **nicht Teil der beauftragten Slices**. Falls ein konkreter Slice ohne sie nachweisbar unmöglich ist: belegten Engpass, einfachste Alternative und Auswirkungen vorlegen und **vor Implementierung ausdrückliche neue Genehmigung** einholen.
+- Pro Slice ist im Review kurz zu dokumentieren: **Welche bestehenden Module genügen? Wie viele zusätzliche Laufzeitprozesse/Protokolle werden eingeführt?** Zielwert: **0**. Verständliche Benutzerdialoge statt Backend-Agent-Details.
+- Kein stilles `chmod`/`chown` auf produktiven Bestandsdateien und kein ungefragter Neustart als „Workaround“. Fehlerursache zuerst am bestehenden Owner beheben.
+
 ## Umsetzungsvorgaben
 
 - **Beginnen bei MT.I0**, nicht mit einem neuen generischen Installationsframework oder einem unüberprüften `make install`.
