@@ -31,130 +31,71 @@ remains disabled.
 
 ## Host installation and activation (Slice 4)
 
-The source-controlled installer is
-[`tools/addons/install_media_tools.sh`](../../tools/addons/install_media_tools.sh).
-It is a **first installation**, not a blind upgrade of an installed add-on.
-It builds a fresh sealed Suite runtime stage, creates the three Media Tools
-executables as the separately packaged `~cpppreview1` payload, installs it
-using dpkg, verifies the canonical install-runtime deployment, binds a
-separately reviewed SHA-256 to *both* the local Agent approval and the
-backend-specific Core approval, configures the maintenance lock and a
-root-owned source inventory **only when both media directories exist**, and
-enables both protected import and HEVC stage/publish
-in the local backend-agent service override. It restarts only the Suite daemon
-and Backend Agent, never VDR or recording mutations.
+**Status:** Source-level, package-free first-install path under development;
+the current candidate is NOT cross-distribution-certified or accepted for
+running yaVDR deployment. Existing Debian package installations require a
+separately reviewed ownership/migration procedure. Do not run this installer
+on an existing host with `vdr-suite-addon-media-tools` installed.
 
-The operator first prepares a sealed build and obtains the exact handler
-digest for independent review. The **second invocation** installs that
-same preserved build without recompiling it; neither the printed digest nor
-a caller-provided manifest becomes administrative authority on its own. The
-final invocation requires a separately reviewed SHA-256 and the preparation
-work directory. On yaVDR, stay in the existing root shell. Execute the
-`--prepare` call as `yavdr` from its own public-HTTPS, clean checkout. Then
-execute the six-argument installation as root from the **same** checkout
-with a Git process-local exact `safe.directory` value (never global Git
-settings). The installer rejects root compilation.
+The common optional build output consists of the independently compiled
+Media Import, Media Check and Media Shrink workers plus Suite-owned,
+**non-executing** metadata. Core retains the effective capability and
+authorization decisions. Once Media Import atomically creates and verifies
+a VDR recording, **the existing native VDR recording-cache reconciliation**
+confirms the recording; neither TVScraper nor Media Tools owns a second
+recordings database or a separate public recording API.
 
-**Standard media paths (confirmed with existing yaVDR Rectools configuration):**
-`/srv/video/Filme` for the import source, and `/srv/vdr/video.00` for
-the VDR recording destination. Both are **defaults, not installation prompts**.
-If either directory is absent, first-time installation can continue without
-creating an unsafe directory or a working import mapping. The backend agent
-remains unable to discover import sources until an administrator configures
-valid paths later. Existing but noncanonical or inaccessible directories
-remain an error. **No import/shrink operation is automatically authorized.**
+The existing Suite install contract uses `make stage-install-runtime` and
+the immutable `install_runtime_stage.py` manifest. The optional
+[`stage_media_tools_runtime.py`](../../tools/addons/stage_media_tools_runtime.py)
+composes already built Media Tools workers into a **separate** sealed
+`stage-with-media-tools` beside the original Suite runtime stage. It does
+not install Debian packages, compile programs, restart services or modify
+the live host. A reviewed handler SHA-256 and exact prepared source SHA are
+required, and the original sealed Suite stage is not modified.
 
-The short invocation uses both defaults without prompting for paths:
+`tools/addons/install_media_tools.sh` currently implements the **yaVDR
+systemd installation adapter only**: service stop/restart, SQLite backup,
+root-owned approval issuance and a systemd drop-in. Its standard media path
+defaults are `/srv/video/Filme` and `/srv/vdr/video.00`, overridable for
+the host. The systemd service's actual configured non-root user is used for
+path access checks rather than hard-coding `vdr`.
 
-```bash
-# Prepare as yavdr from the clean checkout:
-bash tools/addons/install_media_tools.sh \
-  "$TESTED_COMMIT_SHA" --prepare "$BACKEND_ID"
+**Distribution contract:** Installing on Debian, Ubuntu, MLD or another
+system must NOT assume that VDR itself uses a specific account, video
+directory, init system or plugin ABI. The native VDR video directory should
+be obtained from the already existing SuiteBridge discovery wherever
+available. Paths that belong to VDR-Suite's own trusted runtime layout
+must remain consistent with the Core/Agent compile-time install contract.
+The staged `PREFIX`/`DATADIR` install logic is not proof that every
+runtime trust reader has configurable paths. These still require a verified
+platform contract; **MLD is not yet supported by this installer**.
 
-# Review the reported WORKDIR and handler digest independently.
-# Install as root, using the same preserved prepared workdir:
-bash tools/addons/install_media_tools.sh \
-  "$TESTED_COMMIT_SHA" "$INDEPENDENTLY_APPROVED_HANDLER_SHA256" \
-  "$BACKEND_ID" "$PREPARED_WORKDIR"
-```
+Public metadata directory mode `0755` is ordinary POSIX staging semantics
+for nonsecret assets and is independent of the service user. It does not
+authorize imports or broaden private directories. The deploy helper never
+changes permission modes of pre-existing host directories. If a live
+ancestor denies traversal, the system-specific installer must STOP before
+modifying services. Do not propose recursive `chmod` or `chown` as a
+portable remedy or claim that a corrected staging mode repairs that host.
 
-To **override both directories explicitly during installation**, the previous
-five-/six-argument forms remain supported:
+Source installation still needs the independent backend-local handler
+approval, Core expected SHA, frontend administrator activation and
+backend-scoped user grants. None are conferred by file presence. The
+[`configure_media_tools_paths.sh`](../../tools/addons/configure_media_tools_paths.sh)
+helper is also currently a **yaVDR/systemd-only** adapter and must not
+require a Debian package as proof of an independently approved handler.
+The current Webfrontend does **not yet** provide authenticated import
+source/destination administration; implement it via the existing Suite
+security and API ownership, not a direct browser-to-root-file write.
 
-```bash
-bash tools/addons/install_media_tools.sh \
-  "$TESTED_COMMIT_SHA" --prepare \
-  "$BACKEND_ID" "$SOURCE_ROOT" "$VIDEO_ROOT"
-bash tools/addons/install_media_tools.sh \
-  "$TESTED_COMMIT_SHA" "$INDEPENDENTLY_APPROVED_HANDLER_SHA256" \
-  "$BACKEND_ID" "$SOURCE_ROOT" "$VIDEO_ROOT" "$PREPARED_WORKDIR"
-```
-
-**Configuration after installation:** this revision does **not yet ship a
-Webfrontend form/API for media directory administration**. The Agent consumes
-the root-controlled `/etc/vdr-suite/addon-sources/media-import.tsv` and its
-systemd override `20-media-tools.conf`. If a path was missing at installation,
-the TSV is intentionally not created. The supplied
-[`tools/addons/configure_media_tools_paths.sh`](../../tools/addons/configure_media_tools_paths.sh)
-offers a root-only, **post-install** path change without reinstalling any package.
-On the installed yaVDR, verify no Import/Shrink work is in progress and
-**deliberately** stop only `vdr-suite-backend-agent` before invoking the
-helper from the preserved source checkout:
-
-```bash
-# Root shell, only after confirming there is no running Agent media job:
-systemctl stop vdr-suite-backend-agent
-bash tools/addons/configure_media_tools_paths.sh
-# Or both explicit replacements:
-# bash tools/addons/configure_media_tools_paths.sh /other/source /other/video-root
-# Inspect MEDIA_TOOLS_CONFIG=PASS, the reported backup and paths.
-systemctl start vdr-suite-backend-agent
-```
-
-Run that block **from the matching source checkout** and only after the addon
-package is installed. The helper validates canonical existing directories,
-`vdr` access, the active backend ID, root-owned source inventory and the
-agent's `ReadWritePaths` sandbox. It creates a root backup and replaces the
-single known installer inventory and service override while the Agent is
-inactive. Customized or untrusted source inventories are **refused**, not
-silently rewritten. The helper never stops/starts services by itself.
-Changes are not active until the deliberate Agent restart and must be
-followed by capability/authorization readback. Do **not** treat a generic
-service restart as safe during an unknown or active operation.
-
-A future Web settings form must use authenticated administrator authorization,
-CSRF and a narrowly scoped privileged backend configuration service; browser
-requests must never edit root-controlled paths directly.
-
-The five-argument form still supports a separately prebuilt/reviewed digest,
-but the optional sixth argument is the preferred way to reuse the preparation
-without a second compilation.
-
-**Immutable candidate provenance:** the installer validates its exact
-40-character Git source SHA against the public add-on branch ref. Main
-ancestry, source branch of the previously installed executable and hosted
-CI completion are **not** execution gates. Verify a current, reviewed
-candidate separately and inspect actual database/schema risk before any
-live full-runtime deployment.
-
-Host prerequisites are a configured/enrolled and running Backend Agent with
-a real HTTPS control-plane URL, matching backend ID, standard Suite systemd
-units, development dependencies, an existing readable SQLite state database
-at the canonical path, adequate capacity and no previously installed Media
-Tools package or approval state. The installer refuses upgrades, custom
-database paths and already provisioned state until their migration and
-maintenance choreography are separately audited. It takes a quiesced SQLite
-backup before changing the installed runtime and prints its location.
-
-**Installation does not silently confer authority:** an authenticated global
-administrator must still enable the backend's desired state by the
-CSRF-protected activation API (GET readback revision, POST CAS with that
-revision) and grant `addons.media.import` and `addons.media.shrink` to
-the appropriate actor and backend. A backend Agent must publish a recent
-matching approved handler observation. No operation is ready without all
-these independent gates. A real host acceptance must prove read-only Check,
-explicit test-media Import, and staged HEVC review/publish, preserving the
-original. Until then, the package/runtime is **not** declared production-accepted.
+The next gates before any further live deployment are: focused package-free
+staging and helper regressions on the exact head; independent review of
+the installed-file ownership/migration from the already installed
+`~cpppreview1` Debian package; system-specific preflight; and a
+separate real-VDR acceptance using test media. Existing source-built
+Media Tools payloads must not be recompiled merely to repeat an earlier
+accepted build.
 
 ## Core-owned A2M/A4 activation (Slice 3 implementation)
 
