@@ -3057,7 +3057,7 @@ bool parsePublicSearchTimerCreateBody(
 // A7.3: a single JSON string field, closed grammar; never a source path.
 bool parseMediaImportAdmissionBody(
     const std::string& input, std::string& sourceId,
-    bool& approveVideoReencode)
+    bool& approveVideoReencode, std::string& videoDecision)
 {
     std::size_t position = 0U;
     skipAccountMutationWhitespace(input, position);
@@ -3073,6 +3073,7 @@ bool parseMediaImportAdmissionBody(
         return false;
     skipAccountMutationWhitespace(input, position);
     approveVideoReencode = false;
+    videoDecision.clear();
     if (position < input.size() && input[position] == ',') {
         ++position;
         skipAccountMutationWhitespace(input, position);
@@ -3084,8 +3085,10 @@ bool parseMediaImportAdmissionBody(
         skipAccountMutationWhitespace(input, position);
         std::string decision;
         if (!parseAccountMutationJsonString(input, position, decision) ||
-            decision != "local") return false;
-        approveVideoReencode = true;
+            (decision != "local" && decision != "desktop" &&
+             decision != "skip")) return false;
+        approveVideoReencode = decision == "local";
+        if (!approveVideoReencode) videoDecision = decision;
         skipAccountMutationWhitespace(input, position);
     }
     if (position >= input.size() || input[position++] != '}') return false;
@@ -12182,8 +12185,9 @@ bool PublicApiRuntime::tryHandlePost(
         }
         std::string sourceId;
         bool approveVideoReencode = false;
+        std::string videoDecision;
         if (!parseMediaImportAdmissionBody(
-                body, sourceId, approveVideoReencode))
+                body, sourceId, approveVideoReencode, videoDecision))
         {
             response = problemResponse(422, "validation_error",
                 "Validation failed",
@@ -12214,6 +12218,7 @@ bool PublicApiRuntime::tryHandlePost(
         input.sourceId = sourceId;
         input.idempotencyKey = idempotencyKey;
         input.approveVideoReencode = approveVideoReencode;
+        input.videoDecision = videoDecision;
         const auto result = admit(input);
         switch (result.status)
         {

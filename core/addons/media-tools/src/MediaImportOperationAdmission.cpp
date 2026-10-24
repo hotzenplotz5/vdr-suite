@@ -28,18 +28,19 @@ bool validIdentity(const std::string& text)
     return !text.empty() && text.size() <= 160U &&
         text.find_first_of("/\\\r\n\t") == std::string::npos;
 }
-std::string serializeSelection(const std::string& id, bool localReencode)
+std::string serializeSelection(
+    const std::string& id, vdrsuite::mediatools::MediaImportDecision decision)
 {
-    return localReencode
-        ? "{\"sourceId\":\"" + id + "\",\"videoDecision\":\"local\"}"
-        : "{\"sourceId\":\"" + id + "\"}";
+    return vdrsuite::mediatools::mediaImportSelectionJson(id, decision);
 }
 std::string requestFingerprint(const std::string& backend,
-                               const std::string& source, bool localReencode)
+                               const std::string& source, vdrsuite::mediatools::MediaImportDecision decision)
 {
     return "media-import-api/1|" + std::to_string(backend.size()) + ":" +
         backend + "|" + std::to_string(source.size()) + ":" + source +
-        (localReencode ? "|videoDecision:local" : "");
+        (decision == vdrsuite::mediatools::MediaImportDecision::import
+            ? "" : "|videoDecision:" +
+                std::to_string(vdrsuite::mediatools::mediaImportSelectionVersion(decision)));
 }
 bool replayMatches(MutationOperationRepository& repo,
                    const MutationOperation& op,
@@ -60,7 +61,13 @@ bool replayMatches(MutationOperationRepository& repo,
     return p.ok() && p.payload.payloadType == "addon.media.import" &&
         p.payload.payloadVersion ==
             vdrsuite::mediatools::mediaImportSelectionVersion(
-                req.approveVideoReencode) &&
+                req.videoDecision == "desktop"
+                    ? vdrsuite::mediatools::MediaImportDecision::desktop
+                    : req.videoDecision == "skip"
+                        ? vdrsuite::mediatools::MediaImportDecision::skip
+                        : req.approveVideoReencode
+                            ? vdrsuite::mediatools::MediaImportDecision::local
+                            : vdrsuite::mediatools::MediaImportDecision::import) &&
         p.payload.payload == serialized &&
         p.payload.payloadFingerprint == fingerprint;
 }
@@ -78,18 +85,25 @@ MediaImportOperationAdmissionResult
 MediaImportOperationAdmissionService::admit(
     const MediaImportOperationAdmissionRequest& req)
 {
-    const std::string serialized = serializeSelection(
-        req.sourceId, req.approveVideoReencode);
+    using Decision = vdrsuite::mediatools::MediaImportDecision;
+    if (req.approveVideoReencode && !req.videoDecision.empty())
+        return output(Status::invalid);
+    if (!req.videoDecision.empty() && req.videoDecision != "desktop" &&
+        req.videoDecision != "skip") return output(Status::invalid);
+    const Decision choice = req.videoDecision == "desktop"
+        ? Decision::desktop : req.videoDecision == "skip"
+            ? Decision::skip : req.approveVideoReencode
+                ? Decision::local : Decision::import;
+    const std::string serialized = serializeSelection(req.sourceId, choice);
     std::string checkedSource;
-    bool checkedReencode = false;
+    Decision checkedDecision = Decision::import;
     if (req.now <= 0 || req.now > std::numeric_limits<std::int64_t>::max()-900 ||
         !validIdentity(req.actorId) || !validIdentity(req.backendId) ||
         req.backendId == "*" || !validIdentity(req.idempotencyKey) ||
         req.sourceId.size() < 16U || req.sourceId.size() > 64U ||
         !vdrsuite::mediatools::parseMediaImportSelection(
-            serialized, checkedSource, checkedReencode) ||
-        checkedSource != req.sourceId ||
-        checkedReencode != req.approveVideoReencode)
+            serialized, checkedSource, checkedDecision) ||
+        checkedSource != req.sourceId || checkedDecision != choice)
         return output(Status::invalid);
 
     // Core rechecks agent lease/capability, active actor, effective exact
@@ -109,7 +123,7 @@ MediaImportOperationAdmissionService::admit(
 
     const std::string fingerprint =
         requestFingerprint(
-            req.backendId, req.sourceId, req.approveVideoReencode);
+            req.backendId, req.sourceId, choice);
     if (fingerprint.size() > 512U) return output(Status::invalid);
 
     const auto previous = operations_.findByIdempotencyScope(
@@ -137,7 +151,8 @@ MediaImportOperationAdmissionService::admit(
     op.resourceType = "MediaImportSource";
     op.resourceId = req.sourceId;
     op.expectedRevision =
-        req.approveVideoReencode ? "selection-v2" : "selection-v1";
+        "selection-v" + std::to_string(
+            vdrsuite::mediatools::mediaImportSelectionVersion(choice));
     op.actionFamily = "media.import";
     op.requestFingerprint = fingerprint;
     op.requestedAt = req.now;
@@ -152,7 +167,7 @@ MediaImportOperationAdmissionService::admit(
     payload.payloadType = "addon.media.import";
     payload.payloadVersion =
         vdrsuite::mediatools::mediaImportSelectionVersion(
-            req.approveVideoReencode);
+            choice);
     payload.payload = serialized;
     payload.payloadFingerprint = fingerprint;
 
