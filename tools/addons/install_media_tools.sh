@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Media Tools first-time installation on an already enrolled yaVDR.
+# yaVDR/systemd first-install adapter for optional Media Tools.
+# Portable staged artifacts are separate; do not treat this host-specific
+# service/config/backup choreography as the installer for MLD or other init systems.
 set -Eeuo pipefail
 stop() { printf 'MEDIA_TOOLS_INSTALL=STOP %s\n' "$*" >&2; exit 1; }
 if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
@@ -113,6 +115,15 @@ systemctl is-active --quiet vdr-suite-daemon || stop "Suite daemon not active"
 systemctl is-active --quiet vdr-suite-backend-agent || stop "Backend Agent not active"
 systemctl cat vdr-suite-daemon | grep -Fq 'ExecStart=/usr/sbin/vdr-suite-daemon' || stop "noncanonical Suite service"
 systemctl cat vdr-suite-backend-agent | grep -Fq 'ExecStart=/usr/sbin/vdr-suite-backend-agent --config /etc/vdr-suite/backend-agent.conf' || stop "noncanonical Agent service"
+# Discover the effective service principal instead of presuming the distro
+# runs every Backend Agent under an account literally named 'vdr'.
+AGENT_ACCOUNT=$(systemctl show -p User --value vdr-suite-backend-agent) || stop "cannot inspect Agent identity"
+[[ "$AGENT_ACCOUNT" =~ ^[a-z_][a-z0-9_-]*[$]?$ ]] &&
+  [ "$AGENT_ACCOUNT" != root ] && id "$AGENT_ACCOUNT" >/dev/null 2>&1 ||
+  stop "unsupported or privileged Backend Agent account"
+AGENT_GROUP=$(systemctl show -p Group --value vdr-suite-backend-agent) || stop "cannot inspect Agent group"
+if [ -z "$AGENT_GROUP" ]; then AGENT_GROUP=$(id -gn "$AGENT_ACCOUNT") || stop "cannot resolve Agent group"; fi
+getent group "$AGENT_GROUP" >/dev/null || stop "Agent group missing"
 for path in /etc/vdr-suite/addon-approvals/rectools.json \
   "/etc/vdr-suite/addon-approvals/rectools.$BACKEND.json" \
   /etc/vdr-suite/addon-approvals/rectools.import-running.lock \
@@ -122,13 +133,13 @@ for path in /etc/vdr-suite/addon-approvals/rectools.json \
   [ ! -e "$path" ] && [ ! -L "$path" ] || stop "pre-existing Media Tools state: $path"
 done
 [ -f /var/lib/vdr-suite/vdr-suite.db ] || stop "unknown active database location"
-# Media Tools metadata is read by User=vdr from the fixed public Suite
-# inventory. Fail before stopping services or installing files if an
-# existing, host-owned ancestor is inaccessible; never chmod it here.
+# Metadata is read by the service's actual account from the installed
+# inventory. Fail before any stop if host-owned ancestors deny traversal;
+# never chmod a live host directory implicitly.
 for shared in /usr/share/vdr-suite /usr/share/vdr-suite/addons; do
   if [ -e "$shared" ] || [ -L "$shared" ]; then
     [ -d "$shared" ] && [ ! -L "$shared" ] &&
-      sudo -u vdr test -x "$shared" ||
+      sudo -u "$AGENT_ACCOUNT" test -x "$shared" ||
       stop "existing Suite metadata ancestor inaccessible to vdr: $shared (no permissions changed)"
   fi
 done
@@ -138,10 +149,10 @@ dpkg-query -W -f='${Status}' vdr-suite-addon-media-tools 2>/dev/null |
   grep -Fxq 'install ok installed' &&
   stop "existing Debian-owned Media Tools needs a separate migration, not an overlay"
 if [ "$SOURCE_CONFIGURED" -eq 1 ]; then
-  sudo -u vdr test -r "$SOURCE" || stop "vdr source access denied"
+  sudo -u "$AGENT_ACCOUNT" test -r "$SOURCE" || stop "vdr source access denied"
 fi
 if [ "$VIDEO_CONFIGURED" -eq 1 ]; then
-  sudo -u vdr test -w "$VIDEO" || stop "vdr video access denied"
+  sudo -u "$AGENT_ACCOUNT" test -w "$VIDEO" || stop "vdr video access denied"
 fi
 fi
 # The first write is allowed only if every affected FS retains 4 GiB / 15%.
@@ -315,7 +326,7 @@ if video_ready:
 create('/etc/systemd/system/vdr-suite-backend-agent.service.d/20-media-tools.conf',
        override)
 PY
-sudo install -d -o vdr -g vdr -m 0700 /var/lib/vdr-suite/backend-agent/media-shrink || stop "private shrink state"
+sudo install -d -o "$AGENT_ACCOUNT" -g "$AGENT_GROUP" -m 0700 /var/lib/vdr-suite/backend-agent/media-shrink || stop "private shrink state"
 sudo systemctl daemon-reload || stop "systemd reload"
 sudo systemctl start vdr-suite-daemon vdr-suite-backend-agent || stop "Suite restart"
 systemctl is-active --quiet vdr-suite-daemon && systemctl is-active --quiet vdr-suite-backend-agent || stop "Suite/Agent failed to start"
