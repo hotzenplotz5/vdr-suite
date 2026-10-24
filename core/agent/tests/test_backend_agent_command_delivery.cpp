@@ -563,6 +563,102 @@ int main()
     assert(!coreFence.effectiveMediaImportCapability(
         "admin_media", "default", 118, fenceReason));
 
+    // Real persisted marker decisions use the SAME Core Operation + Agent
+    // receipt/result journal as native imports, with no VDR recording claim.
+    service.setMediaImportReceiptFenceCheck(
+        [&](const BackendAgentCommandAssignment& candidate,
+            const BackendAgentCommandReceipt& receipt,
+            std::string& checked) {
+            return coreFence.check(candidate, receipt, 119, checked);
+        });
+    service.setMediaImportResultApply(
+        [&](const BackendAgentCommandAssignment& candidate,
+            const BackendAgentCommandResult& result,
+            std::string& checked) {
+            return coreFence.applyResult(candidate, result, 120, checked);
+        });
+    for (const std::string decision : {"desktop", "skip"})
+    {
+        const std::string token = "local_marker_" + decision + "_123456";
+        const std::string json = "{\"sourceId\":\"" + token +
+            "\",\"videoDecision\":\"" + decision + "\"}";
+        const unsigned version = decision == "desktop" ? 3U : 4U;
+        auto markerOp = op;
+        markerOp.operationId = "op_marker_" + decision;
+        markerOp.idempotencyKey = "idem_marker_" + decision;
+        markerOp.resourceId = token;
+        markerOp.requestFingerprint = "logical_marker_" + decision;
+        markerOp.expectedRevision = "selection-v" + std::to_string(version);
+        auto markerPayload = payload;
+        markerPayload.operationId = markerOp.operationId;
+        markerPayload.payloadVersion = version;
+        markerPayload.payload = json;
+        markerPayload.payloadFingerprint = markerOp.requestFingerprint;
+        const auto planned = operations.reserveWithPayload(
+            markerOp, markerPayload);
+        assert(planned.ok());
+        const auto running = operations.transition(
+            markerOp.operationId, planned.operation.operationRevision,
+            vdrsuite::operations::MutationOperationState::accepted,
+            vdrsuite::operations::MutationOperationState::dispatching, "", 110);
+        assert(running.ok());
+
+        auto command = media;
+        command.operationId = markerOp.operationId;
+        command.commandId = "cmd_marker_" + decision;
+        command.requestId = "req_marker_" + decision;
+        command.correlationId = command.requestId;
+        command.jobId = "job_marker_" + decision;
+        command.attemptId = "attempt_marker_" + decision;
+        command.payload = json;
+        command.payloadVersion = version;
+        command.requestFingerprint = backendAgentCommandFingerprint(command);
+        assert(backendAgentCommandValidAssignment(command));
+        assert(commands.insertAssignment(command));
+
+        auto acceptedReceipt = mediaReceipt;
+        acceptedReceipt.commandId = command.commandId;
+        acceptedReceipt.requestFingerprint = command.requestFingerprint;
+        acceptedReceipt.jobId = command.jobId;
+        acceptedReceipt.attemptId = command.attemptId;
+        acceptedReceipt.receivedAt = 119;
+        assert(service.receipt(
+            context(ActorType::Agent, "actor_agent"),
+            acceptedReceipt, 119).accepted);
+
+        BackendAgentCommandResult result;
+        result.commandId = command.commandId;
+        result.requestFingerprint = command.requestFingerprint;
+        result.jobId = command.jobId;
+        result.attemptId = command.attemptId;
+        result.claimEpoch = command.claimEpoch;
+        result.backendId = command.backendId;
+        result.agentId = command.agentId;
+        result.agentInstanceId = command.agentInstanceId;
+        result.backendGeneration = command.backendGeneration;
+        result.dispatchState = "accepted_by_executor";
+        result.verificationState = "verified";
+        result.resultCategory = "succeeded";
+        result.errorCategory = "none";
+        result.retryClassification = "none";
+        result.boundedDiagnostics = "marker fsynced and identity rechecked";
+        result.resultEvidence = "media-tools-mark:" + decision + ":" + token;
+        result.completedAt = 120;
+        assert(backendAgentCommandValidResult(result));
+        const auto completion = service.result(
+            context(ActorType::Agent, "actor_agent"), result, 120);
+        assert(completion.accepted);
+        const auto stored = operations.findById(markerOp.operationId);
+        assert(stored.ok());
+        assert(stored.operation.state ==
+            vdrsuite::operations::MutationOperationState::succeeded);
+        assert(service.result(context(ActorType::Agent, "actor_agent"),
+                              result, 120).accepted);
+        assert(operations.findById(markerOp.operationId)
+                   .operation.operationRevision ==
+               stored.operation.operationRevision);
+    }
+
     const auto disabled = activation.update(
         admin, {"rectools", "default", false, 1}, access, {});
     assert(disabled.status == vdrsuite::addons::IntentStatus::ok);
