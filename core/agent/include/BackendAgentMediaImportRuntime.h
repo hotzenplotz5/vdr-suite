@@ -25,6 +25,8 @@ public:
     bool verifiedInstallation(
         vdrsuite::mediatools::MediaToolsInstallationEvidence& out) override;
     bool listTrustedSourceIds(std::vector<std::string>& out) override;
+    bool listTrustedSourceLabels(
+        std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& out) override;
     bool authorize(const BackendAgentCommandAssignment& assignment,
                    const std::string& backendId,
                    std::uint64_t generation) override;

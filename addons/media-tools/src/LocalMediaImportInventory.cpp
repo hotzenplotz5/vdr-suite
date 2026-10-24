@@ -306,4 +306,24 @@ bool RootOwnedMediaImportInventory::listTrustedSourceIds(
         sourceIds.push_back(source.id);
     return true;
 }
+bool RootOwnedMediaImportInventory::listTrustedSourceLabels(
+    const std::string& backendId, std::vector<MediaImportSourceLabel>& out)
+{
+    out.clear();
+    if (!inventoryIdentifier(backendId, 1)) return false;
+    std::vector<IndexedSource> sources;
+    if (!inventorySources(installRoot_, backendId, sources)) return false;
+    for (const auto& source : sources) {
+        const std::string label = source.source.sourceFile.stem().string();
+        if (label.empty() || label.size() > 160 ||
+            std::any_of(label.begin(), label.end(), [](unsigned char ch) {
+                return ch < 0x20 || ch == 0x7f || ch == '/' || ch == '\\';
+            })) {
+            out.clear();
+            return false;
+        }
+        out.push_back({source.id, label});
+    }
+    return true;
+}
 } // namespace vdrsuite::mediatools

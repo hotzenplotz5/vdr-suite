@@ -33,6 +33,12 @@ inline bool parseMediaImportSelection(const std::string& payload, std::string& s
     return true;
 }
 
+// Safe display metadata is strictly advisory, never a native source path.
+struct MediaImportSourceLabel {
+    std::string sourceId;
+    std::string label;
+};
+
 // Read-only observation from the fixed root-admin approval + pinned binary.
 // It never authorizes execution or substitutes for a live Core grant.
 struct MediaToolsInstallationEvidence {
@@ -59,6 +65,9 @@ public:
     { out = {}; return false; }
     // Default deny; only explicit trusted Agent composition may enumerate.
     virtual bool listTrustedSourceIds(std::vector<std::string>& out)
+    { out.clear(); return false; }
+    // Source labels are not authorization tokens and cannot select paths.
+    virtual bool listTrustedSourceLabels(std::vector<MediaImportSourceLabel>& out)
     { out.clear(); return false; }
     virtual bool authorize(const BackendAgentCommandAssignment& assignment,
                            const std::string& backendId,

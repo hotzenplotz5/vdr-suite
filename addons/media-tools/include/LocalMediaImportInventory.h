@@ -25,6 +25,9 @@ public:
     // Fail closed: opaque IDs only, no paths or partial trusted inventory.
     bool listTrustedSourceIds(const std::string& backendId,
                               std::vector<std::string>& sourceIds);
+    bool listTrustedSourceLabels(
+        const std::string& backendId,
+        std::vector<MediaImportSourceLabel>& sources);
 
 private:
     std::filesystem::path installRoot_;

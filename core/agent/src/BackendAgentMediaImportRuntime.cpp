@@ -71,6 +71,19 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceIds(
     }
 }
 
+bool BackendAgentMediaImportRuntime::listTrustedSourceLabels(
+    std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& out)
+{
+    out.clear();
+    if (!available()) return false;
+    try {
+        return inventory_.listTrustedSourceLabels(backendId_, out);
+    } catch (...) {
+        out.clear();
+        return false;
+    }
+}
+
 bool BackendAgentMediaImportRuntime::authorize(
     const BackendAgentCommandAssignment& assignment,
     const std::string& backendId, std::uint64_t generation)
