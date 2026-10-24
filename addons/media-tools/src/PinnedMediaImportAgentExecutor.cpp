@@ -81,7 +81,8 @@ std::string parseCommittedRecording(
 
 MediaImportAgentOutcome runPinned(
     int fd, const LocalMediaImportSource& source, std::int64_t deadline,
-    MediaToolsImportRunLock& runLock, std::string& recordingEvidence)
+    MediaToolsImportRunLock& runLock, std::string& recordingEvidence,
+    bool approveVideoReencode)
 {
     recordingEvidence.clear();
     if (fd < 0 || !safePath(source.sourceRoot) ||
@@ -97,9 +98,11 @@ MediaImportAgentOutcome runPinned(
     std::string videoRoot = source.videoRoot.string();
     std::string sourceFile = source.sourceFile.string();
     std::string confirmation = "--confirm-writes";
+    std::string encodingApproval = "--approve-video-reencode";
     char* const argv[] = {
         executable.data(), action.data(), sourceRoot.data(), videoRoot.data(),
-        sourceFile.data(), confirmation.data(), nullptr
+        sourceFile.data(), confirmation.data(),
+        approveVideoReencode ? encodingApproval.data() : nullptr, nullptr
     };
     char environmentPath[] = "PATH=/usr/bin:/bin";
     char environmentLocale[] = "LC_ALL=C";
@@ -224,7 +227,9 @@ bool PinnedMediaImportAgentExecutor::authorize(
     pendingFingerprint_.clear();
     pendingSource_ = {};
     pendingSourceValid_ = false;
+    pendingApproveVideoReencode_ = false;
     std::string sourceId;
+    bool approveVideoReencode = false;
     if (backendId != backendId_ || generation != generation_ ||
         assignment.backendId != backendId_ ||
         assignment.backendGeneration != generation_ ||
@@ -232,7 +237,10 @@ bool PinnedMediaImportAgentExecutor::authorize(
         assignment.verificationPolicy != "reconciliation_required" ||
         assignment.commandType != kMediaImportCommandType ||
         !backendAgentCommandValidAssignment(assignment) ||
-        !parseMediaImportSelection(assignment.payload, sourceId) ||
+        !parseMediaImportSelection(
+            assignment.payload, sourceId, approveVideoReencode) ||
+        assignment.payloadVersion !=
+            mediaImportSelectionVersion(approveVideoReencode) ||
         !authorization_.granted(assignment))
         return false;
 
@@ -252,6 +260,7 @@ bool PinnedMediaImportAgentExecutor::authorize(
     pendingFingerprint_ = assignment.requestFingerprint;
     pendingSource_ = local;
     pendingSourceValid_ = true;
+    pendingApproveVideoReencode_ = approveVideoReencode;
     return true;
 }
 
@@ -261,6 +270,7 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
     // One-shot permit: even direct repeated calls never run the same handler.
     auto snapshot = std::move(pinned_);
     const auto approvedSource = std::move(pendingSource_);
+    const bool approvedReencode = pendingApproveVideoReencode_;
     const bool matching = pendingSourceValid_ &&
         snapshot && snapshot->bytesVerified() &&
         assignment.commandId == pendingCommandId_ &&
@@ -272,6 +282,7 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
     pendingFingerprint_.clear();
     pendingSource_ = {};
     pendingSourceValid_ = false;
+    pendingApproveVideoReencode_ = false;
     if (!matching) return MediaImportAgentOutcome::rejected;
     // Grab the kernel lock BEFORE rechecking installed approval, metadata,
     // and source identity. An exclusive maintainer cannot replace anything
@@ -294,8 +305,11 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         return MediaImportAgentOutcome::rejected;
 
     std::string sourceId;
+    bool requestedReencode = false;
     LocalMediaImportSource local;
-    if (!parseMediaImportSelection(assignment.payload, sourceId) ||
+    if (!parseMediaImportSelection(
+            assignment.payload, sourceId, requestedReencode) ||
+        requestedReencode != approvedReencode ||
         !inventory_.resolve(backendId_, sourceId, local) ||
         !safePath(local.sourceRoot) || !safePath(local.videoRoot) ||
         !safePath(local.sourceFile) ||
@@ -310,7 +324,7 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         return MediaImportAgentOutcome::rejected;
 
     return runPinned(snapshot->pinnedBinary.get(), local, assignment.deadline,
-                     *runLock, recordingEvidence_);
+                     *runLock, recordingEvidence_, approvedReencode);
 }
 
 std::string PinnedMediaImportAgentExecutor::takeRecordingEvidence()
