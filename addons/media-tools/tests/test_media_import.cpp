@@ -189,6 +189,32 @@ int main() {
         ++checks;
     }
     {
+        // Rectools workflow markers are persistent queue states: desktop
+        // HandBrake delegation, explicit skip and duplicate. A source must
+        // never enter the VDR import flow just because the media extension
+        // after the marker is otherwise supported.
+        for (const auto& name : {"Sample.pc_encode.mp4", "Sample.PC_ENCODE.mp4",
+                                 "Sample.skipped.mp4", "Sample.duplicate.mp4",
+                                 "Sample.pc_encode.mkv"}) {
+            Fixture f;
+            const fs::path deferred = f.input / name;
+            fs::rename(f.source, deferred);
+            const auto before = fs::file_size(deferred);
+            auto request = f.request();
+            request.sourceFile = deferred;
+            mustFail([&] { inspectImport(request); });
+            assert(fs::exists(deferred) && fs::file_size(deferred) == before);
+            assert(!fs::exists(f.video / "Sample"));
+        }
+        Fixture f;
+        const auto normal = f.input / "Sample.pc_encoder.mp4";
+        fs::rename(f.source, normal);
+        auto request = f.request();
+        request.sourceFile = normal;
+        assert(inspectImport(request).sourceFile == normal);
+        ++checks;
+    }
+    {
         Fixture f;
         auto r = f.request();
         r.sourceFile = f.video / "intruder.mp4";
