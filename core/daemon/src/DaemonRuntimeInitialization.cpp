@@ -211,8 +211,8 @@ bool DaemonRuntime::tryReconcileMediaShrinkStage(
         op.actionFamily != "media.shrink.stage" ||
         op.resourceType != "Recording" ||
         !shrinkOpaqueId(op.resourceId, "rec_") ||
-        op.state != State::outcomeUnknown &&
-            op.state != State::succeeded)
+        (op.state != State::outcomeUnknown &&
+         op.state != State::succeeded))
         return false;
     if (op.state == State::succeeded &&
         op.resultReference != result.resultEvidence)
