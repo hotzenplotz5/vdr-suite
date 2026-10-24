@@ -40,6 +40,20 @@ int main(int argc, char* argv[]) {
                       << "IMPORT_STATUS=PLAN_ONLY\n";
             return 0;
         }
+        if (!localReencode) {
+            // Fail before copying gigabytes into private staging. The
+            // executor repeats this check on the immutable staged snapshot
+            // in case the source or codec changes after the plan.
+            NativeProcessRunner preview(std::chrono::seconds(30));
+            const auto codec = probeImportVideoCodec(plan, preview);
+            if (importVideoNeedsReencode(codec)) {
+                std::cout << "VIDEO_CODEC=" << codec << "\n"
+                          << "VIDEO_REENCODE_REQUIRED=YES\n"
+                          << "IMPORT_STATUS=DECISION_REQUIRED\n"
+                          << "SOURCE_PRESERVED=YES\n";
+                return 3;
+            }
+        }
         NativeProcessRunner runner;
         const auto result = executeRemuxImport(
             plan, runner, requireProductionCapacity, localReencode);
