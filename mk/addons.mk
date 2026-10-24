@@ -4,6 +4,7 @@
 check-addon-contract:
 	python3 tools/addons/addon_contract.py check
 	python3 -m unittest discover -s tools/addons -p 'test_addon_contract.py'
+	python3 -m unittest discover -s tools/addons -p 'test_stage_media_tools_runtime.py'
 
 check-addon-deb:
 	python3 -m unittest discover -s tools/addons -p 'test_addon_deb.py'
