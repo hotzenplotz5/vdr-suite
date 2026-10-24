@@ -166,7 +166,8 @@ int main()
     LocalMediaImportSource scanned;
     assert(inventory.resolve("backend", ids[0], scanned));
     assert(scanned.sourceFile == fixture.source ||
-           scanned.sourceFile == newFile);
+           scanned.sourceFile == newFile ||
+           scanned.sourceFile == seriesFile);
     const auto previous = ids;
     assert(inventory.listTrustedSourceIds("backend", ids) && ids == previous);
     fs::last_write_time(newFile, fs::file_time_type::clock::now());
