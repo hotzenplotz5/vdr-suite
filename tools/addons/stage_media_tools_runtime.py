@@ -67,10 +67,11 @@ def verify_media_tools_stage(stage: Path, approved_sha256: str) -> dict:
             "approved_handler_sha256", "files"} or record["schema"] != 1 or
             record["module"] != "rectools" or
             not isinstance(record["prepared_source_sha"], str) or
-            not re.fullmatch(r"[0-9a-f]{40}", record["prepared_source_sha"]) or
-            record["approved_handler_sha256"] != approved_sha256):
+            not re.fullmatch(r"[0-9a-f]{40}", record["prepared_source_sha"])):
         raise ValueError("Media Tools inventory identity/schema mismatch")
-    if (module.get("state") != "scaffold" or
+    if record["approved_handler_sha256"] != approved_sha256:
+        raise ValueError("Media Tools inventory handler approval mismatch")
+    if (not isinstance(module, dict) or module.get("state") != "scaffold" or
             record["version"] != module.get("version") or
             record["package"] != module.get("package")):
         raise ValueError("Media Tools staged metadata and version differ")
