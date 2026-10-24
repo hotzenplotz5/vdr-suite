@@ -1,16 +1,16 @@
 # MT — Media Tools: Installation, Import und Aufnahmeaktionen
 
-**Datum:** 24.10.2026 — **Status:** MT.I0-Quellinventur dokumentiert; MT.I1-Quell-/Vertragsregressionen im CI-Run #798 bestanden (Code-SHA `f07f6cdb`, weitere Staging-/Integrationsjobs nicht als abgeschlossen behauptet); MT.I2–I5 und MT.UX0–UX7 offen; keine Live-Abnahme.  
+**Datum:** 25.10.2026 — **Status:** MT.I0-Quellinventur dokumentiert; MT.I1 auf Quellen-, Staging- und CI-Ebene abgeschlossen (vier von vier Jobs erfolgreich, Code-/Test-SHA `bfa8b6574831f923d8864c03d8bae523a72fa9aa`, [Actions #40139416273](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40139416273)); MT.I2–I5 und MT.UX0–UX7 offen; keine Live-Abnahme.  
 **Owner:** `addons/media-tools/` in `hotzenplotz5/vdr-suite`.  
 **Branch:** nur `work/addon-platform-registry-lifecycle`; kein neues Repo, kein Nebenbranch, keine nummerierte VDR-Suite-Phase 70.  
 **Bestehende Grenzen:** [Add-on-Plattform-Roadmap](../../docs/planning/addon-platform-roadmap.md), dort A6/A7.5 und M1.R (Import/HandBrake/Überspringen).
 
-## Fortschritt und Nachweise (24.10.2026)
+## Fortschritt und Nachweise (25.10.2026)
 
 | Slice | Tatsächlich erreicht | Noch nicht nachgewiesen |
 | --- | --- | --- |
 | MT.I0 | [Belegte Quell-/Hostmatrix](INSTALLATION-BASELINE.md) für Stages, Handler-Trust, Installer, `debian/`, feste Pfade/Build-Abhängigkeiten und bewusst unbekannte Distributionswerte; Dokumentationscommit `7a143a1d`. | Keine neue read-only-Abfrage des produktiven Hosts; keine Laufzeit- oder Distributionsfreigabe. |
-| MT.I1 | Bestehender Composer schreibt eine versions-/paket-/rollenbezogene Datei- und Hash-Inventur in **dieselbe** Suite+Media-Tools-Stage; read-only `--verify-stage` mit unabhängigem Handler-SHA256; synthetische Regressionen für unveränderten Input, Vollständigkeit und mutierten/resealed Worker; Commits `c76d191c`, `62802b2c`, CI-Eintrag `cf847274`. | **UNIT/CONTRACT PASS:** 6 gezielte Stage-Regressionen und `media-tools-trust-gate` auf `f07f6cdb608468e1d49768f239cf4d02a2a987be`, [Actions #798](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40135741516); weitere `frontend-install-staging`-/`addon-platform`-Jobs beim Nachweis noch laufend, also **PRODUCTION-INTEGRATION NOT_VERIFIED**, **REAL-VDR NOT_VERIFIED**. `~cpppreview1` und `debian/` konsumieren die neue Inventur noch nicht (MT.I4). |
+| MT.I1 | **QUELLE/STAGING/CI ABGESCHLOSSEN:** Der vorhandene Composer ergänzt dieselbe Suite+Media-Tools-Stage um eine rollen-/versionsbezogene Datei- und Hash-Inventur; read-only `--verify-stage` mit unabhängig geprüftem Handler-SHA256. Sechs isolierte Stage-Regressionen (unveränderter Input, Vollständigkeit, mutierter/resealed Worker, falscher Approval-Digest) und alle vier GitHub-Actions-Jobs sind erfolgreich: `media-tools-trust-gate`, `frontend-install-staging`, `frontend-regression-test`, `addon-platform`, Code-/Test-SHA `bfa8b6574831f923d8864c03d8bae523a72fa9aa`, [Actions #40139416273](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40139416273). Drei zuvor überholte Agent-/Runtime-Test-Fixture-Stagingannahmen wurden in zwei Tests an den bereits bestehenden `libexec`-Metadatenbegleiter angepasst (`7440d648`, `98fffdb4`, `bfa8b657`); produktiver Agent und Stage-Vertrag dafür unverändert. | **REAL-VDR/INSTALL NOT_VERIFIED**: kein produktives Deployment, kein Nutzer-/Grant-/Dateirechte-Eingriff. Paketgenerator `~cpppreview1` und `debian/` verwenden das neue Inventar noch nicht; identische `.deb`-Paketpayloads, Migrationen und Update-/Rollback-Verhalten sind MT.I2/MT.I4 und ausdrücklich **nicht** MT.I1-abgenommen. Stage-Seal ist keine digitale Signatur und ersetzt keine unabhängige Zulassung. |
 | MT.I2–MT.I5, MT.UX0–UX7 | Keine Umsetzung in diesem Arbeitsschritt. | Manuelles Update/Rollback, Hostadapter, .deb-Parität, Live-/UI-Abnahme vollständig offen. |
 
 **Komponentenänderung:** `stage_media_tools_runtime.py` und sein vorhandener
