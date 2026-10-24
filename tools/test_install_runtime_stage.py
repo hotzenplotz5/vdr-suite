@@ -42,6 +42,15 @@ def run(*args: str, expect: int = 0) -> subprocess.CompletedProcess[str]:
 
 
 def main() -> int:
+    # Keep the production make stage contract in this deployment regression.
+    # A restrictive operator umask must not create a private Suite metadata
+    # ancestor that the unprivileged Agent cannot traverse.
+    make_source = (Path(__file__).resolve().parents[1] / "mk/install.mk").read_text()
+    public_install = "$(INSTALL) -d -m 0755 $(DESTDIR)$(DATADIR)"
+    frontend_install = "$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend"
+    assert make_source.count(public_install) == 1
+    assert make_source.index(public_install) < make_source.index(frontend_install)
+
     with tempfile.TemporaryDirectory(prefix="vdr-suite-runtime-deploy-test-") as tmp:
         root = Path(tmp)
         stage = root / "stage"
