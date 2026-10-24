@@ -189,8 +189,20 @@ int main() {
     const auto legacyPlan = inspectImport({
         fixture.input, fixture.video, legacySource
     });
+    // Codec preview is read-only; a stock Agent request cannot authorize
+    // this VP9/Opus video transcode. The source must remain untouched.
+    assert(probeImportVideoCodec(legacyPlan, runner.tools) == "vp9");
+    assert(importVideoNeedsReencode("vp9"));
+    bool blockedWithoutApproval = false;
+    try {
+        (void)executeRemuxImport(legacyPlan, runner,
+                                [](const ImportPlan&) {});
+    } catch (const std::exception&) {
+        blockedWithoutApproval = true;
+    }
+    assert(blockedWithoutApproval && fs::file_size(legacySource) == legacyLength);
     const auto converted = executeRemuxImport(
-        legacyPlan, runner, [](const ImportPlan&) {});
+        legacyPlan, runner, [](const ImportPlan&) {}, true);
     assert(fs::exists(converted / "index") &&
            fs::exists(converted / "00001.ts") &&
            fs::file_size(legacySource) == legacyLength);
