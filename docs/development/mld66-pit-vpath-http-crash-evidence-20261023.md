@@ -95,6 +95,19 @@ This **confirms the missing setting, the prerequisite for the source-confirmed i
 
 **Crash correlation remains OPEN.** Pit says repeated VDR restarts arise ~4 minutes after full Suite installation, while SuiteBridge-only is stable. A daemon-triggered RESTfulAPI recording request may exercise the proven loop, but no watchdog/core/kernel signature has been supplied that proves it causes the restarts. A log line in kernel facilities is not itself proof of a kernel panic. Require the first original fault/watcher reason before assigning root cause or claiming stability.
 
+## 2026-10-24 — TVScraper maintainer confirms `GetEnvironment` ownership contract
+
+MarkusE points out the public scraper plugin service `GetEnvironment`: its `cEnvironment` structure has `basePath`, `seriesPath` and `moviesPath`; both TVScraper and scraper2vdr are intended providers. Independently inspected actual [TVScraper implementation](https://github.com/MarkusEh/vdr-plugin-tvscraper/blob/master/tvscraper.c): on `GetEnvironment`, the plugin sets `basePath = config.GetBaseDir()`, `seriesPath = config.GetBaseDirSeries()` and `moviesPath = config.GetBaseDirMovies()`. TVScraper defaults its base path to `cPlugin::CacheDirectory(PLUGIN_NAME_I18N)` if not configured via `--dir`, **not** an assumed fixed path. `config.c` creates subdirectories under the configured base directory.
+
+**Distinguish two ownership domains:**
+
+- `Settings::EpgImageDirectory()` / the RESTfulAPI default `/var/cache/vdr/epgimages`: legacy external EPG image source, not a mandatory TVScraper output path.
+- The scraper's dynamically reported `GetEnvironment.basePath` and children: the correct authoritative image root for media returned by that plugin, including nondefault `--dir`.
+
+The pinned RESTfulAPI revision `79f9bd2` does **not** contain a `cEnvironment` definition in its bundled `scraper2vdr/services.h`, does **not** call `GetEnvironment`, and incorrectly uses the legacy EPG image root both to normalize scraper-returned paths in `Scraper2VdrService::cleanImagePath()` and to serve `/scraper/image/` in `ScraperImageResponder::reply()`. Therefore **the staged empty-root patch fixes the infinite-loop precondition but cannot on its own guarantee correct poster/fanart URLs or image delivery**. In particular, silently reinterpreting TVScraper's base as the external EPG image directory is not safe/compatible.
+
+**Separate follow-up (not yet implemented or tested):** update RESTfulAPI's scraper-provider adapter to use `GetEnvironment` where available; normalize image paths relative to that provider root and serve only paths confined within that root (never arbitrary absolute paths or `..` traversal); preserve separately configured legacy EPG images and support absence of either source without hanging. Account for absence of `GetEnvironment` on older plugins without assuming one universal location. Validate actual TVScraper URL and image behavior, not merely JSON HTTP 200, in a native MLD build. Keep the source-level empty-path guard. Do **not** make EPG image directory creation or symlinks the mandatory fix, and do not force a TVScraper-specific default on Ubuntu.
+
 ## Independent recording-read blocker
 
 ```text
