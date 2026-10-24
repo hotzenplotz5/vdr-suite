@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 stop() { printf 'MEDIA_TOOLS_INSTALL=STOP %s\n' "$*" >&2; exit 1; }
 if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
-  echo 'Usage: install_media_tools.sh EXPECTED_COMMIT REVIEWED_HANDLER_SHA256 BACKEND_ID SOURCE_ROOT VIDEO_ROOT'
+  echo 'Usage: install_media_tools.sh COMMIT (--prepare|REVIEWED_SHA256) BACKEND SOURCE_ROOT VIDEO_ROOT [PREPARED_WORKDIR]'
   exit 0
 fi
 if [ "$#" -ne 5 ] && [ "$#" -ne 6 ]; then
