@@ -245,5 +245,27 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         assert sorted(live.rglob("*")) == before
 
 
+    def test_mt_i2_prepared_reuse_validates_all_existing_workers(self):
+        from media_tools_install_preflight import prepared_state, PreflightError
+        import subprocess
+        target = self.work / "stage-with-media-tools"
+        MODULE.compose(self.work, target, self.hash)
+        before = (target / MODULE.INVENTORY_REL).read_bytes()
+        state = prepared_state(self.work, self.hash)
+        assert state["prepared"] == "verified_existing_artifacts"
+        assert state["build"] == "REUSED_NO_COMPILATION"
+        command = ["bash", str(HERE / "install_media_tools.sh"),
+                   "prepare", str(self.work), self.hash]
+        result = subprocess.run(command, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        assert "MEDIA_TOOLS_PREPARED_REUSE=PASS" in result.stdout
+        assert (target / MODULE.INVENTORY_REL).read_bytes() == before
+        worker = self.work / "build/addons/vdr-suite-media-check"
+        worker.write_bytes(worker.read_bytes() + b"modified")
+        with self.assertRaisesRegex(PreflightError, "prepared worker diverges"):
+            prepared_state(self.work, self.hash)
+
+
+
 if __name__ == "__main__":
     unittest.main()
