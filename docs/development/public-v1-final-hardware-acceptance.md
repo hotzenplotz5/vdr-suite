@@ -81,8 +81,12 @@ wurde dadurch **nicht** erbracht.
   [CI #11054](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40084664261)
   (separater Runner-/OpenAPI-Fix) mit jeweils **6/6 erfolgreichen Jobs**
   abgeschlossen. [API-v1-Acceptance Runner #64](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40084664255)
-  ist für den Fix-HEAD ebenfalls **SUCCESS**. Beide PRs sind noch Draft,
-  nicht nach `main` gemergt. Die GitHub-Commit-Statusabfrage allein
+  ist für den damaligen Fix-HEAD ebenfalls **SUCCESS**.
+  [PR #537](https://github.com/hotzenplotz5/vdr-suite/pull/537) ist
+  nach vollständigem final-head CI **gemergt**; `main` enthält die
+  Runner-/OpenAPI-Korrektur seit `24ae37888a810b2058ff8181b680e850e9f4c9d1`.
+  Der separate Matrix-[PR #536](https://github.com/hotzenplotz5/vdr-suite/pull/536)
+  ist noch nicht integriert. Die GitHub-Commit-Statusabfrage allein
   belegt weiterhin keine weiteren nicht gelisteten CI-Gates. Ein CI-PASS
   ersetzt keine REAL-VDR- oder installierte Build-Evidenz.
 - `REAL-VDR`: Ergänzend zu den älteren historischen Proben sind akzeptiert:
@@ -153,25 +157,20 @@ als frische Source-Fehlerdiagnose oder Erfolg zu werten.
    Finales Freigabeprotokoll verlangt exakte Candidate-/CI- und
    REAL-VDR-Belegkette, nicht nur HTTP 200.
 
-**Source-Korrektur an echter Abnahmeabweichung:** Separater Draft
-[PR #537](https://github.com/hotzenplotz5/vdr-suite/pull/537) am
-HEAD `e4d9976840823b39fb7af2bec27de7bf38932f28`
-gleicht den read-only Acceptance-Runner an historische persistierte
-Operation-IDs an, ohne das neue `op_`-Ausgabeformat oder den produktiven
-Daemon zu ändern. Neue und historische sichere ID-Fixtures (bis 160
-ASCII-Bytes), negatives `161`-/Query-/Pfadverhalten und insbesondere
-die gefährlichen eigenständigen Pfadsegmente `.` und `..` sind durch
-OpenAPI-/Runner-/README-Abgleich gedeckt;
-[Runner CI #66](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40086067582)
-**SUCCESS**. [Source-CI #11054](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40084664261)
-war für den vorausgehenden Code-HEAD grün; für den letzten
-Pfadsegment-Test-Fix läuft die neue exakte
-[Source-CI #11057](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40086067554)
-und ist vor Merge als gesondertes Gate zu beurteilen.
-Diese Offline-Korrektur bestätigt **keine** unbekannte
-historische Operation und begründet **keine** erneute Hardware-Probe.
-Vor Release den getrennten Fix nach Review in den gemeinsamen Kandidaten
-integrieren; derzeit hat `main` den Fix **noch nicht**.
+**Source-Korrektur an echter Abnahmeabweichung:** 
+[PR #537](https://github.com/hotzenplotz5/vdr-suite/pull/537)
+wurde aus HEAD `e4d9976840823b39fb7af2bec27de7bf38932f28`
+nach erfolgreicher
+[Runner-CI #66](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40086067582)
+und [Source-CI #11057](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40086067554)
+in `main` gemergt (Merge `24ae37888a810b2058ff8181b680e850e9f4c9d1`).
+Damit unterstützt der read-only Acceptance-Runner historische persistierte
+Operation-IDs bis 160 ASCII-Bytes ohne Änderung des produktiven Daemons
+oder des `op_`-Neuausgabeformats. Die negativen Grenzen (161 Zeichen,
+Pfad-/Query-Zeichen sowie eigenständiges `.` und `..`) sind durch
+Offline-Regressionsfälle geprüft; OpenAPI und README sind abgeglichen.
+Diese Korrektur bestätigt **keine** unbekannte historische Operation
+und begründet **keine** erneute Hardware-Probe.
 
 **OpenAPI-Deckung (Source-Inventar):** Alle **27/27** im bestehenden
 `tools/api-v1-acceptance/cases.py`-Runner erforderlichen Routen
