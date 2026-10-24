@@ -628,7 +628,8 @@ bool DaemonRuntime::initialize()
             // A remote Agent observation cannot approve itself; Core never
             // inspects the remote handler via its own local filesystem.
             if (!trustedMediaToolsProvider(backendId, now) ||
-                !mediaImportCatalog_->list(*live, backendId, now, result.ids))
+                !mediaImportCatalog_->list(
+                    *live, backendId, now, result.ids, result.labels))
                 return result;
             result.status = API::MediaImportSourceStatus::ok;
             return result;
