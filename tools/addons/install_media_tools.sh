@@ -220,10 +220,16 @@ if [ "$MODE" = prepare ]; then
   echo 'INSTALL_REQUIRES_INDEPENDENT_APPROVAL=YES'
   exit 0
 fi
-# Verify sealed overlay and its exact pinned handler bytes BEFORE any live
-# service stop; no package manager and no compilation are involved.
-python3 tools/install_runtime_stage.py check --stage-root "$STAGE" --live-root / \
-  >/dev/null 2>&1 && stop "already deployed; refuse blind reinstall"
+# Verify the complete seal independently of the live system BEFORE any
+# service stop, install, backup or approval mutation.
+python3 - "$STAGE" <<'PY' || stop "prepared sealed runtime invalid"
+import pathlib, sys
+sys.path.insert(0, "tools")
+from install_runtime_stage import load_manifest, verify_sealed_stage
+root = pathlib.Path(sys.argv[1])
+verify_sealed_stage(root, load_manifest(root))
+print("PREPARED_RUNTIME_SEAL=PASS")
+PY
 [ -f "$STAGE/usr/share/vdr-suite/addons/rectools/addon.json" ] ||
   stop "addon metadata missing from sealed stage"
 [ "$(sha256sum "$STAGE/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import" | cut -d' ' -f1)" = "$APPROVED" ] ||
