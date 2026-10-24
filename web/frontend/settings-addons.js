@@ -106,7 +106,7 @@
         toggle.textContent = result.desiredEnabled ? 'Deaktivieren' : 'Aktivieren';
       }).catch(function (error) {
         details.textContent = '';
-        if (error.httpStatus === 403) {
+        if (error.httpStatus === 401 || error.httpStatus === 403) {
           // No role.admin grant: no visible administration controls.
           card.hidden = true;
           status.textContent = '';
