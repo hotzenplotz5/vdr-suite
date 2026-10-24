@@ -16,6 +16,127 @@ Diese Checkliste ist der **einzige operative Hardware-Abnahmeplan** für API v1.
 | Reales yaVDR | Die untenstehenden bestehenden GET-/Security-/SQLite-Read-only-Teilnachweise gelten mit ihrer jeweiligen installierten Build-Identität; ein früher eng begrenzter EPG/Recording-Hardwarefall ist separat historisch akzeptiert | Kein Deployment des gemeinsamen Kandidaten nachgewiesen; 30 PASS / 7 SKIP / 17 BLOCKED der älteren GET-Probe bleiben unberührt; vier `outcome_unknown`-Operationen nicht erneut ausführen |
 | Offen/blockiert | Finaler einheitlicher Release-Kandidat, Browser↔Device/VIDAA-Playback, vollständige echte Operationen/Readbacks, sichere SearchTimer CREATE Freigabegrenze, Agent-Boot/Recovery | Keine produktiven Mutationen, kein Neustart, keine DB-Reparatur ohne eigene Freigabe; diese **eine** Matrix bleibt maßgeblich |
 
+## Abgleich der bereits akzeptierten yaVDR-Evidenz (24.10.2026; noch keine Gesamtfreigabe)
+
+**Quellprovenienz:** Der geprüfte und auf dem yaVDR installierte Produkt-SHA ist
+`463275be53e05db2fd5f09b02d3c98648e82cec0`; GitHub-`main` steht
+bei `9cf93fc231fd34be4732caa9d83ae9be843e4e8b` (sechs nachfolgende
+Commits; keine Divergenz). Der Versionsstring `0.14.1` identifiziert keinen
+Build. Die separate installierte Binäridentität war zuvor nachgewiesen; die
+Übertragung dieser Identität auf den neueren `main` ist **nicht** bewiesen.
+
+**Änderungswirkung des sechs-Commit-Deltas:** (a) `mk/install.mk` liefert
+`api/session-frontend-sync.js`, `platform/public-url.js` und
+`home-recording-discovery.js` künftig mit; die drei Dateien waren auf
+dem manuellen yaVDR-Install bereits bytegenau mit dem geprüften SHA verglichen
+(3/3 PASS), sodass fehlende `dpkg-query`-Eigentümerschaft **kein Fehler** ist.
+(b) `web/frontend/tests/test_live_tv_eof_recovery.js` prüft nun die
+Produktiv-Bundle-Reihenfolge und installierte HTML-Script-Abhängigkeiten; das
+Session-Modul wird über `channel-day-program.js` eingebunden, nicht zusätzlich
+als eigenes HTML-Script. (c) `SuiteBridgeLocalControlTransport` meldet
+`VideoDirectory` auf dem lokalen Socket explizit als unverfügbar, weil
+`VPATH 1` den SVDRP-Transport voraussetzt, und besitzt eine gezielte
+Unit-Regression; **der wirkliche SVDRP-Fallback ist dadurch nicht belegt**.
+(d) unbenutzte Helper für NativeTimerDeleteAssignment wurden entfernt;
+die Klammerung einer bestehenden Deadline-Bedingung verändert ihre Semantik
+nicht. Die alten API-Read-PASS sind davon nicht pauschal entwertet.
+Für die geänderten C++-/Transport- und Frontend-Installationsflächen fehlen
+im vorliegenden Protokoll noch **exakte aktuelle Source-CI-/Staging-Belege**.
+Kein impliziter Daemon-/VDR-Build oder Deployment.
+
+**Getrennte Evidenzebenen, ohne überlappende Fallzahlen zu addieren:**
+
+- `UNIT/CONTRACT`: Frühere API-v1-Vertragsbaseline 19/19 PASS und
+  sieben fokussierte Blöcke mit insgesamt 59 PASS wurden akzeptiert;
+  diese Zahlen können sich überschneiden. Operation-ID: kompatible
+  unbekannte ID `op_invalid` -> HTTP 404; 161 Zeichen -> HTTP 400,
+  **2 PASS, 0 FAIL**. Bereits persistierte historische Operations-IDs
+  bis 160 Zeichen bleiben gültig; der neue ID-Ausgabeformatvertrag darf
+  nicht rückwirkend als Parserzwang gelten.
+- `PRODUCTION-INTEGRATION`: Installierte Daemon-Quellidentität zuvor
+  separat geprüft; drei benannte manuell installierte Frontend-Dateien
+  **3/3 bytegenau PASS**. Dies ersetzt weder einen kanonischen
+  `RUNTIME_DEPLOYMENT_MATCH=YES`-Nachweis für den *neuen* Kandidaten
+  noch das komplette Browser-/Agent-/Client-Ende-zu-Ende.
+- `CI`: Frühere erfolgreiche exakt gepinnte PR-#526-Läufe bleiben
+  gültig für ihre damalige Source-Eingabe. Für den jetzigen
+  `9cf93fc...`-`main` wurde hier noch **kein vollständiger,
+  nachweislich erfolgreicher passender CI-Graph** akzeptiert; eine leere
+  Commit-Statusantwort ist *kein* CI-PASS. Kein Wiederaufbau allein
+  wegen Dokumentationsänderungen.
+- `REAL-VDR`: Ergänzend zu den älteren historischen Proben sind akzeptiert:
+  Device-Lifecycle, ETag/304, ohne Auth/401; Human Credential und Session
+  Collection/Detail/304; Pending Pairings (0); Admin-Login/Logout:
+  **12 PASS / 0 FAIL / 0 SKIP / 0 BLOCKED**. Playback-Account-Zuordnung
+  des bereits gepaarten Hisense (Inventar, GET 200, JSON, no-store,
+  nosniff, 401/400/404): **11 PASS / 0 FAIL / 0 BLOCKED**.
+  **Kein verknüpfter Human Account** ist zulässiger Ist-Zustand,
+  kein Fehler und kein Auftrag zur Account-Mutation. Ubuntu-SVDRP
+  `LSTT`: **0 reale Timer**; Public-v1 `native-timers` für
+  `default`: **0 Timer**, **Abgleich PASS**, Admin-Login/Logout
+  PASS. Ein nicht vorhandener Timer kann kein Timer-Detail-/ETag-Fixture
+  ersetzen. Frühere Discovery/Capabilities, Channels/EPG,
+  EPG-/Recording-Suche, reale Artwork-Bytes, TimerAssignments,
+  Grants/ETags und negative Auth-/Backend-GET-Prüfungen bleiben akzeptiert.
+  Die ursprüngliche 30-PASS/7-SKIP/17-BLOCKED-Matrixprobe ist
+  **nicht** der aktuelle kumulative Abschlussstatus.
+
+**Historische Operations und Persistenz:** Vier `outcome_unknown`
+(2x SearchTimer CREATE, 1x TimerAssignment/native CREATE,
+1x NativeTimerBinding TOGGLE), sieben wechselseitig konsistente
+bound/managed-Bindings und zwei `expected_transition` mit
+`missing_since` bleiben wie zuvor klassifiziert. Das historische
+native TOGGLE-Agent-Result enthält **keine typisierte
+No-Effect-Evidenz** (Result-Evidence leer/NULL) und darf nicht aus
+generischem `not_started / verified / rejected / fenced`
+rekonstruiert werden. Kein Redispatch, keine automatische Recovery,
+keine künstlich ergänzten Resultate, keine direkte SQLite-Reparatur.
+Ein neues identisches SQLite-Aggregat ist **nicht** erforderlich.
+Diese Altzustände sind ohne autoritative Evidenz **BLOCKED**, nicht
+als frische Source-Fehlerdiagnose oder Erfolg zu werten.
+
+**Entscheidungsabhängigkeiten bis zur Releasefreigabe:**
+
+1. Exakten **gemeinsamen Produktkandidaten** nach Source-/CI-/Kompositions-
+   und Installationsprüfung festlegen; geänderte Frontend-/Transportflächen
+   fokussiert validieren, akzeptierte unveränderte Read-Tests nicht erneut
+   ausführen. Der neue `main` ist *Source-Kandidat*, nicht automatisch
+   der laufende Build.
+2. **SearchTimer CREATE**: Der One-shot RESTfulAPI-Provider-Write
+   mit SQLite-CAS, vollständigem Inventar und Readback hat weiterhin
+   **keine native epgsearch-lock-atomare CREATE-CAS-Semantik**.
+   Empfehlung: diese Garantie **nicht** für Public-v1 behaupten;
+   für eine atomare Gesamtfreigabe entweder native CAS-CREATE implementieren
+   oder CREATE technisch und vertraglich aus dem freigegebenen Umfang
+   ausnehmen. Die Wahl ist vor Mutationsabnahme ausdrücklich zu genehmigen.
+   UPDATE/ACTIVATE/DEACTIVATE/DELETE sind separat am gepatchten nativen
+   Provider nachzuweisen.
+3. Hardware-Mutationen erst **nach** Identität/Backup/Restore- und
+   Freigabeentscheidung für genau bezeichnete harmlose Testobjekte.
+   Danach echte TimerIntent-, NativeTimer-, TimerAssignment-,
+   SearchTimer- und Recording-Aktionen einschließlich persistierter
+   Operation-/Replay-/Konflikt-Readbacks gegen autoritative
+   VDR-/SuiteBridge-/epgsearch-Wahrheit. Kein Eingriff in vorhandene
+   Timer, Aufnahmen oder Regeln.
+4. **VIDAA E2E:** Die vorhandenen 1.895 positiven historischen
+   Device-SecurityGate-Ereignisse sind gültige Auth-Evidenz, aber
+   keine HTTP-Payload-/Live-TV-/Recording-/Track-/Resume-Bestätigung.
+   Für frische Device-HTTP-Anfragen ein vom **TV selbst** ausgeführter,
+   autorisierter Request; kein Admin-Cookie als Device-Credential,
+   keine Secret-Extraktion/Rotation/Neukopplung. Human↔Device-Resume
+   nur bei separat erlaubter Account-Zuordnung.
+5. Negativ-, Parallelitäts-, Restart-, Recovery- und Rollbackfälle
+   pro tatsächlich unterstütztem Schreibvertrag, einschließlich
+   Ausfall vor/nach Backend-Write, bleiben mit Source-/Hardwarebelegen
+   zu schließen; alte Unknowns sind kein geeignetes Test-Fixture.
+   Finales Freigabeprotokoll verlangt exakte Candidate-/CI- und
+   REAL-VDR-Belegkette, nicht nur HTTP 200.
+
+**Safety Gate:** `RELEASE=BLOCKED` bis diese externen Entscheide
+und produktiven Pfadnachweise vorliegen. Keine Installation, kein Build,
+kein VDR-Neustart, keine Mutation und keine Account-Verknüpfung durch
+diese Dokumentationsfortschreibung.
+
 ## 0. Vorbedingung: Der Implementierungsumfang ist geschlossen
 
 Alle Kästchen dieses Abschnitts müssen vor dem ersten realen VDR-Mutationstest abgehakt sein. Ein vorhandener Branch, ein grüner Unit-Test oder eine syntaktisch vorhandene Route gilt **nicht** als integrierte Funktion.
@@ -127,17 +248,17 @@ Diese Tabelle dokumentiert bereits vorhandene **produktive Read-only-Evidenz**, 
 
 **Source-/Recovery-Grenze:** Ein nichtleeres commandgebundenes Agent-Result wäre nur ein Kandidat für die spätere vollständig typisierte C++-Validierung. Das historische generische Ergebnis ist nicht nachträglich als typisierte Evidenz umzudeuten. `NativeTimerModifyProductiveRuntime.cpp` übergibt ein persistiertes evidenzfreies `outcome_unknown` zwar weiterhin an `applyDurableNativeTimerModifyResult()`, doch dessen erster Evidenz-Parser-Guard liefert `invalidEvidence` ohne `applyOutcome`, ohne Binding-Update und ohne Readback-Completion. An der installierten Runtime wurde nichts verändert. Der Offline-Test simuliert zusätzlich `result_evidence=NULL` und prüft den BLOCKED-Status sowie, dass keine privaten IDs ausgegeben werden. Der aktuelle native VDR-Timerzustand bleibt separat und ausdrücklich **nicht verifiziert**. Die bereits erfolgreichen 30 HTTP-GET-Prüfungen werden nicht erneut angestoßen.
 
-## Eine zentrale Ergebnis-Matrix – erst am Tag der Endabnahme ausfüllen
+## Eine zentrale Ergebnis-Matrix – kumulativer Stand 24.10.2026 (keine Endfreigabe)
 
-| Bereich | Implementierung vorhanden | Exakte Source-CI | Realer VDR | Entscheidung / Beleg |
+| Bereich | Implementierung / UNIT-CONTRACT | CI / PRODUCTION-INTEGRATION | REAL-VDR (akzeptiert / offen) | Entscheidung |
 | --- | --- | --- | --- | --- |
-| Security / Pairing / Grants | offen | offen | nicht begonnen | |
-| Discovery / OpenAPI / SDK | offen | offen | nicht begonnen | |
-| EPG / Channels / Genres / Search | offen | offen | nicht begonnen | |
-| TimerIntent / TimerAssignment / Native Timer | offen | offen | nicht begonnen | |
-| SearchTimer Read / CREATE / UPDATE / TOGGLE / DELETE | offen | offen | nicht begonnen | |
-| Recording / Metadata / Artwork / Marks / Cut | offen | offen | nicht begonnen | |
-| Playback / Resume / Clients | offen | offen | nicht begonnen | |
-| Fehlerfälle / Neustart / Recovery / Rollback | offen | offen | nicht begonnen | |
+| Security / Pairing / Grants | Read-/Security-Contracts und P1-Playback-Account-Vertrag bestanden | CI am neuen Candidate nicht endgültig zugeordnet; Browser-/Device-Komposition gesondert | 12 Device-/Human-Lifecycle-PASS, 11 Playback-Account-PASS, 401/304 und historische 1.895 Auth-Gates; aktive Pairing-/Credential-Rotation-/Grant-Revocation-E2E offen | **TEIL-PASS**; Mutationen nur mit Freigabe |
+| Discovery / OpenAPI / SDK | Discovery/Capabilities und GET-Negative-Contracts bestanden | Exakte neue OpenAPI-/SDK-/Client-Vertragsparität nicht endabgenommen | Discovery/Backend-GET erfolgreich; kein komplett gepinnter Client-Endlauf | **TEIL-PASS** |
+| EPG / Channels / Genres / Search | Channels/EPG, EPG-/Recording-Suche und GET-/Paging-Verträge im akzeptierten Umfang bestanden | Geänderte Produktintegration gezielt prüfen | Reale GET-Fälle PASS; nicht geprüfte Randfälle bleiben offen | **TEIL-PASS** |
+| TimerIntent / TimerAssignment / Native Timer | GET/ETag/Grants und Operation-ID 404/400 PASS | Mutations-/Agent-/Native-Readback am gemeinsamen Candidate noch nicht endabgenommen | Native VDR `LSTT=0` entspricht Public-v1 `native-timers=0` (**PASS**); mangels Timer kein Detail-ETag; 7 konsistente historische Bindings, 2 erwartete Drifts, 1 CREATE unknown | **WRITE BLOCKED**, keine produktiven Fixtures genehmigt |
+| SearchTimer Read / CREATE / UPDATE / TOGGLE / DELETE | Leseseite und Einmal-Dispatch-Verträge; CREATE nur RESTfulAPI, **nicht native CAS-CREATE** | CREATE Mock-CI nicht Hardwarebeweis; produktive epgsearch-CAS-Kette und neuer HEAD offen | Reale Such-/Leseproben akzeptiert; 2 historische CREATE unknown; keine genehmigte Regelmutation | **WRITE / CREATE-SCOPE BLOCKED** |
+| Recording / Metadata / Artwork / Marks / Cut | GET-Metadaten/Artwork-Schema und Binär-/ETag-Vertrag bestanden | Install-/Frontend-Staging des neuen Candidate noch offen | Reale Recording-Metadaten/Artwork PASS; Aktionen, Marks/Cut nur nach Testobjekt-Freigabe | **READ TEIL-PASS, ACTIONS BLOCKED** |
+| Playback / Resume / Clients | P1 Account-GET-Vertrag bestanden, Client-Lifecycle teilweise abgedeckt | Bundle-/Install-Korrekturen im GitHub-`main`, volle VIDAA-Komposition nicht geprüft | Aktives Hisense gekoppelt, nicht mit Human verknüpft; 1.895 Auth-Gates historisch; Live-TV/Recording-Streams, Ton/Tracks, Sessions/Resume fehlen | **E2E BLOCKED** |
+| Fehlerfälle / Neustart / Recovery / Rollback | 304/401/400/404 und fehlerhafte Operations-ID PASS; Unknown-Quarantäne in Source behandelt | Restart/Crash/Replay/Native-Race und Rollback des Endkandidaten nicht vollständig bewiesen | Vier historische `outcome_unknown` bleiben unangetastet; kein freigegebener sicherer Produktiv-Restart/-Rollback | **TEIL-PASS / REST BLOCKED** |
 
 **Nicht als fertig markieren**, solange nur GitHub-Mocks laufen, ein Provider bloß ein Interface implementiert oder keine reale Autorisierung/Readback-Verkettung existiert. Keine separat erfundenen „S1a/S1b“-Abnahmephasen.
