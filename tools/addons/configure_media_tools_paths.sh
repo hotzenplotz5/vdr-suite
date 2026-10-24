@@ -12,7 +12,7 @@ if [ "$#" -eq 1 ] && [ "$1" = --help ]; then
 fi
 [ "$#" -eq 0 ] || [ "$#" -eq 2 ] || stop 'provide both paths or neither'
 [ "$(id -u)" -eq 0 ] || stop 'root required'
-for cmd in realpath stat sudo flock mktemp dpkg systemctl find grep; do
+for cmd in realpath stat sudo flock mktemp python3 systemctl find grep id getent; do
   command -v "$cmd" >/dev/null || stop "missing tool $cmd"
 done
 if [ "$#" -eq 0 ]; then
@@ -29,8 +29,24 @@ BACKEND=$(sed -n 's/^BACKEND_ID=//p' /etc/vdr-suite/backend-agent.conf | head -n
 # Do not interrupt an active/authorized Agent job: operator must stop it safely.
 systemctl is-active --quiet vdr-suite-backend-agent &&
   stop 'Backend Agent running; stop it safely before reconfiguration'
-dpkg -s vdr-suite-addon-media-tools 2>/dev/null |
-  grep -Fq 'Status: install ok installed' || stop 'Media Tools package not installed'
+# Installation evidence is Suite-owned; a Debian package is not required.
+# Reuse the existing root-owned approval/handler verifier, for both source
+# and packaged installations. Neither grants an execution capability.
+python3 - "$(dirname "$0")" <<'PY' || stop 'approved Media Tools handler missing'
+import pathlib, sys
+sys.path.insert(0, sys.argv[1])
+from admin_approval_evidence import examine
+result = examine(pathlib.Path("/"), "rectools")
+if not result.get("consistent"):
+    raise SystemExit("HANDLER_EVIDENCE=DENIED " + result.get("reason", "unknown"))
+print("HANDLER_EVIDENCE=PASS")
+PY
+AGENT_ACCOUNT=$(systemctl show -p User --value vdr-suite-backend-agent) ||
+  stop 'cannot inspect Agent service account'
+[[ "$AGENT_ACCOUNT" =~ ^[a-z_][a-z0-9_-]*[$]?$ ]] &&
+  [ "$AGENT_ACCOUNT" != root ] &&
+  id "$AGENT_ACCOUNT" >/dev/null 2>&1 ||
+  stop 'unrecognized Backend Agent service account'
 
 for dir in "$SOURCE" "$VIDEO"; do
   [[ "$dir" = /* && "$dir" != *$'\t'* && "$dir" != *$'\n'* ]] ||
@@ -44,8 +60,8 @@ done
 case "$SOURCE" in /home/*|/root/*|/run/user/*)
   stop 'source hidden by Backend Agent ProtectHome sandbox' ;;
 esac
-sudo -u vdr test -r "$SOURCE" || stop 'vdr cannot read source'
-sudo -u vdr test -w "$VIDEO" || stop 'vdr cannot write video root'
+sudo -u "$AGENT_ACCOUNT" test -r "$SOURCE" || stop 'Agent cannot read source'
+sudo -u "$AGENT_ACCOUNT" test -w "$VIDEO" || stop 'Agent cannot write video root'
 
 LEDGER_DIR=/etc/vdr-suite/addon-sources
 OVERRIDE_DIR=/etc/systemd/system/vdr-suite-backend-agent.service.d
