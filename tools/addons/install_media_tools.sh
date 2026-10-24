@@ -79,7 +79,7 @@ REMOTE=$(git rev-parse FETCH_HEAD) || stop "remote branch ref unavailable"
 git merge-base --is-ancestor "$SHA" "$REMOTE" ||
   stop "reviewed commit is no longer in official branch history"
 echo "OFFICIAL_BRANCH_HEAD=$REMOTE"
-for cmd in sudo make g++ python3 dpkg dpkg-deb sha256sum pkg-config realpath; do
+for cmd in sudo make g++ python3 dpkg-query sha256sum pkg-config realpath; do
   command -v "$cmd" >/dev/null || stop "missing dependency $cmd"
 done
 pkg-config --exists sqlite3 libcurl openssl || stop "development dependencies missing"
@@ -132,7 +132,11 @@ for shared in /usr/share/vdr-suite /usr/share/vdr-suite/addons; do
       stop "existing Suite metadata ancestor inaccessible to vdr: $shared (no permissions changed)"
   fi
 done
-dpkg -s vdr-suite-addon-media-tools 2>/dev/null | grep -Fq 'Status: install ok installed' && stop "existing installed package needs separate update procedure"
+# Never overlay files that are still owned by an older Debian add-on package.
+# First-time source installation has a separate, reviewed migration path.
+dpkg-query -W -f='${Status}' vdr-suite-addon-media-tools 2>/dev/null |
+  grep -Fxq 'install ok installed' &&
+  stop "existing Debian-owned Media Tools needs a separate migration, not an overlay"
 if [ "$SOURCE_CONFIGURED" -eq 1 ]; then
   sudo -u vdr test -r "$SOURCE" || stop "vdr source access denied"
 fi
@@ -180,15 +184,15 @@ if [ "$MODE" = install ]; then sudo -v || stop "sudo authentication failed"; fi
 if [ -n "$PREPARED_WORKDIR" ]; then
   WORK=$PREPARED_WORKDIR
   [[ "$WORK" = /* ]] && [ ! -L "$WORK" ] && [ "$(realpath -m "$WORK")" = "$WORK" ] || stop "unsafe prepared workdir"
-  [ -f "$WORK/candidate.txt" ] && [ -f "$WORK/stage/.vdr-suite-install-runtime-manifest.json" ] || stop "prepared build missing"
+  [ -f "$WORK/candidate.txt" ] && [ -f "$WORK/stage-with-media-tools/.vdr-suite-install-runtime-manifest.json" ] || stop "prepared sealed Suite + Media Tools runtime missing"
   [ "$(sed -n '1p' "$WORK/candidate.txt")" = "$SHA" ] || stop "prepared build SHA differs"
 else
   WORK=$(mktemp -d "$HOME/vdr-suite-media-tools.XXXXXXXX") || stop "unable to create work directory"
-  mkdir -m 0700 "$WORK/build" "$WORK/tmp" "$WORK/packages"
+  mkdir -m 0700 "$WORK/build" "$WORK/tmp"
   export TMPDIR="$WORK/tmp"
   [ "$(id -u)" -ne 0 ] || stop "refuse root compilation"
   make -j2 stage-install-runtime BUILD_DIR="$WORK/build" RUNTIME_STAGE="$WORK/stage" || stop "Suite build failed"
-  make -j2 build-media-tools-cpp-deb BUILD_DIR="$WORK/build" OUTPUT_DIR="$WORK/packages" ADDON_MAINTAINER='Local VDR operator <local@vdr-suite.invalid>' || stop "Media Tools build failed"
+  make -j2 addon-media-import addon-media-shrink addon-media-check BUILD_DIR="$WORK/build" || stop "Media Tools build failed"
 fi
 echo "TESTED_SHA=$SHA"
 echo "WORKDIR=$WORK"
@@ -201,19 +205,29 @@ if [ "$MODE" = install ]; then
     [ "$(sed -n '2p' "$WORK/candidate.txt")" = "$APPROVED" ] || stop "prepared handler changed"
   fi
 fi
-PACKAGE=$(find "$WORK/packages" -maxdepth 1 -name 'vdr-suite-addon-media-tools_*.deb' -type f -print)
-[ -f "$PACKAGE" ] && [ "$(dpkg-deb -f "$PACKAGE" Package)" = vdr-suite-addon-media-tools ] || stop "invalid add-on package"
-[ "$(dpkg-deb -f "$PACKAGE" Version)" = '0.1.0~cpppreview1' ] || stop "unexpected module version"
-[ "$(dpkg-deb -f "$PACKAGE" Architecture)" = "$(dpkg --print-architecture)" ] || stop "wrong architecture"
-dpkg-deb --contents "$PACKAGE" || stop "package contents unreadable"
+# A source install and the optional Media Tools files share one canonical
+# sealed install-runtime stage. The Debian package builder is not involved.
+STAGE="$WORK/stage-with-media-tools"
 if [ "$MODE" = prepare ]; then
   printf '%s\n%s\n' "$SHA" "$DIGEST" > "$WORK/candidate.txt"
+  python3 tools/addons/stage_media_tools_runtime.py \
+    --prepared-workdir "$WORK" --output-stage "$STAGE" \
+    --approved-handler-sha256 "$DIGEST" ||
+    stop "package-free sealed Suite + Media Tools stage failed"
   echo "MEDIA_TOOLS_PREPARED=YES"
   echo "WORKDIR=$WORK"
   echo "REVIEW_HANDLER_SHA256=$DIGEST"
   echo 'INSTALL_REQUIRES_INDEPENDENT_APPROVAL=YES'
   exit 0
 fi
+# Verify sealed overlay and its exact pinned handler bytes BEFORE any live
+# service stop; no package manager and no compilation are involved.
+python3 tools/install_runtime_stage.py check --stage-root "$STAGE" --live-root / \
+  >/dev/null 2>&1 && stop "already deployed; refuse blind reinstall"
+[ -f "$STAGE/usr/share/vdr-suite/addons/rectools/addon.json" ] ||
+  stop "addon metadata missing from sealed stage"
+[ "$(sha256sum "$STAGE/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import" | cut -d' ' -f1)" = "$APPROVED" ] ||
+  stop "sealed stage import handler differs from approved hash"
 resource_preflight || stop "insufficient capacity for actual database backup"
 # A previous failed attempt may have left an EMPTY root-owned backup folder.
 # Reuse only that precise safe state; never overwrite existing backup bytes.
@@ -254,12 +268,13 @@ with sqlite3.connect(f'file:{source}?mode=ro', uri=True) as db:
 os.chmod(dest, 0o600)
 print('DATABASE_BACKUP=PASS bytes=' + str(os.path.getsize(dest)), flush=True)
 PY
-sudo dpkg -i "$PACKAGE" || stop "add-on package installation"
-sudo make deploy-install-runtime RUNTIME_STAGE="$WORK/stage" LIVE_ROOT=/ || stop "Suite runtime deployment"
-sudo make check-install-runtime-deployment RUNTIME_STAGE="$WORK/stage" LIVE_ROOT=/ || stop "runtime did not match stage"
+sudo make deploy-install-runtime RUNTIME_STAGE="$STAGE" LIVE_ROOT=/ ||
+  stop "sealed Suite + Media Tools runtime deployment"
+sudo make check-install-runtime-deployment RUNTIME_STAGE="$STAGE" LIVE_ROOT=/ ||
+  stop "sealed Suite + Media Tools runtime mismatch"
 ISSUER="$ROOT/tools/addons/admin_approval_issuer.py"
-sudo python3 "$ISSUER" issue --root / --allow-live-root --module rectools --version 0.1.0 --origin debian --approved-sha256 "$APPROVED" || stop "backend approval"
-sudo python3 "$ISSUER" issue --root / --allow-live-root --core-expected-only --backend-id "$BACKEND" --module rectools --version 0.1.0 --origin debian --approved-sha256 "$APPROVED" || stop "Core approval"
+sudo python3 "$ISSUER" issue --root / --allow-live-root --module rectools --version 0.1.0 --origin manual --approved-sha256 "$APPROVED" || stop "backend approval"
+sudo python3 "$ISSUER" issue --root / --allow-live-root --core-expected-only --backend-id "$BACKEND" --module rectools --version 0.1.0 --origin manual --approved-sha256 "$APPROVED" || stop "Core approval"
 sudo python3 - "$BACKEND" "$SOURCE" "$VIDEO" "$SOURCE_CONFIGURED" "$VIDEO_CONFIGURED" <<'PY'
 import os, pathlib, stat, sys
 backend, source, video, source_ready, video_ready = sys.argv[1:]
@@ -298,7 +313,7 @@ sudo install -d -o vdr -g vdr -m 0700 /var/lib/vdr-suite/backend-agent/media-shr
 sudo systemctl daemon-reload || stop "systemd reload"
 sudo systemctl start vdr-suite-daemon vdr-suite-backend-agent || stop "Suite restart"
 systemctl is-active --quiet vdr-suite-daemon && systemctl is-active --quiet vdr-suite-backend-agent || stop "Suite/Agent failed to start"
-sudo make check-install-runtime-deployment RUNTIME_STAGE="$WORK/stage" LIVE_ROOT=/ || stop "installed runtime drift"
+sudo make check-install-runtime-deployment RUNTIME_STAGE="$STAGE" LIVE_ROOT=/ || stop "installed Suite + Media Tools runtime drift"
 RESTART=0
 resource_preflight after || stop "post-install reserve insufficient"
 echo "MEDIA_TOOLS_INSTALL=PASS"
