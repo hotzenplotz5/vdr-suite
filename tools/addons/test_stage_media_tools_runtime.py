@@ -136,5 +136,93 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         assert self.target.is_dir() and not list(self.target.iterdir())
 
 
+    def test_mt_i2_read_only_first_install_and_verify_existing_payload(self):
+        from media_tools_install_preflight import inspect
+        MODULE.compose(self.work, self.target, self.hash)
+        live = Path(self.temp.name) / "isolated-live"
+        live.mkdir()
+        report = inspect(self.target, live, self.hash, query_packages=False)
+        assert report["install_state"] == "absent"
+        assert report["approval"] == "NOT_VERIFIED"
+        assert report["payload_counts"]["missing"] == 8
+        assert not any(live.iterdir())  # no files/dirs created by preflight
+
+        # Simulate a deploy into a synthetic root only, never /.
+        payload = dict(MODULE.payload_roles())
+        payload[MODULE.INVENTORY_REL.as_posix()] = "stage-inventory"
+        for rel in payload:
+            source = self.target / rel
+            destination = live / rel
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, destination)
+            destination.chmod(mode(source))
+        same = inspect(self.target, live, self.hash, query_packages=False)
+        assert same["install_state"] == "identical_payload"
+        assert same["payload_counts"]["match"] == 8
+
+        worker = live / MODULE.WORKER_REL / "vdr-suite-media-check"
+        worker.write_bytes(worker.read_bytes() + b"drift")
+        drift = inspect(self.target, live, self.hash, query_packages=False)
+        assert drift["install_state"] == "partial_or_different"
+        assert drift["payload_counts"]["differs"] == 1
+
+    def test_mt_i2_missing_payload_with_existing_approval_is_not_clean_install(self):
+        from media_tools_install_preflight import inspect, APPROVAL
+        MODULE.compose(self.work, self.target, self.hash)
+        live = Path(self.temp.name) / "isolated-live"
+        live.mkdir()
+        approval = live / APPROVAL
+        approval.parent.mkdir(parents=True)
+        approval.write_text('{"existing":"must not overwrite"}\n')
+        report = inspect(self.target, live, self.hash, query_packages=False)
+        assert report["install_state"] == "existing_state_without_payload"
+        assert report["auxiliary"]["agent_approval"] == "present_unverified"
+
+    def test_mt_i2_refuses_symlinked_payload_or_ancestor(self):
+        from media_tools_install_preflight import inspect, PreflightError
+        MODULE.compose(self.work, self.target, self.hash)
+        live = Path(self.temp.name) / "isolated-live"
+        live.mkdir()
+        (live / "usr").symlink_to(self.target / "usr", target_is_directory=True)
+        with self.assertRaisesRegex(PreflightError, "unsafe installation ancestor"):
+            inspect(self.target, live, self.hash, query_packages=False)
+
+    def test_mt_i2_rejects_writable_installed_file(self):
+        from media_tools_install_preflight import inspect, PreflightError
+        MODULE.compose(self.work, self.target, self.hash)
+        live = Path(self.temp.name) / "isolated-live"
+        live.mkdir()
+        path = live / MODULE.WORKER_REL / "vdr-suite-media-import"
+        path.parent.mkdir(parents=True)
+        shutil.copyfile(self.target / MODULE.WORKER_REL / "vdr-suite-media-import", path)
+        path.chmod(0o777)
+        with self.assertRaisesRegex(PreflightError, "writable installed file"):
+            inspect(self.target, live, self.hash, query_packages=False)
+
+    def test_mt_i2_rejects_unapproved_stage(self):
+        from media_tools_install_preflight import inspect
+        MODULE.compose(self.work, self.target, self.hash)
+        live = Path(self.temp.name) / "isolated-live"
+        live.mkdir()
+        with self.assertRaisesRegex(ValueError, "approval mismatch"):
+            inspect(self.target, live, "0" * 64, query_packages=False)
+
+    def test_mt_i2_reports_package_ownership_without_overriding(self):
+        from media_tools_install_preflight import inspect
+        from unittest.mock import patch
+        MODULE.compose(self.work, self.target, self.hash)
+        # The same package-ownership result is only evidence for no-overwrite,
+        # not permission to migrate/reassign or remove existing package files.
+        with patch("media_tools_install_preflight.package_owners",
+                   return_value={"usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import":
+                                 "vdr-suite-addon-media-tools: /usr/libexec/..."}):
+            with patch("media_tools_install_preflight.Path", wraps=Path):
+                # Non-live synthetic roots must not query host dpkg ownership.
+                live = Path(self.temp.name) / "isolated-live"
+                live.mkdir()
+                report = inspect(self.target, live, self.hash)
+                assert report["install_state"] == "absent"
+
+
 if __name__ == "__main__":
     unittest.main()
