@@ -44,7 +44,7 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         daemon.chmod(0o755)
         frontend = stage / "usr/share/vdr-suite/web/frontend/index.html"
         frontend.parent.mkdir(parents=True)
-        frontend.write_text("existing frontend\\n", encoding="utf-8")
+        frontend.write_text("existing frontend\n", encoding="utf-8")
         frontend.chmod(0o644)
         for rel in ("backend-agent", "secrets", "secrets/series-artwork"):
             private(stage / "var/lib/vdr-suite" / rel)
@@ -59,7 +59,7 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         self.hash = hashlib.sha256(
             (binaries / MODULE.WORKERS[0]).read_bytes()
         ).hexdigest()
-        (self.work / "candidate.txt").write_text("1" * 40 + "\\n" + self.hash + "\\n")
+        (self.work / "candidate.txt").write_text("1" * 40 + "\n" + self.hash + "\n")
         self.target = Path(self.temp.name) / "stage-with-media-tools"
 
     def test_sealed_suite_composition_without_dpkg_or_compilation(self):
