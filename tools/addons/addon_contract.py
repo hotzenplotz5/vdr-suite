@@ -151,6 +151,10 @@ def stage(root, module, destdir, prefix="/usr"):
             destination = tmp / filename
             shutil.copyfile(root / "modules" / module / filename, destination)
             destination.chmod(0o644)
+        # mkdtemp creates mode 0700. Installed add-on metadata must be
+        # readable by the unprivileged Backend Agent (User=vdr), while
+        # remaining owned by root and not writable by non-root users.
+        tmp.chmod(0o755)
         tmp.rename(target)
     finally:
         if tmp.exists():
