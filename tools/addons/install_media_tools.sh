@@ -3,18 +3,28 @@
 set -Eeuo pipefail
 stop() { printf 'MEDIA_TOOLS_INSTALL=STOP %s\n' "$*" >&2; exit 1; }
 if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
-  echo 'Usage: install_media_tools.sh COMMIT (--prepare|REVIEWED_SHA256) BACKEND SOURCE_ROOT VIDEO_ROOT [PREPARED_WORKDIR]'
+  echo 'Usage: install_media_tools.sh COMMIT (--prepare|REVIEWED_SHA256) BACKEND [SOURCE_ROOT VIDEO_ROOT] [PREPARED_WORKDIR]'
+  echo 'Defaults: SOURCE_ROOT=/srv/video/Filme VIDEO_ROOT=/srv/vdr/video.00'
+  echo 'Missing paths are allowed at install time but imports remain unconfigured.'
   exit 0
 fi
-if [ "$#" -ne 5 ] && [ "$#" -ne 6 ]; then
-  echo 'Usage: install_media_tools.sh COMMIT (--prepare|REVIEWED_SHA256) BACKEND SOURCE_ROOT VIDEO_ROOT [PREPARED_WORKDIR]' >&2
+if [ "$#" -lt 3 ] || [ "$#" -gt 6 ]; then
+  echo 'Usage: install_media_tools.sh COMMIT (--prepare|REVIEWED_SHA256) BACKEND [SOURCE_ROOT VIDEO_ROOT] [PREPARED_WORKDIR]' >&2
   exit 2
 fi
-SHA=$1; APPROVED=$2; BACKEND=$3; SOURCE=$4; VIDEO=$5
+SHA=$1; APPROVED=$2; BACKEND=$3
+# Confirmed Rectools import directory on yaVDR; override both paths if needed.
+SOURCE=/srv/video/Filme
+VIDEO=/srv/vdr/video.00
 PREPARED_WORKDIR=
-if [ "$#" -eq 6 ]; then PREPARED_WORKDIR=$6; fi
 MODE=install
 if [ "$APPROVED" = --prepare ]; then MODE=prepare; fi
+case "$#" in
+  3) [ "$MODE" = prepare ] || stop "install needs prepared workdir or explicit source/video paths" ;;
+  4) [ "$MODE" = install ] || stop "prepare does not accept a workdir"; PREPARED_WORKDIR=$4 ;;
+  5) SOURCE=$4; VIDEO=$5 ;;
+  6) SOURCE=$4; VIDEO=$5; PREPARED_WORKDIR=$6 ;;
+esac
 [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || stop "commit SHA invalid"
 if [ "$MODE" = install ]; then
   [[ "$APPROVED" =~ ^[0-9a-f]{64}$ ]] || stop "independent approved handler SHA-256 required"
@@ -46,10 +56,23 @@ for cmd in sudo make g++ python3 dpkg dpkg-deb sha256sum pkg-config realpath; do
 done
 pkg-config --exists sqlite3 libcurl openssl || stop "development dependencies missing"
 for dir in "$SOURCE" "$VIDEO"; do
-  [ -d "$dir" ] && [[ "$dir" = /* ]] && [ "$(realpath -e "$dir")" = "$dir" ] || stop "unsafe media directory"
-  [[ "$dir" != *$'\t'* && "$dir" != *$'\n'* ]] || stop "unsafe media path characters"
+  [[ "$dir" = /* && "$dir" != *$'\t'* && "$dir" != *$'\n'* ]] ||
+    stop "unsafe media path characters or relative path"
+  if [ -e "$dir" ] || [ -L "$dir" ]; then
+    [ -d "$dir" ] && [ "$(realpath -e "$dir")" = "$dir" ] ||
+      stop "unsafe existing media directory"
+  fi
 done
 [ "$SOURCE" != "$VIDEO" ] || stop "same source and destination"
+SOURCE_CONFIGURED=0
+VIDEO_CONFIGURED=0
+[ -d "$SOURCE" ] && SOURCE_CONFIGURED=1
+[ -d "$VIDEO" ] && VIDEO_CONFIGURED=1
+echo "MEDIA_IMPORT_SOURCE_DEFAULT_OR_OVERRIDE=$SOURCE"
+echo "MEDIA_VIDEO_ROOT_DEFAULT_OR_OVERRIDE=$VIDEO"
+if [ "$SOURCE_CONFIGURED" -eq 0 ] || [ "$VIDEO_CONFIGURED" -eq 0 ]; then
+  echo 'MEDIA_TOOLS_PATHS=PENDING (missing path; import stays unavailable)'
+fi
 # ProtectSystem=strict needs an explicit bounded VDR video write exception.
 [[ "$VIDEO" =~ ^/[a-zA-Z0-9_./-]+$ ]] || stop "video path cannot be safely represented in systemd override"
 case "$SOURCE" in /home/*|/root/*|/run/user/*) stop "source hidden by Backend Agent ProtectHome sandbox";; esac
@@ -72,7 +95,12 @@ for path in /etc/vdr-suite/addon-approvals/rectools.json \
 done
 [ -f /var/lib/vdr-suite/vdr-suite.db ] || stop "unknown active database location"
 dpkg -s vdr-suite-addon-media-tools 2>/dev/null | grep -Fq 'Status: install ok installed' && stop "existing installed package needs separate update procedure"
-sudo -u vdr test -r "$SOURCE" && sudo -u vdr test -w "$VIDEO" || stop "vdr media access denied"
+if [ "$SOURCE_CONFIGURED" -eq 1 ]; then
+  sudo -u vdr test -r "$SOURCE" || stop "vdr source access denied"
+fi
+if [ "$VIDEO_CONFIGURED" -eq 1 ]; then
+  sudo -u vdr test -w "$VIDEO" || stop "vdr video access denied"
+fi
 fi
 # The first write is allowed only if every affected FS retains 4 GiB / 15%.
 resource_preflight() {
@@ -166,9 +194,11 @@ sudo make check-install-runtime-deployment RUNTIME_STAGE="$WORK/stage" LIVE_ROOT
 ISSUER="$ROOT/tools/addons/admin_approval_issuer.py"
 sudo python3 "$ISSUER" issue --root / --allow-live-root --module rectools --version 0.1.0 --origin debian --approved-sha256 "$APPROVED" || stop "backend approval"
 sudo python3 "$ISSUER" issue --root / --allow-live-root --core-expected-only --backend-id "$BACKEND" --module rectools --version 0.1.0 --origin debian --approved-sha256 "$APPROVED" || stop "Core approval"
-sudo python3 - "$BACKEND" "$SOURCE" "$VIDEO" <<'PY'
+sudo python3 - "$BACKEND" "$SOURCE" "$VIDEO" "$SOURCE_CONFIGURED" "$VIDEO_CONFIGURED" <<'PY'
 import os, pathlib, stat, sys
-backend, source, video = sys.argv[1:]
+backend, source, video, source_ready, video_ready = sys.argv[1:]
+source_ready = source_ready == '1'
+video_ready = video_ready == '1'
 for d in ('/etc/vdr-suite/addon-approvals', '/etc/vdr-suite/addon-sources',
           '/etc/systemd/system/vdr-suite-backend-agent.service.d'):
     p = pathlib.Path(d)
@@ -183,10 +213,20 @@ def create(path, data):
         out.flush()
         os.fsync(out.fileno())
 create('/etc/vdr-suite/addon-approvals/rectools.import-running.lock', '')
-create('/etc/vdr-suite/addon-sources/media-import.tsv',
-       f'{backend}\tlocal-media-import\t{source}\t{video}\t*\n')
+# An absent source or video directory means configuration is deferred.
+# No entry in the root-owned source ledger -> no discoverable import sources.
+if source_ready and video_ready:
+    create('/etc/vdr-suite/addon-sources/media-import.tsv',
+           f'{backend}\tlocal-media-import\t{source}\t{video}\t*\n')
+override = ('[Service]\nExecStart=\n'
+            'ExecStart=/usr/sbin/vdr-suite-backend-agent --config '
+            '/etc/vdr-suite/backend-agent.conf --enable-media-import '
+            '--enable-media-shrink --media-shrink-state-dir '
+            '/var/lib/vdr-suite/backend-agent/media-shrink\n')
+if video_ready:
+    override += 'ReadWritePaths=' + video + '\n'
 create('/etc/systemd/system/vdr-suite-backend-agent.service.d/20-media-tools.conf',
-       '[Service]\nExecStart=\nExecStart=/usr/sbin/vdr-suite-backend-agent --config /etc/vdr-suite/backend-agent.conf --enable-media-import --enable-media-shrink --media-shrink-state-dir /var/lib/vdr-suite/backend-agent/media-shrink\nReadWritePaths=' + video + '\n')
+       override)
 PY
 sudo install -d -o vdr -g vdr -m 0700 /var/lib/vdr-suite/backend-agent/media-shrink || stop "private shrink state"
 sudo systemctl daemon-reload || stop "systemd reload"
@@ -198,4 +238,9 @@ resource_preflight || stop "post-install reserve insufficient"
 echo "MEDIA_TOOLS_INSTALL=PASS"
 echo "DATABASE_BACKUP=$WORK/backup/vdr-suite.db"
 echo 'IMPORT_AND_SHRINK_AGENT_OPT_IN=YES'
+if [ "$SOURCE_CONFIGURED" -eq 1 ] && [ "$VIDEO_CONFIGURED" -eq 1 ]; then
+  echo 'MEDIA_TOOLS_PATHS=CONFIGURED'
+else
+  echo 'MEDIA_TOOLS_PATHS=PENDING'
+fi
 echo 'CORE_ADMIN_ACTIVATION_AND_USER_GRANTS=PENDING'
