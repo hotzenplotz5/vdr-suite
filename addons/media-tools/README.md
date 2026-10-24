@@ -268,23 +268,37 @@ The old behavior is valuable and must not be mistaken for filename debris:
 - The old prompt file `.vdr-rectools.prompt`, which was chmodded 0666,
   must **not** be copied to VDR-Suite's security model.
 
-**Immediate compatibility fix:** The independent C++ importer's
-`inspectImport()` rejects source stems ending in `.pc_encode`,
-`.skipped` or `.duplicate` (case-insensitive) before staging, and
-does not mutate, rename or import them. A focused regression exercises the
-`Die Herrschaft des Feuers.pc_encode.mkv` case along with ordinary files.
-The installed yaVDR binary is still an older revision; this source change
-has not been recompiled or deployed there.
+**Implemented source-level gates (not yet deployed):** The independent
+C++ importer's `inspectImport()` rejects stems ending in `.pc_encode`,
+`.skipped` or `.duplicate` (case-insensitive) before staging.
+`vdr-suite-media-import plan SOURCE_ROOT VIDEO_ROOT FILE` uses bounded,
+read-only FFprobe to report `VIDEO_CODEC` and
+`VIDEO_REENCODE_REQUIRED=YES|NO`. A normal
+`import ... --confirm-writes` may remux copy-compatible H.264/HEVC/MPEG-2,
+but cannot perform a **video** re-encode without the separate operator-only
+`--approve-video-reencode` CLI flag. The Agent's pinned executor passes
+only `--confirm-writes`, so the actor-facing API cannot silently grant local
+video encoding. No source file is deleted or renamed by a refused import.
+C++ and real-FFmpeg regressions cover the refusal and explicit approval,
+as well as the observed `Die Herrschaft des Feuers.pc_encode.mkv`.
+These are committed **source changes**, not a verified build or a deployed
+upgrade to the existing yaVDR binaries.
 
-**Feature parity still open:** The optional import UI and Core-owned durable
-Operation must present an explicit decision for re-encoding (local,
-defer-to-PC, skip), optionally notify by e-mail, and support a deliberate
-resumption of a returned file without automatically deleting or mutating the
-original. A third-party desktop tool must never be silently auto-invoked by
-Suite. Reuse existing scoped grants and recording reconciliation, not the
-legacy world-writable prompt, untrusted filename alone as authorization,
-or a second recordings database. None of these UX/Operation features are
-claimed implemented by the filename guard.
+**Open integration slices, NOT shipped:** (1) A backend-scoped,
+durable Core decision in the existing authenticated API v1 Operation
+(identity-bound and idempotent) for `local`, `desktop`, or `skip`;
+(2) enforce that choice in the protected Agent's pinned assignment and
+preflight, instead of allowing a browser/manifest/filename to confer
+execution permission; (3) safely record PC delegation and skip without
+a world-writable prompt, so desktop-return can be intentionally resumed
+and existing VDR reconciliation still owns the new recording; (4) an
+optional notification transport for actionable e-mail and the frontend
+buttons with status/authorization checks. **Neither the three-way
+Public API, email delivery, nor the UI decision operation is yet wired.**
+Do not treat an authenticated import `sourceId` as approval for video
+encoding or expose the new operator CLI flag to browsers. The existing
+source/agent/Core operation system should be extended, never copied into
+a second queue.
 
 ## Importer: source-preserving metadata and codec fallback
 
