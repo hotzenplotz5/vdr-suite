@@ -55,9 +55,13 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
     if (value.commandType == vdrsuite::mediatools::kMediaImportCommandType)
     {
         std::string sourceId;
-        return value.payloadVersion == 1 &&
-            value.verificationPolicy == "reconciliation_required" &&
-            vdrsuite::mediatools::parseMediaImportSelection(value.payload, sourceId);
+        bool approveVideoReencode = false;
+        return value.verificationPolicy == "reconciliation_required" &&
+            vdrsuite::mediatools::parseMediaImportSelection(
+                value.payload, sourceId, approveVideoReencode) &&
+            value.payloadVersion ==
+                vdrsuite::mediatools::mediaImportSelectionVersion(
+                    approveVideoReencode);
     }
     if (value.commandType ==
             vdrsuite::mediatools::kMediaShrinkStageCommandType ||
