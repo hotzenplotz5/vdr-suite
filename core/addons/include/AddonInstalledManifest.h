@@ -72,13 +72,15 @@ inline bool unchanged(const struct stat& before, const struct stat& after)
            before.st_ctim.tv_nsec == after.st_ctim.tv_nsec;
 }
 
-// This reads a fixed Core-reviewed location. Neither addon.json nor an HTTP
+// This reads the fixed, root-owned manifest companion beside the pinned
+// handler. The /usr/share copy is descriptive inventory and may be hidden by
+// a pre-existing private Suite web directory. Neither manifest nor an HTTP
 // caller chooses a handler path, grant, version or executable capability.
 inline bool readManifest(const std::string& root, std::string& data)
 {
     std::vector<std::string> parts;
     if (!components(root, parts)) return false;
-    for (const char* part : {"usr", "share", "vdr-suite", "addons", "rectools"})
+    for (const char* part : {"usr", "libexec", "vdr-suite", "addons", "rectools"})
         parts.emplace_back(part);
     Fd directory(::open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
     if (directory.fd < 0) return false;

@@ -120,6 +120,12 @@ def compose(work: Path, output: Path, expected_sha: str) -> None:
             path = worker_dir / binary.name
             shutil.copyfile(binary, path)
             os.chmod(path, 0o755)
+        # Keep the descriptive FHS inventory, but let the unprivileged Agent
+        # verify a root-owned metadata companion beside the pinned handler.
+        # Existing live /usr/share/vdr-suite modes are never changed.
+        agent_manifest = worker_dir / "addon.json"
+        shutil.copyfile(source_metadata / "addon.json", agent_manifest)
+        os.chmod(agent_manifest, 0o644)
         # Re-seal the complete, immutable Suite + optional add-on output.
         (stage / MANIFEST_NAME).unlink()
         seal(stage)

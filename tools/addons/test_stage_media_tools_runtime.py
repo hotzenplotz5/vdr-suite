@@ -68,6 +68,11 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         dirs, files = verify_sealed_stage(self.target, load_manifest(self.target))
         assert "usr/sbin/vdr-suite-daemon" in files
         assert "usr/share/vdr-suite/addons/rectools/addon.json" in files
+        assert "usr/libexec/vdr-suite/addons/rectools/addon.json" in files
+        shared = self.target / "usr/share/vdr-suite/addons/rectools/addon.json"
+        agent = self.target / "usr/libexec/vdr-suite/addons/rectools/addon.json"
+        assert agent.read_bytes() == shared.read_bytes()
+        assert mode(agent) == 0o644
         for binary in MODULE.WORKERS:
             installed = self.target / "usr/libexec/vdr-suite/addons/rectools" / binary
             assert installed.is_file() and mode(installed) == 0o755

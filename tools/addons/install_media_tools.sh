@@ -152,11 +152,11 @@ done
 # Metadata is read by the service's actual account from the installed
 # inventory. Fail before any stop if host-owned ancestors deny traversal;
 # never chmod a live host directory implicitly.
-for shared in /usr/share/vdr-suite /usr/share/vdr-suite/addons; do
+for shared in /usr/libexec/vdr-suite /usr/libexec/vdr-suite/addons; do
   if [ -e "$shared" ] || [ -L "$shared" ]; then
     [ -d "$shared" ] && [ ! -L "$shared" ] &&
       sudo -u "$AGENT_ACCOUNT" test -x "$shared" ||
-      stop "existing Suite metadata ancestor inaccessible to vdr: $shared (no permissions changed)"
+      stop "existing Agent metadata ancestor inaccessible to $AGENT_ACCOUNT: $shared (no permissions changed)"
   fi
 done
 # Never overlay files that are still owned by an older Debian add-on package.
@@ -257,8 +257,11 @@ root = pathlib.Path(sys.argv[1])
 verify_sealed_stage(root, load_manifest(root))
 print("PREPARED_RUNTIME_SEAL=PASS")
 PY
-[ -f "$STAGE/usr/share/vdr-suite/addons/rectools/addon.json" ] ||
-  stop "addon metadata missing from sealed stage"
+[ -f "$STAGE/usr/share/vdr-suite/addons/rectools/addon.json" ] &&
+  [ -f "$STAGE/usr/libexec/vdr-suite/addons/rectools/addon.json" ] &&
+  cmp -s "$STAGE/usr/share/vdr-suite/addons/rectools/addon.json" \
+    "$STAGE/usr/libexec/vdr-suite/addons/rectools/addon.json" ||
+  stop "Agent metadata companion missing or differs from sealed inventory"
 [ "$(sha256sum "$STAGE/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import" | cut -d' ' -f1)" = "$APPROVED" ] ||
   stop "sealed stage import handler differs from approved hash"
 resource_preflight || stop "insufficient capacity for actual database backup"

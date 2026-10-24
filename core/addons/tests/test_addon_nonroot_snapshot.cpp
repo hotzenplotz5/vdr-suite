@@ -36,10 +36,11 @@ struct Fixture {
         root = created;
         handler = root / "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import";
         approval = root / "etc/vdr-suite/addon-approvals/rectools.json";
-        manifest = root / "usr/share/vdr-suite/addons/rectools/addon.json";
+        manifest = root / "usr/libexec/vdr-suite/addons/rectools/addon.json";
         fs::create_directories(handler.parent_path());
         fs::create_directories(approval.parent_path());
         fs::create_directories(manifest.parent_path());
+        fs::create_directories(root / "usr/share/vdr-suite/addons/rectools");
 
         // Only exact, new fixture paths are chmodded. Never the OS tree.
         for (const char* part : {"", "usr", "usr/libexec",
@@ -52,6 +53,10 @@ struct Fixture {
             if (::chmod((root / part).c_str(), 0755) != 0)
                 throw std::runtime_error("fixture directory chmod failed");
         }
+        // Reproduce an existing private Suite web directory. The unprivileged
+        // Agent must not depend on this ancestry to verify its addon manifest.
+        if (::chmod((root / "usr/share/vdr-suite").c_str(), 0700) != 0)
+            throw std::runtime_error("private Suite fixture chmod failed");
         {
             std::ofstream file(handler, std::ios::binary);
             file << "nonexecuting media tools handler fixture\n";

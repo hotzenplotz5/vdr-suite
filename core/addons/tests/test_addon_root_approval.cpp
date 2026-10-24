@@ -31,7 +31,7 @@ struct Fixture {
         root = directory;
         handler = root / "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import";
         approval = root / "etc/vdr-suite/addon-approvals/rectools.json";
-        manifest = root / "usr/share/vdr-suite/addons/rectools/addon.json";
+        manifest = root / "usr/libexec/vdr-suite/addons/rectools/addon.json";
         fs::create_directories(handler.parent_path());
         fs::create_directories(approval.parent_path());
         fs::create_directories(manifest.parent_path());

@@ -2,6 +2,19 @@
 
 Diese Anleitung bezieht sich auf das **erste** lokale Installieren des Media-Tools-Addons aus dem VDR-Suite-Zweig `work/addon-platform-registry-lifecycle`, insbesondere auf [`tools/addons/install_media_tools.sh`](../tools/addons/install_media_tools.sh). Sie ist **keine** allgemeine Update-, Migrations- oder Deinstallationsanleitung. Der Installer verwendet jetzt `/srv/video/Filme` als bestätigten yaVDR/RecTools-Importstandard und `/srv/vdr/video.00` als vorgeschlagenes Videoziel. Beide Verzeichnisargumente sind **optional**.
 
+### Installiertes Manifest ohne Änderungen an vorhandenen Rechten
+
+Der native Backend-Agent prüft eine root-kontrollierte Kopie von `addon.json` unter
+`/usr/libexec/vdr-suite/addons/rectools/addon.json`, direkt neben dem genehmigten
+Import-Handler. Die identische Kopie unter
+`/usr/share/vdr-suite/addons/rectools/addon.json` bleibt als rein beschreibendes
+Inventar erhalten. Das Stage-Verfahren prüft, dass beide Kopien übereinstimmen.
+Dadurch bleibt der Agent auch dann startfähig, wenn das **bereits vorhandene**
+`/usr/share/vdr-suite` für ihn nicht durchquerbar ist (`root:root 0700`).
+Es werden **keine bestehenden Verzeichnisrechte oder Eigentümer geändert**.
+Die C++-Prüfung verlangt weiterhin root-eigene, nicht gruppen-/weltbeschreibbare
+Verzeichnisse und Manifestdateien sowie die gepinnte Handler-SHA256.
+
 ## Warum benötigt Media Tools einen Backend-Agenten?
 
 Der Media-Tools-Installer integriert Import- und Shrink-Funktionen in den **bestehenden** VDR-Suite-Backend-Agenten. Dabei wird nach der Paket- und Runtime-Installation ein Agent-systemd-Override mit den expliziten Optionen `--enable-media-import` und `--enable-media-shrink` erzeugt. Anschließend werden Suite-Daemon und Backend-Agent gestartet. Mit der bewusst durchgeführten Root-Administratorinstallation ist die Aktivierungsentscheidung bereits getroffen. Nach erfolgreicher technischer Agent- und Core-Verifikation werden die Funktionen ohne zweite Admin-Freigabe aktiv. Der Installer meldet `MEDIA_TOOLS_ACTIVATION=AUTOMATIC_WHEN_VERIFIED`; andere Benutzer erhalten weiterhin ihre eigenen Rechte.
