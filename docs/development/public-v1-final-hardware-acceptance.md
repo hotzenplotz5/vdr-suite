@@ -36,7 +36,13 @@ Session-Modul wird über `channel-day-program.js` eingebunden, nicht zusätzlich
 als eigenes HTML-Script. (c) `SuiteBridgeLocalControlTransport` meldet
 `VideoDirectory` auf dem lokalen Socket explizit als unverfügbar, weil
 `VPATH 1` den SVDRP-Transport voraussetzt, und besitzt eine gezielte
-Unit-Regression; **der wirkliche SVDRP-Fallback ist dadurch nicht belegt**.
+Unit-Regression. Die produktive `DaemonRuntimeInitialization` verwendet
+für die VPATH-Abfrage ausdrücklich `SuiteBridgeSvdrpTransport`. Ob der
+laufende Host den nativen Video-Root tatsächlich erhält und auswählt,
+bleibt ohne neue Live-Evidenz offen. Bei unverfügbarem VPATH ohne
+explizite Konfiguration existiert ein Legacy-Root-Fallback: Vor
+Recording-Schreibaktionen dessen tatsächliche Übereinstimmung mit dem
+VDR-Videoverzeichnis kontrollieren, keine Annahme aus der Source.
 (d) unbenutzte Helper für NativeTimerDeleteAssignment wurden entfernt;
 die Klammerung einer bestehenden Deadline-Bedingung verändert ihre Semantik
 nicht. Die alten API-Read-PASS sind davon nicht pauschal entwertet.
