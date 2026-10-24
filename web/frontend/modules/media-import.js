@@ -272,7 +272,11 @@
         if (!Array.isArray(items) || items.length > 32 ||
             !items.every(function (item) {
               return item && typeof item.sourceId === 'string' &&
-                /^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId);
+                /^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId) &&
+                (item.label === undefined ||
+                  (typeof item.label === 'string' &&
+                   item.label.length > 0 && item.label.length <= 160 &&
+                   !/[\/\r\n\x00-\x1f\x7f]/.test(item.label)));
             })) throw new Error('Ungültige Quellenliste');
         view.sources = items.map(function (item) { return item.sourceId; });
         view.select.replaceChildren();
@@ -280,7 +284,9 @@
         blank.value = '';
         view.select.appendChild(blank);
         view.sources.forEach(function (sourceId, index) {
-          const option = element('option', '', 'Quelle ' + (index + 1) + ' · ' + sourceId);
+          // The backend-approved name is display-only; never use HTML.
+          const heading = items[index].label || ('Quelle ' + (index + 1));
+          const option = element('option', '', heading + ' · ' + sourceId);
           option.value = sourceId;
           view.select.appendChild(option);
         });
