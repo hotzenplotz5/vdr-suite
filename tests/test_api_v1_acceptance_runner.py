@@ -19,6 +19,7 @@ from runner import origin_ok, safe_path, validate
 from cases import collection, no_private_paths, REQUIRED_ROUTES
 from cases import root, backends, recordings, recording_detail, metadata
 from cases import artwork_list, artwork_bytes, continue_watching, resume_progress
+from cases import authorized_operation
 
 
 class RunnerTests(unittest.TestCase):
@@ -75,6 +76,46 @@ class RunnerTests(unittest.TestCase):
         self.assertNotIn("secret", sanitized)
         self.assertNotIn("private", sanitized)
         self.assertNotIn("rec_" + "a" * 32, sanitized)
+
+    def test_authorized_operation_accepts_legacy_opaque_ids(self):
+        """Fixture IDs follow durable storage compatibility, not new ID issuance."""
+        class OwnedOperation:
+            backend = "default"
+            def __init__(self, operation_id):
+                self.cfg = {"existingOperationId": operation_id}
+                self.requests = []
+            def get_json(self, path):
+                self.requests.append(path)
+                return ({"operationId": self.cfg["existingOperationId"],
+                         "backendId": "default", "state": "outcome_unknown"}, {})
+            def require(self, valid, message, **_):
+                if not valid:
+                    raise AssertionError(message)
+
+        for candidate in ("op_" + "a" * 32, "op_invalid",
+                          "historical:opaque.1", "h" * 160):
+            fixture = OwnedOperation(candidate)
+            self.assertEqual(authorized_operation(fixture),
+                             "operation-state:outcome_unknown")
+            self.assertEqual(fixture.requests,
+                             ["/api/v1/operations/" + candidate])
+
+        for invalid in (None, "", "h" * 161, "bad/id", "bad?key=x",
+                        "bad%2Fid", "bad\\nvalue"):
+            fixture = OwnedOperation(invalid)
+            with self.assertRaises(Blocked):
+                authorized_operation(fixture)
+            self.assertEqual(fixture.requests, [])
+
+    def test_operation_read_openapi_preserves_historical_ids(self):
+        spec = json.loads((Path(__file__).resolve().parents[1] /
+                           "api/openapi.json").read_text(encoding="utf-8"))
+        operation = spec["paths"]["/api/v1/operations/{operationId}"]["get"]
+        parameter = next(p for p in operation["parameters"]
+                         if p["name"] == "operationId")
+        self.assertEqual(parameter["schema"]["minLength"], 1)
+        self.assertEqual(parameter["schema"]["maxLength"], 160)
+        self.assertNotIn("pattern", parameter["schema"])
 
     def test_schema_reference_required(self):
         spec = {"$ref": "#/components/schemas/Example"}
