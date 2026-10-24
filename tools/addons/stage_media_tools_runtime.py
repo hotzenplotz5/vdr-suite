@@ -77,7 +77,7 @@ def compose(work: Path, output: Path, expected_sha: str) -> None:
                 path.stat().st_size < 4 or path.stat().st_size > 16*1024*1024):
             raise ValueError("missing or unsafe already-built worker: " + worker)
         with path.open("rb") as stream:
-            if stream.read(4) != b"\\x7fELF":
+            if stream.read(4) != b"\x7fELF":
                 raise ValueError("worker is not ELF: " + worker)
         workers.append(path)
     if digest(workers[0]) != expected_sha:
