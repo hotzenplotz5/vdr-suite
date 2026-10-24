@@ -1,6 +1,6 @@
 # Media Tools: Installation und Backend-Agent-Voraussetzungen (yaVDR)
 
-Diese Anleitung bezieht sich auf das **erste** lokale Installieren des Media-Tools-Addons aus dem VDR-Suite-Zweig `work/addon-platform-registry-lifecycle`, insbesondere auf [`tools/addons/install_media_tools.sh`](../tools/addons/install_media_tools.sh). Sie ist **keine** allgemeine Update-, Migrations- oder Deinstallationsanleitung.
+Diese Anleitung bezieht sich auf das **erste** lokale Installieren des Media-Tools-Addons aus dem VDR-Suite-Zweig `work/addon-platform-registry-lifecycle`, insbesondere auf [`tools/addons/install_media_tools.sh`](../tools/addons/install_media_tools.sh). Sie ist **keine** allgemeine Update-, Migrations- oder Deinstallationsanleitung. Der Installer verwendet jetzt `/srv/video/Filme` als bestätigten yaVDR/RecTools-Importstandard und `/srv/vdr/video.00` als vorgeschlagenes Videoziel. Beide Verzeichnisargumente sind **optional**.
 
 ## Warum benötigt Media Tools einen Backend-Agenten?
 
@@ -76,7 +76,7 @@ journalctl -u vdr-suite-backend-agent --since '5 minutes ago' -n 30 --no-pager -
 
 ## Weitere Installationsgrenzen
 
-- Der Quellpfad und das VDR-Videoverzeichnis müssen **existierende, kanonische absolute Pfade** sein und dürfen nicht identisch sein. `vdr` muss die Quelle lesen und das Videoverzeichnis beschreiben können. Quellpfade unter `/home`, `/root` und `/run/user` sind wegen der Agent-Sandbox nicht zulässig.
+- Quelle und Ziel müssen bei späterer **Aktivierung** existieren, kanonische absolute Pfade sein und dürfen nicht identisch sein. Die Erstinstallation darf auch bei fehlendem Standardverzeichnis weiterlaufen: dann wird **kein** Quellinventar angelegt und Media Import bleibt bis zur Konfiguration nicht verfügbar. Existierende Verzeichnisse müssen für `vdr` zugänglich sein. Quellpfade unter `/home`, `/root` und `/run/user` sind wegen der Agent-Sandbox nicht zulässig. Andere Pfade lassen sich alternativ als beide expliziten CLI-Argumente angeben. Ein vollwertiger Browser-Einstellungsdialog mit sicherer privilegierter Backend-Konfiguration ist noch **nicht implementiert**; bis dahin ist die Konfiguration eine kontrollierte Root-Administrationsaufgabe, kein direktes Schreiben aus dem Browser.
 - Der Installer prüft ausreichend freien Speicher mit Reserven pro Dateisystem; diese Prüfung nicht umgehen.
 - Der Checkout muss exakt zum bei der Installation freigegebenen **Commit-PIN** passen. Der Operator-Block und der Installer prüfen zusätzlich den **aktuellen Remote-Head** des Addon-Zweigs. **Jeder Commit auf diesem Zweig, auch reine Dokumentation, macht einen zuvor kopierten PIN-Installationsblock ungültig.** Vor erneuter Verwendung PIN, Checkout und Review-Freigabe anhand des aktuellen Quellstands neu prüfen.
 - Der Quell-Build erfolgt unprivilegiert; die Installationsphase benötigt Root und eine **unabhängig geprüfte** Handler-SHA256. Die vom gleichen Build angezeigte SHA256 einfach zurückzukopieren ist keine unabhängige Freigabe.
