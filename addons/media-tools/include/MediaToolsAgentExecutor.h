@@ -33,6 +33,41 @@ inline bool parseMediaImportSelection(const std::string& payload, std::string& s
     return true;
 }
 
+// The second, explicitly selected v1 API decision has its own command-payload
+// version. Never infer local video-encoding approval from the ordinary import
+// grant or from the legacy sourceId-only payload.
+inline bool parseMediaImportSelection(const std::string& payload,
+                                     std::string& sourceId,
+                                     bool& approveVideoReencode)
+{
+    approveVideoReencode = false;
+    if (parseMediaImportSelection(payload, sourceId)) return true;
+    sourceId.clear();
+    const std::string prefix = "{\"sourceId\":\"";
+    const std::string suffix = "\",\"videoDecision\":\"local\"}";
+    if (payload.size() < prefix.size() + suffix.size() + 16U ||
+        payload.compare(0, prefix.size(), prefix) != 0 ||
+        payload.compare(payload.size() - suffix.size(),
+                        suffix.size(), suffix) != 0)
+        return false;
+    sourceId = payload.substr(prefix.size(),
+        payload.size() - prefix.size() - suffix.size());
+    if (sourceId.size() > 64U ||
+        !std::all_of(sourceId.begin(), sourceId.end(), [](unsigned char c) {
+            return std::isalnum(c) || c == '_' || c == '-';
+        })) {
+        sourceId.clear();
+        return false;
+    }
+    approveVideoReencode = true;
+    return true;
+}
+
+inline unsigned mediaImportSelectionVersion(bool approveVideoReencode)
+{
+    return approveVideoReencode ? 2U : 1U;
+}
+
 // Safe display metadata is strictly advisory, never a native source path.
 struct MediaImportSourceLabel {
     std::string sourceId;
