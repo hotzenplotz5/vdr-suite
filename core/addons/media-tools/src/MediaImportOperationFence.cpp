@@ -336,8 +336,8 @@ bool MediaImportOperationFence::applyResult(
         return denied(reason, "media_import_result_requires_reconciliation");
 
     const std::string reference = "agent.media.import:" + assignment.commandId;
-    if ((!markerVerified && op.state == target ||
-         markerVerified && op.state == State::succeeded) &&
+    if (((!markerVerified && op.state == target) ||
+         (markerVerified && op.state == State::succeeded)) &&
         op.resultReference == reference)
     {
         reason = "media_import_result_already_applied";

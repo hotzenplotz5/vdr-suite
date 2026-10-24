@@ -39,8 +39,11 @@ std::string requestFingerprint(const std::string& backend,
     return "media-import-api/1|" + std::to_string(backend.size()) + ":" +
         backend + "|" + std::to_string(source.size()) + ":" + source +
         (decision == vdrsuite::mediatools::MediaImportDecision::import
-            ? "" : "|videoDecision:" +
-                std::to_string(vdrsuite::mediatools::mediaImportSelectionVersion(decision)));
+            ? ""
+            : decision == vdrsuite::mediatools::MediaImportDecision::local
+                ? "|videoDecision:local" // existing v2 fingerprints must replay
+                : decision == vdrsuite::mediatools::MediaImportDecision::desktop
+                    ? "|videoDecision:desktop" : "|videoDecision:skip");
 }
 bool replayMatches(MutationOperationRepository& repo,
                    const MutationOperation& op,

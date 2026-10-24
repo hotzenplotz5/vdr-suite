@@ -676,7 +676,7 @@
         throw new Error('Media Import requires valid Idempotency-Key');
       }
       if (requestOptions.videoDecision !== undefined &&
-          requestOptions.videoDecision !== 'local') {
+          !['local', 'desktop', 'skip'].includes(requestOptions.videoDecision)) {
         throw new Error('Media Import requires an explicit supported video decision');
       }
       const headers = Object.assign(
@@ -693,8 +693,9 @@
           ? requestOptions.credentials : normalized.credentials,
         cache: 'no-store',
         signal: requestOptions.signal,
-        body: JSON.stringify(requestOptions.videoDecision === 'local'
-          ? {sourceId: requestOptions.sourceId, videoDecision: 'local'}
+        body: JSON.stringify(requestOptions.videoDecision
+          ? {sourceId: requestOptions.sourceId,
+             videoDecision: requestOptions.videoDecision}
           : {sourceId: requestOptions.sourceId})
       }).then(function (response) {
         const location = headerValue(response, 'Location');

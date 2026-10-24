@@ -8,6 +8,7 @@
 #include "SuiteBridgeNativeTimerCreateTransport.h"
 #include "TimerIntentApplicationService.h"
 #include "MediaImportOperationAdmission.h"
+#include "MediaImportRecordingEvidence.h"
 #include "MediaShrinkOperationAdmission.h"
 #include "DaemonMediaShrinkAdmissionAuthority.h"
 #include "BackendAgentMediaShrinkAssignment.h"
