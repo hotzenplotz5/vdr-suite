@@ -8791,8 +8791,14 @@ bool PublicApiRuntime::tryHandleGet(
             response = serviceUnavailableProblem(path, requestId, correlationId);
             return true;
         }
+        if (!r.labels.empty() && r.labels.size() != r.ids.size())
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
         std::string body = "{\"items\":[";
         std::string previous;
+        std::size_t sourcePosition = 0U;
         for (const auto& id : r.ids)
         {
             if (id.size() < 16U || id.size() > 64U ||
@@ -8804,8 +8810,23 @@ bool PublicApiRuntime::tryHandleGet(
                 return true;
             }
             if (!previous.empty()) body += ",";
-            body += "{\"sourceId\":\"" + id + "\"}";
+            body += "{\"sourceId\":\"" + id + "\"";
+            if (!r.labels.empty()) {
+                const auto& label = r.labels[sourcePosition];
+                if (label.empty() || label.size() > 160U ||
+                    std::any_of(label.begin(), label.end(),
+                        [](unsigned char ch) {
+                            return ch < 0x20 || ch == 0x7f ||
+                                   ch == '/' || ch == '\\';
+                        })) {
+                    response = serviceUnavailableProblem(path, requestId, correlationId);
+                    return true;
+                }
+                body += ",\"label\":\"" + jsonEscape(label) + "\"";
+            }
+            body += "}";
             previous = id;
+            ++sourcePosition;
         }
         body += "],\"meta\":{\"partial\":false},\"links\":{\"self\":\"" +
             jsonEscape(path) + "\"}}";
