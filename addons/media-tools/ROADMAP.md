@@ -1,6 +1,6 @@
 # MT — Media Tools: Installation, Import und Aufnahmeaktionen
 
-**Datum:** 24.10.2026 — **Status:** MT.I0-Quellinventur dokumentiert; MT.I1-Code/gezielte Tests implementiert, Offline-CI noch nicht abgenommen; MT.I2–I5 und MT.UX0–UX7 offen; keine Live-Abnahme.  
+**Datum:** 24.10.2026 — **Status:** MT.I0-Quellinventur dokumentiert; MT.I1-Quell-/Vertragsregressionen im CI-Run #798 bestanden (Code-SHA `f07f6cdb`, weitere Staging-/Integrationsjobs nicht als abgeschlossen behauptet); MT.I2–I5 und MT.UX0–UX7 offen; keine Live-Abnahme.  
 **Owner:** `addons/media-tools/` in `hotzenplotz5/vdr-suite`.  
 **Branch:** nur `work/addon-platform-registry-lifecycle`; kein neues Repo, kein Nebenbranch, keine nummerierte VDR-Suite-Phase 70.  
 **Bestehende Grenzen:** [Add-on-Plattform-Roadmap](../../docs/planning/addon-platform-roadmap.md), dort A6/A7.5 und M1.R (Import/HandBrake/Überspringen).
@@ -10,7 +10,7 @@
 | Slice | Tatsächlich erreicht | Noch nicht nachgewiesen |
 | --- | --- | --- |
 | MT.I0 | [Belegte Quell-/Hostmatrix](INSTALLATION-BASELINE.md) für Stages, Handler-Trust, Installer, `debian/`, feste Pfade/Build-Abhängigkeiten und bewusst unbekannte Distributionswerte; Dokumentationscommit `7a143a1d`. | Keine neue read-only-Abfrage des produktiven Hosts; keine Laufzeit- oder Distributionsfreigabe. |
-| MT.I1 | Bestehender Composer schreibt eine versions-/paket-/rollenbezogene Datei- und Hash-Inventur in **dieselbe** Suite+Media-Tools-Stage; read-only `--verify-stage` mit unabhängigem Handler-SHA256; synthetische Regressionen für unveränderten Input, Vollständigkeit und mutierten/resealed Worker; Commits `c76d191c`, `62802b2c`, CI-Eintrag `cf847274`. | Relevanter exakter CI-Head noch nicht grün. `~cpppreview1` und `debian/` konsumieren die neue Inventur noch nicht (MT.I4). |
+| MT.I1 | Bestehender Composer schreibt eine versions-/paket-/rollenbezogene Datei- und Hash-Inventur in **dieselbe** Suite+Media-Tools-Stage; read-only `--verify-stage` mit unabhängigem Handler-SHA256; synthetische Regressionen für unveränderten Input, Vollständigkeit und mutierten/resealed Worker; Commits `c76d191c`, `62802b2c`, CI-Eintrag `cf847274`. | **UNIT/CONTRACT PASS:** 6 gezielte Stage-Regressionen und `media-tools-trust-gate` auf `f07f6cdb608468e1d49768f239cf4d02a2a987be`, [Actions #798](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40135741516); weitere `frontend-install-staging`-/`addon-platform`-Jobs beim Nachweis noch laufend, also **PRODUCTION-INTEGRATION NOT_VERIFIED**, **REAL-VDR NOT_VERIFIED**. `~cpppreview1` und `debian/` konsumieren die neue Inventur noch nicht (MT.I4). |
 | MT.I2–MT.I5, MT.UX0–UX7 | Keine Umsetzung in diesem Arbeitsschritt. | Manuelles Update/Rollback, Hostadapter, .deb-Parität, Live-/UI-Abnahme vollständig offen. |
 
 **Komponentenänderung:** `stage_media_tools_runtime.py` und sein vorhandener
