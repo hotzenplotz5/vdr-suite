@@ -1117,6 +1117,44 @@ function publishHomeResume() {}
     JSON.stringify({sourceId: SOURCE, videoDecision: 'desktop'}));
   previewInspectionStatus = 'ready';
 
+  // A revoked permission fails the whole read-only batch review without
+  // any Core write. Controls recover so the user may run a fresh diagnosis.
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B];
+  previewMode = 'forbidden';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const postsBeforeForbidden = submits;
+  await findClass(mount, 'media-import-batch').listeners.click();
+  await settle();
+  assert.strictEqual(submits, postsBeforeForbidden);
+  assert(findClass(mount, 'media-import-batch-confirm').hidden);
+  assert(!findClass(mount, 'media-import-batch').disabled,
+    'failed read-only diagnosis should permit a new attempt');
+
+  // A delayed GET must not resurrect a review after filter changes.
+  previewMode = 'defer-source';
+  const staleBatch = findClass(mount, 'media-import-batch').listeners.click();
+  await settle();
+  assert.strictEqual(typeof resolveDelayedPreview, 'function');
+  const staleSearch = findClass(mount, 'media-import-search');
+  staleSearch.value = 'keine Übereinstimmung';
+  staleSearch.listeners.input();
+  resolveDelayedPreview(reply(200, {
+    backendId: 'backend-a', sourceId: SOURCE, state: 'ready', status: 'ready',
+    title: 'Alter Film', targetFolder: 'Altes Ziel', videoCodec: 'h264',
+    sourceBytes: 1, availableBytes: 9000000000, requiredBytes: 5000000000,
+    videoReencodeRequired: false
+  }));
+  resolveDelayedPreview = null;
+  await staleBatch;
+  await settle();
+  assert(findClass(mount, 'media-import-batch-confirm').hidden);
+  assert.strictEqual(findClass(mount, 'media-import-batch-review').children.length, 0);
+  assert.strictEqual(submits, postsBeforeForbidden);
+  previewMode = 'ready';
+
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
   console.error(error);
