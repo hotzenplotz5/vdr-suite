@@ -78,7 +78,12 @@
 
   function deactivate() {
     ++owner;
-    if (current) clearPolling(current);
+    if (current) {
+      clearPolling(current);
+      if (current.previewTimer !== null) global.clearTimeout(current.previewTimer);
+      current.previewTimer = null;
+      ++current.previewGeneration;
+    }
     current = null;
   }
 
@@ -599,6 +604,99 @@
       });
   }
 
+  // Exactly one selected source, using the canonical Public-v1 actor/backend
+  // gate. The control plane can answer "pending" until the next Agent scan.
+  // This is read-only; it never creates an import operation or writes a marker.
+  function refreshSelectedPreview(view) {
+    if (!isCurrent(view)) return;
+    if (view.previewTimer !== null) {
+      global.clearTimeout(view.previewTimer);
+      view.previewTimer = null;
+    }
+    const id = view.select.value;
+    ++view.previewGeneration;
+    const generation = view.previewGeneration;
+    view.previewResult = null;
+    view.previewStatus = '';
+    view.previewReads = 0;
+    updatePreview(view);
+    if (!view.sources.includes(id)) return;
+    function poll() {
+      if (!isCurrent(view) || generation !== view.previewGeneration ||
+          view.select.value !== id) return;
+      if (typeof global.fetch !== 'function') {
+        view.previewStatus = 'Die Servervorschau ist derzeit nicht verfügbar.';
+        updatePreview(view);
+        return;
+      }
+      const url = '/api/v1/backends/' + encodeURIComponent(view.backendId) +
+        '/media-import-sources/' + encodeURIComponent(id) + '/preview';
+      Promise.resolve(global.fetch(url, {
+        credentials: 'same-origin', cache: 'no-store',
+        headers: {'Accept': 'application/json'}
+      })).then(function (response) {
+        return response.text().then(function (text) {
+          let data;
+          try { data = JSON.parse(text); }
+          catch (_) { throw new Error('Ungültige Vorschauantwort'); }
+          if (!response.ok) {
+            const error = new Error('Vorschau abgelehnt: HTTP ' + response.status);
+            error.status = response.status;
+            throw error;
+          }
+          return data;
+        });
+      }).then(function (data) {
+        if (!isCurrent(view) || generation !== view.previewGeneration ||
+            view.select.value !== id) return;
+        if (!data || data.backendId !== view.backendId ||
+            data.sourceId !== id) throw new Error('Veraltete Vorschauantwort');
+        if (data.state === 'pending') {
+          view.previewStatus = 'Backend prüft den ausgewählten Film …';
+          updatePreview(view);
+          if (++view.previewReads < 40) {
+            view.previewTimer = global.setTimeout(function () {
+              view.previewTimer = null;
+              poll();
+            }, 4000);
+          } else {
+            view.previewStatus = 'Die Vorschau dauert zu lange. Quelle erneut auswählen.';
+            updatePreview(view);
+          }
+          return;
+        }
+        if (data.state !== 'ready' ||
+            !['ready', 'duplicate', 'insufficient', 'unavailable'].includes(data.status) ||
+            ![data.sourceBytes, data.availableBytes, data.requiredBytes].every(
+              function (n) { return Number.isSafeInteger(n) && n >= 0; }) ||
+            typeof data.videoReencodeRequired !== 'boolean' ||
+            typeof data.targetFolder !== 'string' ||
+            (data.targetFolder && !validRelativeFolder(data.targetFolder)) ||
+            typeof data.videoCodec !== 'string' ||
+            !/^[a-z0-9_]{0,64}$/.test(data.videoCodec) ||
+            typeof data.title !== 'string' || data.title.length > 120)
+          throw new Error('Ungültige Vorschauantwort');
+        view.previewResult = data;
+        view.previewStatus = '';
+        updatePreview(view);
+      }).catch(function () {
+        if (!isCurrent(view) || generation !== view.previewGeneration ||
+            view.select.value !== id) return;
+        view.previewResult = null;
+        view.previewStatus = 'Echte Backend-Vorschau momentan nicht verfügbar. ' +
+          'Quelle erneut auswählen.';
+        updatePreview(view);
+      });
+    }
+    poll();
+  }
+
+  function humanBytes(n) {
+    if (n < 1024 * 1024) return Math.round(n / 1024) + ' KiB';
+    if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MiB';
+    return (n / (1024 * 1024 * 1024)).toFixed(1) + ' GiB';
+  }
+
   function updatePreview(view) {
     if (!isCurrent(view)) return;
     const id = view.select.value;
@@ -621,11 +719,32 @@
         : view.localReencode.checked
           ? 'VDR-Import; lokale Umkodierung bei Bedarf nur für diesen Film nach erneuter Bestätigung.'
           : 'VDR-Import ohne Freigabe einer lokalen Umkodierung.';
+    let details = view.previewStatus ||
+      'Echte Backend-Vorschau wird angefordert …';
+    const plan = view.previewResult;
+    if (plan && plan.sourceId === id) {
+      if (plan.status === 'unavailable') {
+        details = 'Film konnte vom Backend nicht sicher geprüft werden.';
+      } else {
+        const outcome = plan.status === 'duplicate'
+          ? 'Bereits als VDR-Aufnahme vorhanden – nicht überschreiben.'
+          : plan.status === 'insufficient'
+            ? 'Nicht genügend freier Platz für den Import.'
+            : plan.videoReencodeRequired
+              ? 'Video muss umkodiert werden. Nur mit gesonderter Zustimmung.'
+              : 'Video kann ohne lokale Neukodierung übernommen werden.';
+        details = 'VDR-Zielordner: ' + plan.targetFolder +
+          '. Video-Codec: ' + plan.videoCodec +
+          '. Quelldatei: ' + humanBytes(plan.sourceBytes) +
+          '. Frei: ' + humanBytes(plan.availableBytes) +
+          '. Benötigt einschließlich Reserve: ' + humanBytes(plan.requiredBytes) +
+          '. ' + outcome;
+      }
+    }
     view.preview.textContent = 'Vorschau: ' + name +
       '. Quellordner: ' + sourceFolder + '. ' + description +
-      ' Der genaue VDR-Zielordner, Codec, Dateigröße, freier Platz und ' +
-      'mögliche Dubletten sind hier noch nicht vom Backend vorgeprüft. ' +
-      'Der Backend-Agent prüft Quelle und Ziel bei Auftragsannahme erneut.';
+      ' ' + details +
+      ' Der Backend-Agent prüft Quelle und Ziel bei Auftragsannahme erneut.';
   }
 
   function startImport(view, releaseMode) {
@@ -932,6 +1051,8 @@
       message: message, operationDetail: operationDetail,
       scanNotice: scanNotice, sourceDetails: sourceDetails,
       preview: preview, sourceTitles: Object.create(null),
+      previewTimer: null, previewGeneration: 0, previewReads: 0,
+      previewResult: null, previewStatus: '',
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
       reads: 0, timer: null, attempt: activeAttempts[backendId] || null};
     current = view;
@@ -955,7 +1076,7 @@
       startButton.disabled = view.submitting || !view.sources.includes(select.value);
       sourceDetails.textContent = view.sources.includes(select.value)
         ? 'Auswahl-ID: ' + select.value : '';
-      updatePreview(view);
+      refreshSelectedPreview(view);
     });
     localReencode.addEventListener('change', function () {
       if (!isCurrent(view) || view.batch) return;
