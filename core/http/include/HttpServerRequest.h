@@ -10,7 +10,7 @@ struct HttpServerRequest {
     std::map<std::string, std::string> headers;
     std::string body;
     // Set by the TCP listener from getpeername(), never parsed from HTTP headers.
-    bool peerIsLoopback = false;
+    bool peerIsTrustedLan = false;
 };
 
 #endif
