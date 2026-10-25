@@ -30,6 +30,7 @@ int main()
             r.status = PublicApiRuntime::MediaImportSourceStatus::ok;
             r.ids = {"source_00000000001", "source_00000000002"};
             r.labels = {"Die Herrschaft des Feuers", "Zweiter Film"};
+            r.folders = {"", "Serien/Andor"};
             return r;
         });
     const auto ok = get("actor:one", scopes);
@@ -42,6 +43,8 @@ int main()
            std::string::npos);
     assert(ok.body.find("\"label\":\"Zweiter Film\"") !=
            std::string::npos);
+    assert(ok.body.find("\"folder\":\"\"") != std::string::npos);
+    assert(ok.body.find("\"folder\":\"Serien/Andor\"") != std::string::npos);
     assert(ok.body.find("/media/input") == std::string::npos);
     assert(ok.headers.at("Cache-Control") == "no-store");
     assert(get("actor:two", scopes).statusCode == 403);
@@ -51,6 +54,18 @@ int main()
     assert(api.tryHandleGet(url + "?path=/tmp", "actor:one", "", "",
                             query, "", "", scopes));
     assert(query.statusCode == 400);
+    // Folder traversal or absolute paths in an Agent observation must not
+    // reach Public v1, even as advisory metadata.
+    api.registerMediaImportSourceLookup(
+        [](const std::string&, const std::string&) {
+            PublicApiRuntime::MediaImportSourceResult bad;
+            bad.status = PublicApiRuntime::MediaImportSourceStatus::ok;
+            bad.ids = {"source_00000000001"};
+            bad.labels = {"Film"};
+            bad.folders = {"../etc"};
+            return bad;
+        });
+    assert(get("actor:one", scopes).statusCode == 503);
     // Three bounded pages, no path disclosure and no import side effect.
     // Continuation is bound to the exact actor/backend/source observation.
     std::vector<std::string> many;
