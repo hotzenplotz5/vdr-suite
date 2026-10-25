@@ -77,11 +77,6 @@ ImportPreview inspectImportPreview(const ImportRequest& request,
 // read-only browser preview instead of rejecting it as a write attempt.
 ImportPlan inspectImportPreview(const ImportRequest& request);
 
-struct ImportCapacityPreview {
-    std::uint64_t availableBytes = 0;
-    std::uint64_t requiredBytes = 0; // staging/output plus disk reserve
-    bool sufficient = false;
-};
 ImportCapacityPreview inspectImportCapacity(const ImportPlan& plan);
 
 // Read-only source classification for an explicit local/desktop/skip decision.
