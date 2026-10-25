@@ -155,6 +155,21 @@ struct MediaImportSourceLabel {
     std::string folder = {};
 };
 
+// Ephemeral observation for ONE opaque source ID selected by an actor.
+// No absolute backend path crosses this boundary. A normal import rechecks
+// all facts at execution, independently of this read-only preview.
+struct MediaImportSourcePreview {
+    std::string sourceId;
+    std::string status = "unavailable"; // ready, duplicate, insufficient, unavailable
+    std::string title;
+    std::string targetFolder; // VDR-video-root relative, not a path authority
+    std::string videoCodec;
+    std::uint64_t sourceBytes = 0;
+    std::uint64_t availableBytes = 0;
+    std::uint64_t requiredBytes = 0;
+    bool videoReencodeRequired = false;
+};
+
 // Read-only observation from the fixed root-admin approval + pinned binary.
 // It never authorizes execution or substitutes for a live Core grant.
 struct MediaToolsInstallationEvidence {
@@ -201,6 +216,9 @@ public:
             labels.clear();
         return true;
     }
+    virtual bool inspectTrustedSource(
+        const std::string& sourceId, MediaImportSourcePreview& out)
+    { out = {}; (void)sourceId; return false; }
     virtual bool authorize(const BackendAgentCommandAssignment& assignment,
                            const std::string& backendId,
                            std::uint64_t generation) = 0;
