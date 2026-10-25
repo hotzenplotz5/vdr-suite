@@ -274,6 +274,8 @@
   function showAttempt(view) {
     view.select.disabled = true;
     view.startButton.disabled = true;
+    view.selectedBatchButton.disabled = true;
+    view.selectAllVisibleButton.disabled = true;
     view.localReencode.disabled = true;
     view.decision.disabled = true;
     view.markedSelect.disabled = true;
