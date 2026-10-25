@@ -51,6 +51,65 @@ int main()
     assert(api.tryHandleGet(url + "?path=/tmp", "actor:one", "", "",
                             query, "", "", scopes));
     assert(query.statusCode == 400);
+    // Three bounded pages, no path disclosure and no import side effect.
+    // Continuation is bound to the exact actor/backend/source observation.
+    std::vector<std::string> many;
+    for (int i = 0; i < 70; ++i)
+        many.push_back("source_" + std::to_string(10000000000ULL + i));
+    api.registerMediaImportSourceLookup(
+        [&many](const std::string& actor, const std::string& backend)
+        {
+            PublicApiRuntime::MediaImportSourceResult result;
+            if (actor != "actor:one" || backend != "backend-a") {
+                result.status = PublicApiRuntime::MediaImportSourceStatus::forbidden;
+                return result;
+            }
+            result.status = PublicApiRuntime::MediaImportSourceStatus::ok;
+            result.ids = many;
+            return result;
+        });
+    const auto getPage = [&](const std::string& target,
+                             const std::string& actor = "actor:one")
+    {
+        ApiResponse response;
+        assert(api.tryHandleGet(target, actor, "page", "",
+                                response, "", "", scopes));
+        return response;
+    };
+    const auto nextFrom = [](const std::string& body) {
+        const std::string name = "\"next\":\"";
+        const auto start = body.find(name);
+        if (start == std::string::npos) return std::string();
+        const auto offset = start + name.size();
+        const auto end = body.find('"', offset);
+        assert(end != std::string::npos);
+        return body.substr(offset, end - offset);
+    };
+    auto first = getPage(url);
+    assert(first.statusCode == 200);
+    assert(first.body.find("\"meta\":{\"partial\":true}") != std::string::npos);
+    assert(first.body.find(many[0]) != std::string::npos);
+    assert(first.body.find(many[31]) != std::string::npos);
+    assert(first.body.find(many[32]) == std::string::npos);
+    const std::string secondUrl = nextFrom(first.body);
+    assert(secondUrl.find(url + "?cursor=mi1_") == 0);
+    auto second = getPage(secondUrl);
+    assert(second.statusCode == 200);
+    assert(second.body.find(many[32]) != std::string::npos);
+    assert(second.body.find(many[63]) != std::string::npos);
+    const std::string thirdUrl = nextFrom(second.body);
+    assert(!thirdUrl.empty());
+    auto third = getPage(thirdUrl);
+    assert(third.statusCode == 200);
+    assert(third.body.find(many[64]) != std::string::npos);
+    assert(third.body.find(many[69]) != std::string::npos);
+    assert(nextFrom(third.body).empty());
+    assert(getPage(secondUrl, "actor:two").statusCode == 403);
+    many[0] = "source_09999999999"; // valid new snapshot, old continuation stale
+    assert(getPage(secondUrl).statusCode == 409);
+    assert(getPage(url + "?cursor=mi1_bad_32").statusCode == 409);
+    assert(getPage(url + "?cursor=mi1_1_00").statusCode == 409);
+    assert(getPage(url + "?cursor=mi1_1_32&path=/tmp").statusCode == 400);
     ApiResponse post;
     assert(api.tryHandlePost(url, "", "", post));
     assert(post.statusCode == 405);
