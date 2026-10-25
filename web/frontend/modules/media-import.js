@@ -347,10 +347,9 @@
                    item.label.length > 0 && item.label.length <= 160 &&
                    !/[\/\\\r\n\x00-\x1f\x7f]/.test(item.label)));
             })) throw new Error('Ungültige Quellenliste');
-        // Pagination does not itself prove that the backend scanned the full
-        // filesystem tree; the Agent still has a smaller reporting ceiling.
-        const bounded = Boolean(response.meta && response.meta.partial === true) ||
-          items.length >= 32;
+        // The Agent reports whether the bounded local walk reached its end.
+        // Missing/legacy completion metadata is conservatively incomplete.
+        const bounded = !(response.meta && response.meta.partial === false);
         const ordinary = items.filter(function (item) {
           return !markerSuffix(item);
         });
@@ -402,8 +401,8 @@
           ? 'Scan unvollständig: Das Backend bestätigt derzeit nicht alle ' +
             'Dateien der Importquelle. Weitere Unterordner oder Filme können ' +
             'fehlen; die Agent-Quellenmeldung ist weiterhin begrenzt.'
-          : 'Ergebnis der Backend-Quellenliste; ein vollständiger rekursiver ' +
-            'Dateisystemscan ist aktuell nicht bestätigt.';
+          : 'Scan abgeschlossen: alle derzeit freigegebenen und geeigneten ' +
+            'Dateien wurden innerhalb der geprüften Importquelle erfasst.';
         report(view, ordinary.length + ' Filme verfügbar, ' + marked.length +
           ' zurückgestellt, übersprungen oder doppelt markiert.' +
           (bounded ? ' Scan unvollständig.' : ''));
