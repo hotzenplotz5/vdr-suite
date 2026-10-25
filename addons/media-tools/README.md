@@ -642,6 +642,51 @@ VDR-Aufnahme anschließend auf einem konkreten Wiedergabegerät läuft, ist
 hier keine geprüfte Eigenschaft. Ein echter yaVDR-Import und die gesonderte
 Geräteabnahme bleiben offen.
 
+## MT.UX5.1–5.3 – lesende Stapeldiagnose und zurückgestellte Filme
+
+Die bisherige sequentielle Core-Operationsfolge importierte bei einem
+Stapel die ausgewählten Source-IDs ohne technische Einzelvorschau.
+MT.UX5 verwendet nun dieselbe autorisierte `GET .../media-import-sources/
+{sourceId}/preview`-Kette wie MT.UX4, diesmal **pro ausgewähltem Film**.
+Der Browser führt nur lesende Anfragen aus (höchstens 100 Filme); er legt
+weder Aufträge noch Marker an. Berechtigungsverlust beendet die Prüfung.
+Abgelaufene, noch ausstehende oder nicht sicher prüfbare Filme erhalten
+keinen automatischen Importauftrag.
+
+Die Ergebnisliste unterscheidet:
+- **direkt importierbar**: `ready` und keine Videoumkodierung erforderlich;
+- **zurückgestellt**: Neukodierung nötig, Speicherplatz fehlt, Backend
+  nicht verfügbar oder Prüfung noch ausstehend/fehlgeschlagen;
+- **Dubletten**: bestehende VDR-Aufnahme, keine Veröffentlichung.
+
+Erst **„Geeignete Filme jetzt importieren“** löst einen weiteren
+expliziten Bestätigungsdialog aus und startet die schon vorhandene
+sequentielle Core-Operation **nur für kopierfähige Filme**. Jeder neue
+Auftrag hat einen eigenen Idempotency-Key, prüft Agent/Source/Grants
+erneut und wird erst nach unabhängigem VDR-Recording-Readback als
+abgeschlossen gewertet. Die Liste zeigt laufende und bestätigte
+Filme; ungeklärte Auftragsannahme, fehlgeschlagenes Readback oder
+fehlender Operationsstatus stoppen Folgeimporte. Die gelesen gemeldete
+Einzelfilm-Kapazität ist keine kumulative Platzgarantie für den Stapel.
+
+Zurückgestellte Einträge besitzen eine Aktion **„Einzeln prüfen“**.
+Diese lädt den aktuellen autorisierten Quellkatalog neu und öffnet den
+vorhandenen Einzelfilm-Dialog; ein alter Source-ID-Token wird weder zum
+Importbeleg noch zur Umkodierungsfreigabe. Bei tatsächlich erforderlicher
+Videoneukodierung folgen die bekannten, gesondert bestätigten Optionen
+`local` (lokal H.264), `desktop` (Original unter `.pc_encode` für
+HandBrake/FFmpeg zurückstellen) oder `skip`. Eine neue, extern
+kompatibel umkodierte Datei kann beim nächsten Scannerlauf gesondert
+erkannt werden; die markierte Originaldatei bleibt unverändert.
+Es gibt **keinen** Hintergrund-HandBrake-Worker, keine weitere Queue,
+keinen neuen HTTP-Endpunkt und keine zweite Importpipeline.
+
+**Abnahmegrenze:** Dies ist eine Browser-/Client-Kompositionsänderung
+auf Basis der bereits vorhandenen read-only Core-/Agent-Vorschau.
+Isolierte CI/Frontend-Gates sind je exaktem Commit zu prüfen.
+Produktive Installation, realer VDR-Speicher-/Index-Test und reale
+externe HandBrake-Bearbeitung bleiben separat offen.
+
 ## MT.UX4.1 – relative VDR target folders (source candidate)
 
 The approved import **root maps directly to the configured VDR video root**.
