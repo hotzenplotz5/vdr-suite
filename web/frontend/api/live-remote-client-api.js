@@ -648,7 +648,7 @@
         ? translated('Administrator erstellen', 'Create administrator')
         : translated('Anmelden', 'Sign in');
       const localHost = global.location &&
-        /^(localhost|127\\.0\\.0\\.1|\\[::1\\])$/.test(global.location.hostname);
+        /^(localhost|127\.0\.0\.1|\[::1\])$/.test(global.location.hostname);
       submit.disabled = setupMode && !localHost;
       if (setupMode) {
         message.textContent = submit.disabled
@@ -803,7 +803,7 @@
         }).finally(function () {
           cancel.disabled = false;
           submit.disabled = setupMode &&
-            (!global.location || !/^(localhost|127\\.0\\.0\\.1|\\[::1\\])$/.test(global.location.hostname));
+            (!global.location || !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(global.location.hostname));
         });
         return;
       }
