@@ -67,6 +67,19 @@ async function run() {
   assert.strictEqual(requests[0].options.cache, 'no-store');
   assert.strictEqual(requests[0].options.headers.Authorization, 'Bearer channel-token');
 
+  const numeric = await client.getChannels({
+    query: {
+      backendIds: ['backend-a'],
+      limit: 20,
+      cursor: 'ch2_sample',
+      sort: 'backendId,channelNumber,channelId',
+      order: 'asc'
+    }
+  });
+  assert.strictEqual(numeric.meta.partial, true);
+  assert.strictEqual(requests[1].url,
+    'https://suite.example/api/v1/channels?backendId=backend-a&limit=20&cursor=ch2_sample&sort=backendId,channelNumber,channelId&order=asc');
+
   const beforeInvalid = requests.length;
   for (const invalidQuery of [
     {},
