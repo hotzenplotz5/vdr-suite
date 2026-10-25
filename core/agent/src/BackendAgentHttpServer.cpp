@@ -637,12 +637,12 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
         return errorResponse(400, "invalid_media_import_scan_status");
     // Older Agents omit sourceLabels. Present but malformed arrays fail closed.
     if (request.body.find("\"sourceLabels\"") != std::string::npos &&
-        !jsonStringArray(request.body, "sourceLabels", sourceLabels, 256U, 160U))
+        !jsonStringArray(request.body, "sourceLabels", sourceLabels, 100U, 160U))
         return errorResponse(400, "invalid_media_import_source_labels");
     if (!jsonString(request.body, "backendId", backendId) ||
         !jsonString(request.body, "agentInstanceId", instanceId) ||
         !jsonUnsigned(request.body, "backendGeneration", generation) ||
-        !jsonStringArray(request.body, "sourceIds", sourceIds, 256U, 64U) ||
+        !jsonStringArray(request.body, "sourceIds", sourceIds, 100U, 64U) ||
         !jsonString(request.body, "handlerOrigin", handlerOrigin) ||
         !jsonString(request.body, "handlerVersion", handlerVersion) ||
         !jsonString(request.body, "handlerSha256", handlerSha256))
@@ -753,7 +753,7 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
     const bool channelObservation =
         request.path == "/api/agent/v1/observations/channels";
     const bool osdObservation = request.path == "/api/agent/v1/observations/osd";
-    // Bounded media source observation: 256 IDs with 160-byte display labels
+    // Bounded media source observation: 100 IDs with 160-byte display labels
     // can exceed the old 16 KiB generic Agent request limit.
     const bool mediaSourcesObservation =
         request.path == "/api/agent/v1/observations/media-import-sources";
@@ -761,7 +761,7 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
         ? BackendAgentOsdObservation::MaximumBodyBytes
         : channelObservation
         ? MaximumChannelObservationBodyBytes
-        : mediaSourcesObservation ? 128U * 1024U
+        : mediaSourcesObservation ? 64U * 1024U
         : MaximumAgentBodyBytes;
     if (request.body.size() > maximumBodyBytes)
         return errorResponse(413, channelObservation
