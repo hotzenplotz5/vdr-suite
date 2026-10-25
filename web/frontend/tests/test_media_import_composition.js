@@ -661,6 +661,33 @@ function publishHomeResume() {}
   allSourceSelect.value = pagedSourceIds[69];
   allSourceSelect.listeners.change();
   assert.strictEqual(findClass(mount, 'media-import-start').disabled, false);
+  // The requested product boundary: exactly 100 films are offered.
+  context.resetMediaImportVisibility(true);
+  pagedSourceIds = Array.from({length: 100}, function (_, i) {
+    return 'source_' + String(10000000000 + i);
+  });
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const select100 = findClass(mount, 'media-import-source');
+  assert.strictEqual(select100.children.length, 101);
+  assert.strictEqual(findClass(mount, 'media-import-batch').disabled, false);
+  assert(findClass(mount, 'media-import-scan-notice').textContent.includes('100 Filme'));
+  assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
+    beforePagedPosts, 'listing 100 films is a read-only operation');
+
+  // An invalid 101st item supplied by an incompatible server must not
+  // become an executable selection or silently start a batch.
+  context.resetMediaImportVisibility(true);
+  pagedSourceIds.push('source_10000000100');
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  assert(findClass(mount, 'media-import-source').disabled);
+  assert(findClass(mount, 'media-import-batch').disabled);
+  assert(findClass(mount, 'media-import-scan-notice').textContent.includes('Scan nicht abgeschlossen'));
+  assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
+    beforePagedPosts, '101 sources must never dispatch an import');
   pagedSourceIds = null;
 
     console.log('A7.5 real web composition and media import lifecycle: PASS');
