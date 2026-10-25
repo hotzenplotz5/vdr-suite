@@ -318,6 +318,21 @@ print("MEDIA_TOOLS_FIRST_INSTALL_STATE=" + report["install_state"])
 if report["install_state"] != "absent":
     raise SystemExit("existing Media Tools needs an explicit reviewed update/migration")
 PY
+# For a first install, the Suite-only prepared stage is the complete,
+# byte-exact previous runtime. Refuse any existing drift BEFORE stopping
+# services. This also rejects root-owned binaries managed by dpkg.
+sudo python3 - "$WORK/stage" <<'PY' ||
+  stop "existing Suite runtime not identical to prepared Suite-only stage"
+import pathlib, sys
+sys.path.insert(0, "tools")
+sys.path.insert(0, "tools/addons")
+from install_runtime_stage import check
+from media_tools_runtime_transaction import live_file_ownership
+root = pathlib.Path(sys.argv[1])
+check(root, pathlib.Path("/"))
+live_file_ownership(root)
+print("FIRST_INSTALL_PREVIOUS_SUITE_STAGE=PASS")
+PY
 resource_preflight || stop "insufficient capacity for actual database backup"
 # A previous failed attempt may have left an EMPTY root-owned backup folder.
 # Reuse only that precise safe state; never overwrite existing backup bytes.
@@ -331,9 +346,35 @@ else
 fi
 # A live database backup must happen with the daemon stopped.
 RESTART=0
+DEPLOY_ATTEMPTED=0
 recover() {
   result=$?
   if [ "$RESTART" -eq 1 ]; then
+    if [ "$result" -ne 0 ] && [ "$DEPLOY_ATTEMPTED" -eq 1 ]; then
+      echo 'FIRST_INSTALL_ROLLBACK=START; SERVICES_REMAIN_STOPPED' >&2
+      # Only the eight previously ABSENT add-on files and the new optional
+      # configuration from this attempt are removed. Never touch recordings,
+      # existing host modes, ownership or database state.
+      sudo python3 - <<'PY' || echo 'FIRST_INSTALL_PAYLOAD_CLEANUP=FAILED' >&2
+import pathlib, sys
+sys.path.insert(0, "tools/addons")
+from stage_media_tools_runtime import payload_roles, INVENTORY_REL
+for relative in (*payload_roles(), INVENTORY_REL.as_posix()):
+    (pathlib.Path("/") / relative).unlink(missing_ok=True)
+for relative in (
+    "etc/vdr-suite/addon-approvals/rectools.import-running.lock",
+    "etc/vdr-suite/addon-sources/media-import.tsv",
+    "etc/systemd/system/vdr-suite-backend-agent.service.d/20-media-tools.conf",
+):
+    (pathlib.Path("/") / relative).unlink(missing_ok=True)
+PY
+      sudo make deploy-install-runtime RUNTIME_STAGE="$WORK/stage" LIVE_ROOT=/ &&
+      sudo make check-install-runtime-deployment RUNTIME_STAGE="$WORK/stage" LIVE_ROOT=/ &&
+      echo 'FIRST_INSTALL_ROLLBACK=VERIFIED' >&2 ||
+      echo 'FIRST_INSTALL_ROLLBACK=FAILED; DO_NOT_START_SERVICES' >&2
+      sudo systemctl daemon-reload ||
+        echo 'SERVICE_UNIT_RELOAD=FAILED; DO_NOT_START_SERVICES' >&2
+    fi
     echo 'MEDIA_TOOLS_SERVICE_STATE=STOPPED_REQUIRES_MANUAL_REVIEW' >&2
     echo 'NO_AUTOMATIC_RESTART_OR_APPROVAL_ON_INSTALL_FAILURE' >&2
   fi
@@ -357,6 +398,7 @@ with sqlite3.connect(f'file:{source}?mode=ro', uri=True) as db:
 os.chmod(dest, 0o600)
 print('DATABASE_BACKUP=PASS bytes=' + str(os.path.getsize(dest)), flush=True)
 PY
+DEPLOY_ATTEMPTED=1
 sudo make deploy-install-runtime RUNTIME_STAGE="$STAGE" LIVE_ROOT=/ ||
   stop "sealed Suite + Media Tools runtime deployment"
 sudo make check-install-runtime-deployment RUNTIME_STAGE="$STAGE" LIVE_ROOT=/ ||
