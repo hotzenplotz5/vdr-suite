@@ -519,6 +519,28 @@ access for the actual unprivileged Agent account. Existing root-owned ledger,
 handler approval, maintenance lock, stopped Agent and backup/atomic-file
 publication checks remain mandatory; unknown/custom ledgers are refused.
 The deterministic extra-source IDs are `local-media-root-0001`, etc.
+For safe review, an additional `--check` mode validates the proposed
+configuration using the existing backend account, root-owned approvals,
+maintenance lock and path rules **without writing any ledger/override,
+stopping the Agent or restarting systemd**. The accepted arguments, for
+example, have this shape (do **not** execute an apply on a productive
+system as part of source review):
+
+```text
+configure_media_tools_paths.sh --check /srv/video/Filme /srv/vdr/video.00 --default-name Filme --add-root /srv/video/Serien Serien
+```
+
+The old two-path invocation remains valid and keeps the original five-column
+TSV shape when no alias or extra source is provided. An actual apply retains
+the original offline requirement that the Backend Agent is explicitly stopped
+before writing, and still emits a root-only backup path for review.
+
+**Existing-frontend baseline and competitor gap:** The current Suite Webfrontend
+can read authorized, labeled films and launch individually authorized imports,
+but it has no source-edit form. Kodi/Plex expose more direct library-source
+administration workflows; the gap here is the pending safe administration UI,
+not an excuse to grant the browser root filesystem access. This comparison is
+a broad UX contrast, not a verified per-version feature audit.
 
 **No live action occurred:** this is a source-only CLI change, not permission
 to run it on a productive machine or restart any service. Real configuration
