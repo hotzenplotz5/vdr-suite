@@ -464,7 +464,9 @@ authority. The Agent performs an iterative recursive read-only traversal; it
 does not follow directory symlinks and does not accept paths from the browser.
 Eligible aged sources are mapped to opaque identity IDs and revalidated by
 the Agent before import execution. Its current safety limits are **4096
-visited directory entries and 256 eligible source IDs** per observation.
+visited directory entries and a maximum of 100 eligible films** per scan/import
+selection, as explicitly chosen for MT.UX1. Typical runs of 5–10 films are
+unaffected.
 
 An oversized inventory no longer discards all verified items: the bounded
 snapshot is published with `partial=true`. The Agent reports IDs, advisory
@@ -474,11 +476,14 @@ lease. Public v1 paginates the **existing** observed source snapshot in
 32-item pages and binds cursors to actor/backend/catalog revision. The browser
 may display `Scan abgeschlossen` only for `meta.partial=false`.
 
-**Not yet complete:** pagination of the 256-ID observation is NOT a file
-system continuation. Scans past 256 sources or 4096 entries still need a
-bounded, independently authorized Agent/Core continuation that preserves
-selection revalidation. This code candidate has not had a confirmed C++ build,
-CI run or real yaVDR acceptance. No package, service, VDR recording, filesystem
+**Import ceiling:** if more than 100 eligible films are found, the scanner
+retains at most 100 verified source IDs and sends `partial=true`. The UI
+explains that only up to 100 films can be imported per run and another scan
+may be needed later. Scans that reach the 4096-entry safety limit are also
+reported incomplete, even when fewer than 100 films were found. **There is
+no requirement to support a >100-film batch or unbounded continuation.**
+This code candidate has not had a confirmed C++ build, CI run or real yaVDR
+acceptance. No package, service, VDR recording, filesystem
 owner or live configuration was changed by these source edits.
 
 ## Importer: source-preserving metadata and codec fallback
