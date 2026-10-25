@@ -19,6 +19,103 @@
 class BackendAgentMediaImportCatalog
 {
 public:
+    struct Preview {
+        std::string sourceId;
+        std::string status; // ready, duplicate, insufficient, unavailable
+        std::string title;
+        std::string targetFolder; // video-root-relative; never a path authority
+        std::string videoCodec;
+        std::uint64_t sourceBytes = 0;
+        std::uint64_t availableBytes = 0;
+        std::uint64_t requiredBytes = 0;
+        bool videoReencodeRequired = false;
+    };
+    enum class PreviewState { denied, pending, ready };
+
+    // One transient requested file per backend. Only a caller that already
+    // passed the Core actor/grant/backend gates can initiate this.
+    PreviewState requestPreview(const BackendAgentRecord& live,
+                                const std::string& backendId,
+                                std::int64_t now,
+                                const std::string& sourceId, Preview& out)
+    {
+        out = {};
+        if (!validSourceId(sourceId) || now <= 0 ||
+            live.revoked || live.incompatible || live.leaseExpiresAt < now)
+            return PreviewState::denied;
+        std::lock_guard<std::mutex> guard(mutex_);
+        const auto snapshot = snapshots_.find(backendId);
+        if (snapshot == snapshots_.end() ||
+            !liveSnapshot(snapshot->second, live, backendId, now) ||
+            !std::binary_search(snapshot->second.ids.begin(),
+                                snapshot->second.ids.end(), sourceId))
+            return PreviewState::denied;
+        auto& slot = previews_[backendId];
+        if (slot.sourceId == sourceId && slot.ready &&
+            slot.updatedAt <= now && now - slot.updatedAt <= 30) {
+            out = slot.result;
+            return PreviewState::ready;
+        }
+        if (slot.sourceId != sourceId || slot.requestedAt <= 0 ||
+            slot.requestedAt > now || now - slot.requestedAt > 60 ||
+            slot.ready)
+            slot = {sourceId, now, false, 0, {}};
+        return PreviewState::pending;
+    }
+
+    std::string nextPreviewRequest(const BackendAgentRecord& live,
+                                   const std::string& backendId,
+                                   std::int64_t now) const
+    {
+        std::lock_guard<std::mutex> guard(mutex_);
+        const auto snapshot = snapshots_.find(backendId);
+        const auto slot = previews_.find(backendId);
+        if (snapshot == snapshots_.end() || slot == previews_.end() ||
+            !liveSnapshot(snapshot->second, live, backendId, now) ||
+            slot->second.ready || slot->second.requestedAt > now ||
+            now - slot->second.requestedAt > 60 ||
+            !std::binary_search(snapshot->second.ids.begin(),
+                snapshot->second.ids.end(), slot->second.sourceId))
+            return {};
+        return slot->second.sourceId;
+    }
+
+    bool acceptPreview(const BackendAgentRecord& live,
+                       const std::string& backendId,
+                       std::int64_t now, const Preview& data)
+    {
+        if (!validSourceId(data.sourceId) ||
+            (data.status != "ready" && data.status != "duplicate" &&
+             data.status != "insufficient" && data.status != "unavailable") ||
+            data.title.size() > 120U || data.targetFolder.size() > 512U ||
+            data.videoCodec.size() > 64U ||
+            (data.status != "unavailable" &&
+             (data.title.empty() || data.targetFolder.empty() ||
+              data.videoCodec.empty())) ||
+            std::any_of(data.title.begin(), data.title.end(),
+                [](unsigned char c) { return c < 0x20 || c == 0x7f; }) ||
+            !validTargetFolder(data.targetFolder) ||
+            std::any_of(data.videoCodec.begin(), data.videoCodec.end(),
+                [](unsigned char c) {
+                    return !((c >= 'a' && c <= 'z') ||
+                             (c >= '0' && c <= '9') || c == '_');
+                }))
+            return false;
+        std::lock_guard<std::mutex> guard(mutex_);
+        const auto snapshot = snapshots_.find(backendId);
+        const auto slot = previews_.find(backendId);
+        if (snapshot == snapshots_.end() || slot == previews_.end() ||
+            !liveSnapshot(snapshot->second, live, backendId, now) ||
+            slot->second.ready || slot->second.sourceId != data.sourceId ||
+            slot->second.requestedAt > now ||
+            now - slot->second.requestedAt > 60)
+            return false;
+        slot->second.result = data;
+        slot->second.updatedAt = now;
+        slot->second.ready = true;
+        return true;
+    }
+
     bool publish(const RequestSecurityContext& actor,
                  const BackendAgentRecord& live,
                  const std::string& backendId,
@@ -215,6 +312,25 @@ public:
     }
 
 private:
+    static bool validTargetFolder(const std::string& path)
+    {
+        if (path.empty()) return true;
+        if (path.front() == '/' || path.back() == '/' ||
+            path.find('\\') != std::string::npos) return false;
+        std::size_t at = 0;
+        while (at < path.size()) {
+            const auto end = path.find('/', at);
+            const auto part = path.substr(at,
+                end == std::string::npos ? std::string::npos : end - at);
+            if (part.empty() || part == "." || part == ".." ||
+                std::any_of(part.begin(), part.end(), [](unsigned char c) {
+                    return c < 0x20 || c == 0x7f;
+                })) return false;
+            if (end == std::string::npos) break;
+            at = end + 1;
+        }
+        return true;
+    }
     static bool validSourceId(const std::string& id)
     {
         return id.size() >= 16U && id.size() <= 64U &&
@@ -237,6 +353,29 @@ private:
         std::map<std::string, std::string> folders;
         bool partial = true;
     };
+    static bool liveSnapshot(const Snapshot& snapshot,
+                             const BackendAgentRecord& live,
+                             const std::string& backendId,
+                             std::int64_t now)
+    {
+        return now > 0 && live.backendId == backendId &&
+            !live.revoked && !live.incompatible &&
+            live.leaseExpiresAt >= now &&
+            snapshot.agentId == live.agentId &&
+            snapshot.actorId == live.actorId &&
+            snapshot.instanceId == live.agentInstanceId &&
+            snapshot.generation == live.backendGeneration &&
+            snapshot.capturedAt <= now &&
+            now - snapshot.capturedAt <= 90;
+    }
+    struct PreviewSlot {
+        std::string sourceId;
+        std::int64_t requestedAt = 0;
+        bool ready = false;
+        std::int64_t updatedAt = 0;
+        Preview result;
+    };
     mutable std::mutex mutex_;
     std::map<std::string, Snapshot> snapshots_;
+    std::map<std::string, PreviewSlot> previews_;
 };
