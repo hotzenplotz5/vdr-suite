@@ -201,6 +201,7 @@
     section.appendChild(message);
     section.appendChild(preview);
     card.appendChild(section);
+    return section;
   }
 
   function render(parent, backendId) {
@@ -226,7 +227,8 @@
     card.appendChild(details);
     card.appendChild(refresh);
     card.appendChild(toggle);
-    appendSourceDraft(card);
+    const sourceDraft = appendSourceDraft(card);
+    sourceDraft.hidden = true;
     parent.appendChild(card);
     if (typeof backendId !== 'string' ||
         !/^[a-zA-Z0-9_.:-]{1,128}$/.test(backendId) ||
@@ -249,6 +251,7 @@
       return request(backendId, false).then(function (result) {
         current = result;
         card.hidden = false;
+        sourceDraft.hidden = false;
         status.textContent = result.activatedByInstall
           ? 'Durch Administratorinstallation aktiviert'
           : (result.desiredEnabled
@@ -259,6 +262,7 @@
         toggle.textContent = result.desiredEnabled ? 'Deaktivieren' : 'Aktivieren';
       }).catch(function (error) {
         details.textContent = '';
+        sourceDraft.hidden = true;
         if (error.httpStatus === 401 || error.httpStatus === 403) {
           // No role.admin grant: no visible administration controls.
           card.hidden = true;
