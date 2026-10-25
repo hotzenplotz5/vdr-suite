@@ -553,6 +553,35 @@ aber kein Bestandteil des normalen Web-Workflows.
 implementiert; für entfernte Backend-Rechner noch nicht. Vollständiger
 C++-Build, API-/Browsertests und echte VDR-Abnahme stehen noch aus.
 
+## MT.UX4.1 – relative VDR target folders (source candidate)
+
+The approved import **root maps directly to the configured VDR video root**.
+The existing `inspectImport` now preserves each source file's real relative
+parent hierarchy, such as `Serien/Andor/Staffel 1/Folge01.mkv` becoming
+`<VDR video root>/Serien/Andor/Staffel 1/Folge01/<timestamp>.rec`.
+Root-level imports remain `<VDR video root>/<title>/<timestamp>.rec`.
+The importer rejects unsafe/VDR-incompatible directory components and
+symlinked target parents instead of flattening or silently renaming them.
+Two movies with the same filename in different valid source directories
+therefore have independent destinations and duplicate checks.
+
+Scan and import inspection are read-only. FFmpeg staging, duration/codec
+validation, VDR index generation, capacity checks and source-identity checks
+still happen **before** missing VDR directories are created. Newly created,
+still-empty directories are cleaned up after publication failure; pre-existing
+target directories are left alone. The final `.rec` publication remains the
+existing atomic no-overwrite operation and uses the same Core/Agent readback
+contract.
+
+The browser shows the **verified source folder** in its existing selected-
+film preview and does not guess the eventual target folder or codec. The
+separate **read-only selected-file backend preview** with a trustworthy
+resolved destination, video codec, source size, free capacity and duplicate
+status is not yet implemented; never present those values as known.
+The C++ compilation, isolated recording fixtures, CI and real-VDR acceptance
+are also still pending. No source files, deployed VDR installation, or
+recording assets were modified as part of this GitHub work.
+
 ## MT.UX3 – bounded browser search and subset selection (partial)
 
 Within the **existing authorized Agent/Core source snapshot**, the browser
