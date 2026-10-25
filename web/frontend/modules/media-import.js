@@ -306,7 +306,7 @@
               (item.label !== undefined &&
                (typeof item.label !== 'string' || !item.label ||
                 item.label.length > 160 ||
-                /[\/\r\n\x00-\x1f\x7f]/.test(item.label))))
+                /[\/\\\r\n\x00-\x1f\x7f]/.test(item.label))))
             throw new Error('Ungültige Quellenliste');
           seen.add(item.sourceId);
           all.push(item);
@@ -345,7 +345,7 @@
                 (item.label === undefined ||
                   (typeof item.label === 'string' &&
                    item.label.length > 0 && item.label.length <= 160 &&
-                   !/[\/\r\n\x00-\x1f\x7f]/.test(item.label)));
+                   !/[\/\\\r\n\x00-\x1f\x7f]/.test(item.label)));
             })) throw new Error('Ungültige Quellenliste');
         // Pagination does not itself prove that the backend scanned the full
         // filesystem tree; the Agent still has a smaller reporting ceiling.
