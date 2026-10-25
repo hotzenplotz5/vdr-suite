@@ -73,6 +73,26 @@
       deviceId: deviceId, credentials: 'same-origin', cache: 'no-store'
     });
   }
+  function loadLifecycle(deviceId) {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(deviceId || ''))
+      return Promise.reject(new Error('Invalid Device ID'));
+    return restore(function() {
+      return publicClient().getDeviceLifecycle({
+        deviceId: deviceId, credentials: 'same-origin', cache: 'no-store'
+      });
+    });
+  }
+  function revokeDevice(deviceId, etag) {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(deviceId || '') ||
+        typeof etag !== 'string' || !/^"[^"]{1,256}"$/.test(etag))
+      return Promise.reject(new Error('Invalid Device ID or lifecycle ETag'));
+    return restore(function() {
+      return publicClient().revokeDevice({
+        deviceId: deviceId, ifMatch: etag, headers: sessionHeaders(),
+        credentials: 'same-origin', cache: 'no-store'
+      });
+    });
+  }
   function setGrant(deviceId, etag, permission, backendId, active) {
     // Server Device-grant admission requires a concrete backend for every
     // Timer and SearchTimer mutation permission, not only for CREATE.
@@ -113,6 +133,8 @@
     decidePairing: decidePairing,
     listDevices: listDevices,
     loadDevice: loadDevice,
+    loadLifecycle: loadLifecycle,
+    revokeDevice: revokeDevice,
     listBackends: listBackends,
     setGrant: setGrant,
     resetForTests: function() { client = null; }
