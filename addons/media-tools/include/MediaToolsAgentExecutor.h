@@ -152,7 +152,7 @@ struct MediaImportSourceLabel {
     std::string sourceId;
     std::string label;
     // Read-only, root-relative folder presentation. Never a path authority.
-    std::string folder;
+    std::string folder = {};
 };
 
 // Read-only observation from the fixed root-admin approval + pinned binary.
