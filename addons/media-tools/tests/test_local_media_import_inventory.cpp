@@ -87,6 +87,7 @@ int main()
     assert(inventory.listTrustedSourceIds("backend", ids));
     assert(ids == std::vector<std::string>{Key});
     std::vector<MediaImportSourceLabel> labels;
+    bool partial = true;
     assert(inventory.listTrustedSourceLabels("backend", labels));
     assert(labels.size() == 1 && labels[0].sourceId == Key &&
            labels[0].label == "clip");
@@ -96,6 +97,47 @@ int main()
     assert(selected.sourceFile.empty());
     assert(!inventory.resolve("backend", "../../etc/passwd", selected));
     assert(!inventory.resolve("backend", "short", selected));
+
+    // MT.UX2: root-owned optional sixth column names each source root.
+    // The first matching backend entry becomes the default for display.
+    const auto extraDir = fixture.root / "media/extra";
+    fs::create_directories(extraDir);
+    const auto extraFile = extraDir / "zweiter_film.mkv";
+    { std::ofstream out(extraFile); out << "synthetic-secondary-media"; }
+    const std::string firstAlias = fixture.entry().substr(
+        0, fixture.entry().size() - 1) + "\tFilme\n";
+    const std::string secondAlias =
+        std::string("backend\timportToken_A6_0002\t") +
+        extraDir.string() + "\t" + fixture.destination.string() +
+        "\t" + extraFile.string() + "\tSerien\n";
+    fixture.write(firstAlias + secondAlias);
+    assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
+    assert(!partial && labels.size() == 2);
+    assert(labels[0].label == "Standard: Filme · clip");
+    assert(labels[1].label == "Serien · zweiter_film");
+    assert(inventory.resolve("backend", "importToken_A6_0002", selected));
+    assert(selected.sourceFile == extraFile);
+    fixture.write(secondAlias + firstAlias);
+    assert(inventory.listTrustedSourceLabels("backend", labels));
+    assert(labels.size() == 2);
+    assert(labels[0].label == "Filme · clip");
+    assert(labels[1].label == "Standard: Serien · zweiter_film");
+    // An alias never authorizes a different backend.
+    assert(inventory.listTrustedSourceIds("other", ids) && ids.empty());
+    fixture.write(firstAlias + secondAlias +
+        "other\timportToken_A6_0003\t" + extraDir.string() + "\t" +
+        fixture.destination.string() + "\t" + extraFile.string() +
+        "\tAndere\n");
+    assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 2);
+    assert(inventory.listTrustedSourceIds("other", ids) && ids.size() == 1);
+    // Display metadata must not accept path separators or controls.
+    fixture.write(fixture.entry().substr(0, fixture.entry().size() - 1) +
+        "\tVerboten/Quelle\n");
+    assert(!inventory.listTrustedSourceLabels("backend", labels));
+    assert(labels.empty());
+    fixture.write(firstAlias + secondAlias + firstAlias);
+    assert(!inventory.listTrustedSourceIds("backend", ids));
+    fixture.write();
 
     // All duplicate and malformed rows fail closed, including unrelated rows.
     fixture.write(fixture.entry() + fixture.entry());
@@ -204,7 +246,7 @@ int main()
         if (source.sourceFile == bulkDir / "episode_69.mkv") sawBulk = true;
     }
     assert(sawBulk);
-    bool partial = true;
+    partial = true;
     assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
     assert(!partial && labels.size() == 74);
 
