@@ -103,33 +103,38 @@ Bei der Diagnose zunächst `systemctl status vdr-suite-daemon.service --no-pager
 
 ## 5. Ersten Administrator anlegen
 
-**MLD-Integrationsvorschau (noch nicht nach main übernommen):** Wenn auf dem
-Server noch kein Administratorkonto existiert, zeigt der vorhandene
-Web-Login-Dialog automatisch die Ersteinrichtung an. Die Entscheidung stammt
-aus der lesenden API `GET /api/security/first-admin/status`. Bei Fehlern
-wird **keine** Ersteinrichtung angeboten. Auf eingerichteten Servern bleibt
-die normale Anmeldung unverändert.
+**MLD-Entwicklungsversion (noch nicht nach `main` übernommen):** Sobald die
+Version aus `work/mld66-platform-integration` auf dem VDR installiert ist,
+öffnet der Browser bei der ersten Verbindung ohne Administratorkonto direkt
+den Einrichtungsdialog. Für reguläre Benutzer ist **kein Terminal, kein
+`sudo`, kein Skript, kein Bootstrap-Geheimnis** notwendig.
 
-1. Einen **vertrauenswürdigen HTTPS-Zugang** zur VDR-Suite einrichten. Über
-   unverschlüsseltes HTTP ist der Absenden-Knopf für den Admin-Claim gesperrt.
-2. Auf dem **VDR selbst** als Root den vorhandenen Befehl
-   `vdr-suite-first-admin-bootstrap` ausführen (Standard: 15 Minuten gültig).
-3. Im Dialog den gewünschten Admin-Login, Anzeigenamen und das Passwort
-   mit Wiederholung eingeben (mindestens 12 Zeichen).
-4. Die zwei vom lokalen Programm ausgegebenen Zeilen
-   `bootstrap_id=...` und `setup_secret=...` gemeinsam in das Feld
-   „Einmaliger Einrichtungscode“ einfügen. Das Secret **niemals ins Forum,
-   in ein Ticket oder in die URL kopieren**.
-5. „Administrator erstellen“ auswählen. Der Browser ruft denselben
-   bestehenden `POST /api/security/first-admin/claim` auf wie der technische
-   Bootstrap-Weg und meldet den Benutzer danach mit seinem neu gewählten
-   Passwort an. Eine weitere Anmeldung nach einem Reload erfolgt normal.
+1. VDR-Suite über eine **vertrauenswürdige HTTPS-Adresse** aufrufen.
+2. Im Dialog **„Code am TV anzeigen“** auswählen. Der Suite-Daemon sendet
+   ausschließlich den einmaligen achtstelligen Code über den **lokalen**
+   VDR-SVDRP-Anschluss (Standard-Port 6419, konfigurabel über
+   `VDR_SUITE_FIRST_ADMIN_OSD_PORT`) an das physische VDR-OSD.
+3. Die acht Ziffern vom Fernsehbild in das Webformular übernehmen,
+   Benutzername und Anzeigename wählen, Passwort zweimal eingeben.
+4. **„Administrator erstellen“** drücken. Bei erfolgreicher Bestätigung
+   erstellt die vorhandene First-Admin-Claim-Logik das Konto und der Browser
+   meldet es regulär an. Anschließend erscheint nur noch die normale Anmeldung.
 
-Weder das UI noch die Statusabfrage erzeugen ein Bootstrap-Secret. Nur das
-lokale Root-Werkzeug erteilt die einmalige Einrichtungserlaubnis. Es entsteht
-kein zweiter Benutzer-/Rechtepfad, kein PAM-Login und kein Anmeldung-ohne-Passwort-Modus.
-Die separate CLI aus PR #545 ist **nicht** Voraussetzung für diesen Browserweg.
+Der Code gilt **fünf Minuten**. Pro Code gibt es **höchstens fünf Versuche**;
+ein erneutes Anzeigen kann frühestens nach **60 Sekunden** angefordert werden.
+Das Verfahren sendet **keinen Code an den Webbrowser**, sondern zeigt ihn
+nur auf dem lokalen TV/OSD. Es legt keine weiteren Services/Tabellen an.
+Ohne erreichbares **lokales VDR-OSD** wird der Ersteinrichtungsversuch
+abgelehnt. Insbesondere ein reiner Headless-Server benötigt einen anderen
+separat autorisierten Erstinstallationskanal; es erfolgt niemals eine
+unbestätigte Freischaltung für den ersten Netzwerkbesucher.
 
+Ein installiertes VDR-Suite-Paket und der laufende Daemon müssen aus diesem
+Branch gebaut sein. Ein bloßes `git pull` aktualisiert noch keine
+Paketinstallation. Die HTTPS-Konfiguration des jeweiligen MLD-Systems bleibt
+eine Voraussetzung. **Nicht ungeprüft auf produktive yaVDR-Anlagen installieren.**
+
+### Technischer Altweg (nicht der normale Einrichtungsdialog)
 
 **Es gibt kein mitgeliefertes Standard-Admin-Passwort.** Die Implementierung benutzt einen bewusst getrennten zweistufigen Ablauf:
 
