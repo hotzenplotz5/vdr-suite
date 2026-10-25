@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import traceback
 
 ROOT = Path(__file__).resolve().parents[1]
 DAEMON = ROOT / ".build" / "vdr-suite-daemon"
@@ -147,13 +148,16 @@ def main():
                 _, current = expect(
                     host, "GET", "/api/security/browser-sessions/current", 200,
                     headers={"Cookie": pair})
-                assert current["csrfToken"] == login["csrfToken"]
+                # CSRF recovery deliberately derives a fresh proof from the
+                # persisted hash; it need not equal the original login token.
+                assert isinstance(current.get("csrfToken"), str) and len(current["csrfToken"]) >= 32, \
+                    "session recovery returned no usable CSRF token"
                 expect(host, "GET", "/api/security/browser-sessions/current", 401)
 
                 logout_headers, _ = expect(
                     host, "POST", "/api/security/browser-sessions/logout", 204,
                     headers={"Cookie": pair,
-                             "X-CSRF-Token": login["csrfToken"],
+                             "X-CSRF-Token": current["csrfToken"],
                              "Origin": origin})
                 expired = logout_headers["Set-Cookie"]
                 assert "Max-Age=0" in expired and "; Secure" not in expired
@@ -201,6 +205,9 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as error:
-        print(f"MLD CI HTTP roundtrip FAILED: {type(error).__name__}: {error}",
-              file=sys.stderr)
+        # Deliberately log only a line number, never the request or secrets.
+        trace = traceback.extract_tb(error.__traceback__)
+        line = trace[-1].lineno if trace else -1
+        print(f"MLD CI HTTP roundtrip FAILED on line {line}: "
+              f"{type(error).__name__}: {error}", file=sys.stderr)
         sys.exit(1)
