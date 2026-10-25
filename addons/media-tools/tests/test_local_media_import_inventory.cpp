@@ -115,6 +115,8 @@ int main()
     assert(!partial && labels.size() == 2);
     assert(labels[0].label == "Standard: Filme · clip");
     assert(labels[1].label == "Serien · zweiter_film");
+    assert(labels[0].folder == "Standard: Filme");
+    assert(labels[1].folder == "Serien");
     assert(inventory.resolve("backend", "importToken_A6_0002", selected));
     assert(selected.sourceFile == extraFile);
     fixture.write(secondAlias + firstAlias);
@@ -122,6 +124,8 @@ int main()
     assert(labels.size() == 2);
     assert(labels[0].label == "Filme · clip");
     assert(labels[1].label == "Standard: Serien · zweiter_film");
+    assert(labels[0].folder == "Filme");
+    assert(labels[1].folder == "Standard: Serien");
     // An alias never authorizes a different backend.
     assert(inventory.listTrustedSourceIds("other", ids) && ids.empty());
     fixture.write(firstAlias + secondAlias +
