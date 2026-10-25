@@ -30,7 +30,8 @@ public:
                  const std::string& handlerVersion = {},
                  const std::string& handlerSha256 = {},
                  const std::vector<std::string>& labels = {},
-                 bool partial = true)
+                 bool partial = true,
+                 const std::vector<std::string>& folders = {})
     {
         if (!actor.authenticated() || actor.actor.type != ActorType::Agent ||
             live.actorId != actor.actor.actorId ||
@@ -67,11 +68,35 @@ public:
                 })) return false;
             if (!byId.emplace(ids[i], label).second) return false;
         }
+        if (!folders.empty() && (labels.empty() || folders.size() != ids.size()))
+            return false;
+        std::map<std::string, std::string> byFolder;
+        for (std::size_t i = 0; i < folders.size(); ++i) {
+            const auto& folder = folders[i];
+            if (folder.size() > 240U || (!folder.empty() &&
+                (folder.front() == '/' || folder.back() == '/' ||
+                 folder.find('\\') != std::string::npos)))
+                return false;
+            std::size_t start = 0;
+            while (start < folder.size()) {
+                const auto stop = folder.find('/', start);
+                const auto component = folder.substr(start,
+                    stop == std::string::npos ? std::string::npos : stop - start);
+                if (component.empty() || component == "." || component == ".." ||
+                    std::any_of(component.begin(), component.end(),
+                        [](unsigned char c) {
+                            return c < 0x20U || c == 0x7fU;
+                        })) return false;
+                if (stop == std::string::npos) break;
+                start = stop + 1;
+            }
+            if (!byFolder.emplace(ids[i], folder).second) return false;
+        }
         std::lock_guard<std::mutex> guard(mutex_);
         snapshots_[backendId] = Snapshot{
             live.agentId, live.actorId, instanceId, generation, now,
             std::move(sorted), handlerOrigin, handlerVersion, handlerSha256,
-            std::move(byId), partial};
+            std::move(byId), std::move(byFolder), partial};
         return true;
     }
 
@@ -80,10 +105,12 @@ public:
               std::int64_t now,
               std::vector<std::string>& ids,
               std::vector<std::string>& labels,
-              bool* partial = nullptr) const
+              bool* partial = nullptr,
+              std::vector<std::string>* folders = nullptr) const
     {
         ids.clear();
         labels.clear();
+        if (folders) folders->clear();
         if (partial) *partial = true;
         if (now <= 0 || live.backendId != backendId ||
             live.revoked || live.incompatible || live.leaseExpiresAt < now)
@@ -110,6 +137,18 @@ public:
                     return false;
                 }
                 labels.push_back(found->second);
+            }
+        }
+        if (folders && !current.folders.empty()) {
+            for (const auto& id : ids) {
+                const auto found = current.folders.find(id);
+                if (found == current.folders.end()) {
+                    ids.clear();
+                    labels.clear();
+                    folders->clear();
+                    return false;
+                }
+                folders->push_back(found->second);
             }
         }
         return true;
@@ -195,6 +234,7 @@ private:
         std::string handlerVersion;
         std::string handlerSha256;
         std::map<std::string, std::string> labels;
+        std::map<std::string, std::string> folders;
         bool partial = true;
     };
     mutable std::mutex mutex_;
