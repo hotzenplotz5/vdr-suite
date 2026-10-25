@@ -88,8 +88,10 @@ def main() -> int:
 
     require("core/http/src/TestHttpServer.cpp", "securityHttpGate_->evaluate(request)")
     require("core/http/src/TestHttpServer.cpp", "browserSessionHttpGate_->handles(request)")
-    require("core/http/src/TestHttpServer.cpp", "browserSessionHttpService_->login(browserGate.context)")
-    require("core/http/src/TestHttpServer.cpp", "browserSessionHttpService_->logout(browserGate.context)")
+    require("core/http/src/TestHttpServer.cpp", "browserSessionHttpService_->login(browserGate.context, directHttpLan)")
+    require("core/http/src/TestHttpServer.cpp", "browserSessionHttpService_->logout(browserGate.context, directHttpLan)")
+    require("core/http/src/TestHttpServer.cpp", "request.peerIsDirectPrivateLan")
+    require("core/http/src/BrowserSessionHttpService.cpp", "(allowHttpLanCookie ? \"\" : \"; Secure\")")
     forbid("core/http/src/TestHttpServer.cpp", "ensureCompatibilityIdentity")
     require("core/http/src/TestHttpServer.cpp", "securityIdentityProvisioningRepository_->ensureIdentity")
     require("core/http/src/TestHttpServer.cpp", "credentialVerifierRepository_->ensureVerifier")
