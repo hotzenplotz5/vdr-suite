@@ -9,6 +9,7 @@
   // Long-running explicitly approved imports can use the Agent's bounded
   // 600-second execution window plus dispatch/readback headroom.
   const MAX_BATCH_READS = 225;
+  const MAX_IMPORT_FILMS = 100;
   let owner = 0;
   let current = null;
   let client = null;
@@ -180,6 +181,11 @@
     if (!isCurrent(view) || view.batch || view.attempt ||
         view.submitting || view.sources.length < 2 ||
         view.localReencode.checked || view.decision.value !== 'import') return;
+    if (view.sources.length > MAX_IMPORT_FILMS) {
+      report(view, 'Höchstens 100 Filme pro Importdurchlauf erlaubt. ' +
+        'Bitte Auswahl verkleinern und erneut scannen.', true);
+      return;
+    }
     if (typeof global.confirm !== 'function' ||
         !global.confirm(view.sources.length + ' Filme nacheinander importieren? ' +
           'Jeder Auftrag wird vom Core einzeln geprüft. Bei einem ungewissen ' +
@@ -311,6 +317,8 @@
           seen.add(item.sourceId);
           all.push(item);
         });
+        if (all.length > MAX_IMPORT_FILMS)
+          throw new Error('Mehr als 100 Importquellen in der Serverantwort');
         partial = partial || Boolean(response.meta && response.meta.partial);
         const link = response.links && response.links.next;
         if (!link) return {items: all, meta: {partial: partial}};
@@ -338,7 +346,7 @@
       .then(function (response) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
         const items = response && response.items;
-        if (!Array.isArray(items) || items.length > 100 ||
+        if (!Array.isArray(items) || items.length > MAX_IMPORT_FILMS ||
             !items.every(function (item) {
               return item && typeof item.sourceId === 'string' &&
                 /^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId) &&
@@ -396,11 +404,16 @@
         view.decision.value = 'import';
         view.decision.disabled = ordinary.length === 0;
         view.startButton.textContent = 'Import starten';
-        view.batchButton.disabled = ordinary.length < 2;
-        view.scanNotice.textContent = bounded
-          ? 'Scan unvollständig: Das Backend bestätigt derzeit nicht alle ' +
-            'Dateien der Importquelle. Weitere Unterordner oder Filme können ' +
-            'fehlen; die Agent-Quellenmeldung ist weiterhin begrenzt.'
+        view.batchButton.disabled = ordinary.length < 2 ||
+          ordinary.length > MAX_IMPORT_FILMS;
+        view.scanNotice.textContent = bounded && items.length >= MAX_IMPORT_FILMS
+          ? 'Importgrenze erreicht: Pro Durchlauf sind höchstens 100 Filme ' +
+            'möglich. Die ersten 100 geprüften Quellen werden angezeigt; ' +
+            'weitere Filme bitte nach diesem Durchlauf erneut scannen.'
+          : bounded
+            ? 'Scan unvollständig: Der sichere Suchumfang wurde begrenzt. ' +
+              'Weitere Dateien oder Unterordner können fehlen. Maximal ' +
+              '100 Filme pro Importdurchlauf.'
           : 'Scan abgeschlossen (konfigurierte Quellen): alle geeigneten ' +
             'Quellen wurden geprüft. Das bedeutet nicht, dass jeder andere ' +
             'Dateipfad dieser Importwurzel freigegeben ist.';
