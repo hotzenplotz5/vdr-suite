@@ -325,10 +325,11 @@ bool inventorySources(const std::filesystem::path& root, const std::string& back
     });
     for (std::size_t index = 1; index < sources.size(); ++index)
         if (sources[index].id == sources[index - 1].id) return false;
-    // The backend catalog accepts a maximum of 32 currently visible IDs.
-    // A larger scanned directory is delivered in bounded future batches as
-    // previously imported titles disappear from inspectImport candidates.
-    if (sources.size() > 32U) sources.resize(32U);
+    // The verified Agent observation and Core catalog have a bounded
+    // 256-source ceiling. The public endpoint pages these in 32-item reads.
+    // A larger filesystem scan still fails closed above its own limit;
+    // do not imply unbounded scanner continuation here.
+    if (sources.size() > 256U) return false;
     return true;
 }
 } // namespace
