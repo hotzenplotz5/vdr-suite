@@ -4,6 +4,8 @@
 #include "HttpServerResponse.h"
 #include "DeviceLiveEventHub.h"
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <cerrno>
 #include <cctype>
 #include <chrono>
@@ -1015,6 +1017,20 @@ bool SimpleHttpListener::prepareClientResponse(
         request = parseRequest(rawRequest);
     }
 
+    // Kernel-derived peer identity; never trust HTTP forwarding headers.
+    sockaddr_storage peer{};
+    socklen_t peerLength = sizeof(peer);
+    if (getpeername(clientSocket, reinterpret_cast<sockaddr*>(&peer),
+                    &peerLength) == 0) {
+        if (peer.ss_family == AF_INET) {
+            const auto& v4 = reinterpret_cast<const sockaddr_in&>(peer);
+            request.peerIsLoopback =
+                (ntohl(v4.sin_addr.s_addr) >> 24) == 127;
+        } else if (peer.ss_family == AF_INET6) {
+            const auto& v6 = reinterpret_cast<const sockaddr_in6&>(peer);
+            request.peerIsLoopback = IN6_IS_ADDR_LOOPBACK(&v6.sin6_addr);
+        }
+    }
     const HttpServerResponse response = server_.handleRequest(request);
     imageResponse = isImageResponse(response);
     streamBodyPath = response.streamBodyPath;
