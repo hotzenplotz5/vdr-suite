@@ -1,7 +1,10 @@
 #include "BackendAgentMediaImportRuntime.h"
 #include "AddonInstallSnapshot.h"
+#include "MediaImport.h"
 #include "MediaToolsImportRunLock.h"
 #include <utility>
+#include <algorithm>
+#include <chrono>
 namespace vdrsuite::agent {
 
 BackendAgentMediaImportRuntime::BackendAgentMediaImportRuntime(
@@ -102,6 +105,62 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceSnapshot(
         ids.clear();
         labels.clear();
         partial = true;
+        return false;
+    }
+}
+
+bool BackendAgentMediaImportRuntime::inspectTrustedSource(
+    const std::string& sourceId,
+    vdrsuite::mediatools::MediaImportSourcePreview& out)
+{
+    using namespace vdrsuite::mediatools;
+    out = {};
+    out.sourceId = sourceId;
+    // The requested key must already be an opaque backend-local inventory
+    // token. Never accept an actor's file path, and never write a marker.
+    if (sourceId.size() < 16U || sourceId.size() > 64U ||
+        !std::all_of(sourceId.begin(), sourceId.end(),
+            [](unsigned char c) {
+                return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') ||
+                    (c >= 'A' && c <= 'Z') || c == '_' || c == '-';
+            }) || !available()) return false;
+    try {
+        auto lock = MediaToolsImportRunLock::tryAcquire(
+            trustedRoot_, MediaToolsImportRunLock::Mode::sharedExecution);
+        if (!lock) return false;
+        LocalMediaImportSource local;
+        if (!inventory_.resolve(backendId_, sourceId, local)) return false;
+        const auto plan = inspectImportPreview(
+            {local.sourceRoot, local.videoRoot, local.sourceFile});
+        if (plan.sourceDevice != local.sourceDevice ||
+            plan.sourceInode != local.sourceInode ||
+            plan.sourceBytes != local.sourceBytes ||
+            plan.sourceMtimeSeconds != local.sourceMtimeSeconds ||
+            plan.sourceMtimeNanoseconds != local.sourceMtimeNanoseconds)
+            return false;
+        // The same plan/codec/capacity checks are used by the productive
+        // importer. FFprobe reads the source but creates no VDR artifacts.
+        NativeProcessRunner probe(std::chrono::seconds(5));
+        const std::string codec = probeImportVideoCodec(plan, probe);
+        const auto capacity = inspectImportCapacity(plan);
+        const auto relative =
+            plan.titleDirectory.lexically_relative(plan.videoRoot);
+        if (relative.empty() || relative == "." ||
+            relative.is_absolute() || relative.generic_string().size() > 512)
+            return false;
+        out.title = plan.title;
+        out.targetFolder = relative.generic_string();
+        out.videoCodec = codec;
+        out.sourceBytes = static_cast<std::uint64_t>(plan.sourceBytes);
+        out.availableBytes = capacity.availableBytes;
+        out.requiredBytes = capacity.requiredBytes;
+        out.videoReencodeRequired = importVideoNeedsReencode(codec);
+        out.status = plan.duplicateTarget ? "duplicate" :
+            capacity.sufficient ? "ready" : "insufficient";
+        return true;
+    } catch (...) {
+        out = {};
+        out.sourceId = sourceId;
         return false;
     }
 }
