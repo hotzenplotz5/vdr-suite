@@ -551,7 +551,8 @@
         view.allOrdinary = ordinary.map(function (item, index) {
           return {sourceId: item.sourceId,
             label: item.label || ('Film ' + (index + 1)),
-            folder: item.folder || ''};
+            folder: item.folder || '',
+            folderKnown: Object.prototype.hasOwnProperty.call(item, 'folder')};
         });
         view.allMarked = marked;
         view.sourceTitles = Object.create(null);
@@ -605,7 +606,13 @@
       view.preview.textContent = 'Film auswählen, Entscheidung prüfen und bestätigen.';
       return;
     }
+    const item = view.allOrdinary.find(function (source) {
+      return source.sourceId === id;
+    });
     const name = view.sourceTitles[id] || 'Film';
+    const sourceFolder = item && item.folderKnown
+      ? (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel')
+      : 'wird vom Backend beim Import geprüft';
     const decision = view.decision.value;
     const description = decision === 'desktop'
       ? 'Für eine spätere Bearbeitung am PC markieren. Kein Import.'
@@ -614,8 +621,11 @@
         : view.localReencode.checked
           ? 'VDR-Import; lokale Umkodierung bei Bedarf nur für diesen Film nach erneuter Bestätigung.'
           : 'VDR-Import ohne Freigabe einer lokalen Umkodierung.';
-    view.preview.textContent = 'Vorschau: ' + name + '. ' + description +
-      ' Der Backend-Agent prüft Quelle und Ziel bei Auftragsannahme erneut.';
+    view.preview.textContent = 'Vorschau: ' + name +
+      '. Quellordner: ' + sourceFolder + '. ' + description +
+      ' Der genaue VDR-Zielordner, Codec, Dateigröße, freier Platz und ' +
+      'mögliche Dubletten sind hier noch nicht vom Backend vorgeprüft. ' +
+      'Der Backend-Agent prüft Quelle und Ziel bei Auftragsannahme erneut.';
   }
 
   function startImport(view, releaseMode) {
