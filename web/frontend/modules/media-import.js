@@ -83,6 +83,7 @@
       if (current.previewTimer !== null) global.clearTimeout(current.previewTimer);
       current.previewTimer = null;
       ++current.previewGeneration;
+      ++current.reviewGeneration;
     }
     current = null;
   }
@@ -153,6 +154,7 @@
     delete activeBatches[view.backendId];
     view.batch = null;
     view.batchStopButton.hidden = true;
+    if (view.batchReview) renderBatchReview(view);
     view.batchButton.disabled = true;
     view.newButton.hidden = !view.attempt ||
       !terminalState(view.attempt.state);
@@ -163,6 +165,16 @@
   function advanceBatch(view, operation) {
     const batch = view.batch;
     if (!batch || batch.waiting !== operation.operationId) return;
+    const row = batch.review && batch.review.rows.find(function (entry) {
+      return entry.sourceId === batch.remaining[0];
+    });
+    if (row) {
+      row.state = operation.state === 'succeeded' ? 'succeeded' :
+        operation.state === 'outcome_unknown' || terminalState(operation.state)
+          ? 'stopped' : 'running';
+      view.batchReview = batch.review;
+      renderBatchReview(view);
+    }
     if (operation.state !== 'succeeded') {
       if (operation.state === 'outcome_unknown' || terminalState(operation.state))
         stopBatch(view, 'Operation ' + operation.state + '. Kein Folgeimport.');
@@ -182,26 +194,161 @@
     batch.resumeNext = true;
   }
 
+  // Local, read-only preflight. It is an ephemeral review of the existing
+  // Public-v1 source catalogue, NOT an operation reservation or a job queue.
+  function resetBatchReview(view) {
+    ++view.reviewGeneration;
+    view.inspectingBatch = false;
+    view.batchReview = null;
+    view.batchReviewList.replaceChildren();
+    view.batchSummary.textContent = '';
+    view.batchConfirmButton.hidden = true;
+    view.batchConfirmButton.disabled = true;
+  }
+
+  function renderBatchReview(view) {
+    const review = view.batchReview;
+    if (!review) return;
+    view.batchReviewList.replaceChildren();
+    const labels = {
+      ready: 'Für VDR-Import geeignet',
+      encode: 'Zurückgestellt: Video-Umkodierung nötig',
+      duplicate: 'Übersprungen: VDR-Aufnahme vorhanden',
+      insufficient: 'Zurückgestellt: Speicherplatz fehlt',
+      unavailable: 'Zurückgestellt: Backend nicht verfügbar',
+      pending: 'Zurückgestellt: Prüfung noch ausstehend',
+      failed: 'Zurückgestellt: Prüfung fehlgeschlagen',
+      running: 'Import läuft / Bestätigung ausstehend',
+      succeeded: 'VDR-Aufnahme unabhängig bestätigt',
+      stopped: 'Import angehalten'
+    };
+    review.rows.forEach(function (row) {
+      const line = element('p', 'media-import-batch-row',
+        row.title + ' – ' + (labels[row.state] || 'Prüfung ausstehend'));
+      view.batchReviewList.appendChild(line);
+    });
+    const ready = review.rows.filter(function (row) {
+      return row.state === 'ready';
+    }).length;
+    const deferred = review.rows.filter(function (row) {
+      return ['encode', 'insufficient', 'unavailable', 'pending', 'failed'].includes(row.state);
+    }).length;
+    const duplicates = review.rows.filter(function (row) {
+      return row.state === 'duplicate';
+    }).length;
+    const confirmed = review.rows.filter(function (row) {
+      return row.state === 'succeeded';
+    }).length;
+    view.batchSummary.textContent = ready + ' direkt importierbar, ' +
+      deferred + ' zurückgestellt, ' + duplicates + ' Dubletten, ' +
+      confirmed + ' bereits bestätigt. Andere Filme bleiben unverändert. ' +
+      'Zurückgestellte Filme können anschließend einzeln geprüft werden.';
+    view.batchConfirmButton.hidden = Boolean(view.batch) || !ready;
+    view.batchConfirmButton.disabled = view.inspectingBatch ||
+      Boolean(view.attempt) || !ready;
+  }
+
+  function inspectBatchPreview(view, sourceId) {
+    return publicClient().getMediaImportSourcePreview({
+      backendId: view.backendId, sourceId: sourceId,
+      credentials: 'same-origin', cache: 'no-store'
+    }).then(function (data) {
+      if (!data || data.backendId !== view.backendId ||
+          data.sourceId !== sourceId) throw new Error('Fremde Vorschauantwort');
+      if (data.state === 'pending') return {state: 'pending'};
+      if (!validMediaImportPreview(data, view.backendId, sourceId))
+        throw new Error('Ungültige Importdiagnose');
+      if (data.status === 'duplicate') return {state: 'duplicate', title: data.title};
+      if (data.status === 'unavailable') return {state: 'unavailable', title: data.title};
+      if (data.videoReencodeRequired)
+        return {state: 'encode', title: data.title};
+      if (data.status === 'insufficient')
+        return {state: 'insufficient', title: data.title};
+      return {state: 'ready', title: data.title};
+    });
+  }
+
   function startBatch(view, selectedOnly) {
     if (!isCurrent(view) || view.batch || view.attempt ||
-        view.submitting || view.localReencode.checked ||
-        view.decision.value !== 'import') return;
-    // A checkbox is never authority: intersect it with the visible snapshot.
+        view.submitting || view.inspectingBatch) return Promise.resolve();
     const ids = selectedOnly
       ? view.sources.filter(function (id) { return view.checkedSourceIds.has(id); })
       : view.sources.slice();
-    if (ids.length < 2) return;
-    if (ids.length > MAX_IMPORT_FILMS) {
-      report(view, 'Höchstens 100 Filme pro Importdurchlauf erlaubt.', true);
-      return;
+    if (ids.length < 2 || ids.length > MAX_IMPORT_FILMS) {
+      if (ids.length > MAX_IMPORT_FILMS)
+        report(view, 'Höchstens 100 Filme pro Importdurchlauf erlaubt.', true);
+      return Promise.resolve();
     }
+    resetBatchReview(view);
+    const generation = view.reviewGeneration;
+    const sourceGeneration = view.sourcesGeneration;
+    view.inspectingBatch = true;
+    view.batchButton.disabled = true;
+    view.selectedBatchButton.disabled = true;
+    view.batchConfirmButton.hidden = true;
+    view.batchSummary.textContent = 'Technische VDR-Importeignung wird lesend geprüft: 0 von ' +
+      ids.length + '. Noch kein Import gestartet.';
+    const rows = [];
+    let chain = Promise.resolve();
+    ids.forEach(function (sourceId) {
+      chain = chain.then(function () {
+        if (!isCurrent(view) || generation !== view.reviewGeneration) return;
+        return inspectBatchPreview(view, sourceId).catch(function (error) {
+          if (error && (error.status === 401 || error.status === 403)) throw error;
+          return {state: 'failed'};
+        }).then(function (result) {
+          if (!isCurrent(view) || generation !== view.reviewGeneration) return;
+          rows.push({sourceId: sourceId,
+            title: result.title || view.sourceTitles[sourceId] || 'Film',
+            state: result.state});
+          view.batchSummary.textContent = 'Technische VDR-Importeignung wird lesend geprüft: ' +
+            rows.length + ' von ' + ids.length + '. Noch kein Import gestartet.';
+        });
+      });
+    });
+    return chain.then(function () {
+      if (!isCurrent(view) || generation !== view.reviewGeneration ||
+          sourceGeneration !== view.sourcesGeneration) return;
+      view.batchReview = {rows: rows, ids: ids, sourceGeneration: sourceGeneration};
+      view.inspectingBatch = false;
+      renderBatchReview(view);
+      const ready = rows.filter(function (row) { return row.state === 'ready'; }).length;
+      report(view, ready ? ready + ' geeignete Filme geprüft. Erst die separate ' +
+        'Bestätigung startet den Import.' :
+        'Kein Film für einen direkten Import freigegeben. ' +
+        'Zurückgestellte Filme bitte einzeln prüfen.', !ready);
+    }).catch(function (error) {
+      if (!isCurrent(view) || generation !== view.reviewGeneration) return;
+      resetBatchReview(view);
+      report(view, operationError(error) + ' Keine Importaufträge erstellt.', true);
+    }).finally(function () {
+      if (!isCurrent(view) || generation !== view.reviewGeneration) return;
+      view.inspectingBatch = false;
+      view.batchButton.disabled = view.sources.length < 2;
+      updateSelectionCount(view);
+    });
+  }
+
+  function confirmBatch(view) {
+    if (!isCurrent(view) || !view.batchReview || view.inspectingBatch ||
+        view.attempt || view.batch ||
+        view.batchReview.sourceGeneration !== view.sourcesGeneration) return;
+    const review = view.batchReview;
+    const ids = review.rows.filter(function (row) {
+      return row.state === 'ready' && view.sources.includes(row.sourceId);
+    }).map(function (row) { return row.sourceId; });
+    if (!ids.length) return;
+    const deferred = review.rows.length - ids.length;
     if (typeof global.confirm !== 'function' ||
-        !global.confirm(ids.length + ' Filme nacheinander importieren? ' +
-          'Jeder Auftrag wird vom Core einzeln geprüft. Bei einem ungewissen ' +
-          'Ergebnis wird angehalten. Keine Umkodierung freigegeben.')) return;
-    const batch = {remaining: ids, total: ids.length, completed: 0, waiting: ''};
+        !global.confirm(ids.length + ' technisch geeignete Filme nacheinander ' +
+          'in VDR importieren? ' + deferred + ' bleiben zurückgestellt oder ' +
+          'werden wegen einer Dublette übersprungen. ' +
+          'Jeder Auftrag wird separat geprüft. Keine Videoumkodierung freigegeben.')) return;
+    const batch = {remaining: ids, total: ids.length, completed: 0, waiting: '',
+      review: review};
     view.batch = batch;
     activeBatches[view.backendId] = batch;
+    view.batchConfirmButton.hidden = true;
     view.batchButton.disabled = true;
     view.selectedBatchButton.disabled = true;
     view.selectAllVisibleButton.disabled = true;
@@ -209,6 +356,7 @@
     view.statusFilter.disabled = true;
     view.batchStopButton.hidden = false;
     view.select.value = ids[0];
+    renderBatchReview(view);
     return startImport(view);
   }
 
@@ -297,6 +445,10 @@
     view.refreshButton.disabled = !view.attempt.operationId;
     view.newButton.hidden = Boolean(view.batch) || !terminalState(view.attempt.state);
     view.batchStopButton.hidden = !view.batch;
+    if (view.batch && view.batch.review) {
+      view.batchReview = view.batch.review;
+      renderBatchReview(view);
+    }
     if (view.attempt.operationId) {
       readOperation(view);
     } else if (view.attempt.pending) {
@@ -314,6 +466,19 @@
     return !folder || folder.split('/').every(function (part) {
       return part.length > 0 && part !== '.' && part !== '..';
     });
+  }
+
+  function validMediaImportPreview(data, backendId, sourceId) {
+    return Boolean(data && data.backendId === backendId &&
+      data.sourceId === sourceId && data.state === 'ready' &&
+      ['ready', 'duplicate', 'insufficient', 'unavailable'].includes(data.status) &&
+      [data.sourceBytes, data.availableBytes, data.requiredBytes].every(
+        function (n) { return Number.isSafeInteger(n) && n >= 0; }) &&
+      typeof data.videoReencodeRequired === 'boolean' &&
+      typeof data.targetFolder === 'string' &&
+      (data.status === 'unavailable' || validPreviewTarget(data.targetFolder)) &&
+      typeof data.videoCodec === 'string' && /^[a-z0-9_]{0,64}$/.test(data.videoCodec) &&
+      typeof data.title === 'string' && data.title.length > 0 && data.title.length <= 120);
   }
 
   function validPreviewTarget(folder) {
@@ -442,6 +607,7 @@
     ++view.previewGeneration;
     view.previewResult = null;
     view.previewStatus = '';
+    resetBatchReview(view);
     const query = String(view.searchInput.value || '').trim().toLowerCase();
     const mode = view.statusFilter.value;
     renderSourceFolders(view, Boolean(query));
@@ -530,6 +696,7 @@
     ++view.previewGeneration;
     view.previewResult = null;
     view.previewStatus = '';
+    resetBatchReview(view);
     const generation = ++view.sourcesGeneration;
     view.select.disabled = true;
     view.startButton.disabled = true;
@@ -674,17 +841,7 @@
           }
           return;
         }
-        if (data.state !== 'ready' ||
-            !['ready', 'duplicate', 'insufficient', 'unavailable'].includes(data.status) ||
-            ![data.sourceBytes, data.availableBytes, data.requiredBytes].every(
-              function (n) { return Number.isSafeInteger(n) && n >= 0; }) ||
-            typeof data.videoReencodeRequired !== 'boolean' ||
-            typeof data.targetFolder !== 'string' ||
-            (data.status !== 'unavailable' &&
-              !validPreviewTarget(data.targetFolder)) ||
-            typeof data.videoCodec !== 'string' ||
-            !/^[a-z0-9_]{0,64}$/.test(data.videoCodec) ||
-            typeof data.title !== 'string' || data.title.length > 120)
+        if (!validMediaImportPreview(data, view.backendId, id))
           throw new Error('Ungültige Vorschauantwort');
         view.previewResult = data;
         view.previewStatus = '';
@@ -1081,15 +1238,26 @@
     const selectionCount = element('p', 'media-import-selection-count');
     root.appendChild(selectionCount);
     const selectedBatchButton = element('button', 'media-import-batch-selected',
-      'Ausgewählte Filme nacheinander importieren');
+      'Ausgewählte Filme prüfen');
     selectedBatchButton.type = 'button';
     selectedBatchButton.disabled = true;
     root.appendChild(selectedBatchButton);
     const batchButton = element('button', 'media-import-batch',
-      'Alle sichtbaren Filme nacheinander importieren');
+      'Alle sichtbaren Filme prüfen');
     batchButton.type = 'button';
     batchButton.disabled = true;
     root.appendChild(batchButton);
+    const batchSummary = element('p', 'media-import-batch-summary');
+    batchSummary.setAttribute('role', 'status');
+    root.appendChild(batchSummary);
+    const batchReviewList = element('div', 'media-import-batch-review');
+    root.appendChild(batchReviewList);
+    const batchConfirmButton = element('button', 'media-import-batch-confirm',
+      'Geeignete Filme jetzt importieren');
+    batchConfirmButton.type = 'button';
+    batchConfirmButton.hidden = true;
+    batchConfirmButton.disabled = true;
+    root.appendChild(batchConfirmButton);
     const batchStopButton = element('button', 'media-import-batch-stop',
       'Nach aktuellem Auftrag anhalten');
     batchStopButton.type = 'button';
@@ -1119,6 +1287,9 @@
       choiceLabel: choiceLabel, skipButton: skipButton,
       markedSelect: markedSelect, releaseButton: releaseButton, markedSources: [],
       batchButton: batchButton, batchStopButton: batchStopButton,
+      batchSummary: batchSummary, batchReviewList: batchReviewList,
+      batchConfirmButton: batchConfirmButton, batchReview: null,
+      reviewGeneration: 0, inspectingBatch: false,
       selectAllVisibleButton: selectAllVisibleButton,
       selectionRows: selectionRows, selectionCount: selectionCount,
       selectedBatchButton: selectedBatchButton, checkedSourceIds: new Set(),
@@ -1176,6 +1347,7 @@
       return startImport(view, true);
     });
     batchButton.addEventListener('click', function () { return startBatch(view); });
+    batchConfirmButton.addEventListener('click', function () { return confirmBatch(view); });
     batchStopButton.addEventListener('click', function () {
       stopBatch(view, 'Aktuelle Core-Operation bleibt unverändert.');
     });
