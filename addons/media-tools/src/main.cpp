@@ -34,9 +34,16 @@ int main(int argc, char* argv[]) {
         if (action == "plan") {
             NativeProcessRunner probe(std::chrono::seconds(30));
             const auto codec = probeImportVideoCodec(plan, probe);
+            const auto capacity = inspectImportCapacity(plan);
             std::cout << "VIDEO_CODEC=" << codec << "\n"
                       << "VIDEO_REENCODE_REQUIRED="
                       << (importVideoNeedsReencode(codec) ? "YES" : "NO") << "\n"
+                      << "AVAILABLE_BYTES=" << capacity.availableBytes << "\n"
+                      << "REQUIRED_BYTES=" << capacity.requiredBytes << "\n"
+                      << "RESERVE_BYTES=" << capacity.reserveBytes << "\n"
+                      << "TARGET_WRITABLE=" << (capacity.writable ? "YES" : "NO") << "\n"
+                      << "SPACE_SUFFICIENT=" << (capacity.sufficient ? "YES" : "NO") << "\n"
+                      << "DUPLICATE=NO\n"
                       << "IMPORT_STATUS=PLAN_ONLY\n";
             return 0;
         }
