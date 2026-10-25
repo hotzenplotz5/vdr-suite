@@ -737,6 +737,16 @@
       '. Quellordner: ' + sourceFolder + '. ' + description +
       ' ' + details +
       ' Der Backend-Agent prüft Quelle und Ziel bei Auftragsannahme erneut.';
+    // Do not offer an import that the verified backend preview already
+    // proves cannot work. Mark/skip decisions remain independently usable.
+    if (!view.submitting && !view.attempt && !view.batch) {
+      const cannotImport = plan && plan.sourceId === id &&
+        (plan.status === 'duplicate' || plan.status === 'insufficient' ||
+         plan.status === 'unavailable' ||
+         (plan.videoReencodeRequired && !view.localReencode.checked));
+      view.startButton.disabled = view.decision.value === 'import'
+        ? Boolean(cannotImport) : false;
+    }
   }
 
   function startImport(view, releaseMode) {
