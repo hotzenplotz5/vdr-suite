@@ -15,6 +15,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <initializer_list>
 #include <regex>
 #include <sstream>
 #include <string>
