@@ -553,6 +553,35 @@ aber kein Bestandteil des normalen Web-Workflows.
 implementiert; für entfernte Backend-Rechner noch nicht. Vollständiger
 C++-Build, API-/Browsertests und echte VDR-Abnahme stehen noch aus.
 
+## MT.UX4.2 – Backend-bestätigte Nur-Lese-Vorschau (Quellcode)
+
+Nach einem erfolgreichen Importquellenscan wählt der Browser einen Film
+über dessen **opaque `sourceId`**. Der vorhandene Public-v1-Client stellt
+`GET /api/v1/backends/{backendId}/media-import-sources/{sourceId}/preview`.
+Die Public API prüft den authentifizierten Backend-Scope; Core prüft
+zusätzlich die wirksame Importberechtigung, den Agent-Lease und die
+freigegebene Installation. Eine Anfrage löst ausschließlich eine kurzlebige,
+auf diese ID begrenzte Vorschau-Anforderung aus.
+
+Der vorhandene Backend-Agent erhält die ID beim regulären, authentifizierten
+Quellenabgleich und löst **nur diese Datei** über das root-kontrollierte
+Inventar auf. Er vergleicht Dateiidentität (Gerät/Inode/Größe/Änderungszeit),
+verwendet die normalen `inspectImportPreview`-, `probeImportVideoCodec`-
+und `inspectImportCapacity`-Prüfungen und sendet lesend Titel,
+video-root-relativen VDR-Zielordner, Codec, Dateigröße, Dublettenstatus,
+Umkodierungsbedarf und Speicherwerte zurück. Der angezeigte erforderliche
+Speicher schließt die vorgeschriebene Reserve ein. Keine Datei- oder
+Aufnahmepfade aus HTTP werden für die Quellauflösung akzeptiert.
+
+Bei der ersten Antwort kann `pending` stehen; das Webfrontend wartet
+begrenzt auf die Antwort und verwirft veraltete Ergebnisse beim Wechsel der
+Auswahl. Selbst eine erfolgreiche Vorschau **erteilt keine Import- oder
+Video-Umkodierungsfreigabe**. Ein später bestätigter Import prüft alle
+Quellen-, Ziel- und Berechtigungsbedingungen erneut und verwendet weiterhin
+den produktiven Core-/Agent-Operationsweg. Die Hardware-/Live-VDR-Abnahme
+sowie ein vollständiger C++-/Integrations-/CI-Lauf auf dem endgültigen SHA
+stehen aus. Weder VDR-Dienst noch Medien wurden hier verändert.
+
 ## MT.UX4.1 – relative VDR target folders (source candidate)
 
 The approved import **root maps directly to the configured VDR video root**.
