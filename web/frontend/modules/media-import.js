@@ -425,13 +425,21 @@
           (bounded ? ' Scan unvollständig.' : ''));
       }).catch(function (error) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
-        const message = error && error.status === 503
-          ? 'Quellenliste abgelaufen oder Backend-Agent nicht erreichbar. Bitte aktualisieren.'
+        const exceeded = error && typeof error.message === 'string' &&
+          error.message.includes('Mehr als 100 Importquellen');
+        const message = exceeded
+          ? 'Es sind höchstens 100 Filme pro Importdurchlauf erlaubt. ' +
+            'Bitte die Quelle in kleineren Durchläufen importieren.'
+          : error && error.status === 503
+            ? 'Quellenliste abgelaufen oder Backend-Agent nicht erreichbar. Bitte aktualisieren.'
           : error && (error.status === 401 || error.status === 403 || error.status === 404)
             ? 'Für dieses Backend sind keine Importquellen zugänglich.'
             : 'Quellenliste konnte nicht geladen werden. Bitte aktualisieren.';
-        view.scanNotice.textContent = 'Scan nicht abgeschlossen. Keine aktuellen ' +
-          'Ergebnisse; bitte nur nach erfolgreicher Aktualisierung auswählen.';
+        view.scanNotice.textContent = exceeded
+          ? 'Importgrenze überschritten: Maximal 100 Filme pro Durchlauf. ' +
+            'Keine Auswahl freigegeben; bitte erneut scannen.'
+          : 'Scan nicht abgeschlossen. Keine aktuellen ' +
+            'Ergebnisse; bitte nur nach erfolgreicher Aktualisierung auswählen.';
         view.preview.textContent = 'Keine aktuelle Auswahl; noch kein Import vorbereitet.';
         report(view, message, true);
       });
@@ -613,7 +621,8 @@
     const root = element('section', 'media-import-panel');
     root.appendChild(element('h3', '', 'Media Import'));
     root.appendChild(element('p', '', 'Filme aus den freigegebenen Quellen auswählen. ' +
-      'Ein Suchlauf liest nur die Backend-Quellenliste und startet keinen Import.'));
+      'Ein Suchlauf liest nur die Backend-Quellenliste und startet keinen Import. ' +
+      'Maximal 100 Filme pro Durchlauf.'));
     const reloadButton = element('button', 'media-import-reload', 'Verzeichnis scannen');
     reloadButton.type = 'button';
     root.appendChild(reloadButton);
