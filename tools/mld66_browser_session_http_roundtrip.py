@@ -66,18 +66,22 @@ def launch(logfile, database):
     process = subprocess.Popen(
         [str(DAEMON)], cwd=str(ROOT), env=environment,
         stdout=logfile, stderr=subprocess.STDOUT)
-    for _ in range(80):
-        if process.poll() is not None:
-            raise RuntimeError(f"isolated CI daemon exited: {process.returncode}")
-        try:
-            status, _, _ = request("127.0.0.1", "GET",
-                                   "/api/security/first-admin/status")
-            if status in (200, 503):
-                return process
-        except (OSError, http.client.HTTPException):
-            pass
-        time.sleep(0.2)
-    raise RuntimeError("isolated CI daemon did not start on port 18080")
+    try:
+        for _ in range(80):
+            if process.poll() is not None:
+                raise RuntimeError(f"isolated CI daemon exited: {process.returncode}")
+            try:
+                status, _, _ = request("127.0.0.1", "GET",
+                                       "/api/security/first-admin/status")
+                if status in (200, 503):
+                    return process
+            except (OSError, http.client.HTTPException):
+                pass
+            time.sleep(0.2)
+        raise RuntimeError("isolated CI daemon did not start on port 18080")
+    except BaseException:
+        stop(process)
+        raise
 
 
 def stop(process):
@@ -92,17 +96,19 @@ def stop(process):
 
 
 def main():
-    if os.environ.get("GITHUB_ACTIONS") != "true" or os.geteuid() == 0:
-        raise RuntimeError("This destructive first-admin test is CI-only and non-root")
+    if (os.environ.get("GITHUB_ACTIONS") != "true"
+            or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted"
+            or os.geteuid() == 0):
+        raise RuntimeError("This first-admin test requires a non-root GitHub-hosted runner")
     if not DAEMON.is_file() or not os.access(DAEMON, os.X_OK):
         raise RuntimeError("Expected built daemon missing: .build/vdr-suite-daemon")
-    # Never connect to or interfere with an already-running server.
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(0.3)
-        if sock.connect_ex(("127.0.0.1", PORT)) == 0:
-            raise RuntimeError("Port 18080 already in use; no test started")
-
+    # Refuse to touch any server already listening on either test address.
     host = local_lan_address()
+    for address in ("127.0.0.1", host):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.3)
+            if sock.connect_ex((address, PORT)) == 0:
+                raise RuntimeError("Port 18080 already in use; no test started")
     origin = f"http://{host}:{PORT}"
     basic = "Basic " + base64.b64encode(
         f"{LOGIN}:{PASSWORD}".encode()).decode("ascii")
@@ -158,6 +164,17 @@ def main():
                     host, "POST", "/api/security/browser-sessions", 200,
                     headers={"Authorization": basic, "Origin": origin})
                 retained = relogin_headers["Set-Cookie"].split(";", 1)[0]
+                # Forwarding headers or mismatched origins must never relax Secure.
+                forwarded_headers, _ = expect(
+                    host, "POST", "/api/security/browser-sessions", 200,
+                    headers={"Authorization": basic, "Origin": origin,
+                             "X-Forwarded-For": "203.0.113.5"})
+                assert "; Secure" in forwarded_headers["Set-Cookie"]
+                mismatched_headers, _ = expect(
+                    host, "POST", "/api/security/browser-sessions", 200,
+                    headers={"Authorization": basic,
+                             "Origin": "http://public.example.invalid"})
+                assert "; Secure" in mismatched_headers["Set-Cookie"]
                 # Loopback/proxy remains conservative even without a TLS listener.
                 proxy_headers, _ = expect(
                     "127.0.0.1", "POST", "/api/security/browser-sessions", 200,
