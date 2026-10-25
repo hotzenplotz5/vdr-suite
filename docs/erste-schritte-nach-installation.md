@@ -127,6 +127,26 @@ automatisch im Backend. Der Benutzer sieht oder kopiert keine Secrets.
 Nach erfolgreicher Anlage meldet sich der Browser regulär an; danach
 erscheint ausschließlich die normale Anmeldung.
 
+**Browser-Sitzungen auf MLD:** Bei direktem Zugriff mit
+`http://<MLD-IP>:18080/frontend/` muss das Sitzungs-Cookie auch über
+HTTP wieder an den VDR gesendet werden können. Der Browser-Login verwendet
+deshalb **nur für verifizierte direkte HTTP-LAN-Verbindungen** ein Cookie
+ohne `Secure`. Bei HTTPS hinter einem lokalen Reverse-Proxy und bei
+anderen Verbindungen bleibt `Secure` gesetzt. `HttpOnly` und
+`SameSite=Strict` gelten immer. Das ändert nichts daran, dass
+**HTTP im Heimnetz Benutzername, Passwort und Sitzung unverschlüsselt
+überträgt** – HTTPS ist klar vorzuziehen, und der Backend-Port darf
+nicht ins Internet freigegeben sein.
+
+**Abnahme nach dem Fix:** Admin einmalig anlegen; Anmeldung mit dem
+korrekten Passwort; Webfrontend nach einem Seitenreload weiterhin
+angemeldet; explizit abmelden; mit absichtlich falschem Passwort
+eine verständliche deutsche Meldung erhalten; danach mit korrektem
+Passwort wieder anmelden. Browser mit direktem HTTP und HTTPS/Proxy
+getrennt prüfen. Formularreihenfolge: Benutzername, Anzeigename,
+Passwort, Passwort bestätigen, mit Sichtbarkeitsschalter und sofortiger
+Übereinstimmungsprüfung.
+
 **Wichtig für MLD:** Im selben Heimnetz reicht der normale Browser auf
 einem anderen Gerät; auf dem VDR selbst muss kein Browser installiert sein.
 Diese Heimnetzfreigabe ist keine Anmeldung: Solange noch kein Administrator
