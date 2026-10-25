@@ -150,5 +150,67 @@ int main()
     ApiResponse patch;
     assert(api.tryHandleUnsupportedMethod("PATCH", url, "", "", patch));
     assert(patch.statusCode == 405);
+    // UX4.2: one opaque source ID, same public actor/backend scopes.
+    // The preview request is read-only and may remain pending until the
+    // authenticated Agent's next source observation.
+    const std::string preview =
+        url + "/source_00000000001/preview";
+    api.resetMediaImportPreviewLookup();
+    assert(getPage(preview).statusCode == 503);
+    api.registerMediaImportPreviewLookup(
+        [](const std::string& actor, const std::string& backend,
+           const std::string& source)
+        {
+            PublicApiRuntime::MediaImportPreviewResult result;
+            if (actor != "actor:one" || backend != "backend-a" ||
+                source != "source_00000000001") {
+                result.status =
+                    PublicApiRuntime::MediaImportPreviewStatus::forbidden;
+                return result;
+            }
+            result.status = PublicApiRuntime::MediaImportPreviewStatus::pending;
+            return result;
+        });
+    auto pending = getPage(preview);
+    assert(pending.statusCode == 202);
+    assert(pending.body.find("\"state\":\"pending\"") != std::string::npos);
+    assert(pending.headers.at("Cache-Control") == "no-store");
+    assert(getPage(preview, "actor:two").statusCode == 403);
+    assert(getPage(preview + "?path=/etc").statusCode == 400);
+    ApiResponse wrongBackend;
+    assert(api.tryHandleGet(preview, "actor:one", "", "",
+                            wrongBackend, "", "", {"backend-b"}));
+    assert(wrongBackend.statusCode == 404);
+    api.registerMediaImportPreviewLookup(
+        [](const std::string&, const std::string&, const std::string& source)
+        {
+            PublicApiRuntime::MediaImportPreviewResult result;
+            result.status = PublicApiRuntime::MediaImportPreviewStatus::ready;
+            result.sourceId = source;
+            result.inspectionStatus = "duplicate";
+            result.title = "Andor";
+            result.targetFolder = "Serien/Andor";
+            result.videoCodec = "vp9";
+            result.sourceBytes = 1234567;
+            result.availableBytes = 9000000000ULL;
+            result.requiredBytes = 7000000000ULL;
+            result.videoReencodeRequired = true;
+            return result;
+        });
+    const auto ready = getPage(preview);
+    assert(ready.statusCode == 200);
+    assert(ready.body.find("\"state\":\"ready\"") != std::string::npos);
+    assert(ready.body.find("\"status\":\"duplicate\"") != std::string::npos);
+    assert(ready.body.find("\"targetFolder\":\"Serien/Andor\"") !=
+           std::string::npos);
+    assert(ready.body.find("\"videoCodec\":\"vp9\"") != std::string::npos);
+    assert(ready.body.find("\"sourceBytes\":1234567") != std::string::npos);
+    assert(ready.body.find("\"videoReencodeRequired\":true") !=
+           std::string::npos);
+    assert(ready.body.find("/srv/vdr") == std::string::npos);
+    ApiResponse unsafePost;
+    assert(api.tryHandlePost(preview, "", "", unsafePost));
+    assert(unsafePost.statusCode == 405);
+    api.resetMediaImportPreviewLookup();
     api.resetMediaImportSourceLookup();
 }
