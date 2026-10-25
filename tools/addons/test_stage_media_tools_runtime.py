@@ -219,6 +219,42 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         assert self.target.is_dir() and not list(self.target.iterdir())
 
 
+    def test_mt_i3_read_only_profile_refuses_unverified_distribution_claims(self):
+        from media_tools_install_preflight import host_profile, PreflightError
+        root = Path(self.temp.name) / "synthetic-host"
+        info = root / "etc/os-release"
+        info.parent.mkdir(parents=True)
+        info.write_text('NAME="OpenSUSE Leap"\nID=opensuse-leap\n')
+        before = info.read_bytes()
+        result = host_profile(root)
+        assert result["existing_host_adapter"] == "NOT_VERIFIED"
+        assert result["non_ubuntu_install"] == "BLOCKED"
+        assert result["vdr_abi"] == "NOT_VERIFIED"
+        assert result["activation"] == "NOT_AUTHORIZED"
+        assert info.read_bytes() == before
+
+        command = ["bash", str(HERE / "install_media_tools.sh"),
+                   "profile", str(root)]
+        completed = subprocess.run(command, capture_output=True, text=True)
+        assert completed.returncode == 0, completed.stderr
+        assert '"distribution_id": "opensuse-leap"' in completed.stdout
+        assert "MEDIA_TOOLS_HOST_PROFILE=READ_ONLY" in completed.stdout
+        info.write_text('NAME="Ubuntu"\nID=ubuntu\n')
+        ubuntu = host_profile(root)
+        assert ubuntu["existing_host_adapter"] == "ubuntu-systemd-reference"
+        assert ubuntu["service_state"] == "NOT_VERIFIED"
+
+        info.unlink()
+        lib = root / "usr/lib/os-release"
+        lib.parent.mkdir(parents=True)
+        lib.write_text('ID=ubuntu\n')
+        info.symlink_to("../usr/lib/os-release")
+        assert host_profile(root)["distribution_id"] == "ubuntu"
+        info.unlink()
+        info.symlink_to("/etc/passwd")
+        with self.assertRaisesRegex(PreflightError, "untrusted distribution"):
+            host_profile(root)
+
     def test_mt_i2_read_only_first_install_and_verify_existing_payload(self):
         from media_tools_install_preflight import inspect
         MODULE.compose(self.work, self.target, self.hash)
