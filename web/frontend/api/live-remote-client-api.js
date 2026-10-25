@@ -5,8 +5,7 @@
   const LOGOUT_PATH = '/api/security/browser-sessions/logout';
   const RESTORE_PATH = '/api/security/browser-sessions/current';
   const FIRST_ADMIN_STATUS_PATH = '/api/security/first-admin/status';
-  const FIRST_ADMIN_CLAIM_PATH = '/api/security/first-admin/onscreen/claim';
-  const FIRST_ADMIN_START_PATH = '/api/security/first-admin/onscreen/start';
+  const FIRST_ADMIN_CLAIM_PATH = '/api/security/first-admin/claim';
   const CSRF_HEADER = 'X-CSRF-Token';
   const SECURITY_REASONS = Object.freeze({
     authentication_required: true,
@@ -412,30 +411,24 @@
     });
   }
 
-  function firstAdminShowCode() {
-    if (!global.location || global.location.protocol !== 'https:') {
-      return Promise.reject(new Error(translated(
-        'Für die Ersteinrichtung ist eine sichere HTTPS-Verbindung erforderlich.',
-        'First-time setup requires an HTTPS connection.'
-      )));
-    }
-    return global.fetch(FIRST_ADMIN_START_PATH, {
-      method: 'POST',
-      headers: {Accept: 'application/json', 'Content-Type': 'application/json'},
-      body: '{}',
-      cache: 'no-store',
-      credentials: 'same-origin'
-    }).then(function (response) {
-      return parseResponse(response).then(function (payload) {
-        if (response.status !== 202) {
-          throw responseError(response, payload, translated(
-            'Der VDR konnte keinen Code am Fernseher anzeigen.',
-            'The VDR could not show a code on your TV.'
-          ));
-        }
-        return true;
-      });
+  function parseLocalBootstrapMaterial(raw) {
+    const lines = String(raw || '').split(/\r?\n/);
+    let bootstrapId = '';
+    let setupSecret = '';
+    lines.forEach(function (line) {
+      const id = /^bootstrap_id=(.+)$/.exec(line.trim());
+      const secret = /^setup_secret=(.+)$/.exec(line.trim());
+      if (id) bootstrapId = id[1].trim();
+      if (secret) setupSecret = secret[1].trim();
     });
+    if (!/^fab_[A-Za-z0-9_-]{12,124}$/.test(bootstrapId) ||
+        !/^[A-Za-z0-9_-]{32,256}$/.test(setupSecret)) {
+      throw new Error(translated(
+        'Bitte die Zeilen bootstrap_id=... und setup_secret=... aus dem lokalen Bootstrap-Befehl einfügen.',
+        'Paste both bootstrap_id=... and setup_secret=... from the local bootstrap command.'
+      ));
+    }
+    return {bootstrapId: bootstrapId, setupSecret: setupSecret};
   }
 
   function firstAdminClaim(fields) {
@@ -638,44 +631,22 @@
     confirmationLabel.appendChild(confirmation);
 
     const bootstrapLabel = createElement(
-      'label', '', translated('Code vom Fernseher (8 Ziffern)', 'Code from TV (8 digits)')
+      'label', '', translated('Einmaliger Einrichtungscode', 'One-time setup code')
     );
-    const bootstrap = createElement('input');
-    bootstrap.name = 'onscreenCode';
-    bootstrap.type = 'text';
-    bootstrap.inputMode = 'numeric';
-    bootstrap.pattern = '[0-9]{8}';
-    bootstrap.maxLength = 8;
-    bootstrap.autocomplete = 'one-time-code';
-    bootstrap.placeholder = '12345678';
+    const bootstrap = createElement('textarea');
+    bootstrap.name = 'bootstrapMaterial';
+    bootstrap.rows = 3;
+    bootstrap.autocomplete = 'off';
+    bootstrap.spellcheck = false;
+    bootstrap.maxLength = 700;
+    bootstrap.placeholder = 'bootstrap_id=...\nsetup_secret=...';
     bootstrapLabel.appendChild(bootstrap);
 
     const bootstrapHelp = createElement('p', 'vss-message');
     bootstrapHelp.textContent = translated(
-      'Wähle „Code am TV anzeigen“ und gib die angezeigten 8 Ziffern ein. Kein Terminal erforderlich.',
-      'Select “Show code on TV” and enter the 8 digits. No terminal required.'
+      'Lokal am VDR „sudo vdr-suite-first-admin-bootstrap“ ausführen und die beiden Zeilen hier einfügen. Niemals im Forum veröffentlichen.',
+      'Run “sudo vdr-suite-first-admin-bootstrap” locally and paste both lines here. Never publish the secret.'
     );
-    const showCode = createElement('button', 'vss-cancel',
-      translated('Code am TV anzeigen', 'Show code on TV'));
-    showCode.type = 'button';
-    showCode.addEventListener('click', function () {
-      showCode.disabled = true;
-      message.classList.remove('error');
-      message.textContent = translated('Code wird am TV angezeigt …',
-        'Displaying code on TV …');
-      firstAdminShowCode().then(function () {
-        message.textContent = translated(
-          'Lies den Code am Fernseher ab und gib ihn hier ein (5 Minuten gültig).',
-          'Read the code from your TV and enter it here (valid for 5 minutes).'
-        );
-        bootstrap.focus();
-      }).catch(function (error) {
-        message.classList.add('error');
-        message.textContent = String(error && error.message || error);
-      }).finally(function () {
-        showCode.disabled = false;
-      });
-    });
 
     const message = createElement('p', 'vss-message');
     message.setAttribute('aria-live', 'assertive');
@@ -693,7 +664,7 @@
       translated('Anmelden', 'Sign in')
     );
     submit.type = 'submit';
-    actions.append(showCode, cancel, submit);
+    actions.append(cancel, submit);
 
     form.append(title, usernameLabel, passwordLabel, displayNameLabel,
       confirmationLabel, bootstrapLabel, bootstrapHelp, message, actions);
@@ -708,7 +679,6 @@
       confirmationLabel.hidden = !setupMode;
       bootstrapLabel.hidden = !setupMode;
       bootstrapHelp.hidden = !setupMode;
-      showCode.hidden = !setupMode;
       password.autocomplete = setupMode ? 'new-password' : 'current-password';
       title.textContent = setupMode
         ? translated('VDR-Suite erstmalig einrichten', 'Set up VDR-Suite')
@@ -722,8 +692,8 @@
         message.textContent = submit.disabled
           ? translated('Für die Web-Ersteinrichtung ist HTTPS erforderlich.',
               'HTTPS is required for web setup.')
-          : translated('Code direkt am Fernseher anzeigen lassen.',
-              'Display a code directly on the TV.');
+          : translated('Nur mit lokal erzeugtem Einmalcode möglich.',
+              'A locally generated one-time code is required.');
         message.classList.toggle('error', submit.disabled);
       }
     }
@@ -827,15 +797,16 @@
         const name = username.value.trim();
         const submittedPassword = password.value;
         const repeatedPassword = confirmation.value;
+        let proof;
         try {
-          if (!/^[0-9]{8}$/.test(bootstrap.value) ||
-              !name || name.includes(':') || name.length > 128 ||
+          proof = parseLocalBootstrapMaterial(bootstrap.value);
+          if (!name || name.includes(':') || name.length > 128 ||
               !displayName.value.trim() || displayName.value.trim().length > 256 ||
               submittedPassword.length < 12 ||
               submittedPassword !== repeatedPassword) {
             throw new Error(translated(
-              'Bitte alle Felder prüfen: Code mit 8 Ziffern, Passwort mindestens 12 Zeichen und zweimal identisch.',
-              'Check all fields: 8-digit code and matching password of at least 12 characters.'
+              'Bitte alle Felder prüfen (Passwort mindestens 12 Zeichen, zweimal identisch).',
+              'Check all fields (password at least 12 characters and confirmed).'
             ));
           }
         } catch (error) {
@@ -845,18 +816,19 @@
           cancel.disabled = false;
           return;
         }
-        const onscreenCode = bootstrap.value;
         password.value = '';
         confirmation.value = '';
         bootstrap.value = '';
         message.textContent = translated('Administrator wird eingerichtet …',
           'Creating administrator …');
         const claimPromise = firstAdminClaim({
-          onscreenCode: onscreenCode,
+          bootstrapId: proof.bootstrapId,
+          setupSecret: proof.setupSecret,
           loginName: name,
           password: submittedPassword,
           displayName: displayName.value.trim()
         });
+        proof.setupSecret = '';
         claimPromise.then(function () {
           setSetupMode(false);
           return login(name, submittedPassword);
