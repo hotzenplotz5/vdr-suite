@@ -337,7 +337,7 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter,
             *accountabilityEventRepository_);
     firstAdminClaimHttpService_ =
         std::make_unique<FirstAdminClaimHttpService>(
-            *firstAdminClaimService_);
+            *firstAdminClaimService_, firstAdminBootstrapRepository_.get());
 
     const SecurityConfiguration configuration =
         SecurityConfiguration::fromEnvironment();
