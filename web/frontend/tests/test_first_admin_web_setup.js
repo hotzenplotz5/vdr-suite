@@ -60,7 +60,8 @@ async function scenario(options) {
     window: null, document, Date, Error, JSON, Math, Number,
     Object, Array, Promise, String, TextEncoder,
     setTimeout() { return 1; }, clearTimeout() {}, console,
-    location: {protocol: options.https ? 'https:' : 'http:'},
+    location: {protocol: options.https ? 'https:' : 'http:',
+      hostname: options.local ? 'localhost' : 'mld.local'},
     btoa(value) { return Buffer.from(value, 'binary').toString('base64'); },
     addEventListener() {},
     fetch(input, config) {
@@ -71,7 +72,7 @@ async function scenario(options) {
       if (input === '/api/security/first-admin/status') {
         return Promise.resolve(response(200, {unclaimed: options.unclaimed}));
       }
-      if (input === '/api/security/first-admin/claim') {
+      if (input === '/api/security/first-admin/local/claim') {
         return Promise.resolve(response(201, {status: 'claimed'}));
       }
       if (input === '/api/security/browser-sessions') {
@@ -106,16 +107,13 @@ async function scenario(options) {
 
   if (!options.unclaimed) {
     assert.match(title.textContent, /anmelden/);
-    assert.equal(input('bootstrapMaterial').hidden, false); // Hidden on label, not textarea.
-    assert.equal(nodes.find(n => n.tagName === 'LABEL' &&
-      n.children.includes(input('bootstrapMaterial'))).hidden, true);
-    assert(!requests.some(r => r.input === '/api/security/first-admin/claim'));
+    assert(!requests.some(r => r.input === '/api/security/first-admin/local/claim'));
     return;
   }
   assert.match(title.textContent, /erstmalig einrichten/);
-  if (!options.https) {
+  if (!options.local) {
     assert.equal(submit.disabled, true);
-    assert(!requests.some(r => r.input === '/api/security/first-admin/claim'));
+    assert(!requests.some(r => r.input === '/api/security/first-admin/local/claim'));
     return;
   }
   assert.equal(submit.disabled, false);
@@ -124,27 +122,20 @@ async function scenario(options) {
   input('password').value = 'meaningful-local-password';
   input('displayName').value = 'MLD Administrator';
   input('confirmPassword').value = 'meaningful-local-password';
-  const secret = 'q'.repeat(44);
-  input('bootstrapMaterial').value =
-    'bootstrap_id=fab_' + '1'.repeat(32) + '\nsetup_secret=' + secret +
-    '\nexpires_at=2026-10-25 18:00:00';
   form.fire('submit');
   await settle();
 
-  const claim = requests.find(r => r.input === '/api/security/first-admin/claim');
+  const claim = requests.find(r => r.input === '/api/security/first-admin/local/claim');
   assert(claim);
   assert.equal(claim.config.method, 'POST');
   assert.equal(claim.config.cache, 'no-store');
   assert.equal(claim.config.credentials, 'same-origin');
   assert.equal(claim.config.headers['Content-Type'], 'application/json');
   assert.deepEqual(JSON.parse(claim.config.body), {
-    bootstrapId: 'fab_' + '1'.repeat(32),
-    setupSecret: secret,
     loginName: 'admin',
     password: 'meaningful-local-password',
     displayName: 'MLD Administrator'
   });
-  assert.equal(input('bootstrapMaterial').value, '');
   assert.equal(input('password').value, '');
   assert.equal(input('confirmPassword').value, '');
   const login = requests.find(r => r.input === '/api/security/browser-sessions');
@@ -154,9 +145,9 @@ async function scenario(options) {
 }
 
 (async () => {
-  await scenario({unclaimed: true, https: true});
-  await scenario({unclaimed: false, https: true});
-  await scenario({unclaimed: true, https: false});
+  await scenario({unclaimed: true, https: false, local: true});
+  await scenario({unclaimed: false, https: true, local: false});
+  await scenario({unclaimed: true, https: true, local: false});
   console.log('FIRST_ADMIN_WEB_SETUP=PASS');
 })().catch(error => {
   console.error(error);
