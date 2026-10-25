@@ -8797,7 +8797,8 @@ bool PublicApiRuntime::tryHandleGet(
         const std::string query = requestQueryString(requestTarget);
         std::string requestedCursor;
         if (!query.empty()) {
-            if (query.compare(0, 7, "cursor=") != 0 ||
+            if (query == "cursor=" ||
+                query.compare(0, 7, "cursor=") != 0 ||
                 query.size() > 128U ||
                 query.find('&') != std::string::npos) {
                 response = invalidRequestProblem(
