@@ -64,6 +64,8 @@ esac
 [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || stop "commit SHA invalid"
 if [ "$MODE" = install ]; then
   [[ "$APPROVED" =~ ^[0-9a-f]{64}$ ]] || stop "independent approved handler SHA-256 required"
+  [ "${MEDIA_TOOLS_INSTALL_CONFIRM:-}" = REVIEWED_FIRST_INSTALL ] ||
+    stop 'manual first install needs MEDIA_TOOLS_INSTALL_CONFIRM=REVIEWED_FIRST_INSTALL (no automatic grants or service start)'
 else
   [ -z "$PREPARED_WORKDIR" ] || stop "prepare cannot reuse an existing build"
 fi
@@ -281,23 +283,18 @@ if [ "$MODE" = prepare ]; then
   echo 'INSTALL_REQUIRES_INDEPENDENT_APPROVAL=YES'
   exit 0
 fi
-# Verify the complete seal independently of the live system BEFORE any
-# service stop, install, backup or approval mutation.
-python3 - "$STAGE" <<'PY' || stop "prepared sealed runtime invalid"
+# One MT.I1 verifier, shared by manual install, read-only preflight and package staging.
+# A first install must not silently overlay a package, partial install, or
+# earlier root-owned grant. No host writes occur in this preflight.
+python3 - "$STAGE" "$APPROVED" <<'PY' || stop "Media Tools first-install stage or host is not clean"
 import pathlib, sys
-sys.path.insert(0, "tools")
-from install_runtime_stage import load_manifest, verify_sealed_stage
-root = pathlib.Path(sys.argv[1])
-verify_sealed_stage(root, load_manifest(root))
-print("PREPARED_RUNTIME_SEAL=PASS")
+sys.path.insert(0, "tools/addons")
+from media_tools_install_preflight import inspect
+report = inspect(pathlib.Path(sys.argv[1]), pathlib.Path("/"), sys.argv[2])
+print("MEDIA_TOOLS_FIRST_INSTALL_STATE=" + report["install_state"])
+if report["install_state"] != "absent":
+    raise SystemExit("existing Media Tools needs an explicit reviewed update/migration")
 PY
-[ -f "$STAGE/usr/share/vdr-suite/addons/rectools/addon.json" ] &&
-  [ -f "$STAGE/usr/libexec/vdr-suite/addons/rectools/addon.json" ] &&
-  cmp -s "$STAGE/usr/share/vdr-suite/addons/rectools/addon.json" \
-    "$STAGE/usr/libexec/vdr-suite/addons/rectools/addon.json" ||
-  stop "Agent metadata companion missing or differs from sealed inventory"
-[ "$(sha256sum "$STAGE/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import" | cut -d' ' -f1)" = "$APPROVED" ] ||
-  stop "sealed stage import handler differs from approved hash"
 resource_preflight || stop "insufficient capacity for actual database backup"
 # A previous failed attempt may have left an EMPTY root-owned backup folder.
 # Reuse only that precise safe state; never overwrite existing backup bytes.
@@ -314,9 +311,8 @@ RESTART=0
 recover() {
   result=$?
   if [ "$RESTART" -eq 1 ]; then
-    sudo systemctl daemon-reload || true
-    sudo systemctl start vdr-suite-daemon || true
-    sudo systemctl start vdr-suite-backend-agent || true
+    echo 'MEDIA_TOOLS_SERVICE_STATE=STOPPED_REQUIRES_MANUAL_REVIEW' >&2
+    echo 'NO_AUTOMATIC_RESTART_OR_APPROVAL_ON_INSTALL_FAILURE' >&2
   fi
   exit "$result"
 }
@@ -342,9 +338,6 @@ sudo make deploy-install-runtime RUNTIME_STAGE="$STAGE" LIVE_ROOT=/ ||
   stop "sealed Suite + Media Tools runtime deployment"
 sudo make check-install-runtime-deployment RUNTIME_STAGE="$STAGE" LIVE_ROOT=/ ||
   stop "sealed Suite + Media Tools runtime mismatch"
-ISSUER="$ROOT/tools/addons/admin_approval_issuer.py"
-sudo python3 "$ISSUER" issue --root / --allow-live-root --module rectools --version 0.1.0 --origin manual --approved-sha256 "$APPROVED" || stop "backend approval"
-sudo python3 "$ISSUER" issue --root / --allow-live-root --core-expected-only --backend-id "$BACKEND" --module rectools --version 0.1.0 --origin manual --approved-sha256 "$APPROVED" || stop "Core approval"
 sudo python3 - "$BACKEND" "$SOURCE" "$VIDEO" "$SOURCE_CONFIGURED" "$VIDEO_CONFIGURED" <<'PY'
 import os, pathlib, stat, sys
 backend, source, video, source_ready, video_ready = sys.argv[1:]
@@ -381,22 +374,23 @@ create('/etc/systemd/system/vdr-suite-backend-agent.service.d/20-media-tools.con
 PY
 sudo install -d -o "$AGENT_ACCOUNT" -g "$AGENT_GROUP" -m 0700 /var/lib/vdr-suite/backend-agent/media-shrink || stop "private shrink state"
 sudo systemctl daemon-reload || stop "systemd reload"
-sudo systemctl start vdr-suite-daemon vdr-suite-backend-agent || stop "Suite restart"
-systemctl is-active --quiet vdr-suite-daemon && systemctl is-active --quiet vdr-suite-backend-agent || stop "Suite/Agent failed to start"
-sudo make check-install-runtime-deployment RUNTIME_STAGE="$STAGE" LIVE_ROOT=/ || stop "installed Suite + Media Tools runtime drift"
-RESTART=0
+sudo make check-install-runtime-deployment RUNTIME_STAGE="$STAGE" LIVE_ROOT=/ ||
+  stop "installed Suite + Media Tools runtime drift"
 resource_preflight after || stop "post-install reserve insufficient"
+RESTART=0
+echo 'SUITE_SERVICES=STOPPED_REQUIRES_EXPLICIT_OPERATOR_START'
+echo 'MEDIA_TOOLS_HANDLER_APPROVAL=NOT_ISSUED'
+echo 'MEDIA_TOOLS_CORE_APPROVAL=NOT_ISSUED'
 echo "MEDIA_TOOLS_INSTALL=PASS"
 echo "DATABASE_BACKUP=$WORK/backup/vdr-suite.db"
-echo 'IMPORT_AND_SHRINK_AGENT_OPT_IN=YES'
+echo 'IMPORT_AND_SHRINK_AGENT_OPT_IN=CONFIGURED_BUT_INACTIVE'
 if [ "$SOURCE_CONFIGURED" -eq 1 ] && [ "$VIDEO_CONFIGURED" -eq 1 ]; then
   echo 'MEDIA_TOOLS_PATHS=CONFIGURED'
 else
   echo 'MEDIA_TOOLS_PATHS=PENDING'
 fi
-# The root administrator approved this installed handler and its Core-side
-# expected identity above. No second in-app administrative approval is needed.
-# Real capability still depends on authenticated Agent attestation, current
-# backend lease and the existing authorization gates.
-echo 'MEDIA_TOOLS_ACTIVATION=AUTOMATIC_WHEN_VERIFIED'
-echo 'OTHER_USER_GRANTS=CONFIGURABLE'
+# File installation does not approve the handler, start the Agent, or grant
+# any actor. Root/Core approvals and service restart require their separate,
+# already existing explicit operator procedures.
+echo 'MEDIA_TOOLS_ACTIVATION=INACTIVE_PENDING_SEPARATE_REVIEW'
+echo 'OTHER_USER_GRANTS=UNCHANGED'
