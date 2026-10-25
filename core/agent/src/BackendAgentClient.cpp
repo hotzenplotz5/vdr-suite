@@ -2083,8 +2083,28 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
             partial = true;
             break;
         }
-    // Display labels must match the exact opaque source snapshot.
+    // Display labels and relative folder metadata must match the exact
+    // opaque source snapshot. Neither grants filesystem authority.
+    const validFolder = [](const std::string& folder) {
+        if (folder.empty()) return true; // source root
+        if (folder.size() > 240U || folder.front() == '/' ||
+            folder.back() == '/' || folder.find('\\') != std::string::npos)
+            return false;
+        std::size_t start = 0;
+        for (;;) {
+            const auto stop = folder.find('/', start);
+            const auto part = folder.substr(start,
+                stop == std::string::npos ? std::string::npos : stop - start);
+            if (part.empty() || part == "." || part == ".." ||
+                std::any_of(part.begin(), part.end(), [](unsigned char ch) {
+                    return ch < 0x20U || ch == 0x7fU;
+                })) return false;
+            if (stop == std::string::npos) return true;
+            start = stop + 1;
+        }
+    };
     std::vector<std::string> labels;
+    std::vector<std::string> folders;
     if (!ids.empty() && described.size() == ids.size())
     {
         bool consistent = true;
@@ -2092,6 +2112,7 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
             const auto& label = described[i].label;
             if (described[i].sourceId != ids[i] ||
                 label.empty() || label.size() > 160U ||
+                !validFolder(described[i].folder) ||
                 std::any_of(label.begin(), label.end(), [](unsigned char ch) {
                     return ch < 0x20 || ch == 0x7f ||
                            ch == '/' || ch == '\\';
@@ -2101,7 +2122,10 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
             }
         }
         if (consistent)
-            for (const auto& item : described) labels.push_back(item.label);
+            for (const auto& item : described) {
+                labels.push_back(item.label);
+                folders.push_back(item.folder);
+            }
     }
     std::ostringstream body;
     body << "{\"backendId\":\"" << jsonEscape(state_.backendId)
@@ -2118,6 +2142,12 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     {
         if (index != 0U) body << ',';
         body << '"' << jsonEscape(labels[index]) << '"';
+    }
+    body << "],\"sourceFolders\":[";
+    for (std::size_t index = 0; index < folders.size(); ++index)
+    {
+        if (index != 0U) body << ',';
+        body << '"' << jsonEscape(folders[index]) << '"';
     }
     body << "],\"partial\":" << (partial ? "true" : "false")
          << ",\"handlerOrigin\":\"" << jsonEscape(installed.origin)
