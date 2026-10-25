@@ -11,6 +11,12 @@ const view = fs.readFileSync(path.join(frontend, 'modules/media-import.js'), 'ut
 const clientFactory = require('../api/public-v1-client.js');
 
 assert(index.includes('data-module="media-import" hidden disabled'));
+const nav = index.slice(index.indexOf('<nav id="module-nav"'),
+                        index.indexOf('</nav>', index.indexOf('<nav id="module-nav"')));
+assert(nav.indexOf('data-module="overview"') < nav.indexOf('data-module="recordings2"'));
+assert(nav.indexOf('data-module="recordings2"') < nav.indexOf('data-module="media-import"'));
+assert(nav.indexOf('data-module="media-import"') < nav.indexOf('data-module="genres"'),
+  'MT.UX0 Media Import must sit directly after recordings');
 assert(index.indexOf('modules/media-import.js') < index.indexOf('frontend/app.js'));
 assert(app.includes('refreshMediaImportVisibility(backendId);'));
 assert(app.includes('resetMediaImportVisibility(true);'));
@@ -59,6 +65,7 @@ let state = 'dispatching';
 let submitMode = 'accepted';
 let batchSources = null;
 let markedSources = [];
+let sourcePartial = false;
 let batchOperations = [];
 const BATCH_OP_A = 'op_' + 'd'.repeat(32);
 const BATCH_OP_B = 'op_' + 'e'.repeat(32);
@@ -99,7 +106,7 @@ function transport(url, options) {
             id === MARK_PC ? 'Film.pc_encode' :
             id === MARK_SKIP ? 'Film.skipped' :
             id === MARK_DUP ? 'Film.duplicate' : 'Weiterer Film'};
-      }), meta: {partial: false}})
+      }), meta: {partial: sourcePartial}})
       : reply(sourcesStatus, {detail: 'Source unavailable'}));
   }
   if (path.endsWith('/media-imports')) {
@@ -223,6 +230,20 @@ function publishHomeResume() {}
   assert(select && start, 'production detail owner must mount real controls');
   assert(select.children[1].textContent.includes('Die Herrschaft des Feuers'),
     'backend-approved film title must be visible without HTML rendering');
+  assert(!select.children[1].textContent.includes(SOURCE),
+    'opaque source IDs must stay in collapsed technical details');
+  assert(findClass(mount, 'media-import-technical-details'),
+    'MT.UX1 must retain optional technical details');
+  assert(findClass(mount, 'media-import-scan-notice').textContent.includes('nicht bestätigt'),
+    'do not claim complete recursive scan without a paginated backend');
+  const postBeforeScan = requests.filter(r => r.options.method === 'POST').length;
+  sourcePartial = true;
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  assert(findClass(mount, 'media-import-scan-notice').textContent.includes('Scan unvollständig'));
+  assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
+    postBeforeScan, 'scan is strictly read-only');
+  sourcePartial = false;
   assert.strictEqual(start.disabled, true);
   select.value = SOURCE;
   select.listeners.change();
