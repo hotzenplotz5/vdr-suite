@@ -26,7 +26,9 @@ int main(int argc, char* argv[]) {
                 localReencode))) {
             throw std::invalid_argument("invalid import arguments or missing write confirmation");
         }
-        const auto plan = inspectImport({argv[2], argv[3], argv[4]});
+        const auto plan = action == "plan"
+            ? inspectImportPreview(ImportRequest{argv[2], argv[3], argv[4]})
+            : inspectImport(ImportRequest{argv[2], argv[3], argv[4]});
         std::cout << "SOURCE=" << plan.sourceFile << "\n"
                   << "TITLE=" << plan.title << "\n"
                   << "SOURCE_BYTES=" << plan.sourceBytes << "\n"
@@ -43,7 +45,8 @@ int main(int argc, char* argv[]) {
                       << "RESERVE_BYTES=" << capacity.reserveBytes << "\n"
                       << "TARGET_WRITABLE=" << (capacity.writable ? "YES" : "NO") << "\n"
                       << "SPACE_SUFFICIENT=" << (capacity.sufficient ? "YES" : "NO") << "\n"
-                      << "DUPLICATE=NO\n"
+                      << "DUPLICATE="
+                      << (plan.duplicateTarget ? "YES" : "NO") << "\n"
                       << "IMPORT_STATUS=PLAN_ONLY\n";
             return 0;
         }
