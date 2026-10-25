@@ -2,6 +2,7 @@
 
 #include "FirstAdminClaimService.h"
 #include "FirstAdminBootstrapRepository.h"
+#include "FirstAdminBootstrapIssuanceService.h"
 
 #include <algorithm>
 #include <chrono>
@@ -15,12 +16,14 @@ namespace
 {
 constexpr const char* ClaimPath = "/api/security/first-admin/claim";
 constexpr const char* SetupStatusPath = "/api/security/first-admin/status";
+constexpr const char* LocalClaimPath = "/api/security/first-admin/local/claim";
 constexpr std::size_t MaximumBodyBytes = 8192U;
 constexpr unsigned BootstrapIdField = 1U << 0U;
 constexpr unsigned SetupSecretField = 1U << 1U;
 constexpr unsigned LoginNameField = 1U << 2U;
 constexpr unsigned PasswordField = 1U << 3U;
 constexpr unsigned DisplayNameField = 1U << 4U;
+constexpr unsigned LocalFields = LoginNameField | PasswordField | DisplayNameField;
 constexpr unsigned RequiredFields =
     BootstrapIdField |
     SetupSecretField |
@@ -423,7 +426,8 @@ bool failClaimBody(FirstAdminClaimRequest& request)
 
 bool parseClaimBody(
     const std::string& body,
-    FirstAdminClaimRequest& request)
+    FirstAdminClaimRequest& request,
+    unsigned expectedFields = RequiredFields)
 {
     if (body.empty() || body.size() > MaximumBodyBytes)
     {
@@ -499,7 +503,7 @@ bool parseClaimBody(
 
     position = skipWhitespace(body, position);
     if (position != body.size() ||
-        fields != RequiredFields)
+        fields != expectedFields)
     {
         return failClaimBody(request);
     }
@@ -580,8 +584,9 @@ HttpServerResponse successResponse(
 }
 
 FirstAdminClaimHttpService::FirstAdminClaimHttpService(
-    FirstAdminClaimService& claimService)
-    : claimService_(claimService)
+    FirstAdminClaimService& claimService,
+    FirstAdminBootstrapRepository* bootstrapRepository)
+    : claimService_(claimService), bootstrapRepository_(bootstrapRepository)
 {
 }
 
@@ -589,7 +594,8 @@ bool FirstAdminClaimHttpService::handles(
     const HttpServerRequest& request) const
 {
     const std::string path = requestPath(request.path);
-    return path == ClaimPath || path == SetupStatusPath;
+    return path == ClaimPath || path == SetupStatusPath ||
+        path == LocalClaimPath;
 }
 
 HttpServerResponse FirstAdminClaimHttpService::handle(
@@ -639,6 +645,74 @@ HttpServerResponse FirstAdminClaimHttpService::handle(
             ? "{\"unclaimed\":true}"
             : "{\"unclaimed\":false}";
         return result;
+    }
+
+    if (requestPath(request.path) == LocalClaimPath)
+    {
+        if (request.method != "POST") {
+            HttpServerResponse rejected = response(
+                405, "method_not_allowed", "Local first-admin setup needs POST", context);
+            rejected.headers["Allow"] = "POST";
+            return rejected;
+        }
+        // The local web form is authorized only by the actual TCP loopback peer.
+        // A reverse proxy may also be on loopback: require local browser Host
+        // and Origin as well, and reject any forwarding metadata.
+        const std::string host = lowerAscii(headerValue(request, "Host"));
+        const std::string origin = lowerAscii(headerValue(request, "Origin"));
+        const bool localHost =
+            host == "localhost:18080" || host == "127.0.0.1:18080" ||
+            host == "[::1]:18080" || host == "localhost" ||
+            host == "127.0.0.1" || host == "[::1]";
+        const bool localOrigin =
+            origin == "http://" + host || origin == "https://" + host;
+        if (!request.peerIsLoopback || !localHost || !localOrigin ||
+            !headerValue(request, "Forwarded").empty() ||
+            !headerValue(request, "X-Forwarded-For").empty() ||
+            !headerValue(request, "X-Forwarded-Host").empty() ||
+            !headerValue(request, "X-Forwarded-Proto").empty()) {
+            return response(403, "local_setup_only",
+                "First administrator setup requires a local browser", context);
+        }
+        if (!bootstrapRepository_)
+            return response(503, "local_setup_unavailable",
+                "Local setup is unavailable", context);
+        if (!jsonContentType(request))
+            return response(415, "unsupported_media_type",
+                "Local setup requires JSON", context);
+        FirstAdminClaimRequest local;
+        if (!parseClaimBody(request.body, local, LocalFields) ||
+            local.password.size() < 12) {
+            local.clearSecrets();
+            return response(400, "invalid_first_admin_claim",
+                "Invalid first-admin form", context);
+        }
+        if (claimService_.claimState() != FirstAdminClaimState::unclaimed) {
+            local.clearSecrets();
+            return response(409, "server_already_claimed",
+                "First administrator already exists or status unavailable", context);
+        }
+        FirstAdminBootstrapIssuanceService issuer(*bootstrapRepository_);
+        auto proof = issuer.issue();
+        if (proof.status != FirstAdminBootstrapIssuanceStatus::issued ||
+            !proof.bootstrap.has_value()) {
+            local.clearSecrets();
+            return response(503, "local_setup_unavailable",
+                "First-admin setup cannot be authorized", context);
+        }
+        local.bootstrapId = std::move(proof.bootstrap->bootstrapId);
+        local.setupSecret = std::move(proof.bootstrap->setupSecret);
+        proof.bootstrap->clearSecret();
+        local.requestId = context.requestId;
+        local.correlationId = context.correlationId;
+        const auto result = claimService_.claim(std::move(local));
+        if (result.status == FirstAdminClaimStatus::success)
+            return successResponse(context);
+        if (result.status == FirstAdminClaimStatus::claimed)
+            return response(409, "server_already_claimed",
+                "The server already has an administrator", context);
+        return response(503, "local_setup_failed",
+            "The server could not complete first-admin setup", context);
     }
 
     if (request.method != "POST")
