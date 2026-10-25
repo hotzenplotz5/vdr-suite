@@ -435,6 +435,13 @@
   // Agent/Core snapshot. No path guesses, filesystem requests or new grants.
   function filterVisibleSources(view) {
     if (!isCurrent(view) || view.attempt || view.batch) return;
+    // A filter or folder change clears the selection and invalidates every
+    // outstanding preview, including a late reply for a reselected source.
+    if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
+    view.previewTimer = null;
+    ++view.previewGeneration;
+    view.previewResult = null;
+    view.previewStatus = '';
     const query = String(view.searchInput.value || '').trim().toLowerCase();
     const mode = view.statusFilter.value;
     renderSourceFolders(view, Boolean(query));
@@ -515,6 +522,11 @@
 
   function loadSources(view) {
     if (!isCurrent(view) || view.attempt) return Promise.resolve();
+    if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
+    view.previewTimer = null;
+    ++view.previewGeneration;
+    view.previewResult = null;
+    view.previewStatus = '';
     const generation = ++view.sourcesGeneration;
     view.select.disabled = true;
     view.startButton.disabled = true;
@@ -643,7 +655,7 @@
         if (!data || data.backendId !== view.backendId ||
             data.sourceId !== id) throw new Error('Veraltete Vorschauantwort');
         if (data.state === 'pending') {
-          view.previewStatus = 'Backend prüft den ausgewählten Film …';
+          view.previewStatus = 'Film wird geprüft …';
           updatePreview(view);
           if (++view.previewReads < 40) {
             view.previewTimer = global.setTimeout(function () {
@@ -671,12 +683,17 @@
         view.previewResult = data;
         view.previewStatus = '';
         updatePreview(view);
-      }).catch(function () {
+      }).catch(function (error) {
         if (!isCurrent(view) || generation !== view.previewGeneration ||
             view.select.value !== id) return;
         view.previewResult = null;
-        view.previewStatus = 'Echte Backend-Vorschau momentan nicht verfügbar. ' +
-          'Quelle erneut auswählen.';
+        view.previewStatus = error && error.status === 401
+          ? 'Anmeldung abgelaufen. Bitte erneut anmelden.'
+          : error && error.status === 403
+            ? 'Keine Berechtigung für diese Importvorschau.'
+            : error && error.status === 503
+              ? 'Backend-Agent oder Quelle nicht mehr verfügbar. Bitte erneut scannen.'
+              : 'Film konnte nicht geprüft werden. Bitte erneut auswählen.';
         updatePreview(view);
       });
     }
@@ -699,7 +716,10 @@
     const item = view.allOrdinary.find(function (source) {
       return source.sourceId === id;
     });
-    const name = view.sourceTitles[id] || 'Film';
+    const plan = view.previewResult && view.previewResult.sourceId === id
+      ? view.previewResult : null;
+    const name = plan && plan.title ? plan.title :
+      (view.sourceTitles[id] || 'Film');
     const sourceFolder = item && item.folderKnown
       ? (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel')
       : 'wird vom Backend beim Import geprüft';
@@ -713,8 +733,7 @@
           : 'VDR-Import ohne Freigabe einer lokalen Umkodierung.';
     let details = view.previewStatus ||
       'Echte Backend-Vorschau wird angefordert …';
-    const plan = view.previewResult;
-    if (plan && plan.sourceId === id) {
+    if (plan) {
       if (plan.status === 'unavailable') {
         details = 'Film konnte vom Backend nicht sicher geprüft werden.';
       } else {
