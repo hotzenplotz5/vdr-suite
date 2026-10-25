@@ -673,11 +673,15 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
             sourceIds, now, handlerOrigin, handlerVersion, handlerSha256,
             sourceLabels, partial, sourceFolders))
         return errorResponse(409, "media_import_sources_agent_fenced");
-    // Only a matching pending selected-ID result can be accepted.
-    // No absolute host paths are accepted in a preview observation.
-    if (hasPreview && !mediaImportCatalog_->acceptPreview(
+    // A user may choose film B while the Agent is still inspecting film A.
+    // Ignore the stale A result rather than wedging the Agent's normal
+    // observation loop with HTTP 409. Never put stale details in the catalog.
+    const std::string expected = mediaImportCatalog_->nextPreviewRequest(
+        *live, backendId, now);
+    if (hasPreview && expected == preview.sourceId &&
+        !mediaImportCatalog_->acceptPreview(
             *live, backendId, now, preview))
-        return errorResponse(409, "media_import_preview_not_requested");
+        return errorResponse(409, "media_import_preview_invalid");
     const std::string next = mediaImportCatalog_->nextPreviewRequest(
         *live, backendId, now);
     return jsonResponse(200, next.empty()
