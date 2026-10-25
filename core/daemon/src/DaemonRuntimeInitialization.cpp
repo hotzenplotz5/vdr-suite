@@ -17,6 +17,7 @@
 #include "AddonRootApproval.h"
 #include "AddonAdministrationService.h"
 #include "AddonActivationHttpPayload.h"
+#include "LocalMediaImportSourceAdmin.h"
 
 #include "BackendAgentNativeTimerDeleteFingerprint.h"
 #include "NativeTimerDeleteDispatchService.h"
@@ -5505,12 +5506,27 @@ bool DaemonRuntime::initialize()
             (installedByAdministrator ? "true" : "false") + "}";
         return response;
     };
+    // Local admin source configuration uses the same authenticated
+    // Browser-Session role.admin/CSRF gate as addon activation. The existing
+    // Agent periodically rereads its root-owned inventory; no restart.
+    auto addonSourceMutation = [](
+        const RequestSecurityContext&, const std::string& body) -> ApiResponse
+    {
+        return vdrsuite::mediatools::local_source_admin::save(body);
+    };
+    auto addonSourceLookup = [](
+        const RequestSecurityContext&, const std::string& uri) -> ApiResponse
+    {
+        return vdrsuite::mediatools::local_source_admin::read(uri);
+    };
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
         std::make_unique<TestHttpServer>(
             *apiRouter_, deviceLiveEventHub_,
             std::move(addonGrantEligibility),
             std::move(addonActivationMutation),
-            std::move(addonActivationLookup)),
+            std::move(addonActivationLookup),
+            std::move(addonSourceMutation),
+            std::move(addonSourceLookup)),
         recordingArtworkService_);
     auto agentHttpServer = std::make_unique<BackendAgentHttpServer>(
         std::move(clientHttpServer),
