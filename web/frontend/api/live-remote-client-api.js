@@ -5,7 +5,7 @@
   const LOGOUT_PATH = '/api/security/browser-sessions/logout';
   const RESTORE_PATH = '/api/security/browser-sessions/current';
   const FIRST_ADMIN_STATUS_PATH = '/api/security/first-admin/status';
-  const FIRST_ADMIN_CLAIM_PATH = '/api/security/first-admin/claim';
+  const FIRST_ADMIN_CLAIM_PATH = '/api/security/first-admin/local/claim';
   const CSRF_HEADER = 'X-CSRF-Token';
   const SECURITY_REASONS = Object.freeze({
     authentication_required: true,
@@ -411,31 +411,12 @@
     });
   }
 
-  function parseLocalBootstrapMaterial(raw) {
-    const lines = String(raw || '').split(/\r?\n/);
-    let bootstrapId = '';
-    let setupSecret = '';
-    lines.forEach(function (line) {
-      const id = /^bootstrap_id=(.+)$/.exec(line.trim());
-      const secret = /^setup_secret=(.+)$/.exec(line.trim());
-      if (id) bootstrapId = id[1].trim();
-      if (secret) setupSecret = secret[1].trim();
-    });
-    if (!/^fab_[A-Za-z0-9_-]{12,124}$/.test(bootstrapId) ||
-        !/^[A-Za-z0-9_-]{32,256}$/.test(setupSecret)) {
-      throw new Error(translated(
-        'Bitte die Zeilen bootstrap_id=... und setup_secret=... aus dem lokalen Bootstrap-Befehl einfügen.',
-        'Paste both bootstrap_id=... and setup_secret=... from the local bootstrap command.'
-      ));
-    }
-    return {bootstrapId: bootstrapId, setupSecret: setupSecret};
-  }
-
   function firstAdminClaim(fields) {
-    if (!global.location || global.location.protocol !== 'https:') {
+    if (!global.location ||
+        !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(global.location.hostname)) {
       return Promise.reject(new Error(translated(
-        'Die Ersteinrichtung über das Web benötigt HTTPS. Bitte zuerst einen sicheren HTTPS-Zugang einrichten.',
-        'Web-based first-admin setup requires HTTPS. Configure a trusted HTTPS endpoint first.'
+        'Die Ersteinrichtung ist nur direkt am VDR möglich.',
+        'First-time setup requires a local browser on the VDR.'
       )));
     }
     return global.fetch(FIRST_ADMIN_CLAIM_PATH, {
@@ -630,24 +611,6 @@
     confirmation.autocomplete = 'new-password';
     confirmationLabel.appendChild(confirmation);
 
-    const bootstrapLabel = createElement(
-      'label', '', translated('Einmaliger Einrichtungscode', 'One-time setup code')
-    );
-    const bootstrap = createElement('textarea');
-    bootstrap.name = 'bootstrapMaterial';
-    bootstrap.rows = 3;
-    bootstrap.autocomplete = 'off';
-    bootstrap.spellcheck = false;
-    bootstrap.maxLength = 700;
-    bootstrap.placeholder = 'bootstrap_id=...\nsetup_secret=...';
-    bootstrapLabel.appendChild(bootstrap);
-
-    const bootstrapHelp = createElement('p', 'vss-message');
-    bootstrapHelp.textContent = translated(
-      'Lokal am VDR „sudo vdr-suite-first-admin-bootstrap“ ausführen und die beiden Zeilen hier einfügen. Niemals im Forum veröffentlichen.',
-      'Run “sudo vdr-suite-first-admin-bootstrap” locally and paste both lines here. Never publish the secret.'
-    );
-
     const message = createElement('p', 'vss-message');
     message.setAttribute('aria-live', 'assertive');
 
@@ -667,7 +630,7 @@
     actions.append(cancel, submit);
 
     form.append(title, usernameLabel, passwordLabel, displayNameLabel,
-      confirmationLabel, bootstrapLabel, bootstrapHelp, message, actions);
+      confirmationLabel, message, actions);
     dialog.appendChild(form);
     global.document.body.appendChild(dialog);
 
@@ -677,8 +640,6 @@
       setupMode = Boolean(value) && !isAuthenticated();
       displayNameLabel.hidden = !setupMode;
       confirmationLabel.hidden = !setupMode;
-      bootstrapLabel.hidden = !setupMode;
-      bootstrapHelp.hidden = !setupMode;
       password.autocomplete = setupMode ? 'new-password' : 'current-password';
       title.textContent = setupMode
         ? translated('VDR-Suite erstmalig einrichten', 'Set up VDR-Suite')
@@ -686,14 +647,15 @@
       submit.textContent = setupMode
         ? translated('Administrator erstellen', 'Create administrator')
         : translated('Anmelden', 'Sign in');
-      submit.disabled = setupMode &&
-        (!global.location || global.location.protocol !== 'https:');
+      const localHost = global.location &&
+        /^(localhost|127\\.0\\.0\\.1|\\[::1\\])$/.test(global.location.hostname);
+      submit.disabled = setupMode && !localHost;
       if (setupMode) {
         message.textContent = submit.disabled
-          ? translated('Für die Web-Ersteinrichtung ist HTTPS erforderlich.',
-              'HTTPS is required for web setup.')
-          : translated('Nur mit lokal erzeugtem Einmalcode möglich.',
-              'A locally generated one-time code is required.');
+          ? translated('Die erste Einrichtung ist nur direkt im lokalen Browser des VDR möglich.',
+              'First-time setup is available only in a browser on the VDR itself.')
+          : '';
+
         message.classList.toggle('error', submit.disabled);
       }
     }
@@ -797,16 +759,14 @@
         const name = username.value.trim();
         const submittedPassword = password.value;
         const repeatedPassword = confirmation.value;
-        let proof;
         try {
-          proof = parseLocalBootstrapMaterial(bootstrap.value);
           if (!name || name.includes(':') || name.length > 128 ||
               !displayName.value.trim() || displayName.value.trim().length > 256 ||
               submittedPassword.length < 12 ||
               submittedPassword !== repeatedPassword) {
             throw new Error(translated(
-              'Bitte alle Felder prüfen (Passwort mindestens 12 Zeichen, zweimal identisch).',
-              'Check all fields (password at least 12 characters and confirmed).'
+              'Bitte Namen und Passwort prüfen (mindestens 12 Zeichen, zweimal identisch).',
+              'Check names and password (at least 12 characters and confirmed).'
             ));
           }
         } catch (error) {
@@ -818,17 +778,13 @@
         }
         password.value = '';
         confirmation.value = '';
-        bootstrap.value = '';
         message.textContent = translated('Administrator wird eingerichtet …',
           'Creating administrator …');
         const claimPromise = firstAdminClaim({
-          bootstrapId: proof.bootstrapId,
-          setupSecret: proof.setupSecret,
           loginName: name,
           password: submittedPassword,
           displayName: displayName.value.trim()
         });
-        proof.setupSecret = '';
         claimPromise.then(function () {
           setSetupMode(false);
           return login(name, submittedPassword);
@@ -847,7 +803,7 @@
         }).finally(function () {
           cancel.disabled = false;
           submit.disabled = setupMode &&
-            (!global.location || global.location.protocol !== 'https:');
+            (!global.location || !/^(localhost|127\\.0\\.0\\.1|\\[::1\\])$/.test(global.location.hostname));
         });
         return;
       }
