@@ -441,21 +441,17 @@ as well as the observed `Die Herrschaft des Feuers.pc_encode.mkv`.
 These are committed **source changes**, not a verified build or a deployed
 upgrade to the existing yaVDR binaries.
 
-**Open integration slices, NOT shipped:** (1) A backend-scoped,
-durable Core decision in the existing authenticated API v1 Operation
-(identity-bound and idempotent) for `local`, `desktop`, or `skip`;
-(2) enforce that choice in the protected Agent's pinned assignment and
-preflight, instead of allowing a browser/manifest/filename to confer
-execution permission; (3) safely record PC delegation and skip without
-a world-writable prompt, so desktop-return can be intentionally resumed
-and existing VDR reconciliation still owns the new recording; (4) an
-optional notification transport for actionable e-mail and the frontend
-buttons with status/authorization checks. **Neither the three-way
-Public API, email delivery, nor the UI decision operation is yet wired.**
-Do not treat an authenticated import `sourceId` as approval for video
-encoding or expose the new operator CLI flag to browsers. The existing
-source/agent/Core operation system should be extended, never copied into
-a second queue.
+**Current source integration (not a live-VDR acceptance):** The existing
+authenticated Public-v1/Core/Agent operation accepts the explicit per-film
+`videoDecision=local|desktop|skip` decision. The pinned Agent rejects
+unapproved video encoding; trusted `desktop`/`skip` use the tested,
+collision-safe in-directory `.pc_encode`/`.skipped` markers instead of
+the old world-writable prompt. Releasing a marker is another separately
+authorized operation. The browser now offers these decisions only after
+read-only diagnosis (MT.UX4.3). E-mail notification and remotely running
+HandBrake are **not** implemented. Neither a recognized source ID nor a
+manifest is encoding authorization. Existing Core recording reconciliation
+remains the sole VDR success authority.
 
 ## MT.UX1 – bounded read-only source discovery (code candidate)
 
@@ -598,6 +594,53 @@ Prüfungen laufen über `Add-on platform isolated checks` in GitHub Actions.
 bestandener Test; ein Commit oder gestarteter Workflow ist kein Testbeleg.**
 Die abschließende Hardware-/Live-VDR-Abnahme bleibt für den gemeinsamen
 Abschlusstest offen. Hier gab es keine Installation und keinen Dienstneustart.
+
+## MT.UX4.3 – Automatische Entscheidung nach technischer VDR-Importeignung
+
+Die geprüfte Videospur bestimmt, welche Bedienung erscheint – **nicht**
+die Fähigkeiten eines konkreten Fernsehers oder eines einzelnen TV-Clients.
+Die aktuelle Backend-Vorschau klassifiziert H.264, HEVC und MPEG-2 für
+den unveränderten Videostream-Import; andere erkannte Video-Codecs
+benötigen eine **bewusst gewählte** Neukodierung. Die echte Verarbeitung
+prüft alle entscheidenden Voraussetzungen erneut und bestätigt erst nach
+TS-Erstellung, Codec-/Laufzeitprüfung, VDR-Index und anschließendem
+autoritativem Recording-Readback eine fertige Aufnahme.
+
+- Nach Filmauswahl läuft ausschließlich die vorhandene **lesende** Public-v1-/
+  Core-/Agent-Vorschau. Solange sie aussteht, fehlschlägt oder den Import wegen
+  Dublette, Speicherplatz oder Backend-Verfügbarkeit blockiert, ist der
+  direkte Start deaktiviert. Ein unvollständiges Ergebnis ist niemals eine
+  Zustimmung zur Umkodierung.
+- Ist das Video für den VDR-Import ohne Videokonvertierung geeignet, erscheint
+  **„Import starten“** – keine Auswahl zwischen Codecs oder HandBrake. Die
+  zusätzliche Audioprüfung des produktiven Importers übernimmt passende
+  Audiospuren unverändert und wandelt andere bei Bedarf nach AAC um, ohne
+  die Videospur unnötig neu zu encodieren. Eine ausdrückliche
+  Importbestätigung bleibt erforderlich.
+- Benötigt das **Video** eine Neukodierung, erscheint nur dann die Wahl:
+  **„Auf dem VDR umkodieren (H.264)“** (einzeln plus zusätzliche
+  Einwilligungsbestätigung), **„Auf PC umkodieren“** (markiert die
+  unveränderte Originaldatei mit `.pc_encode`; kein Import),
+  **„Film überspringen“** (markiert mit `.skipped`; kein Import).
+  Ohne Auswahl ist die Startaktion gesperrt.
+- Externe Bearbeitung geschieht außerhalb der Suite, z. B. mit HandBrake/
+  FFmpeg über eine vorhandene Netzfreigabe. Eine **neu** in die freigegebene
+  Importwurzel gelegte, kompatibel encodierte Datei wird beim nächsten Scan
+  als gewöhnlicher Importkandidat geprüft. Die markierte Originaldatei
+  bleibt unangetastet. Für ein gezieltes Wiederaufnehmen eines markierten
+  Originals gibt es die bereits autorisierte **„Markierung aufheben“**-Aktion.
+  Weder automatische Freigabe noch Überschreiben/Löschen des Originals.
+- Für kopierfähige Filme und blockierte Vorschauen bleibt **„Film überspringen“**
+  als gesondert bestätigte Markierungsaktion erhalten. Batchimporte geben
+  weiterhin **keine** Videoumkodierung frei; ihre Status-/Teilmengenführung
+  gehört zu MT.UX5.
+
+**Nachweisgrenze:** Das ist eine Quellcode-/Browser-Kompositionsänderung im
+bestehenden Importmodul; kein neuer Dienst, keine Datenbank, kein Agenten-
+protokoll und keine alternative Importpipeline. Ob die daraus erstellte
+VDR-Aufnahme anschließend auf einem konkreten Wiedergabegerät läuft, ist
+hier keine geprüfte Eigenschaft. Ein echter yaVDR-Import und die gesonderte
+Geräteabnahme bleiben offen.
 
 ## MT.UX4.1 – relative VDR target folders (source candidate)
 
