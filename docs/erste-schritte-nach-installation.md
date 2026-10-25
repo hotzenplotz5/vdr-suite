@@ -103,42 +103,98 @@ Bei der Diagnose zunächst `systemctl status vdr-suite-daemon.service --no-pager
 
 ## 5. Ersten Administrator anlegen
 
-**MLD-Entwicklungsversion (noch nicht nach `main` übernommen):** Sobald die
-Version aus `work/mld66-platform-integration` auf dem VDR installiert ist,
-öffnet der Browser bei der ersten Verbindung ohne Administratorkonto direkt
-den Einrichtungsdialog. Für reguläre Benutzer ist **kein Terminal, kein
-`sudo`, kein Skript, kein Bootstrap-Geheimnis** notwendig.
+**MLD-Integrationsvorschau (noch nicht nach main übernommen):** Wenn auf dem
+Server noch kein Administratorkonto existiert, zeigt der vorhandene
+Web-Login-Dialog automatisch die Ersteinrichtung an. Die Entscheidung stammt
+aus der lesenden API `GET /api/security/first-admin/status`. Bei Fehlern
+wird **keine** Ersteinrichtung angeboten. Auf eingerichteten Servern bleibt
+die normale Anmeldung unverändert.
 
-1. VDR-Suite über eine **vertrauenswürdige HTTPS-Adresse** aufrufen.
-2. Im Dialog **„Code am TV anzeigen“** auswählen. Der Suite-Daemon sendet
-   ausschließlich den einmaligen achtstelligen Code über den **lokalen**
-   VDR-SVDRP-Anschluss (Standard-Port 6419, konfigurabel über
-   `VDR_SUITE_FIRST_ADMIN_OSD_PORT`) an das physische VDR-OSD.
-3. Die acht Ziffern vom Fernsehbild in das Webformular übernehmen,
-   Benutzername und Anzeigename wählen, Passwort zweimal eingeben.
-4. **„Administrator erstellen“** drücken. Bei erfolgreicher Bestätigung
-   erstellt die vorhandene First-Admin-Claim-Logik das Konto und der Browser
-   meldet es regulär an. Anschließend erscheint nur noch die normale Anmeldung.
+1. Einen **vertrauenswürdigen HTTPS-Zugang** zur VDR-Suite einrichten. Über
+   unverschlüsseltes HTTP ist der Absenden-Knopf für den Admin-Claim gesperrt.
+2. Auf dem **VDR selbst** als Root den vorhandenen Befehl
+   `vdr-suite-first-admin-bootstrap` ausführen (Standard: 15 Minuten gültig).
+3. Im Dialog den gewünschten Admin-Login, Anzeigenamen und das Passwort
+   mit Wiederholung eingeben (mindestens 12 Zeichen).
+4. Die zwei vom lokalen Programm ausgegebenen Zeilen
+   `bootstrap_id=...` und `setup_secret=...` gemeinsam in das Feld
+   „Einmaliger Einrichtungscode“ einfügen. Das Secret **niemals ins Forum,
+   in ein Ticket oder in die URL kopieren**.
+5. „Administrator erstellen“ auswählen. Der Browser ruft denselben
+   bestehenden `POST /api/security/first-admin/claim` auf wie der technische
+   Bootstrap-Weg und meldet den Benutzer danach mit seinem neu gewählten
+   Passwort an. Eine weitere Anmeldung nach einem Reload erfolgt normal.
 
-Der Code gilt **fünf Minuten**. Pro Code gibt es **höchstens fünf Versuche**;
-ein erneutes Anzeigen kann frühestens nach **60 Sekunden** angefordert werden.
-Das Verfahren sendet **keinen Code an den Webbrowser**, sondern zeigt ihn
-nur auf dem lokalen TV/OSD. Es legt keine weiteren Services/Tabellen an.
-Ohne erreichbares **lokales VDR-OSD** wird der Ersteinrichtungsversuch
-abgelehnt. Insbesondere ein reiner Headless-Server benötigt einen anderen
-separat autorisierten Erstinstallationskanal; es erfolgt niemals eine
-unbestätigte Freischaltung für den ersten Netzwerkbesucher.
+Weder das UI noch die Statusabfrage erzeugen ein Bootstrap-Secret. Nur das
+lokale Root-Werkzeug erteilt die einmalige Einrichtungserlaubnis. Es entsteht
+kein zweiter Benutzer-/Rechtepfad, kein PAM-Login und kein Anmeldung-ohne-Passwort-Modus.
+Die separate CLI aus PR #545 ist **nicht** Voraussetzung für diesen Browserweg.
 
-Ein installiertes VDR-Suite-Paket und der laufende Daemon müssen aus diesem
-Branch gebaut sein. Ein bloßes `git pull` aktualisiert noch keine
-Paketinstallation. Die HTTPS-Konfiguration des jeweiligen MLD-Systems bleibt
-eine Voraussetzung. **Nicht ungeprüft auf produktive yaVDR-Anlagen installieren.**
 
-**Es wird kein Standard-Administratorkennwort mitgeliefert.** Der erste Administrator
-wird in der MLD-Vorschau ausschließlich mit lokaler TV-Bestätigung angelegt.
-Bei vergessenem Passwort einer bereits eingerichteten Installation gilt der
-separate, autorisierte Wiederherstellungsprozess; es gibt bewusst keinen
-ungeschützten Web-Reset. Siehe [ADR-0066](adr/ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md).
+**Es gibt kein mitgeliefertes Standard-Admin-Passwort.** Die Implementierung benutzt einen bewusst getrennten zweistufigen Ablauf:
+
+1. Auf dem **lokalen Server** gibt ein vertrauenswürdiger Root-Operator mit dem installierten Werkzeug `vdr-suite-first-admin-bootstrap` ein einmaliges Setup-Material aus. Das Werkzeug ist nur für einen *noch nicht beanspruchten* (unclaimed) Server zulässig; Standardgültigkeit **900 Sekunden** (zulässig 300–3600 Sekunden).
+2. Der Operator übermittelt `bootstrapId`, `setupSecret`, gewünschten `loginName`, `password` und `displayName` an die **Claim-Sicherheitsroute** `POST /api/security/first-admin/claim`, über die tatsächlich abgesicherte HTTPS-Route der Installation. Die API verwendet genau diese fünf JSON-Felder. **Diese Aktion wird nicht als bereits fertiger grafischer Installationsassistent ausgegeben.** Der aktuelle Quellstand dokumentiert die Claim-Route; der normale Browser-Login ist ein davon getrennter Schritt.
+3. Der Claim verbraucht das einmalige Secret und erzeugt in **einer Transaktion** ein Human Account, den zugehörigen Benutzer-Actor, einen `human-password`-Zugang und die anfängliche globale `role.admin@*`-Berechtigung. Die Passwortdaten werden als gesalzener Einweg-Verifier abgelegt.
+4. Danach mit dem **neu vergebenen normalen Benutzerpasswort** über den Login der Weboberfläche anmelden. Das Setup-Secret ist **kein** dauerhaftes Passwort und keine Browser-Sitzung.
+
+**Konkrete Bedienung auf einem frisch vorbereiteten, noch unclaimed Testserver:** Nach kontrolliertem Dienststart lokal am Server ausführen:
+
+```bash
+sudo vdr-suite-first-admin-bootstrap
+```
+
+Die drei ausgegebenen Werte `bootstrap_id`, `setup_secret` und `expires_at` nur für die wenige Minuten später folgende Einrichtung verwenden. Der HTTP-Claim erwartet diese JSON-Schlüssel (keine Shell-Passwortargumente):
+
+```json
+{
+  "bootstrapId": "<einmalige ID>",
+  "setupSecret": "<einmaliges Secret>",
+  "loginName": "<gewünschter Admin-Login>",
+  "password": "<neues persönliches Admin-Passwort>",
+  "displayName": "<Anzeigename>"
+}
+```
+
+**Für den Claim ohne Secret in der Shell-History** eignet sich z. B. dieser interaktive Python-3-Aufruf auf einem vertrauenswürdigen Rechner mit Zugriff auf den **geprüften HTTPS-Proxy**. Keine fremden HTTP-URLs und keine deaktivierte TLS-Zertifikatsprüfung verwenden:
+
+```bash
+python3 - <<'PY'
+import getpass
+import json
+import urllib.parse
+import urllib.request
+
+base = input("HTTPS-Basisadresse vor /api (z.B. https://server/vdr-suite): ").strip().rstrip("/")
+u = urllib.parse.urlsplit(base)
+if u.scheme != "https" or not u.netloc or u.username or u.password or u.query or u.fragment:
+    raise SystemExit("Ungültige HTTPS-Basisadresse")
+password = getpass.getpass("Neues Admin-Passwort: ")
+if password != getpass.getpass("Admin-Passwort wiederholen: "):
+    raise SystemExit("Passwörter stimmen nicht überein")
+payload = {
+    "bootstrapId": input("bootstrap_id: ").strip(),
+    "setupSecret": getpass.getpass("setup_secret (verdeckt): "),
+    "loginName": input("Gewünschter Loginname: ").strip(),
+    "password": password,
+    "displayName": input("Anzeigename: ").strip(),
+}
+req = urllib.request.Request(
+    base + "/api/security/first-admin/claim",
+    data=json.dumps(payload).encode("utf-8"),
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+with urllib.request.urlopen(req, timeout=20) as response:
+    print("HTTP", response.status, "– erster Administrator beansprucht")
+PY
+```
+
+Das Programm meldet bei abgelehnten, abgelaufenen oder bereits verbrauchten Ansprüchen einen HTTP-Fehler und erstellt **keinen** zweiten Administrator. Es sendet ID/Secret/Passwort nur an den vom Betreiber eingegebenen TLS-Endpunkt, ohne diese Werte als Shell-Argument oder Datei zu speichern. Ein gültiges Zertifikat und der *richtige* HTTPS-Host sind Voraussetzung.
+
+Das lokal installierte Handbuch ist die verbindliche Bedienhilfe: `man vdr-suite-first-admin-bootstrap`. Die Ausgabe enthält den Secretwert **nur einmal**; ihn nicht in Tickets, Screenshots, Shell-History, URLs oder Logs kopieren. Der Claim kann nach Ablauf oder nach bereits erfolgter Beanspruchung nicht erneut als zweiter Admin ausgeführt werden.
+
+**Passwort vergessen?** Es gibt den getrennten, lokalen Root-Recovery-Weg `vdr-suite-human-account-recover` für ein **bestehendes**, genau ausgewähltes Konto, mit `--account-id` und `--login`. Das Werkzeug fordert das neue Passwort ohne Kommandozeilenargument an, rotiert das Credential und widerruft betroffene Sitzungen. Es ist kein ungesicherter Web-Reset. Details: [ADR-0066](adr/ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md) und `man vdr-suite-human-account-recover`.
 
 ## 6. Erstes Backend, Sender, EPG und Aufnahmen
 
