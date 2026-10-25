@@ -148,6 +148,8 @@
       row.appendChild(nameLabel);
       rows.appendChild(row);
       extras.push({pathInput: pathInput, nameInput: nameInput});
+      pathInput.addEventListener('input', clearPreview);
+      nameInput.addEventListener('input', clearPreview);
       add.disabled = extras.length >= 16;
       clearPreview();
     });
