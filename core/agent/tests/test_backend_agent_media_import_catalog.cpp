@@ -60,7 +60,13 @@ int main()
         "manual", "0.1.0", approvedSha, bulkLabels, false));
     assert(catalog.list(live, "backend", 100, items, labels, &partial));
     assert(!partial && items.size() == 70);
-    bulkIds.resize(257, "source_oversized_0000000001");
+    std::vector<std::string> exact100 = bulkIds;
+    for (int i = 70; i < 100; ++i)
+        exact100.push_back("source_" + std::to_string(10000000000ULL + i));
+    assert(catalog.publish(actor, live, "backend", "instance", 7,
+        exact100, 100, "manual", "0.1.0", approvedSha));
+    assert(catalog.list(live, "backend", 100, items) && items.size() == 100);
+    bulkIds.resize(101, "source_oversized_0000000001");
     assert(!catalog.publish(actor, live, "backend", "instance", 7,
         bulkIds, 100, "manual", "0.1.0", approvedSha));
     assert(catalog.list(live, "backend", 100, items) && items.size() == 70);
