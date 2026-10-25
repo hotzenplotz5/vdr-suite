@@ -60,8 +60,7 @@ async function scenario(options) {
     window: null, document, Date, Error, JSON, Math, Number,
     Object, Array, Promise, String, TextEncoder,
     setTimeout() { return 1; }, clearTimeout() {}, console,
-    location: {protocol: options.https ? 'https:' : 'http:',
-      hostname: options.local ? 'localhost' : 'mld.local'},
+    location: {protocol: 'http:', hostname: options.hostname || '192.168.178.20'},
     btoa(value) { return Buffer.from(value, 'binary').toString('base64'); },
     addEventListener() {},
     fetch(input, config) {
@@ -73,7 +72,9 @@ async function scenario(options) {
         return Promise.resolve(response(200, {unclaimed: options.unclaimed}));
       }
       if (input === '/api/security/first-admin/claim') {
-        return Promise.resolve(response(201, {status: 'claimed'}));
+        return Promise.resolve(options.denied
+          ? response(403, {error: {code: 'lan_setup_only', message: 'Trusted LAN required'}})
+          : response(201, {status: 'claimed'}));
       }
       if (input === '/api/security/browser-sessions') {
         return Promise.resolve(response(200, {
@@ -89,12 +90,19 @@ async function scenario(options) {
   vm.runInContext(source, context);
 
   async function settle() {
-    for (let tick = 0; tick < 18; tick++) await Promise.resolve();
+    for (let tick = 0; tick < 120; tick++) await Promise.resolve();
   }
+  await settle();
+  await new Promise(resolve => setImmediate(resolve));
   await settle();
 
   const dialog = document.getElementById('vdr-suite-session-dialog');
-  assert(dialog && dialog.open, 'must present login/setup modal');
+  assert(dialog && dialog.open,
+    'modal missing hostname=' + options.hostname +
+    ' unclaimed=' + options.unclaimed +
+    ' found=' + Boolean(dialog) +
+    ' open=' + Boolean(dialog && dialog.open) +
+    ' requestPaths=' + requests.map(r => r.input).join(','));
   const form = nodes.find(node => node.tagName === 'FORM');
   const input = name => {
     const found = nodes.find(node => node.name === name);
@@ -111,11 +119,6 @@ async function scenario(options) {
     return;
   }
   assert.match(title.textContent, /erstmalig einrichten/);
-  if (!options.local) {
-    assert.equal(submit.disabled, true);
-    assert(!requests.some(r => r.input === '/api/security/first-admin/claim'));
-    return;
-  }
   assert.equal(submit.disabled, false);
 
   input('username').value = 'admin';
@@ -124,6 +127,12 @@ async function scenario(options) {
   input('confirmPassword').value = 'meaningful-local-password';
   form.fire('submit');
   await settle();
+  if (options.denied) {
+    assert(requests.some(r => r.input === '/api/security/first-admin/claim'));
+    assert.equal(context.VdrSuiteBrowserSession.isAuthenticated(), false);
+    assert.equal(dialog.open, true);
+    return;
+  }
 
   const claim = requests.find(r => r.input === '/api/security/first-admin/claim');
   assert(claim);
@@ -145,9 +154,9 @@ async function scenario(options) {
 }
 
 (async () => {
-  await scenario({unclaimed: true, https: false, local: true});
-  await scenario({unclaimed: false, https: true, local: false});
-  await scenario({unclaimed: true, https: true, local: false});
+  await scenario({unclaimed: true, hostname: '192.168.178.20'});
+  await scenario({unclaimed: false, hostname: '192.168.178.20'});
+  await scenario({unclaimed: true, hostname: 'mld.local', denied: true});
   console.log('FIRST_ADMIN_WEB_SETUP=PASS');
 })().catch(error => {
   console.error(error);
