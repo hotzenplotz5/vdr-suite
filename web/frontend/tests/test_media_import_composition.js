@@ -803,6 +803,7 @@ function publishHomeResume() {}
   // destination/codec/size/capacity are not fabricated by the browser.
   folderSelect.value = SOURCE_B;
   folderSelect.listeners.change();
+  await settle();
   const nestedPreview = findClass(mount, 'media-import-preview').textContent;
   assert(nestedPreview.includes('Quellordner: Serien › Andor.'));
   assert(nestedPreview.includes('VDR-Zielordner: Serien/Andor/Weiterer Film'),
