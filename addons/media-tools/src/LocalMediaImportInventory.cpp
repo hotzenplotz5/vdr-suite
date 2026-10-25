@@ -243,26 +243,22 @@ bool scanDirectory(const std::array<std::string, 5>& entry,
     const fs::path sourceRoot(entry[2]), videoRoot(entry[3]);
     if (!validConfiguredRoot(sourceRoot) || !validConfiguredRoot(videoRoot))
         return false;
-    // Root, one child directory, and one grandchild directory. The second
-    // nested directory is required for real Rectools layouts such as
-    // Serien/Star Wars-Andor/episode.mkv. Never follow directory symlinks,
-    // and retain the global 4096-entry work cap.
+    // Walk every nested directory, not just the first two levels. An
+    // iterative queue avoids unbounded recursive call stacks; never follow
+    // symlinks and retain the existing global 4096-entry fail-closed cap.
+    // An oversized scan must NOT be reported as complete.
     std::vector<fs::path> paths;
+    std::vector<fs::path> directories{sourceRoot};
     std::size_t entries = 0;
-    std::function<bool(const fs::path&, unsigned)> addFiles;
-    addFiles = [&](const fs::path& directory, unsigned depth) {
-        for (const auto& item : fs::directory_iterator(directory)) {
+    for (std::size_t cursor = 0; cursor < directories.size(); ++cursor) {
+        for (const auto& item : fs::directory_iterator(directories[cursor])) {
             if (++entries > 4096) return false;
             const auto status = item.symlink_status();
             if (fs::is_symlink(status)) continue;
             if (fs::is_regular_file(status)) paths.push_back(item.path());
-            else if (depth < 2 && fs::is_directory(status) &&
-                     !addFiles(item.path(), depth + 1))
-                return false;
+            else if (fs::is_directory(status)) directories.push_back(item.path());
         }
-        return true;
-    };
-    if (!addFiles(sourceRoot, 0)) return false;
+    }
     std::sort(paths.begin(), paths.end());
     const auto now = fs::file_time_type::clock::now();
     for (const auto& path : paths) {
