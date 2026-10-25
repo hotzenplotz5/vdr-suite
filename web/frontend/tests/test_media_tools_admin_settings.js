@@ -160,6 +160,17 @@ async function test() {
     'admin-only card must be hidden on HTTP 403');
   assert.equal(forbidden.requests.length, 1);
 
+  // An unavailable admin API cannot reveal the source draft even though
+  // the existing card may still show a read-only error message.
+  const unavailable = harness(() => response(503, {error: 'unavailable'}),
+    {count: 0});
+  unavailable.window.VdrSuiteAddonSettings.render(unavailable.parent, 'default');
+  await flush();
+  const unavailableDraft = unavailable.elements.find(e =>
+    e.className === 'settings-media-import-source-draft');
+  assert.ok(unavailableDraft && unavailableDraft.hidden,
+    'source editor must not appear before a successful protected admin GET');
+
   const loggedOut = harness(() => response(401, {error: 'unauthorized'}), {count: 0});
   loggedOut.window.VdrSuiteAddonSettings.render(loggedOut.parent, 'default');
   await flush();
