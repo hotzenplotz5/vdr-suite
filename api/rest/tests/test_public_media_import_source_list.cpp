@@ -54,10 +54,11 @@ int main()
     // Three bounded pages, no path disclosure and no import side effect.
     // Continuation is bound to the exact actor/backend/source observation.
     std::vector<std::string> many;
+    bool scanComplete = false;
     for (int i = 0; i < 70; ++i)
         many.push_back("source_" + std::to_string(10000000000ULL + i));
     api.registerMediaImportSourceLookup(
-        [&many](const std::string& actor, const std::string& backend)
+        [&many, &scanComplete](const std::string& actor, const std::string& backend)
         {
             PublicApiRuntime::MediaImportSourceResult result;
             if (actor != "actor:one" || backend != "backend-a") {
@@ -66,6 +67,7 @@ int main()
             }
             result.status = PublicApiRuntime::MediaImportSourceStatus::ok;
             result.ids = many;
+            result.partial = !scanComplete;
             return result;
         });
     const auto getPage = [&](const std::string& target,
@@ -104,6 +106,12 @@ int main()
     assert(third.body.find(many[64]) != std::string::npos);
     assert(third.body.find(many[69]) != std::string::npos);
     assert(nextFrom(third.body).empty());
+    // A change in completion status is a different authoritative snapshot;
+    // an old continuation must never silently cross it.
+    scanComplete = true;
+    assert(getPage(url).body.find("\"meta\":{\"partial\":false}") != std::string::npos);
+    assert(getPage(secondUrl).statusCode == 409);
+    scanComplete = false;
     assert(getPage(secondUrl, "actor:two").statusCode == 403);
     many[0] = "source_09999999999"; // valid new snapshot, old continuation stale
     assert(getPage(secondUrl).statusCode == 409);
