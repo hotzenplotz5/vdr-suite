@@ -740,10 +740,15 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
     const bool channelObservation =
         request.path == "/api/agent/v1/observations/channels";
     const bool osdObservation = request.path == "/api/agent/v1/observations/osd";
+    // Bounded media source observation: 256 IDs with 160-byte display labels
+    // can exceed the old 16 KiB generic Agent request limit.
+    const bool mediaSourcesObservation =
+        request.path == "/api/agent/v1/observations/media-import-sources";
     const std::size_t maximumBodyBytes = osdObservation
         ? BackendAgentOsdObservation::MaximumBodyBytes
         : channelObservation
         ? MaximumChannelObservationBodyBytes
+        : mediaSourcesObservation ? 128U * 1024U
         : MaximumAgentBodyBytes;
     if (request.body.size() > maximumBodyBytes)
         return errorResponse(413, channelObservation
