@@ -744,15 +744,19 @@
       ? (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel')
       : 'wird vom Backend beim Import geprüft';
     const decision = view.decision.value;
-    const description = needsEncode
-      ? decision === 'desktop'
+    const description = !plan
+      ? 'Diagnose ausstehend. Es wurde noch kein Importweg freigegeben.'
+      : !ready
+        ? 'Import derzeit blockiert. Die Ursache steht in der Diagnose.'
+        : needsEncode
+          ? decision === 'desktop'
         ? 'Externe Umkodierung gewählt. Für PC/HandBrake markieren. Kein Import.'
         : decision === 'skip'
           ? 'Film überspringen und vom normalen Import ausschließen. Kein Import.'
           : decision === 'import' && view.localReencode.checked
             ? 'Lokale H.264-Umkodierung nur für diesen Film nach ausdrücklicher Bestätigung.'
             : 'Video-Neukodierung erforderlich. Bitte Bearbeitungsweg auswählen.'
-      : 'Video wird ohne Neukodierung in das VDR-Aufnahmeformat übernommen; ' +
+        : 'Video wird ohne Neukodierung in das VDR-Aufnahmeformat übernommen; ' +
         'Audio wird beim Import bei Bedarf angepasst.';
     let details = view.previewStatus || 'Film wird geprüft …';
     if (plan) {
@@ -800,21 +804,22 @@
       view.batch ? 'import' : (forcedDecision || view.decision.value);
     if (!['import', 'desktop', 'skip', 'release'].includes(selected) ||
         (releaseMode && view.batch)) return Promise.resolve();
+    const previewPlan = view.previewResult &&
+      view.previewResult.sourceId === sourceId ? view.previewResult : null;
     if (!releaseMode && !view.batch) {
       // Pending/failed preview never admits an import. A marker needs the
       // currently inspected source too; only reencode-required video can
       // be delegated to an external encoder.
-      const plan = view.previewResult &&
-        view.previewResult.sourceId === sourceId ? view.previewResult : null;
-      if (!plan || plan.status === 'unavailable' ||
-          (selected === 'import' && (plan.status !== 'ready' ||
-            (plan.videoReencodeRequired && !view.localReencode.checked))) ||
-          (selected === 'desktop' && (plan.status !== 'ready' ||
-            !plan.videoReencodeRequired)))
+      if (!previewPlan || previewPlan.status === 'unavailable' ||
+          (selected === 'import' && (previewPlan.status !== 'ready' ||
+            (previewPlan.videoReencodeRequired && !view.localReencode.checked))) ||
+          (selected === 'desktop' && (previewPlan.status !== 'ready' ||
+            !previewPlan.videoReencodeRequired)))
         return Promise.resolve();
     }
     const approveVideoReencode = selected === 'import' &&
-      !view.batch && view.localReencode.checked === true;
+      !view.batch && previewPlan && previewPlan.status === 'ready' &&
+      previewPlan.videoReencodeRequired && view.localReencode.checked === true;
     const videoDecision = selected === 'import'
       ? (approveVideoReencode ? 'local' : '') : selected;
     // Import alone is NEVER local FFmpeg encoding consent.
