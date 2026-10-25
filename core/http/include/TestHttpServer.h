@@ -57,6 +57,10 @@ public:
         const RequestSecurityContext&, const std::string&)>;
     using AddonActivationLookup = std::function<ApiResponse(
         const RequestSecurityContext&, const std::string&)>;
+    using AddonSourceMutation = std::function<ApiResponse(
+        const RequestSecurityContext&, const std::string&)>;
+    using AddonSourceLookup = std::function<ApiResponse(
+        const RequestSecurityContext&, const std::string&)>;
 
     explicit TestHttpServer(
         ApiRouter& apiRouter,
@@ -64,13 +68,17 @@ public:
         HumanAccountGrantAdministrationService::AddonGrantEligibility
             addonGrantEligibility = {},
         AddonActivationMutation addonActivationMutation = {},
-        AddonActivationLookup addonActivationLookup = {});
+        AddonActivationLookup addonActivationLookup = {},
+        AddonSourceMutation addonSourceMutation = {},
+        AddonSourceLookup addonSourceLookup = {});
     TestHttpServer(
         ApiRouter& apiRouter,
         HumanAccountGrantAdministrationService::AddonGrantEligibility
             addonGrantEligibility,
         AddonActivationMutation addonActivationMutation,
-        AddonActivationLookup addonActivationLookup);
+        AddonActivationLookup addonActivationLookup,
+        AddonSourceMutation addonSourceMutation = {},
+        AddonSourceLookup addonSourceLookup = {});
     ~TestHttpServer() override;
 
     HttpServerResponse handleRequest(
@@ -103,6 +111,8 @@ private:
     std::shared_ptr<DeviceLiveEventHub> deviceEventHub_;
     AddonActivationMutation addonActivationMutation_;
     AddonActivationLookup addonActivationLookup_;
+    AddonSourceMutation addonSourceMutation_;
+    AddonSourceLookup addonSourceLookup_;
     std::unique_ptr<Database> securityDatabase_;
     std::unique_ptr<AccountabilityEventRepository>
         accountabilityEventRepository_;
