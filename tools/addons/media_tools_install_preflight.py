@@ -191,15 +191,66 @@ def prepared_state(work: Path, approved: str) -> dict:
     }
 
 
+def host_profile(root: Path) -> dict:
+    """MT.I3 read-only distribution evidence, never guessed service defaults.
+
+    This is *not* acceptance for running services, agent identities, ABI,
+    ffmpeg/ffprobe paths or configured import roots on the requested host.
+    """
+    root = safe_root(root)
+    release = examined_file(root, "etc/os-release")
+    try:
+        info = release.lstat()
+    except FileNotFoundError:
+        distro = "unknown"
+    else:
+        if not stat.S_ISREG(info.st_mode) or info.st_size > 8192:
+            raise PreflightError("unsafe distribution release metadata")
+        values = {}
+        for line in release.read_text(encoding="utf-8").splitlines():
+            if line.startswith("ID="):
+                raw = line[3:].strip().strip('"')
+                if not raw or len(raw) > 64 or not all(
+                    c.isascii() and (c.isalnum() or c in "._-") for c in raw
+                ):
+                    raise PreflightError("invalid distribution identifier")
+                values["ID"] = raw.lower()
+        distro = values.get("ID", "unknown")
+    return {
+        "mode": "READ_ONLY", "distribution_id": distro,
+        "existing_host_adapter": "ubuntu-systemd-reference" if distro == "ubuntu"
+                                 else "NOT_VERIFIED",
+        "non_ubuntu_install": "BLOCKED",
+        "vdr_abi": "NOT_VERIFIED",
+        "agent_account_and_group": "NOT_VERIFIED",
+        "service_state": "NOT_VERIFIED",
+        "source_root": "NOT_VERIFIED",
+        "video_root": "NOT_VERIFIED",
+        "package_ownership": "NOT_VERIFIED",
+        "activation": "NOT_AUTHORIZED",
+        "live_deployment": "NOT_AUTHORIZED",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("prepare", "check", "verify"))
+    parser.add_argument("action", choices=("prepare", "check", "verify", "profile"))
     parser.add_argument("--stage", type=Path)
     parser.add_argument("--live-root", type=Path)
     parser.add_argument("--prepared-workdir", type=Path)
-    parser.add_argument("--approved-handler-sha256", required=True)
+    parser.add_argument("--approved-handler-sha256")
     args = parser.parse_args()
     try:
+        if args.action == "profile":
+            if (args.live_root is None or args.stage is not None or
+                    args.prepared_workdir is not None or
+                    args.approved_handler_sha256 is not None):
+                raise PreflightError("profile needs only --live-root")
+            print(json.dumps(host_profile(args.live_root), sort_keys=True, indent=2))
+            print("MEDIA_TOOLS_HOST_PROFILE=READ_ONLY")
+            return 0
+        if not args.approved_handler_sha256:
+            raise PreflightError("independently approved handler SHA256 required")
         if args.action == "prepare":
             if (args.prepared_workdir is None or args.stage is not None or
                     args.live_root is not None):
