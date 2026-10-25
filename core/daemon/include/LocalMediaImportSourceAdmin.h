@@ -100,6 +100,17 @@ inline bool overlap(const std::string& a, const std::string& b) {
     return a == b || a.compare(0, b.size()+1, b+"/") == 0 ||
         b.compare(0, a.size()+1, a+"/") == 0;
 }
+inline bool protectedConfigDirs() {
+    for (const char* path : {"/etc/vdr-suite",
+                              "/etc/vdr-suite/addon-sources",
+                              "/etc/vdr-suite/addon-approvals"}) {
+        struct stat st{};
+        if (::lstat(path, &st) != 0 || !S_ISDIR(st.st_mode) ||
+            st.st_uid != 0 || (st.st_mode & 0022) != 0)
+            return false;
+    }
+    return true;
+}
 inline bool rootOwnedFile(const char* path) {
     struct stat st{};
     return ::lstat(path, &st) == 0 && S_ISREG(st.st_mode) &&
@@ -131,7 +142,7 @@ inline std::string revision(const std::string& contents) {
 }
 inline bool readLedger(Snapshot& out) {
     out = {};
-    if (!rootOwnedFile(Ledger)) return false;
+    if (!protectedConfigDirs() || !rootOwnedFile(Ledger)) return false;
     const int fd = ::open(Ledger, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
     if (fd < 0) return false;
     struct stat st{};
@@ -273,7 +284,8 @@ inline ApiResponse save(const std::string& body) {
     if (!parseBody(body, backend, expected, proposed))
         return error(422, "invalid_sources");
     if (::geteuid() != 0) return error(503, "sources_not_writable");
-    if (!rootOwnedFile(Lock)) return error(503, "source_lock_unavailable");
+    if (!protectedConfigDirs() || !rootOwnedFile(Lock))
+        return error(503, "source_lock_unavailable");
     const int lock = ::open(Lock, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
     if (lock < 0) return error(503, "source_lock_unavailable");
     if (::flock(lock, LOCK_EX | LOCK_NB) != 0) {
@@ -323,6 +335,12 @@ inline ApiResponse save(const std::string& body) {
         ::close(fd);
         if (written) written = ::rename(temp, Ledger)==0;
         if (!written) { ::unlink(temp); break; }
+        const int directory = ::open("/etc/vdr-suite/addon-sources",
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+        if (directory < 0) break;
+        const bool durable = ::fsync(directory) == 0;
+        ::close(directory);
+        if (!durable) break;
         // The Agent reads the atomically replaced inventory at its normal
         // heartbeat. No restart, service override or other write is needed.
         Snapshot changed;
