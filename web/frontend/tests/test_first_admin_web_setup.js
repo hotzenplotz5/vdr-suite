@@ -72,7 +72,7 @@ async function scenario(options) {
       if (input === '/api/security/first-admin/status') {
         return Promise.resolve(response(200, {unclaimed: options.unclaimed}));
       }
-      if (input === '/api/security/first-admin/local/claim') {
+      if (input === '/api/security/first-admin/claim') {
         return Promise.resolve(response(201, {status: 'claimed'}));
       }
       if (input === '/api/security/browser-sessions') {
@@ -107,13 +107,13 @@ async function scenario(options) {
 
   if (!options.unclaimed) {
     assert.match(title.textContent, /anmelden/);
-    assert(!requests.some(r => r.input === '/api/security/first-admin/local/claim'));
+    assert(!requests.some(r => r.input === '/api/security/first-admin/claim'));
     return;
   }
   assert.match(title.textContent, /erstmalig einrichten/);
   if (!options.local) {
     assert.equal(submit.disabled, true);
-    assert(!requests.some(r => r.input === '/api/security/first-admin/local/claim'));
+    assert(!requests.some(r => r.input === '/api/security/first-admin/claim'));
     return;
   }
   assert.equal(submit.disabled, false);
@@ -125,7 +125,7 @@ async function scenario(options) {
   form.fire('submit');
   await settle();
 
-  const claim = requests.find(r => r.input === '/api/security/first-admin/local/claim');
+  const claim = requests.find(r => r.input === '/api/security/first-admin/claim');
   assert(claim);
   assert.equal(claim.config.method, 'POST');
   assert.equal(claim.config.cache, 'no-store');
