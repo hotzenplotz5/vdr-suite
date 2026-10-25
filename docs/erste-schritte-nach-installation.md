@@ -158,22 +158,23 @@ Freigabe erforderlich.
 
 ### Ersteinrichtung ist genau einmal möglich
 
-Die Ersteinrichtung ist **einmalig pro regulär eingerichteter
-Installation**, nicht pro Browser oder Gerät: Solange das bestehende aktive
-Administratorkonto seine Admin-Berechtigung behält, wird der `claimed`-
-Zustand dauerhaft aus der Suite-SQLite-Datenbank abgeleitet. Ein weiterer
-Claim wird auch durch einen direkten API-Aufruf mit **HTTP 409 Conflict**
-abgewiesen. Abmelden, Browserwechsel, ein vergessenes Passwort oder ein
-normaler VDR-Neustart geben den Dialog **nicht** wieder frei. Bei falschem
-Passwort erscheint ausschließlich eine fehlgeschlagene normale Anmeldung.
+Die Ersteinrichtung ist **einmalig pro Installation**, nicht pro Browser
+oder Gerät. Die SQLite-Datenbank bewahrt die bereits verbrauchte
+First-Admin-Freigabe auf. Ein erfolgreicher Claim sperrt jede erneute
+Einrichtung dauerhaft, auch wenn später sämtliche Administratorkonten oder
+-rechte deaktiviert beziehungsweise widerrufen werden. Bei älteren
+Installationen ohne Claim-Nachweis verhindern auch vorhandene historische
+Administrator-Grants (einschließlich inaktiver oder widerrufener Einträge)
+eine erneute Ersteinrichtung. Es werden keine Konten, Passwörter, Rechte oder
+Gerätekopplungen automatisch verändert.
 
-**Offene Abnahmegrenze:** Die bisherige Claim-Zustandsableitung ist noch
-kein unveränderliches „wurde jemals eingerichtet“-Merkmal. Würden alle
-Administratoridentitäten deaktiviert oder deren Berechtigungen entzogen,
-könnte sie wieder `unclaimed` ergeben. Vor einer Freigabe als streng
-„nur einmal je Installation“ muss dieses Sonderereignis abgesichert und
-getestet werden. Das Löschen der Datenbank ist keine zulässige
-Passwort-Wiederherstellung.
+Ein erneuter Claim wird auch bei direktem API-Aufruf mit **HTTP 409 Conflict**
+abgewiesen. Abmelden, Browserwechsel, ein vergessenes Passwort und ein
+VDR-Neustart geben den Dialog nicht wieder frei. Bei falschem Passwort bleibt
+nur die normale Anmeldung; für die lokale Passwort-Wiederherstellung ist
+`vdr-suite-human-account-recover` vorgesehen. Eine gelöschte Datenbank ist
+keine zulässige Passwort-Wiederherstellung. Die reale MLD-Paket- und
+Laufzeitabnahme bleibt davon unabhängig offen.
 
 ### Administratorpasswort vergessen – lokale Wiederherstellung
 

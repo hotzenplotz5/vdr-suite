@@ -380,19 +380,21 @@ FirstAdminClaimState FirstAdminBootstrapRepository::claimState() const
     auto lease = database_.acquireTransactionLease();
 
     sqlite3_stmt* statement = nullptr;
+    // A consumed bootstrap is durable evidence of an earlier successful
+    // first-admin claim (consumption and account creation commit together).
+    // For older installations, historical administrator grants also fence
+    // re-setup even if the account or grant is later deactivated/revoked.
     const char* sql =
+        "SELECT 1 FROM security_first_admin_bootstrap_issuances "
+        "WHERE consumed_at <> '' "
+        "UNION ALL "
         "SELECT 1 "
         "FROM security_human_accounts AS account "
         "JOIN security_actors AS actor "
         "ON actor.actor_id = account.actor_id "
         "JOIN security_actor_permission_grants AS grant_record "
         "ON grant_record.actor_id = account.actor_id "
-        "WHERE account.active <> 0 "
-        "AND actor.actor_type = 'user' "
-        "AND actor.active <> 0 "
-        "AND actor.revoked_at = '' "
-        "AND grant_record.active <> 0 "
-        "AND grant_record.revoked_at = '' "
+        "WHERE actor.actor_type = 'user' "
         "AND grant_record.backend_id = '*' "
         "AND (grant_record.permission = 'role.admin' "
         "OR grant_record.permission = '*') "

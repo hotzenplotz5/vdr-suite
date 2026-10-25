@@ -60,6 +60,26 @@ int main()
     assert(
         bootstrapRepository.registerBootstrap(
             registration(
+                "bootstrap-second",
+                "2099-01-02 00:00:00")) ==
+        FirstAdminBootstrapStatus::ok);
+
+    assert(database.execute("BEGIN IMMEDIATE;"));
+    assert(
+        bootstrapRepository.invalidateInActiveTransaction(
+            "bootstrap-second") ==
+        FirstAdminBootstrapStatus::ok);
+    assert(database.execute("COMMIT;"));
+
+    const auto second =
+        bootstrapRepository.findById("bootstrap-second");
+    assert(second.status == FirstAdminBootstrapStatus::invalidated);
+    assert(second.bootstrap.invalidated);
+    assert(!second.bootstrap.invalidatedAt.empty());
+
+    assert(
+        bootstrapRepository.registerBootstrap(
+            registration(
                 "bootstrap-first",
                 "2099-01-01 00:00:00")) ==
         FirstAdminBootstrapStatus::ok);
@@ -108,26 +128,10 @@ int main()
     assert(first.status == FirstAdminBootstrapStatus::consumed);
     assert(first.bootstrap.consumed);
     assert(!first.bootstrap.consumedAt.empty());
-
-    assert(
-        bootstrapRepository.registerBootstrap(
-            registration(
-                "bootstrap-second",
-                "2099-01-02 00:00:00")) ==
-        FirstAdminBootstrapStatus::ok);
-
-    assert(database.execute("BEGIN IMMEDIATE;"));
-    assert(
-        bootstrapRepository.invalidateInActiveTransaction(
-            "bootstrap-second") ==
-        FirstAdminBootstrapStatus::ok);
-    assert(database.execute("COMMIT;"));
-
-    const auto second =
-        bootstrapRepository.findById("bootstrap-second");
-    assert(second.status == FirstAdminBootstrapStatus::invalidated);
-    assert(second.bootstrap.invalidated);
-    assert(!second.bootstrap.invalidatedAt.empty());
+    assert(bootstrapRepository.claimState() == FirstAdminClaimState::claimed);
+    assert(bootstrapRepository.registerBootstrap(
+        registration("bootstrap-after-consumed", "2099-01-02 00:00:00")) ==
+        FirstAdminBootstrapStatus::claimed);
 
     assert(database.execute(
         "INSERT INTO security_actors "
@@ -165,6 +169,44 @@ int main()
             "bootstrap-first") ==
         FirstAdminBootstrapStatus::claimed);
     assert(database.execute("ROLLBACK;"));
+
+    // Legacy account with no bootstrap consumption: inactive/revoked
+    // administrator authority must not re-enable first-admin setup.
+    {
+        Database legacyDatabase;
+        assert(legacyDatabase.open(":memory:"));
+        SecurityIdentityRepository legacyIdentities(legacyDatabase);
+        HumanAccountRepository legacyAccounts(legacyDatabase);
+        SecurityPermissionGrantRepository legacyGrants(legacyDatabase);
+        FirstAdminBootstrapRepository legacyBootstrap(legacyDatabase);
+        assert(legacyIdentities.ensureSchema());
+        assert(legacyAccounts.ensureSchema());
+        assert(legacyGrants.ensureSchema());
+        assert(legacyBootstrap.ensureSchema());
+        assert(legacyDatabase.execute(
+            "INSERT INTO security_actors "
+            "(actor_id, actor_type, display_name) "
+            "VALUES ('legacy-admin', 'user', 'Legacy administrator');"));
+        assert(legacyDatabase.execute(
+            "INSERT INTO security_human_accounts "
+            "(account_id, actor_id, display_name) "
+            "VALUES ('legacy-account', 'legacy-admin', 'Legacy administrator');"));
+        assert(legacyGrants.ensureGrant("legacy-admin", "role.admin", "*"));
+        assert(legacyBootstrap.claimState() == FirstAdminClaimState::claimed);
+        assert(legacyDatabase.execute(
+            "UPDATE security_human_accounts SET active = 0 "
+            "WHERE account_id = 'legacy-account';"));
+        assert(legacyDatabase.execute(
+            "UPDATE security_actors SET active = 0 "
+            "WHERE actor_id = 'legacy-admin';"));
+        assert(legacyDatabase.execute(
+            "UPDATE security_actor_permission_grants SET active = 0 "
+            "WHERE actor_id = 'legacy-admin';"));
+        assert(legacyBootstrap.claimState() == FirstAdminClaimState::claimed);
+        assert(legacyBootstrap.registerBootstrap(
+            registration("legacy-reclaim", "2099-01-02 00:00:00")) ==
+            FirstAdminBootstrapStatus::claimed);
+    }
 
     return 0;
 }
