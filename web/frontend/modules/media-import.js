@@ -732,7 +732,7 @@
           ? 'VDR-Import; lokale Umkodierung bei Bedarf nur für diesen Film nach erneuter Bestätigung.'
           : 'VDR-Import ohne Freigabe einer lokalen Umkodierung.';
     let details = view.previewStatus ||
-      'Echte Backend-Vorschau wird angefordert …';
+      'Film wird geprüft …';
     if (plan) {
       if (plan.status === 'unavailable') {
         details = 'Film konnte vom Backend nicht sicher geprüft werden.';
