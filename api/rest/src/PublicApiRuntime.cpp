@@ -8791,12 +8791,21 @@ bool PublicApiRuntime::tryHandleGet(
             response = notFoundProblem(path, requestId, correlationId);
             return true;
         }
-        if (requestTarget != path)
-        {
-            response = invalidRequestProblem(
-                path, "Media Import source listing accepts no query parameters.",
-                requestId, correlationId);
-            return true;
+        // A page cursor is only a snapshot check and position, never authority.
+        // Backend access, actor grants and the live Agent lease are rechecked
+        // for EVERY page by lookupMediaImportSources().
+        const std::string query = requestQueryString(requestTarget);
+        std::string requestedCursor;
+        if (!query.empty()) {
+            if (query.compare(0, 7, "cursor=") != 0 ||
+                query.size() > 128U ||
+                query.find('&') != std::string::npos) {
+                response = invalidRequestProblem(
+                    path, "Invalid Media Import source cursor query.",
+                    requestId, correlationId);
+                return true;
+            }
+            requestedCursor = query.substr(7);
         }
         const auto r = lookupMediaImportSources(actorRef, sourceBackendId);
         if (r.status == MediaImportSourceStatus::forbidden)
@@ -8806,7 +8815,9 @@ bool PublicApiRuntime::tryHandleGet(
                 path, requestId, correlationId);
             return true;
         }
-        if (r.status != MediaImportSourceStatus::ok || r.ids.size() > 32U)
+        // The source catalog is bounded. More than this is unavailable,
+        // NOT silently truncated or reported as a complete directory scan.
+        if (r.status != MediaImportSourceStatus::ok || r.ids.size() > 256U)
         {
             response = serviceUnavailableProblem(path, requestId, correlationId);
             return true;
@@ -8816,23 +8827,31 @@ bool PublicApiRuntime::tryHandleGet(
             response = serviceUnavailableProblem(path, requestId, correlationId);
             return true;
         }
-        std::string body = "{\"items\":[";
         std::string previous;
-        std::size_t sourcePosition = 0U;
-        for (const auto& id : r.ids)
+        std::uint64_t revision = UINT64_C(14695981039346656037);
+        const auto mix = [&](const std::string& field) {
+            for (unsigned char c : field) {
+                revision ^= c;
+                revision *= UINT64_C(1099511628211);
+            }
+            revision ^= 0;
+            revision *= UINT64_C(1099511628211);
+        };
+        mix(actorRef);
+        mix(sourceBackendId);
+        for (std::size_t index = 0; index < r.ids.size(); ++index)
         {
+            const auto& id = r.ids[index];
             if (id.size() < 16U || id.size() > 64U ||
                 !std::all_of(id.begin(), id.end(), [](unsigned char ch) {
                     return std::isalnum(ch) || ch == '-' || ch == '_';
-                }) || (!previous.empty() && id <= previous))
-            {
+                }) || (!previous.empty() && id <= previous)) {
                 response = serviceUnavailableProblem(path, requestId, correlationId);
                 return true;
             }
-            if (!previous.empty()) body += ",";
-            body += "{\"sourceId\":\"" + id + "\"";
+            mix(id);
             if (!r.labels.empty()) {
-                const auto& label = r.labels[sourcePosition];
+                const auto& label = r.labels[index];
                 if (label.empty() || label.size() > 160U ||
                     std::any_of(label.begin(), label.end(),
                         [](unsigned char ch) {
@@ -8842,14 +8861,61 @@ bool PublicApiRuntime::tryHandleGet(
                     response = serviceUnavailableProblem(path, requestId, correlationId);
                     return true;
                 }
-                body += ",\"label\":\"" + jsonEscape(label) + "\"";
+                mix(label);
             }
-            body += "}";
             previous = id;
-            ++sourcePosition;
         }
-        body += "],\"meta\":{\"partial\":false},\"links\":{\"self\":\"" +
-            jsonEscape(path) + "\"}}";
+        const std::string prefix = "mi1_" + std::to_string(revision) + "_";
+        std::size_t offset = 0U;
+        if (!requestedCursor.empty()) {
+            if (requestedCursor.compare(0, prefix.size(), prefix) != 0) {
+                response = problemResponse(409, "stale_scan", "Conflict",
+                    "Media Import source listing changed; scan again.",
+                    path, requestId, correlationId);
+                return true;
+            }
+            const std::string number = requestedCursor.substr(prefix.size());
+            if (number.empty() || number.size() > 3U ||
+                !std::all_of(number.begin(), number.end(), [](unsigned char c) {
+                    return c >= '0' && c <= '9';
+                })) {
+                response = invalidRequestProblem(
+                    path, "Invalid Media Import source cursor.",
+                    requestId, correlationId);
+                return true;
+            }
+            offset = static_cast<std::size_t>(std::stoul(number));
+            if (offset == 0U || offset % 32U != 0U ||
+                offset >= r.ids.size() || number != std::to_string(offset)) {
+                response = invalidRequestProblem(
+                    path, "Invalid Media Import source cursor.",
+                    requestId, correlationId);
+                return true;
+            }
+        }
+        const std::size_t finish = std::min(offset + 32U, r.ids.size());
+        std::string body = "{\"items\":[";
+        for (std::size_t index = offset; index < finish; ++index)
+        {
+            if (index > offset) body += ",";
+            body += "{\"sourceId\":\"" + r.ids[index] + "\"";
+            if (!r.labels.empty())
+                body += ",\"label\":\"" + jsonEscape(r.labels[index]) + "\"";
+            body += "}";
+        }
+        // 32 is the current Agent observation ceiling. Equal-to-ceiling is
+        // only a bounded view: absence of another page does NOT prove that
+        // the file-system scan was complete.
+        const bool partial = r.ids.size() >= 32U;
+        body += "],\"meta\":{\"partial\":" +
+            std::string(partial ? "true" : "false") + "},\"links\":{\"self\":\"" +
+            jsonEscape(requestTarget) + "\"";
+        if (finish < r.ids.size()) {
+            const std::string next = path + "?cursor=" + prefix +
+                std::to_string(finish);
+            body += ",\"next\":\"" + jsonEscape(next) + "\"";
+        }
+        body += "}}";
         response = jsonResponse(body, requestId, correlationId);
         return true;
     }
