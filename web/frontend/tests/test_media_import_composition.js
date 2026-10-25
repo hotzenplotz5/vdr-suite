@@ -66,6 +66,7 @@ let submitMode = 'accepted';
 let batchSources = null;
 let markedSources = [];
 let sourcePartial = false;
+let pagedSourceIds = null;
 let batchOperations = [];
 const BATCH_OP_A = 'op_' + 'd'.repeat(32);
 const BATCH_OP_B = 'op_' + 'e'.repeat(32);
@@ -98,7 +99,21 @@ function transport(url, options) {
       backendId: 'backend-a', capability: 'addons.media.import', available: allow
     }));
   }
-  if (path.endsWith('/media-import-sources')) {
+  if (path.endsWith('/media-import-sources') ||
+      path.includes('/media-import-sources?cursor=')) {
+    if (pagedSourceIds) {
+      const match = /[?]cursor=mi1_1_([0-9]+)$/.exec(path);
+      const offset = match ? Number(match[1]) : 0;
+      const ids = pagedSourceIds.slice(offset, offset + 32);
+      const next = offset + 32 < pagedSourceIds.length
+        ? '/api/v1/backends/backend-a/media-import-sources?cursor=mi1_1_' +
+          (offset + 32) : undefined;
+      return Promise.resolve(reply(200, {
+        items: ids.map(function (id) { return {sourceId: id, label: 'Film ' + id}; }),
+        meta: {partial: true},
+        links: next ? {next: next} : {}
+      }));
+    }
     return Promise.resolve(sourcesStatus === 200
       ? reply(200, {items: (batchSources || [SOURCE]).concat(markedSources).map(function (id) {
         return {sourceId: id, label: id === SOURCE
@@ -621,6 +636,32 @@ function publishHomeResume() {}
     assert(findClass(mount, 'status').textContent.includes('noch nicht importiert'));
     assert(release.disabled, 'no duplicate release while Core operation is held');
   }
+
+  // A bounded multi-page backend snapshot is fully retrieved for the current
+  // session. Browsing pages cannot dispatch an import, and later IDs are
+  // visible/selectable without arbitrary client filesystem paths.
+  context.resetMediaImportVisibility(true);
+  pagedSourceIds = Array.from({length: 70}, function (_, i) {
+    return 'source_' + String(10000000000 + i);
+  });
+  markedSources = [];
+  batchSources = null;
+  const beforePagedPosts = requests.filter(r => r.options.method === 'POST').length;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const allSourceSelect = findClass(mount, 'media-import-source');
+  assert.strictEqual(allSourceSelect.children.length, 71);
+  assert(allSourceSelect.children[70].textContent.includes(pagedSourceIds[69]));
+  assert(requests.some(r => r.path.includes('?cursor=mi1_1_32')));
+  assert(requests.some(r => r.path.includes('?cursor=mi1_1_64')));
+  assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
+    beforePagedPosts, 'paginated scans must remain read-only');
+  assert(findClass(mount, 'media-import-scan-notice').textContent.includes('Scan unvollständig'));
+  allSourceSelect.value = pagedSourceIds[69];
+  allSourceSelect.listeners.change();
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, false);
+  pagedSourceIds = null;
 
     console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
