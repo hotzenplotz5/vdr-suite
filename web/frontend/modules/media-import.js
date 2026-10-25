@@ -381,6 +381,26 @@
       });
   }
 
+  function updatePreview(view) {
+    if (!isCurrent(view)) return;
+    const id = view.select.value;
+    if (!view.sources.includes(id)) {
+      view.preview.textContent = 'Film auswählen, Entscheidung prüfen und bestätigen.';
+      return;
+    }
+    const name = view.sourceTitles[id] || 'Film';
+    const decision = view.decision.value;
+    const description = decision === 'desktop'
+      ? 'Für eine spätere Bearbeitung am PC markieren. Kein Import.'
+      : decision === 'skip'
+        ? 'Überspringen markieren. Kein Import.'
+        : view.localReencode.checked
+          ? 'VDR-Import; lokale Umkodierung bei Bedarf nur für diesen Film nach erneuter Bestätigung.'
+          : 'VDR-Import ohne Freigabe einer lokalen Umkodierung.';
+    view.preview.textContent = 'Vorschau: ' + name + '. ' + description +
+      ' Der Backend-Agent prüft Quelle und Ziel bei Auftragsannahme erneut.';
+  }
+
   function startImport(view, releaseMode) {
     if (!isCurrent(view) || view.submitting || view.attempt) return Promise.resolve();
     const sourceId = releaseMode ? view.markedSelect.value :
@@ -639,16 +659,13 @@
       startButton.disabled = view.submitting || !view.sources.includes(select.value);
       sourceDetails.textContent = view.sources.includes(select.value)
         ? 'Auswahl-ID: ' + select.value : '';
-      preview.textContent = view.sources.includes(select.value)
-        ? 'Vorschau: ' + (view.sourceTitles[select.value] || 'Film') +
-          '. Die Quelle bleibt erhalten. Das Backend ermittelt das Aufnahmeziel ' +
-          'und prüft die Datei erneut vor dem Auftrag.'
-        : 'Film auswählen, Entscheidung prüfen und bestätigen.';
+      updatePreview(view);
     });
     localReencode.addEventListener('change', function () {
       if (!isCurrent(view) || view.batch) return;
       batchButton.disabled = localReencode.checked || view.sources.length < 2 ||
         decision.value !== 'import';
+      updatePreview(view);
     });
     decision.addEventListener('change', function () {
       if (!isCurrent(view) || view.batch || view.attempt) return;
@@ -657,6 +674,7 @@
       batchButton.disabled = decision.value !== 'import' || view.sources.length < 2;
       startButton.textContent = decision.value === 'desktop' ? 'Für PC markieren' :
         decision.value === 'skip' ? 'Film überspringen' : 'Import starten';
+      updatePreview(view);
     });
     startButton.addEventListener('click', function () { return startImport(view); });
     markedSelect.addEventListener('change', function () {
