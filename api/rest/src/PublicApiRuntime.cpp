@@ -8947,7 +8947,7 @@ bool PublicApiRuntime::tryHandleGet(
         // Advisory folders may be grouped in the browser, but cannot be
         // used to select a filesystem path for import. Fail closed on any
         // untrusted absolute/traversal/control character representation.
-        const validRelativeFolder = [](const std::string& folder) {
+        const auto validRelativeFolder = [](const std::string& folder) {
             if (folder.empty()) return true;
             if (folder.size() > 240U || folder.front() == '/' ||
                 folder.back() == '/' || folder.find('\\') != std::string::npos)
