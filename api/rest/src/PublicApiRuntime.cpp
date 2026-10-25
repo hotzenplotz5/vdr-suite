@@ -8840,6 +8840,7 @@ bool PublicApiRuntime::tryHandleGet(
         };
         mix(actorRef);
         mix(sourceBackendId);
+        mix(r.partial ? "partial" : "complete");
         for (std::size_t index = 0; index < r.ids.size(); ++index)
         {
             const auto& id = r.ids[index];
@@ -8904,10 +8905,9 @@ bool PublicApiRuntime::tryHandleGet(
                 body += ",\"label\":\"" + jsonEscape(r.labels[index]) + "\"";
             body += "}";
         }
-        // 32 is the current Agent observation ceiling. Equal-to-ceiling is
-        // only a bounded view: absence of another page does NOT prove that
-        // the file-system scan was complete.
-        const bool partial = r.ids.size() >= 32U;
+        // Completion is measured by the bounded scanner, NOT inferred
+        // from the number of 32-item response pages.
+        const bool partial = r.partial;
         body += "],\"meta\":{\"partial\":" +
             std::string(partial ? "true" : "false") + "},\"links\":{\"self\":\"" +
             jsonEscape(requestTarget) + "\"";
