@@ -204,6 +204,13 @@ def host_profile(root: Path) -> dict:
     except FileNotFoundError:
         distro = "unknown"
     else:
+        if stat.S_ISLNK(info.st_mode):
+            # /etc/os-release is commonly a symlink to the fixed local
+            # /usr/lib/os-release. Never follow arbitrary host paths.
+            if os.readlink(release) != "../usr/lib/os-release":
+                raise PreflightError("untrusted distribution metadata symlink")
+            release = examined_file(root, "usr/lib/os-release")
+            info = release.lstat()
         if not stat.S_ISREG(info.st_mode) or info.st_size > 8192:
             raise PreflightError("unsafe distribution release metadata")
         values = {}
