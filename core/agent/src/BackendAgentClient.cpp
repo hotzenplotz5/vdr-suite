@@ -2085,7 +2085,7 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
         }
     // Display labels and relative folder metadata must match the exact
     // opaque source snapshot. Neither grants filesystem authority.
-    const validFolder = [](const std::string& folder) {
+    const auto validFolder = [](const std::string& folder) {
         if (folder.empty()) return true; // source root
         if (folder.size() > 240U || folder.front() == '/' ||
             folder.back() == '/' || folder.find('\\') != std::string::npos)
