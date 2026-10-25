@@ -385,7 +385,7 @@ HttpServerResponse BrowserSessionHttpService::logout(
     response.statusCode = 204;
     response.headers["Cache-Control"] = "no-store";
     response.headers["Pragma"] = "no-cache";
-    response.headers["Set-Cookie"] = expiredSessionCookie();
+    response.headers["Set-Cookie"] = expiredSessionCookie(allowHttpLanCookie);
     return response;
 }
 
