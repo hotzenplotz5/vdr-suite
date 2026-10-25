@@ -285,6 +285,47 @@
     }
   }
 
+  // One existing authorized source endpoint; no client filesystem paths or
+  // secondary scanner. Always discard partial pages when a snapshot changes.
+  function readSourcePages(backendId) {
+    const all = [];
+    const seen = new Set();
+    let partial = false;
+    const prefix = '/api/v1/backends/' + backendId + '/media-import-sources?cursor=';
+    function page(cursor, count) {
+      const options = readOptions(backendId);
+      if (cursor) options.cursor = cursor;
+      return publicClient().getMediaImportSources(options).then(function (response) {
+        if (!response || !Array.isArray(response.items) ||
+            response.items.length > 32 || count > 7)
+          throw new Error('Ungültige Quellenliste');
+        response.items.forEach(function (item) {
+          if (!item || typeof item.sourceId !== 'string' ||
+              !/^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId) ||
+              seen.has(item.sourceId) ||
+              (item.label !== undefined &&
+               (typeof item.label !== 'string' || !item.label ||
+                item.label.length > 160 ||
+                /[\/\r\n\x00-\x1f\x7f]/.test(item.label))))
+            throw new Error('Ungültige Quellenliste');
+          seen.add(item.sourceId);
+          all.push(item);
+        });
+        partial = partial || Boolean(response.meta && response.meta.partial);
+        const link = response.links && response.links.next;
+        if (!link) return {items: all, meta: {partial: partial}};
+        if (typeof link !== 'string' || !link.startsWith(prefix) ||
+            response.items.length !== 32 || count >= 7)
+          throw new Error('Ungültige Scan-Fortsetzung');
+        const next = link.slice(prefix.length);
+        if (!/^mi1_[0-9]{1,20}_[0-9]{1,3}$/.test(next))
+          throw new Error('Ungültige Scan-Fortsetzung');
+        return page(next, count + 1);
+      });
+    }
+    return page('', 0);
+  }
+
   function loadSources(view) {
     if (!isCurrent(view) || view.attempt) return Promise.resolve();
     const generation = ++view.sourcesGeneration;
@@ -293,11 +334,11 @@
     view.markedSelect.disabled = true;
     view.releaseButton.disabled = true;
     report(view, 'Autorisierte Importquellen werden geladen …');
-    return publicClient().getMediaImportSources(readOptions(view.backendId))
+    return readSourcePages(view.backendId)
       .then(function (response) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
         const items = response && response.items;
-        if (!Array.isArray(items) || items.length > 32 ||
+        if (!Array.isArray(items) || items.length > 256 ||
             !items.every(function (item) {
               return item && typeof item.sourceId === 'string' &&
                 /^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId) &&
@@ -306,9 +347,8 @@
                    item.label.length > 0 && item.label.length <= 160 &&
                    !/[\/\r\n\x00-\x1f\x7f]/.test(item.label)));
             })) throw new Error('Ungültige Quellenliste');
-        // The backend currently exposes at most 32 visible IDs and does not
-        // guarantee exhaustive pagination. Never present a bounded inventory
-        // as a complete recursive scan.
+        // Pagination does not itself prove that the backend scanned the full
+        // filesystem tree; the Agent still has a smaller reporting ceiling.
         const bounded = Boolean(response.meta && response.meta.partial === true) ||
           items.length >= 32;
         const ordinary = items.filter(function (item) {
@@ -359,9 +399,9 @@
         view.startButton.textContent = 'Import starten';
         view.batchButton.disabled = ordinary.length < 2;
         view.scanNotice.textContent = bounded
-          ? 'Scan unvollständig: Das Backend liefert höchstens 32 sichtbare ' +
-            'Einträge und derzeit keine Fortsetzung. Weitere Unterordner oder Filme ' +
-            'können fehlen. Bitte keine Vollständigkeit annehmen.'
+          ? 'Scan unvollständig: Das Backend bestätigt derzeit nicht alle ' +
+            'Dateien der Importquelle. Weitere Unterordner oder Filme können ' +
+            'fehlen; die Agent-Quellenmeldung ist weiterhin begrenzt.'
           : 'Ergebnis der Backend-Quellenliste; ein vollständiger rekursiver ' +
             'Dateisystemscan ist aktuell nicht bestätigt.';
         report(view, ordinary.length + ' Filme verfügbar, ' + marked.length +
@@ -449,7 +489,7 @@
       .then(function (available) {
         if (!isCurrent(view)) return null;
         if (!available) throw {status: 403};
-        return publicClient().getMediaImportSources(readOptions(view.backendId));
+        return readSourcePages(view.backendId);
       }).then(function (sources) {
         if (!isCurrent(view) || !sources) return null;
         if (!sources.items || !sources.items.some(function (item) {
