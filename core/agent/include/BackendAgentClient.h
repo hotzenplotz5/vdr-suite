@@ -228,6 +228,7 @@ private:
     Log log_;
     BackendAgentClientState state_;
     std::string agentInstanceId_;
+    std::string pendingMediaImportPreviewSourceId_; // ephemeral one-source read
     BackendAgentCommandAvailabilitySnapshot commandAvailability_;
     bool commandAvailabilityReady_ = false;
     bool synchronized_ = false;
