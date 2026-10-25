@@ -19,6 +19,7 @@ done
 SOURCE=/srv/video/Filme
 VIDEO=/srv/vdr/video.00
 DEFAULT_NAME=
+DEFAULT_NAME_SET=0
 CHECK_ONLY=0
 EXTRA_ROOTS=()
 EXTRA_NAMES=()
@@ -37,9 +38,10 @@ while [ "$#" -gt 0 ]; do
       CHECK_ONLY=1
       shift ;;
     --default-name)
-      [ "$#" -ge 2 ] && [ -z "$DEFAULT_NAME" ] ||
+      [ "$#" -ge 2 ] && [ "$DEFAULT_NAME_SET" -eq 0 ] ||
         stop 'expected one default source name'
       DEFAULT_NAME=$2
+      DEFAULT_NAME_SET=1
       shift 2 ;;
     --add-root)
       [ "$#" -ge 3 ] && [ "${#EXTRA_ROOTS[@]}" -lt 16 ] ||
@@ -61,7 +63,9 @@ valid_name() {
 if [ "${#EXTRA_ROOTS[@]}" -gt 0 ] && [ -z "$DEFAULT_NAME" ]; then
   DEFAULT_NAME=Filme
 fi
-[ -z "$DEFAULT_NAME" ] || valid_name "$DEFAULT_NAME"
+if [ "$DEFAULT_NAME_SET" -eq 1 ] || [ -n "$DEFAULT_NAME" ]; then
+  valid_name "$DEFAULT_NAME"
+fi
 for name in "${EXTRA_NAMES[@]}"; do valid_name "$name"; done
 BACKEND=$(sed -n 's/^BACKEND_ID=//p' /etc/vdr-suite/backend-agent.conf | head -n 1)
 [[ "$BACKEND" =~ ^[A-Za-z0-9_.:-]{1,128}$ ]] &&
