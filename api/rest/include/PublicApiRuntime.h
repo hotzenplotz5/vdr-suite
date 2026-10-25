@@ -1451,6 +1451,23 @@ public:
     using MediaImportSourceLookup = std::function<MediaImportSourceResult(
         const std::string& actorId, const std::string& backendId)>;
 
+    enum class MediaImportPreviewStatus { pending, ready, forbidden, unavailable };
+    struct MediaImportPreviewResult {
+        MediaImportPreviewStatus status = MediaImportPreviewStatus::unavailable;
+        std::string sourceId;
+        std::string inspectionStatus;
+        std::string title;
+        std::string targetFolder;
+        std::string videoCodec;
+        std::uint64_t sourceBytes = 0;
+        std::uint64_t availableBytes = 0;
+        std::uint64_t requiredBytes = 0;
+        bool videoReencodeRequired = false;
+    };
+    using MediaImportPreviewLookup = std::function<MediaImportPreviewResult(
+        const std::string& actorId, const std::string& backendId,
+        const std::string& sourceId)>;
+
     using MediaImportCapabilityLookup =
         std::function<bool(const std::string& actorId,
                            const std::string& backendId)>;
@@ -1699,6 +1716,12 @@ public:
     void resetMediaImportSourceLookup();
     MediaImportSourceResult lookupMediaImportSources(
         const std::string& actorId, const std::string& backendId) const;
+
+    void registerMediaImportPreviewLookup(MediaImportPreviewLookup lookup);
+    void resetMediaImportPreviewLookup();
+    MediaImportPreviewResult lookupMediaImportPreview(
+        const std::string& actorId, const std::string& backendId,
+        const std::string& sourceId) const;
 
     void registerMediaImportCapabilityLookup(MediaImportCapabilityLookup lookup);
     void resetMediaImportCapabilityLookup();
@@ -2082,6 +2105,8 @@ private:
     NativeTimerModifyAdmission nativeTimerModifyAdmission_;
     mutable std::mutex mediaImportSourceLookupMutex_;
     MediaImportSourceLookup mediaImportSourceLookup_;
+    mutable std::mutex mediaImportPreviewLookupMutex_;
+    MediaImportPreviewLookup mediaImportPreviewLookup_;
 
     mutable std::mutex mediaImportCapabilityLookupMutex_;
     MediaImportCapabilityLookup mediaImportCapabilityLookup_;
