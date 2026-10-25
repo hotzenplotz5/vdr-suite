@@ -16,7 +16,6 @@ namespace
 {
 constexpr const char* ClaimPath = "/api/security/first-admin/claim";
 constexpr const char* SetupStatusPath = "/api/security/first-admin/status";
-constexpr const char* LocalClaimPath = "/api/security/first-admin/local/claim";
 constexpr std::size_t MaximumBodyBytes = 8192U;
 constexpr unsigned BootstrapIdField = 1U << 0U;
 constexpr unsigned SetupSecretField = 1U << 1U;
@@ -594,8 +593,7 @@ bool FirstAdminClaimHttpService::handles(
     const HttpServerRequest& request) const
 {
     const std::string path = requestPath(request.path);
-    return path == ClaimPath || path == SetupStatusPath ||
-        path == LocalClaimPath;
+    return path == ClaimPath || path == SetupStatusPath;
 }
 
 HttpServerResponse FirstAdminClaimHttpService::handle(
@@ -647,14 +645,11 @@ HttpServerResponse FirstAdminClaimHttpService::handle(
         return result;
     }
 
-    if (requestPath(request.path) == LocalClaimPath)
+    if (requestPath(request.path) == ClaimPath &&
+        request.method == "POST" && jsonContentType(request))
     {
-        if (request.method != "POST") {
-            HttpServerResponse rejected = response(
-                405, "method_not_allowed", "Local first-admin setup needs POST", context);
-            rejected.headers["Allow"] = "POST";
-            return rejected;
-        }
+        FirstAdminClaimRequest local;
+        if (parseClaimBody(request.body, local, LocalFields)) {
         // The local web form is authorized only by the actual TCP loopback peer.
         // A reverse proxy may also be on loopback: require local browser Host
         // and Origin as well, and reject any forwarding metadata.
@@ -680,9 +675,7 @@ HttpServerResponse FirstAdminClaimHttpService::handle(
         if (!jsonContentType(request))
             return response(415, "unsupported_media_type",
                 "Local setup requires JSON", context);
-        FirstAdminClaimRequest local;
-        if (!parseClaimBody(request.body, local, LocalFields) ||
-            local.password.size() < 12) {
+        if (local.password.size() < 12) {
             local.clearSecrets();
             return response(400, "invalid_first_admin_claim",
                 "Invalid first-admin form", context);
@@ -713,6 +706,7 @@ HttpServerResponse FirstAdminClaimHttpService::handle(
                 "The server already has an administrator", context);
         return response(503, "local_setup_failed",
             "The server could not complete first-admin setup", context);
+        }
     }
 
     if (request.method != "POST")
