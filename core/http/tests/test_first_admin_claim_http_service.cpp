@@ -4,6 +4,7 @@
 #include "FirstAdminBootstrapRepository.h"
 #include "FirstAdminClaimHttpService.h"
 #include "FirstAdminClaimService.h"
+#include "FirstAdminOnscreenSetup.h"
 #include "HumanAccountRepository.h"
 #include "SecurityIdentityProvisioningRepository.h"
 #include "SecurityIdentityRepository.h"
@@ -398,6 +399,81 @@ int main()
             fixture.http->handle(wrongType);
         assert(typeResponse.statusCode == 415);
         assertNoSecrets(typeResponse);
+    }
+
+    // Local VDR screen approval: no shell, no copied bootstrap secret.
+    {
+        Fixture f;
+        FirstAdminClaimService claim(
+            f.database, f.bootstraps, f.provisioning, f.accounts,
+            f.verifiers, f.grants, f.accountability);
+        std::string displayed;
+        FirstAdminOnscreenSetup screen(claim, f.bootstraps,
+            [&](const std::string& pin) {
+                displayed = pin;
+                return true;
+            },
+            [](unsigned char* out, std::size_t size) {
+                for (std::size_t i = 0; i < size; ++i) out[i] = 1;
+                return true;
+            });
+        FirstAdminClaimHttpService route(claim, &screen);
+        HttpServerRequest start;
+        start.method = "POST";
+        start.path = "/api/security/first-admin/onscreen/start";
+        start.headers["Origin"] = "https://vdr.test";
+        start.headers["Content-Type"] = "application/json";
+        start.body = "{}";
+        assert(route.handles(start));
+        const auto shown = route.handle(start);
+        assert(shown.statusCode == 202);
+        assert(displayed == "11111111");
+        assert(shown.body.find(displayed) == std::string::npos);
+        assert(shown.body.find("bootstrap") == std::string::npos);
+        assert(route.handle(start).statusCode == 429);
+
+        HttpServerRequest blocked = start;
+        blocked.headers["Origin"] = "http://vdr.test";
+        assert(route.handle(blocked).statusCode == 403);
+
+        HttpServerRequest complete = start;
+        complete.path = "/api/security/first-admin/onscreen/claim";
+        complete.body =
+            "{\"onscreenCode\":\"00000000\","
+            "\"loginName\":\"admin\","
+            "\"password\":\"first-admin-browser-password\","
+            "\"displayName\":\"First administrator\"}";
+        assert(route.handle(complete).statusCode == 401);
+        complete.body =
+            "{\"onscreenCode\":\"11111111\","
+            "\"loginName\":\"admin\","
+            "\"password\":\"first-admin-browser-password\","
+            "\"displayName\":\"First administrator\"}";
+        const auto created = route.handle(complete);
+        assert(created.statusCode == 201);
+        assertNoSecrets(created);
+        assert(claim.claimState() == FirstAdminClaimState::claimed);
+        assert(f.accounts.listAll().accounts.size() == 1);
+        assert(route.handle(complete).statusCode == 409);
+        assert(route.handle(start).statusCode == 409);
+    }
+
+    {
+        Fixture f;
+        FirstAdminClaimService claim(
+            f.database, f.bootstraps, f.provisioning, f.accounts,
+            f.verifiers, f.grants, f.accountability);
+        FirstAdminOnscreenSetup screen(claim, f.bootstraps,
+            [](const std::string&) { return false; });
+        FirstAdminClaimHttpService route(claim, &screen);
+        HttpServerRequest start;
+        start.method = "POST";
+        start.path = "/api/security/first-admin/onscreen/start";
+        start.headers["Origin"] = "https://vdr.test";
+        start.headers["Content-Type"] = "application/json";
+        start.body = "{}";
+        assert(route.handle(start).statusCode == 503);
+        assert(f.accounts.listAll().accounts.empty());
     }
 
     return 0;
