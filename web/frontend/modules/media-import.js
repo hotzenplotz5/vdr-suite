@@ -783,6 +783,11 @@
       'Noch nicht geprüft, ob die Quellenliste vollständig ist.');
     scanNotice.setAttribute('role', 'status');
     root.appendChild(scanNotice);
+    const folderBreadcrumb = element('nav', 'media-import-breadcrumb');
+    folderBreadcrumb.setAttribute('aria-label', 'Importordner');
+    const folderList = element('div', 'media-import-folders');
+    root.appendChild(folderBreadcrumb);
+    root.appendChild(folderList);
     const searchLabel = element('label', 'media-import-search-label',
       'In gefundenen Filmen suchen');
     const searchInput = element('input', 'media-import-search');
@@ -902,6 +907,8 @@
     const view = {owner: owner, backendId: backendId, root: root,
       select: select, startButton: startButton, reloadButton: reloadButton,
       searchInput: searchInput, statusFilter: statusFilter,
+      folderBreadcrumb: folderBreadcrumb, folderList: folderList,
+      folderPath: '',
       visibleCount: visibleCount, normalLabel: label, markedLabel: markedLabel,
       allOrdinary: [], allMarked: [],
       localReencode: localReencode, decision: decision,
