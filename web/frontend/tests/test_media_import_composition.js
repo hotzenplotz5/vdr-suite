@@ -860,7 +860,7 @@ function publishHomeResume() {}
   raceSelect.value = SOURCE;
   raceSelect.listeners.change();
   assert(findClass(mount, 'media-import-preview').textContent.includes(
-    'Backend-Vorschau wird angefordert'));
+    'Film wird geprüft'));
   assert.strictEqual(typeof resolveDelayedPreview, 'function');
   raceSelect.value = SOURCE_B;
   raceSelect.listeners.change();
