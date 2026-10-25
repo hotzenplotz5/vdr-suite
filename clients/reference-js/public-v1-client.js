@@ -1776,8 +1776,15 @@
       },
       getMediaImportSources(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
+        const cursor = normalizedOptions.cursor;
+        if (cursor !== undefined && (typeof cursor !== 'string' ||
+            !/^mi1_[0-9]{1,20}_[0-9]{1,3}$/.test(cursor))) {
+          throw new Error('Media Import source cursor is invalid');
+        }
         return request(mediaImportPath(normalizedOptions,
-          'media-import-sources'), normalizedOptions);
+          'media-import-sources') +
+          (cursor === undefined ? '' : '?cursor=' + encodeURIComponent(cursor)),
+          normalizedOptions);
       },
       getMediaImportSourcePreview(options) {
         const value = options && typeof options === 'object' ? options : {};
