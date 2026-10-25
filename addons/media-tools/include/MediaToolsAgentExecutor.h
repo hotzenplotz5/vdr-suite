@@ -184,6 +184,21 @@ public:
     // Source labels are not authorization tokens and cannot select paths.
     virtual bool listTrustedSourceLabels(std::vector<MediaImportSourceLabel>& out)
     { out.clear(); return false; }
+    // A single bounded inventory observation. Existing test executors can
+    // use the conservative default (partial/unknown); production overrides
+    // this to read IDs, display names and completion from ONE scan.
+    virtual bool listTrustedSourceSnapshot(
+        std::vector<std::string>& ids,
+        std::vector<MediaImportSourceLabel>& labels, bool& partial)
+    {
+        ids.clear();
+        labels.clear();
+        partial = true;
+        if (!listTrustedSourceIds(ids)) return false;
+        if (!listTrustedSourceLabels(labels) || labels.size() != ids.size())
+            labels.clear();
+        return true;
+    }
     virtual bool authorize(const BackendAgentCommandAssignment& assignment,
                            const std::string& backendId,
                            std::uint64_t generation) = 0;
