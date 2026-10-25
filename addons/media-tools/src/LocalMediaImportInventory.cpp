@@ -237,7 +237,7 @@ bool inspectMarkedSource(const std::filesystem::path& sourceRoot,
 }
 
 bool scanDirectory(const std::array<std::string, 5>& entry,
-                   std::vector<IndexedSource>& found)
+                   std::vector<IndexedSource>& found, bool& partial)
 {
     namespace fs = std::filesystem;
     const fs::path sourceRoot(entry[2]), videoRoot(entry[3]);
@@ -246,18 +246,20 @@ bool scanDirectory(const std::array<std::string, 5>& entry,
     // Walk every nested directory, not just the first two levels. An
     // iterative queue avoids unbounded recursive call stacks; never follow
     // symlinks and retain the existing global 4096-entry fail-closed cap.
-    // An oversized scan must NOT be reported as complete.
+    // An oversized scan exposes only verified candidates and MUST be
+    // reported partial, not silently treated as empty or complete.
     std::vector<fs::path> paths;
     std::vector<fs::path> directories{sourceRoot};
     std::size_t entries = 0;
     for (std::size_t cursor = 0; cursor < directories.size(); ++cursor) {
         for (const auto& item : fs::directory_iterator(directories[cursor])) {
-            if (++entries > 4096) return false;
+            if (++entries > 4096U) { partial = true; break; }
             const auto status = item.symlink_status();
             if (fs::is_symlink(status)) continue;
             if (fs::is_regular_file(status)) paths.push_back(item.path());
             else if (fs::is_directory(status)) directories.push_back(item.path());
         }
+        if (partial) break;
     }
     std::sort(paths.begin(), paths.end());
     const auto now = fs::file_time_type::clock::now();
@@ -269,13 +271,13 @@ bool scanDirectory(const std::array<std::string, 5>& entry,
         try {
             const auto plan = inspectImport({sourceRoot, videoRoot, path});
             const auto local = toSource(plan);
+            if (found.size() == 256U) { partial = true; break; }
             found.push_back({scannedId(entry[1], local), local});
-            if (found.size() > 256) return false;
         } catch (...) {
             LocalMediaImportSource marked;
             if (inspectMarkedSource(sourceRoot, videoRoot, path, marked)) {
+                if (found.size() == 256U) { partial = true; break; }
                 found.push_back({scannedId(entry[1], marked), marked});
-                if (found.size() > 256) return false;
             }
         }
     }
@@ -283,9 +285,11 @@ bool scanDirectory(const std::array<std::string, 5>& entry,
 }
 
 bool inventorySources(const std::filesystem::path& root, const std::string& backendId,
-                      std::vector<IndexedSource>& sources)
+                      std::vector<IndexedSource>& sources, bool* partial = nullptr)
 {
     sources.clear();
+    bool truncated = false;
+    if (partial) *partial = false;
     std::string content;
     if (!readInventory(root, content)) return false;
     std::istringstream input(content);
@@ -304,7 +308,7 @@ bool inventorySources(const std::filesystem::path& root, const std::string& back
                 return false;
             if (entry[0] != backendId) continue;
             if (entry[4] == "*") {
-                if (!scanDirectory(entry, sources)) return false;
+                if (!scanDirectory(entry, sources, truncated)) return false;
             } else {
                 try {
                     const auto plan = inspectImport({
@@ -325,11 +329,13 @@ bool inventorySources(const std::filesystem::path& root, const std::string& back
     });
     for (std::size_t index = 1; index < sources.size(); ++index)
         if (sources[index].id == sources[index - 1].id) return false;
-    // The verified Agent observation and Core catalog have a bounded
-    // 256-source ceiling. The public endpoint pages these in 32-item reads.
-    // A larger filesystem scan still fails closed above its own limit;
-    // do not imply unbounded scanner continuation here.
-    if (sources.size() > 256U) return false;
+    // The Agent's bounded observation exposes the verified prefix.
+    // The larger tree is explicitly marked incomplete, never discarded.
+    if (sources.size() > 256U) {
+        sources.resize(256U);
+        truncated = true;
+    }
+    if (partial) *partial = truncated;
     return true;
 }
 } // namespace
@@ -378,6 +384,34 @@ bool RootOwnedMediaImportInventory::listTrustedSourceIds(
         sourceIds.push_back(source.id);
     return true;
 }
+bool RootOwnedMediaImportInventory::listTrustedSourceSnapshot(
+    const std::string& backendId, std::vector<MediaImportSourceLabel>& out,
+    bool& partial)
+{
+    out.clear();
+    partial = true;
+    if (!inventoryIdentifier(backendId, 1)) return false;
+    std::vector<IndexedSource> sources;
+    if (!inventorySources(installRoot_, backendId, sources, &partial)) {
+        partial = true;
+        return false;
+    }
+    for (const auto& source : sources) {
+        const std::string label = source.source.sourceFile.stem().string();
+        if (label.empty() || label.size() > 160 ||
+            std::any_of(label.begin(), label.end(), [](unsigned char ch) {
+                return ch < 0x20 || ch == 0x7f ||
+                       ch == '/' || ch == '\\';
+            })) {
+            out.clear();
+            partial = true;
+            return false;
+        }
+        out.push_back({source.id, label});
+    }
+    return true;
+}
+
 bool RootOwnedMediaImportInventory::listTrustedSourceLabels(
     const std::string& backendId, std::vector<MediaImportSourceLabel>& out)
 {
