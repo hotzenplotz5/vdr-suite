@@ -55,6 +55,146 @@
     }
     const card = document.createElement('article');
     card.className = 'module-placeholder settings-card settings-account-admin';
+    // Pending pairing requests are *not* registered devices. Render them
+    // independently so a Device-grants failure cannot hide admin approval.
+    const pendingSection = document.createElement('section');
+    pendingSection.className = 'settings-device-pairing-pending';
+    pendingSection.appendChild(text('h3', 'Wartende Geräte'));
+    pendingSection.appendChild(text('p',
+      'Hier erscheinen offene Kopplungsanfragen. Prüfe Gerätetyp und Ablaufzeit am Fernseher. ' +
+      'Der TV-Kopplungscode wird aus Sicherheitsgründen nicht an die Administrator-Liste übertragen.',
+      'settings-account-admin-meta'));
+    const pendingRefresh = button('Anfragen aktualisieren', function() {
+      loadPending(false);
+    });
+    pendingSection.appendChild(pendingRefresh);
+    const pendingStatus = text('p', 'Offene Kopplungen werden geladen …',
+      'settings-account-admin-status');
+    pendingStatus.setAttribute('role', 'status');
+    pendingStatus.setAttribute('aria-live', 'polite');
+    pendingSection.appendChild(pendingStatus);
+    const pendingList = document.createElement('div');
+    pendingList.className = 'settings-account-admin-list';
+    pendingSection.appendChild(pendingList);
+    card.appendChild(pendingSection);
+    const pending = {busy: false, loading: false, cursor: '', items: []};
+
+    function pendingError(error) {
+      if (error && error.status === 403)
+        return 'Keine Berechtigung: device.pairing.view / decide (global).';
+      if (error && error.status === 401)
+        return 'Bitte als Administrator anmelden.';
+      if (error && (error.status === 409 || error.status === 410 ||
+                    error.status === 412 || error.status === 428))
+        return 'Kopplung abgelaufen, bereits entschieden oder geändert. Bitte Anfragen aktualisieren.';
+      return 'Kopplungsanfragen derzeit nicht verfügbar (Server/API prüfen).';
+    }
+    function validPendingItem(item) {
+      return item && typeof item.pairingRequestId === 'string' &&
+        /^dpr_[0-9a-f]{32}$/.test(item.pairingRequestId) &&
+        item.status === 'pending' &&
+        typeof item.expiresAt === 'string' && item.expiresAt.length > 0 &&
+        item.client && typeof item.client.displayName === 'string' &&
+        item.client.displayName.length > 0 &&
+        typeof item.client.clientKind === 'string' &&
+        item.client.clientKind.length > 0;
+    }
+    function decidePending(request, decision) {
+      if (pending.busy || pending.loading || !validPendingItem(request)) return;
+      pending.busy = true;
+      pendingStatus.textContent = 'Anfrage wird vor Freigabe erneut geprüft …';
+      // Read a fresh administrator item and its server-issued strong ETag.
+      // Never approve based on stale list metadata or a bootstrap token.
+      api.loadPendingPairing(request.pairingRequestId).then(function(reply) {
+        if (!reply || !reply.etag || !/^"[^"]{1,256}"$/.test(reply.etag) ||
+            !reply.data || !validPendingItem(reply.data) ||
+            reply.data.pairingRequestId !== request.pairingRequestId ||
+            reply.data.client.displayName !== request.client.displayName ||
+            reply.data.client.clientKind !== request.client.clientKind ||
+            reply.data.expiresAt !== request.expiresAt)
+          throw new Error('Pairing request changed');
+        if (!global.confirm || !global.confirm(
+          (decision === 'approve' ? 'Kopplung genehmigen' : 'Kopplung ablehnen') +
+          '?\nGerät: ' + reply.data.client.displayName +
+          '\nTyp: ' + reply.data.client.clientKind +
+          '\nGültig bis: ' + reply.data.expiresAt +
+          '\nNur bestätigen, wenn du die Kopplung selbst am TV gestartet hast.'))
+          return null;
+        return api.decidePairing(request.pairingRequestId, reply.etag, decision);
+      }).then(function(result) {
+        if (result) pendingStatus.textContent =
+          decision === 'approve'
+            ? 'Genehmigt. Jetzt auf dem TV „Status prüfen“ und „Gerät aktivieren“ wählen.'
+            : 'Kopplungsanfrage abgelehnt.';
+        return loadPending(false, Boolean(result));
+      }).catch(function(error) {
+        pendingStatus.textContent = pendingError(error);
+      }).finally(function() {
+        pending.busy = false;
+        pendingRefresh.disabled = pending.loading;
+        renderPending();
+      });
+    }
+    function renderPending() {
+      pendingList.replaceChildren();
+      pending.items.forEach(function(request) {
+        const row = document.createElement('div');
+        row.className = 'settings-account-admin-item';
+        row.appendChild(text('strong', request.client.displayName));
+        row.appendChild(text('p',
+          'Typ: ' + request.client.clientKind +
+          ' · Gültig bis: ' + request.expiresAt,
+          'settings-account-admin-meta'));
+        const approve = button('Genehmigen', function() {
+          decidePending(request, 'approve');
+        });
+        const reject = button('Ablehnen', function() {
+          decidePending(request, 'reject');
+        });
+        approve.disabled = pending.busy || pending.loading;
+        reject.disabled = pending.busy || pending.loading;
+        row.appendChild(approve);
+        row.appendChild(reject);
+        pendingList.appendChild(row);
+      });
+      if (pending.cursor) {
+        const more = button('Weitere Anfragen laden', function() {
+          loadPending(true);
+        });
+        more.disabled = pending.busy || pending.loading;
+        pendingList.appendChild(more);
+      }
+    }
+    function loadPending(append, preserveStatus) {
+      if (pending.loading || (pending.busy && !preserveStatus)) return Promise.resolve();
+      pending.loading = true;
+      pendingRefresh.disabled = true;
+      if (!preserveStatus) pendingStatus.textContent = 'Wartende Geräte werden gelesen …';
+      return api.listPendingPairings(append ? pending.cursor : '').then(function(result) {
+        if (!result || !Array.isArray(result.items) ||
+            !result.page || typeof result.page.hasMore !== 'boolean' ||
+            (result.page.hasMore &&
+             (typeof result.page.nextCursor !== 'string' ||
+              !/^dp1_[A-Za-z0-9_-]{1,1024}$/.test(result.page.nextCursor))) ||
+            !result.items.every(validPendingItem))
+          throw new Error('Invalid pending pairing collection');
+        pending.items = append ? pending.items.concat(result.items) : result.items;
+        pending.cursor = result.page.hasMore ? result.page.nextCursor : '';
+        if (!preserveStatus) pendingStatus.textContent = pending.items.length
+          ? pending.items.length + ' offene Kopplungsanfrage(n).'
+          : 'Keine wartenden Geräte. Starte die Kopplung am Fernseher und aktualisiere hier.';
+      }).catch(function(error) {
+        pendingStatus.textContent = pendingError(error);
+        // Do not display stale actionable requests on a failed refresh.
+        pending.items = [];
+        pending.cursor = '';
+      }).finally(function() {
+        pending.loading = false;
+        pendingRefresh.disabled = pending.busy;
+        renderPending();
+      });
+    }
+    loadPending(false);
     card.appendChild(text('h3', 'Gekoppelte Geräte (TV & Apps)'));
     card.appendChild(text('p',
       'Unabhängig von Benutzerkonten. Nur vom Server registrierte Geräte werden angezeigt.',

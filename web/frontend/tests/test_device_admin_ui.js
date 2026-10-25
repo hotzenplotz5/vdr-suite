@@ -73,7 +73,31 @@ async function run() {
   let rejectStale = false;
   let confirmations = 0;
   let restores = 0;
+  const pendingId = 'dpr_' + 'a'.repeat(32);
+  const pendingOther = 'dpr_' + 'b'.repeat(32);
+  let pendingItems = [{
+    pairingRequestId: pendingId, status: 'pending', expiresAt: '2026-10-25T06:15:00Z',
+    client: {displayName: 'Samsung TV Wohnzimmer', clientKind: 'tizen', appVersion: 'S3'}
+  }];
+  let approveConfirmed = false;
   const mocked = {
+    listDevicePairingsForAdmin(options) {
+      calls.push({kind:'pending-list', options});
+      return Promise.resolve({items: pendingItems.slice(),
+        page: {limit:25,hasMore:false,nextCursor:null}});
+    },
+    getDevicePairingForAdmin(options) {
+      calls.push({kind:'pending-item', options});
+      return Promise.resolve({etag:'"pair-revision-1"',
+        data: pendingItems.find(p => p.pairingRequestId === options.pairingRequestId)});
+    },
+    decideDevicePairingForAdmin(options) {
+      calls.push({kind:'pending-decision', options});
+      pendingItems = pendingItems.filter(p => p.pairingRequestId !== options.pairingRequestId);
+      return Promise.resolve({etag:'"pair-revision-2"',data:{
+        pairingRequestId:options.pairingRequestId,status:options.decision==='approve'?'approved':'rejected'
+      }});
+    },
     getDevices(options) {
       calls.push({kind: 'list', options});
       return Promise.resolve({
@@ -120,7 +144,7 @@ async function run() {
   };
   const window = {
     location: {origin: 'https://suite.example'},
-    confirm() { confirmations++; return true; },
+    confirm() { confirmations++; return approveConfirmed; },
     VdrSuiteBrowserSession: {
       restore() { restores++; return Promise.resolve(); },
       csrfHeaders() { return {'X-CSRF-Token': 'test-browser-csrf'}; }
@@ -172,6 +196,7 @@ async function run() {
   selects[0].value = 'searchtimers.create';
   selects[1].value = 'default';
   const grant = named(page, 'button', 'Zugriff hinzufügen');
+  approveConfirmed = true;
   grant.click();
   await settle();
   const changed = calls.filter(x => x.kind === 'mutation');
@@ -201,5 +226,58 @@ async function run() {
   await settle();
   assert(!named(page, 'button', 'Zugriff hinzufügen'),
     'Revoked devices have no mutation controls');
+
+  // Real view composition: pending pairing must not be listed as a Device.
+  assert(named(page, 'h3', 'Wartende Geräte'));
+  assert(named(page, 'strong', 'Samsung TV Wohnzimmer'));
+  assert.strictEqual(calls.filter(c=>c.kind==='pending-list').length, 1);
+  assert.strictEqual(calls.filter(c=>c.kind==='pending-decision').length, 0);
+  await assert.rejects(
+    window.VdrSuiteDeviceAdminClientApi.decidePairing('../admin', '"etag"', 'approve'),
+    /Invalid pairing decision/);
+  await assert.rejects(
+    window.VdrSuiteDeviceAdminClientApi.decidePairing(pendingId, '', 'approve'),
+    /Invalid pairing decision/);
+  await assert.rejects(
+    window.VdrSuiteDeviceAdminClientApi.decidePairing(pendingId, '"etag"', 'grant'),
+    /Invalid pairing decision/);
+  assert.strictEqual(calls.filter(c=>c.kind==='pending-decision').length, 0);
+
+  // Cancel is genuinely non-mutating even after a fresh GET.
+  approveConfirmed = false;
+  named(page, 'button', 'Genehmigen').click();
+  await settle();
+  assert.strictEqual(calls.filter(c=>c.kind==='pending-decision').length, 0);
+  assert(named(page,'strong','Samsung TV Wohnzimmer'));
+
+  // Approve: fresh admin GET -> human confirmation -> CSRF + If-Match POST.
+  approveConfirmed = true;
+  named(page, 'button', 'Genehmigen').click();
+  await settle();
+  const approves = calls.filter(c=>c.kind==='pending-decision');
+  assert.strictEqual(approves.length,1);
+  assert.strictEqual(approves[0].options.pairingRequestId,pendingId);
+  assert.strictEqual(approves[0].options.ifMatch,'"pair-revision-1"');
+  assert.strictEqual(approves[0].options.decision,'approve');
+  assert.strictEqual(approves[0].options.credentials,'same-origin');
+  assert.strictEqual(approves[0].options.headers['X-CSRF-Token'],'test-browser-csrf');
+  assert(!('pairingToken' in approves[0].options));
+  assert(!named(page,'strong','Samsung TV Wohnzimmer'),'decided request must disappear');
+
+  // Reject uses exactly the same ETag and CSRF fences.
+  pendingItems = [{
+    pairingRequestId:pendingOther,status:'pending',expiresAt:'2026-10-25T06:20:00Z',
+    client:{displayName:'Nicht vertrauenswürdiger TV',clientKind:'tizen',appVersion:'S3'}
+  }];
+  named(page,'button','Anfragen aktualisieren').click();
+  await settle();
+  assert(named(page,'strong','Nicht vertrauenswürdiger TV'));
+  named(page,'button','Ablehnen').click();
+  await settle();
+  const decisions = calls.filter(c=>c.kind==='pending-decision');
+  assert.strictEqual(decisions.length,2);
+  assert.strictEqual(decisions[1].options.decision,'reject');
+  assert.strictEqual(decisions[1].options.pairingRequestId,pendingOther);
+  assert(!named(page,'strong','Nicht vertrauenswürdiger TV'));
 }
 run().catch(error => {console.error(error); process.exitCode = 1;});

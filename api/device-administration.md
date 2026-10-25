@@ -152,3 +152,28 @@ durable, idempotent SearchTimer one-shot operation. This is distinct
 from Suite TimerAssignments and native VDR Timer CREATE. Browser
 sessions and legacy paths never inherit paired Device CREATE rights.
 A 202 response is an Operation, not guaranteed backend recording.
+
+## Webfrontend: wartende Gerätekopplungen
+
+Unter **Einstellungen → Wartende Geräte** liest die Human-Admin-Sitzung die
+ausstehenden, nicht abgelaufenen Anfragen über
+\`GET /api/v1/device-pairings?limit=25&sort=pairingRequestId&order=asc\`.
+Die Anzeige von vorhandenen Geräten bleibt unabhängig davon verfügbar.
+Mit **Anfragen aktualisieren** wird erneut gelesen; bei mehreren Seiten erfolgt
+die Navigation ausschließlich mit dem vom Server ausgegebenen \`dp1_\`-Cursor.
+
+Bei **Genehmigen** oder **Ablehnen** liest der Browser das betreffende
+Administrator-Item **erneut**, prüft dessen unveränderte Metadaten,
+verlangt die ausdrückliche Bestätigung und entscheidet per \`POST\` mit
+\`If-Match\`, vorhandener Human-Admin-Browsersitzung und CSRF-Header.
+Eine 409/410/412/428 löst **keinen** automatischen Schreib-Retry aus.
+Die Liste enthält absichtlich **weder Kopplungscode noch Pairing-Token**;
+nur selbst angestoßene Geräte anhand Gerätename/Typ/Ablaufzeit genehmigen.
+
+Eine Genehmigung stellt **noch keine Geräteidentität und keine Rechte** aus.
+Der TV muss anschließend \`Status prüfen\` und \`Gerät aktivieren\` ausführen;
+danach sind Device-Grants getrennt zu vergeben. Kein VDR-/Backend-Agent-Neustart
+ist Bestandteil des Kopplungsvorgangs.
+
+Status: Webfrontend-Kandidat implementiert; Deployment und realer Browser-/TV-Test
+sind separat zu bestätigen.
