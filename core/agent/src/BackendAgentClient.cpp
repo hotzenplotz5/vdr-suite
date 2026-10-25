@@ -2058,10 +2058,20 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     if (!config_.mediaImportExecutor->verifiedInstallation(installed))
         installed = {};
     std::vector<std::string> ids;
+    std::vector<vdrsuite::mediatools::MediaImportSourceLabel> described;
+    bool partial = true;
     if (installed.sha256.empty() ||
-        !config_.mediaImportExecutor->listTrustedSourceIds(ids))
-        ids.clear(); // Withdrawal/unreadable ledger always removes listings.
-    if (ids.size() > 256U) ids.clear();
+        !config_.mediaImportExecutor->listTrustedSourceSnapshot(
+            ids, described, partial)) {
+        ids.clear(); // Withdrawal/unreadable ledger removes all listings.
+        described.clear();
+        partial = true;
+    }
+    if (ids.size() > 256U) {
+        ids.clear();
+        described.clear();
+        partial = true;
+    }
     for (const auto& id : ids)
         if (id.size() < 16U || id.size() > 64U ||
             !std::all_of(id.begin(), id.end(), [](unsigned char ch) {
@@ -2073,10 +2083,7 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
         }
     // Display labels must match the exact opaque source snapshot.
     std::vector<std::string> labels;
-    std::vector<vdrsuite::mediatools::MediaImportSourceLabel> described;
-    if (!ids.empty() &&
-        config_.mediaImportExecutor->listTrustedSourceLabels(described) &&
-        described.size() == ids.size())
+    if (!ids.empty() && described.size() == ids.size())
     {
         bool consistent = true;
         for (std::size_t i = 0; i < ids.size(); ++i) {
@@ -2110,7 +2117,8 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
         if (index != 0U) body << ',';
         body << '"' << jsonEscape(labels[index]) << '"';
     }
-    body << "],\"handlerOrigin\":\"" << jsonEscape(installed.origin)
+    body << "],\"partial\":" << (partial ? "true" : "false")
+         << ",\"handlerOrigin\":\"" << jsonEscape(installed.origin)
          << "\",\"handlerVersion\":\"" << jsonEscape(installed.version)
          << "\",\"handlerSha256\":\"" << jsonEscape(installed.sha256)
          << "\"}";
