@@ -110,6 +110,9 @@ int main()
     assert(getPage(url + "?cursor=mi1_bad_32").statusCode == 409);
     assert(getPage(url + "?cursor=mi1_1_00").statusCode == 409);
     assert(getPage(url + "?cursor=mi1_1_32&path=/tmp").statusCode == 400);
+    assert(getPage(url + "?cursor=").statusCode == 400);
+    many.resize(257, "source_unreachable_00000000000");
+    assert(getPage(url).statusCode == 503);
     ApiResponse post;
     assert(api.tryHandlePost(url, "", "", post));
     assert(post.statusCode == 405);
