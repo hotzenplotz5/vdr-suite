@@ -94,6 +94,43 @@ int main()
     assert(!catalog.publish(actor, live, "backend", "instance", 7,
         bulkIds, 100, "manual", "0.1.0", approvedSha));
     assert(catalog.list(live, "backend", 100, items) && items.size() == 100);
+    // UX4.2: only a selected, verified opaque source is requested.
+    // The same Agent lease must deliver the result. No paths or operations.
+    BackendAgentMediaImportCatalog::Preview observed;
+    const std::string selected = exact100.front();
+    assert(catalog.requestPreview(live, "backend", 100, selected, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::pending);
+    assert(catalog.nextPreviewRequest(live, "backend", 100) == selected);
+    assert(catalog.nextPreviewRequest(live, "other-backend", 100).empty());
+    BackendAgentMediaImportCatalog::Preview report;
+    report.sourceId = selected;
+    report.status = "ready";
+    report.title = "Film";
+    report.targetFolder = "Serien/Andor/Film";
+    report.videoCodec = "h264";
+    report.sourceBytes = 1000;
+    report.availableBytes = 8000000000ULL;
+    report.requiredBytes = 5000000000ULL;
+    assert(!catalog.acceptPreview(live, "backend", 100,
+        BackendAgentMediaImportCatalog::Preview{
+          selected, "ready", "Film", "../outside", "h264", 1000, 8000000000ULL,
+          5000000000ULL, false}));
+    assert(!catalog.acceptPreview(live, "backend", 100,
+        BackendAgentMediaImportCatalog::Preview{
+          "source_00000000002", "ready", "Film", "Film", "h264",
+          1000, 8000000000ULL, 5000000000ULL, false}));
+    assert(catalog.acceptPreview(live, "backend", 100, report));
+    assert(catalog.nextPreviewRequest(live, "backend", 100).empty());
+    assert(catalog.requestPreview(live, "backend", 100, selected, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::ready);
+    assert(observed.targetFolder == "Serien/Andor/Film" &&
+           observed.videoCodec == "h264" && observed.sourceBytes == 1000);
+    assert(catalog.requestPreview(
+        live, "backend", 100, "source_no_such_123456", observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::denied);
+    assert(catalog.requestPreview(live, "backend", 135, selected, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::pending);
+    assert(catalog.nextPreviewRequest(live, "backend", 135) == selected);
     std::string origin, version, sha256;
     assert(catalog.observedInstallation(
         live, "backend", 100, origin, version, sha256));
