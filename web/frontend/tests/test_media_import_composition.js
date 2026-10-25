@@ -662,6 +662,32 @@ function publishHomeResume() {}
   allSourceSelect.value = pagedSourceIds[69];
   allSourceSelect.listeners.change();
   assert.strictEqual(findClass(mount, 'media-import-start').disabled, false);
+  // UX3: local search narrows only the already authorized source snapshot.
+  // A search change invalidates a selection; only visible IDs may be batched.
+  const search = findClass(mount, 'media-import-search');
+  const filter = findClass(mount, 'media-import-filter');
+  assert(search && filter, 'Media Import search and status filter are mounted');
+  search.value = pagedSourceIds[69];
+  search.listeners.input();
+  assert.strictEqual(allSourceSelect.children.length, 2);
+  assert.strictEqual(allSourceSelect.children[1].value, pagedSourceIds[69]);
+  assert(findClass(mount, 'media-import-start').disabled,
+    'changing search removes any earlier action selection');
+  assert(findClass(mount, 'media-import-batch').disabled,
+    'single search result cannot launch the previous 70-film batch');
+  assert(findClass(mount, 'media-import-visible-count').textContent.includes('1 importierbare'));
+  search.value = '';
+  search.listeners.input();
+  assert.strictEqual(allSourceSelect.children.length, 71);
+  filter.value = 'marked';
+  filter.listeners.change();
+  assert.strictEqual(allSourceSelect.children.length, 1);
+  assert(findClass(mount, 'media-import-source').disabled);
+  filter.value = 'all';
+  filter.listeners.change();
+  assert.strictEqual(allSourceSelect.children.length, 71);
+  assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
+    beforePagedPosts, 'search and status filter are read-only');
   // The requested product boundary: exactly 100 films are offered.
   context.resetMediaImportVisibility(true);
   pagedSourceIds = Array.from({length: 100}, function (_, i) {
