@@ -177,24 +177,29 @@
     batch.resumeNext = true;
   }
 
-  function startBatch(view) {
+  function startBatch(view, selectedOnly) {
     if (!isCurrent(view) || view.batch || view.attempt ||
-        view.submitting || view.sources.length < 2 ||
-        view.localReencode.checked || view.decision.value !== 'import') return;
-    if (view.sources.length > MAX_IMPORT_FILMS) {
-      report(view, 'Höchstens 100 Filme pro Importdurchlauf erlaubt. ' +
-        'Bitte Auswahl verkleinern und erneut scannen.', true);
+        view.submitting || view.localReencode.checked ||
+        view.decision.value !== 'import') return;
+    // A checkbox is never authority: intersect it with the visible snapshot.
+    const ids = selectedOnly
+      ? view.sources.filter(function (id) { return view.checkedSourceIds.has(id); })
+      : view.sources.slice();
+    if (ids.length < 2) return;
+    if (ids.length > MAX_IMPORT_FILMS) {
+      report(view, 'Höchstens 100 Filme pro Importdurchlauf erlaubt.', true);
       return;
     }
     if (typeof global.confirm !== 'function' ||
-        !global.confirm(view.sources.length + ' Filme nacheinander importieren? ' +
+        !global.confirm(ids.length + ' Filme nacheinander importieren? ' +
           'Jeder Auftrag wird vom Core einzeln geprüft. Bei einem ungewissen ' +
-          'Ergebnis wird die Reihe angehalten. Keine Umkodierung freigegeben.')) return;
-    const ids = view.sources.slice();
+          'Ergebnis wird angehalten. Keine Umkodierung freigegeben.')) return;
     const batch = {remaining: ids, total: ids.length, completed: 0, waiting: ''};
     view.batch = batch;
     activeBatches[view.backendId] = batch;
     view.batchButton.disabled = true;
+    view.selectedBatchButton.disabled = true;
+    view.selectAllVisibleButton.disabled = true;
     view.searchInput.disabled = true;
     view.statusFilter.disabled = true;
     view.batchStopButton.hidden = false;
@@ -338,6 +343,17 @@
     return page('', 0);
   }
 
+  function updateSelectionCount(view) {
+    const count = view.sources.filter(function (id) {
+      return view.checkedSourceIds.has(id);
+    }).length;
+    view.selectionCount.textContent = count + ' von ' +
+      view.sources.length + ' sichtbaren Filmen für den Stapel gewählt.';
+    view.selectedBatchButton.disabled = count < 2 || Boolean(view.batch) ||
+      Boolean(view.attempt) || view.localReencode.checked ||
+      view.decision.value !== 'import';
+  }
+
   // UX3 step 1: search/filter only the already authenticated, bounded
   // Agent/Core snapshot. No path guesses, filesystem requests or new grants.
   function filterVisibleSources(view) {
@@ -404,6 +420,8 @@
     view.markedSelect.disabled = true;
     view.releaseButton.disabled = true;
     view.batchButton.disabled = true;
+    view.selectedBatchButton.disabled = true;
+    view.selectAllVisibleButton.disabled = true;
     view.searchInput.disabled = true;
     view.statusFilter.disabled = true;
     view.sources = [];
