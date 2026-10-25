@@ -12,12 +12,18 @@ function harness(reply, restored) {
     const obj = {
       tag, textContent: '', disabled: false, children: [], handlers: {},
       appendChild(child) { this.children.push(child); return child; },
+      replaceChildren(...children) { this.children = children; },
       setAttribute() {},
       addEventListener(event, handler) { this.handlers[event] = handler; }
     };
     elements.push(obj);
     return obj;
   }
+  const sourceStore = {
+    backendId: 'default', videoRoot: '/srv/vdr/video.00',
+    revision: '1234567890abcdef',
+    sources: [{path: '/srv/video/Filme', name: 'Filme'}]
+  };
   const window = {
     document: {createElement: element},
     VdrSuiteBrowserSession: {
@@ -27,12 +33,32 @@ function harness(reply, restored) {
     confirm() { return true; },
     fetch(url, options) {
       requests.push({url, options});
+      if (url.startsWith('/api/v1/addons/rectools/sources')) {
+        if (options.method === 'POST') {
+          assert.equal(url, '/api/v1/addons/rectools/sources');
+          assert.equal(options.credentials, 'same-origin');
+          assert.equal(options.headers['X-VDR-Suite-CSRF-Token'], 'test-token');
+          const body = JSON.parse(options.body);
+          assert.equal(body.backendId, sourceStore.backendId);
+          assert.equal(body.revision, sourceStore.revision);
+          sourceStore.sources = decodeURIComponent(body.entries)
+            .split('\n').map(function (line) {
+              const [path, name] = line.split('\t');
+              return {path, name};
+            });
+          sourceStore.revision = '1234567890abcdf0';
+        } else {
+          assert.equal(url,
+            '/api/v1/addons/rectools/sources?backendId=default');
+        }
+        return Promise.resolve(response(200, sourceStore));
+      }
       return Promise.resolve(reply(url, options));
     }
   };
   vm.runInNewContext(script, {window});
   const parent = element('section');
-  return {window, parent, elements, requests};
+  return {window, parent, elements, requests, sourceStore};
 }
 
 function response(status, body) {
@@ -102,54 +128,69 @@ async function test() {
   assert.equal(refused.parent.children[0].hidden, false);
   assert.equal(refused.requests.filter(r => r.options.method === 'POST').length, 1);
 
-  // UX2 draft stays within the already authorized addon administration card.
-  // No source directory is ever POSTed to an API, and even a valid draft
-  // produces only a root-admin read-only --check command.
-  const draft = harness(() => response(200, {
+  // MT.UX2: actual administrator save, no generated shell command.
+  const managed = harness(() => response(200, {
     backendId: 'default', desiredEnabled: false, revision: 0
   }), {count: 0});
-  draft.window.VdrSuiteAddonSettings.render(draft.parent, 'default');
+  managed.window.VdrSuiteAddonSettings.render(managed.parent, 'default');
   await flush();
-  assert.equal(draft.parent.children[0].hidden, false);
-  const draftInputs = draft.elements.filter(e => e.tag === 'input');
-  assert.equal(draftInputs.length, 3);
-  draftInputs[0].value = '/srv/video/Filme';
-  draftInputs[1].value = 'Filme';
-  draftInputs[2].value = '/srv/vdr/video.00';
-  const addRoot = draft.elements.find(e =>
-    e.textContent === 'Weitere Quelle hinzufügen');
-  const prepare = draft.elements.find(e =>
-    e.textContent === 'Prüfkommando vorbereiten');
-  const preview = draft.elements.find(e => e.tag === 'pre');
-  assert.ok(addRoot && prepare && preview);
-  addRoot.handlers.click();
-  const extraInputs = draft.elements.filter(e => e.tag === 'input');
-  assert.equal(extraInputs.length, 5);
-  extraInputs[3].value = '/srv/video/Serien';
-  extraInputs[4].value = 'Serien';
-  prepare.handlers.click();
-  assert.ok(preview.textContent.startsWith(
-    'sudo bash tools/addons/configure_media_tools_paths.sh '));
-  assert.ok(preview.textContent.includes(
-    "'/srv/video/Filme' '/srv/vdr/video.00' --check --default-name 'Filme'"));
-  assert.ok(preview.textContent.includes(
-    "--add-root '/srv/video/Serien' 'Serien'"));
-  assert.equal(draft.requests.filter(r => r.options.method === 'POST').length, 0,
-    'admin source drafts are purely local browser presentation');
+  const editor = managed.elements.find(e =>
+    e.className === 'settings-media-import-source-editor');
+  const rows = managed.elements.find(e =>
+    e.className === 'settings-media-import-source-list');
+  const add = managed.elements.find(e =>
+    e.textContent === '+ Importordner hinzufügen');
+  const save = managed.elements.find(e => e.textContent === 'Speichern');
+  assert(editor && rows && add && save && !editor.hidden);
+  assert.equal(rows.children.length, 1);
+  assert.equal(rows.children[0].children[0].children[0].value,
+    '/srv/video/Filme');
+  add.handlers.click();
+  assert.equal(rows.children.length, 2);
+  rows.children[1].children[0].children[0].value = '/srv/video/Serien';
+  rows.children[1].children[0].children[0].handlers.input();
+  rows.children[1].children[1].children[0].value = 'Serien';
+  rows.children[1].children[1].children[0].handlers.input();
+  const setDefault = rows.children[1].children.find(e =>
+    e.textContent === 'Als Standard festlegen');
+  setDefault.handlers.click();
+  assert.equal(rows.children[0].children[0].children[0].value,
+    '/srv/video/Serien');
+  save.handlers.click();
+  await flush();
+  assert.equal(managed.requests.filter(r =>
+    r.url === '/api/v1/addons/rectools/sources' &&
+    r.options.method === 'POST').length, 1);
+  assert.deepEqual(managed.sourceStore.sources, [
+    {path: '/srv/video/Serien', name: 'Serien'},
+    {path: '/srv/video/Filme', name: 'Filme'}
+  ]);
+  assert(managed.elements.some(e => e.textContent.includes(
+    'Gespeichert. Der Backend-Agent übernimmt')));
 
-  extraInputs[3].value = '/srv/video/Filme/child';
-  extraInputs[3].handlers.input();
-  assert.equal(preview.textContent, '', 'an edited command must be invalidated');
-  prepare.handlers.click();
-  assert.equal(preview.textContent, '',
-    'nested or overlapping source roots cannot produce a command');
+  // Remove one existing entry; save again without restarting the Agent.
+  rows.children[1].children.find(e =>
+    e.textContent === 'Entfernen').handlers.click();
+  save.handlers.click();
+  await flush();
+  assert.equal(managed.sourceStore.sources.length, 1);
+  assert.equal(managed.sourceStore.sources[0].path, '/srv/video/Serien');
 
-  extraInputs[3].value = '/srv/video/Serien';
-  extraInputs[4].value = "Eintrag'; rm -rf /";
-  prepare.handlers.click();
-  assert.equal(preview.textContent, '',
-    'shell metacharacters and paths in labels are rejected');
-  assert.equal(draft.requests.length, 1, 'only protected admin GET was sent');
+  // Invalid paths never produce a mutation, even with a valid admin session.
+  add.handlers.click();
+  rows.children[1].children[0].children[0].value = '/srv/video/Serien/sub';
+  rows.children[1].children[0].children[0].handlers.input();
+  rows.children[1].children[1].children[0].value = 'Unsicher';
+  rows.children[1].children[1].children[0].handlers.input();
+  const beforeInvalid = managed.requests.filter(r =>
+    r.url === '/api/v1/addons/rectools/sources').length;
+  save.handlers.click();
+  await flush();
+  assert.equal(managed.requests.filter(r =>
+    r.url === '/api/v1/addons/rectools/sources').length, beforeInvalid,
+    'overlapping roots must never be sent to the server');
+  assert(!managed.elements.some(e => e.tag === 'pre'),
+    'no generated shell command belongs in the settings UX');
 
   const forbidden = harness(() => response(403, {error: 'forbidden'}), {count: 0});
   forbidden.window.VdrSuiteAddonSettings.render(forbidden.parent, 'default');
@@ -167,7 +208,7 @@ async function test() {
   unavailable.window.VdrSuiteAddonSettings.render(unavailable.parent, 'default');
   await flush();
   const unavailableDraft = unavailable.elements.find(e =>
-    e.className === 'settings-media-import-source-draft');
+    e.className === 'settings-media-import-source-editor');
   assert.ok(unavailableDraft && unavailableDraft.hidden,
     'source editor must not appear before a successful protected admin GET');
 
