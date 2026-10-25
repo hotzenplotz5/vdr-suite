@@ -28,6 +28,7 @@ class Element {
     this.value = '';
     this.disabled = false;
     this.type = '';
+    this.isConnected = true;
   }
   appendChild(item) {
     this.children.push(item);
@@ -73,16 +74,42 @@ async function run() {
   let rejectStale = false;
   let confirmations = 0;
   let restores = 0;
+  const pendingId = 'dpr_' + 'a'.repeat(32);
+  const pendingOther = 'dpr_' + 'b'.repeat(32);
+  let pendingItems = [{
+    pairingRequestId: pendingId, status: 'pending', expiresAt: '2026-10-25T06:15:00Z',
+    client: {displayName: 'Samsung TV Wohnzimmer', clientKind: 'tizen', appVersion: 'S3'}
+  }];
+  let approveConfirmed = false;
+  let deviceItems = [
+    {deviceId: 'device_a', actorId: 'actor_a',
+      displayName: 'Hisense Wohnzimmer', active: true, revoked: false},
+    {deviceId: 'device_revoked', actorId: 'actor_revoked',
+      displayName: 'Altes TV', active: false, revoked: true}
+  ];
+  const timers = [];
   const mocked = {
+    listDevicePairingsForAdmin(options) {
+      calls.push({kind:'pending-list', options});
+      return Promise.resolve({items: pendingItems.slice(),
+        page: {limit:25,hasMore:false,nextCursor:null}});
+    },
+    getDevicePairingForAdmin(options) {
+      calls.push({kind:'pending-item', options});
+      return Promise.resolve({etag:'"pair-revision-1"',
+        data: pendingItems.find(p => p.pairingRequestId === options.pairingRequestId)});
+    },
+    decideDevicePairingForAdmin(options) {
+      calls.push({kind:'pending-decision', options});
+      pendingItems = pendingItems.filter(p => p.pairingRequestId !== options.pairingRequestId);
+      return Promise.resolve({etag:'"pair-revision-2"',data:{
+        pairingRequestId:options.pairingRequestId,status:options.decision==='approve'?'approved':'rejected'
+      }});
+    },
     getDevices(options) {
       calls.push({kind: 'list', options});
       return Promise.resolve({
-        items: [
-          {deviceId: 'device_a', actorId: 'actor_a',
-            displayName: 'Hisense Wohnzimmer', active: true, revoked: false},
-          {deviceId: 'device_revoked', actorId: 'actor_revoked',
-            displayName: 'Altes TV', active: false, revoked: true}
-        ],
+        items: deviceItems.slice(),
         page: {limit: 25, hasMore: false, nextCursor: null}
       });
     },
@@ -120,16 +147,22 @@ async function run() {
   };
   const window = {
     location: {origin: 'https://suite.example'},
-    confirm() { confirmations++; return true; },
+    setTimeout(callback, ms) {
+      assert.strictEqual(ms, 10000);
+      timers.push(callback);
+      return timers.length;
+    },
+    confirm() { confirmations++; return approveConfirmed; },
     VdrSuiteBrowserSession: {
       restore() { restores++; return Promise.resolve(); },
       csrfHeaders() { return {'X-CSRF-Token': 'test-browser-csrf'}; }
     },
     VdrSuitePublicV1Client: {createClient() { return mocked; }}
   };
-  const context = {window, document: {createElement(tag) {
-    return new Element(tag);
-  }}};
+  const context = {window, document: {
+    visibilityState: 'visible',
+    createElement(tag) { return new Element(tag); }
+  }};
   vm.runInNewContext(adapter, context);
   vm.runInNewContext(ui, context);
   const page = new Element('main');
@@ -172,6 +205,7 @@ async function run() {
   selects[0].value = 'searchtimers.create';
   selects[1].value = 'default';
   const grant = named(page, 'button', 'Zugriff hinzufügen');
+  approveConfirmed = true;
   grant.click();
   await settle();
   const changed = calls.filter(x => x.kind === 'mutation');
@@ -201,5 +235,107 @@ async function run() {
   await settle();
   assert(!named(page, 'button', 'Zugriff hinzufügen'),
     'Revoked devices have no mutation controls');
+
+  // Real view composition: pending pairing must not be listed as a Device.
+  assert(named(page, 'h3', 'Wartende Geräte'));
+  assert(named(page, 'strong', 'Samsung TV Wohnzimmer'));
+  assert.strictEqual(calls.filter(c=>c.kind==='pending-list').length, 1);
+  assert.strictEqual(calls.filter(c=>c.kind==='pending-decision').length, 0);
+  await assert.rejects(
+    window.VdrSuiteDeviceAdminClientApi.decidePairing('../admin', '"etag"', 'approve'),
+    /Invalid pairing decision/);
+  await assert.rejects(
+    window.VdrSuiteDeviceAdminClientApi.decidePairing(pendingId, '', 'approve'),
+    /Invalid pairing decision/);
+  await assert.rejects(
+    window.VdrSuiteDeviceAdminClientApi.decidePairing(pendingId, '"etag"', 'grant'),
+    /Invalid pairing decision/);
+  assert.strictEqual(calls.filter(c=>c.kind==='pending-decision').length, 0);
+
+  // Cancel is genuinely non-mutating even after a fresh GET.
+  approveConfirmed = false;
+  named(page, 'button', 'Genehmigen').click();
+  await settle();
+  assert.strictEqual(calls.filter(c=>c.kind==='pending-decision').length, 0);
+  assert(named(page,'strong','Samsung TV Wohnzimmer'));
+
+  // Approve: fresh admin GET -> human confirmation -> CSRF + If-Match POST.
+  approveConfirmed = true;
+  named(page, 'button', 'Genehmigen').click();
+  await settle();
+  const approves = calls.filter(c=>c.kind==='pending-decision');
+  assert.strictEqual(approves.length,1);
+  assert.strictEqual(approves[0].options.pairingRequestId,pendingId);
+  assert.strictEqual(approves[0].options.ifMatch,'"pair-revision-1"');
+  assert.strictEqual(approves[0].options.decision,'approve');
+  assert.strictEqual(approves[0].options.credentials,'same-origin');
+  assert.strictEqual(approves[0].options.headers['X-CSRF-Token'],'test-browser-csrf');
+  assert(!('pairingToken' in approves[0].options));
+  assert(!named(page,'strong','Samsung TV Wohnzimmer'),'decided request must disappear');
+
+  // Reject uses exactly the same ETag and CSRF fences.
+  pendingItems = [{
+    pairingRequestId:pendingOther,status:'pending',expiresAt:'2026-10-25T06:20:00Z',
+    client:{displayName:'Nicht vertrauenswürdiger TV',clientKind:'tizen',appVersion:'S3'}
+  }];
+  named(page,'button','Anfragen aktualisieren').click();
+  await settle();
+  assert(named(page,'strong','Nicht vertrauenswürdiger TV'));
+  named(page,'button','Ablehnen').click();
+  await settle();
+  const decisions = calls.filter(c=>c.kind==='pending-decision');
+  assert.strictEqual(decisions.length,2);
+  assert.strictEqual(decisions[1].options.decision,'reject');
+  assert.strictEqual(decisions[1].options.pairingRequestId,pendingOther);
+  assert(!named(page,'strong','Nicht vertrauenswürdiger TV'));
+
+  // S3 admin UX: auto-refresh sees pairing + paired TV without page reload.
+  assert.strictEqual(timers.length, 1, 'one refresh timer for this settings card');
+  deviceItems = deviceItems.concat({
+    deviceId:'device_samsung',actorId:'actor_samsung',
+    displayName:'Samsung Wohnzimmer',active:true,revoked:false
+  });
+  pendingItems = [{
+    pairingRequestId: 'dpr_' + 'c'.repeat(32),
+    status:'pending', expiresAt:'2026-10-25T09:00:00Z',
+    client:{displayName:'Neuer Samsung TV',clientKind:'tizen',appVersion:'S3'}
+  }];
+  const listBefore = calls.filter(c => c.kind === 'list').length;
+  const pendingBefore = calls.filter(c => c.kind === 'pending-list').length;
+  timers.shift()();
+  await settle();
+  assert.strictEqual(calls.filter(c => c.kind === 'list').length, listBefore + 1);
+  assert.strictEqual(calls.filter(c => c.kind === 'pending-list').length, pendingBefore + 1);
+  assert(named(page,'button','Samsung Wohnzimmer'));
+  assert(named(page,'strong','Neuer Samsung TV'));
+  assert(named(page,'button','Altes TV').attributes['aria-current'] === 'true',
+    'keep the deliberately selected device across list refresh');
+  assert.strictEqual(timers.length, 1, 'never create concurrent refresh intervals');
+  assert.strictEqual(calls.filter(c => c.kind === 'pending-decision').length, 2,
+    'background refresh must never approve/reject');
+  assert.strictEqual(calls.filter(c => c.kind === 'mutation').length, 2,
+    'background refresh must not mutate grants');
+
+  // Hidden page: no network traffic, no background refresh requests.
+  const beforeHidden = calls.length;
+  context.document.visibilityState = 'hidden';
+  timers.shift()();
+  await settle();
+  assert.strictEqual(calls.length, beforeHidden);
+  assert.strictEqual(timers.length, 1);
+  context.document.visibilityState = 'visible';
+  timers.shift()();
+  await settle();
+  assert.strictEqual(calls.filter(c => c.kind === 'pending-list').length, pendingBefore + 2);
+  assert.strictEqual(timers.length, 1);
+
+  // The app replaces the Settings card when navigating away. Stop forever.
+  page.children[0].isConnected = false;
+  const beforeDetached = calls.length;
+  timers.shift()();
+  await settle();
+  assert.strictEqual(calls.length, beforeDetached);
+  assert.strictEqual(timers.length, 0, 'detached Settings card must not leak timers');
 }
+
 run().catch(error => {console.error(error); process.exitCode = 1;});

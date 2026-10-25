@@ -28,6 +28,39 @@
       ? owner.restore() : null;
     return Promise.resolve(ready).then(action);
   }
+  // Browser Human-Admin only; never a TV bootstrap token.
+  function listPendingPairings(cursor) {
+    return publicClient().listDevicePairingsForAdmin({
+      query: Object.assign({limit: 25, sort: 'pairingRequestId', order: 'asc'},
+        cursor ? {cursor: cursor} : {}),
+      credentials: 'same-origin', cache: 'no-store'
+    });
+  }
+  function loadPendingPairing(pairingRequestId) {
+    if (typeof pairingRequestId !== 'string' ||
+        !/^dpr_[0-9a-f]{32}$/.test(pairingRequestId))
+      return Promise.reject(new Error('Invalid pairing request ID'));
+    return restore(function() {
+      return publicClient().getDevicePairingForAdmin({
+        pairingRequestId: pairingRequestId,
+        credentials: 'same-origin', cache: 'no-store'
+      });
+    });
+  }
+  function decidePairing(pairingRequestId, etag, decision) {
+    if (typeof pairingRequestId !== 'string' ||
+        !/^dpr_[0-9a-f]{32}$/.test(pairingRequestId) ||
+        typeof etag !== 'string' || !/^"[^"]{1,256}"$/.test(etag) ||
+        (decision !== 'approve' && decision !== 'reject'))
+      return Promise.reject(new Error('Invalid pairing decision or ETag'));
+    return restore(function() {
+      return publicClient().decideDevicePairingForAdmin({
+        pairingRequestId: pairingRequestId, ifMatch: etag,
+        decision: decision, headers: sessionHeaders(),
+        credentials: 'same-origin', cache: 'no-store'
+      });
+    });
+  }
   function listDevices(cursor) {
     return publicClient().getDevices({
       query: Object.assign({limit: 25},
@@ -75,6 +108,9 @@
     });
   }
   global.VdrSuiteDeviceAdminClientApi = Object.freeze({
+    listPendingPairings: listPendingPairings,
+    loadPendingPairing: loadPendingPairing,
+    decidePairing: decidePairing,
     listDevices: listDevices,
     loadDevice: loadDevice,
     listBackends: listBackends,

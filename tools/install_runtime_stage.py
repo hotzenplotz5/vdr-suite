@@ -331,6 +331,46 @@ def deployment_differences(
     return differences
 
 
+def frontend_manifest_entries(
+    stage_root: Path,
+) -> tuple[dict[str, int], dict[str, dict[str, object]]]:
+    """Verify the entire canonical seal and select its composed frontend."""
+    payload = load_manifest(stage_root)
+    recorded_dirs, recorded_files = verify_sealed_stage(stage_root, payload)
+    dirs = {rel: mode for rel, mode in recorded_dirs.items()
+            if is_frontend(Path(rel))}
+    files = {rel: entry for rel, entry in recorded_files.items()
+             if is_frontend(Path(rel))}
+    if FRONTEND_ROOT.as_posix() not in dirs or (
+        FRONTEND_ROOT / "index.html"
+    ).as_posix() not in files:
+        fail("canonical stage has no complete frontend payload")
+    return dirs, files
+
+
+def check_frontend(stage_root: Path, live_root: Path) -> None:
+    dirs, files = frontend_manifest_entries(stage_root)
+    differences = deployment_differences(live_root, dirs, files)
+    if differences:
+        for item in differences:
+            print(f"FRONTEND_DEPLOYMENT_DRIFT={item}")
+        fail(f"frontend differs from the sealed canonical stage ({len(differences)} differences)")
+    print(f"FRONTEND_DEPLOYMENT_MATCH=YES STAGE={stage_root} LIVE_ROOT={live_root}")
+
+
+def deploy_frontend(stage_root: Path, live_root: Path) -> None:
+    # Only the composed frontend tree may be replaced. No binaries,
+    # configuration, service state, or existing system permissions change.
+    frontend_manifest_entries(stage_root)
+    parent = live_root / FRONTEND_ROOT.parent
+    target = live_root / FRONTEND_ROOT
+    if not parent.is_dir() or parent.is_symlink() or target.is_symlink():
+        fail(f"frontend parent missing or unsafe: {parent}")
+    replace_frontend_tree(stage_root, live_root)
+    check_frontend(stage_root, live_root)
+    print(f"FRONTEND_ONLY_DEPLOYED=YES STAGE={stage_root} LIVE_ROOT={live_root}")
+
+
 def check(stage_root: Path, live_root: Path) -> None:
     payload = load_manifest(stage_root)
     recorded_dirs, recorded_files = verify_sealed_stage(stage_root, payload)
@@ -384,7 +424,7 @@ def deploy(stage_root: Path, live_root: Path) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("seal", "check", "deploy"):
+    for name in ("seal", "check", "deploy", "check-frontend", "deploy-frontend"):
         command = sub.add_parser(name)
         command.add_argument("--stage-root", type=Path, required=True)
         if name != "seal":
@@ -402,6 +442,10 @@ def main() -> int:
             check(stage_root, args.live_root.resolve())
         elif args.command == "deploy":
             deploy(stage_root, args.live_root.resolve())
+        elif args.command == "check-frontend":
+            check_frontend(stage_root, args.live_root.resolve())
+        elif args.command == "deploy-frontend":
+            deploy_frontend(stage_root, args.live_root.resolve())
         else:
             fail(f"unsupported command: {args.command}")
     except DeploymentError as exc:
