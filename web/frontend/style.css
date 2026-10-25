@@ -4576,6 +4576,13 @@ body.channel-sorter-dragging * {
   border-radius: .5rem;
 }
 .settings-media-import-source-row button { justify-self: start; }
+.media-import-panel .media-import-search {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: .65rem;
+  border-radius: .55rem;
+}
 .media-import-visible-count {
   margin: 0;
   color: #94a3b8;
