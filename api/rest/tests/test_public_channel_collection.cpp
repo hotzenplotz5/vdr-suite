@@ -49,6 +49,15 @@ int main()
         channel("backend-a", "disabled", 40),
         channel("backend-a", "radio", 50)};
     vdr[3].enabled = false;
+    // Same production comparator used by daemon source pagination AND the
+    // existing single-channel numeric neighbor, independent of string IDs.
+    std::vector<PublicChannelCollectionItem> nativeChannels = vdr;
+    std::sort(nativeChannels.begin(), nativeChannels.end(),
+        publicVdrChannelNumberLess);
+    assert(nativeChannels[0].channelId == "id-a");
+    assert(nativeChannels[1].channelId == "id-m");
+    assert(nativeChannels[2].channelId == "id-z");
+
     vdr[4].radio = true;
     const auto next = findPublicVdrChannelNeighbor(vdr, "id-a", "up");
     const auto previous = findPublicVdrChannelNeighbor(vdr, "id-a", "down");
