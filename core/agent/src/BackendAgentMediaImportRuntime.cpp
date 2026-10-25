@@ -84,6 +84,28 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceLabels(
     }
 }
 
+bool BackendAgentMediaImportRuntime::listTrustedSourceSnapshot(
+    std::vector<std::string>& ids,
+    std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+    bool& partial)
+{
+    ids.clear();
+    labels.clear();
+    partial = true;
+    if (!available()) return false;
+    try {
+        if (!inventory_.listTrustedSourceSnapshot(backendId_, labels, partial))
+            return false;
+        for (const auto& item : labels) ids.push_back(item.sourceId);
+        return true;
+    } catch (...) {
+        ids.clear();
+        labels.clear();
+        partial = true;
+        return false;
+    }
+}
+
 bool BackendAgentMediaImportRuntime::authorize(
     const BackendAgentCommandAssignment& assignment,
     const std::string& backendId, std::uint64_t generation)
