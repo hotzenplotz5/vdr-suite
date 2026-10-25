@@ -2079,6 +2079,8 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
             }))
         {
             ids.clear();
+            described.clear();
+            partial = true;
             break;
         }
     // Display labels must match the exact opaque source snapshot.
