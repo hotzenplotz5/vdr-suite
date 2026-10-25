@@ -722,7 +722,9 @@
     const plan = selected && view.previewResult &&
       view.previewResult.sourceId === id ? view.previewResult : null;
     const ready = Boolean(plan && plan.status === 'ready');
-    const needsEncode = ready && plan.videoReencodeRequired;
+    // A space shortage blocks local import, not a PC-only marker decision.
+    const needsEncode = Boolean(plan && plan.videoReencodeRequired &&
+      (plan.status === 'ready' || plan.status === 'insufficient'));
     // Rectools-style: compatible media has one ordinary import action.
     // Encoding choices appear only when a checked video needs conversion.
     if (ready && !needsEncode) view.decision.value = 'import';
@@ -746,7 +748,7 @@
     const decision = view.decision.value;
     const description = !plan
       ? 'Diagnose ausstehend. Es wurde noch kein Importweg freigegeben.'
-      : !ready
+      : !ready && !needsEncode
         ? 'Import derzeit blockiert. Die Ursache steht in der Diagnose.'
         : needsEncode
           ? decision === 'desktop'
@@ -789,9 +791,10 @@
             : 'Bearbeitungsweg auswählen'
       : ready ? 'Import starten' : 'Import nicht möglich';
     if (!view.submitting && !view.attempt && !view.batch) {
-      view.startButton.disabled = !ready ||
-        (needsEncode && (!['import', 'desktop', 'skip'].includes(decision) ||
-         (decision === 'import' && !view.localReencode.checked)));
+      view.startButton.disabled = needsEncode
+        ? !(decision === 'desktop' || decision === 'skip' ||
+          (ready && decision === 'import' && view.localReencode.checked))
+        : !ready;
     }
   }
 
@@ -813,8 +816,9 @@
       if (!previewPlan || previewPlan.status === 'unavailable' ||
           (selected === 'import' && (previewPlan.status !== 'ready' ||
             (previewPlan.videoReencodeRequired && !view.localReencode.checked))) ||
-          (selected === 'desktop' && (previewPlan.status !== 'ready' ||
-            !previewPlan.videoReencodeRequired)))
+          (selected === 'desktop' &&
+            !['ready', 'insufficient'].includes(previewPlan.status)) ||
+          (selected === 'desktop' && !previewPlan.videoReencodeRequired))
         return Promise.resolve();
     }
     const approveVideoReencode = selected === 'import' &&
@@ -1152,7 +1156,8 @@
     });
     decision.addEventListener('change', function () {
       if (!isCurrent(view) || view.batch || view.attempt ||
-          !view.previewResult || view.previewResult.status !== 'ready' ||
+          !view.previewResult ||
+          !['ready', 'insufficient'].includes(view.previewResult.status) ||
           !view.previewResult.videoReencodeRequired) return;
       // The visible VDR choice is per-film permission for local encoding.
       // The existing 'local' Core request still needs its own confirmation.
