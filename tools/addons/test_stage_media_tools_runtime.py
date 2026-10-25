@@ -372,7 +372,8 @@ class MediaToolsSealedStageTests(unittest.TestCase):
               "/root/backup-not-created", "WRONG"], "LIVE-UPDATE-REVIEWED"),
             (["live-rollback", "/root/backup-not-created",
               self.hash, self.hash, "WRONG"], "LIVE-ROLLBACK-REVIEWED"),
-            (["0" * 40, self.hash, "backend"], "REVIEWED_FIRST_INSTALL"),
+            (["0" * 40, self.hash, "backend", "/tmp/nonexistent-prepared-workdir"],
+             "REVIEWED_FIRST_INSTALL"),
         )
         for args, reason in cases:
             with self.subTest(args=args[0]):
