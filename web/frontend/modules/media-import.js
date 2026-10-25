@@ -302,6 +302,11 @@
                    item.label.length > 0 && item.label.length <= 160 &&
                    !/[\/\r\n\x00-\x1f\x7f]/.test(item.label)));
             })) throw new Error('Ungültige Quellenliste');
+        // The backend currently exposes at most 32 visible IDs and does not
+        // guarantee exhaustive pagination. Never present a bounded inventory
+        // as a complete recursive scan.
+        const bounded = Boolean(response.meta && response.meta.partial === true) ||
+          items.length >= 32;
         const ordinary = items.filter(function (item) {
           return !markerSuffix(item);
         });
@@ -318,18 +323,19 @@
         view.select.appendChild(blank);
         ordinary.forEach(function (item, index) {
           const option = element('option', '',
-            (item.label || ('Quelle ' + (index + 1))) + ' · ' + item.sourceId);
+            item.label || ('Film ' + (index + 1)));
           option.value = item.sourceId;
           view.select.appendChild(option);
         });
         view.select.value = '';
+        view.sourceDetails.textContent = '';
         view.markedSelect.replaceChildren();
         const markedBlank = element('option', '', 'Markierte Datei auswählen');
         markedBlank.value = '';
         view.markedSelect.appendChild(markedBlank);
         marked.forEach(function (item) {
           const option = element('option', '',
-            item.label + ' [' + markerSuffix(item) + '] · ' + item.sourceId);
+            item.label + ' [' + markerSuffix(item) + ']');
           option.value = item.sourceId;
           view.markedSelect.appendChild(option);
         });
@@ -343,8 +349,15 @@
         view.decision.disabled = ordinary.length === 0;
         view.startButton.textContent = 'Import starten';
         view.batchButton.disabled = ordinary.length < 2;
-        report(view, ordinary.length + ' Importquellen, ' + marked.length +
-          ' markierte Dateien verfügbar.');
+        view.scanNotice.textContent = bounded
+          ? 'Scan unvollständig: Das Backend liefert höchstens 32 sichtbare ' +
+            'Einträge und derzeit keine Fortsetzung. Weitere Unterordner oder Filme ' +
+            'können fehlen. Bitte keine Vollständigkeit annehmen.'
+          : 'Ergebnis der Backend-Quellenliste; ein vollständiger rekursiver ' +
+            'Dateisystemscan ist aktuell nicht bestätigt.';
+        report(view, ordinary.length + ' Filme verfügbar, ' + marked.length +
+          ' zurückgestellt, übersprungen oder doppelt markiert.' +
+          (bounded ? ' Scan unvollständig.' : ''));
       }).catch(function (error) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
         const message = error && error.status === 503
@@ -352,6 +365,8 @@
           : error && (error.status === 401 || error.status === 403 || error.status === 404)
             ? 'Für dieses Backend sind keine Importquellen zugänglich.'
             : 'Quellenliste konnte nicht geladen werden. Bitte aktualisieren.';
+        view.scanNotice.textContent = 'Scan nicht abgeschlossen. Keine aktuellen ' +
+          'Ergebnisse; bitte nur nach erfolgreicher Aktualisierung auswählen.';
         report(view, message, true);
       });
   }
@@ -507,10 +522,21 @@
     deactivate();
     if (!mountTarget || typeof mountTarget.replaceChildren !== 'function') return;
     const root = element('section', 'media-import-panel');
-    root.appendChild(element('h3', '', 'Media Tools · Import'));
-    root.appendChild(element('p', '', 'Nur durch den Backend-Agenten freigegebene Quellen. ' +
-      'Keine Dateipfade. Mehrfachimport im geöffneten Browser; unbeaufsichtigte Nachtläufe nur nach gesonderter Server-Freigabe.'));
-    const label = element('label', '', 'Importquelle');
+    root.appendChild(element('h3', '', 'Media Import'));
+    root.appendChild(element('p', '', 'Filme aus den freigegebenen Quellen auswählen. ' +
+      'Ein Suchlauf liest nur die Backend-Quellenliste und startet keinen Import.'));
+    const reloadButton = element('button', 'media-import-reload', 'Verzeichnis scannen');
+    reloadButton.type = 'button';
+    root.appendChild(reloadButton);
+    const scanNotice = element('p', 'media-import-scan-notice',
+      'Noch nicht geprüft, ob die Quellenliste vollständig ist.');
+    scanNotice.setAttribute('role', 'status');
+    root.appendChild(scanNotice);
+    const sourceDetails = element('p', 'media-import-source-details');
+    const technical = element('details', 'media-import-technical-details');
+    technical.appendChild(element('summary', '', 'Technische Details'));
+    technical.appendChild(sourceDetails);
+    const label = element('label', '', 'Film auswählen');
     const select = element('select', 'media-import-source');
     select.disabled = true;
     label.appendChild(select);
@@ -552,8 +578,6 @@
     const startButton = element('button', 'media-import-start', 'Import starten');
     startButton.type = 'button';
     startButton.disabled = true;
-    const reloadButton = element('button', 'media-import-reload', 'Quellen aktualisieren');
-    reloadButton.type = 'button';
     const refreshButton = element('button', 'media-import-refresh', 'Vorgang prüfen');
     refreshButton.type = 'button';
     refreshButton.hidden = true;
@@ -568,7 +592,6 @@
     batchStopButton.type = 'button';
     batchStopButton.hidden = true;
     root.appendChild(batchStopButton);
-    root.appendChild(reloadButton);
     root.appendChild(refreshButton);
     const newButton = element('button', 'media-import-new', 'Neuen Import vorbereiten');
     newButton.type = 'button';
@@ -580,6 +603,7 @@
     root.appendChild(message);
     const operationDetail = element('p', 'media-import-operation');
     root.appendChild(operationDetail);
+    root.appendChild(technical);
     mountTarget.replaceChildren(root);
     const view = {owner: owner, backendId: backendId, root: root,
       select: select, startButton: startButton, reloadButton: reloadButton,
@@ -589,11 +613,14 @@
       batch: activeBatches[backendId] || null,
       refreshButton: refreshButton, newButton: newButton,
       message: message, operationDetail: operationDetail,
+      scanNotice: scanNotice, sourceDetails: sourceDetails,
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
       reads: 0, timer: null, attempt: activeAttempts[backendId] || null};
     current = view;
     select.addEventListener('change', function () {
       startButton.disabled = view.submitting || !view.sources.includes(select.value);
+      sourceDetails.textContent = view.sources.includes(select.value)
+        ? 'Auswahl-ID: ' + select.value : '';
     });
     localReencode.addEventListener('change', function () {
       if (!isCurrent(view) || view.batch) return;
