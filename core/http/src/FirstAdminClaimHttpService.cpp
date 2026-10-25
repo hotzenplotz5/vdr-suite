@@ -1,6 +1,7 @@
 #include "FirstAdminClaimHttpService.h"
 
 #include "FirstAdminClaimService.h"
+#include "FirstAdminBootstrapRepository.h"
 
 #include <algorithm>
 #include <chrono>
@@ -13,6 +14,7 @@
 namespace
 {
 constexpr const char* ClaimPath = "/api/security/first-admin/claim";
+constexpr const char* SetupStatusPath = "/api/security/first-admin/status";
 constexpr std::size_t MaximumBodyBytes = 8192U;
 constexpr unsigned BootstrapIdField = 1U << 0U;
 constexpr unsigned SetupSecretField = 1U << 1U;
@@ -586,7 +588,8 @@ FirstAdminClaimHttpService::FirstAdminClaimHttpService(
 bool FirstAdminClaimHttpService::handles(
     const HttpServerRequest& request) const
 {
-    return requestPath(request.path) == ClaimPath;
+    const std::string path = requestPath(request.path);
+    return path == ClaimPath || path == SetupStatusPath;
 }
 
 HttpServerResponse FirstAdminClaimHttpService::handle(
@@ -606,6 +609,36 @@ HttpServerResponse FirstAdminClaimHttpService::handle(
         !safeContextToken(context.correlationId))
     {
         context.correlationId.clear();
+    }
+
+    if (requestPath(request.path) == SetupStatusPath)
+    {
+        if (request.method != "GET")
+        {
+            HttpServerResponse rejected = response(
+                405, "method_not_allowed",
+                "First-admin setup status requires GET", context);
+            rejected.headers["Allow"] = "GET";
+            return rejected;
+        }
+        const FirstAdminClaimState state = claimService_.claimState();
+        if (state == FirstAdminClaimState::unavailable)
+        {
+            return response(503, "first_admin_status_unavailable",
+                "First-admin status is unavailable", context);
+        }
+        HttpServerResponse result;
+        result.statusCode = 200;
+        result.headers["Content-Type"] =
+            "application/json; charset=utf-8";
+        result.headers["Cache-Control"] = "no-store";
+        result.headers["Pragma"] = "no-cache";
+        result.headers["X-Content-Type-Options"] = "nosniff";
+        result.headers["X-Request-ID"] = context.requestId;
+        result.body = state == FirstAdminClaimState::unclaimed
+            ? "{\"unclaimed\":true}"
+            : "{\"unclaimed\":false}";
+        return result;
     }
 
     if (request.method != "POST")
