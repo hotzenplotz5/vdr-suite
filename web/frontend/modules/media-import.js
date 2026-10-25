@@ -401,8 +401,9 @@
           ? 'Scan unvollständig: Das Backend bestätigt derzeit nicht alle ' +
             'Dateien der Importquelle. Weitere Unterordner oder Filme können ' +
             'fehlen; die Agent-Quellenmeldung ist weiterhin begrenzt.'
-          : 'Scan abgeschlossen: alle derzeit freigegebenen und geeigneten ' +
-            'Dateien wurden innerhalb der geprüften Importquelle erfasst.';
+          : 'Quellenliste abgeschlossen: alle konfigurierten und geeigneten ' +
+            'Quellen wurden geprüft. Das bedeutet nicht, dass jeder andere ' +
+            'Dateipfad dieser Importwurzel freigegeben ist.';
         report(view, ordinary.length + ' Filme verfügbar, ' + marked.length +
           ' zurückgestellt, übersprungen oder doppelt markiert.' +
           (bounded ? ' Scan unvollständig.' : ''));
