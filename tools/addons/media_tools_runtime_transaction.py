@@ -10,9 +10,14 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import hashlib
+import json
 import os
 from pathlib import Path
+import shutil
+import sqlite3
 import stat
+import subprocess
 import sys
 
 from stage_media_tools_runtime import verify_media_tools_stage
@@ -127,25 +132,171 @@ def transaction(action: str, old: Path, new: Path, root: Path,
     raise PreflightError("unknown transaction action")
 
 
+
+# The live adapter below remains separate from the synthetic rehearsal, but
+# reuses exactly the same checks, lock, and Suite-owned deploy/check functions.
+# It never changes file ownership/modes in place, Agent grants, or services.
+DB_REL = Path("var/lib/vdr-suite/vdr-suite.db")
+SERVICES = ("vdr-suite-daemon", "vdr-suite-backend-agent")
+
+
+def live_services_quiescent() -> None:
+    for service in SERVICES:
+        def field(name: str) -> str:
+            result = subprocess.run(
+                ["systemctl", "show", "-p", name, "--value", service],
+                capture_output=True, text=True, check=True, timeout=10)
+            return result.stdout.strip()
+        if (field("LoadState") != "loaded" or
+                field("ActiveState") != "inactive" or
+                field("Result") != "success"):
+            raise PreflightError(
+                "service must be cleanly stopped before maintenance: " + service)
+
+
+def live_file_ownership(stage: Path) -> None:
+    _, files = verify_sealed_stage(stage, load_manifest(stage))
+    for rel, entry in files.items():
+        if rel.startswith("etc/"):
+            continue  # preserved configuration is not installed or replaced
+        target = examined_file(Path("/"), rel)
+        details = target.lstat()
+        if (not stat.S_ISREG(details.st_mode) or details.st_nlink != 1 or
+                details.st_uid != 0 or
+                stat.S_IMODE(details.st_mode) != entry["mode"]):
+            raise PreflightError("unsafe existing ownership/mode: " + rel)
+        # Never overlay a dpkg-owned file with a manual source deployment.
+        query = subprocess.run(["dpkg-query", "-S", "/" + rel],
+                               capture_output=True, text=True, timeout=5)
+        if query.returncode == 0:
+            raise PreflightError("Debian-owned file needs package update: " + rel)
+        if query.returncode != 1:
+            raise PreflightError("package ownership query unavailable: " + rel)
+
+
+def live_backup_directory(path: Path, old: Path, new: Path) -> Path:
+    if not path.is_absolute() or path.is_symlink() or path.exists():
+        raise PreflightError("backup directory must be a new absolute path")
+    parent = safe_root(path.parent)
+    info = parent.lstat()
+    if info.st_uid != 0 or info.st_mode & 0o022:
+        raise PreflightError("backup parent must be root-owned and not writable by others")
+    database = Path("/") / DB_REL
+    db_info = database.lstat()
+    if not stat.S_ISREG(db_info.st_mode) or db_info.st_size <= 0:
+        raise PreflightError("missing or unsafe Suite database")
+    need = (sum(p.stat().st_size for stage in (old, new)
+                for p in stage.rglob("*") if p.is_file()) +
+            2 * db_info.st_size + 64 * 1024 * 1024)
+    for point in (parent, Path("/usr"), Path("/var")):
+        disk = shutil.disk_usage(point)
+        reserve = max(4 * 1024**3, (disk.total * 15 + 99) // 100)
+        if disk.free < need + reserve:
+            raise PreflightError("insufficient storage reserve for staged backup")
+    path.mkdir(mode=0o700)
+    return path
+
+
+def stable_sha(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def live_update(old: Path, new: Path, old_digest: str, new_digest: str,
+                backup_dir: Path) -> str:
+    if os.geteuid() != 0:
+        raise PreflightError("live update requires separately approved root invocation")
+    check_stage_pair(old, new, old_digest, new_digest)
+    live_services_quiescent()
+    # A full exact previous deployment is required: never guess backup bytes.
+    check(old, Path("/"))
+    live_file_ownership(old)
+    with with_exclusive_lock(Path("/")):
+        live_services_quiescent()
+        check(old, Path("/"))
+        root_backup = live_backup_directory(backup_dir, old, new)
+        # Failures before deployment retain backup for investigation; never
+        # chown/chmod anything that already existed on the production host.
+        try:
+            previous = root_backup / "previous-stage"
+            candidate = root_backup / "candidate-stage"
+            shutil.copytree(old, previous)
+            shutil.copytree(new, candidate)
+            check_stage_pair(previous, candidate, old_digest, new_digest)
+            database = Path("/") / DB_REL
+            backup_db = root_backup / "vdr-suite.db"
+            with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as source:
+                with sqlite3.connect(backup_db) as destination:
+                    source.backup(destination)
+            if backup_db.stat().st_size == 0:
+                raise PreflightError("empty SQLite backup")
+            evidence = {
+                "schema": 1, "previous_approved_sha256": old_digest,
+                "candidate_approved_sha256": new_digest,
+                "database_sha256": stable_sha(database),
+                "services": "confirmed_inactive",
+            }
+            (root_backup / "review.json").write_text(
+                json.dumps(evidence, sort_keys=True) + "\n", encoding="utf-8")
+            live_services_quiescent()
+            check(old, Path("/"))
+            try:
+                deploy(candidate, Path("/"))
+                check(candidate, Path("/"))
+            except Exception as original:
+                try:
+                    deploy(previous, Path("/"))
+                    check(previous, Path("/"))
+                except Exception as restore:
+                    raise PreflightError(
+                        "LIVE_UPDATE_FAILED; ROLLBACK_FAILED; SERVICES_MUST_STAY_STOPPED: " +
+                        str(restore)) from original
+                raise PreflightError(
+                    "LIVE_UPDATE_FAILED; ROLLBACK_VERIFIED; SERVICES_STAY_STOPPED: " +
+                    str(original)) from original
+        except Exception:
+            # Retain backup and evidence; never start services automatically.
+            raise
+    return ("MEDIA_TOOLS_LIVE_FILE_UPDATE=PASS BACKUP=" + str(root_backup) +
+            " SERVICES=STOPPED GRANTS=UNCHANGED")
+
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("update", "rollback"))
+    parser.add_argument("action", choices=("update", "rollback", "live-update"))
     parser.add_argument("--previous-stage", type=Path, required=True)
     parser.add_argument("--new-stage", type=Path, required=True)
     parser.add_argument("--live-root", type=Path, required=True)
     parser.add_argument("--previous-approved-sha256", required=True)
     parser.add_argument("--new-approved-sha256", required=True)
+    parser.add_argument("--backup-dir", type=Path)
     parser.add_argument("--confirm", required=True,
-                        help="must equal ISOLATED-ONLY")
+                        help="ISOLATED-ONLY or LIVE-UPDATE-REVIEWED")
     args = parser.parse_args()
-    if args.confirm != "ISOLATED-ONLY":
+    if args.action == "live-update":
+        if (args.confirm != "LIVE-UPDATE-REVIEWED" or
+                args.live_root != Path("/") or args.backup_dir is None):
+            parser.error("live-update requires root '/', a new --backup-dir and LIVE-UPDATE-REVIEWED")
+    elif args.confirm != "ISOLATED-ONLY" or args.backup_dir is not None:
         parser.error("--confirm must equal ISOLATED-ONLY; live installation is forbidden")
     try:
-        result = transaction(args.action, args.previous_stage, args.new_stage,
-                             args.live_root, args.previous_approved_sha256,
-                             args.new_approved_sha256)
+        if args.action == "live-update":
+            result = live_update(args.previous_stage, args.new_stage,
+                                 args.previous_approved_sha256,
+                                 args.new_approved_sha256, args.backup_dir)
+        else:
+            result = transaction(args.action, args.previous_stage, args.new_stage,
+                                 args.live_root, args.previous_approved_sha256,
+                                 args.new_approved_sha256)
         print(result)
-        print("REAL_VDR=UNCHANGED; AGENT=NOT_STARTED; APPROVAL=NOT_ISSUED")
+        if args.action == "live-update":
+            print("SERVICES=STILL_STOPPED; APPROVAL_AND_ACTIVATION=UNCHANGED")
+        else:
+            print("REAL_VDR=UNCHANGED; AGENT=NOT_STARTED; APPROVAL=NOT_ISSUED")
         return 0
     except (OSError, ValueError, DeploymentError, RuntimeError) as exc:
         print("MEDIA_TOOLS_TRANSACTION=STOP " + str(exc), file=sys.stderr)
