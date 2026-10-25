@@ -42,8 +42,8 @@
   function securityMessage(reason) {
     const messages = {
       authentication_required: translated(
-        'Bitte anmelden, um diese Aktion auszuführen.',
-        'Please sign in to perform this action.'
+        'Bitte mit dem zuvor festgelegten Benutzernamen und Passwort anmelden.',
+        'Please sign in with your previously created username and password.'
       ),
       invalid_credentials: translated(
         'Die Anmeldung ist nicht mehr gültig. Bitte erneut anmelden.',
