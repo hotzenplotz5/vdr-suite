@@ -162,6 +162,7 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
         out.requiredBytes = capacity.requiredBytes + capacity.reserveBytes;
         out.videoReencodeRequired = importVideoNeedsReencode(codec);
         out.status = plan.duplicateTarget ? "duplicate" :
+            !capacity.writable ? "unavailable" :
             capacity.sufficient ? "ready" : "insufficient";
         return true;
     } catch (...) {
