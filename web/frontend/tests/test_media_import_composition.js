@@ -248,6 +248,15 @@ function publishHomeResume() {}
   select.value = SOURCE;
   select.listeners.change();
   assert.strictEqual(start.disabled, false);
+  assert(findClass(mount, 'media-import-preview').textContent.includes('Die Herrschaft des Feuers'),
+    'MT.UX4 selected film is visible before confirmation');
+  assert(findClass(mount, 'media-import-source-details').textContent.includes(SOURCE),
+    'opaque selection token is retained only in technical details');
+  const beforeFirstImport = submits;
+  confirmLocal = false;
+  await start.listeners.click();
+  assert.strictEqual(submits, beforeFirstImport, 'cancelled preview never posts an import');
+  confirmLocal = true;
   await start.listeners.click();
   await settle();
   assert.strictEqual(submits, 1);
