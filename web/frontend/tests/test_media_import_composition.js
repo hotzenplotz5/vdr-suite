@@ -688,6 +688,36 @@ function publishHomeResume() {}
   assert.strictEqual(allSourceSelect.children.length, 71);
   assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
     beforePagedPosts, 'search and status filter are read-only');
+  // UX3: multi-select executes only the checked visible IDs after a separate
+  // confirmation. The Core operation API is not contacted on cancellation.
+  const checkRows = findClass(mount, 'media-import-selection');
+  const selectedBatch = findClass(mount, 'media-import-batch-selected');
+  const selectAllVisible = findClass(mount, 'media-import-select-all');
+  assert(checkRows && selectedBatch && selectAllVisible);
+  assert.strictEqual(checkRows.children.length, 70);
+  assert(selectedBatch.disabled);
+  checkRows.children[1].children[0].checked = true;
+  checkRows.children[1].children[0].listeners.change();
+  checkRows.children[2].children[0].checked = true;
+  checkRows.children[2].children[0].listeners.change();
+  assert.strictEqual(selectedBatch.disabled, false);
+  confirmLocal = false;
+  const beforeSelectionConfirmation = confirmCalls;
+  await selectedBatch.listeners.click();
+  await settle();
+  assert.strictEqual(confirmCalls, beforeSelectionConfirmation + 1);
+  assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
+    beforePagedPosts);
+  confirmLocal = true;
+  search.value = pagedSourceIds[69];
+  search.listeners.input();
+  assert(selectedBatch.disabled, 'filter changes revoke earlier multi-selection');
+  assert.strictEqual(checkRows.children.length, 1);
+  search.value = '';
+  search.listeners.input();
+  selectAllVisible.listeners.click();
+  assert.strictEqual(findClass(mount, 'media-import-selection-count').textContent,
+    '70 von 70 sichtbaren Filmen für den Stapel gewählt.');
   // The requested product boundary: exactly 100 films are offered.
   context.resetMediaImportVisibility(true);
   pagedSourceIds = Array.from({length: 100}, function (_, i) {
