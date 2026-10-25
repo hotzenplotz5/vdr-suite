@@ -83,6 +83,9 @@ let submits = 0;
 let counter = 0;
 const requests = [];
 let sessionRestores = 0;
+let previewMode = 'ready';
+let previewInspectionStatus = 'ready';
+let resolveDelayedPreview = null;
 const SOURCE = 'source_0123456789abcde';
 const OP = 'op_12345678901234567890123456789012';
 function reply(status, value, headers) {
@@ -98,15 +101,31 @@ function transport(url, options) {
   requests.push({path, options});
   const sourcePreview = /^\/api\/v1\/backends\/backend-a\/media-import-sources\/([A-Za-z0-9_-]{16,64})\/preview$/.exec(path);
   if (sourcePreview) {
+    const id = sourcePreview[1];
+    if (previewMode === 'defer-source' && id === SOURCE) {
+      previewMode = 'ready';
+      return new Promise(function (resolve) { resolveDelayedPreview = resolve; });
+    }
+    if (previewMode === 'pending-first' && id === SOURCE_B) {
+      previewMode = 'ready';
+      return Promise.resolve(reply(202, {
+        backendId: 'backend-a', sourceId: id, state: 'pending'
+      }));
+    }
+    if (previewMode === 'forbidden' && id === SOURCE) {
+      return Promise.resolve(reply(403, {detail: 'Denied'}));
+    }
     return Promise.resolve(reply(200, {
-      backendId: 'backend-a', sourceId: sourcePreview[1],
-      state: 'ready', status: 'ready',
-      title: 'Backend geprüfter Film',
-      targetFolder: sourcePreview[1] === SOURCE_B
+      backendId: 'backend-a', sourceId: id,
+      state: 'ready', status: previewInspectionStatus,
+      title: id === SOURCE_B ? 'Backend geprüfter Andor-Film' :
+        'Backend geprüfter Film',
+      targetFolder: id === SOURCE_B
         ? 'Serien/Andor/Weiterer Film' : 'Die Herrschaft des Feuers',
-      videoCodec: 'h264', sourceBytes: 2500000000,
+      videoCodec: previewInspectionStatus === 'insufficient' ? 'vp9' : 'h264',
+      sourceBytes: 2500000000,
       availableBytes: 12000000000, requiredBytes: 7600000000,
-      videoReencodeRequired: false
+      videoReencodeRequired: previewInspectionStatus === 'insufficient'
     }));
   }
   if (path.endsWith('/capabilities/media-import')) {
@@ -827,6 +846,83 @@ function publishHomeResume() {}
     'Scan nicht abgeschlossen'));
   delete sourceFolders[SOURCE_B];
   batchSources = null;
+
+  // UX4.2: production selection -> v1 preview -> UI, including a delayed
+  // response from film A after film B has become the current selection.
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B];
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const raceSelect = findClass(mount, 'media-import-source');
+  const racePosts = requests.filter(r => r.options.method === 'POST').length;
+  previewMode = 'defer-source';
+  raceSelect.value = SOURCE;
+  raceSelect.listeners.change();
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    'Backend-Vorschau wird angefordert'));
+  assert.strictEqual(typeof resolveDelayedPreview, 'function');
+  raceSelect.value = SOURCE_B;
+  raceSelect.listeners.change();
+  await settle();
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    'Backend geprüfter Andor-Film'));
+  resolveDelayedPreview(reply(200, {
+    backendId: 'backend-a', sourceId: SOURCE, state: 'ready', status: 'ready',
+    title: 'Veralteter Film', targetFolder: 'Falsches Ziel', videoCodec: 'h264',
+    sourceBytes: 1, availableBytes: 9000000000, requiredBytes: 5000000000,
+    videoReencodeRequired: false
+  }));
+  resolveDelayedPreview = null;
+  await settle();
+  assert(!findClass(mount, 'media-import-preview').textContent.includes(
+    'Veralteter Film'), 'late source A must never replace source B preview');
+
+  // HTTP 202 is intentionally visible until the bounded next GET completes.
+  previewMode = 'pending-first';
+  raceSelect.value = SOURCE_B;
+  raceSelect.listeners.change();
+  await settle();
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    'Film wird geprüft'));
+  const retryPreview = timerCallbacks[timerCallbacks.length - 1];
+  retryPreview();
+  await settle();
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    'VDR-Zielordner: Serien/Andor/Weiterer Film'));
+
+  previewInspectionStatus = 'duplicate';
+  raceSelect.value = SOURCE;
+  raceSelect.listeners.change();
+  await settle();
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    'Bereits als VDR-Aufnahme vorhanden'));
+  assert(findClass(mount, 'media-import-start').disabled);
+
+  previewInspectionStatus = 'insufficient';
+  raceSelect.listeners.change();
+  await settle();
+  const insufficientPreview = findClass(mount, 'media-import-preview').textContent;
+  assert(insufficientPreview.includes('Nicht genügend freier Platz') &&
+    insufficientPreview.includes('Video-Codec: vp9'));
+  assert(findClass(mount, 'media-import-start').disabled);
+
+  previewInspectionStatus = 'unavailable';
+  raceSelect.listeners.change();
+  await settle();
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    'konnte vom Backend nicht sicher geprüft werden'));
+  assert(findClass(mount, 'media-import-start').disabled);
+
+  previewInspectionStatus = 'ready';
+  previewMode = 'forbidden';
+  raceSelect.listeners.change();
+  await settle();
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    'Keine Berechtigung für diese Importvorschau'));
+  previewMode = 'ready';
+  assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
+    racePosts, 'all preview transitions are read-only');
 
     console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
