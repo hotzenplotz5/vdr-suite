@@ -437,7 +437,8 @@ struct CreatedTitleDirectories {
     }
 };
 
-ImportPlan inspectImport(const ImportRequest& request) {
+ImportPlan inspectImportChecked(const ImportRequest& request,
+                                bool rejectDuplicates) {
     const auto sourceRoot = checkedRoot(request.sourceRoot);
     const auto videoRoot = checkedRoot(request.videoRoot);
     require(!isChildOrEqual(sourceRoot, videoRoot) &&
@@ -478,13 +479,21 @@ ImportPlan inspectImport(const ImportRequest& request) {
     const auto title = safeTitle(metadata.title.empty() ?
         resolved.stem().string() : metadata.title);
     const auto folder = titleDestination(sourceRoot, videoRoot, resolved, title);
-    require(!containsRecording(folder), "target already has a VDR recording");
+    const bool duplicate = containsRecording(folder);
+    require(!rejectDuplicates || !duplicate,
+            "target already has a VDR recording");
     return {sourceRoot, videoRoot, resolved, folder, title,
             static_cast<std::uintmax_t>(size),
             static_cast<std::uint64_t>(sourceIdentity.device),
             static_cast<std::uint64_t>(sourceIdentity.inode),
             sourceIdentity.seconds,
-            sourceIdentity.nanoseconds};
+            sourceIdentity.nanoseconds, duplicate};
+}
+ImportPlan inspectImport(const ImportRequest& request) {
+    return inspectImportChecked(request, true);
+}
+ImportPlan inspectImportPreview(const ImportRequest& request) {
+    return inspectImportChecked(request, false);
 }
 
 bool importVideoNeedsReencode(const std::string& codec) {
@@ -495,7 +504,9 @@ bool importVideoNeedsReencode(const std::string& codec) {
 std::string probeImportVideoCodec(const ImportPlan& plan, ProcessRunner& runner) {
     // Read-only observation. The caller must treat this as a preview:
     // executeRemuxImport repeats the probe on the verified staged snapshot.
-    const auto fresh = inspectImport({plan.sourceRoot, plan.videoRoot, plan.sourceFile});
+    const auto fresh = inspectImportChecked(
+        {plan.sourceRoot, plan.videoRoot, plan.sourceFile},
+        !plan.duplicateTarget);
     require(fresh.sourceDevice == plan.sourceDevice &&
             fresh.sourceInode == plan.sourceInode &&
             fresh.sourceBytes == plan.sourceBytes &&
@@ -541,10 +552,31 @@ ImportCapacityPreview inspectImportCapacity(const ImportPlan& plan) {
         writable && available >= reserve && available - reserve >= budget};
 }
 
+ImportCapacityPreview inspectImportCapacity(const ImportPlan& plan) {
+    struct statvfs st{};
+    require(::statvfs(plan.videoRoot.c_str(), &st) == 0,
+            "destination capacity is unavailable");
+    require((st.f_flag & ST_RDONLY) == 0 &&
+            ::access(plan.videoRoot.c_str(), W_OK | X_OK) == 0,
+            "destination is not writable by the media worker");
+    const auto block = static_cast<std::uint64_t>(st.f_frsize);
+    require(block != 0 && st.f_blocks <= UINT64_MAX / block &&
+            st.f_bavail <= UINT64_MAX / block, "capacity overflow");
+    const auto total = st.f_blocks * block;
+    const auto available = st.f_bavail * block;
+    const auto reserve = std::max(4 * kGiB, total / 100 * 15);
+    require(plan.sourceBytes <=
+            (static_cast<std::uint64_t>(INT64_MAX) - 64 * kMiB) / 3,
+            "source too large for bounded preflight");
+    const auto budget =
+        static_cast<std::uint64_t>(plan.sourceBytes) * 3 + 64 * kMiB;
+    require(budget <= UINT64_MAX - reserve, "capacity budget overflow");
+    const auto required = budget + reserve;
+    return {available, required, available >= required};
+}
+
 void requireProductionCapacity(const ImportPlan& plan) {
-    const auto capacity = inspectImportCapacity(plan);
-    require(capacity.writable, "destination is not writable by the media worker");
-    require(capacity.sufficient,
+    require(inspectImportCapacity(plan).sufficient,
             "insufficient capacity for import staging and reserve");
 }
 
