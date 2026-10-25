@@ -27,6 +27,10 @@ public:
     bool listTrustedSourceIds(std::vector<std::string>& out) override;
     bool listTrustedSourceLabels(
         std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& out) override;
+    bool listTrustedSourceSnapshot(
+        std::vector<std::string>& ids,
+        std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+        bool& partial) override;
     bool authorize(const BackendAgentCommandAssignment& assignment,
                    const std::string& backendId,
                    std::uint64_t generation) override;
