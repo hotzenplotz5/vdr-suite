@@ -248,6 +248,35 @@ bool publicMediaImportSourcesPath(
         });
 }
 
+// One selected opaque source ID; never parse a filesystem path.
+bool publicMediaImportPreviewPath(
+    const std::string& path, std::string& backendId,
+    std::string& sourceId)
+{
+    static const std::string prefix = "/api/v1/backends/";
+    static const std::string marker = "/media-import-sources/";
+    static const std::string suffix = "/preview";
+    if (path.rfind(prefix, 0) != 0 ||
+        path.size() <= prefix.size() + marker.size() + suffix.size() ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        return false;
+    const auto split = path.find(marker, prefix.size());
+    if (split == std::string::npos) return false;
+    backendId = path.substr(prefix.size(), split - prefix.size());
+    sourceId = path.substr(split + marker.size(),
+        path.size() - suffix.size() - split - marker.size());
+    return !backendId.empty() && backendId.size() <= 128U &&
+        backendId != "." && backendId != ".." && backendId != "*" &&
+        std::all_of(backendId.begin(), backendId.end(),
+            [](unsigned char c) {
+                return std::isalnum(c) || c == '-' || c == '_' || c == '.';
+            }) && sourceId.size() >= 16U && sourceId.size() <= 64U &&
+        std::all_of(sourceId.begin(), sourceId.end(),
+            [](unsigned char c) {
+                return std::isalnum(c) || c == '-' || c == '_';
+            });
+}
+
 bool publicAccountPath(
     const std::string& path,
     std::string& accountId)
@@ -5517,6 +5546,31 @@ void PublicApiRuntime::registerMediaImportSourceLookup(
     mediaImportSourceLookup_ = std::move(lookup);
 }
 
+void PublicApiRuntime::registerMediaImportPreviewLookup(
+    MediaImportPreviewLookup lookup)
+{
+    std::lock_guard<std::mutex> guard(mediaImportPreviewLookupMutex_);
+    mediaImportPreviewLookup_ = std::move(lookup);
+}
+void PublicApiRuntime::resetMediaImportPreviewLookup()
+{
+    std::lock_guard<std::mutex> guard(mediaImportPreviewLookupMutex_);
+    mediaImportPreviewLookup_ = {};
+}
+PublicApiRuntime::MediaImportPreviewResult
+PublicApiRuntime::lookupMediaImportPreview(
+    const std::string& actorId, const std::string& backendId,
+    const std::string& sourceId) const
+{
+    MediaImportPreviewLookup lookup;
+    {
+        std::lock_guard<std::mutex> guard(mediaImportPreviewLookupMutex_);
+        lookup = mediaImportPreviewLookup_;
+    }
+    return lookup ? lookup(actorId, backendId, sourceId) :
+        MediaImportPreviewResult{};
+}
+
 void PublicApiRuntime::resetMediaImportSourceLookup()
 {
     std::lock_guard<std::mutex> guard(mediaImportSourceLookupMutex_);
@@ -8770,6 +8824,66 @@ bool PublicApiRuntime::tryHandleGet(
     const std::string& pairingToken) const
 {
     const std::string path = requestPath(requestTarget);
+
+    std::string previewBackendId, previewSourceId;
+    if (publicMediaImportPreviewPath(path, previewBackendId, previewSourceId))
+    {
+        if (actorRef.empty()) {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        const bool scoped =
+            authorizedBackendId == previewBackendId ||
+            authorizedBackendId == "*" ||
+            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
+                previewBackendId) != authorizedBackendIds.end() ||
+            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
+                std::string("*")) != authorizedBackendIds.end();
+        if (!scoped) {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (!requestQueryString(requestTarget).empty()) {
+            response = invalidRequestProblem(path,
+                "Media Import preview does not accept query parameters.",
+                requestId, correlationId);
+            return true;
+        }
+        const auto result = lookupMediaImportPreview(
+            actorRef, previewBackendId, previewSourceId);
+        if (result.status == MediaImportPreviewStatus::forbidden) {
+            response = problemResponse(403, "permission_denied", "Forbidden",
+                "Media Import preview is not authorized.", path,
+                requestId, correlationId);
+            return true;
+        }
+        if (result.status == MediaImportPreviewStatus::unavailable) {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"backendId\":\"" + previewBackendId +
+            "\",\"sourceId\":\"" + previewSourceId + "\"";
+        if (result.status == MediaImportPreviewStatus::pending) {
+            body += ",\"state\":\"pending\"}";
+            response = jsonResponse(body, requestId, correlationId);
+            response.statusCode = 202;
+            response.headers["Cache-Control"] = "no-store";
+            return true;
+        }
+        body += ",\"state\":\"ready\",\"status\":\"" +
+            jsonEscape(result.inspectionStatus) +
+            "\",\"title\":\"" + jsonEscape(result.title) +
+            "\",\"targetFolder\":\"" + jsonEscape(result.targetFolder) +
+            "\",\"videoCodec\":\"" + jsonEscape(result.videoCodec) +
+            "\",\"sourceBytes\":" + std::to_string(result.sourceBytes) +
+            ",\"availableBytes\":" + std::to_string(result.availableBytes) +
+            ",\"requiredBytes\":" + std::to_string(result.requiredBytes) +
+            ",\"videoReencodeRequired\":" +
+            std::string(result.videoReencodeRequired ? "true" : "false") + "}";
+        response = jsonResponse(body, requestId, correlationId);
+        response.headers["Cache-Control"] = "no-store";
+        return true;
+    }
 
     std::string sourceBackendId;
     if (publicMediaImportSourcesPath(path, sourceBackendId))
@@ -12416,11 +12530,14 @@ bool PublicApiRuntime::tryHandlePost(
         return true;
     }
 
+    std::string previewSourceId;
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
         publicMediaImportCapabilityPath(path, mediaCapabilityBackendId) ||
         publicMediaImportSourcesPath(path, mediaCapabilityBackendId) ||
+        publicMediaImportPreviewPath(path, mediaCapabilityBackendId,
+                                     previewSourceId) ||
         path == PublicRecordingCollectionPath ||
          path == PublicEpgGenrePath ||
          path == PublicEpgGenreEventsPath ||
@@ -12724,11 +12841,14 @@ bool PublicApiRuntime::tryHandleUnsupportedMethod(
         return true;
     }
 
+    std::string previewSourceId;
     if (path == "/api/v1" ||
         path == "/api/v1/capabilities" ||
         path == PublicBackendCollectionPath ||
         publicMediaImportCapabilityPath(path, mediaCapabilityBackendId) ||
         publicMediaImportSourcesPath(path, mediaCapabilityBackendId) ||
+        publicMediaImportPreviewPath(path, mediaCapabilityBackendId,
+                                     previewSourceId) ||
         path == PublicRecordingCollectionPath ||
          path == PublicSearchRecordingPath ||
          path == PublicSearchEpgPath ||
