@@ -170,6 +170,7 @@ DAEMON_SRC := \
         core/http/src/BrowserSessionCsrfRecoveryService.cpp \
         core/http/src/BrowserSessionHttpService.cpp \
         core/http/src/FirstAdminClaimHttpService.cpp \
+        core/http/src/FirstAdminOnscreenSetup.cpp \
         core/http/src/TestHttpServer.cpp \
         core/http/src/MediaGatewayHttpServer.cpp \
         core/media/src/LocalVdrRecordingSourceResolver.cpp \
