@@ -215,8 +215,21 @@ int main()
     fixture.write(wildcardRow + "\tFilme\n");
     assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
     assert(!partial && labels.size() == 4);
-    for (const auto& item : labels)
+    bool sawNestedFolder = false;
+    bool sawRootFolder = false;
+    for (const auto& item : labels) {
         assert(item.label.rfind("Standard: Filme · ", 0) == 0);
+        if (item.label == "Standard: Filme · episode_deep") {
+            assert(item.folder ==
+                "Serien/Star Wars-Andor/Staffel 1/Extras/Lange Reihe");
+            sawNestedFolder = true;
+        }
+        if (item.label == "Standard: Filme · clip") {
+            assert(item.folder.empty());
+            sawRootFolder = true;
+        }
+    }
+    assert(sawNestedFolder && sawRootFolder);
     fixture.write(wildcardRow + "\n");
     bool sawSeries = false;
     bool sawDeep = false;
