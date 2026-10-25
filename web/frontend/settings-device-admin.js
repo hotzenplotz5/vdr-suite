@@ -223,7 +223,8 @@
     parent.appendChild(card);
 
     const state = {items: [], cursor: '', selected: '', selectedDevice: null,
-      backends: [], grants: null, revision: '', loading: false, listing: false, serial: 0};
+      backends: [], grants: null, revision: '', loading: false, listing: false,
+      showRevoked: false, serial: 0};
     function setError(error) { status.textContent = errorText(error); }
     function markSelected() {
       Array.from(list.querySelectorAll('button[data-device-id]')).forEach(function(node) {
@@ -284,6 +285,60 @@
           state.loading = false;
         });
     }
+    function retireDevice() {
+      const device = state.selectedDevice;
+      if (!device || !device.active || device.revoked || !isDeviceId(device.deviceId) ||
+          state.loading || state.listing) return;
+      const id = device.deviceId;
+      state.loading = true;
+      status.textContent = 'Prüfe Gerätestatus vor dem Entfernen …';
+      // Lifecycle ETag belongs to the Device, not its grant set. Always read
+      // a fresh one before the explicit, irreversible revoke confirmation.
+      api.loadLifecycle(id).then(function(reply) {
+        if (!reply || !/^"[^"]{1,256}"$/.test(reply.etag || '') ||
+            !reply.data || reply.data.deviceId !== id ||
+            reply.data.active !== true || reply.data.revoked !== false)
+          throw new Error('Device lifecycle changed');
+        if (state.selected !== id || !global.confirm ||
+            !global.confirm('Gerät wirklich entfernen (widerrufen)?' +
+              '\\nName: ' + (device.displayName || 'Unbenanntes Gerät') +
+              '\\nDevice-ID: ' + id +
+              '\\nAlle Anmeldungen dieses Geräts werden ungültig. ' +
+              'Das lässt sich nicht rückgängig machen.'))
+          return null;
+        return api.revokeDevice(id, reply.etag);
+      }).then(function(reply) {
+        if (!reply) {
+          status.textContent = 'Gerät nicht entfernt.';
+          return;
+        }
+        if (!reply.data || reply.data.deviceId !== id ||
+            reply.data.active !== false || reply.data.revoked !== true)
+          throw new Error('Unexpected Device revoke response');
+        state.items = state.items.map(function(item) {
+          return item.deviceId === id
+            ? Object.assign({}, item, {active: false, revoked: true}) : item;
+        });
+        if (state.selected === id) {
+          ++state.serial;
+          state.selected = '';
+          state.selectedDevice = null;
+          state.grants = null;
+          state.revision = '';
+          detail.replaceChildren(text('p', 'Gerät widerrufen. Andere Geräte bleiben unverändert.'));
+        }
+        renderList();
+        status.textContent = 'Gerät widerrufen und aus der aktiven Liste ausgeblendet.';
+      }).catch(function(error) {
+        status.textContent = error && error.status === 412
+          ? 'Gerätestatus wurde geändert. Keine Wiederholung ohne neue Prüfung.'
+          : errorText(error);
+      }).finally(function() {
+        state.loading = false;
+        // Read-only synchronization, never an automatic mutation retry.
+        loadDevices(false, true);
+      });
+    }
     function renderDetail() {
       const item = state.selectedDevice, grant = state.grants;
       if (!item || !grant) return;
@@ -299,6 +354,15 @@
       technical.appendChild(text('p', 'Device-ID: ' + item.deviceId));
       technical.appendChild(text('p', 'Service-Actor: ' + item.actorId));
       detail.appendChild(technical);
+      if (item.active && !item.revoked) {
+        const retire = button('Gerät entfernen', retireDevice);
+        retire.setAttribute('aria-label', 'Gerät entfernen: ' + item.deviceId);
+        detail.appendChild(retire);
+        detail.appendChild(text('p',
+          'Widerruft alle Zugänge dieses Geräts. Nicht mehr genutzte Geräte ' +
+          'werden ausgeblendet; die Server-Historie bleibt erhalten.',
+          'settings-account-admin-meta'));
+      }
       detail.appendChild(text('h4', 'Vorhandene Berechtigungen'));
       if (!grant.items.length)
         detail.appendChild(text('p', 'Noch keine Freigaben für dieses Gerät.'));
@@ -353,13 +417,24 @@
     }
     function renderList() {
       list.replaceChildren();
+      const revokedCount = state.items.filter(function(device) {
+        return device && device.revoked;
+      }).length;
+      if (revokedCount) {
+        const toggle = button(state.showRevoked
+          ? 'Widerrufene ausblenden' : 'Widerrufene anzeigen (' + revokedCount + ')',
+          function() { state.showRevoked = !state.showRevoked; renderList(); });
+        list.appendChild(toggle);
+      }
       state.items.forEach(function(device) {
+        if (device && device.revoked && !state.showRevoked) return;
         if (!device || !isDeviceId(device.deviceId)) return;
         const entry = button(device.displayName || 'Unbenanntes Gerät',
           function() { selectDevice(device); }, 'settings-account-admin-account');
         entry.dataset.deviceId = device.deviceId;
         entry.appendChild(text('span',
-          device.revoked ? 'widerrufen' : device.active ? 'aktiv' : 'inaktiv',
+          (device.revoked ? 'widerrufen' : device.active ? 'aktiv' : 'inaktiv') +
+          ' · Device-ID: ' + device.deviceId,
           'settings-account-admin-meta'));
         list.appendChild(entry);
       });
@@ -417,7 +492,10 @@
           detail.replaceChildren(text('p', 'Gerät nicht mehr in der Liste.'));
         }
         if (!state.selected && state.items.length) {
-          return selectDevice(state.items[0]);
+          const firstVisible = state.items.find(function(d) {
+            return !d.revoked || state.showRevoked;
+          });
+          if (firstVisible) return selectDevice(firstVisible);
         }
       }).catch(setError).finally(function() {
         state.listing = false;
