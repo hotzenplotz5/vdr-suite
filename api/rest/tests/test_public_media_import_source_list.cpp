@@ -69,11 +69,12 @@ int main()
     // Three bounded pages, no path disclosure and no import side effect.
     // Continuation is bound to the exact actor/backend/source observation.
     std::vector<std::string> many;
+    std::vector<std::string> manyFolders(70, "");
     bool scanComplete = false;
     for (int i = 0; i < 70; ++i)
         many.push_back("source_" + std::to_string(10000000000ULL + i));
     api.registerMediaImportSourceLookup(
-        [&many, &scanComplete](const std::string& actor, const std::string& backend)
+        [&many, &manyFolders, &scanComplete](const std::string& actor, const std::string& backend)
         {
             PublicApiRuntime::MediaImportSourceResult result;
             if (actor != "actor:one" || backend != "backend-a") {
@@ -82,6 +83,8 @@ int main()
             }
             result.status = PublicApiRuntime::MediaImportSourceStatus::ok;
             result.ids = many;
+            result.labels.resize(many.size(), "Film");
+            result.folders = manyFolders;
             result.partial = !scanComplete;
             return result;
         });
@@ -110,6 +113,11 @@ int main()
     assert(first.body.find(many[32]) == std::string::npos);
     const std::string secondUrl = nextFrom(first.body);
     assert(secondUrl.find(url + "?cursor=mi1_") == 0);
+    // A server-confirmed folder change makes the previously issued cursor
+    // stale even if IDs and display names did not change.
+    manyFolders[0] = "Serien/Andor";
+    assert(getPage(secondUrl).statusCode == 409);
+    manyFolders[0].clear();
     auto second = getPage(secondUrl);
     assert(second.statusCode == 200);
     assert(second.body.find(many[32]) != std::string::npos);
