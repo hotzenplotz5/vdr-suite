@@ -226,8 +226,11 @@
         status.textContent = 'Einstellungen geladen.';
       }).catch(function (error) {
         state = null;
-        section.hidden = true;
-        status.textContent = error.message;
+        // A failed backend configuration read is visible to an already
+        // authorized administrator; 401/403 must still hide the panel.
+        section.hidden = error.status === 401 || error.status === 403;
+        status.textContent = 'Quellen konnten nicht geladen werden: ' +
+          error.message;
       }).finally(function () {
         busy = false;
         refreshControls();
