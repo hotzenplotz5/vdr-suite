@@ -195,6 +195,8 @@
     view.batch = batch;
     activeBatches[view.backendId] = batch;
     view.batchButton.disabled = true;
+    view.searchInput.disabled = true;
+    view.statusFilter.disabled = true;
     view.batchStopButton.hidden = false;
     view.select.value = ids[0];
     return startImport(view);
@@ -272,6 +274,8 @@
     view.markedSelect.disabled = true;
     view.releaseButton.disabled = true;
     view.reloadButton.disabled = true;
+    view.searchInput.disabled = true;
+    view.statusFilter.disabled = true;
     view.operationDetail.textContent = view.attempt.operationId
       ? 'Vorgang ' + view.attempt.operationId
       : view.attempt.pending
@@ -400,6 +404,8 @@
     view.markedSelect.disabled = true;
     view.releaseButton.disabled = true;
     view.batchButton.disabled = true;
+    view.searchInput.disabled = true;
+    view.statusFilter.disabled = true;
     view.sources = [];
     view.markedSources = [];
     view.allOrdinary = [];
@@ -439,6 +445,8 @@
           view.sourceTitles[item.sourceId] = item.label;
         });
         filterVisibleSources(view);
+        view.searchInput.disabled = false;
+        view.statusFilter.disabled = false;
         view.scanNotice.textContent = bounded && items.length >= MAX_IMPORT_FILMS
           ? 'Importgrenze: Höchstens 100 Filme pro Durchlauf. ' +
             '100 geprüfte Quellen werden angezeigt. Der Scan ist nicht ' +
