@@ -91,17 +91,17 @@ Freigabe-/Quell-/Lock-/Drop-in-Dateien und bei `/` den Debian-Dateibesitz.
 identischen Add-on-Dateien. Die Diagnose folgt keinen Symlinks im
 Installationsbaum, ändert keine Dateimodi und erstellt keine Dateien.
 
-**Grenze:** Diese Belege bestätigen nur Add-on-Dateiinhalt, **nicht**
-vertrauenswürdige Root-Freigaben, Agent-Dienstbereitschaft, Datenbankbackup,
-Suite-Datei-/Frontend-Parität, freie Kapazität, laufende Jobs oder
-ausstehende Migrationen. Ein positiver `check` ist **keine** Erlaubnis,
-`install_media_tools.sh` im bisherigen Live-Installationsmodus aufzurufen.
-Dieser Altmodus aktiviert automatisch Dienste und Zulassungen und ist
-**kein Updater**. Für MT.I2 stehen die sichere, ausdrückliche Live-Installation
-ohne automatische Freigabe, eine produktiv geprüfte Update-/Rücksetztransaktion
-sowie Paketbesitz-, Lock-/Freeze- und SQLite-Backup-Nachweise noch aus.
-Bis dahin **kein** Live-Update und keine Installation eines bereits
-vorhandenen Debian-Pakets mit dem bisherigen Installer.
+**Grenze:** `check`/`verify` bestätigen Add-on-Dateien, **nicht**
+effektive Root-/Core-Freigaben, laufende Agenten, alle Suite-Dateien oder
+eine sichere Paketmigration. Eine positive Prüfung startet **keine**
+Installation. Der alte Erstinstallationsadapter verlangt jetzt zusätzlich
+`MEDIA_TOOLS_INSTALL_CONFIRM=REVIEWED_FIRST_INSTALL`, eine exakte bisherige
+Suite-only-Stage, root-kontrollierte Staging-Kopie und SQLite-Backup. Er
+vergibt **keine** Zulassungen und startet **keine** Dienste; bei einem Fehler
+nach Deployment versucht er den vorherigen Suite-Stand aus dem
+verifizierten Snapshot wiederherzustellen und lässt die Dienste gestoppt.
+Es werden weder vorhandene Dateirechte korrigiert noch Debian-Dateien
+überlagert. **Das ist Quellcode, keine erneute yaVDR-Live-Abnahme.**
 
 ### MT.I2 — Update/Rollback in isolierten Testwurzeln
 
@@ -135,6 +135,52 @@ Freigaben. Für die echte yaVDR-Updatefähigkeit fehlen noch die verifizierte
 Host-Wartung, Paket-/Dateibesitz- und Versionsmigration, SQLite-Backup,
 sichere Root-kontrollierte Stage und die ausdrücklich bestätigte,
 zustandswahrende Dienststeuerung.
+
+
+
+### MT.I2 — expliziter Offline-Host-Updatepfad (yaVDR/systemd)
+
+`tools/addons/install_media_tools.sh live-update` und `live-rollback`
+verwenden den **gleichen** bestehenden `install_runtime_stage.py`-Deploy
+wie die synthetischen Tests. Der Hostpfad ist separat geschützt und setzt
+zwingend voraus:
+
+- Der Administrator hat **beide** bereits vorbereiteten, versiegelten
+  Suite+Media-Tools-Stages samt unabhängig geprüfter alter/neuer
+  Handler-SHA256. Der vollständig installierte vorherige Suite-Runtime-Stand
+  muss zu seiner alten Stage passen. Struktur und Modus beider Stages müssen
+  übereinstimmen; Paketbesitz oder abweichende Eigentümer stoppen die manuelle
+  Routine.
+- **Suite-Daemon und Backend-Agent sind zuvor bewusst gestoppt** und
+  fehlerfrei inaktiv. Die Routine stoppt, startet oder aktiviert keinen
+  Dienst selbst. Ein vorhandener root-kontrollierter exklusiver Media-Tools-
+  Wartungslock muss frei sein.
+- Bei `live-update` ist ein **neues** Verzeichnis unter einem
+  root-kontrollierten, nicht fremdschreibbaren Parent für die Backups
+  anzugeben, z. B. unter `/root`; dort legt das Skript unveränderliche
+  Kopien beider Stages, ein SQLite-Backup und die Rücksicherungsinformationen
+  an. Kein Root-Verzeichnis, dessen Inhalte bereits existieren, wird
+  umkonfiguriert.
+- Es gibt eine sichtbare Freigabekennung `LIVE-UPDATE-REVIEWED` bzw.
+  `LIVE-ROLLBACK-REVIEWED`. Der Rollback prüft auch, dass sich Datenbank
+  samt WAL/Journal seit dem Backup nicht geändert haben. Bei geänderter
+  Datenbank stoppt der automatische Rollback **ohne Datenverlust** und
+  fordert gesonderte Prüfung.
+
+Der Dateiaustausch wird mit der zuvor geprüften Stage verifiziert. Bei
+Fehlern rollt das Skript auf die gespeicherte alte Stage zurück; es startet
+danach ausdrücklich **keinen** Dienst. Weder `addon.json` noch die
+Installation erteilen Benutzerrechte, Backend/Core-Zulassungen oder einen
+Agent-Opt-in. Freigaben, Konfiguration und Dienststart bleiben separate
+ausdrückliche Schritte.
+
+**Abnahmegrenze:** Die unprivilegierten Stage-/Rollbacktests prüfen die
+gemeinsame Deploy-Mechanik, das Fail-Closed-Verhalten und die CLI. Ein
+vollständiger produktiver yaVDR-Update-Test (einschließlich realer
+Datenbank und Systemdienste) hat **nicht** stattgefunden. Falls altes
+Suite-Stage-Backup, saubere Paketbesitzinformation, freie Ressourcen oder
+Servicezustand nicht vorliegen, wird **nicht** aktualisiert. MLD/openSUSE
+sind weiterhin kein zugesagtes Ziel.
 
 
 ## Host installation and activation (Slice 4)
