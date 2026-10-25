@@ -2153,7 +2153,36 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
          << ",\"handlerOrigin\":\"" << jsonEscape(installed.origin)
          << "\",\"handlerVersion\":\"" << jsonEscape(installed.version)
          << "\",\"handlerSha256\":\"" << jsonEscape(installed.sha256)
-         << "\"}";
+         << "\"";
+    // The Core may request ONE previously authorized opaque source ID in
+    // the previous observation response. Never accept a path from the wire.
+    if (!pendingMediaImportPreviewSourceId_.empty()) {
+        vdrsuite::mediatools::MediaImportSourcePreview preview;
+        preview.sourceId = pendingMediaImportPreviewSourceId_;
+        if (std::find(ids.begin(), ids.end(), preview.sourceId) != ids.end()) {
+            if (!config_.mediaImportExecutor->inspectTrustedSource(
+                    preview.sourceId, preview))
+            {
+                preview = {};
+                preview.sourceId = pendingMediaImportPreviewSourceId_;
+                preview.status = "unavailable";
+            }
+        } else {
+            preview.status = "unavailable";
+        }
+        body << ",\"previewSourceId\":\"" << jsonEscape(preview.sourceId)
+             << "\",\"previewStatus\":\"" << jsonEscape(preview.status)
+             << "\",\"previewTitle\":\"" << jsonEscape(preview.title)
+             << "\",\"previewTargetFolder\":\""
+             << jsonEscape(preview.targetFolder)
+             << "\",\"previewVideoCodec\":\"" << jsonEscape(preview.videoCodec)
+             << "\",\"previewSourceBytes\":" << preview.sourceBytes
+             << ",\"previewAvailableBytes\":" << preview.availableBytes
+             << ",\"previewRequiredBytes\":" << preview.requiredBytes
+             << ",\"previewReencodeRequired\":"
+             << (preview.videoReencodeRequired ? "true" : "false");
+    }
+    body << "}";
     const auto response = transport_.postAuthenticated(
         state_.agentId, state_.credentialSecret,
         "/api/agent/v1/observations/media-import-sources", body.str());
@@ -2165,6 +2194,16 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
             : response.errorCode;
         return false;
     }
+    pendingMediaImportPreviewSourceId_.clear();
+    std::string requestedPreview;
+    if (jsonString(response.body, "previewSourceId", requestedPreview) &&
+        requestedPreview.size() >= 16U && requestedPreview.size() <= 64U &&
+        std::all_of(requestedPreview.begin(), requestedPreview.end(),
+            [](unsigned char c) {
+                return std::isalnum(c) || c == '-' || c == '_';
+            }) &&
+        std::find(ids.begin(), ids.end(), requestedPreview) != ids.end())
+        pendingMediaImportPreviewSourceId_ = requestedPreview;
     return true;
 }
 
