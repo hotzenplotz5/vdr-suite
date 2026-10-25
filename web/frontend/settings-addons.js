@@ -67,7 +67,7 @@
   }
   function sourceName(value) {
     return typeof value === 'string' && value.length > 0 &&
-      new TextEncoder().encode(value).length <= 64 &&
+      value.length <= 64 &&
       !/[/\\"\x00-\x1f\x7f]/.test(value);
   }
   function overlap(a, b) {
