@@ -286,6 +286,99 @@ int main() {
         ++checks;
     }
     {
+        // UX4: VDR directory structure must match the source hierarchy,
+        // not flatten all films into videoRoot/Sample. Scan/inspection is read-only.
+        Fixture f;
+        const fs::path nested = f.input / "Serien" / "Andor" / "Staffel 1";
+        fs::create_directories(nested);
+        fs::rename(f.source, nested / "Sample.mp4");
+        auto req = f.request();
+        req.sourceFile = nested / "Sample.mp4";
+        const auto plan = inspectImport(req);
+        const auto target = f.video / "Serien" / "Andor" / "Staffel 1" / "Sample";
+        assert(plan.titleDirectory == target);
+        assert(!fs::exists(f.video / "Serien"));
+        FakeProcess runner;
+        const auto output = executeRemuxImport(plan, runner,
+            [](const ImportPlan&) {});
+        assert(output.parent_path() == target &&
+               fs::exists(output / "00001.ts") && fs::exists(output / "index") &&
+               fs::exists(req.sourceFile));
+        assert(!fs::exists(f.video / "Sample"));
+        mustFail([&] { inspectImport(req); }); // exact folder duplicate
+        ++checks;
+    }
+    {
+        // Reuse existing VDR parents; an import failure must not create
+        // phantom empty recording folders or change source bytes.
+        Fixture f;
+        fs::create_directories(f.video / "Serien" / "Andor");
+        const fs::path nested = f.input / "Serien" / "Andor" / "Staffel 1";
+        fs::create_directories(nested);
+        fs::rename(f.source, nested / "Sample.mp4");
+        auto req = f.request();
+        req.sourceFile = nested / "Sample.mp4";
+        const auto plan = inspectImport(req);
+        FakeProcess runner;
+        runner.failIndex = true;
+        mustFail([&] { executeRemuxImport(plan, runner,
+            [](const ImportPlan&) {}); });
+        assert(fs::exists(f.video / "Serien" / "Andor") &&
+               !fs::exists(f.video / "Serien" / "Andor" / "Staffel 1") &&
+               fs::exists(req.sourceFile));
+        runner.failIndex = false;
+        const auto output = executeRemuxImport(plan, runner,
+            [](const ImportPlan&) {});
+        assert(output.parent_path() == plan.titleDirectory);
+        ++checks;
+    }
+    {
+        // Same filename in two legitimate subfolders is not a duplicate.
+        Fixture f;
+        const fs::path left = f.input / "Aktion";
+        const fs::path right = f.input / "Drama";
+        fs::create_directories(left);
+        fs::create_directories(right);
+        fs::rename(f.source, left / "Sample.mp4");
+        std::ofstream(right / "Sample.mp4") << "synthetic-source-unchanged";
+        FakeProcess runner;
+        const auto first = inspectImport({f.input, f.video, left / "Sample.mp4"});
+        const auto firstRec = executeRemuxImport(first, runner,
+            [](const ImportPlan&) {});
+        const auto second = inspectImport({f.input, f.video, right / "Sample.mp4"});
+        const auto secondRec = executeRemuxImport(second, runner,
+            [](const ImportPlan&) {});
+        assert(firstRec.parent_path() == f.video / "Aktion" / "Sample" &&
+               secondRec.parent_path() == f.video / "Drama" / "Sample" &&
+               fs::exists(firstRec / "00001.ts") &&
+               fs::exists(secondRec / "00001.ts"));
+        ++checks;
+    }
+    {
+        // Fail closed rather than silently sanitizing physical VDR folders.
+        for (const auto& invalid : {"Ungültig:Name", "VDR~Separator",
+                                    "Bad?Folder"}) {
+            Fixture f;
+            const auto root = f.input / invalid;
+            fs::create_directory(root);
+            fs::rename(f.source, root / "Sample.mp4");
+            mustFail([&] {
+                inspectImport({f.input, f.video, root / "Sample.mp4"});
+            });
+            assert(!fs::exists(f.video / "Sample"));
+        }
+        Fixture f;
+        fs::create_directories(f.input / "Serien");
+        fs::rename(f.source, f.input / "Serien" / "Sample.mp4");
+        fs::create_directory(f.base / "outside");
+        fs::create_directory_symlink(f.base / "outside", f.video / "Serien");
+        mustFail([&] {
+            inspectImport({f.input, f.video, f.input / "Serien" / "Sample.mp4"});
+        });
+        assert(fs::is_empty(f.base / "outside"));
+        ++checks;
+    }
+    {
         Fixture f;
         std::ofstream(f.input / "Sample.nfo") <<
             "<movie><title>Example &amp; Friends</title>"
