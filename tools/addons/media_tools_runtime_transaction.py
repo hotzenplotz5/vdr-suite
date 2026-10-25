@@ -265,11 +265,56 @@ def live_update(old: Path, new: Path, old_digest: str, new_digest: str,
 
 
 
+
+def live_rollback(backup_dir: Path, old_digest: str, new_digest: str) -> str:
+    if os.geteuid() != 0:
+        raise PreflightError("live rollback requires separately approved root invocation")
+    backup_dir = safe_root(backup_dir)
+    info = backup_dir.lstat()
+    if info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o700:
+        raise PreflightError("unsafe rollback backup ownership or mode")
+    review = examined_file(backup_dir, "review.json")
+    data = json.loads(review.read_text(encoding="utf-8"))
+    if (data.get("schema") != 1 or
+            data.get("previous_approved_sha256") != old_digest or
+            data.get("candidate_approved_sha256") != new_digest or
+            data.get("services") != "confirmed_inactive"):
+        raise PreflightError("rollback evidence differs from independent review")
+    previous = backup_dir / "previous-stage"
+    candidate = backup_dir / "candidate-stage"
+    check_stage_pair(previous, candidate, old_digest, new_digest)
+    live_services_quiescent()
+    with with_exclusive_lock(Path("/")):
+        live_services_quiescent()
+        if stable_sha(Path("/") / DB_REL) != data.get("database_sha256"):
+            raise PreflightError(
+                "database changed since backup; refuse automatic state overwrite")
+        check(candidate, Path("/"))
+        live_file_ownership(candidate)
+        try:
+            deploy(previous, Path("/"))
+            check(previous, Path("/"))
+        except Exception as exc:
+            try:
+                deploy(candidate, Path("/"))
+                check(candidate, Path("/"))
+            except Exception as restore:
+                raise PreflightError(
+                    "LIVE_ROLLBACK_FAILED; CURRENT_STAGE_RECOVERY_FAILED; "
+                    "SERVICES_MUST_STAY_STOPPED: " + str(restore)) from exc
+            raise PreflightError(
+                "LIVE_ROLLBACK_FAILED; CANDIDATE_STAGE_RESTORED; "
+                "SERVICES_STAY_STOPPED: " + str(exc)) from exc
+    return ("MEDIA_TOOLS_LIVE_FILE_ROLLBACK=PASS BACKUP=" + str(backup_dir) +
+            " SERVICES=STOPPED GRANTS=UNCHANGED")
+
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("update", "rollback", "live-update"))
-    parser.add_argument("--previous-stage", type=Path, required=True)
-    parser.add_argument("--new-stage", type=Path, required=True)
+    parser.add_argument("action", choices=("update", "rollback", "live-update", "live-rollback"))
+    parser.add_argument("--previous-stage", type=Path)
+    parser.add_argument("--new-stage", type=Path)
     parser.add_argument("--live-root", type=Path, required=True)
     parser.add_argument("--previous-approved-sha256", required=True)
     parser.add_argument("--new-approved-sha256", required=True)
@@ -279,21 +324,32 @@ def main() -> int:
     args = parser.parse_args()
     if args.action == "live-update":
         if (args.confirm != "LIVE-UPDATE-REVIEWED" or
-                args.live_root != Path("/") or args.backup_dir is None):
-            parser.error("live-update requires root '/', a new --backup-dir and LIVE-UPDATE-REVIEWED")
-    elif args.confirm != "ISOLATED-ONLY" or args.backup_dir is not None:
+                args.live_root != Path("/") or args.backup_dir is None or
+                args.previous_stage is None or args.new_stage is None):
+            parser.error("live-update needs previous/new stages, root '/', new --backup-dir and LIVE-UPDATE-REVIEWED")
+    elif args.action == "live-rollback":
+        if (args.confirm != "LIVE-ROLLBACK-REVIEWED" or
+                args.live_root != Path("/") or args.backup_dir is None or
+                args.previous_stage is not None or args.new_stage is not None):
+            parser.error("live-rollback needs root '/', existing --backup-dir and LIVE-ROLLBACK-REVIEWED")
+    elif (args.confirm != "ISOLATED-ONLY" or args.backup_dir is not None or
+          args.previous_stage is None or args.new_stage is None):
         parser.error("--confirm must equal ISOLATED-ONLY; live installation is forbidden")
     try:
         if args.action == "live-update":
             result = live_update(args.previous_stage, args.new_stage,
                                  args.previous_approved_sha256,
                                  args.new_approved_sha256, args.backup_dir)
+        elif args.action == "live-rollback":
+            result = live_rollback(args.backup_dir,
+                                   args.previous_approved_sha256,
+                                   args.new_approved_sha256)
         else:
             result = transaction(args.action, args.previous_stage, args.new_stage,
                                  args.live_root, args.previous_approved_sha256,
                                  args.new_approved_sha256)
         print(result)
-        if args.action == "live-update":
+        if args.action in ("live-update", "live-rollback"):
             print("SERVICES=STILL_STOPPED; APPROVAL_AND_ACTIVATION=UNCHANGED")
         else:
             print("REAL_VDR=UNCHANGED; AGENT=NOT_STARTED; APPROVAL=NOT_ISSUED")
