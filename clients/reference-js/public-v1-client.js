@@ -1779,6 +1779,15 @@
         return request(mediaImportPath(normalizedOptions,
           'media-import-sources'), normalizedOptions);
       },
+      getMediaImportSourcePreview(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        if (typeof value.sourceId !== 'string' ||
+            !/^[A-Za-z0-9_-]{16,64}$/.test(value.sourceId)) {
+          throw new Error('Media Import preview requires one opaque sourceId');
+        }
+        return request(mediaImportPath(value,
+          'media-import-sources/' + value.sourceId + '/preview'), value);
+      },
       submitMediaImport(options) {
         return requestMediaImport(options);
       },
