@@ -206,6 +206,18 @@ int main()
     assert(ids.size() == 4);
     for (const auto& id : ids)
         assert(id.rfind("scan_", 0) == 0);
+    // The productive wildcard scan, not only explicitly named files,
+    // must propagate the trusted source-root alias.
+    const std::string wildcardRow =
+        std::string("backend\t") + Key + "\t" +
+        (fixture.root / "media/input").string() + "\t" +
+        fixture.destination.string() + "\t*";
+    fixture.write(wildcardRow + "\tFilme\n");
+    assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
+    assert(!partial && labels.size() == 4);
+    for (const auto& item : labels)
+        assert(item.label.rfind("Standard: Filme · ", 0) == 0);
+    fixture.write(wildcardRow + "\n");
     bool sawSeries = false;
     bool sawDeep = false;
     std::string newMovieId;
