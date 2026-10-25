@@ -74,7 +74,7 @@ inline bool sourceName(const std::string& name) {
                 c == '\\' || c == '"';
         });
 }
-inline bool safeRoot(const std::string& value) {
+inline bool rootSyntax(const std::string& value) {
     namespace fs = std::filesystem;
     if (value.empty() || value.size() > 512U || value[0] != '/' ||
         value == "/" || value.find('\\') != std::string::npos ||
@@ -84,10 +84,16 @@ inline bool safeRoot(const std::string& value) {
     if (value.rfind("/home/", 0) == 0 || value == "/home" ||
         value.rfind("/root/", 0) == 0 || value == "/root" ||
         value.rfind("/run/user/", 0) == 0) return false;
+    const fs::path p(value);
+    return p == p.lexically_normal() && !value.empty() &&
+        value.back() != '/';
+}
+inline bool safeRoot(const std::string& value) {
+    namespace fs = std::filesystem;
+    if (!rootSyntax(value)) return false;
     try {
         const fs::path p(value);
-        return p == p.lexically_normal() && fs::is_directory(p) &&
-            fs::canonical(p) == p;
+        return fs::is_directory(p) && fs::canonical(p) == p;
     } catch (...) { return false; }
 }
 inline bool overlap(const std::string& a, const std::string& b) {
@@ -160,8 +166,8 @@ inline bool readLedger(Snapshot& out) {
             off = end + 1;
         }
         if (col.size() < 5U || col.size() > 6U ||
-            col[0] != local || col[4] != "*" || !safeRoot(col[2]) ||
-            !safeRoot(col[3]) || !sourceName(
+            col[0] != local || col[4] != "*" || !rootSyntax(col[2]) ||
+            !rootSyntax(col[3]) || !sourceName(
                 col.size() == 6U ? col[5] :
                 std::filesystem::path(col[2]).filename().string()))
             return false;
