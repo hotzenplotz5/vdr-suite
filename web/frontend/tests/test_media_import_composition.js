@@ -786,6 +786,13 @@ function publishHomeResume() {}
   folderList.children[0].listeners.click(); // Andor
   assert.strictEqual(folderSelect.children.length, 2);
   assert.strictEqual(folderSelect.children[1].value, SOURCE_B);
+  // UX4: preview only claims the authoritative source-relative folder;
+  // destination/codec/size/capacity are not fabricated by the browser.
+  folderSelect.value = SOURCE_B;
+  folderSelect.listeners.change();
+  const nestedPreview = findClass(mount, 'media-import-preview').textContent;
+  assert(nestedPreview.includes('Quellordner: Serien › Andor.'));
+  assert(nestedPreview.includes('Zielordner, Codec, Dateigröße'));
   assert.strictEqual(breadcrumb.children.length, 3);
   breadcrumb.children[0].listeners.click(); // root
   assert.strictEqual(folderSelect.children.length, 2);
