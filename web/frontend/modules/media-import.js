@@ -624,29 +624,11 @@
     function poll() {
       if (!isCurrent(view) || generation !== view.previewGeneration ||
           view.select.value !== id) return;
-      if (typeof global.fetch !== 'function') {
-        view.previewStatus = 'Die Servervorschau ist derzeit nicht verfügbar.';
-        updatePreview(view);
-        return;
-      }
-      const url = '/api/v1/backends/' + encodeURIComponent(view.backendId) +
-        '/media-import-sources/' + encodeURIComponent(id) + '/preview';
-      Promise.resolve(global.fetch(url, {
-        credentials: 'same-origin', cache: 'no-store',
-        headers: {'Accept': 'application/json'}
-      })).then(function (response) {
-        return response.text().then(function (text) {
-          let data;
-          try { data = JSON.parse(text); }
-          catch (_) { throw new Error('Ungültige Vorschauantwort'); }
-          if (!response.ok) {
-            const error = new Error('Vorschau abgelehnt: HTTP ' + response.status);
-            error.status = response.status;
-            throw error;
-          }
-          return data;
-        });
-      }).then(function (data) {
+      // Reuse the canonical Public-v1 client. No second ad-hoc fetch path.
+      Promise.resolve(publicClient().getMediaImportSourcePreview({
+        backendId: view.backendId, sourceId: id,
+        credentials: 'same-origin', cache: 'no-store'
+      })).then(function (data) {
         if (!isCurrent(view) || generation !== view.previewGeneration ||
             view.select.value !== id) return;
         if (!data || data.backendId !== view.backendId ||
