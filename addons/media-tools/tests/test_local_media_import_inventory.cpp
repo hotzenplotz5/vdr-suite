@@ -208,9 +208,17 @@ int main()
     assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
     assert(!partial && labels.size() == 74);
 
-    // Crossing the 256-source ceiling MUST preserve verified candidates
-    // and explicitly mark the result incomplete, not hide everything.
-    for (int index = 70; index < 270; ++index) {
+    // Exactly 100 candidates remain a complete scan (4 + 96).
+    for (int index = 70; index < 96; ++index) {
+        const auto clip = bulkDir / ("episode_" + std::to_string(index) + ".mkv");
+        { std::ofstream out(clip); out << "synthetic-bulk-media"; }
+        fs::last_write_time(clip,
+            fs::file_time_type::clock::now() - std::chrono::minutes(10));
+    }
+    assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
+    assert(!partial && labels.size() == 100);
+    // The 101st eligible file MUST not appear, and overflow is explicit.
+    for (int index = 96; index < 270; ++index) {
         const auto clip = bulkDir /
             ("episode_" + std::to_string(index) + ".mkv");
         { std::ofstream out(clip); out << "synthetic-bulk-media"; }
@@ -218,8 +226,8 @@ int main()
             fs::file_time_type::clock::now() - std::chrono::minutes(10));
     }
     assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
-    assert(partial && labels.size() == 256);
-    assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 256);
+    assert(partial && labels.size() == 100);
+    assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 100);
     fs::remove_all(bulkDir);
 
     // Directory-entry overflow is a PARTIAL read, not an empty/falsely
@@ -230,7 +238,7 @@ int main()
         { std::ofstream out(huge / ("unused_" + std::to_string(index) + ".txt")); }
     assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
     assert(partial);
-    assert(labels.size() <= 256);
+    assert(labels.size() <= 100);
     fs::remove_all(huge);
     assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
     assert(!partial && labels.size() == 4);
