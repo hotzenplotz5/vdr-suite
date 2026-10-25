@@ -207,6 +207,27 @@ widerruft nur betroffene Anmeldesitzungen und rotiert das bestehende
 Passwort-Credential. Details: `man vdr-suite-human-account-recover` sowie
 [ADR-0066](adr/ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md).
 
+### MLD-Testfälle für Kontoanlage und Passwort-Recovery
+
+Die folgenden Prüfschritte betreffen ausschließlich eine isolierte
+Testinstallation mit vollständiger Sicherung; keine produktive Datenbank für
+den Test löschen oder zurücksetzen:
+
+1. Auf einem **noch nicht eingerichteten** MLD-System vom PC im selben Heimnetz
+   den ersten Administrator über das Webformular anlegen und anmelden.
+2. Abmelden, den Browser wechseln und den VDR neu starten: Es muss jeweils
+   die **normale Anmeldung** erscheinen, niemals ein erneuter First-Admin-Dialog.
+   Ein erneuter Claim muss serverseitig abgewiesen werden.
+3. Auf der Testinstallation die bestehende Konto-ID ermitteln und mit dem
+   lokalen Root-Werkzeug das Passwort dieses Kontos ändern. Danach darf
+   **ausschließlich das neue Passwort** funktionieren; das alte darf weder
+   neue Logins noch vorherige Browser-Sitzungen legitimieren.
+4. Prüfen, dass Konto-ID und vorhandene Berechtigungen unverändert bleiben
+   und die Ersteinrichtung auch nach der Wiederherstellung gesperrt bleibt.
+
+Den MLD-Paketumfang einschließlich des Recovery-Werkzeugs vor dem praktischen
+Test gesondert prüfen.
+
 **Teststatus MLD:** Dieser Ablauf gehört zum noch offenen
 `work/mld66-platform-integration`-Branch und benötigt eine echte
 Paket- und Laufzeitabnahme. Er darf nicht allein aufgrund erfolgreicher
