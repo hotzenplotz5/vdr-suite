@@ -1134,10 +1134,19 @@ function publishHomeResume() {}
     'failed read-only diagnosis should permit a new attempt');
 
   // A delayed GET must not resurrect a review after filter changes.
+  previewMode = 'ready';
+  const concurrentSelect = findClass(mount, 'media-import-source');
+  concurrentSelect.value = SOURCE;
+  concurrentSelect.listeners.change();
+  await settle();
+  assert(!findClass(mount, 'media-import-start').disabled);
   previewMode = 'defer-source';
   const staleBatch = findClass(mount, 'media-import-batch').listeners.click();
   await settle();
   assert.strictEqual(typeof resolveDelayedPreview, 'function');
+  await findClass(mount, 'media-import-start').listeners.click();
+  assert.strictEqual(submits, postsBeforeForbidden,
+    'one-film POST must not interleave with a pending batch diagnosis');
   const staleSearch = findClass(mount, 'media-import-search');
   staleSearch.value = 'keine Übereinstimmung';
   staleSearch.listeners.input();
