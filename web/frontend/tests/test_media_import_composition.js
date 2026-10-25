@@ -940,6 +940,17 @@ function publishHomeResume() {}
   assert(insufficientPreview.includes('Nicht genügend freier Platz') &&
     insufficientPreview.includes('Video-Codec: vp9'));
   assert(findClass(mount, 'media-import-start').disabled);
+  assert(!findClass(mount, 'media-import-decision-label').hidden,
+    'space pressure must not hide PC delegation for unsupported video');
+  const insufficientDecision = findClass(mount, 'media-import-decision');
+  insufficientDecision.value = 'import';
+  insufficientDecision.listeners.change();
+  assert(findClass(mount, 'media-import-start').disabled,
+    'local encoding must stay blocked without space');
+  insufficientDecision.value = 'desktop';
+  insufficientDecision.listeners.change();
+  assert(!findClass(mount, 'media-import-start').disabled,
+    'PC marker must remain available despite a local space shortage');
 
   previewInspectionStatus = 'unavailable';
   raceSelect.listeners.change();
@@ -980,6 +991,30 @@ function publishHomeResume() {}
   assert.strictEqual(submits, skipBefore + 1);
   assert.strictEqual(requests.filter(x => x.options.method === 'POST').slice(-1)[0].options.body,
     JSON.stringify({sourceId: SOURCE, videoDecision: 'skip'}));
+
+  // The alternative PC path must be dispatchable without enough local
+  // staging space; it only marks the original, not a VDR recording.
+  context.resetMediaImportVisibility(true);
+  previewInspectionStatus = 'insufficient';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const spaceSelect = findClass(mount, 'media-import-source');
+  spaceSelect.value = SOURCE;
+  spaceSelect.listeners.change();
+  await settle();
+  const spaceDecision = findClass(mount, 'media-import-decision');
+  assert(!findClass(mount, 'media-import-decision-label').hidden);
+  spaceDecision.value = 'desktop';
+  spaceDecision.listeners.change();
+  assert(!findClass(mount, 'media-import-start').disabled);
+  const pcBefore = submits;
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert.strictEqual(submits, pcBefore + 1);
+  assert.strictEqual(requests.filter(x => x.options.method === 'POST').slice(-1)[0].options.body,
+    JSON.stringify({sourceId: SOURCE, videoDecision: 'desktop'}));
+  previewInspectionStatus = 'ready';
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
