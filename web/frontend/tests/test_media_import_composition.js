@@ -66,6 +66,7 @@ let submitMode = 'accepted';
 let batchSources = null;
 let markedSources = [];
 let sourcePartial = false;
+let sourceDisplayOverride = null;
 let pagedSourceIds = null;
 let batchOperations = [];
 const BATCH_OP_A = 'op_' + 'd'.repeat(32);
@@ -117,7 +118,7 @@ function transport(url, options) {
     return Promise.resolve(sourcesStatus === 200
       ? reply(200, {items: (batchSources || [SOURCE]).concat(markedSources).map(function (id) {
         return {sourceId: id, label: id === SOURCE
-          ? 'Die Herrschaft des Feuers' :
+          ? (sourceDisplayOverride || 'Die Herrschaft des Feuers') :
             id === MARK_PC ? 'Film.pc_encode' :
             id === MARK_SKIP ? 'Film.skipped' :
             id === MARK_DUP ? 'Film.duplicate' : 'Weiterer Film'};
@@ -690,6 +691,19 @@ function publishHomeResume() {}
   assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
     beforePagedPosts, '101 sources must never dispatch an import');
   pagedSourceIds = null;
+
+  // UX2: trusted backend display alias is text-only presentation;
+  // it never becomes a browser-supplied absolute root path or a new grant.
+  context.resetMediaImportVisibility(true);
+  sourceDisplayOverride = 'Standard: Filme · Die Herrschaft des Feuers';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const aliasSelect = findClass(mount, 'media-import-source');
+  assert(aliasSelect.children[1].textContent.includes(sourceDisplayOverride));
+  assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
+    beforePagedPosts, 'displaying root aliases must be read-only');
+  sourceDisplayOverride = null;
 
     console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
