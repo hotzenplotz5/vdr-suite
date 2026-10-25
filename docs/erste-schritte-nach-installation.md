@@ -103,6 +103,34 @@ Bei der Diagnose zunächst `systemctl status vdr-suite-daemon.service --no-pager
 
 ## 5. Ersten Administrator anlegen
 
+**Einfachster Weg auf einem neu installierten System (sobald der neue Befehl im jeweiligen Paket enthalten ist):**
+
+Am vertrauenswürdigen lokalen Terminal als Root ausführen:
+
+```bash
+vdr-suite-first-admin-setup
+```
+
+Das Programm fragt interaktiv nach Administrator-Login, Anzeigename und
+zweimal dem selbst gewählten Passwort (mindestens zwölf Zeichen). Die
+Passworteingabe wird nicht angezeigt. Danach wird das Administratorkonto
+direkt über die vorhandenen First-Admin-Bootstrap- und Claim-Dienste angelegt.
+Es ist dafür **kein Python-Skript, kein HTTP-Aufruf und kein Setup-Secret im
+Browser** erforderlich. Anschließend in der Weboberfläche mit dem neuen Konto
+anmelden.
+
+Das Programm funktioniert **nur auf einem noch nicht beanspruchten Server**
+und benötigt Root sowie ein interaktives Terminal. Es verändert keine bereits
+angelegten Konten. Bei einer noch aktiven früheren Bootstrap-Ausgabe wartet
+man deren Ablauf ab, anstatt die Datenbank oder Sicherheitstabellen zu löschen.
+Für bestehende Administratoren ist ausschließlich das vorgesehene
+Kontowiederherstellungswerkzeug zuständig.
+
+**Ältere Installationen ohne `vdr-suite-first-admin-setup`:**
+Der bisherige getrennte, sichere Bootstrap-/HTTPS-Claim-Weg bleibt erhalten.
+Der folgende Ablauf beschreibt diesen technischen Rückfallweg, nicht den
+bevorzugten Benutzerpfad.
+
 **Es gibt kein mitgeliefertes Standard-Admin-Passwort.** Die Implementierung benutzt einen bewusst getrennten zweistufigen Ablauf:
 
 1. Auf dem **lokalen Server** gibt ein vertrauenswürdiger Root-Operator mit dem installierten Werkzeug `vdr-suite-first-admin-bootstrap` ein einmaliges Setup-Material aus. Das Werkzeug ist nur für einen *noch nicht beanspruchten* (unclaimed) Server zulässig; Standardgültigkeit **900 Sekunden** (zulässig 300–3600 Sekunden).
