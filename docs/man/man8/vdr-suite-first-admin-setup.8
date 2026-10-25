@@ -1,0 +1,47 @@
+.TH VDR-SUITE-FIRST-ADMIN-SETUP 8 "October 2026" "VDR-Suite" "System Administration"
+.SH NAME
+vdr-suite-first-admin-setup \- interactively create the first VDR-Suite administrator
+.SH SYNOPSIS
+.B vdr-suite-first-admin-setup
+.RI [ --database " PATH" ]
+.SH DESCRIPTION
+.B vdr-suite-first-admin-setup
+is a local, root-only interactive setup command for an unclaimed VDR-Suite
+server. It requires an interactive terminal. It asks for a login name, display
+name, and a new password twice with terminal echo disabled.
+.PP
+The command uses the existing short-lived first-admin bootstrap issuance
+service and the existing atomic first-admin claim service locally, against
+the same Suite SQLite database. It does not send credentials over HTTP,
+print the setup secret or password, create any new security authority, or
+install a separate service.
+.PP
+It refuses to create another first administrator if the server is already
+claimed. If an earlier short-lived bootstrap issuance is still active, it
+also refuses to issue a competing proof. Allow that authorization to expire
+before retrying; do not delete or recreate the SQLite database.
+.SH OPTIONS
+.TP
+.BI --database " PATH"
+Use an explicit absolute path to a VDR-Suite database. The default is
+.IR /var/lib/vdr-suite/vdr-suite.db .
+.SH SECURITY
+The operator must be root and have a trusted interactive terminal.
+Passwords require a minimum of 12 characters. The command does not
+accept a password on the command line or through standard input pipes.
+It does not change existing accounts, login credentials, or session grants.
+.PP
+The local claim produces the same first-admin audit event and administrator
+grant as the established HTTP claim route.
+.SH EXIT STATUS
+0 on successful first-admin creation, 64 on invalid input,
+74 on storage or authorization failure, 77 on permission or claim-state
+protection failure.
+.SH FILES
+.TP
+.I /var/lib/vdr-suite/vdr-suite.db
+Default Suite security database.
+.SH SEE ALSO
+.BR vdr-suite-first-admin-bootstrap (8),
+.BR vdr-suite-human-account-recover (8),
+.BR vdr-suite-daemon (8)
