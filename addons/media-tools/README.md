@@ -457,6 +457,30 @@ encoding or expose the new operator CLI flag to browsers. The existing
 source/agent/Core operation system should be extended, never copied into
 a second queue.
 
+## MT.UX1 – bounded read-only source discovery (code candidate)
+
+The existing root-owned backend `media-import.tsv` remains the only source
+authority. The Agent performs an iterative recursive read-only traversal; it
+does not follow directory symlinks and does not accept paths from the browser.
+Eligible aged sources are mapped to opaque identity IDs and revalidated by
+the Agent before import execution. Its current safety limits are **4096
+visited directory entries and 256 eligible source IDs** per observation.
+
+An oversized inventory no longer discards all verified items: the bounded
+snapshot is published with `partial=true`. The Agent reports IDs, advisory
+labels and completeness from one scan; absent/older status is treated as
+partial. Core rechecks provider approval, actor/backend scope and live Agent
+lease. Public v1 paginates the **existing** observed source snapshot in
+32-item pages and binds cursors to actor/backend/catalog revision. The browser
+may display `Scan abgeschlossen` only for `meta.partial=false`.
+
+**Not yet complete:** pagination of the 256-ID observation is NOT a file
+system continuation. Scans past 256 sources or 4096 entries still need a
+bounded, independently authorized Agent/Core continuation that preserves
+selection revalidation. This code candidate has not had a confirmed C++ build,
+CI run or real yaVDR acceptance. No package, service, VDR recording, filesystem
+owner or live configuration was changed by these source edits.
+
 ## Importer: source-preserving metadata and codec fallback
 
 The existing backend C++ import implementation remains the only importer.
