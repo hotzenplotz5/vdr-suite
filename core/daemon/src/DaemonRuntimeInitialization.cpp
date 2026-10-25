@@ -630,7 +630,8 @@ bool DaemonRuntime::initialize()
             // inspects the remote handler via its own local filesystem.
             if (!trustedMediaToolsProvider(backendId, now) ||
                 !mediaImportCatalog_->list(
-                    *live, backendId, now, result.ids, result.labels))
+                    *live, backendId, now, result.ids, result.labels,
+                    &result.partial))
                 return result;
             result.status = API::MediaImportSourceStatus::ok;
             return result;
