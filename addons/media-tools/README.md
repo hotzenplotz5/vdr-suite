@@ -563,12 +563,13 @@ Daemon-Installationen wird ein Root-Schreibversuch abgewiesen. Die
 Server-/C++-/CI-/Real-VDR-Abnahme dieses noch nicht installierten
 Branchcodes bleibt offen.
 
-**No live action occurred:** this is a source-only CLI change, not permission
-to run it on a productive machine or restart any service. Real configuration
-requires an explicit, separately reviewed root operation while the Agent is
-safely stopped. Removing or rearranging roots changes the accepted opaque
-selection IDs and invalidates outstanding client selections; Core/Agent
-revalidate authority at dispatch.
+**Keine Live-Aktion in diesem Entwicklungsdurchlauf:** Die direkte
+Web-Speicherfunktion ist ausschließlich Quellcode auf dem Arbeitsbranch.
+Es wurde kein Dienst installiert, neu gestartet oder umkonfiguriert.
+Entfernen oder Umsortieren der Quellen ändert die zugeordneten Auswahl-IDs;
+der Core-/Agent-Weg prüft jede Auswahl bei der Ausführung erneut.
+Der bestehende Offline-Konfigurator bleibt für Wartung verfügbar, ist
+aber kein Bestandteil des normalen Web-Workflows.
 
 **Browser administration:** Der lokale Speichervorgang ist auf dem Branch
 implementiert; für entfernte Backend-Rechner noch nicht. Vollständiger
