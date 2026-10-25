@@ -180,6 +180,10 @@
     if (!isCurrent(view) || view.batch || view.attempt ||
         view.submitting || view.sources.length < 2 ||
         view.localReencode.checked || view.decision.value !== 'import') return;
+    if (typeof global.confirm !== 'function' ||
+        !global.confirm(view.sources.length + ' Filme nacheinander importieren? ' +
+          'Jeder Auftrag wird vom Core einzeln geprüft. Bei einem ungewissen ' +
+          'Ergebnis wird die Reihe angehalten. Keine Umkodierung freigegeben.')) return;
     const ids = view.sources.slice();
     const batch = {remaining: ids, total: ids.length, completed: 0, waiting: ''};
     view.batch = batch;
@@ -316,6 +320,10 @@
         // Marked sources can only be RELEASED. Never offer one to any
         // normal import, encoding choice or batch.
         view.sources = ordinary.map(function (item) { return item.sourceId; });
+        view.sourceTitles = Object.create(null);
+        ordinary.forEach(function (item, index) {
+          view.sourceTitles[item.sourceId] = item.label || ('Film ' + (index + 1));
+        });
         view.markedSources = marked.map(function (item) { return item.sourceId; });
         view.select.replaceChildren();
         const blank = element('option', '', 'Quelle auswählen');
@@ -329,6 +337,7 @@
         });
         view.select.value = '';
         view.sourceDetails.textContent = '';
+        view.preview.textContent = 'Film auswählen, Entscheidung prüfen und bestätigen.';
         view.markedSelect.replaceChildren();
         const markedBlank = element('option', '', 'Markierte Datei auswählen');
         markedBlank.value = '';
@@ -367,6 +376,7 @@
             : 'Quellenliste konnte nicht geladen werden. Bitte aktualisieren.';
         view.scanNotice.textContent = 'Scan nicht abgeschlossen. Keine aktuellen ' +
           'Ergebnisse; bitte nur nach erfolgreicher Aktualisierung auswählen.';
+        view.preview.textContent = 'Keine aktuelle Auswahl; noch kein Import vorbereitet.';
         report(view, message, true);
       });
   }
@@ -396,7 +406,10 @@
           : selected === 'release'
             ? 'Diese markierte Datei ausdrücklich wieder freigeben? ' +
               'Es wird noch KEIN Import gestartet. Eine vorhandene Zieldatei wird niemals überschrieben.'
-            : '';
+            : view.batch ? '' :
+              'Diesen Film importieren? ' + (view.sourceTitles[sourceId] || 'Auswahl') +
+              '. Die Datei wird vom Backend erneut geprüft; eine lokale ' +
+              'Umkodierung ist nicht freigegeben.';
     if (confirmation &&
         (typeof global.confirm !== 'function' || !global.confirm(confirmation)))
       return Promise.resolve();
@@ -541,6 +554,10 @@
     select.disabled = true;
     label.appendChild(select);
     root.appendChild(label);
+    const preview = element('p', 'media-import-preview',
+      'Film auswählen, Entscheidung prüfen und bestätigen.');
+    preview.setAttribute('role', 'status');
+    root.appendChild(preview);
     const choiceLabel = element('label', 'media-import-decision-label', 'Entscheidung für diesen Film');
     const decision = element('select', 'media-import-decision');
     decision.disabled = true;
@@ -614,6 +631,7 @@
       refreshButton: refreshButton, newButton: newButton,
       message: message, operationDetail: operationDetail,
       scanNotice: scanNotice, sourceDetails: sourceDetails,
+      preview: preview, sourceTitles: Object.create(null),
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
       reads: 0, timer: null, attempt: activeAttempts[backendId] || null};
     current = view;
@@ -621,6 +639,11 @@
       startButton.disabled = view.submitting || !view.sources.includes(select.value);
       sourceDetails.textContent = view.sources.includes(select.value)
         ? 'Auswahl-ID: ' + select.value : '';
+      preview.textContent = view.sources.includes(select.value)
+        ? 'Vorschau: ' + (view.sourceTitles[select.value] || 'Film') +
+          '. Die Quelle bleibt erhalten. Das Backend ermittelt das Aufnahmeziel ' +
+          'und prüft die Datei erneut vor dem Auftrag.'
+        : 'Film auswählen, Entscheidung prüfen und bestätigen.';
     });
     localReencode.addEventListener('change', function () {
       if (!isCurrent(view) || view.batch) return;
