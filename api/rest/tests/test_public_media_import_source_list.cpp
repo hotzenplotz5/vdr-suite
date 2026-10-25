@@ -208,6 +208,35 @@ int main()
     assert(ready.body.find("\"videoReencodeRequired\":true") !=
            std::string::npos);
     assert(ready.body.find("/srv/vdr") == std::string::npos);
+    // Capacity failures and unavailable sources are still read-only
+    // observations, not implicit import/encoding authorizations.
+    for (const auto& inspection : {"insufficient", "unavailable"}) {
+        const std::string inspectionStatus(inspection);
+        api.registerMediaImportPreviewLookup(
+            [inspectionStatus](const std::string&, const std::string&,
+                               const std::string& source)
+            {
+                PublicApiRuntime::MediaImportPreviewResult result;
+                result.status = PublicApiRuntime::MediaImportPreviewStatus::ready;
+                result.sourceId = source;
+                result.inspectionStatus = inspectionStatus;
+                if (inspectionStatus == "insufficient") {
+                    result.title = "Andor";
+                    result.targetFolder = "Serien/Andor/Staffel 1/Film";
+                    result.videoCodec = "hevc";
+                    result.sourceBytes = 1234;
+                    result.availableBytes = 1000;
+                    result.requiredBytes = 9000;
+                }
+                return result;
+            });
+        const auto checked = getPage(preview);
+        assert(checked.statusCode == 200);
+        assert(checked.body.find(
+            "\\"status\\":\\"" + inspectionStatus + "\\"") !=
+            std::string::npos);
+        assert(checked.body.find("/srv/") == std::string::npos);
+    }
     ApiResponse unsafePost;
     assert(api.tryHandlePost(preview, "", "", unsafePost));
     assert(unsafePost.statusCode == 405);
