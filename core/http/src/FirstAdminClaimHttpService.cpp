@@ -3,6 +3,7 @@
 #include "FirstAdminClaimService.h"
 #include "FirstAdminBootstrapRepository.h"
 #include "FirstAdminBootstrapIssuanceService.h"
+#include <arpa/inet.h>
 
 #include <algorithm>
 #include <chrono>
@@ -100,6 +101,46 @@ std::string headerValue(
         }
     }
     return {};
+}
+
+// Only browser origins using private literal IPs or local-only names may
+// start a password-only first-admin claim. Reject public DNS names to avoid
+// turning a same-LAN browser into a DNS rebinding setup authorization.
+bool privateLanHost(const std::string& hostHeader)
+{
+    const std::string host = lowerAscii(trimAscii(hostHeader));
+    if (host.empty() || host.find('/') != std::string::npos ||
+        host.find('@') != std::string::npos) return false;
+    std::string name;
+    if (host.front() == '[') {
+        const auto end = host.find(']');
+        if (end == std::string::npos ||
+            (end + 1 < host.size() && host[end + 1] != ':')) return false;
+        name = host.substr(1, end - 1);
+        in6_addr addr{};
+        if (inet_pton(AF_INET6, name.c_str(), &addr) != 1) return false;
+        return IN6_IS_ADDR_LOOPBACK(&addr) ||
+            (addr.s6_addr[0] & 0xfeU) == 0xfcU ||
+            IN6_IS_ADDR_LINKLOCAL(&addr);
+    }
+    const auto separator = host.find(':');
+    name = host.substr(0, separator);
+    if (name == "localhost" || name == "127.0.0.1") return true;
+    in_addr addr{};
+    if (inet_pton(AF_INET, name.c_str(), &addr) == 1) {
+        const uint32_t ip = ntohl(addr.s_addr);
+        return (ip & 0xff000000U) == 0x0a000000U ||
+               (ip & 0xfff00000U) == 0xac100000U ||
+               (ip & 0xffff0000U) == 0xc0a80000U;
+    }
+    const auto suffix = [&](const std::string& ending) {
+        return name.size() > ending.size() &&
+               name.compare(name.size() - ending.size(), ending.size(), ending) == 0;
+    };
+    // Common LAN-only mDNS and router hostnames. Public DNS names are not
+    // a substitute for a trusted local device address.
+    return suffix(".local") || suffix(".lan") ||
+           suffix(".home.arpa") || suffix(".fritz.box");
 }
 
 bool jsonContentType(const HttpServerRequest& request)
@@ -650,24 +691,21 @@ HttpServerResponse FirstAdminClaimHttpService::handle(
     {
         FirstAdminClaimRequest local;
         if (parseClaimBody(request.body, local, LocalFields)) {
-        // The local web form is authorized only by the actual TCP loopback peer.
-        // A reverse proxy may also be on loopback: require local browser Host
-        // and Origin as well, and reject any forwarding metadata.
-        const std::string host = lowerAscii(headerValue(request, "Host"));
-        const std::string origin = lowerAscii(headerValue(request, "Origin"));
-        const bool localHost =
-            host == "localhost:18080" || host == "127.0.0.1:18080" ||
-            host == "[::1]:18080" || host == "localhost" ||
-            host == "127.0.0.1" || host == "[::1]";
-        const bool localOrigin =
-            origin == "http://" + host || origin == "https://" + host;
-        if (!request.peerIsLoopback || !localHost || !localOrigin ||
+        // Trust the kernel-derived direct private-subnet TCP peer, not a
+        // caller-supplied X-Forwarded header. Browser Host/Origin must match.
+        const std::string host = lowerAscii(trimAscii(headerValue(request, "Host")));
+        const std::string origin = lowerAscii(trimAscii(headerValue(request, "Origin")));
+        const bool originMatches = !host.empty() &&
+            (origin == "http://" + host || origin == "https://" + host);
+        if (!request.peerIsTrustedLan || !privateLanHost(host) ||
+            !originMatches ||
             !headerValue(request, "Forwarded").empty() ||
             !headerValue(request, "X-Forwarded-For").empty() ||
             !headerValue(request, "X-Forwarded-Host").empty() ||
             !headerValue(request, "X-Forwarded-Proto").empty()) {
-            return response(403, "local_setup_only",
-                "First administrator setup requires a local browser", context);
+            local.clearSecrets();
+            return response(403, "lan_setup_only",
+                "First administrator setup requires a trusted local network", context);
         }
         if (!bootstrapRepository_)
             return response(503, "local_setup_unavailable",
