@@ -129,7 +129,7 @@ struct Fixture
                 });
         http =
             std::make_unique<FirstAdminClaimHttpService>(
-                *claimService);
+                *claimService, &bootstraps);
     }
 
     void registerBootstrap(const std::string& bootstrapId)
@@ -398,6 +398,39 @@ int main()
             fixture.http->handle(wrongType);
         assert(typeResponse.statusCode == 415);
         assertNoSecrets(typeResponse);
+    }
+
+    {
+        // Browser-local setup uses the actual socket peer, never an HTTP header.
+        Fixture fixture;
+        HttpServerRequest local;
+        local.method = "POST";
+        local.path = "/api/security/first-admin/local/claim";
+        local.headers["Host"] = "localhost:18080";
+        local.headers["Origin"] = "http://localhost:18080";
+        local.headers["Content-Type"] = "application/json";
+        local.body =
+            "{\"loginName\":\"admin\",\"password\":\"first-admin-browser-password\","
+            "\"displayName\":\"First administrator\"}";
+
+        assert(fixture.http->handles(local));
+        assert(fixture.http->handle(local).statusCode == 403);
+        assert(fixture.accounts.listAll().accounts.empty());
+
+        local.peerIsLoopback = true;
+        local.headers["Host"] = "example.com";
+        assert(fixture.http->handle(local).statusCode == 403);
+        local.headers["Host"] = "localhost:18080";
+        local.headers["X-Forwarded-For"] = "192.168.1.25";
+        assert(fixture.http->handle(local).statusCode == 403);
+        local.headers.erase("X-Forwarded-For");
+
+        const HttpServerResponse created = fixture.http->handle(local);
+        assert(created.statusCode == 201);
+        assertNoSecrets(created);
+        assert(fixture.accounts.listAll().accounts.size() == 1U);
+        assert(fixture.http->handle(local).statusCode == 409);
+        assert(fixture.accounts.listAll().accounts.size() == 1U);
     }
 
     return 0;
