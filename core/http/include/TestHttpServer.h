@@ -22,6 +22,7 @@
 #include "FirstAdminBootstrapRepository.h"
 #include "FirstAdminClaimHttpService.h"
 #include "FirstAdminClaimService.h"
+#include "FirstAdminOnscreenSetup.h"
 #include "HumanAccountAdministrationRepository.h"
 #include "HumanAccountAdministrationService.h"
 #include "HumanAccountCreationRepository.h"
@@ -133,6 +134,8 @@ private:
         firstAdminBootstrapRepository_;
     std::unique_ptr<FirstAdminClaimService>
         firstAdminClaimService_;
+    std::unique_ptr<FirstAdminOnscreenSetup>
+        firstAdminOnscreenSetup_;
     std::unique_ptr<FirstAdminClaimHttpService>
         firstAdminClaimHttpService_;
     std::unique_ptr<BrowserSessionCredentialRepository>
