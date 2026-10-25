@@ -52,6 +52,14 @@ int main()
     assert(catalog.list(live, "backend", 100, items, labels));
     assert(items.size() == 70 && labels.size() == 70);
     assert(items.back() == bulkIds.back());
+    bool partial = false;
+    assert(catalog.list(live, "backend", 100, items, labels, &partial));
+    assert(partial); // conservative default for older Agent observations
+    assert(catalog.publish(actor, live, "backend", "instance", 7,
+        std::vector<std::string>(bulkIds.begin(), bulkIds.end()), 100,
+        "manual", "0.1.0", approvedSha, bulkLabels, false));
+    assert(catalog.list(live, "backend", 100, items, labels, &partial));
+    assert(!partial && items.size() == 70);
     bulkIds.resize(257, "source_oversized_0000000001");
     assert(!catalog.publish(actor, live, "backend", "instance", 7,
         bulkIds, 100, "manual", "0.1.0", approvedSha));
