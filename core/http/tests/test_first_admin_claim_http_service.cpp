@@ -401,35 +401,40 @@ int main()
     }
 
     {
-        // Browser-local setup uses the actual socket peer, never an HTTP header.
+    {
+        // The first browser-admin claim accepts a direct private home-LAN
+        // client, but never a public/network-forged peer or forwarded origin.
         Fixture fixture;
-        HttpServerRequest local;
-        local.method = "POST";
-        local.path = "/api/security/first-admin/claim";
-        local.headers["Host"] = "localhost:18080";
-        local.headers["Origin"] = "http://localhost:18080";
-        local.headers["Content-Type"] = "application/json";
-        local.body =
+        HttpServerRequest setup;
+        setup.method = "POST";
+        setup.path = "/api/security/first-admin/claim";
+        setup.headers["Host"] = "192.168.178.20:18080";
+        setup.headers["Origin"] = "http://192.168.178.20:18080";
+        setup.headers["Content-Type"] = "application/json";
+        setup.body =
             "{\"loginName\":\"admin\",\"password\":\"first-admin-browser-password\","
             "\"displayName\":\"First administrator\"}";
 
-        assert(fixture.http->handles(local));
-        assert(fixture.http->handle(local).statusCode == 403);
+        assert(fixture.http->handles(setup));
+        assert(fixture.http->handle(setup).statusCode == 403);
         assert(fixture.accounts.listAll().accounts.empty());
 
-        local.peerIsLoopback = true;
-        local.headers["Host"] = "example.com";
-        assert(fixture.http->handle(local).statusCode == 403);
-        local.headers["Host"] = "localhost:18080";
-        local.headers["X-Forwarded-For"] = "192.168.1.25";
-        assert(fixture.http->handle(local).statusCode == 403);
-        local.headers.erase("X-Forwarded-For");
-
-        const HttpServerResponse created = fixture.http->handle(local);
+        setup.peerIsTrustedLan = true;
+        setup.headers["Host"] = "example.com";
+        setup.headers["Origin"] = "http://example.com";
+        assert(fixture.http->handle(setup).statusCode == 403);
+        setup.headers["Host"] = "192.168.178.20:18080";
+        setup.headers["Origin"] = "http://example.com";
+        assert(fixture.http->handle(setup).statusCode == 403);
+        setup.headers["Origin"] = "http://192.168.178.20:18080";
+        setup.headers["X-Forwarded-For"] = "192.168.178.100";
+        assert(fixture.http->handle(setup).statusCode == 403);
+        setup.headers.erase("X-Forwarded-For");
+        const HttpServerResponse created = fixture.http->handle(setup);
         assert(created.statusCode == 201);
         assertNoSecrets(created);
         assert(fixture.accounts.listAll().accounts.size() == 1U);
-        assert(fixture.http->handle(local).statusCode == 409);
+        assert(fixture.http->handle(setup).statusCode == 409);
         assert(fixture.accounts.listAll().accounts.size() == 1U);
     }
 
