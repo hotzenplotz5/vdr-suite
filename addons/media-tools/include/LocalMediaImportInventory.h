@@ -20,14 +20,19 @@ public:
     // inspectable source for this backend, without producing any side effect.
     bool hasTrustedSource(const std::string& backendId);
     // A root-owned TSV row ending in '*' opts in a bounded, read-only
-    // one-level directory scan; only unchanged, aged candidates are exposed.
+    // recursive directory scan; only unchanged, aged candidates are exposed.
     // Discovery does not enqueue jobs or weaken Core authorization.
-    // Fail closed: opaque IDs only, no paths or partial trusted inventory.
+    // Opaque IDs only. Partial results must be explicitly marked incomplete.
     bool listTrustedSourceIds(const std::string& backendId,
                               std::vector<std::string>& sourceIds);
     bool listTrustedSourceLabels(
         const std::string& backendId,
         std::vector<MediaImportSourceLabel>& sources);
+    // One consistent read of the verified bounded catalog and its
+    // completion status; no filesystem paths escape to the client.
+    bool listTrustedSourceSnapshot(
+        const std::string& backendId,
+        std::vector<MediaImportSourceLabel>& sources, bool& partial);
 
 private:
     std::filesystem::path installRoot_;
