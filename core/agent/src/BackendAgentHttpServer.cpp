@@ -631,6 +631,7 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
     std::uint64_t generation = 0;
     std::vector<std::string> sourceIds;
     std::vector<std::string> sourceLabels;
+    std::vector<std::string> sourceFolders;
     bool partial = true; // legacy Agents have no completeness proof
     if (request.body.find("\"partial\"") != std::string::npos &&
         !jsonBool(request.body, "partial", partial))
@@ -639,6 +640,9 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
     if (request.body.find("\"sourceLabels\"") != std::string::npos &&
         !jsonStringArray(request.body, "sourceLabels", sourceLabels, 100U, 160U))
         return errorResponse(400, "invalid_media_import_source_labels");
+    if (request.body.find("\"sourceFolders\"") != std::string::npos &&
+        !jsonStringArray(request.body, "sourceFolders", sourceFolders, 100U, 240U))
+        return errorResponse(400, "invalid_media_import_source_folders");
     if (!jsonString(request.body, "backendId", backendId) ||
         !jsonString(request.body, "agentInstanceId", instanceId) ||
         !jsonUnsigned(request.body, "backendGeneration", generation) ||
@@ -651,7 +655,8 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
     if (!live || !mediaImportCatalog_->publish(
             context, *live, backendId, instanceId, generation,
             sourceIds, unixNow(),
-            handlerOrigin, handlerVersion, handlerSha256, sourceLabels, partial))
+            handlerOrigin, handlerVersion, handlerSha256, sourceLabels,
+            partial, sourceFolders))
         return errorResponse(409, "media_import_sources_agent_fenced");
     return jsonResponse(200, "{\"outcome\":\"accepted\"}");
 }
