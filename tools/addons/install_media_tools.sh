@@ -4,6 +4,16 @@
 # service/config/backup choreography as the installer for MLD or other init systems.
 set -Eeuo pipefail
 stop() { printf 'MEDIA_TOOLS_INSTALL=STOP %s\n' "$*" >&2; exit 1; }
+# Explicit offline rollback from the immutable root-owned update backup.
+if [ "${1:-}" = live-rollback ]; then
+  [ "$#" -eq 5 ] ||
+    stop 'Usage: install_media_tools.sh live-rollback BACKUP_DIR OLD_SHA256 NEW_SHA256 LIVE-ROLLBACK-REVIEWED'
+  SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd -P) || stop 'script path unavailable'
+  exec python3 "$SCRIPT_DIR/media_tools_runtime_transaction.py" live-rollback \
+    --live-root / --backup-dir "$2" \
+    --previous-approved-sha256 "$3" --new-approved-sha256 "$4" \
+    --confirm "$5"
+fi
 # Explicit yaVDR file update: old+new complete Suite stages are mandatory;
 # services must already be stopped. No service control or grant issuance.
 if [ "${1:-}" = live-update ]; then
@@ -50,6 +60,7 @@ if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
   echo 'Usage: install_media_tools.sh COMMIT (--prepare|REVIEWED_SHA256) BACKEND [SOURCE_ROOT VIDEO_ROOT] [PREPARED_WORKDIR]'
   echo 'Reuse prepared: install_media_tools.sh prepare ABSOLUTE_WORKDIR REVIEWED_SHA256'
   echo 'Explicit offline live update: install_media_tools.sh live-update OLD_STAGE NEW_STAGE OLD_SHA256 NEW_SHA256 NEW_ROOT_BACKUP_DIR LIVE-UPDATE-REVIEWED'
+  echo 'Explicit offline live rollback: install_media_tools.sh live-rollback BACKUP_DIR OLD_SHA256 NEW_SHA256 LIVE-ROLLBACK-REVIEWED'
   echo 'Isolated test only: install_media_tools.sh (update|rollback) OLD_STAGE NEW_STAGE SYNTHETIC_ROOT OLD_SHA256 NEW_SHA256 ISOLATED-ONLY'
   echo 'Read-only: install_media_tools.sh (check|verify) ABSOLUTE_STAGE ABSOLUTE_ROOT REVIEWED_SHA256'
   echo 'Defaults: SOURCE_ROOT=/srv/video/Filme VIDEO_ROOT=/srv/vdr/video.00'
