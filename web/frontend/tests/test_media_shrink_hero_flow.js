@@ -130,6 +130,7 @@ vm.createContext(context);
 vm.runInContext(hero, context);
 const root = new Node('main');
 const copy = root.appendChild(new Node('div', 'recordings2-detail-copy'));
+const actionHost = root.appendChild(new Node('details', 'recordings2-actions'));
 const recording = {recordingId, title: 'Testaufnahme'};
 async function flush() {
   for (let i = 0; i < 20; i++) await Promise.resolve();
@@ -154,7 +155,13 @@ function nodesByTag(tag) {
 (async function run() {
   context.VdrSuiteRecordings2HeroDetail.enhance(root, recording, backendId, {});
   await flush();
-  button('HEVC-Vorprüfung').click();
+  const shrink = button('Aufnahme verkleinern (HEVC)');
+  assert.strictEqual(shrink.parentNode, actionHost,
+    'MT.UX6 HEVC action belongs to the existing recording actions');
+  shrink.click();
+  assert.strictEqual(actionHost.open, true);
+  assert(actionHost.querySelector('.recordings2-media-check'),
+    'one existing HEVC plan/stage/publish panel, not a second flow');
   button('Vorprüfung starten').click();
   await flush();
   assert.strictEqual(calls.filter(c => c.action === 'plan').length, 1);
