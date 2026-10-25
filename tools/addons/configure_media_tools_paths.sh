@@ -7,6 +7,7 @@ stop() { printf 'MEDIA_TOOLS_CONFIG=STOP %s\n' "$*" >&2; exit 1; }
 if [ "$#" -eq 1 ] && [ "$1" = --help ]; then
   echo 'Usage: configure_media_tools_paths.sh [SOURCE_ROOT VIDEO_ROOT] [--default-name NAME] [--add-root ROOT NAME]...'
   echo 'The first root is the default; at most 16 additional roots.'
+  echo '--check validates the proposed configuration read-only, with no service stop.'
   echo 'Default SOURCE_ROOT=/srv/video/Filme VIDEO_ROOT=/srv/vdr/video.00'
   echo 'Stop the Backend Agent before using; restart it only after reviewing the result.'
   exit 0
@@ -18,6 +19,7 @@ done
 SOURCE=/srv/video/Filme
 VIDEO=/srv/vdr/video.00
 DEFAULT_NAME=
+CHECK_ONLY=0
 EXTRA_ROOTS=()
 EXTRA_NAMES=()
 # Preserve the original two-positional-argument interface exactly.
@@ -30,6 +32,10 @@ if [ "$#" -gt 0 ] && [ "${1:0:1}" != '-' ]; then
 fi
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --check)
+      [ "$CHECK_ONLY" -eq 0 ] || stop 'duplicate --check'
+      CHECK_ONLY=1
+      shift ;;
     --default-name)
       [ "$#" -ge 2 ] && [ -z "$DEFAULT_NAME" ] ||
         stop 'expected one default source name'
@@ -62,8 +68,10 @@ BACKEND=$(sed -n 's/^BACKEND_ID=//p' /etc/vdr-suite/backend-agent.conf | head -n
   [ "$BACKEND" != . ] && [ "$BACKEND" != .. ] || stop 'backend not configured'
 
 # Do not interrupt an active/authorized Agent job: operator must stop it safely.
-systemctl is-active --quiet vdr-suite-backend-agent &&
-  stop 'Backend Agent running; stop it safely before reconfiguration'
+if [ "$CHECK_ONLY" -eq 0 ]; then
+  systemctl is-active --quiet vdr-suite-backend-agent &&
+    stop 'Backend Agent running; stop it safely before reconfiguration'
+fi
 # Installation evidence is Suite-owned; a Debian package is not required.
 # Reuse the existing root-owned approval/handler verifier, for both source
 # and packaged installations. Neither grants an execution capability.
@@ -156,6 +164,21 @@ fi
 [ -f "$OVERRIDE" ] && grep -Fxq \
   'ExecStart=/usr/sbin/vdr-suite-backend-agent --config /etc/vdr-suite/backend-agent.conf --enable-media-import --enable-media-shrink --media-shrink-state-dir /var/lib/vdr-suite/backend-agent/media-shrink' \
   "$OVERRIDE" || stop 'unrecognized Backend Agent override'
+
+if [ "$CHECK_ONLY" -eq 1 ]; then
+  echo "MEDIA_TOOLS_CONFIG_CHECK=PASS"
+  echo "BACKEND=$BACKEND"
+  echo "DEFAULT_SOURCE=$SOURCE"
+  echo "DEFAULT_NAME=${DEFAULT_NAME:-<legacy>}"
+  for ((i=0; i<${#EXTRA_ROOTS[@]}; i++)); do
+    printf 'EXTRA_SOURCE_%02d=%s NAME=%s\n' "$((i+1))" \
+      "${EXTRA_ROOTS[i]}" "${EXTRA_NAMES[i]}"
+  done
+  echo "VIDEO_ROOT=$VIDEO"
+  echo 'FILES_CHANGED=NO'
+  echo 'SERVICES_RESTARTED=NO'
+  exit 0
+fi
 
 BACKUP=$(mktemp -d /root/vdr-suite-media-path-backup.XXXXXXXX) ||
   stop 'cannot create root backup'
