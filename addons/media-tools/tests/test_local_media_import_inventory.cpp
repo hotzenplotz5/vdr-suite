@@ -182,6 +182,31 @@ int main()
            scanned.sourceFile == newFile ||
            scanned.sourceFile == seriesFile ||
            scanned.sourceFile == deepFile);
+    // MT.UX1 bounded catalog regression: all 74 eligible files are visible,
+    // not silently truncated at the former 32-ID Agent ceiling.
+    const auto bulkDir = fixture.root / "media/input/Bulk";
+    fs::create_directory(bulkDir);
+    for (int index = 0; index < 70; ++index) {
+        const auto clip = bulkDir /
+            ("episode_" + std::to_string(index) + ".mkv");
+        { std::ofstream out(clip); out << "synthetic-bulk-media"; }
+        fs::last_write_time(clip,
+            fs::file_time_type::clock::now() - std::chrono::minutes(10));
+    }
+    assert(inventory.listTrustedSourceIds("backend", ids));
+    assert(ids.size() == 74);
+    assert(inventory.listTrustedSourceLabels("backend", labels));
+    assert(labels.size() == 74);
+    bool sawBulk = false;
+    for (const auto& id : ids) {
+        LocalMediaImportSource source;
+        assert(inventory.resolve("backend", id, source));
+        if (source.sourceFile == bulkDir / "episode_69.mkv") sawBulk = true;
+    }
+    assert(sawBulk);
+    fs::remove_all(bulkDir);
+    assert(inventory.listTrustedSourceIds("backend", ids));
+    assert(ids.size() == 4);
     const auto previous = ids;
     assert(inventory.listTrustedSourceIds("backend", ids) && ids == previous);
     fs::last_write_time(newFile, fs::file_time_type::clock::now());
