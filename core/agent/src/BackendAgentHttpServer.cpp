@@ -651,14 +651,38 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
         !jsonString(request.body, "handlerVersion", handlerVersion) ||
         !jsonString(request.body, "handlerSha256", handlerSha256))
         return errorResponse(400, "invalid_media_import_sources_observation");
+    BackendAgentMediaImportCatalog::Preview preview;
+    const bool hasPreview = request.body.find("\"previewSourceId\"") !=
+        std::string::npos;
+    if (hasPreview &&
+        (!jsonString(request.body, "previewSourceId", preview.sourceId) ||
+         !jsonString(request.body, "previewStatus", preview.status) ||
+         !jsonString(request.body, "previewTitle", preview.title) ||
+         !jsonString(request.body, "previewTargetFolder", preview.targetFolder) ||
+         !jsonString(request.body, "previewVideoCodec", preview.videoCodec) ||
+         !jsonUnsigned(request.body, "previewSourceBytes", preview.sourceBytes) ||
+         !jsonUnsigned(request.body, "previewAvailableBytes", preview.availableBytes) ||
+         !jsonUnsigned(request.body, "previewRequiredBytes", preview.requiredBytes) ||
+         !jsonBool(request.body, "previewReencodeRequired",
+                   preview.videoReencodeRequired)))
+        return errorResponse(400, "invalid_media_import_preview");
     const auto live = repository_.findAgentForBackend(backendId);
+    const auto now = unixNow();
     if (!live || !mediaImportCatalog_->publish(
             context, *live, backendId, instanceId, generation,
-            sourceIds, unixNow(),
-            handlerOrigin, handlerVersion, handlerSha256, sourceLabels,
-            partial, sourceFolders))
+            sourceIds, now, handlerOrigin, handlerVersion, handlerSha256,
+            sourceLabels, partial, sourceFolders))
         return errorResponse(409, "media_import_sources_agent_fenced");
-    return jsonResponse(200, "{\"outcome\":\"accepted\"}");
+    // Only a matching pending selected-ID result can be accepted.
+    // No absolute host paths are accepted in a preview observation.
+    if (hasPreview && !mediaImportCatalog_->acceptPreview(
+            *live, backendId, now, preview))
+        return errorResponse(409, "media_import_preview_not_requested");
+    const std::string next = mediaImportCatalog_->nextPreviewRequest(
+        *live, backendId, now);
+    return jsonResponse(200, next.empty()
+        ? "{\"outcome\":\"accepted\"}"
+        : "{\"outcome\":\"accepted\",\"previewSourceId\":\"" + next + "\"}");
 }
 
 HttpServerResponse BackendAgentHttpServer::handleCommandPoll(
