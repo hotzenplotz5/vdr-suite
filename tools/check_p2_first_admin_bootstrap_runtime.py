@@ -70,7 +70,8 @@ def main():
         'database.execute("COMMIT;")',
         "FirstAdminClaimState::claimed",
         "FirstAdminBootstrapStatus::claimed",
-        "FirstAdminBootstrapStatus::consumed",
+        'registration("bootstrap-after-consumed", "2099-01-02 00:00:00")',
+        "assert(first.bootstrap.verifierHash.empty());",
         "FirstAdminBootstrapStatus::invalidated",
     ):
         require("test", marker)
