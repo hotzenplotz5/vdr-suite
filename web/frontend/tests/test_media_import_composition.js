@@ -67,6 +67,7 @@ let batchSources = null;
 let markedSources = [];
 let sourcePartial = false;
 let sourceDisplayOverride = null;
+const sourceFolders = Object.create(null);
 let pagedSourceIds = null;
 let batchOperations = [];
 const BATCH_OP_A = 'op_' + 'd'.repeat(32);
@@ -110,7 +111,11 @@ function transport(url, options) {
         ? '/api/v1/backends/backend-a/media-import-sources?cursor=mi1_1_' +
           (offset + 32) : undefined;
       return Promise.resolve(reply(200, {
-        items: ids.map(function (id) { return {sourceId: id, label: 'Film ' + id}; }),
+        items: ids.map(function (id) {
+          return {sourceId: id, label: 'Film ' + id,
+            ...(Object.prototype.hasOwnProperty.call(sourceFolders, id)
+              ? {folder: sourceFolders[id]} : {})};
+        }),
         meta: {partial: true},
         links: next ? {next: next} : {}
       }));
@@ -121,7 +126,9 @@ function transport(url, options) {
           ? (sourceDisplayOverride || 'Die Herrschaft des Feuers') :
             id === MARK_PC ? 'Film.pc_encode' :
             id === MARK_SKIP ? 'Film.skipped' :
-            id === MARK_DUP ? 'Film.duplicate' : 'Weiterer Film'};
+            id === MARK_DUP ? 'Film.duplicate' : 'Weiterer Film',
+          ...(Object.prototype.hasOwnProperty.call(sourceFolders, id)
+            ? {folder: sourceFolders[id]} : {})};
       }), meta: {partial: sourcePartial}})
       : reply(sourcesStatus, {detail: 'Source unavailable'}));
   }
@@ -760,6 +767,41 @@ function publishHomeResume() {}
   assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
     beforePagedPosts, 'displaying root aliases must be read-only');
   sourceDisplayOverride = null;
+
+  // UX3: folder drilldown uses ONLY the root-relative folder sent by the
+  // Agent/Core public snapshot and never submits a filesystem path.
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B];
+  sourceFolders[SOURCE_B] = 'Serien/Andor';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const folderList = findClass(mount, 'media-import-folders');
+  const breadcrumb = findClass(mount, 'media-import-breadcrumb');
+  const folderSelect = findClass(mount, 'media-import-source');
+  assert.strictEqual(folderSelect.children.length, 2);
+  assert.strictEqual(folderList.children.length, 1);
+  folderList.children[0].listeners.click(); // Serien
+  assert.strictEqual(folderSelect.children.length, 1);
+  folderList.children[0].listeners.click(); // Andor
+  assert.strictEqual(folderSelect.children.length, 2);
+  assert.strictEqual(folderSelect.children[1].value, SOURCE_B);
+  assert.strictEqual(breadcrumb.children.length, 3);
+  breadcrumb.children[0].listeners.click(); // root
+  assert.strictEqual(folderSelect.children.length, 2);
+  assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
+    beforePagedPosts, 'folder browse is read-only');
+
+  context.resetMediaImportVisibility(true);
+  sourceFolders[SOURCE_B] = '../escape';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  assert(findClass(mount, 'media-import-source').disabled);
+  assert(findClass(mount, 'media-import-scan-notice').textContent.includes(
+    'Scan nicht abgeschlossen'));
+  delete sourceFolders[SOURCE_B];
+  batchSources = null;
 
     console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
