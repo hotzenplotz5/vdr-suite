@@ -54,154 +54,223 @@
     });
   }
 
-  // UX2: a draft-only admin interface. The browser does not get source paths
-  // from the Agent, and MUST NOT write the protected root inventory. This
-  // prints a human-reviewed OFFLINE --check command, never executes it.
-  function sourceRootPath(value) {
-    if (typeof value !== 'string' || value.length > 512 ||
-        !/^\/[A-Za-z0-9_./-]+$/.test(value) || value === '/' ||
-        value.endsWith('/')) return false;
-    const parts = value.slice(1).split('/');
-    return parts.every(function (part) {
-      return part.length > 0 && part !== '.' && part !== '..';
+  // One existing administrator login; one GET and one guarded POST.
+  // The server owns the root file and rejects nonlocal/invalid directories.
+  const sourcesPath = '/api/v1/addons/rectools/sources';
+  function sourcePath(value) {
+    if (typeof value !== 'string' || value.length < 2 ||
+        value.length > 512 || !value.startsWith('/') ||
+        value.endsWith('/') || /[\\\x00-\x1f\x7f]/.test(value)) return false;
+    return value.slice(1).split('/').every(function (part) {
+      return part && part !== '.' && part !== '..';
+    });
+  }
+  function sourceName(value) {
+    return typeof value === 'string' && value.length > 0 &&
+      new TextEncoder().encode(value).length <= 64 &&
+      !/[/\\"\x00-\x1f\x7f]/.test(value);
+  }
+  function overlap(a, b) {
+    return a === b || a.startsWith(b + '/') || b.startsWith(a + '/');
+  }
+  function sourceRequest(backendId, revision, sources) {
+    const session = global.VdrSuiteBrowserSession;
+    const restoring = session && typeof session.restore === 'function'
+      ? Promise.resolve(session.restore()) : Promise.resolve();
+    const mutation = Array.isArray(sources);
+    return restoring.then(function () {
+      const headers = {'Accept': 'application/json'};
+      const options = {credentials: 'same-origin', cache: 'no-store', headers};
+      const url = mutation
+        ? sourcesPath : sourcesPath + '?backendId=' + encodeURIComponent(backendId);
+      if (mutation) {
+        options.method = 'POST';
+        headers['Content-Type'] = 'application/json';
+        Object.assign(headers, session && typeof session.csrfHeaders === 'function'
+          ? session.csrfHeaders() : {});
+        options.body = JSON.stringify({
+          backendId, revision,
+          entries: encodeURIComponent(sources.map(function (item) {
+            return item.path + '\t' + item.name;
+          }).join('\n'))
+        });
+      }
+      return global.fetch(url, options).then(function (response) {
+        return response.text().then(function (text) {
+          let data;
+          try { data = JSON.parse(text); }
+          catch (_) { throw new Error('Ungültige Serverantwort'); }
+          if (!response.ok) {
+            const code = data && data.error;
+            const err = new Error(code === 'sources_changed'
+              ? 'Die Einstellungen wurden zwischenzeitlich geändert. Neu laden.'
+              : code === 'backend_is_not_local'
+                ? 'Dieses Backend liegt auf einem anderen Server.'
+                : code === 'import_in_progress'
+                  ? 'Gerade läuft ein Import. Bitte danach erneut speichern.'
+                  : code === 'invalid_sources' || code === 'overlapping_roots'
+                    ? 'Ordner ungültig, fehlen oder überschneiden sich.'
+                    : 'Importverzeichnisse können nicht gespeichert oder geladen werden.');
+            err.status = response.status;
+            throw err;
+          }
+          if (!data || data.backendId !== backendId ||
+              typeof data.videoRoot !== 'string' ||
+              !/^[0-9a-f]{16}$/.test(data.revision || '') ||
+              !Array.isArray(data.sources) ||
+              data.sources.length < 1 || data.sources.length > 17 ||
+              !data.sources.every(function (item) {
+                return item && sourcePath(item.path) && sourceName(item.name);
+              })) throw new Error('Ungültige Importverzeichnis-Antwort');
+          return data;
+        });
+      });
     });
   }
 
-  function sourceName(value) {
-    // A strict subset of the protected TSV alias grammar, with no quoting
-    // metacharacters or variable expansions in generated shell arguments.
-    return typeof value === 'string' &&
-      /^[A-Za-z0-9 _.-]{1,64}$/.test(value) && value.trim() === value;
-  }
-
-  function shellValue(value) {
-    // Only called after the strict allowlist validation above.
-    return "'" + value + "'";
-  }
-
-  function sourcePathsOverlap(a, b) {
-    return a === b || a.indexOf(b + '/') === 0 || b.indexOf(a + '/') === 0;
-  }
-
-  function appendSourceDraft(card) {
+  function appendSourceEditor(card, backendId) {
     const section = node('section');
-    section.className = 'settings-media-import-source-draft';
-    section.appendChild(node('h4', 'Importquellen vorbereiten'));
+    section.hidden = true;
+    section.className = 'settings-media-import-source-editor';
+    section.appendChild(node('h4', 'Importverzeichnisse'));
     section.appendChild(node('p',
-      'Administrator-Entwurf für den bestehenden Offline-Konfigurator. ' +
-      'Es werden weder Konfigurationsdateien geändert noch neue Rechte erteilt. ' +
-      'Die aktuellen Root-Pfade kann der Browser nicht auslesen.'));
-
-    function field(title, hint) {
-      const label = node('label', title);
-      const input = node('input');
-      input.type = 'text';
-      input.value = '';
-      input.placeholder = hint;
-      label.appendChild(input);
-      section.appendChild(label);
-      return input;
-    }
-
-    const root = field('Standard-Importverzeichnis',
-      'Absoluter Pfad auf dem Backend');
-    const name = field('Anzeigename der Standardquelle', 'Filme');
-    const video = field('VDR-Aufnahmeverzeichnis',
-      'Absoluter Pfad auf dem Backend');
-    const rows = node('div');
-    rows.className = 'settings-media-import-additional-roots';
-    section.appendChild(rows);
-    const extras = [];
-
-    const add = node('button', 'Weitere Quelle hinzufügen');
+      'Importordner hinzufügen, benennen oder entfernen. ' +
+      'Der oberste Eintrag ist das Standardverzeichnis.'));
+    const destination = node('p', '');
+    const rowsContainer = node('div');
+    rowsContainer.className = 'settings-media-import-source-list';
+    const add = node('button', '+ Importordner hinzufügen');
+    const save = node('button', 'Speichern');
+    const status = node('p', 'Importverzeichnisse werden geladen …');
+    status.setAttribute('role', 'status');
     add.type = 'button';
-    const prepare = node('button', 'Prüfkommando vorbereiten');
-    prepare.type = 'button';
-    const message = node('p');
-    message.setAttribute('role', 'status');
-    const preview = node('pre');
-    preview.className = 'settings-media-import-review-command';
-    preview.textContent = '';
+    save.type = 'button';
+    section.appendChild(destination);
+    section.appendChild(rowsContainer);
+    section.appendChild(add);
+    section.appendChild(save);
+    section.appendChild(status);
+    card.appendChild(section);
 
-    function clearPreview() {
-      preview.textContent = '';
-      message.textContent = 'Entwurf geändert: Prüfbefehl neu erstellen.';
+    let state = null;
+    let rows = [];
+    let busy = false;
+
+    function refreshControls() {
+      add.disabled = busy || !state || rows.length >= 17;
+      save.disabled = busy || !state;
+    }
+    function renderRows() {
+      rowsContainer.replaceChildren();
+      rows.forEach(function (entry, index) {
+        const row = node('div');
+        row.className = 'settings-media-import-source-row';
+        const labelPath = node('label', 'Verzeichnis');
+        const inputPath = node('input');
+        inputPath.type = 'text';
+        inputPath.value = entry.path;
+        labelPath.appendChild(inputPath);
+        const labelName = node('label', 'Anzeigename');
+        const inputName = node('input');
+        inputName.type = 'text';
+        inputName.value = entry.name;
+        labelName.appendChild(inputName);
+        inputPath.addEventListener('input', function () {
+          entry.path = inputPath.value;
+          status.textContent = 'Noch nicht gespeichert.';
+        });
+        inputName.addEventListener('input', function () {
+          entry.name = inputName.value;
+          status.textContent = 'Noch nicht gespeichert.';
+        });
+        row.appendChild(labelPath);
+        row.appendChild(labelName);
+        if (index === 0) row.appendChild(node('strong', 'Standard'));
+        else {
+          const makeDefault = node('button', 'Als Standard festlegen');
+          makeDefault.type = 'button';
+          makeDefault.addEventListener('click', function () {
+            rows.splice(index, 1);
+            rows.unshift(entry);
+            status.textContent = 'Noch nicht gespeichert.';
+            renderRows();
+          });
+          row.appendChild(makeDefault);
+        }
+        if (rows.length > 1) {
+          const remove = node('button', 'Entfernen');
+          remove.type = 'button';
+          remove.addEventListener('click', function () {
+            rows.splice(index, 1);
+            status.textContent = 'Noch nicht gespeichert.';
+            renderRows();
+          });
+          row.appendChild(remove);
+        }
+        rowsContainer.appendChild(row);
+      });
+      refreshControls();
+    }
+    function load() {
+      busy = true;
+      refreshControls();
+      return sourceRequest(backendId).then(function (value) {
+        state = value;
+        rows = value.sources.map(function (item) {
+          return {path: item.path, name: item.name};
+        });
+        destination.textContent = 'Aufnahmeziel: ' + value.videoRoot +
+          ' (bleibt unverändert)';
+        section.hidden = false;
+        renderRows();
+        status.textContent = 'Einstellungen geladen.';
+      }).catch(function (error) {
+        state = null;
+        section.hidden = true;
+        status.textContent = error.message;
+      }).finally(function () {
+        busy = false;
+        refreshControls();
+      });
     }
 
     add.addEventListener('click', function () {
-      if (extras.length >= 16) {
-        message.textContent = 'Höchstens 16 zusätzliche Importquellen erlaubt.';
-        return;
-      }
-      const row = node('div');
-      const pathLabel = node('label', 'Zusätzliches Importverzeichnis');
-      const pathInput = node('input');
-      pathInput.type = 'text';
-      pathInput.placeholder = 'Absoluter Backend-Pfad';
-      pathLabel.appendChild(pathInput);
-      const nameLabel = node('label', 'Anzeigename');
-      const nameInput = node('input');
-      nameInput.type = 'text';
-      nameInput.placeholder = 'Serien';
-      nameLabel.appendChild(nameInput);
-      row.appendChild(pathLabel);
-      row.appendChild(nameLabel);
-      rows.appendChild(row);
-      extras.push({pathInput: pathInput, nameInput: nameInput});
-      pathInput.addEventListener('input', clearPreview);
-      nameInput.addEventListener('input', clearPreview);
-      add.disabled = extras.length >= 16;
-      clearPreview();
+      if (busy || !state || rows.length >= 17) return;
+      rows.push({path: '', name: ''});
+      renderRows();
+      status.textContent = 'Neuen Ordner eintragen und speichern.';
     });
-
-    prepare.addEventListener('click', function () {
-      preview.textContent = '';
-      const paths = [root.value].concat(extras.map(function (entry) {
-        return entry.pathInput.value;
-      }));
-      const labels = [name.value].concat(extras.map(function (entry) {
-        return entry.nameInput.value;
-      }));
-      if (!sourceRootPath(video.value) ||
-          paths.some(function (path) { return !sourceRootPath(path); }) ||
-          labels.some(function (label) { return !sourceName(label); })) {
-        message.textContent = 'Ungültiger Pfad oder Anzeigename. ' +
-          'Nur absolute kanonische Pfade und einfache Namen (maximal 64 Zeichen) verwenden.';
-        return;
-      }
-      const all = [video.value].concat(paths);
-      for (let i = 0; i < all.length; ++i) {
-        for (let j = i + 1; j < all.length; ++j) {
-          if (sourcePathsOverlap(all[i], all[j])) {
-            message.textContent = 'Quellverzeichnisse dürfen sich weder ' +
-              'überschneiden noch im VDR-Aufnahmeverzeichnis liegen.';
-            return;
-          }
+    save.addEventListener('click', function () {
+      if (busy || !state || rows.length === 0 || rows.length > 17) return;
+      for (let i = 0; i < rows.length; ++i) {
+        if (!sourcePath(rows[i].path) || !sourceName(rows[i].name) ||
+            overlap(rows[i].path, state.videoRoot) ||
+            rows.some(function (other, j) {
+              return j !== i && overlap(rows[i].path, other.path);
+            })) {
+          status.textContent = 'Bitte gültige, getrennte Verzeichnisse und Namen eingeben.';
+          return;
         }
       }
-      const args = [shellValue(root.value), shellValue(video.value),
-        '--check', '--default-name', shellValue(name.value)];
-      extras.forEach(function (entry) {
-        args.push('--add-root', shellValue(entry.pathInput.value),
-          shellValue(entry.nameInput.value));
+      busy = true;
+      refreshControls();
+      status.textContent = 'Importverzeichnisse werden gespeichert …';
+      sourceRequest(backendId, state.revision, rows).then(function (result) {
+        state = result;
+        rows = result.sources.map(function (item) {
+          return {path: item.path, name: item.name};
+        });
+        renderRows();
+        status.textContent = 'Gespeichert. Der Backend-Agent übernimmt die ' +
+          'Änderung beim nächsten Scan; kein Neustart erforderlich.';
+      }).catch(function (error) {
+        status.textContent = 'Nicht gespeichert: ' + error.message;
+      }).finally(function () {
+        busy = false;
+        refreshControls();
       });
-      preview.textContent =
-        'sudo bash tools/addons/configure_media_tools_paths.sh ' +
-        args.join(' ');
-      message.textContent = 'Nur für die manuelle Prüfung auf dem Backend. ' +
-        'Der Befehl enthält --check und verändert keine Importkonfiguration. ' +
-        'Ein tatsächliches Übernehmen erfordert einen gesondert geprüften ' +
-        'Offline-Administrationsvorgang mit angehaltenem Backend-Agenten.';
     });
-    [root, name, video].forEach(function (input) {
-      input.addEventListener('input', clearPreview);
-    });
-    section.appendChild(add);
-    section.appendChild(prepare);
-    section.appendChild(message);
-    section.appendChild(preview);
-    card.appendChild(section);
-    return section;
+    return {section: section, load: load};
   }
 
   function render(parent, backendId) {
@@ -227,8 +296,7 @@
     card.appendChild(details);
     card.appendChild(refresh);
     card.appendChild(toggle);
-    const sourceDraft = appendSourceDraft(card);
-    sourceDraft.hidden = true;
+    const sourceEditor = appendSourceEditor(card, backendId);
     parent.appendChild(card);
     if (typeof backendId !== 'string' ||
         !/^[a-zA-Z0-9_.:-]{1,128}$/.test(backendId) ||
@@ -251,7 +319,7 @@
       return request(backendId, false).then(function (result) {
         current = result;
         card.hidden = false;
-        sourceDraft.hidden = false;
+        sourceEditor.load();
         status.textContent = result.activatedByInstall
           ? 'Durch Administratorinstallation aktiviert'
           : (result.desiredEnabled
@@ -262,7 +330,7 @@
         toggle.textContent = result.desiredEnabled ? 'Deaktivieren' : 'Aktivieren';
       }).catch(function (error) {
         details.textContent = '';
-        sourceDraft.hidden = true;
+        sourceEditor.section.hidden = true;
         if (error.httpStatus === 401 || error.httpStatus === 403) {
           // No role.admin grant: no visible administration controls.
           card.hidden = true;
