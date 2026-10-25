@@ -11,6 +11,8 @@ struct HttpServerRequest {
     std::string body;
     // Set by the TCP listener from getpeername(), never parsed from HTTP headers.
     bool peerIsTrustedLan = false;
+    // Kernel-derived direct non-loopback LAN peer, never an HTTP header.
+    bool peerIsDirectPrivateLan = false;
 };
 
 #endif
