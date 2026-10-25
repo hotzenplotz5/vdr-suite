@@ -126,10 +126,15 @@ constexpr std::size_t PublicChannelMaximumLimit = 100U;
 constexpr std::size_t PublicChannelMaximumSources = 16U;
 constexpr const char* PublicChannelCollectionSort =
     "backendId,channelId";
+constexpr const char* PublicChannelCollectionNativeSort =
+    "backendId,channelNumber,channelId";
 constexpr const char* PublicChannelCollectionOrder = "asc";
 constexpr const char* PublicChannelCursorPrefix = "ch1_";
 constexpr const char* PublicChannelCursorPayloadVersion =
     "channels/1|";
+constexpr const char* PublicChannelNumberCursorPrefix = "ch2_";
+constexpr const char* PublicChannelNumberCursorPayloadVersion =
+    "channels-number/1|";
 
 bool isPublicV1Path(const std::string& path)
 {
@@ -1501,6 +1506,7 @@ struct PublicChannelCollectionQuery
     std::size_t limit = PublicChannelDefaultLimit;
     std::size_t backendCount = 0U;
     std::string cursor;
+    bool nativeChannelOrder = false;
     std::string relativeToChannelId;
     std::string direction;
 };
@@ -1581,9 +1587,13 @@ bool parsePublicChannelCollectionQuery(
         }
         else if (key == "sort")
         {
-            if (sortSeen || value != PublicChannelCollectionSort)
+            if (sortSeen ||
+                (value != PublicChannelCollectionSort &&
+                 value != PublicChannelCollectionNativeSort))
                 return false;
             sortSeen = true;
+            query.nativeChannelOrder =
+                value == PublicChannelCollectionNativeSort;
         }
         else if (key == "order")
         {
@@ -2031,6 +2041,62 @@ PublicChannelCursorDecodeStatus decodePublicChannelCursor(
     if (cursorScope != backendScope)
         return PublicChannelCursorDecodeStatus::scopeMismatch;
 
+    return PublicChannelCursorDecodeStatus::ok;
+}
+
+// Independent keyset cursor for native channels.conf sequence. The old ch1_
+// cursor remains unchanged and cannot be supplied to this sort.
+std::string publicChannelNumberCursor(
+    const std::string& backendScope,
+    const std::string& lastBackendId,
+    int lastChannelNumber,
+    const std::string& lastChannelId)
+{
+    if (backendScope.empty() || lastBackendId.empty() ||
+        lastChannelNumber < 0 || lastChannelId.empty()) return "";
+    std::string payload(PublicChannelNumberCursorPayloadVersion);
+    appendCursorField(payload, backendScope);
+    appendCursorField(payload, lastBackendId);
+    appendCursorField(payload, std::to_string(lastChannelNumber));
+    appendCursorField(payload, lastChannelId);
+    return std::string(PublicChannelNumberCursorPrefix) + hexEncode(payload);
+}
+
+PublicChannelCursorDecodeStatus decodePublicChannelNumberCursor(
+    const std::string& cursor,
+    const std::string& backendScope,
+    std::string& lastBackendId,
+    int& lastChannelNumber,
+    std::string& lastChannelId)
+{
+    const std::string prefix(PublicChannelNumberCursorPrefix);
+    if (cursor.size() <= prefix.size() ||
+        cursor.compare(0U, prefix.size(), prefix) != 0)
+        return PublicChannelCursorDecodeStatus::invalid;
+    std::string payload;
+    if (!hexDecode(cursor.substr(prefix.size()), payload))
+        return PublicChannelCursorDecodeStatus::invalid;
+    const std::string version(PublicChannelNumberCursorPayloadVersion);
+    if (payload.compare(0U, version.size(), version) != 0)
+        return PublicChannelCursorDecodeStatus::invalid;
+    std::size_t position = version.size();
+    std::string cursorScope;
+    std::string number;
+    if (!readCursorField(payload, position, cursorScope) ||
+        !readCursorField(payload, position, lastBackendId) ||
+        !readCursorField(payload, position, number) ||
+        !readCursorField(payload, position, lastChannelId) ||
+        position != payload.size() ||
+        lastBackendId.empty() || lastBackendId.size() > 128U ||
+        lastChannelId.empty() || lastChannelId.size() > 256U ||
+        number.empty() || (number.size() > 1U && number.front() == '0'))
+        return PublicChannelCursorDecodeStatus::invalid;
+    std::size_t parsedNumber = 0U;
+    if (!decimalSize(number, parsedNumber) || parsedNumber > 2147483647U)
+        return PublicChannelCursorDecodeStatus::invalid;
+    if (cursorScope != backendScope)
+        return PublicChannelCursorDecodeStatus::scopeMismatch;
+    lastChannelNumber = static_cast<int>(parsedNumber);
     return PublicChannelCursorDecodeStatus::ok;
 }
 
