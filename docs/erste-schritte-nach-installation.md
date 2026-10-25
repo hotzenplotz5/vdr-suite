@@ -133,6 +133,74 @@ vom VDR getrennt sein. Nach der ersten erfolgreichen Anlage greift nur noch
 die reguläre Anmeldung. Installation und echte MLD-Abnahme sind vor einer
 Freigabe erforderlich.
 
+### Ersteinrichtung ist genau einmal möglich
+
+Diese Einrichtung ist **einmalig für den ganzen Server**, nicht pro Browser
+oder Benutzergerät. Nach der erfolgreichen ersten Kontoanlage wird der
+`claimed`-Zustand aus den bestehenden Konten und Admin-Berechtigungen in der
+Suite-SQLite-Datenbank abgeleitet. Ein zweiter Claim wird auch durch einen
+direkten API-Aufruf mit **HTTP 409 Conflict** abgewiesen. Weder Abmelden noch
+ein Browserwechsel oder der Neustart des VDR geben den Einrichtungsdialog
+wieder frei. Bei falschem Passwort erscheint die normale fehlgeschlagene
+Anmeldung, **niemals erneut die Ersteinrichtung**.
+
+### Administratorpasswort vergessen – lokale Wiederherstellung
+
+Hierfür gibt es **keinen anonymen Passwort-Reset im Web oder LAN**. Ein
+berechtigter Betreiber meldet sich lokal auf dem VDR an und verwendet das
+bereits implementierte, nur für `root` zugelassene Werkzeug
+`vdr-suite-human-account-recover`. Es ändert **das Passwort eines bestehenden
+Kontos** und legt keinen neuen Administrator an. Die vorhandenen Konten,
+Actors und Rechte bleiben unverändert. Betroffene bestehende
+Browser-Sitzungen werden widerrufen; anschließend meldet man sich mit dem
+neuen Passwort regulär im Webfrontend an.
+
+Der Recovery-Aufruf benötigt **zwei passende Angaben**: die bestehende
+Konto-ID (`--account-id`) und den vorhandenen Loginnamen (`--login`).
+Für die Konto-ID kann man die Datenbank **nur lesend** abfragen. Falls das
+Werkzeug `sqlite3` auf dem betreffenden System installiert ist:
+
+```bash
+sudo sqlite3 -readonly /var/lib/vdr-suite/vdr-suite.db \
+  "SELECT a.account_id, v.login_name
+   FROM security_human_accounts AS a
+   JOIN security_credentials AS c ON c.actor_id = a.actor_id
+   JOIN security_basic_credential_verifiers AS v
+     ON v.credential_id = c.credential_id
+   WHERE a.active = 1
+     AND c.credential_type = 'human-password'
+     AND c.active = 1 AND c.revoked_at = ''
+   ORDER BY v.login_name;"
+```
+
+Danach mit der ausgegebenen **Konto-ID des gewünschten Benutzers** und dem
+zugehörigen Login auf dem VDR ausführen (die Platzhalter ersetzen):
+
+```bash
+sudo vdr-suite-human-account-recover \
+  --account-id 'HIER_DIE_KONTO_ID' \
+  --login 'admin'
+```
+
+Das Werkzeug fordert das neue Passwort **zweimal ohne Anzeige** an. Das
+Passwort gehört weder in die Kommandozeile noch in eine Textdatei. Standard-
+Datenbankpfad: `/var/lib/vdr-suite/vdr-suite.db`. Falls MLD einen anderen
+Datenbankpfad verwendet, müssen die Abfrage und das optionale Argument
+`--database` denselben **tatsächlich konfigurierten** Pfad verwenden.
+Ein installiertes Paket muss das Werkzeug `vdr-suite-human-account-recover`
+enthalten; seine Aufnahme in die MLD-Paketierung ist gesondert zu prüfen.
+
+**Nicht** die Datenbank löschen, die Admin-Rolle entfernen oder einen neuen
+First-Admin-Claim versuchen, um das Passwort zurückzusetzen. Recovery
+widerruft nur betroffene Anmeldesitzungen und rotiert das bestehende
+Passwort-Credential. Details: `man vdr-suite-human-account-recover` sowie
+[ADR-0066](adr/ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md).
+
+**Teststatus MLD:** Dieser Ablauf gehört zum noch offenen
+`work/mld66-platform-integration`-Branch und benötigt eine echte
+Paket- und Laufzeitabnahme. Er darf nicht allein aufgrund erfolgreicher
+Dokumentationstests als ausgeliefert gelten.
+
 ## 6. Erstes Backend, Sender, EPG und Aufnahmen
 
 Nach der Anmeldung zuerst ein tatsächlich erreichbares VDR-Backend auswählen. Die Weboberfläche zeigt Backends samt Online-/Offline- und Zugriffsstatus. Ein Backend ist **nicht automatisch** allein durch Installation eines Agents verbunden.
