@@ -5,7 +5,6 @@
 #include "BrowserSessionCsrfRecoveryService.h"
 #include "ContinueWatchingSecurityRequest.h"
 #include "FirstAdminClaimHttpService.h"
-#include "FirstAdminOnscreenSetup.h"
 #include "SecurityConfiguration.h"
 #include "RestQueryParameters.h"
 #include "SeriesArtworkSettingsSecurityRequest.h"
@@ -336,12 +335,9 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter,
             *credentialVerifierRepository_,
             *securityPermissionGrantRepository_,
             *accountabilityEventRepository_);
-    firstAdminOnscreenSetup_ =
-        std::make_unique<FirstAdminOnscreenSetup>(
-            *firstAdminClaimService_, *firstAdminBootstrapRepository_);
     firstAdminClaimHttpService_ =
         std::make_unique<FirstAdminClaimHttpService>(
-            *firstAdminClaimService_, firstAdminOnscreenSetup_.get());
+            *firstAdminClaimService_);
 
     const SecurityConfiguration configuration =
         SecurityConfiguration::fromEnvironment();
