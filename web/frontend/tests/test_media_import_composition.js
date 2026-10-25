@@ -685,7 +685,8 @@ function publishHomeResume() {}
   await settle();
   assert(findClass(mount, 'media-import-source').disabled);
   assert(findClass(mount, 'media-import-batch').disabled);
-  assert(findClass(mount, 'media-import-scan-notice').textContent.includes('Scan nicht abgeschlossen'));
+  assert(findClass(mount, 'media-import-scan-notice').textContent.includes('Maximal 100 Filme'));
+  assert(findClass(mount, 'status').textContent.includes('höchstens 100 Filme'));
   assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
     beforePagedPosts, '101 sources must never dispatch an import');
   pagedSourceIds = null;
