@@ -334,6 +334,64 @@
     return page('', 0);
   }
 
+  // UX3 step 1: search/filter only the already authenticated, bounded
+  // Agent/Core snapshot. No path guesses, filesystem requests or new grants.
+  function filterVisibleSources(view) {
+    if (!isCurrent(view) || view.attempt || view.batch) return;
+    const query = String(view.searchInput.value || '').trim().toLowerCase();
+    const mode = view.statusFilter.value;
+    const matches = function (item) {
+      return !query || (item.label || item.sourceId).toLowerCase().includes(query);
+    };
+    const normal = mode === 'marked' ? [] :
+      view.allOrdinary.filter(matches);
+    const marked = mode === 'normal' ? [] :
+      view.allMarked.filter(matches);
+    view.sources = normal.map(function (item) { return item.sourceId; });
+    view.markedSources = marked.map(function (item) { return item.sourceId; });
+
+    view.select.replaceChildren();
+    const blank = element('option', '', 'Quelle auswählen');
+    blank.value = '';
+    view.select.appendChild(blank);
+    normal.forEach(function (item) {
+      const option = element('option', '', item.label || 'Film');
+      option.value = item.sourceId;
+      view.select.appendChild(option);
+    });
+    view.select.value = '';
+    view.select.disabled = normal.length === 0;
+    view.startButton.disabled = true;
+    view.sourceDetails.textContent = '';
+    view.preview.textContent = 'Film auswählen, Entscheidung prüfen und bestätigen.';
+    view.localReencode.checked = false;
+    view.localReencode.disabled = normal.length === 0;
+    view.decision.value = 'import';
+    view.decision.disabled = normal.length === 0;
+    view.startButton.textContent = 'Import starten';
+    view.batchButton.disabled = normal.length < 2 ||
+      normal.length > MAX_IMPORT_FILMS;
+
+    view.markedSelect.replaceChildren();
+    const markedBlank = element('option', '', 'Markierte Datei auswählen');
+    markedBlank.value = '';
+    view.markedSelect.appendChild(markedBlank);
+    marked.forEach(function (item) {
+      const option = element('option', '',
+        (item.label || 'Film') + ' [' + markerSuffix(item) + ']');
+      option.value = item.sourceId;
+      view.markedSelect.appendChild(option);
+    });
+    view.markedSelect.value = '';
+    view.markedSelect.disabled = marked.length === 0;
+    view.releaseButton.disabled = true;
+    view.normalLabel.hidden = mode === 'marked';
+    view.markedLabel.hidden = mode === 'normal';
+    view.visibleCount.textContent = normal.length + ' importierbare und ' +
+      marked.length + ' markierte Treffer in dieser Ansicht ' +
+      '(aus maximal ' + MAX_IMPORT_FILMS + ' geprüften Quellen).';
+  }
+
   function loadSources(view) {
     if (!isCurrent(view) || view.attempt) return Promise.resolve();
     const generation = ++view.sourcesGeneration;
@@ -344,6 +402,8 @@
     view.batchButton.disabled = true;
     view.sources = [];
     view.markedSources = [];
+    view.allOrdinary = [];
+    view.allMarked = [];
     report(view, 'Autorisierte Importquellen werden geladen …');
     return readSourcePages(view.backendId)
       .then(function (response) {
@@ -367,48 +427,18 @@
         const marked = items.filter(function (item) {
           return Boolean(markerSuffix(item));
         });
-        // Marked sources can only be RELEASED. Never offer one to any
-        // normal import, encoding choice or batch.
-        view.sources = ordinary.map(function (item) { return item.sourceId; });
+        // Only the verified Agent snapshot can supply selectable opaque IDs.
+        // Browser search/status filtering is a view, never a new authority.
+        view.allOrdinary = ordinary.map(function (item, index) {
+          return {sourceId: item.sourceId,
+            label: item.label || ('Film ' + (index + 1))};
+        });
+        view.allMarked = marked;
         view.sourceTitles = Object.create(null);
-        ordinary.forEach(function (item, index) {
-          view.sourceTitles[item.sourceId] = item.label || ('Film ' + (index + 1));
+        view.allOrdinary.forEach(function (item) {
+          view.sourceTitles[item.sourceId] = item.label;
         });
-        view.markedSources = marked.map(function (item) { return item.sourceId; });
-        view.select.replaceChildren();
-        const blank = element('option', '', 'Quelle auswählen');
-        blank.value = '';
-        view.select.appendChild(blank);
-        ordinary.forEach(function (item, index) {
-          const option = element('option', '',
-            item.label || ('Film ' + (index + 1)));
-          option.value = item.sourceId;
-          view.select.appendChild(option);
-        });
-        view.select.value = '';
-        view.sourceDetails.textContent = '';
-        view.preview.textContent = 'Film auswählen, Entscheidung prüfen und bestätigen.';
-        view.markedSelect.replaceChildren();
-        const markedBlank = element('option', '', 'Markierte Datei auswählen');
-        markedBlank.value = '';
-        view.markedSelect.appendChild(markedBlank);
-        marked.forEach(function (item) {
-          const option = element('option', '',
-            item.label + ' [' + markerSuffix(item) + ']');
-          option.value = item.sourceId;
-          view.markedSelect.appendChild(option);
-        });
-        view.markedSelect.value = '';
-        view.markedSelect.disabled = marked.length === 0;
-        view.releaseButton.disabled = true;
-        view.select.disabled = ordinary.length === 0;
-        view.localReencode.checked = false;
-        view.localReencode.disabled = ordinary.length === 0;
-        view.decision.value = 'import';
-        view.decision.disabled = ordinary.length === 0;
-        view.startButton.textContent = 'Import starten';
-        view.batchButton.disabled = ordinary.length < 2 ||
-          ordinary.length > MAX_IMPORT_FILMS;
+        filterVisibleSources(view);
         view.scanNotice.textContent = bounded && items.length >= MAX_IMPORT_FILMS
           ? 'Importgrenze: Höchstens 100 Filme pro Durchlauf. ' +
             '100 geprüfte Quellen werden angezeigt. Der Scan ist nicht ' +
@@ -631,6 +661,30 @@
       'Noch nicht geprüft, ob die Quellenliste vollständig ist.');
     scanNotice.setAttribute('role', 'status');
     root.appendChild(scanNotice);
+    const searchLabel = element('label', 'media-import-search-label',
+      'In gefundenen Filmen suchen');
+    const searchInput = element('input', 'media-import-search');
+    searchInput.type = 'search';
+    searchInput.maxLength = 128;
+    searchInput.placeholder = 'Filmtitel oder Quellenname';
+    searchLabel.appendChild(searchInput);
+    root.appendChild(searchLabel);
+    const statusLabel = element('label', 'media-import-filter-label', 'Statusfilter');
+    const statusFilter = element('select', 'media-import-filter');
+    [
+      ['all', 'Alle Quellen'],
+      ['normal', 'Importierbar'],
+      ['marked', 'Markierte Dateien']
+    ].forEach(function (entry) {
+      const option = element('option', '', entry[1]);
+      option.value = entry[0];
+      statusFilter.appendChild(option);
+    });
+    statusFilter.value = 'all';
+    statusLabel.appendChild(statusFilter);
+    root.appendChild(statusLabel);
+    const visibleCount = element('p', 'media-import-visible-count');
+    root.appendChild(visibleCount);
     const sourceDetails = element('p', 'media-import-source-details');
     const technical = element('details', 'media-import-technical-details');
     technical.appendChild(element('summary', '', 'Technische Details'));
@@ -710,6 +764,9 @@
     mountTarget.replaceChildren(root);
     const view = {owner: owner, backendId: backendId, root: root,
       select: select, startButton: startButton, reloadButton: reloadButton,
+      searchInput: searchInput, statusFilter: statusFilter,
+      visibleCount: visibleCount, normalLabel: label, markedLabel: markedLabel,
+      allOrdinary: [], allMarked: [],
       localReencode: localReencode, decision: decision,
       markedSelect: markedSelect, releaseButton: releaseButton, markedSources: [],
       batchButton: batchButton, batchStopButton: batchStopButton,
@@ -721,6 +778,12 @@
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
       reads: 0, timer: null, attempt: activeAttempts[backendId] || null};
     current = view;
+    searchInput.addEventListener('input', function () {
+      filterVisibleSources(view);
+    });
+    statusFilter.addEventListener('change', function () {
+      filterVisibleSources(view);
+    });
     select.addEventListener('change', function () {
       startButton.disabled = view.submitting || !view.sources.includes(select.value);
       sourceDetails.textContent = view.sources.includes(select.value)
