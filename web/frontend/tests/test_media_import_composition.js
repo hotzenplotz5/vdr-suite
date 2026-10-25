@@ -85,6 +85,7 @@ const requests = [];
 let sessionRestores = 0;
 let previewMode = 'ready';
 let previewInspectionStatus = 'ready';
+let previewVideoCodec = 'h264';
 let resolveDelayedPreview = null;
 const SOURCE = 'source_0123456789abcde';
 const OP = 'op_12345678901234567890123456789012';
@@ -122,10 +123,11 @@ function transport(url, options) {
         'Backend geprüfter Film',
       targetFolder: id === SOURCE_B
         ? 'Serien/Andor/Weiterer Film' : 'Die Herrschaft des Feuers',
-      videoCodec: previewInspectionStatus === 'insufficient' ? 'vp9' : 'h264',
+      videoCodec: previewInspectionStatus === 'insufficient' ? 'vp9' : previewVideoCodec,
       sourceBytes: 2500000000,
       availableBytes: 12000000000, requiredBytes: 7600000000,
-      videoReencodeRequired: previewInspectionStatus === 'insufficient'
+      videoReencodeRequired: previewInspectionStatus === 'insufficient' ||
+         previewVideoCodec === 'vp9'
     }));
   }
   if (path.endsWith('/capabilities/media-import')) {
@@ -302,7 +304,16 @@ function publishHomeResume() {}
   assert.strictEqual(start.disabled, true);
   select.value = SOURCE;
   select.listeners.change();
+  assert(start.disabled, 'pending preview must not enable an import');
+  const noPreviewPost = submits;
+  await start.listeners.click();
+  assert.strictEqual(submits, noPreviewPost, 'an early click must not bypass diagnosis');
+  await settle();
   assert.strictEqual(start.disabled, false);
+  assert(findClass(mount, 'media-import-decision-label').hidden,
+    'compatible source needs no encoding decision');
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    'technisch für den VDR-Import geeignet'));
   assert(findClass(mount, 'media-import-preview').textContent.includes('Die Herrschaft des Feuers'),
     'MT.UX4 selected film is visible before confirmation');
   assert(findClass(mount, 'media-import-source-details').textContent.includes(SOURCE),
@@ -351,6 +362,7 @@ function publishHomeResume() {}
   select = findClass(mount, 'media-import-source');
   select.value = SOURCE;
   select.listeners.change();
+  await settle();
   submitMode = 'uncertain';
   await findClass(mount, 'media-import-start').listeners.click();
   await settle();
@@ -380,6 +392,7 @@ function publishHomeResume() {}
   select = findClass(mount, 'media-import-source');
   select.value = SOURCE;
   select.listeners.change();
+  await settle();
   await findClass(mount, 'media-import-start').listeners.click();
   await settle();
   assert(findClass(mount, 'status').textContent.includes('abgelaufen'));
@@ -392,6 +405,7 @@ function publishHomeResume() {}
   select = findClass(mount, 'media-import-source');
   select.value = SOURCE;
   select.listeners.change();
+  await settle();
   await findClass(mount, 'media-import-start').listeners.click();
   await settle();
   assert(findClass(mount, 'status').textContent.includes('Berechtigung'));
@@ -410,6 +424,7 @@ function publishHomeResume() {}
   select = findClass(mount, 'media-import-source');
   select.value = SOURCE;
   select.listeners.change();
+  await settle();
   const acceptedResult = findClass(mount, 'media-import-start').listeners.click();
   await settle();
   assert(delayedSubmit, 'POST must have reached the transport');
@@ -437,6 +452,7 @@ function publishHomeResume() {}
   select = findClass(mount, 'media-import-source');
   select.value = SOURCE;
   select.listeners.change();
+  await settle();
   const deniedResult = findClass(mount, 'media-import-start').listeners.click();
   await settle();
   assert(delayedSubmit);
@@ -458,6 +474,7 @@ function publishHomeResume() {}
   select = findClass(mount, 'media-import-source');
   select.value = SOURCE;
   select.listeners.change();
+  await settle();
   const uncertainResult = findClass(mount, 'media-import-start').listeners.click();
   await settle();
   assert(delayedSubmit);
@@ -487,6 +504,7 @@ function publishHomeResume() {}
   select = findClass(mount, 'media-import-source');
   select.value = SOURCE;
   select.listeners.change();
+  await settle();
   const logoutResult = findClass(mount, 'media-import-start').listeners.click();
   await settle();
   assert(delayedSubmit, 'logout fixture must have an outstanding POST');
@@ -547,7 +565,8 @@ function publishHomeResume() {}
   assert.strictEqual(batchOperations.length, 2);
   assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true);
 
-  // Local encoding is an explicit, single-film v2 request; never batched.
+  // Encoding is offered only when the read-only video probe requires it.
+  previewVideoCodec = 'vp9';
   context.resetMediaImportVisibility(true);
   batchSources = [SOURCE];
   submitMode = 'accepted';
@@ -557,12 +576,20 @@ function publishHomeResume() {}
   await settle();
   select = findClass(mount, 'media-import-source');
   const encode = findClass(mount, 'media-import-local-reencode');
-  assert(encode && encode.type === 'checkbox' && !encode.checked,
-    'local re-encode must default to off');
+  const encodeChoice = findClass(mount, 'media-import-decision');
+  assert(encode && !encode.checked && findClass(mount, 'media-import-encode-label').hidden,
+    'there must be no generic re-encode checkbox');
   select.value = SOURCE;
   select.listeners.change();
-  encode.checked = true;
-  encode.listeners.change();
+  await settle();
+  assert(!findClass(mount, 'media-import-decision-label').hidden,
+    'incompatible video must present a choice');
+  assert.strictEqual(encodeChoice.value, '',
+    'there must be no implicit local-encoding approval');
+  assert(findClass(mount, 'media-import-start').disabled);
+  encodeChoice.value = 'import';
+  encodeChoice.listeners.change();
+  assert(encode.checked && !findClass(mount, 'media-import-start').disabled);
   const beforeLocal = submits;
   const confirmationsBefore = confirmCalls;
   confirmLocal = false;
@@ -598,6 +625,9 @@ function publishHomeResume() {}
     assert(choiceSelect && choiceSelect.value === 'import');
     sourceSelect.value = SOURCE;
     sourceSelect.listeners.change();
+    await settle();
+    assert.strictEqual(choiceSelect.value, '');
+    assert(!findClass(mount, 'media-import-decision-label').hidden);
     choiceSelect.value = choice;
     choiceSelect.listeners.change();
     assert(findClass(mount, 'media-import-preview').textContent.includes('Kein Import'),
@@ -629,6 +659,7 @@ function publishHomeResume() {}
   const pendingSource = findClass(mount, 'media-import-source');
   pendingSource.value = SOURCE;
   pendingSource.listeners.change();
+  await settle();
   const pendingChoice = findClass(mount, 'media-import-decision');
   pendingChoice.value = 'desktop';
   pendingChoice.listeners.change();
@@ -636,6 +667,7 @@ function publishHomeResume() {}
   await settle();
   assert(findClass(mount, 'status').textContent.includes('Core-Bestätigung noch ausstehend'));
   assert.strictEqual(findClass(mount, 'media-import-new').hidden, true);
+  previewVideoCodec = 'h264';
 
   
   // The actual production module separates marked files from ordinary
@@ -700,6 +732,7 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-scan-notice').textContent.includes('Scan unvollständig'));
   allSourceSelect.value = pagedSourceIds[69];
   allSourceSelect.listeners.change();
+  await settle();
   assert.strictEqual(findClass(mount, 'media-import-start').disabled, false);
   // UX3: local search narrows only the already authorized source snapshot.
   // A search change invalidates a selection; only visible IDs may be batched.
@@ -822,6 +855,7 @@ function publishHomeResume() {}
   // destination/codec/size/capacity are not fabricated by the browser.
   folderSelect.value = SOURCE_B;
   folderSelect.listeners.change();
+  await settle();
   await settle();
   const nestedPreview = findClass(mount, 'media-import-preview').textContent;
   assert(nestedPreview.includes('Quellordner: Serien › Andor.'));
