@@ -545,8 +545,7 @@ function publishHomeResume() {}
     sourceSelect.listeners.change();
     choiceSelect.value = choice;
     choiceSelect.listeners.change();
-    assert(findClass(mount, 'media-import-preview').textContent.includes(
-      choice === 'desktop' ? 'Kein Import' : 'Kein Import'),
+    assert(findClass(mount, 'media-import-preview').textContent.includes('Kein Import'),
       'MT.UX4 marked decision preview must never describe a VDR import');
     assert(toggle.disabled && !toggle.checked);
     assert(findClass(mount, 'media-import-batch').disabled);
