@@ -76,6 +76,17 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
                             const std::function<void(const ImportPlan&)>& capacityPreflight,
                             bool allowVideoReencode = false);
 
+// Read-only capacity calculation using the exact same budget as production
+// admission. A preview can report insufficient space without staging files.
+struct ImportCapacityPreview {
+    std::uint64_t availableBytes = 0;
+    std::uint64_t requiredBytes = 0;
+    std::uint64_t reserveBytes = 0;
+    bool writable = false;
+    bool sufficient = false;
+};
+ImportCapacityPreview inspectImportCapacity(const ImportPlan& plan);
+
 void requireProductionCapacity(const ImportPlan& plan);
 
 } // namespace vdrsuite::mediatools
