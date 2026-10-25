@@ -1111,6 +1111,22 @@ bool SimpleHttpListener::prepareClientResponse(
     }
 
     request.peerIsTrustedLan = directTrustedLanPeer(clientSocket);
+    if (request.peerIsTrustedLan) {
+        sockaddr_storage peer{};
+        socklen_t peerLength = sizeof(peer);
+        if (getpeername(clientSocket, reinterpret_cast<sockaddr*>(&peer),
+                        &peerLength) == 0) {
+            if (peer.ss_family == AF_INET) {
+                const auto& ipv4 = reinterpret_cast<const sockaddr_in&>(peer);
+                request.peerIsDirectPrivateLan =
+                    (ntohl(ipv4.sin_addr.s_addr) & 0xff000000U) != 0x7f000000U;
+            } else if (peer.ss_family == AF_INET6) {
+                const auto& ipv6 = reinterpret_cast<const sockaddr_in6&>(peer);
+                request.peerIsDirectPrivateLan =
+                    !IN6_IS_ADDR_LOOPBACK(&ipv6.sin6_addr);
+            }
+        }
+    }
     const HttpServerResponse response = server_.handleRequest(request);
     imageResponse = isImageResponse(response);
     streamBodyPath = response.streamBodyPath;
