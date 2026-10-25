@@ -4326,11 +4326,10 @@ bool DaemonRuntime::initialize()
                 [&request](const PublicChannelCollectionItem& lhs,
                            const PublicChannelCollectionItem& rhs)
                 {
+                    if (request.nativeChannelOrder)
+                        return publicVdrChannelNumberLess(lhs, rhs);
                     if (lhs.backendId != rhs.backendId)
                         return lhs.backendId < rhs.backendId;
-                    if (request.nativeChannelOrder &&
-                        lhs.channelNumber != rhs.channelNumber)
-                        return lhs.channelNumber < rhs.channelNumber;
                     return lhs.channelId < rhs.channelId;
                 });
 
