@@ -17,7 +17,7 @@ LIVE_ROOT ?= /
 
 install: install-runtime install-cli install-docs install-manpages install-systemd
 
-build-runtime-binaries: daemon backend-agent backend-agent-enrollment backend-agent-admin backend-agent-command-admin first-admin-bootstrap-issuer human-account-recovery
+build-runtime-binaries: daemon backend-agent backend-agent-enrollment backend-agent-admin backend-agent-command-admin first-admin-bootstrap-issuer first-admin-interactive-setup human-account-recovery
 
 build-cli-binaries: dashboard-cli
 
@@ -47,6 +47,7 @@ install-runtime:
 	test -x $(BUILD_DIR)/vdr-suite-backend-agent-admin
 	test -x $(BUILD_DIR)/vdr-suite-backend-agent-command-admin
 	test -x $(BUILD_DIR)/vdr-suite-first-admin-bootstrap
+	test -x $(BUILD_DIR)/vdr-suite-first-admin-setup
 	test -x $(BUILD_DIR)/vdr-suite-human-account-recover
 	$(INSTALL) -d $(DESTDIR)$(SBINDIR)
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-daemon $(DESTDIR)$(SBINDIR)/vdr-suite-daemon
@@ -56,6 +57,7 @@ install-runtime:
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-backend-agent-command-admin $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-command-admin
 	$(INSTALL) -m 0755 tools/vdr_suite_backend_agent_autostart.py $(DESTDIR)$(SBINDIR)/vdr-suite-backend-agent-autostart
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-first-admin-bootstrap $(DESTDIR)$(SBINDIR)/vdr-suite-first-admin-bootstrap
+	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-first-admin-setup $(DESTDIR)$(SBINDIR)/vdr-suite-first-admin-setup
 	$(INSTALL) -m 0755 $(BUILD_DIR)/vdr-suite-human-account-recover $(DESTDIR)$(SBINDIR)/vdr-suite-human-account-recover
 	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/vdr-suite
 	test -e $(DESTDIR)$(SYSCONFDIR)/vdr-suite/backend-agent.conf || \
@@ -159,6 +161,7 @@ install-manpages:
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-command-admin.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-command-admin.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-backend-agent-autostart.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-backend-agent-autostart.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-first-admin-bootstrap.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-first-admin-bootstrap.8
+	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-first-admin-setup.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-first-admin-setup.8
 	$(INSTALL) -m 0644 docs/man/man8/vdr-suite-human-account-recover.8 $(DESTDIR)$(MANDIR)/man8/vdr-suite-human-account-recover.8
 	$(INSTALL) -d $(DESTDIR)$(MANDIR)/man5
 	$(INSTALL) -m 0644 docs/man/man5/vdr-suite.conf.5 $(DESTDIR)$(MANDIR)/man5/vdr-suite.conf.5
