@@ -573,14 +573,31 @@ Umkodierungsbedarf und Speicherwerte zurück. Der angezeigte erforderliche
 Speicher schließt die vorgeschriebene Reserve ein. Keine Datei- oder
 Aufnahmepfade aus HTTP werden für die Quellauflösung akzeptiert.
 
-Bei der ersten Antwort kann `pending` stehen; das Webfrontend wartet
-begrenzt auf die Antwort und verwirft veraltete Ergebnisse beim Wechsel der
-Auswahl. Selbst eine erfolgreiche Vorschau **erteilt keine Import- oder
-Video-Umkodierungsfreigabe**. Ein später bestätigter Import prüft alle
-Quellen-, Ziel- und Berechtigungsbedingungen erneut und verwendet weiterhin
-den produktiven Core-/Agent-Operationsweg. Die Hardware-/Live-VDR-Abnahme
-sowie ein vollständiger C++-/Integrations-/CI-Lauf auf dem endgültigen SHA
-stehen aus. Weder VDR-Dienst noch Medien wurden hier verändert.
+Die Oberfläche zeigt ab der Filmauswahl **„Film wird geprüft“**.
+Der lesende Endpunkt liefert während der Agent-Prüfung `202` mit
+`state: pending`; danach kommen `state: ready` und die echten Backend-Werte.
+`duplicate`, `insufficient`, `unavailable` sowie abgelaufene Anmeldung oder
+fehlende Berechtigung werden verständlich angezeigt. Ein Filmwechsel, eine
+geänderte Ordner-/Suchansicht oder ein erneuter Scan entwertet alte
+Vorschauantworten. Der zentrale Public-v1-Client überträgt bei mehreren
+Quellenseiten den vorhandenen, geprüften Cursor – keine Browser-Schattenkopie.
+
+Die Vorschau liest ausschließlich, veröffentlicht keine VDR-Aufnahme,
+verändert keine Quelldatei und setzt keine Markierung. Selbst eine
+erfolgreiche Vorschau **erteilt keine Import- oder Video-Umkodierungsfreigabe**.
+Der getrennt bestätigte Import verwendet weiterhin den einzigen
+Core-/Agent-Operationsweg und prüft Quelle, Rechte, Ziel, Codec und Kapazität
+erneut. Nicht beschreibbare Ziele werden nicht als bloßer Speicherplatzmangel
+ausgegeben.
+
+**Prüfstand MT.UX4.2:** Quellcode einschließlich Browseranbindung fertig;
+Regressionen im bestehenden Importer-, Agent-/Katalog-, Public-v1-API-
+und Frontend-Testgraphen ergänzt. Die isolierten C++-/Frontend-/Staging-
+Prüfungen laufen über `Add-on platform isolated checks` in GitHub Actions.
+**Nur ein grüner Lauf auf dem angegebenen exakten Commit-SHA zählt als
+bestandener Test; ein Commit oder gestarteter Workflow ist kein Testbeleg.**
+Die abschließende Hardware-/Live-VDR-Abnahme bleibt für den gemeinsamen
+Abschlusstest offen. Hier gab es keine Installation und keinen Dienstneustart.
 
 ## MT.UX4.1 – relative VDR target folders (source candidate)
 
@@ -606,9 +623,9 @@ The browser retains the **verified source folder** in its selected-film
 preview. MT.UX4.2 additionally supplies the backend-verified target folder,
 codec, source size, available capacity, required reserve and duplicate status
 for one explicitly selected source ID. Those values are advisory and expire;
-the actual import independently revalidates all preconditions. C++ compilation,
-production integration, CI and real-VDR acceptance for the final source SHA
-are still pending. No deployed VDR installation or media assets were modified
+the actual import independently revalidates all preconditions. C++ build and integration must be verified by a green GitHub Actions
+run for the exact source SHA; real-VDR hardware acceptance remains separate.
+No deployed VDR installation or media assets were modified
 as part of this GitHub work.
 
 ## MT.UX3 – bounded browser search and subset selection (partial)
