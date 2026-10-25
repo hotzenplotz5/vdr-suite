@@ -1210,14 +1210,16 @@ public:
                 AuthorizationDecision denial;
                 denial.permission = "role.admin";
                 denial.backendId = "*";
-                denial.action = "addons.intent.read";
+                denial.action = isAddonSourceRead ? "addons.sources.read" : "addons.intent.read";
                 denial.reasonCode = "browser_session_required";
                 return rejectWithAudit(gate, denial, 403,
                     "An administrator Browser Session is required", "");
             }
             const AuthorizationDecision decision =
                 authorizationService_.authorize(
-                    gate.context, {"role.admin", "*", "addons.intent.read"});
+                    gate.context, {"role.admin", "*",
+                        isAddonSourceRead ? "addons.sources.read"
+                                          : "addons.intent.read"});
             if (!decision.allowed)
                 return rejectWithAudit(gate, decision, 403,
                     "Administrator permission is required", "");
