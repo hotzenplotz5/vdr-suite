@@ -103,6 +103,34 @@ Bei der Diagnose zunächst `systemctl status vdr-suite-daemon.service --no-pager
 
 ## 5. Ersten Administrator anlegen
 
+**MLD-Integrationsvorschau (noch nicht nach main übernommen):** Wenn auf dem
+Server noch kein Administratorkonto existiert, zeigt der vorhandene
+Web-Login-Dialog automatisch die Ersteinrichtung an. Die Entscheidung stammt
+aus der lesenden API `GET /api/security/first-admin/status`. Bei Fehlern
+wird **keine** Ersteinrichtung angeboten. Auf eingerichteten Servern bleibt
+die normale Anmeldung unverändert.
+
+1. Einen **vertrauenswürdigen HTTPS-Zugang** zur VDR-Suite einrichten. Über
+   unverschlüsseltes HTTP ist der Absenden-Knopf für den Admin-Claim gesperrt.
+2. Auf dem **VDR selbst** als Root den vorhandenen Befehl
+   `vdr-suite-first-admin-bootstrap` ausführen (Standard: 15 Minuten gültig).
+3. Im Dialog den gewünschten Admin-Login, Anzeigenamen und das Passwort
+   mit Wiederholung eingeben (mindestens 12 Zeichen).
+4. Die zwei vom lokalen Programm ausgegebenen Zeilen
+   `bootstrap_id=...` und `setup_secret=...` gemeinsam in das Feld
+   „Einmaliger Einrichtungscode“ einfügen. Das Secret **niemals ins Forum,
+   in ein Ticket oder in die URL kopieren**.
+5. „Administrator erstellen“ auswählen. Der Browser ruft denselben
+   bestehenden `POST /api/security/first-admin/claim` auf wie der technische
+   Bootstrap-Weg und meldet den Benutzer danach mit seinem neu gewählten
+   Passwort an. Eine weitere Anmeldung nach einem Reload erfolgt normal.
+
+Weder das UI noch die Statusabfrage erzeugen ein Bootstrap-Secret. Nur das
+lokale Root-Werkzeug erteilt die einmalige Einrichtungserlaubnis. Es entsteht
+kein zweiter Benutzer-/Rechtepfad, kein PAM-Login und kein Anmeldung-ohne-Passwort-Modus.
+Die separate CLI aus PR #545 ist **nicht** Voraussetzung für diesen Browserweg.
+
+
 **Es gibt kein mitgeliefertes Standard-Admin-Passwort.** Die Implementierung benutzt einen bewusst getrennten zweistufigen Ablauf:
 
 1. Auf dem **lokalen Server** gibt ein vertrauenswürdiger Root-Operator mit dem installierten Werkzeug `vdr-suite-first-admin-bootstrap` ein einmaliges Setup-Material aus. Das Werkzeug ist nur für einen *noch nicht beanspruchten* (unclaimed) Server zulässig; Standardgültigkeit **900 Sekunden** (zulässig 300–3600 Sekunden).
