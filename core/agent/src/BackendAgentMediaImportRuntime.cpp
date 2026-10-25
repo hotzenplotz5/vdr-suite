@@ -5,6 +5,7 @@
 #include <utility>
 #include <algorithm>
 #include <chrono>
+#include <limits>
 namespace vdrsuite::agent {
 
 BackendAgentMediaImportRuntime::BackendAgentMediaImportRuntime(
@@ -153,7 +154,12 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
         out.videoCodec = codec;
         out.sourceBytes = static_cast<std::uint64_t>(plan.sourceBytes);
         out.availableBytes = capacity.availableBytes;
-        out.requiredBytes = capacity.requiredBytes;
+        // The user-facing total includes the mandatory production reserve.
+        // Production itself continues to use the shared capacity policy.
+        if (capacity.reserveBytes >
+            std::numeric_limits<std::uint64_t>::max() - capacity.requiredBytes)
+            return false;
+        out.requiredBytes = capacity.requiredBytes + capacity.reserveBytes;
         out.videoReencodeRequired = importVideoNeedsReencode(codec);
         out.status = plan.duplicateTarget ? "duplicate" :
             capacity.sufficient ? "ready" : "insufficient";
