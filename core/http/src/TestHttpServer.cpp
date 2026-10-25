@@ -1922,9 +1922,20 @@ HttpServerResponse TestHttpServer::handleRequest(
             return browserGate.rejection;
         }
 
+        // Cookies without Secure are confined to direct, HTTP-only clients on
+        // a private LAN. Loopback reverse proxies keep Secure by default.
+        // Never infer transport security from client-controlled proxy headers.
+        const std::string host = requestHeaderValue(request, "Host");
+        const std::string origin = requestHeaderValue(request, "Origin");
+        const bool directHttpLan = request.peerIsDirectPrivateLan &&
+            !host.empty() && origin == "http://" + host &&
+            requestHeaderValue(request, "Forwarded").empty() &&
+            requestHeaderValue(request, "X-Forwarded-For").empty() &&
+            requestHeaderValue(request, "X-Forwarded-Host").empty() &&
+            requestHeaderValue(request, "X-Forwarded-Proto").empty();
         HttpServerResponse response = browserGate.login
-            ? browserSessionHttpService_->login(browserGate.context)
-            : browserSessionHttpService_->logout(browserGate.context);
+            ? browserSessionHttpService_->login(browserGate.context, directHttpLan)
+            : browserSessionHttpService_->logout(browserGate.context, directHttpLan);
         return finalizeResponse(
             browserGate.context,
             std::move(response));
