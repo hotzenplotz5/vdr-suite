@@ -1,5 +1,6 @@
 usr/sbin/vdr-suite-daemon
 usr/sbin/vdr-suite-first-admin-bootstrap
+usr/sbin/vdr-suite-first-admin-setup
 usr/sbin/vdr-suite-human-account-recover
 usr/bin/vdr-suite-dashboard
 usr/bin/vdr-suite-logo-sync
@@ -7,6 +8,7 @@ usr/share/vdr-suite/
 usr/share/doc/vdr-suite/README.md
 usr/share/man/man8/vdr-suite-daemon.8
 usr/share/man/man8/vdr-suite-first-admin-bootstrap.8
+usr/share/man/man8/vdr-suite-first-admin-setup.8
 usr/share/man/man8/vdr-suite-human-account-recover.8
 usr/share/man/man5/vdr-suite.conf.5
 usr/share/man/man1/vdr-suite-dashboard.1
