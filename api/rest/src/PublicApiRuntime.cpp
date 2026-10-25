@@ -8818,7 +8818,7 @@ bool PublicApiRuntime::tryHandleGet(
         }
         // The source catalog is bounded. More than this is unavailable,
         // NOT silently truncated or reported as a complete directory scan.
-        if (r.status != MediaImportSourceStatus::ok || r.ids.size() > 256U)
+        if (r.status != MediaImportSourceStatus::ok || r.ids.size() > 100U)
         {
             response = serviceUnavailableProblem(path, requestId, correlationId);
             return true;
