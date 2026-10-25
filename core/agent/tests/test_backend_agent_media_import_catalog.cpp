@@ -40,6 +40,30 @@ int main()
     assert(items == (std::vector<std::string>{"source_00000000001",
                                              "source_00000000002"}));
     assert(labels == (std::vector<std::string>{"Erster Film", "Zweiter Film"}));
+    // UX3: advisory root-relative folders follow sorted source IDs, never
+    // act as source authority, and invalid paths keep the old observation.
+    std::vector<std::string> folders;
+    assert(catalog.publish(actor, live, "backend", "instance", 7,
+        {"source_00000000002", "source_00000000001"}, 100,
+        "manual", "0.1.0", approvedSha,
+        {"Zweiter Film", "Erster Film"}, false,
+        {"Serien/Andor", ""}));
+    assert(catalog.list(live, "backend", 100, items, labels,
+                        nullptr, &folders));
+    assert(folders == (std::vector<std::string>{"", "Serien/Andor"}));
+    assert(!catalog.publish(actor, live, "backend", "instance", 7,
+        {"source_00000000002", "source_00000000001"}, 100,
+        "manual", "0.1.0", approvedSha,
+        {"Zweiter Film", "Erster Film"}, false,
+        {"../outside", ""}));
+    assert(!catalog.publish(actor, live, "backend", "instance", 7,
+        {"source_00000000002", "source_00000000001"}, 100,
+        "manual", "0.1.0", approvedSha,
+        {"Zweiter Film", "Erster Film"}, false,
+        {"/etc", ""}));
+    assert(catalog.list(live, "backend", 100, items, labels,
+                        nullptr, &folders));
+    assert(folders == (std::vector<std::string>{"", "Serien/Andor"}));
     // Backend-scoped Agent observation can carry more than the old 32
     // sources while retaining the 100-film maximum.
     std::vector<std::string> bulkIds, bulkLabels;
