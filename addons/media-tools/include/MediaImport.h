@@ -29,6 +29,7 @@ struct ImportPlan {
     std::uint64_t sourceInode = 0;
     std::int64_t sourceMtimeSeconds = 0;
     std::int64_t sourceMtimeNanoseconds = 0;
+    bool duplicateTarget = false; // advisory only; normal import always rejects duplicates
 };
 
 struct ProcessResult {
@@ -61,6 +62,16 @@ private:
 std::string parseProbedVideoCodec(const std::string& text);
 
 ImportPlan inspectImport(const ImportRequest& request);
+// Identical path/source validation, but returns duplicate status for a
+// read-only browser preview instead of rejecting it as a write attempt.
+ImportPlan inspectImportPreview(const ImportRequest& request);
+
+struct ImportCapacityPreview {
+    std::uint64_t availableBytes = 0;
+    std::uint64_t requiredBytes = 0; // staging/output plus disk reserve
+    bool sufficient = false;
+};
+ImportCapacityPreview inspectImportCapacity(const ImportPlan& plan);
 
 // Read-only source classification for an explicit local/desktop/skip decision.
 // This is informative only; execution probes the pinned source again.
