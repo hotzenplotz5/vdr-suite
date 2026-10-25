@@ -204,7 +204,36 @@ int main()
         if (source.sourceFile == bulkDir / "episode_69.mkv") sawBulk = true;
     }
     assert(sawBulk);
+    bool partial = true;
+    assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
+    assert(!partial && labels.size() == 74);
+
+    // Crossing the 256-source ceiling MUST preserve verified candidates
+    // and explicitly mark the result incomplete, not hide everything.
+    for (int index = 70; index < 270; ++index) {
+        const auto clip = bulkDir /
+            ("episode_" + std::to_string(index) + ".mkv");
+        { std::ofstream out(clip); out << "synthetic-bulk-media"; }
+        fs::last_write_time(clip,
+            fs::file_time_type::clock::now() - std::chrono::minutes(10));
+    }
+    assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
+    assert(partial && labels.size() == 256);
+    assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 256);
     fs::remove_all(bulkDir);
+
+    // Directory-entry overflow is a PARTIAL read, not an empty/falsely
+    // complete catalog. Non-media entries can reach this bound as well.
+    const auto huge = fixture.root / "media/input/ManyEntries";
+    fs::create_directory(huge);
+    for (int index = 0; index < 4100; ++index)
+        { std::ofstream out(huge / ("unused_" + std::to_string(index) + ".txt")); }
+    assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
+    assert(partial);
+    assert(labels.size() <= 256);
+    fs::remove_all(huge);
+    assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
+    assert(!partial && labels.size() == 4);
     assert(inventory.listTrustedSourceIds("backend", ids));
     assert(ids.size() == 4);
     const auto previous = ids;
