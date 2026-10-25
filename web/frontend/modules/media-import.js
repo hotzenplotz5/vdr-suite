@@ -746,9 +746,9 @@
     const decision = view.decision.value;
     const description = needsEncode
       ? decision === 'desktop'
-        ? 'Externe Umkodierung gewählt. Für PC/HandBrake markieren; kein Import.'
+        ? 'Externe Umkodierung gewählt. Für PC/HandBrake markieren. Kein Import.'
         : decision === 'skip'
-          ? 'Film überspringen und vom normalen Import ausschließen.'
+          ? 'Film überspringen und vom normalen Import ausschließen. Kein Import.'
           : decision === 'import' && view.localReencode.checked
             ? 'Lokale H.264-Umkodierung nur für diesen Film nach ausdrücklicher Bestätigung.'
             : 'Video-Neukodierung erforderlich. Bitte Bearbeitungsweg auswählen.'
