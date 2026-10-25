@@ -465,6 +465,42 @@ public:
                 path.size() - mediaImportCapabilityPrefix.size() -
                 mediaImportSourcesSuffix.size()).find('/') ==
                     std::string::npos;
+        const std::string mediaImportPreviewMarker = "/media-import-sources/";
+        const std::string mediaImportPreviewSuffix = "/preview";
+        bool isPublicMediaImportPreviewResource = false;
+        if (path.compare(0, mediaImportCapabilityPrefix.size(),
+                         mediaImportCapabilityPrefix) == 0 &&
+            path.size() > mediaImportCapabilityPrefix.size() +
+                mediaImportPreviewMarker.size() +
+                mediaImportPreviewSuffix.size() &&
+            path.compare(path.size() - mediaImportPreviewSuffix.size(),
+                mediaImportPreviewSuffix.size(),
+                mediaImportPreviewSuffix) == 0) {
+            const auto split = path.find(
+                mediaImportPreviewMarker, mediaImportCapabilityPrefix.size());
+            if (split != std::string::npos) {
+                const std::string backend = path.substr(
+                    mediaImportCapabilityPrefix.size(),
+                    split - mediaImportCapabilityPrefix.size());
+                const std::string token = path.substr(
+                    split + mediaImportPreviewMarker.size(),
+                    path.size() - mediaImportPreviewSuffix.size() -
+                        split - mediaImportPreviewMarker.size());
+                isPublicMediaImportPreviewResource =
+                    !backend.empty() && backend.size() <= 128U &&
+                    backend != "." && backend != ".." && backend != "*" &&
+                    std::all_of(backend.begin(), backend.end(),
+                        [](unsigned char c) {
+                            return std::isalnum(c) || c == '.' ||
+                                c == '-' || c == '_';
+                        }) &&
+                    token.size() >= 16U && token.size() <= 64U &&
+                    std::all_of(token.begin(), token.end(),
+                        [](unsigned char c) {
+                            return std::isalnum(c) || c == '-' || c == '_';
+                        });
+            }
+        }
         const std::string mediaCheckBase = "/api/v1/backends/";
         const std::string mediaCheckCapabilitySuffix =
             "/capabilities/media-check";
@@ -542,6 +578,7 @@ public:
             request.method == "GET" &&
             (isPublicBackendCollection || isPublicMediaImportCapabilityResource ||
              isPublicMediaImportSourcesResource ||
+             isPublicMediaImportPreviewResource ||
              isPublicMediaCheckCapabilityResource ||
              isPublicMediaShrinkCapabilityResource);
         const bool isPublicAccountCollection =
@@ -1127,6 +1164,7 @@ public:
              path == "/api/v1/devices" ||
              isPublicMediaImportCapabilityResource ||
              isPublicMediaImportSourcesResource ||
+             isPublicMediaImportPreviewResource ||
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
              isPublicRecordingDetail ||
