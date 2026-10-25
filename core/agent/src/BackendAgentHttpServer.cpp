@@ -246,15 +246,22 @@ bool jsonStringArray(
         if (body[position] != '"') return false;
         ++position;
         std::string value;
-        while (position < body.size() && body[position] != '"')
-        {
-            const unsigned char character = static_cast<unsigned char>(body[position++]);
-            if (character < 0x20U || character == '\\') return false;
-            value.push_back(static_cast<char>(character));
+        bool closed = false;
+        while (position < body.size()) {
+            const unsigned char character =
+                static_cast<unsigned char>(body[position++]);
+            if (character == '"') { closed = true; break; }
+            if (character < 0x20U) return false;
+            if (character == '\\') {
+                if (position >= body.size()) return false;
+                const char escaped = body[position++];
+                if (escaped != '"' && escaped != '\\' && escaped != '/')
+                    return false;
+                value.push_back(escaped);
+            } else value.push_back(static_cast<char>(character));
             if (value.size() > maximumValueLength) return false;
         }
-        if (position >= body.size() || body[position] != '"') return false;
-        ++position;
+        if (!closed) return false;
         values.push_back(value);
         if (values.size() > maximumItems) return false;
         position = skipSpace(body, position);
@@ -624,6 +631,10 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
     std::uint64_t generation = 0;
     std::vector<std::string> sourceIds;
     std::vector<std::string> sourceLabels;
+    bool partial = true; // legacy Agents have no completeness proof
+    if (request.body.find("\"partial\"") != std::string::npos &&
+        !jsonBool(request.body, "partial", partial))
+        return errorResponse(400, "invalid_media_import_scan_status");
     // Older Agents omit sourceLabels. Present but malformed arrays fail closed.
     if (request.body.find("\"sourceLabels\"") != std::string::npos &&
         !jsonStringArray(request.body, "sourceLabels", sourceLabels, 256U, 160U))
@@ -640,7 +651,7 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
     if (!live || !mediaImportCatalog_->publish(
             context, *live, backendId, instanceId, generation,
             sourceIds, unixNow(),
-            handlerOrigin, handlerVersion, handlerSha256, sourceLabels))
+            handlerOrigin, handlerVersion, handlerSha256, sourceLabels, partial))
         return errorResponse(409, "media_import_sources_agent_fenced");
     return jsonResponse(200, "{\"outcome\":\"accepted\"}");
 }
