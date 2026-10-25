@@ -107,6 +107,8 @@ public:
         if (snapshot == snapshots_.end() || slot == previews_.end() ||
             !liveSnapshot(snapshot->second, live, backendId, now) ||
             slot->second.ready || slot->second.sourceId != data.sourceId ||
+            !std::binary_search(snapshot->second.ids.begin(),
+                snapshot->second.ids.end(), data.sourceId) ||
             slot->second.requestedAt > now ||
             now - slot->second.requestedAt > 60)
             return false;
@@ -190,6 +192,13 @@ public:
             if (!byFolder.emplace(ids[i], folder).second) return false;
         }
         std::lock_guard<std::mutex> guard(mutex_);
+        const auto previous = snapshots_.find(backendId);
+        if (previous != snapshots_.end() &&
+            (previous->second.agentId != live.agentId ||
+             previous->second.actorId != live.actorId ||
+             previous->second.instanceId != instanceId ||
+             previous->second.generation != generation))
+            previews_.erase(backendId);
         snapshots_[backendId] = Snapshot{
             live.agentId, live.actorId, instanceId, generation, now,
             std::move(sorted), handlerOrigin, handlerVersion, handlerSha256,
