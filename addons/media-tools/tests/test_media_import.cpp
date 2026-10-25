@@ -196,6 +196,11 @@ int main() {
         const auto plan = inspectImport(f.request());
         assert(plan.title == "Sample" && plan.sourceBytes > 0);
         assert(!fs::exists(f.video / "Sample"));
+        const auto capacity = inspectImportCapacity(plan);
+        assert(capacity.requiredBytes == plan.sourceBytes * 3U +
+            64U * 1024U * 1024U);
+        assert(capacity.availableBytes > 0U);
+        assert(!fs::exists(f.video / "Sample"));
         // An untrusted source selected from an authorized inventory may be
         // inspected for codec decision without creating recording artifacts.
         struct Preview final : ProcessRunner {
