@@ -143,6 +143,24 @@ int main()
     assert(catalog.requestPreview(live, "backend", 135, selected, observed) ==
         BackendAgentMediaImportCatalog::PreviewState::pending);
     assert(catalog.nextPreviewRequest(live, "backend", 135) == selected);
+    // The same pending request cannot outlive the authenticated Agent lease.
+    live.leaseExpiresAt = 135;
+    assert(catalog.requestPreview(live, "backend", 136, selected, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::denied);
+    assert(catalog.nextPreviewRequest(live, "backend", 136).empty());
+    assert(!catalog.acceptPreview(live, "backend", 136, report));
+    live.leaseExpiresAt = 300;
+    // Repeated reads keep the pending ID; the reply never starts a job.
+    assert(catalog.requestPreview(live, "backend", 137, selected, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::pending);
+    report.status = "insufficient";
+    report.videoCodec = "vp9";
+    report.videoReencodeRequired = true;
+    assert(catalog.acceptPreview(live, "backend", 138, report));
+    assert(catalog.requestPreview(live, "backend", 138, selected, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::ready);
+    assert(observed.status == "insufficient" && observed.videoCodec == "vp9" &&
+           observed.videoReencodeRequired);
     std::string origin, version, sha256;
     assert(catalog.observedInstallation(
         live, "backend", 100, origin, version, sha256));
