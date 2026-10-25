@@ -71,10 +71,7 @@ async function scenario(options) {
       if (input === '/api/security/first-admin/status') {
         return Promise.resolve(response(200, {unclaimed: options.unclaimed}));
       }
-      if (input === '/api/security/first-admin/onscreen/start') {
-        return Promise.resolve(response(202, {status: 'displayed'}));
-      }
-      if (input === '/api/security/first-admin/onscreen/claim') {
+      if (input === '/api/security/first-admin/claim') {
         return Promise.resolve(response(201, {status: 'claimed'}));
       }
       if (input === '/api/security/browser-sessions') {
@@ -91,15 +88,12 @@ async function scenario(options) {
   vm.runInContext(source, context);
 
   async function settle() {
-    for (let tick = 0; tick < 120; tick++) await Promise.resolve();
+    for (let tick = 0; tick < 18; tick++) await Promise.resolve();
   }
   await settle();
 
   const dialog = document.getElementById('vdr-suite-session-dialog');
-  assert(dialog && dialog.open,
-    'must present login/setup modal: dialog=' + Boolean(dialog) +
-    ', open=' + Boolean(dialog && dialog.open) +
-    ', requests=' + requests.map(r => r.input).join(','));
+  assert(dialog && dialog.open, 'must present login/setup modal');
   const form = nodes.find(node => node.tagName === 'FORM');
   const input = name => {
     const found = nodes.find(node => node.name === name);
@@ -112,16 +106,16 @@ async function scenario(options) {
 
   if (!options.unclaimed) {
     assert.match(title.textContent, /anmelden/);
-    assert.equal(input('onscreenCode').hidden, false); // Hidden on label, not input.
+    assert.equal(input('bootstrapMaterial').hidden, false); // Hidden on label, not textarea.
     assert.equal(nodes.find(n => n.tagName === 'LABEL' &&
-      n.children.includes(input('onscreenCode'))).hidden, true);
-    assert(!requests.some(r => r.input === '/api/security/first-admin/onscreen/claim'));
+      n.children.includes(input('bootstrapMaterial'))).hidden, true);
+    assert(!requests.some(r => r.input === '/api/security/first-admin/claim'));
     return;
   }
   assert.match(title.textContent, /erstmalig einrichten/);
   if (!options.https) {
     assert.equal(submit.disabled, true);
-    assert(!requests.some(r => r.input === '/api/security/first-admin/onscreen/claim'));
+    assert(!requests.some(r => r.input === '/api/security/first-admin/claim'));
     return;
   }
   assert.equal(submit.disabled, false);
@@ -130,28 +124,27 @@ async function scenario(options) {
   input('password').value = 'meaningful-local-password';
   input('displayName').value = 'MLD Administrator';
   input('confirmPassword').value = 'meaningful-local-password';
-  const displayCode = nodes.find(node => node.textContent === 'Code am TV anzeigen');
-  assert(displayCode);
-  displayCode.fire('click');
-  await settle();
-  assert(requests.some(r => r.input === '/api/security/first-admin/onscreen/start'));
-  input('onscreenCode').value = '12345678';
+  const secret = 'q'.repeat(44);
+  input('bootstrapMaterial').value =
+    'bootstrap_id=fab_' + '1'.repeat(32) + '\nsetup_secret=' + secret +
+    '\nexpires_at=2026-10-25 18:00:00';
   form.fire('submit');
   await settle();
 
-  const claim = requests.find(r => r.input === '/api/security/first-admin/onscreen/claim');
+  const claim = requests.find(r => r.input === '/api/security/first-admin/claim');
   assert(claim);
   assert.equal(claim.config.method, 'POST');
   assert.equal(claim.config.cache, 'no-store');
   assert.equal(claim.config.credentials, 'same-origin');
   assert.equal(claim.config.headers['Content-Type'], 'application/json');
   assert.deepEqual(JSON.parse(claim.config.body), {
-    onscreenCode: '12345678',
+    bootstrapId: 'fab_' + '1'.repeat(32),
+    setupSecret: secret,
     loginName: 'admin',
     password: 'meaningful-local-password',
     displayName: 'MLD Administrator'
   });
-  assert.equal(input('onscreenCode').value, '');
+  assert.equal(input('bootstrapMaterial').value, '');
   assert.equal(input('password').value, '');
   assert.equal(input('confirmPassword').value, '');
   const login = requests.find(r => r.input === '/api/security/browser-sessions');
