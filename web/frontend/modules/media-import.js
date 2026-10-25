@@ -366,14 +366,72 @@
       view.decision.value !== 'import';
   }
 
+  // Build navigation only from previously validated Agent/Core relative
+  // folders. This is NOT a server path resolver; clicks never send a path.
+  function renderSourceFolders(view, searching) {
+    const catalog = view.allOrdinary.concat(view.allMarked);
+    const known = new Set(['']);
+    catalog.forEach(function (item) {
+      const parts = (item.folder || '').split('/').filter(Boolean);
+      for (let i = 1; i <= parts.length; ++i)
+        known.add(parts.slice(0, i).join('/'));
+    });
+    if (!known.has(view.folderPath)) view.folderPath = '';
+    view.folderBreadcrumb.replaceChildren();
+    view.folderList.replaceChildren();
+    const navigate = function (path) {
+      if (!isCurrent(view) || view.batch || view.attempt || !known.has(path))
+        return;
+      view.folderPath = path;
+      view.checkedSourceIds.clear();
+      filterVisibleSources(view);
+    };
+    const root = element('button', '', 'Importwurzeln');
+    root.type = 'button';
+    root.disabled = view.folderPath === '';
+    root.addEventListener('click', function () { navigate(''); });
+    view.folderBreadcrumb.appendChild(root);
+    const parts = view.folderPath ? view.folderPath.split('/') : [];
+    parts.forEach(function (name, i) {
+      const path = parts.slice(0, i + 1).join('/');
+      const part = element('button', '', name);
+      part.type = 'button';
+      part.disabled = path === view.folderPath;
+      part.addEventListener('click', function () { navigate(path); });
+      view.folderBreadcrumb.appendChild(part);
+    });
+    const children = Array.from(known).filter(function (path) {
+      if (!path || path === view.folderPath) return false;
+      const parent = path.lastIndexOf('/') < 0 ? '' :
+        path.slice(0, path.lastIndexOf('/'));
+      return parent === view.folderPath;
+    }).sort();
+    children.forEach(function (path) {
+      const name = path.slice(path.lastIndexOf('/') + 1);
+      const button = element('button', 'media-import-folder', '📁 ' + name);
+      button.type = 'button';
+      button.addEventListener('click', function () { navigate(path); });
+      view.folderList.appendChild(button);
+    });
+    view.folderList.hidden = searching || children.length === 0;
+    view.folderBreadcrumb.hidden = known.size <= 1;
+  }
+
   // UX3 step 1: search/filter only the already authenticated, bounded
   // Agent/Core snapshot. No path guesses, filesystem requests or new grants.
   function filterVisibleSources(view) {
     if (!isCurrent(view) || view.attempt || view.batch) return;
     const query = String(view.searchInput.value || '').trim().toLowerCase();
     const mode = view.statusFilter.value;
+    renderSourceFolders(view, Boolean(query));
     const matches = function (item) {
-      return !query || (item.label || item.sourceId).toLowerCase().includes(query);
+      const labelMatches = !query ||
+        (item.label || item.sourceId).toLowerCase().includes(query);
+      // Searching is intentionally cross-folder; browsing without a search
+      // displays just the selected directory. Both use trusted IDs only.
+      const folderMatches = Boolean(query) ||
+        (item.folder || '') === view.folderPath;
+      return labelMatches && folderMatches;
     };
     const normal = mode === 'marked' ? [] :
       view.allOrdinary.filter(matches);
@@ -461,6 +519,9 @@
     view.selectAllVisibleButton.disabled = true;
     view.allOrdinary = [];
     view.allMarked = [];
+    view.folderPath = '';
+    view.folderBreadcrumb.replaceChildren();
+    view.folderList.replaceChildren();
     report(view, 'Autorisierte Importquellen werden geladen …');
     return readSourcePages(view.backendId)
       .then(function (response) {
