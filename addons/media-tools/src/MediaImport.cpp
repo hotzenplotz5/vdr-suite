@@ -520,26 +520,31 @@ std::string probeImportVideoCodec(const ImportPlan& plan, ProcessRunner& runner)
     return codec;
 }
 
-void requireProductionCapacity(const ImportPlan& plan) {
+ImportCapacityPreview inspectImportCapacity(const ImportPlan& plan) {
     struct statvfs st{};
-    require(::statvfs(plan.videoRoot.c_str(), &st) == 0, "destination capacity is unavailable");
-    require((st.f_flag & ST_RDONLY) == 0 &&
-            ::access(plan.videoRoot.c_str(), W_OK | X_OK) == 0,
-            "destination is not writable by the media worker");
+    require(::statvfs(plan.videoRoot.c_str(), &st) == 0,
+            "destination capacity is unavailable");
     const auto block = static_cast<std::uint64_t>(st.f_frsize);
     require(block != 0 && st.f_blocks <= UINT64_MAX / block &&
             st.f_bavail <= UINT64_MAX / block, "capacity overflow");
     const auto total = st.f_blocks * block;
     const auto available = st.f_bavail * block;
     const auto reserve = std::max(4 * kGiB, total / 100 * 15);
-    // One unchanged source snapshot and an output capped at twice the
-    // source size plus 16 MiB. Keep extra filesystem reserve independent
-    // of whether stream copy or software encoding is chosen.
+    // Exact production budget: snapshot + bounded output + reserve.
     require(plan.sourceBytes <=
             (static_cast<std::uint64_t>(INT64_MAX) - 64 * kMiB) / 3,
             "source too large for bounded preflight");
     const auto budget = static_cast<std::uint64_t>(plan.sourceBytes) * 3 + 64 * kMiB;
-    require(available >= reserve && available - reserve >= budget,
+    const bool writable = (st.f_flag & ST_RDONLY) == 0 &&
+        ::access(plan.videoRoot.c_str(), W_OK | X_OK) == 0;
+    return {available, budget, reserve, writable,
+        writable && available >= reserve && available - reserve >= budget};
+}
+
+void requireProductionCapacity(const ImportPlan& plan) {
+    const auto capacity = inspectImportCapacity(plan);
+    require(capacity.writable, "destination is not writable by the media worker");
+    require(capacity.sufficient,
             "insufficient capacity for import staging and reserve");
 }
 
