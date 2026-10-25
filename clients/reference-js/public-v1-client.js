@@ -249,10 +249,11 @@
     }
 
     if (query.sort !== undefined) {
-      if (query.sort !== 'backendId,channelId') {
-        throw new Error('channel query sort must be backendId,channelId');
+      if (query.sort !== 'backendId,channelId' &&
+          query.sort !== 'backendId,channelNumber,channelId') {
+        throw new Error('unsupported Channel collection ordering');
       }
-      parts.push('sort=backendId,channelId');
+      parts.push('sort=' + query.sort);
     }
 
     if (query.order !== undefined) {
