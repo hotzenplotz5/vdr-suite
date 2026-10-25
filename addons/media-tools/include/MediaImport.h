@@ -62,6 +62,17 @@ private:
 std::string parseProbedVideoCodec(const std::string& text);
 
 ImportPlan inspectImport(const ImportRequest& request);
+// Preview-only observation: allow identifying an existing target recording
+// without accidentally granting write authority or creating directories.
+struct ImportPreview {
+    ImportPlan plan;
+    std::string videoCodec;
+    bool videoReencodeRequired = false;
+    bool duplicate = false;
+    // Capacity is reported as a separate observation below.
+};
+ImportPreview inspectImportPreview(const ImportRequest& request,
+                                   ProcessRunner& runner);
 // Identical path/source validation, but returns duplicate status for a
 // read-only browser preview instead of rejecting it as a write attempt.
 ImportPlan inspectImportPreview(const ImportRequest& request);
