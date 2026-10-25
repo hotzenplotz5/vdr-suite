@@ -222,6 +222,36 @@ int main() {
         ++checks;
     }
     {
+        // UX4.2: read-only preview is the exact productive plan, including
+        // source size, real target hierarchy, duplicate and capacity status.
+        Fixture f;
+        auto request = f.request();
+        const auto base = inspectImportPreview(request);
+        assert(base.titleDirectory == f.video / "Sample");
+        assert(base.sourceBytes == fs::file_size(f.source));
+        assert(!base.duplicateTarget);
+        const auto capacity = inspectImportCapacity(base);
+        assert(capacity.requiredBytes >= base.sourceBytes);
+        assert(!fs::exists(f.video / "Sample"));
+        fs::create_directories(f.video / "Sample" /
+                               "2026-01-01.00.00.1-0.rec");
+        const auto duplicate = inspectImportPreview(request);
+        assert(duplicate.duplicateTarget &&
+               duplicate.titleDirectory == base.titleDirectory);
+        mustFail([&] { inspectImport(request); }); // write path still rejects
+        struct ReadOnlyCodec : ProcessRunner {
+            ProcessResult run(const std::vector<std::string>& args,
+                              bool captured) override {
+                assert(captured && args[0] == "/usr/bin/ffprobe");
+                return {0, "vp9\n"};
+            }
+        } probe;
+        assert(probeImportVideoCodec(duplicate, probe) == "vp9");
+        assert(importVideoNeedsReencode("vp9"));
+        assert(fs::exists(f.source));
+        ++checks;
+    }
+    {
         // Rectools workflow markers are persistent queue states: desktop
         // HandBrake delegation, explicit skip and duplicate. A source must
         // never enter the VDR import flow just because the media extension
