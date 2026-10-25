@@ -361,6 +361,7 @@ test-security-first-admin-claim-http-service:
 		core/security/src/HumanAccountRepository.cpp \
 		core/security/src/FirstAdminBootstrapRepository.cpp \
 		core/security/src/FirstAdminClaimService.cpp \
+		core/security/src/FirstAdminBootstrapIssuanceService.cpp \
 		$(FIRST_ADMIN_HTTP_SRC) \
 		core/http/tests/test_first_admin_claim_http_service.cpp \
 		$(LDFLAGS) \
