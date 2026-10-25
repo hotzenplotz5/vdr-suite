@@ -486,6 +486,36 @@ This code candidate has not had a confirmed C++ build, CI run or real yaVDR
 acceptance. No package, service, VDR recording, filesystem
 owner or live configuration was changed by these source edits.
 
+## MT.UX2 – backend-bound source names (partial source implementation)
+
+An authorized backend may already have multiple rows in the **root-owned**
+`/etc/vdr-suite/addon-sources/media-import.tsv` inventory. MT.UX2 extends
+the existing five-column record with one optional, presentation-only sixth
+column:
+
+```text
+BACKEND_ID<TAB>OPAQUE_ROOT_ID<TAB>SOURCE_ROOT<TAB>VIDEO_ROOT<TAB>*<TAB>DISPLAY_NAME
+```
+
+The first row for each backend is shown as the default **when named**;
+subsequent named rows are displayed with their own prefix. Example:
+`Standard: Filme · Matrix` and `Serien · Andor`. Old five-column rows
+retain their exact previous appearance. The alias is at most 64 bytes and
+must not contain slashes, backslashes, tabs or control characters. It is
+display metadata only: neither a new backend, permission, path nor runnable
+source is authorized by a label. Existing rooted-file inspection, source-ID
+mapping, filesystem symlink rejection, Agent revalidation and the 100-film
+catalog cap remain mandatory. The web client receives **no source path**.
+
+**Not yet complete:** An authenticated browser administration route with
+CSRF/audit and a reviewed root-privileged configuration transaction has not
+been implemented. The shipped `configure_media_tools_paths.sh` is still
+the existing **single-root, offline, root-only** tool, unchanged: it must
+not be treated as a multi-root or browser settings writer. Never write the
+root-controlled TSV from JavaScript, from the unprivileged daemon or by
+silently changing live file owners/modes. UX2 admin mutation, default-root
+selection UI, integration tests and real-VDR acceptance remain open.
+
 ## Importer: source-preserving metadata and codec fallback
 
 The existing backend C++ import implementation remains the only importer.
