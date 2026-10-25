@@ -111,7 +111,7 @@ def main():
         "response.statusCode == 201",
         "invalid_bootstrap_proof",
         "bootstrap_expired",
-        "bootstrap_consumed",
+        'fixture.consumeBootstrap("bootstrap-browser-consumed")',
         "bootstrap_invalidated",
         "server_already_claimed",
         "fixture.accounts.listAll().accounts.empty()",
