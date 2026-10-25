@@ -1,7 +1,6 @@
 #pragma once
 
 #include "PinnedMediaImportAgentExecutor.h"
-#include "MediaImport.h"
 
 #include <filesystem>
 #include <string>
@@ -35,14 +34,6 @@ public:
         const std::string& backendId,
         std::vector<MediaImportSourceLabel>& sources, bool& partial);
 
-    // Resolve ONE opaque source ID through the existing trusted inventory,
-    // then run a bounded, read-only importer probe on that exact file.
-    // Not a write command, grant or browser-facing filesystem path.
-    bool inspectTrustedSource(const std::string& backendId,
-                              const std::string& sourceId,
-                              ProcessRunner& runner,
-                              ImportPreview& preview,
-                              ImportCapacityPreview& capacity);
 
 private:
     std::filesystem::path installRoot_;
