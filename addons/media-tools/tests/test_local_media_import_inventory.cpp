@@ -98,6 +98,31 @@ int main()
     assert(!inventory.resolve("backend", "../../etc/passwd", selected));
     assert(!inventory.resolve("backend", "short", selected));
 
+    // MT.UX4.2: only a trusted opaque source ID reaches the existing
+    // read-only importer; preview never touches recordings or source bytes.
+    struct PreviewProbe final : ProcessRunner {
+        ProcessResult run(const std::vector<std::string>& argv,
+                          bool captureOutput) override
+        {
+            assert(captureOutput && argv[0] == "/usr/bin/ffprobe");
+            return {0, "h264\n"};
+        }
+    } probe;
+    ImportPreview preview;
+    ImportCapacityPreview capacity;
+    assert(inventory.inspectTrustedSource("backend", Key, probe,
+                                          preview, capacity));
+    assert(preview.plan.sourceFile == fixture.source &&
+           preview.plan.videoRoot == fixture.destination &&
+           preview.videoCodec == "h264" &&
+           !preview.videoReencodeRequired && !preview.duplicate);
+    assert(preview.plan.sourceBytes > 0 && capacity.availableBytes > 0);
+    assert(!fs::exists(fixture.destination / "clip"));
+    assert(fs::exists(fixture.source));
+    assert(!inventory.inspectTrustedSource("backend", "../../etc/passwd",
+                                           probe, preview, capacity));
+    assert(preview.plan.sourceFile.empty());
+
     // MT.UX2: root-owned optional sixth column names each source root.
     // The first matching backend entry becomes the default for display.
     const auto extraDir = fixture.root / "media/extra";
