@@ -474,11 +474,14 @@
     view.select.disabled = normal.length === 0;
     view.startButton.disabled = true;
     view.sourceDetails.textContent = '';
-    view.preview.textContent = 'Film auswählen, Entscheidung prüfen und bestätigen.';
+    view.preview.textContent = 'Film auswählen. Die technische Importprüfung erfolgt automatisch.';
     view.localReencode.checked = false;
-    view.localReencode.disabled = normal.length === 0;
+    view.localReencode.disabled = true;
     view.decision.value = 'import';
-    view.decision.disabled = normal.length === 0;
+    view.decision.disabled = true;
+    view.choiceLabel.hidden = true;
+    view.skipButton.hidden = true;
+    view.skipButton.disabled = true;
     view.startButton.textContent = 'Import starten';
     view.batchButton.disabled = normal.length < 2 ||
       normal.length > MAX_IMPORT_FILMS;
@@ -635,6 +638,9 @@
       view.previewTimer = null;
     }
     const id = view.select.value;
+    // A new observation never inherits an older film's encoding consent.
+    view.decision.value = '';
+    view.localReencode.checked = false;
     ++view.previewGeneration;
     const generation = view.previewGeneration;
     view.previewResult = null;
@@ -709,30 +715,46 @@
   function updatePreview(view) {
     if (!isCurrent(view)) return;
     const id = view.select.value;
-    if (!view.sources.includes(id)) {
-      view.preview.textContent = 'Film auswählen, Entscheidung prüfen und bestätigen.';
-      return;
-    }
+    const selected = view.sources.includes(id);
     const item = view.allOrdinary.find(function (source) {
       return source.sourceId === id;
     });
-    const plan = view.previewResult && view.previewResult.sourceId === id
-      ? view.previewResult : null;
+    const plan = selected && view.previewResult &&
+      view.previewResult.sourceId === id ? view.previewResult : null;
+    const ready = Boolean(plan && plan.status === 'ready');
+    const needsEncode = ready && plan.videoReencodeRequired;
+    // Rectools-style: compatible media has one ordinary import action.
+    // Encoding choices appear only when a checked video needs conversion.
+    if (ready && !needsEncode) view.decision.value = 'import';
+    if (!needsEncode) view.localReencode.checked = false;
+    view.choiceLabel.hidden = !needsEncode;
+    view.decision.disabled = !needsEncode || view.submitting ||
+      Boolean(view.attempt) || Boolean(view.batch);
+    view.skipButton.hidden = !plan || needsEncode || plan.status === 'unavailable';
+    view.skipButton.disabled = view.submitting || Boolean(view.attempt) ||
+      Boolean(view.batch);
+    if (!selected) {
+      view.preview.textContent = 'Film auswählen. Die technische Importprüfung erfolgt automatisch.';
+      view.startButton.disabled = true;
+      return;
+    }
     const name = plan && plan.title ? plan.title :
       (view.sourceTitles[id] || 'Film');
     const sourceFolder = item && item.folderKnown
       ? (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel')
       : 'wird vom Backend beim Import geprüft';
     const decision = view.decision.value;
-    const description = decision === 'desktop'
-      ? 'Für eine spätere Bearbeitung am PC markieren. Kein Import.'
-      : decision === 'skip'
-        ? 'Überspringen markieren. Kein Import.'
-        : view.localReencode.checked
-          ? 'VDR-Import; lokale Umkodierung bei Bedarf nur für diesen Film nach erneuter Bestätigung.'
-          : 'VDR-Import ohne Freigabe einer lokalen Umkodierung.';
-    let details = view.previewStatus ||
-      'Film wird geprüft …';
+    const description = needsEncode
+      ? decision === 'desktop'
+        ? 'Externe Umkodierung gewählt. Für PC/HandBrake markieren; kein Import.'
+        : decision === 'skip'
+          ? 'Film überspringen und vom normalen Import ausschließen.'
+          : decision === 'import' && view.localReencode.checked
+            ? 'Lokale H.264-Umkodierung nur für diesen Film nach ausdrücklicher Bestätigung.'
+            : 'Video-Neukodierung erforderlich. Bitte Bearbeitungsweg auswählen.'
+      : 'Video wird ohne Neukodierung in das VDR-Aufnahmeformat übernommen; ' +
+        'Audio wird beim Import bei Bedarf angepasst.';
+    let details = view.previewStatus || 'Film wird geprüft …';
     if (plan) {
       if (plan.status === 'unavailable') {
         details = 'Film konnte vom Backend nicht sicher geprüft werden.';
@@ -742,8 +764,8 @@
           : plan.status === 'insufficient'
             ? 'Nicht genügend freier Platz für den Import.'
             : plan.videoReencodeRequired
-              ? 'Video muss umkodiert werden. Nur mit gesonderter Zustimmung.'
-              : 'Video kann ohne lokale Neukodierung übernommen werden.';
+              ? 'Video muss für eine VDR-Aufnahme umkodiert werden.'
+              : 'Video technisch für den VDR-Import geeignet – verlustfreies Remuxing möglich.';
         details = 'VDR-Zielordner: ' + plan.targetFolder +
           '. Video-Codec: ' + plan.videoCodec +
           '. Quelldatei: ' + humanBytes(plan.sourceBytes) +
@@ -756,27 +778,41 @@
       '. Quellordner: ' + sourceFolder + '. ' + description +
       ' ' + details +
       ' Der Backend-Agent prüft Quelle und Ziel bei Auftragsannahme erneut.';
-    // Do not offer an import that the verified backend preview already
-    // proves cannot work. Mark/skip decisions remain independently usable.
+    view.startButton.textContent = needsEncode
+      ? decision === 'desktop' ? 'Für PC markieren'
+        : decision === 'skip' ? 'Film überspringen'
+          : decision === 'import' ? 'Auf VDR umkodieren'
+            : 'Bearbeitungsweg auswählen'
+      : ready ? 'Import starten' : 'Import nicht möglich';
     if (!view.submitting && !view.attempt && !view.batch) {
-      const cannotImport = plan && plan.sourceId === id &&
-        (plan.status === 'duplicate' || plan.status === 'insufficient' ||
-         plan.status === 'unavailable' ||
-         (plan.videoReencodeRequired && !view.localReencode.checked));
-      view.startButton.disabled = view.decision.value === 'import'
-        ? Boolean(cannotImport) : false;
+      view.startButton.disabled = !ready ||
+        (needsEncode && (!['import', 'desktop', 'skip'].includes(decision) ||
+         (decision === 'import' && !view.localReencode.checked)));
     }
   }
 
-  function startImport(view, releaseMode) {
+  function startImport(view, releaseMode, forcedDecision) {
     if (!isCurrent(view) || view.submitting || view.attempt) return Promise.resolve();
     const sourceId = releaseMode ? view.markedSelect.value :
       view.batch ? view.batch.remaining[0] : view.select.value;
     // Encoding authority is granted per film, per click, never to a batch.
     const selected = releaseMode ? 'release' :
-      view.batch ? 'import' : view.decision.value;
+      view.batch ? 'import' : (forcedDecision || view.decision.value);
     if (!['import', 'desktop', 'skip', 'release'].includes(selected) ||
         (releaseMode && view.batch)) return Promise.resolve();
+    if (!releaseMode && !view.batch) {
+      // Pending/failed preview never admits an import. A marker needs the
+      // currently inspected source too; only reencode-required video can
+      // be delegated to an external encoder.
+      const plan = view.previewResult &&
+        view.previewResult.sourceId === sourceId ? view.previewResult : null;
+      if (!plan || plan.status === 'unavailable' ||
+          (selected === 'import' && (plan.status !== 'ready' ||
+            (plan.videoReencodeRequired && !view.localReencode.checked))) ||
+          (selected === 'desktop' && (plan.status !== 'ready' ||
+            !plan.videoReencodeRequired)))
+        return Promise.resolve();
+    }
     const approveVideoReencode = selected === 'import' &&
       !view.batch && view.localReencode.checked === true;
     const videoDecision = selected === 'import'
@@ -808,6 +844,7 @@
     view.startButton.disabled = true;
     view.localReencode.disabled = true;
     view.decision.disabled = true;
+    view.skipButton.disabled = true;
     view.markedSelect.disabled = true;
     view.releaseButton.disabled = true;
     report(view, 'Quelle und Berechtigung werden erneut geprüft …');
@@ -975,13 +1012,15 @@
       'Film auswählen, Entscheidung prüfen und bestätigen.');
     preview.setAttribute('role', 'status');
     root.appendChild(preview);
-    const choiceLabel = element('label', 'media-import-decision-label', 'Entscheidung für diesen Film');
+    const choiceLabel = element('label', 'media-import-decision-label', 'Video muss umkodiert werden – wie möchtest du vorgehen?');
+    choiceLabel.hidden = true;
     const decision = element('select', 'media-import-decision');
     decision.disabled = true;
     [
-      ['import', 'Lokal importieren / bei Bedarf umkodieren'],
-      ['desktop', 'Am PC bearbeiten (HandBrake) – .pc_encode'],
-      ['skip', 'Überspringen – .skipped']
+      ['', 'Bitte Bearbeitungsweg auswählen'],
+      ['import', 'Auf dem VDR umkodieren (H.264)'],
+      ['desktop', 'Auf PC umkodieren (z. B. HandBrake)'],
+      ['skip', 'Film überspringen']
     ].forEach(function (choice) {
       const option = element('option', '', choice[1]);
       option.value = choice[0];
@@ -991,7 +1030,8 @@
     choiceLabel.appendChild(decision);
     root.appendChild(choiceLabel);
     const encodeLabel = element('label', 'media-import-encode-label',
-      'Lokale Umkodierung bei Bedarf ausdrücklich erlauben (nur dieser Film)');
+      'Lokale Umkodierung ausschließlich nach gesonderter Zustimmung');
+    encodeLabel.hidden = true;
     const localReencode = element('input', 'media-import-local-reencode');
     localReencode.type = 'checkbox';
     localReencode.checked = false;
@@ -1016,6 +1056,11 @@
     refreshButton.type = 'button';
     refreshButton.hidden = true;
     root.appendChild(startButton);
+    const skipButton = element('button', 'media-import-skip', 'Film überspringen');
+    skipButton.type = 'button';
+    skipButton.hidden = true;
+    skipButton.disabled = true;
+    root.appendChild(skipButton);
     root.appendChild(element('h4', '', 'Mehrfachauswahl'));
     const selectAllVisibleButton = element('button', 'media-import-select-all',
       'Alle sichtbaren Filme auswählen');
@@ -1062,6 +1107,7 @@
       visibleCount: visibleCount, normalLabel: label, markedLabel: markedLabel,
       allOrdinary: [], allMarked: [],
       localReencode: localReencode, decision: decision,
+      choiceLabel: choiceLabel, skipButton: skipButton,
       markedSelect: markedSelect, releaseButton: releaseButton, markedSources: [],
       batchButton: batchButton, batchStopButton: batchStopButton,
       selectAllVisibleButton: selectAllVisibleButton,
@@ -1099,24 +1145,19 @@
         ? 'Auswahl-ID: ' + select.value : '';
       refreshSelectedPreview(view);
     });
-    localReencode.addEventListener('change', function () {
-      if (!isCurrent(view) || view.batch) return;
-      batchButton.disabled = localReencode.checked || view.sources.length < 2 ||
-        decision.value !== 'import';
-      updateSelectionCount(view);
-      updatePreview(view);
-    });
     decision.addEventListener('change', function () {
-      if (!isCurrent(view) || view.batch || view.attempt) return;
-      localReencode.checked = false;
-      localReencode.disabled = decision.value !== 'import';
-      batchButton.disabled = decision.value !== 'import' || view.sources.length < 2;
+      if (!isCurrent(view) || view.batch || view.attempt ||
+          !view.previewResult || view.previewResult.status !== 'ready' ||
+          !view.previewResult.videoReencodeRequired) return;
+      // The visible VDR choice is per-film permission for local encoding.
+      // The existing 'local' Core request still needs its own confirmation.
+      localReencode.checked = decision.value === 'import';
+      batchButton.disabled = true;
       updateSelectionCount(view);
-      startButton.textContent = decision.value === 'desktop' ? 'Für PC markieren' :
-        decision.value === 'skip' ? 'Film überspringen' : 'Import starten';
       updatePreview(view);
     });
     startButton.addEventListener('click', function () { return startImport(view); });
+    skipButton.addEventListener('click', function () { return startImport(view, false, 'skip'); });
     markedSelect.addEventListener('change', function () {
       releaseButton.disabled = view.submitting || Boolean(view.attempt) ||
         !view.markedSources.includes(markedSelect.value);
@@ -1138,7 +1179,7 @@
       view.attempt = null;
       view.reads = 0;
       view.localReencode.checked = false;
-      view.localReencode.disabled = false;
+      view.localReencode.disabled = true;
       view.decision.value = 'import';
       view.decision.disabled = false;
       view.startButton.textContent = 'Import starten';
