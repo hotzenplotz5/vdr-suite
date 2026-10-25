@@ -135,6 +135,25 @@ async function run() {
         }
       });
     },
+    getDeviceLifecycle(options) {
+      calls.push({kind: 'lifecycle', options});
+      const device = deviceItems.find(x => x.deviceId === options.deviceId);
+      if (!device) return Promise.reject({status: 404});
+      return Promise.resolve({
+        etag: '"lifecycle-' + device.deviceId + '"',
+        data: {deviceId: device.deviceId, actorId: device.actorId,
+          active: device.active, revoked: device.revoked}
+      });
+    },
+    revokeDevice(options) {
+      calls.push({kind: 'revoke', options});
+      deviceItems = deviceItems.map(x => x.deviceId === options.deviceId
+        ? Object.assign({}, x, {active: false, revoked: true}) : x);
+      const device = deviceItems.find(x => x.deviceId === options.deviceId);
+      return Promise.resolve({etag: '"revoked-' + options.deviceId + '"',
+        data: {deviceId: device.deviceId, actorId: device.actorId,
+          active: false, revoked: true}});
+    },
     setDeviceGrant(options) {
       calls.push({kind: 'mutation', options});
       if (rejectStale) return Promise.reject({status: 412});
@@ -229,6 +248,30 @@ async function run() {
     '412 must not be retried automatically');
   assert(calls.filter(x => x.kind === 'grants').length >= 3,
     '412 requires a fresh ETag read');
+  // A revoke is never implicit: fresh lifecycle GET, explicit confirmation,
+  // separate CSRF-fenced POST with the lifecycle (not grant) ETag.
+  const retire = named(page, 'button', 'Gerät entfernen');
+  assert(retire, 'Active Device needs a retire action');
+  approveConfirmed = false;
+  retire.click();
+  await settle();
+  assert.strictEqual(calls.filter(x => x.kind === 'revoke').length, 0);
+  approveConfirmed = true;
+  retire.click();
+  await settle();
+  const retired = calls.filter(x => x.kind === 'revoke');
+  assert.strictEqual(retired.length, 1);
+  assert.strictEqual(retired[0].options.deviceId, 'device_a');
+  assert.strictEqual(retired[0].options.ifMatch, '"lifecycle-device_a"');
+  assert.strictEqual(retired[0].options.headers['X-CSRF-Token'], 'test-browser-csrf');
+  assert.strictEqual(retired[0].options.credentials, 'same-origin');
+  assert(!named(page, 'button', 'Hisense Wohnzimmer'),
+    'Revoked devices are hidden from the default active list');
+  assert(named(page, 'button', 'Widerrufene anzeigen (2)'));
+  assert.strictEqual(calls.filter(x => x.kind === 'mutation').length, 2,
+    'Retiring one Device must not mutate any grant');
+  named(page, 'button', 'Widerrufene anzeigen (2)').click();
+  assert(named(page, 'button', 'Hisense Wohnzimmer'));
   const oldTv = named(page, 'button', 'Altes TV');
   assert(oldTv);
   oldTv.click();
