@@ -41,7 +41,7 @@ int main()
                                              "source_00000000002"}));
     assert(labels == (std::vector<std::string>{"Erster Film", "Zweiter Film"}));
     // Backend-scoped Agent observation can carry more than the old 32
-    // sources while retaining the bounded 256-entry maximum.
+    // sources while retaining the 100-film maximum.
     std::vector<std::string> bulkIds, bulkLabels;
     for (int i = 0; i < 70; ++i) {
         bulkIds.push_back("source_" + std::to_string(10000000000ULL + i));
@@ -69,7 +69,7 @@ int main()
     bulkIds.resize(101, "source_oversized_0000000001");
     assert(!catalog.publish(actor, live, "backend", "instance", 7,
         bulkIds, 100, "manual", "0.1.0", approvedSha));
-    assert(catalog.list(live, "backend", 100, items) && items.size() == 70);
+    assert(catalog.list(live, "backend", 100, items) && items.size() == 100);
     std::string origin, version, sha256;
     assert(catalog.observedInstallation(
         live, "backend", 100, origin, version, sha256));
