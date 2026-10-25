@@ -249,8 +249,8 @@ function publishHomeResume() {}
     'opaque source IDs must stay in collapsed technical details');
   assert(findClass(mount, 'media-import-technical-details'),
     'MT.UX1 must retain optional technical details');
-  assert(findClass(mount, 'media-import-scan-notice').textContent.includes('nicht bestätigt'),
-    'do not claim complete recursive scan without a paginated backend');
+  assert(findClass(mount, 'media-import-scan-notice').textContent.includes('Scan abgeschlossen'),
+    'backend completeness must be displayed only when explicitly certified');
   const postBeforeScan = requests.filter(r => r.options.method === 'POST').length;
   sourcePartial = true;
   await findClass(mount, 'media-import-reload').listeners.click();
