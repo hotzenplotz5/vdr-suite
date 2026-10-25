@@ -96,6 +96,18 @@ matches the basic product expectation of separately manageable paired TV
 clients (Kodi/Plex offer managed client/user authorization flows; their
 exact menus and per-backend grant semantics have not been verified here).
 
+## Samsung pairing, duplicate identities and polling — observed on real TV (2026-10-25)
+
+The Samsung Tizen 5.5 client completed pairing, one-time credential activation and a real authenticated Channel read. A VS Code Tizen `Run Project` reinstall/update caused the client to report **“Kein gespeichertes Device-Credential”** on its next test. The older Service Device remained active in the server inventory, but its former client-held secret was no longer available to that installation. A newly approved and activated pairing resulted in **a second** `Samsung TV · VDR-Suite` entry; the two display names are not unique IDs, and the older Device is **not** automatically reactivated or reused.
+
+The new Device initially lacked the required `channels.view` grant, as proved by the TV's empty accessible-Backend state. The administrator then granted `channels.view@default` to the **new** Device and the client loaded 20 real channels. Grant state for the old Device does not automatically migrate. **Do not infer Device-specific authorization from identical display names or from an apparently selected row in the browser UI.** Always use the canonical Device identity and its own grant-set read/revision.
+
+**Ten-second admin polling:** PR #539 implements read-only refresh while Settings remains visible. In this session, the new Device eventually appeared, but the precise refresh interval was **not measured**; seeing the entry later is not proof of a ten-second SLA. Verify visibility/tab lifecycle, preservation of the selected Device, and per-Device grant-editor identity in focused UI tests before calling that part hardware-accepted.
+
+**Lifecycle/UI gap:** the Settings UI exposes paired Devices and grant editing but not an operator-complete flow to retire obsolete identities. The server already documents separate protected Device **revocation** in [Device lifecycle](device-lifecycle.md); revocation is distinct from physical deletion/audit-history removal. A future administrative UI should identify duplicate display names by a safe, non-secret technical identity, allow **explicitly confirmed** revocation of a selected old Device, and offer a sensible retired/hidden state without automatically deleting history. No bulk clean-up, silent grant migration, automatic re-pairing or secret export is authorized by this observation.
+
+For acceptance status and cross-client overlap, use the [single cumulative hardware matrix](../docs/development/public-v1-final-hardware-acceptance.md). A Samsung Tizen pairing test says nothing about independent VIDAA playback/secure storage acceptance.
+
 ## 3. Read a Device's grants
 
 ```http

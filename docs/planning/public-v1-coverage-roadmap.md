@@ -1,5 +1,13 @@
 # Public API v1 coverage and client migration roadmap
 
+## Samsung S3.3 / TV-übergreifender Public-v1-Nachweis (25.10.2026)
+
+Am echten Samsung Tizen 5.5 sind Public-v1-Discovery (31 Capabilities), Pairing/Device-Authentifizierung, die leere Backendliste **ohne** `channels.view`, der neu und ausdrücklich erteilte `channels.view@default`-Grant sowie **20 echte Sender** aus dem anschließend autorisierten `GET /api/v1/channels` nachgewiesen. Der technische Teststand ist der S3.3-Client; Live-Playback, EPG und Recording-Wiedergabe wurden dadurch **nicht** abgenommen. Das erneute VS-Code-Testinstallieren verlor das Credential auf dem TV, nicht die alte Server-Device-Identität; zwei Samsung-Devices mit gleichem Namen standen im Admin-Inventar. PR #539 hat einen 10-Sekunden-Read-Polling-Mechanismus, dessen reale Zeitgarantie nicht separat gemessen wurde.
+
+Die Senderliste sortiert derzeit laut stabilem Vertrag `backendId,channelId`; benötigt wird die echte VDR-`channels.conf`-Reihenfolge nach `channelNumber` **vor** der seitenweisen Begrenzung. Das ist eine noch **nicht** implementierte, kompatibel zu entwerfende Public-v1-Erweiterung einschließlich neuer Cursor-/Security-/Referenzclient-/OpenAPI-/Samsung-Tests; 20er-Seiten nachträglich sortieren genügt nicht.
+
+Gemeinsame Route-/Grant-/Contract-Evidenz zwischen Samsung und VIDAA **nicht doppelt prüfen**; AVPlay/Tizen-KeyManager/Update und MSE/VIDAA-Secure-Storage/Decoder getrennt hardwarevalidieren. Historische reale Timer-/Recording-/SearchTimer-Provider-Abnahmen bleiben bestehen. Offene Hardware- und Release-Gates gehören ausschließlich in die [zentrale kumulative API-v1-Matrix](../development/public-v1-final-hardware-acceptance.md#eine-zentrale-ergebnis-matrix--kumulativer-stand-24102026-keine-endfreigabe); dieser Roadmap-Hinweis ist **keine zweite Abnahmeliste**. Hisense-Zugriff war zuvor gesperrt, das blockiert den jetzt bestätigten Samsung-S3.3-Lesetest nicht. Finaler API-v1-Release weiterhin **nicht freigegeben**.
+
 ## Coverage-Closeout nach PR #536/#537 (24.10.2026; noch keine API-v1-Releasefreigabe)
 
 **Source-Abschluss:** R1/R2/R3/ADR-0068/E1/E2/M1/M2/S1/P1 und Unified Acceptance Runner sind integriert; Operation-ID-Legacy-Acceptance-Runner [#537](https://github.com/hotzenplotz5/vdr-suite/pull/537) sowie die bereits bestandene Hardware-Evidenz berücksichtigende zentrale Matrix [#536](https://github.com/hotzenplotz5/vdr-suite/pull/536) sind gemergt. Stand der Basis-`main`: `56c5eb021a37ee8ddaab2dc00306a2545e1d56e2`. Das ist ein Source-/Dokumentationscheckpoint, **kein** durchgängig installiertes oder hardwarefreigegebenes API-v1-Release.
