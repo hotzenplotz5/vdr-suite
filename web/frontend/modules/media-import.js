@@ -206,6 +206,43 @@
     view.batchConfirmButton.disabled = true;
   }
 
+  function openDeferredFilm(view, sourceId) {
+    if (!isCurrent(view) || view.batch || view.inspectingBatch ||
+        (view.attempt && !terminalState(view.attempt.state))) return Promise.resolve();
+    // The previous operation is complete; opening a deferred film starts a
+    // new explicit review, never a retry of an uncertain admission.
+    if (view.attempt) {
+      clearPolling(view);
+      delete activeAttempts[view.backendId];
+      view.attempt = null;
+      view.reads = 0;
+      view.refreshButton.hidden = true;
+      view.newButton.hidden = true;
+      view.reloadButton.disabled = false;
+      view.operationDetail.textContent = '';
+    }
+    return loadSources(view).then(function () {
+      if (!isCurrent(view) || view.attempt || view.batch) return;
+      const item = view.allOrdinary.find(function (entry) {
+        return entry.sourceId === sourceId;
+      });
+      if (!item) {
+        report(view, 'Die zurückgestellte Quelle ist nicht mehr aktuell. Bitte neu scannen.', true);
+        return;
+      }
+      view.searchInput.value = '';
+      view.folderPath = item.folder || '';
+      filterVisibleSources(view);
+      if (!view.sources.includes(sourceId)) {
+        report(view, 'Film in der aktuellen Ansicht nicht verfügbar.', true);
+        return;
+      }
+      view.select.value = sourceId;
+      view.sourceDetails.textContent = 'Auswahl-ID: ' + sourceId;
+      refreshSelectedPreview(view);
+    });
+  }
+
   function renderBatchReview(view) {
     const review = view.batchReview;
     if (!review) return;
@@ -225,6 +262,17 @@
     review.rows.forEach(function (row) {
       const line = element('p', 'media-import-batch-row',
         row.title + ' – ' + (labels[row.state] || 'Prüfung ausstehend'));
+      if (['encode', 'insufficient', 'unavailable', 'pending', 'failed'].includes(row.state)) {
+        const action = element('button', 'media-import-batch-deferred',
+          'Einzeln prüfen');
+        action.type = 'button';
+        action.disabled = Boolean(view.batch) || view.inspectingBatch ||
+          Boolean(view.attempt && !terminalState(view.attempt.state));
+        action.addEventListener('click', function () {
+          return openDeferredFilm(view, row.sourceId);
+        });
+        line.appendChild(action);
+      }
       view.batchReviewList.appendChild(line);
     });
     const ready = review.rows.filter(function (row) {
@@ -242,7 +290,8 @@
     view.batchSummary.textContent = ready + ' direkt importierbar, ' +
       deferred + ' zurückgestellt, ' + duplicates + ' Dubletten, ' +
       confirmed + ' bereits bestätigt. Andere Filme bleiben unverändert. ' +
-      'Zurückgestellte Filme können anschließend einzeln geprüft werden.';
+      'Zurückgestellte Filme lassen sich über „Einzeln prüfen“ neu untersuchen; ' +
+      'PC/HandBrake und Überspringen erfordern weiterhin eine Einzelentscheidung.';
     view.batchConfirmButton.hidden = Boolean(view.batch) || !ready;
     view.batchConfirmButton.disabled = view.inspectingBatch ||
       Boolean(view.attempt) || !ready;
