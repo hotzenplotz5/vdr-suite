@@ -2067,7 +2067,7 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
         described.clear();
         partial = true;
     }
-    if (ids.size() > 256U) {
+    if (ids.size() > 100U) {
         ids.clear();
         described.clear();
         partial = true;
