@@ -194,8 +194,8 @@ def main() -> int:
         service,
         'response.headers["Set-Cookie"]')
     require(service, '"; Path=/; Max-Age="')
-    require(service, '"HttpOnly"')
-    require(service, '"SameSite=Strict"')
+    require(service, '"; HttpOnly"')
+    require(service, '"; SameSite=Strict"')
     require(service, '(allowHttpLanCookie ? "" : "; Secure")')
     require(service, 'response.headers["Cache-Control"] = "no-store"')
     require(service, 'response.headers["Pragma"] = "no-cache"')
