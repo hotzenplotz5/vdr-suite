@@ -103,98 +103,33 @@ Bei der Diagnose zunächst `systemctl status vdr-suite-daemon.service --no-pager
 
 ## 5. Ersten Administrator anlegen
 
-**MLD-Integrationsvorschau (noch nicht nach main übernommen):** Wenn auf dem
-Server noch kein Administratorkonto existiert, zeigt der vorhandene
-Web-Login-Dialog automatisch die Ersteinrichtung an. Die Entscheidung stammt
-aus der lesenden API `GET /api/security/first-admin/status`. Bei Fehlern
-wird **keine** Ersteinrichtung angeboten. Auf eingerichteten Servern bleibt
-die normale Anmeldung unverändert.
+**MLD-Integrationsbranch (noch nicht in `main`):** Bei der ersten Installation
+erscheint im Webfrontend automatisch die Einrichtung, solange noch kein
+Administratorkonto existiert. Dort werden **nur Benutzername, Anzeigename und
+Passwort mit Wiederholung** ausgefüllt und **„Administrator erstellen“**
+ausgewählt. Es gibt keine weiteren Bestätigungsdialoge, keine Codes und
+keinen Konsolenbefehl für diese Einrichtung.
 
-1. Einen **vertrauenswürdigen HTTPS-Zugang** zur VDR-Suite einrichten. Über
-   unverschlüsseltes HTTP ist der Absenden-Knopf für den Admin-Claim gesperrt.
-2. Auf dem **VDR selbst** als Root den vorhandenen Befehl
-   `vdr-suite-first-admin-bootstrap` ausführen (Standard: 15 Minuten gültig).
-3. Im Dialog den gewünschten Admin-Login, Anzeigenamen und das Passwort
-   mit Wiederholung eingeben (mindestens 12 Zeichen).
-4. Die zwei vom lokalen Programm ausgegebenen Zeilen
-   `bootstrap_id=...` und `setup_secret=...` gemeinsam in das Feld
-   „Einmaliger Einrichtungscode“ einfügen. Das Secret **niemals ins Forum,
-   in ein Ticket oder in die URL kopieren**.
-5. „Administrator erstellen“ auswählen. Der Browser ruft denselben
-   bestehenden `POST /api/security/first-admin/claim` auf wie der technische
-   Bootstrap-Weg und meldet den Benutzer danach mit seinem neu gewählten
-   Passwort an. Eine weitere Anmeldung nach einem Reload erfolgt normal.
+**Sicherheitsgrenze dieser Vorabversion:** Ohne bereits bestehende
+vertrauenswürdige Anmeldung akzeptiert der Backend-Daemon die einmalige
+Erstanlage ausschließlich von einem *direkten lokalen Browser*
+(`localhost:18080` oder `127.0.0.1:18080`, echte
+Loopback-TCP-Verbindung). Zugriffe über das Netzwerk oder einen Reverse
+Proxy berechtigen nicht zur Erstadmin-Anlage. Die Datenbank darf nicht
+zurückgesetzt werden, um den Dialog erneut freizuschalten.
 
-Weder das UI noch die Statusabfrage erzeugen ein Bootstrap-Secret. Nur das
-lokale Root-Werkzeug erteilt die einmalige Einrichtungserlaubnis. Es entsteht
-kein zweiter Benutzer-/Rechtepfad, kein PAM-Login und kein Anmeldung-ohne-Passwort-Modus.
-Die separate CLI aus PR #545 ist **nicht** Voraussetzung für diesen Browserweg.
+Die vorhandene sichere interne Bootstrap-/Claim-Logik übernimmt die
+Kontoanlage atomar; sie erzeugt die erforderliche einmalige Freigabe
+automatisch im Backend. Der Benutzer sieht oder kopiert keine Secrets.
+Nach erfolgreicher Anlage meldet sich der Browser regulär an; danach
+erscheint ausschließlich die normale Anmeldung.
 
-
-**Es gibt kein mitgeliefertes Standard-Admin-Passwort.** Die Implementierung benutzt einen bewusst getrennten zweistufigen Ablauf:
-
-1. Auf dem **lokalen Server** gibt ein vertrauenswürdiger Root-Operator mit dem installierten Werkzeug `vdr-suite-first-admin-bootstrap` ein einmaliges Setup-Material aus. Das Werkzeug ist nur für einen *noch nicht beanspruchten* (unclaimed) Server zulässig; Standardgültigkeit **900 Sekunden** (zulässig 300–3600 Sekunden).
-2. Der Operator übermittelt `bootstrapId`, `setupSecret`, gewünschten `loginName`, `password` und `displayName` an die **Claim-Sicherheitsroute** `POST /api/security/first-admin/claim`, über die tatsächlich abgesicherte HTTPS-Route der Installation. Die API verwendet genau diese fünf JSON-Felder. **Diese Aktion wird nicht als bereits fertiger grafischer Installationsassistent ausgegeben.** Der aktuelle Quellstand dokumentiert die Claim-Route; der normale Browser-Login ist ein davon getrennter Schritt.
-3. Der Claim verbraucht das einmalige Secret und erzeugt in **einer Transaktion** ein Human Account, den zugehörigen Benutzer-Actor, einen `human-password`-Zugang und die anfängliche globale `role.admin@*`-Berechtigung. Die Passwortdaten werden als gesalzener Einweg-Verifier abgelegt.
-4. Danach mit dem **neu vergebenen normalen Benutzerpasswort** über den Login der Weboberfläche anmelden. Das Setup-Secret ist **kein** dauerhaftes Passwort und keine Browser-Sitzung.
-
-**Konkrete Bedienung auf einem frisch vorbereiteten, noch unclaimed Testserver:** Nach kontrolliertem Dienststart lokal am Server ausführen:
-
-```bash
-sudo vdr-suite-first-admin-bootstrap
-```
-
-Die drei ausgegebenen Werte `bootstrap_id`, `setup_secret` und `expires_at` nur für die wenige Minuten später folgende Einrichtung verwenden. Der HTTP-Claim erwartet diese JSON-Schlüssel (keine Shell-Passwortargumente):
-
-```json
-{
-  "bootstrapId": "<einmalige ID>",
-  "setupSecret": "<einmaliges Secret>",
-  "loginName": "<gewünschter Admin-Login>",
-  "password": "<neues persönliches Admin-Passwort>",
-  "displayName": "<Anzeigename>"
-}
-```
-
-**Für den Claim ohne Secret in der Shell-History** eignet sich z. B. dieser interaktive Python-3-Aufruf auf einem vertrauenswürdigen Rechner mit Zugriff auf den **geprüften HTTPS-Proxy**. Keine fremden HTTP-URLs und keine deaktivierte TLS-Zertifikatsprüfung verwenden:
-
-```bash
-python3 - <<'PY'
-import getpass
-import json
-import urllib.parse
-import urllib.request
-
-base = input("HTTPS-Basisadresse vor /api (z.B. https://server/vdr-suite): ").strip().rstrip("/")
-u = urllib.parse.urlsplit(base)
-if u.scheme != "https" or not u.netloc or u.username or u.password or u.query or u.fragment:
-    raise SystemExit("Ungültige HTTPS-Basisadresse")
-password = getpass.getpass("Neues Admin-Passwort: ")
-if password != getpass.getpass("Admin-Passwort wiederholen: "):
-    raise SystemExit("Passwörter stimmen nicht überein")
-payload = {
-    "bootstrapId": input("bootstrap_id: ").strip(),
-    "setupSecret": getpass.getpass("setup_secret (verdeckt): "),
-    "loginName": input("Gewünschter Loginname: ").strip(),
-    "password": password,
-    "displayName": input("Anzeigename: ").strip(),
-}
-req = urllib.request.Request(
-    base + "/api/security/first-admin/claim",
-    data=json.dumps(payload).encode("utf-8"),
-    headers={"Content-Type": "application/json"},
-    method="POST",
-)
-with urllib.request.urlopen(req, timeout=20) as response:
-    print("HTTP", response.status, "– erster Administrator beansprucht")
-PY
-```
-
-Das Programm meldet bei abgelehnten, abgelaufenen oder bereits verbrauchten Ansprüchen einen HTTP-Fehler und erstellt **keinen** zweiten Administrator. Es sendet ID/Secret/Passwort nur an den vom Betreiber eingegebenen TLS-Endpunkt, ohne diese Werte als Shell-Argument oder Datei zu speichern. Ein gültiges Zertifikat und der *richtige* HTTPS-Host sind Voraussetzung.
-
-Das lokal installierte Handbuch ist die verbindliche Bedienhilfe: `man vdr-suite-first-admin-bootstrap`. Die Ausgabe enthält den Secretwert **nur einmal**; ihn nicht in Tickets, Screenshots, Shell-History, URLs oder Logs kopieren. Der Claim kann nach Ablauf oder nach bereits erfolgter Beanspruchung nicht erneut als zweiter Admin ausgeführt werden.
-
-**Passwort vergessen?** Es gibt den getrennten, lokalen Root-Recovery-Weg `vdr-suite-human-account-recover` für ein **bestehendes**, genau ausgewähltes Konto, mit `--account-id` und `--login`. Das Werkzeug fordert das neue Passwort ohne Kommandozeilenargument an, rotiert das Credential und widerruft betroffene Sitzungen. Es ist kein ungesicherter Web-Reset. Details: [ADR-0066](adr/ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md) und `man vdr-suite-human-account-recover`.
+**Wichtig für MLD:** Eine entfernte Browser-Ersteinrichtung ohne irgendeine
+vorhandene vertrauenswürdige Autorisierung wäre unsicher (der erste
+Netzwerkbesucher könnte Admin werden). Diese Vorabversion gibt daher
+keinen ungeschützten Remote-Setup-Weg frei. MLD-Paketierung und tatsächliche
+Bedienbarkeit am Zielgerät sind gesondert abzunehmen. Nicht ungeprüft auf
+produktiven Geräten installieren.
 
 ## 6. Erstes Backend, Sender, EPG und Aufnahmen
 
