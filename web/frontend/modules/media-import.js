@@ -303,7 +303,7 @@
       if (cursor) options.cursor = cursor;
       return publicClient().getMediaImportSources(options).then(function (response) {
         if (!response || !Array.isArray(response.items) ||
-            response.items.length > 32 || count > 7)
+            response.items.length > 32 || count > 3)
           throw new Error('Ungültige Quellenliste');
         response.items.forEach(function (item) {
           if (!item || typeof item.sourceId !== 'string' ||
@@ -323,7 +323,7 @@
         const link = response.links && response.links.next;
         if (!link) return {items: all, meta: {partial: partial}};
         if (typeof link !== 'string' || !link.startsWith(prefix) ||
-            response.items.length !== 32 || count >= 7)
+            response.items.length !== 32 || count >= 3)
           throw new Error('Ungültige Scan-Fortsetzung');
         const next = link.slice(prefix.length);
         if (!/^mi1_[0-9]{1,20}_[0-9]{1,3}$/.test(next))
@@ -341,6 +341,9 @@
     view.startButton.disabled = true;
     view.markedSelect.disabled = true;
     view.releaseButton.disabled = true;
+    view.batchButton.disabled = true;
+    view.sources = [];
+    view.markedSources = [];
     report(view, 'Autorisierte Importquellen werden geladen …');
     return readSourcePages(view.backendId)
       .then(function (response) {
@@ -407,9 +410,9 @@
         view.batchButton.disabled = ordinary.length < 2 ||
           ordinary.length > MAX_IMPORT_FILMS;
         view.scanNotice.textContent = bounded && items.length >= MAX_IMPORT_FILMS
-          ? 'Importgrenze erreicht: Pro Durchlauf sind höchstens 100 Filme ' +
-            'möglich. Die ersten 100 geprüften Quellen werden angezeigt; ' +
-            'weitere Filme bitte nach diesem Durchlauf erneut scannen.'
+          ? 'Importgrenze: Höchstens 100 Filme pro Durchlauf. ' +
+            '100 geprüfte Quellen werden angezeigt. Der Scan ist nicht ' +
+            'vollständig; weitere Filme bitte nach diesem Durchlauf erneut scannen.'
           : bounded
             ? 'Scan unvollständig: Der sichere Suchumfang wurde begrenzt. ' +
               'Weitere Dateien oder Unterordner können fehlen. Maximal ' +
