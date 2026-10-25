@@ -31,6 +31,9 @@ public:
         std::vector<std::string>& ids,
         std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
         bool& partial) override;
+    bool inspectTrustedSource(
+        const std::string& sourceId,
+        vdrsuite::mediatools::MediaImportSourcePreview& out) override;
     bool authorize(const BackendAgentCommandAssignment& assignment,
                    const std::string& backendId,
                    std::uint64_t generation) override;
