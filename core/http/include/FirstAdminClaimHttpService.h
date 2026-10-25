@@ -7,14 +7,12 @@
 #include <string>
 
 class FirstAdminClaimService;
-class FirstAdminOnscreenSetup;
 
 class FirstAdminClaimHttpService
 {
 public:
     explicit FirstAdminClaimHttpService(
-        FirstAdminClaimService& claimService,
-        FirstAdminOnscreenSetup* onscreen = nullptr);
+        FirstAdminClaimService& claimService);
 
     bool handles(const HttpServerRequest& request) const;
     HttpServerResponse handle(
@@ -24,6 +22,5 @@ private:
     std::string opaqueId(const std::string& prefix) const;
 
     FirstAdminClaimService& claimService_;
-    FirstAdminOnscreenSetup* onscreen_;
     mutable std::atomic<unsigned long long> idCounter_{0};
 };
