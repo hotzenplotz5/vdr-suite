@@ -2,6 +2,7 @@
 
 #include "FirstAdminClaimService.h"
 #include "FirstAdminBootstrapRepository.h"
+#include "FirstAdminOnscreenSetup.h"
 
 #include <algorithm>
 #include <chrono>
@@ -15,12 +16,16 @@ namespace
 {
 constexpr const char* ClaimPath = "/api/security/first-admin/claim";
 constexpr const char* SetupStatusPath = "/api/security/first-admin/status";
+constexpr const char* OsdStartPath = "/api/security/first-admin/onscreen/start";
+constexpr const char* OsdClaimPath = "/api/security/first-admin/onscreen/claim";
 constexpr std::size_t MaximumBodyBytes = 8192U;
 constexpr unsigned BootstrapIdField = 1U << 0U;
 constexpr unsigned SetupSecretField = 1U << 1U;
 constexpr unsigned LoginNameField = 1U << 2U;
 constexpr unsigned PasswordField = 1U << 3U;
 constexpr unsigned DisplayNameField = 1U << 4U;
+constexpr unsigned OnscreenFields = SetupSecretField | LoginNameField |
+    PasswordField | DisplayNameField;
 constexpr unsigned RequiredFields =
     BootstrapIdField |
     SetupSecretField |
@@ -394,6 +399,10 @@ bool assignClaimField(
     {
         return assign(BootstrapIdField, request.bootstrapId);
     }
+    if (key == "onscreenCode")
+    {
+        return assign(SetupSecretField, request.setupSecret);
+    }
     if (key == "setupSecret")
     {
         return assign(SetupSecretField, request.setupSecret);
@@ -423,7 +432,8 @@ bool failClaimBody(FirstAdminClaimRequest& request)
 
 bool parseClaimBody(
     const std::string& body,
-    FirstAdminClaimRequest& request)
+    FirstAdminClaimRequest& request,
+    unsigned expectedFields = RequiredFields)
 {
     if (body.empty() || body.size() > MaximumBodyBytes)
     {
@@ -499,7 +509,7 @@ bool parseClaimBody(
 
     position = skipWhitespace(body, position);
     if (position != body.size() ||
-        fields != RequiredFields)
+        fields != expectedFields)
     {
         return failClaimBody(request);
     }
@@ -580,8 +590,9 @@ HttpServerResponse successResponse(
 }
 
 FirstAdminClaimHttpService::FirstAdminClaimHttpService(
-    FirstAdminClaimService& claimService)
-    : claimService_(claimService)
+    FirstAdminClaimService& claimService,
+    FirstAdminOnscreenSetup* onscreen)
+    : claimService_(claimService), onscreen_(onscreen)
 {
 }
 
@@ -589,7 +600,8 @@ bool FirstAdminClaimHttpService::handles(
     const HttpServerRequest& request) const
 {
     const std::string path = requestPath(request.path);
-    return path == ClaimPath || path == SetupStatusPath;
+    return path == ClaimPath || path == SetupStatusPath ||
+        path == OsdStartPath || path == OsdClaimPath;
 }
 
 HttpServerResponse FirstAdminClaimHttpService::handle(
@@ -639,6 +651,83 @@ HttpServerResponse FirstAdminClaimHttpService::handle(
             ? "{\"unclaimed\":true}"
             : "{\"unclaimed\":false}";
         return result;
+    }
+
+    const std::string path = requestPath(request.path);
+    if (path == OsdStartPath || path == OsdClaimPath)
+    {
+        if (!onscreen_)
+            return response(503, "onscreen_setup_unavailable",
+                "Local VDR confirmation is unavailable", context);
+        if (request.method != "POST")
+        {
+            HttpServerResponse rejected = response(405,
+                "method_not_allowed", "On-screen setup requires POST", context);
+            rejected.headers["Allow"] = "POST";
+            return rejected;
+        }
+        // Never send account credentials on an ordinary HTTP browser origin.
+        // This is a browser safety fence, not a replacement for TLS on the proxy.
+        const std::string origin = headerValue(request, "Origin");
+        if (origin.rfind("https://", 0) != 0)
+            return response(403, "https_required",
+                "First-admin web setup requires HTTPS", context);
+        if (!jsonContentType(request) || request.body.size() > MaximumBodyBytes)
+            return response(415, "invalid_content_type",
+                "First-admin setup requires bounded JSON", context);
+        if (path == OsdStartPath)
+        {
+            if (trimAscii(request.body) != "{}")
+                return response(400, "invalid_setup_start",
+                    "Setup start has no parameters", context);
+            const auto result = onscreen_->start();
+            if (result.status == FirstAdminOnscreenStatus::ready)
+            {
+                HttpServerResponse accepted;
+                accepted.statusCode = 202;
+                accepted.headers["Content-Type"] = "application/json; charset=utf-8";
+                accepted.headers["Cache-Control"] = "no-store";
+                accepted.body = "{\"status\":\"displayed\"}";
+                return accepted;
+            }
+            if (result.status == FirstAdminOnscreenStatus::claimed)
+                return response(409, "server_already_claimed",
+                    "The server already has an administrator", context);
+            if (result.status == FirstAdminOnscreenStatus::throttled)
+                return response(429, "setup_request_throttled",
+                    "Please wait before requesting another TV code", context);
+            return response(503, "osd_unavailable",
+                "No local VDR on-screen display is reachable", context);
+        }
+        FirstAdminClaimRequest account;
+        if (!parseClaimBody(request.body, account, OnscreenFields))
+            return response(400, "invalid_onscreen_claim",
+                "Invalid administrator form", context);
+        const std::string code = std::move(account.setupSecret);
+        account.setupSecret.clear();
+        account.requestId = context.requestId;
+        account.correlationId = context.correlationId;
+        const auto result = onscreen_->complete(code, std::move(account));
+        switch (result.status)
+        {
+            case FirstAdminOnscreenStatus::ready:
+                return successResponse(context);
+            case FirstAdminOnscreenStatus::claimed:
+                return response(409, "server_already_claimed",
+                    "The server already has an administrator", context);
+            case FirstAdminOnscreenStatus::rejected:
+                return response(401, "invalid_onscreen_code",
+                    "Invalid local confirmation code", context);
+            case FirstAdminOnscreenStatus::expired:
+                return response(410, "onscreen_code_expired",
+                    "Request another code on the TV", context);
+            case FirstAdminOnscreenStatus::invalid:
+                return response(400, "invalid_onscreen_claim",
+                    "Invalid administrator form", context);
+            default:
+                return response(503, "onscreen_setup_unavailable",
+                    "Could not finish the authorized setup", context);
+        }
     }
 
     if (request.method != "POST")
