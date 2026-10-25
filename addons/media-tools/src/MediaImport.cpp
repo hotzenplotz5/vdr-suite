@@ -531,6 +531,14 @@ std::string probeImportVideoCodec(const ImportPlan& plan, ProcessRunner& runner)
     return codec;
 }
 
+ImportPreview inspectImportPreview(const ImportRequest& request,
+                                   ProcessRunner& runner) {
+    const auto plan = inspectImportPreview(request);
+    const auto codec = probeImportVideoCodec(plan, runner);
+    return {plan, codec, importVideoNeedsReencode(codec),
+            plan.duplicateTarget};
+}
+
 ImportCapacityPreview inspectImportCapacity(const ImportPlan& plan) {
     struct statvfs st{};
     require(::statvfs(plan.videoRoot.c_str(), &st) == 0,
@@ -552,31 +560,11 @@ ImportCapacityPreview inspectImportCapacity(const ImportPlan& plan) {
         writable && available >= reserve && available - reserve >= budget};
 }
 
-ImportCapacityPreview inspectImportCapacity(const ImportPlan& plan) {
-    struct statvfs st{};
-    require(::statvfs(plan.videoRoot.c_str(), &st) == 0,
-            "destination capacity is unavailable");
-    require((st.f_flag & ST_RDONLY) == 0 &&
-            ::access(plan.videoRoot.c_str(), W_OK | X_OK) == 0,
-            "destination is not writable by the media worker");
-    const auto block = static_cast<std::uint64_t>(st.f_frsize);
-    require(block != 0 && st.f_blocks <= UINT64_MAX / block &&
-            st.f_bavail <= UINT64_MAX / block, "capacity overflow");
-    const auto total = st.f_blocks * block;
-    const auto available = st.f_bavail * block;
-    const auto reserve = std::max(4 * kGiB, total / 100 * 15);
-    require(plan.sourceBytes <=
-            (static_cast<std::uint64_t>(INT64_MAX) - 64 * kMiB) / 3,
-            "source too large for bounded preflight");
-    const auto budget =
-        static_cast<std::uint64_t>(plan.sourceBytes) * 3 + 64 * kMiB;
-    require(budget <= UINT64_MAX - reserve, "capacity budget overflow");
-    const auto required = budget + reserve;
-    return {available, required, available >= required};
-}
-
 void requireProductionCapacity(const ImportPlan& plan) {
-    require(inspectImportCapacity(plan).sufficient,
+    const auto capacity = inspectImportCapacity(plan);
+    require(capacity.writable,
+            "destination is not writable by the media worker");
+    require(capacity.sufficient,
             "insufficient capacity for import staging and reserve");
 }
 
