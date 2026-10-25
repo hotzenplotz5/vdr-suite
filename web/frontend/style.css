@@ -4549,3 +4549,49 @@ body.channel-sorter-dragging * {
   .media-import-panel { max-width: 100%; padding: .7rem; }
   .media-import-panel button { width: 100%; justify-self: stretch; }
 }
+
+/* MT.UX2/UX3: safe source preflight in admin settings, read-only browser filters. */
+.settings-media-import-source-draft {
+  display: grid;
+  gap: .8rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, .22);
+}
+.settings-media-import-source-draft label {
+  display: grid;
+  gap: .35rem;
+}
+.settings-media-import-source-draft input,
+.media-import-panel .media-import-search {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: .65rem;
+  border-radius: .55rem;
+}
+.settings-media-import-additional-roots {
+  display: grid;
+  gap: .8rem;
+}
+.settings-media-import-additional-roots > div {
+  display: grid;
+  gap: .6rem;
+  padding: .75rem;
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: .7rem;
+}
+.settings-media-import-review-command {
+  margin: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.media-import-visible-count {
+  margin: 0;
+  color: #94a3b8;
+  font-size: .9rem;
+}
+.media-import-panel label[hidden] { display: none; }
