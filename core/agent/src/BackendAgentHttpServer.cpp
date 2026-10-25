@@ -225,7 +225,9 @@ bool jsonBool(const std::string& body, const std::string& key, bool& value)
 bool jsonStringArray(
     const std::string& body,
     const std::string& key,
-    std::vector<std::string>& values)
+    std::vector<std::string>& values,
+    std::size_t maximumItems = 32U,
+    std::size_t maximumValueLength = 128U)
 {
     values.clear();
     const std::string needle = "\"" + key + "\"";
@@ -249,12 +251,12 @@ bool jsonStringArray(
             const unsigned char character = static_cast<unsigned char>(body[position++]);
             if (character < 0x20U || character == '\\') return false;
             value.push_back(static_cast<char>(character));
-            if (value.size() > 128) return false;
+            if (value.size() > maximumValueLength) return false;
         }
         if (position >= body.size() || body[position] != '"') return false;
         ++position;
         values.push_back(value);
-        if (values.size() > 32) return false;
+        if (values.size() > maximumItems) return false;
         position = skipSpace(body, position);
         if (position >= body.size()) return false;
         if (body[position] == ']') return true;
@@ -624,12 +626,12 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
     std::vector<std::string> sourceLabels;
     // Older Agents omit sourceLabels. Present but malformed arrays fail closed.
     if (request.body.find("\"sourceLabels\"") != std::string::npos &&
-        !jsonStringArray(request.body, "sourceLabels", sourceLabels))
+        !jsonStringArray(request.body, "sourceLabels", sourceLabels, 256U, 160U))
         return errorResponse(400, "invalid_media_import_source_labels");
     if (!jsonString(request.body, "backendId", backendId) ||
         !jsonString(request.body, "agentInstanceId", instanceId) ||
         !jsonUnsigned(request.body, "backendGeneration", generation) ||
-        !jsonStringArray(request.body, "sourceIds", sourceIds) ||
+        !jsonStringArray(request.body, "sourceIds", sourceIds, 256U, 64U) ||
         !jsonString(request.body, "handlerOrigin", handlerOrigin) ||
         !jsonString(request.body, "handlerVersion", handlerVersion) ||
         !jsonString(request.body, "handlerSha256", handlerSha256))
