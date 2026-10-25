@@ -114,6 +114,11 @@ public:
         const bool isAddonActivationRead =
             request.method == "GET" &&
             path == "/api/v1/addons/rectools/activation";
+        const bool isAddonSourceMutation =
+            isPost && path == "/api/v1/addons/rectools/sources";
+        const bool isAddonSourceRead =
+            request.method == "GET" &&
+            path == "/api/v1/addons/rectools/sources";
         const bool isRemoteAction = isPost && path == "/api/vdr/remote/actions";
         const bool isTimerCreateAction = isPost && path == "/api/vdr/timers/actions/create";
         const bool isTimerUpdateAction = isPost && path == "/api/vdr/timers/actions/update";
@@ -1150,7 +1155,8 @@ public:
              path == "/api/vdr/searchtimers/plan");
         const bool isProtectedMutation =
             isPublicNativeTimerModify ||
-            isAddonActivationMutation || isRemoteAction || isTimerCreateAction ||
+            isAddonActivationMutation || isAddonSourceMutation ||
+            isRemoteAction || isTimerCreateAction ||
             isPublicDevicePairingDecision ||
             isPublicAccountCreate ||
             isPublicAccountMutation ||
@@ -1194,7 +1200,7 @@ public:
             isLegacyOsdViewerAttach ||
             isLegacyOsdViewerDetach;
 
-        if (isAddonActivationRead)
+        if (isAddonActivationRead || isAddonSourceRead)
         {
             if (!gate.browserAuthenticated ||
                 gate.context.actor.type != ActorType::User ||
@@ -2850,7 +2856,7 @@ public:
         }
         // Credential issuance to an existing Device is administrator-browser
         // only even if a Service Actor somehow obtained an administrative grant.
-        if (isAddonActivationMutation &&
+        if ((isAddonActivationMutation || isAddonSourceMutation) &&
             (!gate.browserAuthenticated ||
              gate.context.actor.type != ActorType::User ||
              !gate.context.session.has_value()))
@@ -2884,11 +2890,12 @@ public:
         bool recordingActionSupported = true;
         bool publicAccountMutationSupported = true;
 
-        if (isAddonActivationMutation)
+        if (isAddonActivationMutation || isAddonSourceMutation)
         {
             requestToAuthorize.backendId = "*";
             requestToAuthorize.permission = "role.admin";
-            requestToAuthorize.action = "addons.intent.update";
+            requestToAuthorize.action = isAddonSourceMutation
+                ? "addons.sources.update" : "addons.intent.update";
         }
         else if (isPublicDevicePairingDecision)
         {
