@@ -507,33 +507,11 @@ source is authorized by a label. Existing rooted-file inspection, source-ID
 mapping, filesystem symlink rejection, Agent revalidation and the 100-film
 catalog cap remain mandatory. The web client receives **no source path**.
 
-**Offline administration, source candidate:** the existing
-`tools/addons/configure_media_tools_paths.sh` now also understands
-`--default-name NAME` and repeated `--add-root ROOT NAME` options
-(up to 16 additional roots). Its original no-argument and two-path syntax
-remains supported. The **first** root remains the default; all entries
-retain one reviewed VDR destination and backend binding. Extra source roots
-are checked for absolute canonical directories, no nested/overlapping paths,
-non-symlink confinement, non-home sandbox reachability and read/traverse
-access for the actual unprivileged Agent account. Existing root-owned ledger,
-handler approval, maintenance lock, stopped Agent and backup/atomic-file
-publication checks remain mandatory; unknown/custom ledgers are refused.
-The deterministic extra-source IDs are `local-media-root-0001`, etc.
-For safe review, an additional `--check` mode validates the proposed
-configuration using the existing backend account, root-owned approvals,
-maintenance lock and path rules **without writing any ledger/override,
-stopping the Agent or restarting systemd**. The accepted arguments, for
-example, have this shape (do **not** execute an apply on a productive
-system as part of source review):
-
-```text
-configure_media_tools_paths.sh --check /srv/video/Filme /srv/vdr/video.00 --default-name Filme --add-root /srv/video/Serien Serien
-```
-
-The old two-path invocation remains valid and keeps the original five-column
-TSV shape when no alias or extra source is provided. An actual apply retains
-the original offline requirement that the Backend Agent is explicitly stopped
-before writing, and still emits a root-only backup path for review.
+**Erstinstallation:** Der vorhandene root-only
+`tools/addons/configure_media_tools_paths.sh` richtet bei Bedarf
+eine einzige Standardquelle und die VDR-Zielablage ein. Das ist ein
+Wartungswerkzeug, **nicht** der normale Weg für weitere Importquellen.
+Die zusätzliche Quellenverwaltung übernimmt direkt die Weboberfläche.
 
 **Einfache Webverwaltung (lokaler Backend-Agent):** Die vorhandene
 Administratoranmeldung schützt `GET/POST /api/v1/addons/rectools/sources`
