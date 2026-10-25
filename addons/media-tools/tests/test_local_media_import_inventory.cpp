@@ -141,7 +141,17 @@ int main()
     fs::create_directories(seriesDir);
     const auto seriesFile = seriesDir / "episode_1.mkv";
     { std::ofstream out(seriesFile); out << "synthetic-series-media"; }
+    // MT.UX1: fully nested source folders must be inspected read-only,
+    // without a depth-2 shortcut or browser-supplied absolute path.
+    const auto deepDir = seriesDir / "Staffel 1/Extras/Lange Reihe";
+    fs::create_directories(deepDir);
+    const auto deepFile = deepDir / "episode_deep.mkv";
+    { std::ofstream out(deepFile); out << "synthetic-deep-series-media"; }
+    // Directory symlinks remain prohibited, including links to valid media.
+    fs::create_directory_symlink(deepDir, fixture.root / "media/input/Falscher Pfad");
     fs::last_write_time(seriesFile,
+        fs::file_time_type::clock::now() - std::chrono::minutes(10));
+    fs::last_write_time(deepFile,
         fs::file_time_type::clock::now() - std::chrono::minutes(10));
     fs::last_write_time(newFile,
         fs::file_time_type::clock::now() - std::chrono::minutes(10));
@@ -151,27 +161,31 @@ int main()
         (fixture.root / "media/input").string() + "\t" +
         fixture.destination.string() + "\t*\n");
     assert(inventory.listTrustedSourceIds("backend", ids));
-    assert(ids.size() == 3);
+    assert(ids.size() == 4);
     for (const auto& id : ids)
         assert(id.rfind("scan_", 0) == 0);
     bool sawSeries = false;
+    bool sawDeep = false;
     std::string newMovieId;
     for (const auto& id : ids) {
         LocalMediaImportSource row;
         assert(inventory.resolve("backend", id, row));
         sawSeries |= row.sourceFile == seriesFile;
+        sawDeep |= row.sourceFile == deepFile;
+        assert(row.sourceFile != fixture.root / "media/input/Falscher Pfad/episode_deep.mkv");
         if (row.sourceFile == newFile) newMovieId = id;
     }
-    assert(sawSeries && !newMovieId.empty());
+    assert(sawSeries && sawDeep && !newMovieId.empty());
     LocalMediaImportSource scanned;
     assert(inventory.resolve("backend", ids[0], scanned));
     assert(scanned.sourceFile == fixture.source ||
            scanned.sourceFile == newFile ||
-           scanned.sourceFile == seriesFile);
+           scanned.sourceFile == seriesFile ||
+           scanned.sourceFile == deepFile);
     const auto previous = ids;
     assert(inventory.listTrustedSourceIds("backend", ids) && ids == previous);
     fs::last_write_time(newFile, fs::file_time_type::clock::now());
-    assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 2);
+    assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 3);
     assert(!inventory.resolve("backend", newMovieId, scanned));
     fixture.write();
     // A root-approved marked source is observable without becoming importable.
