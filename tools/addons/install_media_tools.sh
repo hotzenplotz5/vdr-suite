@@ -96,7 +96,9 @@ if [ "$MODE" = install ]; then
   # MT.I3: this is the verified Ubuntu/yaVDR *host adapter*. Source
   # staging and offline Debian packages are separate and unaffected.
   [ -f /etc/os-release ] &&
-    grep -Eq '^ID=(ubuntu|"ubuntu")
+    grep -Fqx 'ID=ubuntu' /etc/os-release ||
+    stop 'yaVDR/Ubuntu first-install adapter only; openSUSE/MLD not verified'
+  [[ "$APPROVED" =~ ^[0-9a-f]{64}$ ]] || stop "independent approved handler SHA-256 required"
   [ "${MEDIA_TOOLS_INSTALL_CONFIRM:-}" = REVIEWED_FIRST_INSTALL ] ||
     stop 'manual first install needs MEDIA_TOOLS_INSTALL_CONFIRM=REVIEWED_FIRST_INSTALL (no automatic grants or service start)'
 else
