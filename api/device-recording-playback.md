@@ -61,6 +61,12 @@ The sample bodies, session cookie semantics, indexed-duration safety and media r
 
 The OpenAPI subset and its scoped guard now cover these seven source-backed Device routes, with method/path and Device-gate anchors and negative drift tests. This is **not** exhaustive HTTP security-denial/runtime conformance, formal OpenAPI Schema verification or live playback acceptance. Remaining work includes real Device integration testing, media-byte gateway documentation and validating all deployed denial envelopes.
 
+## P1 acceptance: feature existence is not TV resume success (2026-10-25)
+
+The accepted **source** provides all four P1 pieces: Device progress GET/POST with current owned MediaSession and revision CAS, bounded authorized Continue Watching GET, explicit HLS-only positive start position on a new Recording MediaSession, and administrator-only Device-to-Human Account binding. **It does not automatically persist progress when a video is watched, display a Resume button, or make an unimplemented TV player seek.** A TV client must deliberately implement playback position sampling/stop write, a real progress read/offer, and a suitable session restart at the saved position. A plain GET 200 or Channel-list PASS is insufficient.
+
+The **single authoritative, route-by-route REAL-VDR/REAL-TV acceptance list** is [P1 in the cumulative matrix](../docs/development/public-v1-final-hardware-acceptance.md#p1--resume-continue-watching-und-geräteübergreifender-wiedereinstieg-konkrete-restabnahme-25102026). It covers single-device playback/progress/restart, Continue Watching, optional explicit administrator-created shared-account binding across two clients, media profile/position error paths and stale revision/authorization failures. Already accepted 11 Playback-Account read tests are **not** to be repeated. Samsung S3.3 verifies real Channels only; AVPlay/recording playback/progress/resume are separate, still unimplemented Samsung-client slices. Prior Hisense TV availability constraints apply to Hisense, not the proved Samsung read result. No live Account modification, grant change, media start or other write is authorized by this documentation.
+
 ## Back
 
 - [API entrypoint](README.md)
