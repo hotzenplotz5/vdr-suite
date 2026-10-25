@@ -535,12 +535,18 @@ TSV shape when no alias or extra source is provided. An actual apply retains
 the original offline requirement that the Backend Agent is explicitly stopped
 before writing, and still emits a root-only backup path for review.
 
-**Existing-frontend baseline and competitor gap:** The current Suite Webfrontend
-can read authorized, labeled films and launch individually authorized imports,
-but it has no source-edit form. Kodi/Plex expose more direct library-source
-administration workflows; the gap here is the pending safe administration UI,
-not an excuse to grant the browser root filesystem access. This comparison is
-a broad UX contrast, not a verified per-version feature audit.
+**Webfrontend offline review:** The already protected Media Tools
+administration card now includes a draft form for a standard source root,
+VDR destination and up to 16 additional named roots. It validates simple
+absolute, non-overlapping paths and short source names, and prints a
+`--check` invocation of the existing root-only offline configurator.
+The command is **never** executed by the browser or sent as an HTTP mutation.
+The card and source draft are hidden on 401/403 or unsuccessful admin reads;
+a successful protected administrator read is required to show them. The
+browser cannot query the underlying protected filesystem source list and
+does not claim to have read it. Drafted paths must be reviewed against the
+actual backend before offline application; no browser-to-root privilege
+escalation or automatic service stop is provided.
 
 **No live action occurred:** this is a source-only CLI change, not permission
 to run it on a productive machine or restart any service. Real configuration
@@ -554,6 +560,28 @@ CSRF/audit, a privileged reviewed transaction boundary and a default-source
 selection UI have not been implemented. The browser and unprivileged daemon
 must never write the root-owned inventory. C++/shell/CI and real-VDR
 acceptance are pending the user's final comprehensive test.
+
+## MT.UX3 – bounded browser search and subset selection (partial)
+
+Within the **existing authorized Agent/Core source snapshot**, the browser
+now offers a title/source-name search, an importable/marked/all filter and
+read-only match counts. Search/filter changes invalidate previous film and
+batch selections. Only the currently visible verified opaque IDs are
+eligible for the new checkbox multi-selection; the separate chosen-only
+batch action requires explicit user confirmation. The old all-visible
+batch action remains, and every film still receives its own Core operation,
+idempotency key, Agent source revalidation and independent VDR readback.
+Local re-encode consent is **never** inherited by a batch. Maximum remains
+100 verified sources for all roots together. No new endpoint, queue, path
+lookup, marker mutation or filesystem write occurs during browsing.
+
+**Not yet implemented:** real backend-provided relative folder identities
+and breadcrumb navigation. Filename prefixes and cosmetic source aliases
+are not sufficient evidence of source folder structure. Do not claim that
+nested directory browsing is available until the Agent read contract
+authoritatively exposes safe relative folder metadata and Core/public v1
+binds it to the existing actor/backend snapshot. A full browser/Agent/CI
+and real-VDR acceptance remains pending the planned comprehensive test.
 
 ## Importer: source-preserving metadata and codec fallback
 
