@@ -348,6 +348,11 @@ FirstAdminClaimService::FirstAdminClaimService(
 {
 }
 
+FirstAdminClaimState FirstAdminClaimService::claimState() const
+{
+    return bootstrapRepository_.claimState();
+}
+
 FirstAdminClaimResult FirstAdminClaimService::claim(
     FirstAdminClaimRequest request)
 {
