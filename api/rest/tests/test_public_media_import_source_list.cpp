@@ -233,7 +233,7 @@ int main()
         const auto checked = getPage(preview);
         assert(checked.statusCode == 200);
         assert(checked.body.find(
-            "\\"status\\":\\"" + inspectionStatus + "\\"") !=
+            "\"status\":\"" + inspectionStatus + "\"") !=
             std::string::npos);
         assert(checked.body.find("/srv/") == std::string::npos);
     }
