@@ -211,6 +211,12 @@ int main() {
         } preview;
         assert(probeImportVideoCodec(plan, preview) == "vp9");
         assert(importVideoNeedsReencode(probeImportVideoCodec(plan, preview)));
+        const auto details = inspectImportPreview(f.request(), preview);
+        assert(details.plan.titleDirectory == f.video / "Sample" &&
+               details.plan.sourceBytes == plan.sourceBytes &&
+               details.videoCodec == "vp9" &&
+               details.videoReencodeRequired && !details.duplicate);
+        assert(!fs::exists(f.video / "Sample"));
         assert(fs::exists(f.source));
         assert(!fs::exists(f.video / "Sample"));
         ++checks;
@@ -265,6 +271,19 @@ int main() {
         Fixture f;
         fs::create_directories(f.video / "Sample" / "2026-01-01.00.00.1-0.rec");
         mustFail([&] { inspectImport(f.request()); });
+        const auto existing = inspectImportPreview(f.request());
+        assert(existing.duplicateTarget);
+        struct Preview final : ProcessRunner {
+            ProcessResult run(const std::vector<std::string>& args,
+                              bool capture) override {
+                assert(capture && args[0] == "/usr/bin/ffprobe");
+                return {0, "h264\n"};
+            }
+        } probe;
+        const auto details = inspectImportPreview(f.request(), probe);
+        assert(details.duplicate && !details.videoReencodeRequired &&
+               details.videoCodec == "h264");
+        assert(fs::exists(f.video / "Sample" / "2026-01-01.00.00.1-0.rec"));
         ++checks;
     }
     {
