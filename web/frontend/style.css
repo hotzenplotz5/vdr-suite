@@ -4623,3 +4623,25 @@ body.channel-sorter-dragging * {
   font-size: .9rem;
   color: #94a3b8;
 }
+
+/* MT.UX3 folder navigation: purely relative server-observed paths. */
+.media-import-breadcrumb,
+.media-import-folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+.media-import-breadcrumb[hidden],
+.media-import-folders[hidden] { display: none !important; }
+.media-import-breadcrumb button,
+.media-import-folders .media-import-folder {
+  min-height: 2.4rem;
+  padding: .4rem .7rem;
+  border: 1px solid rgba(148, 163, 184, .25);
+  border-radius: .6rem;
+  overflow-wrap: anywhere;
+}
+.media-import-breadcrumb button[disabled] {
+  font-weight: 700;
+  opacity: 1;
+}
