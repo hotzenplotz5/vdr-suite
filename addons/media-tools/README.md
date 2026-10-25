@@ -575,13 +575,28 @@ Local re-encode consent is **never** inherited by a batch. Maximum remains
 100 verified sources for all roots together. No new endpoint, queue, path
 lookup, marker mutation or filesystem write occurs during browsing.
 
-**Not yet implemented:** real backend-provided relative folder identities
-and breadcrumb navigation. Filename prefixes and cosmetic source aliases
-are not sufficient evidence of source folder structure. Do not claim that
-nested directory browsing is available until the Agent read contract
-authoritatively exposes safe relative folder metadata and Core/public v1
-binds it to the existing actor/backend snapshot. A full browser/Agent/CI
-and real-VDR acceptance remains pending the planned comprehensive test.
+**Relative folder navigation added as a source candidate:** the trusted
+local inventory now derives a path **relative to its configured source root**
+from each inspected source. The Agent reports the optional `sourceFolders`
+array alongside the same opaque source IDs and labels; Core validates each
+relative component and retains the folder only in its ephemeral,
+lease-/generation-fenced catalog. Public v1 exposes optional `folder` per
+item, includes folder metadata in its actor-/backend-specific snapshot
+cursor, and rejects absolute, traversal, control or malformed paths.
+The browser creates breadcrumb buttons and immediate child-folder buttons
+only from those verified read-only fields; a click navigates **locally**
+through the bounded snapshot and never sends paths to an importer.
+Root-level films appear at the root, nested films at the corresponding
+folder, and free-text search intentionally finds matching films across
+folders. Older Agents without folder metadata remain compatible and
+present the same flat selection as before.
+
+**Pending validation:** this crosses Agent observation, Core ephemeral
+catalog, Public v1 and the web panel. Source-level tests exist, but this
+candidate has **not** had a complete C++ build, CI or real VDR integration
+test. The eventual end-to-end tests must exercise source-root changes,
+backend actor scope, stale page cursors, Unicode folders, symlink/traversal
+denials and folder-level filtered batch selection.
 
 ## Importer: source-preserving metadata and codec fallback
 
