@@ -6,7 +6,9 @@
 #include "DashboardController.h"
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cerrno>
+#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
