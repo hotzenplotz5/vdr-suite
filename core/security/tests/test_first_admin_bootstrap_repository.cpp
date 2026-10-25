@@ -124,10 +124,11 @@ int main()
         FirstAdminBootstrapStatus::ok);
     assert(database.execute("COMMIT;"));
 
+    // Once consumed, lookup is intentionally fenced as already claimed;
+    // bootstrap secret material must no longer be exposed.
     first = bootstrapRepository.findById("bootstrap-first");
-    assert(first.status == FirstAdminBootstrapStatus::consumed);
-    assert(first.bootstrap.consumed);
-    assert(!first.bootstrap.consumedAt.empty());
+    assert(first.status == FirstAdminBootstrapStatus::claimed);
+    assert(first.bootstrap.verifierHash.empty());
     assert(bootstrapRepository.claimState() == FirstAdminClaimState::claimed);
     assert(bootstrapRepository.registerBootstrap(
         registration("bootstrap-after-consumed", "2099-01-02 00:00:00")) ==
