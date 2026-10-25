@@ -1007,7 +1007,8 @@
   }
 
   function startImport(view, releaseMode, forcedDecision) {
-    if (!isCurrent(view) || view.submitting || view.attempt) return Promise.resolve();
+    if (!isCurrent(view) || view.submitting || view.attempt ||
+        (view.inspectingBatch && !view.batch)) return Promise.resolve();
     const sourceId = releaseMode ? view.markedSelect.value :
       view.batch ? view.batch.remaining[0] : view.select.value;
     // Encoding authority is granted per film, per click, never to a batch.
