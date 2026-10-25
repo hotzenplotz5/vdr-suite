@@ -301,9 +301,9 @@
           throw new Error('Device lifecycle changed');
         if (state.selected !== id || !global.confirm ||
             !global.confirm('Gerät wirklich entfernen (widerrufen)?' +
-              '\\nName: ' + (device.displayName || 'Unbenanntes Gerät') +
-              '\\nDevice-ID: ' + id +
-              '\\nAlle Anmeldungen dieses Geräts werden ungültig. ' +
+              '\nName: ' + (device.displayName || 'Unbenanntes Gerät') +
+              '\nDevice-ID: ' + id +
+              '\nAlle Anmeldungen dieses Geräts werden ungültig. ' +
               'Das lässt sich nicht rückgängig machen.'))
           return null;
         return api.revokeDevice(id, reply.etag);
@@ -332,7 +332,9 @@
       }).catch(function(error) {
         status.textContent = error && error.status === 412
           ? 'Gerätestatus wurde geändert. Keine Wiederholung ohne neue Prüfung.'
-          : errorText(error);
+          : error && error.status === 403
+            ? 'Entfernen nicht erlaubt: Admin-Berechtigung devices.revoke@* erforderlich.'
+            : errorText(error);
       }).finally(function() {
         state.loading = false;
         // Read-only synchronization, never an automatic mutation retry.
