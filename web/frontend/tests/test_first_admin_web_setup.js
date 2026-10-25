@@ -59,7 +59,7 @@ async function scenario(options) {
   const context = {
     window: null, document, Date, Error, JSON, Math, Number,
     Object, Array, Promise, String, TextEncoder,
-    setTimeout, clearTimeout, console,
+    setTimeout() { return 1; }, clearTimeout() {}, console,
     location: {protocol: options.https ? 'https:' : 'http:'},
     btoa(value) { return Buffer.from(value, 'binary').toString('base64'); },
     addEventListener() {},
