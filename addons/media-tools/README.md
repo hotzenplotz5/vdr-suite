@@ -577,7 +577,10 @@ lookup, marker mutation or filesystem write occurs during browsing.
 
 **Relative folder navigation added as a source candidate:** the trusted
 local inventory now derives a path **relative to its configured source root**
-from each inspected source. The Agent reports the optional `sourceFolders`
+from each inspected source. When several approved roots contain candidate
+films, a virtual, unambiguous root-name component separates their trees
+(e.g. `Standard: Filme/` and `Serien/`); it is a display namespace, not
+part of either real filesystem path. The Agent reports the optional `sourceFolders`
 array alongside the same opaque source IDs and labels; Core validates each
 relative component and retains the folder only in its ephemeral,
 lease-/generation-fenced catalog. Public v1 exposes optional `folder` per
