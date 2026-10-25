@@ -5,7 +5,7 @@
   const LOGOUT_PATH = '/api/security/browser-sessions/logout';
   const RESTORE_PATH = '/api/security/browser-sessions/current';
   const FIRST_ADMIN_STATUS_PATH = '/api/security/first-admin/status';
-  const FIRST_ADMIN_CLAIM_PATH = '/api/security/first-admin/local/claim';
+  const FIRST_ADMIN_CLAIM_PATH = '/api/security/first-admin/claim';
   const CSRF_HEADER = 'X-CSRF-Token';
   const SECURITY_REASONS = Object.freeze({
     authentication_required: true,
