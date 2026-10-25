@@ -1,6 +1,7 @@
 #include "PublicApiRuntime.h"
 #include "PublicChannelNeighbor.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <string>
@@ -48,6 +49,15 @@ int main()
         channel("backend-a", "disabled", 40),
         channel("backend-a", "radio", 50)};
     vdr[3].enabled = false;
+    // Same production comparator used by daemon source pagination AND the
+    // existing single-channel numeric neighbor, independent of string IDs.
+    std::vector<PublicChannelCollectionItem> nativeChannels = vdr;
+    std::sort(nativeChannels.begin(), nativeChannels.end(),
+        publicVdrChannelNumberLess);
+    assert(nativeChannels[0].channelId == "id-a");
+    assert(nativeChannels[1].channelId == "id-m");
+    assert(nativeChannels[2].channelId == "id-z");
+
     vdr[4].radio = true;
     const auto next = findPublicVdrChannelNeighbor(vdr, "id-a", "up");
     const auto previous = findPublicVdrChannelNeighbor(vdr, "id-a", "down");
@@ -117,6 +127,36 @@ int main()
                     (index + vdr.size() - 1U) % vdr.size();
                 result.channels = {vdr[adjacent]};
                 result.hasMore = false;
+                return result;
+            }
+
+            if (request.nativeChannelOrder)
+            {
+                // Deliberately scrambled channel IDs and duplicate VDR
+                // positions: sort BEFORE slicing, tie-break by channelId.
+                std::vector<PublicChannelCollectionItem> byNumber = {
+                    channel("backend-a", "id-230", 230),
+                    channel("backend-a", "id-17-z", 17),
+                    channel("backend-a", "id-1", 1),
+                    channel("backend-a", "id-17-a", 17)};
+                std::sort(byNumber.begin(), byNumber.end(),
+                    [](const PublicChannelCollectionItem& lhs,
+                       const PublicChannelCollectionItem& rhs)
+                    {
+                        if (lhs.channelNumber != rhs.channelNumber)
+                            return lhs.channelNumber < rhs.channelNumber;
+                        return lhs.channelId < rhs.channelId;
+                    });
+                for (const auto& item : byNumber)
+                {
+                    if (request.afterBackendId.empty() ||
+                        item.channelNumber > request.afterChannelNumber ||
+                        (item.channelNumber == request.afterChannelNumber &&
+                         item.channelId > request.afterChannelId))
+                        result.channels.push_back(item);
+                }
+                result.hasMore = result.channels.size() > request.limit;
+                if (result.hasMore) result.channels.resize(request.limit);
                 return result;
             }
 
@@ -226,6 +266,52 @@ int main()
         std::string::npos);
     assert(second.body.find("\"hasMore\":false") !=
         std::string::npos);
+
+    // Additive numeric native channels.conf order with ch2_ paging. This
+    // must select positions 1/17 on page one, not id-230.
+    const std::string nativeBase =
+        "/api/v1/channels?backendId=backend-a&limit=2"
+        "&sort=backendId,channelNumber,channelId&order=asc";
+    ApiResponse nativeFirst;
+    assert(runtime.tryHandleGet(nativeBase,
+        "actor:test", "channel-number-first", "", nativeFirst, "", "",
+        std::vector<std::string>{"backend-a"}));
+    assert(nativeFirst.statusCode == 200);
+    assert(nativeFirst.body.find("\"channelId\":\"id-1\"") != std::string::npos);
+    assert(nativeFirst.body.find("\"channelId\":\"id-17-a\"") != std::string::npos);
+    assert(nativeFirst.body.find("\"channelId\":\"id-230\"") == std::string::npos);
+    assert(nativeFirst.body.find("\"hasMore\":true") != std::string::npos);
+    const std::string nativeCursor = nextCursor(nativeFirst.body);
+    assert(nativeCursor.rfind("ch2_", 0U) == 0U);
+    assert(nativeFirst.body.find("sort=backendId,channelNumber,channelId") !=
+        std::string::npos);
+
+    ApiResponse nativeSecond;
+    assert(runtime.tryHandleGet(nativeBase + "&cursor=" + nativeCursor,
+        "actor:test", "channel-number-second", "", nativeSecond, "", "",
+        std::vector<std::string>{"backend-a"}));
+    assert(nativeSecond.statusCode == 200);
+    assert(nativeSecond.body.find("\"channelId\":\"id-17-z\"") != std::string::npos);
+    assert(nativeSecond.body.find("\"channelId\":\"id-230\"") != std::string::npos);
+    assert(nativeSecond.body.find("\"hasMore\":false") != std::string::npos);
+
+    for (const std::string invalidMixed : {
+         nativeBase + "&cursor=" + cursor,
+         std::string("/api/v1/channels?backendId=backend-a&cursor=") + nativeCursor})
+    {
+        ApiResponse wrongSort;
+        assert(runtime.tryHandleGet(invalidMixed,
+            "actor:test", "channel-number-wrong-cursor", "", wrongSort, "", "",
+            std::vector<std::string>{"backend-a"}));
+        assert(wrongSort.statusCode == 400);
+    }
+    ApiResponse nativeScopeMismatch;
+    assert(runtime.tryHandleGet(
+        "/api/v1/channels?backendId=backend-c&limit=2"
+        "&sort=backendId,channelNumber,channelId&order=asc&cursor=" + nativeCursor,
+        "actor:test", "channel-number-scope", "", nativeScopeMismatch, "", "",
+        std::vector<std::string>{"backend-c"}));
+    assert(nativeScopeMismatch.statusCode == 409);
 
     // The old ch1_ pagination above is kept byte-compatible. A separate
     // single-row operation navigates real VDR number ordering with wrap.
