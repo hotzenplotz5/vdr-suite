@@ -76,6 +76,20 @@ user confirmation; a 412 forces a read-only refresh, never an automatic
 mutation retry. `timers.create` and `searchtimers.create` cannot be
 granted to `*`.
 
+**Webfrontend-Aktualisierung (PR #539):** Unter `Einstellungen` werden
+`Wartende Geräte` und `Gekoppelte Geräte (TV & Apps)` beim Öffnen
+und danach alle zehn Sekunden automatisch lesend abgefragt, solange
+die Seite sichtbar ist. Unveränderte Ergebnisse behalten Auswahl und
+Berechtigungseditor. Beim Verlassen der Einstellungen endet der
+Polling-Lebenszyklus; in ausgeblendeten Browsertabs gibt es keine
+Netzwerkabfragen. Bei manuell aufgeblätterten Listen mit mehr als einer
+Seite bleibt die erweiterte Liste erhalten, statt im Hintergrund durch
+die erste Seite ersetzt zu werden. Die Schaltfläche
+`Anfragen aktualisieren` bleibt als manueller Fallback vorhanden.
+**Es gibt keinerlei automatische Genehmigung, Freigabe oder Änderung von
+Berechtigungen.** Die Browser-Session und vorhandene CSRF-/ETag-Prüfung
+bleiben die einzigen Berechtigungswege.
+
 Web UI minimum: account administration must remain unchanged, and the
 device admin must never infer a VIDAA Device from a Human session. This
 matches the basic product expectation of separately manageable paired TV

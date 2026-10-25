@@ -62,7 +62,8 @@
     pendingSection.appendChild(text('h3', 'Wartende Geräte'));
     pendingSection.appendChild(text('p',
       'Hier erscheinen offene Kopplungsanfragen. Prüfe Gerätetyp und Ablaufzeit am Fernseher. ' +
-      'Der TV-Kopplungscode wird aus Sicherheitsgründen nicht an die Administrator-Liste übertragen.',
+      'Der TV-Kopplungscode wird aus Sicherheitsgründen nicht an die Administrator-Liste übertragen. ' +
+      'Listen aktualisieren sich automatisch alle 10 Sekunden, solange Einstellungen geöffnet sind.',
       'settings-account-admin-meta'));
     const pendingRefresh = button('Anfragen aktualisieren', function() {
       loadPending(false);
@@ -165,11 +166,14 @@
         pendingList.appendChild(more);
       }
     }
-    function loadPending(append, preserveStatus) {
+    function loadPending(append, preserveStatus, silent) {
       if (pending.loading || (pending.busy && !preserveStatus)) return Promise.resolve();
+      // A manual multi-page review must not be replaced by a background first-page fetch.
+      if (silent && (pending.cursor || pending.items.length > 25)) return Promise.resolve();
       pending.loading = true;
       pendingRefresh.disabled = true;
-      if (!preserveStatus) pendingStatus.textContent = 'Wartende Geräte werden gelesen …';
+      if (!preserveStatus && !silent) pendingStatus.textContent = 'Wartende Geräte werden gelesen …';
+      let redraw = !silent;
       return api.listPendingPairings(append ? pending.cursor : '').then(function(result) {
         if (!result || !Array.isArray(result.items) ||
             !result.page || typeof result.page.hasMore !== 'boolean' ||
@@ -178,20 +182,25 @@
               !/^dp1_[A-Za-z0-9_-]{1,1024}$/.test(result.page.nextCursor))) ||
             !result.items.every(validPendingItem))
           throw new Error('Invalid pending pairing collection');
-        pending.items = append ? pending.items.concat(result.items) : result.items;
+        const updated = append ? pending.items.concat(result.items) : result.items;
+        const changed = JSON.stringify(pending.items) !== JSON.stringify(updated);
+        pending.items = updated;
         pending.cursor = result.page.hasMore ? result.page.nextCursor : '';
-        if (!preserveStatus) pendingStatus.textContent = pending.items.length
+        if (!preserveStatus && (!silent || changed)) pendingStatus.textContent = pending.items.length
           ? pending.items.length + ' offene Kopplungsanfrage(n).'
-          : 'Keine wartenden Geräte. Starte die Kopplung am Fernseher und aktualisiere hier.';
+          : 'Keine wartenden Geräte.';
+        redraw = changed || !silent;
       }).catch(function(error) {
         pendingStatus.textContent = pendingError(error);
         // Do not display stale actionable requests on a failed refresh.
         pending.items = [];
         pending.cursor = '';
+        redraw = true;
       }).finally(function() {
         pending.loading = false;
         pendingRefresh.disabled = pending.busy;
-        renderPending();
+        // Restore action availability only after pending.loading has cleared.
+        if (redraw) renderPending();
       });
     }
     loadPending(false);
@@ -214,7 +223,7 @@
     parent.appendChild(card);
 
     const state = {items: [], cursor: '', selected: '', selectedDevice: null,
-      backends: [], grants: null, revision: '', loading: false, serial: 0};
+      backends: [], grants: null, revision: '', loading: false, listing: false, serial: 0};
     function setError(error) { status.textContent = errorText(error); }
     function markSelected() {
       Array.from(list.querySelectorAll('button[data-device-id]')).forEach(function(node) {
@@ -354,14 +363,21 @@
           'settings-account-admin-meta'));
         list.appendChild(entry);
       });
-      if (state.cursor) list.appendChild(button('Weitere Geräte laden', function() {
-        loadDevices(true);
-      }));
+      if (state.cursor) {
+        const more = button('Weitere Geräte laden', function() { loadDevices(true); });
+        more.disabled = state.listing || state.loading;
+        list.appendChild(more);
+      }
       markSelected();
     }
-    function loadDevices(append) {
+    function loadDevices(append, silent) {
+      if (state.listing || state.loading) return Promise.resolve();
+      // Preserve a deliberately extended paginated list; silent first-page
+      // replacement would discard pages and the administrator's selection.
+      if (silent && state.items.length > 25) return Promise.resolve();
+      state.listing = true;
       const cursor = append ? state.cursor : '';
-      status.textContent = 'Gekoppelte Geräte werden gelesen …';
+      if (!silent) status.textContent = 'Gekoppelte Geräte werden gelesen …';
       return api.listDevices(cursor).then(function(result) {
         if (!result || !Array.isArray(result.items) ||
             !result.page || typeof result.page.hasMore !== 'boolean' ||
@@ -374,15 +390,60 @@
             typeof d.active === 'boolean' && typeof d.revoked === 'boolean';
         });
         if (!valid) throw new Error('Invalid Device item');
-        state.items = append ? state.items.concat(result.items) : result.items;
+        const updated = append ? state.items.concat(result.items) : result.items;
+        const changed = JSON.stringify(state.items) !== JSON.stringify(updated);
+        const oldSelected = state.selectedDevice;
+        state.items = updated;
         state.cursor = result.page.hasMore ? result.page.nextCursor : '';
-        renderList();
-        status.textContent = state.items.length
+        if (changed || !silent) renderList();
+        if (!silent || changed) status.textContent = state.items.length
           ? '' : 'Noch kein gekoppeltes Gerät vorhanden.';
+        const selected = state.items.find(function(d) {
+          return d.deviceId === state.selected;
+        });
+        if (selected) {
+          state.selectedDevice = selected;
+          if (oldSelected &&
+              (oldSelected.active !== selected.active ||
+               oldSelected.revoked !== selected.revoked)) return loadGrants(selected.deviceId);
+          if (changed && oldSelected && oldSelected.displayName !== selected.displayName &&
+              state.grants) renderDetail();
+        } else if (state.selected) {
+          state.serial += 1; // discard any in-flight obsolete grant result
+          state.selected = '';
+          state.selectedDevice = null;
+          state.grants = null;
+          state.revision = '';
+          detail.replaceChildren(text('p', 'Gerät nicht mehr in der Liste.'));
+        }
         if (!state.selected && state.items.length) {
           return selectDevice(state.items[0]);
         }
-      }).catch(setError);
+      }).catch(setError).finally(function() {
+        state.listing = false;
+        if (!silent) renderList();
+      });
+    }
+
+    // One short-lived refresh owner per Settings card. A card removed by the
+    // Settings renderer is never polled or rescheduled, even on tab changes.
+    // No global listeners, background requests, navigation or page reload.
+    const AUTO_REFRESH_MS = 10000;
+    let refreshTimer = null;
+    function scheduleRefresh() {
+      if (refreshTimer !== null || typeof global.setTimeout !== 'function') return;
+      refreshTimer = global.setTimeout(refreshVisibleLists, AUTO_REFRESH_MS);
+    }
+    function refreshVisibleLists() {
+      refreshTimer = null;
+      if (card.isConnected === false) return;
+      if (document.visibilityState === 'hidden' ||
+          pending.busy || pending.loading || state.loading || state.listing) {
+        scheduleRefresh();
+        return;
+      }
+      Promise.all([loadPending(false, false, true), loadDevices(false, true)])
+        .then(scheduleRefresh, scheduleRefresh);
     }
     // Listing identities must remain useful if backend discovery itself is
     // unavailable; the grant button remains disabled without exact scopes.
@@ -394,7 +455,10 @@
       state.backends = [];
     }).then(function() {
       return loadDevices(false);
-    }).then(function() { return card; });
+    }).then(function() {
+      scheduleRefresh();
+      return card;
+    });
   }
   global.VdrSuiteDeviceAdminSettings = Object.freeze({render: render});
 })(window);
