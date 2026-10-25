@@ -96,6 +96,19 @@ function reply(status, value, headers) {
 function transport(url, options) {
   const path = String(url).replace(/^https?:\/\/[^/]+/, '');
   requests.push({path, options});
+  const sourcePreview = /^\/api\/v1\/backends\/backend-a\/media-import-sources\/([A-Za-z0-9_-]{16,64})\/preview$/.exec(path);
+  if (sourcePreview) {
+    return Promise.resolve(reply(200, {
+      backendId: 'backend-a', sourceId: sourcePreview[1],
+      state: 'ready', status: 'ready',
+      title: 'Backend geprüfter Film',
+      targetFolder: sourcePreview[1] === SOURCE_B
+        ? 'Serien/Andor/Weiterer Film' : 'Die Herrschaft des Feuers',
+      videoCodec: 'h264', sourceBytes: 2500000000,
+      availableBytes: 12000000000, requiredBytes: 7600000000,
+      videoReencodeRequired: false
+    }));
+  }
   if (path.endsWith('/capabilities/media-import')) {
     return Promise.resolve(reply(200, {
       backendId: 'backend-a', capability: 'addons.media.import', available: allow
@@ -792,7 +805,11 @@ function publishHomeResume() {}
   folderSelect.listeners.change();
   const nestedPreview = findClass(mount, 'media-import-preview').textContent;
   assert(nestedPreview.includes('Quellordner: Serien › Andor.'));
-  assert(nestedPreview.includes('Zielordner, Codec, Dateigröße'));
+  assert(nestedPreview.includes('VDR-Zielordner: Serien/Andor/Weiterer Film'),
+    'authenticated backend preview displays the real selected target');
+  assert(nestedPreview.includes('Video-Codec: h264') &&
+    nestedPreview.includes('Frei:') && nestedPreview.includes('Benötigt'),
+    'real read-only codec and capacity are visible');
   assert.strictEqual(breadcrumb.children.length, 3);
   breadcrumb.children[0].listeners.click(); // root
   assert.strictEqual(folderSelect.children.length, 2);
