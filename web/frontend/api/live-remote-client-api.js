@@ -213,7 +213,36 @@
 
   function responseError(response, payload, fallback) {
     const details = errorDetails(payload, fallback);
-    const error = new Error(details.message);
+    const messages = {
+      invalid_credentials: translated(
+        'Benutzername oder Passwort ist falsch.',
+        'Incorrect username or password.'
+      ),
+      authentication_required: translated(
+        'Bitte mit deinem Benutzernamen und Passwort anmelden.',
+        'Please sign in with your username and password.'
+      ),
+      credential_revoked: translated(
+        'Das Benutzerkonto ist nicht mehr aktiv.',
+        'This account is no longer active.'
+      ),
+      session_expired: translated(
+        'Die Sitzung ist abgelaufen. Bitte erneut anmelden.',
+        'The session has expired. Please sign in again.'
+      ),
+      lan_setup_only: translated(
+        'Die Ersteinrichtung ist nur im direkt verbundenen Heimnetz möglich.',
+        'First-time setup is only available from the directly connected home network.'
+      ),
+      server_already_claimed: translated(
+        'Ein Administrator existiert bereits. Bitte normal anmelden.',
+        'An administrator already exists. Please sign in.'
+      )
+    };
+    const safeMessage = messages[details.code] || (
+      fallback + (response.status ? ' (HTTP ' + response.status + ')' : '')
+    );
+    const error = new Error(safeMessage);
     error.status = response.status;
     error.code = details.code;
     error.payload = payload;
@@ -404,7 +433,10 @@
     }).then(function (response) {
       return parseResponse(response).then(function (payload) {
         if (!response.ok || !payload || typeof payload.unclaimed !== 'boolean') {
-          throw new Error('First-admin status is unavailable');
+          throw new Error(translated(
+            'Die Ersteinrichtung konnte nicht geprüft werden.',
+            'First-admin setup status could not be checked.'
+          ));
         }
         return payload.unclaimed;
       });
@@ -511,6 +543,10 @@
       '.vss-panel h2{margin:0;color:#dbeafe;font-size:1.12rem}' +
       '.vss-panel label{display:grid;gap:.32rem;color:#bfdbfe;font-size:.8rem;font-weight:700}' +
       '.vss-panel input,.vss-panel textarea{box-sizing:border-box;width:100%;min-height:2.7rem;padding:.55rem .7rem;border:1px solid #334155;border-radius:.7rem;background:#020617;color:#f8fafc;font:inherit}' +
+      '.vss-password-wrap{position:relative}' +
+      '.vss-password-wrap input{padding-right:3rem}' +
+      '.vss-eye{position:absolute;right:.2rem;top:.2rem;min-width:2.3rem;height:2.3rem;border:0;background:transparent;color:#bfdbfe;cursor:pointer;font-size:1.15rem}' +
+      '.vss-password-hint{margin:.15rem 0 0;color:#fca5a5;font-size:.75rem}' +
       '.vss-panel [hidden]{display:none!important}' +
       '.vss-message{min-height:1.25rem;margin:0;color:#cbd5e1;font-size:.78rem;line-height:1.4}' +
       '.vss-message.error{color:#fca5a5}' +
@@ -582,7 +618,15 @@
     password.autocomplete = 'current-password';
     password.required = true;
     password.maxLength = 1024;
-    passwordLabel.appendChild(password);
+    const passwordWrap = createElement('div', 'vss-password-wrap');
+    passwordWrap.appendChild(password);
+    const passwordEye = createElement('button', 'vss-eye', '👁');
+    passwordEye.type = 'button';
+    passwordEye.setAttribute('aria-label', translated('Passwörter anzeigen', 'Show passwords'));
+    passwordEye.setAttribute('aria-pressed', 'false');
+    passwordEye.title = translated('Passwörter anzeigen', 'Show passwords');
+    passwordWrap.appendChild(passwordEye);
+    passwordLabel.appendChild(passwordWrap);
 
     const displayNameLabel = createElement(
       'label', '', translated('Anzeigename', 'Display name')
@@ -603,6 +647,41 @@
     confirmation.maxLength = 1024;
     confirmation.autocomplete = 'new-password';
     confirmationLabel.appendChild(confirmation);
+    const confirmHint = createElement('p', 'vss-password-hint', '');
+    confirmHint.setAttribute('aria-live', 'polite');
+    confirmationLabel.appendChild(confirmHint);
+
+    passwordEye.addEventListener('click', function () {
+      const visible = password.type === 'password';
+      password.type = visible ? 'text' : 'password';
+      confirmation.type = visible ? 'text' : 'password';
+      passwordEye.setAttribute('aria-pressed', visible ? 'true' : 'false');
+      passwordEye.setAttribute('aria-label', translated(
+        visible ? 'Passwörter verbergen' : 'Passwörter anzeigen',
+        visible ? 'Hide passwords' : 'Show passwords'
+      ));
+      passwordEye.title = translated(
+        visible ? 'Passwörter verbergen' : 'Passwörter anzeigen',
+        visible ? 'Hide passwords' : 'Show passwords'
+      );
+    });
+
+    function validateConfirmation() {
+      const mismatch = confirmation.value.length > 0 &&
+        confirmation.value !== password.value;
+      const message = mismatch ? translated(
+        'Die Passwörter stimmen nicht überein.',
+        'The passwords do not match.'
+      ) : '';
+      confirmHint.textContent = message;
+      confirmHint.hidden = !message;
+      if (typeof confirmation.setCustomValidity === 'function') {
+        confirmation.setCustomValidity(message);
+      }
+      return !mismatch;
+    }
+    password.addEventListener('input', validateConfirmation);
+    confirmation.addEventListener('input', validateConfirmation);
 
     const message = createElement('p', 'vss-message');
     message.setAttribute('aria-live', 'assertive');
@@ -622,7 +701,7 @@
     submit.type = 'submit';
     actions.append(cancel, submit);
 
-    form.append(title, usernameLabel, passwordLabel, displayNameLabel,
+    form.append(title, usernameLabel, displayNameLabel, passwordLabel,
       confirmationLabel, message, actions);
     dialog.appendChild(form);
     global.document.body.appendChild(dialog);
@@ -633,6 +712,11 @@
       setupMode = Boolean(value) && !isAuthenticated();
       displayNameLabel.hidden = !setupMode;
       confirmationLabel.hidden = !setupMode;
+      confirmHint.hidden = true;
+      confirmHint.textContent = '';
+      password.type = 'password';
+      confirmation.type = 'password';
+      passwordEye.setAttribute('aria-pressed', 'false');
       password.autocomplete = setupMode ? 'new-password' : 'current-password';
       title.textContent = setupMode
         ? translated('VDR-Suite erstmalig einrichten', 'Set up VDR-Suite')
@@ -649,8 +733,11 @@
 
     function openLoginDialog() {
       if (!setupMode) {
-        message.textContent = securityMessage(lastReason);
-        message.classList.toggle('error', Boolean(message.textContent));
+        message.textContent = securityMessage(lastReason) || translated(
+          'Bitte mit deinem zuvor festgelegten Benutzernamen und Passwort anmelden.',
+          'Please sign in with the username and password you previously created.'
+        );
+        message.classList.toggle('error', Boolean(securityMessage(lastReason)));
       }
       if (!dialog.open) {
         if (typeof dialog.showModal === 'function') {
@@ -750,7 +837,8 @@
           if (!name || name.includes(':') || name.length > 128 ||
               !displayName.value.trim() || displayName.value.trim().length > 256 ||
               submittedPassword.length < 12 ||
-              submittedPassword !== repeatedPassword) {
+              submittedPassword !== repeatedPassword ||
+              !validateConfirmation()) {
             throw new Error(translated(
               'Bitte Namen und Passwort prüfen (mindestens 12 Zeichen, zweimal identisch).',
               'Check names and password (at least 12 characters and confirmed).'
@@ -765,6 +853,7 @@
         }
         password.value = '';
         confirmation.value = '';
+        validateConfirmation();
         message.textContent = translated('Administrator wird eingerichtet …',
           'Creating administrator …');
         const claimPromise = firstAdminClaim({
