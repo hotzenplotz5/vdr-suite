@@ -602,14 +602,14 @@ target directories are left alone. The final `.rec` publication remains the
 existing atomic no-overwrite operation and uses the same Core/Agent readback
 contract.
 
-The browser shows the **verified source folder** in its existing selected-
-film preview and does not guess the eventual target folder or codec. The
-separate **read-only selected-file backend preview** with a trustworthy
-resolved destination, video codec, source size, free capacity and duplicate
-status is not yet implemented; never present those values as known.
-The C++ compilation, isolated recording fixtures, CI and real-VDR acceptance
-are also still pending. No source files, deployed VDR installation, or
-recording assets were modified as part of this GitHub work.
+The browser retains the **verified source folder** in its selected-film
+preview. MT.UX4.2 additionally supplies the backend-verified target folder,
+codec, source size, available capacity, required reserve and duplicate status
+for one explicitly selected source ID. Those values are advisory and expire;
+the actual import independently revalidates all preconditions. C++ compilation,
+production integration, CI and real-VDR acceptance for the final source SHA
+are still pending. No deployed VDR installation or media assets were modified
+as part of this GitHub work.
 
 ## MT.UX3 – bounded browser search and subset selection (partial)
 
