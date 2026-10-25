@@ -102,6 +102,18 @@ int main()
         BackendAgentMediaImportCatalog::PreviewState::pending);
     assert(catalog.nextPreviewRequest(live, "backend", 100) == selected);
     assert(catalog.nextPreviewRequest(live, "other-backend", 100).empty());
+    // Filmwechsel while an earlier Agent FFprobe is in flight.
+    const auto newer = exact100[1];
+    assert(catalog.requestPreview(live, "backend", 100, newer, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::pending);
+    assert(catalog.nextPreviewRequest(live, "backend", 100) == newer);
+    BackendAgentMediaImportCatalog::Preview stale{
+        selected, "ready", "Alter Film", "Alt/Film", "h264", 1000,
+        8000000000ULL, 5000000000ULL, false};
+    assert(!catalog.acceptPreview(live, "backend", 100, stale));
+    assert(catalog.nextPreviewRequest(live, "backend", 100) == newer);
+    assert(catalog.requestPreview(live, "backend", 100, selected, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::pending);
     BackendAgentMediaImportCatalog::Preview report;
     report.sourceId = selected;
     report.status = "ready";
