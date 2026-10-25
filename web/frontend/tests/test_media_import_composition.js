@@ -86,6 +86,7 @@ let sessionRestores = 0;
 let previewMode = 'ready';
 let previewInspectionStatus = 'ready';
 let previewVideoCodec = 'h264';
+const batchProbeOverrides = Object.create(null);
 let resolveDelayedPreview = null;
 const SOURCE = 'source_0123456789abcde';
 const OP = 'op_12345678901234567890123456789012';
@@ -116,18 +117,21 @@ function transport(url, options) {
     if (previewMode === 'forbidden' && id === SOURCE) {
       return Promise.resolve(reply(403, {detail: 'Denied'}));
     }
+    const override = batchProbeOverrides[id] || {};
+    const status = override.status || previewInspectionStatus;
+    const codec = override.codec ||
+      (status === 'insufficient' ? 'vp9' : previewVideoCodec);
     return Promise.resolve(reply(200, {
       backendId: 'backend-a', sourceId: id,
-      state: 'ready', status: previewInspectionStatus,
+      state: 'ready', status: status,
       title: id === SOURCE_B ? 'Backend geprüfter Andor-Film' :
         'Backend geprüfter Film',
       targetFolder: id === SOURCE_B
         ? 'Serien/Andor/Weiterer Film' : 'Die Herrschaft des Feuers',
-      videoCodec: previewInspectionStatus === 'insufficient' ? 'vp9' : previewVideoCodec,
+      videoCodec: codec,
       sourceBytes: 2500000000,
       availableBytes: 12000000000, requiredBytes: 7600000000,
-      videoReencodeRequired: previewInspectionStatus === 'insufficient' ||
-         previewVideoCodec === 'vp9'
+      videoReencodeRequired: codec === 'vp9'
     }));
   }
   if (path.endsWith('/capabilities/media-import')) {
@@ -535,6 +539,11 @@ function publishHomeResume() {}
   const countBefore = submits;
   await batchButton.listeners.click();
   await settle();
+  assert.strictEqual(submits, countBefore, 'read-only batch diagnosis must never submit');
+  assert(findClass(mount, 'media-import-batch-summary').textContent.includes('2 direkt importierbar'));
+  assert.strictEqual(findClass(mount, 'media-import-batch-review').children.length, 2);
+  await findClass(mount, 'media-import-batch-confirm').listeners.click();
+  await settle();
   assert.strictEqual(submits, countBefore + 1);
   assert.strictEqual(batchOperations.length, 1);
   batchStates[BATCH_OP_A] = 'outcome_unknown';
@@ -553,6 +562,9 @@ function publishHomeResume() {}
   await settle();
   await findClass(mount, 'media-import-batch').listeners.click();
   await settle();
+  assert.strictEqual(batchOperations.length, 0, 'diagnosis alone cannot create an Operation');
+  await findClass(mount, 'media-import-batch-confirm').listeners.click();
+  await settle();
   assert.strictEqual(batchOperations.length, 1);
   batchStates[BATCH_OP_A] = 'succeeded';
   await findClass(mount, 'media-import-refresh').listeners.click();
@@ -564,6 +576,63 @@ function publishHomeResume() {}
   await settle();
   assert.strictEqual(batchOperations.length, 2);
   assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true);
+
+  // UX5: a mixed four-film set gets individual, read-only diagnoses.
+  // VP9 and duplicates are held back; confirmed H.264/HEVC films continue.
+  context.resetMediaImportVisibility(true);
+  const SOURCE_C = 'source_334455667788990';
+  const SOURCE_D = 'source_445566778899001';
+  batchSources = [SOURCE, SOURCE_B, SOURCE_C, SOURCE_D];
+  batchProbeOverrides[SOURCE_B] = {codec: 'vp9'};
+  batchProbeOverrides[SOURCE_C] = {status: 'duplicate'};
+  batchProbeOverrides[SOURCE_D] = {codec: 'hevc'};
+  batchOperations = [];
+  batchStates = Object.create(null);
+  submitMode = 'batch';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const postsBeforeMixed = submits;
+  await findClass(mount, 'media-import-batch').listeners.click();
+  await settle();
+  const mixedSummary = findClass(mount, 'media-import-batch-summary').textContent;
+  assert(mixedSummary.includes('2 direkt importierbar') &&
+    mixedSummary.includes('1 zurückgestellt') &&
+    mixedSummary.includes('1 Dubletten'), mixedSummary);
+  const mixedRows = findClass(mount, 'media-import-batch-review').children;
+  assert.strictEqual(mixedRows.length, 4);
+  assert(mixedRows[1].textContent.includes('Umkodierung nötig'));
+  assert(mixedRows[2].textContent.includes('Aufnahme vorhanden'));
+  assert.strictEqual(submits, postsBeforeMixed,
+    'no mixed-film mutation before explicit batch approval');
+  const mixedReviewConfirm = findClass(mount, 'media-import-batch-confirm');
+  const beforeMixedConfirm = confirmCalls;
+  confirmLocal = false;
+  await mixedReviewConfirm.listeners.click();
+  assert.strictEqual(submits, postsBeforeMixed);
+  assert.strictEqual(confirmCalls, beforeMixedConfirm + 1);
+  confirmLocal = true;
+  await mixedReviewConfirm.listeners.click();
+  await settle();
+  assert.strictEqual(batchOperations.length, 1);
+  batchStates[BATCH_OP_A] = 'succeeded';
+  await findClass(mount, 'media-import-refresh').listeners.click();
+  await settle();
+  assert.strictEqual(batchOperations.length, 2,
+    'after independent VDR readback the next compatible film proceeds');
+  batchStates[BATCH_OP_B] = 'succeeded';
+  await findClass(mount, 'media-import-refresh').listeners.click();
+  await settle();
+  assert.strictEqual(batchOperations.length, 2, 'held-back VP9 is never implicitly encoded');
+  assert(findClass(mount, 'media-import-batch-summary').textContent.includes(
+    '2 bereits bestätigt'));
+  assert(findClass(mount, 'media-import-batch-review').children[1].textContent.includes(
+    'Umkodierung nötig'));
+  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true);
+  delete batchProbeOverrides[SOURCE_B];
+  delete batchProbeOverrides[SOURCE_C];
+  delete batchProbeOverrides[SOURCE_D];
+  batchSources = [SOURCE];
 
   // Encoding is offered only when the read-only video probe requires it.
   previewVideoCodec = 'vp9';
@@ -777,6 +846,10 @@ function publishHomeResume() {}
   const beforeSelectionConfirmation = confirmCalls;
   await selectedBatch.listeners.click();
   await settle();
+  assert.strictEqual(confirmCalls, beforeSelectionConfirmation,
+    'selection diagnosis is strictly read-only');
+  assert.strictEqual(findClass(mount, 'media-import-batch-review').children.length, 2);
+  await findClass(mount, 'media-import-batch-confirm').listeners.click();
   assert.strictEqual(confirmCalls, beforeSelectionConfirmation + 1);
   assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
     beforePagedPosts);
