@@ -4550,46 +4550,32 @@ body.channel-sorter-dragging * {
   .media-import-panel button { width: 100%; justify-self: stretch; }
 }
 
-/* MT.UX2/UX3: safe source preflight in admin settings, read-only browser filters. */
-.settings-media-import-source-draft {
+/* Media Tools admin: existing browser login; edit directories and save. */
+.settings-media-import-source-editor {
   display: grid;
-  gap: .8rem;
-  margin-top: 1rem;
+  gap: .75rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(148, 163, 184, .22);
+  margin-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, .2);
 }
-.settings-media-import-source-draft[hidden] { display: none !important; }
-.settings-media-import-source-draft label {
+.settings-media-import-source-editor[hidden] { display: none !important; }
+.settings-media-import-source-list { display: grid; gap: .8rem; }
+.settings-media-import-source-row {
   display: grid;
-  gap: .35rem;
-}
-.settings-media-import-source-draft input,
-.media-import-panel .media-import-search {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 0;
-  padding: .65rem;
-  border-radius: .55rem;
-}
-.settings-media-import-additional-roots {
-  display: grid;
-  gap: .8rem;
-}
-.settings-media-import-additional-roots > div {
-  display: grid;
-  gap: .6rem;
-  padding: .75rem;
+  gap: .5rem;
+  padding: .8rem;
   border: 1px solid rgba(148, 163, 184, .2);
   border-radius: .7rem;
 }
-.settings-media-import-review-command {
-  margin: 0;
-  max-width: 100%;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  user-select: text;
+.settings-media-import-source-row label { display: grid; gap: .35rem; }
+.settings-media-import-source-row input {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  padding: .6rem;
+  border-radius: .5rem;
 }
+.settings-media-import-source-row button { justify-self: start; }
 .media-import-visible-count {
   margin: 0;
   color: #94a3b8;
