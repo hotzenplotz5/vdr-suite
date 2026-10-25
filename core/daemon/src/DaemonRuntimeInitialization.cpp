@@ -637,6 +637,49 @@ bool DaemonRuntime::initialize()
             result.status = API::MediaImportSourceStatus::ok;
             return result;
         });
+    PublicApiRuntime::instance().registerMediaImportPreviewLookup(
+        [this](const std::string& actorId, const std::string& backendId,
+               const std::string& sourceId)
+        {
+            using API = PublicApiRuntime;
+            API::MediaImportPreviewResult out;
+            if (!mediaImportCatalog_ || !mediaImportOperationFence_ ||
+                !backendAgentRepository_) return out;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            std::string reason;
+            if (!mediaImportOperationFence_->effectiveMediaImportCapability(
+                    actorId, backendId, now, reason)) {
+                out.status = API::MediaImportPreviewStatus::forbidden;
+                return out;
+            }
+            const auto live =
+                backendAgentRepository_->findAgentForBackend(backendId);
+            if (!live || !trustedMediaToolsProvider(backendId, now))
+                return out;
+            BackendAgentMediaImportCatalog::Preview observed;
+            const auto state = mediaImportCatalog_->requestPreview(
+                *live, backendId, now, sourceId, observed);
+            if (state ==
+                BackendAgentMediaImportCatalog::PreviewState::denied)
+                return out;
+            if (state ==
+                BackendAgentMediaImportCatalog::PreviewState::pending) {
+                out.status = API::MediaImportPreviewStatus::pending;
+                return out;
+            }
+            out.status = API::MediaImportPreviewStatus::ready;
+            out.sourceId = observed.sourceId;
+            out.inspectionStatus = observed.status;
+            out.title = observed.title;
+            out.targetFolder = observed.targetFolder;
+            out.videoCodec = observed.videoCodec;
+            out.sourceBytes = observed.sourceBytes;
+            out.availableBytes = observed.availableBytes;
+            out.requiredBytes = observed.requiredBytes;
+            out.videoReencodeRequired = observed.videoReencodeRequired;
+            return out;
+        });
     PublicApiRuntime::instance().registerMediaImportCapabilityLookup(
         [this](const std::string& actorId, const std::string& backendId)
         {
