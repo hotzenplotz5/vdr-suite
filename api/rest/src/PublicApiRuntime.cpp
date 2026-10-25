@@ -2260,7 +2260,8 @@ std::string publicAccountCollectionTarget(
 std::string publicChannelCollectionTarget(
     std::vector<std::string> backendIds,
     std::size_t limit,
-    const std::string& cursor)
+    const std::string& cursor,
+    bool nativeChannelOrder)
 {
     std::sort(backendIds.begin(), backendIds.end());
     std::string target(PublicChannelCollectionPath);
@@ -2270,7 +2271,8 @@ std::string publicChannelCollectionTarget(
         target += backendIds[index];
     }
     target += "&limit=" + std::to_string(limit) +
-        "&sort=" + PublicChannelCollectionSort +
+        "&sort=" + std::string(nativeChannelOrder ?
+            PublicChannelCollectionNativeSort : PublicChannelCollectionSort) +
         "&order=" + PublicChannelCollectionOrder;
     if (!cursor.empty())
         target += "&cursor=" + cursor;
@@ -5254,10 +5256,16 @@ ApiResponse publicChannelCollectionResponse(
 {
     const std::string nextCursor =
         page.hasMore && !page.channels.empty()
-            ? publicChannelCursor(
-                backendScope,
-                page.channels.back().backendId,
-                page.channels.back().channelId)
+            ? (query.nativeChannelOrder ?
+                publicChannelNumberCursor(
+                    backendScope,
+                    page.channels.back().backendId,
+                    page.channels.back().channelNumber,
+                    page.channels.back().channelId) :
+                publicChannelCursor(
+                    backendScope,
+                    page.channels.back().backendId,
+                    page.channels.back().channelId))
             : std::string();
 
     if (page.hasMore && nextCursor.empty())
@@ -5269,7 +5277,8 @@ ApiResponse publicChannelCollectionResponse(
     const std::string self =
         query.relativeToChannelId.empty() ?
             publicChannelCollectionTarget(
-                backendIds, query.limit, query.cursor) :
+                backendIds, query.limit, query.cursor,
+                query.nativeChannelOrder) :
             std::string(PublicChannelCollectionPath) +
                 "?backendId=" + backendIds.front() +
                 "&limit=1&relativeTo=" + query.relativeToChannelId +
@@ -5280,7 +5289,8 @@ ApiResponse publicChannelCollectionResponse(
             : publicChannelCollectionTarget(
                 backendIds,
                 query.limit,
-                nextCursor);
+                nextCursor,
+                query.nativeChannelOrder);
 
     bool partial = false;
     std::string body = "{\"items\":[";
@@ -5695,14 +5705,17 @@ bool PublicApiRuntime::tryHandleChannelCollectionGet(
             normalizedPublicChannelBackendScope(normalizedBackends);
         std::string afterBackendId;
         std::string afterChannelId;
+        int afterChannelNumber = 0;
         if (!query.cursor.empty())
         {
             const PublicChannelCursorDecodeStatus cursorStatus =
-                decodePublicChannelCursor(
-                    query.cursor,
-                    backendScope,
-                    afterBackendId,
-                    afterChannelId);
+                query.nativeChannelOrder ?
+                    decodePublicChannelNumberCursor(
+                        query.cursor, backendScope, afterBackendId,
+                        afterChannelNumber, afterChannelId) :
+                    decodePublicChannelCursor(
+                        query.cursor, backendScope, afterBackendId,
+                        afterChannelId);
             if (cursorStatus == PublicChannelCursorDecodeStatus::scopeMismatch)
             {
                 response = cursorExpiredProblem(
@@ -5724,6 +5737,8 @@ bool PublicApiRuntime::tryHandleChannelCollectionGet(
         request.backendIds = normalizedBackends;
         request.afterBackendId = afterBackendId;
         request.afterChannelId = afterChannelId;
+        request.afterChannelNumber = afterChannelNumber;
+        request.nativeChannelOrder = query.nativeChannelOrder;
         request.relativeToChannelId = query.relativeToChannelId;
         request.direction = query.direction;
         request.limit = query.limit;
@@ -5789,19 +5804,24 @@ bool PublicApiRuntime::tryHandleChannelCollectionGet(
 
                 std::string previousBackend = afterBackendId;
                 std::string previousChannel = afterChannelId;
-                for (const PublicChannelCollectionItem& channel :
-                     page.channels)
+                int previousNumber = afterChannelNumber;
+                for (const PublicChannelCollectionItem& channel : page.channels)
                 {
+                    const bool wrongOrder = !previousBackend.empty() &&
+                        (channel.backendId < previousBackend ||
+                         (channel.backendId == previousBackend &&
+                          (query.nativeChannelOrder ?
+                           (channel.channelNumber < previousNumber ||
+                            (channel.channelNumber == previousNumber &&
+                             channel.channelId <= previousChannel)) :
+                           channel.channelId <= previousChannel)));
                     if (channel.backendId.empty() ||
                         channel.channelId.empty() ||
+                        (query.nativeChannelOrder && channel.channelNumber < 0) ||
                         !std::binary_search(
                             normalizedBackends.begin(),
                             normalizedBackends.end(),
-                            channel.backendId) ||
-                        (!previousBackend.empty() &&
-                         (channel.backendId < previousBackend ||
-                          (channel.backendId == previousBackend &&
-                           channel.channelId <= previousChannel))))
+                            channel.backendId) || wrongOrder)
                     {
                         response = serviceUnavailableProblem(
                             path, requestId, correlationId);
@@ -5809,6 +5829,7 @@ bool PublicApiRuntime::tryHandleChannelCollectionGet(
                     }
                     previousBackend = channel.backendId;
                     previousChannel = channel.channelId;
+                    previousNumber = channel.channelNumber;
                 }
 
                 response = publicChannelCollectionResponse(
