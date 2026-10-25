@@ -131,7 +131,7 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         control = Path(self.temp.name) / "deb-control"
         subprocess.run(["dpkg-deb", "--control", str(result), str(control)],
                        check=True)
-        assert sorted(p.name for p in control.iterdir()) == ["control", "md5sums", "preinst"]
+        assert sorted(p.name for p in control.iterdir()) == ["control", "preinst"]
         assert "MEDIA_TOOLS_DPKG=BLOCKED" in (control / "preinst").read_text()
         assert "systemctl" not in (control / "preinst").read_text()
         assert (self.target / MODULE.INVENTORY_REL).read_bytes() == before
