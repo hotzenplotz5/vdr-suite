@@ -60,6 +60,16 @@ verkaufen.
 - **„Aufnahme verkleinern (HEVC)“** gehört in **Aufnahmen → Aufnahmeaktionen**, sowohl bei den Aufnahmedetails als auch im `⋯`-Menü der Detailkarten, sofern die Aufnahme geeignet und die Funktion freigegeben ist. Kein eigener Hauptreiter.
 - Technische Token (`sourceId`, Freigabe-Revision, Handler-Digest) erscheinen nur unter „Technische Details“, niemals als Hauptbeschriftung.
 
+### Importquelle auf VDR-Aufnahmeordner abbilden (neu vereinbart, OFFEN)
+
+- **Relative Ordnerhierarchie übernehmen:** Eine konfigurierte Importwurzel entspricht dem VDR-Aufnahme-Root, **nicht** einem zusätzlichen Unterordner. Beispiel `Importroot/actions/Matrix.mkv` → logischer VDR-Ordner `actions/Matrix`, darunter die native datierte `.rec`-Aufnahme. `Importroot/Film.mkv` → `Film` unmittelbar im VDR-Root. Beliebig tiefe Serienstrukturen wie `Serien/Andor/Staffel 1/Folge01.mkv` erhalten ihre relativen Ordner.
+- **Kein Schreiben beim Scan:** Scan und Vorschau bleiben rein lesend. Erst der bestätigte Import legt fehlende **gültige VDR-Ordner** im bestehenden, autorisierten Zielroot an; existierende Zielordner werden wiederverwendet. Keine leeren Ordner auf Vorrat; keine unkontrollierten Pfade/Symlinks, kein Umgehen von Staging, Duplikatschutz oder atomarer Veröffentlichung.
+- **Vorhandene Semantik verwenden:** `web/frontend/recordings2-move-editor.js` nutzt bereits VDR-Ordner als Ziel der bestehenden Recording-MOVE-Aktion; laut `docs/development/recording-folder-genre-management.md` wurde das reale Anlegen beim Move abgenommen. Der Importer verwendet denselben logischen VDR-Ordnervertrag, **nicht** den MOVE-Endpunkt für noch nicht existierende Aufnahmen und keine zweite Ordnerverwaltung.
+- **VDR-Quellenabgleich:** VDR `recording.h/recording.c` verwenden `FOLDERDELIMCHAR='~'` im logischen Aufnahmenamen und die physische Ordnerhierarchie im Videoverzeichnis. `folders.conf` listet hingegen vordefinierte Timer-Zielordner und ist **nicht** erforderlich, damit importierte Aufnahmen unter ihrem Pfad erscheinen. Gültige VDR-Namens-/Kodierungsregeln und die bestehende Aufnahmeaktualisierung samt autoritativem Readback sind zu prüfen; `folders.conf` nicht eigenmächtig bearbeiten.
+- **Belegte Ist-Lücke:** `addons/media-tools/src/MediaImport.cpp` berechnet aktuell `videoRoot / title` und verliert dadurch alle Unterverzeichnisse der Quelle. Dies muss im bestehenden `inspectImport`-/`executeRemuxImport`-Pfad sowie der UX4-Vorschau korrigiert werden; bis zur Umsetzung **nicht als erledigt kennzeichnen**.
+- **Abnahme:** Root-Film, vorhandener und neuer Zielordner, mehrere Ebenen, gleicher Filmname in verschiedenen Unterordnern, VDR-unzulässige Ordnernamen, Symlink-/Traversal-Angriff, Duplikate, fehlgeschlagene Veröffentlichung ohne Phantom-Recording, passende Vorschau und sichtbare VDR-Aufnahme nach Readback. Produktive Dateisystemtests nur nach separater Freigabe.
+
+
 ## Belegter Ist-Zustand – nicht mit Unterstützung verwechseln
 
 - `vdr-rectools` Branch `develop`: `vdr-rectools import` scannt den konfigurierten `IMPORT_DIR`; `var/www/html/explorer.php` ist eine getrennte Dateiansicht. Die Bedienidee ist die Vorlage, **nicht** die alten potenziell löschenden/ungeschützten Arbeitswege.
