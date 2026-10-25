@@ -326,7 +326,7 @@ int main()
                 request("bootstrap-browser-consumed"));
         assert(response.statusCode == 409);
         assert(
-            response.body.find("bootstrap_consumed") !=
+            response.body.find("server_already_claimed") !=
             std::string::npos);
         assert(fixture.accounts.listAll().accounts.empty());
         assertNoSecrets(response);
