@@ -49,6 +49,41 @@ have credential type
 .BI --database " PATH"
 Use the specified Suite database instead of
 .IR /var/lib/vdr-suite/vdr-suite.db .
+.SH EXAMPLES
+To recover the administrator password locally, first identify the account
+identifier and login name. If the sqlite3 command-line tool is available,
+query the existing database in read-only mode:
+.PP
+.nf
+sudo sqlite3 -readonly /var/lib/vdr-suite/vdr-suite.db \
+  "SELECT a.account_id, v.login_name
+   FROM security_human_accounts AS a
+   JOIN security_credentials AS c ON c.actor_id = a.actor_id
+   JOIN security_basic_credential_verifiers AS v
+     ON v.credential_id = c.credential_id
+   WHERE a.active = 1 AND c.active = 1
+     AND c.credential_type = 'human-password'
+     AND c.revoked_at = ''
+   ORDER BY v.login_name;"
+.fi
+.PP
+Then use the matching account identifier and login name (replace placeholders):
+.PP
+.nf
+sudo vdr-suite-human-account-recover \
+  --account-id 'ACCOUNT_ID_FROM_QUERY' \
+  --login 'admin'
+.fi
+.PP
+Enter the new password twice at the interactive prompt. No old password
+or first-admin bootstrap code is required. The existing account and grants
+remain unchanged and its password-derived browser sessions are revoked.
+For a nondefault security database, use the actual database path consistently
+in both the read-only lookup and
+.BR --database .
+.PP
+This recovery workflow never reopens the first-admin browser setup;
+it only rotates the selected existing Human Account's password.
 .SH OUTPUT
 On success the command prints only non-secret identifiers and the number of
 revoked browser sessions:
