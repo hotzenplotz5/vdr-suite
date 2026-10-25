@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import stat
+import subprocess
 import tempfile
 import unittest
 
@@ -96,6 +97,88 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         assert not list(self.target.rglob("*.deb"))
         assert (self.work / "stage/.vdr-suite-install-runtime-manifest.json"
                 ).read_bytes() == self.original_seal
+
+    @unittest.skipUnless(shutil.which("dpkg-deb") and shutil.which("dpkg"),
+                         "Debian package tools unavailable")
+    def test_mt_i4_sealed_stage_build_has_exact_addon_files_and_no_activation(self):
+        from build_media_tools_cpp_deb import (
+            build_from_sealed_stage, stage_package_paths,
+        )
+        MODULE.compose(self.work, self.target, self.hash)
+        output = Path(self.temp.name) / "packages"
+        output.mkdir()
+        before = (self.target / MODULE.INVENTORY_REL).read_bytes()
+        result = build_from_sealed_stage(
+            self.target, self.hash, str(output), "Media Tools Test <ci@example.org>",
+        )
+        assert "~stage1+git" + "1" * 12 in result.name
+        description = subprocess.check_output(
+            ["dpkg-deb", "--field", str(result)], text=True,
+        )
+        assert "Package: vdr-suite-addon-media-tools" in description
+        assert "Depends: ffmpeg, vdr" in description
+        assert "Inactive VDR-Suite" in description
+        extracted = Path(self.temp.name) / "package-payload"
+        subprocess.run(["dpkg-deb", "--extract", str(result), str(extracted)],
+                       check=True)
+        files = {p.relative_to(extracted).as_posix()
+                 for p in extracted.rglob("*") if p.is_file()}
+        assert files == set(stage_package_paths())
+        assert not any(p.startswith(("etc/", "var/")) for p in files)
+        for rel in files:
+            assert (extracted / rel).read_bytes() == (self.target / rel).read_bytes()
+            assert mode(extracted / rel) == mode(self.target / rel)
+        control = Path(self.temp.name) / "deb-control"
+        subprocess.run(["dpkg-deb", "--control", str(result), str(control)],
+                       check=True)
+        assert sorted(p.name for p in control.iterdir()) == ["control", "md5sums", "preinst"]
+        assert "MEDIA_TOOLS_DPKG=BLOCKED" in (control / "preinst").read_text()
+        assert "systemctl" not in (control / "preinst").read_text()
+        assert (self.target / MODULE.INVENTORY_REL).read_bytes() == before
+        with self.assertRaisesRegex(ValueError, "overwrite"):
+            build_from_sealed_stage(
+                self.target, self.hash, str(output),
+                "Media Tools Test <ci@example.org>",
+            )
+
+    @unittest.skipUnless(shutil.which("dpkg-deb") and shutil.which("dpkg"),
+                         "Debian package tools unavailable")
+    def test_mt_i4_unapproved_stage_never_produces_package(self):
+        from build_media_tools_cpp_deb import build_from_sealed_stage
+        MODULE.compose(self.work, self.target, self.hash)
+        output = Path(self.temp.name) / "package-output"
+        output.mkdir()
+        with self.assertRaisesRegex(ValueError, "approval mismatch"):
+            build_from_sealed_stage(
+                self.target, "0" * 64, str(output),
+                "Media Tools Test <ci@example.org>",
+            )
+        assert not list(output.iterdir())
+
+    def test_mt_i4_preinst_rejects_manual_file_and_symlinked_ancestors(self):
+        from build_media_tools_cpp_deb import collision_preinst, stage_package_paths
+        fake = Path(self.temp.name) / "preinst-fixture"
+        fake.mkdir()
+        filename = MODULE.WORKER_REL / MODULE.WORKERS[0]
+        target = fake / filename
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"operator-owned file")
+        script = Path(self.temp.name) / "preinst-check"
+        script.write_text(collision_preinst(stage_package_paths(), test_root=fake))
+        result = subprocess.run(["sh", str(script)], capture_output=True, text=True)
+        assert result.returncode != 0
+        assert "MEDIA_TOOLS_DPKG=BLOCKED" in result.stderr
+        assert target.read_bytes() == b"operator-owned file"
+        target.unlink()
+        outside = Path(self.temp.name) / "outside"
+        outside.mkdir()
+        worker_folder = fake / MODULE.WORKER_REL
+        worker_folder.rmdir()
+        worker_folder.symlink_to(outside)
+        result = subprocess.run(["sh", str(script)], capture_output=True, text=True)
+        assert result.returncode != 0
+        assert "symlinked package directory" in result.stderr
+        assert not list(outside.iterdir())
 
     def test_verifier_rejects_changed_payload_even_if_suite_stage_is_resealed(self):
         MODULE.compose(self.work, self.target, self.hash)
