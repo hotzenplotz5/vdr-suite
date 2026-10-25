@@ -302,6 +302,15 @@
     }
   }
 
+  function validRelativeFolder(folder) {
+    if (typeof folder !== 'string' || folder.length > 240 ||
+        /[\\\r\n\x00-\x1f\x7f]/.test(folder) ||
+        folder.startsWith('/') || folder.endsWith('/')) return false;
+    return !folder || folder.split('/').every(function (part) {
+      return part.length > 0 && part !== '.' && part !== '..';
+    });
+  }
+
   // One existing authorized source endpoint; no client filesystem paths or
   // secondary scanner. Always discard partial pages when a snapshot changes.
   function readSourcePages(backendId) {
@@ -320,6 +329,7 @@
           if (!item || typeof item.sourceId !== 'string' ||
               !/^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId) ||
               seen.has(item.sourceId) ||
+              (item.folder !== undefined && !validRelativeFolder(item.folder)) ||
               (item.label !== undefined &&
                (typeof item.label !== 'string' || !item.label ||
                 item.label.length > 160 ||
@@ -460,6 +470,7 @@
             !items.every(function (item) {
               return item && typeof item.sourceId === 'string' &&
                 /^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId) &&
+                (item.folder === undefined || validRelativeFolder(item.folder)) &&
                 (item.label === undefined ||
                   (typeof item.label === 'string' &&
                    item.label.length > 0 && item.label.length <= 160 &&
@@ -478,7 +489,8 @@
         // Browser search/status filtering is a view, never a new authority.
         view.allOrdinary = ordinary.map(function (item, index) {
           return {sourceId: item.sourceId,
-            label: item.label || ('Film ' + (index + 1))};
+            label: item.label || ('Film ' + (index + 1)),
+            folder: item.folder || ''};
         });
         view.allMarked = marked;
         view.sourceTitles = Object.create(null);
