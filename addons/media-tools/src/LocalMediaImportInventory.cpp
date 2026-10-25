@@ -95,19 +95,32 @@ bool readInventory(const std::filesystem::path& root, std::string& content)
            content.find('\0') == std::string::npos;
 }
 
-bool fields(const std::string& line, std::array<std::string, 5>& columns)
+// The optional sixth column is a ROOT-ADMIN display alias, never a
+// filesystem path or actor-controlled permission. Legacy five-column
+// inventories retain exactly their previous semantics.
+bool fields(const std::string& line, std::array<std::string, 6>& columns)
 {
     std::size_t offset = 0;
-    for (std::size_t i = 0; i < columns.size(); ++i)
+    for (std::size_t i = 0; i < 5U; ++i)
     {
         const auto end = line.find('\t', offset);
-        if ((i < columns.size() - 1 && end == std::string::npos) ||
-            (i == columns.size() - 1 && end != std::string::npos))
-            return false;
+        if (i < 4U && end == std::string::npos) return false;
         columns[i] = line.substr(offset,
             end == std::string::npos ? std::string::npos : end - offset);
         if (columns[i].empty()) return false;
-        offset = end + 1;
+        if (i == 4U) {
+            if (end != std::string::npos) {
+                columns[5] = line.substr(end + 1);
+                if (columns[5].empty() ||
+                    columns[5].size() > 64U ||
+                    columns[5].find('\t') != std::string::npos ||
+                    std::any_of(columns[5].begin(), columns[5].end(),
+                        [](unsigned char ch) {
+                            return ch < 0x20U || ch == 0x7fU ||
+                                   ch == '/' || ch == '\\';
+                        })) return false;
+            }
+        } else offset = end + 1;
     }
     return true;
 }
@@ -115,7 +128,25 @@ bool fields(const std::string& line, std::array<std::string, 5>& columns)
 struct IndexedSource {
     std::string id;
     LocalMediaImportSource source;
+    std::string displayPrefix;
 };
+
+// Presentation-only prefix from the root-owned source inventory. The
+// first row for each backend is the default. Source authority and opaque
+// IDs continue to be revalidated by the existing Agent executor.
+std::string displayPrefix(const std::string& alias, bool isDefault)
+{
+    if (alias.empty()) return {};
+    return isDefault ? "Standard: " + alias : alias;
+}
+
+std::string displayLabel(const IndexedSource& source)
+{
+    const std::string stem = source.source.sourceFile.stem().string();
+    if (source.displayPrefix.empty()) return stem;
+    const std::string prefixed = source.displayPrefix + " · " + stem;
+    return prefixed.size() <= 160U ? prefixed : stem;
+}
 
 LocalMediaImportSource toSource(const ImportPlan& plan) {
     LocalMediaImportSource source;
@@ -236,8 +267,9 @@ bool inspectMarkedSource(const std::filesystem::path& sourceRoot,
     return true;
 }
 
-bool scanDirectory(const std::array<std::string, 5>& entry,
-                   std::vector<IndexedSource>& found, bool& partial)
+bool scanDirectory(const std::array<std::string, 6>& entry,
+                   std::vector<IndexedSource>& found, bool& partial,
+                   bool isDefault)
 {
     namespace fs = std::filesystem;
     const fs::path sourceRoot(entry[2]), videoRoot(entry[3]);
@@ -248,6 +280,7 @@ bool scanDirectory(const std::array<std::string, 5>& entry,
     // symlinks and retain the existing global 4096-entry fail-closed cap.
     // An oversized scan exposes only verified candidates and MUST be
     // reported partial, not silently treated as empty or complete.
+    const std::string prefix = displayPrefix(entry[5], isDefault);
     std::vector<fs::path> paths;
     std::vector<fs::path> directories{sourceRoot};
     bool walkTruncated = false;
@@ -273,12 +306,12 @@ bool scanDirectory(const std::array<std::string, 5>& entry,
             const auto plan = inspectImport({sourceRoot, videoRoot, path});
             const auto local = toSource(plan);
             if (found.size() == 100U) { partial = true; break; }
-            found.push_back({scannedId(entry[1], local), local});
+            found.push_back({scannedId(entry[1], local), local, prefix});
         } catch (...) {
             LocalMediaImportSource marked;
             if (inspectMarkedSource(sourceRoot, videoRoot, path, marked)) {
                 if (found.size() == 100U) { partial = true; break; }
-                found.push_back({scannedId(entry[1], marked), marked});
+                found.push_back({scannedId(entry[1], marked), marked, prefix});
             }
         }
     }
@@ -298,29 +331,35 @@ bool inventorySources(const std::filesystem::path& root, const std::string& back
     std::set<std::pair<std::string, std::string>> seenRows;
     std::string line;
     std::size_t rows = 0;
+    bool firstBackendRoot = true;
     try {
         while (std::getline(input, line)) {
             if (++rows > 128 || line.empty() || line.back() == '\r')
                 return false;
-            std::array<std::string, 5> entry{};
+            std::array<std::string, 6> entry{};
             if (!fields(line, entry) ||
                 !inventoryIdentifier(entry[0], 1) ||
                 !inventoryIdentifier(entry[1], 16) ||
                 !seenRows.emplace(entry[0], entry[1]).second)
                 return false;
             if (entry[0] != backendId) continue;
+            const bool isDefault = firstBackendRoot;
+            firstBackendRoot = false;
             if (entry[4] == "*") {
-                if (!scanDirectory(entry, sources, truncated)) return false;
+                if (!scanDirectory(entry, sources, truncated, isDefault))
+                    return false;
             } else {
                 try {
                     const auto plan = inspectImport({
                         entry[2], entry[3], entry[4]});
-                    sources.push_back({entry[1], toSource(plan)});
+                    sources.push_back({entry[1], toSource(plan),
+                        displayPrefix(entry[5], isDefault)});
                 } catch (...) {
                     // A marked source is selectable only by an explicit release.
                     LocalMediaImportSource marked;
                     if (inspectMarkedSource(entry[2], entry[3], entry[4], marked))
-                        sources.push_back({entry[1], marked});
+                        sources.push_back({entry[1], marked,
+                            displayPrefix(entry[5], isDefault)});
                 }
             }
         }
@@ -399,7 +438,7 @@ bool RootOwnedMediaImportInventory::listTrustedSourceSnapshot(
         return false;
     }
     for (const auto& source : sources) {
-        const std::string label = source.source.sourceFile.stem().string();
+        const std::string label = displayLabel(source);
         if (label.empty() || label.size() > 160 ||
             std::any_of(label.begin(), label.end(), [](unsigned char ch) {
                 return ch < 0x20 || ch == 0x7f ||
@@ -422,7 +461,7 @@ bool RootOwnedMediaImportInventory::listTrustedSourceLabels(
     std::vector<IndexedSource> sources;
     if (!inventorySources(installRoot_, backendId, sources)) return false;
     for (const auto& source : sources) {
-        const std::string label = source.source.sourceFile.stem().string();
+        const std::string label = displayLabel(source);
         if (label.empty() || label.size() > 160 ||
             std::any_of(label.begin(), label.end(), [](unsigned char ch) {
                 return ch < 0x20 || ch == 0x7f || ch == '/' || ch == '\\';
