@@ -1445,6 +1445,7 @@ public:
         MediaImportSourceStatus status = MediaImportSourceStatus::unavailable;
         std::vector<std::string> ids;
         std::vector<std::string> labels; // optional authorized display names
+        bool partial = true; // fail closed for legacy/unknown observations
     };
     using MediaImportSourceLookup = std::function<MediaImportSourceResult(
         const std::string& actorId, const std::string& backendId)>;
