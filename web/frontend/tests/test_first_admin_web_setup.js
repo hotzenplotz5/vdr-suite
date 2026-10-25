@@ -77,6 +77,9 @@ async function scenario(options) {
           : response(201, {status: 'claimed'}));
       }
       if (input === '/api/security/browser-sessions') {
+        if (options.badLogin) return Promise.resolve(response(401, {
+          error: {code: 'invalid_credentials', message: 'Invalid credentials'}
+        }));
         return Promise.resolve(response(200, {
           csrfToken: 'c'.repeat(48), expiresAt: '2099-01-01T00:00:00Z'
         }));
@@ -111,6 +114,9 @@ async function scenario(options) {
   };
   const title = document.getElementById('vdr-suite-session-title');
   const submit = nodes.find(node => node.className === 'vss-submit');
+  const eye = nodes.find(node => node.className === 'vss-eye');
+  const confirmHint = nodes.find(node => node.className === 'vss-password-hint');
+  assert(eye && confirmHint, 'Password visibility and inline validation must exist');
   assert(requests.some(r => r.input === '/api/security/first-admin/status'));
 
   if (!options.unclaimed) {
@@ -120,11 +126,26 @@ async function scenario(options) {
   }
   assert.match(title.textContent, /erstmalig einrichten/);
   assert.equal(submit.disabled, false);
+  const order = form.children.filter(child => child.tagName === 'LABEL')
+    .map(child => child.children[0].name ||
+      (child.children[0].children[0] && child.children[0].children[0].name));
+  assert.deepEqual(order, ['username', 'displayName', 'password', 'confirmPassword']);
+  assert.equal(input('password').type, 'password');
+  eye.fire('click');
+  assert.equal(input('password').type, 'text');
+  assert.equal(input('confirmPassword').type, 'text');
+  eye.fire('click');
+  assert.equal(input('password').type, 'password');
 
   input('username').value = 'admin';
   input('password').value = 'meaningful-local-password';
   input('displayName').value = 'MLD Administrator';
+  input('confirmPassword').value = 'incorrect-password';
+  input('confirmPassword').fire('input');
+  assert.match(confirmHint.textContent, /stimmen nicht überein/);
   input('confirmPassword').value = 'meaningful-local-password';
+  input('confirmPassword').fire('input');
+  assert.equal(confirmHint.textContent, '');
   form.fire('submit');
   await settle();
   if (options.denied) {
@@ -149,6 +170,14 @@ async function scenario(options) {
   assert.equal(input('confirmPassword').value, '');
   const login = requests.find(r => r.input === '/api/security/browser-sessions');
   assert(login && login.config.headers.Authorization.startsWith('Basic '));
+  if (options.badLogin) {
+    await settle();
+    const message = nodes.find(node => node.className === 'vss-message');
+    assert.match(message.textContent, /Benutzername oder Passwort ist falsch/);
+    assert(!message.textContent.includes('Invalid credentials'));
+    assert.equal(context.VdrSuiteBrowserSession.isAuthenticated(), false);
+    return;
+  }
   assert.equal(context.VdrSuiteBrowserSession.isAuthenticated(), true);
   assert.equal(dialog.open, false);
 }
@@ -157,6 +186,7 @@ async function scenario(options) {
   await scenario({unclaimed: true, hostname: '192.168.178.20'});
   await scenario({unclaimed: false, hostname: '192.168.178.20'});
   await scenario({unclaimed: true, hostname: 'mld.local', denied: true});
+  await scenario({unclaimed: true, hostname: '192.168.178.20', badLogin: true});
   console.log('FIRST_ADMIN_WEB_SETUP=PASS');
 })().catch(error => {
   console.error(error);
