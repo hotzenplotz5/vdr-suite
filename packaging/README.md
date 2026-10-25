@@ -20,6 +20,40 @@
 
 Der ausführbare Installationsgraph und die tatsächlich installierten Dateien gehören zu [`mk/install.mk`](../mk/install.mk), nicht allein zu dieser Verzeichnisliste. Historische Paketkandidaten im [Install-Manifest-Vertrag](../docs/development/phase-56.55-install-manifest-package-file-contract.md) sind nicht automatisch veröffentlichte `.deb`-Pakete.
 
+## Versionskennung für Entwicklungsstände (vereinbartes Zielformat)
+
+Für VDR-Suite **und** das VDR-Plugin SuiteBridge ist bei Entwicklungs-Builds
+eine **einzige** Versionskennung mit direkt angehängtem Git-Commit vorgesehen:
+
+```text
+0.14.1-g0963bd6
+```
+
+- `0.14.1` ist die Basisversion aus `VERSION` (für SuiteBridge derzeit
+  ebenfalls `0.14.1` in `vdr-plugin-suite-bridge/suitebridge_plugin_identity.h`).
+- `-g0963bd6` steht **ohne Klammern oder separates Zusatzfeld** für den
+  kurzen Git-Commit des Quellstands, aus dem das jeweilige Programm bzw.
+  Plugin gebaut wurde. Der Hash ist ein Beispiel und darf nicht fest
+  einprogrammiert werden.
+- Die Git-Komponente soll beim **Build automatisch** ermittelt werden.
+  Die Basisversion wird nur bewusst für einen neuen Release geändert, nicht
+  für jeden Commit.
+- Bei getrennt gebauten oder aktualisierten Komponenten dürfen deren
+  Git-Hashes voneinander abweichen. Dadurch ist erkennbar, welche Quellen
+  tatsächlich im jeweiligen Daemon oder Plugin stecken.
+- Eine Debian-Paketversion und ein Git-Commit sind nicht dasselbe: Bestehende
+  `debian/changelog`- und PPA-Versionen müssen ihre gültige Paket-Syntax
+  behalten. Die künftige Laufzeit-/Plugin-Anzeige ist separat davon zu
+  betrachten.
+
+**Status (25.10.2026):** Das ist die dokumentierte **Vorgabe für die
+Implementierung**, noch **keine Behauptung über bereits erzeugte Binärdateien**.
+Der aktuelle Quellstand meldet weiterhin die statische Basisversion
+`0.14.1` für VDR-Suite und SuiteBridge. Die automatische Git-Suffix-
+Übernahme in beide Binärdateien ist gesondert umzusetzen und in den
+Build-/Pakettests nachzuweisen. Bis dahin helfen die Git-Commit-ID und der
+Paketversionsstring separat bei der Identifizierung von Testständen.
+
 ## Sichere Deployment-Grenze
 
 Für repositorybasierte Runtime-Deployments ist der **versiegelte Staging-Baum** maßgeblich: [verbindlicher Deployment-Vertrag](../docs/development/install-runtime-deployment-reliability.md). Direktes Kopieren einzelner Dateien aus `web/frontend` oder `packaging` in ein laufendes System kann einen Versionsmix erzeugen. Ein Quellcode- oder CI-Erfolg beweist außerdem **nicht**, dass genau diese Version bereits auf yaVDR installiert ist.
