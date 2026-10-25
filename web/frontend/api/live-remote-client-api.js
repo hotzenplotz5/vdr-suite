@@ -412,13 +412,6 @@
   }
 
   function firstAdminClaim(fields) {
-    if (!global.location ||
-        !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(global.location.hostname)) {
-      return Promise.reject(new Error(translated(
-        'Die Ersteinrichtung ist nur direkt am VDR möglich.',
-        'First-time setup requires a local browser on the VDR.'
-      )));
-    }
     return global.fetch(FIRST_ADMIN_CLAIM_PATH, {
       method: 'POST',
       headers: {
@@ -647,16 +640,10 @@
       submit.textContent = setupMode
         ? translated('Administrator erstellen', 'Create administrator')
         : translated('Anmelden', 'Sign in');
-      const localHost = global.location &&
-        /^(localhost|127\.0\.0\.1|\[::1\])$/.test(global.location.hostname);
-      submit.disabled = setupMode && !localHost;
+      submit.disabled = false;
       if (setupMode) {
-        message.textContent = submit.disabled
-          ? translated('Die erste Einrichtung ist nur direkt im lokalen Browser des VDR möglich.',
-              'First-time setup is available only in a browser on the VDR itself.')
-          : '';
-
-        message.classList.toggle('error', submit.disabled);
+        message.textContent = '';
+        message.classList.remove('error');
       }
     }
 
@@ -802,8 +789,7 @@
           }
         }).finally(function () {
           cancel.disabled = false;
-          submit.disabled = setupMode &&
-            (!global.location || !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(global.location.hostname));
+          submit.disabled = false;
         });
         return;
       }
