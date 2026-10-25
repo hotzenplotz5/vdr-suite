@@ -955,10 +955,33 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-preview').textContent.includes(
     'Keine Berechtigung für diese Importvorschau'));
   previewMode = 'ready';
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, true,
+    'authorization error must prevent import submission');
   assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
     racePosts, 'all preview transitions are read-only');
 
-    console.log('A7.5 real web composition and media import lifecycle: PASS');
+  // A compatible film has no codec choice but retains an explicit optional
+  // skip action. Even that marker uses the canonical Core operation.
+  raceSelect.value = SOURCE;
+  raceSelect.listeners.change();
+  await settle();
+  const compatibleSkip = findClass(mount, 'media-import-skip');
+  assert(findClass(mount, 'media-import-decision-label').hidden);
+  assert(compatibleSkip && !compatibleSkip.hidden && !compatibleSkip.disabled);
+  state = 'succeeded';
+  submitMode = 'accepted';
+  const skipBefore = submits;
+  confirmLocal = false;
+  await compatibleSkip.listeners.click();
+  assert.strictEqual(submits, skipBefore, 'cancelled skip creates no operation');
+  confirmLocal = true;
+  await compatibleSkip.listeners.click();
+  await settle();
+  assert.strictEqual(submits, skipBefore + 1);
+  assert.strictEqual(requests.filter(x => x.options.method === 'POST').slice(-1)[0].options.body,
+    JSON.stringify({sourceId: SOURCE, videoDecision: 'skip'}));
+
+  console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
   console.error(error);
   process.exitCode = 1;
