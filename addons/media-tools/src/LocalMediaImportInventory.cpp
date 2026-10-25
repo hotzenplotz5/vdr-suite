@@ -129,6 +129,7 @@ struct IndexedSource {
     std::string id;
     LocalMediaImportSource source;
     std::string displayPrefix;
+    std::string rootId;
 };
 
 // Presentation-only prefix from the root-owned source inventory. The
@@ -169,6 +170,32 @@ bool relativeSourceFolder(const IndexedSource& source, std::string& folder)
         std::none_of(folder.begin(), folder.end(), [](unsigned char ch) {
             return ch < 0x20U || ch == 0x7fU;
         });
+}
+
+// Multiple approved roots can contain identically named subdirectories.
+// Put a virtual source-name level above their root-relative folders. The
+// virtual prefix is not a filesystem path and never grants access.
+bool presentationFolder(const IndexedSource& source,
+                        const std::vector<IndexedSource>& sources,
+                        std::string& folder)
+{
+    if (!relativeSourceFolder(source, folder)) return false;
+    std::set<std::string> roots;
+    for (const auto& item : sources) roots.insert(item.rootId);
+    if (roots.size() <= 1U) return true;
+    std::string name = source.displayPrefix.empty()
+        ? source.rootId : source.displayPrefix;
+    if (name == "." || name == "..") name = source.rootId;
+    // A duplicate alias must not collapse distinct approved roots.
+    for (const auto& item : sources) {
+        if (item.rootId != source.rootId &&
+            (item.displayPrefix.empty() ? item.rootId : item.displayPrefix) == name) {
+            name += " (" + source.rootId + ")";
+            break;
+        }
+    }
+    folder = folder.empty() ? name : name + "/" + folder;
+    return folder.size() <= 240U;
 }
 
 LocalMediaImportSource toSource(const ImportPlan& plan) {
@@ -329,12 +356,12 @@ bool scanDirectory(const std::array<std::string, 6>& entry,
             const auto plan = inspectImport({sourceRoot, videoRoot, path});
             const auto local = toSource(plan);
             if (found.size() == 100U) { partial = true; break; }
-            found.push_back({scannedId(entry[1], local), local, prefix});
+            found.push_back({scannedId(entry[1], local), local, prefix, entry[1]});
         } catch (...) {
             LocalMediaImportSource marked;
             if (inspectMarkedSource(sourceRoot, videoRoot, path, marked)) {
                 if (found.size() == 100U) { partial = true; break; }
-                found.push_back({scannedId(entry[1], marked), marked, prefix});
+                found.push_back({scannedId(entry[1], marked), marked, prefix, entry[1]});
             }
         }
     }
@@ -376,13 +403,13 @@ bool inventorySources(const std::filesystem::path& root, const std::string& back
                     const auto plan = inspectImport({
                         entry[2], entry[3], entry[4]});
                     sources.push_back({entry[1], toSource(plan),
-                        displayPrefix(entry[5], isDefault)});
+                        displayPrefix(entry[5], isDefault), entry[1]});
                 } catch (...) {
                     // A marked source is selectable only by an explicit release.
                     LocalMediaImportSource marked;
                     if (inspectMarkedSource(entry[2], entry[3], entry[4], marked))
                         sources.push_back({entry[1], marked,
-                            displayPrefix(entry[5], isDefault)});
+                            displayPrefix(entry[5], isDefault), entry[1]});
                 }
             }
         }
@@ -472,7 +499,7 @@ bool RootOwnedMediaImportInventory::listTrustedSourceSnapshot(
             return false;
         }
         std::string folder;
-        if (!relativeSourceFolder(source, folder)) {
+        if (!presentationFolder(source, sources, folder)) {
             out.clear();
             return false;
         }
@@ -498,7 +525,7 @@ bool RootOwnedMediaImportInventory::listTrustedSourceLabels(
             return false;
         }
         std::string folder;
-        if (!relativeSourceFolder(source, folder)) {
+        if (!presentationFolder(source, sources, folder)) {
             out.clear();
             return false;
         }
