@@ -455,37 +455,6 @@ bool RootOwnedMediaImportInventory::resolve(
     return true;
 }
 
-bool RootOwnedMediaImportInventory::inspectTrustedSource(
-    const std::string& backendId,
-    const std::string& sourceId,
-    ProcessRunner& runner,
-    ImportPreview& preview,
-    ImportCapacityPreview& capacity)
-{
-    preview = {};
-    capacity = {};
-    LocalMediaImportSource selected;
-    if (!resolve(backendId, sourceId, selected)) return false;
-    try {
-        auto observed = inspectImportPreview(
-            {selected.sourceRoot, selected.videoRoot, selected.sourceFile},
-            runner);
-        const auto& plan = observed.plan;
-        if (plan.sourceDevice != selected.sourceDevice ||
-            plan.sourceInode != selected.sourceInode ||
-            plan.sourceBytes != selected.sourceBytes ||
-            plan.sourceMtimeSeconds != selected.sourceMtimeSeconds ||
-            plan.sourceMtimeNanoseconds != selected.sourceMtimeNanoseconds)
-            return false; // source changed since the trusted ID was scanned
-        const auto available = inspectImportCapacity(plan);
-        preview = std::move(observed);
-        capacity = available;
-        return true;
-    } catch (const std::exception&) {
-        return false; // preview is informative; never trigger a write fallback
-    }
-}
-
 bool RootOwnedMediaImportInventory::hasTrustedSource(
     const std::string& backendId)
 {
