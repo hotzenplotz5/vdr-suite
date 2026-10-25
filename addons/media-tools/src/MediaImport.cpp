@@ -394,6 +394,49 @@ std::string parseProbedVideoCodec(const std::string& output) {
     return uniqueCodec;
 }
 
+// Preserve the *actual* directories below the approved import root.
+// An import root maps to the VDR video root, never to a new root-name folder.
+// Invalid VDR folder components are rejected, not silently renamed.
+fs::path titleDestination(const fs::path& sourceRoot,
+                          const fs::path& videoRoot,
+                          const fs::path& sourceFile,
+                          const std::string& title) {
+    const fs::path relativeParent =
+        sourceFile.parent_path().lexically_relative(sourceRoot);
+    require(!relativeParent.empty(), "source parent is outside the import root");
+    fs::path destination = videoRoot;
+    if (relativeParent != fs::path(".")) {
+        for (const auto& part : relativeParent) {
+            const std::string name = part.string();
+            require(!name.empty() && name != "." && name != ".." &&
+                    name.find('~') == std::string::npos &&
+                    safeTitle(name) == name,
+                    "source folder name is not valid for a VDR recording");
+            destination /= part;
+        }
+    }
+    require(title.find('~') == std::string::npos,
+            "VDR recording title contains a folder separator");
+    destination /= title;
+    require(destination.lexically_normal() == destination &&
+            isChild(videoRoot, destination),
+            "import destination escaped the VDR video root");
+    rejectSymlinkComponents(destination);
+    return destination;
+}
+
+// Remove only empty directories created by *this* import if publication fails.
+// The source, pre-existing VDR folders, and recordings are never deleted here.
+struct CreatedTitleDirectories {
+    std::vector<fs::path> paths;
+    ~CreatedTitleDirectories() {
+        for (auto it = paths.rbegin(); it != paths.rend(); ++it) {
+            std::error_code ec;
+            fs::remove(*it, ec);
+        }
+    }
+};
+
 ImportPlan inspectImport(const ImportRequest& request) {
     const auto sourceRoot = checkedRoot(request.sourceRoot);
     const auto videoRoot = checkedRoot(request.videoRoot);
@@ -434,7 +477,7 @@ ImportPlan inspectImport(const ImportRequest& request) {
     const auto metadata = adjacentMetadata(resolved);
     const auto title = safeTitle(metadata.title.empty() ?
         resolved.stem().string() : metadata.title);
-    const auto folder = videoRoot / title;
+    const auto folder = titleDestination(sourceRoot, videoRoot, resolved, title);
     require(!containsRecording(folder), "target already has a VDR recording");
     return {sourceRoot, videoRoot, resolved, folder, title,
             static_cast<std::uintmax_t>(size),
@@ -654,13 +697,32 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     require(nonemptyRegular(stagedRecording / "index"), "VDR index missing or empty");
     require(same(before, signature(plan.sourceFile)), "source changed during media processing");
     require(fs::remove(stagedSource), "cannot remove private source snapshot");
+    rejectSymlinkComponents(plan.titleDirectory);
     require(!containsRecording(plan.titleDirectory), "duplicate appeared before commit");
 
-    if (!fs::exists(plan.titleDirectory)) {
-        require(fs::create_directory(plan.titleDirectory), "cannot create title directory");
+    // All expensive work is finished before any VDR directory is created.
+    // Build only the missing relative hierarchy, retaining pre-existing folders.
+    CreatedTitleDirectories newDirectories;
+    fs::path current = plan.videoRoot;
+    const fs::path relative =
+        plan.titleDirectory.lexically_relative(plan.videoRoot);
+    require(!relative.empty() && relative != fs::path("."),
+            "invalid VDR destination hierarchy");
+    for (const auto& part : relative) {
+        require(part != "." && part != ".." && !part.empty(),
+                "invalid VDR destination component");
+        current /= part;
+        const auto status = fs::symlink_status(current);
+        require(!fs::is_symlink(status), "symlinked VDR folder is prohibited");
+        if (fs::exists(status)) {
+            require(fs::is_directory(status), "VDR destination is not a directory");
+        } else {
+            require(fs::create_directory(current), "cannot create VDR folder");
+            newDirectories.paths.push_back(current);
+        }
     }
-    require(!fs::is_symlink(fs::symlink_status(plan.titleDirectory)) &&
-            fs::is_directory(plan.titleDirectory), "title directory changed");
+    require(!containsRecording(plan.titleDirectory),
+            "duplicate appeared before recording publication");
     const auto destination = plan.titleDirectory / leaf;
     require(!fs::exists(destination), "destination recording already exists");
     // Atomic no-replace promotion of the canonical .rec only; the private
@@ -669,6 +731,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
                               stagedRecording.c_str(), AT_FDCWD,
                               destination.c_str(), RENAME_NOREPLACE);
     require(rc == 0, "atomic non-overwriting recording promotion failed");
+    newDirectories.paths.clear(); // retain directories only after visible .rec exists
     return destination;
 }
 
