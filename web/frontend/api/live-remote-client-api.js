@@ -4,6 +4,8 @@
   const LOGIN_PATH = '/api/security/browser-sessions';
   const LOGOUT_PATH = '/api/security/browser-sessions/logout';
   const RESTORE_PATH = '/api/security/browser-sessions/current';
+  const FIRST_ADMIN_STATUS_PATH = '/api/security/first-admin/status';
+  const FIRST_ADMIN_CLAIM_PATH = '/api/security/first-admin/claim';
   const CSRF_HEADER = 'X-CSRF-Token';
   const SECURITY_REASONS = Object.freeze({
     authentication_required: true,
@@ -393,6 +395,71 @@
     });
   }
 
+  function firstAdminStatus() {
+    return global.fetch(FIRST_ADMIN_STATUS_PATH, {
+      method: 'GET',
+      headers: {Accept: 'application/json'},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function (response) {
+      return parseResponse(response).then(function (payload) {
+        if (!response.ok || !payload || typeof payload.unclaimed !== 'boolean') {
+          throw new Error('First-admin status is unavailable');
+        }
+        return payload.unclaimed;
+      });
+    });
+  }
+
+  function parseLocalBootstrapMaterial(raw) {
+    const lines = String(raw || '').split(/\r?\n/);
+    let bootstrapId = '';
+    let setupSecret = '';
+    lines.forEach(function (line) {
+      const id = /^bootstrap_id=(.+)$/.exec(line.trim());
+      const secret = /^setup_secret=(.+)$/.exec(line.trim());
+      if (id) bootstrapId = id[1].trim();
+      if (secret) setupSecret = secret[1].trim();
+    });
+    if (!/^fab_[A-Za-z0-9_-]{12,124}$/.test(bootstrapId) ||
+        !/^[A-Za-z0-9_-]{32,256}$/.test(setupSecret)) {
+      throw new Error(translated(
+        'Bitte die Zeilen bootstrap_id=... und setup_secret=... aus dem lokalen Bootstrap-Befehl einfügen.',
+        'Paste both bootstrap_id=... and setup_secret=... from the local bootstrap command.'
+      ));
+    }
+    return {bootstrapId: bootstrapId, setupSecret: setupSecret};
+  }
+
+  function firstAdminClaim(fields) {
+    if (!global.location || global.location.protocol !== 'https:') {
+      return Promise.reject(new Error(translated(
+        'Die Ersteinrichtung über das Web benötigt HTTPS. Bitte zuerst einen sicheren HTTPS-Zugang einrichten.',
+        'Web-based first-admin setup requires HTTPS. Configure a trusted HTTPS endpoint first.'
+      )));
+    }
+    return global.fetch(FIRST_ADMIN_CLAIM_PATH, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(fields),
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function (response) {
+      return parseResponse(response).then(function (payload) {
+        if (response.status !== 201 || !payload || payload.status !== 'claimed') {
+          throw responseError(response, payload, translated(
+            'Administrator konnte nicht erstellt werden.',
+            'Could not create the first administrator.'
+          ));
+        }
+        return true;
+      });
+    });
+  }
+
   function logout() {
     if (!authenticated || !csrfToken) {
       clear('logout');
@@ -469,7 +536,8 @@
       '.vss-panel{display:grid;gap:.85rem;padding:1.1rem}' +
       '.vss-panel h2{margin:0;color:#dbeafe;font-size:1.12rem}' +
       '.vss-panel label{display:grid;gap:.32rem;color:#bfdbfe;font-size:.8rem;font-weight:700}' +
-      '.vss-panel input{box-sizing:border-box;width:100%;min-height:2.7rem;padding:.55rem .7rem;border:1px solid #334155;border-radius:.7rem;background:#020617;color:#f8fafc;font:inherit}' +
+      '.vss-panel input,.vss-panel textarea{box-sizing:border-box;width:100%;min-height:2.7rem;padding:.55rem .7rem;border:1px solid #334155;border-radius:.7rem;background:#020617;color:#f8fafc;font:inherit}' +
+      '.vss-panel [hidden]{display:none!important}' +
       '.vss-message{min-height:1.25rem;margin:0;color:#cbd5e1;font-size:.78rem;line-height:1.4}' +
       '.vss-message.error{color:#fca5a5}' +
       '.vss-actions{display:flex;justify-content:flex-end;gap:.55rem}' +
@@ -542,6 +610,44 @@
     password.maxLength = 1024;
     passwordLabel.appendChild(password);
 
+    const displayNameLabel = createElement(
+      'label', '', translated('Anzeigename', 'Display name')
+    );
+    const displayName = createElement('input');
+    displayName.name = 'displayName';
+    displayName.type = 'text';
+    displayName.maxLength = 256;
+    displayName.autocomplete = 'off';
+    displayNameLabel.appendChild(displayName);
+
+    const confirmationLabel = createElement(
+      'label', '', translated('Passwort bestätigen', 'Confirm password')
+    );
+    const confirmation = createElement('input');
+    confirmation.name = 'confirmPassword';
+    confirmation.type = 'password';
+    confirmation.maxLength = 1024;
+    confirmation.autocomplete = 'new-password';
+    confirmationLabel.appendChild(confirmation);
+
+    const bootstrapLabel = createElement(
+      'label', '', translated('Einmaliger Einrichtungscode', 'One-time setup code')
+    );
+    const bootstrap = createElement('textarea');
+    bootstrap.name = 'bootstrapMaterial';
+    bootstrap.rows = 3;
+    bootstrap.autocomplete = 'off';
+    bootstrap.spellcheck = false;
+    bootstrap.maxLength = 700;
+    bootstrap.placeholder = 'bootstrap_id=...\nsetup_secret=...';
+    bootstrapLabel.appendChild(bootstrap);
+
+    const bootstrapHelp = createElement('p', 'vss-message');
+    bootstrapHelp.textContent = translated(
+      'Lokal am VDR „sudo vdr-suite-first-admin-bootstrap“ ausführen und die beiden Zeilen hier einfügen. Niemals im Forum veröffentlichen.',
+      'Run “sudo vdr-suite-first-admin-bootstrap” locally and paste both lines here. Never publish the secret.'
+    );
+
     const message = createElement('p', 'vss-message');
     message.setAttribute('aria-live', 'assertive');
 
@@ -560,13 +666,43 @@
     submit.type = 'submit';
     actions.append(cancel, submit);
 
-    form.append(title, usernameLabel, passwordLabel, message, actions);
+    form.append(title, usernameLabel, passwordLabel, displayNameLabel,
+      confirmationLabel, bootstrapLabel, bootstrapHelp, message, actions);
     dialog.appendChild(form);
     global.document.body.appendChild(dialog);
 
+    let setupMode = false;
+
+    function setSetupMode(value) {
+      setupMode = Boolean(value) && !isAuthenticated();
+      displayNameLabel.hidden = !setupMode;
+      confirmationLabel.hidden = !setupMode;
+      bootstrapLabel.hidden = !setupMode;
+      bootstrapHelp.hidden = !setupMode;
+      password.autocomplete = setupMode ? 'new-password' : 'current-password';
+      title.textContent = setupMode
+        ? translated('VDR-Suite erstmalig einrichten', 'Set up VDR-Suite')
+        : translated('Bei VDR-Suite anmelden', 'Sign in to VDR-Suite');
+      submit.textContent = setupMode
+        ? translated('Administrator erstellen', 'Create administrator')
+        : translated('Anmelden', 'Sign in');
+      submit.disabled = setupMode &&
+        (!global.location || global.location.protocol !== 'https:');
+      if (setupMode) {
+        message.textContent = submit.disabled
+          ? translated('Für die Web-Ersteinrichtung ist HTTPS erforderlich.',
+              'HTTPS is required for web setup.')
+          : translated('Nur mit lokal erzeugtem Einmalcode möglich.',
+              'A locally generated one-time code is required.');
+        message.classList.toggle('error', submit.disabled);
+      }
+    }
+
     function openLoginDialog() {
-      message.textContent = securityMessage(lastReason);
-      message.classList.toggle('error', Boolean(message.textContent));
+      if (!setupMode) {
+        message.textContent = securityMessage(lastReason);
+        message.classList.toggle('error', Boolean(message.textContent));
+      }
       if (!dialog.open) {
         if (typeof dialog.showModal === 'function') {
           dialog.showModal();
@@ -586,7 +722,10 @@
       button.classList.toggle('authenticated', active);
       button.textContent = active
         ? translated('Abmelden', 'Sign out')
-        : translated('Anmelden', 'Sign in');
+        : (setupMode
+          ? translated('Einrichten', 'Set up')
+          : translated('Anmelden', 'Sign in'));
+      if (active) setSetupMode(false);
       state.textContent = active
         ? translated('Angemeldet', 'Signed in')
         : (securityMessage(sessionState && sessionState.reason) ||
@@ -600,8 +739,16 @@
     subscribe(render);
     restore().then(function (sessionState) {
       if (!sessionState || !sessionState.authenticated) {
-        openLoginDialog();
+        return firstAdminStatus().then(function (unclaimed) {
+          setSetupMode(unclaimed);
+          openLoginDialog();
+        }, function () {
+          // Fail closed on status errors: do not offer a first-admin claim.
+          setSetupMode(false);
+          openLoginDialog();
+        });
       }
+      return null;
     }).catch(function (error) {
       message.classList.add('error');
       message.textContent = String(error && error.message || error);
@@ -645,6 +792,65 @@
       cancel.disabled = true;
       message.classList.remove('error');
       message.textContent = translated('Anmeldung läuft …', 'Signing in …');
+
+      if (setupMode) {
+        const name = username.value.trim();
+        const submittedPassword = password.value;
+        const repeatedPassword = confirmation.value;
+        let proof;
+        try {
+          proof = parseLocalBootstrapMaterial(bootstrap.value);
+          if (!name || name.includes(':') || name.length > 128 ||
+              !displayName.value.trim() || displayName.value.trim().length > 256 ||
+              submittedPassword.length < 12 ||
+              submittedPassword !== repeatedPassword) {
+            throw new Error(translated(
+              'Bitte alle Felder prüfen (Passwort mindestens 12 Zeichen, zweimal identisch).',
+              'Check all fields (password at least 12 characters and confirmed).'
+            ));
+          }
+        } catch (error) {
+          message.classList.add('error');
+          message.textContent = error.message;
+          submit.disabled = false;
+          cancel.disabled = false;
+          return;
+        }
+        password.value = '';
+        confirmation.value = '';
+        bootstrap.value = '';
+        message.textContent = translated('Administrator wird eingerichtet …',
+          'Creating administrator …');
+        const claimPromise = firstAdminClaim({
+          bootstrapId: proof.bootstrapId,
+          setupSecret: proof.setupSecret,
+          loginName: name,
+          password: submittedPassword,
+          displayName: displayName.value.trim()
+        });
+        proof.setupSecret = '';
+        claimPromise.then(function () {
+          setSetupMode(false);
+          return login(name, submittedPassword);
+        }).then(function () {
+          username.value = '';
+          displayName.value = '';
+          message.textContent = '';
+          if (typeof dialog.close === 'function') dialog.close();
+          else dialog.removeAttribute('open');
+        }).catch(function (error) {
+          message.classList.add('error');
+          message.textContent = String(error && error.message || error);
+          if (error && error.code === 'server_already_claimed') {
+            setSetupMode(false);
+          }
+        }).finally(function () {
+          cancel.disabled = false;
+          submit.disabled = setupMode &&
+            (!global.location || global.location.protocol !== 'https:');
+        });
+        return;
+      }
 
       const loginRequest = login(username.value, password.value);
       password.value = '';
