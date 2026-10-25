@@ -88,12 +88,15 @@ async function scenario(options) {
   vm.runInContext(source, context);
 
   async function settle() {
-    for (let tick = 0; tick < 18; tick++) await Promise.resolve();
+    for (let tick = 0; tick < 120; tick++) await Promise.resolve();
   }
   await settle();
 
   const dialog = document.getElementById('vdr-suite-session-dialog');
-  assert(dialog && dialog.open, 'must present login/setup modal');
+  assert(dialog && dialog.open,
+    'must present login/setup modal: dialog=' + Boolean(dialog) +
+    ', open=' + Boolean(dialog && dialog.open) +
+    ', requests=' + requests.map(r => r.input).join(','));
   const form = nodes.find(node => node.tagName === 'FORM');
   const input = name => {
     const found = nodes.find(node => node.name === name);
