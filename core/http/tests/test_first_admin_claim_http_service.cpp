@@ -401,7 +401,6 @@ int main()
     }
 
     {
-    {
         // The first browser-admin claim accepts a direct private home-LAN
         // client, but never a public/network-forged peer or forwarded origin.
         Fixture fixture;
