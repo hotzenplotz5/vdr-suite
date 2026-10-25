@@ -250,16 +250,17 @@ bool scanDirectory(const std::array<std::string, 5>& entry,
     // reported partial, not silently treated as empty or complete.
     std::vector<fs::path> paths;
     std::vector<fs::path> directories{sourceRoot};
+    bool walkTruncated = false;
     std::size_t entries = 0;
     for (std::size_t cursor = 0; cursor < directories.size(); ++cursor) {
         for (const auto& item : fs::directory_iterator(directories[cursor])) {
-            if (++entries > 4096U) { partial = true; break; }
+            if (++entries > 4096U) { walkTruncated = true; break; }
             const auto status = item.symlink_status();
             if (fs::is_symlink(status)) continue;
             if (fs::is_regular_file(status)) paths.push_back(item.path());
             else if (fs::is_directory(status)) directories.push_back(item.path());
         }
-        if (partial) break;
+        if (walkTruncated) break;
     }
     std::sort(paths.begin(), paths.end());
     const auto now = fs::file_time_type::clock::now();
@@ -281,6 +282,7 @@ bool scanDirectory(const std::array<std::string, 5>& entry,
             }
         }
     }
+    partial = partial || walkTruncated;
     return true;
 }
 
