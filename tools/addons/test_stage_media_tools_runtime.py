@@ -364,5 +364,53 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         assert "ISOLATED-ONLY" in result.stderr
 
 
+    def test_mt_i2_explicit_live_operations_deny_unapproved_use(self):
+        import subprocess
+        script = str(HERE / "install_media_tools.sh")
+        cases = (
+            (["live-update", "/", "/", self.hash, self.hash,
+              "/root/backup-not-created", "WRONG"], "LIVE-UPDATE-REVIEWED"),
+            (["live-rollback", "/root/backup-not-created",
+              self.hash, self.hash, "WRONG"], "LIVE-ROLLBACK-REVIEWED"),
+            (["0" * 40, self.hash, "backend"], "REVIEWED_FIRST_INSTALL"),
+        )
+        for args, reason in cases:
+            with self.subTest(args=args[0]):
+                result = subprocess.run(["bash", script, *args],
+                                        capture_output=True, text=True)
+                assert result.returncode != 0
+                assert reason in result.stderr, result.stderr
+
+    def test_mt_i2_live_api_denies_unprivileged_changes(self):
+        from media_tools_runtime_transaction import (
+            live_update, live_rollback, PreflightError,
+        )
+        with self.assertRaisesRegex(PreflightError, "root invocation"):
+            live_update(Path("/"), Path("/"), self.hash, self.hash,
+                        Path("/root/never-constructed"))
+        with self.assertRaisesRegex(PreflightError, "root invocation"):
+            live_rollback(Path("/root/never-constructed"),
+                          self.hash, self.hash)
+
+    def test_mt_i2_live_maintenance_rejects_running_services(self):
+        from media_tools_runtime_transaction import (
+            live_services_quiescent, PreflightError,
+        )
+        from unittest.mock import patch
+        import subprocess
+        def status(command, **kwargs):
+            item = command[3]
+            value = {
+                "LoadState": "loaded",
+                "ActiveState": "active",  # live update MUST NOT stop it
+                "Result": "success",
+            }[item]
+            return subprocess.CompletedProcess(command, 0, value + "\n", "")
+        with patch("media_tools_runtime_transaction.subprocess.run",
+                   side_effect=status):
+            with self.assertRaisesRegex(PreflightError, "cleanly stopped"):
+                live_services_quiescent()
+
+
 if __name__ == "__main__":
     unittest.main()
