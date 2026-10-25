@@ -308,8 +308,8 @@ async function run() {
   assert.strictEqual(calls.filter(c => c.kind === 'pending-list').length, pendingBefore + 1);
   assert(named(page,'button','Samsung Wohnzimmer'));
   assert(named(page,'strong','Neuer Samsung TV'));
-  assert(named(page,'button','Hisense Wohnzimmer').attributes['aria-current'] === 'true',
-    'keep selected device across list refresh');
+  assert(named(page,'button','Altes TV').attributes['aria-current'] === 'true',
+    'keep the deliberately selected device across list refresh');
   assert.strictEqual(timers.length, 1, 'never create concurrent refresh intervals');
   assert.strictEqual(calls.filter(c => c.kind === 'pending-decision').length, 2,
     'background refresh must never approve/reject');
