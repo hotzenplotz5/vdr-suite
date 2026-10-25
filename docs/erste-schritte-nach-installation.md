@@ -110,13 +110,13 @@ Passwort mit Wiederholung** ausgefüllt und **„Administrator erstellen“**
 ausgewählt. Es gibt keine weiteren Bestätigungsdialoge, keine Codes und
 keinen Konsolenbefehl für diese Einrichtung.
 
-**Sicherheitsgrenze dieser Vorabversion:** Ohne bereits bestehende
-vertrauenswürdige Anmeldung akzeptiert der Backend-Daemon die einmalige
-Erstanlage ausschließlich von einem *direkten lokalen Browser*
-(`localhost:18080` oder `127.0.0.1:18080`, echte
-Loopback-TCP-Verbindung). Zugriffe über das Netzwerk oder einen Reverse
-Proxy berechtigen nicht zur Erstadmin-Anlage. Die Datenbank darf nicht
-zurückgesetzt werden, um den Dialog erneut freizuschalten.
+**Sicherheitsgrenze dieser Vorabversion:** Die einmalige Ersteinrichtung
+funktioniert von einem PC oder Smartphone im **direkt angeschlossenen privaten
+Heimnetz** aus, beispielsweise über
+`http://<MLD-IP>:18080/frontend/`. Der Daemon prüft dazu die tatsächliche
+TCP-Gegenstelle und die lokale Netzmaske, nicht bloß einen HTTP-Header.
+Die Einrichtung ist nicht für den Zugriff über das öffentliche Internet
+freigegeben. Eine Portweiterleitung zum VDR-Suite-Daemon darf nicht bestehen.
 
 Die vorhandene sichere interne Bootstrap-/Claim-Logik übernimmt die
 Kontoanlage atomar; sie erzeugt die erforderliche einmalige Freigabe
@@ -124,12 +124,14 @@ automatisch im Backend. Der Benutzer sieht oder kopiert keine Secrets.
 Nach erfolgreicher Anlage meldet sich der Browser regulär an; danach
 erscheint ausschließlich die normale Anmeldung.
 
-**Wichtig für MLD:** Eine entfernte Browser-Ersteinrichtung ohne irgendeine
-vorhandene vertrauenswürdige Autorisierung wäre unsicher (der erste
-Netzwerkbesucher könnte Admin werden). Diese Vorabversion gibt daher
-keinen ungeschützten Remote-Setup-Weg frei. MLD-Paketierung und tatsächliche
-Bedienbarkeit am Zielgerät sind gesondert abzunehmen. Nicht ungeprüft auf
-produktiven Geräten installieren.
+**Wichtig für MLD:** Im selben Heimnetz reicht der normale Browser auf
+einem anderen Gerät; auf dem VDR selbst muss kein Browser installiert sein.
+Diese Heimnetzfreigabe ist keine Anmeldung: Solange noch kein Administrator
+existiert, könnte auch ein anderes Gerät im gleichen vertrauenswürdigen
+Subnetz die Ersteinrichtung vornehmen. Gäste- und IoT-Netze sollten daher
+vom VDR getrennt sein. Nach der ersten erfolgreichen Anlage greift nur noch
+die reguläre Anmeldung. Installation und echte MLD-Abnahme sind vor einer
+Freigabe erforderlich.
 
 ## 6. Erstes Backend, Sender, EPG und Aufnahmen
 
