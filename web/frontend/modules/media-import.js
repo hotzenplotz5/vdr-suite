@@ -316,6 +316,15 @@
     });
   }
 
+  function validPreviewTarget(folder) {
+    return typeof folder === 'string' && folder.length > 0 &&
+      folder.length <= 512 && !/[\\\r\n\x00-\x1f\x7f]/.test(folder) &&
+      !folder.startsWith('/') && !folder.endsWith('/') &&
+      folder.split('/').every(function (part) {
+        return part.length > 0 && part !== '.' && part !== '..';
+      });
+  }
+
   // One existing authorized source endpoint; no client filesystem paths or
   // secondary scanner. Always discard partial pages when a snapshot changes.
   function readSourcePages(backendId) {
@@ -653,7 +662,8 @@
               function (n) { return Number.isSafeInteger(n) && n >= 0; }) ||
             typeof data.videoReencodeRequired !== 'boolean' ||
             typeof data.targetFolder !== 'string' ||
-            (data.targetFolder && !validRelativeFolder(data.targetFolder)) ||
+            (data.status !== 'unavailable' &&
+              !validPreviewTarget(data.targetFolder)) ||
             typeof data.videoCodec !== 'string' ||
             !/^[a-z0-9_]{0,64}$/.test(data.videoCodec) ||
             typeof data.title !== 'string' || data.title.length > 120)
