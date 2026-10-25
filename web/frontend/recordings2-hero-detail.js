@@ -863,13 +863,20 @@
       panel.appendChild(launch);
       panel.appendChild(status);
       panel.appendChild(controls);
-      const action = makeButton('HEVC-Vorprüfung', function () {
+      // MT.UX6: the existing Hero-owned plan/stage/review/publish workflow
+      // also belongs under "Aufnahmeaktionen". Move its one button and panel
+      // there when the Recordings 2 action surface is present: no cloned
+      // worker/operation flow and no additional authority.
+      const actionHost = root.querySelector('.recordings2-actions');
+      const action = makeButton(actionHost
+        ? 'Aufnahme verkleinern (HEVC)' : 'HEVC-Vorprüfung', function () {
+        if (actionHost) actionHost.open = true;
         panel.hidden = false;
         if (typeof panel.scrollIntoView === 'function')
           panel.scrollIntoView({behavior: 'smooth', block: 'nearest'});
       });
-      actions.appendChild(action);
-      copy.appendChild(panel);
+      (actionHost || actions).appendChild(action);
+      (actionHost || copy).appendChild(panel);
     }).catch(function () {
       // Inactive or inaccessible HEVC never disrupts playback.
     });
