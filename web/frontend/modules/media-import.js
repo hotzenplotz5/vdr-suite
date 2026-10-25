@@ -369,6 +369,8 @@
     }).catch(function (error) {
       if (!isCurrent(view) || generation !== view.reviewGeneration) return;
       resetBatchReview(view);
+      view.batchButton.disabled = view.sources.length < 2;
+      updateSelectionCount(view);
       report(view, operationError(error) + ' Keine Importaufträge erstellt.', true);
     }).finally(function () {
       if (!isCurrent(view) || generation !== view.reviewGeneration) return;
