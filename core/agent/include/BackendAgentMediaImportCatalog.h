@@ -29,7 +29,8 @@ public:
                  const std::string& handlerOrigin = {},
                  const std::string& handlerVersion = {},
                  const std::string& handlerSha256 = {},
-                 const std::vector<std::string>& labels = {})
+                 const std::vector<std::string>& labels = {},
+                 bool partial = true)
     {
         if (!actor.authenticated() || actor.actor.type != ActorType::Agent ||
             live.actorId != actor.actor.actorId ||
@@ -70,7 +71,7 @@ public:
         snapshots_[backendId] = Snapshot{
             live.agentId, live.actorId, instanceId, generation, now,
             std::move(sorted), handlerOrigin, handlerVersion, handlerSha256,
-            std::move(byId)};
+            std::move(byId), partial};
         return true;
     }
 
@@ -78,10 +79,12 @@ public:
               const std::string& backendId,
               std::int64_t now,
               std::vector<std::string>& ids,
-              std::vector<std::string>& labels) const
+              std::vector<std::string>& labels,
+              bool* partial = nullptr) const
     {
         ids.clear();
         labels.clear();
+        if (partial) *partial = true;
         if (now <= 0 || live.backendId != backendId ||
             live.revoked || live.incompatible || live.leaseExpiresAt < now)
             return false;
@@ -97,6 +100,7 @@ public:
             now - current.capturedAt > 90)
             return false;
         ids = current.ids;
+        if (partial) *partial = current.partial;
         if (!current.labels.empty()) {
             for (const auto& id : ids) {
                 const auto found = current.labels.find(id);
@@ -191,6 +195,7 @@ private:
         std::string handlerVersion;
         std::string handlerSha256;
         std::map<std::string, std::string> labels;
+        bool partial = true;
     };
     mutable std::mutex mutex_;
     std::map<std::string, Snapshot> snapshots_;
