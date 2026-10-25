@@ -535,18 +535,33 @@ TSV shape when no alias or extra source is provided. An actual apply retains
 the original offline requirement that the Backend Agent is explicitly stopped
 before writing, and still emits a root-only backup path for review.
 
-**Webfrontend offline review:** The already protected Media Tools
-administration card now includes a draft form for a standard source root,
-VDR destination and up to 16 additional named roots. It validates simple
-absolute, non-overlapping paths and short source names, and prints a
-`--check` invocation of the existing root-only offline configurator.
-The command is **never** executed by the browser or sent as an HTTP mutation.
-The card and source draft are hidden on 401/403 or unsuccessful admin reads;
-a successful protected administrator read is required to show them. The
-browser cannot query the underlying protected filesystem source list and
-does not claim to have read it. Drafted paths must be reviewed against the
-actual backend before offline application; no browser-to-root privilege
-escalation or automatic service stop is provided.
+**Einfache Webverwaltung (lokaler Backend-Agent):** Die vorhandene
+Administratoranmeldung schützt `GET/POST /api/v1/addons/rectools/sources`
+einschließlich der vorhandenen CSRF- und Zugriffsprüfung. In den Media-Tools-
+Einstellungen lassen sich die bereits gespeicherten Importverzeichnisse
+anzeigen, mit Namen versehen, hinzufügen, entfernen, als Standard nach
+oben schieben und durch einen normalen **Speichern**-Knopf übernehmen.
+Keine Shell-Befehle im Browser, keine neuen Rollen, kein eigener Dienst und
+kein neuer Datenbankbereich. Die VDR-Zielablage bleibt unverändert.
+
+Der Daemon der ausgelieferten lokalen systemd-Unit läuft standardmäßig als
+root und kann deshalb das vorhandene **root-kontrollierte** Inventar direkt
+und atomar ersetzen. Die Serverfunktion prüft lokale Backend-ID, alte
+Konfigurationsrevision, bestehende kanonische Verzeichnisse, getrennte
+Quell- und VDR-Verzeichnisse sowie die vorhandene Media-Tools-
+Wartungssperre. Jede andere Datei und die Dienste bleiben unverändert.
+Der laufende Agent liest diese Quelle beim nächsten normalen Scan neu;
+ein Neustart ist nicht erforderlich. Nur tatsächlich gespeicherte
+Konfiguration wird mit `Gespeichert` quittiert.
+
+**Grenze:** Die lokale Speichern-Funktion verweigert Änderungen an einem
+Backend auf einem **anderen** Rechner, statt versehentlich das lokale
+Inventar zu verändern. Das ist eine explizite, noch nicht unterstützte
+Konfiguration, kein Auftrag zur Einführung einer weiteren Verwaltungs-
+architektur. In nichtprivilegierten oder besonders gehärteten
+Daemon-Installationen wird ein Root-Schreibversuch abgewiesen. Die
+Server-/C++-/CI-/Real-VDR-Abnahme dieses noch nicht installierten
+Branchcodes bleibt offen.
 
 **No live action occurred:** this is a source-only CLI change, not permission
 to run it on a productive machine or restart any service. Real configuration
@@ -555,11 +570,9 @@ safely stopped. Removing or rearranging roots changes the accepted opaque
 selection IDs and invalidates outstanding client selections; Core/Agent
 revalidate authority at dispatch.
 
-**Still open:** an authenticated **browser** administration route with
-CSRF/audit, a privileged reviewed transaction boundary and a default-source
-selection UI have not been implemented. The browser and unprivileged daemon
-must never write the root-owned inventory. C++/shell/CI and real-VDR
-acceptance are pending the user's final comprehensive test.
+**Browser administration:** Der lokale Speichervorgang ist auf dem Branch
+implementiert; für entfernte Backend-Rechner noch nicht. Vollständiger
+C++-Build, API-/Browsertests und echte VDR-Abnahme stehen noch aus.
 
 ## MT.UX3 – bounded browser search and subset selection (partial)
 
