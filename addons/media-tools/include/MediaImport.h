@@ -77,8 +77,6 @@ ImportPreview inspectImportPreview(const ImportRequest& request,
 // read-only browser preview instead of rejecting it as a write attempt.
 ImportPlan inspectImportPreview(const ImportRequest& request);
 
-ImportCapacityPreview inspectImportCapacity(const ImportPlan& plan);
-
 // Read-only source classification for an explicit local/desktop/skip decision.
 // This is informative only; execution probes the pinned source again.
 // An unknown/unsupported video codec never counts as copy-compatible.
