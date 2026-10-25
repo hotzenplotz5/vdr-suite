@@ -148,6 +148,29 @@ std::string displayLabel(const IndexedSource& source)
     return prefixed.size() <= 160U ? prefixed : stem;
 }
 
+// An actual Agent-derived root-relative directory, NOT a title heuristic.
+// The existing scanner refuses symlinks; this metadata is never used for
+// importing, and clients can only submit the immutable opaque source ID.
+bool relativeSourceFolder(const IndexedSource& source, std::string& folder)
+{
+    namespace fs = std::filesystem;
+    folder.clear();
+    const fs::path root = source.source.sourceRoot;
+    const fs::path parent = source.source.sourceFile.parent_path();
+    const fs::path relative = parent.lexically_relative(root);
+    if (relative.empty()) return false;
+    if (relative == fs::path(".")) return true;
+    for (const auto& part : relative) {
+        if (part.empty() || part == "." || part == "..") return false;
+    }
+    folder = relative.generic_string();
+    return folder.size() <= 240U && folder.front() != '/' &&
+        folder.find('\\') == std::string::npos &&
+        std::none_of(folder.begin(), folder.end(), [](unsigned char ch) {
+            return ch < 0x20U || ch == 0x7fU;
+        });
+}
+
 LocalMediaImportSource toSource(const ImportPlan& plan) {
     LocalMediaImportSource source;
     source.sourceRoot = plan.sourceRoot;
@@ -448,7 +471,12 @@ bool RootOwnedMediaImportInventory::listTrustedSourceSnapshot(
             partial = true;
             return false;
         }
-        out.push_back({source.id, label});
+        std::string folder;
+        if (!relativeSourceFolder(source, folder)) {
+            out.clear();
+            return false;
+        }
+        out.push_back({source.id, label, folder});
     }
     return true;
 }
@@ -469,7 +497,12 @@ bool RootOwnedMediaImportInventory::listTrustedSourceLabels(
             out.clear();
             return false;
         }
-        out.push_back({source.id, label});
+        std::string folder;
+        if (!relativeSourceFolder(source, folder)) {
+            out.clear();
+            return false;
+        }
+        out.push_back({source.id, label, folder});
     }
     return true;
 }
