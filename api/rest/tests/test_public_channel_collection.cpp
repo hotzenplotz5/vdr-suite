@@ -268,10 +268,10 @@ int main()
         "actor:test", "channel-number-first", "", nativeFirst, "", "",
         std::vector<std::string>{"backend-a"}));
     assert(nativeFirst.statusCode == 200);
-    assert(nativeFirst.body.find("\\\"channelId\\\":\\\"id-1\\\"") != std::string::npos);
-    assert(nativeFirst.body.find("\\\"channelId\\\":\\\"id-17-a\\\"") != std::string::npos);
-    assert(nativeFirst.body.find("\\\"channelId\\\":\\\"id-230\\\"") == std::string::npos);
-    assert(nativeFirst.body.find("\\\"hasMore\\\":true") != std::string::npos);
+    assert(nativeFirst.body.find("\"channelId\":\"id-1\"") != std::string::npos);
+    assert(nativeFirst.body.find("\"channelId\":\"id-17-a\"") != std::string::npos);
+    assert(nativeFirst.body.find("\"channelId\":\"id-230\"") == std::string::npos);
+    assert(nativeFirst.body.find("\"hasMore\":true") != std::string::npos);
     const std::string nativeCursor = nextCursor(nativeFirst.body);
     assert(nativeCursor.rfind("ch2_", 0U) == 0U);
     assert(nativeFirst.body.find("sort=backendId,channelNumber,channelId") !=
@@ -282,9 +282,9 @@ int main()
         "actor:test", "channel-number-second", "", nativeSecond, "", "",
         std::vector<std::string>{"backend-a"}));
     assert(nativeSecond.statusCode == 200);
-    assert(nativeSecond.body.find("\\\"channelId\\\":\\\"id-17-z\\\"") != std::string::npos);
-    assert(nativeSecond.body.find("\\\"channelId\\\":\\\"id-230\\\"") != std::string::npos);
-    assert(nativeSecond.body.find("\\\"hasMore\\\":false") != std::string::npos);
+    assert(nativeSecond.body.find("\"channelId\":\"id-17-z\"") != std::string::npos);
+    assert(nativeSecond.body.find("\"channelId\":\"id-230\"") != std::string::npos);
+    assert(nativeSecond.body.find("\"hasMore\":false") != std::string::npos);
 
     for (const std::string invalidMixed : {
          nativeBase + "&cursor=" + cursor,
