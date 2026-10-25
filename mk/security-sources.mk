@@ -291,6 +291,28 @@ first-admin-bootstrap-issuer:
 		-o $(BUILD_DIR)/vdr-suite-first-admin-bootstrap
 
 
+.PHONY: first-admin-interactive-setup test-security-first-admin-interactive-setup
+first-admin-interactive-setup:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(SQLITE_SRC) \
+		core/security/src/AccountabilityEventRepository.cpp \
+		core/security/src/CredentialVerifierRepository.cpp \
+		core/security/src/SecurityIdentityRepository.cpp \
+		core/security/src/SecurityIdentityProvisioningRepository.cpp \
+		core/security/src/SecurityPermissionGrantRepository.cpp \
+		core/security/src/HumanAccountRepository.cpp \
+		core/security/src/FirstAdminBootstrapRepository.cpp \
+		core/security/src/FirstAdminBootstrapIssuanceService.cpp \
+		core/security/src/FirstAdminClaimService.cpp \
+		apps/tools/first_admin_setup.cpp \
+		$(LDFLAGS) \
+		-o $(BUILD_DIR)/vdr-suite-first-admin-setup
+
+test-security-first-admin-interactive-setup: first-admin-interactive-setup
+	python3 tools/check_first_admin_setup_contract.py
+
+test-ci-fast: test-security-first-admin-interactive-setup
+
 human-account-recovery:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
