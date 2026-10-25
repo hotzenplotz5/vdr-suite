@@ -184,6 +184,23 @@ int main()
 {
     {
         Fixture fixture;
+        HttpServerRequest status;
+        status.method = "GET";
+        status.path = "/api/security/first-admin/status";
+        assert(fixture.http->handles(status));
+        const HttpServerResponse initiallyUnclaimed =
+            fixture.http->handle(status);
+        assert(initiallyUnclaimed.statusCode == 200);
+        assert(initiallyUnclaimed.body == "{\"unclaimed\":true}");
+        assert(initiallyUnclaimed.headers.at("Cache-Control") == "no-store");
+        assertNoSecrets(initiallyUnclaimed);
+
+        status.method = "POST";
+        const HttpServerResponse statusWrongMethod =
+            fixture.http->handle(status);
+        assert(statusWrongMethod.statusCode == 405);
+        assert(statusWrongMethod.headers.at("Allow") == "GET");
+        status.method = "GET";
         fixture.registerBootstrap("bootstrap-browser-success");
 
         HttpServerRequest claim =
@@ -207,6 +224,12 @@ int main()
             response.body.find("\"status\":\"claimed\"") !=
             std::string::npos);
         assertNoSecrets(response);
+
+        const HttpServerResponse nowClaimed =
+            fixture.http->handle(status);
+        assert(nowClaimed.statusCode == 200);
+        assert(nowClaimed.body == "{\"unclaimed\":false}");
+        assertNoSecrets(nowClaimed);
 
         const HumanAccountListResult accounts =
             fixture.accounts.listAll();
