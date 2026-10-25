@@ -507,14 +507,31 @@ source is authorized by a label. Existing rooted-file inspection, source-ID
 mapping, filesystem symlink rejection, Agent revalidation and the 100-film
 catalog cap remain mandatory. The web client receives **no source path**.
 
-**Not yet complete:** An authenticated browser administration route with
-CSRF/audit and a reviewed root-privileged configuration transaction has not
-been implemented. The shipped `configure_media_tools_paths.sh` is still
-the existing **single-root, offline, root-only** tool, unchanged: it must
-not be treated as a multi-root or browser settings writer. Never write the
-root-controlled TSV from JavaScript, from the unprivileged daemon or by
-silently changing live file owners/modes. UX2 admin mutation, default-root
-selection UI, integration tests and real-VDR acceptance remain open.
+**Offline administration, source candidate:** the existing
+`tools/addons/configure_media_tools_paths.sh` now also understands
+`--default-name NAME` and repeated `--add-root ROOT NAME` options
+(up to 16 additional roots). Its original no-argument and two-path syntax
+remains supported. The **first** root remains the default; all entries
+retain one reviewed VDR destination and backend binding. Extra source roots
+are checked for absolute canonical directories, no nested/overlapping paths,
+non-symlink confinement, non-home sandbox reachability and read/traverse
+access for the actual unprivileged Agent account. Existing root-owned ledger,
+handler approval, maintenance lock, stopped Agent and backup/atomic-file
+publication checks remain mandatory; unknown/custom ledgers are refused.
+The deterministic extra-source IDs are `local-media-root-0001`, etc.
+
+**No live action occurred:** this is a source-only CLI change, not permission
+to run it on a productive machine or restart any service. Real configuration
+requires an explicit, separately reviewed root operation while the Agent is
+safely stopped. Removing or rearranging roots changes the accepted opaque
+selection IDs and invalidates outstanding client selections; Core/Agent
+revalidate authority at dispatch.
+
+**Still open:** an authenticated **browser** administration route with
+CSRF/audit, a privileged reviewed transaction boundary and a default-source
+selection UI have not been implemented. The browser and unprivileged daemon
+must never write the root-owned inventory. C++/shell/CI and real-VDR
+acceptance are pending the user's final comprehensive test.
 
 ## Importer: source-preserving metadata and codec fallback
 
