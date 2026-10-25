@@ -8823,11 +8823,35 @@ bool PublicApiRuntime::tryHandleGet(
             response = serviceUnavailableProblem(path, requestId, correlationId);
             return true;
         }
-        if (!r.labels.empty() && r.labels.size() != r.ids.size())
+        if ((!r.labels.empty() && r.labels.size() != r.ids.size()) ||
+            (!r.folders.empty() &&
+             (r.labels.empty() || r.folders.size() != r.ids.size())))
         {
             response = serviceUnavailableProblem(path, requestId, correlationId);
             return true;
         }
+        // Advisory folders may be grouped in the browser, but cannot be
+        // used to select a filesystem path for import. Fail closed on any
+        // untrusted absolute/traversal/control character representation.
+        const validRelativeFolder = [](const std::string& folder) {
+            if (folder.empty()) return true;
+            if (folder.size() > 240U || folder.front() == '/' ||
+                folder.back() == '/' || folder.find('\\') != std::string::npos)
+                return false;
+            std::size_t start = 0;
+            while (start < folder.size()) {
+                const auto stop = folder.find('/', start);
+                const auto part = folder.substr(start,
+                    stop == std::string::npos ? std::string::npos : stop - start);
+                if (part.empty() || part == "." || part == ".." ||
+                    std::any_of(part.begin(), part.end(), [](unsigned char ch) {
+                        return ch < 0x20U || ch == 0x7fU;
+                    })) return false;
+                if (stop == std::string::npos) break;
+                start = stop + 1;
+            }
+            return true;
+        };
         std::string previous;
         std::uint64_t revision = UINT64_C(14695981039346656037);
         const auto mix = [&](const std::string& field) {
@@ -8864,6 +8888,14 @@ bool PublicApiRuntime::tryHandleGet(
                     return true;
                 }
                 mix(label);
+            }
+            if (!r.folders.empty()) {
+                const auto& folder = r.folders[index];
+                if (!validRelativeFolder(folder)) {
+                    response = serviceUnavailableProblem(path, requestId, correlationId);
+                    return true;
+                }
+                mix(folder);
             }
             previous = id;
         }
@@ -8903,6 +8935,8 @@ bool PublicApiRuntime::tryHandleGet(
             body += "{\"sourceId\":\"" + r.ids[index] + "\"";
             if (!r.labels.empty())
                 body += ",\"label\":\"" + jsonEscape(r.labels[index]) + "\"";
+            if (!r.folders.empty())
+                body += ",\"folder\":\"" + jsonEscape(r.folders[index]) + "\"";
             body += "}";
         }
         // Completion is measured by the bounded scanner, NOT inferred
