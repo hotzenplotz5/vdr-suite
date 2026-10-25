@@ -117,6 +117,9 @@ Heimnetz** aus, beispielsweise über
 TCP-Gegenstelle und die lokale Netzmaske, nicht bloß einen HTTP-Header.
 Die Einrichtung ist nicht für den Zugriff über das öffentliche Internet
 freigegeben. Eine Portweiterleitung zum VDR-Suite-Daemon darf nicht bestehen.
+Über **HTTP** werden Passwörter nicht transportverschlüsselt übertragen:
+Daher ausschließlich ein vertrauenswürdiges, entsprechend geschütztes
+Heimnetz verwenden; **HTTPS** ist, wenn eingerichtet, vorzuziehen.
 
 Die vorhandene sichere interne Bootstrap-/Claim-Logik übernimmt die
 Kontoanlage atomar; sie erzeugt die erforderliche einmalige Freigabe
@@ -135,14 +138,22 @@ Freigabe erforderlich.
 
 ### Ersteinrichtung ist genau einmal möglich
 
-Diese Einrichtung ist **einmalig für den ganzen Server**, nicht pro Browser
-oder Benutzergerät. Nach der erfolgreichen ersten Kontoanlage wird der
-`claimed`-Zustand aus den bestehenden Konten und Admin-Berechtigungen in der
-Suite-SQLite-Datenbank abgeleitet. Ein zweiter Claim wird auch durch einen
-direkten API-Aufruf mit **HTTP 409 Conflict** abgewiesen. Weder Abmelden noch
-ein Browserwechsel oder der Neustart des VDR geben den Einrichtungsdialog
-wieder frei. Bei falschem Passwort erscheint die normale fehlgeschlagene
-Anmeldung, **niemals erneut die Ersteinrichtung**.
+Die Ersteinrichtung ist **einmalig pro regulär eingerichteter
+Installation**, nicht pro Browser oder Gerät: Solange das bestehende aktive
+Administratorkonto seine Admin-Berechtigung behält, wird der `claimed`-
+Zustand dauerhaft aus der Suite-SQLite-Datenbank abgeleitet. Ein weiterer
+Claim wird auch durch einen direkten API-Aufruf mit **HTTP 409 Conflict**
+abgewiesen. Abmelden, Browserwechsel, ein vergessenes Passwort oder ein
+normaler VDR-Neustart geben den Dialog **nicht** wieder frei. Bei falschem
+Passwort erscheint ausschließlich eine fehlgeschlagene normale Anmeldung.
+
+**Offene Abnahmegrenze:** Die bisherige Claim-Zustandsableitung ist noch
+kein unveränderliches „wurde jemals eingerichtet“-Merkmal. Würden alle
+Administratoridentitäten deaktiviert oder deren Berechtigungen entzogen,
+könnte sie wieder `unclaimed` ergeben. Vor einer Freigabe als streng
+„nur einmal je Installation“ muss dieses Sonderereignis abgesichert und
+getestet werden. Das Löschen der Datenbank ist keine zulässige
+Passwort-Wiederherstellung.
 
 ### Administratorpasswort vergessen – lokale Wiederherstellung
 
