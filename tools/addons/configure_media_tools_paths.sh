@@ -49,7 +49,7 @@ valid_name() {
   local LC_ALL=C name=$1
   [ -n "$name" ] && [ "${#name}" -le 64 ] &&
     [[ "$name" != *[[:cntrl:]]* &&
-       "$name" != *'/'* && "$name" != *'\\'* ]] ||
+       "$name" != *'/'* && "$name" != *'\'* ]] ||
     stop 'invalid source label: max 64 bytes, no controls or separators'
 }
 if [ "${#EXTRA_ROOTS[@]}" -gt 0 ] && [ -z "$DEFAULT_NAME" ]; then
