@@ -405,7 +405,7 @@ int main()
         Fixture fixture;
         HttpServerRequest local;
         local.method = "POST";
-        local.path = "/api/security/first-admin/local/claim";
+        local.path = "/api/security/first-admin/claim";
         local.headers["Host"] = "localhost:18080";
         local.headers["Origin"] = "http://localhost:18080";
         local.headers["Content-Type"] = "application/json";
