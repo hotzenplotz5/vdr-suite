@@ -37,7 +37,7 @@ public:
             live.agentInstanceId != instanceId ||
             live.backendGeneration != generation || generation == 0 ||
             live.revoked || live.incompatible || live.leaseExpiresAt < now ||
-            now <= 0 || ids.size() > 32U || backendId.empty() ||
+            now <= 0 || ids.size() > 256U || backendId.empty() ||
             instanceId.empty()) return false;
         const bool absent = handlerOrigin.empty() &&
             handlerVersion.empty() && handlerSha256.empty();
