@@ -1,6 +1,6 @@
 # MT — Media Tools: Installation, Import und Aufnahmeaktionen
 
-**Datum:** 25.10.2026 — **Status:** MT.I0/MT.I1 abgeschlossen. **MT.I2 quellseitig implementiert**, mit wiederverwendbarem Stage-Prepare, read-only Check/Verify, expliziter yaVDR-Erstinstallation ohne automatische Grants/Starts, gleicher Suite-Deploy für offline Update/Rollback und verifizierter SQLite-/Stage-Sicherung. Isolierte MT.I2-Regressionen sowie **alle vier CI-Jobs PASS** für Code-HEAD `f4b9c9dac2fb8fde6dc2804bfc2d97b345ae512f` ([Actions #40159699229](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40159699229)). **REAL-VDR, Paketmigration und Live-Update nicht abgenommen**; MT.I3–I5 und MT.UX0–UX7 offen.  
+**Datum:** 25.10.2026 — **Status:** **MT.I2 bewusst pausiert vor REAL-VDR-Abnahme**, Übergabe in [INSTALLER-RESUME.md](INSTALLER-RESUME.md). **MT.UX begonnen**: Navigation direkt hinter Aufnahmen, lesender Backend-Quellenscan mit klarer Teilmengenwarnung, tiefere Verzeichnisse innerhalb der bestehenden Grenzen, lesbare Filmtitel/Vorschau und bestätigter Import, vorhandener HEVC-Flow unter Aufnahmeaktionen. MT.UX noch **nicht insgesamt abgeschlossen**. MT.I0/MT.I1 abgeschlossen; **MT.I2 quellseitig implementiert**, mit wiederverwendbarem Stage-Prepare, read-only Check/Verify, expliziter yaVDR-Erstinstallation ohne automatische Grants/Starts, gleicher Suite-Deploy für offline Update/Rollback und verifizierter SQLite-/Stage-Sicherung. Isolierte MT.I2-Regressionen sowie **alle vier CI-Jobs PASS** für Code-HEAD `f4b9c9dac2fb8fde6dc2804bfc2d97b345ae512f` ([Actions #40159699229](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40159699229)). **REAL-VDR, Paketmigration und Live-Update nicht abgenommen**; MT.I3–I5 und MT.UX0–UX7 offen.  
 **Owner:** `addons/media-tools/` in `hotzenplotz5/vdr-suite`.  
 **Branch:** nur `work/addon-platform-registry-lifecycle`; kein neues Repo, kein Nebenbranch, keine nummerierte VDR-Suite-Phase 70.  
 **Bestehende Grenzen:** [Add-on-Plattform-Roadmap](../../docs/planning/addon-platform-roadmap.md), dort A6/A7.5 und M1.R (Import/HandBrake/Überspringen).
@@ -18,6 +18,35 @@
 **Zusätzliche Laufzeitprozesse, Protokolle, Agenten und Importpipelines: 0.**
 Eine Stage-/Paketprüfung ist weder ein Freigabenachweis noch ein Anlass für
 Root-Berechtigungen oder Host-Reparaturen.
+
+## MT.I2 → MT.UX: bewusster Installationsstopp
+
+**Keine Installation vor Abschluss der gewünschten UX-Arbeit.**
+Der verifizierte MT.I2-Code-/CI-Stand, die konkret fehlende yaVDR-Hostabnahme,
+bestehender Debian-/Dateibesitz, Rollback-/Backuppfade, Service-/Grantgrenzen
+und spätere Wiederaufnahmeschritte stehen verbindlich in
+[INSTALLER-RESUME.md](INSTALLER-RESUME.md).
+MT.I3–I5 sind nicht stillschweigend freigegeben; der Phasenwechsel
+erlaubt keine `sudo`-/`systemctl`-/Rechte-/Aufnahmeaktionen.
+
+## MT.UX-Stand beim Einstieg (Quellenänderungen, CI noch zu prüfen)
+
+| Slice | Fortschritt | Für Slice-Abnahme noch erforderlich |
+| --- | --- | --- |
+| **UX0** | Modulnavigation `Aufnahmen → Media Import → Genres`; bestehendes `hidden/disabled` und Capability-/Session-Gate unverändert, gezielter Regressionstest. | Frontend-CI, reale Berechtigung im Zielsystem separat. |
+| **UX1** | Existierender Backend-Scanner besucht nun tiefer verschachtelte Ordner **iterativ** ohne Symlink-Following; bisheriges Maximum 4096 Verzeichniseinträge/256 gesichtete passende Dateien/32 sichtbare IDs bleibt. Read-only Scan-Schaltfläche und Warnung bei `meta.partial` bzw. 32 sichtbaren Quellen, ansonsten ausdrücklicher Hinweis auf fehlenden Vollständigkeitsbeleg; C++-Fixture für tiefe Serienordner. | **Vollständige Fortsetzung/Paginierung** und ausdrückliche API-Semantik für vollständigen/partiellen Scan, statt bisherige Grenzen als fertigen rekursiven Gesamtscan zu interpretieren; große Bäume/Symlinks testen. |
+| **UX2** | Bestehende root-kontrollierte Backend-Quellenliste und Berechtigungsprüfung bleiben einzige Quelle. | Admin-Anzeigenamen, Standardroot und zusätzliche Importroots mit bestehendem Auth-/CSRF-/Audit- und Agent-Revalidierungsvertrag; kein Browser-Root-Write. |
+| **UX3** | Keine zweite Explorer-Pipeline angelegt. | Pfadlose, Backend-gebundene Folder-/Breadcrumb-Navigation braucht einen echten lesenden Serververtrag; nicht aus Quellentiteln oder ungeprüften Browserpfaden vortäuschen. |
+| **UX4** | Filmnamen statt kryptischer IDs; IDs nur unter „Technische Details“. Ausgewählten Film als Vorschau mit Quellenerhalt/Backend-Prüfung anzeigen; normale Importaktion und Mehrfachimport nur nach ausdrücklicher Bestätigung. Bestehende Markierungs- und Re-Encode-Einzelfreigaben bleiben bestehen. | Echte Read-only-Backend-Vorschau mit Codec, Größe, Aufnahmeziel, Dublette, Platz-/Transcode-Ergebnis; bislang nur UI-Auswahlvorschau. |
+| **UX5** | Bereits vorhandene sequentielle Core-Operationen, getrennte Idempotency-Keys, keine Wiederholung bei ungewissem Ausgang; neue ausdrückliche Batch-Bestätigung. | Auswahl einzelner Dateien/Ordner, übersichtliche Status-/Fortschrittsliste statt technisch geprägter Einzelquellen-UI. |
+| **UX6** | **Eine** bestehende Hero-HEVC-Plan/Stage/Review/Publish-Implementierung; ihr Kontrollpanel und Button werden bei vorhandenem Aufnahmeaktionspanel dorthin umgehängt, sonst behutsame Hero-Kompatibilität. | Aktionsmenü `⋯` auf Detailkarten, zielgenaue Aufnahmefähigkeit und Interaktions-/UI-Test im Gesamtbrowser. |
+| **UX7** | Responsive Scan-/Vorschau- und Fehlerhinweis-Stile ergänzt, technische Tokens in Details verschoben. | End-to-End-Abnahme des ganzen benutzerfreundlichen Workflows, 32+-Quellen, große Bäume, Keyboard, responsive und reale Backend-Capability. |
+
+**Wichtig:** Diese Tabelle trennt bereits vorhandenen, mitbenutzten Code von neu
+implementierten Teilverbesserungen. Ein UX-Slice wird **erst nach seinen
+expliziten Abnahmen** geschlossen. Niemand soll den begrenzten Quellenkatalog
+als vollständigen Dateisystem-Explorer oder erfolgreiches Live-Scanning
+verkaufen.
 
 ## Verbindliche Produktentscheidung
 
