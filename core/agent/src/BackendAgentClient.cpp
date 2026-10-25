@@ -2061,7 +2061,7 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     if (installed.sha256.empty() ||
         !config_.mediaImportExecutor->listTrustedSourceIds(ids))
         ids.clear(); // Withdrawal/unreadable ledger always removes listings.
-    if (ids.size() > 32U) ids.clear();
+    if (ids.size() > 256U) ids.clear();
     for (const auto& id : ids)
         if (id.size() < 16U || id.size() > 64U ||
             !std::all_of(id.begin(), id.end(), [](unsigned char ch) {
