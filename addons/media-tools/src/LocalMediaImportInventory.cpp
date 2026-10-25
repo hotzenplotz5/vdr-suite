@@ -272,12 +272,12 @@ bool scanDirectory(const std::array<std::string, 5>& entry,
         try {
             const auto plan = inspectImport({sourceRoot, videoRoot, path});
             const auto local = toSource(plan);
-            if (found.size() == 256U) { partial = true; break; }
+            if (found.size() == 100U) { partial = true; break; }
             found.push_back({scannedId(entry[1], local), local});
         } catch (...) {
             LocalMediaImportSource marked;
             if (inspectMarkedSource(sourceRoot, videoRoot, path, marked)) {
-                if (found.size() == 256U) { partial = true; break; }
+                if (found.size() == 100U) { partial = true; break; }
                 found.push_back({scannedId(entry[1], marked), marked});
             }
         }
@@ -331,10 +331,10 @@ bool inventorySources(const std::filesystem::path& root, const std::string& back
     });
     for (std::size_t index = 1; index < sources.size(); ++index)
         if (sources[index].id == sources[index - 1].id) return false;
-    // The Agent's bounded observation exposes the verified prefix.
-    // The larger tree is explicitly marked incomplete, never discarded.
-    if (sources.size() > 256U) {
-        sources.resize(256U);
+    // Maximum 100 visible films per scan/import session. Keep the verified
+    // selection; report overflow so the UI can explain the 100-film limit.
+    if (sources.size() > 100U) {
+        sources.resize(100U);
         truncated = true;
     }
     if (partial) *partial = truncated;
