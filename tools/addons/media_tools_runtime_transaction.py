@@ -155,7 +155,15 @@ def live_services_quiescent() -> None:
 
 
 def live_file_ownership(stage: Path) -> None:
-    _, files = verify_sealed_stage(stage, load_manifest(stage))
+    directories, files = verify_sealed_stage(stage, load_manifest(stage))
+    # The shared frontend is replaced as one tree by the existing deploy
+    # helper; refuse to change a non-root owner's directory in that tree.
+    for rel in directories:
+        if rel == "usr/share/vdr-suite/web/frontend" or rel.startswith(
+                "usr/share/vdr-suite/web/frontend/"):
+            target_dir = examined_file(Path("/"), rel)
+            if target_dir.lstat().st_uid != 0:
+                raise PreflightError("frontend directory is not root-owned: " + rel)
     for rel, entry in files.items():
         if rel.startswith("etc/"):
             continue  # preserved configuration is not installed or replaced
@@ -172,6 +180,24 @@ def live_file_ownership(stage: Path) -> None:
             raise PreflightError("Debian-owned file needs package update: " + rel)
         if query.returncode != 1:
             raise PreflightError("package ownership query unavailable: " + rel)
+
+
+def database_state() -> dict[str, str | None]:
+    """Check DB plus WAL/journal: a backup must not silently hide later writes."""
+    base = Path("/") / DB_REL
+    observed = {}
+    for name in ("database", "wal", "journal"):
+        target = base if name == "database" else Path(str(base) + (
+            "-wal" if name == "wal" else "-journal"))
+        try:
+            details = target.lstat()
+        except FileNotFoundError:
+            observed[name] = None
+            continue
+        if not stat.S_ISREG(details.st_mode):
+            raise PreflightError("unsafe SQLite state file: " + name)
+        observed[name] = stable_sha(target)
+    return observed
 
 
 def live_backup_directory(path: Path, old: Path, new: Path) -> Path:
@@ -236,11 +262,14 @@ def live_update(old: Path, new: Path, old_digest: str, new_digest: str,
             evidence = {
                 "schema": 1, "previous_approved_sha256": old_digest,
                 "candidate_approved_sha256": new_digest,
-                "database_sha256": stable_sha(database),
+                "database_state": database_state(),
                 "services": "confirmed_inactive",
             }
-            (root_backup / "review.json").write_text(
-                json.dumps(evidence, sort_keys=True) + "\n", encoding="utf-8")
+            review = root_backup / "review.json"
+            fd = os.open(review, os.O_CREAT | os.O_EXCL | os.O_WRONLY |
+                         os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as document:
+                document.write(json.dumps(evidence, sort_keys=True) + "\n")
             live_services_quiescent()
             check(old, Path("/"))
             try:
@@ -274,6 +303,11 @@ def live_rollback(backup_dir: Path, old_digest: str, new_digest: str) -> str:
     if info.st_uid != 0 or stat.S_IMODE(info.st_mode) != 0o700:
         raise PreflightError("unsafe rollback backup ownership or mode")
     review = examined_file(backup_dir, "review.json")
+    review_info = review.lstat()
+    if (not stat.S_ISREG(review_info.st_mode) or
+            review_info.st_uid != 0 or review_info.st_nlink != 1 or
+            stat.S_IMODE(review_info.st_mode) != 0o600):
+        raise PreflightError("rollback evidence file is not root-private")
     data = json.loads(review.read_text(encoding="utf-8"))
     if (data.get("schema") != 1 or
             data.get("previous_approved_sha256") != old_digest or
@@ -286,7 +320,7 @@ def live_rollback(backup_dir: Path, old_digest: str, new_digest: str) -> str:
     live_services_quiescent()
     with with_exclusive_lock(Path("/")):
         live_services_quiescent()
-        if stable_sha(Path("/") / DB_REL) != data.get("database_sha256"):
+        if database_state() != data.get("database_state"):
             raise PreflightError(
                 "database changed since backup; refuse automatic state overwrite")
         check(candidate, Path("/"))
