@@ -102,6 +102,55 @@ async function test() {
   assert.equal(refused.parent.children[0].hidden, false);
   assert.equal(refused.requests.filter(r => r.options.method === 'POST').length, 1);
 
+  // UX2 draft stays within the already authorized addon administration card.
+  // No source directory is ever POSTed to an API, and even a valid draft
+  // produces only a root-admin read-only --check command.
+  const draft = harness(() => response(200, {
+    backendId: 'default', desiredEnabled: false, revision: 0
+  }), {count: 0});
+  draft.window.VdrSuiteAddonSettings.render(draft.parent, 'default');
+  await flush();
+  assert.equal(draft.parent.children[0].hidden, false);
+  const draftInputs = draft.elements.filter(e => e.tag === 'input');
+  assert.equal(draftInputs.length, 3);
+  draftInputs[0].value = '/srv/video/Filme';
+  draftInputs[1].value = 'Filme';
+  draftInputs[2].value = '/srv/vdr/video.00';
+  const addRoot = draft.elements.find(e =>
+    e.textContent === 'Weitere Quelle hinzufügen');
+  const prepare = draft.elements.find(e =>
+    e.textContent === 'Prüfkommando vorbereiten');
+  const preview = draft.elements.find(e => e.tag === 'pre');
+  assert.ok(addRoot && prepare && preview);
+  addRoot.handlers.click();
+  const extraInputs = draft.elements.filter(e => e.tag === 'input');
+  assert.equal(extraInputs.length, 5);
+  extraInputs[3].value = '/srv/video/Serien';
+  extraInputs[4].value = 'Serien';
+  prepare.handlers.click();
+  assert.ok(preview.textContent.startsWith(
+    'sudo bash tools/addons/configure_media_tools_paths.sh '));
+  assert.ok(preview.textContent.includes(
+    "'/srv/video/Filme' '/srv/vdr/video.00' --check --default-name 'Filme'"));
+  assert.ok(preview.textContent.includes(
+    "--add-root '/srv/video/Serien' 'Serien'"));
+  assert.equal(draft.requests.filter(r => r.options.method === 'POST').length, 0,
+    'admin source drafts are purely local browser presentation');
+
+  extraInputs[3].value = '/srv/video/Filme/child';
+  extraInputs[3].handlers.input();
+  assert.equal(preview.textContent, '', 'an edited command must be invalidated');
+  prepare.handlers.click();
+  assert.equal(preview.textContent, '',
+    'nested or overlapping source roots cannot produce a command');
+
+  extraInputs[3].value = '/srv/video/Serien';
+  extraInputs[4].value = "Eintrag'; rm -rf /";
+  prepare.handlers.click();
+  assert.equal(preview.textContent, '',
+    'shell metacharacters and paths in labels are rejected');
+  assert.equal(draft.requests.length, 1, 'only protected admin GET was sent');
+
   const forbidden = harness(() => response(403, {error: 'forbidden'}), {count: 0});
   forbidden.window.VdrSuiteAddonSettings.render(forbidden.parent, 'default');
   await flush();
