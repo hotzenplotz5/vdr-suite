@@ -391,6 +391,23 @@
     view.startButton.textContent = 'Import starten';
     view.batchButton.disabled = normal.length < 2 ||
       normal.length > MAX_IMPORT_FILMS;
+    view.selectionRows.replaceChildren();
+    normal.forEach(function (item) {
+      const label = element('label', 'media-import-select-item', item.label);
+      const checkbox = element('input', '');
+      checkbox.type = 'checkbox';
+      checkbox.checked = view.checkedSourceIds.has(item.sourceId);
+      checkbox.addEventListener('change', function () {
+        if (!isCurrent(view) || view.attempt || view.batch) return;
+        if (checkbox.checked) view.checkedSourceIds.add(item.sourceId);
+        else view.checkedSourceIds.delete(item.sourceId);
+        updateSelectionCount(view);
+      });
+      label.appendChild(checkbox);
+      view.selectionRows.appendChild(label);
+    });
+    view.selectAllVisibleButton.disabled = normal.length === 0;
+    updateSelectionCount(view);
 
     view.markedSelect.replaceChildren();
     const markedBlank = element('option', '', 'Markierte Datei auswählen');
@@ -426,6 +443,10 @@
     view.statusFilter.disabled = true;
     view.sources = [];
     view.markedSources = [];
+    view.checkedSourceIds.clear();
+    view.selectionRows.replaceChildren();
+    view.selectedBatchButton.disabled = true;
+    view.selectAllVisibleButton.disabled = true;
     view.allOrdinary = [];
     view.allMarked = [];
     report(view, 'Autorisierte Importquellen werden geladen …');
@@ -765,8 +786,23 @@
     refreshButton.type = 'button';
     refreshButton.hidden = true;
     root.appendChild(startButton);
+    root.appendChild(element('h4', '', 'Mehrfachauswahl'));
+    const selectAllVisibleButton = element('button', 'media-import-select-all',
+      'Alle sichtbaren Filme auswählen');
+    selectAllVisibleButton.type = 'button';
+    selectAllVisibleButton.disabled = true;
+    root.appendChild(selectAllVisibleButton);
+    const selectionRows = element('div', 'media-import-selection');
+    root.appendChild(selectionRows);
+    const selectionCount = element('p', 'media-import-selection-count');
+    root.appendChild(selectionCount);
+    const selectedBatchButton = element('button', 'media-import-batch-selected',
+      'Ausgewählte Filme nacheinander importieren');
+    selectedBatchButton.type = 'button';
+    selectedBatchButton.disabled = true;
+    root.appendChild(selectedBatchButton);
     const batchButton = element('button', 'media-import-batch',
-      'Alle freigegebenen Quellen nacheinander importieren');
+      'Alle sichtbaren Filme nacheinander importieren');
     batchButton.type = 'button';
     batchButton.disabled = true;
     root.appendChild(batchButton);
@@ -796,6 +832,9 @@
       localReencode: localReencode, decision: decision,
       markedSelect: markedSelect, releaseButton: releaseButton, markedSources: [],
       batchButton: batchButton, batchStopButton: batchStopButton,
+      selectAllVisibleButton: selectAllVisibleButton,
+      selectionRows: selectionRows, selectionCount: selectionCount,
+      selectedBatchButton: selectedBatchButton, checkedSourceIds: new Set(),
       batch: activeBatches[backendId] || null,
       refreshButton: refreshButton, newButton: newButton,
       message: message, operationDetail: operationDetail,
@@ -805,10 +844,20 @@
       reads: 0, timer: null, attempt: activeAttempts[backendId] || null};
     current = view;
     searchInput.addEventListener('input', function () {
+      view.checkedSourceIds.clear();
       filterVisibleSources(view);
     });
     statusFilter.addEventListener('change', function () {
+      view.checkedSourceIds.clear();
       filterVisibleSources(view);
+    });
+    selectAllVisibleButton.addEventListener('click', function () {
+      if (!isCurrent(view) || view.batch || view.attempt) return;
+      view.sources.forEach(function (id) { view.checkedSourceIds.add(id); });
+      filterVisibleSources(view);
+    });
+    selectedBatchButton.addEventListener('click', function () {
+      return startBatch(view, true);
     });
     select.addEventListener('change', function () {
       startButton.disabled = view.submitting || !view.sources.includes(select.value);
@@ -820,6 +869,7 @@
       if (!isCurrent(view) || view.batch) return;
       batchButton.disabled = localReencode.checked || view.sources.length < 2 ||
         decision.value !== 'import';
+      updateSelectionCount(view);
       updatePreview(view);
     });
     decision.addEventListener('change', function () {
@@ -827,6 +877,7 @@
       localReencode.checked = false;
       localReencode.disabled = decision.value !== 'import';
       batchButton.disabled = decision.value !== 'import' || view.sources.length < 2;
+      updateSelectionCount(view);
       startButton.textContent = decision.value === 'desktop' ? 'Für PC markieren' :
         decision.value === 'skip' ? 'Film überspringen' : 'Import starten';
       updatePreview(view);
