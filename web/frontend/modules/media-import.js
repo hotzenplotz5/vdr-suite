@@ -338,7 +338,7 @@
       .then(function (response) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
         const items = response && response.items;
-        if (!Array.isArray(items) || items.length > 256 ||
+        if (!Array.isArray(items) || items.length > 100 ||
             !items.every(function (item) {
               return item && typeof item.sourceId === 'string' &&
                 /^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId) &&
