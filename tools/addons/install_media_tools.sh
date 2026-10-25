@@ -249,7 +249,7 @@ if mode == 'install' and phase == 'before':
     required = info.st_size + max(gib, (info.st_size+4)//5)
     work_budget = max(work_budget, required)
     print(f'DATABASE_BYTES={info.st_size} BACKUP_BUDGET={work_budget}')
-checks = [(workdir, work_budget), ('/usr', gib), ('/var', 2*gib)]
+checks = [(workdir, work_budget), ('/root', work_budget), ('/usr', gib), ('/var', 2*gib)]
 grouped = {}
 for path, budget in checks:
     device = os.stat(path).st_dev
@@ -333,6 +333,32 @@ check(root, pathlib.Path("/"))
 live_file_ownership(root)
 print("FIRST_INSTALL_PREVIOUS_SUITE_STAGE=PASS")
 PY
+# Freeze the two already-reviewed stages in a newly created, root-private
+# snapshot before deployment. A source-owner-writable build workdir must never
+# be read by a privileged deployment after the final integrity check.
+SAFE_DIR=$(sudo mktemp -d /root/vdr-suite-media-install.XXXXXXXX) ||
+  stop 'cannot create root-private staging snapshot'
+sudo cp -a -- "$WORK/stage" "$SAFE_DIR/stage" ||
+  stop 'cannot snapshot existing Suite stage'
+sudo cp -a -- "$STAGE" "$SAFE_DIR/stage-with-media-tools" ||
+  stop 'cannot snapshot candidate stage'
+sudo python3 - "$SAFE_DIR" "$APPROVED" <<'PY' ||
+  stop 'root-private staged snapshot differs from approved bytes'
+import pathlib, sys
+sys.path.insert(0, "tools")
+sys.path.insert(0, "tools/addons")
+from install_runtime_stage import load_manifest, verify_sealed_stage
+from stage_media_tools_runtime import verify_media_tools_stage
+directory = pathlib.Path(sys.argv[1])
+old = directory / "stage"
+new = directory / "stage-with-media-tools"
+verify_sealed_stage(old, load_manifest(old))
+verify_media_tools_stage(new, sys.argv[2])
+print("ROOT_PRIVATE_STAGE_SNAPSHOT=PASS")
+PY
+WORK=$SAFE_DIR
+STAGE=$WORK/stage-with-media-tools
+echo "ROOT_PRIVATE_INSTALL_BACKUP_PARENT=$WORK"
 resource_preflight || stop "insufficient capacity for actual database backup"
 # A previous failed attempt may have left an EMPTY root-owned backup folder.
 # Reuse only that precise safe state; never overwrite existing backup bytes.
