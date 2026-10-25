@@ -412,7 +412,8 @@
         view.scanNotice.textContent = bounded && items.length >= MAX_IMPORT_FILMS
           ? 'Importgrenze: Höchstens 100 Filme pro Durchlauf. ' +
             '100 geprüfte Quellen werden angezeigt. Der Scan ist nicht ' +
-            'vollständig; weitere Filme bitte nach diesem Durchlauf erneut scannen.'
+            'vollständig. Da Originale erhalten bleiben, für weitere ' +
+            'Filme die freigegebene Quellauswahl vor einem neuen Scan anpassen.'
           : bounded
             ? 'Scan unvollständig: Der sichere Suchumfang wurde begrenzt. ' +
               'Weitere Dateien oder Unterordner können fehlen. Maximal ' +
