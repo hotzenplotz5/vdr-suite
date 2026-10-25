@@ -629,6 +629,34 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-batch-review').children[1].textContent.includes(
     'Umkodierung nötig'));
   assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true);
+  // UX5.3: returning to an incompatible film reuses the single-film
+  // preview/decision; it does not silently submit or authorize encoding.
+  const deferredAction = findClass(
+    findClass(mount, 'media-import-batch-review').children[1],
+    'media-import-batch-deferred');
+  assert(deferredAction && !deferredAction.disabled);
+  const postsBeforeDeferred = submits;
+  submitMode = 'accepted';
+  state = 'succeeded';
+  await deferredAction.listeners.click();
+  await settle();
+  assert.strictEqual(submits, postsBeforeDeferred);
+  assert.strictEqual(findClass(mount, 'media-import-source').value, SOURCE_B);
+  assert(!findClass(mount, 'media-import-decision-label').hidden);
+  assert.strictEqual(findClass(mount, 'media-import-decision').value, '');
+  assert(findClass(mount, 'media-import-start').disabled);
+  const deferredChoice = findClass(mount, 'media-import-decision');
+  deferredChoice.value = 'desktop';
+  deferredChoice.listeners.change();
+  confirmLocal = false;
+  await findClass(mount, 'media-import-start').listeners.click();
+  assert.strictEqual(submits, postsBeforeDeferred);
+  confirmLocal = true;
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert.strictEqual(submits, postsBeforeDeferred + 1);
+  assert.strictEqual(requests.filter(x => x.options.method === 'POST').slice(-1)[0].options.body,
+    JSON.stringify({sourceId: SOURCE_B, videoDecision: 'desktop'}));
   delete batchProbeOverrides[SOURCE_B];
   delete batchProbeOverrides[SOURCE_C];
   delete batchProbeOverrides[SOURCE_D];
