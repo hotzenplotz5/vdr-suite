@@ -35,6 +35,7 @@ check-vdr-linkage-contracts:
 
 test-build-artifact-paths:
 	python3 tools/check_build_artifact_paths.py
+	python3 -m unittest discover -s tools/tests -p 'test_build_test_database_isolation.py'
 
 
 test-runtime-config:

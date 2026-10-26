@@ -56,6 +56,26 @@ def main() -> int:
     if ".build/" not in ignored:
         violations.append(".gitignore: missing .build/")
 
+    # Every make-driven database fixture must stay in the selected build
+    # directory; never use or remove another user's /tmp database.
+    if 'VDR_SUITE_TEST_DATABASE_PATH := $(abspath $(BUILD_DIR))/vdr-suite-test.db' not in common:
+        violations.append("mk/common.mk: test DB must follow BUILD_DIR")
+    if '"$(VDR_SUITE_TEST_DATABASE_PATH)"' not in common:
+        violations.append("mk/common.mk: prepare-test-db must use the build DB path")
+    maintenance = (ROOT / "mk/maintenance-tests.mk").read_text(encoding="utf-8")
+    if "rm -f /tmp/vdr-suite-test.db" in maintenance:
+        violations.append("mk/maintenance-tests.mk: must not remove a global /tmp DB")
+    for folder in ("api/rest/tests", "core/recordings/tests", "core/http/tests"):
+        for source in (ROOT / folder).glob("*.cpp"):
+            if 'db.open("/tmp/vdr-suite-test.db")' in source.read_text(encoding="utf-8"):
+                violations.append(f"{source.relative_to(ROOT)}: shared /tmp DB")
+    for source_name in ("apps/dashboard/main.cpp", "core/http/src/TestHttpServer.cpp",
+                        "core/sqlite/tests/test_database.cpp"):
+        source = ROOT / source_name
+        content = source.read_text(encoding="utf-8")
+        if "/tmp/vdr-suite-test.db" in content or "/tmp/vdr-suite-cpp-test.db" in content:
+            violations.append(f"{source_name}: shared /tmp DB")
+
     if output_count == 0:
         violations.append("no compiler outputs found; path audit cannot prove coverage")
 
