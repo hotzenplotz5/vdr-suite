@@ -266,6 +266,15 @@
         "createClientLiveUpdateSource"
       ],
       "note": "Remote action, Live overlay and browser SSE are first-party control/presentation surfaces, not public-v1 promises."
+    },
+    {
+      "domain": "search-timer-create-staging",
+      "classification": "bounded-domain-plane",
+      "publicV1Relation": "scoped-public-v1",
+      "exports": [
+        "fetchClientSearchTimerCreateStaged"
+      ],
+      "note": "Browser Human administrators use the separately authorized, CSRF-bound, inactive-only Public-v1 SearchTimer CREATE with durable idempotency; legacy full-field SearchTimer mutation remains blocked."
     }
   ],
   "browserOnlySurfaces": [

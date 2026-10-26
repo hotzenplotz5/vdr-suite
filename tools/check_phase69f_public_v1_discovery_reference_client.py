@@ -68,7 +68,15 @@ require(
 )
 
 browser_client = read("web/frontend/api/client-api.js")
-require("/api/v1" not in browser_client, "non-equivalent bundled browser was silently migrated to public-v1")
+# One narrowly reviewed Browser-admin mutation may use the stable public
+# SearchTimer CREATE admission. All other Browser route migrations remain
+# prohibited until their semantics are independently reconciled.
+require(browser_client.count("'/api/v1/search-timers'") == 1,
+        "expected one bounded Browser SearchTimer staging route")
+browser_client = browser_client.replace("'/api/v1/search-timers'",
+                                        "'reviewed-searchtimer-create'")
+require("/api/v1" not in browser_client,
+        "non-equivalent bundled browser was silently migrated to public-v1")
 
 test = read("clients/reference-js/tests/test_public_v1_discovery_client.js")
 for token in (

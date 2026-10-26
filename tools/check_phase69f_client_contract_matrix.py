@@ -42,12 +42,12 @@ remote_operations = set(re.findall(r"function\s+(fetchClient[A-Za-z0-9_]+)\s*\("
 require("function createClientLiveUpdateSource()" in remote_client, "Live Remote update-source operation disappeared")
 remote_operations.add("createClientLiveUpdateSource")
 
-require(len(base_operations) == 56, f"expected 56 base client operations, found {len(base_operations)}")
+require(len(base_operations) == 57, f"expected 57 base client operations, found {len(base_operations)}")
 require(len(genre_operations) == 3, f"expected 3 Genre client operations, found {len(genre_operations)}")
 require(len(remote_operations) == 3, f"expected 3 Live Remote operations, found {len(remote_operations)}")
 
 discovered_operations = base_operations | genre_operations | remote_operations
-require(len(discovered_operations) == 62, f"expected 62 classified browser Client API operations, found {len(discovered_operations)}")
+require(len(discovered_operations) == 63, f"expected 63 classified browser Client API operations, found {len(discovered_operations)}")
 
 classified = []
 groups = matrix.get("browserClientGroups", [])
@@ -72,7 +72,14 @@ for source_name, source in (
     ("genre", genre_client),
     ("live-remote", remote_client),
 ):
-    require("/api/v1" not in source, f"{source_name} browser Client API started consuming /api/v1 without matrix migration")
+    if source_name == "base":
+        # The 2026-10-26 browser administrator CREATE is a reviewed,
+        # inactive-only Public-v1 successor, not a generic API migration.
+        require(source.count("'/api/v1/search-timers'") == 1,
+                "browser SearchTimer staging route must be exact")
+        source = source.replace("'/api/v1/search-timers'", "'approved-searchtimer-create'")
+    require("/api/v1" not in source,
+            f"{source_name} browser Client API started consuming unreviewed /api/v1 resources")
 
 resources = matrix.get("publicV1Resources", [])
 resource_pairs = {(item.get("method"), item.get("template")) for item in resources}
@@ -359,6 +366,6 @@ test_groups = read("mk/test-groups.mk")
 require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must include client-contract matrix")
 
 print("Phase 69.F client-contract matrix guard passed.")
-print("Classified browser Client API operations: 62 exactly once.")
+print("Classified browser Client API operations: 63 exactly once (including guarded SearchTimer CREATE).")
 print("Public-v1 method/resource contracts: 9 accepted, 2 scoped read-only candidates (Recording R2 and SearchTimer).")
 print("Nine accepted reference-client contracts retained; Recording R2 and SearchTimer post-69 candidates explicitly inventoried.")
