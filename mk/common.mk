@@ -1,6 +1,9 @@
 CXX ?= g++
 PKG_CONFIG ?= pkg-config
 BUILD_DIR ?= $(CURDIR)/.build
+# Per-checkout fixture; never share a fixed test database under /tmp.
+VDR_SUITE_TEST_DATABASE_PATH := $(abspath $(BUILD_DIR))/vdr-suite-test.db
+export VDR_SUITE_TEST_DATABASE_PATH
 BUILD_CXX = mkdir -p "$(BUILD_DIR)" && $(CXX) $(CPPFLAGS)
 VDR_SUITE_SERVER_VERSION ?= $(shell if [ -f VERSION ]; then head -n 1 VERSION; else printf source-unversioned; fi)
 CXXFLAGS += -std=c++17 -Wall -Wextra \
@@ -231,7 +234,8 @@ test-api-router-searchtimer-preview-refresh-then-preview: prepare-test-db
 	$(BUILD_DIR)/test_api_router_searchtimer_preview_refresh_then_preview
 
 prepare-test-db:
+	mkdir -p "$(BUILD_DIR)"
 	python3 tools/prepare_test_database.py \
-		/tmp/vdr-suite-test.db \
+		"$(VDR_SUITE_TEST_DATABASE_PATH)" \
 		database/schema/vdr-suite.sql \
 		database/testdata/sample-data.sql

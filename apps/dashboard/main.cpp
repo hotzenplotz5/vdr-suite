@@ -1,4 +1,5 @@
 #include "Database.h"
+#include "TestDatabasePath.h"
 
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
@@ -14,7 +15,7 @@ int main()
 {
     Database db;
 
-    if (!db.open("/tmp/vdr-suite-test.db"))
+    if (!db.open(vdrSuiteTestDatabasePath()))
     {
         std::cerr << "failed to open database" << std::endl;
         return 1;

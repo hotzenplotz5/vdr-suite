@@ -1,4 +1,5 @@
 #include "TestHttpServer.h"
+#include "TestDatabasePath.h"
 
 #include "ApiRouter.h"
 #include "DeviceLiveEventHub.h"
@@ -217,7 +218,7 @@ std::string securityDatabasePath()
         return configured;
     }
 
-    return "/tmp/vdr-suite-test.db";
+    return vdrSuiteTestDatabasePath();
 }
 
 }

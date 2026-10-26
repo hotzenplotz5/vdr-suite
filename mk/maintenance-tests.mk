@@ -5,7 +5,6 @@ clean:
 			"$$repo_dir"/.build|"$$repo_dir"/.build/*) rm -rf -- "$$build_dir" ;; \
 			*) echo "Refusing to clean BUILD_DIR outside $$repo_dir/.build: $$build_dir" >&2; exit 2 ;; \
 		esac
-	rm -f /tmp/vdr-suite-test.db
 
 .PHONY: test-recording-action-executor-interface
 test-recording-action-backend-execution-path:

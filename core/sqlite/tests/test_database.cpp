@@ -1,14 +1,17 @@
 #include "Database.h"
+#include "TestDatabasePath.h"
 
 #include <sqlite3.h>
 
 #include <cstdio>
+#include <filesystem>
 #include <iostream>
 
 int main()
 {
-    const char* path = "/tmp/vdr-suite-cpp-test.db";
-    std::remove(path);
+    const std::string path = (std::filesystem::path(vdrSuiteTestDatabasePath())
+        .parent_path() / "vdr-suite-cpp-test.db").string();
+    std::remove(path.c_str());
 
     Database db;
 
@@ -54,7 +57,7 @@ int main()
     }
 
     db.close();
-    std::remove(path);
+    std::remove(path.c_str());
 
     std::cout << "Database test OK\n";
     return 0;

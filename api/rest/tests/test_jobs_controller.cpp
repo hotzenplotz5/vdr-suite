@@ -1,6 +1,7 @@
 #include "JobsController.h"
 
 #include "Database.h"
+#include "TestDatabasePath.h"
 #include "JobRepository.h"
 
 #include <cassert>
@@ -11,7 +12,7 @@ int main()
 {
     Database db;
 
-    if (!db.open("/tmp/vdr-suite-test.db"))
+    if (!db.open(vdrSuiteTestDatabasePath()))
     {
         std::cerr << "database open failed" << std::endl;
         return 1;
