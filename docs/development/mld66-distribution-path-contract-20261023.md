@@ -124,3 +124,18 @@ calling this accepted. The direct MLD BitBake recipes, target service
 identities, VDR sysroot and native runtime remain **unverified**.
 No main-branch merge, MLD recipe SRCREV change or installed host
 modification has been made here.
+
+## Senderlogos aus dem optionalen MLD-Paket (2026-10-26)
+
+VDR-Suite checks `/usr/share/vdr/channellogos` as an additional **read-only**
+logo directory if it exists. Explicit `VDR_SUITE_CHANNEL_LOGO_ROOT` and
+`VDR_SUITE_CHANNEL_LOGO_CACHE` overrides, the Suite logo cache, and all
+previous logo directories retain their precedence. PNG and SVG filenames
+are supported; browser candidates are normalized to lower-case and include
+known VDR aliases, including `~` in place of a channel-name slash.
+
+MLD needs only to offer/install the optional `channellogos` data package
+and grant the VDR-Suite daemon read access. No copying, renaming or relocation
+of distro-owned assets is required. Missing package/directory and unknown
+logos continue to use the browser's initial-letter fallback. Real MLD 6.6
+runtime acceptance remains separate from repository regression tests.

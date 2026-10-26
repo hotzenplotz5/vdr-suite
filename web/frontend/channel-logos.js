@@ -84,11 +84,14 @@ function addChannelLogoNameVariants(values, value) {
   addUniqueValue(values, normalized.replace(/\s+/g, '_'));
   addUniqueValue(values, normalized.replace(/\s+/g, '-'));
   addUniqueValue(values, normalized.replace(/\s+/g, ''));
+  // Standard VDR logo filenames can use ~ for / in channel names.
+  addUniqueValue(values, normalized.replace(/\//g, '~'));
 
   const withoutQuality = normalized.replace(/\s+(hd|uhd|sd)$/i, '');
   addUniqueValue(values, withoutQuality.replace(/\s+/g, '_'));
   addUniqueValue(values, withoutQuality.replace(/\s+/g, '-'));
   addUniqueValue(values, withoutQuality.replace(/\s+/g, ''));
+  addUniqueValue(values, withoutQuality.replace(/\//g, '~'));
   addChannelLogoAliases(values, normalized);
 }
 

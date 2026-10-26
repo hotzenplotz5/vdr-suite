@@ -73,6 +73,8 @@ std::vector<std::string> channelLogoRoots()
         "/usr/share/vdr/plugins/skindesigner/skins/estuary4vdr/logos");
     roots.emplace_back(
         "/usr/share/vdr/plugins/skindesigner/logos");
+    // Optional MLD channellogos package. Keep all existing roots ahead.
+    roots.emplace_back("/usr/share/vdr/channellogos");
 
     return roots;
 }
@@ -103,6 +105,21 @@ bool readChannelLogoAsset(
     {
         const std::string path =
             root + "/" + relativePath;
+
+        if (root == "/usr/share/vdr/channellogos")
+        {
+            // Packaged links may point inside this tree, not outside it.
+            std::error_code error;
+            const auto canonicalRoot =
+                std::filesystem::canonical(root, error);
+            if (error) continue;
+            const auto canonicalFile =
+                std::filesystem::canonical(path, error);
+            if (error) continue;
+            const auto relative =
+                canonicalFile.lexically_relative(canonicalRoot);
+            if (relative.empty() || *relative.begin() == "..") continue;
+        }
 
         if (readFile(path, content))
         {

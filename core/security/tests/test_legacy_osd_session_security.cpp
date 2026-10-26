@@ -221,12 +221,50 @@ int main()
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "role.admin", "default"));
-        const auto denied = fixture.gate.evaluate(
+        const auto allowed = fixture.gate.evaluate(
             browserViewerPost(
                 fixture, ControllerAcquireRoute, "default"));
-        assert(!denied.allowed);
-        assert(denied.rejection.statusCode == 403);
-        assert(denied.rejection.body.find("permission_denied") !=
+        assert(allowed.allowed);
+        assert(allowed.authorizationDecision.reasonCode ==
+            "role_permission_granted");
+
+        // A backend-local admin does not automatically control other VDRs.
+        const auto otherBackend = fixture.gate.evaluate(
+            browserViewerPost(
+                fixture, ControllerAcquireRoute, "other"));
+        assert(!otherBackend.allowed);
+        assert(otherBackend.rejection.statusCode == 403);
+        assert(otherBackend.rejection.body.find("backend_scope_denied") !=
+            std::string::npos);
+    }
+
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "role.admin", "*"));
+        const auto globalAdmin = fixture.gate.evaluate(
+            browserViewerPost(
+                fixture, ControllerAcquireRoute, "default"));
+        assert(globalAdmin.allowed);
+        assert(globalAdmin.authorizationDecision.reasonCode ==
+            "role_permission_granted");
+
+        const auto noCsrf = fixture.gate.evaluate(
+            browserViewerPost(
+                fixture, ControllerAcquireRoute, "default", false));
+        assert(!noCsrf.allowed);
+        assert(noCsrf.rejection.statusCode == 403);
+        assert(noCsrf.rejection.body.find("csrf_validation_failed") !=
+            std::string::npos);
+
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "role.read-only", "default"));
+        const auto readOnly = fixture.gate.evaluate(
+            browserViewerPost(
+                fixture, ControllerAcquireRoute, "default"));
+        assert(!readOnly.allowed);
+        assert(readOnly.rejection.statusCode == 403);
+        assert(readOnly.rejection.body.find("role_read_only") !=
             std::string::npos);
     }
 

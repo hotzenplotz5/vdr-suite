@@ -71,8 +71,12 @@
 #include "VdrSnapshotReadService.h"
 
 #include <cassert>
+#include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <string>
 
 static VdrSnapshot makeHttpServerSnapshot()
@@ -595,6 +599,60 @@ int main()
     assert(missingLogoResponse.headers.find("WWW-Authenticate") ==
         missingLogoResponse.headers.end());
     assert(missingLogoResponse.body.empty());
+
+    // Exercise the actual anonymous asset handler and configured-root priority.
+    char logoTemp[] = "/tmp/vdr-suite-channel-logos-XXXXXX";
+    char* logoBase = mkdtemp(logoTemp);
+    assert(logoBase != nullptr);
+    const std::string configuredRoot = std::string(logoBase) + "/root";
+    const std::string configuredCache = std::string(logoBase) + "/cache";
+    assert(::mkdir(configuredRoot.c_str(), 0700) == 0);
+    assert(::mkdir(configuredCache.c_str(), 0700) == 0);
+    const std::string pngName = "/das erste hd.png";
+    {
+        std::ofstream png(configuredRoot + pngName, std::ios::binary);
+        png << "configured-root-logo";
+        assert(png.good());
+    }
+    {
+        std::ofstream png(configuredCache + pngName, std::ios::binary);
+        png << "cache-logo";
+        assert(png.good());
+    }
+    {
+        std::ofstream svg(configuredRoot + "/zdf_neo.svg");
+        svg << "<svg xmlns=\"http://www.w3.org/2000/svg\"/>";
+        assert(svg.good());
+    }
+    assert(setenv("VDR_SUITE_CHANNEL_LOGO_ROOT", configuredRoot.c_str(), 1) == 0);
+    assert(setenv("VDR_SUITE_CHANNEL_LOGO_CACHE", configuredCache.c_str(), 1) == 0);
+
+    HttpServerRequest foundLogo;
+    foundLogo.method = "GET";
+    foundLogo.path = "/channel-logos/das%20erste%20hd.png";
+    const auto foundLogoResponse = server.handleRequest(foundLogo);
+    assert(foundLogoResponse.statusCode == 200);
+    assert(foundLogoResponse.body == "configured-root-logo");
+    assert(foundLogoResponse.headers.at("Content-Type") == "image/png");
+
+    foundLogo.path = "/channel-logos/zdf_neo.svg";
+    const auto svgLogoResponse = server.handleRequest(foundLogo);
+    assert(svgLogoResponse.statusCode == 200);
+    assert(svgLogoResponse.headers.at("Content-Type") == "image/svg+xml");
+
+    foundLogo.path = "/channel-logos/%2e%2e/hidden.png";
+    assert(server.handleRequest(foundLogo).statusCode == 404);
+    foundLogo.path = "/channel-logos/unknown-extension.jpg";
+    assert(server.handleRequest(foundLogo).statusCode == 404);
+
+    unsetenv("VDR_SUITE_CHANNEL_LOGO_ROOT");
+    unsetenv("VDR_SUITE_CHANNEL_LOGO_CACHE");
+    assert(std::remove((configuredRoot + pngName).c_str()) == 0);
+    assert(std::remove((configuredCache + pngName).c_str()) == 0);
+    assert(std::remove((configuredRoot + "/zdf_neo.svg").c_str()) == 0);
+    assert(::rmdir(configuredRoot.c_str()) == 0);
+    assert(::rmdir(configuredCache.c_str()) == 0);
+    assert(::rmdir(logoBase) == 0);
 
     HttpServerRequest postRequest;
     postRequest.method = "POST";
