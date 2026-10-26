@@ -149,7 +149,9 @@ adds the following peer of `mediaSession`:
 {
   "nativeMediaAccess": {
     "transport": "http-cookie",
-    "cookie": "vdr_suite_media=<SESSION_SCOPED_BEARER>"
+    "cookie": "vdr_suite_media=<SESSION_SCOPED_BEARER>",
+    "headerName": "X-VDR-Suite-Media-Authorization",
+    "headerValue": "<SESSION_SCOPED_BEARER>"
   }
 }
 ```
@@ -163,8 +165,13 @@ rejects a native projection request. Clients must never log, persist,
 expose in video URLs, analytics, error messages, crash reports or debug pages.
 Forward only into the chosen native player's HTTP-cookie parameter, e.g.
 Samsung AVPlay's `setStreamingProperty("COOKIE", value)` after `open()` and
-before `prepareAsync()`. Other native players can set their standard HTTP
-Cookie request header. Legacy/Browser clients are unchanged.
+before `prepareAsync()`. Other native players can set the standard HTTP Cookie request header **or**
+use `headerName` / `headerValue` if their native player supports a custom
+HTTP media authorization header. These are two representations of the
+**same session-only grant**, not two credentials, and require no Samsung-
+specific Backend logic. Players accepting neither headers nor cookies need
+a separately assessed media-delivery adapter; the server does not make
+recordings public or include secrets in media URLs. Legacy/Browser clients are unchanged.
 
 **Security trade-off:** An explicit native-device client can read this
 session-scoped bearer in the authenticated JSON response. This does not make
