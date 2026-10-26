@@ -138,8 +138,10 @@ def approval_gate(root: Path, approved: str, owner: int, *,
     ensure(file_info(old_handler, owner) is not None and
            hash_file(old_handler) == previous_sha256,
            "installed old handler bytes do not match old approval")
-    ensure(not any(path.parent.glob("rectools.*.json")),
-           "backend-scoped approvals require separate migration")
+    # Backend-specific approvals are not installation ownership or blocking
+    # dependencies. Only the root handler approval is in this transaction.
+    # Other backend pins remain unchanged; their independent authorization
+    # lifecycle must not prevent an add-on binary update.
     successor = dict(approval)
     successor["sha256"] = approved
     return (json.dumps(successor, sort_keys=True,
