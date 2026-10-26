@@ -339,8 +339,12 @@ void testPermissionAndReadOnlyFencing()
     adminRole = true;
     const auto adminOnly = fixture.controllers.acquire(
         fixture.acquireFor(fixture.first));
-    assert(!adminOnly.accepted);
-    assert(adminOnly.error == "legacy_osd_control_not_authorized");
+    // The reviewed Human administrator role now grants OSD control.
+    assert(adminOnly.accepted);
+    // Release the lease before checking unrelated backend write fencing.
+    const auto releasedAdmin = fixture.controllers.revoke(
+        adminOnly.lease.controllerLeaseId, "test_case");
+    assert(releasedAdmin.accepted);
 
     controlAuthorized = true;
     adminRole = false;
