@@ -7,6 +7,7 @@
 - [REST source boundary](rest/README.md)
 - [Public-v1 coverage and client migration roadmap](../docs/planning/public-v1-coverage-roadmap.md)
 - [Public API v1 OpenAPI 3.1 — source-audited partial contract](openapi.json)
+- [Public-v1 real-hardware acceptance matrix (single source of truth)](../docs/development/public-v1-final-hardware-acceptance.md)
 - [Backend discovery developer contract](backend-discovery.md)
 - [Federated Channel collection developer contract](channel-collection.md)
 - [TimerAssignments and Timer CREATE developer contract](timer-assignments.md)
@@ -31,6 +32,16 @@
 The OpenAPI file currently specifies **55 documented HTTP method/resource contracts** across **43 path templates**: discovery root/capabilities, Backend and Channel collections, TimerAssignment collection and item GET, protected TimerAssignment item POST for Timer CREATE, and actor-owned Operation item GET, with selected Account/Device security administration contracts detailed below. Its coverage is explicitly **partial**. This document must not be interpreted as a complete route inventory, a new compatibility guarantee, or proof that a particular daemon build is installed.
 
 The public-v1 contract is distinct from older or browser-private `/api/...` routes, transport/provider implementation details, and the independent acceptance state of the VIDAA app.
+
+## TV client interoperability and actual hardware status (2026-10-25)
+
+This API remains **client-independent**. Samsung Tizen/AVPlay and Hisense VIDAA/MSE share the **same** server-owned Device pairing, credential authorization, backend-scoped grants, Channel/EPG/Recording/MediaSession contracts, and error semantics. They do **not** share an app key vault, packaging/update lifecycle, player/codec acceptance, or automatic hardware acceptance. No content grants are inherited from an earlier pairing or from a second Device with the same display name.
+
+**New verified Samsung S3.3 real-device evidence:** HTTPS discovery of Public API v1 and 31 advertised capabilities, administrator-approved Device pairing, a separate `channels.view@default` grant, denial/empty Backend selection before that grant, then 20 genuine Channel rows after it. All this happened on the real Samsung Tizen 5.5 in a VS Code test installation, not merely in CI. A replacement installation lost the client-side saved credential while leaving the old server Device active; this exposed a duplicated Device identity and an incomplete admin retirement workflow. The ten-second frontend read-only Device refresh exists in source, but its exact interval was not independently timed. **No Channel numeric-order guarantee, live picture/sound, playback, EPG, next-page traversal or credential-preserving update is proven by this test.**
+
+The legacy Channel listing uses `backendId,channelId`; an additive, explicit `sort=backendId,channelNumber,channelId` ordering with independent `ch2_` cursor is an **implementation candidate** for exact VDR `channels.conf` ordering across pages, not yet proof that the installed daemon accepts it. Until a matched deployment is confirmed, deployed client versions must not assume the new mode exists. See [the Channel guide](channel-collection.md#channel-numbering-versus-the-current-collection-order--samsung-hardware-finding-2026-10-25).
+
+The [central cumulative hardware matrix](../docs/development/public-v1-final-hardware-acceptance.md) records accepted evidence and narrowly scoped remaining tests. Historical REAL-VDR passes must not be repeated just because a new TV was tested. The Hisense playback-access blocker remains independently scoped to Hisense; it must not erase the Samsung S3.3 proof or be reported as a Samsung failure. API-v1 final release and a verified matched deployment are still **not accepted**.
 
 ## Getting started
 

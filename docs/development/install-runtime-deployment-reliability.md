@@ -114,3 +114,28 @@ This slice does not add:
 The existing ADR-0037 staged-install boundary remains authoritative; this
 contract adds the missing safe live-deployment and acceptance discipline on top
 of that boundary.
+
+## Frontend-only candidate installation without building runtime binaries
+
+For a browser-only PR, `stage-install-runtime` would otherwise rebuild runtime
+binaries and a full `deploy` would replace them. A frontend-only acceptance
+must not modify the installed daemon, backend agent, private state or /etc.
+
+The frontend-only operation reuses the **original canonical install-runtime
+composition and seal**, using an isolated `BUILD_DIR` populated with copies
+of the verified installed runtime executables instead of compiling any new
+binary. The seven required installed binaries must all exist; otherwise stop.
+Run `make install-runtime BUILD_DIR=... DESTDIR=... PREFIX=/usr CXX=/bin/false`
+inside an isolated unprivileged PR checkout, then seal that complete stage
+with `python3 tools/install_runtime_stage.py seal --stage-root ...`.
+
+With this full sealed stage, `deploy-frontend` replaces only the
+composed `usr/share/vdr-suite/web/frontend` tree using the canonical
+atomic tree-replacement function. It does not deploy staged binaries,
+write /etc, alter daemon/agent state, modify existing directory permissions,
+or restart any service. `check-frontend` verifies the full staged frontend
+file set, contents and modes and prints `FRONTEND_DEPLOYMENT_MATCH=YES`.
+
+The original full `deploy` and `check` remain unchanged. The partial
+frontend check does not claim `RUNTIME_DEPLOYMENT_MATCH=YES` and must
+not substitute for full runtime acceptance when binaries change.

@@ -130,6 +130,51 @@ recording on Hisense and verify picture/sound, pause, resume, STOP/BACK
 cleanup and that a revoked grant denies further segments. Never reset
 pairing or replace production services as part of documentation updates.
 
+
+## Generic native HTTP-media access (2026-10-26, candidate)
+
+The normal Device Recording CREATE remains an authenticated
+`POST /api/v1/recording-playback-sessions`, gated by the existing Device
+credential, `media.recording.play@backend`, recording admission and MediaSession
+ownership. **No additional user login, TV pairing, database, service or media
+server is added.** The standard response continues to use a session-path
+scoped `Secure; HttpOnly; SameSite=Strict` cookie.
+
+For a native media player that cannot share the browser's HttpOnly cookie jar,
+the same Device CREATE may explicitly set **`"nativeMediaAccess":true`** in
+its JSON request. Only for this opt-in, the successful Device CREATE response
+adds the following peer of `mediaSession`:
+
+```json
+{
+  "nativeMediaAccess": {
+    "transport": "http-cookie",
+    "cookie": "vdr_suite_media=<SESSION_SCOPED_BEARER>"
+  }
+}
+```
+
+This is **not** a Device-login credential, general API token or a new grant.
+It is the *same* already-issued random MediaSession bearer that the existing
+MediaGateway accepts in the HTTP `Cookie` header. It is limited to the exact
+MediaSession path/lease and ends with Session STOP, expiry, owner/grant revoke.
+The ordinary response omits this property completely; Browser-session CREATE
+rejects a native projection request. Clients must never log, persist,
+expose in video URLs, analytics, error messages, crash reports or debug pages.
+Forward only into the chosen native player's HTTP-cookie parameter, e.g.
+Samsung AVPlay's `setStreamingProperty("COOKIE", value)` after `open()` and
+before `prepareAsync()`. Other native players can set their standard HTTP
+Cookie request header. Legacy/Browser clients are unchanged.
+
+**Security trade-off:** An explicit native-device client can read this
+session-scoped bearer in the authenticated JSON response. This does not make
+private recordings public, but the bearer must be protected while in memory.
+The existing HttpOnly response still protects browser clients that do not opt
+in. The MediaGateway continues checking the existing active lease and
+permission/ownership on media GET. A success in isolated/CI tests is not a
+real-TV playback acceptance: TLS, Range requests, HLS tags, exact media
+container and hardware decoder remain independent gates.
+
 ## Back
 
 - [Development Index](index.md)

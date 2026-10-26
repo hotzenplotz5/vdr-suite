@@ -118,23 +118,26 @@ class SearchTimerCurrentBackendGeneration final :
     public ISearchTimerBackendGenerationAuthority
 {
 public:
-    SearchTimerCurrentBackendGeneration(
-        BackendAgentRepository& agents, std::int64_t now)
-        : agents_(agents), now_(now) {}
+    explicit SearchTimerCurrentBackendGeneration(
+        BackendAgentRepository& agents)
+        : agents_(agents) {}
 
     std::optional<std::uint64_t> currentGeneration(
         const std::string& backendId) const override
     {
+        // A slow inventory/readback can outlive the lease at HTTP admission.
+        // Recheck current wall time at EVERY dispatch generation probe.
+        const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
         const auto agent = agents_.findAgentForBackend(backendId);
         if (!agent || agent->revoked || agent->incompatible ||
             agent->backendGeneration == 0U ||
-            agent->leaseExpiresAt <= now_)
+            agent->leaseExpiresAt <= now)
             return std::nullopt;
         return agent->backendGeneration;
     }
 private:
     BackendAgentRepository& agents_;
-    std::int64_t now_;
 };
 } // namespace
 
@@ -1577,7 +1580,7 @@ bool DaemonRuntime::initialize()
                     std::chrono::system_clock::now().time_since_epoch())
                     .count();
             SearchTimerCurrentBackendGeneration generations(
-                *backendAgentRepository_, now);
+                *backendAgentRepository_);
             const auto liveGeneration =
                 generations.currentGeneration(request.backendId);
             if (!liveGeneration.has_value()) return result;
@@ -1821,8 +1824,10 @@ bool DaemonRuntime::initialize()
                     vdrsuite::operations::MutationOperationState::accepted &&
                 operation.backendGeneration == agent->backendGeneration)
             {
+                SearchTimerCurrentBackendGeneration generations(
+                *backendAgentRepository_);
                 SearchTimerCreateDispatchService dispatch(
-                    *mutationOperationRepository_);
+                    *mutationOperationRepository_, generations);
                 SearchTimerCreateDispatchRequest command;
                 command.operationId = operation.operationId;
                 command.actorId = request.actorRef;
@@ -3982,7 +3987,7 @@ bool DaemonRuntime::initialize()
             // provider epochs or a backend generation mismatch.
             admission.revalidateSourceAndNativeSpecification =
                 [this, selection, observed, original = detail,
-                    agent = *agent, provider = *provider]() {
+                    agent = *agent, provider = *provider, candidate]() {
                     if (!backendRegistryService_ || !backendAccessPolicy_ ||
                         !backendAgentRepository_ || !backendAgentCommandRepository_ ||
                         !backendAccessPolicy_->canWriteToBackend(
@@ -4020,8 +4025,19 @@ bool DaemonRuntime::initialize()
                             liveAgent->backendGeneration,
                             kBackendAgentNativeTimerCreateAuthorityDomain,
                             kBackendAgentNativeTimerCreateCapability, why);
-                    return liveProvider &&
-                        backendAgentLocalProviderSameFence(*liveProvider, provider);
+                    if (!liveProvider ||
+                        !backendAgentLocalProviderSameFence(*liveProvider, provider))
+                        return false;
+                    // Recheck the CURRENT Agent and provider, not only the
+                    // pre-preview copy. A revoke, expired lease, stale
+                    // heartbeat or capability loss during CLOCK/preview must
+                    // not be admitted as a fresh TimerIntent/Assignment.
+                    const auto validatedAt =
+                        std::chrono::duration_cast<std::chrono::seconds>(
+                            std::chrono::system_clock::now().time_since_epoch())
+                            .count();
+                    return currentNativeTimerCreateExecutionAuthority(
+                        *liveAgent, *liveProvider, candidate, validatedAt);
                 };
 
             TimerIntentApplicationService application(
@@ -4168,6 +4184,11 @@ bool DaemonRuntime::initialize()
                 request.limit > 100U ||
                 (request.afterBackendId.empty() !=
                  request.afterChannelId.empty()) ||
+                request.afterChannelNumber < 0 ||
+                (request.afterBackendId.empty() &&
+                 request.afterChannelNumber != 0) ||
+                (request.nativeChannelOrder &&
+                 !request.relativeToChannelId.empty()) ||
                 (!request.relativeToChannelId.empty() &&
                  (request.backendIds.size() != 1U ||
                   request.limit != 1U ||
@@ -4302,9 +4323,11 @@ bool DaemonRuntime::initialize()
             std::sort(
                 result.channels.begin(),
                 result.channels.end(),
-                [](const PublicChannelCollectionItem& lhs,
-                   const PublicChannelCollectionItem& rhs)
+                [&request](const PublicChannelCollectionItem& lhs,
+                           const PublicChannelCollectionItem& rhs)
                 {
+                    if (request.nativeChannelOrder)
+                        return publicVdrChannelNumberLess(lhs, rhs);
                     if (lhs.backendId != rhs.backendId)
                         return lhs.backendId < rhs.backendId;
                     return lhs.channelId < rhs.channelId;
@@ -4318,7 +4341,11 @@ bool DaemonRuntime::initialize()
                     request.afterBackendId.empty() ||
                     channel.backendId > request.afterBackendId ||
                     (channel.backendId == request.afterBackendId &&
-                     channel.channelId > request.afterChannelId);
+                     (request.nativeChannelOrder ?
+                        (channel.channelNumber > request.afterChannelNumber ||
+                         (channel.channelNumber == request.afterChannelNumber &&
+                          channel.channelId > request.afterChannelId)) :
+                        channel.channelId > request.afterChannelId));
                 if (afterCursor)
                     eligible.push_back(std::move(channel));
             }

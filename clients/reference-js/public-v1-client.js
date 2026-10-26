@@ -249,10 +249,11 @@
     }
 
     if (query.sort !== undefined) {
-      if (query.sort !== 'backendId,channelId') {
-        throw new Error('channel query sort must be backendId,channelId');
+      if (query.sort !== 'backendId,channelId' &&
+          query.sort !== 'backendId,channelNumber,channelId') {
+        throw new Error('unsupported Channel collection ordering');
       }
-      parts.push('sort=backendId,channelId');
+      parts.push('sort=' + query.sort);
     }
 
     if (query.order !== undefined) {
@@ -563,6 +564,38 @@
   }
 
 
+
+  // Global administrator view: pending, unexpired pairings only.
+  function devicePairingAdministrationQuery(query) {
+    const input = query && typeof query === 'object' && !Array.isArray(query)
+      ? query : {};
+    const allowed = new Set(['limit', 'cursor', 'sort', 'order']);
+    Object.keys(input).forEach(function (key) {
+      if (!allowed.has(key)) throw new Error('unsupported pairing query field: ' + key);
+    });
+    const params = new URLSearchParams();
+    if (input.limit !== undefined) {
+      if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 100)
+        throw new Error('pairing limit must be 1–100');
+      params.set('limit', String(input.limit));
+    }
+    if (input.cursor !== undefined) {
+      if (typeof input.cursor !== 'string' ||
+          !/^dp1_[A-Za-z0-9_-]{1,1024}$/.test(input.cursor))
+        throw new Error('invalid opaque pairing cursor');
+      params.set('cursor', input.cursor);
+    }
+    if (input.sort !== undefined) {
+      if (input.sort !== 'pairingRequestId') throw new Error('invalid pairing sort');
+      params.set('sort', input.sort);
+    }
+    if (input.order !== undefined) {
+      if (input.order !== 'asc') throw new Error('invalid pairing order');
+      params.set('order', input.order);
+    }
+    const encoded = params.toString();
+    return encoded ? '?' + encoded : '';
+  }
 
   function devicePairingItemPath(options) {
     if (!options || typeof options !== 'object' || Array.isArray(options)) {
@@ -1226,6 +1259,25 @@
 
         return requestDevicePairingCreate(payload, normalizedOptions);
       },
+      listDevicePairingsForAdmin(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        return request('/api/v1/device-pairings' +
+          devicePairingAdministrationQuery(input.query), input);
+      },
+      getDevicePairingForAdmin(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        if (input.pairingToken !== undefined)
+          throw new Error('administrator pairing read must not carry a bootstrap token');
+        return requestRevisioned(devicePairingItemPath(input), input);
+      },
+      decideDevicePairingForAdmin(options) {
+        const input = options && typeof options === 'object' ? options : {};
+        if (input.pairingToken !== undefined ||
+            (input.decision !== 'approve' && input.decision !== 'reject'))
+          throw new Error('invalid administrator pairing decision');
+        return requestAccountMutation(devicePairingItemPath(input),
+          {decision: input.decision}, input);
+      },
       getDevicePairing(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         if (typeof normalizedOptions.pairingToken !== 'string'
@@ -1332,6 +1384,17 @@
             normalizedOptions.backendId === '' ||
             typeof normalizedOptions.active !== 'boolean') {
           throw new Error('Device Grant permission, backendId and active are required');
+        }
+        // Mirror DeviceGrantAdministrationService's exact-backend fence
+        // before issuing HTTP, while preserving wildcard read grants.
+        if ([
+          'timers.create', 'timers.modify', 'timers.delete',
+          'searchtimers.create', 'searchtimers.modify',
+          'searchtimers.execute', 'searchtimers.delete'
+        ].includes(normalizedOptions.permission) &&
+            (['*', '.', '..'].includes(normalizedOptions.backendId) ||
+              !/^[A-Za-z0-9_.-]{1,128}$/.test(normalizedOptions.backendId))) {
+          throw new Error('Device Grant requires a concrete backendId');
         }
         return requestAccountMutation(
           deviceGrantPath(normalizedOptions),

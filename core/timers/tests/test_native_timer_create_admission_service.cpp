@@ -16,6 +16,7 @@
 #include "TimerIntentRepository.h"
 
 #include <cassert>
+#include <stdexcept>
 #include <string>
 
 using namespace vdrsuite::operations;
@@ -758,6 +759,29 @@ void test_epg_public_atomic_admission_and_replay()
     missingAuthority.revalidateSourceAndNativeSpecification = {};
     assert(afterRestart.admit(missingAuthority).status ==
         AtomicAdmissionStatus::backendUnavailable);
+
+    // A provider failure inside the final source/Agent authority callback
+    // must roll back BEGIN IMMEDIATE and leave the database usable for the
+    // same request when backend evidence becomes available again.
+    Fixture callbackFailure;
+    TimerIntentApplicationService callbackApplication(
+        callbackFailure.intents, callbackFailure.assignments,
+        callbackFailure.bindings);
+    EpgTimerIntentAtomicAdmissionService callbackCoordinator(
+        callbackFailure.database, callbackFailure.intents,
+        callbackFailure.assignments, callbackApplication,
+        callbackFailure.admission);
+    auto throwing = request;
+    throwing.revalidateSourceAndNativeSpecification = []() -> bool {
+        throw std::runtime_error("simulated source/provider failure");
+    };
+    assert(callbackCoordinator.admit(throwing).status ==
+        AtomicAdmissionStatus::backendUnavailable);
+    assert(!callbackFailure.database.transactionActive());
+    throwing.revalidateSourceAndNativeSpecification = [] { return true; };
+    assert(callbackCoordinator.admit(throwing).status ==
+        AtomicAdmissionStatus::prepared);
+    assert(!callbackFailure.database.transactionActive());
 
     // Failure after intent and assignment INSERT must leave neither one
     // committed, and must not reserve an Operation/idempotency alias.

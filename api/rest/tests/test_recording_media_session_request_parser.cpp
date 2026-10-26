@@ -245,5 +245,16 @@ int main()
         assert(legacy.valid && !legacy.deviceMediaProfileRequested);
     }
 
+    const auto optIn = RecordingMediaSessionRequestParser().parse(
+        ValidRequest.substr(0,ValidRequest.rfind('}')) +
+        ",\"nativeMediaAccess\":true}");
+    assert(optIn.valid && optIn.nativeMediaAccessRequested);
+    const auto optOut = RecordingMediaSessionRequestParser().parse(
+        ValidRequest.substr(0,ValidRequest.rfind('}')) +
+        ",\"nativeMediaAccess\":false}");
+    assert(optOut.valid && !optOut.nativeMediaAccessRequested);
+    assert(!RecordingMediaSessionRequestParser().parse(
+        ValidRequest.substr(0,ValidRequest.rfind('}')) +
+        ",\"nativeMediaAccess\":\"yes\"}").valid);
     return 0;
 }

@@ -126,10 +126,15 @@ constexpr std::size_t PublicChannelMaximumLimit = 100U;
 constexpr std::size_t PublicChannelMaximumSources = 16U;
 constexpr const char* PublicChannelCollectionSort =
     "backendId,channelId";
+constexpr const char* PublicChannelCollectionNativeSort =
+    "backendId,channelNumber,channelId";
 constexpr const char* PublicChannelCollectionOrder = "asc";
 constexpr const char* PublicChannelCursorPrefix = "ch1_";
 constexpr const char* PublicChannelCursorPayloadVersion =
     "channels/1|";
+constexpr const char* PublicChannelNumberCursorPrefix = "ch2_";
+constexpr const char* PublicChannelNumberCursorPayloadVersion =
+    "channels-number/1|";
 
 bool isPublicV1Path(const std::string& path)
 {
@@ -1501,6 +1506,7 @@ struct PublicChannelCollectionQuery
     std::size_t limit = PublicChannelDefaultLimit;
     std::size_t backendCount = 0U;
     std::string cursor;
+    bool nativeChannelOrder = false;
     std::string relativeToChannelId;
     std::string direction;
 };
@@ -1581,9 +1587,13 @@ bool parsePublicChannelCollectionQuery(
         }
         else if (key == "sort")
         {
-            if (sortSeen || value != PublicChannelCollectionSort)
+            if (sortSeen ||
+                (value != PublicChannelCollectionSort &&
+                 value != PublicChannelCollectionNativeSort))
                 return false;
             sortSeen = true;
+            query.nativeChannelOrder =
+                value == PublicChannelCollectionNativeSort;
         }
         else if (key == "order")
         {
@@ -2034,6 +2044,62 @@ PublicChannelCursorDecodeStatus decodePublicChannelCursor(
     return PublicChannelCursorDecodeStatus::ok;
 }
 
+// Independent keyset cursor for native channels.conf sequence. The old ch1_
+// cursor remains unchanged and cannot be supplied to this sort.
+std::string publicChannelNumberCursor(
+    const std::string& backendScope,
+    const std::string& lastBackendId,
+    int lastChannelNumber,
+    const std::string& lastChannelId)
+{
+    if (backendScope.empty() || lastBackendId.empty() ||
+        lastChannelNumber < 0 || lastChannelId.empty()) return "";
+    std::string payload(PublicChannelNumberCursorPayloadVersion);
+    appendCursorField(payload, backendScope);
+    appendCursorField(payload, lastBackendId);
+    appendCursorField(payload, std::to_string(lastChannelNumber));
+    appendCursorField(payload, lastChannelId);
+    return std::string(PublicChannelNumberCursorPrefix) + hexEncode(payload);
+}
+
+PublicChannelCursorDecodeStatus decodePublicChannelNumberCursor(
+    const std::string& cursor,
+    const std::string& backendScope,
+    std::string& lastBackendId,
+    int& lastChannelNumber,
+    std::string& lastChannelId)
+{
+    const std::string prefix(PublicChannelNumberCursorPrefix);
+    if (cursor.size() <= prefix.size() ||
+        cursor.compare(0U, prefix.size(), prefix) != 0)
+        return PublicChannelCursorDecodeStatus::invalid;
+    std::string payload;
+    if (!hexDecode(cursor.substr(prefix.size()), payload))
+        return PublicChannelCursorDecodeStatus::invalid;
+    const std::string version(PublicChannelNumberCursorPayloadVersion);
+    if (payload.compare(0U, version.size(), version) != 0)
+        return PublicChannelCursorDecodeStatus::invalid;
+    std::size_t position = version.size();
+    std::string cursorScope;
+    std::string number;
+    if (!readCursorField(payload, position, cursorScope) ||
+        !readCursorField(payload, position, lastBackendId) ||
+        !readCursorField(payload, position, number) ||
+        !readCursorField(payload, position, lastChannelId) ||
+        position != payload.size() ||
+        lastBackendId.empty() || lastBackendId.size() > 128U ||
+        lastChannelId.empty() || lastChannelId.size() > 256U ||
+        number.empty() || (number.size() > 1U && number.front() == '0'))
+        return PublicChannelCursorDecodeStatus::invalid;
+    std::size_t parsedNumber = 0U;
+    if (!decimalSize(number, parsedNumber) || parsedNumber > 2147483647U)
+        return PublicChannelCursorDecodeStatus::invalid;
+    if (cursorScope != backendScope)
+        return PublicChannelCursorDecodeStatus::scopeMismatch;
+    lastChannelNumber = static_cast<int>(parsedNumber);
+    return PublicChannelCursorDecodeStatus::ok;
+}
+
 std::string publicEpgWindowCursor(
     const PublicEpgWindowQuery& query,
     const PublicEpgWindowResult& result)
@@ -2194,7 +2260,8 @@ std::string publicAccountCollectionTarget(
 std::string publicChannelCollectionTarget(
     std::vector<std::string> backendIds,
     std::size_t limit,
-    const std::string& cursor)
+    const std::string& cursor,
+    bool nativeChannelOrder)
 {
     std::sort(backendIds.begin(), backendIds.end());
     std::string target(PublicChannelCollectionPath);
@@ -2204,7 +2271,8 @@ std::string publicChannelCollectionTarget(
         target += backendIds[index];
     }
     target += "&limit=" + std::to_string(limit) +
-        "&sort=" + PublicChannelCollectionSort +
+        "&sort=" + std::string(nativeChannelOrder ?
+            PublicChannelCollectionNativeSort : PublicChannelCollectionSort) +
         "&order=" + PublicChannelCollectionOrder;
     if (!cursor.empty())
         target += "&cursor=" + cursor;
@@ -4722,8 +4790,10 @@ ApiResponse publicDeviceGrantSetResponse(
             jsonEscape(grantSet.grants[i].backendId) + "\"}";
     }
     body += "],\"supportedPermissions\":["
-        "\"channels.view\",\"recordings.view\",\"epg.view\",\"timers.view\",\"timers.create\","
-        "\"searchtimers.view\",\"searchtimers.create\","
+        "\"channels.view\",\"recordings.view\",\"epg.view\",\"timers.view\","
+        "\"timers.create\",\"timers.modify\",\"timers.delete\","
+        "\"searchtimers.view\",\"searchtimers.create\",\"searchtimers.modify\","
+        "\"searchtimers.execute\",\"searchtimers.delete\","
         "\"media.live.play\",\"media.recording.play\"]}";
     ApiResponse result = jsonResponse(body, requestId, correlationId);
     result.headers["ETag"] = etag;
@@ -5186,10 +5256,16 @@ ApiResponse publicChannelCollectionResponse(
 {
     const std::string nextCursor =
         page.hasMore && !page.channels.empty()
-            ? publicChannelCursor(
-                backendScope,
-                page.channels.back().backendId,
-                page.channels.back().channelId)
+            ? (query.nativeChannelOrder ?
+                publicChannelNumberCursor(
+                    backendScope,
+                    page.channels.back().backendId,
+                    page.channels.back().channelNumber,
+                    page.channels.back().channelId) :
+                publicChannelCursor(
+                    backendScope,
+                    page.channels.back().backendId,
+                    page.channels.back().channelId))
             : std::string();
 
     if (page.hasMore && nextCursor.empty())
@@ -5201,7 +5277,8 @@ ApiResponse publicChannelCollectionResponse(
     const std::string self =
         query.relativeToChannelId.empty() ?
             publicChannelCollectionTarget(
-                backendIds, query.limit, query.cursor) :
+                backendIds, query.limit, query.cursor,
+                query.nativeChannelOrder) :
             std::string(PublicChannelCollectionPath) +
                 "?backendId=" + backendIds.front() +
                 "&limit=1&relativeTo=" + query.relativeToChannelId +
@@ -5212,7 +5289,8 @@ ApiResponse publicChannelCollectionResponse(
             : publicChannelCollectionTarget(
                 backendIds,
                 query.limit,
-                nextCursor);
+                nextCursor,
+                query.nativeChannelOrder);
 
     bool partial = false;
     std::string body = "{\"items\":[";
@@ -5627,14 +5705,17 @@ bool PublicApiRuntime::tryHandleChannelCollectionGet(
             normalizedPublicChannelBackendScope(normalizedBackends);
         std::string afterBackendId;
         std::string afterChannelId;
+        int afterChannelNumber = 0;
         if (!query.cursor.empty())
         {
             const PublicChannelCursorDecodeStatus cursorStatus =
-                decodePublicChannelCursor(
-                    query.cursor,
-                    backendScope,
-                    afterBackendId,
-                    afterChannelId);
+                query.nativeChannelOrder ?
+                    decodePublicChannelNumberCursor(
+                        query.cursor, backendScope, afterBackendId,
+                        afterChannelNumber, afterChannelId) :
+                    decodePublicChannelCursor(
+                        query.cursor, backendScope, afterBackendId,
+                        afterChannelId);
             if (cursorStatus == PublicChannelCursorDecodeStatus::scopeMismatch)
             {
                 response = cursorExpiredProblem(
@@ -5656,6 +5737,8 @@ bool PublicApiRuntime::tryHandleChannelCollectionGet(
         request.backendIds = normalizedBackends;
         request.afterBackendId = afterBackendId;
         request.afterChannelId = afterChannelId;
+        request.afterChannelNumber = afterChannelNumber;
+        request.nativeChannelOrder = query.nativeChannelOrder;
         request.relativeToChannelId = query.relativeToChannelId;
         request.direction = query.direction;
         request.limit = query.limit;
@@ -5721,19 +5804,24 @@ bool PublicApiRuntime::tryHandleChannelCollectionGet(
 
                 std::string previousBackend = afterBackendId;
                 std::string previousChannel = afterChannelId;
-                for (const PublicChannelCollectionItem& channel :
-                     page.channels)
+                int previousNumber = afterChannelNumber;
+                for (const PublicChannelCollectionItem& channel : page.channels)
                 {
+                    const bool wrongOrder = !previousBackend.empty() &&
+                        (channel.backendId < previousBackend ||
+                         (channel.backendId == previousBackend &&
+                          (query.nativeChannelOrder ?
+                           (channel.channelNumber < previousNumber ||
+                            (channel.channelNumber == previousNumber &&
+                             channel.channelId <= previousChannel)) :
+                           channel.channelId <= previousChannel)));
                     if (channel.backendId.empty() ||
                         channel.channelId.empty() ||
+                        (query.nativeChannelOrder && channel.channelNumber < 0) ||
                         !std::binary_search(
                             normalizedBackends.begin(),
                             normalizedBackends.end(),
-                            channel.backendId) ||
-                        (!previousBackend.empty() &&
-                         (channel.backendId < previousBackend ||
-                          (channel.backendId == previousBackend &&
-                           channel.channelId <= previousChannel))))
+                            channel.backendId) || wrongOrder)
                     {
                         response = serviceUnavailableProblem(
                             path, requestId, correlationId);
@@ -5741,6 +5829,7 @@ bool PublicApiRuntime::tryHandleChannelCollectionGet(
                     }
                     previousBackend = channel.backendId;
                     previousChannel = channel.channelId;
+                    previousNumber = channel.channelNumber;
                 }
 
                 response = publicChannelCollectionResponse(

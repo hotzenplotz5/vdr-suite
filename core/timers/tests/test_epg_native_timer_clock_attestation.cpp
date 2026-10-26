@@ -77,6 +77,34 @@ void testNativeTimerClockAttestationFromTypedSvdrpReply()
         assert(reason == "native_timer_clock_attestation_stale_or_invalid");
         assert(!evidence.current);
 
+        // Repeat the server-owned authority check against the CURRENT Agent,
+        // not the copy captured before CLOCK / preview. A revoked Agent, an
+        // expired lease or stale heartbeat may retain the same identity and
+        // backend generation and must still fail the final admission gate.
+        assert(vdrsuite::public_epg_timer::
+            currentNativeTimerCreateExecutionAuthority(
+                agent, provider, candidate, Now));
+        auto liveAfterPreview = agent;
+        liveAfterPreview.revoked = true;
+        assert(!vdrsuite::public_epg_timer::
+            currentNativeTimerCreateExecutionAuthority(
+                liveAfterPreview, provider, candidate, Now));
+        liveAfterPreview = agent;
+        liveAfterPreview.incompatible = true;
+        assert(!vdrsuite::public_epg_timer::
+            currentNativeTimerCreateExecutionAuthority(
+                liveAfterPreview, provider, candidate, Now));
+        liveAfterPreview = agent;
+        liveAfterPreview.leaseExpiresAt = Now;
+        assert(!vdrsuite::public_epg_timer::
+            currentNativeTimerCreateExecutionAuthority(
+                liveAfterPreview, provider, candidate, Now));
+        liveAfterPreview = agent;
+        liveAfterPreview.lastHeartbeatAt = Now - 91;
+        assert(!vdrsuite::public_epg_timer::
+            currentNativeTimerCreateExecutionAuthority(
+                liveAfterPreview, provider, candidate, Now));
+
         const SuiteBridgeCommandReply otherEpoch{
             SuiteBridgeTransportStatus::Success, 900,
             "vdr-suite-ntcreate-clock/1 vdr.timer.create 1 "

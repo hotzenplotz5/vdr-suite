@@ -124,6 +124,22 @@ int main()
     assert(read.body.find("recordings.view") != std::string::npos);
     assert(read.body.find("epg.view") != std::string::npos);
     assert(read.body.find("timers.create") != std::string::npos);
+    const auto supported = read.body.find("\"supportedPermissions\":[");
+    assert(supported != std::string::npos);
+    const std::string advertised = read.body.substr(supported);
+    const char* expectedPermissions[] = {
+        "channels.view", "recordings.view", "epg.view", "timers.view",
+        "timers.create", "timers.modify", "timers.delete",
+        "searchtimers.view", "searchtimers.create", "searchtimers.modify",
+        "searchtimers.execute", "searchtimers.delete",
+        "media.live.play", "media.recording.play",
+    };
+    for (const char* permission : expectedPermissions)
+        assert(advertised.find(std::string("\"") + permission + "\"") !=
+            std::string::npos);
+    assert(advertised.find("\"role.admin\"") == std::string::npos);
+    assert(advertised.find("\"accounts.grants.modify\"") ==
+        std::string::npos);
     assert(read.body.find("role.admin") == std::string::npos);
     assert(read.body.find("credentialSecret") == std::string::npos);
 

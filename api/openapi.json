@@ -3,7 +3,7 @@
   "info": {
     "title": "VDR-Suite Public API v1 — source-verified selected contract subset",
     "version": "1.0.0",
-    "description": "PARTIAL developer reference, source cross-checked against main 8d8dcfbf26d0b6760ad81dc4b2af4fbbd15d55b0 (2026-10-11). Documents original Phase69.F resources plus Human Account lifecycle/CREATE, grant desired-state read/write, Device pairing/approval/credential issuance, Device grant administration, Device/Credential revoke and one-time credential rotation, plus Human Account Credential/Browser Session metadata and item revoke, authorized Recording keyset/folder browse, recording genre facets and EPG now/next cached reads. This is not full current API coverage, complete account/device administration coverage, or installed daemon/VIDAA runtime acceptance."
+    "description": "PARTIAL developer reference, audited against selected runtime and SecurityHttpGate source paths; a current full-release commit and complete hardware acceptance are not implied. Documents original Phase69.F resources plus Human Account lifecycle/CREATE, grant desired-state read/write, Device pairing/approval/credential issuance, Device grant administration, Device/Credential revoke and one-time credential rotation, plus Human Account Credential/Browser Session metadata and item revoke, authorized Recording keyset/folder browse, recording genre facets and EPG now/next cached reads. This is not full current API coverage, complete account/device administration coverage, or installed daemon/VIDAA runtime acceptance."
   },
   "x-vdr-suite-coverage": "partial",
   "tags": [
@@ -600,7 +600,7 @@
         ],
         "operationId": "listPublicChannels",
         "summary": "List Channels from explicitly selected and authorized VDR backends",
-        "description": "An authenticated actor must provide 1–16 distinct backendId query members. Each requested source is independently authorized with channels.view@backend; one denial rejects the entire request, before collection evaluation. The order is (backendId ASC, channelId ASC). The opaque ch1_-prefixed cursor binds the normalized backend source set and last item; source-set mismatch returns 409 cursor_expired. A 200 response may be partial: meta.sources gives all requested sources, and unavailable sources are not silently hidden. At least one source must succeed for a 200; all unavailable yields 503 backend_unavailable. The response has Cache-Control: no-store and no collection ETag. No legacy /api/vdr/channels fallback is permitted by this contract. An optional bounded adjacent-channel query (relativeTo+direction+limit=1 with exactly one backendId and no cursor/sort/order) uses enabled nonradio VDR channelNumber ordering with cyclic wrap. Existing ch1_ ID-ordered pages remain unchanged. Unknown current channel or no other eligible TV channel returns 404.",
+        "description": "An authenticated actor must provide 1–16 distinct backendId query members. Each requested source is independently authorized with channels.view@backend; one denial rejects the entire request, before collection evaluation. The default order is (backendId ASC, channelId ASC). Explicit sort=backendId,channelNumber,channelId provides the numeric VDR channels.conf order per backend with a stable channelId tie-break. The complete source list is sorted BEFORE applying the bounded limit. The old ch1_ cursor remains for the default ID order; the numeric mode uses independent ch2_ cursors. Both opaque cursors bind the normalized backend scope and last item; source-set mismatch returns 409 cursor_expired. A 200 response may be partial: meta.sources gives all requested sources, and unavailable sources are not silently hidden. At least one source must succeed for a 200; all unavailable yields 503 backend_unavailable. The response has Cache-Control: no-store and no collection ETag. No legacy /api/vdr/channels fallback is permitted by this contract. An optional bounded adjacent-channel query (relativeTo+direction+limit=1 with exactly one backendId and no cursor/sort/order) uses enabled nonradio VDR channelNumber ordering with cyclic wrap. Existing ch1_ ID-ordered pages remain unchanged. Unknown current channel or no other eligible TV channel returns 404.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "channels.view for every explicitly requested backendId",
@@ -654,10 +654,10 @@
             "name": "sort",
             "in": "query",
             "required": false,
-            "description": "Exact required order of keyset fields.",
+            "description": "Optional keyset sort. Legacy ID order is the default; native channel-number ordering uses separate ch2_ cursors and is not interchangeable with legacy ch1_ cursors.",
             "schema": {
               "type": "string",
-              "const": "backendId,channelId",
+              "enum": ["backendId,channelId", "backendId,channelNumber,channelId"],
               "default": "backendId,channelId"
             }
           },
@@ -2020,10 +2020,11 @@
             "name": "operationId",
             "in": "path",
             "required": true,
-            "description": "Opaque durable Operation ID; only the owning actor may inspect its resource.",
+            "description": "Opaque durable Operation ID; the persisted lookup also accepts historical identifiers up to 160 bytes rather than only the format of newly issued op_ IDs. Only the owning actor may inspect it.",
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 160
             }
           },
           {
@@ -11104,7 +11105,17 @@
               "type": "string",
               "enum": [
                 "channels.view",
+                "recordings.view",
+                "epg.view",
                 "timers.view",
+                "timers.create",
+                "timers.modify",
+                "timers.delete",
+                "searchtimers.view",
+                "searchtimers.create",
+                "searchtimers.modify",
+                "searchtimers.execute",
+                "searchtimers.delete",
                 "media.live.play",
                 "media.recording.play"
               ]

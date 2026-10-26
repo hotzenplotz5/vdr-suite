@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <filesystem>
 #include <fcntl.h>
 #include <iostream>
 #include <mutex>
@@ -131,6 +132,10 @@ constexpr std::size_t STREAM_WRITER_MAX_PENDING = 4;
 constexpr std::size_t DEVICE_EVENT_WRITER_THREADS = 4;
 constexpr std::size_t DEVICE_EVENT_MAX_PENDING = 4;
 constexpr auto STREAM_FIRST_DATA_TIMEOUT = std::chrono::seconds(5);
+// Unlike transient SO_SNDTIMEO wakes, continuous lack of write progress
+// cannot be retried forever: it occupies a finite stream worker and
+// propagates backpressure through the FIFO to the single native receiver.
+constexpr auto STREAM_CLIENT_NO_PROGRESS_TIMEOUT = std::chrono::seconds(15);
 constexpr auto STREAM_POLL_INTERVAL = std::chrono::milliseconds(100);
 
 timeval socketTimeoutValue(std::chrono::milliseconds timeout)
@@ -583,9 +588,12 @@ private:
         return stopping_;
     }
 
-    bool writeStreamAll(int socketFd, const char* data, std::size_t size) const
+    bool writeStreamAll(
+        int socketFd, const char* data, std::size_t size,
+        const std::string& workspaceCorrelation) const
     {
         std::size_t offset = 0;
+        auto lastProgress = std::chrono::steady_clock::now();
         while (offset < size) {
             if (stopping()) return false;
 
@@ -596,17 +604,27 @@ private:
                 noSignalSendFlags());
             if (written > 0) {
                 offset += static_cast<std::size_t>(written);
+                lastProgress = std::chrono::steady_clock::now();
                 continue;
             }
             if (written < 0 && errno == EINTR) continue;
             if (written < 0 &&
                 (errno == EAGAIN || errno == EWOULDBLOCK)) {
-                // Long-lived media streams deliberately obey browser/network
-                // backpressure. The per-client SO_SNDTIMEO is a wake-up bound,
-                // not a media inactivity deadline. Retry until the peer really
-                // disconnects or listener shutdown is requested.
-                continue;
+                // SO_SNDTIMEO is a wake-up bound, not a stream deadline.
+                // But a peer that never consumes bytes must release this
+                // worker and FIFO before the upstream receiver overflows.
+                if (std::chrono::steady_clock::now() - lastProgress <
+                    STREAM_CLIENT_NO_PROGRESS_TIMEOUT)
+                    continue;
+                std::cerr << "media_stream_terminal workspace="
+                          << workspaceCorrelation
+                          << " reason=client_send_no_progress" << std::endl;
+                return false;
             }
+            std::cerr << "media_stream_terminal workspace="
+                      << workspaceCorrelation
+                      << " reason=client_send_error errno="
+                      << (written < 0 ? errno : 0) << std::endl;
             return false;
         }
         return true;
@@ -627,6 +645,8 @@ private:
         const auto firstDataDeadline =
             std::chrono::steady_clock::now() + STREAM_FIRST_DATA_TIMEOUT;
         bool sawData = false;
+        const std::string correlation =
+            std::filesystem::path(job.streamPath).parent_path().filename().string();
         char buffer[64 * 1024];
 
         while (!stopping()) {
@@ -649,7 +669,8 @@ private:
                     if (!writeStreamAll(
                             job.socketFd,
                             buffer,
-                            static_cast<std::size_t>(received))) {
+                            static_cast<std::size_t>(received),
+                            correlation)) {
                         break;
                     }
                     continue;

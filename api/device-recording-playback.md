@@ -61,20 +61,22 @@ The sample bodies, session cookie semantics, indexed-duration safety and media r
 
 The OpenAPI subset and its scoped guard now cover these seven source-backed Device routes, with method/path and Device-gate anchors and negative drift tests. This is **not** exhaustive HTTP security-denial/runtime conformance, formal OpenAPI Schema verification or live playback acceptance. Remaining work includes real Device integration testing, media-byte gateway documentation and validating all deployed denial envelopes.
 
+## P1 acceptance: feature existence is not TV resume success (2026-10-25)
+
+The accepted **source** provides all four P1 pieces: Device progress GET/POST with current owned MediaSession and revision CAS, bounded authorized Continue Watching GET, explicit HLS-only positive start position on a new Recording MediaSession, and administrator-only Device-to-Human Account binding. **It does not automatically persist progress when a video is watched, display a Resume button, or make an unimplemented TV player seek.** A TV client must deliberately implement playback position sampling/stop write, a real progress read/offer, and a suitable session restart at the saved position. A plain GET 200 or Channel-list PASS is insufficient.
+
+The **single authoritative, route-by-route REAL-VDR/REAL-TV acceptance list** is [P1 in the cumulative matrix](../docs/development/public-v1-final-hardware-acceptance.md#p1--resume-continue-watching-und-geräteübergreifender-wiedereinstieg-konkrete-restabnahme-25102026). It covers single-device playback/progress/restart, Continue Watching, optional explicit administrator-created shared-account binding across two clients, media profile/position error paths and stale revision/authorization failures. Already accepted 11 Playback-Account read tests are **not** to be repeated. Samsung S3.3 verifies real Channels only; AVPlay/recording playback/progress/resume are separate, still unimplemented Samsung-client slices. Prior Hisense TV availability constraints apply to Hisense, not the proved Samsung read result. No live Account modification, grant change, media start or other write is authorized by this documentation.
+
 ## Back
 
 - [API entrypoint](README.md)
 - [Documentation index](../docs/index.md)
 
-## P1 recording-progress source candidate (2026-10-23)
+## P1 recording-progress merged-source contract (2026-10-23; PR #524)
 
 `GET /api/v1/recording-playback-sessions/continue-watching?backendId=...`
 returns `{backendId, items: [{recordingId, positionSeconds, durationSeconds,
-resumeSupport}], limit: 50}`. This list is scoped to the Device's own
-Service actor. Entries are reconciled against current recording truth and
-re-admitted through the existing exact-backend Device playback authorization
-before projection. Missing/deleted or unpermitted recordings are omitted.
-No Human Account identity or stored Metadata/Artwork is duplicated.
+resumeSupport}], limit: 50}`. Without explicit administrator-created Device-to-Human Account binding this list is scoped to the Device's own Service actor. With an active binding it projects the existing Human Account actor's Continue Watching state only when the Device **and** Human Account still have the relevant exact-backend playback grants. Entries are reconciled against current recording truth and re-admitted through the existing Device playback authorization before projection. Missing/deleted or unpermitted recordings are omitted. No Human Account identity or stored Metadata/Artwork is duplicated.
 
 
 `GET /api/v1/recording-playback-sessions/progress?backendId=...&recordingId=rec_...`
@@ -94,14 +96,9 @@ recording ID is never returned.
 Each writer uses read-current-revision/compare-and-swap semantics. A stale
 writer receives 409 with `currentRevision`; exact operation replay is idempotent,
 but modified replays conflict. Browser-CSRF sessions and invented Human/Device
-relationships cannot access these Device routes. The Device's own Service
-actor owns these positions. **Cross-Device Human Account sharing remains
-unimplemented** pending explicit Device-to-Account authorization and selection.
-The established Browser Continue Watching owner is not replaced.
+relationships cannot access these Device routes. The Device's own Service actor owns unlinked positions; an explicitly bound, active Human Account actor owns linked positions, subject to current Device and Human playback grants. This is an implemented **source-level** sharing mechanism, not verified cross-device hardware playback. The established Browser Continue Watching owner is reused, not replaced.
 
-The source-only candidate has not passed the full CI and production integration
-gate as of this documentation edit. No installed yaVDR, real VDR or VIDAA
-acceptance may be inferred from it.
+[PR #524](https://github.com/hotzenplotz5/vdr-suite/pull/524) merged on 2026-10-23 at `052350714f5b5904a969158925cb05d8f39aed78`; the merged source includes the production Device/Browser callback bindings, tests, OpenAPI and reference client. This does **not** prove the installed yaVDR build, a complete production-HTTP/Browser↔Device/VIDAA end-to-end run or the final combined API-v1 acceptance. See the [one central matrix](../docs/development/public-v1-final-hardware-acceptance.md).
 
 
 ### Public-v1 client start-at linkage
@@ -117,7 +114,7 @@ position past the verified duration receives 422. A progress checkpoint
 does not automatically create a media session and a media session does
 not automatically update confirmed playback progress.
 
-### Explicit Human Account binding for shared resume (P1 source candidate)
+### Explicit Human Account binding for shared resume (P1 merged source)
 
 The Device's canonical Service Actor is never a Human Account. An authorized
 Browser administrator uses `GET /api/v1/devices/{deviceId}/playback-account`
@@ -140,8 +137,7 @@ either grant, the Device Credential, the Device, the Account or the explicit
 binding prevents subsequent linked progress operations. An unlinked Device
 is restricted to its separate Service-actor history.
 
-This remains **source-candidate behavior** until exact-head CI and real HTTP
-admission tests pass; no Browser, VIDAA or real-yaVDR acceptance is implied.
+This behavior is **source-merged**, but complete current-HEAD production HTTP integration and Browser↔Device/VIDAA/real-yaVDR acceptance remain separately unverified; no client or hardware acceptance is implied.
 
 ### Existing Browser Continue Watching concurrency (P1)
 

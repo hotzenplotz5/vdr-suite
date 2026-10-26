@@ -5,6 +5,7 @@
 #include "MutationOperationRepository.h"
 #include "SearchTimerCreateOperationPayload.h"
 #include "SearchTimerCreateRequest.h"
+#include "SearchTimerCreateDeviceAdmissionService.h"
 #include "SearchTimerCreateResult.h"
 #include "SearchTimerQuery.h"
 #include "SearchTimerResult.h"
@@ -91,8 +92,9 @@ bool correctOperation(
 }
 
 SearchTimerCreateDispatchService::SearchTimerCreateDispatchService(
-    vdrsuite::operations::MutationOperationRepository& operations)
-    : operations_(operations)
+    vdrsuite::operations::MutationOperationRepository& operations,
+    const ISearchTimerBackendGenerationAuthority& generations)
+    : operations_(operations), generations_(generations)
 {
 }
 
@@ -150,6 +152,19 @@ SearchTimerCreateDispatchResult SearchTimerCreateDispatchService::dispatchOnce(
             : result(SearchTimerCreateDispatchStatus::unavailable, operation);
     }
 
+    // A retained accepted operation is not authority to send a POST to a
+    // restarted backend. Validate live generation before the inventory read.
+    try
+    {
+        const auto live = generations_.currentGeneration(operation.backendId);
+        if (!live || *live != operation.backendGeneration)
+            return result(SearchTimerCreateDispatchStatus::unavailable, operation);
+    }
+    catch (...)
+    {
+        return result(SearchTimerCreateDispatchStatus::unavailable, operation);
+    }
+
     const SearchTimerCreateRequest command = commandFor(operation, payload);
     std::unordered_set<std::string> existingIds;
     // Before dispatch, get an authoritative, unpaged backend snapshot.
@@ -172,6 +187,20 @@ SearchTimerCreateDispatchResult SearchTimerCreateDispatchService::dispatchOnce(
     catch (...)
     {
         return result(SearchTimerCreateDispatchStatus::notReady, operation);
+    }
+
+    // The inventory fetch itself can span an Agent restart. Re-check the
+    // server-owned generation immediately before consuming the one-shot CAS;
+    // otherwise an accepted pre-restart operation could create on a successor.
+    try
+    {
+        const auto live = generations_.currentGeneration(operation.backendId);
+        if (!live || *live != operation.backendGeneration)
+            return result(SearchTimerCreateDispatchStatus::unavailable, operation);
+    }
+    catch (...)
+    {
+        return result(SearchTimerCreateDispatchStatus::unavailable, operation);
     }
 
     // ONLY an exact successful CAS can cause the single backend CREATE.
@@ -247,6 +276,20 @@ SearchTimerCreateDispatchResult SearchTimerCreateDispatchService::dispatchOnce(
         verified = false;
     }
     if (!verified) return unknown(unverified.operation);
+
+    // A matching post-POST inventory is not proof from the original backend
+    // when its Agent generation changed during the request/readback. Preserve
+    // uncertainty; never certify success on a successor backend.
+    try
+    {
+        const auto live = generations_.currentGeneration(operation.backendId);
+        if (!live || *live != operation.backendGeneration)
+            return unknown(unverified.operation);
+    }
+    catch (...)
+    {
+        return unknown(unverified.operation);
+    }
 
     const auto completed = operations_.transition(
         operation.operationId, unverified.operation.operationRevision,

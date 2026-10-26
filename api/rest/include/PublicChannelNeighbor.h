@@ -11,6 +11,19 @@
 #include <string>
 #include <vector>
 
+// Shared authoritative VDR channels.conf ordering for numeric Channel pages
+// and CH+/CH-; backend identity is the first key for federated reads.
+inline bool publicVdrChannelNumberLess(
+    const PublicChannelCollectionItem& lhs,
+    const PublicChannelCollectionItem& rhs)
+{
+    if (lhs.backendId != rhs.backendId)
+        return lhs.backendId < rhs.backendId;
+    if (lhs.channelNumber != rhs.channelNumber)
+        return lhs.channelNumber < rhs.channelNumber;
+    return lhs.channelId < rhs.channelId;
+}
+
 inline std::optional<PublicChannelCollectionItem> findPublicVdrChannelNeighbor(
     const std::vector<PublicChannelCollectionItem>& channels,
     const std::string& currentChannelId,
@@ -33,9 +46,7 @@ inline std::optional<PublicChannelCollectionItem> findPublicVdrChannelNeighbor(
         [](const PublicChannelCollectionItem* left,
            const PublicChannelCollectionItem* right)
         {
-            if (left->channelNumber != right->channelNumber)
-                return left->channelNumber < right->channelNumber;
-            return left->channelId < right->channelId;
+            return publicVdrChannelNumberLess(*left, *right);
         });
 
     const auto current = std::find_if(

@@ -119,6 +119,16 @@ ApiResponse PublicRecordingDeviceMediaSessionResponse::afterActivation(
         ",\"resume\":{\"supported\":" +
         (ready.resumeSupported ? "true" : "false") +
         ",\"preparing\":" + (ready.resumePreparing ? "true" : "false") +
-        "}}}}";
+        "}}}";
+    if (ready.nativeMediaAccessRequested) {
+        // The same session-specific bearer already accepted by the MediaGateway,
+        // never the long-lived Device credential. Explicitly opted-in Device
+        // clients can attach this to a native HTTP player without leaking it
+        // into the URL or loosening the existing browser HttpOnly cookie.
+        result.body += ",\"nativeMediaAccess\":{\"transport\":\"http-cookie\",\"cookie\":\"" +
+            std::string(MediaAccessCredentialHttp::CookieName) + "=" +
+            ready.mediaCredential + "\"}";
+    }
+    result.body += "}";
     return result;
 }

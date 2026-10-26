@@ -269,6 +269,11 @@ SuiteBridgeCommandReply SuiteBridgeLocalControlTransport::execute(
    return fail(
        SuiteBridgeTransportStatus::Unavailable,
        "local control operation not migrated");
+  case SuiteBridgeLocalCommand::VideoDirectory:
+   // VPATH 1 is a read-only SVDRP command, not a local control operation.
+   return fail(
+       SuiteBridgeTransportStatus::Unavailable,
+       "video directory discovery requires SVDRP transport");
  }
  return fail(SuiteBridgeTransportStatus::Failed,"unknown local command");
 }

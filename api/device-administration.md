@@ -76,11 +76,37 @@ user confirmation; a 412 forces a read-only refresh, never an automatic
 mutation retry. `timers.create` and `searchtimers.create` cannot be
 granted to `*`.
 
+**Webfrontend-Aktualisierung (PR #539):** Unter `Einstellungen` werden
+`Wartende Geräte` und `Gekoppelte Geräte (TV & Apps)` beim Öffnen
+und danach alle zehn Sekunden automatisch lesend abgefragt, solange
+die Seite sichtbar ist. Unveränderte Ergebnisse behalten Auswahl und
+Berechtigungseditor. Beim Verlassen der Einstellungen endet der
+Polling-Lebenszyklus; in ausgeblendeten Browsertabs gibt es keine
+Netzwerkabfragen. Bei manuell aufgeblätterten Listen mit mehr als einer
+Seite bleibt die erweiterte Liste erhalten, statt im Hintergrund durch
+die erste Seite ersetzt zu werden. Die Schaltfläche
+`Anfragen aktualisieren` bleibt als manueller Fallback vorhanden.
+**Es gibt keinerlei automatische Genehmigung, Freigabe oder Änderung von
+Berechtigungen.** Die Browser-Session und vorhandene CSRF-/ETag-Prüfung
+bleiben die einzigen Berechtigungswege.
+
 Web UI minimum: account administration must remain unchanged, and the
 device admin must never infer a VIDAA Device from a Human session. This
 matches the basic product expectation of separately manageable paired TV
 clients (Kodi/Plex offer managed client/user authorization flows; their
 exact menus and per-backend grant semantics have not been verified here).
+
+## Samsung pairing, duplicate identities and polling — observed on real TV (2026-10-25)
+
+The Samsung Tizen 5.5 client completed pairing, one-time credential activation and a real authenticated Channel read. A VS Code Tizen `Run Project` reinstall/update caused the client to report **“Kein gespeichertes Device-Credential”** on its next test. The older Service Device remained active in the server inventory, but its former client-held secret was no longer available to that installation. A newly approved and activated pairing resulted in **a second** `Samsung TV · VDR-Suite` entry; the two display names are not unique IDs, and the older Device is **not** automatically reactivated or reused.
+
+The new Device initially lacked the required `channels.view` grant, as proved by the TV's empty accessible-Backend state. The administrator then granted `channels.view@default` to the **new** Device and the client loaded 20 real channels. Grant state for the old Device does not automatically migrate. **Do not infer Device-specific authorization from identical display names or from an apparently selected row in the browser UI.** Always use the canonical Device identity and its own grant-set read/revision.
+
+**Ten-second admin polling:** PR #539 implements read-only refresh while Settings remains visible. In this session, the new Device eventually appeared, but the precise refresh interval was **not measured**; seeing the entry later is not proof of a ten-second SLA. Verify visibility/tab lifecycle, preservation of the selected Device, and per-Device grant-editor identity in focused UI tests before calling that part hardware-accepted.
+
+**Device-Aufräumfunktion (Frontend-Kandidat, Hardware noch offen):** In `Einstellungen → Gekoppelte Geräte (TV & Apps)` kennzeichnet die Ansicht gleichnamige Geräte durch ihre **Device-ID**. `Gerät entfernen` widerruft ausschließlich die exakt ausgewählte Device-Identität durch den bestehenden `GET/POST /api/v1/devices/{deviceId}/lifecycle`-Vertrag mit frischem Lifecycle-ETag, ausdrücklicher Browserbestätigung, Admin-Session und CSRF. Das ist **kein physisches Löschen**: Der Server behält historische Device-Datensätze für Nachvollziehbarkeit; widerrufene Einträge werden standardmäßig ausgeblendet und können über `Widerrufene anzeigen` wieder eingeblendet werden. Der Widerruf macht **alle Credentials dieses Geräts** ungültig, kann nicht rückgängig gemacht werden und sollte erst nach Abgleich der aktuellen TV-Device-ID ausgeführt werden. Gleiche Anzeigenamen sind kein Beweis für ein altes Gerät. Es gibt weder Sammellöschung noch automatische Widerrufe oder Grant-Übertragung. Source-/CI-Evidenz und realer Browser-/TV-Abnahmestatus bleiben getrennt.
+
+For acceptance status and cross-client overlap, use the [single cumulative hardware matrix](../docs/development/public-v1-final-hardware-acceptance.md). A Samsung Tizen pairing test says nothing about independent VIDAA playback/secure storage acceptance.
 
 ## 3. Read a Device's grants
 
@@ -90,19 +116,24 @@ GET /api/v1/devices/{deviceId}/grants
 
 Requires global `devices.grants.view@*`. The returned representation contains `deviceId`, the Device's dedicated Service `actorId`, normalized `items` tuples, and `supportedPermissions`. A strong opaque Device grant-set ETag is returned. `If-None-Match` may yield bodyless 304. The grant-set ETag is **not** the Device, Credential or Human Account revision.
 
-The supported grant permissions currently are exactly:
+The supported Device grants are the following reviewed permissions:
 
 - `channels.view`
 - `recordings.view` (read-only Public-v1 recording search)
 - `epg.view` (read-only Public-v1 EPG search and Now/Next)
 - `timers.view`
-- `timers.create` (one EPG-selected native Timer intent, explicit backend only; available as a grant before productive admission is wired)
+- `timers.create` (EPG-selected native Timer intent)
+- `timers.modify` (modify/toggle one authorized native Timer)
+- `timers.delete` (delete one authorized native Timer)
 - `searchtimers.view` (SearchTimer list and preview, independently of EPG read)
-- `searchtimers.create` (CREATE only on an explicit backend, never `*`)
+- `searchtimers.create` (inactive SearchTimer CREATE; RESTfulAPI one-shot, not epgsearch-native atomic CAS)
+- `searchtimers.modify` (native generation-fenced SearchTimer update/deactivation)
+- `searchtimers.execute` (explicit SearchTimer activation)
+- `searchtimers.delete` (native generation-fenced SearchTimer deletion)
 - `media.live.play`
 - `media.recording.play`
 
-No `role.admin`, `role.read-only`, `accounts.*`, `remote.control` or arbitrary strings are allowed here. Grant `backendId` is an explicit product Backend identity or the configured wildcard `*`, **except** `timers.create` and `searchtimers.create`, both of which require an exact concrete backend.
+No `role.admin`, `role.read-only`, `accounts.*`, `remote.control` or arbitrary strings are allowed here. Grant `backendId` is an explicit product Backend identity or the configured wildcard `*`, **except** `timers.create`, `timers.modify`, `timers.delete`, `searchtimers.create`, `searchtimers.modify`, `searchtimers.execute` and `searchtimers.delete`, which require an exact concrete backend. Grant availability is not proof of currently connected backend capability or real-hardware acceptance.
 
 ## 4. Ensure or revoke one grant
 
@@ -147,3 +178,28 @@ durable, idempotent SearchTimer one-shot operation. This is distinct
 from Suite TimerAssignments and native VDR Timer CREATE. Browser
 sessions and legacy paths never inherit paired Device CREATE rights.
 A 202 response is an Operation, not guaranteed backend recording.
+
+## Webfrontend: wartende Gerätekopplungen
+
+Unter **Einstellungen → Wartende Geräte** liest die Human-Admin-Sitzung die
+ausstehenden, nicht abgelaufenen Anfragen über
+`GET /api/v1/device-pairings?limit=25&sort=pairingRequestId&order=asc`.
+Die Anzeige von vorhandenen Geräten bleibt unabhängig davon verfügbar.
+Mit **Anfragen aktualisieren** wird erneut gelesen; bei mehreren Seiten erfolgt
+die Navigation ausschließlich mit dem vom Server ausgegebenen `dp1_`-Cursor.
+
+Bei **Genehmigen** oder **Ablehnen** liest der Browser das betreffende
+Administrator-Item **erneut**, prüft dessen unveränderte Metadaten,
+verlangt die ausdrückliche Bestätigung und entscheidet per `POST` mit
+`If-Match`, vorhandener Human-Admin-Browsersitzung und CSRF-Header.
+Eine 409/410/412/428 löst **keinen** automatischen Schreib-Retry aus.
+Die Liste enthält absichtlich **weder Kopplungscode noch Pairing-Token**;
+nur selbst angestoßene Geräte anhand Gerätename/Typ/Ablaufzeit genehmigen.
+
+Eine Genehmigung stellt **noch keine Geräteidentität und keine Rechte** aus.
+Der TV muss anschließend `Status prüfen` und `Gerät aktivieren` ausführen;
+danach sind Device-Grants getrennt zu vergeben. Kein VDR-/Backend-Agent-Neustart
+ist Bestandteil des Kopplungsvorgangs.
+
+Status: Webfrontend-Kandidat implementiert; Deployment und realer Browser-/TV-Test
+sind separat zu bestätigen.

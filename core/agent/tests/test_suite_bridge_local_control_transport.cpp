@@ -596,6 +596,16 @@ int main()
         SuiteBridgeLocalCommand::OsdSnapshot).transportSucceeded());
     assert(osdCompatibility.calls.load() == 1);
 
+    // VPATH 1 is handled by the SVDRP transport, never the local socket.
+    const auto videoDirectoryReply =
+        osdMissing.execute(SuiteBridgeLocalCommand::VideoDirectory);
+    assert(videoDirectoryReply.transportStatus ==
+        SuiteBridgeTransportStatus::Unavailable);
+    assert(videoDirectoryReply.replyCode == 0);
+    assert(videoDirectoryReply.payload.empty());
+    assert(videoDirectoryReply.diagnostic ==
+        "video directory discovery requires SVDRP transport");
+
     const std::string osdInputPath =
         "/tmp/vdr-suite-osd-input-control-" +
         std::to_string(getpid()) + ".sock";

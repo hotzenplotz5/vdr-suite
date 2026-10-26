@@ -1,5 +1,13 @@
 # VDR-Suite New Chat Handoff
 
+## API-v1 Dokumentations-Closeout – neuester Stand 24.10.2026
+
+**Zuerst lesen:** [CURRENT](CURRENT.md), die **einzige** [Public-v1-Hardware-Abnahmematrix](development/public-v1-final-hardware-acceptance.md#eine-zentrale-ergebnis-matrix--kumulativer-stand-24102026-keine-endfreigabe) und den [Evidenz-/Dokumentations-Closeout](development/public-api-v1-documentation-closeout-20261024.md). PR #536 (historische echte Hardware-PASS) und PR #537 (Operation-ID-Runner-Fix) sind in der bestätigten Ausgangsbasis `main 56c5eb021a37ee8ddaab2dc00306a2545e1d56e2` enthalten. Aktuellen `main` dennoch live ablesen.
+
+**NICHT wiederholen:** Native Timer CREATE/UPDATE/TOGGLE OFF/ON/DELETE 21.10.; EPG→TimerIntent native CREATE 19.10.; Phase-69.C Idempotenz/Revision/Restart als historischer PASS; Recording RENAME/MOVE/DELETE der **bereits gelöschten** *Brisant*-Fixture 21.10.; direkter SearchTimer-RESTfulAPI-CRUD mit Readback; bewiesene GET-/Security-/Device-/Human-Fälle. Nur konkrete neue Hardware-/Build-/ABI-/Public-v1-S1-CAS-/Boot-/Rollback-Pfade bleiben releaserelevant. Vier **andere** `outcome_unknown` niemals redispatchen oder in SQLite manuell korrigieren. SearchTimer CREATE hat nach wie vor keine native epgsearch-lock-atomare CREATE-CAS-Garantie und braucht eine explizite Release-Scope-Entscheidung; Marks/Cut ist als eigenständiges Public-v1-Schreibfeature nicht nachgewiesen. OpenAPI ist `partial`.
+
+**TV ist NICHT verfügbar:** Alle neuen Hisense-/VIDAA-/Device-Media-/Browser↔Device-/Resume-E2E-Tests `BLOCKED: TV_ACCESS_UNAVAILABLE`. Erst auf ausdrückliche Mitteilung des Betreibers fortsetzen; kein Pairing, Credential/Grant-Wechsel oder Browser-Admin als Device-Ersatz. **API-V1-RELEASE bleibt BLOCKED**, trotz akzeptierter Hardware-PASS und Dokumentationsabschluss. Keine Installation, kein Build, kein Neustart, keine produktiven Mutationen ohne separate Freigabe. Phase 70 NOT STARTED.
+
 ## Purpose
 
 This is the canonical operational entry point for every new VDR-Suite chat.
@@ -8,8 +16,7 @@ This is the canonical operational entry point for every new VDR-Suite chat.
 
 For the completed Public-v1 Recording R1/R2/R3 scope, read the
 [2026-10-21 real-yaVDR closeout](development/public-v1-recording-r2r3-hardware-acceptance-20261021.md).
-The next Public-v1 work is **ADR-0068's behavior-preserving router
-modularization checkpoint**, not a rerun of the deleted Brisant fixture.
+The ADR-0068 router checkpoint and R1–P1 source sequence are **already completed/merged**. P1 PR #524 was merged at `052350714f5b5904a969158925cb05d8f39aed78`; the Public API v1 Unified Acceptance Runner PR #526 was merged at `096a04ad0e6a4eb2555292929d1373df549780bc`. **Current next action: Public API v1 Integrationsabschluss** against actual runtime composition and the [one central hardware matrix](development/public-v1-final-hardware-acceptance.md), not a new slice or repeated Brisant fixture. A source-merged runner is not accepted real-VDR hardware evidence. The SearchTimer CREATE RESTfulAPI/non-native-CAS restriction and Browser↔Device/VIDAA playback remain open; historical `outcome_unknown` writes must not be repeated.
 Actual branch/PR and deployed state must still be checked live; other Device,
 Multiuser, MLD and Addon workstreams remain separate.
 

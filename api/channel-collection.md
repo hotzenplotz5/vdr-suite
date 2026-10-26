@@ -76,6 +76,24 @@ Items use `backendId ASC, channelId ASC`; the source order in the query is norma
 
 A `409 cursor_expired` means the requested backend scope changed: throw away the old cursor and start again with the first page. Pagination is not a frozen snapshot, and no retry should silently switch to legacy routes.
 
+## Additive native VDR `channels.conf` collection order — implementation candidate (2026-10-25)
+
+The **legacy** default and explicit `sort=backendId,channelId&order=asc` contract remains byte-compatible: `backendId ASC, channelId ASC`, with opaque `ch1_` keyset cursors. Clients already using it do not change behavior.
+
+New **opt-in** list ordering in the source candidate:
+
+```http
+GET /api/v1/channels?backendId=default&limit=20&sort=backendId,channelNumber,channelId&order=asc
+```
+
+For each backend, the entire available VDR Channel snapshot is sorted by numeric `channelNumber ASC` (VDR's channel position from `channels.conf`), then `channelId ASC` as a deterministic tie-break. Multiple selected authorized backends are grouped by `backendId ASC` first. **The server orders before slicing**, so the first 20 results are the earliest 20 VDR positions, not 20 arbitrary IDs later rearranged by a TV client. Non-TV entries remain part of the collection if present, matching the existing API's inclusion semantics; the separate eligible-TV neighbor operation below intentionally skips disabled/radio entries. Number is a mutable attribute, **never a new public Channel identity**.
+
+The native-sort mode uses an independent opaque `ch2_` keyset cursor carrying source scope, last backend, last numeric position and last channel ID; callers must pass the *same* numeric `sort` and backend set on subsequent pages. `ch1_` and `ch2_` cursors **cannot** be interchanged: wrong mode -> `400 invalid_request`. A mismatched backend scope -> `409 cursor_expired`. Each request reads current VDR snapshots; like the legacy collection, this is **not a frozen snapshot**: if a channel is moved/renumbered between pages, callers may need to restart from the first page. Only ascending order is supported. Default limit 50, range 1–100, 1–16 explicitly scoped backends, no implicit selection or authorization relaxation.
+
+Existing `channels.view@backend` for **every** requested source, partial-backend metadata, no ETag and failure semantics are unchanged. The VDR-Suite JS reference client accepts the opt-in sort; Samsung should use it to fix the real-world S3.3 first-page order **only after the daemon serving this option is deployed**.
+
+**Evidence boundary:** The earlier Samsung Tizen 5.5 hardware run proved the old ID-ordered first page can display 20 real channels, not that this new order has been served by the installed daemon. This change is a source/test candidate until its CI, integration and a read-only real Samsung TV cross-page check pass. The user must not be asked to run an unsupported sort against an older installed backend. See the [one central Public-v1 acceptance matrix](../docs/development/public-v1-final-hardware-acceptance.md).
+
 ## Additive numeric VDR-neighbor operation (October 2026 candidate)
 
 The original Channel collection above **retains** its stable `ch1_` cursor

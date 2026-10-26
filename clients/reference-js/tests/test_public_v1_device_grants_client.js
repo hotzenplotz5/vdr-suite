@@ -48,6 +48,24 @@ async function run() {
     permission: 'channels.view', backendId: 'default', active: true
   });
 
+  for (const permission of [
+    'timers.create', 'timers.modify', 'timers.delete',
+    'searchtimers.create', 'searchtimers.modify',
+    'searchtimers.execute', 'searchtimers.delete'
+  ]) {
+    assert.throws(() => client.setDeviceGrant({
+      deviceId: 'device_10001', permission,
+      backendId: '*', active: true, ifMatch: etag
+    }), /concrete backendId/);
+  }
+  for (const invalid of ['', '.', '..', 'foo/bar']) {
+    assert.throws(() => client.setDeviceGrant({
+      deviceId: 'device_10001', permission: 'timers.modify',
+      backendId: invalid, active: true, ifMatch: etag
+    }), /concrete backendId|are required/);
+  }
+  assert.strictEqual(sent.length, 2,
+    'Invalid Device grant scopes must not send HTTP');
   assert.throws(() => client.getDeviceGrants({deviceId: '../../bad'}));
   assert.throws(() => client.setDeviceGrant({
     deviceId: 'device_10001', permission: 'channels.view',
