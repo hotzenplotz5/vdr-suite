@@ -679,26 +679,30 @@ build-media-tools-agent-composition-test:
 # sudo make install-media-tools only consumes independently reviewed bytes.
 MEDIA_TOOLS_WORKDIR ?= $(CURDIR)/.build/media-tools-prepared
 MEDIA_TOOLS_STAGE ?= $(MEDIA_TOOLS_WORKDIR)/stage-with-media-tools
+MEDIA_TOOLS_BASE_STAGE ?=
+MEDIA_TOOLS_WORKER_DIR ?= $(BUILD_DIR)/addons
+MEDIA_TOOLS_WORKER_SOURCE_COMMIT ?=
 
 .PHONY: prepare-media-tools stage-media-tools install-media-tools test-install-media-tools-payload
+# Reuse the already sealed Suite stage and already compiled add-on workers.
+# Deliberately no call to stage-install-runtime, daemon or backend-agent.
 prepare-media-tools:
-	@test "$(id -u)" -ne 0 || { echo 'Build Media Tools as an unprivileged user' >&2; exit 1; }
-	@test ! -e "$(MEDIA_TOOLS_WORKDIR)" || { echo 'Prepared directory already exists; refuse overwrite' >&2; exit 1; }
-	@mkdir -p "$(dir $(MEDIA_TOOLS_WORKDIR))"
-	@mkdir -m 0700 "$(MEDIA_TOOLS_WORKDIR)"
-	@umask 077; git rev-parse HEAD > "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt"
-	$(MAKE) stage-install-runtime BUILD_DIR="$(MEDIA_TOOLS_WORKDIR)/build" RUNTIME_STAGE="$(MEDIA_TOOLS_WORKDIR)/stage"
-	$(MAKE) addon-media-import addon-media-check addon-media-shrink BUILD_DIR="$(MEDIA_TOOLS_WORKDIR)/build"
-	@echo "PREPARED_SOURCE_SHA=$(cat "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt")"
-	@sha256sum "$(MEDIA_TOOLS_WORKDIR)/build/addons/vdr-suite-media-import"
+	@test "$$(id -u)" -ne 0 || { echo 'Prepare Media Tools as an unprivileged user' >&2; exit 1; }
+	@test -n "$(MEDIA_TOOLS_BASE_STAGE)" || { echo 'MEDIA_TOOLS_BASE_STAGE required (reuse sealed Suite stage)' >&2; exit 1; }
+	@test -n "$(MEDIA_TOOLS_WORKER_SOURCE_COMMIT)" || { echo 'MEDIA_TOOLS_WORKER_SOURCE_COMMIT required (exact commit that built the workers)' >&2; exit 1; }
+	python3 -B tools/addons/prepare_media_tools_existing.py \
+		--base-stage "$(MEDIA_TOOLS_BASE_STAGE)" \
+		--worker-directory "$(MEDIA_TOOLS_WORKER_DIR)" \
+		--worker-source-commit "$(MEDIA_TOOLS_WORKER_SOURCE_COMMIT)" \
+		--output-workdir "$(MEDIA_TOOLS_WORKDIR)"
 
 stage-media-tools:
-	@test "$(id -u)" -ne 0 || { echo 'Seal Media Tools as an unprivileged user' >&2; exit 1; }
+	@test "$$(id -u)" -ne 0 || { echo 'Seal Media Tools as an unprivileged user' >&2; exit 1; }
 	@test -n "$(APPROVED_HANDLER_SHA256)" || { echo 'APPROVED_HANDLER_SHA256 required (independent review)' >&2; exit 1; }
 	@test -f "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt" || { echo 'Run make prepare-media-tools first' >&2; exit 1; }
 	@test -f "$(MEDIA_TOOLS_WORKDIR)/stage/.vdr-suite-install-runtime-manifest.json" || { echo 'Sealed base stage missing' >&2; exit 1; }
 	@test ! -e "$(MEDIA_TOOLS_STAGE)" || { echo 'Candidate sealed stage already exists; refuse overwrite' >&2; exit 1; }
-	@printf '%s\n%s\n' "$(cat "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt")" "$(APPROVED_HANDLER_SHA256)" > "$(MEDIA_TOOLS_WORKDIR)/candidate.txt"
+	@printf '%s\n%s\n' "$$(cat "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt")" "$(APPROVED_HANDLER_SHA256)" > "$(MEDIA_TOOLS_WORKDIR)/candidate.txt"
 	python3 tools/addons/stage_media_tools_runtime.py \
 		--prepared-workdir "$(MEDIA_TOOLS_WORKDIR)" \
 		--output-stage "$(MEDIA_TOOLS_STAGE)" \
@@ -709,6 +713,7 @@ install-media-tools:
 	python3 -B tools/addons/install_media_tools_payload.py \
 		--sealed-stage "$(MEDIA_TOOLS_STAGE)" \
 		--approved-handler-sha256 "$(APPROVED_HANDLER_SHA256)" \
+		--previous-approved-handler-sha256 "$(PREVIOUS_APPROVED_HANDLER_SHA256)" \
 		--live-root "$(LIVE_ROOT)"
 
 test-install-media-tools-payload:

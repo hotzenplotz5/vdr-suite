@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Install only a reviewed, sealed Media Tools payload; no init-system dependency.
 
-Never deploy a Suite daemon, Agent, frontend, config, database, media file or
-approval. Source staging/compilation is a separate unprivileged Make target.
-For live changes requiring worker replacement the operator must attest
-quiescence; no systemd, init scripts, package manager or service restart here.
+Never deploy a Suite daemon, Agent, frontend, database or media file.
+Only add-on files are installed. On explicitly authorized upgrades an existing
+manual root handler approval may be rotated after copying the worker files.
+Backend-scoped approvals and unrelated configuration are NEVER modified.
+Source preparation is separate and unprivileged. Worker replacement requires
+operator-confirmed quiescence; no init system or service restarts here.
 """
 from __future__ import annotations
 
@@ -97,27 +99,60 @@ def copy_atomic(source: Path, target: Path, mode: int) -> None:
         if temporary.exists():
             temporary.unlink()
 
-def approval_gate(root: Path, approved: str, owner: int) -> None:
-    path = root / "etc/vdr-suite/addon-approvals/rectools.json"
-    try:
-        info = file_info(path, owner)
-    except InstallError:
-        raise
+APPROVAL_REL = Path("etc/vdr-suite/addon-approvals/rectools.json")
+
+def approval_gate(root: Path, approved: str, owner: int, *,
+                  previous_sha256: str = "", rotate: bool = False):
+    """Review a root approval for explicit pin rotation; no writes."""
+    path = root / APPROVAL_REL
+    info = file_info(path, owner)
     if info is None:
-        return  # Initial staging never grants activation/approval.
+        ensure(not rotate and not previous_sha256, "cannot rotate absent root approval")
+        return None
     ensure(0 < info.st_size <= 4096, "invalid root approval size")
     try:
-        approval = json.loads(path.read_text(encoding="utf-8"))
-    except (ValueError, UnicodeError, OSError) as exc:
+        original = path.read_bytes()
+        approval = json.loads(original)
+    except (OSError, UnicodeError, ValueError) as exc:
         raise InstallError("invalid existing root approval") from exc
-    ensure(approval.get("id") == "rectools" and
+    ensure(isinstance(approval, dict) and
+           approval.get("id") == "rectools" and
            approval.get("package") == "vdr-suite-addon-media-tools" and
-           approval.get("state") == "approved" and
-           approval.get("sha256") == approved,
-           "root approval differs from candidate; separate approval required")
+           approval.get("state") == "approved",
+           "root approval is not a supported approved Media Tools record")
+    if approval.get("sha256") == approved:
+        ensure(not rotate and not previous_sha256, "rotation not required")
+        return None
+    ensure(rotate and len(previous_sha256) == 64 and
+           all(ch in "0123456789abcdef" for ch in previous_sha256),
+           "root approval differs; explicit reviewed update required")
+    ensure(approval.get("sha256") == previous_sha256,
+           "old approved handler digest does not match")
+    ensure(set(approval) == {"id", "origin", "package", "schemaVersion",
+                            "sha256", "state", "version"} and
+           approval.get("schemaVersion") == 1 and
+           approval.get("origin") == "manual",
+           "only canonical manual root approvals can be rotated")
+    ensure(original == (json.dumps(approval, sort_keys=True,
+             separators=(",", ":")) + "\n").encode("utf-8"),
+           "root approval is noncanonical")
+    old_handler = root / WORKER_REL / "vdr-suite-media-import"
+    ensure(file_info(old_handler, owner) is not None and
+           hash_file(old_handler) == previous_sha256,
+           "installed old handler bytes do not match old approval")
+    # Backend-specific approvals are not installation ownership or blocking
+    # dependencies. Only the root handler approval is in this transaction.
+    # Other backend pins remain unchanged; their independent authorization
+    # lifecycle must not prevent an add-on binary update.
+    successor = dict(approval)
+    successor["sha256"] = approved
+    return (json.dumps(successor, sort_keys=True,
+                       separators=(",", ":")) + "\n").encode("utf-8")
+
 
 def install(stage: Path, root: Path, approved: str, *, quiesced: bool = False,
-            require_quiescence: bool | None = None) -> str:
+            require_quiescence: bool | None = None,
+            previous_sha256: str = "", rotate_approval: bool = False) -> str:
     ensure(stage.is_absolute() and stage.is_dir() and not stage.is_symlink(),
            "absolute sealed stage required")
     ensure(root.is_absolute() and root.is_dir() and not root.is_symlink(),
@@ -128,7 +163,9 @@ def install(stage: Path, root: Path, approved: str, *, quiesced: bool = False,
         ensure(os.geteuid() == 0, "live installation requires root")
     owner = 0 if root == Path("/") else os.geteuid()
     record = verify_media_tools_stage(stage, approved)
-    approval_gate(root, approved, owner)
+    new_approval = approval_gate(root, approved, owner,
+                                 previous_sha256=previous_sha256,
+                                 rotate=rotate_approval)
 
     entries = record["files"]
     paths = sorted((*payload_roles().keys(), INVENTORY_REL.as_posix()))
@@ -157,11 +194,19 @@ def install(stage: Path, root: Path, approved: str, *, quiesced: bool = False,
             if rel.parts[:len(WORKER_REL.parts)] == WORKER_REL.parts and rel.name.startswith("vdr-suite-media-"):
                 worker_changes.append(raw)
 
+    if new_approval is not None:
+        grant = APPROVAL_REL.as_posix()
+        desired[grant] = {
+            "sha256": hashlib.sha256(new_approval).hexdigest(),
+            "size": len(new_approval),
+            "mode": stat.S_IMODE((root / APPROVAL_REL).stat().st_mode),
+        }
+        changed.append(grant)
     if not changed:
         return "MEDIA_TOOLS_INSTALL=ALREADY_CURRENT FILES=" + str(len(paths))
     if require_quiescence is None:
         require_quiescence = root == Path("/")
-    if require_quiescence and worker_changes:
+    if require_quiescence and (worker_changes or new_approval is not None):
         ensure(quiesced, "worker replacement requires operator-confirmed quiescence (MEDIA_TOOLS_QUIESCED=YES)")
 
     lock_path = root / "etc/vdr-suite/addon-approvals/rectools.import-running.lock"
@@ -178,6 +223,12 @@ def install(stage: Path, root: Path, approved: str, *, quiesced: bool = False,
             raise InstallError("Media Tools operation active; installation denied") from exc
 
     try:
+        if new_approval is not None:
+            ensure(lock_fd is not None,
+                   "approval rotation requires existing exclusive Media Tools lock")
+            ensure(new_approval == approval_gate(
+                root, approved, owner, previous_sha256=previous_sha256,
+                rotate=True), "root approval changed after obtaining lock")
         backup_parent = root / "root"
         ensure(backup_parent.is_dir() and not backup_parent.is_symlink(),
                "private backup parent missing")
@@ -200,7 +251,10 @@ def install(stage: Path, root: Path, approved: str, *, quiesced: bool = False,
                 entry = desired[raw]
                 frozen = reviewed / rel
                 frozen.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(source, frozen)
+                if rel == APPROVAL_REL:
+                    frozen.write_bytes(new_approval)
+                else:
+                    shutil.copyfile(source, frozen)
                 frozen.chmod(int(entry["mode"]))
                 ensure(hash_file(frozen) == entry["sha256"], "staging source drift: " + raw)
                 target = root / rel
@@ -214,7 +268,8 @@ def install(stage: Path, root: Path, approved: str, *, quiesced: bool = False,
                         "approved_handler_sha256": approved,
                         "source_commit": record["prepared_source_sha"],
                         "service_state": "UNCHANGED",
-                        "approval_state": "UNCHANGED"}
+                        "approval_state": ("ROTATED_WITH_BACKUP" if new_approval is not None else "UNCHANGED"),
+                        "previous_handler_sha256": previous_sha256 or None}
             (backup / "review.json").write_text(
                 json.dumps(evidence, sort_keys=True) + "\n", encoding="utf-8")
             (backup / "review.json").chmod(0o600)
@@ -250,7 +305,8 @@ def install(stage: Path, root: Path, approved: str, *, quiesced: bool = False,
             raise
         return ("MEDIA_TOOLS_INSTALL=PASS FILES_UPDATED=" + str(len(changed)) +
                 " BACKUP=" + str(backup) +
-                " SERVICES=UNCHANGED APPROVAL=UNCHANGED")
+                " SERVICES=UNCHANGED APPROVAL=" +
+                ("ROTATED" if new_approval is not None else "UNCHANGED"))
     finally:
         if lock_fd is not None:
             os.close(lock_fd)
@@ -260,11 +316,15 @@ def main() -> int:
     parser.add_argument("--sealed-stage", type=Path, required=True)
     parser.add_argument("--approved-handler-sha256", required=True)
     parser.add_argument("--live-root", type=Path, default=Path("/"))
+    parser.add_argument("--previous-approved-handler-sha256", default="")
     args = parser.parse_args()
     try:
         print(install(args.sealed_stage, args.live_root,
                       args.approved_handler_sha256,
-                      quiesced=os.environ.get("MEDIA_TOOLS_QUIESCED") == "YES"))
+                      quiesced=os.environ.get("MEDIA_TOOLS_QUIESCED") == "YES",
+                      previous_sha256=args.previous_approved_handler_sha256,
+                      rotate_approval=(os.environ.get("MEDIA_TOOLS_APPROVAL_ROTATION")
+                                       == "REVIEWED_UPDATE")))
         return 0
     except (InstallError, ValueError, OSError, RuntimeError,
             subprocess.TimeoutExpired) as exc:
