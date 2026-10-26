@@ -36,7 +36,8 @@ def regular_executable(path: Path) -> bool:
         return False
 
 
-def prepare(base: Path, workers: Path, output: Path) -> str:
+def prepare(base: Path, workers: Path, output: Path,
+            worker_source_sha: str) -> str:
     if os.geteuid() == 0:
         raise ValueError("prepare as an unprivileged user")
     for label, path in (("Suite stage", base), ("worker directory", workers)):
@@ -50,9 +51,21 @@ def prepare(base: Path, workers: Path, output: Path) -> str:
         raise ValueError("all three prebuilt, safe Media Tools workers required")
     result = subprocess.run(["git", "-C", str(REPO), "rev-parse", "HEAD"],
                             check=True, text=True, capture_output=True, timeout=10)
-    commit = result.stdout.strip()
-    if not re.fullmatch(r"[0-9a-f]{40}", commit):
-        raise ValueError("invalid source commit")
+    checkout = result.stdout.strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", checkout):
+        raise ValueError("invalid checkout commit")
+    if not re.fullmatch(r"[0-9a-f]{40}", worker_source_sha):
+        raise ValueError("exact previous worker source commit required")
+    # Reusing already built worker bytes is valid only when their C++ source,
+    # public interfaces and add-on metadata are byte-identical to checkout.
+    subprocess.run(["git", "-C", str(REPO), "merge-base", "--is-ancestor",
+                    worker_source_sha, checkout], check=True, timeout=10)
+    subprocess.run(["git", "-C", str(REPO), "diff", "--quiet",
+                    worker_source_sha, checkout, "--",
+                    "addons/media-tools/src", "addons/media-tools/include",
+                    "modules/rectools/addon.json"],
+                   check=True, timeout=10)
+    commit = worker_source_sha
     needed = sum(p.stat().st_size for p in base.rglob("*") if p.is_file())
     needed += sum((workers / name).stat().st_size for name in WORKERS)
     disk = shutil.disk_usage(output.parent)
@@ -92,9 +105,11 @@ def main() -> int:
     parser.add_argument("--base-stage", required=True, type=Path)
     parser.add_argument("--worker-directory", required=True, type=Path)
     parser.add_argument("--output-workdir", required=True, type=Path)
+    parser.add_argument("--worker-source-commit", required=True)
     args = parser.parse_args()
     try:
-        sha = prepare(args.base_stage, args.worker_directory, args.output_workdir)
+        sha = prepare(args.base_stage, args.worker_directory,
+                      args.output_workdir, args.worker_source_commit)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
         print("MEDIA_TOOLS_PREPARE=STOP " + str(exc), file=sys.stderr)
         return 1
