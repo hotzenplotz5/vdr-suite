@@ -272,8 +272,11 @@ int main()
     assert(!conflictDenied.allowed);
     assert(conflictDenied.reasonCode == "role_read_only");
 
+    // Existing human-facing read permissions are now reviewed administrator
+    // grants; an unknown future permission must still remain denied.
     const AuthorizationDecision adminCannotInventPermissions =
-        service.authorize(adminRole, recordingsViewRequest("default"));
+        service.authorize(adminRole,
+            permissionRequest("unreviewed.future.permission", "default"));
     assert(!adminCannotInventPermissions.allowed);
     assert(adminCannotInventPermissions.reasonCode == "permission_denied");
 
