@@ -327,7 +327,11 @@
       return request(backendId, false).then(function (result) {
         current = result;
         card.hidden = false;
-        sourceEditor.load();
+        // Do not fetch or show a source editor for an unverified provider.
+        // A trusted, currently installed worker may still be configured
+        // while the Agent is deliberately stopped for maintenance.
+        if (result.providerVerified === true) sourceEditor.load();
+        else sourceEditor.section.hidden = true;
         // A current, independently verified provider proves more than a
         // saved intent, but still says nothing about dpkg package ownership.
         const trusted = result.providerVerified === true;

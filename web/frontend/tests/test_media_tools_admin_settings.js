@@ -150,6 +150,9 @@ async function test() {
   const disabledEnable = unverified.elements.find(e => e.textContent === 'Aktivieren');
   assert.ok(disabledEnable && disabledEnable.disabled);
   assert.equal(unverified.requests.filter(r => r.options.method === 'POST').length, 0);
+  assert.equal(unverified.requests.filter(r =>
+    r.url.startsWith('/api/v1/addons/rectools/sources')).length, 0,
+    'unverified provider must not expose or request source configuration');
 
   // Byte-verified provider with a stale Agent generation is not activated.
   const staleBinding = harness(() => response(200, {

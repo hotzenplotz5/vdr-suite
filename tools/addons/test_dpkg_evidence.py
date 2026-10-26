@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
+from stage_media_tools_runtime import INVENTORY_REL, payload_roles
 
 from addon_contract import FILES, ROOT, stage
 from dpkg_evidence import examine
@@ -59,6 +60,70 @@ class DpkgEvidenceTests(unittest.TestCase):
         self.assertTrue(record["installed"])  # source metadata, NOT package trust
         self.assertNotIn("packageTrusted", record)
         return record["dpkgEvidence"]
+
+
+    def _write_stage_package_ledger(self):
+        """Eight synthetic sealed-stage paths in a disposable DESTDIR only."""
+        import stat
+        prepared_sha = "a" * 40
+        roles = payload_roles()
+        entries = {}
+        for relative, role in roles.items():
+            target = self.root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not target.exists():
+                if target.name == "addon.json":
+                    target.write_bytes((self.staged / "addon.json").read_bytes())
+                else:
+                    target.write_bytes(b"synthetic stage worker fixture: " +
+                                       target.name.encode("ascii"))
+            mode = 0o755 if role == "worker" else 0o644
+            target.chmod(mode)
+            body = target.read_bytes()
+            entries[relative] = {
+                "role": role, "sha256": hashlib.sha256(body).hexdigest(),
+                "size": len(body), "mode": mode
+            }
+        worker = "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import"
+        inventory = {
+            "schema": 1, "module": "rectools", "package": self.package,
+            "version": "0.1.0", "prepared_source_sha": prepared_sha,
+            "approved_handler_sha256": entries[worker]["sha256"],
+            "files": entries
+        }
+        inventory_file = self.root / INVENTORY_REL
+        inventory_file.write_text(json.dumps(inventory), encoding="utf-8")
+        payload = sorted(set(roles) | {INVENTORY_REL.as_posix()})
+        self._write_ledger(version="0.1.0~stage1+git" + prepared_sha[:12],
+                           architecture="amd64")
+        (self.info / (self.package + ".list")).write_text(
+            "/.\n/usr\n/usr/share\n" +
+            "".join("/" + p + "\n" for p in payload), encoding="utf-8")
+        (self.info / (self.package + ".md5sums")).write_text(
+            "".join(hashlib.md5((self.root / p).read_bytes()).hexdigest()
+                    + "  " + p + "\n" for p in payload), encoding="utf-8")
+
+    def test_sealed_stage_deb_ledger_is_diagnostic_only(self):
+        self._write_stage_package_ledger()
+        self.assertEqual(self._evidence(),
+                         {"consistent": True, "reason": "dpkg-ledger-consistent"})
+        self.assertEqual(plan_enable(self.root, "rectools", verify_dpkg=True)["decision"],
+                         "denied")
+
+    def test_stage_deb_requires_full_payload_and_matching_seal(self):
+        self._write_stage_package_ledger()
+        worker = self.root / "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import"
+        worker.write_bytes(b"altered worker")
+        self.assertEqual(self._evidence()["reason"], "stage-payload-checksum-mismatch")
+        self._write_stage_package_ledger()
+        inventory = self.root / INVENTORY_REL
+        contents = json.loads(inventory.read_text())
+        contents["prepared_source_sha"] = "b" * 40
+        inventory.write_text(json.dumps(contents))
+        self.assertEqual(self._evidence()["reason"], "stage-payload-checksum-mismatch")
+        self._write_stage_package_ledger()
+        self._write_ledger(version="0.1.0~stage1+git" + "a" * 12, architecture="all")
+        self.assertEqual(self._evidence()["reason"], "package-architecture-mismatch")
 
     def test_ledger_matches_but_never_activates(self):
         self.assertEqual(

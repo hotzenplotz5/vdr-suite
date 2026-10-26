@@ -8,11 +8,13 @@ Never map its result directly to RuntimeEvidence.packageTrusted.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import stat
 from pathlib import Path
 
 from addon_contract import FILES
+from stage_media_tools_runtime import INVENTORY_REL, payload_roles
 
 STATUS_LIMIT = 32 * 1024 * 1024
 LIST_LIMIT = 1024 * 1024
@@ -100,6 +102,62 @@ def _checksums(text: str) -> dict[str, str]:
     return result
 
 
+
+def _verify_sealed_stage_record(root: Path, version: str, package: str,
+                                owned: set[str], recorded: dict[str, str]) -> None:
+    """Stage-1 dpkg diagnostic: exact eight-file payload, never package trust."""
+    inventory_rel = INVENTORY_REL.as_posix()
+    try:
+        raw = _regular_data(root, inventory_rel, 65536)
+        inventory = json.loads(raw.decode("utf-8"))
+        if not isinstance(inventory, dict) or set(inventory) != {
+            "schema", "module", "package", "version", "prepared_source_sha",
+            "approved_handler_sha256", "files"
+        } or inventory["schema"] != 1 or inventory["module"] != "rectools" or (
+            inventory["package"] != package):
+            raise LedgerError("stage-inventory-invalid")
+        source_sha = inventory["prepared_source_sha"]
+        if not isinstance(source_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", source_sha):
+            raise LedgerError("stage-inventory-invalid")
+        if (version != inventory["version"] + "~stage1+git" + source_sha[:12] or
+                not re.fullmatch(r"[0-9a-f]{64}",
+                                 str(inventory["approved_handler_sha256"]))):
+            raise LedgerError("stage-inventory-mismatch")
+        roles = payload_roles()
+        if not isinstance(inventory["files"], dict) or set(inventory["files"]) != set(roles):
+            raise LedgerError("stage-inventory-invalid")
+        required = set(roles) | {inventory_rel}
+        if (not required.issubset({p.removeprefix("/") for p in owned}) or
+                not required.issubset(recorded)):
+            raise LedgerError("stage-payload-not-dpkg-owned")
+        if hashlib.md5(raw).hexdigest() != recorded[inventory_rel]:
+            raise LedgerError("stage-payload-checksum-mismatch")
+        for relative, role in roles.items():
+            details = inventory["files"][relative]
+            if (not isinstance(details, dict) or
+                    set(details) != {"role", "sha256", "size", "mode"} or
+                    details["role"] != role or
+                    not isinstance(details["size"], int) or
+                    not 0 < details["size"] <= 128 * 1024 * 1024 or
+                    not isinstance(details["mode"], int) or
+                    details["mode"] not in (0o644, 0o755) or
+                    not isinstance(details["sha256"], str) or
+                    not re.fullmatch(r"[0-9a-f]{64}", details["sha256"])):
+                raise LedgerError("stage-inventory-invalid")
+            body = _regular_data(root, relative, 128 * 1024 * 1024)
+            if (len(body) != details["size"] or
+                    stat.S_IMODE((root / relative).lstat().st_mode) != details["mode"] or
+                    hashlib.sha256(body).hexdigest() != details["sha256"] or
+                    hashlib.md5(body).hexdigest() != recorded[relative]):
+                raise LedgerError("stage-payload-checksum-mismatch")
+        worker = "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import"
+        if inventory["files"][worker]["sha256"] != inventory["approved_handler_sha256"]:
+            raise LedgerError("stage-inventory-mismatch")
+    except (OSError, UnicodeError, KeyError, TypeError, ValueError) as exc:
+        if isinstance(exc, LedgerError):
+            raise
+        raise LedgerError("stage-inventory-invalid") from exc
+
 def examine(root: Path, module: str, package: str, manifest_version: str) -> dict:
     """Compare package-owned metadata to one dpkg database in the SAME root.
 
@@ -125,13 +183,18 @@ def examine(root: Path, module: str, package: str, manifest_version: str) -> dic
         suffix = "~cpppreview1" if module == "rectools" else "~scaffold1"
         valid_versions = {manifest_version + "~scaffold1",
                           manifest_version + suffix}
-        if status.get("Version") not in valid_versions:
+        package_version = status.get("Version", "")
+        stage_package = module == "rectools" and bool(re.fullmatch(
+            re.escape(manifest_version) + r"~stage1\+git[0-9a-f]{12}",
+            package_version))
+        if package_version not in valid_versions and not stage_package:
             raise LedgerError("package-version-mismatch")
         if status.get("Architecture") not in ("all", "amd64", "arm64", "armhf", "i386"):
             raise LedgerError("unsupported-architecture")
         if status["Version"].endswith("~scaffold1") and status["Architecture"] != "all":
             raise LedgerError("package-architecture-mismatch")
-        if status["Version"].endswith("~cpppreview1") and status["Architecture"] == "all":
+        if (status["Version"].endswith("~cpppreview1") or stage_package) and (
+                status["Architecture"] == "all"):
             raise LedgerError("package-architecture-mismatch")
 
         owned = _file_list(
@@ -146,6 +209,8 @@ def examine(root: Path, module: str, package: str, manifest_version: str) -> dic
             actual = hashlib.md5(_regular_data(root, relative, 65536)).hexdigest()
             if actual != recorded[relative]:
                 raise LedgerError("metadata-checksum-mismatch")
+        if stage_package:
+            _verify_sealed_stage_record(root, package_version, package, owned, recorded)
         return {"consistent": True, "reason": "dpkg-ledger-consistent"}
     except (LedgerError, OSError, UnicodeError, ValueError) as exc:
         reason = exc.reason if isinstance(exc, LedgerError) else "invalid-dpkg-ledger"
