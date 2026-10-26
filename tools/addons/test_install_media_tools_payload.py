@@ -124,6 +124,97 @@ class PortableMediaToolsInstallTests(unittest.TestCase):
         self.assertTrue(approval_path.is_file())
         self.assertFalse((self.root / media.INVENTORY_REL).exists())
 
+    def make_previous_approval(self):
+        old_worker = write(self.root, (media.WORKER_REL /
+                           "vdr-suite-media-import").as_posix(),
+                           b"old-reviewed-handler", 0o755)
+        previous = digest(old_worker)
+        record = {"id": "rectools", "origin": "manual",
+                  "package": "vdr-suite-addon-media-tools",
+                  "schemaVersion": 1, "sha256": previous,
+                  "state": "approved", "version": "0.1.0"}
+        approval_path = write(self.root,
+                "etc/vdr-suite/addon-approvals/rectools.json",
+                (json.dumps(record, sort_keys=True, separators=(",", ":")) +
+                 "\n").encode(), 0o600)
+        write(self.root,
+              "etc/vdr-suite/addon-approvals/rectools.import-running.lock",
+              b"", 0o644)
+        return previous, approval_path
+
+    def test_explicit_live_update_rotates_canonical_approval(self):
+        previous, approval = self.make_previous_approval()
+        out = installer.install(self.stage, self.root, self.approved,
+                                previous_sha256=previous, rotate_approval=True,
+                                quiesced=True, require_quiescence=True)
+        self.assertIn("APPROVAL=ROTATED", out)
+        self.assertEqual(json.loads(approval.read_text())["sha256"], self.approved)
+        self.assertEqual(digest(self.root / media.WORKER_REL /
+                                "vdr-suite-media-import"), self.approved)
+        self.assertEqual((self.root / "var/lib/vdr-suite/vdr-suite.db").read_bytes(),
+                         b"DB untouched")
+
+    def test_update_rejects_without_old_sha_or_quiescence(self):
+        previous, approval = self.make_previous_approval()
+        snapshot = approval.read_bytes()
+        with self.assertRaisesRegex(installer.InstallError, "explicit reviewed"):
+            installer.install(self.stage, self.root, self.approved)
+        with self.assertRaisesRegex(installer.InstallError, "quiescence"):
+            installer.install(self.stage, self.root, self.approved,
+                              previous_sha256=previous, rotate_approval=True,
+                              require_quiescence=True)
+        self.assertEqual(approval.read_bytes(), snapshot)
+
+    def test_update_rejects_wrong_old_sha_and_backend_grant(self):
+        previous, approval = self.make_previous_approval()
+        with self.assertRaisesRegex(installer.InstallError, "old approved"):
+            installer.install(self.stage, self.root, self.approved,
+                              previous_sha256="0" * 64, rotate_approval=True,
+                              quiesced=True)
+        write(self.root, "etc/vdr-suite/addon-approvals/rectools.remote.json",
+              b"{}", 0o600)
+        with self.assertRaisesRegex(installer.InstallError, "backend-scoped"):
+            installer.install(self.stage, self.root, self.approved,
+                              previous_sha256=previous, rotate_approval=True,
+                              quiesced=True)
+        self.assertEqual(json.loads(approval.read_text())["sha256"], previous)
+
+    def test_update_failure_restores_old_approved_handler(self):
+        previous, approval = self.make_previous_approval()
+        before = approval.read_bytes()
+        real = installer.copy_atomic
+        count = [0]
+        def fail_after_some_writes(source, target, mode):
+            count[0] += 1
+            if count[0] == 3:
+                raise OSError("injected failed write")
+            return real(source, target, mode)
+        with mock.patch.object(installer, "copy_atomic", side_effect=fail_after_some_writes):
+            with self.assertRaisesRegex(installer.InstallError, "RESTORED_PREVIOUS_FILES"):
+                installer.install(self.stage, self.root, self.approved,
+                                  previous_sha256=previous, rotate_approval=True,
+                                  quiesced=True, require_quiescence=True)
+        self.assertEqual(approval.read_bytes(), before)
+        self.assertEqual(digest(self.root / media.WORKER_REL /
+                                "vdr-suite-media-import"), previous)
+
+    def test_prebuilt_prepare_reuses_stage_and_never_builds_suite(self):
+        from prepare_media_tools_existing import prepare
+        binaries = self.root / "prebuilt-workers"
+        binaries.mkdir()
+        for name in media.WORKERS:
+            shutil.copyfile(self.stage / media.WORKER_REL / name, binaries / name)
+            (binaries / name).chmod(0o755)
+        prepared = Path(self.temporary.name) / "prebuilt-output"
+        with mock.patch("prepare_media_tools_existing.os.geteuid", return_value=1000):
+            reused_hash = prepare(self.stage, binaries, prepared)
+        self.assertEqual(reused_hash, self.approved)
+        self.assertEqual((prepared / "stage/.vdr-suite-install-runtime-manifest.json").read_bytes(),
+                         (self.stage / ".vdr-suite-install-runtime-manifest.json").read_bytes())
+        self.assertEqual((prepared / "source-commit.txt").read_text().strip(),
+                         __import__("subprocess").check_output(
+                             ["git", "-C", str(REPO), "rev-parse", "HEAD"], text=True).strip())
+
     def test_symlinked_payload_is_rejected(self):
         location = self.root / media.WORKER_REL / "vdr-suite-media-import"
         location.parent.mkdir(parents=True)
@@ -170,6 +261,14 @@ class MediaToolsMakeRecipeTests(unittest.TestCase):
         self.assertEqual(source.count('"$(id -u)"'), 2)
         self.assertEqual(source.count(
             '$(cat "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt")'), 2)
+    def test_prepare_does_not_rebuild_daemon_or_agent(self):
+        text = (REPO / "mk/addons.mk").read_text(encoding="utf-8")
+        recipe = text.split("prepare-media-tools:", 1)[1].split(
+            "\nstage-media-tools:", 1)[0]
+        self.assertNotIn("stage-install-runtime", recipe.replace(
+            "# Deliberately no call to stage-install-runtime", ""))
+        self.assertIn("prepare_media_tools_existing.py", recipe)
+
 
 
 if __name__ == "__main__":
