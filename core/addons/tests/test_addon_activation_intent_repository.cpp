@@ -124,6 +124,24 @@ int main()
         forged, "agent-a", "instance-a", 19, std::string(64, 'a')));
     ++checks;
 
+    // Explicit "Deaktivieren" from an auto-enabled revision-zero install
+    // creates a durable override. Reconnection or agent restart must never
+    // revive that intentionally disabled backend.
+    const auto autoDisabled = store.update(actor,
+        {"rectools", "backend-autodefault", false, 0}, {}, {});
+    assert(autoDisabled.status == IntentStatus::ok &&
+           autoDisabled.intent.revision == 1 &&
+           !autoDisabled.intent.desiredEnabled);
+    assert(!mediaToolsActivationPermits(
+        autoDisabled.intent, "agent-a", "instance-a", 19,
+        std::string(64, 'a')));
+    const auto autoDisabledRead = store.read(
+        actor, "rectools", "backend-autodefault");
+    assert(autoDisabledRead.status == IntentStatus::ok &&
+           autoDisabledRead.intent.revision == 1 &&
+           !autoDisabledRead.intent.desiredEnabled);
+    ++checks;
+
     IntentMutation enable{"rectools", "backend-a", true, 0};
     auto denied = actor;
     denied.grants.clear();
