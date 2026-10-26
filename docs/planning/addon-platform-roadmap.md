@@ -51,6 +51,60 @@ isolierten Testdateien und gesonderter Freigabe.
 | **MT.HA.7 – Technisches GO** | Matrix je Commit, Distribution, Befehl, Ist/Soll, PASS/FAIL/PENDING/NOT IMPLEMENTED und Restrisiko; GO nur bei vollständigen Pflichtnachweisen. | **PENDING** |
 | **MT.HA.8 – Launchpad Paketierung** | Erst nach GO echtes optionales Worker-Paket statt `~scaffold1`, Noble/Resolute-ABI und Paketinhalte/Upgrade/Rollback, Source- und Binärbuild, Lint, Upload-Vorbereitung. **Kein Upload ohne separate Freigabe**. | **BLOCKED (MT.HA.7)** |
 
+**MT.HA.0B – Operatorbefund, noch rein lesend (26.10.2026):**
+Ubuntu 26.04.1 LTS, installiertes `vdr`/`vdr-dev`
+`2.8.3-0yavdr0~resolute`. Der ursprüngliche Host-Checkout
+`65335e6a5caec4ed05eb8202a1cd2d095cff22c0` steht auf
+`work/public-v1-recording-actions`; **ihn nicht für MT.HA umschalten**.
+GitHub bestätigt, dass dieser Checkout-Commit ein Vorfahre des zum
+MT.HA-Branchstart gepinnten `main`-Commits
+`f9ffb76094e8b3b37d7420e84b6d31827e21226f` ist. Git-Status
+der bereits getrackten Hostdateien wurde leer gemeldet; das ist kein
+Nachweis für den installierten Binärstand.
+
+Die Root-Approval-Datei meldet `schemaVersion=1`, `version=0.1.0`,
+`origin=manual`, `state=approved` und ihr Importhandler-SHA256
+**stimmt mit dem vorhandenen Worker überein**. Das ist Konsistenz mit
+einem Root-Beleg, noch **kein unabhängiger Build-Provenienznachweis**,
+keine effektive Core-Berechtigung und kein erfolgreicher Auftrag.
+Konfiguriert sind die Importquelle `/srv/video/Filme` und das
+VDR-Ziel `/srv/vdr/video.00`; der Agent-`ExecStart` enthält
+`--enable-media-import` und `--enable-media-shrink`, der Agent
+selbst ist `inactive/dead`. Die leere Import-Running-Lockdatei
+ist vorhanden (kein Nachweis, ob eine exklusive Sperre gehalten wird).
+Das neue `media-tools-install-inventory.json` fehlt tatsächlich.
+
+**Neue Blocker:** Der MT.I2-`live-update` verlangt exakt verifizierte
+alte und neue versiegelte **vollständige** Suite+Add-on-Stages;
+eine installierte ältere, ohne neues Inventar aufgebaute Media-Tools-
+Runtime erfüllt dies nicht automatisch. Erst alte Stage/Herkunft und
+sicheres Migrationsprotokoll klären, keinesfalls Approval-/Dateien
+löschen, um eine scheinbare Erstinstallation zu erzeugen.
+`/` hat etwa 45 GiB frei (218 GiB Dateisystem), `/srv` etwa
+512 GiB frei (3,6 TiB FS). Beim gegenwärtigen Erstinstaller ergäbe
+`WORKDIR` auf `/` aus summierten Budgets von 19 GiB sowie der
+15%-Reserve von etwa 33 GiB eine Mindestfreiheit von **ca. 52 GiB**:
+die aktuelle Erstinstallations-Ressourcenprüfung würde deshalb
+voraussichtlich **FAIL** melden. `/srv` erfüllt bei 86% Belegung
+die 15%-Reserve ebenfalls nicht, wenn es als Stage-/Backup-Speicherort
+gewählt würde. Reserve niemals umgehen; ausschließlich lesend
+ermittelte tatsächliche Werte und einen separaten angepassten
+Install-/Wartungsplan verwenden. SQLite: etwa 3,74 GB DB plus
+222 MB WAL; keine produktive Migration oder reine Dateikopie.
+
+**CI-Grenze des MT.HA-Draft-PR:** Der isolierte neue
+`test_media_tools_installer_provenance.py` wurde im
+Packaging-Regression-Job am Stand
+`bf87e2123136f2e56b6deca31d85b5ef31acd521`
+ausgeführt, Packaging-Job `PASS`. Die vollständige
+`VDR-Suite CI` war an diesem Commit jedoch `FAIL`,
+und zwar in `test_backend_agent_osd_transport.cpp:367`
+(`test_authenticated_vertical`, Assertion/abort aus
+`test-phase68-osd-authenticated-transport`).
+Ursache und Zusammenhang noch offen; **kein Gesamt-CI-GO**.
+Der neue Dokumentationscommit verlangt ohnehin erneute exakte
+HEAD-CI-Prüfung.
+
 **Aktueller Hostbefund ist keine neue Erstinstallation.** Der bisherige
 `install_media_tools.sh` ist ein Ubuntu/yaVDR-Serviceadapter und prüft
 bewusst fehlende Media-Tools-Dateien; bereits vorhandene Approval-/Worker-
