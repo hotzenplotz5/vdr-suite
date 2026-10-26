@@ -250,6 +250,7 @@ build-media-tools-cpp-deb: addon-media-import addon-media-shrink addon-media-che
 test-addon-media-tools-package:
 	python3 -m unittest discover -s tools/addons -p 'test_media_tools_cpp_deb.py'
 	python3 -m unittest discover -s tools/addons -p 'test_stage_media_tools_runtime.py'
+	python3 -B -m unittest discover -s tools/addons -p 'test_install_media_tools_payload.py'
 
 # MT.I4: build a disabled .deb from the already composed, independently
 # reviewed MT.I1 sealed runtime. Never compile, install, migrate or activate.
