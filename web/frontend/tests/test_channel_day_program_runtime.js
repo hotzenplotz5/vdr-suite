@@ -377,7 +377,7 @@ async function run() {
   assert.ok(source.includes('fetchClientChannels'));
   assert.ok(source.includes('fetchClientEpgCacheWindow'));
   assert.ok(source.includes('fetchClientEpgChannelWindow'));
-  assert.ok(source.includes('fetchClientTimerCreateAction'));
+  assert.ok(source.includes('fetchClientEpgTimerIntentCreate'));
   assert.ok(source.includes('visibleEventsForDay'));
   assert.ok(source.includes('resolvePublicArtworkUrl'));
   assert.ok(source.includes("[['all', 'Alle'], ['tv', 'TV'], ['radio', 'Radio']]"));

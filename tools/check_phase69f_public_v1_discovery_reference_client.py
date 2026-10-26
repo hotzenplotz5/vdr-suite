@@ -75,6 +75,11 @@ require(browser_client.count("'/api/v1/search-timers'") == 1,
         "expected one bounded Browser SearchTimer staging route")
 browser_client = browser_client.replace("'/api/v1/search-timers'",
                                         "'reviewed-searchtimer-create'")
+# Explicitly reviewed EPG Timer API-v1 create, with authoritative event GET.
+for route in ("'/api/v1/epg/event'", "'/api/v1/epg/timer-intents'"):
+    require(browser_client.count(route) == 1,
+            "reviewed Browser EPG timer route missing: " + route)
+    browser_client = browser_client.replace(route, "'reviewed-epg-timer'")
 require("/api/v1" not in browser_client,
         "non-equivalent bundled browser was silently migrated to public-v1")
 
