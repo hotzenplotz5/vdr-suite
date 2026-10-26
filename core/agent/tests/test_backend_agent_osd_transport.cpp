@@ -364,7 +364,11 @@ void test_authenticated_vertical()
     assert(read.available);
     assert(read.snapshot.buffer.observed.frame.title == "PRIVATE_OSD_SENTINEL_68C");
     // These are actual server admission and internal read gates, not UI hints.
-    assert(!fixture.service.readOsdObservation(adminContext(), "default", generation, testNow()).available);
+    // A global Human administrator now has OSD read authority on this backend.
+    assert(fixture.service.readOsdObservation(adminContext(), "default", generation, testNow()).available);
+    auto noGrantViewer = viewer;
+    noGrantViewer.grants.clear();
+    assert(!fixture.service.readOsdObservation(noGrantViewer, "default", generation, testNow()).available);
     assert(!fixture.service.readOsdObservation(viewer, "ferienhaus", generation, testNow()).available);
     assert(!fixture.service.readOsdObservation(viewer, "default", generation + 1, testNow()).available);
     auto revokedViewer = viewer;
