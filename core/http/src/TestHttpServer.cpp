@@ -221,10 +221,35 @@ std::string securityDatabasePath()
 
 }
 
-TestHttpServer::TestHttpServer(ApiRouter& apiRouter,
-        std::shared_ptr<DeviceLiveEventHub> eventHub)
+TestHttpServer::TestHttpServer(
+    ApiRouter& apiRouter,
+    HumanAccountGrantAdministrationService::AddonGrantEligibility
+        addonGrantEligibility,
+    AddonActivationMutation addonActivationMutation,
+    AddonActivationLookup addonActivationLookup,
+    AddonSourceMutation addonSourceMutation,
+    AddonSourceLookup addonSourceLookup)
+    : TestHttpServer(apiRouter, nullptr, std::move(addonGrantEligibility),
+                     std::move(addonActivationMutation),
+                     std::move(addonActivationLookup),
+                     std::move(addonSourceMutation),
+                     std::move(addonSourceLookup)) {}
+
+TestHttpServer::TestHttpServer(
+    ApiRouter& apiRouter,
+    std::shared_ptr<DeviceLiveEventHub> eventHub,
+    HumanAccountGrantAdministrationService::AddonGrantEligibility
+        addonGrantEligibility,
+    AddonActivationMutation addonActivationMutation,
+    AddonActivationLookup addonActivationLookup,
+    AddonSourceMutation addonSourceMutation,
+    AddonSourceLookup addonSourceLookup)
     : apiRouter_(apiRouter),
       deviceEventHub_(std::move(eventHub)),
+      addonActivationMutation_(std::move(addonActivationMutation)),
+      addonActivationLookup_(std::move(addonActivationLookup)),
+      addonSourceMutation_(std::move(addonSourceMutation)),
+      addonSourceLookup_(std::move(addonSourceLookup)),
       securityDatabase_(std::make_unique<Database>())
 {
     if (!securityDatabase_->open(
@@ -458,7 +483,10 @@ TestHttpServer::TestHttpServer(ApiRouter& apiRouter,
             *securityIdentityRepository_,
             *securityPermissionGrantRepository_,
             *humanAccountAdministrationRepository_,
-            *accountabilityEventRepository_);
+            *accountabilityEventRepository_,
+            HumanAccountGrantAdministrationService::EntropySource{},
+            HumanAccountGrantAdministrationService::Clock{},
+            std::move(addonGrantEligibility));
 
     deviceGrantAdministrationService_ =
         std::make_unique<DeviceGrantAdministrationService>(
@@ -2147,7 +2175,23 @@ HttpServerResponse TestHttpServer::handleRequest(
     }
     else if (request.method == "GET")
     {
-        if (pathWithoutQuery(request.path).rfind(
+        if (pathWithoutQuery(request.path) ==
+                "/api/v1/addons/rectools/activation")
+        {
+            apiResponse = addonActivationLookup_
+                ? addonActivationLookup_(gate.context, request.path)
+                : ApiResponse{503, "application/json",
+                      "{\"error\":\"addon_activation_unavailable\"}", {}};
+        }
+        else if (pathWithoutQuery(request.path) ==
+                "/api/v1/addons/rectools/sources")
+        {
+            apiResponse = addonSourceLookup_
+                ? addonSourceLookup_(gate.context, request.path)
+                : ApiResponse{503, "application/json",
+                      "{\"error\":\"addon_sources_unavailable\"}", {}};
+        }
+        else if (pathWithoutQuery(request.path).rfind(
                 "/api/v1/recording-playback-sessions", 0) == 0)
         {
             apiResponse = apiRouter_.handleDeviceRecordingPlayback(
@@ -2180,7 +2224,23 @@ HttpServerResponse TestHttpServer::handleRequest(
     }
     else if (request.method == "POST")
     {
-        if (pathWithoutQuery(request.path).rfind(
+        if (pathWithoutQuery(request.path) ==
+                "/api/v1/addons/rectools/activation")
+        {
+            apiResponse = addonActivationMutation_
+                ? addonActivationMutation_(gate.context, request.body)
+                : ApiResponse{503, "application/json",
+                      "{\"error\":\"addon_activation_unavailable\"}", {}};
+        }
+        else if (pathWithoutQuery(request.path) ==
+                "/api/v1/addons/rectools/sources")
+        {
+            apiResponse = addonSourceMutation_
+                ? addonSourceMutation_(gate.context, request.body)
+                : ApiResponse{503, "application/json",
+                      "{\"error\":\"addon_sources_unavailable\"}", {}};
+        }
+        else if (pathWithoutQuery(request.path).rfind(
                 "/api/v1/recording-playback-sessions", 0) == 0)
         {
             apiResponse = apiRouter_.handleDeviceRecordingPlayback(

@@ -3,6 +3,17 @@ DAEMON_SRC := \
         core/operations/src/MutationOperation.cpp \
         core/operations/src/MutationOperationIdentity.cpp \
         core/operations/src/MutationOperationRepository.cpp \
+        core/addons/src/AddonAccessPolicy.cpp \
+        core/addons/src/AddonRootApproval.cpp \
+        core/addons/src/AddonActivationIntentRepository.cpp \
+        core/addons/src/AddonAdministrationService.cpp \
+        core/addons/media-tools/src/MediaImportOperationFence.cpp \
+        core/addons/media-tools/src/MediaShrinkOperationFence.cpp \
+        core/addons/media-tools/src/MediaShrinkOperationAdmission.cpp \
+        core/addons/media-tools/src/MediaImportOperationAdmission.cpp \
+        core/addons/media-tools/src/MediaShrinkReviewRepository.cpp \
+        core/agent/src/BackendAgentMediaImportAssignment.cpp \
+        core/agent/src/BackendAgentMediaShrinkAssignment.cpp \
         core/operations/src/MutationOperationReadService.cpp \
         core/vdr/src/SearchTimerCreateOperationPayload.cpp \
         core/vdr/src/SearchTimerCreateAdmissionService.cpp \
@@ -71,6 +82,10 @@ DAEMON_SRC := \
         core/recordings/src/RecordingRepository.cpp \
         core/recordings/src/PublicRecordingIdentityRepository.cpp \
         core/vdr/src/PublicSearchTimerIdentityRepository.cpp \
+        addons/media-tools/src/MediaCheck.cpp \
+        addons/media-tools/src/MediaCheckFfmpeg.cpp \
+        addons/media-tools/src/MediaImport.cpp \
+        addons/media-tools/src/MediaShrink.cpp \
         core/recordings/src/PublicRecordingPlaybackTargetResolver.cpp \
         core/recordings/src/PublicRecordingDevicePlaybackAdmission.cpp \
         core/recordings/src/PublicRecordingCollectionProjection.cpp \

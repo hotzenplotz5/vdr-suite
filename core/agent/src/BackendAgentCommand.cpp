@@ -6,6 +6,8 @@
 #include "BackendAgentRecordingMarksModifyPayload.h"
 #include "BackendAgentRecordingCutPayload.h"
 #include "LegacyOsdInputDomain.h"
+#include "MediaToolsAgentExecutor.h"
+#include "MediaShrinkAgentCommand.h"
 
 #include <algorithm>
 #include <cctype>
@@ -50,6 +52,30 @@ bool allowed(const std::string& value, const std::vector<std::string>& values)
 
 bool validCommandPayload(const BackendAgentCommandAssignment& value)
 {
+    if (value.commandType == vdrsuite::mediatools::kMediaImportCommandType)
+    {
+        std::string sourceId;
+        vdrsuite::mediatools::MediaImportDecision decision;
+        return value.verificationPolicy == "reconciliation_required" &&
+            vdrsuite::mediatools::parseMediaImportSelection(
+                value.payload, sourceId, decision) &&
+            value.payloadVersion ==
+                vdrsuite::mediatools::mediaImportSelectionVersion(decision);
+    }
+    if (value.commandType ==
+            vdrsuite::mediatools::kMediaShrinkStageCommandType ||
+        value.commandType ==
+            vdrsuite::mediatools::kMediaShrinkPublishCommandType)
+    {
+        vdrsuite::mediatools::MediaShrinkAgentSelection selection;
+        const bool stage = value.commandType ==
+            vdrsuite::mediatools::kMediaShrinkStageCommandType;
+        return value.payloadVersion == 1 &&
+            value.verificationPolicy ==
+                (stage ? "readback_required" : "reconciliation_required") &&
+            vdrsuite::mediatools::parseMediaShrinkAgentSelection(
+                value.commandType, value.payload, selection);
+    }
     if (value.commandType == "probe.noop")
     {
         return value.payloadVersion == 1 && value.payload == "{}" &&

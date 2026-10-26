@@ -417,16 +417,38 @@
         permissionInput.disabled = Boolean(actions.busy);
         appendOption(permissionInput, '',
           t('settings.accountAdminChoosePermission', 'Bitte auswählen …'), true);
-        permissionOptions.forEach(function(option) {
-          if (!option || !option.permission) return;
-          const label = permissionLabel(option.permission, permissionOptions);
-          appendOption(
-            permissionInput,
-            option.permission,
-            label === option.permission
-              ? label
-              : label + ' — ' + option.permission,
-            false);
+        const permissionCategories = [
+          { id: 'role', label: t('settings.accountAdminRolesGroup', 'Rollen') },
+          { id: 'permission', label: t('settings.accountAdminPermissionsGroup', 'Berechtigungen') },
+          { id: 'addon', label: t('settings.accountAdminAddonsGroup', 'Add-ons') }
+        ];
+        permissionCategories.forEach(function(category) {
+          const choices = permissionOptions.filter(function(option) {
+            if (!option || !option.permission) return false;
+            // Add-on rights are shown only after an authoritative effective
+            // capability projection supplies selectable permissions.
+            if (option.category === 'addon') {
+              const available = Array.isArray(overview.addonPermissions)
+                ? overview.addonPermissions : [];
+              if (!available.some(function(entry) {
+                return entry && entry.permission === option.permission &&
+                  entry.selectable === true;
+              })) return false;
+            }
+            return (option.category === category.id ||
+                (category.id === 'permission' &&
+                 option.category !== 'role' && option.category !== 'addon'));
+          });
+          if (!choices.length) return;
+          const group = document.createElement('optgroup');
+          group.label = category.label;
+          choices.forEach(function(option) {
+            const label = permissionLabel(option.permission, permissionOptions);
+            appendOption(group, option.permission,
+              label === option.permission ? label : label + ' — ' + option.permission,
+              false);
+          });
+          permissionInput.appendChild(group);
         });
         permissionInput.value = '';
         permissionField.appendChild(permissionInput);
@@ -797,6 +819,21 @@
             status.textContent = t('settings.accountAdminGrantFieldsRequired',
               'Berechtigung und Backend/Scope dürfen nicht leer sein.');
             return Promise.resolve(false);
+          }
+          if (normalizedPermission.indexOf('addons.') === 0) {
+            const projection = state.selectedOverview &&
+              Array.isArray(state.selectedOverview.addonPermissions)
+                ? state.selectedOverview.addonPermissions : [];
+            const approvedForBackend = projection.some(function(entry) {
+              return entry && entry.permission === normalizedPermission &&
+                entry.backendId === normalizedBackendId &&
+                entry.selectable === true && normalizedBackendId !== '*';
+            });
+            if (!approvedForBackend) {
+              status.textContent = t('settings.accountAdminAddonUnavailable',
+                'Das Add-on ist für diesen Backend-Server nicht verfügbar.');
+              return Promise.resolve(false);
+            }
           }
           return mutateSelected(function(overview) {
             return api.setAccountGrant(

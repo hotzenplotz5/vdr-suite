@@ -4485,3 +4485,156 @@ body.channel-sorter-dragging * {
     width: 100%;
   }
 }
+
+/* A7.5: capability-gated Media Tools uses the existing detail mount. */
+.module-tab.media-import-tab[hidden] {
+  display: none !important;
+}
+.media-import-panel {
+  display: grid;
+  gap: 0.8rem;
+  max-width: 42rem;
+  padding: 1rem;
+}
+.media-import-panel label {
+  display: grid;
+  gap: 0.4rem;
+}
+.media-import-panel select {
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.65rem;
+}
+.media-import-panel button {
+  justify-self: start;
+  min-height: 2.75rem;
+}
+.media-import-panel .status {
+  overflow-wrap: anywhere;
+}
+.media-import-panel .media-import-reload {
+  min-height: 3rem;
+  padding: .7rem 1.1rem;
+  border-radius: .75rem;
+  font-weight: 800;
+}
+.media-import-scan-notice {
+  margin: 0;
+  padding: .7rem .85rem;
+  border: 1px solid rgba(245, 158, 11, .3);
+  border-radius: .7rem;
+  color: #fcdca8;
+  background: rgba(90, 55, 14, .18);
+  line-height: 1.55;
+}
+.media-import-preview {
+  margin: 0;
+  padding: .8rem 1rem;
+  border: 1px solid rgba(96, 165, 250, .28);
+  border-radius: .8rem;
+  background: rgba(15, 23, 42, .65);
+  line-height: 1.55;
+}
+.media-import-technical-details {
+  border-top: 1px solid rgba(148, 163, 184, .2);
+  padding-top: .65rem;
+  color: #94a3b8;
+  overflow-wrap: anywhere;
+}
+.media-import-technical-details summary {
+  cursor: pointer;
+  font-size: .85rem;
+}
+@media (max-width: 640px) {
+  .media-import-panel { max-width: 100%; padding: .7rem; }
+  .media-import-panel button { width: 100%; justify-self: stretch; }
+}
+
+/* Media Tools admin: existing browser login; edit directories and save. */
+.settings-media-import-source-editor {
+  display: grid;
+  gap: .75rem;
+  padding-top: 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid rgba(148, 163, 184, .2);
+}
+.settings-media-import-source-editor[hidden] { display: none !important; }
+.settings-media-import-source-list { display: grid; gap: .8rem; }
+.settings-media-import-source-row {
+  display: grid;
+  gap: .5rem;
+  padding: .8rem;
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: .7rem;
+}
+.settings-media-import-source-row label { display: grid; gap: .35rem; }
+.settings-media-import-source-row input {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  padding: .6rem;
+  border-radius: .5rem;
+}
+.settings-media-import-source-row button { justify-self: start; }
+.media-import-panel .media-import-search {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: .65rem;
+  border-radius: .55rem;
+}
+.media-import-visible-count {
+  margin: 0;
+  color: #94a3b8;
+  font-size: .9rem;
+}
+.media-import-panel label[hidden] { display: none; }
+
+.media-import-selection {
+  display: grid;
+  gap: .45rem;
+  max-height: 20rem;
+  overflow: auto;
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: .65rem;
+  padding: .6rem;
+}
+.media-import-selection .media-import-select-item {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .25rem;
+  overflow-wrap: anywhere;
+}
+.media-import-selection .media-import-select-item input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+.media-import-selection-count {
+  margin: 0;
+  font-size: .9rem;
+  color: #94a3b8;
+}
+
+/* MT.UX3 folder navigation: purely relative server-observed paths. */
+.media-import-breadcrumb,
+.media-import-folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+.media-import-breadcrumb[hidden],
+.media-import-folders[hidden] { display: none !important; }
+.media-import-breadcrumb button,
+.media-import-folders .media-import-folder {
+  min-height: 2.4rem;
+  padding: .4rem .7rem;
+  border: 1px solid rgba(148, 163, 184, .25);
+  border-radius: .6rem;
+  overflow-wrap: anywhere;
+}
+.media-import-breadcrumb button[disabled] {
+  font-weight: 700;
+  opacity: 1;
+}

@@ -19,6 +19,9 @@
 #include "BackendAgentRecordingCutTransport.h"
 #include "ISuiteBridgeLegacyOsdInputTransport.h"
 #include "LegacyOsdInputDomain.h"
+#include "MediaToolsAgentExecutor.h"
+#include "MediaShrinkAgentExecutor.h"
+#include "MediaImportRecordingEvidence.h"
 
 #include <algorithm>
 #include <chrono>
@@ -590,6 +593,42 @@ CommandAvailability availableCommands(
                 availability.commandTypes.push_back(type);
             continue;
         }
+        if (type == vdrsuite::mediatools::kMediaImportCommandType)
+        {
+            // Availability never comes from the module manifest or config alone.
+            if (config.mediaImportExecutor)
+            {
+                try
+                {
+                    if (config.mediaImportExecutor->available())
+                        availability.commandTypes.push_back(type);
+                }
+                catch (...) {} // Lost trust removes advertisement.
+            }
+            continue;
+        }
+        if (type == vdrsuite::mediatools::kMediaShrinkStageCommandType ||
+            type == vdrsuite::mediatools::kMediaShrinkPublishCommandType)
+        {
+            // The shipped Agent has no HEVC executor. Config alone is not
+            // enough to publish either mutating command capability.
+            if (config.mediaShrinkExecutor)
+            {
+                try
+                {
+                    if (config.mediaShrinkExecutor->available(type))
+                        availability.commandTypes.push_back(type);
+                }
+                catch (...) {} // Fail closed on trust/provenance errors.
+            }
+            continue;
+        }
+        // An add-on manifest or COMMAND_TYPES value cannot self-advertise
+        // an unregistered executor. Reserve both namespaces until the
+        // reviewed Backend-Agent handler is actually connected.
+        if (type.rfind("addon.", 0) == 0 ||
+            type.rfind("addons.", 0) == 0)
+            continue;
         if (type != "vdr.native.probe")
         {
             availability.commandTypes.push_back(type);
@@ -650,6 +689,13 @@ bool reconcileBackendAgentCommandState(
         }
         return false;
     }
+    const bool mediaImportCommand = state.assignment.commandType ==
+        vdrsuite::mediatools::kMediaImportCommandType;
+    const bool mediaShrinkCommand =
+        state.assignment.commandType ==
+            vdrsuite::mediatools::kMediaShrinkStageCommandType ||
+        state.assignment.commandType ==
+            vdrsuite::mediatools::kMediaShrinkPublishCommandType;
     const bool timerCreateCommand = state.assignment.commandType ==
         vdrsuite::agent::kBackendAgentNativeTimerCreateCommandType;
     const bool timerDeleteCommand = state.assignment.commandType ==
@@ -713,6 +759,169 @@ bool reconcileBackendAgentCommandState(
 
         reason = "local_command_generation_fenced";
         return false;
+    }
+
+    if (mediaImportCommand && !state.resultPresent)
+    {
+        // Same durable Agent inbox, receipt and result. Never re-execute after
+        // a crash that could have occurred during non-idempotent remux.
+        if (state.dispatchState != "not_started")
+        {
+            createResult(state, state.dispatchState, "outcome_unknown",
+                         "outcome_unknown", "executor_unknown", "reconcile_only",
+                         "Media import recovered after start; reconcile recording");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+        if (!state.receiptAcknowledged &&
+            !sendReceipt(config, context, transport, state, reason))
+            return false;
+        if (state.assignment.deadline <= nowSeconds())
+        {
+            createResult(state, "not_started", "outcome_unknown", "rejected",
+                         "expired", "none", "Media import deadline expired");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+        bool authorized = false;
+        try
+        {
+            authorized = config.mediaImportExecutor &&
+                config.mediaImportExecutor->available() &&
+                config.mediaImportExecutor->authorize(
+                    state.assignment, context.backendId, context.backendGeneration);
+        }
+        catch (...) { authorized = false; }
+        if (!authorized)
+        {
+            createResult(state, "not_started", "outcome_unknown", "rejected",
+                         "fenced", "none", "Media import trust or grant unavailable");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+
+        // The crash fence is durably written before any external side effect.
+        state.dispatchState = "starting";
+        if (!persist(config.statePath, state, reason)) return false;
+        auto outcome = vdrsuite::mediatools::MediaImportAgentOutcome::unknown;
+        try { outcome = config.mediaImportExecutor->execute(state.assignment); }
+        catch (...) {} // Side effect unknown; do not retry.
+        if (outcome == vdrsuite::mediatools::MediaImportAgentOutcome::rejected)
+            createResult(state, "starting", "outcome_unknown", "rejected",
+                         "fenced", "none", "Media import rejected without effect");
+        else if (outcome == vdrsuite::mediatools::MediaImportAgentOutcome::marked)
+        {
+            createResult(state, "accepted_by_executor", "verified", "succeeded",
+                         "none", "none", "Media Tools source marker read back");
+            try {
+                state.result.resultEvidence =
+                    config.mediaImportExecutor->takeMarkerEvidence();
+            } catch (...) { state.result.resultEvidence.clear(); }
+            std::string sourceId;
+            vdrsuite::mediatools::MediaImportDecision decision;
+            if (!vdrsuite::mediatools::parseMediaImportSelection(
+                    state.assignment.payload, sourceId, decision) ||
+                state.result.resultEvidence !=
+                    vdrsuite::mediatools::mediaImportMarkerEvidence(sourceId, decision))
+            {
+                createResult(state, "starting", "outcome_unknown",
+                             "outcome_unknown", "executor_unknown",
+                             "reconcile_only", "Marker readback proof unavailable");
+                state.result.resultEvidence.clear();
+            }
+        }
+        else
+            createResult(
+                state,
+                outcome == vdrsuite::mediatools::MediaImportAgentOutcome::submitted
+                    ? "accepted_by_executor" : "starting",
+                "outcome_unknown", "outcome_unknown",
+                outcome == vdrsuite::mediatools::MediaImportAgentOutcome::submitted
+                    ? "none" : "executor_unknown",
+                "reconcile_only", "Media import requires recording reconciliation");
+        if (outcome == vdrsuite::mediatools::MediaImportAgentOutcome::submitted)
+        {
+            try
+            {
+                const auto evidence =
+                    config.mediaImportExecutor->takeRecordingEvidence();
+                if (vdrsuite::mediatools::validRecordingPathEvidence(evidence))
+                    state.result.resultEvidence = evidence;
+            }
+            catch (...) {} // No readback proof, never report verification.
+        }
+        if (!persist(config.statePath, state, reason)) return false;
+        return sendResult(config, context, transport, state, reason);
+    }
+
+    if (mediaShrinkCommand && !state.resultPresent)
+    {
+        // A crash after the durable start fence may have left a candidate
+        // or a published recording. Never attempt this command a second time.
+        if (state.dispatchState != "not_started")
+        {
+            createResult(state, state.dispatchState, "outcome_unknown",
+                         "outcome_unknown", "executor_unknown", "reconcile_only",
+                         "HEVC worker recovered after start; reconcile only");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+        if (!state.receiptAcknowledged &&
+            !sendReceipt(config, context, transport, state, reason))
+            return false;
+        if (state.assignment.deadline <= nowSeconds())
+        {
+            createResult(state, "not_started", "outcome_unknown", "rejected",
+                         "expired", "none", "HEVC command deadline expired");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+        bool authorized = false;
+        try
+        {
+            authorized = config.mediaShrinkExecutor &&
+                config.mediaShrinkExecutor->available(state.assignment.commandType) &&
+                config.mediaShrinkExecutor->authorize(
+                    state.assignment, context.backendId, context.backendGeneration);
+        }
+        catch (...) { authorized = false; }
+        if (!authorized)
+        {
+            createResult(state, "not_started", "outcome_unknown", "rejected",
+                         "fenced", "none", "HEVC trust or grant unavailable");
+            if (!persist(config.statePath, state, reason)) return false;
+            return sendResult(config, context, transport, state, reason);
+        }
+
+        state.dispatchState = "starting";
+        if (!persist(config.statePath, state, reason)) return false;
+        auto outcome = vdrsuite::mediatools::MediaShrinkAgentOutcome::unknown;
+        try { outcome = config.mediaShrinkExecutor->execute(state.assignment); }
+        catch (...) {} // Unknown side effect; no blind retry.
+        if (outcome == vdrsuite::mediatools::MediaShrinkAgentOutcome::rejected)
+        {
+            createResult(state, "starting", "outcome_unknown", "rejected",
+                         "fenced", "none", "HEVC rejected without effect");
+        }
+        else
+        {
+            std::string evidence;
+            if (outcome == vdrsuite::mediatools::MediaShrinkAgentOutcome::submitted)
+            {
+                try { evidence = config.mediaShrinkExecutor->takeReviewId(); }
+                catch (...) {}
+            }
+            const bool reviewBound = vdrsuite::mediatools::validShrinkReviewEvidence(
+                state.assignment, evidence);
+            createResult(state, reviewBound ? "accepted_by_executor" : "starting",
+                         "outcome_unknown", "outcome_unknown",
+                         reviewBound ? "none" : "executor_unknown",
+                         "reconcile_only", "HEVC requires Core reconciliation");
+            if (reviewBound)
+                state.result.resultEvidence = evidence;
+        }
+        if (!persist(config.statePath, state, reason)) return false;
+        return sendResult(config, context, transport, state, reason);
     }
 
     if (timerCreateCommand && !state.stateExtensionPresent && !state.resultPresent)

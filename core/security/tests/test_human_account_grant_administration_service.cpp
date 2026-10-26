@@ -28,9 +28,10 @@ struct Fixture
     SecurityPermissionGrantRepository grants;
     CredentialVerifierRepository verifiers;
     unsigned char entropyCounter = 1;
+    bool addonEnabled = false;
     HumanAccountGrantAdministrationService service;
 
-    Fixture(bool secondAdmin = false)
+    Fixture(bool secondAdmin = false, bool addonAvailable = false)
         : accountability(database),
           identities(database),
           provisioning(database),
@@ -38,6 +39,7 @@ struct Fixture
           administration(database),
           grants(database),
           verifiers(database),
+          addonEnabled(addonAvailable),
           service(
               database,
               accounts,
@@ -57,6 +59,13 @@ struct Fixture
               {
                   return std::chrono::system_clock::time_point(
                       std::chrono::seconds(1700000000));
+              },
+              [this](const std::string& permission,
+                     const std::string& backendId) {
+                  return addonEnabled &&
+                      (permission == "addons.media.import" ||
+                       permission == "addons.media.shrink") &&
+                      backendId == "backend-a";
               })
     {
         assert(database.open(":memory:"));
@@ -147,6 +156,17 @@ bool hasGrant(
 
 int main()
 {
+    assert(HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.import", "backend-a"));
+    assert(!HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.import", "*"));
+    assert(HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.shrink", "backend-a"));
+    assert(!HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.shrink", "*"));
+    assert(!HumanAccountGrantAdministrationService::supportedGrant(
+        "addons.media.import", "../unsafe"));
+
     {
         const std::vector<std::string> permissions =
             HumanAccountGrantAdministrationService::
@@ -186,7 +206,10 @@ int main()
             assert(!option.permission.empty());
             assert(option.presentationKey == option.permission);
             assert(option.category == "role" ||
-                option.category == "permission");
+                option.category == "permission" ||
+                option.category == "addon");
+            if (option.permission == "addons.media.import")
+                assert(option.category == "addon");
         }
     }
 
@@ -393,6 +416,63 @@ int main()
             revokedAdmin.grantSet,
             "role.admin",
             "*"));
+    }
+
+    {
+        // A recognized but currently inactive add-on cannot accumulate
+        // latent grants that silently reactivate on later reinstall.
+        Fixture fixture;
+        auto blocked = fixture.service.read("account-viewer");
+        assert(blocked.status == HumanAccountGrantAdministrationStatus::success);
+        assert(fixture.service.setGrant(
+            context(), "account-viewer", blocked.grantSet.resourceRevision,
+            "addons.media.import", "backend-a", true).status ==
+            HumanAccountGrantAdministrationStatus::invalidGrant);
+    }
+
+    {
+        // Real SQLite grant cycle when the trusted Core provider reports
+        // exactly this backend's import capability.
+        Fixture fixture(false, true);
+        const auto baseline = fixture.service.read("account-viewer");
+        assert(baseline.status == HumanAccountGrantAdministrationStatus::success);
+        const auto granted = fixture.service.setGrant(
+            context(), "account-viewer", baseline.grantSet.resourceRevision,
+            "addons.media.import", "backend-a", true);
+        assert(granted.status == HumanAccountGrantAdministrationStatus::success);
+        assert(hasGrant(granted.grantSet, "addons.media.import", "backend-a"));
+        assert(fixture.service.setGrant(
+            context(), "account-viewer", granted.grantSet.resourceRevision,
+            "addons.media.import", "backend-b", true).status ==
+            HumanAccountGrantAdministrationStatus::invalidGrant);
+        const auto globalDenied = fixture.service.setGrant(
+            context(), "account-viewer", granted.grantSet.resourceRevision,
+            "addons.media.import", "*", true);
+        assert(globalDenied.status == HumanAccountGrantAdministrationStatus::invalidGrant);
+        // Removing grants stays possible after provider revocation.
+        fixture.addonEnabled = false;
+        const auto removed = fixture.service.setGrant(
+            context(), "account-viewer", granted.grantSet.resourceRevision,
+            "addons.media.import", "backend-a", false);
+        assert(removed.status == HumanAccountGrantAdministrationStatus::success);
+        assert(!hasGrant(removed.grantSet, "addons.media.import", "backend-a"));
+    }
+
+    {
+        // HEVC remains a separate, explicit grant even if import is enabled.
+        Fixture fixture(false, true);
+        const auto before = fixture.service.read("account-viewer");
+        assert(before.status == HumanAccountGrantAdministrationStatus::success);
+        const auto enabled = fixture.service.setGrant(
+            context(), "account-viewer", before.grantSet.resourceRevision,
+            "addons.media.shrink", "backend-a", true);
+        assert(enabled.status == HumanAccountGrantAdministrationStatus::success);
+        assert(hasGrant(enabled.grantSet, "addons.media.shrink", "backend-a"));
+        assert(!hasGrant(enabled.grantSet, "addons.media.import", "backend-a"));
+        assert(fixture.service.setGrant(
+            context(), "account-viewer", enabled.grantSet.resourceRevision,
+            "addons.media.shrink", "*", true).status ==
+            HumanAccountGrantAdministrationStatus::invalidGrant);
     }
 
     return 0;

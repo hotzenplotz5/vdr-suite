@@ -1,5 +1,6 @@
 #include "AccountabilityEventRepository.h"
 #include "BackendAgentHttpServer.h"
+#include "BackendAgentMediaImportCatalog.h"
 #include "BackendAgentCommandDelivery.h"
 #include "BackendAgentLifecycle.h"
 #include "BackendRegistry.h"
@@ -934,13 +935,15 @@ void test_http_protocol_and_redaction()
     assert(fixture.service.createEnrollment(
         adminContext(), "enr_http", "default", hash,
         realNow + 600, realNow, reason));
+    BackendAgentMediaImportCatalog mediaImportCatalog;
     BackendAgentHttpServer server(
         std::make_unique<FallbackServer>(),
         fixture.service,
         fixture.commandService,
         fixture.agentRepository,
         fixture.verifierRepository,
-        fixture.identityRepository);
+        fixture.identityRepository,
+        &mediaImportCatalog);
 
     HttpServerRequest enrollment;
     enrollment.method = "POST";
@@ -1017,6 +1020,34 @@ void test_http_protocol_and_redaction()
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
         "\"backendGeneration\":1,\"heartbeatSequence\":1}";
     assert(server.handleRequest(heartbeat).statusCode == 200);
+
+    // A7.4 is an Agent-authenticated, ephemeral report: only opaque IDs.
+    HttpServerRequest sources;
+    sources.method = "POST";
+    sources.path = "/api/agent/v1/observations/media-import-sources";
+    sources.headers = connect.headers;
+    sources.body =
+        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":1,\"sourceIds\":[\"source_00000000001\"],"
+        "\"handlerOrigin\":\"manual\",\"handlerVersion\":\"0.1.0\","
+        "\"handlerSha256\":\"" + std::string(64, 'a') + "\"}";
+    const auto sourceObserved = server.handleRequest(sources);
+    assert(sourceObserved.statusCode == 200);
+    std::vector<std::string> ids;
+    const auto live = fixture.agentRepository.findAgentForBackend("default");
+    const auto observedNow = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    assert(live && mediaImportCatalog.list(*live, "default", observedNow, ids));
+    assert(ids == (std::vector<std::string>{"source_00000000001"}));
+    sources.body =
+        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":2,\"sourceIds\":[\"source_00000000002\"],"
+        "\"handlerOrigin\":\"manual\",\"handlerVersion\":\"0.1.0\","
+        "\"handlerSha256\":\"" + std::string(64, 'a') + "\"}";
+    assert(server.handleRequest(sources).statusCode == 409);
+    sources.headers.erase("Authorization");
+    assert(server.handleRequest(sources).statusCode == 401);
+
 
     HttpServerRequest observation;
     observation.method = "POST";

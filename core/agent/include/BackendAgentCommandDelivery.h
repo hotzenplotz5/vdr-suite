@@ -75,6 +75,8 @@ public:
     bool ensureNativeTimerModifyAssignmentSchema();
     bool ensureRecordingMarksModifyAssignmentSchema();
     bool ensureRecordingCutAssignmentSchema();
+    bool ensureMediaImportAssignmentSchema();
+    bool ensureMediaShrinkAssignmentSchema();
     bool ensureRecordingMarksModifyReconciliationSchema();
     bool ensureRecordingCutReconciliationSchema();
     std::optional<BackendAgentCommandAssignment> findAssignment(
@@ -193,6 +195,30 @@ public:
 
     void setReceiptFenceCheck(ReceiptFenceCheck check);
 
+    // Authenticated Agent receipts for an add-on may not authorize execution
+    // unless the Core operation/grant authority explicitly accepts the exact
+    // reserved command and backend/claim fence. Default is DENY.
+    using MediaImportReceiptFenceCheck = std::function<bool(
+        const BackendAgentCommandAssignment&,
+        const BackendAgentCommandReceipt&, std::string&)>;
+    void setMediaImportReceiptFenceCheck(MediaImportReceiptFenceCheck check);
+    using MediaImportResultApply = std::function<bool(
+        const BackendAgentCommandAssignment&,
+        const BackendAgentCommandResult&, std::string&)>;
+    void setMediaImportResultApply(MediaImportResultApply apply);
+
+    // Stage and publish require distinct canonical Core authority checks.
+    // The shipped daemon registers none: missing handlers deny every HEVC
+    // command receipt/result even when a test executor is injected.
+    using MediaShrinkReceiptFenceCheck = std::function<bool(
+        const BackendAgentCommandAssignment&,
+        const BackendAgentCommandReceipt&, std::string&)>;
+    void setMediaShrinkReceiptFenceCheck(MediaShrinkReceiptFenceCheck check);
+    using MediaShrinkResultApply = std::function<bool(
+        const BackendAgentCommandAssignment&,
+        const BackendAgentCommandResult&, std::string&)>;
+    void setMediaShrinkResultApply(MediaShrinkResultApply apply);
+
     BackendAgentCommandResultAck result(
         const RequestSecurityContext& context,
         const BackendAgentCommandResult& result,
@@ -249,4 +275,8 @@ private:
     BackendAgentRepository& agentRepository_;
     AccountabilityEventRepository& accountabilityRepository_;
     ReceiptFenceCheck receiptFenceCheck_;
+    MediaImportReceiptFenceCheck mediaImportReceiptFenceCheck_;
+    MediaImportResultApply mediaImportResultApply_;
+    MediaShrinkReceiptFenceCheck mediaShrinkReceiptFenceCheck_;
+    MediaShrinkResultApply mediaShrinkResultApply_;
 };

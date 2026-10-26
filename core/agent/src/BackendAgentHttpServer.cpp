@@ -1,4 +1,5 @@
 #include "BackendAgentHttpServer.h"
+#include "BackendAgentMediaImportCatalog.h"
 #include "BackendAgentChannelObservationJson.h"
 #include "BackendAgentCommandJson.h"
 
@@ -224,7 +225,9 @@ bool jsonBool(const std::string& body, const std::string& key, bool& value)
 bool jsonStringArray(
     const std::string& body,
     const std::string& key,
-    std::vector<std::string>& values)
+    std::vector<std::string>& values,
+    std::size_t maximumItems = 32U,
+    std::size_t maximumValueLength = 128U)
 {
     values.clear();
     const std::string needle = "\"" + key + "\"";
@@ -243,17 +246,24 @@ bool jsonStringArray(
         if (body[position] != '"') return false;
         ++position;
         std::string value;
-        while (position < body.size() && body[position] != '"')
-        {
-            const unsigned char character = static_cast<unsigned char>(body[position++]);
-            if (character < 0x20U || character == '\\') return false;
-            value.push_back(static_cast<char>(character));
-            if (value.size() > 128) return false;
+        bool closed = false;
+        while (position < body.size()) {
+            const unsigned char character =
+                static_cast<unsigned char>(body[position++]);
+            if (character == '"') { closed = true; break; }
+            if (character < 0x20U) return false;
+            if (character == '\\') {
+                if (position >= body.size()) return false;
+                const char escaped = body[position++];
+                if (escaped != '"' && escaped != '\\' && escaped != '/')
+                    return false;
+                value.push_back(escaped);
+            } else value.push_back(static_cast<char>(character));
+            if (value.size() > maximumValueLength) return false;
         }
-        if (position >= body.size() || body[position] != '"') return false;
-        ++position;
+        if (!closed) return false;
         values.push_back(value);
-        if (values.size() > 32) return false;
+        if (values.size() > maximumItems) return false;
         position = skipSpace(body, position);
         if (position >= body.size()) return false;
         if (body[position] == ']') return true;
@@ -311,13 +321,15 @@ BackendAgentHttpServer::BackendAgentHttpServer(
     BackendAgentCommandDeliveryService& commandDeliveryService,
     BackendAgentRepository& repository,
     CredentialVerifierRepository& credentialVerifierRepository,
-    SecurityIdentityRepository& identityRepository)
+    SecurityIdentityRepository& identityRepository,
+    BackendAgentMediaImportCatalog* mediaImportCatalog)
     : clientServer_(std::move(clientServer)),
       lifecycleService_(lifecycleService),
       commandDeliveryService_(commandDeliveryService),
       repository_(repository),
       credentialVerifierRepository_(credentialVerifierRepository),
-      identityRepository_(identityRepository)
+      identityRepository_(identityRepository),
+      mediaImportCatalog_(mediaImportCatalog)
 {
 }
 
@@ -608,6 +620,75 @@ HttpServerResponse BackendAgentHttpServer::handleChannelObservation(
 }
 
 
+HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
+    const HttpServerRequest& request,
+    const RequestSecurityContext& context) const
+{
+    if (!mediaImportCatalog_)
+        return errorResponse(503, "media_import_catalog_unavailable");
+    std::string backendId, instanceId;
+    std::string handlerOrigin, handlerVersion, handlerSha256;
+    std::uint64_t generation = 0;
+    std::vector<std::string> sourceIds;
+    std::vector<std::string> sourceLabels;
+    std::vector<std::string> sourceFolders;
+    bool partial = true; // legacy Agents have no completeness proof
+    if (request.body.find("\"partial\"") != std::string::npos &&
+        !jsonBool(request.body, "partial", partial))
+        return errorResponse(400, "invalid_media_import_scan_status");
+    // Older Agents omit sourceLabels. Present but malformed arrays fail closed.
+    if (request.body.find("\"sourceLabels\"") != std::string::npos &&
+        !jsonStringArray(request.body, "sourceLabels", sourceLabels, 100U, 160U))
+        return errorResponse(400, "invalid_media_import_source_labels");
+    if (request.body.find("\"sourceFolders\"") != std::string::npos &&
+        !jsonStringArray(request.body, "sourceFolders", sourceFolders, 100U, 240U))
+        return errorResponse(400, "invalid_media_import_source_folders");
+    if (!jsonString(request.body, "backendId", backendId) ||
+        !jsonString(request.body, "agentInstanceId", instanceId) ||
+        !jsonUnsigned(request.body, "backendGeneration", generation) ||
+        !jsonStringArray(request.body, "sourceIds", sourceIds, 100U, 64U) ||
+        !jsonString(request.body, "handlerOrigin", handlerOrigin) ||
+        !jsonString(request.body, "handlerVersion", handlerVersion) ||
+        !jsonString(request.body, "handlerSha256", handlerSha256))
+        return errorResponse(400, "invalid_media_import_sources_observation");
+    BackendAgentMediaImportCatalog::Preview preview;
+    const bool hasPreview = request.body.find("\"previewSourceId\"") !=
+        std::string::npos;
+    if (hasPreview &&
+        (!jsonString(request.body, "previewSourceId", preview.sourceId) ||
+         !jsonString(request.body, "previewStatus", preview.status) ||
+         !jsonString(request.body, "previewTitle", preview.title) ||
+         !jsonString(request.body, "previewTargetFolder", preview.targetFolder) ||
+         !jsonString(request.body, "previewVideoCodec", preview.videoCodec) ||
+         !jsonUnsigned(request.body, "previewSourceBytes", preview.sourceBytes) ||
+         !jsonUnsigned(request.body, "previewAvailableBytes", preview.availableBytes) ||
+         !jsonUnsigned(request.body, "previewRequiredBytes", preview.requiredBytes) ||
+         !jsonBool(request.body, "previewReencodeRequired",
+                   preview.videoReencodeRequired)))
+        return errorResponse(400, "invalid_media_import_preview");
+    const auto live = repository_.findAgentForBackend(backendId);
+    const auto now = unixNow();
+    if (!live || !mediaImportCatalog_->publish(
+            context, *live, backendId, instanceId, generation,
+            sourceIds, now, handlerOrigin, handlerVersion, handlerSha256,
+            sourceLabels, partial, sourceFolders))
+        return errorResponse(409, "media_import_sources_agent_fenced");
+    // A user may choose film B while the Agent is still inspecting film A.
+    // Ignore the stale A result rather than wedging the Agent's normal
+    // observation loop with HTTP 409. Never put stale details in the catalog.
+    const std::string expected = mediaImportCatalog_->nextPreviewRequest(
+        *live, backendId, now);
+    if (hasPreview && expected == preview.sourceId &&
+        !mediaImportCatalog_->acceptPreview(
+            *live, backendId, now, preview))
+        return errorResponse(409, "media_import_preview_invalid");
+    const std::string next = mediaImportCatalog_->nextPreviewRequest(
+        *live, backendId, now);
+    return jsonResponse(200, next.empty()
+        ? "{\"outcome\":\"accepted\"}"
+        : "{\"outcome\":\"accepted\",\"previewSourceId\":\"" + next + "\"}");
+}
+
 HttpServerResponse BackendAgentHttpServer::handleCommandPoll(
     const HttpServerRequest& request,
     const RequestSecurityContext& context) const
@@ -619,6 +700,39 @@ HttpServerResponse BackendAgentHttpServer::handleCommandPoll(
     const auto result = commandDeliveryService_.poll(context, poll, unixNow());
     if (!result.accepted) return errorResponse(409, result.reasonCode);
     return jsonResponse(200, serializeBackendAgentCommandPollResponseJson(result));
+}
+
+void BackendAgentHttpServer::setMediaShrinkAuthorityLookup(
+    MediaShrinkAuthorityLookup lookup)
+{
+    mediaShrinkAuthorityLookup_ = std::move(lookup);
+}
+
+HttpServerResponse BackendAgentHttpServer::handleMediaShrinkAuthority(
+    const HttpServerRequest& request,
+    const RequestSecurityContext& context) const
+{
+    if (!mediaShrinkAuthorityLookup_)
+        return errorResponse(503, "media_shrink_authority_unavailable");
+    BackendAgentCommandReceipt receipt;
+    std::string reason;
+    if (!parseBackendAgentCommandReceiptJson(request.body, receipt, reason))
+        return errorResponse(400, "media_shrink_authority_receipt_invalid");
+    // The transport's existing durable receipt gate rechecks live Core
+    // authorization at this exact point. First-time receipt ACK cannot
+    // mint a path-bearing authority; only a fully replayed ACK may.
+    const auto result = commandDeliveryService_.receipt(
+        context, receipt, unixNow());
+    if (!result.accepted || !result.replayed || result.dropResponse)
+        return errorResponse(409, "media_shrink_authority_not_replayed");
+    try {
+        const auto body = mediaShrinkAuthorityLookup_(context, receipt);
+        if (body.empty() || body.size() > 10000)
+            return errorResponse(409, "media_shrink_authority_denied");
+        return jsonResponse(200, body);
+    } catch (...) {
+        return errorResponse(409, "media_shrink_authority_denied");
+    }
 }
 
 HttpServerResponse BackendAgentHttpServer::handleCommandReceipt(
@@ -672,10 +786,15 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
     const bool channelObservation =
         request.path == "/api/agent/v1/observations/channels";
     const bool osdObservation = request.path == "/api/agent/v1/observations/osd";
+    // Bounded media source observation: 100 IDs with 160-byte display labels
+    // can exceed the old 16 KiB generic Agent request limit.
+    const bool mediaSourcesObservation =
+        request.path == "/api/agent/v1/observations/media-import-sources";
     const std::size_t maximumBodyBytes = osdObservation
         ? BackendAgentOsdObservation::MaximumBodyBytes
         : channelObservation
         ? MaximumChannelObservationBodyBytes
+        : mediaSourcesObservation ? 64U * 1024U
         : MaximumAgentBodyBytes;
     if (request.body.size() > maximumBodyBytes)
         return errorResponse(413, channelObservation
@@ -696,7 +815,11 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
     if (request.path == "/api/agent/v1/observations/channels")
         return handleChannelObservation(request, context);
     if (osdObservation) return handleOsdObservation(request, context);
+    if (request.path == "/api/agent/v1/observations/media-import-sources")
+        return handleMediaImportSourceObservation(request, context);
     if (request.path == "/api/agent/v1/commands/poll") return handleCommandPoll(request, context);
+    if (request.path == "/api/agent/v1/media-shrink/authority")
+        return handleMediaShrinkAuthority(request, context);
     if (request.path == "/api/agent/v1/commands/receipt") return handleCommandReceipt(request, context);
     if (request.path == "/api/agent/v1/commands/result") return handleCommandResult(request, context);
     return errorResponse(404, "agent_route_not_found");

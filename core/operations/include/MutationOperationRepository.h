@@ -20,6 +20,7 @@ enum class MutationOperationRepositoryStatus
     idempotentReplay,
     idempotencyConflict,
     operationConflict,
+    maintenanceBlocked,
     revisionConflict,
     stateConflict,
     storageError,
@@ -79,6 +80,7 @@ public:
     explicit MutationOperationRepository(Database& database);
 
     bool ensureSchema();
+    const Database* databaseIdentity() const noexcept { return &database_; }
 
     // Reserve one accepted ADR-0042 operation and its idempotency scope.
     // The repository owns the first durable operationRevision ("1").

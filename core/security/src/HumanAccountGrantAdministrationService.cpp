@@ -101,6 +101,8 @@ const std::set<std::string>& supportedPermissionSet()
         "timers.delete",
         "media.recording.play",
         "media.live.play",
+        "addons.media.import",
+        "addons.media.shrink",
         "remote.control",
         "osd.view",
         "osd.control",
@@ -270,7 +272,8 @@ HumanAccountGrantAdministrationService(
     HumanAccountAdministrationRepository& administrationRepository,
     AccountabilityEventRepository& accountabilityRepository,
     EntropySource entropySource,
-    Clock clock)
+    Clock clock,
+    AddonGrantEligibility addonEligibility)
     : database_(database),
       accountRepository_(accountRepository),
       identityRepository_(identityRepository),
@@ -287,7 +290,8 @@ HumanAccountGrantAdministrationService(
               : Clock([]
                 {
                     return std::chrono::system_clock::now();
-                }))
+                })),
+      addonEligibility_(std::move(addonEligibility))
 {
 }
 
@@ -302,6 +306,7 @@ bool HumanAccountGrantAdministrationService::supportedGrant(
     const std::string& backendId)
 {
     return safeBackendScope(backendId) &&
+        (permission.rfind("addons.", 0) != 0 || backendId != "*") &&
         supportedPermissionSet().count(permission) != 0U;
 }
 
@@ -326,7 +331,8 @@ HumanAccountGrantAdministrationService::supportedGrantPermissionOptions()
         option.category =
             permission.rfind("role.", 0U) == 0U
                 ? "role"
-                : "permission";
+                : (permission.rfind("addons.", 0U) == 0U
+                    ? "addon" : "permission");
         options.push_back(std::move(option));
     }
 
@@ -493,7 +499,9 @@ HumanAccountGrantAdministrationService::setGrant(
         !safeText(context.correlationId, 128U, 0U) ||
         !safeText(accountId, 128U) ||
         expectedResourceRevision.empty() ||
-        !supportedGrant(permission, backendId))
+        !supportedGrant(permission, backendId) ||
+        (active && permission.rfind("addons.", 0) == 0 &&
+         (!addonEligibility_ || !addonEligibility_(permission, backendId))))
     {
         result.status =
             HumanAccountGrantAdministrationStatus::

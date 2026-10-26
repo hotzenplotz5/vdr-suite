@@ -1,3 +1,10 @@
+.PHONY: test-addon-media-import-catalog
+test-addon-media-import-catalog:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		core/agent/tests/test_backend_agent_media_import_catalog.cpp \
+		-o $(BUILD_DIR)/test_backend_agent_media_import_catalog
+	$(BUILD_DIR)/test_backend_agent_media_import_catalog
+
 # Hosted CI builds and validates live probes; real VDR execution remains explicit and opt-in.
 .PHONY: test-suite-bridge-agent-boundary test-suite-bridge-handshake test-suite-bridge-handshake-missing-plugin test-suite-bridge-svdrp-transport-boundary test-suite-bridge-svdrp-transport test-suite-bridge-svdrp-artwork-transport test-suite-bridge-svdrp-metadata-transport test-suite-bridge-svdrp-epg-type-snapshot-transport test-suite-bridge-svdrp-transport-live test-suite-bridge-observation-boundary test-suite-bridge-observation-service test-suite-bridge-observation-worker test-suite-bridge-embedded-runtime-boundary test-suite-bridge-embedded-runtime test-suite-bridge-daemon-runtime-wiring test-sb10d-live-acceptance-contract build-suite-bridge-embedded-runtime-live test-real-suite-bridge-embedded-runtime-live test-real-suite-bridge-observation-live
 
@@ -160,7 +167,7 @@ test-backend-agent-client: test-backend-agent-foundation-architecture
 		$(AGENT_CHANNEL_DOMAIN_SRC) \
 		$(AGENT_COMMAND_DOMAIN_SRC) \
 		core/agent/tests/test_backend_agent_client.cpp \
-		$(LDFLAGS) \
+		$(LDFLAGS) $(shell pkg-config --libs libcurl) \
 		-o $(BUILD_DIR)/test_backend_agent_client
 	$(BUILD_DIR)/test_backend_agent_client
 
@@ -188,8 +195,17 @@ test-phase63-command-delivery-runtime:
 		core/vdr/src/BackendRegistry.cpp \
 		core/vdr/src/BackendRegistryService.cpp \
 		$(AGENT_CONTROL_PLANE_DOMAIN_SRC) \
+		core/operations/src/MutationOperation.cpp \
+		core/operations/src/MutationOperationRepository.cpp \
+		core/security/src/SecurityPermissionGrantRepository.cpp \
+		core/addons/src/AddonAccessPolicy.cpp \
+		core/addons/src/AddonActivationIntentRepository.cpp \
+		core/addons/media-tools/src/MediaImportOperationFence.cpp \
+		core/addons/media-tools/src/MediaImportOperationAdmission.cpp \
+		core/operations/src/MutationOperationIdentity.cpp \
+		core/agent/src/BackendAgentMediaImportAssignment.cpp \
 		core/agent/tests/test_backend_agent_command_delivery.cpp \
-		$(LDFLAGS) \
+		$(LDFLAGS) -lcrypto \
 		-o $(BUILD_DIR)/test_backend_agent_command_delivery
 	$(BUILD_DIR)/test_backend_agent_command_delivery
 

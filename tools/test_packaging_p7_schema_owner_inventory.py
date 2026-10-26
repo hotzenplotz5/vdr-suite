@@ -52,8 +52,18 @@ EXERCISED_BY_P7_CPP = frozenset((
     "core/vdr/src/VdrRecordingCacheRepository.cpp",
     "core/vdr/src/VdrRecordingNativeMetadataRepositorySchema.cpp",
 ))
+# Independently compiled and exercised in the canonical Add-on C++ suite,
+# including repeat ensureSchema, CAS, replay, rollback and audit cases.
+# This is intentionally NOT credited as part of the historical P7 C++ harness.
+EXERCISED_BY_FOCUSED_ADDON_CPP = frozenset((
+    "core/addons/src/AddonActivationIntentRepository.cpp",
+))
 NOT_YET_EXERCISED_BY_P7_CPP = frozenset()
-ALL_CLASSIFIED = EXERCISED_BY_P7_CPP | NOT_YET_EXERCISED_BY_P7_CPP
+ALL_CLASSIFIED = (
+    EXERCISED_BY_P7_CPP |
+    EXERCISED_BY_FOCUSED_ADDON_CPP |
+    NOT_YET_EXERCISED_BY_P7_CPP
+)
 
 
 def find_named_repository_schema_owners(root=ROOT):
@@ -75,6 +85,8 @@ class P7SchemaOwnerInventoryTests(unittest.TestCase):
         self.assertEqual(discovered, ALL_CLASSIFIED,
                          "New/removed schema owner: classify and review P7 coverage")
         self.assertFalse(EXERCISED_BY_P7_CPP & NOT_YET_EXERCISED_BY_P7_CPP)
+        self.assertFalse(EXERCISED_BY_P7_CPP & EXERCISED_BY_FOCUSED_ADDON_CPP)
+        self.assertFalse(EXERCISED_BY_FOCUSED_ADDON_CPP & NOT_YET_EXERCISED_BY_P7_CPP)
 
     def test_covered_initializers_are_compiled_into_real_p7_rehearsal(self):
         build = (ROOT / "mk" / "metadata-tests.mk").read_text(
@@ -97,6 +109,24 @@ class P7SchemaOwnerInventoryTests(unittest.TestCase):
         self.assertIn("GenreIndexRepository", harness)
         self.assertTrue((ROOT / "core" / "metadata" / "src" /
                          "GenreIndexRepositorySchema.inc").is_file())
+
+    def test_focused_addon_schema_owner_is_real_cpp_ci_coverage(self):
+        self.assertEqual(EXERCISED_BY_FOCUSED_ADDON_CPP, frozenset((
+            "core/addons/src/AddonActivationIntentRepository.cpp",
+        )))
+        build = (ROOT / "mk" / "addons.mk").read_text(encoding="utf-8")
+        test = (ROOT / "core" / "addons" / "tests" /
+                "test_addon_activation_intent_repository.cpp").read_text(
+                    encoding="utf-8")
+        workflow = (ROOT / ".github" / "workflows" /
+                    "addon-platform-isolated.yml").read_text(
+                        encoding="utf-8")
+        self.assertIn("core/addons/src/AddonActivationIntentRepository.cpp", build)
+        self.assertIn("core/addons/tests/test_addon_activation_intent_repository.cpp", build)
+        self.assertIn("test-ci-fast: test-addon-activation-intent", build)
+        self.assertIn("make test-addon-activation-intent", workflow)
+        self.assertIn("assert(store.ensureSchema());\n    assert(store.ensureSchema());", test)
+        self.assertIn("ADDON_ACTIVATION_INTENT=PASS", test)
 
     def test_named_repository_initializers_all_exercised(self):
         # Named ensureSchema coverage is not full SQL-writer/upgrade coverage.

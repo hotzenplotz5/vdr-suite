@@ -1,0 +1,362 @@
+name: Add-on platform isolated checks
+
+on:
+  push:
+    branches:
+      - work/addon-platform-registry-lifecycle
+    paths:
+      - 'core/addons/**'
+      - 'core/daemon/include/DaemonRuntime.h'
+      - 'core/daemon/src/DaemonRuntimeInitialization.cpp'
+      - 'core/security/include/SecurityHttpGate.h'
+      - 'core/security/tests/test_public_backend_collection_security.cpp'
+      - 'core/addons/media-tools/src/MediaImportOperationAdmission.cpp'
+      - 'api/rest/include/PublicApiRuntime.h'
+      - 'api/rest/src/PublicApiRuntime.cpp'
+      - 'api/rest/tests/test_public_media_import_capability.cpp'
+      - 'api/rest/tests/test_public_media_import_admission.cpp'
+      - 'api/rest/tests/test_public_media_import_source_list.cpp'
+      - 'core/agent/include/BackendAgentMediaImportCatalog.h'
+      - 'core/agent/tests/test_backend_agent_media_import_catalog.cpp'
+      - 'core/agent/tests/test_backend_agent_lifecycle.cpp'
+      - 'core/agent/src/BackendAgentHttpServer.cpp'
+      - 'core/agent/include/BackendAgentHttpServer.h'
+      - 'core/addons/media-tools/include/MediaImportOperationAdmission.h'
+      - 'core/addons/media-tools/src/MediaImportOperationAdmission.cpp'
+      - 'mk/phase69-public-api-tests.mk'
+      - 'core/daemon/src/DaemonRuntimeRecordingCache.cpp'
+      - 'mk/daemon-sources.mk'
+      - 'core/agent/include/BackendAgentClient.h'
+      - 'core/agent/include/BackendAgentCommandClient.h'
+      - 'core/agent/src/BackendAgentClient.cpp'
+      - 'core/agent/src/BackendAgentCommand.cpp'
+      - 'core/agent/src/BackendAgentCommandClient.cpp'
+      - 'core/agent/src/BackendAgentCommandJson.cpp'
+      - 'core/agent/tests/test_backend_agent_client.cpp'
+      - 'core/agent/include/BackendAgentMediaImport*.h'
+      - 'core/agent/src/BackendAgentMediaImport*.cpp'
+      - 'core/agent/tests/test_backend_agent_media_import*.cpp'
+      - 'apps/agent/main.cpp'
+      - 'core/agent/include/BackendAgentCommandDelivery.h'
+      - 'core/agent/src/BackendAgentCommandDelivery.cpp'
+      - 'core/agent/tests/test_backend_agent_command_delivery.cpp'
+      - 'mk/agent-tests.mk'
+      - 'mk/backend-agent-runtime.mk'
+      - 'mk/common.mk'
+      - 'addons/media-tools/**'
+      - 'modules/rectools/**'
+      - 'core/security/include/AuthorizationService.h'
+      - 'core/security/src/HumanAccountGrantAdministrationService.cpp'
+      - 'core/security/tests/test_authorization_service.cpp'
+      - 'core/security/tests/test_human_account_grant_administration_service.cpp'
+      - 'tools/addons/**'
+      - 'mk/addons.mk'
+      - 'web/frontend/settings-account-admin.js'
+      - 'web/frontend/settings-addons.js'
+      - 'web/frontend/tests/test_media_tools_admin_settings.js'
+      - 'web/frontend/api/account-admin-client-api.js'
+      - 'web/frontend/tests/test_mu9e_grant_mutation_ui.js'
+      - 'web/frontend/api/public-v1-client.js'
+      - 'web/frontend/recordings2-hero-detail.js'
+      - 'web/frontend/tests/test_media_check_composition.js'
+      - 'mk/recordings2.mk'
+      - 'api/rest/include/MediaCheckApiRuntime.h'
+      - 'api/rest/include/ApiRouter.h'
+      - 'core/daemon/include/DaemonMediaCheckRuntime.h'
+      - 'core/daemon/include/RuntimeConfig.h'
+      - 'core/daemon/src/RuntimeConfig.cpp'
+      - 'core/daemon/src/DaemonRuntimeShutdown.cpp'
+      - 'clients/reference-js/public-v1-client.js'
+      - 'web/frontend/modules/media-import.js'
+      - 'core/http/src/TestHttpServerPaths.inc'
+      - 'mk/install.mk'
+      - 'web/frontend/tests/test_authenticated_frontend_bootstrap.js'
+      - 'web/frontend/index.html'
+      - 'web/frontend/app.js'
+      - 'web/frontend/style.css'
+      - 'web/frontend/tests/test_media_import_composition.js'
+      - 'mk/mu9-account-admin-ui.mk'
+      - 'addons/media-tools/README.md'
+      - 'docs/planning/addon-platform-roadmap.md'
+      - 'docs/development/addon-installed-registry-contract.md'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/addon-platform-isolated.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: addon-platform-isolated-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  media-tools-trust-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify backend lease and independent Core approval fixtures
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "TESTED_SHA=$(git rev-parse HEAD)"
+          # Never ship an unparseable installer; negative provenance cases
+          # must stop before touching any package or installed service.
+          bash -n tools/addons/install_media_tools.sh
+          bash tools/addons/install_media_tools.sh --help
+          if bash tools/addons/install_media_tools.sh \
+              0000000000000000000000000000000000000000 \
+              aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+              default /tmp /tmp; then
+            echo "installer unexpectedly accepted a wrong checkout SHA" >&2
+            exit 1
+          fi
+          echo "MEDIA_TOOLS_INSTALLER_FAIL_CLOSED=PASS"
+          # Read-only merge rehearsal in the disposable Actions checkout.
+          # Print actual conflicts rather than hiding them behind a status flag.
+          if test "$(git rev-parse --is-shallow-repository)" = true; then
+            git fetch --quiet --no-tags --unshallow origin
+          fi
+          git fetch --quiet --no-tags origin main:refs/remotes/origin/main
+          git config user.name 'VDR Suite CI'
+          git config user.email 'ci@vdr-suite.invalid'
+          if git merge --no-commit --no-ff origin/main >/tmp/addon-main-merge.log 2>&1; then
+            echo "ADDON_MAIN_MERGEABLE=YES"
+          else
+            echo "ADDON_MAIN_MERGEABLE=NO"
+            git diff --name-only --diff-filter=U | sed 's/^/MERGE_CONFLICT_PATH=/'
+          fi
+          git merge --abort 2>/dev/null || true
+          make test-addon-media-import-catalog
+          make test-addon-activation-http-payload
+          make build-addon-root-approval-test
+          make test-addon-core-approval-daemon-compile
+          make test-phase69f-public-backend-collection
+          export TMPDIR="$RUNNER_TEMP"
+          make test-addon-activation-intent
+          make test-addon-admission-preview
+          make test-addon-administration-service
+          make test-addon-maintenance-read
+          make test-addon-activation-catalog
+          # MT.I1: focused non-root stage+inventory regression, no install.
+          python3 -m unittest discover -s tools/addons -p 'test_stage_media_tools_runtime.py'
+          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_root_approval"
+          sudo env TMPDIR=/root PYTHONDONTWRITEBYTECODE=1 \
+            python3 -m unittest discover -s tools/addons \
+            -p 'test_admin_approval_root_acceptance.py'
+          echo "MEDIA_TOOLS_CORE_TRUST_CI=PASS"
+
+  frontend-regression-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Validate Media Import through production frontend test graph
+        run: |
+          echo "TESTED_SHA=$(git rev-parse HEAD)"
+          make test-ci-frontend
+          node --check web/frontend/settings-addons.js
+          node web/frontend/tests/test_media_tools_admin_settings.js
+
+  frontend-install-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install isolated compilation dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update
+          sudo apt-get install -y libcurl4-openssl-dev libssl-dev
+      - name: Verify packaged A7.5 frontend and sealed runtime stage fixtures
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "TESTED_SHA=$(git rev-parse HEAD)"
+          make -j2 test-install-staging
+          make test-install-runtime-deployment
+          echo "MEDIA_IMPORT_STAGING_CI=PASS"
+
+  addon-platform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Backend Agent build dependencies in isolated runner
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y libcurl4-openssl-dev libssl-dev ffmpeg vdr
+
+      - name: Run targeted installed registry and Core provider tests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          export PYTHONDONTWRITEBYTECODE=1
+          export TMPDIR="$RUNNER_TEMP"
+          test -d "$TMPDIR"
+          echo "TESTED_SHA=$(git rev-parse HEAD)"
+          # Exercise the combined Timer/Media Tools Agent receipt fixture early.
+          make test-phase63-command-delivery-runtime
+          make check-addon-registry
+          make test-addon-handler-registry
+          make test-addon-provider-admission
+          make test-addon-permission-catalog
+          make test-addon-provider-binding
+          make test-addon-provider-read-service
+          make test-addon-provider-approval
+          make test-addon-agent-dispatch-gate
+          make test-media-tools-agent-request
+          make test-media-tools-canonical-agent-bridge
+          # One implementation owner, never a shadow copy under modules.
+          for name in include/MediaImport.h src/MediaImport.cpp src/main.cpp tests/test_media_import.cpp; do
+            test -f "addons/media-tools/$name"
+            test ! -e "modules/rectools/$name"
+          done
+          make test-addon-media-import
+          # Disposable TMPDIR only: verify PC/Skip rename and collision safety.
+          make test-addon-media-import-decision-markers
+          make test-addon-media-import-ffmpeg
+          MEDIA_TOOLS_TEST_REAL_VDR=1 make test-addon-media-import-ffmpeg
+          make addon-media-import
+          make test-addon-media-shrink
+          make test-addon-media-shrink-local-review
+          make test-addon-media-shrink-agent-executor
+          make test-addon-media-shrink-plan-api
+          make test-addon-media-shrink-mutation-api
+          make test-addon-media-shrink-core-review
+          make test-addon-media-shrink-core-admission
+          make test-addon-media-shrink-command-fence
+          make addon-media-shrink
+          make test-addon-media-check
+          make test-addon-media-check-api
+          make addon-media-check
+          echo "MEDIA_CHECK_M2_READ_ONLY_CI=PASS"
+          make test-addon-media-tools-package
+          make test-addon-agent-advertisement
+          make test-media-tools-agent-dispatch
+          make test-media-tools-effective-authorization
+          make test-addon-media-import-api-capability
+          make test-addon-media-import-api-admission
+          make test-addon-media-import-source-list-api
+          make test-addon-media-import-catalog
+          make test-backend-agent-foundation
+          make test-phase69f-public-backend-collection
+          make backend-agent
+          # Compile and link the real Suite daemon with its trusted A6 callback.
+          # Build only: no service start, install, package or recording access.
+          make -j2 daemon
+          make test-backend-agent-client
+          make test-addon-activation-intent
+          make test-addon-administration-service
+          make test-addon-maintenance-read
+          make test-addon-maintenance-freeze
+          echo "ADDON_MEDIA_IMPORT_FREEZE_CI=PASS"
+          make build-addon-global-maintenance-inspection-test
+          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_global_maintenance_inspection"
+          echo "ADDON_GLOBAL_MAINTENANCE_INSPECTION_CI=PASS"
+          echo "ADDON_MAINTENANCE_EXCLUSIVE_HOLD_CI=PASS"
+          echo "ADDON_MAINTENANCE_OWNER_PERSISTENCE_CI=PASS"
+          make test-addon-activation-catalog
+          make test-addon-access-policy
+          make test-security-authorization
+          make test-security-human-account-grant-administration
+          echo "ADDON_ISOLATED_CI=PASS"
+
+      - name: Build descriptor-pinned handler verifier
+        run: make build-addon-pinned-handler-test
+
+      - name: Run root-owned descriptor test in isolated CI fixture
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_pinned_handler"
+          echo "PINNED_ADDON_HANDLER_CI=PASS"
+
+      - name: Build canonical Core approval verifier
+        run: make build-addon-root-approval-test
+
+      - name: Verify Core approval and pinned handler agree
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_root_approval"
+          echo "CORE_ADDON_APPROVAL_CI=PASS"
+
+      - name: Build unprivileged Agent filesystem acceptance
+        run: make build-addon-nonroot-snapshot-test
+
+      - name: Verify root-controlled approval as nonroot Agent identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_addon_nonroot_snapshot"
+          echo "NONROOT_ADDON_SNAPSHOT_CI=PASS"
+
+      - name: Build pinned Media Import Agent executor
+        run: make build-media-tools-pinned-agent-executor-test
+
+      - name: Run pinned Agent executor in disposable root fixture
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo env TMPDIR=/root MEDIA_IMPORT_TEST_RECEIPT_BINARY="$(pwd)/.build/addons/fake_pinned_media_import_receipt" \
+            "$(pwd)/.build/addons/test_pinned_media_import_agent_executor"
+          echo "PINNED_MEDIA_IMPORT_AGENT_CI=PASS"
+
+      - name: Build root-owned source inventory verifier
+        run: make build-media-tools-local-inventory-test
+
+      - name: Verify opaque local media source inventory in isolated fixture
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_local_media_import_inventory"
+          echo "LOCAL_MEDIA_INVENTORY_CI=PASS"
+
+      - name: Build opted-in Media Import runtime composition test
+        run: make build-media-tools-agent-composition-test
+
+      - name: Run protected Agent composition in disposable root fixture
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo env TMPDIR=/root "$(pwd)/.build/addons/test_backend_agent_media_import_runtime"
+          echo "MEDIA_IMPORT_RUNTIME_COMPOSITION_CI=PASS"
+
+      - name: Verify add-on permissions in existing settings UI
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          node --check web/frontend/settings-account-admin.js
+          node web/frontend/tests/test_mu9e_grant_mutation_ui.js
+
+      - name: Isolated root-owned approval and revocation acceptance
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -d /root || sudo test -d /root
+          sudo env TMPDIR=/root PYTHONDONTWRITEBYTECODE=1 \
+            python3 -m unittest discover -s tools/addons \
+            -p 'test_admin_approval_root_acceptance.py'
+          echo "ADDON_APPROVAL_LIFECYCLE_CI=PASS"

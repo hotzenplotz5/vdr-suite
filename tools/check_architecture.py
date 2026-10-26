@@ -31,6 +31,10 @@ SQLITE_DOMAIN_REPOSITORY_PREFIXES = [
     "core/timers/src/",
     "core/operations/src/",
     "core/media/src/",
+    # Core-owned optional Add-on metadata and review repositories; only
+    # *Repository.cpp units qualify under the existing suffix gate.
+    "core/addons/src/",
+    "core/addons/media-tools/src/",
 ]
 
 SQLITE_SPLIT_REPOSITORY_FAMILIES = [
@@ -54,6 +58,13 @@ SQLITE_SPLIT_REPOSITORY_FILES = {
 }
 
 SQLITE_ALLOWED_RUNTIME_ADAPTERS = {
+    # Explicit bounded Add-on maintenance/inspection and Media Check owners.
+    # These files already use the same Core Database; no general
+    # core/addons or header-source SQLite exemption is allowed.
+    "core/addons/media-tools/include/AddonMediaImportMaintenanceRead.h",
+    "core/addons/media-tools/src/AddonMediaImportMaintenanceFence.cpp",
+    "core/addons/media-tools/src/AddonMediaToolsMaintenanceInspection.cpp",
+    "core/daemon/include/DaemonMediaCheckRuntime.h",
     "api/rest/src/GenreBrowserApiRuntime.cpp",
     "core/daemon/src/EmbeddedBackendLifecycle.cpp",
     "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
@@ -63,6 +74,11 @@ SQLITE_ALLOWED_RUNTIME_ADAPTERS = {
 }
 
 SQLITE_ALLOWED_CONTRACT_TESTS = {
+    # Bounded in-memory Add-on activation transaction/audit SQLite fixture.
+    "core/addons/tests/test_addon_activation_intent_repository.cpp",
+    # Focused P7 SQLite backup/row-preservation fixture for the actual
+    # MediaShrinkReviewRepository; synthetic databases only.
+    "core/addons/media-tools/tests/test_media_shrink_review_repository.cpp",
     "api/rest/tests/test_vdr_recording_folder_controller.cpp",
     # Packaging P7 and bounded Agent/Timer SQLite persistence tests. These are
     # exact files using disposable fixtures; no blanket core/*/tests waiver.

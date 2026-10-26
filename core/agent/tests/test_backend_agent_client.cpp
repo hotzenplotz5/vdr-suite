@@ -1,10 +1,16 @@
 #include "BackendAgentClient.h"
+#include "BackendAgentCommandJson.h"
+#include "BackendAgentCommandClient.h"
+#include "MediaShrinkAgentCommand.h"
+#include "MediaShrinkAgentExecutor.h"
+#include "MediaToolsAgentExecutor.h"
 #include "BackendAgentChannelObservation.h"
 #include "BackendAgentChannelObservationJson.h"
 #include "BackendAgentLifecycle.h"
 #include "ISuiteBridgeLegacyOsdInputTransport.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cassert>
 #include <cstdio>
 #include <deque>
@@ -129,6 +135,7 @@ void removeTree(const std::string& root)
     std::remove((root + "/channels.conf").c_str());
     std::remove((root + "/enrollment").c_str());
     std::remove((root + "/config").c_str());
+    std::remove((root + "/command.state").c_str());
     rmdir(root.c_str());
 }
 
@@ -931,6 +938,156 @@ void test_low_latency_command_poll_between_heartbeats()
     removeTree(root);
 }
 
+
+class SyntheticMediaExecutor final
+    : public vdrsuite::mediatools::IMediaImportAgentExecutor
+{
+public:
+    int executions = 0;
+    int authorizations = 0;
+    int listings = 0;
+    bool available() override { return true; }
+    bool verifiedInstallation(
+        vdrsuite::mediatools::MediaToolsInstallationEvidence& out) override
+    { out = {"manual", "0.1.0", std::string(64, 'a')}; return true; }
+    bool listTrustedSourceIds(std::vector<std::string>& ids) override
+    {
+        ++listings;
+        ids = {"source_00000000001"};
+        return true;
+    }
+    bool authorize(const BackendAgentCommandAssignment& value,
+                   const std::string& backend,
+                   std::uint64_t generation) override
+    {
+        ++authorizations;
+        std::string source;
+        return backend == "default" && generation == 9 &&
+            value.backendId == backend &&
+            value.backendGeneration == generation &&
+            value.claimEpoch == 3 &&
+            value.verificationPolicy == "reconciliation_required" &&
+            vdrsuite::mediatools::parseMediaImportSelection(
+                value.payload, source) &&
+            source == "local_token";
+    }
+    vdrsuite::mediatools::MediaImportAgentOutcome execute(
+        const BackendAgentCommandAssignment&) override
+    {
+        ++executions;
+        // No real import, no filesystem paths or media writes in this test.
+        return vdrsuite::mediatools::MediaImportAgentOutcome::submitted;
+    }
+};
+
+void test_media_import_actual_agent_runtime_no_double_dispatch()
+{
+    const std::string root =
+        "/tmp/vdr-suite-agent-media-import-runtime";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+
+    BackendAgentClientConfig config = configFor(root);
+    config.commandStatePath = root + "/command.state";
+    config.commandTypes = {"addon.media.import"};
+    SyntheticMediaExecutor executor;
+    config.mediaImportExecutor = &executor;
+
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    BackendAgentClientRuntime runtime(config, transport);
+    BackendAgentCommandAssignment command;
+    command.present = true;
+    command.requestId = "req_import";
+    command.correlationId = "corr_import";
+    command.operationId = "op_import";
+    command.jobId = "job_import";
+    command.attemptId = "att_import";
+    command.claimEpoch = 3;
+    command.commandId = "cmd_import";
+    command.backendId = "default";
+    command.agentId = "agt_client";
+    command.agentInstanceId = runtime.agentInstanceId();
+    command.backendGeneration = 9;
+    command.commandType = "addon.media.import";
+    command.payloadVersion = 1;
+    command.payload = "{\"sourceId\":\"local_token\"}";
+    command.verificationPolicy = "reconciliation_required";
+    command.assignedAt = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    command.deadline = command.assignedAt + 50;
+    command.requestFingerprint = backendAgentCommandFingerprint(command);
+    assert(backendAgentCommandValidAssignment(command));
+
+    BackendAgentCommandPollResult assigned;
+    assigned.accepted = true;
+    assigned.reasonCode = "command_assigned";
+    assigned.assignment = command;
+
+    transport.responses.push_back(success(
+        200, "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+             "\"backendGeneration\":9,\"credentialGeneration\":1,"
+             "\"heartbeatSequence\":0,\"capabilityRevision\":0,"
+             "\"leaseDurationSeconds\":90,\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+    transport.responses.push_back(success(200, "{\"outcome\":\"accepted\"}"));
+    transport.responses.push_back(success(
+        200, serializeBackendAgentCommandPollResponseJson(assigned)));
+    transport.responses.push_back(success(200, "{}")); // receipt ack
+    transport.responses.push_back(success(200, "{}")); // result ack
+
+    if (!runtime.synchronize(reason))
+    {
+        std::cerr << "A6_RUNTIME_SYNCHRONIZE_FAILURE=" << reason << "\n";
+        assert(false);
+    }
+    assert(executor.authorizations == 1 && executor.executions == 1);
+    assert(transport.paths.size() == 8);
+    assert(transport.paths[4] ==
+        "/api/agent/v1/observations/media-import-sources");
+    assert(transport.bodies[4].find("\"source_00000000001\"") !=
+        std::string::npos);
+    assert(transport.bodies[4].find("/media/input") == std::string::npos);
+    assert(transport.bodies[4].find("\"handlerVersion\":\"0.1.0\"") !=
+        std::string::npos);
+    assert(transport.paths[5] == "/api/agent/v1/commands/poll");
+    assert(transport.paths[6] == "/api/agent/v1/commands/receipt");
+    assert(transport.paths[7] == "/api/agent/v1/commands/result");
+    assert(transport.bodies[5].find("addon.media.import") !=
+        std::string::npos);
+    assert(transport.bodies[7].find("reconcile_only") != std::string::npos);
+    assert(executor.listings == 1);
+
+    // Heartbeat reconciles the persisted result, but must not execute twice.
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 2));
+    transport.responses.push_back(success(200, "{\"outcome\":\"accepted\"}"));
+    transport.responses.push_back(success(
+        200, "{\"hasAssignment\":false,"
+             "\"reasonCode\":\"no_command_available\"}"));
+    assert(runtime.heartbeat(reason));
+    assert(executor.executions == 1 && executor.authorizations == 1);
+    assert(executor.listings == 2);
+    assert(transport.responses.empty());
+    removeTree(root);
+}
+
 void test_heartbeat_wait_is_interruptible()
 {
     const std::string root =
@@ -994,6 +1151,164 @@ void test_heartbeat_wait_is_interruptible()
 
     removeTree(root);
 }
+class SyntheticShrinkExecutor final
+    : public vdrsuite::mediatools::IMediaShrinkAgentExecutor
+{
+public:
+    int executions = 0;
+    int authorizations = 0;
+    bool available(const std::string& type) override {
+        return type == vdrsuite::mediatools::kMediaShrinkStageCommandType;
+    }
+    bool authorize(const BackendAgentCommandAssignment& assignment,
+                   const std::string& backend,
+                   std::uint64_t generation) override {
+        ++authorizations;
+        vdrsuite::mediatools::MediaShrinkAgentSelection selection;
+        return backend == "default" && generation == 9 &&
+            assignment.backendId == backend &&
+            assignment.backendGeneration == generation &&
+            assignment.claimEpoch == 3 &&
+            vdrsuite::mediatools::parseMediaShrinkAgentSelection(
+                assignment.commandType, assignment.payload, selection) &&
+            selection.action ==
+                vdrsuite::mediatools::ShrinkRequestAction::stage;
+    }
+    vdrsuite::mediatools::MediaShrinkAgentOutcome execute(
+        const BackendAgentCommandAssignment&) override {
+        ++executions;
+        // Synthetic stage only: no FFmpeg or media write occurs.
+        return vdrsuite::mediatools::MediaShrinkAgentOutcome::submitted;
+    }
+    std::string takeReviewId() override {
+        return "shk_0123456789abcdef0123456789abcdef";
+    }
+};
+
+void test_shrink_actual_agent_runtime_no_double_dispatch()
+{
+    const std::string root = "/tmp/vdr-suite-agent-shrink-runtime";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+    BackendAgentClientConfig config = configFor(root);
+    config.commandStatePath = root + "/command.state";
+    config.commandTypes = {
+        vdrsuite::mediatools::kMediaShrinkStageCommandType,
+        vdrsuite::mediatools::kMediaShrinkPublishCommandType
+    };
+    SyntheticShrinkExecutor executor;
+    config.mediaShrinkExecutor = &executor;
+
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    BackendAgentClientRuntime runtime(config, transport);
+    BackendAgentCommandAssignment command;
+    command.present = true;
+    command.requestId = "req_shrink";
+    command.correlationId = "corr_shrink";
+    command.operationId = "op_shrink";
+    command.jobId = "job_shrink";
+    command.attemptId = "att_shrink";
+    command.claimEpoch = 3;
+    command.commandId = "cmd_shrink";
+    command.backendId = "default";
+    command.agentId = "agt_client";
+    command.agentInstanceId = runtime.agentInstanceId();
+    command.backendGeneration = 9;
+    command.commandType =
+        vdrsuite::mediatools::kMediaShrinkStageCommandType;
+    command.payloadVersion = 1;
+    command.payload =
+        "{\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"encoder\":\"software\",\"maxHeight\":720,\"nightMode\":false}";
+    command.verificationPolicy = "readback_required";
+    command.assignedAt = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    command.deadline = command.assignedAt + 50;
+    command.requestFingerprint = backendAgentCommandFingerprint(command);
+    assert(backendAgentCommandValidAssignment(command));
+
+    BackendAgentCommandPollResult assigned;
+    assigned.accepted = true;
+    assigned.reasonCode = "command_assigned";
+    assigned.assignment = command;
+    transport.responses.push_back(success(
+        200, "{\"agentId\":\"agt_client\",\"backendId\":\"default\","
+             "\"backendGeneration\":9,\"credentialGeneration\":1,"
+             "\"heartbeatSequence\":0,\"capabilityRevision\":0,"
+             "\"leaseDurationSeconds\":90,\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+    transport.responses.push_back(success(
+        200, serializeBackendAgentCommandPollResponseJson(assigned)));
+    transport.responses.push_back(success(200, "{}")); // receipt
+    transport.responses.push_back(success(200, "{}")); // result
+
+    if (!runtime.synchronize(reason)) {
+        std::cerr << "SHRINK_AGENT_SYNCHRONIZE_FAILURE=" << reason << "\n";
+        assert(false);
+    }
+    assert(executor.authorizations == 1 && executor.executions == 1);
+    bool foundResult = false;
+    bool foundStageAdvertisement = false;
+    for (std::size_t i = 0; i < transport.paths.size(); ++i) {
+        if (transport.paths[i] == "/api/agent/v1/commands/result") {
+            foundResult = true;
+            assert(transport.bodies[i].find(
+                "shk_0123456789abcdef0123456789abcdef") != std::string::npos);
+            assert(transport.bodies[i].find("reconcile_only") != std::string::npos);
+            assert(transport.bodies[i].find("/tmp/") == std::string::npos);
+        }
+        if (transport.paths[i] == "/api/agent/v1/commands/poll") {
+            foundStageAdvertisement = true;
+            assert(transport.bodies[i].find("addon.media.shrink.stage") !=
+                   std::string::npos);
+            assert(transport.bodies[i].find("addon.media.shrink.publish") ==
+                   std::string::npos);
+        }
+    }
+    assert(foundResult && foundStageAdvertisement);
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 2));
+    transport.responses.push_back(success(
+        200, "{\"hasAssignment\":false,"
+             "\"reasonCode\":\"no_command_available\"}"));
+    assert(runtime.heartbeat(reason));
+    assert(executor.executions == 1);
+    assert(executor.authorizations == 1);
+    assert(transport.responses.empty());
+    removeTree(root);
+}
+
+void test_shrink_requires_explicit_trusted_executor()
+{
+    BackendAgentCommandClientConfig config;
+    config.commandTypes = {
+        vdrsuite::mediatools::kMediaShrinkStageCommandType,
+        vdrsuite::mediatools::kMediaShrinkPublishCommandType
+    };
+    const auto availability =
+        discoverBackendAgentCommandAvailability(config);
+    // Manifest/config alone cannot advertise an uninstalled or unreviewed
+    // media mutation, even though the wire parser understands its shape.
+    assert(availability.commandTypes.empty());
+}
+
 }
 
 int main()
@@ -1008,6 +1323,9 @@ int main()
     test_malformed_control_plane_numbers_fail_closed();
     test_permissions_and_bounded_backoff();
     test_low_latency_command_poll_between_heartbeats();
+    test_media_import_actual_agent_runtime_no_double_dispatch();
+    test_shrink_requires_explicit_trusted_executor();
+    test_shrink_actual_agent_runtime_no_double_dispatch();
     test_heartbeat_wait_is_interruptible();
     std::cout << "test_backend_agent_client passed" << std::endl;
     return 0;

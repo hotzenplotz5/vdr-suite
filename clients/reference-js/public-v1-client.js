@@ -612,6 +612,15 @@
   }
 
 
+  function mediaImportPath(options, suffix) {
+    if (!options || typeof options !== 'object' ||
+        typeof options.backendId !== 'string' ||
+        !/^[A-Za-z0-9._-]{1,128}$/.test(options.backendId)) {
+      throw new Error('Media Import requires canonical backendId');
+    }
+    return '/api/v1/backends/' + options.backendId + '/' + suffix;
+  }
+
   function operationItemPath(options) {
     if (!options || typeof options !== 'object' || Array.isArray(options)) {
       throw new Error('Operation item options must be an object');
@@ -684,6 +693,168 @@
           throw new Error('Unexpected artwork Content-Type');
         return response.arrayBuffer().then(function (bytes) {
           return {contentType: type, bytes: bytes};
+        });
+      });
+    }
+
+    function requestMediaImport(options) {
+      const requestOptions = options && typeof options === 'object' ? options : {};
+      const path = mediaImportPath(requestOptions, 'media-imports');
+      if (typeof requestOptions.sourceId !== 'string' ||
+          !/^[A-Za-z0-9_-]{16,64}$/.test(requestOptions.sourceId)) {
+        throw new Error('Media Import requires opaque sourceId');
+      }
+      if (typeof requestOptions.idempotencyKey !== 'string' ||
+          !/^[!-~]{1,160}$/.test(requestOptions.idempotencyKey)) {
+        throw new Error('Media Import requires valid Idempotency-Key');
+      }
+      if (requestOptions.videoDecision !== undefined &&
+          !['local', 'desktop', 'skip', 'release'].includes(requestOptions.videoDecision)) {
+        throw new Error('Media Import requires an explicit supported video decision');
+      }
+      const headers = Object.assign(
+        {Accept: 'application/json'},
+        defaultHeaders,
+        copyHeaders(requestOptions.headers),
+        {'Content-Type': 'application/json',
+          'Idempotency-Key': requestOptions.idempotencyKey}
+      );
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST',
+        headers: headers,
+        credentials: requestOptions.credentials !== undefined
+          ? requestOptions.credentials : normalized.credentials,
+        cache: 'no-store',
+        signal: requestOptions.signal,
+        body: JSON.stringify(requestOptions.videoDecision
+          ? {sourceId: requestOptions.sourceId,
+             videoDecision: requestOptions.videoDecision}
+          : {sourceId: requestOptions.sourceId})
+      }).then(function (response) {
+        const location = headerValue(response, 'Location');
+        const entityTag = headerValue(response, 'ETag');
+        return parseJsonBody(response).then(function (payload) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(path, response.status, payload, response);
+          }
+          return {status: response.status, location: location,
+            etag: entityTag, data: payload};
+        });
+      });
+    }
+
+
+    function requestMediaShrinkPlan(options) {
+      const value = options && typeof options === 'object' ? options : {};
+      const path = mediaImportPath(value, 'media-shrink-plans');
+      if (typeof value.recordingId !== 'string' ||
+          !/^rec_[0-9a-f]{32}$/.test(value.recordingId)) {
+        throw new Error('HEVC plan requires canonical recordingId');
+      }
+      const headers = Object.assign(
+        {Accept: 'application/json'}, defaultHeaders, copyHeaders(value.headers),
+        {'Content-Type': 'application/json'}
+      );
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST', headers: headers,
+        credentials: value.credentials !== undefined
+          ? value.credentials : normalized.credentials,
+        cache: 'no-store', signal: value.signal,
+        body: JSON.stringify({recordingId: value.recordingId})
+      }).then(function (response) {
+        return parseJsonBody(response).then(function (payload) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(
+              path, response.status, payload, response);
+          }
+          return payload;
+        });
+      });
+    }
+
+    // Stage and Publish are distinct, explicitly idempotent Core mutations.
+    // Browser requests never carry a native recording/candidate path.
+    function requestMediaShrinkMutation(options, action) {
+      const value = options && typeof options === 'object' ? options : {};
+      if (typeof value.idempotencyKey !== 'string' ||
+          !/^[A-Za-z0-9_.:-]{8,128}$/.test(value.idempotencyKey)) {
+        throw new Error('HEVC mutation requires a stable Idempotency-Key');
+      }
+      let payload;
+      let suffix;
+      if (action === 'stage') {
+        if (typeof value.recordingId !== 'string' ||
+            !/^rec_[0-9a-f]{32}$/.test(value.recordingId) ||
+            !['software', 'vaapi', 'qsv', 'nvenc'].includes(value.encoder) ||
+            !Number.isInteger(value.maxHeight) ||
+            (value.maxHeight !== 0 &&
+              (value.maxHeight < 480 || value.maxHeight > 2160)) ||
+            typeof value.nightMode !== 'boolean') {
+          throw new Error('Invalid HEVC stage selection');
+        }
+        payload = {recordingId: value.recordingId, encoder: value.encoder,
+          maxHeight: value.maxHeight, nightMode: value.nightMode};
+        suffix = 'media-shrink-stages';
+      } else if (action === 'publish') {
+        if (typeof value.reviewId !== 'string' ||
+            !/^shk_[0-9a-f]{32}$/.test(value.reviewId) ||
+            value.revision !== 1) {
+          throw new Error('HEVC publish requires reviewed candidate revision 1');
+        }
+        payload = {reviewId: value.reviewId, revision: 1};
+        suffix = 'media-shrink-publications';
+      } else {
+        throw new Error('Unknown HEVC mutation');
+      }
+      const path = mediaImportPath(value, suffix);
+      const headers = Object.assign(
+        {Accept: 'application/json'}, defaultHeaders, copyHeaders(value.headers),
+        {'Content-Type': 'application/json',
+          'Idempotency-Key': value.idempotencyKey}
+      );
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST', headers: headers,
+        credentials: value.credentials !== undefined
+          ? value.credentials : normalized.credentials,
+        cache: 'no-store', signal: value.signal,
+        body: JSON.stringify(payload)
+      }).then(function (response) {
+        return parseJsonBody(response).then(function (body) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(
+              path, response.status, body, response);
+          }
+          return body;
+        });
+      });
+    }
+
+    function requestMediaCheck(options) {
+      const value = options && typeof options === 'object' ? options : {};
+      const path = mediaImportPath(value, 'media-checks');
+      if (typeof value.recordingId !== 'string' ||
+          !/^rec_[0-9a-f]{32}$/.test(value.recordingId)) {
+        throw new Error('Media Check requires canonical recordingId');
+      }
+      if (value.mode !== 'structure' && value.mode !== 'decode') {
+        throw new Error('Media Check mode must be structure or decode');
+      }
+      const headers = Object.assign(
+        {Accept: 'application/json'}, defaultHeaders, copyHeaders(value.headers),
+        {'Content-Type': 'application/json'}
+      );
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST', headers: headers,
+        credentials: value.credentials !== undefined
+          ? value.credentials : normalized.credentials,
+        cache: 'no-store', signal: value.signal,
+        body: JSON.stringify({recordingId: value.recordingId, mode: value.mode})
+      }).then(function (response) {
+        return parseJsonBody(response).then(function (payload) {
+          if (!response.ok) {
+            throw new VdrSuitePublicClientError(path, response.status, payload, response);
+          }
+          return payload;
         });
       });
     }
@@ -1603,6 +1774,81 @@
           timerAssignmentItemPath(normalizedOptions),
           normalizedOptions
         );
+      },
+      getMediaShrinkCapability(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        return request(mediaImportPath(value, 'capabilities/media-shrink'), value);
+      },
+      getMediaShrinkReview(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        if (typeof value.reviewId !== 'string' ||
+            !/^shk_[0-9a-f]{32}$/.test(value.reviewId)) {
+          throw new Error('HEVC review requires opaque reviewId');
+        }
+        return request(mediaImportPath(value,
+          'media-shrink-reviews/' + value.reviewId), value);
+      },
+      submitMediaShrinkPlan(options) {
+        return requestMediaShrinkPlan(options);
+      },
+      submitMediaShrinkStage(options) {
+        return requestMediaShrinkMutation(options, 'stage');
+      },
+      submitMediaShrinkPublish(options) {
+        return requestMediaShrinkMutation(options, 'publish');
+      },
+      getMediaShrinkOperation(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        if (typeof value.operationId !== 'string' ||
+            !/^op_[0-9a-f]{32}$/.test(value.operationId)) {
+          throw new Error('HEVC operation requires opaque operationId');
+        }
+        return request(mediaImportPath(value,
+          'media-shrink-operations/' + value.operationId), value);
+      },
+      getMediaCheckCapability(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        return request(mediaImportPath(value, 'capabilities/media-check'), value);
+      },
+      submitMediaCheck(options) {
+        return requestMediaCheck(options);
+      },
+      getMediaCheckStatus(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        if (typeof value.checkId !== 'string' ||
+            !/^chk_[0-9a-f]{32}$/.test(value.checkId)) {
+          throw new Error('Media Check requires opaque checkId');
+        }
+        return request(mediaImportPath(value, 'media-checks/' + value.checkId), value);
+      },
+      getMediaImportCapability(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        return request(mediaImportPath(normalizedOptions,
+          'capabilities/media-import'), normalizedOptions);
+      },
+      getMediaImportSources(options) {
+        const normalizedOptions = options && typeof options === 'object' ? options : {};
+        const cursor = normalizedOptions.cursor;
+        if (cursor !== undefined && (typeof cursor !== 'string' ||
+            !/^mi1_[0-9]{1,20}_[0-9]{1,3}$/.test(cursor))) {
+          throw new Error('Media Import source cursor is invalid');
+        }
+        return request(mediaImportPath(normalizedOptions,
+          'media-import-sources') +
+          (cursor === undefined ? '' : '?cursor=' + encodeURIComponent(cursor)),
+          normalizedOptions);
+      },
+      getMediaImportSourcePreview(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        if (typeof value.sourceId !== 'string' ||
+            !/^[A-Za-z0-9_-]{16,64}$/.test(value.sourceId)) {
+          throw new Error('Media Import preview requires one opaque sourceId');
+        }
+        return request(mediaImportPath(value,
+          'media-import-sources/' + value.sourceId + '/preview'), value);
+      },
+      submitMediaImport(options) {
+        return requestMediaImport(options);
       },
       getOperation(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

@@ -7,6 +7,17 @@
 #include "EpgNativeTimerPreviewAttestation.h"
 #include "SuiteBridgeNativeTimerCreateTransport.h"
 #include "TimerIntentApplicationService.h"
+#include "MediaImportOperationAdmission.h"
+#include "MediaImportRecordingEvidence.h"
+#include "MediaShrinkOperationAdmission.h"
+#include "DaemonMediaShrinkAdmissionAuthority.h"
+#include "BackendAgentMediaShrinkAssignment.h"
+#include "BackendAgentMediaImportAssignment.h"
+#include "MediaShrinkAuthorityCodec.h"
+#include "AddonRootApproval.h"
+#include "AddonAdministrationService.h"
+#include "AddonActivationHttpPayload.h"
+#include "LocalMediaImportSourceAdmin.h"
 
 #include "BackendAgentNativeTimerDeleteFingerprint.h"
 #include "NativeTimerDeleteDispatchService.h"
@@ -22,6 +33,12 @@
 #include "NativeTimerAbsenceReadbackVerificationService.h"
 #include "NativeTimerDeleteOperationCompletionService.h"
 #include "BackendAgentNativeTimerDeleteAssignment.h"
+#include <openssl/rand.h>
+#include <array>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+
 #include "EpgSearchNativeFuzzyStartupRestoreDiagnostics.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "RecordingArtworkHttpServer.h"
@@ -141,6 +158,98 @@ private:
 };
 } // namespace
 
+std::string DaemonRuntime::trustedMediaToolsHandlerDigest(
+    const std::string& backendId, std::int64_t now) const
+{
+    if (now <= 0 || backendId.empty() || !backendAgentRepository_ ||
+        !mediaImportCatalog_)
+        return {};
+    const auto agent = backendAgentRepository_->findAgentForBackend(backendId);
+    if (!agent) return {};
+    const auto approval =
+        vdrsuite::addons::readRootMediaToolsApproval("/", backendId);
+    return mediaImportCatalog_->matchesIndependentCoreApproval(
+        *agent, backendId, now, approval) ? approval.sha256 : std::string{};
+}
+
+bool DaemonRuntime::trustedMediaToolsProvider(
+    const std::string& backendId, std::int64_t now) const
+{
+    return !trustedMediaToolsHandlerDigest(backendId, now).empty();
+}
+
+bool DaemonRuntime::tryReconcileMediaShrinkStage(
+    const BackendAgentCommandAssignment& assignment,
+    const BackendAgentCommandResult& result,
+    std::int64_t now)
+{
+    using namespace vdrsuite::mediatools;
+    using State = vdrsuite::operations::MutationOperationState;
+    if (!mediaShrinkPlanRuntime_ || !mediaShrinkOperationFence_ ||
+        !mutationOperationRepository_ || !mediaShrinkReviewRepository_ ||
+        !backendAgentCommandRepository_ ||
+        assignment.commandType != kMediaShrinkStageCommandType ||
+        result.commandId != assignment.commandId ||
+        result.requestFingerprint != assignment.requestFingerprint ||
+        result.resultCategory != "outcome_unknown" ||
+        result.verificationState != "outcome_unknown" ||
+        result.dispatchState != "accepted_by_executor" ||
+        !shrinkOpaqueId(result.resultEvidence, "shk_") ||
+        now <= 0)
+        return false;
+    const auto persisted = backendAgentCommandRepository_->resultForCommand(
+        assignment.commandId);
+    if (!persisted ||
+        backendAgentCommandResultIdentity(*persisted) !=
+            backendAgentCommandResultIdentity(result))
+        return false;
+    const auto selected = mutationOperationRepository_->findById(
+        assignment.operationId);
+    if (!selected.ok()) return false;
+    const auto& op = selected.operation;
+    if (op.operationId != assignment.operationId ||
+        op.backendId != assignment.backendId ||
+        op.backendGeneration != assignment.backendGeneration ||
+        op.actionFamily != "media.shrink.stage" ||
+        op.resourceType != "Recording" ||
+        !shrinkOpaqueId(op.resourceId, "rec_") ||
+        (op.state != State::outcomeUnknown &&
+         op.state != State::succeeded))
+        return false;
+    if (op.state == State::succeeded &&
+        op.resultReference != result.resultEvidence)
+        return false;
+    if (op.state == State::outcomeUnknown &&
+        op.resultReference !=
+            "agent.media.shrink:" + assignment.commandId)
+        return false;
+    std::uint64_t effectiveGeneration = 0;
+    std::string reason;
+    if (!mediaShrinkOperationFence_->effectiveCapability(
+            op.actorId, op.backendId, kMediaShrinkStageCommandType,
+            now, effectiveGeneration, reason) ||
+        effectiveGeneration != op.backendGeneration)
+        return false;
+    // Independent media probes happen AFTER durable Agent result ACK;
+    // they cannot be performed by the mutation executor itself.
+    NativeProcessRunner runner(std::chrono::seconds(120));
+    const auto verified = mediaShrinkPlanRuntime_->verifyStagedCandidate(
+        op.actorId, op.backendId, op.resourceId, op.operationId,
+        op.expectedResourceFingerprint, op.backendGeneration,
+        result.resultEvidence, runner);
+    if (!verified) return false;
+    if (op.state != State::succeeded) {
+        const auto advanced = mutationOperationRepository_->transition(
+            op.operationId, op.operationRevision, op.state,
+            State::succeeded, verified->reviewId, now);
+        if (!advanced.ok()) return false;
+    }
+    const auto review = mediaShrinkReviewRepository_->registerStaged(
+        verified->reviewId, op.operationId);
+    return review.ok() ||
+        review.status == vdrsuite::addons::MediaShrinkReviewStatus::replayed;
+}
+
 bool DaemonRuntime::initialize()
 {
     std::cout << "vdr-suite-daemon runtime initializing" << std::endl;
@@ -166,6 +275,14 @@ bool DaemonRuntime::initialize()
     mutationOperationReadService_ =
         std::make_unique<vdrsuite::operations::MutationOperationReadService>(
             *mutationOperationRepository_);
+    mediaShrinkReviewRepository_ =
+        std::make_unique<vdrsuite::addons::MediaShrinkReviewRepository>(
+            database_, *mutationOperationRepository_);
+    if (!mediaShrinkReviewRepository_->ensureSchema()) {
+        std::cerr << "failed to initialize HEVC review binding schema"
+                  << std::endl;
+        return false;
+    }
 
     std::cout
         << "mutation operation read runtime initialized"
@@ -416,6 +533,203 @@ bool DaemonRuntime::initialize()
             *backendAgentCommandRepository_,
             *backendAgentRepository_,
             *backendAgentAccountabilityRepository_);
+
+    // A6: bind the real Core operation and effective grant authorities at
+    // the Agent receipt boundary. This does not advertise or execute Media
+    // Tools: the production Agent still injects no Media Import executor.
+    mediaImportGrantRepository_ =
+        std::make_unique<SecurityPermissionGrantRepository>(database_);
+    if (!mediaImportGrantRepository_->ensureSchema())
+        return false;
+    mediaImportActivationIntents_ =
+        std::make_unique<vdrsuite::addons::AddonActivationIntentRepository>(
+            database_);
+    if (!mediaImportActivationIntents_->ensureSchema())
+        return false;
+    mediaImportOperationFence_ =
+        std::make_unique<vdrsuite::addons::MediaImportOperationFence>(
+            *mutationOperationRepository_, *backendAgentIdentityRepository_,
+            *mediaImportGrantRepository_, *backendAgentRepository_,
+            *backendAgentCommandRepository_, *backendRegistryService_,
+            *backendAccessPolicy_, *mediaImportActivationIntents_,
+            [this](const std::string& backendId, std::int64_t now) {
+                return trustedMediaToolsHandlerDigest(backendId, now);
+            });
+    mediaShrinkOperationFence_ =
+        std::make_unique<vdrsuite::addons::MediaShrinkOperationFence>(
+            *mutationOperationRepository_, *backendAgentIdentityRepository_,
+            *mediaImportGrantRepository_, *backendAgentRepository_,
+            *backendAgentCommandRepository_, *backendRegistryService_,
+            *backendAccessPolicy_, *mediaImportActivationIntents_,
+            *mediaShrinkReviewRepository_,
+            [this](const std::string& backendId, std::int64_t now) {
+                return trustedMediaToolsHandlerDigest(backendId, now);
+            });
+    backendAgentCommandDeliveryService_->setMediaShrinkReceiptFenceCheck(
+        [this](const BackendAgentCommandAssignment& assignment,
+               const BackendAgentCommandReceipt& receipt,
+               std::string& reason)
+        {
+            if (!mediaShrinkOperationFence_) {
+                reason = "media_shrink_operation_fence_unavailable";
+                return false;
+            }
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            return mediaShrinkOperationFence_->check(
+                assignment, receipt, now, reason);
+        });
+    backendAgentCommandDeliveryService_->setMediaShrinkResultApply(
+        [this](const BackendAgentCommandAssignment& assignment,
+               const BackendAgentCommandResult& result,
+               std::string& reason)
+        {
+            if (!mediaShrinkOperationFence_) {
+                reason = "media_shrink_operation_fence_unavailable";
+                return false;
+            }
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const bool committed = mediaShrinkOperationFence_->applyResult(
+                assignment, result, now, reason);
+            if (committed &&
+                assignment.commandType ==
+                    vdrsuite::mediatools::kMediaShrinkStageCommandType)
+                (void)tryReconcileMediaShrinkStage(
+                    assignment, result, now);
+            if (committed &&
+                assignment.commandType ==
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType)
+                recordingCacheRefreshQueue_.request(assignment.backendId);
+            // Failure or unavailable readback keeps the canonical Operation
+            // outcomeUnknown and does not requeue the destructive command.
+            return committed;
+        });
+    // Agent receipts remain unverified until a separate candidate readback
+    // or a successfully committed native Recording cache reconciliation.
+    mediaImportCatalog_ = std::make_unique<BackendAgentMediaImportCatalog>();
+    PublicApiRuntime::instance().registerMediaImportSourceLookup(
+        [this](const std::string& actorId, const std::string& backendId)
+        {
+            using API = PublicApiRuntime;
+            API::MediaImportSourceResult result;
+            if (!mediaImportCatalog_ || !mediaImportOperationFence_ ||
+                !backendAgentRepository_) return result;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            std::string reason;
+            if (!mediaImportOperationFence_->effectiveMediaImportCapability(
+                    actorId, backendId, now, reason))
+            {
+                result.status = API::MediaImportSourceStatus::forbidden;
+                return result;
+            }
+            const auto live = backendAgentRepository_->findAgentForBackend(backendId);
+            if (!live) return result;
+            // Independent Core-host approval is the EXPECTED digest.
+            // A remote Agent observation cannot approve itself; Core never
+            // inspects the remote handler via its own local filesystem.
+            if (!trustedMediaToolsProvider(backendId, now) ||
+                !mediaImportCatalog_->list(
+                    *live, backendId, now, result.ids, result.labels,
+                    &result.partial, &result.folders))
+                return result;
+            result.status = API::MediaImportSourceStatus::ok;
+            return result;
+        });
+    PublicApiRuntime::instance().registerMediaImportPreviewLookup(
+        [this](const std::string& actorId, const std::string& backendId,
+               const std::string& sourceId)
+        {
+            using API = PublicApiRuntime;
+            API::MediaImportPreviewResult out;
+            if (!mediaImportCatalog_ || !mediaImportOperationFence_ ||
+                !backendAgentRepository_) return out;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            std::string reason;
+            if (!mediaImportOperationFence_->effectiveMediaImportCapability(
+                    actorId, backendId, now, reason)) {
+                out.status = API::MediaImportPreviewStatus::forbidden;
+                return out;
+            }
+            const auto live =
+                backendAgentRepository_->findAgentForBackend(backendId);
+            if (!live || !trustedMediaToolsProvider(backendId, now))
+                return out;
+            BackendAgentMediaImportCatalog::Preview observed;
+            const auto state = mediaImportCatalog_->requestPreview(
+                *live, backendId, now, sourceId, observed);
+            if (state ==
+                BackendAgentMediaImportCatalog::PreviewState::denied)
+                return out;
+            if (state ==
+                BackendAgentMediaImportCatalog::PreviewState::pending) {
+                out.status = API::MediaImportPreviewStatus::pending;
+                return out;
+            }
+            out.status = API::MediaImportPreviewStatus::ready;
+            out.sourceId = observed.sourceId;
+            out.inspectionStatus = observed.status;
+            out.title = observed.title;
+            out.targetFolder = observed.targetFolder;
+            out.videoCodec = observed.videoCodec;
+            out.sourceBytes = observed.sourceBytes;
+            out.availableBytes = observed.availableBytes;
+            out.requiredBytes = observed.requiredBytes;
+            out.videoReencodeRequired = observed.videoReencodeRequired;
+            return out;
+        });
+    PublicApiRuntime::instance().registerMediaImportCapabilityLookup(
+        [this](const std::string& actorId, const std::string& backendId)
+        {
+            if (!mediaImportOperationFence_) return false;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            std::string reason;
+            return mediaImportOperationFence_->effectiveMediaImportCapability(
+                actorId, backendId, now, reason);
+        });
+    PublicApiRuntime::instance().registerMediaImportAdmission(
+        [this](const PublicMediaImportAdmissionRequest& request) {
+            return admitMediaImport(request);
+        });
+    backendAgentCommandDeliveryService_->setMediaImportReceiptFenceCheck(
+        [this](const BackendAgentCommandAssignment& assignment,
+               const BackendAgentCommandReceipt& receipt,
+               std::string& reason)
+        {
+            if (!mediaImportOperationFence_) {
+                reason = "media_import_operation_fence_unavailable";
+                return false;
+            }
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            return mediaImportOperationFence_->check(
+                assignment, receipt, now, reason);
+        });
+    backendAgentCommandDeliveryService_->setMediaImportResultApply(
+        [this](const BackendAgentCommandAssignment& assignment,
+               const BackendAgentCommandResult& result,
+               std::string& reason)
+        {
+            if (!mediaImportOperationFence_) {
+                reason = "media_import_operation_fence_unavailable";
+                return false;
+            }
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const bool applied = mediaImportOperationFence_->applyResult(
+                assignment, result, now, reason);
+            // Reuse the existing coalesced, read-only Recording refresh
+            // queue. Never spawn another job or mutate VDR from this callback.
+            if (applied &&
+                vdrsuite::mediatools::validRecordingPathEvidence(
+                    result.resultEvidence) &&
+                result.dispatchState == "accepted_by_executor")
+                recordingCacheRefreshQueue_.request(assignment.backendId, 2);
+            return applied;
+        });
     std::cout << "Backend Agent enrollment, lease and command delivery runtime initialized" << std::endl;
 
     epgSearchNativeFuzzyCapabilityRepository_ =
@@ -4663,16 +4977,717 @@ bool DaemonRuntime::initialize()
             result.status = PublicRecordingArtworkStatus::ok;
             return result;
         });
+    // M2.2: local-only Media Check using live canonical recording identity.
+    // Backend-mounted video roots must be explicitly configured; remote
+    // Agent execution is not advertised by this implementation.
+    mediaCheckRuntime_ = std::make_unique<DaemonMediaCheckRuntime>(
+        config_.mediaCheckVideoRoots(),
+        [this](const std::string& backend, const std::string& publicId)
+            -> std::optional<std::filesystem::path>
+        {
+            if (!publicRecordingIdentities_ || !vdrSnapshotReadService_ ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(backend))
+                return std::nullopt;
+            const auto native =
+                publicRecordingIdentities_->findNativeForPublicId(
+                    backend, publicId);
+            if (!native) return std::nullopt;
+            for (const VdrRecording& recording :
+                vdrSnapshotReadService_->getRecordingsForBackend(backend))
+            {
+                if (recording.backendId == backend &&
+                    recording.backendNativeId == *native &&
+                    !recording.path.empty())
+                    return std::filesystem::path(recording.path);
+            }
+            return std::nullopt;
+        },
+        [this](const std::string& backend)
+        {
+            if (!backendRegistryService_ || !vdrSnapshotReadService_)
+                return false;
+            const auto selected = backendRegistryService_->getBackend(backend);
+            return selected && selected->enabled && selected->online &&
+                vdrSnapshotReadService_->hasSnapshotForBackend(backend);
+        },
+        database_);
+    if (!mediaCheckRuntime_->ensurePersistence()) {
+        std::cerr << "failed to initialize Media Check report persistence"
+                  << std::endl;
+        return false;
+    }
+    MediaCheckApiRuntime::instance().registerHandlers(
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& recording, const std::string& mode)
+        {
+            return mediaCheckRuntime_->start(actor, backend, recording, mode);
+        },
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& checkId)
+        {
+            return mediaCheckRuntime_->status(actor, backend, checkId);
+        },
+        [this](const std::string& backend)
+        {
+            return mediaCheckRuntime_->capability(backend);
+        });
+
+    // Media Shrink is exposed ONLY as a read-only preflight at this stage.
+    // Reuse the exact canonical recording identity/snapshot used by Media
+    // Check. No caller-controlled paths, FFmpeg or filesystem writes.
+    mediaShrinkPlanRuntime_ = std::make_unique<DaemonMediaShrinkPlanRuntime>(
+        config_.mediaCheckVideoRoots(),
+        [this](const std::string& backend, const std::string& publicId)
+            -> std::optional<std::filesystem::path>
+        {
+            if (!publicRecordingIdentities_ || !vdrSnapshotReadService_ ||
+                !vdrSnapshotReadService_->hasSnapshotForBackend(backend))
+                return std::nullopt;
+            const auto native =
+                publicRecordingIdentities_->findNativeForPublicId(
+                    backend, publicId);
+            if (!native) return std::nullopt;
+            for (const VdrRecording& recording :
+                 vdrSnapshotReadService_->getRecordingsForBackend(backend))
+            {
+                if (recording.backendId == backend &&
+                    recording.backendNativeId == *native &&
+                    !recording.path.empty())
+                    return std::filesystem::path(recording.path);
+            }
+            return std::nullopt;
+        },
+        [this](const std::string& backend)
+        {
+            if (!backendRegistryService_ || !vdrSnapshotReadService_)
+                return false;
+            const auto selected = backendRegistryService_->getBackend(backend);
+            return selected && selected->enabled && selected->online &&
+                vdrSnapshotReadService_->hasSnapshotForBackend(backend);
+        },
+        mediaShrinkReviewRepository_.get());
+    MediaShrinkPlanApiRuntime::instance().registerHandlers(
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& recording)
+        {
+            std::uint64_t generation = 0;
+            std::string reason;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            // Do not advertise stage readiness without a publish path
+            // on the same live backend generation.
+            const bool stageEnabled = mediaShrinkOperationFence_ &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkStageCommandType,
+                    now, generation, reason);
+            std::uint64_t publishGeneration = 0;
+            const bool enabled = stageEnabled &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType,
+                    now, publishGeneration, reason) &&
+                generation == publishGeneration;
+            return mediaShrinkPlanRuntime_->plan(
+                actor, backend, recording, enabled);
+        },
+        [this](const std::string& actor, const std::string& backend)
+        {
+            std::uint64_t generation = 0;
+            std::string reason;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            // Do not advertise stage readiness without a publish path
+            // on the same live backend generation.
+            const bool stageEnabled = mediaShrinkOperationFence_ &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkStageCommandType,
+                    now, generation, reason);
+            std::uint64_t publishGeneration = 0;
+            const bool enabled = stageEnabled &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType,
+                    now, publishGeneration, reason) &&
+                generation == publishGeneration;
+            return mediaShrinkPlanRuntime_->capability(backend, enabled);
+        },
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& review)
+        {
+            std::uint64_t generation = 0;
+            std::string reason;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const bool enabled = mediaShrinkOperationFence_ &&
+                mediaShrinkOperationFence_->effectiveCapability(
+                    actor, backend,
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType,
+                    now, generation, reason);
+            return mediaShrinkPlanRuntime_->reviewStatus(
+                actor, backend, review, enabled);
+        },
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& operationId)
+        {
+            if (!mutationOperationReadService_)
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC operation readback unavailable.");
+            auto found = mutationOperationReadService_->findForActor(
+                operationId, actor);
+            if (found.status ==
+                    vdrsuite::operations::MutationOperationReadStatus::invalid ||
+                found.status ==
+                    vdrsuite::operations::MutationOperationReadStatus::notFound)
+                return MediaShrinkPlanApiRuntime::problem(
+                    404, "Resource not found.");
+            if (!found.ok())
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC operation readback unavailable.");
+            // A process restart must not repeat Stage/Publish. Retry only
+            // the existing readback against already durable Agent evidence.
+            if (found.operation.backendId == backend &&
+                (found.operation.state ==
+                    vdrsuite::operations::MutationOperationState::outcomeUnknown ||
+                 (found.operation.actionFamily == "media.shrink.stage" &&
+                  found.operation.state ==
+                    vdrsuite::operations::MutationOperationState::succeeded))) {
+                const bool isStage = found.operation.actionFamily ==
+                    "media.shrink.stage";
+                const bool isPublish = found.operation.actionFamily ==
+                    "media.shrink.publish";
+                if (isStage && backendAgentCommandRepository_) {
+                    const auto assignment =
+                        backendAgentCommandRepository_->findAssignmentForOperation(
+                            backend, operationId,
+                            vdrsuite::mediatools::kMediaShrinkStageCommandType);
+                    if (assignment) {
+                        const auto result =
+                            backendAgentCommandRepository_->resultForCommand(
+                                assignment->commandId);
+                        if (result) {
+                            const auto now =
+                                std::chrono::duration_cast<std::chrono::seconds>(
+                                    std::chrono::system_clock::now()
+                                        .time_since_epoch()).count();
+                            if (tryReconcileMediaShrinkStage(
+                                    *assignment, *result, now)) {
+                                const auto updated =
+                                    mutationOperationReadService_->findForActor(
+                                        operationId, actor);
+                                if (updated.ok()) found = updated;
+                            }
+                        }
+                    }
+                }
+                if (isPublish)
+                    recordingCacheRefreshQueue_.request(backend);
+            }
+            const auto& op = found.operation;
+            // If Core crashed between a verified Publish transition and
+            // the Review update, finish that same review without re-publishing.
+            if (op.backendId == backend &&
+                op.actionFamily == "media.shrink.publish" &&
+                op.state ==
+                    vdrsuite::operations::MutationOperationState::succeeded &&
+                mediaShrinkReviewRepository_) {
+                const auto review = mediaShrinkReviewRepository_->find(
+                    actor, backend, op.resourceId);
+                if (review.ok() && review.review.state == "publishing" &&
+                    review.review.revision == 2 &&
+                    review.review.publishOperationId == op.operationId)
+                    (void)mediaShrinkReviewRepository_->completePublication(
+                        actor, backend, op.resourceId, 2);
+            }
+            const bool stage = op.actionFamily == "media.shrink.stage" &&
+                op.resourceType == "Recording" &&
+                vdrsuite::mediatools::shrinkOpaqueId(op.resourceId, "rec_");
+            const bool publish = op.actionFamily == "media.shrink.publish" &&
+                op.resourceType == "MediaShrinkReview" &&
+                vdrsuite::mediatools::shrinkOpaqueId(op.resourceId, "shk_");
+            if (op.backendId != backend || (!stage && !publish))
+                return MediaShrinkPlanApiRuntime::problem(
+                    404, "Resource not found.");
+            std::string body = "{\"operationId\":\"" + op.operationId +
+                "\",\"backendId\":\"" + backend +
+                "\",\"action\":\"" + (stage ? "stage" : "publish") +
+                "\",\"state\":\"" +
+                vdrsuite::operations::mutationOperationStateName(op.state) +
+                "\",\"resultReconciled\":" +
+                (op.state == vdrsuite::operations::MutationOperationState::succeeded
+                    ? "true" : "false");
+            if (op.state == vdrsuite::operations::MutationOperationState::succeeded) {
+                const char* prefix = stage ? "shk_" : "rec_";
+                if (!vdrsuite::mediatools::shrinkOpaqueId(
+                        op.resultReference, prefix))
+                    return MediaShrinkPlanApiRuntime::problem(
+                        503, "HEVC reconciliation evidence invalid.");
+                body += stage ? ",\"reviewId\":\"" : ",\"publishedRecordingId\":\"";
+                body += op.resultReference + "\"";
+            }
+            return MediaShrinkPlanApiRuntime::json(200, body + "}");
+        });
+
+    // Core-owned HEVC mutation entrypoint. No caller-controlled path,
+    // subprocess or direct write is admitted through public API parsing.
+    // Absent reviewed grants, activation or Agent capability, this is 403/503
+    // and nothing is reserved or dispatched.
+    auto submitMediaShrink = [this](
+        const std::string& actor, const std::string& backend,
+        const std::string& resourceId, const std::string& encoder,
+        unsigned maxHeight, bool nightMode,
+        std::uint64_t revision, const std::string& key,
+        bool publish) -> ApiResponse
+    {
+        using namespace vdrsuite::addons;
+        if (!mutationOperationRepository_ || !mediaShrinkReviewRepository_ ||
+            !mediaShrinkOperationFence_ || !mediaShrinkPlanRuntime_ ||
+            !backendAgentRepository_ || !backendAgentCommandRepository_)
+            return MediaShrinkPlanApiRuntime::problem(
+                503, "HEVC mutation authority unavailable.");
+        const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        DaemonMediaShrinkAdmissionAuthority authority(
+            *mediaShrinkPlanRuntime_, *mediaShrinkOperationFence_,
+            *mediaShrinkReviewRepository_);
+        MediaShrinkOperationAdmissionService service(
+            *mutationOperationRepository_, *mediaShrinkReviewRepository_,
+            authority);
+        MediaShrinkAdmissionResult outcome;
+        if (publish) {
+            MediaShrinkPublishAdmission request;
+            request.actorId = actor;
+            request.backendId = backend;
+            request.reviewId = resourceId;
+            request.expectedRevision = revision;
+            request.idempotencyKey = key;
+            request.now = now;
+            outcome = service.publish(request);
+        } else {
+            const auto fingerprint =
+                mediaShrinkPlanRuntime_->trustedSourceFingerprint(
+                    backend, resourceId);
+            if (!fingerprint)
+                return MediaShrinkPlanApiRuntime::problem(
+                    409, "Recording source is unavailable or changed.");
+            MediaShrinkStageAdmission request;
+            request.actorId = actor;
+            request.backendId = backend;
+            request.recordingId = resourceId;
+            request.sourceFingerprint = *fingerprint;
+            request.idempotencyKey = key;
+            request.encoder = encoder;
+            request.maxHeight = maxHeight;
+            request.nightMode = nightMode;
+            request.now = now;
+            outcome = service.stage(request);
+        }
+        switch (outcome.status) {
+        case MediaShrinkAdmissionStatus::invalid:
+            return MediaShrinkPlanApiRuntime::problem(
+                422, "Invalid HEVC mutation request.");
+        case MediaShrinkAdmissionStatus::forbidden:
+            return MediaShrinkPlanApiRuntime::problem(
+                403, "HEVC mutation permission denied.");
+        case MediaShrinkAdmissionStatus::idempotencyConflict:
+        case MediaShrinkAdmissionStatus::reviewConflict:
+            return MediaShrinkPlanApiRuntime::problem(
+                409, "HEVC operation or review revision conflict.");
+        case MediaShrinkAdmissionStatus::unavailable:
+            return MediaShrinkPlanApiRuntime::problem(
+                503, "HEVC operation repository unavailable.");
+        case MediaShrinkAdmissionStatus::accepted:
+        case MediaShrinkAdmissionStatus::replayed:
+            break;
+        }
+        auto durable = outcome.operation;
+        using State = vdrsuite::operations::MutationOperationState;
+        if (durable.state == State::accepted ||
+            durable.state == State::dispatching)
+        {
+            RequestSecurityContext system;
+            system.authenticationState = AuthenticationState::Authenticated;
+            system.actor = {"media_shrink_admission", ActorType::System,
+                            "HEVC admission", true};
+            vdrsuite::agent::BackendAgentMediaShrinkAssignmentService assigner(
+                *mutationOperationRepository_, *backendAgentCommandRepository_,
+                *backendAgentRepository_, *mediaShrinkOperationFence_);
+            const auto dispatched = assigner.assign(
+                system, durable.operationId, now);
+            if (!dispatched.accepted)
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC Agent dispatch unavailable.");
+            const auto current =
+                mutationOperationRepository_->findById(durable.operationId);
+            if (!current.ok())
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC operation readback unavailable.");
+            durable = current.operation;
+        }
+        return MediaShrinkPlanApiRuntime::json(202,
+            "{\"operationId\":\"" + durable.operationId +
+            "\",\"backendId\":\"" + durable.backendId +
+            "\",\"state\":\"" +
+            vdrsuite::operations::mutationOperationStateName(durable.state) +
+            "\",\"replayed\":" +
+            (outcome.status == MediaShrinkAdmissionStatus::replayed
+                ? "true" : "false") +
+            ",\"originalPreserved\":true}");
+    };
+    MediaShrinkPlanApiRuntime::instance().registerMutationHandlers(
+        [submitMediaShrink](
+            const std::string& actor, const std::string& backend,
+            const std::string& recording, const std::string& encoder,
+            unsigned height, bool nightMode, const std::string& key)
+        {
+            return submitMediaShrink(actor, backend, recording, encoder,
+                                     height, nightMode, 0, key, false);
+        },
+        [submitMediaShrink](
+            const std::string& actor, const std::string& backend,
+            const std::string& review, std::uint64_t revision,
+            const std::string& key)
+        {
+            return submitMediaShrink(actor, backend, review, "",
+                                     0, false, revision, key, true);
+        });
+
+    // Grant eligibility uses live Agent capabilities but does not require
+    // the actor grant being created. The execution fence checks that grant.
+    auto addonGrantEligibility = [this](
+        const std::string& permission, const std::string& backendId) -> bool
+    {
+        if ((permission != "addons.media.import" &&
+             permission != "addons.media.shrink") ||
+            backendId.empty() || backendId == "*" ||
+            !backendRegistryService_ || !backendAccessPolicy_ ||
+            !backendAgentRepository_ || !backendAgentCommandRepository_)
+            return false;
+        const auto access = backendAccessPolicy_->canWriteToBackend(
+            *backendRegistryService_, backendId);
+        if (!access.backendFound || !access.allowed || access.readOnly)
+            return false;
+        const auto agent = backendAgentRepository_->findAgentForBackend(backendId);
+        const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count();
+        if (!agent || agent->backendId != backendId || agent->revoked ||
+            agent->incompatible || agent->agentId.empty() ||
+            agent->agentInstanceId.empty() || agent->backendGeneration == 0 ||
+            agent->leaseExpiresAt < now)
+            return false;
+        const auto has = [&](const std::string& type) {
+            return backendAgentCommandRepository_->hasCapability(
+                backendId, agent->agentId, agent->agentInstanceId,
+                agent->backendGeneration, type);
+        };
+        if (permission == "addons.media.import")
+            return has("addon.media.import");
+        return has(vdrsuite::mediatools::kMediaShrinkStageCommandType) &&
+               has(vdrsuite::mediatools::kMediaShrinkPublishCommandType);
+    };
+    // The ONLY writable activation path: authenticated browser administrator
+    // -> SecurityHttpGate/CSRF -> trusted Core live callback -> audited CAS.
+    // No user-supplied RuntimeEvidence and no automatic installation/exec.
+    auto addonActivationMutation = [this](
+        const RequestSecurityContext& actor, const std::string& body)
+        -> ApiResponse
+    {
+        const auto problem = [](int status, const char* code) {
+            ApiResponse response;
+            response.statusCode = status;
+            response.contentType = "application/json";
+            response.body = std::string("{\"error\":\"") + code + "\"}";
+            return response;
+        };
+        using namespace vdrsuite::addons;
+        ActivationHttpMutation parsed;
+        if (!parseActivationHttpMutation(body, parsed))
+            return problem(422, "invalid_activation_request");
+        if (!mediaImportActivationIntents_ ||
+            !backendAgentAccountabilityRepository_ ||
+            !backendAgentRepository_ ||
+            !backendAgentCommandRepository_ ||
+            !backendRegistryService_ || !backendAccessPolicy_)
+            return problem(503, "activation_unavailable");
+        // The service independently requires a global administrator; caller
+        // evidence is ignored for enables. A disable never requires a live
+        // provider and remains available after revocation/removal.
+        AddonAdministrationService service(
+            *mediaImportActivationIntents_, *backendAgentAccountabilityRepository_,
+            [this](const std::string& moduleId, const std::string& backendId)
+              -> std::optional<AddonAdministrationService::TrustedActivationSnapshot>
+            {
+                if (moduleId != "rectools") return std::nullopt;
+                const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+                const std::string trustedSha =
+                    trustedMediaToolsHandlerDigest(backendId, now);
+                if (trustedSha.empty()) return std::nullopt;
+                const auto agent = backendAgentRepository_->findAgentForBackend(
+                    backendId);
+                if (!agent || agent->leaseExpiresAt < now ||
+                    !backendAgentCommandRepository_->hasCapability(
+                        backendId, agent->agentId, agent->agentInstanceId,
+                        agent->backendGeneration, "addon.media.import"))
+                    return std::nullopt;
+                const auto access = backendAccessPolicy_->canWriteToBackend(
+                    *backendRegistryService_, backendId);
+                if (!access.backendFound || !access.allowed || access.readOnly)
+                    return std::nullopt;
+                RuntimeEvidence evidence;
+                evidence.moduleId = moduleId;
+                evidence.packageName = "vdr-suite-addon-media-tools";
+                evidence.backendId = backendId;
+                evidence.agentId = agent->agentId;
+                evidence.agentInstanceId = agent->agentInstanceId;
+                evidence.backendGeneration = agent->backendGeneration;
+                evidence.approvedHandlerSha256 = trustedSha;
+                // These are TRUE only after independent administrator digest
+                // and authenticated Agent-local manifest/binary verification.
+                evidence.installed = true;
+                evidence.manifestValid = true;
+                evidence.packageTrusted = true;
+                evidence.versionCompatible = true;
+                evidence.handlerRegistered = true;
+                evidence.handlerHealthy = true;
+                return AddonAdministrationService::TrustedActivationSnapshot{
+                    access, evidence};
+            });
+        std::array<unsigned char, 16> entropy{};
+        if (RAND_bytes(entropy.data(), static_cast<int>(entropy.size())) != 1)
+            return problem(503, "audit_id_unavailable");
+        std::ostringstream auditId;
+        auditId << "addon-intent-";
+        for (const unsigned char b : entropy)
+            auditId << std::hex << std::setw(2) << std::setfill('0')
+                    << static_cast<unsigned>(b);
+        const std::time_t clockNow = std::time(nullptr);
+        std::tm utc{};
+        if (clockNow <= 0 || !gmtime_r(&clockNow, &utc))
+            return problem(503, "audit_clock_unavailable");
+        char stamp[32]{};
+        if (std::strftime(stamp, sizeof(stamp), "%Y-%m-%dT%H:%M:%SZ", &utc) != 20)
+            return problem(503, "audit_clock_unavailable");
+        const auto result = service.setDesiredState(
+            actor, {"rectools", parsed.backendId, parsed.enabled,
+                    parsed.expectedRevision}, {}, {},
+            {auditId.str(), stamp});
+        int code = 503;
+        switch (result.status) {
+            case IntentStatus::ok: code = 200; break;
+            case IntentStatus::invalid: code = 422; break;
+            case IntentStatus::forbidden: code = 403; break;
+            case IntentStatus::ineligible: code = 409; break;
+            case IntentStatus::revisionConflict: code = 409; break;
+            case IntentStatus::unavailable: code = 503; break;
+        }
+        if (code != 200) return problem(code,
+            result.status == IntentStatus::revisionConflict
+                ? "revision_conflict" : (result.status == IntentStatus::ineligible
+                    ? "provider_not_eligible" : "activation_denied"));
+        ApiResponse response;
+        response.statusCode = 200;
+        response.contentType = "application/json";
+        response.body = std::string("{\"moduleId\":\"rectools\",\"backendId\":\"") +
+            parsed.backendId + "\",\"desiredEnabled\":" +
+            (result.intent.desiredEnabled ? "true" : "false") +
+            ",\"revision\":" + std::to_string(result.intent.revision) + "}";
+        return response;
+    };
+    auto addonActivationLookup = [this](
+        const RequestSecurityContext& actor, const std::string& requestPath)
+        -> ApiResponse
+    {
+        ApiResponse response;
+        response.contentType = "application/json";
+        std::string backendId;
+        if (!vdrsuite::addons::parseActivationHttpBackendQuery(
+                requestPath, backendId))
+        {
+            response.statusCode = 422;
+            response.body = "{\"error\":\"invalid_backend_id\"}";
+            return response;
+        }
+        if (!mediaImportActivationIntents_)
+        {
+            response.statusCode = 503;
+            response.body = "{\"error\":\"activation_unavailable\"}";
+            return response;
+        }
+        const auto current = mediaImportActivationIntents_->read(
+            actor, "rectools", backendId);
+        if (current.status != vdrsuite::addons::IntentStatus::ok)
+        {
+            response.statusCode =
+                current.status == vdrsuite::addons::IntentStatus::forbidden
+                    ? 403 : 503;
+            response.body = "{\"error\":\"activation_read_unavailable\"}";
+            return response;
+        }
+        response.statusCode = 200;
+        // No installation or root approval may implicitly activate a worker.
+        // The legacy activatedByInstall response field remains false for
+        // compatibility; the explicit revision-bound intent owns enablement.
+        bool installedByAdministrator = false;
+        bool providerVerified = false;
+        bool agentReady = false;
+        bool activationBoundToProvider = false;
+        if (backendAgentRepository_ && backendAgentCommandRepository_ &&
+            backendAccessPolicy_ && backendRegistryService_)
+        {
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            // This is verified runtime-provider evidence, NOT dpkg ownership.
+            // Absence of that evidence must never be called "not installed".
+            const std::string handlerSha =
+                trustedMediaToolsHandlerDigest(backendId, now);
+            providerVerified = !handlerSha.empty();
+            const auto agent = backendAgentRepository_->findAgentForBackend(
+                backendId);
+            const auto backend = backendAccessPolicy_->canWriteToBackend(
+                *backendRegistryService_, backendId);
+            agentReady = agent && !agent->revoked && !agent->incompatible &&
+                agent->leaseExpiresAt >= now && backend.backendFound &&
+                backend.allowed && !backend.readOnly &&
+                backendAgentCommandRepository_->hasCapability(
+                    backendId, agent->agentId, agent->agentInstanceId,
+                    agent->backendGeneration, "addon.media.import");
+            if (agentReady && providerVerified)
+            {
+                // Desired-enable can outlive its pinned Agent/handler.
+                activationBoundToProvider =
+                    vdrsuite::addons::mediaToolsActivationPermits(
+                        current.intent, agent->agentId, agent->agentInstanceId,
+                        agent->backendGeneration, handlerSha);
+                installedByAdministrator = current.intent.revision == 0 &&
+                    activationBoundToProvider;
+            }
+        }
+        const bool enabled = current.intent.desiredEnabled ||
+            installedByAdministrator;
+        response.body = std::string("{\"moduleId\":\"rectools\",\"backendId\":\"") +
+            backendId + "\",\"desiredEnabled\":" +
+            (enabled ? "true" : "false") +
+            ",\"revision\":" + std::to_string(current.intent.revision) +
+            ",\"activatedByInstall\":" +
+            (installedByAdministrator ? "true" : "false") +
+            ",\"providerVerified\":" +
+            (providerVerified ? "true" : "false") +
+            ",\"agentReady\":" + (agentReady ? "true" : "false") +
+            ",\"activationBoundToProvider\":" +
+            (activationBoundToProvider ? "true" : "false") + "}";
+        return response;
+    };
+    // Local admin source configuration uses the same authenticated
+    // Browser-Session role.admin/CSRF gate as addon activation. The existing
+    // Agent periodically rereads its root-owned inventory; no restart.
+    auto addonSourceMutation = [](
+        const RequestSecurityContext&, const std::string& body) -> ApiResponse
+    {
+        return vdrsuite::mediatools::local_source_admin::save(body);
+    };
+    auto addonSourceLookup = [](
+        const RequestSecurityContext&, const std::string& uri) -> ApiResponse
+    {
+        return vdrsuite::mediatools::local_source_admin::read(uri);
+    };
     auto clientHttpServer = std::make_unique<RecordingArtworkHttpServer>(
-        std::make_unique<TestHttpServer>(*apiRouter_, deviceLiveEventHub_),
+        std::make_unique<TestHttpServer>(
+            *apiRouter_, deviceLiveEventHub_,
+            std::move(addonGrantEligibility),
+            std::move(addonActivationMutation),
+            std::move(addonActivationLookup),
+            std::move(addonSourceMutation),
+            std::move(addonSourceLookup)),
         recordingArtworkService_);
-    httpServer_ = std::make_unique<BackendAgentHttpServer>(
+    auto agentHttpServer = std::make_unique<BackendAgentHttpServer>(
         std::move(clientHttpServer),
         *backendAgentLifecycleService_,
         *backendAgentCommandDeliveryService_,
         *backendAgentRepository_,
         *backendAgentCredentialVerifierRepository_,
-        *backendAgentIdentityRepository_);
+        *backendAgentIdentityRepository_,
+        mediaImportCatalog_.get());
+    agentHttpServer->setMediaShrinkAuthorityLookup(
+        [this](const RequestSecurityContext& context,
+               const BackendAgentCommandReceipt& receipt) -> std::string
+        {
+            using namespace vdrsuite::mediatools;
+            using State = vdrsuite::operations::MutationOperationState;
+            if (context.actor.type != ActorType::Agent ||
+                !backendAgentCommandRepository_ ||
+                !backendAgentRepository_ || !mutationOperationRepository_ ||
+                !mediaShrinkOperationFence_ ||
+                !mediaShrinkReviewRepository_ || !mediaShrinkPlanRuntime_)
+                return {};
+            const auto assignment =
+                backendAgentCommandRepository_->findAssignment(
+                    receipt.commandId);
+            if (!assignment ||
+                (assignment->commandType != kMediaShrinkStageCommandType &&
+                 assignment->commandType != kMediaShrinkPublishCommandType) ||
+                receipt.backendId != assignment->backendId ||
+                receipt.agentId != assignment->agentId ||
+                receipt.agentInstanceId != assignment->agentInstanceId ||
+                receipt.backendGeneration != assignment->backendGeneration)
+                return {};
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            const auto agent = backendAgentRepository_->findAgentForBackend(
+                assignment->backendId);
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->actorId != context.actor.actorId ||
+                agent->agentId != assignment->agentId ||
+                agent->agentInstanceId != assignment->agentInstanceId ||
+                agent->backendGeneration != assignment->backendGeneration ||
+                agent->leaseExpiresAt < now)
+                return {};
+            std::string reason;
+            if (!mediaShrinkOperationFence_->check(
+                    *assignment, receipt, now, reason))
+                return {};
+            const auto selected = mutationOperationRepository_->findById(
+                assignment->operationId);
+            if (!selected.ok() ||
+                selected.operation.state != State::dispatching ||
+                selected.operation.backendId != assignment->backendId ||
+                selected.operation.backendGeneration !=
+                    assignment->backendGeneration)
+                return {};
+            const auto& op = selected.operation;
+            const bool stage = assignment->commandType ==
+                kMediaShrinkStageCommandType;
+            std::string recordingId = op.resourceId;
+            if (!stage) {
+                const auto review = mediaShrinkReviewRepository_->find(
+                    op.actorId, op.backendId, op.resourceId);
+                if (!review.ok() ||
+                    review.review.state != "publishing" ||
+                    review.review.publishOperationId != op.operationId ||
+                    review.review.backendGeneration !=
+                        op.backendGeneration ||
+                    review.review.sourceFingerprint !=
+                        op.expectedResourceFingerprint)
+                    return {};
+                recordingId = review.review.recordingId;
+            }
+            const auto paths = mediaShrinkPlanRuntime_->trustedSourcePaths(
+                op.backendId, recordingId,
+                op.expectedResourceFingerprint);
+            if (!paths) return {};
+            LocalMediaShrinkAuthority authority;
+            authority.actorId = op.actorId;
+            authority.backendId = op.backendId;
+            authority.operationId = op.operationId;
+            authority.recordingId = recordingId;
+            authority.sourceFingerprint = op.expectedResourceFingerprint;
+            authority.backendGeneration = op.backendGeneration;
+            authority.videoRoot = paths->videoRoot;
+            authority.relativeRecording = paths->relativeRecording;
+            return authoritywire::serialize(authority);
+        });
+    httpServer_ = std::move(agentHttpServer);
 
     auto lastVdrPoll = std::chrono::steady_clock::now();
 
@@ -4739,4 +5754,79 @@ bool DaemonRuntime::initialize()
     initialized_ = true;
 
     return true;
+}
+
+PublicMediaImportAdmissionResult DaemonRuntime::admitMediaImport(
+    const PublicMediaImportAdmissionRequest& request)
+{
+            PublicMediaImportAdmissionResult result;
+            if (!mediaImportOperationFence_ ||
+                !mutationOperationRepository_ ||
+                !backendAgentCommandRepository_ ||
+                !backendAgentRepository_) return result;
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            vdrsuite::addons::MediaImportOperationAdmissionService service(
+                *mutationOperationRepository_, *backendAgentRepository_,
+                *mediaImportOperationFence_);
+            vdrsuite::addons::MediaImportOperationAdmissionRequest input;
+            input.actorId = request.actorRef;
+            input.backendId = request.backendId;
+            input.sourceId = request.sourceId;
+            input.idempotencyKey = request.idempotencyKey;
+            input.approveVideoReencode = request.approveVideoReencode;
+            input.videoDecision = request.videoDecision;
+            input.now = now;
+            const auto accepted = service.admit(input);
+            using Status = vdrsuite::addons::MediaImportOperationAdmissionStatus;
+            switch (accepted.status)
+            {
+                case Status::accepted:
+                case Status::replayed: break;
+                case Status::invalid:
+                    result.status = PublicMediaImportAdmissionStatus::invalid;
+                    return result;
+                case Status::forbidden:
+                    result.status = PublicMediaImportAdmissionStatus::forbidden;
+                    return result;
+                case Status::idempotencyConflict:
+                    result.status = PublicMediaImportAdmissionStatus::idempotencyConflict;
+                    return result;
+                case Status::conflict:
+                    result.status = PublicMediaImportAdmissionStatus::conflict;
+                    return result;
+                case Status::unavailable: return result;
+            }
+            auto durable = accepted.operation;
+            using State = vdrsuite::operations::MutationOperationState;
+            // The first caller and a replay both drive the SAME operation
+            // through the existing Agent command table. A prior terminal
+            // result must never be submitted again.
+            if (durable.state == State::accepted ||
+                durable.state == State::dispatching)
+            {
+                RequestSecurityContext system;
+                system.authenticationState = AuthenticationState::Authenticated;
+                system.actor = {"media_import_admission", ActorType::System,
+                                "Media Import admission", true};
+                vdrsuite::agent::BackendAgentMediaImportAssignmentService assigner(
+                    *mutationOperationRepository_, *backendAgentCommandRepository_,
+                    *backendAgentRepository_, *mediaImportOperationFence_);
+                const auto assigned = assigner.assign(
+                    system, durable.operationId, now);
+                if (!assigned.accepted) return result;
+                const auto current =
+                    mutationOperationRepository_->findById(durable.operationId);
+                if (!current.ok()) return result;
+                durable = current.operation;
+            }
+            result.status = accepted.status == Status::accepted
+                ? PublicMediaImportAdmissionStatus::accepted
+                : PublicMediaImportAdmissionStatus::replayed;
+            result.operation.operationId = durable.operationId;
+            result.operation.backendId = durable.backendId;
+            result.operation.state =
+                vdrsuite::operations::mutationOperationStateName(durable.state);
+            result.operation.resourceRevision = durable.operationRevision;
+            return result;
 }

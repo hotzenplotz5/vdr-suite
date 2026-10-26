@@ -26,6 +26,7 @@ let grantItems = [
   {permission: 'channels.view', backendId: 'default'}
 ];
 let grantRevision = 1;
+let addonEffective = false;
 let grantEtagAvailable = true;
 let mutationStatus = 200;
 let confirmResult = true;
@@ -80,8 +81,12 @@ const publicClient = {
           {permission: 'role.read-only', presentationKey: 'role.read-only', category: 'role'},
           {permission: 'channels.view', presentationKey: 'channels.view', category: 'permission'},
           {permission: 'recordings.rename', presentationKey: 'recordings.rename', category: 'permission'},
-          {permission: 'timers.view', presentationKey: 'timers.view', category: 'permission'}
+          {permission: 'timers.view', presentationKey: 'timers.view', category: 'permission'},
+          {permission: 'addons.media.import', presentationKey: 'addons.media.import', category: 'addon'}
         ],
+        addonPermissions: addonEffective
+          ? [{permission: 'addons.media.import', backendId: 'default', selectable: true}]
+          : [],
         supportedScopeKinds: ['global', 'backend']
       }
     });
@@ -224,13 +229,43 @@ function setEnsureFields(root, permission, backendId) {
   assert.strictEqual(backendPicker.tagName, 'SELECT',
     'grant scope must be a selector, not free text');
   assert.deepStrictEqual(
-    permissionPicker.children.map(option => option.value),
+    permissionPicker.children.flatMap(function(child) {
+      return child.tagName === 'OPTGROUP'
+        ? child.children.map(option => option.value) : [child.value];
+    }),
     ['', 'role.admin', 'role.read-only', 'channels.view', 'recordings.rename', 'timers.view']
   );
+  assert(!permissionPicker.children.some(function(item) {
+    return item.tagName === 'OPTGROUP' && item.label === 'Add-ons';
+  }), 'inactive addon capabilities must not offer grant controls');
   assert.deepStrictEqual(
     backendPicker.children.map(option => option.value),
     ['*', 'default', 'bedroom']
   );
+  addonEffective = true;
+  const addonRoot = await renderRoot();
+  const addonPicker = findByClass(
+    addonRoot, 'settings-account-admin-grant-permission-input');
+  const group = addonPicker.children.find(function(child) {
+    return child.tagName === 'OPTGROUP' && child.label === 'Add-ons';
+  });
+  assert(group, 'active effective provider must create Add-ons group');
+  assert(group.children.some(function(option) {
+    return option.value === 'addons.media.import';
+  }), 'only reviewed effective import permission must be selectable');
+  const callsBeforeScopeDenial = calls.filter(function(call) {
+    return call.name === 'setAccountGrant';
+  }).length;
+  const deniedEnsure = setEnsureFields(
+    addonRoot, 'addons.media.import', 'bedroom');
+  assert.strictEqual(await deniedEnsure.listeners.click(), false);
+  assert.strictEqual(calls.filter(function(call) {
+    return call.name === 'setAccountGrant';
+  }).length, callsBeforeScopeDenial,
+  'UI must not submit an add-on grant for an inactive backend');
+
+  addonEffective = false;
+
   assert(calls.some(call => call.name === 'getBackends'),
     'backend selector must use canonical Public-v1 backend discovery');
 

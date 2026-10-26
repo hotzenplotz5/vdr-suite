@@ -266,6 +266,7 @@ NativeTimerCreateDispatchService::claimAfterReservation(
                 transitioned.operation);
         case MutationOperationRepositoryStatus::invalid:
             return result(NativeTimerCreateDispatchClaimStatus::invalid);
+        case MutationOperationRepositoryStatus::maintenanceBlocked:
         case MutationOperationRepositoryStatus::storageError:
             return result(
                 NativeTimerCreateDispatchClaimStatus::operationRepositoryError);
@@ -528,6 +529,7 @@ NativeTimerCreateDispatchService::applyOutcome(
             return outcomeResult(
                 NativeTimerCreateDispatchOutcomeStatus::invalid,
                 transitioned.operation);
+        case MutationOperationRepositoryStatus::maintenanceBlocked:
         case MutationOperationRepositoryStatus::storageError:
             return outcomeResult(
                 NativeTimerCreateDispatchOutcomeStatus::

@@ -82,6 +82,11 @@ const context = {
   detailMetaElement,
   detailDataElement,
   refreshDetailButton,
+  // This isolated bootstrap fixture extracts only the session code from app.js.
+  // Media Import's own view/session lifecycle is exercised by its composition test.
+  resetMediaImportVisibility(clearSession) {
+    assert.strictEqual(clearSession, true);
+  },
   frontendPlatformClientApi() {
     return {
       fetchClientBackends(options) {

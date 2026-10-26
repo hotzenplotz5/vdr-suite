@@ -4,6 +4,17 @@
 #include "BackendAgentNativeTimerModifyExecutor.h"
 #include "BackendAgentNativeTimerModifyLocalState.h"
 #include "BackendAgentNativeTimerModifyPayload.h"
+#include "MediaImportOperationFence.h"
+#include "MediaImportOperationAdmission.h"
+#include "AddonActivationIntentRepository.h"
+#include "MediaImportRecordingEvidence.h"
+#include "BackendAgentMediaImportAssignment.h"
+#include "MutationOperationRepository.h"
+#include "SecurityIdentityRepository.h"
+#include "SecurityPermissionGrantRepository.h"
+#include "BackendRegistry.h"
+#include "BackendRegistryService.h"
+#include "BackendAccessPolicy.h"
 #include "Database.h"
 
 #include <atomic>
@@ -266,6 +277,633 @@ int main()
         "WHERE result_category='succeeded' AND result_evidence='';") == 1);
     assert(sqlCount(snapshot.handle(),
         "SELECT count(*) FROM pragma_foreign_key_check;") == 0);
+
+    // The historical Timer MODIFY scenario above deliberately advanced the
+    // live Agent to instance inst_new / generation 8. Start a fresh, valid
+    // instance-7 fixture before exercising the independent Media Tools gates;
+    // otherwise the generic Agent identity check denies the receipt first.
+    assert(db.execute(
+        "UPDATE backend_agents SET agent_instance_id='inst_test',"
+        "backend_generation=7 WHERE agent_id='agt_test';"));
+
+    // A6: even a valid reserved add-on command and Agent receipt cannot
+    // bypass the server-side operation/grant authority. In this fixture the
+    // sole positive authorization is explicitly injected by trusted code.
+    auto media = *assignment;
+    media.requestId = "req_media";
+    media.correlationId = "corr_media";
+    media.operationId = "op_media";
+    media.jobId = "job_media";
+    media.attemptId = "att_media";
+    media.claimEpoch = 3;
+    media.commandId = "cmd_media";
+    media.commandType = "addon.media.import";
+    media.payloadVersion = 1;
+    media.payload = "{\"sourceId\":\"local_token\"}";
+    media.verificationPolicy = "reconciliation_required";
+    media.assignedAt = 111;
+    media.deadline = 500;
+    media.requestFingerprint = backendAgentCommandFingerprint(media);
+    assert(backendAgentCommandValidAssignment(media));
+    // The shared Agent wire format knows stage/publish without granting any
+    // execution authority. Only canonical path-free payloads are valid.
+    auto shrink = media;
+    shrink.commandId = "cmd_shrink_shape";
+    shrink.commandType = "addon.media.shrink.stage";
+    shrink.payload =
+        "{\"recordingId\":\"rec_0123456789abcdef0123456789abcdef\","
+        "\"encoder\":\"software\",\"maxHeight\":720,\"nightMode\":false}";
+    shrink.verificationPolicy = "readback_required";
+    shrink.requestFingerprint = backendAgentCommandFingerprint(shrink);
+    assert(backendAgentCommandValidAssignment(shrink));
+    shrink.payload += "/tmp/evil";
+    shrink.requestFingerprint = backendAgentCommandFingerprint(shrink);
+    assert(!backendAgentCommandValidAssignment(shrink));
+    shrink = media;
+    shrink.commandId = "cmd_shrink_publish_shape";
+    // Do not reserve the Media Import fixture's unique job/attempt/epoch.
+    shrink.jobId = "job_shrink_publish_shape";
+    shrink.attemptId = "att_shrink_publish_shape";
+    shrink.commandType = "addon.media.shrink.publish";
+    shrink.payload =
+        "{\"reviewId\":\"shk_0123456789abcdef0123456789abcdef\","
+        "\"revision\":1}";
+    shrink.verificationPolicy = "reconciliation_required";
+    shrink.requestFingerprint = backendAgentCommandFingerprint(shrink);
+    assert(backendAgentCommandValidAssignment(shrink));
+    shrink.verificationPolicy = "readback_required";
+    shrink.requestFingerprint = backendAgentCommandFingerprint(shrink);
+    assert(!backendAgentCommandValidAssignment(shrink));
+    // Wire validity must not turn into permission. The server denies both
+    // HEVC operations until the canonical Core fence is explicitly installed.
+    shrink.verificationPolicy = "reconciliation_required";
+    shrink.requestFingerprint = backendAgentCommandFingerprint(shrink);
+    assert(backendAgentCommandValidAssignment(shrink));
+    assert(commands.insertAssignment(shrink));
+    auto shrinkReceipt = receipt;
+    shrinkReceipt.commandId = shrink.commandId;
+    shrinkReceipt.requestFingerprint = shrink.requestFingerprint;
+    shrinkReceipt.jobId = shrink.jobId;
+    shrinkReceipt.attemptId = shrink.attemptId;
+    shrinkReceipt.claimEpoch = shrink.claimEpoch;
+    shrinkReceipt.receivedAt = 112;
+    const auto shrinkDenied = service.receipt(
+        context(ActorType::Agent, "actor_agent"), shrinkReceipt, 112);
+    assert(!shrinkDenied.accepted &&
+        shrinkDenied.reasonCode == "media_shrink_server_fence_unavailable");
+    assert(sqlCount(db.handle(),
+        "SELECT COUNT(*) FROM backend_agent_command_receipts "
+        "WHERE command_id='cmd_shrink_publish_shape';") == 0);
+    bool allowShrink = false;
+    service.setMediaShrinkReceiptFenceCheck(
+        [&](const BackendAgentCommandAssignment& reserved,
+            const BackendAgentCommandReceipt& actual,
+            std::string& gateReason) {
+            assert(reserved.commandId == shrink.commandId);
+            assert(actual.requestFingerprint == reserved.requestFingerprint);
+            gateReason = allowShrink ? "canonical_core_checked" :
+                "shrink_separate_grant_missing";
+            return allowShrink;
+        });
+    const auto deniedGrant = service.receipt(
+        context(ActorType::Agent, "actor_agent"), shrinkReceipt, 113);
+    assert(!deniedGrant.accepted &&
+        deniedGrant.reasonCode == "shrink_separate_grant_missing");
+    allowShrink = true;
+    const auto shrinkAccepted = service.receipt(
+        context(ActorType::Agent, "actor_agent"), shrinkReceipt, 114);
+    assert(shrinkAccepted.accepted);
+    allowShrink = false;
+    assert(!service.receipt(context(ActorType::Agent, "actor_agent"),
+                            shrinkReceipt, 115).accepted);
+    assert(sqlCount(db.handle(),
+        "SELECT COUNT(*) FROM backend_agent_command_receipts "
+        "WHERE command_id='cmd_shrink_publish_shape';") == 1);
+
+    assert(commands.insertAssignment(media));
+    auto mediaReceipt = receipt;
+    mediaReceipt.commandId = media.commandId;
+    mediaReceipt.requestFingerprint = media.requestFingerprint;
+    mediaReceipt.jobId = media.jobId;
+    mediaReceipt.attemptId = media.attemptId;
+    mediaReceipt.claimEpoch = media.claimEpoch;
+    mediaReceipt.receivedAt = 112;
+
+    const auto defaultDeny = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 112);
+    assert(!defaultDeny.accepted &&
+           defaultDeny.reasonCode == "media_import_server_fence_unavailable");
+    assert(sqlCount(db.handle(),
+        "SELECT COUNT(*) FROM backend_agent_command_receipts "
+        "WHERE command_id='cmd_media';") == 0);
+
+    int grantChecks = 0;
+    bool grantAvailable = false;
+    service.setMediaImportReceiptFenceCheck(
+        [&](const BackendAgentCommandAssignment& reserved,
+            const BackendAgentCommandReceipt& actual, std::string& gateReason) {
+            ++grantChecks;
+            assert(reserved.commandId == media.commandId);
+            assert(reserved.operationId == media.operationId);
+            assert(reserved.backendGeneration == media.backendGeneration);
+            assert(reserved.claimEpoch == actual.claimEpoch);
+            assert(reserved.requestFingerprint == actual.requestFingerprint);
+            gateReason = grantAvailable ? "media_import_operation_validated" :
+                "media_import_effective_grant_denied";
+            return grantAvailable;
+        });
+    const auto denied = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 113);
+    assert(!denied.accepted &&
+           denied.reasonCode == "media_import_effective_grant_denied");
+    assert(sqlCount(db.handle(),
+        "SELECT COUNT(*) FROM backend_agent_command_receipts "
+        "WHERE command_id='cmd_media';") == 0);
+    grantAvailable = true;
+    const auto acceptedMedia = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 114);
+    assert(acceptedMedia.accepted && !acceptedMedia.replayed);
+    const auto replayedMedia = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 115);
+    assert(replayedMedia.accepted && replayedMedia.replayed);
+    grantAvailable = false;
+    const auto revokedMedia = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 116);
+    assert(!revokedMedia.accepted);
+    assert(grantChecks == 4);
+    assert(sqlCount(db.handle(),
+        "SELECT COUNT(*) FROM backend_agent_command_receipts "
+        "WHERE command_id='cmd_media';") == 1);
+
+    // A6: use the REAL persisted operation, immutable payload and effective
+    // human-grant authorities behind the existing Agent receipt callback.
+    vdrsuite::operations::MutationOperationRepository operations(db);
+    SecurityIdentityRepository identities(db);
+    SecurityPermissionGrantRepository mediaGrants(db);
+    assert(operations.ensureSchema() && identities.ensureSchema() &&
+           mediaGrants.ensureSchema());
+    assert(db.execute(
+        "INSERT INTO security_actors(actor_id,actor_type,display_name) "
+        "VALUES('human_media','user','Media tester');"));
+
+    vdrsuite::operations::MutationOperation op;
+    op.operationId = media.operationId;
+    op.idempotencyKey = "idem_media";
+    op.actorId = "human_media";
+    op.backendId = "default";
+    op.backendGeneration = 7;
+    op.resourceType = "MediaImportSource";
+    op.resourceId = "local_token";
+    op.expectedRevision = "1";
+    op.actionFamily = "media.import";
+    op.requestFingerprint = "logical_api_request_fingerprint";
+    op.requestedAt = 100;
+    op.deadline = 500;
+    op.verificationPolicy =
+        vdrsuite::operations::MutationOperationVerificationPolicy::
+            reconciliationRequired;
+    op.updatedAt = op.requestedAt;
+    vdrsuite::operations::MutationOperationPayload payload;
+    payload.operationId = op.operationId;
+    payload.payloadType = "addon.media.import";
+    payload.payloadVersion = 1;
+    payload.payload = media.payload;
+    payload.payloadFingerprint = "logical_payload_fingerprint";
+    const auto reserved = operations.reserveWithPayload(op, payload);
+    assert(reserved.ok());
+    const auto dispatching = operations.transition(
+        op.operationId, reserved.operation.operationRevision,
+        vdrsuite::operations::MutationOperationState::accepted,
+        vdrsuite::operations::MutationOperationState::dispatching,
+        "", 110);
+    assert(dispatching.ok());
+
+    BackendRegistry registry;
+    BackendNode writable;
+    writable.backendId = "default";
+    writable.accessMode = "read-write";
+    registry.addBackend(writable);
+    BackendRegistryService backendRegistry(registry);
+    BackendAccessPolicy backendAccess;
+    vdrsuite::addons::AddonActivationIntentRepository activation(db);
+    assert(activation.ensureSchema());
+    // The independent Core-approved handler digest is mandatory at every
+    // reservation/receipt. This fixture starts with an exact approved pin.
+    std::string approvedDigest(64, 'a');
+    vdrsuite::addons::MediaImportOperationFence coreFence(
+        operations, identities, mediaGrants, agents, commands,
+        backendRegistry, backendAccess, activation,
+        [&approvedDigest](const std::string& backendId, std::int64_t) {
+            return backendId == "default" ? approvedDigest : std::string{};
+        });
+    BackendAgentCommandPollRequest importPoll = poll;
+    importPoll.supportedCommandTypes = {"probe.noop", "addon.media.import"};
+    assert(service.poll(
+        context(ActorType::Agent, "actor_agent"), importPoll, 117).accepted);
+
+    std::string fenceReason;
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_permission_denied");
+    assert(!coreFence.effectiveMediaImportCapability(
+        "human_media", "default", 118, fenceReason) &&
+        fenceReason == "media_import_permission_denied");
+    // The global administrator's operation grant alone cannot activate a
+    // safely installed but still disabled Media Tools provider.
+    assert(mediaGrants.ensureGrant("human_media", "role.admin", "*"));
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_activation_agent_stale");
+    // Explicit later administrator overrides remain audited and lease-bound.
+    RequestSecurityContext admin = context(ActorType::User, "admin_media");
+    admin.grants.push_back({"role.admin", "*"});
+    vdrsuite::addons::RuntimeEvidence trusted;
+    trusted.moduleId = "rectools";
+    trusted.packageName = "vdr-suite-addon-media-tools";
+    trusted.backendId = "default";
+    // Must match the enrolled Agent used by this real command-delivery fixture.
+    trusted.agentId = "agt_test";
+    trusted.agentInstanceId = "inst_test";
+    trusted.backendGeneration = 7;
+    trusted.installed = true;
+    trusted.manifestValid = true;
+    trusted.packageTrusted = true;
+    trusted.versionCompatible = true;
+    trusted.handlerRegistered = true;
+    trusted.handlerHealthy = true;
+    trusted.approvedHandlerSha256 = approvedDigest;
+    auto access = backendAccess.canWriteToBackend(backendRegistry, "default");
+    const auto activated = activation.update(
+        admin, {"rectools", "default", true, 0}, access, trusted);
+    assert(activated.status == vdrsuite::addons::IntentStatus::ok);
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
+    assert(mediaGrants.revokeGrant("human_media", "role.admin", "*"));
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_permission_denied");
+    assert(mediaGrants.ensureGrant(
+        "human_media", "addons.media.import", "other-backend"));
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason));
+    assert(mediaGrants.ensureGrant(
+        "human_media", "addons.media.import", "default"));
+    // The explicit, revision-bound approval above is still required.
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_operation_and_grant_verified");
+
+    // This activation is now exercised above, before any positive receipt.
+    // Same Agent/intent but a changed independently approved handler is
+    // never authorized by the old persisted desired-enable state.
+    approvedDigest = std::string(64, 'b');
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_provider_untrusted");
+    approvedDigest = std::string(64, 'a');
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
+    assert(fenceReason == "media_import_operation_and_grant_verified");
+    assert(coreFence.effectiveMediaImportCapability(
+        "human_media", "default", 118, fenceReason));
+    assert(fenceReason == "media_import_effective_capability_available");
+    assert(!coreFence.effectiveMediaImportCapability(
+        "human_media", "wrong-backend", 118, fenceReason));
+    assert(!coreFence.effectiveMediaImportCapability(
+        "human_media", "default", 1001, fenceReason));
+    assert(!coreFence.effectiveMediaImportCapability(
+        "admin_media", "default", 118, fenceReason));
+
+    // Real persisted marker decisions use the SAME Core Operation + Agent
+    // receipt/result journal as native imports, with no VDR recording claim.
+    service.setMediaImportReceiptFenceCheck(
+        [&](const BackendAgentCommandAssignment& candidate,
+            const BackendAgentCommandReceipt& receipt,
+            std::string& checked) {
+            return coreFence.check(candidate, receipt, 119, checked);
+        });
+    service.setMediaImportResultApply(
+        [&](const BackendAgentCommandAssignment& candidate,
+            const BackendAgentCommandResult& result,
+            std::string& checked) {
+            return coreFence.applyResult(candidate, result, 120, checked);
+        });
+    for (const std::string decision : {"desktop", "skip"})
+    {
+        const std::string token = "local_marker_" + decision + "_123456";
+        const std::string json = "{\"sourceId\":\"" + token +
+            "\",\"videoDecision\":\"" + decision + "\"}";
+        const unsigned version = decision == "desktop" ? 3U : 4U;
+        auto markerOp = op;
+        markerOp.operationId = "op_marker_" + decision;
+        markerOp.idempotencyKey = "idem_marker_" + decision;
+        markerOp.resourceId = token;
+        markerOp.requestFingerprint = "logical_marker_" + decision;
+        markerOp.expectedRevision = "selection-v" + std::to_string(version);
+        auto markerPayload = payload;
+        markerPayload.operationId = markerOp.operationId;
+        markerPayload.payloadVersion = version;
+        markerPayload.payload = json;
+        markerPayload.payloadFingerprint = markerOp.requestFingerprint;
+        const auto planned = operations.reserveWithPayload(
+            markerOp, markerPayload);
+        assert(planned.ok());
+        const auto running = operations.transition(
+            markerOp.operationId, planned.operation.operationRevision,
+            vdrsuite::operations::MutationOperationState::accepted,
+            vdrsuite::operations::MutationOperationState::dispatching, "", 110);
+        assert(running.ok());
+
+        auto command = media;
+        command.operationId = markerOp.operationId;
+        command.commandId = "cmd_marker_" + decision;
+        command.requestId = "req_marker_" + decision;
+        command.correlationId = command.requestId;
+        command.jobId = "job_marker_" + decision;
+        command.attemptId = "attempt_marker_" + decision;
+        command.payload = json;
+        command.payloadVersion = version;
+        command.requestFingerprint = backendAgentCommandFingerprint(command);
+        assert(backendAgentCommandValidAssignment(command));
+        assert(commands.insertAssignment(command));
+
+        auto acceptedReceipt = mediaReceipt;
+        acceptedReceipt.commandId = command.commandId;
+        acceptedReceipt.requestFingerprint = command.requestFingerprint;
+        acceptedReceipt.jobId = command.jobId;
+        acceptedReceipt.attemptId = command.attemptId;
+        acceptedReceipt.receivedAt = 119;
+        assert(service.receipt(
+            context(ActorType::Agent, "actor_agent"),
+            acceptedReceipt, 119).accepted);
+
+        BackendAgentCommandResult result;
+        result.commandId = command.commandId;
+        result.requestFingerprint = command.requestFingerprint;
+        result.jobId = command.jobId;
+        result.attemptId = command.attemptId;
+        result.claimEpoch = command.claimEpoch;
+        result.backendId = command.backendId;
+        result.agentId = command.agentId;
+        result.agentInstanceId = command.agentInstanceId;
+        result.backendGeneration = command.backendGeneration;
+        result.dispatchState = "accepted_by_executor";
+        result.verificationState = "verified";
+        result.resultCategory = "succeeded";
+        result.errorCategory = "none";
+        result.retryClassification = "none";
+        result.boundedDiagnostics = "marker fsynced and identity rechecked";
+        result.resultEvidence = "media-tools-mark:" + decision + ":" + token;
+        result.completedAt = 120;
+        assert(backendAgentCommandValidResult(result));
+        const auto completion = service.result(
+            context(ActorType::Agent, "actor_agent"), result, 120);
+        assert(completion.accepted);
+        const auto stored = operations.findById(markerOp.operationId);
+        assert(stored.ok());
+        assert(stored.operation.state ==
+            vdrsuite::operations::MutationOperationState::succeeded);
+        assert(service.result(context(ActorType::Agent, "actor_agent"),
+                              result, 120).accepted);
+        assert(operations.findById(markerOp.operationId)
+                   .operation.operationRevision ==
+               stored.operation.operationRevision);
+    }
+
+    const auto disabled = activation.update(
+        admin, {"rectools", "default", false, 1}, access, {});
+    assert(disabled.status == vdrsuite::addons::IntentStatus::ok);
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_activation_disabled");
+    assert(!coreFence.effectiveMediaImportCapability(
+        "human_media", "default", 118, fenceReason) &&
+           fenceReason == "media_import_activation_disabled");
+    assert(activation.update(
+        admin, {"rectools", "default", true, 2}, access, trusted).status ==
+        vdrsuite::addons::IntentStatus::ok);
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
+
+    service.setMediaImportReceiptFenceCheck(
+        [&](const BackendAgentCommandAssignment& original,
+            const BackendAgentCommandReceipt& incoming,
+            std::string& checkedReason) {
+            return coreFence.check(original, incoming, 119, checkedReason);
+        });
+    const auto verifiedReplay = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 119);
+    assert(verifiedReplay.accepted && verifiedReplay.replayed);
+    assert(mediaGrants.revokeGrant(
+        "human_media", "addons.media.import", "default"));
+    assert(!coreFence.check(media, mediaReceipt, 120, fenceReason));
+    assert(!coreFence.effectiveMediaImportCapability(
+        "human_media", "default", 120, fenceReason));
+    const auto revokedRealGrant = service.receipt(
+        context(ActorType::Agent, "actor_agent"), mediaReceipt, 120);
+    assert(!revokedRealGrant.accepted);
+
+    assert(mediaGrants.ensureGrant(
+        "human_media", "addons.media.import", "default"));
+    auto tampered = media;
+    tampered.payload = "{\"sourceId\":\"different_token\"}";
+    tampered.requestFingerprint = backendAgentCommandFingerprint(tampered);
+    assert(!coreFence.check(tampered, mediaReceipt, 120, fenceReason));
+    assert(!coreFence.check(media, mediaReceipt, 501, fenceReason));
+    assert(identities.revokeActor("human_media"));
+    assert(!coreFence.check(media, mediaReceipt, 120, fenceReason));
+
+    // Applying the durable Agent result uses ADR-0042's CAS transition.
+    // A remux process exit never implies successful recording reconciliation.
+    service.setMediaImportResultApply(
+        [&](const BackendAgentCommandAssignment& original,
+            const BackendAgentCommandResult& outcome,
+            std::string& appliedReason) {
+            return coreFence.applyResult(original, outcome, 121, appliedReason);
+        });
+    BackendAgentCommandResult mediaOutcome;
+    mediaOutcome.commandId = media.commandId;
+    mediaOutcome.requestFingerprint = media.requestFingerprint;
+    mediaOutcome.jobId = media.jobId;
+    mediaOutcome.attemptId = media.attemptId;
+    mediaOutcome.claimEpoch = media.claimEpoch;
+    mediaOutcome.backendId = media.backendId;
+    mediaOutcome.agentId = media.agentId;
+    mediaOutcome.agentInstanceId = media.agentInstanceId;
+    mediaOutcome.backendGeneration = media.backendGeneration;
+    mediaOutcome.dispatchState = "accepted_by_executor";
+    mediaOutcome.verificationState = "outcome_unknown";
+    mediaOutcome.resultCategory = "outcome_unknown";
+    mediaOutcome.errorCategory = "none";
+    mediaOutcome.retryClassification = "reconcile_only";
+    mediaOutcome.boundedDiagnostics = "recording reconciliation pending";
+    const std::string nativeImportedPath =
+        "/srv/vdr/video/Imported/2026-10-21.18.00.00-0.rec";
+    mediaOutcome.resultEvidence =
+        vdrsuite::mediatools::recordingPathEvidence(nativeImportedPath);
+    assert(vdrsuite::mediatools::validRecordingPathEvidence(
+        mediaOutcome.resultEvidence));
+    mediaOutcome.completedAt = 121;
+    assert(backendAgentCommandValidResult(mediaOutcome));
+    auto mediaApplied = service.result(
+        context(ActorType::Agent, "actor_agent"), mediaOutcome, 121);
+    assert(mediaApplied.accepted);
+    const auto resultOperation = operations.findById(media.operationId);
+    assert(resultOperation.ok());
+    assert(resultOperation.operation.state ==
+        vdrsuite::operations::MutationOperationState::outcomeUnknown);
+    assert(resultOperation.operation.resultReference ==
+        "agent.media.import:" + media.commandId);
+    auto duplicateMediaOutcome = service.result(
+        context(ActorType::Agent, "actor_agent"), mediaOutcome, 122);
+    assert(duplicateMediaOutcome.accepted && duplicateMediaOutcome.replayed);
+    assert(operations.findById(media.operationId).operation.operationRevision ==
+           resultOperation.operation.operationRevision);
+    auto fakeSuccess = mediaOutcome;
+    fakeSuccess.dispatchState = "effect_reported";
+    fakeSuccess.resultCategory = "succeeded";
+    fakeSuccess.verificationState = "verified";
+    fakeSuccess.retryClassification = "none";
+    assert(!coreFence.applyResult(media, fakeSuccess, 123, fenceReason));
+
+    // Provider-readback, NOT Agent exit, is the only path to succeeded.
+    VdrRecordingCacheStatus readback;
+    readback.backendId = "default";
+    readback.state = "ready";
+    readback.startedAt = "1970-01-01 00:02:04"; // after Agent result at 121
+    readback.finishedAt = "1970-01-01 00:02:06";
+    readback.totalCount = 1;
+    VdrRecording imported;
+    imported.id = "rec-imported";
+    imported.backendId = "default";
+    imported.backendNativeId = nativeImportedPath;
+    imported.path = nativeImportedPath;
+    imported.title = "Imported";
+    std::vector<VdrRecording> actualRecordings{imported};
+    auto readbackStatus = readback;
+    readbackStatus.state = "stale";
+    assert(coreFence.reconcileRecordingCache(
+        "default", readbackStatus, actualRecordings, 128) == 0);
+    readbackStatus = readback;
+    readbackStatus.startedAt = "1970-01-01 00:02:01"; // not newer
+    assert(coreFence.reconcileRecordingCache(
+        "default", readbackStatus, actualRecordings, 128) == 0);
+    auto wrongRecording = imported;
+    wrongRecording.path = "/srv/vdr/video/Other/2026-10-21.18.00.00-0.rec";
+    assert(coreFence.reconcileRecordingCache(
+        "default", readback, {wrongRecording}, 128) == 0);
+    assert(coreFence.reconcileRecordingCache(
+        "wrong-backend", readback, actualRecordings, 128) == 0);
+    assert(coreFence.reconcileRecordingCache(
+        "default", readback, {imported, imported}, 128) == 0);
+    assert(operations.findById(media.operationId).operation.state ==
+        vdrsuite::operations::MutationOperationState::outcomeUnknown);
+    assert(coreFence.reconcileRecordingCache(
+        "default", readback, actualRecordings, 128) == 1);
+    const auto reconciledOp = operations.findById(media.operationId);
+    assert(reconciledOp.ok() && reconciledOp.operation.state ==
+        vdrsuite::operations::MutationOperationState::succeeded);
+    assert(coreFence.reconcileRecordingCache(
+        "default", readback, actualRecordings, 129) == 0);
+    assert(operations.findById(media.operationId).operation.operationRevision ==
+           reconciledOp.operation.operationRevision);
+    const auto completedReplay = service.result(
+        context(ActorType::Agent, "actor_agent"), mediaOutcome, 130);
+    assert(completedReplay.accepted && completedReplay.replayed);
+    assert(operations.findById(media.operationId).operation.operationRevision ==
+           reconciledOp.operation.operationRevision);
+
+
+    // A6: the actual Agent command reservation uses only the existing
+    // persistent ADR-0042 operation + Agent command table, including replay.
+    assert(db.execute(
+        "INSERT INTO security_actors(actor_id,actor_type,display_name) "
+        "VALUES('human_assign','user','Assignment tester');"));
+    assert(mediaGrants.ensureGrant(
+        "human_assign", "addons.media.import", "default"));
+    auto queued = op;
+    queued.operationId = "op_media_assign";
+    queued.idempotencyKey = "idem_media_assign";
+    queued.actorId = "human_assign";
+    queued.resourceId = "queued_token";
+    queued.requestFingerprint = "logical_queued_request";
+    queued.requestedAt = 125;
+    queued.updatedAt = queued.requestedAt;
+    auto queuedPayload = payload;
+    queuedPayload.operationId = queued.operationId;
+    queuedPayload.payload = "{\"sourceId\":\"queued_token\"}";
+    queuedPayload.payloadFingerprint = "logical_queued_payload";
+    assert(operations.reserveWithPayload(queued, queuedPayload).ok());
+
+    vdrsuite::agent::BackendAgentMediaImportAssignmentService assigner(
+        operations, commands, agents, coreFence);
+    const auto authorized = assigner.assign(
+        context(ActorType::System, "system_admin"), queued.operationId, 130);
+    assert(authorized.accepted && !authorized.replayed);
+    assert(backendAgentCommandValidAssignment(authorized.assignment));
+    assert(authorized.assignment.payload == queuedPayload.payload);
+    assert(authorized.assignment.claimEpoch == 1);
+    assert(operations.findById(queued.operationId).operation.state ==
+        vdrsuite::operations::MutationOperationState::dispatching);
+    const auto replayed = assigner.assign(
+        context(ActorType::System, "system_admin"), queued.operationId, 131);
+    assert(replayed.accepted && replayed.replayed &&
+           replayed.assignment.commandId == authorized.assignment.commandId);
+    assert(!assigner.assign(
+        context(ActorType::User, "human_assign"), queued.operationId, 132
+        ).accepted);
+
+
+    // A7.3: the public admission Core only reserves an immutable opaque
+    // selection and correctly handles identical requests and revocations.
+    vdrsuite::addons::MediaImportOperationAdmissionService admission(
+        operations, agents, coreFence);
+    vdrsuite::addons::MediaImportOperationAdmissionRequest apiInput;
+    apiInput.actorId = "human_assign";
+    apiInput.backendId = "default";
+    apiInput.sourceId = "opaque_source_123456";
+    apiInput.idempotencyKey = "media_import_key_1";
+    apiInput.now = 140;
+    const auto apiCreated = admission.admit(apiInput);
+    assert(apiCreated.status ==
+        vdrsuite::addons::MediaImportOperationAdmissionStatus::accepted);
+    assert(apiCreated.operation.state ==
+        vdrsuite::operations::MutationOperationState::accepted);
+    assert(apiCreated.operation.resourceId == apiInput.sourceId);
+    const auto apiPayload = operations.findPayloadByOperationId(
+        apiCreated.operation.operationId);
+    assert(apiPayload.ok());
+    assert(apiPayload.payload.payload ==
+        "{\"sourceId\":\"opaque_source_123456\"}");
+    const auto apiReplay = admission.admit(apiInput);
+    assert(apiReplay.status ==
+        vdrsuite::addons::MediaImportOperationAdmissionStatus::replayed);
+    assert(apiReplay.operation.operationId ==
+        apiCreated.operation.operationId);
+    apiInput.idempotencyKey = "media_import_key_2";
+    apiInput.sourceId = "../traversal";
+    assert(admission.admit(apiInput).status ==
+        vdrsuite::addons::MediaImportOperationAdmissionStatus::invalid);
+    apiInput.sourceId = "opaque_source_123456";
+    apiInput.actorId = "unprivileged_actor";
+    assert(admission.admit(apiInput).status ==
+        vdrsuite::addons::MediaImportOperationAdmissionStatus::forbidden);
+    apiInput.actorId = "human_assign";
+
+    // Crash after the Core operation CAS but before command persistence:
+    // the same operation can complete its reservation with no new DB/queue.
+    queued.operationId = "op_media_crash";
+    queued.idempotencyKey = "idem_media_crash";
+    queued.requestFingerprint = "logical_crash_request";
+    queuedPayload.operationId = queued.operationId;
+    queuedPayload.payloadFingerprint = "logical_crash_payload";
+    const auto crashReserved = operations.reserveWithPayload(
+        queued, queuedPayload);
+    assert(crashReserved.ok());
+    assert(operations.transition(
+        queued.operationId, crashReserved.operation.operationRevision,
+        vdrsuite::operations::MutationOperationState::accepted,
+        vdrsuite::operations::MutationOperationState::dispatching,
+        "", 129).ok());
+    const auto recovered = assigner.assign(
+        context(ActorType::System, "system_admin"), queued.operationId, 133);
+    assert(recovered.accepted && !recovered.replayed);
+    assert(assigner.assign(
+        context(ActorType::System, "system_admin"), queued.operationId, 134
+        ).replayed);
+
+
+
     std::cout << "P7_AGENT_RESULT_EVIDENCE_MIGRATION=PASS\n";
     std::cout<<"Backend Agent command delivery tests passed"<<std::endl;return 0;
 }

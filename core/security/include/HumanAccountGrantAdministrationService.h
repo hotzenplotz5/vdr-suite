@@ -62,6 +62,9 @@ public:
         std::function<bool(unsigned char*, std::size_t)>;
     using Clock =
         std::function<std::chrono::system_clock::time_point()>;
+    // Core-supplied effective provider capability, never a manifest flag.
+    using AddonGrantEligibility =
+        std::function<bool(const std::string&, const std::string&)>;
 
     HumanAccountGrantAdministrationService(
         Database& database,
@@ -71,7 +74,8 @@ public:
         HumanAccountAdministrationRepository& administrationRepository,
         AccountabilityEventRepository& accountabilityRepository,
         EntropySource entropySource = {},
-        Clock clock = {});
+        Clock clock = {},
+        AddonGrantEligibility addonEligibility = {});
 
     HumanAccountGrantAdministrationResult read(
         const std::string& accountId) const;
@@ -107,4 +111,5 @@ private:
     AccountabilityEventRepository& accountabilityRepository_;
     EntropySource entropySource_;
     Clock clock_;
+    AddonGrantEligibility addonEligibility_;
 };

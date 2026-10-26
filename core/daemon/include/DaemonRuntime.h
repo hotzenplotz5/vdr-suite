@@ -1,6 +1,8 @@
 #pragma once
 
 #include "ApiRouter.h"
+#include "DaemonMediaCheckRuntime.h"
+#include "DaemonMediaShrinkPlanRuntime.h"
 #include "RecordingCacheRefreshQueue.h"
 #include "RecordingPresentationChangeQueue.h"
 #include "BackendAccessPolicy.h"
@@ -64,6 +66,7 @@
 #include "MetadataRepository.h"
 #include "MutationOperationReadService.h"
 #include "MutationOperationRepository.h"
+#include "MediaShrinkReviewRepository.h"
 #include "NativeTimerCreateAdmissionService.h"
 #include "NativeTimerDeleteDispatchService.h"
 #include "NativeTimerModifyDispatchService.h"
@@ -170,6 +173,11 @@
 #include "VdrService.h"
 #include "VdrSnapshotBuilder.h"
 #include "SimpleHttpListener.h"
+#include "MediaImportOperationFence.h"
+#include "MediaShrinkOperationFence.h"
+#include "BackendAgentMediaImportCatalog.h"
+#include "AddonActivationIntentRepository.h"
+#include "SecurityPermissionGrantRepository.h"
 
 #include <atomic>
 #include <thread>
@@ -178,6 +186,9 @@
 #include <vector>
 
 class VdrRecordingArtworkService;
+
+struct PublicMediaImportAdmissionRequest;
+struct PublicMediaImportAdmissionResult;
 
 class DaemonRuntime
 {
@@ -191,6 +202,15 @@ public:
 private:
     static void handleSignal(int signalNumber);
     void pollVdrAndUpdateChangeFeed();
+    void pollScheduledMediaImport();
+    PublicMediaImportAdmissionResult admitMediaImport(
+        const PublicMediaImportAdmissionRequest& request);
+    // Core-owned backend-specific approval + live authenticated Agent digest.
+    // Fail closed on missing/revoked root approval or stale observation.
+    bool trustedMediaToolsProvider(const std::string& backendId,
+                                   std::int64_t now) const;
+    std::string trustedMediaToolsHandlerDigest(const std::string& backendId,
+                                               std::int64_t now) const;
     void startEpgCacheWarmupWorker();
     void stopEpgCacheWarmupWorker();
     void runEpgCacheWarmupWorker();
@@ -198,6 +218,13 @@ private:
     void startRecordingCacheWarmupWorker();
     void stopRecordingCacheWarmupWorker();
     void runRecordingCacheWarmupWorker();
+    // Unverified Agent receipts are not success. Only a subsequent,
+    // Core-owned local filesystem readback can bind a durable HEVC review.
+    bool tryReconcileMediaShrinkStage(
+        const BackendAgentCommandAssignment& assignment,
+        const BackendAgentCommandResult& result,
+        std::int64_t now);
+
     void refreshRecordingCacheForAllBackends(
         const std::string& reason, const std::string& backendId = "");
     void publishCompletedRecordingRefreshes();
@@ -223,6 +250,8 @@ private:
         mutationOperationRepository_;
     std::unique_ptr<vdrsuite::operations::MutationOperationReadService>
         mutationOperationReadService_;
+    std::unique_ptr<vdrsuite::addons::MediaShrinkReviewRepository>
+        mediaShrinkReviewRepository_;
     std::unique_ptr<vdrsuite::timers::TimerIntentRepository>
         timerIntentRepository_;
     std::unique_ptr<vdrsuite::timers::TimerAssignmentRepository>
@@ -299,6 +328,12 @@ private:
     std::unique_ptr<BackendAgentLifecycleService> backendAgentLifecycleService_;
     std::unique_ptr<EmbeddedBackendLifecycleService> embeddedBackendLifecycleService_;
     std::unique_ptr<BackendAgentCommandDeliveryService> backendAgentCommandDeliveryService_;
+    std::unique_ptr<SecurityPermissionGrantRepository> mediaImportGrantRepository_;
+    std::unique_ptr<vdrsuite::addons::AddonActivationIntentRepository>
+        mediaImportActivationIntents_;
+    std::unique_ptr<vdrsuite::addons::MediaImportOperationFence> mediaImportOperationFence_;
+    std::unique_ptr<vdrsuite::addons::MediaShrinkOperationFence> mediaShrinkOperationFence_;
+    std::unique_ptr<BackendAgentMediaImportCatalog> mediaImportCatalog_;
     std::unique_ptr<BackendAccessPolicy> backendAccessPolicy_;
     std::unique_ptr<BackendRegistryJsonSerializer> backendRegistryJsonSerializer_;
     std::unique_ptr<BackendRegistryController> backendRegistryController_;
@@ -412,6 +447,8 @@ private:
     std::unique_ptr<ApiRouter> apiRouter_;
     std::unique_ptr<IHttpServer> httpServer_;
     std::unique_ptr<SimpleHttpListener> httpListener_;
+    std::unique_ptr<DaemonMediaCheckRuntime> mediaCheckRuntime_;
+    std::unique_ptr<DaemonMediaShrinkPlanRuntime> mediaShrinkPlanRuntime_;
 
     static std::atomic<bool> shutdownRequested_;
 };

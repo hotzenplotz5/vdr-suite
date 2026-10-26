@@ -66,6 +66,11 @@ install-runtime:
 	$(INSTALL) -d -m 0700 $(DESTDIR)$(STATEDIR)/backend-agent
 	$(INSTALL) -d -m 0700 $(DESTDIR)$(STATEDIR)/secrets
 	$(INSTALL) -d -m 0700 $(DESTDIR)$(STATEDIR)/secrets/series-artwork
+	# Public metadata is not private state. Materialize its standard
+	# traversable mode under DESTDIR, independent of the build user's umask.
+	# No service account or host init system is assumed by staging, and
+	# existing live directories are never chmodded by the deploy helper.
+	$(INSTALL) -d -m 0755 $(DESTDIR)$(DATADIR)
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/modules
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/platform
@@ -92,6 +97,7 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/settings-series-artwork.js $(DESTDIR)$(DATADIR)/web/frontend/settings-series-artwork.js
 	$(INSTALL) -m 0644 web/frontend/settings-account-admin.js $(DESTDIR)$(DATADIR)/web/frontend/settings-account-admin.js
 	$(INSTALL) -m 0644 web/frontend/settings-device-admin.js $(DESTDIR)$(DATADIR)/web/frontend/settings-device-admin.js
+	$(INSTALL) -m 0644 web/frontend/settings-addons.js $(DESTDIR)$(DATADIR)/web/frontend/settings-addons.js
 	$(INSTALL) -m 0644 web/frontend/locales/de.js $(DESTDIR)$(DATADIR)/web/frontend/locales/de.js
 	$(INSTALL) -m 0644 web/frontend/locales/en.js $(DESTDIR)$(DATADIR)/web/frontend/locales/en.js
 	$(INSTALL) -m 0644 web/frontend/channel-logos.js $(DESTDIR)$(DATADIR)/web/frontend/channel-logos.js
@@ -119,6 +125,7 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/modules/channels.js $(DESTDIR)$(DATADIR)/web/frontend/channel-browser.js
 	$(INSTALL) -m 0644 web/frontend/modules/timers.js $(DESTDIR)$(DATADIR)/web/frontend/modules/timers.js
 	$(INSTALL) -m 0644 web/frontend/modules/searchtimers.js $(DESTDIR)$(DATADIR)/web/frontend/modules/searchtimers.js
+	$(INSTALL) -m 0644 web/frontend/modules/media-import.js $(DESTDIR)$(DATADIR)/web/frontend/modules/media-import.js
 	$(INSTALL) -m 0644 web/frontend/modules/genres.js $(DESTDIR)$(DATADIR)/web/frontend/modules/genres.js
 	$(INSTALL) -m 0644 web/frontend/modules/global-search.js $(DESTDIR)$(DATADIR)/web/frontend/modules/global-search.js
 	$(INSTALL) -m 0644 web/frontend/epg-cache.js $(DESTDIR)$(DATADIR)/web/frontend/epg-cache.js
@@ -211,6 +218,12 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/app.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/device-admin-client-api.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/settings-device-admin.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/public-v1-client.js
+	cmp -s clients/reference-js/public-v1-client.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/public-v1-client.js
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/public-v1-client.js
+	grep -F 'data-module="media-import" hidden disabled' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/index.html >/dev/null
+	grep -F 'src="../frontend/api/public-v1-client.js"' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/index.html >/dev/null
+	grep -F 'src="../frontend/modules/media-import.js"' /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/index.html >/dev/null
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/api/genre-client-api.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-logos.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/home-now-next.js
@@ -268,6 +281,8 @@ test-install-staging:
 	! test -e /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/recordings.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/timers.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/searchtimers.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/media-import.js
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/modules/media-import.js
 	! test -e /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-browser.js
 	! test -e /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-artwork.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-cache.js

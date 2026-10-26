@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""Read-only, fail-closed inventory of installed VDR-Suite add-on metadata.
+
+Not an activation service or public API. Nothing in installed addon.json is
+trusted to grant actor rights, load code, register HTTP routes or start jobs.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+# Read-only inventory must not create Python bytecode caches beside the tool.
+sys.dont_write_bytecode = True
+
+from addon_contract import ContractError, validate_directory
+from dpkg_evidence import examine
+from manual_handler_evidence import examine as examine_manual
+from admin_approval_evidence import examine as examine_approval
+
+# Core-owned review boundary. A package cannot add itself to this table merely
+# by dropping a manifest under /usr/share/vdr-suite/addons.
+SUPPORTED_PACKAGES = {
+    "rectools": "vdr-suite-addon-media-tools",
+    "image": "vdr-suite-addon-image",
+    "music": "vdr-suite-addon-music",
+}
+
+# The current registry contract has no approved execution adapters. A new
+# module must pass separately reviewed core authority/handler registration
+# before it can ever be eligible for activation.
+REGISTERED_HANDLERS = frozenset()
+
+def _check_root(root: Path) -> Path:
+    if not root.is_absolute() or ".." in root.parts or "." in root.parts:
+        raise ContractError("inventory root must be an absolute normalized directory")
+    if not root.is_dir() or any(part.is_symlink() for part in (root, *root.parents)):
+        raise ContractError("inventory root must be a real directory, not a symlink")
+    return root
+
+
+def _directory(root: Path) -> Path:
+    cursor = _check_root(root)
+    for part in ("usr", "share", "vdr-suite", "addons"):
+        cursor = cursor / part
+        if cursor.is_symlink():
+            raise ContractError("symlinked installed add-on directory is prohibited")
+        if cursor.exists() and not cursor.is_dir():
+            raise ContractError("non-directory installed add-on path component")
+    return cursor
+
+
+def inspect(root: Path, verify_dpkg: bool = False, manual_sha256: str = "", verify_admin_approval: bool = False) -> dict:
+    """Inventory is descriptive only; it never implies 'enabled'."""
+    catalog = _directory(root)
+    installed = {}
+    if catalog.is_dir():
+        for item in sorted(catalog.iterdir(), key=lambda p: p.name):
+            # Unknown and non-directory entries do not receive capabilities.
+            if item.name not in SUPPORTED_PACKAGES:
+                installed[item.name] = {
+                    "id": item.name,
+                    "package": None,
+                    "installed": False,
+                    "state": "rejected",
+                    "reason": "unregistered-package",
+                    "active": False,
+                    "capabilities": [],
+                }
+                continue
+            if item.is_symlink() or not item.is_dir():
+                installed[item.name] = {
+                    "id": item.name,
+                    "package": SUPPORTED_PACKAGES[item.name],
+                    "installed": False,
+                    "state": "rejected",
+                    "reason": "invalid-package-directory",
+                    "active": False,
+                    "capabilities": [],
+                }
+                continue
+            try:
+                data = validate_directory(item, item.name)
+                if data["package"] != SUPPORTED_PACKAGES[item.name]:
+                    raise ContractError("manifest package mismatch")
+                installed[item.name] = {
+                    "id": item.name,
+                    "package": data["package"],
+                    "installed": True,
+                    "version": data["version"],
+                    "state": "installed-disabled",
+                    "reason": "no-authorized-runtime-handler",
+                    "active": False,
+                    "capabilities": [],
+                }
+            except (ContractError, OSError, UnicodeError, ValueError):
+                installed[item.name] = {
+                    "id": item.name,
+                    "package": SUPPORTED_PACKAGES[item.name],
+                    "installed": False,
+                    "state": "rejected",
+                    "reason": "invalid-package-manifest",
+                    "active": False,
+                    "capabilities": [],
+                }
+    # Preserve the existing schema-1 inventory shape unless the caller
+    # explicitly opts into the additional diagnostic field.
+    if verify_dpkg:
+        for item in installed.values():
+            if item["installed"] and item["id"] in SUPPORTED_PACKAGES:
+                item["dpkgEvidence"] = examine(
+                    root, item["id"], item["package"], item["version"])
+            else:
+                item["dpkgEvidence"] = {
+                    "consistent": False, "reason": "metadata-not-installed"
+                }
+
+    if verify_admin_approval:
+        for item in installed.values():
+            item["adminApprovalEvidence"] = examine_approval(root, item["id"])
+    if manual_sha256:
+        for item in installed.values():
+            item["manualHandlerEvidence"] = examine_manual(root, item["id"], manual_sha256)
+
+    for name, package in SUPPORTED_PACKAGES.items():
+        installed.setdefault(name, {
+            "id": name,
+            "package": package,
+            "installed": False,
+            "state": "not-installed",
+            "reason": "missing-package",
+            "active": False,
+            "capabilities": [],
+            **({"manualHandlerEvidence": examine_manual(root, name, manual_sha256)} if manual_sha256 else {}),
+            **({"adminApprovalEvidence": examine_approval(root, name)} if verify_admin_approval else {}),
+            **({"dpkgEvidence": {
+                "consistent": False, "reason": "metadata-not-installed"
+            }} if verify_dpkg else {}),
+        })
+    return {"registrySchemaVersion": 1, "modules": [installed[n] for n in sorted(installed)]}
+
+
+def plan_enable(root: Path, name: str, verify_dpkg: bool = False, manual_sha256: str = "", verify_admin_approval: bool = False) -> dict:
+    """No mutation. An enable request without a core handler always fails."""
+    data = inspect(root, verify_dpkg=verify_dpkg, manual_sha256=manual_sha256, verify_admin_approval=verify_admin_approval)
+    record = next((m for m in data["modules"] if m["id"] == name), None)
+    if record is None or name not in SUPPORTED_PACKAGES:
+        reason = "unregistered-package"
+    elif not record["installed"]:
+        reason = record["reason"]
+    elif name not in REGISTERED_HANDLERS:
+        reason = "no-authorized-runtime-handler"
+    else:
+        # Future code must add explicit actor, dependency, compatibility,
+        # backend and administrative state gates before making this reachable.
+        reason = "activation-not-implemented"
+    return {
+        "id": name,
+        "decision": "denied",
+        "reason": reason,
+        "active": False,
+        "sideEffects": False,
+    }
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("action", choices=("inventory", "plan-enable"))
+    parser.add_argument("--root", required=True, help="Explicit filesystem root, e.g. isolated DESTDIR")
+    parser.add_argument("--module", default="")
+    parser.add_argument("--verify-dpkg", action="store_true",
+                        help="Read-only consistency check against this root's dpkg status/list/checksums")
+    parser.add_argument("--manual-sha256", default="", help="Expected independently approved Media Tools handler digest (diagnostic only)")
+    parser.add_argument("--verify-admin-approval", action="store_true", help="Optional read-only root-owned admin approval record diagnostic")
+    args = parser.parse_args(argv)
+    try:
+        root = Path(args.root)
+        if args.action == "inventory":
+            result = inspect(root, verify_dpkg=args.verify_dpkg, manual_sha256=args.manual_sha256, verify_admin_approval=args.verify_admin_approval)
+        else:
+            if not args.module:
+                raise ContractError("--module is required for plan-enable")
+            result = plan_enable(root, args.module, verify_dpkg=args.verify_dpkg, manual_sha256=args.manual_sha256, verify_admin_approval=args.verify_admin_approval)
+        print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+        return 0
+    except (ContractError, OSError) as exc:
+        print("ADDON_REGISTRY=FAIL " + str(exc), file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
