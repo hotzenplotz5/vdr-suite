@@ -79,6 +79,7 @@ on:
       - 'addons/media-tools/README.md'
       - 'docs/planning/addon-platform-roadmap.md'
       - 'docs/development/addon-installed-registry-contract.md'
+      - '.github/workflows/ci.yml'
       - '.github/workflows/addon-platform-isolated.yml'
   workflow_dispatch:
 
