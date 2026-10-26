@@ -151,7 +151,7 @@ adds the following peer of `mediaSession`:
     "transport": "http-cookie",
     "cookie": "vdr_suite_media=<SESSION_SCOPED_BEARER>",
     "headerName": "X-VDR-Suite-Media-Authorization",
-    "headerValue": "<SESSION_SCOPED_BEARER>"
+    "headerValue": "Bearer <SESSION_SCOPED_BEARER>"
   }
 }
 ```
