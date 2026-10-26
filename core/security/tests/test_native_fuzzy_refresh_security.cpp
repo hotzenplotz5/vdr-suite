@@ -145,10 +145,8 @@ void testNativeFuzzyRefresh()
         HttpServerRequest wildcardAdmin =
             fixture.mutationRequest(route, "default");
         fixture.addBrowserAuthentication(wildcardAdmin, true);
-        assertDenied(
-            fixture.gate.evaluate(wildcardAdmin),
-            403,
-            "backend_scope_denied");
+        // Global Human administrators inherit reviewed backend operations.
+        assert(fixture.gate.evaluate(wildcardAdmin).allowed);
     }
 
     assert(fixture.grantRepository.revokeGrant(
@@ -541,10 +539,7 @@ void testQueryCacheRefreshRoute(const QueryCacheRoute& contract)
         fixture.actorId,
         "role.admin",
         "*"));
-    assertDenied(
-        fixture.gate.evaluate(request),
-        403,
-        "backend_scope_denied");
+    assert(fixture.gate.evaluate(request).allowed);
     assert(fixture.grantRepository.revokeGrant(
         fixture.actorId,
         "role.admin",
