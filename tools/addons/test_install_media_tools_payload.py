@@ -165,19 +165,22 @@ class PortableMediaToolsInstallTests(unittest.TestCase):
                               require_quiescence=True)
         self.assertEqual(approval.read_bytes(), snapshot)
 
-    def test_update_rejects_wrong_old_sha_and_backend_grant(self):
+    def test_update_rejects_wrong_old_sha_but_preserves_backend_grant(self):
         previous, approval = self.make_previous_approval()
         with self.assertRaisesRegex(installer.InstallError, "old approved"):
             installer.install(self.stage, self.root, self.approved,
                               previous_sha256="0" * 64, rotate_approval=True,
                               quiesced=True)
-        write(self.root, "etc/vdr-suite/addon-approvals/rectools.remote.json",
-              b"{}", 0o600)
-        with self.assertRaisesRegex(installer.InstallError, "backend-scoped"):
-            installer.install(self.stage, self.root, self.approved,
-                              previous_sha256=previous, rotate_approval=True,
-                              quiesced=True)
-        self.assertEqual(json.loads(approval.read_text())["sha256"], previous)
+        backend = write(
+            self.root, "etc/vdr-suite/addon-approvals/rectools.remote.json",
+            b'{"backend":"unrelated","sha256":"old-pin"}\n', 0o600)
+        original = backend.read_bytes()
+        result = installer.install(self.stage, self.root, self.approved,
+                                   previous_sha256=previous, rotate_approval=True,
+                                   quiesced=True)
+        self.assertIn("MEDIA_TOOLS_INSTALL=PASS", result)
+        self.assertEqual(json.loads(approval.read_text())["sha256"], self.approved)
+        self.assertEqual(backend.read_bytes(), original)
 
     def test_update_failure_restores_old_approved_handler(self):
         previous, approval = self.make_previous_approval()
