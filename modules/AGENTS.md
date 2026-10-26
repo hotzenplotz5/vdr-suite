@@ -13,8 +13,10 @@ those specific instructions supplement, rather than override, these rules.
   dependency/compatibility, actor and backend gates exist.
 - Modules remain individually stageable/packageable, with explicit source and
   install contracts; do not add them implicitly to the base `make install`.
-- Update each affected module's README, AGENTS and manifest when its runtime
-  or package contract changes. Keep tests and higher-level ADRs consistent.
+- Keep each affected module's README, manifest, tests and higher-level ADRs
+  consistent with its actual runtime or package contract. Changes to any
+  `AGENTS.md` require the maintainer's express prior permission; identify
+  needed rule updates for review rather than automatically editing them.
 - Do not install, restart or mutate live VDR files without explicit consent
   and a host-specific read-only resource preflight.
 

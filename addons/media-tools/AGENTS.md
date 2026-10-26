@@ -3,8 +3,10 @@
 Root `../../AGENTS.md`, `../../modules/AGENTS.md`, and
 `../../modules/rectools/AGENTS.md` security constraints apply.
 
-- Work exclusively on `work/addon-platform-registry-lifecycle`.
-- Never create a new branch, repository or duplicate import implementation.
+- Follow the maintainer-authorized branch and scope for the current work.
+  A review branch name is not a permanent restriction after merge. Do not
+  create an unapproved parallel workstream, repository or duplicate import
+  implementation.
 - Add-on-specific code lives here; Suite-owned execution authorization,
   authenticated dispatch and durable lifecycle remain in Core/Agent.
 - No arbitrary filesystem paths, implicit source deletion, shell

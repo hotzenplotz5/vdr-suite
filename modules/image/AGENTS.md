@@ -1,13 +1,17 @@
-# Agent rules: Images
+# Agent rules: Images (inactive module scaffold)
 
-Inherit all requirements from [root AGENTS.md](../../AGENTS.md).
+Inherit all requirements from [root AGENTS.md](../../AGENTS.md) and the
+[shared module rules](../AGENTS.md).
 
-1. This module owns optional photos, albums and slideshow features, not VDR recordings or recording actions.
-2. Treat EXIF, thumbnails and imported image bytes as untrusted data. Defend against malformed files, decompression bombs, metadata privacy leaks and oversized decode/cache jobs.
-3. Restrict scanning and writes to administrator-registered storage roots. Validate real paths and symlinks on the owning backend; no arbitrary actor-controlled filesystem paths.
-4. Use Suite actor grants, backend capabilities, API error semantics and resource constraints. Do not create independent accounts, authentication or a second global SQLite owner.
-5. UI is an optional client of stable Suite APIs, never a direct image filesystem endpoint without policy. Design for absent VDR and disabled module.
-6. Each change updates this file, README, addon.json capability declarations and staged package contracts when needed; no active capability until tested.
-7. No live filesystem scans, package installation or service restarts without prior authorization and resource preflight.
-
-8. A package is never a running photo provider merely because the read-only installed registry lists its metadata. Do not advertise image capabilities or scan roots without reviewed core activation, actor-scoped visibility and backend-specific authorization.
+- This directory is only an inactive metadata/packaging scaffold:
+  `addon.json` has no entrypoints, capabilities or grants. A staged package
+  is not an image provider and may not activate itself.
+- Keep authentication, actor/backend authorization, source-root confinement,
+  filesystem protection and runtime lifecycle with the common Suite owners.
+  No arbitrary host scans, file writes, installs or service restarts.
+- Any future image files, metadata and thumbnails are untrusted inputs:
+  require bounded resource use and explicit authorization and preflight before
+  enabling processing or accessing live media.
+- Defer detailed Image-specific storage, EXIF/thumbnail, API and UI design
+  rules to a separately approved Images workstream. Future edits to this
+  `AGENTS.md` require explicit prior maintainer permission.

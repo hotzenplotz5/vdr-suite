@@ -35,8 +35,10 @@ verdrahteter Menüpunkt. Main enthält die gemeinsam benötigten Backend-,
 Sicherheits-, API-v1- und Agent-Verträge; die drei ausführbaren
 Media-Tools-Worker bleiben außerhalb des Basis-Installationspayloads.
 **Source-Merge und Produktivaktivierung sind getrennte Entscheidungen.**
-Keine neuen Entwicklungsbranches, keine Änderung an AGENTS.md, kein
-ungeprüfter yaVDR-Eingriff.
+Keine neuen Entwicklungsbranches, Änderungen an `AGENTS.md` nur mit
+ausdrücklicher persönlicher Maintainerfreigabe, kein ungeprüfter
+yaVDR-Eingriff. Die gezielten AGENTS-Widerspruchskorrekturen wurden am
+26.10.2026 ausdrücklich genehmigt; das ist keine Dauerfreigabe.
 
 | Slice | Umsetzungsziel und Nachweis | Grenze |
 | --- | --- | --- |
@@ -79,12 +81,16 @@ Alle vier bleiben im P7-SQL-Inventar als PENDING eingetragen, bis die
 entsprechende historische und Paket-Migrationsabnahme tatsächlich vorliegt.
 DevicePlaybackAccountBindingService auf main bleibt unabhängig P7 PENDING.
 
-**AGENTS.md-Grenze:** Der PR enthält bereits Änderungen an AGENTS.md und
-zusätzliche AGENTS.md-Dateien, die nicht aus MT.LC stammen. Sie dürfen
-ohne gesonderte Maintainerfreigabe nicht verändert oder als genehmigter
-Merge-Scope behandelt werden. **Keine MT.LC-Arbeit ändert AGENTS.md.**
-Weder Merge nach main noch Produktivdeploy/Paketänderung werden aus
-dieser Dokumentation heraus freigegeben.
+**AGENTS.md-Grenze:** Der PR enthält geänderte und zusätzliche AGENTS.md.
+Der Maintainer hat ausdrücklich die Korrektur der branch-fixierten
+Media-Tools-Regel und der impliziten Pflicht zu automatischen AGENTS-Edits
+genehmigt. Die allgemeinen Sicherheits-/Core-Regeln bleiben bestehen.
+Images und Music behalten als inaktive Modul-Scaffolds ihre laut
+`addon_contract.py` erforderlichen AGENTS.md-Dateien mit den übergreifenden
+Schutzgrenzen; ihre spezifische Architektur- und Produktgestaltung ist in
+eigenen späteren Modul-Workstreams zu überprüfen. Das autorisiert weder
+künftige AGENTS-Edits pauschal noch den Merge nach main, Live-Installationen
+oder Paketänderungen.
 
 ## Actual install and packaging boundary
 

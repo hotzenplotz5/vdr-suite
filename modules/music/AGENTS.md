@@ -1,13 +1,17 @@
-# Agent rules: Music
+# Agent rules: Music (inactive module scaffold)
 
-Inherit all requirements from [root AGENTS.md](../../AGENTS.md).
+Inherit all requirements from [root AGENTS.md](../../AGENTS.md) and the
+[shared module rules](../AGENTS.md).
 
-1. Own optional music catalog, artist/album identity, playlists and music client presentation; do not store music as pseudo-VDR recordings.
-2. Treat tags, cover art, playlists, external source URLs and filenames as untrusted. Prevent traversal, unsolicited remote fetches and unbounded decode/transcode.
-3. Reuse Suite authentication, grants, common client API, MediaSession/playback strategy and job safety where applicable. Never create a shadow player/session control plane.
-4. Playlist visibility and shared libraries are actor-scoped; clients cannot access raw host paths or other users' media without authorization.
-5. Keep install optional: no mandatory audio runtime dependencies in core and no startup failure when this module is missing.
-6. Keep this AGENTS file, README, manifest and staging/package tests consistent; no capabilities/entrypoints before implementation and proof.
-7. No media mutation, live installations, external network scans or expensive encoding without explicit authorization and preflight.
-
-8. Registry inventory/enable previews never activate the music library or its playback handlers. Future activation must prove music-domain handler compatibility, actor permissions, source scopes and per-client media rights independently of installed manifest claims.
+- This directory is only an inactive metadata/packaging scaffold:
+  `addon.json` has no entrypoints, capabilities or grants. A staged package
+  is not a music provider and may not activate itself.
+- Keep authentication, actor/backend permissions, media-session ownership,
+  source-root confinement and runtime lifecycle with the common Suite owners.
+  No unreviewed scans, host file writes, installs or service restarts.
+- Future audio files, playlists, tags, cover art and source URLs are
+  untrusted; preserve actor-scoped visibility and require bounded processing,
+  explicit authorization and preflight before enabling any media operation.
+- Defer detailed Music-specific catalog, playlists, playback, API and UI
+  design rules to a separately approved Music workstream. Future edits to
+  this `AGENTS.md` require explicit prior maintainer permission.
