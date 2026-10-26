@@ -2117,7 +2117,7 @@ bool DaemonRuntime::initialize()
             input.payload.compareSummary = request.compareSummary;
             // epgsearch has independent defaults, so persist the live VDR
             // margins on the inactive rule before it can be activated.
-            SuiteBridgeNativeTimerMarginsProjection margins;
+            vdrsuite::agent::SuiteBridgeNativeTimerMarginsProjection margins;
             std::string marginReason;
             if (!backendAgentCommandRepository_)
             {
@@ -2127,10 +2127,10 @@ bool DaemonRuntime::initialize()
             const auto provider = backendAgentCommandRepository_->selectLocalProvider(
                 request.backendId, agent->agentId, agent->agentInstanceId,
                 agent->backendGeneration,
-                kBackendAgentNativeTimerCreateAuthorityDomain,
-                kBackendAgentNativeTimerCreateCapability, marginReason);
+                vdrsuite::agent::kBackendAgentNativeTimerCreateAuthorityDomain,
+                vdrsuite::agent::kBackendAgentNativeTimerCreateCapability, marginReason);
             if (!provider ||
-                !SuiteBridgeNativeTimerCreateTransport::verifyNativeMarginsReply(
+                !vdrsuite::agent::SuiteBridgeNativeTimerCreateTransport::verifyNativeMarginsReply(
                     runtime->suiteBridgeTransport->inspectNativeTimerMarginsContract(),
                     *provider, margins, marginReason))
             {
