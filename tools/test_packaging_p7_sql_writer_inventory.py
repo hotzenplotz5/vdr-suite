@@ -38,6 +38,13 @@ PENDING = frozenset({
     # Already present on main, not rehearsed in the historical P7 SQL harness.
     # Classified explicitly; do not misrepresent it as exercised.
     "core/security/src/DevicePlaybackAccountBindingService.cpp",
+    # Canonical Media Tools/Add-on SQL owners. Several have their own focused
+    # C++ unit tests, but are NOT exercised in the historical P7 migration
+    # rehearsal; keep their real-package upgrade evidence outstanding.
+    "core/addons/src/AddonActivationIntentRepository.cpp",
+    "core/addons/media-tools/src/MediaShrinkReviewRepository.cpp",
+    "core/agent/src/BackendAgentMediaImportAssignment.cpp",
+    "core/agent/src/BackendAgentMediaShrinkAssignment.cpp",
 })
 INDIRECTLY_EXERCISED = frozenset({
     "core/agent/src/BackendRuntimeGeneration.cpp",
