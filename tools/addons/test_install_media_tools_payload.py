@@ -206,8 +206,11 @@ class PortableMediaToolsInstallTests(unittest.TestCase):
             shutil.copyfile(self.stage / media.WORKER_REL / name, binaries / name)
             (binaries / name).chmod(0o755)
         prepared = Path(self.temporary.name) / "prebuilt-output"
+        source_sha = __import__("subprocess").check_output(
+            ["git", "-C", str(REPO), "rev-parse", "HEAD"],
+            text=True).strip()
         with mock.patch("prepare_media_tools_existing.os.geteuid", return_value=1000):
-            reused_hash = prepare(self.stage, binaries, prepared)
+            reused_hash = prepare(self.stage, binaries, prepared, source_sha)
         self.assertEqual(reused_hash, self.approved)
         self.assertEqual((prepared / "stage/.vdr-suite-install-runtime-manifest.json").read_bytes(),
                          (self.stage / ".vdr-suite-install-runtime-manifest.json").read_bytes())
