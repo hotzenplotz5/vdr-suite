@@ -223,6 +223,8 @@ public:
     }
 
     SuiteBridgeCommandReply discoverNativeTimerCreateContract();
+    // Read-only VDR-local Setup.MarginStart/Stop, scoped to this backend.
+    SuiteBridgeCommandReply inspectNativeTimerMarginsContract();
     SuiteBridgeCommandReply inspectNativeTimerClockContract(
         std::int64_t start, std::int64_t stop);
     SuiteBridgeCommandReply inspectNativeTimerPreviewContract(

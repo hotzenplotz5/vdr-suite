@@ -21,6 +21,14 @@ struct SuiteBridgeNativeTimerClockProjection
     std::string providerInstanceEpoch;
 };
 
+// Live VDR-owned setup values; a reply with a stale provider epoch is invalid.
+struct SuiteBridgeNativeTimerMarginsProjection
+{
+    int startMinutes = 0;
+    int stopMinutes = 0;
+    std::string providerInstanceEpoch;
+};
+
 // A typed, read-only native prospect assessment. This is not a
 // ProspectiveNativeTimerConflictProof and must not itself enable CREATE.
 struct SuiteBridgeNativeTimerPreviewProjection
@@ -69,6 +77,12 @@ public:
         const BackendAgentLocalProviderSelection& authorizedSelection,
         std::int64_t receivedAt,
         SuiteBridgeNativeTimerPreviewProjection& projection,
+        std::string& reasonCode);
+
+    static bool verifyNativeMarginsReply(
+        const SuiteBridgeCommandReply& reply,
+        const BackendAgentLocalProviderSelection& authorizedSelection,
+        SuiteBridgeNativeTimerMarginsProjection& projection,
         std::string& reasonCode);
 
     // Reusable by the Daemon's already-scoped SuiteBridge transport without

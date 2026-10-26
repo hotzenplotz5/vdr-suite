@@ -317,6 +317,40 @@ int main()
 
     {
         OneShotServer server(
+            "900 vdr-suite-ntcreate-margins/1 vdr.timer.create 1 "
+            "suitebridge pie_1 1 1 2 10\r\n");
+        SuiteBridgeSvdrpTransport wire(config(server.port()));
+        const auto raw = wire.inspectNativeTimerMarginsContract();
+        SuiteBridgeNativeTimerMarginsProjection margins;
+        std::string reason;
+        assert(SuiteBridgeNativeTimerCreateTransport::verifyNativeMarginsReply(
+            raw, validRequest().command.localProviderSelection,
+            margins, reason));
+        assert(margins.startMinutes == 2 && margins.stopMinutes == 10);
+        server.wait();
+        assert(server.request() == "PLUG suitebridge NTCREATE MARGINS 1\r\n");
+    }
+    {
+        const SuiteBridgeCommandReply bad{
+            SuiteBridgeTransportStatus::Success, 900,
+            "vdr-suite-ntcreate-margins/1 vdr.timer.create 1 "
+            "suitebridge pie_foreign 1 1 2 10", {}};
+        SuiteBridgeNativeTimerMarginsProjection margins;
+        std::string reason;
+        assert(!SuiteBridgeNativeTimerCreateTransport::verifyNativeMarginsReply(
+            bad, validRequest().command.localProviderSelection,
+            margins, reason));
+        assert(reason == "native_timer_margins_reply_invalid_or_stale");
+        assert(!SuiteBridgeNativeTimerCreateTransport::verifyNativeMarginsReply(
+            {SuiteBridgeTransportStatus::Success, 900,
+             "vdr-suite-ntcreate-margins/1 vdr.timer.create 1 "
+             "suitebridge pie_1 1 1 2 1441", {}},
+            validRequest().command.localProviderSelection,
+            margins, reason));
+    }
+
+    {
+        OneShotServer server(
             "900 vdr-suite-ntcreate-clock/1 vdr.timer.create 1 "
             "suitebridge pie_1 1 1 1792222800 1792226400 0 0 "
             "2026-10-17 0740 2026-10-17 0840\r\n");

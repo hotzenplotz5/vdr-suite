@@ -79,7 +79,9 @@ public:
 
   SuiteBridgeCommandResult Handle(
       const char *command,
-      const char *option);
+      const char *option,
+      int marginStartMinutes = 0,
+      int marginStopMinutes = 0);
 
   bool ExecutionConfigured() const noexcept;
 
@@ -94,6 +96,8 @@ private:
 
   SuiteBridgeCommandResult capability(const char *option) const;
   SuiteBridgeCommandResult clockEvidence(const char *option) const;
+  SuiteBridgeCommandResult marginsEvidence(
+      const char *option, int startMinutes, int stopMinutes) const;
   SuiteBridgeCommandResult execute(const char *option);
   SuiteBridgeNativeTimerCreateMutationResult executeReserved(
       const SuiteBridgeNativeTimerCreateRequest &request,

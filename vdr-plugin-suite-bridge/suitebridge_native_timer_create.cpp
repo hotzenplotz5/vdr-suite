@@ -404,13 +404,17 @@ bool SuiteBridgeNativeTimerCreateService::ExecutionConfigured() const noexcept
 
 SuiteBridgeCommandResult SuiteBridgeNativeTimerCreateService::Handle(
     const char *command,
-    const char *option)
+    const char *option,
+    int marginStartMinutes,
+    int marginStopMinutes)
 {
   if (command == nullptr || strcasecmp(command, "NTCREATE") != 0) return {};
   const std::vector<std::string> values = split(option);
   if (values.empty()) return genericRejection(MalformedReplyCode, "malformed");
   if (values.front() == "CAP") return capability(option);
   if (values.front() == "CLOCK") return clockEvidence(option);
+  if (values.front() == "MARGINS")
+    return marginsEvidence(option, marginStartMinutes, marginStopMinutes);
   if (values.front() == "EXEC") return execute(option);
   return genericRejection(MalformedReplyCode, "unsupported");
 }
@@ -432,6 +436,28 @@ SuiteBridgeCommandResult SuiteBridgeNativeTimerCreateService::capability(
           << NativeOperationSchema << " timer-create " << state << ' '
           << ProviderKind << ' ' << pluginInstanceEpoch_ << ' '
           << ProviderGeneration << ' ' << CapabilityRevision << ' ' << state;
+  result.payload = payload.str();
+  return result;
+}
+
+SuiteBridgeCommandResult SuiteBridgeNativeTimerCreateService::marginsEvidence(
+    const char *option, int startMinutes, int stopMinutes) const
+{
+  // Values are supplied by the owning live VDR (Setup.MarginStart/Stop),
+  // not read from the daemon filesystem or a hard-coded distribution default.
+  const auto values = split(option);
+  if (values.size() != 2 || values[0] != "MARGINS" || values[1] != "1" ||
+      startMinutes < 0 || stopMinutes < 0 ||
+      startMinutes > 1440 || stopMinutes > 1440)
+    return genericRejection(MalformedReplyCode, "margins-unavailable");
+  SuiteBridgeCommandResult result;
+  result.handled = true;
+  result.replyCode = SuccessReplyCode;
+  std::ostringstream payload;
+  payload << "vdr-suite-ntcreate-margins/1 " << NativeOperation << ' '
+          << NativeOperationSchema << ' ' << ProviderKind << ' '
+          << pluginInstanceEpoch_ << ' ' << ProviderGeneration << ' '
+          << CapabilityRevision << ' ' << startMinutes << ' ' << stopMinutes;
   result.payload = payload.str();
   return result;
 }

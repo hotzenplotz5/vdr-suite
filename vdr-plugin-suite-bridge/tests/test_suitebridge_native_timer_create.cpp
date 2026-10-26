@@ -136,6 +136,21 @@ int main()
 
   {
     SuiteBridgeNativeTimerCreateService service("pie_1");
+    const auto margins = service.Handle("NTCREATE", "MARGINS 1", 2, 10);
+    assert(margins.handled && margins.replyCode == 900);
+    assert(margins.payload ==
+        "vdr-suite-ntcreate-margins/1 vdr.timer.create 1 suitebridge "
+        "pie_1 1 1 2 10");
+    const auto zeros = service.Handle("NTCREATE", "MARGINS 1", 0, 0);
+    assert(zeros.replyCode == 900);
+    assert(zeros.payload.find(" 0 0") != std::string::npos);
+    assert(service.Handle("NTCREATE", "MARGINS 2", 2, 10).replyCode == 501);
+    assert(service.Handle("NTCREATE", "MARGINS 1", -1, 10).replyCode == 501);
+    assert(service.Handle("NTCREATE", "MARGINS 1", 2, 1441).replyCode == 501);
+  }
+
+  {
+    SuiteBridgeNativeTimerCreateService service("pie_1");
     assert(!service.ExecutionConfigured());
 
     const SuiteBridgeCommandResult reply = service.Handle("NTCREATE", "CAP 1");

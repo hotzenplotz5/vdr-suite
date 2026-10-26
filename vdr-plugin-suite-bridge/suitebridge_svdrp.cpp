@@ -12,6 +12,7 @@
 #include "suitebridge_svdrp_contract.h"
 #include "SuiteBridgeVideoDirectoryDiscovery.h"
 #include <vdr/videodir.h>
+#include <vdr/config.h>
 
 #include <vdr/tools.h>
 
@@ -124,7 +125,8 @@ cString cPluginSuiteBridge::SVDRPCommand(
   if (hbbtv.handled) return ReturnResult(hbbtv, ReplyCode);
 
   const SuiteBridgeCommandResult nativeTimerCreate =
-      nativeTimerCreate_.Handle(Command, Option);
+      nativeTimerCreate_.Handle(Command, Option,
+          Setup.MarginStart, Setup.MarginStop);
   if (nativeTimerCreate.handled) return ReturnResult(nativeTimerCreate, ReplyCode);
 
   const SuiteBridgeCommandResult nativeTimerPreview =

@@ -251,6 +251,12 @@ SuiteBridgeSvdrpTransport::discoverNativeTimerCreateContract()
 }
 
 SuiteBridgeCommandReply
+SuiteBridgeSvdrpTransport::inspectNativeTimerMarginsContract()
+{
+    return executeRequest("PLUG suitebridge NTCREATE MARGINS 1\r\n");
+}
+
+SuiteBridgeCommandReply
 SuiteBridgeSvdrpTransport::inspectNativeTimerClockContract(
     std::int64_t start, std::int64_t stop)
 {
@@ -638,6 +644,62 @@ bool SuiteBridgeNativeTimerCreateTransport::verifyNativeClockReply(
     projection.stopHhmm = values[14];
     projection.providerInstanceEpoch = values[4];
     reasonCode = "native_timer_clock_verified";
+    return true;
+}
+
+bool SuiteBridgeNativeTimerCreateTransport::verifyNativeMarginsReply(
+    const SuiteBridgeCommandReply& reply,
+    const BackendAgentLocalProviderSelection& provider,
+    SuiteBridgeNativeTimerMarginsProjection& margins,
+    std::string& reasonCode)
+{
+    margins = {};
+    if (!backendAgentLocalProviderValidSelection(provider) ||
+        provider.authorityDomain != kBackendAgentNativeTimerCreateAuthorityDomain ||
+        provider.providerId != kBackendAgentNativeTimerCreateProviderId ||
+        provider.providerKind != kBackendAgentNativeTimerCreateProviderKind ||
+        provider.requiredCapability != kBackendAgentNativeTimerCreateCapability)
+    {
+        reasonCode = "native_timer_margins_provider_invalid";
+        return false;
+    }
+    if (!reply.transportSucceeded() || reply.replyCode != CapabilityReplyCode)
+    {
+        reasonCode = "native_timer_margins_unavailable";
+        return false;
+    }
+    const auto values = split(reply.payload, 9);
+    std::uint64_t generation = 0, revision = 0;
+    const auto boundedMinute = [](const std::string& value, int& minutes) {
+        if (value.empty() || value.size() > 4 ||
+            !std::all_of(value.begin(), value.end(), [](unsigned char c) {
+                return c >= '0' && c <= '9'; })) return false;
+        try {
+            const auto raw = std::stoul(value);
+            if (raw > 1440U) return false;
+            minutes = static_cast<int>(raw);
+            return true;
+        } catch (...) { return false; }
+    };
+    if (values.size() != 9 ||
+        values[0] != "vdr-suite-ntcreate-margins/1" ||
+        values[1] != kBackendAgentNativeTimerCreateCapability ||
+        values[2] != "1" ||
+        values[3] != kBackendAgentNativeTimerCreateProviderKind ||
+        values[4] != provider.providerInstanceEpoch ||
+        !unsignedValue(values[5], generation) ||
+        !unsignedValue(values[6], revision) ||
+        generation != provider.providerGeneration ||
+        revision != provider.capabilityRevision ||
+        !boundedMinute(values[7], margins.startMinutes) ||
+        !boundedMinute(values[8], margins.stopMinutes))
+    {
+        margins = {};
+        reasonCode = "native_timer_margins_reply_invalid_or_stale";
+        return false;
+    }
+    margins.providerInstanceEpoch = values[4];
+    reasonCode = "native_timer_margins_verified";
     return true;
 }
 

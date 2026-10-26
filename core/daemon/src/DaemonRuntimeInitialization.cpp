@@ -4192,15 +4192,31 @@ bool DaemonRuntime::initialize()
             // never convert on the Daemon host or assume its timezone.
             defaults.timezone = "UTC";
             defaults.channelSourceType = "vdr";
+            // Backend-local VDR setup is authoritative, including changes
+            // made through VDR's recording setup UI. No fixed distro margins.
+            if (!runtime->suiteBridgeTransport) return result;
+            SuiteBridgeNativeTimerMarginsProjection margins;
+            if (!SuiteBridgeNativeTimerCreateTransport::verifyNativeMarginsReply(
+                    runtime->suiteBridgeTransport->inspectNativeTimerMarginsContract(),
+                    *provider, margins, reason)) return result;
+            defaults.startMarginSeconds = margins.startMinutes * 60;
+            defaults.stopMarginSeconds = margins.stopMinutes * 60;
+            if (observed.startTime <= defaults.startMarginSeconds ||
+                observed.endTime > std::numeric_limits<std::int64_t>::max() -
+                    defaults.stopMarginSeconds) return result;
+            const auto effectiveStart =
+                observed.startTime - defaults.startMarginSeconds;
+            const auto effectiveStop =
+                observed.endTime + defaults.stopMarginSeconds;
 
             ServerOwnedNativeClockEvidence nativeClock;
             const auto clockReply =
                 runtime->suiteBridgeTransport->inspectNativeTimerClockContract(
-                    observed.startTime, observed.endTime);
+                    effectiveStart, effectiveStop);
             const auto clockAttestedAt = nowSeconds();
             if (!attestBackendNativeTimerClockReply(
                     clockReply, *agent, *provider, candidate,
-                    observed.startTime, observed.endTime, clockAttestedAt,
+                    effectiveStart, effectiveStop, clockAttestedAt,
                     nativeClock, reason))
                 return result;
 
@@ -4212,12 +4228,12 @@ bool DaemonRuntime::initialize()
             native.vps = defaults.vpsPreferred;
             native.enabled = true;
             if (!projectEpgBoundaryToNative(
-                    observed.startTime, nativeClock.startUtcOffsetSeconds,
+                    effectiveStart, nativeClock.startUtcOffsetSeconds,
                     false, native.day, native.startTime))
                 return result;
             std::string endDay;
             if (!projectEpgBoundaryToNative(
-                    observed.endTime, nativeClock.stopUtcOffsetSeconds,
+                    effectiveStop, nativeClock.stopUtcOffsetSeconds,
                     true, endDay, native.endTime) ||
                 !nativeOneShotMatchesEpg(
                     observed, defaults, nativeClock, native) ||
