@@ -102,10 +102,26 @@ int main()
     read = store.read(actor, "rectools", "backend-a");
     assert(read.status == IntentStatus::ok && read.intent.revision == 0 &&
            !read.intent.desiredEnabled);
-    // Even after a trusted package/handler/Agent is present, install must
-    // not become an unreviewed implicit administrator activation.
-    assert(!mediaToolsActivationPermits(
+    // An administrator-installed, separately approved handler is active
+    // by default only when the caller supplied independently verified
+    // Core/backend/Agent/handler evidence. The decision helper is NOT a
+    // substitute for that verification.
+    assert(mediaToolsActivationPermits(
         read.intent, "agent-a", "instance-a", 19, std::string(64, 'a')));
+    assert(!mediaToolsActivationPermits(
+        read.intent, "", "instance-a", 19, std::string(64, 'a')));
+    assert(!mediaToolsActivationPermits(
+        read.intent, "agent-a", "instance-a", 0, std::string(64, 'a')));
+    assert(!mediaToolsActivationPermits(
+        read.intent, "agent-a", "instance-a", 19, ""));
+    ActivationIntent forged = read.intent;
+    forged.desiredEnabled = true;
+    assert(!mediaToolsActivationPermits(
+        forged, "agent-a", "instance-a", 19, std::string(64, 'a')));
+    forged = read.intent;
+    forged.approvedHandlerSha256 = std::string(64, 'a');
+    assert(!mediaToolsActivationPermits(
+        forged, "agent-a", "instance-a", 19, std::string(64, 'a')));
     ++checks;
 
     IntentMutation enable{"rectools", "backend-a", true, 0};
@@ -239,6 +255,10 @@ int main()
     assert(!disabledLease.intent.desiredEnabled &&
            disabledLease.intent.backendGeneration == 0 &&
            disabledLease.intent.agentId.empty());
+    assert(!mediaToolsActivationPermits(
+        disabledLease.intent, "agent-a", "new-instance", 20,
+        std::string(64, 'a')));
+
 
     assert(f.database.execute(
         "INSERT INTO addon_activation_intents "
