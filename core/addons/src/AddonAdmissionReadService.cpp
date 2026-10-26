@@ -15,8 +15,8 @@ AdmissionPreview AddonAdmissionReadService::previewMediaImport(
     if (!independent.allowed)
         return {independent, 0, false};
 
-    // The root-admin installation is sufficient to activate a trusted
-    // handler. Ordinary actors still need the canonical scoped grant.
+    // Installation and verified handler evidence are never an activation.
+    // Only explicit revision-bound administrator intent may authorize use.
     const IntentResult intent = intents_.readForAdmission(
         "rectools", verified.backendId);
     if (intent.status != IntentStatus::ok)

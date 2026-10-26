@@ -65,8 +65,8 @@ AccessDecision canUseMediaImport(
         evidence.backendId != backend.backendId)
         return deny(AccessReason::backendUnavailable);
 
-    // Installation is the administrator's decision. A global admin may
-    // use it without a second per-user grant; ordinary users remain scoped.
+    // After a distinct explicit administrator activation, a global admin may
+    // use it without an additional per-user grant; ordinary users remain scoped.
     if (!(actor.actor.type == ActorType::User &&
           hasGrant(actor, "role.admin", "*")) &&
         !std::any_of(actor.grants.begin(), actor.grants.end(),

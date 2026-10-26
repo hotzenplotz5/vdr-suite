@@ -96,6 +96,8 @@ async function test() {
   }, restored);
   h.window.VdrSuiteAddonSettings.render(h.parent, 'default');
   await flush();
+  assert.ok(h.elements.some(e =>
+    e.textContent === 'Handler verifiziert, Addon deaktiviert'));
   const toggle = h.elements.find(e => e.textContent === 'Aktivieren');
   assert.ok(toggle && !toggle.disabled, 'enabled admin activation control');
   assert.equal(h.parent.children[0].hidden, false, 'authorized admin card visible');
@@ -116,8 +118,6 @@ async function test() {
   assert.ok(installed.elements.some(e =>
     e.textContent === 'Media Tools technisch freigegeben (Benutzerrechte separat prüfen)'));
   assert.ok(installed.elements.some(e => e.textContent === 'Deaktivieren'));
-  assert.ok(h.elements.some(e => e.textContent ===
-    'Handler verifiziert, Addon deaktiviert'));
   assert.ok(!h.elements.some(e => e.textContent === 'Installieren' ||
     e.textContent === 'Deinstallieren'),
     'UI must not present nonfunctional or privileged package actions');

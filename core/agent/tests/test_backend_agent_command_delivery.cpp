@@ -507,22 +507,11 @@ int main()
     assert(!coreFence.effectiveMediaImportCapability(
         "human_media", "default", 118, fenceReason) &&
         fenceReason == "media_import_permission_denied");
-    // The authenticated global administrator can use an already installed,
-    // independently approved handler without a second user grant.
+    // The global administrator's operation grant alone cannot activate a
+    // safely installed but still disabled Media Tools provider.
     assert(mediaGrants.ensureGrant("human_media", "role.admin", "*"));
-    assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
-    assert(mediaGrants.revokeGrant("human_media", "role.admin", "*"));
     assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
-           fenceReason == "media_import_permission_denied");
-    assert(mediaGrants.ensureGrant(
-        "human_media", "addons.media.import", "other-backend"));
-    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason));
-    assert(mediaGrants.ensureGrant(
-        "human_media", "addons.media.import", "default"));
-    // Revision 0 is the root administrator's initial installation approval.
-    assert(coreFence.check(media, mediaReceipt, 118, fenceReason) &&
-           fenceReason == "media_import_operation_and_grant_verified");
-
+           fenceReason == "media_import_activation_agent_stale");
     // Explicit later administrator overrides remain audited and lease-bound.
     RequestSecurityContext admin = context(ActorType::User, "admin_media");
     admin.grants.push_back({"role.admin", "*"});
@@ -545,6 +534,20 @@ int main()
     const auto activated = activation.update(
         admin, {"rectools", "default", true, 0}, access, trusted);
     assert(activated.status == vdrsuite::addons::IntentStatus::ok);
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
+    assert(mediaGrants.revokeGrant("human_media", "role.admin", "*"));
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_permission_denied");
+    assert(mediaGrants.ensureGrant(
+        "human_media", "addons.media.import", "other-backend"));
+    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason));
+    assert(mediaGrants.ensureGrant(
+        "human_media", "addons.media.import", "default"));
+    // The explicit, revision-bound approval above is still required.
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_operation_and_grant_verified");
+
+    // This activation is now exercised above, before any positive receipt.
     // Same Agent/intent but a changed independently approved handler is
     // never authorized by the old persisted desired-enable state.
     approvedDigest = std::string(64, 'b');
