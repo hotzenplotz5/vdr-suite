@@ -193,10 +193,15 @@ always scoped to the **same absolute `--root`** as the metadata tree. The
 `dpkgEvidence` item contains `consistent` and a bounded reason. The
 verifier reads `var/lib/dpkg/status`, the exact reviewed package's
 `info/<package>.list` and `info/<package>.md5sums` under that root.
-It requires `install ok installed`, an approved scaffold/CPP-preview version,
-the applicable architecture, claimed ownership of all three metadata files
-and matching file hashes. Missing ledgers, duplicate entries, symlinks and
-checksum mismatches fail closed. No `dpkg` command or external program runs.
+It requires `install ok installed`, an approved scaffold/CPP-preview version
+or the reviewed, architecture-specific sealed `~stage1+git<source-sha>`
+version, the applicable architecture, and matching package ownership and file
+hashes. Stage-based Media Tools packages additionally require an exact
+eight-file sealed inventory, worker SHA-256/mode/size verification and source
+SHA agreement. Metadata-only scaffolds retain their three-file contract.
+Missing ledgers, duplicate entries, symlinks and checksum mismatches fail
+closed. The local dpkg ledger remains **diagnostic, not a signature or
+execution authorization**. No `dpkg` command or external program runs.
 
 On the current conventionally/source-installed yaVDR, **do not require or
 run this dpkg check** for VDR-Suite or Media Tools development. Current

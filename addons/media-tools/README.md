@@ -208,12 +208,16 @@ not install Debian packages, compile programs, restart services or modify
 the live host. A reviewed handler SHA-256 and exact prepared source SHA are
 required, and the original sealed Suite stage is not modified.
 
-`tools/addons/install_media_tools.sh` currently implements the **yaVDR
-systemd installation adapter only**: service stop/restart, SQLite backup,
-root-owned approval issuance and a systemd drop-in. Its standard media path
-defaults are `/srv/video/Filme` and `/srv/vdr/video.00`, overridable for
-the host. The systemd service's actual configured non-root user is used for
-path access checks rather than hard-coding `vdr`.
+``tools/addons/install_media_tools.sh` currently provides the reviewed
+yaVDR/systemd **first-install adapter**, not a browser installer: it stops
+Suite-Daemon and Backend-Agent, backs up SQLite, deploys a sealed runtime and
+writes a systemd drop-in. **Both Suite services remain stopped** until a
+separately authorized operator start. Root handler approval and Core
+approval are **not issued**, the workers remain inactive and user grants are
+unchanged. The standard media path defaults are `/srv/video/Filme` and
+`/srv/vdr/video.00`, overridable for the host. The Agent service's actual
+configured non-root user is used for path access checks rather than
+hard-coding `vdr`.
 
 **Distribution contract:** Installing on Debian, Ubuntu, MLD or another
 system must NOT assume that VDR itself uses a specific account, video
