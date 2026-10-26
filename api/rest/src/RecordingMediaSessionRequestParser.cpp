@@ -413,6 +413,13 @@ RecordingMediaSessionRequest RecordingMediaSessionRequestParser::parse(
     if (!optionalProfileField(body, request))
         return invalid("invalid_device_media_profile");
 
+    // Public Device CREATE may explicitly request a native-player transport.
+    // Strict boolean opt-in; absent/false leaves HttpOnly-only response intact.
+    std::size_t nativePosition = 0;
+    if (locateValue(body, "nativeMediaAccess", nativePosition) &&
+        !readBoolField(body, "nativeMediaAccess", request.nativeMediaAccessRequested))
+        return invalid("invalid_native_media_access");
+
     request.valid = true;
     return request;
 }

@@ -11,6 +11,9 @@ struct RecordingMediaSessionRequest
     std::string backendId;
     std::string recordingId;
     ClientMediaCapabilities capabilities;
+    // Explicit Device CREATE opt-in: native HTTP-cookie projection of the
+    // same already-issued MediaSession credential, not a new login.
+    bool nativeMediaAccessRequested = false;
     // Opt-in device-scoped, already stored server-verified path lookup.
     // Never contains a Device ID or a claim of VerifiedPlayback.
     bool deviceMediaProfileRequested = false;

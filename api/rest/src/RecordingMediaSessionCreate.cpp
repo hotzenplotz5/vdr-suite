@@ -251,6 +251,9 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
                 ? "invalid_media_session_request"
                 : request.reasonCode);
     }
+    // Native media credential projection is never available on legacy Browser CREATE.
+    if (request.nativeMediaAccessRequested && authorizedRecording == nullptr)
+        return jsonError(403, "native_media_requires_device");
 
     const RecordingMediaSessionStartPosition requestedStart =
         RecordingMediaSessionStartPositionParser().parse(body);
@@ -724,6 +727,7 @@ ApiResponse RecordingMediaSessionController::createSessionInternal(
         ready.durationSeconds = truthfulDurationSeconds;
         ready.resumeSupported = resumeSupported;
         ready.resumePreparing = indexPreparing && !resumeSupported;
+        ready.nativeMediaAccessRequested = request.nativeMediaAccessRequested;
         ApiResponse deviceResponse =
             PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
         if (deviceResponse.statusCode != 201) {
