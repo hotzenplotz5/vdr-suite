@@ -102,6 +102,23 @@ not a claim that every later source commit was independently installed.
 
 ## HTTP request
 
+**Live-VDR-Vorlauf/Nachlauf (neuer Source-Vertrag 2026-10-26):**
+Vor einer neuen EPG-Timer-Admission liest der Daemon die aktuellen
+VDR-`Setup.MarginStart` und `Setup.MarginStop` ueber den privaten,
+read-only SuiteBridge-SVDRP-Befehl `NTCREATE MARGINS 1` vom
+**gewaehlten Backend**. Nur eine auf den aktuellen lokalen Provider
+gebundene, validierte Antwort darf in die server-owned Defaults
+uebernommen werden. Die native CLOCK-Projektion wird fuer die bereits
+um Vor-/Nachlauf korrigierten Unix-Grenzen abgefragt. Diese gleichen
+Grenzen werden im nativen CREATE und im Sicherheits- und Konfliktcheck
+verwendet; sie werden **nicht erneut** in VDR addiert.
+Es gibt keinen fest hinterlegten MLD/yaVDR-Wert. Ein alter oder
+nicht erreichbarer SuiteBridge liefert keine gueltigen Margins;
+CREATE bleibt in diesem Fall geschlossen. Der fruehere VDR-Hardwaretest
+mit exakt EPG Start/Ende stammt von einem **aelteren Build** und
+beweist nicht die neue Margin-Uebernahme; reale MLD/yaVDR-Abnahme offen.
+
+
 ```http
 POST /api/v1/epg/timer-intents
 Content-Type: application/json

@@ -72,6 +72,20 @@ Source CI and package builds are required for the exact integration commit; the 
 
 ## CREATE: durable admission and one-shot dispatch (wired to Public-v1)
 
+**Live-VDR-Margins (2026-10-26, source-only):** Neue inaktive
+SearchTimer erhalten `margin_start`/`margin_stop` direkt aus den
+laufenden `Setup.MarginStart`/`Setup.MarginStop`-Werten ihres VDR-Backends.
+Der SuiteBridge-Befehl `NTCREATE MARGINS 1` liefert nur diese Werte;
+Provider-Epoch und Capability-Revision werden vor der Verwendung geprueft.
+Der Server speichert die Minuten in der unveraenderlichen CREATE-Payload
+Version 2 und reicht sie als explizite epgsearch-Regelwerte weiter.
+Die Readback-Pruefung erwartet dieselben Werte. Aeltere V1-Operationen
+ohne aufgezeichnete Margins werden nicht stillschweigend mit `0/0`
+weitergeschrieben. Kann die neue VDR-seitige Auskunft nicht bestaetigt
+werden, erfolgt keine neue CREATE-Mutation. Ein Source-Test ist kein
+Nachweis fuer eine erfolgreiche Installation auf MLD/yaVDR.
+
+
 `SearchTimerCreateAdmissionService` persists one immutable, versioned
 `SearchTimerCreateOperationPayload` in the shared
 `MutationOperationRepository.reserveWithPayload`. Idempotency binds actor,

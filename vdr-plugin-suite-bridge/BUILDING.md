@@ -53,6 +53,19 @@ remain separate.
 
 ## Tests and safeguards
 
+## Live VDR recording margins (read-only)
+
+`PLUG suitebridge NTCREATE MARGINS 1` reads the running VDR's
+`Setup.MarginStart` and `Setup.MarginStop` values, which are also
+persisted in its `setup.conf`. The typed reply includes the plugin's
+provider instance epoch and generation/revision; the daemon validates
+these before constructing new native EPG timers or inactive epgsearch
+SearchTimers. Unknown, stale or invalid replies are not replaced with
+hard-coded margins. This feature requires a rebuilt SuiteBridge plugin
+and daemon. No real VDR installation or timer creation was performed
+while preparing this source change.
+
+
 ```sh
 python3 -m unittest discover -s tools -p 'test_packaging_*.py'
 python3 tools/check_packaging_tracked_artifacts.py
