@@ -106,6 +106,53 @@ Ursache und Zusammenhang noch offen; **kein Gesamt-CI-GO**.
 Der neue Dokumentationscommit verlangt ohnehin erneute exakte
 HEAD-CI-Prüfung.
 
+**MT.HA.0D – Tatsächliche Altversion nachgewiesen (26.10.2026, Operator-Ausgabe):**
+`/home/yavdr/vdr-suite-media-tools.nKoDO2yg/candidate.txt` pinnt den
+Quellcommit `79983f409ead2fbb159b05f1903c7e5d4160aeeb` vom
+24.10.2026; die zweite Zeile stimmt mit dem gegenwärtigen
+Root-Approval-Handler-Digest überein. Dieser Quellcommit ist durch
+GitHub als Vorfahr des rekonstruierten PR-#551-Branch-HEADs
+`99c228ff6e929f91c14cf558fb7f1fc7b45f834d` belegt.
+Der zugehörige Suite-only-Stage meldet 91 Dateien (Schema 2),
+die alte `stage-with-media-tools` 97 Dateien (Schema 2);
+beide haben **noch kein neues
+`media-tools-install-inventory.json`**. Bei der gezielten
+Operatorprüfung meldeten **alle drei** alten Media-Tools-Worker
+(`media-import`, `media-check`, `media-shrink`) sowohl
+`STAGE=MATCH` als auch `LIVE=MATCH`; der Import-Worker ist
+ebenfalls mit dem hinterlegten Root-Approval-Digest konsistent.
+Das stellt eine belastbare Byte-Korrelation zur erhaltenen Stage
+her, **noch keine vollständige Stage-Siegel-/Release-Signaturprüfung**.
+
+**Separate Core-Version!** Die beiden Live-Binärdateien
+`/usr/sbin/vdr-suite-daemon` und
+`/usr/sbin/vdr-suite-backend-agent` melden
+`LIVE=SIZE_DIFFERS` gegenüber beiden alten, stageintern
+passenden Dateien. Deshalb ist die alte 97-Dateien-Stage **kein
+bytegenaues Backup der heute installierten Gesamt-Suite**,
+kann den bestehenden MT.I2-`live-update`-Vertrag mit
+`check(old, /)` nicht erfüllen und darf keinesfalls als
+vollständige Runtime zurückgespielt werden.
+
+Ein zweites Verzeichnis
+`/home/yavdr/vdr-suite-media-tools.NvHwafAY` pinnt
+`1bc3232f4f5fe5a4daf42e108f76c6708398c402`, dessen
+`candidate.txt`-Handler-Digest nicht mit dem aktiven
+Root-Approval übereinstimmt; enthalten ist nur der
+91-Dateien-Suite-only-Stage. Dieses Verzeichnis ist **nicht**
+die nachgewiesene aktive Media-Tools-Basis.
+
+**Nächste Pflichtprüfung:** Das erhaltene alte gesamte
+`stage-with-media-tools`-Siegel mit dem read-only
+`install_runtime_stage.py check` bzw. dem bestehenden
+`verify_sealed_stage` verifizieren, vollständige und
+getrennte Vergleichsbilanz der live gefundenen Worker vs.
+aktiver Suite/Frontend anlegen und erst anschließend
+einen komponentenscharfen, rückrollbaren **Legacy-Adoption-
+/Migrationvertrag** entwickeln und in isolierten Fixtures
+testen. Nichts auf dem yaVDR deployen, keine laufenden
+Dienste stoppen, kein ungeprüftes Gesamt-Suite-Rollback.
+
 **Aktueller Hostbefund ist keine neue Erstinstallation.** Der bisherige
 `install_media_tools.sh` ist ein Ubuntu/yaVDR-Serviceadapter und prüft
 bewusst fehlende Media-Tools-Dateien; bereits vorhandene Approval-/Worker-
