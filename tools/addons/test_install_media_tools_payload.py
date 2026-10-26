@@ -257,7 +257,7 @@ class MediaToolsMakeRecipeTests(unittest.TestCase):
     def test_portable_make_targets_preserve_shell_substitution(self):
         source = (REPO / "mk/addons.mk").read_text(encoding="utf-8")
         # In a Make recipe, $(...) is a Make variable; $(...) is a
-        # shell command substitution. Check both targets and their SHA pin.
+        # shell command substitution when escaped. Check both targets and the pin.
         self.assertEqual(source.count('"$(id -u)"'), 2)
         self.assertEqual(source.count(
             '$(cat "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt")'), 2)
