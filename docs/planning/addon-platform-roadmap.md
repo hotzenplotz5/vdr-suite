@@ -142,15 +142,48 @@ Root-Approval übereinstimmt; enthalten ist nur der
 91-Dateien-Suite-only-Stage. Dieses Verzeichnis ist **nicht**
 die nachgewiesene aktive Media-Tools-Basis.
 
-**Nächste Pflichtprüfung:** Das erhaltene alte gesamte
-`stage-with-media-tools`-Siegel mit dem read-only
-`install_runtime_stage.py check` bzw. dem bestehenden
-`verify_sealed_stage` verifizieren, vollständige und
-getrennte Vergleichsbilanz der live gefundenen Worker vs.
-aktiver Suite/Frontend anlegen und erst anschließend
-einen komponentenscharfen, rückrollbaren **Legacy-Adoption-
-/Migrationvertrag** entwickeln und in isolierten Fixtures
-testen. Nichts auf dem yaVDR deployen, keine laufenden
+**MT.HA.0E – Vollständiger Altstage-Audit auf yaVDR (26.10.2026):**
+Der Operator hat den vorhandenen unveränderten
+`stage-with-media-tools` mittels `load_manifest`,
+`verify_sealed_stage` und `deployment_differences` aus
+`tools/install_runtime_stage.py` geprüft.
+`STAGE_INTEGRITY=PASS` für **97 Dateien und 34 Verzeichnisse**;
+`LIVE_COMPLETE_MATCH=False`; **17 Live-Abweichungen**:
+15 `content`, 2 `missing`. Abweichende Binärdateien:
+`vdr-suite-daemon`, `vdr-suite-backend-agent`,
+`vdr-suite-backend-agent-admin`,
+`vdr-suite-backend-agent-command-admin`,
+`vdr-suite-backend-agent-enroll`; dazu zehn abweichende
+Frontend-Dateien einschließlich `index.html`, `app.js`
+und `public-v1-client.js`. Die zwei auf dem Host
+fehlenden Frontend-Dateien:
+`usr/share/vdr-suite/web/frontend/modules/media-import.js`
+und `usr/share/vdr-suite/web/frontend/settings-addons.js`.
+Beide sind weiterhin **quellseitig auf `main` vorhanden und
+vom `mk/install.mk`-Staging vorgesehen**, und die aktuelle
+Quell-`index.html` referenziert sie.
+Ob auch die installierte `index.html` diese Skripte
+lädt, ist separat rein lesend zu klären. Keine Aussage
+über aktive Browser-Funktionsfähigkeit ohne HTTP-/UI-Test.
+
+**Grenzen:** Diese interne Siegelprüfung ist keine externe
+Releasesignatur. Die alte Gesamtstage entspricht **nicht**
+der heute installierten Gesamt-Suite und darf weder per
+`deploy-install-runtime` überlagert noch als Gesamtsystem-
+Rollback oder `live-update`-Ausgangsstage missbraucht
+werden. Die zuvor nachgewiesenen drei passenden alten
+Media-Tools-Worker bleiben unverändert. Für die
+ggf. unvollständige Frontend-Installation braucht es einen
+gesonderten aktuellen-Commit-/Stage-Abgleich und einen
+isoliert geprüften Deployment-/Recovery-Plan mit separater
+Betreiberfreigabe.
+
+**Nächste Pflichtprüfung:** Referenzen der **installierten**
+`index.html` auf die beiden fehlenden Module sowie den aktiven
+Frontend-/Runtime-Quellstand rein lesend nachweisen. Danach
+komponentenscharfen, rückrollbaren **Legacy-Adoption-/Migrationsvertrag**
+für die vorhandenen Worker/den aktuellen Suite-Binärstand entwickeln und
+isoliert testen. Nichts auf dem yaVDR deployen, keine laufenden
 Dienste stoppen, kein ungeprüftes Gesamt-Suite-Rollback.
 
 **Aktueller Hostbefund ist keine neue Erstinstallation.** Der bisherige
