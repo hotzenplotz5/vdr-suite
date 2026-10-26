@@ -33,10 +33,12 @@ struct ActivationIntent {
     std::string approvedHandlerSha256;
 };
 
-// Installation and a trusted root approval do NOT activate Media Tools.
-// Revision zero is the default inactive state and cannot authorize execution.
-// Only an explicit administrator enable with a revision-bound Agent lease
-// and handler digest may permit runtime actions; explicit disables always win.
+// An explicitly administrator-approved, initially installed Media Tools
+// handler is on by default once Core verifies the independent backend-specific
+// approval AND the current authenticated Agent/handler. The installer does NOT
+// bypass this provider check. Revision zero is the not-yet-overridden state.
+// An explicit administrator disable creates revision >= 1 and always wins;
+// a later enable is bound to the exact Agent lease and reviewed digest.
 // Provider, operation and actor grants remain independently mandatory.
 inline bool mediaToolsActivationPermits(
     const ActivationIntent& intent,
@@ -49,7 +51,15 @@ inline bool mediaToolsActivationPermits(
         instanceId.empty() || generation == 0 ||
         trustedHandlerSha256.size() != 64)
         return false;
-    if (intent.revision == 0) return false;
+    if (intent.revision == 0) {
+        // No administrator override exists yet. This path is reached only
+        // through the Core-verified provider and independent root approval
+        // lookup; it must not be treated as a standalone trust proof.
+        // A forged/partial legacy intent must not inherit default enable.
+        return !intent.desiredEnabled && intent.backendGeneration == 0 &&
+            intent.agentId.empty() && intent.agentInstanceId.empty() &&
+            intent.approvedHandlerSha256.empty();
+    }
     return intent.desiredEnabled &&
         intent.backendGeneration == generation &&
         intent.agentId == agentId &&
