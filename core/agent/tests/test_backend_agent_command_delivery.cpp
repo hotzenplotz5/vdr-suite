@@ -507,11 +507,13 @@ int main()
     assert(!coreFence.effectiveMediaImportCapability(
         "human_media", "default", 118, fenceReason) &&
         fenceReason == "media_import_permission_denied");
-    // The global administrator's operation grant alone cannot activate a
-    // safely installed but still disabled Media Tools provider.
+    // The verified administrator-installed provider is enabled by default
+    // at revision zero. The independently approved handler digest and
+    // authenticated Agent are supplied by the Core fixture, not inferred
+    // from an arbitrary file or a role.admin grant.
     assert(mediaGrants.ensureGrant("human_media", "role.admin", "*"));
-    assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
-           fenceReason == "media_import_activation_agent_stale");
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason) &&
+           fenceReason == "media_import_operation_and_grant_verified");
     // Explicit later administrator overrides remain audited and lease-bound.
     RequestSecurityContext admin = context(ActorType::User, "admin_media");
     admin.grants.push_back({"role.admin", "*"});
