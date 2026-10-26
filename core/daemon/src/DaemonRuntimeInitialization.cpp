@@ -5529,26 +5529,32 @@ bool DaemonRuntime::initialize()
         // Initial root installation already authorized this provider.
         // Only an explicit later administrator intent overrides that choice.
         bool installedByAdministrator = false;
-        if (current.intent.revision == 0 && backendAgentRepository_ &&
-            backendAgentCommandRepository_ && backendAccessPolicy_ &&
-            backendRegistryService_)
+        bool providerVerified = false;
+        bool agentReady = false;
+        if (backendAgentRepository_ && backendAgentCommandRepository_ &&
+            backendAccessPolicy_ && backendRegistryService_)
         {
             const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
+            // This is verified runtime-provider evidence, NOT dpkg ownership.
+            // Absence of that evidence must never be called "not installed".
+            const std::string handlerSha =
+                trustedMediaToolsHandlerDigest(backendId, now);
+            providerVerified = !handlerSha.empty();
             const auto agent = backendAgentRepository_->findAgentForBackend(
                 backendId);
             const auto backend = backendAccessPolicy_->canWriteToBackend(
                 *backendRegistryService_, backendId);
-            if (agent && !agent->revoked && !agent->incompatible &&
+            agentReady = agent && !agent->revoked && !agent->incompatible &&
                 agent->leaseExpiresAt >= now && backend.backendFound &&
                 backend.allowed && !backend.readOnly &&
                 backendAgentCommandRepository_->hasCapability(
                     backendId, agent->agentId, agent->agentInstanceId,
-                    agent->backendGeneration, "addon.media.import"))
+                    agent->backendGeneration, "addon.media.import");
+            if (current.intent.revision == 0 && agentReady && providerVerified)
                 installedByAdministrator = vdrsuite::addons::mediaToolsActivationPermits(
                     current.intent, agent->agentId, agent->agentInstanceId,
-                    agent->backendGeneration,
-                    trustedMediaToolsHandlerDigest(backendId, now));
+                    agent->backendGeneration, handlerSha);
         }
         const bool enabled = current.intent.desiredEnabled ||
             installedByAdministrator;
@@ -5557,7 +5563,10 @@ bool DaemonRuntime::initialize()
             (enabled ? "true" : "false") +
             ",\"revision\":" + std::to_string(current.intent.revision) +
             ",\"activatedByInstall\":" +
-            (installedByAdministrator ? "true" : "false") + "}";
+            (installedByAdministrator ? "true" : "false") +
+            ",\"providerVerified\":" +
+            (providerVerified ? "true" : "false") +
+            ",\"agentReady\":" + (agentReady ? "true" : "false") + "}";
         return response;
     };
     // Local admin source configuration uses the same authenticated

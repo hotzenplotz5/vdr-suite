@@ -90,7 +90,8 @@ async function test() {
     } else {
       assert.equal(url, '/api/v1/addons/rectools/activation?backendId=default');
     }
-    return response(200, {backendId: 'default', desiredEnabled: desired, revision});
+    return response(200, {backendId: 'default', desiredEnabled: desired,
+      revision, providerVerified: true, agentReady: true});
   }, restored);
   h.window.VdrSuiteAddonSettings.render(h.parent, 'default');
   await flush();
@@ -106,22 +107,23 @@ async function test() {
 
   const installed = harness(() => response(200, {
     backendId: 'default', desiredEnabled: true, activatedByInstall: true,
-    revision: 0
+    providerVerified: true, agentReady: true, revision: 0
   }), {count: 0});
   installed.window.VdrSuiteAddonSettings.render(installed.parent, 'default');
   await flush();
   assert.ok(installed.elements.some(e =>
-    e.textContent === 'Backend-Handler und Agent aktuell verifiziert (Paketbesitz separat prüfen)'));
+    e.textContent === 'Media Tools technisch freigegeben (Benutzerrechte separat prüfen)'));
   assert.ok(installed.elements.some(e => e.textContent === 'Deaktivieren'));
   assert.ok(h.elements.some(e => e.textContent ===
-    'Addon deaktiviert; Installationsstatus hier nicht verifiziert'));
+    'Handler verifiziert, Addon deaktiviert'));
   assert.ok(!h.elements.some(e => e.textContent === 'Installieren' ||
     e.textContent === 'Deinstallieren'),
     'UI must not present nonfunctional or privileged package actions');
 
   const refused = harness((_url, options) => options.method === 'POST'
     ? response(409, {error: 'provider_not_eligible'})
-    : response(200, {backendId: 'default', desiredEnabled: false, revision: 0}),
+    : response(200, {backendId: 'default', desiredEnabled: false,
+        providerVerified: true, agentReady: true, revision: 0}),
   {count: 0});
   refused.window.VdrSuiteAddonSettings.render(refused.parent, 'default');
   await flush();
@@ -132,6 +134,32 @@ async function test() {
   assert.ok(refusedStatus, 'server rejection remains visible after readback');
   assert.equal(refused.parent.children[0].hidden, false);
   assert.equal(refused.requests.filter(r => r.options.method === 'POST').length, 1);
+
+  // Fail closed: an unverified provider is not proof of an absent package.
+  // Its activation button cannot start an attempted enable mutation.
+  const unverified = harness(() => response(200, {
+    backendId: 'default', desiredEnabled: false, revision: 0,
+    providerVerified: false, agentReady: false
+  }), {count: 0});
+  unverified.window.VdrSuiteAddonSettings.render(unverified.parent, 'default');
+  await flush();
+  assert.ok(unverified.elements.some(e =>
+    e.textContent === 'Addon deaktiviert; Installation derzeit nicht verifiziert'));
+  const disabledEnable = unverified.elements.find(e => e.textContent === 'Aktivieren');
+  assert.ok(disabledEnable && disabledEnable.disabled);
+  assert.equal(unverified.requests.filter(r => r.options.method === 'POST').length, 0);
+
+  // A stale desired-enable must never be labelled an installed or usable
+  // add-on; disabling it remains permitted even after trust is lost.
+  const stale = harness(() => response(200, {
+    backendId: 'default', desiredEnabled: true, revision: 2,
+    providerVerified: false, agentReady: false
+  }), {count: 0});
+  stale.window.VdrSuiteAddonSettings.render(stale.parent, 'default');
+  await flush();
+  assert.ok(stale.elements.some(e =>
+    e.textContent === 'Aktivierungswunsch gespeichert; Handler derzeit nicht verifiziert'));
+  assert.ok(!stale.elements.find(e => e.textContent === 'Deaktivieren').disabled);
 
   // MT.UX2: actual administrator save, no generated shell command.
   const managed = harness(() => response(200, {

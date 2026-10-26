@@ -315,7 +315,10 @@
     let busy = false;
     function controls() {
       refresh.disabled = busy;
-      toggle.disabled = busy || !current;
+      // Installation and saved administrator intent are not the same.
+      // Never offer enabling without server-verified provider evidence.
+      toggle.disabled = busy || !current ||
+        (current.providerVerified !== true && !current.desiredEnabled);
     }
     function reload() {
       busy = true; current = null; controls();
@@ -324,13 +327,19 @@
         current = result;
         card.hidden = false;
         sourceEditor.load();
-        // An activation-intent GET is not an installed-package inventory.
-        // Missing trusted provider evidence does not establish package absence.
-        status.textContent = result.activatedByInstall
-          ? 'Backend-Handler und Agent aktuell verifiziert (Paketbesitz separat prüfen)'
-          : (result.desiredEnabled
-            ? 'Aktivierungswunsch gespeichert; Installation und Laufzeit nicht verifiziert'
-            : 'Addon deaktiviert; Installationsstatus hier nicht verifiziert');
+        // A current, independently verified provider proves more than a
+        // saved intent, but still says nothing about dpkg package ownership.
+        const trusted = result.providerVerified === true;
+        const ready = result.agentReady === true;
+        status.textContent = trusted && ready && result.desiredEnabled
+          ? 'Media Tools technisch freigegeben (Benutzerrechte separat prüfen)'
+          : trusted && result.desiredEnabled
+            ? 'Handler verifiziert, Backend-Agent derzeit nicht bereit'
+            : trusted
+              ? 'Handler verifiziert, Addon deaktiviert'
+              : result.desiredEnabled
+                ? 'Aktivierungswunsch gespeichert; Handler derzeit nicht verifiziert'
+                : 'Addon deaktiviert; Installation derzeit nicht verifiziert';
         details.textContent = 'Backend: ' + backendId +
           ' · Freigabe-Revision: ' + result.revision;
         toggle.textContent = result.desiredEnabled ? 'Deaktivieren' : 'Aktivieren';
