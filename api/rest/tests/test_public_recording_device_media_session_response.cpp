@@ -58,7 +58,7 @@ int main()
     response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
     assert(response.statusCode == 201);
     assert(response.body.find(
-        "\\"nativeMediaAccess\\":{\\"transport\\":\\"http-cookie\\"") !=
+        "\"nativeMediaAccess\":{\"transport\":\"http-cookie\"") !=
         std::string::npos);
     assert(response.body.find("vdr_suite_media=" + ready.mediaCredential) !=
         std::string::npos);
