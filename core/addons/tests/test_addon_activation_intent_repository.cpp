@@ -102,6 +102,10 @@ int main()
     read = store.read(actor, "rectools", "backend-a");
     assert(read.status == IntentStatus::ok && read.intent.revision == 0 &&
            !read.intent.desiredEnabled);
+    // Even after a trusted package/handler/Agent is present, install must
+    // not become an unreviewed implicit administrator activation.
+    assert(!mediaToolsActivationPermits(
+        read.intent, "agent-a", "instance-a", 19, std::string(64, 'a')));
     ++checks;
 
     IntentMutation enable{"rectools", "backend-a", true, 0};
@@ -138,6 +142,12 @@ int main()
     auto committed = store.update(actor, enable, b, evidence);
     assert(committed.status == IntentStatus::ok);
     assert(committed.intent.desiredEnabled && committed.intent.revision == 1);
+    assert(mediaToolsActivationPermits(
+        committed.intent, "agent-a", "instance-a", 19, std::string(64, 'a')));
+    assert(!mediaToolsActivationPermits(
+        committed.intent, "agent-a", "instance-a", 20, std::string(64, 'a')));
+    assert(!mediaToolsActivationPermits(
+        committed.intent, "agent-a", "instance-a", 19, std::string(64, 'b')));
     ++checks;
 
     assert(committed.intent.backendGeneration == 19 &&

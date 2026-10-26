@@ -5526,8 +5526,9 @@ bool DaemonRuntime::initialize()
             return response;
         }
         response.statusCode = 200;
-        // Initial root installation already authorized this provider.
-        // Only an explicit later administrator intent overrides that choice.
+        // No installation or root approval may implicitly activate a worker.
+        // The legacy activatedByInstall response field remains false for
+        // compatibility; the explicit revision-bound intent owns enablement.
         bool installedByAdministrator = false;
         bool providerVerified = false;
         bool agentReady = false;

@@ -121,9 +121,9 @@ bool MediaImportOperationFence::actorBackendAllowed(
         (intent.intent.revision > 0 && !intent.intent.desiredEnabled))
         return denied(reason, "media_import_activation_disabled");
 
-    // An independently authorized root installation is effective by default
-    // when no later administrator override exists. A persisted disable wins.
-    // The trusted handler and live Agent lease must match on every path.
+    // Installation and root-handler approval do not imply activation.
+    // A revision-bound administrator enable and the current handler/Agent
+    // binding remain mandatory on every admission and dispatch path.
     const auto activeAgent = agents_.findAgentForBackend(backendId);
     if (!activeAgent || activeAgent->revoked || activeAgent->incompatible ||
         !trustedProviderCheck_)

@@ -33,11 +33,11 @@ struct ActivationIntent {
     std::string approvedHandlerSha256;
 };
 
-// A successful root-admin installation is the first activation decision.
-// Revision zero means no subsequent admin override exists: the installed,
-// independently verified provider is enabled without a second approval.
-// Revision > 0 is an explicit administrator decision; disables always win.
-// Neither case bypasses current Agent lease, handler pin or operation grants.
+// Installation and a trusted root approval do NOT activate Media Tools.
+// Revision zero is the default inactive state and cannot authorize execution.
+// Only an explicit administrator enable with a revision-bound Agent lease
+// and handler digest may permit runtime actions; explicit disables always win.
+// Provider, operation and actor grants remain independently mandatory.
 inline bool mediaToolsActivationPermits(
     const ActivationIntent& intent,
     const std::string& agentId,
@@ -49,10 +49,7 @@ inline bool mediaToolsActivationPermits(
         instanceId.empty() || generation == 0 ||
         trustedHandlerSha256.size() != 64)
         return false;
-    if (intent.revision == 0)
-        return !intent.desiredEnabled && intent.backendGeneration == 0 &&
-            intent.agentId.empty() && intent.agentInstanceId.empty() &&
-            intent.approvedHandlerSha256.empty();
+    if (intent.revision == 0) return false;
     return intent.desiredEnabled &&
         intent.backendGeneration == generation &&
         intent.agentId == agentId &&
