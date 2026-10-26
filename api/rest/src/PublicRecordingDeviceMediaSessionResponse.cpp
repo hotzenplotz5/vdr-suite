@@ -132,7 +132,7 @@ ApiResponse PublicRecordingDeviceMediaSessionResponse::afterActivation(
             std::string(MediaAccessCredentialHttp::CookieName) + "=" +
             ready.mediaCredential + "\",\"headerName\":\"" +
             std::string(MediaAccessCredentialHttp::AuthorizationHeader) +
-            "\",\"headerValue\":\"" + ready.mediaCredential + "\"}";
+            "\",\"headerValue\":\"Bearer " + ready.mediaCredential + "\"}";
     }
     result.body += "}";
     return result;
