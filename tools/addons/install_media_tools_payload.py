@@ -116,7 +116,8 @@ def approval_gate(root: Path, approved: str, owner: int) -> None:
            approval.get("sha256") == approved,
            "root approval differs from candidate; separate approval required")
 
-def install(stage: Path, root: Path, approved: str, *, quiesced: bool = False) -> str:
+def install(stage: Path, root: Path, approved: str, *, quiesced: bool = False,
+            require_quiescence: bool | None = None) -> str:
     ensure(stage.is_absolute() and stage.is_dir() and not stage.is_symlink(),
            "absolute sealed stage required")
     ensure(root.is_absolute() and root.is_dir() and not root.is_symlink(),
@@ -158,7 +159,9 @@ def install(stage: Path, root: Path, approved: str, *, quiesced: bool = False) -
 
     if not changed:
         return "MEDIA_TOOLS_INSTALL=ALREADY_CURRENT FILES=" + str(len(paths))
-    if root == Path("/") and worker_changes:
+    if require_quiescence is None:
+        require_quiescence = root == Path("/")
+    if require_quiescence and worker_changes:
         ensure(quiesced, "worker replacement requires operator-confirmed quiescence (MEDIA_TOOLS_QUIESCED=YES)")
 
     lock_path = root / "etc/vdr-suite/addon-approvals/rectools.import-running.lock"
