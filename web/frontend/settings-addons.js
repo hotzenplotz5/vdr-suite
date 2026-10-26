@@ -283,10 +283,10 @@
     card.className = 'module-placeholder settings-card settings-addons-card';
     card.appendChild(node('h3', 'Media Tools'));
     card.appendChild(node('p',
-      'Import und HEVC-Shrink benötigen einen geprüften Backend-Agent, ' +
-      'sowie aktuelle technische Integritätsprüfungen. Installation, ' +
-      'Aktivierung und Benutzerrechte sind getrennt. Paketinstallation ' +
-      'und Deinstallation sind über diese Oberfläche noch nicht verfügbar.'));
+      'Media Tools werden separat installiert. Diese Anzeige prüft ' +
+      'die Freigabe über den Backend-Agenten, nicht die lokal ' +
+      'installierten Dateien. Import und Shrink sind erst nutzbar, ' +
+      'wenn der Agent die installierten Worker bestätigt hat.'));
     const status = node('p', 'Aktivierung wird geladen …');
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
@@ -317,9 +317,15 @@
       refresh.disabled = busy;
       // Installation and saved administrator intent are not the same.
       // Never offer enabling without server-verified provider evidence.
+      const missingProvider = current && current.providerVerified !== true;
+      const missingAgent = current && current.agentReady !== true;
       toggle.disabled = busy || !current ||
-        (!current.desiredEnabled &&
-          (current.providerVerified !== true || current.agentReady !== true));
+        (!current.desiredEnabled && (missingProvider || missingAgent));
+      toggle.title = current && !current.desiredEnabled && missingAgent
+        ? 'Backend-Agent nicht bereit. Lokale Installation bleibt davon unberührt.'
+        : current && !current.desiredEnabled && missingProvider
+          ? 'Agent hat den installierten Handler noch nicht bestätigt.'
+          : '';
     }
     function reload() {
       busy = true; current = null; controls();
@@ -344,8 +350,10 @@
             : trusted
               ? 'Handler verifiziert, Addon deaktiviert'
               : result.desiredEnabled
-                ? 'Aktivierungswunsch gespeichert; Handler derzeit nicht verifiziert'
-                : 'Addon deaktiviert; Installation derzeit nicht verifiziert';
+                ? 'Aktivierungswunsch gespeichert; Agent bestätigt Handler aktuell nicht'
+                : !ready
+                  ? 'Backend-Agent nicht bereit; lokale Installation wird hier nicht geprüft'
+                  : 'Backend-Agent bestätigt den Handler noch nicht; lokaler Installationsstatus unbekannt';
         details.textContent = 'Backend: ' + backendId +
           ' · Freigabe-Revision: ' + result.revision;
         toggle.textContent = result.desiredEnabled ? 'Deaktivieren' : 'Aktivieren';
