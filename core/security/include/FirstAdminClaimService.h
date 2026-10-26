@@ -9,6 +9,7 @@ class AccountabilityEventRepository;
 class CredentialVerifierRepository;
 class Database;
 class FirstAdminBootstrapRepository;
+enum class FirstAdminClaimState;
 class HumanAccountRepository;
 class SecurityIdentityProvisioningRepository;
 class SecurityPermissionGrantRepository;
@@ -70,6 +71,7 @@ public:
         EntropySource entropySource = {},
         Clock clock = {});
 
+    FirstAdminClaimState claimState() const;
     FirstAdminClaimResult claim(FirstAdminClaimRequest request);
 
 private:

@@ -11,6 +11,7 @@
 - [ADR-0061 Actor Permissions, Federation and Client Access](../adr/ADR-0061-actor-permissions-federation-client-access.md)
 - [ADR-0062 First-Party Living-Room Output Client](../adr/ADR-0062-first-party-living-room-output-client.md)
 - [Current State](../CURRENT.md)
+- [MLD 6.6 Integration Plan](mld-6.6-integration.md)
 
 ---
 
@@ -22,6 +23,8 @@ This document makes four productization topics explicit without changing their l
 2. the concrete sharing permission model for Recordings, Live TV, Timers and destructive/editing operations;
 3. the first-party television/living-room output client;
 4. release-grade Debian/Ubuntu packaging.
+
+A separate **MLD.1** distribution integration target builds on these packaging and API contracts without reclassifying Ubuntu/yaVDR acceptance as MLD acceptance.
 
 The first two items continue ADR-0013 and ADR-0020. They are not a new interpretation of MultiBackend.
 
@@ -265,6 +268,18 @@ The release package is not accepted until:
 8. the packaged result passes the same real yaVDR Golden paths used by source installs.
 
 Binding install boundary: [ADR-0037](../adr/ADR-0037-packaging-install-api-boundary.md).
+
+---
+
+## 5. MLD 6.6 — native distribution integration (planned)
+
+**Status:** MLD.1A source-based [compatibility inventory](../development/mld66-compatibility-inventory.md) and cross-build preparation exist on the dedicated branch; no native MLD package build, runtime probe result or functional acceptance. **Dedicated exception branch:** `work/mld66-platform-integration`, created directly from `main` at `01b74e30ec1a09ee68986059f508284564ef67e1`.
+
+MLD.1 targets a first-class **alternative installation and update method** for VDR-Suite under MLD 6.6. This is not a new numbered runtime phase and does not start Phase 70. The MLD team reports VDR running as root and `restfulapi` 0.2.6.6; their suitability and exact semantics remain verification tasks.
+
+MLD-6 uses a Yocto/BitBake/`kas` build system. Native MLD recipes and ABI-matched SuiteBridge builds are required; Ubuntu PPA `.deb` packages are not assumed compatible with an MLD image. Account, permission and device-pairing enforcement must not depend on VDR's privileged process identity.
+
+The bounded slices are **MLD.1A** compatibility inventory, **MLD.1B** native packaging, **MLD.1C** secure lifecycle, **MLD.1D** real MLD end-to-end validation, and **MLD.1E** publication and update ownership. The execution and acceptance contract is [MLD 6.6 integration](mld-6.6-integration.md). No live yaVDR migration or deployment is part of this plan.
 
 ---
 

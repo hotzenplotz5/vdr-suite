@@ -103,70 +103,156 @@ Bei der Diagnose zunächst `systemctl status vdr-suite-daemon.service --no-pager
 
 ## 5. Ersten Administrator anlegen
 
-**Es gibt kein mitgeliefertes Standard-Admin-Passwort.** Die Implementierung benutzt einen bewusst getrennten zweistufigen Ablauf:
+**MLD-Integrationsbranch (noch nicht in `main`):** Bei der ersten Installation
+erscheint im Webfrontend automatisch die Einrichtung, solange noch kein
+Administratorkonto existiert. Dort werden **nur Benutzername, Anzeigename und
+Passwort mit Wiederholung** ausgefüllt und **„Administrator erstellen“**
+ausgewählt. Es gibt keine weiteren Bestätigungsdialoge, keine Codes und
+keinen Konsolenbefehl für diese Einrichtung.
 
-1. Auf dem **lokalen Server** gibt ein vertrauenswürdiger Root-Operator mit dem installierten Werkzeug `vdr-suite-first-admin-bootstrap` ein einmaliges Setup-Material aus. Das Werkzeug ist nur für einen *noch nicht beanspruchten* (unclaimed) Server zulässig; Standardgültigkeit **900 Sekunden** (zulässig 300–3600 Sekunden).
-2. Der Operator übermittelt `bootstrapId`, `setupSecret`, gewünschten `loginName`, `password` und `displayName` an die **Claim-Sicherheitsroute** `POST /api/security/first-admin/claim`, über die tatsächlich abgesicherte HTTPS-Route der Installation. Die API verwendet genau diese fünf JSON-Felder. **Diese Aktion wird nicht als bereits fertiger grafischer Installationsassistent ausgegeben.** Der aktuelle Quellstand dokumentiert die Claim-Route; der normale Browser-Login ist ein davon getrennter Schritt.
-3. Der Claim verbraucht das einmalige Secret und erzeugt in **einer Transaktion** ein Human Account, den zugehörigen Benutzer-Actor, einen `human-password`-Zugang und die anfängliche globale `role.admin@*`-Berechtigung. Die Passwortdaten werden als gesalzener Einweg-Verifier abgelegt.
-4. Danach mit dem **neu vergebenen normalen Benutzerpasswort** über den Login der Weboberfläche anmelden. Das Setup-Secret ist **kein** dauerhaftes Passwort und keine Browser-Sitzung.
+**Sicherheitsgrenze dieser Vorabversion:** Die einmalige Ersteinrichtung
+funktioniert von einem PC oder Smartphone im **direkt angeschlossenen privaten
+Heimnetz** aus, beispielsweise über
+`http://<MLD-IP>:18080/frontend/`. Der Daemon prüft dazu die tatsächliche
+TCP-Gegenstelle und die lokale Netzmaske, nicht bloß einen HTTP-Header.
+Die Einrichtung ist nicht für den Zugriff über das öffentliche Internet
+freigegeben. Eine Portweiterleitung zum VDR-Suite-Daemon darf nicht bestehen.
+Über **HTTP** werden Passwörter nicht transportverschlüsselt übertragen:
+Daher ausschließlich ein vertrauenswürdiges, entsprechend geschütztes
+Heimnetz verwenden; **HTTPS** ist, wenn eingerichtet, vorzuziehen.
 
-**Konkrete Bedienung auf einem frisch vorbereiteten, noch unclaimed Testserver:** Nach kontrolliertem Dienststart lokal am Server ausführen:
+Die vorhandene sichere interne Bootstrap-/Claim-Logik übernimmt die
+Kontoanlage atomar; sie erzeugt die erforderliche einmalige Freigabe
+automatisch im Backend. Der Benutzer sieht oder kopiert keine Secrets.
+Nach erfolgreicher Anlage meldet sich der Browser regulär an; danach
+erscheint ausschließlich die normale Anmeldung.
+
+**Browser-Sitzungen auf MLD:** Bei direktem Zugriff mit
+`http://<MLD-IP>:18080/frontend/` muss das Sitzungs-Cookie auch über
+HTTP wieder an den VDR gesendet werden können. Der Browser-Login verwendet
+deshalb **nur für verifizierte direkte HTTP-LAN-Verbindungen** ein Cookie
+ohne `Secure`. Bei HTTPS hinter einem lokalen Reverse-Proxy und bei
+anderen Verbindungen bleibt `Secure` gesetzt. `HttpOnly` und
+`SameSite=Strict` gelten immer. Das ändert nichts daran, dass
+**HTTP im Heimnetz Benutzername, Passwort und Sitzung unverschlüsselt
+überträgt** – HTTPS ist klar vorzuziehen, und der Backend-Port darf
+nicht ins Internet freigegeben sein.
+
+**Abnahme nach dem Fix:** Admin einmalig anlegen; Anmeldung mit dem
+korrekten Passwort; Webfrontend nach einem Seitenreload weiterhin
+angemeldet; explizit abmelden; mit absichtlich falschem Passwort
+eine verständliche deutsche Meldung erhalten; danach mit korrektem
+Passwort wieder anmelden. Browser mit direktem HTTP und HTTPS/Proxy
+getrennt prüfen. Formularreihenfolge: Benutzername, Anzeigename,
+Passwort, Passwort bestätigen, mit Sichtbarkeitsschalter und sofortiger
+Übereinstimmungsprüfung.
+
+**Wichtig für MLD:** Im selben Heimnetz reicht der normale Browser auf
+einem anderen Gerät; auf dem VDR selbst muss kein Browser installiert sein.
+Diese Heimnetzfreigabe ist keine Anmeldung: Solange noch kein Administrator
+existiert, könnte auch ein anderes Gerät im gleichen vertrauenswürdigen
+Subnetz die Ersteinrichtung vornehmen. Gäste- und IoT-Netze sollten daher
+vom VDR getrennt sein. Nach der ersten erfolgreichen Anlage greift nur noch
+die reguläre Anmeldung. Installation und echte MLD-Abnahme sind vor einer
+Freigabe erforderlich.
+
+### Ersteinrichtung ist genau einmal möglich
+
+Die Ersteinrichtung ist **einmalig pro Installation**, nicht pro Browser
+oder Gerät. Die SQLite-Datenbank bewahrt die bereits verbrauchte
+First-Admin-Freigabe auf. Ein erfolgreicher Claim sperrt jede erneute
+Einrichtung dauerhaft, auch wenn später sämtliche Administratorkonten oder
+-rechte deaktiviert beziehungsweise widerrufen werden. Bei älteren
+Installationen ohne Claim-Nachweis verhindern auch vorhandene historische
+Administrator-Grants (einschließlich inaktiver oder widerrufener Einträge)
+eine erneute Ersteinrichtung. Es werden keine Konten, Passwörter, Rechte oder
+Gerätekopplungen automatisch verändert.
+
+Ein erneuter Claim wird auch bei direktem API-Aufruf mit **HTTP 409 Conflict**
+abgewiesen. Abmelden, Browserwechsel, ein vergessenes Passwort und ein
+VDR-Neustart geben den Dialog nicht wieder frei. Bei falschem Passwort bleibt
+nur die normale Anmeldung; für die lokale Passwort-Wiederherstellung ist
+`vdr-suite-human-account-recover` vorgesehen. Eine gelöschte Datenbank ist
+keine zulässige Passwort-Wiederherstellung. Die reale MLD-Paket- und
+Laufzeitabnahme bleibt davon unabhängig offen.
+
+### Administratorpasswort vergessen – lokale Wiederherstellung
+
+Hierfür gibt es **keinen anonymen Passwort-Reset im Web oder LAN**. Ein
+berechtigter Betreiber meldet sich lokal auf dem VDR an und verwendet das
+bereits implementierte, nur für `root` zugelassene Werkzeug
+`vdr-suite-human-account-recover`. Es ändert **das Passwort eines bestehenden
+Kontos** und legt keinen neuen Administrator an. Die vorhandenen Konten,
+Actors und Rechte bleiben unverändert. Betroffene bestehende
+Browser-Sitzungen werden widerrufen; anschließend meldet man sich mit dem
+neuen Passwort regulär im Webfrontend an.
+
+Der Recovery-Aufruf benötigt **zwei passende Angaben**: die bestehende
+Konto-ID (`--account-id`) und den vorhandenen Loginnamen (`--login`).
+Für die Konto-ID kann man die Datenbank **nur lesend** abfragen. Falls das
+Werkzeug `sqlite3` auf dem betreffenden System installiert ist:
 
 ```bash
-sudo vdr-suite-first-admin-bootstrap
+sudo sqlite3 -readonly /var/lib/vdr-suite/vdr-suite.db \
+  "SELECT a.account_id, v.login_name
+   FROM security_human_accounts AS a
+   JOIN security_credentials AS c ON c.actor_id = a.actor_id
+   JOIN security_basic_credential_verifiers AS v
+     ON v.credential_id = c.credential_id
+   WHERE a.active = 1
+     AND c.credential_type = 'human-password'
+     AND c.active = 1 AND c.revoked_at = ''
+   ORDER BY v.login_name;"
 ```
 
-Die drei ausgegebenen Werte `bootstrap_id`, `setup_secret` und `expires_at` nur für die wenige Minuten später folgende Einrichtung verwenden. Der HTTP-Claim erwartet diese JSON-Schlüssel (keine Shell-Passwortargumente):
-
-```json
-{
-  "bootstrapId": "<einmalige ID>",
-  "setupSecret": "<einmaliges Secret>",
-  "loginName": "<gewünschter Admin-Login>",
-  "password": "<neues persönliches Admin-Passwort>",
-  "displayName": "<Anzeigename>"
-}
-```
-
-**Für den Claim ohne Secret in der Shell-History** eignet sich z. B. dieser interaktive Python-3-Aufruf auf einem vertrauenswürdigen Rechner mit Zugriff auf den **geprüften HTTPS-Proxy**. Keine fremden HTTP-URLs und keine deaktivierte TLS-Zertifikatsprüfung verwenden:
+Danach mit der ausgegebenen **Konto-ID des gewünschten Benutzers** und dem
+zugehörigen Login auf dem VDR ausführen (die Platzhalter ersetzen):
 
 ```bash
-python3 - <<'PY'
-import getpass
-import json
-import urllib.parse
-import urllib.request
-
-base = input("HTTPS-Basisadresse vor /api (z.B. https://server/vdr-suite): ").strip().rstrip("/")
-u = urllib.parse.urlsplit(base)
-if u.scheme != "https" or not u.netloc or u.username or u.password or u.query or u.fragment:
-    raise SystemExit("Ungültige HTTPS-Basisadresse")
-password = getpass.getpass("Neues Admin-Passwort: ")
-if password != getpass.getpass("Admin-Passwort wiederholen: "):
-    raise SystemExit("Passwörter stimmen nicht überein")
-payload = {
-    "bootstrapId": input("bootstrap_id: ").strip(),
-    "setupSecret": getpass.getpass("setup_secret (verdeckt): "),
-    "loginName": input("Gewünschter Loginname: ").strip(),
-    "password": password,
-    "displayName": input("Anzeigename: ").strip(),
-}
-req = urllib.request.Request(
-    base + "/api/security/first-admin/claim",
-    data=json.dumps(payload).encode("utf-8"),
-    headers={"Content-Type": "application/json"},
-    method="POST",
-)
-with urllib.request.urlopen(req, timeout=20) as response:
-    print("HTTP", response.status, "– erster Administrator beansprucht")
-PY
+sudo vdr-suite-human-account-recover \
+  --account-id 'HIER_DIE_KONTO_ID' \
+  --login 'admin'
 ```
 
-Das Programm meldet bei abgelehnten, abgelaufenen oder bereits verbrauchten Ansprüchen einen HTTP-Fehler und erstellt **keinen** zweiten Administrator. Es sendet ID/Secret/Passwort nur an den vom Betreiber eingegebenen TLS-Endpunkt, ohne diese Werte als Shell-Argument oder Datei zu speichern. Ein gültiges Zertifikat und der *richtige* HTTPS-Host sind Voraussetzung.
+Das Werkzeug fordert das neue Passwort **zweimal ohne Anzeige** an. Das
+Passwort gehört weder in die Kommandozeile noch in eine Textdatei. Standard-
+Datenbankpfad: `/var/lib/vdr-suite/vdr-suite.db`. Falls MLD einen anderen
+Datenbankpfad verwendet, müssen die Abfrage und das optionale Argument
+`--database` denselben **tatsächlich konfigurierten** Pfad verwenden.
+Ein installiertes Paket muss das Werkzeug `vdr-suite-human-account-recover`
+enthalten; seine Aufnahme in die MLD-Paketierung ist gesondert zu prüfen.
 
-Das lokal installierte Handbuch ist die verbindliche Bedienhilfe: `man vdr-suite-first-admin-bootstrap`. Die Ausgabe enthält den Secretwert **nur einmal**; ihn nicht in Tickets, Screenshots, Shell-History, URLs oder Logs kopieren. Der Claim kann nach Ablauf oder nach bereits erfolgter Beanspruchung nicht erneut als zweiter Admin ausgeführt werden.
+**Nicht** die Datenbank löschen, die Admin-Rolle entfernen oder einen neuen
+First-Admin-Claim versuchen, um das Passwort zurückzusetzen. Recovery
+widerruft nur betroffene Anmeldesitzungen und rotiert das bestehende
+Passwort-Credential. Details: `man vdr-suite-human-account-recover` sowie
+[ADR-0066](adr/ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md).
 
-**Passwort vergessen?** Es gibt den getrennten, lokalen Root-Recovery-Weg `vdr-suite-human-account-recover` für ein **bestehendes**, genau ausgewähltes Konto, mit `--account-id` und `--login`. Das Werkzeug fordert das neue Passwort ohne Kommandozeilenargument an, rotiert das Credential und widerruft betroffene Sitzungen. Es ist kein ungesicherter Web-Reset. Details: [ADR-0066](adr/ADR-0066-unclaimed-server-first-admin-bootstrap-recovery.md) und `man vdr-suite-human-account-recover`.
+### MLD-Testfälle für Kontoanlage und Passwort-Recovery
+
+Die folgenden Prüfschritte betreffen ausschließlich eine isolierte
+Testinstallation mit vollständiger Sicherung; keine produktive Datenbank für
+den Test löschen oder zurücksetzen:
+
+1. Auf einem **noch nicht eingerichteten** MLD-System vom PC im selben Heimnetz
+   den ersten Administrator über das Webformular anlegen und anmelden.
+2. Abmelden, den Browser wechseln und den VDR neu starten: Es muss jeweils
+   die **normale Anmeldung** erscheinen, niemals ein erneuter First-Admin-Dialog.
+   Ein erneuter Claim muss serverseitig abgewiesen werden.
+3. Auf der Testinstallation die bestehende Konto-ID ermitteln und mit dem
+   lokalen Root-Werkzeug das Passwort dieses Kontos ändern. Danach darf
+   **ausschließlich das neue Passwort** funktionieren; das alte darf weder
+   neue Logins noch vorherige Browser-Sitzungen legitimieren.
+4. Prüfen, dass Konto-ID und vorhandene Berechtigungen unverändert bleiben
+   und die Ersteinrichtung auch nach der Wiederherstellung gesperrt bleibt.
+
+Den MLD-Paketumfang einschließlich des Recovery-Werkzeugs vor dem praktischen
+Test gesondert prüfen.
+
+**Teststatus MLD:** Dieser Ablauf gehört zum noch offenen
+`work/mld66-platform-integration`-Branch und benötigt eine echte
+Paket- und Laufzeitabnahme. Er darf nicht allein aufgrund erfolgreicher
+Dokumentationstests als ausgeliefert gelten.
 
 ## 6. Erstes Backend, Sender, EPG und Aufnahmen
 

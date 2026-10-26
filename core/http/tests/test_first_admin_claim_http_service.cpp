@@ -129,7 +129,7 @@ struct Fixture
                 });
         http =
             std::make_unique<FirstAdminClaimHttpService>(
-                *claimService);
+                *claimService, &bootstraps);
     }
 
     void registerBootstrap(const std::string& bootstrapId)
@@ -184,6 +184,23 @@ int main()
 {
     {
         Fixture fixture;
+        HttpServerRequest status;
+        status.method = "GET";
+        status.path = "/api/security/first-admin/status";
+        assert(fixture.http->handles(status));
+        const HttpServerResponse initiallyUnclaimed =
+            fixture.http->handle(status);
+        assert(initiallyUnclaimed.statusCode == 200);
+        assert(initiallyUnclaimed.body == "{\"unclaimed\":true}");
+        assert(initiallyUnclaimed.headers.at("Cache-Control") == "no-store");
+        assertNoSecrets(initiallyUnclaimed);
+
+        status.method = "POST";
+        const HttpServerResponse statusWrongMethod =
+            fixture.http->handle(status);
+        assert(statusWrongMethod.statusCode == 405);
+        assert(statusWrongMethod.headers.at("Allow") == "GET");
+        status.method = "GET";
         fixture.registerBootstrap("bootstrap-browser-success");
 
         HttpServerRequest claim =
@@ -207,6 +224,12 @@ int main()
             response.body.find("\"status\":\"claimed\"") !=
             std::string::npos);
         assertNoSecrets(response);
+
+        const HttpServerResponse nowClaimed =
+            fixture.http->handle(status);
+        assert(nowClaimed.statusCode == 200);
+        assert(nowClaimed.body == "{\"unclaimed\":false}");
+        assertNoSecrets(nowClaimed);
 
         const HumanAccountListResult accounts =
             fixture.accounts.listAll();
@@ -303,7 +326,7 @@ int main()
                 request("bootstrap-browser-consumed"));
         assert(response.statusCode == 409);
         assert(
-            response.body.find("bootstrap_consumed") !=
+            response.body.find("server_already_claimed") !=
             std::string::npos);
         assert(fixture.accounts.listAll().accounts.empty());
         assertNoSecrets(response);
@@ -375,6 +398,43 @@ int main()
             fixture.http->handle(wrongType);
         assert(typeResponse.statusCode == 415);
         assertNoSecrets(typeResponse);
+    }
+
+    {
+        // The first browser-admin claim accepts a direct private home-LAN
+        // client, but never a public/network-forged peer or forwarded origin.
+        Fixture fixture;
+        HttpServerRequest setup;
+        setup.method = "POST";
+        setup.path = "/api/security/first-admin/claim";
+        setup.headers["Host"] = "192.168.178.20:18080";
+        setup.headers["Origin"] = "http://192.168.178.20:18080";
+        setup.headers["Content-Type"] = "application/json";
+        setup.body =
+            "{\"loginName\":\"admin\",\"password\":\"first-admin-browser-password\","
+            "\"displayName\":\"First administrator\"}";
+
+        assert(fixture.http->handles(setup));
+        assert(fixture.http->handle(setup).statusCode == 403);
+        assert(fixture.accounts.listAll().accounts.empty());
+
+        setup.peerIsTrustedLan = true;
+        setup.headers["Host"] = "example.com";
+        setup.headers["Origin"] = "http://example.com";
+        assert(fixture.http->handle(setup).statusCode == 403);
+        setup.headers["Host"] = "192.168.178.20:18080";
+        setup.headers["Origin"] = "http://example.com";
+        assert(fixture.http->handle(setup).statusCode == 403);
+        setup.headers["Origin"] = "http://192.168.178.20:18080";
+        setup.headers["X-Forwarded-For"] = "192.168.178.100";
+        assert(fixture.http->handle(setup).statusCode == 403);
+        setup.headers.erase("X-Forwarded-For");
+        const HttpServerResponse created = fixture.http->handle(setup);
+        assert(created.statusCode == 201);
+        assertNoSecrets(created);
+        assert(fixture.accounts.listAll().accounts.size() == 1U);
+        assert(fixture.http->handle(setup).statusCode == 409);
+        assert(fixture.accounts.listAll().accounts.size() == 1U);
     }
 
     return 0;

@@ -27,6 +27,13 @@ TVScraper directly.
 
 Plugin version: `0.14.1` (source: `suitebridge_plugin_identity.h`; the source of truth for future updates)
 
+The intended **development-build identity** is one version string such as
+`0.14.1-g0963bd6`: base version plus automatically detected source commit,
+without parentheses. The Git suffix is **not implemented in the current
+plugin binary yet**. See [Packaging/version convention](../packaging/README.md#versionskennung-für-entwicklungsstände-vereinbartes-zielformat)
+for scope, separate daemon/plugin commits and packaging limits.
+
+
 The plugin exposes four bounded read-only commands through VDR's existing
 SVDRP server:
 

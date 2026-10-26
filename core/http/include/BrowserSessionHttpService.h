@@ -41,9 +41,11 @@ public:
         BrowserSessionIdleConfiguration idleConfiguration);
 
     HttpServerResponse login(
-        const RequestSecurityContext& context);
+        const RequestSecurityContext& context,
+        bool allowHttpLanCookie = false);
     HttpServerResponse logout(
-        const RequestSecurityContext& context);
+        const RequestSecurityContext& context,
+        bool allowHttpLanCookie = false);
 
 private:
     bool appendOutcome(

@@ -2,8 +2,10 @@
 #include "EpgArtworkController.h"
 #include "EpgArtworkReference.h"
 #include "EpgArtworkRepository.h"
+#include "EpgArtworkPathPolicy.h"
 
 #include <cassert>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -53,6 +55,23 @@ EpgArtworkReference makeArtwork(
 
 int main()
 {
+    unsetenv("VDR_SUITE_EPG_ARTWORK_ROOTS");
+    const auto defaults = EpgArtworkPathPolicy::defaultAllowedRoots();
+    assert(defaults.size() == 2);
+    setenv("VDR_SUITE_EPG_ARTWORK_ROOTS",
+           "/var/cache/mld/tvscraper;/srv/mld/artwork", 1);
+    const auto overridden = EpgArtworkPathPolicy::defaultAllowedRoots();
+    assert(overridden.size() == 2);
+    assert(overridden.at(0) == "/var/cache/mld/tvscraper");
+    assert(overridden.at(1) == "/srv/mld/artwork");
+    for (const char* invalid : {
+             "/", "relative/artwork", "/srv/mld/../other",
+             "/srv/artwork;/srv/artwork", "/srv/artwork;"})
+    {
+        setenv("VDR_SUITE_EPG_ARTWORK_ROOTS", invalid, 1);
+        assert(EpgArtworkPathPolicy::defaultAllowedRoots().empty());
+    }
+    unsetenv("VDR_SUITE_EPG_ARTWORK_ROOTS");
     const std::filesystem::path root = makeTestRoot();
     const std::filesystem::path databasePath = root / "artwork.sqlite";
     const std::filesystem::path allowedRoot = root / "allowed";

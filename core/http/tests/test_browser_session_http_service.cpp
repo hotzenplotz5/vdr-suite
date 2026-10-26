@@ -267,7 +267,7 @@ int main()
         AuthenticationState::Authenticated;
     basicContext.requestId = "request-browser-login";
 
-    const HttpServerResponse login = httpService.login(basicContext);
+    const HttpServerResponse login = httpService.login(basicContext, true);
     assert(login.statusCode == 200);
     assert(login.headers.at("Content-Type") == "application/json");
     assert(login.headers.at("Cache-Control") == "no-store");
@@ -279,7 +279,7 @@ int main()
     assert(setCookie.find("; Max-Age=900") != std::string::npos);
     assert(setCookie.find("; Max-Age=28800") == std::string::npos);
     assert(setCookie.find("; HttpOnly") != std::string::npos);
-    assert(setCookie.find("; Secure") != std::string::npos);
+    assert(setCookie.find("; Secure") == std::string::npos);
     assert(setCookie.find("; SameSite=Strict") != std::string::npos);
     assert(setCookie.find("Domain=") == std::string::npos);
 
@@ -335,7 +335,7 @@ int main()
     assert(browserContext.grants.empty());
     assert(authenticator.verifyCsrf(logoutHeaders));
 
-    const HttpServerResponse logout = httpService.logout(browserContext);
+    const HttpServerResponse logout = httpService.logout(browserContext, true);
     assert(logout.statusCode == 204);
     assert(logout.body.empty());
     assert(logout.headers.at("Cache-Control") == "no-store");
@@ -346,7 +346,7 @@ int main()
     assert(clearedCookie.find("Expires=Thu, 01 Jan 1970 00:00:00 GMT") !=
         std::string::npos);
     assert(clearedCookie.find("HttpOnly") != std::string::npos);
-    assert(clearedCookie.find("Secure") != std::string::npos);
+    assert(clearedCookie.find("Secure") == std::string::npos);
     assert(clearedCookie.find("SameSite=Strict") != std::string::npos);
 
     const auto revokedBrowser =
@@ -567,6 +567,8 @@ int main()
     const HttpServerResponse beforeBlockedLogout =
         blockedLogoutHttpService.login(basicContext);
     assert(beforeBlockedLogout.statusCode == 200);
+    assert(beforeBlockedLogout.headers.at("Set-Cookie").find("; Secure") !=
+        std::string::npos);
     const std::string blockedLogoutCookie = cookiePair(
         beforeBlockedLogout.headers.at("Set-Cookie"));
     const std::string blockedLogoutCsrf = jsonStringValue(

@@ -164,6 +164,9 @@ jobs:
           set -o pipefail
           make daemon 2>&1 | tee daemon-build.log
 
+      - name: Real daemon login/cookie HTTP roundtrip (throwaway database)
+        run: python3 tools/mld66_browser_session_http_roundtrip.py
+
       - name: Upload fast regression diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

@@ -36,6 +36,7 @@ struct BackendAgentClientConfig
     std::vector<std::string> commandTypes;
     std::string suiteBridgeHost;
     int suiteBridgePort = 0;
+    std::string suiteBridgeControlSocketPath;
     vdrsuite::agent::IBackendAgentNativeTimerCreateTransport*
         nativeTimerCreateTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport*

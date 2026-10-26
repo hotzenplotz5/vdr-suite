@@ -78,24 +78,28 @@ HttpServerResponse errorResponse(
 
 std::string sessionCookie(
     const std::string& cookieValue,
-    int lifetimeSeconds)
+    int lifetimeSeconds,
+    bool allowHttpLanCookie)
 {
     return std::string(CookieName) + "=" + cookieValue +
         "; Path=/; Max-Age=" + std::to_string(lifetimeSeconds) +
-        "; HttpOnly; Secure; SameSite=Strict";
+        "; HttpOnly" +
+        (allowHttpLanCookie ? "" : "; Secure") + "; SameSite=Strict";
 }
 
-std::string expiredSessionCookie()
+std::string expiredSessionCookie(bool allowHttpLanCookie = false)
 {
     return std::string(CookieName) +
         "=; Path=/; Max-Age=0; "
         "Expires=Thu, 01 Jan 1970 00:00:00 GMT; "
-        "HttpOnly; Secure; SameSite=Strict";
+        "HttpOnly" +
+        (allowHttpLanCookie ? "" : "; Secure") + "; SameSite=Strict";
 }
 
 HttpServerResponse accountabilityUnavailableResponse(
     const RequestSecurityContext& context,
-    bool expireCookie)
+    bool expireCookie,
+    bool allowHttpLanCookie = false)
 {
     HttpServerResponse response = errorResponse(
         503,
@@ -104,7 +108,7 @@ HttpServerResponse accountabilityUnavailableResponse(
         context);
     if (expireCookie)
     {
-        response.headers["Set-Cookie"] = expiredSessionCookie();
+        response.headers["Set-Cookie"] = expiredSessionCookie(allowHttpLanCookie);
     }
     return response;
 }
@@ -173,7 +177,8 @@ BrowserSessionHttpService::BrowserSessionHttpService(
 }
 
 HttpServerResponse BrowserSessionHttpService::login(
-    const RequestSecurityContext& context)
+    const RequestSecurityContext& context,
+    bool allowHttpLanCookie)
 {
     if (!context.authenticated() ||
         context.actor.actorId.empty() ||
@@ -318,7 +323,8 @@ HttpServerResponse BrowserSessionHttpService::login(
     response.headers["Set-Cookie"] =
         sessionCookie(
             issued->sessionCookieValue,
-            lifetimeConfiguration_.seconds);
+            lifetimeConfiguration_.seconds,
+            allowHttpLanCookie);
     response.body =
         "{\"csrfToken\":\"" + jsonEscape(issued->csrfToken) +
         "\",\"expiresAt\":\"" + jsonEscape(issued->expiresAt) +
@@ -329,7 +335,8 @@ HttpServerResponse BrowserSessionHttpService::login(
 }
 
 HttpServerResponse BrowserSessionHttpService::logout(
-    const RequestSecurityContext& context)
+    const RequestSecurityContext& context,
+    bool allowHttpLanCookie)
 {
     if (!context.authenticated() ||
         !context.session.has_value() ||
@@ -371,14 +378,14 @@ HttpServerResponse BrowserSessionHttpService::logout(
             RevokeAction,
             "browser_session_revoked"))
     {
-        return accountabilityUnavailableResponse(context, true);
+        return accountabilityUnavailableResponse(context, true, allowHttpLanCookie);
     }
 
     HttpServerResponse response;
     response.statusCode = 204;
     response.headers["Cache-Control"] = "no-store";
     response.headers["Pragma"] = "no-cache";
-    response.headers["Set-Cookie"] = expiredSessionCookie();
+    response.headers["Set-Cookie"] = expiredSessionCookie(allowHttpLanCookie);
     return response;
 }
 

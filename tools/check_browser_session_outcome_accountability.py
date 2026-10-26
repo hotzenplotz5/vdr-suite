@@ -58,8 +58,8 @@ def main() -> int:
         "lifecycleService_.revoke(\n            issued->sessionId,\n            issued->credentialId)")
     require(service, "issued->clearSecrets()")
     require(service, "accountabilityUnavailableResponse(context, false)")
-    require(service, "accountabilityUnavailableResponse(context, true)")
-    require(service, 'response.headers["Set-Cookie"] = expiredSessionCookie()')
+    require(service, "accountabilityUnavailableResponse(context, true, allowHttpLanCookie)")
+    require(service, 'response.headers["Set-Cookie"] = expiredSessionCookie(allowHttpLanCookie)')
     forbid(service, "sessionCookieValue +")
     forbid(service, "csrfToken +")
 

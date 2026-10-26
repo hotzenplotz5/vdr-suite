@@ -6,6 +6,20 @@ bounded read-only commands with independent versioned contracts.
 
 ## Commands
 
+### VDR-native recording root (MLD portability)
+
+```text
+PLUG suitebridge VPATH 1
+```
+
+The optional versioned, read-only response returns the absolute normalized
+VDR recording directory obtained from `cVideoDirectory::Name()` inside the
+VDR process. A valid response uses SVDRP reply code `900`, unsupported schema
+uses `504`, and an invalid/unavailable root uses `451`. This is an internal
+control-plane fact, not a public client API. It does not grant mutation access;
+callers validate the path, backend identity and recording-root policy before
+native recording mutation. Older plugins without this command degrade.
+
 ### Status snapshot
 
 ```text

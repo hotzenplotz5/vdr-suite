@@ -185,7 +185,8 @@ def main() -> int:
     require(
         service,
         "request.lifetimeSeconds = lifetimeConfiguration_.seconds")
-    require(service, "lifetimeConfiguration_.seconds);")
+    require(service, "lifetimeConfiguration_.seconds,")
+    require(service, "allowHttpLanCookie);")
     require(
         service,
         '"browser_session_lifetime_configuration_invalid"')
@@ -193,7 +194,9 @@ def main() -> int:
         service,
         'response.headers["Set-Cookie"]')
     require(service, '"; Path=/; Max-Age="')
-    require(service, '"; HttpOnly; Secure; SameSite=Strict"')
+    require(service, '"; HttpOnly"')
+    require(service, '"; SameSite=Strict"')
+    require(service, '(allowHttpLanCookie ? "" : "; Secure")')
     require(service, 'response.headers["Cache-Control"] = "no-store"')
     require(service, 'response.headers["Pragma"] = "no-cache"')
     require(service, "csrfToken")
@@ -272,10 +275,10 @@ def main() -> int:
             "TestHttpServer: browser lifecycle gate must precede the normal gate")
     require(
         "core/http/src/TestHttpServer.cpp",
-        "browserSessionHttpService_->login(browserGate.context)")
+        "browserSessionHttpService_->login(browserGate.context, directHttpLan)")
     require(
         "core/http/src/TestHttpServer.cpp",
-        "browserSessionHttpService_->logout(browserGate.context)")
+        "browserSessionHttpService_->logout(browserGate.context, directHttpLan)")
     require(
         "core/http/src/TestHttpServer.cpp",
         "BrowserSessionAuthenticator")

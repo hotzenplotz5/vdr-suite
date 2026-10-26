@@ -4,6 +4,10 @@
 #include "HttpServerResponse.h"
 #include "DeviceLiveEventHub.h"
 
+#include <arpa/inet.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <netinet/in.h>
 #include <cerrno>
 #include <cctype>
 #include <chrono>
@@ -28,6 +32,97 @@
 #include <vector>
 
 namespace {
+
+// Only direct TCP peers on a private subnet attached to this host are
+// eligible for the one-time first-admin browser form. No forwarded headers,
+// DNS names or environment-provided network range grants this permission.
+bool privateIpv4(uint32_t address)
+{
+    return (address & 0xff000000U) == 0x0a000000U ||
+           (address & 0xfff00000U) == 0xac100000U ||
+           (address & 0xffff0000U) == 0xc0a80000U;
+}
+
+bool privateIpv6(const in6_addr& address)
+{
+    return (address.s6_addr[0] & 0xfeU) == 0xfcU ||
+           IN6_IS_ADDR_LINKLOCAL(&address);
+}
+
+bool directTrustedLanPeer(int clientSocket)
+{
+    sockaddr_storage peer{};
+    socklen_t length = sizeof(peer);
+    if (getpeername(clientSocket, reinterpret_cast<sockaddr*>(&peer),
+                    &length) != 0) return false;
+
+    if (peer.ss_family == AF_INET) {
+        const auto& p = reinterpret_cast<const sockaddr_in&>(peer);
+        const uint32_t remote = ntohl(p.sin_addr.s_addr);
+        if ((remote & 0xff000000U) == 0x7f000000U) return true;
+        if (!privateIpv4(remote)) return false;
+    } else if (peer.ss_family == AF_INET6) {
+        const auto& p = reinterpret_cast<const sockaddr_in6&>(peer);
+        if (IN6_IS_ADDR_LOOPBACK(&p.sin6_addr)) return true;
+        if (!privateIpv6(p.sin6_addr)) return false;
+    } else {
+        return false;
+    }
+
+    ifaddrs* interfaces = nullptr;
+    if (getifaddrs(&interfaces) != 0) return false;
+    bool trusted = false;
+    for (ifaddrs* current = interfaces; current != nullptr;
+         current = current->ifa_next) {
+        if (!current->ifa_addr || !current->ifa_netmask ||
+            !(current->ifa_flags & IFF_UP) ||
+            (current->ifa_flags & IFF_LOOPBACK) ||
+            current->ifa_addr->sa_family != peer.ss_family) continue;
+
+        if (peer.ss_family == AF_INET) {
+            const auto& p = reinterpret_cast<const sockaddr_in&>(peer);
+            const auto& iface =
+                *reinterpret_cast<const sockaddr_in*>(current->ifa_addr);
+            const auto& mask =
+                *reinterpret_cast<const sockaddr_in*>(current->ifa_netmask);
+            const uint32_t remote = ntohl(p.sin_addr.s_addr);
+            const uint32_t local = ntohl(iface.sin_addr.s_addr);
+            const uint32_t subnetMask = ntohl(mask.sin_addr.s_addr);
+            if (privateIpv4(local) && subnetMask != 0 &&
+                (remote & subnetMask) == (local & subnetMask)) {
+                trusted = true;
+                break;
+            }
+        } else if (peer.ss_family == AF_INET6) {
+            const auto& p = reinterpret_cast<const sockaddr_in6&>(peer);
+            const auto& iface =
+                *reinterpret_cast<const sockaddr_in6*>(current->ifa_addr);
+            const auto& mask =
+                *reinterpret_cast<const sockaddr_in6*>(current->ifa_netmask);
+            if (!privateIpv6(iface.sin6_addr)) continue;
+            if (IN6_IS_ADDR_LINKLOCAL(&p.sin6_addr) &&
+                p.sin6_scope_id != 0 &&
+                p.sin6_scope_id != if_nametoindex(current->ifa_name)) continue;
+            bool match = true;
+            bool hasMask = false;
+            for (std::size_t i = 0; i < 16; ++i) {
+                const unsigned char bitMask = mask.sin6_addr.s6_addr[i];
+                hasMask = hasMask || bitMask != 0;
+                if ((p.sin6_addr.s6_addr[i] & bitMask) !=
+                    (iface.sin6_addr.s6_addr[i] & bitMask)) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match && hasMask) {
+                trusted = true;
+                break;
+            }
+        }
+    }
+    freeifaddrs(interfaces);
+    return trusted;
+}
 
 constexpr auto DEFAULT_CLIENT_IO_TIMEOUT = std::chrono::seconds(5);
 constexpr std::size_t IMAGE_WRITER_THREAD_COUNT = 4;
@@ -1036,6 +1131,23 @@ bool SimpleHttpListener::prepareClientResponse(
         request = parseRequest(rawRequest);
     }
 
+    request.peerIsTrustedLan = directTrustedLanPeer(clientSocket);
+    if (request.peerIsTrustedLan) {
+        sockaddr_storage peer{};
+        socklen_t peerLength = sizeof(peer);
+        if (getpeername(clientSocket, reinterpret_cast<sockaddr*>(&peer),
+                        &peerLength) == 0) {
+            if (peer.ss_family == AF_INET) {
+                const auto& ipv4 = reinterpret_cast<const sockaddr_in&>(peer);
+                request.peerIsDirectPrivateLan =
+                    (ntohl(ipv4.sin_addr.s_addr) & 0xff000000U) != 0x7f000000U;
+            } else if (peer.ss_family == AF_INET6) {
+                const auto& ipv6 = reinterpret_cast<const sockaddr_in6&>(peer);
+                request.peerIsDirectPrivateLan =
+                    !IN6_IS_ADDR_LOOPBACK(&ipv6.sin6_addr);
+            }
+        }
+    }
     const HttpServerResponse response = server_.handleRequest(request);
     imageResponse = isImageResponse(response);
     streamBodyPath = response.streamBodyPath;

@@ -1,6 +1,9 @@
 #include "FirstAdminClaimHttpService.h"
 
 #include "FirstAdminClaimService.h"
+#include "FirstAdminBootstrapRepository.h"
+#include "FirstAdminBootstrapIssuanceService.h"
+#include <arpa/inet.h>
 
 #include <algorithm>
 #include <chrono>
@@ -13,12 +16,14 @@
 namespace
 {
 constexpr const char* ClaimPath = "/api/security/first-admin/claim";
+constexpr const char* SetupStatusPath = "/api/security/first-admin/status";
 constexpr std::size_t MaximumBodyBytes = 8192U;
 constexpr unsigned BootstrapIdField = 1U << 0U;
 constexpr unsigned SetupSecretField = 1U << 1U;
 constexpr unsigned LoginNameField = 1U << 2U;
 constexpr unsigned PasswordField = 1U << 3U;
 constexpr unsigned DisplayNameField = 1U << 4U;
+constexpr unsigned LocalFields = LoginNameField | PasswordField | DisplayNameField;
 constexpr unsigned RequiredFields =
     BootstrapIdField |
     SetupSecretField |
@@ -96,6 +101,46 @@ std::string headerValue(
         }
     }
     return {};
+}
+
+// Only browser origins using private literal IPs or local-only names may
+// start a password-only first-admin claim. Reject public DNS names to avoid
+// turning a same-LAN browser into a DNS rebinding setup authorization.
+bool privateLanHost(const std::string& hostHeader)
+{
+    const std::string host = lowerAscii(trimAscii(hostHeader));
+    if (host.empty() || host.find('/') != std::string::npos ||
+        host.find('@') != std::string::npos) return false;
+    std::string name;
+    if (host.front() == '[') {
+        const auto end = host.find(']');
+        if (end == std::string::npos ||
+            (end + 1 < host.size() && host[end + 1] != ':')) return false;
+        name = host.substr(1, end - 1);
+        in6_addr addr{};
+        if (inet_pton(AF_INET6, name.c_str(), &addr) != 1) return false;
+        return IN6_IS_ADDR_LOOPBACK(&addr) ||
+            (addr.s6_addr[0] & 0xfeU) == 0xfcU ||
+            IN6_IS_ADDR_LINKLOCAL(&addr);
+    }
+    const auto separator = host.find(':');
+    name = host.substr(0, separator);
+    if (name == "localhost" || name == "127.0.0.1") return true;
+    in_addr addr{};
+    if (inet_pton(AF_INET, name.c_str(), &addr) == 1) {
+        const uint32_t ip = ntohl(addr.s_addr);
+        return (ip & 0xff000000U) == 0x0a000000U ||
+               (ip & 0xfff00000U) == 0xac100000U ||
+               (ip & 0xffff0000U) == 0xc0a80000U;
+    }
+    const auto suffix = [&](const std::string& ending) {
+        return name.size() > ending.size() &&
+               name.compare(name.size() - ending.size(), ending.size(), ending) == 0;
+    };
+    // Common LAN-only mDNS and router hostnames. Public DNS names are not
+    // a substitute for a trusted local device address.
+    return suffix(".local") || suffix(".lan") ||
+           suffix(".home.arpa") || suffix(".fritz.box");
 }
 
 bool jsonContentType(const HttpServerRequest& request)
@@ -421,7 +466,8 @@ bool failClaimBody(FirstAdminClaimRequest& request)
 
 bool parseClaimBody(
     const std::string& body,
-    FirstAdminClaimRequest& request)
+    FirstAdminClaimRequest& request,
+    unsigned expectedFields = RequiredFields)
 {
     if (body.empty() || body.size() > MaximumBodyBytes)
     {
@@ -497,7 +543,7 @@ bool parseClaimBody(
 
     position = skipWhitespace(body, position);
     if (position != body.size() ||
-        fields != RequiredFields)
+        fields != expectedFields)
     {
         return failClaimBody(request);
     }
@@ -578,15 +624,17 @@ HttpServerResponse successResponse(
 }
 
 FirstAdminClaimHttpService::FirstAdminClaimHttpService(
-    FirstAdminClaimService& claimService)
-    : claimService_(claimService)
+    FirstAdminClaimService& claimService,
+    FirstAdminBootstrapRepository* bootstrapRepository)
+    : claimService_(claimService), bootstrapRepository_(bootstrapRepository)
 {
 }
 
 bool FirstAdminClaimHttpService::handles(
     const HttpServerRequest& request) const
 {
-    return requestPath(request.path) == ClaimPath;
+    const std::string path = requestPath(request.path);
+    return path == ClaimPath || path == SetupStatusPath;
 }
 
 HttpServerResponse FirstAdminClaimHttpService::handle(
@@ -606,6 +654,97 @@ HttpServerResponse FirstAdminClaimHttpService::handle(
         !safeContextToken(context.correlationId))
     {
         context.correlationId.clear();
+    }
+
+    if (requestPath(request.path) == SetupStatusPath)
+    {
+        if (request.method != "GET")
+        {
+            HttpServerResponse rejected = response(
+                405, "method_not_allowed",
+                "First-admin setup status requires GET", context);
+            rejected.headers["Allow"] = "GET";
+            return rejected;
+        }
+        const FirstAdminClaimState state = claimService_.claimState();
+        if (state == FirstAdminClaimState::unavailable)
+        {
+            return response(503, "first_admin_status_unavailable",
+                "First-admin status is unavailable", context);
+        }
+        HttpServerResponse result;
+        result.statusCode = 200;
+        result.headers["Content-Type"] =
+            "application/json; charset=utf-8";
+        result.headers["Cache-Control"] = "no-store";
+        result.headers["Pragma"] = "no-cache";
+        result.headers["X-Content-Type-Options"] = "nosniff";
+        result.headers["X-Request-ID"] = context.requestId;
+        result.body = state == FirstAdminClaimState::unclaimed
+            ? "{\"unclaimed\":true}"
+            : "{\"unclaimed\":false}";
+        return result;
+    }
+
+    if (requestPath(request.path) == ClaimPath &&
+        request.method == "POST" && jsonContentType(request))
+    {
+        FirstAdminClaimRequest local;
+        if (parseClaimBody(request.body, local, LocalFields)) {
+        // Trust the kernel-derived direct private-subnet TCP peer, not a
+        // caller-supplied X-Forwarded header. Browser Host/Origin must match.
+        const std::string host = lowerAscii(trimAscii(headerValue(request, "Host")));
+        const std::string origin = lowerAscii(trimAscii(headerValue(request, "Origin")));
+        const bool originMatches = !host.empty() &&
+            (origin == "http://" + host || origin == "https://" + host);
+        if (!request.peerIsTrustedLan || !privateLanHost(host) ||
+            !originMatches ||
+            !headerValue(request, "Forwarded").empty() ||
+            !headerValue(request, "X-Forwarded-For").empty() ||
+            !headerValue(request, "X-Forwarded-Host").empty() ||
+            !headerValue(request, "X-Forwarded-Proto").empty()) {
+            local.clearSecrets();
+            return response(403, "lan_setup_only",
+                "First administrator setup requires a trusted local network", context);
+        }
+        if (!bootstrapRepository_)
+            return response(503, "local_setup_unavailable",
+                "Local setup is unavailable", context);
+        if (!jsonContentType(request))
+            return response(415, "unsupported_media_type",
+                "Local setup requires JSON", context);
+        if (local.password.size() < 12) {
+            local.clearSecrets();
+            return response(400, "invalid_first_admin_claim",
+                "Invalid first-admin form", context);
+        }
+        if (claimService_.claimState() != FirstAdminClaimState::unclaimed) {
+            local.clearSecrets();
+            return response(409, "server_already_claimed",
+                "First administrator already exists or status unavailable", context);
+        }
+        FirstAdminBootstrapIssuanceService issuer(*bootstrapRepository_);
+        auto proof = issuer.issue();
+        if (proof.status != FirstAdminBootstrapIssuanceStatus::issued ||
+            !proof.bootstrap.has_value()) {
+            local.clearSecrets();
+            return response(503, "local_setup_unavailable",
+                "First-admin setup cannot be authorized", context);
+        }
+        local.bootstrapId = std::move(proof.bootstrap->bootstrapId);
+        local.setupSecret = std::move(proof.bootstrap->setupSecret);
+        proof.bootstrap->clearSecret();
+        local.requestId = context.requestId;
+        local.correlationId = context.correlationId;
+        const auto result = claimService_.claim(std::move(local));
+        if (result.status == FirstAdminClaimStatus::success)
+            return successResponse(context);
+        if (result.status == FirstAdminClaimStatus::claimed)
+            return response(409, "server_already_claimed",
+                "The server already has an administrator", context);
+        return response(503, "local_setup_failed",
+            "The server could not complete first-admin setup", context);
+        }
     }
 
     if (request.method != "POST")
