@@ -55,7 +55,7 @@ for token in (
 require(test, "Tagesschau 20 Uhr", "decoded title regression")
 require(plugin, "SuiteBridgeNativeTimerCreateService nativeTimerCreate_",
         "private CREATE service owner")
-require(svdrp, "nativeTimerCreate_.Handle(Command, Option)",
+require(svdrp, "nativeTimerCreate_.Handle(Command, Option,\n          Setup.MarginStart, Setup.MarginStop)",
         "private CREATE dispatch")
 forbid(svdrp[svdrp.find("SVDRPHelpPages"):svdrp.find("SVDRPCommand")],
        "NTCREATE", "public CREATE help advertisement")

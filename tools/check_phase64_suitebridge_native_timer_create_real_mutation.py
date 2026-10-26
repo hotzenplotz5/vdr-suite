@@ -53,7 +53,7 @@ for token in ('"NEWT"', '"MODT"', "RESTfulAPI", "restfulapi",
 require(plugin, "SuiteBridgeNativeTimerCreateVdrMutationCallback",
         "plugin callback owner")
 require(main, "&nativeTimerCreateVdrMutation_", "production callback wiring")
-require(svdrp, "nativeTimerCreate_.Handle(Command, Option)",
+require(svdrp, "nativeTimerCreate_.Handle(Command, Option,\n          Setup.MarginStart, Setup.MarginStop)",
         "private NTCREATE dispatch")
 help_section = svdrp.split("SVDRPHelpPages", 1)[1].split("SVDRPCommand", 1)[0]
 forbid(help_section, "NTCREATE", "public CREATE Help advertisement")
