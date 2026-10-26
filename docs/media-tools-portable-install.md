@@ -19,14 +19,17 @@ installation and refuses to rebuild the daemon:
 ```sh
 make prepare-media-tools \
     MEDIA_TOOLS_BASE_STAGE=/absolute/existing/sealed/Suite/stage \
+    MEDIA_TOOLS_WORKER_SOURCE_COMMIT=EXACT_40_HEX_BUILD_COMMIT \
     MEDIA_TOOLS_WORKDIR=/absolute/new/prepared-workdir
 ```
 
 The default worker source is `$(BUILD_DIR)/addons` (typically
 `.build/addons`); override with `MEDIA_TOOLS_WORKER_DIR` if needed.
-Preparation verifies the previous Suite seal, copies the three existing
-ELF workers, prints their import-worker SHA256, and leaves the running
-host unchanged. Never overwrite a partial or previous workdir.
+Preparation verifies the previous Suite seal, checks that
+`MEDIA_TOOLS_WORKER_SOURCE_COMMIT` is an ancestor of the current checkout
+and that the worker source/header/add-on manifest have not changed between
+the two commits, then copies the three already built ELF workers and
+prints their import-worker SHA256. The live host stays unchanged. Never overwrite a partial or previous workdir.
 
 After independent review of that **exact** handler digest, seal the stage:
 
