@@ -32,6 +32,9 @@ This is a stable navigation page for development contracts and evidence. It does
 
 ## Current orientation
 
+- [Add-on Branch Consolidation](addon-branch-consolidation.md) — one long-lived branch, integrated legacy registry histories and de-duplicated authority.
+- [Installed Add-on Registry Contract](addon-installed-registry-contract.md) — read-only package discovery and non-executing admission preview; no runtime activation.
+- [Optional Add-on Source Packaging](addon-source-packaging.md) — independent scaffold and C++ Media Tools preview packaging, disabled by default.
 - [Clean-checkout Developer Quickstart](quickstart.md) — first build/test on a disposable Linux environment, without deployment.
 - [Newcomer Getting Started](../getting-started.md) — user-facing product overview and honest install status.
 - [Current State](../CURRENT.md)

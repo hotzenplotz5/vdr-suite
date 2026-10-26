@@ -10,6 +10,8 @@
 #include "LegacyOsdApiRuntime.h"
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "PublicApiRuntime.h"
+#include "MediaCheckApiRuntime.h"
+#include "MediaShrinkPlanApiRuntime.h"
 #include "SecurityIdentity.h"
 #include "RecordingSeriesHierarchyApiRuntime.h"
 #include "MediaTranscodeSettingsApiRuntime.h"
@@ -291,6 +293,20 @@ public:
     {
         ApiResponse response;
 
+        if (MediaCheckApiRuntime::instance().tryHandleGet(
+                requestTarget, actorRef, authorizedBackendRef,
+                authorizedBackendRefs, response))
+        {
+            return response;
+        }
+
+        if (MediaShrinkPlanApiRuntime::instance().tryHandleGet(
+                requestTarget, actorRef, authorizedBackendRef,
+                authorizedBackendRefs, response))
+        {
+            return response;
+        }
+
         if (PublicApiRuntime::instance().tryHandleGet(
                 requestTarget,
                 actorRef,
@@ -454,6 +470,20 @@ public:
         const std::string& pairingToken = "")
     {
         ApiResponse response;
+
+        if (MediaCheckApiRuntime::instance().tryHandlePost(
+                requestTarget, body, actorRef, authorizedBackendRef,
+                contentType, response))
+        {
+            return response;
+        }
+
+        if (MediaShrinkPlanApiRuntime::instance().tryHandlePost(
+                requestTarget, body, actorRef, authorizedBackendRef,
+                contentType, response, idempotencyKey))
+        {
+            return response;
+        }
 
         if (PublicApiRuntime::instance().tryHandlePost(
                 requestTarget,

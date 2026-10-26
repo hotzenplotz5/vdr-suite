@@ -1,4 +1,5 @@
 #include "BackendAgentClient.h"
+#include "MediaToolsAgentExecutor.h"
 #include "SuiteBridgeControlSocketPath.h"
 #include "BackendAgentChannelObservation.h"
 #include "BackendAgentChannelObservationJson.h"
@@ -2025,6 +2026,8 @@ bool BackendAgentClientRuntime::pollCommands(
         config_.nativeTimerModifyTransport;
     commandConfig.legacyOsdInputTransport =
         config_.legacyOsdInputTransport;
+    commandConfig.mediaImportExecutor = config_.mediaImportExecutor;
+    commandConfig.mediaShrinkExecutor = config_.mediaShrinkExecutor;
 
     BackendAgentCommandClientContext commandContext{
         state_.agentId,
@@ -2057,6 +2060,163 @@ bool BackendAgentClientRuntime::pollCommands(
     return true;
 }
 
+bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
+    std::string& reasonCode)
+{
+    if (!config_.mediaImportExecutor) return true;
+    vdrsuite::mediatools::MediaToolsInstallationEvidence installed;
+    if (!config_.mediaImportExecutor->verifiedInstallation(installed))
+        installed = {};
+    std::vector<std::string> ids;
+    std::vector<vdrsuite::mediatools::MediaImportSourceLabel> described;
+    bool partial = true;
+    if (installed.sha256.empty() ||
+        !config_.mediaImportExecutor->listTrustedSourceSnapshot(
+            ids, described, partial)) {
+        ids.clear(); // Withdrawal/unreadable ledger removes all listings.
+        described.clear();
+        partial = true;
+    }
+    if (ids.size() > 100U) {
+        ids.clear();
+        described.clear();
+        partial = true;
+    }
+    for (const auto& id : ids)
+        if (id.size() < 16U || id.size() > 64U ||
+            !std::all_of(id.begin(), id.end(), [](unsigned char ch) {
+                return std::isalnum(ch) || ch == '-' || ch == '_';
+            }))
+        {
+            ids.clear();
+            described.clear();
+            partial = true;
+            break;
+        }
+    // Display labels and relative folder metadata must match the exact
+    // opaque source snapshot. Neither grants filesystem authority.
+    const auto validFolder = [](const std::string& folder) {
+        if (folder.empty()) return true; // source root
+        if (folder.size() > 240U || folder.front() == '/' ||
+            folder.back() == '/' || folder.find('\\') != std::string::npos)
+            return false;
+        std::size_t start = 0;
+        for (;;) {
+            const auto stop = folder.find('/', start);
+            const auto part = folder.substr(start,
+                stop == std::string::npos ? std::string::npos : stop - start);
+            if (part.empty() || part == "." || part == ".." ||
+                std::any_of(part.begin(), part.end(), [](unsigned char ch) {
+                    return ch < 0x20U || ch == 0x7fU;
+                })) return false;
+            if (stop == std::string::npos) return true;
+            start = stop + 1;
+        }
+    };
+    std::vector<std::string> labels;
+    std::vector<std::string> folders;
+    if (!ids.empty() && described.size() == ids.size())
+    {
+        bool consistent = true;
+        for (std::size_t i = 0; i < ids.size(); ++i) {
+            const auto& label = described[i].label;
+            if (described[i].sourceId != ids[i] ||
+                label.empty() || label.size() > 160U ||
+                !validFolder(described[i].folder) ||
+                std::any_of(label.begin(), label.end(), [](unsigned char ch) {
+                    return ch < 0x20 || ch == 0x7f ||
+                           ch == '/' || ch == '\\';
+                })) {
+                consistent = false;
+                break;
+            }
+        }
+        if (consistent)
+            for (const auto& item : described) {
+                labels.push_back(item.label);
+                folders.push_back(item.folder);
+            }
+    }
+    std::ostringstream body;
+    body << "{\"backendId\":\"" << jsonEscape(state_.backendId)
+         << "\",\"agentInstanceId\":\"" << jsonEscape(agentInstanceId_)
+         << "\",\"backendGeneration\":" << state_.backendGeneration
+         << ",\"sourceIds\":[";
+    for (std::size_t index = 0; index < ids.size(); ++index)
+    {
+        if (index != 0U) body << ',';
+        body << '"' << ids[index] << '"';
+    }
+    body << "],\"sourceLabels\":[";
+    for (std::size_t index = 0; index < labels.size(); ++index)
+    {
+        if (index != 0U) body << ',';
+        body << '"' << jsonEscape(labels[index]) << '"';
+    }
+    body << "],\"sourceFolders\":[";
+    for (std::size_t index = 0; index < folders.size(); ++index)
+    {
+        if (index != 0U) body << ',';
+        body << '"' << jsonEscape(folders[index]) << '"';
+    }
+    body << "],\"partial\":" << (partial ? "true" : "false")
+         << ",\"handlerOrigin\":\"" << jsonEscape(installed.origin)
+         << "\",\"handlerVersion\":\"" << jsonEscape(installed.version)
+         << "\",\"handlerSha256\":\"" << jsonEscape(installed.sha256)
+         << "\"";
+    // The Core may request ONE previously authorized opaque source ID in
+    // the previous observation response. Never accept a path from the wire.
+    if (!pendingMediaImportPreviewSourceId_.empty()) {
+        vdrsuite::mediatools::MediaImportSourcePreview preview;
+        preview.sourceId = pendingMediaImportPreviewSourceId_;
+        if (std::find(ids.begin(), ids.end(), preview.sourceId) != ids.end()) {
+            if (!config_.mediaImportExecutor->inspectTrustedSource(
+                    preview.sourceId, preview))
+            {
+                preview = {};
+                preview.sourceId = pendingMediaImportPreviewSourceId_;
+                preview.status = "unavailable";
+            }
+        } else {
+            preview.status = "unavailable";
+        }
+        body << ",\"previewSourceId\":\"" << jsonEscape(preview.sourceId)
+             << "\",\"previewStatus\":\"" << jsonEscape(preview.status)
+             << "\",\"previewTitle\":\"" << jsonEscape(preview.title)
+             << "\",\"previewTargetFolder\":\""
+             << jsonEscape(preview.targetFolder)
+             << "\",\"previewVideoCodec\":\"" << jsonEscape(preview.videoCodec)
+             << "\",\"previewSourceBytes\":" << preview.sourceBytes
+             << ",\"previewAvailableBytes\":" << preview.availableBytes
+             << ",\"previewRequiredBytes\":" << preview.requiredBytes
+             << ",\"previewReencodeRequired\":"
+             << (preview.videoReencodeRequired ? "true" : "false");
+    }
+    body << "}";
+    const auto response = transport_.postAuthenticated(
+        state_.agentId, state_.credentialSecret,
+        "/api/agent/v1/observations/media-import-sources", body.str());
+    if (!response.transportSucceeded || response.statusCode != 200 ||
+        response.body.find("\"outcome\":\"accepted\"") == std::string::npos)
+    {
+        reasonCode = response.errorCode.empty()
+            ? "media_import_source_observation_failed"
+            : response.errorCode;
+        return false;
+    }
+    pendingMediaImportPreviewSourceId_.clear();
+    std::string requestedPreview;
+    if (jsonString(response.body, "previewSourceId", requestedPreview) &&
+        requestedPreview.size() >= 16U && requestedPreview.size() <= 64U &&
+        std::all_of(requestedPreview.begin(), requestedPreview.end(),
+            [](unsigned char c) {
+                return std::isalnum(c) || c == '-' || c == '_';
+            }) &&
+        std::find(ids.begin(), ids.end(), requestedPreview) != ids.end())
+        pendingMediaImportPreviewSourceId_ = requestedPreview;
+    return true;
+}
+
 bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
 {
     if (!synchronized_ || state_.backendGeneration == 0 || state_.capabilityRevision == 0)
@@ -2075,6 +2235,8 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         config_.nativeTimerModifyTransport;
     commandConfig.legacyOsdInputTransport =
         config_.legacyOsdInputTransport;
+    commandConfig.mediaImportExecutor = config_.mediaImportExecutor;
+    commandConfig.mediaShrinkExecutor = config_.mediaShrinkExecutor;
     BackendAgentCommandClientContext commandContext{state_.agentId, state_.credentialSecret, state_.backendId, agentInstanceId_, state_.backendGeneration};
     if (!reconcileBackendAgentCommandState(commandConfig, commandContext, transport_, reasonCode))
     {
@@ -2145,6 +2307,15 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         return false;
     }
     publishOsdObservation();
+    // Read-only and strictly opt-in: a failure to publish inventory must
+    // never bypass the existing command receipt/grant gate, nor prevent
+    // unrelated VDR heartbeats and native commands.
+    if (config_.mediaImportExecutor)
+    {
+        std::string ignoredReason;
+        if (!publishMediaImportSourceObservation(ignoredReason))
+            log("Media Import inventory observation unavailable");
+    }
 
     // Capability discovery remains on the normal heartbeat cadence. Fast
     // interactive polls below reuse this complete snapshot instead of

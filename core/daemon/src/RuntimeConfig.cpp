@@ -471,6 +471,9 @@ RuntimeConfig::RuntimeConfig()
               "VDR_SUITE_RECORDING_VIDEO_ROOTS"))),
       recordingVideoRootsSpecified_(!environmentOrEmpty(
           "VDR_SUITE_RECORDING_VIDEO_ROOTS").empty()),
+      mediaCheckVideoRoots_(parseArtworkRoots(
+          environmentOrEmpty(
+              "VDR_SUITE_MEDIA_CHECK_VIDEO_ROOTS"))),
       suiteBridge_(parseSuiteBridgeConfig()),
       seriesArtworkFallback_(parseSeriesArtworkFallbackConfig())
 {
@@ -519,6 +522,11 @@ const std::map<std::string, std::string>& RuntimeConfig::recordingVideoRoots() c
 bool RuntimeConfig::recordingVideoRootsSpecified() const
 {
     return recordingVideoRootsSpecified_;
+}
+
+const std::map<std::string, std::string>& RuntimeConfig::mediaCheckVideoRoots() const
+{
+    return mediaCheckVideoRoots_;
 }
 
 const RuntimeSuiteBridgeConfig& RuntimeConfig::suiteBridge() const

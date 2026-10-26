@@ -16,6 +16,11 @@ class IBackendAgentNativeTimerModifyTransport;
 class ISuiteBridgeLegacyOsdInputTransport;
 }
 
+namespace vdrsuite::mediatools {
+class IMediaImportAgentExecutor;
+class IMediaShrinkAgentExecutor;
+}
+
 struct BackendAgentClientConfig
 {
     std::string controlPlaneUrl;
@@ -51,6 +56,9 @@ struct BackendAgentClientConfig
     int reconnectMaximumSeconds = 30;
     long connectTimeoutMilliseconds = 5000;
     long requestTimeoutMilliseconds = 10000;
+    // Set only by a trusted binary composition root, never parsed from config.
+    vdrsuite::mediatools::IMediaImportAgentExecutor* mediaImportExecutor = nullptr;
+    vdrsuite::mediatools::IMediaShrinkAgentExecutor* mediaShrinkExecutor = nullptr;
 };
 
 struct BackendAgentClientState
@@ -200,6 +208,7 @@ private:
     bool publishCapabilities(std::string& reasonCode);
     bool publishBackendHealthObservation(std::string& reasonCode);
     bool publishChannelObservation(std::string& reasonCode);
+    bool publishMediaImportSourceObservation(std::string& reasonCode);
     void publishOsdObservation();
     bool submitPendingChannelObservation(std::string& reasonCode);
     bool preparePendingChannelObservation(std::string& reasonCode);
@@ -220,6 +229,7 @@ private:
     Log log_;
     BackendAgentClientState state_;
     std::string agentInstanceId_;
+    std::string pendingMediaImportPreviewSourceId_; // ephemeral one-source read
     BackendAgentCommandAvailabilitySnapshot commandAvailability_;
     bool commandAvailabilityReady_ = false;
     bool synchronized_ = false;

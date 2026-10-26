@@ -94,12 +94,44 @@ if min(starting, persist_starting, dispatch) < 0 or not starting < persist_start
     raise SystemExit(
         "Phase-68.G ordering must remain starting -> durable persist -> native dispatch"
     )
-command_client_without_osd = command_client[:osd_start] + command_client[osd_end:]
-forbid(
-    command_client_without_osd,
-    starting_projection,
-    "fresh starting projection outside the typed Phase-68.G successor branch",
+# Media Tools adds two separately fenced native work dispatches. They
+# share the same crash-safety requirement: durable "starting" before the
+# non-idempotent worker executes. No fourth generic starting writer is allowed.
+media_start = command_client.find(
+    "if (mediaImportCommand && !state.resultPresent)"
 )
+shrink_start = command_client.find(
+    "if (mediaShrinkCommand && !state.resultPresent)"
+)
+if not 0 <= media_start < shrink_start < osd_start:
+    raise SystemExit("Media Tools starting branches not separately bounded")
+if command_client.count(starting_projection) != 3:
+    raise SystemExit("unexpected non-idempotent starting projection")
+for label, branch, execute in (
+    (
+        "Media Import",
+        command_client[media_start:shrink_start],
+        "config.mediaImportExecutor->execute(state.assignment)",
+    ),
+    (
+        "Media Shrink",
+        command_client[shrink_start:osd_start],
+        "config.mediaShrinkExecutor->execute(state.assignment)",
+    ),
+):
+    require(branch, 'state.dispatchState != "not_started"',
+            label + " crash recovery fence")
+    if branch.count(starting_projection) != 1:
+        raise SystemExit(label + " starting projection not unique")
+    position = branch.find(starting_projection)
+    persist_position = branch.find(
+        "persist(config.statePath, state, reason)", position
+    )
+    execute_position = branch.find(execute, position)
+    if min(position, persist_position, execute_position) < 0 or not (
+            position < persist_position < execute_position):
+        raise SystemExit(label + " must durably persist starting before worker execution")
+
 
 fresh_helper = timer_delete_handler.split(
     "bool backendAgentNativeTimerDeleteCommandPrepareFreshStarting(", 1

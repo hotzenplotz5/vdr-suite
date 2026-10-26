@@ -42,4 +42,7 @@ jobs:
       - name: Compile the complete daemon
         run: make daemon
       - name: Run fast CI suite
+        env:
+          # Decision-marker tests require an explicitly isolated scratch root.
+          TMPDIR: ${{ runner.temp }}
         run: make -j2 --output-sync=target test-ci-fast

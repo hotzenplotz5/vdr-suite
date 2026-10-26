@@ -13,8 +13,21 @@ backend-agent:
 		$(AGENT_NATIVE_TIMER_MODIFY_TRANSPORT_SRC) \
 		$(AGENT_RECORDING_MARKS_MODIFY_TRANSPORT_SRC) \
 		$(AGENT_RECORDING_CUT_TRANSPORT_SRC) \
+		core/addons/src/AddonRootApproval.cpp \
+		core/addons/src/AddonPinnedHandler.cpp \
+		core/addons/src/AddonInstallSnapshot.cpp \
+		addons/media-tools/src/MediaImport.cpp \
+		addons/media-tools/src/LocalMediaImportInventory.cpp \
+		addons/media-tools/src/PinnedMediaImportAgentExecutor.cpp \
+		addons/media-tools/src/MediaImportDecisionMarker.cpp \
+		core/agent/src/BackendAgentMediaImportAuthorization.cpp \
+		core/agent/src/BackendAgentMediaImportRuntime.cpp \
+		addons/media-tools/src/MediaShrink.cpp \
+		addons/media-tools/src/LocalMediaShrinkReviewStore.cpp \
+		addons/media-tools/src/LocalMediaShrinkAgentExecutor.cpp \
+		core/agent/src/BackendAgentMediaShrinkAuthorization.cpp \
 		apps/agent/main.cpp \
-		$(LDFLAGS) \
+		$(LDFLAGS) $(shell pkg-config --libs libcurl) -lcrypto \
 		-o $(BUILD_DIR)/vdr-suite-backend-agent
 
 backend-agent-enrollment:

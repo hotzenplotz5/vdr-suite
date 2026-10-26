@@ -8,6 +8,57 @@ const refreshDetailButton = document.getElementById('refresh-detail');
 let selectedBackendId = '';
 let selectedBackend = null;
 let selectedModule = 'overview';
+let mediaImportCapabilityEpoch = 0;
+const mediaImportTab = document.querySelector('.module-tab[data-module="media-import"]');
+
+function mediaImportModule() {
+  return frontendPlatformModule('media-import', window.VdrSuiteMediaImport);
+}
+
+function resetMediaImportVisibility(clearSession) {
+  ++mediaImportCapabilityEpoch;
+  if (mediaImportTab) {
+    mediaImportTab.hidden = true;
+    mediaImportTab.disabled = true;
+  }
+  const moduleApi = mediaImportModule();
+  if (moduleApi) {
+    if (clearSession && typeof moduleApi.clearSession === 'function') {
+      moduleApi.clearSession();
+    } else if (typeof moduleApi.deactivate === 'function') {
+      moduleApi.deactivate();
+    }
+  }
+}
+
+function refreshMediaImportVisibility(backendId) {
+  const epoch = ++mediaImportCapabilityEpoch;
+  if (mediaImportTab) {
+    mediaImportTab.hidden = true;
+    mediaImportTab.disabled = true;
+  }
+  const moduleApi = mediaImportModule();
+  if (!mediaImportTab || !moduleApi ||
+      typeof moduleApi.checkCapability !== 'function') return Promise.resolve(false);
+
+  return Promise.resolve().then(function () {
+    return moduleApi.checkCapability(backendId);
+  }).then(function (available) {
+    if (epoch !== mediaImportCapabilityEpoch ||
+        selectedBackendId !== backendId || !browserSessionFrontendActive) return false;
+    mediaImportTab.hidden = !available;
+    mediaImportTab.disabled = !available;
+    if (!available && selectedModule === 'media-import') selectModule('overview');
+    return available;
+  }).catch(function () {
+    if (epoch === mediaImportCapabilityEpoch &&
+        selectedBackendId === backendId && selectedModule === 'media-import') {
+      selectModule('overview');
+    }
+    return false;
+  });
+}
+
 let homeResumeBackendId = '';
 let currentSnapshot = null;
 let currentChannels = null;
@@ -159,7 +210,8 @@ const moduleLabels = {
   epg: frontendTranslate('module.epg', 'EPG Zeitleiste'),
   timers: frontendTranslate('module.timers', 'Timer'),
   recordings: frontendTranslate('module.recordings', 'Aufnahmen'),
-  searchtimers: frontendTranslate('module.searchTimers', 'SearchTimer')
+  searchtimers: frontendTranslate('module.searchTimers', 'SearchTimer'),
+  'media-import': 'Media Import'
 };
 
 function addText(element, text) {
@@ -3621,6 +3673,11 @@ function renderSettingsView(data) {
     deviceAdminSettings.render(panel);
   }
 
+  const addonsSettings = window.VdrSuiteAddonSettings;
+  if (addonsSettings && typeof addonsSettings.render === 'function') {
+    addonsSettings.render(panel, selectedBackendId);
+  }
+
   const accountAdminSettings = window.VdrSuiteAccountAdminSettings;
   if (accountAdminSettings && typeof accountAdminSettings.render === 'function') {
     accountAdminSettings.render(panel);
@@ -3831,6 +3888,14 @@ function renderSelectedModule(data) {
     return;
   }
 
+  if (selectedModule === 'media-import') {
+    const moduleApi = mediaImportModule();
+    if (moduleApi && typeof moduleApi.activate === 'function') {
+      moduleApi.activate(selectedEpgBackendId(), detailDataElement);
+    }
+    return;
+  }
+
   if (selectedModule === 'settings') {
     renderSettingsView(data);
     return;
@@ -3859,7 +3924,13 @@ function shouldPublishHomeResume(previousModule) {
 }
 
 function selectModule(moduleName) {
+  if (moduleName === 'media-import' &&
+      (!mediaImportTab || mediaImportTab.hidden || mediaImportTab.disabled)) return;
   const previousModule = selectedModule;
+  if (previousModule === 'media-import') {
+    const moduleApi = mediaImportModule();
+    if (moduleApi && typeof moduleApi.deactivate === 'function') moduleApi.deactivate();
+  }
   const channels2 = window.VdrSuiteChannels2;
 
   if (
@@ -3913,11 +3984,13 @@ function markSelected(backendId) {
 }
 
 function loadBackendDetails(backend) {
+  resetMediaImportVisibility(false);
   selectedBackend = backend;
   const selector = backend.frontendSelector || backend;
   const backendId = selector.id || backend.backendId || 'default';
   markSelected(backendId);
   selectModule('overview');
+  refreshMediaImportVisibility(backendId);
   refreshDetailButton.disabled = true;
   detailMetaElement.className = 'detail-meta';
   detailMetaElement.textContent = 'Lade Details für ' + (selector.label || backend.backendName || backendId) + '...';
@@ -4099,6 +4172,15 @@ refreshDetailButton.addEventListener('click', () => {
     return;
   }
 
+  if (selectedModule === 'media-import') {
+    refreshMediaImportVisibility(selectedEpgBackendId()).then(function (available) {
+      if (available && selectedModule === 'media-import') {
+        renderSelectedModule(currentSnapshot || {});
+      }
+    });
+    return;
+  }
+
   loadBackendDetails(selectedBackend);
 });
 
@@ -4137,6 +4219,7 @@ let browserSessionFrontendActive = false;
 let browserSessionFrontendBound = false;
 
 function renderAuthenticationRequiredFrontend() {
+  resetMediaImportVisibility(true);
   selectedBackendId = '';
   selectedBackend = null;
   currentSnapshot = null;

@@ -179,6 +179,7 @@ NativeTimerDeleteOperationPreparationService::prepare(
         case MutationOperationRepositoryStatus::notFound:
         case MutationOperationRepositoryStatus::revisionConflict:
         case MutationOperationRepositoryStatus::stateConflict:
+        case MutationOperationRepositoryStatus::maintenanceBlocked:
         case MutationOperationRepositoryStatus::storageError:
             return result(
                 NativeTimerDeleteOperationPreparationStatus::operationRepositoryError,

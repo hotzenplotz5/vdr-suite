@@ -85,6 +85,8 @@ VDR remains authoritative for native devices, schedules, timers, recordings and 
 
 ## For developers
 
+[Media Tools: Installationsvoraussetzungen und sichere Backend-Agent-Diagnose (yaVDR)](docs/media-tools-installation.md).
+
 Start with the [clean-checkout quickstart](docs/development/quickstart.md), then [Developer Onboarding](docs/development/developer-onboarding.md), the [current architecture](docs/development/current-architecture-state.md), [ADRs](docs/adr/index.md) and [source-tested API](api/README.md). The repository's detailed rules for automated changes are in [AGENTS](AGENTS.md), not prerequisites to *reading* or *trying* the project.
 
 Phases 64–69 are completed within their historically accepted scopes. The next strict numbered phase is Phase 70; [current status](docs/CURRENT.md) and [roadmap](docs/planning/roadmap.md) distinguish later R2 work from original Phase-69.F compatibility acceptance.

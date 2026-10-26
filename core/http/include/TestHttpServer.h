@@ -46,14 +46,39 @@
 #include <map>
 #include <vector>
 #include <memory>
+#include <functional>
 
 class DeviceLiveEventHub;
 
 class TestHttpServer : public IHttpServer, public IEpgArtworkHttpProvider
 {
 public:
-    explicit TestHttpServer(ApiRouter& apiRouter,
-        std::shared_ptr<DeviceLiveEventHub> eventHub = nullptr);
+    using AddonActivationMutation = std::function<ApiResponse(
+        const RequestSecurityContext&, const std::string&)>;
+    using AddonActivationLookup = std::function<ApiResponse(
+        const RequestSecurityContext&, const std::string&)>;
+    using AddonSourceMutation = std::function<ApiResponse(
+        const RequestSecurityContext&, const std::string&)>;
+    using AddonSourceLookup = std::function<ApiResponse(
+        const RequestSecurityContext&, const std::string&)>;
+
+    explicit TestHttpServer(
+        ApiRouter& apiRouter,
+        std::shared_ptr<DeviceLiveEventHub> eventHub = nullptr,
+        HumanAccountGrantAdministrationService::AddonGrantEligibility
+            addonGrantEligibility = {},
+        AddonActivationMutation addonActivationMutation = {},
+        AddonActivationLookup addonActivationLookup = {},
+        AddonSourceMutation addonSourceMutation = {},
+        AddonSourceLookup addonSourceLookup = {});
+    TestHttpServer(
+        ApiRouter& apiRouter,
+        HumanAccountGrantAdministrationService::AddonGrantEligibility
+            addonGrantEligibility,
+        AddonActivationMutation addonActivationMutation,
+        AddonActivationLookup addonActivationLookup,
+        AddonSourceMutation addonSourceMutation = {},
+        AddonSourceLookup addonSourceLookup = {});
     ~TestHttpServer() override;
 
     HttpServerResponse handleRequest(
@@ -84,6 +109,10 @@ public:
 private:
     ApiRouter& apiRouter_;
     std::shared_ptr<DeviceLiveEventHub> deviceEventHub_;
+    AddonActivationMutation addonActivationMutation_;
+    AddonActivationLookup addonActivationLookup_;
+    AddonSourceMutation addonSourceMutation_;
+    AddonSourceLookup addonSourceLookup_;
     std::unique_ptr<Database> securityDatabase_;
     std::unique_ptr<AccountabilityEventRepository>
         accountabilityEventRepository_;

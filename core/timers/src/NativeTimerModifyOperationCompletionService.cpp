@@ -227,6 +227,7 @@ NativeTimerModifyOperationCompletionService::complete(
         case MutationOperationRepositoryStatus::invalid:
         case MutationOperationRepositoryStatus::idempotencyConflict:
         case MutationOperationRepositoryStatus::operationConflict:
+        case MutationOperationRepositoryStatus::maintenanceBlocked:
         case MutationOperationRepositoryStatus::storageError:
             return result(
                 NativeTimerModifyOperationCompletionStatus::

@@ -64,7 +64,17 @@ require(
 )
 if state_owner.count('<< "state_extension="') != 1:
     raise SystemExit("commands.state must persist exactly one generic extension field")
-require(state_owner, 'output << "version=3\\n"', "v3 persistence writer")
+# Keep the original v3 persistence contract, including when an optional
+# Media Import v4 schema is added. v4 is permitted *only* for the existing
+# addon.media.import command; no generic relaxation of command-state decoding.
+if state_store:
+    require(state_owner, 'values["version"] == "4"', "bounded v4 loader")
+    require(state_owner, 'assignment.commandType != "addon.media.import"',
+            "v4 restricted to Media Import")
+    require(state_owner, 'output << "version=" << (mediaImport ? "4" : "3") << "\\n"',
+            "v3 default and Media Import v4 persistence writer")
+else:
+    require(state_owner, 'output << "version=3\\n"', "v3 persistence writer")
 
 # The state owner delegates envelope and typed payload authority checks rather
 # than learning mutation-specific fields.

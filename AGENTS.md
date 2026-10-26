@@ -1,7 +1,83 @@
 # VDR-Suite Agent and Repository Workflow Rules
 
+## AGENTS.md-Änderungen ausschließlich nach persönlicher Erlaubnis
+
+**Nur Änderungen an Agents.md mit meiner persönlichen Erlaubnis, oder nach meiner Anordnung!**
+
+Diese Regel gilt für jede `AGENTS.md`-Datei im Repository. Ohne die ausdrückliche persönliche Genehmigung oder konkrete Anordnung des Maintainers dürfen Assistenten solche Dateien weder ändern noch vermeintliche Fehler darin eigenmächtig korrigieren.
+
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
+
+## No hallucinated facts, user mandates, or blockers
+
+**Hard rule:** Never invent or imply user instructions, approvals, prohibitions,
+repository requirements, CI outcomes, tested behavior, repository paths, or
+technical blockers. Separate **user instruction**, **actual repository rule**,
+**verified source/tool result**, and **assistant recommendation/inference**.
+If a rule was written by an assistant, do not attribute it to the user;
+quote its actual wording and path before invoking it as a constraint. An
+assistant-authored rule is not evidence that the user requested that rule.
+
+Check the actual file or tool result before making factual claims. If a fact
+cannot be verified, say **unverified**, not "confirmed"; if a conclusion is
+inferred, label it an inference and its supporting observations. Do not
+reinterpret a recommendation, pending test, or incidental discovery as a
+mandatory stop gate. A queued, running, slow or unavailable CI job alone is
+not a reason to stop already authorized independent analysis, implementation
+or local tests. Continue bounded independent work without overstating its
+validation, and explicitly report what is still untested. Never fabricate
+successful builds, validations, deployments, or approvals.
+
+## Non-negotiable scope, simplicity, and verification gates
+
+**Priority:** These gates constrain every workstream, including the top-level
+non-stop mandate, GitHub-first execution and commit/CI batching. "Continue
+working" means finish the **already authorized, bounded task**, not discover
+or implement new tasks. No speed, autonomy or non-stop instruction overrides
+these gates.
+
+1. **One task, one verifiable outcome.** Before changing product code, identify
+   the concrete bug or authorized feature, its observable acceptance criterion
+   and the smallest affected surface. Stay inside that boundary. Do not
+   interpret "keep going" as permission to extend the project scope.
+2. **Prove the need before coding.** Reproduce or trace the concrete failure
+   and inspect existing safeguards before adding another guard. Hypothetical
+   risks, possible future features and speculative hardening do not authorize
+   implementation. Record unrelated findings without silently fixing them.
+3. **Reuse existing architecture.** Prefer a small change in the current
+   implementation. New database tables, services, persistent state fields,
+   protocols, cross-cutting abstractions and broad refactors require BOTH
+   evidence that the existing design cannot meet the agreed acceptance
+   criterion AND the user's explicit authorization **before** implementation.
+4. **Validate before declaring completion.** For C++, backend or
+   runtime-contract changes, compile the exact candidate and run relevant
+   functional/regression tests before claiming it works. State precisely
+   which SHA was tested and which checks remain pending; never equate a
+   pushed commit or queued CI with a passing build. A running or blocked CI
+   job does NOT prohibit preparing and implementing the next already
+   authorized slice in parallel. Keep work bounded, check compatibility,
+   and test each candidate when tooling is available. Do not claim that an
+   assistant-authored sequencing preference is a user requirement. Docs-only
+   edits need proportionate documentation checks.
+5. **No chain reaction of adjacent work.** Discovering an issue during a fix
+   does not add it to the authorized task. Note it concisely. Only a proven
+   defect blocking the current acceptance or a verified urgent security issue
+   warrants interrupting the sequence; any required out-of-scope architectural
+   change still needs explicit user authorization.
+6. **Finish and stop at the agreed gate.** Once the bounded acceptance
+   criterion and its required checks pass, report the result and stop. Do not
+   invent follow-up implementation, additional hardening, refactoring,
+   documentation cycles or CI-watching tasks. The non-stop mandate prohibits
+   premature handoff, **not completion**.
+
+**Mandatory pre-change check:** Before every product-code edit and subsequent
+commit, ask: Is this change required for the authorized outcome? What evidence
+demonstrates that? Can the existing design solve it? How will the exact result
+be compiled and tested? If any answer is missing, perform a bounded diagnostic
+instead of writing more code. These scope gates take precedence wherever
+another section could be read as encouraging speculative expansion or
+unverified commit batching.
 
 ## Top-level non-stop execution mandate
 

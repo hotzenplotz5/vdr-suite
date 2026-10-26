@@ -1095,6 +1095,26 @@ void BackendAgentCommandDeliveryService::setReceiptFenceCheck(
 {
     receiptFenceCheck_ = std::move(check);
 }
+void BackendAgentCommandDeliveryService::setMediaImportReceiptFenceCheck(
+    MediaImportReceiptFenceCheck check)
+{
+    mediaImportReceiptFenceCheck_ = std::move(check);
+}
+void BackendAgentCommandDeliveryService::setMediaImportResultApply(
+    MediaImportResultApply apply)
+{
+    mediaImportResultApply_ = std::move(apply);
+}
+void BackendAgentCommandDeliveryService::setMediaShrinkReceiptFenceCheck(
+    MediaShrinkReceiptFenceCheck check)
+{
+    mediaShrinkReceiptFenceCheck_ = std::move(check);
+}
+void BackendAgentCommandDeliveryService::setMediaShrinkResultApply(
+    MediaShrinkResultApply apply)
+{
+    mediaShrinkResultApply_ = std::move(apply);
+}
 
 BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(
     const RequestSecurityContext& context,
@@ -1118,6 +1138,84 @@ BackendAgentCommandReceiptResult BackendAgentCommandDeliveryService::receipt(
     const bool legacyOsdInput =
         assignment.has_value() &&
         assignment->commandType == kLegacyOsdInputCommandType;
+    const bool mediaImport =
+        assignment.has_value() &&
+        assignment->commandType == "addon.media.import";
+    if (mediaImport)
+    {
+        // The Command DB and an Agent-advertised command type do not prove
+        // human permission or approved operation identity. Check at the
+        // existing receipt boundary *before* the Agent starts the child.
+        bool granted = false;
+        if (mediaImportReceiptFenceCheck_)
+        {
+            try
+            {
+                granted = mediaImportReceiptFenceCheck_(
+                    *assignment, receipt, reason);
+            }
+            catch (...)
+            {
+                reason = "media_import_server_fence_failed";
+            }
+        }
+        else
+        {
+            reason = "media_import_server_fence_unavailable";
+        }
+        if (!granted)
+        {
+            if (!appendEvent(
+                    context, "addon.media.import.rejected",
+                    receipt.backendId, assignment->operationId,
+                    "addon.media.import", "deny",
+                    reason.empty() ? "media_import_server_fenced" : reason,
+                    "rejected", now))
+            {
+                result.reasonCode = "command_accountability_unavailable";
+                return result;
+            }
+            result.reasonCode =
+                reason.empty() ? "media_import_server_fenced" : reason;
+            return result;
+        }
+    }
+    const bool mediaShrink = assignment.has_value() &&
+        (assignment->commandType == "addon.media.shrink.stage" ||
+         assignment->commandType == "addon.media.shrink.publish");
+    if (mediaShrink)
+    {
+        // Advertised capabilities do not prove permission. Stage/publish
+        // must both pass the reviewed canonical Core receipt fence.
+        bool granted = false;
+        if (mediaShrinkReceiptFenceCheck_)
+        {
+            try
+            {
+                granted = mediaShrinkReceiptFenceCheck_(
+                    *assignment, receipt, reason);
+            }
+            catch (...) { reason = "media_shrink_server_fence_failed"; }
+        }
+        else
+            reason = "media_shrink_server_fence_unavailable";
+        if (!granted)
+        {
+            if (!appendEvent(
+                    context, "addon.media.shrink.rejected",
+                    receipt.backendId, assignment->operationId,
+                    assignment->commandType, "deny",
+                    reason.empty() ? "media_shrink_server_fenced" : reason,
+                    "rejected", now))
+            {
+                result.reasonCode = "command_accountability_unavailable";
+                return result;
+            }
+            result.reasonCode = reason.empty()
+                ? "media_shrink_server_fenced" : reason;
+            return result;
+        }
+    }
     if (legacyOsdInput)
     {
         if (!receiptFenceCheck_)
@@ -1257,6 +1355,64 @@ BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
     }
 
     result = commandRepository_.acceptResult(value);
+
+    // Persist the shared ADR-0042 operation outcome BEFORE acknowledging the
+    // Agent result. If the application fails after the Agent journal commit,
+    // a replay of this same result retries reconciliation, not media execution.
+    if (result.accepted && assignment.has_value() &&
+        assignment->commandType == "addon.media.import")
+    {
+        bool applied = false;
+        std::string applyReason;
+        if (mediaImportResultApply_)
+        {
+            try
+            {
+                applied = mediaImportResultApply_(
+                    *assignment, value, applyReason);
+            }
+            catch (...) { applyReason = "media_import_result_apply_exception"; }
+        }
+        else
+            applyReason = "media_import_result_apply_unavailable";
+        if (!applied)
+        {
+            result.accepted = false;
+            result.replayed = false;
+            result.dropResponse = false;
+            result.reasonCode = applyReason.empty()
+                ? "media_import_result_apply_failed" : applyReason;
+            return result;
+        }
+    }
+
+    if (result.accepted && assignment.has_value() &&
+        (assignment->commandType == "addon.media.shrink.stage" ||
+         assignment->commandType == "addon.media.shrink.publish"))
+    {
+        bool applied = false;
+        std::string applyReason;
+        if (mediaShrinkResultApply_)
+        {
+            try
+            {
+                applied = mediaShrinkResultApply_(
+                    *assignment, value, applyReason);
+            }
+            catch (...) { applyReason = "media_shrink_result_apply_exception"; }
+        }
+        else
+            applyReason = "media_shrink_result_apply_unavailable";
+        if (!applied)
+        {
+            result.accepted = false;
+            result.replayed = false;
+            result.dropResponse = false;
+            result.reasonCode = applyReason.empty()
+                ? "media_shrink_result_apply_failed" : applyReason;
+            return result;
+        }
+    }
 
     if (legacyOsdInput)
     {

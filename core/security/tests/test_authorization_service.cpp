@@ -289,6 +289,64 @@ int main()
             kGlobalStaleProbeDeletePermission,
             "*")).allowed);
 
+    // Global administrators can use a root-installed add-on without a second
+    // per-user grant; normal users need exact backend scope.
+    RequestSecurityContext addonAdmin = authenticatedContext();
+    addonAdmin.grants.push_back({"role.admin", "*"});
+    assert(service.authorize(addonAdmin,
+        permissionRequest("addons.media.import", "backend-a")).allowed);
+    assert(service.authorize(addonAdmin,
+        permissionRequest("addons.media.shrink", "backend-a")).allowed);
+    addonAdmin.grants.push_back({"role.read-only", "backend-a"});
+    assert(!service.authorize(addonAdmin,
+        permissionRequest("addons.media.import", "backend-a")).allowed);
+
+    // Media Tools import must be an exact backend-scoped permission for users.
+    const auto importRequest = permissionRequest("addons.media.import", "backend-a");
+    assert(!service.authorize(adminRole, importRequest).allowed);
+    assert(!service.authorize(wildcard, importRequest).allowed);
+    RequestSecurityContext importActor = authenticatedContext();
+    importActor.grants.push_back({"addons.media.import", "*"});
+    assert(!service.authorize(importActor, importRequest).allowed);
+    importActor.grants.clear();
+    importActor.grants.push_back({"addons.media.import", "backend-other"});
+    assert(!service.authorize(importActor, importRequest).allowed);
+    importActor.grants.push_back({"addons.media.import", "backend-a"});
+    assert(service.authorize(importActor, importRequest).allowed);
+    importActor.grants.push_back({"role.read-only", "backend-a"});
+    assert(service.authorize(importActor, importRequest).reasonCode == "role_read_only");
+
+    // HEVC is an independent explicit per-backend grant, never inherited
+    // from general admin, import or wildcard privileges.
+    const auto shrinkRequest =
+        permissionRequest("addons.media.shrink", "backend-a");
+    assert(!service.authorize(adminRole, shrinkRequest).allowed);
+    assert(!service.authorize(wildcard, shrinkRequest).allowed);
+    RequestSecurityContext shrinkActor = authenticatedContext();
+    shrinkActor.grants.push_back({"addons.media.import", "backend-a"});
+    assert(!service.authorize(shrinkActor, shrinkRequest).allowed);
+    shrinkActor.grants.push_back({"addons.media.shrink", "*"});
+    assert(!service.authorize(shrinkActor, shrinkRequest).allowed);
+    shrinkActor.grants.push_back({"addons.media.shrink", "backend-other"});
+    assert(!service.authorize(shrinkActor, shrinkRequest).allowed);
+    shrinkActor.grants.push_back({"addons.media.shrink", "backend-a"});
+    assert(service.authorize(shrinkActor, shrinkRequest).allowed);
+    shrinkActor.grants.push_back({"role.read-only", "backend-a"});
+    assert(service.authorize(shrinkActor, shrinkRequest).reasonCode ==
+           "role_read_only");
+
+    // Future and unknown add-on grants are not activated by raw DB rows,
+    // administrator roles or wildcard grants.
+    for (const auto* future : {"addons.media.check",
+                               "addons.unknown.run"}) {
+        const auto request = permissionRequest(future, "backend-a");
+        assert(!service.authorize(adminRole, request).allowed);
+        assert(!service.authorize(wildcard, request).allowed);
+        RequestSecurityContext forged = authenticatedContext();
+        forged.grants.push_back({future, "backend-a"});
+        assert(!service.authorize(forged, request).allowed);
+    }
+
     RequestSecurityContext expired = allowed;
     expired.session->expired = true;
     assert(service.authorize(expired, requestFor("default")).reasonCode ==

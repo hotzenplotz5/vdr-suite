@@ -1322,6 +1322,29 @@ struct PublicDevicePairingDecisionResult
     PublicDevicePairingAdministrativeResource request;
 };
 
+enum class PublicMediaImportAdmissionStatus
+{
+    accepted, replayed, invalid, forbidden, idempotencyConflict,
+    conflict, unavailable
+};
+
+struct PublicMediaImportAdmissionRequest
+{
+    std::string actorRef;
+    std::string backendId;
+    std::string sourceId;
+    std::string idempotencyKey;
+    bool approveVideoReencode = false; // immutable, explicitly selected
+    std::string videoDecision; // optional "desktop" or "skip"
+};
+
+struct PublicMediaImportAdmissionResult
+{
+    PublicMediaImportAdmissionStatus status =
+        PublicMediaImportAdmissionStatus::unavailable;
+    PublicOperationResource operation;
+};
+
 struct PublicTimerCreateAdmissionRequest
 {
     std::string actorRef;
@@ -1419,6 +1442,39 @@ public:
         const PublicNativeTimerDeleteRequest&)>;
     using NativeTimerModifyAdmission = std::function<PublicNativeTimerModifyResult(
         const PublicNativeTimerModifyRequest&)>;
+    // A7.2: the Core actor/backend authority is the only source of truth.
+    enum class MediaImportSourceStatus { ok, forbidden, unavailable };
+    struct MediaImportSourceResult {
+        MediaImportSourceStatus status = MediaImportSourceStatus::unavailable;
+        std::vector<std::string> ids;
+        std::vector<std::string> labels; // optional authorized display names
+        std::vector<std::string> folders; // optional source-root-relative folders
+        bool partial = true; // fail closed for legacy/unknown observations
+    };
+    using MediaImportSourceLookup = std::function<MediaImportSourceResult(
+        const std::string& actorId, const std::string& backendId)>;
+
+    enum class MediaImportPreviewStatus { pending, ready, forbidden, unavailable };
+    struct MediaImportPreviewResult {
+        MediaImportPreviewStatus status = MediaImportPreviewStatus::unavailable;
+        std::string sourceId;
+        std::string inspectionStatus;
+        std::string title;
+        std::string targetFolder;
+        std::string videoCodec;
+        std::uint64_t sourceBytes = 0;
+        std::uint64_t availableBytes = 0;
+        std::uint64_t requiredBytes = 0;
+        bool videoReencodeRequired = false;
+    };
+    using MediaImportPreviewLookup = std::function<MediaImportPreviewResult(
+        const std::string& actorId, const std::string& backendId,
+        const std::string& sourceId)>;
+
+    using MediaImportCapabilityLookup =
+        std::function<bool(const std::string& actorId,
+                           const std::string& backendId)>;
+
     using BackendCollectionLookup =
         std::function<PublicBackendCollectionResult(
             const PublicBackendCollectionRequest& request)>;
@@ -1529,6 +1585,10 @@ public:
         std::function<PublicEpgTimerIntentAdmissionResult(
             const PublicEpgTimerIntentAdmissionRequest&,
             const vdrsuite::public_epg_timer::AuthoritativeObservation&)>;
+
+    using MediaImportAdmission =
+        std::function<PublicMediaImportAdmissionResult(
+            const PublicMediaImportAdmissionRequest& request)>;
 
     using TimerCreateAdmission =
         std::function<PublicTimerCreateAdmissionResult(
@@ -1655,6 +1715,22 @@ public:
         const std::string& authorizedBackendId,
         ApiResponse& response) const;
 
+    void registerMediaImportSourceLookup(MediaImportSourceLookup lookup);
+    void resetMediaImportSourceLookup();
+    MediaImportSourceResult lookupMediaImportSources(
+        const std::string& actorId, const std::string& backendId) const;
+
+    void registerMediaImportPreviewLookup(MediaImportPreviewLookup lookup);
+    void resetMediaImportPreviewLookup();
+    MediaImportPreviewResult lookupMediaImportPreview(
+        const std::string& actorId, const std::string& backendId,
+        const std::string& sourceId) const;
+
+    void registerMediaImportCapabilityLookup(MediaImportCapabilityLookup lookup);
+    void resetMediaImportCapabilityLookup();
+    bool lookupMediaImportCapability(const std::string& actorId,
+                                     const std::string& backendId) const;
+
     void registerBackendCollectionLookup(
         BackendCollectionLookup lookup);
     void resetBackendCollectionLookup();
@@ -1776,6 +1852,9 @@ public:
     void registerEpgTimerIntentSubmit(EpgTimerIntentSubmit callback);
     void resetEpgTimerIntentSubmit();
     bool epgTimerIntentAdmissionConfigured() const;
+
+    void registerMediaImportAdmission(MediaImportAdmission admission);
+    void resetMediaImportAdmission();
 
     void registerTimerCreateAdmission(TimerCreateAdmission admission);
     void resetTimerCreateAdmission();
@@ -2027,6 +2106,14 @@ private:
     NativeTimerDeleteAdmission nativeTimerDeleteAdmission_;
     mutable std::mutex nativeTimerModifyMutex_;
     NativeTimerModifyAdmission nativeTimerModifyAdmission_;
+    mutable std::mutex mediaImportSourceLookupMutex_;
+    MediaImportSourceLookup mediaImportSourceLookup_;
+    mutable std::mutex mediaImportPreviewLookupMutex_;
+    MediaImportPreviewLookup mediaImportPreviewLookup_;
+
+    mutable std::mutex mediaImportCapabilityLookupMutex_;
+    MediaImportCapabilityLookup mediaImportCapabilityLookup_;
+
     mutable std::mutex backendCollectionLookupMutex_;
     BackendCollectionLookup backendCollectionLookup_;
 
@@ -2107,6 +2194,9 @@ private:
     EpgTimerIntentObservationLookup epgTimerIntentObservationLookup_;
     EpgTimerIntentReplayLookup epgTimerIntentReplayLookup_;
     EpgTimerIntentSubmit epgTimerIntentSubmit_;
+
+    mutable std::mutex mediaImportAdmissionMutex_;
+    MediaImportAdmission mediaImportAdmission_;
 
     mutable std::mutex timerCreateAdmissionMutex_;
     TimerCreateAdmission timerCreateAdmission_;

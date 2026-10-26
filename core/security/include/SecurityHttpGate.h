@@ -109,6 +109,16 @@ public:
             path.rfind("/api/", 0) == 0 &&
             !gate.publicApiV1 &&
             path != "/api/security/browser-sessions/current";
+        const bool isAddonActivationMutation =
+            isPost && path == "/api/v1/addons/rectools/activation";
+        const bool isAddonActivationRead =
+            request.method == "GET" &&
+            path == "/api/v1/addons/rectools/activation";
+        const bool isAddonSourceMutation =
+            isPost && path == "/api/v1/addons/rectools/sources";
+        const bool isAddonSourceRead =
+            request.method == "GET" &&
+            path == "/api/v1/addons/rectools/sources";
         const bool isRemoteAction = isPost && path == "/api/vdr/remote/actions";
         const bool isTimerCreateAction = isPost && path == "/api/vdr/timers/actions/create";
         const bool isTimerUpdateAction = isPost && path == "/api/vdr/timers/actions/update";
@@ -399,9 +409,178 @@ public:
             isPublicOperationResource;
         const bool isPublicBackendCollection =
             path == "/api/v1/backends";
+        const std::string mediaImportCapabilityPrefix = "/api/v1/backends/";
+        const std::string mediaImportCapabilitySuffix =
+            "/capabilities/media-import";
+        const bool isPublicMediaImportCapabilityResource =
+            path.compare(0, mediaImportCapabilityPrefix.size(),
+                         mediaImportCapabilityPrefix) == 0 &&
+            path.size() > mediaImportCapabilityPrefix.size() +
+                          mediaImportCapabilitySuffix.size() &&
+            path.compare(path.size() - mediaImportCapabilitySuffix.size(),
+                         mediaImportCapabilitySuffix.size(),
+                         mediaImportCapabilitySuffix) == 0 &&
+            path.substr(mediaImportCapabilityPrefix.size(),
+                path.size() - mediaImportCapabilityPrefix.size() -
+                mediaImportCapabilitySuffix.size()).find('/') ==
+                    std::string::npos;
+        const std::string mediaImportCollectionSuffix = "/media-imports";
+        const bool mediaImportCollectionPrefix =
+            path.compare(0, mediaImportCapabilityPrefix.size(),
+                         mediaImportCapabilityPrefix) == 0 &&
+            path.size() > mediaImportCapabilityPrefix.size() +
+                mediaImportCollectionSuffix.size() &&
+            path.compare(path.size() - mediaImportCollectionSuffix.size(),
+                         mediaImportCollectionSuffix.size(),
+                         mediaImportCollectionSuffix) == 0;
+        const std::string publicMediaImportBackendId =
+            mediaImportCollectionPrefix
+                ? path.substr(mediaImportCapabilityPrefix.size(),
+                    path.size() - mediaImportCapabilityPrefix.size() -
+                    mediaImportCollectionSuffix.size())
+                : std::string();
+        const bool isPublicMediaImportCollection =
+            !publicMediaImportBackendId.empty() &&
+            publicMediaImportBackendId.size() <= 128U &&
+            publicMediaImportBackendId != "*" &&
+            publicMediaImportBackendId != "." &&
+            publicMediaImportBackendId != ".." &&
+            std::all_of(publicMediaImportBackendId.begin(),
+                publicMediaImportBackendId.end(), [](unsigned char ch) {
+                    return std::isalnum(ch) || ch == '-' ||
+                        ch == '_' || ch == '.';
+                });
+        const bool isPublicMediaImportCreate =
+            isPost && isPublicMediaImportCollection;
+        const std::string mediaImportSourcesSuffix = "/media-import-sources";
+        const bool isPublicMediaImportSourcesResource =
+            path.compare(0, mediaImportCapabilityPrefix.size(),
+                         mediaImportCapabilityPrefix) == 0 &&
+            path.size() > mediaImportCapabilityPrefix.size() +
+                mediaImportSourcesSuffix.size() &&
+            path.compare(path.size() - mediaImportSourcesSuffix.size(),
+                         mediaImportSourcesSuffix.size(),
+                         mediaImportSourcesSuffix) == 0 &&
+            path.substr(mediaImportCapabilityPrefix.size(),
+                path.size() - mediaImportCapabilityPrefix.size() -
+                mediaImportSourcesSuffix.size()).find('/') ==
+                    std::string::npos;
+        const std::string mediaImportPreviewMarker = "/media-import-sources/";
+        const std::string mediaImportPreviewSuffix = "/preview";
+        bool isPublicMediaImportPreviewResource = false;
+        if (path.compare(0, mediaImportCapabilityPrefix.size(),
+                         mediaImportCapabilityPrefix) == 0 &&
+            path.size() > mediaImportCapabilityPrefix.size() +
+                mediaImportPreviewMarker.size() +
+                mediaImportPreviewSuffix.size() &&
+            path.compare(path.size() - mediaImportPreviewSuffix.size(),
+                mediaImportPreviewSuffix.size(),
+                mediaImportPreviewSuffix) == 0) {
+            const auto split = path.find(
+                mediaImportPreviewMarker, mediaImportCapabilityPrefix.size());
+            if (split != std::string::npos) {
+                const std::string backend = path.substr(
+                    mediaImportCapabilityPrefix.size(),
+                    split - mediaImportCapabilityPrefix.size());
+                const std::string token = path.substr(
+                    split + mediaImportPreviewMarker.size(),
+                    path.size() - mediaImportPreviewSuffix.size() -
+                        split - mediaImportPreviewMarker.size());
+                isPublicMediaImportPreviewResource =
+                    !backend.empty() && backend.size() <= 128U &&
+                    backend != "." && backend != ".." && backend != "*" &&
+                    std::all_of(backend.begin(), backend.end(),
+                        [](unsigned char c) {
+                            return std::isalnum(c) || c == '.' ||
+                                c == '-' || c == '_';
+                        }) &&
+                    token.size() >= 16U && token.size() <= 64U &&
+                    std::all_of(token.begin(), token.end(),
+                        [](unsigned char c) {
+                            return std::isalnum(c) || c == '-' || c == '_';
+                        });
+            }
+        }
+        const std::string mediaCheckBase = "/api/v1/backends/";
+        const std::string mediaCheckCapabilitySuffix =
+            "/capabilities/media-check";
+        const std::string mediaCheckCollectionSuffix = "/media-checks";
+        std::string publicMediaCheckBackendId;
+        bool isPublicMediaCheckCapabilityResource = false;
+        bool isPublicMediaCheckCollection = false;
+        bool isPublicMediaCheckStatusResource = false;
+        bool isPublicMediaShrinkCapabilityResource = false;
+        bool isPublicMediaShrinkPlanCollection = false;
+        bool isPublicMediaShrinkStageCollection = false;
+        bool isPublicMediaShrinkPublishCollection = false;
+        bool isPublicMediaShrinkReviewResource = false;
+        std::string publicMediaShrinkBackendId;
+        if (path.compare(0, mediaCheckBase.size(), mediaCheckBase) == 0) {
+            const std::size_t split = path.find('/', mediaCheckBase.size());
+            if (split != std::string::npos) {
+                const std::string candidate = path.substr(
+                    mediaCheckBase.size(), split - mediaCheckBase.size());
+                const std::string tail = path.substr(split);
+                const bool valid = !candidate.empty() &&
+                    candidate.size() <= 128 &&
+                    candidate != "." && candidate != ".." &&
+                    candidate != "*" &&
+                    std::all_of(candidate.begin(), candidate.end(),
+                        [](unsigned char ch) {
+                            return std::isalnum(ch) || ch == '-' ||
+                                ch == '_' || ch == '.';
+                        });
+                if (valid) {
+                    isPublicMediaCheckCapabilityResource =
+                        tail == mediaCheckCapabilitySuffix;
+                    isPublicMediaCheckCollection =
+                        tail == mediaCheckCollectionSuffix;
+                    isPublicMediaCheckStatusResource =
+                        tail.compare(0, mediaCheckCollectionSuffix.size() + 1,
+                            mediaCheckCollectionSuffix + "/") == 0 &&
+                        tail.find('/', mediaCheckCollectionSuffix.size() + 1)
+                            == std::string::npos;
+                    if (isPublicMediaCheckCapabilityResource ||
+                        isPublicMediaCheckCollection ||
+                        isPublicMediaCheckStatusResource)
+                        publicMediaCheckBackendId = candidate;
+                    isPublicMediaShrinkCapabilityResource =
+                        tail == "/capabilities/media-shrink";
+                    isPublicMediaShrinkPlanCollection =
+                        tail == "/media-shrink-plans";
+                    isPublicMediaShrinkStageCollection =
+                        tail == "/media-shrink-stages";
+                    isPublicMediaShrinkPublishCollection =
+                        tail == "/media-shrink-publications";
+                    const std::string reviewPrefix = "/media-shrink-reviews/";
+                    isPublicMediaShrinkReviewResource =
+                        tail.compare(0, reviewPrefix.size(), reviewPrefix) == 0 &&
+                        tail.size() > reviewPrefix.size() &&
+                        tail.find('/', reviewPrefix.size()) == std::string::npos;
+                    if (isPublicMediaShrinkCapabilityResource ||
+                        isPublicMediaShrinkPlanCollection ||
+                        isPublicMediaShrinkStageCollection ||
+                        isPublicMediaShrinkPublishCollection ||
+                        isPublicMediaShrinkReviewResource)
+                        publicMediaShrinkBackendId = candidate;
+                }
+            }
+        }
+        const bool isPublicMediaCheckCreate =
+            isPost && isPublicMediaCheckCollection;
+        const bool isPublicMediaShrinkPlanCreate =
+            isPost && isPublicMediaShrinkPlanCollection;
+        const bool isPublicMediaShrinkStageCreate =
+            isPost && isPublicMediaShrinkStageCollection;
+        const bool isPublicMediaShrinkPublishCreate =
+            isPost && isPublicMediaShrinkPublishCollection;
         const bool isPublicBackendRead =
             request.method == "GET" &&
-            isPublicBackendCollection;
+            (isPublicBackendCollection || isPublicMediaImportCapabilityResource ||
+             isPublicMediaImportSourcesResource ||
+             isPublicMediaImportPreviewResource ||
+             isPublicMediaCheckCapabilityResource ||
+             isPublicMediaShrinkCapabilityResource);
         const bool isPublicAccountCollection =
             path == "/api/v1/accounts";
         const std::string publicAccountPrefix =
@@ -983,6 +1162,9 @@ public:
              path == "/api/v1/capabilities" ||
              isPublicBackendCollection ||
              path == "/api/v1/devices" ||
+             isPublicMediaImportCapabilityResource ||
+             isPublicMediaImportSourcesResource ||
+             isPublicMediaImportPreviewResource ||
              isPublicChannelCollection ||
              isPublicEpgNowNext ||
              isPublicRecordingDetail ||
@@ -1011,6 +1193,7 @@ public:
              path == "/api/vdr/searchtimers/plan");
         const bool isProtectedMutation =
             isPublicNativeTimerModify ||
+            isAddonActivationMutation || isAddonSourceMutation ||
             isRemoteAction || isTimerCreateAction ||
             isPublicDevicePairingDecision ||
             isPublicAccountCreate ||
@@ -1026,6 +1209,11 @@ public:
             isPublicEpgTimerIntentCreate ||
             isPublicSearchTimerCreate ||
             isPublicSearchTimerMutation ||
+            isPublicMediaImportCreate ||
+            isPublicMediaCheckCreate ||
+            isPublicMediaShrinkPlanCreate ||
+            isPublicMediaShrinkStageCreate ||
+            isPublicMediaShrinkPublishCreate ||
             isPublicDeviceRecordingSessionCreate ||
             isPublicDeviceRecordingProgressUpdate ||
             isPublicDeviceLiveSessionCreate ||
@@ -1050,6 +1238,40 @@ public:
             isLegacyOsdViewerAttach ||
             isLegacyOsdViewerDetach;
 
+        if (isAddonActivationRead || isAddonSourceRead)
+        {
+            if (!gate.browserAuthenticated ||
+                gate.context.actor.type != ActorType::User ||
+                !gate.context.session.has_value())
+            {
+                if (!gate.context.authenticated()) return rejectAuthentication(gate);
+                AuthorizationDecision denial;
+                denial.permission = "role.admin";
+                denial.backendId = "*";
+                denial.action = isAddonSourceRead ? "addons.sources.read" : "addons.intent.read";
+                denial.reasonCode = "browser_session_required";
+                return rejectWithAudit(gate, denial, 403,
+                    "An administrator Browser Session is required", "");
+            }
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(
+                    gate.context, {"role.admin", "*",
+                        isAddonSourceRead ? "addons.sources.read"
+                                          : "addons.intent.read"});
+            if (!decision.allowed)
+                return rejectWithAudit(gate, decision, 403,
+                    "Administrator permission is required", "");
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            gate.authorizationDecision = decision;
+            gate.allowed = true;
+            return gate;
+        }
         if (isHbbtvDiscoveryRead || isHbbtvPresentationRead ||
             isHbbtvMediaRead)
         {
@@ -1503,6 +1725,53 @@ public:
 
             gate.authorizedBackendIds =
                 std::move(discoveryScopes);
+            gate.allowed = true;
+            return gate;
+        }
+
+        // M2 report reads require the same effective backend grant as the
+        // POST that starts a check. Discovery visibility alone is insufficient
+        // after permission revocation.
+        if (request.method == "GET" &&
+            (isPublicMediaCheckStatusResource ||
+             isPublicMediaShrinkReviewResource))
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+
+            AuthorizationRequest checkRead;
+            checkRead.permission = "media.recording.play";
+            checkRead.backendId = isPublicMediaShrinkReviewResource
+                ? publicMediaShrinkBackendId : publicMediaCheckBackendId;
+            checkRead.action = isPublicMediaShrinkReviewResource
+                ? "media.recording.shrink.review.read"
+                : "media.recording.check.read";
+            const AuthorizationDecision decision =
+                authorizationService_.authorize(gate.context, checkRead);
+            if (!appendDecisionEvent(gate.context, decision, ""))
+            {
+                gate.rejection = errorResponse(
+                    503, "accountability_unavailable",
+                    "Security accountability persistence is unavailable",
+                    gate.context);
+                return gate;
+            }
+            if (!decision.allowed)
+            {
+                const int statusCode =
+                    decision.reasonCode == "invalid_backend_scope"
+                        ? 400
+                        : (authenticationFailure(decision) ? 401 : 403);
+                gate.rejection = errorResponse(
+                    statusCode, decision.reasonCode,
+                    messageForReason(decision.reasonCode),
+                    gate.context, authenticationFailure(decision),
+                    gate.publicApiV1);
+                return gate;
+            }
+
+            gate.authorizationDecision = decision;
+            gate.authorizedBackendIds = {checkRead.backendId};
             gate.allowed = true;
             return gate;
         }
@@ -2627,6 +2896,21 @@ public:
         }
         // Credential issuance to an existing Device is administrator-browser
         // only even if a Service Actor somehow obtained an administrative grant.
+        if ((isAddonActivationMutation || isAddonSourceMutation) &&
+            (!gate.browserAuthenticated ||
+             gate.context.actor.type != ActorType::User ||
+             !gate.context.session.has_value()))
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            AuthorizationDecision denial;
+            denial.permission = "role.admin";
+            denial.action = "addons.intent.update";
+            denial.backendId = "*";
+            denial.reasonCode = "browser_session_required";
+            return rejectWithAudit(gate, denial, 403,
+                "A verified administrator Browser Session is required", "");
+        }
         if (isPublicDeviceCredentialRotation && !gate.browserAuthenticated)
         {
             if (!gate.context.authenticated())
@@ -2646,7 +2930,14 @@ public:
         bool recordingActionSupported = true;
         bool publicAccountMutationSupported = true;
 
-        if (isPublicDevicePairingDecision)
+        if (isAddonActivationMutation || isAddonSourceMutation)
+        {
+            requestToAuthorize.backendId = "*";
+            requestToAuthorize.permission = "role.admin";
+            requestToAuthorize.action = isAddonSourceMutation
+                ? "addons.sources.update" : "addons.intent.update";
+        }
+        else if (isPublicDevicePairingDecision)
         {
             requestToAuthorize.backendId = "*";
             requestToAuthorize.permission =
@@ -2828,6 +3119,35 @@ public:
             // Only this exact action receives role.admin@* expansion.
             requestToAuthorize.action = "native_timers.create";
             requestToAuthorize.backendId = publicEpgTimerBackendId;
+        }
+        else if (isPublicMediaImportCreate)
+        {
+            requestToAuthorize.permission = "addons.media.import";
+            requestToAuthorize.action = "media.import";
+            requestToAuthorize.backendId = publicMediaImportBackendId;
+        }
+        else if (isPublicMediaCheckCreate)
+        {
+            requestToAuthorize.permission = "media.recording.play";
+            requestToAuthorize.action = "media.recording.check";
+            requestToAuthorize.backendId = publicMediaCheckBackendId;
+        }
+        else if (isPublicMediaShrinkPlanCreate)
+        {
+            requestToAuthorize.permission = "media.recording.play";
+            requestToAuthorize.action = "media.recording.shrink.plan";
+            requestToAuthorize.backendId = publicMediaShrinkBackendId;
+        }
+        else if (isPublicMediaShrinkStageCreate ||
+                 isPublicMediaShrinkPublishCreate)
+        {
+            // Mutations NEVER inherit playback or administrator permission.
+            // Core independently rechecks effective actor grants, backend
+            // generation, addon activation and exact immutable Operation.
+            requestToAuthorize.permission = "addons.media.shrink";
+            requestToAuthorize.action = isPublicMediaShrinkStageCreate
+                ? "media.shrink.stage" : "media.shrink.publish";
+            requestToAuthorize.backendId = publicMediaShrinkBackendId;
         }
         else if (isTimerCreateAction ||
                  isPublicTimerAssignmentCreate)

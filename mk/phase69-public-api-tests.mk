@@ -549,6 +549,33 @@ test-phase69f-client-contract-matrix:
 test-frontend-contracts: test-phase69f-client-contract-matrix
 
 
+.PHONY: test-addon-media-import-source-list-api
+
+test-addon-media-import-source-list-api:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_media_import_source_list.cpp \
+		-o $(BUILD_DIR)/test_public_media_import_source_list
+	$(BUILD_DIR)/test_public_media_import_source_list
+
+.PHONY: test-addon-media-import-api-admission
+
+test-addon-media-import-api-admission:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_media_import_admission.cpp \
+		-o $(BUILD_DIR)/test_public_media_import_admission
+	$(BUILD_DIR)/test_public_media_import_admission
+
+.PHONY: test-addon-media-import-api-capability
+
+test-addon-media-import-api-capability:
+	$(BUILD_CXX) $(CXXFLAGS) \
+		$(REST_PUBLIC_API_SRC) \
+		api/rest/tests/test_public_media_import_capability.cpp \
+		-o $(BUILD_DIR)/test_public_media_import_capability
+	$(BUILD_DIR)/test_public_media_import_capability
+
 .PHONY: test-phase69f-public-backend-collection
 
 test-phase69f-public-backend-collection:

@@ -123,6 +123,49 @@ public:
              request.action == "native_timers.modify") ||
             (request.permission == "timers.delete" &&
              request.action == "native_timers.delete");
+        // Add-on mutations are never implied by generic wildcard grants.
+        // A global, authenticated user administrator may operate the add-on
+        // installed by root without acquiring a second user grant.
+        // Other users still need an exact backend-scoped grant.
+        if (request.permission.rfind("addons.", 0) == 0)
+        {
+            // Grant vocabulary is strictly Core-owned. Future features
+            // remain disabled even if arbitrary grants are persisted.
+            if (request.permission != "addons.media.import" &&
+                request.permission != "addons.media.shrink")
+            {
+                decision.reasonCode = "permission_denied";
+                return decision;
+            }
+            if (request.backendId != "*" &&
+                context.actor.type == ActorType::User)
+            {
+                for (const PermissionGrant& grant : context.grants)
+                {
+                    if (grant.permission == "role.admin" &&
+                        grant.backendId == "*")
+                    {
+                        decision.allowed = true;
+                        decision.reasonCode = "role_permission_granted";
+                        return decision;
+                    }
+                }
+            }
+            for (const PermissionGrant& grant : context.grants)
+            {
+                if (grant.permission == request.permission &&
+                    grant.backendId == request.backendId &&
+                    request.backendId != "*")
+                {
+                    decision.allowed = true;
+                    decision.reasonCode = "permission_granted";
+                    return decision;
+                }
+            }
+            decision.reasonCode = "permission_denied";
+            return decision;
+        }
+
         bool permissionPresent = false;
         for (const PermissionGrant& grant : context.grants)
         {
@@ -171,7 +214,9 @@ private:
     static bool protectedMutationPermission(
         const std::string& permission)
     {
-        return permission == "remote.control" ||
+        return permission == "addons.media.import" ||
+            permission == "addons.media.shrink" ||
+            permission == "remote.control" ||
             permission == "timers.create" ||
             permission == "timers.modify" ||
             permission == "timers.delete" ||

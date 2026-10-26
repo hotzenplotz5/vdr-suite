@@ -1,5 +1,64 @@
-# Modules: reserved placeholders
+# VDR-Suite optional add-on source tree
 
-The `image`, `music`, `rectools` and `tvscraper` directories on this branch contain only documentation placeholders, not executable or installable add-ons. Separate add-on platform development does not automatically make these directories functional.
+[Architecture decision](../docs/adr/ADR-0068-optional-addons-and-source-packaging.md) · [Packaging guide](../docs/development/addon-source-packaging.md) · [Roadmap](../docs/planning/addon-platform-roadmap.md)
 
-See [current architecture](../docs/development/current-architecture-state.md) and [CURRENT](../docs/CURRENT.md) for implemented features and integration status.
+This directory owns disabled manifest and packaging **metadata** for optional product extensions.
+The Media Tools implementation lives in `addons/media-tools/`, its Suite Core
+integration in `core/addons/media-tools/`, and general platform services in
+`core/addons/`. This is not a runtime plugin loader. Images and Music are
+independent future add-ons and are outside the current Media Tools workstream. The existing browser `VdrSuitePlatform.registerModule()` registers web UI modules only; it does **not** grant backend permissions, register endpoints, or load external executables.
+
+Every subdirectory currently in scope must contain:
+- `addon.json`: versioned metadata, package name, scaffold status and declared capabilities;
+- `README.md`: the supported and excluded feature set and packaging/runtime status;
+- `AGENTS.md`: module-specific repository and safety rules, subordinate to root `AGENTS.md`.
+
+Run `make check-addon-contract` to validate the complete source tree and focused tests.
+Run `make stage-addon MODULE=rectools DESTDIR=/path/to/isolated-package-root PREFIX=/usr` to produce a **metadata-only**, reproducible staging payload under `usr/share/vdr-suite/addons/rectools/`. This is package-source readiness, **not** a functioning Rectools import. A separate opt-in `make build-addon-deb` target builds a distinctly labelled, inert `~scaffold1` Debian metadata package. Runnable binary and source package policies follow only after the handler exists.
+
+No add-on is enabled by its presence in the source tree, `make install`, or metadata staging. Activation, public API routes, persistent permissions, protected job execution and web menus require future explicit reviewed implementation. No add-on can bypass the daemon's policy and ownership boundaries.
+
+Current inert module manifest identities:
+
+| Module | Intended responsibility | State |
+| --- | --- | --- |
+| [rectools](rectools/README.md) | Media import, read-only checking, optionally guarded shrink | disabled scaffold manifest; source-level Agent/Core integration is separate and has not been runtime-accepted |
+| [image](image/README.md) | Photo library/album/diashow | scaffold |
+| [music](music/README.md) | Audio library/playlists | scaffold |
+The VDR `tvscraper` plugin is **not a Suite add-on**. Native recording/EPG
+metadata flows through the existing SuiteBridge adapter and Suite Core
+provider/evidence model (ADR-0036); it must not be independently staged or
+enabled by the optional add-on registry.
+
+The core owns VDR-native marks/cut/rename/move, account rights, common jobs, stable client APIs and reconciliation. Future add-ons implement bounded domain functionality through shared APIs instead of duplicating these owners.
+
+## Installed inventory (read-only)
+
+A source manifest and independently installed metadata do not imply activation.
+The [registry contract](../docs/development/addon-installed-registry-contract.md)
+adds `make check-addon-registry` and a deterministic `installed_registry.py`
+inventory/enable-decision preview. Installed module manifests must be complete
+and match a core-owned package name; unknown packages, symlinked entries and
+malformed metadata are rejected. **All listed modules remain disabled**, and
+the preview never writes activation state, installs packages or invokes media.
+This is not a server API, menu or backend module loader.
+
+## C++ access decision contract (offline)
+
+A standalone Suite-Core policy under `core/addons/` now checks authenticated actor context, **resolved** permission grants, exact reviewed module/package binding, package provenance, administrator intent, handler health and canonical backend write policy. `make test-addon-access-policy` validates these gates without a daemon or media access. This contract is not yet connected to API/Agent execution. No live module is enabled; `addons.media.import` is deliberately **not** added to current administrable rights until the backend operation is ready.
+
+## Administrator desire is not execution
+
+The [SQLite activation-intent proof](../docs/development/addon-installed-registry-contract.md)
+models administrator preference separately from installed and effective
+capabilities. It is **not connected to the daemon** and does not activate
+any of these three packages. No automatic add-on enable or client discovery
+is permitted from persisted preference alone.
+
+## Non-executing admission preview
+
+The Suite Core now has a [SQLite-to-policy admission read bridge](../docs/development/addon-installed-registry-contract.md).
+It ignores fabricated module-enabled claims and checks the persisted
+backend-specific intent only after independent policy checks. Its
+`executable` result is always false. This is not installed-package
+trust verification, live capability discovery, or a module activation.

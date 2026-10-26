@@ -58,6 +58,10 @@ void DaemonRuntime::shutdown()
     PublicApiRuntime::instance().resetRecordingArtworkLookup();
     recordingArtworkService_.reset();
     apiRouter_.reset();
+    MediaCheckApiRuntime::instance().registerHandlers({}, {}, {});
+    mediaCheckRuntime_.reset();
+    MediaShrinkPlanApiRuntime::instance().registerHandlers({}, {});
+    mediaShrinkPlanRuntime_.reset();
     ManualRecordingMetadataApiRuntime::instance().reset();
     PublicApiRuntime::instance().resetTimerCreateAdmission();
     PublicApiRuntime::instance().resetNativeTimersLookup();
@@ -215,6 +219,7 @@ void DaemonRuntime::shutdown()
     timerAssignmentRepository_.reset();
     timerIntentRepository_.reset();
     mutationOperationReadService_.reset();
+    mediaShrinkReviewRepository_.reset();
     mutationOperationRepository_.reset();
 
     std::cout << "API router runtime stopped" << std::endl;

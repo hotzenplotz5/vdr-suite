@@ -40,6 +40,12 @@
 .recordings2-hero-actions button{min-height:3rem;padding:.66rem 1.15rem;border:1px solid rgba(255,255,255,.25);border-radius:999px;background:rgba(15,18,23,.64);color:#f8fafc;font-weight:850;box-shadow:0 .35rem 1.25rem rgba(0,0,0,.14);backdrop-filter:blur(14px)}
 .recordings2-hero-actions button.primary{border-color:#b9d8ff;background:#b9d8ff;color:#10203a}
 .recordings2-hero-actions button:hover,.recordings2-hero-actions button:focus-visible{transform:translateY(-1px);border-color:#b9d8ff;outline:none}
+.recordings2-media-check{display:grid;gap:.65rem;max-width:52rem;padding:1rem;border:1px solid rgba(185,216,255,.32);border-radius:.8rem;background:rgba(10,13,18,.68)}
+.recordings2-media-check[hidden]{display:none!important}
+.recordings2-media-check h4{margin:0;font-size:1.1rem}
+.recordings2-media-check select,.recordings2-media-check button{min-height:2.6rem;padding:.5rem .85rem;border:1px solid rgba(185,216,255,.4);border-radius:.5rem;background:#182031;color:#f8fafc}
+.recordings2-media-check-status{line-height:1.5;overflow-wrap:anywhere}
+.recordings2-media-check-report{max-height:18rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:.78rem}
 .recordings2-hero-cast{display:flex;gap:1rem;overflow-x:auto;padding:.2rem 0 .4rem;scrollbar-width:thin}
 .recordings2-hero-page button.recordings2-hero-person{display:grid;grid-template-columns:2.8rem minmax(0,1fr);gap:.58rem;align-items:center;flex:0 0 auto;min-width:10.5rem;min-height:0;padding:.18rem .35rem .18rem .18rem;border:1px solid rgba(255,255,255,.08);border-radius:.75rem;background:transparent;color:inherit;text-align:left;box-shadow:none;appearance:none}
 .recordings2-hero-page button.recordings2-hero-person:hover{border-color:rgba(255,255,255,.18);background:rgba(0,0,0,.2);box-shadow:none}
@@ -328,6 +334,554 @@
     }, 0);
   }
 
+
+  // M2.3: existing Recording Hero owns the Media Check control and report.
+  // The web client never submits a recording path or starts local FFmpeg.
+  function mediaCheckClient() {
+    const factory = global.VdrSuitePublicV1Client;
+    if (!factory || typeof factory.createClient !== 'function') return null;
+    return factory.createClient({
+      baseUrl: global.location && global.location.origin ? global.location.origin : '',
+      credentials: 'same-origin'
+    });
+  }
+
+  function resolveMediaCheckIdentity(client, recording, backendId) {
+    const direct = text(recording && recording.recordingId);
+    if (/^rec_[0-9a-f]{32}$/.test(direct)) return Promise.resolve(direct);
+    const recordedAt = text(shared.first(recording, ['startTime', 'recordedAt'], ''));
+    if (!recordedAt) return Promise.reject(
+      new Error('Für diese Aufnahme ist keine eindeutige Aufnahme-ID verfügbar.'));
+    const expectedTitle = text(recording && recording.title);
+    let cursor = '';
+    let matches = [];
+    let pageCount = 0;
+    function page() {
+      if (++pageCount > 20) throw new Error(
+        'Die Aufnahmenliste ist zu groß; eindeutige Zuordnung nicht möglich.');
+      const query = {backendId: backendId, limit: 100};
+      if (cursor) query.cursor = cursor;
+      return client.getRecordings({query: query, credentials: 'same-origin',
+        cache: 'no-store'}).then(function (response) {
+        if (!response || !Array.isArray(response.items) || !response.page)
+          throw new Error('Ungültige Antwort der Aufnahme-API.');
+        // Legacy Recordings 2 can display a decoded or metadata-enriched
+        // title. Preserve a unique timestamp fallback instead of rejecting
+        // the same recording merely because its public title differs.
+        matches = matches.concat(response.items.filter(function (item) {
+          return item && item.backendId === backendId &&
+            item.recordedAt === recordedAt;
+        }));
+        if (matches.length > 100) throw new Error(
+          'Zu viele Aufnahmen mit gleichem Aufnahmezeitpunkt.');
+        if (response.page.hasMore) {
+          if (!/^rc1_[a-f0-9]+$/.test(response.page.nextCursor || '') ||
+              response.page.nextCursor === cursor)
+            throw new Error('Ungültiger Aufnahme-Seitencursor.');
+          cursor = response.page.nextCursor;
+          return page();
+        }
+        const byTitle = expectedTitle ? matches.filter(function (item) {
+          return item.title === expectedTitle;
+        }) : [];
+        const candidates = byTitle.length ? byTitle : matches;
+        if (candidates.length !== 1 ||
+            !/^rec_[0-9a-f]{32}$/.test(candidates[0].recordingId))
+          throw new Error('Kanonische Aufnahme-ID nicht eindeutig gefunden.');
+        return candidates[0].recordingId;
+      });
+    }
+    return page();
+  }
+
+  function mediaCheckSummary(report) {
+    if (!report || typeof report !== 'object')
+      return 'Unvollständiger Prüfbericht.';
+    const label = {ok: 'In Ordnung', warnings: 'Warnungen',
+      errors: 'Fehler', incomplete: 'Prüfung unvollständig'};
+    const state = label[report.status] || 'Unbekanntes Ergebnis';
+    const segments = Number(report.segments);
+    const errors = ['syncErrors', 'transportErrors', 'adaptationErrors',
+      'trailingBytes', 'continuityWarnings'].map(function (field) {
+      return field + ': ' + Number(report[field] || 0);
+    }).join(' · ');
+    const broken = (Array.isArray(report.segmentReports)
+      ? report.segmentReports : []).filter(function (item) {
+        return item && item.status !== 'ok';
+      }).map(function (item) { return text(item.name) + ' (' + item.status + ')'; });
+    let summary = state + ' · ' +
+      (report.analysis === 'ts_structure_and_ffmpeg_decode'
+        ? 'FFmpeg-Decodierung' : 'TS-Struktur') +
+      ' · ' + (Number.isFinite(segments) ? segments : '?') +
+      ' TS-Segmente · ' + errors;
+    if (broken.length) summary += ' · Betroffene Segmente: ' + broken.join(', ');
+    const sidecars = Array.isArray(report.sidecarReports)
+      ? report.sidecarReports : [];
+    const faultySidecars = sidecars.filter(function (item) {
+      return item && item.status !== 'ok';
+    }).map(function (item) { return text(item.name) + ' (' + item.status + ')'; });
+    if (faultySidecars.length)
+      summary += ' · Sidecars: ' + faultySidecars.join(', ');
+    if (report.ffprobe && report.ffprobe.status === 'ok' &&
+        typeof report.ffprobe.details === 'string') {
+      try {
+        const found = JSON.parse(report.ffprobe.details);
+        const streams = Array.isArray(found.streams) ? found.streams : [];
+        const media = streams.filter(function (item) {
+          return item && (item.codec_type === 'video' ||
+            item.codec_type === 'audio');
+        }).map(function (item) {
+          const codec = typeof item.codec_name === 'string'
+            ? item.codec_name : '?';
+          if (item.codec_type === 'video')
+            return 'Video: ' + codec + (item.width && item.height
+              ? ' ' + Number(item.width) + '×' + Number(item.height) : '');
+          return 'Audio: ' + codec + (item.channels
+            ? ' (' + Number(item.channels) + ' Kanäle)' : '');
+        });
+        if (media.length) summary += ' · ' + media.join(' · ');
+        if (found.format && typeof found.format.format_name === 'string')
+          summary += ' · Container: ' + found.format.format_name;
+      } catch (_) {
+        summary += ' · FFprobe-Bericht nicht lesbar.';
+      }
+    } else if (report.ffprobe && report.ffprobe.status !== 'ok') {
+      summary += ' · FFprobe unvollständig.';
+    }
+    if (report.decoder && report.decoder.timedOut)
+      summary += ' · FFmpeg-Zeitlimit erreicht.';
+    if (report.decoder && report.decoder.diagnostic)
+      summary += ' · FFmpeg: ' + text(report.decoder.diagnostic);
+    return summary;
+  }
+
+  function renderMediaCheck(root, copy, recording, backendId, actions) {
+    const client = mediaCheckClient();
+    if (!client || !/^[-A-Za-z0-9._]{1,128}$/.test(text(backendId))) return;
+    client.getMediaCheckCapability({
+      backendId: backendId, credentials: 'same-origin', cache: 'no-store'
+    }).then(function (capability) {
+      if (!capability || capability.available !== true ||
+          capability.backendId !== backendId ||
+          capability.capability !== 'addons.media.check' ||
+          !actions.parentNode) return;
+      const action = makeButton('Aufnahme prüfen', function () {
+        panel.hidden = false;
+        if (typeof panel.scrollIntoView === 'function')
+          panel.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+      });
+      action.className = 'recordings2-media-check-action';
+      const panel = shared.node('section', 'recordings2-media-check');
+      panel.hidden = true;
+      const heading = shared.node('h4', '', 'Aufnahme prüfen');
+      const selector = global.document.createElement('select');
+      selector.setAttribute('aria-label', 'Prüfumfang');
+      const structure = global.document.createElement('option');
+      structure.value = 'structure';
+      structure.textContent = 'Schnelle TS-Prüfung';
+      selector.appendChild(structure);
+      const decode = global.document.createElement('option');
+      decode.value = 'decode';
+      decode.textContent = 'Vollständige FFmpeg-Prüfung';
+      selector.appendChild(decode);
+      const launch = makeButton('Prüfung starten', function () {
+        launch.disabled = true;
+        selector.disabled = true;
+        status.textContent = 'Aufnahme wird zugeordnet …';
+        output.textContent = '';
+        Promise.resolve().then(function () {
+          return resolveMediaCheckIdentity(client, recording, backendId);
+        }).then(function (recordingId) {
+          const session = global.VdrSuiteBrowserSession;
+          if (!session || typeof session.restore !== 'function' ||
+              typeof session.csrfHeaders !== 'function')
+            throw new Error('Anmeldung erforderlich.');
+          return Promise.resolve(session.restore()).then(function () {
+            return client.submitMediaCheck({
+              backendId: backendId, recordingId: recordingId,
+              mode: selector.value, headers: session.csrfHeaders(),
+              credentials: 'same-origin'
+            });
+          });
+        }).then(function (created) {
+          if (!created || !/^chk_[0-9a-f]{32}$/.test(created.checkId) ||
+              created.backendId !== backendId ||
+              created.state !== 'running')
+            throw new Error('Unbekannte Media-Check-Antwort.');
+          const checkId = created.checkId;
+          let reads = 0;
+          function poll() {
+            if (root.isConnected === false || !panel.parentNode || reads++ >= 500) {
+              status.textContent = 'Statusabfrage beendet. Serverprüfung kann weiterlaufen.';
+              return;
+            }
+            return client.getMediaCheckStatus({
+              backendId: backendId, checkId: checkId,
+              credentials: 'same-origin', cache: 'no-store'
+            }).then(function (result) {
+              if (!result || result.checkId !== checkId ||
+                  result.backendId !== backendId)
+                throw new Error('Unbekannter Prüfstatus.');
+              if (result.state === 'running') {
+                status.textContent = 'Aufnahmeprüfung läuft …';
+                global.setTimeout(poll, 2000);
+                return;
+              }
+              if (result.state !== 'completed' || !result.report)
+                throw new Error('Prüfbericht unvollständig.');
+              status.textContent = mediaCheckSummary(result.report);
+              output.textContent = JSON.stringify(result.report, null, 2);
+              launch.disabled = false;
+              selector.disabled = false;
+            }).catch(function (error) {
+              status.textContent = 'Statusabfrage fehlgeschlagen: ' +
+                text(error && error.message ? error.message : error);
+            });
+          }
+          status.textContent = 'Aufnahmeprüfung läuft …';
+          return poll();
+        }).catch(function (error) {
+          status.textContent = 'Prüfung nicht gestartet: ' +
+            text(error && error.message ? error.message : error);
+          launch.disabled = false;
+          selector.disabled = false;
+        });
+      });
+      const status = shared.node('p', 'recordings2-media-check-status', 'Prüfumfang auswählen.');
+      status.setAttribute('role', 'status');
+      const details = global.document.createElement('details');
+      const summary = shared.node('summary', '', 'Technischer Prüfbericht (JSON)');
+      const output = shared.node('pre', 'recordings2-media-check-report');
+      details.appendChild(summary);
+      details.appendChild(output);
+      panel.appendChild(heading);
+      panel.appendChild(selector);
+      panel.appendChild(launch);
+      panel.appendChild(status);
+      panel.appendChild(details);
+      actions.appendChild(action);
+      copy.appendChild(panel);
+    }).catch(function () {
+      // Absent or disabled Media Tools must not disrupt the Recording Hero.
+    });
+  }
+
+  function renderMediaShrinkPlan(root, copy, recording, backendId, actions) {
+    const client = mediaCheckClient();
+    if (!client || !/^[-A-Za-z0-9._]{1,128}$/.test(text(backendId)) ||
+        typeof client.getMediaShrinkCapability !== 'function') return;
+    client.getMediaShrinkCapability({
+      backendId: backendId, credentials: 'same-origin', cache: 'no-store'
+    }).then(function (capability) {
+      if (!capability || capability.planningAvailable !== true ||
+          (capability.available !== true && capability.available !== false) ||
+          capability.capability !== 'addons.media.shrink' ||
+          capability.backendId !== backendId || !actions.parentNode) return;
+
+      const panel = shared.node('section', 'recordings2-media-check');
+      panel.hidden = true;
+      const status = shared.node('p', 'recordings2-media-check-status',
+        'HEVC-Vorprüfung liest die Aufnahme nur. Das Original bleibt erhalten.');
+      status.setAttribute('role', 'status');
+      const launch = makeButton('Vorprüfung starten', function () {
+        launch.disabled = true;
+        status.textContent = 'Aufnahme wird zugeordnet …';
+        Promise.resolve().then(function () {
+          return resolveMediaCheckIdentity(client, recording, backendId);
+        }).then(function (identity) {
+          recordingId = identity;
+          const session = global.VdrSuiteBrowserSession;
+          if (!session || typeof session.restore !== 'function' ||
+              typeof session.csrfHeaders !== 'function')
+            throw new Error('Anmeldung erforderlich.');
+          return Promise.resolve(session.restore()).then(function () {
+            return client.submitMediaShrinkPlan({
+              backendId: backendId, recordingId: recordingId,
+              headers: session.csrfHeaders(), credentials: 'same-origin'
+            });
+          });
+        }).then(function (plan) {
+          if (!plan || plan.backendId !== backendId ||
+              plan.recordingId !== recordingId || plan.readOnly !== true ||
+              typeof plan.stageAvailable !== 'boolean' ||
+              !Number.isSafeInteger(plan.sourceBytes) || plan.sourceBytes <= 0 ||
+              !Number.isSafeInteger(plan.segments) || plan.segments <= 0)
+            throw new Error('Unbekannte HEVC-Vorprüfung.');
+          planReady = plan.stageAvailable === true &&
+            capability.available === true;
+          status.textContent = 'Original: ' +
+            (plan.sourceBytes / 1048576).toFixed(1) + ' MiB, ' +
+            plan.segments + ' TS-Segment(e). ' +
+            (planReady ? 'Konvertierung als privater Kandidat möglich.' :
+              'HEVC-Konvertierung ist auf diesem Backend nicht freigeschaltet.');
+          if (planReady) {
+            controls.hidden = false;
+            restorePending();
+          }
+        }).catch(function (error) {
+          status.textContent = 'HEVC-Vorprüfung fehlgeschlagen: ' +
+            text(error && error.message ? error.message : error);
+        }).then(function () { launch.disabled = false; });
+      });
+      let recordingId = '';
+      let planReady = false;
+      let stageOperationId = '';
+      let publishOperationId = '';
+      let reviewId = '';
+      let stagePolls = 0;
+      let publishPolls = 0;
+
+      const controls = shared.node('div', 'recordings2-media-shrink-controls');
+      controls.hidden = true;
+      const encoderLabel = shared.node('label', '', 'HEVC-Encoder');
+      const encoder = shared.node('select', 'recordings2-media-shrink-encoder');
+      const permitted = ['software', 'vaapi', 'qsv', 'nvenc'];
+      const encoders = Array.isArray(capability.encoders)
+        ? capability.encoders.filter(function (value) {
+            return permitted.includes(value);
+          }) : ['software'];
+      encoders.forEach(function (value) {
+        const option = shared.node('option', '', value === 'software' ?
+          'Software (x265)' : value.toUpperCase());
+        option.value = value;
+        encoder.appendChild(option);
+      });
+      encoderLabel.appendChild(encoder);
+      const fallbackNotice = shared.node('p', 'recordings2-media-check-status',
+        'GPU-Encoder sind optional. Bei Hardwarefehler wird automatisch ' +
+        'Software (x265) verwendet.');
+      fallbackNotice.hidden = capability.encoderFallbackToSoftware !== true;
+      const heightLabel = shared.node('label', '', ' Auf 720p begrenzen');
+      const height = shared.node('input');
+      height.type = 'checkbox';
+      heightLabel.prepend(height);
+      const nightLabel = shared.node('label', '', ' Night-Mode');
+      const night = shared.node('input');
+      night.type = 'checkbox';
+      nightLabel.prepend(night);
+
+      const stage = makeButton('HEVC-Konvertierung starten', function () {
+        if (!planReady || !recordingId || stage.disabled) return;
+        const key = newIdempotencyKey();
+        if (!key || !remember('stage', {key: key, operationId: ''})) {
+          status.textContent = 'Sichere Wiederholsperre nicht verfügbar.';
+          return;
+        }
+        stage.disabled = true;
+        status.textContent = 'HEVC-Staging angefordert; keine automatische Wiederholung.';
+        mutationHeaders().then(function (headers) {
+          return client.submitMediaShrinkStage({
+            backendId: backendId, recordingId: recordingId,
+            encoder: encoder.value, maxHeight: height.checked ? 720 : 0,
+            nightMode: night.checked, idempotencyKey: key,
+            headers: headers, credentials: 'same-origin'
+          });
+        }).then(function (result) {
+          if (!result || result.backendId !== backendId ||
+              !/^op_[0-9a-f]{32}$/.test(text(result.operationId)))
+            throw new Error('Stage-Operation konnte nicht sicher zugeordnet werden.');
+          stageOperationId = result.operationId;
+          remember('stage', {key: key, operationId: stageOperationId});
+          refreshStage.disabled = false;
+          refreshOperation('stage');
+        }).catch(function (error) {
+          // Request may have reached the backend. Never submit again, even
+          // if the response was lost or the browser was reloaded.
+          status.textContent = 'Stage-Ausgang unklar: ' +
+            text(error && error.message ? error.message : error) +
+            '. Bitte nicht erneut starten.';
+        });
+      });
+      const refreshStage = makeButton('Stage-Status aktualisieren', function () {
+        refreshOperation('stage');
+      });
+      refreshStage.disabled = true;
+      const candidate = shared.node('p', 'recordings2-media-check-status');
+      const publish = makeButton('Kandidaten ausdrücklich veröffentlichen', function () {
+        if (!/^shk_[0-9a-f]{32}$/.test(reviewId) || publish.disabled ||
+            typeof global.confirm !== 'function' ||
+            !global.confirm('HEVC-Kandidat als zusätzliche VDR-Aufnahme veröffentlichen? Das Original bleibt erhalten.'))
+          return;
+        const key = newIdempotencyKey();
+        if (!key || !remember('publish', {key: key, operationId: ''})) {
+          status.textContent = 'Sichere Veröffentlichungs-Sperre nicht verfügbar.';
+          return;
+        }
+        publish.disabled = true;
+        status.textContent = 'Veröffentlichung angefordert; auf Recording-Reconciliation warten.';
+        mutationHeaders().then(function (headers) {
+          return client.submitMediaShrinkPublish({
+            backendId: backendId, reviewId: reviewId, revision: 1,
+            idempotencyKey: key, headers: headers, credentials: 'same-origin'
+          });
+        }).then(function (result) {
+          if (!result || result.backendId !== backendId ||
+              !/^op_[0-9a-f]{32}$/.test(text(result.operationId)))
+            throw new Error('Publish-Operation nicht sicher zugeordnet.');
+          publishOperationId = result.operationId;
+          remember('publish', {key: key, operationId: publishOperationId});
+          refreshPublish.disabled = false;
+          refreshOperation('publish');
+        }).catch(function (error) {
+          status.textContent = 'Veröffentlichung unklar: ' +
+            text(error && error.message ? error.message : error) +
+            '. Keine automatische Wiederholung.';
+        });
+      });
+      publish.hidden = true;
+      const refreshPublish = makeButton('Publish-Status aktualisieren', function () {
+        refreshOperation('publish');
+      });
+      refreshPublish.disabled = true;
+
+      function storageName(action) {
+        return 'vdr-suite-hevc-v1.' + backendId + '.' + recordingId +
+          '.' + action;
+      }
+      function remembered(action) {
+        try {
+          const entry = JSON.parse(global.sessionStorage.getItem(storageName(action)));
+          return entry && /^[A-Za-z0-9_.:-]{8,128}$/.test(entry.key) &&
+            (entry.operationId === '' ||
+              /^op_[0-9a-f]{32}$/.test(entry.operationId)) ? entry : null;
+        } catch (_) { return null; }
+      }
+      function remember(action, value) {
+        try {
+          if (!global.sessionStorage || !value || !value.key) return false;
+          global.sessionStorage.setItem(storageName(action), JSON.stringify(value));
+          return true;
+        } catch (_) { return false; }
+      }
+      function newIdempotencyKey() {
+        try {
+          return global.crypto && typeof global.crypto.randomUUID === 'function'
+            ? 'hevc-' + global.crypto.randomUUID() : '';
+        } catch (_) { return ''; }
+      }
+      function mutationHeaders() {
+        const session = global.VdrSuiteBrowserSession;
+        if (!session || typeof session.restore !== 'function' ||
+            typeof session.csrfHeaders !== 'function')
+          return Promise.reject(new Error('Anmeldung erforderlich.'));
+        return Promise.resolve(session.restore()).then(function () {
+          return session.csrfHeaders();
+        });
+      }
+      function restorePending() {
+        const savedStage = remembered('stage');
+        if (savedStage) {
+          stage.disabled = true;
+          stageOperationId = savedStage.operationId;
+          refreshStage.disabled = !stageOperationId;
+          status.textContent = stageOperationId
+            ? 'Gespeicherte Stage-Operation gefunden. Status abfragen.'
+            : 'Unklarer früherer Stage-Start. Aus Sicherheitsgründen gesperrt.';
+          if (stageOperationId) refreshOperation('stage');
+        }
+        if (!encoders.length) stage.disabled = true;
+        const savedPublish = remembered('publish');
+        if (savedPublish) {
+          publish.disabled = true;
+          publishOperationId = savedPublish.operationId;
+          refreshPublish.disabled = !publishOperationId;
+          if (publishOperationId) refreshOperation('publish');
+        }
+      }
+      function fetchReview(id) {
+        if (!/^shk_[0-9a-f]{32}$/.test(id) ||
+            typeof client.getMediaShrinkReview !== 'function') return;
+        client.getMediaShrinkReview({
+          backendId: backendId, reviewId: id, credentials: 'same-origin',
+          cache: 'no-store'
+        }).then(function (review) {
+          if (!review || review.backendId !== backendId ||
+              review.recordingId !== recordingId || review.reviewId !== id)
+            throw new Error('Kandidat passt nicht zu dieser Aufnahme.');
+          const sizes = Number.isSafeInteger(review.candidateBytes) &&
+            Number.isSafeInteger(review.sourceBytes)
+            ? ' Kandidat: ' + (review.candidateBytes / 1048576).toFixed(1) +
+              ' MiB; Einsparung: ' +
+              ((review.sourceBytes - review.candidateBytes) / 1048576).toFixed(1) +
+              ' MiB.' : '';
+          candidate.textContent = 'Review: ' + review.state + '.' + sizes;
+          publish.hidden = review.state !== 'staged' ||
+            review.revision !== 1 || review.publishAvailable !== true;
+          if (remembered('publish')) publish.disabled = true;
+        }).catch(function (error) {
+          candidate.textContent = 'Kandidatenprüfung fehlgeschlagen: ' +
+            text(error && error.message ? error.message : error);
+          publish.hidden = true;
+        });
+      }
+      function refreshOperation(action) {
+        const id = action === 'stage' ? stageOperationId : publishOperationId;
+        if (!/^op_[0-9a-f]{32}$/.test(id) ||
+            typeof client.getMediaShrinkOperation !== 'function') return;
+        client.getMediaShrinkOperation({
+          backendId: backendId, operationId: id, credentials: 'same-origin',
+          cache: 'no-store'
+        }).then(function (operation) {
+          if (!operation || operation.operationId !== id ||
+              operation.backendId !== backendId || operation.action !== action)
+            throw new Error('HEVC-Operation gehört nicht zur gewählten Aufnahme.');
+          status.textContent = 'HEVC-' + action + ': ' + operation.state +
+            (operation.resultReconciled === true ? ' (verifiziert)' :
+              ' (noch nicht reconciled)');
+          // Poll only the canonical read-only status. Never retry Stage or
+          // Publish when their outcome is unclear or still reconciling.
+          if (operation.resultReconciled !== true &&
+              ['accepted', 'queued', 'dispatching', 'executed_unverified',
+                'outcome_unknown'].includes(operation.state) &&
+              typeof global.setTimeout === 'function') {
+            const next = action === 'stage' ? ++stagePolls : ++publishPolls;
+            if (next <= 120) global.setTimeout(function () {
+              if (panel.isConnected !== false) refreshOperation(action);
+            }, 3000);
+          }
+          if (action === 'stage' && operation.resultReconciled === true &&
+              /^shk_[0-9a-f]{32}$/.test(text(operation.reviewId))) {
+            reviewId = operation.reviewId;
+            fetchReview(reviewId);
+          }
+          if (action === 'publish' && operation.resultReconciled === true &&
+              /^rec_[0-9a-f]{32}$/.test(text(operation.publishedRecordingId))) {
+            status.textContent = 'Neue HEVC-Aufnahme bestätigt: ' +
+              operation.publishedRecordingId + '. Original erhalten.';
+            publish.hidden = true;
+          }
+        }).catch(function (error) {
+          status.textContent = 'HEVC-Status nicht verfügbar: ' +
+            text(error && error.message ? error.message : error) +
+            '. Keine neue Mutation starten.';
+        });
+      }
+
+      controls.append(encoderLabel, fallbackNotice, heightLabel, nightLabel,
+        stage, refreshStage, candidate, publish, refreshPublish);
+      panel.appendChild(shared.node('h4', '', 'HEVC-Speicherplatzoptimierung'));
+      panel.appendChild(launch);
+      panel.appendChild(status);
+      panel.appendChild(controls);
+      // MT.UX6: the existing Hero-owned plan/stage/review/publish workflow
+      // also belongs under "Aufnahmeaktionen". Move its one button and panel
+      // there when the Recordings 2 action surface is present: no cloned
+      // worker/operation flow and no additional authority.
+      const actionHost = root.querySelector('.recordings2-actions');
+      const action = makeButton(actionHost
+        ? 'Aufnahme verkleinern (HEVC)' : 'HEVC-Vorprüfung', function () {
+        if (actionHost) actionHost.open = true;
+        panel.hidden = false;
+        if (typeof panel.scrollIntoView === 'function')
+          panel.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+      });
+      (actionHost || actions).appendChild(action);
+      (actionHost || copy).appendChild(panel);
+    }).catch(function () {
+      // Inactive or inaccessible HEVC never disrupts playback.
+    });
+  }
+
   function renderHeroActions(root, copy, recording, backendId, metadata) {
     if (!copy || copy.querySelector('.recordings2-hero-actions')) return;
     const actions = shared.node('div', 'recordings2-hero-actions');
@@ -353,6 +907,8 @@
       showMode(root, 'actions', '.recordings2-actions');
     }));
     copy.appendChild(actions);
+    renderMediaCheck(root, copy, recording, backendId, actions);
+    renderMediaShrinkPlan(root, copy, recording, backendId, actions);
   }
 
   function releaseDate(metadata) {
@@ -744,6 +1300,8 @@
       matchingGenre,
       trailerIdentity,
       validYoutubeVideoId,
+      resolveMediaCheckIdentity,
+      mediaCheckSummary,
       placeTrailerAfterRelated
     })
   });

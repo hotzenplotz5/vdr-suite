@@ -38,6 +38,13 @@ PENDING = frozenset({
     # Already present on main, not rehearsed in the historical P7 SQL harness.
     # Classified explicitly; do not misrepresent it as exercised.
     "core/security/src/DevicePlaybackAccountBindingService.cpp",
+    # Canonical Media Tools/Add-on SQL owners. Several have their own focused
+    # C++ unit tests, but are NOT exercised in the historical P7 migration
+    # rehearsal; keep their real-package upgrade evidence outstanding.
+    "core/addons/src/AddonActivationIntentRepository.cpp",
+    "core/addons/media-tools/src/MediaShrinkReviewRepository.cpp",
+    "core/agent/src/BackendAgentMediaImportAssignment.cpp",
+    "core/agent/src/BackendAgentMediaShrinkAssignment.cpp",
 })
 INDIRECTLY_EXERCISED = frozenset({
     "core/agent/src/BackendRuntimeGeneration.cpp",
@@ -84,6 +91,37 @@ class P7RuntimeSqlWriterInventory(unittest.TestCase):
         self.assertFalse((EXERCISED & PENDING) |
                          (EXERCISED & INDIRECTLY_EXERCISED) |
                          (PENDING & INDIRECTLY_EXERCISED))
+
+
+    def test_focused_addon_sqlite_backup_tests_are_ci_wired_without_p7_credit(self):
+        """Two real repository SQLite backup probes, not historical P7."""
+        activation = (ROOT / "core/addons/tests/"
+                      "test_addon_activation_intent_repository.cpp").read_text(
+                          encoding="utf-8")
+        shrink = (ROOT / "core/addons/media-tools/tests/"
+                  "test_media_shrink_review_repository.cpp").read_text(
+                      encoding="utf-8")
+        makefile = (ROOT / "mk/addons.mk").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflows/"
+                    "addon-platform-isolated.yml").read_text(encoding="utf-8")
+        self.assertIn("sqlite3_backup_init(", activation)
+        self.assertIn("sqlite3_backup_init(", shrink)
+        self.assertIn("P7_ADDON_ACTIVATION_BACKUP=PASS", activation)
+        self.assertIn("P7_MEDIA_SHRINK_REVIEW_BACKUP=PASS", shrink)
+        self.assertIn("assert(restoredIntents.ensureSchema());", activation)
+        self.assertIn("assert(restoredReviews.ensureSchema());", shrink)
+        self.assertIn("addon_p7_preexisting", activation)
+        self.assertIn("addon_p7_preexisting", shrink)
+        self.assertIn("test-addon-activation-intent:", makefile)
+        self.assertIn("test-addon-media-shrink-core-review:", makefile)
+        self.assertIn("make test-addon-activation-intent", workflow)
+        self.assertIn("make test-addon-media-shrink-core-review", workflow)
+        # Neither unit fixture is a historical P7/real-package rehearsal.
+        self.assertIn(
+            "core/addons/src/AddonActivationIntentRepository.cpp", PENDING)
+        self.assertIn(
+            "core/addons/media-tools/src/MediaShrinkReviewRepository.cpp",
+            PENDING)
 
     def test_first_additional_cpp_writer_is_rehearsed(self):
         build = (ROOT / "mk" / "metadata-tests.mk").read_text(encoding="utf-8")
