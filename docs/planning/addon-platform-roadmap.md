@@ -3,7 +3,8 @@
 **Scope:** Non-numbered add-on productization workstream; this document does
 not reopen completed VDR-Suite phases or authorize Phase 70.
 **PR #551 source base:** Merge `ab8eb1f6990e9e0e24bdf5ee9ca0182368c9df0b` is in `main`.
-The deleted branch `work/addon-platform-registry-lifecycle` is **not** an install
+The historical branch `work/addon-platform-registry-lifecycle` was recreated
+at its exact merged PR #551 head for reference; it is **not** an install
 source. MT.HA integration and acceptance changes use the single working branch
 `work/mt-ha-media-tools-hardware-acceptance`; **no automatic merge, deployment,
 activation, or PPA publication**. Verify actual `main` and docs/CURRENT.md
@@ -42,7 +43,7 @@ isolierten Testdateien und gesonderter Freigabe.
 | Slice | Abnahme und bisheriger Nachweis | Status |
 | --- | --- | --- |
 | **MT.HA.0 – Read-only Inventur** | GitHub-Verifizierung: PR #551 auf `main`; `main` war beim Abgleich inzwischen bei `f9ffb76094e8b3b37d7420e84b6d31827e21226f`. Auf yaVDR/Resolute sind Import-/Check-/Shrink-Worker, Root-Approval, Source-TSV und Agent-Drop-in bereits vorhanden; Agent ist `inactive/dead`, Suite und VDR sind `active/running`. Manuelle Suite-Dateien sind nicht durch dpkg verwaltet. Das neue `media-tools-install-inventory.json` wurde im übermittelten Hostinventar nicht gefunden; fehlendes Inventar/Herkunft müssen unabhängig geprüft werden. Live-DB mit WAL: keine ungeprüfte Migration oder reine Dateikopie. | **PARTIAL / PENDING**: Host-Quelle, Stage, Approval-Wirkung, Byteprovenienz, aktiver Datenbankpfad, Verbindungsstatus und Speicherreservierung noch offen. |
-| **MT.HA.1 – Manuelle Installation/Übernahme** | Erstinstallation nur bei belegtem `absent`; vorhandene Media Tools erfordern geprüften Update-/Migrationspfad. Installer muss auf offiziellen `origin/main` statt gelöschtem Entwicklungsbranch pinnen; bestehende Fremd-/Teilstaat-Sperren bleiben. Kein Build als root. | **PENDING**; keine Live-Ausführung freigegeben. |
+| **MT.HA.1 – Manuelle Installation/Übernahme** | Erstinstallation nur bei belegtem `absent`; vorhandene Media Tools erfordern geprüften Update-/Migrationspfad. Installer muss auf offiziellen `origin/main` statt historischem Entwicklungsbranch pinnen; bestehende Fremd-/Teilstaat-Sperren bleiben. Kein Build als root. | **PENDING**; keine Live-Ausführung freigegeben. |
 | **MT.HA.2 – Hardwareintegration** | Dateimodi, Siegel, Handler-PIN, Registry, Agent-Enrollment, Core, API, Web, Grants und Zustände INSTALLED/CONFIGURED/ENABLED/ACTIVE/CONNECTED/AUTHORIZED/FUNCTIONAL unabhängig nachweisen; Dienst-/Boot-Test separat. | **PENDING** |
 | **MT.HA.3 – Import/Check/Shrink** | Positive und negative End-to-End-Fälle, nur Testmedien, VDR-Readback, Fehler-/Abbruch-/Ressourcen- und Restartfälle; fehlende Funktionen als NOT IMPLEMENTED kennzeichnen. | **PENDING** |
 | **MT.HA.4 – Root Causes/Regressionen** | Reproduzierbare Defekte auf genau einem Integrationsbranch beheben, fokussierte Regressionen und erneute Hardware-Reproduktion, ohne Umgehung von Approval/Fence/DB-Schutz. | **PENDING** |
