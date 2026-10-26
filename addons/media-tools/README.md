@@ -1,5 +1,16 @@
 # Media Tools add-on
 
+**MT.HA portable install candidate (Draft PR #552):**
+The separately staged, init-system-independent add-on payload installer
+is available through `make stage-media-tools` (unprivileged) and
+`sudo make install-media-tools` (reviewed staged payload only). See
+[`docs/media-tools-portable-install.md`](../../docs/media-tools-portable-install.md).
+It never installs/reverts the Suite daemon or frontend, does not change
+approvals and does not restart services. Existing manually installed workers
+can be adopted with a separate staged-inventory update; cross-distro runtime
+acceptance is not yet complete.
+
+
 **Neue Folgeroadmap (24.10.2026):** [Media Tools — Installation, Import und Aufnahmeaktionen](ROADMAP.md). Zuerst eine einfache, konfigurierbare und für spätere Ubuntu/Debian-Pakete gemeinsame Installations-/Staging-Routine (yaVDR als Referenz; openSUSE/MLD ohne erfundene Defaults), dann Rectools-einfacher rekursiver Standardscan, optionaler Explorer, Shrink in den Aufnahmeaktionen und Media Import direkt nach Aufnahmen. **Plan, noch keine Implementierung/Live-Abnahme.**
 
 This is the canonical location for **new Media Tools-specific A6 code**.
