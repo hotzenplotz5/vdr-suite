@@ -1,5 +1,6 @@
 #include "DashboardFacade.h"
 #include "Database.h"
+#include "TestDatabasePath.h"
 #include "JobDashboardService.h"
 #include "JobRepository.h"
 #include "MetadataRepository.h"
@@ -13,7 +14,7 @@ int main()
 {
     Database db;
 
-    if (!db.open("/tmp/vdr-suite-test.db"))
+    if (!db.open(vdrSuiteTestDatabasePath()))
     {
         return 1;
     }

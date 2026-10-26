@@ -1,4 +1,5 @@
 #include "Database.h"
+#include "TestDatabasePath.h"
 #include "MetadataRepository.h"
 #include "MetadataService.h"
 
@@ -8,7 +9,7 @@ int main()
 {
     Database db;
 
-    if (!db.open("/tmp/vdr-suite-test.db"))
+    if (!db.open(vdrSuiteTestDatabasePath()))
     {
         std::cerr << "database open failed\n";
         return 1;

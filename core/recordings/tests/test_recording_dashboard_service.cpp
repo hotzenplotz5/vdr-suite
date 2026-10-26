@@ -1,4 +1,5 @@
 #include "Database.h"
+#include "TestDatabasePath.h"
 #include "MetadataRepository.h"
 #include "RecordingDashboardService.h"
 #include "RecordingRepository.h"
@@ -10,7 +11,7 @@ int main()
 {
     Database db;
 
-    if (!db.open("/tmp/vdr-suite-test.db"))
+    if (!db.open(vdrSuiteTestDatabasePath()))
     {
         return 1;
     }
