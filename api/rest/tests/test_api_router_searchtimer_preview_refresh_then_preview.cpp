@@ -12,6 +12,7 @@
 #include "DashboardFacade.h"
 #include "DashboardJsonSerializer.h"
 #include "Database.h"
+#include "TestDatabasePath.h"
 #include "JobDashboardService.h"
 #include "JobRepository.h"
 #include "JobsController.h"
@@ -141,7 +142,7 @@ int main()
 {
     Database db;
 
-    if (!db.open("/tmp/vdr-suite-test.db")) {
+    if (!db.open(vdrSuiteTestDatabasePath())) {
         std::cerr << "database open failed" << std::endl;
         return 1;
     }

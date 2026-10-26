@@ -1,4 +1,5 @@
 #include "Database.h"
+#include "TestDatabasePath.h"
 
 #include "ActionService.h"
 #include "JobRepository.h"
@@ -11,7 +12,7 @@ int main()
 {
     Database db;
 
-    if (!db.open("/tmp/vdr-suite-test.db"))
+    if (!db.open(vdrSuiteTestDatabasePath()))
     {
         return 1;
     }
