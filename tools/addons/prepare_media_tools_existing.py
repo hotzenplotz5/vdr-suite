@@ -58,8 +58,11 @@ def prepare(base: Path, workers: Path, output: Path,
         raise ValueError("exact previous worker source commit required")
     # Reusing already built worker bytes is valid only when their C++ source,
     # public interfaces and add-on metadata are byte-identical to checkout.
-    subprocess.run(["git", "-C", str(REPO), "merge-base", "--is-ancestor",
-                    worker_source_sha, checkout], check=True, timeout=10)
+    # The worker build may come from the GitHub merge commit while this
+    # maintenance checkout is on its PR branch. Both refs need to exist,
+    # but ancestry is not required; compare the actual worker sources.
+    subprocess.run(["git", "-C", str(REPO), "cat-file", "-e",
+                    worker_source_sha + "^{commit}"], check=True, timeout=10)
     subprocess.run(["git", "-C", str(REPO), "diff", "--quiet",
                     worker_source_sha, checkout, "--",
                     "addons/media-tools/src", "addons/media-tools/include",
