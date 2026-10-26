@@ -6,7 +6,9 @@ This is the canonical location for **new Media Tools-specific A6 code**.
 PR #551 integrated the platform into `main` on 26.10.2026. MT.HA
 hardware/install acceptance is tracked on the single integration branch
 `work/mt-ha-media-tools-hardware-acceptance`; the previous development branch
-was deleted after the merge. No new repository, live install or automatic merge.
+was originally deleted after the merge, then restored at its exact original
+PR #551 head as a historical reference. No new repository, live install
+or automatic merge.
 
 The existing C++17 importer is maintained here under `include/`, `src/`
 and `tests/` (moved, not copied, from the legacy source layout).
