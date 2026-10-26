@@ -125,9 +125,14 @@ ApiResponse PublicRecordingDeviceMediaSessionResponse::afterActivation(
         // never the long-lived Device credential. Explicitly opted-in Device
         // clients can attach this to a native HTTP player without leaking it
         // into the URL or loosening the existing browser HttpOnly cookie.
+        // One shared, session-scoped credential has two standard HTTP
+        // delivery representations. Clients choose the mechanism supported
+        // by their *player*, not by their platform brand.
         result.body += ",\"nativeMediaAccess\":{\"transport\":\"http-cookie\",\"cookie\":\"" +
             std::string(MediaAccessCredentialHttp::CookieName) + "=" +
-            ready.mediaCredential + "\"}";
+            ready.mediaCredential + "\",\"headerName\":\"" +
+            std::string(MediaAccessCredentialHttp::AuthorizationHeader) +
+            "\",\"headerValue\":\"" + ready.mediaCredential + "\"}";
     }
     result.body += "}";
     return result;
