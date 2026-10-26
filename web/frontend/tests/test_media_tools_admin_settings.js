@@ -146,9 +146,10 @@ async function test() {
   unverified.window.VdrSuiteAddonSettings.render(unverified.parent, 'default');
   await flush();
   assert.ok(unverified.elements.some(e =>
-    e.textContent === 'Addon deaktiviert; Installation derzeit nicht verifiziert'));
+    e.textContent === 'Backend-Agent nicht bereit; lokale Installation wird hier nicht geprüft'));
   const disabledEnable = unverified.elements.find(e => e.textContent === 'Aktivieren');
   assert.ok(disabledEnable && disabledEnable.disabled);
+  assert.ok(disabledEnable.title.includes('Backend-Agent nicht bereit'));
   assert.equal(unverified.requests.filter(r => r.options.method === 'POST').length, 0);
   assert.equal(unverified.requests.filter(r =>
     r.url.startsWith('/api/v1/addons/rectools/sources')).length, 0,
@@ -181,7 +182,7 @@ async function test() {
   stale.window.VdrSuiteAddonSettings.render(stale.parent, 'default');
   await flush();
   assert.ok(stale.elements.some(e =>
-    e.textContent === 'Aktivierungswunsch gespeichert; Handler derzeit nicht verifiziert'));
+    e.textContent === 'Aktivierungswunsch gespeichert; Agent bestätigt Handler aktuell nicht'));
   assert.ok(!stale.elements.find(e => e.textContent === 'Deaktivieren').disabled);
 
   // MT.UX2: actual administrator save, no generated shell command.

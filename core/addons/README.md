@@ -29,7 +29,10 @@ See [registry boundary](../../docs/development/addon-installed-registry-contract
 `AddonActivationIntentRepository` is the next **independently testable**
 C++ component. It persists a per-module/per-backend administrative desire
 (`desired_enabled`) in SQLite with a monotonic integer revision and
-`updated_by_actor_id`. Absent settings are disabled at revision 0. Mutations
+`updated_by_actor_id`. At revision 0 there is no explicit override: an
+independently Core-approved and Agent-verified installed Media Tools handler
+is active by default; without that evidence no operations are allowed. An
+explicit administrator disable at revision >= 1 takes precedence. Mutations
 use `BEGIN IMMEDIATE` under the canonical Database transaction lease
 plus a strict expected revision, and reject invalid module/backend keys.
 Only a canonical, resolved `role.admin@*` context may read or write it.

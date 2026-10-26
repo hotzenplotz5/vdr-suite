@@ -5568,9 +5568,9 @@ bool DaemonRuntime::initialize()
             return response;
         }
         response.statusCode = 200;
-        // No installation or root approval may implicitly activate a worker.
-        // The legacy activatedByInstall response field remains false for
-        // compatibility; the explicit revision-bound intent owns enablement.
+        // Explicit administrative installation plus independent Core approval
+        // and current verified Agent/handler enable revision zero by default.
+        // A later explicit disable wins; no local file alone permits use.
         bool installedByAdministrator = false;
         bool providerVerified = false;
         bool agentReady = false;

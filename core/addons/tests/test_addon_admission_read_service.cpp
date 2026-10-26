@@ -106,17 +106,14 @@ int main()
         "revision INTEGER NOT NULL CHECK(revision>0),"
         "updated_by_actor_id TEXT NOT NULL);"));
     preview = service.previewMediaImport(a, b, e);
-    assert(!preview.policy.allowed &&
-           preview.policy.reason == AccessReason::disabled &&
+    assert(preview.policy.allowed &&
            preview.observedIntentRevision == 0 && !preview.executable);
     ++checks;
 
-    // Even a global administrator cannot activate merely by installing.
-    // After explicit activation its normal grant rules still apply.
+    // A verified, independently approved administrator install is active
+    // at revision zero, with existing actor/operation permissions intact.
     preview = service.previewMediaImport(admin, b, e);
-    assert(!preview.policy.allowed &&
-           preview.policy.reason == AccessReason::disabled &&
-           !preview.executable);
+    assert(preview.policy.allowed && !preview.executable);
     ++checks;
 
     e.administratorEnabled = false;
@@ -198,8 +195,7 @@ int main()
     a.grants.clear();
     a.grants.push_back({"addons.media.import", "backend-b"});
     auto backB = service.previewMediaImport(a, b, e);
-    assert(!backB.policy.allowed &&
-           backB.policy.reason == AccessReason::disabled &&
+    assert(backB.policy.allowed &&
            backB.observedIntentRevision == 0 && !backB.executable);
     ++checks;
 
