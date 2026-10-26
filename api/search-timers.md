@@ -220,6 +220,28 @@ resolving it; the client must not make a new POST with a different idempotency
 key. A crash during dispatch likewise does not establish success or authorize
 retry.
 
+### Bundled Web UI: Human administrator staged CREATE only
+
+The SearchTimer **new-rule form** in the bundled Web UI calls the same
+`POST /api/v1/search-timers?backend=<id>` path, not the blocked legacy
+`/api/vdr/searchtimers` write route. This is a *narrow* Browser exception:
+a signed-in Human account with `role.admin@*` (or `role.admin@backend`)
+may submit a confirmed, idempotent **inactive** CREATE, with the normal
+Browser CSRF check. The form explicitly sends `active:false`,
+`confirmed:true` and a cryptographically generated `Idempotency-Key`;
+if dispatch outcome is uncertain, it must not resubmit a different
+operation. Backend write policy, online Agent generation, provider support
+and authoritative readback remain independent runtime requirements.
+
+This Browser exception **does not** unlock activation, editing,
+deactivation or deletion through Device-only version-fenced Public-v1
+mutation routes, nor does it grant Browser sessions Device-only read
+resources. The existing browser read/preview routes keep their own
+contracts. Advanced recording/filter settings are *not* saved by the
+staged-create form. The exact packaged frontend, backend connectivity and
+a successful inactive CREATE on MLD 6.6 have not yet been verified on a
+real MLD installation.
+
 ### Backend SearchTimer name versus search string
 
 The existing RESTfulAPI `/searchtimers` CREATE body carries the epgsearch
