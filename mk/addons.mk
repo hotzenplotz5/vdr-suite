@@ -681,16 +681,19 @@ MEDIA_TOOLS_WORKDIR ?= $(CURDIR)/.build/media-tools-prepared
 MEDIA_TOOLS_STAGE ?= $(MEDIA_TOOLS_WORKDIR)/stage-with-media-tools
 MEDIA_TOOLS_BASE_STAGE ?=
 MEDIA_TOOLS_WORKER_DIR ?= $(BUILD_DIR)/addons
+MEDIA_TOOLS_WORKER_SOURCE_COMMIT ?=
 
 .PHONY: prepare-media-tools stage-media-tools install-media-tools test-install-media-tools-payload
 # Reuse the already sealed Suite stage and already compiled add-on workers.
 # Deliberately no call to stage-install-runtime, daemon or backend-agent.
 prepare-media-tools:
 	@test "$$(id -u)" -ne 0 || { echo 'Prepare Media Tools as an unprivileged user' >&2; exit 1; }
-	@test -n "$(MEDIA_TOOLS_BASE_STAGE)" || { echo 'MEDIA_TOOLS_BASE_STAGE required (reuse existing sealed main stage; no daemon build)' >&2; exit 1; }
+	@test -n "$(MEDIA_TOOLS_BASE_STAGE)" || { echo 'MEDIA_TOOLS_BASE_STAGE required (reuse sealed Suite stage)' >&2; exit 1; }
+	@test -n "$(MEDIA_TOOLS_WORKER_SOURCE_COMMIT)" || { echo 'MEDIA_TOOLS_WORKER_SOURCE_COMMIT required (exact commit that built the workers)' >&2; exit 1; }
 	python3 -B tools/addons/prepare_media_tools_existing.py \
 		--base-stage "$(MEDIA_TOOLS_BASE_STAGE)" \
 		--worker-directory "$(MEDIA_TOOLS_WORKER_DIR)" \
+		--worker-source-commit "$(MEDIA_TOOLS_WORKER_SOURCE_COMMIT)" \
 		--output-workdir "$(MEDIA_TOOLS_WORKDIR)"
 
 stage-media-tools:
