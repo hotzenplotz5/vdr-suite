@@ -61,16 +61,18 @@ Akzeptanznachweise vorliegen.
 PR #551: sechs GitHub-Workflows am bisherigen Stand
 b5cd57e053be41faff45405055b37a0ed2da8df7 erfolgreich; **nach jeder
 weiteren Änderung muss die neue HEAD-CI erneut geprüft werden**.
-Gegen den aktuellen main-Stand c7cb87f7d95f4a7a32733f61c40d320081619e48
-ist dieser Branch um **einen Commit zurück**, laut GitHub ohne Konflikt.
-Den Main-Abgleich erst nach Kontrolle der nativen TV-Medienheaderänderung
-und erneuter Gesamt-CI als akzeptiert einstufen.
+Der native TV-Medienheader-Commit c7cb87f7d95f4a7a32733f61c40d320081619e48
+wurde nach Prüfung der drei nicht überlappenden Dateien mit Merge-Commit
+1d6b634ed91294915940ac10d5c652644a1bcff3 in den bestehenden
+Add-on-Branch übernommen. GitHub verifiziert damit **0 Commits hinter main**
+und keinen Mergekonflikt. Der neue exakte HEAD benötigt trotzdem seine
+eigene Gesamt-CI.
 
 **SQLite/P7-Grenzen:** Vier neu hinzugekommene DDL-Owner sind vom historischen
 P7-Versuch noch nicht abgedeckt. Die vorhandenen, jetzt erweiterten
 Core-Tests verifizieren für AddonActivationIntentRepository und
 MediaShrinkReviewRepository jeweils das echte SQLite-Backup, wiederholtes
-ensureSchema und den Erhalt vorhandener Daten. Die Agent-DLL-Index-Owner
+ensureSchema und den Erhalt vorhandener Daten. Die Agent-DDL-Index-Owner
 BackendAgentMediaImportAssignment und BackendAgentMediaShrinkAssignment
 benötigen eigene historische Upgrade-/Row-Preservation-Nachweise.
 Alle vier bleiben im P7-SQL-Inventar als PENDING eingetragen, bis die

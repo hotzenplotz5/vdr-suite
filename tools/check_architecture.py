@@ -76,6 +76,9 @@ SQLITE_ALLOWED_RUNTIME_ADAPTERS = {
 SQLITE_ALLOWED_CONTRACT_TESTS = {
     # Bounded in-memory Add-on activation transaction/audit SQLite fixture.
     "core/addons/tests/test_addon_activation_intent_repository.cpp",
+    # Focused P7 SQLite backup/row-preservation fixture for the actual
+    # MediaShrinkReviewRepository; synthetic databases only.
+    "core/addons/media-tools/tests/test_media_shrink_review_repository.cpp",
     "api/rest/tests/test_vdr_recording_folder_controller.cpp",
     # Packaging P7 and bounded Agent/Timer SQLite persistence tests. These are
     # exact files using disposable fixtures; no blanket core/*/tests waiver.
