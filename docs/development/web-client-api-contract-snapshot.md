@@ -156,6 +156,7 @@ SearchTimer:
 - `fetchClientSearchTimerExecute`
 - `fetchClientSearchTimerRealTest`
 - `fetchClientSearchTimerCreateAction`
+- `fetchClientSearchTimerCreateStaged` — Browser administrator, CSRF + Idempotency-Key, Public-v1 inactive-only SearchTimer CREATE (no legacy mutation fallback)
 - `fetchClientSearchTimerUpdateAction`
 - `fetchClientSearchTimerDeleteAction`
 
