@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cctype>
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <map>
 #include <sstream>
