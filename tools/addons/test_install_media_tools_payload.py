@@ -162,5 +162,15 @@ class PortableMediaToolsInstallTests(unittest.TestCase):
         self.assertEqual((self.root / "usr/sbin/vdr-suite-daemon").read_bytes(),
                          b"current-suite-not-old-stage")
 
+class MediaToolsMakeRecipeTests(unittest.TestCase):
+    def test_portable_make_targets_preserve_shell_substitution(self):
+        source = (REPO / "mk/addons.mk").read_text(encoding="utf-8")
+        # In a Make recipe, $(...) is a Make variable; $(...) is a
+        # shell command substitution. Check both targets and their SHA pin.
+        self.assertEqual(source.count('"$(id -u)"'), 2)
+        self.assertEqual(source.count(
+            '$(cat "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt")'), 2)
+
+
 if __name__ == "__main__":
     unittest.main()
