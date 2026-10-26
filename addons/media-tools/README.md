@@ -2,7 +2,8 @@
 
 **MT.HA portable install candidate (Draft PR #552):**
 The separately staged, init-system-independent add-on payload installer
-is available through `make stage-media-tools` (unprivileged) and
+is available through `make prepare-media-tools`, then
+`make stage-media-tools` (separately reviewed, unprivileged) and
 `sudo make install-media-tools` (reviewed staged payload only). See
 [`docs/media-tools-portable-install.md`](../../docs/media-tools-portable-install.md).
 It never installs/reverts the Suite daemon or frontend, does not change
