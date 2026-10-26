@@ -335,8 +335,8 @@ plugin_create_test = read(
 
 require(
     plugin_svdrp,
-    "nativeTimerCreate_.Handle(Command, Option)",
-    "private CREATE command-service dispatch",
+    "nativeTimerCreate_.Handle(Command, Option,\n          Setup.MarginStart, Setup.MarginStop)",
+    "private CREATE command-service dispatch with live VDR margins",
 )
 
 for needle, label in (
