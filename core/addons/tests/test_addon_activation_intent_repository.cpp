@@ -406,5 +406,49 @@ int main()
     assert(auditRead.status == IntentStatus::ok && auditRead.intent.revision == 1);
     ++checks;
 
+    // Focused P7 Add-on backup rehearsal: a historical, unrelated table
+    // and the administrator's durable disabled CAS intent must survive the
+    // real SQLite backup API and repeated production ensureSchema calls.
+    assert(f.database.execute(
+        "CREATE TABLE addon_p7_preexisting(key TEXT PRIMARY KEY,value TEXT);"));
+    assert(f.database.execute(
+        "INSERT INTO addon_p7_preexisting VALUES('legacy','unmodified');"));
+    Database restored;
+    assert(restored.open(":memory:"));
+    sqlite3_backup* copy = sqlite3_backup_init(
+        restored.handle(), "main", f.database.handle(), "main");
+    assert(copy != nullptr);
+    assert(sqlite3_backup_step(copy, -1) == SQLITE_DONE);
+    assert(sqlite3_backup_finish(copy) == SQLITE_OK);
+    AddonActivationIntentRepository restoredIntents(restored);
+    assert(restoredIntents.ensureSchema());
+    assert(restoredIntents.ensureSchema());
+    auto preserved = restoredIntents.read(actor, "rectools", "backend-audit");
+    assert(preserved.status == IntentStatus::ok &&
+           preserved.intent.revision == 1 && !preserved.intent.desiredEnabled);
+    for (const char* table : {
+            "addon_activation_intents", "addon_activation_agent_bindings",
+            "addon_activation_handler_pins"}) {
+        sqlite3_stmt* query = nullptr;
+        assert(sqlite3_prepare_v2(restored.handle(),
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND "
+            "name=?;", -1, &query, nullptr) == SQLITE_OK);
+        assert(sqlite3_bind_text(query, 1, table, -1, SQLITE_TRANSIENT) ==
+               SQLITE_OK);
+        assert(sqlite3_step(query) == SQLITE_ROW &&
+               sqlite3_column_int(query, 0) == 1);
+        assert(sqlite3_finalize(query) == SQLITE_OK);
+    }
+    sqlite3_stmt* legacyRow = nullptr;
+    assert(sqlite3_prepare_v2(restored.handle(),
+        "SELECT COUNT(*) FROM addon_p7_preexisting "
+        "WHERE key='legacy' AND value='unmodified';",
+        -1, &legacyRow, nullptr) == SQLITE_OK);
+    assert(sqlite3_step(legacyRow) == SQLITE_ROW &&
+           sqlite3_column_int(legacyRow, 0) == 1);
+    assert(sqlite3_finalize(legacyRow) == SQLITE_OK);
+    std::cout << "P7_ADDON_ACTIVATION_BACKUP=PASS\n";
+    ++checks;
+
     std::cout << "ADDON_ACTIVATION_INTENT=PASS checks=" << checks << "\n";
 }

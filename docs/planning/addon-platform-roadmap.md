@@ -55,6 +55,35 @@ Die aktuelle Source-/Web-Korrektur führt **keine** privilegierte Ausführung
 ein. MT.LC2–LC5 dürfen nicht als PASS gelten, bevor ihre jeweiligen
 Akzeptanznachweise vorliegen.
 
+
+### MT.LC – Backend-/Merge-Vorprüfung (26.10.2026)
+
+PR #551: sechs GitHub-Workflows am bisherigen Stand
+b5cd57e053be41faff45405055b37a0ed2da8df7 erfolgreich; **nach jeder
+weiteren Änderung muss die neue HEAD-CI erneut geprüft werden**.
+Gegen den aktuellen main-Stand c7cb87f7d95f4a7a32733f61c40d320081619e48
+ist dieser Branch um **einen Commit zurück**, laut GitHub ohne Konflikt.
+Den Main-Abgleich erst nach Kontrolle der nativen TV-Medienheaderänderung
+und erneuter Gesamt-CI als akzeptiert einstufen.
+
+**SQLite/P7-Grenzen:** Vier neu hinzugekommene DDL-Owner sind vom historischen
+P7-Versuch noch nicht abgedeckt. Die vorhandenen, jetzt erweiterten
+Core-Tests verifizieren für AddonActivationIntentRepository und
+MediaShrinkReviewRepository jeweils das echte SQLite-Backup, wiederholtes
+ensureSchema und den Erhalt vorhandener Daten. Die Agent-DLL-Index-Owner
+BackendAgentMediaImportAssignment und BackendAgentMediaShrinkAssignment
+benötigen eigene historische Upgrade-/Row-Preservation-Nachweise.
+Alle vier bleiben im P7-SQL-Inventar als PENDING eingetragen, bis die
+entsprechende historische und Paket-Migrationsabnahme tatsächlich vorliegt.
+DevicePlaybackAccountBindingService auf main bleibt unabhängig P7 PENDING.
+
+**AGENTS.md-Grenze:** Der PR enthält bereits Änderungen an AGENTS.md und
+zusätzliche AGENTS.md-Dateien, die nicht aus MT.LC stammen. Sie dürfen
+ohne gesonderte Maintainerfreigabe nicht verändert oder als genehmigter
+Merge-Scope behandelt werden. **Keine MT.LC-Arbeit ändert AGENTS.md.**
+Weder Merge nach main noch Produktivdeploy/Paketänderung werden aus
+dieser Dokumentation heraus freigegeben.
+
 ## Actual install and packaging boundary
 
 The current yaVDR has VDR-Suite installed by the existing conventional

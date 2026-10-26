@@ -4,6 +4,7 @@
 #include "MutationOperationRepository.h"
 
 #include <cassert>
+#include <sqlite3.h>
 #include <filesystem>
 #include <vector>
 #include <unistd.h>
@@ -126,6 +127,38 @@ int main()
         3, "op-publish").status == MediaShrinkReviewStatus::conflict);
     assert(reviews.completePublication("actor-b","backend-a",reviewId,
         3).status == MediaShrinkReviewStatus::notFound);
+    // Focused P7 Add-on SQLite rehearsal. Persist an unrelated pre-upgrade
+    // table and a fully published review through the real backup interface,
+    // then rerun the actual schema initializer in the restored database.
+    assert(database.execute(
+        "CREATE TABLE addon_p7_preexisting(key TEXT PRIMARY KEY,value TEXT);"));
+    assert(database.execute(
+        "INSERT INTO addon_p7_preexisting VALUES('legacy','unmodified');"));
+    Database snapshot;
+    assert(snapshot.open(":memory:"));
+    sqlite3_backup* backup = sqlite3_backup_init(
+        snapshot.handle(), "main", database.handle(), "main");
+    assert(backup != nullptr);
+    assert(sqlite3_backup_step(backup, -1) == SQLITE_DONE);
+    assert(sqlite3_backup_finish(backup) == SQLITE_OK);
+    MutationOperationRepository snapshotOperations(snapshot);
+    assert(snapshotOperations.ensureSchema());
+    MediaShrinkReviewRepository restoredReviews(snapshot, snapshotOperations);
+    assert(restoredReviews.ensureSchema());
+    assert(restoredReviews.ensureSchema());
+    const auto retained = restoredReviews.find("actor-a","backend-a",reviewId);
+    assert(retained.ok() && retained.review.state == "published" &&
+           retained.review.revision == 3 &&
+           retained.review.publishedRecordingId == newRecordingId);
+    sqlite3_stmt* legacyRow = nullptr;
+    assert(sqlite3_prepare_v2(snapshot.handle(),
+        "SELECT COUNT(*) FROM addon_p7_preexisting "
+        "WHERE key='legacy' AND value='unmodified';",
+        -1, &legacyRow, nullptr) == SQLITE_OK);
+    assert(sqlite3_step(legacyRow) == SQLITE_ROW &&
+           sqlite3_column_int(legacyRow, 0) == 1);
+    assert(sqlite3_finalize(legacyRow) == SQLITE_OK);
+    std::cout << "P7_MEDIA_SHRINK_REVIEW_BACKUP=PASS\n";
     // Corrupted persisted rows fail closed; they cannot regain their
     // published/available status merely because the opaque ID still matches.
     assert(database.execute(
