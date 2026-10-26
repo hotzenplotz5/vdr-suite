@@ -346,7 +346,18 @@ void test_epg_native_time_contract()
         event, defaults, attestedClock,
         "Server-owned EPG title", "", constructed));
     assert(constructed.startTime == "0939");
+    // The VDR setup example 2/10 creates 09:38-10:50 from an
+    // authoritative 09:40-10:40 EPG airing. It is applied exactly once.
+    defaults.startMarginSeconds = 2 * 60;
+    defaults.stopMarginSeconds = 10 * 60;
+    assert(makeServerOwnedEpgNativeOneShot(
+        event, defaults, attestedClock,
+        "Server-owned EPG title", "", constructed));
+    assert(constructed.startTime == "0938");
+    assert(constructed.endTime == "1050");
+    assert(nativeOneShotMatchesEpg(event, defaults, attestedClock, constructed));
     defaults.startMarginSeconds = 0;
+    defaults.stopMarginSeconds = 0;
     defaults.vpsPreferred = true;
     assert(!makeServerOwnedEpgNativeOneShot(
         event, defaults, attestedClock,
