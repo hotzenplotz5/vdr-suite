@@ -26,9 +26,9 @@ make prepare-media-tools \
 The default worker source is `$(BUILD_DIR)/addons` (typically
 `.build/addons`); override with `MEDIA_TOOLS_WORKER_DIR` if needed.
 Preparation verifies the previous Suite seal, checks that
-`MEDIA_TOOLS_WORKER_SOURCE_COMMIT` is an ancestor of the current checkout
+`MEDIA_TOOLS_WORKER_SOURCE_COMMIT` exists in the local Git object store
 and that the worker source/header/add-on manifest have not changed between
-the two commits, then copies the three already built ELF workers and
+the two commits (a merge-commit ancestor relationship is not required), then copies the three already built ELF workers and
 prints their import-worker SHA256. The live host stays unchanged. Never overwrite a partial or previous workdir.
 
 After independent review of that **exact** handler digest, seal the stage:
@@ -78,9 +78,10 @@ sudo env MEDIA_TOOLS_QUIESCED=YES \
 Only an existing canonical **manual** root grant whose digest matches
 both the expected old SHA and installed old handler may be rotated.
 The add-on lock must already exist and must be exclusively acquired.
-Backend-specific grants block automatic rotation, because their owner
-must migrate them separately. An inactive or unavailable runtime should
-never be silently marked ready. Installation neither starts services nor
+Backend-specific grants **do not block installation** and are not touched
+by this transaction. A backend-local grant still pinned to the previous
+handler may prevent runtime authorization until its separate owner updates
+it. The installer must not silently grant backend-specific capabilities. Installation neither starts services nor
 automatically activates the add-on.
 
 The previous root approval is backed up together with the add-on files,
