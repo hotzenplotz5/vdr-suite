@@ -679,18 +679,19 @@ build-media-tools-agent-composition-test:
 # sudo make install-media-tools only consumes independently reviewed bytes.
 MEDIA_TOOLS_WORKDIR ?= $(CURDIR)/.build/media-tools-prepared
 MEDIA_TOOLS_STAGE ?= $(MEDIA_TOOLS_WORKDIR)/stage-with-media-tools
+MEDIA_TOOLS_BASE_STAGE ?=
+MEDIA_TOOLS_WORKER_DIR ?= $(BUILD_DIR)/addons
 
 .PHONY: prepare-media-tools stage-media-tools install-media-tools test-install-media-tools-payload
+# Reuse the already sealed Suite stage and already compiled add-on workers.
+# Deliberately no call to stage-install-runtime, daemon or backend-agent.
 prepare-media-tools:
-	@test "$$(id -u)" -ne 0 || { echo 'Build Media Tools as an unprivileged user' >&2; exit 1; }
-	@test ! -e "$(MEDIA_TOOLS_WORKDIR)" || { echo 'Prepared directory already exists; refuse overwrite' >&2; exit 1; }
-	@mkdir -p "$(dir $(MEDIA_TOOLS_WORKDIR))"
-	@mkdir -m 0700 "$(MEDIA_TOOLS_WORKDIR)"
-	@umask 077; git rev-parse HEAD > "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt"
-	$(MAKE) stage-install-runtime BUILD_DIR="$(MEDIA_TOOLS_WORKDIR)/build" RUNTIME_STAGE="$(MEDIA_TOOLS_WORKDIR)/stage"
-	$(MAKE) addon-media-import addon-media-check addon-media-shrink BUILD_DIR="$(MEDIA_TOOLS_WORKDIR)/build"
-	@echo "PREPARED_SOURCE_SHA=$$(cat "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt")"
-	@sha256sum "$(MEDIA_TOOLS_WORKDIR)/build/addons/vdr-suite-media-import"
+	@test "$$(id -u)" -ne 0 || { echo 'Prepare Media Tools as an unprivileged user' >&2; exit 1; }
+	@test -n "$(MEDIA_TOOLS_BASE_STAGE)" || { echo 'MEDIA_TOOLS_BASE_STAGE required (reuse existing sealed main stage; no daemon build)' >&2; exit 1; }
+	python3 -B tools/addons/prepare_media_tools_existing.py \
+		--base-stage "$(MEDIA_TOOLS_BASE_STAGE)" \
+		--worker-directory "$(MEDIA_TOOLS_WORKER_DIR)" \
+		--output-workdir "$(MEDIA_TOOLS_WORKDIR)"
 
 stage-media-tools:
 	@test "$$(id -u)" -ne 0 || { echo 'Seal Media Tools as an unprivileged user' >&2; exit 1; }
