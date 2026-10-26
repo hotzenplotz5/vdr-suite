@@ -275,6 +275,15 @@
         "fetchClientSearchTimerCreateStaged"
       ],
       "note": "Browser Human administrators use the separately authorized, CSRF-bound, inactive-only Public-v1 SearchTimer CREATE with durable idempotency; legacy full-field SearchTimer mutation remains blocked."
+    },
+    {
+      "domain": "epg-timer-create",
+      "classification": "bounded-domain-plane",
+      "publicV1Relation": "scoped-public-v1",
+      "exports": [
+        "fetchClientEpgTimerIntentCreate"
+      ],
+      "note": "Browser EPG actions resolve a fresh authoritative EPG event and strong ETag, then submit exactly one CSRF-protected POST to Public v1. VDR owns native recording margins and conflict checks. This does not migrate manual timer editors."
     }
   ],
   "browserOnlySurfaces": [

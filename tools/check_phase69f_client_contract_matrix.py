@@ -42,12 +42,12 @@ remote_operations = set(re.findall(r"function\s+(fetchClient[A-Za-z0-9_]+)\s*\("
 require("function createClientLiveUpdateSource()" in remote_client, "Live Remote update-source operation disappeared")
 remote_operations.add("createClientLiveUpdateSource")
 
-require(len(base_operations) == 57, f"expected 57 base client operations, found {len(base_operations)}")
+require(len(base_operations) == 58, f"expected 58 base client operations, found {len(base_operations)}")
 require(len(genre_operations) == 3, f"expected 3 Genre client operations, found {len(genre_operations)}")
 require(len(remote_operations) == 3, f"expected 3 Live Remote operations, found {len(remote_operations)}")
 
 discovered_operations = base_operations | genre_operations | remote_operations
-require(len(discovered_operations) == 63, f"expected 63 classified browser Client API operations, found {len(discovered_operations)}")
+require(len(discovered_operations) == 64, f"expected 64 classified browser Client API operations, found {len(discovered_operations)}")
 
 classified = []
 groups = matrix.get("browserClientGroups", [])
@@ -78,6 +78,12 @@ for source_name, source in (
         require(source.count("'/api/v1/search-timers'") == 1,
                 "browser SearchTimer staging route must be exact")
         source = source.replace("'/api/v1/search-timers'", "'approved-searchtimer-create'")
+        # Explicitly audited API-v1 EPG CREATE read/write pair. Both routes
+        # are required together; unknown public-v1 browser uses still fail.
+        for route in ("'/api/v1/epg/event'", "'/api/v1/epg/timer-intents'"):
+            require(source.count(route) == 1,
+                    "browser EPG timer v1 route must be exact: " + route)
+            source = source.replace(route, "'approved-epg-timer'")
     require("/api/v1" not in source,
             f"{source_name} browser Client API started consuming unreviewed /api/v1 resources")
 
@@ -366,6 +372,6 @@ test_groups = read("mk/test-groups.mk")
 require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must include client-contract matrix")
 
 print("Phase 69.F client-contract matrix guard passed.")
-print("Classified browser Client API operations: 63 exactly once (including guarded SearchTimer CREATE).")
+print("Classified browser Client API operations: 64 exactly once (including guarded SearchTimer and EPG Timer CREATE).")
 print("Public-v1 method/resource contracts: 9 accepted, 2 scoped read-only candidates (Recording R2 and SearchTimer).")
 print("Nine accepted reference-client contracts retained; Recording R2 and SearchTimer post-69 candidates explicitly inventoried.")

@@ -754,7 +754,7 @@
     fetchClientTimers: fetchClientTimers,
     fetchClientTimerConflicts: fetchClientTimerConflicts,
     fetchClientTimerCreateAction: fetchClientTimerCreateAction,
-    fetchClientEpgTimerIntentCreate: fetchClientEpgTimerIntentCreate;
+    fetchClientEpgTimerIntentCreate: fetchClientEpgTimerIntentCreate,
     fetchClientTimerUpdateAction: fetchClientTimerUpdateAction,
     fetchClientTimerDeleteAction: fetchClientTimerDeleteAction,
     fetchClientChannels: fetchClientChannels,
