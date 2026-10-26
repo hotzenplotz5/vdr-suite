@@ -34,6 +34,8 @@ SearchTimerCreateAdmissionRequest input()
     item.payload.matchMode = 1;
     item.payload.compareTitle = true;
     item.payload.compareSummary = true;
+    item.payload.marginStartMinutes = 2;
+    item.payload.marginStopMinutes = 10;
     return item;
 }
 
@@ -49,6 +51,8 @@ SearchTimer createdTimer(const SearchTimerCreateRequest& request,
     timer.comparisonOptions().setCompareTitle(request.compareTitle);
     timer.comparisonOptions().setCompareSubtitle(request.compareSubtitle);
     timer.comparisonOptions().setCompareSummary(request.compareSummary);
+    timer.scheduleOptions().setMarginStartMinutes(request.marginStartMinutes);
+    timer.scheduleOptions().setMarginStopMinutes(request.marginStopMinutes);
     return timer;
 }
 
@@ -159,6 +163,8 @@ struct Rig
         command.compareTitle = draft.payload.compareTitle;
         command.compareSubtitle = draft.payload.compareSubtitle;
         command.compareSummary = draft.payload.compareSummary;
+        command.marginStartMinutes = draft.payload.marginStartMinutes;
+        command.marginStopMinutes = draft.payload.marginStopMinutes;
         return command;
     }
     SearchTimerCreateDispatchRequest request()
@@ -184,6 +190,8 @@ void assertHappyPathAndNoRetry()
     assert(status.status == SearchTimerCreateDispatchStatus::verified);
     assert(status.operation.state == MutationOperationState::succeeded);
     assert(r.executor.creates == 1);
+    assert(r.executor.last.marginStartMinutes == 2);
+    assert(r.executor.last.marginStopMinutes == 10);
     assert(r.source.reads == 2);
     const auto retry = r.dispatch.dispatchOnce(
         r.request(),r.executor,r.source);
@@ -397,6 +405,14 @@ void assertReadbackAndPreexistingIdentity()
     assert(mismatched.status ==
         SearchTimerCreateDispatchStatus::outcomeUnknown);
     assert(mismatch.executor.creates == 1);
+
+    Rig wrongMargin;
+    wrongMargin.source.finalItems.front().scheduleOptions()
+        .setMarginStopMinutes(0);
+    const auto wrong = wrongMargin.dispatch.dispatchOnce(
+        wrongMargin.request(), wrongMargin.executor, wrongMargin.source);
+    assert(wrong.status == SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(wrongMargin.executor.creates == 1);
 }
 }
 

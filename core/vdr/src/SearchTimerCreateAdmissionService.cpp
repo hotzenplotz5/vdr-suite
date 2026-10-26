@@ -15,7 +15,9 @@ constexpr const char* kResourceId = "new";
 constexpr const char* kActionFamily = "searchtimer.create";
 constexpr const char* kPayloadType = "searchtimer.create";
 constexpr const char* kExpectedRevision = "new";
-constexpr std::uint32_t kPayloadVersion = 1U;
+// Version 1 lacked backend-owned margins; never dispatch an old
+// accepted rule with a silently assumed zero-minute margin.
+constexpr std::uint32_t kPayloadVersion = 2U;
 
 bool boundedPrintableAscii(const std::string& value, std::size_t max)
 {

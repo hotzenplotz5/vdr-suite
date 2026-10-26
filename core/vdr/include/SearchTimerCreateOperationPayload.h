@@ -15,6 +15,9 @@ struct SearchTimerCreateOperationPayload
     bool compareTitle = true;
     bool compareSubtitle = false;
     bool compareSummary = false;
+    // Live settings of the selected VDR, captured at CREATE admission.
+    int marginStartMinutes = 0;
+    int marginStopMinutes = 0;
 };
 
 bool searchTimerCreateOperationPayloadValid(

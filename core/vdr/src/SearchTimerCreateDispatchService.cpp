@@ -53,7 +53,9 @@ bool matchesRequested(
         timer.comparisonOptions().compareTitle() == request.compareTitle &&
         timer.comparisonOptions().compareSubtitle() ==
             request.compareSubtitle &&
-        timer.comparisonOptions().compareSummary() == request.compareSummary;
+        timer.comparisonOptions().compareSummary() == request.compareSummary &&
+        timer.scheduleOptions().marginStartMinutes() == request.marginStartMinutes &&
+        timer.scheduleOptions().marginStopMinutes() == request.marginStopMinutes;
 }
 
 SearchTimerCreateRequest commandFor(
@@ -70,6 +72,8 @@ SearchTimerCreateRequest commandFor(
     command.compareTitle = payload.compareTitle;
     command.compareSubtitle = payload.compareSubtitle;
     command.compareSummary = payload.compareSummary;
+    command.marginStartMinutes = payload.marginStartMinutes;
+    command.marginStopMinutes = payload.marginStopMinutes;
     return command;
 }
 
@@ -126,7 +130,7 @@ SearchTimerCreateDispatchResult SearchTimerCreateDispatchService::dispatchOnce(
         operation.operationId);
     SearchTimerCreateOperationPayload payload;
     if (!stored.ok() || stored.payload.payloadType != "searchtimer.create" ||
-        stored.payload.payloadVersion != 1U ||
+        stored.payload.payloadVersion != 2U ||
         !parseSearchTimerCreateOperationPayload(
             stored.payload.payload, payload) ||
         stored.payload.payloadFingerprint !=

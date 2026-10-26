@@ -2084,7 +2084,8 @@ bool DaemonRuntime::initialize()
             for (const auto& candidate : backendRuntimeContexts_)
             {
                 if (candidate && candidate->backendId == request.backendId &&
-                    candidate->searchTimerAdapter && candidate->httpClient)
+                    candidate->searchTimerAdapter && candidate->httpClient &&
+                    candidate->suiteBridgeTransport)
                 {
                     runtime = candidate.get();
                     break;
@@ -2113,6 +2114,30 @@ bool DaemonRuntime::initialize()
             input.payload.compareTitle = request.compareTitle;
             input.payload.compareSubtitle = request.compareSubtitle;
             input.payload.compareSummary = request.compareSummary;
+            // epgsearch has independent defaults, so persist the live VDR
+            // margins on the inactive rule before it can be activated.
+            SuiteBridgeNativeTimerMarginsProjection margins;
+            std::string marginReason;
+            if (!backendAgentCommandRepository_)
+            {
+                result.status = PublicSearchTimerCreateStatus::backendUnavailable;
+                return result;
+            }
+            const auto provider = backendAgentCommandRepository_->selectLocalProvider(
+                request.backendId, agent->agentId, agent->agentInstanceId,
+                agent->backendGeneration,
+                kBackendAgentNativeTimerCreateAuthorityDomain,
+                kBackendAgentNativeTimerCreateCapability, marginReason);
+            if (!provider ||
+                !SuiteBridgeNativeTimerCreateTransport::verifyNativeMarginsReply(
+                    runtime->suiteBridgeTransport->inspectNativeTimerMarginsContract(),
+                    *provider, margins, marginReason))
+            {
+                result.status = PublicSearchTimerCreateStatus::backendUnavailable;
+                return result;
+            }
+            input.payload.marginStartMinutes = margins.startMinutes;
+            input.payload.marginStopMinutes = margins.stopMinutes;
             const auto admitted = admission.admit(input);
             if (admitted.status == SearchTimerCreateAdmissionStatus::invalid)
             {

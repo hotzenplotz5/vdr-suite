@@ -27,6 +27,8 @@ SearchTimerCreateAdmissionRequest request()
     input.payload.compareTitle = true;
     input.payload.compareSubtitle = false;
     input.payload.compareSummary = true;
+    input.payload.marginStartMinutes = 2;
+    input.payload.marginStopMinutes = 10;
     return input;
 }
 
@@ -42,6 +44,7 @@ void assertPayloadCodec()
     assert(decoded.query == p.query);
     assert(decoded.matchMode == 1);
     assert(decoded.compareTitle && decoded.compareSummary);
+    assert(decoded.marginStartMinutes == 2 && decoded.marginStopMinutes == 10);
     const std::string fingerprint =
         searchTimerCreateOperationPayloadFingerprint(p);
     assert(fingerprint.size() == 71U);
@@ -57,6 +60,12 @@ void assertPayloadCodec()
         serializeSearchTimerCreateOperationPayload(p), decoded));
     assert(decoded.name == p.name);
 
+    p.marginStopMinutes = 1441;
+    assert(!searchTimerCreateOperationPayloadValid(p));
+    p.marginStopMinutes = 10;
+    p.marginStartMinutes = -1;
+    assert(!searchTimerCreateOperationPayloadValid(p));
+    p.marginStartMinutes = 2;
     p.matchMode = 4; // Regexp explicitly not in Public v1 draft contract.
     assert(!searchTimerCreateOperationPayloadValid(p));
     p.matchMode = 5;
@@ -96,7 +105,7 @@ void assertDurableAdmissionAndReplay()
         store.findPayloadByOperationId(first.operation.operationId);
     assert(stored.status == MutationOperationRepositoryStatus::ok);
     assert(stored.payload.payloadType == "searchtimer.create");
-    assert(stored.payload.payloadVersion == 1U);
+    assert(stored.payload.payloadVersion == 2U);
     assert(stored.payload.payloadFingerprint ==
         first.operation.requestFingerprint);
 
@@ -118,6 +127,11 @@ void assertDurableAdmissionAndReplay()
     assert(conflict.status ==
         SearchTimerCreateAdmissionStatus::idempotencyConflict);
     assert(conflict.operation.operationId == first.operation.operationId);
+
+    auto changedMargins = request();
+    changedMargins.payload.marginStopMinutes = 11;
+    assert(restarted.admit(changedMargins).status ==
+        SearchTimerCreateAdmissionStatus::idempotencyConflict);
 
     auto changedName = request();
     changedName.payload.name = "Anderer Titel";

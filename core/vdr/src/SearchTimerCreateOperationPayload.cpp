@@ -12,7 +12,7 @@
 
 namespace
 {
-constexpr const char* kPrefix = "searchtimer-create-payload/1|";
+constexpr const char* kPrefix = "searchtimer-create-payload/2|";
 constexpr std::size_t kMaxText = 240U;
 
 // Reject control bytes, malformed Unicode, overlong sequences and surrogates;
@@ -95,6 +95,20 @@ bool readField(const std::string& input,
     return true;
 }
 
+bool parseMargin(const std::string& value, int& minutes)
+{
+    if (value.empty() || value.size() > 4U) return false;
+    int count = 0;
+    for (char c : value) {
+        if (c < '0' || c > '9') return false;
+        count = count * 10 + (c - '0');
+        if (count > 1440) return false;
+    }
+    if (std::to_string(count) != value) return false;
+    minutes = count;
+    return true;
+}
+
 bool parseFlag(const std::string& field, bool& value)
 {
     if (field != "0" && field != "1") return false;
@@ -112,7 +126,9 @@ bool searchTimerCreateOperationPayloadValid(
         payload.matchTolerance >= 0 && payload.matchTolerance <= 3 &&
         (payload.matchMode == 5 || payload.matchTolerance == 0) &&
         (payload.compareTitle || payload.compareSubtitle ||
-            payload.compareSummary);
+            payload.compareSummary) &&
+        payload.marginStartMinutes >= 0 && payload.marginStartMinutes <= 1440 &&
+        payload.marginStopMinutes >= 0 && payload.marginStopMinutes <= 1440;
 }
 
 std::string serializeSearchTimerCreateOperationPayload(
@@ -128,6 +144,8 @@ std::string serializeSearchTimerCreateOperationPayload(
     appendField(output, payload.compareTitle ? "1" : "0");
     appendField(output, payload.compareSubtitle ? "1" : "0");
     appendField(output, payload.compareSummary ? "1" : "0");
+    appendField(output, std::to_string(payload.marginStartMinutes));
+    appendField(output, std::to_string(payload.marginStopMinutes));
     return output;
 }
 
@@ -142,8 +160,8 @@ bool parseSearchTimerCreateOperationPayload(
 
     std::size_t offset = prefix.size();
     std::vector<std::string> fields;
-    fields.reserve(8U);
-    for (std::size_t i = 0U; i < 8U; ++i)
+    fields.reserve(10U);
+    for (std::size_t i = 0U; i < 10U; ++i)
     {
         std::string field;
         if (!readField(serialized, offset, field)) return false;
@@ -162,7 +180,9 @@ bool parseSearchTimerCreateOperationPayload(
     decoded.matchTolerance = fields[4][0] - '0';
     if (!parseFlag(fields[5], decoded.compareTitle) ||
         !parseFlag(fields[6], decoded.compareSubtitle) ||
-        !parseFlag(fields[7], decoded.compareSummary))
+        !parseFlag(fields[7], decoded.compareSummary) ||
+        !parseMargin(fields[8], decoded.marginStartMinutes) ||
+        !parseMargin(fields[9], decoded.marginStopMinutes))
         return false;
     if (serializeSearchTimerCreateOperationPayload(decoded) != serialized)
         return false;
