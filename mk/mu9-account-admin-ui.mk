@@ -2,6 +2,7 @@
 
 test-device-admin-ui:
 	node web/frontend/tests/test_device_admin_ui.js
+	node clients/reference-js/tests/test_public_v1_device_pairing_admin_client.js
 	node clients/reference-js/tests/test_public_v1_device_collection_client.js
 
 test-mu9a-account-admin-read-ui:

@@ -23,6 +23,8 @@ struct PublicRecordingDeviceMediaSessionReady
     int durationSeconds = 0;
     bool resumeSupported = false;
     bool resumePreparing = false;
+    // Only for authenticated Device CREATE, requested by a native player.
+    bool nativeMediaAccessRequested = false;
 };
 
 class PublicRecordingDeviceMediaSessionResponse final

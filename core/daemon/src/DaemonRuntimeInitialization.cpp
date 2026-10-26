@@ -4498,6 +4498,11 @@ bool DaemonRuntime::initialize()
                 request.limit > 100U ||
                 (request.afterBackendId.empty() !=
                  request.afterChannelId.empty()) ||
+                request.afterChannelNumber < 0 ||
+                (request.afterBackendId.empty() &&
+                 request.afterChannelNumber != 0) ||
+                (request.nativeChannelOrder &&
+                 !request.relativeToChannelId.empty()) ||
                 (!request.relativeToChannelId.empty() &&
                  (request.backendIds.size() != 1U ||
                   request.limit != 1U ||
@@ -4632,9 +4637,11 @@ bool DaemonRuntime::initialize()
             std::sort(
                 result.channels.begin(),
                 result.channels.end(),
-                [](const PublicChannelCollectionItem& lhs,
-                   const PublicChannelCollectionItem& rhs)
+                [&request](const PublicChannelCollectionItem& lhs,
+                           const PublicChannelCollectionItem& rhs)
                 {
+                    if (request.nativeChannelOrder)
+                        return publicVdrChannelNumberLess(lhs, rhs);
                     if (lhs.backendId != rhs.backendId)
                         return lhs.backendId < rhs.backendId;
                     return lhs.channelId < rhs.channelId;
@@ -4648,7 +4655,11 @@ bool DaemonRuntime::initialize()
                     request.afterBackendId.empty() ||
                     channel.backendId > request.afterBackendId ||
                     (channel.backendId == request.afterBackendId &&
-                     channel.channelId > request.afterChannelId);
+                     (request.nativeChannelOrder ?
+                        (channel.channelNumber > request.afterChannelNumber ||
+                         (channel.channelNumber == request.afterChannelNumber &&
+                          channel.channelId > request.afterChannelId)) :
+                        channel.channelId > request.afterChannelId));
                 if (afterCursor)
                     eligible.push_back(std::move(channel));
             }

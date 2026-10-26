@@ -83,6 +83,12 @@ This is **not HTTP Bearer**, not Browser Basic and not the Pairing Token. The au
 
 For the VIDAA client, a Device authentication or HTTP 404 in a media-track route must be diagnosed against the actual path, HTTP method, installed daemon SHA and grant requirements; neither successful pairing nor a working Web frontend proves Device route acceptance. A merged server route alone does not prove real Hisense runtime behavior.
 
+## Observed Samsung update/re-pair outcome (2026-10-25)
+
+On the real Samsung Tizen 5.5, the existing application could no longer read its stored Tizen KeyManager credential after a VS Code test app update (`Kein gespeichertes Device-Credential`). The old Service Device **remained active on the VDR-Suite server**; pairing approval did not reconnect that lost secret or reuse its Device identity. The administrator approved a **new** request and the TV completed credential issuance/activation. The new Device could then authenticate, but had **no automatic `channels.view` grant**: its first Backend discovery was empty until the administrator explicitly granted `channels.view@default` to this new Device. The client then displayed 20 real channels.
+
+This is actual Samsung hardware evidence for the activated Device and authorized Channel read; it is **not** a verified persistent KeyManager survival test over a further app update/restart. Future client versions need a data-preserving Tizen update path; never export or log the secret to bypass the vault. An old Device must be individually revoked through the separate authorized Device lifecycle, not inferred from matching names or silently auto-deleted. The 10-second administrative inventory refresh was present in source, but its precise runtime timing was not measured. See [Device admin](device-administration.md) and the [central cumulative hardware acceptance](../docs/development/public-v1-final-hardware-acceptance.md).
+
 ## HTTP outcomes
 
 | HTTP | Client meaning |

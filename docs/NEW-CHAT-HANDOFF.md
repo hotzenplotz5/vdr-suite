@@ -1,5 +1,13 @@
 # VDR-Suite New Chat Handoff
 
+## API-v1 Dokumentations-Closeout – neuester Stand 24.10.2026
+
+**Zuerst lesen:** [CURRENT](CURRENT.md), die **einzige** [Public-v1-Hardware-Abnahmematrix](development/public-v1-final-hardware-acceptance.md#eine-zentrale-ergebnis-matrix--kumulativer-stand-24102026-keine-endfreigabe) und den [Evidenz-/Dokumentations-Closeout](development/public-api-v1-documentation-closeout-20261024.md). PR #536 (historische echte Hardware-PASS) und PR #537 (Operation-ID-Runner-Fix) sind in der bestätigten Ausgangsbasis `main 56c5eb021a37ee8ddaab2dc00306a2545e1d56e2` enthalten. Aktuellen `main` dennoch live ablesen.
+
+**NICHT wiederholen:** Native Timer CREATE/UPDATE/TOGGLE OFF/ON/DELETE 21.10.; EPG→TimerIntent native CREATE 19.10.; Phase-69.C Idempotenz/Revision/Restart als historischer PASS; Recording RENAME/MOVE/DELETE der **bereits gelöschten** *Brisant*-Fixture 21.10.; direkter SearchTimer-RESTfulAPI-CRUD mit Readback; bewiesene GET-/Security-/Device-/Human-Fälle. Nur konkrete neue Hardware-/Build-/ABI-/Public-v1-S1-CAS-/Boot-/Rollback-Pfade bleiben releaserelevant. Vier **andere** `outcome_unknown` niemals redispatchen oder in SQLite manuell korrigieren. SearchTimer CREATE hat nach wie vor keine native epgsearch-lock-atomare CREATE-CAS-Garantie und braucht eine explizite Release-Scope-Entscheidung; Marks/Cut ist als eigenständiges Public-v1-Schreibfeature nicht nachgewiesen. OpenAPI ist `partial`.
+
+**TV ist NICHT verfügbar:** Alle neuen Hisense-/VIDAA-/Device-Media-/Browser↔Device-/Resume-E2E-Tests `BLOCKED: TV_ACCESS_UNAVAILABLE`. Erst auf ausdrückliche Mitteilung des Betreibers fortsetzen; kein Pairing, Credential/Grant-Wechsel oder Browser-Admin als Device-Ersatz. **API-V1-RELEASE bleibt BLOCKED**, trotz akzeptierter Hardware-PASS und Dokumentationsabschluss. Keine Installation, kein Build, kein Neustart, keine produktiven Mutationen ohne separate Freigabe. Phase 70 NOT STARTED.
+
 ## Purpose
 
 This is the canonical operational entry point for every new VDR-Suite chat.

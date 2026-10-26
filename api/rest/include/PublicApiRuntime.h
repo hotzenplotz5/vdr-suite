@@ -471,6 +471,9 @@ struct PublicChannelCollectionRequest
     std::vector<std::string> backendIds;
     std::string afterBackendId;
     std::string afterChannelId;
+    // Additive list order; false preserves legacy backendId/channelId pages.
+    bool nativeChannelOrder = false;
+    int afterChannelNumber = 0;
     // Optional single-backend numeric VDR neighbor read; no ch1_ cursor.
     std::string relativeToChannelId;
     std::string direction;

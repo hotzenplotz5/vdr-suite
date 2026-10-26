@@ -28,6 +28,39 @@
       ? owner.restore() : null;
     return Promise.resolve(ready).then(action);
   }
+  // Browser Human-Admin only; never a TV bootstrap token.
+  function listPendingPairings(cursor) {
+    return publicClient().listDevicePairingsForAdmin({
+      query: Object.assign({limit: 25, sort: 'pairingRequestId', order: 'asc'},
+        cursor ? {cursor: cursor} : {}),
+      credentials: 'same-origin', cache: 'no-store'
+    });
+  }
+  function loadPendingPairing(pairingRequestId) {
+    if (typeof pairingRequestId !== 'string' ||
+        !/^dpr_[0-9a-f]{32}$/.test(pairingRequestId))
+      return Promise.reject(new Error('Invalid pairing request ID'));
+    return restore(function() {
+      return publicClient().getDevicePairingForAdmin({
+        pairingRequestId: pairingRequestId,
+        credentials: 'same-origin', cache: 'no-store'
+      });
+    });
+  }
+  function decidePairing(pairingRequestId, etag, decision) {
+    if (typeof pairingRequestId !== 'string' ||
+        !/^dpr_[0-9a-f]{32}$/.test(pairingRequestId) ||
+        typeof etag !== 'string' || !/^"[^"]{1,256}"$/.test(etag) ||
+        (decision !== 'approve' && decision !== 'reject'))
+      return Promise.reject(new Error('Invalid pairing decision or ETag'));
+    return restore(function() {
+      return publicClient().decideDevicePairingForAdmin({
+        pairingRequestId: pairingRequestId, ifMatch: etag,
+        decision: decision, headers: sessionHeaders(),
+        credentials: 'same-origin', cache: 'no-store'
+      });
+    });
+  }
   function listDevices(cursor) {
     return publicClient().getDevices({
       query: Object.assign({limit: 25},
@@ -38,6 +71,26 @@
   function loadDevice(deviceId) {
     return publicClient().getDeviceGrants({
       deviceId: deviceId, credentials: 'same-origin', cache: 'no-store'
+    });
+  }
+  function loadLifecycle(deviceId) {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(deviceId || ''))
+      return Promise.reject(new Error('Invalid Device ID'));
+    return restore(function() {
+      return publicClient().getDeviceLifecycle({
+        deviceId: deviceId, credentials: 'same-origin', cache: 'no-store'
+      });
+    });
+  }
+  function revokeDevice(deviceId, etag) {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(deviceId || '') ||
+        typeof etag !== 'string' || !/^"[^"]{1,256}"$/.test(etag))
+      return Promise.reject(new Error('Invalid Device ID or lifecycle ETag'));
+    return restore(function() {
+      return publicClient().revokeDevice({
+        deviceId: deviceId, ifMatch: etag, headers: sessionHeaders(),
+        credentials: 'same-origin', cache: 'no-store'
+      });
     });
   }
   function setGrant(deviceId, etag, permission, backendId, active) {
@@ -75,8 +128,13 @@
     });
   }
   global.VdrSuiteDeviceAdminClientApi = Object.freeze({
+    listPendingPairings: listPendingPairings,
+    loadPendingPairing: loadPendingPairing,
+    decidePairing: decidePairing,
     listDevices: listDevices,
     loadDevice: loadDevice,
+    loadLifecycle: loadLifecycle,
+    revokeDevice: revokeDevice,
     listBackends: listBackends,
     setGrant: setGrant,
     resetForTests: function() { client = null; }

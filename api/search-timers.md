@@ -1,5 +1,7 @@
 # Public-v1 VDR SearchTimers: read, preview, inactive CREATE and native CAS management
 
+**Abnahmestand 24.10.2026:** Der bereits erfolgreich auf yaVDR durchgeführte [direkte RESTfulAPI-SearchTimer-CREATE/UPDATE/DELETE-Smoke-Test](../docs/development/searchtimer-yavdr-smoke-test-execution-report.md) bleibt **PASS – PROVIDER** und ist nicht erneut auszuführen. Die nachträglich implementierte Public-v1-Device-/HTTP-/native-epgsearch-CAS-Kette für UPDATE/ACTIVATE/DEACTIVATE/DELETE ist ein **anderer, noch offener REAL-VDR-Ende-zu-Ende-Pfad**. CREATE bleibt ein einmaliger RESTfulAPI-Write ohne native epgsearch-lock-atomare CREATE-CAS-Garantie; diese Garantie muss vor der Releasefreigabe entweder implementiert oder ausdrücklich aus dem Scope ausgeschlossen werden. Die [einzige zentrale Abnahmematrix](../docs/development/public-v1-final-hardware-acceptance.md) und der [Dokumentations-Closeout](../docs/development/public-api-v1-documentation-closeout-20261024.md) sind für den Test-/Release-Status maßgeblich; historische Implementierungsabschnitte darunter sind keine neuen Testaufträge.
+
 The current implemented version is **Public API v1**, not v2.
 
 `GET /api/v1/search-timers?backend=<backendId>&limit=30[&cursor=<opaque>]`

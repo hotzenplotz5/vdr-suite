@@ -48,6 +48,10 @@ for token in (
     "PublicChannelMaximumSources = 16U",
     'PublicChannelCollectionSort =\n    "backendId,channelId"',
     'PublicChannelCursorPrefix = "ch1_"',
+    'PublicChannelNumberCursorPrefix = "ch2_"',
+    'PublicChannelCollectionNativeSort =\n    "backendId,channelNumber,channelId"',
+    "decodePublicChannelNumberCursor",
+    "query.nativeChannelOrder",
     "PublicChannelCursorDecodeStatus::scopeMismatch",
     '"cursor_expired"',
     '"backend_unavailable"',
@@ -81,6 +85,8 @@ for token in (
     "getChannelsForBackend",
     "backend->online",
     "backend->enabled",
+    "request.nativeChannelOrder",
+    "channel.channelNumber > request.afterChannelNumber",
 ):
     require(window, token, "existing read-authority composition")
 for forbidden in (
@@ -103,6 +109,8 @@ for token in (
     "backend_unavailable",
     "cursor_expired",
     "offset=1",
+    "nativeCursor.rfind(\"ch2_\", 0U)",
+    "nativeScopeMismatch.statusCode == 409",
     'first.headers.find("ETag") == first.headers.end()',
 ):
     require(runtime_test, token, "runtime regression coverage")

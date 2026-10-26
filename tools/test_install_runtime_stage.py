@@ -98,6 +98,32 @@ def main() -> int:
         assert "RUNTIME_DEPLOYMENT_DRIFT=missing-dir:var/lib/vdr-suite/backend-agent" in drift.stdout
         assert "RUNTIME_DEPLOYMENT_DRIFT=missing-dir:var/lib/vdr-suite/secrets/series-artwork" in drift.stdout
 
+        # Frontend-only update must preserve daemon, /etc and private state.
+        frontend_live = root / "frontend-only-live"
+        write(frontend_live / "usr/sbin/vdr-suite-daemon", "daemon-original\n", 0o755)
+        write(frontend_live / "etc/vdr-suite/backend-agent.conf", "PRIVATE=unchanged\n")
+        write(frontend_live / "usr/share/vdr-suite/web/frontend/index.html", "old\n")
+        write(frontend_live / "usr/share/vdr-suite/web/frontend/stale.js", "stale\n")
+        for rel in ("usr", "usr/sbin", "usr/share", "usr/share/vdr-suite",
+                    "usr/share/vdr-suite/web", "etc", "etc/vdr-suite",
+                    "var", "var/lib"):
+            mkdir(frontend_live / rel, 0o755)
+        drift_frontend = run("check-frontend", "--stage-root", str(stage),
+                             "--live-root", str(frontend_live), expect=1)
+        assert "FRONTEND_DEPLOYMENT_DRIFT=" in drift_frontend.stdout
+        deployed_frontend = run("deploy-frontend", "--stage-root", str(stage),
+                                "--live-root", str(frontend_live))
+        assert "FRONTEND_ONLY_DEPLOYED=YES" in deployed_frontend.stdout
+        assert (frontend_live / "usr/sbin/vdr-suite-daemon").read_text() == "daemon-original\n"
+        assert (frontend_live / "etc/vdr-suite/backend-agent.conf").read_text() == "PRIVATE=unchanged\n"
+        assert not (frontend_live / "var/lib/vdr-suite").exists()
+        assert not (frontend_live / "usr/share/vdr-suite/web/frontend/stale.js").exists()
+        assert (frontend_live / "usr/share/vdr-suite/web/frontend/composed.js").read_text() == "part-a\npart-b\n"
+        assert mode(frontend_live / "usr/share/vdr-suite/web") == 0o755
+        assert "FRONTEND_DEPLOYMENT_MATCH=YES" in run(
+            "check-frontend", "--stage-root", str(stage), "--live-root", str(frontend_live)
+        ).stdout
+
         deployed = run("deploy", "--stage-root", str(stage), "--live-root", str(live))
         assert "INSTALL_RUNTIME_DEPLOYED=YES" in deployed.stdout
         assert (live / "etc/vdr-suite/backend-agent.conf").read_text(encoding="utf-8") == "SITE_LOCAL=keep\n"
@@ -133,6 +159,10 @@ def main() -> int:
         write(stage / "usr/share/vdr-suite/web/frontend/app.js", "tampered-after-seal\n")
         tampered = run("check", "--stage-root", str(stage), "--live-root", str(live), expect=1)
         assert "sealed stage content changed" in tampered.stdout
+        blocked = run("deploy-frontend", "--stage-root", str(stage),
+                      "--live-root", str(frontend_live), expect=1)
+        assert "sealed stage content changed" in blocked.stdout
+        assert (frontend_live / "usr/share/vdr-suite/web/frontend/app.js").read_text() == "app-v2\n"
 
     print("install-runtime deployment guard passed")
     return 0
