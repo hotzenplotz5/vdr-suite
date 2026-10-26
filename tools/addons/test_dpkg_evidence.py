@@ -120,7 +120,7 @@ class DpkgEvidenceTests(unittest.TestCase):
         contents = json.loads(inventory.read_text())
         contents["prepared_source_sha"] = "b" * 40
         inventory.write_text(json.dumps(contents))
-        self.assertEqual(self._evidence()["reason"], "stage-payload-checksum-mismatch")
+        self.assertEqual(self._evidence()["reason"], "stage-inventory-mismatch")
         self._write_stage_package_ledger()
         self._write_ledger(version="0.1.0~stage1+git" + "a" * 12, architecture="all")
         self.assertEqual(self._evidence()["reason"], "package-architecture-mismatch")

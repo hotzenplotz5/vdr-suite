@@ -186,7 +186,8 @@ async function test() {
 
   // MT.UX2: actual administrator save, no generated shell command.
   const managed = harness(() => response(200, {
-    backendId: 'default', desiredEnabled: false, revision: 0
+    backendId: 'default', desiredEnabled: false, revision: 0,
+    providerVerified: true, agentReady: true
   }), {count: 0});
   managed.window.VdrSuiteAddonSettings.render(managed.parent, 'default');
   await flush();
