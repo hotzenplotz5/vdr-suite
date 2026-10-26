@@ -62,6 +62,10 @@ int main()
         std::string::npos);
     assert(response.body.find("vdr_suite_media=" + ready.mediaCredential) !=
         std::string::npos);
+    assert(response.body.find("\\\"headerName\\\":\\\"X-VDR-Suite-Media-Authorization\\\"") !=
+        std::string::npos);
+    assert(response.body.find("\\\"headerValue\\\":\\\"" + ready.mediaCredential + "\\\"") !=
+        std::string::npos);
     assert(response.body.find("X-Plex-Token") == std::string::npos);
     assert(response.headers.at("Set-Cookie").find("HttpOnly; Secure") !=
         std::string::npos);
