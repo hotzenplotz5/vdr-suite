@@ -26,6 +26,35 @@ The existing browser UI module registry does not confer backend authority.
 No add-on may self-register permission grants, HTTP routes, arbitrary code,
 package install scripts or executable capability merely by dropping a manifest.
 
+
+## MT.LC — vollständiger Add-on-Lebenszyklus (Freigabearbeit)
+
+**Zielvertrag (Maintainerentscheidung 26.10.2026):** Media Tools ist ein
+**optional installierbares und entfernbares Add-on**, nicht bloß ein fest
+verdrahteter Menüpunkt. Main enthält die gemeinsam benötigten Backend-,
+Sicherheits-, API-v1- und Agent-Verträge; die drei ausführbaren
+Media-Tools-Worker bleiben außerhalb des Basis-Installationspayloads.
+**Source-Merge und Produktivaktivierung sind getrennte Entscheidungen.**
+Keine neuen Entwicklungsbranches, keine Änderung an AGENTS.md, kein
+ungeprüfter yaVDR-Eingriff.
+
+| Slice | Umsetzungsziel und Nachweis | Grenze |
+| --- | --- | --- |
+| **MT.LC0 – Inventar/Ownership** | Bestehende manuelle Stage, dpkg-Paket, Handler-Digest, Backend-Zuordnung und aktivierte Absicht über bestehende Registry-, Preflight- und Trust-Owner trennen; Status mindestens not_installed, installed_disabled, active, unavailable_or_partial, migration_required und unknown. Jeder Status braucht **unabhängige Backendbelege**, nicht bloß einen Aktivierungswunsch oder Frontend-Manifest-Eintrag. | Ein nicht verifizierter Provider darf im UI **nicht** als sicher nicht installiert bezeichnet werden. Remote Backend ohne vertrauenswürdige Inventurdaten meldet unknown. |
+| **MT.LC1 – Geschützter Status im Web** | Administratoransicht für vorhandene/nicht vorhandene Module; wirksame Aktivierung einer installierten Version und lediglich gespeicherten CAS-Intent unterscheiden. Media-Import-Menü/Aktionen nur bei effektiver, autorisierter Capability anzeigen. Tests für fehlende Installation, verlorenen Agent-Lease, fehlende Berechtigung und deaktivierten Handler. | Die bisherige Browser-Aktivierungs-API installiert und entfernt **nichts**. Kein falscher Installieren-Button. |
+| **MT.LC2 – Install/Upgrade** | Vorhandene versiegelte, unabhängig freigegebene Stage oder das optionale .deb wiederverwenden; **eng begrenzter privilegierter Backend-Ausführungsweg** nur nach geprüftem Paketbesitz, vollständigem Preflight, verifizierter Herkunft, Space-/DB-/Rollback-Plan, Wartungsfence und gesonderter Administratorbestätigung. Kein Browser-supplied Dateipfad, Paketname, Shell oder Kommando; keine Vermischung manueller Stage mit dpkg. | Der unprivilegierte Suite-Daemon/Agent darf **nicht** durch HTTP zu einem allgemeinen Root-/dpkg-Executor werden. Ohne freigegebenen privilegierten Owner nur sichere Vorschau, keine produktive Mutation. |
+| **MT.LC3 – Deaktivieren/Entfernen** | Zuerst neue Aufträge sperren, laufende/ungewisse Imports und Shrinks drainen oder **fail closed**, Root-/Core-Handlerfreigabe widerrufen und Status abgleichen. Dann genau die unabhängig verifizierten Paketdateien entfernen: dpkg-installiert über Paketverwalter, manuell nur gegen versiegeltes Besitz-/Digest-Inventar und ausdrücklichen Wartungs-/Rollback-Vertrag. | **Nie** Aufnahmen, manuelle Metadaten, DB, Quellmedien, fremde Dateien oder unbekannte Zustände mitentfernen. Purge/Zustandslöschung sind eigene ausdrücklich bestätigte Entscheidungen. |
+| **MT.LC4 – UI-Lifecycle** | In der Administratoransicht Installieren, Aktivieren, Deaktivieren, Aktualisieren und Entfernen **nur** für nachgewiesen zulässige Zustände und vorhandene sichere Backend-Aktionen anbieten; konkrete Vorschau, zusätzliche Bestätigung, Operation-ID, Fortschritt, Fehler, Readback und Rollbackstatus zeigen. | Kein Button ohne dahinterliegende autorisierte, getestete Aktion. Remote Agent ist kein Paketmanager. |
+| **MT.LC5 – Abnahme** | Gefährdungs-/Negativtests (CSRF, Actor-/Backend-Scope, Paketfälschung, manuell↔dpkg-Kollision, SQLite/P7, Agent-Lease, laufende Jobs, Abbruch, Downgrade/Rollback); exakte HEAD-CI; isolierte Debian-Lifecycle-Tests und **separat** echte yaVDR-Abnahme MT.1–MT.5. | Source-Merge nur bei abgeschlossener Code-/Sicherheitsprüfung; reale Paketänderungen, Import, Shrink und Merge nach main erfordern jeweils ausdrückliche Betreiberfreigabe. |
+
+**Iststand:** Die Web-Einstellungen unterstützen eine geschützte
+Aktivierungsabsicht und Quellenkonfiguration, jedoch **keinen**
+sicheren Web-Paketinstaller oder -Deinstaller. Die vorhandenen Worker sind
+optional paketierbar; Daemon-/Agent-Grundlagen bereits im Suite-Build.
+Die aktuelle Source-/Web-Korrektur führt **keine** privilegierte Ausführung
+ein. MT.LC2–LC5 dürfen nicht als PASS gelten, bevor ihre jeweiligen
+Akzeptanznachweise vorliegen.
+
 ## Actual install and packaging boundary
 
 The current yaVDR has VDR-Suite installed by the existing conventional

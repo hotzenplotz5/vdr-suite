@@ -284,8 +284,9 @@
     card.appendChild(node('h3', 'Media Tools'));
     card.appendChild(node('p',
       'Import und HEVC-Shrink benötigen einen geprüften Backend-Agent, ' +
-      'sowie aktuelle technische Integritätsprüfungen. Die Installation ' +
-      'aktiviert das Addon; andere Benutzer erhalten getrennte Rechte.'));
+      'sowie aktuelle technische Integritätsprüfungen. Installation, ' +
+      'Aktivierung und Benutzerrechte sind getrennt. Paketinstallation ' +
+      'und Deinstallation sind über diese Oberfläche noch nicht verfügbar.'));
     const status = node('p', 'Aktivierung wird geladen …');
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
@@ -323,11 +324,13 @@
         current = result;
         card.hidden = false;
         sourceEditor.load();
+        // An activation-intent GET is not an installed-package inventory.
+        // Missing trusted provider evidence does not establish package absence.
         status.textContent = result.activatedByInstall
-          ? 'Durch Administratorinstallation aktiviert'
+          ? 'Backend-Handler und Agent aktuell verifiziert (Paketbesitz separat prüfen)'
           : (result.desiredEnabled
-            ? 'Addon aktiviert (Laufzeitstatus gesondert prüfen)'
-            : 'Addon deaktiviert oder noch nicht installiert');
+            ? 'Aktivierungswunsch gespeichert; Installation und Laufzeit nicht verifiziert'
+            : 'Addon deaktiviert; Installationsstatus hier nicht verifiziert');
         details.textContent = 'Backend: ' + backendId +
           ' · Freigabe-Revision: ' + result.revision;
         toggle.textContent = result.desiredEnabled ? 'Deaktivieren' : 'Aktivieren';

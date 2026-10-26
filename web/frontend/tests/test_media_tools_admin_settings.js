@@ -111,8 +111,13 @@ async function test() {
   installed.window.VdrSuiteAddonSettings.render(installed.parent, 'default');
   await flush();
   assert.ok(installed.elements.some(e =>
-    e.textContent === 'Durch Administratorinstallation aktiviert'));
+    e.textContent === 'Backend-Handler und Agent aktuell verifiziert (Paketbesitz separat prüfen)'));
   assert.ok(installed.elements.some(e => e.textContent === 'Deaktivieren'));
+  assert.ok(h.elements.some(e => e.textContent ===
+    'Addon deaktiviert; Installationsstatus hier nicht verifiziert'));
+  assert.ok(!h.elements.some(e => e.textContent === 'Installieren' ||
+    e.textContent === 'Deinstallieren'),
+    'UI must not present nonfunctional or privileged package actions');
 
   const refused = harness((_url, options) => options.method === 'POST'
     ? response(409, {error: 'provider_not_eligible'})
