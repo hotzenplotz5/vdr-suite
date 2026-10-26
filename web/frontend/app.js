@@ -981,7 +981,13 @@ function epgTimerMatchesDetail(timer, metadata) {
     timerEnd > 0 &&
     Math.abs(timerEnd - metadata.end) <= 180;
 
-  return startMatches && (endMatches || titleMatches);
+  // Native CREATE may start much earlier and stop much later than EPG
+  // because VDR owns up to 24h of recording margins per boundary.
+  const paddedWindowMatches = timerStart > 0 && timerEnd > 0 &&
+    timerStart <= metadata.start && metadata.start - timerStart <= 86400 &&
+    timerEnd >= metadata.end && timerEnd - metadata.end <= 86400;
+  return startMatches && (endMatches || titleMatches) ||
+    (titleMatches && paddedWindowMatches);
 }
 
 function clearEpgTimerSuccessFeedback(container) {
@@ -1003,6 +1009,7 @@ function setEpgTimerDetailState(detail, matchingTimer) {
     }
 
     detail.dataset.epgTimerState = 'present';
+    detail.dataset.epgTimerSubmissionPending = 'false';
     button.disabled = true;
     button.classList.add('timer-present');
     button.textContent = timerRecording(matchingTimer) ? 'Nimmt auf' : 'Timer vorhanden';
@@ -1012,6 +1019,13 @@ function setEpgTimerDetailState(detail, matchingTimer) {
 
   if (detail.dataset.epgTimerState === 'present') {
     clearEpgTimerSuccessFeedback(detail);
+  }
+
+  if (detail.dataset.epgTimerSubmissionPending === 'true') {
+    button.disabled = true;
+    button.textContent = 'Auftrag prüfen';
+    button.title = 'Auftragsergebnis im Timerbereich prüfen, keinen zweiten Timer anlegen.';
+    return;
   }
 
   detail.dataset.epgTimerState = 'absent';
@@ -1074,24 +1088,12 @@ function syncEpgTimerDetailStatesSoon() {
 }
 
 function buildEpgTimerCreatePayload(event, channel) {
-  const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
-  const end = frontendEventEnd(event, start);
-  const eventId = firstValue(event, ['eventId', 'id', 'nativeId'], '');
-  const channelId = frontendEventChannelId(event) || frontendChannelId(channel);
-
+  // Public v1 accepts only the exact EPG identity. VDR owns recording
+  // margins, dates, priorities, native timer projection and conflict checks.
   return {
     backendId: selectedEpgBackendId(),
-    channelId,
-    title: epgEventTitle(event),
-    directory: '',
-    day: formatEpgTimerDay(start),
-    weekdays: '-------',
-    start: formatEpgTimerClockValue(start),
-    stop: formatEpgTimerClockValue(end),
-    priority: 50,
-    lifetime: 99,
-    active: true,
-    aux: eventId !== '' ? 'eventId=' + String(eventId) : ''
+    channelId: frontendEventChannelId(event) || frontendChannelId(channel),
+    eventId: String(firstValue(event, ['eventId', 'id', 'nativeId'], ''))
   };
 }
 
@@ -1127,16 +1129,19 @@ function showEpgTimerPayloadPreview(container, event, channel) {
 
   appendEpgDetailMeta(summary, 'Backend', payload.backendId);
   appendEpgDetailMeta(summary, 'Kanal', payload.channelId || '-');
-  appendEpgDetailMeta(summary, 'Titel', payload.title);
-  appendEpgDetailMeta(summary, 'Datum', payload.day);
-  appendEpgDetailMeta(summary, 'Start', String(payload.start));
-  appendEpgDetailMeta(summary, 'Stop', String(payload.stop));
+  appendEpgDetailMeta(summary, 'Titel', epgEventTitle(event));
+  appendEpgDetailMeta(summary, 'Ereignis-ID', payload.eventId || '-');
+  const eventStart = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
+  const eventEnd = frontendEventEnd(event, eventStart);
+  appendEpgDetailMeta(summary, 'EPG-Beginn', formatEpgClockFromEpoch(eventStart));
+  appendEpgDetailMeta(summary, 'EPG-Ende', formatEpgClockFromEpoch(eventEnd));
 
   preview.appendChild(summary);
 
   const note = addText(
     document.createElement('p'),
-    'Noch nicht gesendet. Das ist nur die vorbereitete Nutzlast für /api/vdr/timers/actions/create.'
+    'Noch nicht gesendet. API v1 verwendet die EPG-Identität und den aktuellen ETag. ' +
+    'VDR-Suite übernimmt Vor-/Nachlauf, genaue Aufnahmezeiten und Konfliktprüfung aus dem VDR.'
   );
   note.className = 'epg-timer-preview-note';
   preview.appendChild(note);
@@ -1215,26 +1220,15 @@ function validateEpgTimerPayload(payload) {
     missing.push('Kanal-ID fehlt');
   }
 
-  if (!payload.title) {
-    missing.push('Titel fehlt');
-  }
-
-  if (!payload.day) {
-    missing.push('Datum fehlt');
-  }
-
-  if (!Number.isFinite(Number(payload.start)) || Number(payload.start) <= 0) {
-    missing.push('Startzeit fehlt');
-  }
-
-  if (!Number.isFinite(Number(payload.stop)) || Number(payload.stop) <= 0) {
-    missing.push('Stopzeit fehlt');
+  if (!payload.eventId) {
+    missing.push('Native EPG-Ereignis-ID fehlt');
   }
 
   return missing;
 }
 
 function createEpgTimerFromDetail(container, event, channel, button) {
+  if (container.dataset.epgTimerSubmissionPending === 'true') return Promise.resolve(null);
   const payload = buildEpgTimerCreatePayload(event, channel);
   const validationErrors = validateEpgTimerPayload(payload);
 
@@ -1257,69 +1251,52 @@ function createEpgTimerFromDetail(container, event, channel, button) {
   }
 
   clearEpgTimerFeedback(container);
-
-  window.VdrSuiteClientApi.fetchClientTimerCreateAction({
-    cache: 'no-store',
-    payload
-  })
+  const api = window.VdrSuiteClientApi;
+  if (!api || typeof api.fetchClientEpgTimerIntentCreate !== 'function') {
+    showEpgTimerStatus(container, false, 'Timer nicht verfügbar', 'API v1 ist nicht verfügbar.');
+    if (button) {
+      button.disabled = false;
+      button.classList.remove('pending');
+      button.textContent = originalLabel;
+    }
+    return Promise.resolve(null);
+  }
+  // An uncertain POST must never become another CREATE with a fresh key
+  // just because the browser did not receive the backend outcome.
+  container.dataset.epgTimerSubmissionPending = 'true';
+  return api.fetchClientEpgTimerIntentCreate(payload)
     .then(result => {
-      if (result && result.success === false) {
-        showEpgTimerStatus(
-          container,
-          false,
-          'Timer wurde nicht erstellt',
-          String(result.message || 'Der VDR hat die Timer-Erstellung abgelehnt.'),
-          epgTimerResultDetails(result)
-        );
-
-        if (button) {
-          button.disabled = false;
-          button.classList.remove('pending');
-          button.textContent = originalLabel;
-        }
-        return;
+      const operation = result && (result.operation || result);
+      if (!operation || !operation.operationId) {
+        throw new Error('Auftragsergebnis unklar. Bitte den Backend-Zustand prüfen.');
       }
-
-      const timerId = result && result.timerId ? String(result.timerId) : '';
+      container.dataset.epgTimerOperationId = String(operation.operationId);
+      const succeeded = operation.state === 'succeeded';
       showEpgTimerStatus(
-        container,
-        true,
-        'Timer erstellt',
-        timerId !== ''
-          ? 'Timer wurde erfolgreich erstellt. Timer-ID: ' + timerId
-          : String((result && result.message) || 'Timer wurde erfolgreich erstellt.'),
-        epgTimerResultDetails(result)
+        container, true,
+        succeeded ? 'Timer erstellt' : 'Timerauftrag angenommen',
+        succeeded ? 'Auftrag vom Backend bestätigt.' :
+          'Auftrag ' + operation.operationId +
+          ' wurde angenommen. Die Erstellung bitte im Timerbereich prüfen.'
       );
-
-      if (timerId !== '') {
-        container.dataset.epgTimerCreatedTimerId = timerId;
-      }
-      container.dataset.epgTimerState = 'present';
-
       if (button) {
         button.classList.remove('pending');
-        button.textContent = 'Timer erstellt';
+        button.textContent = succeeded ? 'Timer erstellt' : 'Auftrag prüfen';
       }
-
       syncEpgTimerDetailStatesSoon();
+      return result;
     })
     .catch(error => {
-      const data = error && error.data ? error.data : {};
-      const details = epgTimerResultDetails(data);
-
       showEpgTimerStatus(
-        container,
-        false,
-        'Timer-Fehler',
-        String((error && error.message) || 'Timer konnte nicht erstellt werden.'),
-        details
+        container, false, 'Timerauftrag nicht bestätigt',
+        String((error && error.message) || 'Das Ergebnis ist unklar.') +
+          ' Vor einem neuen Auftrag den Backend-Zustand prüfen.'
       );
-
       if (button) {
-        button.disabled = false;
         button.classList.remove('pending');
-        button.textContent = originalLabel;
+        button.textContent = 'Auftrag prüfen';
       }
+      return null;
     });
 }
 

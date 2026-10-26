@@ -362,30 +362,43 @@
   }
 
   function timerPayload(event, channel) {
-    const start = eventStart(event);
-    const end = eventEnd(event);
-    const id = text(pick(event, ['eventId', 'id', 'nativeId']));
-    return {backendId: backendId(), channelId: eventChannelId(event) || channelId(channel), title: eventTitle(event), directory: '', day: dateValue(new Date(start * 1000)), weekdays: '-------', start: hhmm(start), stop: hhmm(end), priority: 50, lifetime: 99, active: true, vps: false, aux: id ? `eventId=${id}` : ''};
+    return {
+      backendId: backendId(),
+      channelId: eventChannelId(event) || channelId(channel),
+      eventId: text(pick(event, ['eventId', 'id', 'nativeId']))
+    };
   }
 
   function createTimer(event, channel, feedback, button) {
     const client = api();
-    if (!client || typeof client.fetchClientTimerCreateAction !== 'function') {
+    const identity = timerPayload(event, channel);
+    if (!client || typeof client.fetchClientEpgTimerIntentCreate !== 'function' ||
+        !identity.backendId || !identity.channelId || !identity.eventId) {
       feedback.className = 'channels2-feedback error';
-      feedback.textContent = 'Timer-API ist nicht verfügbar.';
-      return;
+      feedback.textContent = 'API v1 oder die native EPG-Ereignis-ID fehlt.';
+      return Promise.resolve(null);
     }
     button.disabled = true;
-    feedback.textContent = 'Timer wird erstellt …';
-    client.fetchClientTimerCreateAction({payload: timerPayload(event, channel), cache: 'no-store', credentials: 'same-origin'}).then(result => {
-      if (result && result.success === false) throw new Error(result.message || result.error || 'Aktion wurde abgelehnt.');
-      button.textContent = 'Timer erstellt';
+    button.textContent = 'Auftrag wird gesendet …';
+    feedback.textContent = 'EPG-Ereignis wird revisionssicher geprüft …';
+    return client.fetchClientEpgTimerIntentCreate(identity).then(result => {
+      const operation = result && (result.operation || result);
+      if (!operation || !operation.operationId) {
+        throw new Error('Auftragsergebnis unklar.');
+      }
+      const succeeded = operation.state === 'succeeded';
+      button.textContent = succeeded ? 'Timer erstellt' : 'Auftrag prüfen';
       feedback.className = 'channels2-feedback success';
-      feedback.textContent = 'Timer wurde erstellt.';
+      feedback.textContent = succeeded ? 'Timer vom Backend bestätigt.' :
+        'Auftrag ' + operation.operationId + ' angenommen; Timerstatus prüfen.';
+      return result;
     }).catch(error => {
-      button.disabled = false;
+      // A rejected/unknown POST is not safe to repeat under a new key.
+      button.textContent = 'Auftrag prüfen';
       feedback.className = 'channels2-feedback error';
-      feedback.textContent = error.message;
+      feedback.textContent = String(error && error.message || error) +
+        ' Backend vor erneutem Auftrag prüfen.';
+      return null;
     });
   }
 

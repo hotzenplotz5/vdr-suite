@@ -353,6 +353,58 @@
     return requestJson('/api/vdr/timers/conflicts/live', options);
   }
 
+  // One public EPG Timer CREATE path for all browser EPG surfaces. The
+  // server owns the native timer, VDR margins and conflict decision.
+  // Never synthesize If-Match from a cached EPG card or retry a POST.
+  function fetchClientEpgTimerIntentCreate(options) {
+    const input = normalizeOptions(options);
+    const backendId = String(input.backendId || '').trim();
+    const channelId = String(input.channelId || '').trim();
+    const eventId = String(input.eventId || '').trim();
+    if (!backendId || !channelId || !eventId) {
+      return Promise.reject(new Error('Backend, Kanal und native EPG-Ereignis-ID sind erforderlich.'));
+    }
+    const random = window.crypto;
+    if (!random || typeof random.getRandomValues !== 'function') {
+      return Promise.reject(new Error('Sichere Auftrags-ID ist nicht verfügbar.'));
+    }
+    const bytes = new Uint8Array(16);
+    random.getRandomValues(bytes);
+    const idempotencyKey = 'epg-web-' +
+      Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+    const eventPath = '/api/v1/epg/event';
+    const url = eventPath + buildQueryString({backendId, channelId, eventId});
+
+    return fetch(url, requestOptions({cache: 'no-store', credentials: 'same-origin'}))
+      .then(function (response) {
+        return parseJsonResponse(eventPath, response).then(function (event) {
+          if (!response.ok) {
+            throw createClientError(eventPath, response.status, event);
+          }
+          const etag = response.headers && typeof response.headers.get === 'function'
+            ? String(response.headers.get('ETag') || '') : '';
+          if (!/^"[^"]+"$/.test(etag) ||
+              !event || String(event.backendId || '') !== backendId ||
+              String(event.channelId || '') !== channelId ||
+              String(event.eventId || '') !== eventId ||
+              !(Number(event.startTime) > 0) ||
+              !(Number(event.endTime) > Number(event.startTime))) {
+            throw new Error('EPG-Ereignis oder revisionssicherer ETag fehlt. Kein Timer gesendet.');
+          }
+          return requestJson('/api/v1/epg/timer-intents',
+            queryMutationOptions(jsonPostOptions({
+              payload: {backendId, channelId, eventId},
+              headers: {
+                'If-Match': etag,
+                'Idempotency-Key': idempotencyKey
+              },
+              cache: 'no-store',
+              credentials: 'same-origin'
+            })));
+        });
+      });
+  }
+
   function fetchClientTimerCreateAction(options) {
     return requestJson('/api/vdr/timers/actions/create', jsonPostOptions(options));
   }
@@ -702,6 +754,7 @@
     fetchClientTimers: fetchClientTimers,
     fetchClientTimerConflicts: fetchClientTimerConflicts,
     fetchClientTimerCreateAction: fetchClientTimerCreateAction,
+    fetchClientEpgTimerIntentCreate: fetchClientEpgTimerIntentCreate;
     fetchClientTimerUpdateAction: fetchClientTimerUpdateAction,
     fetchClientTimerDeleteAction: fetchClientTimerDeleteAction,
     fetchClientChannels: fetchClientChannels,
