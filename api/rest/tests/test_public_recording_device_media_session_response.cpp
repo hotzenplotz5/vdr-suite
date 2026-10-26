@@ -52,6 +52,24 @@ int main()
     ready.resumeSupported = true;
     ready.durationSeconds = 5322;
 
+    // Explicit native-client opt-in exposes ONLY the short-lived session
+    // bearer; default Browser/Device responses never expose the secret.
+    ready.nativeMediaAccessRequested = true;
+    response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
+    assert(response.statusCode == 201);
+    assert(response.body.find(
+        "\\"nativeMediaAccess\\":{\\"transport\\":\\"http-cookie\\"") !=
+        std::string::npos);
+    assert(response.body.find("vdr_suite_media=" + ready.mediaCredential) !=
+        std::string::npos);
+    assert(response.body.find("X-Plex-Token") == std::string::npos);
+    assert(response.headers.at("Set-Cookie").find("HttpOnly; Secure") !=
+        std::string::npos);
+    ready.nativeMediaAccessRequested = false;
+    response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
+    assert(response.body.find("nativeMediaAccess") == std::string::npos);
+    assert(response.body.find(ready.mediaCredential) == std::string::npos);
+
     ready.presentationProfileId = "progressive-direct";
     response = PublicRecordingDeviceMediaSessionResponse::afterActivation(ready);
     assert(response.statusCode == 201);
