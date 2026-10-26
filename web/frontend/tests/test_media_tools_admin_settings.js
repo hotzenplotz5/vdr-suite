@@ -91,7 +91,8 @@ async function test() {
       assert.equal(url, '/api/v1/addons/rectools/activation?backendId=default');
     }
     return response(200, {backendId: 'default', desiredEnabled: desired,
-      revision, providerVerified: true, agentReady: true});
+      revision, providerVerified: true, agentReady: true,
+      activationBoundToProvider: desired});
   }, restored);
   h.window.VdrSuiteAddonSettings.render(h.parent, 'default');
   await flush();
@@ -107,7 +108,8 @@ async function test() {
 
   const installed = harness(() => response(200, {
     backendId: 'default', desiredEnabled: true, activatedByInstall: true,
-    providerVerified: true, agentReady: true, revision: 0
+    providerVerified: true, agentReady: true,
+    activationBoundToProvider: true, revision: 0
   }), {count: 0});
   installed.window.VdrSuiteAddonSettings.render(installed.parent, 'default');
   await flush();
@@ -148,6 +150,24 @@ async function test() {
   const disabledEnable = unverified.elements.find(e => e.textContent === 'Aktivieren');
   assert.ok(disabledEnable && disabledEnable.disabled);
   assert.equal(unverified.requests.filter(r => r.options.method === 'POST').length, 0);
+
+  // Byte-verified provider with a stale Agent generation is not activated.
+  const staleBinding = harness(() => response(200, {
+    backendId: 'default', desiredEnabled: true, revision: 3,
+    providerVerified: true, agentReady: true, activationBoundToProvider: false
+  }), {count: 0});
+  staleBinding.window.VdrSuiteAddonSettings.render(staleBinding.parent, 'default');
+  await flush();
+  assert.ok(staleBinding.elements.some(e =>
+    e.textContent === 'Aktivierungswunsch vorhanden; Agent-/Handlerbindung nicht bestätigt'));
+
+  const agentOffline = harness(() => response(200, {
+    backendId: 'default', desiredEnabled: false, revision: 0,
+    providerVerified: true, agentReady: false, activationBoundToProvider: false
+  }), {count: 0});
+  agentOffline.window.VdrSuiteAddonSettings.render(agentOffline.parent, 'default');
+  await flush();
+  assert.ok(agentOffline.elements.find(e => e.textContent === 'Aktivieren').disabled);
 
   // A stale desired-enable must never be labelled an installed or usable
   // add-on; disabling it remains permitted even after trust is lost.

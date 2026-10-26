@@ -182,7 +182,7 @@ grep -Eq '^CONTROL_PLANE_URL=https://[^[:space:]]+$' /etc/vdr-suite/backend-agen
 ! grep -q 'example.invalid' /etc/vdr-suite/backend-agent.conf || stop "Agent is still placeholder"
 systemctl is-active --quiet vdr-suite-daemon || stop "Suite daemon not active"
 # A newly installed or intentionally stopped Agent need not be running yet:
-# this installer starts it only after the sealed runtime and approvals exist.
+# installation leaves both Suite services stopped pending separate approval.
 # Require a loaded unit with a clean prior result. A crashed/failed Agent
 # must be diagnosed, never silently treated as an acceptable stopped unit.
 AGENT_LOAD=$(systemctl show -p LoadState --value vdr-suite-backend-agent) ||

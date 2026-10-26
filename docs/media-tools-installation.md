@@ -22,7 +22,7 @@ Der bestehende manuelle Erstinstallationsadapter bereitet die Media-Tools-Integr
 Der produktive Installationsweg setzt deshalb voraus:
 
 - `vdr-suite-daemon.service` ist installiert und **active/running**.
-- `vdr-suite-backend-agent.service` ist installiert, für den Backend-Betrieb konfiguriert und als systemd-Einheit **loaded**. Der aktuelle Installer erlaubt `ActiveState=active` oder bei sauberem Ergebnis (`Result=success`) `inactive`; er startet den Agenten nach der Installation.
+- `vdr-suite-backend-agent.service` ist installiert, für den Backend-Betrieb konfiguriert und als systemd-Einheit **loaded**. Der aktuelle Installer erlaubt `ActiveState=active` oder bei sauberem Ergebnis (`Result=success`) `inactive`; nach einem tatsächlichen Deploy verbleiben Agent und Daemon bis zur gesondert genehmigten Inbetriebnahme **gestoppt**.
 - `/etc/vdr-suite/backend-agent.conf` enthält die tatsächliche `BACKEND_ID` und eine gültig konfigurierte `CONTROL_PLANE_URL=https://...`, nicht `example.invalid`. Ein HTTPS-Eintrag allein beweist **keine** funktionierende Verbindung.
 - Die aktive Suite-Datenbank liegt nachweislich am vom Installer erwarteten Pfad `/var/lib/vdr-suite/vdr-suite.db`. Andere Installationen dürfen nicht durch bloßes Anlegen einer Datei passend gemacht werden.
 - Der Installationsbenutzer und `vdr` haben die erforderlichen Rechte auf den existierenden Medienverzeichnissen; weitere Ressourcen-, Integritäts- und Sicherheitsprüfungen stehen **im Skript**.

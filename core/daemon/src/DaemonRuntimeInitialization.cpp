@@ -5531,6 +5531,7 @@ bool DaemonRuntime::initialize()
         bool installedByAdministrator = false;
         bool providerVerified = false;
         bool agentReady = false;
+        bool activationBoundToProvider = false;
         if (backendAgentRepository_ && backendAgentCommandRepository_ &&
             backendAccessPolicy_ && backendRegistryService_)
         {
@@ -5551,10 +5552,16 @@ bool DaemonRuntime::initialize()
                 backendAgentCommandRepository_->hasCapability(
                     backendId, agent->agentId, agent->agentInstanceId,
                     agent->backendGeneration, "addon.media.import");
-            if (current.intent.revision == 0 && agentReady && providerVerified)
-                installedByAdministrator = vdrsuite::addons::mediaToolsActivationPermits(
-                    current.intent, agent->agentId, agent->agentInstanceId,
-                    agent->backendGeneration, handlerSha);
+            if (agentReady && providerVerified)
+            {
+                // Desired-enable can outlive its pinned Agent/handler.
+                activationBoundToProvider =
+                    vdrsuite::addons::mediaToolsActivationPermits(
+                        current.intent, agent->agentId, agent->agentInstanceId,
+                        agent->backendGeneration, handlerSha);
+                installedByAdministrator = current.intent.revision == 0 &&
+                    activationBoundToProvider;
+            }
         }
         const bool enabled = current.intent.desiredEnabled ||
             installedByAdministrator;
@@ -5566,7 +5573,9 @@ bool DaemonRuntime::initialize()
             (installedByAdministrator ? "true" : "false") +
             ",\"providerVerified\":" +
             (providerVerified ? "true" : "false") +
-            ",\"agentReady\":" + (agentReady ? "true" : "false") + "}";
+            ",\"agentReady\":" + (agentReady ? "true" : "false") +
+            ",\"activationBoundToProvider\":" +
+            (activationBoundToProvider ? "true" : "false") + "}";
         return response;
     };
     // Local admin source configuration uses the same authenticated

@@ -318,7 +318,8 @@
       // Installation and saved administrator intent are not the same.
       // Never offer enabling without server-verified provider evidence.
       toggle.disabled = busy || !current ||
-        (current.providerVerified !== true && !current.desiredEnabled);
+        (!current.desiredEnabled &&
+          (current.providerVerified !== true || current.agentReady !== true));
     }
     function reload() {
       busy = true; current = null; controls();
@@ -331,10 +332,11 @@
         // saved intent, but still says nothing about dpkg package ownership.
         const trusted = result.providerVerified === true;
         const ready = result.agentReady === true;
-        status.textContent = trusted && ready && result.desiredEnabled
+        const bound = result.activationBoundToProvider === true;
+        status.textContent = trusted && ready && bound && result.desiredEnabled
           ? 'Media Tools technisch freigegeben (Benutzerrechte separat prüfen)'
           : trusted && result.desiredEnabled
-            ? 'Handler verifiziert, Backend-Agent derzeit nicht bereit'
+            ? 'Aktivierungswunsch vorhanden; Agent-/Handlerbindung nicht bestätigt'
             : trusted
               ? 'Handler verifiziert, Addon deaktiviert'
               : result.desiredEnabled
