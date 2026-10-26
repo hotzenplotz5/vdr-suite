@@ -2,10 +2,12 @@
 
 **Scope:** Non-numbered add-on productization workstream; this document does
 not reopen completed VDR-Suite phases or authorize Phase 70.
-**Development branch:** `work/addon-platform-registry-lifecycle`.
-All slices of this workstream remain on this branch. Main updates enter by
-ordinary fast-forward-safe merge; no per-slice branch, force-push or automatic
-deployment. Live status must be checked against GitHub and docs/CURRENT.md.
+**PR #551 source base:** Merge `ab8eb1f6990e9e0e24bdf5ee9ca0182368c9df0b` is in `main`.
+The deleted branch `work/addon-platform-registry-lifecycle` is **not** an install
+source. MT.HA integration and acceptance changes use the single working branch
+`work/mt-ha-media-tools-hardware-acceptance`; **no automatic merge, deployment,
+activation, or PPA publication**. Verify actual `main` and docs/CURRENT.md
+again before every source- or host-specific approval.
 
 **Binding architecture:** [ADR-0068](../adr/ADR-0068-optional-addons-and-source-packaging.md),
 [ADR-0037](../adr/ADR-0037-packaging-install-api-boundary.md) and the
@@ -26,6 +28,35 @@ The existing browser UI module registry does not confer backend authority.
 No add-on may self-register permission grants, HTTP routes, arbitrary code,
 package install scripts or executable capability merely by dropping a manifest.
 
+
+## MT.HA — manuelle Hardwareabnahme bis zur Launchpad-Freigabe (26.10.2026)
+
+**Verbindliche Reihenfolge:** Erst rein lesende Inventur; dann überprüfte
+manuelle Installation/Übernahme, echte Hardware- und Funktionsabnahme,
+Fehlerbehebung, isolierte Regressionen, zweite Distribution, Update/Remove/
+Recovery, Release-GO und **erst danach** Ubuntu-Quell-/Binärpakete.
+`main` bleibt bis zur expliziten Mergefreigabe unverändert.
+`AGENTS.md` bleibt unverändert. Alle produktiven Medienaktionen nur mit
+isolierten Testdateien und gesonderter Freigabe.
+
+| Slice | Abnahme und bisheriger Nachweis | Status |
+| --- | --- | --- |
+| **MT.HA.0 – Read-only Inventur** | GitHub-Verifizierung: PR #551 auf `main`; `main` war beim Abgleich inzwischen bei `f9ffb76094e8b3b37d7420e84b6d31827e21226f`. Auf yaVDR/Resolute sind Import-/Check-/Shrink-Worker, Root-Approval, Source-TSV und Agent-Drop-in bereits vorhanden; Agent ist `inactive/dead`, Suite und VDR sind `active/running`. Manuelle Suite-Dateien sind nicht durch dpkg verwaltet. Das neue `media-tools-install-inventory.json` wurde im übermittelten Hostinventar nicht gefunden; fehlendes Inventar/Herkunft müssen unabhängig geprüft werden. Live-DB mit WAL: keine ungeprüfte Migration oder reine Dateikopie. | **PARTIAL / PENDING**: Host-Quelle, Stage, Approval-Wirkung, Byteprovenienz, aktiver Datenbankpfad, Verbindungsstatus und Speicherreservierung noch offen. |
+| **MT.HA.1 – Manuelle Installation/Übernahme** | Erstinstallation nur bei belegtem `absent`; vorhandene Media Tools erfordern geprüften Update-/Migrationspfad. Installer muss auf offiziellen `origin/main` statt gelöschtem Entwicklungsbranch pinnen; bestehende Fremd-/Teilstaat-Sperren bleiben. Kein Build als root. | **PENDING**; keine Live-Ausführung freigegeben. |
+| **MT.HA.2 – Hardwareintegration** | Dateimodi, Siegel, Handler-PIN, Registry, Agent-Enrollment, Core, API, Web, Grants und Zustände INSTALLED/CONFIGURED/ENABLED/ACTIVE/CONNECTED/AUTHORIZED/FUNCTIONAL unabhängig nachweisen; Dienst-/Boot-Test separat. | **PENDING** |
+| **MT.HA.3 – Import/Check/Shrink** | Positive und negative End-to-End-Fälle, nur Testmedien, VDR-Readback, Fehler-/Abbruch-/Ressourcen- und Restartfälle; fehlende Funktionen als NOT IMPLEMENTED kennzeichnen. | **PENDING** |
+| **MT.HA.4 – Root Causes/Regressionen** | Reproduzierbare Defekte auf genau einem Integrationsbranch beheben, fokussierte Regressionen und erneute Hardware-Reproduktion, ohne Umgehung von Approval/Fence/DB-Schutz. | **PENDING** |
+| **MT.HA.5 – Distributionen** | Gemeinsame verifizierte Stage mit getrennten Hostprofilen für Ubuntu/yaVDR, Debian, MLD 6.6; zweite echte Distribution erforderlich. Keine aus Ubuntu erratenen MLD-Pfade/Dienste. | **PENDING** |
+| **MT.HA.6 – Update/Remove/Recovery** | Reinstall, alte Version, synthetische P7/P8-Historie, aktive WAL/Backups, Abbruch/Rollback, Berechtigungswiderruf; MT.LC2–LC5 separat abnehmen. | **PENDING** |
+| **MT.HA.7 – Technisches GO** | Matrix je Commit, Distribution, Befehl, Ist/Soll, PASS/FAIL/PENDING/NOT IMPLEMENTED und Restrisiko; GO nur bei vollständigen Pflichtnachweisen. | **PENDING** |
+| **MT.HA.8 – Launchpad Paketierung** | Erst nach GO echtes optionales Worker-Paket statt `~scaffold1`, Noble/Resolute-ABI und Paketinhalte/Upgrade/Rollback, Source- und Binärbuild, Lint, Upload-Vorbereitung. **Kein Upload ohne separate Freigabe**. | **BLOCKED (MT.HA.7)** |
+
+**Aktueller Hostbefund ist keine neue Erstinstallation.** Der bisherige
+`install_media_tools.sh` ist ein Ubuntu/yaVDR-Serviceadapter und prüft
+bewusst fehlende Media-Tools-Dateien; bereits vorhandene Approval-/Worker-
+Dateien sind kein Anlass, diese Schutzgrenzen zu übergehen. Die zwei
+`addon.json`-Kopien stimmten beim Hostinventar in SHA256 überein,
+nicht aber automatisch mit einer freigegebenen Stage-/Manifestversion.
 
 ## MT.LC — vollständiger Add-on-Lebenszyklus (Freigabearbeit)
 
