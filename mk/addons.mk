@@ -710,6 +710,7 @@ install-media-tools:
 	python3 -B tools/addons/install_media_tools_payload.py \
 		--sealed-stage "$(MEDIA_TOOLS_STAGE)" \
 		--approved-handler-sha256 "$(APPROVED_HANDLER_SHA256)" \
+		--previous-approved-handler-sha256 "$(PREVIOUS_APPROVED_HANDLER_SHA256)" \
 		--live-root "$(LIVE_ROOT)"
 
 test-install-media-tools-payload:
