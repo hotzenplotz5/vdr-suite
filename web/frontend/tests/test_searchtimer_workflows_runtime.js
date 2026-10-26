@@ -358,6 +358,20 @@ assert.ok(
 assert.ok(
   source.includes('fetchClientSearchTimerCreateAction')
 );
+assert.ok(source.includes('fetchClientSearchTimerCreateStaged'));
+assert.strictEqual(api.stagedCreateValidation({
+  query: 'Terra X', mode: 1, tolerance: 0,
+  compareTitle: true, compareSubtitle: false, compareSummary: false
+}).length, 0);
+assert.ok(api.stagedCreateValidation({
+  query: 'Terra X', mode: 4, tolerance: 0,
+  compareTitle: true, compareSubtitle: false, compareSummary: false
+}).length > 0);
+assert.ok(api.stagedCreateValidation({
+  query: 'Terra X', mode: 0, tolerance: 1,
+  compareTitle: true, compareSubtitle: false, compareSummary: false
+}).length > 0);
+
 assert.ok(
   source.includes('fetchClientSearchTimerDeleteAction')
 );

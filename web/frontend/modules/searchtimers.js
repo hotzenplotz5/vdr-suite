@@ -869,38 +869,61 @@
     }).finally(() => { button.disabled = false; });
   }
 
+  // Keep full legacy field mapping for read/preview, but never submit
+  // those fields through the intentionally locked RESTfulAPI write route.
+  function stagedCreateValidation(payload) {
+    const errors = [];
+    const query = String(payload.query || '').trim();
+    if (query.length < 2 || query.length > 240) {
+      errors.push('Suchbegriff muss zwischen 2 und 240 Zeichen enthalten.');
+    }
+    if (!payload.compareTitle && !payload.compareSubtitle && !payload.compareSummary) {
+      errors.push('Mindestens ein Suchfeld auswählen.');
+    }
+    if (![0, 1, 2, 3, 5].includes(payload.mode)) {
+      errors.push('Dieser Suchmodus wird beim sicheren Anlegen nicht unterstützt.');
+    }
+    if (!Number.isInteger(payload.tolerance) || payload.tolerance < 0 ||
+        payload.tolerance > 3 || (payload.mode !== 5 && payload.tolerance !== 0)) {
+      errors.push('Toleranz ist nur bei unscharfer Suche (0–3) möglich.');
+    }
+    return errors;
+  }
+
+  function newStagedIdempotencyKey() {
+    // Crypto.getRandomValues also works on unencrypted private LAN origins.
+    // Never use Math.random for an operation identity.
+    const crypto = global.crypto;
+    if (!crypto || typeof crypto.getRandomValues !== 'function') return '';
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return 'search-web-' +
+      Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
   function createForm(template) {
     const source = template || normalizeSearchTimer({}, 0);
     const form = document.createElement('form');
     form.className = 'searchtimer-form';
     form.dataset.searchtimerEditorForm = 'create';
 
+    const notice = addText(document.createElement('p'),
+      'Dieser SearchTimer wird zunächst inaktiv angelegt. ' +
+      'Erweiterte Aufnahme- und Filteroptionen werden hier nicht gespeichert.');
+    notice.className = 'searchtimer-safety-note';
+    form.appendChild(notice);
     const grid = document.createElement('div');
     grid.className = 'searchtimer-form-grid';
-    grid.appendChild(field('Name', input('name', source.name === 'SearchTimer' ? '' : source.name), true));
-    grid.appendChild(field('Suchbegriff', input('query', source.query), true));
-    grid.appendChild(check('active', 'Aktiv', template ? source.active : true));
-    grid.appendChild(check('useVps', 'VPS/PDC', source.useVps));
+    grid.appendChild(field('Suchbegriff / Name', input('query', source.query), true));
     grid.appendChild(check('compareTitle', 'Titel durchsuchen', template ? source.compareTitle : true));
     grid.appendChild(check('compareSubtitle', 'Untertitel durchsuchen', source.compareSubtitle));
     grid.appendChild(check('compareSummary', 'Beschreibung durchsuchen', source.compareSummary));
-    grid.appendChild(check('avoidRepeats', 'Duplikate vermeiden', source.avoidRepeats));
-    createDirectoryFields(grid, source);
-    grid.appendChild(field('Priorität', input('priority', source.priority, 'number')));
-    grid.appendChild(field('Lebensdauer', input('lifetime', source.lifetime, 'number')));
-    grid.appendChild(field('Start-Marge (Min.)', input('marginStartMinutes', source.marginStartMinutes, 'number')));
-    grid.appendChild(field('Stop-Marge (Min.)', input('marginStopMinutes', source.marginStopMinutes, 'number')));
-    createChannelFilterFields(grid, source);
-    grid.appendChild(check('useDuration', 'Dauerfilter verwenden', source.useDuration));
-    grid.appendChild(field('Dauer min. (Min.)', input('durationMinMinutes', source.durationMinMinutes, 'number')));
-    grid.appendChild(field('Dauer max. (Min.)', input('durationMaxMinutes', source.durationMaxMinutes, 'number')));
-    grid.appendChild(field('Erlaubte Wiederholungen', input('allowedRepeats', source.allowedRepeats, 'number')));
-    grid.appendChild(field('Wiederholungen innerhalb Tage', input('repeatsWithinDays', source.repeatsWithinDays, 'number')));
-    grid.appendChild(field('Suchmodus', select('mode', source.mode, [[0, 'Phrase'], [1, 'Alle Wörter'], [2, 'Ein Wort'], [3, 'Exakt'], [4, 'Regulärer Ausdruck'], [5, 'Unscharf']])));
-    grid.appendChild(check('matchCase', 'Groß-/Kleinschreibung', source.matchCase));
-    grid.appendChild(field('Toleranz', input('tolerance', source.tolerance, 'number')));
-    grid.appendChild(field('Blacklist-Modus', input('blacklistMode', source.blacklistMode, 'number')));
-    grid.appendChild(field('Blacklist-IDs', input('blacklistIds', source.blacklistIds), true));
+    grid.appendChild(field('Suchmodus', select('mode',
+      [0, 1, 2, 3, 5].includes(source.mode) ? source.mode : 0,
+      [[0, 'Phrase'], [1, 'Alle Wörter'], [2, 'Ein Wort'],
+       [3, 'Exakt'], [5, 'Unscharf']])));
+    grid.appendChild(field('Toleranz (nur Unscharf)', input('tolerance',
+      source.mode === 5 ? source.tolerance : 0, 'number')));
     form.appendChild(grid);
 
     const actions = document.createElement('div');
@@ -908,31 +931,38 @@
     const previewButton = addText(document.createElement('button'), 'Vorschau');
     previewButton.type = 'button';
     previewButton.className = 'primary';
-    previewButton.dataset.searchtimerAction = 'preview';
-    const saveButton = addText(document.createElement('button'), 'SearchTimer erstellen');
+    const saveButton = addText(document.createElement('button'), 'Inaktiven SearchTimer anlegen');
     saveButton.type = 'submit';
     saveButton.dataset.searchtimerAction = 'save';
     actions.appendChild(previewButton);
     actions.appendChild(saveButton);
     form.appendChild(actions);
-
     const feedback = document.createElement('div');
     feedback.className = 'searchtimer-feedback';
-    feedback.dataset.searchtimerPreviewResult = 'true';
     feedback.setAttribute('role', 'status');
     feedback.setAttribute('aria-live', 'polite');
     form.appendChild(feedback);
 
+    let pendingKey = '';
+    let pendingFingerprint = '';
     function payload() {
-      const result = buildCreatePayload(form, source);
-      const errors = validateCreatePayload(result);
-      if (errors.length > 0) {
+      const query = String(formValue(form, 'query', '') || '').trim();
+      const result = {
+        backendId: selectedBackendId(), name: query, query: query,
+        active: false,
+        mode: numberValue(formValue(form, 'mode', 0), 0),
+        tolerance: numberValue(formValue(form, 'tolerance', 0), 0),
+        compareTitle: boolValue(formValue(form, 'compareTitle', true), true),
+        compareSubtitle: boolValue(formValue(form, 'compareSubtitle', false), false),
+        compareSummary: boolValue(formValue(form, 'compareSummary', false), false)
+      };
+      const errors = stagedCreateValidation(result);
+      if (errors.length) {
         setFeedback(feedback, errors.join(' '), true);
         return null;
       }
       return result;
     }
-
     previewButton.addEventListener('click', () => {
       const result = payload();
       if (result) runPreview(result, previewButton, feedback);
@@ -941,10 +971,58 @@
       event.preventDefault();
       const result = payload();
       if (!result) return;
-      if (!global.confirm('SearchTimer „' + result.name + '“ wirklich erstellen?')) return;
-      runCreate(result, saveButton, feedback);
+      const api = clientApi();
+      if (!api || typeof api.fetchClientSearchTimerCreateStaged !== 'function') {
+        setFeedback(feedback, 'Sicheres SearchTimer-Anlegen ist nicht verfügbar.', true);
+        return;
+      }
+      if (!global.confirm('SearchTimer „' + result.query +
+          '“ zunächst inaktiv auf dem VDR anlegen?')) return;
+      const fingerprint = JSON.stringify(result);
+      if (pendingFingerprint && pendingFingerprint !== fingerprint) {
+        setFeedback(feedback,
+          'Vorherigen Speicherversuch zuerst auf dem VDR überprüfen. ' +
+          'Keinen veränderten SearchTimer erneut absenden.', true);
+        return;
+      }
+      if (!pendingKey) pendingKey = newStagedIdempotencyKey();
+      if (!pendingKey) {
+        setFeedback(feedback, 'Sichere Zufallszahlen sind nicht verfügbar.', true);
+        return;
+      }
+      pendingFingerprint = fingerprint;
+      saveButton.disabled = true;
+      setFeedback(feedback, 'SearchTimer wird sicher angelegt …', false);
+      const body = {
+        name: result.query, query: result.query, active: false,
+        mode: result.mode, tolerance: result.tolerance,
+        compareTitle: result.compareTitle,
+        compareSubtitle: result.compareSubtitle,
+        compareSummary: result.compareSummary, confirmed: true
+      };
+      api.fetchClientSearchTimerCreateStaged({
+        backend: result.backendId,
+        idempotencyKey: pendingKey,
+        payload: body
+      }).then(response => {
+        const operation = response && response.operation || response || {};
+        const state = String(operation.state || '');
+        if (state === 'succeeded') {
+          setFeedback(feedback,
+            'Inaktiver SearchTimer angelegt. Vor Aktivierung Einstellungen im VDR prüfen.', false);
+          global.setTimeout(reloadSearchTimers, 300);
+        } else {
+          setFeedback(feedback,
+            'Anlagevorgang angenommen (' + (state || 'Status unbekannt') +
+            '). Backend-Ergebnis prüfen; nicht mit neuem Schlüssel wiederholen.', false);
+        }
+      }).catch(error => {
+        setFeedback(feedback,
+          'Ergebnis der Anlage unklar: ' +
+          String(error && error.message ? error.message : error) +
+          '. Vor erneutem Versuch den Backend-Zustand prüfen.', true);
+      }).finally(() => { saveButton.disabled = false; });
     });
-
     activeCreateForm = form;
     return form;
   }
@@ -953,7 +1031,7 @@
     if (!activeCreateForm) return;
 
     const values = {
-      name: timer.name + ' – Kopie', query: timer.query, priority: timer.priority, lifetime: timer.lifetime,
+      name: timer.query, query: timer.query, priority: timer.priority, lifetime: timer.lifetime,
       marginStartMinutes: timer.marginStartMinutes, marginStopMinutes: timer.marginStopMinutes,
       durationMinMinutes: timer.durationMinMinutes, durationMaxMinutes: timer.durationMaxMinutes,
       allowedRepeats: timer.allowedRepeats, repeatsWithinDays: timer.repeatsWithinDays,
@@ -1143,6 +1221,7 @@
     effectiveChannelFilter: effectiveChannelFilter,
     buildCreatePayload: buildCreatePayload,
     validateCreatePayload: validateCreatePayload,
+    stagedCreateValidation: stagedCreateValidation,
     selectedBackendId: selectedBackendId
   });
 

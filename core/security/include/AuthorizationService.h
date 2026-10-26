@@ -110,10 +110,11 @@ public:
             return decision;
         }
 
-        // The bootstrap administrator has role.admin scoped to "*".
-        // Only explicitly identified native Timer API v1 actions may use
-        // that global role for a concrete backend. Keep ordinary legacy
-        // timers.create and other backend-scoped admin policies unchanged.
+        // The first Human Account receives role.admin@*. This is a global
+        // administrator for the supported human-facing permission catalogue,
+        // not a per-backend role assignment. Read-only policy, authentication,
+        // backend writability, CSRF and capability checks remain independent.
+        // Never expand a Service/Device actor's admin grant across backends.
         const bool nativeTimerAdminAction =
             (request.permission == "timers.view" &&
              request.action == "native_timers.view") ||
@@ -177,7 +178,9 @@ public:
             }
             permissionPresent = true;
             if (grant.backendId == request.backendId ||
-                (nativeTimerAdminAction && grant.backendId == "*"))
+                (grant.backendId == "*" &&
+                 (nativeTimerAdminAction ||
+                  context.actor.type == ActorType::User)))
             {
                 decision.allowed = true;
                 decision.reasonCode = "role_permission_granted";
@@ -280,9 +283,19 @@ private:
 
     static bool adminRoleGrants(const std::string& permission)
     {
+        // Only reviewed Human Account capabilities; never infer an unknown
+        // future permission or bypass the add-on's independent grant policy.
         return protectedMutationPermission(permission) ||
             mediaPermission(permission) ||
-            adminReadPermission(permission);
+            adminReadPermission(permission) ||
+            permission == "channels.view" ||
+            permission == "recordings.view" ||
+            permission == "recordings.execute" ||
+            permission == "epg.view" ||
+            permission == "timers.view" ||
+            permission == "searchtimers.view" ||
+            permission == "osd.view" ||
+            permission == "osd.control";
     }
 
     static bool mutatingPermission(const std::string& permission)

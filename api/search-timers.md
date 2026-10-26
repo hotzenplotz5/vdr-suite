@@ -303,3 +303,19 @@ plugin packaging, CI and the [single final API-v1 real-VDR acceptance
 checklist](../docs/development/public-v1-final-hardware-acceptance.md) are
 release gates. No production installation, VDR restart or destructive
 hardware exercise has been performed by this PR.
+
+## Browser administrator: safe inactive CREATE (2026-10-26)
+
+An authenticated Human administrator (`role.admin@*` or a role scoped to
+the selected backend), with Browser CSRF, may use the existing
+`POST /api/v1/search-timers?backend=<id>` inactive CREATE operation.
+The independently reviewed Device grant contract remains unchanged.
+No Browser access is added to Public-v1 SearchTimer read, edit, delete or
+activation routes. The legacy direct RESTfulAPI mutation gate stays closed.
+
+The Browser create form sends only name=query, match mode, tolerance and
+title/subtitle/description comparison. The rule is **inactive**, with an
+idempotency key and explicit confirmation. Advanced epgsearch fields cannot
+be silently discarded. A 202 response is an operation admission, not
+confirmation of a provider write. Online writable backend, active Backend
+Agent generation/lease and successful provider readback remain mandatory.

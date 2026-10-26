@@ -659,6 +659,21 @@
     );
   }
 
+  // Public-v1 staged CREATE: separate from the locked legacy mutation path.
+  function fetchClientSearchTimerCreateStaged(options) {
+    const normalized = normalizeOptions(options);
+    return requestJson(
+      '/api/v1/search-timers',
+      queryMutationOptions(jsonPostOptions({
+        query: { backend: normalized.backend },
+        payload: normalized.payload,
+        headers: { 'Idempotency-Key': normalized.idempotencyKey },
+        cache: 'no-store',
+        credentials: 'same-origin'
+      }))
+    );
+  }
+
   function fetchClientSearchTimerCreateAction(options) {
     return requestJson(
       '/api/vdr/searchtimers',
@@ -739,6 +754,7 @@
     fetchClientSearchTimerExecute: fetchClientSearchTimerExecute,
     fetchClientSearchTimerRealTest: fetchClientSearchTimerRealTest,
     fetchClientSearchTimerCreateAction: fetchClientSearchTimerCreateAction,
+    fetchClientSearchTimerCreateStaged: fetchClientSearchTimerCreateStaged,
     fetchClientSearchTimerUpdateAction: fetchClientSearchTimerUpdateAction,
     fetchClientSearchTimerDeleteAction: fetchClientSearchTimerDeleteAction
   });

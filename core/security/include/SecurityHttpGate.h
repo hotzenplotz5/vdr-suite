@@ -2711,10 +2711,27 @@ public:
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
-            if (!gate.deviceAuthenticated ||
-                gate.context.actor.type != ActorType::Service ||
-                !gate.context.device || !gate.context.credential ||
-                gate.context.session.has_value())
+            const bool deviceClient =
+                gate.deviceAuthenticated &&
+                gate.context.actor.type == ActorType::Service &&
+                gate.context.device.has_value() &&
+                gate.context.credential.has_value() &&
+                !gate.context.session.has_value();
+            // Allow the first Human administrator to stage an inactive rule
+            // via the existing durable Public-v1 CREATE. No legacy CRUD
+            // route or additional Browser actor receives this exception.
+            const bool browserAdmin =
+                gate.browserAuthenticated &&
+                gate.context.actor.type == ActorType::User &&
+                gate.context.session.has_value() &&
+                std::any_of(gate.context.grants.begin(),
+                    gate.context.grants.end(),
+                    [&publicSearchTimerBackendId](const PermissionGrant& grant) {
+                        return grant.permission == "role.admin" &&
+                            (grant.backendId == "*" ||
+                             grant.backendId == publicSearchTimerBackendId);
+                    });
+            if (!deviceClient && !browserAdmin)
             {
                 AuthorizationDecision denial;
                 denial.permission = "searchtimers.create";
@@ -2722,7 +2739,19 @@ public:
                 denial.action = "searchtimers.create";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Verified Device credential required", "");
+                    "Verified Device credential or administrator session required", "");
+            }
+            if (browserAdmin &&
+                (browserSessionAuthenticator_ == nullptr ||
+                 !browserSessionAuthenticator_->verifyCsrf(request.headers)))
+            {
+                AuthorizationDecision denial;
+                denial.permission = "searchtimers.create";
+                denial.backendId = publicSearchTimerBackendId;
+                denial.action = "searchtimers.create";
+                denial.reasonCode = "csrf_validation_failed";
+                return rejectWithAudit(gate, denial, 403,
+                    "Browser CSRF validation failed", "");
             }
             const bool validBackend =
                 !publicSearchTimerBackendId.empty() &&
@@ -2752,7 +2781,7 @@ public:
                     return grant.permission == "searchtimers.create" &&
                         grant.backendId == publicSearchTimerBackendId;
                 });
-            if (!exactGrant)
+            if (deviceClient && !exactGrant)
             {
                 AuthorizationDecision denial;
                 denial.permission = "searchtimers.create";

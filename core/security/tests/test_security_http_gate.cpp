@@ -692,6 +692,39 @@ int main()
     assert(outcomeAuditFailure.headers.at("X-Correlation-ID") ==
         "phase62-test-correlation");
 
+    // SearchTimer CREATE: authenticated Browser administrator may use the
+    // durable inactive-only Public-v1 path; browser CSRF is mandatory.
+    assert(fixture.grantRepository.ensureGrant(
+        fixture.actorId, "role.admin", "*"));
+    HttpServerRequest browserSearchCreate = fixture.mutationRequest(
+        "/api/v1/search-timers?backend=default", "default");
+    fixture.addBrowserAuthentication(browserSearchCreate, true);
+    const auto searchCreateAllowed = fixture.gate.evaluate(browserSearchCreate);
+    assert(searchCreateAllowed.allowed);
+    assert(searchCreateAllowed.authorizationDecision.permission ==
+        "searchtimers.create");
+
+    HttpServerRequest searchMissingCsrf = fixture.mutationRequest(
+        "/api/v1/search-timers?backend=default", "default");
+    fixture.addBrowserAuthentication(searchMissingCsrf);
+    const auto searchCsrfRejected = fixture.gate.evaluate(searchMissingCsrf);
+    assert(!searchCsrfRejected.allowed);
+    assert(searchCsrfRejected.rejection.statusCode == 403);
+
+    assert(fixture.grantRepository.ensureGrant(
+        fixture.actorId, "role.read-only", "default"));
+    const auto searchReadOnlyRejected = fixture.gate.evaluate(browserSearchCreate);
+    assert(!searchReadOnlyRejected.allowed);
+    assert(searchReadOnlyRejected.rejection.statusCode == 403);
+    assert(fixture.grantRepository.revokeGrant(
+        fixture.actorId, "role.read-only", "default"));
+
+    assert(fixture.grantRepository.revokeGrant(
+        fixture.actorId, "role.admin", "*"));
+    const auto searchNonAdminRejected = fixture.gate.evaluate(browserSearchCreate);
+    assert(!searchNonAdminRejected.allowed);
+    assert(searchNonAdminRejected.rejection.statusCode == 403);
+
     assert(fixture.browserRepository.revokeBySessionId(
         fixture.sessionId));
 

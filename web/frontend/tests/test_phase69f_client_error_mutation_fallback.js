@@ -176,7 +176,45 @@ async function verifyMutationDoesNotFallback(functionName, expectedPath) {
   assert.strictEqual(emitted[0].options.method, 'POST');
 }
 
+async function verifyStagedSearchTimerCreate() {
+  const before = requests.length;
+  context.VdrSuiteBrowserSession = {
+    csrfHeaders() {
+      return {'X-CSRF-Token': 'browser-searchtimer-csrf'};
+    }
+  };
+  responseFactory = function () {
+    return jsonResponse(202, {
+      operation: {state: 'succeeded', operationId: 'test-op'}
+    });
+  };
+  await api.fetchClientSearchTimerCreateStaged({
+    backend: 'default',
+    idempotencyKey: 'search-web-0123456789abcdef0123456789abcdef',
+    payload: {
+      name: 'Terra X', query: 'Terra X', active: false, confirmed: true,
+      mode: 1, tolerance: 0, compareTitle: true,
+      compareSubtitle: false, compareSummary: false
+    }
+  });
+  const emitted = requests.slice(before);
+  assert.strictEqual(emitted.length, 1);
+  assert.strictEqual(emitted[0].url, '/api/v1/search-timers?backend=default');
+  assert.strictEqual(emitted[0].options.method, 'POST');
+  assert.strictEqual(
+    emitted[0].options.headers['Idempotency-Key'],
+    'search-web-0123456789abcdef0123456789abcdef');
+  assert.strictEqual(
+    emitted[0].options.headers['X-CSRF-Token'],
+    'browser-searchtimer-csrf');
+  const body = JSON.parse(emitted[0].options.body);
+  assert.strictEqual(body.active, false);
+  assert.strictEqual(body.confirmed, true);
+  assert.strictEqual(body.name, body.query);
+}
+
 async function run() {
+  await verifyStagedSearchTimerCreate();
   await verifyProblemDetailsError();
   await verifyLegacyStructuredError();
   await verifyBinaryErrorUsesSameRepresentation();

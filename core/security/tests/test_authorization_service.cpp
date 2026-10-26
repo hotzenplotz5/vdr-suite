@@ -119,20 +119,44 @@ int main()
 
     RequestSecurityContext wildcardAdminRole = authenticatedContext();
     wildcardAdminRole.grants.push_back(PermissionGrant{"role.admin", "*"});
-    const AuthorizationDecision wildcardAdminDenied =
-        service.authorize(wildcardAdminRole, requestFor("default"));
-    assert(!wildcardAdminDenied.allowed);
-    assert(wildcardAdminDenied.reasonCode == "backend_scope_denied");
-    for (const std::string& permission : kProtectedMutationPermissions)
+    // The first administrator is role.admin@*: it must control every
+    // selected backend without assigning separate Remote/SearchTimer grants.
+    for (const std::string& backend : {"default", "house-b"})
     {
-        const AuthorizationDecision wildcardAdminTimerDenied =
-            service.authorize(
-                wildcardAdminRole,
-                permissionRequest(permission, "default"));
-        assert(!wildcardAdminTimerDenied.allowed);
-        assert(wildcardAdminTimerDenied.reasonCode ==
-            "backend_scope_denied");
+        for (const std::string& permission :
+             {"remote.control", "searchtimers.create", "searchtimers.modify",
+              "searchtimers.delete", "searchtimers.execute",
+              "searchtimers.view", "osd.control", "osd.view",
+              "channels.view", "recordings.view", "timers.view", "epg.view",
+              "recordings.execute"})
+        {
+            const auto decision = service.authorize(
+                wildcardAdminRole, permissionRequest(permission, backend));
+            assert(decision.allowed);
+            assert(decision.reasonCode == "role_permission_granted");
+        }
+        for (const std::string& permission : kProtectedMutationPermissions)
+            assert(service.authorize(
+                wildcardAdminRole, permissionRequest(permission, backend)).allowed);
     }
+    // Unrelated unreviewed actions remain fail-closed.
+    assert(!service.authorize(wildcardAdminRole,
+        permissionRequest("future.unreviewed.mutation", "default")).allowed);
+    // The wildcard role is a Human administrator authority, never a
+    // Service/Device permission escalation.
+    RequestSecurityContext serviceAdmin = wildcardAdminRole;
+    serviceAdmin.actor.type = ActorType::Service;
+    assert(!service.authorize(serviceAdmin, requestFor("default")).allowed);
+    // An explicit backend read-only role always takes precedence.
+    RequestSecurityContext backendReadOnlyAdmin = wildcardAdminRole;
+    backendReadOnlyAdmin.grants.push_back({"role.read-only", "default"});
+    assert(service.authorize(backendReadOnlyAdmin,
+        requestFor("default")).reasonCode == "role_read_only");
+    assert(service.authorize(backendReadOnlyAdmin,
+        permissionRequest("searchtimers.create", "default")).reasonCode ==
+        "role_read_only");
+    assert(service.authorize(backendReadOnlyAdmin,
+        requestFor("house-b")).allowed);
 
     RequestSecurityContext globalDirect = authenticatedContext();
     globalDirect.grants.push_back(PermissionGrant{
