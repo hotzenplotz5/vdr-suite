@@ -247,14 +247,14 @@ int main()
 
     const auto optIn = RecordingMediaSessionRequestParser().parse(
         ValidRequest.substr(0,ValidRequest.rfind('}')) +
-        ",\\"nativeMediaAccess\\":true}");
+        ",\"nativeMediaAccess\":true}");
     assert(optIn.valid && optIn.nativeMediaAccessRequested);
     const auto optOut = RecordingMediaSessionRequestParser().parse(
         ValidRequest.substr(0,ValidRequest.rfind('}')) +
-        ",\\"nativeMediaAccess\\":false}");
+        ",\"nativeMediaAccess\":false}");
     assert(optOut.valid && !optOut.nativeMediaAccessRequested);
     assert(!RecordingMediaSessionRequestParser().parse(
         ValidRequest.substr(0,ValidRequest.rfind('}')) +
-        ",\\"nativeMediaAccess\\":\\"yes\\"}").valid);
+        ",\"nativeMediaAccess\":\"yes\"}").valid);
     return 0;
 }
