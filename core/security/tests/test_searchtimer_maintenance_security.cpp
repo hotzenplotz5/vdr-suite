@@ -162,10 +162,10 @@ int main()
 
         const SecurityGateDecision decision =
             fixture.gate.evaluate(wildcardAdmin);
-        assert(!decision.allowed);
-        assert(decision.rejection.body.find(
-            "backend_scope_denied") !=
-            std::string::npos);
+        // A Human role.admin@* grants the reviewed SearchTimer action.
+        assert(decision.allowed);
+        assert(decision.authorizationDecision.reasonCode ==
+            "role_permission_granted");
     }
 
     assert(fixture.grantRepository.revokeGrant(
