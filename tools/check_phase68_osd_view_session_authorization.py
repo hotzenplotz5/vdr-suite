@@ -76,11 +76,13 @@ for label, tokens in required.items():
         if token not in contents[label]:
             errors.append(f"{label} missing required token: {token}")
 
-if 'permission == "osd.view"' in contents["auth"]:
+if 'permission == "osd.view"' not in contents["auth"]:
     errors.append(
-        "AuthorizationService must not implicitly grant osd.view; "
-        "the permission remains an explicit backend-scoped grant"
+        "Reviewed Human administrator role must include osd.view; "
+        "ordinary users still require a backend-scoped grant"
     )
+if "context.actor.type == ActorType::User" not in contents["auth"]:
+    errors.append("Wildcard administrator role must remain Human-only")
 
 view_session_owner = "\n".join(
     contents[label] for label in ("domain", "service")

@@ -131,8 +131,10 @@ if 'permission == "osd.control"' not in mutating_block:
 admin_start = auth.find("static bool adminRoleGrants")
 admin_end = auth.find("static bool mutatingPermission", admin_start)
 admin_block = auth[admin_start:admin_end]
-if "osd.control" in admin_block:
-    errors.append("role.admin must not synthesize osd.control")
+if 'permission == "osd.control"' not in admin_block:
+    errors.append("Reviewed Human administrator role must include osd.control")
+if "context.actor.type == ActorType::User" not in auth:
+    errors.append("Wildcard administrator role must remain Human-only")
 
 security = contents["security"]
 protected_start = security.find("const bool isProtectedMutation")
