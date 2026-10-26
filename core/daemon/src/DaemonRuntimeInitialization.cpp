@@ -81,6 +81,7 @@
 #include <csignal>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -4312,12 +4313,12 @@ bool DaemonRuntime::initialize()
             const auto previewReply =
                 runtime->suiteBridgeTransport->inspectNativeTimerPreviewContract(
                     agentSpecification, provider->providerInstanceEpoch,
-                    observed.startTime, observed.endTime);
+                    effectiveStart, effectiveStop);
             const std::int64_t previewReceivedAt = nowSeconds();
             SuiteBridgeNativeTimerPreviewProjection verifiedPreview;
             if (!SuiteBridgeNativeTimerCreateTransport::verifyNativePreviewReply(
                     previewReply, agentSpecification,
-                    observed.startTime, observed.endTime,
+                    effectiveStart, effectiveStop,
                     *provider, previewReceivedAt, verifiedPreview, reason))
                 return result;
             ProspectiveNativeTimerConflictProof conflictProof;
