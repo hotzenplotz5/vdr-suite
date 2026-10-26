@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Install only a reviewed, sealed Media Tools payload; no init-system dependency.
 
-Never deploy a Suite daemon, Agent, frontend, config, database, media file or
-approval. Source staging/compilation is a separate unprivileged Make target.
-For live changes requiring worker replacement the operator must attest
-quiescence; no systemd, init scripts, package manager or service restart here.
+Never deploy a Suite daemon, Agent, frontend, database or media file.
+Only add-on files are installed. On explicitly authorized upgrades an existing
+manual root handler approval may be rotated after copying the worker files.
+Backend-scoped approvals and unrelated configuration are NEVER modified.
+Source preparation is separate and unprivileged. Worker replacement requires
+operator-confirmed quiescence; no init system or service restarts here.
 """
 from __future__ import annotations
 
