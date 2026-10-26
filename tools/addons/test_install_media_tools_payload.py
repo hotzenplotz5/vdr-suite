@@ -275,6 +275,21 @@ class MediaToolsMakeRecipeTests(unittest.TestCase):
             "# Deliberately no call to stage-install-runtime", ""))
         self.assertIn("prepare_media_tools_existing.py", recipe)
 
+    def test_reuse_accepts_equivalent_source_on_merge_or_pr_branch(self):
+        from prepare_media_tools_existing import prepare
+        import inspect
+        source = inspect.getsource(prepare)
+        self.assertNotIn("merge-base", source)
+        self.assertIn('"cat-file", "-e"', source)
+        self.assertIn('"diff", "--quiet"', source)
+
+    def test_installer_cannot_mutate_backend_specific_approvals(self):
+        import inspect
+        source = inspect.getsource(installer.install)
+        self.assertNotIn("rectools.*.json", source)
+        self.assertNotIn("rectools.remote.json", source)
+        self.assertIn("APPROVAL_REL", source)
+
 
 
 if __name__ == "__main__":
