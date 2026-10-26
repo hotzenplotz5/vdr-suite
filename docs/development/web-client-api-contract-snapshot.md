@@ -54,6 +54,7 @@ Timer:
 - `fetchClientTimers`
 - `fetchClientTimerConflicts`
 - `fetchClientTimerCreateAction`
+- `fetchClientEpgTimerIntentCreate` — Public-v1 EPG create: authoritative `GET /api/v1/epg/event` + strong ETag, one CSRF-/Idempotency-Key-protected `POST /api/v1/epg/timer-intents`; VDR owns margins/native projection. Browser EPG and Channel-day surfaces use this function. `202` means admitted, not recorded; no retry or legacy CREATE fallback.
 - `fetchClientTimerUpdateAction`
 - `fetchClientTimerDeleteAction`
 
