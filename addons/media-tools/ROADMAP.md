@@ -2,10 +2,10 @@
 
 **Datum:** 25.10.2026 — **Status:** **MT.I2 bewusst pausiert vor REAL-VDR-Abnahme**, Übergabe in [INSTALLER-RESUME.md](INSTALLER-RESUME.md). **MT.UX begonnen**: Navigation direkt hinter Aufnahmen, lesender Backend-Quellenscan mit klarer Teilmengenwarnung, tiefere Verzeichnisse innerhalb der bestehenden Grenzen, lesbare Filmtitel/Vorschau und bestätigter Import, vorhandener HEVC-Flow unter Aufnahmeaktionen. MT.UX noch **nicht insgesamt abgeschlossen**. MT.I0/MT.I1 abgeschlossen; **MT.I2 quellseitig implementiert**, mit wiederverwendbarem Stage-Prepare, read-only Check/Verify, expliziter yaVDR-Erstinstallation ohne automatische Grants/Starts, gleicher Suite-Deploy für offline Update/Rollback und verifizierter SQLite-/Stage-Sicherung. Isolierte MT.I2-Regressionen sowie **alle vier CI-Jobs PASS** für Code-HEAD `f4b9c9dac2fb8fde6dc2804bfc2d97b345ae512f` ([Actions #40159699229](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40159699229)). **REAL-VDR, Paketmigration und Live-Update nicht abgenommen**; MT.I3–I5 und MT.UX0–UX7 offen.  
 **Owner:** `addons/media-tools/` in `hotzenplotz5/vdr-suite`.  
-**Branch:** nur `work/addon-platform-registry-lifecycle`; kein neues Repo, kein Nebenbranch, keine nummerierte VDR-Suite-Phase 70.  
+**Branch:** PR #551 ist auf `main` gemergt. Für MT.HA gilt ausschließlich der Integrationsbranch `work/mt-ha-media-tools-hardware-acceptance` bis zur getrennten Mergefreigabe; kein neues Repo, keine Phase 70.  
 **Bestehende Grenzen:** [Add-on-Plattform-Roadmap](../../docs/planning/addon-platform-roadmap.md), dort A6/A7.5 und M1.R (Import/HandBrake/Überspringen).
 
-## Fortschritt und Nachweise (25.10.2026)
+**Aktueller MT.HA-Plan:** [MT.HA.0–8 Hardware-, Distributions- und Launchpad-Abnahme](../../docs/planning/addon-platform-roadmap.md#mtha--manuelle-hardwareabnahme-bis-zur-launchpad-freigabe-26102026). Der erste reale Hostbefund zeigt bereits vorhandene Media-Tools-Worker, Root-Approval/Quellkonfiguration und Agent-Drop-in auf manuell installierter yaVDR-Suite. Deshalb **keine unbeaufsichtigte Erstinstallation**: zuerst Byte-/Stage-Provenienz, bereits bestehenden Lifecycle und DB-/WAL-/Backup-Grenze prüfen. Die Hardwareabnahme ist noch PENDING.\n\n## Fortschritt und Nachweise (25.10.2026)
 
 | Slice | Tatsächlich erreicht | Noch nicht nachgewiesen |
 | --- | --- | --- |

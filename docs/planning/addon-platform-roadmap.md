@@ -2,10 +2,13 @@
 
 **Scope:** Non-numbered add-on productization workstream; this document does
 not reopen completed VDR-Suite phases or authorize Phase 70.
-**Development branch:** `work/addon-platform-registry-lifecycle`.
-All slices of this workstream remain on this branch. Main updates enter by
-ordinary fast-forward-safe merge; no per-slice branch, force-push or automatic
-deployment. Live status must be checked against GitHub and docs/CURRENT.md.
+**PR #551 source base:** Merge `ab8eb1f6990e9e0e24bdf5ee9ca0182368c9df0b` is in `main`.
+The historical branch `work/addon-platform-registry-lifecycle` was recreated
+at its exact merged PR #551 head for reference; it is **not** an install
+source. MT.HA integration and acceptance changes use the single working branch
+`work/mt-ha-media-tools-hardware-acceptance`; **no automatic merge, deployment,
+activation, or PPA publication**. Verify actual `main` and docs/CURRENT.md
+again before every source- or host-specific approval.
 
 **Binding architecture:** [ADR-0068](../adr/ADR-0068-optional-addons-and-source-packaging.md),
 [ADR-0037](../adr/ADR-0037-packaging-install-api-boundary.md) and the
@@ -26,6 +29,169 @@ The existing browser UI module registry does not confer backend authority.
 No add-on may self-register permission grants, HTTP routes, arbitrary code,
 package install scripts or executable capability merely by dropping a manifest.
 
+
+## MT.HA — manuelle Hardwareabnahme bis zur Launchpad-Freigabe (26.10.2026)
+
+**Verbindliche Reihenfolge:** Erst rein lesende Inventur; dann überprüfte
+manuelle Installation/Übernahme, echte Hardware- und Funktionsabnahme,
+Fehlerbehebung, isolierte Regressionen, zweite Distribution, Update/Remove/
+Recovery, Release-GO und **erst danach** Ubuntu-Quell-/Binärpakete.
+`main` bleibt bis zur expliziten Mergefreigabe unverändert.
+`AGENTS.md` bleibt unverändert. Alle produktiven Medienaktionen nur mit
+isolierten Testdateien und gesonderter Freigabe.
+
+| Slice | Abnahme und bisheriger Nachweis | Status |
+| --- | --- | --- |
+| **MT.HA.0 – Read-only Inventur** | GitHub-Verifizierung: PR #551 auf `main`; `main` war beim Abgleich inzwischen bei `f9ffb76094e8b3b37d7420e84b6d31827e21226f`. Auf yaVDR/Resolute sind Import-/Check-/Shrink-Worker, Root-Approval, Source-TSV und Agent-Drop-in bereits vorhanden; Agent ist `inactive/dead`, Suite und VDR sind `active/running`. Manuelle Suite-Dateien sind nicht durch dpkg verwaltet. Das neue `media-tools-install-inventory.json` wurde im übermittelten Hostinventar nicht gefunden; fehlendes Inventar/Herkunft müssen unabhängig geprüft werden. Live-DB mit WAL: keine ungeprüfte Migration oder reine Dateikopie. | **PARTIAL / PENDING**: Host-Quelle, Stage, Approval-Wirkung, Byteprovenienz, aktiver Datenbankpfad, Verbindungsstatus und Speicherreservierung noch offen. |
+| **MT.HA.1 – Manuelle Installation/Übernahme** | Erstinstallation nur bei belegtem `absent`; vorhandene Media Tools erfordern geprüften Update-/Migrationspfad. Installer muss auf offiziellen `origin/main` statt historischem Entwicklungsbranch pinnen; bestehende Fremd-/Teilstaat-Sperren bleiben. Kein Build als root. | **PENDING**; keine Live-Ausführung freigegeben. |
+| **MT.HA.2 – Hardwareintegration** | Dateimodi, Siegel, Handler-PIN, Registry, Agent-Enrollment, Core, API, Web, Grants und Zustände INSTALLED/CONFIGURED/ENABLED/ACTIVE/CONNECTED/AUTHORIZED/FUNCTIONAL unabhängig nachweisen; Dienst-/Boot-Test separat. | **PENDING** |
+| **MT.HA.3 – Import/Check/Shrink** | Positive und negative End-to-End-Fälle, nur Testmedien, VDR-Readback, Fehler-/Abbruch-/Ressourcen- und Restartfälle; fehlende Funktionen als NOT IMPLEMENTED kennzeichnen. | **PENDING** |
+| **MT.HA.4 – Root Causes/Regressionen** | Reproduzierbare Defekte auf genau einem Integrationsbranch beheben, fokussierte Regressionen und erneute Hardware-Reproduktion, ohne Umgehung von Approval/Fence/DB-Schutz. | **PENDING** |
+| **MT.HA.5 – Distributionen** | Gemeinsame verifizierte Stage mit getrennten Hostprofilen für Ubuntu/yaVDR, Debian, MLD 6.6; zweite echte Distribution erforderlich. Keine aus Ubuntu erratenen MLD-Pfade/Dienste. | **PENDING** |
+| **MT.HA.6 – Update/Remove/Recovery** | Reinstall, alte Version, synthetische P7/P8-Historie, aktive WAL/Backups, Abbruch/Rollback, Berechtigungswiderruf; MT.LC2–LC5 separat abnehmen. | **PENDING** |
+| **MT.HA.7 – Technisches GO** | Matrix je Commit, Distribution, Befehl, Ist/Soll, PASS/FAIL/PENDING/NOT IMPLEMENTED und Restrisiko; GO nur bei vollständigen Pflichtnachweisen. | **PENDING** |
+| **MT.HA.8 – Launchpad Paketierung** | Erst nach GO echtes optionales Worker-Paket statt `~scaffold1`, Noble/Resolute-ABI und Paketinhalte/Upgrade/Rollback, Source- und Binärbuild, Lint, Upload-Vorbereitung. **Kein Upload ohne separate Freigabe**. | **BLOCKED (MT.HA.7)** |
+
+**MT.HA.0B – Operatorbefund, noch rein lesend (26.10.2026):**
+Ubuntu 26.04.1 LTS, installiertes `vdr`/`vdr-dev`
+`2.8.3-0yavdr0~resolute`. Der ursprüngliche Host-Checkout
+`65335e6a5caec4ed05eb8202a1cd2d095cff22c0` steht auf
+`work/public-v1-recording-actions`; **ihn nicht für MT.HA umschalten**.
+GitHub bestätigt, dass dieser Checkout-Commit ein Vorfahre des zum
+MT.HA-Branchstart gepinnten `main`-Commits
+`f9ffb76094e8b3b37d7420e84b6d31827e21226f` ist. Git-Status
+der bereits getrackten Hostdateien wurde leer gemeldet; das ist kein
+Nachweis für den installierten Binärstand.
+
+Die Root-Approval-Datei meldet `schemaVersion=1`, `version=0.1.0`,
+`origin=manual`, `state=approved` und ihr Importhandler-SHA256
+**stimmt mit dem vorhandenen Worker überein**. Das ist Konsistenz mit
+einem Root-Beleg, noch **kein unabhängiger Build-Provenienznachweis**,
+keine effektive Core-Berechtigung und kein erfolgreicher Auftrag.
+Konfiguriert sind die Importquelle `/srv/video/Filme` und das
+VDR-Ziel `/srv/vdr/video.00`; der Agent-`ExecStart` enthält
+`--enable-media-import` und `--enable-media-shrink`, der Agent
+selbst ist `inactive/dead`. Die leere Import-Running-Lockdatei
+ist vorhanden (kein Nachweis, ob eine exklusive Sperre gehalten wird).
+Das neue `media-tools-install-inventory.json` fehlt tatsächlich.
+
+**Neue Blocker:** Der MT.I2-`live-update` verlangt exakt verifizierte
+alte und neue versiegelte **vollständige** Suite+Add-on-Stages;
+eine installierte ältere, ohne neues Inventar aufgebaute Media-Tools-
+Runtime erfüllt dies nicht automatisch. Erst alte Stage/Herkunft und
+sicheres Migrationsprotokoll klären, keinesfalls Approval-/Dateien
+löschen, um eine scheinbare Erstinstallation zu erzeugen.
+`/` hat etwa 45 GiB frei (218 GiB Dateisystem), `/srv` etwa
+512 GiB frei (3,6 TiB FS). Beim gegenwärtigen Erstinstaller ergäbe
+`WORKDIR` auf `/` aus summierten Budgets von 19 GiB sowie der
+15%-Reserve von etwa 33 GiB eine Mindestfreiheit von **ca. 52 GiB**:
+die aktuelle Erstinstallations-Ressourcenprüfung würde deshalb
+voraussichtlich **FAIL** melden. `/srv` erfüllt bei 86% Belegung
+die 15%-Reserve ebenfalls nicht, wenn es als Stage-/Backup-Speicherort
+gewählt würde. Reserve niemals umgehen; ausschließlich lesend
+ermittelte tatsächliche Werte und einen separaten angepassten
+Install-/Wartungsplan verwenden. SQLite: etwa 3,74 GB DB plus
+222 MB WAL; keine produktive Migration oder reine Dateikopie.
+
+**CI-Grenze des MT.HA-Draft-PR:** Der isolierte neue
+`test_media_tools_installer_provenance.py` wurde im
+Packaging-Regression-Job am Stand
+`bf87e2123136f2e56b6deca31d85b5ef31acd521`
+ausgeführt, Packaging-Job `PASS`. Die vollständige
+`VDR-Suite CI` war an diesem Commit jedoch `FAIL`,
+und zwar in `test_backend_agent_osd_transport.cpp:367`
+(`test_authenticated_vertical`, Assertion/abort aus
+`test-phase68-osd-authenticated-transport`).
+Ursache und Zusammenhang noch offen; **kein Gesamt-CI-GO**.
+Der neue Dokumentationscommit verlangt ohnehin erneute exakte
+HEAD-CI-Prüfung.
+
+**MT.HA.0D – Tatsächliche Altversion nachgewiesen (26.10.2026, Operator-Ausgabe):**
+`/home/yavdr/vdr-suite-media-tools.nKoDO2yg/candidate.txt` pinnt den
+Quellcommit `79983f409ead2fbb159b05f1903c7e5d4160aeeb` vom
+24.10.2026; die zweite Zeile stimmt mit dem gegenwärtigen
+Root-Approval-Handler-Digest überein. Dieser Quellcommit ist durch
+GitHub als Vorfahr des rekonstruierten PR-#551-Branch-HEADs
+`99c228ff6e929f91c14cf558fb7f1fc7b45f834d` belegt.
+Der zugehörige Suite-only-Stage meldet 91 Dateien (Schema 2),
+die alte `stage-with-media-tools` 97 Dateien (Schema 2);
+beide haben **noch kein neues
+`media-tools-install-inventory.json`**. Bei der gezielten
+Operatorprüfung meldeten **alle drei** alten Media-Tools-Worker
+(`media-import`, `media-check`, `media-shrink`) sowohl
+`STAGE=MATCH` als auch `LIVE=MATCH`; der Import-Worker ist
+ebenfalls mit dem hinterlegten Root-Approval-Digest konsistent.
+Das stellt eine belastbare Byte-Korrelation zur erhaltenen Stage
+her, **noch keine vollständige Stage-Siegel-/Release-Signaturprüfung**.
+
+**Separate Core-Version!** Die beiden Live-Binärdateien
+`/usr/sbin/vdr-suite-daemon` und
+`/usr/sbin/vdr-suite-backend-agent` melden
+`LIVE=SIZE_DIFFERS` gegenüber beiden alten, stageintern
+passenden Dateien. Deshalb ist die alte 97-Dateien-Stage **kein
+bytegenaues Backup der heute installierten Gesamt-Suite**,
+kann den bestehenden MT.I2-`live-update`-Vertrag mit
+`check(old, /)` nicht erfüllen und darf keinesfalls als
+vollständige Runtime zurückgespielt werden.
+
+Ein zweites Verzeichnis
+`/home/yavdr/vdr-suite-media-tools.NvHwafAY` pinnt
+`1bc3232f4f5fe5a4daf42e108f76c6708398c402`, dessen
+`candidate.txt`-Handler-Digest nicht mit dem aktiven
+Root-Approval übereinstimmt; enthalten ist nur der
+91-Dateien-Suite-only-Stage. Dieses Verzeichnis ist **nicht**
+die nachgewiesene aktive Media-Tools-Basis.
+
+**MT.HA.0E – Vollständiger Altstage-Audit auf yaVDR (26.10.2026):**
+Der Operator hat den vorhandenen unveränderten
+`stage-with-media-tools` mittels `load_manifest`,
+`verify_sealed_stage` und `deployment_differences` aus
+`tools/install_runtime_stage.py` geprüft.
+`STAGE_INTEGRITY=PASS` für **97 Dateien und 34 Verzeichnisse**;
+`LIVE_COMPLETE_MATCH=False`; **17 Live-Abweichungen**:
+15 `content`, 2 `missing`. Abweichende Binärdateien:
+`vdr-suite-daemon`, `vdr-suite-backend-agent`,
+`vdr-suite-backend-agent-admin`,
+`vdr-suite-backend-agent-command-admin`,
+`vdr-suite-backend-agent-enroll`; dazu zehn abweichende
+Frontend-Dateien einschließlich `index.html`, `app.js`
+und `public-v1-client.js`. Die zwei auf dem Host
+fehlenden Frontend-Dateien:
+`usr/share/vdr-suite/web/frontend/modules/media-import.js`
+und `usr/share/vdr-suite/web/frontend/settings-addons.js`.
+Beide sind weiterhin **quellseitig auf `main` vorhanden und
+vom `mk/install.mk`-Staging vorgesehen**, und die aktuelle
+Quell-`index.html` referenziert sie.
+Ob auch die installierte `index.html` diese Skripte
+lädt, ist separat rein lesend zu klären. Keine Aussage
+über aktive Browser-Funktionsfähigkeit ohne HTTP-/UI-Test.
+
+**Grenzen:** Diese interne Siegelprüfung ist keine externe
+Releasesignatur. Die alte Gesamtstage entspricht **nicht**
+der heute installierten Gesamt-Suite und darf weder per
+`deploy-install-runtime` überlagert noch als Gesamtsystem-
+Rollback oder `live-update`-Ausgangsstage missbraucht
+werden. Die zuvor nachgewiesenen drei passenden alten
+Media-Tools-Worker bleiben unverändert. Für die
+ggf. unvollständige Frontend-Installation braucht es einen
+gesonderten aktuellen-Commit-/Stage-Abgleich und einen
+isoliert geprüften Deployment-/Recovery-Plan mit separater
+Betreiberfreigabe.
+
+**Nächste Pflichtprüfung:** Referenzen der **installierten**
+`index.html` auf die beiden fehlenden Module sowie den aktiven
+Frontend-/Runtime-Quellstand rein lesend nachweisen. Danach
+komponentenscharfen, rückrollbaren **Legacy-Adoption-/Migrationsvertrag**
+für die vorhandenen Worker/den aktuellen Suite-Binärstand entwickeln und
+isoliert testen. Nichts auf dem yaVDR deployen, keine laufenden
+Dienste stoppen, kein ungeprüftes Gesamt-Suite-Rollback.
+
+**Aktueller Hostbefund ist keine neue Erstinstallation.** Der bisherige
+`install_media_tools.sh` ist ein Ubuntu/yaVDR-Serviceadapter und prüft
+bewusst fehlende Media-Tools-Dateien; bereits vorhandene Approval-/Worker-
+Dateien sind kein Anlass, diese Schutzgrenzen zu übergehen. Die zwei
+`addon.json`-Kopien stimmten beim Hostinventar in SHA256 überein,
+nicht aber automatisch mit einer freigegebenen Stage-/Manifestversion.
 
 ## MT.LC — vollständiger Add-on-Lebenszyklus (Freigabearbeit)
 

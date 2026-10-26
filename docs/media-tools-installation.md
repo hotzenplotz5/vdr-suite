@@ -1,6 +1,6 @@
 # Media Tools: Installation und Backend-Agent-Voraussetzungen (yaVDR)
 
-Diese Anleitung bezieht sich auf das **erste** lokale Installieren des Media-Tools-Addons aus dem VDR-Suite-Zweig `work/addon-platform-registry-lifecycle`, insbesondere auf [`tools/addons/install_media_tools.sh`](../tools/addons/install_media_tools.sh). Sie ist **keine** allgemeine Update-, Migrations- oder Deinstallationsanleitung. Der Installer verwendet jetzt `/srv/video/Filme` als bestätigten yaVDR/RecTools-Importstandard und `/srv/vdr/video.00` als vorgeschlagenes Videoziel. Beide Verzeichnisargumente sind **optional**.
+Diese Anleitung beschreibt ausschließlich die **manuelle Erstinstallation** aus einem unabhängig geprüften Commit auf dem offiziellen GitHub-Branch `main`, insbesondere mit [`tools/addons/install_media_tools.sh`](../tools/addons/install_media_tools.sh). Nach PR #551 wurde der historische Zweig `work/addon-platform-registry-lifecycle` zunächst gelöscht und anschließend anhand des exakten PR-HEADs als Archiv-/Referenzbranch wiederhergestellt. Der Installer darf unabhängig von dessen Existenz ausschließlich die offizielle `main`-Historie als Herkunftsquelle verwenden. Sie ist **keine** allgemeine Update-, Migrations- oder Deinstallationsanleitung. Der Installer verwendet jetzt `/srv/video/Filme` als bestätigten yaVDR/RecTools-Importstandard und `/srv/vdr/video.00` als vorgeschlagenes Videoziel. Beide Verzeichnisargumente sind **optional**.
 
 ### Installiertes Manifest ohne Änderungen an vorhandenen Rechten
 
@@ -14,6 +14,37 @@ Dadurch bleibt der Agent auch dann startfähig, wenn das **bereits vorhandene**
 Es werden **keine bestehenden Verzeichnisrechte oder Eigentümer geändert**.
 Die C++-Prüfung verlangt weiterhin root-eigene, nicht gruppen-/weltbeschreibbare
 Verzeichnisse und Manifestdateien sowie die gepinnte Handler-SHA256.
+
+## MT.HA: Bestand vor Erstinstallationsversuch erkennen
+
+**Keine Erstinstallation über vorhandene Media Tools legen.** Wenn bereits
+`/usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import`,
+`/etc/vdr-suite/addon-approvals/rectools.json`,
+`/etc/vdr-suite/addon-sources/media-import.tsv` oder der
+`20-media-tools.conf`-Drop-in existieren, ist der Host **kein sauberer
+Erstinstallationskandidat**. Die eingebauten fail-closed Prüfungen dürfen
+nicht entfernt werden. Ein fehlendes neues
+`media-tools-install-inventory.json` neben älteren Worker-Dateien beweist
+auch keinen installierbaren Leerzustand: Dieser Fall benötigt zunächst
+Inventar-/Herkunftsprüfung und einen gesonderten Übernahme- oder
+Updateplan.
+
+Ein vorbereiteter Stage ist kein Nachweis dafür, dass der laufende
+Suite-Daemon dieselben Bytes hat. Die bestehende DB und ein mögliches
+WAL bleiben unangetastet; **keine** laufende SQLite-Datenbank durch
+Kopieren nur der `.db`-Datei ersetzen, überschreiben oder „reparieren“.
+Für ein Live-Update verlangt der vorhandene MT.I2-Vertrag einen vollständigen
+verifizierten alten **und** neuen Runtime-Stage, getrennte Freigaben,
+quiescente Suite-/Agent-Dienste und verifizierte Backups. Ein
+`inactive/dead`-Agent darf nicht bloß für eine Inventur gestartet werden:
+ein Start kann freigegebene Aufträge ausführen.
+
+Auch auf Ubuntu sind bisher nur der **manuelle Hostadapter** und die
+**gemeinsamen Staging-Werkzeuge** belegt. Debian, MLD 6.6 und weitere
+Linux-Distributionen benötigen noch einen geprüften eigenen
+Installationsadapter und separate Hardwareabnahme. Ein
+`make build-addon-deb` erzeugt gegenwärtig ausschließlich einen
+**nichtfunktionalen Metadaten-Scaffold**, kein releasefähiges Media-Tools-Paket.
 
 ## Warum benötigt Media Tools einen Backend-Agenten?
 
@@ -91,7 +122,7 @@ journalctl -u vdr-suite-backend-agent --since '5 minutes ago' -n 30 --no-pager -
 
 - Quelle und Ziel müssen bei späterer **Aktivierung** existieren, kanonische absolute Pfade sein und dürfen nicht identisch sein. Die Erstinstallation darf auch bei fehlendem Standardverzeichnis weiterlaufen: dann wird **kein** Quellinventar angelegt und Media Import bleibt bis zur Konfiguration nicht verfügbar. Existierende Verzeichnisse müssen für `vdr` zugänglich sein. Quellpfade unter `/home`, `/root` und `/run/user` sind wegen der Agent-Sandbox nicht zulässig. Andere Pfade lassen sich alternativ als beide expliziten CLI-Argumente angeben. Ein vollwertiger Browser-Einstellungsdialog mit sicherer privilegierter Backend-Konfiguration ist noch **nicht implementiert**; bis dahin ist die Konfiguration eine kontrollierte Root-Administrationsaufgabe, kein direktes Schreiben aus dem Browser.
 - Der Installer prüft ausreichend freien Speicher mit Reserven pro Dateisystem; diese Prüfung nicht umgehen.
-- Der Checkout muss exakt zum bei der Installation freigegebenen **Commit-PIN** passen. Der Operator-Block und der Installer prüfen zusätzlich den **aktuellen Remote-Head** des Addon-Zweigs. Ein versiegelter, bereits unabhängig geprüfter Build-PIN darf ein Vorfahre des aktuellen offiziellen Branch-HEADs sein, sofern der Installer die exakte Herkunft, den vorbereiteten Stage-Inhalt und die unabhängige Handler-SHA256 erfolgreich prüft. Ein reiner späterer Dokumentationscommit erzwingt keinen Neubuild. Vor einem Installationsversuch muss die konkrete Source-/Stage-Provenienz erneut überprüft werden.
+- Der Checkout muss exakt zum bei der Installation freigegebenen **Commit-PIN** passen. Der Installer prüft den **aktuellen Remote-Head** von `origin/main` und verlangt, dass der geprüfte Quell-Commit in dessen Historie liegt. Ein versiegelter, bereits unabhängig geprüfter Build-PIN darf ein Vorfahre des aktuellen offiziellen Branch-HEADs sein, sofern der Installer die exakte Herkunft, den vorbereiteten Stage-Inhalt und die unabhängige Handler-SHA256 erfolgreich prüft. Ein reiner späterer Dokumentationscommit erzwingt keinen Neubuild. Vor einem Installationsversuch muss die konkrete Source-/Stage-Provenienz erneut überprüft werden.
 - Der Quell-Build erfolgt unprivilegiert; die Installationsphase benötigt Root und eine **unabhängig geprüfte** Handler-SHA256. Die vom gleichen Build angezeigte SHA256 einfach zurückzukopieren ist keine unabhängige Freigabe.
 - Während der ausdrücklich bestätigten **manuellen Erstinstallation** stoppt das Skript Suite-Daemon und Backend-Agent, erstellt ein SQLite-Backup, deployt die versiegelte Suite+Add-on-Stage und hinterlegt den zunächst inaktiven Agent-Opt-in. **Beide Dienste bleiben danach gestoppt und benötigen eine separate Freigabe zum Start.** Es enthält keinen VDR-Neustart. Dies ist kein risikofreier oder unterbrechungsfreier Vorgang.
 - Nach `MEDIA_TOOLS_INSTALL=PASS` sind Handler- und Core-Freigabe ausdrücklich **noch nicht ausgestellt**, die Services bleiben gestoppt und die Medienaktionen inaktiv. Freigaben, Dienststart und separate Benutzerrechte benötigen ihre jeweils bestehenden geprüften Betreiberverfahren. Ein installiertes Paket beweist weder effektive Aktivierung noch eine funktionsgeprüfte Import-/Shrink-Aktion.

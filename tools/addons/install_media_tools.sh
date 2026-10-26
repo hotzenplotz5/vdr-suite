@@ -131,8 +131,9 @@ if [ "$CHECKOUT_SHA" != "$SHA" ]; then
   echo "PREPARED_SOURCE_SHA=$SHA"
   echo "INSTALLER_CHECKOUT_SHA=$CHECKOUT_SHA"
 fi
-# Fetch the exact official branch ref and require the pinned build source to
-# remain part of that branch history. This does not trust an arbitrary local SHA.
+# Fetch the exact official main ref after PR #551. A pinned build source
+# must be in main history; deleted development branches are never required.
+# This does not trust an arbitrary local SHA.
 if [ "$(id -u)" -eq 0 ]; then
   # Root must not leave root-owned Git control files in an unprivileged build
   # checkout; fetch the provenance ref as the checkout's real owner.
@@ -140,15 +141,15 @@ if [ "$(id -u)" -eq 0 ]; then
   [ -n "$OWNER" ] && [ "$OWNER" != UNKNOWN ] ||
     stop "cannot identify checkout owner"
   sudo -u "$OWNER" -H git -C "$ROOT" fetch --quiet --no-tags origin \
-    refs/heads/work/addon-platform-registry-lifecycle ||
-    stop "cannot fetch official add-on branch"
+    refs/heads/main ||
+    stop "cannot fetch official main branch"
 else
-  git fetch --quiet --no-tags origin refs/heads/work/addon-platform-registry-lifecycle ||
-    stop "cannot fetch official add-on branch"
+  git fetch --quiet --no-tags origin refs/heads/main ||
+    stop "cannot fetch official main branch"
 fi
 REMOTE=$(git rev-parse FETCH_HEAD) || stop "remote branch ref unavailable"
 git merge-base --is-ancestor "$SHA" "$REMOTE" ||
-  stop "reviewed commit is no longer in official branch history"
+  stop "reviewed commit is not an ancestor of official main"
 echo "OFFICIAL_BRANCH_HEAD=$REMOTE"
 for cmd in sudo make g++ python3 dpkg-query sha256sum pkg-config realpath; do
   command -v "$cmd" >/dev/null || stop "missing dependency $cmd"

@@ -1,10 +1,26 @@
 # Media Tools add-on
 
+**MT.HA portable install candidate (Draft PR #552):**
+The separately staged, init-system-independent add-on payload installer
+is available through `make prepare-media-tools`, then
+`make stage-media-tools` (separately reviewed, unprivileged) and
+`sudo make install-media-tools` (reviewed staged payload only). See
+[`docs/media-tools-portable-install.md`](../../docs/media-tools-portable-install.md).
+It never installs/reverts the Suite daemon or frontend, does not change
+approvals and does not restart services. Existing manually installed workers
+can be adopted with a separate staged-inventory update; cross-distro runtime
+acceptance is not yet complete.
+
+
 **Neue Folgeroadmap (24.10.2026):** [Media Tools — Installation, Import und Aufnahmeaktionen](ROADMAP.md). Zuerst eine einfache, konfigurierbare und für spätere Ubuntu/Debian-Pakete gemeinsame Installations-/Staging-Routine (yaVDR als Referenz; openSUSE/MLD ohne erfundene Defaults), dann Rectools-einfacher rekursiver Standardscan, optionaler Explorer, Shrink in den Aufnahmeaktionen und Media Import direkt nach Aufnahmen. **Plan, noch keine Implementierung/Live-Abnahme.**
 
 This is the canonical location for **new Media Tools-specific A6 code**.
-All development stays on `work/addon-platform-registry-lifecycle`; there
-is no new branch, fork or repository.
+PR #551 integrated the platform into `main` on 26.10.2026. MT.HA
+hardware/install acceptance is tracked on the single integration branch
+`work/mt-ha-media-tools-hardware-acceptance`; the previous development branch
+was originally deleted after the merge, then restored at its exact original
+PR #551 head as a historical reference. No new repository, live install
+or automatic merge.
 
 The existing C++17 importer is maintained here under `include/`, `src/`
 and `tests/` (moved, not copied, from the legacy source layout).
