@@ -145,6 +145,10 @@ jobs:
 
       - name: Run fast CI regression test
         shell: bash
+        env:
+          # The guarded media-import decision-marker regression refuses the
+          # shared /tmp root. The runner-owned scratch root is disposable.
+          TMPDIR: ${{ runner.temp }}
         run: |
           set -o pipefail
           make -j2 --output-sync=target test-ci-fast 2>&1 | tee fast-regression-test.log
