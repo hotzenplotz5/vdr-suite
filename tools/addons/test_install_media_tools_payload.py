@@ -263,7 +263,7 @@ class MediaToolsMakeRecipeTests(unittest.TestCase):
         # shell command substitution when escaped. Check both targets and the pin.
         self.assertEqual(source.count('"$$(id -u)"'), 2)
         self.assertEqual(source.count(
-            '$$(cat "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt")'), 2)
+            '$$(cat "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt")'), 1)
     def test_prepare_does_not_rebuild_daemon_or_agent(self):
         text = (REPO / "mk/addons.mk").read_text(encoding="utf-8")
         recipe = text.split("prepare-media-tools:", 1)[1].split(
