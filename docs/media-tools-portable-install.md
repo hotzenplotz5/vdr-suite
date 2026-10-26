@@ -10,20 +10,23 @@ FHS paths under `/usr`, not arbitrary `PREFIX` installations.
 
 ## From a reviewed, unprivileged source checkout
 
-The first step is **not run with sudo**. Use a **separately reviewed** exact
-64-character import-handler SHA256 from a candidate whose source/manifest
-you have independently verified. Do not blindly copy a newly printed digest
-and consider it approval.
+**Build without sudo**, then independently review the resulting
+handler SHA256 before sealing. The printed digest is evidence for review,
+**not** an approval on its own:
 
 ```sh
+make prepare-media-tools
+# Independent review of source/worker SHA256 takes place here.
 make stage-media-tools APPROVED_HANDLER_SHA256=REVIEWED_64_HEX_DIGEST
 ```
 
-This builds the Suite runtime and the three add-on workers in the isolated
-`.build/media-tools-prepared` directory. It creates a complete sealed
-`stage-with-media-tools` with a versioned add-on file inventory. The
-preparer refuses to overwrite a preexisting work directory. To prepare a new
-version, choose a new `MEDIA_TOOLS_WORKDIR`, not an old stage to overwrite.
+The first command builds the Suite runtime and all three workers in
+`.build/media-tools-prepared` and prints the import-worker SHA256.
+The second reuses those exact compiled artifacts and creates a
+complete sealed `stage-with-media-tools` with a versioned inventory.
+It does **not** rebuild as root or need to delete the prepared files
+to correct a rejected/unreviewed hash. For a later release choose
+a new `MEDIA_TOOLS_WORKDIR`; never overwrite a prior approved stage.
 
 After separately confirming that the backend Agent has no active work and
 the handler approval is consistent, the root-only step is:
