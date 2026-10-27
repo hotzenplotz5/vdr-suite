@@ -86,6 +86,7 @@ const requests = [];
 let sessionRestores = 0;
 let previewMode = 'ready';
 let previewInspectionStatus = 'ready';
+let autoDuplicateReadback = false;
 let previewVideoCodec = 'h264';
 const batchProbeOverrides = Object.create(null);
 let resolveDelayedPreview = null;
@@ -184,6 +185,11 @@ function transport(url, options) {
   }
   if (path.endsWith('/media-imports')) {
     ++submits;
+    if (autoDuplicateReadback && JSON.parse(options.body).videoDecision === 'duplicate') {
+      // The mock Agent's next inventory snapshot observes the renamed source.
+      batchSources = [];
+      markedSources = [MARK_DUP];
+    }
     if (submitMode === 'batch') {
       const operationId = batchOperations.length === 0 ? BATCH_OP_A : BATCH_OP_B;
       batchOperations.push(operationId);
@@ -1133,15 +1139,9 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-preview').textContent.includes(
     'VDR-Zielordner: Serien/Andor/Weiterer Film'));
 
-  previewInspectionStatus = 'duplicate';
-  raceSelect.value = SOURCE;
-  raceSelect.listeners.change();
-  await settle();
-  assert(findClass(mount, 'media-import-preview').textContent.includes(
-    'Bereits als VDR-Aufnahme vorhanden'));
-  assert(findClass(mount, 'media-import-start').disabled);
-
+  // A space shortage and an unsupported codec allow only the desktop path.
   previewInspectionStatus = 'insufficient';
+  raceSelect.value = SOURCE;
   raceSelect.listeners.change();
   await settle();
   const insufficientPreview = findClass(mount, 'media-import-preview').textContent;
@@ -1286,38 +1286,39 @@ function publishHomeResume() {}
   assert.strictEqual(submits, postsBeforeForbidden);
   previewMode = 'ready';
 
-  // Rectools duplicate is not silently renamed during the read-only scan.
-  // After a backend-confirmed duplicate, only the explicit marker action posts.
+  // A confirmed duplicate is automatically sent through the existing
+  // Core/Agent marker operation. It never displays a manual duplicate button.
   context.resetMediaImportVisibility(true);
   batchSources = [SOURCE];
+  markedSources = [];
   previewInspectionStatus = 'duplicate';
+  autoDuplicateReadback = true;
   state = 'succeeded';
   submitMode = 'accepted';
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   context.selectModule('media-import');
   await settle();
   const dupSelect = findClass(mount, 'media-import-source');
+  const preDuplicatePosts = submits;
+  const preDuplicateConfirmations = confirmCalls;
   dupSelect.value = SOURCE;
   dupSelect.listeners.change();
   await settle();
-  const dupButton = findClass(mount, 'media-import-duplicate');
-  assert(dupButton && !dupButton.hidden && !dupButton.disabled,
-    'backend duplicate preview presents explicit Rectools duplicate marker');
-  assert(findClass(mount, 'media-import-start').disabled,
-    'duplicate never allows normal import');
-  assert(findClass(mount, 'media-import-skip').hidden,
-    'duplicate cannot be mislabelled as skipped');
-  const preDuplicatePosts = submits;
-  confirmLocal = false;
-  await dupButton.listeners.click();
-  assert.strictEqual(submits, preDuplicatePosts, 'cancel does not mark a duplicate');
-  confirmLocal = true;
-  await dupButton.listeners.click();
-  await settle();
-  assert.strictEqual(submits, preDuplicatePosts + 1);
+  assert.strictEqual(findClass(mount, 'media-import-duplicate'), null,
+    'no manual duplicate action is mounted');
+  assert.strictEqual(confirmCalls, preDuplicateConfirmations,
+    'a proven duplicate is marked without an additional dialog');
+  assert.strictEqual(submits, preDuplicatePosts + 1,
+    'confirmed preview creates exactly one Core marker operation');
   assert.strictEqual(requests.filter(x => x.options.method === 'POST').slice(-1)[0].options.body,
     JSON.stringify({sourceId: SOURCE, videoDecision: 'duplicate'}));
-  assert(findClass(mount, 'status').textContent.includes('Duplikat markiert'));
+  assert(findClass(mount, 'media-import-marked-source').children.some(function (option) {
+    return option.value === MARK_DUP;
+  }), 'marker success rereads the real .duplicate source from the Agent');
+  assert.strictEqual(findClass(mount, 'media-import-source').disabled, true,
+    'already marked source must not remain importable');
+  assert.strictEqual(submits, preDuplicatePosts + 1);
+  autoDuplicateReadback = false;
   previewInspectionStatus = 'ready';
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
