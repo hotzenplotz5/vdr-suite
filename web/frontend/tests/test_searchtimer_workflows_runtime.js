@@ -410,6 +410,15 @@ assert(source.includes('Keine Anlage ausgeführt.'));
 assert(source.includes("state === 'succeeded'"));
 assert(source.includes("pendingKey = '';"));
 assert(source.includes("error.requestId"));
+assert(api.createErrorText({
+  status: 503,
+  payload: {detail: 'SearchTimer CREATE requires confirmed VDR pre/post margins and the native timer-create capability.'}
+}).includes('VDR-Vor-/Nachlaufwerte'));
+assert(api.createErrorText({
+  status: 503,
+  payload: {detail: 'SearchTimer CREATE requires a valid, online backend agent.'}
+}).includes('Backend-Agent'));
+assert.strictEqual(api.createErrorText({status: 409, message: 'Konflikt'}), 'Konflikt');
 assert.ok(
   source.includes('fetchClientSearchTimerDeleteAction')
 );
