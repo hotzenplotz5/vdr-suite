@@ -537,7 +537,8 @@
       typeof data.targetFolder === 'string' &&
       (data.status === 'unavailable' || validPreviewTarget(data.targetFolder)) &&
       typeof data.videoCodec === 'string' && /^[a-z0-9_]{0,64}$/.test(data.videoCodec) &&
-      typeof data.title === 'string' && data.title.length > 0 && data.title.length <= 120);
+      typeof data.title === 'string' && data.title.length <= 120 &&
+      (data.status === 'unavailable' || data.title.length > 0));
   }
 
   function validPreviewTarget(folder) {
@@ -977,8 +978,10 @@
     const decision = view.decision.value;
     const description = !plan
       ? 'Diagnose ausstehend. Es wurde noch kein Importweg freigegeben.'
-      : !ready && !needsEncode
-        ? 'Import derzeit blockiert. Die Ursache steht in der Diagnose.'
+      : plan.status === 'unavailable'
+        ? 'Die Backend-Prüfung konnte für diese Quelldatei nicht abgeschlossen werden. Kein Import möglich.'
+        : !ready && !needsEncode
+          ? 'Import derzeit blockiert. Die Ursache steht in der Diagnose.'
         : needsEncode
           ? decision === 'desktop'
         ? 'Externe Umkodierung gewählt. Für PC/HandBrake markieren. Kein Import.'
