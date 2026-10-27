@@ -533,11 +533,49 @@ ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan) {
         }
         return result;
     };
+    const auto unambiguousFolder = [&]() {
+        // Generic poster/fanart is meaningful only for a single unmarked
+        // movie, never a series folder containing several episodes.
+        try {
+            unsigned candidates = 0;
+            unsigned visited = 0;
+            for (const auto& item :
+                 std::filesystem::directory_iterator(plan.sourceFile.parent_path())) {
+                if (++visited > 4096U) return false;
+                if (!std::filesystem::is_regular_file(item.symlink_status()))
+                    continue;
+                const auto ext = item.path().extension().string();
+                if (ext != ".mkv" && ext != ".mp4" && ext != ".ts" &&
+                    ext != ".mov" && ext != ".avi" && ext != ".webm" &&
+                    ext != ".m4v") continue;
+                const auto name = item.path().stem().string();
+                if (name.size() >= 10U &&
+                    (name.compare(name.size()-10U, 10U, ".pc_encode") == 0))
+                    continue;
+                if (name.size() >= 8U &&
+                    (name.compare(name.size()-8U, 8U, ".skipped") == 0))
+                    continue;
+                if (name.size() >= 10U &&
+                    (name.compare(name.size()-10U, 10U, ".duplicate") == 0))
+                    continue;
+                if (++candidates > 1U) return false;
+            }
+            return candidates == 1U;
+        } catch (...) { return false; }
+    };
+    const bool allowGeneric = unambiguousFolder();
     const auto load = [&](const std::string& kind) {
-        // Exact-stem sidecars only, not the generic poster of a shared folder.
+        std::vector<std::filesystem::path> candidates;
+        const auto parent = plan.sourceFile.parent_path();
+        const auto stem = plan.sourceFile.stem().string();
         for (const auto& suffix : {".jpg", ".jpeg", ".png", ".webp"}) {
-            const auto file = plan.sourceFile.parent_path() /
-                (plan.sourceFile.stem().string() + "." + kind + suffix);
+            candidates.push_back(parent / (stem + "." + kind + suffix));
+            candidates.push_back(parent / (stem + "-" + kind + suffix));
+        }
+        if (allowGeneric)
+            for (const auto& suffix : {".jpg", ".jpeg", ".png", ".webp"})
+                candidates.push_back(parent / (kind + suffix));
+        for (const auto& file : candidates) {
             try {
                 const auto value = readOptionalSidecar(file, MaxImageBytes);
                 if (!value || value->empty()) continue;
@@ -549,7 +587,7 @@ ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan) {
                         if (static_cast<unsigned char>(bytes[i++]) != ch) return false;
                     return true;
                 };
-                const std::string ext(suffix);
+                const std::string ext = file.extension().string();
                 const std::string mime = (ext == ".jpg" || ext == ".jpeg")
                     ? "image/jpeg" : ext == ".png" ? "image/png" : "image/webp";
                 const bool matched = mime == "image/jpeg"
@@ -560,7 +598,7 @@ ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan) {
                         bytes.compare(8,4,"WEBP") == 0;
                 if (matched) return "data:" + mime + ";base64," + encode(bytes);
             } catch (...) {
-                // Invalid optional images do not affect import admission.
+                // Missing/unsafe/oversized artwork is an empty thumbnail.
             }
         }
         return std::string{};
