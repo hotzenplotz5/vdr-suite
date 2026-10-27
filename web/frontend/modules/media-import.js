@@ -215,6 +215,8 @@
     ++view.reviewGeneration;
     view.inspectingBatch = false;
     view.batchReview = null;
+    view.duplicateQueue = [];
+    view.duplicateReviewPending = false;
     view.batchReviewList.replaceChildren();
     view.batchSummary.textContent = '';
     view.batchConfirmButton.hidden = true;
@@ -258,6 +260,24 @@
     });
   }
 
+  // Reuse the already implemented single-source preview and Core marker
+  // operation for each batch-discovered duplicate, one at a time.
+  function nextConfirmedDuplicate(view) {
+    if (!isCurrent(view) || view.attempt || view.batch ||
+        view.submitting || view.inspectingBatch) return;
+    while (view.duplicateQueue.length) {
+      const sourceId = view.duplicateQueue.shift();
+      if (!view.sources.includes(sourceId)) continue;
+      view.duplicateReviewPending = true;
+      view.select.value = sourceId;
+      view.sourceDetails.textContent = 'Auswahl-ID: ' + sourceId;
+      refreshSelectedPreview(view);
+      return;
+    }
+    view.duplicateReviewPending = false;
+    if (view.batchReview) renderBatchReview(view);
+  }
+
   function renderBatchReview(view) {
     const review = view.batchReview;
     if (!review) return;
@@ -265,7 +285,8 @@
     const labels = {
       ready: 'Für VDR-Import geeignet',
       encode: 'Zurückgestellt: Video-Umkodierung nötig',
-      duplicate: 'Übersprungen: VDR-Aufnahme vorhanden',
+      duplicate: 'VDR-Aufnahme vorhanden – automatische .duplicate-Markierung läuft',
+      marked: 'Als .duplicate markiert – Core-Bestätigung liegt vor',
       insufficient: 'Zurückgestellt: Speicherplatz fehlt',
       unavailable: 'Zurückgestellt: Backend nicht verfügbar',
       pending: 'Zurückgestellt: Prüfung noch ausstehend',
@@ -297,19 +318,21 @@
       return ['encode', 'insufficient', 'unavailable', 'pending', 'failed'].includes(row.state);
     }).length;
     const duplicates = review.rows.filter(function (row) {
-      return row.state === 'duplicate';
+      return row.state === 'duplicate' || row.state === 'marked';
     }).length;
     const confirmed = review.rows.filter(function (row) {
       return row.state === 'succeeded';
     }).length;
     view.batchSummary.textContent = ready + ' direkt importierbar, ' +
       deferred + ' zurückgestellt, ' + duplicates + ' Dubletten, ' +
-      confirmed + ' bereits bestätigt. Andere Filme bleiben unverändert. ' +
+      confirmed + ' bereits bestätigt.' +
+      (view.duplicateReviewPending ? ' Bestätigte Dubletten werden automatisch markiert.' : '') +
+      ' Andere Filme bleiben unverändert. ' +
       'Zurückgestellte Filme lassen sich über „Einzeln prüfen“ neu untersuchen; ' +
       'PC/HandBrake und Überspringen erfordern weiterhin eine Einzelentscheidung.';
     view.batchConfirmButton.hidden = Boolean(view.batch) || !ready;
     view.batchConfirmButton.disabled = view.inspectingBatch ||
-      Boolean(view.attempt) || !ready;
+      Boolean(view.attempt) || Boolean(view.duplicateReviewPending) || !ready;
   }
 
   function inspectBatchPreview(view, sourceId, generation) {
@@ -386,6 +409,10 @@
       if (!isCurrent(view) || generation !== view.reviewGeneration ||
           sourceGeneration !== view.sourcesGeneration) return;
       view.batchReview = {rows: rows, ids: ids, sourceGeneration: sourceGeneration};
+      view.duplicateQueue = rows.filter(function (row) {
+        return row.state === 'duplicate';
+      }).map(function (row) { return row.sourceId; });
+      view.duplicateReviewPending = view.duplicateQueue.length > 0;
       view.inspectingBatch = false;
       renderBatchReview(view);
       const ready = rows.filter(function (row) { return row.state === 'ready'; }).length;
@@ -404,12 +431,13 @@
       view.inspectingBatch = false;
       view.batchButton.disabled = view.sources.length < 2;
       updateSelectionCount(view);
+      if (view.duplicateReviewPending) nextConfirmedDuplicate(view);
     });
   }
 
   function confirmBatch(view) {
     if (!isCurrent(view) || !view.batchReview || view.inspectingBatch ||
-        view.attempt || view.batch ||
+        view.duplicateReviewPending || view.attempt || view.batch ||
         view.batchReview.sourceGeneration !== view.sourcesGeneration) return;
     const review = view.batchReview;
     const ids = review.rows.filter(function (row) {
@@ -466,12 +494,29 @@
           view.attempt.videoDecision === 'duplicate') {
         // Core has verified the marker operation; refresh the source inventory
         // to show the actual Rectools filename, not an imagined local status.
+        const finishedId = view.attempt.sourceId;
+        const previousReview = view.batchReview;
+        const remaining = view.duplicateQueue.slice();
         delete activeAttempts[view.backendId];
         view.attempt = null;
         view.refreshButton.hidden = true;
         view.newButton.hidden = true;
         view.reloadButton.disabled = false;
-        return loadSources(view);
+        return loadSources(view).then(function () {
+          if (!isCurrent(view)) return;
+          if (previousReview) {
+            const row = previousReview.rows.find(function (entry) {
+              return entry.sourceId === finishedId;
+            });
+            if (row && row.state === 'duplicate') row.state = 'marked';
+            previousReview.sourceGeneration = view.sourcesGeneration;
+            view.batchReview = previousReview;
+            view.duplicateQueue = remaining;
+            view.duplicateReviewPending = remaining.length > 0;
+            renderBatchReview(view);
+            view.resumeDuplicateReview = remaining.length > 0;
+          }
+        });
       }
       const limit = view.batch ? MAX_BATCH_READS : MAX_AUTOMATIC_READS;
       if (!terminalState(operation.state) && view.reads < limit) {
@@ -489,6 +534,10 @@
       }
     }).finally(function () {
       view.reading = false;
+      if (isCurrent(view) && view.resumeDuplicateReview) {
+        view.resumeDuplicateReview = false;
+        nextConfirmedDuplicate(view);
+      }
       const batch = view.batch;
       if (!isCurrent(view) || !batch || !batch.resumeNext ||
           !view.attempt || view.attempt.state !== 'succeeded')
@@ -1011,6 +1060,12 @@
         view.previewStatus = '';
         view.previewFailed = data.status === 'unavailable';
         updatePreview(view);
+        if (view.duplicateReviewPending && data.status !== 'duplicate') {
+          // The target changed during reinspection; do not mark another file.
+          view.duplicateQueue = [];
+          view.duplicateReviewPending = false;
+          if (view.batchReview) renderBatchReview(view);
+        }
         if (data.status === 'duplicate' && !view.attempt && !view.batch &&
             !view.submitting && !automaticDuplicates[view.backendId + '|' + id]) {
           automaticDuplicates[view.backendId + '|' + id] = true;
@@ -1354,8 +1409,12 @@
           // Timeouts, 5xx, invalid 202 responses and 409 are NOT proof of failure.
           if (error && [400, 401, 403, 404, 422].includes(error.status)) {
             delete activeAttempts[view.backendId];
-            if (attempt.videoDecision === 'duplicate')
+            if (attempt.videoDecision === 'duplicate') {
               delete automaticDuplicates[view.backendId + '|' + attempt.sourceId];
+              view.duplicateQueue = [];
+              view.duplicateReviewPending = false;
+              if (view.batchReview) renderBatchReview(view);
+            }
             view.attempt = null;
             if (target) {
               target.attempt = null;
@@ -1395,6 +1454,9 @@
             ? 'Keine gültige Anmeldung oder Media-Import-Berechtigung.'
             : 'Import konnte vor dem Absenden nicht vorbereitet werden.';
         if (view.batch) stopBatch(view, message);
+        view.duplicateQueue = [];
+        view.duplicateReviewPending = false;
+        if (view.batchReview) renderBatchReview(view);
         report(view, message, true);
       }).finally(function () {
         view.submitting = false;
@@ -1641,6 +1703,8 @@
       batchSummary: batchSummary, batchReviewList: batchReviewList,
       batchConfirmButton: batchConfirmButton, batchReview: null,
       reviewGeneration: 0, inspectingBatch: false,
+      duplicateQueue: [], duplicateReviewPending: false,
+      resumeDuplicateReview: false,
       selectAllVisibleButton: selectAllVisibleButton,
       selectionRows: selectionRows, selectionCount: selectionCount,
       selectedBatchButton: selectedBatchButton, checkedSourceIds: new Set(),

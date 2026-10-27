@@ -186,10 +186,17 @@ function transport(url, options) {
   }
   if (path.endsWith('/media-imports')) {
     ++submits;
-    if (autoDuplicateReadback && JSON.parse(options.body).videoDecision === 'duplicate') {
-      // The mock Agent's next inventory snapshot observes the renamed source.
-      batchSources = [];
-      markedSources = [MARK_DUP];
+    if (JSON.parse(options.body).videoDecision === 'duplicate') {
+      // The existing Core Operation handles this marker, not the batch import.
+      if (autoDuplicateReadback) {
+        batchSources = (batchSources || [SOURCE]).filter(function (id) {
+          return id !== JSON.parse(options.body).sourceId;
+        });
+        if (!markedSources.includes(MARK_DUP)) markedSources.push(MARK_DUP);
+      }
+      return Promise.resolve(reply(202, {
+        operationId: OP, backendId: 'backend-a', state: 'dispatching'
+      }));
     }
     if (submitMode === 'batch') {
       const operationId = batchOperations.length === 0 ? BATCH_OP_A : BATCH_OP_B;
@@ -630,6 +637,8 @@ function publishHomeResume() {}
   batchProbeOverrides[SOURCE_B] = {codec: 'vp9'};
   batchProbeOverrides[SOURCE_C] = {status: 'duplicate'};
   batchProbeOverrides[SOURCE_D] = {codec: 'hevc'};
+  autoDuplicateReadback = true;
+  state = 'succeeded';
   batchOperations = [];
   batchStates = Object.create(null);
   submitMode = 'batch';
@@ -649,15 +658,17 @@ function publishHomeResume() {}
     return row.textContent.includes('Umkodierung nötig');
   }));
   assert(mixedRows.some(function (row) {
-    return row.textContent.includes('Aufnahme vorhanden');
+    return row.textContent.includes('Als .duplicate markiert');
   }));
-  assert.strictEqual(submits, postsBeforeMixed,
-    'no mixed-film mutation before explicit batch approval');
+  assert.strictEqual(submits, postsBeforeMixed + 1,
+    'only the proven duplicate is marked automatically, never VDR imported');
+  assert.strictEqual(batchOperations.length, 0,
+    'duplicate marker does not use a second import queue');
   const mixedReviewConfirm = findClass(mount, 'media-import-batch-confirm');
   const beforeMixedConfirm = confirmCalls;
   confirmLocal = false;
   await mixedReviewConfirm.listeners.click();
-  assert.strictEqual(submits, postsBeforeMixed);
+  assert.strictEqual(submits, postsBeforeMixed + 1);
   assert.strictEqual(confirmCalls, beforeMixedConfirm + 1);
   confirmLocal = true;
   await mixedReviewConfirm.listeners.click();
@@ -709,6 +720,8 @@ function publishHomeResume() {}
   delete batchProbeOverrides[SOURCE_B];
   delete batchProbeOverrides[SOURCE_C];
   delete batchProbeOverrides[SOURCE_D];
+  autoDuplicateReadback = false;
+  markedSources = [];
   batchSources = [SOURCE];
 
   // Encoding is offered only when the read-only video probe requires it.
