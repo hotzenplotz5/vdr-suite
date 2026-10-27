@@ -406,6 +406,150 @@ void testReadbackCommandContract()
     assert(!backendAgentCommandValidAssignment(assignmentValue));
 }
 
+// The production command-client composition must durably acknowledge the
+// Core-readback notice, including a lost-result-ACK restart. It must never call
+// the media import executor or touch any source file.
+class ReadbackOnlyExecutor final : public vdrsuite::mediatools::IMediaImportAgentExecutor
+{
+public:
+    int authorizationCalls = 0;
+    int executionCalls = 0;
+    bool available() override { return true; }
+    bool authorize(const BackendAgentCommandAssignment&,
+                   const std::string&, std::uint64_t) override
+    {
+        ++authorizationCalls;
+        return false;
+    }
+    vdrsuite::mediatools::MediaImportAgentOutcome execute(
+        const BackendAgentCommandAssignment&) override
+    {
+        ++executionCalls;
+        return vdrsuite::mediatools::MediaImportAgentOutcome::rejected;
+    }
+};
+
+class ReadbackNoticeTransport final : public IBackendAgentControlPlaneTransport
+{
+public:
+    BackendAgentCommandAssignment notice;
+    int polls = 0;
+    int receipts = 0;
+    int results = 0;
+    bool dropFirstResultAck = true;
+    BackendAgentCommandResult lastResult;
+
+    BackendAgentTransportResponse postEnrollment(
+        const std::string&, const std::string&, const std::string&,
+        const std::string&) override
+    {
+        return {};
+    }
+    BackendAgentTransportResponse postAuthenticated(
+        const std::string&, const std::string&, const std::string& path,
+        const std::string& body) override
+    {
+        if (path == "/api/agent/v1/commands/poll")
+        {
+            ++polls;
+            BackendAgentCommandPollRequest request;
+            std::string why;
+            assert(parseBackendAgentCommandPollRequestJson(body, request, why));
+            assert(std::find(request.supportedCommandTypes.begin(),
+                request.supportedCommandTypes.end(),
+                vdrsuite::mediatools::kMediaImportReadbackCommandType) !=
+                request.supportedCommandTypes.end());
+            BackendAgentCommandPollResult response;
+            response.accepted = true;
+            response.reasonCode = "command_assigned";
+            response.assignment = notice;
+            return {true, 200,
+                serializeBackendAgentCommandPollResponseJson(response), ""};
+        }
+        if (path == "/api/agent/v1/commands/receipt")
+        {
+            ++receipts;
+            BackendAgentCommandReceipt receipt;
+            std::string why;
+            assert(parseBackendAgentCommandReceiptJson(body, receipt, why));
+            assert(receipt.commandId == notice.commandId);
+            return {true, 200,
+                "{\"outcome\":\"accepted\",\"reasonCode\":\"command_receipt_accepted\"}",
+                ""};
+        }
+        if (path == "/api/agent/v1/commands/result")
+        {
+            ++results;
+            std::string why;
+            assert(parseBackendAgentCommandResultJson(body, lastResult, why));
+            assert(lastResult.commandId == notice.commandId);
+            if (dropFirstResultAck && results == 1)
+                return {false, 0, "", "connection_lost_after_commit"};
+            return {true, 200,
+                "{\"outcome\":\"accepted\",\"reasonCode\":\"command_result_accepted\"}",
+                ""};
+        }
+        assert(false);
+        return {};
+    }
+};
+
+void testReadbackNoticeAgentRestartDoesNotExecuteImport()
+{
+    using namespace vdrsuite::mediatools;
+    const std::string path = "/tmp/vdr-suite-readback-notification-state";
+    std::remove(path.c_str());
+    ReadbackOnlyExecutor executor;
+    BackendAgentCommandClientConfig config;
+    config.statePath = path;
+    config.mediaImportExecutor = &executor;
+    config.commandTypes = {kMediaImportCommandType, kMediaImportReadbackCommandType};
+    const BackendAgentCommandClientContext context{
+        "agt_client", "secret-material-at-least-thirty-two-bytes",
+        "default", "agi_current", 8};
+    ReadbackNoticeTransport transport;
+    transport.notice = assignment();
+    transport.notice.agentInstanceId = context.agentInstanceId;
+    transport.notice.backendGeneration = context.backendGeneration;
+    transport.notice.commandType = kMediaImportReadbackCommandType;
+    transport.notice.payloadVersion = 1;
+    transport.notice.payload = mediaImportReadbackPayload(
+        "source_readback_123456", "cmd_original_readback",
+        recordingPathEvidence("/srv/vdr/Imported/2026-10-27.22.00.00-0.rec"));
+    transport.notice.verificationPolicy = "none";
+    transport.notice.assignedAt = commandNow() - 1;
+    transport.notice.deadline = commandNow() + 240;
+    transport.notice.requestFingerprint =
+        backendAgentCommandFingerprint(transport.notice);
+    assert(backendAgentCommandValidAssignment(transport.notice));
+
+    std::string reason;
+    assert(!pollBackendAgentCommand(config, context, transport, reason));
+    assert(transport.polls == 1 && transport.receipts == 1);
+    assert(transport.results == 1);
+    assert(transport.lastResult.resultCategory == "succeeded");
+    assert(transport.lastResult.verificationState == "verified");
+    assert(transport.lastResult.boundedDiagnostics.find("no source cleanup") !=
+           std::string::npos);
+    assert(executor.authorizationCalls == 0 && executor.executionCalls == 0);
+
+    // New Agent process: use only the protected existing local state file,
+    // not a fresh assignment or a second execution.
+    ReadbackOnlyExecutor restartedExecutor;
+    BackendAgentCommandClientConfig restartedConfig = config;
+    restartedConfig.mediaImportExecutor = &restartedExecutor;
+    assert(reconcileBackendAgentCommandState(
+        restartedConfig, context, transport, reason));
+    assert(transport.polls == 1 && transport.receipts == 1);
+    assert(transport.results == 2);
+    assert(restartedExecutor.authorizationCalls == 0 &&
+           restartedExecutor.executionCalls == 0);
+    assert(reconcileBackendAgentCommandState(
+        restartedConfig, context, transport, reason));
+    assert(transport.results == 2);
+    std::remove(path.c_str());
+}
+
 void testAddonCommandsNeverSelfAdvertise()
 {
     const std::string path = "/tmp/vdr-suite-addon-command-advertisement";
@@ -624,6 +768,7 @@ int main()
 {
     testMediaToolsPollAcceptsReviewedShrinkTypes();
     testReadbackCommandContract();
+    testReadbackNoticeAgentRestartDoesNotExecuteImport();
     testAddonCommandsNeverSelfAdvertise();
     testTimerAdvertisementActivation();
     testOsdInputAdvertisement();
