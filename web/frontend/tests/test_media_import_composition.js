@@ -315,6 +315,16 @@ function publishHomeResume() {}
   assert.strictEqual(submits, noPreviewPost, 'an early click must not bypass diagnosis');
   await settle();
   assert.strictEqual(start.disabled, false);
+  assert.strictEqual(start.textContent, 'Diesen Film importieren',
+    'single-file action must state its effect');
+  const importPanel = findClass(mount, 'media-import-panel');
+  assert(importPanel.children.indexOf(start) >
+    importPanel.children.indexOf(findClass(mount, 'media-import-preview')) &&
+    importPanel.children.indexOf(start) <
+    importPanel.children.indexOf(findClass(mount, 'media-import-marked-label')),
+    'primary import action must be adjacent to the preview, before marker administration');
+  assert(findClass(mount, 'media-import-preview').textContent.includes('Nächster Schritt'),
+    'ready preview must explain the next action');
   assert(findClass(mount, 'media-import-decision-label').hidden,
     'compatible source needs no encoding decision');
   assert(findClass(mount, 'media-import-preview').textContent.includes(
@@ -968,6 +978,10 @@ function publishHomeResume() {}
   }).join('|'), 'batch checkboxes use the same order as single selection');
   const sortedFolders = findClass(mount, 'media-import-folders');
   sortedFolders.children[0].listeners.click(); // Serien
+  assert.strictEqual(sortedSelect.children.slice(1).map(function (item) {
+    return item.value;
+  }).join('|'), orderedIds.join('|'),
+  'selecting a series folder shows all of its descendant episodes immediately');
   assert.strictEqual(sortedFolders.children.map(function (child) {
     return child.textContent;
   }).join('|'), '📁 Andor|📁 Staffel 2|📁 Staffel 10');
@@ -1026,7 +1040,10 @@ function publishHomeResume() {}
   folderList.children.find(function (child) {
     return child.textContent.includes('Serien');
   }).listeners.click(); // Serien
-  assert.strictEqual(folderSelect.children.length, 1);
+  assert.strictEqual(folderSelect.children.length, 2,
+    'selecting the series parent must show episodes below it');
+  assert.strictEqual(folderSelect.children[1].value, SOURCE_B);
+  assert(findClass(mount, 'media-import-visible-count').textContent.includes('1 importierbare'));
   folderList.children[0].listeners.click(); // Andor
   assert.strictEqual(folderSelect.children.length, 2);
   assert.strictEqual(folderSelect.children[1].value, SOURCE_B);
