@@ -34,21 +34,17 @@
       permission || '-');
   }
 
-  // The picker is a presentation of server-authorized grant options, not
-  // the authority for granting access. Hide assignments already effective
-  // for the chosen scope, including ordinary grants covered by an admin role.
-  // Add-on rights remain independent of role.admin.
+  // The picker presents server-authorized grant options and hides exact
+  // existing grants. Effective role expansion remains server-owned; never
+  // duplicate the server's permission catalogue in this UI.
   function availableGrantOptions(options, grants, backendId) {
     const assigned = Array.isArray(grants) ? grants : [];
     const coversScope = grant => grant &&
       (grant.backendId === '*' || grant.backendId === backendId);
-    const administrator = assigned.some(grant =>
-      coversScope(grant) && grant.permission === 'role.admin');
     return (Array.isArray(options) ? options : []).filter(option => {
       if (!option || !option.permission) return false;
       if (assigned.some(grant =>
         coversScope(grant) && grant.permission === option.permission)) return false;
-      if (administrator && option.category !== 'addon') return false;
       return true;
     });
   }
