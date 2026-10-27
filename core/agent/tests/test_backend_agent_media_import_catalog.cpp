@@ -126,6 +126,8 @@ int main()
     report.nfoYear = "2024";
     report.nfoGenre = "Drama";
     report.durationSeconds = 3120;
+    report.posterDataUri = "data:image/jpeg;base64,/9j/2Q==";
+    report.fanartDataUri = "data:image/png;base64,iVBORw0KGgo=";
     report.availableBytes = 8000000000ULL;
     report.requiredBytes = 5000000000ULL;
     assert(!catalog.acceptPreview(live, "backend", 100,
@@ -142,6 +144,8 @@ int main()
         BackendAgentMediaImportCatalog::PreviewState::ready);
     assert(observed.targetFolder == "Serien/Andor/Film" &&
            observed.videoCodec == "h264" && observed.sourceBytes == 1000);
+    assert(observed.posterDataUri == "data:image/jpeg;base64,/9j/2Q==" &&
+           observed.fanartDataUri == "data:image/png;base64,iVBORw0KGgo=");
     assert(observed.nfoPlot == "Handlung & Details" &&
            observed.nfoYear == "2024" && observed.nfoGenre == "Drama" &&
            observed.durationSeconds == 3120);

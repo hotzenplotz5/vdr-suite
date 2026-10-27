@@ -32,6 +32,7 @@ public:
         std::string failureCode;
         std::string nfoOutline, nfoPlot, nfoYear, nfoGenre;
         std::uint64_t durationSeconds = 0;
+        std::string posterDataUri, fanartDataUri;
     };
     enum class PreviewState { denied, pending, ready };
 
@@ -92,6 +93,28 @@ public:
                 std::none_of(value.begin(), value.end(),
                     [](unsigned char c) { return c < 0x20 || c == 0x7f; });
         };
+        const auto validArtwork = [](const std::string& uri) {
+            if (uri.empty()) return true;
+            if (uri.rfind("data:image/jpeg;base64,/9j/", 0) != 0 &&
+                uri.rfind("data:image/png;base64,iVBORw0KGgo", 0) != 0 &&
+                uri.rfind("data:image/webp;base64,UklGR", 0) != 0)
+                return false;
+            const auto comma = uri.find(',');
+            if (comma == std::string::npos || uri.size() - comma - 1 > 349528U ||
+                (uri.size() - comma - 1) % 4 != 0) return false;
+            const auto encoded = uri.substr(comma + 1);
+            const auto pad = encoded.find('=');
+            if (pad != std::string::npos && encoded.size() - pad > 2) return false;
+            return std::all_of(encoded.begin(), encoded.end(),
+                [](unsigned char ch) {
+                    return (ch >= 'A' && ch <= 'Z') ||
+                        (ch >= 'a' && ch <= 'z') ||
+                        (ch >= '0' && ch <= '9') ||
+                        ch == '+' || ch == '/' || ch == '=';
+                });
+        };
+        if (!validArtwork(data.posterDataUri) ||
+            !validArtwork(data.fanartDataUri)) return false;
         if (!validMetadata(data.nfoOutline) ||
             !validMetadata(data.nfoPlot) ||
             !validMetadata(data.nfoGenre) ||

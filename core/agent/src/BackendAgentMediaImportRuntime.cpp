@@ -162,6 +162,9 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
         out.nfoPlot = metadata.description;
         out.nfoYear = metadata.year;
         out.nfoGenre = metadata.genre;
+        const auto artwork = readImportLocalArtwork(plan);
+        out.posterDataUri = artwork.posterDataUri;
+        out.fanartDataUri = artwork.fanartDataUri;
         // A protected destination collision is not itself proof of a duplicate.
         if (plan.duplicateTarget) {
             out.status = confirmedMediaImportDuplicate(plan)

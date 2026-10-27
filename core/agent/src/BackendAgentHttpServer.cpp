@@ -138,7 +138,8 @@ std::size_t skipSpace(const std::string& body, std::size_t position)
     return position;
 }
 
-bool jsonString(const std::string& body, const std::string& key, std::string& value)
+bool jsonString(const std::string& body, const std::string& key,
+                std::string& value, std::size_t maximumBytes = 4096U)
 {
     value.clear();
     const std::string needle = "\"" + key + "\"";
@@ -178,7 +179,7 @@ bool jsonString(const std::string& body, const std::string& key, std::string& va
         if (character == '"') return true;
         if (static_cast<unsigned char>(character) < 0x20U) return false;
         value.push_back(character);
-        if (value.size() > 4096) return false;
+        if (value.size() > maximumBytes) return false;
     }
     return false;
 }
@@ -683,6 +684,13 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
             !jsonUnsigned(request.body, "previewDurationSeconds",
                           preview.durationSeconds))
             return errorResponse(400, "invalid_media_import_preview_duration");
+        const auto artworkField = [&](const char* key, std::string& value) {
+            return request.body.find(std::string("\"") + key + "\"") ==
+                std::string::npos || jsonString(request.body, key, value, 349600U);
+        };
+        if (!artworkField("previewPosterDataUri", preview.posterDataUri) ||
+            !artworkField("previewFanartDataUri", preview.fanartDataUri))
+            return errorResponse(400, "invalid_media_import_preview_artwork");
     }
     const auto live = repository_.findAgentForBackend(backendId);
     const auto now = unixNow();
@@ -812,7 +820,7 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
         ? BackendAgentOsdObservation::MaximumBodyBytes
         : channelObservation
         ? MaximumChannelObservationBodyBytes
-        : mediaSourcesObservation ? 64U * 1024U
+        : mediaSourcesObservation ? 1024U * 1024U
         : MaximumAgentBodyBytes;
     if (request.body.size() > maximumBodyBytes)
         return errorResponse(413, channelObservation

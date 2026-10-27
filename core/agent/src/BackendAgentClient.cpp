@@ -34,7 +34,7 @@
 namespace
 {
 constexpr std::size_t MaximumResponseBytes = 16U * 1024U;
-constexpr std::size_t MaximumObservationRequestBytes = 512U * 1024U;
+constexpr std::size_t MaximumObservationRequestBytes = 1024U * 1024U;
 constexpr std::size_t MaximumLocalFileBytes = 16U * 1024U;
 std::once_flag CurlInitialization;
 bool CurlInitialized = false;
@@ -2194,6 +2194,8 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
              << "\",\"previewNfoPlot\":\"" << jsonEscape(preview.nfoPlot)
              << "\",\"previewNfoYear\":\"" << jsonEscape(preview.nfoYear)
              << "\",\"previewNfoGenre\":\"" << jsonEscape(preview.nfoGenre)
+             << "\",\"previewPosterDataUri\":\"" << preview.posterDataUri
+             << "\",\"previewFanartDataUri\":\"" << preview.fanartDataUri
              << "\",\"previewDurationSeconds\":" << preview.durationSeconds
              << ",\"previewSourceBytes\":" << preview.sourceBytes
              << ",\"previewAvailableBytes\":" << preview.availableBytes
