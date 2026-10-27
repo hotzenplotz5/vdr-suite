@@ -1232,7 +1232,18 @@
             ? String(value || '').split(/[,;]/).map(part => part.trim())
                 .filter(Boolean).join(',')
             : String(value);
-          const changed = fields.filter(name =>
+          const relevant = fields.filter(name => {
+            if (name === 'channels') return requested.useChannel === 2;
+            if (name === 'channelMin' || name === 'channelMax')
+              return requested.useChannel === 1;
+            if (name === 'startTime' || name === 'stopTime')
+              return requested.useTime;
+            if (name === 'dayOfWeek') return requested.useDayOfWeek;
+            if (name === 'durationMinMinutes' || name === 'durationMaxMinutes')
+              return requested.useDuration;
+            return true;
+          });
+          const changed = relevant.filter(name =>
             comparisonValue(name, actual[name]) !==
             comparisonValue(name, requested[name]));
           if (changed.length) {
