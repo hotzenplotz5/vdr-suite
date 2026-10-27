@@ -456,39 +456,39 @@
       useDuration: boolValue(formValue(form, 'useDuration', source.useDuration), false),
       durationMinMinutes: numberValue(formValue(form, 'durationMinMinutes', source.durationMinMinutes), 0),
       durationMaxMinutes: numberValue(formValue(form, 'durationMaxMinutes', source.durationMaxMinutes), 0),
-      useDayOfWeek: false,
-      dayOfWeek: 0,
+      useDayOfWeek: boolValue(formValue(form, 'useDayOfWeek', source.useDayOfWeek), false),
+      dayOfWeek: numberValue(formValue(form, 'dayOfWeek', source.dayOfWeek), 0),
       avoidRepeats: boolValue(formValue(form, 'avoidRepeats', source.avoidRepeats), false),
       allowedRepeats: numberValue(formValue(form, 'allowedRepeats', source.allowedRepeats), 0),
       repeatsWithinDays: numberValue(formValue(form, 'repeatsWithinDays', source.repeatsWithinDays), 0),
       compareTitle: boolValue(formValue(form, 'compareTitle', source.compareTitle), true),
       compareSubtitle: boolValue(formValue(form, 'compareSubtitle', source.compareSubtitle), false),
       compareSummary: boolValue(formValue(form, 'compareSummary', source.compareSummary), false),
-      compareCategories: source.compareCategories,
-      compareTime: source.compareTime,
-      useSeriesRecording: source.useSeriesRecording,
-      keepRecordings: source.keepRecordings,
-      deleteMode: source.deleteMode,
-      searchTimerAction: source.searchTimerAction,
+      compareCategories: boolValue(formValue(form, 'compareCategories', source.compareCategories), false),
+      compareTime: boolValue(formValue(form, 'compareTime', source.compareTime), false),
+      useSeriesRecording: boolValue(formValue(form, 'useSeriesRecording', source.useSeriesRecording), false),
+      keepRecordings: numberValue(formValue(form, 'keepRecordings', source.keepRecordings), 0),
+      deleteMode: numberValue(formValue(form, 'deleteMode', source.deleteMode), 0),
+      searchTimerAction: numberValue(formValue(form, 'searchTimerAction', source.searchTimerAction), 0),
       blacklistMode: numberValue(formValue(form, 'blacklistMode', source.blacklistMode), 0),
       blacklistIds: formValue(form, 'blacklistIds', source.blacklistIds),
       mode: numberValue(formValue(form, 'mode', source.mode), 0),
       matchCase: boolValue(formValue(form, 'matchCase', source.matchCase), false),
       tolerance: numberValue(formValue(form, 'tolerance', source.tolerance), 0),
-      summaryMatch: source.summaryMatch,
-      useExtendedEpgInfo: source.useExtendedEpgInfo,
-      extendedEpgInfo: source.extendedEpgInfo,
-      ignoreMissingEpgCategories: source.ignoreMissingEpgCategories,
-      contentDescriptors: source.contentDescriptors,
-      useInFavorites: source.useInFavorites,
-      activeFrom: source.activeFrom,
-      activeUntil: source.activeUntil,
-      pauseOnRecordings: source.pauseOnRecordings,
-      switchMinutesBefore: source.switchMinutesBefore,
-      unmuteSoundOnSwitch: source.unmuteSoundOnSwitch,
-      deleteRecordingsAfterDays: source.deleteRecordingsAfterDays,
-      deleteAfterCountRecordings: source.deleteAfterCountRecordings,
-      deleteAfterDaysOfFirstRecording: source.deleteAfterDaysOfFirstRecording
+      summaryMatch: numberValue(formValue(form, 'summaryMatch', source.summaryMatch), 0),
+      useExtendedEpgInfo: boolValue(formValue(form, 'useExtendedEpgInfo', source.useExtendedEpgInfo), false),
+      extendedEpgInfo: String(formValue(form, 'extendedEpgInfo', source.extendedEpgInfo) || ''),
+      ignoreMissingEpgCategories: boolValue(formValue(form, 'ignoreMissingEpgCategories', source.ignoreMissingEpgCategories), false),
+      contentDescriptors: String(formValue(form, 'contentDescriptors', source.contentDescriptors) || ''),
+      useInFavorites: boolValue(formValue(form, 'useInFavorites', source.useInFavorites), false),
+      activeFrom: String(formValue(form, 'activeFrom', source.activeFrom) || ''),
+      activeUntil: String(formValue(form, 'activeUntil', source.activeUntil) || ''),
+      pauseOnRecordings: boolValue(formValue(form, 'pauseOnRecordings', source.pauseOnRecordings), false),
+      switchMinutesBefore: numberValue(formValue(form, 'switchMinutesBefore', source.switchMinutesBefore), 0),
+      unmuteSoundOnSwitch: boolValue(formValue(form, 'unmuteSoundOnSwitch', source.unmuteSoundOnSwitch), false),
+      deleteRecordingsAfterDays: numberValue(formValue(form, 'deleteRecordingsAfterDays', source.deleteRecordingsAfterDays), 0),
+      deleteAfterCountRecordings: numberValue(formValue(form, 'deleteAfterCountRecordings', source.deleteAfterCountRecordings), 0),
+      deleteAfterDaysOfFirstRecording: numberValue(formValue(form, 'deleteAfterDaysOfFirstRecording', source.deleteAfterDaysOfFirstRecording), 0)
     };
   }
 
@@ -1004,10 +1004,10 @@
     form.dataset.searchtimerEditorForm = 'create';
 
     const notice = addText(document.createElement('p'),
-      'Suchtimer-Editor: Die Vorschau zählt EPG-Texttreffer, nicht die endgültigen ' +
-      'Aufnahmen. Aktuell kann die öffentliche API nur die Textsuche als inaktive ' +
-      'Regel speichern. Weitere Einstellungen sind sichtbar, werden aber vor ' +
-      'einem nicht unterstützten Speicherversuch ausdrücklich beanstandet.');
+      'MLD-Webfrontend: Suchtimer können mit den vorhandenen epgsearch-Optionen ' +
+      'direkt inaktiv oder aktiv angelegt werden. Die Vorschau zeigt nur EPG-' +
+      'Texttreffer, keine tatsächliche Aufnahmeprognose. Der Browser benutzt ' +
+      'die bestehende angemeldete VDR-Suite-Browser-API, nicht die Device-API.');
     notice.className = 'searchtimer-safety-note';
     form.appendChild(notice);
     const grid = document.createElement('div');
@@ -1027,7 +1027,7 @@
     const advanced = document.createElement('details');
     advanced.className = 'searchtimer-expert';
     advanced.appendChild(addText(document.createElement('summary'),
-      'Weitere epgsearch-Einstellungen · derzeit noch nicht speicherbar'));
+      'Weitere epgsearch-Einstellungen'));
     const advancedGrid = document.createElement('div');
     advancedGrid.className = 'searchtimer-form-grid';
     advancedGrid.style.padding = '.65rem';
@@ -1057,6 +1057,44 @@
       input('blacklistIds', source.blacklistIds)));
     advancedGrid.appendChild(check('matchCase',
       'Groß-/Kleinschreibung beachten', source.matchCase));
+    const extra = document.createElement('details');
+    extra.className = 'searchtimer-expert';
+    extra.appendChild(addText(document.createElement('summary'),
+      'Weitere epgsearch-Regeloptionen'));
+    const extraGrid = document.createElement('div');
+    extraGrid.className = 'searchtimer-form-grid';
+    extraGrid.style.padding = '.65rem';
+    const extras = [
+      ['useDayOfWeek','Wochentage filtern','bool'],
+      ['dayOfWeek','Wochentagsmaske','number'],
+      ['compareCategories','EPG-Kategorien vergleichen','bool'],
+      ['compareTime','Uhrzeit vergleichen','bool'],
+      ['useSeriesRecording','Serienaufnahme','bool'],
+      ['keepRecordings','Aufnahmen behalten','number'],
+      ['deleteMode','Löschmodus','number'],
+      ['searchTimerAction','Suchtimer-Aktion','number'],
+      ['summaryMatch','Zusammenfassung: Übereinstimmung','number'],
+      ['useExtendedEpgInfo','Erweiterte EPG-Daten','bool'],
+      ['extendedEpgInfo','Erweiterte EPG-Filter','text'],
+      ['ignoreMissingEpgCategories','Fehlende EPG-Kategorien ignorieren','bool'],
+      ['contentDescriptors','Inhaltskennungen','text'],
+      ['useInFavorites','In Favoriten verwenden','bool'],
+      ['activeFrom','Gültig ab','text'],
+      ['activeUntil','Gültig bis','text'],
+      ['pauseOnRecordings','Aufnahme beim Suchtimer pausieren','bool'],
+      ['switchMinutesBefore','Vor Umschaltung (Minuten)','number'],
+      ['unmuteSoundOnSwitch','Ton bei Umschaltung aktivieren','bool'],
+      ['deleteRecordingsAfterDays','Aufnahmen löschen nach Tagen','number'],
+      ['deleteAfterCountRecordings','Aufnahmen löschen ab Anzahl','number'],
+      ['deleteAfterDaysOfFirstRecording','Aufnahmen löschen nach erster Aufnahme','number']
+    ];
+    extras.forEach(([name, title, type]) => {
+      extraGrid.appendChild(type === 'bool'
+        ? check(name, title, source[name])
+        : field(title, input(name, source[name], type)));
+    });
+    extra.appendChild(extraGrid);
+    advancedGrid.appendChild(extra);
     advanced.appendChild(advancedGrid);
     form.appendChild(advanced);
 
@@ -1065,7 +1103,7 @@
     const previewButton = addText(document.createElement('button'), 'Vorschau');
     previewButton.type = 'button';
     previewButton.className = 'primary';
-    const saveButton = addText(document.createElement('button'), 'Inaktiven SearchTimer anlegen');
+    const saveButton = addText(document.createElement('button'), 'SearchTimer speichern');
     saveButton.type = 'submit';
     saveButton.dataset.searchtimerAction = 'save';
     actions.appendChild(previewButton);
@@ -1083,63 +1121,15 @@
     feedback.setAttribute('aria-live', 'polite');
     form.appendChild(feedback);
 
-    let pendingKey = '';
-    let pendingFingerprint = '';
-    let pendingOperationId = '';
-    function acceptedOperationId(value) {
-      const candidate = String(value || '');
-      return /^op_[0-9a-f]{32}$/.test(candidate) ? candidate : '';
-    }
-    function updateOperationStatus(operation) {
-      const state = String(operation && operation.state || 'unbekannt');
-      if (state === 'succeeded') {
-        setFeedback(feedback,
-          'SearchTimer laut dauerhafter Operation erfolgreich inaktiv angelegt. ' +
-          'Aktivierung ist damit noch nicht erfolgt.', false);
-        pendingKey = '';
-        pendingFingerprint = '';
-        pendingOperationId = '';
-        checkOperationButton.hidden = true;
-        checkOperationButton.disabled = true;
-        global.setTimeout(reloadSearchTimers, 300);
-      } else {
-        const failed = state === 'failed_before_dispatch' ||
-          state === 'failedBeforeDispatch';
-        setFeedback(feedback,
-          'Anlagevorgang ' + (pendingOperationId || '(ID unbekannt)') +
-          ': ' + state + (failed
-            ? ' (vor Ausführung abgelehnt).'
-            : '. Ergebnis noch nicht sicher bestätigt; keine neue Anlage starten.'), failed);
-      }
-    }
-    checkOperationButton.addEventListener('click', () => {
-      if (!pendingOperationId || checkOperationButton.disabled) return;
-      const api = clientApi();
-      if (!api || typeof api.requestJson !== 'function') return;
-      checkOperationButton.disabled = true;
-      api.requestJson('/api/v1/operations/' + pendingOperationId, {
-        cache: 'no-store', credentials: 'same-origin'
-      }).then(operation => {
-        if (!operation || operation.operationId !== pendingOperationId ||
-            operation.backendId !== selectedBackendId()) {
-          throw new Error('Operationszuordnung konnte nicht bestätigt werden.');
-        }
-        updateOperationStatus(operation);
-      }).catch(error => {
-        setFeedback(feedback, 'Operationsstatus konnte nicht gelesen werden: ' +
-          String(error && error.message ? error.message : error) +
-          '. Nicht erneut anlegen.', true);
-      }).finally(() => {
-        checkOperationButton.disabled = !pendingOperationId;
-      });
-    });
+    let pending = false;
+    let submitted = false;
     function payload() {
       const result = buildCreatePayload(form, activeCreateTemplate || source);
       result.query = String(result.query || '').trim();
       result.name = result.query;
-      // The public CREATE can only stage an inactive rule.
       result.backendId = selectedBackendId();
-      const errors = stagedCreateValidation(result);
+      const errors = validateCreatePayload(result);
+      if (!result.backendId) errors.push('Backend fehlt.');
       if (errors.length) {
         setFeedback(feedback, errors.join(' '), true);
         return null;
@@ -1148,74 +1138,94 @@
     }
     previewButton.addEventListener('click', () => {
       const result = payload();
-      if (!result) return;
-      const extra = unsupportedStagedOptions(result);
-      if (extra.length) {
-        setFeedback(feedback, 'EPG-Textvorschau ohne erweiterte Filter: ' +
-          extra.join(', ') + '. Das ist keine verbindliche Aufnahmeprognose.', false);
-      }
-      runPreview(result, previewButton, feedback);
+      if (result) runPreview(result, previewButton, feedback);
     });
     form.addEventListener('submit', event => {
       event.preventDefault();
-      const result = payload();
-      if (!result) return;
-      const unsupported = unsupportedStagedOptions(result).concat(
-        unsupportedCopiedSettings(activeCreateTemplate));
-      if (unsupported.length) {
+      if (pending || submitted) {
         setFeedback(feedback,
-          'Diese Einstellungen können aktuell noch nicht zuverlässig gespeichert werden: ' +
-          unsupported.join(', ') + '. Keine Anlage ausgeführt.', true);
+          'Der vorige Anlageversuch muss im VDR geprüft werden. ' +
+          'Bitte nicht erneut anlegen.', true);
         return;
       }
+      const requested = payload();
+      if (!requested) return;
       const api = clientApi();
-      if (!api || typeof api.fetchClientSearchTimerCreateStaged !== 'function') {
-        setFeedback(feedback, 'Sicheres SearchTimer-Anlegen ist nicht verfügbar.', true);
+      if (!api || typeof api.fetchClientSearchTimerCreateAction !== 'function' ||
+          typeof api.fetchClientSearchTimers !== 'function') {
+        setFeedback(feedback, 'Der Browser-Suchtimer-Pfad ist nicht verfügbar.', true);
         return;
       }
-      if (!global.confirm('SearchTimer „' + result.query +
-          '“ zunächst inaktiv auf dem VDR anlegen?')) return;
-      const fingerprint = JSON.stringify(result);
-      if (pendingFingerprint && pendingFingerprint !== fingerprint) {
-        setFeedback(feedback,
-          'Vorherigen Speicherversuch zuerst auf dem VDR überprüfen. ' +
-          'Keinen veränderten SearchTimer erneut absenden.', true);
-        return;
-      }
-      if (!pendingKey) pendingKey = newStagedIdempotencyKey();
-      if (!pendingKey) {
-        setFeedback(feedback, 'Sichere Zufallszahlen sind nicht verfügbar.', true);
-        return;
-      }
-      pendingFingerprint = fingerprint;
+      if (!global.confirm('SearchTimer „' + requested.query +
+          '“ auf Backend „' + requested.backendId + '“ ' +
+          (requested.active ? 'AKTIV anlegen? Die Regel kann sofort Timer erzeugen.'
+            : 'inaktiv anlegen?'))) return;
+      pending = true;
+      submitted = true;
       saveButton.disabled = true;
-      setFeedback(feedback, 'SearchTimer wird sicher angelegt …', false);
-      const body = {
-        name: result.query, query: result.query, active: false,
-        mode: result.mode, tolerance: result.tolerance,
-        compareTitle: result.compareTitle,
-        compareSubtitle: result.compareSubtitle,
-        compareSummary: result.compareSummary, confirmed: true
-      };
-      api.fetchClientSearchTimerCreateStaged({
-        backend: result.backendId,
-        idempotencyKey: pendingKey,
-        payload: body
-      }).then(response => {
-        const operation = response && response.operation || response || {};
-        pendingOperationId = acceptedOperationId(operation.operationId);
-        checkOperationButton.hidden = !pendingOperationId;
-        checkOperationButton.disabled = !pendingOperationId;
-        updateOperationStatus(operation);
+      checkOperationButton.hidden = true;
+      checkOperationButton.disabled = true;
+      setFeedback(feedback, 'SearchTimer wird einmalig an epgsearch gesendet …', false);
+      api.fetchClientSearchTimerCreateAction({
+        payload: requested, cache: 'no-store', credentials: 'same-origin'
+      }).then(created => {
+        if (!created || created.success !== true ||
+            created.backendId !== requested.backendId ||
+            !String(created.backendNativeId || '') ||
+            created.query !== requested.query ||
+            created.state !== (requested.active ? 'active' : 'inactive')) {
+          throw new Error('Backend-Anlage nicht eindeutig bestätigt.');
+        }
+        return api.fetchClientSearchTimers({
+          query: {backend: requested.backendId, text: requested.query, limit: 1000},
+          cache: 'no-store', credentials: 'same-origin'
+        }).then(readback => {
+          const count = Number(readback && readback.totalCount);
+          const items = listFromResponse(readback, 'searchTimers')
+            .map(normalizeSearchTimer);
+          const matches = items.filter(item =>
+            item.backendId === requested.backendId &&
+            item.backendNativeId === String(created.backendNativeId));
+          if (!Number.isFinite(count) || count !== items.length ||
+              matches.length !== 1 ||
+              matches[0].query !== requested.query ||
+              matches[0].active !== requested.active) {
+            throw new Error('Suchtimer geschrieben, Backend-Readback noch unklar.');
+          }
+          const actual = matches[0];
+          const fields = [
+            'directory','priority','lifetime','marginStartMinutes',
+            'marginStopMinutes','useVps','useDuration',
+            'durationMinMinutes','durationMaxMinutes','avoidRepeats',
+            'allowedRepeats','repeatsWithinDays','compareTitle',
+            'compareSubtitle','compareSummary','compareCategories',
+            'compareTime','useSeriesRecording','keepRecordings','deleteMode',
+            'searchTimerAction','blacklistMode','mode','matchCase',
+            'tolerance','summaryMatch','useExtendedEpgInfo',
+            'ignoreMissingEpgCategories','contentDescriptors','useInFavorites',
+            'activeFrom','activeUntil','pauseOnRecordings','switchMinutesBefore',
+            'unmuteSoundOnSwitch','deleteRecordingsAfterDays',
+            'deleteAfterCountRecordings','deleteAfterDaysOfFirstRecording'
+          ];
+          const changed = fields.filter(name =>
+            String(actual[name]) !== String(requested[name]));
+          if (changed.length) {
+            throw new Error('Suchtimer angelegt, aber Einstellungen abweichend: ' +
+              changed.join(', '));
+          }
+          setFeedback(feedback, 'SearchTimer „' + requested.query + '“ ' +
+            (requested.active ? 'AKTIV' : 'inaktiv') +
+            ' angelegt und im Backend bestätigt.', false);
+          global.setTimeout(reloadSearchTimers, 300);
+          return actual;
+        });
       }).catch(error => {
-        const trace = error && error.requestId ? ' [Request-ID: ' + error.requestId + ']' : '';
-        const message = createErrorText(error);
         setFeedback(feedback,
-          'Anlage fehlgeschlagen oder Ergebnis unklar (HTTP ' +
-          String(error && error.status || '?') + ')' + trace + ': ' +
-          message + '. Bestehenden Backend-/Operationszustand prüfen; ' +
-          'keine neue Operation beginnen.', true);
-      }).finally(() => { saveButton.disabled = false; });
+          'Anlage oder Readback nicht zweifelsfrei bestätigt: ' +
+          String(error && error.message ? error.message : error) +
+          '. Bitte VDR-Suchtimerliste prüfen. Dieser Dialog wiederholt ' +
+          'den Schreibvorgang nicht.', true);
+      }).finally(() => { pending = false; });
     });
     activeCreateForm = form;
     return form;
