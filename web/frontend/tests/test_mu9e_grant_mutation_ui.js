@@ -265,9 +265,10 @@ function setEnsureFields(root, permission, backendId) {
     adminPicker.children.flatMap(function(child) {
       return child.tagName === 'OPTGROUP'
         ? child.children.map(option => option.value) : [child.value];
-    }), [''],
-    'administrator must not see redundant standard grants');
-  assert.strictEqual(adminPicker.disabled, true);
+    }), ['', 'role.read-only', 'channels.view', 'recordings.rename',
+         'timers.view'],
+    'the browser hides only the exact assigned role; the server owns role expansion');
+  assert.strictEqual(adminPicker.disabled, false);
   grantItems.pop();
 
   addonEffective = true;
