@@ -15,25 +15,33 @@ namespace vdrsuite::mediatools {
 
 inline constexpr const char* kMediaImportCommandType = "addon.media.import";
 // Readback notification uses the existing durable Agent command journal.
-// Acknowledgement proves delivery only; there is deliberately NO source
-// cleanup executor or filesystem mutation in this slice.
+// Core's confirmed Recording-cache readback is the only cleanup trigger.
+// The Agent verifies the original source snapshot again before mutation.
 inline constexpr const char* kMediaImportReadbackCommandType =
     "addon.media.import.readback";
 
 inline std::string mediaImportReadbackPayload(
     const std::string& sourceId, const std::string& originalCommandId,
-    const std::string& recordingEvidence)
+    const std::string& recordingEvidence,
+    const std::string& sourceEvidence = {})
 {
-    return "{\"sourceId\":\"" + sourceId +
+    std::string payload = "{\"sourceId\":\"" + sourceId +
         "\",\"originalCommandId\":\"" + originalCommandId +
-        "\",\"recordingEvidence\":\"" + recordingEvidence + "\"}";
+        "\",\"recordingEvidence\":\"" + recordingEvidence + "\"";
+    if (!sourceEvidence.empty())
+        payload += ",\"sourceIdentity\":\"" + sourceEvidence + "\"";
+    return payload + "}";
 }
 
 inline bool parseMediaImportReadbackPayload(
     const std::string& payload, std::string& sourceId,
-    std::string& originalCommandId, std::string& recordingEvidence)
+    std::string& originalCommandId, std::string& recordingEvidence,
+    std::string& sourceEvidence)
 {
-    sourceId.clear(); originalCommandId.clear(); recordingEvidence.clear();
+    sourceId.clear();
+    originalCommandId.clear();
+    recordingEvidence.clear();
+    sourceEvidence.clear();
     constexpr const char* start = "{\"sourceId\":\"";
     constexpr const char* middle = "\",\"originalCommandId\":\"";
     constexpr const char* end = "\",\"recordingEvidence\":\"";
@@ -44,15 +52,27 @@ inline bool parseMediaImportReadbackPayload(
     const auto second = payload.find(end, first + std::char_traits<char>::length(middle));
     if (second == std::string::npos ||
         payload.size() < second + std::char_traits<char>::length(end) + 3 ||
-        payload.substr(payload.size() - 2) != "\"}") return false;
+        payload.back() != '}') return false;
     sourceId = payload.substr(std::char_traits<char>::length(start),
         first - std::char_traits<char>::length(start));
     originalCommandId = payload.substr(
         first + std::char_traits<char>::length(middle),
         second - first - std::char_traits<char>::length(middle));
-    recordingEvidence = payload.substr(
-        second + std::char_traits<char>::length(end),
-        payload.size() - second - std::char_traits<char>::length(end) - 2);
+    const auto evidenceStart = second + std::char_traits<char>::length(end);
+    const auto evidenceEnd = payload.find('"', evidenceStart);
+    if (evidenceEnd == std::string::npos) return false;
+    recordingEvidence = payload.substr(evidenceStart, evidenceEnd - evidenceStart);
+    const auto suffix = payload.substr(evidenceEnd + 1);
+    if (suffix != "}") {
+        constexpr const char* sourcePrefix = ",\"sourceIdentity\":\"";
+        const std::string prefix(sourcePrefix);
+        if (suffix.size() < prefix.size() + 2 ||
+            suffix.compare(0, prefix.size(), prefix) != 0 ||
+            suffix.substr(suffix.size() - 2) != "\"}") return false;
+        sourceEvidence = suffix.substr(prefix.size(),
+            suffix.size() - prefix.size() - 2);
+        if (!validMediaImportSourceEvidence(sourceEvidence)) return false;
+    }
     const auto opaque = [](const std::string& value, std::size_t maximum) {
         return !value.empty() && value.size() <= maximum &&
             std::all_of(value.begin(), value.end(), [](unsigned char ch) {
@@ -63,7 +83,17 @@ inline bool parseMediaImportReadbackPayload(
         opaque(originalCommandId, 128) &&
         validRecordingPathEvidence(recordingEvidence) &&
         payload == mediaImportReadbackPayload(
-            sourceId, originalCommandId, recordingEvidence);
+            sourceId, originalCommandId, recordingEvidence, sourceEvidence);
+}
+
+inline bool parseMediaImportReadbackPayload(
+    const std::string& payload, std::string& sourceId,
+    std::string& originalCommandId, std::string& recordingEvidence)
+{
+    std::string sourceEvidence;
+    return parseMediaImportReadbackPayload(
+        payload, sourceId, originalCommandId, recordingEvidence,
+        sourceEvidence);
 }
 
 // Only a backend-local opaque inventory ID. Never deserialize a file path.
@@ -237,6 +267,10 @@ struct MediaToolsInstallationEvidence {
     std::string sha256;
 };
 
+enum class MediaImportCleanupOutcome {
+    removed, alreadyAbsent, notPerformed, failed
+};
+
 enum class MediaImportAgentOutcome {
     rejected,  // Proven no effect
     submitted, // Handler accepted; recording still needs reconciliation
@@ -287,6 +321,11 @@ public:
     // recording. Never a reason to mark a VDR recording verified by itself.
     virtual std::string takeRecordingEvidence() { return {}; }
     virtual std::string takeMarkerEvidence() { return {}; }
+    // A confirmed Core readback may cleanup the same backend-local source.
+    // Default fails closed; no browser-supplied filesystem paths.
+    virtual MediaImportCleanupOutcome cleanupConfirmedSource(
+        const std::string&, const std::string&)
+    { return MediaImportCleanupOutcome::notPerformed; }
 };
 
 } // namespace vdrsuite::mediatools

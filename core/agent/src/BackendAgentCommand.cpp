@@ -55,11 +55,12 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
     if (value.commandType ==
             vdrsuite::mediatools::kMediaImportReadbackCommandType)
     {
-        std::string sourceId, originalCommandId, evidence;
-        return value.payloadVersion == 1 &&
-            value.verificationPolicy == "none" &&
+        std::string sourceId, originalCommandId, evidence, sourceEvidence;
+        return value.verificationPolicy == "none" &&
             vdrsuite::mediatools::parseMediaImportReadbackPayload(
-                value.payload, sourceId, originalCommandId, evidence);
+                value.payload, sourceId, originalCommandId,
+                evidence, sourceEvidence) &&
+            value.payloadVersion == (sourceEvidence.empty() ? 1U : 2U);
     }
     if (value.commandType == vdrsuite::mediatools::kMediaImportCommandType)
     {
