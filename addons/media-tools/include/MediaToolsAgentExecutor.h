@@ -2,6 +2,8 @@
 
 #include "BackendAgentCommand.h"
 
+#include "MediaImportRecordingEvidence.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -12,6 +14,57 @@
 namespace vdrsuite::mediatools {
 
 inline constexpr const char* kMediaImportCommandType = "addon.media.import";
+// Readback notification uses the existing durable Agent command journal.
+// Acknowledgement proves delivery only; there is deliberately NO source
+// cleanup executor or filesystem mutation in this slice.
+inline constexpr const char* kMediaImportReadbackCommandType =
+    "addon.media.import.readback";
+
+inline std::string mediaImportReadbackPayload(
+    const std::string& sourceId, const std::string& originalCommandId,
+    const std::string& recordingEvidence)
+{
+    return "{\"sourceId\":\"" + sourceId +
+        "\",\"originalCommandId\":\"" + originalCommandId +
+        "\",\"recordingEvidence\":\"" + recordingEvidence + "\"}";
+}
+
+inline bool parseMediaImportReadbackPayload(
+    const std::string& payload, std::string& sourceId,
+    std::string& originalCommandId, std::string& recordingEvidence)
+{
+    sourceId.clear(); originalCommandId.clear(); recordingEvidence.clear();
+    constexpr const char* start = "{\"sourceId\":\"";
+    constexpr const char* middle = "\",\"originalCommandId\":\"";
+    constexpr const char* end = "\",\"recordingEvidence\":\"";
+    if (payload.compare(0, std::char_traits<char>::length(start), start) != 0)
+        return false;
+    const auto first = payload.find(middle, std::char_traits<char>::length(start));
+    if (first == std::string::npos) return false;
+    const auto second = payload.find(end, first + std::char_traits<char>::length(middle));
+    if (second == std::string::npos ||
+        payload.size() < second + std::char_traits<char>::length(end) + 3 ||
+        payload.substr(payload.size() - 2) != "\"}") return false;
+    sourceId = payload.substr(std::char_traits<char>::length(start),
+        first - std::char_traits<char>::length(start));
+    originalCommandId = payload.substr(
+        first + std::char_traits<char>::length(middle),
+        second - first - std::char_traits<char>::length(middle));
+    recordingEvidence = payload.substr(
+        second + std::char_traits<char>::length(end),
+        payload.size() - second - std::char_traits<char>::length(end) - 2);
+    const auto opaque = [](const std::string& value, std::size_t maximum) {
+        return !value.empty() && value.size() <= maximum &&
+            std::all_of(value.begin(), value.end(), [](unsigned char ch) {
+                return std::isalnum(ch) || ch == '_' || ch == '-';
+            });
+    };
+    return opaque(sourceId, 64) && sourceId.size() >= 16 &&
+        opaque(originalCommandId, 128) &&
+        validRecordingPathEvidence(recordingEvidence) &&
+        payload == mediaImportReadbackPayload(
+            sourceId, originalCommandId, recordingEvidence);
+}
 
 // Only a backend-local opaque inventory ID. Never deserialize a file path.
 inline bool parseMediaImportSelection(const std::string& payload, std::string& sourceId)

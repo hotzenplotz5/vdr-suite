@@ -52,6 +52,15 @@ bool allowed(const std::string& value, const std::vector<std::string>& values)
 
 bool validCommandPayload(const BackendAgentCommandAssignment& value)
 {
+    if (value.commandType ==
+            vdrsuite::mediatools::kMediaImportReadbackCommandType)
+    {
+        std::string sourceId, originalCommandId, evidence;
+        return value.payloadVersion == 1 &&
+            value.verificationPolicy == "none" &&
+            vdrsuite::mediatools::parseMediaImportReadbackPayload(
+                value.payload, sourceId, originalCommandId, evidence);
+    }
     if (value.commandType == vdrsuite::mediatools::kMediaImportCommandType)
     {
         std::string sourceId;

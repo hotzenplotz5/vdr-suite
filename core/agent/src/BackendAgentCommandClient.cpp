@@ -593,7 +593,8 @@ CommandAvailability availableCommands(
                 availability.commandTypes.push_back(type);
             continue;
         }
-        if (type == vdrsuite::mediatools::kMediaImportCommandType)
+        if (type == vdrsuite::mediatools::kMediaImportCommandType ||
+            type == vdrsuite::mediatools::kMediaImportReadbackCommandType)
         {
             // Availability never comes from the module manifest or config alone.
             if (config.mediaImportExecutor)
@@ -691,6 +692,8 @@ bool reconcileBackendAgentCommandState(
     }
     const bool mediaImportCommand = state.assignment.commandType ==
         vdrsuite::mediatools::kMediaImportCommandType;
+    const bool mediaImportReadback = state.assignment.commandType ==
+        vdrsuite::mediatools::kMediaImportReadbackCommandType;
     const bool mediaShrinkCommand =
         state.assignment.commandType ==
             vdrsuite::mediatools::kMediaShrinkStageCommandType ||
@@ -759,6 +762,28 @@ bool reconcileBackendAgentCommandState(
 
         reason = "local_command_generation_fenced";
         return false;
+    }
+
+    if (mediaImportReadback && !state.resultPresent)
+    {
+        // This command arrives ONLY after Core's durable provider readback.
+        // A second execution cannot delete files: no filesystem or importer
+        // is called, and the original media command is never replayed.
+        if (!state.receiptAcknowledged &&
+            !sendReceipt(config, context, transport, state, reason))
+            return false;
+        std::string source, originalCommand, evidence;
+        if (!vdrsuite::mediatools::parseMediaImportReadbackPayload(
+                state.assignment.payload, source, originalCommand, evidence))
+        {
+            reason = "media_import_readback_payload_invalid";
+            return false;
+        }
+        createResult(state, "effect_reported", "verified", "succeeded",
+                     "none", "none",
+                     "VDR readback notice durably received; no source cleanup");
+        if (!persist(config.statePath, state, reason)) return false;
+        return sendResult(config, context, transport, state, reason);
     }
 
     if (mediaImportCommand && !state.resultPresent)

@@ -14,6 +14,7 @@
 #include "SecurityPermissionGrantRepository.h"
 
 #include <utility>
+#include <limits>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -508,6 +509,59 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
                 recordings, backendId, result->resultEvidence))
             continue;
 
+        // Reserve the notification BEFORE transitioning to succeeded, so
+        // a crash cannot lose the Core->Agent signal. Poll is independently
+        // fenced to 'succeeded', hence a failed CAS never releases it.
+        // This is notification-only; no source filesystem mutation exists.
+        if (choice != vdrsuite::mediatools::MediaImportDecision::import &&
+            choice != vdrsuite::mediatools::MediaImportDecision::local)
+            continue;
+        if (now > std::numeric_limits<std::int64_t>::max() - 600 ||
+            !commands_.ensureMediaImportAssignmentSchema())
+            continue;
+        const auto notificationPayload = vdrsuite::mediatools::mediaImportReadbackPayload(
+            sourceId, commandId, result->resultEvidence);
+        const auto existing = commands_.findAssignmentForOperation(
+            backendId, op.operationId,
+            vdrsuite::mediatools::kMediaImportReadbackCommandType);
+        if (existing)
+        {
+            if (existing->payload != notificationPayload ||
+                existing->agentId != assignment->agentId ||
+                existing->agentInstanceId != assignment->agentInstanceId ||
+                existing->backendGeneration != assignment->backendGeneration)
+                continue;
+        }
+        else
+        {
+            BackendAgentCommandAssignment notice;
+            notice.present = true;
+            notice.requestId = backendAgentGenerateOpaqueId("req_", 8);
+            notice.correlationId = notice.requestId;
+            notice.operationId = op.operationId;
+            notice.jobId = backendAgentGenerateOpaqueId("job_", 12);
+            notice.attemptId = backendAgentGenerateOpaqueId("att_", 12);
+            notice.claimEpoch = 1;
+            notice.commandId = backendAgentGenerateOpaqueId("cmd_", 12);
+            notice.backendId = backendId;
+            notice.agentId = assignment->agentId;
+            notice.agentInstanceId = assignment->agentInstanceId;
+            notice.backendGeneration = assignment->backendGeneration;
+            notice.commandType =
+                vdrsuite::mediatools::kMediaImportReadbackCommandType;
+            notice.payloadVersion = 1;
+            notice.payload = notificationPayload;
+            notice.verificationPolicy = "none";
+            notice.assignedAt = now;
+            notice.deadline = now + 600;
+            notice.requestFingerprint = backendAgentCommandFingerprint(notice);
+            if (!backendAgentCommandValidAssignment(notice) ||
+                (!commands_.insertAssignment(notice) &&
+                 !commands_.findAssignmentForOperation(
+                     backendId, op.operationId,
+                     vdrsuite::mediatools::kMediaImportReadbackCommandType)))
+                continue;
+        }
         // Do not reinterpret successful ffmpeg execution as a verified
         // recording. This CAS happens ONLY after committed provider readback.
         const auto committed = operations_.transition(

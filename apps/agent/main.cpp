@@ -384,6 +384,8 @@ int main(int argc, char** argv)
         config.mediaImportExecutor = mediaImportRuntime.get();
         config.commandTypes.push_back(
             vdrsuite::mediatools::kMediaImportCommandType);
+        config.commandTypes.push_back(
+            vdrsuite::mediatools::kMediaImportReadbackCommandType);
     }
     // HEVC is NEVER enabled by COMMAND_TYPES or manifest presence alone.
     // Only the explicit local CLI opt-in constructs the authenticated,
