@@ -789,13 +789,24 @@ bool reconcileBackendAgentCommandState(
                          "VDR readback notice durably received; no source cleanup");
             state.result.resultEvidence = "media-tools-cleanup:not-performed";
         } else {
-            // The protected Agent state is durable before the first removal.
-            // Reconciliation may repeat the cleanup check, but never the
-            // original import. The executor must recheck exact source identity.
-            if (state.dispatchState != "starting") {
-                state.dispatchState = "starting";
+            // A crash after durable "starting" leaves the filesystem
+            // outcome uncertain. Do not invoke cleanup a second time.
+            if (state.dispatchState == "starting") {
+                createResult(state, "starting", "outcome_unknown",
+                             "outcome_unknown", "executor_unknown",
+                             "reconcile_only",
+                             "Source cleanup interrupted; inspect source before retry");
+                state.result.resultEvidence = "media-tools-cleanup:failed";
                 if (!persist(config.statePath, state, reason)) return false;
+                return sendResult(config, context, transport, state, reason);
             }
+            if (state.dispatchState != "not_started") {
+                reason = "media_import_readback_state_invalid";
+                return false;
+            }
+            // The one-shot cleanup is fenced durably before any source unlink.
+            state.dispatchState = "starting";
+            if (!persist(config.statePath, state, reason)) return false;
             auto cleanup = vdrsuite::mediatools::MediaImportCleanupOutcome::notPerformed;
             try {
                 if (config.mediaImportExecutor &&

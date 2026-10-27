@@ -2,6 +2,7 @@
 #include "BackendAgentNativeTimerDeleteLocalState.h"
 #include "BackendAgentNativeTimerModifyLocalState.h"
 #include "MediaImportRecordingEvidence.h"
+#include "MediaToolsAgentExecutor.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -194,6 +195,29 @@ const std::vector<std::string>& mediaImportKeys()
     return keys;
 }
 
+bool validImportEvidenceForAssignment(
+    const BackendAgentCommandAssignment& assignment, const std::string& evidence)
+{
+    if (evidence.empty()) return true;
+    std::string recording, source;
+    if (vdrsuite::mediatools::parseMediaImportResultEvidence(
+            evidence, recording, source)) return true;
+    std::string sourceId;
+    vdrsuite::mediatools::MediaImportDecision choice;
+    return vdrsuite::mediatools::parseMediaImportSelection(
+            assignment.payload, sourceId, choice) &&
+        evidence == vdrsuite::mediatools::mediaImportMarkerEvidence(
+            sourceId, choice);
+}
+
+bool validCleanupEvidence(const std::string& evidence)
+{
+    return evidence.empty() || evidence == "media-tools-cleanup:removed" ||
+        evidence == "media-tools-cleanup:already-absent" ||
+        evidence == "media-tools-cleanup:not-performed" ||
+        evidence == "media-tools-cleanup:failed";
+}
+
 bool exactKeys(
     const std::map<std::string, std::string>& values,
     const std::vector<std::string>& keys)
@@ -321,7 +345,9 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
         reason = "command_state_invalid_assignment";
         return false;
     }
-    if (mediaVersion && assignment.commandType != "addon.media.import")
+    if (mediaVersion &&
+        assignment.commandType != vdrsuite::mediatools::kMediaImportCommandType &&
+        assignment.commandType != vdrsuite::mediatools::kMediaImportReadbackCommandType)
     {
         reason = "command_state_invalid_media_version";
         return false;
@@ -405,9 +431,10 @@ bool load(const std::string& path, LocalState& state, std::string& reason)
         if (mediaVersion)
         {
             result.resultEvidence = values["media_import_recording_evidence"];
-            if (!result.resultEvidence.empty() &&
-                !vdrsuite::mediatools::validRecordingPathEvidence(
-                    result.resultEvidence))
+            if (!(assignment.commandType ==
+                    vdrsuite::mediatools::kMediaImportCommandType
+                    ? validImportEvidenceForAssignment(assignment, result.resultEvidence)
+                    : validCleanupEvidence(result.resultEvidence)))
             {
                 reason = "command_state_invalid_media_recording_evidence";
                 return false;
@@ -638,16 +665,19 @@ bool persist(const std::string& path, const LocalState& state, std::string& reas
     }
 
     const bool mediaImport =
-        assignment.commandType == "addon.media.import";
-    if (mediaImport && !result.resultEvidence.empty() &&
-        !vdrsuite::mediatools::validRecordingPathEvidence(
-            result.resultEvidence))
+        assignment.commandType == vdrsuite::mediatools::kMediaImportCommandType;
+    const bool mediaImportReadback =
+        assignment.commandType == vdrsuite::mediatools::kMediaImportReadbackCommandType;
+    if (state.resultPresent &&
+        !(mediaImport ? validImportEvidenceForAssignment(
+             assignment, result.resultEvidence) :
+          !mediaImportReadback || validCleanupEvidence(result.resultEvidence)))
     {
         reason = "command_state_invalid_media_recording_evidence";
         return false;
     }
     std::ostringstream output;
-    output << "version=" << (mediaImport ? "4" : "3") << "\n"
+    output << "version=" << ((mediaImport || mediaImportReadback) ? "4" : "3") << "\n"
         << "protocol_version=" << assignment.protocolVersion << "\n"
         << "request_id=" << assignment.requestId << "\n"
         << "correlation_id=" << assignment.correlationId << "\n"
@@ -694,7 +724,7 @@ bool persist(const std::string& path, const LocalState& state, std::string& reas
         << "native_result_evidence=" << state.nativeResultEvidence << "\n"
         << "native_readback_evidence=" << state.nativeReadbackEvidence << "\n"
         << "state_extension=" << stateExtension << "\n";
-    if (mediaImport)
+    if (mediaImport || mediaImportReadback)
         output << "media_import_recording_evidence="
                << (state.resultPresent ? result.resultEvidence : "") << "\n";
     return writeProtected(path, output.str(), reason);
