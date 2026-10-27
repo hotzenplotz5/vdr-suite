@@ -62,6 +62,7 @@ let confirmLocal = true;
 let confirmCalls = 0;
 let sourcesStatus = 200;
 let state = 'dispatching';
+let cleanupState = '';
 let submitMode = 'accepted';
 let batchSources = null;
 let markedSources = [];
@@ -229,7 +230,8 @@ function transport(url, options) {
   if (path === '/api/v1/operations/' + OP) {
     ++operationReads;
     return Promise.resolve(reply(200, {operationId: OP, backendId: 'backend-a',
-      state: state, links: {self: path}}, {'ETag': '"revision-1"'}));
+      state: state, sourceCleanup: cleanupState || undefined,
+      links: {self: path}}, {'ETag': '"revision-1"'}));
   }
   throw new Error('unexpected route: ' + path);
 }
@@ -905,15 +907,23 @@ function publishHomeResume() {}
     'returned file imports only after an explicit user action');
   assert(!findClass(mount, 'status').textContent.includes('VDR-Readback bestätigt'));
   state = 'succeeded';
+  cleanupState = 'removed';
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
   assert(findClass(mount, 'status').textContent.includes(
-    'VDR-Readback bestätigt ausschließlich'));
+    'VDR-Readback bestätigt den Import'));
   assert(findClass(mount, 'status').textContent.includes(
     'nicht die Identität'), 'title-only PC association is not verified media identity');
   assert(findClass(mount, 'status').textContent.includes(
-    'keine automatische Quellenbereinigung durchgeführt'),
-    'Core readback cannot prove that either source file still exists');
+    'Importierte Quelldatei erfolgreich entfernt'),
+    'UI displays only a journal-backed cleanup result');
+  cleanupState = 'failed';
+  await findClass(mount, 'media-import-refresh').listeners.click();
+  await settle();
+  assert(findClass(mount, 'status').textContent.includes(
+    'Quellenbereinigung fehlgeschlagen'),
+    'cleanup failure must not invalidate the succeeded VDR recording');
+  cleanupState = '';
   // Readback evidence remains associated with the immutable source observation
   // when the next ordinary scan still lists the unmodified source. An agent
   // 'executed_unverified' result must never create this display status.
