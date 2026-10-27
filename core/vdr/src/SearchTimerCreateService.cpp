@@ -11,6 +11,15 @@ SearchTimerCreateResult SearchTimerCreateService::create(
             {"backendId is required"});
     }
 
+    // The legacy browser controller owns one RESTfulAPI client. Never
+    // dispatch a selected second backend through the first provider.
+    if (!providerBackendId_.empty() && request.backendId != providerBackendId_)
+    {
+        return SearchTimerCreateResult::failed(
+            "searchtimer backend does not match provider",
+            {"selected backend is not served by this SearchTimer endpoint"});
+    }
+
     if (!request.hasName())
     {
         return SearchTimerCreateResult::failed(
