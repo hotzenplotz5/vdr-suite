@@ -304,6 +304,7 @@
       }
       view.searchInput.value = '';
       view.folderPath = item.folder || '';
+      view.seasonKey = '';
       filterVisibleSources(view);
       if (!view.sources.includes(sourceId)) {
         report(view, 'Film in der aktuellen Ansicht nicht verfügbar.', true);
@@ -822,8 +823,9 @@
   function renderSeasonChoices(view, searching) {
     const choices = view.seasonFilter;
     const eligible = view.allOrdinary.concat(view.allMarked).filter(function (item) {
-      return item.folder === view.folderPath ||
-        item.folder.startsWith(view.folderPath + '/');
+      const folder = item.folder || '';
+      return folder === view.folderPath ||
+        folder.startsWith(view.folderPath + '/');
     });
     const seasons = Array.from(new Set(eligible.map(function (item) {
       return episodeCoordinates(item).season;
@@ -1547,6 +1549,10 @@
           : plan.status === 'insufficient' ? 'Speicherplatz fehlt'
           : 'Prüfung nicht möglich';
         const folder = item && item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel';
+        const coords = item ? episodeCoordinates(item) : {season: null, episode: null};
+        const episodeLabel = coords.episode !== null
+          ? ' · S' + String(coords.season).padStart(2, '0') +
+            'E' + String(coords.episode).padStart(2, '0') : '';
         // The codec-preview status must not erase the independent PC-return
         // hint or a previously verified recording-readback observation.
         const parked = parkedPcEncodeMatches(view, item);
@@ -1554,7 +1560,7 @@
           ? ' · Möglicher PC-Encode-Rücklauf'
           : parked.length ? ' · PC-Encode-Zuordnung mehrdeutig' : '';
         const confirmed = confirmedImport(view, id);
-        row.children[2].textContent = folder + ' · ' + status +
+        row.children[2].textContent = folder + episodeLabel + ' · ' + status +
           (confirmed
             ? ' · Frühere VDR-Operation bestätigt; aktueller Quellinhalt ungeprüft'
             : '') + pcHint;
