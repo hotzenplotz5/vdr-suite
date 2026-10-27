@@ -382,8 +382,17 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
             getIntField(objectText, "margin_stop", 0));
         timer.scheduleOptions().setUseVps(
             getIntField(objectText, "use_vps", 0) != 0);
-        timer.filterOptions().setUseChannel(
-            getIntField(objectText, "use_channel", 0) != 0);
+        const int channelMode = getIntField(objectText, "use_channel", 0);
+        timer.filterOptions().setUseChannel(channelMode != 0);
+        timer.filterOptions().setChannelMode(channelMode);
+        timer.filterOptions().setUseTime(
+            getBoolField(objectText, "use_time", false));
+        timer.filterOptions().setStartTime(
+            getIntField(objectText, "start_time", 0));
+        timer.filterOptions().setStopTime(
+            getIntField(objectText, "stop_time", 0));
+        timer.filterOptions().setDayOfWeek(
+            getIntField(objectText, "dayofweek", 0));
         timer.filterOptions().setUseDayOfWeek(
             getIntField(objectText, "use_dayofweek", 0) != 0);
         timer.filterOptions().setUseDuration(
@@ -422,6 +431,12 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
 
         timer.channelOptions().setChannels(
             getStringField(objectText, "channels"));
+        // Native channel boundaries can be VDR channel identifiers rather
+        // than integers; preserve the exact identity for Browser readback.
+        timer.channelOptions().setChannelMinId(
+            getStringField(objectText, "channel_min"));
+        timer.channelOptions().setChannelMaxId(
+            getStringField(objectText, "channel_max"));
         timer.channelOptions().setChannelMin(
             getIntField(objectText, "channel_min", 0));
         timer.channelOptions().setChannelMax(
