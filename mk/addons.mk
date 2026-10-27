@@ -278,6 +278,8 @@ test-addon-media-import-decision-markers:
 
 test-ci-fast: test-addon-media-import-decision-markers
 test-ci-fast: test-addon-media-import
+# MT.META3: existing Core and Public-v1 artwork projections are also tested.
+test-ci-fast: test-addon-media-import-catalog test-addon-media-import-source-list-api
 test-install-staging: test-addon-media-tools-package
 
 # Core-owned, standalone access-decision library. No daemon/HTTP wiring.
