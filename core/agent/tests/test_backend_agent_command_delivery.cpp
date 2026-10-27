@@ -300,7 +300,7 @@ int main()
     media.commandId = "cmd_media";
     media.commandType = "addon.media.import";
     media.payloadVersion = 1;
-    media.payload = "{\"sourceId\":\"local_token\"}";
+    media.payload = "{\"sourceId\":\"local_media_source_123456\"}";
     media.verificationPolicy = "reconciliation_required";
     media.assignedAt = 111;
     media.deadline = 500;
@@ -454,7 +454,7 @@ int main()
     op.backendId = "default";
     op.backendGeneration = 7;
     op.resourceType = "MediaImportSource";
-    op.resourceId = "local_token";
+    op.resourceId = "local_media_source_123456";
     op.expectedRevision = "1";
     op.actionFamily = "media.import";
     op.requestFingerprint = "logical_api_request_fingerprint";
