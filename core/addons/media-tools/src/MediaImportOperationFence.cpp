@@ -246,6 +246,9 @@ bool MediaImportOperationFence::applyResult(
     std::int64_t now, std::string& reason) const
 {
     reason.clear();
+    std::string recordingProof, sourceProof;
+    const bool recordedPath = vdrsuite::mediatools::parseMediaImportResultEvidence(
+        result.resultEvidence, recordingProof, sourceProof);
     if (now <= 0 || !backendAgentCommandValidAssignment(assignment) ||
         !backendAgentCommandValidResult(result) ||
         assignment.commandType != vdrsuite::mediatools::kMediaImportCommandType ||
@@ -262,8 +265,7 @@ bool MediaImportOperationFence::applyResult(
         result.completedAt < assignment.assignedAt ||
         result.completedAt > now ||
         (!result.resultEvidence.empty() &&
-         !vdrsuite::mediatools::validRecordingPathEvidence(
-             result.resultEvidence) &&
+         !recordedPath &&
          result.resultEvidence.compare(0, 17, "media-tools-mark:") != 0))
         return denied(reason, "media_import_result_fence_invalid");
 
@@ -352,8 +354,7 @@ bool MediaImportOperationFence::applyResult(
     if (op.state == State::succeeded &&
         op.resultReference == reference &&
         target == State::outcomeUnknown &&
-        vdrsuite::mediatools::validRecordingPathEvidence(
-            result.resultEvidence))
+        recordedPath)
     {
         reason = "media_import_result_already_verified";
         return true;
@@ -468,6 +469,7 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
         if (!backendAgentCommandSafeIdentifier(commandId)) continue;
         const auto assignment = commands_.findAssignment(commandId);
         const auto result = commands_.resultForCommand(commandId);
+        std::string recordingProof, sourceProof;
         if (!assignment || !result ||
             assignment->commandId != result->commandId ||
             assignment->operationId != op.operationId ||
@@ -482,8 +484,8 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
             result->dispatchState != "accepted_by_executor" ||
             result->verificationState != "outcome_unknown" ||
             result->retryClassification != "reconcile_only" ||
-            !vdrsuite::mediatools::validRecordingPathEvidence(
-                result->resultEvidence) ||
+            !vdrsuite::mediatools::parseMediaImportResultEvidence(
+                result->resultEvidence, recordingProof, sourceProof) ||
             // A cache snapshot that started before completion cannot prove
             // this import, even if it contains an older matching directory.
             refreshStarted <= result->completedAt)
@@ -506,13 +508,13 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
                 vdrsuite::operations::MutationOperationVerificationPolicy::
                     reconciliationRequired ||
             !exactRecordingIdentity(
-                recordings, backendId, result->resultEvidence))
+                recordings, backendId, recordingProof))
             continue;
 
         // Reserve the notification BEFORE transitioning to succeeded, so
         // a crash cannot lose the Core->Agent signal. Poll is independently
         // fenced to 'succeeded', hence a failed CAS never releases it.
-        // This is notification-only; no source filesystem mutation exists.
+        // Only a source-bound notice permits Agent-local cleanup.
         if (choice != vdrsuite::mediatools::MediaImportDecision::import &&
             choice != vdrsuite::mediatools::MediaImportDecision::local)
             continue;
@@ -520,7 +522,7 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
             !commands_.ensureMediaImportAssignmentSchema())
             continue;
         const auto notificationPayload = vdrsuite::mediatools::mediaImportReadbackPayload(
-            sourceId, commandId, result->resultEvidence);
+            sourceId, commandId, recordingProof, sourceProof);
         const auto existing = commands_.findAssignmentForOperation(
             backendId, op.operationId,
             vdrsuite::mediatools::kMediaImportReadbackCommandType);
@@ -549,7 +551,7 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
             notice.backendGeneration = assignment->backendGeneration;
             notice.commandType =
                 vdrsuite::mediatools::kMediaImportReadbackCommandType;
-            notice.payloadVersion = 1;
+            notice.payloadVersion = sourceProof.empty() ? 1 : 2;
             notice.payload = notificationPayload;
             notice.verificationPolicy = "none";
             notice.assignedAt = now;
