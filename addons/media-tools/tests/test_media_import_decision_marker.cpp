@@ -203,6 +203,20 @@ int main() {
            MediaImportCleanupOutcome::notPerformed);
     assert(contents(returned) == "replacement different bytes");
 
+    // Even when the inode stays unchanged, in-place growth invalidates the
+    // import-time snapshot. This is not a deletion permit.
+    const auto modifiedInPlace = root / "folder" / "Growing.ts";
+    write(modifiedInPlace, "original");
+    const auto oldInPlace = source(root, video, modifiedInPlace);
+    const auto oldInPlaceProof = mediaImportSourceEvidence(
+        oldInPlace.sourceFile, oldInPlace.sourceDevice, oldInPlace.sourceInode,
+        oldInPlace.sourceBytes, oldInPlace.sourceMtimeSeconds,
+        oldInPlace.sourceMtimeNanoseconds);
+    write(modifiedInPlace, "original plus new media bytes");
+    assert(cleanupMediaImportSource(oldInPlace, oldInPlaceProof) ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(contents(modifiedInPlace) == "original plus new media bytes");
+
     fs::create_directories(root / "other");
     const auto other = root / "other" / "Film.mp4";
     write(other, "other location");
