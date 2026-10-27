@@ -117,6 +117,19 @@
     return match ? match[1].toLowerCase() : '';
   }
 
+  // Rectools-compatible PC handoff: Film.pc_encode.mkv stays parked, while
+  // a separately returned Film.mp4 appears as a normal import candidate.
+  // A basename/folder match is only a visual hint, never proof of identical
+  // media or authority to import, unmark or delete either file.
+  function returnedPcEncodeCandidate(view, marked) {
+    if (markerSuffix(marked) !== 'pc_encode') return null;
+    const originalLabel = String(marked.label || '');
+    const expectedLabel = originalLabel.replace(/\.pc_encode$/i, '');
+    return view.allOrdinary.find(function (item) {
+      return item.folder === marked.folder && item.label === expectedLabel;
+    }) || null;
+  }
+
   function operationLabel(state, decision) {
     const marker = decision === 'desktop' || decision === 'skip' ||
       decision === 'duplicate' || decision === 'release';
@@ -832,6 +845,7 @@
     });
     marked.forEach(function (item) {
       const marker = markerSuffix(item);
+      const returned = returnedPcEncodeCandidate(view, item);
       const row = element('div', 'media-import-select-item media-import-marked-item');
       const open = element('button', 'media-import-episode-open', item.label || 'Markierte Datei');
       open.type = 'button';
@@ -845,19 +859,32 @@
         const statusText = marker === 'duplicate'
           ? 'Bereits als Duplikat markiert (.duplicate). Kein erneuter Import.'
           : marker === 'skipped' ? 'Von Rectools oder Media Tools übersprungen (.skipped).'
-            : 'Zur externen Bearbeitung mit PC/HandBrake markiert (.pc_encode).';
-        view.preview.textContent = statusText;
+            : returned
+              ? 'PC-Encode: gleichnamige neue Datei im Importordner gefunden.'
+              : 'Wartet auf die extern umkodierte Datei (.pc_encode).';
+        const hint = returned
+          ? 'Neue Datei „' + returned.label +
+            '“ ist ein separater Importkandidat. Sie wird beim Auswählen ' +
+            'technisch geprüft. Gleicher Name ist noch kein Nachweis für ' +
+            'identischen Inhalt. Die markierte Originaldatei bleibt erhalten.'
+          : marker === 'pc_encode'
+            ? 'Nach der Umkodierung die neue Videodatei ohne .pc_encode ' +
+              'im selben Importordner ablegen. Sie wird beim nächsten Scan ' +
+              'normal erkannt; das markierte Original wird nicht importiert.'
+            : 'Diese Rectools-Markierung wird respektiert; keine erneute ' +
+              'Importausführung für die markierte Datei.';
+        view.preview.textContent = statusText + ' ' + hint;
         view.previewCard.replaceChildren(
           element('h5', 'media-import-preview-title', item.label || 'Markierte Quelle'),
           element('div', 'media-import-preview-state is-marked', statusText),
-          element('p', 'media-import-preview-hint',
-            'Die bestehende Rectools-Markierung bleibt erhalten. Nur bei Bedarf ausdrücklich aufheben.'));
+          element('p', 'media-import-preview-hint', hint));
 
       });
       const meta = element('span', 'media-import-episode-meta',
         (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
         ' · ' + (marker === 'duplicate' ? 'Bereits vorhanden' :
-          marker === 'skipped' ? 'Übersprungen' : 'Externe Bearbeitung'));
+          marker === 'skipped' ? 'Übersprungen' : returned
+            ? 'PC-Version gefunden – noch prüfen' : 'Wartet auf PC-Bearbeitung'));
       row.appendChild(open);
       row.appendChild(meta);
       view.selectionRows.appendChild(row);
@@ -1582,15 +1609,14 @@
     skipButton.hidden = true;
     skipButton.disabled = true;
     root.appendChild(skipButton);
-    root.appendChild(element('h4', '', 'Markierte Dateien verwalten'));
     const markedLabel = element('label', 'media-import-marked-label',
-      'Markierte Dateien (.pc_encode / .skipped / .duplicate)');
+      'Nur zur Fehlerkorrektur: falsch markierte Datei auswählen');
     const markedSelect = element('select', 'media-import-marked-source');
     markedSelect.disabled = true;
     markedLabel.appendChild(markedSelect);
     root.appendChild(markedLabel);
     const releaseButton = element('button', 'media-import-release',
-      'Ausgewählte Markierung aufheben');
+      'Ausnahme: Markierung zurücksetzen');
     releaseButton.type = 'button';
     releaseButton.disabled = true;
     releaseButton.hidden = true;
@@ -1677,8 +1703,11 @@
     detail.appendChild(encodeLabel);
     detail.appendChild(startButton);
     detail.appendChild(skipButton);
-    detail.appendChild(markedLabel);
-    detail.appendChild(releaseButton);
+    // Rectools markers are normal workflow state, not a request to release.
+    // Keep the existing explicit recovery path exclusively under collapsed
+    // technical details, away from ordinary import/PC handoff actions.
+    technical.appendChild(markedLabel);
+    technical.appendChild(releaseButton);
     technical.appendChild(preview);
     detail.appendChild(technical);
     const workspace = element('div', 'media-import-workspace');
