@@ -167,5 +167,64 @@ int main() {
     assert(markMediaImportSource(forged, MediaImportMarkerDecision::skip) ==
            MediaImportMarkerOutcome::rejected);
     assert(fs::exists(target));
+
+    // Source cleanup is explicitly bound to the actual imported snapshot.
+    const auto returned = root / "folder" / "Film.mp4";
+    const auto parked = root / "folder" / "Film.pc_encode.mkv";
+    write(returned, "new PC encode payload");
+    write(parked, "parked source bytes");
+    const auto imported = source(root, video, returned);
+    const auto proof = mediaImportSourceEvidence(
+        imported.sourceFile, imported.sourceDevice, imported.sourceInode,
+        imported.sourceBytes, imported.sourceMtimeSeconds,
+        imported.sourceMtimeNanoseconds);
+    assert(validMediaImportSourceEvidence(proof));
+    assert(cleanupMediaImportSource(imported, "bad-identity") ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(fs::exists(returned));
+    assert(cleanupMediaImportSource(imported, proof) ==
+           MediaImportCleanupOutcome::removed);
+    assert(!fs::exists(returned));
+    assert(contents(parked) == "parked source bytes");
+    assert(cleanupMediaImportSource(imported, proof) ==
+           MediaImportCleanupOutcome::alreadyAbsent);
+
+    // A replacement at the same pathname retains its bytes.
+    write(returned, "old bytes");
+    const auto beforeReplacement = source(root, video, returned);
+    const auto previousProof = mediaImportSourceEvidence(
+        beforeReplacement.sourceFile, beforeReplacement.sourceDevice,
+        beforeReplacement.sourceInode, beforeReplacement.sourceBytes,
+        beforeReplacement.sourceMtimeSeconds,
+        beforeReplacement.sourceMtimeNanoseconds);
+    fs::rename(returned, root / "folder" / "old-file.ts");
+    write(returned, "replacement different bytes");
+    assert(cleanupMediaImportSource(beforeReplacement, previousProof) ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(contents(returned) == "replacement different bytes");
+
+    fs::create_directories(root / "other");
+    const auto other = root / "other" / "Film.mp4";
+    write(other, "other location");
+    assert(cleanupMediaImportSource(source(root, video, other), previousProof) ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(contents(other) == "other location");
+
+    const auto parkedIdentity = source(root, video, parked);
+    const auto parkedProof = mediaImportSourceEvidence(
+        parkedIdentity.sourceFile, parkedIdentity.sourceDevice,
+        parkedIdentity.sourceInode, parkedIdentity.sourceBytes,
+        parkedIdentity.sourceMtimeSeconds,
+        parkedIdentity.sourceMtimeNanoseconds);
+    assert(cleanupMediaImportSource(parkedIdentity, parkedProof) ==
+           MediaImportCleanupOutcome::notPerformed);
+    const auto linked = root / "folder" / "Film-linked.mp4";
+    fs::create_symlink(returned, linked);
+    auto linkedIdentity = imported;
+    linkedIdentity.sourceFile = linked;
+    assert(cleanupMediaImportSource(linkedIdentity, proof) ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(contents(returned) == "replacement different bytes");
+
     std::cout << "MEDIA_TOOLS_DECISION_MARKERS=PASS\n";
 }

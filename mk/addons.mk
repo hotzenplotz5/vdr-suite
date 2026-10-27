@@ -263,7 +263,7 @@ build-media-tools-stage-deb:
 		--output-dir "$(OUTPUT_DIR)" --maintainer "$(ADDON_MAINTAINER)"
 
 # Desktop/HandBrake and Skip deferral: backend-inventory source identity,
-# fd-bound no-overwrite marker rename, no deletion, no VDR writes. This test
+# fd-bound marker rename and confirmed source cleanup; no VDR writes. This test
 # operates ONLY on explicitly supplied disposable TMPDIR fixtures.
 .PHONY: test-addon-media-import-decision-markers
 test-addon-media-import-decision-markers:
@@ -273,7 +273,7 @@ test-addon-media-import-decision-markers:
 		-I core/addons/include -I core/security/include -I core/vdr/include \
 		addons/media-tools/src/MediaImportDecisionMarker.cpp \
 		addons/media-tools/tests/test_media_import_decision_marker.cpp \
-		-o "$(BUILD_DIR)/addons/test_media_import_decision_marker"
+		-lcrypto -o "$(BUILD_DIR)/addons/test_media_import_decision_marker"
 	"$(BUILD_DIR)/addons/test_media_import_decision_marker"
 
 test-ci-fast: test-addon-media-import-decision-markers

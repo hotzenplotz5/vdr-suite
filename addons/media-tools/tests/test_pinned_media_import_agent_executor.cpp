@@ -386,8 +386,12 @@ int main()
     assert(receiptExecutor.execute(receiptAssignment) ==
         MediaImportAgentOutcome::submitted);
     const std::string proof = receiptExecutor.takeRecordingEvidence();
-    assert(proof == recordingPathEvidence(
+    std::string committedRecording, committedSource;
+    assert(parseMediaImportResultEvidence(
+        proof, committedRecording, committedSource));
+    assert(committedRecording == recordingPathEvidence(
         "/ci-only/media-out/Media/2026-10-21.18.00.00-0.rec"));
-    assert(validRecordingPathEvidence(proof));
+    assert(committedSource == mediaImportSourceEvidence(
+        "/ci-only/media-in/recording.ts", 10, 11, 1024, 0, 42));
     assert(receiptExecutor.takeRecordingEvidence().empty());
 }
