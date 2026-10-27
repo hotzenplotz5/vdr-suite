@@ -146,6 +146,12 @@ public:
         return useChannel_;
     }
 
+    int channelMode() const { return channelMode_; }
+    bool useTime() const { return useTime_; }
+    int startTime() const { return startTime_; }
+    int stopTime() const { return stopTime_; }
+    int dayOfWeek() const { return dayOfWeek_; }
+
     bool useDayOfWeek() const
     {
         return useDayOfWeek_;
@@ -171,6 +177,11 @@ public:
     {
         useChannel_ = useChannel;
     }
+    void setChannelMode(int value) { channelMode_ = value; }
+    void setUseTime(bool value) { useTime_ = value; }
+    void setStartTime(int value) { startTime_ = value; }
+    void setStopTime(int value) { stopTime_ = value; }
+    void setDayOfWeek(int value) { dayOfWeek_ = value; }
 
     void setUseDayOfWeek(
         bool useDayOfWeek)
@@ -198,6 +209,11 @@ public:
 
 private:
     bool useChannel_ = false;
+    int channelMode_ = 0;
+    bool useTime_ = false;
+    int startTime_ = 0;
+    int stopTime_ = 0;
+    int dayOfWeek_ = 0;
     bool useDayOfWeek_ = false;
     bool useDuration_ = false;
     int durationMinMinutes_ = 0;
@@ -304,6 +320,11 @@ private:
 
 class SearchTimerChannelOptions {
 public:
+    const std::string& channelMinId() const { return channelMinId_; }
+    const std::string& channelMaxId() const { return channelMaxId_; }
+    void setChannelMinId(const std::string& v) { channelMinId_ = v; }
+    void setChannelMaxId(const std::string& v) { channelMaxId_ = v; }
+
     const std::string& channels() const
     {
         return channels_;
@@ -336,6 +357,8 @@ public:
 
 private:
     std::string channels_;
+    std::string channelMinId_;
+    std::string channelMaxId_;
     int channelMin_ = 0;
     int channelMax_ = 0;
 };
