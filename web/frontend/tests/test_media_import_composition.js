@@ -352,11 +352,15 @@ function publishHomeResume() {}
   const previewCard = findClass(mount, 'media-import-preview-card');
   assert(previewCard && detailPane.children.indexOf(previewCard) >= 0,
     'the visible preview card is a first-class element of the detail pane');
+  const technicalRecovery = findClass(mount, 'media-import-technical-details');
+  const markedRecovery = findClass(mount, 'media-import-marked-label');
   assert(detailPane.children.indexOf(start) >
     detailPane.children.indexOf(previewCard) &&
-    detailPane.children.indexOf(start) <
-    detailPane.children.indexOf(findClass(mount, 'media-import-marked-label')),
-    'primary action belongs to preview pane, before marker release');
+    detailPane.children.indexOf(technicalRecovery) >
+    detailPane.children.indexOf(start) &&
+    technicalRecovery.children.includes(markedRecovery) &&
+    !detailPane.children.includes(markedRecovery),
+    'marker recovery is exclusively inside technical details, not the main preview');
   assert(findClass(mount, 'media-import-preview-facts'),
     'codec, source bytes and VDR target are rendered as actual preview facts');
   assert(findClass(mount, 'media-import-preview').textContent.includes('Nächster Schritt'),
@@ -839,8 +843,51 @@ function publishHomeResume() {}
   previewVideoCodec = 'h264';
 
   
-  // The actual production module separates marked files from ordinary
-  // import and dispatches a deliberate release via the existing v1 route.
+  // Rectools PC handoff: a separately returned same-name video in the same
+  // import folder appears as a normal candidate; the parked .pc_encode
+  // original is not released, deleted or silently imported.
+  context.resetMediaImportVisibility(true);
+  sourceDisplayOverride = 'Film';
+  sourceFolders[SOURCE] = 'Serien/Test';
+  sourceFolders[MARK_PC] = 'Serien/Test';
+  batchSources = [SOURCE];
+  markedSources = [MARK_PC];
+  submitMode = 'accepted';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const parkedRows = findClass(mount, 'media-import-selection').children;
+  const parkedRow = parkedRows.find(function (row) {
+    return (row.className || '').includes('media-import-marked-item');
+  });
+  assert(parkedRow && parkedRow.children[1].textContent.includes('PC-Version gefunden'),
+    'returning same-name file is shown beside parked Rectools PC marker');
+  const postsBeforeReturn = submits;
+  await parkedRow.children[0].listeners.click();
+  await settle();
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    'separater Importkandidat'), 'same name is only a hint, not proof of identity');
+  assert.strictEqual(submits, postsBeforeReturn, 'marker inspection never writes');
+  const recoveredDetail = findClass(mount, 'media-import-detail');
+  const recoveredTechnical = findClass(mount, 'media-import-technical-details');
+  const recoverButton = findClass(mount, 'media-import-release');
+  assert(!recoveredDetail.children.includes(recoverButton) &&
+    recoveredTechnical.children.includes(recoverButton),
+    'release is not a normal media-import action');
+  const returnedSelect = findClass(mount, 'media-import-source');
+  returnedSelect.value = SOURCE;
+  returnedSelect.listeners.change();
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-start').textContent,
+    'Diesen Film importieren',
+    're-encoded return goes through normal codec preview and explicit import');
+  assert.strictEqual(submits, postsBeforeReturn, 'scanning never auto-imports');
+  sourceDisplayOverride = null;
+  delete sourceFolders[SOURCE];
+  delete sourceFolders[MARK_PC];
+
+  // The existing recovery operation stays available explicitly in technical
+  // details for a wrongly marked source, never required for normal PC return.
   markedSources = [MARK_PC, MARK_SKIP, MARK_DUP];
   batchSources = [SOURCE];
   submitMode = 'accepted';
