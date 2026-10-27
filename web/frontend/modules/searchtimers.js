@@ -50,6 +50,7 @@
 
   let searchTimerBrowserContext = Object.freeze({});
   let activeCreateForm = null;
+  let activeCreateTemplate = null;
   let lastSearchTimerData = null;
   let channelCache = Object.create(null);
   let directoryCache = Object.create(null);
@@ -947,6 +948,35 @@
       Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
   }
 
+  // A copied rule may contain native options absent from this limited form.
+  // Prevent an apparently successful copy from silently discarding them.
+  function unsupportedCopiedSettings(timer) {
+    if (!timer) return [];
+    return [
+      ['useDayOfWeek', 'Wochentagsfilter'],
+      ['compareCategories', 'EPG-Kategorienvergleich'],
+      ['compareTime', 'Zeitvergleich'],
+      ['useSeriesRecording', 'Serienaufnahme'],
+      ['keepRecordings', 'Aufnahmen behalten'],
+      ['deleteMode', 'Löschmodus'],
+      ['searchTimerAction', 'Suchaktion'],
+      ['summaryMatch', 'Beschreibungsübereinstimmung'],
+      ['useExtendedEpgInfo', 'Erweiterte EPG-Informationen'],
+      ['extendedEpgInfo', 'Erweiterte EPG-Filter'],
+      ['ignoreMissingEpgCategories', 'Fehlende EPG-Kategorien'],
+      ['contentDescriptors', 'Inhaltskennungen'],
+      ['useInFavorites', 'Favoriten'],
+      ['activeFrom', 'Aktiv ab'],
+      ['activeUntil', 'Aktiv bis'],
+      ['pauseOnRecordings', 'Aufnahmepause'],
+      ['switchMinutesBefore', 'Umschalt-Vorlauf'],
+      ['unmuteSoundOnSwitch', 'Ton bei Umschaltung'],
+      ['deleteRecordingsAfterDays', 'Aufnahmen löschen nach Tagen'],
+      ['deleteAfterCountRecordings', 'Aufnahmen löschen nach Anzahl'],
+      ['deleteAfterDaysOfFirstRecording', 'Aufnahmen löschen ab Erstausstrahlung']
+    ].filter(pair => Boolean(timer[pair[0]])).map(pair => pair[1]);
+  }
+
   function createErrorText(error) {
     const raw = String(error && error.message ? error.message : error);
     const detail = String(error && error.payload && error.payload.detail || '');
@@ -1050,7 +1080,7 @@
     let pendingKey = '';
     let pendingFingerprint = '';
     function payload() {
-      const result = buildCreatePayload(form, source);
+      const result = buildCreatePayload(form, activeCreateTemplate || source);
       result.query = String(result.query || '').trim();
       result.name = result.query;
       // The public CREATE can only stage an inactive rule.
@@ -1076,7 +1106,8 @@
       event.preventDefault();
       const result = payload();
       if (!result) return;
-      const unsupported = unsupportedStagedOptions(result);
+      const unsupported = unsupportedStagedOptions(result).concat(
+        unsupportedCopiedSettings(activeCreateTemplate));
       if (unsupported.length) {
         setFeedback(feedback,
           'Diese Einstellungen können aktuell noch nicht zuverlässig gespeichert werden: ' +
@@ -1148,6 +1179,7 @@
 
   function populateCreateForm(timer) {
     if (!activeCreateForm) return;
+    activeCreateTemplate = timer;
 
     const values = {
       name: timer.query, query: timer.query, priority: timer.priority, lifetime: timer.lifetime,
@@ -1287,6 +1319,7 @@
 
   function renderList(data) {
     installStyles();
+    activeCreateTemplate = null;
     lastSearchTimerData = data;
     const mountTarget = searchTimerBrowserContext.detailDataElement;
     if (!mountTarget) throw new Error('SearchTimer browser mount target is not configured');
@@ -1343,6 +1376,7 @@
     validateCreatePayload: validateCreatePayload,
     stagedCreateValidation: stagedCreateValidation,
     unsupportedStagedOptions: unsupportedStagedOptions,
+    unsupportedCopiedSettings: unsupportedCopiedSettings,
     createErrorText: createErrorText,
     selectedBackendId: selectedBackendId
   });
