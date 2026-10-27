@@ -721,8 +721,9 @@
     view.startButton.disabled = true;
     view.sourceDetails.textContent = '';
     view.preview.textContent = normal.length
-      ? 'Schritt 2: Film oder Serienfolge oben auswählen. Die technische Vorschau startet automatisch.'
+      ? 'Folge in der Episodenliste anklicken. Die technische Vorschau startet automatisch.'
       : 'In diesem Ordner wurden keine passenden Filme gefunden. Anderen Ordner wählen oder Suche zurücksetzen.';
+    renderPreviewCard(view, null, null);
     view.localReencode.checked = false;
     view.localReencode.disabled = true;
     view.decision.value = 'import';
@@ -824,6 +825,8 @@
     view.scanNotice.textContent = 'Scan läuft: Quellen werden erneut geladen …';
     view.visibleCount.textContent = 'Scan läuft: Noch keine aktuellen Treffer.';
     view.preview.textContent = 'Scan läuft: Bitte die aktuelle Filmliste abwarten.';
+    view.previewCard.replaceChildren(element('p', 'media-import-preview-hint',
+      'Importquellen werden gescannt …'));
     view.select.replaceChildren();
     view.markedSelect.replaceChildren();
     view.sourceDetails.textContent = '';
@@ -1017,6 +1020,61 @@
     return (n / (1024 * 1024 * 1024)).toFixed(1) + ' GiB';
   }
 
+  function renderPreviewCard(view, plan, source) {
+    if (!view.previewCard) return;
+    const card = view.previewCard;
+    card.replaceChildren();
+    const selected = view.sources.includes(view.select.value);
+    const label = source && source.label ||
+      (selected ? view.sourceTitles[view.select.value] : '');
+    const title = plan && plan.title || label || 'Noch keine Folge ausgewählt';
+    const heading = element('h5', 'media-import-preview-title', title);
+    card.appendChild(heading);
+    const state = !selected ? 'idle' :
+      !plan ? (view.previewFailed ? 'failed' : 'pending') : plan.status;
+    const stateText = state === 'ready'
+      ? plan.videoReencodeRequired ? 'Video-Umkodierung erforderlich' : 'Direktimport möglich'
+      : state === 'duplicate' ? 'VDR-Aufnahme bereits vorhanden'
+      : state === 'insufficient' ? 'Nicht genügend Speicherplatz'
+      : state === 'unavailable' ? 'Quelle konnte nicht geprüft werden'
+      : state === 'failed' ? 'Vorschau fehlgeschlagen'
+      : state === 'pending' ? 'Technische Prüfung läuft'
+      : 'Folge aus der Liste auswählen';
+    card.appendChild(element('div', 'media-import-preview-state is-' + state,
+      stateText));
+    if (selected && source && source.folderKnown) {
+      card.appendChild(element('p', 'media-import-preview-path',
+        'Quelle: ' + (source.folder ? source.folder.split('/').join(' › ') : 'Importwurzel')));
+    }
+    if (plan && plan.status !== 'unavailable') {
+      const facts = element('dl', 'media-import-preview-facts');
+      const addFact = function (label, value) {
+        const fact = element('div', 'media-import-preview-fact');
+        fact.appendChild(element('dt', '', label));
+        fact.appendChild(element('dd', '', value));
+        facts.appendChild(fact);
+      };
+      if (plan.videoCodec) addFact('Video-Codec', plan.videoCodec.toUpperCase());
+      if (plan.sourceBytes) addFact('Dateigröße', humanBytes(plan.sourceBytes));
+      if (plan.targetFolder) addFact('VDR-Ziel', plan.targetFolder);
+      if (plan.availableBytes) addFact('Freier Platz', humanBytes(plan.availableBytes));
+      if (plan.requiredBytes) addFact('Benötigt inkl. Reserve', humanBytes(plan.requiredBytes));
+      card.appendChild(facts);
+    }
+    const note = !selected ? 'Ordner wählen und eine Episode anklicken.' :
+      !plan ? (view.previewStatus || 'Quelle wird vom Backend-Agent geprüft …') :
+      plan.status === 'duplicate'
+        ? 'Die bestätigte Dublette wird automatisch über den bestehenden Core als .duplicate markiert.'
+      : plan.status === 'ready' && !plan.videoReencodeRequired
+        ? 'Ohne Video-Neukodierung übernehmen. Jetzt direkt importieren.'
+      : plan.videoReencodeRequired
+        ? 'Auf dem VDR umkodieren oder am PC mit HandBrake bzw. anderer Software bearbeiten. Der Browser kodiert nicht selbst.'
+      : plan.status === 'insufficient'
+        ? 'Für den lokalen Import fehlt Speicherplatz.'
+        : 'Die Quelle oder das Ziel konnte nicht vollständig geprüft werden. Technische Details anzeigen oder erneut prüfen.';
+    card.appendChild(element('p', 'media-import-preview-hint', note));
+  }
+
   function updatePreview(view) {
     if (!isCurrent(view)) return;
     const id = view.select.value;
@@ -1045,6 +1103,7 @@
       Boolean(view.batch);
     if (!selected) {
       view.preview.textContent = 'Schritt 2: Film oder Serienfolge auswählen. Die Vorschau startet automatisch.';
+      renderPreviewCard(view, null, item);
       view.startButton.disabled = true;
       return;
     }
@@ -1103,6 +1162,7 @@
       '. Quellordner: ' + sourceFolder + '. ' + description +
       ' ' + details + ' ' + nextStep +
       ' Der Backend-Agent prüft Quelle und Ziel bei Auftragsannahme erneut.';
+    renderPreviewCard(view, plan, item);
     view.startButton.textContent = needsEncode
       ? decision === 'desktop' ? 'Für PC markieren'
         : decision === 'skip' ? 'Film überspringen'
@@ -1343,9 +1403,11 @@
     label.appendChild(select);
     root.appendChild(label);
     const preview = element('p', 'media-import-preview',
-      '2. Nach der Filmauswahl wird die Vorschau automatisch erstellt.');
+      'Nach der Filmauswahl wird die Diagnose automatisch erstellt.');
     preview.setAttribute('role', 'status');
     root.appendChild(preview);
+    const previewCard = element('div', 'media-import-preview-card');
+    previewCard.setAttribute('role', 'status');
     const previewRetryButton = element('button', 'media-import-preview-retry', 'Vorschau erneut prüfen');
     previewRetryButton.type = 'button';
     previewRetryButton.hidden = true;
@@ -1473,7 +1535,7 @@
     episodes.appendChild(selectionRows);
     const detail = element('section', 'media-import-pane media-import-detail');
     detail.appendChild(element('h4', '', 'Vorschau und Aktionen'));
-    detail.appendChild(preview);
+    detail.appendChild(previewCard);
     detail.appendChild(previewRetryButton);
     detail.appendChild(choiceLabel);
     detail.appendChild(encodeLabel);
@@ -1481,6 +1543,7 @@
     detail.appendChild(skipButton);
     detail.appendChild(markedLabel);
     detail.appendChild(releaseButton);
+    technical.appendChild(preview);
     detail.appendChild(technical);
     const workspace = element('div', 'media-import-workspace');
     workspace.appendChild(library);
@@ -1523,7 +1586,8 @@
       refreshButton: refreshButton, newButton: newButton,
       message: message, operationDetail: operationDetail,
       scanNotice: scanNotice, sourceDetails: sourceDetails,
-      preview: preview, previewRetryButton: previewRetryButton,
+      preview: preview, previewCard: previewCard,
+      previewRetryButton: previewRetryButton,
       sourceTitles: Object.create(null),
       previewTimer: null, previewGeneration: 0, previewReads: 0,
       previewResult: null, previewStatus: '', previewFailed: false,
