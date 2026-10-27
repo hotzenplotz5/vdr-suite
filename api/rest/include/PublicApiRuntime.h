@@ -1335,7 +1335,7 @@ struct PublicMediaImportAdmissionRequest
     std::string sourceId;
     std::string idempotencyKey;
     bool approveVideoReencode = false; // immutable, explicitly selected
-    std::string videoDecision; // optional "desktop" or "skip"
+    std::string videoDecision; // optional "desktop", "skip", "duplicate" or "release"
 };
 
 struct PublicMediaImportAdmissionResult
