@@ -1195,8 +1195,8 @@
     view.choiceLabel.hidden = !needsEncode;
     view.decision.disabled = !needsEncode || view.submitting ||
       Boolean(view.attempt) || Boolean(view.batch);
-    view.skipButton.hidden = !plan || needsEncode ||
-      plan.status === 'unavailable' || plan.status === 'duplicate';
+    // Skip is a separate Rectools action, not an encoding technique.
+    view.skipButton.hidden = !plan || !['ready', 'insufficient'].includes(plan.status);
     view.skipButton.disabled = view.submitting || Boolean(view.attempt) ||
       Boolean(view.batch);
     Array.from(view.selectionRows.children).forEach(function (row) {
@@ -1236,9 +1236,7 @@
         : needsEncode
           ? decision === 'desktop'
         ? 'Externe Bearbeitung: Die Originaldatei über ihren bisherigen Datei-/Netzwerkzugang am PC mit HandBrake oder einem anderen Programm umkodieren. Das Webfrontend konvertiert und überträgt nicht selbst. Die .pc_encode-Markierung kennzeichnet die zurückgestellte Quelle. Die bearbeitete Datei anschließend in der Importquelle bereitstellen und neu prüfen. Kein Import im aktuellen Schritt.'
-        : decision === 'skip'
-          ? 'Film überspringen und vom normalen Import ausschließen. Kein Import.'
-          : decision === 'import' && view.localReencode.checked
+        : decision === 'import' && view.localReencode.checked
             ? 'Lokale H.264-Umkodierung nur für diesen Film nach ausdrücklicher Bestätigung.'
             : 'Video-Neukodierung erforderlich. Bitte Bearbeitungsweg auswählen.'
         : 'Video wird ohne Neukodierung in das VDR-Aufnahmeformat übernommen; ' +
@@ -1279,8 +1277,7 @@
     renderPreviewCard(view, plan, item);
     view.startButton.textContent = needsEncode
       ? decision === 'desktop' ? 'Für PC markieren'
-        : decision === 'skip' ? 'Film überspringen'
-          : decision === 'import' ? 'Auf VDR umkodieren'
+        : decision === 'import' ? 'Auf VDR umkodieren'
             : 'Bearbeitungsweg auswählen'
       : ready ? 'Diesen Film importieren' : 'Import nicht möglich';
     if (!view.submitting && !view.attempt && !view.batch) {
@@ -1546,8 +1543,7 @@
     [
       ['', 'Bitte Bearbeitungsweg auswählen'],
       ['import', 'Auf dem VDR umkodieren (H.264)'],
-      ['desktop', 'Auf PC umkodieren (z. B. HandBrake)'],
-      ['skip', 'Film überspringen']
+      ['desktop', 'Auf PC umkodieren (z. B. HandBrake)']
     ].forEach(function (choice) {
       const option = element('option', '', choice[1]);
       option.value = choice[0];

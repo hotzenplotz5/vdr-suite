@@ -787,20 +787,30 @@ function publishHomeResume() {}
     await settle();
     assert.strictEqual(choiceSelect.value, '');
     assert(!findClass(mount, 'media-import-decision-label').hidden);
-    choiceSelect.value = choice;
-    choiceSelect.listeners.change();
-    assert(findClass(mount, 'media-import-preview').textContent.includes('Kein Import'),
-      'MT.UX4 marked decision preview must never describe a VDR import');
+    assert(!choiceSelect.children.some(function (option) { return option.value === 'skip'; }),
+      'encoding choice has only VDR and PC, not Skip');
+    const markerAction = choice === 'skip'
+      ? findClass(mount, 'media-import-skip')
+      : findClass(mount, 'media-import-start');
+    if (choice === 'desktop') {
+      choiceSelect.value = choice;
+      choiceSelect.listeners.change();
+      assert(findClass(mount, 'media-import-preview').textContent.includes('Kein Import'),
+        'PC delegation never describes a VDR import');
+    } else {
+      assert(!markerAction.hidden && !markerAction.disabled,
+        'Skip remains its own explicit Rectools action');
+    }
     assert(toggle.disabled && !toggle.checked);
     assert(findClass(mount, 'media-import-batch').disabled);
     const before = submits, priorConfirms = confirmCalls;
     confirmLocal = false;
-    await findClass(mount, 'media-import-start').listeners.click();
+    await markerAction.listeners.click();
     await settle();
     assert.strictEqual(submits, before);
     assert.strictEqual(confirmCalls, priorConfirms + 1);
     confirmLocal = true;
-    await findClass(mount, 'media-import-start').listeners.click();
+    await markerAction.listeners.click();
     await settle();
     assert.strictEqual(submits, before + 1);
     const post = requests.filter(x => x.options.method === 'POST').slice(-1)[0];
