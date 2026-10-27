@@ -916,15 +916,15 @@
     const unsupported = [
       ['active', Boolean(value.active), 'Sofort aktivieren'],
       ['directory', Boolean(value.directory), 'Aufnahmeverzeichnis'],
-      ['priority', Number(value.priority) !== 0, 'Priorität'],
-      ['lifetime', Number(value.lifetime) !== 0, 'Lebensdauer'],
-      ['marginStartMinutes', Number(value.marginStartMinutes) !== 0, 'Vorlauf'],
-      ['marginStopMinutes', Number(value.marginStopMinutes) !== 0, 'Nachlauf'],
+      ['priority', Number(value.priority || 0) !== 0, 'Priorität'],
+      ['lifetime', Number(value.lifetime || 0) !== 0, 'Lebensdauer'],
+      ['marginStartMinutes', Number(value.marginStartMinutes || 0) !== 0, 'Vorlauf'],
+      ['marginStopMinutes', Number(value.marginStopMinutes || 0) !== 0, 'Nachlauf'],
       ['useVps', Boolean(value.useVps), 'VPS'],
-      ['useChannel', Number(value.useChannel) !== 0, 'Kanalfilter'],
+      ['useChannel', Number(value.useChannel || 0) !== 0, 'Kanalfilter'],
       ['useDuration', Boolean(value.useDuration), 'Dauerfilter'],
       ['avoidRepeats', Boolean(value.avoidRepeats), 'Wiederholungen'],
-      ['blacklistMode', Number(value.blacklistMode) !== 0, 'Blacklist'],
+      ['blacklistMode', Number(value.blacklistMode || 0) !== 0, 'Blacklist'],
       ['blacklistIds', Boolean(value.blacklistIds), 'Blacklist-IDs'],
       ['matchCase', Boolean(value.matchCase), 'Groß-/Kleinschreibung']
     ];
