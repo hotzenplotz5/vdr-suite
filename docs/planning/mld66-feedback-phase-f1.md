@@ -41,9 +41,9 @@ werden durch die Planung nicht verändert.
 | Slice | Ziel und begrenzte Umsetzung | Abnahmekriterium | Stand |
 | --- | --- | --- | --- |
 | **F1.0 – Bestehende UI-Fixes absichern** | Bereits eingecheckte Kanal-ID-zu-Klarname-Auflösung und scopeabhängige Berechtigungsauswahl gezielt testen. Angezeigte Admin-Expansion ist keine neue serverseitige Berechtigung; Add-on-Rechte bleiben unabhängig. | Tests auf Branch-HEAD grün; Vorschau bleibt bei fehlender Kanalliste nutzbar; Berechtigungsdialog bietet keine effektiven Doppelrechte, Server-Gates bleiben unverändert; später MLD-UI-Readback. | **SOURCE IMPLEMENTED; FOCUSED TEST OBSERVED; MLD OPEN** |
-| **F1.1 – Suchtimer-CREATE-Fehler klären** | Am bestehenden Browser- und Public-v1-Pfad `POST /api/v1/search-timers` den tatsächlichen Grund für „requested public API resource is temporarily unavailable“ ermitteln: Version/Route, Agent, Backend, Anbieterfähigkeit, Berechtigung, Operationstatus und nativer Readback. Nur nach belegtem Defekt minimal korrigieren. | Genau ein vollständig nachvollziehbarer Zustand je CREATE-Anfrage (angelegt, nachweislich ohne Wirkung abgelehnt oder ungeklärt); keine unbeabsichtigte zweite Anlage und keine Rückkehr zum ungeschützten Legacy-Schreibpfad. | **NEXT / OPEN** |
-| **F1.2 – Vollständiger epgsearch-Editor** | Vorhandene umfangreiche Felder/Preview-Struktur wieder als ein konsistentes Browserformular nutzen; Kanal-/Zeit-/Dauerfilter, Vergleiche, Wiederholungen, Blacklists, Verzeichnis, Vor-/Nachlauf und Aktiv-Wunsch beibehalten. Prüfen, welche Felder der aktive produktive Public-v1-Vertrag speichert; für nicht unterstützte Felder kein scheinbar erfolgreiches Speichern. | Ein Editor mit allen technisch unterstützten epgsearch-Einstellungen, vorbefüllt beim Aufruf aus dem EPG; alle gespeicherten Felder entsprechen nativer Readback-Konfiguration. Bis F1.3 ggf. sichtbar eingeschränkte Speicherfunktion statt stillschweigendem Datenverlust. | **OPEN** |
-| **F1.3 – Suchtimer direkt aktiv speichern** | Bestehende Public-v1-Operationen/epgsearch-Integration für einmaliges vollständiges CREATE und optionales Aktivieren zusammenführen; native Generation-/Revision-/Readback-Voraussetzungen aus Issue #518 beachten. Keine zweite Schreibengine und keine automatische Wiederholung bei `outcome_unknown`. | Benutzer kann „Inaktiv speichern“ oder „Aktiv speichern“ wählen; gewünschte Optionen sind nach serverbestätigtem Readback vorhanden, aktiver Zustand stimmt. Unsichere Anbieter-/ABI-Konstellation wird klar als nicht unterstützt dargestellt. | **OPEN; depends on F1.1/F1.2/provider evidence** |
+| **F1.1 – Suchtimer-CREATE-Fehler klären** | Am bestehenden Browser- und Public-v1-Pfad `POST /api/v1/search-timers` den tatsächlichen Grund für „requested public API resource is temporarily unavailable“ ermitteln: Version/Route, Agent, Backend, Anbieterfähigkeit, Berechtigung, Operationstatus und nativer Readback. Nur nach belegtem Defekt minimal korrigieren. | Genau ein vollständig nachvollziehbarer Zustand je CREATE-Anfrage (angelegt, nachweislich ohne Wirkung abgelehnt oder ungeklärt); keine unbeabsichtigte zweite Anlage und keine Rückkehr zum ungeschützten Legacy-Schreibpfad. | **SOURCE DIAGNOSTICS IMPLEMENTED; MLD ROOT CAUSE OPEN** |
+| **F1.2 – Vollständiger epgsearch-Editor** | Vorhandene umfangreiche Felder/Preview-Struktur wieder als ein konsistentes Browserformular nutzen; Kanal-/Zeit-/Dauerfilter, Vergleiche, Wiederholungen, Blacklists, Verzeichnis, Vor-/Nachlauf und Aktiv-Wunsch beibehalten. Prüfen, welche Felder der aktive produktive Public-v1-Vertrag speichert; für nicht unterstützte Felder kein scheinbar erfolgreiches Speichern. | Ein Editor mit allen technisch unterstützten epgsearch-Einstellungen, vorbefüllt beim Aufruf aus dem EPG; alle gespeicherten Felder entsprechen nativer Readback-Konfiguration. Bis F1.3 ggf. sichtbar eingeschränkte Speicherfunktion statt stillschweigendem Datenverlust. | **EDITOR PARTIAL; FULL-FIELD WRITE OPEN** |
+| **F1.3 – Suchtimer direkt aktiv speichern** | Bestehende Public-v1-Operationen/epgsearch-Integration für einmaliges vollständiges CREATE und optionales Aktivieren zusammenführen; native Generation-/Revision-/Readback-Voraussetzungen aus Issue #518 beachten. Keine zweite Schreibengine und keine automatische Wiederholung bei `outcome_unknown`. | Benutzer kann „Inaktiv speichern“ oder „Aktiv speichern“ wählen; gewünschte Optionen sind nach serverbestätigtem Readback vorhanden, aktiver Zustand stimmt. Unsichere Anbieter-/ABI-Konstellation wird klar als nicht unterstützt dargestellt. | **OPEN: Device-only native CAS; MLD provider unverified** |
 | **F1.4 – Live-TV-Vorschau** | `live_backend_authority_required` gegen aktuelle Agent-/Backend-Zuordnung und Providerwahl zurückverfolgen; danach bestehenden Live-Pfad/Browser-Medienprofil nutzen. Streamdev nur dann einbinden, wenn es zum vorhandenen Adapter passt; keine zweite unautorisierte Streaming-API. | Auswählbarer Sender liefert Bild und Ton in unterstütztem MLD-Browser; Start/Stop/Kanalwechsel räumen Sessions auf. Fehlender Provider gibt eine treffende Diagnose, nicht irreführend „Live-TV beendet“. | **OPEN** |
 | **F1.5 – VDR-Aufnahmen wiedergeben** | Durchgängigen bestehenden Pfad Aufnahme -> gültige MediaSession -> zugängliche Medienbytes -> Browser-Player untersuchen; MLD-Aufnahmeverzeichnis, URL/Proxy, FFmpeg/ffprobe, Codec/Container und readback getrennt belegen. Keinen Host-Dateipfad fest verdrahten. | Eine konkrete vorhandene TS-Aufnahme startet mit Bild/Ton; Pause/Stopp funktionieren; nicht abspielbares Format erklärt den Grund, ohne Aufnahmeänderung. | **OPEN** |
 | **F1.6 – MLD-Pluginübersicht und Timer-Margins** | Plugin-/Abhängigkeitsmatrix aus `mld66-skippy-feedback-20261027.md` in verständliche Installationsdoku mit MLD-Paket-/Capability-Mapping überführen; benötigter Videotext-/Live-Providerweg wird ausdrücklich geklärt. Timer-Vor-/Nachlauf nach bestätigter MLD-Version mit nicht-destruktiver Prüfung und ggf. autorisiertem Einzeltimer testen. | Für jede angebotene Funktion steht „Basis / bedingt nötig / optional / nicht verfügbar“ fest; tatsächliche MLD-Rezept- und VDR-ABI-Version belegt. Margins entsprechen bei kontrolliertem Test den Einstellungen. | **PARTIAL DOC / MLD MARGINS OPEN** |
@@ -67,6 +67,43 @@ Timeout und mögliche VDR-Neustarts aus einem früheren MLD-Maintainer-Test.
 Dies ist **keine** bestätigte Diagnose von skippys aktuellem Host. Erst
 Read-only-Preflight; keine aggressiven Recording-Abfragen auf einem
 instabilen VDR und keine Vermischung zweier Testumgebungen.
+
+## Implementierungsbefund auf diesem Branch
+
+**F1.1 – differenzierte CREATE-Diagnose (Quellcode):** Die
+Public-v1-HTTP-Route unterscheidet jetzt ein schreibgesperrtes/offline
+Backend, einen nicht gültig angemeldeten Agenten, die fehlende
+SearchTimer-Provider-/SuiteBridge-Anbindung und nicht bestätigte
+VDR-Vor-/Nachlaufwerte. Der Browser zeigt diesen Fall auf Deutsch
+einschließlich Request-ID, sofern die API sie liefert. Der Fehlergrund
+auf skippys *installierter* MLD bleibt **unbestätigt**. Eine klarere
+HTTP-Fehlermeldung ist noch kein behobener Host-Konfigurationsfehler.
+
+**F1.2 – erweiterte Eingabemaske (teilweise):** Der Editor zeigt erneut
+Verzeichnis, Kanal, VPS, Priorität, Lebensdauer, Dauer, Wiederholungen,
+Blacklist und Vor-/Nachlauf. Die bisherige Public-v1-CREATE-Payload
+bleibt absichtlich auf Textsuche mit `active:false` begrenzt; weitere
+Einstellungen dürfen nicht stillschweigend verworfen werden. Der
+Browser blockiert daher aktuell einen SAVE mit nicht unterstützten
+Feldern und erklärt die Einschränkungen der EPG-Vorschau. Ein
+verlustfreies epgsearch-Full-Field-SAVE ist **noch nicht implementiert**.
+
+**F1.3 – aktive Anlage (noch offen):** Das sichtbare Feld „Sofort aktiv
+speichern“ erzeugt **keinen** aktiven Auftrag. Die serverseitige
+CREATE-Admission lehnt `active:true` explizit ab; Native-Version-
+Lookup und Generation-/Revision-CAS-Mutation sind gegenwärtig
+Device-only und benötigen einen eindeutigen opaken Public-v1-ID-/ETag-
+Readback. Native epgsearch-CAS-Paketierung auf MLD wurde nicht
+nachgewiesen (vgl. [#518](https://github.com/hotzenplotz5/vdr-suite/issues/518)).
+Der bestehende unversionierte Legacy-Schreibpfad ist kein zulässiger
+Ersatz. **F1.3 ist nicht fertig und nicht auf MLD testbereit.**
+
+**Teststatus:** Die bestehenden JavaScript-Workflow-Assertions inklusive
+der neuen Options- und 503-Diagnosefälle liefen in einer isolierten
+V8-Umgebung. Ein neuer C++-Regressionstest für die Public-v1-HTTP-
+Statusdetails ist eingecheckt. Der exakte C++-Kandidat wurde noch
+nicht vollständig kompiliert/getestet; Node-/CI-Gesamtlauf, Browser
+E2E, MLD-Paketierung und REAL-VDR-Abnahme fehlen weiterhin.
 
 ## Definition of Done für jeden Slice
 
