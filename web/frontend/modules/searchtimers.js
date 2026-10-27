@@ -1272,19 +1272,18 @@
     if (!activeCreateForm) return;
     activeCreateTemplate = timer;
 
-    const values = {
-      name: timer.query, query: timer.query, priority: timer.priority, lifetime: timer.lifetime,
-      marginStartMinutes: timer.marginStartMinutes, marginStopMinutes: timer.marginStopMinutes,
-      durationMinMinutes: timer.durationMinMinutes, durationMaxMinutes: timer.durationMaxMinutes,
-      allowedRepeats: timer.allowedRepeats, repeatsWithinDays: timer.repeatsWithinDays,
-      mode: timer.mode, tolerance: timer.tolerance, blacklistMode: timer.blacklistMode, blacklistIds: timer.blacklistIds
-    };
-    Object.keys(values).forEach(name => {
-      if (activeCreateForm.elements[name]) activeCreateForm.elements[name].value = String(values[name] || '');
+    // Copy every supported editor field from the selected native rule.
+    // A partial copy would otherwise silently erase advanced epgsearch flags.
+    Object.keys(timer).forEach(name => {
+      const control = activeCreateForm.elements[name];
+      if (!control || timer[name] === undefined || timer[name] === null) return;
+      if (control.type === 'checkbox') control.checked = Boolean(timer[name]);
+      else control.value = String(timer[name]);
     });
-    ['active', 'useVps', 'compareTitle', 'compareSubtitle', 'compareSummary', 'avoidRepeats', 'useDuration', 'matchCase'].forEach(name => {
-      if (activeCreateForm.elements[name]) activeCreateForm.elements[name].checked = Boolean(timer[name]);
-    });
+    if (activeCreateForm.elements.query)
+      activeCreateForm.elements.query.value = timer.query;
+    if (activeCreateForm.elements.tolerance && timer.mode !== 5)
+      activeCreateForm.elements.tolerance.value = '0';
 
     if (activeCreateForm.elements.directory) activeCreateForm.elements.directory.value = timer.directory;
     if (activeCreateForm.elements.manualDirectory) {
