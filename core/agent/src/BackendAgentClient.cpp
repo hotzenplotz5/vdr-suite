@@ -2173,12 +2173,15 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
             if (!config_.mediaImportExecutor->inspectTrustedSource(
                     preview.sourceId, preview))
             {
+                const std::string code = preview.failureCode;
                 preview = {};
                 preview.sourceId = pendingMediaImportPreviewSourceId_;
                 preview.status = "unavailable";
+                preview.failureCode = code.empty() ? "inspection_failed" : code;
             }
         } else {
             preview.status = "unavailable";
+            preview.failureCode = "inventory_missing";
         }
         body << ",\"previewSourceId\":\"" << jsonEscape(preview.sourceId)
              << "\",\"previewStatus\":\"" << jsonEscape(preview.status)
@@ -2186,6 +2189,7 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
              << "\",\"previewTargetFolder\":\""
              << jsonEscape(preview.targetFolder)
              << "\",\"previewVideoCodec\":\"" << jsonEscape(preview.videoCodec)
+             << "\",\"previewFailureCode\":\"" << jsonEscape(preview.failureCode)
              << "\",\"previewSourceBytes\":" << preview.sourceBytes
              << ",\"previewAvailableBytes\":" << preview.availableBytes
              << ",\"previewRequiredBytes\":" << preview.requiredBytes

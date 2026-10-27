@@ -1466,6 +1466,7 @@ public:
         std::uint64_t availableBytes = 0;
         std::uint64_t requiredBytes = 0;
         bool videoReencodeRequired = false;
+        std::string failureCode;
     };
     using MediaImportPreviewLookup = std::function<MediaImportPreviewResult(
         const std::string& actorId, const std::string& backendId,

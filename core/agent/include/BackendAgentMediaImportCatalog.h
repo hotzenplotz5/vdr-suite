@@ -29,6 +29,7 @@ public:
         std::uint64_t availableBytes = 0;
         std::uint64_t requiredBytes = 0;
         bool videoReencodeRequired = false;
+        std::string failureCode;
     };
     enum class PreviewState { denied, pending, ready };
 
@@ -89,6 +90,9 @@ public:
              data.status != "insufficient" && data.status != "unavailable") ||
             data.title.size() > 120U || data.targetFolder.size() > 512U ||
             data.videoCodec.size() > 64U ||
+            data.failureCode.size() > 32U ||
+            std::any_of(data.failureCode.begin(), data.failureCode.end(),
+                [](unsigned char c) { return !((c >= 'a' && c <= 'z') || c == '_'); }) ||
             (data.status != "unavailable" &&
              (data.title.empty() || data.targetFolder.empty() ||
               (data.status != "duplicate" && data.videoCodec.empty()))) ||

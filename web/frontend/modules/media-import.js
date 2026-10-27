@@ -568,6 +568,8 @@
       (data.status === 'unavailable' || validPreviewTarget(data.targetFolder)) &&
       typeof data.videoCodec === 'string' && /^[a-z0-9_]{0,64}$/.test(data.videoCodec) &&
       typeof data.title === 'string' && data.title.length <= 120 &&
+      (data.failureCode === undefined ||
+        (typeof data.failureCode === 'string' && /^[a-z_]{0,32}$/.test(data.failureCode))) &&
       (data.status === 'unavailable' || data.title.length > 0));
   }
 
@@ -1087,6 +1089,21 @@
       if (plan.requiredBytes) addFact('Benötigt inkl. Reserve', humanBytes(plan.requiredBytes));
       card.appendChild(facts);
     }
+    const diagnostics = {
+      agent_unavailable: 'Der Backend-Agent oder Media Tools ist nicht erreichbar.',
+      maintenance_busy: 'Media Tools ist gerade beschäftigt. Vorschau erneut prüfen.',
+      inventory_missing: 'Die Quelle ist im aktuellen Backend-Quelleninventar nicht mehr auffindbar.',
+      source_invalid: 'Quelldatei oder Quellpfad konnte nicht geprüft werden.',
+      source_changed: 'Die Quelldatei wurde seit dem Scan verändert.',
+      target_invalid: 'Der VDR-Zielordner konnte nicht sicher ermittelt werden.',
+      target_collision: 'Der VDR-Zielordner ist belegt, aber keine vollständige passende Aufnahme nachgewiesen.',
+      ffprobe_failed: 'FFprobe konnte den Videocodec nicht bestimmen (möglicherweise Zeitüberschreitung).',
+      capacity_failed: 'Die Berechnung des freien Speicherplatzes ist fehlgeschlagen.',
+      target_not_writable: 'Der VDR-Zielordner ist nicht beschreibbar.',
+      inspection_failed: 'Die Backend-Vorschau ist ohne nähere Fehlerdiagnose fehlgeschlagen.'
+    };
+    const failure = plan && plan.status === 'unavailable' &&
+      diagnostics[plan.failureCode] || '';
     const note = !selected ? 'Ordner wählen und eine Episode anklicken.' :
       !plan ? (view.previewStatus || 'Quelle wird vom Backend-Agent geprüft …') :
       plan.status === 'duplicate'
@@ -1097,7 +1114,7 @@
         ? 'Auf dem VDR umkodieren oder am PC mit HandBrake bzw. anderer Software bearbeiten. Der Browser kodiert nicht selbst.'
       : plan.status === 'insufficient'
         ? 'Für den lokalen Import fehlt Speicherplatz.'
-        : 'Die Quelle oder das Ziel konnte nicht vollständig geprüft werden. Technische Details anzeigen oder erneut prüfen.';
+        : failure || 'Die Quelle oder das Ziel konnte nicht vollständig geprüft werden. Technische Details anzeigen oder erneut prüfen.';
     card.appendChild(element('p', 'media-import-preview-hint', note));
   }
 

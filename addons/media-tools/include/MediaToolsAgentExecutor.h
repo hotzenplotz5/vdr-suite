@@ -173,6 +173,7 @@ struct MediaImportSourcePreview {
     std::uint64_t availableBytes = 0;
     std::uint64_t requiredBytes = 0;
     bool videoReencodeRequired = false;
+    std::string failureCode; // read-only stage; never a source path or process log
 };
 
 // Read-only observation from the fixed root-admin approval + pinned binary.

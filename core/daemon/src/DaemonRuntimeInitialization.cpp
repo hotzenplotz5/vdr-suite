@@ -679,6 +679,7 @@ bool DaemonRuntime::initialize()
             out.availableBytes = observed.availableBytes;
             out.requiredBytes = observed.requiredBytes;
             out.videoReencodeRequired = observed.videoReencodeRequired;
+            out.failureCode = observed.failureCode;
             return out;
         });
     PublicApiRuntime::instance().registerMediaImportCapabilityLookup(

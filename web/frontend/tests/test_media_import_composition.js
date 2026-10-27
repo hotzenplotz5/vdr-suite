@@ -129,7 +129,8 @@ function transport(url, options) {
         state: 'ready', status: 'unavailable', title: '',
         targetFolder: '', videoCodec: '', sourceBytes: 0,
         availableBytes: 0, requiredBytes: 0,
-        videoReencodeRequired: false
+        videoReencodeRequired: false,
+        failureCode: override.failureCode || ''
       }));
     }
     const codec = override.codec ||
@@ -1223,6 +1224,15 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-start').disabled,
     'unavailable remains blocked after a repeat inspection');
 
+  previewInspectionStatus = 'unavailable';
+  batchProbeOverrides[SOURCE] = {status: 'unavailable', failureCode: 'ffprobe_failed'};
+  raceSelect.listeners.change();
+  await settle();
+  assert(findClass(mount, 'media-import-preview-card').children.some(function (child) {
+    return (child.className || '').includes('media-import-preview-hint') &&
+      child.textContent.includes('FFprobe');
+  }), 'agent failure stage is visible for the actual selected source');
+  delete batchProbeOverrides[SOURCE];
   previewInspectionStatus = 'ready';
   previewMode = 'forbidden';
   raceSelect.listeners.change();

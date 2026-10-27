@@ -172,6 +172,19 @@ int main()
     assert(catalog.requestPreview(live, "backend", 139, newer, observed) ==
         BackendAgentMediaImportCatalog::PreviewState::ready);
     assert(observed.status == "duplicate" && observed.videoCodec.empty());
+    const auto diagnosticSource = exact100[2];
+    assert(catalog.requestPreview(live, "backend", 140, diagnosticSource, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::pending);
+    auto unavailable = report;
+    unavailable.sourceId = diagnosticSource;
+    unavailable.status = "unavailable";
+    unavailable.videoCodec.clear();
+    unavailable.failureCode = "ffprobe_failed";
+    assert(catalog.acceptPreview(live, "backend", 140, unavailable));
+    assert(catalog.requestPreview(live, "backend", 140, diagnosticSource, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::ready);
+    assert(observed.status == "unavailable" &&
+           observed.failureCode == "ffprobe_failed");
     std::string origin, version, sha256;
     assert(catalog.observedInstallation(
         live, "backend", 100, origin, version, sha256));

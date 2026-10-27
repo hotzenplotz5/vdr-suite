@@ -652,6 +652,9 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
         !jsonString(request.body, "handlerSha256", handlerSha256))
         return errorResponse(400, "invalid_media_import_sources_observation");
     BackendAgentMediaImportCatalog::Preview preview;
+    if (request.body.find("\"previewFailureCode\"") != std::string::npos &&
+        !jsonString(request.body, "previewFailureCode", preview.failureCode))
+        return errorResponse(400, "invalid_media_import_preview_diagnostic");
     const bool hasPreview = request.body.find("\"previewSourceId\"") !=
         std::string::npos;
     if (hasPreview &&

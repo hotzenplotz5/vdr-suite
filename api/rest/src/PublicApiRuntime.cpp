@@ -8966,7 +8966,8 @@ bool PublicApiRuntime::tryHandleGet(
             ",\"availableBytes\":" + std::to_string(result.availableBytes) +
             ",\"requiredBytes\":" + std::to_string(result.requiredBytes) +
             ",\"videoReencodeRequired\":" +
-            std::string(result.videoReencodeRequired ? "true" : "false") + "}";
+            std::string(result.videoReencodeRequired ? "true" : "false") +
+            ",\"failureCode\":\"" + jsonEscape(result.failureCode) + "\"}";
         response = jsonResponse(body, requestId, correlationId);
         response.headers["Cache-Control"] = "no-store";
         return true;
