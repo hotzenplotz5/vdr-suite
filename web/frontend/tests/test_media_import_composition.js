@@ -1165,6 +1165,23 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-preview').textContent.includes(
     'VDR-Zielordner: Serien/Andor/Weiterer Film'));
 
+  // A batched source can return pending on its first Agent observation.
+  // The batch must poll the existing preview endpoint, not misclassify it.
+  previewMode = 'pending-first';
+  const pendingBatchPosts = submits;
+  const pendingBatch = findClass(mount, 'media-import-batch').listeners.click();
+  await settle();
+  assert(findClass(mount, 'media-import-batch-summary').textContent.includes(
+    '1 von 2'), 'first episode inspected before second pending result');
+  const batchRetry = timerCallbacks[timerCallbacks.length - 1];
+  batchRetry();
+  await pendingBatch;
+  await settle();
+  assert(findClass(mount, 'media-import-batch-summary').textContent.includes(
+    '2 direkt importierbar'), 'second preview finishes after polling');
+  assert.strictEqual(submits, pendingBatchPosts,
+    'batch preview re-poll is strictly read-only');
+
   // A space shortage and an unsupported codec allow only the desktop path.
   previewInspectionStatus = 'insufficient';
   raceSelect.value = SOURCE;

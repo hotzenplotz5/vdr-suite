@@ -312,24 +312,36 @@
       Boolean(view.attempt) || !ready;
   }
 
-  function inspectBatchPreview(view, sourceId) {
-    return publicClient().getMediaImportSourcePreview({
-      backendId: view.backendId, sourceId: sourceId,
-      credentials: 'same-origin', cache: 'no-store'
-    }).then(function (data) {
-      if (!data || data.backendId !== view.backendId ||
-          data.sourceId !== sourceId) throw new Error('Fremde Vorschauantwort');
-      if (data.state === 'pending') return {state: 'pending'};
-      if (!validMediaImportPreview(data, view.backendId, sourceId))
-        throw new Error('Ungültige Importdiagnose');
-      if (data.status === 'duplicate') return {state: 'duplicate', title: data.title};
-      if (data.status === 'unavailable') return {state: 'unavailable', title: data.title};
-      if (data.videoReencodeRequired)
-        return {state: 'encode', title: data.title};
-      if (data.status === 'insufficient')
-        return {state: 'insufficient', title: data.title};
-      return {state: 'ready', title: data.title};
-    });
+  function inspectBatchPreview(view, sourceId, generation) {
+    // The existing Agent can answer pending until its next regular scan.
+    // Re-read the same source rather than treating one HTTP 202 as a failure.
+    function poll(attempt) {
+      if (!isCurrent(view) || generation !== view.reviewGeneration)
+        return Promise.resolve({state: 'pending'});
+      return publicClient().getMediaImportSourcePreview({
+        backendId: view.backendId, sourceId: sourceId,
+        credentials: 'same-origin', cache: 'no-store'
+      }).then(function (data) {
+        if (!data || data.backendId !== view.backendId ||
+            data.sourceId !== sourceId) throw new Error('Fremde Vorschauantwort');
+        if (data.state === 'pending') {
+          if (attempt >= 6) return {state: 'pending'};
+          return new Promise(function (resolve) {
+            global.setTimeout(resolve, POLL_MS);
+          }).then(function () { return poll(attempt + 1); });
+        }
+        if (!validMediaImportPreview(data, view.backendId, sourceId))
+          throw new Error('Ungültige Importdiagnose');
+        if (data.status === 'duplicate') return {state: 'duplicate', title: data.title};
+        if (data.status === 'unavailable') return {state: 'unavailable', title: data.title};
+        if (data.videoReencodeRequired)
+          return {state: 'encode', title: data.title};
+        if (data.status === 'insufficient')
+          return {state: 'insufficient', title: data.title};
+        return {state: 'ready', title: data.title};
+      });
+    }
+    return poll(0);
   }
 
   function startBatch(view, selectedOnly) {
@@ -357,7 +369,7 @@
     ids.forEach(function (sourceId) {
       chain = chain.then(function () {
         if (!isCurrent(view) || generation !== view.reviewGeneration) return;
-        return inspectBatchPreview(view, sourceId).catch(function (error) {
+        return inspectBatchPreview(view, sourceId, generation).catch(function (error) {
           if (error && (error.status === 401 || error.status === 403)) throw error;
           return {state: 'failed'};
         }).then(function (result) {
@@ -737,6 +749,7 @@
     view.selectionRows.replaceChildren();
     normal.forEach(function (item) {
       const row = element('div', 'media-import-select-item');
+      row.dataset.sourceId = item.sourceId;
       const checkbox = element('input', 'media-import-episode-check');
       checkbox.type = 'checkbox';
       checkbox.setAttribute('aria-label', 'Für Stapel auswählen: ' + item.label);
@@ -752,6 +765,9 @@
       open.addEventListener('click', function () {
         if (!isCurrent(view) || view.batch || view.attempt) return;
         view.select.value = item.sourceId;
+        view.markedSelect.value = '';
+        view.releaseButton.disabled = true;
+        view.releaseButton.hidden = true;
         view.sourceDetails.textContent = 'Auswahl-ID: ' + item.sourceId;
         refreshSelectedPreview(view);
       });
@@ -773,6 +789,7 @@
         view.select.value = '';
         view.markedSelect.value = item.sourceId;
         view.releaseButton.disabled = false;
+        view.releaseButton.hidden = false;
         refreshSelectedPreview(view);
         const statusText = marker === 'duplicate'
           ? 'Bereits als Duplikat markiert (.duplicate). Kein erneuter Import.'
@@ -810,11 +827,12 @@
     view.markedSelect.value = '';
     view.markedSelect.disabled = marked.length === 0;
     view.releaseButton.disabled = true;
+    view.releaseButton.hidden = true;
     view.normalLabel.hidden = mode === 'marked';
-    view.markedLabel.hidden = mode === 'normal';
+    view.markedLabel.hidden = mode !== 'marked' || marked.length === 0;
     view.visibleCount.textContent = normal.length + ' unmarkierte (Eignung noch ungeprüft) und ' +
       marked.length + ' markierte Quellen in dieser Ansicht ' +
-      '(aus maximal ' + MAX_IMPORT_FILMS + ' geprüften Quellen).';
+      '(aus maximal ' + MAX_IMPORT_FILMS + ' erfassten Quellen).';
   }
 
   function loadSources(view) {
@@ -841,6 +859,7 @@
     view.startButton.disabled = true;
     view.markedSelect.disabled = true;
     view.releaseButton.disabled = true;
+    view.releaseButton.hidden = true;
     view.batchButton.disabled = true;
     view.selectedBatchButton.disabled = true;
     view.selectAllVisibleButton.disabled = true;
@@ -1108,6 +1127,22 @@
       plan.status === 'unavailable' || plan.status === 'duplicate';
     view.skipButton.disabled = view.submitting || Boolean(view.attempt) ||
       Boolean(view.batch);
+    Array.from(view.selectionRows.children).forEach(function (row) {
+      const rowSelected = selected && row.dataset.sourceId === id;
+      const marked = row.className.includes('media-import-marked-item');
+      row.className = marked ? 'media-import-select-item media-import-marked-item'
+        : 'media-import-select-item' + (rowSelected ? ' is-selected' : '');
+      if (rowSelected && row.children[2]) {
+        const status = !plan ? 'Technische Prüfung läuft' :
+          plan.status === 'ready' ? (plan.videoReencodeRequired
+            ? 'Umkodierung nötig' : 'Direktimport möglich')
+          : plan.status === 'duplicate' ? 'VDR-Aufnahme vorhanden'
+          : plan.status === 'insufficient' ? 'Speicherplatz fehlt'
+          : 'Prüfung nicht möglich';
+        const folder = item && item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel';
+        row.children[2].textContent = folder + ' · ' + status;
+      }
+    });
     if (!selected) {
       view.preview.textContent = 'Schritt 2: Film oder Serienfolge auswählen. Die Vorschau startet automatisch.';
       renderPreviewCard(view, null, item);
@@ -1302,6 +1337,8 @@
           // Timeouts, 5xx, invalid 202 responses and 409 are NOT proof of failure.
           if (error && [400, 401, 403, 404, 422].includes(error.status)) {
             delete activeAttempts[view.backendId];
+            if (attempt.videoDecision === 'duplicate')
+              delete automaticDuplicates[view.backendId + '|' + attempt.sourceId];
             view.attempt = null;
             if (target) {
               target.attempt = null;
@@ -1465,6 +1502,7 @@
       'Ausgewählte Markierung aufheben');
     releaseButton.type = 'button';
     releaseButton.disabled = true;
+    releaseButton.hidden = true;
     root.appendChild(releaseButton);
     const refreshButton = element('button', 'media-import-refresh', 'Vorgang prüfen');
     refreshButton.type = 'button';
@@ -1623,6 +1661,9 @@
       refreshSelectedPreview(view);
     });
     select.addEventListener('change', function () {
+      markedSelect.value = '';
+      releaseButton.disabled = true;
+      releaseButton.hidden = true;
       startButton.disabled = view.submitting || !view.sources.includes(select.value);
       sourceDetails.textContent = view.sources.includes(select.value)
         ? 'Auswahl-ID: ' + select.value : '';
@@ -1645,6 +1686,7 @@
     markedSelect.addEventListener('change', function () {
       releaseButton.disabled = view.submitting || Boolean(view.attempt) ||
         !view.markedSources.includes(markedSelect.value);
+      releaseButton.hidden = !view.markedSources.includes(markedSelect.value);
     });
     releaseButton.addEventListener('click', function () {
       return startImport(view, true);

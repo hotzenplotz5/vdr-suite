@@ -245,14 +245,14 @@ int main() {
         std::ofstream(existingRec / "info") << "T Another Film\n";
         std::ofstream(existingRec / "index") << "synthetic index";
         std::ofstream(existingRec / "00001.ts") << "synthetic video";
-        assert(!confirmedMediaImportDuplicate(duplicate),
-               "a different VDR title cannot auto-mark the source");
+        // A different title cannot auto-mark the source.
+        assert(!confirmedMediaImportDuplicate(duplicate));
         std::ofstream(existingRec / "info", std::ios::trunc) << "T Sample\n";
-        assert(confirmedMediaImportDuplicate(duplicate),
-               "complete matching recording is stronger duplicate evidence");
+        // Complete matching recording is stronger duplicate evidence.
+        assert(confirmedMediaImportDuplicate(duplicate));
         fs::remove(existingRec / "index");
-        assert(!confirmedMediaImportDuplicate(duplicate),
-               "missing index must not auto-mark the source");
+        // A missing index must not auto-mark the source.
+        assert(!confirmedMediaImportDuplicate(duplicate));
         mustFail([&] { inspectImport(request); }); // write path still rejects
         struct ReadOnlyCodec : ProcessRunner {
             ProcessResult run(const std::vector<std::string>& args,
