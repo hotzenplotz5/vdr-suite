@@ -70,7 +70,18 @@ instabilen VDR und keine Vermischung zweier Testumgebungen.
 
 ## Implementierungsbefund auf diesem Branch
 
-**F1.1 – differenzierte CREATE-Diagnose (Quellcode):** Die
+**F1.1 – differenzierte CREATE-Diagnose und Operationsabfrage (Quellcode):**
+Die Oberfläche bietet nach einer angenommenen CREATE-Operation
+`Anlagevorgang prüfen` und ruft die bereits existierende, actor-gebundene
+`GET /api/v1/operations/{operationId}`-Route ausschließlich lesend auf.
+Das Operationsergebnis wird gegen die ursprüngliche ID und das
+ausgewählte Backend geprüft; keine automatische zweite CREATE-Mutation.
+Ein serverbestätigtes `succeeded` bestätigt **inaktive** Anlage,
+nicht Aktivierung. Bei nicht bestätigtem Ausgang bleibt die Operation
+gehalten. Das wurde mit dem echten UI-Submit-Handler und einem
+gemockten Public-v1-Readback geprüft.
+
+**F1.1 – 503-Diagnose (Quellcode):** Die
 Public-v1-HTTP-Route unterscheidet jetzt ein schreibgesperrtes/offline
 Backend, einen nicht gültig angemeldeten Agenten, die fehlende
 SearchTimer-Provider-/SuiteBridge-Anbindung und nicht bestätigte
