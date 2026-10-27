@@ -363,8 +363,8 @@ function publishHomeResume() {}
   // second import route, selection or backend mutation.
   const mobileNav = findClass(mount, 'media-import-mobile-nav');
   assert(mobileNav && mobileNav.children.length === 3);
-  assert.strictEqual(importPanel.dataset.mobilePane, 'media');
-  assert.strictEqual(mobileNav.children[1].attributes['aria-pressed'], 'true');
+  assert.strictEqual(importPanel.dataset.mobilePane, 'details');
+  assert.strictEqual(mobileNav.children[2].attributes['aria-pressed'], 'true');
   const mobilePosts = requests.filter(r => r.options.method === 'POST').length;
   await mobileNav.children[0].listeners.click();
   assert.strictEqual(importPanel.dataset.mobilePane, 'folders');

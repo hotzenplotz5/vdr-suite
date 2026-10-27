@@ -1843,6 +1843,13 @@
     episodes.appendChild(label);
     episodes.appendChild(selectionRows);
     const detail = element('section', 'media-import-pane media-import-detail');
+    const mobileBack = element('button', 'media-import-mobile-back',
+      '← Zur Medienliste');
+    mobileBack.type = 'button';
+    mobileBack.addEventListener('click', function () {
+      setMobilePane(view, 'media');
+    });
+    detail.appendChild(mobileBack);
     detail.appendChild(element('h4', '', 'Vorschau und Aktionen'));
     detail.appendChild(previewCard);
     detail.appendChild(previewRetryButton);
@@ -1871,13 +1878,6 @@
         mobileButtons[entry[0]] = button;
         mobileNav.appendChild(button);
       });
-    const mobileBack = element('button', 'media-import-mobile-back',
-      '← Zur Medienliste');
-    mobileBack.type = 'button';
-    mobileBack.addEventListener('click', function () {
-      setMobilePane(view, 'media');
-    });
-    detail.appendChild(mobileBack);
     const workspace = element('div', 'media-import-workspace');
     workspace.appendChild(library);
     workspace.appendChild(episodes);
