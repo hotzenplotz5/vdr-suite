@@ -1070,6 +1070,12 @@
     saveButton.dataset.searchtimerAction = 'save';
     actions.appendChild(previewButton);
     actions.appendChild(saveButton);
+    const checkOperationButton = addText(
+      document.createElement('button'), 'Anlagevorgang prüfen');
+    checkOperationButton.type = 'button';
+    checkOperationButton.hidden = true;
+    checkOperationButton.disabled = true;
+    actions.appendChild(checkOperationButton);
     form.appendChild(actions);
     const feedback = document.createElement('div');
     feedback.className = 'searchtimer-feedback';
@@ -1079,6 +1085,54 @@
 
     let pendingKey = '';
     let pendingFingerprint = '';
+    let pendingOperationId = '';
+    function acceptedOperationId(value) {
+      const candidate = String(value || '');
+      return /^op_[0-9a-f]{32}$/.test(candidate) ? candidate : '';
+    }
+    function updateOperationStatus(operation) {
+      const state = String(operation && operation.state || 'unbekannt');
+      if (state === 'succeeded') {
+        setFeedback(feedback,
+          'SearchTimer laut dauerhafter Operation erfolgreich inaktiv angelegt. ' +
+          'Aktivierung ist damit noch nicht erfolgt.', false);
+        pendingKey = '';
+        pendingFingerprint = '';
+        pendingOperationId = '';
+        checkOperationButton.hidden = true;
+        checkOperationButton.disabled = true;
+        global.setTimeout(reloadSearchTimers, 300);
+      } else {
+        const failed = state === 'failed_before_dispatch' ||
+          state === 'failedBeforeDispatch';
+        setFeedback(feedback,
+          'Anlagevorgang ' + (pendingOperationId || '(ID unbekannt)') +
+          ': ' + state + (failed
+            ? ' (vor Ausführung abgelehnt).'
+            : '. Ergebnis noch nicht sicher bestätigt; keine neue Anlage starten.'), failed);
+      }
+    }
+    checkOperationButton.addEventListener('click', () => {
+      if (!pendingOperationId || checkOperationButton.disabled) return;
+      const api = clientApi();
+      if (!api || typeof api.requestJson !== 'function') return;
+      checkOperationButton.disabled = true;
+      api.requestJson('/api/v1/operations/' + pendingOperationId, {
+        cache: 'no-store', credentials: 'same-origin'
+      }).then(operation => {
+        if (!operation || operation.operationId !== pendingOperationId ||
+            operation.backendId !== selectedBackendId()) {
+          throw new Error('Operationszuordnung konnte nicht bestätigt werden.');
+        }
+        updateOperationStatus(operation);
+      }).catch(error => {
+        setFeedback(feedback, 'Operationsstatus konnte nicht gelesen werden: ' +
+          String(error && error.message ? error.message : error) +
+          '. Nicht erneut anlegen.', true);
+      }).finally(() => {
+        checkOperationButton.disabled = !pendingOperationId;
+      });
+    });
     function payload() {
       const result = buildCreatePayload(form, activeCreateTemplate || source);
       result.query = String(result.query || '').trim();
@@ -1149,20 +1203,10 @@
         payload: body
       }).then(response => {
         const operation = response && response.operation || response || {};
-        const state = String(operation.state || '');
-        if (state === 'succeeded') {
-          setFeedback(feedback,
-            'Inaktiver SearchTimer bestätigt. Direkte Aktivierung ist auf diesem API-Weg noch nicht verfügbar.', false);
-          // Only a confirmed success releases this form for a new operation.
-          pendingKey = '';
-          pendingFingerprint = '';
-          global.setTimeout(reloadSearchTimers, 300);
-        } else {
-          setFeedback(feedback,
-            'Anlagevorgang (' + (state || 'Status unbekannt') +
-            ', Operation ' + String(operation.operationId || 'ohne ID') +
-            '). Ergebnis im Backend prüfen; keinen neuen Schlüssel verwenden.', false);
-        }
+        pendingOperationId = acceptedOperationId(operation.operationId);
+        checkOperationButton.hidden = !pendingOperationId;
+        checkOperationButton.disabled = !pendingOperationId;
+        updateOperationStatus(operation);
       }).catch(error => {
         const trace = error && error.requestId ? ' [Request-ID: ' + error.requestId + ']' : '';
         const message = createErrorText(error);
