@@ -220,6 +220,21 @@ int main() {
         assert(!fs::exists(f.video / "Sample"));
         assert(fs::exists(f.source));
         assert(!fs::exists(f.video / "Sample"));
+        // MT.META2: Optional FFprobe duration is read-only and never required
+        // to decide whether a source can be imported.
+        struct DurationProbe final : ProcessRunner {
+            ProcessResult run(const std::vector<std::string>& args,
+                              bool capture) override {
+                assert(capture && args[0] == "/usr/bin/ffprobe");
+                assert(std::find(args.begin(), args.end(), "format=duration") != args.end());
+                assert(args.back() == source);
+                return {0, "3120.25\\n"};
+            }
+            std::string source;
+        } duration;
+        duration.source = f.source.string();
+        assert(probeImportDurationSeconds(plan, duration) == 3120.25);
+        assert(!fs::exists(f.video / "Sample") && fs::exists(f.source));
         ++checks;
     }
     {
