@@ -1458,12 +1458,18 @@
         view.duplicateQueue = [];
         view.duplicateReviewPending = false;
         if (view.batchReview) renderBatchReview(view);
+        // No operation was admitted. The old preview cannot authorize another
+        // click after the permission/source check failed; offer a fresh read.
+        view.previewResult = null;
+        view.previewFailed = true;
+        view.previewStatus = message;
         report(view, message, true);
       }).finally(function () {
         view.submitting = false;
         if (isCurrent(view) && !view.attempt && !view.batch) {
-          view.localReencode.disabled = view.decision.value !== 'import';
-          view.decision.disabled = false;
+          // Restore controls from the actual inspected state, not the
+          // unconditional flags left behind by an interrupted submission.
+          updatePreview(view);
           view.markedSelect.disabled = view.markedSources.length === 0;
           view.releaseButton.disabled =
             !view.markedSources.includes(view.markedSelect.value);
