@@ -68,6 +68,7 @@ let markedSources = [];
 let sourcePartial = false;
 let sourceDisplayOverride = null;
 const sourceFolders = Object.create(null);
+const sourceDisplayLabels = Object.create(null);
 let pagedSourceIds = null;
 let batchOperations = [];
 const BATCH_OP_A = 'op_' + 'd'.repeat(32);
@@ -150,7 +151,7 @@ function transport(url, options) {
           (offset + 32) : undefined;
       return Promise.resolve(reply(200, {
         items: ids.map(function (id) {
-          return {sourceId: id, label: 'Film ' + id,
+          return {sourceId: id, label: sourceDisplayLabels[id] || 'Film ' + id,
             ...(Object.prototype.hasOwnProperty.call(sourceFolders, id)
               ? {folder: sourceFolders[id]} : {})};
         }),
@@ -920,6 +921,63 @@ function publishHomeResume() {}
   assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
     beforePagedPosts, '101 sources must never dispatch an import');
   pagedSourceIds = null;
+
+  // REAL-VDR regression: the Agent may return shuffled episodes. The root
+  // overview, single-select and batch checkboxes use identical natural order.
+  // Folder names also sort numerically (Staffel 2 before Staffel 10).
+  context.resetMediaImportVisibility(true);
+  const shuffledIds = [
+    'source_19000000010', 'source_19000000009', 'source_19000000002',
+    'source_19000000001', 'source_29000000010', 'source_29000000002'
+  ];
+  const shuffledLabels = [
+    'Andor - S02E10 - Mach, dass es aufhört',
+    'Andor - S01E09 - Niemand hört zu',
+    'Andor - S02E02 - Sagrona Teema',
+    'Andor - S01E02 - Episode 2',
+    'Zusatzfilm 10', 'Zusatzfilm 2'
+  ];
+  shuffledIds.forEach(function (id, index) {
+    sourceDisplayLabels[id] = shuffledLabels[index];
+    sourceFolders[id] = index < 4 ? 'Serien/Andor' :
+      index === 4 ? 'Serien/Staffel 10' : 'Serien/Staffel 2';
+  });
+  pagedSourceIds = shuffledIds;
+  const beforeSortedPosts = requests.filter(r => r.options.method === 'POST').length;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const orderedIds = [
+    shuffledIds[3], shuffledIds[1], shuffledIds[2], shuffledIds[0],
+    shuffledIds[5], shuffledIds[4]
+  ];
+  const sortedSelect = findClass(mount, 'media-import-source');
+  assert.strictEqual(sortedSelect.children.slice(1).map(function (option) {
+    return option.value;
+  }).join('|'), orderedIds.join('|'), 'source IDs remain tied to naturally sorted episodes');
+  const sortedCheckboxes = findClass(mount, 'media-import-selection');
+  assert.strictEqual(sortedCheckboxes.children.map(function (row) {
+    return row.textContent;
+  }).join('|'), orderedIds.map(function (id) {
+    return sourceDisplayLabels[id];
+  }).join('|'), 'batch checkboxes use the same order as single selection');
+  const sortedFolders = findClass(mount, 'media-import-folders');
+  sortedFolders.children[0].listeners.click(); // Serien
+  assert.strictEqual(sortedFolders.children.map(function (child) {
+    return child.textContent;
+  }).join('|'), '📁 Andor|📁 Staffel 2|📁 Staffel 10');
+  sortedFolders.children[0].listeners.click(); // Andor
+  assert.strictEqual(sortedSelect.children.slice(1).map(function (item) {
+    return item.value;
+  }).join('|'), orderedIds.slice(0, 4).join('|'),
+  'Andor directory lists seasons then episodes in numeric order');
+  assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
+    beforeSortedPosts, 'local sorting and navigation never post imports');
+  pagedSourceIds = null;
+  shuffledIds.forEach(function (id) {
+    delete sourceDisplayLabels[id];
+    delete sourceFolders[id];
+  });
 
   // UX2: trusted backend display alias is text-only presentation;
   // it never becomes a browser-supplied absolute root path or a new grant.
