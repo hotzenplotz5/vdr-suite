@@ -732,10 +732,16 @@ int main()
     mediaOutcome.boundedDiagnostics = "recording reconciliation pending";
     const std::string nativeImportedPath =
         "/srv/vdr/video/Imported/2026-10-21.18.00.00-0.rec";
+    const auto sourceProof = vdrsuite::mediatools::mediaImportSourceEvidence(
+        "/srv/import/Film.mp4", 17, 42, 2048, 100, 1234);
     mediaOutcome.resultEvidence =
-        vdrsuite::mediatools::recordingPathEvidence(nativeImportedPath);
-    assert(vdrsuite::mediatools::validRecordingPathEvidence(
-        mediaOutcome.resultEvidence));
+        vdrsuite::mediatools::mediaImportResultEvidence(
+            vdrsuite::mediatools::recordingPathEvidence(nativeImportedPath),
+            sourceProof);
+    std::string recordingPart, sourcePart;
+    assert(vdrsuite::mediatools::parseMediaImportResultEvidence(
+        mediaOutcome.resultEvidence, recordingPart, sourcePart));
+    assert(sourcePart == sourceProof);
     mediaOutcome.completedAt = 121;
     assert(backendAgentCommandValidResult(mediaOutcome));
     auto mediaApplied = service.result(
@@ -806,12 +812,14 @@ int main()
     assert(notice->operationId == media.operationId);
     assert(notice->backendGeneration == media.backendGeneration);
     assert(notice->verificationPolicy == "none");
-    std::string noticeSource, originalCommand, noticeEvidence;
+    std::string noticeSource, originalCommand, noticeEvidence, noticeSourceProof;
     assert(vdrsuite::mediatools::parseMediaImportReadbackPayload(
-        notice->payload, noticeSource, originalCommand, noticeEvidence));
+        notice->payload, noticeSource, originalCommand,
+        noticeEvidence, noticeSourceProof));
+    assert(notice->payloadVersion == 2);
     assert(noticeSource == op.resourceId &&
            originalCommand == media.commandId &&
-           noticeEvidence == mediaOutcome.resultEvidence);
+           noticeEvidence == recordingPart && noticeSourceProof == sourceProof);
     auto readbackPoll = importPoll;
     // The installed Agent advertises both operations from the same reviewed
     // import executor. Publishing readback must not erase the ordinary import

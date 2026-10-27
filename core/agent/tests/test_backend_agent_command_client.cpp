@@ -404,6 +404,27 @@ void testReadbackCommandContract()
     assignmentValue.requestFingerprint =
         backendAgentCommandFingerprint(assignmentValue);
     assert(!backendAgentCommandValidAssignment(assignmentValue));
+
+    const auto sourceProof = mediaImportSourceEvidence(
+        "/ci-only/media-in/Film.mp4", 17, 42, 2048, 100, 1234);
+    const auto paired = mediaImportReadbackPayload(
+        source, command, evidence, sourceProof);
+    std::string decodedProof;
+    assert(parseMediaImportReadbackPayload(
+        paired, decodedSource, decodedCommand, decodedEvidence, decodedProof));
+    assert(decodedProof == sourceProof && decodedEvidence == evidence);
+    assignmentValue.verificationPolicy = "none";
+    assignmentValue.payloadVersion = 2;
+    assignmentValue.payload = paired;
+    assignmentValue.requestFingerprint =
+        backendAgentCommandFingerprint(assignmentValue);
+    assert(backendAgentCommandValidAssignment(assignmentValue));
+    assignmentValue.payloadVersion = 1;
+    assignmentValue.requestFingerprint =
+        backendAgentCommandFingerprint(assignmentValue);
+    assert(!backendAgentCommandValidAssignment(assignmentValue));
+    assert(!parseMediaImportReadbackPayload(
+        paired + " ", decodedSource, decodedCommand, decodedEvidence, decodedProof));
 }
 
 // The production command-client composition must durably acknowledge the
@@ -414,6 +435,9 @@ class ReadbackOnlyExecutor final : public vdrsuite::mediatools::IMediaImportAgen
 public:
     int authorizationCalls = 0;
     int executionCalls = 0;
+    int cleanupCalls = 0;
+    vdrsuite::mediatools::MediaImportCleanupOutcome nextCleanup =
+        vdrsuite::mediatools::MediaImportCleanupOutcome::removed;
     bool available() override { return true; }
     bool authorize(const BackendAgentCommandAssignment&,
                    const std::string&, std::uint64_t) override
@@ -426,6 +450,12 @@ public:
     {
         ++executionCalls;
         return vdrsuite::mediatools::MediaImportAgentOutcome::rejected;
+    }
+    vdrsuite::mediatools::MediaImportCleanupOutcome cleanupConfirmedSource(
+        const std::string&, const std::string&) override
+    {
+        ++cleanupCalls;
+        return nextCleanup;
     }
 };
 
@@ -531,7 +561,8 @@ void testReadbackNoticeAgentRestartDoesNotExecuteImport()
     assert(transport.lastResult.verificationState == "verified");
     assert(transport.lastResult.boundedDiagnostics.find("no source cleanup") !=
            std::string::npos);
-    assert(executor.authorizationCalls == 0 && executor.executionCalls == 0);
+    assert(executor.authorizationCalls == 0 && executor.executionCalls == 0 &&
+           executor.cleanupCalls == 0);
 
     // New Agent process: use only the protected existing local state file,
     // not a fresh assignment or a second execution.
@@ -548,6 +579,74 @@ void testReadbackNoticeAgentRestartDoesNotExecuteImport()
         restartedConfig, context, transport, reason));
     assert(transport.results == 2);
     std::remove(path.c_str());
+}
+
+void testReadbackCleanupResultIsDurable()
+{
+    using namespace vdrsuite::mediatools;
+    const std::string path = "/tmp/vdr-suite-readback-cleanup-state";
+    const BackendAgentCommandClientContext context{
+        "agt_client", "secret-material-at-least-thirty-two-bytes",
+        "default", "agi_current", 8};
+    for (const auto& scenario : {
+        MediaImportCleanupOutcome::removed,
+        MediaImportCleanupOutcome::alreadyAbsent,
+        MediaImportCleanupOutcome::notPerformed,
+        MediaImportCleanupOutcome::failed})
+    {
+        std::remove(path.c_str());
+        ReadbackOnlyExecutor executor;
+        executor.nextCleanup = scenario;
+        BackendAgentCommandClientConfig config;
+        config.statePath = path;
+        config.mediaImportExecutor = &executor;
+        config.commandTypes = {kMediaImportCommandType, kMediaImportReadbackCommandType};
+        ReadbackNoticeTransport transport;
+        transport.notice = assignment();
+        transport.notice.agentInstanceId = context.agentInstanceId;
+        transport.notice.backendGeneration = context.backendGeneration;
+        transport.notice.commandType = kMediaImportReadbackCommandType;
+        transport.notice.payloadVersion = 2;
+        transport.notice.payload = mediaImportReadbackPayload(
+            "source_readback_123456", "cmd_original_readback",
+            recordingPathEvidence("/srv/vdr/Imported/2026-10-27.22.00.00-0.rec"),
+            mediaImportSourceEvidence(
+                "/ci-only/media-in/Film.mp4", 17, 42, 2048, 100, 1234));
+        transport.notice.verificationPolicy = "none";
+        transport.notice.assignedAt = commandNow() - 1;
+        transport.notice.deadline = commandNow() + 240;
+        transport.notice.requestFingerprint =
+            backendAgentCommandFingerprint(transport.notice);
+        assert(backendAgentCommandValidAssignment(transport.notice));
+        std::string reason;
+        // The first result has reached the control plane, but its ACK is lost.
+        assert(!pollBackendAgentCommand(config, context, transport, reason));
+        assert(executor.cleanupCalls == 1 && executor.executionCalls == 0);
+        assert(transport.results == 1);
+        const auto result = transport.lastResult;
+        const char* suffix = scenario == MediaImportCleanupOutcome::removed
+            ? "removed" : scenario == MediaImportCleanupOutcome::alreadyAbsent
+                ? "already-absent" : scenario == MediaImportCleanupOutcome::failed
+                    ? "failed" : "not-performed";
+        assert(result.resultEvidence ==
+            std::string("media-tools-cleanup:") + suffix);
+        assert(result.resultCategory ==
+            (scenario == MediaImportCleanupOutcome::failed
+                ? "rejected" : "succeeded"));
+
+        ReadbackOnlyExecutor restarted;
+        BackendAgentCommandClientConfig recovered = config;
+        recovered.mediaImportExecutor = &restarted;
+        assert(reconcileBackendAgentCommandState(
+            recovered, context, transport, reason));
+        assert(transport.results == 2);
+        assert(transport.lastResult.resultEvidence == result.resultEvidence);
+        assert(restarted.cleanupCalls == 0 && restarted.executionCalls == 0);
+        assert(reconcileBackendAgentCommandState(
+            recovered, context, transport, reason));
+        assert(transport.results == 2);
+        std::remove(path.c_str());
+    }
 }
 
 void testAddonCommandsNeverSelfAdvertise()
@@ -769,6 +868,7 @@ int main()
     testMediaToolsPollAcceptsReviewedShrinkTypes();
     testReadbackCommandContract();
     testReadbackNoticeAgentRestartDoesNotExecuteImport();
+    testReadbackCleanupResultIsDurable();
     testAddonCommandsNeverSelfAdvertise();
     testTimerAdvertisementActivation();
     testOsdInputAdvertisement();
