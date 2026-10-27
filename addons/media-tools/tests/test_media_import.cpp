@@ -238,6 +238,21 @@ int main() {
         const auto duplicate = inspectImportPreview(request);
         assert(duplicate.duplicateTarget &&
                duplicate.titleDirectory == base.titleDirectory);
+        // A protective .rec collision is NOT proof for automatic marking.
+        assert(!confirmedMediaImportDuplicate(duplicate));
+        const auto existingRec =
+            f.video / "Sample" / "2026-01-01.00.00.1-0.rec";
+        std::ofstream(existingRec / "info") << "T Another Film\n";
+        std::ofstream(existingRec / "index") << "synthetic index";
+        std::ofstream(existingRec / "00001.ts") << "synthetic video";
+        assert(!confirmedMediaImportDuplicate(duplicate),
+               "a different VDR title cannot auto-mark the source");
+        std::ofstream(existingRec / "info", std::ios::trunc) << "T Sample\n";
+        assert(confirmedMediaImportDuplicate(duplicate),
+               "complete matching recording is stronger duplicate evidence");
+        fs::remove(existingRec / "index");
+        assert(!confirmedMediaImportDuplicate(duplicate),
+               "missing index must not auto-mark the source");
         mustFail([&] { inspectImport(request); }); // write path still rejects
         struct ReadOnlyCodec : ProcessRunner {
             ProcessResult run(const std::vector<std::string>& args,
