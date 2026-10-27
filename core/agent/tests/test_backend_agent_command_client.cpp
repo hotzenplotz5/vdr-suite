@@ -1,6 +1,7 @@
 #include "BackendAgentClient.h"
 #include "BackendAgentCommand.h"
 #include "BackendAgentCommandClient.h"
+#include "BackendAgentCommandStateStore.h"
 #include "BackendAgentCommandJson.h"
 #include "BackendAgentNativeTimerCreateExecutor.h"
 #include "BackendAgentNativeTimerDeleteExecutor.h"
@@ -624,6 +625,10 @@ void testReadbackCleanupResultIsDurable()
         assert(executor.cleanupCalls == 1 && executor.executionCalls == 0);
         assert(transport.results == 1);
         const auto result = transport.lastResult;
+        vdrsuite::agent::commandstate::LocalState saved;
+        assert(vdrsuite::agent::commandstate::load(path, saved, reason));
+        assert(saved.resultPresent && !saved.resultAcknowledged);
+        assert(saved.result.resultEvidence == result.resultEvidence);
         const char* suffix = scenario == MediaImportCleanupOutcome::removed
             ? "removed" : scenario == MediaImportCleanupOutcome::alreadyAbsent
                 ? "already-absent" : scenario == MediaImportCleanupOutcome::failed
@@ -645,6 +650,63 @@ void testReadbackCleanupResultIsDurable()
         assert(reconcileBackendAgentCommandState(
             recovered, context, transport, reason));
         assert(transport.results == 2);
+        std::remove(path.c_str());
+    }
+
+    // Reproduce interruption between durable "starting" and the cleanup
+    // result. On restart the Agent must NOT issue a second unlink attempt.
+    {
+        std::remove(path.c_str());
+        ReadbackOnlyExecutor executor;
+        BackendAgentCommandClientConfig config;
+        config.statePath = path;
+        config.mediaImportExecutor = &executor;
+        config.commandTypes = {
+            kMediaImportCommandType, kMediaImportReadbackCommandType};
+        ReadbackNoticeTransport transport;
+        transport.notice = assignment();
+        transport.notice.agentInstanceId = context.agentInstanceId;
+        transport.notice.backendGeneration = context.backendGeneration;
+        transport.notice.commandType = kMediaImportReadbackCommandType;
+        transport.notice.payloadVersion = 2;
+        transport.notice.payload = mediaImportReadbackPayload(
+            "source_readback_123456", "cmd_original_readback",
+            recordingPathEvidence("/srv/vdr/Imported/2026-10-27.22.00.00-0.rec"),
+            mediaImportSourceEvidence(
+                "/ci-only/media-in/Film.mp4", 17, 42, 2048, 100, 1234));
+        transport.notice.verificationPolicy = "none";
+        transport.notice.assignedAt = commandNow() - 1;
+        transport.notice.deadline = commandNow() + 240;
+        transport.notice.requestFingerprint =
+            backendAgentCommandFingerprint(transport.notice);
+        assert(backendAgentCommandValidAssignment(transport.notice));
+
+        std::string reason;
+        assert(!pollBackendAgentCommand(config, context, transport, reason));
+        assert(executor.cleanupCalls == 1);
+        vdrsuite::agent::commandstate::LocalState interrupted;
+        assert(vdrsuite::agent::commandstate::load(path, interrupted, reason));
+        // The isolated fixture is rewound to the persisted crash boundary.
+        interrupted.dispatchState = "starting";
+        interrupted.resultPresent = false;
+        interrupted.resultAcknowledged = false;
+        assert(vdrsuite::agent::commandstate::persist(path, interrupted, reason));
+
+        ReadbackOnlyExecutor restarted;
+        BackendAgentCommandClientConfig recovered = config;
+        recovered.mediaImportExecutor = &restarted;
+        assert(reconcileBackendAgentCommandState(
+            recovered, context, transport, reason));
+        assert(restarted.cleanupCalls == 0 && restarted.executionCalls == 0);
+        assert(transport.lastResult.resultCategory == "outcome_unknown");
+        assert(transport.lastResult.verificationState == "outcome_unknown");
+        assert(transport.lastResult.retryClassification == "reconcile_only");
+        assert(transport.lastResult.resultEvidence == "media-tools-cleanup:failed");
+        assert(transport.lastResult.boundedDiagnostics.find("interrupted") !=
+            std::string::npos);
+        assert(reconcileBackendAgentCommandState(
+            recovered, context, transport, reason));
+        assert(restarted.cleanupCalls == 0);
         std::remove(path.c_str());
     }
 }
