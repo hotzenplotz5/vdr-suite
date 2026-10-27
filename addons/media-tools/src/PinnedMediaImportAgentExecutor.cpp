@@ -5,6 +5,7 @@
 #include "MediaImportRecordingEvidence.h"
 #include "MediaToolsImportRunLock.h"
 #include "MediaImportDecisionMarker.h"
+#include "MediaImport.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -326,6 +327,24 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         local.sourceMtimeNanoseconds != approvedSource.sourceMtimeNanoseconds)
         return MediaImportAgentOutcome::rejected;
 
+    if (requestedDecision == MediaImportDecision::duplicate) {
+        // The preview is read-only and can become stale. Reprove the target
+        // recording against this *same* pinned source immediately before rename.
+        // A mere name collision, empty .rec, or changed source is never enough.
+        try {
+            const auto plan = inspectImportPreview(
+                {local.sourceRoot, local.videoRoot, local.sourceFile});
+            if (plan.sourceDevice != local.sourceDevice ||
+                plan.sourceInode != local.sourceInode ||
+                plan.sourceBytes != local.sourceBytes ||
+                plan.sourceMtimeSeconds != local.sourceMtimeSeconds ||
+                plan.sourceMtimeNanoseconds != local.sourceMtimeNanoseconds ||
+                !confirmedMediaImportDuplicate(plan))
+                return MediaImportAgentOutcome::rejected;
+        } catch (...) {
+            return MediaImportAgentOutcome::rejected;
+        }
+    }
     if (requestedDecision == MediaImportDecision::desktop ||
         requestedDecision == MediaImportDecision::skip ||
         requestedDecision == MediaImportDecision::duplicate ||
