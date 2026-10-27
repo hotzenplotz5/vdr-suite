@@ -388,6 +388,28 @@ assert.ok(api.stagedCreateValidation({
   compareTitle: true, compareSubtitle: false, compareSummary: false
 }).length > 0);
 
+assert.deepStrictEqual(
+  Array.from(api.unsupportedStagedOptions({
+    active: false, directory: '', priority: 0, lifetime: 0,
+    marginStartMinutes: 0, marginStopMinutes: 0, useVps: false,
+    useChannel: 0, useDuration: false, avoidRepeats: false,
+    blacklistMode: 0, blacklistIds: '', matchCase: false
+  })), []
+);
+assert.deepStrictEqual(
+  Array.from(api.unsupportedStagedOptions({
+    active: true, directory: 'Series', priority: 50,
+    useChannel: 1, avoidRepeats: true, matchCase: true
+  })),
+  ['Sofort aktivieren', 'Aufnahmeverzeichnis', 'Priorität',
+   'Kanalfilter', 'Wiederholungen', 'Groß-/Kleinschreibung']
+);
+assert(source.includes('createDirectoryFields(advancedGrid, source)'));
+assert(source.includes('createChannelFilterFields(advancedGrid, source)'));
+assert(source.includes('Keine Anlage ausgeführt.'));
+assert(source.includes("state === 'succeeded'"));
+assert(source.includes("pendingKey = '';"));
+assert(source.includes("error.requestId"));
 assert.ok(
   source.includes('fetchClientSearchTimerDeleteAction')
 );
