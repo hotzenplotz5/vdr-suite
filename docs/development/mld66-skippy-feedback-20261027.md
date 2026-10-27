@@ -31,6 +31,14 @@ mit `succeeded` verwechselt; bei ausstehendem/unbekanntem Ergebnis
 wird **kein** zweiter CREATE ausgelöst. Isolierter UI-DOM-Test inklusive
 zweimaligem Status-Readback bestanden, MLD-Runtime weiterhin offen.
 
+**F1.3 Quellabschluss (Branch-Arbeitsstand):** Ein Suchtimer wird über
+die vorhandene angemeldete Browser-Route mit erweiterten Optionen direkt
+aktiv oder inaktiv angelegt; der Browser-Readback vergleicht Native-ID,
+Status und tatsächlich beobachtbare Einstellungen. Der Backend-Adapter
+weist Anfragen für ein anderes als sein konfiguriertes Backend vor dem
+Schreiben ab. Real-MLD-Abnahme und kompiliertes CI-Build sind noch offen.
+Siehe [Phase MLD.F1](../planning/mld66-feedback-phase-f1.md).
+
 **Aktueller F1.1–F1.3-Befund:** Siehe [Phase MLD.F1](../planning/mld66-feedback-phase-f1.md) für die eingecheckten Diagnose-/Editor-Änderungen und den noch offenen aktivierenden Native-CAS-Pfad. 
 
 **Test-Evidenz:** JS-V8-Modultest der Kanalnamensauflösung (inklusive bestehender Workflow-Assertions) und DOM-Mock der Berechtigungsauswahl (inklusive bestehender Mutationstests) bestanden. Der vollständige Preview-Fetch-Pfad wurde noch nicht end-to-end getestet. Noch **nicht bestätigt:** nativer Node-/CI-Lauf des Branch-HEAD, MLD-Kompilierung und Paketierung, reale MLD-Installation sowie reale VDR-Operationen.
