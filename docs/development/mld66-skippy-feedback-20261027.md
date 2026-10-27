@@ -4,7 +4,7 @@ Branch: `work/mld66-skippy-feedback-20261027`, ab `main` `cc6cc4678fb10a4376d931
 Dies ist ein **separater MLD-Teststand**, keine allgemeine Freigabe, kein MLD-Paket und kein nachgewiesener Hardwaretest. `main` und der bisherige Integrationsbranch bleiben unverändert.
 Referenz: [MLD-Kompatibilitätsinventar](mld66-compatibility-inventory.md),
 [Public-v1-Suchtimer-Vertrag](../../api/search-timers.md),
-[Medienwiedergabevertrag](../development/frontend-playback-integration-contract.md).
+[Medienwiedergabevertrag](frontend-playback-integration-contract.md).
 
 ## Rückmeldungen und prüfbare Änderungen
 
@@ -21,7 +21,7 @@ Referenz: [MLD-Kompatibilitätsinventar](mld66-compatibility-inventory.md),
 | Plugin-/Installationsübersicht | Vorläufige Funktionsmatrix unten | Effektiv installierte MLD-Rezepte, ABI und Fähigkeiten gegen lokale Paketmetadaten prüfen |
 | Suchtimer-Treffervorschau zeigt Kanal-ID | **IM BRANCH IMPLEMENTIERT**: Vorschautreffer werden mit derselben Backend-Kanalliste in Klartext aufgelöst; bei fehlender Kanalliste bleibt die Originalkennung als Fallback sichtbar | Einen bekannten Treffer mit Sender-ID anzeigen und Klarnamen prüfen; Kanallistenfehler muss die Treffervorschau weiterhin erlauben |
 
-**Test-Evidenz:** JS-V8-Regression/DOM-Mock der beiden UI-Flows bestanden. Noch **nicht bestätigt:** vollständiger Node-/CI-Lauf des Branch-HEAD, MLD-Kompilierung und Paketierung, reale MLD-Installation sowie reale VDR-Operationen.
+**Test-Evidenz:** JS-V8-Modultest der Kanalnamensauflösung (inklusive bestehender Workflow-Assertions) und DOM-Mock der Berechtigungsauswahl (inklusive bestehender Mutationstests) bestanden. Der vollständige Preview-Fetch-Pfad wurde noch nicht end-to-end getestet. Noch **nicht bestätigt:** nativer Node-/CI-Lauf des Branch-HEAD, MLD-Kompilierung und Paketierung, reale MLD-Installation sowie reale VDR-Operationen.
 
 ## Was gehört zur VDR-Suite-Installation?
 
