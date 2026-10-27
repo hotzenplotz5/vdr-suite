@@ -161,6 +161,17 @@ int main()
         BackendAgentMediaImportCatalog::PreviewState::ready);
     assert(observed.status == "insufficient" && observed.videoCodec == "vp9" &&
            observed.videoReencodeRequired);
+    // A confirmed VDR recording can be classified without probing the
+    // original codec. Core/Agent still validates the marker before execution.
+    assert(catalog.requestPreview(live, "backend", 139, newer, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::pending);
+    const BackendAgentMediaImportCatalog::Preview duplicate{
+        newer, "duplicate", "Film", "Serien/Andor/Film", "",
+        1000, 0, 0, false};
+    assert(catalog.acceptPreview(live, "backend", 139, duplicate));
+    assert(catalog.requestPreview(live, "backend", 139, newer, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::ready);
+    assert(observed.status == "duplicate" && observed.videoCodec.empty());
     std::string origin, version, sha256;
     assert(catalog.observedInstallation(
         live, "backend", 100, origin, version, sha256));
