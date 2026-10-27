@@ -334,6 +334,28 @@ int main()
     fs::rename(held, fixture.source);
     fixture.write();
 
+    // A complete pre-existing VDR recording must not make an unmarked
+    // import source disappear from either the explicit or recursive catalog.
+    // The productive inspector confirms the duplicate before any marker
+    // operation is allowed; scanning itself remains read-only.
+    const auto targetRec =
+        fixture.destination / "clip" / "2026-01-01.00.00.1-0.rec";
+    fs::create_directories(targetRec);
+    std::ofstream(targetRec / "info") << "T clip\n";
+    std::ofstream(targetRec / "index") << "synthetic index";
+    std::ofstream(targetRec / "00001.ts") << "synthetic video";
+    assert(inventory.resolve("backend", Key, selected) &&
+           selected.sourceFile == fixture.source);
+    fixture.write(wildcardRow + "\n");
+    assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 3);
+    bool duplicateVisible = false;
+    for (const auto& id : ids) {
+        assert(inventory.resolve("backend", id, selected));
+        duplicateVisible |= selected.sourceFile == fixture.source;
+    }
+    assert(duplicateVisible);
+    fixture.write();
+
     // Root-owned inventory is readable by the real unprivileged Agent uid.
     const passwd* nobody = ::getpwnam("nobody");
     assert(nobody != nullptr && nobody->pw_uid != 0);
