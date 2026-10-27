@@ -805,7 +805,7 @@
     const parts = (item.folder || '').split('/').filter(Boolean);
     const seasonName = parts.length &&
       /^(?:Staffel|Season)[ ._-]*(0?[1-9]|[1-9][0-9])$/i.exec(parts[parts.length - 1]);
-    const filename = /(?:^|[\\s._-])S(0?[1-9]|[1-9][0-9])E(0?[1-9]|[1-9][0-9]{1,2})(?=$|[\\s._-])/i
+    const filename = /(?:^|[\s._-])S(0?[1-9]|[1-9][0-9])E(0?[1-9]|[1-9][0-9]{1,2})(?=$|[\s._-])/i
       .exec(item.label || '');
     const folderSeason = seasonName ? Number(seasonName[1]) : null;
     const labelSeason = filename ? Number(filename[1]) : null;
