@@ -1448,6 +1448,10 @@
           return;
         }
         if (!isCurrent(view)) return;
+        // No request was admitted: allow a fresh verified preview to retry
+        // automatic marking instead of permanently suppressing this source.
+        if (automaticDuplicate && !view.attempt)
+          delete automaticDuplicates[view.backendId + '|' + sourceId];
         const message = error && error.status === 503
           ? 'Quellenliste veraltet oder Backend-Agent nicht verfügbar. Erneut laden.'
           : error && (error.status === 401 || error.status === 403)
