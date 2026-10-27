@@ -709,7 +709,7 @@
         throw new Error('Media Import requires valid Idempotency-Key');
       }
       if (requestOptions.videoDecision !== undefined &&
-          !['local', 'desktop', 'skip', 'release'].includes(requestOptions.videoDecision)) {
+          !['local', 'desktop', 'skip', 'release', 'duplicate'].includes(requestOptions.videoDecision)) {
         throw new Error('Media Import requires an explicit supported video decision');
       }
       const headers = Object.assign(
