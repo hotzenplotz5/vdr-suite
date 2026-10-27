@@ -228,7 +228,7 @@ int main() {
                 assert(capture && args[0] == "/usr/bin/ffprobe");
                 assert(std::find(args.begin(), args.end(), "format=duration") != args.end());
                 assert(args.back() == source);
-                return {0, "3120.25\\n"};
+                return {0, "3120.25"};
             }
             std::string source;
         } duration;
