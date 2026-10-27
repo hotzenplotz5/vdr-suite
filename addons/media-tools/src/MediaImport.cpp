@@ -496,6 +496,44 @@ ImportPlan inspectImportPreview(const ImportRequest& request) {
     return inspectImportChecked(request, false);
 }
 
+bool confirmedMediaImportDuplicate(const ImportPlan& plan)
+{
+    if (!plan.duplicateTarget) return false;
+    try {
+        // The existing duplicateTarget is intentionally conservative: even an
+        // incomplete .rec protects the import destination from overwrite.
+        // Automatic Rectools .duplicate marking requires stronger evidence.
+        const auto titleStatus = fs::symlink_status(plan.titleDirectory);
+        if (!fs::is_directory(titleStatus)) return false;
+        for (const auto& entry : fs::directory_iterator(plan.titleDirectory)) {
+            if (entry.path().extension() != ".rec") continue;
+            const auto status = entry.symlink_status();
+            if (!fs::is_directory(status)) continue;
+            const auto recording = entry.path();
+            if (!nonemptyRegular(recording / "info") ||
+                !nonemptyRegular(recording / "index") ||
+                !nonemptyRegular(recording / "00001.ts"))
+                continue;
+            std::ifstream metadata(recording / "info", std::ios::binary);
+            std::string line;
+            bool matchingTitle = false;
+            // A VDR info file starts with T <title> when written by our importer.
+            // Never mistake a different title in a colliding directory for this film.
+            while (std::getline(metadata, line)) {
+                if (!line.empty() && line.back() == '\r') line.pop_back();
+                if (line.compare(0, 2, "T ") == 0) {
+                    matchingTitle = line.substr(2) == plan.title;
+                    break;
+                }
+            }
+            if (matchingTitle) return true;
+        }
+    } catch (...) {
+        return false;
+    }
+    return false;
+}
+
 bool importVideoNeedsReencode(const std::string& codec) {
     // An unknown codec must never silently take the stream-copy path.
     return codec != "h264" && codec != "hevc" && codec != "mpeg2video";
