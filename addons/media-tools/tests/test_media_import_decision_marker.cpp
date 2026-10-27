@@ -109,6 +109,19 @@ int main() {
     assert(markMediaImportSource(source(root, video, second),
            MediaImportMarkerDecision::skip) == MediaImportMarkerOutcome::marked);
 
+    // Rectools duplicate is a first-class marker: same naming and safe release.
+    const auto dupOriginal = root / "folder" / "Already Recorded.mkv";
+    const auto dupMarked = root / "folder" / "Already Recorded.duplicate.mkv";
+    write(dupOriginal);
+    assert(markMediaImportSource(source(root, video, dupOriginal),
+           MediaImportMarkerDecision::duplicate) == MediaImportMarkerOutcome::marked);
+    assert(!fs::exists(dupOriginal));
+    assert(contents(dupMarked) == "unchanged media bytes");
+    assert(markMediaImportSource(source(root, video, dupMarked),
+           MediaImportMarkerDecision::release) == MediaImportMarkerOutcome::marked);
+    assert(!fs::exists(dupMarked));
+    assert(contents(dupOriginal) == "unchanged media bytes");
+
     // No action on already marked or duplicated media.
     assert(markMediaImportSource(source(root, video, secondSkipped),
            MediaImportMarkerDecision::desktop) ==
