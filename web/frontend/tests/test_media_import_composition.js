@@ -1270,6 +1270,33 @@ function publishHomeResume() {}
   assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
     racePosts, 'all preview transitions are read-only');
 
+  // If capability revalidation fails before a POST, a previously ready
+  // preview must be invalidated. Retry is immediately available and read-only.
+  raceSelect.value = SOURCE;
+  raceSelect.listeners.change();
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, false);
+  const beforeRejectedAdmission = submits;
+  allow = false;
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeRejectedAdmission,
+    'denied pre-admission must not dispatch an import');
+  assert(findClass(mount, 'media-import-start').disabled,
+    'stale pre-admission preview must not authorize another import');
+  const retryAdmission = findClass(mount, 'media-import-preview-retry');
+  assert(retryAdmission && !retryAdmission.hidden && !retryAdmission.disabled,
+    'pre-admission failure must restore preview retry without changing films');
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    'Keine gültige Anmeldung oder Media-Import-Berechtigung'));
+  allow = true;
+  await retryAdmission.listeners.click();
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, false,
+    'a newly verified preview re-enables the normal import action');
+  assert.strictEqual(submits, beforeRejectedAdmission,
+    'read-only recovery must not submit an import');
+
   // A compatible film has no codec choice but retains an explicit optional
   // skip action. Even that marker uses the canonical Core operation.
   raceSelect.value = SOURCE;
