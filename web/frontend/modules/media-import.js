@@ -670,6 +670,7 @@
     ++view.previewGeneration;
     view.previewResult = null;
     view.previewStatus = '';
+    view.previewFailed = false;
     resetBatchReview(view);
     const query = String(view.searchInput.value || '').trim().toLowerCase();
     const mode = view.statusFilter.value;
@@ -752,8 +753,8 @@
     view.releaseButton.disabled = true;
     view.normalLabel.hidden = mode === 'marked';
     view.markedLabel.hidden = mode === 'normal';
-    view.visibleCount.textContent = normal.length + ' importierbare und ' +
-      marked.length + ' markierte Treffer in dieser Ansicht ' +
+    view.visibleCount.textContent = normal.length + ' unmarkierte (Eignung noch ungeprüft) und ' +
+      marked.length + ' markierte Quellen in dieser Ansicht ' +
       '(aus maximal ' + MAX_IMPORT_FILMS + ' geprüften Quellen).';
   }
 
@@ -764,6 +765,7 @@
     ++view.previewGeneration;
     view.previewResult = null;
     view.previewStatus = '';
+    view.previewFailed = false;
     resetBatchReview(view);
     const generation = ++view.sourcesGeneration;
     // A re-scan must not display stale counts or selectable entries while
@@ -850,8 +852,8 @@
           : 'Scan abgeschlossen (konfigurierte Quellen): alle geeigneten ' +
             'Quellen wurden geprüft. Das bedeutet nicht, dass jeder andere ' +
             'Dateipfad dieser Importwurzel freigegeben ist.';
-        report(view, ordinary.length + ' Filme verfügbar, ' + marked.length +
-          ' zurückgestellt, übersprungen oder doppelt markiert.' +
+        report(view, ordinary.length + ' unmarkierte Quellen (Importfähigkeit noch ungeprüft), ' + marked.length +
+          ' bereits markiert.' +
           (bounded ? ' Scan unvollständig.' : ''));
       }).catch(function (error) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
@@ -892,6 +894,7 @@
     const generation = view.previewGeneration;
     view.previewResult = null;
     view.previewStatus = '';
+    view.previewFailed = false;
     view.previewReads = 0;
     updatePreview(view);
     if (!view.sources.includes(id)) return;
@@ -916,7 +919,8 @@
               poll();
             }, 4000);
           } else {
-            view.previewStatus = 'Die Vorschau dauert zu lange. Quelle erneut auswählen.';
+            view.previewStatus = 'Zeitüberschreitung: Für die ausgewählte Quelle kam keine fertige Backend-Vorschau.';
+            view.previewFailed = true;
             updatePreview(view);
           }
           return;
@@ -925,18 +929,26 @@
           throw new Error('Ungültige Vorschauantwort');
         view.previewResult = data;
         view.previewStatus = '';
+        view.previewFailed = data.status === 'unavailable';
         updatePreview(view);
       }).catch(function (error) {
         if (!isCurrent(view) || generation !== view.previewGeneration ||
             view.select.value !== id) return;
         view.previewResult = null;
+        view.previewFailed = true;
         view.previewStatus = error && error.status === 401
-          ? 'Anmeldung abgelaufen. Bitte erneut anmelden.'
+          ? 'HTTP 401: Anmeldung abgelaufen. Bitte erneut anmelden.'
           : error && error.status === 403
-            ? 'Keine Berechtigung für diese Importvorschau.'
-            : error && error.status === 503
-              ? 'Backend-Agent oder Quelle nicht mehr verfügbar. Bitte erneut scannen.'
-              : 'Film konnte nicht geprüft werden. Bitte erneut auswählen.';
+            ? 'HTTP 403: Keine Berechtigung für diese Importvorschau.'
+            : error && error.status === 404
+              ? 'HTTP 404: Quelle oder Vorschau-Route nicht gefunden. Erneut scannen.'
+              : error && error.status === 503
+                ? 'HTTP 503: Backend-Agent oder Vorschau derzeit nicht erreichbar.'
+                : error && [408, 504].includes(error.status)
+                  ? 'Zeitüberschreitung der Vorschau (HTTP ' + error.status + ').'
+                  : error && Number.isInteger(error.status) && error.status > 0
+                    ? 'Vorschau-Anfrage fehlgeschlagen (HTTP ' + error.status + ').'
+                    : 'Vorschau fehlgeschlagen: Keine gültige Antwort für die gewählte Quelle.';
         updatePreview(view);
       });
     }
@@ -958,6 +970,8 @@
     });
     const plan = selected && view.previewResult &&
       view.previewResult.sourceId === id ? view.previewResult : null;
+    view.previewRetryButton.hidden = !selected || !view.previewFailed;
+    view.previewRetryButton.disabled = Boolean(view.attempt) || Boolean(view.batch) || view.submitting;
     const ready = Boolean(plan && plan.status === 'ready');
     // A space shortage blocks local import, not a PC-only marker decision.
     const needsEncode = Boolean(plan && plan.videoReencodeRequired &&
@@ -990,7 +1004,7 @@
     const description = !plan
       ? 'Diagnose ausstehend. Es wurde noch kein Importweg freigegeben.'
       : plan.status === 'unavailable'
-        ? 'Die Backend-Prüfung konnte für diese Quelldatei nicht abgeschlossen werden. Kein Import möglich.'
+        ? 'Der Agent konnte Quelle, Codec oder Ziel nicht vollständig prüfen; ein genauerer Grund wurde nicht geliefert. Kein Import möglich.'
         : !ready && !needsEncode
           ? 'Import derzeit blockiert. Die Ursache steht in der Diagnose.'
         : needsEncode
@@ -1006,7 +1020,7 @@
     let details = view.previewStatus || 'Film wird geprüft …';
     if (plan) {
       if (plan.status === 'unavailable') {
-        details = 'Film konnte vom Backend nicht sicher geprüft werden.';
+        details = 'Die ausgewählte Quelle konnte vom Backend nicht sicher geprüft werden (unavailable).';
       } else {
         const outcome = plan.status === 'duplicate'
           ? 'Bereits als VDR-Aufnahme vorhanden – nicht überschreiben.'
@@ -1253,7 +1267,7 @@
     const statusFilter = element('select', 'media-import-filter');
     [
       ['all', 'Alle Quellen'],
-      ['normal', 'Importierbar'],
+      ['normal', 'Unmarkiert (noch ungeprüft)'],
       ['marked', 'Markierte Dateien']
     ].forEach(function (entry) {
       const option = element('option', '', entry[1]);
@@ -1279,6 +1293,10 @@
       '2. Nach der Filmauswahl wird die Vorschau automatisch erstellt.');
     preview.setAttribute('role', 'status');
     root.appendChild(preview);
+    const previewRetryButton = element('button', 'media-import-preview-retry', 'Vorschau erneut prüfen');
+    previewRetryButton.type = 'button';
+    previewRetryButton.hidden = true;
+    root.appendChild(previewRetryButton);
     const choiceLabel = element('label', 'media-import-decision-label', 'Video muss umkodiert werden – wie möchtest du vorgehen?');
     choiceLabel.hidden = true;
     const decision = element('select', 'media-import-decision');
@@ -1406,9 +1424,10 @@
       refreshButton: refreshButton, newButton: newButton,
       message: message, operationDetail: operationDetail,
       scanNotice: scanNotice, sourceDetails: sourceDetails,
-      preview: preview, sourceTitles: Object.create(null),
+      preview: preview, previewRetryButton: previewRetryButton,
+      sourceTitles: Object.create(null),
       previewTimer: null, previewGeneration: 0, previewReads: 0,
-      previewResult: null, previewStatus: '',
+      previewResult: null, previewStatus: '', previewFailed: false,
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
       reads: 0, timer: null, attempt: activeAttempts[backendId] || null};
     current = view;
@@ -1427,6 +1446,11 @@
     });
     selectedBatchButton.addEventListener('click', function () {
       return startBatch(view, true);
+    });
+    previewRetryButton.addEventListener('click', function () {
+      if (!isCurrent(view) || view.attempt || view.batch || view.submitting ||
+          !view.sources.includes(view.select.value)) return;
+      refreshSelectedPreview(view);
     });
     select.addEventListener('change', function () {
       startButton.disabled = view.submitting || !view.sources.includes(select.value);
