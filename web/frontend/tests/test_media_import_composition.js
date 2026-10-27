@@ -923,6 +923,12 @@ function publishHomeResume() {}
   assert(findClass(mount, 'status').textContent.includes(
     'Quellenbereinigung fehlgeschlagen'),
     'cleanup failure must not invalidate the succeeded VDR recording');
+  cleanupState = 'outcome_unknown';
+  await findClass(mount, 'media-import-refresh').listeners.click();
+  await settle();
+  assert(findClass(mount, 'status').textContent.includes(
+    'Agent-Unterbrechung unbestätigt'),
+    'recovered cleanup interruption must never remain pending forever');
   cleanupState = '';
   // Readback evidence remains associated with the immutable source observation
   // when the next ordinary scan still lists the unmodified source. An agent

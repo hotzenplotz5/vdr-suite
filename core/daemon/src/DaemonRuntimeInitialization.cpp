@@ -1685,6 +1685,11 @@ bool DaemonRuntime::initialize()
                                         else if (cleanupResult->resultCategory == "rejected" &&
                                                  evidence == "media-tools-cleanup:failed")
                                             result.operation.sourceCleanup = "failed";
+                                        else if (cleanupResult->resultCategory == "outcome_unknown" &&
+                                                 cleanupResult->verificationState == "outcome_unknown" &&
+                                                 cleanupResult->retryClassification == "reconcile_only" &&
+                                                 evidence == "media-tools-cleanup:failed")
+                                            result.operation.sourceCleanup = "outcome_unknown";
                                     }
                                 }
                                 // A cleanup ACK can arrive after the Operation

@@ -196,7 +196,8 @@
       removed: 'Importierte Quelldatei erfolgreich entfernt.',
       already_absent: 'Importierte Quelldatei bereits nicht mehr vorhanden.',
       not_performed: 'Quellenbereinigung nicht durchgeführt.',
-      failed: 'Quellenbereinigung fehlgeschlagen; die VDR-Aufnahme bleibt bestätigt.'
+      failed: 'Quellenbereinigung fehlgeschlagen; die VDR-Aufnahme bleibt bestätigt.',
+      outcome_unknown: 'Quellenbereinigung nach Agent-Unterbrechung unbestätigt; Original prüfen, keine automatische Wiederholung.'
     };
     return Object.prototype.hasOwnProperty.call(labels, status)
       ? labels[status] : '';
