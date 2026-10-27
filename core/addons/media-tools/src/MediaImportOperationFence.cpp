@@ -304,6 +304,7 @@ bool MediaImportOperationFence::applyResult(
     const bool markerVerified =
         (choice == vdrsuite::mediatools::MediaImportDecision::desktop ||
          choice == vdrsuite::mediatools::MediaImportDecision::skip ||
+         choice == vdrsuite::mediatools::MediaImportDecision::duplicate ||
          choice == vdrsuite::mediatools::MediaImportDecision::release) &&
         result.dispatchState == "accepted_by_executor" &&
         result.verificationState == "verified" &&
