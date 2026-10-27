@@ -8977,7 +8977,9 @@ bool PublicApiRuntime::tryHandleGet(
             "\",\"nfoYear\":\"" + jsonEscape(result.nfoYear) +
             "\",\"nfoGenre\":\"" + jsonEscape(result.nfoGenre) +
             "\",\"durationSeconds\":" + std::to_string(result.durationSeconds) +
-            "}";
+            ",\"posterDataUri\":\"" + jsonEscape(result.posterDataUri) +
+            "\",\"fanartDataUri\":\"" + jsonEscape(result.fanartDataUri) +
+            "\"}";
         response = jsonResponse(body, requestId, correlationId);
         response.headers["Cache-Control"] = "no-store";
         return true;

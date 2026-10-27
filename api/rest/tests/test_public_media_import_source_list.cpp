@@ -200,6 +200,8 @@ int main()
             result.nfoYear = "2024";
             result.nfoGenre = "Drama";
             result.durationSeconds = 3120;
+            result.posterDataUri = "data:image/jpeg;base64,/9j/2Q==";
+            result.fanartDataUri = "data:image/png;base64,iVBORw0KGgo=";
             return result;
         });
     const auto ready = getPage(preview);
@@ -214,6 +216,8 @@ int main()
     assert(ready.body.find("\"nfoYear\":\"2024\"") != std::string::npos);
     assert(ready.body.find("\"nfoGenre\":\"Drama\"") != std::string::npos);
     assert(ready.body.find("\"durationSeconds\":3120") != std::string::npos);
+    assert(ready.body.find("data:image/jpeg;base64,/9j/2Q==") != std::string::npos);
+    assert(ready.body.find("data:image/png;base64,iVBORw0KGgo=") != std::string::npos);
     assert(ready.body.find("\"sourceBytes\":1234567") != std::string::npos);
     assert(ready.body.find("\"videoReencodeRequired\":true") !=
            std::string::npos);

@@ -1472,6 +1472,7 @@ public:
         std::string failureCode;
         std::string nfoOutline, nfoPlot, nfoYear, nfoGenre;
         std::uint64_t durationSeconds = 0;
+        std::string posterDataUri, fanartDataUri;
     };
     using MediaImportPreviewLookup = std::function<MediaImportPreviewResult(
         const std::string& actorId, const std::string& backendId,

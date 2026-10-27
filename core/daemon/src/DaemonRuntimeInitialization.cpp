@@ -686,6 +686,8 @@ bool DaemonRuntime::initialize()
             out.nfoYear = observed.nfoYear;
             out.nfoGenre = observed.nfoGenre;
             out.durationSeconds = observed.durationSeconds;
+            out.posterDataUri = observed.posterDataUri;
+            out.fanartDataUri = observed.fanartDataUri;
             return out;
         });
     PublicApiRuntime::instance().registerMediaImportCapabilityLookup(
