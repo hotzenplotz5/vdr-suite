@@ -1352,6 +1352,7 @@
     view.releaseButton.disabled = true;
     report(view, 'Quelle und Berechtigung werden erneut geprüft …');
     // Source observations are ephemeral: revalidate before choosing the opaque token.
+    let preAdmissionFailed = false;
     return checkCapability(view.backendId)
       .then(function (available) {
         if (!isCurrent(view)) return null;
@@ -1460,6 +1461,7 @@
         if (view.batchReview) renderBatchReview(view);
         // No operation was admitted. The old preview cannot authorize another
         // click after the permission/source check failed; offer a fresh read.
+        preAdmissionFailed = true;
         view.previewResult = null;
         view.previewFailed = true;
         view.previewStatus = message;
@@ -1467,9 +1469,13 @@
       }).finally(function () {
         view.submitting = false;
         if (isCurrent(view) && !view.attempt && !view.batch) {
-          // Restore controls from the actual inspected state, not the
-          // unconditional flags left behind by an interrupted submission.
-          updatePreview(view);
+          // Only a pre-admission failure permits read-only retry. A definite
+          // HTTP rejection still requires an explicit sources refresh.
+          if (preAdmissionFailed) updatePreview(view);
+          else {
+            view.localReencode.disabled = view.decision.value !== 'import';
+            view.decision.disabled = false;
+          }
           view.markedSelect.disabled = view.markedSources.length === 0;
           view.releaseButton.disabled =
             !view.markedSources.includes(view.markedSelect.value);
