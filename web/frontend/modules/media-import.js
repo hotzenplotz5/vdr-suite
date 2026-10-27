@@ -774,10 +774,17 @@
         view.markedSelect.value = item.sourceId;
         view.releaseButton.disabled = false;
         refreshSelectedPreview(view);
-        view.preview.textContent = marker === 'duplicate'
+        const statusText = marker === 'duplicate'
           ? 'Bereits als Duplikat markiert (.duplicate). Kein erneuter Import.'
           : marker === 'skipped' ? 'Von Rectools oder Media Tools übersprungen (.skipped).'
             : 'Zur externen Bearbeitung mit PC/HandBrake markiert (.pc_encode).';
+        view.preview.textContent = statusText;
+        view.previewCard.replaceChildren(
+          element('h5', 'media-import-preview-title', item.label || 'Markierte Quelle'),
+          element('div', 'media-import-preview-state is-marked', statusText),
+          element('p', 'media-import-preview-hint',
+            'Die bestehende Rectools-Markierung bleibt erhalten. Nur bei Bedarf ausdrücklich aufheben.'));
+
       });
       const meta = element('span', 'media-import-episode-meta',
         (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
