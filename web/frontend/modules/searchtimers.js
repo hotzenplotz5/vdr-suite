@@ -247,9 +247,14 @@
     const actions = objectValue(source, 'actionOptions');
     const state = String(firstValue(source, ['state'], '')).toLowerCase();
     const channelNames = String(firstValue(channels, ['channels'], firstValue(source, ['channels'], '')));
-    const channelMin = String(firstValue(channels, ['channelMin'], firstValue(source, ['channel_min', 'channelMin'], '')));
-    const channelMax = String(firstValue(channels, ['channelMax'], firstValue(source, ['channel_max', 'channelMax'], '')));
-    const rawUseChannel = firstValue(filters, ['useChannel'], firstValue(source, ['use_channel', 'useChannel'], 0));
+    const channelMin = String(
+      firstValue(channels, ['channelMinId'], '') ||
+      firstValue(channels, ['channelMin'], firstValue(source, ['channel_min', 'channelMin'], '')));
+    const channelMax = String(
+      firstValue(channels, ['channelMaxId'], '') ||
+      firstValue(channels, ['channelMax'], firstValue(source, ['channel_max', 'channelMax'], '')));
+    const rawUseChannel = firstValue(filters, ['useChannelMode', 'useChannel'],
+      firstValue(source, ['use_channel', 'useChannel'], 0));
 
     return {
       source,
@@ -269,6 +274,10 @@
       channels: channelNames,
       channelMin,
       channelMax,
+      useTime: boolValue(firstValue(filters, ['useTime'], firstValue(source, ['use_time', 'useTime'], false)), false),
+      startTime: numberValue(firstValue(filters, ['startTime'], firstValue(source, ['start_time', 'startTime'], 0)), 0),
+      stopTime: numberValue(firstValue(filters, ['stopTime'], firstValue(source, ['stop_time', 'stopTime'], 0)), 0),
+      dayOfWeek: numberValue(firstValue(filters, ['dayOfWeek'], firstValue(source, ['dayofweek', 'dayOfWeek'], 0)), 0),
       useDuration: boolValue(firstValue(filters, ['useDuration'], firstValue(source, ['use_duration', 'useDuration'], false)), false),
       durationMinMinutes: numberValue(firstValue(filters, ['durationMinMinutes'], firstValue(source, ['duration_min', 'durationMin'], 0)), 0),
       durationMaxMinutes: numberValue(firstValue(filters, ['durationMaxMinutes'], firstValue(source, ['duration_max', 'durationMax'], 0)), 0),
@@ -1204,20 +1213,28 @@
           const actual = matches[0];
           const fields = [
             'directory','priority','lifetime','marginStartMinutes',
-            'marginStopMinutes','useVps','useDuration',
+            'marginStopMinutes','useVps','useChannel','channels',
+            'channelMin','channelMax','useTime','startTime','stopTime',
+            'useDayOfWeek','dayOfWeek','useDuration',
             'durationMinMinutes','durationMaxMinutes','avoidRepeats',
             'allowedRepeats','repeatsWithinDays','compareTitle',
             'compareSubtitle','compareSummary','compareCategories',
             'compareTime','useSeriesRecording','keepRecordings','deleteMode',
-            'searchTimerAction','blacklistMode','mode','matchCase',
-            'tolerance','summaryMatch','useExtendedEpgInfo',
+            'searchTimerAction','blacklistMode','blacklistIds','mode','matchCase',
+            'tolerance','summaryMatch','useExtendedEpgInfo','extendedEpgInfo',
             'ignoreMissingEpgCategories','contentDescriptors','useInFavorites',
             'activeFrom','activeUntil','pauseOnRecordings','switchMinutesBefore',
             'unmuteSoundOnSwitch','deleteRecordingsAfterDays',
             'deleteAfterCountRecordings','deleteAfterDaysOfFirstRecording'
           ];
+          const listFields = new Set(['blacklistIds', 'extendedEpgInfo']);
+          const comparisonValue = (name, value) => listFields.has(name)
+            ? String(value || '').split(/[,;]/).map(part => part.trim())
+                .filter(Boolean).join(',')
+            : String(value);
           const changed = fields.filter(name =>
-            String(actual[name]) !== String(requested[name]));
+            comparisonValue(name, actual[name]) !==
+            comparisonValue(name, requested[name]));
           if (changed.length) {
             throw new Error('Suchtimer angelegt, aber Einstellungen abweichend: ' +
               changed.join(', '));
