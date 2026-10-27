@@ -813,7 +813,11 @@ int main()
            originalCommand == media.commandId &&
            noticeEvidence == mediaOutcome.resultEvidence);
     auto readbackPoll = importPoll;
+    // The installed Agent advertises both operations from the same reviewed
+    // import executor. Publishing readback must not erase the ordinary import
+    // capability needed by the following independent reservation test.
     readbackPoll.supportedCommandTypes = {
+        "probe.noop", vdrsuite::mediatools::kMediaImportCommandType,
         vdrsuite::mediatools::kMediaImportReadbackCommandType};
     const auto delivered = service.poll(
         context(ActorType::Agent, "actor_agent"), readbackPoll, 129);
