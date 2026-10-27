@@ -524,8 +524,8 @@
     return fallback;
   }
 
-  function fetchChannels() {
-    const backendId = selectedBackendId();
+  function fetchChannels(backendId) {
+    backendId = backendId || selectedBackendId();
     if (channelCache[backendId]) return channelCache[backendId];
     const api = clientApi();
     if (!api || typeof api.fetchClientChannels !== 'function') {
@@ -753,6 +753,16 @@
     return data && data.preview && Array.isArray(data.preview.matches) ? data.preview.matches : [];
   }
 
+  // Resolve preview IDs against the authorized backend's ordinary channel list.
+  // Keep the provider field only when no readable channel name is available.
+  function previewChannelLabel(event, channels) {
+    const channelId = String(firstValue(event, ['channelId', 'channel', 'channelName'], '')).trim();
+    const channel = (Array.isArray(channels) ? channels : []).find(item =>
+      item && item.id === channelId && item.name);
+    return channel ? channel.name :
+      String(firstValue(event, ['channelName', 'channel', 'channelId'], '-'));
+  }
+
   function appendPreviewMetric(parent, label, value) {
     const item = document.createElement('div');
     item.className = 'searchtimer-preview-metric';
@@ -761,7 +771,7 @@
     parent.appendChild(item);
   }
 
-  function renderPreview(target, data) {
+  function renderPreview(target, data, channels) {
     target.replaceChildren();
     const summary = document.createElement('section');
     summary.className = 'searchtimer-preview-summary';
@@ -784,7 +794,7 @@
         card.appendChild(addText(document.createElement('h5'), String(firstValue(event, ['title', 'name'], 'Treffer ' + String(index + 1)))));
         const badges = document.createElement('div');
         badges.className = 'searchtimer-preview-badges';
-        ['Kanal: ' + String(firstValue(event, ['channelName', 'channel', 'channelId'], '-')), 'Start: ' + formatUnixTime(firstValue(event, ['startTime', 'start'], ''))].forEach(text => {
+        ['Kanal: ' + previewChannelLabel(event, channels), 'Start: ' + formatUnixTime(firstValue(event, ['startTime', 'start'], ''))].forEach(text => {
           const badge = addText(document.createElement('span'), text);
           badge.className = 'searchtimer-preview-badge';
           badges.appendChild(badge);
@@ -811,15 +821,23 @@
     }
     button.disabled = true;
     setFeedback(target, 'SearchTimer-Vorschau wird geladen …', false);
+    const backendId = selectedBackendId();
     return api.fetchClientSearchTimerPreview({
-      backendId: selectedBackendId(),
+      backendId: backendId,
       query: Object.assign({}, payload, {text: payload.query, query: payload.query}),
       cache: 'no-store',
       credentials: 'same-origin'
     }).then(result => {
       target.className = 'searchtimer-feedback success';
-      renderPreview(target, result);
-      return result;
+      // The preview remains usable if channel discovery is unavailable.
+      // Both requests use the same selected backend.
+      return fetchChannels(backendId).then(channels => {
+        renderPreview(target, result, channels);
+        return result;
+      }, () => {
+        renderPreview(target, result);
+        return result;
+      });
     }).catch(error => {
       setFeedback(target, String(error && error.message ? error.message : error), true);
       return null;
@@ -1217,6 +1235,7 @@
     channelGroups: channelGroups,
     channelsForGroup: channelsForGroup,
     channelOptionLabel: channelOptionLabel,
+    previewChannelLabel: previewChannelLabel,
     inferChannelMode: inferChannelMode,
     effectiveChannelFilter: effectiveChannelFilter,
     buildCreatePayload: buildCreatePayload,
