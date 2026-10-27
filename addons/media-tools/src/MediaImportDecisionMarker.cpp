@@ -115,6 +115,7 @@ MediaImportMarkerOutcome markMediaImportSource(
         source.sourceBytes == 0 ||
         (decision != MediaImportMarkerDecision::desktop &&
          decision != MediaImportMarkerDecision::skip &&
+         decision != MediaImportMarkerDecision::duplicate &&
          decision != MediaImportMarkerDecision::release))
         return MediaImportMarkerOutcome::rejected;
 
@@ -156,7 +157,8 @@ MediaImportMarkerOutcome markMediaImportSource(
         markedBefore(checkedStem))
         return MediaImportMarkerOutcome::rejected;
     const std::string suffix = release ? "" :
-        decision == MediaImportMarkerDecision::desktop ? ".pc_encode" : ".skipped";
+        decision == MediaImportMarkerDecision::desktop ? ".pc_encode" :
+        decision == MediaImportMarkerDecision::duplicate ? ".duplicate" : ".skipped";
     const std::string afterName =
         baseStem + suffix + filename.extension().string();
     if (afterName.size() > 255 || afterName == beforeName)
