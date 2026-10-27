@@ -91,7 +91,7 @@ public:
             data.videoCodec.size() > 64U ||
             (data.status != "unavailable" &&
              (data.title.empty() || data.targetFolder.empty() ||
-              data.videoCodec.empty())) ||
+              (data.status != "duplicate" && data.videoCodec.empty()))) ||
             std::any_of(data.title.begin(), data.title.end(),
                 [](unsigned char c) { return c < 0x20 || c == 0x7f; }) ||
             !validTargetFolder(data.targetFolder) ||
