@@ -938,6 +938,7 @@ function publishHomeResume() {}
   // Agent/Core public snapshot and never submits a filesystem path.
   context.resetMediaImportVisibility(true);
   batchSources = [SOURCE, SOURCE_B];
+  sourceFolders[SOURCE] = 'Fantasy';
   sourceFolders[SOURCE_B] = 'Serien/Andor';
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   context.selectModule('media-import');
@@ -945,9 +946,23 @@ function publishHomeResume() {}
   const folderList = findClass(mount, 'media-import-folders');
   const breadcrumb = findClass(mount, 'media-import-breadcrumb');
   const folderSelect = findClass(mount, 'media-import-source');
-  assert.strictEqual(folderSelect.children.length, 2);
-  assert.strictEqual(folderList.children.length, 1);
-  folderList.children[0].listeners.click(); // Serien
+  assert.strictEqual(folderSelect.children.length, 3,
+    'recursive root overview includes films from all observed subfolders');
+  assert.strictEqual(folderSelect.children[1].value, SOURCE);
+  assert.strictEqual(folderSelect.children[2].value, SOURCE_B);
+  assert(findClass(mount, 'media-import-visible-count').textContent.includes('2 importierbare'));
+  assert.strictEqual(folderList.children.length, 2);
+  const pendingRescan = findClass(mount, 'media-import-reload').listeners.click();
+  assert(findClass(mount, 'media-import-scan-notice').textContent.includes('Scan läuft'));
+  assert(findClass(mount, 'media-import-visible-count').textContent.includes('Scan läuft'));
+  assert(folderSelect.disabled && folderSelect.children.length === 0,
+    'a pending rescan never retains stale selectable options');
+  await pendingRescan;
+  await settle();
+  assert.strictEqual(folderSelect.children.length, 3);
+  folderList.children.find(function (child) {
+    return child.textContent.includes('Serien');
+  }).listeners.click(); // Serien
   assert.strictEqual(folderSelect.children.length, 1);
   folderList.children[0].listeners.click(); // Andor
   assert.strictEqual(folderSelect.children.length, 2);
@@ -967,11 +982,12 @@ function publishHomeResume() {}
     'real read-only codec and capacity are visible');
   assert.strictEqual(breadcrumb.children.length, 3);
   breadcrumb.children[0].listeners.click(); // root
-  assert.strictEqual(folderSelect.children.length, 2);
+  assert.strictEqual(folderSelect.children.length, 3);
   assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
     beforePagedPosts, 'folder browse is read-only');
 
   context.resetMediaImportVisibility(true);
+  delete sourceFolders[SOURCE];
   sourceFolders[SOURCE_B] = '../escape';
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   context.selectModule('media-import');
