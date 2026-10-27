@@ -913,7 +913,7 @@ function publishHomeResume() {}
   assert(findClass(mount, 'status').textContent.includes(
     'VDR-Readback bestätigt den Import'));
   assert(findClass(mount, 'status').textContent.includes(
-    'nicht die Identität'), 'title-only PC association is not verified media identity');
+    'nicht ihre Medienidentität'), 'title-only PC association is not verified media identity');
   assert(findClass(mount, 'status').textContent.includes(
     'Importierte Quelldatei erfolgreich entfernt'),
     'UI displays only a journal-backed cleanup result');
