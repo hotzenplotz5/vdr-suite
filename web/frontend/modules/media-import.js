@@ -665,9 +665,9 @@
     const matches = function (item) {
       const labelMatches = !query ||
         (item.label || item.sourceId).toLowerCase().includes(query);
-      // Searching is intentionally cross-folder; browsing without a search
-      // displays just the selected directory. Both use trusted IDs only.
-      const folderMatches = Boolean(query) ||
+      // Searching is cross-folder. The root overview includes every verified
+      // source in nested folders; an explicit folder selection narrows it.
+      const folderMatches = Boolean(query) || view.folderPath === '' ||
         (item.folder || '') === view.folderPath;
       return labelMatches && folderMatches;
     };
@@ -749,6 +749,14 @@
     view.previewStatus = '';
     resetBatchReview(view);
     const generation = ++view.sourcesGeneration;
+    // A re-scan must not display stale counts or selectable entries while
+    // the current backend snapshot is being fetched.
+    view.scanNotice.textContent = 'Scan läuft: Quellen werden erneut geladen …';
+    view.visibleCount.textContent = 'Scan läuft: Noch keine aktuellen Treffer.';
+    view.preview.textContent = 'Scan läuft: Bitte die aktuelle Filmliste abwarten.';
+    view.select.replaceChildren();
+    view.markedSelect.replaceChildren();
+    view.sourceDetails.textContent = '';
     view.select.disabled = true;
     view.startButton.disabled = true;
     view.markedSelect.disabled = true;
@@ -769,6 +777,8 @@
     view.folderPath = '';
     view.folderBreadcrumb.replaceChildren();
     view.folderList.replaceChildren();
+    view.folderBreadcrumb.hidden = true;
+    view.folderList.hidden = true;
     report(view, 'Autorisierte Importquellen werden geladen …');
     return readSourcePages(view.backendId)
       .then(function (response) {
