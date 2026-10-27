@@ -45,7 +45,9 @@ std::string requestFingerprint(const std::string& backend,
                 : decision == vdrsuite::mediatools::MediaImportDecision::desktop
                     ? "|videoDecision:desktop"
                      : decision == vdrsuite::mediatools::MediaImportDecision::skip
-                         ? "|videoDecision:skip" : "|videoDecision:release");
+                         ? "|videoDecision:skip"
+                         : decision == vdrsuite::mediatools::MediaImportDecision::duplicate
+                             ? "|videoDecision:duplicate" : "|videoDecision:release");
 }
 bool replayMatches(MutationOperationRepository& repo,
                    const MutationOperation& op,
@@ -72,7 +74,9 @@ bool replayMatches(MutationOperationRepository& repo,
                         ? vdrsuite::mediatools::MediaImportDecision::skip
                         : req.videoDecision == "release"
                             ? vdrsuite::mediatools::MediaImportDecision::release
-                            : req.approveVideoReencode
+                            : req.videoDecision == "duplicate"
+                                ? vdrsuite::mediatools::MediaImportDecision::duplicate
+                                : req.approveVideoReencode
                             ? vdrsuite::mediatools::MediaImportDecision::local
                             : vdrsuite::mediatools::MediaImportDecision::import) &&
         p.payload.payload == serialized &&
@@ -96,12 +100,14 @@ MediaImportOperationAdmissionService::admit(
     if (req.approveVideoReencode && !req.videoDecision.empty())
         return output(Status::invalid);
     if (!req.videoDecision.empty() && req.videoDecision != "desktop" &&
-        req.videoDecision != "skip" && req.videoDecision != "release")
+        req.videoDecision != "skip" && req.videoDecision != "release" &&
+        req.videoDecision != "duplicate")
         return output(Status::invalid);
     const Decision choice = req.videoDecision == "desktop"
         ? Decision::desktop : req.videoDecision == "skip"
             ? Decision::skip : req.videoDecision == "release"
-                ? Decision::release : req.approveVideoReencode
+                ? Decision::release : req.videoDecision == "duplicate"
+                    ? Decision::duplicate : req.approveVideoReencode
                     ? Decision::local : Decision::import;
     const std::string serialized = serializeSelection(req.sourceId, choice);
     std::string checkedSource;
