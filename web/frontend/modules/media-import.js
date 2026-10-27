@@ -540,8 +540,9 @@
         (possibleReturnCompleted
           ? ' Möglicher PC-Rücklauf: VDR-Readback bestätigt ausschließlich ' +
             'den Import der ausgewählten neuen Quelle, nicht die Identität ' +
-            'mit dem geparkten Original. Beide Quelldateien bleiben ' +
-            'erhalten; keine automatische Löschung.'
+            'mit dem geparkten Original. Media Tools hat keine automatische ' +
+            'Quellenbereinigung durchgeführt. Ob die Dateien derzeit ' +
+            'noch vorhanden sind, zeigt erst ein neuer Scan.'
           : ''), false);
       view.operationDetail.textContent =
         'Vorgang ' + operation.operationId + ' · ' + operation.state;
@@ -1278,8 +1279,8 @@
         ' wurde in dieser Browsersitzung durch Core-Recording-Readback ' +
         'bestätigt. Das ist KEIN Nachweis für den aktuell unter dieser ' +
         'Quellen-ID liegenden Dateiinhalt. Die neue Vorschau prüft ihn ' +
-        'unabhängig; weder er noch eine .pc_encode-Originaldatei wurde ' +
-        'automatisch gelöscht.'));
+        'unabhängig. Media Tools führt keine automatische ' +
+        'Quellenbereinigung aus; ein neuer Scan zeigt den Dateibestand.'));
     }
     const parked = selected ? parkedPcEncodeMatches(view, source) : [];
     if (parked.length) {

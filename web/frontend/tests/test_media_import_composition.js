@@ -912,7 +912,8 @@ function publishHomeResume() {}
   assert(findClass(mount, 'status').textContent.includes(
     'nicht die Identität'), 'title-only PC association is not verified media identity');
   assert(findClass(mount, 'status').textContent.includes(
-    'keine automatische Löschung'), 'existing source-preserving pipeline stays truthful');
+    'keine automatische Quellenbereinigung durchgeführt'),
+    'Core readback cannot prove that either source file still exists');
   // Readback evidence remains associated with the immutable source observation
   // when the next ordinary scan still lists the unmodified source. An agent
   // 'executed_unverified' result must never create this display status.
