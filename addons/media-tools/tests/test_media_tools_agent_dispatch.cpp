@@ -176,7 +176,8 @@ void testStrictPayload()
     const std::string id = "inventory_12345678";
     for (const auto decision : {
              MediaImportDecision::import, MediaImportDecision::local,
-             MediaImportDecision::desktop, MediaImportDecision::skip}) {
+             MediaImportDecision::desktop, MediaImportDecision::skip,
+             MediaImportDecision::duplicate, MediaImportDecision::release}) {
         const std::string payload = mediaImportSelectionJson(id, decision);
         std::string selected;
         MediaImportDecision parsed;
@@ -187,7 +188,9 @@ void testStrictPayload()
         a.requestFingerprint = backendAgentCommandFingerprint(a);
         assert(backendAgentCommandValidAssignment(a));
         if (decision == MediaImportDecision::desktop ||
-            decision == MediaImportDecision::skip)
+            decision == MediaImportDecision::skip ||
+            decision == MediaImportDecision::duplicate ||
+            decision == MediaImportDecision::release)
             assert(mediaImportMarkerEvidence(id, decision).find(id) !=
                    std::string::npos);
     }
