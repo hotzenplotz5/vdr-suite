@@ -17,10 +17,19 @@
       const csrf = session && typeof session.csrfHeaders === 'function'
         ? session.csrfHeaders() : {};
       const url = mutation ? path : path + '?backendId=' + encodeURIComponent(backendId);
+      // The Core audit requires a nonempty correlation ID for the
+      // administrator activation mutation. The HTTP gate permits requests
+      // without one, but the audited service cannot commit that mutation.
+      // This is trace metadata, not authentication or additional permission.
+      const correlation = 'addon-activation-' + Date.now().toString(36) +
+        '-' + Math.floor(Math.random() * 0x100000000).toString(36);
       const options = {
         credentials: 'same-origin', cache: 'no-store',
         headers: Object.assign({'Accept': 'application/json'}, mutation
-          ? Object.assign({'Content-Type': 'application/json'}, csrf || {})
+          ? Object.assign({
+              'Content-Type': 'application/json',
+              'X-Correlation-ID': correlation
+            }, csrf || {})
           : {})
       };
       if (mutation) {
