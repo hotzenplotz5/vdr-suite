@@ -212,6 +212,22 @@ assert.strictEqual(
   '1 · Das Erste HD'
 );
 assert.strictEqual(
+  api.previewChannelLabel({channelId: 'S19.2E-1-1019-10301'}, channels),
+  'Das Erste HD'
+);
+assert.strictEqual(
+  api.previewChannelLabel({channel: 'S19.2E-1-1011-11110'}, channels),
+  'ZDF HD'
+);
+assert.strictEqual(
+  api.previewChannelLabel({channelId: 'unknown'}, channels),
+  'unknown'
+);
+assert.strictEqual(
+  api.previewChannelLabel({channelName: 'Kanalname'}, []),
+  'Kanalname'
+);
+assert.strictEqual(
   api.inferChannelMode(true, 'Privat', '', ''),
   2
 );
