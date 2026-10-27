@@ -442,6 +442,7 @@
     view.batchButton.disabled = true;
     view.selectedBatchButton.disabled = true;
     view.batchConfirmButton.hidden = true;
+    view.seasonFilter.disabled = true;
     view.batchSummary.textContent = 'Technische VDR-Importeignung wird lesend geprüft: 0 von ' +
       ids.length + '. Noch kein Import gestartet.';
     const rows = [];
@@ -486,6 +487,7 @@
     }).finally(function () {
       if (!isCurrent(view) || generation !== view.reviewGeneration) return;
       view.inspectingBatch = false;
+      view.seasonFilter.disabled = Boolean(view.batch) || Boolean(view.attempt);
       view.batchButton.disabled = view.sources.length < 2;
       updateSelectionCount(view);
       if (view.duplicateReviewPending) nextConfirmedDuplicate(view);
@@ -517,6 +519,7 @@
     view.selectAllVisibleButton.disabled = true;
     view.searchInput.disabled = true;
     view.statusFilter.disabled = true;
+    view.seasonFilter.disabled = true;
     view.batchStopButton.hidden = false;
     view.select.value = ids[0];
     renderBatchReview(view);
@@ -653,6 +656,7 @@
     view.reloadButton.disabled = true;
     view.searchInput.disabled = true;
     view.statusFilter.disabled = true;
+    view.seasonFilter.disabled = true;
     view.operationDetail.textContent = view.attempt.operationId
       ? 'Vorgang ' + view.attempt.operationId
       : view.attempt.pending
@@ -1169,6 +1173,7 @@
     view.selectAllVisibleButton.disabled = true;
     view.searchInput.disabled = true;
     view.statusFilter.disabled = true;
+    view.seasonFilter.disabled = true;
     view.sources = [];
     view.markedSources = [];
     view.checkedSourceIds.clear();
@@ -1225,6 +1230,7 @@
         filterVisibleSources(view);
         view.searchInput.disabled = false;
         view.statusFilter.disabled = false;
+        view.seasonFilter.disabled = false;
         view.scanNotice.textContent = bounded && items.length >= MAX_IMPORT_FILMS
           ? 'Importgrenze: Höchstens 100 Filme pro Durchlauf. ' +
             '100 geprüfte Quellen werden angezeigt. Der Scan ist nicht ' +
