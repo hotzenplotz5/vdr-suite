@@ -31,6 +31,13 @@ int main()
     terraX.scheduleOptions().setMarginStopMinutes(10);
     terraX.scheduleOptions().setUseVps(true);
     terraX.filterOptions().setUseChannel(true);
+    terraX.filterOptions().setChannelMode(2);
+    terraX.filterOptions().setUseTime(true);
+    terraX.filterOptions().setStartTime(930);
+    terraX.filterOptions().setStopTime(1120);
+    terraX.filterOptions().setDayOfWeek(31);
+    terraX.channelOptions().setChannelMinId("S19.2E-1-1011-11110");
+    terraX.channelOptions().setChannelMaxId("S19.2E-1-1011-11111");
     terraX.filterOptions().setUseDayOfWeek(true);
     terraX.filterOptions().setUseDuration(true);
     terraX.filterOptions().setDurationMinMinutes(30);
@@ -105,6 +112,13 @@ int main()
     assert(json.find("\"useVps\":true") != std::string::npos);
     assert(json.find("\"filterOptions\":{") != std::string::npos);
     assert(json.find("\"useChannel\":true") != std::string::npos);
+    assert(json.find("\"useChannelMode\":2") != std::string::npos);
+    assert(json.find("\"useTime\":true") != std::string::npos);
+    assert(json.find("\"startTime\":930") != std::string::npos);
+    assert(json.find("\"stopTime\":1120") != std::string::npos);
+    assert(json.find("\"dayOfWeek\":31") != std::string::npos);
+    assert(json.find("\"channelMinId\":\"S19.2E-1-1011-11110\"") != std::string::npos);
+    assert(json.find("\"channelMaxId\":\"S19.2E-1-1011-11111\"") != std::string::npos);
     assert(json.find("\"useDayOfWeek\":true") != std::string::npos);
     assert(json.find("\"useDuration\":true") != std::string::npos);
     assert(json.find("\"durationMinMinutes\":30") != std::string::npos);
