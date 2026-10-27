@@ -465,6 +465,37 @@ int main()
         assert(denied.statusCode == 422);
     }
     assert(createCalls == 1);
+    // The actual daemon can distinguish these independent preflight
+    // failures. They must no longer collapse into the same generic 503
+    // that skippy saw on MLD.
+    for (const auto& unavailableCase : {
+        std::pair<PublicSearchTimerCreateStatus, std::string>{
+            PublicSearchTimerCreateStatus::backendUnavailable,
+            "offline or read-only backend"},
+        {PublicSearchTimerCreateStatus::agentUnavailable,
+            "valid, online backend agent"},
+        {PublicSearchTimerCreateStatus::providerUnavailable,
+            "configured backend provider"},
+        {PublicSearchTimerCreateStatus::marginsUnavailable,
+            "confirmed VDR pre/post margins"}
+    })
+    {
+        runtime.registerSearchTimerCreate(
+            [unavailableCase](const PublicSearchTimerCreateRequest&)
+            {
+                PublicSearchTimerCreateResult result;
+                result.status = unavailableCase.first;
+                return result;
+            });
+        ApiResponse blocked;
+        assert(runtime.tryHandlePost(
+            "/api/v1/search-timers?backend=one", "st-preflight", "",
+            blocked, draftBody, "actor:test", "",
+            "test-create-diagnostic-1", "application/json", "one"));
+        assert(blocked.statusCode == 503);
+        assert(blocked.body.find(unavailableCase.second) !=
+            std::string::npos);
+    }
     runtime.resetSearchTimerCreate();
     ApiResponse searchDelete;
     assert(runtime.tryHandleUnsupportedMethod(
