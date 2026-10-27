@@ -77,6 +77,11 @@ ImportPreview inspectImportPreview(const ImportRequest& request,
 // read-only browser preview instead of rejecting it as a write attempt.
 ImportPlan inspectImportPreview(const ImportRequest& request);
 
+// Stronger read-only evidence than duplicateTarget: a structurally complete
+// VDR recording with matching info title, index and first TS segment. An
+// incomplete .rec still prevents overwriting, but must not be auto-marked.
+bool confirmedMediaImportDuplicate(const ImportPlan& plan);
+
 // Read-only source classification for an explicit local/desktop/skip decision.
 // This is informative only; execution probes the pinned source again.
 // An unknown/unsupported video codec never counts as copy-compatible.
