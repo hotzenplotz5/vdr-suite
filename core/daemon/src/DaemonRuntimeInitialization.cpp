@@ -959,7 +959,8 @@ bool DaemonRuntime::initialize()
     if (!backendRuntimeContexts_.empty()
         && backendRuntimeContexts_.front()->searchTimerAdapter) {
         searchTimerCreateService_ =
-            std::make_unique<SearchTimerCreateService>();
+            std::make_unique<SearchTimerCreateService>(
+                backendRuntimeContexts_.front()->backendId);
         searchTimerCreateResultJsonSerializer_ =
             std::make_unique<SearchTimerCreateResultJsonSerializer>();
         searchTimerCreateRequestParser_ =
