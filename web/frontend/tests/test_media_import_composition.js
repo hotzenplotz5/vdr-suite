@@ -341,17 +341,26 @@ function publishHomeResume() {}
     findClass(threePanes, 'media-import-library') &&
     findClass(threePanes, 'media-import-episodes') && detailPane,
     'production module composes genuine folder/episode/detail columns');
+  const previewCard = findClass(mount, 'media-import-preview-card');
+  assert(previewCard && detailPane.children.indexOf(previewCard) >= 0,
+    'the visible preview card is a first-class element of the detail pane');
   assert(detailPane.children.indexOf(start) >
-    detailPane.children.indexOf(findClass(mount, 'media-import-preview')) &&
+    detailPane.children.indexOf(previewCard) &&
     detailPane.children.indexOf(start) <
     detailPane.children.indexOf(findClass(mount, 'media-import-marked-label')),
     'primary action belongs to preview pane, before marker release');
+  assert(findClass(mount, 'media-import-preview-facts'),
+    'codec, source bytes and VDR target are rendered as actual preview facts');
   assert(findClass(mount, 'media-import-preview').textContent.includes('Nächster Schritt'),
     'ready preview must explain the next action');
   assert(findClass(mount, 'media-import-decision-label').hidden,
     'compatible source needs no encoding decision');
   assert(findClass(mount, 'media-import-preview').textContent.includes(
     'technisch für den VDR-Import geeignet'));
+  assert(findClass(mount, 'media-import-preview-card').children.some(function (child) {
+    return (child.className || '').includes('media-import-preview-state') &&
+      child.textContent === 'Direktimport möglich';
+  }), 'compatible source has a clear direct-import status, not an encoding form');
   assert(findClass(mount, 'media-import-preview').textContent.includes('Die Herrschaft des Feuers'),
     'MT.UX4 selected film is visible before confirmation');
   assert(findClass(mount, 'media-import-source-details').textContent.includes(SOURCE),
