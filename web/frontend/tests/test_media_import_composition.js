@@ -920,17 +920,36 @@ function publishHomeResume() {}
   await settle();
   assert(findClass(mount, 'media-import-selection').children.some(function (row) {
     return row.dataset.sourceId === SOURCE &&
-      row.children[2].textContent.includes('VDR-Readback bestätigt');
-  }), 'the same source ID retains verified result through a rescan');
+      row.children[2].textContent.includes('Frühere VDR-Operation bestätigt') &&
+      row.children[2].textContent.includes('aktueller Quellinhalt ungeprüft');
+  }), 'rescan retains historical readback without certifying current file bytes');
   const pcPostsAfterReadback = submits;
   const sourceAfterReadback = findClass(mount, 'media-import-source');
   sourceAfterReadback.value = SOURCE;
   sourceAfterReadback.listeners.change();
   await settle();
-  assert(findClass(mount, 'media-import-confirmed-readback'),
-    'confirmed source displays its readback separately from the fresh preview');
+  assert(findClass(mount, 'media-import-confirmed-readback').textContent.includes(
+    'KEIN Nachweis für den aktuell'),
+    'past success must not certify the current file with a reusable source ID');
   assert.strictEqual(submits, pcPostsAfterReadback,
     'rescan and source reinspection never perform a second import');
+
+  // Root-configured (non-scan) inventory entries can retain the SAME source
+  // ID after someone replaces the media bytes. A changed label is observable
+  // here, but a replacement with unchanged label is equally possible.
+  sourceDisplayOverride = 'Ausgetauschter Film';
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  const sameIdReplacement = findClass(mount, 'media-import-selection').children
+    .find(function (row) { return row.dataset.sourceId === SOURCE; });
+  assert(sameIdReplacement && sameIdReplacement.children[1].textContent.includes(
+    'Ausgetauschter Film'), 'new inventory observation is rendered');
+  assert(sameIdReplacement.children[2].textContent.includes(
+    'aktueller Quellinhalt ungeprüft'),
+    'old operation success is never presented as current file verification');
+  assert.strictEqual(submits, pcPostsAfterReadback,
+    'same source ID with replaced media cannot authorize cleanup or another import');
+  sourceDisplayOverride = 'Film';
 
   // Same folder and label but a different Agent observation/source ID:
   // neither a possible filename match nor a VDR result for the old source
@@ -943,7 +962,7 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-selection').children.some(function (row) {
     return row.dataset.sourceId === SOURCE_B &&
       row.children[2].textContent.includes('Möglicher PC-Encode-Rücklauf') &&
-      !row.children[2].textContent.includes('VDR-Readback bestätigt');
+      !row.children[2].textContent.includes('Frühere VDR-Operation bestätigt');
   }), 'a changed source observation never inherits the former recording result');
   assert.strictEqual(submits, pcPostsAfterReadback,
     'rescan with changed source ID never starts an import');
@@ -958,7 +977,7 @@ function publishHomeResume() {}
   await settle();
   assert(!findClass(mount, 'media-import-selection').children.some(function (row) {
     return row.dataset.sourceId === SOURCE &&
-      row.children[2].textContent.includes('VDR-Readback bestätigt');
+      row.children[2].textContent.includes('Frühere VDR-Operation bestätigt');
   }), 'sign-out/reset discards ephemeral display evidence');
 
   // Two extensions with the same stem may be different films. Neither can

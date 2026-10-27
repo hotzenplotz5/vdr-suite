@@ -4,9 +4,10 @@
   // Media Tools is a view of Core-owned capabilities and Operations, never a job queue.
   const activeAttempts = Object.create(null);
   const activeBatches = Object.create(null);
-  // Browser-session display evidence ONLY: a Core 'succeeded' recording readback
-  // for one exact source observation. No source mutation, media identity or
-  // durable import ledger is inferred from this UI memory.
+  // Browser-session HISTORY of a Core 'succeeded' recording readback, keyed
+  // by the operation's source ID. A pinned inventory ID may survive a file
+  // replacement: do not claim a newly scanned file is the verified original.
+  // No source mutation, media identity or durable ledger follows from it.
   const confirmedImports = Object.create(null);
   // Avoid repeated automatic duplicate operations for a single source observation.
   const automaticDuplicates = Object.create(null);
@@ -527,9 +528,10 @@
         (!view.attempt.videoDecision || view.attempt.videoDecision === 'local');
       if (recordingConfirmed) {
         // Core only reaches 'succeeded' for a recording after committed
-        // recording-cache readback. Associate this observation with its opaque
-        // source ID, never with the .pc_encode original by title.
+        // recording-cache readback. Keep a historical operation reference
+        // only: a fixed inventory source ID may later refer to new bytes.
         confirmedImports[view.backendId + '|' + view.attempt.sourceId] = {
+          operationId: operation.operationId,
           possiblePcReturn: view.attempt.pcReturn === true
         };
       }
@@ -887,7 +889,7 @@
       const meta = element('span', 'media-import-episode-meta',
         (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
         (confirmed
-          ? ' · VDR-Readback bestätigt (diese Sitzung; Quelle erhalten)'
+          ? ' · Frühere VDR-Operation bestätigt; aktueller Quellinhalt ungeprüft'
           : ' · Noch nicht geprüft') + pcHint);
       row.appendChild(checkbox);
       row.appendChild(open);
@@ -1270,11 +1272,14 @@
         : failure || 'Die Quelle oder das Ziel konnte nicht vollständig geprüft werden. Technische Details anzeigen oder erneut prüfen.';
     card.appendChild(element('p', 'media-import-preview-hint', note));
     if (selected && confirmedImport(view, view.select.value)) {
+      const history = confirmedImport(view, view.select.value);
       card.appendChild(element('p', 'media-import-confirmed-readback',
-        'Der VDR-Import dieser exakten Quellbeobachtung wurde in dieser ' +
-        'Browsersitzung bereits über Core-Recording-Readback bestätigt. ' +
-        'Die aktuelle Vorschau wird unabhängig davon geprüft; ' +
-        'der Quellinhalt wurde nicht automatisch gelöscht.'));
+        'Frühere VDR-Operation ' + history.operationId +
+        ' wurde in dieser Browsersitzung durch Core-Recording-Readback ' +
+        'bestätigt. Das ist KEIN Nachweis für den aktuell unter dieser ' +
+        'Quellen-ID liegenden Dateiinhalt. Die neue Vorschau prüft ihn ' +
+        'unabhängig; weder er noch eine .pc_encode-Originaldatei wurde ' +
+        'automatisch gelöscht.'));
     }
     const parked = selected ? parkedPcEncodeMatches(view, source) : [];
     if (parked.length) {
@@ -1340,7 +1345,7 @@
         const confirmed = confirmedImport(view, id);
         row.children[2].textContent = folder + ' · ' + status +
           (confirmed
-            ? ' · VDR-Readback bestätigt (diese Sitzung; Quelle erhalten)'
+            ? ' · Frühere VDR-Operation bestätigt; aktueller Quellinhalt ungeprüft'
             : '') + pcHint;
       }
     });
