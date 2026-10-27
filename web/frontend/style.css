@@ -5019,6 +5019,32 @@ body.channel-sorter-dragging * {
   font-size: .8rem;
 }
 
+/* MT.META2: local NFO is read-only and legible on desktop and phone. */
+.media-import-local-metadata {
+  display: grid;
+  gap: .65rem;
+  padding: .9rem;
+  border-radius: .7rem;
+  border: 1px solid rgba(100,116,139,.24);
+  background: rgba(30,41,59,.46);
+  overflow-wrap: anywhere;
+}
+.media-import-local-metadata h6 {
+  margin: 0;
+  font-size: .94rem;
+  color: #bfdbfe;
+}
+.media-import-nfo-outline {
+  margin: 0;
+  font-weight: 650;
+  color: #e2e8f0;
+}
+.media-import-nfo-plot {
+  margin: 0;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: #cbd5e1;
+}
 /* MT.REC4: clearly indicate the episode driving the detail pane. */
 .media-import-panel .media-import-select-item.is-selected {
   border-color: #60a5fa;

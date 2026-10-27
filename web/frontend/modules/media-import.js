@@ -697,6 +697,17 @@
       typeof data.title === 'string' && data.title.length <= 120 &&
       (data.failureCode === undefined ||
         (typeof data.failureCode === 'string' && /^[a-z_]{0,32}$/.test(data.failureCode))) &&
+      ['nfoOutline', 'nfoPlot', 'nfoGenre'].every(function (key) {
+        return data[key] === undefined ||
+          (typeof data[key] === 'string' && data[key].length <= 4096 &&
+           !/[\r\n\x00-\x1f\x7f]/.test(data[key]));
+      }) &&
+      (data.nfoYear === undefined ||
+        (typeof data.nfoYear === 'string' &&
+         (data.nfoYear === '' || /^[0-9]{4}$/.test(data.nfoYear)))) &&
+      (data.durationSeconds === undefined ||
+        (Number.isSafeInteger(data.durationSeconds) &&
+         data.durationSeconds >= 0 && data.durationSeconds <= 4294967295)) &&
       (data.status === 'unavailable' || data.title.length > 0));
   }
 
@@ -1277,7 +1288,38 @@
       if (plan.targetFolder) addFact('VDR-Ziel', plan.targetFolder);
       if (plan.availableBytes) addFact('Freier Platz', humanBytes(plan.availableBytes));
       if (plan.requiredBytes) addFact('Benötigt inkl. Reserve', humanBytes(plan.requiredBytes));
+      if (plan.durationSeconds) {
+        const seconds = plan.durationSeconds;
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        addFact('Laufzeit (FFprobe)', hours
+          ? hours + ' Std. ' + (minutes % 60) + ' Min.'
+          : minutes + ' Min.');
+      }
       card.appendChild(facts);
+    }
+    if (plan && ['ready', 'duplicate', 'insufficient'].includes(plan.status)) {
+      const hasNfo = ['nfoOutline', 'nfoPlot', 'nfoYear', 'nfoGenre'].some(
+        function (key) { return Boolean(plan[key]); });
+      if (hasNfo) {
+        const section = element('section', 'media-import-local-metadata');
+        section.appendChild(element('h6', '', 'Lokale Metadaten (NFO)'));
+        if (plan.nfoOutline)
+          section.appendChild(element('p', 'media-import-nfo-outline', plan.nfoOutline));
+        if (plan.nfoPlot)
+          section.appendChild(element('p', 'media-import-nfo-plot', plan.nfoPlot));
+        const facts = element('dl', 'media-import-preview-facts');
+        const add = function (label, value) {
+          const item = element('div', 'media-import-preview-fact');
+          item.appendChild(element('dt', '', label));
+          item.appendChild(element('dd', '', value));
+          facts.appendChild(item);
+        };
+        if (plan.nfoYear) add('Jahr', plan.nfoYear);
+        if (plan.nfoGenre) add('Genre', plan.nfoGenre);
+        if (facts.children.length) section.appendChild(facts);
+        card.appendChild(section);
+      }
     }
     const diagnostics = {
       agent_unavailable: 'Der Backend-Agent oder Media Tools ist nicht erreichbar.',

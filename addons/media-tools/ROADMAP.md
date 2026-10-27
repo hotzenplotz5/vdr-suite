@@ -65,7 +65,7 @@ Das **zweite, zuletzt gezeigte Media-Tools-Mockup** im Chat vom 27.10.2026 ist d
 | **MT.META5 – Optionale Online-Metadaten** | TMDb soweit über bestehende Suite-Metadatendienste verfügbar ergänzen; explizite Trefferprüfung statt Titelraten, lokale NFO-Inhalte nicht still überschreiben. | Authentifizierte Datenquelle und Bildherkunft, mehrdeutige Treffer, Offline-Fallback, keine Fake-Bewertung. |
 | **MT.META6 – VDR-Metadaten-Übernahme und Feinschliff** | Bestehende NFO-zu-VDR-`info`-Felder prüfen/ergänzen, dann ganze Bedienung mit Tastatur, Touch, Telefon/Tablet/Desktop und unabhängigem Recording-Readback abnehmen. | Core-/Agent-/Frontend- und REAL-VDR-Nachweise getrennt, vorher/nachher in VDR-`info` belegt. |
 
-**Status:** MT.META1 wird quellseitig begonnen; MT.META2–6 sind geplant. Ausgewählte Filme werden dadurch **nicht** automatisch importiert, markiert, umkodiert oder gelöscht. Die isolierten Frontend- und CI-Ergebnisse müssen für den exakten Code-HEAD verifiziert werden; ein erfolgreicher GitHub-Build ersetzt keine Geräte-/yaVDR-Abnahme.
+**Status:** MT.META1 Code und CI bestätigt; MT.META2 ist quellseitig über die vorhandene NFO-/FFprobe-, Agent-, Core- und Public-v1-Vorschau bis zur Detailkarte ergänzt. Prüfung des finalen Code-HEADs und echte Geräte-/yaVDR-Abnahme sind getrennt noch offen. MT.META3–6 bleiben geplant. Ausgewählte Filme werden dadurch **nicht** automatisch importiert, markiert, umkodiert oder gelöscht. Die isolierten Frontend- und CI-Ergebnisse müssen für den exakten Code-HEAD verifiziert werden; ein erfolgreicher GitHub-Build ersetzt keine Geräte-/yaVDR-Abnahme.
 
 ### Phasen und harte Abnahmekriterien — in dieser Reihenfolge
 

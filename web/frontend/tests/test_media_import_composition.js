@@ -151,7 +151,11 @@ function transport(url, options) {
       videoCodec: codec,
       sourceBytes: 2500000000,
       availableBytes: 12000000000, requiredBytes: 7600000000,
-      videoReencodeRequired: codec === 'vp9'
+      videoReencodeRequired: codec === 'vp9',
+      nfoOutline: 'Ein lokaler NFO-Text',
+      nfoPlot: 'Eine Handlung aus der tatsächlichen .nfo-Datei.',
+      nfoYear: '2024', nfoGenre: 'Drama',
+      durationSeconds: 3210
     }));
   }
   if (path.endsWith('/capabilities/media-import')) {
@@ -390,6 +394,19 @@ function publishHomeResume() {}
     'marker recovery is exclusively inside technical details, not the main preview');
   assert(findClass(mount, 'media-import-preview-facts'),
     'codec, source bytes and VDR target are rendered as actual preview facts');
+  const nfo = findClass(mount, 'media-import-local-metadata');
+  assert(nfo && findClass(nfo, 'media-import-nfo-outline').textContent ===
+    'Ein lokaler NFO-Text');
+  assert(findClass(nfo, 'media-import-nfo-plot').textContent.includes('.nfo-Datei'));
+  assert(nfo.children.some(function (child) {
+    return child.className === 'media-import-preview-facts' &&
+      child.children.some(function (fact) {
+        return fact.children[1].textContent === 'Drama';
+      });
+  }), 'NFO genre and year are displayed as verified metadata');
+  assert(findClass(mount, 'media-import-preview-facts').children.some(
+    function (fact) { return fact.children[0].textContent === 'Laufzeit (FFprobe)'; }),
+    'FFprobe duration must be real data in the detail pane');
   assert(findClass(mount, 'media-import-preview').textContent.includes('Nächster Schritt'),
     'ready preview must explain the next action');
   assert(findClass(mount, 'media-import-decision-label').hidden,
