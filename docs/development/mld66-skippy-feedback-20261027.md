@@ -2,6 +2,8 @@
 
 Branch: `work/mld66-skippy-feedback-20261027`, ab `main` `cc6cc4678fb10a4376d931c21fbf2ae14e2d7038`.
 Dies ist ein **separater MLD-Teststand**, keine allgemeine Freigabe, kein MLD-Paket und kein nachgewiesener Hardwaretest. `main` und der bisherige Integrationsbranch bleiben unverändert.
+Verbindlicher Slice-Plan für diesen Testbranch: [Phase MLD.F1](../planning/mld66-feedback-phase-f1.md).
+
 Referenz: [MLD-Kompatibilitätsinventar](mld66-compatibility-inventory.md),
 [Public-v1-Suchtimer-Vertrag](../../api/search-timers.md),
 [Medienwiedergabevertrag](frontend-playback-integration-contract.md).
