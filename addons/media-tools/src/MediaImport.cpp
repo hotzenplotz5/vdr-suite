@@ -274,12 +274,8 @@ std::string xmlText(const std::string& xml, const std::string& name) {
     return result.substr(firstCharacter, lastCharacter - firstCharacter + 1);
 }
 
-struct ImportMetadata {
-    std::string title, shortText, description, year, genre;
-};
-
-ImportMetadata adjacentMetadata(const fs::path& sourceFile) {
-    ImportMetadata metadata;
+ImportLocalMetadata adjacentMetadata(const fs::path& sourceFile) {
+    ImportLocalMetadata metadata;
     fs::path file = sourceFile;
     file.replace_extension(".nfo");
     const auto nfo = readOptionalSidecar(file, 65536);
@@ -489,6 +485,35 @@ ImportPlan inspectImportChecked(const ImportRequest& request,
             sourceIdentity.seconds,
             sourceIdentity.nanoseconds, duplicate};
 }
+ImportLocalMetadata readImportLocalMetadata(const ImportPlan& plan) {
+    const auto fresh = inspectImportPreview(
+        {plan.sourceRoot, plan.videoRoot, plan.sourceFile});
+    require(fresh.sourceDevice == plan.sourceDevice &&
+            fresh.sourceInode == plan.sourceInode &&
+            fresh.sourceBytes == plan.sourceBytes &&
+            fresh.sourceMtimeSeconds == plan.sourceMtimeSeconds &&
+            fresh.sourceMtimeNanoseconds == plan.sourceMtimeNanoseconds &&
+            fresh.titleDirectory == plan.titleDirectory,
+            "source changed before NFO preview");
+    const auto metadata = adjacentMetadata(plan.sourceFile);
+    require(safeTitle(metadata.title.empty() ?
+        plan.sourceFile.stem().string() : metadata.title) == plan.title,
+        "NFO title changed during preview");
+    return metadata;
+}
+
+double probeImportDurationSeconds(const ImportPlan& plan, ProcessRunner& runner) {
+    const auto fresh = inspectImportPreview(
+        {plan.sourceRoot, plan.videoRoot, plan.sourceFile});
+    require(fresh.sourceDevice == plan.sourceDevice &&
+            fresh.sourceInode == plan.sourceInode &&
+            fresh.sourceBytes == plan.sourceBytes &&
+            fresh.sourceMtimeSeconds == plan.sourceMtimeSeconds &&
+            fresh.sourceMtimeNanoseconds == plan.sourceMtimeNanoseconds,
+            "source changed before duration preview");
+    return probeDuration(runner, plan.sourceFile);
+}
+
 ImportPlan inspectImport(const ImportRequest& request) {
     return inspectImportChecked(request, true);
 }

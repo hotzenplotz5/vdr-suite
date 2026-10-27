@@ -209,6 +209,7 @@ int main() {
                 return {0, "vp9\n"};
             }
         } preview;
+        assert(readImportLocalMetadata(plan).description.empty());
         assert(probeImportVideoCodec(plan, preview) == "vp9");
         assert(importVideoNeedsReencode(probeImportVideoCodec(plan, preview)));
         const auto details = inspectImportPreview(f.request(), preview);
@@ -460,6 +461,13 @@ int main() {
         FakeProcess runner;
         const auto plan = inspectImport(f.request());
         assert(plan.title == "Example & Friends");
+        const auto local = readImportLocalMetadata(plan);
+        assert(local.title == "Example & Friends");
+        assert(local.shortText == "Short text" &&
+               local.description == "A longer description.");
+        assert(local.year == "2024" && local.genre == "Drama");
+        assert(fs::exists(f.source));
+        assert(!fs::exists(f.video / "Example & Friends"));
         const auto output = executeRemuxImport(
             plan, runner, [](const ImportPlan&) {});
         std::ifstream info(output / "info");

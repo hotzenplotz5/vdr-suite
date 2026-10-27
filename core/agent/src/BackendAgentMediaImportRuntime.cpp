@@ -157,6 +157,11 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
         out.title = plan.title;
         out.targetFolder = relative.generic_string();
         out.sourceBytes = static_cast<std::uint64_t>(plan.sourceBytes);
+        const auto metadata = readImportLocalMetadata(plan);
+        out.nfoOutline = metadata.shortText;
+        out.nfoPlot = metadata.description;
+        out.nfoYear = metadata.year;
+        out.nfoGenre = metadata.genre;
         // A protected destination collision is not itself proof of a duplicate.
         if (plan.duplicateTarget) {
             out.status = confirmedMediaImportDuplicate(plan)
@@ -170,6 +175,12 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
         out.failureCode = "capacity_failed";
         const auto capacity = inspectImportCapacity(plan);
         out.videoCodec = codec;
+        // Duration is display-only: unsupported duration is not an import error.
+        try {
+            const double seconds = probeImportDurationSeconds(plan, probe);
+            if (seconds > 0.0 && seconds <= 4294967295.0)
+                out.durationSeconds = static_cast<std::uint64_t>(seconds + 0.5);
+        } catch (...) {}
         out.availableBytes = capacity.availableBytes;
         if (capacity.reserveBytes >
             std::numeric_limits<std::uint64_t>::max() - capacity.requiredBytes)

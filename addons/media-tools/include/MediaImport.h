@@ -77,6 +77,14 @@ ImportPreview inspectImportPreview(const ImportRequest& request,
 // read-only browser preview instead of rejecting it as a write attempt.
 ImportPlan inspectImportPreview(const ImportRequest& request);
 
+// The existing bounded adjacent .nfo parser, reused for read-only display.
+struct ImportLocalMetadata {
+    std::string title, shortText, description, year, genre;
+};
+ImportLocalMetadata readImportLocalMetadata(const ImportPlan& plan);
+// Optional FFprobe duration, never import authority.
+double probeImportDurationSeconds(const ImportPlan& plan, ProcessRunner& runner);
+
 // Stronger read-only evidence than duplicateTarget: a structurally complete
 // VDR recording with matching info title, index and first TS segment. An
 // incomplete .rec still prevents overwriting, but must not be auto-marked.
