@@ -114,8 +114,8 @@ if [ "$caps" -eq 1 ]; then
     if command -v timeout >/dev/null 2>&1 &&
         command -v svdrpsend.sh >/dev/null 2>&1; then
         echo "SUITEBRIDGE_CAPS=BEGIN"
-        if timeout 5 svdrpsend.sh plug suitebridge CAPS 1 2>/dev/null |
-            sed -n '1,12p'; then
+        if caps_reply=$(timeout 5 svdrpsend.sh plug suitebridge CAPS 1 2>/dev/null); then
+            printf '%s\n' "$caps_reply" | sed -n '1,12p'
             echo "SUITEBRIDGE_CAPS=RESPONSE_ABOVE"
         else
             echo "SUITEBRIDGE_CAPS=FAILED_OR_TIMED_OUT"
