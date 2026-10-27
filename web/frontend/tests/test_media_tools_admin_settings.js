@@ -82,6 +82,8 @@ async function test() {
       assert.equal(url, '/api/v1/addons/rectools/activation');
       assert.equal(options.credentials, 'same-origin');
       assert.equal(options.headers['X-VDR-Suite-CSRF-Token'], 'test-token');
+      assert.match(options.headers['X-Correlation-ID'],
+        /^addon-activation-[a-z0-9]+-[a-z0-9]+$/);
       const body = JSON.parse(options.body);
       assert.equal(body.backendId, 'default');
       assert.equal(body.expectedRevision, revision);
