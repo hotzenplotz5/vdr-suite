@@ -4,6 +4,8 @@
   // Media Tools is a view of Core-owned capabilities and Operations, never a job queue.
   const activeAttempts = Object.create(null);
   const activeBatches = Object.create(null);
+  // Avoid repeated automatic duplicate operations for a single source observation.
+  const automaticDuplicates = Object.create(null);
   const POLL_MS = 4000;
   const MAX_AUTOMATIC_READS = 15;
   // Long-running explicitly approved imports can use the Agent's bounded
@@ -103,6 +105,9 @@
     });
     Object.keys(activeBatches).forEach(function (id) {
       delete activeBatches[id];
+    });
+    Object.keys(automaticDuplicates).forEach(function (id) {
+      delete automaticDuplicates[id];
     });
   }
 
@@ -445,6 +450,17 @@
         view.newButton.hidden = false;
       }
       if (view.batch) advanceBatch(view, operation);
+      if (!view.batch && operation.state === 'succeeded' &&
+          view.attempt.videoDecision === 'duplicate') {
+        // Core has verified the marker operation; refresh the source inventory
+        // to show the actual Rectools filename, not an imagined local status.
+        delete activeAttempts[view.backendId];
+        view.attempt = null;
+        view.refreshButton.hidden = true;
+        view.newButton.hidden = true;
+        view.reloadButton.disabled = false;
+        return loadSources(view);
+      }
       const limit = view.batch ? MAX_BATCH_READS : MAX_AUTOMATIC_READS;
       if (!terminalState(operation.state) && view.reads < limit) {
         ++view.reads;
@@ -488,7 +504,6 @@
   function showAttempt(view) {
     view.select.disabled = true;
     view.startButton.disabled = true;
-    view.duplicateButton.disabled = true;
     view.selectedBatchButton.disabled = true;
     view.selectAllVisibleButton.disabled = true;
     view.localReencode.disabled = true;
@@ -704,8 +719,6 @@
     view.select.value = '';
     view.select.disabled = normal.length === 0;
     view.startButton.disabled = true;
-    view.duplicateButton.hidden = true;
-    view.duplicateButton.disabled = true;
     view.sourceDetails.textContent = '';
     view.preview.textContent = normal.length
       ? 'Schritt 2: Film oder Serienfolge oben auswählen. Die technische Vorschau startet automatisch.'
@@ -778,8 +791,6 @@
     view.sourceDetails.textContent = '';
     view.select.disabled = true;
     view.startButton.disabled = true;
-    view.duplicateButton.hidden = true;
-    view.duplicateButton.disabled = true;
     view.markedSelect.disabled = true;
     view.releaseButton.disabled = true;
     view.batchButton.disabled = true;
@@ -931,6 +942,13 @@
         view.previewStatus = '';
         view.previewFailed = data.status === 'unavailable';
         updatePreview(view);
+        if (data.status === 'duplicate' && !view.attempt && !view.batch &&
+            !view.submitting && !automaticDuplicates[view.backendId + '|' + id]) {
+          automaticDuplicates[view.backendId + '|' + id] = true;
+          // The selected Agent preview is verified before this automatic
+          // decision; the same Core/Agent operation rechecks source and target.
+          return startImport(view, false, 'duplicate', true);
+        }
       }).catch(function (error) {
         if (!isCurrent(view) || generation !== view.previewGeneration ||
             view.select.value !== id) return;
@@ -985,9 +1003,6 @@
       Boolean(view.attempt) || Boolean(view.batch);
     view.skipButton.hidden = !plan || needsEncode ||
       plan.status === 'unavailable' || plan.status === 'duplicate';
-    view.duplicateButton.hidden = !plan || plan.status !== 'duplicate';
-    view.duplicateButton.disabled = view.submitting || Boolean(view.attempt) ||
-      Boolean(view.batch);
     view.skipButton.disabled = view.submitting || Boolean(view.attempt) ||
       Boolean(view.batch);
     if (!selected) {
@@ -1042,7 +1057,7 @@
       : ready && !needsEncode
         ? 'Nächster Schritt: „Diesen Film importieren“ anklicken und bestätigen.'
         : plan.status === 'duplicate'
-          ? 'Bereits als VDR-Aufnahme vorhanden. Optional als .duplicate markieren und vom Import ausschließen.'
+          ? 'Bestehende VDR-Aufnahme bestätigt. Die Quelle wird automatisch über den Core als .duplicate markiert.'
         : needsEncode
           ? 'Nächster Schritt: Oben einen Bearbeitungsweg wählen. Lokale Umkodierung braucht eine gesonderte Bestätigung.'
           : 'Dieser Film ist derzeit nicht importierbar. Einen anderen Film wählen.';
@@ -1064,7 +1079,7 @@
     }
   }
 
-  function startImport(view, releaseMode, forcedDecision) {
+  function startImport(view, releaseMode, forcedDecision, automaticDuplicate) {
     if (!isCurrent(view) || view.submitting || view.attempt ||
         (view.inspectingBatch && !view.batch)) return Promise.resolve();
     const sourceId = releaseMode ? view.markedSelect.value :
@@ -1104,7 +1119,7 @@
         : selected === 'skip'
           ? 'Diesen Film mit .skipped markieren und vom normalen Import ausschließen?'
           : selected === 'duplicate'
-            ? 'Die vorhandene VDR-Aufnahme bleibt erhalten. Diese Quelldatei als .duplicate markieren und vom Import ausschließen?'
+            ? (automaticDuplicate ? '' : 'Die vorhandene VDR-Aufnahme bleibt erhalten. Diese Quelldatei als .duplicate markieren?')
           : selected === 'release'
             ? 'Diese markierte Datei ausdrücklich wieder freigeben? ' +
               'Es wird noch KEIN Import gestartet. Eine vorhandene Zieldatei wird niemals überschrieben.'
@@ -1124,7 +1139,6 @@
     view.localReencode.disabled = true;
     view.decision.disabled = true;
     view.skipButton.disabled = true;
-    view.duplicateButton.disabled = true;
     view.markedSelect.disabled = true;
     view.releaseButton.disabled = true;
     report(view, 'Quelle und Berechtigung werden erneut geprüft …');
@@ -1327,12 +1341,6 @@
     startButton.type = 'button';
     startButton.disabled = true;
     root.appendChild(startButton);
-    const duplicateButton = element('button', 'media-import-duplicate',
-      'Als Duplikat markieren (.duplicate)');
-    duplicateButton.type = 'button';
-    duplicateButton.hidden = true;
-    duplicateButton.disabled = true;
-    root.appendChild(duplicateButton);
     const skipButton = element('button', 'media-import-skip', 'Film überspringen');
     skipButton.type = 'button';
     skipButton.hidden = true;
@@ -1403,7 +1411,7 @@
     root.appendChild(technical);
     mountTarget.replaceChildren(root);
     const view = {owner: owner, backendId: backendId, root: root,
-      select: select, startButton: startButton, duplicateButton: duplicateButton,
+      select: select, startButton: startButton,
       reloadButton: reloadButton,
       searchInput: searchInput, statusFilter: statusFilter,
       folderBreadcrumb: folderBreadcrumb, folderList: folderList,
@@ -1472,9 +1480,6 @@
     });
     startButton.addEventListener('click', function () { return startImport(view); });
     skipButton.addEventListener('click', function () { return startImport(view, false, 'skip'); });
-    duplicateButton.addEventListener('click', function () {
-      return startImport(view, false, 'duplicate');
-    });
     markedSelect.addEventListener('change', function () {
       releaseButton.disabled = view.submitting || Boolean(view.attempt) ||
         !view.markedSources.includes(markedSelect.value);
