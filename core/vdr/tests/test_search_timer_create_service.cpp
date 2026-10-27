@@ -127,6 +127,21 @@ static void test_create_requires_backend_id()
     assert(executor.callCount() == 0);
 }
 
+static void test_create_never_writes_selected_other_backend()
+{
+    SearchTimerCreateService service("local-vdr");
+    TestSearchTimerCommandExecutor executor;
+    const auto denied = service.create(makeRequest(), executor);
+    assert(!denied.success);
+    assert(denied.message == "searchtimer backend does not match provider");
+    assert(executor.callCount() == 0);
+    SearchTimerCreateRequest allowed = makeRequest();
+    allowed.backendId = "local-vdr";
+    const auto created = service.create(allowed, executor);
+    assert(created.success);
+    assert(executor.callCount() == 1);
+}
+
 static void test_create_requires_name()
 {
     SearchTimerCreateService service;
@@ -170,6 +185,7 @@ int main()
     test_create_delegates_valid_request_to_executor();
     test_create_preserves_inactive_state();
     test_create_requires_backend_id();
+    test_create_never_writes_selected_other_backend();
     test_create_requires_name();
     test_create_requires_query();
 
