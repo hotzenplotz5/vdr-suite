@@ -220,6 +220,8 @@ int main()
                 result.status = PublicApiRuntime::MediaImportPreviewStatus::ready;
                 result.sourceId = source;
                 result.inspectionStatus = inspectionStatus;
+                if (inspectionStatus == "unavailable")
+                    result.failureCode = "ffprobe_failed";
                 if (inspectionStatus == "insufficient") {
                     result.title = "Andor";
                     result.targetFolder = "Serien/Andor/Staffel 1/Film";
@@ -236,6 +238,9 @@ int main()
             "\"status\":\"" + inspectionStatus + "\"") !=
             std::string::npos);
         assert(checked.body.find("/srv/") == std::string::npos);
+        if (inspectionStatus == "unavailable")
+            assert(checked.body.find("\"failureCode\":\"ffprobe_failed\"") !=
+                   std::string::npos);
     }
     ApiResponse unsafePost;
     assert(api.tryHandlePost(preview, "", "", unsafePost));

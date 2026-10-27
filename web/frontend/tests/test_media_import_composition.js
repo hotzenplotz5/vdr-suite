@@ -1352,6 +1352,38 @@ function publishHomeResume() {}
   assert.strictEqual(submits, postsBeforeForbidden);
   previewMode = 'ready';
 
+  // Two confirmed duplicates in one batch are marked serially through the
+  // existing Core operation; the ready film stays available for import.
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B, SOURCE_C];
+  markedSources = [];
+  batchProbeOverrides[SOURCE_B] = {status: 'duplicate'};
+  batchProbeOverrides[SOURCE_C] = {status: 'duplicate'};
+  previewInspectionStatus = 'ready';
+  state = 'succeeded';
+  submitMode = 'accepted';
+  autoDuplicateReadback = true;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const beforeTwoDuplicates = submits;
+  await findClass(mount, 'media-import-batch').listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeTwoDuplicates + 2,
+    'two duplicates require exactly two serial Core marker operations');
+  assert(requests.filter(x => x.options.method === 'POST').slice(-2).every(function (x) {
+    return JSON.parse(x.options.body).videoDecision === 'duplicate';
+  }), 'batch duplicate steps do not dispatch VDR imports');
+  assert(findClass(mount, 'media-import-batch-review').children.filter(function (row) {
+    return row.textContent.includes('Als .duplicate markiert');
+  }).length === 2, 'each duplicate requires independently confirmed readback');
+  assert(!findClass(mount, 'media-import-batch-confirm').disabled,
+    'remaining compatible film is available after duplicate marking');
+  delete batchProbeOverrides[SOURCE_B];
+  delete batchProbeOverrides[SOURCE_C];
+  autoDuplicateReadback = false;
+  markedSources = [];
+
   // A confirmed duplicate is automatically sent through the existing
   // Core/Agent marker operation. It never displays a manual duplicate button.
   context.resetMediaImportVisibility(true);
