@@ -192,6 +192,35 @@ int main()
     assert(realRestfulApiTimers.at(0).matchOptions().tolerance() == 1);
     assert(realRestfulApiTimers.at(0).matchOptions().summaryMatch() == 90);
 
+    // Full MLD.F1.3 readback: native channel identities, schedule filters,
+    // and RESTfulAPI array-valued blacklist/extended-EPG settings survive.
+    const std::string fullRuleJson =
+        R"({"searchtimers":[{"id":11,"search":"MLD active",
+        "use_as_searchtimer":1,"use_time":1,"start_time":930,
+        "stop_time":1120,"use_dayofweek":1,"dayofweek":31,
+        "use_channel":2,"channel_min":"S19.2E-1-1011-11110",
+        "channel_max":"S19.2E-1-1011-11111",
+        "channels":"Öffentlich",
+        "blacklist_ids":["4","5"],
+        "ext_epg_info":["category=movie","actor=Jane"]}],
+        "count":1,"total":1})";
+    const auto full = RestfulApiSearchTimerMapper::parseSearchTimers(
+        "mld-vdr", fullRuleJson);
+    assert(full.size() == 1);
+    assert(full[0].isActive());
+    assert(full[0].filterOptions().channelMode() == 2);
+    assert(full[0].filterOptions().useTime());
+    assert(full[0].filterOptions().startTime() == 930);
+    assert(full[0].filterOptions().stopTime() == 1120);
+    assert(full[0].filterOptions().dayOfWeek() == 31);
+    assert(full[0].channelOptions().channelMinId() ==
+        "S19.2E-1-1011-11110");
+    assert(full[0].channelOptions().channelMaxId() ==
+        "S19.2E-1-1011-11111");
+    assert(full[0].blacklistOptions().blacklistIds() == "4,5");
+    assert(full[0].extendedEpgOptions().extendedEpgInfo() ==
+        "category=movie,actor=Jane");
+
     std::vector<SearchTimer> emptyTimers =
         RestfulApiSearchTimerMapper::parseSearchTimers(
             "livingroom",
