@@ -1744,6 +1744,78 @@ function publishHomeResume() {}
   autoDuplicateReadback = false;
   previewInspectionStatus = 'ready';
 
+  // MT.META4: only verified paths and explicit SxxEyy / Staffel patterns
+  // establish presentation groups. Selection still posts opaque IDs only.
+  context.resetMediaImportVisibility(true);
+  previewMode = 'ready';
+  previewInspectionStatus = 'ready';
+  submitMode = 'accepted';
+  batchSources = [SOURCE, SOURCE_B, SOURCE_C, SOURCE_D];
+  markedSources = [MARK_PC];
+  sourceFolders[SOURCE] = 'Serien/Andor/Staffel 1';
+  sourceFolders[SOURCE_B] = 'Serien/Andor/Staffel 1';
+  sourceFolders[SOURCE_C] = 'Serien/Andor/Staffel 2';
+  sourceFolders[SOURCE_D] = 'Serien/Zweite Serie/Staffel 1';
+  sourceFolders[MARK_PC] = 'Serien/Andor/Staffel 1';
+  sourceDisplayOverride = 'S01E01 Pilot';
+  sourceDisplayLabels[SOURCE_B] = 'S01E02 Zweite Folge';
+  sourceDisplayLabels[SOURCE_C] = 'S02E01 Rückkehr';
+  sourceDisplayLabels[SOURCE_D] = 'S01E01 Pilot';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const seriesGroups = findClass(mount, 'media-import-series-groups');
+  const seasonPicker = findClass(mount, 'media-import-season-filter');
+  const mobileGroups = findClass(mount, 'media-import-mobile-nav');
+  const seriesPosts = submits;
+  const andor = seriesGroups.children.find(function (button) {
+    return button.dataset.folder === 'Serien/Andor';
+  });
+  const secondSeries = seriesGroups.children.find(function (button) {
+    return button.dataset.folder === 'Serien/Zweite Serie';
+  });
+  assert(andor && secondSeries, 'same episode name in other source folder is independent');
+  andor.listeners.click();
+  assert.strictEqual(findClass(mount, 'media-import-panel').dataset.mobilePane, 'media');
+  assert(!findClass(mount, 'media-import-season-label').hidden);
+  assert(seasonPicker.children.some(function (option) {
+    return option.value === 's:1' && option.textContent === 'Staffel 1';
+  }));
+  assert(seasonPicker.children.some(function (option) { return option.value === 's:2'; }));
+  assert(findClass(mount, 'media-import-visible-count').textContent.includes('3 unmarkierte'));
+  seasonPicker.value = 's:2';
+  seasonPicker.listeners.change();
+  let seasonIds = findClass(mount, 'media-import-selection').children;
+  assert(seasonIds.some(function (row) { return row.dataset.sourceId === SOURCE_C; }));
+  assert(!seasonIds.some(function (row) { return row.dataset.sourceId === SOURCE; }));
+  assert(!seasonIds.some(function (row) { return row.dataset.sourceId === MARK_PC; }),
+    'parked PC source is never an ordinary candidate');
+  seasonPicker.value = 's:1';
+  seasonPicker.listeners.change();
+  seasonIds = findClass(mount, 'media-import-selection').children;
+  assert(seasonIds.some(function (row) { return row.dataset.sourceId === SOURCE; }));
+  assert(seasonIds.some(function (row) { return row.dataset.sourceId === SOURCE_B; }));
+  assert(seasonIds.some(function (row) {
+    return row.dataset.sourceId === MARK_PC &&
+      row.className.includes('media-import-marked-item');
+  }), '.pc_encode remains marked and visible in its actual season');
+  const episodeRow = seasonIds.find(function (row) {
+    return row.dataset.sourceId === SOURCE_B;
+  });
+  assert(findClass(episodeRow, 'media-import-episode-meta').textContent.includes('S01E02'),
+    'explicit episode number appears beside original label');
+  findClass(episodeRow, 'media-import-episode-open').listeners.click();
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-source').value, SOURCE_B);
+  assert.strictEqual(findClass(mount, 'media-import-panel').dataset.mobilePane, 'details');
+  await findClass(mount, 'media-import-mobile-back').listeners.click();
+  assert.strictEqual(findClass(mount, 'media-import-panel').dataset.mobilePane, 'media');
+  secondSeries.listeners.click();
+  seasonIds = findClass(mount, 'media-import-selection').children;
+  assert.strictEqual(seasonIds.length, 1);
+  assert.strictEqual(seasonIds[0].dataset.sourceId, SOURCE_D);
+  assert.strictEqual(submits, seriesPosts, 'group navigation does not create a Core operation');
+
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
   console.error(error);

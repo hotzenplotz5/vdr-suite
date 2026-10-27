@@ -798,6 +798,65 @@
     });
   }
 
+  // META4: advisory grouping from authenticated relative folders and explicit
+  // S01E02/Staffel 1 tokens only. Neither names nor grouping confer identity
+  // or permission: the opaque sourceId remains the ONLY import selection.
+  function episodeCoordinates(item) {
+    const parts = (item.folder || '').split('/').filter(Boolean);
+    const seasonName = parts.length &&
+      /^(?:Staffel|Season)[ ._-]*(0?[1-9]|[1-9][0-9])$/i.exec(parts[parts.length - 1]);
+    const filename = /(?:^|[\\s._-])S(0?[1-9]|[1-9][0-9])E(0?[1-9]|[1-9][0-9]{1,2})(?=$|[\\s._-])/i
+      .exec(item.label || '');
+    const folderSeason = seasonName ? Number(seasonName[1]) : null;
+    const labelSeason = filename ? Number(filename[1]) : null;
+    const season = folderSeason !== null && labelSeason !== null &&
+      folderSeason !== labelSeason ? null :
+      folderSeason !== null ? folderSeason : labelSeason;
+    return {
+      seriesPath: seasonName ? parts.slice(0, -1).join('/') : item.folder || '',
+      season: season,
+      episode: filename && season !== null ? Number(filename[2]) : null
+    };
+  }
+
+  function renderSeasonChoices(view, searching) {
+    const choices = view.seasonFilter;
+    const eligible = view.allOrdinary.concat(view.allMarked).filter(function (item) {
+      return item.folder === view.folderPath ||
+        item.folder.startsWith(view.folderPath + '/');
+    });
+    const seasons = Array.from(new Set(eligible.map(function (item) {
+      return episodeCoordinates(item).season;
+    }).filter(function (n) { return n !== null; }))).sort(function (a, b) { return a - b; });
+    const unknown = eligible.some(function (item) {
+      return episodeCoordinates(item).season === null;
+    });
+    const available = new Set(seasons.map(function (n) { return 's:' + n; }));
+    if (unknown) available.add('other');
+    if (!available.has(view.seasonKey)) view.seasonKey = '';
+    choices.replaceChildren();
+    const all = element('option', '', 'Alle Staffeln');
+    all.value = '';
+    choices.appendChild(all);
+    seasons.forEach(function (season) {
+      const option = element('option', '', 'Staffel ' + season);
+      option.value = 's:' + season;
+      choices.appendChild(option);
+    });
+    if (unknown) {
+      const option = element('option', '', 'Ohne Staffelzuordnung');
+      option.value = 'other';
+      choices.appendChild(option);
+    }
+    choices.value = view.seasonKey;
+    view.seasonLabel.hidden = searching || !view.folderPath ||
+      (seasons.length === 0 && !unknown);
+    const heading = view.folderPath ?
+      view.folderPath.split('/').join(' › ') : 'Alle Medien';
+    view.seriesCaption.textContent = 'Auswahl: ' + heading +
+      ' · Staffelangaben nur bei eindeutigen Datei-/Ordnerkennungen';
+  }
+
   // Build navigation only from previously validated Agent/Core relative
   // folders. This is NOT a server path resolver; clicks never send a path.
   function renderSourceFolders(view, searching) {
@@ -811,10 +870,13 @@
     if (!known.has(view.folderPath)) view.folderPath = '';
     view.folderBreadcrumb.replaceChildren();
     view.folderList.replaceChildren();
+    view.seriesGroups.replaceChildren();
     const navigate = function (path) {
       if (!isCurrent(view) || view.batch || view.attempt || !known.has(path))
         return;
       view.folderPath = path;
+      view.seasonKey = '';
+      view.searchInput.value = '';
       view.checkedSourceIds.clear();
       filterVisibleSources(view);
       setMobilePane(view, 'media');
@@ -848,6 +910,26 @@
     });
     view.folderList.hidden = searching || children.length === 0;
     view.folderBreadcrumb.hidden = known.size <= 1;
+
+    // All groups are grounded in real relative source folders. Distinct
+    // folders with identically named episodes MUST remain separate.
+    const groups = new Map();
+    catalog.forEach(function (item) {
+      const group = episodeCoordinates(item).seriesPath;
+      if (group && known.has(group)) groups.set(group, (groups.get(group) || 0) + 1);
+    });
+    Array.from(groups).sort(function (a, b) {
+      return sourceCollator.compare(a[0], b[0]);
+    }).forEach(function (entry) {
+      const button = element('button', 'media-import-series-group',
+        entry[0].split('/').join(' › ') + ' · ' + entry[1] + ' Dateien');
+      button.type = 'button';
+      button.dataset.folder = entry[0];
+      button.setAttribute('aria-pressed', view.folderPath === entry[0] ? 'true' : 'false');
+      button.addEventListener('click', function () { navigate(entry[0]); });
+      view.seriesGroups.appendChild(button);
+    });
+    view.seriesGroups.hidden = searching || groups.size === 0;
   }
 
   // UX3 step 1: search/filter only the already authenticated, bounded
@@ -866,6 +948,7 @@
     const query = String(view.searchInput.value || '').trim().toLowerCase();
     const mode = view.statusFilter.value;
     renderSourceFolders(view, Boolean(query));
+    renderSeasonChoices(view, Boolean(query));
     const matches = function (item) {
       const labelMatches = !query ||
         (item.label || item.sourceId).toLowerCase().includes(query);
@@ -874,7 +957,11 @@
       const folder = item.folder || '';
       const folderMatches = Boolean(query) || !view.folderPath ||
         folder === view.folderPath || folder.startsWith(view.folderPath + '/');
-      return labelMatches && folderMatches;
+      const details = episodeCoordinates(item);
+      const seasonMatches = Boolean(query) || !view.seasonKey ||
+        (view.seasonKey === 'other' ? details.season === null :
+          view.seasonKey === 's:' + details.season);
+      return labelMatches && folderMatches && seasonMatches;
     };
     const normal = mode === 'marked' ? [] :
       view.allOrdinary.filter(matches);
@@ -941,8 +1028,13 @@
         ? ' · Möglicher PC-Encode-Rücklauf'
         : parked.length ? ' · PC-Encode-Zuordnung mehrdeutig' : '';
       const confirmed = confirmedImport(view, item.sourceId);
+      const coords = episodeCoordinates(item);
+      const episodeLabel = coords.episode !== null
+        ? ' · S' + String(coords.season).padStart(2, '0') +
+          'E' + String(coords.episode).padStart(2, '0') : '';
       const meta = element('span', 'media-import-episode-meta',
         (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
+        episodeLabel +
         (confirmed
           ? ' · Frühere VDR-Operation bestätigt; aktueller Quellinhalt ungeprüft'
           : ' · Noch nicht geprüft') + pcHint);
@@ -996,9 +1088,13 @@
           element('p', 'media-import-preview-hint', hint));
         setMobilePane(view, 'details');
       });
+      const coords = episodeCoordinates(item);
+      const episodeLabel = coords.episode !== null
+        ? ' · S' + String(coords.season).padStart(2, '0') +
+          'E' + String(coords.episode).padStart(2, '0') : '';
       const meta = element('span', 'media-import-episode-meta',
         (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
-        ' · ' + (marker === 'duplicate' ? 'Bereits vorhanden' :
+        episodeLabel + ' · ' + (marker === 'duplicate' ? 'Bereits vorhanden' :
           marker === 'skipped' ? 'Übersprungen' : returned
             ? 'PC-Version gefunden – noch prüfen' : returns.length
               ? 'PC-Rücklauf mehrdeutig' : 'Wartet auf PC-Bearbeitung'));
@@ -1082,6 +1178,9 @@
     view.folderPath = '';
     view.folderBreadcrumb.replaceChildren();
     view.folderList.replaceChildren();
+    view.seriesGroups.replaceChildren();
+    view.seasonFilter.replaceChildren();
+    view.seriesCaption.textContent = 'Scan läuft';
     view.folderBreadcrumb.hidden = true;
     view.folderList.hidden = true;
     report(view, 'Autorisierte Importquellen werden geladen …');
@@ -1914,8 +2013,19 @@
     library.appendChild(element('h4', '', 'Serien und Ordner'));
     library.appendChild(folderBreadcrumb);
     library.appendChild(folderList);
+    library.appendChild(element('h5', 'media-import-groups-title',
+      'Serien und Ordnergruppen'));
+    const seriesGroups = element('div', 'media-import-series-groups');
+    library.appendChild(seriesGroups);
     const episodes = element('section', 'media-import-pane media-import-episodes');
     episodes.appendChild(element('h4', '', 'Filme und Episoden'));
+    const seriesCaption = element('p', 'media-import-series-caption');
+    episodes.appendChild(seriesCaption);
+    const seasonLabel = element('label', 'media-import-season-label', 'Staffel auswählen');
+    const seasonFilter = element('select', 'media-import-season-filter');
+    seasonLabel.appendChild(seasonFilter);
+    seasonLabel.hidden = true;
+    episodes.appendChild(seasonLabel);
     label.className = 'media-import-select-label';
     episodes.appendChild(label);
     episodes.appendChild(selectionRows);
@@ -1979,6 +2089,8 @@
       reloadButton: reloadButton,
       searchInput: searchInput, statusFilter: statusFilter,
       folderBreadcrumb: folderBreadcrumb, folderList: folderList,
+      seriesGroups: seriesGroups, seriesCaption: seriesCaption,
+      seasonLabel: seasonLabel, seasonFilter: seasonFilter, seasonKey: '',
       mobileButtons: mobileButtons, folderPath: '',
       visibleCount: visibleCount, normalLabel: label, markedLabel: markedLabel,
       allOrdinary: [], allMarked: [],
@@ -2013,6 +2125,13 @@
       setMobilePane(view, 'media');
     });
     statusFilter.addEventListener('change', function () {
+      view.checkedSourceIds.clear();
+      filterVisibleSources(view);
+      setMobilePane(view, 'media');
+    });
+    seasonFilter.addEventListener('change', function () {
+      if (!isCurrent(view) || view.batch || view.attempt) return;
+      view.seasonKey = seasonFilter.value;
       view.checkedSourceIds.clear();
       filterVisibleSources(view);
       setMobilePane(view, 'media');
