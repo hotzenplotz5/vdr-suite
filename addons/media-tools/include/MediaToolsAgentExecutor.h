@@ -259,6 +259,7 @@ struct MediaImportSourcePreview {
     std::string failureCode; // read-only stage; never a source path or process log
     std::string nfoOutline, nfoPlot, nfoYear, nfoGenre;
     std::uint64_t durationSeconds = 0;
+    std::string posterDataUri, fanartDataUri;
 };
 
 // Read-only observation from the fixed root-admin approval + pinned binary.

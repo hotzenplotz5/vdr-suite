@@ -502,6 +502,72 @@ ImportLocalMetadata readImportLocalMetadata(const ImportPlan& plan) {
     return metadata;
 }
 
+
+ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan) {
+    const auto fresh = inspectImportPreview(
+        {plan.sourceRoot, plan.videoRoot, plan.sourceFile});
+    require(fresh.sourceDevice == plan.sourceDevice &&
+            fresh.sourceInode == plan.sourceInode &&
+            fresh.sourceBytes == plan.sourceBytes &&
+            fresh.sourceMtimeSeconds == plan.sourceMtimeSeconds &&
+            fresh.sourceMtimeNanoseconds == plan.sourceMtimeNanoseconds &&
+            fresh.titleDirectory == plan.titleDirectory,
+            "source changed before artwork preview");
+    constexpr std::size_t MaxImageBytes = 256U * 1024U;
+    const auto encode = [](const std::string& bytes) {
+        static constexpr char alphabet[] =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        std::string result;
+        result.reserve(((bytes.size() + 2U) / 3U) * 4U);
+        for (std::size_t i = 0; i < bytes.size(); i += 3U) {
+            const unsigned a = static_cast<unsigned char>(bytes[i]);
+            const unsigned b = i + 1U < bytes.size()
+                ? static_cast<unsigned char>(bytes[i+1U]) : 0U;
+            const unsigned c = i + 2U < bytes.size()
+                ? static_cast<unsigned char>(bytes[i+2U]) : 0U;
+            result += alphabet[a >> 2U];
+            result += alphabet[((a & 3U) << 4U) | (b >> 4U)];
+            result += i + 1U < bytes.size()
+                ? alphabet[((b & 15U) << 2U) | (c >> 6U)] : '=';
+            result += i + 2U < bytes.size() ? alphabet[c & 63U] : '=';
+        }
+        return result;
+    };
+    const auto load = [&](const std::string& kind) {
+        // Exact-stem sidecars only, not the generic poster of a shared folder.
+        for (const auto& suffix : {".jpg", ".jpeg", ".png", ".webp"}) {
+            const auto file = plan.sourceFile.parent_path() /
+                (plan.sourceFile.stem().string() + "." + kind + suffix);
+            try {
+                const auto value = readOptionalSidecar(file, MaxImageBytes);
+                if (!value || value->empty()) continue;
+                const auto& bytes = *value;
+                const auto starts = [&](std::initializer_list<unsigned char> magic) {
+                    if (bytes.size() < magic.size()) return false;
+                    std::size_t i = 0;
+                    for (unsigned ch : magic)
+                        if (static_cast<unsigned char>(bytes[i++]) != ch) return false;
+                    return true;
+                };
+                const std::string ext(suffix);
+                const std::string mime = (ext == ".jpg" || ext == ".jpeg")
+                    ? "image/jpeg" : ext == ".png" ? "image/png" : "image/webp";
+                const bool matched = mime == "image/jpeg"
+                    ? starts({0xff, 0xd8, 0xff})
+                    : mime == "image/png"
+                    ? starts({0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a})
+                    : bytes.size() >= 12U && bytes.compare(0,4,"RIFF") == 0 &&
+                        bytes.compare(8,4,"WEBP") == 0;
+                if (matched) return "data:" + mime + ";base64," + encode(bytes);
+            } catch (...) {
+                // Invalid optional images do not affect import admission.
+            }
+        }
+        return std::string{};
+    };
+    return {load("poster"), load("fanart")};
+}
+
 double probeImportDurationSeconds(const ImportPlan& plan, ProcessRunner& runner) {
     const auto fresh = inspectImportPreview(
         {plan.sourceRoot, plan.videoRoot, plan.sourceFile});

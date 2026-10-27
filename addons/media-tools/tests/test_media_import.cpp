@@ -210,6 +210,21 @@ int main() {
             }
         } preview;
         assert(readImportLocalMetadata(plan).description.empty());
+        const auto poster = f.input / "Sample.poster.jpg";
+        const auto fanart = f.input / "Sample.fanart.png";
+        {
+            std::ofstream out(poster, std::ios::binary);
+            const unsigned char jpg[] = {0xff, 0xd8, 0xff, 0xd9};
+            out.write(reinterpret_cast<const char*>(jpg), sizeof(jpg));
+        }
+        assert(readImportLocalArtwork(plan).posterDataUri ==
+            "data:image/jpeg;base64,/9j/2Q==");
+        assert(readImportLocalArtwork(plan).fanartDataUri.empty());
+        { std::ofstream out(fanart); out << "not a PNG"; }
+        assert(readImportLocalArtwork(plan).fanartDataUri.empty());
+        fs::remove(poster);
+        fs::remove(fanart);
+        assert(readImportLocalArtwork(plan).posterDataUri.empty());
         assert(probeImportVideoCodec(plan, preview) == "vp9");
         assert(importVideoNeedsReencode(probeImportVideoCodec(plan, preview)));
         const auto details = inspectImportPreview(f.request(), preview);

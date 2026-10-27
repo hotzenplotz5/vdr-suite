@@ -82,6 +82,8 @@ struct ImportLocalMetadata {
     std::string title, shortText, description, year, genre;
 };
 ImportLocalMetadata readImportLocalMetadata(const ImportPlan& plan);
+struct ImportLocalArtwork { std::string posterDataUri, fanartDataUri; };
+ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan);
 // Optional FFprobe duration, never import authority.
 double probeImportDurationSeconds(const ImportPlan& plan, ProcessRunner& runner);
 
