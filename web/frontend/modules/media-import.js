@@ -1055,6 +1055,7 @@
       const returned = returns.length === 1 && possiblePcReturn(view, returns[0])
         ? returns[0] : null;
       const row = element('div', 'media-import-select-item media-import-marked-item');
+      row.dataset.sourceId = item.sourceId;
       const open = element('button', 'media-import-episode-open', item.label || 'Markierte Datei');
       open.type = 'button';
       open.addEventListener('click', function () {
