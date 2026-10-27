@@ -735,9 +735,10 @@
       normal.length > MAX_IMPORT_FILMS;
     view.selectionRows.replaceChildren();
     normal.forEach(function (item) {
-      const label = element('label', 'media-import-select-item', item.label);
-      const checkbox = element('input', '');
+      const row = element('div', 'media-import-select-item');
+      const checkbox = element('input', 'media-import-episode-check');
       checkbox.type = 'checkbox';
+      checkbox.setAttribute('aria-label', 'Für Stapel auswählen: ' + item.label);
       checkbox.checked = view.checkedSourceIds.has(item.sourceId);
       checkbox.addEventListener('change', function () {
         if (!isCurrent(view) || view.attempt || view.batch) return;
@@ -745,8 +746,45 @@
         else view.checkedSourceIds.delete(item.sourceId);
         updateSelectionCount(view);
       });
-      label.appendChild(checkbox);
-      view.selectionRows.appendChild(label);
+      const open = element('button', 'media-import-episode-open', item.label);
+      open.type = 'button';
+      open.addEventListener('click', function () {
+        if (!isCurrent(view) || view.batch || view.attempt) return;
+        view.select.value = item.sourceId;
+        view.sourceDetails.textContent = 'Auswahl-ID: ' + item.sourceId;
+        refreshSelectedPreview(view);
+      });
+      const meta = element('span', 'media-import-episode-meta',
+        (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
+        ' · Noch nicht geprüft');
+      row.appendChild(checkbox);
+      row.appendChild(open);
+      row.appendChild(meta);
+      view.selectionRows.appendChild(row);
+    });
+    marked.forEach(function (item) {
+      const marker = markerSuffix(item);
+      const row = element('div', 'media-import-select-item media-import-marked-item');
+      const open = element('button', 'media-import-episode-open', item.label || 'Markierte Datei');
+      open.type = 'button';
+      open.addEventListener('click', function () {
+        if (!isCurrent(view) || view.batch || view.attempt) return;
+        view.select.value = '';
+        view.markedSelect.value = item.sourceId;
+        view.releaseButton.disabled = false;
+        refreshSelectedPreview(view);
+        view.preview.textContent = marker === 'duplicate'
+          ? 'Bereits als Duplikat markiert (.duplicate). Kein erneuter Import.'
+          : marker === 'skipped' ? 'Von Rectools oder Media Tools übersprungen (.skipped).'
+            : 'Zur externen Bearbeitung mit PC/HandBrake markiert (.pc_encode).';
+      });
+      const meta = element('span', 'media-import-episode-meta',
+        (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
+        ' · ' + (marker === 'duplicate' ? 'Bereits vorhanden' :
+          marker === 'skipped' ? 'Übersprungen' : 'Externe Bearbeitung'));
+      row.appendChild(open);
+      row.appendChild(meta);
+      view.selectionRows.appendChild(row);
     });
     view.selectAllVisibleButton.disabled = normal.length === 0;
     updateSelectionCount(view);
@@ -1024,7 +1062,7 @@
           ? 'Import derzeit blockiert. Die Ursache steht in der Diagnose.'
         : needsEncode
           ? decision === 'desktop'
-        ? 'Externe Umkodierung gewählt. Für PC/HandBrake markieren. Kein Import.'
+        ? 'Externe Bearbeitung: Die Originaldatei über ihren bisherigen Datei-/Netzwerkzugang am PC mit HandBrake oder einem anderen Programm umkodieren. Das Webfrontend konvertiert und überträgt nicht selbst. Die .pc_encode-Markierung kennzeichnet die zurückgestellte Quelle; später nach Bereitstellung des bearbeiteten Videos ausdrücklich freigeben. Kein sofortiger VDR-Import.'
         : decision === 'skip'
           ? 'Film überspringen und vom normalen Import ausschließen. Kein Import.'
           : decision === 'import' && view.localReencode.checked
@@ -1409,6 +1447,58 @@
     const operationDetail = element('p', 'media-import-operation');
     root.appendChild(operationDetail);
     root.appendChild(technical);
+    // Present the existing actions in a full-width media-library layout.
+    // DOM ownership, handlers and Core/Agent operations remain unchanged.
+    const titleBlock = element('div', 'media-import-title-block');
+    titleBlock.appendChild(root.children[0]);
+    titleBlock.appendChild(root.children[1]);
+    const header = element('header', 'media-import-header');
+    header.appendChild(titleBlock);
+    header.appendChild(reloadButton);
+    const toolbar = element('div', 'media-import-toolbar');
+    toolbar.appendChild(searchLabel);
+    toolbar.appendChild(statusLabel);
+    const statusStrip = element('div', 'media-import-status-strip');
+    statusStrip.appendChild(visibleCount);
+    statusStrip.appendChild(scanNotice);
+    const library = element('section', 'media-import-pane media-import-library');
+    library.appendChild(element('h4', '', 'Serien und Ordner'));
+    library.appendChild(folderBreadcrumb);
+    library.appendChild(folderList);
+    const episodes = element('section', 'media-import-pane media-import-episodes');
+    episodes.appendChild(element('h4', '', 'Filme und Episoden'));
+    label.className = 'media-import-select-label';
+    episodes.appendChild(label);
+    episodes.appendChild(selectionRows);
+    const detail = element('section', 'media-import-pane media-import-detail');
+    detail.appendChild(element('h4', '', 'Vorschau und Aktionen'));
+    detail.appendChild(preview);
+    detail.appendChild(previewRetryButton);
+    detail.appendChild(choiceLabel);
+    detail.appendChild(encodeLabel);
+    detail.appendChild(startButton);
+    detail.appendChild(skipButton);
+    detail.appendChild(markedLabel);
+    detail.appendChild(releaseButton);
+    detail.appendChild(technical);
+    const workspace = element('div', 'media-import-workspace');
+    workspace.appendChild(library);
+    workspace.appendChild(episodes);
+    workspace.appendChild(detail);
+    const footer = element('section', 'media-import-footer');
+    footer.appendChild(selectionCount);
+    footer.appendChild(selectAllVisibleButton);
+    footer.appendChild(selectedBatchButton);
+    footer.appendChild(batchButton);
+    footer.appendChild(batchSummary);
+    footer.appendChild(batchReviewList);
+    footer.appendChild(batchConfirmButton);
+    footer.appendChild(batchStopButton);
+    footer.appendChild(refreshButton);
+    footer.appendChild(newButton);
+    footer.appendChild(message);
+    footer.appendChild(operationDetail);
+    root.replaceChildren(header, toolbar, statusStrip, workspace, footer);
     mountTarget.replaceChildren(root);
     const view = {owner: owner, backendId: backendId, root: root,
       select: select, startButton: startButton,
