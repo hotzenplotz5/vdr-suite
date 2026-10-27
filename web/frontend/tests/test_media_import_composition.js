@@ -94,6 +94,7 @@ let previewMode = 'ready';
 let previewInspectionStatus = 'ready';
 let autoDuplicateReadback = false;
 let previewVideoCodec = 'h264';
+let previewArtworkMode = 'poster';
 const batchProbeOverrides = Object.create(null);
 let resolveDelayedPreview = null;
 const SOURCE = 'source_0123456789abcde';
@@ -155,7 +156,12 @@ function transport(url, options) {
       nfoOutline: 'Ein lokaler NFO-Text',
       nfoPlot: 'Eine Handlung aus der tatsächlichen .nfo-Datei.',
       nfoYear: '2024', nfoGenre: 'Drama',
-      durationSeconds: 3210
+      durationSeconds: 3210,
+      posterDataUri: previewArtworkMode === 'bad'
+        ? 'data:text/html;base64,PHNjcmlwdD4='
+        : previewArtworkMode === 'none' || id !== SOURCE
+        ? '' : 'data:image/jpeg;base64,/9j/2Q==',
+      fanartDataUri: ''
     }));
   }
   if (path.endsWith('/capabilities/media-import')) {
@@ -394,6 +400,24 @@ function publishHomeResume() {}
     'marker recovery is exclusively inside technical details, not the main preview');
   assert(findClass(mount, 'media-import-preview-facts'),
     'codec, source bytes and VDR target are rendered as actual preview facts');
+  const artwork = findClass(mount, 'media-import-artwork');
+  assert(artwork && artwork.children.length === 2,
+    'poster and fanart have independent states in the actual detail DOM');
+  assert(findClass(artwork, 'media-import-artwork-image').src ===
+    'data:image/jpeg;base64,/9j/2Q==');
+  assert(findClass(artwork, 'media-import-artwork-empty').textContent ===
+    'Keine lokale Fanart');
+  // Malformed MIME cannot become a live image src or a second network URL.
+  previewArtworkMode = 'bad';
+  select.listeners.change();
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-artwork-image'), null,
+    'invalid image type must fall back to neutral placeholders');
+  previewArtworkMode = 'poster';
+  select.listeners.change();
+  await settle();
+  assert(findClass(mount, 'media-import-artwork-image'),
+    're-inspection restores only genuinely observed artwork');
   const nfo = findClass(mount, 'media-import-local-metadata');
   assert(nfo && findClass(nfo, 'media-import-nfo-outline').textContent ===
     'Ein lokaler NFO-Text');

@@ -684,6 +684,15 @@
     });
   }
 
+  function validLocalArtwork(value) {
+    if (typeof value !== 'string' || value.length > 349600) return false;
+    const image = /^(data:image\/(?:jpeg|png|webp);base64,)([A-Za-z0-9+/]+={0,2})$/.exec(value);
+    if (!image || image[2].length % 4 !== 0) return false;
+    return (image[1] === 'data:image/jpeg;base64,' && image[2].startsWith('/9j/')) ||
+      (image[1] === 'data:image/png;base64,' && image[2].startsWith('iVBORw0KGgo')) ||
+      (image[1] === 'data:image/webp;base64,' && image[2].startsWith('UklGR'));
+  }
+
   function validMediaImportPreview(data, backendId, sourceId) {
     return Boolean(data && data.backendId === backendId &&
       data.sourceId === sourceId && data.state === 'ready' &&
@@ -1259,6 +1268,32 @@
     const title = plan && plan.title || label || 'Noch keine Folge ausgewählt';
     const heading = element('h5', 'media-import-preview-title', title);
     card.appendChild(heading);
+    const artwork = element('div', 'media-import-artwork');
+    const poster = plan && validLocalArtwork(plan.posterDataUri)
+      ? plan.posterDataUri : '';
+    const fanart = plan && validLocalArtwork(plan.fanartDataUri)
+      ? plan.fanartDataUri : '';
+    const picture = function (kind, uri, alt) {
+      const frame = element('div', 'media-import-artwork-frame media-import-artwork-' + kind);
+      const label = kind === 'poster' ? 'Kein lokales Poster' : 'Keine lokale Fanart';
+      if (uri) {
+        const img = element('img', 'media-import-artwork-image');
+        img.src = uri;
+        img.alt = alt;
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.addEventListener('error', function () {
+          frame.replaceChildren(element('span', 'media-import-artwork-empty', label));
+        });
+        frame.appendChild(img);
+      } else {
+        frame.appendChild(element('span', 'media-import-artwork-empty', label));
+      }
+      return frame;
+    };
+    artwork.appendChild(picture('poster', poster, 'Lokales Poster für ' + title));
+    artwork.appendChild(picture('fanart', fanart, 'Lokale Fanart für ' + title));
+    card.appendChild(artwork);
     const state = !selected ? 'idle' :
       !plan ? (view.previewFailed ? 'failed' : 'pending') : plan.status;
     const stateText = state === 'ready'
