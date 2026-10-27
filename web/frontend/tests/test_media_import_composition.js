@@ -335,11 +335,17 @@ function publishHomeResume() {}
   assert.strictEqual(start.textContent, 'Diesen Film importieren',
     'single-file action must state its effect');
   const importPanel = findClass(mount, 'media-import-panel');
-  assert(importPanel.children.indexOf(start) >
-    importPanel.children.indexOf(findClass(mount, 'media-import-preview')) &&
-    importPanel.children.indexOf(start) <
-    importPanel.children.indexOf(findClass(mount, 'media-import-marked-label')),
-    'primary import action must be adjacent to the preview, before marker administration');
+  const threePanes = findClass(importPanel, 'media-import-workspace');
+  const detailPane = findClass(importPanel, 'media-import-detail');
+  assert(threePanes && threePanes.children.length === 3 &&
+    findClass(threePanes, 'media-import-library') &&
+    findClass(threePanes, 'media-import-episodes') && detailPane,
+    'production module composes genuine folder/episode/detail columns');
+  assert(detailPane.children.indexOf(start) >
+    detailPane.children.indexOf(findClass(mount, 'media-import-preview')) &&
+    detailPane.children.indexOf(start) <
+    detailPane.children.indexOf(findClass(mount, 'media-import-marked-label')),
+    'primary action belongs to preview pane, before marker release');
   assert(findClass(mount, 'media-import-preview').textContent.includes('Nächster Schritt'),
     'ready preview must explain the next action');
   assert(findClass(mount, 'media-import-decision-label').hidden,
@@ -989,10 +995,21 @@ function publishHomeResume() {}
   }).join('|'), orderedIds.join('|'), 'source IDs remain tied to naturally sorted episodes');
   const sortedCheckboxes = findClass(mount, 'media-import-selection');
   assert.strictEqual(sortedCheckboxes.children.map(function (row) {
-    return row.textContent;
+    return row.children[1].textContent;
   }).join('|'), orderedIds.map(function (id) {
     return sourceDisplayLabels[id];
-  }).join('|'), 'batch checkboxes use the same order as single selection');
+  }).join('|'), 'episode buttons use the same natural order as batch checkboxes');
+  const beforeEpisodeClick = submits;
+  sortedCheckboxes.children[0].children[1].listeners.click();
+  await settle();
+  assert.strictEqual(sortedSelect.value, orderedIds[0],
+    'clicking an episode row selects the real source ID for preview');
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    sourceDisplayLabels[orderedIds[0]]) ||
+    findClass(mount, 'media-import-preview').textContent.includes('Backend geprüfter Film'),
+    'episode row click triggers one-source technical preview');
+  assert.strictEqual(submits, beforeEpisodeClick,
+    'episode row navigation alone never starts an import');
   const sortedFolders = findClass(mount, 'media-import-folders');
   sortedFolders.children[0].listeners.click(); // Serien
   assert.strictEqual(sortedSelect.children.slice(1).map(function (item) {
