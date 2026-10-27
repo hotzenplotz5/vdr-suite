@@ -766,22 +766,73 @@ bool reconcileBackendAgentCommandState(
 
     if (mediaImportReadback && !state.resultPresent)
     {
-        // This command arrives ONLY after Core's durable provider readback.
-        // A second execution cannot delete files: no filesystem or importer
-        // is called, and the original media command is never replayed.
+        // Core releases this existing durable command ONLY after the
+        // canonical operation becomes succeeded from recording-cache readback.
+        // Never re-run the original media import, even on restart or replay.
         if (!state.receiptAcknowledged &&
             !sendReceipt(config, context, transport, state, reason))
             return false;
-        std::string source, originalCommand, evidence;
+        std::string source, originalCommand, recordingProof, sourceProof;
         if (!vdrsuite::mediatools::parseMediaImportReadbackPayload(
-                state.assignment.payload, source, originalCommand, evidence))
+                state.assignment.payload, source, originalCommand,
+                recordingProof, sourceProof) ||
+            state.assignment.payloadVersion !=
+                (sourceProof.empty() ? 1U : 2U))
         {
             reason = "media_import_readback_payload_invalid";
             return false;
         }
-        createResult(state, "effect_reported", "verified", "succeeded",
-                     "none", "none",
-                     "VDR readback notice durably received; no source cleanup");
+        if (sourceProof.empty()) {
+            // Existing (pre-REC4.6) imports have no bound source identity.
+            createResult(state, "effect_reported", "verified", "succeeded",
+                         "none", "none",
+                         "VDR readback notice durably received; no source cleanup");
+            state.result.resultEvidence = "media-tools-cleanup:not-performed";
+        } else {
+            // The protected Agent state is durable before the first removal.
+            // Reconciliation may repeat the cleanup check, but never the
+            // original import. The executor must recheck exact source identity.
+            if (state.dispatchState != "starting") {
+                state.dispatchState = "starting";
+                if (!persist(config.statePath, state, reason)) return false;
+            }
+            auto cleanup = vdrsuite::mediatools::MediaImportCleanupOutcome::notPerformed;
+            try {
+                if (config.mediaImportExecutor &&
+                    config.mediaImportExecutor->available())
+                    cleanup = config.mediaImportExecutor->cleanupConfirmedSource(
+                        source, sourceProof);
+            } catch (...) {
+                cleanup = vdrsuite::mediatools::MediaImportCleanupOutcome::failed;
+            }
+            using Cleanup = vdrsuite::mediatools::MediaImportCleanupOutcome;
+            switch (cleanup) {
+                case Cleanup::removed:
+                    createResult(state, "effect_reported", "verified",
+                                 "succeeded", "none", "none",
+                                 "Confirmed VDR import; source cleanup succeeded");
+                    state.result.resultEvidence = "media-tools-cleanup:removed";
+                    break;
+                case Cleanup::alreadyAbsent:
+                    createResult(state, "effect_reported", "verified",
+                                 "succeeded", "none", "none",
+                                 "Confirmed VDR import; source already absent");
+                    state.result.resultEvidence = "media-tools-cleanup:already-absent";
+                    break;
+                case Cleanup::notPerformed:
+                    createResult(state, "effect_reported", "not_required",
+                                 "succeeded", "none", "none",
+                                 "Confirmed VDR import; cleanup not performed");
+                    state.result.resultEvidence = "media-tools-cleanup:not-performed";
+                    break;
+                case Cleanup::failed:
+                    createResult(state, "starting", "outcome_unknown",
+                                 "rejected", "executor_unknown", "none",
+                                 "Confirmed VDR import; source cleanup failed");
+                    state.result.resultEvidence = "media-tools-cleanup:failed";
+                    break;
+            }
+        }
         if (!persist(config.statePath, state, reason)) return false;
         return sendResult(config, context, transport, state, reason);
     }
@@ -870,7 +921,9 @@ bool reconcileBackendAgentCommandState(
             {
                 const auto evidence =
                     config.mediaImportExecutor->takeRecordingEvidence();
-                if (vdrsuite::mediatools::validRecordingPathEvidence(evidence))
+                std::string recordingProof, sourceProof;
+                if (vdrsuite::mediatools::parseMediaImportResultEvidence(
+                        evidence, recordingProof, sourceProof))
                     state.result.resultEvidence = evidence;
             }
             catch (...) {} // No readback proof, never report verification.
