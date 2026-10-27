@@ -374,7 +374,9 @@ assert.ok(
 assert.ok(
   source.includes('fetchClientSearchTimerCreateAction')
 );
-assert.ok(source.includes('fetchClientSearchTimerCreateStaged'));
+// Public-v1 Device staging remains an independent API contract, but the
+// MLD Browser editor must use the already existing full provider CREATE.
+assert.ok(source.includes('fetchClientSearchTimerCreateAction'));
 assert.strictEqual(api.stagedCreateValidation({
   query: 'Terra X', mode: 1, tolerance: 0,
   compareTitle: true, compareSubtitle: false, compareSummary: false
@@ -406,10 +408,10 @@ assert.deepStrictEqual(
 );
 assert(source.includes('createDirectoryFields(advancedGrid, source)'));
 assert(source.includes('createChannelFilterFields(advancedGrid, source)'));
-assert(source.includes('Keine Anlage ausgeführt.'));
-assert(source.includes("state === 'succeeded'"));
-assert(source.includes("pendingKey = '';"));
-assert(source.includes("error.requestId"));
+
+
+
+
 assert.deepStrictEqual(
   Array.from(api.unsupportedCopiedSettings({
     useDayOfWeek: true, compareCategories: true,
@@ -461,9 +463,8 @@ assert.ok(source.includes(
 // caller-must-not-override are now exercised by the focused
 // test_searchtimer_maintenance_security_runtime.js contract.
 
-// Browser form regression: advanced fields must never be discarded by a
-// superficially successful Public-v1 staged CREATE. This test exercises the
-// real createForm submission handlers with a tiny DOM fixture.
+// F1.3 browser form E2E: active full-provider CREATE, native-ID readback,
+// selected backend, and no duplicate writes even on an ambiguous result.
 class FormElement {
   constructor(tag) {
     this.tagName = String(tag).toUpperCase();
@@ -509,7 +510,37 @@ function findForm(node) {
   }
   return null;
 }
-async function checkEditorStagedWrites() {
+function fakeReadback(payload) {
+  return {
+    totalCount: 1,
+    searchTimers: [{
+      backendId: payload.backendId, backendNativeId: '42',
+      query: payload.query, name: payload.query,
+      state: payload.active ? 'active' : 'inactive',
+      recordingOptions: {
+        directory: payload.directory,
+        priority: payload.priority,
+        lifetime: payload.lifetime
+      },
+      scheduleOptions: {
+        marginStartMinutes: payload.marginStartMinutes,
+        marginStopMinutes: payload.marginStopMinutes,
+        useVps: payload.useVps
+      },
+      comparisonOptions: {
+        compareTitle: payload.compareTitle,
+        compareSubtitle: payload.compareSubtitle,
+        compareSummary: payload.compareSummary
+      },
+      matchOptions: {
+        mode: payload.mode,
+        matchCase: payload.matchCase,
+        tolerance: payload.tolerance
+      }
+    }]
+  };
+}
+async function checkEditorFullWrites() {
   const mount = new FormElement('main');
   const document = {
     head: new FormElement('head'),
@@ -517,94 +548,86 @@ async function checkEditorStagedWrites() {
     getElementById() { return null; }
   };
   const writes = [];
-  let readCount = 0;
+  const readbacks = [];
+  let resultState = 'active';
   const browser = {
     setTimeout() {},
-    confirm() { return true; },
-    crypto: {
-      getRandomValues(bytes) {
-        for (let i = 0; i < bytes.length; i++) bytes[i] = i + 1;
-        return bytes;
-      }
-    }
+    confirm() { return true; }
   };
   const client = {
-    fetchClientSearchTimerCreateStaged(options) {
+    fetchClientSearchTimerCreateAction(options) {
       writes.push(options);
-      return Promise.resolve({operation: {state: 'accepted',
-        operationId: 'op_00000000000000000000000000000001',
-        backendId: 'living-room'}});
+      const payload = options.payload;
+      return Promise.resolve({
+        success: true, backendId: payload.backendId, query: payload.query,
+        backendNativeId: '42',
+        state: payload.active ? 'active' : 'inactive'
+      });
     },
-    requestJson(path, options) {
-      assert.strictEqual(path,
-        '/api/v1/operations/op_00000000000000000000000000000001');
-      assert.strictEqual(options.cache, 'no-store');
-      readCount += 1;
-      return Promise.resolve({state: readCount === 1 ? 'dispatching' : 'succeeded',
-        operationId: 'op_00000000000000000000000000000001',
-        backendId: 'living-room'});
+    fetchClientSearchTimers(options) {
+      readbacks.push(options);
+      const payload = writes[writes.length - 1].payload;
+      const readback = fakeReadback(payload);
+      readback.searchTimers[0].state = resultState;
+      return Promise.resolve(readback);
     }
   };
   vm.runInNewContext(source, {
     window: browser, document, Promise, Object, Array, Boolean, Number,
     Date, String, Set, Math, JSON, Uint8Array
   }, {filename: sourcePath});
-  browser.VdrSuiteSearchTimerBrowser.configureContext({
+  const mod = browser.VdrSuiteSearchTimerBrowser;
+  mod.configureContext({
     detailDataElement: mount,
     clientApi: client,
     getSelectedBackendId() { return 'living-room'; }
   });
-  browser.VdrSuiteSearchTimerBrowser.renderList({searchTimers: []});
+  mod.renderList({searchTimers: []});
   const form = findForm(mount);
   assert(form);
-  assert(form.elements.active, 'immediate activation option must be visible');
-  assert(form.elements.priority, 'recording priority must be editable');
-  assert(form.elements.channelFilterMode, 'channel selector must be present');
+  assert(form.elements.active);
+  assert(form.elements.priority);
+  assert(form.elements.useTime);
+  assert(form.elements.channelFilterMode);
+  assert(form.elements.useExtendedEpgInfo);
+  assert(form.elements.deleteMode);
   form.elements.query.value = 'Tatort';
-  form.listeners.submit({preventDefault() {}});
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.strictEqual(writes.length, 1);
-  assert.strictEqual(writes[0].payload.active, false);
-  assert.strictEqual(writes[0].payload.query, 'Tatort');
-  const actions = form.children.filter(element =>
-    element.className === 'searchtimer-actions')[0];
-  assert(actions);
-  const statusButton = actions.children.filter(element =>
-    element.textContent === 'Anlagevorgang prüfen')[0];
-  assert(statusButton, 'durable operation readback button must exist');
-  assert.strictEqual(statusButton.hidden, false);
-  assert.strictEqual(statusButton.disabled, false);
-  statusButton.listeners.click();
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.strictEqual(writes.length, 1,
-    'checking an operation must never trigger another create');
-  assert.strictEqual(statusButton.hidden, false,
-    'dispatching is not evidence of successful CREATE');
-  assert.strictEqual(statusButton.disabled, false);
-  statusButton.listeners.click();
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-  assert.strictEqual(readCount, 2);
-  assert.strictEqual(statusButton.hidden, true,
-    'only a confirmed succeeded operation hides readback');
-  assert.strictEqual(writes.length, 1,
-    'readbacks cannot duplicate the original CREATE');
   form.elements.priority.value = '50';
-  form.listeners.submit({preventDefault() {}});
-  assert.strictEqual(writes.length, 1,
-    'unsupported recording priority must not be silently discarded');
-  form.elements.priority.value = '0';
   form.elements.active.checked = true;
   form.listeners.submit({preventDefault() {}});
-  assert.strictEqual(writes.length, 1,
-    'activation intent must not bypass inactive-only Public-v1 CREATE');
+  form.listeners.submit({preventDefault() {}});
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.strictEqual(writes.length, 1, 'one user action => one CREATE');
+  assert.strictEqual(writes[0].payload.active, true);
+  assert.strictEqual(writes[0].payload.priority, 50);
+  assert.strictEqual(writes[0].payload.backendId, 'living-room');
+  assert.strictEqual(readbacks.length, 1);
+  assert.strictEqual(readbacks[0].query.backend, 'living-room');
+  assert.strictEqual(readbacks[0].query.text, 'Tatort');
+  assert.strictEqual(form.elements.active.checked, true);
+
+  // New form with conflicting backend readback: preserve outcome as unknown;
+  // do not silently retry, even when the user clicks Save twice.
+  mod.renderList({searchTimers: []});
+  const second = findForm(mount);
+  resultState = 'inactive';
+  second.elements.query.value = 'Tatort';
+  second.elements.active.checked = true;
+  second.listeners.submit({preventDefault() {}});
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.strictEqual(writes.length, 2);
+  assert.strictEqual(readbacks.length, 2);
+  second.listeners.submit({preventDefault() {}});
+  assert.strictEqual(writes.length, 2,
+    'ambiguous readback must not lead to another write');
 }
-checkEditorStagedWrites().then(function() {
+checkEditorFullWrites().then(function() {
   console.log('test_searchtimer_workflows_runtime passed');
 }).catch(function(error) {
   console.error(error);
