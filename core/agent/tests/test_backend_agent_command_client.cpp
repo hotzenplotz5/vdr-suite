@@ -557,7 +557,7 @@ void testAddonCommandsNeverSelfAdvertise()
     BackendAgentCommandClientConfig config;
     config.statePath = path;
     config.commandTypes = {
-        "addon.media.import", kMediaImportReadbackCommandType,
+        "addon.media.import", vdrsuite::mediatools::kMediaImportReadbackCommandType,
         "addons.media.import", "probe.noop"
     };
     const BackendAgentCommandClientContext context{
