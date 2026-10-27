@@ -1291,10 +1291,11 @@
     deactivate();
     if (!mountTarget || typeof mountTarget.replaceChildren !== 'function') return;
     const root = element('section', 'media-import-panel');
-    root.appendChild(element('h3', '', 'Media Import'));
-    root.appendChild(element('p', '', '1. Verzeichnis scannen. 2. Film oder Serienfolge auswählen. ' +
-      '3. Automatische Vorschau abwarten und dann den einzelnen Import bestätigen. ' +
-      'Beim Scannen werden keine Dateien verändert.'));
+    const heading = element('h3', '', 'Media Import');
+    const guidance = element('p', '', 'Importquellen durchsuchen, Folgen prüfen und passende Filme ' +
+      'gezielt importieren. Erkannten Dubletten wird automatisch die Rectools-Markierung zugewiesen.');
+    root.appendChild(heading);
+    root.appendChild(guidance);
     const reloadButton = element('button', 'media-import-reload', 'Verzeichnis scannen');
     reloadButton.type = 'button';
     root.appendChild(reloadButton);
@@ -1450,8 +1451,8 @@
     // Present the existing actions in a full-width media-library layout.
     // DOM ownership, handlers and Core/Agent operations remain unchanged.
     const titleBlock = element('div', 'media-import-title-block');
-    titleBlock.appendChild(root.children[0]);
-    titleBlock.appendChild(root.children[1]);
+    titleBlock.appendChild(heading);
+    titleBlock.appendChild(guidance);
     const header = element('header', 'media-import-header');
     header.appendChild(titleBlock);
     header.appendChild(reloadButton);
