@@ -138,6 +138,12 @@ int main()
         BackendAgentMediaImportCatalog::Preview{
           "source_00000000002", "ready", "Film", "Film", "h264",
           1000, 8000000000ULL, 5000000000ULL, false}));
+    auto invalidArtwork = report;
+    invalidArtwork.posterDataUri = "data:text/html;base64,PHNjcmlwdD4=";
+    assert(!catalog.acceptPreview(live, "backend", 100, invalidArtwork));
+    invalidArtwork = report;
+    invalidArtwork.fanartDataUri = "data:image/png;base64,%%%";
+    assert(!catalog.acceptPreview(live, "backend", 100, invalidArtwork));
     assert(catalog.acceptPreview(live, "backend", 100, report));
     assert(catalog.nextPreviewRequest(live, "backend", 100).empty());
     assert(catalog.requestPreview(live, "backend", 100, selected, observed) ==

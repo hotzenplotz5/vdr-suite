@@ -222,9 +222,19 @@ int main() {
         assert(readImportLocalArtwork(plan).fanartDataUri.empty());
         { std::ofstream out(fanart); out << "not a PNG"; }
         assert(readImportLocalArtwork(plan).fanartDataUri.empty());
+        // Real magic bytes in the right adjacent file produce separate fanart.
+        {
+            std::ofstream out(fanart, std::ios::binary | std::ios::trunc);
+            const unsigned char png[] =
+                {0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};
+            out.write(reinterpret_cast<const char*>(png), sizeof(png));
+        }
+        assert(readImportLocalArtwork(plan).fanartDataUri ==
+               "data:image/png;base64,iVBORw0KGgo=");
         fs::remove(poster);
         fs::remove(fanart);
         assert(readImportLocalArtwork(plan).posterDataUri.empty());
+        assert(readImportLocalArtwork(plan).fanartDataUri.empty());
         // Generic cover applies to a single film directory only.
         const auto generic = f.input / "poster.jpg";
         {

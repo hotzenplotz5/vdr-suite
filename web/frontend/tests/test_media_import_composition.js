@@ -418,6 +418,19 @@ function publishHomeResume() {}
   await settle();
   assert(findClass(mount, 'media-import-artwork-image'),
     're-inspection restores only genuinely observed artwork');
+  // Filtering away the selected source also retires its preview image.
+  const artworkSearch = findClass(mount, 'media-import-search');
+  artworkSearch.value = 'kein solches medium';
+  artworkSearch.listeners.input();
+  assert.strictEqual(findClass(mount, 'media-import-artwork-image'), null,
+    'stale poster never survives a source/filter change');
+  artworkSearch.value = '';
+  artworkSearch.listeners.input();
+  select.value = SOURCE;
+  select.listeners.change();
+  await settle();
+  assert(findClass(mount, 'media-import-artwork-image'),
+    'new verified source inspection repopulates real artwork');
   const nfo = findClass(mount, 'media-import-local-metadata');
   assert(nfo && findClass(nfo, 'media-import-nfo-outline').textContent ===
     'Ein lokaler NFO-Text');
