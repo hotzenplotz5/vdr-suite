@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace
@@ -468,17 +469,18 @@ int main()
     // The actual daemon can distinguish these independent preflight
     // failures. They must no longer collapse into the same generic 503
     // that skippy saw on MLD.
-    for (const auto& unavailableCase : {
-        std::pair<PublicSearchTimerCreateStatus, std::string>{
-            PublicSearchTimerCreateStatus::backendUnavailable,
-            "offline or read-only backend"},
-        {PublicSearchTimerCreateStatus::agentUnavailable,
-            "valid, online backend agent"},
-        {PublicSearchTimerCreateStatus::providerUnavailable,
-            "configured backend provider"},
-        {PublicSearchTimerCreateStatus::marginsUnavailable,
-            "confirmed VDR pre/post margins"}
-    })
+    const std::vector<std::pair<PublicSearchTimerCreateStatus, std::string>>
+        unavailableCases = {
+            {PublicSearchTimerCreateStatus::backendUnavailable,
+                "offline or read-only backend"},
+            {PublicSearchTimerCreateStatus::agentUnavailable,
+                "valid, online backend agent"},
+            {PublicSearchTimerCreateStatus::providerUnavailable,
+                "configured backend provider"},
+            {PublicSearchTimerCreateStatus::marginsUnavailable,
+                "confirmed VDR pre/post margins"}
+        };
+    for (const auto& unavailableCase : unavailableCases)
     {
         runtime.registerSearchTimerCreate(
             [unavailableCase](const PublicSearchTimerCreateRequest&)
