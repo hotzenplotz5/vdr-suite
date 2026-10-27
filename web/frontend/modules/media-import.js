@@ -189,6 +189,19 @@
       ? labels[state] : 'Unbekannter Operationszustand – bitte prüfen.';
   }
 
+  // Only Core-owned, journal-backed Operation results may assert cleanup.
+  function cleanupLabel(status) {
+    const labels = {
+      pending: 'Quellenbereinigung vom Backend-Agenten noch nicht bestätigt.',
+      removed: 'Importierte Quelldatei erfolgreich entfernt.',
+      already_absent: 'Importierte Quelldatei bereits nicht mehr vorhanden.',
+      not_performed: 'Quellenbereinigung nicht durchgeführt.',
+      failed: 'Quellenbereinigung fehlgeschlagen; die VDR-Aufnahme bleibt bestätigt.'
+    };
+    return Object.prototype.hasOwnProperty.call(labels, status)
+      ? labels[status] : '';
+  }
+
   function terminalState(state) {
     return ['rejected', 'conflict', 'succeeded', 'failed_before_dispatch',
       'failed_verified', 'cancelled'].includes(state);
@@ -536,16 +549,16 @@
         };
       }
       const possibleReturnCompleted = recordingConfirmed && view.attempt.pcReturn === true;
+      const cleanup = recordingConfirmed && typeof operation.sourceCleanup === 'string'
+        ? cleanupLabel(operation.sourceCleanup) : '';
       report(view, operationLabel(operation.state, view.attempt.videoDecision) +
         (possibleReturnCompleted
-          ? ' Möglicher PC-Rücklauf: VDR-Readback bestätigt ausschließlich ' +
-            'den Import der ausgewählten neuen Quelle, nicht die Identität ' +
-            'mit dem geparkten Original. Media Tools hat keine automatische ' +
-            'Quellenbereinigung durchgeführt. Ob die Dateien derzeit ' +
-            'noch vorhanden sind, zeigt erst ein neuer Scan.'
-          : ''), false);
+          ? ' Möglicher PC-Rücklauf: VDR-Readback bestätigt den Import ' +
+            'der neuen Datei, nicht ihre Medienidentität mit dem geparkten Original.'
+          : '') + (cleanup ? ' ' + cleanup : ''), false);
       view.operationDetail.textContent =
-        'Vorgang ' + operation.operationId + ' · ' + operation.state;
+        'Vorgang ' + operation.operationId + ' · ' + operation.state +
+        (cleanup ? ' · ' + cleanup : '');
       if (terminalState(operation.state) && !view.batch) {
         view.newButton.hidden = false;
       }
@@ -579,7 +592,10 @@
         });
       }
       const limit = view.batch ? MAX_BATCH_READS : MAX_AUTOMATIC_READS;
-      if (!terminalState(operation.state) && view.reads < limit) {
+      const awaitingCleanup = recordingConfirmed &&
+        operation.sourceCleanup === 'pending';
+      if ((!terminalState(operation.state) || awaitingCleanup) &&
+          view.reads < limit) {
         ++view.reads;
         view.timer = global.setTimeout(function () { readOperation(view); }, POLL_MS);
       } else if (!terminalState(operation.state) && view.batch) {
@@ -1279,8 +1295,8 @@
         ' wurde in dieser Browsersitzung durch Core-Recording-Readback ' +
         'bestätigt. Das ist KEIN Nachweis für den aktuell unter dieser ' +
         'Quellen-ID liegenden Dateiinhalt. Die neue Vorschau prüft ihn ' +
-        'unabhängig. Media Tools führt keine automatische ' +
-        'Quellenbereinigung aus; ein neuer Scan zeigt den Dateibestand.'));
+        'unabhängig. Ein bestätigtes Agent-Bereinigungsergebnis bezieht ' +
+        'sich auf die damalige Datei; ein neuer Scan zeigt den aktuellen Dateibestand.'));
     }
     const parked = selected ? parkedPcEncodeMatches(view, source) : [];
     if (parked.length) {
