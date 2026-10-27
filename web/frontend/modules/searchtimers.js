@@ -450,9 +450,9 @@
       channels: channelFilter.channels,
       channelMin: channelFilter.channelMin,
       channelMax: channelFilter.channelMax,
-      useTime: false,
-      startTime: 0,
-      stopTime: 0,
+      useTime: boolValue(formValue(form, 'useTime', source.useTime), false),
+      startTime: numberValue(formValue(form, 'startTime', source.startTime), 0),
+      stopTime: numberValue(formValue(form, 'stopTime', source.stopTime), 0),
       useDuration: boolValue(formValue(form, 'useDuration', source.useDuration), false),
       durationMinMinutes: numberValue(formValue(form, 'durationMinMinutes', source.durationMinMinutes), 0),
       durationMaxMinutes: numberValue(formValue(form, 'durationMaxMinutes', source.durationMaxMinutes), 0),
@@ -507,6 +507,12 @@
     }
     if (payload.useChannel === 2 && String(payload.channels || '').trim() === '') {
       errors.push('Für den Kanalgruppen-Filter muss eine Kanalgruppe ausgewählt werden.');
+    }
+    if (payload.useTime && (!Number.isInteger(payload.startTime) ||
+        !Number.isInteger(payload.stopTime) || payload.startTime < 0 ||
+        payload.startTime > 2359 || payload.stopTime < 0 ||
+        payload.stopTime > 2359)) {
+      errors.push('Ungültiger Uhrzeitfilter (HHMM).');
     }
     if (![0, 1, 2, 3].includes(numberValue(payload.useChannel, -1))) {
       errors.push('Unbekannter Kanalfilter-Modus.');
@@ -1013,6 +1019,7 @@
     const grid = document.createElement('div');
     grid.className = 'searchtimer-form-grid';
     grid.appendChild(field('Suchbegriff / Name', input('query', source.query), true));
+    grid.appendChild(check('active', 'Nach dem Speichern sofort aktiv', false));
     grid.appendChild(check('compareTitle', 'Titel durchsuchen', template ? source.compareTitle : true));
     grid.appendChild(check('compareSubtitle', 'Untertitel durchsuchen', source.compareSubtitle));
     grid.appendChild(check('compareSummary', 'Beschreibung durchsuchen', source.compareSummary));
@@ -1031,7 +1038,6 @@
     const advancedGrid = document.createElement('div');
     advancedGrid.className = 'searchtimer-form-grid';
     advancedGrid.style.padding = '.65rem';
-    advancedGrid.appendChild(check('active', 'Sofort aktiv speichern', false));
     advancedGrid.appendChild(check('useVps', 'VPS verwenden', source.useVps));
     advancedGrid.appendChild(field('Aufnahme-Priorität', input('priority', source.priority, 'number')));
     advancedGrid.appendChild(field('Lebensdauer', input('lifetime', source.lifetime, 'number')));
@@ -1065,6 +1071,9 @@
     extraGrid.className = 'searchtimer-form-grid';
     extraGrid.style.padding = '.65rem';
     const extras = [
+      ['useTime','Uhrzeitfilter','bool'],
+      ['startTime','Beginn HHMM','number'],
+      ['stopTime','Ende HHMM','number'],
       ['useDayOfWeek','Wochentage filtern','bool'],
       ['dayOfWeek','Wochentagsmaske','number'],
       ['compareCategories','EPG-Kategorien vergleichen','bool'],
