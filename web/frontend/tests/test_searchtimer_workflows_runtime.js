@@ -517,6 +517,7 @@ async function checkEditorStagedWrites() {
     getElementById() { return null; }
   };
   const writes = [];
+  let readCount = 0;
   const browser = {
     setTimeout() {},
     confirm() { return true; },
@@ -538,7 +539,8 @@ async function checkEditorStagedWrites() {
       assert.strictEqual(path,
         '/api/v1/operations/op_00000000000000000000000000000001');
       assert.strictEqual(options.cache, 'no-store');
-      return Promise.resolve({state: 'succeeded',
+      readCount += 1;
+      return Promise.resolve({state: readCount === 1 ? 'dispatching' : 'succeeded',
         operationId: 'op_00000000000000000000000000000001',
         backendId: 'living-room'});
     }
@@ -580,8 +582,18 @@ async function checkEditorStagedWrites() {
   await Promise.resolve();
   assert.strictEqual(writes.length, 1,
     'checking an operation must never trigger another create');
+  assert.strictEqual(statusButton.hidden, false,
+    'dispatching is not evidence of successful CREATE');
+  assert.strictEqual(statusButton.disabled, false);
+  statusButton.listeners.click();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.strictEqual(readCount, 2);
   assert.strictEqual(statusButton.hidden, true,
-    'confirmed operation state hides the readback button');
+    'only a confirmed succeeded operation hides readback');
+  assert.strictEqual(writes.length, 1,
+    'readbacks cannot duplicate the original CREATE');
   form.elements.priority.value = '50';
   form.listeners.submit({preventDefault() {}});
   assert.strictEqual(writes.length, 1,
