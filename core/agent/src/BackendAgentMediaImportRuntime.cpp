@@ -139,11 +139,6 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
             plan.sourceMtimeSeconds != local.sourceMtimeSeconds ||
             plan.sourceMtimeNanoseconds != local.sourceMtimeNanoseconds)
             return false;
-        // The same plan/codec/capacity checks are used by the productive
-        // importer. FFprobe reads the source but creates no VDR artifacts.
-        NativeProcessRunner probe(std::chrono::seconds(5));
-        const std::string codec = probeImportVideoCodec(plan, probe);
-        const auto capacity = inspectImportCapacity(plan);
         const auto relative =
             plan.titleDirectory.lexically_relative(plan.videoRoot);
         if (relative.empty() || relative == "." ||
@@ -151,8 +146,20 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
             return false;
         out.title = plan.title;
         out.targetFolder = relative.generic_string();
-        out.videoCodec = codec;
         out.sourceBytes = static_cast<std::uint64_t>(plan.sourceBytes);
+        // A directory-name collision is not proof that this is a VDR recording.
+        // It still blocks normal import, but it must never trigger automatic
+        // .duplicate marking. Do not require a codec probe for a genuine duplicate.
+        if (plan.duplicateTarget) {
+            out.status = confirmedMediaImportDuplicate(plan)
+                ? "duplicate" : "unavailable";
+            return true;
+        }
+        // Nonduplicates use the production codec/capacity path unchanged.
+        NativeProcessRunner probe(std::chrono::seconds(5));
+        const std::string codec = probeImportVideoCodec(plan, probe);
+        const auto capacity = inspectImportCapacity(plan);
+        out.videoCodec = codec;
         out.availableBytes = capacity.availableBytes;
         // The user-facing total includes the mandatory production reserve.
         // Production itself continues to use the shared capacity policy.
@@ -161,8 +168,7 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
             return false;
         out.requiredBytes = capacity.requiredBytes + capacity.reserveBytes;
         out.videoReencodeRequired = importVideoNeedsReencode(codec);
-        out.status = plan.duplicateTarget ? "duplicate" :
-            !capacity.writable ? "unavailable" :
+        out.status = !capacity.writable ? "unavailable" :
             capacity.sufficient ? "ready" : "insufficient";
         return true;
     } catch (...) {
