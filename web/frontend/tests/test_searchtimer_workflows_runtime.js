@@ -410,6 +410,15 @@ assert(source.includes('Keine Anlage ausgeführt.'));
 assert(source.includes("state === 'succeeded'"));
 assert(source.includes("pendingKey = '';"));
 assert(source.includes("error.requestId"));
+assert.deepStrictEqual(
+  Array.from(api.unsupportedCopiedSettings({
+    useDayOfWeek: true, compareCategories: true,
+    deleteRecordingsAfterDays: 3
+  })),
+  ['Wochentagsfilter', 'EPG-Kategorienvergleich',
+   'Aufnahmen löschen nach Tagen']
+);
+assert.deepStrictEqual(Array.from(api.unsupportedCopiedSettings(null)), []);
 assert(api.createErrorText({
   status: 503,
   payload: {detail: 'SearchTimer CREATE requires confirmed VDR pre/post margins and the native timer-create capability.'}
