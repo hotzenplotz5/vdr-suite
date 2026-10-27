@@ -511,32 +511,40 @@ function findForm(node) {
   return null;
 }
 function fakeReadback(payload) {
+  const select = (...names) => Object.fromEntries(
+    names.map(name => [name, payload[name]])
+  );
   return {
     totalCount: 1,
     searchTimers: [{
       backendId: payload.backendId, backendNativeId: '42',
       query: payload.query, name: payload.query,
       state: payload.active ? 'active' : 'inactive',
-      recordingOptions: {
-        directory: payload.directory,
-        priority: payload.priority,
-        lifetime: payload.lifetime
-      },
-      scheduleOptions: {
-        marginStartMinutes: payload.marginStartMinutes,
-        marginStopMinutes: payload.marginStopMinutes,
-        useVps: payload.useVps
-      },
-      comparisonOptions: {
-        compareTitle: payload.compareTitle,
-        compareSubtitle: payload.compareSubtitle,
-        compareSummary: payload.compareSummary
-      },
-      matchOptions: {
-        mode: payload.mode,
-        matchCase: payload.matchCase,
-        tolerance: payload.tolerance
-      }
+      recordingOptions: select('directory', 'priority', 'lifetime'),
+      scheduleOptions: select('marginStartMinutes', 'marginStopMinutes', 'useVps'),
+      filterOptions: Object.assign(
+        select('useTime', 'startTime', 'stopTime', 'useDayOfWeek',
+          'dayOfWeek', 'useDuration', 'durationMinMinutes',
+          'durationMaxMinutes'),
+        {useChannelMode: payload.useChannel}
+      ),
+      channelOptions: Object.assign(
+        select('channels'),
+        {channelMinId: payload.channelMin, channelMaxId: payload.channelMax}
+      ),
+      comparisonOptions: select('compareTitle', 'compareSubtitle',
+        'compareSummary', 'compareCategories', 'compareTime'),
+      repeatOptions: select('avoidRepeats', 'allowedRepeats', 'repeatsWithinDays'),
+      seriesOptions: select('useSeriesRecording', 'keepRecordings',
+        'deleteMode', 'searchTimerAction'),
+      blacklistOptions: select('blacklistMode', 'blacklistIds'),
+      matchOptions: select('mode', 'matchCase', 'tolerance', 'summaryMatch'),
+      extendedEpgOptions: select('useExtendedEpgInfo', 'extendedEpgInfo',
+        'ignoreMissingEpgCategories', 'contentDescriptors'),
+      validityOptions: select('useInFavorites', 'activeFrom', 'activeUntil'),
+      actionOptions: select('pauseOnRecordings', 'switchMinutesBefore',
+        'unmuteSoundOnSwitch', 'deleteRecordingsAfterDays',
+        'deleteAfterCountRecordings', 'deleteAfterDaysOfFirstRecording')
     }]
   };
 }
@@ -594,6 +602,22 @@ async function checkEditorFullWrites() {
   form.elements.query.value = 'Tatort';
   form.elements.priority.value = '50';
   form.elements.active.checked = true;
+  form.elements.useTime.checked = true;
+  form.elements.startTime.value = '930';
+  form.elements.stopTime.value = '1130';
+  form.elements.useDayOfWeek.checked = true;
+  form.elements.dayOfWeek.value = '31';
+  form.elements.manualUseChannel.value = '2';
+  form.elements.manualChannels.value = 'ARD';
+  form.elements.useDuration.checked = true;
+  form.elements.durationMinMinutes.value = '35';
+  form.elements.durationMaxMinutes.value = '100';
+  form.elements.avoidRepeats.checked = true;
+  form.elements.allowedRepeats.value = '1';
+  form.elements.blacklistMode.value = '2';
+  form.elements.blacklistIds.value = '4, 5';
+  form.elements.useExtendedEpgInfo.checked = true;
+  form.elements.extendedEpgInfo.value = 'category=movie; actor=Jane';
   form.listeners.submit({preventDefault() {}});
   form.listeners.submit({preventDefault() {}});
   await Promise.resolve();
@@ -603,6 +627,16 @@ async function checkEditorFullWrites() {
   assert.strictEqual(writes.length, 1, 'one user action => one CREATE');
   assert.strictEqual(writes[0].payload.active, true);
   assert.strictEqual(writes[0].payload.priority, 50);
+  assert.strictEqual(writes[0].payload.useTime, true);
+  assert.strictEqual(writes[0].payload.startTime, 930);
+  assert.strictEqual(writes[0].payload.stopTime, 1130);
+  assert.strictEqual(writes[0].payload.dayOfWeek, 31);
+  assert.strictEqual(writes[0].payload.useChannel, 2);
+  assert.strictEqual(writes[0].payload.channels, 'ARD');
+  assert.strictEqual(writes[0].payload.durationMinMinutes, 35);
+  assert.strictEqual(writes[0].payload.blacklistIds, '4, 5');
+  assert.strictEqual(writes[0].payload.extendedEpgInfo,
+    'category=movie; actor=Jane');
   assert.strictEqual(writes[0].payload.backendId, 'living-room');
   assert.strictEqual(readbacks.length, 1);
   assert.strictEqual(readbacks[0].query.backend, 'living-room');
