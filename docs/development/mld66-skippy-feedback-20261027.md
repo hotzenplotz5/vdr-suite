@@ -23,6 +23,14 @@ Referenz: [MLD-Kompatibilitätsinventar](mld66-compatibility-inventory.md),
 | Plugin-/Installationsübersicht | Vorläufige Funktionsmatrix unten | Effektiv installierte MLD-Rezepte, ABI und Fähigkeiten gegen lokale Paketmetadaten prüfen |
 | Suchtimer-Treffervorschau zeigt Kanal-ID | **IM BRANCH IMPLEMENTIERT**: Vorschautreffer werden mit derselben Backend-Kanalliste in Klartext aufgelöst; bei fehlender Kanalliste bleibt die Originalkennung als Fallback sichtbar | Einen bekannten Treffer mit Sender-ID anzeigen und Klarnamen prüfen; Kanallistenfehler muss die Treffervorschau weiterhin erlauben |
 
+**Zusatz F1.1 (27.10.2026):** Nach HTTP 202 mit einer gültigen
+dauerhaften Operation-ID kann der Browser jetzt die actor-gebundene
+`GET /api/v1/operations/{operationId}`-Route über
+„Anlagevorgang prüfen“ lesen. `dispatching` wird ausdrücklich nicht
+mit `succeeded` verwechselt; bei ausstehendem/unbekanntem Ergebnis
+wird **kein** zweiter CREATE ausgelöst. Isolierter UI-DOM-Test inklusive
+zweimaligem Status-Readback bestanden, MLD-Runtime weiterhin offen.
+
 **Aktueller F1.1–F1.3-Befund:** Siehe [Phase MLD.F1](../planning/mld66-feedback-phase-f1.md) für die eingecheckten Diagnose-/Editor-Änderungen und den noch offenen aktivierenden Native-CAS-Pfad. 
 
 **Test-Evidenz:** JS-V8-Modultest der Kanalnamensauflösung (inklusive bestehender Workflow-Assertions) und DOM-Mock der Berechtigungsauswahl (inklusive bestehender Mutationstests) bestanden. Der vollständige Preview-Fetch-Pfad wurde noch nicht end-to-end getestet. Noch **nicht bestätigt:** nativer Node-/CI-Lauf des Branch-HEAD, MLD-Kompilierung und Paketierung, reale MLD-Installation sowie reale VDR-Operationen.
