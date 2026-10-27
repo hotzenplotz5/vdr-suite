@@ -932,6 +932,25 @@ function publishHomeResume() {}
   assert.strictEqual(submits, pcPostsAfterReadback,
     'rescan and source reinspection never perform a second import');
 
+  // Same folder and label but a different Agent observation/source ID:
+  // neither a possible filename match nor a VDR result for the old source
+  // may transfer the confirmed status to a newly placed/modified video.
+  batchSources = [SOURCE_B];
+  sourceDisplayLabels[SOURCE_B] = 'Film';
+  sourceFolders[SOURCE_B] = 'Serien/Test';
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  assert(findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.dataset.sourceId === SOURCE_B &&
+      row.children[2].textContent.includes('Möglicher PC-Encode-Rücklauf') &&
+      !row.children[2].textContent.includes('VDR-Readback bestätigt');
+  }), 'a changed source observation never inherits the former recording result');
+  assert.strictEqual(submits, pcPostsAfterReadback,
+    'rescan with changed source ID never starts an import');
+  batchSources = [SOURCE];
+  delete sourceDisplayLabels[SOURCE_B];
+  delete sourceFolders[SOURCE_B];
+
   // A new account/session cannot inherit the former browser-only evidence.
   context.resetMediaImportVisibility(true);
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
