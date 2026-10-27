@@ -782,6 +782,11 @@
     appendPreviewMetric(summary, 'Treffer', String(firstValue(statistics, ['totalCount'], previewMatches(data).length)));
     appendPreviewMetric(summary, 'Kanäle', String(firstValue(statistics, ['channelCount'], 0)));
     target.appendChild(summary);
+    const previewLimit = addText(document.createElement('p'),
+      'Dies sind EPG-Texttreffer. Erweiterte Kanal-, Zeit-, Dauer-, ' +
+      'Blacklist- und Wiederholungsfilter werden hier noch nicht ausgewertet.');
+    previewLimit.className = 'searchtimer-safety-note';
+    target.appendChild(previewLimit);
 
     const matches = previewMatches(data);
     if (matches.length === 0) {
@@ -940,6 +945,26 @@
     crypto.getRandomValues(bytes);
     return 'search-web-' +
       Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  function createErrorText(error) {
+    const raw = String(error && error.message ? error.message : error);
+    const detail = String(error && error.payload && error.payload.detail || '');
+    if (error && error.status === 503) {
+      if (detail.includes('offline or read-only backend')) {
+        return 'Backend ist offline oder für Schreibvorgänge gesperrt.';
+      }
+      if (detail.includes('valid, online backend agent')) {
+        return 'Der Backend-Agent ist nicht angemeldet, nicht aktuell oder offline.';
+      }
+      if (detail.includes('configured backend provider and SuiteBridge')) {
+        return 'Der epgsearch-Provider oder die SuiteBridge-Anbindung fehlt.';
+      }
+      if (detail.includes('confirmed VDR pre/post margins')) {
+        return 'Die laufenden VDR-Vor-/Nachlaufwerte können über SuiteBridge nicht bestätigt werden.';
+      }
+    }
+    return raw;
   }
 
   function createForm(template) {
@@ -1109,7 +1134,7 @@
         }
       }).catch(error => {
         const trace = error && error.requestId ? ' [Request-ID: ' + error.requestId + ']' : '';
-        const message = String(error && error.message ? error.message : error);
+        const message = createErrorText(error);
         setFeedback(feedback,
           'Anlage fehlgeschlagen oder Ergebnis unklar (HTTP ' +
           String(error && error.status || '?') + ')' + trace + ': ' +
@@ -1318,6 +1343,7 @@
     validateCreatePayload: validateCreatePayload,
     stagedCreateValidation: stagedCreateValidation,
     unsupportedStagedOptions: unsupportedStagedOptions,
+    createErrorText: createErrorText,
     selectedBackendId: selectedBackendId
   });
 
