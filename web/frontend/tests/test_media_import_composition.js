@@ -178,7 +178,8 @@ function transport(url, options) {
           ? (sourceDisplayOverride || 'Die Herrschaft des Feuers') :
             id === MARK_PC ? 'Film.pc_encode' :
             id === MARK_SKIP ? 'Film.skipped' :
-            id === MARK_DUP ? 'Film.duplicate' : 'Weiterer Film',
+            id === MARK_DUP ? 'Film.duplicate' :
+              sourceDisplayLabels[id] || 'Weiterer Film',
           ...(Object.prototype.hasOwnProperty.call(sourceFolders, id)
             ? {folder: sourceFolders[id]} : {})};
       }), meta: {partial: sourcePartial}})
@@ -882,6 +883,83 @@ function publishHomeResume() {}
     'Diesen Film importieren',
     're-encoded return goes through normal codec preview and explicit import');
   assert.strictEqual(submits, postsBeforeReturn, 'scanning never auto-imports');
+  assert(findClass(mount, 'media-import-pc-return-hint').textContent.includes(
+    'Codec und Importfähigkeit'), 'new PC source gets its own backend codec preview');
+  assert(findClass(mount, 'media-import-selection').children[0].children[2].textContent.includes(
+    'Möglicher PC-Encode-Rücklauf'), 'returned candidate is identified in the normal list');
+  const pcOpen = findClass(mount, 'media-import-pc-return-open');
+  assert(pcOpen, 'parked original offers a read-only shortcut to inspect PC output');
+  const beforeShortcut = submits;
+  await pcOpen.listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeShortcut,
+    'opening the returned PC file must never auto-import or delete it');
+
+  // Only a verified Core operation can announce the new VDR recording; a
+  // handler exit or an unverified state is not success and never cleanup.
+  state = 'executed_unverified';
+  const beforePcImport = submits;
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforePcImport + 1,
+    'returned file imports only after an explicit user action');
+  assert(!findClass(mount, 'status').textContent.includes('VDR-Readback bestätigt'));
+  state = 'succeeded';
+  await findClass(mount, 'media-import-refresh').listeners.click();
+  await settle();
+  assert(findClass(mount, 'status').textContent.includes(
+    'VDR-Readback bestätigt den Import der ausgewählten neuen Quelle'));
+  assert(findClass(mount, 'status').textContent.includes(
+    'keine automatische Löschung'), 'existing source-preserving pipeline stays truthful');
+
+  // Two extensions with the same stem may be different films. Neither can
+  // be paired arbitrarily to the single parked original.
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B];
+  sourceDisplayLabels[SOURCE_B] = 'Film';
+  sourceFolders[SOURCE_B] = 'Serien/Test';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-pc-return-open'), null);
+  assert(findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.children.some(function (child) {
+      return child.textContent.includes('PC-Rücklauf mehrdeutig');
+    });
+  }), 'ambiguous same-name return remains visible without first-match assignment');
+
+  // Another folder or a different episode is never an inferred PC return.
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE_B];
+  sourceFolders[SOURCE_B] = 'Serien/Andere Folge';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-pc-return-open'), null);
+  assert(findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.children.some(function (child) {
+      return child.textContent.includes('Wartet auf PC-Bearbeitung');
+    });
+  }), 'same title in a different folder is not related');
+
+  // Multiple parked originals with the same label are also ambiguous.
+  const MARK_PC2 = 'source_marked_pc_987654';
+  sourceDisplayLabels[MARK_PC2] = 'Film.pc_encode';
+  sourceFolders[MARK_PC2] = 'Serien/Test';
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE];
+  markedSources = [MARK_PC, MARK_PC2];
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-pc-return-open'), null,
+    'two parked original extensions must never bind by array order');
+  assert.strictEqual(submits, beforePcImport + 1,
+    'all ambiguity/rescan checks remain read-only');
+  delete sourceDisplayLabels[SOURCE_B];
+  delete sourceDisplayLabels[MARK_PC2];
+  delete sourceFolders[SOURCE_B];
+  delete sourceFolders[MARK_PC2];
   sourceDisplayOverride = null;
   delete sourceFolders[SOURCE];
   delete sourceFolders[MARK_PC];

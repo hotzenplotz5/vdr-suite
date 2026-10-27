@@ -117,17 +117,33 @@
     return match ? match[1].toLowerCase() : '';
   }
 
-  // Rectools-compatible PC handoff: Film.pc_encode.mkv stays parked, while
-  // a separately returned Film.mp4 appears as a normal import candidate.
-  // A basename/folder match is only a visual hint, never proof of identical
-  // media or authority to import, unmark or delete either file.
-  function returnedPcEncodeCandidate(view, marked) {
-    if (markerSuffix(marked) !== 'pc_encode') return null;
-    const originalLabel = String(marked.label || '');
-    const expectedLabel = originalLabel.replace(/\.pc_encode$/i, '');
-    return view.allOrdinary.find(function (item) {
-      return item.folder === marked.folder && item.label === expectedLabel;
-    }) || null;
+  // Rectools-compatible PC handoff: the unmarked PC output and the parked
+  // .pc_encode file remain separate source IDs. This is a read-only name/folder
+  // hint, never a media identity, import approval or cleanup instruction.
+  // The backend owns codec checks and the Core owns VDR recording readback.
+  function pcEncodeCandidates(view, marked) {
+    if (markerSuffix(marked) !== 'pc_encode') return [];
+    const expected = marked.label.slice(0, -'.pc_encode'.length);
+    return view.allOrdinary.filter(function (item) {
+      return item.folder === marked.folder && item.label === expected;
+    });
+  }
+
+  function parkedPcEncodeMatches(view, candidate) {
+    if (!candidate) return [];
+    return view.allMarked.filter(function (marked) {
+      return markerSuffix(marked) === 'pc_encode' &&
+        marked.folder === candidate.folder &&
+        marked.label.slice(0, -'.pc_encode'.length) === candidate.label;
+    });
+  }
+
+  function possiblePcReturn(view, candidate) {
+    const parked = parkedPcEncodeMatches(view, candidate);
+    // Two returned file extensions or two parked originals are ambiguous.
+    // No arbitrary "first matching file" association is ever made.
+    return parked.length === 1 && pcEncodeCandidates(view, parked[0]).length === 1
+      ? parked[0] : null;
   }
 
   function operationLabel(state, decision) {
@@ -496,7 +512,15 @@
         throw new Error('Ungültige Operationsantwort');
       }
       view.attempt.state = operation.state;
-      report(view, operationLabel(operation.state, view.attempt.videoDecision), false);
+      const possibleReturnCompleted = operation.state === 'succeeded' &&
+        view.attempt.pcReturn === true &&
+        (!view.attempt.videoDecision || view.attempt.videoDecision === 'local');
+      report(view, operationLabel(operation.state, view.attempt.videoDecision) +
+        (possibleReturnCompleted
+          ? ' PC-Rücklauf: VDR-Readback bestätigt den Import der ausgewählten ' +
+            'neuen Quelle. Die .pc_encode-Originaldatei und die importierte ' +
+            'Quelldatei bleiben erhalten; keine automatische Löschung.'
+          : ''), false);
       view.operationDetail.textContent =
         'Vorgang ' + operation.operationId + ' · ' + operation.state;
       if (terminalState(operation.state) && !view.batch) {
@@ -835,9 +859,13 @@
         view.sourceDetails.textContent = 'Auswahl-ID: ' + item.sourceId;
         refreshSelectedPreview(view);
       });
+      const parked = parkedPcEncodeMatches(view, item);
+      const pcHint = possiblePcReturn(view, item)
+        ? ' · Möglicher PC-Encode-Rücklauf'
+        : parked.length ? ' · PC-Encode-Zuordnung mehrdeutig' : '';
       const meta = element('span', 'media-import-episode-meta',
         (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
-        ' · Noch nicht geprüft');
+        ' · Noch nicht geprüft' + pcHint);
       row.appendChild(checkbox);
       row.appendChild(open);
       row.appendChild(meta);
@@ -845,7 +873,9 @@
     });
     marked.forEach(function (item) {
       const marker = markerSuffix(item);
-      const returned = returnedPcEncodeCandidate(view, item);
+      const returns = pcEncodeCandidates(view, item);
+      const returned = returns.length === 1 && possiblePcReturn(view, returns[0])
+        ? returns[0] : null;
       const row = element('div', 'media-import-select-item media-import-marked-item');
       const open = element('button', 'media-import-episode-open', item.label || 'Markierte Datei');
       open.type = 'button';
@@ -860,17 +890,23 @@
           ? 'Bereits als Duplikat markiert (.duplicate). Kein erneuter Import.'
           : marker === 'skipped' ? 'Von Rectools oder Media Tools übersprungen (.skipped).'
             : returned
-              ? 'PC-Encode: gleichnamige neue Datei im Importordner gefunden.'
-              : 'Wartet auf die extern umkodierte Datei (.pc_encode).';
+              ? 'PC-Encode: möglicher Rücklauf als neue Datei gefunden.'
+              : returns.length
+                ? 'PC-Encode: mehrere gleichnamige Kandidaten, Zuordnung unklar.'
+                : 'Wartet auf die extern umkodierte Datei (.pc_encode).';
         const hint = returned
           ? 'Neue Datei „' + returned.label +
             '“ ist ein separater Importkandidat. Sie wird beim Auswählen ' +
             'technisch geprüft. Gleicher Name ist noch kein Nachweis für ' +
             'identischen Inhalt. Die markierte Originaldatei bleibt erhalten.'
-          : marker === 'pc_encode'
-            ? 'Nach der Umkodierung die neue Videodatei ohne .pc_encode ' +
-              'im selben Importordner ablegen. Sie wird beim nächsten Scan ' +
-              'normal erkannt; das markierte Original wird nicht importiert.'
+          : marker === 'pc_encode' && returns.length
+            ? 'Mehrere mögliche Dateien haben denselben Titel und Ordner. ' +
+              'Ohne eindeutige Zuordnung wird keine Datei automatisch gewählt, ' +
+              'markiert oder gelöscht. Jede Quelle getrennt prüfen.'
+            : marker === 'pc_encode'
+              ? 'Nach der Umkodierung die neue Videodatei ohne .pc_encode ' +
+                'im selben Importordner ablegen. Sie wird beim nächsten Scan ' +
+                'normal erkannt; das markierte Original wird nicht importiert.'
             : 'Diese Rectools-Markierung wird respektiert; keine erneute ' +
               'Importausführung für die markierte Datei.';
         view.preview.textContent = statusText + ' ' + hint;
@@ -884,9 +920,21 @@
         (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
         ' · ' + (marker === 'duplicate' ? 'Bereits vorhanden' :
           marker === 'skipped' ? 'Übersprungen' : returned
-            ? 'PC-Version gefunden – noch prüfen' : 'Wartet auf PC-Bearbeitung'));
+            ? 'PC-Version gefunden – noch prüfen' : returns.length
+              ? 'PC-Rücklauf mehrdeutig' : 'Wartet auf PC-Bearbeitung'));
       row.appendChild(open);
       row.appendChild(meta);
+      if (returned) {
+        const inspect = element('button', 'media-import-pc-return-open',
+          'PC-Version technisch prüfen');
+        inspect.type = 'button';
+        inspect.addEventListener('click', function () {
+          // Navigates to the independently authorized ordinary candidate;
+          // this does not execute an import or release the parked original.
+          return openDeferredFilm(view, returned.sourceId);
+        });
+        row.appendChild(inspect);
+      }
       view.selectionRows.appendChild(row);
     });
     view.selectAllVisibleButton.disabled = normal.length === 0;
@@ -1198,6 +1246,20 @@
         ? 'Für den lokalen Import fehlt Speicherplatz.'
         : failure || 'Die Quelle oder das Ziel konnte nicht vollständig geprüft werden. Technische Details anzeigen oder erneut prüfen.';
     card.appendChild(element('p', 'media-import-preview-hint', note));
+    const parked = selected ? parkedPcEncodeMatches(view, source) : [];
+    if (parked.length) {
+      const unique = Boolean(possiblePcReturn(view, source));
+      card.appendChild(element('p', 'media-import-pc-return-hint',
+        unique
+          ? 'Möglicher PC-Encode-Rücklauf erkannt (gleicher Titel und Ordner). ' +
+            'Die zurückgestellte .pc_encode-Datei bleibt getrennt. ' +
+            (plan && plan.status === 'ready'
+              ? 'Codec und Importfähigkeit der neuen Quelle sind geprüft; ' +
+                'Medienidentität ist damit nicht nachgewiesen.'
+              : 'Erst die technische Vorschau entscheidet über die Importfähigkeit.')
+          : 'PC-Encode-Rücklauf mehrdeutig: mehrere Quellen teilen Titel und Ordner. ' +
+            'Keine automatische Zuordnung oder Bereinigung.'));
+    }
   }
 
   function updatePreview(view) {
@@ -1400,8 +1462,12 @@
           if (!isCurrent(view)) return null;
           // Reserve a unique key before dispatch; a lost HTTP response is not a failure.
           const key = makeKey();
+          const selectedSource = view.allOrdinary.find(function (item) {
+            return item.sourceId === sourceId;
+          });
           view.attempt = {sourceId: sourceId, key: key, operationId: '',
             videoDecision: videoDecision,
+            pcReturn: !releaseMode && Boolean(possiblePcReturn(view, selectedSource)),
             state: '', pending: true};
           activeAttempts[view.backendId] = view.attempt;
           return publicClient().submitMediaImport({
