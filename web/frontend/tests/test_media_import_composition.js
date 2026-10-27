@@ -120,6 +120,17 @@ function transport(url, options) {
     }
     const override = batchProbeOverrides[id] || {};
     const status = override.status || previewInspectionStatus;
+    if (status === 'unavailable') {
+      // The real Agent legitimately returns unavailable with no title or
+      // media details when its read-only source inspection fails.
+      return Promise.resolve(reply(200, {
+        backendId: 'backend-a', sourceId: id,
+        state: 'ready', status: 'unavailable', title: '',
+        targetFolder: '', videoCodec: '', sourceBytes: 0,
+        availableBytes: 0, requiredBytes: 0,
+        videoReencodeRequired: false
+      }));
+    }
     const codec = override.codec ||
       (status === 'insufficient' ? 'vp9' : previewVideoCodec);
     return Promise.resolve(reply(200, {
@@ -1154,6 +1165,10 @@ function publishHomeResume() {}
   await settle();
   assert(findClass(mount, 'media-import-preview').textContent.includes(
     'konnte vom Backend nicht sicher geprüft werden'));
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    'Backend-Prüfung konnte für diese Quelldatei nicht abgeschlossen werden'));
+  assert(!findClass(mount, 'media-import-preview').textContent.includes(
+    'Diagnose ausstehend'), 'known unavailable is not an unknown preview');
   assert(findClass(mount, 'media-import-start').disabled);
 
   previewInspectionStatus = 'ready';
