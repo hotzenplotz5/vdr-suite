@@ -1275,6 +1275,40 @@ function publishHomeResume() {}
   assert.strictEqual(submits, postsBeforeForbidden);
   previewMode = 'ready';
 
+  // Rectools duplicate is not silently renamed during the read-only scan.
+  // After a backend-confirmed duplicate, only the explicit marker action posts.
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE];
+  previewInspectionStatus = 'duplicate';
+  state = 'succeeded';
+  submitMode = 'accepted';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const dupSelect = findClass(mount, 'media-import-source');
+  dupSelect.value = SOURCE;
+  dupSelect.listeners.change();
+  await settle();
+  const dupButton = findClass(mount, 'media-import-duplicate');
+  assert(dupButton && !dupButton.hidden && !dupButton.disabled,
+    'backend duplicate preview presents explicit Rectools duplicate marker');
+  assert(findClass(mount, 'media-import-start').disabled,
+    'duplicate never allows normal import');
+  assert(findClass(mount, 'media-import-skip').hidden,
+    'duplicate cannot be mislabelled as skipped');
+  const preDuplicatePosts = submits;
+  confirmLocal = false;
+  await dupButton.listeners.click();
+  assert.strictEqual(submits, preDuplicatePosts, 'cancel does not mark a duplicate');
+  confirmLocal = true;
+  await dupButton.listeners.click();
+  await settle();
+  assert.strictEqual(submits, preDuplicatePosts + 1);
+  assert.strictEqual(requests.filter(x => x.options.method === 'POST').slice(-1)[0].options.body,
+    JSON.stringify({sourceId: SOURCE, videoDecision: 'duplicate'}));
+  assert(findClass(mount, 'status').textContent.includes('Duplikat markiert'));
+  previewInspectionStatus = 'ready';
+
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
   console.error(error);
