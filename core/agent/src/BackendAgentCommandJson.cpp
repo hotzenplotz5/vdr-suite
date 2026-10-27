@@ -291,6 +291,8 @@ bool parseTypes(const Value& value, std::vector<std::string>& types)
              item.stringValue != kLegacyOsdInputCommandType &&
              item.stringValue != "addon.media.import" &&
              item.stringValue !=
+                 vdrsuite::mediatools::kMediaImportReadbackCommandType &&
+             item.stringValue !=
                  vdrsuite::mediatools::kMediaShrinkStageCommandType &&
              item.stringValue !=
                  vdrsuite::mediatools::kMediaShrinkPublishCommandType) ||

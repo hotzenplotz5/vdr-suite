@@ -8,6 +8,8 @@
 #include "ISuiteBridgeLegacyOsdInputTransport.h"
 #include "LegacyOsdInputDomain.h"
 #include "MediaShrinkAgentCommand.h"
+#include "MediaToolsAgentExecutor.h"
+#include "MediaImportRecordingEvidence.h"
 
 #include <algorithm>
 #include <cassert>
@@ -350,7 +352,7 @@ void testMediaToolsPollAcceptsReviewedShrinkTypes()
     poll.backendGeneration = 8;
     poll.refreshCapabilities = true;
     poll.supportedCommandTypes = {
-        "addon.media.import",
+        "addon.media.import", kMediaImportReadbackCommandType,
         kMediaShrinkStageCommandType,
         kMediaShrinkPublishCommandType
     };
@@ -372,6 +374,38 @@ void testMediaToolsPollAcceptsReviewedShrinkTypes()
     assert(reason == "invalid_command_poll_payload");
 }
 
+void testReadbackCommandContract()
+{
+    using namespace vdrsuite::mediatools;
+    const std::string source = "source_readback_123456";
+    const std::string command = "cmd_original_readback";
+    const std::string evidence = recordingPathEvidence(
+        "/srv/vdr/Imported/2026-10-27.22.00.00-0.rec");
+    const std::string payload =
+        mediaImportReadbackPayload(source, command, evidence);
+    std::string decodedSource, decodedCommand, decodedEvidence;
+    assert(parseMediaImportReadbackPayload(
+        payload, decodedSource, decodedCommand, decodedEvidence));
+    assert(decodedSource == source && decodedCommand == command &&
+           decodedEvidence == evidence);
+    assert(!parseMediaImportReadbackPayload(
+        mediaImportReadbackPayload(source, command, "not_verified"),
+        decodedSource, decodedCommand, decodedEvidence));
+    assert(!parseMediaImportReadbackPayload(
+        payload + " ", decodedSource, decodedCommand, decodedEvidence));
+    auto assignmentValue = assignment();
+    assignmentValue.commandType = kMediaImportReadbackCommandType;
+    assignmentValue.payloadVersion = 1;
+    assignmentValue.payload = payload;
+    assignmentValue.requestFingerprint =
+        backendAgentCommandFingerprint(assignmentValue);
+    assert(backendAgentCommandValidAssignment(assignmentValue));
+    assignmentValue.verificationPolicy = "reconciliation_required";
+    assignmentValue.requestFingerprint =
+        backendAgentCommandFingerprint(assignmentValue);
+    assert(!backendAgentCommandValidAssignment(assignmentValue));
+}
+
 void testAddonCommandsNeverSelfAdvertise()
 {
     const std::string path = "/tmp/vdr-suite-addon-command-advertisement";
@@ -379,7 +413,8 @@ void testAddonCommandsNeverSelfAdvertise()
     BackendAgentCommandClientConfig config;
     config.statePath = path;
     config.commandTypes = {
-        "addon.media.import", "addons.media.import", "probe.noop"
+        "addon.media.import", kMediaImportReadbackCommandType,
+        "addons.media.import", "probe.noop"
     };
     const BackendAgentCommandClientContext context{
         "agt_client", "secret-material-at-least-thirty-two-bytes",
@@ -588,6 +623,7 @@ void testOsdInputDispatchAndNoBlindRetry()
 int main()
 {
     testMediaToolsPollAcceptsReviewedShrinkTypes();
+    testReadbackCommandContract();
     testAddonCommandsNeverSelfAdvertise();
     testTimerAdvertisementActivation();
     testOsdInputAdvertisement();

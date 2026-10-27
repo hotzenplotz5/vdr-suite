@@ -790,11 +790,69 @@ int main()
         "default", readback, {imported, imported}, 128) == 0);
     assert(operations.findById(media.operationId).operation.state ==
         vdrsuite::operations::MutationOperationState::outcomeUnknown);
+    assert(!commands.findAssignmentForOperation(
+        "default", media.operationId,
+        vdrsuite::mediatools::kMediaImportReadbackCommandType));
     assert(coreFence.reconcileRecordingCache(
         "default", readback, actualRecordings, 128) == 1);
     const auto reconciledOp = operations.findById(media.operationId);
     assert(reconciledOp.ok() && reconciledOp.operation.state ==
         vdrsuite::operations::MutationOperationState::succeeded);
+    const auto notice = commands.findAssignmentForOperation(
+        "default", media.operationId,
+        vdrsuite::mediatools::kMediaImportReadbackCommandType);
+    assert(notice.has_value());
+    assert(notice->operationId == media.operationId);
+    assert(notice->backendGeneration == media.backendGeneration);
+    assert(notice->verificationPolicy == "none");
+    std::string noticeSource, originalCommand, noticeEvidence;
+    assert(vdrsuite::mediatools::parseMediaImportReadbackPayload(
+        notice->payload, noticeSource, originalCommand, noticeEvidence));
+    assert(noticeSource == op.resourceId &&
+           originalCommand == media.commandId &&
+           noticeEvidence == mediaOutcome.resultEvidence);
+    auto readbackPoll = importPoll;
+    readbackPoll.supportedCommandTypes = {
+        vdrsuite::mediatools::kMediaImportReadbackCommandType};
+    const auto delivered = service.poll(
+        context(ActorType::Agent, "actor_agent"), readbackPoll, 129);
+    assert(delivered.accepted && delivered.assignment.present);
+    assert(delivered.assignment.commandId == notice->commandId);
+    auto noticeReceipt = mediaReceipt;
+    noticeReceipt.commandId = notice->commandId;
+    noticeReceipt.requestFingerprint = notice->requestFingerprint;
+    noticeReceipt.jobId = notice->jobId;
+    noticeReceipt.attemptId = notice->attemptId;
+    noticeReceipt.claimEpoch = notice->claimEpoch;
+    noticeReceipt.receivedAt = 130;
+    assert(service.receipt(
+        context(ActorType::Agent, "actor_agent"), noticeReceipt, 130).accepted);
+    BackendAgentCommandResult noticeResult;
+    noticeResult.commandId = notice->commandId;
+    noticeResult.requestFingerprint = notice->requestFingerprint;
+    noticeResult.jobId = notice->jobId;
+    noticeResult.attemptId = notice->attemptId;
+    noticeResult.claimEpoch = notice->claimEpoch;
+    noticeResult.backendId = notice->backendId;
+    noticeResult.agentId = notice->agentId;
+    noticeResult.agentInstanceId = notice->agentInstanceId;
+    noticeResult.backendGeneration = notice->backendGeneration;
+    noticeResult.dispatchState = "effect_reported";
+    noticeResult.verificationState = "verified";
+    noticeResult.resultCategory = "succeeded";
+    noticeResult.errorCategory = "none";
+    noticeResult.retryClassification = "none";
+    noticeResult.boundedDiagnostics =
+        "VDR readback notice durably received; no source cleanup";
+    noticeResult.completedAt = 131;
+    assert(service.result(
+        context(ActorType::Agent, "actor_agent"), noticeResult, 131).accepted);
+    const auto readbackReplay = service.result(
+        context(ActorType::Agent, "actor_agent"), noticeResult, 132);
+    assert(readbackReplay.accepted && readbackReplay.replayed);
+    assert(sqlCount(db.handle(),
+        "SELECT COUNT(*) FROM backend_agent_commands "
+        "WHERE command_type='addon.media.import.readback';") == 1);
     assert(coreFence.reconcileRecordingCache(
         "default", readback, actualRecordings, 129) == 0);
     assert(operations.findById(media.operationId).operation.operationRevision ==
