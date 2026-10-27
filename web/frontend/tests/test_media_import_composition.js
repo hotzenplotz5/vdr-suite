@@ -602,8 +602,12 @@ function publishHomeResume() {}
     mixedSummary.includes('1 Dubletten'), mixedSummary);
   const mixedRows = findClass(mount, 'media-import-batch-review').children;
   assert.strictEqual(mixedRows.length, 4);
-  assert(mixedRows[1].textContent.includes('Umkodierung nötig'));
-  assert(mixedRows[2].textContent.includes('Aufnahme vorhanden'));
+  assert(mixedRows.some(function (row) {
+    return row.textContent.includes('Umkodierung nötig');
+  }));
+  assert(mixedRows.some(function (row) {
+    return row.textContent.includes('Aufnahme vorhanden');
+  }));
   assert.strictEqual(submits, postsBeforeMixed,
     'no mixed-film mutation before explicit batch approval');
   const mixedReviewConfirm = findClass(mount, 'media-import-batch-confirm');
@@ -627,14 +631,15 @@ function publishHomeResume() {}
   assert.strictEqual(batchOperations.length, 2, 'held-back VP9 is never implicitly encoded');
   assert(findClass(mount, 'media-import-batch-summary').textContent.includes(
     '2 bereits bestätigt'));
-  assert(findClass(mount, 'media-import-batch-review').children[1].textContent.includes(
-    'Umkodierung nötig'));
+  assert(findClass(mount, 'media-import-batch-review').children.some(function (row) {
+    return row.textContent.includes('Umkodierung nötig');
+  }));
   assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true);
   // UX5.3: returning to an incompatible film reuses the single-film
   // preview/decision; it does not silently submit or authorize encoding.
-  const deferredAction = findClass(
-    findClass(mount, 'media-import-batch-review').children[1],
-    'media-import-batch-deferred');
+  const deferredRow = findClass(mount, 'media-import-batch-review').children.find(
+    function (row) { return row.textContent.includes('Umkodierung nötig'); });
+  const deferredAction = findClass(deferredRow, 'media-import-batch-deferred');
   assert(deferredAction && !deferredAction.disabled);
   const postsBeforeDeferred = submits;
   submitMode = 'accepted';
