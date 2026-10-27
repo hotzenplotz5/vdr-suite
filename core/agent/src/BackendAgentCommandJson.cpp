@@ -6,6 +6,7 @@
 #include "BackendAgentRecordingCut.h"
 #include "LegacyOsdInputDomain.h"
 #include "MediaShrinkAgentCommand.h"
+#include "MediaToolsAgentExecutor.h"
 
 #include <algorithm>
 #include <cctype>
