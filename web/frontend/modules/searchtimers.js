@@ -908,6 +908,29 @@
     return errors;
   }
 
+  // Only these SearchTimer fields round-trip through the current Public-v1
+  // staged CREATE contract. The legacy editor knows more native fields; none
+  // of them may silently disappear from a user's saved rule.
+  function unsupportedStagedOptions(payload) {
+    const value = payload || {};
+    const unsupported = [
+      ['active', Boolean(value.active), 'Sofort aktivieren'],
+      ['directory', Boolean(value.directory), 'Aufnahmeverzeichnis'],
+      ['priority', Number(value.priority) !== 0, 'Priorität'],
+      ['lifetime', Number(value.lifetime) !== 0, 'Lebensdauer'],
+      ['marginStartMinutes', Number(value.marginStartMinutes) !== 0, 'Vorlauf'],
+      ['marginStopMinutes', Number(value.marginStopMinutes) !== 0, 'Nachlauf'],
+      ['useVps', Boolean(value.useVps), 'VPS'],
+      ['useChannel', Number(value.useChannel) !== 0, 'Kanalfilter'],
+      ['useDuration', Boolean(value.useDuration), 'Dauerfilter'],
+      ['avoidRepeats', Boolean(value.avoidRepeats), 'Wiederholungen'],
+      ['blacklistMode', Number(value.blacklistMode) !== 0, 'Blacklist'],
+      ['blacklistIds', Boolean(value.blacklistIds), 'Blacklist-IDs'],
+      ['matchCase', Boolean(value.matchCase), 'Groß-/Kleinschreibung']
+    ];
+    return unsupported.filter(item => item[1]).map(item => item[2]);
+  }
+
   function newStagedIdempotencyKey() {
     // Crypto.getRandomValues also works on unencrypted private LAN origins.
     // Never use Math.random for an operation identity.
@@ -926,8 +949,10 @@
     form.dataset.searchtimerEditorForm = 'create';
 
     const notice = addText(document.createElement('p'),
-      'Dieser SearchTimer wird zunächst inaktiv angelegt. ' +
-      'Erweiterte Aufnahme- und Filteroptionen werden hier nicht gespeichert.');
+      'Suchtimer-Editor: Die Vorschau zählt EPG-Texttreffer, nicht die endgültigen ' +
+      'Aufnahmen. Aktuell kann die öffentliche API nur die Textsuche als inaktive ' +
+      'Regel speichern. Weitere Einstellungen sind sichtbar, werden aber vor ' +
+      'einem nicht unterstützten Speicherversuch ausdrücklich beanstandet.');
     notice.className = 'searchtimer-safety-note';
     form.appendChild(notice);
     const grid = document.createElement('div');
@@ -943,6 +968,42 @@
     grid.appendChild(field('Toleranz (nur Unscharf)', input('tolerance',
       source.mode === 5 ? source.tolerance : 0, 'number')));
     form.appendChild(grid);
+
+    const advanced = document.createElement('details');
+    advanced.className = 'searchtimer-expert';
+    advanced.appendChild(addText(document.createElement('summary'),
+      'Weitere epgsearch-Einstellungen · derzeit noch nicht speicherbar'));
+    const advancedGrid = document.createElement('div');
+    advancedGrid.className = 'searchtimer-form-grid';
+    advancedGrid.style.padding = '.65rem';
+    advancedGrid.appendChild(check('active', 'Sofort aktiv speichern', false));
+    advancedGrid.appendChild(check('useVps', 'VPS verwenden', source.useVps));
+    advancedGrid.appendChild(field('Aufnahme-Priorität', input('priority', source.priority, 'number')));
+    advancedGrid.appendChild(field('Lebensdauer', input('lifetime', source.lifetime, 'number')));
+    advancedGrid.appendChild(field('Vorlauf in Minuten (VDR-Standard wird verwendet)',
+      input('marginStartMinutes', source.marginStartMinutes, 'number')));
+    advancedGrid.appendChild(field('Nachlauf in Minuten (VDR-Standard wird verwendet)',
+      input('marginStopMinutes', source.marginStopMinutes, 'number')));
+    createDirectoryFields(advancedGrid, source);
+    createChannelFilterFields(advancedGrid, source);
+    advancedGrid.appendChild(check('useDuration', 'Dauerfilter aktivieren', source.useDuration));
+    advancedGrid.appendChild(field('Mindestdauer (Min.)',
+      input('durationMinMinutes', source.durationMinMinutes, 'number')));
+    advancedGrid.appendChild(field('Höchstdauer (Min.)',
+      input('durationMaxMinutes', source.durationMaxMinutes, 'number')));
+    advancedGrid.appendChild(check('avoidRepeats', 'Wiederholungen vermeiden', source.avoidRepeats));
+    advancedGrid.appendChild(field('Erlaubte Wiederholungen',
+      input('allowedRepeats', source.allowedRepeats, 'number')));
+    advancedGrid.appendChild(field('Wiederholungen innerhalb (Tage)',
+      input('repeatsWithinDays', source.repeatsWithinDays, 'number')));
+    advancedGrid.appendChild(field('Blacklist-Modus',
+      input('blacklistMode', source.blacklistMode, 'number')));
+    advancedGrid.appendChild(field('Blacklist-IDs',
+      input('blacklistIds', source.blacklistIds)));
+    advancedGrid.appendChild(check('matchCase',
+      'Groß-/Kleinschreibung beachten', source.matchCase));
+    advanced.appendChild(advancedGrid);
+    form.appendChild(advanced);
 
     const actions = document.createElement('div');
     actions.className = 'searchtimer-actions';
@@ -964,16 +1025,11 @@
     let pendingKey = '';
     let pendingFingerprint = '';
     function payload() {
-      const query = String(formValue(form, 'query', '') || '').trim();
-      const result = {
-        backendId: selectedBackendId(), name: query, query: query,
-        active: false,
-        mode: numberValue(formValue(form, 'mode', 0), 0),
-        tolerance: numberValue(formValue(form, 'tolerance', 0), 0),
-        compareTitle: boolValue(formValue(form, 'compareTitle', true), true),
-        compareSubtitle: boolValue(formValue(form, 'compareSubtitle', false), false),
-        compareSummary: boolValue(formValue(form, 'compareSummary', false), false)
-      };
+      const result = buildCreatePayload(form, source);
+      result.query = String(result.query || '').trim();
+      result.name = result.query;
+      // The public CREATE can only stage an inactive rule.
+      result.backendId = selectedBackendId();
       const errors = stagedCreateValidation(result);
       if (errors.length) {
         setFeedback(feedback, errors.join(' '), true);
@@ -983,12 +1039,25 @@
     }
     previewButton.addEventListener('click', () => {
       const result = payload();
-      if (result) runPreview(result, previewButton, feedback);
+      if (!result) return;
+      const extra = unsupportedStagedOptions(result);
+      if (extra.length) {
+        setFeedback(feedback, 'EPG-Textvorschau ohne erweiterte Filter: ' +
+          extra.join(', ') + '. Das ist keine verbindliche Aufnahmeprognose.', false);
+      }
+      runPreview(result, previewButton, feedback);
     });
     form.addEventListener('submit', event => {
       event.preventDefault();
       const result = payload();
       if (!result) return;
+      const unsupported = unsupportedStagedOptions(result);
+      if (unsupported.length) {
+        setFeedback(feedback,
+          'Diese Einstellungen können aktuell noch nicht zuverlässig gespeichert werden: ' +
+          unsupported.join(', ') + '. Keine Anlage ausgeführt.', true);
+        return;
+      }
       const api = clientApi();
       if (!api || typeof api.fetchClientSearchTimerCreateStaged !== 'function') {
         setFeedback(feedback, 'Sicheres SearchTimer-Anlegen ist nicht verfügbar.', true);
@@ -1027,18 +1096,25 @@
         const state = String(operation.state || '');
         if (state === 'succeeded') {
           setFeedback(feedback,
-            'Inaktiver SearchTimer angelegt. Vor Aktivierung Einstellungen im VDR prüfen.', false);
+            'Inaktiver SearchTimer bestätigt. Direkte Aktivierung ist auf diesem API-Weg noch nicht verfügbar.', false);
+          // Only a confirmed success releases this form for a new operation.
+          pendingKey = '';
+          pendingFingerprint = '';
           global.setTimeout(reloadSearchTimers, 300);
         } else {
           setFeedback(feedback,
-            'Anlagevorgang angenommen (' + (state || 'Status unbekannt') +
-            '). Backend-Ergebnis prüfen; nicht mit neuem Schlüssel wiederholen.', false);
+            'Anlagevorgang (' + (state || 'Status unbekannt') +
+            ', Operation ' + String(operation.operationId || 'ohne ID') +
+            '). Ergebnis im Backend prüfen; keinen neuen Schlüssel verwenden.', false);
         }
       }).catch(error => {
+        const trace = error && error.requestId ? ' [Request-ID: ' + error.requestId + ']' : '';
+        const message = String(error && error.message ? error.message : error);
         setFeedback(feedback,
-          'Ergebnis der Anlage unklar: ' +
-          String(error && error.message ? error.message : error) +
-          '. Vor erneutem Versuch den Backend-Zustand prüfen.', true);
+          'Anlage fehlgeschlagen oder Ergebnis unklar (HTTP ' +
+          String(error && error.status || '?') + ')' + trace + ': ' +
+          message + '. Bestehenden Backend-/Operationszustand prüfen; ' +
+          'keine neue Operation beginnen.', true);
       }).finally(() => { saveButton.disabled = false; });
     });
     activeCreateForm = form;
@@ -1241,6 +1317,7 @@
     buildCreatePayload: buildCreatePayload,
     validateCreatePayload: validateCreatePayload,
     stagedCreateValidation: stagedCreateValidation,
+    unsupportedStagedOptions: unsupportedStagedOptions,
     selectedBackendId: selectedBackendId
   });
 
