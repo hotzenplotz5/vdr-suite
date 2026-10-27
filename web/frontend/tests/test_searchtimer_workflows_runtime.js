@@ -530,7 +530,17 @@ async function checkEditorStagedWrites() {
   const client = {
     fetchClientSearchTimerCreateStaged(options) {
       writes.push(options);
-      return Promise.resolve({operation: {state: 'succeeded', operationId: 'op_fixture'}});
+      return Promise.resolve({operation: {state: 'accepted',
+        operationId: 'op_00000000000000000000000000000001',
+        backendId: 'living-room'}});
+    },
+    requestJson(path, options) {
+      assert.strictEqual(path,
+        '/api/v1/operations/op_00000000000000000000000000000001');
+      assert.strictEqual(options.cache, 'no-store');
+      return Promise.resolve({state: 'succeeded',
+        operationId: 'op_00000000000000000000000000000001',
+        backendId: 'living-room'});
     }
   };
   vm.runInNewContext(source, {
@@ -556,6 +566,22 @@ async function checkEditorStagedWrites() {
   assert.strictEqual(writes.length, 1);
   assert.strictEqual(writes[0].payload.active, false);
   assert.strictEqual(writes[0].payload.query, 'Tatort');
+  const actions = form.children.filter(element =>
+    element.className === 'searchtimer-actions')[0];
+  assert(actions);
+  const statusButton = actions.children.filter(element =>
+    element.textContent === 'Anlagevorgang prüfen')[0];
+  assert(statusButton, 'durable operation readback button must exist');
+  assert.strictEqual(statusButton.hidden, false);
+  assert.strictEqual(statusButton.disabled, false);
+  statusButton.listeners.click();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.strictEqual(writes.length, 1,
+    'checking an operation must never trigger another create');
+  assert.strictEqual(statusButton.hidden, true,
+    'confirmed operation state hides the readback button');
   form.elements.priority.value = '50';
   form.listeners.submit({preventDefault() {}});
   assert.strictEqual(writes.length, 1,
