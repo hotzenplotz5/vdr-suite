@@ -5025,3 +5025,70 @@ body.channel-sorter-dragging * {
   background: #1d3658;
   box-shadow: inset 3px 0 0 #3b82f6;
 }
+
+
+/* MT.META1: same DOM, same import handlers; phone shows one pane at a time. */
+.media-import-mobile-nav,
+.media-import-mobile-back { display: none; }
+@media (max-width: 700px) {
+  .media-import-mobile-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: .35rem;
+    gap: .35rem;
+    background: #101b2c;
+    border: 1px solid #334155;
+    border-radius: .85rem;
+  }
+  .media-import-panel .media-import-mobile-switch {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.85rem;
+    justify-self: stretch;
+    background: transparent;
+    color: #cbd5e1;
+    border: 1px solid transparent;
+    border-radius: .65rem;
+    font-weight: 700;
+  }
+  .media-import-panel .media-import-mobile-switch.is-active {
+    background: #1d4ed8;
+    border-color: #60a5fa;
+    color: #fff;
+  }
+  .media-import-panel .media-import-mobile-switch:focus-visible,
+  .media-import-panel .media-import-mobile-back:focus-visible {
+    outline: 2px solid #bfdbfe;
+    outline-offset: 2px;
+  }
+  .media-import-workspace > .media-import-pane { display: none; }
+  .media-import-panel[data-mobile-pane="folders"] .media-import-library,
+  .media-import-panel[data-mobile-pane="media"] .media-import-episodes,
+  .media-import-panel[data-mobile-pane="details"] .media-import-detail {
+    display: flex;
+    grid-column: 1 / -1;
+  }
+  .media-import-panel .media-import-mobile-back {
+    display: block;
+    width: 100%;
+    min-height: 2.75rem;
+    border: 1px solid #334155;
+    border-radius: .65rem;
+    background: #1d2b41;
+    color: #bfdbfe;
+    text-align: left;
+  }
+  .media-import-panel .media-import-episode-open {
+    min-height: 2.75rem;
+  }
+  .media-import-panel .media-import-selection {
+    max-height: 60vh;
+  }
+  .media-import-preview-fact {
+    grid-template-columns: minmax(5.7rem, 7rem) minmax(0, 1fr);
+  }
+}

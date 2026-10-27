@@ -8,6 +8,11 @@ const frontend = path.join(__dirname, '..');
 const index = fs.readFileSync(path.join(frontend, 'index.html'), 'utf8');
 const app = fs.readFileSync(path.join(frontend, 'app.js'), 'utf8');
 const view = fs.readFileSync(path.join(frontend, 'modules/media-import.js'), 'utf8');
+const stylesheet = fs.readFileSync(path.join(frontend, 'style.css'), 'utf8');
+assert(stylesheet.includes('.media-import-panel[data-mobile-pane="folders"] .media-import-library'));
+assert(stylesheet.includes('.media-import-panel[data-mobile-pane="media"] .media-import-episodes'));
+assert(stylesheet.includes('.media-import-panel[data-mobile-pane="details"] .media-import-detail'));
+
 const clientFactory = require('../api/public-v1-client.js');
 
 assert(index.includes('data-module="media-import" hidden disabled'));
@@ -337,6 +342,8 @@ function publishHomeResume() {}
   assert.strictEqual(start.disabled, true);
   select.value = SOURCE;
   select.listeners.change();
+  assert.strictEqual(findClass(mount, 'media-import-panel').dataset.mobilePane, 'details',
+    'choosing a source opens its detail view on phones');
   assert(start.disabled, 'pending preview must not enable an import');
   const noPreviewPost = submits;
   await start.listeners.click();
@@ -352,6 +359,23 @@ function publishHomeResume() {}
     findClass(threePanes, 'media-import-library') &&
     findClass(threePanes, 'media-import-episodes') && detailPane,
     'production module composes genuine folder/episode/detail columns');
+  // MT.META1: Mobile navigation changes the visible pane only, with no
+  // second import route, selection or backend mutation.
+  const mobileNav = findClass(mount, 'media-import-mobile-nav');
+  assert(mobileNav && mobileNav.children.length === 3);
+  assert.strictEqual(importPanel.dataset.mobilePane, 'media');
+  assert.strictEqual(mobileNav.children[1].attributes['aria-pressed'], 'true');
+  const mobilePosts = requests.filter(r => r.options.method === 'POST').length;
+  await mobileNav.children[0].listeners.click();
+  assert.strictEqual(importPanel.dataset.mobilePane, 'folders');
+  assert.strictEqual(mobileNav.children[0].attributes['aria-pressed'], 'true');
+  assert.strictEqual(mobileNav.children[1].attributes['aria-pressed'], 'false');
+  await mobileNav.children[2].listeners.click();
+  assert.strictEqual(importPanel.dataset.mobilePane, 'details');
+  await findClass(mount, 'media-import-mobile-back').listeners.click();
+  assert.strictEqual(importPanel.dataset.mobilePane, 'media');
+  assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
+    mobilePosts, 'view navigation must never submit or mark sources');
   const previewCard = findClass(mount, 'media-import-preview-card');
   assert(previewCard && detailPane.children.indexOf(previewCard) >= 0,
     'the visible preview card is a first-class element of the detail pane');

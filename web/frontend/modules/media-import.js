@@ -312,6 +312,7 @@
       view.select.value = sourceId;
       view.sourceDetails.textContent = 'Auswahl-ID: ' + sourceId;
       refreshSelectedPreview(view);
+      setMobilePane(view, 'details');
     });
   }
 
@@ -763,6 +764,20 @@
       view.decision.value !== 'import';
   }
 
+  // MT.META1: presentation-only phone navigation. The same Core/Agent
+  // source selection, preview, import and marker handlers remain the owner.
+  function setMobilePane(view, pane) {
+    if (!isCurrent(view) || !view.mobileButtons[pane]) return;
+    view.root.dataset.mobilePane = pane;
+    Object.keys(view.mobileButtons).forEach(function (name) {
+      const button = view.mobileButtons[name];
+      const active = name === pane;
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      button.className = 'media-import-mobile-switch' +
+        (active ? ' is-active' : '');
+    });
+  }
+
   // Build navigation only from previously validated Agent/Core relative
   // folders. This is NOT a server path resolver; clicks never send a path.
   function renderSourceFolders(view, searching) {
@@ -782,6 +797,7 @@
       view.folderPath = path;
       view.checkedSourceIds.clear();
       filterVisibleSources(view);
+      setMobilePane(view, 'media');
     };
     const root = element('button', '', 'Importwurzeln');
     root.type = 'button';
@@ -898,6 +914,7 @@
         view.releaseButton.hidden = true;
         view.sourceDetails.textContent = 'Auswahl-ID: ' + item.sourceId;
         refreshSelectedPreview(view);
+        setMobilePane(view, 'details');
       });
       const parked = parkedPcEncodeMatches(view, item);
       const pcHint = possiblePcReturn(view, item)
@@ -957,7 +974,7 @@
           element('h5', 'media-import-preview-title', item.label || 'Markierte Quelle'),
           element('div', 'media-import-preview-state is-marked', statusText),
           element('p', 'media-import-preview-hint', hint));
-
+        setMobilePane(view, 'details');
       });
       const meta = element('span', 'media-import-episode-meta',
         (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
@@ -1643,6 +1660,7 @@
     deactivate();
     if (!mountTarget || typeof mountTarget.replaceChildren !== 'function') return;
     const root = element('section', 'media-import-panel');
+    root.dataset.mobilePane = 'media';
     const heading = element('h3', '', 'Media Import');
     const guidance = element('p', '', 'Importquellen durchsuchen, Folgen prüfen und passende Filme ' +
       'gezielt importieren. Erkannten Dubletten wird automatisch die Rectools-Markierung zugewiesen.');
@@ -1839,6 +1857,27 @@
     technical.appendChild(releaseButton);
     technical.appendChild(preview);
     detail.appendChild(technical);
+    const mobileNav = element('nav', 'media-import-mobile-nav');
+    mobileNav.setAttribute('aria-label', 'Media-Import-Ansichten');
+    const mobileButtons = Object.create(null);
+    [['folders', 'Ordner'], ['media', 'Medien'], ['details', 'Details']]
+      .forEach(function (entry) {
+        const button = element('button', 'media-import-mobile-switch', entry[1]);
+        button.type = 'button';
+        button.setAttribute('aria-pressed', 'false');
+        button.addEventListener('click', function () {
+          setMobilePane(view, entry[0]);
+        });
+        mobileButtons[entry[0]] = button;
+        mobileNav.appendChild(button);
+      });
+    const mobileBack = element('button', 'media-import-mobile-back',
+      '← Zur Medienliste');
+    mobileBack.type = 'button';
+    mobileBack.addEventListener('click', function () {
+      setMobilePane(view, 'media');
+    });
+    detail.appendChild(mobileBack);
     const workspace = element('div', 'media-import-workspace');
     workspace.appendChild(library);
     workspace.appendChild(episodes);
@@ -1856,14 +1895,14 @@
     footer.appendChild(newButton);
     footer.appendChild(message);
     footer.appendChild(operationDetail);
-    root.replaceChildren(header, toolbar, statusStrip, workspace, footer);
+    root.replaceChildren(header, toolbar, statusStrip, mobileNav, workspace, footer);
     mountTarget.replaceChildren(root);
     const view = {owner: owner, backendId: backendId, root: root,
       select: select, startButton: startButton,
       reloadButton: reloadButton,
       searchInput: searchInput, statusFilter: statusFilter,
       folderBreadcrumb: folderBreadcrumb, folderList: folderList,
-      folderPath: '',
+      mobileButtons: mobileButtons, folderPath: '',
       visibleCount: visibleCount, normalLabel: label, markedLabel: markedLabel,
       allOrdinary: [], allMarked: [],
       localReencode: localReencode, decision: decision,
@@ -1890,13 +1929,16 @@
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
       reads: 0, timer: null, attempt: activeAttempts[backendId] || null};
     current = view;
+    setMobilePane(view, 'media');
     searchInput.addEventListener('input', function () {
       view.checkedSourceIds.clear();
       filterVisibleSources(view);
+      setMobilePane(view, 'media');
     });
     statusFilter.addEventListener('change', function () {
       view.checkedSourceIds.clear();
       filterVisibleSources(view);
+      setMobilePane(view, 'media');
     });
     selectAllVisibleButton.addEventListener('click', function () {
       if (!isCurrent(view) || view.batch || view.attempt) return;
@@ -1919,6 +1961,7 @@
       sourceDetails.textContent = view.sources.includes(select.value)
         ? 'Auswahl-ID: ' + select.value : '';
       refreshSelectedPreview(view);
+      setMobilePane(view, view.sources.includes(select.value) ? 'details' : 'media');
     });
     decision.addEventListener('change', function () {
       if (!isCurrent(view) || view.batch || view.attempt ||

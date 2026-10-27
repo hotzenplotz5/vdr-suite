@@ -50,6 +50,23 @@ Das **zweite, zuletzt gezeigte Media-Tools-Mockup** im Chat vom 27.10.2026 ist d
 
 **Metadatenziel des Referenzmockups:** vorhandene lokale `.nfo`-Metadaten, Mediendaten und optional echte externe Film-/Seriendaten mit Artwork sollen vor dem Import erkennbar und, soweit vom VDR unterstützbar, in die VDR-Aufnahme übernommen werden. Der bestehende Importer überträgt aktuell bereits lokale NFO-Titel/Outline/Plot/Jahr/Genre in `info`; ein automatischer TMDb-Abgleich, Online-Cover, Fanart, Serien-Matching und die im Mockup dargestellten Metadaten-Tabs sind **noch kein implementierter End-to-End-Pfad** und benötigen eine gesonderte, überprüfbare Integration ohne erfundene Daten.
 
+## MT.META — Desktop- und Handy-Medienoberfläche (vereinbart 27.10.2026)
+
+**Referenzen:** Das bestehende versionierte Media-Import-Mockup bleibt für Desktop verbindlich (drei Spalten mit Ordnern, Film-/Episodenliste, Vorschau und Stapelleiste). Die neu besprochene mobile Darstellung zeigt dieselben Daten und Aktionen in getrennten Vollbreiten-Ansichten. Die Illustrationen enthalten Beispielposter und Beispieldaten, keine implementierten Metadaten oder Löschbefugnisse.
+
+**Gemeinsame Architektur:** Weiterhin genau ein Webfrontend und die vorhandenen Public-v1-/Core-/Agent-Wege. Desktop zeigt gleichzeitig Ordner, Liste und Details; Tablet nutzt vorhandene responsive Aufteilung; Handy (< 700 CSS-px) zeigt jeweils **Ordner**, **Medien** oder **Details**. Kein neuer Importdienst, keine zweite Queue, keine eigene Handy-App; Zugriffs-/Bestätigungslogik bleibt unverändert. `.duplicate` wird niemals über einen neuen manuellen Duplikat-Button gesetzt. Auch ein allgemeiner „Datei löschen“-Button gehört nicht zum Import.
+
+| Slice | Konkretes Ergebnis | Abnahme |
+| --- | --- | --- |
+| **MT.META1 – Responsive Navigation und Struktur** | Die vorhandene Desktop-Drei-Spalten-Komposition beibehalten; auf Handys zugängliche Ansichtsschalter Ordner/Medien/Details, Rückweg zur Liste, Quellauswahl springt zur Vorschau; normale Suche und Stapelkontrollen bleiben dieselben bestehenden Elemente. **Code in PR #556 erweitert**. | Reale DOM-/Frontend-Regression für Ansichtswechsel ohne POST, ausgewählte Quelle öffnet Detail, Fokus/Touch-Ziele und Desktop-Parität; Browser-Screenshot/REAL-VDR separat. |
+| **MT.META2 – Lokale Metadaten** | Bereits aus `.nfo` und FFprobe vorhandene Daten entlang des bestehenden Lesewegs in der Detailkarte sichtbar machen: nur tatsächlich belegte Titel, Beschreibung, Jahr, Genre und technische Felder; fehlende Felder klar leer statt erfunden. | Echte NFO-/FFprobe-Fixtures bis zum Webfrontend, Status/Backend-Scope unverändert. |
+| **MT.META3 – Lokales Artwork** | Bereits vorhandene lokale Poster/Fanart benutzen, sonst neutraler Platzhalter, dabei Backend-Berechtigung und Bildformate der bestehenden Asset-Route wiederverwenden. | Echte Bildbytes, nicht vorhandenes Bild, falsches MIME, Wechsel zwischen Quellen und mobile Poster-Darstellung. |
+| **MT.META4 – Serien und Episoden** | Aus belegten Ordner-/Datei-/Metadateninformationen serienbezogene Gruppierung, Staffel-/Folgeansicht und mobile Auswahl; vorhandene eindeutige Source-IDs sowie der bestätigte Einzel-/Stapelimport bleiben maßgeblich. | Mehrere Staffeln/gleiche Titel, keine erfundenen Episodenidentitäten, markierte Originale unverändert. |
+| **MT.META5 – Optionale Online-Metadaten** | TMDb soweit über bestehende Suite-Metadatendienste verfügbar ergänzen; explizite Trefferprüfung statt Titelraten, lokale NFO-Inhalte nicht still überschreiben. | Authentifizierte Datenquelle und Bildherkunft, mehrdeutige Treffer, Offline-Fallback, keine Fake-Bewertung. |
+| **MT.META6 – VDR-Metadaten-Übernahme und Feinschliff** | Bestehende NFO-zu-VDR-`info`-Felder prüfen/ergänzen, dann ganze Bedienung mit Tastatur, Touch, Telefon/Tablet/Desktop und unabhängigem Recording-Readback abnehmen. | Core-/Agent-/Frontend- und REAL-VDR-Nachweise getrennt, vorher/nachher in VDR-`info` belegt. |
+
+**Status:** MT.META1 wird quellseitig begonnen; MT.META2–6 sind geplant. Ausgewählte Filme werden dadurch **nicht** automatisch importiert, markiert, umkodiert oder gelöscht. Die isolierten Frontend- und CI-Ergebnisse müssen für den exakten Code-HEAD verifiziert werden; ein erfolgreicher GitHub-Build ersetzt keine Geräte-/yaVDR-Abnahme.
+
 ### Phasen und harte Abnahmekriterien — in dieser Reihenfolge
 
 | Phase | Auftrag / betroffene Bestandsmodule | Fertig erst, wenn … |
