@@ -2078,7 +2078,7 @@ bool DaemonRuntime::initialize()
                 agent->leaseExpiresAt <= now)
             {
                 result.status =
-                    PublicSearchTimerCreateStatus::backendUnavailable;
+                    PublicSearchTimerCreateStatus::agentUnavailable;
                 return result;
             }
             BackendRuntimeContext* runtime = nullptr;
@@ -2095,7 +2095,7 @@ bool DaemonRuntime::initialize()
             if (!runtime)
             {
                 result.status =
-                    PublicSearchTimerCreateStatus::backendUnavailable;
+                    PublicSearchTimerCreateStatus::providerUnavailable;
                 return result;
             }
 
@@ -2121,7 +2121,7 @@ bool DaemonRuntime::initialize()
             std::string marginReason;
             if (!backendAgentCommandRepository_)
             {
-                result.status = PublicSearchTimerCreateStatus::backendUnavailable;
+                result.status = PublicSearchTimerCreateStatus::marginsUnavailable;
                 return result;
             }
             const auto provider = backendAgentCommandRepository_->selectLocalProvider(
@@ -2134,7 +2134,7 @@ bool DaemonRuntime::initialize()
                     runtime->suiteBridgeTransport->inspectNativeTimerMarginsContract(),
                     *provider, margins, marginReason))
             {
-                result.status = PublicSearchTimerCreateStatus::backendUnavailable;
+                result.status = PublicSearchTimerCreateStatus::marginsUnavailable;
                 return result;
             }
             input.payload.marginStartMinutes = margins.startMinutes;
