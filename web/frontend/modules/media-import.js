@@ -1128,7 +1128,7 @@
           ? 'Import derzeit blockiert. Die Ursache steht in der Diagnose.'
         : needsEncode
           ? decision === 'desktop'
-        ? 'Externe Bearbeitung: Die Originaldatei über ihren bisherigen Datei-/Netzwerkzugang am PC mit HandBrake oder einem anderen Programm umkodieren. Das Webfrontend konvertiert und überträgt nicht selbst. Die .pc_encode-Markierung kennzeichnet die zurückgestellte Quelle; später nach Bereitstellung des bearbeiteten Videos ausdrücklich freigeben. Kein sofortiger VDR-Import.'
+        ? 'Externe Bearbeitung: Die Originaldatei über ihren bisherigen Datei-/Netzwerkzugang am PC mit HandBrake oder einem anderen Programm umkodieren. Das Webfrontend konvertiert und überträgt nicht selbst. Die .pc_encode-Markierung kennzeichnet die zurückgestellte Quelle. Die bearbeitete Datei anschließend in der Importquelle bereitstellen und neu prüfen. Kein Import im aktuellen Schritt.'
         : decision === 'skip'
           ? 'Film überspringen und vom normalen Import ausschließen. Kein Import.'
           : decision === 'import' && view.localReencode.checked
