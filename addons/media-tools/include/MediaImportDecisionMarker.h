@@ -14,6 +14,11 @@ enum class MediaImportMarkerOutcome {
     outcomeUnknown // Rename may have happened: reconcile, do not retry.
 };
 
+// Uses the confirmed import source identity, not a pathname from the API.
+MediaImportCleanupOutcome cleanupMediaImportSource(
+    const LocalMediaImportSource& trustedSource,
+    const std::string& sourceEvidence);
+
 MediaImportMarkerOutcome markMediaImportSource(
     const LocalMediaImportSource& trustedSource,
     MediaImportMarkerDecision decision);

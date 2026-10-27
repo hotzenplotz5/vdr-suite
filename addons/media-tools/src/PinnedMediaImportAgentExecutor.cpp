@@ -365,9 +365,48 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
             ? MediaImportAgentOutcome::rejected
             : MediaImportAgentOutcome::unknown;
     }
-    return runPinned(snapshot->pinnedBinary.get(), local, assignment.deadline,
-                     *runLock, recordingEvidence_,
-                     requestedDecision == MediaImportDecision::local);
+    const auto outcome = runPinned(
+        snapshot->pinnedBinary.get(), local, assignment.deadline,
+        *runLock, recordingEvidence_,
+        requestedDecision == MediaImportDecision::local);
+    if (outcome == MediaImportAgentOutcome::submitted &&
+        validRecordingPathEvidence(recordingEvidence_)) {
+        const auto sourceProof = mediaImportSourceEvidence(
+            local.sourceFile, local.sourceDevice, local.sourceInode,
+            local.sourceBytes, local.sourceMtimeSeconds,
+            local.sourceMtimeNanoseconds);
+        recordingEvidence_ = mediaImportResultEvidence(
+            recordingEvidence_, sourceProof);
+    }
+    return outcome;
+}
+
+MediaImportCleanupOutcome PinnedMediaImportAgentExecutor::cleanupConfirmedSource(
+    const std::string& sourceId, const std::string& sourceEvidence)
+{
+    if (!validMediaImportSourceEvidence(sourceEvidence) ||
+        !available())
+        return MediaImportCleanupOutcome::notPerformed;
+    LocalMediaImportSource source;
+    if (!inventory_.resolve(backendId_, sourceId, source) ||
+        !safePath(source.sourceRoot) || !safePath(source.sourceFile) ||
+        !safePath(source.videoRoot) ||
+        mediaImportSourceEvidence(
+            source.sourceFile, source.sourceDevice, source.sourceInode,
+            source.sourceBytes, source.sourceMtimeSeconds,
+            source.sourceMtimeNanoseconds) != sourceEvidence)
+        return MediaImportCleanupOutcome::notPerformed;
+    auto lock = MediaToolsImportRunLock::tryAcquire(
+        root_, MediaToolsImportRunLock::Mode::sharedExecution);
+    if (!lock) return MediaImportCleanupOutcome::notPerformed;
+    const auto approval = vdrsuite::addons::readRootMediaToolsApproval(root_);
+    const auto snapshot = vdrsuite::addons::inspectMediaToolsInstallSnapshot(root_);
+    if (!approval.approved() || !snapshot.bytesVerified() ||
+        approval.sha256 != snapshot.approvedSha256 ||
+        !vdrsuite::addons::installedMediaToolsManifestMatches(
+            root_, snapshot.approvedVersion))
+        return MediaImportCleanupOutcome::notPerformed;
+    return cleanupMediaImportSource(source, sourceEvidence);
 }
 
 std::string PinnedMediaImportAgentExecutor::takeMarkerEvidence()
