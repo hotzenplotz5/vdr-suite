@@ -1470,6 +1470,8 @@ public:
         std::uint64_t requiredBytes = 0;
         bool videoReencodeRequired = false;
         std::string failureCode;
+        std::string nfoOutline, nfoPlot, nfoYear, nfoGenre;
+        std::uint64_t durationSeconds = 0;
     };
     using MediaImportPreviewLookup = std::function<MediaImportPreviewResult(
         const std::string& actorId, const std::string& backendId,

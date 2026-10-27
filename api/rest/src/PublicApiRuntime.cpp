@@ -8971,7 +8971,13 @@ bool PublicApiRuntime::tryHandleGet(
             ",\"requiredBytes\":" + std::to_string(result.requiredBytes) +
             ",\"videoReencodeRequired\":" +
             std::string(result.videoReencodeRequired ? "true" : "false") +
-            ",\"failureCode\":\"" + jsonEscape(result.failureCode) + "\"}";
+            ",\"failureCode\":\"" + jsonEscape(result.failureCode) +
+            "\",\"nfoOutline\":\"" + jsonEscape(result.nfoOutline) +
+            "\",\"nfoPlot\":\"" + jsonEscape(result.nfoPlot) +
+            "\",\"nfoYear\":\"" + jsonEscape(result.nfoYear) +
+            "\",\"nfoGenre\":\"" + jsonEscape(result.nfoGenre) +
+            "\",\"durationSeconds\":" + std::to_string(result.durationSeconds) +
+            "}";
         response = jsonResponse(body, requestId, correlationId);
         response.headers["Cache-Control"] = "no-store";
         return true;

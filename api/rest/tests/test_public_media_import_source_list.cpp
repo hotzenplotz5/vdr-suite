@@ -195,6 +195,11 @@ int main()
             result.availableBytes = 9000000000ULL;
             result.requiredBytes = 7000000000ULL;
             result.videoReencodeRequired = true;
+            result.nfoOutline = "Kurz & klar";
+            result.nfoPlot = "Lokaler <Plot> & Daten";
+            result.nfoYear = "2024";
+            result.nfoGenre = "Drama";
+            result.durationSeconds = 3120;
             return result;
         });
     const auto ready = getPage(preview);
@@ -204,6 +209,11 @@ int main()
     assert(ready.body.find("\"targetFolder\":\"Serien/Andor\"") !=
            std::string::npos);
     assert(ready.body.find("\"videoCodec\":\"vp9\"") != std::string::npos);
+    assert(ready.body.find("\"nfoOutline\":\"Kurz & klar\"") != std::string::npos);
+    assert(ready.body.find("\"nfoPlot\":\"Lokaler <Plot> & Daten\"") != std::string::npos);
+    assert(ready.body.find("\"nfoYear\":\"2024\"") != std::string::npos);
+    assert(ready.body.find("\"nfoGenre\":\"Drama\"") != std::string::npos);
+    assert(ready.body.find("\"durationSeconds\":3120") != std::string::npos);
     assert(ready.body.find("\"sourceBytes\":1234567") != std::string::npos);
     assert(ready.body.find("\"videoReencodeRequired\":true") !=
            std::string::npos);
