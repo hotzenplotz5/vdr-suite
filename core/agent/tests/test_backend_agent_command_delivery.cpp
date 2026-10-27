@@ -8,6 +8,7 @@
 #include "MediaImportOperationAdmission.h"
 #include "AddonActivationIntentRepository.h"
 #include "MediaImportRecordingEvidence.h"
+#include "MediaToolsAgentExecutor.h"
 #include "BackendAgentMediaImportAssignment.h"
 #include "MutationOperationRepository.h"
 #include "SecurityIdentityRepository.h"
