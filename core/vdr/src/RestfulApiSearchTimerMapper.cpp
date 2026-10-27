@@ -150,6 +150,59 @@ std::string getStringField(const std::string& objectText, const std::string& fie
     return "";
 }
 
+// RESTfulAPI transports blacklist_ids and ext_epg_info as JSON arrays.
+// Older provider snapshots may still use delimited strings.
+std::string getListField(
+    const std::string& objectText, const std::string& fieldName)
+{
+    const std::string list = getArrayField(objectText, fieldName);
+    if (list.empty()) return getStringField(objectText, fieldName);
+    std::size_t offset = 1U;
+    std::vector<std::string> values;
+    while (offset < list.size())
+    {
+        offset = skipWhitespace(list, offset);
+        if (offset < list.size() && list[offset] == ']')
+            return values.empty() ? "" : [&values]() {
+                std::string result;
+                for (const auto& item : values)
+                {
+                    if (!result.empty()) result += ',';
+                    result += item;
+                }
+                return result;
+            }();
+        if (offset >= list.size() || list[offset++] != '"')
+            return {};
+        std::string encoded;
+        bool escaped = false;
+        bool complete = false;
+        while (offset < list.size())
+        {
+            const char c = list[offset++];
+            if (!escaped && c == '"')
+            {
+                complete = true;
+                break;
+            }
+            encoded.push_back(c);
+            if (escaped) escaped = false;
+            else if (c == '\\') escaped = true;
+        }
+        if (!complete) return {};
+        values.push_back(unescapeJsonString(encoded));
+        offset = skipWhitespace(list, offset);
+        if (offset < list.size() && list[offset] == ',')
+        {
+            ++offset;
+            continue;
+        }
+        if (offset >= list.size() || list[offset] != ']')
+            return {};
+    }
+    return {};
+}
+
 int getIntField(const std::string& objectText, const std::string& fieldName, int fallback = 0)
 {
     const std::string key = "\"" + fieldName + "\"";
@@ -377,7 +430,7 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.blacklistOptions().setBlacklistMode(
             getIntField(objectText, "blacklist_mode", 0));
         timer.blacklistOptions().setBlacklistIds(
-            getStringField(objectText, "blacklist_ids"));
+            getListField(objectText, "blacklist_ids"));
 
         timer.matchOptions().setMode(
             getIntField(objectText, "mode", 0));
@@ -391,7 +444,7 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.extendedEpgOptions().setUseExtendedEpgInfo(
             getIntField(objectText, "use_ext_epg_info", 0) != 0);
         timer.extendedEpgOptions().setExtendedEpgInfo(
-            getStringField(objectText, "ext_epg_info"));
+            getListField(objectText, "ext_epg_info"));
         timer.extendedEpgOptions().setIgnoreMissingEpgCategories(
             getIntField(objectText, "ignore_missing_epg_cats", 0) != 0);
         timer.extendedEpgOptions().setContentDescriptors(
