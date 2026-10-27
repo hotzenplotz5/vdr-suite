@@ -353,7 +353,7 @@ bool scanDirectory(const std::array<std::string, 6>& entry,
         if (now - fs::last_write_time(path) < std::chrono::minutes(2))
             continue;
         try {
-            const auto plan = inspectImport({sourceRoot, videoRoot, path});
+            const auto plan = inspectImportPreview({sourceRoot, videoRoot, path});
             const auto local = toSource(plan);
             if (found.size() == 100U) { partial = true; break; }
             found.push_back({scannedId(entry[1], local), local, prefix, entry[1]});
@@ -400,7 +400,7 @@ bool inventorySources(const std::filesystem::path& root, const std::string& back
                     return false;
             } else {
                 try {
-                    const auto plan = inspectImport({
+                    const auto plan = inspectImportPreview({
                         entry[2], entry[3], entry[4]});
                     sources.push_back({entry[1], toSource(plan),
                         displayPrefix(entry[5], isDefault), entry[1]});
