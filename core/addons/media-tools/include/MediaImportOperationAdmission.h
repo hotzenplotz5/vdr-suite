@@ -29,7 +29,7 @@ struct MediaImportOperationAdmissionRequest
     std::string sourceId;
     std::string idempotencyKey;
     bool approveVideoReencode = false;
-    std::string videoDecision; // "desktop" or "skip"
+    std::string videoDecision; // "desktop", "skip", "duplicate" or "release"
     std::int64_t now = 0;
 };
 
