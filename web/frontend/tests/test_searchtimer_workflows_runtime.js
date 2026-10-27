@@ -452,4 +452,114 @@ assert.ok(source.includes(
 // caller-must-not-override are now exercised by the focused
 // test_searchtimer_maintenance_security_runtime.js contract.
 
-console.log('test_searchtimer_workflows_runtime passed');
+// Browser form regression: advanced fields must never be discarded by a
+// superficially successful Public-v1 staged CREATE. This test exercises the
+// real createForm submission handlers with a tiny DOM fixture.
+class FormElement {
+  constructor(tag) {
+    this.tagName = String(tag).toUpperCase();
+    this.children = [];
+    this.dataset = {};
+    this.style = {};
+    this.listeners = {};
+    this.className = '';
+    this.textContent = '';
+    this.value = '';
+    this.checked = false;
+    this.disabled = false;
+    this.type = '';
+    this.name = '';
+    this.hidden = false;
+  }
+  appendChild(child) {
+    this.children.push(child);
+    child.parentElement = this;
+    return child;
+  }
+  replaceChildren(...children) {
+    this.children = [];
+    children.forEach(child => this.appendChild(child));
+  }
+  addEventListener(name, handler) { this.listeners[name] = handler; }
+  setAttribute(name, value) { this[name] = value; }
+  get elements() {
+    const controls = {};
+    function visit(current) {
+      if (current.name) controls[current.name] = current;
+      current.children.forEach(visit);
+    }
+    visit(this);
+    return controls;
+  }
+}
+function findForm(node) {
+  if (node.tagName === 'FORM') return node;
+  for (const child of node.children) {
+    const found = findForm(child);
+    if (found) return found;
+  }
+  return null;
+}
+async function checkEditorStagedWrites() {
+  const mount = new FormElement('main');
+  const document = {
+    head: new FormElement('head'),
+    createElement(tag) { return new FormElement(tag); },
+    getElementById() { return null; }
+  };
+  const writes = [];
+  const browser = {
+    setTimeout() {},
+    confirm() { return true; },
+    crypto: {
+      getRandomValues(bytes) {
+        for (let i = 0; i < bytes.length; i++) bytes[i] = i + 1;
+        return bytes;
+      }
+    }
+  };
+  const client = {
+    fetchClientSearchTimerCreateStaged(options) {
+      writes.push(options);
+      return Promise.resolve({operation: {state: 'succeeded', operationId: 'op_fixture'}});
+    }
+  };
+  vm.runInNewContext(source, {
+    window: browser, document, Promise, Object, Array, Boolean, Number,
+    Date, String, Set, Math, JSON, Uint8Array
+  }, {filename: sourcePath});
+  browser.VdrSuiteSearchTimerBrowser.configureContext({
+    detailDataElement: mount,
+    clientApi: client,
+    getSelectedBackendId() { return 'living-room'; }
+  });
+  browser.VdrSuiteSearchTimerBrowser.renderList({searchTimers: []});
+  const form = findForm(mount);
+  assert(form);
+  assert(form.elements.active, 'immediate activation option must be visible');
+  assert(form.elements.priority, 'recording priority must be editable');
+  assert(form.elements.channelFilterMode, 'channel selector must be present');
+  form.elements.query.value = 'Tatort';
+  form.listeners.submit({preventDefault() {}});
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.strictEqual(writes.length, 1);
+  assert.strictEqual(writes[0].payload.active, false);
+  assert.strictEqual(writes[0].payload.query, 'Tatort');
+  form.elements.priority.value = '50';
+  form.listeners.submit({preventDefault() {}});
+  assert.strictEqual(writes.length, 1,
+    'unsupported recording priority must not be silently discarded');
+  form.elements.priority.value = '0';
+  form.elements.active.checked = true;
+  form.listeners.submit({preventDefault() {}});
+  assert.strictEqual(writes.length, 1,
+    'activation intent must not bypass inactive-only Public-v1 CREATE');
+}
+checkEditorStagedWrites().then(function() {
+  console.log('test_searchtimer_workflows_runtime passed');
+}).catch(function(error) {
+  console.error(error);
+  process.exitCode = 1;
+});
