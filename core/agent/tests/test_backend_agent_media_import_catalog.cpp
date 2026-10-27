@@ -121,6 +121,11 @@ int main()
     report.targetFolder = "Serien/Andor/Film";
     report.videoCodec = "h264";
     report.sourceBytes = 1000;
+    report.nfoOutline = "Eine kurze NFO";
+    report.nfoPlot = "Handlung & Details";
+    report.nfoYear = "2024";
+    report.nfoGenre = "Drama";
+    report.durationSeconds = 3120;
     report.availableBytes = 8000000000ULL;
     report.requiredBytes = 5000000000ULL;
     assert(!catalog.acceptPreview(live, "backend", 100,
@@ -137,6 +142,12 @@ int main()
         BackendAgentMediaImportCatalog::PreviewState::ready);
     assert(observed.targetFolder == "Serien/Andor/Film" &&
            observed.videoCodec == "h264" && observed.sourceBytes == 1000);
+    assert(observed.nfoPlot == "Handlung & Details" &&
+           observed.nfoYear == "2024" && observed.nfoGenre == "Drama" &&
+           observed.durationSeconds == 3120);
+    auto invalidYear = report;
+    invalidYear.nfoYear = "20xx";
+    assert(!catalog.acceptPreview(live, "backend", 100, invalidYear));
     assert(catalog.requestPreview(
         live, "backend", 100, "source_no_such_123456", observed) ==
         BackendAgentMediaImportCatalog::PreviewState::denied);

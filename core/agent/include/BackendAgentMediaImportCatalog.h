@@ -30,6 +30,8 @@ public:
         std::uint64_t requiredBytes = 0;
         bool videoReencodeRequired = false;
         std::string failureCode;
+        std::string nfoOutline, nfoPlot, nfoYear, nfoGenre;
+        std::uint64_t durationSeconds = 0;
     };
     enum class PreviewState { denied, pending, ready };
 
@@ -85,6 +87,20 @@ public:
                        const std::string& backendId,
                        std::int64_t now, const Preview& data)
     {
+        const auto validMetadata = [](const std::string& value) {
+            return value.size() <= 4096U &&
+                std::none_of(value.begin(), value.end(),
+                    [](unsigned char c) { return c < 0x20 || c == 0x7f; });
+        };
+        if (!validMetadata(data.nfoOutline) ||
+            !validMetadata(data.nfoPlot) ||
+            !validMetadata(data.nfoGenre) ||
+            (!data.nfoYear.empty() &&
+             (data.nfoYear.size() != 4U ||
+              !std::all_of(data.nfoYear.begin(), data.nfoYear.end(),
+                  [](unsigned char c) { return c >= '0' && c <= '9'; }))) ||
+            data.durationSeconds > 4294967295ULL)
+            return false;
         if (!validSourceId(data.sourceId) ||
             (data.status != "ready" && data.status != "duplicate" &&
              data.status != "insufficient" && data.status != "unavailable") ||

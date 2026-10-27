@@ -669,6 +669,21 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
          !jsonBool(request.body, "previewReencodeRequired",
                    preview.videoReencodeRequired)))
         return errorResponse(400, "invalid_media_import_preview");
+    if (hasPreview) {
+        const auto optionalString = [&](const char* key, std::string& value) {
+            return request.body.find(std::string("\"") + key + "\"") ==
+                    std::string::npos || jsonString(request.body, key, value);
+        };
+        if (!optionalString("previewNfoOutline", preview.nfoOutline) ||
+            !optionalString("previewNfoPlot", preview.nfoPlot) ||
+            !optionalString("previewNfoYear", preview.nfoYear) ||
+            !optionalString("previewNfoGenre", preview.nfoGenre))
+            return errorResponse(400, "invalid_media_import_preview_metadata");
+        if (request.body.find("\"previewDurationSeconds\"") != std::string::npos &&
+            !jsonUnsigned(request.body, "previewDurationSeconds",
+                          preview.durationSeconds))
+            return errorResponse(400, "invalid_media_import_preview_duration");
+    }
     const auto live = repository_.findAgentForBackend(backendId);
     const auto now = unixNow();
     if (!live || !mediaImportCatalog_->publish(

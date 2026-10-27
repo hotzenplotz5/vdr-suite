@@ -2190,7 +2190,12 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
              << jsonEscape(preview.targetFolder)
              << "\",\"previewVideoCodec\":\"" << jsonEscape(preview.videoCodec)
              << "\",\"previewFailureCode\":\"" << jsonEscape(preview.failureCode)
-             << "\",\"previewSourceBytes\":" << preview.sourceBytes
+             << "\",\"previewNfoOutline\":\"" << jsonEscape(preview.nfoOutline)
+             << "\",\"previewNfoPlot\":\"" << jsonEscape(preview.nfoPlot)
+             << "\",\"previewNfoYear\":\"" << jsonEscape(preview.nfoYear)
+             << "\",\"previewNfoGenre\":\"" << jsonEscape(preview.nfoGenre)
+             << "\",\"previewDurationSeconds\":" << preview.durationSeconds
+             << ",\"previewSourceBytes\":" << preview.sourceBytes
              << ",\"previewAvailableBytes\":" << preview.availableBytes
              << ",\"previewRequiredBytes\":" << preview.requiredBytes
              << ",\"previewReencodeRequired\":"
