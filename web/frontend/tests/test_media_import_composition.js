@@ -871,7 +871,7 @@ function publishHomeResume() {}
     'changing search removes any earlier action selection');
   assert(findClass(mount, 'media-import-batch').disabled,
     'single search result cannot launch the previous 70-film batch');
-  assert(findClass(mount, 'media-import-visible-count').textContent.includes('1 importierbare'));
+  assert(findClass(mount, 'media-import-visible-count').textContent.includes('1 unmarkierte'));
   search.value = '';
   search.listeners.input();
   assert.strictEqual(allSourceSelect.children.length, 71);
@@ -1038,7 +1038,7 @@ function publishHomeResume() {}
     'recursive root overview includes films from all observed subfolders');
   assert.strictEqual(folderSelect.children[1].value, SOURCE);
   assert.strictEqual(folderSelect.children[2].value, SOURCE_B);
-  assert(findClass(mount, 'media-import-visible-count').textContent.includes('2 importierbare'));
+  assert(findClass(mount, 'media-import-visible-count').textContent.includes('2 unmarkierte'));
   assert.strictEqual(folderList.children.length, 2);
   const pendingRescan = findClass(mount, 'media-import-reload').listeners.click();
   assert(findClass(mount, 'media-import-scan-notice').textContent.includes('Scan läuft'));
@@ -1054,7 +1054,7 @@ function publishHomeResume() {}
   assert.strictEqual(folderSelect.children.length, 2,
     'selecting the series parent must show episodes below it');
   assert.strictEqual(folderSelect.children[1].value, SOURCE_B);
-  assert(findClass(mount, 'media-import-visible-count').textContent.includes('1 importierbare'));
+  assert(findClass(mount, 'media-import-visible-count').textContent.includes('1 unmarkierte'));
   folderList.children[0].listeners.click(); // Andor
   assert.strictEqual(folderSelect.children.length, 2);
   assert.strictEqual(folderSelect.children[1].value, SOURCE_B);
@@ -1166,17 +1166,28 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-preview').textContent.includes(
     'konnte vom Backend nicht sicher geprüft werden'));
   assert(findClass(mount, 'media-import-preview').textContent.includes(
-    'Backend-Prüfung konnte für diese Quelldatei nicht abgeschlossen werden'));
+    'Agent konnte Quelle, Codec oder Ziel nicht vollständig prüfen'));
   assert(!findClass(mount, 'media-import-preview').textContent.includes(
     'Diagnose ausstehend'), 'known unavailable is not an unknown preview');
   assert(findClass(mount, 'media-import-start').disabled);
+  const retryUnavailable = findClass(mount, 'media-import-preview-retry');
+  assert(retryUnavailable && !retryUnavailable.hidden && !retryUnavailable.disabled);
+  const getBeforeRetry = requests.filter(r => r.path.endsWith('/preview')).length;
+  await retryUnavailable.listeners.click();
+  await settle();
+  assert.strictEqual(requests.filter(r => r.path.endsWith('/preview')).length,
+    getBeforeRetry + 1, 'retry must inspect exactly the currently selected source');
+  assert(findClass(mount, 'media-import-start').disabled,
+    'unavailable remains blocked after a repeat inspection');
 
   previewInspectionStatus = 'ready';
   previewMode = 'forbidden';
   raceSelect.listeners.change();
   await settle();
   assert(findClass(mount, 'media-import-preview').textContent.includes(
-    'Keine Berechtigung für diese Importvorschau'));
+    'HTTP 403: Keine Berechtigung für diese Importvorschau'));
+  assert(!findClass(mount, 'media-import-preview-retry').hidden,
+    'a concrete HTTP error must offer a retry without switching films');
   previewMode = 'ready';
   assert.strictEqual(findClass(mount, 'media-import-start').disabled, true,
     'authorization error must prevent import submission');
