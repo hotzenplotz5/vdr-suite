@@ -155,8 +155,17 @@ std::string getStringField(const std::string& objectText, const std::string& fie
 std::string getListField(
     const std::string& objectText, const std::string& fieldName)
 {
-    const std::string list = getArrayField(objectText, fieldName);
-    if (list.empty()) return getStringField(objectText, fieldName);
+    const std::string key = "\"" + fieldName + "\"";
+    const std::size_t field = objectText.find(key);
+    if (field == std::string::npos) return {};
+    const std::size_t colon = objectText.find(':', field + key.size());
+    if (colon == std::string::npos) return {};
+    const std::size_t start = skipWhitespace(objectText, colon + 1U);
+    if (start >= objectText.size() || objectText[start] != '[')
+        return getStringField(objectText, fieldName);
+    const std::size_t close = findMatching(objectText, start, '[', ']');
+    if (close == std::string::npos) return {};
+    const std::string list = objectText.substr(start, close - start + 1U);
     std::size_t offset = 1U;
     std::vector<std::string> values;
     while (offset < list.size())
