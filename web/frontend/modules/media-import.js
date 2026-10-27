@@ -10,6 +10,14 @@
   // 600-second execution window plus dispatch/readback headroom.
   const MAX_BATCH_READS = 225;
   const MAX_IMPORT_FILMS = 100;
+  // Sort human-readable labels naturally (S01E02 before S01E10);
+  // opaque source IDs remain the authoritative selection identities.
+  const sourceCollator = new Intl.Collator('de', {numeric: true, sensitivity: 'base'});
+  function compareSources(left, right) {
+    return sourceCollator.compare(left.folder || '', right.folder || '') ||
+      sourceCollator.compare(left.label || '', right.label || '') ||
+      sourceCollator.compare(left.sourceId, right.sourceId);
+  }
   let owner = 0;
   let current = null;
   let client = null;
@@ -635,7 +643,7 @@
       const parent = path.lastIndexOf('/') < 0 ? '' :
         path.slice(0, path.lastIndexOf('/'));
       return parent === view.folderPath;
-    }).sort();
+    }).sort(function (left, right) { return sourceCollator.compare(left, right); });
     children.forEach(function (path) {
       const name = path.slice(path.lastIndexOf('/') + 1);
       const button = element('button', 'media-import-folder', '📁 ' + name);
@@ -810,8 +818,8 @@
             label: item.label || ('Film ' + (index + 1)),
             folder: item.folder || '',
             folderKnown: Object.prototype.hasOwnProperty.call(item, 'folder')};
-        });
-        view.allMarked = marked;
+        }).sort(compareSources);
+        view.allMarked = marked.slice().sort(compareSources);
         view.sourceTitles = Object.create(null);
         view.allOrdinary.forEach(function (item) {
           view.sourceTitles[item.sourceId] = item.label;
