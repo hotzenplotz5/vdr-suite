@@ -1331,7 +1331,17 @@
           : plan.status === 'insufficient' ? 'Speicherplatz fehlt'
           : 'Prüfung nicht möglich';
         const folder = item && item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel';
-        row.children[2].textContent = folder + ' · ' + status;
+        // The codec-preview status must not erase the independent PC-return
+        // hint or a previously verified recording-readback observation.
+        const parked = parkedPcEncodeMatches(view, item);
+        const pcHint = possiblePcReturn(view, item)
+          ? ' · Möglicher PC-Encode-Rücklauf'
+          : parked.length ? ' · PC-Encode-Zuordnung mehrdeutig' : '';
+        const confirmed = confirmedImport(view, id);
+        row.children[2].textContent = folder + ' · ' + status +
+          (confirmed
+            ? ' · VDR-Readback bestätigt (diese Sitzung; Quelle erhalten)'
+            : '') + pcHint;
       }
     });
     if (!selected) {
