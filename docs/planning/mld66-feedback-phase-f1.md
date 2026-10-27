@@ -43,7 +43,7 @@ werden durch die Planung nicht verändert.
 | **F1.0 – Bestehende UI-Fixes absichern** | Bereits eingecheckte Kanal-ID-zu-Klarname-Auflösung und scopeabhängige Berechtigungsauswahl gezielt testen. Angezeigte Admin-Expansion ist keine neue serverseitige Berechtigung; Add-on-Rechte bleiben unabhängig. | Tests auf Branch-HEAD grün; Vorschau bleibt bei fehlender Kanalliste nutzbar; Berechtigungsdialog bietet keine effektiven Doppelrechte, Server-Gates bleiben unverändert; später MLD-UI-Readback. | **SOURCE IMPLEMENTED; FOCUSED TEST OBSERVED; MLD OPEN** |
 | **F1.1 – Suchtimer-CREATE-Fehler klären** | Am bestehenden Browser- und Public-v1-Pfad `POST /api/v1/search-timers` den tatsächlichen Grund für „requested public API resource is temporarily unavailable“ ermitteln: Version/Route, Agent, Backend, Anbieterfähigkeit, Berechtigung, Operationstatus und nativer Readback. Nur nach belegtem Defekt minimal korrigieren. | Genau ein vollständig nachvollziehbarer Zustand je CREATE-Anfrage (angelegt, nachweislich ohne Wirkung abgelehnt oder ungeklärt); keine unbeabsichtigte zweite Anlage und keine Rückkehr zum ungeschützten Legacy-Schreibpfad. | **SOURCE DIAGNOSTICS IMPLEMENTED; MLD ROOT CAUSE OPEN** |
 | **F1.2 – Vollständiger epgsearch-Editor** | Vorhandene umfangreiche Felder/Preview-Struktur wieder als ein konsistentes Browserformular nutzen; Kanal-/Zeit-/Dauerfilter, Vergleiche, Wiederholungen, Blacklists, Verzeichnis, Vor-/Nachlauf und Aktiv-Wunsch beibehalten. Prüfen, welche Felder der aktive produktive Public-v1-Vertrag speichert; für nicht unterstützte Felder kein scheinbar erfolgreiches Speichern. | Ein Editor mit allen technisch unterstützten epgsearch-Einstellungen, vorbefüllt beim Aufruf aus dem EPG; alle gespeicherten Felder entsprechen nativer Readback-Konfiguration. Bis F1.3 ggf. sichtbar eingeschränkte Speicherfunktion statt stillschweigendem Datenverlust. | **EDITOR PARTIAL; FULL-FIELD WRITE OPEN** |
-| **F1.3 – Suchtimer direkt aktiv speichern** | Bestehende Public-v1-Operationen/epgsearch-Integration für einmaliges vollständiges CREATE und optionales Aktivieren zusammenführen; native Generation-/Revision-/Readback-Voraussetzungen aus Issue #518 beachten. Keine zweite Schreibengine und keine automatische Wiederholung bei `outcome_unknown`. | Benutzer kann „Inaktiv speichern“ oder „Aktiv speichern“ wählen; gewünschte Optionen sind nach serverbestätigtem Readback vorhanden, aktiver Zustand stimmt. Unsichere Anbieter-/ABI-Konstellation wird klar als nicht unterstützt dargestellt. | **OPEN: Device-only native CAS; MLD provider unverified** |
+| **F1.3 – Suchtimer direkt aktiv speichern** | Browser-Session nutzt den bereits vorhandenen vollständigen, serverseitig autorisierten epgsearch-CREATE-Controller mit einem POST für inaktiv/aktiv; ausschließlich dieser produktive Browserweg, keine Device-CAS-Umgehung. Backend-Zuordnung ist im CREATE-Service an dessen RESTfulAPI-Client gebunden; Readback prüft Native-ID, Zustand und gespeicherte Regeloptionen. | Alle im Editor angebotenen Einstellungen in einem Aufruf speicherbar; „aktiv“ wird erst nach eindeutigem Readback bestätigt. Bei unklarem Ergebnis keine automatische Wiederholung. Reale MLD-VDR-Installation bleibt separate Abnahme. | **SOURCE IMPLEMENTED; COMPILED CI AND REAL MLD OPEN** |
 | **F1.4 – Live-TV-Vorschau** | `live_backend_authority_required` gegen aktuelle Agent-/Backend-Zuordnung und Providerwahl zurückverfolgen; danach bestehenden Live-Pfad/Browser-Medienprofil nutzen. Streamdev nur dann einbinden, wenn es zum vorhandenen Adapter passt; keine zweite unautorisierte Streaming-API. | Auswählbarer Sender liefert Bild und Ton in unterstütztem MLD-Browser; Start/Stop/Kanalwechsel räumen Sessions auf. Fehlender Provider gibt eine treffende Diagnose, nicht irreführend „Live-TV beendet“. | **OPEN** |
 | **F1.5 – VDR-Aufnahmen wiedergeben** | Durchgängigen bestehenden Pfad Aufnahme -> gültige MediaSession -> zugängliche Medienbytes -> Browser-Player untersuchen; MLD-Aufnahmeverzeichnis, URL/Proxy, FFmpeg/ffprobe, Codec/Container und readback getrennt belegen. Keinen Host-Dateipfad fest verdrahten. | Eine konkrete vorhandene TS-Aufnahme startet mit Bild/Ton; Pause/Stopp funktionieren; nicht abspielbares Format erklärt den Grund, ohne Aufnahmeänderung. | **OPEN** |
 | **F1.6 – MLD-Pluginübersicht und Timer-Margins** | Plugin-/Abhängigkeitsmatrix aus `mld66-skippy-feedback-20261027.md` in verständliche Installationsdoku mit MLD-Paket-/Capability-Mapping überführen; benötigter Videotext-/Live-Providerweg wird ausdrücklich geklärt. Timer-Vor-/Nachlauf nach bestätigter MLD-Version mit nicht-destruktiver Prüfung und ggf. autorisiertem Einzeltimer testen. | Für jede angebotene Funktion steht „Basis / bedingt nötig / optional / nicht verfügbar“ fest; tatsächliche MLD-Rezept- und VDR-ABI-Version belegt. Margins entsprechen bei kontrolliertem Test den Einstellungen. | **PARTIAL DOC / MLD MARGINS OPEN** |
@@ -99,22 +99,43 @@ Browser blockiert daher aktuell einen SAVE mit nicht unterstützten
 Feldern und erklärt die Einschränkungen der EPG-Vorschau. Ein
 verlustfreies epgsearch-Full-Field-SAVE ist **noch nicht implementiert**.
 
-**F1.3 – aktive Anlage (noch offen):** Das sichtbare Feld „Sofort aktiv
-speichern“ erzeugt **keinen** aktiven Auftrag. Die serverseitige
-CREATE-Admission lehnt `active:true` explizit ab; Native-Version-
-Lookup und Generation-/Revision-CAS-Mutation sind gegenwärtig
-Device-only und benötigen einen eindeutigen opaken Public-v1-ID-/ETag-
-Readback. Native epgsearch-CAS-Paketierung auf MLD wurde nicht
-nachgewiesen (vgl. [#518](https://github.com/hotzenplotz5/vdr-suite/issues/518)).
-Der bestehende unversionierte Legacy-Schreibpfad ist kein zulässiger
-Ersatz. **F1.3 ist nicht fertig und nicht auf MLD testbereit.**
+**F1.3 – direkter Browser-CREATE (Quellimplementierung):** Der
+bestehende *Browser-Session*-Controller `POST /api/vdr/searchtimers`
+ist bereits für vollständige epgsearch-Optionen, inklusive
+`active:true`, implementiert und über `SecurityHttpGate` mit
+`searchtimers.create` autorisiert. Der MLD-Webeditor nutzt jetzt
+diesen **bestehenden produktiven Browserweg** statt des begrenzten
+Device-Public-v1-CREATE-Endpunkts. Das ist kein zweiter Writer und
+keine Device-Berechtigungsumgehung: Externe Geräte verwenden weiterhin
+Public-v1 und dessen inaktive CREATE-Admission.
 
-**Teststatus:** Die bestehenden JavaScript-Workflow-Assertions inklusive
-der neuen Options- und 503-Diagnosefälle liefen in einer isolierten
-V8-Umgebung. Ein neuer C++-Regressionstest für die Public-v1-HTTP-
-Statusdetails ist eingecheckt. Der exakte C++-Kandidat wurde noch
-nicht vollständig kompiliert/getestet; Node-/CI-Gesamtlauf, Browser
-E2E, MLD-Paketierung und REAL-VDR-Abnahme fehlen weiterhin.
+Ein Browserdialog sendet genau einen POST. Der Server prüft vor
+Dispatch, dass die vom Browser gewählte Backend-ID zum echten
+RESTfulAPI-Client dieses Controllers passt; andernfalls null Writes.
+Anschließend liest die Oberfläche die vollständige Browser-SearchTimer-
+Liste für denselben Backend- und Suchbegriff und vergleicht die
+gemeldete **native ID**, den Zustand und die verfügbaren
+Regeloptionen. Kanal-IDs, Channel-Modus, Uhrzeit- und Wochentagsfilter
+sowie JSON-Array-Felder für Blacklists/Extended EPG bleiben in der
+VDR-/JSON-Projektion erhalten. Eine unvollständige Liste, abweichende
+Felder oder unbekannter HTTP-Ausgang gelten als **nicht bestätigt**;
+kein automatischer oder zweiter POST aus demselben Dialog.
+
+Das bestehende [Issue #518](https://github.com/hotzenplotz5/vdr-suite/issues/518)
+zu generationsgeschützten **Änderungen bestehender Regeln** wird dadurch
+nicht als gelöst ausgegeben. Eine neue Regel im Browser einmalig aktiv
+anzulegen ist kein CAS-UPDATE eines bestehenden numerischen epgsearch-
+Rule-IDs. Auf einer realen MLD-Installation müssen korrekte
+epgsearch-/RESTfulAPI-Provider-Versionen, Browser-Gates, CREATE, READBACK
+und aktiver Zustand trotzdem **separat überprüft werden**.
+
+**Teststatus:** Der vollständige Browser-Formular-Test (aktive und
+inaktive Anlage, Advanced-Felder, Readback-Fehler, Null-Duplikat-Writes)
+wurde in einer isolierten JavaScript-DOM-/V8-Umgebung erfolgreich
+ausgeführt. Bestehende C++-Tests sind für providergebundene CREATE-
+Zuordnung sowie epgsearch-Array-/Zeit-/Kanal-ID-Readback erweitert.
+Ein exakter C++-Kompilier-/CI-Lauf sowie Browser-E2E und REAL-MLD-
+Abnahme waren bei dieser Quelländerung noch nicht nachgewiesen.
 
 ## Definition of Done für jeden Slice
 
