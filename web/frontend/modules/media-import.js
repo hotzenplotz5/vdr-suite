@@ -673,10 +673,11 @@
     const matches = function (item) {
       const labelMatches = !query ||
         (item.label || item.sourceId).toLowerCase().includes(query);
-      // Searching is cross-folder. The root overview includes every verified
-      // source in nested folders; an explicit folder selection narrows it.
-      const folderMatches = Boolean(query) || view.folderPath === '' ||
-        (item.folder || '') === view.folderPath;
+      // A selected folder shows all verified descendants; opening a series
+      // reveals its episodes without drilling down to a leaf directory.
+      const folder = item.folder || '';
+      const folderMatches = Boolean(query) || !view.folderPath ||
+        folder === view.folderPath || folder.startsWith(view.folderPath + '/');
       return labelMatches && folderMatches;
     };
     const normal = mode === 'marked' ? [] :
@@ -687,7 +688,7 @@
     view.markedSources = marked.map(function (item) { return item.sourceId; });
 
     view.select.replaceChildren();
-    const blank = element('option', '', 'Quelle auswählen');
+    const blank = element('option', '', 'Film oder Serienfolge auswählen');
     blank.value = '';
     view.select.appendChild(blank);
     normal.forEach(function (item) {
@@ -699,7 +700,9 @@
     view.select.disabled = normal.length === 0;
     view.startButton.disabled = true;
     view.sourceDetails.textContent = '';
-    view.preview.textContent = 'Film auswählen. Die technische Importprüfung erfolgt automatisch.';
+    view.preview.textContent = normal.length
+      ? 'Schritt 2: Film oder Serienfolge oben auswählen. Die technische Vorschau startet automatisch.'
+      : 'In diesem Ordner wurden keine passenden Filme gefunden. Anderen Ordner wählen oder Suche zurücksetzen.';
     view.localReencode.checked = false;
     view.localReencode.disabled = true;
     view.decision.value = 'import';
@@ -962,7 +965,7 @@
     view.skipButton.disabled = view.submitting || Boolean(view.attempt) ||
       Boolean(view.batch);
     if (!selected) {
-      view.preview.textContent = 'Film auswählen. Die technische Importprüfung erfolgt automatisch.';
+      view.preview.textContent = 'Schritt 2: Film oder Serienfolge auswählen. Die Vorschau startet automatisch.';
       view.startButton.disabled = true;
       return;
     }
@@ -1006,16 +1009,23 @@
           '. ' + outcome;
       }
     }
+    const nextStep = !plan
+      ? 'Bitte das Ergebnis der automatischen Prüfung abwarten.'
+      : ready && !needsEncode
+        ? 'Nächster Schritt: „Diesen Film importieren“ anklicken und bestätigen.'
+        : needsEncode
+          ? 'Nächster Schritt: Oben einen Bearbeitungsweg wählen. Lokale Umkodierung braucht eine gesonderte Bestätigung.'
+          : 'Dieser Film ist derzeit nicht importierbar. Einen anderen Film wählen.';
     view.preview.textContent = 'Vorschau: ' + name +
       '. Quellordner: ' + sourceFolder + '. ' + description +
-      ' ' + details +
+      ' ' + details + ' ' + nextStep +
       ' Der Backend-Agent prüft Quelle und Ziel bei Auftragsannahme erneut.';
     view.startButton.textContent = needsEncode
       ? decision === 'desktop' ? 'Für PC markieren'
         : decision === 'skip' ? 'Film überspringen'
           : decision === 'import' ? 'Auf VDR umkodieren'
             : 'Bearbeitungsweg auswählen'
-      : ready ? 'Import starten' : 'Import nicht möglich';
+      : ready ? 'Diesen Film importieren' : 'Import nicht möglich';
     if (!view.submitting && !view.attempt && !view.batch) {
       view.startButton.disabled = needsEncode
         ? !(decision === 'desktop' || decision === 'skip' ||
@@ -1196,9 +1206,9 @@
     if (!mountTarget || typeof mountTarget.replaceChildren !== 'function') return;
     const root = element('section', 'media-import-panel');
     root.appendChild(element('h3', '', 'Media Import'));
-    root.appendChild(element('p', '', 'Filme aus den freigegebenen Quellen auswählen. ' +
-      'Ein Suchlauf liest nur die Backend-Quellenliste und startet keinen Import. ' +
-      'Maximal 100 Filme pro Durchlauf.'));
+    root.appendChild(element('p', '', '1. Verzeichnis scannen. 2. Film oder Serienfolge auswählen. ' +
+      '3. Automatische Vorschau abwarten und dann den einzelnen Import bestätigen. ' +
+      'Beim Scannen werden keine Dateien verändert.'));
     const reloadButton = element('button', 'media-import-reload', 'Verzeichnis scannen');
     reloadButton.type = 'button';
     root.appendChild(reloadButton);
@@ -1239,13 +1249,14 @@
     const technical = element('details', 'media-import-technical-details');
     technical.appendChild(element('summary', '', 'Technische Details'));
     technical.appendChild(sourceDetails);
-    const label = element('label', '', 'Film auswählen');
+    root.appendChild(element('h4', '', 'Einzelimport'));
+    const label = element('label', '', '1. Film oder Serienfolge auswählen');
     const select = element('select', 'media-import-source');
     select.disabled = true;
     label.appendChild(select);
     root.appendChild(label);
     const preview = element('p', 'media-import-preview',
-      'Film auswählen, Entscheidung prüfen und bestätigen.');
+      '2. Nach der Filmauswahl wird die Vorschau automatisch erstellt.');
     preview.setAttribute('role', 'status');
     root.appendChild(preview);
     const choiceLabel = element('label', 'media-import-decision-label', 'Video muss umkodiert werden – wie möchtest du vorgehen?');
@@ -1274,6 +1285,16 @@
     localReencode.disabled = true;
     encodeLabel.appendChild(localReencode);
     root.appendChild(encodeLabel);
+    const startButton = element('button', 'media-import-start', 'Import starten');
+    startButton.type = 'button';
+    startButton.disabled = true;
+    root.appendChild(startButton);
+    const skipButton = element('button', 'media-import-skip', 'Film überspringen');
+    skipButton.type = 'button';
+    skipButton.hidden = true;
+    skipButton.disabled = true;
+    root.appendChild(skipButton);
+    root.appendChild(element('h4', '', 'Markierte Dateien verwalten'));
     const markedLabel = element('label', 'media-import-marked-label',
       'Markierte Dateien (.pc_encode / .skipped / .duplicate)');
     const markedSelect = element('select', 'media-import-marked-source');
@@ -1285,18 +1306,9 @@
     releaseButton.type = 'button';
     releaseButton.disabled = true;
     root.appendChild(releaseButton);
-    const startButton = element('button', 'media-import-start', 'Import starten');
-    startButton.type = 'button';
-    startButton.disabled = true;
     const refreshButton = element('button', 'media-import-refresh', 'Vorgang prüfen');
     refreshButton.type = 'button';
     refreshButton.hidden = true;
-    root.appendChild(startButton);
-    const skipButton = element('button', 'media-import-skip', 'Film überspringen');
-    skipButton.type = 'button';
-    skipButton.hidden = true;
-    skipButton.disabled = true;
-    root.appendChild(skipButton);
     root.appendChild(element('h4', '', 'Mehrfachauswahl'));
     const selectAllVisibleButton = element('button', 'media-import-select-all',
       'Alle sichtbaren Filme auswählen');
