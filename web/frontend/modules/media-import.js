@@ -4,6 +4,10 @@
   // Media Tools is a view of Core-owned capabilities and Operations, never a job queue.
   const activeAttempts = Object.create(null);
   const activeBatches = Object.create(null);
+  // Browser-session display evidence ONLY: a Core 'succeeded' recording readback
+  // for one exact source observation. No source mutation, media identity or
+  // durable import ledger is inferred from this UI memory.
+  const confirmedImports = Object.create(null);
   // Avoid repeated automatic duplicate operations for a single source observation.
   const automaticDuplicates = Object.create(null);
   const POLL_MS = 4000;
@@ -109,6 +113,9 @@
     Object.keys(automaticDuplicates).forEach(function (id) {
       delete automaticDuplicates[id];
     });
+    Object.keys(confirmedImports).forEach(function (id) {
+      delete confirmedImports[id];
+    });
   }
 
   function markerSuffix(item) {
@@ -144,6 +151,10 @@
     // No arbitrary "first matching file" association is ever made.
     return parked.length === 1 && pcEncodeCandidates(view, parked[0]).length === 1
       ? parked[0] : null;
+  }
+
+  function confirmedImport(view, sourceId) {
+    return confirmedImports[view.backendId + '|' + sourceId] || null;
   }
 
   function operationLabel(state, decision) {
@@ -512,14 +523,23 @@
         throw new Error('Ungültige Operationsantwort');
       }
       view.attempt.state = operation.state;
-      const possibleReturnCompleted = operation.state === 'succeeded' &&
-        view.attempt.pcReturn === true &&
+      const recordingConfirmed = operation.state === 'succeeded' &&
         (!view.attempt.videoDecision || view.attempt.videoDecision === 'local');
+      if (recordingConfirmed) {
+        // Core only reaches 'succeeded' for a recording after committed
+        // recording-cache readback. Associate this observation with its opaque
+        // source ID, never with the .pc_encode original by title.
+        confirmedImports[view.backendId + '|' + view.attempt.sourceId] = {
+          possiblePcReturn: view.attempt.pcReturn === true
+        };
+      }
+      const possibleReturnCompleted = recordingConfirmed && view.attempt.pcReturn === true;
       report(view, operationLabel(operation.state, view.attempt.videoDecision) +
         (possibleReturnCompleted
-          ? ' PC-Rücklauf: VDR-Readback bestätigt den Import der ausgewählten ' +
-            'neuen Quelle. Die .pc_encode-Originaldatei und die importierte ' +
-            'Quelldatei bleiben erhalten; keine automatische Löschung.'
+          ? ' Möglicher PC-Rücklauf: VDR-Readback bestätigt ausschließlich ' +
+            'den Import der ausgewählten neuen Quelle, nicht die Identität ' +
+            'mit dem geparkten Original. Beide Quelldateien bleiben ' +
+            'erhalten; keine automatische Löschung.'
           : ''), false);
       view.operationDetail.textContent =
         'Vorgang ' + operation.operationId + ' · ' + operation.state;
@@ -863,9 +883,12 @@
       const pcHint = possiblePcReturn(view, item)
         ? ' · Möglicher PC-Encode-Rücklauf'
         : parked.length ? ' · PC-Encode-Zuordnung mehrdeutig' : '';
+      const confirmed = confirmedImport(view, item.sourceId);
       const meta = element('span', 'media-import-episode-meta',
         (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
-        ' · Noch nicht geprüft' + pcHint);
+        (confirmed
+          ? ' · VDR-Readback bestätigt (diese Sitzung; Quelle erhalten)'
+          : ' · Noch nicht geprüft') + pcHint);
       row.appendChild(checkbox);
       row.appendChild(open);
       row.appendChild(meta);
@@ -1246,6 +1269,13 @@
         ? 'Für den lokalen Import fehlt Speicherplatz.'
         : failure || 'Die Quelle oder das Ziel konnte nicht vollständig geprüft werden. Technische Details anzeigen oder erneut prüfen.';
     card.appendChild(element('p', 'media-import-preview-hint', note));
+    if (selected && confirmedImport(view, view.select.value)) {
+      card.appendChild(element('p', 'media-import-confirmed-readback',
+        'Der VDR-Import dieser exakten Quellbeobachtung wurde in dieser ' +
+        'Browsersitzung bereits über Core-Recording-Readback bestätigt. ' +
+        'Die aktuelle Vorschau wird unabhängig davon geprüft; ' +
+        'der Quellinhalt wurde nicht automatisch gelöscht.'));
+    }
     const parked = selected ? parkedPcEncodeMatches(view, source) : [];
     if (parked.length) {
       const unique = Boolean(possiblePcReturn(view, source));

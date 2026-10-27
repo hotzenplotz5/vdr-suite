@@ -908,9 +908,39 @@ function publishHomeResume() {}
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
   assert(findClass(mount, 'status').textContent.includes(
-    'VDR-Readback bestätigt den Import der ausgewählten neuen Quelle'));
+    'VDR-Readback bestätigt ausschließlich'));
+  assert(findClass(mount, 'status').textContent.includes(
+    'nicht die Identität'), 'title-only PC association is not verified media identity');
   assert(findClass(mount, 'status').textContent.includes(
     'keine automatische Löschung'), 'existing source-preserving pipeline stays truthful');
+  // Readback evidence remains associated with the immutable source observation
+  // when the next ordinary scan still lists the unmodified source. An agent
+  // 'executed_unverified' result must never create this display status.
+  await findClass(mount, 'media-import-new').listeners.click();
+  await settle();
+  assert(findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.dataset.sourceId === SOURCE &&
+      row.children[2].textContent.includes('VDR-Readback bestätigt');
+  }), 'the same source ID retains verified result through a rescan');
+  const pcPostsAfterReadback = submits;
+  const sourceAfterReadback = findClass(mount, 'media-import-source');
+  sourceAfterReadback.value = SOURCE;
+  sourceAfterReadback.listeners.change();
+  await settle();
+  assert(findClass(mount, 'media-import-confirmed-readback'),
+    'confirmed source displays its readback separately from the fresh preview');
+  assert.strictEqual(submits, pcPostsAfterReadback,
+    'rescan and source reinspection never perform a second import');
+
+  // A new account/session cannot inherit the former browser-only evidence.
+  context.resetMediaImportVisibility(true);
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  assert(!findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.dataset.sourceId === SOURCE &&
+      row.children[2].textContent.includes('VDR-Readback bestätigt');
+  }), 'sign-out/reset discards ephemeral display evidence');
 
   // Two extensions with the same stem may be different films. Neither can
   // be paired arbitrarily to the single parked original.
