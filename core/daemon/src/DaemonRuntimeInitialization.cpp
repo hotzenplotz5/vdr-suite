@@ -9,6 +9,7 @@
 #include "TimerIntentApplicationService.h"
 #include "MediaImportOperationAdmission.h"
 #include "MediaImportRecordingEvidence.h"
+#include "MediaToolsAgentExecutor.h"
 #include "MediaShrinkOperationAdmission.h"
 #include "DaemonMediaShrinkAdmissionAuthority.h"
 #include "BackendAgentMediaShrinkAssignment.h"
@@ -1626,6 +1627,73 @@ bool DaemonRuntime::initialize()
                         found.operation.backendId;
                     result.operation.resourceRevision =
                         found.operation.operationRevision;
+                    // Only the authenticated actor's own confirmed import
+                    // operation may project read-only Agent cleanup evidence.
+                    // The canonical VDR success remains unchanged when cleanup
+                    // fails or the Agent is offline.
+                    if (found.operation.actionFamily == "media.import" &&
+                        found.operation.state ==
+                            vdrsuite::operations::MutationOperationState::succeeded &&
+                        backendAgentCommandRepository_)
+                    {
+                        const auto notice =
+                            backendAgentCommandRepository_->findAssignmentForOperation(
+                                found.operation.backendId, found.operation.operationId,
+                                vdrsuite::mediatools::kMediaImportReadbackCommandType);
+                        if (notice && notice->backendGeneration ==
+                                found.operation.backendGeneration)
+                        {
+                            std::string sourceId, originalCommand, recordingProof;
+                            std::string sourceProof;
+                            if (vdrsuite::mediatools::parseMediaImportReadbackPayload(
+                                    notice->payload, sourceId, originalCommand,
+                                    recordingProof, sourceProof) &&
+                                (notice->payloadVersion == (sourceProof.empty() ? 1U : 2U)))
+                            {
+                                if (sourceProof.empty())
+                                    result.operation.sourceCleanup = "not_performed";
+                                else
+                                {
+                                    result.operation.sourceCleanup = "pending";
+                                    const auto cleanupResult =
+                                        backendAgentCommandRepository_->resultForCommand(
+                                            notice->commandId);
+                                    if (cleanupResult &&
+                                        cleanupResult->commandId == notice->commandId &&
+                                        cleanupResult->backendId == notice->backendId &&
+                                        cleanupResult->agentId == notice->agentId &&
+                                        cleanupResult->agentInstanceId ==
+                                            notice->agentInstanceId &&
+                                        cleanupResult->backendGeneration ==
+                                            notice->backendGeneration &&
+                                        cleanupResult->requestFingerprint ==
+                                            notice->requestFingerprint)
+                                    {
+                                        const auto& evidence =
+                                            cleanupResult->resultEvidence;
+                                        if (cleanupResult->resultCategory == "succeeded" &&
+                                            cleanupResult->verificationState == "verified" &&
+                                            evidence == "media-tools-cleanup:removed")
+                                            result.operation.sourceCleanup = "removed";
+                                        else if (cleanupResult->resultCategory == "succeeded" &&
+                                                 cleanupResult->verificationState == "verified" &&
+                                                 evidence == "media-tools-cleanup:already-absent")
+                                            result.operation.sourceCleanup = "already_absent";
+                                        else if (cleanupResult->resultCategory == "succeeded" &&
+                                                 evidence == "media-tools-cleanup:not-performed")
+                                            result.operation.sourceCleanup = "not_performed";
+                                        else if (cleanupResult->resultCategory == "rejected" &&
+                                                 evidence == "media-tools-cleanup:failed")
+                                            result.operation.sourceCleanup = "failed";
+                                    }
+                                }
+                                // A cleanup ACK can arrive after the Operation
+                                // is succeeded: include its state in the ETag.
+                                result.operation.resourceRevision +=
+                                    ":media-cleanup:" + result.operation.sourceCleanup;
+                            }
+                        }
+                    }
                     return result;
 
                 case vdrsuite::operations::MutationOperationReadStatus::invalid:

@@ -26,6 +26,9 @@ struct PublicOperationResource
     std::string state;
     std::string backendId;
     std::string resourceRevision;
+    // Optional, journal-backed Agent result after independently verified
+    // media import. Absent for all other operation families.
+    std::string sourceCleanup;
 };
 
 struct PublicOperationLookupResult

@@ -4222,7 +4222,11 @@ ApiResponse publicOperationResponse(
         "{\"operationId\":\"" + jsonEscape(operation.operationId) +
         "\",\"state\":\"" + jsonEscape(operation.state) +
         "\",\"backendId\":\"" + jsonEscape(operation.backendId) +
-        "\",\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}",
+        "\"" +
+        (operation.sourceCleanup.empty() ? std::string{} :
+            ",\"sourceCleanup\":\"" + jsonEscape(operation.sourceCleanup) +
+            "\"") +
+        ",\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}",
         requestId,
         correlationId);
     response.headers["ETag"] = entityTag;
