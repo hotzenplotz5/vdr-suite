@@ -329,11 +329,22 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
 
     if (requestedDecision == MediaImportDecision::deleteDuplicate) {
         // The confirmation is explicit and never deletes the VDR recording.
-        // Reprove the full VDR target against this pinned, marked source.
-        // A filename collision alone is not a deletion permit.
+        // A previously imported film may retain its unmarked source when
+        // the optional .duplicate rename failed. Both source forms use the
+        // same Core Operation and independent complete-recording proof.
+        std::string stem = local.sourceFile.stem().string();
+        std::transform(stem.begin(), stem.end(), stem.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        const std::string suffix = ".duplicate";
+        const bool marked = stem.size() > suffix.size() &&
+            stem.compare(stem.size() - suffix.size(),
+                         suffix.size(), suffix) == 0;
         try {
-            const auto plan = inspectMarkedDuplicatePreview(
-                {local.sourceRoot, local.videoRoot, local.sourceFile});
+            const ImportRequest request{
+                local.sourceRoot, local.videoRoot, local.sourceFile};
+            const auto plan = marked
+                ? inspectMarkedDuplicatePreview(request)
+                : inspectImportPreview(request);
             if (plan.sourceDevice != local.sourceDevice ||
                 plan.sourceInode != local.sourceInode ||
                 plan.sourceBytes != local.sourceBytes ||
@@ -348,7 +359,9 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
             local.sourceFile, local.sourceDevice, local.sourceInode,
             local.sourceBytes, local.sourceMtimeSeconds,
             local.sourceMtimeNanoseconds);
-        const auto removed = cleanupConfirmedDuplicateSource(local, evidence);
+        const auto removed = marked
+            ? cleanupConfirmedDuplicateSource(local, evidence)
+            : cleanupMediaImportSource(local, evidence);
         if (removed == MediaImportCleanupOutcome::removed) {
             markerEvidence_ = mediaImportMarkerEvidence(
                 sourceId, MediaImportDecision::deleteDuplicate);

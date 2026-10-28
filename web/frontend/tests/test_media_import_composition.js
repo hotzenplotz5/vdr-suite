@@ -236,8 +236,12 @@ function transport(url, options) {
   if (path.endsWith('/media-imports')) {
     ++submits;
     if (JSON.parse(options.body).videoDecision === 'delete_duplicate') {
+      const targetId = JSON.parse(options.body).sourceId;
       markedSources = markedSources.filter(function (id) {
-        return id !== JSON.parse(options.body).sourceId;
+        return id !== targetId;
+      });
+      batchSources = (batchSources || [SOURCE]).filter(function (id) {
+        return id !== targetId;
       });
       return Promise.resolve(reply(202, {
         operationId: OP, backendId: 'backend-a', state: 'dispatching'
@@ -2029,6 +2033,62 @@ function publishHomeResume() {}
     'already marked source must not remain importable');
   assert.strictEqual(submits, preDuplicatePosts + 1);
   autoDuplicateReadback = false;
+  previewInspectionStatus = 'ready';
+
+  // When automatic .duplicate marking fails for an already imported film,
+  // the failed file action must unlock navigation; ordinary duplicate cleanup
+  // must still be offered without renaming the original first.
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE];
+  markedSources = [];
+  previewInspectionStatus = 'duplicate';
+  autoDuplicateReadback = false;
+  state = 'failed_verified';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const failedDuplicateSelect = findClass(mount, 'media-import-source');
+  const failedDuplicatePosts = submits;
+  failedDuplicateSelect.value = SOURCE;
+  failedDuplicateSelect.listeners.change();
+  await settle();
+  assert.strictEqual(submits, failedDuplicatePosts + 1,
+    'automatic marker was attempted exactly once');
+  assert.strictEqual(findClass(mount, 'media-import-source').disabled, false,
+    'terminal marker failure must unlock film selection');
+  assert.strictEqual(findClass(mount, 'media-import-reload').disabled, false,
+    'terminal marker failure must unlock scanning');
+  assert.strictEqual(findClass(mount, 'media-import-search').disabled, false,
+    'terminal marker failure must unlock searching');
+  assert.strictEqual(findClass(mount, 'media-import-filter').disabled, false,
+    'terminal marker failure must unlock filtering');
+  assert(findClass(mount, 'media-import-completed-notice').textContent.includes(
+    'Dubletten-Markierung fehlgeschlagen'));
+  const afterFailedMarker = findClass(mount, 'media-import-source');
+  afterFailedMarker.value = SOURCE;
+  afterFailedMarker.listeners.change();
+  await settle();
+  assert.strictEqual(submits, failedDuplicatePosts + 1,
+    'same source is not automatically re-marked after terminal failure');
+  const deleteAlreadyImported = findClass(mount, 'media-import-delete-duplicate');
+  assert(deleteAlreadyImported && !deleteAlreadyImported.hidden &&
+    !deleteAlreadyImported.disabled,
+    'unmarked source with duplicate preview offers explicit cleanup');
+  confirmLocal = false;
+  await deleteAlreadyImported.listeners.click();
+  assert.strictEqual(submits, failedDuplicatePosts + 1,
+    'cancelled source deletion never submits');
+  confirmLocal = true;
+  state = 'succeeded';
+  await deleteAlreadyImported.listeners.click();
+  await settle();
+  assert.strictEqual(submits, failedDuplicatePosts + 2,
+    'one explicit cleanup operation after duplicate marker failure');
+  assert.strictEqual(JSON.parse(requests.filter(x =>
+    x.options.method === 'POST').slice(-1)[0].options.body).videoDecision,
+    'delete_duplicate');
+  assert(!batchSources.includes(SOURCE),
+    'canonical cleanup removes unmarked import source, not the VDR recording');
   previewInspectionStatus = 'ready';
 
   // MT.META4: only verified paths and explicit SxxEyy / Staffel patterns

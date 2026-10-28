@@ -312,6 +312,8 @@ int main() {
         assert(!confirmedMediaImportDuplicate(duplicate));
         std::ofstream(existingRec / "info", std::ios::trunc) << "T Sample\n";
         // Complete matching recording is stronger duplicate evidence.
+        // The unmarked path also authorizes direct cleanup of its source;
+        // no .duplicate rename is required for the Agent's final proof.
         assert(confirmedMediaImportDuplicate(duplicate));
         // An exact .duplicate marker can be re-inspected read-only. It must
         // never enter an ordinary VDR import regardless of file extension.

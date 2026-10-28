@@ -617,6 +617,28 @@
       view.operationDetail.textContent =
         'Vorgang ' + operation.operationId + ' · ' + operation.state +
         (cleanup ? ' · ' + cleanup : '');
+      // A failed automatic duplicate marker is a completed file action,
+      // not an ongoing film import. Do not freeze the entire media browser.
+      // Keep the outcome visible; never retry this source automatically.
+      if (!view.batch && view.attempt.videoDecision === 'duplicate' &&
+          ['rejected', 'conflict', 'failed_before_dispatch',
+           'failed_verified', 'cancelled'].includes(operation.state)) {
+        const failureText = 'Dubletten-Markierung fehlgeschlagen (' +
+          operation.state + '). Die vorhandene VDR-Aufnahme bleibt erhalten. ' +
+          'Filmauswahl und Quellenaktionen sind wieder freigegeben.';
+        completedOperations[view.backendId] = failureText;
+        view.completedNotice.textContent = failureText;
+        view.completedNotice.hidden = false;
+        delete activeAttempts[view.backendId];
+        view.attempt = null;
+        view.refreshButton.hidden = true;
+        view.newButton.hidden = true;
+        view.reloadButton.disabled = false;
+        return loadSources(view).then(function () {
+          if (isCurrent(view) && !view.searchInput.disabled)
+            report(view, failureText, true);
+        });
+      }
       if (terminalState(operation.state) && !view.batch) {
         view.newButton.hidden = false;
       }
@@ -2152,6 +2174,14 @@
     view.startButton.hidden = !selected || !plan ||
       !['ready', 'insufficient'].includes(plan.status);
     actions.appendChild(view.startButton);
+    // An already imported film may still exist as an unmarked source.
+    // Offer the existing explicit cleanup Operation without forcing a rename
+    // to .duplicate first. The Agent independently verifies the recording.
+    const unmarkedDuplicate = selected && plan && plan.status === 'duplicate';
+    view.deleteDuplicateButton.hidden = !unmarkedDuplicate;
+    view.deleteDuplicateButton.disabled = !unmarkedDuplicate ||
+      Boolean(view.attempt) || view.submitting || Boolean(view.batch);
+    if (unmarkedDuplicate) actions.appendChild(view.deleteDuplicateButton);
     card.appendChild(actions);
     card.appendChild(view.importFeedback);
     renderImportFeedback(view);
@@ -2224,9 +2254,10 @@
     const note = !selected ? 'Ordner wählen und eine Episode anklicken.' :
       !plan ? (view.previewStatus || 'Quelle wird vom Backend-Agent geprüft …') :
       plan.status === 'duplicate'
-        ? 'Die bestätigte Dublette wird automatisch als .duplicate markiert. ' +
-          'Anschließend kannst du sie unter „Markierte Quellen“ auswählen ' +
-          'und über „Dublette aus Importquelle löschen“ gezielt entfernen.'
+        ? 'Eine VDR-Aufnahme ist bereits vorhanden. Über „Dublette aus ' +
+          'Importquelle löschen“ lässt sich die verbleibende Quelldatei ' +
+          'direkt entfernen; die vollständige passende VDR-Aufnahme wird ' +
+          'vor dem Löschen erneut vom Backend bestätigt.'
       : plan.status === 'ready' && !plan.videoReencodeRequired
         ? 'Ohne Video-Neukodierung übernehmen. Jetzt direkt importieren.'
       : plan.videoReencodeRequired
@@ -2403,7 +2434,12 @@
     if (!isCurrent(view) || view.submitting || view.attempt ||
         (view.inspectingBatch && !view.batch)) return Promise.resolve();
     const deleteDuplicate = forcedDecision === 'delete_duplicate';
-    const sourceId = releaseMode || deleteDuplicate
+    const deleteUnmarked = deleteDuplicate &&
+      view.sources.includes(view.select.value) &&
+      Boolean(view.previewResult &&
+        view.previewResult.sourceId === view.select.value &&
+        view.previewResult.status === 'duplicate');
+    const sourceId = releaseMode || (deleteDuplicate && !deleteUnmarked)
       ? view.markedSelect.value :
       view.batch ? view.batch.remaining[0] : view.select.value;
     // Encoding authority is granted per film, per click, never to a batch.
@@ -2412,9 +2448,10 @@
     if (!['import', 'desktop', 'skip', 'duplicate', 'release',
           'delete_duplicate'].includes(selected) ||
         ((releaseMode || deleteDuplicate) && view.batch) ||
-        (deleteDuplicate && !view.allMarked.some(function (item) {
-          return item.sourceId === sourceId && markerSuffix(item) === 'duplicate';
-        }))) return Promise.resolve();
+        (deleteDuplicate && !deleteUnmarked &&
+          !view.allMarked.some(function (item) {
+            return item.sourceId === sourceId && markerSuffix(item) === 'duplicate';
+          }))) return Promise.resolve();
     const previewPlan = view.previewResult &&
       view.previewResult.sourceId === sourceId ? view.previewResult : null;
     if (!releaseMode && !deleteDuplicate && !view.batch) {
@@ -2440,9 +2477,10 @@
       ? 'Media Tools: Diesen Film bei Bedarf lokal mit FFmpeg in H.264 umkodieren? ' +
         'Die Originaldatei bleibt unverändert. Diese Zustimmung gilt nur für diesen Film.'
       : selected === 'delete_duplicate'
-        ? 'Die markierte doppelte Quelldatei endgültig löschen? ' +
-          'Die VDR-Aufnahme bleibt erhalten. Quelle und Aufnahme werden ' +
-          'vor dem Löschen erneut geprüft. Das Löschen ist endgültig.'
+        ? 'Die doppelte Quelldatei endgültig aus der Importquelle löschen? ' +
+          'Die fertige VDR-Aufnahme bleibt erhalten. Die Quelldatei und die ' +
+          'passende vollständige Aufnahme werden erneut geprüft. ' +
+          'Das Löschen der Quelldatei ist endgültig.'
       : selected === 'desktop'
         ? 'Diesen Film für PC/HandBrake mit .pc_encode markieren? ' +
           'Es wird keine VDR-Aufnahme importiert.'
@@ -2460,8 +2498,8 @@
     if (confirmation &&
         (typeof global.confirm !== 'function' || !global.confirm(confirmation)))
       return Promise.resolve();
-    if (!((releaseMode || deleteDuplicate) ?
-          view.markedSources : view.sources).includes(sourceId)) {
+    if (!(releaseMode || (deleteDuplicate && !deleteUnmarked)
+          ? view.markedSources : view.sources).includes(sourceId)) {
       if (view.batch) stopBatch(view, 'Quellauswahl nicht mehr verfügbar.');
       return Promise.resolve();
     }
@@ -2485,7 +2523,9 @@
         if (!isCurrent(view) || !sources) return null;
         if (!sources.items || !sources.items.some(function (item) {
           return item && item.sourceId === sourceId &&
-            (deleteDuplicate ? markerSuffix(item) === 'duplicate'
+            (deleteDuplicate
+              ? deleteUnmarked ? !markerSuffix(item) :
+                markerSuffix(item) === 'duplicate'
               : releaseMode ? Boolean(markerSuffix(item))
               : !markerSuffix(item));
         })) {
