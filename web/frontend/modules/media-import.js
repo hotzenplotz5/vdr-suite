@@ -814,6 +814,12 @@
     const tools = element('div', 'media-import-online-tools');
     const coordinates = episodeCoordinates(source);
     const seriesTitle = onlineSeriesSearchTitle(source);
+    // The currently browsed TMDb series is the primary context while choosing
+    // a season/episode. Keep recognized local coordinates visible beneath it.
+    if (view.onlineSeries && view.onlineMode !== 'search')
+      box.appendChild(element('p', 'media-import-online-context',
+        'Serie: ' + view.onlineSeries.title +
+        (view.onlineSeason ? ' · Staffel ' + view.onlineSeason.seasonNumber : '')));
     if (coordinates.episode !== null) {
       box.appendChild(element('p', 'media-import-online-context',
         'Erkannt: Staffel ' + coordinates.season + ' · Folge ' +
@@ -865,10 +871,6 @@
     });
     tools.appendChild(search);
     box.appendChild(tools);
-    if (view.onlineSeries && view.onlineMode !== 'search')
-      box.appendChild(element('p', 'media-import-online-context',
-        'Serie: ' + view.onlineSeries.title +
-        (view.onlineSeason ? ' · Staffel ' + view.onlineSeason.seasonNumber : '')));
     if (view.onlineStatus) {
       const status = element('p', 'media-import-online-status', view.onlineStatus);
       status.setAttribute('role', 'status');
