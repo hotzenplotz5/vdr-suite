@@ -1650,7 +1650,8 @@ function publishHomeResume() {}
   assert(nestedPreview.includes('VDR-Zielordner: Serien/Andor/Weiterer Film'),
     'authenticated backend preview displays the real selected target');
   assert(nestedPreview.includes('Video-Codec: h264') &&
-    nestedPreview.includes('Frei:') && nestedPreview.includes('Benötigt'),
+    nestedPreview.includes('Frei:') &&
+    nestedPreview.includes('Geschätzter Zwischenbedarf (nur Info):'),
     'real read-only codec and capacity are visible');
   assert.strictEqual(breadcrumb.children.length, 3);
   breadcrumb.children[0].listeners.click(); // root
