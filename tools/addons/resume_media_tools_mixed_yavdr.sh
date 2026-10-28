@@ -40,14 +40,24 @@ FIX="$WORK/repo/tools/addons/media_tools_observed_live_update_resume.py"
 if [ -e "$FIX" ]; then
   [ -f "$FIX" ] && [ ! -L "$FIX" ] ||
     stop 'existing corrected helper is not a regular file'
+  EXISTING_BLOB=$(sudo -u yavdr -H git -C "$WORK/repo" hash-object "$FIX") ||
+    stop 'could not inspect previously downloaded helper'
+  [ "$EXISTING_BLOB" = "$FIX_BLOB" ] ||
+  [ "$EXISTING_BLOB" = "b3aa97bdf4306737ef584e00092015695f95cc0c" ] ||
+    stop 'existing helper has an unknown local change'
 else
+  EXISTING_BLOB=missing
+fi
+if [ "$EXISTING_BLOB" != "$FIX_BLOB" ]; then
   TMP="$FIX.download"
   [ ! -e "$TMP" ] || stop 'unexpected incomplete helper download'
   sudo -u yavdr -H curl --fail --location --silent --show-error \
     "https://raw.githubusercontent.com/hotzenplotz5/vdr-suite/$FIX_SOURCE/tools/addons/media_tools_observed_live_update.py" \
     --output "$TMP" ||
     stop 'corrected helper download failed'
-  sudo -u yavdr -H mv -- "$TMP" "$FIX" ||
+  [ "$(sudo -u yavdr -H git -C "$WORK/repo" hash-object "$TMP")" = "$FIX_BLOB" ] ||
+    stop 'downloaded helper hash does not match reviewed code'
+  sudo -u yavdr -H mv -f -- "$TMP" "$FIX" ||
     stop 'corrected helper move failed'
 fi
 [ "$(sudo -u yavdr -H git -C "$WORK/repo" hash-object "$FIX")" = "$FIX_BLOB" ] ||
