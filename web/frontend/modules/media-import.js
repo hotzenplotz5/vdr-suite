@@ -938,7 +938,9 @@
         poster.loading = 'lazy';
         poster.src = url;
         poster.addEventListener('error', function () {
-          confirmed.replaceChildren(element('p', '',
+          // Missing provider artwork must not erase the confirmed title/plot.
+          if (typeof poster.remove === 'function') poster.remove();
+          confirmed.appendChild(element('p', '',
             'Online-Poster nicht verfügbar; lokale Bilder bleiben erhalten.'));
         });
         confirmed.appendChild(poster);
