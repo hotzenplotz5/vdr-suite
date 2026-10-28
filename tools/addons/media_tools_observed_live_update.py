@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import tempfile
 import sqlite3
 import stat
 import sys
@@ -54,7 +55,9 @@ def capture_observed_runtime(candidate: Path, live_root: Path, previous: Path) -
     if previous.exists() or previous.is_symlink():
         raise PreflightError("snapshot output already exists")
     _, files = verify_sealed_stage(candidate, load_manifest(candidate))
-    shutil.copytree(candidate, previous)
+    # Share only identical, immutable bytes with the root-private candidate.
+    # Differing observed live files are replaced with separate inodes below.
+    shutil.copytree(candidate, previous, copy_function=os.link)
 
     for name in files:
         rel = Path(name)
@@ -65,8 +68,23 @@ def capture_observed_runtime(candidate: Path, live_root: Path, previous: Path) -
         if (not stat.S_ISREG(detail.st_mode) or detail.st_nlink != 1 or
                 detail.st_mode & 0o022):
             raise PreflightError("nonregular or writable installed path: " + name)
-        shutil.copyfile(installed, previous / rel)
-        os.chmod(previous / rel, stat.S_IMODE(detail.st_mode))
+        captured = previous / rel
+        live_mode = stat.S_IMODE(detail.st_mode)
+        candidate_entry = files[name]
+        if (detail.st_size == candidate_entry["size"] and
+                live_mode == candidate_entry["mode"] and
+                sha256_file(installed) == candidate_entry["sha256"]):
+            continue
+        # A normal write to a hardlink would corrupt candidate bytes.
+        fd, temporary = tempfile.mkstemp(prefix=".observed-", dir=captured.parent)
+        os.close(fd)
+        try:
+            shutil.copyfile(installed, temporary)
+            os.chmod(temporary, live_mode)
+            os.replace(temporary, captured)
+        finally:
+            if os.path.lexists(temporary):
+                os.unlink(temporary)
 
     current_frontend = examined_file(live_root, FRONTEND_ROOT.as_posix())
     require_regular_owned(current_frontend, directory=True)
@@ -106,14 +124,33 @@ def capacity_preflight(candidate: Path, backup_parent: Path) -> None:
     db_info = db.lstat()
     if not stat.S_ISREG(db_info.st_mode) or db_info.st_nlink != 1:
         raise PreflightError("Suite database is not a regular file")
-    candidate_bytes = sum(p.stat().st_size for p in candidate.rglob("*") if p.is_file())
-    frontend = Path("/") / FRONTEND_ROOT
-    actual_bytes = sum(p.stat().st_size for p in frontend.rglob("*") if p.is_file())
-    # Two staged copies, the actual frontend, database and generous overhead.
-    budget = 3 * candidate_bytes + actual_bytes + 2 * db.stat().st_size + 128 * 1024**2
+    _, files = verify_sealed_stage(candidate, load_manifest(candidate))
+    candidate_bytes = sum(entry["size"] for entry in files.values())
+    frontend = examined_file(Path("/"), FRONTEND_ROOT.as_posix())
+    actual_frontend_bytes = sum(p.stat().st_size for p in frontend.rglob("*")
+                                if p.is_file())
+    # Unchanged files share storage. Conservatively budget every installed
+    # non-frontend file as changed, but never charge three full stage copies.
+    old_payload_budget = 0
+    largest_candidate_file = 0
+    for rel, entry in files.items():
+        if is_preserved_config(Path(rel)) or is_frontend(Path(rel)):
+            continue
+        old_payload_budget += examined_file(Path("/"), rel).stat().st_size
+        largest_candidate_file = max(largest_candidate_file, entry["size"])
+    candidate_frontend_bytes = sum(entry["size"] for rel, entry in files.items()
+                                   if is_frontend(Path(rel)))
+    mib = 1024**2
+    backup_budget = (candidate_bytes + old_payload_budget + actual_frontend_bytes +
+                     2 * db_info.st_size + 128 * mib)
+    deploy_budget = largest_candidate_file + candidate_frontend_bytes + 128 * mib
+    print(f"MEASURED_CANDIDATE_BYTES={candidate_bytes} "
+          f"OBSERVED_OLD_PAYLOAD_BUDGET={old_payload_budget} "
+          f"LIVE_FRONTEND_BYTES={actual_frontend_bytes} "
+          f"DB_BYTES={db_info.st_size}", flush=True)
     grouped: dict[int, tuple[Path, int]] = {}
-    for point, need in ((backup_parent, budget), (Path("/usr"), 256 * 1024**2),
-                        (Path("/var"), db.stat().st_size + 256 * 1024**2)):
+    for point, need in ((backup_parent, backup_budget), (Path("/usr"), deploy_budget),
+                        (Path("/var"), 64 * mib)):
         device = point.stat().st_dev
         old_point, old_need = grouped.get(device, (point, 0))
         grouped[device] = old_point, old_need + need
