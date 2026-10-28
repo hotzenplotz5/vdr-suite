@@ -3183,7 +3183,8 @@ bool parseMediaImportAdmissionBody(
         std::string decision;
         if (!parseAccountMutationJsonString(input, position, decision) ||
             (decision != "local" && decision != "desktop" &&
-             decision != "skip" && decision != "release")) return false;
+             decision != "skip" && decision != "release" &&
+             decision != "duplicate" && decision != "delete_duplicate")) return false;
         approveVideoReencode = decision == "local";
         if (!approveVideoReencode) videoDecision = decision;
         skipAccountMutationWhitespace(input, position);

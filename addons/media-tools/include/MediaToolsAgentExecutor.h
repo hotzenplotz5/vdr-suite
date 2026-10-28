@@ -149,7 +149,7 @@ inline bool parseMediaImportSelection(const std::string& payload,
 
 // Reuse the one Media Import command; versions 3/4 represent a verified
 // backend-local source marker, NOT a VDR recording.
-enum class MediaImportDecision { import, local, desktop, skip, release, duplicate };
+enum class MediaImportDecision { import, local, desktop, skip, release, duplicate, deleteDuplicate };
 inline bool parseMediaImportSelection(
     const std::string& payload, std::string& sourceId,
     MediaImportDecision& decision)
@@ -166,7 +166,8 @@ inline bool parseMediaImportSelection(
         std::pair<const char*, MediaImportDecision>{"desktop", MediaImportDecision::desktop},
         {"skip", MediaImportDecision::skip},
         {"release", MediaImportDecision::release},
-        {"duplicate", MediaImportDecision::duplicate}
+        {"duplicate", MediaImportDecision::duplicate},
+        {"delete_duplicate", MediaImportDecision::deleteDuplicate}
     }) {
         const std::string suffix =
             std::string("\",\"videoDecision\":\"") + option.first + "\"}";
@@ -197,6 +198,7 @@ inline unsigned mediaImportSelectionVersion(MediaImportDecision decision)
         case MediaImportDecision::skip: return 4U;
         case MediaImportDecision::release: return 5U;
         case MediaImportDecision::duplicate: return 6U;
+        case MediaImportDecision::deleteDuplicate: return 7U;
     }
     return 0U;
 }
@@ -212,6 +214,7 @@ inline std::string mediaImportSelectionJson(
         case MediaImportDecision::skip: option = "skip"; break;
         case MediaImportDecision::release: option = "release"; break;
         case MediaImportDecision::duplicate: option = "duplicate"; break;
+        case MediaImportDecision::deleteDuplicate: option = "delete_duplicate"; break;
     }
     return "{\"sourceId\":\"" + sourceId +
         "\",\"videoDecision\":\"" + option + "\"}";
@@ -222,11 +225,14 @@ inline std::string mediaImportMarkerEvidence(
     if (choice != MediaImportDecision::desktop &&
         choice != MediaImportDecision::skip &&
         choice != MediaImportDecision::duplicate &&
+        choice != MediaImportDecision::deleteDuplicate &&
         choice != MediaImportDecision::release) return {};
     return std::string("media-tools-mark:") +
         (choice == MediaImportDecision::desktop ? "desktop:" :
          choice == MediaImportDecision::skip ? "skip:" :
-         choice == MediaImportDecision::duplicate ? "duplicate:" : "release:") +
+         choice == MediaImportDecision::duplicate ? "duplicate:" :
+         choice == MediaImportDecision::deleteDuplicate ? "delete_duplicate:" :
+         "release:") +
         sourceId;
 }
 
