@@ -6,8 +6,8 @@ stop() { printf 'MT_RESUME=STOP %s\n' "$*" >&2; exit 1; }
 trap 'rc=$?; printf "MT_RESUME_EXIT=%s\n" "$rc"' EXIT
 
 OLD_SOURCE=c26429741f9a868bcf129cd69f956c2c5a86ba00
-FIX_SOURCE=4dbaaaa3a42c65a42127d7d06a377997173b7656
-FIX_BLOB=b3aa97bdf4306737ef584e00092015695f95cc0c
+FIX_SOURCE=20a0ebc626fb9c4ac1b7c8e9c39d037a7d6e7a87
+FIX_BLOB=de5947e977de24fc1391830cc9cde7f4df5872ed
 WORK=/home/yavdr/vdr-suite-mt-live-c26429741f9a
 ROOT=/home/yavdr/vdr-suite
 [ "$(id -u)" -eq 0 ] || stop 'existing root shell required'
