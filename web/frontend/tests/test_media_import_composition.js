@@ -461,13 +461,17 @@ function publishHomeResume() {}
     'the visible preview card is a first-class element of the detail pane');
   const technicalRecovery = findClass(mount, 'media-import-technical-details');
   const markedRecovery = findClass(mount, 'media-import-marked-label');
-  assert(detailPane.children.indexOf(start) >
-    detailPane.children.indexOf(previewCard) &&
+  const inlineActions = findClass(previewCard, 'media-import-preview-actions');
+  const inlineFeedback = findClass(previewCard, 'media-import-import-feedback');
+  assert(inlineActions &&
+    findClass(inlineActions, 'media-import-start') === start &&
+    inlineFeedback && inlineFeedback.hidden &&
     detailPane.children.indexOf(technicalRecovery) >
-    detailPane.children.indexOf(start) &&
+      detailPane.children.indexOf(previewCard) &&
     technicalRecovery.children.includes(markedRecovery) &&
+    findClass(technicalRecovery, 'media-import-operation') &&
     !detailPane.children.includes(markedRecovery),
-    'marker recovery is exclusively inside technical details, not the main preview');
+    'one existing import action sits beside readiness; operation details stay collapsed');
   assert(findClass(mount, 'media-import-preview-facts'),
     'codec, source bytes and VDR target are rendered as actual preview facts');
   const artwork = findClass(mount, 'media-import-artwork');
@@ -545,6 +549,13 @@ function publishHomeResume() {}
   assert(sessionRestores >= 1);
   assert(operationReads >= 1);
   assert(findClass(mount, 'media-import-operation').textContent.includes(OP));
+  assert.strictEqual(findClass(mount, 'media-import-import-title').textContent,
+    'Import läuft', 'processing state appears directly in the preview');
+  assert(findClass(mount, 'media-import-import-description').textContent.includes(
+    'Backend-Agent'), 'the user sees a plain-language progress explanation');
+  assert(findClass(inlineFeedback, 'media-import-refresh') &&
+    findClass(inlineFeedback, 'media-import-new'),
+    'status controls are colocated with the existing operation');
   assert.strictEqual(start.disabled, true);
   await start.listeners.click();
   assert.strictEqual(submits, 1, 'double-click must not submit a second import');
@@ -559,11 +570,15 @@ function publishHomeResume() {}
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
   assert(findClass(mount, 'status').textContent.includes('ungewiss'));
+  assert(findClass(mount, 'media-import-import-title').textContent.includes(
+    'Ergebnis ungewiss'), 'unknown outcomes must never look like a success');
   assert.strictEqual(findClass(mount, 'media-import-new').hidden, true);
   state = 'succeeded';
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
   assert(findClass(mount, 'status').textContent.includes('unabhängig bestätigt'));
+  assert.strictEqual(findClass(mount, 'media-import-import-title').textContent,
+    'Import abgeschlossen', 'verified VDR readback is shown near the action');
   assert.strictEqual(findClass(mount, 'media-import-new').hidden, false);
   await findClass(mount, 'media-import-new').listeners.click();
   await settle();
@@ -638,6 +653,8 @@ function publishHomeResume() {}
   const acceptedResult = findClass(mount, 'media-import-start').listeners.click();
   await settle();
   assert(delayedSubmit, 'POST must have reached the transport');
+  assert(findClass(mount, 'media-import-import-title').textContent.includes(
+    'Anfrage wird übermittelt'), 'pending acceptance is visible beside the preview');
   const acceptedPostCount = submits;
   context.selectModule('overview');
   context.selectModule('media-import');
@@ -653,6 +670,8 @@ function publishHomeResume() {}
   assert.strictEqual(submits, acceptedPostCount, 'owner handoff must not repost');
   assert(findClass(mount, 'media-import-operation').textContent.includes(OP),
     'late accepted POST must reconcile into the currently mounted owner');
+  assert(findClass(mount, 'media-import-import-title').textContent,
+    'operation status stays visible after owner replacement');
   assert.strictEqual(findClass(mount, 'media-import-refresh').disabled, false);
   assert.strictEqual(findClass(mount, 'media-import-new').hidden, false);
   await findClass(mount, 'media-import-new').listeners.click();
