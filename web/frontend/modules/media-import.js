@@ -546,6 +546,7 @@
         throw new Error('Ungültige Operationsantwort');
       }
       view.attempt.state = operation.state;
+      renderImportFeedback(view);
       const recordingConfirmed = operation.state === 'succeeded' &&
         (!view.attempt.videoDecision || view.attempt.videoDecision === 'local');
       if (recordingConfirmed) {
@@ -647,6 +648,65 @@
     return null;
   }
 
+  // Display the established Core operation in ordinary language, right
+  // beside the preview action. This does not start or retry operations.
+  function renderImportFeedback(view) {
+    if (!view.importFeedback) return;
+    const attempt = view.attempt;
+    view.importFeedback.hidden = !view.submitting && !attempt;
+    if (view.importFeedback.hidden) return;
+    const marker = attempt && ['desktop', 'skip', 'duplicate', 'release']
+      .includes(attempt.videoDecision);
+    const noun = marker ? 'Dateiaktion' : 'Import';
+    const state = attempt && attempt.state || '';
+    const titles = {
+      accepted: noun + ' angenommen',
+      queued: noun + ' wartet auf Verarbeitung',
+      dispatching: noun + ' läuft',
+      executed_unverified: noun + ' ausgeführt – Bestätigung läuft',
+      succeeded: noun + ' abgeschlossen',
+      rejected: noun + ' abgelehnt',
+      conflict: noun + ' nicht ausgeführt',
+      failed_before_dispatch: noun + ' fehlgeschlagen',
+      failed_verified: noun + ' fehlgeschlagen',
+      cancelled: noun + ' abgebrochen',
+      outcome_unknown: 'Ergebnis ungewiss – nicht erneut starten'
+    };
+    const descriptions = {
+      accepted: 'Der Server hat den Auftrag angenommen. Die Ausführung wird automatisch überwacht.',
+      queued: 'Der Auftrag wartet auf den Backend-Agenten. Die Anzeige aktualisiert sich automatisch.',
+      dispatching: marker
+        ? 'Der Backend-Agent bearbeitet die Dateimarkierung.'
+        : 'Der Backend-Agent verarbeitet die Aufnahme. Die Anzeige aktualisiert sich automatisch.',
+      executed_unverified: marker
+        ? 'Die Dateiaktion wurde ausgeführt. Die abschließende Bestätigung steht noch aus.'
+        : 'Die Verarbeitung ist beendet. Die VDR-Aufnahme wird noch unabhängig bestätigt.',
+      succeeded: marker
+        ? 'Die Dateiaktion wurde bestätigt.'
+        : 'Die neue VDR-Aufnahme wurde bestätigt.',
+      rejected: 'Der Auftrag wurde nicht angenommen.',
+      conflict: 'Der Auftrag konnte wegen eines Konflikts nicht ausgeführt werden.',
+      failed_before_dispatch: 'Die Ausführung wurde nicht gestartet.',
+      failed_verified: 'Die Ausführung ist fehlgeschlagen.',
+      cancelled: 'Der Auftrag wurde abgebrochen.',
+      outcome_unknown: 'Der Ausgang ist nicht bestätigt. Bitte „Vorgang prüfen“ verwenden und nicht erneut importieren.'
+    };
+    view.importFeedbackTitle.textContent = !attempt
+      ? 'Aktion wird vorbereitet'
+      : attempt.pending ? 'Anfrage wird übermittelt'
+      : !attempt.operationId ? 'Antwort ungewiss – nicht erneut starten'
+      : titles[state] || 'Auftragsstatus wird geprüft';
+    view.importFeedbackText.textContent = !attempt
+      ? 'Quelle und Berechtigung werden geprüft. Noch kein neuer Auftrag bestätigt.'
+      : attempt.pending ? 'Die Anfrage wurde gesendet; eine Antwort steht noch aus.'
+      : !attempt.operationId
+        ? 'Der Server hat keine eindeutige Antwort geliefert. Bitte nicht erneut klicken.'
+        : descriptions[state] || 'Der vorhandene Auftrag wird über „Vorgang prüfen“ abgefragt.';
+    view.importFeedback.className = 'media-import-import-feedback' +
+      (attempt && (terminalState(state) || state === 'outcome_unknown')
+        ? ' is-finished' : ' is-running');
+  }
+
   function showAttempt(view) {
     view.select.disabled = true;
     view.startButton.disabled = true;
@@ -673,6 +733,10 @@
       view.batchReview = view.batch.review;
       renderBatchReview(view);
     }
+    // The same operation indicator is always visible after owner remounts.
+    renderPreviewCard(view, view.previewResult, view.allOrdinary.find(function (item) {
+      return item.sourceId === view.attempt.sourceId;
+    }));
     if (view.attempt.operationId) {
       readOperation(view);
     } else if (view.attempt.pending) {
@@ -1870,8 +1934,17 @@
       : state === 'failed' ? 'Vorschau fehlgeschlagen'
       : state === 'pending' ? 'Technische Prüfung läuft'
       : 'Folge aus der Liste auswählen';
-    card.appendChild(element('div', 'media-import-preview-state is-' + state,
+    const actions = element('div', 'media-import-preview-actions');
+    actions.appendChild(element('div', 'media-import-preview-state is-' + state,
       stateText));
+    // Move the *existing* import button; never create a second click handler.
+    view.startButton.hidden = !selected || !plan ||
+      !['ready', 'insufficient'].includes(plan.status);
+    actions.appendChild(view.startButton);
+    card.appendChild(actions);
+    card.appendChild(view.importFeedback);
+    card.appendChild(view.message);
+    renderImportFeedback(view);
     if (selected && source && source.folderKnown) {
       card.appendChild(element('p', 'media-import-preview-path',
         'Quelle: ' + (source.folder ? source.folder.split('/').join(' › ') : 'Importwurzel')));
@@ -2171,6 +2244,7 @@
     }
     view.submitting = true;
     view.startButton.disabled = true;
+    renderImportFeedback(view);
     view.localReencode.disabled = true;
     view.decision.disabled = true;
     view.skipButton.disabled = true;
@@ -2255,6 +2329,7 @@
               target.refreshButton.hidden = true;
               target.newButton.hidden = true;
               target.operationDetail.textContent = '';
+              renderImportFeedback(target);
             }
             const detail = error.status === 422
               ? 'Ausgewählte Importquelle ungültig oder abgelaufen. Quellen aktualisieren.'
@@ -2299,6 +2374,7 @@
         report(view, message, true);
       }).finally(function () {
         view.submitting = false;
+        if (isCurrent(view)) renderImportFeedback(view);
         if (isCurrent(view) && !view.attempt && !view.batch) {
           // Only a pre-admission failure permits read-only retry. A definite
           // HTTP rejection still requires an explicit sources refresh.
@@ -2375,7 +2451,14 @@
     preview.setAttribute('role', 'status');
     root.appendChild(preview);
     const previewCard = element('div', 'media-import-preview-card');
-    previewCard.setAttribute('role', 'status');
+    const importFeedback = element('div', 'media-import-import-feedback');
+    importFeedback.hidden = true;
+    importFeedback.setAttribute('role', 'status');
+    importFeedback.setAttribute('aria-live', 'polite');
+    const importFeedbackTitle = element('strong', 'media-import-import-title');
+    const importFeedbackText = element('p', 'media-import-import-description');
+    importFeedback.appendChild(importFeedbackTitle);
+    importFeedback.appendChild(importFeedbackText);
     const previewRetryButton = element('button', 'media-import-preview-retry', 'Vorschau erneut prüfen');
     previewRetryButton.type = 'button';
     previewRetryButton.hidden = true;
@@ -2524,7 +2607,6 @@
     detail.appendChild(previewRetryButton);
     detail.appendChild(choiceLabel);
     detail.appendChild(encodeLabel);
-    detail.appendChild(startButton);
     detail.appendChild(skipButton);
     // Rectools markers are normal workflow state, not a request to release.
     // Keep the existing explicit recovery path exclusively under collapsed
@@ -2532,6 +2614,7 @@
     technical.appendChild(markedLabel);
     technical.appendChild(releaseButton);
     technical.appendChild(preview);
+    technical.appendChild(operationDetail);
     detail.appendChild(technical);
     const mobileNav = element('nav', 'media-import-mobile-nav');
     mobileNav.setAttribute('aria-label', 'Media-Import-Ansichten');
@@ -2560,10 +2643,8 @@
     footer.appendChild(batchReviewList);
     footer.appendChild(batchConfirmButton);
     footer.appendChild(batchStopButton);
-    footer.appendChild(refreshButton);
-    footer.appendChild(newButton);
-    footer.appendChild(message);
-    footer.appendChild(operationDetail);
+    importFeedback.appendChild(refreshButton);
+    importFeedback.appendChild(newButton);
     root.replaceChildren(header, toolbar, statusStrip, mobileNav, workspace, footer);
     mountTarget.replaceChildren(root);
     const view = {owner: owner, backendId: backendId, root: root,
@@ -2591,6 +2672,8 @@
       batch: activeBatches[backendId] || null,
       refreshButton: refreshButton, newButton: newButton,
       message: message, operationDetail: operationDetail,
+      importFeedback: importFeedback, importFeedbackTitle: importFeedbackTitle,
+      importFeedbackText: importFeedbackText,
       scanNotice: scanNotice, sourceDetails: sourceDetails,
       preview: preview, previewCard: previewCard,
       previewRetryButton: previewRetryButton,
@@ -2691,6 +2774,7 @@
       view.refreshButton.hidden = true;
       view.reloadButton.disabled = false;
       view.operationDetail.textContent = '';
+      renderImportFeedback(view);
       return loadSources(view);
     });
     // Even an already-visible tab must recheck the live Core capability.
