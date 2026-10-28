@@ -9,6 +9,9 @@
   // replacement: do not claim a newly scanned file is the verified original.
   // No source mutation, media identity or durable ledger follows from it.
   const confirmedImports = Object.create(null);
+  // Latest Core-confirmed outcome per backend, during this authenticated
+  // browser session. Display receipt only; never treat it as source identity.
+  const completedOperations = Object.create(null);
   // Avoid repeated automatic duplicate operations for a single source observation.
   const automaticDuplicates = Object.create(null);
   const POLL_MS = 4000;
@@ -119,6 +122,9 @@
     });
     Object.keys(confirmedImports).forEach(function (id) {
       delete confirmedImports[id];
+    });
+    Object.keys(completedOperations).forEach(function (id) {
+      delete completedOperations[id];
     });
   }
 
@@ -554,6 +560,20 @@
       renderImportFeedback(view);
       const recordingConfirmed = operation.state === 'succeeded' &&
         (!view.attempt.videoDecision || view.attempt.videoDecision === 'local');
+      if (operation.state === 'succeeded') {
+        const markerAction = view.attempt.videoDecision;
+        const confirmedText = recordingConfirmed
+          ? 'Import abgeschlossen ✓ – VDR-Aufnahme bestätigt'
+          : markerAction === 'delete_duplicate'
+            ? 'Aufgeräumt ✓ – doppelte Quelldatei gelöscht; VDR-Aufnahme bleibt'
+          : markerAction === 'duplicate'
+            ? 'Dublette erkannt ✓ – Quelle als .duplicate markiert'
+          : 'Dateiaktion abgeschlossen ✓ – ' +
+              operationLabel(operation.state, markerAction);
+        completedOperations[view.backendId] = confirmedText;
+        view.completedNotice.textContent = confirmedText;
+        view.completedNotice.hidden = false;
+      }
       if (recordingConfirmed) {
         // Core only reaches 'succeeded' for a recording after committed
         // recording-cache readback. Keep a historical operation reference
@@ -2623,8 +2643,13 @@
     toolbar.appendChild(searchLabel);
     toolbar.appendChild(statusLabel);
     const statusStrip = element('div', 'media-import-status-strip');
+    const completedNotice = element('div', 'media-import-completed-notice');
+    completedNotice.setAttribute('role', 'status');
+    completedNotice.textContent = completedOperations[backendId] || '';
+    completedNotice.hidden = !completedNotice.textContent;
     statusStrip.appendChild(visibleCount);
     statusStrip.appendChild(scanNotice);
+    statusStrip.appendChild(completedNotice);
     const library = element('section', 'media-import-pane media-import-library');
     library.appendChild(element('h4', '', 'Serien und Ordner'));
     library.appendChild(folderBreadcrumb);
@@ -2727,7 +2752,8 @@
       message: message, operationDetail: operationDetail,
       importFeedback: importFeedback, importFeedbackTitle: importFeedbackTitle,
       importFeedbackText: importFeedbackText,
-      scanNotice: scanNotice, sourceDetails: sourceDetails,
+      scanNotice: scanNotice, completedNotice: completedNotice,
+      sourceDetails: sourceDetails,
       preview: preview, previewCard: previewCard,
       previewRetryButton: previewRetryButton,
       sourceTitles: Object.create(null),
