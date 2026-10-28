@@ -200,6 +200,9 @@ int main() {
         assert(capacity.requiredBytes == plan.sourceBytes * 3U +
             64U * 1024U * 1024U);
         assert(capacity.availableBytes > 0U);
+        assert(capacity.reserveBytes == 0U && capacity.sufficient);
+        // A local import is not refused because of a disk-free-space threshold.
+        requireProductionCapacity(plan);
         assert(!fs::exists(f.video / "Sample"));
         // An untrusted source selected from an authorized inventory may be
         // inspected for codec decision without creating recording artifacts.
