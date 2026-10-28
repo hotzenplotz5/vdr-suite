@@ -1233,6 +1233,8 @@
     view.previewResult = null;
     view.previewStatus = '';
     view.previewFailed = false;
+    // A filter change or rescan clears selection; do not leave an inert retry visible.
+    view.previewRetryButton.hidden = true;
     resetBatchReview(view);
     const query = String(view.searchInput.value || '').trim().toLowerCase();
     const mode = view.statusFilter.value;
@@ -1436,6 +1438,8 @@
     view.previewResult = null;
     view.previewStatus = '';
     view.previewFailed = false;
+    // A filter change or rescan clears selection; do not leave an inert retry visible.
+    view.previewRetryButton.hidden = true;
     resetBatchReview(view);
     const generation = ++view.sourcesGeneration;
     // A re-scan must not display stale counts or selectable entries while
