@@ -155,6 +155,20 @@ struct FdGuard {
     FdGuard& operator=(const FdGuard&) = delete;
 };
 
+// VDR monitors <videoRoot>/.update for externally published recordings.
+// Only notify after the verified .rec has been atomically published. A failed
+// notification cannot undo the already committed recording; Core still waits
+// for independent native readback before reporting success.
+void notifyVdrRecordingsChanged(const fs::path& videoRoot)
+{
+    const fs::path marker = videoRoot / ".update";
+    FdGuard fd(::open(marker.c_str(),
+                      O_WRONLY | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0644));
+    if (fd.fd < 0 || ::futimens(fd.fd, nullptr) != 0)
+        std::fprintf(stderr, "Media Import: VDR recording refresh notification failed: %s\n",
+                     std::strerror(errno));
+}
+
 // Copy the exact opened source into private backend-local staging. Both media
 // subprocesses operate exclusively on this snapshot, never on a pathname
 // that an external importer can swap between probe and remux.
@@ -937,6 +951,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
                               destination.c_str(), RENAME_NOREPLACE);
     require(rc == 0, "atomic non-overwriting recording promotion failed");
     newDirectories.paths.clear(); // retain directories only after visible .rec exists
+    notifyVdrRecordingsChanged(plan.videoRoot);
     return destination;
 }
 
