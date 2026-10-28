@@ -4952,6 +4952,21 @@ body.channel-sorter-dragging * {
   font-size: .78rem;
   font-weight: 800;
 }
+/* Only a marked .duplicate source presents a destructive action. */
+.media-import-panel .media-import-delete-duplicate {
+  justify-self: start;
+  min-height: 2.6rem;
+  padding: .55rem .95rem;
+  border: 1px solid #ef4444;
+  border-radius: .6rem;
+  background: #7f1d1d;
+  color: #fff;
+  font-weight: 700;
+}
+.media-import-panel .media-import-delete-duplicate:disabled { opacity: .45; }
+@media (max-width: 480px) {
+  .media-import-panel .media-import-delete-duplicate { width: 100%; }
+}
 /* Keep the real import action next to the verified readiness label. */
 .media-import-preview-actions {
   display: flex;
