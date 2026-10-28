@@ -674,16 +674,16 @@
     };
     const descriptions = {
       accepted: 'Der Server hat den Auftrag angenommen. Die Ausführung wird automatisch überwacht.',
-      queued: 'Der Auftrag wartet auf den Backend-Agenten. Die Anzeige aktualisiert sich automatisch.',
+      queued: 'Der Import wartet auf den Start. Diese Anzeige aktualisiert sich automatisch.',
       dispatching: marker
-        ? 'Der Backend-Agent bearbeitet die Dateimarkierung.'
-        : 'Der Backend-Agent verarbeitet die Aufnahme. Die Anzeige aktualisiert sich automatisch.',
+        ? 'Die Datei wird gerade markiert.'
+        : 'Die Aufnahme wird verarbeitet. Diese Anzeige aktualisiert sich automatisch.',
       executed_unverified: marker
         ? 'Die Dateiaktion wurde ausgeführt. Die abschließende Bestätigung steht noch aus.'
-        : 'Die Verarbeitung ist beendet. Die VDR-Aufnahme wird noch unabhängig bestätigt.',
+        : 'Die Datei ist verarbeitet. Wir prüfen noch, ob die Aufnahme im VDR angekommen ist.',
       succeeded: marker
         ? 'Die Dateiaktion wurde bestätigt.'
-        : 'Die neue VDR-Aufnahme wurde bestätigt.',
+        : 'Die Aufnahme ist im VDR vorhanden.',
       rejected: 'Der Auftrag wurde nicht angenommen.',
       conflict: 'Der Auftrag konnte wegen eines Konflikts nicht ausgeführt werden.',
       failed_before_dispatch: 'Die Ausführung wurde nicht gestartet.',
