@@ -233,9 +233,9 @@ establish the required facts from the current authoritative source:**
 - Derive HTTP status codes, authentication and authorization behavior from
   the actual gate, router, service and tests. **Never guess a status code,**
   and never weaken a security check just to match an unsupported expectation.
-- Establish the required filesystem/storage preflight, intended output paths,
-  user privileges, possible side effects and whether the action touches the
-  installed service. Host-dependent facts require a read-only preflight.
+- Establish intended output paths, user privileges, possible side effects and
+  whether the action touches the installed service. Host-dependent facts require
+  a read-only compatibility check, without unapproved storage-reserve gates.
 - Check the expected head **before** handing off a long-running, detached or
   resource-intensive build. Never accidentally start an old checkout after
   fixing a newer branch.
@@ -243,7 +243,7 @@ establish the required facts from the current authoritative source:**
 **The test block itself must fail closed on wrong provenance.** It must
 verify the checkout root, actual SHA against the selected immutable test
 candidate (or an explicitly verified tracking policy), required commands
-and Make targets, and applicable resource preflight *before* work begins.
+and Make targets, and applicable non-storage compatibility checks *before* work begins.
 If the branch advanced, fetch and establish the corrected candidate first.
 Do not give a detached build script that silently tests stale code.
 Reuse accepted evidence for unaffected inputs; do not restart tests only
@@ -255,7 +255,7 @@ running. Detached jobs require a recorded exact SHA, log, process identity,
 terminal return codes, and a read-only status command distinguishing running,
 completed successfully, completed with error, and unexpectedly missing.
 Never report success before the result is known. Continue to honor existing
-resource safety, minimal-validation and shell-option rules.
+minimal-validation and shell-option rules.
 
 **If evidence is unavailable, stop the affected unsafe action, not the entire
 authorized workstream.** Retrieve authoritative information or perform a
@@ -299,10 +299,8 @@ belonging to another concurrent workstream. In particular, shared or parallel
 MU/client/runtime work must remain untouched unless its own workstream has
 finished and its state has been checked.
 
-On tmpfs-backed `/tmp` or other capacity-constrained temporary storage, check
-available space before creating a large worktree/build tree when recent evidence
-shows pressure. Prefer a bounded location with sufficient capacity rather than
-allowing a predictable `ENOSPC`/inode failure.
+Do not create large disposable build trees when verified existing artifacts can
+be reused. Report actual filesystem write failures without speculative cleanup.
 
 ## yaVDR root shell, public GitHub checkout and least-privileged daemon build (2026-10-14)
 
@@ -328,7 +326,7 @@ proven read-only. The distinct VIDAA repository is private; see its own
 1. Keep the operator in their existing **root shell**; never demand
    `sudo su`, `su - yavdr`, a change of login, or an interactive `exit`.
    A failed check must not terminate the calling shell.
-2. Preflight the actual checkout/build filesystem before creating a
+2. Identify the actual checkout/build location before creating a
    substantial new clone. Check exact branch and full 40-character pinned
    SHA against the authoritative GitHub ref (never gate install on CI),
    and inspect existing installed service/
@@ -481,8 +479,7 @@ block is proposed or executed:**
    recovery rather than recompiling. **Only if there is no valid binary
    or seal anywhere in the identified trusted candidate checkout(s)**
    and product-code changes actually require it, authorize **one**
-   unprivileged build, under the installer's existing resource and
-   provenance gates. An invalid/mismatched artifact is a STOP requiring
+   unprivileged build, under the installer's existing provenance gates. An invalid/mismatched artifact is a STOP requiring
    diagnosis; do not overwrite or rebuild over it speculatively.
 7. For an existing build in another checkout, first establish exact
    source provenance, seal integrity, build options and trust. Do not
@@ -534,37 +531,16 @@ current candidate.
 The detailed contract is
 `docs/development/install-runtime-deployment-reliability.md`.
 
-## Real yaVDR resource-safety gate
+## KISS: no arbitrary storage-reserve gates for Media Tools installation
 
-Every real yaVDR operation that can materially consume persistent or temporary
-storage must pass a capacity preflight immediately before the first write.
-This includes database backups, runtime staging, local builds, package staging,
-exports, media rewrites, generated caches, large logs and any other operation
-that can create or duplicate substantial data.
-
-The preflight is mandatory and must identify the actual destination filesystem,
-measure its currently available bytes, estimate a conservative worst-case number
-of additional bytes that can coexist during the operation, and reserve headroom
-that will still remain afterwards. If the operation size cannot be bounded
-conservatively, the operation is not allowed to start.
-
-For each affected filesystem, require projected free space after all concurrent
-artifacts to remain at least the larger of 4 GiB or 15 percent of that
-filesystem's total capacity. Existing temporary stages, previous backups and
-other retained artifacts on the same filesystem count against the available
-space; never calculate capacity as though they had already been removed.
-
-A handed-off test or acceptance block that can materially consume storage must
-print the measured capacity inputs and a clear `RESOURCE_PREFLIGHT=PASS` before
-the first storage-consuming mutation. A failed capacity check is a hard stop:
-do not build, back up, stage, deploy, export or attempt speculative cleanup to
-make the operation fit.
-
-After the operation, recheck the affected filesystems and print
-`RESOURCE_POSTCHECK=PASS` only when the required reserve still exists. Remove
-test-only stages and temporary artifacts once they are no longer needed.
-If a service was stopped, verify and report its actual state after the operation.
-Resource-safety checks do not replace runtime acceptance.
+The maintainer explicitly rejected mandatory filesystem-capacity preflights and
+fixed free-space reserves (such as 4 GiB or 15%) for Media Tools staging,
+installation and updates on 2026-10-28. Do not reintroduce such restrictions
+in shell installers, stage composers, test blocks, or equivalent wrappers.
+Reuse the already-built binaries and sealed stages whenever available.
+Report real filesystem I/O failures plainly; do not perform speculative cleanup
+or delete existing user data. This instruction does not authorize changes to VDR
+recordings, permissions, configuration or access grants.
 
 ## Testblock repository entry
 
@@ -616,10 +592,8 @@ belonging to another concurrent workstream. In particular, shared or parallel
 MU/client/runtime work must remain untouched unless its own workstream has
 finished and its state has been checked.
 
-On tmpfs-backed `/tmp` or other capacity-constrained temporary storage, check
-available space before creating a large worktree/build tree when recent evidence
-shows pressure. Prefer a bounded location with sufficient capacity rather than
-allowing a predictable `ENOSPC`/inode failure.
+Do not create large disposable build trees when verified existing artifacts can
+be reused. Report actual filesystem write failures without speculative cleanup.
 
 ## Frontend lifecycle and composition gates
 
