@@ -17,11 +17,15 @@ mt_install() {
     echo 'INSTALL=STOP: Previous Media Tools stage missing'; return 1;
   }
   echo '=== BUILD NEW CANDIDATE (LIVE SERVICES UNCHANGED) ==='
-  runuser -u yavdr -- git -C "$ROOT" fetch --no-tags \
-    https://github.com/hotzenplotz5/vdr-suite.git "$SHA" || return 1
+  # An independent shallow clone avoids the existing checkout's object
+  # database. In particular, a failed fetch with an unresolved delta must
+  # not corrupt or hold up the productive installation.
   WORK=$(runuser -u yavdr -- mktemp -d /home/yavdr/vdr-suite-mt-update-XXXXXXXX) || return 1
   echo "MT_UPDATE_WORK=$WORK"
-  runuser -u yavdr -- git -C "$ROOT" worktree add --detach "$WORK/repo" "$SHA" || return 1
+  runuser -u yavdr -- git clone --quiet --no-tags --depth 50 --single-branch \
+    --branch fix/media-tools-root-scan-visible-results \
+    https://github.com/hotzenplotz5/vdr-suite.git "$WORK/repo" || return 1
+  runuser -u yavdr -- git -C "$WORK/repo" checkout --quiet --detach "$SHA" || return 1
   [ "$(runuser -u yavdr -- git -C "$WORK/repo" rev-parse HEAD)" = "$SHA" ] || return 1
   runuser -u yavdr -- cp -a "$OLD/build" "$WORK/build" || return 1
   runuser -u yavdr -- make -C "$WORK/repo" -j2 stage-install-runtime \
