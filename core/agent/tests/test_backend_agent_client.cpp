@@ -937,19 +937,28 @@ void test_low_latency_command_poll_between_heartbeats()
 
     transport.responses.push_back(BackendAgentTransportResponse{
         false, 0, {}, "protected_transport_failed"});
+    // A failed command poll renews the live lease before retrying commands.
     transport.responses.push_back(success(
-        200,
-        "{\"hasAssignment\":false,"
-        "\"reasonCode\":\"no_command_available\"}"));
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 2));
+    transport.responses.push_back(success(
+        200, "{\"hasAssignment\":false,\"reasonCode\":\"no_command_available\"}"));
+    transport.responses.push_back(success(
+        200, "{\"hasAssignment\":false,\"reasonCode\":\"no_command_available\"}"));
 
     assert(runtime.run([&] { return stopRequested; }) == 0);
     assert(millisecondSleeps == std::vector<int>({250, 250, 250}));
-    assert(transport.paths.size() == requestsBeforeRun + 2);
-    assert(
-        transport.paths[requestsBeforeRun] ==
+    assert(transport.paths.size() == requestsBeforeRun + 5);
+    assert(transport.paths[requestsBeforeRun] ==
         "/api/agent/v1/commands/poll");
-    assert(
-        transport.paths[requestsBeforeRun + 1] ==
+    assert(transport.paths[requestsBeforeRun + 1] ==
+        "/api/agent/v1/heartbeat");
+    assert(transport.paths[requestsBeforeRun + 2] ==
+        "/api/agent/v1/observations/backend-health");
+    assert(transport.paths[requestsBeforeRun + 3] ==
+        "/api/agent/v1/commands/poll");
+    assert(transport.paths[requestsBeforeRun + 4] ==
         "/api/agent/v1/commands/poll");
     assert(
         transport.bodies.back().find("\"refreshCapabilities\":false") !=
@@ -964,7 +973,7 @@ void test_low_latency_command_poll_between_heartbeats()
         transport.bodies.back().find("vdr.legacy-osd.input") ==
         std::string::npos);
     assert(osdTransport.discoveryCalls == 1);
-    assert(runtime.state().heartbeatSequence == heartbeatBeforeRun);
+    assert(runtime.state().heartbeatSequence == heartbeatBeforeRun + 1);
     assert(
         std::count(
             logs.begin(),
