@@ -2390,10 +2390,10 @@ function publishHomeResume() {}
   assert(deleteAction && !deleteAction.hidden && !deleteAction.disabled);
   const beforeDelete = submits;
   confirmLocal = false;
-  await deleteAction.listeners.click();
-  assert.strictEqual(submits, beforeDelete, 'cancelled delete creates no operation');
+  await inlineDelete.listeners.click();
+  assert.strictEqual(submits, beforeDelete, 'cancelled inline delete creates no operation');
   confirmLocal = true;
-  await deleteAction.listeners.click();
+  await inlineDelete.listeners.click();
   await settle();
   assert.strictEqual(submits, beforeDelete + 1,
     'explicit delete uses one existing canonical media import operation');
