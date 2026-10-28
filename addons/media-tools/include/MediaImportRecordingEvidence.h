@@ -127,4 +127,13 @@ inline bool parseMediaImportResultEvidence(
     return false;
 }
 
+// Core refresh scheduling accepts both the historical recording-only proof
+ // and the current recording+source snapshot. Final success still requires a
+ // fresh independent native VDR recording-cache readback.
+inline bool validMediaImportResultRecordingEvidence(const std::string& input)
+{
+    std::string recording, source;
+    return parseMediaImportResultEvidence(input, recording, source);
+}
+
 } // namespace vdrsuite::mediatools
