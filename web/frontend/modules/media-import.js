@@ -540,11 +540,24 @@
     return startImport(view);
   }
 
-  function readOperation(view) {
-    if (!isCurrent(view) || !view.attempt || !view.attempt.operationId ||
-        view.reading) return Promise.resolve();
+  function readOperation(view, manual) {
+    if (!isCurrent(view) || !view.attempt || !view.attempt.operationId)
+      return Promise.resolve();
+    if (view.reading) {
+      // An active automatic read must not discard a manual check request.
+      if (manual) {
+        view.manualCheckQueued = true;
+        view.importFeedbackText.textContent =
+          'Status wird nach der laufenden Abfrage erneut geprüft …';
+      }
+      return Promise.resolve();
+    }
     view.reading = true;
     clearPolling(view);
+    if (manual) {
+      view.manualCheckQueued = false;
+      view.importFeedbackText.textContent = 'Vorgangsstatus wird abgefragt …';
+    }
     return publicClient().getOperation({
       operationId: view.attempt.operationId,
       credentials: 'same-origin', cache: 'no-store'
@@ -557,6 +570,11 @@
         throw new Error('Ungültige Operationsantwort');
       }
       view.attempt.state = operation.state;
+      if (manual) {
+        view.lastManualCheck = 'Zuletzt geprüft: ' +
+          new Date().toLocaleTimeString('de-DE') + ' – ' +
+          operationLabel(operation.state, view.attempt.videoDecision);
+      }
       renderImportFeedback(view);
       const recordingConfirmed = operation.state === 'succeeded' &&
         (!view.attempt.videoDecision || view.attempt.videoDecision === 'local');
@@ -652,10 +670,22 @@
       if (isCurrent(view)) {
         if (view.batch)
           stopBatch(view, 'Operationsstatus nicht abrufbar. Kein Folgeimport.');
-        else report(view, operationError(error), true);
+        else {
+          report(view, operationError(error), true);
+          if (manual) {
+            view.lastManualCheck = 'Letzte Abfrage fehlgeschlagen: ' +
+              operationError(error) + ' Kein neuer Import gestartet.';
+            renderImportFeedback(view);
+          }
+        }
       }
     }).finally(function () {
       view.reading = false;
+      if (isCurrent(view) && view.manualCheckQueued && view.attempt &&
+          view.attempt.operationId) {
+        view.manualCheckQueued = false;
+        return readOperation(view, true);
+      }
       if (isCurrent(view) && view.resumeDuplicateReview) {
         view.resumeDuplicateReview = false;
         nextConfirmedDuplicate(view);
@@ -739,6 +769,8 @@
       : !attempt.operationId
         ? 'Der Server hat keine eindeutige Antwort geliefert. Bitte nicht erneut klicken.'
         : descriptions[state] || 'Der vorhandene Auftrag wird über „Vorgang prüfen“ abgefragt.';
+    if (view.lastManualCheck && !attempt.pending)
+      view.importFeedbackText.textContent += ' ' + view.lastManualCheck;
     view.importFeedback.className = 'media-import-import-feedback' +
       (state === 'succeeded' ? ' is-success'
         : attempt && (terminalState(state) || state === 'outcome_unknown')
@@ -2345,6 +2377,8 @@
             pcReturn: !releaseMode && Boolean(possiblePcReturn(view, selectedSource)),
             state: '', pending: true};
           activeAttempts[view.backendId] = view.attempt;
+          view.lastManualCheck = '';
+          view.manualCheckQueued = false;
           renderImportFeedback(view);
           return publicClient().submitMediaImport({
             backendId: view.backendId, sourceId: sourceId, idempotencyKey: key,
@@ -2765,7 +2799,8 @@
       onlineKind: 'movie', onlineQuery: '', onlineStatus: '', onlinePending: false,
       onlineAuto: false, onlineAutoSelected: false,
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
-      reads: 0, timer: null, attempt: activeAttempts[backendId] || null};
+      reads: 0, timer: null, manualCheckQueued: false, lastManualCheck: '',
+      attempt: activeAttempts[backendId] || null};
     current = view;
     setMobilePane(view, 'media');
     searchInput.addEventListener('input', function () {
@@ -2839,7 +2874,9 @@
       stopBatch(view, 'Aktuelle Core-Operation bleibt unverändert.');
     });
     reloadButton.addEventListener('click', function () { return loadSources(view); });
-    refreshButton.addEventListener('click', function () { return readOperation(view); });
+    refreshButton.addEventListener('click', function () {
+      return readOperation(view, true);
+    });
     newButton.addEventListener('click', function () {
       if (!isCurrent(view) || view.batch || !view.attempt ||
           !terminalState(view.attempt.state) || view.reading) return;
