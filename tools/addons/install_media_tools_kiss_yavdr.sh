@@ -7,6 +7,7 @@ set +o pipefail
 
 mt_install() {
   local CODE_SHA=c7cf3f51200b738449edd43810ce87022b1ccc85
+  local TOOLS_SHA=e7193f95298e63819cc32086240f51c93eeee3fe
   local BRANCH=fix/media-tools-root-scan-visible-results
   local REPO=https://github.com/hotzenplotz5/vdr-suite.git
   local WORK=/home/yavdr/vdr-suite-mt-kiss-c7cf3f51200b
@@ -54,24 +55,63 @@ mt_install() {
       [ ! -e "$WORK/repo" ] || { echo 'MT_INSTALL=STOP: unexpected repository path'; return 1; }
       runuser -u yavdr -- git clone -q --depth 20 --single-branch --branch "$BRANCH" \
         "$REPO" "$WORK/repo" || return 1
-      runuser -u yavdr -- git -C "$WORK/repo" checkout -q --detach "$CODE_SHA" || return 1
     fi
-    [ "$(runuser -u yavdr -- git -C "$WORK/repo" rev-parse --show-toplevel)" = "$WORK/repo" ] &&
-    [ "$(runuser -u yavdr -- git -C "$WORK/repo" rev-parse HEAD)" = "$CODE_SHA" ] &&
+    # The tooling commit changes only AGENTS.md and installer/staging code.
+    # Reuse binaries compiled from CODE_SHA; no new product build is required.
+    runuser -u yavdr -- git -C "$WORK/repo" fetch -q --no-tags --depth 20 origin "$BRANCH" || return 1
     [ -z "$(runuser -u yavdr -- git -C "$WORK/repo" status --porcelain --untracked-files=no)" ] || {
-      echo 'MT_INSTALL=STOP: unverified source checkout'; return 1;
+      echo 'MT_INSTALL=STOP: checkout contains tracked changes'; return 1;
     }
+    runuser -u yavdr -- git -C "$WORK/repo" checkout -q --detach "$TOOLS_SHA" || return 1
+    [ "$(runuser -u yavdr -- git -C "$WORK/repo" rev-parse --show-toplevel)" = "$WORK/repo" ] &&
+    [ "$(runuser -u yavdr -- git -C "$WORK/repo" rev-parse HEAD)" = "$TOOLS_SHA" ] || {
+      echo 'MT_INSTALL=STOP: unverified staging tools'; return 1;
+    }
+    local changed_file
+    while IFS= read -r changed_file; do
+      case "$changed_file" in
+        ''|AGENTS.md|tools/addons/install_media_tools_kiss_yavdr.sh|tools/addons/stage_media_tools_runtime.py) ;;
+        *) echo "MT_INSTALL=STOP: product input differs from $CODE_SHA: $changed_file"; return 1 ;;
+      esac
+    done < <(runuser -u yavdr -- git -C "$WORK/repo" diff --name-only "$CODE_SHA" "$TOOLS_SHA")
+
     if [ -e "$WORK/stage-with-media-tools" ]; then
       echo 'MT_INSTALL=STOP: existing candidate stage is not verified; keeping it'; return 1
     fi
-    echo "MT_BUILD=START $CODE_SHA"
-    runuser -u yavdr -- make -C "$WORK/repo" -j2 stage-install-runtime \
-      BUILD_DIR="$WORK/build" RUNTIME_STAGE="$WORK/stage" || return 1
-    runuser -u yavdr -- make -C "$WORK/repo" -j2 \
-      addon-media-import addon-media-shrink addon-media-check BUILD_DIR="$WORK/build" || return 1
+    if [ -f "$WORK/stage/.vdr-suite-install-runtime-manifest.json" ]; then
+      runuser -u yavdr -- python3 "$WORK/repo/tools/install_runtime_stage.py" check \
+        --stage-root "$WORK/stage" --live-root "$WORK/stage" || {
+        echo 'MT_INSTALL=STOP: existing Suite stage invalid'; return 1;
+      }
+      echo 'MT_SUITE_BUILD=REUSED_EXISTING_SEALED_STAGE'
+    else
+      [ ! -e "$WORK/stage" ] || { echo 'MT_INSTALL=STOP: incomplete Suite stage'; return 1; }
+      echo "MT_SUITE_BUILD=START $CODE_SHA"
+      runuser -u yavdr -- make -C "$WORK/repo" -j2 stage-install-runtime \
+        BUILD_DIR="$WORK/build" RUNTIME_STAGE="$WORK/stage" || return 1
+    fi
+
+    local -a missing=()
+    [ -x "$WORK/build/addons/vdr-suite-media-import" ] || missing+=(addon-media-import)
+    [ -x "$WORK/build/addons/vdr-suite-media-shrink" ] || missing+=(addon-media-shrink)
+    [ -x "$WORK/build/addons/vdr-suite-media-check" ] || missing+=(addon-media-check)
+    if [ "${#missing[@]}" -gt 0 ]; then
+      echo "MT_ADDON_BUILD=MISSING_ONLY ${missing[*]}"
+      runuser -u yavdr -- make -C "$WORK/repo" -j2 "${missing[@]}" \
+        BUILD_DIR="$WORK/build" || return 1
+    else
+      echo 'MT_ADDON_BUILD=REUSED_EXISTING_WORKERS'
+    fi
     HASH=$(sha256sum "$WORK/build/addons/vdr-suite-media-import" | cut -d' ' -f1) || return 1
-    runuser -u yavdr -- sh -c 'printf "%s\n%s\n" "$1" "$2" > "$3"' \
-      sh "$CODE_SHA" "$HASH" "$WORK/candidate.txt" || return 1
+    if [ -f "$WORK/candidate.txt" ]; then
+      [ "$(sed -n '1p' "$WORK/candidate.txt")" = "$CODE_SHA" ] &&
+      [ "$(sed -n '2p' "$WORK/candidate.txt")" = "$HASH" ] || {
+        echo 'MT_INSTALL=STOP: candidate record differs from existing build'; return 1;
+      }
+    else
+      runuser -u yavdr -- sh -c 'printf "%s\n%s\n" "$1" "$2" > "$3"' \
+        sh "$CODE_SHA" "$HASH" "$WORK/candidate.txt" || return 1
+    fi
     runuser -u yavdr -- python3 "$WORK/repo/tools/addons/stage_media_tools_runtime.py" \
       --prepared-workdir "$WORK" --output-stage "$WORK/stage-with-media-tools" \
       --approved-handler-sha256 "$HASH" || return 1
