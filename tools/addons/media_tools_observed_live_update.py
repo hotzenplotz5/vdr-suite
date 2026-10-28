@@ -103,7 +103,9 @@ def require_backup_directory(path: Path, *, new: bool) -> Path:
 
 def capacity_preflight(candidate: Path, backup_parent: Path) -> None:
     db = Path("/") / DB_REL
-    require_regular_owned(db)
+    db_info = db.lstat()
+    if not stat.S_ISREG(db_info.st_mode) or db_info.st_nlink != 1:
+        raise PreflightError("Suite database is not a regular file")
     candidate_bytes = sum(p.stat().st_size for p in candidate.rglob("*") if p.is_file())
     frontend = Path("/") / FRONTEND_ROOT
     actual_bytes = sum(p.stat().st_size for p in frontend.rglob("*") if p.is_file())
