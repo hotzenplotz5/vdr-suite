@@ -93,19 +93,48 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceSnapshot(
     std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
     bool& partial)
 {
+    vdrsuite::mediatools::MediaImportSourcePreview ignored;
+    return listTrustedSourceObservation(ids, labels, partial, {}, ignored);
+}
+
+bool BackendAgentMediaImportRuntime::listTrustedSourceObservation(
+    std::vector<std::string>& ids,
+    std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+    bool& partial, const std::string& selectedSourceId,
+    vdrsuite::mediatools::MediaImportSourcePreview& preview)
+{
+    using namespace vdrsuite::mediatools;
     ids.clear();
     labels.clear();
     partial = true;
-    if (!available()) return false;
+    preview = {};
+    preview.sourceId = selectedSourceId;
+    // Reuse the existing installation/context check but avoid available(),
+    // whose inventory.hasTrustedSource() performs another complete scan.
+    MediaToolsInstallationEvidence installed;
+    if (!verifiedInstallation(installed)) return false;
     try {
-        if (!inventory_.listTrustedSourceSnapshot(backendId_, labels, partial))
+        auto lock = MediaToolsImportRunLock::tryAcquire(
+            trustedRoot_, MediaToolsImportRunLock::Mode::sharedExecution);
+        if (!lock) return false;
+        LocalMediaImportSource selected;
+        if (!inventory_.listTrustedSourceSnapshot(
+                backendId_, labels, partial, selectedSourceId, &selected))
             return false;
         for (const auto& item : labels) ids.push_back(item.sourceId);
+        if (!selectedSourceId.empty()) {
+            if (selected.sourceFile.empty())
+                preview.failureCode = "inventory_missing";
+            else
+                inspectResolvedSource(selectedSourceId, selected, preview);
+        }
         return true;
     } catch (...) {
         ids.clear();
         labels.clear();
         partial = true;
+        preview = {};
+        preview.sourceId = selectedSourceId;
         return false;
     }
 }
@@ -138,6 +167,25 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
         out.failureCode = "inventory_missing";
         LocalMediaImportSource local;
         if (!inventory_.resolve(backendId_, sourceId, local)) return false;
+        return inspectResolvedSource(sourceId, local, out);
+    } catch (...) {
+        const std::string stage = out.failureCode;
+        out = {};
+        out.sourceId = sourceId;
+        out.failureCode = stage.empty() ? "inspection_failed" : stage;
+        return false;
+    }
+}
+
+bool BackendAgentMediaImportRuntime::inspectResolvedSource(
+    const std::string& sourceId,
+    const vdrsuite::mediatools::LocalMediaImportSource& local,
+    vdrsuite::mediatools::MediaImportSourcePreview& out)
+{
+    using namespace vdrsuite::mediatools;
+    out = {};
+    out.sourceId = sourceId;
+    try {
         out.failureCode = "source_invalid";
         const auto plan = inspectImportPreview(
             {local.sourceRoot, local.videoRoot, local.sourceFile});
@@ -195,7 +243,8 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
         out.failureCode = capacity.writable ? "" : "target_not_writable";
         return true;
     } catch (...) {
-        // Keep only the stage; do not forward exception text or local paths.
+        // Preserve the existing stage-only result; no filesystem path is
+        // added to the public preview response.
         const std::string stage = out.failureCode;
         out = {};
         out.sourceId = sourceId;
