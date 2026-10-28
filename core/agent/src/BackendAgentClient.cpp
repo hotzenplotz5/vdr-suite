@@ -2459,11 +2459,15 @@ int BackendAgentClientRuntime::run(const std::function<bool()>& stopRequested)
 
             if (millisecondsSinceHeartbeat < heartbeatIntervalMilliseconds)
             {
-                if (!pollCommands(reason))
+                const bool pollOk = pollCommands(reason);
+                if (!pollOk)
                     log("Backend Agent command poll failed: " + reason);
-                // A slow HTTP poll counts as elapsed time too; renew the
-                // heartbeat on this same iteration, not after more polls.
+                // If the command transport just failed, give the lease
+                // heartbeat priority instead of hammering the same failing
+                // connection with more rapid command polls.
                 accountElapsed();
+                if (!pollOk && reason == "protected_transport_failed")
+                    millisecondsSinceHeartbeat = heartbeatIntervalMilliseconds;
             }
             if (millisecondsSinceHeartbeat < heartbeatIntervalMilliseconds)
                 continue;
