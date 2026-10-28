@@ -558,6 +558,7 @@ async function checkEditorFullWrites() {
   const writes = [];
   const readbacks = [];
   let resultState = 'active';
+  let rejectCreate = false;
   const browser = {
     setTimeout() {},
     confirm() { return true; }
@@ -566,6 +567,10 @@ async function checkEditorFullWrites() {
     fetchClientSearchTimerCreateAction(options) {
       writes.push(options);
       const payload = options.payload;
+      if (rejectCreate) return Promise.resolve({
+        success: false, message: 'searchtimer backend does not match provider',
+        errors: ['status=503', 'requestBody=PRIVATE_SENTINEL']
+      });
       return Promise.resolve({
         success: true, backendId: payload.backendId, query: payload.query,
         backendNativeId: '42',
@@ -660,6 +665,32 @@ async function checkEditorFullWrites() {
   second.listeners.submit({preventDefault() {}});
   assert.strictEqual(writes.length, 2,
     'ambiguous readback must not lead to another write');
+
+  mod.renderList({searchTimers: []});
+  const rejected = findForm(mount);
+  assert(rejected);
+  rejectCreate = true;
+  rejected.elements.query.value = 'Tatort';
+  rejected.elements.active.checked = true;
+  rejected.listeners.submit({preventDefault() {}});
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  const feedback = rejected.children.find(child =>
+    child.className === 'searchtimer-feedback' ||
+    String(child.className).indexOf('searchtimer-feedback') === 0);
+  assert(feedback);
+  assert(feedback.textContent.includes('backend does not match provider'),
+    'provider denial must be shown instead of generic create response');
+  assert(feedback.textContent.includes('status=503'));
+  assert(!feedback.textContent.includes('PRIVATE_SENTINEL'),
+    'raw provider request content must never enter feedback');
+  assert.strictEqual(writes.length, 3);
+  assert.strictEqual(readbacks.length, 2);
+  rejected.listeners.submit({preventDefault() {}});
+  assert.strictEqual(writes.length, 3,
+    'server-side rejection must not create a new request in this editor');
 }
 checkEditorFullWrites().then(function() {
   console.log('test_searchtimer_workflows_runtime passed');
