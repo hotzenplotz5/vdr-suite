@@ -9,6 +9,30 @@ Diese Regel gilt für jede `AGENTS.md`-Datei im Repository. Ohne die ausdrückli
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
 
+## Striktes Branch-Verbot und ein Media-Tools-Entwicklungsbranch (28.10.2026)
+
+**Ausdrückliche Maintainer-Anordnung: AB SOFORT KEINE NEUEN GIT-BRANCHES ANLEGEN.**
+Assistenten dürfen für diese Entwicklung weder zusätzliche Feature-, Fix-, Test-,
+Hotfix- noch Ausweichbranches erstellen. Dieses Verbot gilt auch bei Fehlern,
+Konflikten und CI-Problemen; solche Probleme sind im vorhandenen Branch zu lösen.
+
+**Einziger Entwicklungsbranch für das Media-Tools-/Media-Import-Add-on:**
+`fix/media-tools-root-scan-visible-results` (PR #556).
+Sämtliche Media-Tools-Änderungen an Produktcode, Weboberfläche, Backend/Agent,
+Tests, Installationswerkzeugen und Dokumentation erfolgen in diesem Branch.
+Vor jeder Änderung den aktuellen Remote-HEAD und vorhandene Implementierungen
+prüfen, damit keine bereits umgesetzte Arbeit nochmals oder parallel entsteht.
+Andere bereits existierende Media-Tools-Branches dürfen zur Bestandsaufnahme
+gelesen werden; notwendige noch fehlende Änderungen sind nach Prüfung im
+einzigen Entwicklungsbranch zusammenzuführen, ohne einen neuen Branch
+anzulegen. Keine zusätzlichen Media-Tools-PRs eröffnen.
+
+**Abschluss:** Wenn die vereinbarten Funktionen vollständig implementiert,
+getestet und auf dem echten yaVDR abgenommen sind, den gesamten
+Media-Tools-Entwicklungsstand dieses einen Branches nach `main` mergen.
+Nicht vorzeitig als fertig oder bereits gemergt melden. Bestehende
+fremde Entwicklungsbranches nicht eigenmächtig löschen oder umschreiben.
+
 ## Usability First – No Unapproved Restrictions
 
 Neue Sicherheits-, Berechtigungs-, Aktivierungs- oder Installationsbeschränkungen dürfen nicht eigenständig eingeführt werden. Bestehende Schutzmechanismen dürfen nicht ohne begründeten Bedarf verschärft werden. Änderungen müssen die Benutzerfreundlichkeit erhalten oder verbessern. Zusätzliche Prüfungen, die keine konkret nachweisbare Fehlerklasse verhindern, sind zu vermeiden. Bereits bestätigte Testergebnisse dürfen nicht ohne Anlass erneut angefordert werden.
