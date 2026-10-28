@@ -582,6 +582,7 @@
         // Core has verified the marker operation; refresh the source inventory
         // to show the actual Rectools filename, not an imagined local status.
         const finishedId = view.attempt.sourceId;
+        const deletedDuplicate = view.attempt.videoDecision === 'delete_duplicate';
         const previousReview = view.batchReview;
         const remaining = view.duplicateQueue.slice();
         delete activeAttempts[view.backendId];
@@ -591,6 +592,8 @@
         view.reloadButton.disabled = false;
         return loadSources(view).then(function () {
           if (!isCurrent(view)) return;
+          if (deletedDuplicate)
+            report(view, 'Doppelte Quelldatei gelöscht. Die VDR-Aufnahme bleibt erhalten.');
           if (previousReview) {
             const row = previousReview.rows.find(function (entry) {
               return entry.sourceId === finishedId;
