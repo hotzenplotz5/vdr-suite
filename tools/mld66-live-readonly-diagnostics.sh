@@ -63,6 +63,28 @@ if command -v ps >/dev/null 2>&1; then
     fi
 fi
 
+# Both protected file paths are part of the non-secret Agent configuration.
+# Report presence/type only, never paths, identity fields or enrollment tokens.
+agent_conf=/etc/vdr-suite/backend-agent.conf
+if [ -r "$agent_conf" ]; then
+    for key in IDENTITY_PATH ENROLLMENT_PATH; do
+        configured=$(sed -n "s/^${key}=//p" "$agent_conf" | sed -n '1p')
+        if [ -z "$configured" ]; then
+            printf 'AGENT_%s=NOT_CONFIGURED\n' "$key"
+        elif [ -L "$configured" ]; then
+            printf 'AGENT_%s=SYMLINK_NOT_REGULAR\n' "$key"
+        elif [ -f "$configured" ]; then
+            printf 'AGENT_%s=REGULAR_FILE_PRESENT\n' "$key"
+        elif [ -e "$configured" ]; then
+            printf 'AGENT_%s=EXISTS_NOT_REGULAR_FILE\n' "$key"
+        else
+            printf 'AGENT_%s=MISSING\n' "$key"
+        fi
+    done
+else
+    echo "AGENT_CONFIG=NOT_READABLE"
+fi
+
 # A SQLite read-only query avoids the admin --status command: that command
 # performs normal ensureSchema()/technical-identity initialization.
 db=/var/lib/vdr-suite/vdr-suite.db
