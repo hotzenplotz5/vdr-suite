@@ -745,7 +745,7 @@ bool DaemonRuntime::initialize()
             // Reuse the existing coalesced, read-only Recording refresh
             // queue. Never spawn another job or mutate VDR from this callback.
             if (applied &&
-                vdrsuite::mediatools::validRecordingPathEvidence(
+                vdrsuite::mediatools::validMediaImportResultRecordingEvidence(
                     result.resultEvidence) &&
                 result.dispatchState == "accepted_by_executor")
                 recordingCacheRefreshQueue_.request(assignment.backendId, 2);
