@@ -1545,6 +1545,9 @@
 
   function loadSources(view) {
     if (!isCurrent(view) || view.attempt) return Promise.resolve();
+    // A new authorized inventory starts a new preview lifetime. Do not
+    // reuse a result after a scan, import or source change.
+    view.previewCache.clear();
     if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
     view.previewTimer = null;
     ++view.previewGeneration;
@@ -1674,13 +1677,14 @@
   // Exactly one selected source, using the canonical Public-v1 actor/backend
   // gate. The control plane can answer "pending" until the next Agent scan.
   // This is read-only; it never creates an import operation or writes a marker.
-  function refreshSelectedPreview(view) {
+  function refreshSelectedPreview(view, force) {
     if (!isCurrent(view)) return;
     if (view.previewTimer !== null) {
       global.clearTimeout(view.previewTimer);
       view.previewTimer = null;
     }
     const id = view.select.value;
+    if (force) view.previewCache.delete(id);
     // A new observation never inherits an older film's encoding consent.
     view.decision.value = '';
     view.localReencode.checked = false;
@@ -1700,7 +1704,16 @@
     view.previewReads = 0;
     updatePreview(view);
     if (!view.sources.includes(id)) return;
+    // A successful technical read is reusable only within this authorized
+    // source scan. The Agent still independently rechecks on a real import.
+    const cached = view.previewCache.get(id);
+    if (cached) {
+      view.previewResult = cached;
+      view.previewStatus = 'Technische Prüfung aus diesem Scan wiederverwendet.';
+      updatePreview(view);
+    }
     if (source && view.onlineKind === 'series') autoIdentifyEpisode(view, source);
+    if (cached) return;
     function poll() {
       if (!isCurrent(view) || generation !== view.previewGeneration ||
           view.select.value !== id) return;
@@ -1733,6 +1746,11 @@
         view.previewResult = data;
         view.previewStatus = '';
         view.previewFailed = data.status === 'unavailable';
+        // Do not cache pending, failed or duplicate observations. A
+        // duplicate requires its existing independently confirmed marker
+        // operation and may change the source inventory immediately.
+        if (data.status === 'ready' || data.status === 'insufficient')
+          view.previewCache.set(id, data);
         updatePreview(view);
         if (view.duplicateReviewPending && data.status !== 'duplicate') {
           // The target changed during reinspection; do not mark another file.
@@ -1957,7 +1975,8 @@
     });
     const plan = selected && view.previewResult &&
       view.previewResult.sourceId === id ? view.previewResult : null;
-    view.previewRetryButton.hidden = !selected || !view.previewFailed;
+    // Recheck is also available after success; switching back is instant.
+    view.previewRetryButton.hidden = !selected || (!plan && !view.previewFailed);
     view.previewRetryButton.disabled = Boolean(view.attempt) || Boolean(view.batch) || view.submitting;
     const ready = Boolean(plan && plan.status === 'ready');
     // A space shortage blocks local import, not a PC-only marker decision.
@@ -1975,30 +1994,38 @@
     view.skipButton.disabled = view.submitting || Boolean(view.attempt) ||
       Boolean(view.batch);
     Array.from(view.selectionRows.children).forEach(function (row) {
-      const rowSelected = selected && row.dataset.sourceId === id;
+      const rowId = row.dataset.sourceId;
+      const rowSelected = selected && rowId === id;
       const marked = row.className.includes('media-import-marked-item');
       row.className = marked ? 'media-import-select-item media-import-marked-item'
         : 'media-import-select-item' + (rowSelected ? ' is-selected' : '');
-      if (rowSelected && row.children[2]) {
-        const status = !plan ? 'Technische Prüfung läuft' :
-          plan.status === 'ready' ? (plan.videoReencodeRequired
+      if (!marked && row.children[2]) {
+        const rowItem = view.allOrdinary.find(function (source) {
+          return source.sourceId === rowId;
+        });
+        const observed = rowSelected ? plan : view.previewCache.get(rowId);
+        const status = !observed
+          ? rowSelected ? 'Technische Prüfung läuft' : 'Noch nicht geprüft'
+          : observed.status === 'ready' ? (observed.videoReencodeRequired
             ? 'Umkodierung nötig' : 'Direktimport möglich')
-          : plan.status === 'duplicate' ? 'VDR-Aufnahme vorhanden'
-          : plan.status === 'insufficient' ? 'Speicherplatz fehlt'
+          : observed.status === 'duplicate' ? 'VDR-Aufnahme vorhanden'
+          : observed.status === 'insufficient' ? 'Speicherplatz fehlt'
           : 'Prüfung nicht möglich';
-        const folder = item && item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel';
-        const coords = item ? episodeCoordinates(item) : {season: null, episode: null};
+        const folder = rowItem && rowItem.folder
+          ? rowItem.folder.split('/').join(' › ') : 'Importwurzel';
+        const coords = rowItem ? episodeCoordinates(rowItem) : {season: null, episode: null};
         const episodeLabel = coords.episode !== null
           ? ' · S' + String(coords.season).padStart(2, '0') +
             'E' + String(coords.episode).padStart(2, '0') : '';
-        // The codec-preview status must not erase the independent PC-return
-        // hint or a previously verified recording-readback observation.
-        const parked = parkedPcEncodeMatches(view, item);
-        const pcHint = possiblePcReturn(view, item)
+        // A cached technical result is not a confirmed VDR import.
+        const parked = parkedPcEncodeMatches(view, rowItem);
+        const pcHint = possiblePcReturn(view, rowItem)
           ? ' · Möglicher PC-Encode-Rücklauf'
           : parked.length ? ' · PC-Encode-Zuordnung mehrdeutig' : '';
-        const confirmed = confirmedImport(view, id);
-        row.children[2].textContent = folder + episodeLabel + ' · ' + status +
+        const confirmed = confirmedImport(view, rowId);
+        row.children[2].textContent = folder + episodeLabel +
+          (view.previewCache.has(rowId) ? ' · ✓ Technisch geprüft' : '') +
+          ' · ' + status +
           (confirmed
             ? ' · Frühere VDR-Operation bestätigt; aktueller Quellinhalt ungeprüft'
             : '') + pcHint;
@@ -2255,6 +2282,7 @@
         // No operation was admitted. The old preview cannot authorize another
         // click after the permission/source check failed; offer a fresh read.
         preAdmissionFailed = true;
+        view.previewCache.delete(sourceId);
         view.previewResult = null;
         view.previewFailed = true;
         view.previewStatus = message;
@@ -2559,6 +2587,7 @@
       sourceTitles: Object.create(null),
       previewTimer: null, previewGeneration: 0, previewReads: 0,
       previewResult: null, previewStatus: '', previewFailed: false,
+      previewCache: new Map(),
       onlineSeq: 0, onlineItems: [], onlineSelected: null,
       onlineSeries: null, onlineSeason: null, onlineMode: 'search',
       onlineKind: 'movie', onlineQuery: '', onlineStatus: '', onlinePending: false,
@@ -2595,7 +2624,7 @@
     previewRetryButton.addEventListener('click', function () {
       if (!isCurrent(view) || view.attempt || view.batch || view.submitting ||
           !view.sources.includes(view.select.value)) return;
-      refreshSelectedPreview(view);
+      refreshSelectedPreview(view, true);
     });
     select.addEventListener('change', function () {
       markedSelect.value = '';
