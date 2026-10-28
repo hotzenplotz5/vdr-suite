@@ -477,10 +477,12 @@ bool RootOwnedMediaImportInventory::listTrustedSourceIds(
 }
 bool RootOwnedMediaImportInventory::listTrustedSourceSnapshot(
     const std::string& backendId, std::vector<MediaImportSourceLabel>& out,
-    bool& partial)
+    bool& partial, const std::string& selectedSourceId,
+    LocalMediaImportSource* selectedSource)
 {
     out.clear();
     partial = true;
+    if (selectedSource) *selectedSource = {};
     if (!inventoryIdentifier(backendId, 1)) return false;
     std::vector<IndexedSource> sources;
     if (!inventorySources(installRoot_, backendId, sources, &partial)) {
@@ -504,6 +506,13 @@ bool RootOwnedMediaImportInventory::listTrustedSourceSnapshot(
             return false;
         }
         out.push_back({source.id, label, folder});
+    }
+    // Keep the one selected source from this very scan. Do not rescan the
+    // complete tree merely to resolve its already verified opaque ID.
+    if (selectedSource && !selectedSourceId.empty()) {
+        const auto selected = std::find_if(sources.begin(), sources.end(),
+            [&](const IndexedSource& item) { return item.id == selectedSourceId; });
+        if (selected != sources.end()) *selectedSource = selected->source;
     }
     return true;
 }
