@@ -172,7 +172,7 @@ alone proves that a capability works against the operator's real VDR.
 - Maintain one cumulative API-v1 acceptance checklist (by actual route and
   capability) covering authentication/grants, valid and invalid requests,
   expected state mutation, persistence, backend command and readback,
-  externally observable result, and failure/rollback paths as applicable.
+  externally observable result, and failure paths as applicable.
   Close the implementation scope before requesting the operator's **final
   real-VDR API-v1 acceptance run**. Do not claim real-VDR acceptance from
   simulations, CI mocks, a helper's `--help`, or an HTTP 200 alone.
@@ -349,8 +349,8 @@ proven read-only. The distinct VIDAA repository is private; see its own
    Because the checkout belongs to `yavdr`, perform repository Git
    inspection using `sudo -u yavdr -H git ...` instead of presuming
    root trusts a differently owned working tree.
-5. **Only after** a successful sealed build, repeated `check`, reviewed
-   `DB_BACKUP_DECISION`, and explicit deployment authorization, execute
+5. **Only after** a successful sealed build, repeated `check`, and
+   explicit deployment authorization, execute
    `python3 tools/install_daemon.py apply --sha ... --confirm-apply`
    **as root** from the same exact checkout. **Root's Git subprocesses
    may refuse a yavdr-owned checkout with `dubious ownership`.** Give
@@ -359,17 +359,14 @@ proven read-only. The distinct VIDAA repository is private; see its own
    GIT_CONFIG_KEY_0=safe.directory
    GIT_CONFIG_VALUE_0="$WORK/repo" python3 ...`; never modify global
    `git config --global safe.directory` or change ownership. The
-   installer alone owns the daemon binary replacement, scoped service
-   restart and rollback.
-6. Database `REVIEW_REQUIRED` is a **hard stop**, not a reason to
-   auto-select `--db-review no-backup`, invent a database path or
-   continue to VIDAA. Review the displayed `DB_REVIEW_PATH` changes.
-7. Do not run recursive `chown`/`chmod`, copy keys, alter global
+   installer alone owns the daemon binary replacement and scoped service
+   restart.
+6. Do not run recursive `chown`/`chmod`, copy keys, alter global
    permissions, run a whole build as root, modify VDR/recordings, or
    overwrite an existing checkout to resolve an authentication failure.
    Preserve the temporary checkout and print its absolute path for a
    rerun/review; no speculative deletion.
-8. For handed-off command blocks follow the repository's interactive-shell
+7. For handed-off command blocks follow the repository's interactive-shell
    safety rules below: **no `set -e/-u/-o pipefail`, no naked `exit`**.
    Treat each step's failure as a STOP and guard subsequent steps. Do not
    report installation success before checking the running service.
@@ -391,8 +388,7 @@ Authoritative operational examples and gates:
   and **actual database risk**. Source-to-source `git diff OLD NEW` works
   without ancestor relationships. Existing historical source information is
   needed for assessing schema changes, **not** to dictate upgrade direction.
-  Keep explicit DB backup/review for actual risks and rollback of the static
-  executable; preserve database, pairing, configuration and recordings.
+  Preserve database, pairing, configuration and recordings.
 - **KISS sequence: `check` → reuse sealed target if present, otherwise build
   exactly once as `yavdr` → separately approved `apply` as root.** No
   needless rebuild after interrupted installation. No root compilation.
@@ -401,10 +397,9 @@ Authoritative operational examples and gates:
   CI is a separate development/merge concern, not an execution step in the
   user's installation. Deliver an accurate existing-installer block promptly.
 - Preserve the regression tests
-  `test_divergent_daemon_history_is_not_an_install_blocker`,
-  `test_divergent_previous_commit_reuses_sealed_target_without_compiling`
-  and `test_divergent_schema_change_still_demands_db_review`. They protect
-  this invariant. **Do not replace them with stricter old-version checks.**
+  `test_divergent_daemon_history_is_not_an_install_blocker` and
+  `test_divergent_previous_commit_reuses_sealed_target_without_compiling`.
+  They protect this invariant. **Do not replace them with stricter old-version checks.**
 
 ## Mandatory established-feature parity and competitor comparison
 
@@ -469,7 +464,7 @@ block is proposed or executed:**
    available to the agent. Record the exact path and source SHA.
 3. Within the correct, clean checkout of that code-SHA, run the installer's
    read-only `check --sha FULL40`; inspect `INSTALLED_SOURCE_SHA`,
-   `TARGET_SOURCE_SHA`, `DB_BACKUP_DECISION`, `BUILD=REUSABLE` versus
+   `TARGET_SOURCE_SHA`, `BUILD=REUSABLE` versus
    `BUILD=NOT_SEALED`, the candidate path, and the running service
    identity. `check` validates an existing sealed candidate's SHA-256
    and embedded `git-<source-prefix>` marker. Do not infer valid reuse
@@ -502,7 +497,7 @@ block is proposed or executed:**
    compile, never automatically. Report **why** the old build was
    unsuitable before invoking the build tool. Build still runs only
    under `yavdr`, the operator's shell stays root, and `apply` is
-   separately authorized as root with DB/rollback safety intact.
+   separately authorized as root.
 
 **Confirmed installer behavior:** `tools/install_daemon.py check` prints
 `BUILD=REUSABLE` only after validating the seal and binary. Its `build`
@@ -559,14 +554,6 @@ filesystem's total capacity. Existing temporary stages, previous backups and
 other retained artifacts on the same filesystem count against the available
 space; never calculate capacity as though they had already been removed.
 
-For a database backup, prefer a quiesced/offline consistent snapshot. Stop the
-owning service first when that is safe and already authorized, then determine
-the stable database size and require sufficient headroom before creating the
-backup. Do not start an unbounded online SQLite backup on a live mutable database
-merely because the source file currently appears small. A backup command that
-can outlive an SSH session must have an explicit bounded lifetime or cleanup
-strategy and must never be allowed to grow until the filesystem is exhausted.
-
 A handed-off test or acceptance block that can materially consume storage must
 print the measured capacity inputs and a clear `RESOURCE_PREFLIGHT=PASS` before
 the first storage-consuming mutation. A failed capacity check is a hard stop:
@@ -576,14 +563,8 @@ make the operation fit.
 After the operation, recheck the affected filesystems and print
 `RESOURCE_POSTCHECK=PASS` only when the required reserve still exists. Remove
 test-only stages and temporary artifacts once they are no longer needed.
-Rollback backups may be retained only deliberately; keep at most the explicitly
-required backup set, report their exact sizes, and never retain them when doing
-so would violate the same free-space reserve.
-
-If a service is stopped for a backup or other safety operation, install recovery
-handling before the stop so every normal failure path attempts to restore the
-service. Resource-safety checks supplement, rather than replace, the normal
-deployment, database-integrity and runtime acceptance gates.
+If a service was stopped, verify and report its actual state after the operation.
+Resource-safety checks do not replace runtime acceptance.
 
 ## Testblock repository entry
 
