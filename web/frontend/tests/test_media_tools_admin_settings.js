@@ -147,6 +147,23 @@ async function test() {
   assert.equal(refused.parent.children[0].hidden, false);
   assert.equal(refused.requests.filter(r => r.options.method === 'POST').length, 1);
 
+  // A flat 403 from the Core activation service must remain visible without
+  // hiding the verified administrator's entire settings panel.
+  const denied = harness((_url, options) => options.method === 'POST'
+    ? response(403, {error: 'activation_denied'})
+    : response(200, {backendId: 'default', desiredEnabled: true,
+        providerVerified: true, agentReady: true,
+        activationBoundToProvider: true, revision: 3}),
+  {count: 0});
+  denied.window.VdrSuiteAddonSettings.render(denied.parent, 'default');
+  await flush();
+  denied.elements.find(e => e.textContent === 'Deaktivieren').handlers.click();
+  await flush();
+  assert.equal(denied.parent.children[0].hidden, false);
+  assert.ok(denied.elements.some(e => e.textContent.includes(
+    'Änderung abgelehnt: activation_denied (403)')));
+  assert.equal(denied.requests.filter(r => r.options.method === 'POST').length, 1);
+
   // Fail closed: an unverified provider is not proof of an absent package.
   // Its activation button cannot start an attempted enable mutation.
   const unverified = harness(() => response(200, {
