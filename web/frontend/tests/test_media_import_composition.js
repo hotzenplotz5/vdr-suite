@@ -1936,21 +1936,35 @@ function publishHomeResume() {}
     'exact S01E01 is automatically identified from provider results');
   assert(automaticOnline.children[0].textContent.includes('Automatisch erkannte'),
     'automatic attribution is labelled separately from manual selection');
-  // The source really has local artwork in this fixture. Keep that image
-  // authoritative rather than replacing it with an automatic online match.
+  // Local source artwork stays authoritative, while the episode still has
+  // its own secondary slot and cannot replace the series cover.
   const localAutoPoster = findClass(findClass(mount, 'media-import-artwork-poster'),
     'media-import-artwork-image');
   assert(localAutoPoster && localAutoPoster.src === 'data:image/jpeg;base64,/9j/2Q==',
     'existing local poster stays visible after automatic TMDb matching');
-  // Without a local poster, the same unique TMDb episode supplies fallback
-  // artwork in the main preview; the existing metadata-only route is reused.
+  const localEpisodeStill = findClass(findClass(mount, 'media-import-artwork-episode'),
+    'media-import-artwork-image');
+  assert(localEpisodeStill && localEpisodeStill.src.includes('externalNamespace=tv-episode'),
+    'identified episode still is separate from local poster');
+  assert(findClass(mount, 'media-import-artwork').children.length === 3,
+    'poster, episode still and fanart have independent slots');
+  // When no local poster exists, use the actual series cover as the main
+  // image; the matching S01E01 photo is separate, with fanart unaffected.
   previewArtworkMode = 'none';
   onlineSelect.listeners.change();
   await settle();
   const autoPoster = findClass(findClass(mount, 'media-import-artwork-poster'),
     'media-import-artwork-image');
-  assert(autoPoster && autoPoster.src.includes('externalNamespace=tv-episode'),
-    'automatic episode artwork appears when no local poster exists');
+  const autoStill = findClass(findClass(mount, 'media-import-artwork-episode'),
+    'media-import-artwork-image');
+  assert(autoPoster && autoPoster.src.includes('externalNamespace=tv') &&
+    !autoPoster.src.includes('externalNamespace=tv-episode'),
+    'identified Andor series supplies the main cover');
+  assert(autoStill && autoStill.src.includes('externalNamespace=tv-episode'),
+    'episode photo appears only in a separate slot');
+  assert(findClass(findClass(mount, 'media-import-artwork-fanart'),
+    'media-import-artwork-empty').textContent === 'Keine lokale Fanart',
+    'missing fanart stays independent of the episode image');
   previewArtworkMode = 'poster';
   assert.strictEqual(submits, beforeAutoImports,
     'automatic metadata lookup never imports, marks or changes VDR media');
@@ -2055,6 +2069,13 @@ function publishHomeResume() {}
   confirmedOnline = findClass(mount, 'media-import-online-confirmed');
   assert(confirmedOnline && confirmedOnline.children[0].textContent.includes('Pilot'));
   assert(findClass(confirmedOnline, 'media-import-online-poster').src.includes('externalNamespace=tv-episode'));
+  const manualCover = findClass(findClass(mount, 'media-import-artwork-poster'),
+    'media-import-artwork-image');
+  const manualStill = findClass(findClass(mount, 'media-import-artwork-episode'),
+    'media-import-artwork-image');
+  assert(manualCover && manualCover.src === 'data:image/jpeg;base64,/9j/2Q==' &&
+    manualStill && manualStill.src.includes('externalNamespace=tv-episode'),
+    'manual episode selection preserves local poster and separates episode image');
   assert(onlineRequests.some(x => x.route.endsWith('/seasons')) &&
     onlineRequests.some(x => x.route.endsWith('/episodes')));
 

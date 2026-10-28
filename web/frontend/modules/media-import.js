@@ -1790,16 +1790,25 @@
     const artwork = element('div', 'media-import-artwork');
     const localPoster = plan && validLocalArtwork(plan.posterDataUri)
       ? plan.posterDataUri : '';
-    const providerPoster = view.onlineSelected
+    // Use the recognized series cover as the main provider image, never
+    // the episode still. Retain source-bound local artwork where available.
+    const seriesPoster = view.onlineSeries
+      ? onlineImageUrl(view.backendId, view.onlineSeries) : '';
+    const selectedPoster = view.onlineSelected
       ? onlineImageUrl(view.backendId, view.onlineSelected) : '';
-    const poster = localPoster || providerPoster;
+    const episodeStill = view.onlineSelected && view.onlineSelected.kind === 'episode'
+      ? selectedPoster : '';
+    const poster = localPoster || seriesPoster || selectedPoster;
     const fanart = plan && validLocalArtwork(plan.fanartDataUri)
       ? plan.fanartDataUri : '';
+    const showEpisodeStill = Boolean(episodeStill && episodeStill !== poster);
+    if (showEpisodeStill) artwork.className += ' has-episode';
     const picture = function (kind, uri, alt) {
       const frame = element('div', 'media-import-artwork-frame media-import-artwork-' + kind);
       const label = kind === 'poster'
-        ? providerPoster && !localPoster ? 'TMDb-Poster nicht verfügbar' : 'Kein lokales Poster'
-        : 'Keine lokale Fanart';
+        ? (seriesPoster || selectedPoster) && !localPoster
+          ? 'Online-Poster nicht verfügbar' : 'Kein lokales Poster'
+        : kind === 'episode' ? 'Kein Episodenbild' : 'Keine lokale Fanart';
       if (uri) {
         const img = element('img', 'media-import-artwork-image');
         img.src = uri;
@@ -1815,7 +1824,12 @@
       }
       return frame;
     };
-    artwork.appendChild(picture('poster', poster, 'Lokales Poster für ' + title));
+    artwork.appendChild(picture('poster', poster,
+      seriesPoster && poster === seriesPoster
+        ? 'Seriencover für ' + view.onlineSeries.title : 'Poster für ' + title));
+    if (showEpisodeStill)
+      artwork.appendChild(picture('episode', episodeStill,
+        'Episodenbild für ' + title));
     artwork.appendChild(picture('fanart', fanart, 'Lokale Fanart für ' + title));
     card.appendChild(artwork);
     const state = !selected ? 'idle' :

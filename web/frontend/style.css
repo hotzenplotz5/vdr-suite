@@ -5071,7 +5071,24 @@ body.channel-sorter-dragging * {
   background: #162338;
 }
 .media-import-artwork-image { width: 100%; height: 100%; object-fit: contain; }
-.media-import-artwork-fanart .media-import-artwork-image { object-fit: cover; }
+.media-import-artwork-fanart .media-import-artwork-image,
+.media-import-artwork-episode .media-import-artwork-image { object-fit: cover; }
+/* Series cover stays prominent; episode still and local fanart stay separate. */
+.media-import-artwork.has-episode {
+  grid-template-areas: "poster episode" "poster fanart";
+}
+.media-import-artwork.has-episode .media-import-artwork-poster {
+  grid-area: poster;
+  height: auto;
+}
+.media-import-artwork.has-episode .media-import-artwork-episode {
+  grid-area: episode;
+  height: 8rem;
+}
+.media-import-artwork.has-episode .media-import-artwork-fanart {
+  grid-area: fanart;
+  height: 8rem;
+}
 .media-import-artwork-empty {
   padding: .7rem;
   text-align: center;
@@ -5081,6 +5098,8 @@ body.channel-sorter-dragging * {
 @media (max-width: 700px) {
   .media-import-artwork { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); }
   .media-import-artwork-frame { height: 9rem; }
+  .media-import-artwork.has-episode .media-import-artwork-episode,
+  .media-import-artwork.has-episode .media-import-artwork-fanart { height: 7rem; }
 }
 
 /* MT.META1: same DOM, same import handlers; phone shows one pane at a time. */
