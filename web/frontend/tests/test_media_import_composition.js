@@ -86,6 +86,8 @@ const MARK_DUP = 'source_marked_du_123456';
 let batchStates = Object.create(null);
 let delayedSubmit = null;
 let operationReads = 0;
+let holdOperationRead = false;
+let releaseOperationRead = null;
 let submits = 0;
 let counter = 0;
 const requests = [];
@@ -252,6 +254,9 @@ function transport(url, options) {
   }
   if (path === '/api/v1/operations/' + OP) {
     ++operationReads;
+    if (holdOperationRead) return new Promise(function (resolve) {
+      releaseOperationRead = resolve;
+    });
     return Promise.resolve(reply(200, {operationId: OP, backendId: 'backend-a',
       state: state, sourceCleanup: cleanupState || undefined,
       links: {self: path}}, {'ETag': '"revision-1"'}));
@@ -565,6 +570,40 @@ function publishHomeResume() {}
   assert.strictEqual(start.disabled, true);
   await start.listeners.click();
   assert.strictEqual(submits, 1, 'double-click must not submit a second import');
+
+  // A manual read must produce an observable result even if Core reports
+  // exactly the same dispatching state. It is never a new import POST.
+  const checkedBefore = operationReads;
+  await findClass(mount, 'media-import-refresh').listeners.click();
+  await settle();
+  assert.strictEqual(operationReads, checkedBefore + 1);
+  assert(findClass(mount, 'media-import-import-description').textContent.includes(
+    'Zuletzt geprüft:'), 'manual refresh visibly confirms the returned Core state');
+  assert.strictEqual(submits, 1);
+
+  // When automatic polling is already fetching, the click must queue one
+  // additional read of the same durable operation instead of being dropped.
+  holdOperationRead = true;
+  const pendingStatus = findClass(mount, 'media-import-refresh').listeners.click();
+  await settle();
+  assert(releaseOperationRead, 'first status query is in flight');
+  const statusReadsBeforeQueue = operationReads;
+  await findClass(mount, 'media-import-refresh').listeners.click();
+  assert(findClass(mount, 'media-import-import-description').textContent.includes(
+    'nach der laufenden Abfrage'), 'the user sees the queued manual check');
+  holdOperationRead = false;
+  const finishHeldRead = releaseOperationRead;
+  releaseOperationRead = null;
+  finishHeldRead(reply(200, {operationId: OP, backendId: 'backend-a',
+    state: 'dispatching', links: {self:'/api/v1/operations/' + OP}}));
+  await pendingStatus;
+  await settle();
+  assert.strictEqual(operationReads, statusReadsBeforeQueue + 1,
+    'queued click requests exactly one follow-up read');
+  assert(findClass(mount, 'media-import-import-description').textContent.includes(
+    'Zuletzt geprüft:'), 'queued check finishes with visible result');
+  assert.strictEqual(submits, 1,
+    'rechecking an existing operation cannot submit a new import');
 
   // Longer imports exceeded the old 15-read / 60-second automatic status
   // window, losing their final confirmation until a manual user click.
