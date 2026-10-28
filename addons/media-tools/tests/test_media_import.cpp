@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <ctime>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -422,15 +424,22 @@ int main() {
         Fixture f;
         FakeProcess runner;
         auto plan = inspectImport(f.request());
-        // External VDR imports need a native .update mtime change after commit.
+        // Model a VDR scanner that already updated in this same second.
+        // NeedsUpdate() uses strict whole-second comparison, so the marker
+        // MUST advance beyond that second, not merely change nanoseconds.
         const auto marker = f.video / ".update";
         std::ofstream(marker) << "";
         const auto oldTime = fs::file_time_type::clock::now() -
                              std::chrono::hours(2);
         fs::last_write_time(marker, oldTime);
+        const std::time_t scannerLastUpdate = std::time(nullptr);
         const auto output = executeRemuxImport(plan, runner, [](const ImportPlan&) {});
         assert(fs::exists(output / "00001.ts") && fs::exists(output / "index"));
         assert(fs::last_write_time(marker) > oldTime);
+        struct stat markerInfo{};
+        assert(::stat(marker.c_str(), &markerInfo) == 0);
+        assert(markerInfo.st_mtime > scannerLastUpdate);
+        assert(markerInfo.st_mtime <= std::time(nullptr));
         assert(!fs::exists(output.parent_path() / ".update"));
         assert(fs::exists(f.source));
         assert(!fs::exists(runner.probedSource));

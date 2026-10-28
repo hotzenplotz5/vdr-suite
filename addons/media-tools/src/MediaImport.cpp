@@ -155,12 +155,26 @@ struct FdGuard {
     FdGuard& operator=(const FdGuard&) = delete;
 };
 
-// VDR monitors <videoRoot>/.update for externally published recordings.
-// Only notify after the verified .rec has been atomically published. A failed
-// notification cannot undo the already committed recording; Core still waits
-// for independent native readback before reporting success.
+// VDR reads <videoRoot>/.update with *whole-second* timestamps. Its
+// cRecordings::NeedsUpdate() compares lastUpdate < st_mtime, while a scanner
+// sets lastUpdate = time(NULL). Touching .update immediately after an external
+// publish can therefore be invisible when VDR scanned in that same second.
+// Advance into the next real second before notifying, without using a future
+// timestamp. No second queue, external svdrpsend tool, or service is needed.
+// A notification failure cannot undo the committed recording; Core still
+// requires independent recording readback before reporting success.
 void notifyVdrRecordingsChanged(const fs::path& videoRoot)
 {
+    const std::time_t publishedSecond = std::time(nullptr);
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::seconds(3);
+    while (std::time(nullptr) <= publishedSecond &&
+           std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    if (std::time(nullptr) <= publishedSecond)
+        std::fprintf(stderr, "Media Import: clock did not advance to next VDR refresh second\n");
+
     const fs::path marker = videoRoot / ".update";
     FdGuard fd(::open(marker.c_str(),
                       O_WRONLY | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0644));
