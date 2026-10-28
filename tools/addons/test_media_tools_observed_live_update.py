@@ -112,6 +112,21 @@ class ObservedRuntimeSnapshotTests(unittest.TestCase):
         with self.assertRaises(PreflightError):
             self.capture()
 
+    def test_unchanged_files_share_storage_without_aliasing_changes(self):
+        # The two private stages may share immutable unchanged files only;
+        # replacing an old file must not modify the candidate's bytes.
+        write(self.live, "usr/sbin/vdr-suite-backend-agent", "new agent", 0o755)
+        self.capture()
+        old_same = self.old / "usr/sbin/vdr-suite-backend-agent"
+        new_same = self.new / "usr/sbin/vdr-suite-backend-agent"
+        assert old_same.stat().st_ino == new_same.stat().st_ino
+
+        old_changed = self.old / "usr/sbin/vdr-suite-daemon"
+        new_changed = self.new / "usr/sbin/vdr-suite-daemon"
+        assert old_changed.stat().st_ino != new_changed.stat().st_ino
+        assert new_changed.read_text() == "new daemon"
+        assert old_changed.read_text() == "older daemon"
+
     def test_input_stage_not_mutated(self):
         before = (self.new / "usr/sbin/vdr-suite-daemon").read_bytes()
         self.capture()
