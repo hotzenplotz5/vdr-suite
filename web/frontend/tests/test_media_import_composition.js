@@ -293,6 +293,58 @@ const context = {
     csrfHeaders() { return {'X-CSRF-Token': 'test-csrf'}; }
   }
 };
+// MT.META5 uses the real established metadata route shape from the
+// production Media Import owner, never an extra import/metadata backend.
+const onlineRequests = [];
+let onlineMode = 'ready';
+let resolveOnlineReply = null;
+function onlineCandidate(kind, id, title, extra) {
+  return Object.assign({
+    providerId: 'tmdb', kind: kind,
+    externalNamespace: {movie:'movie', series:'tv',
+      season:'tv-season', episode:'tv-episode'}[kind],
+    externalId: id, parentExternalId: '',
+    title: title, overview: 'Echte Provider-Vorschau ' + title,
+    releaseDate: '2024-01-01', posterReference: '/preview.jpg',
+    seasonNumber: 0, episodeNumber: 0
+  }, extra || {});
+}
+function onlinePage(candidates) {
+  return {providerId: 'tmdb', attempted: true,
+    providerAvailable: true, candidates: candidates};
+}
+context.VdrSuiteClientApi = {
+  requestJson(route, options) {
+    onlineRequests.push({route, options});
+    assert.strictEqual(options.method, 'POST');
+    assert.strictEqual(options.headers['X-CSRF-Token'], 'test-csrf');
+    assert.strictEqual(options.credentials, 'same-origin');
+    if (onlineMode === 'offline') return Promise.reject({status: 503});
+    if (onlineMode === 'forbidden') return Promise.reject({status: 403});
+    if (onlineMode === 'defer') {
+      return new Promise(function (resolve) { resolveOnlineReply = resolve; });
+    }
+    const body = JSON.parse(options.body);
+    if (route.endsWith('/search')) {
+      return Promise.resolve(body.kind === 'series'
+        ? onlinePage([onlineCandidate('series','1399','Andor')])
+        : onlinePage([
+          onlineCandidate('movie','13','Film mit belegter TMDb-ID'),
+          onlineCandidate('movie','14','Falscher Treffer', {providerId:'unknown'}),
+          onlineCandidate('movie','15','Anderer Film')]));
+    }
+    if (route.endsWith('/seasons'))
+      return Promise.resolve(onlinePage([onlineCandidate('season','3624','Staffel 1',
+        {parentExternalId:'1399',seasonNumber:1})]));
+    if (route.endsWith('/episodes'))
+      return Promise.resolve(onlinePage([
+        onlineCandidate('episode','222','Falsche Folge',
+          {parentExternalId:'1399',seasonNumber:1,episodeNumber:2}),
+        onlineCandidate('episode','221','Pilot',
+          {parentExternalId:'1399',seasonNumber:1,episodeNumber:1})]));
+    throw Error('Unexpected online route: '+route);
+  }
+};
 context.window = context;
 vm.createContext(context);
 vm.runInContext(view, context);
@@ -1815,6 +1867,127 @@ function publishHomeResume() {}
   assert.strictEqual(seasonIds.length, 1);
   assert.strictEqual(seasonIds[0].dataset.sourceId, SOURCE_D);
   assert.strictEqual(submits, seriesPosts, 'group navigation does not create a Core operation');
+
+  // MT.META5: genuine module rendering and explicit TMDb candidate selection.
+  // Ordinary scanning/preview must not automatically consume provider quota.
+  andor.listeners.click();
+  const onlineSelect = findClass(mount, 'media-import-source');
+  onlineSelect.value = SOURCE;
+  onlineSelect.listeners.change();
+  await settle();
+  assert(findClass(mount, 'media-import-local-metadata'),
+    'NFO remains visible before and after optional online lookup');
+  assert.strictEqual(onlineRequests.length, 0,
+    'scanning and FFprobe must never trigger provider search automatically');
+  const importedBeforeOnline = submits;
+  let onlineQuery = findClass(mount, 'media-import-online-query');
+  onlineQuery.value = 'Film mit belegter TMDb-ID';
+  onlineQuery.listeners.input();
+  await findClass(mount, 'media-import-online-search').listeners.click();
+  await settle();
+  let onlineResults = findClass(mount, 'media-import-online-results');
+  assert.strictEqual(onlineResults.children.length, 2,
+    'wrong-provider candidates are not presented as confirmed TMDb results');
+  assert.strictEqual(findClass(mount, 'media-import-online-confirmed'), null,
+    'multiple candidates never select themselves, even if titles match');
+  await findClass(onlineResults.children[0], 'media-import-online-choose').listeners.click();
+  let confirmedOnline = findClass(mount, 'media-import-online-confirmed');
+  assert(confirmedOnline && confirmedOnline.children[0].textContent.includes('Film mit belegter TMDb-ID'));
+  const onlinePoster = findClass(confirmedOnline, 'media-import-online-poster');
+  assert(onlinePoster && onlinePoster.src.includes('/settings/series-artwork/candidate-image?') &&
+    onlinePoster.src.includes('externalNamespace=movie'),
+    'poster URL is served by the existing authenticated Suite image route');
+  assert(findClass(mount, 'media-import-local-metadata') &&
+    findClass(mount, 'media-import-nfo-plot'),
+    'confirmed online metadata must not replace or suppress NFO text');
+  assert.strictEqual(submits, importedBeforeOnline,
+    'online selection must never submit a media import or mutation');
+
+  // Real series -> season -> episode search, with local S01E01 conflict check.
+  let onlineKind = findClass(mount, 'media-import-online-kind');
+  onlineKind.value = 'series';
+  onlineKind.listeners.change();
+  onlineQuery = findClass(mount, 'media-import-online-query');
+  onlineQuery.value = 'Andor';
+  onlineQuery.listeners.input();
+  await findClass(mount, 'media-import-online-search').listeners.click();
+  await settle();
+  onlineResults = findClass(mount, 'media-import-online-results');
+  assert.strictEqual(onlineResults.children.length, 1);
+  findClass(onlineResults.children[0], 'media-import-online-choose').listeners.click();
+  assert.strictEqual(findClass(mount, 'media-import-online-confirmed'), null,
+    'an episode must not silently accept a series-level identity');
+  await findClass(findClass(mount, 'media-import-online-results').children[0],
+    'media-import-online-next').listeners.click();
+  await settle();
+  assert(findClass(mount, 'media-import-online-context').textContent.includes('Andor'));
+  await findClass(findClass(mount, 'media-import-online-results').children[0],
+    'media-import-online-next').listeners.click();
+  await settle();
+  onlineResults = findClass(mount, 'media-import-online-results');
+  assert.strictEqual(onlineResults.children.length, 2);
+  findClass(onlineResults.children[0], 'media-import-online-choose').listeners.click();
+  assert.strictEqual(findClass(mount, 'media-import-online-confirmed'), null,
+    'S01E02 cannot become S01E01 by a fuzzy title match');
+  onlineResults = findClass(mount, 'media-import-online-results');
+  findClass(onlineResults.children[1], 'media-import-online-choose').listeners.click();
+  confirmedOnline = findClass(mount, 'media-import-online-confirmed');
+  assert(confirmedOnline && confirmedOnline.children[0].textContent.includes('Pilot'));
+  assert(findClass(confirmedOnline, 'media-import-online-poster').src.includes('externalNamespace=tv-episode'));
+  assert(onlineRequests.some(x => x.route.endsWith('/seasons')) &&
+    onlineRequests.some(x => x.route.endsWith('/episodes')));
+
+  // Online outage preserves the original NFO and local image without a
+  // misleading selected identity, and does not block import preview.
+  onlineMode = 'offline';
+  onlineKind = findClass(mount, 'media-import-online-kind');
+  onlineKind.value = 'movie';
+  onlineKind.listeners.change();
+  onlineQuery = findClass(mount, 'media-import-online-query');
+  onlineQuery.value = 'No network';
+  onlineQuery.listeners.input();
+  await findClass(mount, 'media-import-online-search').listeners.click();
+  await settle();
+  assert(findClass(mount, 'media-import-online-status').textContent.includes('lokale Daten'));
+  assert.strictEqual(findClass(mount, 'media-import-online-confirmed'), null);
+  assert(findClass(mount, 'media-import-local-metadata') &&
+    findClass(mount, 'media-import-artwork'),
+    'offline fallback retains local information and images');
+  assert.strictEqual(submits, importedBeforeOnline);
+
+  // Late metadata replies belong to the exact source, owner and backend.
+  onlineMode = 'defer';
+  onlineQuery = findClass(mount, 'media-import-online-query');
+  onlineQuery.value = 'Late';
+  onlineQuery.listeners.input();
+  const pendingOnline = findClass(mount, 'media-import-online-search').listeners.click();
+  await settle();
+  assert.strictEqual(typeof resolveOnlineReply, 'function');
+  onlineSelect.value = SOURCE_B;
+  onlineSelect.listeners.change();
+  resolveOnlineReply(onlinePage([onlineCandidate('movie','13','STALE MOVIE')]));
+  await pendingOnline;
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-online-confirmed'), null);
+  assert(!findClass(mount, 'media-import-online-results').children.length,
+    'switching source discards stale provider candidates');
+  // Switching backend/owner while a lookup is pending also discards results.
+  onlineMode = 'defer';
+  const anotherQuery = findClass(mount, 'media-import-online-query');
+  anotherQuery.value = 'Backend changed';
+  anotherQuery.listeners.input();
+  const pendingBackend = findClass(mount, 'media-import-online-search').listeners.click();
+  await settle();
+  const resolvePreviousBackend = resolveOnlineReply;
+  context.VdrSuiteMediaImport.deactivate();
+  await context.VdrSuiteMediaImport.activate('backend-b', mount);
+  resolvePreviousBackend(onlinePage([onlineCandidate('movie','13','OLD BACKEND')]));
+  await pendingBackend;
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-online-confirmed'), null,
+    'an old backend never populates the current detail');
+  assert.strictEqual(submits, importedBeforeOnline,
+    'search and offline fallback have no Core import side effects');
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
