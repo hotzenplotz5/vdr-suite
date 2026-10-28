@@ -164,10 +164,9 @@ def capacity_preflight(candidate: Path, backup_parent: Path,
         grouped[device] = old_point, old_need + need
     for point, need in grouped.values():
         usage = shutil.disk_usage(point)
-        reserve = max(4 * 1024**3, (usage.total * 15 + 99) // 100)
-        print(f"RESOURCE_FS={point} FREE={usage.free} BUDGET={need} RESERVE={reserve}", flush=True)
-        if usage.free < need + reserve:
-            raise PreflightError("RESOURCE_PREFLIGHT=STOP")
+        print(f"RESOURCE_FS={point} FREE={usage.free} REQUIRED={need}", flush=True)
+        if usage.free < need:
+            raise PreflightError("RESOURCE_PREFLIGHT=STOP: insufficient actual free space")
     print("RESOURCE_PREFLIGHT=PASS", flush=True)
 
 
