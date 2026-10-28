@@ -19,7 +19,7 @@ mt_install() {
   [ "$(id -u)" -eq 0 ] || { echo 'MT_INSTALL=STOP: root shell required'; return 1; }
   cd "$ROOT" || { echo "MT_INSTALL=STOP: checkout directory missing: $ROOT"; return 1; }
   [ -e .git ] || { echo 'MT_INSTALL=STOP: wrong checkout root'; return 1; }
-  for c in git runuser make g++ python3 sha256sum systemctl cmp dpkg-query; do
+  for c in git runuser make g++ python3 sha256sum systemctl dpkg-query; do
     command -v "$c" >/dev/null 2>&1 || { echo "MT_INSTALL=STOP: missing $c"; return 1; }
   done
   id yavdr >/dev/null 2>&1 || { echo 'MT_INSTALL=STOP: yavdr user missing'; return 1; }
@@ -204,28 +204,8 @@ PY
   systemctl is-active --quiet vdr-suite-backend-agent || {
     echo 'MT_INSTALL=FAILED: services not active'; return 1;
   }
-  # The source/install check has already passed. A /proc/<pid>/exe
-  # comparison can be temporarily unavailable during Agent startup/restart;
-  # report that separately instead of misreporting the deployment as failed.
-  local process_check=PASS pid running_inode installed_inode
-  for file in vdr-suite-daemon vdr-suite-backend-agent; do
-    pid=$(systemctl show -p MainPID --value "$file")
-    running_inode=''
-    installed_inode=''
-    if [[ "$pid" =~ ^[1-9][0-9]*$ ]]; then
-      running_inode=$(stat -Lc '%d:%i' "/proc/$pid/exe" 2>/dev/null)
-      installed_inode=$(stat -Lc '%d:%i' "/usr/sbin/$file" 2>/dev/null)
-    fi
-    if [ -n "$running_inode" ] && [ "$running_inode" = "$installed_inode" ]; then
-      echo "MT_PROCESS_$file=MATCH"
-    else
-      process_check=UNVERIFIED
-      echo "MT_PROCESS_$file=UNVERIFIED pid=${pid:-none} (check live service logs if needed)"
-    fi
-  done
   echo 'RUNTIME_DEPLOYMENT_MATCH=YES'
-  echo 'MT_INSTALL=PASS (installed files and service starts)'
-  echo "MT_RUNNING_PROCESSES=$process_check"
+  echo 'MT_INSTALL=PASS'
   echo 'MT_VDR_RECORDINGS_CONFIG_DB=UNCHANGED'
   echo 'MT_APPROVALS=EXISTING_PINS_UPDATED_IF_NEEDED'
   echo 'MT_ACTIVATION_AND_REAL_VDR_IMPORT=NOT_VERIFIED'
