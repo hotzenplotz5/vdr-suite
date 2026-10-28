@@ -1437,12 +1437,20 @@
       const episodeLabel = coords.episode !== null
         ? ' · S' + String(coords.season).padStart(2, '0') +
           'E' + String(coords.episode).padStart(2, '0') : '';
+      const previousCheck = view.previewCache.get(item.sourceId);
+      const cachedStatus = previousCheck
+        ? previousCheck.videoReencodeRequired ? 'Umkodierung nötig'
+          : previousCheck.status === 'insufficient' ? 'Speicherplatz fehlt'
+          : 'Direktimport möglich'
+        : '';
       const meta = element('span', 'media-import-episode-meta',
         (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
         episodeLabel +
+        (previousCheck
+          ? ' · ✓ Technisch geprüft · ' + cachedStatus : ' · Noch nicht geprüft') +
         (confirmed
           ? ' · Frühere VDR-Operation bestätigt; aktueller Quellinhalt ungeprüft'
-          : ' · Noch nicht geprüft') + pcHint);
+          : '') + pcHint);
       row.appendChild(checkbox);
       row.appendChild(open);
       row.appendChild(meta);
