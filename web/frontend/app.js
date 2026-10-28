@@ -14,6 +14,19 @@ let mediaImportRetryTimer = null;
 const MEDIA_IMPORT_RETRY_MS = 5000;
 const mediaImportTab = document.querySelector('.module-tab[data-module="media-import"]');
 
+// Keep the live tab order independent of addon activation and delayed capability
+// responses. The shipped HTML already has the correct order; an addon or older
+// shell DOM may still have moved the tab by the time it becomes available.
+function placeMediaImportTab() {
+  const nav = document.getElementById('module-nav');
+  const recordingsTab = nav && nav.querySelector('.module-tab[data-module="recordings2"]');
+  if (!nav || !recordingsTab || !mediaImportTab ||
+      recordingsTab.parentNode !== nav || mediaImportTab.parentNode !== nav) return;
+  if (recordingsTab.nextElementSibling !== mediaImportTab)
+    nav.insertBefore(mediaImportTab, recordingsTab.nextElementSibling);
+}
+placeMediaImportTab();
+
 function mediaImportModule() {
   return frontendPlatformModule('media-import', window.VdrSuiteMediaImport);
 }
@@ -90,6 +103,7 @@ function refreshMediaImportVisibility(backendId) {
     if (!available) return unavailable();
     cancelMediaImportRetry();
     mediaImportKnownBackendId = backendId;
+    placeMediaImportTab();
     mediaImportTab.hidden = false;
     mediaImportTab.disabled = false;
     mediaImportTab.title = '';
@@ -3957,6 +3971,7 @@ function shouldPublishHomeResume(previousModule) {
 }
 
 function selectModule(moduleName) {
+  placeMediaImportTab();
   if (moduleName === 'media-import' &&
       (!mediaImportTab || mediaImportTab.hidden || mediaImportTab.disabled)) return;
   const previousModule = selectedModule;

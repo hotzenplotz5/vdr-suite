@@ -1719,8 +1719,8 @@
       row.dataset.sourceId = item.sourceId;
       const open = element('button', 'media-import-episode-open', item.label || 'Markierte Datei');
       open.type = 'button';
-      open.addEventListener('click', function () {
-        if (!isCurrent(view) || view.batch || view.attempt) return;
+      const chooseMarkedSource = function () {
+        if (!isCurrent(view) || view.batch || view.attempt || view.submitting) return false;
         view.select.value = '';
         view.markedSelect.value = item.sourceId;
         view.releaseButton.disabled = false;
@@ -1761,7 +1761,9 @@
         view.previewCard.appendChild(view.importFeedback);
         renderImportFeedback(view);
         setMobilePane(view, 'details');
-      });
+        return true;
+      };
+      open.addEventListener('click', chooseMarkedSource);
       const coords = episodeCoordinates(item);
       const episodeLabel = coords.episode !== null
         ? ' · S' + String(coords.season).padStart(2, '0') +
@@ -1774,6 +1776,21 @@
               ? 'PC-Rücklauf mehrdeutig' : 'Wartet auf PC-Bearbeitung'));
       row.appendChild(open);
       row.appendChild(meta);
+      if (marker === 'duplicate') {
+        // The action must be reachable in the episode list, without opening
+        // collapsed technical details or relying on the transient detail card.
+        // Only the observed .duplicate source is eligible; Core/Agent still
+        // revalidate source and VDR recording before any deletion.
+        const removeDuplicate = element('button',
+          'media-import-delete-duplicate media-import-delete-duplicate-inline',
+          'Dublette aus Importquelle löschen');
+        removeDuplicate.type = 'button';
+        removeDuplicate.addEventListener('click', function () {
+          if (!chooseMarkedSource()) return;
+          return startImport(view, false, 'delete_duplicate');
+        });
+        row.appendChild(removeDuplicate);
+      }
       if (returned) {
         const inspect = element('button', 'media-import-pc-return-open',
           'PC-Version technisch prüfen');

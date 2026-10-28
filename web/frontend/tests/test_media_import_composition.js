@@ -22,6 +22,34 @@ assert(nav.indexOf('data-module="overview"') < nav.indexOf('data-module="recordi
 assert(nav.indexOf('data-module="recordings2"') < nav.indexOf('data-module="media-import"'));
 assert(nav.indexOf('data-module="media-import"') < nav.indexOf('data-module="genres"'),
   'MT.UX0 Media Import must sit directly after recordings');
+// Exercise runtime recovery with a real child-order model, not just HTML text.
+const placeTabSource = app.match(/function placeMediaImportTab\(\) \{[\s\S]*?\n\}/);
+assert(placeTabSource, 'runtime tab placement must be implemented');
+const runtimeNav = {
+  children: [],
+  querySelector(selector) {
+    return selector.includes('recordings2') ? this.children.find(x => x.id === 'recordings2') : null;
+  },
+  insertBefore(node, next) {
+    const old = this.children.indexOf(node);
+    if (old >= 0) this.children.splice(old, 1);
+    const nextIndex = next ? this.children.indexOf(next) : -1;
+    this.children.splice(nextIndex >= 0 ? nextIndex : this.children.length, 0, node);
+  }
+};
+const runtimeTabs = ['media-import', 'overview', 'channels2', 'recordings2', 'genres'].map(
+  id => ({id, parentNode: runtimeNav}));
+runtimeNav.children = runtimeTabs;
+Object.defineProperty(runtimeTabs[3], 'nextElementSibling', {
+  get() { return runtimeNav.children[runtimeNav.children.indexOf(this) + 1] || null; }
+});
+vm.runInNewContext(placeTabSource[0] + '\nplaceMediaImportTab();', {
+  document: {getElementById(id) { return id === 'module-nav' ? runtimeNav : null; }},
+  mediaImportTab: runtimeTabs[0]
+});
+assert.deepStrictEqual(runtimeNav.children.map(x => x.id),
+  ['overview', 'channels2', 'recordings2', 'media-import', 'genres'],
+  'runtime placement restores Home-first after an addon changes the DOM');
 assert(index.indexOf('modules/media-import.js') < index.indexOf('frontend/app.js'));
 assert(app.includes('refreshMediaImportVisibility(backendId);'));
 assert(app.includes('resetMediaImportVisibility(true);'));
@@ -2352,6 +2380,9 @@ function publishHomeResume() {}
     return row.dataset.sourceId === MARK_DUP;
   });
   assert(markedDuplicateRow);
+  const inlineDelete = findClass(markedDuplicateRow, 'media-import-delete-duplicate-inline');
+  assert(inlineDelete && !inlineDelete.hidden && !inlineDelete.disabled,
+    'confirmed duplicate has a directly reachable delete action in its list row');
   findClass(markedDuplicateRow, 'media-import-episode-open').listeners.click();
   const deleteAction = findClass(mount, 'media-import-delete-duplicate');
   assert(deleteAction && !deleteAction.hidden && !deleteAction.disabled);
