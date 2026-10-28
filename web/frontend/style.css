@@ -4995,6 +4995,16 @@ body.channel-sorter-dragging * {
   border-color: #64748b;
   background: rgba(100, 116, 139, .13);
 }
+.media-import-completed-notice {
+  flex: 1 1 100%;
+  border: 1px solid #16a34a;
+  background: rgba(22, 163, 74, .12);
+  border-radius: .6rem;
+  padding: .65rem .8rem;
+  color: #86efac;
+  font-weight: 750;
+}
+.media-import-completed-notice[hidden] { display: none !important; }
 .media-import-import-feedback.is-success {
   border-color: #16a34a;
   background: rgba(22, 163, 74, .13);
