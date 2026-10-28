@@ -119,14 +119,15 @@ def require_backup_directory(path: Path, *, new: bool) -> Path:
     return path
 
 
-def capacity_preflight(candidate: Path, backup_parent: Path) -> None:
-    db = Path("/") / DB_REL
+def capacity_preflight(candidate: Path, backup_parent: Path,
+                       live_root: Path = Path("/")) -> None:
+    db = live_root / DB_REL
     db_info = db.lstat()
     if not stat.S_ISREG(db_info.st_mode) or db_info.st_nlink != 1:
         raise PreflightError("Suite database is not a regular file")
     _, files = verify_sealed_stage(candidate, load_manifest(candidate))
     candidate_bytes = sum(entry["size"] for entry in files.values())
-    frontend = examined_file(Path("/"), FRONTEND_ROOT.as_posix())
+    frontend = examined_file(live_root, FRONTEND_ROOT.as_posix())
     actual_frontend_bytes = sum(p.stat().st_size for p in frontend.rglob("*")
                                 if p.is_file())
     # The snapshot hardlinks byte-identical root-private candidate files.
@@ -136,7 +137,7 @@ def capacity_preflight(candidate: Path, backup_parent: Path) -> None:
     for rel, entry in files.items():
         if is_preserved_config(Path(rel)) or is_frontend(Path(rel)):
             continue
-        old = examined_file(Path("/"), rel)
+        old = examined_file(live_root, rel)
         old_info = old.stat()
         if (old_info.st_size != entry["size"] or
                 stat.S_IMODE(old_info.st_mode) != entry["mode"] or
@@ -146,16 +147,18 @@ def capacity_preflight(candidate: Path, backup_parent: Path) -> None:
     candidate_frontend_bytes = sum(entry["size"] for rel, entry in files.items()
                                    if is_frontend(Path(rel)))
     mib = 1024**2
+    # The offline sqlite3 backup creates ONE destination DB. The existing
+    # database is already occupying disk space, not a new allocation.
     backup_budget = (candidate_bytes + old_payload_budget + actual_frontend_bytes +
-                     2 * db_info.st_size + 128 * mib)
+                     db_info.st_size + 128 * mib)
     deploy_budget = largest_candidate_file + candidate_frontend_bytes + 128 * mib
     print(f"MEASURED_CANDIDATE_BYTES={candidate_bytes} "
           f"OBSERVED_OLD_PAYLOAD_BUDGET={old_payload_budget} "
           f"LIVE_FRONTEND_BYTES={actual_frontend_bytes} "
           f"DB_BYTES={db_info.st_size}", flush=True)
     grouped: dict[int, tuple[Path, int]] = {}
-    for point, need in ((backup_parent, backup_budget), (Path("/usr"), deploy_budget),
-                        (Path("/var"), 64 * mib)):
+    for point, need in ((backup_parent, backup_budget), (live_root / "usr", deploy_budget),
+                        (live_root / "var", 64 * mib)):
         device = point.stat().st_dev
         old_point, old_need = grouped.get(device, (point, 0))
         grouped[device] = old_point, old_need + need
