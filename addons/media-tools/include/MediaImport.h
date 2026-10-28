@@ -76,6 +76,9 @@ ImportPreview inspectImportPreview(const ImportRequest& request,
 // Identical path/source validation, but returns duplicate status for a
 // read-only browser preview instead of rejecting it as a write attempt.
 ImportPlan inspectImportPreview(const ImportRequest& request);
+// Read-only reinspection of an explicitly selected .duplicate source.
+// Reconstruct the pre-marker title and require a matching complete VDR recording.
+ImportPlan inspectMarkedDuplicatePreview(const ImportRequest& request);
 
 // The existing bounded adjacent .nfo parser, reused for read-only display.
 struct ImportLocalMetadata {

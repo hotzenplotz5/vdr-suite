@@ -433,7 +433,8 @@ struct CreatedTitleDirectories {
 };
 
 ImportPlan inspectImportChecked(const ImportRequest& request,
-                                bool rejectDuplicates) {
+                                bool rejectDuplicates,
+                                bool allowMarkedDuplicate = false) {
     const auto sourceRoot = checkedRoot(request.sourceRoot);
     const auto videoRoot = checkedRoot(request.videoRoot);
     require(!isChildOrEqual(sourceRoot, videoRoot) &&
@@ -456,8 +457,9 @@ ImportPlan inspectImportChecked(const ImportRequest& request,
                stem.compare(stem.size() - marker.size(), marker.size(), marker) == 0;
     };
     require(!marked(".pc_encode") && !marked(".skipped") &&
-            !marked(".duplicate"),
-            "source has a Rectools deferred/declined/duplicate marker");
+            (!marked(".duplicate") || allowMarkedDuplicate) &&
+            (!allowMarkedDuplicate || marked(".duplicate")),
+            "source marker is not valid for this operation");
     rejectSymlinkComponents(request.sourceFile);
     const auto resolved = fs::canonical(request.sourceFile);
     require(isChild(sourceRoot, resolved), "source resolves outside import root");
@@ -470,9 +472,20 @@ ImportPlan inspectImportChecked(const ImportRequest& request,
             extension == ".mov" || extension == ".avi" || extension == ".webm" ||
             extension == ".m4v",
             "unsupported source extension");
-    const auto metadata = adjacentMetadata(resolved);
+    // The original NFO remains adjacent to the original unmarked stem,
+    // even after Rectools renames the video to *.duplicate.<ext>.
+    fs::path originalName = resolved;
+    if (allowMarkedDuplicate) {
+        std::string stemBeforeMarker = resolved.stem().string();
+        stemBeforeMarker.resize(stemBeforeMarker.size() -
+                                std::string(".duplicate").size());
+        require(!stemBeforeMarker.empty(), "empty duplicate source title");
+        originalName = resolved.parent_path() /
+            (stemBeforeMarker + resolved.extension().string());
+    }
+    const auto metadata = adjacentMetadata(originalName);
     const auto title = safeTitle(metadata.title.empty() ?
-        resolved.stem().string() : metadata.title);
+        originalName.stem().string() : metadata.title);
     const auto folder = titleDestination(sourceRoot, videoRoot, resolved, title);
     const bool duplicate = containsRecording(folder);
     require(!rejectDuplicates || !duplicate,
@@ -622,6 +635,9 @@ ImportPlan inspectImport(const ImportRequest& request) {
 }
 ImportPlan inspectImportPreview(const ImportRequest& request) {
     return inspectImportChecked(request, false);
+}
+ImportPlan inspectMarkedDuplicatePreview(const ImportRequest& request) {
+    return inspectImportChecked(request, false, true);
 }
 
 bool confirmedMediaImportDuplicate(const ImportPlan& plan)

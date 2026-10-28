@@ -327,6 +327,38 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         local.sourceMtimeNanoseconds != approvedSource.sourceMtimeNanoseconds)
         return MediaImportAgentOutcome::rejected;
 
+    if (requestedDecision == MediaImportDecision::deleteDuplicate) {
+        // The confirmation is explicit and never deletes the VDR recording.
+        // Reprove the full VDR target against this pinned, marked source.
+        // A filename collision alone is not a deletion permit.
+        try {
+            const auto plan = inspectMarkedDuplicatePreview(
+                {local.sourceRoot, local.videoRoot, local.sourceFile});
+            if (plan.sourceDevice != local.sourceDevice ||
+                plan.sourceInode != local.sourceInode ||
+                plan.sourceBytes != local.sourceBytes ||
+                plan.sourceMtimeSeconds != local.sourceMtimeSeconds ||
+                plan.sourceMtimeNanoseconds != local.sourceMtimeNanoseconds ||
+                !confirmedMediaImportDuplicate(plan))
+                return MediaImportAgentOutcome::rejected;
+        } catch (...) {
+            return MediaImportAgentOutcome::rejected;
+        }
+        const auto evidence = mediaImportSourceEvidence(
+            local.sourceFile, local.sourceDevice, local.sourceInode,
+            local.sourceBytes, local.sourceMtimeSeconds,
+            local.sourceMtimeNanoseconds);
+        const auto removed = cleanupConfirmedDuplicateSource(local, evidence);
+        if (removed == MediaImportCleanupOutcome::removed) {
+            markerEvidence_ = mediaImportMarkerEvidence(
+                sourceId, MediaImportDecision::deleteDuplicate);
+            return MediaImportAgentOutcome::marked;
+        }
+        return removed == MediaImportCleanupOutcome::failed
+            ? MediaImportAgentOutcome::unknown
+            : MediaImportAgentOutcome::rejected;
+    }
+
     if (requestedDecision == MediaImportDecision::duplicate) {
         // The preview is read-only and can become stale. Reprove the target
         // recording against this *same* pinned source immediately before rename.

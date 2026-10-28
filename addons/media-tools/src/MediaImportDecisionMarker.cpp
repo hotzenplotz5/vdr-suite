@@ -106,8 +106,9 @@ bool markedBefore(const std::string& stem)
 } // namespace
 
 
-MediaImportCleanupOutcome cleanupMediaImportSource(
-    const LocalMediaImportSource& source, const std::string& sourceEvidence)
+MediaImportCleanupOutcome cleanupMediaImportSourceImpl(
+    const LocalMediaImportSource& source, const std::string& sourceEvidence,
+    bool markedDuplicate)
 {
     if (!validMediaImportSourceEvidence(sourceEvidence) ||
         !insideRoot(source.sourceRoot, source.sourceFile) ||
@@ -127,8 +128,13 @@ MediaImportCleanupOutcome cleanupMediaImportSource(
     std::string stem = source.sourceFile.stem().string();
     std::transform(stem.begin(), stem.end(), stem.begin(),
         [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    const std::string duplicateSuffix = ".duplicate";
+    const bool isDuplicate = stem.size() > duplicateSuffix.size() &&
+        stem.compare(stem.size() - duplicateSuffix.size(),
+                     duplicateSuffix.size(), duplicateSuffix) == 0;
     if (name.empty() || name.front() == '.' ||
-        !safeExtension(extension) || markedBefore(stem))
+        !safeExtension(extension) ||
+        (markedDuplicate ? !isDuplicate : markedBefore(stem)))
         return MediaImportCleanupOutcome::notPerformed;
 
     Fd directory = openDirectoryWithoutSymlinks(
@@ -163,6 +169,17 @@ MediaImportCleanupOutcome cleanupMediaImportSource(
     return ::fsync(directory.get()) == 0
         ? MediaImportCleanupOutcome::removed
         : MediaImportCleanupOutcome::failed;
+}
+
+MediaImportCleanupOutcome cleanupMediaImportSource(
+    const LocalMediaImportSource& source, const std::string& evidence)
+{
+    return cleanupMediaImportSourceImpl(source, evidence, false);
+}
+MediaImportCleanupOutcome cleanupConfirmedDuplicateSource(
+    const LocalMediaImportSource& source, const std::string& evidence)
+{
+    return cleanupMediaImportSourceImpl(source, evidence, true);
 }
 
 MediaImportMarkerOutcome markMediaImportSource(

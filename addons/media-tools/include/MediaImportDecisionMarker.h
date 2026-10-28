@@ -18,6 +18,11 @@ enum class MediaImportMarkerOutcome {
 MediaImportCleanupOutcome cleanupMediaImportSource(
     const LocalMediaImportSource& trustedSource,
     const std::string& sourceEvidence);
+// Only call after the Agent has independently confirmed a complete matching
+// VDR recording for this exact marked source at execution time.
+MediaImportCleanupOutcome cleanupConfirmedDuplicateSource(
+    const LocalMediaImportSource& trustedSource,
+    const std::string& sourceEvidence);
 
 MediaImportMarkerOutcome markMediaImportSource(
     const LocalMediaImportSource& trustedSource,
