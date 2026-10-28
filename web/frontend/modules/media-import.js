@@ -222,6 +222,25 @@
       view.attempt.state === 'outcome_unknown' && !view.batch && !view.submitting);
   }
 
+  function enableUnknownBrowsing(view) {
+    if (!mayBrowseWithUnknownOutcome(view) || view.unknownBrowsingEnabled)
+      return;
+    // This only restores read-only browsing. The unresolved Core operation,
+    // its source ID and its Idempotency-Key remain pinned.
+    view.unknownBrowsingEnabled = true;
+    view.select.disabled = view.sources.length === 0;
+    view.reloadButton.disabled = false;
+    view.searchInput.disabled = false;
+    view.statusFilter.disabled = false;
+    view.seasonFilter.disabled = false;
+    view.startButton.disabled = true;
+    view.batchButton.disabled = true;
+    view.selectedBatchButton.disabled = true;
+    view.selectAllVisibleButton.disabled = true;
+    if (!view.sources.length && !view.allMarked.length)
+      void loadSources(view);
+  }
+
   function terminalState(state) {
     return ['rejected', 'conflict', 'succeeded', 'failed_before_dispatch',
       'failed_verified', 'cancelled'].includes(state);
@@ -577,22 +596,7 @@
         throw new Error('Ungültige Operationsantwort');
       }
       view.attempt.state = operation.state;
-      if (mayBrowseWithUnknownOutcome(view) && !view.unknownBrowsingEnabled) {
-        // Preserve the Core operation and Idempotency-Key; re-enable only GET
-        // previews, local filters and the authenticated source catalogue.
-        view.unknownBrowsingEnabled = true;
-        view.select.disabled = view.sources.length === 0;
-        view.reloadButton.disabled = false;
-        view.searchInput.disabled = false;
-        view.statusFilter.disabled = false;
-        view.seasonFilter.disabled = false;
-        view.startButton.disabled = true;
-        view.batchButton.disabled = true;
-        view.selectedBatchButton.disabled = true;
-        view.selectAllVisibleButton.disabled = true;
-        if (!view.sources.length && !view.allMarked.length)
-          void loadSources(view);
-      }
+      enableUnknownBrowsing(view);
       if (manual) {
         view.lastManualCheck = 'Zuletzt geprüft: ' +
           new Date().toLocaleTimeString('de-DE') + ' – ' +
@@ -986,6 +990,9 @@
           return item.sourceId === view.attempt.sourceId;
         }));
     }
+    // Remount after a known unknown outcome remains browsable even when
+    // the current Agent/Core status request times out again.
+    enableUnknownBrowsing(view);
     if (view.attempt.operationId) {
       readOperation(view);
     } else if (view.attempt.pending) {
@@ -2004,7 +2011,10 @@
             'Dateipfad dieser Importwurzel freigegeben ist.';
         report(view, ordinary.length + ' unmarkierte Quellen (Importfähigkeit noch ungeprüft), ' + marked.length +
           ' bereits markiert.' +
-          (bounded ? ' Scan unvollständig.' : ''));
+          (bounded ? ' Scan unvollständig.' : '') +
+          (mayBrowseWithUnknownOutcome(view)
+            ? ' Bestehender Auftrag weiterhin ungewiss; nur lesende Prüfung anderer Quellen.'
+            : ''));
       }).catch(function (error) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
         const exceeded = error && typeof error.message === 'string' &&
