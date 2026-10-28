@@ -380,6 +380,20 @@ function publishHomeResume() {}
   // Real app capability-gate -> production module selection -> actual DOM buttons.
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   assert.strictEqual(tab.hidden, false);
+  // An already authorized tab stays visible, but not usable, while the
+  // Agent/capability is temporarily unavailable; retry restores it.
+  allow = false;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), false);
+  assert.strictEqual(tab.hidden, false);
+  assert.strictEqual(tab.disabled, true);
+  assert(tab.title.includes('Automatische Prüfung'));
+  const retry = timerCallbacks[timerCallbacks.length - 1];
+  assert.strictEqual(typeof retry, 'function');
+  allow = true;
+  retry();
+  await settle();
+  assert.strictEqual(tab.hidden, false);
+  assert.strictEqual(tab.disabled, false);
   context.selectModule('media-import');
   await settle();
   let select = findClass(mount, 'media-import-source');
