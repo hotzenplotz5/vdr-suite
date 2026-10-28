@@ -578,6 +578,11 @@
       renderImportFeedback(view);
       const recordingConfirmed = operation.state === 'succeeded' &&
         (!view.attempt.videoDecision || view.attempt.videoDecision === 'local');
+      if (recordingConfirmed && !view.batch &&
+          view.attempt.metadataSelection && !view.attempt.metadataStarted) {
+        view.attempt.metadataStarted = true;
+        void applyImportedMetadata(view, view.attempt);
+      }
       if (operation.state === 'succeeded') {
         const markerAction = view.attempt.videoDecision;
         const confirmedText = recordingConfirmed
@@ -714,6 +719,95 @@
     return null;
   }
 
+  // Use only an exact provider selection and the already verified target
+  // folder. The existing Recording metadata API remains the sole writer.
+  // No browser-generated native file path, new metadata database or replayed
+  // import is introduced.
+  function importMetadataSelection(view, plan, source) {
+    const candidate = view.onlineSelected;
+    if (!plan || !source || !candidate || !validRelativeFolder(plan.targetFolder) ||
+        candidate.providerId !== 'tmdb' || typeof candidate.externalId !== 'string' ||
+        !/^[0-9]{1,12}$/.test(candidate.externalId)) return null;
+    const coordinates = episodeCoordinates(source);
+    const episode = candidate.kind === 'episode' && view.onlineSeries &&
+      view.onlineSeries.kind === 'series' &&
+      coordinates.episode !== null &&
+      candidate.seasonNumber === coordinates.season &&
+      candidate.episodeNumber === coordinates.episode;
+    const movie = candidate.kind === 'movie' && view.onlineKind === 'movie';
+    if (!episode && !movie) return null;
+    return {
+      folder: plan.targetFolder, title: plan.title,
+      candidate: {
+        providerId: candidate.providerId,
+        externalNamespace: candidate.externalNamespace,
+        externalId: candidate.externalId,
+        mediaType: episode ? 'episode' : 'movie',
+        title: candidate.title,
+        originalTitle: candidate.originalTitle || '',
+        overview: candidate.overview || '',
+        releaseDate: candidate.releaseDate || '',
+        posterReference: episode && view.onlineSeries.posterReference
+          ? view.onlineSeries.posterReference : candidate.posterReference || '',
+        seasonNumber: episode ? candidate.seasonNumber : 0,
+        episodeNumber: episode ? candidate.episodeNumber : 0,
+        expectedRevision: 0
+      }
+    };
+  }
+
+  // The import has already succeeded in the native Recording readback.
+  // This optional second step updates only Suite-owned descriptive metadata;
+  // failed/offline metadata never changes the proven import outcome.
+  function applyImportedMetadata(view, attempt) {
+    const api = global.VdrSuiteClientApi;
+    const selection = attempt.metadataSelection;
+    if (!api || typeof api.fetchClientRecordingFolder !== 'function' ||
+        typeof api.requestJson !== 'function' || !selection) return Promise.resolve();
+    const fail = function () {
+      attempt.metadataFeedback = 'TMDb-Metadaten nicht übernommen. ' +
+        'Die Aufnahme ist vorhanden; Zuordnung unter „Aufnahmen“ möglich.';
+      if (isCurrent(view) && view.attempt === attempt)
+        renderImportFeedback(view);
+    };
+    return Promise.resolve(api.fetchClientRecordingFolder({
+      query: {
+        backend: view.backendId, path: selection.folder,
+        offset: 0, limit: 3, _: String(Date.now())
+      },
+      cache: 'no-store', credentials: 'same-origin'
+    })).then(function (folder) {
+      // The authoritative Recording cache must resolve this exact imported
+      // folder to ONE recording. No fuzzy title or newest-date matching.
+      const entries = folder && folder.recordings;
+      if (!folder || folder.path !== selection.folder ||
+          folder.cacheReady !== true || folder.recordingCount !== 1 ||
+          !Array.isArray(entries) || entries.length !== 1)
+        throw new Error('Recording target not uniquely resolved');
+      const recording = entries[0];
+      if (!recording || recording.title !== selection.title ||
+          typeof recording.backendNativeId !== 'string' ||
+          !recording.backendNativeId.endsWith('.rec'))
+        throw new Error('Recording identity did not match import');
+      const browser = global.VdrSuiteBrowserSession;
+      if (!browser || typeof browser.csrfHeaders !== 'function')
+        throw new Error('Missing existing browser session');
+      return api.requestJson('/api/backends/' +
+          encodeURIComponent(view.backendId) + '/recordings/metadata/assign', {
+        method: 'POST',
+        headers: Object.assign({'Content-Type': 'application/json'},
+          browser.csrfHeaders()),
+        body: JSON.stringify(Object.assign({resourceKey: recording.backendNativeId},
+          selection.candidate)),
+        cache: 'no-store', credentials: 'same-origin'
+      });
+    }).then(function () {
+      attempt.metadataFeedback = 'TMDb-Metadaten für die Aufnahme übernommen ✓';
+      if (isCurrent(view) && view.attempt === attempt)
+        renderImportFeedback(view);
+    }).catch(fail);
+  }
+
   // Display the established Core operation in ordinary language, right
   // beside the preview action. This does not start or retry operations.
   function renderImportFeedback(view) {
@@ -771,6 +865,8 @@
         : descriptions[state] || 'Der vorhandene Auftrag wird über „Vorgang prüfen“ abgefragt.';
     if (view.lastManualCheck && !attempt.pending)
       view.importFeedbackText.textContent += ' ' + view.lastManualCheck;
+    if (attempt && attempt.metadataFeedback)
+      view.importFeedbackText.textContent += ' ' + attempt.metadataFeedback;
     view.importFeedback.className = 'media-import-import-feedback' +
       (state === 'succeeded' ? ' is-success'
         : attempt && (terminalState(state) || state === 'outcome_unknown')
@@ -1042,9 +1138,10 @@
       if (matches.length === 1) {
         view.onlineSelected = matches[0];
         view.onlineAutoSelected = true;
-        view.onlineStatus = 'TMDb automatisch zugeordnet: Staffel ' +
+        view.onlineStatus = 'TMDb eindeutig erkannt: Staffel ' +
           coords.season + ', Folge ' + coords.episode +
-          '. Nur Anzeige; kein Import und keine NFO-Änderung.';
+          '. Bei einem bestätigten Import werden diese Daten ' +
+          'der neuen VDR-Suite-Aufnahme zugeordnet; die VDR-info-Datei bleibt zunächst unverändert.';
       } else {
         view.onlineStatus = matches.length
           ? 'Episode mehrdeutig. Bitte den TMDb-Treffer manuell auswählen.'
@@ -1064,7 +1161,7 @@
     const box = element('section', 'media-import-online');
     box.appendChild(element('h6', '', 'Online-Metadaten · TMDb (optional)'));
     box.appendChild(element('p', 'media-import-online-note',
-      'Automatischer Episodenabgleich bei eindeutigen Treffern. NFO und Import bleiben unverändert.'));
+      'Eindeutige TMDb-Daten werden nach bestätigtem Import über die bestehende Aufnahme-Metadatenzuordnung gespeichert. Das originale Video bleibt unverändert.'));
     const tools = element('div', 'media-import-online-tools');
     const coordinates = episodeCoordinates(source);
     const seriesTitle = onlineSeriesSearchTitle(source);
@@ -2374,9 +2471,13 @@
           const selectedSource = view.allOrdinary.find(function (item) {
             return item.sourceId === sourceId;
           });
+          const metadataSelection = !view.batch && selected === 'import'
+            ? importMetadataSelection(view, previewPlan, selectedSource) : null;
           view.attempt = {sourceId: sourceId, key: key, operationId: '',
             videoDecision: videoDecision,
             pcReturn: !releaseMode && Boolean(possiblePcReturn(view, selectedSource)),
+            metadataSelection: metadataSelection,
+            metadataStarted: false, metadataFeedback: '',
             state: '', pending: true};
           activeAttempts[view.backendId] = view.attempt;
           view.lastManualCheck = '';
