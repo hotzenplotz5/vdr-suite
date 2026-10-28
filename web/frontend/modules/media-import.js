@@ -12,9 +12,11 @@
   // Avoid repeated automatic duplicate operations for a single source observation.
   const automaticDuplicates = Object.create(null);
   const POLL_MS = 4000;
-  const MAX_AUTOMATIC_READS = 15;
-  // Long-running explicitly approved imports can use the Agent's bounded
-  // 600-second execution window plus dispatch/readback headroom.
+  // A single import has the same Agent execution/readback lifetime as a
+  // batch item. Fifteen checks stopped after 60 seconds and stranded the UI
+  // before the Core could confirm an otherwise successful import.
+  const MAX_AUTOMATIC_READS = 225;
+  // 225 * 4s = 15 minutes, covering the 600s worker plus readback headroom.
   const MAX_BATCH_READS = 225;
   const MAX_IMPORT_FILMS = 100;
   // Sort human-readable labels naturally (S01E02 before S01E10);
@@ -615,9 +617,16 @@
           view.reads < limit) {
         ++view.reads;
         view.timer = global.setTimeout(function () { readOperation(view); }, POLL_MS);
-      } else if (!terminalState(operation.state) && view.batch) {
-        stopBatch(view, 'Automatische Statusabfrage beendet. ' +
-          'Aktuellen Core-Vorgang manuell prüfen; kein weiterer Import startet.');
+      } else if (!terminalState(operation.state)) {
+        if (view.batch) {
+          stopBatch(view, 'Automatische Statusabfrage beendet. ' +
+            'Aktuellen Core-Vorgang manuell prüfen; kein weiterer Import startet.');
+        } else {
+          view.importFeedbackText.textContent =
+            'Der Auftrag ist noch nicht abgeschlossen. Die automatische Abfrage ' +
+            'ist beendet; über „Vorgang prüfen“ kannst du denselben Auftrag ' +
+            'jederzeit erneut abfragen. Nicht nochmals importieren.';
+        }
       }
     }).catch(function (error) {
       if (isCurrent(view)) {
@@ -671,7 +680,7 @@
       queued: noun + ' wartet auf Verarbeitung',
       dispatching: noun + ' läuft',
       executed_unverified: noun + ' ausgeführt – Bestätigung läuft',
-      succeeded: noun + ' abgeschlossen',
+      succeeded: noun + ' abgeschlossen ✓',
       rejected: noun + ' abgelehnt',
       conflict: noun + ' nicht ausgeführt',
       failed_before_dispatch: noun + ' fehlgeschlagen',
@@ -711,8 +720,9 @@
         ? 'Der Server hat keine eindeutige Antwort geliefert. Bitte nicht erneut klicken.'
         : descriptions[state] || 'Der vorhandene Auftrag wird über „Vorgang prüfen“ abgefragt.';
     view.importFeedback.className = 'media-import-import-feedback' +
-      (attempt && (terminalState(state) || state === 'outcome_unknown')
-        ? ' is-finished' : ' is-running');
+      (state === 'succeeded' ? ' is-success'
+        : attempt && (terminalState(state) || state === 'outcome_unknown')
+          ? ' is-finished' : ' is-running');
   }
 
   function showAttempt(view) {
