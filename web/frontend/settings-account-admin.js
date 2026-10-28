@@ -34,6 +34,21 @@
       permission || '-');
   }
 
+  // The picker presents server-authorized grant options and hides exact
+  // existing grants. Effective role expansion remains server-owned; never
+  // duplicate the server's permission catalogue in this UI.
+  function availableGrantOptions(options, grants, backendId) {
+    const assigned = Array.isArray(grants) ? grants : [];
+    const coversScope = grant => grant &&
+      (grant.backendId === '*' || grant.backendId === backendId);
+    return (Array.isArray(options) ? options : []).filter(option => {
+      if (!option || !option.permission) return false;
+      if (assigned.some(grant =>
+        coversScope(grant) && grant.permission === option.permission)) return false;
+      return true;
+    });
+  }
+
   function scopeLabel(backendId, backends) {
     if (backendId === '*') {
       return t('settings.accountAdminScopeGlobal', 'Alle Backends / serverweit');
@@ -415,42 +430,49 @@
         permissionInput.className =
           'settings-account-admin-display-name-input settings-account-admin-grant-permission-input';
         permissionInput.disabled = Boolean(actions.busy);
-        appendOption(permissionInput, '',
-          t('settings.accountAdminChoosePermission', 'Bitte auswählen …'), true);
         const permissionCategories = [
           { id: 'role', label: t('settings.accountAdminRolesGroup', 'Rollen') },
           { id: 'permission', label: t('settings.accountAdminPermissionsGroup', 'Berechtigungen') },
           { id: 'addon', label: t('settings.accountAdminAddonsGroup', 'Add-ons') }
         ];
-        permissionCategories.forEach(function(category) {
-          const choices = permissionOptions.filter(function(option) {
-            if (!option || !option.permission) return false;
-            // Add-on rights are shown only after an authoritative effective
-            // capability projection supplies selectable permissions.
-            if (option.category === 'addon') {
-              const available = Array.isArray(overview.addonPermissions)
-                ? overview.addonPermissions : [];
-              if (!available.some(function(entry) {
-                return entry && entry.permission === option.permission &&
-                  entry.selectable === true;
-              })) return false;
-            }
-            return (option.category === category.id ||
-                (category.id === 'permission' &&
-                 option.category !== 'role' && option.category !== 'addon'));
+        function updatePermissionOptions() {
+          const selectable = availableGrantOptions(
+            permissionOptions, activeGrants, backendInput.value);
+          permissionInput.replaceChildren();
+          appendOption(permissionInput, '',
+            t('settings.accountAdminChoosePermission', 'Bitte auswählen …'), true);
+          let visibleCount = 0;
+          permissionCategories.forEach(function(category) {
+            const choices = selectable.filter(function(option) {
+              // Add-on rights still require the server's selectable capability.
+              if (option.category === 'addon') {
+                const available = Array.isArray(overview.addonPermissions)
+                  ? overview.addonPermissions : [];
+                if (!available.some(function(entry) {
+                  return entry && entry.permission === option.permission &&
+                    entry.selectable === true;
+                })) return false;
+              }
+              return (option.category === category.id ||
+                  (category.id === 'permission' &&
+                   option.category !== 'role' && option.category !== 'addon'));
+            });
+            if (!choices.length) return;
+            const group = document.createElement('optgroup');
+            group.label = category.label;
+            choices.forEach(function(option) {
+              const label = permissionLabel(option.permission, permissionOptions);
+              appendOption(group, option.permission,
+                label === option.permission ? label : label + ' — ' + option.permission,
+                false);
+              visibleCount += 1;
+            });
+            permissionInput.appendChild(group);
           });
-          if (!choices.length) return;
-          const group = document.createElement('optgroup');
-          group.label = category.label;
-          choices.forEach(function(option) {
-            const label = permissionLabel(option.permission, permissionOptions);
-            appendOption(group, option.permission,
-              label === option.permission ? label : label + ' — ' + option.permission,
-              false);
-          });
-          permissionInput.appendChild(group);
-        });
-        permissionInput.value = '';
+          permissionInput.value = '';
+          permissionInput.disabled = Boolean(actions.busy) || visibleCount === 0;
+          ensure.disabled = Boolean(actions.busy) || visibleCount === 0;
+        }
         permissionField.appendChild(permissionInput);
         grantControls.appendChild(permissionField);
 
@@ -493,6 +515,8 @@
         grantControls.appendChild(backendField);
         backendField.appendChild(backendInput);
         grantControls.appendChild(ensure);
+        backendInput.addEventListener('change', updatePermissionOptions);
+        updatePermissionOptions();
       } else {
         appendHint(grantControls, t('settings.accountAdminGrantOptionsUnavailable',
           'Der Server liefert derzeit keine auswählbaren Zugriffstypen. Bestehende Zugriffe können weiterhin angezeigt oder entzogen werden.'));

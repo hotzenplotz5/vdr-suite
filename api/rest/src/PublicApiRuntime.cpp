@@ -11913,6 +11913,29 @@ bool PublicApiRuntime::tryHandleTimerWorkflowPost(
                     path,requestId,correlationId);
                 return true;
             case PublicSearchTimerCreateStatus::backendUnavailable:
+                response = problemResponse(503,"backend_unavailable",
+                    "Backend unavailable",
+                    "SearchTimer CREATE is not allowed for this offline or read-only backend.",
+                    path,requestId,correlationId);
+                return true;
+            case PublicSearchTimerCreateStatus::agentUnavailable:
+                response = problemResponse(503,"backend_unavailable",
+                    "Backend agent unavailable",
+                    "SearchTimer CREATE requires a valid, online backend agent.",
+                    path,requestId,correlationId);
+                return true;
+            case PublicSearchTimerCreateStatus::providerUnavailable:
+                response = problemResponse(503,"service_unavailable",
+                    "SearchTimer provider unavailable",
+                    "SearchTimer CREATE requires the configured backend provider and SuiteBridge transport.",
+                    path,requestId,correlationId);
+                return true;
+            case PublicSearchTimerCreateStatus::marginsUnavailable:
+                response = problemResponse(503,"service_unavailable",
+                    "Native margins unavailable",
+                    "SearchTimer CREATE requires confirmed VDR pre/post margins and the native timer-create capability.",
+                    path,requestId,correlationId);
+                return true;
             case PublicSearchTimerCreateStatus::unavailable:
                 response = serviceUnavailableProblem(
                     path,requestId,correlationId);

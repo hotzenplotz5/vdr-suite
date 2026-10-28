@@ -959,7 +959,8 @@ bool DaemonRuntime::initialize()
     if (!backendRuntimeContexts_.empty()
         && backendRuntimeContexts_.front()->searchTimerAdapter) {
         searchTimerCreateService_ =
-            std::make_unique<SearchTimerCreateService>();
+            std::make_unique<SearchTimerCreateService>(
+                backendRuntimeContexts_.front()->backendId);
         searchTimerCreateResultJsonSerializer_ =
             std::make_unique<SearchTimerCreateResultJsonSerializer>();
         searchTimerCreateRequestParser_ =
@@ -2078,7 +2079,7 @@ bool DaemonRuntime::initialize()
                 agent->leaseExpiresAt <= now)
             {
                 result.status =
-                    PublicSearchTimerCreateStatus::backendUnavailable;
+                    PublicSearchTimerCreateStatus::agentUnavailable;
                 return result;
             }
             BackendRuntimeContext* runtime = nullptr;
@@ -2095,7 +2096,7 @@ bool DaemonRuntime::initialize()
             if (!runtime)
             {
                 result.status =
-                    PublicSearchTimerCreateStatus::backendUnavailable;
+                    PublicSearchTimerCreateStatus::providerUnavailable;
                 return result;
             }
 
@@ -2121,7 +2122,7 @@ bool DaemonRuntime::initialize()
             std::string marginReason;
             if (!backendAgentCommandRepository_)
             {
-                result.status = PublicSearchTimerCreateStatus::backendUnavailable;
+                result.status = PublicSearchTimerCreateStatus::marginsUnavailable;
                 return result;
             }
             const auto provider = backendAgentCommandRepository_->selectLocalProvider(
@@ -2134,7 +2135,7 @@ bool DaemonRuntime::initialize()
                     runtime->suiteBridgeTransport->inspectNativeTimerMarginsContract(),
                     *provider, margins, marginReason))
             {
-                result.status = PublicSearchTimerCreateStatus::backendUnavailable;
+                result.status = PublicSearchTimerCreateStatus::marginsUnavailable;
                 return result;
             }
             input.payload.marginStartMinutes = margins.startMinutes;

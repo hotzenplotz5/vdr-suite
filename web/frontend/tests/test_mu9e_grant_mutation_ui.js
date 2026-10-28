@@ -242,6 +242,35 @@ function setEnsureFields(root, permission, backendId) {
     backendPicker.children.map(option => option.value),
     ['*', 'default', 'bedroom']
   );
+
+  // The selection is scoped: a grant already present for "default" must
+  // disappear there, while a global assignment remains independently possible.
+  backendPicker.value = 'default';
+  backendPicker.listeners.change();
+  const scopedChoices = permissionPicker.children.flatMap(function(child) {
+    return child.tagName === 'OPTGROUP'
+      ? child.children.map(option => option.value) : [child.value];
+  });
+  assert(!scopedChoices.includes('channels.view'));
+  assert(scopedChoices.includes('timers.view'));
+  backendPicker.value = '*';
+  backendPicker.listeners.change();
+
+  grantItems.push({permission: 'role.admin', backendId: '*'});
+  const adminRoot = await renderRoot();
+  const adminPicker = findByClass(
+    adminRoot, 'settings-account-admin-grant-permission-input');
+  assert(adminPicker, 'administrator still has a visible scoped picker');
+  assert.deepStrictEqual(
+    adminPicker.children.flatMap(function(child) {
+      return child.tagName === 'OPTGROUP'
+        ? child.children.map(option => option.value) : [child.value];
+    }), ['', 'role.read-only', 'channels.view', 'recordings.rename',
+         'timers.view'],
+    'the browser hides only the exact assigned role; the server owns role expansion');
+  assert.strictEqual(adminPicker.disabled, false);
+  grantItems.pop();
+
   addonEffective = true;
   const addonRoot = await renderRoot();
   const addonPicker = findByClass(

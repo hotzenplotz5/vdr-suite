@@ -129,7 +129,8 @@ struct PublicSearchTimerCollectionResult
 
 enum class PublicSearchTimerCreateStatus
 {
-    accepted, replayed, invalid, conflict, backendUnavailable, unavailable
+    accepted, replayed, invalid, conflict, backendUnavailable,
+    agentUnavailable, providerUnavailable, marginsUnavailable, unavailable
 };
 struct PublicSearchTimerCreateRequest
 {

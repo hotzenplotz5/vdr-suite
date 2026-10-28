@@ -150,6 +150,68 @@ std::string getStringField(const std::string& objectText, const std::string& fie
     return "";
 }
 
+// RESTfulAPI transports blacklist_ids and ext_epg_info as JSON arrays.
+// Older provider snapshots may still use delimited strings.
+std::string getListField(
+    const std::string& objectText, const std::string& fieldName)
+{
+    const std::string key = "\"" + fieldName + "\"";
+    const std::size_t field = objectText.find(key);
+    if (field == std::string::npos) return {};
+    const std::size_t colon = objectText.find(':', field + key.size());
+    if (colon == std::string::npos) return {};
+    const std::size_t start = skipWhitespace(objectText, colon + 1U);
+    if (start >= objectText.size() || objectText[start] != '[')
+        return getStringField(objectText, fieldName);
+    const std::size_t close = findMatching(objectText, start, '[', ']');
+    if (close == std::string::npos) return {};
+    const std::string list = objectText.substr(start, close - start + 1U);
+    std::size_t offset = 1U;
+    std::vector<std::string> values;
+    while (offset < list.size())
+    {
+        offset = skipWhitespace(list, offset);
+        if (offset < list.size() && list[offset] == ']')
+            return values.empty() ? "" : [&values]() {
+                std::string result;
+                for (const auto& item : values)
+                {
+                    if (!result.empty()) result += ',';
+                    result += item;
+                }
+                return result;
+            }();
+        if (offset >= list.size() || list[offset++] != '"')
+            return {};
+        std::string encoded;
+        bool escaped = false;
+        bool complete = false;
+        while (offset < list.size())
+        {
+            const char c = list[offset++];
+            if (!escaped && c == '"')
+            {
+                complete = true;
+                break;
+            }
+            encoded.push_back(c);
+            if (escaped) escaped = false;
+            else if (c == '\\') escaped = true;
+        }
+        if (!complete) return {};
+        values.push_back(unescapeJsonString(encoded));
+        offset = skipWhitespace(list, offset);
+        if (offset < list.size() && list[offset] == ',')
+        {
+            ++offset;
+            continue;
+        }
+        if (offset >= list.size() || list[offset] != ']')
+            return {};
+    }
+    return {};
+}
+
 int getIntField(const std::string& objectText, const std::string& fieldName, int fallback = 0)
 {
     const std::string key = "\"" + fieldName + "\"";
@@ -320,8 +382,17 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
             getIntField(objectText, "margin_stop", 0));
         timer.scheduleOptions().setUseVps(
             getIntField(objectText, "use_vps", 0) != 0);
-        timer.filterOptions().setUseChannel(
-            getIntField(objectText, "use_channel", 0) != 0);
+        const int channelMode = getIntField(objectText, "use_channel", 0);
+        timer.filterOptions().setUseChannel(channelMode != 0);
+        timer.filterOptions().setChannelMode(channelMode);
+        timer.filterOptions().setUseTime(
+            getBoolField(objectText, "use_time", false));
+        timer.filterOptions().setStartTime(
+            getIntField(objectText, "start_time", 0));
+        timer.filterOptions().setStopTime(
+            getIntField(objectText, "stop_time", 0));
+        timer.filterOptions().setDayOfWeek(
+            getIntField(objectText, "dayofweek", 0));
         timer.filterOptions().setUseDayOfWeek(
             getIntField(objectText, "use_dayofweek", 0) != 0);
         timer.filterOptions().setUseDuration(
@@ -360,6 +431,12 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
 
         timer.channelOptions().setChannels(
             getStringField(objectText, "channels"));
+        // Native channel boundaries can be VDR channel identifiers rather
+        // than integers; preserve the exact identity for Browser readback.
+        timer.channelOptions().setChannelMinId(
+            getStringField(objectText, "channel_min"));
+        timer.channelOptions().setChannelMaxId(
+            getStringField(objectText, "channel_max"));
         timer.channelOptions().setChannelMin(
             getIntField(objectText, "channel_min", 0));
         timer.channelOptions().setChannelMax(
@@ -377,7 +454,7 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.blacklistOptions().setBlacklistMode(
             getIntField(objectText, "blacklist_mode", 0));
         timer.blacklistOptions().setBlacklistIds(
-            getStringField(objectText, "blacklist_ids"));
+            getListField(objectText, "blacklist_ids"));
 
         timer.matchOptions().setMode(
             getIntField(objectText, "mode", 0));
@@ -391,7 +468,7 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.extendedEpgOptions().setUseExtendedEpgInfo(
             getIntField(objectText, "use_ext_epg_info", 0) != 0);
         timer.extendedEpgOptions().setExtendedEpgInfo(
-            getStringField(objectText, "ext_epg_info"));
+            getListField(objectText, "ext_epg_info"));
         timer.extendedEpgOptions().setIgnoreMissingEpgCategories(
             getIntField(objectText, "ignore_missing_epg_cats", 0) != 0);
         timer.extendedEpgOptions().setContentDescriptors(

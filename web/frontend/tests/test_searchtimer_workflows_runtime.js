@@ -212,6 +212,22 @@ assert.strictEqual(
   '1 · Das Erste HD'
 );
 assert.strictEqual(
+  api.previewChannelLabel({channelId: 'S19.2E-1-1019-10301'}, channels),
+  'Das Erste HD'
+);
+assert.strictEqual(
+  api.previewChannelLabel({channel: 'S19.2E-1-1011-11110'}, channels),
+  'ZDF HD'
+);
+assert.strictEqual(
+  api.previewChannelLabel({channelId: 'unknown'}, channels),
+  'unknown'
+);
+assert.strictEqual(
+  api.previewChannelLabel({channelName: 'Kanalname'}, []),
+  'Kanalname'
+);
+assert.strictEqual(
   api.inferChannelMode(true, 'Privat', '', ''),
   2
 );
@@ -358,7 +374,9 @@ assert.ok(
 assert.ok(
   source.includes('fetchClientSearchTimerCreateAction')
 );
-assert.ok(source.includes('fetchClientSearchTimerCreateStaged'));
+// Public-v1 Device staging remains an independent API contract, but the
+// MLD Browser editor must use the already existing full provider CREATE.
+assert.ok(source.includes('fetchClientSearchTimerCreateAction'));
 assert.strictEqual(api.stagedCreateValidation({
   query: 'Terra X', mode: 1, tolerance: 0,
   compareTitle: true, compareSubtitle: false, compareSummary: false
@@ -372,6 +390,46 @@ assert.ok(api.stagedCreateValidation({
   compareTitle: true, compareSubtitle: false, compareSummary: false
 }).length > 0);
 
+assert.deepStrictEqual(
+  Array.from(api.unsupportedStagedOptions({
+    active: false, directory: '', priority: 0, lifetime: 0,
+    marginStartMinutes: 0, marginStopMinutes: 0, useVps: false,
+    useChannel: 0, useDuration: false, avoidRepeats: false,
+    blacklistMode: 0, blacklistIds: '', matchCase: false
+  })), []
+);
+assert.deepStrictEqual(
+  Array.from(api.unsupportedStagedOptions({
+    active: true, directory: 'Series', priority: 50,
+    useChannel: 1, avoidRepeats: true, matchCase: true
+  })),
+  ['Sofort aktivieren', 'Aufnahmeverzeichnis', 'Priorität',
+   'Kanalfilter', 'Wiederholungen', 'Groß-/Kleinschreibung']
+);
+assert(source.includes('createDirectoryFields(advancedGrid, source)'));
+assert(source.includes('createChannelFilterFields(advancedGrid, source)'));
+
+
+
+
+assert.deepStrictEqual(
+  Array.from(api.unsupportedCopiedSettings({
+    useDayOfWeek: true, compareCategories: true,
+    deleteRecordingsAfterDays: 3
+  })),
+  ['Wochentagsfilter', 'EPG-Kategorienvergleich',
+   'Aufnahmen löschen nach Tagen']
+);
+assert.deepStrictEqual(Array.from(api.unsupportedCopiedSettings(null)), []);
+assert(api.createErrorText({
+  status: 503,
+  payload: {detail: 'SearchTimer CREATE requires confirmed VDR pre/post margins and the native timer-create capability.'}
+}).includes('VDR-Vor-/Nachlaufwerte'));
+assert(api.createErrorText({
+  status: 503,
+  payload: {detail: 'SearchTimer CREATE requires a valid, online backend agent.'}
+}).includes('Backend-Agent'));
+assert.strictEqual(api.createErrorText({status: 409, message: 'Konflikt'}), 'Konflikt');
 assert.ok(
   source.includes('fetchClientSearchTimerDeleteAction')
 );
@@ -405,4 +463,238 @@ assert.ok(source.includes(
 // caller-must-not-override are now exercised by the focused
 // test_searchtimer_maintenance_security_runtime.js contract.
 
-console.log('test_searchtimer_workflows_runtime passed');
+// F1.3 browser form E2E: active full-provider CREATE, native-ID readback,
+// selected backend, and no duplicate writes even on an ambiguous result.
+class FormElement {
+  constructor(tag) {
+    this.tagName = String(tag).toUpperCase();
+    this.children = [];
+    this.dataset = {};
+    this.style = {};
+    this.listeners = {};
+    this.className = '';
+    this.textContent = '';
+    this.value = '';
+    this.checked = false;
+    this.disabled = false;
+    this.type = '';
+    this.name = '';
+    this.hidden = false;
+  }
+  appendChild(child) {
+    this.children.push(child);
+    child.parentElement = this;
+    return child;
+  }
+  replaceChildren(...children) {
+    this.children = [];
+    children.forEach(child => this.appendChild(child));
+  }
+  addEventListener(name, handler) { this.listeners[name] = handler; }
+  setAttribute(name, value) { this[name] = value; }
+  get elements() {
+    const controls = {};
+    function visit(current) {
+      if (current.name) controls[current.name] = current;
+      current.children.forEach(visit);
+    }
+    visit(this);
+    return controls;
+  }
+}
+function findForm(node) {
+  if (node.tagName === 'FORM') return node;
+  for (const child of node.children) {
+    const found = findForm(child);
+    if (found) return found;
+  }
+  return null;
+}
+function fakeReadback(payload) {
+  const select = (...names) => Object.fromEntries(
+    names.map(name => [name, payload[name]])
+  );
+  return {
+    totalCount: 1,
+    searchTimers: [{
+      backendId: payload.backendId, backendNativeId: '42',
+      query: payload.query, name: payload.query,
+      state: payload.active ? 'active' : 'inactive',
+      recordingOptions: select('directory', 'priority', 'lifetime'),
+      scheduleOptions: select('marginStartMinutes', 'marginStopMinutes', 'useVps'),
+      filterOptions: Object.assign(
+        select('useTime', 'startTime', 'stopTime', 'useDayOfWeek',
+          'dayOfWeek', 'useDuration', 'durationMinMinutes',
+          'durationMaxMinutes'),
+        {useChannelMode: payload.useChannel}
+      ),
+      channelOptions: Object.assign(
+        select('channels'),
+        {channelMinId: payload.channelMin, channelMaxId: payload.channelMax}
+      ),
+      comparisonOptions: select('compareTitle', 'compareSubtitle',
+        'compareSummary', 'compareCategories', 'compareTime'),
+      repeatOptions: select('avoidRepeats', 'allowedRepeats', 'repeatsWithinDays'),
+      seriesOptions: select('useSeriesRecording', 'keepRecordings',
+        'deleteMode', 'searchTimerAction'),
+      blacklistOptions: select('blacklistMode', 'blacklistIds'),
+      matchOptions: select('mode', 'matchCase', 'tolerance', 'summaryMatch'),
+      extendedEpgOptions: select('useExtendedEpgInfo', 'extendedEpgInfo',
+        'ignoreMissingEpgCategories', 'contentDescriptors'),
+      validityOptions: select('useInFavorites', 'activeFrom', 'activeUntil'),
+      actionOptions: select('pauseOnRecordings', 'switchMinutesBefore',
+        'unmuteSoundOnSwitch', 'deleteRecordingsAfterDays',
+        'deleteAfterCountRecordings', 'deleteAfterDaysOfFirstRecording')
+    }]
+  };
+}
+async function checkEditorFullWrites() {
+  const mount = new FormElement('main');
+  const document = {
+    head: new FormElement('head'),
+    createElement(tag) { return new FormElement(tag); },
+    getElementById() { return null; }
+  };
+  const writes = [];
+  const readbacks = [];
+  let resultState = 'active';
+  let rejectCreate = false;
+  const browser = {
+    setTimeout() {},
+    confirm() { return true; }
+  };
+  const client = {
+    fetchClientSearchTimerCreateAction(options) {
+      writes.push(options);
+      const payload = options.payload;
+      if (rejectCreate) return Promise.resolve({
+        success: false, message: 'searchtimer backend does not match provider',
+        errors: ['status=503', 'requestBody=PRIVATE_SENTINEL']
+      });
+      return Promise.resolve({
+        success: true, backendId: payload.backendId, query: payload.query,
+        backendNativeId: '42',
+        state: payload.active ? 'active' : 'inactive'
+      });
+    },
+    fetchClientSearchTimers(options) {
+      readbacks.push(options);
+      const payload = writes[writes.length - 1].payload;
+      const readback = fakeReadback(payload);
+      readback.searchTimers[0].state = resultState;
+      return Promise.resolve(readback);
+    }
+  };
+  vm.runInNewContext(source, {
+    window: browser, document, Promise, Object, Array, Boolean, Number,
+    Date, String, Set, Math, JSON, Uint8Array
+  }, {filename: sourcePath});
+  const mod = browser.VdrSuiteSearchTimerBrowser;
+  mod.configureContext({
+    detailDataElement: mount,
+    clientApi: client,
+    getSelectedBackendId() { return 'living-room'; }
+  });
+  mod.renderList({searchTimers: []});
+  const form = findForm(mount);
+  assert(form);
+  assert(form.elements.active);
+  assert(form.elements.priority);
+  assert(form.elements.useTime);
+  assert(form.elements.channelFilterMode);
+  assert(form.elements.useExtendedEpgInfo);
+  assert(form.elements.deleteMode);
+  form.elements.query.value = 'Tatort';
+  form.elements.priority.value = '50';
+  form.elements.active.checked = true;
+  form.elements.useTime.checked = true;
+  form.elements.startTime.value = '930';
+  form.elements.stopTime.value = '1130';
+  form.elements.useDayOfWeek.checked = true;
+  form.elements.dayOfWeek.value = '31';
+  form.elements.manualUseChannel.value = '2';
+  form.elements.manualChannels.value = 'ARD';
+  form.elements.useDuration.checked = true;
+  form.elements.durationMinMinutes.value = '35';
+  form.elements.durationMaxMinutes.value = '100';
+  form.elements.avoidRepeats.checked = true;
+  form.elements.allowedRepeats.value = '1';
+  form.elements.blacklistMode.value = '2';
+  form.elements.blacklistIds.value = '4, 5';
+  form.elements.useExtendedEpgInfo.checked = true;
+  form.elements.extendedEpgInfo.value = 'category=movie; actor=Jane';
+  form.listeners.submit({preventDefault() {}});
+  form.listeners.submit({preventDefault() {}});
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.strictEqual(writes.length, 1, 'one user action => one CREATE');
+  assert.strictEqual(writes[0].payload.active, true);
+  assert.strictEqual(writes[0].payload.priority, 50);
+  assert.strictEqual(writes[0].payload.useTime, true);
+  assert.strictEqual(writes[0].payload.startTime, 930);
+  assert.strictEqual(writes[0].payload.stopTime, 1130);
+  assert.strictEqual(writes[0].payload.dayOfWeek, 31);
+  assert.strictEqual(writes[0].payload.useChannel, 2);
+  assert.strictEqual(writes[0].payload.channels, 'ARD');
+  assert.strictEqual(writes[0].payload.durationMinMinutes, 35);
+  assert.strictEqual(writes[0].payload.blacklistIds, '4, 5');
+  assert.strictEqual(writes[0].payload.extendedEpgInfo,
+    'category=movie; actor=Jane');
+  assert.strictEqual(writes[0].payload.backendId, 'living-room');
+  assert.strictEqual(readbacks.length, 1);
+  assert.strictEqual(readbacks[0].query.backend, 'living-room');
+  assert.strictEqual(readbacks[0].query.text, 'Tatort');
+  assert.strictEqual(form.elements.active.checked, true);
+
+  // New form with conflicting backend readback: preserve outcome as unknown;
+  // do not silently retry, even when the user clicks Save twice.
+  mod.renderList({searchTimers: []});
+  const second = findForm(mount);
+  resultState = 'inactive';
+  second.elements.query.value = 'Tatort';
+  second.elements.active.checked = true;
+  second.listeners.submit({preventDefault() {}});
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.strictEqual(writes.length, 2);
+  assert.strictEqual(readbacks.length, 2);
+  second.listeners.submit({preventDefault() {}});
+  assert.strictEqual(writes.length, 2,
+    'ambiguous readback must not lead to another write');
+
+  mod.renderList({searchTimers: []});
+  const rejected = findForm(mount);
+  assert(rejected);
+  rejectCreate = true;
+  rejected.elements.query.value = 'Tatort';
+  rejected.elements.active.checked = true;
+  rejected.listeners.submit({preventDefault() {}});
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  const feedback = rejected.children.find(child =>
+    child.className === 'searchtimer-feedback' ||
+    String(child.className).indexOf('searchtimer-feedback') === 0);
+  assert(feedback);
+  assert(feedback.textContent.includes('backend does not match provider'),
+    'provider denial must be shown instead of generic create response');
+  assert(feedback.textContent.includes('status=503'));
+  assert(!feedback.textContent.includes('PRIVATE_SENTINEL'),
+    'raw provider request content must never enter feedback');
+  assert.strictEqual(writes.length, 3);
+  assert.strictEqual(readbacks.length, 2);
+  rejected.listeners.submit({preventDefault() {}});
+  assert.strictEqual(writes.length, 3,
+    'server-side rejection must not create a new request in this editor');
+}
+checkEditorFullWrites().then(function() {
+  console.log('test_searchtimer_workflows_runtime passed');
+}).catch(function(error) {
+  console.error(error);
+  process.exitCode = 1;
+});
