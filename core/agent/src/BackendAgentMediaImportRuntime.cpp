@@ -123,10 +123,17 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceObservation(
             return false;
         for (const auto& item : labels) ids.push_back(item.sourceId);
         if (!selectedSourceId.empty()) {
-            if (selected.sourceFile.empty())
+            if (selected.sourceFile.empty()) {
+                preview.status = "unavailable";
                 preview.failureCode = "inventory_missing";
-            else
-                inspectResolvedSource(selectedSourceId, selected, preview);
+            } else if (!inspectResolvedSource(selectedSourceId, selected, preview)) {
+                // Keep diagnostic failures in the existing preview protocol.
+                // An empty status is rejected by the Core observation reader
+                // and leaves the browser waiting for an answer.
+                preview.status = "unavailable";
+                if (preview.failureCode.empty())
+                    preview.failureCode = "inspection_failed";
+            }
         }
         return true;
     } catch (...) {
