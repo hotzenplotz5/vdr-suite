@@ -43,6 +43,48 @@ Siehe [Phase MLD.F1](../planning/mld66-feedback-phase-f1.md).
 
 **Test-Evidenz:** JS-V8-Modultest der Kanalnamensauflösung (inklusive bestehender Workflow-Assertions) und DOM-Mock der Berechtigungsauswahl (inklusive bestehender Mutationstests) bestanden. Der vollständige Preview-Fetch-Pfad wurde noch nicht end-to-end getestet. Noch **nicht bestätigt:** nativer Node-/CI-Lauf des Branch-HEAD, MLD-Kompilierung und Paketierung, reale MLD-Installation sowie reale VDR-Operationen.
 
+## Tester-Rückmeldung vom 28.10.2026 – F1.3/F1.4
+
+**Bestätigt durch skippy auf MLD 6.6.0 / VDR 2.8.4:**
+- Erweiterte epgsearch-Felder sind sichtbar und korrekt aufklappbar;
+  Schrift im Disclosure soll besser lesbar sein.
+- Suchtimer-Vorschau zeigt jetzt Sendernamen: PASS.
+- Exakt vorhandene Grants sind aus der Auswahl entfernt; durch
+  `role.admin` effektiv gedeckte Einzelrechte erscheinen noch: OFFEN.
+- Suchtimer CREATE meldet im Browser
+  `Backend-Anlage nicht eindeutig bestätigt`: **kein** nachgewiesenes
+  CREATE-Ergebnis. Kein erneutes Anlegen ohne Readback.
+
+**MLD-Live-Diagnose von skippy (`--caps`):**
+- VDR und Suite-Daemon laufen; SuiteBridge 0.14.1 meldet
+  `vdr.live.stream=available`; native `mutations=disabled`.
+- `vdr-suite-backend-agent` ist `inactive/dead`, `disabled`,
+  die Control-Plane-DB meldet `NO_ACTIVE_AGENT_ROWS`.
+- Die Agent-Versuche von Pit melden
+  `Backend Agent synchronization failed: local_file_not_found`.
+  Nach geprüftem Quellcode versucht `synchronize()` bei fehlender
+  Identitätsdatei ein Enrollment-Paket zu laden. Der Fehler ist mit
+  fehlender Identität und fehlendem Enrollment-Paket vereinbar;
+  Dateiexistenz auf dem konkreten Host noch zu prüfen.
+- `ffmpeg=ABSENT`: nach Agent-/Provider-Anbindung fehlt voraussichtlich
+  die Browser-Live-Aufbereitung; **nicht** Ursache des gegenwärtigen
+  `live_backend_authority_required` (tritt vor Streamerzeugung auf).
+- MLD-Live-Ursache auf Agent-Registrierung eingegrenzt; vollständige
+  Agent-Anmeldung / echte Bild-Ton-Abnahme bleiben OFFEN.
+
+**Quell-Follow-up:** Das Browser-CREATE zeigt bei einem serverseitigen
+`success:false` jetzt die Backend-Fehlermeldung sowie begrenzte
+Statusdetails, statt alles als unklare Bestätigung zusammenzufassen;
+rohe `requestBody`-/`responseBody`-Dumps erscheinen nicht im
+Browser. Ein isolierter JavaScript-Test für Fehlerprojektion und
+Null-Duplikat-POST ist bestanden. Die Überschrift der weiteren
+epgsearch-Einstellungen ist lesbarer gestaltet. Das lesende
+MLD-Diagnoseskript
+`tools/mld66-live-readonly-diagnostics.sh` prüft jetzt zusätzlich
+**nur Existenz/Typ** der in der Agent-Konfiguration eingetragenen
+Identitäts- und Enrollment-Dateien. Keine Datei wird geöffnet oder
+regeneriert. Keine MLD-Installation dieser Folgestände bisher belegt.
+
 ## Was gehört zur VDR-Suite-Installation?
 
 Die folgenden Zeilen beschreiben **Funktionen**, keine verifizierten MLD-Paketnamen. „Optional“ heißt, dass die Suite ohne diese Spezialfunktion lauffähig sein kann; welche MLD-Rezepte tatsächlich verwendet werden, muss die MLD-Paketierung festlegen.
