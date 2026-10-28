@@ -1936,9 +1936,22 @@ function publishHomeResume() {}
     'exact S01E01 is automatically identified from provider results');
   assert(automaticOnline.children[0].textContent.includes('Automatisch erkannte'),
     'automatic attribution is labelled separately from manual selection');
-  const autoPoster = findClass(findClass(mount, 'media-import-artwork-poster'), 'media-import-artwork-image');
+  // The source really has local artwork in this fixture. Keep that image
+  // authoritative rather than replacing it with an automatic online match.
+  const localAutoPoster = findClass(findClass(mount, 'media-import-artwork-poster'),
+    'media-import-artwork-image');
+  assert(localAutoPoster && localAutoPoster.src === 'data:image/jpeg;base64,/9j/2Q==',
+    'existing local poster stays visible after automatic TMDb matching');
+  // Without a local poster, the same unique TMDb episode supplies fallback
+  // artwork in the main preview; the existing metadata-only route is reused.
+  previewArtworkMode = 'none';
+  onlineSelect.listeners.change();
+  await settle();
+  const autoPoster = findClass(findClass(mount, 'media-import-artwork-poster'),
+    'media-import-artwork-image');
   assert(autoPoster && autoPoster.src.includes('externalNamespace=tv-episode'),
-    'automatic episode artwork appears in the main preview');
+    'automatic episode artwork appears when no local poster exists');
+  previewArtworkMode = 'poster';
   assert.strictEqual(submits, beforeAutoImports,
     'automatic metadata lookup never imports, marks or changes VDR media');
   // Multiple equally plausible provider IDs must not be silently chosen.
