@@ -812,10 +812,18 @@
     box.appendChild(element('p', 'media-import-online-note',
       'Keine automatische Titelzuordnung. NFO und Import bleiben unverändert.'));
     const tools = element('div', 'media-import-online-tools');
+    const coordinates = episodeCoordinates(source);
+    const seriesTitle = onlineSeriesSearchTitle(source);
+    if (coordinates.episode !== null) {
+      box.appendChild(element('p', 'media-import-online-context',
+        'Erkannt: Staffel ' + coordinates.season + ' · Folge ' +
+        coordinates.episode));
+    }
     const query = element('input', 'media-import-online-query');
     query.type = 'search';
     query.maxLength = 160;
-    query.value = view.onlineQuery || (plan && plan.title) || source.label || '';
+    query.value = view.onlineQuery || seriesTitle ||
+      (plan && plan.title) || source.label || '';
     query.setAttribute('aria-label', 'TMDb-Titel');
     query.addEventListener('input', function () { view.onlineQuery = query.value; });
     tools.appendChild(query);
@@ -1064,16 +1072,36 @@
       /^(?:Staffel|Season)[ ._-]*(0?[1-9]|[1-9][0-9])$/i.exec(parts[parts.length - 1]);
     const filename = /(?:^|[\s._-])S(0?[1-9]|[1-9][0-9])E(0?[1-9]|[1-9][0-9]{1,2})(?=$|[\s._-])/i
       .exec(item.label || '');
+    const named = /(?:^|[\s._-])(?:Staffel|Season)[\s._-]*(0?[1-9]|[1-9][0-9])[\s._-]+(?:Folge|Episode)[\s._-]*(0?[1-9]|[1-9][0-9]{1,2})(?=$|[\s._-])/i
+      .exec(item.label || '');
     const folderSeason = seasonName ? Number(seasonName[1]) : null;
-    const labelSeason = filename ? Number(filename[1]) : null;
+    const labelSeason = filename ? Number(filename[1]) :
+      named ? Number(named[1]) : null;
     const season = folderSeason !== null && labelSeason !== null &&
       folderSeason !== labelSeason ? null :
       folderSeason !== null ? folderSeason : labelSeason;
+    const folderEpisode = folderSeason !== null && !filename && !named
+      ? /(?:^|[\s._-])(?:Folge|Episode)[\s._-]*(0?[1-9]|[1-9][0-9]{1,2})(?=$|[\s._-])/i.exec(item.label || '')
+      : null;
+    const episode = filename ? Number(filename[2]) :
+      named ? Number(named[2]) :
+      folderEpisode ? Number(folderEpisode[1]) : null;
     return {
       seriesPath: seasonName ? parts.slice(0, -1).join('/') : item.folder || '',
       season: season,
-      episode: filename && season !== null ? Number(filename[2]) : null
+      episode: season !== null ? episode : null
     };
+  }
+
+  function onlineSeriesSearchTitle(source) {
+    const coords = episodeCoordinates(source);
+    if (coords.episode === null) return '';
+    const folders = coords.seriesPath.split('/').filter(Boolean);
+    const raw = folders.length ? folders[folders.length - 1] : '';
+    if (/^(serien|series|tv|shows)$/i.test(raw)) return '';
+    return raw.replace(/[_-]+/g, ' ')
+      .replace(/\s*\((?:19|20)\d{2}\)\s*$/, '')
+      .replace(/\s+/g, ' ').trim();
   }
 
   function renderSeasonChoices(view, searching) {
@@ -1538,6 +1566,13 @@
     view.localReencode.checked = false;
     ++view.previewGeneration;
     resetOnline(view);
+    const source = view.allOrdinary.find(function (item) {
+      return item.sourceId === id;
+    });
+    // MEDIA4 already recognizes episodes. Reuse those coordinates for the
+    // MEDIA5 provider kind, rather than defaulting every source to a movie.
+    view.onlineKind = source && episodeCoordinates(source).episode !== null
+      ? 'series' : 'movie';
     const generation = view.previewGeneration;
     view.previewResult = null;
     view.previewStatus = '';
