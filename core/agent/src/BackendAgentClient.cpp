@@ -2069,10 +2069,12 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
         installed = {};
     std::vector<std::string> ids;
     std::vector<vdrsuite::mediatools::MediaImportSourceLabel> described;
+    vdrsuite::mediatools::MediaImportSourcePreview selectedPreview;
     bool partial = true;
     if (installed.sha256.empty() ||
-        !config_.mediaImportExecutor->listTrustedSourceSnapshot(
-            ids, described, partial)) {
+        !config_.mediaImportExecutor->listTrustedSourceObservation(
+            ids, described, partial, pendingMediaImportPreviewSourceId_,
+            selectedPreview)) {
         ids.clear(); // Withdrawal/unreadable ledger removes all listings.
         described.clear();
         partial = true;
@@ -2167,21 +2169,16 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     // The Core may request ONE previously authorized opaque source ID in
     // the previous observation response. Never accept a path from the wire.
     if (!pendingMediaImportPreviewSourceId_.empty()) {
-        vdrsuite::mediatools::MediaImportSourcePreview preview;
+        // The optional preview comes from the same bounded scan as ids and
+        // labels. Do not resolve the selected ID through a second tree walk.
+        auto preview = std::move(selectedPreview);
         preview.sourceId = pendingMediaImportPreviewSourceId_;
-        if (std::find(ids.begin(), ids.end(), preview.sourceId) != ids.end()) {
-            if (!config_.mediaImportExecutor->inspectTrustedSource(
-                    preview.sourceId, preview))
-            {
-                const std::string code = preview.failureCode;
-                preview = {};
-                preview.sourceId = pendingMediaImportPreviewSourceId_;
-                preview.status = "unavailable";
-                preview.failureCode = code.empty() ? "inspection_failed" : code;
-            }
-        } else {
-            preview.status = "unavailable";
+        if (std::find(ids.begin(), ids.end(), preview.sourceId) == ids.end()) {
+            preview = {};
+            preview.sourceId = pendingMediaImportPreviewSourceId_;
             preview.failureCode = "inventory_missing";
+        } else if (preview.status == "unavailable" && preview.failureCode.empty()) {
+            preview.failureCode = "inspection_failed";
         }
         body << ",\"previewSourceId\":\"" << jsonEscape(preview.sourceId)
              << "\",\"previewStatus\":\"" << jsonEscape(preview.status)
