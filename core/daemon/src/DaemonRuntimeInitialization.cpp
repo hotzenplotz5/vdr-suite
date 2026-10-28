@@ -623,8 +623,13 @@ bool DaemonRuntime::initialize()
             if (!mediaImportOperationFence_->effectiveMediaImportCapability(
                     actorId, backendId, now, reason))
             {
-                result.status = API::MediaImportSourceStatus::forbidden;
-                return result;
+                // A temporary Agent/provider outage is not a revoked user
+                // grant. Preserve 403 only for an actual access denial.
+                if (reason == "media_import_actor_revoked" ||
+                    reason == "media_import_permission_denied" ||
+                    reason == "media_import_activation_disabled")
+                    result.status = API::MediaImportSourceStatus::forbidden;
+                return result; // Otherwise the default is 503 unavailable.
             }
             const auto live = backendAgentRepository_->findAgentForBackend(backendId);
             if (!live) return result;
@@ -652,7 +657,13 @@ bool DaemonRuntime::initialize()
             std::string reason;
             if (!mediaImportOperationFence_->effectiveMediaImportCapability(
                     actorId, backendId, now, reason)) {
-                out.status = API::MediaImportPreviewStatus::forbidden;
+                // HTTP 403 means revoked rights/explicit deactivation.
+                // A lease, synchronization or provider outage is HTTP 503,
+                // so a read-only preview can be retried after recovery.
+                if (reason == "media_import_actor_revoked" ||
+                    reason == "media_import_permission_denied" ||
+                    reason == "media_import_activation_disabled")
+                    out.status = API::MediaImportPreviewStatus::forbidden;
                 return out;
             }
             const auto live =
