@@ -3,6 +3,19 @@
 
   const path = '/api/v1/addons/rectools/activation';
 
+  // Use the same bounded request correlation as the proven administrator API
+  // mutation. This is diagnostic identity, never an authorization credential.
+  function mutationCorrelationHeader() {
+    if (!global.crypto || typeof global.crypto.getRandomValues !== 'function')
+      return {};
+    const bytes = new Uint8Array(12);
+    global.crypto.getRandomValues(bytes);
+    return {'X-Correlation-ID': 'addon-activation-' +
+      Array.from(bytes, function (byte) {
+        return byte.toString(16).padStart(2, '0');
+      }).join('')};
+  }
+
   function node(tag, text) {
     const result = global.document.createElement(tag);
     if (typeof text === 'string') result.textContent = text;
@@ -20,7 +33,8 @@
       const options = {
         credentials: 'same-origin', cache: 'no-store',
         headers: Object.assign({'Accept': 'application/json'}, mutation
-          ? Object.assign({'Content-Type': 'application/json'}, csrf || {})
+          ? Object.assign({'Content-Type': 'application/json'},
+              csrf || {}, mutationCorrelationHeader())
           : {})
       };
       if (mutation) {
