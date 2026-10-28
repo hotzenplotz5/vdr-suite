@@ -1896,8 +1896,10 @@ function publishHomeResume() {}
     'long-form Staffel/Folge coordinates must select series metadata search');
   assert.strictEqual(findClass(mount, 'media-import-online-query').value, 'Andor',
     'series metadata query must use the actual series folder, not episode filename');
-  assert(findClass(mount, 'media-import-online-context').textContent.includes(
-    'Staffel 1 · Folge 2'), 'recognized episode coordinates are visible before TMDb lookup');
+  assert(findClass(mount, 'media-import-online').children.some(function (child) {
+    return (child.className || '').includes('media-import-online-context') &&
+      child.textContent.includes('Staffel 1 · Folge 2');
+  }), 'recognized episode coordinates stay visible during automatic TMDb lookup');
   await findClass(mount, 'media-import-mobile-back').listeners.click();
   assert.strictEqual(findClass(mount, 'media-import-panel').dataset.mobilePane, 'media');
   secondSeries.listeners.click();
@@ -1906,17 +1908,35 @@ function publishHomeResume() {}
   assert.strictEqual(seasonIds[0].dataset.sourceId, SOURCE_D);
   assert.strictEqual(submits, seriesPosts, 'group navigation does not create a Core operation');
 
-  // MT.META5: genuine module rendering and explicit TMDb candidate selection.
-  // Ordinary scanning/preview must not automatically consume provider quota.
+  // MT.META5: selecting a recognized series episode automatically follows
+  // the existing authenticated TMDb search -> season -> episode lookup.
+  // Scanning alone still never starts an online lookup or import.
   andor.listeners.click();
   const onlineSelect = findClass(mount, 'media-import-source');
+  const beforeAutoRequests = onlineRequests.length;
+  const beforeAutoImports = submits;
   onlineSelect.value = SOURCE;
   onlineSelect.listeners.change();
   await settle();
   assert(findClass(mount, 'media-import-local-metadata'),
-    'NFO remains visible before and after optional online lookup');
-  assert.strictEqual(onlineRequests.length, 0,
-    'scanning and FFprobe must never trigger provider search automatically');
+    'local NFO is preserved during automatic TMDb lookup');
+  const autoRequests = onlineRequests.slice(beforeAutoRequests);
+  assert.strictEqual(autoRequests.length, 3,
+    'one selected series episode performs search, season and episode lookup');
+  assert(autoRequests[0].route.endsWith('/search') &&
+    autoRequests[1].route.endsWith('/seasons') &&
+    autoRequests[2].route.endsWith('/episodes'));
+  assert.strictEqual(JSON.parse(autoRequests[2].options.body).seasonNumber, 1);
+  const automaticOnline = findClass(mount, 'media-import-online-confirmed');
+  assert(automaticOnline && automaticOnline.children[0].textContent.includes('Pilot'),
+    'exact S01E01 is automatically identified from provider results');
+  assert(automaticOnline.children[0].textContent.includes('Automatisch erkannte'),
+    'automatic attribution is labelled separately from manual selection');
+  const autoPoster = findClass(findClass(mount, 'media-import-artwork-poster'), 'media-import-artwork-image');
+  assert(autoPoster && autoPoster.src.includes('externalNamespace=tv-episode'),
+    'automatic episode artwork appears in the main preview');
+  assert.strictEqual(submits, beforeAutoImports,
+    'automatic metadata lookup never imports, marks or changes VDR media');
   assert.strictEqual(findClass(mount, 'media-import-online-kind').value, 'series',
     'S01E01 is a series episode, not a movie');
   assert.strictEqual(findClass(mount, 'media-import-online-query').value, 'Andor',
@@ -2015,8 +2035,12 @@ function publishHomeResume() {}
   const pendingOnline = findClass(mount, 'media-import-online-search').listeners.click();
   await settle();
   assert.strictEqual(typeof resolveOnlineReply, 'function');
+  // The new episode auto-search must not replace the deliberately delayed
+  // manual reply used to verify stale-response isolation.
+  onlineMode = 'offline';
   onlineSelect.value = SOURCE_B;
   onlineSelect.listeners.change();
+  await settle();
   resolveOnlineReply(onlinePage([onlineCandidate('movie','13','STALE MOVIE')]));
   await pendingOnline;
   await settle();
