@@ -5,6 +5,26 @@
 **Branch:** PR #551 ist auf `main` gemergt. Für MT.HA gilt ausschließlich der Integrationsbranch `work/mt-ha-media-tools-hardware-acceptance` bis zur getrennten Mergefreigabe; kein neues Repo, keine Phase 70.  
 **Bestehende Grenzen:** [Add-on-Plattform-Roadmap](../../docs/planning/addon-platform-roadmap.md), dort A6/A7.5 und M1.R (Import/HandBrake/Überspringen).
 
+
+## BAS — Backend-Agent Simplification (nächste Phase nach Media Tools; NOT STARTED)
+
+**Verbindliche Nutzerentscheidung vom 28.10.2026:** Nach Abschluss der laufenden Media-Tools-/Media-Import-Arbeiten ist **Backend-Agent Simplification** die nächste Refactoring-Phase. Bis dahin werden die bereits freigegebenen MT-Arbeiten fortgeführt; BAS beginnt **nicht** automatisch durch diesen Roadmap-Eintrag. Die übergreifende Reihenfolge steht auch in [VDR-Suite Strict Roadmap](../../docs/planning/roadmap.md). Nummerierte Phase 70 wird dadurch weder umbenannt noch gestartet.
+
+**Ziel:** Den bestehenden Backend-Agenten auf Transport, Quellbeobachtungen und tatsächliche Ausführung beschränken. Reine lesende Medienfunktionen (Scan, lokale Metadaten, Vorschau, Artwork) sollen ohne zusätzliche künstliche Aktivierungs- oder Ausführungsfreigaben funktionieren. Vorhandene Authentifizierung, notwendige Berechtigungen für Schreibaktionen, Importbestätigung und Readback bleiben erhalten. Keine neuen Rollen, Sicherheitsschichten, Dienste, Queues oder Datenbanken ohne erneuten expliziten Auftrag.
+
+**Geplante, abgegrenzte Slices:**
+
+- **BAS.1 – Tatsächliche Agent-Aufrufkette erfassen:** Je einen realen Scan-/Preview-/Importpfad gegen Code und Runtime protokollieren; überflüssige Rundreisen und doppelte Inventurläufe benennen, ohne neue Prüfungen einzuführen.
+- **BAS.2 – Lesepfade vereinfachen:** Eine Quellbeobachtung liefert Quellenliste und ausgewählte Vorschau; dieselben Daten nicht mehrfach scannen. Fachliche Leseoperationen im vorhandenen Backend-/Media-Tools-Code lassen, wo sie hingehören.
+- **BAS.3 – Fehlerdiagnose statt Sammelcode:** Konkreten technischen Fehler bis in das Agent-Log verfolgen und in der UI verständlich anzeigen. Fehlende Datei, veränderte Quelle, FFprobe-Fehler, Platzproblem und fehlende Zielschreibbarkeit nicht pauschal als `source_invalid` darstellen.
+- **BAS.4 – Vorhandene Prüfungen konsolidieren:** Doppelte und unbegründete Schutzprüfungen entfernen, dabei bestehende Authentifizierung, Autorisierung vor echten Mutationen und Aufnahme-Readback nicht aushebeln. Jede beibehaltene Prüfung muss einer nachweisbaren Fehlerklasse dienen.
+- **BAS.5 – Reale Benutzerwege und Installation:** CLI-Erkennung und Webvorschau derselben Datei gegentesten; ein bereits getesteter Commit, ein bestehender Staging-/Updateweg, ein nachvollziehbarer Rollback. Keine neuen Einmal-Installer für einzelne Bugs und kein erneutes Abfragen bestandener Tests ohne technischen Grund.
+
+**Akzeptanz:** Ein bereits erkannter lokaler Film beziehungsweise eine Folge lässt sich über Browser und Backend-Agent zuverlässig anzeigen und technisch prüfen; die Fehlerursache ist bei Abweichung sichtbar; kein mehrfacher Vollscan pro ausgewählter Vorschau; Import und Readback bleiben funktional; Installation/Upgrade verwenden den vorhandenen versiegelten Runtime-Weg. Bestehende Schutzgrenzen bleiben bestehen, aber es werden keine neuen Restriktionen erfunden.
+
+**Status 28.10.2026:** Die MT-bezogene Ein-Scan-Vereinfachung ist quellseitig umgesetzt; die Runtime wurde installiert und die Agent-Synchronisierung nach einem anfänglichen Fehlversuch bestätigt. Der Andor-Ende-zu-Ende-Test der neuen Version ist **noch offen**. BAS insgesamt ist damit ausdrücklich **nicht abgeschlossen und noch nicht begonnen**.
+
+
 ## MT.REC — Media Import: Fehlerkorrektur und Mockup-gerechtes Redesign (verbindliche Produktentscheidung 27.10.2026)
 
 **Priorität vor kosmetischen Arbeiten:** zuerst die real beobachteten Defekte auf yaVDR reproduzieren und beheben, **danach** die Oberfläche so nah wie möglich an das im Chat am 27.10.2026 gezeigte Mockup bringen. Dieses Ziel ist **geplant, nicht implementiert oder auf REAL-VDR abgenommen**. Die historischen MT.UX-/MT.HA-Einträge weiter unten dokumentieren ältere Zwischenstände; bei Widersprüchen hat die hier festgehaltene aktuelle Nutzerentscheidung für die kommende Umsetzung Vorrang.
