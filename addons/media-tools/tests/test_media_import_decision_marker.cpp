@@ -168,6 +168,28 @@ int main() {
            MediaImportMarkerOutcome::rejected);
     assert(fs::exists(target));
 
+    // An explicit .duplicate deletion affects only the exact marked source,
+    // not an unrelated VDR recording under the separate video root.
+    write(dupMarked, "verified marker payload");
+    const auto dupSource = source(root, video, dupMarked);
+    const auto dupProof = mediaImportSourceEvidence(
+        dupSource.sourceFile, dupSource.sourceDevice, dupSource.sourceInode,
+        dupSource.sourceBytes, dupSource.sourceMtimeSeconds,
+        dupSource.sourceMtimeNanoseconds);
+    const auto existingVdr = video / "Existing.rec";
+    write(existingVdr, "the already imported VDR data");
+    assert(cleanupMediaImportSource(dupSource, dupProof) ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(cleanupConfirmedDuplicateSource(dupSource, "bad proof") ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(fs::exists(dupMarked));
+    assert(cleanupConfirmedDuplicateSource(dupSource, dupProof) ==
+           MediaImportCleanupOutcome::removed);
+    assert(!fs::exists(dupMarked));
+    assert(contents(existingVdr) == "the already imported VDR data");
+    assert(cleanupConfirmedDuplicateSource(dupSource, dupProof) ==
+           MediaImportCleanupOutcome::alreadyAbsent);
+
     // Source cleanup is explicitly bound to the actual imported snapshot.
     const auto returned = root / "folder" / "Film.mp4";
     const auto parked = root / "folder" / "Film.pc_encode.mkv";

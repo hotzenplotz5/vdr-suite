@@ -57,7 +57,7 @@ int main()
     assert(admissions == 1);
 
     // Authenticated Public API path: only explicit known decisions.
-    for (const char* choice : {"local", "desktop", "skip", "release", "duplicate"}) {
+    for (const char* choice : {"local", "desktop", "skip", "release", "duplicate", "delete_duplicate"}) {
         expectedDecision = choice;
         const std::string payload =
             std::string("{\"sourceId\":\"opaque_source_123456\",") +

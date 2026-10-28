@@ -313,7 +313,19 @@ int main() {
         std::ofstream(existingRec / "info", std::ios::trunc) << "T Sample\n";
         // Complete matching recording is stronger duplicate evidence.
         assert(confirmedMediaImportDuplicate(duplicate));
+        // An exact .duplicate marker can be re-inspected read-only. It must
+        // never enter an ordinary VDR import regardless of file extension.
+        const auto markedFile = f.input / "Sample.duplicate.mp4";
+        fs::rename(f.source, markedFile);
+        auto markedRequest = request;
+        markedRequest.sourceFile = markedFile;
+        const auto markedPlan = inspectMarkedDuplicatePreview(markedRequest);
+        assert(markedPlan.title == "Sample" && markedPlan.duplicateTarget &&
+               confirmedMediaImportDuplicate(markedPlan));
+        mustFail([&] { inspectImportPreview(markedRequest); });
         fs::remove(existingRec / "index");
+        assert(!confirmedMediaImportDuplicate(markedPlan));
+        fs::rename(markedFile, f.source);
         // A missing index must not auto-mark the source.
         assert(!confirmedMediaImportDuplicate(duplicate));
         mustFail([&] { inspectImport(request); }); // write path still rejects

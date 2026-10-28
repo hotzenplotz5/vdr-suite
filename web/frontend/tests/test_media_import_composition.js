@@ -203,6 +203,14 @@ function transport(url, options) {
   }
   if (path.endsWith('/media-imports')) {
     ++submits;
+    if (JSON.parse(options.body).videoDecision === 'delete_duplicate') {
+      markedSources = markedSources.filter(function (id) {
+        return id !== JSON.parse(options.body).sourceId;
+      });
+      return Promise.resolve(reply(202, {
+        operationId: OP, backendId: 'backend-a', state: 'dispatching'
+      }));
+    }
     if (JSON.parse(options.body).videoDecision === 'duplicate') {
       // The existing Core Operation handles this marker, not the batch import.
       if (autoDuplicateReadback) {
@@ -2189,6 +2197,45 @@ function publishHomeResume() {}
   assert.strictEqual(submits, importedBeforeOnline,
     'search and offline fallback have no Core import side effects');
 
+  // Confirmed duplicate cleanup must require a deliberate click and operate
+  // only on the marked import-source identity, not on any VDR recording.
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE];
+  markedSources = [MARK_DUP, MARK_SKIP];
+  state = 'succeeded';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const markerRows = findClass(mount, 'media-import-selection').children;
+  const markedDuplicateRow = markerRows.find(function (row) {
+    return row.dataset.sourceId === MARK_DUP;
+  });
+  assert(markedDuplicateRow);
+  findClass(markedDuplicateRow, 'media-import-episode-open').listeners.click();
+  const deleteAction = findClass(mount, 'media-import-delete-duplicate');
+  assert(deleteAction && !deleteAction.hidden && !deleteAction.disabled);
+  const beforeDelete = submits;
+  confirmLocal = false;
+  await deleteAction.listeners.click();
+  assert.strictEqual(submits, beforeDelete, 'cancelled delete creates no operation');
+  confirmLocal = true;
+  await deleteAction.listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeDelete + 1,
+    'explicit delete uses one existing canonical media import operation');
+  assert.strictEqual(JSON.parse(requests.filter(function (r) {
+    return r.options.method === 'POST';
+  }).slice(-1)[0].options.body).videoDecision, 'delete_duplicate');
+  assert(!markedSources.includes(MARK_DUP), 'the marked source was removed');
+  assert(findClass(mount, 'status').textContent.includes('gelöscht'),
+    'readback distinguishes source deletion from a new VDR recording');
+  const skipRow = findClass(mount, 'media-import-selection').children.find(
+    function (row) { return row.dataset.sourceId === MARK_SKIP; });
+  assert(skipRow && !findClass(skipRow, 'media-import-delete-duplicate'));
+  findClass(skipRow, 'media-import-episode-open').listeners.click();
+  assert(findClass(mount, 'media-import-delete-duplicate').hidden,
+    'skipped originals must never offer duplicate deletion');
+  markedSources = [];
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
   console.error(error);
