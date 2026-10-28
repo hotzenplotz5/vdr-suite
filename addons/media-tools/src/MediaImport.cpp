@@ -35,7 +35,6 @@
 namespace vdrsuite::mediatools {
 namespace {
 
-constexpr auto kGiB = std::uint64_t{1024} * 1024 * 1024;
 constexpr auto kMiB = std::uint64_t{1024} * 1024;
 constexpr auto kMaxProcessOutput = std::size_t{4096};
 
@@ -707,32 +706,30 @@ ImportPreview inspectImportPreview(const ImportRequest& request,
 }
 
 ImportCapacityPreview inspectImportCapacity(const ImportPlan& plan) {
+    // Free space and temporary working size are informational only. A full
+    // filesystem is handled by real write errors and staging cleanup, not by
+    // an arbitrary percentage/minimum-free-space admission requirement.
     struct statvfs st{};
-    require(::statvfs(plan.videoRoot.c_str(), &st) == 0,
-            "destination capacity is unavailable");
-    const auto block = static_cast<std::uint64_t>(st.f_frsize);
-    require(block != 0 && st.f_blocks <= UINT64_MAX / block &&
-            st.f_bavail <= UINT64_MAX / block, "capacity overflow");
-    const auto total = st.f_blocks * block;
-    const auto available = st.f_bavail * block;
-    const auto reserve = std::max(4 * kGiB, total / 100 * 15);
-    // Exact production budget: snapshot + bounded output + reserve.
+    const bool haveStats = ::statvfs(plan.videoRoot.c_str(), &st) == 0;
+    std::uint64_t available = 0;
+    if (haveStats) {
+        const auto block = static_cast<std::uint64_t>(st.f_frsize);
+        if (block != 0 && st.f_bavail <= UINT64_MAX / block)
+            available = st.f_bavail * block;
+    }
     require(plan.sourceBytes <=
             (static_cast<std::uint64_t>(INT64_MAX) - 64 * kMiB) / 3,
             "source too large for bounded preflight");
     const auto budget = static_cast<std::uint64_t>(plan.sourceBytes) * 3 + 64 * kMiB;
-    const bool writable = (st.f_flag & ST_RDONLY) == 0 &&
+    const bool writable = (!haveStats || (st.f_flag & ST_RDONLY) == 0) &&
         ::access(plan.videoRoot.c_str(), W_OK | X_OK) == 0;
-    return {available, budget, reserve, writable,
-        writable && available >= reserve && available - reserve >= budget};
+    return {available, budget, 0, writable, true};
 }
 
 void requireProductionCapacity(const ImportPlan& plan) {
     const auto capacity = inspectImportCapacity(plan);
     require(capacity.writable,
             "destination is not writable by the media worker");
-    require(capacity.sufficient,
-            "insufficient capacity for import staging and reserve");
 }
 
 fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
