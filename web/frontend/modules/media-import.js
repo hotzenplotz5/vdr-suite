@@ -2097,7 +2097,9 @@
     const note = !selected ? 'Ordner wählen und eine Episode anklicken.' :
       !plan ? (view.previewStatus || 'Quelle wird vom Backend-Agent geprüft …') :
       plan.status === 'duplicate'
-        ? 'Die bestätigte Dublette wird automatisch über den bestehenden Core als .duplicate markiert.'
+        ? 'Die bestätigte Dublette wird automatisch als .duplicate markiert. ' +
+          'Anschließend kannst du sie unter „Markierte Quellen“ auswählen ' +
+          'und über „Dublette aus Importquelle löschen“ gezielt entfernen.'
       : plan.status === 'ready' && !plan.videoReencodeRequired
         ? 'Ohne Video-Neukodierung übernehmen. Jetzt direkt importieren.'
       : plan.videoReencodeRequired
