@@ -2281,6 +2281,7 @@
             pcReturn: !releaseMode && Boolean(possiblePcReturn(view, selectedSource)),
             state: '', pending: true};
           activeAttempts[view.backendId] = view.attempt;
+          renderImportFeedback(view);
           return publicClient().submitMediaImport({
             backendId: view.backendId, sourceId: sourceId, idempotencyKey: key,
             ...(videoDecision ? {videoDecision: videoDecision} : {}),
