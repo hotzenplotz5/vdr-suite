@@ -315,6 +315,28 @@ public:
     virtual bool inspectTrustedSource(
         const std::string& sourceId, MediaImportSourcePreview& out)
     { out = {}; (void)sourceId; return false; }
+    // Return an optional one-source preview alongside the exact same source
+    // snapshot. The production Agent implements this without a second walk;
+    // existing injected test executors retain their previous behavior.
+    virtual bool listTrustedSourceObservation(
+        std::vector<std::string>& ids,
+        std::vector<MediaImportSourceLabel>& labels, bool& partial,
+        const std::string& selectedSourceId, MediaImportSourcePreview& preview)
+    {
+        preview = {};
+        preview.sourceId = selectedSourceId;
+        if (!listTrustedSourceSnapshot(ids, labels, partial)) return false;
+        if (selectedSourceId.empty()) return true;
+        if (std::find(ids.begin(), ids.end(), selectedSourceId) == ids.end()) {
+            preview.failureCode = "inventory_missing";
+        } else if (!inspectTrustedSource(selectedSourceId, preview)) {
+            const std::string stage = preview.failureCode;
+            preview = {};
+            preview.sourceId = selectedSourceId;
+            preview.failureCode = stage.empty() ? "inspection_failed" : stage;
+        }
+        return true;
+    }
     virtual bool authorize(const BackendAgentCommandAssignment& assignment,
                            const std::string& backendId,
                            std::uint64_t generation) = 0;
