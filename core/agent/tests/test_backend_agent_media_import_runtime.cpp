@@ -312,6 +312,29 @@ int main() {
     assert(runtime.available());
     assert(discoverBackendAgentCommandAvailability(config).commandTypes.size()==1);
 
+    // One observation reads the trusted inventory once and reuses its exact
+    // selected descriptor for a read-only preview. This synthetic .ts file
+    // is deliberately not a real codec stream; no import can be submitted.
+    std::vector<std::string> observedIds;
+    std::vector<vdrsuite::mediatools::MediaImportSourceLabel> observedLabels;
+    vdrsuite::mediatools::MediaImportSourcePreview observedPreview;
+    bool observedPartial = true;
+    assert(runtime.listTrustedSourceObservation(
+        observedIds, observedLabels, observedPartial,
+        "inventory_Token_0001", observedPreview));
+    assert(!observedPartial && observedIds.size() == 1 &&
+           observedLabels.size() == 1 &&
+           observedIds[0] == "inventory_Token_0001" &&
+           observedLabels[0].sourceId == observedIds[0]);
+    assert(observedPreview.sourceId == observedIds[0] &&
+           observedPreview.status == "unavailable" &&
+           observedPreview.failureCode == "ffprobe_failed");
+    assert(runtime.listTrustedSourceObservation(
+        observedIds, observedLabels, observedPartial,
+        "absent_Token_00001", observedPreview));
+    assert(observedIds.size() == 1 &&
+           observedPreview.failureCode == "inventory_missing");
+
     fs::remove(f.runLock);
     assert(!runtime.available());
     assert(discoverBackendAgentCommandAvailability(config).commandTypes.empty());
