@@ -2435,23 +2435,41 @@ int BackendAgentClientRuntime::run(const std::function<bool()>& stopRequested)
 
         if (config_.commandPollIntervalMilliseconds > 0)
         {
+            // A command poll can block for the full HTTP timeout. Counting
+            // only the requested 250 ms sleep starves the lease heartbeat
+            // during repeated transport stalls (10 seconds each in practice).
+            const auto cycleStarted = std::chrono::steady_clock::now();
+            const int elapsedBeforeCycle = millisecondsSinceHeartbeat;
             const int remainingUntilHeartbeat =
                 heartbeatIntervalMilliseconds - millisecondsSinceHeartbeat;
             const int waitMilliseconds = std::min(
                 config_.commandPollIntervalMilliseconds,
                 remainingUntilHeartbeat);
+            const auto accountElapsed = [&]() {
+                const auto wallMilliseconds =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - cycleStarted).count();
+                const auto elapsed = std::max<std::int64_t>(
+                    waitMilliseconds, wallMilliseconds);
+                millisecondsSinceHeartbeat = static_cast<int>(
+                    std::min<std::int64_t>(
+                        heartbeatIntervalMilliseconds,
+                        static_cast<std::int64_t>(elapsedBeforeCycle) + elapsed));
+            };
             sleepMilliseconds_(waitMilliseconds);
             if (stopRequested()) break;
-            millisecondsSinceHeartbeat += waitMilliseconds;
+            accountElapsed();
 
             if (millisecondsSinceHeartbeat < heartbeatIntervalMilliseconds)
             {
                 if (!pollCommands(reason))
-                {
                     log("Backend Agent command poll failed: " + reason);
-                }
-                continue;
+                // A slow HTTP poll counts as elapsed time too; renew the
+                // heartbeat on this same iteration, not after more polls.
+                accountElapsed();
             }
+            if (millisecondsSinceHeartbeat < heartbeatIntervalMilliseconds)
+                continue;
 
             millisecondsSinceHeartbeat = 0;
         }
