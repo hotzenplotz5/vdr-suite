@@ -391,7 +391,8 @@ async function verifyMeta6Handoff() {
   const metaView = {
     onlineKind: 'series',
     onlineSeries: {
-      kind: 'series', title: 'Andor', posterReference: '/series-poster.jpg'
+      kind: 'series', providerId: 'tmdb', externalId: '1399',
+      title: 'Andor', posterReference: '/series-poster.jpg'
     },
     onlineSelected: onlineCandidate('episode', '221', 'Kassa', {
       parentExternalId: '1399', seasonNumber: 1, episodeNumber: 1
@@ -410,6 +411,12 @@ async function verifyMeta6Handoff() {
     wrongEpisode, {targetFolder:'Serien/Andor/Andor S01E01', title:'Andor S01E01'},
     {folder:'Serien/Andor',label:'Andor S01E01'}), null,
     'different provider episode must never assign metadata to this import');
+  assert.strictEqual(context.__meta6Contract.importMetadataSelection(
+    Object.assign({}, metaView, {onlineSeries: Object.assign(
+      {}, metaView.onlineSeries, {externalId:'1400'})}),
+    {targetFolder:'Serien/Andor/Andor S01E01', title:'Andor S01E01'},
+    {folder:'Serien/Andor',label:'Andor S01E01'}), null,
+    'a candidate from a different series must not be transferred');
   const targetView = {backendId:'backend-a'};
   const attempt = {metadataSelection:selected, metadataFeedback:''};
   await context.__meta6Contract.applyImportedMetadata(targetView, attempt);
