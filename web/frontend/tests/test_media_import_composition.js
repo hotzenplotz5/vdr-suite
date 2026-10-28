@@ -568,6 +568,20 @@ function publishHomeResume() {}
   await start.listeners.click();
   assert.strictEqual(submits, 1, 'double-click must not submit a second import');
 
+  // Longer imports exceeded the old 15-read / 60-second automatic status
+  // window, losing their final confirmation until a manual user click.
+  const timerCountBeforeLongImport = timerCallbacks.length;
+  const readsBeforeLongImport = operationReads;
+  for (let step = 0; step < 17; ++step) {
+    await findClass(mount, 'media-import-refresh').listeners.click();
+    await settle();
+  }
+  assert.strictEqual(operationReads, readsBeforeLongImport + 17);
+  assert(timerCallbacks.length >= timerCountBeforeLongImport + 17,
+    'a long-running single import continues automatic polling after 15 reads');
+  assert.strictEqual(submits, 1,
+    'status monitoring must never create a second import operation');
+
   // Owner transition must not delete Core operation tracking.
   context.selectModule('overview');
   context.selectModule('media-import');
@@ -586,7 +600,9 @@ function publishHomeResume() {}
   await settle();
   assert(findClass(mount, 'status').textContent.includes('unabhängig bestätigt'));
   assert.strictEqual(findClass(mount, 'media-import-import-title').textContent,
-    'Import abgeschlossen', 'verified VDR readback is shown near the action');
+    'Import abgeschlossen ✓', 'verified VDR readback is shown near the action');
+  assert(findClass(mount, 'media-import-import-feedback').className.includes('is-success'),
+    'only Core-confirmed success gets a visible green completion state');
   assert.strictEqual(findClass(mount, 'media-import-new').hidden, false);
   await findClass(mount, 'media-import-new').listeners.click();
   await settle();
