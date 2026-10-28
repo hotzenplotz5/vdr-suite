@@ -161,7 +161,8 @@
 
   function operationLabel(state, decision) {
     const marker = decision === 'desktop' || decision === 'skip' ||
-      decision === 'duplicate' || decision === 'release';
+      decision === 'duplicate' || decision === 'release' ||
+      decision === 'delete_duplicate';
     const labels = {
       accepted: 'Angenommen – Ausführung noch nicht bestätigt.',
       queued: 'In Warteschlange des bestehenden Backend-Agenten.',
@@ -170,7 +171,9 @@
       executed_unverified: marker
         ? 'Dateimarkierung ausgeführt, Core-Bestätigung noch ausstehend.'
         : 'Ausgeführt, VDR-Aufnahme noch nicht unabhängig bestätigt.',
-      succeeded: decision === 'desktop'
+      succeeded: decision === 'delete_duplicate'
+        ? 'Doppelte Quelldatei gelöscht – VDR-Aufnahme bleibt erhalten.'
+        : decision === 'desktop'
         ? 'Für PC/HandBrake markiert – Dateimarkierung vom Core bestätigt, keine VDR-Aufnahme.'
         : decision === 'skip'
           ? 'Übersprungen – Dateimarkierung vom Core bestätigt, keine VDR-Aufnahme.'
@@ -574,7 +577,8 @@
       }
       if (view.batch) advanceBatch(view, operation);
       if (!view.batch && operation.state === 'succeeded' &&
-          view.attempt.videoDecision === 'duplicate') {
+          (view.attempt.videoDecision === 'duplicate' ||
+           view.attempt.videoDecision === 'delete_duplicate')) {
         // Core has verified the marker operation; refresh the source inventory
         // to show the actual Rectools filename, not an imagined local status.
         const finishedId = view.attempt.sourceId;
@@ -655,8 +659,8 @@
     const attempt = view.attempt;
     view.importFeedback.hidden = !view.submitting && !attempt;
     if (view.importFeedback.hidden) return;
-    const marker = attempt && ['desktop', 'skip', 'duplicate', 'release']
-      .includes(attempt.videoDecision);
+    const marker = attempt && ['desktop', 'skip', 'duplicate', 'release',
+      'delete_duplicate'].includes(attempt.videoDecision);
     const noun = marker ? 'Dateiaktion' : 'Import';
     const state = attempt && attempt.state || '';
     const titles = {
@@ -681,8 +685,9 @@
       executed_unverified: marker
         ? 'Die Dateiaktion wurde ausgeführt. Die abschließende Bestätigung steht noch aus.'
         : 'Die Datei ist verarbeitet. Wir prüfen noch, ob die Aufnahme im VDR angekommen ist.',
-      succeeded: marker
-        ? 'Die Dateiaktion wurde bestätigt.'
+      succeeded: attempt && attempt.videoDecision === 'delete_duplicate'
+        ? 'Die doppelte Quelldatei wurde gelöscht. Die VDR-Aufnahme bleibt erhalten.'
+        : marker ? 'Die Dateiaktion wurde bestätigt.'
         : 'Die Aufnahme ist im VDR vorhanden.',
       rejected: 'Der Auftrag wurde nicht angenommen.',
       conflict: 'Der Auftrag konnte wegen eines Konflikts nicht ausgeführt werden.',
@@ -734,9 +739,17 @@
       renderBatchReview(view);
     }
     // The same operation indicator is always visible after owner remounts.
-    renderPreviewCard(view, view.previewResult, view.allOrdinary.find(function (item) {
-      return item.sourceId === view.attempt.sourceId;
-    }));
+    if (view.attempt.videoDecision === 'delete_duplicate') {
+      view.previewCard.replaceChildren(
+        element('h5', 'media-import-preview-title', 'Dublette aus Importquelle löschen'),
+        view.importFeedback);
+      renderImportFeedback(view);
+    } else {
+      renderPreviewCard(view, view.previewResult,
+        view.allOrdinary.find(function (item) {
+          return item.sourceId === view.attempt.sourceId;
+        }));
+    }
     if (view.attempt.operationId) {
       readOperation(view);
     } else if (view.attempt.pending) {
@@ -1566,6 +1579,12 @@
           element('h5', 'media-import-preview-title', item.label || 'Markierte Quelle'),
           element('div', 'media-import-preview-state is-marked', statusText),
           element('p', 'media-import-preview-hint', hint));
+        view.deleteDuplicateButton.hidden = marker !== 'duplicate';
+        view.deleteDuplicateButton.disabled = marker !== 'duplicate';
+        if (marker === 'duplicate')
+          view.previewCard.appendChild(view.deleteDuplicateButton);
+        view.previewCard.appendChild(view.importFeedback);
+        renderImportFeedback(view);
         setMobilePane(view, 'details');
       });
       const coords = episodeCoordinates(item);
@@ -2189,16 +2208,22 @@
   function startImport(view, releaseMode, forcedDecision, automaticDuplicate) {
     if (!isCurrent(view) || view.submitting || view.attempt ||
         (view.inspectingBatch && !view.batch)) return Promise.resolve();
-    const sourceId = releaseMode ? view.markedSelect.value :
+    const deleteDuplicate = forcedDecision === 'delete_duplicate';
+    const sourceId = releaseMode || deleteDuplicate
+      ? view.markedSelect.value :
       view.batch ? view.batch.remaining[0] : view.select.value;
     // Encoding authority is granted per film, per click, never to a batch.
     const selected = releaseMode ? 'release' :
       view.batch ? 'import' : (forcedDecision || view.decision.value);
-    if (!['import', 'desktop', 'skip', 'duplicate', 'release'].includes(selected) ||
-        (releaseMode && view.batch)) return Promise.resolve();
+    if (!['import', 'desktop', 'skip', 'duplicate', 'release',
+          'delete_duplicate'].includes(selected) ||
+        ((releaseMode || deleteDuplicate) && view.batch) ||
+        (deleteDuplicate && !view.allMarked.some(function (item) {
+          return item.sourceId === sourceId && markerSuffix(item) === 'duplicate';
+        }))) return Promise.resolve();
     const previewPlan = view.previewResult &&
       view.previewResult.sourceId === sourceId ? view.previewResult : null;
-    if (!releaseMode && !view.batch) {
+    if (!releaseMode && !deleteDuplicate && !view.batch) {
       // Pending/failed preview never admits an import. A marker needs the
       // currently inspected source too; only reencode-required video can
       // be delegated to an external encoder.
@@ -2220,6 +2245,10 @@
     const confirmation = approveVideoReencode
       ? 'Media Tools: Diesen Film bei Bedarf lokal mit FFmpeg in H.264 umkodieren? ' +
         'Die Originaldatei bleibt unverändert. Diese Zustimmung gilt nur für diesen Film.'
+      : selected === 'delete_duplicate'
+        ? 'Die markierte doppelte Quelldatei endgültig löschen? ' +
+          'Die VDR-Aufnahme bleibt erhalten. Quelle und Aufnahme werden ' +
+          'vor dem Löschen erneut geprüft. Das Löschen ist endgültig.'
       : selected === 'desktop'
         ? 'Diesen Film für PC/HandBrake mit .pc_encode markieren? ' +
           'Es wird keine VDR-Aufnahme importiert.'
@@ -2237,7 +2266,8 @@
     if (confirmation &&
         (typeof global.confirm !== 'function' || !global.confirm(confirmation)))
       return Promise.resolve();
-    if (!(releaseMode ? view.markedSources : view.sources).includes(sourceId)) {
+    if (!((releaseMode || deleteDuplicate) ?
+          view.markedSources : view.sources).includes(sourceId)) {
       if (view.batch) stopBatch(view, 'Quellauswahl nicht mehr verfügbar.');
       return Promise.resolve();
     }
@@ -2261,7 +2291,9 @@
         if (!isCurrent(view) || !sources) return null;
         if (!sources.items || !sources.items.some(function (item) {
           return item && item.sourceId === sourceId &&
-            (releaseMode ? Boolean(markerSuffix(item)) : !markerSuffix(item));
+            (deleteDuplicate ? markerSuffix(item) === 'duplicate'
+              : releaseMode ? Boolean(markerSuffix(item))
+              : !markerSuffix(item));
         })) {
           throw {status: 503};
         }
@@ -2489,6 +2521,11 @@
     localReencode.disabled = true;
     encodeLabel.appendChild(localReencode);
     root.appendChild(encodeLabel);
+    const deleteDuplicateButton = element('button', 'media-import-delete-duplicate',
+      'Dublette aus Importquelle löschen');
+    deleteDuplicateButton.type = 'button';
+    deleteDuplicateButton.hidden = true;
+    deleteDuplicateButton.disabled = true;
     const startButton = element('button', 'media-import-start', 'Import starten');
     startButton.type = 'button';
     startButton.disabled = true;
@@ -2661,6 +2698,7 @@
       allOrdinary: [], allMarked: [],
       localReencode: localReencode, decision: decision,
       choiceLabel: choiceLabel, skipButton: skipButton,
+      deleteDuplicateButton: deleteDuplicateButton,
       markedSelect: markedSelect, releaseButton: releaseButton, markedSources: [],
       batchButton: batchButton, batchStopButton: batchStopButton,
       batchSummary: batchSummary, batchReviewList: batchReviewList,
@@ -2745,6 +2783,9 @@
     });
     startButton.addEventListener('click', function () { return startImport(view); });
     skipButton.addEventListener('click', function () { return startImport(view, false, 'skip'); });
+    deleteDuplicateButton.addEventListener('click', function () {
+      return startImport(view, false, 'delete_duplicate');
+    });
     markedSelect.addEventListener('change', function () {
       releaseButton.disabled = view.submitting || Boolean(view.attempt) ||
         !view.markedSources.includes(markedSelect.value);
