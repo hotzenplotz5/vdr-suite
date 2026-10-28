@@ -17,6 +17,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <thread>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
@@ -49,6 +50,7 @@ public:
 class FakeTransport : public IBackendAgentControlPlaneTransport
 {
 public:
+    int commandPollDelayMilliseconds = 0;
     std::deque<BackendAgentTransportResponse> responses;
     std::vector<std::string> paths;
     std::vector<std::string> bodies;
@@ -76,6 +78,13 @@ public:
     {
         assert(agentId == "agt_client");
         assert(credentialSecret.size() >= 32);
+        if (path == "/api/agent/v1/commands/poll" &&
+            commandPollDelayMilliseconds > 0)
+        {
+            const int delay = commandPollDelayMilliseconds;
+            commandPollDelayMilliseconds = 0;
+            std::this_thread::sleep_for(std::chrono::milliseconds(delay));
+        }
         paths.push_back(path);
         bodies.push_back(body);
         logins.push_back(agentId);
@@ -973,6 +982,86 @@ void test_low_latency_command_poll_between_heartbeats()
 }
 
 
+void test_slow_command_poll_does_not_starve_heartbeat()
+{
+    const std::string root =
+        "/tmp/vdr-suite-agent-client-slow-command-poll-heartbeat";
+    removeTree(root);
+    assert(mkdir(root.c_str(), 0700) == 0);
+
+    BackendAgentClientConfig config = configFor(root);
+    FlakyLegacyOsdTransport osdTransport;
+    config.commandTypes = {"vdr.legacy-osd.input"};
+    config.legacyOsdInputTransport = &osdTransport;
+    config.commandPollIntervalMilliseconds = 10;
+    config.heartbeatIntervalSeconds = 1;
+
+    BackendAgentClientState state;
+    state.agentId = "agt_client";
+    state.backendId = "default";
+    state.credentialId = "agc_client";
+    state.credentialSecret = Secret;
+    state.credentialGeneration = 1;
+    std::string reason;
+    assert(BackendAgentClientRuntime::writeIdentityAtomically(
+        config.identityPath, state, reason));
+
+    FakeTransport transport;
+    transport.responses.push_back(success(
+        200, "{\"agentId\":\"agt_client\","
+             "\"backendId\":\"default\","
+             "\"backendGeneration\":1,"
+             "\"credentialGeneration\":1,"
+             "\"heartbeatSequence\":0,"
+             "\"capabilityRevision\":0,"
+             "\"leaseDurationSeconds\":90,"
+             "\"disposition\":\"replace\"}"));
+    transport.responses.push_back(success(
+        200, "{\"capabilityRevision\":1,\"duplicate\":false}"));
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":1,\"leaseExpiresAt\":123,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 1));
+    transport.responses.push_back(success(
+        200, "{\"hasAssignment\":false,"
+             "\"reasonCode\":\"no_command_available\"}"));
+
+    BackendAgentClientRuntime runtime(
+        config, transport, [](int) { assert(false); },
+        [](const std::string&) {}, [](int milliseconds) {
+            assert(milliseconds > 0 && milliseconds <= 10);
+        });
+    assert(runtime.synchronize(reason));
+
+    // A stalled poll must not postpone the one-second heartbeat.
+    // The old loop counts just the 10 ms planned sleep and would poll
+    // again instead of renewing the lease.
+    transport.commandPollDelayMilliseconds = 1200;
+    transport.responses.push_back(BackendAgentTransportResponse{
+        false, 0, {}, "protected_transport_failed"});
+    transport.responses.push_back(success(
+        200, "{\"heartbeatSequence\":2,\"leaseExpiresAt\":153,"
+             "\"duplicate\":false}"));
+    transport.responses.push_back(observationSuccess(1, 2));
+    transport.responses.push_back(success(
+        200, "{\"hasAssignment\":false,"
+             "\"reasonCode\":\"no_command_available\"}"));
+
+    const std::size_t before = transport.paths.size();
+    assert(runtime.run([&] {
+        return runtime.state().heartbeatSequence >= 2;
+    }) == 0);
+    assert(runtime.state().heartbeatSequence == 2);
+    assert(transport.paths.size() == before + 4);
+    assert(transport.paths[before] == "/api/agent/v1/commands/poll");
+    assert(transport.paths[before + 1] == "/api/agent/v1/heartbeat");
+    assert(transport.paths[before + 2] ==
+           "/api/agent/v1/observations/backend-health");
+    assert(transport.paths[before + 3] == "/api/agent/v1/commands/poll");
+    assert(transport.responses.empty());
+    removeTree(root);
+}
+
 class SyntheticMediaExecutor final
     : public vdrsuite::mediatools::IMediaImportAgentExecutor
 {
@@ -1357,6 +1446,7 @@ int main()
     test_malformed_control_plane_numbers_fail_closed();
     test_permissions_and_bounded_backoff();
     test_low_latency_command_poll_between_heartbeats();
+    test_slow_command_poll_does_not_starve_heartbeat();
     test_media_import_actual_agent_runtime_no_double_dispatch();
     test_shrink_requires_explicit_trusted_executor();
     test_shrink_actual_agent_runtime_no_double_dispatch();
