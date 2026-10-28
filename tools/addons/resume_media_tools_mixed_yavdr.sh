@@ -52,7 +52,10 @@ else
 fi
 [ "$(sudo -u yavdr -H git -C "$WORK/repo" hash-object "$FIX")" = "$FIX_BLOB" ] ||
   stop 'corrected helper differs from reviewed blob'
-python3 -m py_compile "$FIX" || stop 'corrected helper syntax invalid'
+python3 -B - "$FIX" <<'PY' || stop 'corrected helper syntax invalid'
+import ast, pathlib, sys
+ast.parse(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))
+PY
 
 BACKUP="/root/vdr-suite-mt-observed-c26429741f9a-$(date +%Y%m%d%H%M%S)-$$"
 echo "MT_RESUME_PREPARED=$OLD_SOURCE"
