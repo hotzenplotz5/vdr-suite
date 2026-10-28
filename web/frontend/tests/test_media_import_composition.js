@@ -552,7 +552,7 @@ function publishHomeResume() {}
   assert.strictEqual(findClass(mount, 'media-import-import-title').textContent,
     'Import läuft', 'processing state appears directly in the preview');
   assert(findClass(mount, 'media-import-import-description').textContent.includes(
-    'Backend-Agent'), 'the user sees a plain-language progress explanation');
+    'Aufnahme wird verarbeitet'), 'the status uses ordinary language without backend jargon');
   assert(findClass(inlineFeedback, 'media-import-refresh') &&
     findClass(inlineFeedback, 'media-import-new'),
     'status controls are colocated with the existing operation');
