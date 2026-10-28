@@ -16,6 +16,8 @@ import sqlite3
 import stat
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from media_tools_install_preflight import PreflightError, examined_file, safe_root
 from media_tools_runtime_transaction import (
     DB_REL, database_state, live_file_ownership, live_services_quiescent,
@@ -23,7 +25,7 @@ from media_tools_runtime_transaction import (
 )
 from stage_media_tools_runtime import verify_media_tools_stage
 from install_runtime_stage import (
-    FRONTEND_ROOT, DeploymentError, check, deploy, is_frontend,
+    FRONTEND_ROOT, MANIFEST_NAME, DeploymentError, check, deploy, is_frontend,
     is_preserved_config, load_manifest, seal, sha256_file,
     verify_sealed_stage,
 )
@@ -74,6 +76,12 @@ def capture_observed_runtime(candidate: Path, live_root: Path, previous: Path) -
     shutil.rmtree(old_frontend)
     shutil.copytree(current_frontend, old_frontend, symlinks=False)
     seal(previous)
+    # The captured bytes may combine multiple source deployments and hotfixes.
+    # Make the snapshot identity explicit instead of asserting one build SHA.
+    snapshot_manifest = previous / MANIFEST_NAME
+    payload = json.loads(snapshot_manifest.read_text(encoding="utf-8"))
+    payload["producer"] = "observed-live-composite-not-a-source-commit"
+    snapshot_manifest.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     check(previous, live_root)
 
 
