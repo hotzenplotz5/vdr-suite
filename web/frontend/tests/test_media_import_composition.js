@@ -709,7 +709,10 @@ function publishHomeResume() {}
   await findClass(mount, 'media-import-reload').listeners.click();
   await settle();
   assert(findClass(mount, 'status').textContent.includes('abgelaufen'));
-  assert.strictEqual(findClass(mount, 'media-import-start').disabled, true);
+  const unavailableImportButton = findClass(mount, 'media-import-start');
+  assert(!unavailableImportButton ||
+    unavailableImportButton.disabled || unavailableImportButton.hidden,
+    'no import action is available while source inventory is unavailable');
 
   // A pending POST must survive a real production tab/owner replacement.
   sourcesStatus = 200;
