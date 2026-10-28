@@ -1601,6 +1601,24 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-start').disabled,
     'unavailable remains blocked after a repeat inspection');
 
+  // Real-UI regression: rescanning clears the source selection. An old
+  // failed-preview retry must disappear instead of looking clickable but
+  // silently doing nothing with no current episode.
+  const beforeRetryReset = requests.filter(r => r.path.endsWith('/preview')).length;
+  const failedPreviewRescan = findClass(mount, 'media-import-reload').listeners.click();
+  assert(retryUnavailable.hidden,
+    'rescan hides a failed-preview retry immediately while sources reload');
+  await failedPreviewRescan;
+  await settle();
+  assert.strictEqual(raceSelect.value, '',
+    'rescan has cleared the previously selected episode');
+  assert(retryUnavailable.hidden,
+    'retry stays hidden until a new episode is selected and fails preview');
+  await retryUnavailable.listeners.click();
+  assert.strictEqual(requests.filter(r => r.path.endsWith('/preview')).length,
+    beforeRetryReset, 'a cleared selection does not issue an orphan preview');
+  raceSelect.value = SOURCE;
+
   previewInspectionStatus = 'unavailable';
   batchProbeOverrides[SOURCE] = {status: 'unavailable', failureCode: 'ffprobe_failed'};
   raceSelect.listeners.change();
