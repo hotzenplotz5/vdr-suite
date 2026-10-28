@@ -129,14 +129,19 @@ def capacity_preflight(candidate: Path, backup_parent: Path) -> None:
     frontend = examined_file(Path("/"), FRONTEND_ROOT.as_posix())
     actual_frontend_bytes = sum(p.stat().st_size for p in frontend.rglob("*")
                                 if p.is_file())
-    # Unchanged files share storage. Conservatively budget every installed
-    # non-frontend file as changed, but never charge three full stage copies.
+    # The snapshot hardlinks byte-identical root-private candidate files.
+    # Account only for old payload bytes whose content/mode actually differs.
     old_payload_budget = 0
     largest_candidate_file = 0
     for rel, entry in files.items():
         if is_preserved_config(Path(rel)) or is_frontend(Path(rel)):
             continue
-        old_payload_budget += examined_file(Path("/"), rel).stat().st_size
+        old = examined_file(Path("/"), rel)
+        old_info = old.stat()
+        if (old_info.st_size != entry["size"] or
+                stat.S_IMODE(old_info.st_mode) != entry["mode"] or
+                sha256_file(old) != entry["sha256"]):
+            old_payload_budget += old_info.st_size
         largest_candidate_file = max(largest_candidate_file, entry["size"])
     candidate_frontend_bytes = sum(entry["size"] for rel, entry in files.items()
                                    if is_frontend(Path(rel)))
