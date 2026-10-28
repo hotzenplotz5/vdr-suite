@@ -29,7 +29,7 @@ function harness(reply, restored) {
     crypto: {getRandomValues(bytes) { bytes.fill(0x4a); return bytes; }},
     VdrSuiteBrowserSession: {
       restore() { restored.count++; return Promise.resolve(); },
-      csrfHeaders() { return {'X-VDR-Suite-CSRF-Token': 'test-token'}; }
+      csrfHeaders() { return {'X-CSRF-Token': 'test-token'}; }
     },
     confirm() { return true; },
     fetch(url, options) {
@@ -38,7 +38,7 @@ function harness(reply, restored) {
         if (options.method === 'POST') {
           assert.equal(url, '/api/v1/addons/rectools/sources');
           assert.equal(options.credentials, 'same-origin');
-          assert.equal(options.headers['X-VDR-Suite-CSRF-Token'], 'test-token');
+          assert.equal(options.headers['X-CSRF-Token'], 'test-token');
           const body = JSON.parse(options.body);
           assert.equal(body.backendId, sourceStore.backendId);
           assert.equal(body.revision, sourceStore.revision);
@@ -82,7 +82,7 @@ async function test() {
     if (options.method === 'POST') {
       assert.equal(url, '/api/v1/addons/rectools/activation');
       assert.equal(options.credentials, 'same-origin');
-      assert.equal(options.headers['X-VDR-Suite-CSRF-Token'], 'test-token');
+      assert.equal(options.headers['X-CSRF-Token'], 'test-token');
       assert.match(options.headers['X-Correlation-ID'],
         /^addon-activation-[0-9a-f]{24}$/);
       const body = JSON.parse(options.body);
