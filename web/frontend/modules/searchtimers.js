@@ -1194,9 +1194,15 @@
         if (created && created.success === false) {
           const message = String(resultMessage(
             created, 'Der epgsearch-Provider hat keine Anlage bestätigt.'));
+          // Errors from the underlying RESTfulAPI adapter can contain
+          // requestBody/responseBody diagnostic dumps. Only show the status
+          // and bounded non-payload reason tokens in the Browser.
           const details = Array.isArray(created.errors)
             ? created.errors.filter(value => typeof value === 'string' &&
-                value.length > 0 && value.length <= 240).slice(0, 3)
+                value.length > 0 && value.length <= 120 &&
+                (/^status=[0-9]{3}$/.test(value) ||
+                 /^readback did not find a unique created searchtimer id/.test(value))
+              ).slice(0, 3)
             : [];
           throw new Error('Backend meldet: ' + message +
             (details.length ? ' (' + details.join(' · ') + ')' : ''));
