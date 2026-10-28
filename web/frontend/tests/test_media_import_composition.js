@@ -1897,6 +1897,11 @@ function publishHomeResume() {}
   assert(onlinePoster && onlinePoster.src.includes('/settings/series-artwork/candidate-image?') &&
     onlinePoster.src.includes('externalNamespace=movie'),
     'poster URL is served by the existing authenticated Suite image route');
+  onlinePoster.listeners.error();
+  assert(confirmedOnline.children[0].textContent.includes('Film mit belegter TMDb-ID') &&
+    confirmedOnline.children.some(function (child) {
+      return child.textContent.includes('Online-Poster nicht verfügbar');
+    }), 'missing TMDb artwork leaves the selected title and plot intact');
   assert(findClass(mount, 'media-import-local-metadata') &&
     findClass(mount, 'media-import-nfo-plot'),
     'confirmed online metadata must not replace or suppress NFO text');
