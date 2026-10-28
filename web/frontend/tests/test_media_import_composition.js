@@ -326,6 +326,10 @@ context.VdrSuiteClientApi = {
     }
     const body = JSON.parse(options.body);
     if (route.endsWith('/search')) {
+      if (onlineMode === 'ambiguous' && body.kind === 'series')
+        return Promise.resolve(onlinePage([
+          onlineCandidate('series','1399','Andor'),
+          onlineCandidate('series','1400','Andor')]));
       return Promise.resolve(body.kind === 'series'
         ? onlinePage([onlineCandidate('series','1399','Andor')])
         : onlinePage([
@@ -1937,6 +1941,20 @@ function publishHomeResume() {}
     'automatic episode artwork appears in the main preview');
   assert.strictEqual(submits, beforeAutoImports,
     'automatic metadata lookup never imports, marks or changes VDR media');
+  // Multiple equally plausible provider IDs must not be silently chosen.
+  onlineMode = 'ambiguous';
+  const beforeAmbiguousRequests = onlineRequests.length;
+  onlineSelect.listeners.change();
+  await settle();
+  assert.strictEqual(onlineRequests.length - beforeAmbiguousRequests, 1,
+    'ambiguous title never triggers season or episode lookup');
+  assert.strictEqual(findClass(mount, 'media-import-online-confirmed'), null,
+    'ambiguous series identity is never accepted automatically');
+  assert(findClass(mount, 'media-import-online-status').textContent.includes('Mehrdeutige Serie'),
+    'ambiguous provider identity is clearly explained to the user');
+  onlineMode = 'ready';
+  onlineSelect.listeners.change();
+  await settle();
   assert.strictEqual(findClass(mount, 'media-import-online-kind').value, 'series',
     'S01E01 is a series episode, not a movie');
   assert.strictEqual(findClass(mount, 'media-import-online-query').value, 'Andor',
