@@ -33,6 +33,35 @@ Media-Tools-Entwicklungsstand dieses einen Branches nach `main` mergen.
 Nicht vorzeitig als fertig oder bereits gemergt melden. Bestehende
 fremde Entwicklungsbranches nicht eigenmächtig löschen oder umschreiben.
 
+## Verbindlicher lokaler Branch-Check vor Build, Test und Installation (28.10.2026)
+
+**Ausdrückliche Maintainer-Anordnung:** Vor jedem lokalen Build, Testlauf,
+Staging, Merge oder Installationslauf zuerst den **tatsächlich ausgecheckten
+lokalen Branch** im verwendeten Checkout prüfen. Ein richtiger GitHub-PR-Branch
+oder Remote-HEAD allein ist kein Nachweis für den lokalen Checkout.
+
+- Checkout-Pfad und Git-Top-Level prüfen; `git branch --show-current` sowie
+  `git rev-parse HEAD` aus dem **gleichen Checkout** auswerten, in dem
+  anschließend gebaut/getestet/installiert werden soll. Bei Media Tools
+  ist der erwartete Entwicklungsbranch
+  `fix/media-tools-root-scan-visible-results` (PR #556).
+- Bei Abweichung **vor jeder weiteren Aktion abbrechen**, explizit
+  `FALSCHER_BRANCH: erwartet=<branch> aktuell=<branch>` ausgeben,
+  nicht bloß mit `set -e` und `test` still aussteigen. Detached HEAD
+  ebenfalls sichtbar melden. Auch ein korrekter Branchname reicht ohne
+  passenden, verifizierten lokalen Commit nicht zur Build-Freigabe.
+- Niemals eigenmächtig `git switch`, `git checkout`, `git reset`,
+  `git clean`, `git stash` oder einen neuen Branch anlegen, um diesen
+  Fehler zu übergehen. Bestehende fremde Branches und unversionierte
+  Dateien erhalten. Bei Bedarf können **explizite, branchunabhängige
+  Einzeldatei-Updates aus einem verifizierten Commit** separat
+  durchgeführt werden; sie sind kein lokaler Build und müssen
+  Installationsziel und Backup klar benennen.
+- Fehler in einem von uns gelieferten Shellblock müssen mit konkretem
+  Hinweis ausgegeben werden. Vorher kontrollieren, dass Git-Kommandos
+  ohne fehlende Shellfunktion, ohne vorzeitig abbrechenden `test`
+  und ohne unerwarteten Branchwechsel funktionieren.
+
 ## GitHub SSH identity verification before console commands (28.10.2026)
 
 **Explicit maintainer order after a repeated live failure:** Never issue GitHub
