@@ -9,6 +9,10 @@ Diese Regel gilt für jede `AGENTS.md`-Datei im Repository. Ohne die ausdrückli
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
 
+## Usability First – No Unapproved Restrictions
+
+Neue Sicherheits-, Berechtigungs-, Aktivierungs- oder Installationsbeschränkungen dürfen nicht eigenständig eingeführt werden. Bestehende Schutzmechanismen dürfen nicht ohne begründeten Bedarf verschärft werden. Änderungen müssen die Benutzerfreundlichkeit erhalten oder verbessern. Zusätzliche Prüfungen, die keine konkret nachweisbare Fehlerklasse verhindern, sind zu vermeiden. Bereits bestätigte Testergebnisse dürfen nicht ohne Anlass erneut angefordert werden.
+
 ## No hallucinated facts, user mandates, or blockers
 
 **Hard rule:** Never invent or imply user instructions, approvals, prohibitions,
