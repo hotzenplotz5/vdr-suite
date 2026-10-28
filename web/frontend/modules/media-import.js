@@ -814,7 +814,7 @@
   // selection of an ambiguous provider result is authorized here.
   function normalizedSeriesName(value) {
     return String(value || '').normalize('NFKC').toLocaleLowerCase('de')
-      .replace(/[^\\p{L}\\p{N}]+/gu, ' ').replace(/\\s+/g, ' ').trim();
+      .replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
   }
 
   function autoIdentifyEpisode(view, source) {
