@@ -603,9 +603,18 @@ function publishHomeResume() {}
     'Import abgeschlossen ✓', 'verified VDR readback is shown near the action');
   assert(findClass(mount, 'media-import-import-feedback').className.includes('is-success'),
     'only Core-confirmed success gets a visible green completion state');
+  assert(findClass(mount, 'media-import-completed-notice').textContent.includes(
+    'VDR-Aufnahme bestätigt'), 'a confirmed recording also appears in a persistent completion receipt');
   assert.strictEqual(findClass(mount, 'media-import-new').hidden, false);
   await findClass(mount, 'media-import-new').listeners.click();
   await settle();
+  assert(findClass(mount, 'media-import-completed-notice').textContent.includes(
+    'Import abgeschlossen'), 'completion stays visible after the previous source disappears');
+  context.selectModule('overview');
+  context.selectModule('media-import');
+  await settle();
+  assert(findClass(mount, 'media-import-completed-notice').textContent.includes(
+    'VDR-Aufnahme bestätigt'), 'same authenticated session retains the confirmed completion');
 
   // A new explicit user action gets its own random key, no retry path.
   select = findClass(mount, 'media-import-source');
