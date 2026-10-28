@@ -876,7 +876,7 @@
       : !attempt.operationId
         ? 'Der Server hat keine eindeutige Antwort geliefert. Bitte nicht erneut klicken.'
         : descriptions[state] || 'Der vorhandene Auftrag wird über „Vorgang prüfen“ abgefragt.';
-    if (view.lastManualCheck && !attempt.pending)
+    if (view.lastManualCheck && attempt && !attempt.pending)
       view.importFeedbackText.textContent += ' ' + view.lastManualCheck;
     if (attempt && attempt.metadataFeedback)
       view.importFeedbackText.textContent += ' ' + attempt.metadataFeedback;
