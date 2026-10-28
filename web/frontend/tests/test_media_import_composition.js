@@ -1952,7 +1952,23 @@ function publishHomeResume() {}
     'ambiguous series identity is never accepted automatically');
   assert(findClass(mount, 'media-import-online-status').textContent.includes('Mehrdeutige Serie'),
     'ambiguous provider identity is clearly explained to the user');
+  // An automatic lookup still in flight belongs only to the source that
+  // initiated it. Switching to another episode discards the late result.
+  onlineMode = 'defer';
+  onlineSelect.listeners.change();
+  await settle();
+  const resolveOldAuto = resolveOnlineReply;
+  assert.strictEqual(typeof resolveOldAuto, 'function');
+  onlineMode = 'offline';
+  onlineSelect.value = SOURCE_B;
+  onlineSelect.listeners.change();
+  await settle();
+  resolveOldAuto(onlinePage([onlineCandidate('series', '1399', 'Andor')]));
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-online-confirmed'), null,
+    'late automatic provider reply never identifies a different selected episode');
   onlineMode = 'ready';
+  onlineSelect.value = SOURCE;
   onlineSelect.listeners.change();
   await settle();
   assert.strictEqual(findClass(mount, 'media-import-online-kind').value, 'series',
