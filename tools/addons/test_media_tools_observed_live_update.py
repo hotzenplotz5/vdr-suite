@@ -127,6 +127,33 @@ class ObservedRuntimeSnapshotTests(unittest.TestCase):
         assert new_changed.read_text() == "new daemon"
         assert old_changed.read_text() == "older daemon"
 
+    def test_capacity_budget_counts_one_offline_sqlite_backup(self):
+        # Regression: real yaVDR had 40 GiB free, a 3.81 GB database and
+        # ~33 GiB reserve. Double-counting the already-existing database
+        # incorrectly blocked the entire update before any host mutation.
+        from types import SimpleNamespace
+
+        db = self.live / "var/lib/vdr-suite/vdr-suite.db"
+        db.parent.mkdir(parents=True, exist_ok=True)
+        with db.open("wb") as stream:
+            stream.truncate(3_809_148_928)  # sparse, no 3.8GB allocation
+        # An explicit 15% filesystem reserve of about 35.1GB.
+        usage = SimpleNamespace(
+            total=234_039_422_980, free=42_629_464_064,
+            used=234_039_422_980 - 42_629_464_064
+        )
+        with mock.patch.object(observed.shutil, "disk_usage", return_value=usage):
+            observed.capacity_preflight(self.new, self.root, self.live)
+
+        # If available capacity really is too small, the guard still works.
+        constrained = SimpleNamespace(
+            total=usage.total, free=36_000_000_000,
+            used=usage.total - 36_000_000_000
+        )
+        with mock.patch.object(observed.shutil, "disk_usage", return_value=constrained):
+            with self.assertRaises(PreflightError):
+                observed.capacity_preflight(self.new, self.root, self.live)
+
     def test_input_stage_not_mutated(self):
         before = (self.new / "usr/sbin/vdr-suite-daemon").read_bytes()
         self.capture()
