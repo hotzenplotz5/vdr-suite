@@ -387,7 +387,7 @@ vm.runInContext(view.replace('})(window);',
   context);
 
 // The existing Recording metadata assignment is the only metadata writer.
-(async function verifyMeta6Handoff() {
+async function verifyMeta6Handoff() {
   const metaView = {
     onlineKind: 'series',
     onlineSeries: {
@@ -431,9 +431,7 @@ vm.runInContext(view.replace('})(window);',
     metadataAssignments.length === 1,
     'ambiguous target may not create an assignment against an unrelated recording');
   metadataFolderOverride = null;
-})().catch(function (error) {
-  process.nextTick(function () { throw error; });
-});
+}
 
 function slice(first, last) {
   const start = app.indexOf(first);
@@ -463,6 +461,7 @@ function publishHomeResume() {}
 `, Object.assign(context, {testMount: mount}));
 
 (async function () {
+  await verifyMeta6Handoff();
   // Real app capability-gate -> production module selection -> actual DOM buttons.
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   assert.strictEqual(tab.hidden, false);
