@@ -393,5 +393,11 @@ int main()
         "/ci-only/media-out/Media/2026-10-21.18.00.00-0.rec"));
     assert(committedSource == mediaImportSourceEvidence(
         "/ci-only/media-in/recording.ts", 10, 11, 1024, 0, 42));
+    // The production cache refresh must accept current source-bound proofs
+    // and legacy recording-only journals, but not malformed composites.
+    assert(validMediaImportResultRecordingEvidence(proof));
+    assert(validMediaImportResultRecordingEvidence(committedRecording));
+    assert(!validMediaImportResultRecordingEvidence(proof + "|extra"));
+    assert(!validMediaImportResultRecordingEvidence(""));
     assert(receiptExecutor.takeRecordingEvidence().empty());
 }
