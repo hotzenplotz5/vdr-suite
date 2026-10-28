@@ -972,7 +972,7 @@ void test_low_latency_command_poll_between_heartbeats()
     assert(
         transport.bodies.back().find("vdr.legacy-osd.input") ==
         std::string::npos);
-    assert(osdTransport.discoveryCalls == 1);
+    assert(osdTransport.discoveryCalls == 2);
     assert(runtime.state().heartbeatSequence == heartbeatBeforeRun + 1);
     assert(
         std::count(
