@@ -479,12 +479,12 @@ function publishHomeResume() {}
     'Keine lokale Fanart');
   // Malformed MIME cannot become a live image src or a second network URL.
   previewArtworkMode = 'bad';
-  select.listeners.change();
+  await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
   assert.strictEqual(findClass(mount, 'media-import-artwork-image'), null,
     'invalid image type must fall back to neutral placeholders');
   previewArtworkMode = 'poster';
-  select.listeners.change();
+  await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
   assert(findClass(mount, 'media-import-artwork-image'),
     're-inspection restores only genuinely observed artwork');
@@ -1537,7 +1537,7 @@ function publishHomeResume() {}
   // HTTP 202 is intentionally visible until the bounded next GET completes.
   previewMode = 'pending-first';
   raceSelect.value = SOURCE_B;
-  raceSelect.listeners.change();
+  await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
   assert(findClass(mount, 'media-import-preview').textContent.includes(
     'Film wird geprüft'));
@@ -1568,6 +1568,7 @@ function publishHomeResume() {}
   previewInspectionStatus = 'insufficient';
   raceSelect.value = SOURCE;
   raceSelect.listeners.change();
+  await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
   const insufficientPreview = findClass(mount, 'media-import-preview').textContent;
   assert(insufficientPreview.includes('Nicht genügend freier Platz') &&
@@ -1586,7 +1587,7 @@ function publishHomeResume() {}
     'PC marker must remain available despite a local space shortage');
 
   previewInspectionStatus = 'unavailable';
-  raceSelect.listeners.change();
+  await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
   assert(findClass(mount, 'media-import-preview').textContent.includes(
     'konnte vom Backend nicht sicher geprüft werden'));
@@ -1936,6 +1937,38 @@ function publishHomeResume() {}
     'exact S01E01 is automatically identified from provider results');
   assert(automaticOnline.children[0].textContent.includes('Automatisch erkannte'),
     'automatic attribution is labelled separately from manual selection');
+  // Previously completed technical checks are visible across episode changes
+  // and are not repeated within this source scan.
+  const checksFor = function (sourceId) {
+    return requests.filter(function (r) {
+      return r.path.endsWith('/media-import-sources/' + sourceId + '/preview');
+    }).length;
+  };
+  const checkedA = checksFor(SOURCE);
+  onlineSelect.value = SOURCE_B;
+  onlineSelect.listeners.change();
+  await settle();
+  assert(findClass(mount, 'media-import-start').disabled === false);
+  const beforeReturning = checksFor(SOURCE);
+  onlineSelect.value = SOURCE;
+  onlineSelect.listeners.change();
+  await settle();
+  assert.strictEqual(beforeReturning, checkedA);
+  assert.strictEqual(checksFor(SOURCE), checkedA,
+    'reselecting a checked episode never repeats its technical Agent probe');
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    'VDR-Zielordner:'), 'reused technical details appear immediately');
+  assert(findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.dataset.sourceId === SOURCE &&
+      findClass(row, 'media-import-episode-meta').textContent.includes('Technisch geprüft');
+  }), 'episode row stays visibly marked as technically checked');
+  assert(!findClass(mount, 'media-import-preview-retry').hidden,
+    'the user can explicitly request a fresh technical check');
+  const beforeManualRecheck = checksFor(SOURCE);
+  await findClass(mount, 'media-import-preview-retry').listeners.click();
+  await settle();
+  assert.strictEqual(checksFor(SOURCE), beforeManualRecheck + 1,
+    'the explicit recheck does exactly one fresh technical request');
   // Local source artwork stays authoritative, while the episode still has
   // its own secondary slot and cannot replace the series cover.
   const localAutoPoster = findClass(findClass(mount, 'media-import-artwork-poster'),
@@ -1951,7 +1984,7 @@ function publishHomeResume() {}
   // When no local poster exists, use the actual series cover as the main
   // image; the matching S01E01 photo is separate, with fanart unaffected.
   previewArtworkMode = 'none';
-  onlineSelect.listeners.change();
+  await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
   const autoPoster = findClass(findClass(mount, 'media-import-artwork-poster'),
     'media-import-artwork-image');
@@ -1966,6 +1999,8 @@ function publishHomeResume() {}
     'media-import-artwork-empty').textContent === 'Keine lokale Fanart',
     'missing fanart stays independent of the episode image');
   previewArtworkMode = 'poster';
+  await findClass(mount, 'media-import-preview-retry').listeners.click();
+  await settle();
   assert.strictEqual(submits, beforeAutoImports,
     'automatic metadata lookup never imports, marks or changes VDR media');
   // Multiple equally plausible provider IDs must not be silently chosen.
