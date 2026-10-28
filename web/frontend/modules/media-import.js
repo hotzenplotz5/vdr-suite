@@ -1943,7 +1943,6 @@
     actions.appendChild(view.startButton);
     card.appendChild(actions);
     card.appendChild(view.importFeedback);
-    card.appendChild(view.message);
     renderImportFeedback(view);
     if (selected && source && source.folderKnown) {
       card.appendChild(element('p', 'media-import-preview-path',
@@ -2452,6 +2451,7 @@
     preview.setAttribute('role', 'status');
     root.appendChild(preview);
     const previewCard = element('div', 'media-import-preview-card');
+    previewCard.setAttribute('role', 'status');
     const importFeedback = element('div', 'media-import-import-feedback');
     importFeedback.hidden = true;
     importFeedback.setAttribute('role', 'status');
@@ -2644,6 +2644,7 @@
     footer.appendChild(batchReviewList);
     footer.appendChild(batchConfirmButton);
     footer.appendChild(batchStopButton);
+    footer.appendChild(message);
     importFeedback.appendChild(refreshButton);
     importFeedback.appendChild(newButton);
     root.replaceChildren(header, toolbar, statusStrip, mobileNav, workspace, footer);
