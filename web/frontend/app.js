@@ -9,17 +9,30 @@ let selectedBackendId = '';
 let selectedBackend = null;
 let selectedModule = 'overview';
 let mediaImportCapabilityEpoch = 0;
+let mediaImportKnownBackendId = '';
+let mediaImportRetryTimer = null;
+const MEDIA_IMPORT_RETRY_MS = 5000;
 const mediaImportTab = document.querySelector('.module-tab[data-module="media-import"]');
 
 function mediaImportModule() {
   return frontendPlatformModule('media-import', window.VdrSuiteMediaImport);
 }
 
+function cancelMediaImportRetry() {
+  if (mediaImportRetryTimer !== null) {
+    if (typeof clearTimeout === 'function') clearTimeout(mediaImportRetryTimer);
+    mediaImportRetryTimer = null;
+  }
+}
+
 function resetMediaImportVisibility(clearSession) {
   ++mediaImportCapabilityEpoch;
+  cancelMediaImportRetry();
+  if (clearSession) mediaImportKnownBackendId = '';
   if (mediaImportTab) {
     mediaImportTab.hidden = true;
     mediaImportTab.disabled = true;
+    mediaImportTab.title = '';
   }
   const moduleApi = mediaImportModule();
   if (moduleApi) {
@@ -31,9 +44,21 @@ function resetMediaImportVisibility(clearSession) {
   }
 }
 
+function scheduleMediaImportRetry(backendId) {
+  if (mediaImportRetryTimer !== null || typeof setTimeout !== 'function') return;
+  mediaImportRetryTimer = setTimeout(function () {
+    mediaImportRetryTimer = null;
+    if (selectedBackendId === backendId && browserSessionFrontendActive)
+      refreshMediaImportVisibility(backendId);
+  }, MEDIA_IMPORT_RETRY_MS);
+}
+
 function refreshMediaImportVisibility(backendId) {
   const epoch = ++mediaImportCapabilityEpoch;
-  if (mediaImportTab) {
+  const known = mediaImportKnownBackendId === backendId;
+  const wasAvailable = Boolean(mediaImportTab && !mediaImportTab.hidden &&
+    !mediaImportTab.disabled);
+  if (mediaImportTab && !known) {
     mediaImportTab.hidden = true;
     mediaImportTab.disabled = true;
   }
@@ -41,21 +66,52 @@ function refreshMediaImportVisibility(backendId) {
   if (!mediaImportTab || !moduleApi ||
       typeof moduleApi.checkCapability !== 'function') return Promise.resolve(false);
 
+  function unavailable() {
+    // A temporary Agent outage must not erase a tab that this logged-in
+    // user has already accessed. Keep it visibly disabled until recovery.
+    mediaImportTab.hidden = !known;
+    mediaImportTab.disabled = true;
+    mediaImportTab.title = known
+      ? 'Media Import derzeit nicht verfügbar (Agent, Aktivierung oder Berechtigung). Automatische Prüfung läuft.'
+      : '';
+    if (known && wasAvailable && selectedModule === 'media-import' &&
+        typeof moduleApi.activate === 'function') {
+      moduleApi.activate(backendId, detailDataElement);
+    }
+    scheduleMediaImportRetry(backendId);
+    return false;
+  }
+
   return Promise.resolve().then(function () {
     return moduleApi.checkCapability(backendId);
   }).then(function (available) {
     if (epoch !== mediaImportCapabilityEpoch ||
         selectedBackendId !== backendId || !browserSessionFrontendActive) return false;
-    mediaImportTab.hidden = !available;
-    mediaImportTab.disabled = !available;
-    if (!available && selectedModule === 'media-import') selectModule('overview');
-    return available;
-  }).catch(function () {
-    if (epoch === mediaImportCapabilityEpoch &&
-        selectedBackendId === backendId && selectedModule === 'media-import') {
-      selectModule('overview');
+    if (!available) return unavailable();
+    cancelMediaImportRetry();
+    mediaImportKnownBackendId = backendId;
+    mediaImportTab.hidden = false;
+    mediaImportTab.disabled = false;
+    mediaImportTab.title = '';
+    if (!wasAvailable && selectedModule === 'media-import' &&
+        typeof moduleApi.activate === 'function') {
+      moduleApi.activate(backendId, detailDataElement);
     }
-    return false;
+    return true;
+  }).catch(function (error) {
+    if (epoch !== mediaImportCapabilityEpoch ||
+        selectedBackendId !== backendId || !browserSessionFrontendActive) return false;
+    if (error && (error.status === 401 || error.status === 403)) {
+      // An actual authorization denial is not a temporary transport outage.
+      cancelMediaImportRetry();
+      mediaImportKnownBackendId = '';
+      mediaImportTab.hidden = true;
+      mediaImportTab.disabled = true;
+      mediaImportTab.title = '';
+      if (selectedModule === 'media-import') selectModule('overview');
+      return false;
+    }
+    return unavailable();
   });
 }
 
