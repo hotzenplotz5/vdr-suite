@@ -1810,7 +1810,7 @@ function publishHomeResume() {}
   sourceFolders[SOURCE_D] = 'Serien/Zweite Serie/Staffel 1';
   sourceFolders[MARK_PC] = 'Serien/Andor/Staffel 1';
   sourceDisplayOverride = 'S01E01 Pilot';
-  sourceDisplayLabels[SOURCE_B] = 'S01E02 Zweite Folge';
+  sourceDisplayLabels[SOURCE_B] = 'Staffel 1 Folge 2';
   sourceDisplayLabels[SOURCE_C] = 'S02E01 Rückkehr';
   sourceDisplayLabels[SOURCE_D] = 'S01E01 Pilot';
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
@@ -1860,6 +1860,12 @@ function publishHomeResume() {}
   await settle();
   assert.strictEqual(findClass(mount, 'media-import-source').value, SOURCE_B);
   assert.strictEqual(findClass(mount, 'media-import-panel').dataset.mobilePane, 'details');
+  assert.strictEqual(findClass(mount, 'media-import-online-kind').value, 'series',
+    'long-form Staffel/Folge coordinates must select series metadata search');
+  assert.strictEqual(findClass(mount, 'media-import-online-query').value, 'Andor',
+    'series metadata query must use the actual series folder, not episode filename');
+  assert(findClass(mount, 'media-import-online-context').textContent.includes(
+    'Staffel 1 · Folge 2'), 'recognized episode coordinates are visible before TMDb lookup');
   await findClass(mount, 'media-import-mobile-back').listeners.click();
   assert.strictEqual(findClass(mount, 'media-import-panel').dataset.mobilePane, 'media');
   secondSeries.listeners.click();
@@ -1879,7 +1885,16 @@ function publishHomeResume() {}
     'NFO remains visible before and after optional online lookup');
   assert.strictEqual(onlineRequests.length, 0,
     'scanning and FFprobe must never trigger provider search automatically');
+  assert.strictEqual(findClass(mount, 'media-import-online-kind').value, 'series',
+    'S01E01 is a series episode, not a movie');
+  assert.strictEqual(findClass(mount, 'media-import-online-query').value, 'Andor',
+    'S01E01 search starts with the series name, not the raw filename');
+  assert(findClass(mount, 'media-import-online-context').textContent.includes(
+    'Staffel 1 · Folge 1'));
   const importedBeforeOnline = submits;
+  const movieChoice = findClass(mount, 'media-import-online-kind');
+  movieChoice.value = 'movie';
+  movieChoice.listeners.change();
   let onlineQuery = findClass(mount, 'media-import-online-query');
   onlineQuery.value = 'Film mit belegter TMDb-ID';
   onlineQuery.listeners.input();
