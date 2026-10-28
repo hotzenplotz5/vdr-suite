@@ -725,16 +725,22 @@
   // import is introduced.
   function importMetadataSelection(view, plan, source) {
     const candidate = view.onlineSelected;
-    if (!plan || !source || !candidate || !validRelativeFolder(plan.targetFolder) ||
+    if (!plan || !source || !candidate ||
+        typeof plan.targetFolder !== 'string' || !plan.targetFolder ||
+        !validRelativeFolder(plan.targetFolder) ||
         candidate.providerId !== 'tmdb' || typeof candidate.externalId !== 'string' ||
         !/^[0-9]{1,12}$/.test(candidate.externalId)) return null;
     const coordinates = episodeCoordinates(source);
     const episode = candidate.kind === 'episode' && view.onlineSeries &&
       view.onlineSeries.kind === 'series' &&
+      view.onlineSeries.providerId === 'tmdb' &&
+      candidate.externalNamespace === 'tv-episode' &&
+      candidate.parentExternalId === view.onlineSeries.externalId &&
       coordinates.episode !== null &&
       candidate.seasonNumber === coordinates.season &&
       candidate.episodeNumber === coordinates.episode;
-    const movie = candidate.kind === 'movie' && view.onlineKind === 'movie';
+    const movie = candidate.kind === 'movie' && view.onlineKind === 'movie' &&
+      candidate.externalNamespace === 'movie';
     if (!episode && !movie) return null;
     return {
       folder: plan.targetFolder, title: plan.title,
@@ -762,8 +768,15 @@
   function applyImportedMetadata(view, attempt) {
     const api = global.VdrSuiteClientApi;
     const selection = attempt.metadataSelection;
+    if (!selection) return Promise.resolve();
     if (!api || typeof api.fetchClientRecordingFolder !== 'function' ||
-        typeof api.requestJson !== 'function' || !selection) return Promise.resolve();
+        typeof api.requestJson !== 'function') {
+      attempt.metadataFeedback = 'TMDb-Übernahme nicht verfügbar. ' +
+        'Die VDR-Aufnahme bleibt erhalten.';
+      if (isCurrent(view) && view.attempt === attempt)
+        renderImportFeedback(view);
+      return Promise.resolve();
+    }
     const fail = function () {
       attempt.metadataFeedback = 'TMDb-Metadaten nicht übernommen. ' +
         'Die Aufnahme ist vorhanden; Zuordnung unter „Aufnahmen“ möglich.';
