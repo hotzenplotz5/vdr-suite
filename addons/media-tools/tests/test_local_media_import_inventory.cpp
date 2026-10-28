@@ -98,6 +98,18 @@ int main()
     assert(!inventory.resolve("backend", "../../etc/passwd", selected));
     assert(!inventory.resolve("backend", "short", selected));
 
+    // The observation returns one chosen descriptor from the SAME inventory
+    // pass as its labels, not a second source-tree resolution.
+    LocalMediaImportSource observed;
+    assert(inventory.listTrustedSourceSnapshot(
+        "backend", labels, partial, Key, &observed));
+    assert(!partial && labels.size() == 1 && labels[0].sourceId == Key);
+    assert(observed.sourceFile == fixture.source &&
+           observed.sourceInode != 0 && observed.sourceBytes > 0);
+    assert(inventory.listTrustedSourceSnapshot(
+        "backend", labels, partial, "missing_Token_0001", &observed));
+    assert(observed.sourceFile.empty() && labels.size() == 1);
+
     // MT.UX2: root-owned optional sixth column names each source root.
     // The first matching backend entry becomes the default for display.
     const auto extraDir = fixture.root / "media/extra";
@@ -247,6 +259,9 @@ int main()
         if (row.sourceFile == newFile) newMovieId = id;
     }
     assert(sawSeries && sawDeep && !newMovieId.empty());
+    assert(inventory.listTrustedSourceSnapshot(
+        "backend", labels, partial, newMovieId, &observed));
+    assert(!partial && labels.size() == 4 && observed.sourceFile == newFile);
     LocalMediaImportSource scanned;
     assert(inventory.resolve("backend", ids[0], scanned));
     assert(scanned.sourceFile == fixture.source ||
@@ -320,6 +335,9 @@ int main()
     fs::last_write_time(newFile, fs::file_time_type::clock::now());
     assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 3);
     assert(!inventory.resolve("backend", newMovieId, scanned));
+    assert(inventory.listTrustedSourceSnapshot(
+        "backend", labels, partial, newMovieId, &observed));
+    assert(observed.sourceFile.empty() && labels.size() == 3);
     fixture.write();
     // A root-approved marked source is observable without becoming importable.
     const auto held = fixture.source.parent_path() / "clip.pc_encode.ts";
