@@ -134,6 +134,21 @@ def write_review(path: Path, evidence: dict) -> None:
         os.fsync(stream.fileno())
 
 
+def preflight(candidate: Path, digest: str, backup_dir: Path) -> str:
+    if os.geteuid() != 0:
+        raise PreflightError("live preflight requires root to inspect installed ownership")
+    candidate = safe_root(candidate)
+    verify_media_tools_stage(candidate, digest)
+    require_backup_directory(backup_dir, new=True)
+    live_file_ownership(candidate)
+    current_frontend = examined_file(Path("/"), FRONTEND_ROOT.as_posix())
+    require_regular_owned(current_frontend, directory=True)
+    for item in current_frontend.rglob("*"):
+        require_regular_owned(item, directory=item.is_dir() and not item.is_symlink())
+    capacity_preflight(candidate, backup_dir.parent)
+    return "MEDIA_TOOLS_OBSERVED_PREFLIGHT=PASS SERVICES=UNCHANGED"
+
+
 def update(candidate: Path, digest: str, backup_dir: Path) -> str:
     if os.geteuid() != 0:
         raise PreflightError("live update requires root")
@@ -240,13 +255,13 @@ def rollback(backup_dir: Path, digest: str) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("live-update", "live-rollback"))
+    parser.add_argument("action", choices=("preflight", "live-update", "live-rollback"))
     parser.add_argument("--candidate-stage", type=Path)
     parser.add_argument("--approved-handler-sha256", required=True)
     parser.add_argument("--backup-dir", type=Path, required=True)
     parser.add_argument("--confirm", required=True)
     args = parser.parse_args()
-    if args.action == "live-update" and (
+    if args.action in ("preflight", "live-update") and (
         args.confirm != CONFIRM_UPDATE or args.candidate_stage is None
     ):
         parser.error("live-update needs --candidate-stage and " + CONFIRM_UPDATE)
@@ -255,7 +270,10 @@ def main() -> int:
     ):
         parser.error("live-rollback needs " + CONFIRM_ROLLBACK)
     try:
-        if args.action == "live-update":
+        if args.action == "preflight":
+            result = preflight(args.candidate_stage, args.approved_handler_sha256,
+                               args.backup_dir)
+        elif args.action == "live-update":
             result = update(args.candidate_stage, args.approved_handler_sha256,
                             args.backup_dir)
         else:
