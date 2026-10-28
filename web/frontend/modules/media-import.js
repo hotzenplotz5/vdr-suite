@@ -215,6 +215,13 @@
       ? labels[status] : '';
   }
 
+  // An unknown Core outcome must not lock unrelated read-only source browsing.
+  // The pinned operation still blocks every new import or source mutation.
+  function mayBrowseWithUnknownOutcome(view) {
+    return Boolean(view && view.attempt && view.attempt.operationId &&
+      view.attempt.state === 'outcome_unknown' && !view.batch && !view.submitting);
+  }
+
   function terminalState(state) {
     return ['rejected', 'conflict', 'succeeded', 'failed_before_dispatch',
       'failed_verified', 'cancelled'].includes(state);
@@ -570,6 +577,22 @@
         throw new Error('Ungültige Operationsantwort');
       }
       view.attempt.state = operation.state;
+      if (mayBrowseWithUnknownOutcome(view) && !view.unknownBrowsingEnabled) {
+        // Preserve the Core operation and Idempotency-Key; re-enable only GET
+        // previews, local filters and the authenticated source catalogue.
+        view.unknownBrowsingEnabled = true;
+        view.select.disabled = view.sources.length === 0;
+        view.reloadButton.disabled = false;
+        view.searchInput.disabled = false;
+        view.statusFilter.disabled = false;
+        view.seasonFilter.disabled = false;
+        view.startButton.disabled = true;
+        view.batchButton.disabled = true;
+        view.selectedBatchButton.disabled = true;
+        view.selectAllVisibleButton.disabled = true;
+        if (!view.sources.length && !view.allMarked.length)
+          void loadSources(view);
+      }
       if (manual) {
         view.lastManualCheck = 'Zuletzt geprüft: ' +
           new Date().toLocaleTimeString('de-DE') + ' – ' +
@@ -902,6 +925,23 @@
       view.importFeedbackText.textContent += ' ' + view.lastManualCheck;
     if (attempt && attempt.metadataFeedback)
       view.importFeedbackText.textContent += ' ' + attempt.metadataFeedback;
+    if (attempt && state === 'outcome_unknown') {
+      const sourceLabel = attempt.sourceLabel ||
+        view.sourceTitles[attempt.sourceId] || attempt.sourceId;
+      const action = attempt.videoDecision === 'duplicate'
+        ? 'Dubletten-Markierung'
+        : attempt.videoDecision === 'delete_duplicate'
+          ? 'Quelldatei löschen'
+          : attempt.videoDecision === 'desktop' ||
+            attempt.videoDecision === 'skip' ||
+            attempt.videoDecision === 'release'
+            ? 'Dateimarkierung' : 'VDR-Import';
+      view.importFeedbackText.textContent +=
+        ' Betroffener Auftrag: ' + action + ' für „' + sourceLabel + '“' +
+        (attempt.operationId ? ' (' + attempt.operationId + ')' : '') +
+        '. Andere Episoden dürfen unabhängig davon lesend geprüft werden; ' +
+        'dieser unbestätigte Auftrag wird nicht erneut gestartet.';
+    }
     view.importFeedback.className = 'media-import-import-feedback' +
       (state === 'succeeded' ? ' is-success'
         : attempt && (terminalState(state) || state === 'outcome_unknown')
@@ -1550,7 +1590,8 @@
     view.folderList.replaceChildren();
     view.seriesGroups.replaceChildren();
     const navigate = function (path) {
-      if (!isCurrent(view) || view.batch || view.attempt || !known.has(path))
+      if (!isCurrent(view) || view.batch ||
+          (view.attempt && !mayBrowseWithUnknownOutcome(view)) || !known.has(path))
         return;
       view.folderPath = path;
       view.seasonKey = '';
@@ -1613,7 +1654,8 @@
   // UX3 step 1: search/filter only the already authenticated, bounded
   // Agent/Core snapshot. No path guesses, filesystem requests or new grants.
   function filterVisibleSources(view) {
-    if (!isCurrent(view) || view.attempt || view.batch) return;
+    if (!isCurrent(view) || view.batch ||
+        (view.attempt && !mayBrowseWithUnknownOutcome(view))) return;
     // A filter or folder change clears the selection and invalidates every
     // outstanding preview, including a late reply for a reselected source.
     if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
@@ -1676,7 +1718,7 @@
     view.skipButton.hidden = true;
     view.skipButton.disabled = true;
     view.startButton.textContent = 'Import starten';
-    view.batchButton.disabled = normal.length < 2 ||
+    view.batchButton.disabled = Boolean(view.attempt) || normal.length < 2 ||
       normal.length > MAX_IMPORT_FILMS;
     view.selectionRows.replaceChildren();
     normal.forEach(function (item) {
@@ -1695,7 +1737,8 @@
       const open = element('button', 'media-import-episode-open', item.label);
       open.type = 'button';
       open.addEventListener('click', function () {
-        if (!isCurrent(view) || view.batch || view.attempt) return;
+        if (!isCurrent(view) || view.batch ||
+            (view.attempt && !mayBrowseWithUnknownOutcome(view))) return;
         view.select.value = item.sourceId;
         view.markedSelect.value = '';
         view.releaseButton.disabled = true;
@@ -1826,7 +1869,8 @@
       }
       view.selectionRows.appendChild(row);
     });
-    view.selectAllVisibleButton.disabled = normal.length === 0;
+    view.selectAllVisibleButton.disabled = Boolean(view.attempt) ||
+      normal.length === 0;
     updateSelectionCount(view);
 
     view.markedSelect.replaceChildren();
@@ -1851,7 +1895,9 @@
   }
 
   function loadSources(view) {
-    if (!isCurrent(view) || view.attempt) return Promise.resolve();
+    if (!isCurrent(view) ||
+        (view.attempt && !mayBrowseWithUnknownOutcome(view)))
+      return Promise.resolve();
     // A new authorized inventory starts a new preview lifetime. Do not
     // reuse a result after a scan, import or source change.
     view.previewCache.clear();
@@ -2303,7 +2349,8 @@
       view.previewResult.sourceId === id ? view.previewResult : null;
     // Recheck is also available after success; switching back is instant.
     view.previewRetryButton.hidden = !selected || (!plan && !view.previewFailed);
-    view.previewRetryButton.disabled = Boolean(view.attempt) || Boolean(view.batch) || view.submitting;
+    view.previewRetryButton.disabled = Boolean(view.attempt &&
+      !mayBrowseWithUnknownOutcome(view)) || Boolean(view.batch) || view.submitting;
     const ready = Boolean(plan && plan.status === 'ready');
     // A space shortage blocks local import, not a PC-only marker decision.
     const needsEncode = Boolean(plan && plan.videoReencodeRequired &&
@@ -2544,6 +2591,10 @@
           const metadataSelection = !view.batch && selected === 'import'
             ? importMetadataSelection(view, previewPlan, selectedSource) : null;
           view.attempt = {sourceId: sourceId, key: key, operationId: '',
+            sourceLabel: view.sourceTitles[sourceId] ||
+              (view.allMarked.find(function (item) {
+                return item.sourceId === sourceId;
+              }) || {}).label || sourceId,
             videoDecision: videoDecision,
             pcReturn: !releaseMode && Boolean(possiblePcReturn(view, selectedSource)),
             metadataSelection: metadataSelection,
@@ -2973,6 +3024,7 @@
       onlineAuto: false, onlineAutoSelected: false,
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
       reads: 0, timer: null, manualCheckQueued: false, lastManualCheck: '',
+      unknownBrowsingEnabled: false,
       attempt: activeAttempts[backendId] || null};
     current = view;
     setMobilePane(view, 'media');
@@ -2987,7 +3039,8 @@
       setMobilePane(view, 'media');
     });
     seasonFilter.addEventListener('change', function () {
-      if (!isCurrent(view) || view.batch || view.attempt) return;
+      if (!isCurrent(view) || view.batch ||
+          (view.attempt && !mayBrowseWithUnknownOutcome(view))) return;
       view.seasonKey = seasonFilter.value;
       view.checkedSourceIds.clear();
       filterVisibleSources(view);
@@ -3002,7 +3055,9 @@
       return startBatch(view, true);
     });
     previewRetryButton.addEventListener('click', function () {
-      if (!isCurrent(view) || view.attempt || view.batch || view.submitting ||
+      if (!isCurrent(view) ||
+          (view.attempt && !mayBrowseWithUnknownOutcome(view)) ||
+          view.batch || view.submitting ||
           !view.sources.includes(view.select.value)) return;
       refreshSelectedPreview(view, true);
     });
@@ -3010,7 +3065,8 @@
       markedSelect.value = '';
       releaseButton.disabled = true;
       releaseButton.hidden = true;
-      startButton.disabled = view.submitting || !view.sources.includes(select.value);
+      startButton.disabled = view.submitting || Boolean(view.attempt) ||
+        !view.sources.includes(select.value);
       sourceDetails.textContent = view.sources.includes(select.value)
         ? 'Auswahl-ID: ' + select.value : '';
       refreshSelectedPreview(view);

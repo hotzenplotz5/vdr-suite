@@ -741,6 +741,32 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-import-title').textContent.includes(
     'Ergebnis ungewiss'), 'unknown outcomes must never look like a success');
   assert.strictEqual(findClass(mount, 'media-import-new').hidden, true);
+  // An uncertain earlier operation may never be silently retried. It must
+  // also not lock source selection and *read-only* preview for other films.
+  assert.strictEqual(findClass(mount, 'media-import-source').disabled, false,
+    'unknown operation does not disable harmless film selection');
+  assert.strictEqual(findClass(mount, 'media-import-reload').disabled, false,
+    'unknown operation does not disable read-only source refresh');
+  assert.strictEqual(findClass(mount, 'media-import-search').disabled, false,
+    'unknown operation does not disable search');
+  assert.strictEqual(findClass(mount, 'media-import-filter').disabled, false,
+    'unknown operation does not disable filter');
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, true,
+    'no second import while Core outcome remains unknown');
+  assert(findClass(mount, 'media-import-import-description').textContent.includes(
+    'Betroffener Auftrag:'), 'unknown action is tied to the original film');
+  const unknownPosts = submits;
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  const whileUnknown = findClass(mount, 'media-import-source');
+  whileUnknown.value = SOURCE;
+  whileUnknown.listeners.change();
+  await settle();
+  assert(findClass(mount, 'media-import-preview-state').textContent.includes(
+    'Direktimport möglich'), 'another source can be inspected while uncertain');
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, true);
+  assert.strictEqual(submits, unknownPosts,
+    'read-only browsing may not create another mutation');
   state = 'succeeded';
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
