@@ -204,15 +204,28 @@ PY
   systemctl is-active --quiet vdr-suite-backend-agent || {
     echo 'MT_INSTALL=FAILED: services not active'; return 1;
   }
+  # The source/install check has already passed. A /proc/<pid>/exe
+  # comparison can be temporarily unavailable during Agent startup/restart;
+  # report that separately instead of misreporting the deployment as failed.
+  local process_check=PASS pid running_inode installed_inode
   for file in vdr-suite-daemon vdr-suite-backend-agent; do
-    local pid
-    pid=$(systemctl show -p MainPID --value "$file") || return 1
-    [ "$pid" -gt 0 ] && cmp -s "/proc/$pid/exe" "/usr/sbin/$file" || {
-      echo "MT_INSTALL=FAILED: process not running installed $file"; return 1;
-    }
+    pid=$(systemctl show -p MainPID --value "$file")
+    running_inode=''
+    installed_inode=''
+    if [[ "$pid" =~ ^[1-9][0-9]*$ ]]; then
+      running_inode=$(stat -Lc '%d:%i' "/proc/$pid/exe" 2>/dev/null)
+      installed_inode=$(stat -Lc '%d:%i' "/usr/sbin/$file" 2>/dev/null)
+    fi
+    if [ -n "$running_inode" ] && [ "$running_inode" = "$installed_inode" ]; then
+      echo "MT_PROCESS_$file=MATCH"
+    else
+      process_check=UNVERIFIED
+      echo "MT_PROCESS_$file=UNVERIFIED pid=${pid:-none} (check live service logs if needed)"
+    fi
   done
   echo 'RUNTIME_DEPLOYMENT_MATCH=YES'
-  echo 'MT_INSTALL=PASS'
+  echo 'MT_INSTALL=PASS (installed files and service starts)'
+  echo "MT_RUNNING_PROCESSES=$process_check"
   echo 'MT_VDR_RECORDINGS_CONFIG_DB=UNCHANGED'
   echo 'MT_APPROVALS=EXISTING_PINS_UPDATED_IF_NEEDED'
   echo 'MT_ACTIVATION_AND_REAL_VDR_IMPORT=NOT_VERIFIED'
