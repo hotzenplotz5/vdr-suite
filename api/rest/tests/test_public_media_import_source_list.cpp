@@ -176,6 +176,14 @@ int main()
     assert(pending.body.find("\"state\":\"pending\"") != std::string::npos);
     assert(pending.headers.at("Cache-Control") == "no-store");
     assert(getPage(preview, "actor:two").statusCode == 403);
+    // The same authorized read-only preview can temporarily lose its Agent.
+    // A provider outage is 503, not an invented permission revocation.
+    api.registerMediaImportPreviewLookup(
+        [](const std::string&, const std::string&, const std::string&) {
+            return PublicApiRuntime::MediaImportPreviewResult{};
+        });
+    assert(getPage(preview).statusCode == 503);
+    // Recovery uses the same canonical route, actor and backend scope.
     assert(getPage(preview + "?path=/etc").statusCode == 400);
     ApiResponse wrongBackend;
     assert(api.tryHandleGet(preview, "actor:one", "", "",
