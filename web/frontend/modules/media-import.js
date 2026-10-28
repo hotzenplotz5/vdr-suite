@@ -1846,7 +1846,7 @@
       if (plan.sourceBytes) addFact('Dateigröße', humanBytes(plan.sourceBytes));
       if (plan.targetFolder) addFact('VDR-Ziel', plan.targetFolder);
       if (plan.availableBytes) addFact('Freier Platz', humanBytes(plan.availableBytes));
-      if (plan.requiredBytes) addFact('Benötigt inkl. Reserve', humanBytes(plan.requiredBytes));
+      if (plan.requiredBytes) addFact('Zwischenbedarf (nur Info)', humanBytes(plan.requiredBytes));
       if (plan.durationSeconds) {
         const seconds = plan.durationSeconds;
         const minutes = Math.floor(seconds / 60);
@@ -2032,7 +2032,7 @@
           '. Video-Codec: ' + plan.videoCodec +
           '. Quelldatei: ' + humanBytes(plan.sourceBytes) +
           '. Frei: ' + humanBytes(plan.availableBytes) +
-          '. Benötigt einschließlich Reserve: ' + humanBytes(plan.requiredBytes) +
+          '. Geschätzter Zwischenbedarf (nur Info): ' + humanBytes(plan.requiredBytes) +
           '. ' + outcome;
       }
     }
