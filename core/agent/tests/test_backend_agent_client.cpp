@@ -1069,6 +1069,7 @@ public:
     int executions = 0;
     int authorizations = 0;
     int listings = 0;
+    int observations = 0;
     bool available() override { return true; }
     bool verifiedInstallation(
         vdrsuite::mediatools::MediaToolsInstallationEvidence& out) override
@@ -1078,6 +1079,16 @@ public:
         ++listings;
         ids = {"source_00000000001"};
         return true;
+    }
+    bool listTrustedSourceObservation(
+        std::vector<std::string>& ids,
+        std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+        bool& partial, const std::string& selectedSourceId,
+        vdrsuite::mediatools::MediaImportSourcePreview& preview) override
+    {
+        ++observations;
+        return vdrsuite::mediatools::IMediaImportAgentExecutor::listTrustedSourceObservation(
+            ids, labels, partial, selectedSourceId, preview);
     }
     bool authorize(const BackendAgentCommandAssignment& value,
                    const std::string& backend,
@@ -1193,7 +1204,7 @@ void test_media_import_actual_agent_runtime_no_double_dispatch()
     assert(transport.bodies[5].find("addon.media.import") !=
         std::string::npos);
     assert(transport.bodies[7].find("reconcile_only") != std::string::npos);
-    assert(executor.listings == 1);
+    assert(executor.listings == 1 && executor.observations == 1);
 
     // Heartbeat reconciles the persisted result, but must not execute twice.
     transport.responses.push_back(success(
