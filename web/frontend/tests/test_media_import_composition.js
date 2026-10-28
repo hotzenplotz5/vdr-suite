@@ -1988,8 +1988,10 @@ function publishHomeResume() {}
     'S01E01 is a series episode, not a movie');
   assert.strictEqual(findClass(mount, 'media-import-online-query').value, 'Andor',
     'S01E01 search starts with the series name, not the raw filename');
-  assert(findClass(mount, 'media-import-online-context').textContent.includes(
-    'Staffel 1 · Folge 1'));
+  assert(findClass(mount, 'media-import-online').children.some(function (child) {
+    return (child.className || '').includes('media-import-online-context') &&
+      child.textContent.includes('Staffel 1 · Folge 1');
+  }), 'the selected episode coordinates remain visible alongside provider context');
   const importedBeforeOnline = submits;
   const movieChoice = findClass(mount, 'media-import-online-kind');
   movieChoice.value = 'movie';
