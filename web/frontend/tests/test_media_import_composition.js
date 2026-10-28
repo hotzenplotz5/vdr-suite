@@ -309,6 +309,8 @@ const context = {
 // MT.META5 uses the real established metadata route shape from the
 // production Media Import owner, never an extra import/metadata backend.
 const onlineRequests = [];
+const metadataAssignments = [];
+let metadataFolderOverride = null;
 let onlineMode = 'ready';
 let resolveOnlineReply = null;
 function onlineCandidate(kind, id, title, extra) {
@@ -327,7 +329,21 @@ function onlinePage(candidates) {
     providerAvailable: true, candidates: candidates};
 }
 context.VdrSuiteClientApi = {
+  fetchClientRecordingFolder(options) {
+    const path = options.query.path;
+    return Promise.resolve(metadataFolderOverride || {
+      path: path, cacheReady: true, recordingCount: 1,
+      recordings: [{
+        title: 'Andor S01E01',
+        backendNativeId: '/srv/vdr/video.00/' + path + '/2026-10-28.17.06.1-0.rec'
+      }]
+    });
+  },
   requestJson(route, options) {
+    if (route.endsWith('/recordings/metadata/assign')) {
+      metadataAssignments.push({route, options});
+      return Promise.resolve({assigned: true});
+    }
     onlineRequests.push({route, options});
     assert.strictEqual(options.method, 'POST');
     assert.strictEqual(options.headers['X-CSRF-Token'], 'test-csrf');
@@ -364,7 +380,60 @@ context.VdrSuiteClientApi = {
 };
 context.window = context;
 vm.createContext(context);
-vm.runInContext(view, context);
+// Exercise the real module's internal metadata handoff without exporting a
+// production testing hook or modifying the official browser API.
+vm.runInContext(view.replace('})(window);',
+  "global.__meta6Contract = {importMetadataSelection,applyImportedMetadata};})(window);"),
+  context);
+
+// The existing Recording metadata assignment is the only metadata writer.
+(async function verifyMeta6Handoff() {
+  const metaView = {
+    onlineKind: 'series',
+    onlineSeries: {
+      kind: 'series', title: 'Andor', posterReference: '/series-poster.jpg'
+    },
+    onlineSelected: onlineCandidate('episode', '221', 'Kassa', {
+      parentExternalId: '1399', seasonNumber: 1, episodeNumber: 1
+    })
+  };
+  const selected = context.__meta6Contract.importMetadataSelection(metaView,
+    {targetFolder: 'Serien/Andor/Andor S01E01', title: 'Andor S01E01'},
+    {folder: 'Serien/Andor', label: 'Andor S01E01'});
+  assert(selected && selected.candidate.mediaType === 'episode' &&
+    selected.candidate.posterReference === '/series-poster.jpg',
+    'exact TMDb episode uses the known series cover for a Recording assignment');
+  const wrongEpisode = Object.assign({}, metaView, {
+    onlineSelected: Object.assign({}, metaView.onlineSelected, {episodeNumber: 9})
+  });
+  assert.strictEqual(context.__meta6Contract.importMetadataSelection(
+    wrongEpisode, {targetFolder:'Serien/Andor/Andor S01E01', title:'Andor S01E01'},
+    {folder:'Serien/Andor',label:'Andor S01E01'}), null,
+    'different provider episode must never assign metadata to this import');
+  const targetView = {backendId:'backend-a'};
+  const attempt = {metadataSelection:selected, metadataFeedback:''};
+  await context.__meta6Contract.applyImportedMetadata(targetView, attempt);
+  assert(attempt.metadataFeedback.includes('übernommen') &&
+    metadataAssignments.length === 1,
+    'confirmed exact recording receives one normal metadata assignment');
+  const assignment = metadataAssignments[0];
+  const data = JSON.parse(assignment.options.body);
+  assert.strictEqual(data.externalId, '221');
+  assert.strictEqual(data.resourceKey,
+    '/srv/vdr/video.00/Serien/Andor/Andor S01E01/2026-10-28.17.06.1-0.rec');
+  assert.strictEqual(assignment.options.headers['X-CSRF-Token'], 'test-csrf');
+  metadataFolderOverride = {path:selected.folder,cacheReady:true,recordingCount:2,
+    recordings:[{title:selected.title,backendNativeId:'/one.rec'},
+      {title:selected.title,backendNativeId:'/two.rec'}]};
+  const ambiguous = {metadataSelection:selected,metadataFeedback:''};
+  await context.__meta6Contract.applyImportedMetadata(targetView, ambiguous);
+  assert(ambiguous.metadataFeedback.includes('nicht übernommen') &&
+    metadataAssignments.length === 1,
+    'ambiguous target may not create an assignment against an unrelated recording');
+  metadataFolderOverride = null;
+})().catch(function (error) {
+  process.nextTick(function () { throw error; });
+});
 
 function slice(first, last) {
   const start = app.indexOf(first);
