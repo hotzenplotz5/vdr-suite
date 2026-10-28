@@ -329,7 +329,9 @@
       view.duplicateReviewPending = true;
       view.select.value = sourceId;
       view.sourceDetails.textContent = 'Auswahl-ID: ' + sourceId;
-      refreshSelectedPreview(view);
+      // Batch-discovered duplicates must be independently rechecked before
+      // the existing marker operation, even if a previous read was ready.
+      refreshSelectedPreview(view, true);
       return;
     }
     view.duplicateReviewPending = false;
