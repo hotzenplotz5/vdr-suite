@@ -98,6 +98,7 @@
       if (current.previewTimer !== null) global.clearTimeout(current.previewTimer);
       current.previewTimer = null;
       ++current.previewGeneration;
+      resetOnline(current);
       ++current.reviewGeneration;
     }
     current = null;
@@ -698,6 +699,255 @@
       (image[1] === 'data:image/webp;base64,' && image[2].startsWith('UklGR'));
   }
 
+
+  // MT.META5: transient, explicit provider selection for an import source.
+  // No online value enters the local NFO, Core import payload or persistence.
+  function resetOnline(view) {
+    ++view.onlineSeq;
+    view.onlineItems = [];
+    view.onlineSelected = null;
+    view.onlineSeries = null;
+    view.onlineSeason = null;
+    view.onlineMode = 'search';
+    view.onlineQuery = '';
+    view.onlineStatus = '';
+    view.onlinePending = false;
+  }
+
+  function onlineValid(item, kind, series, season) {
+    const namespaces = {movie: 'movie', series: 'tv',
+      season: 'tv-season', episode: 'tv-episode'};
+    return Boolean(item && item.providerId === 'tmdb' && item.kind === kind &&
+      item.externalNamespace === namespaces[kind] &&
+      typeof item.externalId === 'string' &&
+      /^[0-9]{1,16}$/.test(item.externalId) &&
+      typeof item.title === 'string' && item.title.length > 0 &&
+      item.title.length <= 512 &&
+      (typeof item.overview === 'string' && item.overview.length <= 16384) &&
+      (typeof item.releaseDate === 'string' && item.releaseDate.length <= 64) &&
+      (kind !== 'season' ||
+        (series && item.parentExternalId === series.externalId &&
+         Number.isInteger(item.seasonNumber) && item.seasonNumber >= 0)) &&
+      (kind !== 'episode' ||
+        (series && season && item.parentExternalId === series.externalId &&
+         item.seasonNumber === season.seasonNumber &&
+         Number.isInteger(item.episodeNumber) && item.episodeNumber > 0)));
+  }
+
+  function onlineImageUrl(backendId, candidate) {
+    if (!candidate || !['movie', 'tv', 'tv-season', 'tv-episode']
+        .includes(candidate.externalNamespace) ||
+        !/^[0-9]{1,16}$/.test(candidate.externalId || '') ||
+        typeof candidate.posterReference !== 'string' ||
+        !/^\/[A-Za-z0-9_.-]{5,255}$/.test(candidate.posterReference) ||
+        candidate.posterReference.includes('..')) return '';
+    const path = '/api/backends/' + encodeURIComponent(backendId) +
+      '/settings/series-artwork/candidate-image?externalNamespace=' +
+      encodeURIComponent(candidate.externalNamespace) +
+      '&externalId=' + encodeURIComponent(candidate.externalId) +
+      '&posterReference=' + encodeURIComponent(candidate.posterReference);
+    const resolver = global.VdrSuitePublicUrl;
+    return resolver && typeof resolver.resolvePath === 'function'
+      ? resolver.resolvePath(path) : path;
+  }
+
+  function onlineLookup(view, endpoint, payload, kind) {
+    if (!isCurrent(view) || view.onlinePending ||
+        !view.sources.includes(view.select.value)) return Promise.resolve();
+    const seq = ++view.onlineSeq;
+    const sourceId = view.select.value;
+    view.onlinePending = true;
+    view.onlineItems = [];
+    view.onlineSelected = null;
+    view.onlineStatus = 'Online-Treffer werden gesucht …';
+    updatePreview(view);
+    const session = global.VdrSuiteBrowserSession;
+    const csrf = session && typeof session.csrfHeaders === 'function'
+      ? session.csrfHeaders() : {};
+    const route = '/api/backends/' + encodeURIComponent(view.backendId) +
+      '/recordings/metadata/' + endpoint;
+    return Promise.resolve().then(function () {
+      const api = global.VdrSuiteClientApi;
+      if (!api || typeof api.requestJson !== 'function')
+        throw new Error('Metadaten-API fehlt');
+      return api.requestJson(route, {
+        method: 'POST',
+        headers: Object.assign({'Content-Type': 'application/json'},
+          csrf && typeof csrf === 'object' ? csrf : {}),
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
+    }).then(function (data) {
+      if (!isCurrent(view) || seq !== view.onlineSeq ||
+          sourceId !== view.select.value) return;
+      view.onlinePending = false;
+      if (!data || data.providerId !== 'tmdb' || data.providerAvailable !== true ||
+          !Array.isArray(data.candidates) || data.candidates.length > 20) {
+        view.onlineStatus = 'Keine gültige Online-Antwort. Lokale Informationen bleiben erhalten.';
+      } else {
+        view.onlineItems = data.candidates.filter(function (item) {
+          return onlineValid(item, kind, view.onlineSeries, view.onlineSeason);
+        });
+        view.onlineStatus = view.onlineItems.length
+          ? 'Treffer anhand von Inhalt, Jahr und TMDb-ID prüfen und ausdrücklich auswählen.'
+          : 'Kein passender Treffer. Lokale Metadaten bleiben erhalten.';
+      }
+      updatePreview(view);
+    }).catch(function (error) {
+      if (!isCurrent(view) || seq !== view.onlineSeq ||
+          sourceId !== view.select.value) return;
+      view.onlinePending = false;
+      view.onlineStatus = error && (error.status === 401 || error.status === 403)
+        ? 'Keine Berechtigung zur TMDb-Suche; lokale Daten bleiben verfügbar.'
+        : 'TMDb nicht erreichbar oder nicht eingerichtet; lokale Daten bleiben verfügbar.';
+      updatePreview(view);
+    });
+  }
+
+  function renderOnline(view, card, plan, source) {
+    if (!source || !view.sources.includes(view.select.value)) return;
+    const box = element('section', 'media-import-online');
+    box.appendChild(element('h6', '', 'Online-Metadaten · TMDb (optional)'));
+    box.appendChild(element('p', 'media-import-online-note',
+      'Keine automatische Titelzuordnung. NFO und Import bleiben unverändert.'));
+    const tools = element('div', 'media-import-online-tools');
+    const query = element('input', 'media-import-online-query');
+    query.type = 'search';
+    query.maxLength = 160;
+    query.value = view.onlineQuery || (plan && plan.title) || source.label || '';
+    query.setAttribute('aria-label', 'TMDb-Titel');
+    query.addEventListener('input', function () { view.onlineQuery = query.value; });
+    tools.appendChild(query);
+    const kind = element('select', 'media-import-online-kind');
+    kind.setAttribute('aria-label', 'Medientyp');
+    [['movie', 'Film'], ['series', 'Serie']].forEach(function (value) {
+      const option = element('option', '', value[1]);
+      option.value = value[0];
+      kind.appendChild(option);
+    });
+    kind.value = view.onlineKind;
+    kind.addEventListener('change', function () {
+      if (!isCurrent(view)) return;
+      const newKind = kind.value;
+      const value = query.value;
+      resetOnline(view);
+      view.onlineKind = newKind;
+      view.onlineQuery = value;
+      updatePreview(view);
+    });
+    tools.appendChild(kind);
+    const search = element('button', 'media-import-online-search', 'TMDb suchen');
+    search.type = 'button';
+    search.disabled = view.onlinePending;
+    search.addEventListener('click', function () {
+      const value = String(query.value || '').trim();
+      if (!isCurrent(view) || view.onlinePending) return;
+      view.onlineQuery = value;
+      if (value.length < 2 || value.length > 160) {
+        view.onlineStatus = 'Mindestens zwei Zeichen für die Online-Suche eingeben.';
+        updatePreview(view);
+        return;
+      }
+      view.onlineMode = 'search';
+      view.onlineSeries = null;
+      view.onlineSeason = null;
+      return onlineLookup(view, 'search',
+        {query: value, kind: view.onlineKind, limit: 12}, view.onlineKind);
+    });
+    tools.appendChild(search);
+    box.appendChild(tools);
+    if (view.onlineSeries && view.onlineMode !== 'search')
+      box.appendChild(element('p', 'media-import-online-context',
+        'Serie: ' + view.onlineSeries.title +
+        (view.onlineSeason ? ' · Staffel ' + view.onlineSeason.seasonNumber : '')));
+    if (view.onlineStatus) {
+      const status = element('p', 'media-import-online-status', view.onlineStatus);
+      status.setAttribute('role', 'status');
+      box.appendChild(status);
+    }
+    const list = element('div', 'media-import-online-results');
+    view.onlineItems.forEach(function (candidate) {
+      const result = element('article', 'media-import-online-result');
+      result.appendChild(element('strong', '', candidate.title));
+      result.appendChild(element('small', '',
+        candidate.kind + ' · TMDb #' + candidate.externalId +
+        (candidate.releaseDate ? ' · ' + candidate.releaseDate : '')));
+      if (candidate.overview)
+        result.appendChild(element('p', '', candidate.overview));
+      const choose = element('button', 'media-import-online-choose',
+        candidate.kind === 'movie' ? 'Film auswählen' :
+          candidate.kind === 'episode' ? 'Episode auswählen' : 'Serie auswählen');
+      choose.type = 'button';
+      choose.disabled = view.onlinePending || candidate.kind === 'season';
+      choose.addEventListener('click', function () {
+        if (!isCurrent(view) || view.onlinePending ||
+            !view.sources.includes(view.select.value)) return;
+        const coords = episodeCoordinates(source);
+        if (candidate.kind === 'series' && coords.episode !== null) {
+          view.onlineStatus = 'Für diese Folge bitte Staffel und Episode auswählen.';
+        } else if (candidate.kind === 'episode' && coords.episode !== null &&
+            (coords.season !== candidate.seasonNumber ||
+             coords.episode !== candidate.episodeNumber)) {
+          view.onlineStatus = 'Episodenkennung passt nicht zur Quelle. Keine Zuordnung.';
+        } else {
+          view.onlineSelected = candidate;
+          view.onlineStatus = 'TMDb-Treffer manuell ausgewählt – nur Vorschau, keine NFO-/VDR-Änderung.';
+        }
+        updatePreview(view);
+      });
+      result.appendChild(choose);
+      if (candidate.kind === 'series' || candidate.kind === 'season') {
+        const next = element('button', 'media-import-online-next',
+          candidate.kind === 'series' ? 'Staffeln anzeigen' : 'Episoden anzeigen');
+        next.type = 'button';
+        next.disabled = view.onlinePending;
+        next.addEventListener('click', function () {
+          if (!isCurrent(view) || view.onlinePending) return;
+          if (candidate.kind === 'series') {
+            view.onlineSeries = candidate;
+            view.onlineSeason = null;
+            view.onlineMode = 'seasons';
+            return onlineLookup(view, 'seasons',
+              {seriesExternalId: candidate.externalId, limit: 20}, 'season');
+          }
+          if (!view.onlineSeries) return;
+          view.onlineSeason = candidate;
+          view.onlineMode = 'episodes';
+          return onlineLookup(view, 'episodes', {
+            seriesExternalId: view.onlineSeries.externalId,
+            seasonNumber: candidate.seasonNumber, limit: 20
+          }, 'episode');
+        });
+        result.appendChild(next);
+      }
+      list.appendChild(result);
+    });
+    box.appendChild(list);
+    if (view.onlineSelected) {
+      const selected = view.onlineSelected;
+      const confirmed = element('div', 'media-import-online-confirmed');
+      confirmed.appendChild(element('strong', '',
+        'Bestätigte TMDb-Vorschau: ' + selected.title));
+      if (selected.overview)
+        confirmed.appendChild(element('p', '', selected.overview));
+      const url = onlineImageUrl(view.backendId, selected);
+      if (url) {
+        const poster = element('img', 'media-import-online-poster');
+        poster.alt = 'TMDb-Poster für ' + selected.title;
+        poster.loading = 'lazy';
+        poster.src = url;
+        poster.addEventListener('error', function () {
+          confirmed.replaceChildren(element('p', '',
+            'Online-Poster nicht verfügbar; lokale Bilder bleiben erhalten.'));
+        });
+        confirmed.appendChild(poster);
+      }
+      box.appendChild(confirmed);
+    }
+    card.appendChild(box);
+  }
+
   function validMediaImportPreview(data, backendId, sourceId) {
     return Boolean(data && data.backendId === backendId &&
       data.sourceId === sourceId && data.state === 'ready' &&
@@ -947,6 +1197,7 @@
     if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
     view.previewTimer = null;
     ++view.previewGeneration;
+    resetOnline(view);
     view.previewResult = null;
     view.previewStatus = '';
     view.previewFailed = false;
@@ -1149,6 +1400,7 @@
     if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
     view.previewTimer = null;
     ++view.previewGeneration;
+    resetOnline(view);
     view.previewResult = null;
     view.previewStatus = '';
     view.previewFailed = false;
@@ -1283,6 +1535,7 @@
     view.decision.value = '';
     view.localReencode.checked = false;
     ++view.previewGeneration;
+    resetOnline(view);
     const generation = view.previewGeneration;
     view.previewResult = null;
     view.previewStatus = '';
@@ -1464,6 +1717,7 @@
         card.appendChild(section);
       }
     }
+    renderOnline(view, card, plan, source);
     const diagnostics = {
       agent_unavailable: 'Der Backend-Agent oder Media Tools ist nicht erreichbar.',
       maintenance_busy: 'Media Tools ist gerade beschäftigt. Vorschau erneut prüfen.',
@@ -2128,6 +2382,9 @@
       sourceTitles: Object.create(null),
       previewTimer: null, previewGeneration: 0, previewReads: 0,
       previewResult: null, previewStatus: '', previewFailed: false,
+      onlineSeq: 0, onlineItems: [], onlineSelected: null,
+      onlineSeries: null, onlineSeason: null, onlineMode: 'search',
+      onlineKind: 'movie', onlineQuery: '', onlineStatus: '', onlinePending: false,
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
       reads: 0, timer: null, attempt: activeAttempts[backendId] || null};
     current = view;
