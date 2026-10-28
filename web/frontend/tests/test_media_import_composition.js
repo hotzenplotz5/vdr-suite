@@ -12,6 +12,8 @@ const stylesheet = fs.readFileSync(path.join(frontend, 'style.css'), 'utf8');
 assert(stylesheet.includes('.media-import-panel[data-mobile-pane="folders"] .media-import-library'));
 assert(stylesheet.includes('.media-import-panel[data-mobile-pane="media"] .media-import-episodes'));
 assert(stylesheet.includes('.media-import-panel[data-mobile-pane="details"] .media-import-detail'));
+assert(stylesheet.includes('.media-import-marked-item .media-import-delete-duplicate-inline'),
+  'marked duplicate list action remains visible and reachable at mobile widths');
 
 const clientFactory = require('../api/public-v1-client.js');
 
@@ -2403,7 +2405,8 @@ function publishHomeResume() {}
     'readback distinguishes source deletion from a new VDR recording');
   const skipRow = findClass(mount, 'media-import-selection').children.find(
     function (row) { return row.dataset.sourceId === MARK_SKIP; });
-  assert(skipRow && !findClass(skipRow, 'media-import-delete-duplicate'));
+  assert(skipRow && !findClass(skipRow, 'media-import-delete-duplicate'),
+    'skipped rows never receive a destructive inline action');
   findClass(skipRow, 'media-import-episode-open').listeners.click();
   const skippedDeleteAction = findClass(mount, 'media-import-delete-duplicate');
   assert(!skippedDeleteAction || skippedDeleteAction.hidden ||
