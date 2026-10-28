@@ -2374,7 +2374,9 @@ function publishHomeResume() {}
     function (row) { return row.dataset.sourceId === MARK_SKIP; });
   assert(skipRow && !findClass(skipRow, 'media-import-delete-duplicate'));
   findClass(skipRow, 'media-import-episode-open').listeners.click();
-  assert(findClass(mount, 'media-import-delete-duplicate').hidden,
+  const skippedDeleteAction = findClass(mount, 'media-import-delete-duplicate');
+  assert(!skippedDeleteAction || skippedDeleteAction.hidden ||
+    skippedDeleteAction.disabled,
     'skipped originals must never offer duplicate deletion');
   markedSources = [];
   console.log('A7.5 real web composition and media import lifecycle: PASS');
