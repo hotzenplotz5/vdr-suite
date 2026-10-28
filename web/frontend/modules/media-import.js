@@ -2517,7 +2517,7 @@
     return checkCapability(backendId).then(function (available) {
       if (!isCurrent(view)) return;
       if (!available) {
-        report(view, 'Media Import für dieses Backend oder Konto nicht freigegeben.', true);
+        report(view, 'Media Import zurzeit nicht verfügbar. Aktivierung, Benutzerrechte und Backend-Agent werden erneut geprüft.', true);
         return;
       }
       if (view.attempt) showAttempt(view);
