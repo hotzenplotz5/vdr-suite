@@ -333,6 +333,7 @@ int main() {
         observedIds, observedLabels, observedPartial,
         "absent_Token_00001", observedPreview));
     assert(observedIds.size() == 1 &&
+           observedPreview.status == "unavailable" &&
            observedPreview.failureCode == "inventory_missing");
 
     fs::remove(f.runLock);
