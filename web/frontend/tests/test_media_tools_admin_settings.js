@@ -26,6 +26,7 @@ function harness(reply, restored) {
   };
   const window = {
     document: {createElement: element},
+    crypto: {getRandomValues(bytes) { bytes.fill(0x4a); return bytes; }},
     VdrSuiteBrowserSession: {
       restore() { restored.count++; return Promise.resolve(); },
       csrfHeaders() { return {'X-VDR-Suite-CSRF-Token': 'test-token'}; }
@@ -82,6 +83,8 @@ async function test() {
       assert.equal(url, '/api/v1/addons/rectools/activation');
       assert.equal(options.credentials, 'same-origin');
       assert.equal(options.headers['X-VDR-Suite-CSRF-Token'], 'test-token');
+      assert.match(options.headers['X-Correlation-ID'],
+        /^addon-activation-[0-9a-f]{24}$/);
       const body = JSON.parse(options.body);
       assert.equal(body.backendId, 'default');
       assert.equal(body.expectedRevision, revision);
@@ -106,7 +109,14 @@ async function test() {
   assert.equal(h.requests.filter(r => r.options.method === 'POST').length, 1);
   assert.equal(desired, true);
   assert.equal(toggle.textContent, 'Deaktivieren');
-  assert.ok(restored.count >= 3, 'session restored for GET, POST and readback');
+  toggle.handlers.click();
+  await flush();
+  assert.equal(h.requests.filter(r => r.options.method === 'POST').length, 2,
+    'both admin switch directions use authenticated POST');
+  assert.equal(desired, false);
+  assert.equal(toggle.textContent, 'Aktivieren');
+  assert.equal(revision, 2);
+  assert.ok(restored.count >= 5, 'session restored for both POSTs and readbacks');
 
   const installed = harness(() => response(200, {
     backendId: 'default', desiredEnabled: true, activatedByInstall: true,
