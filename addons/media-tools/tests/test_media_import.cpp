@@ -420,8 +420,16 @@ int main() {
         Fixture f;
         FakeProcess runner;
         auto plan = inspectImport(f.request());
+        // External VDR imports need a native .update mtime change after commit.
+        const auto marker = f.video / ".update";
+        std::ofstream(marker) << "";
+        const auto oldTime = fs::file_time_type::clock::now() -
+                             std::chrono::hours(2);
+        fs::last_write_time(marker, oldTime);
         const auto output = executeRemuxImport(plan, runner, [](const ImportPlan&) {});
         assert(fs::exists(output / "00001.ts") && fs::exists(output / "index"));
+        assert(fs::last_write_time(marker) > oldTime);
+        assert(!fs::exists(output.parent_path() / ".update"));
         assert(fs::exists(f.source));
         assert(!fs::exists(runner.probedSource));
         assert(runner.probes == 5 && runner.remuxes == 1 && runner.indices == 1);
@@ -467,6 +475,7 @@ int main() {
         runner.failIndex = true;
         mustFail([&] { executeRemuxImport(plan, runner,
             [](const ImportPlan&) {}); });
+        assert(!fs::exists(f.video / ".update")); // failed import cannot announce
         assert(fs::exists(f.video / "Serien" / "Andor") &&
                !fs::exists(f.video / "Serien" / "Andor" / "Staffel 1") &&
                fs::exists(req.sourceFile));
@@ -474,6 +483,7 @@ int main() {
         const auto output = executeRemuxImport(plan, runner,
             [](const ImportPlan&) {});
         assert(output.parent_path() == plan.titleDirectory);
+        assert(fs::is_regular_file(f.video / ".update"));
         ++checks;
     }
     {
