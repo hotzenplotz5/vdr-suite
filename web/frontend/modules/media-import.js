@@ -712,6 +712,8 @@
     view.onlineQuery = '';
     view.onlineStatus = '';
     view.onlinePending = false;
+    view.onlineAuto = false;
+    view.onlineAutoSelected = false;
   }
 
   function onlineValid(item, kind, series, season) {
@@ -790,10 +792,11 @@
           return onlineValid(item, kind, view.onlineSeries, view.onlineSeason);
         });
         view.onlineStatus = view.onlineItems.length
-          ? 'Treffer anhand von Inhalt, Jahr und TMDb-ID prüfen und ausdrücklich auswählen.'
+          ? 'TMDb-Treffer gefunden. Eindeutige Episoden werden automatisch zugeordnet.'
           : 'Kein passender Treffer. Lokale Metadaten bleiben erhalten.';
       }
       updatePreview(view);
+      return view.onlineItems.slice();
     }).catch(function (error) {
       if (!isCurrent(view) || seq !== view.onlineSeq ||
           sourceId !== view.select.value) return;
@@ -801,6 +804,113 @@
       view.onlineStatus = error && (error.status === 401 || error.status === 403)
         ? 'Keine Berechtigung zur TMDb-Suche; lokale Daten bleiben verfügbar.'
         : 'TMDb nicht erreichbar oder nicht eingerichtet; lokale Daten bleiben verfügbar.';
+      updatePreview(view);
+      return [];
+    });
+  }
+
+  // Use the existing TMDb search -> seasons -> episodes API after selecting
+  // one recognized series episode. No import, metadata write or automatic
+  // selection of an ambiguous provider result is authorized here.
+  function normalizedSeriesName(value) {
+    return String(value || '').normalize('NFKC').toLocaleLowerCase('de')
+      .replace(/[^\\p{L}\\p{N}]+/gu, ' ').replace(/\\s+/g, ' ').trim();
+  }
+
+  function autoIdentifyEpisode(view, source) {
+    const coords = episodeCoordinates(source);
+    const title = onlineSeriesSearchTitle(source);
+    if (coords.episode === null || !title || title.length < 2 ||
+        title.length > 160 || !view.sources.includes(source.sourceId)) return;
+    const sourceId = source.sourceId;
+    const generation = view.previewGeneration;
+    const active = function () {
+      return isCurrent(view) && view.onlineAuto &&
+        generation === view.previewGeneration && view.select.value === sourceId;
+    };
+    const normalized = normalizedSeriesName(title);
+    const alternative = normalized.replace(/^star wars /, '');
+    const match = function (candidates) {
+      return candidates.filter(function (candidate) {
+        const name = normalizedSeriesName(candidate.title);
+        return name === normalized || (alternative !== normalized &&
+          name === alternative);
+      });
+    };
+    const lookupSeries = function (query) {
+      return onlineLookup(view, 'search',
+        {query: query, kind: 'series', limit: 12}, 'series');
+    };
+    view.onlineAuto = true;
+    view.onlineKind = 'series';
+    view.onlineQuery = title;
+    Promise.resolve().then(function () {
+      if (!active()) return [];
+      return lookupSeries(title);
+    }).then(function (candidates) {
+      if (!active()) return null;
+      const matches = match(candidates || []);
+      // A known franchise prefix can differ from TMDb's displayed title
+      // (e.g. local 'Star Wars-Andor', provider 'Andor'). Search its name
+      // separately only when the first response had no title match.
+      if (!matches.length && alternative !== normalized &&
+          alternative.length >= 2 && alternative.length <= 160) {
+        return lookupSeries(alternative).then(function (fallback) {
+          return active() ? match(fallback || []) : null;
+        });
+      }
+      return matches;
+    }).then(function (matches) {
+      if (!active() || !matches) return null;
+      if (matches.length !== 1) {
+        view.onlineStatus = matches.length
+          ? 'Mehrdeutige Serie: Bitte den TMDb-Treffer manuell auswählen.'
+          : 'Keine eindeutige Serie erkannt. TMDb-Suche bleibt manuell möglich.';
+        updatePreview(view);
+        return null;
+      }
+      view.onlineSeries = matches[0];
+      view.onlineMode = 'seasons';
+      return onlineLookup(view, 'seasons',
+        {seriesExternalId: matches[0].externalId, limit: 20}, 'season');
+    }).then(function (seasons) {
+      if (!active() || !Array.isArray(seasons)) return null;
+      const matches = seasons.filter(function (item) {
+        return item.seasonNumber === coords.season;
+      });
+      if (matches.length !== 1) {
+        view.onlineStatus = 'Staffel nicht eindeutig gefunden. Manuelle TMDb-Auswahl möglich.';
+        updatePreview(view);
+        return null;
+      }
+      view.onlineSeason = matches[0];
+      view.onlineMode = 'episodes';
+      return onlineLookup(view, 'episodes', {
+        seriesExternalId: view.onlineSeries.externalId,
+        seasonNumber: coords.season, limit: 20
+      }, 'episode');
+    }).then(function (episodes) {
+      if (!active() || !Array.isArray(episodes)) return;
+      const matches = episodes.filter(function (item) {
+        return item.seasonNumber === coords.season &&
+          item.episodeNumber === coords.episode;
+      });
+      if (matches.length === 1) {
+        view.onlineSelected = matches[0];
+        view.onlineAutoSelected = true;
+        view.onlineStatus = 'TMDb automatisch zugeordnet: Staffel ' +
+          coords.season + ', Folge ' + coords.episode +
+          '. Nur Anzeige; kein Import und keine NFO-Änderung.';
+      } else {
+        view.onlineStatus = matches.length
+          ? 'Episode mehrdeutig. Bitte den TMDb-Treffer manuell auswählen.'
+          : 'Episode nicht gefunden. Manuelle TMDb-Auswahl möglich.';
+      }
+      updatePreview(view);
+    }).catch(function () {
+      if (!active()) return;
+      view.onlinePending = false;
+      view.onlineStatus = 'Automatischer TMDb-Abgleich fehlgeschlagen. Manuelle Suche möglich.';
       updatePreview(view);
     });
   }
@@ -810,7 +920,7 @@
     const box = element('section', 'media-import-online');
     box.appendChild(element('h6', '', 'Online-Metadaten · TMDb (optional)'));
     box.appendChild(element('p', 'media-import-online-note',
-      'Keine automatische Titelzuordnung. NFO und Import bleiben unverändert.'));
+      'Automatischer Episodenabgleich bei eindeutigen Treffern. NFO und Import bleiben unverändert.'));
     const tools = element('div', 'media-import-online-tools');
     const coordinates = episodeCoordinates(source);
     const seriesTitle = onlineSeriesSearchTitle(source);
@@ -863,6 +973,8 @@
         updatePreview(view);
         return;
       }
+      view.onlineAuto = false;
+      view.onlineAutoSelected = false;
       view.onlineMode = 'search';
       view.onlineSeries = null;
       view.onlineSeason = null;
@@ -902,6 +1014,7 @@
           view.onlineStatus = 'Episodenkennung passt nicht zur Quelle. Keine Zuordnung.';
         } else {
           view.onlineSelected = candidate;
+          view.onlineAutoSelected = false;
           view.onlineStatus = 'TMDb-Treffer manuell ausgewählt – nur Vorschau, keine NFO-/VDR-Änderung.';
         }
         updatePreview(view);
@@ -938,11 +1051,12 @@
       const selected = view.onlineSelected;
       const confirmed = element('div', 'media-import-online-confirmed');
       confirmed.appendChild(element('strong', '',
-        'Bestätigte TMDb-Vorschau: ' + selected.title));
+        (view.onlineAutoSelected ? 'Automatisch erkannte TMDb-Episode: ' :
+          'Bestätigte TMDb-Vorschau: ') + selected.title));
       if (selected.overview)
         confirmed.appendChild(element('p', '', selected.overview));
       const url = onlineImageUrl(view.backendId, selected);
-      if (url) {
+      if (url && !view.onlineAutoSelected) {
         const poster = element('img', 'media-import-online-poster');
         poster.alt = 'TMDb-Poster für ' + selected.title;
         poster.loading = 'lazy';
@@ -1586,6 +1700,7 @@
     view.previewReads = 0;
     updatePreview(view);
     if (!view.sources.includes(id)) return;
+    if (source && view.onlineKind === 'series') autoIdentifyEpisode(view, source);
     function poll() {
       if (!isCurrent(view) || generation !== view.previewGeneration ||
           view.select.value !== id) return;
@@ -1673,13 +1788,18 @@
     const heading = element('h5', 'media-import-preview-title', title);
     card.appendChild(heading);
     const artwork = element('div', 'media-import-artwork');
-    const poster = plan && validLocalArtwork(plan.posterDataUri)
+    const localPoster = plan && validLocalArtwork(plan.posterDataUri)
       ? plan.posterDataUri : '';
+    const providerPoster = view.onlineSelected
+      ? onlineImageUrl(view.backendId, view.onlineSelected) : '';
+    const poster = localPoster || providerPoster;
     const fanart = plan && validLocalArtwork(plan.fanartDataUri)
       ? plan.fanartDataUri : '';
     const picture = function (kind, uri, alt) {
       const frame = element('div', 'media-import-artwork-frame media-import-artwork-' + kind);
-      const label = kind === 'poster' ? 'Kein lokales Poster' : 'Keine lokale Fanart';
+      const label = kind === 'poster'
+        ? providerPoster && !localPoster ? 'TMDb-Poster nicht verfügbar' : 'Kein lokales Poster'
+        : 'Keine lokale Fanart';
       if (uri) {
         const img = element('img', 'media-import-artwork-image');
         img.src = uri;
@@ -2428,6 +2548,7 @@
       onlineSeq: 0, onlineItems: [], onlineSelected: null,
       onlineSeries: null, onlineSeason: null, onlineMode: 'search',
       onlineKind: 'movie', onlineQuery: '', onlineStatus: '', onlinePending: false,
+      onlineAuto: false, onlineAutoSelected: false,
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
       reads: 0, timer: null, attempt: activeAttempts[backendId] || null};
     current = view;
