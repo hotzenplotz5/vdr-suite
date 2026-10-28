@@ -614,10 +614,19 @@ BackendAgentTransportResponse CurlBackendAgentControlPlaneTransport::perform(
     configured = configured && curl_easy_setopt(handle, CURLOPT_PROXY, "") == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_PROTOCOLS_STR, "https") == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_REDIR_PROTOCOLS_STR, "https") == CURLE_OK;
+    // Interactive command polls must not occupy the single Agent loop for
+    // ten seconds. Heartbeats, observations and durable command receipts keep
+    // their configured timeouts; only the optional fast poll is bounded.
+    const bool fastCommandPoll = path == "/api/agent/v1/commands/poll";
+    const long requestTimeout = fastCommandPoll
+        ? std::min(config_.requestTimeoutMilliseconds, 2000L)
+        : config_.requestTimeoutMilliseconds;
+    const long connectTimeout =
+        std::min(config_.connectTimeoutMilliseconds, requestTimeout);
     configured = configured && curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT_MS,
-                                                  config_.connectTimeoutMilliseconds) == CURLE_OK;
+                                                  connectTimeout) == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_TIMEOUT_MS,
-                                                  config_.requestTimeoutMilliseconds) == CURLE_OK;
+                                                  requestTimeout) == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, curlWrite) == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_WRITEDATA, &writeState) == CURLE_OK;
     if (!config_.caCertificatePath.empty())
