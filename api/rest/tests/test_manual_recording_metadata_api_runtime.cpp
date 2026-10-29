@@ -478,7 +478,7 @@ int main()
             "");
         assert(response.statusCode == 401);
         assert(provider.creditCalls == 3);
-        assert(presentationChanges.size() == 2);
+        assert(presentationChanges.size() == 3);
     }
 
     {
@@ -487,7 +487,7 @@ int main()
             "/api/backends/living-room/recordings/metadata/withdraw",
             "{\"resourceKey\":\"cache/key\",\"expectedRevision\":9}");
         assert(response.statusCode == 409);
-        assert(presentationChanges.size() == 2);
+        assert(presentationChanges.size() == 3);
     }
 
     {
@@ -499,7 +499,7 @@ int main()
         assert(response.body.find("\"relationshipLocked\":false") != std::string::npos);
         assert(presentationChanges ==
             (std::vector<std::string>{
-                "living-room", "living-room", "living-room"}));
+                "living-room", "living-room", "living-room", "living-room"}));
     }
 
     {
