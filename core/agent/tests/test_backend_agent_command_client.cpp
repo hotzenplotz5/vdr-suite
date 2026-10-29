@@ -953,6 +953,22 @@ int main()
     assert(reason=="local_command_generation_fenced");
     assert(access(path.c_str(),F_OK)==0);
     assert(transport.calls==0);
+
+    // A stale unacknowledged command blocks only command delivery. It must
+    // stay byte-preserved and must never trigger a poll, native replay or
+    // a network operation from the old generation.
+    std::ifstream pendingBefore(path);
+    const std::string oldInbox((std::istreambuf_iterator<char>(pendingBefore)),
+                               std::istreambuf_iterator<char>());
+    assert(pollBackendAgentCommand(config,current,transport,reason));
+    assert(reason=="local_command_generation_quarantined");
+    assert(transport.calls==0);
+    assert(access(path.c_str(),F_OK)==0);
+    std::ifstream pendingAfter(path);
+    const std::string newInbox((std::istreambuf_iterator<char>(pendingAfter)),
+                               std::istreambuf_iterator<char>());
+    assert(newInbox == oldInbox);
+
     std::remove(path.c_str());
     return 0;
 }
