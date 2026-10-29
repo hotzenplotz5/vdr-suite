@@ -123,10 +123,15 @@ int main()
     { std::ofstream out(rec / "00001.ts"); out << "segment"; }
     assert(inventory.listTrustedSourceLabels("backend", labels));
     assert(labels.size() == 1 && labels[0].recordingPresent);
-    // A colliding directory with the wrong recording title is NOT imported.
+    // An unrelated title without import provenance is not sufficient.
     { std::ofstream out(rec / "info", std::ios::trunc); out << "T Other\n"; }
     assert(inventory.listTrustedSourceLabels("backend", labels));
     assert(labels.size() == 1 && !labels[0].recordingPresent);
+    // Correcting the native title must not lose an imported recording.
+    { std::ofstream out(rec / "info", std::ios::trunc);
+      out << "T Corrected TMDb Episode\nS Imported via VDR-Suite Media Tools\n"; }
+    assert(inventory.listTrustedSourceLabels("backend", labels));
+    assert(labels.size() == 1 && labels[0].recordingPresent);
     fs::remove_all(rec);
     assert(inventory.listTrustedSourceLabels("backend", labels));
     assert(labels.size() == 1 && !labels[0].recordingPresent);
