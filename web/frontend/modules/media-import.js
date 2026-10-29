@@ -464,12 +464,21 @@
     return poll(0);
   }
 
+  function importableSourceIds(view) {
+    return view.sources.filter(function (id) {
+      return !view.allOrdinary.some(function (item) {
+        return item.sourceId === id && item.recordingPresent;
+      });
+    });
+  }
+
   function startBatch(view, selectedOnly) {
     if (!isCurrent(view) || view.batch || view.attempt ||
         view.submitting || view.inspectingBatch) return Promise.resolve();
+    const candidates = importableSourceIds(view);
     const ids = selectedOnly
-      ? view.sources.filter(function (id) { return view.checkedSourceIds.has(id); })
-      : view.sources.slice();
+      ? candidates.filter(function (id) { return view.checkedSourceIds.has(id); })
+      : candidates;
     if (ids.length < 2 || ids.length > MAX_IMPORT_FILMS) {
       if (ids.length > MAX_IMPORT_FILMS)
         report(view, 'Höchstens 100 Filme pro Importdurchlauf erlaubt.', true);
@@ -521,14 +530,14 @@
     }).catch(function (error) {
       if (!isCurrent(view) || generation !== view.reviewGeneration) return;
       resetBatchReview(view);
-      view.batchButton.disabled = view.sources.length < 2;
+      view.batchButton.disabled = importableSourceIds(view).length < 2;
       updateSelectionCount(view);
       report(view, operationError(error) + ' Keine Importaufträge erstellt.', true);
     }).finally(function () {
       if (!isCurrent(view) || generation !== view.reviewGeneration) return;
       view.inspectingBatch = false;
       view.seasonFilter.disabled = Boolean(view.batch) || Boolean(view.attempt);
-      view.batchButton.disabled = view.sources.length < 2;
+      view.batchButton.disabled = importableSourceIds(view).length < 2;
       updateSelectionCount(view);
       if (view.duplicateReviewPending) nextConfirmedDuplicate(view);
     });
@@ -1525,11 +1534,12 @@
   }
 
   function updateSelectionCount(view) {
-    const count = view.sources.filter(function (id) {
+    const eligible = importableSourceIds(view);
+    const count = eligible.filter(function (id) {
       return view.checkedSourceIds.has(id);
     }).length;
     view.selectionCount.textContent = count + ' von ' +
-      view.sources.length + ' sichtbaren Filmen für den Stapel gewählt.';
+      eligible.length + ' noch nicht importierten Filmen für den Stapel gewählt.';
     view.selectedBatchButton.disabled = count < 2 || Boolean(view.batch) ||
       Boolean(view.attempt) || view.localReencode.checked ||
       view.decision.value !== 'import';
@@ -1776,8 +1786,11 @@
     view.skipButton.hidden = true;
     view.skipButton.disabled = true;
     view.startButton.textContent = 'Import starten';
-    view.batchButton.disabled = Boolean(view.attempt) || normal.length < 2 ||
-      normal.length > MAX_IMPORT_FILMS;
+    const eligibleCount = normal.filter(function (item) {
+      return !item.recordingPresent;
+    }).length;
+    view.batchButton.disabled = Boolean(view.attempt) || eligibleCount < 2 ||
+      eligibleCount > MAX_IMPORT_FILMS;
     view.selectionRows.replaceChildren();
     normal.forEach(function (item) {
       const row = element('div', 'media-import-select-item' +
@@ -1786,9 +1799,12 @@
       const checkbox = element('input', 'media-import-episode-check');
       checkbox.type = 'checkbox';
       checkbox.setAttribute('aria-label', 'Für Stapel auswählen: ' + item.label);
-      checkbox.checked = view.checkedSourceIds.has(item.sourceId);
+      checkbox.checked = !item.recordingPresent &&
+        view.checkedSourceIds.has(item.sourceId);
+      checkbox.disabled = item.recordingPresent;
       checkbox.addEventListener('change', function () {
         if (!isCurrent(view) || view.attempt || view.batch) return;
+        if (item.recordingPresent) return;
         if (checkbox.checked) view.checkedSourceIds.add(item.sourceId);
         else view.checkedSourceIds.delete(item.sourceId);
         updateSelectionCount(view);
@@ -1838,6 +1854,7 @@
           'media-import-delete-duplicate media-import-delete-duplicate-inline',
           'Dublette aus Importquelle löschen');
         remove.type = 'button';
+        remove.disabled = Boolean(view.attempt) || view.submitting || Boolean(view.batch);
         remove.addEventListener('click', function () {
           if (!isCurrent(view) || view.batch || view.submitting || view.attempt) return;
           view.select.value = item.sourceId;
@@ -1940,6 +1957,7 @@
           'media-import-delete-duplicate media-import-delete-duplicate-inline',
           'Dublette aus Importquelle löschen');
         removeDuplicate.type = 'button';
+        removeDuplicate.disabled = Boolean(view.attempt) || view.submitting || Boolean(view.batch);
         removeDuplicate.addEventListener('click', function () {
           if (!chooseMarkedSource()) return;
           return startImport(view, false, 'delete_duplicate');
@@ -1960,7 +1978,7 @@
       view.selectionRows.appendChild(row);
     });
     view.selectAllVisibleButton.disabled = Boolean(view.attempt) ||
-      normal.length === 0;
+      eligibleCount === 0;
     updateSelectionCount(view);
 
     view.markedSelect.replaceChildren();
@@ -3228,7 +3246,9 @@
     });
     selectAllVisibleButton.addEventListener('click', function () {
       if (!isCurrent(view) || view.batch || view.attempt) return;
-      view.sources.forEach(function (id) { view.checkedSourceIds.add(id); });
+      importableSourceIds(view).forEach(function (id) {
+        view.checkedSourceIds.add(id);
+      });
       filterVisibleSources(view);
     });
     selectedBatchButton.addEventListener('click', function () {
