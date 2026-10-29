@@ -12,7 +12,7 @@ const stylesheet = fs.readFileSync(path.join(frontend, 'style.css'), 'utf8');
 assert(stylesheet.includes('.media-import-panel[data-mobile-pane="folders"] .media-import-library'));
 assert(stylesheet.includes('.media-import-panel[data-mobile-pane="media"] .media-import-episodes'));
 assert(stylesheet.includes('.media-import-panel[data-mobile-pane="details"] .media-import-detail'));
-assert(stylesheet.includes('.media-import-marked-item .media-import-delete-duplicate-inline'),
+assert(stylesheet.includes('.media-import-select-item .media-import-delete-duplicate-inline'),
   'marked duplicate list action remains visible and reachable at mobile widths');
 assert(view.includes("view.attempt.videoDecision === 'release'") &&
   view.includes("refreshSelectedPreview(view, true);") &&
@@ -2532,6 +2532,16 @@ function publishHomeResume() {}
     function (row) { return row.dataset.sourceId === SOURCE; });
   assert(importedRow && importedRow.children[2].textContent.includes('Bereits importiert'),
     'fresh login gets recording presence from the backend, not browser memory');
+  assert(findClass(importedRow, 'media-import-episode-check').disabled,
+    'already imported source cannot be bulk-selected for another import');
+  assert(findClass(mount, 'media-import-batch').disabled,
+    'bulk import does not include previously imported recordings');
+  const importedFilter = findClass(mount, 'media-import-filter');
+  importedFilter.value = 'imported';
+  importedFilter.listeners.change();
+  assert(findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.dataset.sourceId === SOURCE;
+  }), 'imported status filter retains confirmed recording');
   const readOnlyPreviewCount = requests.filter(function (req) {
     return req.path.includes('/preview');
   }).length;
