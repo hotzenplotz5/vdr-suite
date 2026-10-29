@@ -1977,13 +1977,15 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-start').disabled,
     'unavailable remains blocked after a repeat inspection');
 
-  // Real-UI regression: rescanning clears the source selection. An old
-  // failed-preview retry must disappear instead of looking clickable but
-  // silently doing nothing with no current episode.
+  // Usability First: while the read-only rescan is pending, the last
+  // successful inventory and its selected episode remain usable. Only a
+  // successfully validated replacement inventory resets the preview.
   const beforeRetryReset = requests.filter(r => r.path.endsWith('/preview')).length;
   const failedPreviewRescan = findClass(mount, 'media-import-reload').listeners.click();
-  assert(retryUnavailable.hidden,
-    'rescan hides a failed-preview retry immediately while sources reload');
+  assert(!retryUnavailable.hidden && !retryUnavailable.disabled,
+    'pending rescan preserves the old preview retry and episode selection');
+  assert.strictEqual(raceSelect.value, SOURCE,
+    'pending rescan retains the currently selected episode');
   await failedPreviewRescan;
   await settle();
   assert.strictEqual(raceSelect.value, '',
