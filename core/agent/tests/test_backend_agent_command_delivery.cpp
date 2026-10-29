@@ -613,6 +613,16 @@ int main()
         admin, {"rectools", "default", true, 0}, access, trusted);
     assert(activated.status == vdrsuite::addons::IntentStatus::ok);
     assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
+    // A previous Agent binding is not a second permission decision when
+    // the current Agent, command capability and approved native handler
+    // have already been verified independently.
+    assert(db.execute(
+        "UPDATE addon_activation_agent_bindings "
+        "SET agent_id='agt_previous' "
+        "WHERE module_id='rectools' AND backend_id='default';"));
+    assert(coreFence.effectiveMediaImportCapability(
+        "human_media", "default", 118, fenceReason));
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
     assert(mediaGrants.revokeGrant("human_media", "role.admin", "*"));
     assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
            fenceReason == "media_import_permission_denied");
@@ -625,10 +635,11 @@ int main()
     assert(coreFence.check(media, mediaReceipt, 118, fenceReason) &&
            fenceReason == "media_import_operation_and_grant_verified");
 
-    // This activation is now exercised above, before any positive receipt.
-    // Same Agent/intent but a changed independently approved handler is
-    // never authorized by the old persisted desired-enable state.
+    // An independently verified new handler must not be blocked by an
+    // obsolete activation pin. Core still rejects absent provider proof.
     approvedDigest = std::string(64, 'b');
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
+    approvedDigest.clear();
     assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
            fenceReason == "media_import_provider_untrusted");
     approvedDigest = std::string(64, 'a');
