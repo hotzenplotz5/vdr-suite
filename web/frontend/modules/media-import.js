@@ -291,6 +291,10 @@
               typeof operation.state !== 'string')
             throw new Error('Ungültige Operationsantwort');
           attempt.state = operation.state;
+          attempt.lastStatusRead = new Date().toLocaleTimeString('de-DE');
+          attempt.lastStatusError = '';
+          attempt.sourceCleanup = typeof operation.sourceCleanup === 'string'
+            ? operation.sourceCleanup : '';
           if (terminalState(operation.state)) {
             delete unresolvedAttempts[key];
             const text = 'Früherer Auftrag „' + attempt.sourceLabel +
@@ -308,7 +312,12 @@
                 attempt.videoDecision) + '. Kein erneuter Auftrag für diese Quelle.');
           }
         }).catch(function (error) {
-          if (isCurrent(view)) report(view, operationError(error), true);
+          if (isCurrent(view) && unresolvedAttempts[key] === attempt) {
+            attempt.lastStatusError = operationError(error) +
+              (error && Number.isInteger(error.status)
+                ? ' (HTTP ' + error.status + ')' : '');
+            report(view, attempt.lastStatusError, true);
+          }
         }).finally(function () {
           delete view.unresolvedReading[key];
           if (isCurrent(view)) {
@@ -318,9 +327,16 @@
         });
       });
       row.appendChild(check);
+      const diag = element('p', 'media-import-unresolved-diagnostic',
+        attempt.lastStatusError
+          ? 'Letzter Statusabruf: ' + attempt.lastStatusError
+          : 'Core-Zustand: ' + attempt.state +
+            '. Agent-Ursache und Löschquittung sind hier nicht verfügbar.');
+      row.appendChild(diag);
       view.unresolvedList.appendChild(row);
     });
     view.unresolvedList.hidden = view.unresolvedList.children.length === 0;
+    updateOperationDiagnostics(view);
   }
 
   function pinUnknownOnSourceChange(view, selectedSourceId) {
@@ -349,6 +365,70 @@
   function terminalState(state) {
     return ['rejected', 'conflict', 'succeeded', 'failed_before_dispatch',
       'failed_verified', 'cancelled'].includes(state);
+  }
+
+  // Diagnostic projection of already public, actor-scoped Operation facts.
+  // The public GET does NOT expose Agent errno, command receipt or result
+  // evidence. Never invent a "file deleted" or "worker failed" cause here.
+  function operationDiagnosticText(view, attempt) {
+    if (!attempt) return 'Kein aktueller Media-Import-Auftrag.';
+    const action = attempt.videoDecision === 'delete_duplicate'
+      ? 'Dublette aus Importquelle löschen'
+      : attempt.videoDecision === 'duplicate' ? 'Als Dublette markieren'
+        : attempt.videoDecision === 'release' ? 'Markierung freigeben'
+          : attempt.videoDecision === 'skip' ? 'Überspringen'
+            : attempt.videoDecision === 'desktop' ? 'Für PC markieren'
+              : 'VDR-Import';
+    const lines = [
+      'Backend: ' + view.backendId,
+      'Aktion: ' + action,
+      'Quelle: ' + (attempt.sourceLabel || attempt.sourceId),
+      'Quellenkennung: ' + attempt.sourceId,
+      'Operation: ' + (attempt.operationId || 'Nicht bestätigt (HTTP-Antwort fehlt)'),
+      'Core-Status: ' + (attempt.state || 'Nicht abgefragt')
+    ];
+    if (attempt.lastStatusRead)
+      lines.push('Letzte erfolgreiche Core-Abfrage: ' + attempt.lastStatusRead);
+    if (attempt.lastStatusError)
+      lines.push('Letzter Statusabruf: ' + attempt.lastStatusError);
+    if (attempt.sourceCleanup)
+      lines.push('Core-Quellenbereinigung: ' +
+        (cleanupLabel(attempt.sourceCleanup) || 'Unbekannter Wert'));
+    if (attempt.state === 'outcome_unknown') {
+      lines.push('Befund: Ausführung und Dateilöschung sind NICHT bestätigt.');
+      lines.push('Offen: Agent-Ausführungsstufe, Dateisystemfehler und ' +
+        'Löschquittung sind in dieser Public-API-Antwort nicht enthalten. ' +
+        'Zur Ursachenprüfung das bestehende Agent-Journal und ' +
+        'Core-Command-Ergebnis zur obigen Operation lesen.');
+    } else if (!attempt.operationId) {
+      lines.push('Befund: Keine eindeutige Operations-ID aus der Antwort. ' +
+        'Dies beweist weder Ausführung noch Nichtausführung.');
+    } else if (attempt.state === 'succeeded') {
+      lines.push('Befund: Core hat diese Operation als erfolgreich bestätigt.');
+    } else if (attempt.state === 'failed_verified') {
+      lines.push('Befund: Core hat einen verifizierten Fehlschlag protokolliert.');
+    } else if (attempt.state === 'rejected' ||
+               attempt.state === 'failed_before_dispatch') {
+      lines.push('Befund: Core meldet keine bestätigte Ausführung.');
+    } else {
+      lines.push('Befund: Noch keine abschließende Core-Bestätigung.');
+    }
+    return lines.join('\\n');
+  }
+
+  function updateOperationDiagnostics(view) {
+    if (!isCurrent(view) || !view.operationDiagnostics) return;
+    const attempts = Object.keys(unresolvedAttempts).filter(function (key) {
+      return key.startsWith(view.backendId + '|');
+    }).map(function (key) { return unresolvedAttempts[key]; });
+    const active = view.attempt || (attempts.length === 1 ? attempts[0] : null);
+    view.operationDiagnostics.textContent = active
+      ? operationDiagnosticText(view, active)
+      : attempts.length
+        ? attempts.map(function (attempt) {
+          return operationDiagnosticText(view, attempt);
+        }).join('\\n\\n')
+        : 'Kein offener Auftrag. Für eine konkrete Diagnose einen Vorgang auswählen.';
   }
 
   function operationError(error) {
@@ -711,6 +791,10 @@
         throw new Error('Ungültige Operationsantwort');
       }
       view.attempt.state = operation.state;
+      view.attempt.lastStatusRead = new Date().toLocaleTimeString('de-DE');
+      view.attempt.lastStatusError = '';
+      view.attempt.sourceCleanup = typeof operation.sourceCleanup === 'string'
+        ? operation.sourceCleanup : '';
       enableUnknownBrowsing(view);
       if (manual) {
         view.lastManualCheck = 'Zuletzt geprüft: ' +
@@ -885,6 +969,12 @@
         if (view.batch)
           stopBatch(view, 'Operationsstatus nicht abrufbar. Kein Folgeimport.');
         else {
+          if (view.attempt === checkedAttempt) {
+            checkedAttempt.lastStatusError = operationError(error) +
+              (error && Number.isInteger(error.status)
+                ? ' (HTTP ' + error.status + ')' : '');
+            updateOperationDiagnostics(view);
+          }
           report(view, operationError(error), true);
           if (manual) {
             view.lastManualCheck = 'Letzte Abfrage fehlgeschlagen: ' +
@@ -1110,7 +1200,9 @@
       failed_before_dispatch: 'Die Ausführung wurde nicht gestartet.',
       failed_verified: 'Die Ausführung ist fehlgeschlagen.',
       cancelled: 'Der Auftrag wurde abgebrochen.',
-      outcome_unknown: 'Der Ausgang ist nicht bestätigt. Bitte „Vorgang prüfen“ verwenden und nicht erneut importieren.'
+      outcome_unknown: 'Core meldet outcome_unknown: Die Ausführung oder Löschung ist nicht bestätigt. ' +
+        'Die öffentliche Statusantwort enthält keinen Agent-Fehlergrund. ' +
+        'Bitte denselben Vorgang prüfen; technische Einzelheiten stehen unter „Technische Details“.'
     };
     view.importFeedbackTitle.textContent = !attempt
       ? 'Aktion wird vorbereitet'
@@ -1144,6 +1236,7 @@
         '. Andere Episoden dürfen unabhängig davon lesend geprüft werden; ' +
         'dieser unbestätigte Auftrag wird nicht erneut gestartet.';
     }
+    updateOperationDiagnostics(view);
     view.importFeedback.className = 'media-import-import-feedback' +
       (state === 'succeeded' ? ' is-success'
         : attempt && (terminalState(state) || state === 'outcome_unknown')
@@ -3131,6 +3224,9 @@
     const technical = element('details', 'media-import-technical-details');
     technical.appendChild(element('summary', '', 'Technische Details'));
     technical.appendChild(sourceDetails);
+    const operationDiagnostics = element('p', 'media-import-operation-diagnostics',
+      'Noch keine Operationsdiagnose.');
+    technical.appendChild(operationDiagnostics);
     root.appendChild(element('h4', '', 'Einzelimport'));
     const label = element('label', '', '1. Film oder Serienfolge auswählen');
     const select = element('select', 'media-import-source');
@@ -3378,6 +3474,7 @@
       batch: activeBatches[backendId] || null,
       refreshButton: refreshButton, newButton: newButton,
       message: message, operationDetail: operationDetail,
+      operationDiagnostics: operationDiagnostics,
       importFeedback: importFeedback, importFeedbackTitle: importFeedbackTitle,
       importFeedbackText: importFeedbackText,
       scanNotice: scanNotice, completedNotice: completedNotice,
@@ -3400,6 +3497,7 @@
       attempt: activeAttempts[backendId] || null};
     current = view;
     renderUnresolvedAttempts(view);
+    updateOperationDiagnostics(view);
     setMobilePane(view, 'media');
     searchInput.addEventListener('input', function () {
       view.checkedSourceIds.clear();
@@ -3498,6 +3596,7 @@
       view.reloadButton.disabled = false;
       view.operationDetail.textContent = '';
       renderImportFeedback(view);
+      updateOperationDiagnostics(view);
       return loadSources(view);
     });
     // Even an already-visible tab must recheck the live Core capability.
