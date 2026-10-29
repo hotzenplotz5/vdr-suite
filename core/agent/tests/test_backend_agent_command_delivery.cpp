@@ -571,8 +571,8 @@ int main()
     // A dead Agent lease must not remove an authenticated source browser.
     assert(coreFence.mayBrowseSources("human_media", "default", fenceReason));
     assert(fenceReason == "media_import_browse_authorized");
-    assert(!coreFence.mayBrowseSources("admin_media", "default", fenceReason) &&
-           fenceReason == "media_import_permission_denied");
+    assert(!coreFence.mayBrowseSources("missing_media_actor", "default", fenceReason) &&
+           fenceReason == "media_import_actor_revoked");
     assert(!coreFence.effectiveMediaImportCapability(
         "admin_media", "default", 118, fenceReason));
 
