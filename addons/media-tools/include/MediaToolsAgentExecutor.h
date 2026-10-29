@@ -247,6 +247,9 @@ struct MediaImportSourceLabel {
     std::string label;
     // Read-only, root-relative folder presentation. Never a path authority.
     std::string folder = {};
+    // Fresh Agent-side inspection of a complete, matching VDR .rec target.
+    // Presentation only: destructive actions still recheck source + target.
+    bool recordingPresent = false;
 };
 
 // Ephemeral observation for ONE opaque source ID selected by an actor.
