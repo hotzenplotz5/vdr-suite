@@ -605,7 +605,8 @@ function publishHomeResume() {}
   // Media Import remains navigable and the previously loaded view survives.
   allow = false;
   const capabilityCallbacksBefore = timerCallbacks.length;
-  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), false);
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true,
+    'temporary Agent capability loss must not block navigation');
   assert.strictEqual(tab.hidden, false);
   assert.strictEqual(tab.disabled, false);
   assert(tab.title.includes('Agent-Status momentan unbestätigt'));
@@ -925,7 +926,8 @@ function publishHomeResume() {}
   vm.runInContext('browserSessionFrontendActive = true;', context);
   // A new authenticated session may open installed Media Tools even before
   // the Agent's first capability result recovers.
-  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), false);
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true,
+    're-authenticated session may navigate without an Agent capability');
   assert.strictEqual(tab.hidden, false);
   assert.strictEqual(tab.disabled, false);
   allow = true;
