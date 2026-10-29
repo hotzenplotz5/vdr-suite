@@ -897,10 +897,29 @@ function publishHomeResume() {}
   select.value = SOURCE;
   select.listeners.change();
   await settle();
+  const beforeRejectedPost = submits;
+  const beforeRejectedReads = requests.filter(function (req) {
+    return req.path.endsWith('/media-import-sources') &&
+      req.options.method !== 'POST';
+  }).length;
   await findClass(mount, 'media-import-start').listeners.click();
   await settle();
-  assert(findClass(mount, 'status').textContent.includes('abgelaufen'));
-  assert.strictEqual(findClass(mount, 'media-import-start').disabled, true);
+  assert.strictEqual(submits, beforeRejectedPost + 1,
+    'HTTP 422 sent exactly one explicitly approved import POST');
+  assert(findClass(mount, 'status').textContent.includes('HTTP 422') &&
+    findClass(mount, 'status').textContent.includes('Metadatenformat'),
+    'server rejection must not be mislabeled as a proven expired source');
+  assert(requests.filter(function (req) {
+    return req.path.endsWith('/media-import-sources') &&
+      req.options.method !== 'POST';
+  }).length > beforeRejectedReads,
+  'a confirmed 422 automatically reloads inventory through GET only');
+  assert.strictEqual(submits, beforeRejectedPost + 1,
+    'refresh after rejection never automatically retries a mutation');
+  assert.strictEqual(findClass(mount, 'media-import-source').disabled, false,
+    'new source selection is available without a manual reload');
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, true,
+    'fresh source and preview still need an explicit selection');
   assert.strictEqual(findClass(mount, 'media-import-reload').disabled, false);
 
   submitMode = 'denied';
