@@ -1,4 +1,5 @@
 #include "LocalMediaImportInventory.h"
+#include "MediaImport.h"
 
 #include <cassert>
 #include <chrono>
@@ -109,6 +110,26 @@ int main()
     assert(inventory.listTrustedSourceSnapshot(
         "backend", labels, partial, "missing_Token_0001", &observed));
     assert(observed.sourceFile.empty() && labels.size() == 1);
+
+    // MT.REC6: the existing inventory walk must advertise a proven complete
+    // VDR target without ffprobe, a new agent or a browser-specific ledger.
+    const auto beforeRecording = inspectImportPreview({
+        fixture.source.parent_path(), fixture.destination, fixture.source});
+    assert(!beforeRecording.duplicateTarget);
+    const auto rec = beforeRecording.titleDirectory / "2026-10-29.04.01.1-0.rec";
+    fs::create_directories(rec);
+    { std::ofstream out(rec / "info"); out << "T " << beforeRecording.title << "\\n"; }
+    { std::ofstream out(rec / "index"); out << "index"; }
+    { std::ofstream out(rec / "00001.ts"); out << "segment"; }
+    assert(inventory.listTrustedSourceLabels("backend", labels));
+    assert(labels.size() == 1 && labels[0].recordingPresent);
+    // A colliding directory with the wrong recording title is NOT imported.
+    { std::ofstream out(rec / "info", std::ios::trunc); out << "T Other\\n"; }
+    assert(inventory.listTrustedSourceLabels("backend", labels));
+    assert(labels.size() == 1 && !labels[0].recordingPresent);
+    fs::remove_all(rec);
+    assert(inventory.listTrustedSourceLabels("backend", labels));
+    assert(labels.size() == 1 && !labels[0].recordingPresent);
 
     // MT.UX2: root-owned optional sixth column names each source root.
     // The first matching backend entry becomes the default for display.
