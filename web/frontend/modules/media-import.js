@@ -3181,6 +3181,8 @@
     report(view, 'Quelle und Berechtigung werden erneut geprüft …');
     // Source observations are ephemeral: revalidate before choosing the opaque token.
     let preAdmissionFailed = false;
+    let refreshRejectedSource = false;
+    let rejectedSourceMessage = '';
     return checkCapability(view.backendId)
       .then(function (available) {
         if (!isCurrent(view)) return null;
@@ -3277,8 +3279,15 @@
               target.operationDetail.textContent = '';
               renderImportFeedback(target);
             }
+            const serverDetail = error && error.payload &&
+              typeof error.payload.detail === 'string'
+                ? error.payload.detail.slice(0, 180) : '';
             const detail = error.status === 422
-              ? 'Ausgewählte Importquelle ungültig oder abgelaufen. Quellen aktualisieren.'
+              ? 'Import abgelehnt (HTTP 422): ' +
+                (serverDetail || 'Auswahl oder Metadatenformat ungültig.') +
+                ' Ursache kann eine abgelaufene Quelle oder ein inkompatibles ' +
+                'Metadatenformat sein. Quellen werden automatisch neu geladen; ' +
+                'Folge danach erneut auswählen. Es wurde kein Importauftrag erstellt.'
               : error.status === 403
                 ? 'Media-Import-Berechtigung wurde verweigert. Kein Auftrag angelegt.'
                 : error.status === 401
@@ -3288,6 +3297,10 @@
                     : 'Import-Anfrage wurde vom Server zurückgewiesen.';
             if (target && target.batch) stopBatch(target, detail);
             if (target) report(target, detail, true);
+            if (error.status === 422 && target && !target.batch) {
+              refreshRejectedSource = true;
+              rejectedSourceMessage = detail;
+            }
             return;
           }
           // Network errors and 5xx can occur after durable operation reservation.
@@ -3320,7 +3333,23 @@
         report(view, message, true);
       }).finally(function () {
         view.submitting = false;
-        if (isCurrent(view)) renderImportFeedback(view);
+        // A definite 422 creates no Operation. A fresh inventory is a GET,
+        // never a retry of the rejected POST or its idempotency key.
+        const owner = current && isCurrent(current) &&
+          current.backendId === view.backendId ? current :
+          isCurrent(view) ? view : null;
+        if (refreshRejectedSource && owner && !owner.attempt && !owner.batch) {
+          owner.submitting = false;
+          updateInlineDeleteAvailability(owner);
+          return loadSources(owner).then(function () {
+            if (isCurrent(owner) && !owner.searchInput.disabled)
+              report(owner, rejectedSourceMessage, true);
+          });
+        }
+        if (isCurrent(view)) {
+          updateInlineDeleteAvailability(view);
+          renderImportFeedback(view);
+        }
         if (isCurrent(view) && !view.attempt && !view.batch) {
           // Only a pre-admission failure permits read-only retry. A definite
           // HTTP rejection still requires an explicit sources refresh.
