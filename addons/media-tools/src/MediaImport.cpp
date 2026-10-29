@@ -673,6 +673,117 @@ std::string mergeConfirmedMetadataIntoNativeVdrInfo(
     return output;
 }
 
+// Existing-recording correction is private to an already authorized native
+// recording owner. No HTTP path input, metadata lookup, FFmpeg or video writes.
+bool updateConfirmedNativeVdrInfo(
+    const fs::path& backendVideoRoot,
+    const fs::path& nativeRecordingPath,
+    const ImportConfirmedMetadata& confirmed)
+{
+    require(confirmed.mediaType == "episode" || confirmed.mediaType == "movie",
+            "confirmed metadata type required");
+    require(backendVideoRoot.is_absolute() && nativeRecordingPath.is_absolute() &&
+            backendVideoRoot.lexically_normal() == backendVideoRoot &&
+            nativeRecordingPath.lexically_normal() == nativeRecordingPath,
+            "native recording identity must be absolute and normalized");
+    const auto root = fs::canonical(backendVideoRoot);
+    const auto rec = fs::canonical(nativeRecordingPath);
+    require(isChild(root, rec) && rec.extension() == ".rec" &&
+            fs::is_directory(fs::symlink_status(nativeRecordingPath)),
+            "recording does not belong to selected VDR root");
+    require(nonemptyRegular(rec / "00001.ts") &&
+            nonemptyRegular(rec / "index"),
+            "VDR recording not complete");
+    FdGuard dir(::open(rec.c_str(), O_RDONLY | O_DIRECTORY |
+                      O_NOFOLLOW | O_CLOEXEC));
+    require(dir.fd >= 0, "cannot open native recording");
+    FdGuard originalFd(::openat(dir.fd, "info",
+                                O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+    require(originalFd.fd >= 0, "cannot open native info");
+    struct stat st{};
+    constexpr off_t MaxInfo = 1024 * 1024;
+    require(::fstat(originalFd.fd, &st) == 0 && S_ISREG(st.st_mode) &&
+            st.st_size > 0 && st.st_size <= MaxInfo,
+            "invalid native info");
+    std::string previous;
+    previous.reserve(static_cast<std::size_t>(st.st_size));
+    std::array<char,8192> buffer{};
+    for (;;) {
+        const ssize_t got = ::read(originalFd.fd, buffer.data(), buffer.size());
+        if (got < 0 && errno == EINTR) continue;
+        require(got >= 0, "native info read failed");
+        if (got == 0) break;
+        previous.append(buffer.data(), static_cast<std::size_t>(got));
+        require(previous.size() <= static_cast<std::size_t>(MaxInfo),
+                "native info grew during read");
+    }
+    struct stat readStat{};
+    require(previous.size() == static_cast<std::size_t>(st.st_size) &&
+            ::fstat(originalFd.fd, &readStat) == 0 &&
+            same({st.st_dev,st.st_ino,st.st_size,st.st_mtim.tv_sec,st.st_mtim.tv_nsec},
+                 {readStat.st_dev,readStat.st_ino,readStat.st_size,
+                  readStat.st_mtim.tv_sec,readStat.st_mtim.tv_nsec}),
+            "native info changed during read");
+    const std::string updated =
+        mergeConfirmedMetadataIntoNativeVdrInfo(previous, confirmed);
+    if (updated == previous) return false;
+    require(updated.size() <= static_cast<std::size_t>(MaxInfo),
+            "native info correction exceeds maximum size");
+    const std::string temp = ".vdr-suite-info-" + std::to_string(::getpid()) +
+        "-" + std::to_string(std::chrono::steady_clock::now()
+                               .time_since_epoch().count());
+    FdGuard staged(::openat(dir.fd, temp.c_str(),
+                            O_WRONLY | O_CREAT | O_EXCL |
+                            O_NOFOLLOW | O_CLOEXEC, 0600));
+    require(staged.fd >= 0, "cannot create temporary native info");
+    struct TempCleanup {
+        int parent; std::string file;
+        ~TempCleanup() { if (!file.empty()) ::unlinkat(parent,file.c_str(),0); }
+    } cleanup{dir.fd,temp};
+    std::size_t offset = 0;
+    while (offset < updated.size()) {
+        const ssize_t n = ::write(staged.fd, updated.data()+offset,
+                                  updated.size()-offset);
+        if (n < 0 && errno == EINTR) continue;
+        require(n > 0, "native info write failed");
+        offset += static_cast<std::size_t>(n);
+    }
+    require(::fchmod(staged.fd,st.st_mode & 07777) == 0,
+            "cannot preserve info mode");
+    struct stat tempStat{};
+    require(::fstat(staged.fd,&tempStat) == 0,
+            "cannot inspect staged info");
+    if (tempStat.st_uid != st.st_uid || tempStat.st_gid != st.st_gid)
+        require(::fchown(staged.fd,st.st_uid,st.st_gid) == 0,
+                "cannot preserve info owner");
+    require(::fsync(staged.fd) == 0, "cannot sync staged info");
+    struct stat beforeReplace{};
+    require(::fstatat(dir.fd,"info",&beforeReplace,AT_SYMLINK_NOFOLLOW) == 0 &&
+            S_ISREG(beforeReplace.st_mode) &&
+            same({st.st_dev,st.st_ino,st.st_size,st.st_mtim.tv_sec,st.st_mtim.tv_nsec},
+                 {beforeReplace.st_dev,beforeReplace.st_ino,beforeReplace.st_size,
+                  beforeReplace.st_mtim.tv_sec,beforeReplace.st_mtim.tv_nsec}),
+            "native info changed before replacement");
+    require(::renameat(dir.fd,temp.c_str(),dir.fd,"info") == 0,
+            "native info atomic replacement failed");
+    cleanup.file.clear();
+    require(::fsync(dir.fd) == 0, "cannot sync native info directory");
+    FdGuard check(::openat(dir.fd,"info",O_RDONLY|O_NOFOLLOW|O_CLOEXEC));
+    require(check.fd >= 0, "cannot read back native info");
+    std::string readback;
+    for (;;) {
+        const ssize_t got = ::read(check.fd,buffer.data(),buffer.size());
+        if (got < 0 && errno == EINTR) continue;
+        require(got >= 0, "native info readback failed");
+        if (got == 0) break;
+        readback.append(buffer.data(),static_cast<std::size_t>(got));
+        require(readback.size() <= updated.size(), "native info readback grew");
+    }
+    require(readback == updated, "native info readback mismatch");
+    notifyVdrRecordingsChanged(root);
+    return true;
+}
+
 ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan) {
     const auto fresh = inspectImportPreview(
         {plan.sourceRoot, plan.videoRoot, plan.sourceFile});

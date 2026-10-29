@@ -208,6 +208,14 @@ std::string renderNativeVdrRecordingInfo(
 // or mutation authority is provided by this helper.
 std::string mergeConfirmedMetadataIntoNativeVdrInfo(
     const std::string& originalInfo, const ImportConfirmedMetadata& confirmed);
+
+// Backend-internal MT.META6.3 writer: the recording identity MUST originate
+// from the authenticated native VDR inventory, never browser input.
+// Returns false for identical info. Does not reimport or query TMDb.
+bool updateConfirmedNativeVdrInfo(
+    const fs::path& backendVideoRoot,
+    const fs::path& nativeRecordingPath,
+    const ImportConfirmedMetadata& confirmed);
 struct ImportLocalArtwork { std::string posterDataUri, fanartDataUri; };
 ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan);
 // Optional FFprobe duration, never import authority.

@@ -234,6 +234,18 @@ Weder neue Sperren noch Datenbank-Backups wurden dafür eingeführt.
 
 **MT.META6.2 – Aufnahme-Metadaten vor Veröffentlichung:** Die tatsächlich bestätigten, normalisierten Titel-/Episodentexte und, sofern zulässig, Bildreferenzen bis zum bestehenden Aufnahme-Metadaten-Owner führen. Bestehende NFO-Priorität/Quellherkunft ausdrücklich festlegen und VDR-`info` konsistent schreiben; die bestehende atomare Aufnahmepublikation und verifizierte TS-/Index-Dateien bleiben unverändert. Kein alleiniger Browser-POST, der eine abgeschlossene Aufnahme behauptet. Durchgehende Tests für S01E01 „Kassa“, S01E02 „Das bin ich“, unbekannte Folge, Offline-Fallback und geänderte Quelle.
 
+**MT.META6.3 – Interner atomarer Info-Writer (Quellstand 29.10.2026):**
+Die Funktion `updateConfirmedNativeVdrInfo` ergänzt die reine T/S/D-Transformation
+für eine bereits vom Backend bestätigte native VDR-Aufnahme. Nur `info`
+wird atomar ersetzt und nochmals gelesen; TS/Index/NFO werden nicht verändert.
+Die vorhandene `.update`-Benachrichtigung wird nach einem tatsächlichen
+Update verwendet. Wiederholte identische Korrekturen sind idempotent,
+ohne zweite TMDb-Suche oder Videoimport. Synthetische C++-Tests erfassen
+auch fremde Pfade und Symlink-Dateien. **Noch offen:** die autorisierte
+Core-/Agent-Bindung an die bestätigte Recording-Identität, Poster-Readback,
+echte S01E01–05 auf yaVDR und der VDR-/Suite-Client-Abgleich. Der interne
+Writer ist ausdrücklich noch keine von der Weboberfläche erreichbare Aktion.
+
 **MT.META6.3 – Existierende Aufnahmen korrigieren:** Über die bereits vorhandene backendgebundene Recording-Identität und Metadatenzuordnung, nicht über einen frei übergebenen Dateisystempfad. Die zwei bereits importierten Andor-Folgen ohne zweite Umkodierung oder erneuten Import ergänzen. Eine Änderung von VDR-`info` oder Titelverzeichnissen nur über einen separat geprüften, mit VDR abgestimmten Mutationspfad; bestehende TS-/Index-Inhalte erhalten.
 
 **MT.META6.4 – Aufnahmeaktualisierung als Bestandteil jedes Erfolgs:** Nach dem atomaren Import den bereits vorhandenen Recording-Cache-Refresh-Mechanismus verwenden. `DaemonRuntimeRecordingCache.cpp` führt `refreshRecordingCacheForAllBackends`, `mediaImportOperationFence_->reconcileRecordingCache` und `publishCompletedRecordingRefreshes` bereits; `DaemonRuntimePolling.cpp` fordert Cache-Aktualisierung bei `RecordingsChanged` an. `DaemonRuntimeInitialization.cpp` fordert **bereits** bei verifiziertem, angewendetem Agent-Importergebnis mit Recording-Pfadbeleg `recordingCacheRefreshQueue_.request(assignment.backendId, 2)` an. Die Lücke ist daher **nicht die fehlende Queue-Auslösung**, sondern der End-to-End-Nachweis dieses bestehenden Auslösers bis zur VDR-nativen Erkennung, zum committed Recording-Cache und zum `RecordingsChanged`-Ereignis an Web/Apps, einschließlich Restart/verspätetem Readback. Kein separates SVDRP-`UPDR`-Skript und keine zweite Refresh-Queue einführen. `succeeded` erst nach unabhängigem Aufnahme-Readback; bei verzögerter Aktualisierung weiterhin sichtbar „Bestätigung ausstehend“. Nach bestätigtem Erfolg aktualisieren sich „Neu aufgenommen“, Serien und Recordings 2 **ohne Browser-Reload**.

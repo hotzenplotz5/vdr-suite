@@ -733,6 +733,49 @@ int main() {
         ++checks;
     }
     {
+        // Retrofit an existing recording without calling the import worker,
+        // changing TS/index, touching the input, or making a TMDb request.
+        Fixture f;
+        const fs::path rec = f.video / "Serien" / "Andor" /
+            "2026-10-28.17.06.1-0.rec";
+        fs::create_directories(rec);
+        const std::string oldInfo =
+            "C Channel\nT DE - Star Wars Andor S01E01\n"
+            "S Imported via VDR-Suite Media Tools\nE 123 456 789 4E 00\nF 25\n";
+        std::ofstream(rec/"info",std::ios::binary) << oldInfo;
+        std::ofstream(rec/"index",std::ios::binary) << "index";
+        std::ofstream(rec/"00001.ts",std::ios::binary) << "transport stream";
+        ImportConfirmedMetadata selected;
+        assert(parseFrozenImportMetadata(
+            "v2|episode|Star%20Wars%3A%20Andor|Kassa|"
+            "Vorhandene%20Beschreibung|1|1|tv-episode|221|%2Fposter.jpg",
+            selected));
+        assert(updateConfirmedNativeVdrInfo(f.video,rec,selected));
+        std::ifstream readback(rec/"info",std::ios::binary);
+        const std::string actual((std::istreambuf_iterator<char>(readback)),
+                                 std::istreambuf_iterator<char>());
+        assert(actual == "C Channel\nT Star Wars: Andor\nS Kassa\n"
+            "E 123 456 789 4E 00\nF 25\nD Vorhandene Beschreibung\n");
+        assert(!updateConfirmedNativeVdrInfo(f.video,rec,selected));
+        assert(fs::file_size(rec/"index") == 5 &&
+               fs::file_size(rec/"00001.ts") == 16 &&
+               fs::exists(f.source) && fs::exists(f.video/".update"));
+        const fs::path outside=f.input/"outside.rec";
+        fs::create_directory(outside);
+        std::ofstream(outside/"info") << oldInfo;
+        std::ofstream(outside/"index") << "index";
+        std::ofstream(outside/"00001.ts") << "transport stream";
+        mustFail([&] { updateConfirmedNativeVdrInfo(f.video,outside,selected); });
+        fs::remove(rec/"info");
+        fs::create_symlink(outside/"info",rec/"info");
+        mustFail([&] { updateConfirmedNativeVdrInfo(f.video,rec,selected); });
+        std::ifstream source(outside/"info",std::ios::binary);
+        const std::string unchanged((std::istreambuf_iterator<char>(source)),
+                                    std::istreambuf_iterator<char>());
+        assert(unchanged == oldInfo);
+        ++checks;
+    }
+    {
         // MT.META6 end-to-end worker boundary: one frozen S01E01 provider
         // result travels unchanged from the original import operation to
         // the actual native staged 'info'; no provider call or second import.
