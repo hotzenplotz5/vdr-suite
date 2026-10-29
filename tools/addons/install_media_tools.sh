@@ -481,6 +481,8 @@ override = ('[Service]\nExecStart=\n'
             '/var/lib/vdr-suite/backend-agent/media-shrink\n')
 if video_ready:
     override += 'ReadWritePaths=' + video + '\n'
+if source_ready:
+    override += 'ReadWritePaths=' + source + '\n'
 create('/etc/systemd/system/vdr-suite-backend-agent.service.d/20-media-tools.conf',
        override)
 PY
