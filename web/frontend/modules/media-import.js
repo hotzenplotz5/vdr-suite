@@ -274,8 +274,8 @@
     if (!attempt) return '';
     if (attempt.state === 'outcome_unknown') return '';
     if (terminalState(attempt.state)) {
-      if (view.reading)
-        return 'Löschen gesperrt: Abschluss des vorherigen Auftrags wird eingelesen.';
+      // The terminal Core result is already authoritative. A separate,
+      // read-only status GET must not lock other confirmed source actions.
       return attempt.sourceId === sourceId
         ? 'Löschen gesperrt: Vor einer erneuten Aktion auf derselben Quelle ' +
           'zuerst die Quellenliste aktualisieren.'
@@ -1082,6 +1082,9 @@
       // finishes. Always release this view's read state before comparing
       // attempt identity; otherwise subsequent imports never get polled.
       view.reading = false;
+      // Refresh existing source-specific buttons on every status-read
+      // completion. Never leave an outdated disabled state in the DOM.
+      if (isCurrent(view)) updateInlineDeleteAvailability(view);
       // A successful marker deliberately clears the completed attempt after
       // its inventory readback. Resume the NEXT independently verified
       // duplicate before the old-attempt identity guard; that guard only
