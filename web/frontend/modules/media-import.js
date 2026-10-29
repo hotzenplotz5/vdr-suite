@@ -996,8 +996,11 @@
         }
       }
     }).finally(function () {
-      if (view.attempt !== checkedAttempt) return;
+      // A confirmed marker may replace/remove the attempt while its read
+      // finishes. Always release this view's read state before comparing
+      // attempt identity; otherwise subsequent imports never get polled.
       view.reading = false;
+      if (view.attempt !== checkedAttempt) return;
       if (isCurrent(view) && view.manualCheckQueued && view.attempt &&
           view.attempt.operationId) {
         view.manualCheckQueued = false;
