@@ -2721,6 +2721,7 @@ function publishHomeResume() {}
   assert(autoConfirmation && autoConfirmation.textContent.includes('Pilot'),
     'the same exact episode is already identified before the import click');
   const beforeSnapshotPost = submits;
+  const beforeSnapshotAssignment = metadataAssignments.length;
   assert(!findClass(mount, 'media-import-start').disabled,
     'metadata availability adds no gate to the video import');
   await findClass(mount, 'media-import-start').listeners.click();
@@ -2741,6 +2742,8 @@ function publishHomeResume() {}
   const decodedFrozen = frozenBody.metadata.split('|');
   assert.strictEqual(decodeURIComponent(decodedFrozen[2]), 'Andor');
   assert.strictEqual(decodeURIComponent(decodedFrozen[3]), 'Pilot');
+  assert.strictEqual(metadataAssignments.length, beforeSnapshotAssignment,
+    'Core-owned v2 snapshot must not trigger a competing browser metadata assignment POST');
   assert.strictEqual(decodedFrozen[7], 'tv-episode',
     'previously selected TMDb kind is carried as metadata identity');
   assert(/^\d+$/.test(decodedFrozen[8]),
