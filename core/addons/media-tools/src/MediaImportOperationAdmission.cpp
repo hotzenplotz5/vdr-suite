@@ -8,6 +8,8 @@
 
 #include <cstdint>
 #include <limits>
+#include <sstream>
+#include <iomanip>
 #include <string>
 
 namespace vdrsuite::addons {
@@ -29,13 +31,28 @@ bool validIdentity(const std::string& text)
         text.find_first_of("/\\\r\n\t") == std::string::npos;
 }
 std::string serializeSelection(
-    const std::string& id, vdrsuite::mediatools::MediaImportDecision decision)
+    const std::string& id, vdrsuite::mediatools::MediaImportDecision decision,
+    const std::string& metadata)
 {
-    return vdrsuite::mediatools::mediaImportSelectionJson(id, decision);
+    return vdrsuite::mediatools::mediaImportSelectionJson(id, decision, metadata);
 }
 std::string requestFingerprint(const std::string& backend,
-                               const std::string& source, vdrsuite::mediatools::MediaImportDecision decision)
+                               const std::string& source, vdrsuite::mediatools::MediaImportDecision decision,
+                               const std::string& metadata)
 {
+    // Existing fingerprint remains byte-identical without TMDb. For the
+    // one-shot snapshot, bind its bytes to the same idempotency scope without
+    // placing the (potentially large) synopsis in a 512-byte fingerprint.
+    std::uint64_t digest = 14695981039346656037ULL;
+    for (unsigned char ch : metadata) {
+        digest ^= ch;
+        digest *= 1099511628211ULL;
+    }
+    std::ostringstream suffix;
+    if (!metadata.empty())
+        suffix << "|tmdb-snapshot-v1:" << std::hex << std::setfill('0')
+               << std::setw(16) << digest;
+
     return "media-import-api/1|" + std::to_string(backend.size()) + ":" +
         backend + "|" + std::to_string(source.size()) + ":" + source +
         (decision == vdrsuite::mediatools::MediaImportDecision::import
@@ -50,7 +67,7 @@ std::string requestFingerprint(const std::string& backend,
                              ? "|videoDecision:duplicate"
                              : decision == vdrsuite::mediatools::MediaImportDecision::deleteDuplicate
                                  ? "|videoDecision:delete_duplicate"
-                                 : "|videoDecision:release");
+                                 : "|videoDecision:release") + suffix.str();
 }
 bool replayMatches(MutationOperationRepository& repo,
                    const MutationOperation& op,
@@ -83,7 +100,8 @@ bool replayMatches(MutationOperationRepository& repo,
                                     ? vdrsuite::mediatools::MediaImportDecision::deleteDuplicate
                                 : req.approveVideoReencode
                             ? vdrsuite::mediatools::MediaImportDecision::local
-                            : vdrsuite::mediatools::MediaImportDecision::import) &&
+                            : vdrsuite::mediatools::MediaImportDecision::import,
+                serialized) &&
         p.payload.payload == serialized &&
         p.payload.payloadFingerprint == fingerprint;
 }
@@ -116,7 +134,8 @@ MediaImportOperationAdmissionService::admit(
                     ? Decision::duplicate : req.videoDecision == "delete_duplicate"
                     ? Decision::deleteDuplicate : req.approveVideoReencode
                     ? Decision::local : Decision::import;
-    const std::string serialized = serializeSelection(req.sourceId, choice);
+    const std::string serialized = serializeSelection(
+        req.sourceId, choice, req.metadata);
     std::string checkedSource;
     Decision checkedDecision = Decision::import;
     if (req.now <= 0 || req.now > std::numeric_limits<std::int64_t>::max()-900 ||
@@ -145,7 +164,7 @@ MediaImportOperationAdmissionService::admit(
 
     const std::string fingerprint =
         requestFingerprint(
-            req.backendId, req.sourceId, choice);
+            req.backendId, req.sourceId, choice, req.metadata);
     if (fingerprint.size() > 512U) return output(Status::invalid);
 
     const auto previous = operations_.findByIdempotencyScope(
@@ -174,7 +193,7 @@ MediaImportOperationAdmissionService::admit(
     op.resourceId = req.sourceId;
     op.expectedRevision =
         "selection-v" + std::to_string(
-            vdrsuite::mediatools::mediaImportSelectionVersion(choice));
+            vdrsuite::mediatools::mediaImportSelectionVersion(choice, serialized));
     op.actionFamily = "media.import";
     op.requestFingerprint = fingerprint;
     op.requestedAt = req.now;
@@ -189,7 +208,7 @@ MediaImportOperationAdmissionService::admit(
     payload.payloadType = "addon.media.import";
     payload.payloadVersion =
         vdrsuite::mediatools::mediaImportSelectionVersion(
-            choice);
+            choice, serialized);
     payload.payload = serialized;
     payload.payloadFingerprint = fingerprint;
 
