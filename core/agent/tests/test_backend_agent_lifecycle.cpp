@@ -1029,6 +1029,9 @@ void test_http_protocol_and_redaction()
     sources.body =
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
         "\"backendGeneration\":1,\"sourceIds\":[\"source_00000000001\"],"
+        "\"sourceLabels\":[\"Andor S01E05\"],"
+        "\"sourceFolders\":[\"Serien/Andor\"],"
+        "\"sourceStatuses\":[\"recording_present\"],"
         "\"handlerOrigin\":\"manual\",\"handlerVersion\":\"0.1.0\","
         "\"handlerSha256\":\"" + std::string(64, 'a') + "\"}";
     const auto sourceObserved = server.handleRequest(sources);
@@ -1039,6 +1042,12 @@ void test_http_protocol_and_redaction()
         std::chrono::system_clock::now().time_since_epoch()).count();
     assert(live && mediaImportCatalog.list(*live, "default", observedNow, ids));
     assert(ids == (std::vector<std::string>{"source_00000000001"}));
+    std::vector<std::string> labels, statuses, folders;
+    bool partial = true;
+    assert(mediaImportCatalog.list(*live, "default", observedNow,
+        ids, labels, &partial, &folders, &statuses));
+    assert(statuses == (std::vector<std::string>{"recording_present"}));
+    assert(labels == (std::vector<std::string>{"Andor S01E05"}));
     sources.body =
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
         "\"backendGeneration\":2,\"sourceIds\":[\"source_00000000002\"],"
