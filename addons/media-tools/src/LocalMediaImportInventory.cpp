@@ -130,6 +130,7 @@ struct IndexedSource {
     LocalMediaImportSource source;
     std::string displayPrefix;
     std::string rootId;
+    bool recordingPresent = false;
 };
 
 // Presentation-only prefix from the root-owned source inventory. The
@@ -356,7 +357,8 @@ bool scanDirectory(const std::array<std::string, 6>& entry,
             const auto plan = inspectImportPreview({sourceRoot, videoRoot, path});
             const auto local = toSource(plan);
             if (found.size() == 100U) { partial = true; break; }
-            found.push_back({scannedId(entry[1], local), local, prefix, entry[1]});
+            found.push_back({scannedId(entry[1], local), local, prefix,
+                entry[1], plan.duplicateTarget && confirmedMediaImportDuplicate(plan)});
         } catch (...) {
             LocalMediaImportSource marked;
             if (inspectMarkedSource(sourceRoot, videoRoot, path, marked)) {
@@ -403,7 +405,8 @@ bool inventorySources(const std::filesystem::path& root, const std::string& back
                     const auto plan = inspectImportPreview({
                         entry[2], entry[3], entry[4]});
                     sources.push_back({entry[1], toSource(plan),
-                        displayPrefix(entry[5], isDefault), entry[1]});
+                        displayPrefix(entry[5], isDefault), entry[1],
+                        plan.duplicateTarget && confirmedMediaImportDuplicate(plan)});
                 } catch (...) {
                     // A marked source is selectable only by an explicit release.
                     LocalMediaImportSource marked;
@@ -505,7 +508,7 @@ bool RootOwnedMediaImportInventory::listTrustedSourceSnapshot(
             out.clear();
             return false;
         }
-        out.push_back({source.id, label, folder});
+        out.push_back({source.id, label, folder, source.recordingPresent});
     }
     // Keep the one selected source from this very scan. Do not rescan the
     // complete tree merely to resolve its already verified opaque ID.
@@ -538,7 +541,7 @@ bool RootOwnedMediaImportInventory::listTrustedSourceLabels(
             out.clear();
             return false;
         }
-        out.push_back({source.id, label, folder});
+        out.push_back({source.id, label, folder, source.recordingPresent});
     }
     return true;
 }
