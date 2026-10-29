@@ -114,6 +114,7 @@ let sourcePartial = false;
 let sourceDisplayOverride = null;
 const sourceFolders = Object.create(null);
 const sourceDisplayLabels = Object.create(null);
+const recordingStatuses = Object.create(null);
 let pagedSourceIds = null;
 let batchOperations = [];
 const BATCH_OP_A = 'op_' + 'd'.repeat(32);
@@ -238,7 +239,8 @@ function transport(url, options) {
             id === MARK_DUP ? 'Film.duplicate' :
               sourceDisplayLabels[id] || 'Weiterer Film',
           ...(Object.prototype.hasOwnProperty.call(sourceFolders, id)
-            ? {folder: sourceFolders[id]} : {})};
+            ? {folder: sourceFolders[id]} : {}),
+          ...(recordingStatuses[id] ? {recordingStatus: recordingStatuses[id]} : {})};
       }), meta: {partial: sourcePartial}})
       : reply(sourcesStatus, {detail: 'Source unavailable'}));
   }
@@ -2515,6 +2517,52 @@ function publishHomeResume() {}
     skippedDeleteAction.disabled,
     'skipped originals must never offer duplicate deletion');
   markedSources = [];
+
+  // MT.REC6: Agent inventory status survives a browser reset; selecting the
+  // imported episode must not trigger another ffprobe/preview POST or marker.
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE];
+  recordingStatuses[SOURCE] = 'recording_present';
+  state = 'succeeded';
+  submitMode = 'accepted';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const importedRow = findClass(mount, 'media-import-selection').children.find(
+    function (row) { return row.dataset.sourceId === SOURCE; });
+  assert(importedRow && importedRow.children[2].textContent.includes('Bereits importiert'),
+    'fresh login gets recording presence from the backend, not browser memory');
+  const readOnlyPreviewCount = requests.filter(function (req) {
+    return req.path.includes('/preview');
+  }).length;
+  const importedPostCount = submits;
+  findClass(importedRow, 'media-import-episode-open').listeners.click();
+  await settle();
+  assert.strictEqual(requests.filter(function (req) {
+    return req.path.includes('/preview');
+  }).length, readOnlyPreviewCount,
+  'opening already imported recording must reuse inventory instead of a new preview');
+  assert.strictEqual(submits, importedPostCount,
+    'opening an imported episode cannot automatically mark or import');
+  const importedRemove = findClass(importedRow, 'media-import-delete-duplicate-inline');
+  assert(importedRemove && !importedRemove.disabled,
+    'unmarked confirmed recording has a directly reachable delete action');
+  confirmLocal = false;
+  await importedRemove.listeners.click();
+  assert.strictEqual(submits, importedPostCount,
+    'cancelled unmarked duplicate cleanup must not submit');
+  confirmLocal = true;
+  await importedRemove.listeners.click();
+  await settle();
+  assert.strictEqual(submits, importedPostCount + 1,
+    'explicit cleanup submits exactly one existing Core delete_duplicate operation');
+  assert.strictEqual(JSON.parse(requests.filter(function (req) {
+    return req.options.method === 'POST';
+  }).slice(-1)[0].options.body).videoDecision, 'delete_duplicate');
+  assert(!findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.dataset.sourceId === SOURCE;
+  }), 'confirmed cleanup refreshes inventory and removes the deleted source');
+  delete recordingStatuses[SOURCE];
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
   console.error(error);
