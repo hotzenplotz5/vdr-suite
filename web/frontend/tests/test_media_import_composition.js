@@ -2734,13 +2734,17 @@ function publishHomeResume() {}
   const frozenBody = JSON.parse(frozenPost.options.body);
   assert.strictEqual(frozenBody.sourceId, SOURCE);
   assert(typeof frozenBody.metadata === 'string' &&
-    frozenBody.metadata.startsWith('v1|episode|') &&
+    frozenBody.metadata.startsWith('v2|episode|') &&
     frozenBody.metadata.includes('|Pilot|') &&
-    frozenBody.metadata.endsWith('|1|1'),
+    frozenBody.metadata.includes('|1|1|tv-episode|'),
     'the exact pre-found episode is frozen into the one import request');
   const decodedFrozen = frozenBody.metadata.split('|');
   assert.strictEqual(decodeURIComponent(decodedFrozen[2]), 'Andor');
   assert.strictEqual(decodeURIComponent(decodedFrozen[3]), 'Pilot');
+  assert.strictEqual(decodedFrozen[7], 'tv-episode',
+    'previously selected TMDb kind is carried as metadata identity');
+  assert(/^\d+$/.test(decodedFrozen[8]),
+    'previously selected TMDb episode id is frozen with the operation');
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
