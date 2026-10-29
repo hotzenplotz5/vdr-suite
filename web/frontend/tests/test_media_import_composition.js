@@ -23,6 +23,8 @@ assert(view.includes('media-import-existing-metadata') &&
   view.includes('applyImportedMetadata(view, repairAttempt)') &&
   view.includes('Die native VDR-info-Datei bleibt vorerst unverändert'),
   'confirmed existing recording offers explicit Suite-only metadata repair on the established route');
+assert(view.includes('Die native VDR-info-Datei ist damit noch nicht aktualisiert.'),
+  'a successful Suite assignment never claims native VDR info has been changed');
 
 const clientFactory = require('../api/public-v1-client.js');
 
