@@ -281,6 +281,43 @@ int main()
     assertState(dispatching, MutationOperationRepositoryStatus::ok,
         MutationOperationState::dispatching, "3");
 
+    // A command can already be reserved (dispatching) while the Agent
+    // proves it was rejected before any native import/delete action began.
+    // The Core must persist failed_before_dispatch and permit exact replays.
+    auto preDispatch = makeOperation(
+        "op-media-import-fenced", "idem-media-import-fenced",
+        "sha256:req-media-import-fenced");
+    preDispatch.resourceType = "MediaImportSource";
+    preDispatch.resourceId = "src-media-import-fenced";
+    preDispatch.actionFamily = "media.import";
+    preDispatch.verificationPolicy =
+        MutationOperationVerificationPolicy::reconciliationRequired;
+    assert(repository.reserve(preDispatch).ok());
+    const auto importDispatching = repository.transition(
+        preDispatch.operationId, "1", MutationOperationState::accepted,
+        MutationOperationState::dispatching, "", 1020);
+    assertState(importDispatching, MutationOperationRepositoryStatus::ok,
+        MutationOperationState::dispatching, "2");
+    const auto rejectedBeforeExecution = repository.transition(
+        preDispatch.operationId, "2", MutationOperationState::dispatching,
+        MutationOperationState::failedBeforeDispatch,
+        "agent.media.import:cmd-original-fenced", 1030);
+    assertState(rejectedBeforeExecution,
+        MutationOperationRepositoryStatus::ok,
+        MutationOperationState::failedBeforeDispatch, "3");
+    const auto sameRejectedResult = repository.transition(
+        preDispatch.operationId, "2", MutationOperationState::dispatching,
+        MutationOperationState::failedBeforeDispatch,
+        "agent.media.import:cmd-original-fenced", 1030);
+    assertState(sameRejectedResult,
+        MutationOperationRepositoryStatus::idempotentReplay,
+        MutationOperationState::failedBeforeDispatch, "3");
+    assert(repository.transition(
+        preDispatch.operationId, "3",
+        MutationOperationState::failedBeforeDispatch,
+        MutationOperationState::succeeded, "incorrect-success", 1040).status ==
+        MutationOperationRepositoryStatus::stateConflict);
+
     auto executed = repository.transition(
         "op-1", "3", MutationOperationState::dispatching,
         MutationOperationState::executedUnverified,
