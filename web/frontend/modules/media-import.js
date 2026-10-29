@@ -413,7 +413,7 @@
     } else {
       lines.push('Befund: Noch keine abschließende Core-Bestätigung.');
     }
-    return lines.join('\\n');
+    return lines.join('\n');
   }
 
   function updateOperationDiagnostics(view) {
@@ -427,7 +427,7 @@
       : attempts.length
         ? attempts.map(function (attempt) {
           return operationDiagnosticText(view, attempt);
-        }).join('\\n\\n')
+        }).join('\n\n')
         : 'Kein offener Auftrag. Für eine konkrete Diagnose einen Vorgang auswählen.';
   }
 
