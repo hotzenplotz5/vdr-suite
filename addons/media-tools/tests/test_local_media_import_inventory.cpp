@@ -118,13 +118,13 @@ int main()
     assert(!beforeRecording.duplicateTarget);
     const auto rec = beforeRecording.titleDirectory / "2026-10-29.04.01.1-0.rec";
     fs::create_directories(rec);
-    { std::ofstream out(rec / "info"); out << "T " << beforeRecording.title << "\\n"; }
+    { std::ofstream out(rec / "info"); out << "T " << beforeRecording.title << "\n"; }
     { std::ofstream out(rec / "index"); out << "index"; }
     { std::ofstream out(rec / "00001.ts"); out << "segment"; }
     assert(inventory.listTrustedSourceLabels("backend", labels));
     assert(labels.size() == 1 && labels[0].recordingPresent);
     // A colliding directory with the wrong recording title is NOT imported.
-    { std::ofstream out(rec / "info", std::ios::trunc); out << "T Other\\n"; }
+    { std::ofstream out(rec / "info", std::ios::trunc); out << "T Other\n"; }
     assert(inventory.listTrustedSourceLabels("backend", labels));
     assert(labels.size() == 1 && !labels[0].recordingPresent);
     fs::remove_all(rec);
