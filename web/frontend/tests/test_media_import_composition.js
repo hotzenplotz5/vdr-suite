@@ -1823,10 +1823,12 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-visible-count').textContent.includes('2 unmarkierte'));
   assert.strictEqual(folderList.children.length, 2);
   const pendingRescan = findClass(mount, 'media-import-reload').listeners.click();
-  assert(findClass(mount, 'media-import-scan-notice').textContent.includes('Scan läuft'));
-  assert(findClass(mount, 'media-import-visible-count').textContent.includes('Scan läuft'));
-  assert(folderSelect.disabled && folderSelect.children.length === 0,
-    'a pending rescan never retains stale selectable options');
+  assert(findClass(mount, 'media-import-scan-notice').textContent.includes(
+    'Quellen werden aktualisiert'));
+  assert(findClass(mount, 'media-import-visible-count').textContent.includes(
+    '2 unmarkierte'));
+  assert(!folderSelect.disabled && folderSelect.children.length === 3,
+    'a pending read-only rescan must preserve the already loaded library');
   await pendingRescan;
   await settle();
   assert.strictEqual(folderSelect.children.length, 3);
