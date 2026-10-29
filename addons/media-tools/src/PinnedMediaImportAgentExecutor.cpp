@@ -99,7 +99,7 @@ std::string parseCommittedRecording(
 MediaImportAgentOutcome runPinned(
     int fd, const LocalMediaImportSource& source, std::int64_t deadline,
     MediaToolsImportRunLock& runLock, std::string& recordingEvidence,
-    bool approveVideoReencode)
+    bool approveVideoReencode, const std::string& frozenMetadata)
 {
     recordingEvidence.clear();
     if (fd < 0 || !safePath(source.sourceRoot) ||
@@ -116,11 +116,14 @@ MediaImportAgentOutcome runPinned(
     std::string sourceFile = source.sourceFile.string();
     std::string confirmation = "--confirm-writes";
     std::string encodingApproval = "--approve-video-reencode";
-    char* const argv[] = {
+    std::string metadataArgument = "--metadata=" + frozenMetadata;
+    std::vector<char*> argv = {
         executable.data(), action.data(), sourceRoot.data(), videoRoot.data(),
-        sourceFile.data(), confirmation.data(),
-        approveVideoReencode ? encodingApproval.data() : nullptr, nullptr
+        sourceFile.data(), confirmation.data()
     };
+    if (approveVideoReencode) argv.push_back(encodingApproval.data());
+    if (!frozenMetadata.empty()) argv.push_back(metadataArgument.data());
+    argv.push_back(nullptr);
     char environmentPath[] = "PATH=/usr/bin:/bin";
     char environmentLocale[] = "LC_ALL=C";
     char* const environment[] = {environmentPath, environmentLocale, nullptr};
@@ -155,7 +158,7 @@ MediaImportAgentOutcome runPinned(
             ::_exit(127);
         ::close(capture[1]);
         ::close(devnull);
-        ::fexecve(fd, argv, environment);
+        ::fexecve(fd, argv.data(), environment);
         ::_exit(127);
     }
     ::close(capture[1]);
@@ -458,7 +461,8 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
     const auto outcome = runPinned(
         snapshot->pinnedBinary.get(), local, assignment.deadline,
         *runLock, recordingEvidence_,
-        requestedDecision == MediaImportDecision::local);
+        requestedDecision == MediaImportDecision::local,
+        mediaImportSelectionMetadata(assignment.payload));
     if (outcome == MediaImportAgentOutcome::submitted &&
         validRecordingPathEvidence(recordingEvidence_)) {
         const auto sourceProof = mediaImportSourceEvidence(
