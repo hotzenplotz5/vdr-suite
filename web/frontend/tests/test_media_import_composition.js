@@ -1240,6 +1240,13 @@ function publishHomeResume() {}
   });
   assert(parkedRow && parkedRow.children[1].textContent.includes('PC-Version gefunden'),
     'returning same-name file is shown beside parked Rectools PC marker');
+  const localVdrRelease = parkedRow.children.find(function (child) {
+    return child.className === 'media-import-pc-local-release';
+  });
+  assert(localVdrRelease && localVdrRelease.textContent.includes('lokale VDR-Umkodierung'),
+    'parked .pc_encode has a visible local-conversion release action');
+  assert.strictEqual(localVdrRelease.disabled, false,
+    'release action uses existing explicit Core operation, not a disabled placeholder');
   const postsBeforeReturn = submits;
   await parkedRow.children[0].listeners.click();
   await settle();
