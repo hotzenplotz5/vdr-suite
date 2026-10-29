@@ -758,6 +758,11 @@ int main() {
                        "D Die Suche beginnt.\n");
         assert(fs::exists(output / "00001.ts") &&
                fs::exists(output / "index") && fs::exists(f.source));
+        assert(fs::is_regular_file(output / ".vdr-suite-import-origin"));
+        const auto duplicate = inspectImportPreview(f.request());
+        assert(duplicate.duplicateTarget &&
+               confirmedMediaImportDuplicate(duplicate) &&
+               "native TMDb T/S rewrite must not hide the existing VDR recording");
         ++checks;
     }
     {
