@@ -1870,7 +1870,7 @@ function publishHomeResume() {}
   await settle();
   assert(findClass(mount, 'media-import-source').disabled);
   assert(findClass(mount, 'media-import-scan-notice').textContent.includes(
-    'Scan nicht abgeschlossen'));
+    'Quellenaktualisierung fehlgeschlagen'));
   delete sourceFolders[SOURCE_B];
   batchSources = null;
 
