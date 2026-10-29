@@ -1895,6 +1895,7 @@
     const all = [];
     const seen = new Set();
     let partial = false;
+    let stale = false;
     const prefix = '/api/v1/backends/' + backendId + '/media-import-sources?cursor=';
     function page(cursor, count) {
       const options = readOptions(backendId);
@@ -1921,8 +1922,9 @@
         if (all.length > MAX_IMPORT_FILMS)
           throw new Error('Mehr als 100 Importquellen in der Serverantwort');
         partial = partial || Boolean(response.meta && response.meta.partial);
+        stale = stale || Boolean(response.meta && response.meta.stale);
         const link = response.links && response.links.next;
-        if (!link) return {items: all, meta: {partial: partial}};
+        if (!link) return {items: all, meta: {partial: partial, stale: stale}};
         if (typeof link !== 'string' || !link.startsWith(prefix) ||
             response.items.length !== 32 || count >= 3)
           throw new Error('Ungültige Scan-Fortsetzung');
@@ -2442,6 +2444,16 @@
                    item.label.length > 0 && item.label.length <= 160 &&
                    !/[\/\\\r\n\x00-\x1f\x7f]/.test(item.label)));
             })) throw new Error('Ungültige Quellenliste');
+        // A stale read is usable for navigation, not a newer scan. Preserve
+        // the active episode and preview when we already display that catalog.
+        if (response.meta && response.meta.stale &&
+            (view.allOrdinary.length || view.allMarked.length)) {
+          view.scanNotice.textContent = 'Zuletzt geladene Quellenliste. ' +
+            'Aktualisierung momentan nicht möglich; Ordner und Filter bleiben nutzbar.';
+          report(view, 'Quellenliste weiterhin sichtbar (zuletzt geladen). ' +
+            'Import/Löschen wird beim Ausführen vom Backend geprüft.');
+          return;
+        }
         // Commit a new validated inventory only now. A partial/failed GET
         // must never blank the source list or throw away an existing selection.
         view.previewCache.clear();
@@ -2495,7 +2507,10 @@
         view.searchInput.disabled = false;
         view.statusFilter.disabled = false;
         view.seasonFilter.disabled = false;
-        view.scanNotice.textContent = bounded && items.length >= MAX_IMPORT_FILMS
+        view.scanNotice.textContent = response.meta && response.meta.stale
+          ? 'Zuletzt geladene Quellenliste. Ordner und Filter sind nutzbar; ' +
+            'eine Aktualisierung ist momentan nicht möglich.'
+          : bounded && items.length >= MAX_IMPORT_FILMS
           ? 'Importgrenze: Höchstens 100 Filme pro Durchlauf. ' +
             '100 geprüfte Quellen werden angezeigt. Der Scan ist nicht ' +
             'vollständig. Da Originale erhalten bleiben, für weitere ' +
