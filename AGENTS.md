@@ -35,6 +35,9 @@ fremde Entwicklungsbranches nicht eigenmächtig löschen oder umschreiben.
 
 ## Verbindlicher lokaler Branch-Check vor Build, Test und Installation (28.10.2026)
 
+**Ausnahme für reine Zwei-Dateien-Frontend-Updates:** Hierfür gilt die ausdrückliche KISS-Regel „Keine präventiven Sperrprüfungen bei einfachen Dateiupdates“ weiter unten; ein anderer lokaler Branch oder Detached HEAD ist bei einem verifizierten festen Quellcommit kein Stop-Grund.
+
+
 **Ausdrückliche Maintainer-Anordnung:** Vor jedem lokalen Build, Testlauf,
 Staging, Merge oder Installationslauf zuerst den **tatsächlich ausgecheckten
 lokalen Branch** im verwendeten Checkout prüfen. Ein richtiger GitHub-PR-Branch
@@ -107,6 +110,19 @@ For each proposed console GitHub operation:
 
 Neue Sicherheits-, Berechtigungs-, Aktivierungs- oder Installationsbeschränkungen dürfen nicht eigenständig eingeführt werden. Bestehende Schutzmechanismen dürfen nicht ohne begründeten Bedarf verschärft werden. Änderungen müssen die Benutzerfreundlichkeit erhalten oder verbessern. Zusätzliche Prüfungen, die keine konkret nachweisbare Fehlerklasse verhindern, sind zu vermeiden. Bereits bestätigte Testergebnisse dürfen nicht ohne Anlass erneut angefordert werden.
 
+### Verbindlich: Keine präventiven Sperrprüfungen bei einfachen Dateiupdates (29.10.2026)
+
+**Ausdrückliche Maintainer-Anordnung: Absicherung nur, wenn ohne sie eine konkrete Gefahr schwerer System- oder Datenbeschädigung besteht. Keine vorsorglichen Abbruchprüfungen bei trivialen Updates.** KISS und Usability First haben Vorrang vor spekulativen Prüfketten.
+
+- **Zwei Frontend-Dateien ersetzen ist kein System-Deployment.** Für ein gezieltes Update bereits bekannter Dateien wie `app.js` und `modules/media-import.js` aus einem festgelegten Commit direkt die beiden Dateien aktualisieren. Keine vollständige Runtime-Stage erzeugen, versiegeln, abgleichen oder deployen; keine Komplettinstallation als Umweg.
+- **Kein Branch-/Detached-HEAD-Gate für Einzeldatei-Updates.** Der lokale Checkout darf einen anderen Branch oder Detached HEAD haben. Bei einem ausdrücklich festgelegten Remote-Commit sind solche Zustände irrelevant und dürfen das Dateiupdate nicht verhindern. Branchprüfungen für tatsächlich geplante Builds oder Repository-Änderungen bleiben davon getrennt.
+- **Kein Stage-Drift-Gate für Einzeldatei-Updates.** Ein Manifest-/Stage-Abgleich, der lediglich ältere Versionen dieser zwei Frontend-Dateien meldet, ist kein Schaden und kein Grund für einen Abbruch. Die alte Stage bei diesem Vorgang nicht als autoritative Live-Basis behandeln.
+- **Keine künstlichen Vorbedingungen.** Keine neuen Capability-, Aktivierungs-, Agent-, Lease-, Datenbank-, CI-, Dienst- oder Installer-Prüfketten; keine ungefragten Backups, Builds oder Dienstneustarts für reine statische Dateiupdates. Ein erfolgreich abgeschlossener Funktionstest ist nicht bei jeder Installation erneut einzufordern.
+- **Schutzprüfungen nur bei konkretem Schadensrisiko.** Eine zusätzliche blockierende Prüfung benötigt eine belegbare, durch das Update verursachte Gefahr schwerer und nicht ohne Weiteres reversibler System- oder Datenbeschädigung. Die bloße Möglichkeit eines fehlgeschlagenen Updates, ein veraltetes Manifest, ein anderer Branch oder ein vorübergehend nicht erreichbarer Agent reichen dafür nicht. Technisch notwendige Dateioperationen dürfen natürlich ihr tatsächliches Ergebnis melden.
+- **Kleiner Änderungsumfang, kleine Lösung.** Bei einem Zwei-Dateien-Update nur die zwei bezeichneten Dateien ersetzen und den tatsächlichen Ausgang melden. Keine neuen Regeln, Skriptframeworks oder globalen Freigaben erfinden. Bestehende serverseitige Autorisierung für echte Import-, Lösch- und andere Datenmutationen bleibt unberührt.
+
+**Vorrang bei Widerspruch:** Diese speziell angeordnete Ausnahme für reine Einzeldatei-Updates geht den älteren lokalen Branch-, Stage- und Installations-Preflight-Regeln vor. Sie gilt nicht für C++-Builds, Eingriffe in Datenbanken, Aufnahmen, Dienste oder andere potentiell systemkritische Änderungen.
+
 ### Verbindlich: Agent-Störungen dürfen die Bedienoberfläche nicht blockieren (29.10.2026)
 
 **Ausdrückliche Maintainer-Anordnung: Eine installierte und bereits verwendete Funktion bleibt unabhängig von vorübergehenden Agent-, Capability-, Lease- und Transportstörungen navigierbar und lesend bedienbar.** Das betrifft ausdrücklich Media Tools / Media Import, gilt aber als Usability-Grundsatz für alle Suite-Module.
@@ -119,6 +135,8 @@ Neue Sicherheits-, Berechtigungs-, Aktivierungs- oder Installationsbeschränkung
 - **Regressionstests sind verpflichtend:** temporäres negatives Capability-Ergebnis, Agent-503 beim ersten und bei einem späteren Scan, Tabwechsel während des Fehlers, Erhalt der letzten erfolgreichen Liste, Entsperrung unabhängiger Aktionen und korrekte Abmeldung testen. Nicht nur Erfolgsmeldungen oder Mockup prüfen, sondern das tatsächliche Webfrontend-Verhalten.
 
 ### Verbindlich: KISS-Updates nur auf Basis der tatsächlich installierten Stage (29.10.2026)
+
+**Nur für Stage-basierte Runtime-Deployments; nicht für gezielte Einzeldatei-Updates gemäß der vorstehenden Ausnahme.**
 
 Ein Installationsblock darf eine alte, inzwischen überholte Runtime-Stage **nicht** als aktuelle Ausgangsbasis verwenden. Vor jedem inkrementellen Update die **zuletzt erfolgreich installierte und mit `install_runtime_stage.py check` verifizierte Stage** aus der realen Host-Ausgabe wählen. Eine ältere Stage meldet bei korrekt veränderten Dateien `RUNTIME_DEPLOYMENT_DRIFT`; diese erwartete Abweichung ist **kein Defekt der Live-Installation**. Bei einem solchen Fehler abbrechen, die tatsächliche aktuelle Stage ermitteln und ausschließlich von ihr aus neu versiegeln/deployen; kein blindes Zurückrollen, kein Drüberbügeln ungeprüfter Dateien. Für reine Webfrontend-Änderungen weder C++ neu bauen noch VDR/Daemon/Agent neu starten. Keine ungefragten Datenbanksicherungen, neuen Dienste oder weiteren Aktivierungsgates einführen.
 
