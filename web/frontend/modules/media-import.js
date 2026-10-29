@@ -2482,7 +2482,8 @@
         if (!isCurrent(view) || view.batch || view.submitting ||
             view.previewGeneration !== generation ||
             view.select.value !== sourceId ||
-            view.metadataReview[reviewKey] ||
+            (view.metadataReview[reviewKey] &&
+             view.metadataReview[reviewKey].pending) ||
             !global.confirm ||
             !global.confirm('Die ausgewählten TMDb-Daten dieser bereits ' +
               'vorhandenen Aufnahme in VDR-Suite zuordnen? ' +
