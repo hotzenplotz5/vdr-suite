@@ -50,7 +50,7 @@ bool exactExisting(
         a.payload == payload &&
         a.payloadVersion ==
             vdrsuite::mediatools::mediaImportSelectionVersion(
-                choice) &&
+                choice, a.payload) &&
         a.verificationPolicy == "reconciliation_required" &&
         backendAgentCommandValidAssignment(a);
 }
@@ -97,7 +97,7 @@ BackendAgentMediaImportAssignmentService::assign(
         !vdrsuite::mediatools::parseMediaImportSelection(
             payload.payload.payload, selected, choice) ||
         payload.payload.payloadVersion !=
-            vdrsuite::mediatools::mediaImportSelectionVersion(choice) ||
+            vdrsuite::mediatools::mediaImportSelectionVersion(choice, payload.payload.payload) ||
         selected != op.resourceId)
         return deny("media_import_operation_payload_invalid");
 
