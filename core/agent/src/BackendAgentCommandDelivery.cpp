@@ -1350,7 +1350,35 @@ BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
             value.verificationState == "outcome_unknown" &&
             value.retryClassification == "reconcile_only" &&
             !value.resultEvidence.empty();
-        if (!historicalModifyResult)
+        // Another strictly bounded historical ACK: the original Media Import
+        // was rejected with an already durable "not_started" result. This
+        // reconciles that old failed operation only; it grants no stale poll,
+        // receipt or dispatch authority to the old Agent generation.
+        const bool historicalUndispatchedMediaImport =
+            context.authenticated() &&
+            context.actor.type == ActorType::Agent &&
+            current.has_value() && !current->revoked &&
+            !current->incompatible &&
+            current->actorId == context.actor.actorId &&
+            current->agentId == value.agentId &&
+            current->backendGeneration > value.backendGeneration &&
+            original.has_value() &&
+            original->backendId == value.backendId &&
+            original->agentId == value.agentId &&
+            original->agentInstanceId == value.agentInstanceId &&
+            original->backendGeneration == value.backendGeneration &&
+            original->requestFingerprint == value.requestFingerprint &&
+            original->commandType == "addon.media.import" &&
+            value.dispatchState == "not_started" &&
+            value.resultCategory == "rejected" &&
+            value.verificationState == "outcome_unknown" &&
+            value.errorCategory == "fenced" &&
+            value.retryClassification == "none" &&
+            value.resultEvidence.empty() &&
+            value.completedAt >= original->assignedAt &&
+            value.completedAt <= now &&
+            original->deadline < now;
+        if (!historicalModifyResult && !historicalUndispatchedMediaImport)
         {
             result.reasonCode =
                 reason.empty() ? "command_generation_fenced" : reason;
