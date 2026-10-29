@@ -4979,6 +4979,18 @@ body.channel-sorter-dragging * {
   white-space: normal;
   overflow-wrap: anywhere;
 }
+.media-import-panel .media-import-select-item .media-import-delete-blocked {
+  grid-column: 1 / -1;
+  margin: .15rem 0 0;
+  padding: .3rem .45rem;
+  font-size: .83rem;
+  line-height: 1.35;
+  color: #fecaca;
+  overflow-wrap: anywhere;
+}
+.media-import-panel .media-import-select-item .media-import-delete-blocked[hidden] {
+  display: none !important;
+}
 @media (max-width: 480px) {
   .media-import-panel .media-import-delete-duplicate { width: 100%; }
 }
