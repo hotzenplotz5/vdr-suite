@@ -80,10 +80,13 @@ assert(app.includes('resetMediaImportVisibility(true);'));
 const capabilityUnavailable = app.match(/function unavailable\(\) \{([\s\S]*?)\n  \}/);
 assert(capabilityUnavailable && capabilityUnavailable[1].includes('return true;'),
   'transient Agent capability failure must keep Media Import navigation available');
-const mediaTabBranch = app.split("if (selectedModule === 'media-import') {")[1]
-  .split('\n  }')[0];
-assert(mediaTabBranch.includes('renderSelectedModule(currentSnapshot || {});') &&
-  !mediaTabBranch.includes('refreshMediaImportVisibility('),
+// The shell contains more than one Media Import branch. Inspect the
+// navigation click handler, not the first unrelated occurrence in the file.
+const mediaTabBranch = app.match(
+  /if \(selectedModule === 'media-import'\) \{\n    \/\/ Navigation is independent[\s\S]*?\n  \}/);
+assert(mediaTabBranch &&
+  mediaTabBranch[0].includes('renderSelectedModule(currentSnapshot || {});') &&
+  !mediaTabBranch[0].includes('refreshMediaImportVisibility('),
   'opening Media Import must render without any Agent capability roundtrip');
 const importClickBody = view.split('function startImport(')[1]
   .split('function activate(')[0];
