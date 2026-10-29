@@ -58,6 +58,17 @@
     return {backendId: backendId, credentials: 'same-origin', cache: 'no-store'};
   }
 
+  // Advisory observation for the shell tab; NEVER an import/delete gate.
+  // Core alone authorizes an explicitly confirmed action on its POST route.
+  function checkCapability(backendId) {
+    return publicClient().getMediaImportCapability(readOptions(backendId))
+      .then(function (result) {
+        return Boolean(result && result.available === true &&
+          result.backendId === backendId &&
+          result.capability === 'addons.media.import');
+      });
+  }
+
   function makeKey() {
     if (!global.crypto || typeof global.crypto.getRandomValues !== 'function') {
       throw new Error('Sichere Zufallsquelle für Idempotency-Key nicht verfügbar.');
