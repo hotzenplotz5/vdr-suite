@@ -194,6 +194,27 @@ void testStrictPayload()
             assert(mediaImportMarkerEvidence(id, decision).find(id) !=
                    std::string::npos);
     }
+    // MT.META6 provider identity stays in the SAME immutable import
+    // assignment; prior v1 and v2 commands continue unchanged.
+    for (const auto choice : {MediaImportDecision::import,
+                              MediaImportDecision::local}) {
+        const std::string frozen =
+            "v2|episode|Star%20Wars%3A%20Andor|Kassa|Plot|1|1|"
+            "tv-episode|45001|%2Fexample.jpg";
+        const std::string payload = mediaImportSelectionJson(
+            id, choice, frozen);
+        std::string parsedSource;
+        MediaImportDecision parsedChoice = MediaImportDecision::skip;
+        assert(parseMediaImportSelection(payload, parsedSource, parsedChoice));
+        assert(parsedSource == id && parsedChoice == choice);
+        assert(mediaImportSelectionMetadata(payload) == frozen);
+        a.payload = payload;
+        a.payloadVersion = mediaImportSelectionVersion(choice, payload);
+        assert(a.payloadVersion ==
+            (choice == MediaImportDecision::import ? 8U : 9U));
+        a.requestFingerprint = backendAgentCommandFingerprint(a);
+        assert(backendAgentCommandValidAssignment(a));
+    }
     for (const char* forged : {
         "{\"sourceId\":\"inventory_12345678\",\"videoDecision\":\"other\"}",
         "{\"sourceId\":\"../../escape\",\"videoDecision\":\"desktop\"}"}) {
