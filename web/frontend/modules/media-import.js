@@ -284,6 +284,27 @@
     return 'Löschen gesperrt: Der vorherige Auftrag läuft noch.';
   }
 
+  function updateInlineDeleteAvailability(view) {
+    if (!view || !view.selectionRows) return;
+    Array.from(view.selectionRows.children).forEach(function (row) {
+      const rowId = row.dataset.sourceId;
+      const rowDelete = Array.from(row.children).find(function (child) {
+        return (child.className || '').includes('media-import-delete-duplicate-inline');
+      });
+      if (!rowDelete) return;
+      const reason = deleteBlockReason(view, rowId);
+      rowDelete.disabled = Boolean(reason);
+      rowDelete.title = reason;
+      const blocked = Array.from(row.children).find(function (child) {
+        return (child.className || '').includes('media-import-delete-blocked');
+      });
+      if (blocked) {
+        blocked.textContent = reason;
+        blocked.hidden = !reason;
+      }
+    });
+  }
+
   function prepareIndependentDelete(view, sourceId) {
     if (!isCurrent(view) || deleteBlockReason(view, sourceId)) return false;
     const attempt = view.attempt;
@@ -392,6 +413,7 @@
       view.unresolvedList.appendChild(row);
     });
     view.unresolvedList.hidden = view.unresolvedList.children.length === 0;
+    updateInlineDeleteAvailability(view);
     updateOperationDiagnostics(view);
   }
 
@@ -850,6 +872,7 @@
         throw new Error('Ungültige Operationsantwort');
       }
       view.attempt.state = operation.state;
+      updateInlineDeleteAvailability(view);
       view.attempt.lastStatusRead = new Date().toLocaleTimeString('de-DE');
       view.attempt.lastStatusError = '';
       view.attempt.sourceCleanup = typeof operation.sourceCleanup === 'string'
@@ -1415,6 +1438,7 @@
     // Remount after a known unknown outcome remains browsable even when
     // the current Agent/Core status request times out again.
     enableUnknownBrowsing(view);
+    updateInlineDeleteAvailability(view);
     if (view.attempt.operationId) {
       readOperation(view);
     } else if (view.attempt.pending) {
@@ -2955,21 +2979,6 @@
         : 'media-import-select-item' +
           (present ? ' is-recording-present' : '') +
           (rowSelected ? ' is-selected' : '');
-      const rowDelete = Array.from(row.children).find(function (child) {
-        return (child.className || '').includes('media-import-delete-duplicate-inline');
-      });
-      if (rowDelete) {
-        const reason = deleteBlockReason(view, rowId);
-        rowDelete.disabled = Boolean(reason);
-        rowDelete.title = reason;
-        const blocked = Array.from(row.children).find(function (child) {
-          return (child.className || '').includes('media-import-delete-blocked');
-        });
-        if (blocked) {
-          blocked.textContent = reason;
-          blocked.hidden = !reason;
-        }
-      }
       if (!marked && row.children[2]) {
         const rowItem = view.allOrdinary.find(function (source) {
           return source.sourceId === rowId;
@@ -3005,6 +3014,7 @@
             : '') + pcHint;
       }
     });
+    updateInlineDeleteAvailability(view);
     if (!selected) {
       view.preview.textContent = 'Schritt 2: Film oder Serienfolge auswählen. Die Vorschau startet automatisch.';
       renderPreviewCard(view, null, item);
@@ -3160,6 +3170,7 @@
       return Promise.resolve();
     }
     view.submitting = true;
+    updateInlineDeleteAvailability(view);
     view.startButton.disabled = true;
     renderImportFeedback(view);
     view.localReencode.disabled = true;
