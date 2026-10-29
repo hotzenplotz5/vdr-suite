@@ -70,7 +70,7 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
             vdrsuite::mediatools::parseMediaImportSelection(
                 value.payload, sourceId, decision) &&
             value.payloadVersion ==
-                vdrsuite::mediatools::mediaImportSelectionVersion(decision);
+                vdrsuite::mediatools::mediaImportSelectionVersion(decision, value.payload);
     }
     if (value.commandType ==
             vdrsuite::mediatools::kMediaShrinkStageCommandType ||
