@@ -65,12 +65,16 @@ inline bool mediaToolsActivationPermits(
             intent.agentId.empty() && intent.agentInstanceId.empty() &&
             intent.approvedHandlerSha256.empty();
     }
-    // A restarted authenticated Agent receives a new process instance and
-    // generation. Those are operation/lease fences, not administrator intent.
-    // Only the original enrolled Agent and independently approved handler
-    // may reuse the persisted approval. Never revive unbound legacy rows.
-    return intent.desiredEnabled &&
-        intent.backendGeneration > 0 &&
+    // The administrator's explicit enable is persistent configuration, not
+    // an Agent lease. An enable saved while the Agent was offline has no
+    // binding; executing still independently requires an authenticated
+    // current Agent, valid command capability and Core-verified root approval.
+    if (!intent.desiredEnabled) return false;
+    if (intent.backendGeneration == 0 && intent.agentId.empty() &&
+        intent.agentInstanceId.empty() &&
+        intent.approvedHandlerSha256.empty()) return true;
+    // Existing pinned approvals retain their exact enrolled Agent/handler.
+    return intent.backendGeneration > 0 &&
         !intent.agentInstanceId.empty() &&
         intent.agentId == agentId &&
         intent.approvedHandlerSha256 == trustedHandlerSha256;
