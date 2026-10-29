@@ -2357,6 +2357,53 @@
       }
     }
     renderOnline(view, card, plan, source);
+    // MT.META6: allow an explicit, identity-checked Suite metadata repair
+    // for an already confirmed recording. This reuses the existing recording
+    // assignment route and never starts an import or edits native VDR info.
+    const existingSelection = selected && plan && plan.status === 'duplicate'
+      ? importMetadataSelection(view, plan, source) : null;
+    if (existingSelection && !view.batch) {
+      const sourceId = source.sourceId;
+      const generation = view.previewGeneration;
+      const reviewKey = sourceId + '|' +
+        existingSelection.candidate.externalNamespace + ':' +
+        existingSelection.candidate.externalId;
+      const previous = view.metadataReview[reviewKey];
+      const repair = element('button', 'media-import-existing-metadata',
+        previous ? previous.pending ? 'TMDb-Zuordnung wird gespeichert …'
+          : 'TMDb-Zuordnung bereits angefragt'
+          : 'TMDb-Daten für vorhandene Aufnahme übernehmen');
+      repair.type = 'button';
+      repair.disabled = Boolean(previous) || view.submitting;
+      repair.addEventListener('click', function () {
+        if (!isCurrent(view) || view.batch || view.submitting ||
+            view.previewGeneration !== generation ||
+            view.select.value !== sourceId ||
+            view.metadataReview[reviewKey] ||
+            !global.confirm ||
+            !global.confirm('Die ausgewählten TMDb-Daten dieser bereits ' +
+              'vorhandenen Aufnahme in VDR-Suite zuordnen? ' +
+              'Die native VDR-info-Datei bleibt vorerst unverändert.'))
+          return Promise.resolve();
+        view.metadataReview[reviewKey] = {pending: true, text: ''};
+        updatePreview(view);
+        const repairAttempt = {metadataSelection: existingSelection, metadataFeedback: ''};
+        return applyImportedMetadata(view, repairAttempt).then(function () {
+          if (!isCurrent(view)) return;
+          view.metadataReview[reviewKey] = {
+            pending: false,
+            text: repairAttempt.metadataFeedback ||
+              'Metadatenstatus nicht bestätigt. Bitte die Aufnahme prüfen.'
+          };
+          updatePreview(view);
+        });
+      });
+      card.appendChild(repair);
+      card.appendChild(element('p', 'media-import-metadata-repair-note',
+        previous && previous.text ? previous.text :
+        'Korrigiert ausschließlich die Suite-Metadatenzuordnung. ' +
+        'Die native VDR-info-Übernahme folgt in MT.META6.'));
+    }
     const diagnostics = {
       agent_unavailable: 'Der Backend-Agent oder Media Tools ist nicht erreichbar.',
       maintenance_busy: 'Media Tools ist gerade beschäftigt. Vorschau erneut prüfen.',
@@ -3093,6 +3140,7 @@
       previewTimer: null, previewGeneration: 0, previewReads: 0,
       previewResult: null, previewStatus: '', previewFailed: false,
       previewCache: new Map(),
+      metadataReview: Object.create(null),
       onlineSeq: 0, onlineItems: [], onlineSelected: null,
       onlineSeries: null, onlineSeason: null, onlineMode: 'search',
       onlineKind: 'movie', onlineQuery: '', onlineStatus: '', onlinePending: false,
