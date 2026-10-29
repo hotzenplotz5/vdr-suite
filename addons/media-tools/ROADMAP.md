@@ -115,6 +115,53 @@ Das **zweite, zuletzt gezeigte Media-Tools-Mockup** im Chat vom 27.10.2026 ist d
 
 **Status (27.10.2026):** MT.META1 ist quellseitig und in der CI bestätigt. **MT.META2 Code/CI PASS:** Lokale NFO-Texte (Kurzbeschreibung, Beschreibung, Jahr und Genre), Titel und optional ermittelte FFprobe-Laufzeit werden über den vorhandenen Agent-/Core-/Public-v1-Vorschauweg in der Desktop- und Handy-Detailkarte angezeigt; technische Werte bleiben Bestandteil der Vorschau. Am exakten Produkt-/Test-SHA `af97d1d30169cdd96dd05c48e2d8d20f0b830f62` ist [VDR-Suite CI #40586551656](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40586551656) mit sechs erfolgreichen Jobs abgeschlossen (Frontend, Fast Regression, Architektur, Make-Audit, Docs und Packaging). **REAL-VDR sowie echte Handy-/Desktop-Screenshotabnahme bleiben NOT_VERIFIED**; CI ist keine installierte Runtime. MT.META3 und MT.META4 sind quellseitig ergänzt; MT.META5 ist quellseitig ergänzt, aber noch nicht abgenommen; MT.META6 bleibt geplant. **MT.META4 Frontend/Architektur PASS** am Produkt- und Test-SHA `5317f743b09895fc1bf581f1bc7610178f2167cd`: [VDR-Suite CI #40597902322](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40597902322), relevante Jobs `frontend-regression-test`, `architecture-check` und `make-test-audit` erfolgreich. Die übrigen CI-Jobs und die echte Host-/Geräte-Abnahme sind separate Prüfstufen. Eine Metadatenvorschau importiert, markiert, kodiert oder löscht keine Quelle automatisch.
 
+
+### REAL-yaVDR-Rückmeldung vom 29.10.2026 – S01E05 und neue UI-Befunde
+
+Der Betreiber zeigt im laufenden yaVDR-Suite-Frontend fünf Andor-Aufnahmen
+S01E01–S01E05 unter „Neu aufgenommen“; S01E05 („Die Axt vergisst ihr Werk“)
+wurde neu importiert. Gleichzeitig meldet die Media-Import-Operation
+`outcome_unknown` und die bereits vorhandene Aufnahme erscheint in der
+Importquelle nicht dauerhaft als importiert markiert. Die sichtbare
+Suite-Aufnahme beweist allein keinen abgeschlossenen Core-Operations-Readback.
+Bei der Diagnose zuerst die konkrete Operation und ihren Agent-Ergebnisbeleg
+gegen die vorhandene `reconcileRecordingCache`-Kette prüfen:
+`resultReference`, `resultEvidence`, `completedAt`, Cache-Refresh-Zeit,
+Backend-/Recording-Identität und `succeeded`-CAS. Keinen zweiten Import
+der Folge starten und keinen Erfolg aus Dateinamengleichheit ableiten.
+
+Weitere bestätigte Produktbefunde: Der Quellenkatalog liefert keine
+dauerhafte aufnahmebestätigte Statuskennung für gewöhnliche Dateien; beim
+Auswählen läuft wieder die technische Vorschau. Das blockierte Entfernen
+bereits importierter Quelldateien ist deshalb kein bloßes CSS-Problem:
+Ein ungewisser Auftrag belegt die Core-/Frontend-Mutationssperre. Es muss
+eindeutig erklärt und über bestehende journalgestützte Resultate aufgelöst
+werden. Ein aktives Löschen muss die tatsächlich bestätigte VDR-Aufnahme
+unverändert lassen und nach Core-ACK die Inventarliste sichtbar aktualisieren.
+
+Für MT.META6 sind S01E01–S01E05 als Bestandsaufnahmen **ohne erneuten
+Videoimport** nachzukorrigieren: echte VDR-`info`-Texte, Zuordnung von
+Serie/Staffel/Episode, Beschreibung und Artwork über die bestehenden
+Recording- und Metadaten-Owner. Die aktuelle Online-Vorschau ist kein
+Nachweis für diese Persistenz. Die quellseitig ergänzte manuelle
+`metadata/assign`-Aktion für exakt bestätigte Dubletten korrigiert zunächst
+nur Suite-eigene Metadaten. VDR-`info` und persistentes
+Core-Operationsresultat bleiben getrennte offene Slices.
+
+`.pc_encode` markiert weiterhin eine zurückgestellte Quelldatei. Als
+kleine UI-Verbesserung wurde am 29.10.2026 eine sichtbare ausdrückliche
+Freigabeaktion ergänzt. Nach bestätigter Core-Freigabe wird ausschließlich
+die eindeutige, wieder unmarkierte Quelle neu geprüft und die bereits
+vorhandene lokale H.264-Umkodierungswahl geöffnet. Weder der Release-Klick
+noch die technische Vorschau startet einen Videokonvertierungsauftrag.
+Keine neue Worker-Architektur.
+
+**Abnahme:** Die genannten Änderungen sind aktuell GitHub-Quellstand in
+PR #556. Der UI-Quelltext wurde syntaktisch mit V8 geparst. Die vollständigen
+Frontend-/C++-Regressionen und der reale yaVDR-End-to-End-Lauf sind für
+diesen Stand **nicht ausgeführt / nicht bestätigt**; weder Agent-Dienste noch
+produktive Dateien wurden durch den Repository-Commit verändert.
+
 ### Phasen und harte Abnahmekriterien — in dieser Reihenfolge
 
 | Phase | Auftrag / betroffene Bestandsmodule | Fertig erst, wenn … |
