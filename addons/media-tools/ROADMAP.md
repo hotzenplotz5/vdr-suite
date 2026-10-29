@@ -205,6 +205,69 @@ produktive Installation/REAL-yaVDR-Abnahme. Dieser Fix wird erst mit dem
 **Core-Daemon**, nicht bloß dem Media-Tools-Frontend oder Importer,
 wirksam. Bereits vorhandene S01E05 nicht neu importieren.
 
+#### MT.REC6 – dauerhafte Quellenanzeige und Dubletten-Löschen (29.10.2026, Code)
+
+**Implementierter Quellvertrag:** Der bestehende `RootOwnedMediaImportInventory`
+erkennt eine vollständige, zum Importtitel passende VDR-`.rec`-Aufnahme direkt
+bei der regulären Quellinventur mit `confirmedMediaImportDuplicate(plan)`.
+Die Aussage `recording_present` wird beim nächsten Scan erneut aus den
+vorhandenen Dateien abgeleitet; sie ist **kein** zusätzlicher DB-Status und
+behauptet nicht, dass die alte Core-Operation bereits `succeeded` ist.
+Beschädigte, abweichende oder ersetzte Zielaufnahmen ergeben
+`unverified`. Das Inventar startet hierfür keine Video-/FFprobe-Prüfung
+und löst keinen Import, keine Markierung und keine Löschung aus.
+
+**Vorhandener Datenpfad:** `MediaImportSourceLabel.recordingPresent`
+→ Agent-Source-Observation `sourceStatuses` (parallel zu IDs/Labels/Foldern)
+→ `BackendAgentMediaImportCatalog` (nur live Agent, gleicher Snapshot,
+max. 100 Einträge) → Public v1 `recordingStatus` mit derselben
+Cursor-/Revision-Gültigkeit → Media-Import-Listenansicht. Alte
+Agenten/Clients ohne Status bleiben nutzbar und zeigen weiter `unverified`
+statt einen Import zu erfinden. Die UI zeigt „Bereits importiert –
+VDR-Aufnahme vorhanden“ direkt neben jeder passenden Quelle und bietet
+einen „Bereits importiert“-Filter.
+
+**Weniger Prüfungen:** Beim Anklicken einer bereits als
+`recording_present` gemeldeten Quelle fordert das Frontend nicht erneut
+eine technische FFprobe-Vorschau an; es verwendet die bereits bestätigte
+Inventarbeobachtung. Nur bei einer explizit erzwungenen Neuprüfung, bei
+unbekannten Quellen und für tatsächliche neue Importe ist die reguläre
+technische Vorschau weiterhin erforderlich.
+
+**Dubletten-Löschung:** Eine unmarkierte, im Scan bestätigte Dublette
+erhält unmittelbar in ihrer Listenzeile den Button „Dublette aus
+Importquelle löschen“. Der Button wählt ausschließlich die konkrete
+opaque `sourceId` und verwendet nach Benutzerbestätigung das bereits
+vorhandene `delete_duplicate`-Core/Agent-Verfahren mit erneuter
+Quell-/Zielidentitätsprüfung. Es gibt **keinen** direkten PHP-/JS-Unlink,
+keine neue Rolle/DB/Agenten-Gate und keine automatische Löschung. Erst die
+`succeeded`-Operation mit erfolgreicher erneuter Quelle-Erfassung
+entfernt den Eintrag aus der Liste und meldet „gelöscht“. Bereits
+`.duplicate`-markierte Quellen behalten denselben funktionierenden
+Listenbutton.
+
+**Tests eingecheckt:** `test_local_media_import_inventory.cpp`
+(belegtes Recording / unpassender Titel / nach Löschung kein Status),
+`test_backend_agent_lifecycle.cpp` (Agent→Catalog),
+`test_public_media_import_source_list.cpp` (Ausgabe, ungültiger Status,
+Snapshot-Cursor nach Statuswechsel),
+`test_media_import_composition.js` (erneutes Öffnen ohne Preview/POST;
+explizites Löschen mit genau einer Mutation, Neuscan).
+Außerdem gilt der zuvor implementierte MT.REC6-Fix für
+`outcome_unknown` bei `/srv/vdr/video` ↔ `/srv/vdr/video.00`.
+
+**Abnahmestatus:** Commit in PR #556, **noch keine behauptete** erfolgreiche
+vollständige C++-/Frontend-Testausführung, kein bestätigter
+Core-/Agent-/Web-Runtime-Build und keine Installation auf yaVDR.
+Zur Wirksamkeit müssen die aktualisierten Runtime-Binaries einschließlich
+Daemon und Backend-Agent sowie die Frontend-Staging-Dateien zusammen aus
+einem exakt geprüften Stand installiert werden. **REAL-yaVDR**: Prüfen,
+dass S01E01–S01E05 beim Laden bereits erkannt sind, Anklicken ohne
+Preview-Operation funktioniert, einmaliges Löschen eines zuvor separat
+freigegebenen Test-Duplikats die Quelle entfernt und die VDR-Aufnahme
+unverändert lässt. Die fünf Andor-Quelldateien nicht ungefragt löschen.
+Die native Metadaten-Übernahme bleibt **MT.META6**, nicht MT.REC6.
+
 ### Phasen und harte Abnahmekriterien — in dieser Reihenfolge
 
 | Phase | Auftrag / betroffene Bestandsmodule | Fertig erst, wenn … |
