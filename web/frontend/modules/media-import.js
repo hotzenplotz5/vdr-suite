@@ -15,6 +15,9 @@
   // Latest Core-confirmed outcome per backend, during this authenticated
   // browser session. Display receipt only; never treat it as source identity.
   const completedOperations = Object.create(null);
+  // Last successfully verified source inventory per backend, memory-only
+  // within the current authenticated browser session. Never persisted.
+  const lastGoodSourceInventories = Object.create(null);
   // Avoid repeated automatic duplicate operations for a single source observation.
   const automaticDuplicates = Object.create(null);
   const POLL_MS = 4000;
@@ -131,6 +134,9 @@
     });
     Object.keys(completedOperations).forEach(function (id) {
       delete completedOperations[id];
+    });
+    Object.keys(lastGoodSourceInventories).forEach(function (id) {
+      delete lastGoodSourceInventories[id];
     });
   }
 
@@ -2415,58 +2421,11 @@
     if (!isCurrent(view) ||
         (view.attempt && !mayBrowseWithUnknownOutcome(view)))
       return Promise.resolve();
-    // A new authorized inventory starts a new preview lifetime. Do not
-    // reuse a result after a scan, import or source change.
-    view.previewCache.clear();
-    if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
-    view.previewTimer = null;
-    ++view.previewGeneration;
-    resetOnline(view);
-    view.previewResult = null;
-    view.previewStatus = '';
-    view.previewFailed = false;
-    // A filter change or rescan clears selection; do not leave an inert retry visible.
-    view.previewRetryButton.hidden = true;
-    resetBatchReview(view);
+    // A failed refresh must not destroy an already browsable, authenticated
+    // inventory. Only commit a fresh scan after the complete response validates.
     const generation = ++view.sourcesGeneration;
-    // A re-scan must not display stale counts or selectable entries while
-    // the current backend snapshot is being fetched.
-    view.scanNotice.textContent = 'Scan läuft: Quellen werden erneut geladen …';
-    view.visibleCount.textContent = 'Scan läuft: Noch keine aktuellen Treffer.';
-    view.preview.textContent = 'Scan läuft: Bitte die aktuelle Filmliste abwarten.';
-    view.previewCard.replaceChildren(element('p', 'media-import-preview-hint',
-      'Importquellen werden gescannt …'));
-    view.select.replaceChildren();
-    view.markedSelect.replaceChildren();
-    view.sourceDetails.textContent = '';
-    view.select.disabled = true;
-    view.startButton.disabled = true;
-    view.markedSelect.disabled = true;
-    view.releaseButton.disabled = true;
-    view.releaseButton.hidden = true;
-    view.batchButton.disabled = true;
-    view.selectedBatchButton.disabled = true;
-    view.selectAllVisibleButton.disabled = true;
-    view.searchInput.disabled = true;
-    view.statusFilter.disabled = true;
-    view.seasonFilter.disabled = true;
-    view.sources = [];
-    view.markedSources = [];
-    view.checkedSourceIds.clear();
-    view.selectionRows.replaceChildren();
-    view.selectedBatchButton.disabled = true;
-    view.selectAllVisibleButton.disabled = true;
-    view.allOrdinary = [];
-    view.allMarked = [];
-    view.folderPath = '';
-    view.folderBreadcrumb.replaceChildren();
-    view.folderList.replaceChildren();
-    view.seriesGroups.replaceChildren();
-    view.seasonFilter.replaceChildren();
-    view.seriesCaption.textContent = 'Scan läuft';
-    view.folderBreadcrumb.hidden = true;
-    view.folderList.hidden = true;
-    report(view, 'Autorisierte Importquellen werden geladen …');
+    view.scanNotice.textContent = 'Quellen werden aktualisiert. Die letzte geladene Liste bleibt sichtbar …';
+    report(view, 'Quellenaktualisierung läuft; vorhandene Liste bleibt benutzbar.');
     return readSourcePages(view.backendId)
       .then(function (response) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
@@ -2483,6 +2442,25 @@
                    item.label.length > 0 && item.label.length <= 160 &&
                    !/[\/\\\r\n\x00-\x1f\x7f]/.test(item.label)));
             })) throw new Error('Ungültige Quellenliste');
+        // Commit a new validated inventory only now. A partial/failed GET
+        // must never blank the source list or throw away an existing selection.
+        const previousSelection = view.select.value;
+        view.previewCache.clear();
+        if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
+        view.previewTimer = null;
+        ++view.previewGeneration;
+        resetOnline(view);
+        view.previewResult = null;
+        view.previewStatus = '';
+        view.previewFailed = false;
+        view.previewRetryButton.hidden = true;
+        resetBatchReview(view);
+        view.checkedSourceIds.clear();
+        view.sourceDetails.textContent = '';
+        view.allOrdinary = [];
+        view.allMarked = [];
+        view.selectionRows.replaceChildren();
+        view.sourceTitles = Object.create(null);
         // The Agent reports whether the bounded local walk reached its end.
         // Missing/legacy completion metadata is conservatively incomplete.
         const bounded = !(response.meta && response.meta.partial === false);
@@ -2492,6 +2470,10 @@
         const marked = items.filter(function (item) {
           return Boolean(markerSuffix(item));
         });
+        lastGoodSourceInventories[view.backendId] = {
+          ordinary: ordinary.map(function (item) { return Object.assign({}, item); }),
+          marked: marked.map(function (item) { return Object.assign({}, item); })
+        };
         // Only the verified Agent snapshot can supply selectable opaque IDs.
         // Browser search/status filtering is a view, never a new authority.
         view.allOrdinary = ordinary.map(function (item, index) {
@@ -2507,6 +2489,10 @@
           view.sourceTitles[item.sourceId] = item.label;
         });
         filterVisibleSources(view);
+        if (previousSelection && view.sources.includes(previousSelection)) {
+          view.select.value = previousSelection;
+          refreshSelectedPreview(view);
+        }
         view.searchInput.disabled = false;
         view.statusFilter.disabled = false;
         view.seasonFilter.disabled = false;
@@ -2543,13 +2529,17 @@
           : error && (error.status === 401 || error.status === 403 || error.status === 404)
             ? 'Für dieses Backend sind keine Importquellen zugänglich.'
             : 'Quellenliste konnte nicht geladen werden. Bitte aktualisieren.';
-        view.scanNotice.textContent = exceeded
-          ? 'Importgrenze überschritten: Maximal 100 Filme pro Durchlauf. ' +
-            'Keine Auswahl freigegeben; bitte erneut scannen.'
-          : 'Scan nicht abgeschlossen. Keine aktuellen ' +
-            'Ergebnisse; bitte nur nach erfolgreicher Aktualisierung auswählen.';
-        view.preview.textContent = 'Keine aktuelle Auswahl; noch kein Import vorbereitet.';
-        report(view, message, true);
+        const preserved = view.allOrdinary.length + view.allMarked.length > 0;
+        view.scanNotice.textContent = preserved
+          ? 'Aktualisierung fehlgeschlagen. Letzte erfolgreich geladene ' +
+            'Quellenliste bleibt sichtbar. Import/Löschen wird beim Ausführen ' +
+            'vom Backend erneut geprüft.'
+          : 'Quellenaktualisierung fehlgeschlagen. Noch keine erfolgreich ' +
+            'geladene Liste in dieser Anmeldung vorhanden.';
+        report(view, preserved
+          ? 'Backend-Agent momentan nicht erreichbar. Die bisherige ' +
+            'Quellenliste bleibt erhalten; erneut scannen, sobald erreichbar.'
+          : message, true);
       });
   }
 
@@ -3691,6 +3681,25 @@
       unknownBrowsingEnabled: false,
       attempt: activeAttempts[backendId] || null};
     current = view;
+    // Switching tabs must not erase the most recent inventory just because
+    // the Agent's lease temporarily expired between two views.
+    const savedInventory = lastGoodSourceInventories[backendId];
+    if (savedInventory) {
+      view.allOrdinary = savedInventory.ordinary.map(function (item, index) {
+        return {sourceId: item.sourceId,
+          label: item.label || ('Film ' + (index + 1)),
+          folder: item.folder || '',
+          folderKnown: Object.prototype.hasOwnProperty.call(item, 'folder'),
+          recordingPresent: item.recordingStatus === 'recording_present'};
+      }).sort(compareSources);
+      view.allMarked = savedInventory.marked.slice().sort(compareSources);
+      view.allOrdinary.forEach(function (item) {
+        view.sourceTitles[item.sourceId] = item.label;
+      });
+      filterVisibleSources(view);
+      view.scanNotice.textContent = 'Letzte erfolgreich geladene Liste. ' +
+        'Aktualisierung läuft; vorhandene Aufnahmen bleiben sichtbar.';
+    }
     renderUnresolvedAttempts(view);
     updateOperationDiagnostics(view);
     setMobilePane(view, 'media');
