@@ -187,7 +187,90 @@ inline bool parseMediaImportSelection(
         decision = option.second;
         return true;
     }
+    // MT.META6: backwards-compatible, immutable metadata snapshot for
+    // import/local only. The snapshot is the already-found TMDb data; the
+    // Agent does not make another provider request.
+    const std::string prefix = "{\"sourceId\":\"";
+    const std::string direct = "\",\"metadata\":\"";
+    const std::string local = "\",\"videoDecision\":\"local\",\"metadata\":\"";
+    if (payload.compare(0, prefix.size(), prefix) != 0 ||
+        payload.size() < prefix.size() + 16U + direct.size() + 6U ||
+        payload.substr(payload.size() - 2) != "\"}")
+        return false;
+    for (const auto& option : {
+        std::pair<std::string, MediaImportDecision>{direct, MediaImportDecision::import},
+        {local, MediaImportDecision::local}
+    }) {
+        const auto split = payload.find(option.first, prefix.size());
+        if (split == std::string::npos) continue;
+        const auto id = payload.substr(prefix.size(), split - prefix.size());
+        const auto snapshotStart = split + option.first.size();
+        const auto snapshot = payload.substr(
+            snapshotStart, payload.size() - snapshotStart - 2U);
+        const auto validId = id.size() >= 16U && id.size() <= 64U &&
+            std::all_of(id.begin(), id.end(), [](unsigned char ch) {
+                return std::isalnum(ch) || ch == '_' || ch == '-';
+            });
+        if (!validId || snapshot.size() < 12U || snapshot.size() > 4096U ||
+            snapshot.compare(0, 3, "v1|") != 0 ||
+            std::count(snapshot.begin(), snapshot.end(), '|') != 6)
+            return false;
+        const bool alphabet = std::all_of(
+            snapshot.begin(), snapshot.end(), [](unsigned char ch) {
+                return std::isalnum(ch) || ch == '_' || ch == '%' ||
+                    ch == '.' || ch == '~' || ch == '!' || ch == '*' ||
+                    ch == 39 || ch == '(' || ch == ')' || ch == '-' ||
+                    ch == '|';
+            });
+        if (!alphabet ||
+            (snapshot.compare(3, 8, "episode|") != 0 &&
+             snapshot.compare(3, 6, "movie|") != 0))
+            return false;
+        for (std::size_t i = 0; i < snapshot.size(); ++i) {
+            if (snapshot[i] != '%') continue;
+            const auto hex = [](unsigned char x) {
+                return (x >= '0' && x <= '9') ||
+                    (x >= 'a' && x <= 'f') ||
+                    (x >= 'A' && x <= 'F');
+            };
+            if (i + 2 >= snapshot.size() ||
+                !hex(snapshot[i+1]) || !hex(snapshot[i+2])) return false;
+            i += 2;
+        }
+        sourceId = id;
+        decision = option.second;
+        return true;
+    }
     return false;
+}
+inline std::string mediaImportSelectionMetadata(const std::string& payload)
+{
+    std::string id;
+    MediaImportDecision decision;
+    if (!parseMediaImportSelection(payload, id, decision)) return {};
+    const std::string marker = "\",\"metadata\":\"";
+    const auto at = payload.find(marker);
+    if (at == std::string::npos) return {};
+    return payload.substr(at + marker.size(),
+                          payload.size() - at - marker.size() - 2U);
+}
+inline unsigned mediaImportSelectionVersion(
+    MediaImportDecision decision, const std::string& payload)
+{
+    const bool withMetadata = !mediaImportSelectionMetadata(payload).empty();
+    if (withMetadata)
+        return decision == MediaImportDecision::import ? 8U
+             : decision == MediaImportDecision::local ? 9U : 0U;
+    switch (decision) {
+        case MediaImportDecision::import: return 1U;
+        case MediaImportDecision::local: return 2U;
+        case MediaImportDecision::desktop: return 3U;
+        case MediaImportDecision::skip: return 4U;
+        case MediaImportDecision::release: return 5U;
+        case MediaImportDecision::duplicate: return 6U;
+        case MediaImportDecision::deleteDuplicate: return 7U;
+    }
+    return 0U;
 }
 inline unsigned mediaImportSelectionVersion(MediaImportDecision decision)
 {
@@ -218,6 +301,19 @@ inline std::string mediaImportSelectionJson(
     }
     return "{\"sourceId\":\"" + sourceId +
         "\",\"videoDecision\":\"" + option + "\"}";
+}
+// Versioned snapshot stays inside the SAME durable Import operation.
+// No independent scraper, job, or client-side state is required for replay.
+inline std::string mediaImportSelectionJson(
+    const std::string& sourceId, MediaImportDecision choice,
+    const std::string& metadata)
+{
+    const std::string original = mediaImportSelectionJson(sourceId, choice);
+    if (metadata.empty() ||
+        (choice != MediaImportDecision::import &&
+         choice != MediaImportDecision::local)) return original;
+    return original.substr(0, original.size() - 1U) +
+           ",\"metadata\":\"" + metadata + "\"}";
 }
 inline std::string mediaImportMarkerEvidence(
     const std::string& sourceId, MediaImportDecision choice)
