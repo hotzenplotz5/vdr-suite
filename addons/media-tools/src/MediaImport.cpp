@@ -689,16 +689,20 @@ bool confirmedMediaImportDuplicate(const ImportPlan& plan)
             std::ifstream metadata(recording / "info", std::ios::binary);
             std::string line;
             bool matchingTitle = false;
-            // A VDR info file starts with T <title> when written by our importer.
-            // Never mistake a different title in a colliding directory for this film.
+            bool suiteImportProvenance = false;
+            // This is the exact, source-derived VDR target directory, not a
+            // fuzzy title search. An operator may subsequently correct T in
+            // the native info file (for example to a TMDb episode title).
+            // Keep accepting the original exact T; after a correction only
+            // accept the importer-owned S marker, never an unrelated title.
             while (std::getline(metadata, line)) {
                 if (!line.empty() && line.back() == '\r') line.pop_back();
-                if (line.compare(0, 2, "T ") == 0) {
+                if (line.compare(0, 2, "T ") == 0)
                     matchingTitle = line.substr(2) == plan.title;
-                    break;
-                }
+                if (line == "S Imported via VDR-Suite Media Tools")
+                    suiteImportProvenance = true;
             }
-            if (matchingTitle) return true;
+            if (matchingTitle || suiteImportProvenance) return true;
         }
     } catch (...) {
         return false;
