@@ -1118,7 +1118,14 @@ function publishHomeResume() {}
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
   assert.strictEqual(batchOperations.length, 2,
-    'after independent VDR readback the next compatible film proceeds');
+    'after independent VDR readback the next compatible film proceeds' +
+    '; status=' + findClass(mount, 'status').textContent +
+    '; operation=' + findClass(mount, 'media-import-operation').textContent +
+    '; source=' + findClass(mount, 'media-import-source').value +
+    '; batchReview=' + findClass(mount, 'media-import-batch-summary').textContent +
+    '; lastPosts=' + JSON.stringify(requests.filter(function (r) {
+      return r.path.endsWith('/media-imports') && r.options.method === 'POST';
+    }).slice(-3).map(function (r) { return JSON.parse(r.options.body); })));
   batchStates[BATCH_OP_B] = 'succeeded';
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
