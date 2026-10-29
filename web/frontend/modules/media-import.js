@@ -1766,7 +1766,8 @@
     blank.value = '';
     view.select.appendChild(blank);
     normal.forEach(function (item) {
-      const option = element('option', '', item.label || 'Film');
+      const option = element('option', '', (item.label || 'Film') +
+        (item.recordingPresent ? ' ✓ Importiert' : ''));
       option.value = item.sourceId;
       view.select.appendChild(option);
     });
