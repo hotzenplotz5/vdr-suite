@@ -947,14 +947,34 @@ function publishHomeResume() {}
   await settle();
   assert(findClass(mount, 'status').textContent.includes('Berechtigung'));
 
+  // Agent command/lease trouble must NOT wipe an already loaded library.
+  // The next scan may return 503, but selection, folders, and source rows
+  // remain navigable. A mutation is not retried by this read-only fallback.
   sourcesStatus = 503;
+  const inventoryBefore503 = findClass(mount, 'media-import-selection').children.length;
+  const postsBefore503 = submits;
+  select = findClass(mount, 'media-import-source');
+  select.value = SOURCE;
+  select.listeners.change();
+  await settle();
   await findClass(mount, 'media-import-reload').listeners.click();
   await settle();
-  assert(findClass(mount, 'status').textContent.includes('abgelaufen'));
-  const unavailableImportButton = findClass(mount, 'media-import-start');
-  assert(!unavailableImportButton ||
-    unavailableImportButton.disabled || unavailableImportButton.hidden,
-    'no import action is available while source inventory is unavailable');
+  assert(findClass(mount, 'status').textContent.includes('bleibt erhalten'));
+  assert(findClass(mount, 'media-import-scan-notice').textContent.includes(
+    'Letzte erfolgreich geladene'));
+  assert.strictEqual(findClass(mount, 'media-import-selection').children.length,
+    inventoryBefore503, 'an unsuccessful scan may not erase the list');
+  assert.strictEqual(findClass(mount, 'media-import-source').value, SOURCE,
+    'failed refresh must retain the selected film');
+  assert.strictEqual(submits, postsBefore503,
+    'preserving the failed inventory is strictly read-only');
+  context.selectModule('overview');
+  context.selectModule('media-import');
+  await settle();
+  assert(findClass(mount, 'media-import-source').children.length > 1,
+    'last verified source list survives a tab switch during Agent 503');
+  assert.strictEqual(submits, postsBefore503,
+    'reopening a cached inventory never executes any mutation');
 
   // A pending POST must survive a real production tab/owner replacement.
   sourcesStatus = 200;
