@@ -542,6 +542,57 @@ ImportLocalMetadata readImportLocalMetadata(const ImportPlan& plan) {
     return metadata;
 }
 
+// VDR info is line-oriented. Provider descriptions may contain line breaks;
+// treat them as text rather than accidentally creating another native info
+// record (such as a second T/S/D line). Keep Unicode UTF-8 bytes unchanged.
+std::string renderNativeVdrRecordingInfo(
+    const ImportPlan& plan, const ImportLocalMetadata& local,
+    const ImportConfirmedMetadata* confirmed)
+{
+    const auto singleLine = [](const std::string& input) {
+        std::string output;
+        output.reserve(input.size());
+        bool pendingSpace = false;
+        for (unsigned char ch : input) {
+            if (ch == '\n' || ch == '\r' || ch == '\t' || ch == ' ') {
+                pendingSpace = !output.empty();
+                continue;
+            }
+            if (ch < 32 || ch == 127) continue;
+            if (pendingSpace) output.push_back(' ');
+            pendingSpace = false;
+            output.push_back(static_cast<char>(ch));
+        }
+        return output;
+    };
+    const bool episode = confirmed && confirmed->mediaType == "episode";
+    const bool movie = confirmed && confirmed->mediaType == "movie";
+    const bool selected = episode || movie;
+    const std::string title = singleLine(
+        episode && !confirmed->seriesTitle.empty()
+            ? confirmed->seriesTitle
+            : selected && !confirmed->title.empty()
+                ? confirmed->title : plan.title);
+    const std::string subtitle = singleLine(
+        episode && !confirmed->title.empty()
+            ? confirmed->title
+            : local.shortText.empty()
+                ? "Imported via VDR-Suite Media Tools" : local.shortText);
+    std::string description = singleLine(
+        selected && !confirmed->overview.empty()
+            ? confirmed->overview : local.description);
+    if (!local.year.empty()) {
+        if (!description.empty()) description += " | ";
+        description += "Year: " + singleLine(local.year);
+    }
+    if (!local.genre.empty()) {
+        if (!description.empty()) description += " | ";
+        description += "Genre: " + singleLine(local.genre);
+    }
+    std::string info = "T " + title + "\nS " + subtitle + "\n";
+    if (!description.empty()) info += "D " + description + "\n";
+    return info;
+}
 
 ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan) {
     const auto fresh = inspectImportPreview(
@@ -782,7 +833,8 @@ void requireProductionCapacity(const ImportPlan& plan) {
 
 fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
                             const std::function<void(const ImportPlan&)>& capacityPreflight,
-                            bool allowVideoReencode) {
+                            bool allowVideoReencode,
+                            const ImportConfirmedMetadata* confirmedMetadata) {
     // Re-inspect at execution time: no untrusted request may reuse a stale plan.
     const auto fresh = inspectImport({plan.sourceRoot, plan.videoRoot, plan.sourceFile});
     require(fresh.titleDirectory == plan.titleDirectory &&
@@ -864,19 +916,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
         require(currentTitle == plan.title, "NFO title changed during import");
         std::ofstream info(stagedRecording / "info", std::ios::binary | std::ios::trunc);
         require(static_cast<bool>(info), "cannot create VDR metadata");
-        info << "T " << plan.title << "\n";
-        info << "S " << (metadata.shortText.empty() ?
-            "Imported via VDR-Suite Media Tools" : metadata.shortText) << "\n";
-        std::string description = metadata.description;
-        if (!metadata.year.empty()) {
-            if (!description.empty()) description += " | ";
-            description += "Year: " + metadata.year;
-        }
-        if (!metadata.genre.empty()) {
-            if (!description.empty()) description += " | ";
-            description += "Genre: " + metadata.genre;
-        }
-        if (!description.empty()) info << "D " << description << "\n";
+        info << renderNativeVdrRecordingInfo(plan, metadata, confirmedMetadata);
         info.flush();
         require(static_cast<bool>(info), "metadata write failed");
     }
