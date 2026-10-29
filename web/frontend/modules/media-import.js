@@ -670,6 +670,48 @@
         view.newButton.hidden = false;
       }
       if (view.batch) advanceBatch(view, operation);
+      // A successful explicit release must be reflected in the source list.
+      // For a parked .pc_encode original, open ONLY its uniquely matched,
+      // newly unmarked source for the usual independent codec preview.
+      // No local encoding or second operation starts automatically.
+      if (!view.batch && operation.state === 'succeeded' &&
+          view.attempt.videoDecision === 'release') {
+        const releasedId = view.attempt.sourceId;
+        const original = view.allMarked.find(function (item) {
+          return item.sourceId === releasedId;
+        });
+        const pcOriginal = original && markerSuffix(original) === 'pc_encode'
+          ? {folder: original.folder,
+             label: original.label.slice(0, -'.pc_encode'.length)}
+          : null;
+        delete activeAttempts[view.backendId];
+        view.attempt = null;
+        view.refreshButton.hidden = true;
+        view.newButton.hidden = true;
+        view.reloadButton.disabled = false;
+        return loadSources(view).then(function () {
+          if (!isCurrent(view)) return;
+          if (!pcOriginal) {
+            report(view, 'Markierung freigegeben. Die aktuelle Importliste wurde neu geladen.');
+            return;
+          }
+          const matches = view.allOrdinary.filter(function (item) {
+            return item.folder === pcOriginal.folder &&
+              item.label === pcOriginal.label;
+          });
+          if (matches.length !== 1) {
+            report(view, 'PC-Markierung freigegeben. Die Datei bitte in der ' +
+              'aktualisierten Liste auswählen und auf Importfähigkeit prüfen.');
+            return;
+          }
+          view.select.value = matches[0].sourceId;
+          refreshSelectedPreview(view, true);
+          setMobilePane(view, 'details');
+          report(view, 'PC-Markierung freigegeben. Die Datei wird erneut ' +
+            'technisch geprüft. Danach kannst du die lokale H.264-Umkodierung ' +
+            'auswählen und ausdrücklich bestätigen; es wurde noch nicht importiert.');
+        });
+      }
       if (!view.batch && operation.state === 'succeeded' &&
           (view.attempt.videoDecision === 'duplicate' ||
            view.attempt.videoDecision === 'delete_duplicate')) {
@@ -1816,9 +1858,11 @@
               'Ohne eindeutige Zuordnung wird keine Datei automatisch gewählt, ' +
               'markiert oder gelöscht. Jede Quelle getrennt prüfen.'
             : marker === 'pc_encode'
-              ? 'Nach der Umkodierung die neue Videodatei ohne .pc_encode ' +
-                'im selben Importordner ablegen. Sie wird beim nächsten Scan ' +
-                'normal erkannt; das markierte Original wird nicht importiert.'
+              ? 'Alternativ die Datei hier ausdrücklich für lokale VDR-' +
+                'Umkodierung freigeben. Nach der bestätigten Freigabe wird ' +
+                'sie erneut technisch geprüft; H.264-Umkodierung und Import ' +
+                'brauchen danach eine eigene Bestätigung. Für PC-Bearbeitung ' +
+                'die neue Videodatei ohne .pc_encode im selben Ordner ablegen.'
             : 'Diese Rectools-Markierung wird respektiert; keine erneute ' +
               'Importausführung für die markierte Datei.';
         view.preview.textContent = statusText + ' ' + hint;
@@ -1848,6 +1892,20 @@
               ? 'PC-Rücklauf mehrdeutig' : 'Wartet auf PC-Bearbeitung'));
       row.appendChild(open);
       row.appendChild(meta);
+      if (marker === 'pc_encode') {
+        // Expose the existing explicit release operation directly in the
+        // media list. The returned ordinary source must pass its own codec
+        // preview and per-film local-reencode consent before import.
+        const localRelease = element('button',
+          'media-import-pc-local-release',
+          'Für lokale VDR-Umkodierung freigeben');
+        localRelease.type = 'button';
+        localRelease.addEventListener('click', function () {
+          if (!chooseMarkedSource()) return;
+          return startImport(view, true);
+        });
+        row.appendChild(localRelease);
+      }
       if (marker === 'duplicate') {
         // The action must be reachable in the episode list, without opening
         // collapsed technical details or relying on the transient detail card.
@@ -2238,6 +2296,13 @@
     view.deleteDuplicateButton.disabled = !unmarkedDuplicate ||
       Boolean(view.attempt) || view.submitting || Boolean(view.batch);
     if (unmarkedDuplicate) actions.appendChild(view.deleteDuplicateButton);
+    if (unmarkedDuplicate && view.attempt &&
+        view.attempt.state === 'outcome_unknown') {
+      actions.appendChild(element('p', 'media-import-delete-blocked',
+        'Löschen derzeit gesperrt: Der vorherige Importauftrag ist noch ' +
+        '„Ergebnis ungewiss“. Bitte zuerst den bestehenden Vorgang ' +
+        'prüfen. Es wird kein zweiter Auftrag ausgelöst.'));
+    }
     card.appendChild(actions);
     card.appendChild(view.importFeedback);
     renderImportFeedback(view);
