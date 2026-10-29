@@ -54,11 +54,11 @@ public:
         calls.push_back(path);
         if (path == "/api/agent/v1/commands/result")
             return acceptResult
-                ? BackendAgentTransportResponse{true, 200, "{\\\"outcome\\\":\\\"accepted\\\"}", ""}
+                ? BackendAgentTransportResponse{true, 200, R"({"outcome":"accepted"})", ""}
                 : BackendAgentTransportResponse{true, 409, "", "command_generation_fenced"};
         if (path == "/api/agent/v1/commands/poll")
             return {true, 200,
-                "{\\\"hasAssignment\\\":false,\\\"reasonCode\\\":\\\"no_command_available\\\"}",
+                R"({"hasAssignment":false,"reasonCode":"no_command_available"})",
                 ""};
         assert(false && "Unexpected historical command transport");
         return {};
@@ -1004,7 +1004,7 @@ int main()
     std::remove(mediaPath.c_str());
     auto oldImport = assignment();
     oldImport.commandType = "addon.media.import";
-    oldImport.payload = "{\\\"sourceId\\\":\\\"source_historical_123456\\\"}";
+    oldImport.payload = R"({"sourceId":"source_historical_123456"})";
     oldImport.verificationPolicy = "reconciliation_required";
     oldImport.requestFingerprint = backendAgentCommandFingerprint(oldImport);
     assert(backendAgentCommandValidAssignment(oldImport));
