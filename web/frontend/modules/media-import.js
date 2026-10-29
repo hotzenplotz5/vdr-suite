@@ -2853,7 +2853,9 @@
       const previous = view.metadataReview[reviewKey];
       const repair = element('button', 'media-import-existing-metadata',
         previous ? previous.pending ? 'TMDb-Zuordnung wird gespeichert …'
-          : 'TMDb-Zuordnung bereits angefragt'
+          : previous.text && previous.text.includes('✓')
+            ? 'TMDb-Zuordnung gespeichert ✓'
+            : 'TMDb-Zuordnung erneut versuchen'
           : 'TMDb-Daten für vorhandene Aufnahme übernehmen');
       repair.type = 'button';
       repair.disabled = Boolean(previous && previous.pending) || view.submitting;
@@ -2876,9 +2878,15 @@
             if (!resolved) throw new Error('Keine eindeutige TMDb-Auswahl');
             repairAttempt.metadataSelection = resolved;
             return applyImportedMetadata(view, repairAttempt);
-          }).catch(function () {
-            repairAttempt.metadataFeedback =
-              'TMDb-Zuordnung nicht übernommen: Aufnahmeziel konnte nicht sicher geprüft werden.';
+          }).catch(function (error) {
+            // Do not disguise a 503 capability/preview outage as an ambiguous
+            // recording identity. Keep the selected episode and retry action.
+            const http = error && Number.isInteger(error.status)
+              ? 'HTTP ' + error.status + ': ' : '';
+            const detail = error && typeof error.message === 'string'
+              ? error.message.slice(0, 180) : 'Unbekannte Ursache';
+            repairAttempt.metadataFeedback = 'TMDb-Zuordnung nicht übernommen: ' +
+              http + detail + '. Aufnahme bleibt unverändert.';
           }).then(function () {
             if (!isCurrent(view)) return;
             view.metadataReview[reviewKey] = {
