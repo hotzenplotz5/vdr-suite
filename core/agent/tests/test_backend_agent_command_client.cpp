@@ -39,6 +39,32 @@ public:
     }
 };
 
+class HistoricalMediaResultTransport final : public IBackendAgentControlPlaneTransport
+{
+public:
+    bool acceptResult = false;
+    std::vector<std::string> calls;
+    BackendAgentTransportResponse postEnrollment(
+        const std::string&, const std::string&, const std::string&,
+        const std::string&) override { return {}; }
+    BackendAgentTransportResponse postAuthenticated(
+        const std::string&, const std::string&, const std::string& path,
+        const std::string&) override
+    {
+        calls.push_back(path);
+        if (path == "/api/agent/v1/commands/result")
+            return acceptResult
+                ? BackendAgentTransportResponse{true, 200, "{\\\"outcome\\\":\\\"accepted\\\"}", ""}
+                : BackendAgentTransportResponse{true, 409, "", "command_generation_fenced"};
+        if (path == "/api/agent/v1/commands/poll")
+            return {true, 200,
+                "{\\\"hasAssignment\\\":false,\\\"reasonCode\\\":\\\"no_command_available\\\"}",
+                ""};
+        assert(false && "Unexpected historical command transport");
+        return {};
+    }
+};
+
 BackendAgentCommandAssignment assignment()
 {
     BackendAgentCommandAssignment value;
@@ -970,5 +996,80 @@ int main()
     assert(newInbox == oldInbox);
 
     std::remove(path.c_str());
+
+    // A durable Media Import rejection before native execution is the only
+    // historical import allowed to send an old-generation result. A negative
+    // Core ACK must preserve the exact local inbox for later reconciliation.
+    const std::string mediaPath = "/tmp/vdr-suite-historical-media-result-state";
+    std::remove(mediaPath.c_str());
+    auto oldImport = assignment();
+    oldImport.commandType = "addon.media.import";
+    oldImport.payload = "{\\\"sourceId\\\":\\\"source_historical_123456\\\"}";
+    oldImport.verificationPolicy = "reconciliation_required";
+    oldImport.requestFingerprint = backendAgentCommandFingerprint(oldImport);
+    assert(backendAgentCommandValidAssignment(oldImport));
+    vdrsuite::agent::commandstate::LocalState savedImport;
+    savedImport.assignment = oldImport;
+    savedImport.receipt.commandId = oldImport.commandId;
+    savedImport.receipt.requestFingerprint = oldImport.requestFingerprint;
+    savedImport.receipt.jobId = oldImport.jobId;
+    savedImport.receipt.attemptId = oldImport.attemptId;
+    savedImport.receipt.claimEpoch = oldImport.claimEpoch;
+    savedImport.receipt.backendId = oldImport.backendId;
+    savedImport.receipt.agentId = oldImport.agentId;
+    savedImport.receipt.agentInstanceId = oldImport.agentInstanceId;
+    savedImport.receipt.backendGeneration = oldImport.backendGeneration;
+    savedImport.receipt.receiptCategory = "accepted";
+    savedImport.receipt.receivedAt = 110;
+    savedImport.receipt.reasonCode = "durably_recorded";
+    savedImport.receiptAcknowledged = true;
+    savedImport.dispatchState = "not_started";
+    savedImport.resultPresent = true;
+    savedImport.result.commandId = oldImport.commandId;
+    savedImport.result.requestFingerprint = oldImport.requestFingerprint;
+    savedImport.result.jobId = oldImport.jobId;
+    savedImport.result.attemptId = oldImport.attemptId;
+    savedImport.result.claimEpoch = oldImport.claimEpoch;
+    savedImport.result.backendId = oldImport.backendId;
+    savedImport.result.agentId = oldImport.agentId;
+    savedImport.result.agentInstanceId = oldImport.agentInstanceId;
+    savedImport.result.backendGeneration = oldImport.backendGeneration;
+    savedImport.result.dispatchState = "not_started";
+    savedImport.result.verificationState = "outcome_unknown";
+    savedImport.result.resultCategory = "rejected";
+    savedImport.result.errorCategory = "fenced";
+    savedImport.result.retryClassification = "none";
+    savedImport.result.boundedDiagnostics = "Fenced before native dispatch";
+    savedImport.result.completedAt = 120;
+    assert(vdrsuite::agent::commandstate::persist(mediaPath, savedImport, reason));
+    BackendAgentCommandClientConfig mediaConfig{mediaPath, {"addon.media.import"}};
+    HistoricalMediaResultTransport mediaTransport;
+    assert(!reconcileBackendAgentCommandState(
+        mediaConfig, current, mediaTransport, reason));
+    assert(access(mediaPath.c_str(), F_OK) == 0);
+    mediaTransport.acceptResult = true;
+    assert(reconcileBackendAgentCommandState(
+        mediaConfig, current, mediaTransport, reason));
+    assert(reason == "historical_media_import_rejection_reconciled");
+    vdrsuite::agent::commandstate::LocalState acknowledgedImport;
+    assert(vdrsuite::agent::commandstate::load(
+        mediaPath, acknowledgedImport, reason));
+    assert(acknowledgedImport.resultAcknowledged);
+    assert(pollBackendAgentCommand(mediaConfig, current, mediaTransport, reason));
+    assert(access(mediaPath.c_str(), F_OK) != 0);
+    assert(mediaTransport.calls == std::vector<std::string>({
+        "/api/agent/v1/commands/result", "/api/agent/v1/commands/result",
+        "/api/agent/v1/commands/poll"}));
+
+    // No stale native-starting state may use that historical recovery path.
+    savedImport.dispatchState = "starting";
+    savedImport.result.dispatchState = "starting";
+    assert(vdrsuite::agent::commandstate::persist(mediaPath, savedImport, reason));
+    mediaTransport.calls.clear();
+    assert(!reconcileBackendAgentCommandState(
+        mediaConfig, current, mediaTransport, reason));
+    assert(reason == "local_command_generation_fenced");
+    assert(mediaTransport.calls.empty());
+    std::remove(mediaPath.c_str());
     return 0;
 }
