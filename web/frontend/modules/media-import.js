@@ -865,6 +865,41 @@
     };
   }
 
+  // Resolve the exact import target only when the operator explicitly
+  // assigns TMDb data to an existing recording. A confirmed duplicate is
+  // inspected read-only by the existing Agent: its duplicate branch returns
+  // before ffprobe, without starting another import or marker operation.
+  function resolveExistingRecordingMetadataSelection(view, plan, source) {
+    if (!source || !plan || plan.status !== 'duplicate')
+      return Promise.reject(new Error('Keine bestätigte Aufnahme'));
+    if (plan.targetFolder)
+      return Promise.resolve(importMetadataSelection(view, plan, source));
+    const sourceId = source.sourceId;
+    const generation = view.previewGeneration;
+    const candidate = view.onlineSelected;
+    function read(remaining) {
+      if (!isCurrent(view) || view.previewGeneration !== generation ||
+          view.select.value !== sourceId || view.onlineSelected !== candidate)
+        return Promise.reject(new Error('Die Medienauswahl hat sich geändert'));
+      return Promise.resolve(publicClient().getMediaImportSourcePreview({
+        backendId: view.backendId, sourceId: sourceId,
+        credentials: 'same-origin', cache: 'no-store'
+      })).then(function (response) {
+        if (response && response.state === 'pending' && remaining > 0)
+          return new Promise(function (resolve) {
+            global.setTimeout(resolve, 4000);
+          }).then(function () { return read(remaining - 1); });
+        if (!validMediaImportPreview(response, view.backendId, sourceId) ||
+            response.status !== 'duplicate' || !response.targetFolder)
+          throw new Error('Aufnahmeziel nicht eindeutig bestätigt');
+        const selection = importMetadataSelection(view, response, source);
+        if (!selection) throw new Error('TMDb-Auswahl passt nicht zur Episode');
+        return selection;
+      });
+    }
+    return read(20);
+  }
+
   // The import has already succeeded in the native Recording readback.
   // This optional second step updates only Suite-owned descriptive metadata;
   // failed/offline metadata never changes the proven import outcome.
@@ -901,7 +936,9 @@
           !Array.isArray(entries) || entries.length !== 1)
         throw new Error('Recording target not uniquely resolved');
       const recording = entries[0];
-      if (!recording || recording.title !== selection.title ||
+      // The exact backend folder and one native .rec identity are stronger
+      // than its mutable display title: T may have been corrected in VDR info.
+      if (!recording ||
           typeof recording.backendNativeId !== 'string' ||
           !recording.backendNativeId.endsWith('.rec'))
         throw new Error('Recording identity did not match import');
@@ -2425,7 +2462,9 @@
     // for an already confirmed recording. This reuses the existing recording
     // assignment route and never starts an import or edits native VDR info.
     const existingSelection = selected && plan && plan.status === 'duplicate'
-      ? importMetadataSelection(view, plan, source) : null;
+      ? importMetadataSelection(view, plan.targetFolder ? plan :
+        Object.assign({}, plan, {targetFolder: '__agent_resolution_pending__'}), source)
+      : null;
     if (existingSelection && !view.batch) {
       const sourceId = source.sourceId;
       const generation = view.previewGeneration;
@@ -2438,7 +2477,7 @@
           : 'TMDb-Zuordnung bereits angefragt'
           : 'TMDb-Daten für vorhandene Aufnahme übernehmen');
       repair.type = 'button';
-      repair.disabled = Boolean(previous) || view.submitting;
+      repair.disabled = Boolean(previous && previous.pending) || view.submitting;
       repair.addEventListener('click', function () {
         if (!isCurrent(view) || view.batch || view.submitting ||
             view.previewGeneration !== generation ||
@@ -2451,16 +2490,24 @@
           return Promise.resolve();
         view.metadataReview[reviewKey] = {pending: true, text: ''};
         updatePreview(view);
-        const repairAttempt = {metadataSelection: existingSelection, metadataFeedback: ''};
-        return applyImportedMetadata(view, repairAttempt).then(function () {
-          if (!isCurrent(view)) return;
-          view.metadataReview[reviewKey] = {
-            pending: false,
-            text: repairAttempt.metadataFeedback ||
-              'Metadatenstatus nicht bestätigt. Bitte die Aufnahme prüfen.'
-          };
-          updatePreview(view);
-        });
+        const repairAttempt = {metadataSelection: null, metadataFeedback: ''};
+        return resolveExistingRecordingMetadataSelection(view, plan, source)
+          .then(function (resolved) {
+            if (!resolved) throw new Error('Keine eindeutige TMDb-Auswahl');
+            repairAttempt.metadataSelection = resolved;
+            return applyImportedMetadata(view, repairAttempt);
+          }).catch(function () {
+            repairAttempt.metadataFeedback =
+              'TMDb-Zuordnung nicht übernommen: Aufnahmeziel konnte nicht sicher geprüft werden.';
+          }).then(function () {
+            if (!isCurrent(view)) return;
+            view.metadataReview[reviewKey] = {
+              pending: false,
+              text: repairAttempt.metadataFeedback ||
+                'Metadatenstatus nicht bestätigt. Bitte die Aufnahme prüfen.'
+            };
+            updatePreview(view);
+          });
       });
       card.appendChild(repair);
       card.appendChild(element('p', 'media-import-metadata-repair-note',
