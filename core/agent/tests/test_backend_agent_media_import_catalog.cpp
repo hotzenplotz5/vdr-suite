@@ -243,6 +243,13 @@ int main()
         {}, 120, "other", "0.1.0", approvedSha));
     assert(!catalog.list(live, "backend", 191, items));
     assert(items.empty());
+    // An expired observation still supplies the browser's last known
+    // directory, while new previews/imports remain lease-bound.
+    assert(catalog.listLastObserved("backend", items, labels));
+    assert(items.size() == 100);
+    assert(catalog.requestPreview(live, "backend", 191,
+        exact100.front(), observed) == BackendAgentMediaImportCatalog::PreviewState::denied);
+    assert(!catalog.listLastObserved("unknown-backend", items, labels));
     assert(!catalog.publish(actor, live, "backend", "instance", 7,
         {"source_00000000001", "source_00000000001"}, 120));
     assert(!catalog.publish(actor, live, "backend", "instance", 7,
