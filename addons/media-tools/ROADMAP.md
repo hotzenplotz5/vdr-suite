@@ -120,6 +120,48 @@ Das **zweite, zuletzt gezeigte Media-Tools-Mockup** im Chat vom 27.10.2026 ist d
 
 ### MT.META6 — verbindlicher Integrationsablauf (28.10.2026)
 
+**Quellstand 29.10.2026 – MT.META6 Vorab-Metadaten-Snapshot umgesetzt, Abnahme offen:**
+Der bestehende automatische TMDb-Suchpfad identifiziert eine eindeutige
+Serienfolge bereits vor dem Import. `web/frontend/modules/media-import.js`
+friert deren **schon gefundenen** Serientitel, Episodentitel, Beschreibung
+und SxxExx in `metadata` ein und übergibt diesen Snapshot beim **ersten**
+Media-Import-POST. Der bestehende Public-v1-Client/Router, die permanente
+Core-`MutationOperation` inklusive Payload, die Agent-Zuweisung und der
+bereits vorhandene angepinnte Import-Worker transportieren exakt diesen
+Snapshot **ohne zweiten TMDb-Request**. Die neuen Payload-Versionen 8
+(direkter Import) und 9 (explizit lokale Umkodierung) werden in den bestehenden
+Core-/Agent-Prüfungen verwendet. Alte v1–v7-Import- und Marker-Operationen
+bleiben unverändert gültig. Falls vor dem Import keine eindeutige TMDb-Auswahl
+vorliegt, fehlt die optionale `metadata` und der normale
+NFO-/Dateinamen-Import bleibt unverändert verfügbar.
+
+Der Worker dekodiert die unveränderliche Auswahl und schreibt **beim
+privaten Aufnahme-Staging** `T` (Serie), `S` (Episodentitel), `D`
+(Beschreibung) in die native `info`. Das Video wird nur einmal importiert.
+Die bestehende Suite-Zuordnung mit Artwork läuft weiterhin über den
+bestehenden `metadata/assign`-Folgeschritt und sucht TMDb **nicht erneut**.
+Bei nativer Titelkorrektur hält ein kleines
+`.vdr-suite-import-origin`-Sidecar im neuen `.rec` den geprüften
+ursprünglichen Quell-Dateizustand fest, damit der nächste Scan die Aufnahme
+trotz veränderter `T`/`S`-Felder als Dublette erkennt. Die alten
+`info`-Titel-/Provenienzregeln werden nicht geändert; es wurde keine neue
+Sperrlogik, Datenbank, Agenteninstanz oder Speicherplatzprüfung eingeführt.
+
+**Aktueller Nachweis:** JS-Quellcode syntaktisch geprüft; tatsächlicher
+Public-v1-Client mit einem gemockten HTTP-Transport erfolgreich für
+Legacy-Import, Metadatenimport und lokalen Metadatenimport ausgeführt;
+die reine Browser-Snapshot-Funktion mit eindeutiger Episode und
+Offline-Fallback isoliert bestanden. C++- und Browser-Kompositions-Regressionen
+sind ergänzt, aber **noch nicht in einem Checkout ausgeführt**;
+`REAL_YAVDR=NOT_INSTALLED/NOT_VERIFIED`. Ein Commit oder isolierter
+JS-Test ist keine Funktionsabnahme.
+
+**Weiter offen:** Suite-Poster-/Assignment-Abschluss nach
+Browserende oder Agent-Neustart als serverseitig dauerhafte Zuordnung,
+Nachkorrektur bestehender Andor-S01E01–S01E05-Aufnahmen über native
+Recording-Identität ohne Videoimport, native `info`-Readback-Abnahme,
+vollständige C++-/Web-/REAL-yaVDR-Tests und Client-Refresh-Nachweis.
+
 **Quellstand 29.10.2026 (inkrementell, NICHT vollständig):**
 Der bestehende Media-Import-Worker besitzt jetzt
 `renderNativeVdrRecordingInfo(..., confirmedMetadata)` und verwendet die
