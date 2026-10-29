@@ -312,10 +312,24 @@ bool AddonActivationIntentRepository::eligibleForFutureEnable(
     const BackendAccessDecision& backend,
     const RuntimeEvidence& evidence)
 {
-    // No generic extension loader. Only audited Media Tools can ever be
-    // considered here and only with all independent trusted evidence present.
-    return mutation.moduleId == "rectools" &&
-        evidence.moduleId == "rectools" &&
+    // Enabling is an audited administrator preference. It must not require
+    // a currently leased Agent or a freshly published installation snapshot.
+    // An offline enable stores no executable provider binding. The actual
+    // operation still requires a live, independently verified provider.
+    if (mutation.moduleId != "rectools" ||
+        backend.backendId != mutation.backendId ||
+        !backend.backendFound || !backend.allowed || backend.readOnly)
+        return false;
+    const bool unbound =
+        evidence.moduleId.empty() && evidence.packageName.empty() &&
+        evidence.backendId.empty() && evidence.agentId.empty() &&
+        evidence.agentInstanceId.empty() && evidence.backendGeneration == 0 &&
+        evidence.approvedHandlerSha256.empty() && !evidence.installed &&
+        !evidence.manifestValid && !evidence.packageTrusted &&
+        !evidence.versionCompatible && !evidence.handlerRegistered &&
+        !evidence.handlerHealthy;
+    if (unbound) return true;
+    return evidence.moduleId == "rectools" &&
         evidence.packageName == "vdr-suite-addon-media-tools" &&
         evidence.backendId == mutation.backendId &&
         safeToken(evidence.agentId, 128) && evidence.agentId != "*" &&
@@ -328,9 +342,7 @@ bool AddonActivationIntentRepository::eligibleForFutureEnable(
                 std::numeric_limits<std::int64_t>::max()) &&
         evidence.installed && evidence.manifestValid && evidence.packageTrusted &&
         evidence.versionCompatible && evidence.handlerRegistered &&
-        evidence.handlerHealthy &&
-        backend.backendId == mutation.backendId &&
-        backend.backendFound && backend.allowed && !backend.readOnly;
+        evidence.handlerHealthy;
 }
 
 IntentResult AddonActivationIntentRepository::update(
@@ -401,7 +413,7 @@ IntentResult AddonActivationIntentRepository::updateInternal(
     // match, so an intervening enable/disable cannot be mistaken for replay.
     if (current.intent.revision > 0 &&
         current.intent.desiredEnabled == mutation.desiredEnabled &&
-        (!mutation.desiredEnabled ||
+        (!mutation.desiredEnabled || evidence.agentId.empty() ||
          (current.intent.backendGeneration == evidence.backendGeneration &&
           current.intent.agentId == evidence.agentId &&
           current.intent.agentInstanceId == evidence.agentInstanceId &&
@@ -429,10 +441,9 @@ IntentResult AddonActivationIntentRepository::updateInternal(
         !bindText(write.get(), 5, actor.actor.actorId) ||
         sqlite3_step(write.get()) != SQLITE_DONE)
         return outcome(IntentStatus::unavailable, mutation.moduleId, mutation.backendId);
-    // Bind a NEW or reaffirmed enable to the exact backend Agent lease in
-    // the SAME transaction as desired state + audit. Legacy rows have no
-    // lease binding and must be reapproved explicitly.
-    if (mutation.desiredEnabled) {
+    // Preserve a verified handler pin when one is available. Offline
+    // administrative enables intentionally have no provider binding.
+    if (mutation.desiredEnabled && !evidence.agentId.empty()) {
         Statement bound(database_.handle(),
             "INSERT INTO addon_activation_agent_bindings "
             "(module_id,backend_id,intent_revision,backend_generation,"
