@@ -4952,7 +4952,12 @@ body.channel-sorter-dragging * {
   font-size: .78rem;
   font-weight: 800;
 }
-/* Only a marked .duplicate source presents a destructive action. */
+/* A directly observed VDR recording stays visibly distinct from files
+   awaiting import. This is an Agent observation, not a browser guess. */
+.media-import-panel .media-import-select-item.is-recording-present {
+  border-left: 3px solid #34d399;
+}
+/* An unmarked, already imported source also exposes explicit cleanup. */
 .media-import-panel .media-import-delete-duplicate {
   justify-self: start;
   min-height: 2.6rem;
@@ -4966,7 +4971,7 @@ body.channel-sorter-dragging * {
 .media-import-panel .media-import-delete-duplicate:disabled { opacity: .45; }
 /* Confirmed duplicates can be removed directly from the list; keep the
    destructive action readable across desktop and narrow/mobile layouts. */
-.media-import-panel .media-import-marked-item .media-import-delete-duplicate-inline {
+.media-import-panel .media-import-select-item .media-import-delete-duplicate-inline {
   grid-column: 1 / -1;
   width: max-content;
   max-width: 100%;
