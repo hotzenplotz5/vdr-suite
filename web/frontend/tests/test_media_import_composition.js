@@ -2649,9 +2649,10 @@ function publishHomeResume() {}
   // S01E06's independently validated import. The old operation stays
   // source-pinned and can be queried using GET without a second delete POST.
   context.resetMediaImportVisibility(true);
-  batchSources = [SOURCE, SOURCE_B];
+  batchSources = [SOURCE, SOURCE_B, SOURCE_C];
   markedSources = [];
   recordingStatuses[SOURCE] = 'recording_present';
+  recordingStatuses[SOURCE_C] = 'recording_present';
   state = 'outcome_unknown';
   submitMode = 'accepted';
   previewMode = 'ready';
@@ -2671,6 +2672,26 @@ function publishHomeResume() {}
     'exactly one confirmed S01E01 delete request is sent');
   assert(batchSources.includes(SOURCE),
     'uncertain cleanup must never be mocked as a successful source deletion');
+  assert(uncertainDelete.disabled, 'S01E01 deletion must stay locked to its unknown result');
+  const blockedReason = findClass(sourceRow, 'media-import-delete-blocked');
+  assert(blockedReason && !blockedReason.hidden &&
+    blockedReason.textContent.includes('ungeklärt'),
+    'the exact blocked S01E01 row must explain why deletion is unavailable');
+  const independentDuplicateRow = findClass(mount, 'media-import-selection').children.find(
+    function (row) { return row.dataset.sourceId === SOURCE_C; });
+  const independentDelete = findClass(independentDuplicateRow,
+    'media-import-delete-duplicate-inline');
+  assert(independentDelete && !independentDelete.disabled,
+    'unresolved S01E01 must not disable the confirmed S01E03 delete button');
+  const beforeIndependentConfirm = confirmCalls;
+  confirmLocal = false;
+  await independentDelete.listeners.click();
+  await settle();
+  assert.strictEqual(confirmCalls, beforeIndependentConfirm + 1,
+    'direct click on S01E03 must reach its own ordinary confirmation dialog');
+  assert.strictEqual(submits, beforeUncertainDelete + 1,
+    'cancelled S01E03 cleanup must never submit or replay S01E01');
+  confirmLocal = true;
   const independentSource = findClass(mount, 'media-import-source');
   independentSource.value = SOURCE_B;
   independentSource.listeners.change();
@@ -2721,6 +2742,7 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-unresolved-operations').children.length === 1,
     'the pinned S01E01 operation survives a separate S01E06 admission');
   delete recordingStatuses[SOURCE];
+  delete recordingStatuses[SOURCE_C];
 
   // MT.META6: reuse the ALREADY automatically identified episode. Exactly
   // one normal import POST carries the frozen native-info metadata; neither
