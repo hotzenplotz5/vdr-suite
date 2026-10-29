@@ -8,6 +8,8 @@
 #include <chrono>
 #include <cstring>
 #include <fcntl.h>
+#include <iostream>
+#include <sstream>
 #include <netinet/in.h>
 #include <signal.h>
 #include <stdexcept>
@@ -280,6 +282,47 @@ void testPartialRequestTimeout()
     listenerThread.join();
 }
 
+void testSlowTickIsDiagnosedWithoutChangingHttpResponses()
+{
+    const int port = reserveAvailablePort();
+    std::atomic<bool> stopRequested(false);
+    std::atomic<bool> tickStarted(false);
+    FixedResponseServer server;
+    std::ostringstream diagnostics;
+    auto* originalStderr = std::cerr.rdbuf(diagnostics.rdbuf());
+
+    SimpleHttpListener listener(
+        "127.0.0.1", port, server,
+        [&stopRequested]() { return stopRequested.load(); },
+        [&tickStarted]() {
+            if (!tickStarted.exchange(true)) {
+                // Reproduce a synchronous onTick stall longer than the Agent
+                // command-poll budget, without changing any live service.
+                std::this_thread::sleep_for(std::chrono::milliseconds(2100));
+            }
+        });
+    std::thread listenerThread([&listener]() {
+        assert(listener.runUntilStopped() == 0);
+    });
+
+    const int client = connectWithRetry(port);
+    sendAll(client,
+        "GET /health HTTP/1.1\r\n"
+        "Host: 127.0.0.1\r\n"
+        "Connection: close\r\n\r\n");
+    const std::string reply = receiveAll(client);
+    close(client);
+    stopRequested.store(true);
+    listenerThread.join();
+    std::cerr.rdbuf(originalStderr);
+
+    assert(reply.find("HTTP/1.1 200 OK") != std::string::npos);
+    assert(reply.find("healthy") != std::string::npos);
+    assert(server.handledRequests() == 1);
+    assert(diagnostics.str().find(
+        "HTTP_LISTENER_STALL phase=tick duration_ms=") != std::string::npos);
+}
+
 void testStreamingBackpressureSurvivesSocketSendTimeout()
 {
     constexpr std::size_t PayloadBytes = 16U * 1024U * 1024U;
@@ -350,6 +393,7 @@ int main()
 {
     ::signal(SIGPIPE, SIG_IGN);
     testPartialRequestTimeout();
+    testSlowTickIsDiagnosedWithoutChangingHttpResponses();
     testStreamingBackpressureSurvivesSocketSendTimeout();
     return 0;
 }
