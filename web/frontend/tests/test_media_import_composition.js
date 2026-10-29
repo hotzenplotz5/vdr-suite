@@ -8,6 +8,16 @@ const frontend = path.join(__dirname, '..');
 const index = fs.readFileSync(path.join(frontend, 'index.html'), 'utf8');
 const app = fs.readFileSync(path.join(frontend, 'app.js'), 'utf8');
 const view = fs.readFileSync(path.join(frontend, 'modules/media-import.js'), 'utf8');
+const daemonRuntime = fs.readFileSync(path.join(frontend, '../../core/daemon/src/DaemonRuntimeInitialization.cpp'), 'utf8');
+const previewOwner = daemonRuntime.split('registerMediaImportPreviewLookup(')[1]
+  .split('registerMediaImportCapabilityLookup(')[0];
+assert(previewOwner.includes('mayBrowseSources(') &&
+  !previewOwner.includes('effectiveMediaImportCapability(') &&
+  !previewOwner.includes('trustedMediaToolsProvider('),
+  'read-only target preview must not depend on command advertisement or approval while an old command is quarantined');
+assert(view.includes('TMDb-Zuordnung erneut versuchen') &&
+  view.includes("http + detail + '. Aufnahme bleibt unverändert.'"),
+  'failed TMDb target resolution offers retry and reports the actual preview error');
 const stylesheet = fs.readFileSync(path.join(frontend, 'style.css'), 'utf8');
 assert(stylesheet.includes('.media-import-panel[data-mobile-pane="folders"] .media-import-library'));
 assert(stylesheet.includes('.media-import-panel[data-mobile-pane="media"] .media-import-episodes'));
