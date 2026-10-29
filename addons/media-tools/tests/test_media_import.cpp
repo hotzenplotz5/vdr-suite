@@ -653,6 +653,86 @@ int main() {
         ++checks;
     }
     {
+        // MT.META6.3: rewrite only the descriptive T/S/D records of an
+        // existing completed recording. Preserve channel, event, FPS and
+        // extension records, including their order, exactly as read.
+        const std::string previous =
+            "C S19.2E-1-1101-28106 Das Erste HD\n"
+            "E 1234 1740000000 3600 4E 00\n"
+            "T DE - Star Wars_ Andor (2022) - S01E01\n"
+            "S Imported via VDR-Suite Media Tools\n"
+            "D Alter Einleitungstext\n"
+            "D Alter Fortsetzungstext\n"
+            "F 25\n"
+            "P 99\n"
+            "X 2 03 deu\n";
+        ImportConfirmedMetadata episode;
+        episode.mediaType = "episode";
+        episode.seriesTitle = "Star Wars: Andor";
+        episode.title = "Kassa";
+        episode.overview = "Neue Episodenbeschreibung";
+        episode.seasonNumber = 1;
+        episode.episodeNumber = 1;
+        const std::string updated =
+            "C S19.2E-1-1101-28106 Das Erste HD\n"
+            "E 1234 1740000000 3600 4E 00\n"
+            "T Star Wars: Andor\n"
+            "S Kassa\n"
+            "D Neue Episodenbeschreibung\n"
+            "F 25\n"
+            "P 99\n"
+            "X 2 03 deu\n";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, episode) == updated);
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(updated, episode) == updated);
+        ++checks;
+    }
+    {
+        // CRLF, missing metadata fields, malformed line breaks from a
+        // provider, and unknown provider type must not damage native records.
+        const std::string previous =
+            "C C-1-101-102 Channel\r\n"
+            "T Alter Titel\r\n"
+            "S Originaler Untertitel\r\n"
+            "F 50\r\n";
+        ImportConfirmedMetadata episode;
+        episode.mediaType = "episode";
+        episode.seriesTitle = "Andor";
+        episode.title = "Das bin ich";
+        episode.overview = "Beschreibung\nE Fake Event\rD Fake Text";
+        const std::string result =
+            "C C-1-101-102 Channel\r\n"
+            "T Andor\r\n"
+            "S Das bin ich\r\n"
+            "F 50\r\n"
+            "D Beschreibung E Fake Event D Fake Text\r\n";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, episode) == result);
+        episode.overview.clear();
+        const std::string withoutOverview =
+            "C C-1-101-102 Channel\r\n"
+            "T Andor\r\n"
+            "S Das bin ich\r\n"
+            "F 50\r\n";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, episode) ==
+               withoutOverview);
+        episode.mediaType = "unsupported";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, episode) == previous);
+        ++checks;
+    }
+    {
+        // Correcting a movie must retain the original subtitle and sidecar
+        // records. Unknown TMDb fields never silently erase native text.
+        const std::string previous = "T Old Movie\nS Old Summary\nD Local plot\nF 25\n";
+        ImportConfirmedMetadata movie;
+        movie.mediaType = "movie";
+        movie.title = "New Movie";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, movie) ==
+            "T New Movie\nS Old Summary\nD Local plot\nF 25\n");
+        movie.overview = "Confirmed description";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, movie) ==
+            "T New Movie\nS Old Summary\nD Confirmed description\nF 25\n");
+        ++checks;
+    }
+    {
         Fixture f;
         fs::create_symlink(f.source, f.input / "Sample.nfo");
         mustFail([&] { inspectImport(f.request()); });
