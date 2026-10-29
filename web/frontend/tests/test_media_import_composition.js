@@ -77,6 +77,20 @@ assert.deepStrictEqual(runtimeNav.children.map(x => x.id),
 assert(index.indexOf('modules/media-import.js') < index.indexOf('frontend/app.js'));
 assert(app.includes('refreshMediaImportVisibility(backendId);'));
 assert(app.includes('resetMediaImportVisibility(true);'));
+const capabilityUnavailable = app.match(/function unavailable\(\) \{([\s\S]*?)\n  \}/);
+assert(capabilityUnavailable && capabilityUnavailable[1].includes('return true;'),
+  'transient Agent capability failure must keep Media Import navigation available');
+const mediaTabBranch = app.split("if (selectedModule === 'media-import') {")[1]
+  .split('\n  }')[0];
+assert(mediaTabBranch.includes('renderSelectedModule(currentSnapshot || {});') &&
+  !mediaTabBranch.includes('refreshMediaImportVisibility('),
+  'opening Media Import must render without any Agent capability roundtrip');
+const importClickBody = view.split('function startImport(')[1]
+  .split('function activate(')[0];
+assert(!importClickBody.includes('checkCapability(view.backendId)') &&
+  !importClickBody.includes('readSourcePages(view.backendId)') &&
+  importClickBody.includes('submitMediaImport({'),
+  'one confirmed import/delete click must reach Core without Agent preflight gates');
 assert(!view.includes('.innerHTML'));
 assert(!view.includes('localStorage'));
 assert(!view.includes('sessionStorage'));
