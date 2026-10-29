@@ -664,21 +664,22 @@ bool DaemonRuntime::initialize()
             const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
             std::string reason;
-            if (!mediaImportOperationFence_->effectiveMediaImportCapability(
-                    actorId, backendId, now, reason)) {
-                // HTTP 403 means revoked rights/explicit deactivation.
-                // A lease, synchronization or provider outage is HTTP 503,
-                // so a read-only preview can be retried after recovery.
+            // A source preview is READ-ONLY. A quarantined command from an
+            // older Agent generation must not hide the already observed
+            // sources or prevent an operator from inspecting a VDR target.
+            // Command capability, activation and provider approval remain
+            // enforced at actual import/cleanup admission and dispatch.
+            if (!mediaImportOperationFence_->mayBrowseSources(
+                    actorId, backendId, reason)) {
                 if (reason == "media_import_actor_revoked" ||
                     reason == "media_import_permission_denied" ||
-                    reason == "media_import_activation_disabled")
+                    reason == "media_import_backend_unavailable")
                     out.status = API::MediaImportPreviewStatus::forbidden;
                 return out;
             }
             const auto live =
                 backendAgentRepository_->findAgentForBackend(backendId);
-            if (!live || !trustedMediaToolsProvider(backendId, now))
-                return out;
+            if (!live) return out;
             BackendAgentMediaImportCatalog::Preview observed;
             const auto state = mediaImportCatalog_->requestPreview(
                 *live, backendId, now, sourceId, observed);
