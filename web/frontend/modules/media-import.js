@@ -1000,15 +1000,19 @@
       // finishes. Always release this view's read state before comparing
       // attempt identity; otherwise subsequent imports never get polled.
       view.reading = false;
+      // A successful marker deliberately clears the completed attempt after
+      // its inventory readback. Resume the NEXT independently verified
+      // duplicate before the old-attempt identity guard; that guard only
+      // protects the previous operation's manual reads and batch continuation.
+      if (isCurrent(view) && view.resumeDuplicateReview && !view.attempt) {
+        view.resumeDuplicateReview = false;
+        nextConfirmedDuplicate(view);
+      }
       if (view.attempt !== checkedAttempt) return;
       if (isCurrent(view) && view.manualCheckQueued && view.attempt &&
           view.attempt.operationId) {
         view.manualCheckQueued = false;
         return readOperation(view, true);
-      }
-      if (isCurrent(view) && view.resumeDuplicateReview) {
-        view.resumeDuplicateReview = false;
-        nextConfirmedDuplicate(view);
       }
       const batch = view.batch;
       if (!isCurrent(view) || !batch || !batch.resumeNext ||
