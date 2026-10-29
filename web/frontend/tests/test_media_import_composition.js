@@ -476,7 +476,7 @@ async function verifyMeta6Handoff() {
   const targetView = {backendId:'backend-a'};
   const attempt = {metadataSelection:selected, metadataFeedback:''};
   await context.__meta6Contract.applyImportedMetadata(targetView, attempt);
-  assert(attempt.metadataFeedback.includes('übernommen') &&
+  assert(attempt.metadataFeedback.includes('gespeichert') &&
     metadataAssignments.length === 1,
     'confirmed exact recording receives one normal metadata assignment');
   const assignment = metadataAssignments[0];
