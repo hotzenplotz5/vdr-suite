@@ -1399,7 +1399,15 @@ bool pollBackendAgentCommandWithAvailability(
     }
     if (!reconcileBackendAgentCommandState(
             config, context, transport, reason) &&
-        reason != "no_local_command") return false;
+        reason != "no_local_command") {
+        if (reason != "local_command_generation_fenced") return false;
+        // Quarantine the old unacknowledged command without discarding its
+        // evidence, polling for a replacement or executing any native action.
+        // Heartbeat, channel observation and Media Import inventory run in
+        // the independent Agent lifecycle.
+        reason = "local_command_generation_quarantined";
+        return true;
+    }
 
     BackendAgentCommandPollRequest request;
     request.backendId = context.backendId;
