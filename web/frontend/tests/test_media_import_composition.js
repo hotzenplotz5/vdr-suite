@@ -366,6 +366,7 @@ const context = {
 const onlineRequests = [];
 const metadataAssignments = [];
 let metadataFolderOverride = null;
+let nativeAssignmentAck = false;
 let onlineMode = 'ready';
 let resolveOnlineReply = null;
 function onlineCandidate(kind, id, title, extra) {
@@ -397,7 +398,7 @@ context.VdrSuiteClientApi = {
   requestJson(route, options) {
     if (route.endsWith('/recordings/metadata/assign')) {
       metadataAssignments.push({route, options});
-      return Promise.resolve({assigned: true});
+      return Promise.resolve({assigned: true, nativeInfoUpdated: nativeAssignmentAck});
     }
     onlineRequests.push({route, options});
     assert.strictEqual(options.method, 'POST');
@@ -478,8 +479,9 @@ async function verifyMeta6Handoff() {
   const attempt = {metadataSelection:selected, metadataFeedback:''};
   await context.__meta6Contract.applyImportedMetadata(targetView, attempt);
   assert(attempt.metadataFeedback.includes('gespeichert') &&
+    attempt.metadataFeedback.includes('noch nicht bestätigt') &&
     metadataAssignments.length === 1,
-    'confirmed exact recording receives one normal metadata assignment');
+    'Suite assignment without native readback cannot claim native info success');
   const assignment = metadataAssignments[0];
   const data = JSON.parse(assignment.options.body);
   assert.strictEqual(data.externalId, '221');
@@ -496,6 +498,13 @@ async function verifyMeta6Handoff() {
     metadataAssignments.length === 1,
     'ambiguous target may not create an assignment against an unrelated recording');
   metadataFolderOverride = null;
+  nativeAssignmentAck = true;
+  const confirmedNative = {metadataSelection: selected, metadataFeedback:''};
+  await context.__meta6Contract.applyImportedMetadata(targetView, confirmedNative);
+  assert(confirmedNative.metadataFeedback.includes('native VDR-info aktualisiert') &&
+    metadataAssignments.length === 2,
+    'one existing authenticated assignment can confirm real native info readback');
+  nativeAssignmentAck = false;
   // MT.META6: the inventory-backed duplicate card has no targetFolder.
   // Only an explicit metadata action may resolve it using the existing
   // read-only Agent preview; it must not start a media import.
