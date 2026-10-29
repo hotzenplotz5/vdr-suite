@@ -2539,7 +2539,7 @@
           ? 'Es sind höchstens 100 Filme pro Importdurchlauf erlaubt. ' +
             'Bitte die Quelle in kleineren Durchläufen importieren.'
           : error && error.status === 503
-            ? 'Quellenliste abgelaufen oder Backend-Agent nicht erreichbar. Bitte aktualisieren.'
+            ? 'Quellen konnten momentan nicht geladen werden. Erneut versuchen.'
           : error && (error.status === 401 || error.status === 403 || error.status === 404)
             ? 'Für dieses Backend sind keine Importquellen zugänglich.'
             : 'Quellenliste konnte nicht geladen werden. Bitte aktualisieren.';
@@ -2555,8 +2555,8 @@
             : 'Quellenaktualisierung fehlgeschlagen. Noch keine erfolgreich ' +
               'geladene Liste in dieser Anmeldung vorhanden.';
         report(view, preserved
-          ? 'Backend-Agent momentan nicht erreichbar. Die bisherige ' +
-            'Quellenliste bleibt erhalten; erneut scannen, sobald erreichbar.'
+          ? 'Aktualisierung momentan nicht möglich. Die bisherige ' +
+            'Quellenliste bleibt erhalten und ist weiter durchsuchbar.'
           : message, true);
       });
   }
