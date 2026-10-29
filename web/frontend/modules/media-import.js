@@ -3,6 +3,9 @@
 
   // Media Tools is a view of Core-owned capabilities and Operations, never a job queue.
   const activeAttempts = Object.create(null);
+  // Keep an uncertain operation pinned to its original source, not to the
+  // entire backend media browser. No unknown command is re-dispatched.
+  const unresolvedAttempts = Object.create(null);
   const activeBatches = Object.create(null);
   // Browser-session HISTORY of a Core 'succeeded' recording readback, keyed
   // by the operation's source ID. A pinned inventory ID may survive a file
@@ -113,6 +116,9 @@
     deactivate();
     Object.keys(activeAttempts).forEach(function (id) {
       delete activeAttempts[id];
+    });
+    Object.keys(unresolvedAttempts).forEach(function (id) {
+      delete unresolvedAttempts[id];
     });
     Object.keys(activeBatches).forEach(function (id) {
       delete activeBatches[id];
@@ -239,6 +245,105 @@
     view.selectAllVisibleButton.disabled = true;
     if (!view.sources.length && !view.allMarked.length)
       void loadSources(view);
+  }
+
+  function unresolvedKey(view, sourceId) {
+    return view.backendId + '|' + sourceId;
+  }
+
+  function sourceUnresolved(view, sourceId) {
+    return Boolean(sourceId && unresolvedAttempts[unresolvedKey(view, sourceId)]);
+  }
+
+  // An unknown result is still an existing Core Operation. The separate
+  // status control performs GET only. A different, freshly verified source
+  // must not inherit this source's mutation lock.
+  function renderUnresolvedAttempts(view) {
+    if (!isCurrent(view)) return;
+    view.unresolvedList.replaceChildren();
+    Object.keys(unresolvedAttempts).filter(function (key) {
+      return key.startsWith(view.backendId + '|');
+    }).forEach(function (key) {
+      const attempt = unresolvedAttempts[key];
+      const row = element('div', 'media-import-unresolved-item');
+      row.appendChild(element('span', 'media-import-unresolved-label',
+        'Ungeklärter Auftrag für „' + attempt.sourceLabel + '“ (' +
+        attempt.operationId + '). Nur diese Quelle bleibt für weitere ' +
+        'Dateiaktionen gesperrt. Andere Filme können unabhängig geprüft ' +
+        'und nach Bestätigung importiert werden.'));
+      const check = element('button', 'media-import-unresolved-check',
+        'Diesen Vorgang prüfen');
+      check.type = 'button';
+      check.disabled = Boolean(view.unresolvedReading[key]);
+      check.addEventListener('click', function () {
+        if (!isCurrent(view) || unresolvedAttempts[key] !== attempt ||
+            view.unresolvedReading[key]) return Promise.resolve();
+        view.unresolvedReading[key] = true;
+        check.disabled = true;
+        return publicClient().getOperation({
+          operationId: attempt.operationId,
+          credentials: 'same-origin', cache: 'no-store'
+        }).then(function (response) {
+          if (!isCurrent(view) || unresolvedAttempts[key] !== attempt) return;
+          const operation = response && response.data;
+          if (!operation || operation.operationId !== attempt.operationId ||
+              operation.backendId !== view.backendId ||
+              typeof operation.state !== 'string')
+            throw new Error('Ungültige Operationsantwort');
+          attempt.state = operation.state;
+          if (terminalState(operation.state)) {
+            delete unresolvedAttempts[key];
+            const text = 'Früherer Auftrag „' + attempt.sourceLabel +
+              '“: ' + operationLabel(operation.state, attempt.videoDecision) +
+              '. Aktuelle Quelldateien werden getrennt neu gelesen.';
+            completedOperations[view.backendId] = text;
+            view.completedNotice.textContent = text;
+            view.completedNotice.hidden = false;
+            report(view, text);
+            if (!view.attempt && !view.batch && !view.submitting)
+              return loadSources(view);
+          } else {
+            report(view, 'Früherer Auftrag für „' + attempt.sourceLabel +
+              '“ weiterhin ' + operationLabel(operation.state,
+                attempt.videoDecision) + '. Kein erneuter Auftrag für diese Quelle.');
+          }
+        }).catch(function (error) {
+          if (isCurrent(view)) report(view, operationError(error), true);
+        }).finally(function () {
+          delete view.unresolvedReading[key];
+          if (isCurrent(view)) {
+            renderUnresolvedAttempts(view);
+            updatePreview(view);
+          }
+        });
+      });
+      row.appendChild(check);
+      view.unresolvedList.appendChild(row);
+    });
+    view.unresolvedList.hidden = view.unresolvedList.children.length === 0;
+  }
+
+  function pinUnknownOnSourceChange(view, selectedSourceId) {
+    const attempt = view.attempt;
+    if (!attempt || !attempt.operationId ||
+        attempt.state !== 'outcome_unknown' ||
+        attempt.sourceId === selectedSourceId) return;
+    // Preserve the exact operation ID and idempotency identity for manual
+    // GET readback. Never retry its source or silently clear its status.
+    unresolvedAttempts[unresolvedKey(view, attempt.sourceId)] = attempt;
+    clearPolling(view);
+    if (activeAttempts[view.backendId] === attempt)
+      delete activeAttempts[view.backendId];
+    view.attempt = null;
+    view.reads = 0;
+    view.reading = false;
+    view.manualCheckQueued = false;
+    view.unknownBrowsingEnabled = false;
+    view.refreshButton.hidden = true;
+    view.newButton.hidden = true;
+    view.operationDetail.textContent = '';
+    renderImportFeedback(view);
+    renderUnresolvedAttempts(view);
   }
 
   function terminalState(state) {
@@ -587,6 +692,7 @@
       }
       return Promise.resolve();
     }
+    const checkedAttempt = view.attempt;
     view.reading = true;
     clearPolling(view);
     if (manual) {
@@ -597,7 +703,7 @@
       operationId: view.attempt.operationId,
       credentials: 'same-origin', cache: 'no-store'
     }).then(function (response) {
-      if (!isCurrent(view)) return;
+      if (!isCurrent(view) || view.attempt !== checkedAttempt) return;
       const operation = response && response.data;
       if (!operation || operation.operationId !== view.attempt.operationId ||
           operation.backendId !== view.backendId ||
@@ -788,6 +894,7 @@
         }
       }
     }).finally(function () {
+      if (view.attempt !== checkedAttempt) return;
       view.reading = false;
       if (isCurrent(view) && view.manualCheckQueued && view.attempt &&
           view.attempt.operationId) {
@@ -1892,9 +1999,11 @@
           'media-import-delete-duplicate media-import-delete-duplicate-inline',
           'Dublette aus Importquelle löschen');
         remove.type = 'button';
-        remove.disabled = Boolean(view.attempt) || view.submitting || Boolean(view.batch);
+        remove.disabled = Boolean(view.attempt) || view.submitting ||
+          Boolean(view.batch) || sourceUnresolved(view, item.sourceId);
         remove.addEventListener('click', function () {
-          if (!isCurrent(view) || view.batch || view.submitting || view.attempt) return;
+          if (!isCurrent(view) || view.batch || view.submitting ||
+              view.attempt || sourceUnresolved(view, item.sourceId)) return;
           view.select.value = item.sourceId;
           view.markedSelect.value = '';
           refreshSelectedPreview(view);
@@ -1995,7 +2104,8 @@
           'media-import-delete-duplicate media-import-delete-duplicate-inline',
           'Dublette aus Importquelle löschen');
         removeDuplicate.type = 'button';
-        removeDuplicate.disabled = Boolean(view.attempt) || view.submitting || Boolean(view.batch);
+        removeDuplicate.disabled = Boolean(view.attempt) || view.submitting ||
+          Boolean(view.batch) || sourceUnresolved(view, item.sourceId);
         removeDuplicate.addEventListener('click', function () {
           if (!chooseMarkedSource()) return;
           return startImport(view, false, 'delete_duplicate');
@@ -2193,6 +2303,7 @@
       view.previewTimer = null;
     }
     const id = view.select.value;
+    pinUnknownOnSourceChange(view, id);
     if (force) view.previewCache.delete(id);
     // A new observation never inherits an older film's encoding consent.
     view.decision.value = '';
@@ -2395,7 +2506,8 @@
     const unmarkedDuplicate = selected && plan && plan.status === 'duplicate';
     view.deleteDuplicateButton.hidden = !unmarkedDuplicate;
     view.deleteDuplicateButton.disabled = !unmarkedDuplicate ||
-      Boolean(view.attempt) || view.submitting || Boolean(view.batch);
+      Boolean(view.attempt) || view.submitting || Boolean(view.batch) ||
+      sourceUnresolved(view, view.select.value);
     if (unmarkedDuplicate) actions.appendChild(view.deleteDuplicateButton);
     if (unmarkedDuplicate && view.attempt &&
         view.attempt.state === 'outcome_unknown') {
@@ -2611,6 +2723,11 @@
         : 'media-import-select-item' +
           (present ? ' is-recording-present' : '') +
           (rowSelected ? ' is-selected' : '');
+      const rowDelete = Array.from(row.children).find(function (child) {
+        return (child.className || '').includes('media-import-delete-duplicate-inline');
+      });
+      if (rowDelete) rowDelete.disabled = Boolean(view.attempt) ||
+        view.submitting || Boolean(view.batch) || sourceUnresolved(view, rowId);
       if (!marked && row.children[2]) {
         const rowItem = view.allOrdinary.find(function (source) {
           return source.sourceId === rowId;
@@ -2715,10 +2832,10 @@
             : 'Bearbeitungsweg auswählen'
       : ready ? 'Diesen Film importieren' : 'Import nicht möglich';
     if (!view.submitting && !view.attempt && !view.batch) {
-      view.startButton.disabled = needsEncode
+      view.startButton.disabled = sourceUnresolved(view, id) || (needsEncode
         ? !(decision === 'desktop' || decision === 'skip' ||
           (ready && decision === 'import' && view.localReencode.checked))
-        : !ready;
+        : !ready);
     }
   }
 
@@ -2734,6 +2851,11 @@
     const sourceId = releaseMode || (deleteDuplicate && !deleteUnmarked)
       ? view.markedSelect.value :
       view.batch ? view.batch.remaining[0] : view.select.value;
+    if (sourceUnresolved(view, sourceId)) {
+      report(view, 'Für diese Quelldatei besteht bereits ein ungewisser Auftrag. ' +
+        'Bitte ausschließlich dessen Status prüfen; keine erneute Mutation.', true);
+      return Promise.resolve();
+    }
     // Encoding authority is granted per film, per click, never to a batch.
     const selected = releaseMode ? 'release' :
       view.batch ? 'import' : (forcedDecision || view.decision.value);
@@ -3154,6 +3276,8 @@
     statusStrip.appendChild(visibleCount);
     statusStrip.appendChild(scanNotice);
     statusStrip.appendChild(completedNotice);
+    const unresolvedList = element('div', 'media-import-unresolved-operations');
+    statusStrip.appendChild(unresolvedList);
     const library = element('section', 'media-import-pane media-import-library');
     library.appendChild(element('h4', '', 'Serien und Ordner'));
     library.appendChild(folderBreadcrumb);
@@ -3257,6 +3381,7 @@
       importFeedback: importFeedback, importFeedbackTitle: importFeedbackTitle,
       importFeedbackText: importFeedbackText,
       scanNotice: scanNotice, completedNotice: completedNotice,
+      unresolvedList: unresolvedList, unresolvedReading: Object.create(null),
       sourceDetails: sourceDetails,
       preview: preview, previewCard: previewCard,
       previewRetryButton: previewRetryButton,
@@ -3274,6 +3399,7 @@
       unknownBrowsingEnabled: false,
       attempt: activeAttempts[backendId] || null};
     current = view;
+    renderUnresolvedAttempts(view);
     setMobilePane(view, 'media');
     searchInput.addEventListener('input', function () {
       view.checkedSourceIds.clear();
