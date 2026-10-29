@@ -1367,3 +1367,36 @@ backend authority evaluator rather than duplicating a permission system.
 Missing/stale/invalid input is default-deny. This is a read-only capability,
 not a mutation or permission grant. The real Core operation/command fixture
 covers the enabled, grantless, disabled, wrong backend and stale lease cases.
+
+## Handler-only Hotfix: bestehende Freigaben gemeinsam aktualisieren (29.10.2026)
+
+Wenn ausschließlich der C++-Importhandler auf einem bereits installierten yaVDR
+aktualisiert wird, darf **nicht nur** `/etc/vdr-suite/addon-approvals/rectools.json`
+angepasst werden: Die backendgebundene Freigabe
+`rectools.<BACKEND>.json` muss denselben tatsächlich installierten und
+unabhängig geprüften Handler-SHA256 enthalten. Ein alter Backend-Pin lässt das
+Add-on trotz erfolgreich installiertem Importer als nicht bestätigt erscheinen.
+
+Nach dem separat geprüften Handler-Update ist dafür der vorhandene Installer
+um einen gezielten Aufruf ergänzt worden (als `root`, mit dem **tatsächlich**
+konfigurierten Backend und unabhängig geprüften neuen Digest):
+
+```bash
+bash tools/addons/install_media_tools.sh reconcile-handler-approvals \
+  default REVIEWED_64_CHAR_HANDLER_SHA256 EXISTING-APPROVALS-ONLY
+```
+
+Der Aufruf stellt **keine** neuen Freigaben aus und aktiviert nichts.
+Er verlangt beide bereits bestehenden, gültigen, aktiven manuellen Freigaben,
+prüft den real installierten Importer, legt vor jeder Änderung ein rootprivates
+Backup unter `/root/mt-approval-sync-*` an, rotiert zuerst den Backend-Pin
+und danach den globalen Pin mit dem bestehenden CAS-Issuer und prüft das
+Ergebnis. Eine abgelehnte globale Rotation versucht die vorherige Backend-
+Rotation zu kompensieren. Bereits identische Hashes führen ohne Schreibzugriff
+zu `MT_APPROVALS=ALREADY_CONSISTENT`.
+
+Weder Suite/Agent noch Aufnahmen, Datenbanken oder Aktivierungsstatus werden
+dadurch geändert. Die Agent-Synchronisierung und tatsächliche Aktivierung sind
+anschließend getrennt zu prüfen. Zum isolierten Regressionstest:
+`python3 -m unittest tools/addons/test_reconcile_media_tools_approvals.py`
+(bei Bedarf mit `PYTHONPATH=tools/addons`).
