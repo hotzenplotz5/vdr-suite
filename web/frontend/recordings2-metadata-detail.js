@@ -105,12 +105,37 @@
       root.appendChild(box);
     }
   }
+  // Live recordings invalidation: refresh only the existing detail
+  // metadata/cover, leaving the playback/action owners and DOM intact.
+  function refresh(root, recording, backendId) {
+    if (!root || !recording || !root.dataset ||
+        root.dataset.recordings2MetadataDetail !== 'true')
+      return Promise.resolve(false);
+    const generation = (root.__vdrSuiteMetadataRefreshGeneration || 0) + 1;
+    root.__vdrSuiteMetadataRefreshGeneration = generation;
+    return fetchMetadata(recording, backendId).then(function (metadata) {
+      if (root.__vdrSuiteMetadataRefreshGeneration !== generation) return false;
+      const presented = presentMetadata(metadata);
+      if (root.__vdrSuiteMetadataMounted &&
+          typeof root.__vdrSuiteMetadataMounted.setMetadata === 'function')
+        root.__vdrSuiteMetadataMounted.setMetadata(presented);
+      repairMetadataImagePaths(root);
+      metadataView.applyToDetail(root, presented);
+      prioritizeDetailPoster(root);
+      return true;
+    }).catch(function () { return false; });
+  }
+
   function enhance(root, recording, backendId) {
     if (!root || !recording || root.dataset.recordings2MetadataDetail === 'true') return root;
     root.dataset.recordings2MetadataDetail = 'true';
     const mounted = metadataView.mount(root, recording, backendId);
     if (!mounted) return root;
+    root.__vdrSuiteMetadataMounted = mounted;
+    const generation = (root.__vdrSuiteMetadataRefreshGeneration || 0) + 1;
+    root.__vdrSuiteMetadataRefreshGeneration = generation;
     fetchMetadata(recording, backendId).then(function (metadata) {
+      if (root.__vdrSuiteMetadataRefreshGeneration !== generation) return;
       const presented = presentMetadata(metadata);
       mounted.setMetadata(presented);
       repairMetadataImagePaths(root);
@@ -127,7 +152,7 @@
     return root;
   }
   global.VdrSuiteRecordings2MetadataDetail = Object.freeze({
-    enhance, fetchMetadata, loadAssignmentRuntime, assignmentRuntimePath,
+    enhance, refresh, fetchMetadata, loadAssignmentRuntime, assignmentRuntimePath,
     repairMetadataImagePaths, versionManualMetadataArtwork: presentMetadata,
     prioritizeDetailPoster, preferredArtworkUrl: metadataView.preferredArtworkUrl,
     applyMetadataToDetail: metadataView.applyToDetail, formatDate: metadataView.formatDate,

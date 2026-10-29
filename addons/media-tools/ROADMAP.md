@@ -307,6 +307,18 @@ TV-eigenen Dienste oder weiteren Poller hinzugefügt.
 Web/TV-Geräte-Liveabnahme einschließlich erfolgreichem Bild-GET
 bleibt separat.
 
+**MT.META6.5 – Webdetail-Invalidierung (29.10.2026):**
+`recordings2-folder-refresh.js` nutzt das vorhandene
+`recordings`-SSE-Ereignis jetzt auch bei einer **geöffneten
+Aufnahme-Detailansicht**. Die bestehende Metadaten-Detailkomponente
+liest nur die bereits autorisierte Recording-Metadatenroute neu,
+ersetzt Episodentext und Poster und aktualisiert die vorhandenen
+Metadatenfelder. Wiedergabe, Navigation, Marks und Playback-DOM
+werden nicht neu initialisiert; ältere parallele Antworten können
+keine neueren Metadaten überschreiben. Der bestehende Ordner-Refresh
+bleibt bis zum Schließen des Details ausgesetzt. Die JS-Regression
+prüft den vollständigen Besitzer-Lebenszyklus und Backend-Scope.
+
 **MT.META6.3 – Existierende Aufnahmen korrigieren:** Über die bereits vorhandene backendgebundene Recording-Identität und Metadatenzuordnung, nicht über einen frei übergebenen Dateisystempfad. Die zwei bereits importierten Andor-Folgen ohne zweite Umkodierung oder erneuten Import ergänzen. Eine Änderung von VDR-`info` oder Titelverzeichnissen nur über einen separat geprüften, mit VDR abgestimmten Mutationspfad; bestehende TS-/Index-Inhalte erhalten.
 
 **MT.META6.4 – Aufnahmeaktualisierung als Bestandteil jedes Erfolgs:** Nach dem atomaren Import den bereits vorhandenen Recording-Cache-Refresh-Mechanismus verwenden. `DaemonRuntimeRecordingCache.cpp` führt `refreshRecordingCacheForAllBackends`, `mediaImportOperationFence_->reconcileRecordingCache` und `publishCompletedRecordingRefreshes` bereits; `DaemonRuntimePolling.cpp` fordert Cache-Aktualisierung bei `RecordingsChanged` an. `DaemonRuntimeInitialization.cpp` fordert **bereits** bei verifiziertem, angewendetem Agent-Importergebnis mit Recording-Pfadbeleg `recordingCacheRefreshQueue_.request(assignment.backendId, 2)` an. Die Lücke ist daher **nicht die fehlende Queue-Auslösung**, sondern der End-to-End-Nachweis dieses bestehenden Auslösers bis zur VDR-nativen Erkennung, zum committed Recording-Cache und zum `RecordingsChanged`-Ereignis an Web/Apps, einschließlich Restart/verspätetem Readback. Kein separates SVDRP-`UPDR`-Skript und keine zweite Refresh-Queue einführen. `succeeded` erst nach unabhängigem Aufnahme-Readback; bei verzögerter Aktualisierung weiterhin sichtbar „Bestätigung ausstehend“. Nach bestätigtem Erfolg aktualisieren sich „Neu aufgenommen“, Serien und Recordings 2 **ohne Browser-Reload**.

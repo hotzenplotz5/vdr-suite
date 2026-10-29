@@ -77,7 +77,18 @@
     applyFolderData: applyFolderData,
     render: render,
     loadFolder: loadFolder,
-    onRecordingMarksChanged: function () { const detail = global.VdrSuiteRecordings2MarksDetail; const target = shared.mountTarget(); const root = target && typeof target.querySelector === 'function' ? target.querySelector('.recordings2-detail') : null; if (detail && typeof detail.notifyExternalMarksChanged === 'function' && root) detail.notifyExternalMarksChanged(root); }
+    onRecordingMarksChanged: function () { const detail = global.VdrSuiteRecordings2MarksDetail; const target = shared.mountTarget(); const root = target && typeof target.querySelector === 'function' ? target.querySelector('.recordings2-detail') : null; if (detail && typeof detail.notifyExternalMarksChanged === 'function' && root) detail.notifyExternalMarksChanged(root); },
+    onRecordingPresentationChanged: function () {
+      // An open detail owns playback: update only metadata and its poster,
+      // never tear down/recreate the Recording or video session.
+      const detail = global.VdrSuiteRecordings2MetadataDetail;
+      const target = shared.mountTarget();
+      const root = target && typeof target.querySelector === 'function'
+        ? target.querySelector('.recordings2-detail') : null;
+      if (state.active && state.selectedRecording && root &&
+          detail && typeof detail.refresh === 'function')
+        detail.refresh(root, state.selectedRecording, state.backendId);
+    }
   });
   const {requestFolder, resolveLeaves: resolveSingleRecordingLeaves, stop: stopFolderRefresh,
     schedule: scheduleFolderRefresh, updatePresentedFolderState, forgetRecording} = folderRefresh;
