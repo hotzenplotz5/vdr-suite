@@ -14,6 +14,8 @@
 #include "SecurityPermissionGrantRepository.h"
 
 #include <utility>
+#include <filesystem>
+#include <system_error>
 #include <limits>
 #include <ctime>
 #include <iomanip>
@@ -416,6 +418,34 @@ std::int64_t sqliteUtcSeconds(const std::string& timestamp)
     return unixTime > 0 ? static_cast<std::int64_t>(unixTime) : 0;
 }
 
+// Provider recording.path is normally a recording-relative display path
+// (e.g. /Serien/Andor/...rec), NOT the absolute .rec path emitted by the
+// importer. backendNativeId is the provider's full recording identity;
+// it can contain a VDR video-root symlink such as /srv/vdr/video ->
+// /srv/vdr/video.00. The importing Agent hashes the literal installed
+// destination (/srv/vdr/video.00/...rec), so compare all *observed* forms.
+// Never infer a root from a title, construct a path from browser data, or
+// treat an unmatched recording as confirmation.
+bool recordingIdentityMatches(
+    const VdrRecording& recording, const std::string& evidence)
+{
+    using vdrsuite::mediatools::recordingPathEvidence;
+    if (recordingPathEvidence(recording.path) == evidence ||
+        recordingPathEvidence(recording.backendNativeId) == evidence)
+        return true;
+
+    // Canonicalize only a complete native recording identity that exists
+    // locally. For a remote backend, canonical() fails harmlessly and only
+    // the literal provider identities can match; no filesystem mutation.
+    const std::filesystem::path native(recording.backendNativeId);
+    if (!native.is_absolute() || native.extension() != ".rec" ||
+        native.lexically_normal() != native)
+        return false;
+    std::error_code error;
+    const auto canonical = std::filesystem::canonical(native, error);
+    return !error && recordingPathEvidence(canonical.string()) == evidence;
+}
+
 bool exactRecordingIdentity(
     const std::vector<VdrRecording>& recordings,
     const std::string& backendId, const std::string& evidence)
@@ -427,8 +457,7 @@ bool exactRecordingIdentity(
             recording.id.empty() || recording.backendNativeId.empty() ||
             recording.title.empty())
             continue;
-        if (vdrsuite::mediatools::recordingPathEvidence(recording.path) ==
-            evidence)
+        if (recordingIdentityMatches(recording, evidence))
             ++matches;
         if (matches > 1) return false;
     }
