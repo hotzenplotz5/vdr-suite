@@ -5115,6 +5115,80 @@ bool DaemonRuntime::initialize()
                 result.status = PublicRecordingArtworkStatus::notFound;
                 return result;
             }
+            const auto bound = publicRecordingIdentities_->find(
+                request.backendId, found.recording.backendNativeId);
+            if (!bound || *bound != request.recordingId)
+            {
+                result.status = PublicRecordingArtworkStatus::notFound;
+                return result;
+            }
+
+            // Public-v1 Device/TV clients use the same selected poster as
+            // the Web: the existing backend-scoped manual metadata binding
+            // and the existing authenticated image delivery owner. Never
+            // return the private cache path or replace it with an older
+            // TVScraper poster after an explicit metadata assignment.
+            const auto selected = metadataRepository_
+                ? metadataRepository_->getManualRecordingMetadataReadOnly(
+                    request.backendId, found.recording.backendNativeId)
+                : ManualRecordingMetadataAssignment{};
+            if (selected.found && selected.relationshipLocked &&
+                selected.backendId == request.backendId)
+            {
+                const std::string prefix =
+                    "/var/cache/vdr-suite/recording-metadata/posters/";
+                const bool hasPoster =
+                    selected.posterReference.compare(0, prefix.size(),
+                        prefix) == 0 &&
+                    std::filesystem::is_regular_file(
+                        selected.posterReference);
+                if (hasPoster)
+                {
+                    VdrRecordingArtworkRef poster;
+                    poster.kind = VdrRecordingArtworkKind::Poster;
+                    poster.source =
+                        VdrRecordingMetadataSource::RestfulApiScraperBridge;
+                    poster.reference = selected.posterReference;
+                    poster.temporary = false;
+                    const std::string id =
+                        VdrRecordingArtworkIdentity::assetId(
+                            found.recording, poster);
+                    if (!id.empty() &&
+                        (request.artworkId.empty() || request.artworkId == id))
+                    {
+                        PublicRecordingArtworkItem item;
+                        item.artworkId = id;
+                        item.kind = "poster";
+                        result.items.push_back(std::move(item));
+                        if (!request.artworkId.empty())
+                        {
+                            // Reuse the Web's canonical validated cached
+                            // image reader. It already enforces allowed
+                            // roots, MIME and size and returns actual bytes.
+                            const auto image =
+                                vdrRecordingFolderController_->getMetadataImage(
+                                    request.backendId,
+                                    found.recording.backendNativeId,
+                                    "poster", 0);
+                            if (image.statusCode != 200)
+                            {
+                                result.items.clear();
+                                result.status =
+                                    PublicRecordingArtworkStatus::notFound;
+                                return result;
+                            }
+                            result.contentType = image.contentType;
+                            result.content = image.body;
+                        }
+                    }
+                }
+                result.status = request.artworkId.empty() ||
+                    !result.items.empty()
+                    ? PublicRecordingArtworkStatus::ok
+                    : PublicRecordingArtworkStatus::notFound;
+                return result;
+            }
+
             for (const VdrRecordingArtworkRef& artwork :
                  found.recording.metadata.artwork)
             {
@@ -5140,13 +5214,6 @@ bool DaemonRuntime::initialize()
                 result.items.push_back(std::move(item));
                 if (!request.artworkId.empty())
                     break;
-            }
-            const auto bound = publicRecordingIdentities_->find(
-                request.backendId, found.recording.backendNativeId);
-            if (!bound || *bound != request.recordingId)
-            {
-                result.status = PublicRecordingArtworkStatus::notFound;
-                return result;
             }
             if (!request.artworkId.empty())
             {

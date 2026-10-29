@@ -42,6 +42,20 @@ require("VdrChangeType::RecordingsChanged", publication,
         "presentation mutation must reuse canonical recordings change domain")
 require("publishChangeFeedEntry(", publication,
         "presentation mutation must use existing live transport")
+
+artwork_lookup = daemon_init[
+    daemon_init.index("registerRecordingArtworkLookup("):
+    daemon_init.index("// M2.2: local-only Media Check")]
+require("getManualRecordingMetadataReadOnly(", artwork_lookup,
+        "device Recording artwork must resolve the committed manual metadata")
+require("vdrRecordingFolderController_->getMetadataImage(", artwork_lookup,
+        "device poster bytes must reuse existing Web image owner")
+require("VdrRecordingArtworkIdentity::assetId(", artwork_lookup,
+        "device manual posters must use the existing opaque artwork ID")
+require("PublicRecordingArtworkStatus::notFound", artwork_lookup,
+        "missing/manual-stale poster must have a deterministic missing result")
+require("recordingCacheRefreshQueue_.request(", daemon_init,
+        "native info correction must request existing Recording cache refresh")
 require("ManualRecordingMetadataApiRuntime::instance().reset();", daemon_shutdown,
         "shutdown must detach metadata invalidation callback")
 require("'vdr-suite:home-resume'", app,

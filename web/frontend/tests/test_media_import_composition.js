@@ -439,7 +439,7 @@ vm.createContext(context);
 // Exercise the real module's internal metadata handoff without exporting a
 // production testing hook or modifying the official browser API.
 vm.runInContext(view.replace('})(window);',
-  "global.__meta6Contract = {importMetadataSelection,applyImportedMetadata," +
+  "global.__meta6Contract = {importMetadataSelection,applyImportedMetadata,frozenImportMetadata," +
   "resolveExistingRecordingMetadataSelection,activateForTest:function(v){" +
   "current=v;owner=1;}};})(window);"),
   context);
@@ -486,9 +486,14 @@ async function verifyMeta6Handoff() {
   const data = JSON.parse(assignment.options.body);
   assert.strictEqual(data.externalId, '221');
   assert.strictEqual(data.seriesTitle, 'Andor');
+  assert.strictEqual(data.posterReference, '/series-poster.jpg');
   assert.strictEqual(data.resourceKey,
     '/srv/vdr/video.00/Serien/Andor/Andor S01E01/2026-10-28.17.06.1-0.rec');
   assert.strictEqual(assignment.options.headers['X-CSRF-Token'], 'test-csrf');
+  const existingSnapshot = context.__meta6Contract.frozenImportMetadata(metaView, selected);
+  assert.strictEqual(decodeURIComponent(existingSnapshot.split('|')[9]),
+    '/series-poster.jpg',
+    'frozen v2 import carries the same already selected series poster, not the episode still');
   metadataFolderOverride = {path:selected.folder,cacheReady:true,recordingCount:2,
     recordings:[{title:selected.title,backendNativeId:'/one.rec'},
       {title:selected.title,backendNativeId:'/two.rec'}]};

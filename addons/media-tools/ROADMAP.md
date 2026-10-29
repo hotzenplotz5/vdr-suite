@@ -287,6 +287,26 @@ Importe; keine zusätzliche Datenbank oder FFprobe-Prüfung. Ein
 synthetischer Test prüft den vollständigen Weg vor und nach
 `T/S/D`-Korrektur.
 
+**MT.META6.5 – Poster und Client-Refresh (29.10.2026, Source):**
+Der v2-Import friert bei Serienfolgen nun das **bereits vorab gefundene
+Serienposter** ein, statt irrtümlich das Episoden-Still zu verwenden; der
+zusätzliche `metadata/assign`-Aufruf für alte Aufnahmen verwendet
+dieselbe Serienposterreferenz. Die existierende Public-v1
+`GET /api/v1/recordings/{rec_}/artwork`-Route liefert bei einer
+gespeicherten manuellen Zuordnung deren Suite-Poster als vorhandenen
+opaquen `artworkId` und liest die Bildbytes über
+`VdrRecordingFolderController::getMetadataImage`, denselben
+authentifizierten Backend-Owner wie das Web. Keine privaten Pfade,
+Provider-URLs oder TMDb-Tokens in der Geräteantwort; fehlende Poster
+bleiben leer bzw. 404, statt ein altes Scraper-Bild als neue Auswahl
+auszugeben. Die bereits bestehende `recordings`-Invalidierung
+(SnapshotChangeFeed -> LiveTransportService -> Web-Update/Device-SSE)
+wird nach Zuordnung genutzt; native `info`-Korrekturen stoßen zudem
+die vorhandene Recording-Cache-Refresh-Queue an. Es werden keine
+TV-eigenen Dienste oder weiteren Poller hinzugefügt.
+Web/TV-Geräte-Liveabnahme einschließlich erfolgreichem Bild-GET
+bleibt separat.
+
 **MT.META6.3 – Existierende Aufnahmen korrigieren:** Über die bereits vorhandene backendgebundene Recording-Identität und Metadatenzuordnung, nicht über einen frei übergebenen Dateisystempfad. Die zwei bereits importierten Andor-Folgen ohne zweite Umkodierung oder erneuten Import ergänzen. Eine Änderung von VDR-`info` oder Titelverzeichnissen nur über einen separat geprüften, mit VDR abgestimmten Mutationspfad; bestehende TS-/Index-Inhalte erhalten.
 
 **MT.META6.4 – Aufnahmeaktualisierung als Bestandteil jedes Erfolgs:** Nach dem atomaren Import den bereits vorhandenen Recording-Cache-Refresh-Mechanismus verwenden. `DaemonRuntimeRecordingCache.cpp` führt `refreshRecordingCacheForAllBackends`, `mediaImportOperationFence_->reconcileRecordingCache` und `publishCompletedRecordingRefreshes` bereits; `DaemonRuntimePolling.cpp` fordert Cache-Aktualisierung bei `RecordingsChanged` an. `DaemonRuntimeInitialization.cpp` fordert **bereits** bei verifiziertem, angewendetem Agent-Importergebnis mit Recording-Pfadbeleg `recordingCacheRefreshQueue_.request(assignment.backendId, 2)` an. Die Lücke ist daher **nicht die fehlende Queue-Auslösung**, sondern der End-to-End-Nachweis dieses bestehenden Auslösers bis zur VDR-nativen Erkennung, zum committed Recording-Cache und zum `RecordingsChanged`-Ereignis an Web/Apps, einschließlich Restart/verspätetem Readback. Kein separates SVDRP-`UPDR`-Skript und keine zweite Refresh-Queue einführen. `succeeded` erst nach unabhängigem Aufnahme-Readback; bei verzögerter Aktualisierung weiterhin sichtbar „Bestätigung ausstehend“. Nach bestätigtem Erfolg aktualisieren sich „Neu aufgenommen“, Serien und Recordings 2 **ohne Browser-Reload**.
