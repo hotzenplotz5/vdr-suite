@@ -58,15 +58,6 @@
     return {backendId: backendId, credentials: 'same-origin', cache: 'no-store'};
   }
 
-  function checkCapability(backendId) {
-    return publicClient().getMediaImportCapability(readOptions(backendId))
-      .then(function (result) {
-        return Boolean(result && result.available === true &&
-          result.backendId === backendId &&
-          result.capability === 'addons.media.import');
-      });
-  }
-
   function makeKey() {
     if (!global.crypto || typeof global.crypto.getRandomValues !== 'function') {
       throw new Error('Sichere Zufallsquelle für Idempotency-Key nicht verfügbar.');
@@ -3197,28 +3188,17 @@
     view.skipButton.disabled = true;
     view.markedSelect.disabled = true;
     view.releaseButton.disabled = true;
-    report(view, 'Quelle und Berechtigung werden erneut geprüft …');
-    // Source observations are ephemeral: revalidate before choosing the opaque token.
+    report(view, 'Auftrag wird beim Backend geprüft …');
+    // The selected source was already listed and previewed. Do not ask the
+    // Agent twice for capability/inventory before the one Core operation:
+    // temporary observation failures are not a browser authorization result.
+    // Core independently validates actor, backend, source token and action;
+    // native deletion additionally requires the worker's recording readback.
     let preAdmissionFailed = false;
     let refreshRejectedSource = false;
     let rejectedSourceMessage = '';
-    return checkCapability(view.backendId)
-      .then(function (available) {
+    return Promise.resolve().then(function () {
         if (!isCurrent(view)) return null;
-        if (!available) throw {status: 403};
-        return readSourcePages(view.backendId);
-      }).then(function (sources) {
-        if (!isCurrent(view) || !sources) return null;
-        if (!sources.items || !sources.items.some(function (item) {
-          return item && item.sourceId === sourceId &&
-            (deleteDuplicate
-              ? deleteUnmarked ? !markerSuffix(item) :
-                markerSuffix(item) === 'duplicate'
-              : releaseMode ? Boolean(markerSuffix(item))
-              : !markerSuffix(item));
-        })) {
-          throw {status: 503};
-        }
         const session = global.VdrSuiteBrowserSession;
         if (!session || typeof session.restore !== 'function' ||
             typeof session.csrfHeaders !== 'function') throw {status: 401};
