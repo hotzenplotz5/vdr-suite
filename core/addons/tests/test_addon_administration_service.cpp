@@ -279,5 +279,26 @@ int main()
         {"event-invalid-correlation", "2026-10-20T10:14:00Z"}).status ==
         IntentStatus::forbidden);
     assert(audit.listAll().size() == 4);
+    // A logged-in global admin can turn an offline module on. Persist only
+    // the audited preference; do not fabricate Agent or handler evidence.
+    auto offlineBackend = writable;
+    offlineBackend.backendId = "backend-offline";
+    AddonAdministrationService offline(intents, audit,
+        [&](const std::string& module, const std::string& backend)
+            -> std::optional<AddonAdministrationService::TrustedActivationSnapshot> {
+            if (module != "rectools" || backend != "backend-offline")
+                return std::nullopt;
+            return AddonAdministrationService::TrustedActivationSnapshot{
+                offlineBackend, {}};
+        });
+    const auto offlineEnabled = offline.setDesiredState(
+        adminActor(), {"rectools", "backend-offline", true, 0}, {}, {},
+        {"event-offline", "2026-10-20T10:15:00Z"});
+    assert(offlineEnabled.status == IntentStatus::ok &&
+           offlineEnabled.intent.desiredEnabled &&
+           offlineEnabled.intent.revision == 1 &&
+           offlineEnabled.intent.agentId.empty());
+    assert(audit.listAll().size() == 5);
+
     std::cout << "ADDON_ADMINISTRATION_AUDIT=PASS\n";
 }
