@@ -14,6 +14,7 @@
 #include <csignal>
 #include <fcntl.h>
 #include <cstring>
+#include <cstdio>
 #include <iomanip>
 #include <sstream>
 #include <sys/wait.h>
@@ -28,6 +29,19 @@ std::int64_t unixNow()
 {
     return std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+// One-line, bounded, path-free diagnostics in the EXISTING backend-agent
+// journal. No new authority, gate, retry, persistence or network request.
+// Every reason is a fixed literal; never print file paths or HTTP secrets.
+void logDuplicateDelete(const BackendAgentCommandAssignment& assignment,
+                        const char* stage, const char* reason)
+{
+    if (!backendAgentCommandValidAssignment(assignment)) return;
+    std::fprintf(stderr,
+        "MEDIA_IMPORT_DELETE_DIAG operation=%s backend=%s stage=%s result=%s\\n",
+        assignment.operationId.c_str(), assignment.backendId.c_str(),
+        stage, reason);
 }
 
 bool safePath(const std::filesystem::path& path)
@@ -288,13 +302,21 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
     pendingSourceValid_ = false;
     pendingDecision_ = MediaImportDecision::import;
     markerEvidence_.clear();
-    if (!matching) return MediaImportAgentOutcome::rejected;
+    if (!matching) {
+        if (approvedDecision == MediaImportDecision::deleteDuplicate)
+            logDuplicateDelete(assignment, "authorization", "pinned_request_mismatch");
+        return MediaImportAgentOutcome::rejected;
+    }
     // Grab the kernel lock BEFORE rechecking installed approval, metadata,
     // and source identity. An exclusive maintainer cannot replace anything
     // until this handler and its descendants have stopped.
     auto runLock = MediaToolsImportRunLock::tryAcquire(
         root_, MediaToolsImportRunLock::Mode::sharedExecution);
-    if (!runLock) return MediaImportAgentOutcome::rejected;
+    if (!runLock) {
+        if (approvedDecision == MediaImportDecision::deleteDuplicate)
+            logDuplicateDelete(assignment, "authorization", "maintenance_lock_unavailable");
+        return MediaImportAgentOutcome::rejected;
+    }
     const auto approval = vdrsuite::addons::readRootMediaToolsApproval(root_);
     if (!approval.approved() || approval.sha256 != snapshot->approvedSha256 ||
         approval.version != snapshot->approvedVersion ||
@@ -306,8 +328,11 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         // under the child-inherited shared package-maintenance lock.
         !vdrsuite::addons::pinnedMediaToolsHandlerBytesCurrent(
             snapshot->pinnedBinary.get(), snapshot->approvedSha256) ||
-        !authorization_.granted(assignment))
+        !authorization_.granted(assignment)) {
+        if (approvedDecision == MediaImportDecision::deleteDuplicate)
+            logDuplicateDelete(assignment, "authorization", "approval_or_grant_invalid");
         return MediaImportAgentOutcome::rejected;
+    }
 
     std::string sourceId;
     MediaImportDecision requestedDecision = MediaImportDecision::import;
@@ -325,8 +350,11 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         local.sourceInode != approvedSource.sourceInode ||
         local.sourceBytes != approvedSource.sourceBytes ||
         local.sourceMtimeSeconds != approvedSource.sourceMtimeSeconds ||
-        local.sourceMtimeNanoseconds != approvedSource.sourceMtimeNanoseconds)
+        local.sourceMtimeNanoseconds != approvedSource.sourceMtimeNanoseconds) {
+        if (approvedDecision == MediaImportDecision::deleteDuplicate)
+            logDuplicateDelete(assignment, "inventory", "source_identity_changed_or_missing");
         return MediaImportAgentOutcome::rejected;
+    }
 
     if (requestedDecision == MediaImportDecision::deleteDuplicate) {
         // The confirmation is explicit and never deletes the VDR recording.
@@ -350,10 +378,16 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
                 plan.sourceInode != local.sourceInode ||
                 plan.sourceBytes != local.sourceBytes ||
                 plan.sourceMtimeSeconds != local.sourceMtimeSeconds ||
-                plan.sourceMtimeNanoseconds != local.sourceMtimeNanoseconds ||
-                !confirmedMediaImportDuplicate(plan))
+                plan.sourceMtimeNanoseconds != local.sourceMtimeNanoseconds) {
+                logDuplicateDelete(assignment, "preflight", "source_changed");
                 return MediaImportAgentOutcome::rejected;
+            }
+            if (!confirmedMediaImportDuplicate(plan)) {
+                logDuplicateDelete(assignment, "preflight", "recording_not_confirmed");
+                return MediaImportAgentOutcome::rejected;
+            }
         } catch (...) {
+            logDuplicateDelete(assignment, "preflight", "inspection_exception");
             return MediaImportAgentOutcome::rejected;
         }
         const auto evidence = mediaImportSourceEvidence(
@@ -364,10 +398,20 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
             ? cleanupConfirmedDuplicateSource(local, evidence)
             : cleanupMediaImportSource(local, evidence);
         if (removed == MediaImportCleanupOutcome::removed) {
+            logDuplicateDelete(assignment, "cleanup", "source_removed");
             markerEvidence_ = mediaImportMarkerEvidence(
                 sourceId, MediaImportDecision::deleteDuplicate);
             return MediaImportAgentOutcome::marked;
         }
+        // The cleanup result does not carry errno today; do not invent a
+        // more specific filesystem cause. In particular, a failed fsync may
+        // follow an effective unlink, so preserve the unknown result.
+        logDuplicateDelete(assignment, "cleanup",
+            removed == MediaImportCleanupOutcome::failed
+                ? "filesystem_operation_unconfirmed"
+                : removed == MediaImportCleanupOutcome::alreadyAbsent
+                    ? "source_already_absent"
+                    : "cleanup_not_performed");
         return removed == MediaImportCleanupOutcome::failed
             ? MediaImportAgentOutcome::unknown
             : MediaImportAgentOutcome::rejected;
