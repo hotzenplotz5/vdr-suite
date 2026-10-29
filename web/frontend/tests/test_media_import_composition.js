@@ -14,6 +14,15 @@ assert(stylesheet.includes('.media-import-panel[data-mobile-pane="media"] .media
 assert(stylesheet.includes('.media-import-panel[data-mobile-pane="details"] .media-import-detail'));
 assert(stylesheet.includes('.media-import-marked-item .media-import-delete-duplicate-inline'),
   'marked duplicate list action remains visible and reachable at mobile widths');
+assert(view.includes("view.attempt.videoDecision === 'release'") &&
+  view.includes("refreshSelectedPreview(view, true);") &&
+  view.includes('Für lokale VDR-Umkodierung freigeben'),
+  'successful PC marker release opens the independently checked source without an automatic import');
+assert(view.includes('media-import-existing-metadata') &&
+  view.includes('importMetadataSelection(view, plan, source)') &&
+  view.includes('applyImportedMetadata(view, repairAttempt)') &&
+  view.includes('Die native VDR-info-Datei bleibt vorerst unverändert'),
+  'confirmed existing recording offers explicit Suite-only metadata repair on the established route');
 
 const clientFactory = require('../api/public-v1-client.js');
 
