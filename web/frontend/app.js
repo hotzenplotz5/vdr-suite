@@ -75,7 +75,10 @@ function refreshMediaImportVisibility(backendId) {
     mediaImportTab.disabled = false;
     mediaImportTab.title = 'Agent-Status momentan unbestätigt. Media Import bleibt ' +
       'bedienbar; Aktionen werden bei Ausführung vom Backend geprüft.';
-    return false;
+    // Return navigation availability, NOT the Agent command capability.
+    // The actual Core POST owns action authorization.
+    mediaImportKnownBackendId = backendId;
+    return true;
   }
 
   return Promise.resolve().then(function () {
@@ -4201,11 +4204,10 @@ refreshDetailButton.addEventListener('click', () => {
   }
 
   if (selectedModule === 'media-import') {
-    refreshMediaImportVisibility(selectedEpgBackendId()).then(function (available) {
-      if (available && selectedModule === 'media-import') {
-        renderSelectedModule(currentSnapshot || {});
-      }
-    });
+    // Navigation is independent of the Agent's transient capability read.
+    // Backend changes and sign-out still reset module access explicitly.
+    if (browserSessionFrontendActive && selectedEpgBackendId())
+      renderSelectedModule(currentSnapshot || {});
     return;
   }
 
