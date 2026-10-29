@@ -21,6 +21,8 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <sqlite3.h>
 #include <thread>
@@ -730,13 +732,26 @@ int main()
     mediaOutcome.errorCategory = "none";
     mediaOutcome.retryClassification = "reconcile_only";
     mediaOutcome.boundedDiagnostics = "recording reconciliation pending";
+    // Simulate the real yaVDR provider: the VDR cache reports a relative
+    // display path and an absolute backend-native path via a video-root
+    // symlink; the importer hashes the resolved video.00 destination.
+    char recordRootTemplate[] = "/tmp/vdr-suite-import-identity-XXXXXX";
+    assert(::mkdtemp(recordRootTemplate) != nullptr);
+    const std::filesystem::path recordRoot(recordRootTemplate);
+    const auto importedDirectory =
+        recordRoot / "video.00/Imported/2026-10-21.18.00.00-0.rec";
+    assert(std::filesystem::create_directories(importedDirectory));
+    std::filesystem::create_directory_symlink(
+        "video.00", recordRoot / "video");
     const std::string nativeImportedPath =
-        "/srv/vdr/video/Imported/2026-10-21.18.00.00-0.rec";
+        (recordRoot / "video/Imported/2026-10-21.18.00.00-0.rec").string();
+    assert(std::filesystem::canonical(nativeImportedPath) == importedDirectory);
     const auto sourceProof = vdrsuite::mediatools::mediaImportSourceEvidence(
         "/srv/import/Film.mp4", 17, 42, 2048, 100, 1234);
     mediaOutcome.resultEvidence =
         vdrsuite::mediatools::mediaImportResultEvidence(
-            vdrsuite::mediatools::recordingPathEvidence(nativeImportedPath),
+            vdrsuite::mediatools::recordingPathEvidence(
+                importedDirectory.string()),
             sourceProof);
     std::string recordingPart, sourcePart;
     assert(vdrsuite::mediatools::parseMediaImportResultEvidence(
@@ -776,8 +791,17 @@ int main()
     imported.id = "rec-imported";
     imported.backendId = "default";
     imported.backendNativeId = nativeImportedPath;
-    imported.path = nativeImportedPath;
+    imported.path = "/Imported/2026-10-21.18.00.00-0.rec";
     imported.title = "Imported";
+    // Neither uncanonicalized field matches the Agent proof; only the
+    // existing native path's filesystem-resolved identity does.
+    assert(vdrsuite::mediatools::recordingPathEvidence(imported.path) !=
+           recordingPart);
+    assert(vdrsuite::mediatools::recordingPathEvidence(imported.backendNativeId) !=
+           recordingPart);
+    assert(vdrsuite::mediatools::recordingPathEvidence(
+               std::filesystem::canonical(imported.backendNativeId).string()) ==
+           recordingPart);
     std::vector<VdrRecording> actualRecordings{imported};
     auto readbackStatus = readback;
     readbackStatus.state = "stale";
@@ -788,7 +812,9 @@ int main()
     assert(coreFence.reconcileRecordingCache(
         "default", readbackStatus, actualRecordings, 128) == 0);
     auto wrongRecording = imported;
-    wrongRecording.path = "/srv/vdr/video/Other/2026-10-21.18.00.00-0.rec";
+    wrongRecording.path = "/Other/2026-10-21.18.00.00-0.rec";
+    wrongRecording.backendNativeId =
+        (recordRoot / "video/Other/2026-10-21.18.00.00-0.rec").string();
     assert(coreFence.reconcileRecordingCache(
         "default", readback, {wrongRecording}, 128) == 0);
     assert(coreFence.reconcileRecordingCache(
@@ -875,6 +901,9 @@ int main()
     assert(completedReplay.accepted && completedReplay.replayed);
     assert(operations.findById(media.operationId).operation.operationRevision ==
            reconciledOp.operation.operationRevision);
+    // The synthetic root was only used for path-identity reconciliation;
+    // the journal/operation state and the readback notice remain durable.
+    assert(std::filesystem::remove_all(recordRoot) > 0);
 
 
     // A6: the actual Agent command reservation uses only the existing
