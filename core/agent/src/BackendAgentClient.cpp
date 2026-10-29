@@ -2265,8 +2265,15 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
     BackendAgentCommandClientContext commandContext{state_.agentId, state_.credentialSecret, state_.backendId, agentInstanceId_, state_.backendGeneration};
     if (!reconcileBackendAgentCommandState(commandConfig, commandContext, transport_, reasonCode))
     {
-        synchronized_ = false;
-        return false;
+        // An unacknowledged assignment from an older Agent generation must
+        // remain durable and must never be replayed under this generation.
+        // It is a COMMAND problem, not a reason to suppress heartbeat,
+        // channels and read-only Media Import source observations forever.
+        if (reasonCode != "local_command_generation_fenced") {
+            synchronized_ = false;
+            return false;
+        }
+        log("Old-generation local command retained; command delivery paused");
     }
     if (!state_.pendingObservationKind.empty() &&
         !publishBackendHealthObservation(reasonCode))
