@@ -1345,8 +1345,9 @@
   }
 
 
-  // MT.META5: transient, explicit provider selection for an import source.
-  // No online value enters the local NFO, Core import payload or persistence.
+  // TMDb search and preview remain transient and do not modify local NFO.
+  // MT.META6 freezes one exact, already-found episode/movie in the existing
+  // Core import payload only when the user starts that import.
   function resetOnline(view) {
     ++view.onlineSeq;
     view.onlineItems = [];
