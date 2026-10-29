@@ -573,22 +573,28 @@ function publishHomeResume() {}
   // Real app capability-gate -> production module selection -> actual DOM buttons.
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   assert.strictEqual(tab.hidden, false);
-  // An already authorized tab stays visible, but not usable, while the
-  // Agent/capability is temporarily unavailable; retry restores it.
+  // An intermittent Agent lease loss is only a status observation.
+  // Media Import remains navigable and the previously loaded view survives.
   allow = false;
+  const capabilityCallbacksBefore = timerCallbacks.length;
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), false);
   assert.strictEqual(tab.hidden, false);
-  assert.strictEqual(tab.disabled, true);
-  assert(tab.title.includes('Automatische Prüfung'));
-  const retry = timerCallbacks[timerCallbacks.length - 1];
-  assert.strictEqual(typeof retry, 'function');
-  allow = true;
-  retry();
-  await settle();
-  assert.strictEqual(tab.hidden, false);
   assert.strictEqual(tab.disabled, false);
+  assert(tab.title.includes('Agent-Status momentan unbestätigt'));
+  assert.strictEqual(timerCallbacks.length, capabilityCallbacksBefore,
+    'a missing capability must not schedule an endless five-second gate retry');
   context.selectModule('media-import');
   await settle();
+  let sourceListOnTransientFailure = findClass(mount, 'media-import-source');
+  assert(sourceListOnTransientFailure && sourceListOnTransientFailure.children.length > 1,
+    'an installed media import view must still list sources during a transient capability failure');
+  const listBeforeRecovered = sourceListOnTransientFailure;
+  allow = true;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  assert.strictEqual(tab.hidden, false);
+  assert.strictEqual(tab.disabled, false);
+  assert.strictEqual(findClass(mount, 'media-import-source'), listBeforeRecovered,
+    'capability recovery must never remount an already browsable source list');
   let select = findClass(mount, 'media-import-source');
   let start = findClass(mount, 'media-import-start');
   assert(select && start, 'production detail owner must mount real controls');
