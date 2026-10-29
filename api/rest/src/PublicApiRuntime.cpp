@@ -3154,7 +3154,8 @@ bool parsePublicSearchTimerCreateBody(
 // A7.3: a single JSON string field, closed grammar; never a source path.
 bool parseMediaImportAdmissionBody(
     const std::string& input, std::string& sourceId,
-    bool& approveVideoReencode, std::string& videoDecision)
+    bool& approveVideoReencode, std::string& videoDecision,
+    std::string& metadata)
 {
     std::size_t position = 0U;
     skipAccountMutationWhitespace(input, position);
@@ -3168,31 +3169,46 @@ bool parseMediaImportAdmissionBody(
     skipAccountMutationWhitespace(input, position);
     if (!parseAccountMutationJsonString(input, position, sourceId))
         return false;
-    skipAccountMutationWhitespace(input, position);
     approveVideoReencode = false;
     videoDecision.clear();
-    if (position < input.size() && input[position] == ',') {
+    metadata.clear();
+    skipAccountMutationWhitespace(input, position);
+    bool seenDecision = false;
+    while (position < input.size() && input[position] == ',') {
         ++position;
         skipAccountMutationWhitespace(input, position);
-        std::string decisionKey;
-        if (!parseAccountMutationJsonString(input, position, decisionKey) ||
-            decisionKey != "videoDecision") return false;
+        std::string field;
+        if (!parseAccountMutationJsonString(input, position, field))
+            return false;
         skipAccountMutationWhitespace(input, position);
         if (position >= input.size() || input[position++] != ':') return false;
         skipAccountMutationWhitespace(input, position);
-        std::string decision;
-        if (!parseAccountMutationJsonString(input, position, decision) ||
-            (decision != "local" && decision != "desktop" &&
-             decision != "skip" && decision != "release" &&
-             decision != "duplicate" && decision != "delete_duplicate")) return false;
-        approveVideoReencode = decision == "local";
-        if (!approveVideoReencode) videoDecision = decision;
+        std::string value;
+        if (!parseAccountMutationJsonString(input, position, value))
+            return false;
+        if (field == "videoDecision" && !seenDecision && metadata.empty()) {
+            if (value != "local" && value != "desktop" &&
+                value != "skip" && value != "release" &&
+                value != "duplicate" && value != "delete_duplicate") return false;
+            seenDecision = true;
+            approveVideoReencode = value == "local";
+            if (!approveVideoReencode) videoDecision = value;
+        } else if (field == "metadata" && metadata.empty() &&
+                   (videoDecision.empty()) &&
+                   (!seenDecision || approveVideoReencode)) {
+            if (value.size() < 12U || value.size() > 4096U ||
+                value.compare(0, 3, "v1|") != 0 ||
+                std::count(value.begin(), value.end(), '|') != 6)
+                return false;
+            metadata = std::move(value);
+        } else return false;
         skipAccountMutationWhitespace(input, position);
     }
     if (position >= input.size() || input[position++] != '}') return false;
     skipAccountMutationWhitespace(input, position);
     if (position != input.size() ||
-        sourceId.size() < 16U || sourceId.size() > 64U) return false;
+        sourceId.size() < 16U || sourceId.size() > 64U)
+        return false;
     return std::all_of(sourceId.begin(), sourceId.end(),
         [](unsigned char ch) {
             return std::isalnum(ch) || ch == '_' || ch == '-';
@@ -12497,7 +12513,7 @@ bool PublicApiRuntime::tryHandlePost(
                 path, requestId, correlationId);
             return true;
         }
-        if (body.size() > 256U)
+        if (body.size() > 4608U)
         {
             response = invalidRequestProblem(path,
                 "Media Import body is too large.",
@@ -12514,8 +12530,9 @@ bool PublicApiRuntime::tryHandlePost(
         std::string sourceId;
         bool approveVideoReencode = false;
         std::string videoDecision;
+        std::string metadata;
         if (!parseMediaImportAdmissionBody(
-                body, sourceId, approveVideoReencode, videoDecision))
+                body, sourceId, approveVideoReencode, videoDecision, metadata))
         {
             response = problemResponse(422, "validation_error",
                 "Validation failed",
@@ -12547,6 +12564,7 @@ bool PublicApiRuntime::tryHandlePost(
         input.idempotencyKey = idempotencyKey;
         input.approveVideoReencode = approveVideoReencode;
         input.videoDecision = videoDecision;
+        input.metadata = metadata;
         const auto result = admit(input);
         switch (result.status)
         {
