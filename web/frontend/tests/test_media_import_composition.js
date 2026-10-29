@@ -2699,6 +2699,49 @@ function publishHomeResume() {}
     'the pinned S01E01 operation survives a separate S01E06 admission');
   delete recordingStatuses[SOURCE];
 
+  // MT.META6: reuse the ALREADY automatically identified episode. Exactly
+  // one normal import POST carries the frozen native-info metadata; neither
+  // the click nor the admission path does a second TMDb search.
+  context.resetMediaImportVisibility(true);
+  onlineMode = 'ready';
+  batchSources = [SOURCE];
+  markedSources = [];
+  state = 'succeeded';
+  submitMode = 'accepted';
+  previewMode = 'ready';
+  previewInspectionStatus = 'ready';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const frozenSource = findClass(mount, 'media-import-source');
+  frozenSource.value = SOURCE;
+  frozenSource.listeners.change();
+  await settle();
+  const autoConfirmation = findClass(mount, 'media-import-online-confirmed');
+  assert(autoConfirmation && autoConfirmation.textContent.includes('Pilot'),
+    'the same exact episode is already identified before the import click');
+  const beforeSnapshotPost = submits;
+  assert(!findClass(mount, 'media-import-start').disabled,
+    'metadata availability adds no gate to the video import');
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeSnapshotPost + 1,
+    'one recognized episode creates exactly one normal import operation');
+  const frozenPost = requests.filter(function (entry) {
+    return entry.path.endsWith('/media-imports') &&
+      entry.options.method === 'POST';
+  }).slice(-1)[0];
+  const frozenBody = JSON.parse(frozenPost.options.body);
+  assert.strictEqual(frozenBody.sourceId, SOURCE);
+  assert(typeof frozenBody.metadata === 'string' &&
+    frozenBody.metadata.startsWith('v1|episode|') &&
+    frozenBody.metadata.includes('|Pilot|') &&
+    frozenBody.metadata.endsWith('|1|1'),
+    'the exact pre-found episode is frozen into the one import request');
+  const decodedFrozen = frozenBody.metadata.split('|');
+  assert.strictEqual(decodeURIComponent(decodedFrozen[2]), 'Andor');
+  assert.strictEqual(decodeURIComponent(decodedFrozen[3]), 'Pilot');
+
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
   console.error(error);
