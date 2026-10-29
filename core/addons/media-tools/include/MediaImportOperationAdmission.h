@@ -30,6 +30,7 @@ struct MediaImportOperationAdmissionRequest
     std::string idempotencyKey;
     bool approveVideoReencode = false;
     std::string videoDecision; // "desktop", "skip", "duplicate" or "release"
+    std::string metadata; // optional immutable pre-found TMDb values; no lookup
     std::int64_t now = 0;
 };
 
