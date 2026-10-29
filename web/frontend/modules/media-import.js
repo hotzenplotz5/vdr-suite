@@ -1545,8 +1545,8 @@
         view.onlineAutoSelected = true;
         view.onlineStatus = 'TMDb eindeutig erkannt: Staffel ' +
           coords.season + ', Folge ' + coords.episode +
-          '. Bei einem bestätigten Import werden diese Daten ' +
-          'der neuen VDR-Suite-Aufnahme zugeordnet; die VDR-info-Datei bleibt zunächst unverändert.';
+          '. Die bereits gefundenen Metadaten werden beim Importstart ' +
+          'im Auftrag gespeichert und beim VDR-Import übernommen.';
       } else {
         view.onlineStatus = matches.length
           ? 'Episode mehrdeutig. Bitte den TMDb-Treffer manuell auswählen.'
