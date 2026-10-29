@@ -3196,9 +3196,15 @@ bool parseMediaImportAdmissionBody(
         } else if (field == "metadata" && metadata.empty() &&
                    (videoDecision.empty()) &&
                    (!seenDecision || approveVideoReencode)) {
+            // Same immutable import selection contract used by Core/Agent.
+            // META6 v2 adds the already-selected TMDb identity and poster;
+            // v1 remains valid for previously persisted operations.
+            const bool v1 = value.compare(0, 3, "v1|") == 0 &&
+                std::count(value.begin(), value.end(), '|') == 6;
+            const bool v2 = value.compare(0, 3, "v2|") == 0 &&
+                std::count(value.begin(), value.end(), '|') == 9;
             if (value.size() < 12U || value.size() > 4096U ||
-                value.compare(0, 3, "v1|") != 0 ||
-                std::count(value.begin(), value.end(), '|') != 6)
+                (!v1 && !v2))
                 return false;
             metadata = std::move(value);
         } else return false;
