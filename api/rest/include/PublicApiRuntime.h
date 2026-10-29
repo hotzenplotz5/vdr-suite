@@ -1339,6 +1339,7 @@ struct PublicMediaImportAdmissionRequest
     std::string idempotencyKey;
     bool approveVideoReencode = false; // immutable, explicitly selected
     std::string videoDecision; // optional "desktop", "skip", "duplicate" or "release"
+    std::string metadata; // already-found, immutable percent-encoded TMDb snapshot
 };
 
 struct PublicMediaImportAdmissionResult
