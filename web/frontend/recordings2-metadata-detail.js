@@ -5,12 +5,10 @@
   const metadataView = global.VdrSuiteRecordings2MetadataView;
   let assignmentRuntimePromise;
   if (!shared || !metadataView || typeof metadataView.mount !== 'function') {
-    console.error('VDR-Suite Recordings 2 metadata runtime dependencies are unavailable');
-    return;
+    console.error('VDR-Suite Recordings 2 metadata runtime dependencies are unavailable'); return;
   }
   function assignmentRuntimePath() {
-    const path = '/frontend/recordings2-metadata-assignment.js';
-    const resolver = global.VdrSuitePublicUrl;
+    const path = '/frontend/recordings2-metadata-assignment.js'; const resolver = global.VdrSuitePublicUrl;
     return resolver && typeof resolver.resolvePath === 'function' ? resolver.resolvePath(path) : path;
   }
   function repairMetadataImagePaths(root) {
@@ -25,10 +23,8 @@
     });
   }
   function presentMetadata(value) {
-    const manual = value && value.manualAssignment;
-    const revision = manual && manual.active === true ? Math.max(0, Number(manual.revision) || 0) : 0;
-    const artwork = value && value.preferredArtwork;
-    const url = shared.text(artwork && artwork.url);
+    const manual = value && value.manualAssignment; const revision = manual && manual.active === true ? Math.max(0, Number(manual.revision) || 0) : 0;
+    const artwork = value && value.preferredArtwork; const url = shared.text(artwork && artwork.url);
     if (revision <= 0 || !url || !metadataView.isPublicMetadataImageUrl(url) ||
         /[?&]assignmentRevision=/.test(url)) return value;
     return Object.assign({}, value, {preferredArtwork: Object.assign({}, artwork, {
@@ -38,8 +34,7 @@
   function prioritizeDetailPoster(root) {
     const image = root && typeof root.querySelector === 'function'
       ? root.querySelector('.recordings2-detail-poster img') : null;
-    if (!image) return;
-    image.loading = 'eager'; image.decoding = 'async'; image.fetchPriority = 'high';
+    if (!image) return; image.loading = 'eager'; image.decoding = 'async'; image.fetchPriority = 'high';
     if (typeof image.setAttribute === 'function') image.setAttribute('fetchpriority', 'high');
   }
   function fetchMetadata(recording, backendId) {
@@ -62,42 +57,32 @@
     }
     if (assignmentRuntimePromise) return assignmentRuntimePromise;
     assignmentRuntimePromise = new Promise(function (resolve, reject) {
-      const id = 'vdr-suite-recordings2-metadata-assignment-runtime';
-      const existing = document.getElementById(id);
+      const id = 'vdr-suite-recordings2-metadata-assignment-runtime'; const existing = document.getElementById(id);
       const script = existing || document.createElement('script');
       function ready() {
         const runtime = global.VdrSuiteRecordings2MetadataAssignment;
         if (runtime && typeof runtime.mount === 'function') resolve(runtime);
         else reject(new Error('Manuelle Metadaten-Runtime wurde nicht initialisiert.'));
       }
-      if (existing && global.VdrSuiteRecordings2MetadataAssignment) return ready();
-      script.id = id; script.async = false;
+      if (existing && global.VdrSuiteRecordings2MetadataAssignment) return ready(); script.id = id; script.async = false;
       script.addEventListener('load', ready, {once: true});
       script.addEventListener('error', function () {
         reject(new Error('Manuelle Metadaten-Runtime konnte nicht geladen werden.'));
       }, {once: true});
       if (!existing) {
-        script.src = assignmentRuntimePath();
-        document.head.appendChild(script);
+        script.src = assignmentRuntimePath(); document.head.appendChild(script);
       }
     }).catch(function (error) {
-      assignmentRuntimePromise = null;
-      throw error;
+      assignmentRuntimePromise = null; throw error;
     });
     return assignmentRuntimePromise;
   }
   function renderAssignmentLoadError(root, error) {
-    if (!root || root.querySelector('[data-recordings2-metadata-assignment-error]')) return;
-    const box = document.createElement('section');
-    const title = document.createElement('strong');
-    const message = document.createElement('p');
-    box.className = 'recordings2-status error';
-    box.dataset.recordings2MetadataAssignmentError = 'true';
-    box.setAttribute('data-recordings2-metadata-assignment-error', 'true');
-    box.setAttribute('role', 'alert');
-    title.textContent = 'Metadatenkorrektur konnte nicht geladen werden';
-    message.textContent = error && error.message ? error.message : String(error || 'Unbekannter Fehler');
-    box.append(title, message);
+    if (!root || root.querySelector('[data-recordings2-metadata-assignment-error]')) return; const box = document.createElement('section');
+    const title = document.createElement('strong'); const message = document.createElement('p'); box.className = 'recordings2-status error';
+    box.dataset.recordings2MetadataAssignmentError = 'true'; box.setAttribute('data-recordings2-metadata-assignment-error', 'true');
+    box.setAttribute('role', 'alert'); title.textContent = 'Metadatenkorrektur konnte nicht geladen werden';
+    message.textContent = error && error.message ? error.message : String(error || 'Unbekannter Fehler'); box.append(title, message);
     const tabs = root.querySelector('.recordings2-metadata-tabs');
     if (tabs && tabs.parentNode === root && typeof root.insertBefore === 'function') {
       root.insertBefore(box, tabs);
@@ -111,36 +96,24 @@
     if (!root || !recording || !root.dataset ||
         root.dataset.recordings2MetadataDetail !== 'true')
       return Promise.resolve(false);
-    const generation = (root.__vdrSuiteMetadataRefreshGeneration || 0) + 1;
-    root.__vdrSuiteMetadataRefreshGeneration = generation;
+    const generation = (root.__vdrSuiteMetadataRefreshGeneration || 0) + 1; root.__vdrSuiteMetadataRefreshGeneration = generation;
     return fetchMetadata(recording, backendId).then(function (metadata) {
-      if (root.__vdrSuiteMetadataRefreshGeneration !== generation) return false;
-      const presented = presentMetadata(metadata);
+      if (root.__vdrSuiteMetadataRefreshGeneration !== generation) return false; const presented = presentMetadata(metadata);
       if (root.__vdrSuiteMetadataMounted &&
           typeof root.__vdrSuiteMetadataMounted.setMetadata === 'function')
         root.__vdrSuiteMetadataMounted.setMetadata(presented);
-      repairMetadataImagePaths(root);
-      metadataView.applyToDetail(root, presented);
-      prioritizeDetailPoster(root);
-      return true;
+      repairMetadataImagePaths(root); metadataView.applyToDetail(root, presented); prioritizeDetailPoster(root); return true;
     }).catch(function () { return false; });
   }
 
   function enhance(root, recording, backendId) {
-    if (!root || !recording || root.dataset.recordings2MetadataDetail === 'true') return root;
-    root.dataset.recordings2MetadataDetail = 'true';
+    if (!root || !recording || root.dataset.recordings2MetadataDetail === 'true') return root; root.dataset.recordings2MetadataDetail = 'true';
     const mounted = metadataView.mount(root, recording, backendId);
-    if (!mounted) return root;
-    root.__vdrSuiteMetadataMounted = mounted;
-    const generation = (root.__vdrSuiteMetadataRefreshGeneration || 0) + 1;
+    if (!mounted) return root; root.__vdrSuiteMetadataMounted = mounted; const generation = (root.__vdrSuiteMetadataRefreshGeneration || 0) + 1;
     root.__vdrSuiteMetadataRefreshGeneration = generation;
     fetchMetadata(recording, backendId).then(function (metadata) {
-      if (root.__vdrSuiteMetadataRefreshGeneration !== generation) return;
-      const presented = presentMetadata(metadata);
-      mounted.setMetadata(presented);
-      repairMetadataImagePaths(root);
-      metadataView.applyToDetail(root, presented);
-      prioritizeDetailPoster(root);
+      if (root.__vdrSuiteMetadataRefreshGeneration !== generation) return; const presented = presentMetadata(metadata); mounted.setMetadata(presented);
+      repairMetadataImagePaths(root); metadataView.applyToDetail(root, presented); prioritizeDetailPoster(root);
       const heroDetail = global.VdrSuiteRecordings2HeroDetail;
       if (heroDetail && typeof heroDetail.enhance === 'function') {
         heroDetail.enhance(root, recording, backendId, presented);
