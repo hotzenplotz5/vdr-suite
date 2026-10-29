@@ -335,6 +335,55 @@ public:
         return list(live, backendId, now, ids, ignored);
     }
 
+    // Read-only presentation of the last successfully authenticated Agent
+    // observation. A transport outage or an expired lease must not erase the
+    // directory browser. Never use these IDs to authorize a mutation:
+    // requestPreview(), dispatch and deletion continue to require a live
+    // matching Agent generation and their existing Core checks.
+    bool listLastObserved(const std::string& backendId,
+                          std::vector<std::string>& ids,
+                          std::vector<std::string>& labels,
+                          bool* partial = nullptr,
+                          std::vector<std::string>* folders = nullptr,
+                          std::vector<std::string>* statuses = nullptr) const
+    {
+        ids.clear();
+        labels.clear();
+        if (folders) folders->clear();
+        if (statuses) statuses->clear();
+        if (partial) *partial = true;
+        std::lock_guard<std::mutex> guard(mutex_);
+        const auto found = snapshots_.find(backendId);
+        if (found == snapshots_.end()) return false;
+        const auto& snapshot = found->second;
+        // publish() already validated and associated this bounded snapshot
+        // with the authenticated Agent at capture time.
+        ids = snapshot.ids;
+        if (partial) *partial = snapshot.partial;
+        if (!snapshot.labels.empty()) {
+            for (const auto& id : ids) {
+                const auto label = snapshot.labels.find(id);
+                if (label == snapshot.labels.end()) return false;
+                labels.push_back(label->second);
+            }
+        }
+        if (folders && !snapshot.folders.empty()) {
+            for (const auto& id : ids) {
+                const auto folder = snapshot.folders.find(id);
+                if (folder == snapshot.folders.end()) return false;
+                folders->push_back(folder->second);
+            }
+        }
+        if (statuses && !snapshot.statuses.empty()) {
+            for (const auto& id : ids) {
+                const auto status = snapshot.statuses.find(id);
+                if (status == snapshot.statuses.end()) return false;
+                statuses->push_back(status->second);
+            }
+        }
+        return true;
+    }
+
     // An authenticated Agent observation bound to its live lease. This is
     // not independent Core authorization, and never activates a handler.
     bool observedInstallation(const BackendAgentRecord& live,
