@@ -248,12 +248,16 @@ function transport(url, options) {
     ++submits;
     if (JSON.parse(options.body).videoDecision === 'delete_duplicate') {
       const targetId = JSON.parse(options.body).sourceId;
-      markedSources = markedSources.filter(function (id) {
-        return id !== targetId;
-      });
-      batchSources = (batchSources || [SOURCE]).filter(function (id) {
-        return id !== targetId;
-      });
+      // Only the successful Core/Agent result removes the fixture source.
+      // An outcome_unknown cleanup has no confirmed deletion.
+      if (state === 'succeeded') {
+        markedSources = markedSources.filter(function (id) {
+          return id !== targetId;
+        });
+        batchSources = (batchSources || [SOURCE]).filter(function (id) {
+          return id !== targetId;
+        });
+      }
       return Promise.resolve(reply(202, {
         operationId: OP, backendId: 'backend-a', state: 'dispatching'
       }));
@@ -2608,6 +2612,78 @@ function publishHomeResume() {}
     return row.dataset.sourceId === SOURCE;
   }), 'confirmed cleanup refreshes inventory and removes the deleted source');
   delete recordingStatuses[SOURCE];
+
+  // MT.REC6 regression: an uncertain S01E01 delete must NOT disable
+  // S01E06's independently validated import. The old operation stays
+  // source-pinned and can be queried using GET without a second delete POST.
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B];
+  markedSources = [];
+  recordingStatuses[SOURCE] = 'recording_present';
+  state = 'outcome_unknown';
+  submitMode = 'accepted';
+  previewMode = 'ready';
+  previewInspectionStatus = 'ready';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const sourceRow = findClass(mount, 'media-import-selection').children.find(
+    function (row) { return row.dataset.sourceId === SOURCE; });
+  const uncertainDelete = findClass(sourceRow, 'media-import-delete-duplicate-inline');
+  assert(uncertainDelete && !uncertainDelete.disabled,
+    'S01E01 has a confirmed VDR recording and a reachable cleanup operation');
+  const beforeUncertainDelete = submits;
+  await uncertainDelete.listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeUncertainDelete + 1,
+    'exactly one confirmed S01E01 delete request is sent');
+  assert(batchSources.includes(SOURCE),
+    'uncertain cleanup must never be mocked as a successful source deletion');
+  const independentSource = findClass(mount, 'media-import-source');
+  independentSource.value = SOURCE_B;
+  independentSource.listeners.change();
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-preview-state').textContent,
+    'Direktimport möglich', 'S01E06 remains independently ready');
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, false,
+    'an unrelated unknown deletion must not disable S01E06 import');
+  const unresolved = findClass(mount, 'media-import-unresolved-operations');
+  assert(unresolved && unresolved.children.length === 1,
+    'old S01E01 operation remains displayed after switching episodes');
+  assert(unresolved.children[0].textContent === '' ||
+    findClass(unresolved, 'media-import-unresolved-label').textContent.includes(OP),
+    'the old exact Core operation identity remains visible');
+  const beforeUnknownCheck = submits;
+  await findClass(unresolved, 'media-import-unresolved-check').listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeUnknownCheck,
+    'checking old S01E01 via GET cannot submit another deletion');
+
+  independentSource.value = SOURCE;
+  independentSource.listeners.change();
+  await settle();
+  const pinnedRow = findClass(mount, 'media-import-selection').children.find(
+    function (row) { return row.dataset.sourceId === SOURCE; });
+  const pinnedDelete = findClass(pinnedRow, 'media-import-delete-duplicate-inline');
+  assert(pinnedDelete && pinnedDelete.disabled,
+    'the unresolved S01E01 source remains blocked against replay');
+  independentSource.value = SOURCE_B;
+  independentSource.listeners.change();
+  await settle();
+  const beforeIndependentImport = submits;
+  assert(!findClass(mount, 'media-import-start').disabled);
+  await findClass(mount, 'media-import-start').listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeIndependentImport + 1,
+    'S01E06 creates one independent new import, not a S01E01 retry');
+  const independentPost = requests.filter(function (entry) {
+    return entry.path.endsWith('/media-imports') && entry.options.method === 'POST';
+  }).slice(-1)[0];
+  assert.strictEqual(JSON.parse(independentPost.options.body).sourceId, SOURCE_B);
+  assert(findClass(mount, 'media-import-unresolved-operations').children.length === 1,
+    'the pinned S01E01 operation survives a separate S01E06 admission');
+  delete recordingStatuses[SOURCE];
+
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
   console.error(error);
