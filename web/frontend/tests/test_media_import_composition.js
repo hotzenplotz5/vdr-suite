@@ -1568,7 +1568,7 @@ function publishHomeResume() {}
   search.listeners.input();
   selectAllVisible.listeners.click();
   assert.strictEqual(findClass(mount, 'media-import-selection-count').textContent,
-    '70 von 70 sichtbaren Filmen für den Stapel gewählt.');
+    '70 von 70 noch nicht importierten Filmen für den Stapel gewählt.');
   // The requested product boundary: exactly 100 films are offered.
   context.resetMediaImportVisibility(true);
   pagedSourceIds = Array.from({length: 100}, function (_, i) {
