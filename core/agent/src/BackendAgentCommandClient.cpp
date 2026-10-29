@@ -760,6 +760,33 @@ bool reconcileBackendAgentCommandState(
             return true;
         }
 
+        // A previous-generation Media Import was rejected BEFORE native
+        // dispatch. Its durable result can be reconciled against the
+        // original Core command ledger without executing anything.
+        // Keep the inbox until the exact original result is acknowledged.
+        const bool historicalUndispatchedMediaImport =
+            mediaImportCommand &&
+            state.receiptAcknowledged &&
+            state.resultPresent && !state.resultAcknowledged &&
+            state.assignment.backendId == context.backendId &&
+            state.assignment.agentId == context.agentId &&
+            state.assignment.backendGeneration < context.backendGeneration &&
+            !state.stateExtensionPresent &&
+            state.dispatchState == "not_started" &&
+            state.result.dispatchState == "not_started" &&
+            state.result.verificationState == "outcome_unknown" &&
+            state.result.resultCategory == "rejected" &&
+            state.result.errorCategory == "fenced" &&
+            state.result.retryClassification == "none" &&
+            state.result.resultEvidence.empty();
+        if (historicalUndispatchedMediaImport)
+        {
+            if (!sendResult(config, context, transport, state, reason))
+                return false;
+            reason = "historical_media_import_rejection_reconciled";
+            return true;
+        }
+
         reason = "local_command_generation_fenced";
         return false;
     }
