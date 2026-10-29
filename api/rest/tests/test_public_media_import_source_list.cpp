@@ -86,11 +86,12 @@ int main()
     // Continuation is bound to the exact actor/backend/source observation.
     std::vector<std::string> many;
     std::vector<std::string> manyFolders(70, "");
+    std::vector<std::string> manyStatuses(70, "unverified");
     bool scanComplete = false;
     for (int i = 0; i < 70; ++i)
         many.push_back("source_" + std::to_string(10000000000ULL + i));
     api.registerMediaImportSourceLookup(
-        [&many, &manyFolders, &scanComplete](const std::string& actor, const std::string& backend)
+        [&many, &manyFolders, &manyStatuses, &scanComplete](const std::string& actor, const std::string& backend)
         {
             PublicApiRuntime::MediaImportSourceResult result;
             if (actor != "actor:one" || backend != "backend-a") {
@@ -101,6 +102,7 @@ int main()
             result.ids = many;
             result.labels.resize(many.size(), "Film");
             result.folders = manyFolders;
+            result.statuses = manyStatuses;
             result.partial = !scanComplete;
             return result;
         });
@@ -134,6 +136,10 @@ int main()
     manyFolders[0] = "Serien/Andor";
     assert(getPage(secondUrl).statusCode == 409);
     manyFolders[0].clear();
+    // Recording presence is part of the very same snapshot revision.
+    manyStatuses[0] = "recording_present";
+    assert(getPage(secondUrl).statusCode == 409);
+    manyStatuses[0] = "unverified";
     auto second = getPage(secondUrl);
     assert(second.statusCode == 200);
     assert(second.body.find(many[32]) != std::string::npos);
