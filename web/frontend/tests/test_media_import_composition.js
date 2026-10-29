@@ -2049,32 +2049,46 @@ function publishHomeResume() {}
   assert.strictEqual(requests.filter(r => r.options.method === 'POST').length,
     racePosts, 'all preview transitions are read-only');
 
-  // If capability revalidation fails before a POST, a previously ready
-  // preview must be invalidated. Retry is immediately available and read-only.
+  // Temporary capability loss is advisory, not a fabricated HTTP 403.
+  // An already selected and previewed source is submitted ONCE to Core, which
+  // is the sole action authorizer; no second Agent capability/inventory GET.
   raceSelect.value = SOURCE;
   raceSelect.listeners.change();
   await settle();
   assert.strictEqual(findClass(mount, 'media-import-start').disabled, false);
   const beforeRejectedAdmission = submits;
+  const beforeCapabilityRead = requests.filter(function (r) {
+    return r.path.endsWith('/capabilities/media-import');
+  }).length;
+  const beforeSourceRead = requests.filter(function (r) {
+    return r.path.endsWith('/media-import-sources');
+  }).length;
   allow = false;
+  submitMode = 'denied';
   await findClass(mount, 'media-import-start').listeners.click();
   await settle();
-  assert.strictEqual(submits, beforeRejectedAdmission,
-    'denied pre-admission must not dispatch an import');
-  assert(findClass(mount, 'media-import-start').disabled,
-    'stale pre-admission preview must not authorize another import');
-  const retryAdmission = findClass(mount, 'media-import-preview-retry');
-  assert(retryAdmission && !retryAdmission.hidden && !retryAdmission.disabled,
-    'pre-admission failure must restore preview retry without changing films');
-  assert(findClass(mount, 'media-import-preview').textContent.includes(
-    'Keine gültige Anmeldung oder Media-Import-Berechtigung'));
+  assert.strictEqual(submits, beforeRejectedAdmission + 1,
+    'a transient false capability must not block the canonical Core POST');
+  assert.strictEqual(requests.filter(function (r) {
+    return r.path.endsWith('/capabilities/media-import');
+  }).length, beforeCapabilityRead, 'click must not recheck Agent capability');
+  assert.strictEqual(requests.filter(function (r) {
+    return r.path.endsWith('/media-import-sources');
+  }).length, beforeSourceRead, 'click must not rescan sources in the browser');
+  assert(findClass(mount, 'status').textContent.includes(
+    'Media-Import-Berechtigung wurde verweigert'),
+    'only Core HTTP 403 may report denial, never local capability inference');
   allow = true;
-  await retryAdmission.listeners.click();
+  submitMode = 'accepted';
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  raceSelect.value = SOURCE;
+  raceSelect.listeners.change();
   await settle();
   assert.strictEqual(findClass(mount, 'media-import-start').disabled, false,
-    'a newly verified preview re-enables the normal import action');
-  assert.strictEqual(submits, beforeRejectedAdmission,
-    'read-only recovery must not submit an import');
+    'a definite Core rejection recovers through the existing read-only refresh');
+  assert.strictEqual(submits, beforeRejectedAdmission + 1,
+    'read-only recovery must not submit another import');
 
   // A compatible film has no codec choice but retains an explicit optional
   // skip action. Even that marker uses the canonical Core operation.
