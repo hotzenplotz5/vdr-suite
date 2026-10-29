@@ -568,6 +568,11 @@ int main()
         "human_media", "wrong-backend", 118, fenceReason));
     assert(!coreFence.effectiveMediaImportCapability(
         "human_media", "default", 1001, fenceReason));
+    // A dead Agent lease must not remove an authenticated source browser.
+    assert(coreFence.mayBrowseSources("human_media", "default", fenceReason));
+    assert(fenceReason == "media_import_browse_authorized");
+    assert(!coreFence.mayBrowseSources("admin_media", "default", fenceReason) &&
+           fenceReason == "media_import_permission_denied");
     assert(!coreFence.effectiveMediaImportCapability(
         "admin_media", "default", 118, fenceReason));
 
@@ -675,6 +680,8 @@ int main()
     assert(!coreFence.effectiveMediaImportCapability(
         "human_media", "default", 118, fenceReason) &&
            fenceReason == "media_import_activation_disabled");
+    assert(coreFence.mayBrowseSources("human_media", "default", fenceReason) &&
+           fenceReason == "media_import_browse_authorized");
     assert(activation.update(
         admin, {"rectools", "default", true, 2}, access, trusted).status ==
         vdrsuite::addons::IntentStatus::ok);
@@ -694,6 +701,8 @@ int main()
     assert(!coreFence.check(media, mediaReceipt, 120, fenceReason));
     assert(!coreFence.effectiveMediaImportCapability(
         "human_media", "default", 120, fenceReason));
+    assert(!coreFence.mayBrowseSources("human_media", "default", fenceReason) &&
+           fenceReason == "media_import_permission_denied");
     const auto revokedRealGrant = service.receipt(
         context(ActorType::Agent, "actor_agent"), mediaReceipt, 120);
     assert(!revokedRealGrant.accepted);
