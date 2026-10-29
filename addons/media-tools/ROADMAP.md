@@ -120,6 +120,40 @@ Das **zweite, zuletzt gezeigte Media-Tools-Mockup** im Chat vom 27.10.2026 ist d
 
 ### MT.META6 — verbindlicher Integrationsablauf (28.10.2026)
 
+**Erweiterung 29.10.2026 – MT.META6 dauerhafte Suite-Zuordnung, Quellcode:**
+Der bereits vor dem Import eindeutig erkannte TMDb-Kandidat wird nun als
+abwärtskompatibler `v2`-Snapshot im **selben** unveränderlichen
+`addon.media.import`-Payload gespeichert. Er enthält zusätzlich zur
+Serien-/Folgenbeschreibung die genaue `tv-episode`-/`movie`-Provider-ID
+sowie die vorhandene Posterreferenz (fehlende/ungültige Posterreferenz
+ist optional und verhindert den Videoimport nicht).
+Das Format `v1` bleibt lesbar; der bestehende Importvertragsweg und die
+Command-Versionen 8/9 werden weiterverwendet. Keine zweite TMDb-Abfrage,
+kein neues Datenbankschema, kein neuer Auftrag/Agent oder Scraper.
+
+`DaemonRuntimeRecordingCache.cpp` liest bei der **ohnehin stattfindenden
+VDR-Aufnahme-Cache-Aktualisierung** bereits erfolgreich reconciliierte
+Importoperationen und deren ursprüngliche Agent-Recording-Path-Evidence.
+Nur die exakt damit korrelierte native `.rec` wird über die bestehende
+`MetadataRepository::assignManualRecordingMetadata`-Zuordnung mit dem
+gefrorenen TMDb-Kandidaten verbunden. Eine schon vorhandene manuelle
+Zuordnung wird nicht überschrieben. Derselbe Snapshot steht nach
+Browserende/Daemon-Neustart weiterhin im Core-Journal zur Verfügung;
+erneute Cache-Aktualisierung ist idempotent. Der Browser vermeidet für
+diese v2-Aufträge den konkurrierenden nachträglichen
+`metadata/assign`-POST. Bereits vorhandene Legacy-/manuelle
+Reparaturpfade bleiben erhalten.
+
+**Noch ungetestet und nicht installiert:** Der gesamte C++-Daemon-/Agent-
+Build, Frontend-Kompositionstest, realer VDR-Readback inklusive
+Poster-Materialisierung und Wiederanlauf. Die zugehörigen Unit-/
+Vertragstests wurden im Repository ergänzt, aber hier nicht
+ausgeführt. Bei fehlschlagender Artwork-/Metadatenzuordnung bleibt
+der Videoimport erfolgreich; die Zuordnung wird nicht als erfolgreich
+ausgegeben. Insbesondere offen bleiben die native `info`-Nachkorrektur
+bestehender Andor S01E01–S01E05 via berechtigtem Backend-Schreibpfad,
+zugehörige VDR-Aufnahmeaktualisierung, Real-yaVDR- und TV-App-Abnahme.
+
 **Quellstand 29.10.2026 – MT.META6 Vorab-Metadaten-Snapshot umgesetzt, Abnahme offen:**
 Der bestehende automatische TMDb-Suchpfad identifiziert eine eindeutige
 Serienfolge bereits vor dem Import. `web/frontend/modules/media-import.js`
