@@ -1647,13 +1647,23 @@ bool DaemonRuntime::initialize()
             const VdrRecording* match = nullptr;
             for (const auto& recording : recordings) {
                 if (recording.backendId != assigned.backendId ||
-                    recording.backendNativeId != assigned.resourceKey ||
+                    recording.backendNativeId != selected.resourceKey ||
                     recording.backendNativeId.empty() ||
                     recording.id.empty()) continue;
                 if (match) return false;
                 match = &recording;
             }
-            if (!match) return false;
+            if (!match || !metadataRepository_) return false;
+            // The assignment repository stores the canonical cache_key,
+            // while the browser submitted backendNativeId. Re-resolve via
+            // the existing canonical metadata lookup and verify this EXACT
+            // committed assignment before touching native bytes.
+            const auto bound =
+                metadataRepository_->getManualRecordingMetadataReadOnly(
+                    assigned.backendId, match->backendNativeId);
+            if (!bound.found ||
+                bound.metadataAssignmentId != assigned.metadataAssignmentId)
+                return false;
             vdrsuite::mediatools::ImportConfirmedMetadata confirmed;
             confirmed.mediaType = assigned.mediaType;
             confirmed.title = assigned.title;
