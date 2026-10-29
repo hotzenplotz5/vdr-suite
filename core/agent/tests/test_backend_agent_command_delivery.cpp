@@ -225,6 +225,79 @@ int main()
         "WHERE command_id='cmd_historical_modify'") == 1);
     std::cout << "HISTORICAL_MODIFY_RESULT_GENERATION_RECOVERY=PASS\\n";
 
+    // Media Import: generation 7 has a durable receipt and an explicit
+    // pre-dispatch fenced rejection. Generation 8 may ACK that exact old
+    // failure, never an old success, a started import, or a foreign actor.
+    auto rejectedImport = historical;
+    rejectedImport.commandId = "cmd_historical_import_rejected";
+    rejectedImport.requestId = "req_historical_import_rejected";
+    rejectedImport.correlationId = rejectedImport.requestId;
+    rejectedImport.operationId = "op_historical_import_rejected";
+    rejectedImport.jobId = "job_historical_import_rejected";
+    rejectedImport.attemptId = "att_historical_import_rejected";
+    rejectedImport.commandType = "addon.media.import";
+    rejectedImport.payloadVersion = 1;
+    rejectedImport.payload = "{\"sourceId\":\"source_historical_123456\"}";
+    rejectedImport.verificationPolicy = "reconciliation_required";
+    rejectedImport.requestFingerprint =
+        backendAgentCommandFingerprint(rejectedImport);
+    assert(backendAgentCommandValidAssignment(rejectedImport));
+    assert(commands.insertAssignment(rejectedImport));
+    assert(db.execute(
+        "INSERT INTO backend_agent_command_receipts "
+        "(command_id,receipt_identity,receipt_category,reason_code,received_at) "
+        "VALUES('cmd_historical_import_rejected','fixture_old_receipt',"
+        "'accepted','durably_recorded',111);"));
+    BackendAgentCommandResult noDispatch;
+    noDispatch.commandId = rejectedImport.commandId;
+    noDispatch.requestFingerprint = rejectedImport.requestFingerprint;
+    noDispatch.jobId = rejectedImport.jobId;
+    noDispatch.attemptId = rejectedImport.attemptId;
+    noDispatch.claimEpoch = rejectedImport.claimEpoch;
+    noDispatch.backendId = rejectedImport.backendId;
+    noDispatch.agentId = rejectedImport.agentId;
+    noDispatch.agentInstanceId = rejectedImport.agentInstanceId;
+    noDispatch.backendGeneration = rejectedImport.backendGeneration;
+    noDispatch.dispatchState = "not_started";
+    noDispatch.verificationState = "outcome_unknown";
+    noDispatch.resultCategory = "rejected";
+    noDispatch.errorCategory = "fenced";
+    noDispatch.retryClassification = "none";
+    noDispatch.boundedDiagnostics = "Fenced before native dispatch";
+    noDispatch.completedAt = 120;
+    assert(backendAgentCommandValidResult(noDispatch));
+    bool appliedOldImport = false;
+    service.setMediaImportResultApply(
+        [&](const BackendAgentCommandAssignment& original,
+            const BackendAgentCommandResult& oldResult, std::string& applyReason) {
+            assert(original.commandId == rejectedImport.commandId);
+            assert(oldResult.commandId == original.commandId);
+            appliedOldImport = true;
+            applyReason = "historical_failed_before_dispatch";
+            return true;
+        });
+    auto unsafeStarted = noDispatch;
+    unsafeStarted.dispatchState = "starting";
+    assert(!service.result(
+        context(ActorType::Agent, "actor_agent"), unsafeStarted, 900).accepted);
+    auto unsafeSuccess = noDispatch;
+    unsafeSuccess.resultCategory = "succeeded";
+    assert(!service.result(
+        context(ActorType::Agent, "actor_agent"), unsafeSuccess, 900).accepted);
+    assert(!service.result(
+        context(ActorType::Agent, "foreign_actor"), noDispatch, 900).accepted);
+    assert(!appliedOldImport);
+    const auto acceptedOldImport =
+        service.result(context(ActorType::Agent, "actor_agent"), noDispatch, 900);
+    assert(acceptedOldImport.accepted && !acceptedOldImport.replayed);
+    assert(appliedOldImport);
+    assert(service.result(context(ActorType::Agent, "actor_agent"),
+        noDispatch, 901).accepted);
+    assert(sqlCount(db.handle(),
+        "SELECT count(*) FROM backend_agent_command_results "
+        "WHERE command_id='cmd_historical_import_rejected'") == 1);
+    std::cout << "HISTORICAL_MEDIA_IMPORT_NOT_STARTED_RECOVERY=PASS\\n";
+
     assert(service.armFault(context(ActorType::System,"system_admin"),"default","receipt",110,reason));
     // P7 reconstructed pre-result-evidence schema (private in-memory DB).
     // The real command/result roundtrip above persisted this older-style row.
