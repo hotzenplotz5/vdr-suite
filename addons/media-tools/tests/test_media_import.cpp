@@ -733,6 +733,55 @@ int main() {
         ++checks;
     }
     {
+        // MT.META6 end-to-end worker boundary: one frozen S01E01 provider
+        // result travels unchanged from the original import operation to
+        // the actual native staged 'info'; no provider call or second import.
+        const std::string snapshot =
+            "v1|episode|Star%20Wars%3A%20Andor|Kassa|"
+            "Die%20Suche%20beginnt.|1|1";
+        ImportConfirmedMetadata decoded;
+        assert(parseFrozenImportMetadata(snapshot, decoded));
+        assert(decoded.mediaType == "episode" &&
+               decoded.seriesTitle == "Star Wars: Andor" &&
+               decoded.title == "Kassa" &&
+               decoded.overview == "Die Suche beginnt." &&
+               decoded.seasonNumber == 1 && decoded.episodeNumber == 1);
+        Fixture f;
+        FakeProcess runner;
+        const auto output = executeRemuxImport(
+            inspectImport(f.request()), runner,
+            [](const ImportPlan&) {}, false, &decoded);
+        std::ifstream stream(output / "info", std::ios::binary);
+        const std::string info((std::istreambuf_iterator<char>(stream)),
+                               std::istreambuf_iterator<char>());
+        assert(info == "T Star Wars: Andor\nS Kassa\n"
+                       "D Die Suche beginnt.\n");
+        assert(fs::exists(output / "00001.ts") &&
+               fs::exists(output / "index") && fs::exists(f.source));
+        ++checks;
+    }
+    {
+        // Percent-encoded delimiter, Unicode and malformed data are handled
+        // in the worker itself, not by a second TMDb request.
+        ImportConfirmedMetadata decoded;
+        assert(parseFrozenImportMetadata(
+            "v1|episode|Andor|Das%20bin%20ich|"
+            "%C3%84rger%20%7C%20Freude|1|2", decoded));
+        assert(decoded.title == "Das bin ich" &&
+               decoded.overview == "Ärger | Freude" &&
+               decoded.episodeNumber == 2);
+        assert(!parseFrozenImportMetadata(
+            "v1|episode|Andor|X|bad%2|1|2", decoded));
+        assert(!parseFrozenImportMetadata(
+            "v1|episode|Andor|X|bad%00data|1|2", decoded));
+        assert(!parseFrozenImportMetadata(
+            "v1|episode|Andor|X|nope|1|0", decoded));
+        assert(parseFrozenImportMetadata(
+            "v1|movie||Film|Beschreibung|0|0", decoded));
+        assert(decoded.mediaType == "movie" && decoded.title == "Film");
+        ++checks;
+    }
+    {
         Fixture f;
         fs::create_symlink(f.source, f.input / "Sample.nfo");
         mustFail([&] { inspectImport(f.request()); });
