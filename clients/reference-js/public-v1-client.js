@@ -715,7 +715,7 @@
       if (requestOptions.metadata !== undefined &&
           (typeof requestOptions.metadata !== 'string' ||
            requestOptions.metadata.length > 4096 ||
-           !/^v1\|(episode|movie)\|/.test(requestOptions.metadata)))
+           !/^v(?:1|2)\|(episode|movie)\|/.test(requestOptions.metadata)))
         throw new Error('Invalid Media Import metadata snapshot');
       const headers = Object.assign(
         {Accept: 'application/json'},
