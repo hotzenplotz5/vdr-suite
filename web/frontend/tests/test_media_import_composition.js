@@ -884,14 +884,22 @@ function publishHomeResume() {}
   assert.notStrictEqual(posts[0].options.headers['Idempotency-Key'],
     posts[1].options.headers['Idempotency-Key']);
 
-  // Login/out and permissions must hide and invalidate the production module.
+  // Explicit logout still closes the navigation and clears session
+  // state. A transient Agent outage never has that authority.
   context.resetMediaImportVisibility(true);
+  vm.runInContext('browserSessionFrontendActive = false;', context);
   assert.strictEqual(tab.hidden, true);
   allow = false;
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), false);
   assert.strictEqual(tab.hidden, true);
   context.selectModule('media-import');
   assert.strictEqual(tab.hidden, true);
+  vm.runInContext('browserSessionFrontendActive = true;', context);
+  // A new authenticated session may open installed Media Tools even before
+  // the Agent's first capability result recovers.
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), false);
+  assert.strictEqual(tab.hidden, false);
+  assert.strictEqual(tab.disabled, false);
   allow = true;
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   context.selectModule('media-import');
