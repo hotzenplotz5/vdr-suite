@@ -100,7 +100,7 @@ async function test() {
   h.window.VdrSuiteAddonSettings.render(h.parent, 'default');
   await flush();
   assert.ok(h.elements.some(e =>
-    e.textContent === 'Handler verifiziert, Addon deaktiviert'));
+    e.textContent === 'Media Tools deaktiviert'));
   const toggle = h.elements.find(e => e.textContent === 'Aktivieren');
   assert.ok(toggle && !toggle.disabled, 'enabled admin activation control');
   assert.equal(h.parent.children[0].hidden, false, 'authorized admin card visible');
@@ -126,7 +126,7 @@ async function test() {
   installed.window.VdrSuiteAddonSettings.render(installed.parent, 'default');
   await flush();
   assert.ok(installed.elements.some(e =>
-    e.textContent === 'Media Tools technisch freigegeben (Benutzerrechte separat prüfen)'));
+    e.textContent === 'Media Tools aktiviert und betriebsbereit'));
   assert.ok(installed.elements.some(e => e.textContent === 'Deaktivieren'));
   assert.ok(!h.elements.some(e => e.textContent === 'Installieren' ||
     e.textContent === 'Deinstallieren'),
@@ -164,8 +164,7 @@ async function test() {
     'Änderung abgelehnt: activation_denied (403)')));
   assert.equal(denied.requests.filter(r => r.options.method === 'POST').length, 1);
 
-  // Fail closed: an unverified provider is not proof of an absent package.
-  // Its activation button cannot start an attempted enable mutation.
+  // An offline Agent must not disable the administrator's enable button.
   const unverified = harness(() => response(200, {
     backendId: 'default', desiredEnabled: false, revision: 0,
     providerVerified: false, agentReady: false
@@ -173,14 +172,13 @@ async function test() {
   unverified.window.VdrSuiteAddonSettings.render(unverified.parent, 'default');
   await flush();
   assert.ok(unverified.elements.some(e =>
-    e.textContent === 'Backend-Agent nicht bereit; lokale Installation wird hier nicht geprüft'));
+    e.textContent === 'Media Tools deaktiviert'));
   const disabledEnable = unverified.elements.find(e => e.textContent === 'Aktivieren');
-  assert.ok(disabledEnable && disabledEnable.disabled);
-  assert.ok(disabledEnable.title.includes('Backend-Agent nicht bereit'));
+  assert.ok(disabledEnable && !disabledEnable.disabled);
   assert.equal(unverified.requests.filter(r => r.options.method === 'POST').length, 0);
   assert.equal(unverified.requests.filter(r =>
-    r.url.startsWith('/api/v1/addons/rectools/sources')).length, 0,
-    'unverified provider must not expose or request source configuration');
+    r.url.startsWith('/api/v1/addons/rectools/sources')).length, 1,
+    'administrator may inspect configured roots while Agent is offline');
 
   // Byte-verified provider with a stale Agent generation is not activated.
   const staleBinding = harness(() => response(200, {
@@ -190,7 +188,7 @@ async function test() {
   staleBinding.window.VdrSuiteAddonSettings.render(staleBinding.parent, 'default');
   await flush();
   assert.ok(staleBinding.elements.some(e =>
-    e.textContent === 'Aktivierungswunsch vorhanden; Agent-/Handlerbindung nicht bestätigt'));
+    e.textContent === 'Media Tools aktiviert; Worker-Verfügbarkeit wird beim Auftrag geprüft'));
 
   const agentOffline = harness(() => response(200, {
     backendId: 'default', desiredEnabled: false, revision: 0,
@@ -198,7 +196,7 @@ async function test() {
   }), {count: 0});
   agentOffline.window.VdrSuiteAddonSettings.render(agentOffline.parent, 'default');
   await flush();
-  assert.ok(agentOffline.elements.find(e => e.textContent === 'Aktivieren').disabled);
+  assert.ok(!agentOffline.elements.find(e => e.textContent === 'Aktivieren').disabled);
 
   // A stale desired-enable must never be labelled an installed or usable
   // add-on; disabling it remains permitted even after trust is lost.
@@ -209,7 +207,7 @@ async function test() {
   stale.window.VdrSuiteAddonSettings.render(stale.parent, 'default');
   await flush();
   assert.ok(stale.elements.some(e =>
-    e.textContent === 'Aktivierungswunsch gespeichert; Agent bestätigt Handler aktuell nicht'));
+    e.textContent === 'Media Tools aktiviert; Worker-Verfügbarkeit wird beim Auftrag geprüft'));
   assert.ok(!stale.elements.find(e => e.textContent === 'Deaktivieren').disabled);
 
   // MT.UX2: actual administrator save, no generated shell command.
