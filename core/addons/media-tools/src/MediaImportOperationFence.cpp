@@ -124,24 +124,26 @@ bool MediaImportOperationFence::actorBackendAllowed(
         (intent.intent.revision > 0 && !intent.intent.desiredEnabled))
         return denied(reason, "media_import_activation_disabled");
 
-    // Installation and root-handler approval do not imply activation.
-    // A revision-bound administrator enable and the current handler/Agent
-    // binding remain mandatory on every admission and dispatch path.
+    // The administrator's explicit desiredEnabled decision persists across
+    // Agent reconnects and a verified worker replacement. An old activation
+    // binding must NOT become a second authorization authority: the live
+    // command capability and Core's independent root-handler verification
+    // already establish the current executable provider.
+    //
+    // A real administrator disable above still wins, as do actor grants,
+    // backend write access and the package maintenance freeze.
     const auto activeAgent = agents_.findAgentForBackend(backendId);
     if (!activeAgent || activeAgent->revoked || activeAgent->incompatible ||
-        !trustedProviderCheck_)
+        activeAgent->agentId.empty() || activeAgent->agentInstanceId.empty() ||
+        activeAgent->backendGeneration == 0 ||
+        activeAgent->leaseExpiresAt < now ||
+        !commands_.hasCapability(
+            backendId, activeAgent->agentId, activeAgent->agentInstanceId,
+            activeAgent->backendGeneration,
+            vdrsuite::mediatools::kMediaImportCommandType))
+        return denied(reason, "media_import_capability_agent_unavailable");
+    if (!trustedProviderCheck_ || trustedProviderCheck_(backendId, now).empty())
         return denied(reason, "media_import_provider_untrusted");
-    const std::string trustedSha = trustedProviderCheck_(backendId, now);
-    if (trustedSha.empty() ||
-        (intent.intent.revision > 0 && intent.intent.desiredEnabled &&
-         !intent.intent.approvedHandlerSha256.empty() &&
-         trustedSha != intent.intent.approvedHandlerSha256))
-        return denied(reason, "media_import_provider_untrusted");
-    if (!mediaToolsActivationPermits(
-            intent.intent, activeAgent->agentId,
-            activeAgent->agentInstanceId, activeAgent->backendGeneration,
-            trustedSha))
-        return denied(reason, "media_import_activation_agent_stale");
 
     reason = "media_import_actor_backend_authorized";
     return true;
