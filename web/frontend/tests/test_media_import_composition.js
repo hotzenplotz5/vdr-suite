@@ -2539,14 +2539,15 @@ function publishHomeResume() {}
   const importedFilter = findClass(mount, 'media-import-filter');
   importedFilter.value = 'imported';
   importedFilter.listeners.change();
-  assert(findClass(mount, 'media-import-selection').children.some(function (row) {
-    return row.dataset.sourceId === SOURCE;
-  }), 'imported status filter retains confirmed recording');
+  const filteredImportedRow = findClass(mount, 'media-import-selection').children.find(
+    function (row) { return row.dataset.sourceId === SOURCE; });
+  assert(filteredImportedRow,
+    'imported status filter retains confirmed recording');
   const readOnlyPreviewCount = requests.filter(function (req) {
     return req.path.includes('/preview');
   }).length;
   const importedPostCount = submits;
-  findClass(importedRow, 'media-import-episode-open').listeners.click();
+  findClass(filteredImportedRow, 'media-import-episode-open').listeners.click();
   await settle();
   assert.strictEqual(requests.filter(function (req) {
     return req.path.includes('/preview');
@@ -2554,7 +2555,7 @@ function publishHomeResume() {}
   'opening already imported recording must reuse inventory instead of a new preview');
   assert.strictEqual(submits, importedPostCount,
     'opening an imported episode cannot automatically mark or import');
-  const importedRemove = findClass(importedRow, 'media-import-delete-duplicate-inline');
+  const importedRemove = findClass(filteredImportedRow, 'media-import-delete-duplicate-inline');
   assert(importedRemove && !importedRemove.disabled,
     'unmarked confirmed recording has a directly reachable delete action');
   confirmLocal = false;
