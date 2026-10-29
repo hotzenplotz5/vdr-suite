@@ -784,6 +784,28 @@ int main() {
         assert(parseFrozenImportMetadata(
             "v1|movie||Film|Beschreibung|0|0", decoded));
         assert(decoded.mediaType == "movie" && decoded.title == "Film");
+        // Same data already found before admission. v2 preserves the exact
+        // TMDb identity and poster reference needed after native readback.
+        assert(parseFrozenImportMetadata(
+            "v2|episode|Star%20Wars%3A%20Andor|Kassa|"
+            "Beschreibung|1|1|tv-episode|45001|%2Fexample.jpg", decoded));
+        assert(decoded.mediaType == "episode" &&
+               decoded.seriesTitle == "Star Wars: Andor" &&
+               decoded.title == "Kassa" &&
+               decoded.externalNamespace == "tv-episode" &&
+               decoded.externalId == "45001" &&
+               decoded.posterReference == "/example.jpg" &&
+               decoded.seasonNumber == 1 && decoded.episodeNumber == 1);
+        assert(parseFrozenImportMetadata(
+            "v2|movie||Der%20Film|Beschreibung|0|0|movie|12345|", decoded));
+        assert(decoded.mediaType == "movie" &&
+               decoded.externalNamespace == "movie" &&
+               decoded.externalId == "12345" &&
+               decoded.posterReference.empty());
+        assert(!parseFrozenImportMetadata(
+            "v2|episode|Andor|Kassa|Text|1|1|movie|12345|", decoded));
+        assert(!parseFrozenImportMetadata(
+            "v2|episode|Andor|Kassa|Text|1|1|tv-episode|123x|", decoded));
         ++checks;
     }
     {
