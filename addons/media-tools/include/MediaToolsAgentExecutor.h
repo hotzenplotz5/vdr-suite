@@ -190,7 +190,6 @@ inline bool parseMediaImportSelection(
     // MT.META6: backwards-compatible, immutable metadata snapshot for
     // import/local only. The snapshot is the already-found TMDb data; the
     // Agent does not make another provider request.
-    const std::string prefix = "{\"sourceId\":\"";
     const std::string direct = "\",\"metadata\":\"";
     const std::string local = "\",\"videoDecision\":\"local\",\"metadata\":\"";
     if (payload.compare(0, prefix.size(), prefix) != 0 ||
