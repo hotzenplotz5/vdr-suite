@@ -545,53 +545,128 @@ ImportLocalMetadata readImportLocalMetadata(const ImportPlan& plan) {
 // VDR info is line-oriented. Provider descriptions may contain line breaks;
 // treat them as text rather than accidentally creating another native info
 // record (such as a second T/S/D line). Keep Unicode UTF-8 bytes unchanged.
+// Normalize one VDR info value: arbitrary provider text may include
+// physical line breaks or control bytes, never treat those as record headers.
+static std::string vdrInfoSingleLine(const std::string& input)
+{
+    std::string output;
+    output.reserve(input.size());
+    bool pendingSpace = false;
+    for (unsigned char ch : input) {
+        if (ch == '\n' || ch == '\r' || ch == '\t' || ch == ' ') {
+            pendingSpace = !output.empty();
+            continue;
+        }
+        if (ch < 32 || ch == 127) continue;
+        if (pendingSpace) output.push_back(' ');
+        pendingSpace = false;
+        output.push_back(static_cast<char>(ch));
+    }
+    return output;
+}
+
 std::string renderNativeVdrRecordingInfo(
     const ImportPlan& plan, const ImportLocalMetadata& local,
     const ImportConfirmedMetadata* confirmed)
 {
-    const auto singleLine = [](const std::string& input) {
-        std::string output;
-        output.reserve(input.size());
-        bool pendingSpace = false;
-        for (unsigned char ch : input) {
-            if (ch == '\n' || ch == '\r' || ch == '\t' || ch == ' ') {
-                pendingSpace = !output.empty();
-                continue;
-            }
-            if (ch < 32 || ch == 127) continue;
-            if (pendingSpace) output.push_back(' ');
-            pendingSpace = false;
-            output.push_back(static_cast<char>(ch));
-        }
-        return output;
-    };
     const bool episode = confirmed && confirmed->mediaType == "episode";
     const bool movie = confirmed && confirmed->mediaType == "movie";
     const bool selected = episode || movie;
-    const std::string title = singleLine(
+    const std::string title = vdrInfoSingleLine(
         episode && !confirmed->seriesTitle.empty()
             ? confirmed->seriesTitle
             : selected && !confirmed->title.empty()
                 ? confirmed->title : plan.title);
-    const std::string subtitle = singleLine(
+    const std::string subtitle = vdrInfoSingleLine(
         episode && !confirmed->title.empty()
             ? confirmed->title
             : local.shortText.empty()
                 ? "Imported via VDR-Suite Media Tools" : local.shortText);
-    std::string description = singleLine(
+    std::string description = vdrInfoSingleLine(
         selected && !confirmed->overview.empty()
             ? confirmed->overview : local.description);
     if (!local.year.empty()) {
         if (!description.empty()) description += " | ";
-        description += "Year: " + singleLine(local.year);
+        description += "Year: " + vdrInfoSingleLine(local.year);
     }
     if (!local.genre.empty()) {
         if (!description.empty()) description += " | ";
-        description += "Genre: " + singleLine(local.genre);
+        description += "Genre: " + vdrInfoSingleLine(local.genre);
     }
     std::string info = "T " + title + "\nS " + subtitle + "\n";
     if (!description.empty()) info += "D " + description + "\n";
     return info;
+}
+
+// Pure MT.META6.3 transform of an EXISTING native VDR info file. Retain every
+// non-T/S/D record byte-for-byte, especially C, E, F, P and X extension data.
+// For a missing TMDb field, retain the existing native value rather than
+// clearing it. Multiple old D lines are replaced together only if an explicit
+// new description exists. This does not write files or modify TS/index.
+std::string mergeConfirmedMetadataIntoNativeVdrInfo(
+    const std::string& originalInfo, const ImportConfirmedMetadata& confirmed)
+{
+    const bool episode = confirmed.mediaType == "episode";
+    const bool movie = confirmed.mediaType == "movie";
+    if (!episode && !movie) return originalInfo;
+    const std::string title = vdrInfoSingleLine(
+        episode ? confirmed.seriesTitle : confirmed.title);
+    const std::string subtitle = episode
+        ? vdrInfoSingleLine(confirmed.title) : std::string{};
+    const std::string description = vdrInfoSingleLine(confirmed.overview);
+    if (title.empty() && subtitle.empty() && description.empty())
+        return originalInfo;
+
+    std::string output;
+    output.reserve(originalInfo.size() + title.size() +
+                   subtitle.size() + description.size() + 24);
+    bool wroteTitle = false;
+    bool wroteSubtitle = false;
+    bool wroteDescription = false;
+    const bool crlf = originalInfo.find("\r\n") != std::string::npos;
+    const std::string ending = crlf ? "\r\n" : "\n";
+    std::size_t start = 0;
+    while (start < originalInfo.size()) {
+        const auto end = originalInfo.find('\n', start);
+        const bool terminated = end != std::string::npos;
+        const auto finish = terminated ? end + 1 : originalInfo.size();
+        const auto count = (terminated ? end : finish) - start;
+        const std::string line = originalInfo.substr(start, count);
+        const char kind = line.size() >= 2 && line[1] == ' '
+            ? line[0] : '\0';
+        const std::string* value =
+            kind == 'T' ? &title : kind == 'S' ? &subtitle
+            : kind == 'D' ? &description : nullptr;
+        bool* written = kind == 'T' ? &wroteTitle
+            : kind == 'S' ? &wroteSubtitle
+            : kind == 'D' ? &wroteDescription : nullptr;
+        if (value != nullptr && !value->empty()) {
+            if (!*written) {
+                output.push_back(kind);
+                output += " " + *value;
+                if (terminated)
+                    output += !line.empty() && line.back() == '\r'
+                        ? "\r\n" : "\n";
+                *written = true;
+            }
+            // Skip any remaining old lines of the same replaced field.
+        } else {
+            output.append(originalInfo, start, finish - start);
+        }
+        start = finish;
+    }
+    const auto appendMissing = [&](char kind, const std::string& value,
+                                   bool written) {
+        if (value.empty() || written) return;
+        if (!output.empty() && output.back() != '\n')
+            output += ending;
+        output.push_back(kind);
+        output += " " + value + ending;
+    };
+    appendMissing('T', title, wroteTitle);
+    appendMissing('S', subtitle, wroteSubtitle);
+    appendMissing('D', description, wroteDescription);
+    return output;
 }
 
 ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan) {
