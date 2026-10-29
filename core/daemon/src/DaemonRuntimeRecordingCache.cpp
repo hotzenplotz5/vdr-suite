@@ -5,12 +5,16 @@
 #include "VdrRecordingCacheRepository.h"
 #include "VdrRecordingDuration.h"
 #include "MediaShrinkAgentCommand.h"
+#include "MediaImport.h"
+#include "MediaImportRecordingEvidence.h"
+#include "MediaToolsAgentExecutor.h"
 #include <filesystem>
 
 #include <chrono>
 #include <cstdint>
 #include <exception>
 #include <iostream>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -20,6 +24,122 @@ std::int64_t recordingMetadataEpochSeconds()
 {
     return std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+// MT.META6: consume the already-committed import snapshot on the EXISTING
+// VDR cache refresh, AFTER the normal readback established Core success.
+// This is not a worker, a second scraper, or another media operation.
+// A missing/failed metadata assignment never rolls back a verified recording.
+bool assignFrozenMetadataAfterImport(
+    const std::string& backendId,
+    const std::vector<VdrRecording>& recordings,
+    vdrsuite::operations::MutationOperationRepository& operations,
+    BackendAgentCommandRepository& commands,
+    MetadataRepository& metadata)
+{
+    using State = vdrsuite::operations::MutationOperationState;
+    const auto succeeded = operations.listByActionFamilyAndStates(
+        "media.import", {State::succeeded}, 256);
+    if (!succeeded.ok()) return false;
+    bool changed = false;
+    for (const auto& op : succeeded.operations) {
+        if (op.backendId != backendId || op.resourceType != "MediaImportSource")
+            continue;
+        const auto assignment = commands.findAssignmentForOperation(
+            backendId, op.operationId,
+            vdrsuite::mediatools::kMediaImportCommandType);
+        if (!assignment || assignment->operationId != op.operationId ||
+            assignment->backendGeneration != op.backendGeneration ||
+            assignment->backendId != backendId ||
+            assignment->commandType != vdrsuite::mediatools::kMediaImportCommandType)
+            continue;
+        const std::string frozen =
+            vdrsuite::mediatools::mediaImportSelectionMetadata(
+                assignment->payload);
+        if (frozen.compare(0, 3, "v2|") != 0) continue;
+        vdrsuite::mediatools::ImportConfirmedMetadata selected;
+        if (!vdrsuite::mediatools::parseFrozenImportMetadata(frozen, selected) ||
+            selected.externalId.empty())
+            continue;
+        const auto result = commands.resultForCommand(assignment->commandId);
+        std::string proof, sourceProof;
+        if (!result || result->commandId != assignment->commandId ||
+            result->backendId != backendId ||
+            result->backendGeneration != op.backendGeneration ||
+            result->requestFingerprint != assignment->requestFingerprint ||
+            result->claimEpoch != assignment->claimEpoch ||
+            result->dispatchState != "accepted_by_executor" ||
+            !vdrsuite::mediatools::parseMediaImportResultEvidence(
+                result->resultEvidence, proof, sourceProof))
+            continue;
+
+        // Match the *proven* native .rec, not a browser-supplied folder,
+        // a fuzzy filename, or "latest recording". Native providers may
+        // report the symlink /srv/vdr/video rather than video.00.
+        const VdrRecording* matched = nullptr;
+        bool ambiguous = false;
+        for (const auto& rec : recordings) {
+            if (rec.backendId != backendId || rec.backendNativeId.empty() ||
+                rec.title.empty() || rec.id.empty())
+                continue;
+            using vdrsuite::mediatools::recordingPathEvidence;
+            bool same = recordingPathEvidence(rec.backendNativeId) == proof ||
+                recordingPathEvidence(rec.path) == proof;
+            if (!same) {
+                const std::filesystem::path native(rec.backendNativeId);
+                if (native.is_absolute() && native.extension() == ".rec" &&
+                    native.lexically_normal() == native) {
+                    std::error_code error;
+                    const auto canonical =
+                        std::filesystem::canonical(native, error);
+                    same = !error &&
+                        recordingPathEvidence(canonical.string()) == proof;
+                }
+            }
+            if (!same) continue;
+            if (matched != nullptr) {
+                ambiguous = true;
+                break;
+            }
+            matched = &rec;
+        }
+        if (ambiguous || matched == nullptr) continue;
+
+        // Respect every existing manual choice; never supersede it during
+        // cache refresh. Repeated refreshes are idempotent after assignment.
+        const auto existing = metadata.getManualRecordingMetadataReadOnly(
+            backendId, matched->backendNativeId);
+        if (existing.found) continue;
+
+        ManualRecordingMetadataSelection selection;
+        selection.backendId = backendId;
+        selection.resourceKey = matched->backendNativeId;
+        selection.providerId = "tmdb";
+        selection.externalNamespace = selected.externalNamespace;
+        selection.externalId = selected.externalId;
+        selection.mediaType = selected.mediaType;
+        selection.title = selected.title;
+        selection.overview = selected.overview;
+        selection.posterReference = selected.posterReference;
+        selection.seasonNumber = selected.seasonNumber;
+        selection.episodeNumber = selected.episodeNumber;
+        selection.actorRef = op.actorId;
+        ManualRecordingMetadataAssignment saved;
+        if (metadata.assignManualRecordingMetadata(selection, saved)) {
+            changed = true;
+            std::cout << "Media Import TMDb assignment saved: backend="
+                      << backendId << ", operation=" << op.operationId
+                      << ", nativeId=" << matched->backendNativeId
+                      << std::endl;
+        } else {
+            // This may reflect unavailable artwork or a transient DB error.
+            // No replayed import and no blocked video action.
+            std::cerr << "Media Import TMDb assignment pending: backend="
+                      << backendId << ", operation=" << op.operationId
+                      << std::endl;
+        }
+    }
+    return changed;
 }
 
 bool recordingMetadataCapabilityAvailable(
@@ -336,6 +456,24 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                         std::cout << "Media Import readback verified: backend="
                                   << backendRuntimeContext->backendId
                                   << ", operations=" << verified << std::endl;
+                }
+                if (ready && metadataRepository_ &&
+                    mutationOperationRepository_ &&
+                    backendAgentCommandRepository_) {
+                    // Includes a newly succeeded operation AND one recovered
+                    // after daemon restart. The original provider response
+                    // remains in the existing immutable Operation payload.
+                    const auto nativeRecordings =
+                        vdrRecordingCacheRepository_->findAllForBackend(
+                            backendRuntimeContext->backendId);
+                    if (assignFrozenMetadataAfterImport(
+                            backendRuntimeContext->backendId,
+                            nativeRecordings,
+                            *mutationOperationRepository_,
+                            *backendAgentCommandRepository_,
+                            *metadataRepository_))
+                        recordingPresentationChangeQueue_.request(
+                            backendRuntimeContext->backendId);
                 }
                 // The existing native Recording refresh is the independent
                 // evidence for a completed HEVC Publish. A private candidate,
