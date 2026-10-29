@@ -274,6 +274,19 @@ Regression prüft weiterhin, dass die Serienposterreferenz in demselben
 `metadata/assign`-Aufruf mitgehen. Dies ersetzt **nicht** die getrennte
 Prüfung der produktiven Daemon-Konfiguration und der realen yaVDR-Rechte.
 
+**MT.META6.3 – Alte Dubletten bleiben nach Korrektur erkennbar:** Der
+bisherige Importer hat bei Legacy-Aufnahmen den Quelltitel in `T` und
+die eigene Herkunft in `S Imported via VDR-Suite Media Tools`
+hinterlassen. Weil die native TMDb-Korrektur beide Felder ersetzt,
+bewahrt der Writer einmalig diese **bereits belegte** Herkunft über
+denselben `.vdr-suite-import-origin`-Sidecar-Namen, den der neue
+Importer bereits verwendet (`legacy-title`-Format für alte Imports).
+Die bestehende Quelleninventur erkennt danach die alte Aufnahme weiterhin
+als Dublette. Unverändert bleibt die stärkere `v1`-Signatur neuer
+Importe; keine zusätzliche Datenbank oder FFprobe-Prüfung. Ein
+synthetischer Test prüft den vollständigen Weg vor und nach
+`T/S/D`-Korrektur.
+
 **MT.META6.3 – Existierende Aufnahmen korrigieren:** Über die bereits vorhandene backendgebundene Recording-Identität und Metadatenzuordnung, nicht über einen frei übergebenen Dateisystempfad. Die zwei bereits importierten Andor-Folgen ohne zweite Umkodierung oder erneuten Import ergänzen. Eine Änderung von VDR-`info` oder Titelverzeichnissen nur über einen separat geprüften, mit VDR abgestimmten Mutationspfad; bestehende TS-/Index-Inhalte erhalten.
 
 **MT.META6.4 – Aufnahmeaktualisierung als Bestandteil jedes Erfolgs:** Nach dem atomaren Import den bereits vorhandenen Recording-Cache-Refresh-Mechanismus verwenden. `DaemonRuntimeRecordingCache.cpp` führt `refreshRecordingCacheForAllBackends`, `mediaImportOperationFence_->reconcileRecordingCache` und `publishCompletedRecordingRefreshes` bereits; `DaemonRuntimePolling.cpp` fordert Cache-Aktualisierung bei `RecordingsChanged` an. `DaemonRuntimeInitialization.cpp` fordert **bereits** bei verifiziertem, angewendetem Agent-Importergebnis mit Recording-Pfadbeleg `recordingCacheRefreshQueue_.request(assignment.backendId, 2)` an. Die Lücke ist daher **nicht die fehlende Queue-Auslösung**, sondern der End-to-End-Nachweis dieses bestehenden Auslösers bis zur VDR-nativen Erkennung, zum committed Recording-Cache und zum `RecordingsChanged`-Ereignis an Web/Apps, einschließlich Restart/verspätetem Readback. Kein separates SVDRP-`UPDR`-Skript und keine zweite Refresh-Queue einführen. `succeeded` erst nach unabhängigem Aufnahme-Readback; bei verzögerter Aktualisierung weiterhin sichtbar „Bestätigung ausstehend“. Nach bestätigtem Erfolg aktualisieren sich „Neu aufgenommen“, Serien und Recordings 2 **ohne Browser-Reload**.

@@ -673,6 +673,28 @@ std::string mergeConfirmedMetadataIntoNativeVdrInfo(
     return output;
 }
 
+// Preserve the already established Media Import provenance when a legacy
+// recording had no source-identity sidecar. The original T is read from the
+// EXISTING info only if the importer-owned S marker is present.
+static std::string legacyImportOrigin(const std::string& originalInfo)
+{
+    std::istringstream lines(originalInfo);
+    std::string title;
+    bool imported = false;
+    for (std::string line; std::getline(lines, line);) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.compare(0, 2, "T ") == 0 && title.empty())
+            title = line.substr(2);
+        if (line == "S Imported via VDR-Suite Media Tools")
+            imported = true;
+    }
+    if (!imported || title.empty() || title.size() > 120U ||
+        title.find('\r') != std::string::npos ||
+        title.find('\n') != std::string::npos)
+        return {};
+    return "vdr-suite-import-origin/legacy-title " + title + "\n";
+}
+
 // Existing-recording correction is private to an already authorized native
 // recording owner. No HTTP path input, metadata lookup, FFmpeg or video writes.
 bool updateConfirmedNativeVdrInfo(
@@ -729,6 +751,7 @@ bool updateConfirmedNativeVdrInfo(
     if (updated == previous) return false;
     require(updated.size() <= static_cast<std::size_t>(MaxInfo),
             "native info correction exceeds maximum size");
+    const std::string historicOrigin = legacyImportOrigin(previous);
     const std::string temp = ".vdr-suite-info-" + std::to_string(::getpid()) +
         "-" + std::to_string(std::chrono::steady_clock::now()
                                .time_since_epoch().count());
@@ -764,6 +787,34 @@ bool updateConfirmedNativeVdrInfo(
                  {beforeReplace.st_dev,beforeReplace.st_ino,beforeReplace.st_size,
                   beforeReplace.st_mtim.tv_sec,beforeReplace.st_mtim.tv_nsec}),
             "native info changed before replacement");
+
+    // Old imports stored their source-derived title only in T and the Suite
+    // marker in S. Both will be replaced with real episode metadata. Reuse
+    // the EXISTING .vdr-suite-import-origin sidecar contract instead of
+    // letting the next duplicate scan forget a verified imported source.
+    // New imports already carry the stronger source-signature v1 origin.
+    if (!historicOrigin.empty()) {
+        struct stat originStat{};
+        if (::fstatat(dir.fd, ".vdr-suite-import-origin",
+                      &originStat, AT_SYMLINK_NOFOLLOW) != 0) {
+            require(errno == ENOENT, "cannot inspect existing import origin");
+            FdGuard origin(::openat(dir.fd, ".vdr-suite-import-origin",
+                                    O_WRONLY | O_CREAT | O_EXCL |
+                                    O_NOFOLLOW | O_CLOEXEC, 0644));
+            require(origin.fd >= 0, "cannot preserve legacy import origin");
+            std::size_t position = 0;
+            while (position < historicOrigin.size()) {
+                const ssize_t size =
+                    ::write(origin.fd, historicOrigin.data() + position,
+                            historicOrigin.size() - position);
+                if (size < 0 && errno == EINTR) continue;
+                require(size > 0, "cannot save legacy import origin");
+                position += static_cast<std::size_t>(size);
+            }
+            require(::fsync(origin.fd) == 0,
+                    "cannot sync legacy import origin");
+        }
+    }
     require(::renameat(dir.fd,temp.c_str(),dir.fd,"info") == 0,
             "native info atomic replacement failed");
     cleanup.file.clear();
@@ -950,7 +1001,10 @@ bool confirmedMediaImportDuplicate(const ImportPlan& plan)
                 const std::string content(
                     (std::istreambuf_iterator<char>(origin)),
                     std::istreambuf_iterator<char>());
-                if (content == nativeImportOrigin(plan)) return true;
+                if (content == nativeImportOrigin(plan) ||
+                    content == "vdr-suite-import-origin/legacy-title " +
+                        plan.title + "\n")
+                    return true;
             }
             std::ifstream metadata(recording / "info", std::ios::binary);
             std::string line;

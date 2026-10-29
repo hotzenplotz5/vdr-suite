@@ -736,11 +736,11 @@ int main() {
         // Retrofit an existing recording without calling the import worker,
         // changing TS/index, touching the input, or making a TMDb request.
         Fixture f;
-        const fs::path rec = f.video / "Serien" / "Andor" /
+        const fs::path rec = f.video / "Sample" /
             "2026-10-28.17.06.1-0.rec";
         fs::create_directories(rec);
         const std::string oldInfo =
-            "C Channel\nT DE - Star Wars Andor S01E01\n"
+            "C Channel\nT Sample\n"
             "S Imported via VDR-Suite Media Tools\nE 123 456 789 4E 00\nF 25\n";
         std::ofstream(rec/"info",std::ios::binary) << oldInfo;
         std::ofstream(rec/"index",std::ios::binary) << "index";
@@ -750,7 +750,13 @@ int main() {
             "v2|episode|Star%20Wars%3A%20Andor|Kassa|"
             "Vorhandene%20Beschreibung|1|1|tv-episode|221|%2Fposter.jpg",
             selected));
+        const auto duplicateBefore = inspectImportPreview(f.request());
+        assert(duplicateBefore.duplicateTarget &&
+               confirmedMediaImportDuplicate(duplicateBefore));
         assert(updateConfirmedNativeVdrInfo(f.video,rec,selected));
+        assert(fs::is_regular_file(rec / ".vdr-suite-import-origin"));
+        assert(confirmedMediaImportDuplicate(inspectImportPreview(f.request())) &&
+               "legacy source identity must survive the T/S rewrite");
         std::ifstream readback(rec/"info",std::ios::binary);
         const std::string actual((std::istreambuf_iterator<char>(readback)),
                                  std::istreambuf_iterator<char>());

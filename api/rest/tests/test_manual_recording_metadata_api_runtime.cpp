@@ -454,6 +454,8 @@ int main()
             "C Channel\nT Star Wars: Andor\nS Kassa\n"
             "E 123 456 789 4E 00\nF 25\nD Die Suche beginnt.\n");
         assert(std::filesystem::exists(nativeRoot / ".update"));
+        assert(std::filesystem::exists(
+            nativeRecording / ".vdr-suite-import-origin"));
         std::ifstream ts(nativeRecording / "00001.ts", std::ios::binary);
         assert(std::string(std::istreambuf_iterator<char>(ts),
                            std::istreambuf_iterator<char>()) == "video-bytes");
