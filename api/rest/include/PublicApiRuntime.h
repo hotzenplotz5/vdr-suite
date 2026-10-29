@@ -1455,6 +1455,7 @@ public:
         std::vector<std::string> folders; // optional source-root-relative folders
         std::vector<std::string> statuses; // advisory recording_present/unverified
         bool partial = true; // fail closed for legacy/unknown observations
+        bool stale = false; // last verified inventory; read-only display, not import authority
     };
     using MediaImportSourceLookup = std::function<MediaImportSourceResult(
         const std::string& actorId, const std::string& backendId)>;
