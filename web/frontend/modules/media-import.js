@@ -2529,12 +2529,16 @@
             ? 'Für dieses Backend sind keine Importquellen zugänglich.'
             : 'Quellenliste konnte nicht geladen werden. Bitte aktualisieren.';
         const preserved = view.allOrdinary.length + view.allMarked.length > 0;
-        view.scanNotice.textContent = preserved
-          ? 'Aktualisierung fehlgeschlagen. Letzte erfolgreich geladene ' +
-            'Quellenliste bleibt sichtbar. Import/Löschen wird beim Ausführen ' +
-            'vom Backend erneut geprüft.'
-          : 'Quellenaktualisierung fehlgeschlagen. Noch keine erfolgreich ' +
-            'geladene Liste in dieser Anmeldung vorhanden.';
+        view.scanNotice.textContent = exceeded
+          ? 'Importgrenze überschritten: Maximal 100 Filme pro Durchlauf. ' +
+            (preserved ? 'Die letzte Liste bleibt sichtbar.' :
+              'Keine neue Auswahl freigegeben.')
+          : preserved
+            ? 'Aktualisierung fehlgeschlagen. Letzte erfolgreich geladene ' +
+              'Quellenliste bleibt sichtbar. Import/Löschen wird beim Ausführen ' +
+              'vom Backend erneut geprüft.'
+            : 'Quellenaktualisierung fehlgeschlagen. Noch keine erfolgreich ' +
+              'geladene Liste in dieser Anmeldung vorhanden.';
         report(view, preserved
           ? 'Backend-Agent momentan nicht erreichbar. Die bisherige ' +
             'Quellenliste bleibt erhalten; erneut scannen, sobald erreichbar.'
