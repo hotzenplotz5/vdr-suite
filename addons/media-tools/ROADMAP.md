@@ -259,6 +259,21 @@ aber der native Erfolg wird nicht behauptet. Kein neuer Endpunkt, Agent,
 Worker, TMDb-Request oder Datenbankschema. yaVDR-Dienstrechte und
 vollständige Integration sind noch unabhängig zu prüfen.
 
+**MT.META6.3 – Integrationsregression (29.10.2026):** Die vorhandene
+`test-metadata-manual-recording-api`-Suite kompiliert jetzt den echten
+Media-Tools-`info`-Writer mit ein. Eine bereits vorhandene, synthetische
+Andor-S01E01-`.rec` durchläuft den authentifizierten
+`recordings/metadata/assign`-Runtime-Aufruf, die echte persistente
+Suite-Zuordnung sowie den atomaren `info`-Writer mit Readback. Der
+Test belegt `T=Star Wars: Andor`, `S=Kassa`, `D` inklusive
+Erhalt vorhandener `C/E/F`-Sätze, unveränderte TS-/Index-Bytes,
+keine zusätzliche TMDb-Providerabfrage und `nativeInfoUpdated=true`
+nur nach dem tatsächlich ausgeführten Writer. Die vorhandene Browser-
+Regression prüft weiterhin, dass die Serienposterreferenz in demselben
+`v2`-Snapshot und der vorab ausgewählte Serientitel im bestehenden
+`metadata/assign`-Aufruf mitgehen. Dies ersetzt **nicht** die getrennte
+Prüfung der produktiven Daemon-Konfiguration und der realen yaVDR-Rechte.
+
 **MT.META6.3 – Existierende Aufnahmen korrigieren:** Über die bereits vorhandene backendgebundene Recording-Identität und Metadatenzuordnung, nicht über einen frei übergebenen Dateisystempfad. Die zwei bereits importierten Andor-Folgen ohne zweite Umkodierung oder erneuten Import ergänzen. Eine Änderung von VDR-`info` oder Titelverzeichnissen nur über einen separat geprüften, mit VDR abgestimmten Mutationspfad; bestehende TS-/Index-Inhalte erhalten.
 
 **MT.META6.4 – Aufnahmeaktualisierung als Bestandteil jedes Erfolgs:** Nach dem atomaren Import den bereits vorhandenen Recording-Cache-Refresh-Mechanismus verwenden. `DaemonRuntimeRecordingCache.cpp` führt `refreshRecordingCacheForAllBackends`, `mediaImportOperationFence_->reconcileRecordingCache` und `publishCompletedRecordingRefreshes` bereits; `DaemonRuntimePolling.cpp` fordert Cache-Aktualisierung bei `RecordingsChanged` an. `DaemonRuntimeInitialization.cpp` fordert **bereits** bei verifiziertem, angewendetem Agent-Importergebnis mit Recording-Pfadbeleg `recordingCacheRefreshQueue_.request(assignment.backendId, 2)` an. Die Lücke ist daher **nicht die fehlende Queue-Auslösung**, sondern der End-to-End-Nachweis dieses bestehenden Auslösers bis zur VDR-nativen Erkennung, zum committed Recording-Cache und zum `RecordingsChanged`-Ereignis an Web/Apps, einschließlich Restart/verspätetem Readback. Kein separates SVDRP-`UPDR`-Skript und keine zweite Refresh-Queue einführen. `succeeded` erst nach unabhängigem Aufnahme-Readback; bei verzögerter Aktualisierung weiterhin sichtbar „Bestätigung ausstehend“. Nach bestätigtem Erfolg aktualisieren sich „Neu aufgenommen“, Serien und Recordings 2 **ohne Browser-Reload**.

@@ -483,6 +483,7 @@ async function verifyMeta6Handoff() {
   const assignment = metadataAssignments[0];
   const data = JSON.parse(assignment.options.body);
   assert.strictEqual(data.externalId, '221');
+  assert.strictEqual(data.seriesTitle, 'Andor');
   assert.strictEqual(data.resourceKey,
     '/srv/vdr/video.00/Serien/Andor/Andor S01E01/2026-10-28.17.06.1-0.rec');
   assert.strictEqual(assignment.options.headers['X-CSRF-Token'], 'test-csrf');
@@ -2762,6 +2763,8 @@ function publishHomeResume() {}
     'previously selected TMDb kind is carried as metadata identity');
   assert(/^\d+$/.test(decodedFrozen[8]),
     'previously selected TMDb episode id is frozen with the operation');
+  assert.strictEqual(decodeURIComponent(decodedFrozen[9]), '/preview.jpg',
+    'the exact recognized series poster travels in the same persisted import snapshot');
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
