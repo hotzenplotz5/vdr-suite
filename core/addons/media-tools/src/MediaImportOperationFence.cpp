@@ -181,7 +181,7 @@ bool MediaImportOperationFence::checkCore(
         !vdrsuite::mediatools::parseMediaImportSelection(
             assignment.payload, sourceId, choice) ||
         assignment.payloadVersion !=
-            vdrsuite::mediatools::mediaImportSelectionVersion(choice) ||
+            vdrsuite::mediatools::mediaImportSelectionVersion(choice, assignment.payload) ||
         assignment.deadline <= now || assignment.assignedAt > now)
         return denied(reason, "media_import_invalid_assignment_fence");
 
@@ -295,7 +295,7 @@ bool MediaImportOperationFence::applyResult(
         !vdrsuite::mediatools::parseMediaImportSelection(
             assignment.payload, sourceId, choice) ||
         assignment.payloadVersion !=
-            vdrsuite::mediatools::mediaImportSelectionVersion(choice) ||
+            vdrsuite::mediatools::mediaImportSelectionVersion(choice, assignment.payload) ||
         op.resourceId != sourceId || !payload.ok() ||
         payload.payload.payloadType != "addon.media.import" ||
         payload.payload.payloadVersion != assignment.payloadVersion ||
@@ -530,7 +530,7 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
             !vdrsuite::mediatools::parseMediaImportSelection(
                 assignment->payload, sourceId, choice) ||
             payload.payload.payloadVersion !=
-                vdrsuite::mediatools::mediaImportSelectionVersion(choice) ||
+                vdrsuite::mediatools::mediaImportSelectionVersion(choice, assignment->payload) ||
             assignment->payloadVersion != payload.payload.payloadVersion ||
             op.resourceId != sourceId ||
             op.resourceType != "MediaImportSource" ||
