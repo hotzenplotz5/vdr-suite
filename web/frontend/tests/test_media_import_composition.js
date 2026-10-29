@@ -802,6 +802,13 @@ function publishHomeResume() {}
     'unknown operation does not disable filter');
   assert.strictEqual(findClass(mount, 'media-import-start').disabled, true,
     'no second import while Core outcome remains unknown');
+  const unknownDiagnostic = findClass(mount, 'media-import-operation-diagnostics');
+  assert(unknownDiagnostic && unknownDiagnostic.textContent.includes(
+    'Core-Status: outcome_unknown'), 'technical details show the actual Core state');
+  assert(unknownDiagnostic.textContent.includes('Operation: ' + OP),
+    'technical details correlate the exact original Operation');
+  assert(unknownDiagnostic.textContent.includes('Agent-Ausführungsstufe'),
+    'UI explicitly reports unavailable Agent/filename evidence instead of guessing');
   assert(findClass(mount, 'media-import-import-description').textContent.includes(
     'Betroffener Auftrag:'), 'unknown action is tied to the original film');
   const unknownPosts = submits;
@@ -2658,6 +2665,12 @@ function publishHomeResume() {}
   await settle();
   assert.strictEqual(submits, beforeUnknownCheck,
     'checking old S01E01 via GET cannot submit another deletion');
+  const pinnedDiagnostics = findClass(mount, 'media-import-operation-diagnostics');
+  assert(pinnedDiagnostics.textContent.includes('Core-Status: outcome_unknown') &&
+    pinnedDiagnostics.textContent.includes('Operation: ' + OP),
+    'old source remains diagnosable after selecting the independent episode');
+  assert(pinnedDiagnostics.textContent.includes('Letzte erfolgreiche Core-Abfrage'),
+    'manual read visibly timestamps a real public Operation response');
 
   independentSource.value = SOURCE;
   independentSource.listeners.change();
