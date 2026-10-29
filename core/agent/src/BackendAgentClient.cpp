@@ -2126,6 +2126,7 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     };
     std::vector<std::string> labels;
     std::vector<std::string> folders;
+    std::vector<std::string> sourceStatuses;
     if (!ids.empty() && described.size() == ids.size())
     {
         bool consistent = true;
@@ -2146,6 +2147,8 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
             for (const auto& item : described) {
                 labels.push_back(item.label);
                 folders.push_back(item.folder);
+                sourceStatuses.push_back(item.recordingPresent
+                    ? "recording_present" : "unverified");
             }
     }
     std::ostringstream body;
@@ -2169,6 +2172,11 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     {
         if (index != 0U) body << ',';
         body << '"' << jsonEscape(folders[index]) << '"';
+    }
+    body << "],\"sourceStatuses\":[";
+    for (std::size_t index = 0; index < sourceStatuses.size(); ++index) {
+        if (index != 0U) body << ',';
+        body << '\"' << sourceStatuses[index] << '\"';
     }
     body << "],\"partial\":" << (partial ? "true" : "false")
          << ",\"handlerOrigin\":\"" << jsonEscape(installed.origin)
