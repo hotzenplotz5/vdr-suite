@@ -210,9 +210,12 @@ inline bool parseMediaImportSelection(
             std::all_of(id.begin(), id.end(), [](unsigned char ch) {
                 return std::isalnum(ch) || ch == '_' || ch == '-';
             });
+        const bool version1 = snapshot.compare(0, 3, "v1|") == 0 &&
+            std::count(snapshot.begin(), snapshot.end(), '|') == 6;
+        const bool version2 = snapshot.compare(0, 3, "v2|") == 0 &&
+            std::count(snapshot.begin(), snapshot.end(), '|') == 9;
         if (!validId || snapshot.size() < 12U || snapshot.size() > 4096U ||
-            snapshot.compare(0, 3, "v1|") != 0 ||
-            std::count(snapshot.begin(), snapshot.end(), '|') != 6)
+            (!version1 && !version2))
             return false;
         const bool alphabet = std::all_of(
             snapshot.begin(), snapshot.end(), [](unsigned char ch) {
