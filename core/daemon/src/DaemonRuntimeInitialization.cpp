@@ -5690,47 +5690,51 @@ bool DaemonRuntime::initialize()
             !backendAgentCommandRepository_ ||
             !backendRegistryService_ || !backendAccessPolicy_)
             return problem(503, "activation_unavailable");
-        // The service independently requires a global administrator; caller
-        // evidence is ignored for enables. A disable never requires a live
-        // provider and remains available after revocation/removal.
+        // Only an authenticated administrator may save desired state.
+        // A transient Agent lease, capability or catalog observation must not
+        // block the administrator's enable/disable preference. Executing an
+        // actual import still requires independent live-provider validation.
         AddonAdministrationService service(
             *mediaImportActivationIntents_, *backendAgentAccountabilityRepository_,
             [this](const std::string& moduleId, const std::string& backendId)
               -> std::optional<AddonAdministrationService::TrustedActivationSnapshot>
             {
                 if (moduleId != "rectools") return std::nullopt;
-                const auto now = std::chrono::duration_cast<std::chrono::seconds>(
-                    std::chrono::system_clock::now().time_since_epoch()).count();
-                const std::string trustedSha =
-                    trustedMediaToolsHandlerDigest(backendId, now);
-                if (trustedSha.empty()) return std::nullopt;
-                const auto agent = backendAgentRepository_->findAgentForBackend(
-                    backendId);
-                if (!agent || agent->leaseExpiresAt < now ||
-                    !backendAgentCommandRepository_->hasCapability(
-                        backendId, agent->agentId, agent->agentInstanceId,
-                        agent->backendGeneration, "addon.media.import"))
-                    return std::nullopt;
                 const auto access = backendAccessPolicy_->canWriteToBackend(
                     *backendRegistryService_, backendId);
                 if (!access.backendFound || !access.allowed || access.readOnly)
                     return std::nullopt;
                 RuntimeEvidence evidence;
-                evidence.moduleId = moduleId;
-                evidence.packageName = "vdr-suite-addon-media-tools";
-                evidence.backendId = backendId;
-                evidence.agentId = agent->agentId;
-                evidence.agentInstanceId = agent->agentInstanceId;
-                evidence.backendGeneration = agent->backendGeneration;
-                evidence.approvedHandlerSha256 = trustedSha;
-                // These are TRUE only after independent administrator digest
-                // and authenticated Agent-local manifest/binary verification.
-                evidence.installed = true;
-                evidence.manifestValid = true;
-                evidence.packageTrusted = true;
-                evidence.versionCompatible = true;
-                evidence.handlerRegistered = true;
-                evidence.handlerHealthy = true;
+                const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+                const auto agent = backendAgentRepository_->findAgentForBackend(
+                    backendId);
+                // When proof is actually current, retain the reviewed handler
+                // pin. Otherwise save a non-executable administrator intent.
+                // Never synthesize installed/healthy facts for an offline Agent.
+                if (agent && !agent->revoked && !agent->incompatible &&
+                    agent->leaseExpiresAt >= now &&
+                    backendAgentCommandRepository_->hasCapability(
+                        backendId, agent->agentId, agent->agentInstanceId,
+                        agent->backendGeneration, "addon.media.import")) {
+                    const std::string trustedSha =
+                        trustedMediaToolsHandlerDigest(backendId, now);
+                    if (!trustedSha.empty()) {
+                        evidence.moduleId = moduleId;
+                        evidence.packageName = "vdr-suite-addon-media-tools";
+                        evidence.backendId = backendId;
+                        evidence.agentId = agent->agentId;
+                        evidence.agentInstanceId = agent->agentInstanceId;
+                        evidence.backendGeneration = agent->backendGeneration;
+                        evidence.approvedHandlerSha256 = trustedSha;
+                        evidence.installed = true;
+                        evidence.manifestValid = true;
+                        evidence.packageTrusted = true;
+                        evidence.versionCompatible = true;
+                        evidence.handlerRegistered = true;
+                        evidence.handlerHealthy = true;
+                    }
+                }
                 return AddonAdministrationService::TrustedActivationSnapshot{
                     access, evidence};
             });
