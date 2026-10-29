@@ -5910,6 +5910,7 @@ PublicMediaImportAdmissionResult DaemonRuntime::admitMediaImport(
             input.idempotencyKey = request.idempotencyKey;
             input.approveVideoReencode = request.approveVideoReencode;
             input.videoDecision = request.videoDecision;
+            input.metadata = request.metadata;
             input.now = now;
             const auto accepted = service.admit(input);
             using Status = vdrsuite::addons::MediaImportOperationAdmissionStatus;
