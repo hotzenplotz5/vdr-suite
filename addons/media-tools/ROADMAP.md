@@ -120,6 +120,38 @@ Das **zweite, zuletzt gezeigte Media-Tools-Mockup** im Chat vom 27.10.2026 ist d
 
 ### MT.META6 — verbindlicher Integrationsablauf (28.10.2026)
 
+**Quellstand 29.10.2026 (inkrementell, NICHT vollständig):**
+Der bestehende Media-Import-Worker besitzt jetzt
+`renderNativeVdrRecordingInfo(..., confirmedMetadata)` und verwendet die
+Funktion beim privaten Staging neuer Aufnahmen. Für explizit bestätigte
+Serienfolgen werden `T` (Serie), `S` (Episode) und `D` (Beschreibung)
+gebildet; vorhandene NFO-Angaben bleiben Fallback. Die Typisierung
+`ImportConfirmedMetadata` ist noch **nicht** durch die bestehende
+Public-v1-/Core-/Agent-/CLI-Kette bis zum Worker verbunden. Ohne diese
+Anbindung schreibt der produktive Import weiterhin die NFO-/Dateinamenwerte.
+
+Für bestehende Aufnahmen steht außerdem die **reine, dateisystemfreie**
+Funktion `mergeConfirmedMetadataIntoNativeVdrInfo(...)` bereit. Sie ersetzt
+nur bestätigte `T`-/`S`-/`D`-Werte und belässt andere VDR-Informationssätze
+(`C`, `E`, `F`, `P`, `X`) in ihrer ursprünglichen Reihenfolge.
+Fehlende Provider-Felder löschen bestehende Werte nicht. Synthetische
+Unit-Testfälle für Andor S01E01/S01E02, CRLF, unbekannte Felder,
+Wiederholbarkeit sowie unveränderte TS-/Index-Ausführung sind im
+`test_media_import.cpp` ergänzt. Eine isolierte C++17-Kompilierung
+und ein Funktions-Smoke-Test der reinen Korrektur sind **PASS**; der echte
+Repository-C++-Testlauf und Real-yaVDR sind **NOT_RUN/NOT_VERIFIED**.
+
+**Noch offen und ausdrücklich nicht als fertig zu melden:**
+(1) bestätigte Provider-Identität kompatibel/versioniert in den existierenden
+Import-Operationsvertrag aufnehmen; (2) die unveränderliche Auswahl durch
+API/Core/Agent/CLI bis zum Writer transportieren und durchgehende Tests
+ausführen; (3) vorhandene Aufnahme über die reale backendgebundene
+Recording-Identität nachkorrigieren, ohne freie Dateipfade oder zweiten
+Videoimport; (4) Native-Info-Readback, VDR-/Suite-Refresh, Poster und Clients
+auf realem VDR abnehmen. Bis dahin zeigt die Weboberfläche bei erfolgreicher
+`metadata/assign`-Antwort ausdrücklich **nur Suite-Zuordnung** an.
+Weder neue Sperren noch Datenbank-Backups wurden dafür eingeführt.
+
 **Realer yaVDR-Befund:** Star Wars: Andor S01E01 und S01E02 wurden als vollständige `.rec`-Aufnahmen mit `info` und TS gefunden und erscheinen in VDR-Suite unter „Neu aufgenommen“ sowie bei den Serien. Es fehlen aber die Episodentitel, die TMDb-Episodenbeschreibung und das erwartete Serienposter. Die auf Dateinamen basierenden VDR-`info`-Felder `T DE - Star Wars_ Andor ...` und `S Imported via VDR-Suite Media Tools` belegen: Die TMDb-Identität aus MT.META5 bleibt derzeit ausschließlich browserseitige Vorschau. Das Wiedererscheinen in der Suite beweist **nicht**, dass die native VDR-Aufnahmeliste ohne Verzögerung aktualisiert wurde.
 
 **MT.META6.1 – Metadaten-Identität statt Dateiname:** Den bestehenden authentifizierten TMDb-Kandidaten- und Recording-Metadata-Assignment-Lese-/Schreibpfad wiederverwenden. Eine eindeutig erkannte Episode (Serie, Staffel, Episodennummer, Provider-Identität) als tatsächliche Auswahl/Bestätigung behandeln; fehlende oder mehrdeutige Treffer bleiben ungelöst. Keine Metadaten aus unbestätigter fuzzy-Übereinstimmung an VDR-`info` schreiben; keine zusätzliche Datenbank, kein neuer Agent oder paralleler Scraper.
