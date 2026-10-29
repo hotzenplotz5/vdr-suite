@@ -48,6 +48,10 @@ function resetMediaImportVisibility(clearSession) {
 }
 
 function refreshMediaImportVisibility(backendId) {
+  // A signed-out browser must never reopen the tab, even when a previous
+  // backend was known during its old authenticated session.
+  if (!browserSessionFrontendActive || !backendId)
+    return Promise.resolve(false);
   const epoch = ++mediaImportCapabilityEpoch;
   const known = mediaImportKnownBackendId === backendId;
   const wasAvailable = Boolean(mediaImportTab && !mediaImportTab.hidden &&
