@@ -431,7 +431,9 @@ vm.createContext(context);
 // Exercise the real module's internal metadata handoff without exporting a
 // production testing hook or modifying the official browser API.
 vm.runInContext(view.replace('})(window);',
-  "global.__meta6Contract = {importMetadataSelection,applyImportedMetadata};})(window);"),
+  "global.__meta6Contract = {importMetadataSelection,applyImportedMetadata," +
+  "resolveExistingRecordingMetadataSelection,activateForTest:function(v){" +
+  "current=v;owner=1;}};})(window);"),
   context);
 
 // The existing Recording metadata assignment is the only metadata writer.
@@ -486,6 +488,35 @@ async function verifyMeta6Handoff() {
     metadataAssignments.length === 1,
     'ambiguous target may not create an assignment against an unrelated recording');
   metadataFolderOverride = null;
+  // MT.META6: the inventory-backed duplicate card has no targetFolder.
+  // Only an explicit metadata action may resolve it using the existing
+  // read-only Agent preview; it must not start a media import.
+  const viewForRepair = Object.assign({}, metaView, {
+    backendId: 'backend-a', owner: 1, previewGeneration: 4,
+    select: {value: SOURCE}
+  });
+  context.__meta6Contract.activateForTest(viewForRepair);
+  const originalStatus = previewInspectionStatus;
+  previewInspectionStatus = 'duplicate';
+  const initialPosts = submits;
+  const resolution = await context.__meta6Contract
+    .resolveExistingRecordingMetadataSelection(viewForRepair,
+      {sourceId: SOURCE, status: 'duplicate', title: 'Andor S01E01',
+       targetFolder: ''},
+      {sourceId: SOURCE, folder: 'Serien/Andor', label: 'Andor S01E01'});
+  assert(resolution && resolution.folder === 'Die Herrschaft des Feuers' &&
+    resolution.candidate.externalId === '221',
+    'explicit repair resolves the exact backend target for an already imported episode');
+  assert.strictEqual(submits, initialPosts,
+    'metadata target resolution does not submit any import or marker');
+  viewForRepair.select.value = '';
+  await assert.rejects(context.__meta6Contract
+    .resolveExistingRecordingMetadataSelection(viewForRepair,
+      {status: 'duplicate', targetFolder: ''},
+      {sourceId: SOURCE, folder: 'Serien/Andor', label: 'Andor S01E01'}),
+    'changed source selection must cancel metadata target resolution');
+  previewInspectionStatus = originalStatus;
+  context.__meta6Contract.activateForTest(null);
 }
 
 function slice(first, last) {
