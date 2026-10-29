@@ -197,8 +197,8 @@ inline bool parseMediaImportSelection(
         payload.substr(payload.size() - 2) != "\"}")
         return false;
     for (const auto& option : {
-        std::pair<std::string, MediaImportDecision>{direct, MediaImportDecision::import},
-        {local, MediaImportDecision::local}
+        std::pair<std::string, MediaImportDecision>{local, MediaImportDecision::local},
+        {direct, MediaImportDecision::import}
     }) {
         const auto split = payload.find(option.first, prefix.size());
         if (split == std::string::npos) continue;
