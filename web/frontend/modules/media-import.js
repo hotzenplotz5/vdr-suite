@@ -1095,7 +1095,11 @@
       };
       // v2 keeps the SAME pre-import TMDb response and adds its identity
       // and artwork reference for server-side assignment after readback.
+      // A bad artwork reference is simply omitted, never a video import gate.
       // Existing v1 snapshots remain supported by the Core/Agent.
+      const suppliedPoster = String(candidate.posterReference || '');
+      const safePoster = /^\/[A-Za-z0-9_.-]{5,255}$/.test(suppliedPoster) &&
+        !suppliedPoster.includes('..') ? suppliedPoster : '';
       const raw = ['v2', episode ? 'episode' : 'movie',
         enc(episode ? series.title : ''),
         enc(candidate.title),
@@ -1104,7 +1108,7 @@
         String(episode ? candidate.episodeNumber : 0),
         episode ? 'tv-episode' : 'movie',
         String(candidate.externalId),
-        enc(String(candidate.posterReference || '').slice(0, 255))
+        enc(safePoster)
       ].join('|');
       return raw.length <= 4096 ? raw : '';
     } catch (_) {
