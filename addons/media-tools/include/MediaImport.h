@@ -104,6 +104,12 @@ struct ImportConfirmedMetadata {
 std::string renderNativeVdrRecordingInfo(
     const ImportPlan& plan, const ImportLocalMetadata& local,
     const ImportConfirmedMetadata* confirmed = nullptr);
+
+// MT.META6.3 pure transform for an already imported Recording. Preserve
+// all VDR fields other than T/S/D, their order and their values. No file IO
+// or mutation authority is provided by this helper.
+std::string mergeConfirmedMetadataIntoNativeVdrInfo(
+    const std::string& originalInfo, const ImportConfirmedMetadata& confirmed);
 struct ImportLocalArtwork { std::string posterDataUri, fanartDataUri; };
 ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan);
 // Optional FFprobe duration, never import authority.
