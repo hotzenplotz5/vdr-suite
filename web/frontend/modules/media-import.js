@@ -252,7 +252,59 @@
   }
 
   function sourceUnresolved(view, sourceId) {
-    return Boolean(sourceId && unresolvedAttempts[unresolvedKey(view, sourceId)]);
+    return Boolean(sourceId &&
+      (unresolvedAttempts[unresolvedKey(view, sourceId)] ||
+       (view.attempt && view.attempt.sourceId === sourceId &&
+        view.attempt.state === 'outcome_unknown')));
+  }
+
+  // A failed or uncertain deletion is source-scoped. Do not disable every
+  // other episode's cleanup button merely because view.attempt is populated.
+  // The original source remains locked to its exact durable Operation.
+  function deleteBlockReason(view, sourceId) {
+    if (sourceUnresolved(view, sourceId))
+      return 'Löschen gesperrt: Die vorherige Dateiaktion für diese Quelle ist ' +
+        'ungeklärt. Ihr Ergebnis muss über „Diesen Vorgang prüfen“ geklärt ' +
+        'werden. Kein zweiter Löschauftrag.';
+    if (view.submitting)
+      return 'Löschen gesperrt: Eine Dateiaktion wird gerade übermittelt.';
+    if (view.batch || view.inspectingBatch)
+      return 'Löschen gesperrt: Eine Stapelprüfung läuft.';
+    const attempt = view.attempt;
+    if (!attempt) return '';
+    if (attempt.state === 'outcome_unknown') return '';
+    if (terminalState(attempt.state)) {
+      if (view.reading)
+        return 'Löschen gesperrt: Abschluss des vorherigen Auftrags wird eingelesen.';
+      return attempt.sourceId === sourceId
+        ? 'Löschen gesperrt: Vor einer erneuten Aktion auf derselben Quelle ' +
+          'zuerst die Quellenliste aktualisieren.'
+        : '';
+    }
+    return 'Löschen gesperrt: Der vorherige Auftrag läuft noch.';
+  }
+
+  function prepareIndependentDelete(view, sourceId) {
+    if (!isCurrent(view) || deleteBlockReason(view, sourceId)) return false;
+    const attempt = view.attempt;
+    if (attempt && attempt.state === 'outcome_unknown')
+      pinUnknownOnSourceChange(view, sourceId);
+    else if (attempt && terminalState(attempt.state) &&
+             attempt.sourceId !== sourceId) {
+      // Finished receipt remains visible in completedOperations. Releasing
+      // the transient view is not a retry and never changes Core state.
+      clearPolling(view);
+      if (activeAttempts[view.backendId] === attempt)
+        delete activeAttempts[view.backendId];
+      view.attempt = null;
+      view.reads = 0;
+      view.refreshButton.hidden = true;
+      view.newButton.hidden = true;
+      view.operationDetail.textContent = '';
+      renderImportFeedback(view);
+      updateOperationDiagnostics(view);
+    }
+    return !view.attempt;
   }
 
   // An unknown result is still an existing Core Operation. The separate
@@ -331,7 +383,11 @@
         attempt.lastStatusError
           ? 'Letzter Statusabruf: ' + attempt.lastStatusError
           : 'Core-Zustand: ' + attempt.state +
-            '. Agent-Ursache und Löschquittung sind hier nicht verfügbar.');
+            (attempt.videoDecision === 'delete_duplicate'
+              ? '. Dateisystem-Löschung NICHT bestätigt. Quelle möglicherweise ' +
+                'noch vorhanden oder bereits entfernt. Genaue Agent-Ursache ' +
+                'wird von der Public API nicht geliefert.'
+              : '. Agent-Ursache und Ausführungsquittung sind hier nicht verfügbar.'));
       row.appendChild(diag);
       view.unresolvedList.appendChild(row);
     });
@@ -395,9 +451,12 @@
       lines.push('Core-Quellenbereinigung: ' +
         (cleanupLabel(attempt.sourceCleanup) || 'Unbekannter Wert'));
     if (attempt.state === 'outcome_unknown') {
-      lines.push('Befund: Ausführung und Dateilöschung sind NICHT bestätigt.');
+      lines.push(attempt.videoDecision === 'delete_duplicate'
+        ? 'Befund: Die Quelldatei-Löschung ist NICHT bestätigt. Sie kann ' +
+          'noch vorhanden oder bereits entfernt sein; kein zweiter Löschauftrag.'
+        : 'Befund: Die Ausführung ist NICHT bestätigt.');
       lines.push('Offen: Agent-Ausführungsstufe, Dateisystemfehler und ' +
-        'Löschquittung sind in dieser Public-API-Antwort nicht enthalten. ' +
+        'Quittung sind in dieser Public-API-Antwort nicht enthalten. ' +
         'Zur Ursachenprüfung das bestehende Agent-Journal und ' +
         'Core-Command-Ergebnis zur obigen Operation lesen.');
     } else if (!attempt.operationId) {
@@ -1267,9 +1326,14 @@
       failed_before_dispatch: 'Die Ausführung wurde nicht gestartet.',
       failed_verified: 'Die Ausführung ist fehlgeschlagen.',
       cancelled: 'Der Auftrag wurde abgebrochen.',
-      outcome_unknown: 'Core meldet outcome_unknown: Die Ausführung oder Löschung ist nicht bestätigt. ' +
-        'Die öffentliche Statusantwort enthält keinen Agent-Fehlergrund. ' +
-        'Bitte denselben Vorgang prüfen; technische Einzelheiten stehen unter „Technische Details“.'
+      outcome_unknown: attempt && attempt.videoDecision === 'delete_duplicate'
+        ? 'Die Quelldatei-Löschung wurde nicht bestätigt. Die Datei kann ' +
+          'bereits entfernt oder noch vorhanden sein. Kein erneuter Löschauftrag ' +
+          'für diese Quelle! Über „Diesen Vorgang prüfen“ nur den bestehenden ' +
+          'Auftrag lesen. Der genaue Dateisystemfehler steht bisher nur im Agent-Journal.'
+        : 'Core meldet outcome_unknown: Die Ausführung ist nicht bestätigt. ' +
+          'Die öffentliche Statusantwort enthält keinen Agent-Fehlergrund. ' +
+          'Bitte denselben Vorgang prüfen; technische Einzelheiten stehen unter „Technische Details“.'
     };
     view.importFeedbackTitle.textContent = !attempt
       ? 'Aktion wird vorbereitet'
@@ -2160,17 +2224,20 @@
           'media-import-delete-duplicate media-import-delete-duplicate-inline',
           'Dublette aus Importquelle löschen');
         remove.type = 'button';
-        remove.disabled = Boolean(view.attempt) || view.submitting ||
-          Boolean(view.batch) || sourceUnresolved(view, item.sourceId);
+        const reason = deleteBlockReason(view, item.sourceId);
+        remove.disabled = Boolean(reason);
+        remove.title = reason;
         remove.addEventListener('click', function () {
-          if (!isCurrent(view) || view.batch || view.submitting ||
-              view.attempt || sourceUnresolved(view, item.sourceId)) return;
+          if (!prepareIndependentDelete(view, item.sourceId)) return;
           view.select.value = item.sourceId;
           view.markedSelect.value = '';
           refreshSelectedPreview(view);
           return startImport(view, false, 'delete_duplicate');
         });
         row.appendChild(remove);
+        const blocked = element('p', 'media-import-delete-blocked', reason);
+        blocked.hidden = !reason;
+        row.appendChild(blocked);
       }
       view.selectionRows.appendChild(row);
     });
@@ -2265,13 +2332,18 @@
           'media-import-delete-duplicate media-import-delete-duplicate-inline',
           'Dublette aus Importquelle löschen');
         removeDuplicate.type = 'button';
-        removeDuplicate.disabled = Boolean(view.attempt) || view.submitting ||
-          Boolean(view.batch) || sourceUnresolved(view, item.sourceId);
+        const reason = deleteBlockReason(view, item.sourceId);
+        removeDuplicate.disabled = Boolean(reason);
+        removeDuplicate.title = reason;
         removeDuplicate.addEventListener('click', function () {
-          if (!chooseMarkedSource()) return;
+          if (!prepareIndependentDelete(view, item.sourceId) ||
+              !chooseMarkedSource()) return;
           return startImport(view, false, 'delete_duplicate');
         });
         row.appendChild(removeDuplicate);
+        const blocked = element('p', 'media-import-delete-blocked', reason);
+        blocked.hidden = !reason;
+        row.appendChild(blocked);
       }
       if (returned) {
         const inspect = element('button', 'media-import-pc-return-open',
@@ -2667,8 +2739,7 @@
     const unmarkedDuplicate = selected && plan && plan.status === 'duplicate';
     view.deleteDuplicateButton.hidden = !unmarkedDuplicate;
     view.deleteDuplicateButton.disabled = !unmarkedDuplicate ||
-      Boolean(view.attempt) || view.submitting || Boolean(view.batch) ||
-      sourceUnresolved(view, view.select.value);
+      Boolean(deleteBlockReason(view, view.select.value));
     if (unmarkedDuplicate) actions.appendChild(view.deleteDuplicateButton);
     if (unmarkedDuplicate && view.attempt &&
         view.attempt.state === 'outcome_unknown') {
@@ -2887,8 +2958,18 @@
       const rowDelete = Array.from(row.children).find(function (child) {
         return (child.className || '').includes('media-import-delete-duplicate-inline');
       });
-      if (rowDelete) rowDelete.disabled = Boolean(view.attempt) ||
-        view.submitting || Boolean(view.batch) || sourceUnresolved(view, rowId);
+      if (rowDelete) {
+        const reason = deleteBlockReason(view, rowId);
+        rowDelete.disabled = Boolean(reason);
+        rowDelete.title = reason;
+        const blocked = Array.from(row.children).find(function (child) {
+          return (child.className || '').includes('media-import-delete-blocked');
+        });
+        if (blocked) {
+          blocked.textContent = reason;
+          blocked.hidden = !reason;
+        }
+      }
       if (!marked && row.children[2]) {
         const rowItem = view.allOrdinary.find(function (source) {
           return source.sourceId === rowId;
