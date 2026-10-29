@@ -173,7 +173,8 @@ public:
                  const std::string& handlerSha256 = {},
                  const std::vector<std::string>& labels = {},
                  bool partial = true,
-                 const std::vector<std::string>& folders = {})
+                 const std::vector<std::string>& folders = {},
+                 const std::vector<std::string>& statuses = {})
     {
         if (!actor.authenticated() || actor.actor.type != ActorType::Agent ||
             live.actorId != actor.actor.actorId ||
@@ -234,6 +235,14 @@ public:
             }
             if (!byFolder.emplace(ids[i], folder).second) return false;
         }
+        if (!statuses.empty() &&
+            (labels.empty() || statuses.size() != ids.size())) return false;
+        std::map<std::string, std::string> byStatus;
+        for (std::size_t i = 0; i < statuses.size(); ++i) {
+            if (statuses[i] != "recording_present" && statuses[i] != "unverified")
+                return false;
+            if (!byStatus.emplace(ids[i], statuses[i]).second) return false;
+        }
         std::lock_guard<std::mutex> guard(mutex_);
         const auto previous = snapshots_.find(backendId);
         if (previous != snapshots_.end() &&
@@ -245,7 +254,8 @@ public:
         snapshots_[backendId] = Snapshot{
             live.agentId, live.actorId, instanceId, generation, now,
             std::move(sorted), handlerOrigin, handlerVersion, handlerSha256,
-            std::move(byId), std::move(byFolder), partial};
+            std::move(byId), std::move(byFolder), partial,
+            std::move(byStatus)};
         return true;
     }
 
@@ -255,11 +265,13 @@ public:
               std::vector<std::string>& ids,
               std::vector<std::string>& labels,
               bool* partial = nullptr,
-              std::vector<std::string>* folders = nullptr) const
+              std::vector<std::string>* folders = nullptr,
+              std::vector<std::string>* statuses = nullptr) const
     {
         ids.clear();
         labels.clear();
         if (folders) folders->clear();
+        if (statuses) statuses->clear();
         if (partial) *partial = true;
         if (now <= 0 || live.backendId != backendId ||
             live.revoked || live.incompatible || live.leaseExpiresAt < now)
@@ -298,6 +310,17 @@ public:
                     return false;
                 }
                 folders->push_back(found->second);
+            }
+        }
+        if (statuses && !current.statuses.empty()) {
+            for (const auto& id : ids) {
+                const auto found = current.statuses.find(id);
+                if (found == current.statuses.end()) {
+                    ids.clear(); labels.clear(); statuses->clear();
+                    if (folders) folders->clear();
+                    return false;
+                }
+                statuses->push_back(found->second);
             }
         }
         return true;
@@ -404,6 +427,7 @@ private:
         std::map<std::string, std::string> labels;
         std::map<std::string, std::string> folders;
         bool partial = true;
+        std::map<std::string, std::string> statuses;
     };
     static bool liveSnapshot(const Snapshot& snapshot,
                              const BackendAgentRecord& live,
