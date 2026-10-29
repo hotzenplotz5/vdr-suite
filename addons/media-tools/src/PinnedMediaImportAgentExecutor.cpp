@@ -39,7 +39,7 @@ void logDuplicateDelete(const BackendAgentCommandAssignment& assignment,
 {
     if (!backendAgentCommandValidAssignment(assignment)) return;
     std::fprintf(stderr,
-        "MEDIA_IMPORT_DELETE_DIAG operation=%s backend=%s stage=%s result=%s\\n",
+        "MEDIA_IMPORT_DELETE_DIAG operation=%s backend=%s stage=%s result=%s\n",
         assignment.operationId.c_str(), assignment.backendId.c_str(),
         stage, reason);
 }
