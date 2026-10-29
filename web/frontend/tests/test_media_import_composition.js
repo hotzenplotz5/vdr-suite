@@ -319,6 +319,9 @@ const context = {
   console, Promise, Uint8Array, setImmediate,
   document: {
     createElement(name) { return new Element(name); },
+    // The real app's extracted runtime gate invokes placeMediaImportTab().
+    // Model that native DOM lookup instead of throwing during VM startup.
+    getElementById(id) { return id === 'module-nav' ? runtimeNav : null; },
     querySelector(sel) {
       return sel === '.module-tab[data-module="media-import"]' ? tab : null;
     },
