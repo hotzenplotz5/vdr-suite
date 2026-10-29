@@ -2709,9 +2709,14 @@ function publishHomeResume() {}
   // MT.META6: reuse the ALREADY automatically identified episode. Exactly
   // one normal import POST carries the frozen native-info metadata; neither
   // the click nor the admission path does a second TMDb search.
+  // SOURCE still has the deliberately unresolved S01E01 cleanup above.
+  // Test the frozen handoff on an independent, exact S01E01 source: never
+  // replay the source-pinned unknown Core mutation just to satisfy a test.
   context.resetMediaImportVisibility(true);
   onlineMode = 'ready';
-  batchSources = [SOURCE];
+  sourceFolders[SOURCE_D] = 'Serien/Andor/Staffel 1';
+  sourceDisplayLabels[SOURCE_D] = 'S01E01 Pilot';
+  batchSources = [SOURCE_D];
   markedSources = [];
   state = 'succeeded';
   submitMode = 'accepted';
@@ -2721,7 +2726,7 @@ function publishHomeResume() {}
   context.selectModule('media-import');
   await settle();
   const frozenSource = findClass(mount, 'media-import-source');
-  frozenSource.value = SOURCE;
+  frozenSource.value = SOURCE_D;
   frozenSource.listeners.change();
   await settle();
   const autoConfirmation = findClass(mount, 'media-import-online-confirmed');
@@ -2741,7 +2746,7 @@ function publishHomeResume() {}
       entry.options.method === 'POST';
   }).slice(-1)[0];
   const frozenBody = JSON.parse(frozenPost.options.body);
-  assert.strictEqual(frozenBody.sourceId, SOURCE);
+  assert.strictEqual(frozenBody.sourceId, SOURCE_D);
   assert(typeof frozenBody.metadata === 'string' &&
     frozenBody.metadata.startsWith('v2|episode|') &&
     frozenBody.metadata.includes('|Pilot|') &&
