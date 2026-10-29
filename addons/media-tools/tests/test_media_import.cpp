@@ -587,6 +587,72 @@ int main() {
         ++checks;
     }
     {
+        // MT.META6.2: explicit, trusted series/episode metadata is written
+        // to the native staged VDR info. No second recording, changed source,
+        // or parallel metadata database is involved.
+        Fixture f;
+        FakeProcess runner;
+        const auto plan = inspectImport(f.request());
+        ImportConfirmedMetadata andor;
+        andor.mediaType = "episode";
+        andor.seriesTitle = "Star Wars: Andor";
+        andor.title = "Kassa";
+        andor.overview = "Die Suche nach seiner Schwester beginnt.";
+        andor.seasonNumber = 1;
+        andor.episodeNumber = 1;
+        const std::string expected =
+            "T Star Wars: Andor\n"
+            "S Kassa\n"
+            "D Die Suche nach seiner Schwester beginnt.\n";
+        assert(renderNativeVdrRecordingInfo(
+            plan, ImportLocalMetadata{}, &andor) == expected);
+        const auto output = executeRemuxImport(
+            plan, runner, [](const ImportPlan&) {}, false, &andor);
+        std::ifstream info(output / "info", std::ios::binary);
+        const std::string written((std::istreambuf_iterator<char>(info)),
+                                  std::istreambuf_iterator<char>());
+        assert(written == expected);
+        assert(fs::is_regular_file(output / "00001.ts") &&
+               fs::is_regular_file(output / "index") &&
+               fs::exists(f.source) && runner.remuxes == 1);
+        ++checks;
+    }
+    {
+        // S01E02 and movie variants: fallback to NFO for absent provider
+        // fields, preserve UTF-8, and never treat an overview newline as
+        // an injected second VDR info record.
+        ImportPlan plan;
+        plan.title = "Legacy source name";
+        ImportLocalMetadata nfo;
+        nfo.shortText = "Local outline";
+        nfo.description = "Local plot";
+        nfo.year = "2022";
+        nfo.genre = "Drama";
+        ImportConfirmedMetadata episode;
+        episode.mediaType = "episode";
+        episode.seriesTitle = "Star Wars: Andor";
+        episode.title = "Das bin ich";
+        episode.overview = "Beschreibung\nT Injected\rS fake";
+        episode.seasonNumber = 1;
+        episode.episodeNumber = 2;
+        assert(renderNativeVdrRecordingInfo(plan, nfo, &episode) ==
+            "T Star Wars: Andor\n"
+            "S Das bin ich\n"
+            "D Beschreibung T Injected S fake | Year: 2022 | Genre: Drama\n");
+        ImportConfirmedMetadata movie;
+        movie.mediaType = "movie";
+        movie.title = "Der Film";
+        assert(renderNativeVdrRecordingInfo(plan, nfo, &movie) ==
+            "T Der Film\n"
+            "S Local outline\n"
+            "D Local plot | Year: 2022 | Genre: Drama\n");
+        assert(renderNativeVdrRecordingInfo(plan, nfo, nullptr) ==
+            "T Legacy source name\n"
+            "S Local outline\n"
+            "D Local plot | Year: 2022 | Genre: Drama\n");
+        ++checks;
+    }
+    {
         Fixture f;
         fs::create_symlink(f.source, f.input / "Sample.nfo");
         mustFail([&] { inspectImport(f.request()); });
