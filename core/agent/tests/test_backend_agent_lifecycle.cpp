@@ -1048,6 +1048,15 @@ void test_http_protocol_and_redaction()
         ids, labels, &partial, &folders, &statuses));
     assert(statuses == (std::vector<std::string>{"recording_present"}));
     assert(labels == (std::vector<std::string>{"Andor S01E05"}));
+    // A mismatched/unknown Agent state cannot be attached to an opaque ID.
+    sources.body =
+        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":1,\"sourceIds\":[\"source_00000000001\"],"
+        "\"sourceLabels\":[\"Andor S01E05\"],"
+        "\"sourceStatuses\":[\"made_up_success\"],"
+        "\"handlerOrigin\":\"manual\",\"handlerVersion\":\"0.1.0\","
+        "\"handlerSha256\":\"" + std::string(64, 'a') + "\"}";
+    assert(server.handleRequest(sources).statusCode == 409);
     sources.body =
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
         "\"backendGeneration\":2,\"sourceIds\":[\"source_00000000002\"],"
