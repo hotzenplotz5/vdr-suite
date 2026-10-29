@@ -10,8 +10,6 @@ let selectedBackend = null;
 let selectedModule = 'overview';
 let mediaImportCapabilityEpoch = 0;
 let mediaImportKnownBackendId = '';
-let mediaImportRetryTimer = null;
-const MEDIA_IMPORT_RETRY_MS = 5000;
 const mediaImportTab = document.querySelector('.module-tab[data-module="media-import"]');
 
 // Keep the live tab order independent of addon activation and delayed capability
@@ -31,16 +29,8 @@ function mediaImportModule() {
   return frontendPlatformModule('media-import', window.VdrSuiteMediaImport);
 }
 
-function cancelMediaImportRetry() {
-  if (mediaImportRetryTimer !== null) {
-    if (typeof clearTimeout === 'function') clearTimeout(mediaImportRetryTimer);
-    mediaImportRetryTimer = null;
-  }
-}
-
 function resetMediaImportVisibility(clearSession) {
   ++mediaImportCapabilityEpoch;
-  cancelMediaImportRetry();
   if (clearSession) mediaImportKnownBackendId = '';
   if (mediaImportTab) {
     mediaImportTab.hidden = true;
@@ -57,41 +47,30 @@ function resetMediaImportVisibility(clearSession) {
   }
 }
 
-function scheduleMediaImportRetry(backendId) {
-  if (mediaImportRetryTimer !== null || typeof setTimeout !== 'function') return;
-  mediaImportRetryTimer = setTimeout(function () {
-    mediaImportRetryTimer = null;
-    if (selectedBackendId === backendId && browserSessionFrontendActive)
-      refreshMediaImportVisibility(backendId);
-  }, MEDIA_IMPORT_RETRY_MS);
-}
-
 function refreshMediaImportVisibility(backendId) {
   const epoch = ++mediaImportCapabilityEpoch;
   const known = mediaImportKnownBackendId === backendId;
   const wasAvailable = Boolean(mediaImportTab && !mediaImportTab.hidden &&
     !mediaImportTab.disabled);
-  if (mediaImportTab && !known) {
-    mediaImportTab.hidden = true;
-    mediaImportTab.disabled = true;
+  // The tab is a navigation surface, not an Agent lease. Keep it
+  // accessible while the daemon/Agent recovers. The authenticated source
+  // endpoints and every mutation perform their own checks.
+  if (mediaImportTab) {
+    mediaImportTab.hidden = false;
+    mediaImportTab.disabled = false;
   }
   const moduleApi = mediaImportModule();
   if (!mediaImportTab || !moduleApi ||
       typeof moduleApi.checkCapability !== 'function') return Promise.resolve(false);
 
   function unavailable() {
-    // A temporary Agent outage must not erase a tab that this logged-in
-    // user has already accessed. Keep it visibly disabled until recovery.
-    mediaImportTab.hidden = !known;
-    mediaImportTab.disabled = true;
-    mediaImportTab.title = known
-      ? 'Media Import derzeit nicht verfügbar (Agent, Aktivierung oder Berechtigung). Automatische Prüfung läuft.'
-      : '';
-    if (known && wasAvailable && selectedModule === 'media-import' &&
-        typeof moduleApi.activate === 'function') {
-      moduleApi.activate(backendId, detailDataElement);
-    }
-    scheduleMediaImportRetry(backendId);
+    // A capability observation is not authorization to destroy an existing
+    // view. In particular, intermittent lease/transport failures must not
+    // wipe a source list or make the whole add-on unusable.
+    mediaImportTab.hidden = false;
+    mediaImportTab.disabled = false;
+    mediaImportTab.title = 'Agent-Status momentan unbestätigt. Media Import bleibt ' +
+      'bedienbar; Aktionen werden bei Ausführung vom Backend geprüft.';
     return false;
   }
 
@@ -101,23 +80,20 @@ function refreshMediaImportVisibility(backendId) {
     if (epoch !== mediaImportCapabilityEpoch ||
         selectedBackendId !== backendId || !browserSessionFrontendActive) return false;
     if (!available) return unavailable();
-    cancelMediaImportRetry();
     mediaImportKnownBackendId = backendId;
     placeMediaImportTab();
     mediaImportTab.hidden = false;
     mediaImportTab.disabled = false;
     mediaImportTab.title = '';
-    if (!wasAvailable && selectedModule === 'media-import' &&
-        typeof moduleApi.activate === 'function') {
-      moduleApi.activate(backendId, detailDataElement);
-    }
+    // Never remount a running media-import view just because a capability
+    // response arrived. Opening the tab is the single navigation owner.
+
     return true;
   }).catch(function (error) {
     if (epoch !== mediaImportCapabilityEpoch ||
         selectedBackendId !== backendId || !browserSessionFrontendActive) return false;
     if (error && (error.status === 401 || error.status === 403)) {
       // An actual authorization denial is not a temporary transport outage.
-      cancelMediaImportRetry();
       mediaImportKnownBackendId = '';
       mediaImportTab.hidden = true;
       mediaImportTab.disabled = true;
