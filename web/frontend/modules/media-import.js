@@ -807,7 +807,19 @@
       if (recordingConfirmed && !view.batch &&
           view.attempt.metadataSelection && !view.attempt.metadataStarted) {
         view.attempt.metadataStarted = true;
-        void applyImportedMetadata(view, view.attempt);
+        if (view.attempt.frozenMetadata &&
+            view.attempt.frozenMetadata.startsWith('v2|')) {
+          // One writer: Core's existing Recording readback now applies
+          // the frozen metadata from its durable import operation.
+          // Never create a competing second browser-side assignment POST.
+          view.attempt.metadataFeedback =
+            'TMDb-Daten im Importauftrag gespeichert. ' +
+            'Die Suite-Zuordnung wird nach dem VDR-Readback serverseitig abgeschlossen.';
+          renderImportFeedback(view);
+        } else {
+          // Legacy/browser-only selections keep the previous behavior.
+          void applyImportedMetadata(view, view.attempt);
+        }
       }
       if (operation.state === 'succeeded') {
         const markerAction = view.attempt.videoDecision;
