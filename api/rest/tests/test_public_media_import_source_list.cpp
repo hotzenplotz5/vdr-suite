@@ -31,6 +31,7 @@ int main()
             r.ids = {"source_00000000001", "source_00000000002"};
             r.labels = {"Die Herrschaft des Feuers", "Zweiter Film"};
             r.folders = {"", "Serien/Andor"};
+            r.statuses = {"unverified", "recording_present"};
             return r;
         });
     const auto ok = get("actor:one", scopes);
@@ -45,6 +46,10 @@ int main()
            std::string::npos);
     assert(ok.body.find("\"folder\":\"\"") != std::string::npos);
     assert(ok.body.find("\"folder\":\"Serien/Andor\"") != std::string::npos);
+    assert(ok.body.find("\"recordingStatus\":\"recording_present\"") !=
+           std::string::npos);
+    assert(ok.body.find("\"recordingStatus\":\"unverified\"") !=
+           std::string::npos);
     assert(ok.body.find("/media/input") == std::string::npos);
     assert(ok.headers.at("Cache-Control") == "no-store");
     assert(get("actor:two", scopes).statusCode == 403);
@@ -63,6 +68,17 @@ int main()
             bad.ids = {"source_00000000001"};
             bad.labels = {"Film"};
             bad.folders = {"../etc"};
+            return bad;
+        });
+    assert(get("actor:one", scopes).statusCode == 503);
+    // A status must be sourced from the same bounded snapshot and revision.
+    api.registerMediaImportSourceLookup(
+        [](const std::string&, const std::string&) {
+            PublicApiRuntime::MediaImportSourceResult bad;
+            bad.status = PublicApiRuntime::MediaImportSourceStatus::ok;
+            bad.ids = {"source_00000000001"};
+            bad.labels = {"Film"};
+            bad.statuses = {"trusted_imported_without_readback"};
             return bad;
         });
     assert(get("actor:one", scopes).statusCode == 503);
