@@ -1152,7 +1152,8 @@
         cache: 'no-store', credentials: 'same-origin'
       });
     }).then(function () {
-      attempt.metadataFeedback = 'TMDb-Metadaten für die Aufnahme übernommen ✓';
+      attempt.metadataFeedback = 'TMDb-Zuordnung in VDR-Suite gespeichert ✓. ' +
+        'Die native VDR-info-Datei ist damit noch nicht aktualisiert.';
       if (isCurrent(view) && view.attempt === attempt)
         renderImportFeedback(view);
     }).catch(fail);
