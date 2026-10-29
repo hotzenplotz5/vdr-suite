@@ -21,10 +21,11 @@ assert(view.includes("view.attempt.videoDecision === 'release'") &&
 assert(view.includes('media-import-existing-metadata') &&
   view.includes('importMetadataSelection(view, plan, source)') &&
   view.includes('applyImportedMetadata(view, repairAttempt)') &&
-  view.includes('Die native VDR-info-Datei bleibt vorerst unverändert'),
-  'confirmed existing recording offers explicit Suite-only metadata repair on the established route');
-assert(view.includes('Die native VDR-info-Datei ist damit noch nicht aktualisiert.'),
-  'a successful Suite assignment never claims native VDR info has been changed');
+  view.includes('über den bestehenden Aufnahmeweg aktualisieren?'),
+  'confirmed existing recording reuses the authenticated assignment for native info correction');
+assert(view.includes('response.nativeInfoUpdated === true') &&
+  view.includes('Native VDR-info noch nicht bestätigt.'),
+  'the frontend claims native success only after the normal assignment reports write/readback');
 
 const clientFactory = require('../api/public-v1-client.js');
 
