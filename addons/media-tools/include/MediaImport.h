@@ -95,6 +95,11 @@ struct ImportConfirmedMetadata {
     std::string title; // episode or movie title
     std::string seriesTitle; // required presentation title for episodes
     std::string overview;
+    // Optional identity from the same pre-import TMDb response (v2 only).
+    // v1 remains fully readable, with these fields left empty.
+    std::string externalNamespace;
+    std::string externalId;
+    std::string posterReference;
     int seasonNumber = 0;
     int episodeNumber = 0;
 };
