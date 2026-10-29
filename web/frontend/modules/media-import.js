@@ -2444,7 +2444,6 @@
             })) throw new Error('Ungültige Quellenliste');
         // Commit a new validated inventory only now. A partial/failed GET
         // must never blank the source list or throw away an existing selection.
-        const previousSelection = view.select.value;
         view.previewCache.clear();
         if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
         view.previewTimer = null;
@@ -2488,11 +2487,11 @@
         view.allOrdinary.forEach(function (item) {
           view.sourceTitles[item.sourceId] = item.label;
         });
+        // A successful new inventory is fresh: require deliberate selection
+        // of a source instead of reusing a potentially expired 422 token.
+        // On transient failure, no inventory is committed and the previous
+        // selection and its visible details remain untouched.
         filterVisibleSources(view);
-        if (previousSelection && view.sources.includes(previousSelection)) {
-          view.select.value = previousSelection;
-          refreshSelectedPreview(view);
-        }
         view.searchInput.disabled = false;
         view.statusFilter.disabled = false;
         view.seasonFilter.disabled = false;
