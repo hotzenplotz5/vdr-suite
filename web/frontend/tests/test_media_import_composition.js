@@ -114,6 +114,7 @@ let submitMode = 'accepted';
 let batchSources = null;
 let markedSources = [];
 let sourcePartial = false;
+let sourceStale = false;
 let sourceDisplayOverride = null;
 const sourceFolders = Object.create(null);
 const sourceDisplayLabels = Object.create(null);
@@ -244,7 +245,7 @@ function transport(url, options) {
           ...(Object.prototype.hasOwnProperty.call(sourceFolders, id)
             ? {folder: sourceFolders[id]} : {}),
           ...(recordingStatuses[id] ? {recordingStatus: recordingStatuses[id]} : {})};
-      }), meta: {partial: sourcePartial}})
+      }), meta: {partial: sourcePartial, stale: sourceStale}})
       : reply(sourcesStatus, {detail: 'Source unavailable'}));
   }
   if (path.endsWith('/media-imports')) {
@@ -946,6 +947,24 @@ function publishHomeResume() {}
   await findClass(mount, 'media-import-start').listeners.click();
   await settle();
   assert(findClass(mount, 'status').textContent.includes('Berechtigung'));
+
+  // A 200 response containing the last Agent-observed catalog must remain
+  // visibly stale, without discarding an already selected film or its preview.
+  sourceStale = true;
+  const staleSelection = findClass(mount, 'media-import-source');
+  staleSelection.value = SOURCE;
+  staleSelection.listeners.change();
+  await settle();
+  const stalePosts = submits;
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  assert.strictEqual(staleSelection.value, SOURCE,
+    'read-only stale inventory does not clear the selected episode');
+  assert(findClass(mount, 'media-import-scan-notice').textContent.includes(
+    'Zuletzt geladene Quellenliste'));
+  assert.strictEqual(submits, stalePosts,
+    'stale read never retries a mutation');
+  sourceStale = false;
 
   // Agent command/lease trouble must NOT wipe an already loaded library.
   // The next scan may return 503, but selection, folders, and source rows
