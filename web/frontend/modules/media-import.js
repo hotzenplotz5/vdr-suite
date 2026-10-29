@@ -692,7 +692,8 @@
         return loadSources(view).then(function () {
           if (!isCurrent(view)) return;
           if (!pcOriginal) {
-            report(view, 'Markierung freigegeben. Die aktuelle Importliste wurde neu geladen.');
+            report(view, 'Markierung ausdrücklich freigegeben – noch nicht importiert. ' +
+              'Die aktuelle Importliste wurde neu geladen.');
             return;
           }
           const matches = view.allOrdinary.filter(function (item) {
@@ -700,14 +701,16 @@
               item.label === pcOriginal.label;
           });
           if (matches.length !== 1) {
-            report(view, 'PC-Markierung freigegeben. Die Datei bitte in der ' +
+            report(view, 'PC-Markierung ausdrücklich freigegeben – noch nicht importiert. ' +
+              'Die Datei bitte in der ' +
               'aktualisierten Liste auswählen und auf Importfähigkeit prüfen.');
             return;
           }
           view.select.value = matches[0].sourceId;
           refreshSelectedPreview(view, true);
           setMobilePane(view, 'details');
-          report(view, 'PC-Markierung freigegeben. Die Datei wird erneut ' +
+          report(view, 'PC-Markierung ausdrücklich freigegeben – noch nicht importiert. ' +
+            'Die Datei wird erneut ' +
             'technisch geprüft. Danach kannst du die lokale H.264-Umkodierung ' +
             'auswählen und ausdrücklich bestätigen; es wurde noch nicht importiert.');
         });
