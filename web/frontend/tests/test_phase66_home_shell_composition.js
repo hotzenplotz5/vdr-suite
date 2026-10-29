@@ -169,7 +169,10 @@ const context = {
   selectedBackendId: 'default',
   selectedModule: 'overview',
   homeResumeBackendId: '',
-  renderSelectedModule() { renderSelectedModuleCalls += 1; }
+  renderSelectedModule() { renderSelectedModuleCalls += 1; },
+  // Media Import tab placement is covered by its own real-DOM composition
+  // test. This isolated Phase-66 Home navigation fixture has no module-nav.
+  placeMediaImportTab() {}
 };
 vm.createContext(context);
 vm.runInContext(
