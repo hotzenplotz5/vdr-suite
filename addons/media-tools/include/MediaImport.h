@@ -99,6 +99,11 @@ struct ImportConfirmedMetadata {
     int episodeNumber = 0;
 };
 
+// Decode the existing operation's immutable, URI-encoded provider fields.
+// No TMDb lookup, no file IO and no source file path inside the token.
+bool parseFrozenImportMetadata(
+    const std::string& snapshot, ImportConfirmedMetadata& output);
+
 // Pure writer; no VDR filesystem access. The verified provider selection
 // takes priority for present fields; local NFO supplies missing fields.
 std::string renderNativeVdrRecordingInfo(
