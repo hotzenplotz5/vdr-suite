@@ -146,6 +146,43 @@ bool MediaImportOperationFence::actorBackendAllowed(
     return true;
 }
 
+bool MediaImportOperationFence::mayBrowseSources(
+    const std::string& actorId, const std::string& backendId,
+    std::string& reason) const
+{
+    reason.clear();
+    if (actorId.empty() || backendId.empty() ||
+        actorId == "*" || backendId == "*")
+        return denied(reason, "media_import_browse_invalid_context");
+    const auto actor = identities_.findActor(actorId);
+    if (!actor || !actor->active || actor->revoked ||
+        (actor->type != ActorType::User &&
+         actor->type != ActorType::Service))
+        return denied(reason, "media_import_actor_revoked");
+
+    const auto grants = grants_.findActiveGrantsForActor(actorId);
+    if (!grants.available)
+        return denied(reason, "media_import_grants_unavailable");
+
+    RequestSecurityContext context;
+    context.authenticationState = AuthenticationState::Authenticated;
+    context.actor = {actor->actorId, actor->type, actor->displayName, true};
+    context.permissionGrantResolution = PermissionGrantResolutionState::Resolved;
+    context.grants = grants.grants;
+    const AuthorizationService auth;
+    if (!auth.authorize(context, {
+            "addons.media.import", backendId, "media.import"
+        }).allowed)
+        return denied(reason, "media_import_permission_denied");
+
+    const auto backend = backendRegistry_.getBackend(backendId);
+    if (!backend || !backend->enabled)
+        return denied(reason, "media_import_backend_unavailable");
+
+    reason = "media_import_browse_authorized";
+    return true;
+}
+
 bool MediaImportOperationFence::effectiveMediaImportCapability(
     const std::string& actorId, const std::string& backendId,
     std::int64_t now, std::string& reason) const
