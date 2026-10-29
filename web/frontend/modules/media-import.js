@@ -1497,6 +1497,8 @@
               !/^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId) ||
               seen.has(item.sourceId) ||
               (item.folder !== undefined && !validRelativeFolder(item.folder)) ||
+              (item.recordingStatus !== undefined &&
+               !['recording_present', 'unverified'].includes(item.recordingStatus)) ||
               (item.label !== undefined &&
                (typeof item.label !== 'string' || !item.label ||
                 item.label.length > 160 ||
@@ -1739,9 +1741,13 @@
       return labelMatches && folderMatches && seasonMatches;
     };
     const normal = mode === 'marked' ? [] :
-      view.allOrdinary.filter(matches);
+      view.allOrdinary.filter(function (item) {
+        return matches(item) && (mode !== 'imported' || item.recordingPresent);
+      });
     const marked = mode === 'normal' ? [] :
-      view.allMarked.filter(matches);
+      view.allMarked.filter(function (item) {
+        return matches(item) && (mode !== 'imported' || markerSuffix(item) === 'duplicate');
+      });
     view.sources = normal.map(function (item) { return item.sourceId; });
     view.markedSources = marked.map(function (item) { return item.sourceId; });
 
@@ -1817,14 +1823,29 @@
       const meta = element('span', 'media-import-episode-meta',
         (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
         episodeLabel +
-        (previousCheck
-          ? ' · ✓ Technisch geprüft · ' + cachedStatus : ' · Noch nicht geprüft') +
+        (item.recordingPresent ? ' · ✓ Bereits importiert – VDR-Aufnahme vorhanden' :
+          previousCheck ? ' · ✓ Technisch geprüft · ' + cachedStatus :
+          ' · Noch nicht technisch geprüft') +
         (confirmed
           ? ' · Frühere VDR-Operation bestätigt; aktueller Quellinhalt ungeprüft'
           : '') + pcHint);
       row.appendChild(checkbox);
       row.appendChild(open);
       row.appendChild(meta);
+      if (item.recordingPresent) {
+        const remove = element('button',
+          'media-import-delete-duplicate media-import-delete-duplicate-inline',
+          'Dublette aus Importquelle löschen');
+        remove.type = 'button';
+        remove.addEventListener('click', function () {
+          if (!isCurrent(view) || view.batch || view.submitting || view.attempt) return;
+          view.select.value = item.sourceId;
+          view.markedSelect.value = '';
+          refreshSelectedPreview(view);
+          return startImport(view, false, 'delete_duplicate');
+        });
+        row.appendChild(remove);
+      }
       view.selectionRows.appendChild(row);
     });
     marked.forEach(function (item) {
@@ -1957,8 +1978,9 @@
     view.releaseButton.hidden = true;
     view.normalLabel.hidden = mode === 'marked';
     view.markedLabel.hidden = mode !== 'marked' || marked.length === 0;
-    view.visibleCount.textContent = normal.length + ' unmarkierte (Eignung noch ungeprüft) und ' +
-      marked.length + ' markierte Quellen in dieser Ansicht ' +
+    view.visibleCount.textContent = normal.length + ' unmarkierte (' +
+      normal.filter(function (item) { return item.recordingPresent; }).length +
+      ' bereits importiert) und ' + marked.length + ' markierte Quellen in dieser Ansicht ' +
       '(aus maximal ' + MAX_IMPORT_FILMS + ' erfassten Quellen).';
   }
 
@@ -2027,6 +2049,8 @@
               return item && typeof item.sourceId === 'string' &&
                 /^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId) &&
                 (item.folder === undefined || validRelativeFolder(item.folder)) &&
+                (item.recordingStatus === undefined ||
+                  ['recording_present', 'unverified'].includes(item.recordingStatus)) &&
                 (item.label === undefined ||
                   (typeof item.label === 'string' &&
                    item.label.length > 0 && item.label.length <= 160 &&
@@ -2047,7 +2071,8 @@
           return {sourceId: item.sourceId,
             label: item.label || ('Film ' + (index + 1)),
             folder: item.folder || '',
-            folderKnown: Object.prototype.hasOwnProperty.call(item, 'folder')};
+            folderKnown: Object.prototype.hasOwnProperty.call(item, 'folder'),
+            recordingPresent: item.recordingStatus === 'recording_present'};
         }).sort(compareSources);
         view.allMarked = marked.slice().sort(compareSources);
         view.sourceTitles = Object.create(null);
@@ -2070,7 +2095,10 @@
           : 'Scan abgeschlossen (konfigurierte Quellen): alle geeigneten ' +
             'Quellen wurden geprüft. Das bedeutet nicht, dass jeder andere ' +
             'Dateipfad dieser Importwurzel freigegeben ist.';
-        report(view, ordinary.length + ' unmarkierte Quellen (Importfähigkeit noch ungeprüft), ' + marked.length +
+        report(view, ordinary.length + ' unmarkierte Quellen (' +
+          ordinary.filter(function (item) {
+            return item.recordingStatus === 'recording_present';
+          }).length + ' bereits importiert), ' + marked.length +
           ' bereits markiert.' +
           (bounded ? ' Scan unvollständig.' : '') +
           (mayBrowseWithUnknownOutcome(view)
@@ -2128,6 +2156,19 @@
     view.previewReads = 0;
     updatePreview(view);
     if (!view.sources.includes(id)) return;
+    if (source && source.recordingPresent && !force) {
+      // The Agent already confirmed an intact, title-matching .rec target
+      // during the current inventory scan. Browsing does not trigger ffprobe
+      // or another technical request. All destructive operations revalidate.
+      view.previewResult = {sourceId: id, status: 'duplicate',
+        title: source.label, targetFolder: '', videoCodec: '',
+        sourceBytes: 0, availableBytes: 0, requiredBytes: 0,
+        videoReencodeRequired: false};
+      view.previewStatus = 'VDR-Aufnahme bereits vorhanden (Inventarscan).';
+      updatePreview(view);
+      if (view.onlineKind === 'series') autoIdentifyEpisode(view, source);
+      return;
+    }
     // A successful technical read is reusable only within this authorized
     // source scan. The Agent still independently rechecks on a real import.
     const cached = view.previewCache.get(id);
@@ -2502,7 +2543,9 @@
           return source.sourceId === rowId;
         });
         const observed = rowSelected ? plan : view.previewCache.get(rowId);
-        const status = !observed
+        const status = rowItem && rowItem.recordingPresent
+          ? '✓ Bereits importiert – VDR-Aufnahme vorhanden'
+          : !observed
           ? rowSelected ? 'Technische Prüfung läuft' : 'Noch nicht geprüft'
           : observed.status === 'ready' ? (observed.videoReencodeRequired
             ? 'Umkodierung nötig' : 'Direktimport möglich')
@@ -2522,7 +2565,8 @@
           : parked.length ? ' · PC-Encode-Zuordnung mehrdeutig' : '';
         const confirmed = confirmedImport(view, rowId);
         row.children[2].textContent = folder + episodeLabel +
-          (view.previewCache.has(rowId) ? ' · ✓ Technisch geprüft' : '') +
+          (!rowItem || !rowItem.recordingPresent ?
+            (view.previewCache.has(rowId) ? ' · ✓ Technisch geprüft' : '') : '') +
           ' · ' + status +
           (confirmed
             ? ' · Frühere VDR-Operation bestätigt; aktueller Quellinhalt ungeprüft'
@@ -2567,7 +2611,10 @@
             : plan.videoReencodeRequired
               ? 'Video muss für eine VDR-Aufnahme umkodiert werden.'
               : 'Video technisch für den VDR-Import geeignet – verlustfreies Remuxing möglich.';
-        details = 'VDR-Zielordner: ' + plan.targetFolder +
+        details = plan.status === 'duplicate' && !plan.targetFolder
+          ? 'Die vollständige passende VDR-Aufnahme wurde beim Inventarscan ' +
+            'festgestellt. Eine neue technische Prüfung ist zum Anzeigen nicht nötig.'
+          : 'VDR-Zielordner: ' + plan.targetFolder +
           '. Video-Codec: ' + plan.videoCodec +
           '. Quelldatei: ' + humanBytes(plan.sourceBytes) +
           '. Frei: ' + humanBytes(plan.availableBytes) +
@@ -2580,7 +2627,7 @@
       : ready && !needsEncode
         ? 'Nächster Schritt: „Diesen Film importieren“ anklicken und bestätigen.'
         : plan.status === 'duplicate'
-          ? 'Bestehende VDR-Aufnahme bestätigt. Die Quelle wird automatisch über den Core als .duplicate markiert.'
+          ? 'Bestehende VDR-Aufnahme festgestellt. Zum Aufräumen explizit „Dublette aus Importquelle löschen“ wählen.'
         : needsEncode
           ? 'Nächster Schritt: Oben einen Bearbeitungsweg wählen. Lokale Umkodierung braucht eine gesonderte Bestätigung.'
           : 'Dieser Film ist derzeit nicht importierbar. Einen anderen Film wählen.';
@@ -2872,7 +2919,8 @@
     const statusFilter = element('select', 'media-import-filter');
     [
       ['all', 'Alle Quellen'],
-      ['normal', 'Unmarkiert (noch ungeprüft)'],
+      ['normal', 'Unmarkierte Dateien'],
+      ['imported', 'Bereits importiert'],
       ['marked', 'Markierte Dateien']
     ].forEach(function (entry) {
       const option = element('option', '', entry[1]);
