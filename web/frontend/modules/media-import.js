@@ -1081,12 +1081,19 @@
       const enc = function (value) {
         return encodeURIComponent(String(value || '')).replace(/~/g, '%7E');
       };
-      const raw = ['v1', episode ? 'episode' : 'movie',
+      // v2 keeps the SAME pre-import TMDb response and adds its identity
+      // and artwork reference for server-side assignment after readback.
+      // Existing v1 snapshots remain supported by the Core/Agent.
+      const raw = ['v2', episode ? 'episode' : 'movie',
         enc(episode ? series.title : ''),
         enc(candidate.title),
         enc(String(candidate.overview || '').slice(0, 1100)),
         String(episode ? candidate.seasonNumber : 0),
-        String(episode ? candidate.episodeNumber : 0)].join('|');
+        String(episode ? candidate.episodeNumber : 0),
+        episode ? 'tv-episode' : 'movie',
+        String(candidate.externalId),
+        enc(String(candidate.posterReference || '').slice(0, 255))
+      ].join('|');
       return raw.length <= 4096 ? raw : '';
     } catch (_) {
       return '';
