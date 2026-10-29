@@ -85,6 +85,25 @@ struct ImportLocalMetadata {
     std::string title, shortText, description, year, genre;
 };
 ImportLocalMetadata readImportLocalMetadata(const ImportPlan& plan);
+
+// MT.META6: typed, already-confirmed provider selection. Only a trusted
+// Core/Agent import binding may supply this value; normal imports continue
+// to use adjacent NFO without behavioral change. This is NOT an API payload
+// or an authorization to locate or mutate an arbitrary existing recording.
+struct ImportConfirmedMetadata {
+    std::string mediaType; // "episode" or "movie"
+    std::string title; // episode or movie title
+    std::string seriesTitle; // required presentation title for episodes
+    std::string overview;
+    int seasonNumber = 0;
+    int episodeNumber = 0;
+};
+
+// Pure writer; no VDR filesystem access. The verified provider selection
+// takes priority for present fields; local NFO supplies missing fields.
+std::string renderNativeVdrRecordingInfo(
+    const ImportPlan& plan, const ImportLocalMetadata& local,
+    const ImportConfirmedMetadata* confirmed = nullptr);
 struct ImportLocalArtwork { std::string posterDataUri, fanartDataUri; };
 ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan);
 // Optional FFprobe duration, never import authority.
@@ -107,7 +126,8 @@ bool importVideoNeedsReencode(const std::string& codec);
 // a separately authenticated Core decision is required before setting true.
 fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
                             const std::function<void(const ImportPlan&)>& capacityPreflight,
-                            bool allowVideoReencode = false);
+                            bool allowVideoReencode = false,
+                            const ImportConfirmedMetadata* confirmedMetadata = nullptr);
 
 // Read-only capacity calculation using the exact same budget as production
 // admission. A preview can report insufficient space without staging files.
