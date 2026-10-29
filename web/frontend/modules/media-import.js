@@ -1062,6 +1062,37 @@
     };
   }
 
+  // Freeze the already-found, exact TMDb episode/movie at admission.
+  // No second TMDb request and no mandatory metadata step: offline import
+  // uses the existing NFO/filename path without changing import availability.
+  // ASCII percent encoding carries UTF-8 across the existing immutable
+  // Core command and into the local worker without a new provider service.
+  function frozenImportMetadata(view, selection) {
+    if (!selection || !selection.candidate) return '';
+    const candidate = selection.candidate;
+    const episode = candidate.mediaType === 'episode';
+    const movie = candidate.mediaType === 'movie';
+    const series = episode && view.onlineSeries;
+    if ((!episode && !movie) ||
+        (episode && (!series || series.kind !== 'series' ||
+          series.providerId !== 'tmdb' || !series.title)))
+      return '';
+    try {
+      const enc = function (value) {
+        return encodeURIComponent(String(value || '')).replace(/~/g, '%7E');
+      };
+      const raw = ['v1', episode ? 'episode' : 'movie',
+        enc(episode ? series.title : ''),
+        enc(candidate.title),
+        enc(String(candidate.overview || '').slice(0, 1100)),
+        String(episode ? candidate.seasonNumber : 0),
+        String(episode ? candidate.episodeNumber : 0)].join('|');
+      return raw.length <= 4096 ? raw : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   // Resolve the exact import target only when the operator explicitly
   // assigns TMDb data to an existing recording. A confirmed duplicate is
   // inspected read-only by the existing Agent: its duplicate branch returns
@@ -3059,6 +3090,7 @@
             videoDecision: videoDecision,
             pcReturn: !releaseMode && Boolean(possiblePcReturn(view, selectedSource)),
             metadataSelection: metadataSelection,
+            frozenMetadata: frozenImportMetadata(view, metadataSelection),
             metadataStarted: false, metadataFeedback: '',
             state: '', pending: true};
           activeAttempts[view.backendId] = view.attempt;
@@ -3068,6 +3100,8 @@
           return publicClient().submitMediaImport({
             backendId: view.backendId, sourceId: sourceId, idempotencyKey: key,
             ...(videoDecision ? {videoDecision: videoDecision} : {}),
+            ...(view.attempt.frozenMetadata
+              ? {metadata: view.attempt.frozenMetadata} : {}),
             credentials: 'same-origin', headers: session.csrfHeaders()
           });
         });
