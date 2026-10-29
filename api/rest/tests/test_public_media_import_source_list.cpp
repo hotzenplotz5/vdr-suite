@@ -18,8 +18,9 @@ int main()
         return response;
     };
     assert(get("actor:one", scopes).statusCode == 503);
+    bool staleCatalog = false;
     api.registerMediaImportSourceLookup(
-        [](const std::string& actor, const std::string& backend)
+        [&staleCatalog](const std::string& actor, const std::string& backend)
         {
             PublicApiRuntime::MediaImportSourceResult r;
             if (actor != "actor:one" || backend != "backend-a")
@@ -28,6 +29,7 @@ int main()
                 return r;
             }
             r.status = PublicApiRuntime::MediaImportSourceStatus::ok;
+            r.stale = staleCatalog;
             r.ids = {"source_00000000001", "source_00000000002"};
             r.labels = {"Die Herrschaft des Feuers", "Zweiter Film"};
             r.folders = {"", "Serien/Andor"};
@@ -52,6 +54,13 @@ int main()
            std::string::npos);
     assert(ok.body.find("/media/input") == std::string::npos);
     assert(ok.headers.at("Cache-Control") == "no-store");
+    assert(ok.body.find("\"stale\":true") == std::string::npos);
+    staleCatalog = true;
+    const auto oldButReadable = get("actor:one", scopes);
+    assert(oldButReadable.statusCode == 200);
+    assert(oldButReadable.body.find("\"stale\":true") != std::string::npos);
+    assert(oldButReadable.body.find("source_00000000001") != std::string::npos);
+    staleCatalog = false;
     assert(get("actor:two", scopes).statusCode == 403);
     assert(get("actor:one", {"backend-b"}).statusCode == 404);
     assert(get("", scopes).statusCode == 401);
