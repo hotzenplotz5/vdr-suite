@@ -6,6 +6,39 @@
 **Bestehende Grenzen:** [Add-on-Plattform-Roadmap](../../docs/planning/addon-platform-roadmap.md), dort A6/A7.5 und M1.R (Import/HandBrake/Überspringen).
 
 
+## Verbindliche Debug- und Sperrfreigabe-Regel (29.10.2026)
+
+**Betreiberentscheidung:** Für **jede neue Sperrlogik** in Media Tools / Media Import
+muss vor der Implementierung eine ausdrückliche Rücksprache und Freigabe
+erfolgen. Das gilt für Webfrontend, Core, Backend-Agent, Add-on und Installer,
+einschließlich indirekter Sperren durch globale Pending-/Unknown-Zustände.
+
+Vor einem Vorschlag konkret benennen:
+1. Welche **belegte Fehlerklasse** die Sperre verhindern soll;
+2. **welche einzelne Quelle/Aktion** betroffen wäre und warum keine größere Reichweite;
+3. sichtbare Benutzerwirkung, Aufhebung und mögliche Alternativen;
+4. bestehende Prüfungen, die bereits ausreichen könnten.
+
+**Ohne Freigabe keine neue Blockade, kein zusätzliches Gate und kein
+pauschales Deaktivieren unabhängiger Filme oder Aktionen.** Bestehende
+notwendige Authentifizierung/Autorisierung, Quellenidentität und Readback werden
+durch diese Regel weder deaktiviert noch stillschweigend ausgeweitet.
+
+**Diagnose zuerst:** Möglichst konkrete, *belegte* Status-/Fehlerangaben
+aus den vorhandenen API-/Agent-/Core-Ergebnissen anzeigen. Die öffentliche
+Operation liefert derzeit zwar ihren Core-Zustand, jedoch nicht die
+Agent-Ausführungsstufe, den Dateisystemfehler oder eine einzelne
+Löschquittung. Ein `outcome_unknown` ist daher keine bestätigte Löschung,
+aber auch kein nachgewiesener Löschfehler. Fehlende Informationen als
+*unbekannt* kennzeichnen, keine Ursachen erfinden. Technische Details
+der Benutzeroberfläche dürfen Backend-ID, Quellkennung, Aktion,
+Operations-ID, Status, letzte Statusabfrage und bereinigte Fehlerklasse
+anzeigen, jedoch keine geheimen Tokens oder freie interne Fehlermeldung
+ungeprüft ausgeben. Zur tieferen Ursachenfindung vorhandene lesende
+Agent-/Command-Ergebnisdiagnose nutzen. Diagnostik führt keinen neuen Import,
+keine Löschung, keinen Hintergrundjob und keine Berechtigungsänderung aus.
+**Diese Regel erfordert weder DB-Backup noch neues Sicherheitsframework.**
+
 ## BAS — Backend-Agent Simplification (nächste Phase nach Media Tools; NOT STARTED)
 
 **Verbindliche Nutzerentscheidung vom 28.10.2026:** Nach Abschluss der laufenden Media-Tools-/Media-Import-Arbeiten ist **Backend-Agent Simplification** die nächste Refactoring-Phase. Bis dahin werden die bereits freigegebenen MT-Arbeiten fortgeführt; BAS beginnt **nicht** automatisch durch diesen Roadmap-Eintrag. Die übergreifende Reihenfolge steht auch in [VDR-Suite Strict Roadmap](../../docs/planning/roadmap.md). Nummerierte Phase 70 wird dadurch weder umbenannt noch gestartet.
