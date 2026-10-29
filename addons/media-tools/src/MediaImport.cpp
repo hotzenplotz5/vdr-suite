@@ -861,6 +861,20 @@ ImportPlan inspectMarkedDuplicatePreview(const ImportRequest& request) {
     return inspectImportChecked(request, false, true);
 }
 
+// A metadata-corrected VDR info deliberately no longer contains the raw
+// source filename nor the legacy S provenance. Persist a small, private
+// source identity beside the staged recording, before atomic promotion.
+// This is NOT a database, an admission gate or another service.
+static std::string nativeImportOrigin(const ImportPlan& plan)
+{
+    return "vdr-suite-import-origin/1 " +
+        std::to_string(plan.sourceDevice) + ":" +
+        std::to_string(plan.sourceInode) + ":" +
+        std::to_string(plan.sourceBytes) + ":" +
+        std::to_string(plan.sourceMtimeSeconds) + ":" +
+        std::to_string(plan.sourceMtimeNanoseconds) + "\n";
+}
+
 bool confirmedMediaImportDuplicate(const ImportPlan& plan)
 {
     if (!plan.duplicateTarget) return false;
@@ -879,6 +893,17 @@ bool confirmedMediaImportDuplicate(const ImportPlan& plan)
                 !nonemptyRegular(recording / "index") ||
                 !nonemptyRegular(recording / "00001.ts"))
                 continue;
+            // The exact source identity survives a TMDb rewrite of native
+            // T/S/D. The original T/S checks remain for legacy recordings.
+            const auto originPath = recording / ".vdr-suite-import-origin";
+            if (fs::is_regular_file(fs::symlink_status(originPath)) &&
+                fs::file_size(originPath) <= 160U) {
+                std::ifstream origin(originPath, std::ios::binary);
+                const std::string content(
+                    (std::istreambuf_iterator<char>(origin)),
+                    std::istreambuf_iterator<char>());
+                if (content == nativeImportOrigin(plan)) return true;
+            }
             std::ifstream metadata(recording / "info", std::ios::binary);
             std::string line;
             bool matchingTitle = false;
@@ -1061,6 +1086,14 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
         info << renderNativeVdrRecordingInfo(plan, metadata, confirmedMetadata);
         info.flush();
         require(static_cast<bool>(info), "metadata write failed");
+    }
+    if (confirmedMetadata != nullptr) {
+        std::ofstream origin(stagedRecording / ".vdr-suite-import-origin",
+            std::ios::binary | std::ios::trunc);
+        require(static_cast<bool>(origin), "cannot write import origin");
+        origin << nativeImportOrigin(plan);
+        origin.flush();
+        require(static_cast<bool>(origin), "import origin write failed");
     }
     stageOptionalSubtitle(plan.sourceFile, stagedRecording);
 
