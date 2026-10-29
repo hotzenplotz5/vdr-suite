@@ -621,28 +621,36 @@ bool DaemonRuntime::initialize()
             const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
             std::string reason;
-            if (!mediaImportOperationFence_->effectiveMediaImportCapability(
-                    actorId, backendId, now, reason))
+            // Browsing is not an Agent command. Keep actor/backend grants
+            // but never turn a transient lease, capability, provider or
+            // activation state into an empty media directory.
+            if (!mediaImportOperationFence_->mayBrowseSources(
+                    actorId, backendId, reason))
             {
-                // A temporary Agent/provider outage is not a revoked user
-                // grant. Preserve 403 only for an actual access denial.
                 if (reason == "media_import_actor_revoked" ||
                     reason == "media_import_permission_denied" ||
-                    reason == "media_import_activation_disabled")
+                    reason == "media_import_backend_unavailable")
                     result.status = API::MediaImportSourceStatus::forbidden;
-                return result; // Otherwise the default is 503 unavailable.
+                return result;
             }
             const auto live = backendAgentRepository_->findAgentForBackend(backendId);
-            if (!live) return result;
-            // Independent Core-host approval is the EXPECTED digest.
-            // A remote Agent observation cannot approve itself; Core never
-            // inspects the remote handler via its own local filesystem.
-            if (!trustedMediaToolsProvider(backendId, now) ||
-                !mediaImportCatalog_->list(
+            if (live && mediaImportCatalog_->list(
                     *live, backendId, now, result.ids, result.labels,
                     &result.partial, &result.folders, &result.statuses))
+            {
+                result.status = API::MediaImportSourceStatus::ok;
                 return result;
-            result.status = API::MediaImportSourceStatus::ok;
+            }
+            // An authenticated Agent observation may remain useful for
+            // read-only browsing after its lease/generation expires. Never
+            // treat this cached presentation as fresh or as import authority.
+            if (mediaImportCatalog_->listLastObserved(
+                    backendId, result.ids, result.labels,
+                    &result.partial, &result.folders, &result.statuses))
+            {
+                result.status = API::MediaImportSourceStatus::ok;
+                result.stale = true;
+            }
             return result;
         });
     PublicApiRuntime::instance().registerMediaImportPreviewLookup(
