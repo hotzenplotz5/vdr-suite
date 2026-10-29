@@ -162,6 +162,49 @@ Frontend-/C++-Regressionen und der reale yaVDR-End-to-End-Lauf sind für
 diesen Stand **nicht ausgeführt / nicht bestätigt**; weder Agent-Dienste noch
 produktive Dateien wurden durch den Repository-Commit verändert.
 
+#### MT.REC6 – S01E05: dauerhafte Recording-Reconciliation (29.10.2026)
+
+**REAL-yaVDR read-only evidence:** `op_44214ce6c1401c69f4f226b1e5b6ffd3`
+steht seit 03:01:39 UTC auf `outcome_unknown`, Command
+`cmd_879ab78fc8a8cdadf5df064e` meldet
+`waiting_reconciliation / accepted_by_executor / reconcile_only` mit
+Aufnahme-Pfad-Evidence
+`media-import-path-sha256-v1:61ab18e5e075148f5179381e6fa75e370e799af86839fe109af0d055821e9abc`.
+Der Cache `default` wurde erst danach (03:10:19–03:10:24 UTC) erfolgreich
+aktualisiert, hat aber weiterhin die Operation nicht als Erfolg reconciliert.
+
+Der Backend-Recording-Cache zeigt S01E05 mit dem darstellungsbezogenen
+`path=/Serien/Star Wars-Andor/.../2026-10-29.04.01.1-0.rec` und der
+absoluten `backend_native_id=/srv/vdr/video/Serien/Star Wars-Andor/.../2026-10-29.04.01.1-0.rec`.
+Auf yaVDR zeigen `/srv/vdr/video` und `/srv/vdr/video.00` real auf dasselbe
+Verzeichnis. Unabhängiges Nachrechnen des vollständigen SHA256-Inputs ergibt
+einen **exakten Treffer nur für** `/srv/vdr/video.00/Serien/Star Wars-Andor/.../2026-10-29.04.01.1-0.rec`.
+Die alte Funktion `exactRecordingIdentity` hashte ausschließlich
+`VdrRecording.path`, das hier nur cache-relativ vorliegt; damit kann ein
+korrektes Agent-Ergebnis nie erfolgreich reconciliert werden.
+
+**Fix in PR #556:** Die existierende Core-Fence prüft jetzt in derselben
+belegten Recording-Snapshot-Reihe den bisherigen `path`, die tatsächliche
+`backendNativeId` und, für lokal verfügbare komplette `.rec`-Pfade,
+die per Filesystem aufgelöste kanonische `backendNativeId`. Keine Suche
+nach gleich klingenden Titeln und kein neues Resultat aus einer ungeprüften
+Aufnahme. Backend, eindeutige Recording-Identität, journalgesicherte
+Command-/Source-Evidence und jüngerer `ready`-Cache bleiben verbindlich.
+Der bestehende Readback-Notice-/Cleanup-Pfad wird wieder nutzbar, ohne
+Quelldateien ungeprüft zu löschen.
+
+Regression `core/agent/tests/test_backend_agent_command_delivery.cpp`
+erstellt isoliert einen synthetischen `video -> video.00`-Symlink,
+ein relatives `recording.path` und die exakte physische Agent-Evidence.
+Der Core muss diesen Fall nach aktuellem Cache-Readback einmalig nach
+`succeeded` überführen; falsches Recording/Backend, doppelte Treffer und
+veralteter Cache dürfen nicht bestätigen.
+
+**Status:** GitHub-Commit vorhanden; noch kein Backend-Build und keine
+produktive Installation/REAL-yaVDR-Abnahme. Dieser Fix wird erst mit dem
+**Core-Daemon**, nicht bloß dem Media-Tools-Frontend oder Importer,
+wirksam. Bereits vorhandene S01E05 nicht neu importieren.
+
 ### Phasen und harte Abnahmekriterien — in dieser Reihenfolge
 
 | Phase | Auftrag / betroffene Bestandsmodule | Fertig erst, wenn … |
