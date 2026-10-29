@@ -310,12 +310,18 @@ int main() {
         std::ofstream(existingRec / "info") << "T Another Film\n";
         std::ofstream(existingRec / "index") << "synthetic index";
         std::ofstream(existingRec / "00001.ts") << "synthetic video";
-        // A different title cannot auto-mark the source.
+        // An unrelated recording in the exact target directory must not
+        // authorize cleanup without the source title or Suite provenance.
         assert(!confirmedMediaImportDuplicate(duplicate));
+        std::ofstream(existingRec / "info", std::ios::trunc) <<
+            "T Corrected Episode Title\nS Imported via VDR-Suite Media Tools\n";
+        // A native-info correction must not hide our original, complete
+        // recording from inventory after a restart.
+        assert(confirmedMediaImportDuplicate(duplicate));
         std::ofstream(existingRec / "info", std::ios::trunc) << "T Sample\n";
-        // Complete matching recording is stronger duplicate evidence.
-        // The unmarked path also authorizes direct cleanup of its source;
-        // no .duplicate rename is required for the Agent's final proof.
+        // Exact original title also works for legacy/NFO imports.
+        // The unmarked path authorizes direct cleanup only after final
+        // revalidation; no .duplicate rename is required.
         assert(confirmedMediaImportDuplicate(duplicate));
         // An exact .duplicate marker can be re-inspected read-only. It must
         // never enter an ordinary VDR import regardless of file extension.
