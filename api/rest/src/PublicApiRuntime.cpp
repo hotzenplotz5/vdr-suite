@@ -9029,8 +9029,8 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
         }
         // A page cursor is only a snapshot check and position, never authority.
-        // Backend access, actor grants and the live Agent lease are rechecked
-        // for EVERY page by lookupMediaImportSources().
+        // Actor/backend read grants are checked for every page. An expired
+        // Agent lease does not invalidate a previously observed directory.
         const std::string query = requestQueryString(requestTarget);
         std::string requestedCursor;
         if (!query.empty()) {
@@ -9192,7 +9192,9 @@ bool PublicApiRuntime::tryHandleGet(
         // from the number of 32-item response pages.
         const bool partial = r.partial;
         body += "],\"meta\":{\"partial\":" +
-            std::string(partial ? "true" : "false") + "},\"links\":{\"self\":\"" +
+            std::string(partial ? "true" : "false") +
+            (r.stale ? ",\"stale\":true" : "") +
+            "},\"links\":{\"self\":\"" +
             jsonEscape(requestTarget) + "\"";
         if (finish < r.ids.size()) {
             const std::string next = path + "?cursor=" + prefix +
