@@ -9040,7 +9040,9 @@ bool PublicApiRuntime::tryHandleGet(
         }
         if ((!r.labels.empty() && r.labels.size() != r.ids.size()) ||
             (!r.folders.empty() &&
-             (r.labels.empty() || r.folders.size() != r.ids.size())))
+             (r.labels.empty() || r.folders.size() != r.ids.size())) ||
+            (!r.statuses.empty() &&
+             (r.labels.empty() || r.statuses.size() != r.ids.size())))
         {
             response = serviceUnavailableProblem(path, requestId, correlationId);
             return true;
@@ -9112,6 +9114,14 @@ bool PublicApiRuntime::tryHandleGet(
                 }
                 mix(folder);
             }
+            if (!r.statuses.empty()) {
+                const auto& status = r.statuses[index];
+                if (status != "recording_present" && status != "unverified") {
+                    response = serviceUnavailableProblem(path, requestId, correlationId);
+                    return true;
+                }
+                mix(status);
+            }
             previous = id;
         }
         const std::string prefix = "mi1_" + std::to_string(revision) + "_";
@@ -9152,6 +9162,8 @@ bool PublicApiRuntime::tryHandleGet(
                 body += ",\"label\":\"" + jsonEscape(r.labels[index]) + "\"";
             if (!r.folders.empty())
                 body += ",\"folder\":\"" + jsonEscape(r.folders[index]) + "\"";
+            if (!r.statuses.empty())
+                body += ",\"recordingStatus\":\"" + r.statuses[index] + "\"";
             body += "}";
         }
         // Completion is measured by the bounded scanner, NOT inferred
