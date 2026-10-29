@@ -258,7 +258,7 @@ bool PinnedMediaImportAgentExecutor::authorize(
         !parseMediaImportSelection(
             assignment.payload, sourceId, decision) ||
         assignment.payloadVersion !=
-            mediaImportSelectionVersion(decision) ||
+            mediaImportSelectionVersion(decision, assignment.payload) ||
         !authorization_.granted(assignment))
         return false;
 
