@@ -553,18 +553,21 @@ bool parseFrozenImportMetadata(
 {
     output = {};
     if (snapshot.size() < 12U || snapshot.size() > 4096U) return false;
-    std::array<std::string, 7> parts{};
+    const bool version1 = snapshot.compare(0, 3, "v1|") == 0;
+    const bool version2 = snapshot.compare(0, 3, "v2|") == 0;
+    if (!version1 && !version2) return false;
+    std::array<std::string, 10> parts{};
+    const std::size_t count = version2 ? 10U : 7U;
     std::size_t from = 0;
-    for (std::size_t i = 0; i < parts.size(); ++i) {
+    for (std::size_t i = 0; i < count; ++i) {
         const auto end = snapshot.find('|', from);
-        if ((i < 6 && end == std::string::npos) ||
-            (i == 6 && end != std::string::npos)) return false;
+        if ((i + 1 < count && end == std::string::npos) ||
+            (i + 1 == count && end != std::string::npos)) return false;
         parts[i] = snapshot.substr(from,
             (end == std::string::npos ? snapshot.size() : end) - from);
         from = end == std::string::npos ? snapshot.size() : end + 1;
     }
-    if (parts[0] != "v1" ||
-        (parts[1] != "episode" && parts[1] != "movie")) return false;
+    if ((parts[1] != "episode" && parts[1] != "movie")) return false;
     const auto decode = [](const std::string& input, std::string& value) {
         const auto nibble = [](unsigned char ch) -> int {
             if (ch >= '0' && ch <= '9') return ch - '0';
@@ -606,6 +609,25 @@ bool parseFrozenImportMetadata(
         !number(parts[6], output.episodeNumber) ||
         output.title.empty()) return false;
     output.mediaType = parts[1];
+    if (version2) {
+        // The external TMDb identity is already part of the candidate that
+        // produced this snapshot. No provider request is made by the worker.
+        output.externalNamespace = parts[7];
+        output.externalId = parts[8];
+        if (!decode(parts[9], output.posterReference)) return false;
+        const bool numeric = !output.externalId.empty() &&
+            output.externalId.size() <= 16U &&
+            std::all_of(output.externalId.begin(), output.externalId.end(),
+                [](unsigned char ch) { return ch >= '0' && ch <= '9'; });
+        if (!numeric ||
+            output.externalNamespace !=
+                (output.mediaType == "episode" ? "tv-episode" : "movie") ||
+            (output.posterReference.size() > 255U) ||
+            (!output.posterReference.empty() &&
+             (output.posterReference.front() != '/' ||
+              output.posterReference.find("..") != std::string::npos)))
+            return false;
+    }
     if (output.mediaType == "episode")
         return !output.seriesTitle.empty() && output.episodeNumber > 0;
     return output.seriesTitle.empty() && output.seasonNumber == 0 &&
