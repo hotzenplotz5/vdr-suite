@@ -234,10 +234,10 @@ int main()
     assert(!parseMediaImportSelection(
         mediaImportSelectionJson(id, MediaImportDecision::duplicate, snapshot)
           + "extra", selected, choice));
-    assert(!parseMediaImportSelection(
-        "{\\\"sourceId\\\":\\\"" + id +
-        "\\\",\\\"metadata\\\":\\\"v1|episode|Andor|X|bad%2|1|1\\\"}",
-        selected, choice));
+    const auto malformed = mediaImportSelectionJson(
+        id, MediaImportDecision::import,
+        "v1|episode|Andor|X|bad%2|1|1");
+    assert(!parseMediaImportSelection(malformed, selected, choice));
 
     Fixture fixture;
     Inventory inventory;
