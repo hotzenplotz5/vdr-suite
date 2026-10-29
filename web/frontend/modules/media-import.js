@@ -3794,15 +3794,14 @@
       updateOperationDiagnostics(view);
       return loadSources(view);
     });
-    // Even an already-visible tab must recheck the live Core capability.
-    return checkCapability(backendId).then(function (available) {
+    // Open immediately. An intermittent capability/lease observation must
+    // never blank an installed add-on. Inventory is read-only, while the
+    // existing Core admission check remains mandatory for each mutation.
+    // No new Agent, authorization bypass, or automatic import is introduced.
+    return Promise.resolve().then(function () {
       if (!isCurrent(view)) return;
-      if (!available) {
-        report(view, 'Media Import zurzeit nicht verfügbar. Aktivierung, Benutzerrechte und Backend-Agent werden erneut geprüft.', true);
-        return;
-      }
-      if (view.attempt) showAttempt(view);
-      else return loadSources(view);
+      if (view.attempt) return showAttempt(view);
+      return loadSources(view);
     }).catch(function (error) {
       if (isCurrent(view)) report(view, operationError(error), true);
     });
