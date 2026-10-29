@@ -639,7 +639,7 @@ bool DaemonRuntime::initialize()
             if (!trustedMediaToolsProvider(backendId, now) ||
                 !mediaImportCatalog_->list(
                     *live, backendId, now, result.ids, result.labels,
-                    &result.partial, &result.folders))
+                    &result.partial, &result.folders, &result.statuses))
                 return result;
             result.status = API::MediaImportSourceStatus::ok;
             return result;
