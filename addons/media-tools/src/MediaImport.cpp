@@ -545,6 +545,73 @@ ImportLocalMetadata readImportLocalMetadata(const ImportPlan& plan) {
 // VDR info is line-oriented. Provider descriptions may contain line breaks;
 // treat them as text rather than accidentally creating another native info
 // record (such as a second T/S/D line). Keep Unicode UTF-8 bytes unchanged.
+// Read the same immutable snapshot that the browser found BEFORE import.
+// The Core journal already persists it. This decoder does not use TMDb,
+// guess an episode, or modify the filesystem.
+bool parseFrozenImportMetadata(
+    const std::string& snapshot, ImportConfirmedMetadata& output)
+{
+    output = {};
+    if (snapshot.size() < 12U || snapshot.size() > 4096U) return false;
+    std::array<std::string, 7> parts{};
+    std::size_t from = 0;
+    for (std::size_t i = 0; i < parts.size(); ++i) {
+        const auto end = snapshot.find('|', from);
+        if ((i < 6 && end == std::string::npos) ||
+            (i == 6 && end != std::string::npos)) return false;
+        parts[i] = snapshot.substr(from,
+            (end == std::string::npos ? snapshot.size() : end) - from);
+        from = end == std::string::npos ? snapshot.size() : end + 1;
+    }
+    if (parts[0] != "v1" ||
+        (parts[1] != "episode" && parts[1] != "movie")) return false;
+    const auto decode = [](const std::string& input, std::string& value) {
+        const auto nibble = [](unsigned char ch) -> int {
+            if (ch >= '0' && ch <= '9') return ch - '0';
+            if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
+            if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
+            return -1;
+        };
+        value.clear();
+        for (std::size_t i = 0; i < input.size(); ++i) {
+            unsigned char ch = static_cast<unsigned char>(input[i]);
+            if (ch == '%') {
+                if (i + 2 >= input.size()) return false;
+                const int high = nibble(static_cast<unsigned char>(input[++i]));
+                const int low = nibble(static_cast<unsigned char>(input[++i]));
+                if (high < 0 || low < 0) return false;
+                ch = static_cast<unsigned char>((high << 4) | low);
+            } else if (!(std::isalnum(ch) || ch == '_' || ch == '.' ||
+                         ch == '~' || ch == '!' || ch == '*' ||
+                         ch == 39 || ch == '(' || ch == ')' || ch == '-'))
+                return false;
+            if (ch == 0) return false;
+            value.push_back(static_cast<char>(ch));
+        }
+        return true;
+    };
+    const auto number = [](const std::string& input, int& result) {
+        if (input.empty() || input.size() > 5 ||
+            !std::all_of(input.begin(), input.end(), [](unsigned char ch) {
+                return ch >= '0' && ch <= '9';
+            })) return false;
+        try { result = std::stoi(input); }
+        catch (...) { return false; }
+        return result >= 0;
+    };
+    if (!decode(parts[2], output.seriesTitle) ||
+        !decode(parts[3], output.title) ||
+        !decode(parts[4], output.overview) ||
+        !number(parts[5], output.seasonNumber) ||
+        !number(parts[6], output.episodeNumber) ||
+        output.title.empty()) return false;
+    output.mediaType = parts[1];
+    if (output.mediaType == "episode")
+        return !output.seriesTitle.empty() && output.episodeNumber > 0;
+    return output.seriesTitle.empty() && output.seasonNumber == 0 &&
+        output.episodeNumber == 0;
+}
+
 // Normalize one VDR info value: arbitrary provider text may include
 // physical line breaks or control bytes, never treat those as record headers.
 static std::string vdrInfoSingleLine(const std::string& input)
