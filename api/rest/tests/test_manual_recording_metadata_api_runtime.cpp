@@ -217,6 +217,16 @@ int main()
     MetadataRepository repository(database);
     FakeProvider provider;
     MetadataController controller(repository, &provider);
+    int nativeUpdateCalls = 0;
+    controller.setNativeInfoUpdate(
+        [&nativeUpdateCalls](const ManualRecordingMetadataSelection& selected,
+                            const ManualRecordingMetadataAssignment& assigned) {
+            ++nativeUpdateCalls;
+            assert(selected.backendId == "living-room");
+            assert(selected.title == "Forrest Gump");
+            assert(assigned.found);
+            return true;
+        });
 
     ManualRecordingMetadataApiRuntime& runtime =
         ManualRecordingMetadataApiRuntime::instance();
@@ -337,6 +347,8 @@ int main()
             "user:real-admin");
         assert(response.statusCode == 200);
         assert(response.body.find("\"manual\":true") != std::string::npos);
+        assert(response.body.find("\"nativeInfoUpdated\":true") != std::string::npos);
+        assert(nativeUpdateCalls == 1);
         assert(response.body.find("\"revision\":1") != std::string::npos);
         assert(response.body.find("\"castComplete\":true") != std::string::npos);
         assert(response.body.find("Tom Hanks") != std::string::npos);

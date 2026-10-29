@@ -7,6 +7,7 @@
 #include "EpgNativeTimerPreviewAttestation.h"
 #include "SuiteBridgeNativeTimerCreateTransport.h"
 #include "TimerIntentApplicationService.h"
+#include "MediaImport.h"
 #include "MediaImportOperationAdmission.h"
 #include "MediaImportRecordingEvidence.h"
 #include "MediaToolsAgentExecutor.h"
@@ -1286,6 +1287,9 @@ bool DaemonRuntime::initialize()
             (!explicitlyConfigured || configuredRootAvailable) &&
             !invalidNativeRoot;
         recordingActionConfig.readOnly = !recordingActionConfig.allowExecution;
+        backendRuntimeContext->nativeRecordingInfoRoot =
+            recordingActionConfig.readOnly
+                ? std::string{} : recordingActionConfig.videoDirectory;
         // Local startup evidence for read-only acceptance: the operator can
         // confirm which root won without invoking any recording mutation.
         const char* rootSource = configuredRootAvailable ? "configured"
@@ -1615,6 +1619,63 @@ bool DaemonRuntime::initialize()
             {
                 recordingPresentationChangeQueue_.request(backendId);
             });
+
+    // After the existing authenticated assignment, resolve its native
+    // Recording identity in the existing backend cache. Do not accept a path
+    // from the browser, request another TMDb search or submit another import.
+    metadataController_->setNativeInfoUpdate(
+        [this](const ManualRecordingMetadataSelection& selected,
+               const ManualRecordingMetadataAssignment& assigned) {
+            if (!vdrRecordingCacheRepository_ || !assigned.found ||
+                selected.providerId != "tmdb" ||
+                (selected.mediaType != "movie" &&
+                 selected.mediaType != "episode") ||
+                (selected.mediaType == "episode" &&
+                 selected.seriesTitle.empty()))
+                return false;
+            std::string videoRoot;
+            for (const auto& backend : backendRuntimeContexts_) {
+                if (backend && backend->backendId == assigned.backendId) {
+                    videoRoot = backend->nativeRecordingInfoRoot;
+                    break;
+                }
+            }
+            if (videoRoot.empty()) return false;
+            const auto recordings =
+                vdrRecordingCacheRepository_->findAllForBackend(
+                    assigned.backendId);
+            const VdrRecording* match = nullptr;
+            for (const auto& recording : recordings) {
+                if (recording.backendId != assigned.backendId ||
+                    recording.backendNativeId != assigned.resourceKey ||
+                    recording.backendNativeId.empty() ||
+                    recording.id.empty()) continue;
+                if (match) return false;
+                match = &recording;
+            }
+            if (!match) return false;
+            vdrsuite::mediatools::ImportConfirmedMetadata confirmed;
+            confirmed.mediaType = assigned.mediaType;
+            confirmed.title = assigned.title;
+            confirmed.seriesTitle = selected.seriesTitle;
+            confirmed.overview = assigned.overview;
+            confirmed.seasonNumber = assigned.seasonNumber;
+            confirmed.episodeNumber = assigned.episodeNumber;
+            try {
+                const bool changed =
+                    vdrsuite::mediatools::updateConfirmedNativeVdrInfo(
+                        videoRoot, match->backendNativeId, confirmed);
+                if (changed)
+                    recordingCacheRefreshQueue_.request(
+                        assigned.backendId, 2);
+                return true; // unchanged info is also a verified result
+            } catch (const std::exception& error) {
+                std::cerr << "Media Import native info correction pending: "
+                          << error.what() << std::endl;
+                return false;
+            }
+        });
+
 
     std::cout << "runtime diagnostics controller initialized" << std::endl;
     std::cout << "snapshot change feed controller initialized" << std::endl;

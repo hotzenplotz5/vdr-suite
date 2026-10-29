@@ -1069,6 +1069,7 @@
         externalId: candidate.externalId,
         mediaType: episode ? 'episode' : 'movie',
         title: candidate.title,
+        seriesTitle: episode ? view.onlineSeries.title : '',
         originalTitle: candidate.originalTitle || '',
         overview: candidate.overview || '',
         releaseDate: candidate.releaseDate || '',
@@ -1212,9 +1213,11 @@
           selection.candidate)),
         cache: 'no-store', credentials: 'same-origin'
       });
-    }).then(function () {
-      attempt.metadataFeedback = 'TMDb-Zuordnung in VDR-Suite gespeichert ✓. ' +
-        'Die native VDR-info-Datei ist damit noch nicht aktualisiert.';
+    }).then(function (response) {
+      attempt.metadataFeedback = response && response.nativeInfoUpdated === true
+        ? 'TMDb-Zuordnung und native VDR-info aktualisiert ✓.'
+        : 'TMDb-Zuordnung in VDR-Suite gespeichert ✓. ' +
+          'Native VDR-info noch nicht bestätigt.';
       if (isCurrent(view) && view.attempt === attempt)
         renderImportFeedback(view);
     }).catch(fail);
@@ -2728,7 +2731,7 @@
     renderOnline(view, card, plan, source);
     // MT.META6: allow an explicit, identity-checked Suite metadata repair
     // for an already confirmed recording. This reuses the existing recording
-    // assignment route and never starts an import or edits native VDR info.
+    // assignment route and never starts another media import.
     const existingSelection = selected && plan && plan.status === 'duplicate'
       ? importMetadataSelection(view, plan.targetFolder ? plan :
         Object.assign({}, plan, {targetFolder: '__agent_resolution_pending__'}), source)
@@ -2754,8 +2757,8 @@
              view.metadataReview[reviewKey].pending) ||
             !global.confirm ||
             !global.confirm('Die ausgewählten TMDb-Daten dieser bereits ' +
-              'vorhandenen Aufnahme in VDR-Suite zuordnen? ' +
-              'Die native VDR-info-Datei bleibt vorerst unverändert.'))
+              'vorhandenen Aufnahme übernehmen und die native VDR-info ' +
+              'über den bestehenden Aufnahmeweg aktualisieren?'))
           return Promise.resolve();
         view.metadataReview[reviewKey] = {pending: true, text: ''};
         updatePreview(view);
@@ -2781,8 +2784,8 @@
       card.appendChild(repair);
       card.appendChild(element('p', 'media-import-metadata-repair-note',
         previous && previous.text ? previous.text :
-        'Korrigiert ausschließlich die Suite-Metadatenzuordnung. ' +
-        'Die native VDR-info-Übernahme folgt in MT.META6.'));
+        'Übernimmt die bestätigte TMDb-Zuordnung; die native ' +
+        'VDR-info wird nach erfolgreicher Aktualisierung bestätigt.'));
     }
     const diagnostics = {
       agent_unavailable: 'Der Backend-Agent oder Media Tools ist nicht erreichbar.',

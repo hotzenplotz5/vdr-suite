@@ -30,6 +30,8 @@ struct ManualRecordingMetadataSelection
     std::string externalId;
     std::string mediaType;
     std::string title;
+    // Transient title from the same TMDb selection. No new DB column.
+    std::string seriesTitle;
     std::string originalTitle;
     std::string overview;
     std::string releaseDate;
