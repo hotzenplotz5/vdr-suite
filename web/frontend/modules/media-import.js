@@ -1780,7 +1780,8 @@
       normal.length > MAX_IMPORT_FILMS;
     view.selectionRows.replaceChildren();
     normal.forEach(function (item) {
-      const row = element('div', 'media-import-select-item');
+      const row = element('div', 'media-import-select-item' +
+        (item.recordingPresent ? ' is-recording-present' : ''));
       row.dataset.sourceId = item.sourceId;
       const checkbox = element('input', 'media-import-episode-check');
       checkbox.type = 'checkbox';
@@ -2536,8 +2537,13 @@
       const rowId = row.dataset.sourceId;
       const rowSelected = selected && rowId === id;
       const marked = row.className.includes('media-import-marked-item');
+      const present = !marked && view.allOrdinary.some(function (item) {
+        return item.sourceId === rowId && item.recordingPresent;
+      });
       row.className = marked ? 'media-import-select-item media-import-marked-item'
-        : 'media-import-select-item' + (rowSelected ? ' is-selected' : '');
+        : 'media-import-select-item' +
+          (present ? ' is-recording-present' : '') +
+          (rowSelected ? ' is-selected' : '');
       if (!marked && row.children[2]) {
         const rowItem = view.allOrdinary.find(function (source) {
           return source.sourceId === rowId;
