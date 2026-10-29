@@ -2725,8 +2725,9 @@ function publishHomeResume() {}
   frozenSource.listeners.change();
   await settle();
   const autoConfirmation = findClass(mount, 'media-import-online-confirmed');
-  assert(autoConfirmation && autoConfirmation.textContent.includes('Pilot'),
-    'the same exact episode is already identified before the import click');
+  assert(autoConfirmation && autoConfirmation.children.some(function (child) {
+    return child.textContent.includes('Pilot');
+  }), 'the same exact episode is already identified before the import click');
   const beforeSnapshotPost = submits;
   const beforeSnapshotAssignment = metadataAssignments.length;
   assert(!findClass(mount, 'media-import-start').disabled,
