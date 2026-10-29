@@ -2773,8 +2773,9 @@ function publishHomeResume() {}
   onlineMode = 'ready';
   sourceFolders[SOURCE_D] = 'Serien/Andor/Staffel 1';
   sourceDisplayLabels[SOURCE_D] = 'S01E01 Pilot';
-  batchSources = [SOURCE_D];
+  batchSources = [SOURCE_D, SOURCE_C];
   markedSources = [];
+  recordingStatuses[SOURCE_C] = 'recording_present';
   state = 'succeeded';
   submitMode = 'accepted';
   previewMode = 'ready';
@@ -2820,6 +2821,27 @@ function publishHomeResume() {}
     'previously selected TMDb episode id is frozen with the operation');
   assert.strictEqual(decodeURIComponent(decodedFrozen[9]), '/preview.jpg',
     'the exact recognized series poster travels in the same persisted import snapshot');
+
+  // MT.META6: after a successful S01E06 import, unrelated S01E02-S01E05
+  // duplicates must immediately be actionable. Core readback's GET must not
+  // leave every button stuck at "previous operation being read".
+  assert(findClass(mount, 'media-import-import-title').textContent.includes(
+    'Import abgeschlossen'), 'Core confirmed the independent import first');
+  const afterImportRow = findClass(mount, 'media-import-selection').children.find(
+    function (row) { return row.dataset.sourceId === SOURCE_C; });
+  const afterImportDelete = afterImportRow &&
+    findClass(afterImportRow, 'media-import-delete-duplicate-inline');
+  const afterImportReason = afterImportRow &&
+    findClass(afterImportRow, 'media-import-delete-blocked');
+  assert(afterImportDelete && !afterImportDelete.disabled &&
+    (!afterImportReason || afterImportReason.hidden),
+    'confirmed S01E06 must not block independent S01E03 cleanup after status readback');
+  const afterImportSubmits = submits;
+  confirmLocal = false;
+  await afterImportDelete.listeners.click();
+  assert.strictEqual(submits, afterImportSubmits,
+    'independent delete must reach confirmation without submitting when cancelled');
+  confirmLocal = true;
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
