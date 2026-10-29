@@ -3224,7 +3224,7 @@
     const technical = element('details', 'media-import-technical-details');
     technical.appendChild(element('summary', '', 'Technische Details'));
     technical.appendChild(sourceDetails);
-    const operationDiagnostics = element('p', 'media-import-operation-diagnostics',
+    const operationDiagnostics = element('pre', 'media-import-operation-diagnostics',
       'Noch keine Operationsdiagnose.');
     technical.appendChild(operationDiagnostics);
     root.appendChild(element('h4', '', 'Einzelimport'));
