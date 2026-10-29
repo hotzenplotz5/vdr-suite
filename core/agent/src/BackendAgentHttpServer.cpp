@@ -633,6 +633,7 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
     std::vector<std::string> sourceIds;
     std::vector<std::string> sourceLabels;
     std::vector<std::string> sourceFolders;
+    std::vector<std::string> sourceStatuses;
     bool partial = true; // legacy Agents have no completeness proof
     if (request.body.find("\"partial\"") != std::string::npos &&
         !jsonBool(request.body, "partial", partial))
@@ -644,6 +645,9 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
     if (request.body.find("\"sourceFolders\"") != std::string::npos &&
         !jsonStringArray(request.body, "sourceFolders", sourceFolders, 100U, 240U))
         return errorResponse(400, "invalid_media_import_source_folders");
+    if (request.body.find("\"sourceStatuses\"") != std::string::npos &&
+        !jsonStringArray(request.body, "sourceStatuses", sourceStatuses, 100U, 24U))
+        return errorResponse(400, "invalid_media_import_source_statuses");
     if (!jsonString(request.body, "backendId", backendId) ||
         !jsonString(request.body, "agentInstanceId", instanceId) ||
         !jsonUnsigned(request.body, "backendGeneration", generation) ||
@@ -697,7 +701,7 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
     if (!live || !mediaImportCatalog_->publish(
             context, *live, backendId, instanceId, generation,
             sourceIds, now, handlerOrigin, handlerVersion, handlerSha256,
-            sourceLabels, partial, sourceFolders))
+            sourceLabels, partial, sourceFolders, sourceStatuses))
         return errorResponse(409, "media_import_sources_agent_fenced");
     // A user may choose film B while the Agent is still inspecting film A.
     // Ignore the stale A result rather than wedging the Agent's normal
