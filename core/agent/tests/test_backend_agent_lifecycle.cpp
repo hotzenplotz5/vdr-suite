@@ -1260,7 +1260,7 @@ void test_http_authentication_read_does_not_wait_for_main_connection()
     busyMainHandle.join();
     assert(response.statusCode == 404);
     assert(elapsed < 650);
-    std::cout << "AGENT_AUTH_READ_CONNECTION_ISOLATION=PASS\\n";
+    std::cout << "AGENT_AUTH_READ_CONNECTION_ISOLATION=PASS\n";
 }
 
 void test_accountability_failure_is_fail_closed()

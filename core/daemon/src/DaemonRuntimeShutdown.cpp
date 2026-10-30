@@ -168,6 +168,10 @@ void DaemonRuntime::shutdown()
     backendAgentNativeTimerCreateReservationService_.reset();
     backendAgentCommandReservationRepository_.reset();
     backendAgentLifecycleService_.reset();
+    backendAgentAuthReadRepository_.reset();
+    backendAgentAuthReadVerifierRepository_.reset();
+    backendAgentAuthReadIdentityRepository_.reset();
+    backendAgentAuthReadDatabase_.close();
     backendAgentRepository_.reset();
     backendAgentAccountabilityRepository_.reset();
     backendAgentCredentialVerifierRepository_.reset();
