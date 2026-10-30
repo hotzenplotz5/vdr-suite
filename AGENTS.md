@@ -9,6 +9,52 @@ Diese Regel gilt für jede `AGENTS.md`-Datei im Repository. Ohne die ausdrückli
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
 
+## Verbindlich: Schnellen inkrementellen C++-Daemon-Build erhalten (30.10.2026)
+
+**Ausdrückliche Maintainer-Anordnung:** Den funktionierenden inkrementellen C++-Build
+für lokale Entwicklung, gezielte Tests und Daemon-Updates beibehalten. Nicht
+leichtfertig durch einen vollständigen Neuaufbau bei jedem Commit ersetzen.
+Referenz: Commit `d80c077ae13eee04e404ccb63e5ab299f3c051bf`;
+auf yaVDR wurde der Daemon nach zuvor ungefähr 18 Minuten mit dem
+wiederverwendeten Objekt-Cache in 47 Sekunden gebaut. Das ist ein gemessener
+Referenzwert, **kein** garantierter Grenzwert oder neues CI-Zeitlimit.
+
+- `tools/build_cpp_cached.py` und `mk/object-cache.mk` sind die vorhandene
+  Build-Cache-Integration. Unveränderte C/C++-Objekte bleiben über lokale
+  Quellcode-Commits hinweg verwendbar; geänderte Quellen und betroffene Header
+  müssen weiterhin korrekt neu kompiliert werden.
+- Eine neue `VDR_SUITE_SERVER_VERSION` darf **nicht** sämtliche sonst
+  unveränderten Objekte invalidieren. Versionsabhängige Übersetzungseinheiten
+  müssen weiterhin die korrekte aktuelle Versionskennung erhalten; die
+  Versionsidentität des fertigen Daemons darf nicht veralten.
+- Bestehende parallele Kompilierung erhalten (derzeit standardmäßig zwei Jobs,
+  über `VDR_SUITE_CXX_JOBS` einstellbar). Den Objekt-Cache nicht durch
+  wechselnde Build-Verzeichnisse pro Commit, unnötige frische Checkouts,
+  pauschales `make clean` oder automatische Cache-Löschung umgehen. Bei
+  notwendiger getrennter Binär-Ausgabe nach Möglichkeit denselben kompatiblen
+  `OBJECT_CACHE_DIR` weiterverwenden.
+- Änderungen am C++-Build-System dürfen diese Eigenschaft nicht unbemerkt
+  regressieren. Der vorhandene Test
+  `python3 tools/test_build_cpp_cached.py` (integriert über
+  `check-cpp-object-cache` / `test-build-artifact-paths`) prüft
+  Objekt-Wiederverwendung, Versionstrennung und Header-Invalidierung.
+  **Keinen zusätzlichen CI-Warte- oder Installations-Gate erfinden.**
+- Ein absichtlicher vollständiger lokaler Neuaufbau bleibt zulässig, wenn
+  tatsächliche inkompatible Compiler-/Build-Optionen, geänderte breite
+  Abhängigkeiten, ein defekter Cache oder eine ausdrückliche Maintainer-Anweisung
+  ihn begründen. Die Optimierung nicht ohne Zustimmung des Maintainers
+  pauschal zurückbauen.
+
+**Ausnahme – Debian-/Ubuntu-Paketbau und Release-Artefakte:** Debian/Ubuntu-
+Pakete müssen aus definierten Quellen und Abhängigkeiten **sauber,
+reproduzierbar und isoliert** baubar bleiben. Ein Paketbuild darf deshalb
+explizit ohne lokalen Entwicklungs-Cache aus einem frischen Build-Verzeichnis
+starten; er darf keine möglicherweise veralteten oder fremden Objektdateien
+aus dem Entwickler-Cache übernehmen. Das gilt auch für andere Release-/CI-
+Workflows, soweit deren Clean-Build-Vertrag dies verlangt. **Die Cache-Regel
+für lokale Daemon-Entwicklung darf Clean-Paketbuilds weder verbieten noch
+beeinflussen.**
+
 ## Striktes Branch-Verbot und ein Media-Tools-Entwicklungsbranch (28.10.2026)
 
 **Ausdrückliche Maintainer-Anordnung: AB SOFORT KEINE NEUEN GIT-BRANCHES ANLEGEN.**
