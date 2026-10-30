@@ -349,6 +349,15 @@ bool scanDirectory(const std::array<std::string, 6>& entry,
     std::sort(paths.begin(), paths.end());
     const auto now = fs::file_time_type::clock::now();
     for (const auto& path : paths) {
+        // Reject unrelated artwork/NFO/subtitle files BEFORE canonical path
+        // resolution, metadata lookup and readback. Both existing importer
+        // paths already accept exactly these video extensions.
+        std::string ext = path.extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(),
+            [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        if (ext != ".mkv" && ext != ".mp4" && ext != ".ts" &&
+            ext != ".mov" && ext != ".avi" && ext != ".webm" &&
+            ext != ".m4v") continue;
         // Do not hand a partially uploaded source to an unattended importer.
         // Every selection is re-inspected at dispatch and actual execution.
         if (now - fs::last_write_time(path) < std::chrono::minutes(2))
