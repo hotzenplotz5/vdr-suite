@@ -611,6 +611,7 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
         reportSlowBackendAgentPhase("command_poll.sql_transaction", sqlStarted);
         result.accepted=false;result.reasonCode="command_database_unavailable";return result;
     }
+    reportSlowBackendAgentPhase("command_poll.begin", sqlStarted);
 
     bool ok=true;
     if (request.refreshCapabilities)
@@ -664,6 +665,7 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
     }
     if (ok)
     {
+        const auto selectStarted = std::chrono::steady_clock::now();
         sqlite3_stmt* select=nullptr;
         // A fresh Agent command journal can exist before the optional Core
         // operations schema. Generic commands must still poll normally, but
@@ -690,6 +692,7 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
             if (sqlite3_step(select)==SQLITE_ROW) result.assignment=readAssignment(select);
             sqlite3_finalize(select);
         }
+        reportSlowBackendAgentPhase("command_poll.candidate_select", selectStarted);
     }
     if(ok&&result.assignment.present&&
        (result.assignment.commandType==kBackendAgentNativeTimerCreateCommandType||
@@ -1112,9 +1115,26 @@ bool BackendAgentCommandDeliveryService::agentContextMatches(const RequestSecuri
 
 BackendAgentCommandPollResult BackendAgentCommandDeliveryService::poll(const RequestSecurityContext& context,const BackendAgentCommandPollRequest& request,std::int64_t now)
 {
-    BackendAgentCommandPollResult result; const auto agent=agentRepository_.findAgentForBackend(request.backendId); std::string reason;
-    if(!agent.has_value()||!agentContextMatches(context,request.backendId,agent->agentId,request.agentInstanceId,request.backendGeneration,true,now,reason)){result.reasonCode=reason.empty()?"agent_binding_unavailable":reason;return result;}
-    result=commandRepository_.poll(request,agent->agentId,now); return result;
+    BackendAgentCommandPollResult result;
+    std::string reason;
+    const auto lookupStarted = std::chrono::steady_clock::now();
+    const auto agent = agentRepository_.findAgentForBackend(request.backendId);
+    reportSlowBackendAgentPhase("command_poll.agent_lookup", lookupStarted);
+    if (!agent.has_value()) {
+        result.reasonCode = "agent_binding_unavailable";
+        return result;
+    }
+    const auto bindingStarted = std::chrono::steady_clock::now();
+    const bool matched = agentContextMatches(
+        context, request.backendId, agent->agentId, request.agentInstanceId,
+        request.backendGeneration, true, now, reason);
+    reportSlowBackendAgentPhase("command_poll.binding_check", bindingStarted);
+    if (!matched) {
+        result.reasonCode = reason.empty() ? "agent_binding_unavailable" : reason;
+        return result;
+    }
+    result = commandRepository_.poll(request, agent->agentId, now);
+    return result;
 }
 void BackendAgentCommandDeliveryService::setReceiptFenceCheck(
     ReceiptFenceCheck check)

@@ -549,7 +549,9 @@ HttpServerResponse BackendAgentHttpServer::handleConnect(
     {
         return errorResponse(400, "invalid_agent_connect_payload");
     }
+    const auto phaseStarted = std::chrono::steady_clock::now();
     const BackendAgentConnectResult result = lifecycleService_.connect(context, connect, unixNow());
+    reportSlowBackendAgentPhase("connect.lifecycle", phaseStarted);
     if (!result.accepted) return errorResponse(409, result.reasonCode);
     std::ostringstream body;
     body << "{\"agentId\":\"" << jsonEscape(result.agentId)
@@ -578,8 +580,10 @@ HttpServerResponse BackendAgentHttpServer::handleHeartbeat(
     {
         return errorResponse(400, "invalid_agent_heartbeat_payload");
     }
+    const auto phaseStarted = std::chrono::steady_clock::now();
     const BackendAgentHeartbeatResult result = lifecycleService_.heartbeat(
         context, backendId, agentInstanceId, generation, sequence, unixNow());
+    reportSlowBackendAgentPhase("heartbeat.lifecycle", phaseStarted);
     if (!result.accepted) return errorResponse(409, result.reasonCode);
     std::ostringstream body;
     body << "{\"heartbeatSequence\":" << result.heartbeatSequence
@@ -796,7 +800,9 @@ HttpServerResponse BackendAgentHttpServer::handleCommandPoll(
     std::string reason;
     if (!parseBackendAgentCommandPollRequestJson(request.body, poll, reason))
         return errorResponse(400, reason);
+    const auto phaseStarted = std::chrono::steady_clock::now();
     const auto result = commandDeliveryService_.poll(context, poll, unixNow());
+    reportSlowBackendAgentPhase("command_poll.service", phaseStarted);
     if (!result.accepted) return errorResponse(409, result.reasonCode);
     return jsonResponse(200, serializeBackendAgentCommandPollResponseJson(result));
 }

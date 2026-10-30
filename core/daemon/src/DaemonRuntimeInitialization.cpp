@@ -546,10 +546,13 @@ bool DaemonRuntime::initialize()
                   << std::endl;
         return false;
     }
+    // Command delivery only reads Agent identity/binding state; keep those
+    // lookups off the busy primary connection, just like HTTP authentication.
+    // Command transactions and accountability writes still use their owners.
     backendAgentCommandDeliveryService_ =
         std::make_unique<BackendAgentCommandDeliveryService>(
             *backendAgentCommandRepository_,
-            *backendAgentRepository_,
+            *backendAgentAuthReadRepository_,
             *backendAgentAccountabilityRepository_);
 
     // A6: bind the real Core operation and effective grant authorities at
