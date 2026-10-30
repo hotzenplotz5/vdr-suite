@@ -200,7 +200,9 @@ void stageVerifiedSource(const ImportPlan& plan, const Signature& expected,
                           O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
                           0600));
     require(output.fd >= 0, "cannot create private source snapshot");
-    std::array<char, 65536> buffer{};
+    // Fewer read/write syscalls for gigabyte-sized source snapshots; the
+    // existing per-byte copy count, source identity and fsync checks stay.
+    std::vector<char> buffer(1024U * 1024U);
     std::uintmax_t copied = 0;
     while (true) {
         const ssize_t amount = ::read(input.fd, buffer.data(), buffer.size());
