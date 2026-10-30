@@ -526,6 +526,7 @@ bool GenreIndexRepository::synchronizeEpgCache(
     std::int64_t fromTime,
     std::int64_t untilTime)
 {
+    const auto syncStarted = std::chrono::steady_clock::now();
     const std::string normalizedBackend = normalizeBackendId(backendId);
     std::vector<GenreEvidenceInput> rows;
 
@@ -562,6 +563,13 @@ bool GenreIndexRepository::synchronizeEpgCache(
         sqlite3_finalize(statement);
     }
 
+    const auto rowsReadAt = std::chrono::steady_clock::now();
+    const auto readMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        rowsReadAt - syncStarted).count();
+    if (readMs >= 1000)
+        std::cerr << "EPG_GENRE_SYNC_SLOW phase=read_rows duration_ms="
+                  << readMs << " items=" << rows.size() << std::endl;
+
     constexpr std::size_t EpgSynchronizationBatchSize = 16;
     for (std::size_t begin = 0; begin < rows.size(); begin += EpgSynchronizationBatchSize)
     {
@@ -571,7 +579,9 @@ bool GenreIndexRepository::synchronizeEpgCache(
 
         {
             std::lock_guard<std::recursive_mutex> lock(mutex_);
+            const auto leaseStarted = std::chrono::steady_clock::now();
             auto transactionLease = database_.acquireTransactionLease();
+            const auto transactionStarted = std::chrono::steady_clock::now();
             if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
             for (std::size_t index = begin; index < end; ++index)
             {
@@ -592,6 +602,21 @@ bool GenreIndexRepository::synchronizeEpgCache(
                 database_.execute("ROLLBACK;");
                 return false;
             }
+            const auto batchCommitted = std::chrono::steady_clock::now();
+            const auto leaseWaitMs =
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    transactionStarted - leaseStarted).count();
+            const auto heldMs =
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    batchCommitted - transactionStarted).count();
+            if (leaseWaitMs >= 1000 || heldMs >= 1000)
+            {
+                std::cerr << "EPG_GENRE_SYNC_SLOW phase=batch"
+                          << " lease_wait_ms=" << leaseWaitMs
+                          << " held_ms=" << heldMs
+                          << " begin=" << begin
+                          << " count=" << (end - begin) << std::endl;
+            }
         }
 
         if (end < rows.size())
@@ -602,7 +627,9 @@ bool GenreIndexRepository::synchronizeEpgCache(
 
     {
         std::lock_guard<std::recursive_mutex> lock(mutex_);
+        const auto leaseStarted = std::chrono::steady_clock::now();
         auto transactionLease = database_.acquireTransactionLease();
+        const auto transactionStarted = std::chrono::steady_clock::now();
         if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
         if (!retireExpiredEpgTargets(normalizedBackend, fromTime - 86400))
         {
@@ -614,6 +641,22 @@ bool GenreIndexRepository::synchronizeEpgCache(
             database_.execute("ROLLBACK;");
             return false;
         }
+        const auto cleanupCommitted = std::chrono::steady_clock::now();
+        const auto waitMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            transactionStarted - leaseStarted).count();
+        const auto heldMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+            cleanupCommitted - transactionStarted).count();
+        if (waitMs >= 1000 || heldMs >= 1000)
+        {
+            std::cerr << "EPG_GENRE_SYNC_SLOW phase=retirement"
+                      << " lease_wait_ms=" << waitMs
+                      << " held_ms=" << heldMs << std::endl;
+        }
     }
+    const auto totalMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - syncStarted).count();
+    if (totalMs >= 1000)
+        std::cerr << "EPG_GENRE_SYNC_TOTAL duration_ms=" << totalMs
+                  << " items=" << rows.size() << std::endl;
     return true;
 }

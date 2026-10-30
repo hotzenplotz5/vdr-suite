@@ -189,6 +189,14 @@ int main()
         assert(browseAssignmentCount(
             database.handle(),
             targetId) == 1);
+
+        // An expired EPG binding should be retired once. Repeating an EPG
+        // refresh must not rewrite already retired rows and hold the shared
+        // SQLite writer lease for redundant updates.
+        assert(repository.retireExpiredEpgTargets("default", 1700005401));
+        assert(sqlite3_changes(database.handle()) == 1);
+        assert(repository.retireExpiredEpgTargets("default", 1700005401));
+        assert(sqlite3_changes(database.handle()) == 0);
     }
 
     std::remove(filename.c_str());
