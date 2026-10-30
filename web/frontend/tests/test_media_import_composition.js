@@ -782,6 +782,44 @@ function publishHomeResume() {}
   await start.listeners.click();
   assert.strictEqual(submits, 1, 'double-click must not submit a second import');
 
+  // Film B remains searchable and technically inspectable while film A runs.
+  const runningProgress = findClass(mount, 'media-import-operation-progress');
+  assert(runningProgress && !runningProgress.hidden,
+    'running import has an always-visible native progress bar');
+  assert.strictEqual(findClass(runningProgress,
+    'media-import-operation-progress-bar').tagName, 'PROGRESS');
+  assert(findClass(runningProgress,
+    'media-import-operation-progress-text').textContent.includes('Verstrichen:'),
+    'elapsed time is displayed, never an invented percentage');
+  batchSources = [SOURCE, SOURCE_B];
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  const nextFilm = findClass(mount, 'media-import-source');
+  assert.strictEqual(nextFilm.disabled, false,
+    'source selection stays active while A imports');
+  assert.strictEqual(findClass(mount, 'media-import-search').disabled, false,
+    'search stays active while A imports');
+  assert.strictEqual(findClass(mount, 'media-import-filter').disabled, false,
+    'filter stays active while A imports');
+  nextFilm.value = SOURCE_B;
+  nextFilm.listeners.change();
+  await settle();
+  assert(findClass(mount, 'media-import-preview-state').textContent.includes(
+    'Direktimport möglich'), 'film B preview works while film A imports');
+  assert(findClass(mount, 'media-import-start').disabled,
+    'film B inspection does not dispatch another import');
+  assert.strictEqual(submits, 1, 'preview of film B never repeats import A');
+  assert(!findClass(mount, 'media-import-operation-progress').hidden,
+    'operation A remains visible while inspecting B');
+  const runningSearch = findClass(mount, 'media-import-search');
+  runningSearch.value = 'Weiterer';
+  runningSearch.listeners.input();
+  assert.strictEqual(findClass(mount, 'media-import-source').children.length, 2,
+    'search filters the inventory during import');
+  runningSearch.value = '';
+  runningSearch.listeners.input();
+  batchSources = null;
+
   // A manual read must produce an observable result even if Core reports
   // exactly the same dispatching state. It is never a new import POST.
   const checkedBefore = operationReads;
@@ -877,8 +915,19 @@ function publishHomeResume() {}
   assert.strictEqual(submits, unknownPosts,
     'read-only browsing may not create another mutation');
   state = 'succeeded';
+  recordingStatuses[SOURCE] = 'recording_present';
+  const beforeConfirmedScan = requests.filter(r =>
+    r.path.endsWith('/media-import-sources')).length;
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
+  assert(requests.filter(r => r.path.endsWith('/media-import-sources')).length >
+    beforeConfirmedScan,
+    'completed VDR readback automatically refreshes the inventory');
+  const confirmedRow = findClass(mount, 'media-import-selection').children.find(
+    row => row.dataset.sourceId === SOURCE);
+  assert(confirmedRow && confirmedRow.children[2].textContent.includes(
+    'Bereits importiert'), 'new duplicate status appears without page reload');
+  assert.strictEqual(submits, 1, 'refresh is read-only, not a second import');
   assert(findClass(mount, 'status').textContent.includes('unabhängig bestätigt'));
   assert.strictEqual(findClass(mount, 'media-import-import-title').textContent,
     'Import abgeschlossen ✓', 'verified VDR readback is shown near the action');
@@ -887,6 +936,7 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-completed-notice').textContent.includes(
     'VDR-Aufnahme bestätigt'), 'a confirmed recording also appears in a persistent completion receipt');
   assert.strictEqual(findClass(mount, 'media-import-new').hidden, false);
+  delete recordingStatuses[SOURCE];
   await findClass(mount, 'media-import-new').listeners.click();
   await settle();
   assert(findClass(mount, 'media-import-completed-notice').textContent.includes(
