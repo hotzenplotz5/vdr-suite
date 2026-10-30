@@ -1368,6 +1368,7 @@
     if (!view.importFeedback) return;
     const attempt = view.attempt;
     view.importFeedback.hidden = !view.submitting && !attempt;
+    renderOperationProgress(view);
     if (view.importFeedback.hidden) return;
     const marker = attempt && ['desktop', 'skip', 'duplicate', 'release',
       'delete_duplicate'].includes(attempt.videoDecision);
@@ -1449,7 +1450,6 @@
         'dieser unbestätigte Auftrag wird nicht erneut gestartet.';
     }
     updateOperationDiagnostics(view);
-    renderOperationProgress(view);
     view.importFeedback.className = 'media-import-import-feedback' +
       (state === 'succeeded' ? ' is-success'
         : attempt && (terminalState(state) || state === 'outcome_unknown')
