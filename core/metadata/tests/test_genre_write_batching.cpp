@@ -252,6 +252,47 @@ int main()
         assert(sqlite3_changes(database.handle()) == 1);
         assert(repository.retireExpiredEpgTargets("default", 1700005401));
         assert(sqlite3_changes(database.handle()) == 0);
+
+        // Stale rows are also eligible; rows already marked retired must
+        // remain untouched on subsequent startup cleanups.
+        assert(database.execute(
+            "UPDATE suite_metadata_target_bindings "
+            "SET lifecycle_state='stale' WHERE metadata_target_id='" +
+            targetId + "';"));
+        assert(repository.retireExpiredEpgTargets("default", 1700005401));
+        assert(sqlite3_changes(database.handle()) == 1);
+        assert(repository.retireExpiredEpgTargets("default", 1700005401));
+        assert(sqlite3_changes(database.handle()) == 0);
+
+        // The existing lookup index has lifecycle_state as the third key.
+        // An IN predicate can constrain it; != 'retired' cannot.
+        sqlite3_stmt* retirementPlan = nullptr;
+        assert(sqlite3_prepare_v2(database.handle(),
+            "EXPLAIN QUERY PLAN UPDATE suite_metadata_target_bindings "
+            "SET lifecycle_state='retired',updated_at=CURRENT_TIMESTAMP "
+            "WHERE backend_id=? AND target_type='program-event' "
+            "AND lifecycle_state IN ('active','stale') "
+            "AND end_time>0 AND end_time<?;",
+            -1, &retirementPlan, nullptr) == SQLITE_OK);
+        assert(sqlite3_bind_text(
+            retirementPlan, 1, "default", -1, SQLITE_STATIC) == SQLITE_OK);
+        assert(sqlite3_bind_int64(retirementPlan, 2, 1700005401) == SQLITE_OK);
+        bool usesLifecycleIndex = false;
+        while (sqlite3_step(retirementPlan) == SQLITE_ROW)
+        {
+            const unsigned char* detail =
+                sqlite3_column_text(retirementPlan, 3);
+            if (detail == nullptr) continue;
+            const std::string plan(reinterpret_cast<const char*>(detail));
+            if (plan.find("idx_suite_metadata_target_bindings_lookup") !=
+                    std::string::npos &&
+                plan.find("lifecycle_state=?") != std::string::npos)
+            {
+                usesLifecycleIndex = true;
+            }
+        }
+        sqlite3_finalize(retirementPlan);
+        assert(usesLifecycleIndex);
     }
 
     std::remove(filename.c_str());

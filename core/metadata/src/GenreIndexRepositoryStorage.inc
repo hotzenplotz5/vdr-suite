@@ -340,7 +340,8 @@ bool GenreIndexRepository::retireExpiredEpgTargets(
     const char* sql =
         "UPDATE suite_metadata_target_bindings SET lifecycle_state='retired',updated_at=CURRENT_TIMESTAMP "
         "WHERE backend_id=? AND target_type='program-event' "
-        "AND lifecycle_state!='retired' AND end_time>0 AND end_time<?;";
+        "AND lifecycle_state IN ('active','stale') "
+        "AND end_time>0 AND end_time<?;";
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK) return false;
     bindText(statement, 1, normalizeBackendId(backendId));
     sqlite3_bind_int64(statement, 2, beforeEndTime);
