@@ -594,10 +594,45 @@ bool BackendAgentCommandRepository::localProviderSelectionCurrent(
 BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendAgentCommandPollRequest& request,const std::string& agentId,std::int64_t now)
 {
     using namespace vdrsuite::agent;
+    BackendAgentCommandPollResult result; result.accepted=true; result.reasonCode="no_command_available";
+
+    // High-frequency polls do not refresh capabilities. If there is no
+    // assigned command and no requested replay, there is nothing to mutate.
+    // Inspect the dedicated poll connection without taking the shared writer
+    // lease; a command arriving just afterwards is picked up by the next poll.
+    // A pending command (or an SQL error) follows the original transaction
+    // path, retaining receipt and delivery-count semantics.
+    if (!request.refreshCapabilities)
+    {
+        const auto probeStarted = std::chrono::steady_clock::now();
+        sqlite3_stmt* probe = nullptr;
+        const char* probeSql =
+            "SELECT 1 FROM backend_agent_commands "
+            "WHERE backend_id=? AND (state='assigned' OR replay_requested=1) "
+            "LIMIT 1;";
+        const int prepared = sqlite3_prepare_v2(
+            database_.handle(), probeSql, -1, &probe, nullptr);
+        if (prepared == SQLITE_OK && bindText(probe, 1, request.backendId))
+        {
+            const int status = sqlite3_step(probe);
+            sqlite3_finalize(probe);
+            if (status == SQLITE_DONE)
+            {
+                reportSlowBackendAgentPhase(
+                    "command_poll.empty_probe", probeStarted);
+                return result;
+            }
+        }
+        else if (probe != nullptr)
+        {
+            sqlite3_finalize(probe);
+        }
+        reportSlowBackendAgentPhase("command_poll.empty_probe", probeStarted);
+    }
+
     const auto leaseStarted = std::chrono::steady_clock::now();
     auto transactionLease = database_.acquireTransactionLease();
     reportSlowBackendAgentPhase("command_poll.lease_wait", leaseStarted);
-    BackendAgentCommandPollResult result; result.accepted=true; result.reasonCode="no_command_available";
     std::string advertisementReason;
     if(request.refreshCapabilities &&
        !backendAgentNativeTimerAdvertisementValid(request,advertisementReason))

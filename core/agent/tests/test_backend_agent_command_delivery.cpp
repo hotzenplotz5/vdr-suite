@@ -102,6 +102,38 @@ int main()
         != std::string::npos);
     assert(slowPollLog.str().find("phase=command_poll.sql_transaction")
         == std::string::npos);
+    // A fast, empty poll is read-only: do not let another writer's lease
+    // delay it when the durable command journal has no pending assignments.
+    BackendAgentCommandPollRequest idlePoll = poll;
+    idlePoll.refreshCapabilities = false;
+    idlePoll.supportedCommandTypes.clear();
+    auto idleLease = db.acquireTransactionLease();
+    std::atomic<bool> idleFinished{false};
+    BackendAgentCommandPollResult idleResult;
+    std::thread idleThread([&] {
+        idleResult = commands.poll(idlePoll, "agt_test", 109);
+        idleFinished.store(true);
+    });
+    const auto idleDeadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(650);
+    while (!idleFinished.load() &&
+           std::chrono::steady_clock::now() < idleDeadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    const bool idleCompletedWithoutLease = idleFinished.load();
+    idleLease.unlock();
+    idleThread.join();
+    assert(idleCompletedWithoutLease);
+    assert(idleResult.accepted && !idleResult.assignment.present);
+
+    // A real replay still takes the transaction lease and is delivered.
+    assert(service.requestReplay(
+        context(ActorType::System, "system_admin"), "default",
+        assignment->commandId, 110, reason));
+    auto pendingReplay = commands.poll(idlePoll, "agt_test", 110);
+    assert(pendingReplay.accepted &&
+           pendingReplay.assignment.present &&
+           pendingReplay.assignment.commandId == assignment->commandId);
+
     BackendAgentCommandPollRequest stale=poll;stale.backendGeneration=6;assert(!service.poll(context(ActorType::Agent,"actor_agent"),stale,109).accepted);
     // A native UPDATE was received under generation 7. The Agent persisted
     // its uncertain result locally; heartbeat advanced the Agent to
