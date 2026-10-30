@@ -5017,6 +5017,30 @@ body.channel-sorter-dragging * {
   border-radius: .7rem;
   background: rgba(37, 99, 235, .13);
 }
+/* Always-visible operation progress independent of the selected film card. */
+.media-import-operation-progress {
+  flex: 1 1 100%;
+  min-width: 0;
+  padding: .4rem .65rem;
+  border: 1px solid rgba(96, 165, 250, .45);
+  border-radius: .55rem;
+  background: rgba(37, 99, 235, .10);
+}
+.media-import-operation-progress[hidden],
+.media-import-operation-progress-bar[hidden] { display: none !important; }
+.media-import-operation-progress-bar {
+  display: block;
+  width: 100%;
+  height: 1rem;
+  margin: .3rem 0;
+  accent-color: #60a5fa;
+}
+.media-import-operation-progress-text {
+  margin: .3rem 0 0;
+  font-size: .83rem;
+  color: #dbeafe;
+  overflow-wrap: anywhere;
+}
 .media-import-import-feedback[hidden] { display: none !important; }
 .media-import-import-feedback.is-finished {
   border-color: #64748b;
