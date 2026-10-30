@@ -7,6 +7,11 @@
 #include "CredentialVerifierRepository.h"
 #include "SecurityIdentityRepository.h"
 
+#include <openssl/crypto.h>
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#include <openssl/rand.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cctype>
@@ -14,6 +19,7 @@
 #include <cstdlib>
 #include <limits>
 #include <map>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -333,6 +339,61 @@ BackendAgentHttpServer::BackendAgentHttpServer(
       identityRepository_(identityRepository),
       mediaImportCatalog_(mediaImportCatalog)
 {
+    // Failed process-local key generation simply retains the original
+    // password-verification behavior; never cache a plaintext secret.
+    secretCacheReady_ = RAND_bytes(
+        secretCacheKey_.data(),
+        static_cast<int>(secretCacheKey_.size())) == 1;
+}
+
+bool BackendAgentHttpServer::verifyAgentSecret(
+    const std::string& agentId,
+    const std::string& credentialId,
+    const std::string& passwordHash,
+    const std::string& secret) const
+{
+    if (!secretCacheReady_)
+        return backendAgentVerifySecret(secret, passwordHash);
+
+    std::array<unsigned char, EVP_MAX_MD_SIZE> digest{};
+    unsigned int digestLength = 0;
+    const bool digestReady = HMAC(
+        EVP_sha256(),
+        secretCacheKey_.data(),
+        static_cast<int>(secretCacheKey_.size()),
+        reinterpret_cast<const unsigned char*>(secret.data()),
+        secret.size(), digest.data(), &digestLength) != nullptr &&
+        digestLength == cachedSecretMac_.size();
+
+    if (digestReady)
+    {
+        std::lock_guard<std::mutex> lock(secretCacheMutex_);
+        if (secretCachePresent_ &&
+            cachedAgentId_ == agentId &&
+            cachedCredentialId_ == credentialId &&
+            cachedPasswordHash_ == passwordHash &&
+            CRYPTO_memcmp(
+                digest.data(), cachedSecretMac_.data(),
+                cachedSecretMac_.size()) == 0)
+            return true;
+    }
+
+    // First access, changed credential or incorrect secret: keep the existing
+    // expensive verifier and its constant-time hash comparison unchanged.
+    if (!backendAgentVerifySecret(secret, passwordHash))
+        return false;
+
+    if (digestReady)
+    {
+        std::lock_guard<std::mutex> lock(secretCacheMutex_);
+        cachedAgentId_ = agentId;
+        cachedCredentialId_ = credentialId;
+        cachedPasswordHash_ = passwordHash;
+        std::copy_n(digest.data(), cachedSecretMac_.size(),
+                    cachedSecretMac_.data());
+        secretCachePresent_ = true;
+    }
+    return true;
 }
 
 RequestSecurityContext BackendAgentHttpServer::authenticateAgent(
@@ -349,11 +410,16 @@ RequestSecurityContext BackendAgentHttpServer::authenticateAgent(
         context.authenticationState = AuthenticationState::Invalid;
         return context;
     }
+    const auto lookupStarted = std::chrono::steady_clock::now();
     const auto verifier = credentialVerifierRepository_.findByLogin(agentId);
     const auto agent = repository_.findAgent(agentId);
+    reportSlowBackendAgentPhase("authentication.db_lookup", lookupStarted);
+    const auto verifyStarted = std::chrono::steady_clock::now();
     const bool accepted = verifier.has_value() && agent.has_value() &&
         verifier->credentialId == agent->credentialId &&
-        backendAgentVerifySecret(secret, verifier->passwordHash);
+        verifyAgentSecret(
+            agentId, agent->credentialId, verifier->passwordHash, secret);
+    reportSlowBackendAgentPhase("authentication.secret_verify", verifyStarted);
     std::fill(secret.begin(), secret.end(), '\0');
     if (!accepted)
     {
@@ -361,9 +427,11 @@ RequestSecurityContext BackendAgentHttpServer::authenticateAgent(
         return context;
     }
 
+    const auto identityStarted = std::chrono::steady_clock::now();
     const auto actor = identityRepository_.findActor(agent->actorId);
     const auto device = identityRepository_.findDevice(agent->deviceId);
     const auto credential = identityRepository_.findCredential(agent->credentialId);
+    reportSlowBackendAgentPhase("authentication.identity_lookup", identityStarted);
     if (!actor.has_value() || actor->type != ActorType::Agent ||
         !device.has_value() || device->actorId != actor->actorId ||
         !credential.has_value() || credential->actorId != actor->actorId)

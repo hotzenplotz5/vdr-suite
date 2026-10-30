@@ -1161,6 +1161,43 @@ void test_http_protocol_and_redaction()
     assert(denied.statusCode == 401);
     assert(denied.body.find("wrong-secret") == std::string::npos);
 
+    // Repeated real HTTP requests exercise the cached successful verifier.
+    // A wrong secret must never benefit from the cached Agent identity.
+    HttpServerRequest cachedProbe = connect;
+    cachedProbe.path = "/api/agent/v1/nonexistent-auth-probe";
+    for (int attempt = 0; attempt < 8; ++attempt)
+        assert(server.handleRequest(cachedProbe).statusCode == 404);
+    invalid.path = cachedProbe.path;
+    assert(server.handleRequest(invalid).statusCode == 401);
+    assert(server.handleRequest(cachedProbe).statusCode == 404);
+
+    // Even with a cached correct secret, a revoked credential is rejected
+    // immediately from current durable identity state, without a restart.
+    const auto currentAgent = fixture.agentRepository.findAgent(agentId);
+    assert(currentAgent.has_value());
+    assert(fixture.database.execute(
+        "UPDATE security_credentials SET revoked_at='fixture-revoked' "
+        "WHERE credential_id='" + currentAgent->credentialId + "';"));
+    assert(server.handleRequest(cachedProbe).statusCode == 401);
+    assert(fixture.database.execute(
+        "UPDATE security_credentials SET revoked_at='' "
+        "WHERE credential_id='" + currentAgent->credentialId + "';"));
+    assert(server.handleRequest(cachedProbe).statusCode == 404);
+
+    // Replacing the persisted verifier hash invalidates the cache even if
+    // the agent and credential IDs themselves do not change.
+    const std::string replacementSecret =
+        "replacement-secret-material-000000000000000000000001";
+    const std::string replacementHash = backendAgentHashSecret(replacementSecret);
+    assert(!replacementHash.empty());
+    assert(fixture.verifierRepository.updateVerifier(
+        currentAgent->credentialId, agentId, replacementHash));
+    assert(server.handleRequest(cachedProbe).statusCode == 401);
+    cachedProbe.headers["Authorization"] =
+        "Basic " + base64(agentId + ":" + replacementSecret);
+    assert(server.handleRequest(cachedProbe).statusCode == 404);
+    std::cout << "AGENT_AUTH_CACHE_ROTATION_REVOCATION=PASS\n";
+
     HttpServerRequest oversized = connect;
     oversized.body.assign(16U * 1024U + 1U, 'x');
     const HttpServerResponse tooLarge = server.handleRequest(oversized);
