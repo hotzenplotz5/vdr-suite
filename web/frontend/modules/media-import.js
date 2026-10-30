@@ -1073,7 +1073,13 @@
             'jederzeit erneut abfragen. Nicht nochmals importieren.';
         }
       }
-      if (refreshImportedSources) return loadSources(view);
+      if (refreshImportedSources) {
+        const confirmedReport = view.message.textContent;
+        return loadSources(view).then(function () {
+          if (isCurrent(view) && view.attempt === checkedAttempt)
+            report(view, confirmedReport, false);
+        });
+      }
     }).catch(function (error) {
       if (isCurrent(view)) {
         if (view.batch)
