@@ -733,6 +733,39 @@ int main() {
         ++checks;
     }
     {
+        // Legacy selected episode: title/plot are known but the former
+        // import never retained a confirmed series title. Keep T as-is
+        // rather than inventing a show, while fixing S/D atomically.
+        Fixture f;
+        const fs::path rec = f.video / "Old" /
+            "2026-10-28.17.29.1-0.rec";
+        fs::create_directories(rec);
+        std::ofstream(rec/"info",std::ios::binary)
+            << "T DE - Star Wars Andor S01E02\n"
+               "S Imported via VDR-Suite Media Tools\nF 25\n";
+        std::ofstream(rec/"index",std::ios::binary) << "index";
+        std::ofstream(rec/"00001.ts",std::ios::binary) << "video";
+        ImportConfirmedMetadata selected;
+        selected.mediaType = "episode";
+        selected.title = "Das bin ich";
+        selected.overview = "Bereits bestätigte Episodenbeschreibung";
+        selected.seasonNumber = 1;
+        selected.episodeNumber = 2;
+        assert(updateConfirmedNativeVdrInfo(f.video,rec,selected));
+        std::ifstream info(rec/"info",std::ios::binary);
+        const std::string actual(
+            (std::istreambuf_iterator<char>(info)),
+            std::istreambuf_iterator<char>());
+        assert(actual == "T DE - Star Wars Andor S01E02\n"
+            "S Das bin ich\nF 25\n"
+            "D Bereits bestätigte Episodenbeschreibung\n");
+        assert(fs::is_regular_file(rec/".vdr-suite-import-origin"));
+        assert(!updateConfirmedNativeVdrInfo(f.video,rec,selected));
+        assert(fs::file_size(rec/"00001.ts") == 5 &&
+               fs::file_size(rec/"index") == 5);
+        ++checks;
+    }
+    {
         // Retrofit an existing recording without calling the import worker,
         // changing TS/index, touching the input, or making a TMDb request.
         Fixture f;

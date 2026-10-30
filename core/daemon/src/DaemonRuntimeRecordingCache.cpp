@@ -9,6 +9,7 @@
 #include "MediaImportRecordingEvidence.h"
 #include "MediaToolsAgentExecutor.h"
 #include <filesystem>
+#include <fstream>
 
 #include <chrono>
 #include <cstdint>
@@ -35,7 +36,9 @@ bool assignFrozenMetadataAfterImport(
     const std::vector<VdrRecording>& recordings,
     vdrsuite::operations::MutationOperationRepository& operations,
     BackendAgentCommandRepository& commands,
-    MetadataRepository& metadata)
+    MetadataRepository& metadata,
+    const std::string& nativeVideoRoot,
+    bool& nativeInfoChanged)
 {
     using State = vdrsuite::operations::MutationOperationState;
     const auto succeeded = operations.listByActionFamilyAndStates(
@@ -105,11 +108,20 @@ bool assignFrozenMetadataAfterImport(
         }
         if (ambiguous || matched == nullptr) continue;
 
-        // Respect every existing manual choice; never supersede it during
-        // cache refresh. Repeated refreshes are idempotent after assignment.
+        // Respect an already selected manual choice. When it matches the
+        // immutable import snapshot exactly, its native info may still need
+        // repair after an older daemon crash or installation.
         const auto existing = metadata.getManualRecordingMetadataReadOnly(
             backendId, matched->backendNativeId);
-        if (existing.found) continue;
+        if (existing.found &&
+            (existing.providerId != "tmdb" ||
+             existing.externalNamespace != selected.externalNamespace ||
+             existing.externalId != selected.externalId ||
+             existing.mediaType != selected.mediaType ||
+             existing.title != selected.title ||
+             existing.seasonNumber != selected.seasonNumber ||
+             existing.episodeNumber != selected.episodeNumber))
+            continue;
 
         ManualRecordingMetadataSelection selection;
         selection.backendId = backendId;
@@ -124,19 +136,111 @@ bool assignFrozenMetadataAfterImport(
         selection.seasonNumber = selected.seasonNumber;
         selection.episodeNumber = selected.episodeNumber;
         selection.actorRef = op.actorId;
-        ManualRecordingMetadataAssignment saved;
-        if (metadata.assignManualRecordingMetadata(selection, saved)) {
-            changed = true;
-            std::cout << "Media Import TMDb assignment saved: backend="
-                      << backendId << ", operation=" << op.operationId
-                      << ", nativeId=" << matched->backendNativeId
-                      << std::endl;
-        } else {
-            // This may reflect unavailable artwork or a transient DB error.
-            // No replayed import and no blocked video action.
-            std::cerr << "Media Import TMDb assignment pending: backend="
-                      << backendId << ", operation=" << op.operationId
-                      << std::endl;
+        ManualRecordingMetadataAssignment saved = existing;
+        if (!existing.found)
+        {
+            if (metadata.assignManualRecordingMetadata(selection, saved)) {
+                changed = true;
+                std::cout << "Media Import TMDb assignment saved: backend="
+                          << backendId << ", operation=" << op.operationId
+                          << ", nativeId=" << matched->backendNativeId
+                          << std::endl;
+            } else {
+                // Poster unavailability must not undo a successful video import.
+                std::cerr << "Media Import TMDb assignment pending: backend="
+                          << backendId << ", operation=" << op.operationId
+                          << std::endl;
+                continue;
+            }
+        }
+
+        // This is the original, already-confirmed TMDb result. Do not issue
+        // another search or depend on the browser's metadata/assign request.
+        if (!nativeVideoRoot.empty() && saved.found)
+        {
+            try {
+                const bool updated =
+                    vdrsuite::mediatools::updateConfirmedNativeVdrInfo(
+                        nativeVideoRoot, matched->backendNativeId, selected);
+                if (updated) {
+                    nativeInfoChanged = true;
+                    changed = true;
+                    std::cout << "Media Import frozen native info corrected: backend="
+                              << backendId << ", operation=" << op.operationId
+                              << std::endl;
+                }
+            } catch (const std::exception& error) {
+                std::cerr << "Media Import frozen native info pending: "
+                          << error.what() << std::endl;
+            }
+        }
+    }
+    return changed;
+}
+
+// Legacy imports did not freeze the series title. Their exact selected TMDb
+// episode/movie fields are already persistent, however. Apply those fields
+// to the original importer-owned info and leave T intact for episodes until
+// an actual series title is available; never guess one from the filename.
+// This is the same private atomic writer as the existing metadata/assign flow.
+bool repairSelectedLegacyImportInfo(
+    const std::string& backendId,
+    const std::vector<VdrRecording>& recordings,
+    MetadataRepository& metadata,
+    const std::string& nativeVideoRoot)
+{
+    if (nativeVideoRoot.empty()) return false;
+    bool changed = false;
+    for (const auto& rec : recordings)
+    {
+        if (rec.backendId != backendId || rec.backendNativeId.empty() ||
+            rec.id.empty())
+            continue;
+
+        // Only the exact previous Media Tools import marker authorizes this
+        // legacy correction. Other VDR recordings are not touched.
+        std::ifstream info(std::filesystem::path(rec.backendNativeId) / "info");
+        if (!info) continue;
+        bool legacyImport = false;
+        std::string line;
+        while (std::getline(info, line))
+        {
+            if (line == "S Imported via VDR-Suite Media Tools" ||
+                line == "S Imported via VDR-Suite Media Tools\r")
+            {
+                legacyImport = true;
+                break;
+            }
+        }
+        if (!legacyImport) continue;
+
+        const auto assigned = metadata.getManualRecordingMetadataReadOnly(
+            backendId, rec.backendNativeId);
+        if (!assigned.found || assigned.providerId != "tmdb" ||
+            (assigned.mediaType != "episode" &&
+             assigned.mediaType != "movie") ||
+            assigned.title.empty())
+            continue;
+
+        vdrsuite::mediatools::ImportConfirmedMetadata confirmed;
+        confirmed.mediaType = assigned.mediaType;
+        confirmed.title = assigned.title;
+        confirmed.overview = assigned.overview;
+        confirmed.seasonNumber = assigned.seasonNumber;
+        confirmed.episodeNumber = assigned.episodeNumber;
+
+        try {
+            if (vdrsuite::mediatools::updateConfirmedNativeVdrInfo(
+                    nativeVideoRoot, rec.backendNativeId, confirmed))
+            {
+                changed = true;
+                std::cout << "Media Import selected legacy info corrected: backend="
+                          << backendId << ", nativeId=" << rec.backendNativeId
+                          << std::endl;
+            }
+        } catch (const std::exception& error) {
+            std::cerr << "Media Import selected legacy info pending: "
+                      << error.what() << std::endl;
         }
     }
     return changed;
@@ -466,14 +570,26 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                     const auto nativeRecordings =
                         vdrRecordingCacheRepository_->findAllForBackend(
                             backendRuntimeContext->backendId);
-                    if (assignFrozenMetadataAfterImport(
-                            backendRuntimeContext->backendId,
-                            nativeRecordings,
-                            *mutationOperationRepository_,
-                            *backendAgentCommandRepository_,
-                            *metadataRepository_))
+                    bool nativeInfoChanged = false;
+                    const bool assigned = assignFrozenMetadataAfterImport(
+                        backendRuntimeContext->backendId,
+                        nativeRecordings,
+                        *mutationOperationRepository_,
+                        *backendAgentCommandRepository_,
+                        *metadataRepository_,
+                        backendRuntimeContext->nativeRecordingInfoRoot,
+                        nativeInfoChanged);
+                    const bool legacyCorrected = repairSelectedLegacyImportInfo(
+                        backendRuntimeContext->backendId,
+                        nativeRecordings,
+                        *metadataRepository_,
+                        backendRuntimeContext->nativeRecordingInfoRoot);
+                    if (assigned || legacyCorrected)
                         recordingPresentationChangeQueue_.request(
                             backendRuntimeContext->backendId);
+                    if (nativeInfoChanged || legacyCorrected)
+                        recordingCacheRefreshQueue_.request(
+                            backendRuntimeContext->backendId, 2);
                 }
                 // The existing native Recording refresh is the independent
                 // evidence for a completed HEVC Publish. A private candidate,
