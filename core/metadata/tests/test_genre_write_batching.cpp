@@ -81,7 +81,8 @@ void createSourceSchemas(Database& database)
 
 int browseAssignmentCount(
     sqlite3* database,
-    const std::string& targetId)
+    const std::string& targetId,
+    const std::string& genreId = "movie")
 {
     sqlite3_stmt* statement = nullptr;
     const char* sql =
@@ -89,7 +90,7 @@ int browseAssignmentCount(
         "FROM suite_metadata_genre_assignments "
         "WHERE metadata_target_id=? "
         "AND source_kind='epg-browse-content-class' "
-        "AND genre_id='movie' "
+        "AND genre_id=? "
         "AND assignment_state='active';";
 
     assert(sqlite3_prepare_v2(
@@ -104,6 +105,8 @@ int browseAssignmentCount(
         targetId.c_str(),
         -1,
         SQLITE_TRANSIENT) == SQLITE_OK);
+    assert(sqlite3_bind_text(
+        statement, 2, genreId.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK);
 
     int count = 0;
     if (sqlite3_step(statement) == SQLITE_ROW)
@@ -235,7 +238,12 @@ int main()
         assert(sqlite3_step(changedGenre) == SQLITE_ROW);
         assert(sqlite3_column_int(changedGenre, 0) > 0);
         sqlite3_finalize(changedGenre);
-        assert(browseAssignmentCount(database.handle(), targetId) == 1);
+        // The live EPG browse taxonomy intentionally prioritizes specific
+        // DVB sports evidence over a TVScraper movie media-type assignment.
+        assert(browseAssignmentCount(
+            database.handle(), targetId, "sports") == 1);
+        assert(browseAssignmentCount(
+            database.handle(), targetId, "movie") == 0);
 
         // An expired EPG binding should be retired once. Repeating an EPG
         // refresh must not rewrite already retired rows and hold the shared
