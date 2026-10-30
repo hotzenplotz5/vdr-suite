@@ -3243,6 +3243,14 @@
       if (view.batch) stopBatch(view, 'Quellauswahl nicht mehr verfügbar.');
       return Promise.resolve();
     }
+    // Freeze film A's already selected metadata before asynchronous session
+    // restoration. Browsing film B must never alter film A's import payload.
+    const selectedSource = view.allOrdinary.find(function (item) {
+      return item.sourceId === sourceId;
+    });
+    const metadataSelection = !view.batch && selected === 'import'
+      ? importMetadataSelection(view, previewPlan, selectedSource) : null;
+    const frozenMetadata = frozenImportMetadata(view, metadataSelection);
     view.submitting = true;
     updateInlineDeleteAvailability(view);
     view.startButton.disabled = true;
@@ -3270,11 +3278,6 @@
           if (!isCurrent(view)) return null;
           // Reserve a unique key before dispatch; a lost HTTP response is not a failure.
           const key = makeKey();
-          const selectedSource = view.allOrdinary.find(function (item) {
-            return item.sourceId === sourceId;
-          });
-          const metadataSelection = !view.batch && selected === 'import'
-            ? importMetadataSelection(view, previewPlan, selectedSource) : null;
           view.attempt = {sourceId: sourceId, key: key, operationId: '',
             sourceLabel: view.sourceTitles[sourceId] ||
               (view.allMarked.find(function (item) {
@@ -3283,7 +3286,7 @@
             videoDecision: videoDecision,
             pcReturn: !releaseMode && Boolean(possiblePcReturn(view, selectedSource)),
             metadataSelection: metadataSelection,
-            frozenMetadata: frozenImportMetadata(view, metadataSelection),
+            frozenMetadata: frozenMetadata,
             metadataStarted: false, metadataFeedback: '',
             state: '', pending: true, startedAt: Date.now()};
           activeAttempts[view.backendId] = view.attempt;
@@ -3867,6 +3870,9 @@
     newButton.addEventListener('click', function () {
       if (!isCurrent(view) || view.batch || !view.attempt ||
           !terminalState(view.attempt.state) || view.reading) return;
+      const nextSource = view.select.value &&
+        view.select.value !== view.attempt.sourceId &&
+        view.sources.includes(view.select.value) ? view.select.value : '';
       clearPolling(view);
       delete activeAttempts[backendId];
       view.attempt = null;
@@ -3882,6 +3888,15 @@
       view.operationDetail.textContent = '';
       renderImportFeedback(view);
       updateOperationDiagnostics(view);
+      if (nextSource) {
+        // Film B was already selected during film A's execution. Preserve its
+        // existing preview instead of forcing the user to start over.
+        if (view.previewResult && view.previewResult.sourceId === nextSource)
+          updatePreview(view);
+        else
+          refreshSelectedPreview(view);
+        return Promise.resolve();
+      }
       return loadSources(view);
     });
     // Open immediately. An intermittent capability/lease observation must
