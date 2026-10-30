@@ -41,6 +41,9 @@ runtime = read("api/rest/src/GenreBrowserApiRuntime.cpp")
 runtime_type_snapshot = read(
     "api/rest/src/GenreBrowserApiRuntimeEpgTypeSnapshot.cpp"
 )
+metadata_storage = read(
+    "core/metadata/src/GenreIndexRepositoryStorage.inc"
+)
 worker = read("core/daemon/src/DaemonRuntimeEpgCache.cpp")
 context = read("core/daemon/include/BackendRuntimeContext.h")
 
@@ -126,8 +129,9 @@ require(
     and 'providerId = "tvscraper-media-type"' in runtime_type_snapshot
     and 'sourceKind = "scraper-media-type"' in runtime_type_snapshot
     and 'state = "active"' in runtime_type_snapshot
-    and "reconcileEpgBrowseClassification" in runtime_type_snapshot,
-    "daemon runtime must persist snapshot types as authoritative TVScraper evidence",
+    and "replaceEpgTypeSnapshotBatch(evidenceBatch)" in runtime_type_snapshot
+    and "reconcileEpgBrowseClassificationLocked(" in metadata_storage,
+    "daemon runtime must atomically persist snapshot types and browse classifications",
 )
 candidate_start = runtime.find("repository.epgRefreshCandidates(")
 candidate_end = runtime.find(");", candidate_start)

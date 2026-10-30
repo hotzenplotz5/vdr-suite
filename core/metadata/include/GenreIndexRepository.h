@@ -181,6 +181,8 @@ public:
     bool replaceEpgEvidenceAndReconcile(
         const GenreEvidenceInput& genreEvidence,
         const GenreEvidenceInput& mediaTypeEvidence);
+    bool replaceEpgTypeSnapshotBatch(
+        const std::vector<GenreEvidenceInput>& items);
     bool reconcileEpgBrowseClassification(
         const std::string& backendId,
         const std::string& resourceKey);
