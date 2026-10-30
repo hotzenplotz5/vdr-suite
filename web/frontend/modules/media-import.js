@@ -2537,7 +2537,24 @@
         }
         // Commit a new validated inventory only now. A partial/failed GET
         // must never blank the source list or throw away an existing selection.
-        view.previewCache.clear();
+        // A catalog refresh does not invalidate a completed technical check
+        // for the same unchanged source. Keep the existing read-only result;
+        // Core still validates the file again when importing or deleting.
+        const oldSources = new Map(view.allOrdinary.map(function (source) {
+          return [source.sourceId, source];
+        }));
+        const retainedPreviews = new Map();
+        items.forEach(function (item) {
+          const previous = oldSources.get(item.sourceId);
+          const checked = view.previewCache.get(item.sourceId);
+          if (previous && checked && !previous.recordingPresent &&
+              item.recordingStatus !== 'recording_present' &&
+              !markerSuffix(item) && previous.label === item.label &&
+              previous.folder === (item.folder || '')) {
+            retainedPreviews.set(item.sourceId, checked);
+          }
+        });
+        view.previewCache = retainedPreviews;
         if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
         view.previewTimer = null;
         ++view.previewGeneration;
