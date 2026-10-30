@@ -456,6 +456,31 @@
       'failed_verified', 'cancelled'].includes(state);
   }
 
+  // Selecting the next film retires a confirmed, finished operation without
+  // requiring "Neuen Import vorbereiten" or a redundant status check.
+  // The completed receipt stays visible; running/unknown operations stay pinned.
+  function releaseCompletedAttemptForNextSource(view, sourceId) {
+    const attempt = view && view.attempt;
+    if (!isCurrent(view) || !attempt || view.batch || view.reading ||
+        !terminalState(attempt.state) ||
+        (attempt.state === 'succeeded' && attempt.sourceCleanup === 'pending') ||
+        !sourceId || sourceId === attempt.sourceId ||
+        !view.sources.includes(sourceId)) return false;
+    clearPolling(view);
+    if (activeAttempts[view.backendId] === attempt)
+      delete activeAttempts[view.backendId];
+    view.attempt = null;
+    view.reads = 0;
+    view.newButton.hidden = true;
+    view.refreshButton.hidden = true;
+    view.operationDetail.textContent = '';
+    view.lastManualCheck = '';
+    renderImportFeedback(view);
+    updateOperationDiagnostics(view);
+    updateInlineDeleteAvailability(view);
+    return true;
+  }
+
   // Diagnostic projection of already public, actor-scoped Operation facts.
   // The public GET does NOT expose Agent errno, command receipt or result
   // evidence. Never invent a "file deleted" or "worker failed" cause here.
@@ -1104,6 +1129,10 @@
       // finishes. Always release this view's read state before comparing
       // attempt identity; otherwise subsequent imports never get polled.
       view.reading = false;
+      // If film B was selected while A finished, unblock B automatically.
+      if (isCurrent(view) && view.attempt === checkedAttempt &&
+          releaseCompletedAttemptForNextSource(view, view.select.value))
+        updatePreview(view);
       // Refresh existing source-specific buttons on every status-read
       // completion. Never leave an outdated disabled state in the DOM.
       if (isCurrent(view)) updateInlineDeleteAvailability(view);
@@ -2627,6 +2656,7 @@
       view.previewTimer = null;
     }
     const id = view.select.value;
+    releaseCompletedAttemptForNextSource(view, id);
     pinUnknownOnSourceChange(view, id);
     if (force) view.previewCache.delete(id);
     // A new observation never inherits an older film's encoding consent.
