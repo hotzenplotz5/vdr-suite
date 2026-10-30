@@ -173,6 +173,64 @@ RecordingEvidenceSignature desiredRecordingEvidenceSignature(
     return signature;
 }
 
+// EPG reconciliation must not rewrite the same DVB evidence on every
+// warmup. Compare the exact stored normalized evidence, not just a timestamp
+// or a source descriptor: changed genre mappings still need reconciliation.
+bool epgDvbEvidenceAlreadyCurrent(
+    sqlite3* database, const GenreEvidenceInput& input)
+{
+    const char* sql =
+        "SELECT b.native_id,b.lifecycle_state,b.start_time,b.end_time,"
+        "a.provider_id,a.genre_id,a.original_value,a.normalization_rule,"
+        "a.source_kind,a.assignment_state,a.confidence,a.ordinal "
+        "FROM suite_metadata_target_bindings b "
+        "LEFT JOIN suite_metadata_genre_assignments a "
+        "ON a.metadata_target_id=b.metadata_target_id "
+        "AND a.provider_id='vdr-epg' "
+        "WHERE b.metadata_target_id=? AND b.backend_id=? "
+        "AND b.target_type='program-event' "
+        "ORDER BY a.ordinal,a.provider_id,a.genre_id,a.original_value;";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database, sql, -1, &statement, nullptr) != SQLITE_OK)
+        return false;
+
+    bindText(statement, 1, GenreIndexRepository::stableTargetId(
+        "program-event", input.backendId, input.resourceKey));
+    bindText(statement, 2, input.backendId);
+
+    RecordingEvidenceSignature existing;
+    bool found = false;
+    bool matchingTimes = false;
+    int stepResult = SQLITE_DONE;
+    while ((stepResult = sqlite3_step(statement)) == SQLITE_ROW)
+    {
+        if (!found)
+        {
+            found = true;
+            existing.nativeId = columnText(statement, 0);
+            existing.lifecycleState = columnText(statement, 1);
+            matchingTimes =
+                sqlite3_column_int64(statement, 2) == input.startTime &&
+                sqlite3_column_int64(statement, 3) == input.endTime;
+        }
+        if (sqlite3_column_type(statement, 4) == SQLITE_NULL)
+            continue;
+        RecordingAssignmentSignature assignment;
+        assignment.providerId = columnText(statement, 4);
+        assignment.genreId = columnText(statement, 5);
+        assignment.originalValue = columnText(statement, 6);
+        assignment.normalizationRule = columnText(statement, 7);
+        assignment.sourceKind = columnText(statement, 8);
+        assignment.assignmentState = columnText(statement, 9);
+        assignment.confidence = sqlite3_column_double(statement, 10);
+        assignment.ordinal = sqlite3_column_int(statement, 11);
+        existing.assignments.push_back(std::move(assignment));
+    }
+    sqlite3_finalize(statement);
+    return found && matchingTimes && stepResult == SQLITE_DONE &&
+        existing == desiredRecordingEvidenceSignature(input);
+}
+
 bool readRecordingEvidenceSignatures(
     sqlite3* database,
     const std::string& backendId,
@@ -571,6 +629,8 @@ bool GenreIndexRepository::synchronizeEpgCache(
                   << readMs << " items=" << rows.size() << std::endl;
 
     constexpr std::size_t EpgSynchronizationBatchSize = 16;
+    std::size_t unchangedCount = 0;
+    std::size_t changedCount = 0;
     for (std::size_t begin = 0; begin < rows.size(); begin += EpgSynchronizationBatchSize)
     {
         const std::size_t end = std::min(
@@ -581,9 +641,23 @@ bool GenreIndexRepository::synchronizeEpgCache(
             std::lock_guard<std::recursive_mutex> lock(mutex_);
             const auto leaseStarted = std::chrono::steady_clock::now();
             auto transactionLease = database_.acquireTransactionLease();
+
+            // Read and decide under the existing SQLite lease. Unchanged
+            // batches never open a write transaction.
+            std::vector<std::size_t> changed;
+            for (std::size_t index = begin; index < end; ++index)
+            {
+                if (epgDvbEvidenceAlreadyCurrent(database_.handle(), rows[index]))
+                    ++unchangedCount;
+                else
+                    changed.push_back(index);
+            }
+            if (changed.empty()) continue;
+
+            changedCount += changed.size();
             const auto transactionStarted = std::chrono::steady_clock::now();
             if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;")) return false;
-            for (std::size_t index = begin; index < end; ++index)
+            for (const std::size_t index : changed)
             {
                 if (!replaceEvidenceLocked(rows[index]) ||
                     !reconcileEpgBrowseClassificationLocked(
@@ -615,7 +689,7 @@ bool GenreIndexRepository::synchronizeEpgCache(
                           << " lease_wait_ms=" << leaseWaitMs
                           << " held_ms=" << heldMs
                           << " begin=" << begin
-                          << " count=" << (end - begin) << std::endl;
+                          << " count=" << changed.size() << std::endl;
             }
         }
 
@@ -657,6 +731,8 @@ bool GenreIndexRepository::synchronizeEpgCache(
         std::chrono::steady_clock::now() - syncStarted).count();
     if (totalMs >= 1000)
         std::cerr << "EPG_GENRE_SYNC_TOTAL duration_ms=" << totalMs
-                  << " items=" << rows.size() << std::endl;
+                  << " items=" << rows.size()
+                  << " unchanged=" << unchangedCount
+                  << " changed=" << changedCount << std::endl;
     return true;
 }

@@ -190,6 +190,53 @@ int main()
             database.handle(),
             targetId) == 1);
 
+        // Initial DVB genre synchronization writes the source evidence.
+        // Repeating the identical EPG window must not rewrite thousands of
+        // unchanged assignments. The retirement step still has one transaction.
+        assert(repository.synchronizeEpgCache(
+            "default", 1699999999LL, 1700005401LL));
+        counts = {};
+        assert(sqlite3_trace_v2(
+            database.handle(), SQLITE_TRACE_STMT,
+            traceTransactions, &counts) == SQLITE_OK);
+        assert(repository.synchronizeEpgCache(
+            "default", 1699999999LL, 1700005401LL));
+        assert(sqlite3_trace_v2(
+            database.handle(), 0, nullptr, nullptr) == SQLITE_OK);
+        assert(counts.begins == 1);
+        assert(counts.commits == 1);
+        assert(counts.rollbacks == 0);
+        assert(browseAssignmentCount(database.handle(), targetId) == 1);
+
+        // A changed DVB descriptor must still be persisted and reconciled.
+        assert(database.execute(
+            "UPDATE epg_events SET content_descriptors='Sport' "
+            "WHERE backend_id='default' AND channel_id='C1' "
+            "AND event_id='100';"));
+        counts = {};
+        assert(sqlite3_trace_v2(
+            database.handle(), SQLITE_TRACE_STMT,
+            traceTransactions, &counts) == SQLITE_OK);
+        assert(repository.synchronizeEpgCache(
+            "default", 1699999999LL, 1700005401LL));
+        assert(sqlite3_trace_v2(
+            database.handle(), 0, nullptr, nullptr) == SQLITE_OK);
+        assert(counts.begins == 2);
+        assert(counts.commits == 2);
+        assert(counts.rollbacks == 0);
+        sqlite3_stmt* changedGenre = nullptr;
+        assert(sqlite3_prepare_v2(database.handle(),
+            "SELECT COUNT(*) FROM suite_metadata_genre_assignments "
+            "WHERE metadata_target_id=? AND provider_id='vdr-epg' "
+            "AND original_value='Sport';",
+            -1, &changedGenre, nullptr) == SQLITE_OK);
+        assert(sqlite3_bind_text(changedGenre, 1, targetId.c_str(),
+            -1, SQLITE_TRANSIENT) == SQLITE_OK);
+        assert(sqlite3_step(changedGenre) == SQLITE_ROW);
+        assert(sqlite3_column_int(changedGenre, 0) > 0);
+        sqlite3_finalize(changedGenre);
+        assert(browseAssignmentCount(database.handle(), targetId) == 1);
+
         // An expired EPG binding should be retired once. Repeating an EPG
         // refresh must not rewrite already retired rows and hold the shared
         // SQLite writer lease for redundant updates.
