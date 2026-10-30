@@ -1,4 +1,5 @@
 #include "BackendAgentHttpServer.h"
+#include "BackendAgentPhaseTiming.h"
 #include "BackendAgentMediaImportCatalog.h"
 #include "BackendAgentChannelObservationJson.h"
 #include "BackendAgentCommandJson.h"
@@ -833,7 +834,9 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
     if (request.method != "POST") return errorResponse(405, "agent_method_not_allowed");
     if (request.path == "/api/agent/v1/enroll") return handleEnrollment(request);
 
+    const auto authenticationStarted = std::chrono::steady_clock::now();
     const RequestSecurityContext context = authenticateAgent(request);
+    reportSlowBackendAgentPhase("authentication", authenticationStarted);
     if (!context.authenticated()) return errorResponse(401, "agent_authentication_failed");
     if (request.path == "/api/agent/v1/credentials/rotate")
         return handleCredentialRotation(request, context);

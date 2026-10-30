@@ -1,4 +1,5 @@
 #include "BackendAgentCommandDelivery.h"
+#include "BackendAgentPhaseTiming.h"
 
 #include "AccountabilityEvent.h"
 #include "AccountabilityEventRepository.h"
@@ -593,7 +594,9 @@ bool BackendAgentCommandRepository::localProviderSelectionCurrent(
 BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendAgentCommandPollRequest& request,const std::string& agentId,std::int64_t now)
 {
     using namespace vdrsuite::agent;
+    const auto leaseStarted = std::chrono::steady_clock::now();
     auto transactionLease = database_.acquireTransactionLease();
+    reportSlowBackendAgentPhase("command_poll.lease_wait", leaseStarted);
     BackendAgentCommandPollResult result; result.accepted=true; result.reasonCode="no_command_available";
     std::string advertisementReason;
     if(request.refreshCapabilities &&
@@ -602,8 +605,12 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
 
     const char* beginSql =
         request.refreshCapabilities ? "BEGIN IMMEDIATE;" : "BEGIN;";
+    const auto sqlStarted = std::chrono::steady_clock::now();
     if (!database_.execute(beginSql))
-    {result.accepted=false;result.reasonCode="command_database_unavailable";return result;}
+    {
+        reportSlowBackendAgentPhase("command_poll.sql_transaction", sqlStarted);
+        result.accepted=false;result.reasonCode="command_database_unavailable";return result;
+    }
 
     bool ok=true;
     if (request.refreshCapabilities)
@@ -707,6 +714,7 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
     {
         database_.execute("ROLLBACK;"); result.accepted=false; result.assignment={}; result.reasonCode="command_database_unavailable";
     }
+    reportSlowBackendAgentPhase("command_poll.sql_transaction", sqlStarted);
     return result;
 }
 

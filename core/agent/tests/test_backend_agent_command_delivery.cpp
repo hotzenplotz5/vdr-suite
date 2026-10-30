@@ -1,5 +1,6 @@
 #include "AccountabilityEventRepository.h"
 #include "BackendAgentCommandDelivery.h"
+#include "BackendAgentPhaseTiming.h"
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentNativeTimerModifyExecutor.h"
 #include "BackendAgentNativeTimerModifyLocalState.h"
@@ -24,6 +25,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <sstream>
 #include <sqlite3.h>
 #include <thread>
 
@@ -59,9 +61,24 @@ int main()
     BackendAgentCommandResult result;result.commandId=assignment->commandId;result.requestFingerprint=assignment->requestFingerprint;result.jobId=assignment->jobId;result.attemptId=assignment->attemptId;result.claimEpoch=1;result.backendId="default";result.agentId="agt_test";result.agentInstanceId="inst_test";result.backendGeneration=7;result.dispatchState="effect_reported";result.verificationState="not_required";result.resultCategory="succeeded";result.errorCategory="none";result.retryClassification="none";result.boundedDiagnostics="probe.noop completed without native side effect";result.completedAt=105;auto resultAck=service.result(context(ActorType::Agent,"actor_agent"),result,105);assert(resultAck.accepted&&!resultAck.replayed);auto resultReplay=service.result(context(ActorType::Agent,"actor_agent"),result,106);assert(resultReplay.accepted&&resultReplay.replayed);
     auto summary=service.summaryForBackend("default");assert(summary.present&&summary.state=="completed"&&summary.resultCategory=="succeeded"&&summary.deliveryCount==2&&summary.receiptReplayCount==1&&summary.resultReplayCount==1);
     assert(service.requestReplay(context(ActorType::System,"system_admin"),"default",assignment->commandId,107,reason));auto replayPoll=service.poll(context(ActorType::Agent,"actor_agent"),poll,108);assert(replayPoll.assignment.present&&replayPoll.assignment.commandId==assignment->commandId);summary=service.summaryForBackend("default");assert(summary.deliveryCount==3);
+    // Exact threshold and phase names, without logging request data.
+    std::ostringstream phaseLog;
+    const auto phaseNow = std::chrono::steady_clock::now();
+    reportSlowBackendAgentPhase("authentication",
+        phaseNow - std::chrono::milliseconds(100), phaseLog);
+    assert(phaseLog.str().empty());
+    reportSlowBackendAgentPhase("authentication",
+        phaseNow - std::chrono::milliseconds(1500), phaseLog);
+    reportSlowBackendAgentPhase("command_poll.sql_transaction",
+        phaseNow - std::chrono::milliseconds(1500), phaseLog);
+    assert(phaseLog.str().find("phase=authentication duration_ms=") != std::string::npos);
+    assert(phaseLog.str().find("phase=command_poll.sql_transaction duration_ms=") != std::string::npos);
+
     std::atomic<bool> pollStarted{false};
     std::atomic<bool> pollFinished{false};
     BackendAgentCommandPollResult concurrentPoll;
+    std::ostringstream slowPollLog;
+    auto* previousErrorBuffer = std::cerr.rdbuf(slowPollLog.rdbuf());
     auto transactionLease=db.acquireTransactionLease();
     assert(db.execute("BEGIN IMMEDIATE;"));
     std::thread pollThread([&] {
@@ -71,14 +88,20 @@ int main()
         pollFinished.store(true);
     });
     while(!pollStarted.load())std::this_thread::yield();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1250));
     const bool pollBlocked=!pollFinished.load();
     assert(db.execute("COMMIT;"));
     transactionLease.unlock();
     pollThread.join();
+    std::cerr.rdbuf(previousErrorBuffer);
     assert(
         pollBlocked&&pollFinished.load()&&
         concurrentPoll.accepted);
+    assert(slowPollLog.str().find(
+        "BACKEND_AGENT_PHASE_SLOW phase=command_poll.lease_wait duration_ms=")
+        != std::string::npos);
+    assert(slowPollLog.str().find("phase=command_poll.sql_transaction")
+        == std::string::npos);
     BackendAgentCommandPollRequest stale=poll;stale.backendGeneration=6;assert(!service.poll(context(ActorType::Agent,"actor_agent"),stale,109).accepted);
     // A native UPDATE was received under generation 7. The Agent persisted
     // its uncertain result locally; heartbeat advanced the Agent to
