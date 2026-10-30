@@ -11,6 +11,7 @@
 #include "SecurityIdentityRepository.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <cstdio>
@@ -19,6 +20,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 
 #include <sqlite3.h>
 
@@ -1209,6 +1211,58 @@ void test_http_protocol_and_redaction()
     assert(server.handleRequest(ordinary).statusCode == 299);
 }
 
+void test_http_authentication_read_does_not_wait_for_main_connection()
+{
+    Fixture fixture;
+    assert(fixture.database.execute("PRAGMA journal_mode=WAL;"));
+    const auto enrollment = createAndConsumeEnrollment(fixture);
+
+    Database authReadDatabase;
+    assert(authReadDatabase.open(fixture.path));
+    assert(authReadDatabase.execute("PRAGMA query_only=ON;"));
+    BackendAgentRepository authAgents(authReadDatabase);
+    CredentialVerifierRepository authVerifiers(authReadDatabase);
+    SecurityIdentityRepository authIdentities(authReadDatabase);
+
+    BackendAgentHttpServer server(
+        std::make_unique<FallbackServer>(),
+        fixture.service,
+        fixture.commandService,
+        authAgents,
+        authVerifiers,
+        authIdentities);
+
+    HttpServerRequest probe;
+    probe.method = "POST";
+    probe.path = "/api/agent/v1/nonexistent-auth-probe";
+    probe.headers["Authorization"] =
+        "Basic " + base64(enrollment.agentId + ":" + AgentSecret);
+    assert(server.handleRequest(probe).statusCode == 404);
+
+    // A cache worker may occupy the main sqlite3 handle, but authentication
+    // must still read committed credentials on its own connection.
+    sqlite3_mutex* primaryMutex = sqlite3_db_mutex(fixture.database.handle());
+    assert(primaryMutex != nullptr);
+    std::atomic<bool> mainHandleHeld{false};
+    std::thread busyMainHandle([&]() {
+        sqlite3_mutex_enter(primaryMutex);
+        mainHandleHeld.store(true);
+        std::this_thread::sleep_for(std::chrono::milliseconds(900));
+        sqlite3_mutex_leave(primaryMutex);
+    });
+    while (!mainHandleHeld.load())
+        std::this_thread::yield();
+
+    const auto started = std::chrono::steady_clock::now();
+    const auto response = server.handleRequest(probe);
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started).count();
+    busyMainHandle.join();
+    assert(response.statusCode == 404);
+    assert(elapsed < 650);
+    std::cout << "AGENT_AUTH_READ_CONNECTION_ISOLATION=PASS\\n";
+}
+
 void test_accountability_failure_is_fail_closed()
 {
     const std::string path = "/tmp/vdr-suite-agent-accountability-fail.db";
@@ -1289,6 +1343,7 @@ int main()
     test_credential_rotation_fencing_idempotency_and_lease_invalidation();
     test_revoked_agent_can_be_replaced_without_losing_history();
     test_http_protocol_and_redaction();
+    test_http_authentication_read_does_not_wait_for_main_connection();
     test_accountability_failure_is_fail_closed();
     test_enrollment_transaction_rolls_back_partial_identity();
     std::cout << "test_backend_agent_lifecycle passed" << std::endl;

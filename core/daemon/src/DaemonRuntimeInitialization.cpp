@@ -468,6 +468,21 @@ bool DaemonRuntime::initialize()
         return false;
     }
 
+    // Share the existing durable tables but not the busy main sqlite3 handle.
+    // These repositories perform SELECTs only; mutations stay on database_.
+    if (!backendAgentAuthReadDatabase_.open(config_.databasePath()) ||
+        !backendAgentAuthReadDatabase_.execute("PRAGMA query_only=ON;")) {
+        std::cerr << "failed to open Backend Agent authentication read connection"
+                  << std::endl;
+        return false;
+    }
+    backendAgentAuthReadRepository_ =
+        std::make_unique<BackendAgentRepository>(backendAgentAuthReadDatabase_);
+    backendAgentAuthReadVerifierRepository_ =
+        std::make_unique<CredentialVerifierRepository>(backendAgentAuthReadDatabase_);
+    backendAgentAuthReadIdentityRepository_ =
+        std::make_unique<SecurityIdentityRepository>(backendAgentAuthReadDatabase_);
+
     humanAccountRepository_ =
         std::make_unique<HumanAccountRepository>(database_);
     if (!humanAccountRepository_->ensureSchema())
@@ -5890,9 +5905,9 @@ bool DaemonRuntime::initialize()
         std::move(clientHttpServer),
         *backendAgentLifecycleService_,
         *backendAgentCommandDeliveryService_,
-        *backendAgentRepository_,
-        *backendAgentCredentialVerifierRepository_,
-        *backendAgentIdentityRepository_,
+        *backendAgentAuthReadRepository_,
+        *backendAgentAuthReadVerifierRepository_,
+        *backendAgentAuthReadIdentityRepository_,
         mediaImportCatalog_.get());
     agentHttpServer->setMediaShrinkAuthorityLookup(
         [this](const RequestSecurityContext& context,
