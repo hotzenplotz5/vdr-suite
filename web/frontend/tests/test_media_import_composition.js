@@ -2522,6 +2522,22 @@ function publishHomeResume() {}
   }), 'episode row stays visibly marked as technically checked');
   assert(!findClass(mount, 'media-import-preview-retry').hidden,
     'the user can explicitly request a fresh technical check');
+  // Regression: the automatic source rescan after a finished import must not
+  // throw away successfully checked, unchanged episode previews.
+  const checksBeforeRescan = checksFor(SOURCE);
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  const reloadedEpisodes = findClass(mount, 'media-import-source');
+  reloadedEpisodes.value = SOURCE_B;
+  reloadedEpisodes.listeners.change();
+  await settle();
+  reloadedEpisodes.value = SOURCE;
+  reloadedEpisodes.listeners.change();
+  await settle();
+  assert.strictEqual(checksFor(SOURCE), checksBeforeRescan,
+    'unchanged episode is not technically checked again after catalog rescan');
+  assert(findClass(mount, 'media-import-preview-state').textContent.includes(
+    'Direktimport möglich'), 'cached direct-import readiness appears instantly');
   const beforeManualRecheck = checksFor(SOURCE);
   await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
