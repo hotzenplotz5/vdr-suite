@@ -190,11 +190,24 @@ bool repairSelectedLegacyImportInfo(
     const std::string& nativeVideoRoot)
 {
     if (nativeVideoRoot.empty()) return false;
+    // Fetch only the selected assignments once rather than opening every
+    // native info file on a backend with thousands of recordings.
+    const auto selectedAssignments =
+        metadata.getManualRecordingMetadataForBackend(backendId);
+    if (selectedAssignments.empty()) return false;
     bool changed = false;
     for (const auto& rec : recordings)
     {
         if (rec.backendId != backendId || rec.backendNativeId.empty() ||
             rec.id.empty())
+            continue;
+        const auto found = selectedAssignments.find(rec.backendNativeId);
+        if (found == selectedAssignments.end()) continue;
+        const auto& assigned = found->second;
+        if (!assigned.found || assigned.providerId != "tmdb" ||
+            (assigned.mediaType != "episode" &&
+             assigned.mediaType != "movie") ||
+            assigned.title.empty())
             continue;
 
         // Only the exact previous Media Tools import marker authorizes this
@@ -213,14 +226,6 @@ bool repairSelectedLegacyImportInfo(
             }
         }
         if (!legacyImport) continue;
-
-        const auto assigned = metadata.getManualRecordingMetadataReadOnly(
-            backendId, rec.backendNativeId);
-        if (!assigned.found || assigned.providerId != "tmdb" ||
-            (assigned.mediaType != "episode" &&
-             assigned.mediaType != "movie") ||
-            assigned.title.empty())
-            continue;
 
         vdrsuite::mediatools::ImportConfirmedMetadata confirmed;
         confirmed.mediaType = assigned.mediaType;
