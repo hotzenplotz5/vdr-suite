@@ -332,6 +332,17 @@ bool scanDirectory(const std::array<std::string, 6>& entry,
     // An oversized scan exposes only verified candidates and MUST be
     // reported partial, not silently treated as empty or complete.
     const std::string prefix = displayPrefix(entry[5], isDefault);
+    // The importer and marker worker already accept only these media
+    // extensions. Exclude sidecars before sorting, canonicalization, and NFO
+    // inspection, while still counting all directory entries for scan status.
+    const auto isVideo = [](const fs::path& path) {
+        std::string ext = path.extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(),
+            [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        return ext == ".mkv" || ext == ".mp4" || ext == ".ts" ||
+               ext == ".mov" || ext == ".avi" || ext == ".webm" ||
+               ext == ".m4v";
+    };
     std::vector<fs::path> paths;
     std::vector<fs::path> directories{sourceRoot};
     bool walkTruncated = false;
@@ -341,7 +352,9 @@ bool scanDirectory(const std::array<std::string, 6>& entry,
             if (++entries > 4096U) { walkTruncated = true; break; }
             const auto status = item.symlink_status();
             if (fs::is_symlink(status)) continue;
-            if (fs::is_regular_file(status)) paths.push_back(item.path());
+            if (fs::is_regular_file(status)) {
+                if (isVideo(item.path())) paths.push_back(item.path());
+            }
             else if (fs::is_directory(status)) directories.push_back(item.path());
         }
         if (walkTruncated) break;
@@ -349,15 +362,6 @@ bool scanDirectory(const std::array<std::string, 6>& entry,
     std::sort(paths.begin(), paths.end());
     const auto now = fs::file_time_type::clock::now();
     for (const auto& path : paths) {
-        // Reject unrelated artwork/NFO/subtitle files BEFORE canonical path
-        // resolution, metadata lookup and readback. Both existing importer
-        // paths already accept exactly these video extensions.
-        std::string ext = path.extension().string();
-        std::transform(ext.begin(), ext.end(), ext.begin(),
-            [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-        if (ext != ".mkv" && ext != ".mp4" && ext != ".ts" &&
-            ext != ".mov" && ext != ".avi" && ext != ".webm" &&
-            ext != ".m4v") continue;
         // Do not hand a partially uploaded source to an unattended importer.
         // Every selection is re-inspected at dispatch and actual execution.
         if (now - fs::last_write_time(path) < std::chrono::minutes(2))
