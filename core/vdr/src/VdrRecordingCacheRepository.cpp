@@ -6,7 +6,9 @@
 #include <sqlite3.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
+#include <iostream>
 #include <iomanip>
 #include <map>
 #include <sstream>
@@ -494,7 +496,9 @@ bool VdrRecordingCacheRepository::replaceRecordingsForBackend(
         recording.backendId = normalizedBackendId;
     }
 
+    const auto waitStarted = std::chrono::steady_clock::now();
     auto transactionLease = database_.acquireTransactionLease();
+    const auto transactionStarted = std::chrono::steady_clock::now();
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
     {
         return false;
@@ -544,9 +548,35 @@ bool VdrRecordingCacheRepository::replaceRecordingsForBackend(
         return false;
     }
 
+    const auto transactionFinished = std::chrono::steady_clock::now();
+    const auto waitMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        transactionStarted - waitStarted).count();
+    const auto transactionMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        transactionFinished - transactionStarted).count();
+    if (waitMs >= 1000 || transactionMs >= 1000)
+    {
+        std::cerr << "CACHE_DB_PHASE_SLOW component=recordings phase=replace"
+                  << " wait_ms=" << waitMs
+                  << " transaction_ms=" << transactionMs
+                  << " items=" << mergedRecordings.size() << std::endl;
+    }
+
+    // SQL is committed. Building the in-memory browse tree is not a database
+    // transaction; it must not block Agent command polling on the DB lease.
+    // Keep mutex_ held so readers still see an atomic browse snapshot.
+    transactionLease.unlock();
+
+    const auto snapshotStarted = std::chrono::steady_clock::now();
     storeBrowseSnapshotLocked(
         normalizedBackendId,
         mergedRecordings);
+    const auto snapshotMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - snapshotStarted).count();
+    if (snapshotMs >= 1000)
+    {
+        std::cerr << "CACHE_BROWSE_SNAPSHOT_SLOW duration_ms=" << snapshotMs
+                  << " items=" << mergedRecordings.size() << std::endl;
+    }
 
     return true;
 }
