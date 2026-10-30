@@ -1122,6 +1122,82 @@ int main()
 
 
 
+    // Poll isolation: a long SQLite statement on the main daemon handle
+    // must not stall an idle command poll on its separate connection. The
+    // authenticated Agent binding is checked via the existing read handle.
+    {
+        const std::string path =
+            "/tmp/vdr-suite-backend-agent-poll-isolation-test.sqlite";
+        std::filesystem::remove(path);
+        std::filesystem::remove(path + "-wal");
+        std::filesystem::remove(path + "-shm");
+
+        Database mainDatabase, authReadDatabase, pollDatabase;
+        assert(mainDatabase.open(path));
+        assert(mainDatabase.execute("PRAGMA journal_mode=WAL;"));
+        AccountabilityEventRepository audit(mainDatabase);
+        BackendAgentRepository mainAgents(mainDatabase);
+        BackendAgentCommandRepository mainCommands(mainDatabase);
+        assert(audit.ensureSchema());
+        assert(mainAgents.ensureSchema());
+        assert(mainCommands.ensureSchema());
+        assert(mainDatabase.execute(
+            "INSERT INTO backend_agents("
+            "agent_id,backend_id,actor_id,device_id,credential_id,"
+            "credential_generation,agent_instance_id,backend_generation,"
+            "protocol_version,software_version,heartbeat_sequence,"
+            "capability_revision,last_connected_at,last_heartbeat_at,"
+            "lease_expires_at,created_at,updated_at) VALUES("
+            "'agt_isolation','default','actor_agent','dev_agent',"
+            "'cred_agent',1,'inst_isolation',7,'vdr-suite-agent/1',"
+            "'test',2,1,100,100,1000,1,1);"));
+
+        assert(authReadDatabase.open(path));
+        assert(authReadDatabase.execute("PRAGMA query_only=ON;"));
+        assert(pollDatabase.open(path));
+        BackendAgentRepository readAgents(authReadDatabase);
+        BackendAgentCommandRepository pollCommands(pollDatabase);
+        BackendAgentCommandDeliveryService isolated(
+            mainCommands, readAgents, audit, &pollCommands);
+
+        std::atomic<bool> mainQueryStarted{false};
+        assert(sqlite3_create_function_v2(mainDatabase.handle(),
+            "slow_main_connection", 0, SQLITE_UTF8,
+            &mainQueryStarted,
+            [](sqlite3_context* ctx, int, sqlite3_value**) {
+                static_cast<std::atomic<bool>*>(
+                    sqlite3_user_data(ctx))->store(true);
+                std::this_thread::sleep_for(std::chrono::milliseconds(950));
+                sqlite3_result_int(ctx, 1);
+            }, nullptr, nullptr, nullptr) == SQLITE_OK);
+
+        std::thread slowMainQuery([&]() {
+            assert(mainDatabase.execute("SELECT slow_main_connection();"));
+        });
+        while (!mainQueryStarted.load()) std::this_thread::yield();
+
+        BackendAgentCommandPollRequest fastPoll;
+        fastPoll.backendId = "default";
+        fastPoll.agentInstanceId = "inst_isolation";
+        fastPoll.backendGeneration = 7;
+        fastPoll.refreshCapabilities = false;
+        const auto pollStarted = std::chrono::steady_clock::now();
+        const auto result = isolated.poll(
+            context(ActorType::Agent, "actor_agent"), fastPoll, 101);
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - pollStarted).count();
+        slowMainQuery.join();
+        assert(result.accepted && !result.assignment.present);
+        assert(elapsed < 600);
+
+        pollDatabase.close();
+        authReadDatabase.close();
+        mainDatabase.close();
+        std::filesystem::remove(path);
+        std::filesystem::remove(path + "-wal");
+        std::filesystem::remove(path + "-shm");
+    }
+
     std::cout << "P7_AGENT_RESULT_EVIDENCE_MIGRATION=PASS\n";
     std::cout<<"Backend Agent command delivery tests passed"<<std::endl;return 0;
 }

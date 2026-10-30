@@ -1097,7 +1097,17 @@ BackendAgentCommandSummary BackendAgentCommandRepository::summaryForBackend(cons
     if(sqlite3_step(s)==SQLITE_ROW){summary.present=true;summary.commandId=text(s,0);summary.commandType=text(s,1);summary.state=text(s,2);summary.receiptCategory=text(s,3);summary.resultCategory=text(s,4);summary.dispatchState=text(s,5);summary.verificationState=text(s,6);summary.backendGeneration=static_cast<std::uint64_t>(sqlite3_column_int64(s,7));summary.claimEpoch=static_cast<std::uint64_t>(sqlite3_column_int64(s,8));summary.deliveryCount=static_cast<std::uint64_t>(sqlite3_column_int64(s,9));summary.receiptReplayCount=static_cast<std::uint64_t>(sqlite3_column_int64(s,10));summary.resultReplayCount=static_cast<std::uint64_t>(sqlite3_column_int64(s,11));summary.deadline=sqlite3_column_int64(s,12);} sqlite3_finalize(s);return summary;
 }
 
-BackendAgentCommandDeliveryService::BackendAgentCommandDeliveryService(BackendAgentCommandRepository& c,BackendAgentRepository& a,AccountabilityEventRepository& e):commandRepository_(c),agentRepository_(a),accountabilityRepository_(e){}
+BackendAgentCommandDeliveryService::BackendAgentCommandDeliveryService(
+    BackendAgentCommandRepository& c,
+    BackendAgentRepository& a,
+    AccountabilityEventRepository& e,
+    BackendAgentCommandRepository* pollRepository)
+    : commandRepository_(c),
+      pollRepository_(pollRepository != nullptr ? pollRepository : &c),
+      agentRepository_(a),
+      accountabilityRepository_(e)
+{
+}
 
 bool BackendAgentCommandDeliveryService::appendEvent(const RequestSecurityContext& context,const std::string& eventType,const std::string& backendId,const std::string& operationId,const std::string& action,const std::string& decision,const std::string& reason,const std::string& outcome,std::int64_t now) const
 {
@@ -1133,7 +1143,7 @@ BackendAgentCommandPollResult BackendAgentCommandDeliveryService::poll(const Req
         result.reasonCode = reason.empty() ? "agent_binding_unavailable" : reason;
         return result;
     }
-    result = commandRepository_.poll(request, agent->agentId, now);
+    result = pollRepository_->poll(request, agent->agentId, now);
     return result;
 }
 void BackendAgentCommandDeliveryService::setReceiptFenceCheck(

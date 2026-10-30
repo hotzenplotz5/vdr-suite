@@ -468,6 +468,19 @@ bool DaemonRuntime::initialize()
         return false;
     }
 
+    // Poll Command delivery independently from the main busy SQLite handle:
+    // the cache/genre worker can occupy that connection for >1 second even
+    // while an idle command poll needs only BEGIN/SELECT/COMMIT. The existing
+    // per-file transaction lease still serializes all writers.
+    if (!backendAgentCommandPollDatabase_.open(config_.databasePath())) {
+        std::cerr << "failed to open Backend Agent command poll connection"
+                  << std::endl;
+        return false;
+    }
+    backendAgentCommandPollRepository_ =
+        std::make_unique<BackendAgentCommandRepository>(
+            backendAgentCommandPollDatabase_);
+
     // Share the existing durable tables but not the busy main sqlite3 handle.
     // These repositories perform SELECTs only; mutations stay on database_.
     if (!backendAgentAuthReadDatabase_.open(config_.databasePath()) ||
@@ -553,7 +566,8 @@ bool DaemonRuntime::initialize()
         std::make_unique<BackendAgentCommandDeliveryService>(
             *backendAgentCommandRepository_,
             *backendAgentAuthReadRepository_,
-            *backendAgentAccountabilityRepository_);
+            *backendAgentAccountabilityRepository_,
+            backendAgentCommandPollRepository_.get());
 
     // A6: bind the real Core operation and effective grant authorities at
     // the Agent receipt boundary. This does not advertise or execute Media

@@ -180,7 +180,8 @@ public:
     BackendAgentCommandDeliveryService(
         BackendAgentCommandRepository& commandRepository,
         BackendAgentRepository& agentRepository,
-        AccountabilityEventRepository& accountabilityRepository);
+        AccountabilityEventRepository& accountabilityRepository,
+        BackendAgentCommandRepository* pollRepository = nullptr);
 
     BackendAgentCommandPollResult poll(
         const RequestSecurityContext& context,
@@ -272,6 +273,7 @@ private:
         std::int64_t now) const;
 
     BackendAgentCommandRepository& commandRepository_;
+    BackendAgentCommandRepository* pollRepository_;
     BackendAgentRepository& agentRepository_;
     AccountabilityEventRepository& accountabilityRepository_;
     ReceiptFenceCheck receiptFenceCheck_;
