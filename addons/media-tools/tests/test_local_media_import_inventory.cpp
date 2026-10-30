@@ -231,6 +231,13 @@ int main()
     fs::create_directories(deepDir);
     const auto deepFile = deepDir / "episode_deep.mkv";
     { std::ofstream out(deepFile); out << "synthetic-deep-series-media"; }
+    // Sidecars are not import sources. The wildcard walk sees them, but must
+    // not feed them through canonical/NFO/recording inspection.
+    for (const char* filename : {"episode_1.poster.jpg", "episode_1.nfo",
+                                  "episode_1.srt", "notes.txt", "episode_1.fanart.webp"}) {
+        std::ofstream out(seriesDir / filename);
+        out << "not a video";
+    }
     // Directory symlinks remain prohibited, including links to valid media.
     fs::create_directory_symlink(deepDir, fixture.root / "media/input/Falscher Pfad");
     fs::last_write_time(seriesFile,
