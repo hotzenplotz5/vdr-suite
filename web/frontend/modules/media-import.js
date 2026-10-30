@@ -229,6 +229,11 @@
       ? labels[status] : '';
   }
 
+  // A running mutation never blocks read-only selection and preview of film B.
+  function mayBrowseDuringOperation(view) {
+    return Boolean(view && view.attempt && !view.batch);
+  }
+
   // An unknown Core outcome must not lock unrelated read-only source browsing.
   // The pinned operation still blocks every new import or source mutation.
   function mayBrowseWithUnknownOutcome(view) {
@@ -236,12 +241,10 @@
       view.attempt.state === 'outcome_unknown' && !view.batch && !view.submitting);
   }
 
-  function enableUnknownBrowsing(view) {
-    if (!mayBrowseWithUnknownOutcome(view) || view.unknownBrowsingEnabled)
-      return;
-    // This only restores read-only browsing. The unresolved Core operation,
-    // its source ID and its Idempotency-Key remain pinned.
-    view.unknownBrowsingEnabled = true;
+  function enableOperationBrowsing(view) {
+    if (!mayBrowseDuringOperation(view)) return;
+    // Only GET/navigation is enabled. The original operation stays pinned.
+    view.operationBrowsingEnabled = true;
     view.select.disabled = view.sources.length === 0;
     view.reloadButton.disabled = false;
     view.searchInput.disabled = false;
@@ -440,7 +443,7 @@
     view.reads = 0;
     view.reading = false;
     view.manualCheckQueued = false;
-    view.unknownBrowsingEnabled = false;
+    view.operationBrowsingEnabled = false;
     view.refreshButton.hidden = true;
     view.newButton.hidden = true;
     view.operationDetail.textContent = '';
@@ -885,7 +888,7 @@
       view.attempt.lastStatusError = '';
       view.attempt.sourceCleanup = typeof operation.sourceCleanup === 'string'
         ? operation.sourceCleanup : '';
-      enableUnknownBrowsing(view);
+      enableOperationBrowsing(view);
       if (manual) {
         view.lastManualCheck = 'Zuletzt geprüft: ' +
           new Date().toLocaleTimeString('de-DE') + ' – ' +
@@ -1048,6 +1051,10 @@
           }
         });
       }
+      // Readback-confirmed import: refresh the list once, without a page reload.
+      const refreshImportedSources = recordingConfirmed && !view.batch &&
+        !view.attempt.inventoryRefreshStarted;
+      if (refreshImportedSources) view.attempt.inventoryRefreshStarted = true;
       const limit = view.batch ? MAX_BATCH_READS : MAX_AUTOMATIC_READS;
       const awaitingCleanup = recordingConfirmed &&
         operation.sourceCleanup === 'pending';
@@ -1066,6 +1073,7 @@
             'jederzeit erneut abfragen. Nicht nochmals importieren.';
         }
       }
+      if (refreshImportedSources) return loadSources(view);
     }).catch(function (error) {
       if (isCurrent(view)) {
         if (view.batch)
@@ -1318,6 +1326,36 @@
     }).catch(fail);
   }
 
+  // Native indeterminate progress: the existing public Operation API reports
+  // phases but no byte count, percentage or ETA. Elapsed time is factual.
+  function renderOperationProgress(view) {
+    if (!view.operationProgress) return;
+    const attempt = view.attempt;
+    view.operationProgress.hidden = !attempt && !view.submitting;
+    if (view.operationProgress.hidden) return;
+    const state = attempt ? attempt.state : '';
+    const completed = Boolean(attempt && terminalState(state));
+    view.operationProgressBar.hidden = completed;
+    const elapsed = attempt && attempt.startedAt
+      ? Math.max(0, Math.floor((Date.now() - attempt.startedAt) / 1000)) : 0;
+    const duration = Math.floor(elapsed / 60) + ':' +
+      String(elapsed % 60).padStart(2, '0');
+    const kind = attempt && attempt.videoDecision === 'delete_duplicate'
+      ? 'Löschen' : attempt && attempt.videoDecision === 'duplicate'
+        ? 'Dubletten-Markierung' : 'Import';
+    const phase = !attempt || attempt.pending ? 'Auftragsannahme'
+      : state === 'accepted' || state === 'queued' ? 'Wartet auf Ausführung'
+      : state === 'dispatching' ? 'Ausführung läuft'
+      : state === 'executed_unverified' ? 'Bestätigung läuft'
+      : state === 'succeeded' ? 'Bestätigt abgeschlossen'
+      : terminalState(state) ? 'Beendet: ' + state
+      : state === 'outcome_unknown' ? 'Ergebnis ungewiss' : 'Status wird geprüft';
+    view.operationProgressText.textContent = kind + ' · ' +
+      (attempt && attempt.sourceLabel ? attempt.sourceLabel + ' · ' : '') +
+      phase + ' · Verstrichen: ' + duration +
+      (completed ? '' : ' · Restzeit unbekannt');
+  }
+
   // Display the established Core operation in ordinary language, right
   // beside the preview action. This does not start or retry operations.
   function renderImportFeedback(view) {
@@ -1382,6 +1420,9 @@
         : descriptions[state] || 'Der vorhandene Auftrag wird über „Vorgang prüfen“ abgefragt.';
     if (view.lastManualCheck && attempt && !attempt.pending)
       view.importFeedbackText.textContent += ' ' + view.lastManualCheck;
+    if (attempt && attempt.sourceLabel && !terminalState(state))
+      view.importFeedbackText.textContent =
+        '„' + attempt.sourceLabel + '“: ' + view.importFeedbackText.textContent;
     if (attempt && attempt.metadataFeedback)
       view.importFeedbackText.textContent += ' ' + attempt.metadataFeedback;
     if (attempt && state === 'outcome_unknown') {
@@ -1402,6 +1443,7 @@
         'dieser unbestätigte Auftrag wird nicht erneut gestartet.';
     }
     updateOperationDiagnostics(view);
+    renderOperationProgress(view);
     view.importFeedback.className = 'media-import-import-feedback' +
       (state === 'succeeded' ? ' is-success'
         : attempt && (terminalState(state) || state === 'outcome_unknown')
@@ -1409,7 +1451,7 @@
   }
 
   function showAttempt(view) {
-    view.select.disabled = true;
+    view.select.disabled = view.sources.length === 0;
     view.startButton.disabled = true;
     view.selectedBatchButton.disabled = true;
     view.selectAllVisibleButton.disabled = true;
@@ -1417,10 +1459,10 @@
     view.decision.disabled = true;
     view.markedSelect.disabled = true;
     view.releaseButton.disabled = true;
-    view.reloadButton.disabled = true;
-    view.searchInput.disabled = true;
-    view.statusFilter.disabled = true;
-    view.seasonFilter.disabled = true;
+    view.reloadButton.disabled = false;
+    view.searchInput.disabled = false;
+    view.statusFilter.disabled = false;
+    view.seasonFilter.disabled = false;
     view.operationDetail.textContent = view.attempt.operationId
       ? 'Vorgang ' + view.attempt.operationId
       : view.attempt.pending
@@ -1448,7 +1490,7 @@
     }
     // Remount after a known unknown outcome remains browsable even when
     // the current Agent/Core status request times out again.
-    enableUnknownBrowsing(view);
+    enableOperationBrowsing(view);
     updateInlineDeleteAvailability(view);
     if (view.attempt.operationId) {
       readOperation(view);
@@ -2061,7 +2103,7 @@
     view.seriesGroups.replaceChildren();
     const navigate = function (path) {
       if (!isCurrent(view) || view.batch ||
-          (view.attempt && !mayBrowseWithUnknownOutcome(view)) || !known.has(path))
+          (view.attempt && !mayBrowseDuringOperation(view)) || !known.has(path))
         return;
       view.folderPath = path;
       view.seasonKey = '';
@@ -2125,7 +2167,7 @@
   // Agent/Core snapshot. No path guesses, filesystem requests or new grants.
   function filterVisibleSources(view) {
     if (!isCurrent(view) || view.batch ||
-        (view.attempt && !mayBrowseWithUnknownOutcome(view))) return;
+        (view.attempt && !mayBrowseDuringOperation(view))) return;
     // A filter or folder change clears the selection and invalidates every
     // outstanding preview, including a late reply for a reselected source.
     if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
@@ -2220,7 +2262,7 @@
       open.type = 'button';
       open.addEventListener('click', function () {
         if (!isCurrent(view) || view.batch ||
-            (view.attempt && !mayBrowseWithUnknownOutcome(view))) return;
+            (view.attempt && !mayBrowseDuringOperation(view))) return;
         view.select.value = item.sourceId;
         view.markedSelect.value = '';
         view.releaseButton.disabled = true;
@@ -2423,11 +2465,13 @@
 
   function loadSources(view) {
     if (!isCurrent(view) ||
-        (view.attempt && !mayBrowseWithUnknownOutcome(view)))
+        (view.attempt && !mayBrowseDuringOperation(view)))
       return Promise.resolve();
     // A failed refresh must not destroy an already browsable, authenticated
     // inventory. Only commit a fresh scan after the complete response validates.
     const generation = ++view.sourcesGeneration;
+    const keepSelection = view.attempt && view.select.value !== view.attempt.sourceId
+      ? view.select.value : '';
     view.scanNotice.textContent = 'Quellen werden aktualisiert. Die letzte geladene Liste bleibt sichtbar …';
     report(view, 'Quellenaktualisierung läuft; vorhandene Liste bleibt benutzbar.');
     return readSourcePages(view.backendId)
@@ -2506,6 +2550,10 @@
         // On transient failure, no inventory is committed and the previous
         // selection and its visible details remain untouched.
         filterVisibleSources(view);
+        if (keepSelection && view.sources.includes(keepSelection)) {
+          view.select.value = keepSelection;
+          refreshSelectedPreview(view);
+        }
         view.searchInput.disabled = false;
         view.statusFilter.disabled = false;
         view.seasonFilter.disabled = false;
@@ -2972,8 +3020,7 @@
       view.previewResult.sourceId === id ? view.previewResult : null;
     // Recheck is also available after success; switching back is instant.
     view.previewRetryButton.hidden = !selected || (!plan && !view.previewFailed);
-    view.previewRetryButton.disabled = Boolean(view.attempt &&
-      !mayBrowseWithUnknownOutcome(view)) || Boolean(view.batch) || view.submitting;
+    view.previewRetryButton.disabled = Boolean(view.batch);
     const ready = Boolean(plan && plan.status === 'ready');
     // A space shortage blocks local import, not a PC-only marker decision.
     const needsEncode = Boolean(plan && plan.videoReencodeRequired &&
@@ -3232,7 +3279,7 @@
             metadataSelection: metadataSelection,
             frozenMetadata: frozenImportMetadata(view, metadataSelection),
             metadataStarted: false, metadataFeedback: '',
-            state: '', pending: true};
+            state: '', pending: true, startedAt: Date.now()};
           activeAttempts[view.backendId] = view.attempt;
           view.lastManualCheck = '';
           view.manualCheckQueued = false;
@@ -3449,6 +3496,14 @@
     const importFeedbackText = element('p', 'media-import-import-description');
     importFeedback.appendChild(importFeedbackTitle);
     importFeedback.appendChild(importFeedbackText);
+    const operationProgress = element('div', 'media-import-operation-progress');
+    operationProgress.hidden = true;
+    operationProgress.setAttribute('role', 'status');
+    const operationProgressBar = element('progress', 'media-import-operation-progress-bar');
+    operationProgressBar.setAttribute('aria-label', 'Fortschritt des Media-Tools-Auftrags');
+    const operationProgressText = element('p', 'media-import-operation-progress-text');
+    operationProgress.appendChild(operationProgressBar);
+    operationProgress.appendChild(operationProgressText);
     const previewRetryButton = element('button', 'media-import-preview-retry', 'Vorschau erneut prüfen');
     previewRetryButton.type = 'button';
     previewRetryButton.hidden = true;
@@ -3574,6 +3629,7 @@
     statusStrip.appendChild(visibleCount);
     statusStrip.appendChild(scanNotice);
     statusStrip.appendChild(completedNotice);
+    statusStrip.appendChild(operationProgress);
     const unresolvedList = element('div', 'media-import-unresolved-operations');
     statusStrip.appendChild(unresolvedList);
     const library = element('section', 'media-import-pane media-import-library');
@@ -3679,6 +3735,8 @@
       operationDiagnostics: operationDiagnostics,
       importFeedback: importFeedback, importFeedbackTitle: importFeedbackTitle,
       importFeedbackText: importFeedbackText,
+      operationProgress: operationProgress, operationProgressBar: operationProgressBar,
+      operationProgressText: operationProgressText,
       scanNotice: scanNotice, completedNotice: completedNotice,
       unresolvedList: unresolvedList, unresolvedReading: Object.create(null),
       sourceDetails: sourceDetails,
@@ -3695,7 +3753,7 @@
       onlineAuto: false, onlineAutoSelected: false,
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
       reads: 0, timer: null, manualCheckQueued: false, lastManualCheck: '',
-      unknownBrowsingEnabled: false,
+      operationBrowsingEnabled: false,
       attempt: activeAttempts[backendId] || null};
     current = view;
     // Switching tabs must not erase the most recent inventory just because
@@ -3732,7 +3790,7 @@
     });
     seasonFilter.addEventListener('change', function () {
       if (!isCurrent(view) || view.batch ||
-          (view.attempt && !mayBrowseWithUnknownOutcome(view))) return;
+          (view.attempt && !mayBrowseDuringOperation(view))) return;
       view.seasonKey = seasonFilter.value;
       view.checkedSourceIds.clear();
       filterVisibleSources(view);
@@ -3750,7 +3808,7 @@
     });
     previewRetryButton.addEventListener('click', function () {
       if (!isCurrent(view) ||
-          (view.attempt && !mayBrowseWithUnknownOutcome(view)) ||
+          (view.attempt && !mayBrowseDuringOperation(view)) ||
           view.batch || view.submitting ||
           !view.sources.includes(view.select.value)) return;
       refreshSelectedPreview(view, true);
@@ -3826,7 +3884,12 @@
     // No new Agent, authorization bypass, or automatic import is introduced.
     return Promise.resolve().then(function () {
       if (!isCurrent(view)) return;
-      if (view.attempt) return showAttempt(view);
+      if (view.attempt) {
+        showAttempt(view);
+        if (!view.sources.length && !view.allMarked.length)
+          return loadSources(view);
+        return;
+      }
       return loadSources(view);
     }).catch(function (error) {
       if (isCurrent(view)) report(view, operationError(error), true);
