@@ -935,12 +935,29 @@ function publishHomeResume() {}
     'only Core-confirmed success gets a visible green completion state');
   assert(findClass(mount, 'media-import-completed-notice').textContent.includes(
     'VDR-Aufnahme bestätigt'), 'a confirmed recording also appears in a persistent completion receipt');
-  assert.strictEqual(findClass(mount, 'media-import-new').hidden, false);
-  delete recordingStatuses[SOURCE];
-  await findClass(mount, 'media-import-new').listeners.click();
+  // A finished import is retired automatically when the next episode is
+  // selected; the old "Neuen Import vorbereiten" button is not required.
+  batchSources = [SOURCE, SOURCE_B];
+  await findClass(mount, 'media-import-reload').listeners.click();
   await settle();
+  const nextAfterSuccess = findClass(mount, 'media-import-source');
+  nextAfterSuccess.value = SOURCE_B;
+  nextAfterSuccess.listeners.change();
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-new').hidden, true,
+    'no manual reset of the previous successful import');
+  assert.strictEqual(findClass(mount, 'media-import-refresh').hidden, true,
+    'old successful operation no longer offers a status recheck for film B');
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, false,
+    'film B is importable immediately after its own verified preview');
+  assert.strictEqual(submits, 1,
+    'selecting film B does not itself start a new import');
   assert(findClass(mount, 'media-import-completed-notice').textContent.includes(
-    'Import abgeschlossen'), 'completion stays visible after the previous source disappears');
+    'Import abgeschlossen'), 'past completion remains visible as a receipt');
+  delete recordingStatuses[SOURCE];
+  batchSources = null;
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
   context.selectModule('overview');
   context.selectModule('media-import');
   await settle();
