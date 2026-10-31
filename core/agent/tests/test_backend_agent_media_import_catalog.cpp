@@ -126,6 +126,27 @@ int main()
         assert(idle.requestPreview(live, "backend", 140, first, cached) ==
             BackendAgentMediaImportCatalog::PreviewState::ready);
         assert(cached.title == "Film 11");
+        // A transient failure remains visible briefly, then is
+        // deliberately rechecked rather than cached forever.
+        BackendAgentMediaImportCatalog retry;
+        assert(retry.publish(actor, live, "backend", "instance", 7,
+            {"source_00000000031"}, 100, "manual", "0.1.0",
+            approvedSha, {"Retry Film"}));
+        const auto retryId = retry.nextPreviewRequest(live, "backend", 100);
+        assert(retryId == "source_00000000031");
+        auto unavailable = firstReport;
+        unavailable.sourceId = retryId;
+        unavailable.status = "unavailable";
+        unavailable.videoCodec.clear();
+        assert(retry.acceptPreview(live, "backend", 100, unavailable));
+        assert(retry.requestPreview(live, "backend", 140, retryId, cached) ==
+            BackendAgentMediaImportCatalog::PreviewState::ready);
+        assert(retry.publish(actor, live, "backend", "instance", 7,
+            {"source_00000000031"}, 162, "manual", "0.1.0",
+            approvedSha, {"Retry Film"}));
+        assert(retry.requestPreview(live, "backend", 162, retryId, cached) ==
+            BackendAgentMediaImportCatalog::PreviewState::pending);
+        assert(retry.nextPreviewRequest(live, "backend", 162) == retryId);
         // Once the source identity changes, old results never survive.
         assert(idle.publish(actor, live, "backend", "instance", 7,
             {"source_00000000015"}, 141, "manual", "0.1.0", approvedSha,
