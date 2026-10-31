@@ -61,8 +61,12 @@ public:
         const auto history = checked_.find(backendId);
         if (history != checked_.end()) {
             const auto known = history->second.find(sourceId);
-            if (known != history->second.end()) {
-                out = known->second;
+            if (known != history->second.end() &&
+                known->second.first <= now &&
+                now - known->second.first <=
+                    (known->second.second.status == "unavailable" ||
+                     known->second.second.status == "insufficient" ? 60 : 3600)) {
+                out = known->second.second;
                 return PreviewState::ready;
             }
         }
@@ -193,7 +197,7 @@ public:
         slot->second.result = data;
         slot->second.updatedAt = now;
         slot->second.ready = true;
-        checked_[backendId][data.sourceId] = data;
+        checked_[backendId][data.sourceId] = {now, data};
         return true;
     }
 
@@ -556,6 +560,10 @@ private:
     mutable std::mutex mutex_;
     std::map<std::string, Snapshot> snapshots_;
     std::map<std::string, PreviewSlot> previews_;
-    std::map<std::string, std::map<std::string, Preview>> checked_;
+    // A cached preview is advisory and bounded in age. Free space and
+    // transient probe failures can change without changing source identity;
+    // a deliberate selection rechecks those after 60 seconds.
+    std::map<std::string, std::map<std::string,
+        std::pair<std::int64_t, Preview>>> checked_;
     std::map<std::string, std::set<std::string>> attempted_;
 };
