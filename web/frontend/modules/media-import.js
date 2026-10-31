@@ -18,6 +18,10 @@
   // Last successfully verified source inventory per backend, memory-only
   // within the current authenticated browser session. Never persisted.
   const lastGoodSourceInventories = Object.create(null);
+  // A Core-confirmed delete can precede the Agent's next published inventory.
+  // Hide ONLY that confirmed source while the older read-only snapshot catches up.
+  // Presentation-only; never grants or denies a server-side action.
+  const confirmedDeletedSources = Object.create(null);
   // Avoid repeated automatic duplicate operations for a single source observation.
   const automaticDuplicates = Object.create(null);
   const POLL_MS = 4000;
@@ -139,6 +143,9 @@
     });
     Object.keys(lastGoodSourceInventories).forEach(function (id) {
       delete lastGoodSourceInventories[id];
+    });
+    Object.keys(confirmedDeletedSources).forEach(function (id) {
+      delete confirmedDeletedSources[id];
     });
   }
 
@@ -1058,6 +1065,7 @@
         view.refreshButton.hidden = true;
         view.newButton.hidden = true;
         view.reloadButton.disabled = false;
+        if (deletedDuplicate) hideConfirmedDeletedSource(view, finishedId);
         return loadSources(view).then(function () {
           if (!isCurrent(view)) return;
           if (deletedDuplicate)
@@ -2498,6 +2506,23 @@
       '(aus maximal ' + MAX_IMPORT_FILMS + ' erfassten Quellen).';
   }
 
+  function hideConfirmedDeletedSource(view, sourceId) {
+    const backendId = view.backendId;
+    if (!confirmedDeletedSources[backendId])
+      confirmedDeletedSources[backendId] = new Set();
+    confirmedDeletedSources[backendId].add(sourceId);
+    const keep = function (item) { return item.sourceId !== sourceId; };
+    const saved = lastGoodSourceInventories[backendId];
+    if (saved) {
+      saved.ordinary = saved.ordinary.filter(keep);
+      saved.marked = saved.marked.filter(keep);
+    }
+    view.allOrdinary = view.allOrdinary.filter(keep);
+    view.allMarked = view.allMarked.filter(keep);
+    view.previewCache.delete(sourceId);
+    filterVisibleSources(view);
+  }
+
   function loadSources(view) {
     if (!isCurrent(view) ||
         (view.attempt && !mayBrowseDuringOperation(view)))
@@ -2512,7 +2537,7 @@
     return readSourcePages(view.backendId)
       .then(function (response) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
-        const items = response && response.items;
+        let items = response && response.items;
         if (!Array.isArray(items) || items.length > MAX_IMPORT_FILMS ||
             !items.every(function (item) {
               return item && typeof item.sourceId === 'string' &&
@@ -2525,6 +2550,27 @@
                    item.label.length > 0 && item.label.length <= 160 &&
                    !/[\/\\\r\n\x00-\x1f\x7f]/.test(item.label)));
             })) throw new Error('Ungültige Quellenliste');
+        const deleted = confirmedDeletedSources[view.backendId];
+        let waitingForAgentInventory = false;
+        if (deleted && deleted.size) {
+          const presentIds = new Set(items.map(function (item) {
+            return item.sourceId;
+          }));
+          // Only a complete, current observation can establish absence.
+          // An older cached snapshot must not resurrect a confirmed deletion.
+          if (response.meta && response.meta.partial === false &&
+              response.meta.stale !== true) {
+            for (const id of deleted) {
+              if (!presentIds.has(id)) deleted.delete(id);
+            }
+          }
+          waitingForAgentInventory = Array.from(deleted).some(function (id) {
+            return presentIds.has(id);
+          });
+          items = items.filter(function (item) {
+            return !deleted.has(item.sourceId);
+          });
+        }
         // A stale read is usable for navigation, not a newer scan. Preserve
         // the active episode and preview when we already display that catalog.
         if (response.meta && response.meta.stale &&
@@ -2609,7 +2655,10 @@
         view.searchInput.disabled = false;
         view.statusFilter.disabled = false;
         view.seasonFilter.disabled = false;
-        view.scanNotice.textContent = response.meta && response.meta.stale
+        view.scanNotice.textContent = waitingForAgentInventory
+          ? 'Löschung bestätigt: Die entfernte Quelle ist aus der Liste genommen. ' +
+            'Der Agent-Quellkatalog wird noch aktualisiert.'
+          : response.meta && response.meta.stale
           ? 'Zuletzt geladene Quellenliste. Ordner und Filter sind nutzbar; ' +
             'eine Aktualisierung ist momentan nicht möglich.'
           : bounded && items.length >= MAX_IMPORT_FILMS
@@ -2630,6 +2679,7 @@
           }).length + ' bereits importiert), ' + marked.length +
           ' bereits markiert.' +
           (bounded ? ' Scan unvollständig.' : '') +
+          (waitingForAgentInventory ? ' Löschung bestätigt; Agent-Katalog noch nicht aktualisiert.' : '') +
           (mayBrowseWithUnknownOutcome(view)
             ? ' Bestehender Auftrag weiterhin ungewiss; nur lesende Prüfung anderer Quellen.'
             : ''));
