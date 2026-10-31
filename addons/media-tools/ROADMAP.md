@@ -494,6 +494,70 @@ freigegebenen Test-Duplikats die Quelle entfernt und die VDR-Aufnahme
 unverändert lässt. Die fünf Andor-Quelldateien nicht ungefragt löschen.
 Die native Metadaten-Übernahme bleibt **MT.META6**, nicht MT.REC6.
 
+## MT.SCAN – Start-Scan mit sichtbarem Prüfstatus und manueller Priorität (31.10.2026)
+
+**Vor MT.ENC umsetzen und real abnehmen.** Ziel: Nach Start der Suite bzw.
+des Media-Tools-Add-ons zeigt die Oberfläche sofort die verfügbaren
+Importordner, Filme und Serien. Während der technischen Prüfung werden
+Quellen schrittweise als „Noch nicht technisch geprüft“, „Prüfung läuft“,
+„Direktimport möglich“, „Umkodierung nötig“, „Dublette erkannt“ oder
+„Prüfung momentan nicht möglich“ angezeigt. Der Benutzer kann jederzeit
+eine bestimmte Folge wählen; diese Prüfung hat sofort Vorrang vor der
+Hintergrundverarbeitung. **Keine Datei wird allein durch einen Lesescan
+importiert, umbenannt, markiert oder gelöscht.** Nur die bestehende
+ausdrücklich autorisierte Core-Mutation darf Dateien ändern.
+
+### MT.SCAN1 – Sofort benutzbare Liste und gestaffelte Prüfung beim Öffnen (Code)
+
+- Die vorhandenen Agent-Quellbeobachtungen und Public-v1-Quellenliste
+  werden weiterverwendet. `Media Import` wird sofort geöffnet; der
+  bereits existierende Verzeichnisscan lädt die Liste automatisch ohne
+  vorherigen Benutzerklick.
+- Nach erfolgreichem Quellenabruf beginnt die Browseransicht einzelne
+  **lesende** technische Vorschauen nacheinander zu laden. Aktueller
+  Prüfstatus und erledigte/offene Anzahlen erscheinen in der Medienliste.
+- Pro Backend existiert derzeit im Core nur **ein transienter
+  Vorschau-Slot**. Daher darf der Hintergrund-Scanner weder parallele
+  GET-Stürme noch wechselnde Pending-IDs auslösen. Er bearbeitet eine
+  Quelle bis zum Ergebnis, pausiert bei einer manuell gewählten Folge
+  und setzt danach die übrigen fort. UI-Wechsel verwirft alte Antworten.
+- Bei Scanfehlern bleibt die zuletzt erfolgreiche Quellenliste benutzbar.
+  Die Beobachtung ist kein Import-/Lösch-/Freigabeversprechen.
+- Quellcode erster Teilslice: `web/frontend/modules/media-import.js`,
+  `web/frontend/tests/test_media_import_composition.js`. **Noch nicht
+  auf realem yaVDR getestet oder als vollständig abgenommen.**
+
+### MT.SCAN2 – Prüfungen schon beim Server-/Agent-Start (noch offen)
+
+- Den **bereits vorhandenen** Agent-Start und dessen periodische
+  Importquellen-Beobachtung verwenden. Technische Vorprüfungen sollen
+  künftig ohne geöffneten Browser laufen, ohne den Agent-Command-Poll zu
+  blockieren. Kein neuer unabhängiger Scanner, Dienst oder Schreibjob.
+- Prüfstatus pro tatsächlicher Quelle/Quellgeneration im serverseitigen
+  Katalog ablegen. Nach Anmeldung erhält die Oberfläche bereits
+  geprüfte/nicht geprüfte Ergebnisse; späterer Browserwechsel und
+  Agent-Resynchronisierung zeigen den richtigen Status, keine erfundene
+  Fertigmeldung.
+- Ein interaktiver Preview-Auftrag rückt vor die Hintergrundqueue. Die
+  aktuellen single-slot-Preview-Semantiken entweder kontrolliert
+  koordinieren oder um genau diese Priorisierung erweitern. Ein
+  automatischer Hintergrundauftrag darf weder interaktive
+  Vorschauen aushungern noch eine bereits angenommene Mutation verdrängen.
+
+### MT.SCAN3 – yaVDR-Abnahme
+
+- Start der Suite und Start/Wechsel des Media-Import-Tabs getrennt
+  prüfen; kein manuelles `Verzeichnis scannen` als Voraussetzung.
+- Sichtbare Anzahl ungeprüfter/geprüfter Quellen, technische Status-
+  aktualisierung und Auswahlpriorität mit zwei oder mehr Quellen
+  bestätigen; alte Antworten nach Auswahl/Tabwechsel nicht übernehmen.
+- Kein ungebetener Import, keine automatische Dubletten-Löschung,
+  keine bereits bestandenen Andor-Aufnahmen mutieren. Nach Login, Agent-
+  Störung, Rescan und spätem Öffnen werden echte Daten angezeigt.
+- Kein CI-Warten, kein unnötiger Komplettbau; für reines Frontend
+  gezieltes JS-Update, für spätere Backend-Änderungen den vorhandenen
+  schnellen inkrementellen Build nutzen.
+
 ## MT.ENC – Hintergrund-Umkodierung, Wiederanmeldung und Encoder-Einstellungen (31.10.2026, geplant)
 
 **Produktanforderung:** Ein bewusst gestarteter VDR-Encode läuft serverseitig weiter,
