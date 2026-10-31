@@ -642,8 +642,14 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-background-notice').textContent.includes(
     '1 von 1 geprüft'), 'the first background source check becomes visible');
   assert(findClass(mount, 'media-import-selection').children.some(function (row) {
-    return row.textContent.includes('Technisch geprüft');
+    const meta = findClass(row, 'media-import-episode-meta');
+    return meta && meta.textContent.includes('Technisch geprüft');
   }), 'per-film status changes automatically without a manual rescan');
+  // Reset this test-only preview. Subsequent interactive tests must still
+  // start from their original unchecked source, as in a new addon view.
+  context.selectModule('overview');
+  context.selectModule('media-import');
+  await settle();
   let sourceListOnTransientFailure = findClass(mount, 'media-import-source');
   assert(sourceListOnTransientFailure && sourceListOnTransientFailure.children.length > 1,
     'an installed media import view must still list sources during a transient capability failure');
