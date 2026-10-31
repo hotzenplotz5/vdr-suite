@@ -951,7 +951,7 @@
         const confirmedText = recordingConfirmed
           ? 'Import abgeschlossen ✓ – VDR-Aufnahme bestätigt'
           : markerAction === 'delete_duplicate'
-            ? 'Aufgeräumt ✓ – doppelte Quelldatei gelöscht; VDR-Aufnahme bleibt'
+            ? 'Aufgeräumt ✓ – „' + view.attempt.sourceLabel + '“ gelöscht; VDR-Aufnahme bleibt'
           : markerAction === 'duplicate'
             ? 'Dublette erkannt ✓ – Quelle als .duplicate markiert'
           : 'Dateiaktion abgeschlossen ✓ – ' +
