@@ -32,6 +32,8 @@
   // 225 * 4s = 15 minutes, covering the 600s worker plus readback headroom.
   const MAX_BATCH_READS = 225;
   const MAX_IMPORT_FILMS = 100;
+  const BACKGROUND_PREVIEW_POLL_MS = 4000;
+  const BACKGROUND_PREVIEW_MAX_READS = 15;
   // Sort human-readable labels naturally (S01E02 before S01E10);
   // opaque source IDs remain the authoritative selection identities.
   const sourceCollator = new Intl.Collator('de', {numeric: true, sensitivity: 'base'});
@@ -114,6 +116,9 @@
       clearPolling(current);
       if (current.previewTimer !== null) global.clearTimeout(current.previewTimer);
       current.previewTimer = null;
+      if (current.backgroundTimer !== null) global.clearTimeout(current.backgroundTimer);
+      current.backgroundTimer = null;
+      ++current.backgroundGeneration;
       ++current.previewGeneration;
       resetOnline(current);
       ++current.reviewGeneration;
@@ -2238,6 +2243,164 @@
     view.seriesGroups.hidden = searching || groups.size === 0;
   }
 
+  // Background checks are read-only presentation hints, never import grants.
+  // The Core has one preview slot per backend: a user's selected preview must
+  // preempt this queue, not compete with another automatic request.
+  function sourceTechnicalLabel(view, item) {
+    if (item.recordingPresent)
+      return '✓ Bereits importiert – VDR-Aufnahme vorhanden';
+    const checked = view.previewCache.get(item.sourceId);
+    if (checked)
+      return '✓ Technisch geprüft · ' +
+        (checked.videoReencodeRequired ? 'Umkodierung nötig'
+          : checked.status === 'insufficient' ? 'Speicherplatz fehlt'
+          : 'Direktimport möglich');
+    const status = view.backgroundStates.get(item.sourceId);
+    return status === 'running' ? 'Technische Prüfung läuft …'
+      : status === 'duplicate' ? 'VDR-Dublette erkannt – bei Auswahl prüfen'
+      : status === 'unavailable' ? 'Prüfung derzeit nicht möglich – manuell erneut prüfen'
+      : 'Noch nicht technisch geprüft';
+  }
+
+  function ordinarySourceMeta(view, item) {
+    const parked = parkedPcEncodeMatches(view, item);
+    const pcHint = possiblePcReturn(view, item)
+      ? ' · Möglicher PC-Encode-Rücklauf'
+      : parked.length ? ' · PC-Encode-Zuordnung mehrdeutig' : '';
+    const confirmed = confirmedImport(view, item.sourceId);
+    const coords = episodeCoordinates(item);
+    const episodeLabel = coords.episode !== null
+      ? ' · S' + String(coords.season).padStart(2, '0') +
+        'E' + String(coords.episode).padStart(2, '0') : '';
+    return (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
+      episodeLabel + ' · ' + sourceTechnicalLabel(view, item) +
+      (confirmed
+        ? ' · Frühere VDR-Operation bestätigt; aktueller Quellinhalt ungeprüft'
+        : '') + pcHint;
+  }
+
+  function updateBackgroundDisplay(view) {
+    if (!isCurrent(view) || !view.backgroundNotice) return;
+    const candidates = view.allOrdinary.filter(function (item) {
+      return !item.recordingPresent;
+    });
+    const completed = candidates.filter(function (item) {
+      return view.previewCache.has(item.sourceId) ||
+        view.backgroundStates.get(item.sourceId) === 'duplicate';
+    }).length;
+    const errors = candidates.filter(function (item) {
+      return view.backgroundStates.get(item.sourceId) === 'unavailable';
+    }).length;
+    const pending = Math.max(0, candidates.length - completed - errors);
+    view.backgroundNotice.textContent = 'Technische Hintergrundprüfung: ' +
+      completed + ' von ' + candidates.length + ' geprüft' +
+      (pending ? ' · ' + pending + ' ausstehend' : '') +
+      (errors ? ' · ' + errors + ' nicht prüfbar' : '') +
+      '. Eine manuelle Auswahl hat Vorrang.';
+    Array.from(view.selectionRows.children).forEach(function (row) {
+      const item = view.allOrdinary.find(function (entry) {
+        return entry.sourceId === row.dataset.sourceId;
+      });
+      if (!item) return;
+      const label = Array.from(row.children).find(function (child) {
+        return (child.className || '').split(' ').includes('media-import-episode-meta');
+      });
+      if (label) label.textContent = ordinarySourceMeta(view, item);
+    });
+  }
+
+  function scheduleBackgroundCheck(view, delay) {
+    if (!isCurrent(view) || view.backgroundTimer !== null ||
+        view.backgroundBusy) return;
+    const generation = view.backgroundGeneration;
+    view.backgroundTimer = global.setTimeout(function () {
+      view.backgroundTimer = null;
+      if (!isCurrent(view) || generation !== view.backgroundGeneration) return;
+      runBackgroundCheck(view, generation);
+    }, delay);
+  }
+
+  function runBackgroundCheck(view, generation) {
+    if (!isCurrent(view) || generation !== view.backgroundGeneration ||
+        view.backgroundBusy) return;
+    if (view.batch || view.submitting || view.inspectingBatch ||
+        (view.attempt && !terminalState(view.attempt.state)) ||
+        (view.select.value && !view.previewResult && !view.previewFailed)) {
+      // A selected source owns the single Core preview slot until its
+      // interactive read completes. Do not starve manual selection.
+      scheduleBackgroundCheck(view, 1000);
+      return;
+    }
+    const next = view.allOrdinary.find(function (item) {
+      return !item.recordingPresent && !view.previewCache.has(item.sourceId) &&
+        !['duplicate', 'unavailable'].includes(
+          view.backgroundStates.get(item.sourceId));
+    });
+    if (!next) {
+      updateBackgroundDisplay(view);
+      return;
+    }
+    const id = next.sourceId;
+    const selectedGeneration = view.previewGeneration;
+    const reads = (view.backgroundReads.get(id) || 0) + 1;
+    view.backgroundReads.set(id, reads);
+    view.backgroundStates.set(id, 'running');
+    view.backgroundBusy = true;
+    updateBackgroundDisplay(view);
+    Promise.resolve(publicClient().getMediaImportSourcePreview({
+      backendId: view.backendId, sourceId: id,
+      credentials: 'same-origin', cache: 'no-store'
+    })).then(function (data) {
+      if (!isCurrent(view) || generation !== view.backgroundGeneration ||
+          selectedGeneration !== view.previewGeneration) return;
+      if (!data || data.backendId !== view.backendId || data.sourceId !== id)
+        throw new Error('Veraltete Hintergrundvorschau');
+      if (data.state === 'pending') {
+        if (reads >= BACKGROUND_PREVIEW_MAX_READS)
+          view.backgroundStates.set(id, 'unavailable');
+        // Otherwise this single source keeps its place until the Agent
+        // replies. Starting another preview would replace its Core slot.
+        return;
+      }
+      if (!validMediaImportPreview(data, view.backendId, id))
+        throw new Error('Ungültige Hintergrundvorschau');
+      if (data.status === 'ready' || data.status === 'insufficient') {
+        view.previewCache.set(id, data);
+        view.backgroundStates.delete(id);
+      } else {
+        // Duplicate discovery is a read-only label, NOT an automatic
+        // source rename or Core mutation. The user can inspect it first.
+        view.backgroundStates.set(id,
+          data.status === 'duplicate' ? 'duplicate' : 'unavailable');
+      }
+    }).catch(function () {
+      if (isCurrent(view) && generation === view.backgroundGeneration &&
+          selectedGeneration === view.previewGeneration)
+        view.backgroundStates.set(id, 'unavailable');
+    }).finally(function () {
+      if (!isCurrent(view) || generation !== view.backgroundGeneration) return;
+      view.backgroundBusy = false;
+      updateBackgroundDisplay(view);
+      scheduleBackgroundCheck(view,
+        view.backgroundStates.get(id) === 'running'
+          ? BACKGROUND_PREVIEW_POLL_MS : 300);
+    });
+  }
+
+  function startBackgroundChecks(view) {
+    if (!isCurrent(view)) return;
+    if (view.backgroundTimer !== null) global.clearTimeout(view.backgroundTimer);
+    view.backgroundTimer = null;
+    ++view.backgroundGeneration;
+    view.backgroundBusy = false;
+    view.backgroundStates.clear();
+    view.backgroundReads.clear();
+    updateBackgroundDisplay(view);
+    // The existing inventory is already visible and navigable before a
+    // single read-only technical check begins.
+    scheduleBackgroundCheck(view, 500);
+  }
+
   // UX3 step 1: search/filter only the already authenticated, bounded
   // Agent/Core snapshot. No path guesses, filesystem requests or new grants.
   function filterVisibleSources(view) {
@@ -2355,21 +2518,8 @@
       const episodeLabel = coords.episode !== null
         ? ' · S' + String(coords.season).padStart(2, '0') +
           'E' + String(coords.episode).padStart(2, '0') : '';
-      const previousCheck = view.previewCache.get(item.sourceId);
-      const cachedStatus = previousCheck
-        ? previousCheck.videoReencodeRequired ? 'Umkodierung nötig'
-          : previousCheck.status === 'insufficient' ? 'Speicherplatz fehlt'
-          : 'Direktimport möglich'
-        : '';
       const meta = element('span', 'media-import-episode-meta',
-        (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
-        episodeLabel +
-        (item.recordingPresent ? ' · ✓ Bereits importiert – VDR-Aufnahme vorhanden' :
-          previousCheck ? ' · ✓ Technisch geprüft · ' + cachedStatus :
-          ' · Noch nicht technisch geprüft') +
-        (confirmed
-          ? ' · Frühere VDR-Operation bestätigt; aktueller Quellinhalt ungeprüft'
-          : '') + pcHint);
+        ordinarySourceMeta(view, item));
       row.appendChild(checkbox);
       row.appendChild(open);
       row.appendChild(meta);
@@ -2698,6 +2848,7 @@
           view.select.value = keepSelection;
           refreshSelectedPreview(view);
         }
+        startBackgroundChecks(view);
         view.searchInput.disabled = false;
         view.statusFilter.disabled = false;
         view.seasonFilter.disabled = false;
@@ -2854,6 +3005,8 @@
         if (data.status === 'ready' || data.status === 'insufficient')
           view.previewCache.set(id, data);
         updatePreview(view);
+        updateBackgroundDisplay(view);
+        scheduleBackgroundCheck(view, 100);
         if (view.duplicateReviewPending && data.status !== 'duplicate') {
           // The target changed during reinspection; do not mark another file.
           view.duplicateQueue = [];
@@ -2886,6 +3039,7 @@
                     ? 'Vorschau-Anfrage fehlgeschlagen (HTTP ' + error.status + ').'
                     : 'Vorschau fehlgeschlagen: Keine gültige Antwort für die gewählte Quelle.';
         updatePreview(view);
+        scheduleBackgroundCheck(view, 100);
       });
     }
     poll();
@@ -3782,6 +3936,10 @@
     completedNotice.hidden = !completedNotice.textContent;
     statusStrip.appendChild(visibleCount);
     statusStrip.appendChild(scanNotice);
+    const backgroundNotice = element('p', 'media-import-background-notice',
+      'Technische Hintergrundprüfung startet nach dem Quellenscan.');
+    backgroundNotice.setAttribute('role', 'status');
+    statusStrip.appendChild(backgroundNotice);
     statusStrip.appendChild(completedNotice);
     statusStrip.appendChild(operationProgress);
     const unresolvedList = element('div', 'media-import-unresolved-operations');
@@ -3891,7 +4049,8 @@
       importFeedbackText: importFeedbackText,
       operationProgress: operationProgress, operationProgressBar: operationProgressBar,
       operationProgressText: operationProgressText,
-      scanNotice: scanNotice, completedNotice: completedNotice,
+      scanNotice: scanNotice, backgroundNotice: backgroundNotice,
+      completedNotice: completedNotice,
       unresolvedList: unresolvedList, unresolvedReading: Object.create(null),
       sourceDetails: sourceDetails,
       preview: preview, previewCard: previewCard,
@@ -3900,6 +4059,8 @@
       previewTimer: null, previewGeneration: 0, previewReads: 0,
       previewResult: null, previewStatus: '', previewFailed: false,
       previewCache: new Map(),
+      backgroundTimer: null, backgroundGeneration: 0, backgroundBusy: false,
+      backgroundStates: new Map(), backgroundReads: new Map(),
       metadataReview: Object.create(null),
       onlineSeq: 0, onlineItems: [], onlineSelected: null,
       onlineSeries: null, onlineSeason: null, onlineMode: 'search',
