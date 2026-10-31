@@ -80,6 +80,9 @@ SQLITE_ALLOWED_CONTRACT_TESTS = {
     # MediaShrinkReviewRepository; synthetic databases only.
     "core/addons/media-tools/tests/test_media_shrink_review_repository.cpp",
     "api/rest/tests/test_vdr_recording_folder_controller.cpp",
+    # Disposable Genre EPG snapshot fixture counts a single SQLite transaction
+    # through sqlite3_trace_v2; scoped to this exact contract test.
+    "api/rest/tests/test_genre_browser_epg_type_snapshot.cpp",
     # Packaging P7 and bounded Agent/Timer SQLite persistence tests. These are
     # exact files using disposable fixtures; no blanket core/*/tests waiver.
     "core/agent/tests/test_backend_agent_command_delivery.cpp",
@@ -234,6 +237,9 @@ def check_sqlite_boundary_contract() -> list[str]:
         "core/daemon/src/EmbeddedBackendLifecycle.cpp",
         "core/daemon/src/SeriesArtworkBackendSettingsService.cpp",
         "api/rest/tests/test_vdr_recording_folder_controller.cpp",
+    # Disposable Genre EPG snapshot fixture counts a single SQLite transaction
+    # through sqlite3_trace_v2; scoped to this exact contract test.
+    "api/rest/tests/test_genre_browser_epg_type_snapshot.cpp",
         "core/agent/tests/test_backend_agent_command_delivery.cpp",
         "core/agent/tests/test_backend_agent_command_reservation.cpp",
         "core/agent/tests/test_backend_agent_native_timer_delete_assignment.cpp",
