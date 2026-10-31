@@ -2851,6 +2851,8 @@ function publishHomeResume() {}
   assert(!findClass(mount, 'media-import-selection').children.some(function (row) {
     return row.dataset.sourceId === SOURCE;
   }), 'confirmed cleanup hides the deleted source even before the Agent inventory refreshes');
+  assert(findClass(mount, 'media-import-completed-notice').textContent.includes(
+    'Die Herrschaft des Feuers'), 'cleanup receipt identifies exactly which file was deleted');
   assert(batchSources.includes(SOURCE),
     'the fixture deliberately still serves an old Agent source observation');
   assert(requests.filter(function (req) {
