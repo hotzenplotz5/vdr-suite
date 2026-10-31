@@ -527,7 +527,7 @@ ausdrücklich autorisierte Core-Mutation darf Dateien ändern.
   `web/frontend/tests/test_media_import_composition.js`. **Noch nicht
   auf realem yaVDR getestet oder als vollständig abgenommen.**
 
-### MT.SCAN2 – Prüfungen schon beim Server-/Agent-Start (noch offen)
+### MT.SCAN2 – Prüfungen schon beim Server-/Agent-Start (Quellcode implementiert; REAL-VDR-Abnahme offen)
 
 - Den **bereits vorhandenen** Agent-Start und dessen periodische
   Importquellen-Beobachtung verwenden. Technische Vorprüfungen sollen
@@ -543,6 +543,28 @@ ausdrücklich autorisierte Core-Mutation darf Dateien ändern.
   koordinieren oder um genau diese Priorisierung erweitern. Ein
   automatischer Hintergrundauftrag darf weder interaktive
   Vorschauen aushungern noch eine bereits angenommene Mutation verdrängen.
+
+**Implementierung 31.10.2026:** `BackendAgentMediaImportCatalog` startet aus
+dem vorhandenen, authentifizierten Agent-Quellensnapshot selbständig die
+nächste lesende Einzelvorschau und fordert sie über die *bestehende*
+`previewSourceId`-Antwort der Agent-Beobachtung an. Geprüfte Ergebnisse
+werden pro Backend/Agent-Generation und opaker Source-ID im Core-Speicher
+vorgehalten. Eine manuelle Auswahl überschreibt die gerade angeforderte
+Quelle sofort; die Agent-Antwort des verdrängten Films ist kein Ergebnis.
+Bereits importierte und Rectools-markierte Quellen überspringt die
+Hintergrundprüfung. Kein neuer Dienst, kein neuer Endpoint, keine
+Datenbank-Tabelle und keine automatische Import-/Marker-/Löschaktion.
+
+`core/agent/tests/test_backend_agent_media_import_catalog.cpp` prüft
+Reihenfolge, Priorität, Ergebniscache und Quellenänderung;
+`core/agent/tests/test_backend_agent_lifecycle.cpp` prüft dieselbe
+Reihenfolge über die echte authentifizierte Agent-HTTP-Route.
+**Quellcode-Stand ist nicht gleich REAL-VDR-Abnahme.** Ohne vorhandene
+Browser-Anmeldung laufen Quellscan und Vorschau im serverseitigen
+Heartbeat weiter; nach Anmeldung verwendet die vorhandene Frontend-UI
+die Core-Preview-Antworten. Fortschritt wird weiterhin im geöffneten Tab
+sichtbar; ein dauerhaft gespeicherter Scanbericht über Daemon-Neustarts
+ist nicht behauptet.
 
 ### MT.SCAN3 – yaVDR-Abnahme
 
