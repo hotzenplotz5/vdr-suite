@@ -1018,6 +1018,10 @@
       if (terminalState(operation.state) && !view.batch) {
         view.newButton.hidden = false;
       }
+      // Preserve the initiating batch context: advanceBatch() may finish
+      // the final item and set view.batch to null. A single-import source
+      // refresh at that moment would clear the completed batch review.
+      const wasBatchOperation = Boolean(view.batch);
       if (view.batch) advanceBatch(view, operation);
       // A successful explicit release must be reflected in the source list.
       // For a parked .pc_encode original, open ONLY its uniquely matched,
@@ -1098,7 +1102,7 @@
         });
       }
       // Readback-confirmed import: refresh the list once, without a page reload.
-      const refreshImportedSources = recordingConfirmed && !view.batch &&
+      const refreshImportedSources = recordingConfirmed && !wasBatchOperation &&
         operation.sourceCleanup !== 'pending' &&
         !view.attempt.inventoryRefreshStarted;
       if (refreshImportedSources) view.attempt.inventoryRefreshStarted = true;
