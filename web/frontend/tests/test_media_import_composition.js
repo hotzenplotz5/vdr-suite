@@ -929,6 +929,11 @@ function publishHomeResume() {}
     row => row.dataset.sourceId === SOURCE);
   assert(confirmedRow && confirmedRow.children[2].textContent.includes(
     'Bereits importiert'), 'new duplicate status appears without page reload');
+  const autoReadyCleanup = findClass(confirmedRow, 'media-import-delete-duplicate-inline');
+  assert(autoReadyCleanup && !autoReadyCleanup.disabled,
+    'successful import automatically reconciles inventory and unlocks its same-source duplicate cleanup');
+  assert(findClass(confirmedRow, 'media-import-delete-blocked').hidden,
+    'no manual rescan instruction remains after fresh Agent inventory');
   assert.strictEqual(submits, 1, 'refresh is read-only, not a second import');
   assert(findClass(mount, 'status').textContent.includes('unabhängig bestätigt'));
   assert.strictEqual(findClass(mount, 'media-import-import-title').textContent,
@@ -937,6 +942,14 @@ function publishHomeResume() {}
     'only Core-confirmed success gets a visible green completion state');
   assert(findClass(mount, 'media-import-completed-notice').textContent.includes(
     'VDR-Aufnahme bestätigt'), 'a confirmed recording also appears in a persistent completion receipt');
+  confirmLocal = false;
+  await autoReadyCleanup.listeners.click();
+  await settle();
+  assert.strictEqual(submits, 1,
+    'cancelled same-source cleanup after automatic reconciliation never submits deletion');
+  assert(findClass(mount, 'media-import-completed-notice').textContent.includes(
+    'VDR-Aufnahme bestätigt'), 'prior Core success remains visible after cancelled cleanup');
+  confirmLocal = true;
   // A finished import is retired automatically when the next episode is
   // selected; the old "Neuen Import vorbereiten" button is not required.
   batchSources = [SOURCE, SOURCE_B];
