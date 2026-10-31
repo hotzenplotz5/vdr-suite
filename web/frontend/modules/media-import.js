@@ -1140,9 +1140,14 @@
               (!stillPresent || stillPresent.recordingPresent);
             checkedAttempt.inventoryRefreshCompleted = reconciled;
             updateInlineDeleteAvailability(view);
-            if (reconciled) {
-              report(view, confirmedReport, false);
-            } else if ((checkedAttempt.inventoryRefreshRetries || 0) < 12) {
+            // The durable VDR readback and source cleanup are already
+            // confirmed. A lagging Agent catalog must never replace their
+            // success receipt with an unrelated source-count message.
+            // The scan notice independently reports stale/error status.
+            report(view, confirmedReport +
+              (reconciled ? '' : ' Quellenabgleich läuft im Hintergrund.'), false);
+            if (!reconciled &&
+                (checkedAttempt.inventoryRefreshRetries || 0) < 12) {
               checkedAttempt.inventoryRefreshRetries =
                 (checkedAttempt.inventoryRefreshRetries || 0) + 1;
               view.timer = global.setTimeout(function () {
