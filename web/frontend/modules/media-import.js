@@ -1134,7 +1134,8 @@
             if (reconciled) {
               report(view, confirmedReport, false);
             } else if ((checkedAttempt.inventoryRefreshRetries || 0) < 12) {
-              ++checkedAttempt.inventoryRefreshRetries || (checkedAttempt.inventoryRefreshRetries = 1);
+              checkedAttempt.inventoryRefreshRetries =
+                (checkedAttempt.inventoryRefreshRetries || 0) + 1;
               view.timer = global.setTimeout(function () {
                 view.timer = null;
                 void refreshAfterImport();
@@ -2670,6 +2671,20 @@
             recordingPresent: item.recordingStatus === 'recording_present'};
         }).sort(compareSources);
         view.allMarked = marked.slice().sort(compareSources);
+        // A fresh manual GET can also complete reconciliation if all
+        // automatic attempts encountered a transient Agent outage.
+        const finishedImport = view.attempt;
+        if (!(response.meta && response.meta.stale) && finishedImport &&
+            finishedImport.inventoryRefreshStarted &&
+            finishedImport.state === 'succeeded' &&
+            (!finishedImport.videoDecision || finishedImport.videoDecision === 'local') &&
+            finishedImport.sourceCleanup !== 'pending') {
+          const candidate = view.allOrdinary.find(function (item) {
+            return item.sourceId === finishedImport.sourceId;
+          });
+          if (!candidate || candidate.recordingPresent)
+            finishedImport.inventoryRefreshCompleted = true;
+        }
         view.sourceTitles = Object.create(null);
         view.allOrdinary.forEach(function (item) {
           view.sourceTitles[item.sourceId] = item.label;
