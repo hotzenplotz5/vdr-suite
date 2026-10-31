@@ -1401,7 +1401,17 @@ function publishHomeResume() {}
   await settle();
   assert.strictEqual(batchOperations.length, 2, 'held-back VP9 is never implicitly encoded');
   assert(findClass(mount, 'media-import-batch-summary').textContent.includes(
-    '2 bereits bestätigt'));
+    '2 bereits bestätigt'),
+    'Both batch imports must be confirmed in summary; actual=' +
+    JSON.stringify({
+      summary: findClass(mount, 'media-import-batch-summary').textContent,
+      rows: findClass(mount, 'media-import-batch-review').children.map(function (row) {
+        return row.textContent;
+      }),
+      operations: batchOperations,
+      states: batchStates,
+      batchStopHidden: findClass(mount, 'media-import-batch-stop').hidden
+    }));
   assert(findClass(mount, 'media-import-batch-review').children.some(function (row) {
     return row.textContent.includes('Umkodierung nötig');
   }));
