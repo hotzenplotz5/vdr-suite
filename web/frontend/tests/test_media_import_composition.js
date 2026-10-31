@@ -2924,6 +2924,8 @@ function publishHomeResume() {}
   assert.strictEqual(submits, importedPostCount,
     'opening an imported episode cannot automatically mark or import');
   const importedRemove = findClass(filteredImportedRow, 'media-import-delete-duplicate-inline');
+  const importedLabelBeforeDelete = findClass(filteredImportedRow,
+    'media-import-episode-open').textContent;
   assert(importedRemove && !importedRemove.disabled,
     'unmarked confirmed recording has a directly reachable delete action');
   confirmLocal = false;
@@ -2946,7 +2948,10 @@ function publishHomeResume() {}
     return row.dataset.sourceId === SOURCE;
   }), 'confirmed cleanup hides the deleted source even before the Agent inventory refreshes');
   assert(findClass(mount, 'media-import-completed-notice').textContent.includes(
-    'Die Herrschaft des Feuers'), 'cleanup receipt identifies exactly which file was deleted');
+    '„' + importedLabelBeforeDelete + '“'),
+    'cleanup receipt must identify the actual displayed source: ' +
+    JSON.stringify({expected: importedLabelBeforeDelete,
+      actual: findClass(mount, 'media-import-completed-notice').textContent}));
   assert(batchSources.includes(SOURCE),
     'the fixture deliberately still serves an old Agent source observation');
   assert(requests.filter(function (req) {
