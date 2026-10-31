@@ -645,8 +645,34 @@ function publishHomeResume() {}
     const meta = findClass(row, 'media-import-episode-meta');
     return meta && meta.textContent.includes('Technisch geprüft');
   }), 'per-film status changes automatically without a manual rescan');
-  // Reset this test-only preview. Subsequent interactive tests must still
-  // start from their original unchecked source, as in a new addon view.
+  // The background preview uses the Core's single per-backend slot.
+  // A manual click must get its preview immediately, rather than wait for
+  // another background poll or dispatching an import.
+  batchSources = [SOURCE, SOURCE_B];
+  previewMode = 'pending-first';
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  const backgroundCheck = timerCallbacks[timerCallbacks.length - 1];
+  const postsBeforePriority = submits;
+  backgroundCheck();
+  await settle();
+  const previewReadsBeforePriority = requests.filter(function (request) {
+    return request.path.includes('/' + SOURCE_B + '/preview');
+  }).length;
+  assert(previewReadsBeforePriority > 0, 'second source is inspected in the background');
+  const priorityRow = findClass(mount, 'media-import-selection').children.find(
+    function (row) { return row.dataset.sourceId === SOURCE_B; });
+  assert(priorityRow, 'uninspected source remains available during background work');
+  findClass(priorityRow, 'media-import-episode-open').listeners.click();
+  await settle();
+  assert(requests.filter(function (request) {
+    return request.path.includes('/' + SOURCE_B + '/preview');
+  }).length > previewReadsBeforePriority,
+  'clicking an episode immediately requests its manual priority preview');
+  assert.strictEqual(submits, postsBeforePriority,
+    'manual preview priority never dispatches an import or mutation');
+  batchSources = null;
+  // Reset test-only previews. Subsequent interactive tests start unchecked.
   context.selectModule('overview');
   context.selectModule('media-import');
   await settle();
