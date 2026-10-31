@@ -918,10 +918,21 @@ function publishHomeResume() {}
     'read-only browsing may not create another mutation');
   state = 'succeeded';
   recordingStatuses[SOURCE] = 'recording_present';
+  // The Core readback can precede the Agent's next fresh source observation.
+  // The owner must retry automatically, not ask for a manual scan.
+  sourceStale = true;
+  const beforeAgentRetry = timerCallbacks.length;
   const beforeConfirmedScan = requests.filter(r =>
     r.path.endsWith('/media-import-sources')).length;
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
+  assert(timerCallbacks.length > beforeAgentRetry,
+    'a stale post-import catalog schedules another read-only inventory GET');
+  sourceStale = false;
+  timerCallbacks[timerCallbacks.length - 1]();
+  await settle();
+  assert(requests.filter(r => r.path.endsWith('/media-import-sources')).length >
+    beforeConfirmedScan + 1, 'Agent catch-up is retried without a user rescan');
   assert(requests.filter(r => r.path.endsWith('/media-import-sources')).length >
     beforeConfirmedScan,
     'completed VDR readback automatically refreshes the inventory');
