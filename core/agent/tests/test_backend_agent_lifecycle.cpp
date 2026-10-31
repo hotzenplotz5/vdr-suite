@@ -1050,6 +1050,41 @@ void test_http_protocol_and_redaction()
         ids, labels, &partial, &folders, &statuses));
     assert(statuses == (std::vector<std::string>{"recording_present"}));
     assert(labels == (std::vector<std::string>{"Andor S01E05"}));
+    // MT.SCAN2: the production authenticated observation response requests
+    // a technical read without any browser GET, and advances after readback.
+    sources.body =
+        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":1,\"sourceIds\":[\"source_00000000021\","
+        "\"source_00000000022\"],\"sourceLabels\":[\"Film 21\",\"Film 22\"],"
+        "\"sourceStatuses\":[\"unverified\",\"unverified\"],"
+        "\"handlerOrigin\":\"manual\",\"handlerVersion\":\"0.1.0\","
+        "\"handlerSha256\":\"" + std::string(64, 'a') + "\"}";
+    const auto idleSourceRequest = server.handleRequest(sources);
+    assert(idleSourceRequest.statusCode == 200);
+    assert(idleSourceRequest.body.find(
+        "\"previewSourceId\":\"source_00000000021\"") != std::string::npos);
+    sources.body =
+        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":1,\"sourceIds\":[\"source_00000000021\","
+        "\"source_00000000022\"],\"sourceLabels\":[\"Film 21\",\"Film 22\"],"
+        "\"sourceStatuses\":[\"unverified\",\"unverified\"],"
+        "\"handlerOrigin\":\"manual\",\"handlerVersion\":\"0.1.0\","
+        "\"handlerSha256\":\"" + std::string(64, 'a') + "\","
+        "\"previewSourceId\":\"source_00000000021\","
+        "\"previewStatus\":\"ready\",\"previewTitle\":\"Film 21\","
+        "\"previewTargetFolder\":\"Filme/Film 21\","
+        "\"previewVideoCodec\":\"h264\","
+        "\"previewSourceBytes\":1000,\"previewAvailableBytes\":90000000,"
+        "\"previewRequiredBytes\":2000,\"previewReencodeRequired\":false}";
+    const auto nextIdleSource = server.handleRequest(sources);
+    assert(nextIdleSource.statusCode == 200);
+    assert(nextIdleSource.body.find(
+        "\"previewSourceId\":\"source_00000000022\"") != std::string::npos);
+    BackendAgentMediaImportCatalog::Preview cachedPreview;
+    assert(mediaImportCatalog.requestPreview(
+        *live, "default", observedNow, "source_00000000021", cachedPreview) ==
+        BackendAgentMediaImportCatalog::PreviewState::ready);
+    assert(cachedPreview.videoCodec == "h264");
     // A mismatched/unknown Agent state cannot be attached to an opaque ID.
     sources.body =
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
