@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <map>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 #include <utility>
@@ -54,34 +55,68 @@ public:
             !std::binary_search(snapshot->second.ids.begin(),
                                 snapshot->second.ids.end(), sourceId))
             return PreviewState::denied;
-        auto& slot = previews_[backendId];
-        if (slot.sourceId == sourceId && slot.ready &&
-            slot.updatedAt <= now && now - slot.updatedAt <= 30) {
-            out = slot.result;
-            return PreviewState::ready;
+        // Reuse observations from this Agent generation, also after the
+        // browser has been closed. The source token binds the file identity;
+        // Core still revalidates every subsequent import independently.
+        const auto history = checked_.find(backendId);
+        if (history != checked_.end()) {
+            const auto known = history->second.find(sourceId);
+            if (known != history->second.end()) {
+                out = known->second;
+                return PreviewState::ready;
+            }
         }
+        auto& slot = previews_[backendId];
         if (slot.sourceId != sourceId || slot.requestedAt <= 0 ||
             slot.requestedAt > now || now - slot.requestedAt > 60 ||
             slot.ready)
             slot = {sourceId, now, false, 0, {}};
+        // A selected film overrides the idle background slot immediately.
+        attempted_[backendId].insert(sourceId);
         return PreviewState::pending;
     }
 
     std::string nextPreviewRequest(const BackendAgentRecord& live,
                                    const std::string& backendId,
-                                   std::int64_t now) const
+                                   std::int64_t now)
     {
         std::lock_guard<std::mutex> guard(mutex_);
         const auto snapshot = snapshots_.find(backendId);
-        const auto slot = previews_.find(backendId);
-        if (snapshot == snapshots_.end() || slot == previews_.end() ||
-            !liveSnapshot(snapshot->second, live, backendId, now) ||
-            slot->second.ready || slot->second.requestedAt > now ||
-            now - slot->second.requestedAt > 60 ||
-            !std::binary_search(snapshot->second.ids.begin(),
-                snapshot->second.ids.end(), slot->second.sourceId))
+        if (snapshot == snapshots_.end() ||
+            !liveSnapshot(snapshot->second, live, backendId, now))
             return {};
-        return slot->second.sourceId;
+        auto& slot = previews_[backendId];
+        if (!slot.ready && slot.requestedAt > 0 &&
+            slot.requestedAt <= now && now - slot.requestedAt <= 60 &&
+            std::binary_search(snapshot->second.ids.begin(),
+                               snapshot->second.ids.end(), slot.sourceId))
+            return slot.sourceId;
+
+        // When no manual preview is pending, use the existing heartbeat
+        // observation for the next unexamined source. Never dispatch jobs.
+        auto& attempted = attempted_[backendId];
+        const auto& checked = checked_[backendId];
+        for (const auto& id : snapshot->second.ids) {
+            if (attempted.count(id) || checked.count(id)) continue;
+            const auto state = snapshot->second.statuses.find(id);
+            if (state != snapshot->second.statuses.end() &&
+                state->second == "recording_present") continue;
+            const auto label = snapshot->second.labels.find(id);
+            if (label != snapshot->second.labels.end()) {
+                const auto& name = label->second;
+                if ((name.size() >= 10 &&
+                     name.compare(name.size() - 10, 10, ".pc_encode") == 0) ||
+                    (name.size() >= 8 &&
+                     name.compare(name.size() - 8, 8, ".skipped") == 0) ||
+                    (name.size() >= 10 &&
+                     name.compare(name.size() - 10, 10, ".duplicate") == 0))
+                    continue;
+            }
+            slot = {id, now, false, 0, {}};
+            attempted.insert(id);
+            return id;
+        }
+        return {};
     }
 
     bool acceptPreview(const BackendAgentRecord& live,
@@ -158,6 +193,7 @@ public:
         slot->second.result = data;
         slot->second.updatedAt = now;
         slot->second.ready = true;
+        checked_[backendId][data.sourceId] = data;
         return true;
     }
 
@@ -249,8 +285,25 @@ public:
             (previous->second.agentId != live.agentId ||
              previous->second.actorId != live.actorId ||
              previous->second.instanceId != instanceId ||
-             previous->second.generation != generation))
+             previous->second.generation != generation)) {
             previews_.erase(backendId);
+            checked_.erase(backendId);
+            attempted_.erase(backendId);
+        }
+        // A replaced/deleted source cannot retain its old observation.
+        // The catalog remains bounded by the 100 authenticated source IDs.
+        auto& checked = checked_[backendId];
+        auto& attempted = attempted_[backendId];
+        for (auto it = checked.begin(); it != checked.end();) {
+            if (!std::binary_search(sorted.begin(), sorted.end(), it->first))
+                it = checked.erase(it);
+            else ++it;
+        }
+        for (auto it = attempted.begin(); it != attempted.end();) {
+            if (!std::binary_search(sorted.begin(), sorted.end(), *it))
+                it = attempted.erase(it);
+            else ++it;
+        }
         snapshots_[backendId] = Snapshot{
             live.agentId, live.actorId, instanceId, generation, now,
             std::move(sorted), handlerOrigin, handlerVersion, handlerSha256,
@@ -503,4 +556,6 @@ private:
     mutable std::mutex mutex_;
     std::map<std::string, Snapshot> snapshots_;
     std::map<std::string, PreviewSlot> previews_;
+    std::map<std::string, std::map<std::string, Preview>> checked_;
+    std::map<std::string, std::set<std::string>> attempted_;
 };
