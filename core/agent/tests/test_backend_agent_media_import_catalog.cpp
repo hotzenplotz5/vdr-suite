@@ -94,6 +94,47 @@ int main()
     assert(!catalog.publish(actor, live, "backend", "instance", 7,
         bulkIds, 100, "manual", "0.1.0", approvedSha));
     assert(catalog.list(live, "backend", 100, items) && items.size() == 100);
+    // MT.SCAN2: verify the actual server-side queue on a fresh catalog.
+    // Published Agent sources are inspected one by one even if no
+    // interactive Public-v1 preview request has ever been made.
+    {
+        BackendAgentMediaImportCatalog idle;
+        assert(idle.publish(actor, live, "backend", "instance", 7,
+            {"source_00000000011", "source_00000000012",
+             "source_00000000013", "source_00000000014"}, 100,
+            "manual", "0.1.0", approvedSha,
+            {"Film 11", "Film 12", "Film.pc_encode", "Film 14"},
+            false, {"", "", "", ""},
+            {"unverified", "unverified", "unverified",
+             "recording_present"}));
+        const auto first = idle.nextPreviewRequest(live, "backend", 100);
+        assert(first == "source_00000000011");
+        BackendAgentMediaImportCatalog::Preview firstReport{
+            first, "ready", "Film 11", "Film 11", "h264",
+            1000, 8000000000ULL, 5000000000ULL, false};
+        assert(idle.acceptPreview(live, "backend", 100, firstReport));
+        assert(idle.nextPreviewRequest(live, "backend", 100) ==
+            "source_00000000012");
+        BackendAgentMediaImportCatalog::Preview staleReport = firstReport;
+        assert(!idle.acceptPreview(live, "backend", 100, staleReport));
+        BackendAgentMediaImportCatalog::Preview secondReport = firstReport;
+        secondReport.sourceId = "source_00000000012";
+        secondReport.title = "Film 12";
+        assert(idle.acceptPreview(live, "backend", 100, secondReport));
+        assert(idle.nextPreviewRequest(live, "backend", 100).empty());
+        BackendAgentMediaImportCatalog::Preview cached;
+        assert(idle.requestPreview(live, "backend", 140, first, cached) ==
+            BackendAgentMediaImportCatalog::PreviewState::ready);
+        assert(cached.title == "Film 11");
+        // Once the source identity changes, old results never survive.
+        assert(idle.publish(actor, live, "backend", "instance", 7,
+            {"source_00000000015"}, 141, "manual", "0.1.0", approvedSha,
+            {"Replacement"}));
+        assert(idle.nextPreviewRequest(live, "backend", 141) ==
+            "source_00000000015");
+        assert(idle.requestPreview(live, "backend", 141, first, cached) ==
+            BackendAgentMediaImportCatalog::PreviewState::denied);
+    }
     // UX4.2: only a selected, verified opaque source is requested.
     // The same Agent lease must deliver the result. No paths or operations.
     BackendAgentMediaImportCatalog::Preview observed;
@@ -145,7 +186,10 @@ int main()
     invalidArtwork.fanartDataUri = "data:image/png;base64,%%%";
     assert(!catalog.acceptPreview(live, "backend", 100, invalidArtwork));
     assert(catalog.acceptPreview(live, "backend", 100, report));
-    assert(catalog.nextPreviewRequest(live, "backend", 100).empty());
+    // Completion immediately advances the idle heartbeat to the next
+    // uninspected source without an open browser or an import request.
+    const auto nextIdle = catalog.nextPreviewRequest(live, "backend", 100);
+    assert(!nextIdle.empty() && nextIdle != selected);
     assert(catalog.requestPreview(live, "backend", 100, selected, observed) ==
         BackendAgentMediaImportCatalog::PreviewState::ready);
     assert(observed.targetFolder == "Serien/Andor/Film" &&
@@ -161,9 +205,11 @@ int main()
     assert(catalog.requestPreview(
         live, "backend", 100, "source_no_such_123456", observed) ==
         BackendAgentMediaImportCatalog::PreviewState::denied);
+    // A user coming back later receives the same inspected source without
+    // kicking off another FFprobe. Actual mutations still recheck identity.
     assert(catalog.requestPreview(live, "backend", 135, selected, observed) ==
-        BackendAgentMediaImportCatalog::PreviewState::pending);
-    assert(catalog.nextPreviewRequest(live, "backend", 135) == selected);
+        BackendAgentMediaImportCatalog::PreviewState::ready);
+    assert(observed.videoCodec == "h264");
     // The same pending request cannot outlive the authenticated Agent lease.
     live.leaseExpiresAt = 135;
     assert(catalog.requestPreview(live, "backend", 136, selected, observed) ==
@@ -171,14 +217,17 @@ int main()
     assert(catalog.nextPreviewRequest(live, "backend", 136).empty());
     assert(!catalog.acceptPreview(live, "backend", 136, report));
     live.leaseExpiresAt = 300;
-    // Repeated reads keep the pending ID; the reply never starts a job.
-    assert(catalog.requestPreview(live, "backend", 137, selected, observed) ==
+    // A manual choice displaces the background candidate immediately.
+    const auto prioritySource = exact100[3];
+    assert(catalog.requestPreview(live, "backend", 137, prioritySource, observed) ==
         BackendAgentMediaImportCatalog::PreviewState::pending);
+    assert(catalog.nextPreviewRequest(live, "backend", 137) == prioritySource);
+    report.sourceId = prioritySource;
     report.status = "insufficient";
     report.videoCodec = "vp9";
     report.videoReencodeRequired = true;
     assert(catalog.acceptPreview(live, "backend", 138, report));
-    assert(catalog.requestPreview(live, "backend", 138, selected, observed) ==
+    assert(catalog.requestPreview(live, "backend", 138, prioritySource, observed) ==
         BackendAgentMediaImportCatalog::PreviewState::ready);
     assert(observed.status == "insufficient" && observed.videoCodec == "vp9" &&
            observed.videoReencodeRequired);
