@@ -614,8 +614,36 @@ function publishHomeResume() {}
   assert(tab.title.includes('Agent-Status momentan unbestätigt'));
   assert.strictEqual(timerCallbacks.length, capabilityCallbacksBefore,
     'a missing capability must not schedule an endless five-second gate retry');
+  const requestsBeforeBackground = requests.filter(function (r) {
+    return r.path.includes('/media-import-sources/') &&
+      r.path.endsWith('/preview');
+  }).length;
+  const timersBeforeBackground = timerCallbacks.length;
   context.selectModule('media-import');
   await settle();
+  const backgroundStatus = findClass(mount, 'media-import-background-notice');
+  assert(backgroundStatus &&
+    backgroundStatus.textContent.includes('0 von 1 geprüft') &&
+    backgroundStatus.textContent.includes('Eine manuelle Auswahl hat Vorrang'),
+    'the source list is visible with explicit unchecked status before background inspection');
+  assert(timerCallbacks.length > timersBeforeBackground,
+    'opening the addon schedules the bounded background preview reader');
+  assert.strictEqual(requests.filter(function (r) {
+    return r.path.includes('/media-import-sources/') &&
+      r.path.endsWith('/preview');
+  }).length, requestsBeforeBackground,
+  'background checks must not block initial inventory rendering');
+  const backgroundPostsBefore = submits;
+  // Execute only this idle background timer, not a mutation.
+  timerCallbacks[timersBeforeBackground]();
+  await settle();
+  assert.strictEqual(submits, backgroundPostsBefore,
+    'automatic technical inspection must never submit a Core import or marker');
+  assert(findClass(mount, 'media-import-background-notice').textContent.includes(
+    '1 von 1 geprüft'), 'the first background source check becomes visible');
+  assert(findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.textContent.includes('Technisch geprüft');
+  }), 'per-film status changes automatically without a manual rescan');
   let sourceListOnTransientFailure = findClass(mount, 'media-import-source');
   assert(sourceListOnTransientFailure && sourceListOnTransientFailure.children.length > 1,
     'an installed media import view must still list sources during a transient capability failure');
