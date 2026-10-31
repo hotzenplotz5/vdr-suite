@@ -494,6 +494,97 @@ freigegebenen Test-Duplikats die Quelle entfernt und die VDR-Aufnahme
 unverändert lässt. Die fünf Andor-Quelldateien nicht ungefragt löschen.
 Die native Metadaten-Übernahme bleibt **MT.META6**, nicht MT.REC6.
 
+## MT.ENC – Hintergrund-Umkodierung, Wiederanmeldung und Encoder-Einstellungen (31.10.2026, geplant)
+
+**Produktanforderung:** Ein bewusst gestarteter VDR-Encode läuft serverseitig weiter,
+wenn der Benutzer den Webreiter schließt, sich abmeldet oder später auf einem
+anderen Gerät anmeldet. Die Suite zeigt dann denselben Auftrag mit Fortschritt
+und tatsächlichem Ergebnis wieder an; sie darf **keinen zweiten Encode**
+starten. Bei Abbruch, Agent-/Host-Neustart oder ungewissem Ergebnis ist der
+dauerhafte Istzustand korrekt anzuzeigen statt automatisch erneut zu starten.
+Das ist ein Akzeptanzziel, **noch keine zugesicherte Produktfunktion**.
+
+**Iststand (Quellprüfung 31.10.2026):**
+
+- `Auf dem VDR umkodieren` startet FFmpeg serverseitig über die vorhandene
+  Core-Operation und den Backend-Agent-Import-Executor. Ein bloßer
+  Browser-/Tabwechsel stoppt FFmpeg nicht unmittelbar.
+- Der Agent begrenzt den laufenden Import-Handler in
+  `PinnedMediaImportAgentExecutor.cpp` derzeit auf **maximal 600 Sekunden**
+  und beendet ihn nach Fristablauf. Längere Filme sind deshalb nicht
+  zuverlässig als Hintergrund-Encode nutzbar.
+- `GET /api/v1/operations/{operationId}` liest einen dauerhaften
+  Operationsstatus. Eine öffentliche Operationen-Liste existiert bislang
+  nicht; `web/frontend/modules/media-import.js` verwaltet aktive Aufträge
+  im Speicher des Browsers und löscht sie bei `clearSession()`.
+  Eine neue Anmeldung entdeckt daher einen vorher begonnenen Encode
+  **nicht automatisch**.
+- `addons/media-tools/src/MediaImport.cpp` verwendet beim lokalen Encode
+  fest `libx264`, `CRF 23`, `preset medium`, `threads 2`; keine vom
+  Benutzer speicherbaren Media-Import-Encoderwerte.
+- `Auf PC umkodieren` führt **keine** Kodierung in VDR-Suite aus: Diese
+  Aktion parkt die Quelldatei als `.pc_encode`. Ein externer PC verarbeitet
+  sie eigenständig und legt die neue Datei für den normalen Import zurück.
+
+### MT.ENC1 – Langer serverseitiger Encode und robuster Abschluss
+
+Den **bestehenden** Import/FFmpeg-Executor verwenden, keine zweite Queue und
+keinen separaten HandBrake-Worker hinzufügen. Das feste 600-s-Limit durch
+eine zu langen Filmdateien passende, klar definierte Encode-Laufzeit ersetzen;
+dauerhafte Core-Operation, Fortschritt, echte FFmpeg-Fehler und Endzustände
+trennen. Kein pauschales Dienstneustarten oder automatisches erneutes
+Ausführen eines möglicherweise schon begonnenen Jobs. Die laufende Verarbeitung
+bleibt vom Browser unabhängig. Akzeptanz: Ein realer Encode über 10 Minuten
+läuft nach Tabwechsel/Logout weiter und endet nach VDR-Readback korrekt.
+
+### MT.ENC2 – Auftrag nach Wiederanmeldung wiederfinden
+
+Bestehende dauerhafte Core-Operationen als einzige Auftragsidentität nutzen.
+Für denselben berechtigten Benutzer/Backend die offenen und letzten
+Media-Import-Operationen **lesend** wieder auffindbar machen; die
+bestehende Operation-ID und der Core-Status sind maßgeblich, nicht
+`localStorage` oder ein neuer Browser-Jobstore. Anzeige in
+`Media Import → Laufende / letzte Aufträge` mit Film, Encoding-Modus,
+tatsächlichem Fortschritt (soweit vom Server bekannt), Startzeit,
+Endzustand und eindeutigem Fehler. Wiederanmeldung, neues Gerät und
+Agent-Transportfehler dürfen keinen zweiten POST auslösen. Bei
+`outcome_unknown` den ungewissen Zustand wahrheitsgemäß anzeigen.
+
+### MT.ENC3 – Encoding-Einstellungen mit Rectools-Defaults
+
+In `Einstellungen → Media Tools → Encoding` persistente, backendbezogene
+Einstellungen anbieten, standardmäßig **ohne Einrichtungszwang**.
+Werte werden bei **Auftragsstart** übernommen; spätere Änderungen wirken
+nicht rückwirkend auf laufende Aufträge:
+
+| Einstellung | Standard aus vdr-rectools `develop` | Einordnung |
+| --- | --- | --- |
+| Import-Video | H.264 / libx264 | lokale, inkompatible Videoquelle |
+| H.264-Qualität | CRF **23** | niedriger = bessere Qualität/größere Datei |
+| H.264-Preset | **medium** | Geschwindigkeit / Kompression |
+| H.265 für Shrink | CRF **23**, Preset **medium** | getrennt vom Import |
+| Hardwarebeschleunigung | **none** (CPU) | später optional VAAPI, QSV, NVENC abhängig von realer Verfügbarkeit |
+| Audio-Normalisierung | **aus** | nicht ungefragt Tonspuren verändern |
+| Bestätigung vor Encode | **ein** | keine heimliche Videoneukodierung |
+
+Die bestehenden `-threads 2` sind ein fest implementierter Importwert,
+kein bereits vorhandener Rectools-Default. Bewusst nur unterstützte
+Parameter als Auswahl anbieten; keine freien FFmpeg-Befehlszeilen.
+Backend/Worker führen die gespeicherten Werte aus, nicht der Browser.
+Akzeptanz: Standardprofil direkt nutzbar; geänderte Werte werden beim
+nächsten Auftrag real an FFmpeg übergeben und nach erneutem Login korrekt
+angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
+
+### MT.ENC4 – Echte yaVDR-Abnahme
+
+Inkrementell bauen, vorhandene Runtime-Artefakte wiederverwenden,
+kein neues Branch/PR, keine DB-Backups oder unnötigen Aktivierungsprüfungen.
+Tests für >600-s-Verarbeitung, Browser schließen, Ab-/Anmeldung, neues
+Gerät, Agent-Neustart/unklares Ergebnis, Einstellungen und Defaults,
+korrektes Recording-Readback sowie nachfolgende Quellenaktualisierung.
+Auf dem echten yaVDR mit einem **eigens bestätigten** Testmedium abnehmen;
+bereits importierte Andor-Aufnahmen und Quellen nicht ungefragt verändern.
+
 ### Phasen und harte Abnahmekriterien — in dieser Reihenfolge
 
 | Phase | Auftrag / betroffene Bestandsmodule | Fertig erst, wenn … |
