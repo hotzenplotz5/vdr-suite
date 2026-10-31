@@ -29,6 +29,10 @@ public:
         std::uint64_t availableBytes = 0;
         std::uint64_t requiredBytes = 0;
         bool videoReencodeRequired = false;
+        std::string failureCode;
+        std::string nfoOutline, nfoPlot, nfoYear, nfoGenre;
+        std::uint64_t durationSeconds = 0;
+        std::string posterDataUri, fanartDataUri;
     };
     enum class PreviewState { denied, pending, ready };
 
@@ -84,14 +88,53 @@ public:
                        const std::string& backendId,
                        std::int64_t now, const Preview& data)
     {
+        const auto validMetadata = [](const std::string& value) {
+            return value.size() <= 4096U &&
+                std::none_of(value.begin(), value.end(),
+                    [](unsigned char c) { return c < 0x20 || c == 0x7f; });
+        };
+        const auto validArtwork = [](const std::string& uri) {
+            if (uri.empty()) return true;
+            if (uri.rfind("data:image/jpeg;base64,/9j/", 0) != 0 &&
+                uri.rfind("data:image/png;base64,iVBORw0KGgo", 0) != 0 &&
+                uri.rfind("data:image/webp;base64,UklGR", 0) != 0)
+                return false;
+            const auto comma = uri.find(',');
+            if (comma == std::string::npos || uri.size() - comma - 1 > 349528U ||
+                (uri.size() - comma - 1) % 4 != 0) return false;
+            const auto encoded = uri.substr(comma + 1);
+            const auto pad = encoded.find('=');
+            if (pad != std::string::npos && encoded.size() - pad > 2) return false;
+            return std::all_of(encoded.begin(), encoded.end(),
+                [](unsigned char ch) {
+                    return (ch >= 'A' && ch <= 'Z') ||
+                        (ch >= 'a' && ch <= 'z') ||
+                        (ch >= '0' && ch <= '9') ||
+                        ch == '+' || ch == '/' || ch == '=';
+                });
+        };
+        if (!validArtwork(data.posterDataUri) ||
+            !validArtwork(data.fanartDataUri)) return false;
+        if (!validMetadata(data.nfoOutline) ||
+            !validMetadata(data.nfoPlot) ||
+            !validMetadata(data.nfoGenre) ||
+            (!data.nfoYear.empty() &&
+             (data.nfoYear.size() != 4U ||
+              !std::all_of(data.nfoYear.begin(), data.nfoYear.end(),
+                  [](unsigned char c) { return c >= '0' && c <= '9'; }))) ||
+            data.durationSeconds > 4294967295ULL)
+            return false;
         if (!validSourceId(data.sourceId) ||
             (data.status != "ready" && data.status != "duplicate" &&
              data.status != "insufficient" && data.status != "unavailable") ||
             data.title.size() > 120U || data.targetFolder.size() > 512U ||
             data.videoCodec.size() > 64U ||
+            data.failureCode.size() > 32U ||
+            std::any_of(data.failureCode.begin(), data.failureCode.end(),
+                [](unsigned char c) { return !((c >= 'a' && c <= 'z') || c == '_'); }) ||
             (data.status != "unavailable" &&
              (data.title.empty() || data.targetFolder.empty() ||
-              data.videoCodec.empty())) ||
+              (data.status != "duplicate" && data.videoCodec.empty()))) ||
             std::any_of(data.title.begin(), data.title.end(),
                 [](unsigned char c) { return c < 0x20 || c == 0x7f; }) ||
             !validTargetFolder(data.targetFolder) ||
@@ -130,7 +173,8 @@ public:
                  const std::string& handlerSha256 = {},
                  const std::vector<std::string>& labels = {},
                  bool partial = true,
-                 const std::vector<std::string>& folders = {})
+                 const std::vector<std::string>& folders = {},
+                 const std::vector<std::string>& statuses = {})
     {
         if (!actor.authenticated() || actor.actor.type != ActorType::Agent ||
             live.actorId != actor.actor.actorId ||
@@ -191,6 +235,14 @@ public:
             }
             if (!byFolder.emplace(ids[i], folder).second) return false;
         }
+        if (!statuses.empty() &&
+            (labels.empty() || statuses.size() != ids.size())) return false;
+        std::map<std::string, std::string> byStatus;
+        for (std::size_t i = 0; i < statuses.size(); ++i) {
+            if (statuses[i] != "recording_present" && statuses[i] != "unverified")
+                return false;
+            if (!byStatus.emplace(ids[i], statuses[i]).second) return false;
+        }
         std::lock_guard<std::mutex> guard(mutex_);
         const auto previous = snapshots_.find(backendId);
         if (previous != snapshots_.end() &&
@@ -202,7 +254,8 @@ public:
         snapshots_[backendId] = Snapshot{
             live.agentId, live.actorId, instanceId, generation, now,
             std::move(sorted), handlerOrigin, handlerVersion, handlerSha256,
-            std::move(byId), std::move(byFolder), partial};
+            std::move(byId), std::move(byFolder), partial,
+            std::move(byStatus)};
         return true;
     }
 
@@ -212,11 +265,13 @@ public:
               std::vector<std::string>& ids,
               std::vector<std::string>& labels,
               bool* partial = nullptr,
-              std::vector<std::string>* folders = nullptr) const
+              std::vector<std::string>* folders = nullptr,
+              std::vector<std::string>* statuses = nullptr) const
     {
         ids.clear();
         labels.clear();
         if (folders) folders->clear();
+        if (statuses) statuses->clear();
         if (partial) *partial = true;
         if (now <= 0 || live.backendId != backendId ||
             live.revoked || live.incompatible || live.leaseExpiresAt < now)
@@ -257,6 +312,17 @@ public:
                 folders->push_back(found->second);
             }
         }
+        if (statuses && !current.statuses.empty()) {
+            for (const auto& id : ids) {
+                const auto found = current.statuses.find(id);
+                if (found == current.statuses.end()) {
+                    ids.clear(); labels.clear(); statuses->clear();
+                    if (folders) folders->clear();
+                    return false;
+                }
+                statuses->push_back(found->second);
+            }
+        }
         return true;
     }
 
@@ -267,6 +333,55 @@ public:
     {
         std::vector<std::string> ignored;
         return list(live, backendId, now, ids, ignored);
+    }
+
+    // Read-only presentation of the last successfully authenticated Agent
+    // observation. A transport outage or an expired lease must not erase the
+    // directory browser. Never use these IDs to authorize a mutation:
+    // requestPreview(), dispatch and deletion continue to require a live
+    // matching Agent generation and their existing Core checks.
+    bool listLastObserved(const std::string& backendId,
+                          std::vector<std::string>& ids,
+                          std::vector<std::string>& labels,
+                          bool* partial = nullptr,
+                          std::vector<std::string>* folders = nullptr,
+                          std::vector<std::string>* statuses = nullptr) const
+    {
+        ids.clear();
+        labels.clear();
+        if (folders) folders->clear();
+        if (statuses) statuses->clear();
+        if (partial) *partial = true;
+        std::lock_guard<std::mutex> guard(mutex_);
+        const auto found = snapshots_.find(backendId);
+        if (found == snapshots_.end()) return false;
+        const auto& snapshot = found->second;
+        // publish() already validated and associated this bounded snapshot
+        // with the authenticated Agent at capture time.
+        ids = snapshot.ids;
+        if (partial) *partial = snapshot.partial;
+        if (!snapshot.labels.empty()) {
+            for (const auto& id : ids) {
+                const auto label = snapshot.labels.find(id);
+                if (label == snapshot.labels.end()) return false;
+                labels.push_back(label->second);
+            }
+        }
+        if (folders && !snapshot.folders.empty()) {
+            for (const auto& id : ids) {
+                const auto folder = snapshot.folders.find(id);
+                if (folder == snapshot.folders.end()) return false;
+                folders->push_back(folder->second);
+            }
+        }
+        if (statuses && !snapshot.statuses.empty()) {
+            for (const auto& id : ids) {
+                const auto status = snapshot.statuses.find(id);
+                if (status == snapshot.statuses.end()) return false;
+                statuses->push_back(status->second);
+            }
+        }
+        return true;
     }
 
     // An authenticated Agent observation bound to its live lease. This is
@@ -361,6 +476,7 @@ private:
         std::map<std::string, std::string> labels;
         std::map<std::string, std::string> folders;
         bool partial = true;
+        std::map<std::string, std::string> statuses;
     };
     static bool liveSnapshot(const Snapshot& snapshot,
                              const BackendAgentRecord& live,

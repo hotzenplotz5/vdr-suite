@@ -116,7 +116,8 @@ printf '%s\n' \
   '[Service]' \
   'ExecStart=' \
   'ExecStart=/usr/sbin/vdr-suite-backend-agent --config /etc/vdr-suite/backend-agent.conf --enable-media-import --enable-media-shrink --media-shrink-state-dir /var/lib/vdr-suite/backend-agent/media-shrink' \
-  "ReadWritePaths=$VIDEO" > "$TEMP_OVERRIDE"
+  "ReadWritePaths=$VIDEO" \
+  "ReadWritePaths=$SOURCE" > "$TEMP_OVERRIDE"
 chmod 0644 "$TEMP_LEDGER" "$TEMP_OVERRIDE"
 chown root:root "$TEMP_LEDGER" "$TEMP_OVERRIDE"
 

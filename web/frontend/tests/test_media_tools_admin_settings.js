@@ -26,9 +26,10 @@ function harness(reply, restored) {
   };
   const window = {
     document: {createElement: element},
+    crypto: {getRandomValues(bytes) { bytes.fill(0x4a); return bytes; }},
     VdrSuiteBrowserSession: {
       restore() { restored.count++; return Promise.resolve(); },
-      csrfHeaders() { return {'X-VDR-Suite-CSRF-Token': 'test-token'}; }
+      csrfHeaders() { return {'X-CSRF-Token': 'test-token'}; }
     },
     confirm() { return true; },
     fetch(url, options) {
@@ -37,7 +38,7 @@ function harness(reply, restored) {
         if (options.method === 'POST') {
           assert.equal(url, '/api/v1/addons/rectools/sources');
           assert.equal(options.credentials, 'same-origin');
-          assert.equal(options.headers['X-VDR-Suite-CSRF-Token'], 'test-token');
+          assert.equal(options.headers['X-CSRF-Token'], 'test-token');
           const body = JSON.parse(options.body);
           assert.equal(body.backendId, sourceStore.backendId);
           assert.equal(body.revision, sourceStore.revision);
@@ -81,7 +82,9 @@ async function test() {
     if (options.method === 'POST') {
       assert.equal(url, '/api/v1/addons/rectools/activation');
       assert.equal(options.credentials, 'same-origin');
-      assert.equal(options.headers['X-VDR-Suite-CSRF-Token'], 'test-token');
+      assert.equal(options.headers['X-CSRF-Token'], 'test-token');
+      assert.match(options.headers['X-Correlation-ID'],
+        /^addon-activation-[0-9a-f]{24}$/);
       const body = JSON.parse(options.body);
       assert.equal(body.backendId, 'default');
       assert.equal(body.expectedRevision, revision);
@@ -97,7 +100,7 @@ async function test() {
   h.window.VdrSuiteAddonSettings.render(h.parent, 'default');
   await flush();
   assert.ok(h.elements.some(e =>
-    e.textContent === 'Handler verifiziert, Addon deaktiviert'));
+    e.textContent === 'Media Tools deaktiviert'));
   const toggle = h.elements.find(e => e.textContent === 'Aktivieren');
   assert.ok(toggle && !toggle.disabled, 'enabled admin activation control');
   assert.equal(h.parent.children[0].hidden, false, 'authorized admin card visible');
@@ -106,7 +109,14 @@ async function test() {
   assert.equal(h.requests.filter(r => r.options.method === 'POST').length, 1);
   assert.equal(desired, true);
   assert.equal(toggle.textContent, 'Deaktivieren');
-  assert.ok(restored.count >= 3, 'session restored for GET, POST and readback');
+  toggle.handlers.click();
+  await flush();
+  assert.equal(h.requests.filter(r => r.options.method === 'POST').length, 2,
+    'both admin switch directions use authenticated POST');
+  assert.equal(desired, false);
+  assert.equal(toggle.textContent, 'Aktivieren');
+  assert.equal(revision, 2);
+  assert.ok(restored.count >= 5, 'session restored for both POSTs and readbacks');
 
   const installed = harness(() => response(200, {
     backendId: 'default', desiredEnabled: true, activatedByInstall: true,
@@ -116,7 +126,7 @@ async function test() {
   installed.window.VdrSuiteAddonSettings.render(installed.parent, 'default');
   await flush();
   assert.ok(installed.elements.some(e =>
-    e.textContent === 'Media Tools technisch freigegeben (Benutzerrechte separat prüfen)'));
+    e.textContent === 'Media Tools aktiviert und betriebsbereit'));
   assert.ok(installed.elements.some(e => e.textContent === 'Deaktivieren'));
   assert.ok(!h.elements.some(e => e.textContent === 'Installieren' ||
     e.textContent === 'Deinstallieren'),
@@ -137,8 +147,24 @@ async function test() {
   assert.equal(refused.parent.children[0].hidden, false);
   assert.equal(refused.requests.filter(r => r.options.method === 'POST').length, 1);
 
-  // Fail closed: an unverified provider is not proof of an absent package.
-  // Its activation button cannot start an attempted enable mutation.
+  // A flat 403 from the Core activation service must remain visible without
+  // hiding the verified administrator's entire settings panel.
+  const denied = harness((_url, options) => options.method === 'POST'
+    ? response(403, {error: 'activation_denied'})
+    : response(200, {backendId: 'default', desiredEnabled: true,
+        providerVerified: true, agentReady: true,
+        activationBoundToProvider: true, revision: 3}),
+  {count: 0});
+  denied.window.VdrSuiteAddonSettings.render(denied.parent, 'default');
+  await flush();
+  denied.elements.find(e => e.textContent === 'Deaktivieren').handlers.click();
+  await flush();
+  assert.equal(denied.parent.children[0].hidden, false);
+  assert.ok(denied.elements.some(e => e.textContent.includes(
+    'Änderung abgelehnt: activation_denied (403)')));
+  assert.equal(denied.requests.filter(r => r.options.method === 'POST').length, 1);
+
+  // An offline Agent must not disable the administrator's enable button.
   const unverified = harness(() => response(200, {
     backendId: 'default', desiredEnabled: false, revision: 0,
     providerVerified: false, agentReady: false
@@ -146,14 +172,13 @@ async function test() {
   unverified.window.VdrSuiteAddonSettings.render(unverified.parent, 'default');
   await flush();
   assert.ok(unverified.elements.some(e =>
-    e.textContent === 'Backend-Agent nicht bereit; lokale Installation wird hier nicht geprüft'));
+    e.textContent === 'Media Tools deaktiviert'));
   const disabledEnable = unverified.elements.find(e => e.textContent === 'Aktivieren');
-  assert.ok(disabledEnable && disabledEnable.disabled);
-  assert.ok(disabledEnable.title.includes('Backend-Agent nicht bereit'));
+  assert.ok(disabledEnable && !disabledEnable.disabled);
   assert.equal(unverified.requests.filter(r => r.options.method === 'POST').length, 0);
   assert.equal(unverified.requests.filter(r =>
-    r.url.startsWith('/api/v1/addons/rectools/sources')).length, 0,
-    'unverified provider must not expose or request source configuration');
+    r.url.startsWith('/api/v1/addons/rectools/sources')).length, 1,
+    'administrator may inspect configured roots while Agent is offline');
 
   // Byte-verified provider with a stale Agent generation is not activated.
   const staleBinding = harness(() => response(200, {
@@ -163,7 +188,7 @@ async function test() {
   staleBinding.window.VdrSuiteAddonSettings.render(staleBinding.parent, 'default');
   await flush();
   assert.ok(staleBinding.elements.some(e =>
-    e.textContent === 'Aktivierungswunsch vorhanden; Agent-/Handlerbindung nicht bestätigt'));
+    e.textContent === 'Media Tools aktiviert; Worker-Verfügbarkeit wird beim Auftrag geprüft'));
 
   const agentOffline = harness(() => response(200, {
     backendId: 'default', desiredEnabled: false, revision: 0,
@@ -171,7 +196,7 @@ async function test() {
   }), {count: 0});
   agentOffline.window.VdrSuiteAddonSettings.render(agentOffline.parent, 'default');
   await flush();
-  assert.ok(agentOffline.elements.find(e => e.textContent === 'Aktivieren').disabled);
+  assert.ok(!agentOffline.elements.find(e => e.textContent === 'Aktivieren').disabled);
 
   // A stale desired-enable must never be labelled an installed or usable
   // add-on; disabling it remains permitted even after trust is lost.
@@ -182,7 +207,7 @@ async function test() {
   stale.window.VdrSuiteAddonSettings.render(stale.parent, 'default');
   await flush();
   assert.ok(stale.elements.some(e =>
-    e.textContent === 'Aktivierungswunsch gespeichert; Agent bestätigt Handler aktuell nicht'));
+    e.textContent === 'Media Tools aktiviert; Worker-Verfügbarkeit wird beim Auftrag geprüft'));
   assert.ok(!stale.elements.find(e => e.textContent === 'Deaktivieren').disabled);
 
   // MT.UX2: actual administrator save, no generated shell command.

@@ -83,6 +83,29 @@ Status: 400 invalid ID/backend query, 401 missing authentication, 403
 missing `recordings.view`, 404 absent/retired Recording or image,
 503 unavailable backend/cache/service.
 
+## MT.META6: gespeichertes TMDb-Poster für Web und TV (29.10.2026)
+
+Für eine bereits erfolgreich zugeordnete Suite-Recording-Metadatenquelle
+(`metadata/assign` oder erfolgreich reconciliierter `v2`-Import) hat das
+gespeicherte Suite-Poster Vorrang vor einem älteren TVScraper-Bild.
+Die **bestehende** Recording-Artwork-Liste unter
+`GET /api/v1/recordings/{recordingId}/artwork?backendId=...` liefert
+dazu eine opaque `artworkId` vom Typ `poster` zurück. Der vorhandene
+Image-GET liefert die tatsächlichen bytes über denselben authentifizierten,
+backendgebundenen, validierten Image-Owner wie das Web; der private
+Cache-Dateipfad wird nicht im Gerätedatenvertrag offengelegt. Fehlendes
+oder entferntes lokales Artwork liefert eine leere Liste bzw. 404.
+
+Der bereits implementierte Device-Eventstream
+`GET /api/v1/events?backendId=...&domain=recordings` meldet auch nach
+einer Metadatenzuordnung eine `recordings`-Invalidierung. Die Clients
+müssen beim Ereignis ihre aktuelle Aufnahme-/Artwork-Projektion über
+die vorhandenen GETs neu laden, nicht die Ereignisdaten als Medieninhalt
+interpretieren. Das Web verwendet denselben Änderungsfeed für Home,
+Recording-Ordner und die aktuell geöffnete Metadaten-/Posteransicht
+ohne den Player neu zu initialisieren. Geräte-Hardwareabnahme bleibt
+getrennt von der serverseitigen Code- und CI-Abnahme.
+
 ## Web parity and remaining coverage
 
 | Existing Web behavior | Public-v1 Recording Artwork |

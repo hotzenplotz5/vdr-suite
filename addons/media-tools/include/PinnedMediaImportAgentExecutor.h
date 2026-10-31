@@ -57,6 +57,9 @@ public:
         const BackendAgentCommandAssignment& assignment) override;
     std::string takeRecordingEvidence() override;
     std::string takeMarkerEvidence() override;
+    MediaImportCleanupOutcome cleanupConfirmedSource(
+        const std::string& sourceId,
+        const std::string& sourceEvidence) override;
 
 private:
     std::string root_;

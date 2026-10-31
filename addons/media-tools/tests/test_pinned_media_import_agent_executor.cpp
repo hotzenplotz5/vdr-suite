@@ -204,6 +204,41 @@ BackendAgentCommandAssignment command()
 
 int main()
 {
+    // MT.META6 uses the SAME command and source identity. Existing v1/v2
+    // payloads replay unchanged; v8/v9 bind the one-time TMDb snapshot.
+    const std::string id = "sourceopaque0123456789";
+    const std::string snapshot =
+        "v1|episode|Andor|Kassa|Description%20here|1|1";
+    std::string selected;
+    MediaImportDecision choice;
+    const auto standard = mediaImportSelectionJson(id, MediaImportDecision::import);
+    const auto originalLocal = mediaImportSelectionJson(id, MediaImportDecision::local);
+    const auto automatic = mediaImportSelectionJson(
+        id, MediaImportDecision::import, snapshot);
+    const auto automaticLocal = mediaImportSelectionJson(
+        id, MediaImportDecision::local, snapshot);
+    assert(parseMediaImportSelection(standard, selected, choice) &&
+           selected == id && choice == MediaImportDecision::import &&
+           mediaImportSelectionVersion(choice, standard) == 1);
+    assert(parseMediaImportSelection(originalLocal, selected, choice) &&
+           choice == MediaImportDecision::local &&
+           mediaImportSelectionVersion(choice, originalLocal) == 2);
+    assert(parseMediaImportSelection(automatic, selected, choice) &&
+           selected == id && choice == MediaImportDecision::import &&
+           mediaImportSelectionVersion(choice, automatic) == 8 &&
+           mediaImportSelectionMetadata(automatic) == snapshot);
+    assert(parseMediaImportSelection(automaticLocal, selected, choice) &&
+           choice == MediaImportDecision::local &&
+           mediaImportSelectionVersion(choice, automaticLocal) == 9 &&
+           mediaImportSelectionMetadata(automaticLocal) == snapshot);
+    assert(!parseMediaImportSelection(
+        mediaImportSelectionJson(id, MediaImportDecision::duplicate, snapshot)
+          + "extra", selected, choice));
+    const auto malformed = mediaImportSelectionJson(
+        id, MediaImportDecision::import,
+        "v1|episode|Andor|X|bad%2|1|1");
+    assert(!parseMediaImportSelection(malformed, selected, choice));
+
     Fixture fixture;
     Inventory inventory;
     Grants grants;
@@ -386,8 +421,18 @@ int main()
     assert(receiptExecutor.execute(receiptAssignment) ==
         MediaImportAgentOutcome::submitted);
     const std::string proof = receiptExecutor.takeRecordingEvidence();
-    assert(proof == recordingPathEvidence(
+    std::string committedRecording, committedSource;
+    assert(parseMediaImportResultEvidence(
+        proof, committedRecording, committedSource));
+    assert(committedRecording == recordingPathEvidence(
         "/ci-only/media-out/Media/2026-10-21.18.00.00-0.rec"));
-    assert(validRecordingPathEvidence(proof));
+    assert(committedSource == mediaImportSourceEvidence(
+        "/ci-only/media-in/recording.ts", 10, 11, 1024, 0, 42));
+    // The production cache refresh must accept current source-bound proofs
+    // and legacy recording-only journals, but not malformed composites.
+    assert(validMediaImportResultRecordingEvidence(proof));
+    assert(validMediaImportResultRecordingEvidence(committedRecording));
+    assert(!validMediaImportResultRecordingEvidence(proof + "|extra"));
+    assert(!validMediaImportResultRecordingEvidence(""));
     assert(receiptExecutor.takeRecordingEvidence().empty());
 }

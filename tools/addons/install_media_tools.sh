@@ -4,6 +4,15 @@
 # service/config/backup choreography as the installer for MLD or other init systems.
 set -Eeuo pipefail
 stop() { printf 'MEDIA_TOOLS_INSTALL=STOP %s\n' "$*" >&2; exit 1; }
+# Handler-only hotfix: reconcile the TWO already approved manual hashes.
+# No stage rebuild, service restart, activation, or new permission is performed.
+if [ "${1:-}" = reconcile-handler-approvals ]; then
+  [ "$#" -eq 4 ] ||
+    stop 'Usage: install_media_tools.sh reconcile-handler-approvals BACKEND REVIEWED_SHA256 EXISTING-APPROVALS-ONLY'
+  SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd -P) || stop 'script path unavailable'
+  exec python3 "$SCRIPT_DIR/reconcile_media_tools_approvals.py" \
+    --backend-id "$2" --approved-sha256 "$3" --confirm "$4"
+fi
 # Explicit offline rollback from the immutable root-owned update backup.
 if [ "${1:-}" = live-rollback ]; then
   [ "$#" -eq 5 ] ||
@@ -65,6 +74,7 @@ fi
 if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
   echo 'Usage: install_media_tools.sh COMMIT (--prepare|REVIEWED_SHA256) BACKEND [SOURCE_ROOT VIDEO_ROOT] [PREPARED_WORKDIR]'
   echo 'Reuse prepared: install_media_tools.sh prepare ABSOLUTE_WORKDIR REVIEWED_SHA256'
+  echo 'Handler-only: install_media_tools.sh reconcile-handler-approvals BACKEND REVIEWED_SHA256 EXISTING-APPROVALS-ONLY'
   echo 'Explicit offline live update: install_media_tools.sh live-update OLD_STAGE NEW_STAGE OLD_SHA256 NEW_SHA256 NEW_ROOT_BACKUP_DIR LIVE-UPDATE-REVIEWED'
   echo 'Explicit offline live rollback: install_media_tools.sh live-rollback BACKUP_DIR OLD_SHA256 NEW_SHA256 LIVE-ROLLBACK-REVIEWED'
   echo 'Isolated test only: install_media_tools.sh (update|rollback) OLD_STAGE NEW_STAGE SYNTHETIC_ROOT OLD_SHA256 NEW_SHA256 ISOLATED-ONLY'
@@ -471,6 +481,8 @@ override = ('[Service]\nExecStart=\n'
             '/var/lib/vdr-suite/backend-agent/media-shrink\n')
 if video_ready:
     override += 'ReadWritePaths=' + video + '\n'
+if source_ready:
+    override += 'ReadWritePaths=' + source + '\n'
 create('/etc/systemd/system/vdr-suite-backend-agent.service.d/20-media-tools.conf',
        override)
 PY

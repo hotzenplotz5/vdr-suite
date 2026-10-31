@@ -988,7 +988,9 @@ SeriesArtworkBackendSettingsService::materializeTmdbSeriesPoster(
 {
     if (!validBackendId(backendId) ||
         (externalNamespace != "tv" &&
-         externalNamespace != "tv-season") ||
+         externalNamespace != "tv-season" &&
+         externalNamespace != "movie" &&
+         externalNamespace != "tv-episode") ||
         !digitsOnly(externalId) ||
         !validTmdbPosterReference(
             posterReference))

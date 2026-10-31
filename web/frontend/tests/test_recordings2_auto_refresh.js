@@ -29,6 +29,7 @@ function makeHarness() {
   const renders = [];
   const modules = new Map();
   const marksNotifications = [];
+  const metadataRefreshes = [];
   const detailRoot = {};
   const target = {
     classList: {remove() {}},
@@ -105,6 +106,12 @@ function makeHarness() {
     VdrSuiteRecordings2MarksDetail: {
       notifyExternalMarksChanged(root) { marksNotifications.push(root); }
     },
+    VdrSuiteRecordings2MetadataDetail: {
+      refresh(root, recording, backendId) {
+        metadataRefreshes.push({root, recording, backendId});
+        return Promise.resolve(true);
+      }
+    },
     VdrSuiteRecordings2BrowserView: browserView
   };
   const context = vm.createContext({window, document, console, Date, Promise, Object,
@@ -140,7 +147,7 @@ function makeHarness() {
     await flush();
   }
   return {sources, api, owner: () => owner, requests, renders, timers, document, listeners,
-    marksNotifications, detailRoot, advance, page, respond, failNextLeaves() { failLeaves = true; },
+    marksNotifications, metadataRefreshes, detailRoot, advance, page, respond, failNextLeaves() { failLeaves = true; },
     setBackend(value) { backend = value; }};
 }
 
@@ -186,6 +193,17 @@ async function testLiveUpdates() {
   source.emit(8, 'default', ['recordings']);
   await h.advance(0);
   assert.strictEqual(h.requests.length, 4, 'folder refresh remains suspended while detail is open');
+  assert.strictEqual(h.metadataRefreshes.length, 1,
+    'one same-backend Recording feed hint refreshes metadata of the visible detail');
+  assert.strictEqual(h.metadataRefreshes[0].root, h.detailRoot);
+  assert.strictEqual(h.metadataRefreshes[0].backendId, 'default');
+  assert.strictEqual(h.metadataRefreshes[0].recording,
+    h.owner().getState().selectedRecording,
+    'detail refresh reuses the existing Recording and its playback owner');
+  source.emit(9, 'other', ['recordings']);
+  await h.advance(0);
+  assert.strictEqual(h.metadataRefreshes.length, 1,
+    'an unrelated backend cannot replace the visible detail poster');
   h.owner().closeDetail();
   await h.advance(0);
   assert.strictEqual(h.requests.length, 5, 'deferred folder hint is recovered after closing detail');

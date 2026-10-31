@@ -49,6 +49,8 @@
 struct BackendRuntimeContext
 {
     std::string backendId;
+    // The same VDR root already selected for Recording actions.
+    std::string nativeRecordingInfoRoot;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeRecordingCutTransport> embeddedCutTransport;
     std::unique_ptr<EmbeddedRecordingCutRuntime> embeddedCutRuntime;
     std::unique_ptr<vdrsuite::agent::SuiteBridgeRecordingMarksModifyTransport> embeddedMarksTransport;

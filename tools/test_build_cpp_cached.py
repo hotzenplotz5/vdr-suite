@@ -11,7 +11,7 @@ import tempfile
 WRAPPER = Path(__file__).with_name("build_cpp_cached.py")
 
 
-def run(command: list[str], cwd: Path, trace: Path) -> None:
+def run(command: list[str], cwd: Path, trace: Path, extra_env: dict[str, str] | None = None) -> None:
     subprocess.run(
         [
             sys.executable,
@@ -27,6 +27,7 @@ def run(command: list[str], cwd: Path, trace: Path) -> None:
         ],
         cwd=cwd,
         check=True,
+        env={**os.environ, **(extra_env or {})},
     )
 
 
@@ -107,6 +108,47 @@ def main() -> int:
         depfiles = list((root / ".build" / "obj").rglob("*.d"))
         if not depfiles:
             raise AssertionError("no dependency files were generated")
+
+        # A commit-only version change must *not* recompile unrelated
+        # translation units. The actual version consumer must be rebuilt.
+        (root / "ServerBuildIdentity.h").write_text(
+            '#pragma once\n#ifndef VDR_SUITE_SERVER_VERSION\n'
+            '#define VDR_SUITE_SERVER_VERSION "unknown"\n#endif\n'
+            'inline constexpr const char* version = VDR_SUITE_SERVER_VERSION;\n'
+        )
+        (root / "version.cpp").write_text(
+            '#include "ServerBuildIdentity.h"\n'
+            'const char* get_version() { return version; }\n'
+        )
+        (root / "version_main.cpp").write_text(
+            '#include <string>\n'
+            'const char* get_version();\n'
+            'int main() { return std::string(get_version()) == "git-new" ? 0 : 1; }\n'
+        )
+        v1 = [
+            "-std=c++17", '-DVDR_SUITE_SERVER_VERSION="git-old"',
+            "shared.cpp", "version.cpp", "version_main.cpp", "-o", ".build/old-version"
+        ]
+        v2 = [
+            "-std=c++17", '-DVDR_SUITE_SERVER_VERSION="git-new"',
+            "shared.cpp", "version.cpp", "version_main.cpp", "-o", ".build/new-version"
+        ]
+        run(v1, root, trace, {"VDR_SUITE_CXX_JOBS": "2"})
+        before = len(events(trace))
+        run(v2, root, trace, {
+            "VDR_SUITE_CXX_JOBS": "2",
+            "VDR_SUITE_CXX_CACHE_FROM_VERSION": "git-old",
+        })
+        subprocess.run([str(root / ".build" / "new-version")], check=True)
+        delta = events(trace)[before:]
+        def count(event: str, src: str) -> int:
+            return sum(e["event"] == event and e["source"] == src for e in delta)
+        if count("compile", "shared.cpp") or count("compile", "version_main.cpp"):
+            raise AssertionError(f"version bump rebuilt unrelated sources: {delta}")
+        if count("compile", "version.cpp") != 1:
+            raise AssertionError(f"version translation unit not rebuilt: {delta}")
+        if count("hit", "shared.cpp") != 1:
+            raise AssertionError(f"stable object not reused: {delta}")
 
     print("cached C++ build contract ok")
     return 0

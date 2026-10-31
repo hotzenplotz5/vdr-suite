@@ -27,6 +27,7 @@ int main()
 
     unsigned int admissions = 0;
     std::string expectedDecision;
+    std::string expectedMetadata;
     api.registerMediaImportAdmission(
         [&](const PublicMediaImportAdmissionRequest& input)
         {
@@ -38,6 +39,7 @@ int main()
             assert(input.videoDecision ==
                    (expectedDecision == "local" ? "" : expectedDecision));
             assert(input.approveVideoReencode == (expectedDecision == "local"));
+            assert(input.metadata == expectedMetadata);
             PublicMediaImportAdmissionResult r;
             r.status = PublicMediaImportAdmissionStatus::accepted;
             r.operation.operationId = "op_12345678901234567890123456789012";
@@ -57,7 +59,7 @@ int main()
     assert(admissions == 1);
 
     // Authenticated Public API path: only explicit known decisions.
-    for (const char* choice : {"local", "desktop", "skip", "release"}) {
+    for (const char* choice : {"local", "desktop", "skip", "release", "duplicate", "delete_duplicate"}) {
         expectedDecision = choice;
         const std::string payload =
             std::string("{\"sourceId\":\"opaque_source_123456\",") +
@@ -66,6 +68,29 @@ int main()
                        "a7-idem").statusCode == 202);
     }
     expectedDecision.clear();
+    // The pre-selected TMDb episode is frozen in the same import POST.
+    // v1 remains compatible; v2 adds the provider identity and artwork.
+    const std::string snapshotV1 =
+        "v1|episode|Andor|Das%20Auge|Episode%206|1|6";
+    const std::string snapshotV2 =
+        "v2|episode|Andor|Das%20Auge|Episode%206|1|6|tv-episode|123456|";
+    for (const std::string& snapshot : {snapshotV1, snapshotV2}) {
+        expectedMetadata = snapshot;
+        const auto payload = std::string("{\"sourceId\":\"opaque_source_123456\",") +
+            "\"metadata\":\"" + snapshot + "\"}";
+        assert(request(payload, "actor:alice", "backend-a",
+                       "a7-idem").statusCode == 202);
+    }
+    expectedMetadata.clear();
+    for (const std::string& snapshot : {
+        std::string("v2|episode|Andor|Das%20Auge|Episode%206|1|6"),
+        std::string("v3|episode|Andor|Das%20Auge|Episode%206|1|6|tv-episode|123456|")
+    }) {
+        const auto payload = std::string("{\"sourceId\":\"opaque_source_123456\",") +
+            "\"metadata\":\"" + snapshot + "\"}";
+        assert(request(payload, "actor:alice", "backend-a",
+                       "a7-idem").statusCode == 422);
+    }
     for (const char* choice : {"unknown", "pc_encode", "../escape", ""}) {
         const std::string payload =
             std::string("{\"sourceId\":\"opaque_source_123456\",") +
@@ -73,7 +98,7 @@ int main()
         assert(request(payload, "actor:alice", "backend-a",
                        "a7-idem").statusCode == 422);
     }
-    assert(admissions == 5);
+    assert(admissions == 9);
 
     assert(request(body, "", "backend-a", "a7-idem").statusCode == 401);
     assert(request(body, "actor:alice", "backend-b",
@@ -85,7 +110,7 @@ int main()
     assert(request("{\"sourceId\":\"opaque_source_123456\",\"sourceId\":\"opaque_source_123456\"}",
                    "actor:alice", "backend-a", "a7-idem").statusCode == 422);
     assert(request(body, "actor:alice", "backend-a", "").statusCode == 400);
-    assert(admissions == 5);
+    assert(admissions == 9);
 
     ApiResponse get;
     assert(api.tryHandleGet(path, "actor:alice", "", "", get));

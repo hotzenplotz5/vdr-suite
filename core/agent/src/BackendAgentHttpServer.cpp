@@ -1,10 +1,16 @@
 #include "BackendAgentHttpServer.h"
+#include "BackendAgentPhaseTiming.h"
 #include "BackendAgentMediaImportCatalog.h"
 #include "BackendAgentChannelObservationJson.h"
 #include "BackendAgentCommandJson.h"
 
 #include "CredentialVerifierRepository.h"
 #include "SecurityIdentityRepository.h"
+
+#include <openssl/crypto.h>
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
+#include <openssl/rand.h>
 
 #include <algorithm>
 #include <chrono>
@@ -13,6 +19,7 @@
 #include <cstdlib>
 #include <limits>
 #include <map>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -138,7 +145,8 @@ std::size_t skipSpace(const std::string& body, std::size_t position)
     return position;
 }
 
-bool jsonString(const std::string& body, const std::string& key, std::string& value)
+bool jsonString(const std::string& body, const std::string& key,
+                std::string& value, std::size_t maximumBytes = 4096U)
 {
     value.clear();
     const std::string needle = "\"" + key + "\"";
@@ -178,7 +186,7 @@ bool jsonString(const std::string& body, const std::string& key, std::string& va
         if (character == '"') return true;
         if (static_cast<unsigned char>(character) < 0x20U) return false;
         value.push_back(character);
-        if (value.size() > 4096) return false;
+        if (value.size() > maximumBytes) return false;
     }
     return false;
 }
@@ -331,6 +339,61 @@ BackendAgentHttpServer::BackendAgentHttpServer(
       identityRepository_(identityRepository),
       mediaImportCatalog_(mediaImportCatalog)
 {
+    // Failed process-local key generation simply retains the original
+    // password-verification behavior; never cache a plaintext secret.
+    secretCacheReady_ = RAND_bytes(
+        secretCacheKey_.data(),
+        static_cast<int>(secretCacheKey_.size())) == 1;
+}
+
+bool BackendAgentHttpServer::verifyAgentSecret(
+    const std::string& agentId,
+    const std::string& credentialId,
+    const std::string& passwordHash,
+    const std::string& secret) const
+{
+    if (!secretCacheReady_)
+        return backendAgentVerifySecret(secret, passwordHash);
+
+    std::array<unsigned char, EVP_MAX_MD_SIZE> digest{};
+    unsigned int digestLength = 0;
+    const bool digestReady = HMAC(
+        EVP_sha256(),
+        secretCacheKey_.data(),
+        static_cast<int>(secretCacheKey_.size()),
+        reinterpret_cast<const unsigned char*>(secret.data()),
+        secret.size(), digest.data(), &digestLength) != nullptr &&
+        digestLength == cachedSecretMac_.size();
+
+    if (digestReady)
+    {
+        std::lock_guard<std::mutex> lock(secretCacheMutex_);
+        if (secretCachePresent_ &&
+            cachedAgentId_ == agentId &&
+            cachedCredentialId_ == credentialId &&
+            cachedPasswordHash_ == passwordHash &&
+            CRYPTO_memcmp(
+                digest.data(), cachedSecretMac_.data(),
+                cachedSecretMac_.size()) == 0)
+            return true;
+    }
+
+    // First access, changed credential or incorrect secret: keep the existing
+    // expensive verifier and its constant-time hash comparison unchanged.
+    if (!backendAgentVerifySecret(secret, passwordHash))
+        return false;
+
+    if (digestReady)
+    {
+        std::lock_guard<std::mutex> lock(secretCacheMutex_);
+        cachedAgentId_ = agentId;
+        cachedCredentialId_ = credentialId;
+        cachedPasswordHash_ = passwordHash;
+        std::copy_n(digest.data(), cachedSecretMac_.size(),
+                    cachedSecretMac_.data());
+        secretCachePresent_ = true;
+    }
+    return true;
 }
 
 RequestSecurityContext BackendAgentHttpServer::authenticateAgent(
@@ -347,11 +410,16 @@ RequestSecurityContext BackendAgentHttpServer::authenticateAgent(
         context.authenticationState = AuthenticationState::Invalid;
         return context;
     }
+    const auto lookupStarted = std::chrono::steady_clock::now();
     const auto verifier = credentialVerifierRepository_.findByLogin(agentId);
     const auto agent = repository_.findAgent(agentId);
+    reportSlowBackendAgentPhase("authentication.db_lookup", lookupStarted);
+    const auto verifyStarted = std::chrono::steady_clock::now();
     const bool accepted = verifier.has_value() && agent.has_value() &&
         verifier->credentialId == agent->credentialId &&
-        backendAgentVerifySecret(secret, verifier->passwordHash);
+        verifyAgentSecret(
+            agentId, agent->credentialId, verifier->passwordHash, secret);
+    reportSlowBackendAgentPhase("authentication.secret_verify", verifyStarted);
     std::fill(secret.begin(), secret.end(), '\0');
     if (!accepted)
     {
@@ -359,9 +427,11 @@ RequestSecurityContext BackendAgentHttpServer::authenticateAgent(
         return context;
     }
 
+    const auto identityStarted = std::chrono::steady_clock::now();
     const auto actor = identityRepository_.findActor(agent->actorId);
     const auto device = identityRepository_.findDevice(agent->deviceId);
     const auto credential = identityRepository_.findCredential(agent->credentialId);
+    reportSlowBackendAgentPhase("authentication.identity_lookup", identityStarted);
     if (!actor.has_value() || actor->type != ActorType::Agent ||
         !device.has_value() || device->actorId != actor->actorId ||
         !credential.has_value() || credential->actorId != actor->actorId)
@@ -479,7 +549,9 @@ HttpServerResponse BackendAgentHttpServer::handleConnect(
     {
         return errorResponse(400, "invalid_agent_connect_payload");
     }
+    const auto phaseStarted = std::chrono::steady_clock::now();
     const BackendAgentConnectResult result = lifecycleService_.connect(context, connect, unixNow());
+    reportSlowBackendAgentPhase("connect.lifecycle", phaseStarted);
     if (!result.accepted) return errorResponse(409, result.reasonCode);
     std::ostringstream body;
     body << "{\"agentId\":\"" << jsonEscape(result.agentId)
@@ -508,8 +580,10 @@ HttpServerResponse BackendAgentHttpServer::handleHeartbeat(
     {
         return errorResponse(400, "invalid_agent_heartbeat_payload");
     }
+    const auto phaseStarted = std::chrono::steady_clock::now();
     const BackendAgentHeartbeatResult result = lifecycleService_.heartbeat(
         context, backendId, agentInstanceId, generation, sequence, unixNow());
+    reportSlowBackendAgentPhase("heartbeat.lifecycle", phaseStarted);
     if (!result.accepted) return errorResponse(409, result.reasonCode);
     std::ostringstream body;
     body << "{\"heartbeatSequence\":" << result.heartbeatSequence
@@ -632,6 +706,7 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
     std::vector<std::string> sourceIds;
     std::vector<std::string> sourceLabels;
     std::vector<std::string> sourceFolders;
+    std::vector<std::string> sourceStatuses;
     bool partial = true; // legacy Agents have no completeness proof
     if (request.body.find("\"partial\"") != std::string::npos &&
         !jsonBool(request.body, "partial", partial))
@@ -643,6 +718,9 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
     if (request.body.find("\"sourceFolders\"") != std::string::npos &&
         !jsonStringArray(request.body, "sourceFolders", sourceFolders, 100U, 240U))
         return errorResponse(400, "invalid_media_import_source_folders");
+    if (request.body.find("\"sourceStatuses\"") != std::string::npos &&
+        !jsonStringArray(request.body, "sourceStatuses", sourceStatuses, 100U, 24U))
+        return errorResponse(400, "invalid_media_import_source_statuses");
     if (!jsonString(request.body, "backendId", backendId) ||
         !jsonString(request.body, "agentInstanceId", instanceId) ||
         !jsonUnsigned(request.body, "backendGeneration", generation) ||
@@ -652,6 +730,9 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
         !jsonString(request.body, "handlerSha256", handlerSha256))
         return errorResponse(400, "invalid_media_import_sources_observation");
     BackendAgentMediaImportCatalog::Preview preview;
+    if (request.body.find("\"previewFailureCode\"") != std::string::npos &&
+        !jsonString(request.body, "previewFailureCode", preview.failureCode))
+        return errorResponse(400, "invalid_media_import_preview_diagnostic");
     const bool hasPreview = request.body.find("\"previewSourceId\"") !=
         std::string::npos;
     if (hasPreview &&
@@ -666,12 +747,34 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
          !jsonBool(request.body, "previewReencodeRequired",
                    preview.videoReencodeRequired)))
         return errorResponse(400, "invalid_media_import_preview");
+    if (hasPreview) {
+        const auto optionalString = [&](const char* key, std::string& value) {
+            return request.body.find(std::string("\"") + key + "\"") ==
+                    std::string::npos || jsonString(request.body, key, value);
+        };
+        if (!optionalString("previewNfoOutline", preview.nfoOutline) ||
+            !optionalString("previewNfoPlot", preview.nfoPlot) ||
+            !optionalString("previewNfoYear", preview.nfoYear) ||
+            !optionalString("previewNfoGenre", preview.nfoGenre))
+            return errorResponse(400, "invalid_media_import_preview_metadata");
+        if (request.body.find("\"previewDurationSeconds\"") != std::string::npos &&
+            !jsonUnsigned(request.body, "previewDurationSeconds",
+                          preview.durationSeconds))
+            return errorResponse(400, "invalid_media_import_preview_duration");
+        const auto artworkField = [&](const char* key, std::string& value) {
+            return request.body.find(std::string("\"") + key + "\"") ==
+                std::string::npos || jsonString(request.body, key, value, 349600U);
+        };
+        if (!artworkField("previewPosterDataUri", preview.posterDataUri) ||
+            !artworkField("previewFanartDataUri", preview.fanartDataUri))
+            return errorResponse(400, "invalid_media_import_preview_artwork");
+    }
     const auto live = repository_.findAgentForBackend(backendId);
     const auto now = unixNow();
     if (!live || !mediaImportCatalog_->publish(
             context, *live, backendId, instanceId, generation,
             sourceIds, now, handlerOrigin, handlerVersion, handlerSha256,
-            sourceLabels, partial, sourceFolders))
+            sourceLabels, partial, sourceFolders, sourceStatuses))
         return errorResponse(409, "media_import_sources_agent_fenced");
     // A user may choose film B while the Agent is still inspecting film A.
     // Ignore the stale A result rather than wedging the Agent's normal
@@ -697,7 +800,9 @@ HttpServerResponse BackendAgentHttpServer::handleCommandPoll(
     std::string reason;
     if (!parseBackendAgentCommandPollRequestJson(request.body, poll, reason))
         return errorResponse(400, reason);
+    const auto phaseStarted = std::chrono::steady_clock::now();
     const auto result = commandDeliveryService_.poll(context, poll, unixNow());
+    reportSlowBackendAgentPhase("command_poll.service", phaseStarted);
     if (!result.accepted) return errorResponse(409, result.reasonCode);
     return jsonResponse(200, serializeBackendAgentCommandPollResponseJson(result));
 }
@@ -794,7 +899,7 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
         ? BackendAgentOsdObservation::MaximumBodyBytes
         : channelObservation
         ? MaximumChannelObservationBodyBytes
-        : mediaSourcesObservation ? 64U * 1024U
+        : mediaSourcesObservation ? 1024U * 1024U
         : MaximumAgentBodyBytes;
     if (request.body.size() > maximumBodyBytes)
         return errorResponse(413, channelObservation
@@ -803,7 +908,9 @@ HttpServerResponse BackendAgentHttpServer::handleRequest(
     if (request.method != "POST") return errorResponse(405, "agent_method_not_allowed");
     if (request.path == "/api/agent/v1/enroll") return handleEnrollment(request);
 
+    const auto authenticationStarted = std::chrono::steady_clock::now();
     const RequestSecurityContext context = authenticateAgent(request);
+    reportSlowBackendAgentPhase("authentication", authenticationStarted);
     if (!context.authenticated()) return errorResponse(401, "agent_authentication_failed");
     if (request.path == "/api/agent/v1/credentials/rotate")
         return handleCredentialRotation(request, context);

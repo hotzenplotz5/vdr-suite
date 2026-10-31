@@ -32,7 +32,9 @@ public:
     // completion status; no filesystem paths escape to the client.
     bool listTrustedSourceSnapshot(
         const std::string& backendId,
-        std::vector<MediaImportSourceLabel>& sources, bool& partial);
+        std::vector<MediaImportSourceLabel>& sources, bool& partial,
+        const std::string& selectedSourceId = {},
+        LocalMediaImportSource* selectedSource = nullptr);
 
 
 private:

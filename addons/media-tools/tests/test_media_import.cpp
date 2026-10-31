@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 #include <cstdlib>
+#include <ctime>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -200,6 +202,9 @@ int main() {
         assert(capacity.requiredBytes == plan.sourceBytes * 3U +
             64U * 1024U * 1024U);
         assert(capacity.availableBytes > 0U);
+        assert(capacity.reserveBytes == 0U && capacity.sufficient);
+        // A local import is not refused because of a disk-free-space threshold.
+        requireProductionCapacity(plan);
         assert(!fs::exists(f.video / "Sample"));
         // An untrusted source selected from an authorized inventory may be
         // inspected for codec decision without creating recording artifacts.
@@ -209,6 +214,51 @@ int main() {
                 return {0, "vp9\n"};
             }
         } preview;
+        assert(readImportLocalMetadata(plan).description.empty());
+        const auto poster = f.input / "Sample.poster.jpg";
+        const auto fanart = f.input / "Sample.fanart.png";
+        {
+            std::ofstream out(poster, std::ios::binary);
+            const unsigned char jpg[] = {0xff, 0xd8, 0xff, 0xd9};
+            out.write(reinterpret_cast<const char*>(jpg), sizeof(jpg));
+        }
+        assert(readImportLocalArtwork(plan).posterDataUri ==
+            "data:image/jpeg;base64,/9j/2Q==");
+        assert(readImportLocalArtwork(plan).fanartDataUri.empty());
+        { std::ofstream out(fanart); out << "not a PNG"; }
+        assert(readImportLocalArtwork(plan).fanartDataUri.empty());
+        // Real magic bytes in the right adjacent file produce separate fanart.
+        {
+            std::ofstream out(fanart, std::ios::binary | std::ios::trunc);
+            const unsigned char png[] =
+                {0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};
+            out.write(reinterpret_cast<const char*>(png), sizeof(png));
+        }
+        assert(readImportLocalArtwork(plan).fanartDataUri ==
+               "data:image/png;base64,iVBORw0KGgo=");
+        fs::remove(poster);
+        fs::remove(fanart);
+        assert(readImportLocalArtwork(plan).posterDataUri.empty());
+        assert(readImportLocalArtwork(plan).fanartDataUri.empty());
+        // Generic cover applies to a single film directory only.
+        const auto generic = f.input / "poster.jpg";
+        {
+            std::ofstream out(generic, std::ios::binary);
+            const unsigned char jpg[] = {0xff, 0xd8, 0xff, 0xd9};
+            out.write(reinterpret_cast<const char*>(jpg), sizeof(jpg));
+        }
+        assert(readImportLocalArtwork(plan).posterDataUri ==
+               "data:image/jpeg;base64,/9j/2Q==");
+        {
+            std::ofstream other(f.input / "Other.mkv");
+            other << "second independent video";
+        }
+        assert(readImportLocalArtwork(plan).posterDataUri.empty());
+        fs::remove(f.input / "Other.mkv");
+        fs::remove(generic);
+        fs::create_symlink(f.source, poster);
+        assert(readImportLocalArtwork(plan).posterDataUri.empty());
+        fs::remove(poster);
         assert(probeImportVideoCodec(plan, preview) == "vp9");
         assert(importVideoNeedsReencode(probeImportVideoCodec(plan, preview)));
         const auto details = inspectImportPreview(f.request(), preview);
@@ -219,6 +269,21 @@ int main() {
         assert(!fs::exists(f.video / "Sample"));
         assert(fs::exists(f.source));
         assert(!fs::exists(f.video / "Sample"));
+        // MT.META2: Optional FFprobe duration is read-only and never required
+        // to decide whether a source can be imported.
+        struct DurationProbe final : ProcessRunner {
+            ProcessResult run(const std::vector<std::string>& args,
+                              bool capture) override {
+                assert(capture && args[0] == "/usr/bin/ffprobe");
+                assert(std::find(args.begin(), args.end(), "format=duration") != args.end());
+                assert(args.back() == source);
+                return {0, "3120.25"};
+            }
+            std::string source;
+        } duration;
+        duration.source = f.source.string();
+        assert(probeImportDurationSeconds(plan, duration) == 3120.25);
+        assert(!fs::exists(f.video / "Sample") && fs::exists(f.source));
         ++checks;
     }
     {
@@ -238,6 +303,41 @@ int main() {
         const auto duplicate = inspectImportPreview(request);
         assert(duplicate.duplicateTarget &&
                duplicate.titleDirectory == base.titleDirectory);
+        // A protective .rec collision is NOT proof for automatic marking.
+        assert(!confirmedMediaImportDuplicate(duplicate));
+        const auto existingRec =
+            f.video / "Sample" / "2026-01-01.00.00.1-0.rec";
+        std::ofstream(existingRec / "info") << "T Another Film\n";
+        std::ofstream(existingRec / "index") << "synthetic index";
+        std::ofstream(existingRec / "00001.ts") << "synthetic video";
+        // An unrelated recording in the exact target directory must not
+        // authorize cleanup without the source title or Suite provenance.
+        assert(!confirmedMediaImportDuplicate(duplicate));
+        std::ofstream(existingRec / "info", std::ios::trunc) <<
+            "T Corrected Episode Title\nS Imported via VDR-Suite Media Tools\n";
+        // A native-info correction must not hide our original, complete
+        // recording from inventory after a restart.
+        assert(confirmedMediaImportDuplicate(duplicate));
+        std::ofstream(existingRec / "info", std::ios::trunc) << "T Sample\n";
+        // Exact original title also works for legacy/NFO imports.
+        // The unmarked path authorizes direct cleanup only after final
+        // revalidation; no .duplicate rename is required.
+        assert(confirmedMediaImportDuplicate(duplicate));
+        // An exact .duplicate marker can be re-inspected read-only. It must
+        // never enter an ordinary VDR import regardless of file extension.
+        const auto markedFile = f.input / "Sample.duplicate.mp4";
+        fs::rename(f.source, markedFile);
+        auto markedRequest = request;
+        markedRequest.sourceFile = markedFile;
+        const auto markedPlan = inspectMarkedDuplicatePreview(markedRequest);
+        assert(markedPlan.title == "Sample" && markedPlan.duplicateTarget &&
+               confirmedMediaImportDuplicate(markedPlan));
+        mustFail([&] { inspectImportPreview(markedRequest); });
+        fs::remove(existingRec / "index");
+        assert(!confirmedMediaImportDuplicate(markedPlan));
+        fs::rename(markedFile, f.source);
+        // A missing index must not auto-mark the source.
+        assert(!confirmedMediaImportDuplicate(duplicate));
         mustFail([&] { inspectImport(request); }); // write path still rejects
         struct ReadOnlyCodec : ProcessRunner {
             ProcessResult run(const std::vector<std::string>& args,
@@ -330,8 +430,23 @@ int main() {
         Fixture f;
         FakeProcess runner;
         auto plan = inspectImport(f.request());
+        // Model a VDR scanner that already updated in this same second.
+        // NeedsUpdate() uses strict whole-second comparison, so the marker
+        // MUST advance beyond that second, not merely change nanoseconds.
+        const auto marker = f.video / ".update";
+        std::ofstream(marker) << "";
+        const auto oldTime = fs::file_time_type::clock::now() -
+                             std::chrono::hours(2);
+        fs::last_write_time(marker, oldTime);
+        const std::time_t scannerLastUpdate = std::time(nullptr);
         const auto output = executeRemuxImport(plan, runner, [](const ImportPlan&) {});
         assert(fs::exists(output / "00001.ts") && fs::exists(output / "index"));
+        assert(fs::last_write_time(marker) > oldTime);
+        struct stat markerInfo{};
+        assert(::stat(marker.c_str(), &markerInfo) == 0);
+        assert(markerInfo.st_mtime > scannerLastUpdate);
+        assert(markerInfo.st_mtime <= std::time(nullptr));
+        assert(!fs::exists(output.parent_path() / ".update"));
         assert(fs::exists(f.source));
         assert(!fs::exists(runner.probedSource));
         assert(runner.probes == 5 && runner.remuxes == 1 && runner.indices == 1);
@@ -377,6 +492,7 @@ int main() {
         runner.failIndex = true;
         mustFail([&] { executeRemuxImport(plan, runner,
             [](const ImportPlan&) {}); });
+        assert(!fs::exists(f.video / ".update")); // failed import cannot announce
         assert(fs::exists(f.video / "Serien" / "Andor") &&
                !fs::exists(f.video / "Serien" / "Andor" / "Staffel 1") &&
                fs::exists(req.sourceFile));
@@ -384,6 +500,7 @@ int main() {
         const auto output = executeRemuxImport(plan, runner,
             [](const ImportPlan&) {});
         assert(output.parent_path() == plan.titleDirectory);
+        assert(fs::is_regular_file(f.video / ".update"));
         ++checks;
     }
     {
@@ -445,6 +562,13 @@ int main() {
         FakeProcess runner;
         const auto plan = inspectImport(f.request());
         assert(plan.title == "Example & Friends");
+        const auto local = readImportLocalMetadata(plan);
+        assert(local.title == "Example & Friends");
+        assert(local.shortText == "Short text" &&
+               local.description == "A longer description.");
+        assert(local.year == "2024" && local.genre == "Drama");
+        assert(fs::exists(f.source));
+        assert(!fs::exists(f.video / "Example & Friends"));
         const auto output = executeRemuxImport(
             plan, runner, [](const ImportPlan&) {});
         std::ifstream info(output / "info");
@@ -460,6 +584,310 @@ int main() {
                fs::exists(f.input / "Sample.srt") &&
                fs::exists(f.input / "Sample.de.srt") &&
                fs::exists(f.source));
+        ++checks;
+    }
+    {
+        // MT.META6.2: explicit, trusted series/episode metadata is written
+        // to the native staged VDR info. No second recording, changed source,
+        // or parallel metadata database is involved.
+        Fixture f;
+        FakeProcess runner;
+        const auto plan = inspectImport(f.request());
+        ImportConfirmedMetadata andor;
+        andor.mediaType = "episode";
+        andor.seriesTitle = "Star Wars: Andor";
+        andor.title = "Kassa";
+        andor.overview = "Die Suche nach seiner Schwester beginnt.";
+        andor.seasonNumber = 1;
+        andor.episodeNumber = 1;
+        const std::string expected =
+            "T Star Wars: Andor\n"
+            "S Kassa\n"
+            "D Die Suche nach seiner Schwester beginnt.\n";
+        assert(renderNativeVdrRecordingInfo(
+            plan, ImportLocalMetadata{}, &andor) == expected);
+        const auto output = executeRemuxImport(
+            plan, runner, [](const ImportPlan&) {}, false, &andor);
+        std::ifstream info(output / "info", std::ios::binary);
+        const std::string written((std::istreambuf_iterator<char>(info)),
+                                  std::istreambuf_iterator<char>());
+        assert(written == expected);
+        assert(fs::is_regular_file(output / "00001.ts") &&
+               fs::is_regular_file(output / "index") &&
+               fs::exists(f.source) && runner.remuxes == 1);
+        ++checks;
+    }
+    {
+        // S01E02 and movie variants: fallback to NFO for absent provider
+        // fields, preserve UTF-8, and never treat an overview newline as
+        // an injected second VDR info record.
+        ImportPlan plan;
+        plan.title = "Legacy source name";
+        ImportLocalMetadata nfo;
+        nfo.shortText = "Local outline";
+        nfo.description = "Local plot";
+        nfo.year = "2022";
+        nfo.genre = "Drama";
+        ImportConfirmedMetadata episode;
+        episode.mediaType = "episode";
+        episode.seriesTitle = "Star Wars: Andor";
+        episode.title = "Das bin ich";
+        episode.overview = "Beschreibung\nT Injected\rS fake";
+        episode.seasonNumber = 1;
+        episode.episodeNumber = 2;
+        assert(renderNativeVdrRecordingInfo(plan, nfo, &episode) ==
+            "T Star Wars: Andor\n"
+            "S Das bin ich\n"
+            "D Beschreibung T Injected S fake | Year: 2022 | Genre: Drama\n");
+        ImportConfirmedMetadata movie;
+        movie.mediaType = "movie";
+        movie.title = "Der Film";
+        assert(renderNativeVdrRecordingInfo(plan, nfo, &movie) ==
+            "T Der Film\n"
+            "S Local outline\n"
+            "D Local plot | Year: 2022 | Genre: Drama\n");
+        assert(renderNativeVdrRecordingInfo(plan, nfo, nullptr) ==
+            "T Legacy source name\n"
+            "S Local outline\n"
+            "D Local plot | Year: 2022 | Genre: Drama\n");
+        ++checks;
+    }
+    {
+        // MT.META6.3: rewrite only the descriptive T/S/D records of an
+        // existing completed recording. Preserve channel, event, FPS and
+        // extension records, including their order, exactly as read.
+        const std::string previous =
+            "C S19.2E-1-1101-28106 Das Erste HD\n"
+            "E 1234 1740000000 3600 4E 00\n"
+            "T DE - Star Wars_ Andor (2022) - S01E01\n"
+            "S Imported via VDR-Suite Media Tools\n"
+            "D Alter Einleitungstext\n"
+            "D Alter Fortsetzungstext\n"
+            "F 25\n"
+            "P 99\n"
+            "X 2 03 deu\n";
+        ImportConfirmedMetadata episode;
+        episode.mediaType = "episode";
+        episode.seriesTitle = "Star Wars: Andor";
+        episode.title = "Kassa";
+        episode.overview = "Neue Episodenbeschreibung";
+        episode.seasonNumber = 1;
+        episode.episodeNumber = 1;
+        const std::string updated =
+            "C S19.2E-1-1101-28106 Das Erste HD\n"
+            "E 1234 1740000000 3600 4E 00\n"
+            "T Star Wars: Andor\n"
+            "S Kassa\n"
+            "D Neue Episodenbeschreibung\n"
+            "F 25\n"
+            "P 99\n"
+            "X 2 03 deu\n";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, episode) == updated);
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(updated, episode) == updated);
+        ++checks;
+    }
+    {
+        // CRLF, missing metadata fields, malformed line breaks from a
+        // provider, and unknown provider type must not damage native records.
+        const std::string previous =
+            "C C-1-101-102 Channel\r\n"
+            "T Alter Titel\r\n"
+            "S Originaler Untertitel\r\n"
+            "F 50\r\n";
+        ImportConfirmedMetadata episode;
+        episode.mediaType = "episode";
+        episode.seriesTitle = "Andor";
+        episode.title = "Das bin ich";
+        episode.overview = "Beschreibung\nE Fake Event\rD Fake Text";
+        const std::string result =
+            "C C-1-101-102 Channel\r\n"
+            "T Andor\r\n"
+            "S Das bin ich\r\n"
+            "F 50\r\n"
+            "D Beschreibung E Fake Event D Fake Text\r\n";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, episode) == result);
+        episode.overview.clear();
+        const std::string withoutOverview =
+            "C C-1-101-102 Channel\r\n"
+            "T Andor\r\n"
+            "S Das bin ich\r\n"
+            "F 50\r\n";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, episode) ==
+               withoutOverview);
+        episode.mediaType = "unsupported";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, episode) == previous);
+        ++checks;
+    }
+    {
+        // Correcting a movie must retain the original subtitle and sidecar
+        // records. Unknown TMDb fields never silently erase native text.
+        const std::string previous = "T Old Movie\nS Old Summary\nD Local plot\nF 25\n";
+        ImportConfirmedMetadata movie;
+        movie.mediaType = "movie";
+        movie.title = "New Movie";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, movie) ==
+            "T New Movie\nS Old Summary\nD Local plot\nF 25\n");
+        movie.overview = "Confirmed description";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, movie) ==
+            "T New Movie\nS Old Summary\nD Confirmed description\nF 25\n");
+        ++checks;
+    }
+    {
+        // Legacy selected episode: title/plot are known but the former
+        // import never retained a confirmed series title. Keep T as-is
+        // rather than inventing a show, while fixing S/D atomically.
+        Fixture f;
+        const fs::path rec = f.video / "Old" /
+            "2026-10-28.17.29.1-0.rec";
+        fs::create_directories(rec);
+        std::ofstream(rec/"info",std::ios::binary)
+            << "T DE - Star Wars Andor S01E02\n"
+               "S Imported via VDR-Suite Media Tools\nF 25\n";
+        std::ofstream(rec/"index",std::ios::binary) << "index";
+        std::ofstream(rec/"00001.ts",std::ios::binary) << "video";
+        ImportConfirmedMetadata selected;
+        selected.mediaType = "episode";
+        selected.title = "Das bin ich";
+        selected.overview = "Bereits bestätigte Episodenbeschreibung";
+        selected.seasonNumber = 1;
+        selected.episodeNumber = 2;
+        assert(updateConfirmedNativeVdrInfo(f.video,rec,selected));
+        std::ifstream info(rec/"info",std::ios::binary);
+        const std::string actual(
+            (std::istreambuf_iterator<char>(info)),
+            std::istreambuf_iterator<char>());
+        assert(actual == "T DE - Star Wars Andor S01E02\n"
+            "S Das bin ich\nF 25\n"
+            "D Bereits bestätigte Episodenbeschreibung\n");
+        assert(fs::is_regular_file(rec/".vdr-suite-import-origin"));
+        assert(!updateConfirmedNativeVdrInfo(f.video,rec,selected));
+        assert(fs::file_size(rec/"00001.ts") == 5 &&
+               fs::file_size(rec/"index") == 5);
+        ++checks;
+    }
+    {
+        // Retrofit an existing recording without calling the import worker,
+        // changing TS/index, touching the input, or making a TMDb request.
+        Fixture f;
+        const fs::path rec = f.video / "Sample" /
+            "2026-10-28.17.06.1-0.rec";
+        fs::create_directories(rec);
+        const std::string oldInfo =
+            "C Channel\nT Sample\n"
+            "S Imported via VDR-Suite Media Tools\nE 123 456 789 4E 00\nF 25\n";
+        std::ofstream(rec/"info",std::ios::binary) << oldInfo;
+        std::ofstream(rec/"index",std::ios::binary) << "index";
+        std::ofstream(rec/"00001.ts",std::ios::binary) << "transport stream";
+        ImportConfirmedMetadata selected;
+        assert(parseFrozenImportMetadata(
+            "v2|episode|Star%20Wars%3A%20Andor|Kassa|"
+            "Vorhandene%20Beschreibung|1|1|tv-episode|221|%2Fposter.jpg",
+            selected));
+        const auto duplicateBefore = inspectImportPreview(f.request());
+        assert(duplicateBefore.duplicateTarget &&
+               confirmedMediaImportDuplicate(duplicateBefore));
+        assert(updateConfirmedNativeVdrInfo(f.video,rec,selected));
+        assert(fs::is_regular_file(rec / ".vdr-suite-import-origin"));
+        assert(confirmedMediaImportDuplicate(inspectImportPreview(f.request())) &&
+               "legacy source identity must survive the T/S rewrite");
+        std::ifstream readback(rec/"info",std::ios::binary);
+        const std::string actual((std::istreambuf_iterator<char>(readback)),
+                                 std::istreambuf_iterator<char>());
+        assert(actual == "C Channel\nT Star Wars: Andor\nS Kassa\n"
+            "E 123 456 789 4E 00\nF 25\nD Vorhandene Beschreibung\n");
+        assert(!updateConfirmedNativeVdrInfo(f.video,rec,selected));
+        assert(fs::file_size(rec/"index") == 5 &&
+               fs::file_size(rec/"00001.ts") == 16 &&
+               fs::exists(f.source) && fs::exists(f.video/".update"));
+        const fs::path outside=f.input/"outside.rec";
+        fs::create_directory(outside);
+        std::ofstream(outside/"info") << oldInfo;
+        std::ofstream(outside/"index") << "index";
+        std::ofstream(outside/"00001.ts") << "transport stream";
+        mustFail([&] { updateConfirmedNativeVdrInfo(f.video,outside,selected); });
+        fs::remove(rec/"info");
+        fs::create_symlink(outside/"info",rec/"info");
+        mustFail([&] { updateConfirmedNativeVdrInfo(f.video,rec,selected); });
+        std::ifstream source(outside/"info",std::ios::binary);
+        const std::string unchanged((std::istreambuf_iterator<char>(source)),
+                                    std::istreambuf_iterator<char>());
+        assert(unchanged == oldInfo);
+        ++checks;
+    }
+    {
+        // MT.META6 end-to-end worker boundary: one frozen S01E01 provider
+        // result travels unchanged from the original import operation to
+        // the actual native staged 'info'; no provider call or second import.
+        const std::string snapshot =
+            "v1|episode|Star%20Wars%3A%20Andor|Kassa|"
+            "Die%20Suche%20beginnt.|1|1";
+        ImportConfirmedMetadata decoded;
+        assert(parseFrozenImportMetadata(snapshot, decoded));
+        assert(decoded.mediaType == "episode" &&
+               decoded.seriesTitle == "Star Wars: Andor" &&
+               decoded.title == "Kassa" &&
+               decoded.overview == "Die Suche beginnt." &&
+               decoded.seasonNumber == 1 && decoded.episodeNumber == 1);
+        Fixture f;
+        FakeProcess runner;
+        const auto output = executeRemuxImport(
+            inspectImport(f.request()), runner,
+            [](const ImportPlan&) {}, false, &decoded);
+        std::ifstream stream(output / "info", std::ios::binary);
+        const std::string info((std::istreambuf_iterator<char>(stream)),
+                               std::istreambuf_iterator<char>());
+        assert(info == "T Star Wars: Andor\nS Kassa\n"
+                       "D Die Suche beginnt.\n");
+        assert(fs::exists(output / "00001.ts") &&
+               fs::exists(output / "index") && fs::exists(f.source));
+        assert(fs::is_regular_file(output / ".vdr-suite-import-origin"));
+        const auto duplicate = inspectImportPreview(f.request());
+        assert(duplicate.duplicateTarget &&
+               confirmedMediaImportDuplicate(duplicate) &&
+               "native TMDb T/S rewrite must not hide the existing VDR recording");
+        ++checks;
+    }
+    {
+        // Percent-encoded delimiter, Unicode and malformed data are handled
+        // in the worker itself, not by a second TMDb request.
+        ImportConfirmedMetadata decoded;
+        assert(parseFrozenImportMetadata(
+            "v1|episode|Andor|Das%20bin%20ich|"
+            "%C3%84rger%20%7C%20Freude|1|2", decoded));
+        assert(decoded.title == "Das bin ich" &&
+               decoded.overview == "Ärger | Freude" &&
+               decoded.episodeNumber == 2);
+        assert(!parseFrozenImportMetadata(
+            "v1|episode|Andor|X|bad%2|1|2", decoded));
+        assert(!parseFrozenImportMetadata(
+            "v1|episode|Andor|X|bad%00data|1|2", decoded));
+        assert(!parseFrozenImportMetadata(
+            "v1|episode|Andor|X|nope|1|0", decoded));
+        assert(parseFrozenImportMetadata(
+            "v1|movie||Film|Beschreibung|0|0", decoded));
+        assert(decoded.mediaType == "movie" && decoded.title == "Film");
+        // Same data already found before admission. v2 preserves the exact
+        // TMDb identity and poster reference needed after native readback.
+        assert(parseFrozenImportMetadata(
+            "v2|episode|Star%20Wars%3A%20Andor|Kassa|"
+            "Beschreibung|1|1|tv-episode|45001|%2Fexample.jpg", decoded));
+        assert(decoded.mediaType == "episode" &&
+               decoded.seriesTitle == "Star Wars: Andor" &&
+               decoded.title == "Kassa" &&
+               decoded.externalNamespace == "tv-episode" &&
+               decoded.externalId == "45001" &&
+               decoded.posterReference == "/example.jpg" &&
+               decoded.seasonNumber == 1 && decoded.episodeNumber == 1);
+        assert(parseFrozenImportMetadata(
+            "v2|movie||Der%20Film|Beschreibung|0|0|movie|12345|", decoded));
+        assert(decoded.mediaType == "movie" &&
+               decoded.externalNamespace == "movie" &&
+               decoded.externalId == "12345" &&
+               decoded.posterReference.empty());
+        assert(!parseFrozenImportMetadata(
+            "v2|episode|Andor|Kassa|Text|1|1|movie|12345|", decoded));
+        assert(!parseFrozenImportMetadata(
+            "v2|episode|Andor|Kassa|Text|1|1|tv-episode|123x|", decoded));
         ++checks;
     }
     {

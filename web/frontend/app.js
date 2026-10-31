@@ -9,7 +9,21 @@ let selectedBackendId = '';
 let selectedBackend = null;
 let selectedModule = 'overview';
 let mediaImportCapabilityEpoch = 0;
+let mediaImportKnownBackendId = '';
 const mediaImportTab = document.querySelector('.module-tab[data-module="media-import"]');
+
+// Keep the live tab order independent of addon activation and delayed capability
+// responses. The shipped HTML already has the correct order; an addon or older
+// shell DOM may still have moved the tab by the time it becomes available.
+function placeMediaImportTab() {
+  const nav = document.getElementById('module-nav');
+  const recordingsTab = nav && nav.querySelector('.module-tab[data-module="recordings2"]');
+  if (!nav || !recordingsTab || !mediaImportTab ||
+      recordingsTab.parentNode !== nav || mediaImportTab.parentNode !== nav) return;
+  if (recordingsTab.nextElementSibling !== mediaImportTab)
+    nav.insertBefore(mediaImportTab, recordingsTab.nextElementSibling);
+}
+placeMediaImportTab();
 
 function mediaImportModule() {
   return frontendPlatformModule('media-import', window.VdrSuiteMediaImport);
@@ -17,9 +31,11 @@ function mediaImportModule() {
 
 function resetMediaImportVisibility(clearSession) {
   ++mediaImportCapabilityEpoch;
+  if (clearSession) mediaImportKnownBackendId = '';
   if (mediaImportTab) {
     mediaImportTab.hidden = true;
     mediaImportTab.disabled = true;
+    mediaImportTab.title = '';
   }
   const moduleApi = mediaImportModule();
   if (moduleApi) {
@@ -32,30 +48,67 @@ function resetMediaImportVisibility(clearSession) {
 }
 
 function refreshMediaImportVisibility(backendId) {
+  // A signed-out browser must never reopen the tab, even when a previous
+  // backend was known during its old authenticated session.
+  if (!browserSessionFrontendActive || !backendId)
+    return Promise.resolve(false);
   const epoch = ++mediaImportCapabilityEpoch;
+  const known = mediaImportKnownBackendId === backendId;
+  const wasAvailable = Boolean(mediaImportTab && !mediaImportTab.hidden &&
+    !mediaImportTab.disabled);
+  // The tab is a navigation surface, not an Agent lease. Keep it
+  // accessible while the daemon/Agent recovers. The authenticated source
+  // endpoints and every mutation perform their own checks.
   if (mediaImportTab) {
-    mediaImportTab.hidden = true;
-    mediaImportTab.disabled = true;
+    mediaImportTab.hidden = false;
+    mediaImportTab.disabled = false;
   }
   const moduleApi = mediaImportModule();
   if (!mediaImportTab || !moduleApi ||
       typeof moduleApi.checkCapability !== 'function') return Promise.resolve(false);
+
+  function unavailable() {
+    // A capability observation is not authorization to destroy an existing
+    // view. In particular, intermittent lease/transport failures must not
+    // wipe a source list or make the whole add-on unusable.
+    mediaImportTab.hidden = false;
+    mediaImportTab.disabled = false;
+    mediaImportTab.title = 'Agent-Status momentan unbestätigt. Media Import bleibt ' +
+      'bedienbar; Aktionen werden bei Ausführung vom Backend geprüft.';
+    // Return navigation availability, NOT the Agent command capability.
+    // The actual Core POST owns action authorization.
+    mediaImportKnownBackendId = backendId;
+    return true;
+  }
 
   return Promise.resolve().then(function () {
     return moduleApi.checkCapability(backendId);
   }).then(function (available) {
     if (epoch !== mediaImportCapabilityEpoch ||
         selectedBackendId !== backendId || !browserSessionFrontendActive) return false;
-    mediaImportTab.hidden = !available;
-    mediaImportTab.disabled = !available;
-    if (!available && selectedModule === 'media-import') selectModule('overview');
-    return available;
-  }).catch(function () {
-    if (epoch === mediaImportCapabilityEpoch &&
-        selectedBackendId === backendId && selectedModule === 'media-import') {
-      selectModule('overview');
+    if (!available) return unavailable();
+    mediaImportKnownBackendId = backendId;
+    placeMediaImportTab();
+    mediaImportTab.hidden = false;
+    mediaImportTab.disabled = false;
+    mediaImportTab.title = '';
+    // Never remount a running media-import view just because a capability
+    // response arrived. Opening the tab is the single navigation owner.
+
+    return true;
+  }).catch(function (error) {
+    if (epoch !== mediaImportCapabilityEpoch ||
+        selectedBackendId !== backendId || !browserSessionFrontendActive) return false;
+    if (error && (error.status === 401 || error.status === 403)) {
+      // An actual authorization denial is not a temporary transport outage.
+      mediaImportKnownBackendId = '';
+      mediaImportTab.hidden = true;
+      mediaImportTab.disabled = true;
+      mediaImportTab.title = '';
+      if (selectedModule === 'media-import') selectModule('overview');
+      return false;
     }
-    return false;
+    return unavailable();
   });
 }
 
@@ -3901,6 +3954,7 @@ function shouldPublishHomeResume(previousModule) {
 }
 
 function selectModule(moduleName) {
+  placeMediaImportTab();
   if (moduleName === 'media-import' &&
       (!mediaImportTab || mediaImportTab.hidden || mediaImportTab.disabled)) return;
   const previousModule = selectedModule;
@@ -4150,11 +4204,10 @@ refreshDetailButton.addEventListener('click', () => {
   }
 
   if (selectedModule === 'media-import') {
-    refreshMediaImportVisibility(selectedEpgBackendId()).then(function (available) {
-      if (available && selectedModule === 'media-import') {
-        renderSelectedModule(currentSnapshot || {});
-      }
-    });
+    // Navigation is independent of the Agent's transient capability read.
+    // Backend changes and sign-out still reset module access explicitly.
+    if (browserSessionFrontendActive && selectedEpgBackendId())
+      renderSelectedModule(currentSnapshot || {});
     return;
   }
 

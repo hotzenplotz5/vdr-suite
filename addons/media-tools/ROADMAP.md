@@ -5,6 +5,665 @@
 **Branch:** PR #551 ist auf `main` gemergt. Für MT.HA gilt ausschließlich der Integrationsbranch `work/mt-ha-media-tools-hardware-acceptance` bis zur getrennten Mergefreigabe; kein neues Repo, keine Phase 70.  
 **Bestehende Grenzen:** [Add-on-Plattform-Roadmap](../../docs/planning/addon-platform-roadmap.md), dort A6/A7.5 und M1.R (Import/HandBrake/Überspringen).
 
+
+## Verbindliche Debug- und Sperrfreigabe-Regel (29.10.2026)
+
+**Betreiberentscheidung:** Für **jede neue Sperrlogik** in Media Tools / Media Import
+muss vor der Implementierung eine ausdrückliche Rücksprache und Freigabe
+erfolgen. Das gilt für Webfrontend, Core, Backend-Agent, Add-on und Installer,
+einschließlich indirekter Sperren durch globale Pending-/Unknown-Zustände.
+
+Vor einem Vorschlag konkret benennen:
+1. Welche **belegte Fehlerklasse** die Sperre verhindern soll;
+2. **welche einzelne Quelle/Aktion** betroffen wäre und warum keine größere Reichweite;
+3. sichtbare Benutzerwirkung, Aufhebung und mögliche Alternativen;
+4. bestehende Prüfungen, die bereits ausreichen könnten.
+
+**Ohne Freigabe keine neue Blockade, kein zusätzliches Gate und kein
+pauschales Deaktivieren unabhängiger Filme oder Aktionen.** Bestehende
+notwendige Authentifizierung/Autorisierung, Quellenidentität und Readback werden
+durch diese Regel weder deaktiviert noch stillschweigend ausgeweitet.
+
+**Diagnose zuerst:** Möglichst konkrete, *belegte* Status-/Fehlerangaben
+aus den vorhandenen API-/Agent-/Core-Ergebnissen anzeigen. Die öffentliche
+Operation liefert derzeit zwar ihren Core-Zustand, jedoch nicht die
+Agent-Ausführungsstufe, den Dateisystemfehler oder eine einzelne
+Löschquittung. Ein `outcome_unknown` ist daher keine bestätigte Löschung,
+aber auch kein nachgewiesener Löschfehler. Fehlende Informationen als
+*unbekannt* kennzeichnen, keine Ursachen erfinden. Technische Details
+der Benutzeroberfläche dürfen Backend-ID, Quellkennung, Aktion,
+Operations-ID, Status, letzte Statusabfrage und bereinigte Fehlerklasse
+anzeigen, jedoch keine geheimen Tokens oder freie interne Fehlermeldung
+ungeprüft ausgeben. Zur tieferen Ursachenfindung vorhandene lesende
+Agent-/Command-Ergebnisdiagnose nutzen. Diagnostik führt keinen neuen Import,
+keine Löschung, keinen Hintergrundjob und keine Berechtigungsänderung aus.
+**Diese Regel erfordert weder DB-Backup noch neues Sicherheitsframework.**
+
+## BAS — Backend-Agent Simplification (nächste Phase nach Media Tools; NOT STARTED)
+
+**Verbindliche Nutzerentscheidung vom 28.10.2026:** Nach Abschluss der laufenden Media-Tools-/Media-Import-Arbeiten ist **Backend-Agent Simplification** die nächste Refactoring-Phase. Bis dahin werden die bereits freigegebenen MT-Arbeiten fortgeführt; BAS beginnt **nicht** automatisch durch diesen Roadmap-Eintrag. Die übergreifende Reihenfolge steht auch in [VDR-Suite Strict Roadmap](../../docs/planning/roadmap.md). Nummerierte Phase 70 wird dadurch weder umbenannt noch gestartet.
+
+**Ziel:** Den bestehenden Backend-Agenten auf Transport, Quellbeobachtungen und tatsächliche Ausführung beschränken. Reine lesende Medienfunktionen (Scan, lokale Metadaten, Vorschau, Artwork) sollen ohne zusätzliche künstliche Aktivierungs- oder Ausführungsfreigaben funktionieren. Vorhandene Authentifizierung, notwendige Berechtigungen für Schreibaktionen, Importbestätigung und Readback bleiben erhalten. Keine neuen Rollen, Sicherheitsschichten, Dienste, Queues oder Datenbanken ohne erneuten expliziten Auftrag.
+
+**Geplante, abgegrenzte Slices:**
+
+- **BAS.1 – Tatsächliche Agent-Aufrufkette erfassen:** Je einen realen Scan-/Preview-/Importpfad gegen Code und Runtime protokollieren; überflüssige Rundreisen und doppelte Inventurläufe benennen, ohne neue Prüfungen einzuführen.
+- **BAS.2 – Lesepfade vereinfachen:** Eine Quellbeobachtung liefert Quellenliste und ausgewählte Vorschau; dieselben Daten nicht mehrfach scannen. Fachliche Leseoperationen im vorhandenen Backend-/Media-Tools-Code lassen, wo sie hingehören.
+- **BAS.3 – Fehlerdiagnose statt Sammelcode:** Konkreten technischen Fehler bis in das Agent-Log verfolgen und in der UI verständlich anzeigen. Fehlende Datei, veränderte Quelle, FFprobe-Fehler, Platzproblem und fehlende Zielschreibbarkeit nicht pauschal als `source_invalid` darstellen.
+- **BAS.4 – Vorhandene Prüfungen konsolidieren:** Doppelte und unbegründete Schutzprüfungen entfernen, dabei bestehende Authentifizierung, Autorisierung vor echten Mutationen und Aufnahme-Readback nicht aushebeln. Jede beibehaltene Prüfung muss einer nachweisbaren Fehlerklasse dienen.
+- **BAS.5 – Reale Benutzerwege und Installation:** CLI-Erkennung und Webvorschau derselben Datei gegentesten; ein bereits getesteter Commit, ein bestehender Staging-/Updateweg, ein nachvollziehbarer Rollback. Keine neuen Einmal-Installer für einzelne Bugs und kein erneutes Abfragen bestandener Tests ohne technischen Grund.
+
+**Akzeptanz:** Ein bereits erkannter lokaler Film beziehungsweise eine Folge lässt sich über Browser und Backend-Agent zuverlässig anzeigen und technisch prüfen; die Fehlerursache ist bei Abweichung sichtbar; kein mehrfacher Vollscan pro ausgewählter Vorschau; Import und Readback bleiben funktional; Installation/Upgrade verwenden den vorhandenen versiegelten Runtime-Weg. Bestehende Schutzgrenzen bleiben bestehen, aber es werden keine neuen Restriktionen erfunden.
+
+**Status 28.10.2026:** Die MT-bezogene Ein-Scan-Vereinfachung ist quellseitig umgesetzt; die Runtime wurde installiert und die Agent-Synchronisierung nach einem anfänglichen Fehlversuch bestätigt. Der Andor-Ende-zu-Ende-Test der neuen Version ist **noch offen**. BAS insgesamt ist damit ausdrücklich **nicht abgeschlossen und noch nicht begonnen**.
+
+
+## MT.REC — Media Import: Fehlerkorrektur und Mockup-gerechtes Redesign (verbindliche Produktentscheidung 27.10.2026)
+
+**Priorität vor kosmetischen Arbeiten:** zuerst die real beobachteten Defekte auf yaVDR reproduzieren und beheben, **danach** die Oberfläche so nah wie möglich an das im Chat am 27.10.2026 gezeigte Mockup bringen. Dieses Ziel ist **geplant, nicht implementiert oder auf REAL-VDR abgenommen**. Die historischen MT.UX-/MT.HA-Einträge weiter unten dokumentieren ältere Zwischenstände; bei Widersprüchen hat die hier festgehaltene aktuelle Nutzerentscheidung für die kommende Umsetzung Vorrang.
+
+**Vorgabe des Betreibers:** Keine neuen Sicherheitsregeln, Rollen, zusätzlichen Freigabegates oder künstlichen Benutzungssperren erfinden. Die bestehenden authentifizierten Core-/Agent-/Public-v1-/Operation-Wege wiederverwenden. Keine neuen Worker, Importengines, Queues oder Dienste. Dies ist keine Anweisung, bestehende Berechtigungen zu umgehen. Keine Änderungen an `AGENTS.md` ohne eigene Genehmigung. Keine Neuinstallation, kein Dienstneustart und keine Dateirechteänderung als UX-Workaround.
+
+### Verbindlicher Funktionsvertrag
+
+1. **Rectools-Marker sind verbindlich, in beide Richtungen kompatibel.** `<stem>.skipped.<ext>` = bewusst übersprungen; `<stem>.pc_encode.<ext>` = externe Bearbeitung, etwa mit HandBrake; `<stem>.duplicate.<ext>` = vorhandene VDR-Aufnahme. Alle drei Marker gelten auch dann, wenn **vdr-rectools** sie vorher gesetzt hat. Die normale Importauswahl darf diese Dateien nicht als importierbar zählen oder eine Importvorschau als gewöhnlichen Film erzwingen. Angezeigter Status und tatsächlicher Dateiname müssen konsistent sein. Die gewöhnliche Bedienoberfläche verlangt **keine manuelle Freigabe** dieser Statusmarker; die vorhandene kollisionssichere `release`-Operation bleibt nur zur ausdrücklichen Fehlerkorrektur unter den eingeklappten technischen Details erreichbar und startet niemals einen Import.
+2. **Dublette automatisch erkennen UND markieren; KEIN manueller „Als Duplikat markieren“-Button.** Wenn Media Tools eine **wirklich vorhandene** VDR-Aufnahme für den konkreten Quellkandidaten verlässlich nachweist, folgt automatisch die Rectools-kompatible `.duplicate`-Markierung. Ein Titeltreffer allein darf keine behauptete Dublette erzeugen. Der Scan-/Prüfschritt ermittelt den Befund lesend; die anschließende automatische Markierung ist eine **eigene, wiederholungs- und absturzverträgliche Mutation** über die **bereits vorhandene** Media-Import-Operation, Quellenidentität und deren Readback. Keine zusätzliche Benutzerentscheidung und kein neuer Freigabe-/Sicherheitsweg; keine Umbenennung bei ungeklärter/fehlender VDR-Bestätigung. Die Oberfläche zeigt den tatsächlichen Status und ggf. laufende/ungewisse Markierung deutlich an. Wird `.duplicate` bereits durch Rectools vorgefunden, nicht erneut umbenennen.
+3. **Encoding-Auswahl NUR, wenn der Backend-Preflight eine Video-Neukodierung verlangt.** Kompatible H.264/HEVC/MPEG-2-Quellen bekommen den klaren normalen Remux-/Importweg **ohne** Encode-Dialog. Bei `videoReencodeRequired=true` werden genau dann die sinnvollen Wege angeboten: **„Auf dem VDR umkodieren“** (bestehender lokaler Worker und explizite erforderliche Zustimmung) oder **„Extern bearbeiten“** (am Rechner mit geöffnetem Webfrontend oder an einem beliebigen PC mit HandBrake/anderer Software; bestehender `.pc_encode`-Marker). „Überspringen“ bleibt eine optionale eigene Aktion. **Webbrowser-Transkodierung oder direkter Download/Upload dürfen nicht vorgetäuscht werden**: Datei-/Share-Zugang und tatsächlicher lokaler Workflow sind bei Umsetzung zu prüfen. Wo kein sicherer, schon vorhandener Transferweg existiert, den externen Ablauf mit zugänglicher Originalquelle und späterer Wiedervorlage verständlich erklären. Originaldatei erhalten; keine automatische Umkodierung bloß wegen Erkennung.
+4. **Fehler sind Diagnose, nicht Benutzerquiz.** Bei nicht erfolgreicher Vorschau konkreten beobachteten Grund zeigen (`pending`, `unavailable`, Quellmarker, Codec-/Dateizugriff, Platz, Rechte/Backend, 401/403/503, Zeitüberschreitung), ohne interne IDs/Textwände im Hauptbereich. Fehlende Daten nicht als bestätigte technische Eignung oder als „importierbar“ ausgeben. Erneut prüfen durch einen klaren Button; Fehlerursache nicht durch zufällige Dateiauswahl verdecken.
+5. **Keine automatische normale Importausführung.** Quellsuche, Vorschau und Dublettenentscheidung wählen keinen Film zum Importieren aus. Ein echter Import oder VDR-Re-Encode benötigt weiterhin die vorhandene zielgerichtete Benutzeraktion. Stapelverarbeitung verändert nur die bestätigte Auswahl. Eine erkannte Dublette darf dagegen ohne Zusatzklick gemäß Punkt 2 markiert werden.
+
+### Verbindliches visuelles Ziel (Mockup 27.10.2026)
+
+- **Navigation:** `Home → Kanäle → Aufnahmen → Media Import → …`; aktiver Modulreiter an der vorgesehenen Stelle, nicht links von Home. Den echten DOM-/CSS-/Runtime-Befund prüfen; kein erfundener HTML-Fix.
+- **Breit nutzbares, responsives Dashboard** mit Kopfbereich `Media Import`, Importquelle, Suche, Film/Serie-Filter und verifizierten Statuszahlen. **Drei Spalten**: links Serien-/Ordnerbibliothek mit optional echten Backend-Postern; Mitte vollständige, übersichtliche Episoden-/Filmliste mit Staffel, Folge, Titel, Größe, Status und Checkbox; rechts eine große Vorschau-/Detailkarte mit optional echtem Artwork, Quelldaten, Codec, Ziel und **einer** situativ richtigen Primäraktion.
+- **Marker visuell unterscheiden**, ohne manuelle Doppelklick-Workflows: Importfähig (Blau), `.skipped` (Gelb), `.pc_encode` (Violett), `.duplicate` bzw. bestätigte VDR-Dublette (Rot), bestätigter Import (Grün **nur mit VDR-Readback**), ausstehend/fehlerhaft neutral mit Klartext. Keine erfundenen Inhalte, Laufzeiten, Dateigrößen oder Poster. Bereits markierte Dateien bleiben als Status sichtbar; normale Anwender müssen die Marker nicht manuell zurücksetzen.
+- **Aktionen passen zum Zustand**: importfähig → `Importieren`; echte Dublette → „Bereits vorhanden / automatisch als Duplikat markiert“ **ohne Duplikat-Button**; Re-Encode nötig → nur dann VDR-vs.-externe-Bearbeitung; markiert → nur Statusanzeige (bei `.pc_encode` Hinweis auf die später zurückgelegte Datei); eine seltene Korrektur ist ausschließlich in den technischen Details erreichbar. Keine pauschale Buttonreihe `Für PC markieren / Überspringen / Als Duplikat markieren` im normalen Preview.
+- Batchauswahl integriert und gut sichtbar **unten** mit Auswahlzähler, `Alle auswählen`, `Auswahl aufheben`, `Auswahl prüfen`, später `Geeignete importieren`; keine riesige vertikale Debug-Formularseite, keine doppelt sichtbaren Knöpfe. Responsive auf schmalem Bildschirm als gestapelte Bibliothek/Liste/Detailansicht. Keyboard/Focus/Lesbarkeit mitprüfen.
+- **Vergleichsmaßstab** Kodi/Plex: Medienbibliothek → Serie → Episode → Detail als vertraute Navigationsidee; produktspezifische aktuelle Fremdfunktionen hier **nicht verifiziert**. Keine Kopie fremder Marken-/Bildmaterialien oder spekulative Features.
+
+### Verbindliche Mockup-Referenz und Rectools-Rücklauf (Nutzerentscheidung 27.10.2026)
+
+**Versioniertes Referenzbild:** [Media Import – verbindliches Mockup vom 27.10.2026](media-import-reference-2026-10-27.png). Das Originalbild ist eine gestalterische Vorgabe, keine Zusicherung implementierter Datenquellen, Poster, Metadaten oder Funktionen.
+
+Das **zweite, zuletzt gezeigte Media-Tools-Mockup** im Chat vom 27.10.2026 ist die visuelle Referenz für die folgende Webfrontend-Umsetzung: linke Media-Tools-Navigation, Importquelle und Scanübersicht, Statuszahlen, Verzeichnisbaum links, Film-/Episodenliste mit Status/technischer Kurzinfo in der Mitte, große Poster-/Metadaten-/Technik-/VDR-Vorschau rechts sowie kompakte Auswahl-/Importleiste unten. Die UI darf keine ungeprüften fiktiven Cover, Serienmetadaten oder Importfähigkeiten als echte Scanergebnisse präsentieren. **Bildreferenz bedeutet nicht, dass die dargestellten erweiterten Funktionen bereits implementiert sind.**
+
+**Dateimarker exakt wie vdr-rectools `develop`:** `Film.pc_encode.mkv` (an HandBrake/PC delegiert), `Film.skipped.mkv` (übersprungen) und `Film.duplicate.mkv` (schon als VDR-Aufnahme vorhanden). Der produktive Rectools-Code nutzt `.pc_encode`, nicht `.encode`. Er ignoriert markierte Dateien beim gewöhnlichen Scan. Eine vom PC zurückgelegte neue, **unmarkierte** Datei wie `Film.mp4` wird beim nächsten Scan unabhängig als normaler Importkandidat erkannt. Ist der Ordner und der Titelstamm mit einer geparkten `.pc_encode`-Datei gleich, zeigt das Media-Import-Webfrontend diesen **Namenshinweis** an; er ist keine inhaltliche Identitätsgarantie, keine Importfreigabe und löst keine Dateioperation aus. Erst die bestehende technische Vorschau entscheidet über die Eignung; regulärer Import erfordert weiterhin die Benutzeraktion.
+
+**Aufräumvertrag klar trennen:** Im geprüften Rectools-`develop` entfernt `process_import` nach erfolgreichem VDR-Import nur die tatsächlich importierte **unmarkierte Quelldatei**. Das geparkte `.pc_encode`-Original bleibt. Suite hält dieselbe Trennung: Importer und Core bestätigen zunächst unabhängig die neue Aufnahme; erst danach darf der bestehende Agent die eindeutig wiedererkannte unmarkierte Datei entfernen. Eine Namensähnlichkeit oder stabile `sourceId` beweist diese Identität nicht.
+
+**PC-Encode-Rücklauf – bestehende Importpipeline:** Eine neue Datei wie `Film.mp4` neben `Film.pc_encode.mkv` wird eigenständig gescannt, per FFprobe geprüft und nur auf ausdrücklichen Core-Auftrag importiert. Der mögliche Zusammenhang zu `Film.pc_encode.mkv` ist ein reiner Anzeigehinweis, **keine automatische Medienzuordnung oder Löschfreigabe für das geparkte Original**. Ein neuer Scan kann andere Dateien unter denselben opaken IDs finden; Browserhistorie allein ist keine Bereinigungsquittung.
+
+**MT.REC4.6/1 – Core→Agent-Readback (historisch, 27.10.2026):** Der Core reserviert nach positivem Recording-Cache-Readback die dauerhafte `addon.media.import.readback`-Nachricht vor dem CAS auf `succeeded`. Dieses zuerst implementierte Nachrichtenformat quittierte nur den Erhalt und löschte ausdrücklich keine Datei. Alte Readback-Journale ohne Quellsignatur bleiben weiterhin **nicht löschend**.
+
+**MT.REC4.6/2 – Identitätsgebundene Quellenbereinigung (Quellstand PR #556, 27.10.2026):** Der bereits vorhandene C++-Importer prüft Geräte-/Inode-/Größen-/Nanosekunden-mtime-Signatur vor der Snapshot-Verarbeitung. Der Agent bindet die tatsächlich ausgeführte Quellbeobachtung (einschließlich absoluten Quellpfades **nur innerhalb des Hashes**) an das aufgezeichnete Importergebnis; das VDR-Pfadergebnis bleibt unabhängig davon und muss durch den Core-Recording-Cache eindeutig bestätigt werden. Das Core-Readback erzeugt eine Version-2-Nachricht mit der ursprünglichen Quellenidentität. Der Backend-Agent verwendet seinen vorhandenen Command-Receipt-/Result-Speicher und überprüft vor der Löschung die erneut inventarisierte Signatur sowie die noch unter dem Dateinamen liegende Datei. `.pc_encode`, `.skipped`, `.duplicate`, fremde/ersetzte Dateien und Quellen ohne eindeutigen Herkunftsnachweis werden nicht gelöscht. Die Quellbereinigung schreibt kein VDR-Medium, startet keinen zweiten Import und verändert den bereits bestätigten `succeeded`-Status nicht. Nach einer verlorenen Result-Quittung wird ausschließlich das dauerhafte Agent-Ergebnis erneut gesendet, niemals der ursprüngliche Import.
+
+**Lesbarer Vertragsstatus:** `GET /api/v1/operations/{id}` kann nach bestätigtem Import optional den aus dem Agent-Journal projizierten Wert `sourceCleanup` (`pending`, `removed`, `already_absent`, `not_performed`, `failed`) liefern. Bei anderen Operationen fehlt das Feld. Die Versionskennung/ETag berücksichtigt den nachträglich eintreffenden Agent-Status. Das Webfrontend nutzt nur diesen Status für die Aussage zur Bereinigung; der gegenwärtige Dateibestand folgt weiter ausschließlich aus einem neuen Scan. Fehler bei der Bereinigung ändern keine bestätigte VDR-Operation in `failed`.
+
+**Prüfgrenze (Stand dieses Commits):** Isolierte Quellenbereinigungs-, Agent-Neustart-/Lost-ACK-, Readback-, Core- und Frontend-Regressionen sind im Branch ergänzt. Eine **erfolgreiche lokale Ausführung dieser neuen Tests ist hier nicht nachgewiesen**; insbesondere ein kompletter C++-Build und CI-Abschluss dürfen noch nicht als bestanden gemeldet werden. **REAL-VDR-Abnahme/Installation auf yaVDR offen**, keine produktive Datei-/Diensteänderung vorgenommen. Der Slice ist funktional im Quellcode verbunden, aber bis zum bestandenen Testblock und separater Hostprüfung **nicht abgenommen**.
+
+**Metadatenziel des Referenzmockups:** vorhandene lokale `.nfo`-Metadaten, Mediendaten und optional echte externe Film-/Seriendaten mit Artwork sollen vor dem Import erkennbar und, soweit vom VDR unterstützbar, in die VDR-Aufnahme übernommen werden. Der bestehende Importer überträgt aktuell bereits lokale NFO-Titel/Outline/Plot/Jahr/Genre in `info`; ein automatischer TMDb-Abgleich, Online-Cover, Fanart, Serien-Matching und die im Mockup dargestellten Metadaten-Tabs sind **noch kein implementierter End-to-End-Pfad** und benötigen eine gesonderte, überprüfbare Integration ohne erfundene Daten.
+
+## MT.META — Desktop- und Handy-Medienoberfläche (vereinbart 27.10.2026)
+
+**Referenzen:** Das bestehende versionierte Media-Import-Mockup bleibt für Desktop verbindlich (drei Spalten mit Ordnern, Film-/Episodenliste, Vorschau und Stapelleiste). Die neu besprochene mobile Darstellung zeigt dieselben Daten und Aktionen in getrennten Vollbreiten-Ansichten. Die Illustrationen enthalten Beispielposter und Beispieldaten, keine implementierten Metadaten oder Löschbefugnisse.
+
+**Gemeinsame Architektur:** Weiterhin genau ein Webfrontend und die vorhandenen Public-v1-/Core-/Agent-Wege. Desktop zeigt gleichzeitig Ordner, Liste und Details; Tablet nutzt vorhandene responsive Aufteilung; Handy (< 700 CSS-px) zeigt jeweils **Ordner**, **Medien** oder **Details**. Kein neuer Importdienst, keine zweite Queue, keine eigene Handy-App; Zugriffs-/Bestätigungslogik bleibt unverändert. `.duplicate` wird niemals über einen neuen manuellen Duplikat-Button gesetzt. Auch ein allgemeiner „Datei löschen“-Button gehört nicht zum Import.
+
+| Slice | Konkretes Ergebnis | Abnahme |
+| --- | --- | --- |
+| **MT.META1 – Responsive Navigation und Struktur** | Die vorhandene Desktop-Drei-Spalten-Komposition beibehalten; auf Handys zugängliche Ansichtsschalter Ordner/Medien/Details, Rückweg zur Liste, Quellauswahl springt zur Vorschau; normale Suche und Stapelkontrollen bleiben dieselben bestehenden Elemente. **Code in PR #556 erweitert**. | Reale DOM-/Frontend-Regression für Ansichtswechsel ohne POST, ausgewählte Quelle öffnet Detail, Fokus/Touch-Ziele und Desktop-Parität; Browser-Screenshot/REAL-VDR separat. |
+| **MT.META2 – Lokale Metadaten** | Bereits aus `.nfo` und FFprobe vorhandene Daten entlang des bestehenden Lesewegs in der Detailkarte sichtbar machen: nur tatsächlich belegte Titel, Beschreibung, Jahr, Genre und technische Felder; fehlende Felder klar leer statt erfunden. | Echte NFO-/FFprobe-Fixtures bis zum Webfrontend, Status/Backend-Scope unverändert. |
+| **MT.META3 – Lokales Artwork** | Bereits vorhandene lokale Poster/Fanart benutzen, sonst neutraler Platzhalter, dabei Backend-Berechtigung und Bildformate der bestehenden Asset-Route wiederverwenden. | Echte Bildbytes, nicht vorhandenes Bild, falsches MIME, Wechsel zwischen Quellen und mobile Poster-Darstellung. |
+| **MT.META4 – Serien und Episoden** | Aus belegten Ordner-/Datei-/Metadateninformationen serienbezogene Gruppierung, Staffel-/Folgeansicht und mobile Auswahl; vorhandene eindeutige Source-IDs sowie der bestätigte Einzel-/Stapelimport bleiben maßgeblich. | Mehrere Staffeln/gleiche Titel, keine erfundenen Episodenidentitäten, markierte Originale unverändert. |
+| **MT.META5 – Optionale Online-Metadaten** | TMDb soweit über bestehende Suite-Metadatendienste verfügbar ergänzen; explizite Trefferprüfung statt Titelraten, lokale NFO-Inhalte nicht still überschreiben. | Authentifizierte Datenquelle und Bildherkunft, mehrdeutige Treffer, Offline-Fallback, keine Fake-Bewertung. |
+| **MT.META6 – VDR-Metadaten-Übernahme, Korrektur und Aufnahmeaktualisierung** | Bestätigte Serien-/Episoden-Metadaten auf die gespeicherte VDR-Aufnahme übertragen, bereits importierte Aufnahmen ohne erneuten Videoimport korrigierbar machen und nach erfolgreicher Veröffentlichung **die vorhandene VDR-/Suite-Aufnahmeliste automatisch aktualisieren**. | Tatsächliche `info`-/Metadata-Readback-Belege, neue Aufnahmen ohne Browser-Neuladen sichtbar, erneute Titel-/Artwork-Projektion nach Korrektur; Core-/Agent-/Frontend- und REAL-VDR-Nachweise getrennt. |
+
+### MT.META6 — verbindlicher Integrationsablauf (28.10.2026)
+
+**Erweiterung 29.10.2026 – MT.META6 dauerhafte Suite-Zuordnung, Quellcode:**
+Der bereits vor dem Import eindeutig erkannte TMDb-Kandidat wird nun als
+abwärtskompatibler `v2`-Snapshot im **selben** unveränderlichen
+`addon.media.import`-Payload gespeichert. Er enthält zusätzlich zur
+Serien-/Folgenbeschreibung die genaue `tv-episode`-/`movie`-Provider-ID
+sowie die vorhandene Posterreferenz (fehlende/ungültige Posterreferenz
+ist optional und verhindert den Videoimport nicht).
+Das Format `v1` bleibt lesbar; der bestehende Importvertragsweg und die
+Command-Versionen 8/9 werden weiterverwendet. Keine zweite TMDb-Abfrage,
+kein neues Datenbankschema, kein neuer Auftrag/Agent oder Scraper.
+
+`DaemonRuntimeRecordingCache.cpp` liest bei der **ohnehin stattfindenden
+VDR-Aufnahme-Cache-Aktualisierung** bereits erfolgreich reconciliierte
+Importoperationen und deren ursprüngliche Agent-Recording-Path-Evidence.
+Nur die exakt damit korrelierte native `.rec` wird über die bestehende
+`MetadataRepository::assignManualRecordingMetadata`-Zuordnung mit dem
+gefrorenen TMDb-Kandidaten verbunden. Eine schon vorhandene manuelle
+Zuordnung wird nicht überschrieben. Derselbe Snapshot steht nach
+Browserende/Daemon-Neustart weiterhin im Core-Journal zur Verfügung;
+erneute Cache-Aktualisierung ist idempotent. Der Browser vermeidet für
+diese v2-Aufträge den konkurrierenden nachträglichen
+`metadata/assign`-POST. Bereits vorhandene Legacy-/manuelle
+Reparaturpfade bleiben erhalten.
+
+**Noch ungetestet und nicht installiert:** Der gesamte C++-Daemon-/Agent-
+Build, Frontend-Kompositionstest, realer VDR-Readback inklusive
+Poster-Materialisierung und Wiederanlauf. Die zugehörigen Unit-/
+Vertragstests wurden im Repository ergänzt, aber hier nicht
+ausgeführt. Bei fehlschlagender Artwork-/Metadatenzuordnung bleibt
+der Videoimport erfolgreich; die Zuordnung wird nicht als erfolgreich
+ausgegeben. Insbesondere offen bleiben die native `info`-Nachkorrektur
+bestehender Andor S01E01–S01E05 via berechtigtem Backend-Schreibpfad,
+zugehörige VDR-Aufnahmeaktualisierung, Real-yaVDR- und TV-App-Abnahme.
+
+**Quellstand 29.10.2026 – MT.META6 Vorab-Metadaten-Snapshot umgesetzt, Abnahme offen:**
+Der bestehende automatische TMDb-Suchpfad identifiziert eine eindeutige
+Serienfolge bereits vor dem Import. `web/frontend/modules/media-import.js`
+friert deren **schon gefundenen** Serientitel, Episodentitel, Beschreibung
+und SxxExx in `metadata` ein und übergibt diesen Snapshot beim **ersten**
+Media-Import-POST. Der bestehende Public-v1-Client/Router, die permanente
+Core-`MutationOperation` inklusive Payload, die Agent-Zuweisung und der
+bereits vorhandene angepinnte Import-Worker transportieren exakt diesen
+Snapshot **ohne zweiten TMDb-Request**. Die neuen Payload-Versionen 8
+(direkter Import) und 9 (explizit lokale Umkodierung) werden in den bestehenden
+Core-/Agent-Prüfungen verwendet. Alte v1–v7-Import- und Marker-Operationen
+bleiben unverändert gültig. Falls vor dem Import keine eindeutige TMDb-Auswahl
+vorliegt, fehlt die optionale `metadata` und der normale
+NFO-/Dateinamen-Import bleibt unverändert verfügbar.
+
+Der Worker dekodiert die unveränderliche Auswahl und schreibt **beim
+privaten Aufnahme-Staging** `T` (Serie), `S` (Episodentitel), `D`
+(Beschreibung) in die native `info`. Das Video wird nur einmal importiert.
+Die bestehende Suite-Zuordnung mit Artwork läuft weiterhin über den
+bestehenden `metadata/assign`-Folgeschritt und sucht TMDb **nicht erneut**.
+Bei nativer Titelkorrektur hält ein kleines
+`.vdr-suite-import-origin`-Sidecar im neuen `.rec` den geprüften
+ursprünglichen Quell-Dateizustand fest, damit der nächste Scan die Aufnahme
+trotz veränderter `T`/`S`-Felder als Dublette erkennt. Die alten
+`info`-Titel-/Provenienzregeln werden nicht geändert; es wurde keine neue
+Sperrlogik, Datenbank, Agenteninstanz oder Speicherplatzprüfung eingeführt.
+
+**Aktueller Nachweis:** JS-Quellcode syntaktisch geprüft; tatsächlicher
+Public-v1-Client mit einem gemockten HTTP-Transport erfolgreich für
+Legacy-Import, Metadatenimport und lokalen Metadatenimport ausgeführt;
+die reine Browser-Snapshot-Funktion mit eindeutiger Episode und
+Offline-Fallback isoliert bestanden. C++- und Browser-Kompositions-Regressionen
+sind ergänzt, aber **noch nicht in einem Checkout ausgeführt**;
+`REAL_YAVDR=NOT_INSTALLED/NOT_VERIFIED`. Ein Commit oder isolierter
+JS-Test ist keine Funktionsabnahme.
+
+**Weiter offen:** Suite-Poster-/Assignment-Abschluss nach
+Browserende oder Agent-Neustart als serverseitig dauerhafte Zuordnung,
+Nachkorrektur bestehender Andor-S01E01–S01E05-Aufnahmen über native
+Recording-Identität ohne Videoimport, native `info`-Readback-Abnahme,
+vollständige C++-/Web-/REAL-yaVDR-Tests und Client-Refresh-Nachweis.
+
+**Quellstand 29.10.2026 (inkrementell, NICHT vollständig):**
+Der bestehende Media-Import-Worker besitzt jetzt
+`renderNativeVdrRecordingInfo(..., confirmedMetadata)` und verwendet die
+Funktion beim privaten Staging neuer Aufnahmen. Für explizit bestätigte
+Serienfolgen werden `T` (Serie), `S` (Episode) und `D` (Beschreibung)
+gebildet; vorhandene NFO-Angaben bleiben Fallback. Die Typisierung
+`ImportConfirmedMetadata` ist noch **nicht** durch die bestehende
+Public-v1-/Core-/Agent-/CLI-Kette bis zum Worker verbunden. Ohne diese
+Anbindung schreibt der produktive Import weiterhin die NFO-/Dateinamenwerte.
+
+Für bestehende Aufnahmen steht außerdem die **reine, dateisystemfreie**
+Funktion `mergeConfirmedMetadataIntoNativeVdrInfo(...)` bereit. Sie ersetzt
+nur bestätigte `T`-/`S`-/`D`-Werte und belässt andere VDR-Informationssätze
+(`C`, `E`, `F`, `P`, `X`) in ihrer ursprünglichen Reihenfolge.
+Fehlende Provider-Felder löschen bestehende Werte nicht. Synthetische
+Unit-Testfälle für Andor S01E01/S01E02, CRLF, unbekannte Felder,
+Wiederholbarkeit sowie unveränderte TS-/Index-Ausführung sind im
+`test_media_import.cpp` ergänzt. Eine isolierte C++17-Kompilierung
+und ein Funktions-Smoke-Test der reinen Korrektur sind **PASS**; der echte
+Repository-C++-Testlauf und Real-yaVDR sind **NOT_RUN/NOT_VERIFIED**.
+
+**Noch offen und ausdrücklich nicht als fertig zu melden:**
+(1) bestätigte Provider-Identität kompatibel/versioniert in den existierenden
+Import-Operationsvertrag aufnehmen; (2) die unveränderliche Auswahl durch
+API/Core/Agent/CLI bis zum Writer transportieren und durchgehende Tests
+ausführen; (3) vorhandene Aufnahme über die reale backendgebundene
+Recording-Identität nachkorrigieren, ohne freie Dateipfade oder zweiten
+Videoimport; (4) Native-Info-Readback, VDR-/Suite-Refresh, Poster und Clients
+auf realem VDR abnehmen. Bis dahin zeigt die Weboberfläche bei erfolgreicher
+`metadata/assign`-Antwort ausdrücklich **nur Suite-Zuordnung** an.
+Weder neue Sperren noch Datenbank-Backups wurden dafür eingeführt.
+
+**Realer yaVDR-Befund:** Star Wars: Andor S01E01 und S01E02 wurden als vollständige `.rec`-Aufnahmen mit `info` und TS gefunden und erscheinen in VDR-Suite unter „Neu aufgenommen“ sowie bei den Serien. Es fehlen aber die Episodentitel, die TMDb-Episodenbeschreibung und das erwartete Serienposter. Die auf Dateinamen basierenden VDR-`info`-Felder `T DE - Star Wars_ Andor ...` und `S Imported via VDR-Suite Media Tools` belegen: Die TMDb-Identität aus MT.META5 bleibt derzeit ausschließlich browserseitige Vorschau. Das Wiedererscheinen in der Suite beweist **nicht**, dass die native VDR-Aufnahmeliste ohne Verzögerung aktualisiert wurde.
+
+**MT.META6.1 – Metadaten-Identität statt Dateiname:** Den bestehenden authentifizierten TMDb-Kandidaten- und Recording-Metadata-Assignment-Lese-/Schreibpfad wiederverwenden. Eine eindeutig erkannte Episode (Serie, Staffel, Episodennummer, Provider-Identität) als tatsächliche Auswahl/Bestätigung behandeln; fehlende oder mehrdeutige Treffer bleiben ungelöst. Keine Metadaten aus unbestätigter fuzzy-Übereinstimmung an VDR-`info` schreiben; keine zusätzliche Datenbank, kein neuer Agent oder paralleler Scraper.
+
+**MT.META6.2 – Aufnahme-Metadaten vor Veröffentlichung:** Die tatsächlich bestätigten, normalisierten Titel-/Episodentexte und, sofern zulässig, Bildreferenzen bis zum bestehenden Aufnahme-Metadaten-Owner führen. Bestehende NFO-Priorität/Quellherkunft ausdrücklich festlegen und VDR-`info` konsistent schreiben; die bestehende atomare Aufnahmepublikation und verifizierte TS-/Index-Dateien bleiben unverändert. Kein alleiniger Browser-POST, der eine abgeschlossene Aufnahme behauptet. Durchgehende Tests für S01E01 „Kassa“, S01E02 „Das bin ich“, unbekannte Folge, Offline-Fallback und geänderte Quelle.
+
+**MT.META6.3 – Interner atomarer Info-Writer (Quellstand 29.10.2026):**
+Die Funktion `updateConfirmedNativeVdrInfo` ergänzt die reine T/S/D-Transformation
+für eine bereits vom Backend bestätigte native VDR-Aufnahme. Nur `info`
+wird atomar ersetzt und nochmals gelesen; TS/Index/NFO werden nicht verändert.
+Die vorhandene `.update`-Benachrichtigung wird nach einem tatsächlichen
+Update verwendet. Wiederholte identische Korrekturen sind idempotent,
+ohne zweite TMDb-Suche oder Videoimport. Synthetische C++-Tests erfassen
+auch fremde Pfade und Symlink-Dateien. **Noch offen:** die autorisierte
+Core-/Agent-Bindung an die bestätigte Recording-Identität, Poster-Readback,
+echte S01E01–05 auf yaVDR und der VDR-/Suite-Client-Abgleich. Der interne
+Writer ist ausdrücklich noch keine von der Weboberfläche erreichbare Aktion.
+
+**MT.META6.3 – KISS-Anbindung (29.10.2026):** Der bestehende
+authentifizierte `metadata/assign`-Aufruf übernimmt den bereits bekannten
+Serientitel als flüchtigen Wert. Nach erfolgreicher persistenter Suite-
+Zuordnung wird über den vorhandenen backendgebundenen Recording-Cache
+die exakte native VDR-Aufnahme erkannt und der interne atomare `info`-Writer
+aufgerufen. Die bereits ausgewählte Recording-Action-VDR-Root-Konfiguration
+gilt ebenso für diese Aktion. Das bestehende Zuordnungsergebnis meldet
+`nativeInfoUpdated` nur nach erfolgreichem Write/Readback. Bei nicht
+verfügbarer nativer Schreibberechtigung bleibt die Suite-Zuordnung bestehen,
+aber der native Erfolg wird nicht behauptet. Kein neuer Endpunkt, Agent,
+Worker, TMDb-Request oder Datenbankschema. yaVDR-Dienstrechte und
+vollständige Integration sind noch unabhängig zu prüfen.
+
+**MT.META6.3 – Integrationsregression (29.10.2026):** Die vorhandene
+`test-metadata-manual-recording-api`-Suite kompiliert jetzt den echten
+Media-Tools-`info`-Writer mit ein. Eine bereits vorhandene, synthetische
+Andor-S01E01-`.rec` durchläuft den authentifizierten
+`recordings/metadata/assign`-Runtime-Aufruf, die echte persistente
+Suite-Zuordnung sowie den atomaren `info`-Writer mit Readback. Der
+Test belegt `T=Star Wars: Andor`, `S=Kassa`, `D` inklusive
+Erhalt vorhandener `C/E/F`-Sätze, unveränderte TS-/Index-Bytes,
+keine zusätzliche TMDb-Providerabfrage und `nativeInfoUpdated=true`
+nur nach dem tatsächlich ausgeführten Writer. Die vorhandene Browser-
+Regression prüft weiterhin, dass die Serienposterreferenz in demselben
+`v2`-Snapshot und der vorab ausgewählte Serientitel im bestehenden
+`metadata/assign`-Aufruf mitgehen. Dies ersetzt **nicht** die getrennte
+Prüfung der produktiven Daemon-Konfiguration und der realen yaVDR-Rechte.
+
+**MT.META6.3 – Alte Dubletten bleiben nach Korrektur erkennbar:** Der
+bisherige Importer hat bei Legacy-Aufnahmen den Quelltitel in `T` und
+die eigene Herkunft in `S Imported via VDR-Suite Media Tools`
+hinterlassen. Weil die native TMDb-Korrektur beide Felder ersetzt,
+bewahrt der Writer einmalig diese **bereits belegte** Herkunft über
+denselben `.vdr-suite-import-origin`-Sidecar-Namen, den der neue
+Importer bereits verwendet (`legacy-title`-Format für alte Imports).
+Die bestehende Quelleninventur erkennt danach die alte Aufnahme weiterhin
+als Dublette. Unverändert bleibt die stärkere `v1`-Signatur neuer
+Importe; keine zusätzliche Datenbank oder FFprobe-Prüfung. Ein
+synthetischer Test prüft den vollständigen Weg vor und nach
+`T/S/D`-Korrektur.
+
+**MT.META6.5 – Poster und Client-Refresh (29.10.2026, Source):**
+Der v2-Import friert bei Serienfolgen nun das **bereits vorab gefundene
+Serienposter** ein, statt irrtümlich das Episoden-Still zu verwenden; der
+zusätzliche `metadata/assign`-Aufruf für alte Aufnahmen verwendet
+dieselbe Serienposterreferenz. Die existierende Public-v1
+`GET /api/v1/recordings/{rec_}/artwork`-Route liefert bei einer
+gespeicherten manuellen Zuordnung deren Suite-Poster als vorhandenen
+opaquen `artworkId` und liest die Bildbytes über
+`VdrRecordingFolderController::getMetadataImage`, denselben
+authentifizierten Backend-Owner wie das Web. Keine privaten Pfade,
+Provider-URLs oder TMDb-Tokens in der Geräteantwort; fehlende Poster
+bleiben leer bzw. 404, statt ein altes Scraper-Bild als neue Auswahl
+auszugeben. Die bereits bestehende `recordings`-Invalidierung
+(SnapshotChangeFeed -> LiveTransportService -> Web-Update/Device-SSE)
+wird nach Zuordnung genutzt; native `info`-Korrekturen stoßen zudem
+die vorhandene Recording-Cache-Refresh-Queue an. Es werden keine
+TV-eigenen Dienste oder weiteren Poller hinzugefügt.
+Web/TV-Geräte-Liveabnahme einschließlich erfolgreichem Bild-GET
+bleibt separat.
+
+**MT.META6.5 – Webdetail-Invalidierung (29.10.2026):**
+`recordings2-folder-refresh.js` nutzt das vorhandene
+`recordings`-SSE-Ereignis jetzt auch bei einer **geöffneten
+Aufnahme-Detailansicht**. Die bestehende Metadaten-Detailkomponente
+liest nur die bereits autorisierte Recording-Metadatenroute neu,
+ersetzt Episodentext und Poster und aktualisiert die vorhandenen
+Metadatenfelder. Wiedergabe, Navigation, Marks und Playback-DOM
+werden nicht neu initialisiert; ältere parallele Antworten können
+keine neueren Metadaten überschreiben. Der bestehende Ordner-Refresh
+bleibt bis zum Schließen des Details ausgesetzt. Die JS-Regression
+prüft den vollständigen Besitzer-Lebenszyklus und Backend-Scope.
+
+**MT.META6.3 – Existierende Aufnahmen korrigieren:** Über die bereits vorhandene backendgebundene Recording-Identität und Metadatenzuordnung, nicht über einen frei übergebenen Dateisystempfad. Die zwei bereits importierten Andor-Folgen ohne zweite Umkodierung oder erneuten Import ergänzen. Eine Änderung von VDR-`info` oder Titelverzeichnissen nur über einen separat geprüften, mit VDR abgestimmten Mutationspfad; bestehende TS-/Index-Inhalte erhalten.
+
+**MT.META6.4 – Aufnahmeaktualisierung als Bestandteil jedes Erfolgs:** Nach dem atomaren Import den bereits vorhandenen Recording-Cache-Refresh-Mechanismus verwenden. `DaemonRuntimeRecordingCache.cpp` führt `refreshRecordingCacheForAllBackends`, `mediaImportOperationFence_->reconcileRecordingCache` und `publishCompletedRecordingRefreshes` bereits; `DaemonRuntimePolling.cpp` fordert Cache-Aktualisierung bei `RecordingsChanged` an. `DaemonRuntimeInitialization.cpp` fordert **bereits** bei verifiziertem, angewendetem Agent-Importergebnis mit Recording-Pfadbeleg `recordingCacheRefreshQueue_.request(assignment.backendId, 2)` an. Die Lücke ist daher **nicht die fehlende Queue-Auslösung**, sondern der End-to-End-Nachweis dieses bestehenden Auslösers bis zur VDR-nativen Erkennung, zum committed Recording-Cache und zum `RecordingsChanged`-Ereignis an Web/Apps, einschließlich Restart/verspätetem Readback. Kein separates SVDRP-`UPDR`-Skript und keine zweite Refresh-Queue einführen. `succeeded` erst nach unabhängigem Aufnahme-Readback; bei verzögerter Aktualisierung weiterhin sichtbar „Bestätigung ausstehend“. Nach bestätigtem Erfolg aktualisieren sich „Neu aufgenommen“, Serien und Recordings 2 **ohne Browser-Reload**.
+
+**MT.META6.1A – vorhandene Suite-Metadatenzuordnung nach Recording-Readback (Quellstand 28.10.2026):** Media Import friert einen exakten, zur ausgewählten SxxExx-Kennung passenden TMDb-Episodenkandidaten (beziehungsweise explizit gewählten Film) beim bestätigten Importstart ein. Erst wenn die bestehende Core-Operation `succeeded` zurückliefert und der Recording-Folder-Cache genau **eine** Aufnahme im verifizierten Importziel mit dem erwarteten Ausgangstitel enthält, sendet der Browser einen zweiten, getrennt nachvollziehbaren Aufruf über die **bestehende** authentifizierte `/api/backends/{backendId}/recordings/metadata/assign`-Route. Die vorhandene Metadatenzuordnung verwaltet Staffel, Folge, Text und bevorzugtes Serienposter; ohne eindeutigen Recording-Treffer/bei Offline-/Berechtigungsfehler bleibt der Import erfolgreich, die Metadatenzuordnung aber ausdrücklich offen. Kein zweiter Import-POST und keine automatische Wiederholung nach ungewisser Metadatenantwort. Dieser Browser-Folgeschritt ist bisher **nicht dauerhaft auftragssicher**: Browserende zwischen Core-Erfolg und Metadaten-POST kann die Zuordnung auslassen. Deshalb ist MT.META6 insgesamt **nicht abgeschlossen**; die spätere serverseitig dauerhafte Zuordnung, die tatsächliche VDR-`info`-Übernahme und die Nachkorrektur bereits importierter Andor-Folgen bleiben offen. Das Produkt darf keine native `info`-Übernahme behaupten, solange der Core/Agent nur das bisherige NFO-/Dateinamen-`info` schreibt.
+
+**MT.META6.5 – End-to-End-Abnahme:** Quelle → technische Vorschau → eindeutige Metadatenbestätigung → Import → VDR-`info` → native VDR-Liste → Suite-Recording-Cache → Change-Feed → Browser/TV-App. Tests prüfen zwei aufeinanderfolgende Episoden, fehlende TMDb-Verbindung, verzögertes oder verlorenes Änderungsereignis, identische Importantworten, doppelte Quellnamen und Wiederanlauf ohne zweite Aufnahme. Separat protokollieren: SOURCE, UNIT, INTEGRATION, CI und REAL-yaVDR; kein installierter Erfolg aus einem Commit oder CI-Status ableiten.
+
+**Status:** Entwurf/Analyse; die in MT.META5 ausschließlich visuelle TMDb-Zuordnung ist noch **keine** produktive Metadatenübernahme. Das Nachrüsten bestehender Aufnahmen und die neue automatisierte Auslösung der Aufnahmeaktualisierung sind **noch nicht implementiert oder auf dem Host installiert**. Ein nötiger Backend-Build muss separat benannt werden; keine Behauptung „nur Frontend“ für Backend-/VDR-Metadatenänderungen.
+
+**Repo-Prüfung und UI-Fortschritt am 28.10.2026:** PR #556 hat die bestätigte `.duplicate`-Löschung nun zusätzlich als unmittelbar sichtbare Listenaktion (statt ausschließlich nach Klick auf die markierte Quellenzeile in der Detailkarte). Bestehende Benutzerbestätigung, Core-/Agent-Prüfung und Markergrenzen bleiben unverändert. Eine Laufzeitfunktion ordnet den Media-Import-Hauptreiter nach „Aufnahmen“ ein, selbst wenn die bestehende DOM-Reihenfolge abweicht; `index.html` hatte diese Reihenfolge bereits. Der vorhandene JS-Kompositionstest wurde um eine Laufzeit-DOM-Umordnung und die Listenaktion ergänzt. **Diese Änderungen sind quellseitig, nicht auf dem realen yaVDR abgenommen.** Die native VDR-`info`-Korrektur und die auftragsdauerhafte TMDb-Zuordnung **sind weiterhin offen**.
+
+**Verifizierte MT.META6-Codekette:** `web/frontend/modules/media-import.js` friert die Kandidatenauswahl nur in `attempt.metadataSelection` ein und sendet über `submitMediaImport` weiterhin keinen Metadatenparameter. `api/rest/src/PublicApiRuntime.cpp::parseMediaImportAdmissionBody` akzeptiert nur `sourceId` und optionale `videoDecision`, die unveränderliche Operation `MediaImportOperationAdmissionService` speichert nur diese Auswahl. `addons/media-tools/include/MediaToolsAgentExecutor.h` verwendet ein eigenes striktes Payload-/Versionsformat; der Agent übergibt den Import an die bestehende `vdr-suite-media-import`-CLI und `addons/media-tools/src/MediaImport.cpp::executeRemuxImport` schreibt die native `info` derzeit aus NFO beziehungsweise Quelldateinamen. Zur vollständigen Erfüllung von MT.META6.1–6.5 muss eine einzige kompatible, versionierte Metadaten-Auswahl über alle diese vorhandenen Schichten geführt und nach Recording-Readback an den bestehenden Assignment-Service gebunden werden. Der Kompatibilitäts- und Restart-Test dieses durchgängigen Vertrags darf nicht durch einen isolierten Frontend-POST ersetzt werden.
+
+**MT.META3 Implementierung:** Die vorhandene, authentifizierte Importvorschau enthält nun ausschließlich größenbegrenzte optionale Bildbytes aus geprüften, direkt neben der Quelle liegenden `<Dateistamm>.poster.jpg/jpeg/png/webp` und `<Dateistamm>.fanart.jpg/jpeg/png/webp`. Die Bilddatentypen JPEG/PNG/WebP werden wie beim bestehenden Recording-Artwork durch Erweiterung und Dateisignatur geprüft, direkt aus dem Agent lesend transportiert und im Browser nur mit kontrolliertem Bilddatenschema angezeigt. Die Recording-Artwork-Route ist auf bereits indexierte VDR-Aufnahmen beschränkt und nicht direkt für noch unimportierte Quellen nutzbar; daher wird der bestehende Import-Preview-Contract ergänzt, **kein neuer Dienst, keine Datenbank und kein separater Bild-API-Endpunkt**. Maximal 256 KiB je Bild; generische `poster.jpg`/`fanart.jpg` gelten nur für einen Quellordner mit genau einem unmarkierten Video, niemals ungeprüft für gemeinsame Serienordner. Keine Dateioperation bei fehlenden, zu großen oder falsch formatierten Bildern. Geräte-/yaVDR-Screenshots und tatsächliche Bilddarstellung sind separat abnahmebedürftig.
+
+**MT.META4 Implementierung (Quellcode):** Die vorhandenen autorisierten relativen Quellordner werden im Frontend als Serien-/Ordnergruppen angeboten. Explizite `Staffel N`/`Season N`-Verzeichnisse sowie `S01E02`-Kennungen erlauben einen Staffelfilter und die Anzeige einer Episodenkennung; unbekannte oder widersprüchliche Angaben bleiben unzugeordnet. Gleichnamige Dateien aus verschiedenen Verzeichnissen behalten getrennte Quell-IDs. Wechsel zwischen Gruppe/Staffel setzt alte Auswahl und Vorschau zurück und öffnet auf dem Handy wieder die Medienliste; danach erfolgt ausschließlich die vorhandene technische Einzelvorschau. `.pc_encode`/`.skipped`/`.duplicate` bleiben im tatsächlichen Ordner als Marker sichtbar und werden nicht als unmarkierte Importkandidaten behandelt. Keine neue Metadaten-Persistenz, API oder Importoperation; Smartphone-/yaVDR-Screenshotabnahme weiterhin separat.
+
+**MT.META5 Implementierung (Quellcode, 28.10.2026):** Die bestehende Media-Import-Detailkarte bietet eine ausschließlich auf ausdrücklichen Klick ausgelöste, vorläufige TMDb-Kandidatensuche über die vorhandenen backendgebundenen und CSRF-geschützten VDR-Suite-Metadatenrouten für Filme, Serien, Staffeln und Folgen. Ein Titelgleichklang wählt niemals automatisch ein Ergebnis: Kandidaten bleiben getrennt, enthalten bestätigte Provider-/Typ-/TMDb-Identität, und eine Folge mit widersprüchlicher SxxExx-Kennung wird nicht als passend ausgewählt. Ausschließlich ein vom Benutzer ausdrücklich ausgewählter Kandidat kann als **flüchtige Online-Vorschau** mit Text und optionalem TMDb-Poster erscheinen. Poster von Film-/Episodenkandidaten nutzen den bereits vorhandenen serverseitig begrenzten und zwischengespeicherten `settings/series-artwork/candidate-image`-Leseweg; lokale Poster/Fanart bleiben unabhängig sichtbar. Fehlende Zugangsdaten, fehlende Rechte, fehlende/ungültige Treffer oder offline Betrieb beeinflussen die lokale NFO-/FFprobe-Vorschau nicht. Veraltete Antworten bei Quellen-/Backend-/Ansichtswechsel werden verworfen. Die TMDb-Auswahl ist **keine persistente Zuordnung**, keine automatische Medienidentität, kein Fanart-Download und fließt **nicht** in NFO, Importoperation oder VDR-`info` ein; die Metadatenübernahme gehört zu MT.META6. Vorhandener Import/Marker/Readback unverändert. Gezielte Frontend-Kompositions- und C++-Bildrouten-Regressionen sind eingecheckt; deren Ausführung und erfolgreiche Ergebnisse müssen am tatsächlichen Produkt-SHA nachgewiesen werden. **REAL-VDR: NOT_VERIFIED**, keine Installation und kein Dienstneustart.
+
+**Status (27.10.2026):** MT.META1 ist quellseitig und in der CI bestätigt. **MT.META2 Code/CI PASS:** Lokale NFO-Texte (Kurzbeschreibung, Beschreibung, Jahr und Genre), Titel und optional ermittelte FFprobe-Laufzeit werden über den vorhandenen Agent-/Core-/Public-v1-Vorschauweg in der Desktop- und Handy-Detailkarte angezeigt; technische Werte bleiben Bestandteil der Vorschau. Am exakten Produkt-/Test-SHA `af97d1d30169cdd96dd05c48e2d8d20f0b830f62` ist [VDR-Suite CI #40586551656](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40586551656) mit sechs erfolgreichen Jobs abgeschlossen (Frontend, Fast Regression, Architektur, Make-Audit, Docs und Packaging). **REAL-VDR sowie echte Handy-/Desktop-Screenshotabnahme bleiben NOT_VERIFIED**; CI ist keine installierte Runtime. MT.META3 und MT.META4 sind quellseitig ergänzt; MT.META5 ist quellseitig ergänzt, aber noch nicht abgenommen; MT.META6 bleibt geplant. **MT.META4 Frontend/Architektur PASS** am Produkt- und Test-SHA `5317f743b09895fc1bf581f1bc7610178f2167cd`: [VDR-Suite CI #40597902322](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40597902322), relevante Jobs `frontend-regression-test`, `architecture-check` und `make-test-audit` erfolgreich. Die übrigen CI-Jobs und die echte Host-/Geräte-Abnahme sind separate Prüfstufen. Eine Metadatenvorschau importiert, markiert, kodiert oder löscht keine Quelle automatisch.
+
+
+### REAL-yaVDR-Rückmeldung vom 29.10.2026 – S01E05 und neue UI-Befunde
+
+Der Betreiber zeigt im laufenden yaVDR-Suite-Frontend fünf Andor-Aufnahmen
+S01E01–S01E05 unter „Neu aufgenommen“; S01E05 („Die Axt vergisst ihr Werk“)
+wurde neu importiert. Gleichzeitig meldet die Media-Import-Operation
+`outcome_unknown` und die bereits vorhandene Aufnahme erscheint in der
+Importquelle nicht dauerhaft als importiert markiert. Die sichtbare
+Suite-Aufnahme beweist allein keinen abgeschlossenen Core-Operations-Readback.
+Bei der Diagnose zuerst die konkrete Operation und ihren Agent-Ergebnisbeleg
+gegen die vorhandene `reconcileRecordingCache`-Kette prüfen:
+`resultReference`, `resultEvidence`, `completedAt`, Cache-Refresh-Zeit,
+Backend-/Recording-Identität und `succeeded`-CAS. Keinen zweiten Import
+der Folge starten und keinen Erfolg aus Dateinamengleichheit ableiten.
+
+Weitere bestätigte Produktbefunde: Der Quellenkatalog liefert keine
+dauerhafte aufnahmebestätigte Statuskennung für gewöhnliche Dateien; beim
+Auswählen läuft wieder die technische Vorschau. Das blockierte Entfernen
+bereits importierter Quelldateien ist deshalb kein bloßes CSS-Problem:
+Ein ungewisser Auftrag belegt die Core-/Frontend-Mutationssperre. Es muss
+eindeutig erklärt und über bestehende journalgestützte Resultate aufgelöst
+werden. Ein aktives Löschen muss die tatsächlich bestätigte VDR-Aufnahme
+unverändert lassen und nach Core-ACK die Inventarliste sichtbar aktualisieren.
+
+Für MT.META6 sind S01E01–S01E05 als Bestandsaufnahmen **ohne erneuten
+Videoimport** nachzukorrigieren: echte VDR-`info`-Texte, Zuordnung von
+Serie/Staffel/Episode, Beschreibung und Artwork über die bestehenden
+Recording- und Metadaten-Owner. Die aktuelle Online-Vorschau ist kein
+Nachweis für diese Persistenz. Die quellseitig ergänzte manuelle
+`metadata/assign`-Aktion für exakt bestätigte Dubletten korrigiert zunächst
+nur Suite-eigene Metadaten. VDR-`info` und persistentes
+Core-Operationsresultat bleiben getrennte offene Slices.
+
+`.pc_encode` markiert weiterhin eine zurückgestellte Quelldatei. Als
+kleine UI-Verbesserung wurde am 29.10.2026 eine sichtbare ausdrückliche
+Freigabeaktion ergänzt. Nach bestätigter Core-Freigabe wird ausschließlich
+die eindeutige, wieder unmarkierte Quelle neu geprüft und die bereits
+vorhandene lokale H.264-Umkodierungswahl geöffnet. Weder der Release-Klick
+noch die technische Vorschau startet einen Videokonvertierungsauftrag.
+Keine neue Worker-Architektur.
+
+**Abnahme:** Die genannten Änderungen sind aktuell GitHub-Quellstand in
+PR #556. Der UI-Quelltext wurde syntaktisch mit V8 geparst. Die vollständigen
+Frontend-/C++-Regressionen und der reale yaVDR-End-to-End-Lauf sind für
+diesen Stand **nicht ausgeführt / nicht bestätigt**; weder Agent-Dienste noch
+produktive Dateien wurden durch den Repository-Commit verändert.
+
+#### MT.REC6 – S01E05: dauerhafte Recording-Reconciliation (29.10.2026)
+
+**REAL-yaVDR read-only evidence:** `op_44214ce6c1401c69f4f226b1e5b6ffd3`
+steht seit 03:01:39 UTC auf `outcome_unknown`, Command
+`cmd_879ab78fc8a8cdadf5df064e` meldet
+`waiting_reconciliation / accepted_by_executor / reconcile_only` mit
+Aufnahme-Pfad-Evidence
+`media-import-path-sha256-v1:61ab18e5e075148f5179381e6fa75e370e799af86839fe109af0d055821e9abc`.
+Der Cache `default` wurde erst danach (03:10:19–03:10:24 UTC) erfolgreich
+aktualisiert, hat aber weiterhin die Operation nicht als Erfolg reconciliert.
+
+Der Backend-Recording-Cache zeigt S01E05 mit dem darstellungsbezogenen
+`path=/Serien/Star Wars-Andor/.../2026-10-29.04.01.1-0.rec` und der
+absoluten `backend_native_id=/srv/vdr/video/Serien/Star Wars-Andor/.../2026-10-29.04.01.1-0.rec`.
+Auf yaVDR zeigen `/srv/vdr/video` und `/srv/vdr/video.00` real auf dasselbe
+Verzeichnis. Unabhängiges Nachrechnen des vollständigen SHA256-Inputs ergibt
+einen **exakten Treffer nur für** `/srv/vdr/video.00/Serien/Star Wars-Andor/.../2026-10-29.04.01.1-0.rec`.
+Die alte Funktion `exactRecordingIdentity` hashte ausschließlich
+`VdrRecording.path`, das hier nur cache-relativ vorliegt; damit kann ein
+korrektes Agent-Ergebnis nie erfolgreich reconciliert werden.
+
+**Fix in PR #556:** Die existierende Core-Fence prüft jetzt in derselben
+belegten Recording-Snapshot-Reihe den bisherigen `path`, die tatsächliche
+`backendNativeId` und, für lokal verfügbare komplette `.rec`-Pfade,
+die per Filesystem aufgelöste kanonische `backendNativeId`. Keine Suche
+nach gleich klingenden Titeln und kein neues Resultat aus einer ungeprüften
+Aufnahme. Backend, eindeutige Recording-Identität, journalgesicherte
+Command-/Source-Evidence und jüngerer `ready`-Cache bleiben verbindlich.
+Der bestehende Readback-Notice-/Cleanup-Pfad wird wieder nutzbar, ohne
+Quelldateien ungeprüft zu löschen.
+
+Regression `core/agent/tests/test_backend_agent_command_delivery.cpp`
+erstellt isoliert einen synthetischen `video -> video.00`-Symlink,
+ein relatives `recording.path` und die exakte physische Agent-Evidence.
+Der Core muss diesen Fall nach aktuellem Cache-Readback einmalig nach
+`succeeded` überführen; falsches Recording/Backend, doppelte Treffer und
+veralteter Cache dürfen nicht bestätigen.
+
+**Status:** GitHub-Commit vorhanden; noch kein Backend-Build und keine
+produktive Installation/REAL-yaVDR-Abnahme. Dieser Fix wird erst mit dem
+**Core-Daemon**, nicht bloß dem Media-Tools-Frontend oder Importer,
+wirksam. Bereits vorhandene S01E05 nicht neu importieren.
+
+#### MT.REC6 – dauerhafte Quellenanzeige und Dubletten-Löschen (29.10.2026, Code)
+
+**Implementierter Quellvertrag:** Der bestehende `RootOwnedMediaImportInventory`
+erkennt eine vollständige, zum Importtitel passende VDR-`.rec`-Aufnahme direkt
+bei der regulären Quellinventur mit `confirmedMediaImportDuplicate(plan)`.
+Die Aussage `recording_present` wird beim nächsten Scan erneut aus den
+vorhandenen Dateien abgeleitet; sie ist **kein** zusätzlicher DB-Status und
+behauptet nicht, dass die alte Core-Operation bereits `succeeded` ist.
+Beschädigte, abweichende oder ersetzte Zielaufnahmen ergeben
+`unverified`. Das Inventar startet hierfür keine Video-/FFprobe-Prüfung
+und löst keinen Import, keine Markierung und keine Löschung aus.
+
+**Vorhandener Datenpfad:** `MediaImportSourceLabel.recordingPresent`
+→ Agent-Source-Observation `sourceStatuses` (parallel zu IDs/Labels/Foldern)
+→ `BackendAgentMediaImportCatalog` (nur live Agent, gleicher Snapshot,
+max. 100 Einträge) → Public v1 `recordingStatus` mit derselben
+Cursor-/Revision-Gültigkeit → Media-Import-Listenansicht. Alte
+Agenten/Clients ohne Status bleiben nutzbar und zeigen weiter `unverified`
+statt einen Import zu erfinden. Die UI zeigt „Bereits importiert –
+VDR-Aufnahme vorhanden“ direkt neben jeder passenden Quelle und bietet
+einen „Bereits importiert“-Filter.
+
+**Weniger Prüfungen:** Beim Anklicken einer bereits als
+`recording_present` gemeldeten Quelle fordert das Frontend nicht erneut
+eine technische FFprobe-Vorschau an; es verwendet die bereits bestätigte
+Inventarbeobachtung. Nur bei einer explizit erzwungenen Neuprüfung, bei
+unbekannten Quellen und für tatsächliche neue Importe ist die reguläre
+technische Vorschau weiterhin erforderlich.
+
+**Dubletten-Löschung:** Eine unmarkierte, im Scan bestätigte Dublette
+erhält unmittelbar in ihrer Listenzeile den Button „Dublette aus
+Importquelle löschen“. Der Button wählt ausschließlich die konkrete
+opaque `sourceId` und verwendet nach Benutzerbestätigung das bereits
+vorhandene `delete_duplicate`-Core/Agent-Verfahren mit erneuter
+Quell-/Zielidentitätsprüfung. Es gibt **keinen** direkten PHP-/JS-Unlink,
+keine neue Rolle/DB/Agenten-Gate und keine automatische Löschung. Erst die
+`succeeded`-Operation mit erfolgreicher erneuter Quelle-Erfassung
+entfernt den Eintrag aus der Liste und meldet „gelöscht“. Bereits
+`.duplicate`-markierte Quellen behalten denselben funktionierenden
+Listenbutton.
+
+**Tests eingecheckt:** `test_local_media_import_inventory.cpp`
+(belegtes Recording / unpassender Titel / nach Löschung kein Status),
+`test_backend_agent_lifecycle.cpp` (Agent→Catalog),
+`test_public_media_import_source_list.cpp` (Ausgabe, ungültiger Status,
+Snapshot-Cursor nach Statuswechsel),
+`test_media_import_composition.js` (erneutes Öffnen ohne Preview/POST;
+explizites Löschen mit genau einer Mutation, Neuscan).
+Außerdem gilt der zuvor implementierte MT.REC6-Fix für
+`outcome_unknown` bei `/srv/vdr/video` ↔ `/srv/vdr/video.00`.
+
+**Abnahmestatus:** Commit in PR #556, **noch keine behauptete** erfolgreiche
+vollständige C++-/Frontend-Testausführung, kein bestätigter
+Core-/Agent-/Web-Runtime-Build und keine Installation auf yaVDR.
+Zur Wirksamkeit müssen die aktualisierten Runtime-Binaries einschließlich
+Daemon und Backend-Agent sowie die Frontend-Staging-Dateien zusammen aus
+einem exakt geprüften Stand installiert werden. **REAL-yaVDR**: Prüfen,
+dass S01E01–S01E05 beim Laden bereits erkannt sind, Anklicken ohne
+Preview-Operation funktioniert, einmaliges Löschen eines zuvor separat
+freigegebenen Test-Duplikats die Quelle entfernt und die VDR-Aufnahme
+unverändert lässt. Die fünf Andor-Quelldateien nicht ungefragt löschen.
+Die native Metadaten-Übernahme bleibt **MT.META6**, nicht MT.REC6.
+
+## MT.SCAN – Start-Scan mit sichtbarem Prüfstatus und manueller Priorität (31.10.2026)
+
+**Vor MT.ENC umsetzen und real abnehmen.** Ziel: Nach Start der Suite bzw.
+des Media-Tools-Add-ons zeigt die Oberfläche sofort die verfügbaren
+Importordner, Filme und Serien. Während der technischen Prüfung werden
+Quellen schrittweise als „Noch nicht technisch geprüft“, „Prüfung läuft“,
+„Direktimport möglich“, „Umkodierung nötig“, „Dublette erkannt“ oder
+„Prüfung momentan nicht möglich“ angezeigt. Der Benutzer kann jederzeit
+eine bestimmte Folge wählen; diese Prüfung hat sofort Vorrang vor der
+Hintergrundverarbeitung. **Keine Datei wird allein durch einen Lesescan
+importiert, umbenannt, markiert oder gelöscht.** Nur die bestehende
+ausdrücklich autorisierte Core-Mutation darf Dateien ändern.
+
+### MT.SCAN1 – Sofort benutzbare Liste und gestaffelte Prüfung beim Öffnen (Code)
+
+- Die vorhandenen Agent-Quellbeobachtungen und Public-v1-Quellenliste
+  werden weiterverwendet. `Media Import` wird sofort geöffnet; der
+  bereits existierende Verzeichnisscan lädt die Liste automatisch ohne
+  vorherigen Benutzerklick.
+- Nach erfolgreichem Quellenabruf beginnt die Browseransicht einzelne
+  **lesende** technische Vorschauen nacheinander zu laden. Aktueller
+  Prüfstatus und erledigte/offene Anzahlen erscheinen in der Medienliste.
+- Pro Backend existiert derzeit im Core nur **ein transienter
+  Vorschau-Slot**. Daher darf der Hintergrund-Scanner weder parallele
+  GET-Stürme noch wechselnde Pending-IDs auslösen. Er bearbeitet eine
+  Quelle bis zum Ergebnis, pausiert bei einer manuell gewählten Folge
+  und setzt danach die übrigen fort. UI-Wechsel verwirft alte Antworten.
+- Bei Scanfehlern bleibt die zuletzt erfolgreiche Quellenliste benutzbar.
+  Die Beobachtung ist kein Import-/Lösch-/Freigabeversprechen.
+- Quellcode erster Teilslice: `web/frontend/modules/media-import.js`,
+  `web/frontend/tests/test_media_import_composition.js`. **Noch nicht
+  auf realem yaVDR getestet oder als vollständig abgenommen.**
+
+### MT.SCAN2 – Prüfungen schon beim Server-/Agent-Start (noch offen)
+
+- Den **bereits vorhandenen** Agent-Start und dessen periodische
+  Importquellen-Beobachtung verwenden. Technische Vorprüfungen sollen
+  künftig ohne geöffneten Browser laufen, ohne den Agent-Command-Poll zu
+  blockieren. Kein neuer unabhängiger Scanner, Dienst oder Schreibjob.
+- Prüfstatus pro tatsächlicher Quelle/Quellgeneration im serverseitigen
+  Katalog ablegen. Nach Anmeldung erhält die Oberfläche bereits
+  geprüfte/nicht geprüfte Ergebnisse; späterer Browserwechsel und
+  Agent-Resynchronisierung zeigen den richtigen Status, keine erfundene
+  Fertigmeldung.
+- Ein interaktiver Preview-Auftrag rückt vor die Hintergrundqueue. Die
+  aktuellen single-slot-Preview-Semantiken entweder kontrolliert
+  koordinieren oder um genau diese Priorisierung erweitern. Ein
+  automatischer Hintergrundauftrag darf weder interaktive
+  Vorschauen aushungern noch eine bereits angenommene Mutation verdrängen.
+
+### MT.SCAN3 – yaVDR-Abnahme
+
+- Start der Suite und Start/Wechsel des Media-Import-Tabs getrennt
+  prüfen; kein manuelles `Verzeichnis scannen` als Voraussetzung.
+- Sichtbare Anzahl ungeprüfter/geprüfter Quellen, technische Status-
+  aktualisierung und Auswahlpriorität mit zwei oder mehr Quellen
+  bestätigen; alte Antworten nach Auswahl/Tabwechsel nicht übernehmen.
+- Kein ungebetener Import, keine automatische Dubletten-Löschung,
+  keine bereits bestandenen Andor-Aufnahmen mutieren. Nach Login, Agent-
+  Störung, Rescan und spätem Öffnen werden echte Daten angezeigt.
+- Kein CI-Warten, kein unnötiger Komplettbau; für reines Frontend
+  gezieltes JS-Update, für spätere Backend-Änderungen den vorhandenen
+  schnellen inkrementellen Build nutzen.
+
+## MT.ENC – Hintergrund-Umkodierung, Wiederanmeldung und Encoder-Einstellungen (31.10.2026, geplant)
+
+**Produktanforderung:** Ein bewusst gestarteter VDR-Encode läuft serverseitig weiter,
+wenn der Benutzer den Webreiter schließt, sich abmeldet oder später auf einem
+anderen Gerät anmeldet. Die Suite zeigt dann denselben Auftrag mit Fortschritt
+und tatsächlichem Ergebnis wieder an; sie darf **keinen zweiten Encode**
+starten. Bei Abbruch, Agent-/Host-Neustart oder ungewissem Ergebnis ist der
+dauerhafte Istzustand korrekt anzuzeigen statt automatisch erneut zu starten.
+Das ist ein Akzeptanzziel, **noch keine zugesicherte Produktfunktion**.
+
+**Iststand (Quellprüfung 31.10.2026):**
+
+- `Auf dem VDR umkodieren` startet FFmpeg serverseitig über die vorhandene
+  Core-Operation und den Backend-Agent-Import-Executor. Ein bloßer
+  Browser-/Tabwechsel stoppt FFmpeg nicht unmittelbar.
+- Der Agent begrenzt den laufenden Import-Handler in
+  `PinnedMediaImportAgentExecutor.cpp` derzeit auf **maximal 600 Sekunden**
+  und beendet ihn nach Fristablauf. Längere Filme sind deshalb nicht
+  zuverlässig als Hintergrund-Encode nutzbar.
+- `GET /api/v1/operations/{operationId}` liest einen dauerhaften
+  Operationsstatus. Eine öffentliche Operationen-Liste existiert bislang
+  nicht; `web/frontend/modules/media-import.js` verwaltet aktive Aufträge
+  im Speicher des Browsers und löscht sie bei `clearSession()`.
+  Eine neue Anmeldung entdeckt daher einen vorher begonnenen Encode
+  **nicht automatisch**.
+- `addons/media-tools/src/MediaImport.cpp` verwendet beim lokalen Encode
+  fest `libx264`, `CRF 23`, `preset medium`, `threads 2`; keine vom
+  Benutzer speicherbaren Media-Import-Encoderwerte.
+- `Auf PC umkodieren` führt **keine** Kodierung in VDR-Suite aus: Diese
+  Aktion parkt die Quelldatei als `.pc_encode`. Ein externer PC verarbeitet
+  sie eigenständig und legt die neue Datei für den normalen Import zurück.
+
+### MT.ENC1 – Langer serverseitiger Encode und robuster Abschluss
+
+Den **bestehenden** Import/FFmpeg-Executor verwenden, keine zweite Queue und
+keinen separaten HandBrake-Worker hinzufügen. Das feste 600-s-Limit durch
+eine zu langen Filmdateien passende, klar definierte Encode-Laufzeit ersetzen;
+dauerhafte Core-Operation, Fortschritt, echte FFmpeg-Fehler und Endzustände
+trennen. Kein pauschales Dienstneustarten oder automatisches erneutes
+Ausführen eines möglicherweise schon begonnenen Jobs. Die laufende Verarbeitung
+bleibt vom Browser unabhängig. Akzeptanz: Ein realer Encode über 10 Minuten
+läuft nach Tabwechsel/Logout weiter und endet nach VDR-Readback korrekt.
+
+### MT.ENC2 – Auftrag nach Wiederanmeldung wiederfinden
+
+Bestehende dauerhafte Core-Operationen als einzige Auftragsidentität nutzen.
+Für denselben berechtigten Benutzer/Backend die offenen und letzten
+Media-Import-Operationen **lesend** wieder auffindbar machen; die
+bestehende Operation-ID und der Core-Status sind maßgeblich, nicht
+`localStorage` oder ein neuer Browser-Jobstore. Anzeige in
+`Media Import → Laufende / letzte Aufträge` mit Film, Encoding-Modus,
+tatsächlichem Fortschritt (soweit vom Server bekannt), Startzeit,
+Endzustand und eindeutigem Fehler. Wiederanmeldung, neues Gerät und
+Agent-Transportfehler dürfen keinen zweiten POST auslösen. Bei
+`outcome_unknown` den ungewissen Zustand wahrheitsgemäß anzeigen.
+
+### MT.ENC3 – Encoding-Einstellungen mit Rectools-Defaults
+
+In `Einstellungen → Media Tools → Encoding` persistente, backendbezogene
+Einstellungen anbieten, standardmäßig **ohne Einrichtungszwang**.
+Werte werden bei **Auftragsstart** übernommen; spätere Änderungen wirken
+nicht rückwirkend auf laufende Aufträge:
+
+| Einstellung | Standard aus vdr-rectools `develop` | Einordnung |
+| --- | --- | --- |
+| Import-Video | H.264 / libx264 | lokale, inkompatible Videoquelle |
+| H.264-Qualität | CRF **23** | niedriger = bessere Qualität/größere Datei |
+| H.264-Preset | **medium** | Geschwindigkeit / Kompression |
+| H.265 für Shrink | CRF **23**, Preset **medium** | getrennt vom Import |
+| Hardwarebeschleunigung | **none** (CPU) | später optional VAAPI, QSV, NVENC abhängig von realer Verfügbarkeit |
+| Audio-Normalisierung | **aus** | nicht ungefragt Tonspuren verändern |
+| Bestätigung vor Encode | **ein** | keine heimliche Videoneukodierung |
+
+Die bestehenden `-threads 2` sind ein fest implementierter Importwert,
+kein bereits vorhandener Rectools-Default. Bewusst nur unterstützte
+Parameter als Auswahl anbieten; keine freien FFmpeg-Befehlszeilen.
+Backend/Worker führen die gespeicherten Werte aus, nicht der Browser.
+Akzeptanz: Standardprofil direkt nutzbar; geänderte Werte werden beim
+nächsten Auftrag real an FFmpeg übergeben und nach erneutem Login korrekt
+angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
+
+### MT.ENC4 – Echte yaVDR-Abnahme
+
+Inkrementell bauen, vorhandene Runtime-Artefakte wiederverwenden,
+kein neues Branch/PR, keine DB-Backups oder unnötigen Aktivierungsprüfungen.
+Tests für >600-s-Verarbeitung, Browser schließen, Ab-/Anmeldung, neues
+Gerät, Agent-Neustart/unklares Ergebnis, Einstellungen und Defaults,
+korrektes Recording-Readback sowie nachfolgende Quellenaktualisierung.
+Auf dem echten yaVDR mit einem **eigens bestätigten** Testmedium abnehmen;
+bereits importierte Andor-Aufnahmen und Quellen nicht ungefragt verändern.
+
+### Phasen und harte Abnahmekriterien — in dieser Reihenfolge
+
+| Phase | Auftrag / betroffene Bestandsmodule | Fertig erst, wenn … |
+| --- | --- | --- |
+| **MT.REC0 — REAL-VDR-Ursachen beheben** | Bestehenden Stand in PR #556 und auf yaVDR unterscheiden; Scan-Unterordner, stale Rescan-Anzeige, 24 normal + 6 markiert, S02E12-Andor-Vorschau/HTTP-/Agent-Antwort, irreführendes `unavailable`, schiefen Modulreiter, falsch aktive/gesperrte Buttons gezielt reproduzieren. In der Konsole wurde vorher eine **andere** Folge `S01E01.skipped.mkv` gefunden; das erklärt **nicht** die ausgewählte **S02E12** und darf nicht als deren Ursache ausgegeben werden. Tests für den tatsächlich gewählten Quell-ID-/Dateibeleg. | Reproduzierbare Ursache jeder Blockade, klare Browsermeldung, funktionierende Einzelvorschau eines normalen Kandidaten, Markierungen korrekt klassifiziert; fokussierte JS-/API-/Agent-Tests, kein pauschaler Build/Restart. |
+| **MT.REC1 — Rectools-Status + Auto-Dublette** | Marker aus Rectools übernehmen; bestehende `LocalMediaImportInventory`, `MediaImportDecisionMarker`, Core-Operation und Agent-Readback nutzen. Eindeutige Dubletten automatisch als `.duplicate` markieren; **auf ausdrückliche Nutzeranforderung vom 28.10.2026 zusätzlich einen separaten Löschbutton ausschließlich für bestätigte `.duplicate`-Quellmedien anbieten**. Keine automatische Löschung. | `skipped/pc_encode/duplicate` korrekt; automatische Markierung ohne erneuten Import; Löschaktion mit Bestätigung, Source-ID-/Inode-/Größen-/mtime-Abgleich und erneuter Prüfung der vorhandenen vollständigen VDR-Aufnahme; TS-/Index-/VDR-Original erhalten; echter Hosttest nur an einer ausdrücklich freigegebenen Wegwerf-Dublette. |
+| **MT.REC2 — Automatische Codec-Verzweigung** | `inspectImportPreview`/`ffprobe`/bestehende Codecentscheidung für jeden ausgewählten Film; ohne Umkodierung Direktimport, bei Umkodierungsbedarf ausschließlich VDR- oder externe-PC-/HandBrake-Bearbeitung; bestehende Marker `.pc_encode`; keine neue PC-Ausführungsengine. | H.264/HEVC/MPEG-2 ohne Encode-Wahl, prüfbedürftiger Codec mit klarer Wahl und verifizierbarer Verarbeitungsfolge; niemals heimlich reencodieren. |
+| **MT.REC3 — Mockup-Layout** | `web/frontend/modules/media-import.js`, vorhandene Styles/Navigation und Tests gezielt auf beschriebenes 3-Spalten-Dashboard umstellen; echte Bibliothek/Episoden/Vorschau, Badges und passende Aktionen, volle Desktop-Breite, responsive. | Screenshot-/Browservergleich mit Mockup, Navigation am richtigen Ort, kein Leerraum/Formularfriedhof, bedienbar mit Maus/Tastatur und auf schmalem Gerät. |
+| **MT.REC4 — Verständlicher Batch + Fehlertexte** | Geprüfte Auswahl, Batch-Zusammenfassung und Markerstatus kompakt integrieren; nur geeignete Filme zu ausdrücklich bestätigten Imports, nötige Reencodes gesondert anbieten, automatische Dublettenmarkierung getrennt; klare Fehler-/Fortschrittstexte. | Gemischte 24+6-Situation verständlich, keine Doppelimporte, keine veralteten Zähler/technischen Texte, reproduzierbarer Pending-/Abbruch-/Wiederanlaufzustand. |
+| **MT.REC5 — Gesamt-Abnahme auf echtem yaVDR** | Exakte Code-/Test-SHA und dann freigegebene installierte Runtime getrennt prüfen: gewöhnliche Folge, echte Dublette, alle drei Rectools-Marker, externe/VDR-Encode-Entscheidung, Stapel, VDR-Aufnahme-Readback, Navigation/Responsivität. Bestehende Install-/Rollback-Artefakte **wiederverwenden**, kein unnötiger neuer Daemon-Build. | Nachweis `UNIT/CONTRACT`, `PRODUCTION-INTEGRATION`, `CI`, `REAL-VDR` **jeweils separat**; produktive Änderungen erst bei abgestimmter tatsächlicher Testdatei und Host-Freigabe. |
+
+**Quellcode-Fortsetzung (27.10.2026, PR #556):** Root- und Unterordner-Scan auf dem bestehenden Agent-Inventar, wahrheitsgemäße unmarkierte Quellzahlen, wiederholbare Vorschau, diagnostische Fehlercodes (Quelle/FFprobe/Ziel/Speicher), echtes responsives Drei-Spalten-Dark-Layout und automatische Rectools-`.duplicate`-Markierung ohne manuellen Button implementiert. Auch Stapel-Dubletten werden **seriell** durch die bestehende Core-/Agent-Markeroperation samt bestätigtem Readback verarbeitet; andere Filme benötigen weiterhin eine explizite Importbestätigung. `.skipped`/`.pc_encode` bleiben bestehende Rectools-Zustände; Video-Encode-Auswahl nur nach FFprobe-Befund. Fokus-Regressionsfälle für verzögerte Agent-Vorschau und zwei automatische Dubletten ergänzt. **Nicht geschlossen:** Konkrete S02E12-Hostursache, Integration/Build auf finalem HEAD, Desktop-/TV-Browser-Screenshot und tatsächlicher Import auf dem installierten yaVDR sind unbewiesen; keine Dienste, Aufnahmen, Grants oder Pakete verändert. Ein früherer Fund von `S01E01.skipped.mkv` ist kein Befund zu `S02E12`.
+
+---
+
 **Aktueller MT.HA-Plan:** [MT.HA.0–8 Hardware-, Distributions- und Launchpad-Abnahme](../../docs/planning/addon-platform-roadmap.md#mtha--manuelle-hardwareabnahme-bis-zur-launchpad-freigabe-26102026). Der erste reale Hostbefund zeigt bereits vorhandene Media-Tools-Worker, Root-Approval/Quellkonfiguration und Agent-Drop-in auf manuell installierter yaVDR-Suite. Deshalb **keine unbeaufsichtigte Erstinstallation**: zuerst Byte-/Stage-Provenienz, bereits bestehenden Lifecycle und DB-/WAL-/Backup-Grenze prüfen. Die Hardwareabnahme ist noch PENDING.\n\n## Fortschritt und Nachweise (25.10.2026)
 
 | Slice | Tatsächlich erreicht | Noch nicht nachgewiesen |

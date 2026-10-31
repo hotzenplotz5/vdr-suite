@@ -14,6 +14,9 @@
 #include "SecurityPermissionGrantRepository.h"
 
 #include <utility>
+#include <filesystem>
+#include <system_error>
+#include <limits>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -121,25 +124,65 @@ bool MediaImportOperationFence::actorBackendAllowed(
         (intent.intent.revision > 0 && !intent.intent.desiredEnabled))
         return denied(reason, "media_import_activation_disabled");
 
-    // Installation and root-handler approval do not imply activation.
-    // A revision-bound administrator enable and the current handler/Agent
-    // binding remain mandatory on every admission and dispatch path.
+    // The administrator's explicit desiredEnabled decision persists across
+    // Agent reconnects and a verified worker replacement. An old activation
+    // binding must NOT become a second authorization authority: the live
+    // command capability and Core's independent root-handler verification
+    // already establish the current executable provider.
+    //
+    // A real administrator disable above still wins, as do actor grants,
+    // backend write access and the package maintenance freeze.
     const auto activeAgent = agents_.findAgentForBackend(backendId);
     if (!activeAgent || activeAgent->revoked || activeAgent->incompatible ||
-        !trustedProviderCheck_)
+        activeAgent->agentId.empty() || activeAgent->agentInstanceId.empty() ||
+        activeAgent->backendGeneration == 0 ||
+        activeAgent->leaseExpiresAt < now ||
+        !commands_.hasCapability(
+            backendId, activeAgent->agentId, activeAgent->agentInstanceId,
+            activeAgent->backendGeneration,
+            vdrsuite::mediatools::kMediaImportCommandType))
+        return denied(reason, "media_import_capability_agent_unavailable");
+    if (!trustedProviderCheck_ || trustedProviderCheck_(backendId, now).empty())
         return denied(reason, "media_import_provider_untrusted");
-    const std::string trustedSha = trustedProviderCheck_(backendId, now);
-    if (trustedSha.empty() ||
-        (intent.intent.revision > 0 && intent.intent.desiredEnabled &&
-         trustedSha != intent.intent.approvedHandlerSha256))
-        return denied(reason, "media_import_provider_untrusted");
-    if (!mediaToolsActivationPermits(
-            intent.intent, activeAgent->agentId,
-            activeAgent->agentInstanceId, activeAgent->backendGeneration,
-            trustedSha))
-        return denied(reason, "media_import_activation_agent_stale");
 
     reason = "media_import_actor_backend_authorized";
+    return true;
+}
+
+bool MediaImportOperationFence::mayBrowseSources(
+    const std::string& actorId, const std::string& backendId,
+    std::string& reason) const
+{
+    reason.clear();
+    if (actorId.empty() || backendId.empty() ||
+        actorId == "*" || backendId == "*")
+        return denied(reason, "media_import_browse_invalid_context");
+    const auto actor = identities_.findActor(actorId);
+    if (!actor || !actor->active || actor->revoked ||
+        (actor->type != ActorType::User &&
+         actor->type != ActorType::Service))
+        return denied(reason, "media_import_actor_revoked");
+
+    const auto grants = grants_.findActiveGrantsForActor(actorId);
+    if (!grants.available)
+        return denied(reason, "media_import_grants_unavailable");
+
+    RequestSecurityContext context;
+    context.authenticationState = AuthenticationState::Authenticated;
+    context.actor = {actor->actorId, actor->type, actor->displayName, true};
+    context.permissionGrantResolution = PermissionGrantResolutionState::Resolved;
+    context.grants = grants.grants;
+    const AuthorizationService auth;
+    if (!auth.authorize(context, {
+            "addons.media.import", backendId, "media.import"
+        }).allowed)
+        return denied(reason, "media_import_permission_denied");
+
+    const auto backend = backendRegistry_.getBackend(backendId);
+    if (!backend || !backend->enabled)
+        return denied(reason, "media_import_backend_unavailable");
+
+    reason = "media_import_browse_authorized";
     return true;
 }
 
@@ -178,7 +221,7 @@ bool MediaImportOperationFence::checkCore(
         !vdrsuite::mediatools::parseMediaImportSelection(
             assignment.payload, sourceId, choice) ||
         assignment.payloadVersion !=
-            vdrsuite::mediatools::mediaImportSelectionVersion(choice) ||
+            vdrsuite::mediatools::mediaImportSelectionVersion(choice, assignment.payload) ||
         assignment.deadline <= now || assignment.assignedAt > now)
         return denied(reason, "media_import_invalid_assignment_fence");
 
@@ -245,6 +288,9 @@ bool MediaImportOperationFence::applyResult(
     std::int64_t now, std::string& reason) const
 {
     reason.clear();
+    std::string recordingProof, sourceProof;
+    const bool recordedPath = vdrsuite::mediatools::parseMediaImportResultEvidence(
+        result.resultEvidence, recordingProof, sourceProof);
     if (now <= 0 || !backendAgentCommandValidAssignment(assignment) ||
         !backendAgentCommandValidResult(result) ||
         assignment.commandType != vdrsuite::mediatools::kMediaImportCommandType ||
@@ -261,8 +307,7 @@ bool MediaImportOperationFence::applyResult(
         result.completedAt < assignment.assignedAt ||
         result.completedAt > now ||
         (!result.resultEvidence.empty() &&
-         !vdrsuite::mediatools::validRecordingPathEvidence(
-             result.resultEvidence) &&
+         !recordedPath &&
          result.resultEvidence.compare(0, 17, "media-tools-mark:") != 0))
         return denied(reason, "media_import_result_fence_invalid");
 
@@ -290,7 +335,7 @@ bool MediaImportOperationFence::applyResult(
         !vdrsuite::mediatools::parseMediaImportSelection(
             assignment.payload, sourceId, choice) ||
         assignment.payloadVersion !=
-            vdrsuite::mediatools::mediaImportSelectionVersion(choice) ||
+            vdrsuite::mediatools::mediaImportSelectionVersion(choice, assignment.payload) ||
         op.resourceId != sourceId || !payload.ok() ||
         payload.payload.payloadType != "addon.media.import" ||
         payload.payload.payloadVersion != assignment.payloadVersion ||
@@ -304,6 +349,8 @@ bool MediaImportOperationFence::applyResult(
     const bool markerVerified =
         (choice == vdrsuite::mediatools::MediaImportDecision::desktop ||
          choice == vdrsuite::mediatools::MediaImportDecision::skip ||
+         choice == vdrsuite::mediatools::MediaImportDecision::duplicate ||
+         choice == vdrsuite::mediatools::MediaImportDecision::deleteDuplicate ||
          choice == vdrsuite::mediatools::MediaImportDecision::release) &&
         result.dispatchState == "accepted_by_executor" &&
         result.verificationState == "verified" &&
@@ -350,8 +397,7 @@ bool MediaImportOperationFence::applyResult(
     if (op.state == State::succeeded &&
         op.resultReference == reference &&
         target == State::outcomeUnknown &&
-        vdrsuite::mediatools::validRecordingPathEvidence(
-            result.resultEvidence))
+        recordedPath)
     {
         reason = "media_import_result_already_verified";
         return true;
@@ -412,6 +458,34 @@ std::int64_t sqliteUtcSeconds(const std::string& timestamp)
     return unixTime > 0 ? static_cast<std::int64_t>(unixTime) : 0;
 }
 
+// Provider recording.path is normally a recording-relative display path
+// (e.g. /Serien/Andor/...rec), NOT the absolute .rec path emitted by the
+// importer. backendNativeId is the provider's full recording identity;
+// it can contain a VDR video-root symlink such as /srv/vdr/video ->
+// /srv/vdr/video.00. The importing Agent hashes the literal installed
+// destination (/srv/vdr/video.00/...rec), so compare all *observed* forms.
+// Never infer a root from a title, construct a path from browser data, or
+// treat an unmatched recording as confirmation.
+bool recordingIdentityMatches(
+    const VdrRecording& recording, const std::string& evidence)
+{
+    using vdrsuite::mediatools::recordingPathEvidence;
+    if (recordingPathEvidence(recording.path) == evidence ||
+        recordingPathEvidence(recording.backendNativeId) == evidence)
+        return true;
+
+    // Canonicalize only a complete native recording identity that exists
+    // locally. For a remote backend, canonical() fails harmlessly and only
+    // the literal provider identities can match; no filesystem mutation.
+    const std::filesystem::path native(recording.backendNativeId);
+    if (!native.is_absolute() || native.extension() != ".rec" ||
+        native.lexically_normal() != native)
+        return false;
+    std::error_code error;
+    const auto canonical = std::filesystem::canonical(native, error);
+    return !error && recordingPathEvidence(canonical.string()) == evidence;
+}
+
 bool exactRecordingIdentity(
     const std::vector<VdrRecording>& recordings,
     const std::string& backendId, const std::string& evidence)
@@ -423,8 +497,7 @@ bool exactRecordingIdentity(
             recording.id.empty() || recording.backendNativeId.empty() ||
             recording.title.empty())
             continue;
-        if (vdrsuite::mediatools::recordingPathEvidence(recording.path) ==
-            evidence)
+        if (recordingIdentityMatches(recording, evidence))
             ++matches;
         if (matches > 1) return false;
     }
@@ -466,6 +539,7 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
         if (!backendAgentCommandSafeIdentifier(commandId)) continue;
         const auto assignment = commands_.findAssignment(commandId);
         const auto result = commands_.resultForCommand(commandId);
+        std::string recordingProof, sourceProof;
         if (!assignment || !result ||
             assignment->commandId != result->commandId ||
             assignment->operationId != op.operationId ||
@@ -480,8 +554,8 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
             result->dispatchState != "accepted_by_executor" ||
             result->verificationState != "outcome_unknown" ||
             result->retryClassification != "reconcile_only" ||
-            !vdrsuite::mediatools::validRecordingPathEvidence(
-                result->resultEvidence) ||
+            !vdrsuite::mediatools::parseMediaImportResultEvidence(
+                result->resultEvidence, recordingProof, sourceProof) ||
             // A cache snapshot that started before completion cannot prove
             // this import, even if it contains an older matching directory.
             refreshStarted <= result->completedAt)
@@ -496,7 +570,7 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
             !vdrsuite::mediatools::parseMediaImportSelection(
                 assignment->payload, sourceId, choice) ||
             payload.payload.payloadVersion !=
-                vdrsuite::mediatools::mediaImportSelectionVersion(choice) ||
+                vdrsuite::mediatools::mediaImportSelectionVersion(choice, assignment->payload) ||
             assignment->payloadVersion != payload.payload.payloadVersion ||
             op.resourceId != sourceId ||
             op.resourceType != "MediaImportSource" ||
@@ -504,9 +578,62 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
                 vdrsuite::operations::MutationOperationVerificationPolicy::
                     reconciliationRequired ||
             !exactRecordingIdentity(
-                recordings, backendId, result->resultEvidence))
+                recordings, backendId, recordingProof))
             continue;
 
+        // Reserve the notification BEFORE transitioning to succeeded, so
+        // a crash cannot lose the Core->Agent signal. Poll is independently
+        // fenced to 'succeeded', hence a failed CAS never releases it.
+        // Only a source-bound notice permits Agent-local cleanup.
+        if (choice != vdrsuite::mediatools::MediaImportDecision::import &&
+            choice != vdrsuite::mediatools::MediaImportDecision::local)
+            continue;
+        if (now > std::numeric_limits<std::int64_t>::max() - 600 ||
+            !commands_.ensureMediaImportAssignmentSchema())
+            continue;
+        const auto notificationPayload = vdrsuite::mediatools::mediaImportReadbackPayload(
+            sourceId, commandId, recordingProof, sourceProof);
+        const auto existing = commands_.findAssignmentForOperation(
+            backendId, op.operationId,
+            vdrsuite::mediatools::kMediaImportReadbackCommandType);
+        if (existing)
+        {
+            if (existing->payload != notificationPayload ||
+                existing->agentId != assignment->agentId ||
+                existing->agentInstanceId != assignment->agentInstanceId ||
+                existing->backendGeneration != assignment->backendGeneration)
+                continue;
+        }
+        else
+        {
+            BackendAgentCommandAssignment notice;
+            notice.present = true;
+            notice.requestId = backendAgentGenerateOpaqueId("req_", 8);
+            notice.correlationId = notice.requestId;
+            notice.operationId = op.operationId;
+            notice.jobId = backendAgentGenerateOpaqueId("job_", 12);
+            notice.attemptId = backendAgentGenerateOpaqueId("att_", 12);
+            notice.claimEpoch = 1;
+            notice.commandId = backendAgentGenerateOpaqueId("cmd_", 12);
+            notice.backendId = backendId;
+            notice.agentId = assignment->agentId;
+            notice.agentInstanceId = assignment->agentInstanceId;
+            notice.backendGeneration = assignment->backendGeneration;
+            notice.commandType =
+                vdrsuite::mediatools::kMediaImportReadbackCommandType;
+            notice.payloadVersion = sourceProof.empty() ? 1 : 2;
+            notice.payload = notificationPayload;
+            notice.verificationPolicy = "none";
+            notice.assignedAt = now;
+            notice.deadline = now + 600;
+            notice.requestFingerprint = backendAgentCommandFingerprint(notice);
+            if (!backendAgentCommandValidAssignment(notice) ||
+                (!commands_.insertAssignment(notice) &&
+                 !commands_.findAssignmentForOperation(
+                     backendId, op.operationId,
+                     vdrsuite::mediatools::kMediaImportReadbackCommandType)))
+                continue;
+        }
         // Do not reinterpret successful ffmpeg execution as a verified
         // recording. This CAS happens ONLY after committed provider readback.
         const auto committed = operations_.transition(

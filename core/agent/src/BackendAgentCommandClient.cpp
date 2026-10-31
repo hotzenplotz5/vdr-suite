@@ -593,7 +593,8 @@ CommandAvailability availableCommands(
                 availability.commandTypes.push_back(type);
             continue;
         }
-        if (type == vdrsuite::mediatools::kMediaImportCommandType)
+        if (type == vdrsuite::mediatools::kMediaImportCommandType ||
+            type == vdrsuite::mediatools::kMediaImportReadbackCommandType)
         {
             // Availability never comes from the module manifest or config alone.
             if (config.mediaImportExecutor)
@@ -691,6 +692,8 @@ bool reconcileBackendAgentCommandState(
     }
     const bool mediaImportCommand = state.assignment.commandType ==
         vdrsuite::mediatools::kMediaImportCommandType;
+    const bool mediaImportReadback = state.assignment.commandType ==
+        vdrsuite::mediatools::kMediaImportReadbackCommandType;
     const bool mediaShrinkCommand =
         state.assignment.commandType ==
             vdrsuite::mediatools::kMediaShrinkStageCommandType ||
@@ -757,8 +760,119 @@ bool reconcileBackendAgentCommandState(
             return true;
         }
 
+        // A previous-generation Media Import was rejected BEFORE native
+        // dispatch. Its durable result can be reconciled against the
+        // original Core command ledger without executing anything.
+        // Keep the inbox until the exact original result is acknowledged.
+        const bool historicalUndispatchedMediaImport =
+            mediaImportCommand &&
+            state.receiptAcknowledged &&
+            state.resultPresent && !state.resultAcknowledged &&
+            state.assignment.backendId == context.backendId &&
+            state.assignment.agentId == context.agentId &&
+            state.assignment.backendGeneration < context.backendGeneration &&
+            !state.stateExtensionPresent &&
+            state.dispatchState == "not_started" &&
+            state.result.dispatchState == "not_started" &&
+            state.result.verificationState == "outcome_unknown" &&
+            state.result.resultCategory == "rejected" &&
+            state.result.errorCategory == "fenced" &&
+            state.result.retryClassification == "none" &&
+            state.result.resultEvidence.empty();
+        if (historicalUndispatchedMediaImport)
+        {
+            if (!sendResult(config, context, transport, state, reason))
+                return false;
+            reason = "historical_media_import_rejection_reconciled";
+            return true;
+        }
+
         reason = "local_command_generation_fenced";
         return false;
+    }
+
+    if (mediaImportReadback && !state.resultPresent)
+    {
+        // Core releases this existing durable command ONLY after the
+        // canonical operation becomes succeeded from recording-cache readback.
+        // Never re-run the original media import, even on restart or replay.
+        if (!state.receiptAcknowledged &&
+            !sendReceipt(config, context, transport, state, reason))
+            return false;
+        std::string source, originalCommand, recordingProof, sourceProof;
+        if (!vdrsuite::mediatools::parseMediaImportReadbackPayload(
+                state.assignment.payload, source, originalCommand,
+                recordingProof, sourceProof) ||
+            state.assignment.payloadVersion !=
+                (sourceProof.empty() ? 1U : 2U))
+        {
+            reason = "media_import_readback_payload_invalid";
+            return false;
+        }
+        if (sourceProof.empty()) {
+            // Existing (pre-REC4.6) imports have no bound source identity.
+            createResult(state, "effect_reported", "verified", "succeeded",
+                         "none", "none",
+                         "VDR readback notice durably received; no source cleanup");
+            state.result.resultEvidence = "media-tools-cleanup:not-performed";
+        } else {
+            // A crash after durable "starting" leaves the filesystem
+            // outcome uncertain. Do not invoke cleanup a second time.
+            if (state.dispatchState == "starting") {
+                createResult(state, "starting", "outcome_unknown",
+                             "outcome_unknown", "executor_unknown",
+                             "reconcile_only",
+                             "Source cleanup interrupted; inspect source before retry");
+                state.result.resultEvidence = "media-tools-cleanup:failed";
+                if (!persist(config.statePath, state, reason)) return false;
+                return sendResult(config, context, transport, state, reason);
+            }
+            if (state.dispatchState != "not_started") {
+                reason = "media_import_readback_state_invalid";
+                return false;
+            }
+            // The one-shot cleanup is fenced durably before any source unlink.
+            state.dispatchState = "starting";
+            if (!persist(config.statePath, state, reason)) return false;
+            auto cleanup = vdrsuite::mediatools::MediaImportCleanupOutcome::notPerformed;
+            try {
+                if (config.mediaImportExecutor &&
+                    config.mediaImportExecutor->available())
+                    cleanup = config.mediaImportExecutor->cleanupConfirmedSource(
+                        source, sourceProof);
+            } catch (...) {
+                cleanup = vdrsuite::mediatools::MediaImportCleanupOutcome::failed;
+            }
+            using Cleanup = vdrsuite::mediatools::MediaImportCleanupOutcome;
+            switch (cleanup) {
+                case Cleanup::removed:
+                    createResult(state, "effect_reported", "verified",
+                                 "succeeded", "none", "none",
+                                 "Confirmed VDR import; source cleanup succeeded");
+                    state.result.resultEvidence = "media-tools-cleanup:removed";
+                    break;
+                case Cleanup::alreadyAbsent:
+                    createResult(state, "effect_reported", "verified",
+                                 "succeeded", "none", "none",
+                                 "Confirmed VDR import; source already absent");
+                    state.result.resultEvidence = "media-tools-cleanup:already-absent";
+                    break;
+                case Cleanup::notPerformed:
+                    createResult(state, "effect_reported", "not_required",
+                                 "succeeded", "none", "none",
+                                 "Confirmed VDR import; cleanup not performed");
+                    state.result.resultEvidence = "media-tools-cleanup:not-performed";
+                    break;
+                case Cleanup::failed:
+                    createResult(state, "starting", "outcome_unknown",
+                                 "rejected", "executor_unknown", "none",
+                                 "Confirmed VDR import; source cleanup failed");
+                    state.result.resultEvidence = "media-tools-cleanup:failed";
+                    break;
+            }
+        }
+        if (!persist(config.statePath, state, reason)) return false;
+        return sendResult(config, context, transport, state, reason);
     }
 
     if (mediaImportCommand && !state.resultPresent)
@@ -845,7 +959,9 @@ bool reconcileBackendAgentCommandState(
             {
                 const auto evidence =
                     config.mediaImportExecutor->takeRecordingEvidence();
-                if (vdrsuite::mediatools::validRecordingPathEvidence(evidence))
+                std::string recordingProof, sourceProof;
+                if (vdrsuite::mediatools::parseMediaImportResultEvidence(
+                        evidence, recordingProof, sourceProof))
                     state.result.resultEvidence = evidence;
             }
             catch (...) {} // No readback proof, never report verification.
@@ -1310,7 +1426,15 @@ bool pollBackendAgentCommandWithAvailability(
     }
     if (!reconcileBackendAgentCommandState(
             config, context, transport, reason) &&
-        reason != "no_local_command") return false;
+        reason != "no_local_command") {
+        if (reason != "local_command_generation_fenced") return false;
+        // Quarantine the old unacknowledged command without discarding its
+        // evidence, polling for a replacement or executing any native action.
+        // Heartbeat, channel observation and Media Import inventory run in
+        // the independent Agent lifecycle.
+        reason = "local_command_generation_quarantined";
+        return true;
+    }
 
     BackendAgentCommandPollRequest request;
     request.backendId = context.backendId;

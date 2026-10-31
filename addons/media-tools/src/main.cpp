@@ -17,15 +17,23 @@ int main(int argc, char* argv[]) {
         const std::string action(argv[1]);
         if (action != "plan" && action != "import")
             throw std::invalid_argument("unknown action");
-        const bool localReencode = action == "import" && argc == 7 &&
-            std::string(argv[5]) == "--confirm-writes" &&
+        // Existing command syntax remains unchanged when the one-shot
+        // metadata snapshot is absent (offline/local NFO fallback).
+        const bool localReencode = action == "import" && argc >= 7 &&
             std::string(argv[6]) == "--approve-video-reencode";
+        const int metadataIndex = localReencode ? 7 : 6;
+        const bool withMetadata = action == "import" && argc > metadataIndex &&
+            std::string(argv[metadataIndex]).compare(0, 11, "--metadata=") == 0;
         if ((action == "plan" && argc != 5) ||
-            (action == "import" && !(
-                (argc == 6 && std::string(argv[5]) == "--confirm-writes") ||
-                localReencode))) {
+            (action == "import" &&
+             (std::string(argv[5]) != "--confirm-writes" ||
+              argc != 6 + (localReencode ? 1 : 0) + (withMetadata ? 1 : 0)))) {
             throw std::invalid_argument("invalid import arguments or missing write confirmation");
         }
+        ImportConfirmedMetadata frozenMetadata;
+        if (withMetadata && !parseFrozenImportMetadata(
+                std::string(argv[metadataIndex]).substr(11), frozenMetadata))
+            throw std::invalid_argument("invalid frozen import metadata");
         const auto plan = action == "plan"
             ? inspectImportPreview(ImportRequest{argv[2], argv[3], argv[4]})
             : inspectImport(ImportRequest{argv[2], argv[3], argv[4]});
@@ -66,7 +74,8 @@ int main(int argc, char* argv[]) {
         }
         NativeProcessRunner runner;
         const auto result = executeRemuxImport(
-            plan, runner, requireProductionCapacity, localReencode);
+            plan, runner, requireProductionCapacity, localReencode,
+            withMetadata ? &frozenMetadata : nullptr);
         std::cout << "IMPORT_STATUS=COMMITTED\nRECORDING=" << result << "\n"
                   << "SOURCE_PRESERVED=YES\n"
                   << "SUITE_RECONCILIATION=NOT_CONNECTED\n";

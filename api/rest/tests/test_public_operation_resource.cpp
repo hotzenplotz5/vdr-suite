@@ -106,6 +106,44 @@ int main()
     assert(read.body.find(
         "\"self\":\"/api/v1/operations/op-1\"") !=
         std::string::npos);
+    assert(read.body.find("\"sourceCleanup\"") == std::string::npos);
+
+    runtime.registerOperationLookup(
+        [](const std::string& operationId, const std::string& actorRef) {
+            auto value = operationResult(operationId, actorRef);
+            if (value.status == PublicOperationLookupStatus::ok) {
+                value.operation.sourceCleanup = "removed";
+                value.operation.resourceRevision = "7:media-cleanup:removed";
+            }
+            return value;
+        });
+    ApiResponse cleanupRead;
+    assert(runtime.tryHandleGet(
+        "/api/v1/operations/op-1", "actor-owner",
+        "cleanup-projection", "", cleanupRead));
+    assert(cleanupRead.statusCode == 200);
+    assert(cleanupRead.body.find(
+        "\"sourceCleanup\":\"removed\"") != std::string::npos);
+    assert(cleanupRead.headers.at("ETag") != expectedTag);
+    runtime.registerOperationLookup(
+        [](const std::string& operationId, const std::string& actorRef) {
+            auto value = operationResult(operationId, actorRef);
+            if (value.status == PublicOperationLookupStatus::ok) {
+                value.operation.sourceCleanup = "outcome_unknown";
+                value.operation.resourceRevision =
+                    "7:media-cleanup:outcome_unknown";
+            }
+            return value;
+        });
+    ApiResponse interruptedRead;
+    assert(runtime.tryHandleGet(
+        "/api/v1/operations/op-1", "actor-owner",
+        "cleanup-interruption", "", interruptedRead));
+    assert(interruptedRead.statusCode == 200);
+    assert(interruptedRead.body.find(
+        "\"sourceCleanup\":\"outcome_unknown\"") != std::string::npos);
+    assert(interruptedRead.headers.at("ETag") != cleanupRead.headers.at("ETag"));
+    runtime.registerOperationLookup(operationResult);
 
     for (const std::string& forbidden :
          {std::string("idempotency"),

@@ -251,6 +251,9 @@ test-addon-media-tools-package:
 	python3 -m unittest discover -s tools/addons -p 'test_media_tools_cpp_deb.py'
 	python3 -m unittest discover -s tools/addons -p 'test_stage_media_tools_runtime.py'
 	python3 -B -m unittest discover -s tools/addons -p 'test_install_media_tools_payload.py'
+	python3 -m unittest discover -s tools/addons -p 'test_media_tools_observed_live_update.py'
+	bash -n tools/addons/install_media_tools_mixed_yavdr.sh
+	bash -n tools/addons/resume_media_tools_mixed_yavdr.sh
 
 # MT.I4: build a disabled .deb from the already composed, independently
 # reviewed MT.I1 sealed runtime. Never compile, install, migrate or activate.
@@ -263,7 +266,7 @@ build-media-tools-stage-deb:
 		--output-dir "$(OUTPUT_DIR)" --maintainer "$(ADDON_MAINTAINER)"
 
 # Desktop/HandBrake and Skip deferral: backend-inventory source identity,
-# fd-bound no-overwrite marker rename, no deletion, no VDR writes. This test
+# fd-bound marker rename and confirmed source cleanup; no VDR writes. This test
 # operates ONLY on explicitly supplied disposable TMPDIR fixtures.
 .PHONY: test-addon-media-import-decision-markers
 test-addon-media-import-decision-markers:
@@ -273,11 +276,13 @@ test-addon-media-import-decision-markers:
 		-I core/addons/include -I core/security/include -I core/vdr/include \
 		addons/media-tools/src/MediaImportDecisionMarker.cpp \
 		addons/media-tools/tests/test_media_import_decision_marker.cpp \
-		-o "$(BUILD_DIR)/addons/test_media_import_decision_marker"
+		-lcrypto -o "$(BUILD_DIR)/addons/test_media_import_decision_marker"
 	"$(BUILD_DIR)/addons/test_media_import_decision_marker"
 
 test-ci-fast: test-addon-media-import-decision-markers
 test-ci-fast: test-addon-media-import
+# MT.META3: existing Core and Public-v1 artwork projections are also tested.
+test-ci-fast: test-addon-media-import-catalog test-addon-media-import-source-list-api
 test-install-staging: test-addon-media-tools-package
 
 # Core-owned, standalone access-decision library. No daemon/HTTP wiring.
@@ -556,7 +561,7 @@ test-addon-agent-advertisement:
 		$(AGENT_COMMAND_JSON_SRC) \
 		$(AGENT_COMMAND_CLIENT_SRC) \
 		core/agent/tests/test_backend_agent_command_client.cpp \
-		-o "$(BUILD_DIR)/addons/test_addon_agent_advertisement"
+		-lcrypto -o "$(BUILD_DIR)/addons/test_addon_agent_advertisement"
 	"$(BUILD_DIR)/addons/test_addon_agent_advertisement"
 
 # Read-only permission descriptor catalog for settings, no grant mutation.

@@ -3154,7 +3154,8 @@ bool parsePublicSearchTimerCreateBody(
 // A7.3: a single JSON string field, closed grammar; never a source path.
 bool parseMediaImportAdmissionBody(
     const std::string& input, std::string& sourceId,
-    bool& approveVideoReencode, std::string& videoDecision)
+    bool& approveVideoReencode, std::string& videoDecision,
+    std::string& metadata)
 {
     std::size_t position = 0U;
     skipAccountMutationWhitespace(input, position);
@@ -3168,30 +3169,52 @@ bool parseMediaImportAdmissionBody(
     skipAccountMutationWhitespace(input, position);
     if (!parseAccountMutationJsonString(input, position, sourceId))
         return false;
-    skipAccountMutationWhitespace(input, position);
     approveVideoReencode = false;
     videoDecision.clear();
-    if (position < input.size() && input[position] == ',') {
+    metadata.clear();
+    skipAccountMutationWhitespace(input, position);
+    bool seenDecision = false;
+    while (position < input.size() && input[position] == ',') {
         ++position;
         skipAccountMutationWhitespace(input, position);
-        std::string decisionKey;
-        if (!parseAccountMutationJsonString(input, position, decisionKey) ||
-            decisionKey != "videoDecision") return false;
+        std::string field;
+        if (!parseAccountMutationJsonString(input, position, field))
+            return false;
         skipAccountMutationWhitespace(input, position);
         if (position >= input.size() || input[position++] != ':') return false;
         skipAccountMutationWhitespace(input, position);
-        std::string decision;
-        if (!parseAccountMutationJsonString(input, position, decision) ||
-            (decision != "local" && decision != "desktop" &&
-             decision != "skip" && decision != "release")) return false;
-        approveVideoReencode = decision == "local";
-        if (!approveVideoReencode) videoDecision = decision;
+        std::string value;
+        if (!parseAccountMutationJsonString(input, position, value))
+            return false;
+        if (field == "videoDecision" && !seenDecision && metadata.empty()) {
+            if (value != "local" && value != "desktop" &&
+                value != "skip" && value != "release" &&
+                value != "duplicate" && value != "delete_duplicate") return false;
+            seenDecision = true;
+            approveVideoReencode = value == "local";
+            if (!approveVideoReencode) videoDecision = value;
+        } else if (field == "metadata" && metadata.empty() &&
+                   (videoDecision.empty()) &&
+                   (!seenDecision || approveVideoReencode)) {
+            // Same immutable import selection contract used by Core/Agent.
+            // META6 v2 adds the already-selected TMDb identity and poster;
+            // v1 remains valid for previously persisted operations.
+            const bool v1 = value.compare(0, 3, "v1|") == 0 &&
+                std::count(value.begin(), value.end(), '|') == 6;
+            const bool v2 = value.compare(0, 3, "v2|") == 0 &&
+                std::count(value.begin(), value.end(), '|') == 9;
+            if (value.size() < 12U || value.size() > 4096U ||
+                (!v1 && !v2))
+                return false;
+            metadata = std::move(value);
+        } else return false;
         skipAccountMutationWhitespace(input, position);
     }
     if (position >= input.size() || input[position++] != '}') return false;
     skipAccountMutationWhitespace(input, position);
     if (position != input.size() ||
-        sourceId.size() < 16U || sourceId.size() > 64U) return false;
+        sourceId.size() < 16U || sourceId.size() > 64U)
+        return false;
     return std::all_of(sourceId.begin(), sourceId.end(),
         [](unsigned char ch) {
             return std::isalnum(ch) || ch == '_' || ch == '-';
@@ -4222,7 +4245,11 @@ ApiResponse publicOperationResponse(
         "{\"operationId\":\"" + jsonEscape(operation.operationId) +
         "\",\"state\":\"" + jsonEscape(operation.state) +
         "\",\"backendId\":\"" + jsonEscape(operation.backendId) +
-        "\",\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}",
+        "\"" +
+        (operation.sourceCleanup.empty() ? std::string{} :
+            ",\"sourceCleanup\":\"" + jsonEscape(operation.sourceCleanup) +
+            "\"") +
+        ",\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}",
         requestId,
         correlationId);
     response.headers["ETag"] = entityTag;
@@ -8966,7 +8993,16 @@ bool PublicApiRuntime::tryHandleGet(
             ",\"availableBytes\":" + std::to_string(result.availableBytes) +
             ",\"requiredBytes\":" + std::to_string(result.requiredBytes) +
             ",\"videoReencodeRequired\":" +
-            std::string(result.videoReencodeRequired ? "true" : "false") + "}";
+            std::string(result.videoReencodeRequired ? "true" : "false") +
+            ",\"failureCode\":\"" + jsonEscape(result.failureCode) +
+            "\",\"nfoOutline\":\"" + jsonEscape(result.nfoOutline) +
+            "\",\"nfoPlot\":\"" + jsonEscape(result.nfoPlot) +
+            "\",\"nfoYear\":\"" + jsonEscape(result.nfoYear) +
+            "\",\"nfoGenre\":\"" + jsonEscape(result.nfoGenre) +
+            "\",\"durationSeconds\":" + std::to_string(result.durationSeconds) +
+            ",\"posterDataUri\":\"" + jsonEscape(result.posterDataUri) +
+            "\",\"fanartDataUri\":\"" + jsonEscape(result.fanartDataUri) +
+            "\"}";
         response = jsonResponse(body, requestId, correlationId);
         response.headers["Cache-Control"] = "no-store";
         return true;
@@ -8993,8 +9029,8 @@ bool PublicApiRuntime::tryHandleGet(
             return true;
         }
         // A page cursor is only a snapshot check and position, never authority.
-        // Backend access, actor grants and the live Agent lease are rechecked
-        // for EVERY page by lookupMediaImportSources().
+        // Actor/backend read grants are checked for every page. An expired
+        // Agent lease does not invalidate a previously observed directory.
         const std::string query = requestQueryString(requestTarget);
         std::string requestedCursor;
         if (!query.empty()) {
@@ -9026,7 +9062,9 @@ bool PublicApiRuntime::tryHandleGet(
         }
         if ((!r.labels.empty() && r.labels.size() != r.ids.size()) ||
             (!r.folders.empty() &&
-             (r.labels.empty() || r.folders.size() != r.ids.size())))
+             (r.labels.empty() || r.folders.size() != r.ids.size())) ||
+            (!r.statuses.empty() &&
+             (r.labels.empty() || r.statuses.size() != r.ids.size())))
         {
             response = serviceUnavailableProblem(path, requestId, correlationId);
             return true;
@@ -9098,6 +9136,14 @@ bool PublicApiRuntime::tryHandleGet(
                 }
                 mix(folder);
             }
+            if (!r.statuses.empty()) {
+                const auto& status = r.statuses[index];
+                if (status != "recording_present" && status != "unverified") {
+                    response = serviceUnavailableProblem(path, requestId, correlationId);
+                    return true;
+                }
+                mix(status);
+            }
             previous = id;
         }
         const std::string prefix = "mi1_" + std::to_string(revision) + "_";
@@ -9138,13 +9184,17 @@ bool PublicApiRuntime::tryHandleGet(
                 body += ",\"label\":\"" + jsonEscape(r.labels[index]) + "\"";
             if (!r.folders.empty())
                 body += ",\"folder\":\"" + jsonEscape(r.folders[index]) + "\"";
+            if (!r.statuses.empty())
+                body += ",\"recordingStatus\":\"" + r.statuses[index] + "\"";
             body += "}";
         }
         // Completion is measured by the bounded scanner, NOT inferred
         // from the number of 32-item response pages.
         const bool partial = r.partial;
         body += "],\"meta\":{\"partial\":" +
-            std::string(partial ? "true" : "false") + "},\"links\":{\"self\":\"" +
+            std::string(partial ? "true" : "false") +
+            (r.stale ? ",\"stale\":true" : "") +
+            "},\"links\":{\"self\":\"" +
             jsonEscape(requestTarget) + "\"";
         if (finish < r.ids.size()) {
             const std::string next = path + "?cursor=" + prefix +
@@ -12471,7 +12521,7 @@ bool PublicApiRuntime::tryHandlePost(
                 path, requestId, correlationId);
             return true;
         }
-        if (body.size() > 256U)
+        if (body.size() > 4608U)
         {
             response = invalidRequestProblem(path,
                 "Media Import body is too large.",
@@ -12488,8 +12538,9 @@ bool PublicApiRuntime::tryHandlePost(
         std::string sourceId;
         bool approveVideoReencode = false;
         std::string videoDecision;
+        std::string metadata;
         if (!parseMediaImportAdmissionBody(
-                body, sourceId, approveVideoReencode, videoDecision))
+                body, sourceId, approveVideoReencode, videoDecision, metadata))
         {
             response = problemResponse(422, "validation_error",
                 "Validation failed",
@@ -12521,6 +12572,7 @@ bool PublicApiRuntime::tryHandlePost(
         input.idempotencyKey = idempotencyKey;
         input.approveVideoReencode = approveVideoReencode;
         input.videoDecision = videoDecision;
+        input.metadata = metadata;
         const auto result = admit(input);
         switch (result.status)
         {

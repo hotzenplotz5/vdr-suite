@@ -709,9 +709,14 @@
         throw new Error('Media Import requires valid Idempotency-Key');
       }
       if (requestOptions.videoDecision !== undefined &&
-          !['local', 'desktop', 'skip', 'release'].includes(requestOptions.videoDecision)) {
+          !['local', 'desktop', 'skip', 'release', 'duplicate', 'delete_duplicate'].includes(requestOptions.videoDecision)) {
         throw new Error('Media Import requires an explicit supported video decision');
       }
+      if (requestOptions.metadata !== undefined &&
+          (typeof requestOptions.metadata !== 'string' ||
+           requestOptions.metadata.length > 4096 ||
+           !/^v(?:1|2)\|(episode|movie)\|/.test(requestOptions.metadata)))
+        throw new Error('Invalid Media Import metadata snapshot');
       const headers = Object.assign(
         {Accept: 'application/json'},
         defaultHeaders,
@@ -726,10 +731,12 @@
           ? requestOptions.credentials : normalized.credentials,
         cache: 'no-store',
         signal: requestOptions.signal,
-        body: JSON.stringify(requestOptions.videoDecision
-          ? {sourceId: requestOptions.sourceId,
-             videoDecision: requestOptions.videoDecision}
-          : {sourceId: requestOptions.sourceId})
+        body: JSON.stringify(Object.assign(
+          {sourceId: requestOptions.sourceId},
+          requestOptions.videoDecision
+            ? {videoDecision: requestOptions.videoDecision} : {},
+          requestOptions.metadata
+            ? {metadata: requestOptions.metadata} : {}))
       }).then(function (response) {
         const location = headerValue(response, 'Location');
         const entityTag = headerValue(response, 'ETag');

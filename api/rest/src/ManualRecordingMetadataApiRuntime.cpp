@@ -536,6 +536,7 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
         selection.externalId = stringValue(strings, "externalId");
         selection.mediaType = stringValue(strings, "mediaType");
         selection.title = stringValue(strings, "title");
+        selection.seriesTitle = stringValue(strings, "seriesTitle");
         selection.originalTitle = stringValue(strings, "originalTitle");
         selection.overview = stringValue(strings, "overview");
         selection.releaseDate = stringValue(strings, "releaseDate");

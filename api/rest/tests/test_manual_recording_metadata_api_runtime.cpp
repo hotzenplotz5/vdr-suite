@@ -2,11 +2,17 @@
 #include "ManualRecordingMetadataApiRuntime.h"
 #include "MetadataController.h"
 #include "MetadataRepository.h"
+#include "MediaImport.h"
 #include "RecordingMetadataCandidateProvider.h"
 
 #include <cassert>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
+#include <cstdlib>
+#include <unistd.h>
 
 namespace
 {
@@ -218,6 +224,47 @@ int main()
     FakeProvider provider;
     MetadataController controller(repository, &provider);
 
+    // Real API-to-writer integration, using a disposable existing VDR
+    // recording. No FFmpeg, reimport, live VDR or TMDb/network lookup.
+    char nativeRootTemplate[] = "/tmp/vdr-suite-meta6-native-XXXXXX";
+    const char* createdRoot = ::mkdtemp(nativeRootTemplate);
+    assert(createdRoot != nullptr);
+    const std::filesystem::path nativeRoot(createdRoot);
+    const auto nativeRecording = nativeRoot / "Serien" / "Andor" /
+        "2026-10-28.17.06.1-0.rec";
+    std::filesystem::create_directories(nativeRecording);
+    const std::string legacyInfo =
+        "C Channel\nT DE - Star Wars Andor S01E01\n"
+        "S Imported via VDR-Suite Media Tools\n"
+        "E 123 456 789 4E 00\nF 25\n";
+    std::ofstream(nativeRecording / "info", std::ios::binary) << legacyInfo;
+    std::ofstream(nativeRecording / "index", std::ios::binary) << "index";
+    std::ofstream(nativeRecording / "00001.ts", std::ios::binary) << "video-bytes";
+
+    int nativeUpdateCalls = 0;
+    controller.setNativeInfoUpdate(
+        [&nativeUpdateCalls, &nativeRoot, &nativeRecording](
+            const ManualRecordingMetadataSelection& selected,
+            const ManualRecordingMetadataAssignment& assigned) {
+            ++nativeUpdateCalls;
+            assert(selected.backendId == "living-room");
+            assert(assigned.found);
+            if (selected.mediaType != "episode")
+                return selected.title == "Forrest Gump";
+            assert(selected.resourceKey == "episode/key");
+            assert(assigned.resourceKey == "episode/key");
+            assert(selected.seriesTitle == "Star Wars: Andor");
+            vdrsuite::mediatools::ImportConfirmedMetadata confirmed;
+            confirmed.mediaType = assigned.mediaType;
+            confirmed.title = assigned.title;
+            confirmed.seriesTitle = selected.seriesTitle;
+            confirmed.overview = assigned.overview;
+            confirmed.seasonNumber = assigned.seasonNumber;
+            confirmed.episodeNumber = assigned.episodeNumber;
+            return vdrsuite::mediatools::updateConfirmedNativeVdrInfo(
+                nativeRoot, nativeRecording, confirmed);
+        });
+
     ManualRecordingMetadataApiRuntime& runtime =
         ManualRecordingMetadataApiRuntime::instance();
     runtime.reset();
@@ -337,6 +384,8 @@ int main()
             "user:real-admin");
         assert(response.statusCode == 200);
         assert(response.body.find("\"manual\":true") != std::string::npos);
+        assert(response.body.find("\"nativeInfoUpdated\":true") != std::string::npos);
+        assert(nativeUpdateCalls == 1);
         assert(response.body.find("\"revision\":1") != std::string::npos);
         assert(response.body.find("\"castComplete\":true") != std::string::npos);
         assert(response.body.find("Tom Hanks") != std::string::npos);
@@ -380,6 +429,48 @@ int main()
     provider.emptyCredits = false;
 
     {
+        // Existing Andor S01E01: the authenticated existing assignment
+        // route applies the already-found provider data to native info,
+        // without an extra API, another import or a TMDb query.
+        const int beforeCredits = provider.creditCalls;
+        const ApiResponse response = post(
+            runtime,
+            "/api/backends/living-room/recordings/metadata/assign",
+            R"({"resourceKey":"episode/key","providerId":"tmdb",)"
+            R"("externalNamespace":"tv-episode","externalId":"221",)"
+            R"("mediaType":"episode","title":"Kassa",)"
+            R"("seriesTitle":"Star Wars: Andor",)"
+            R"("overview":"Die Suche beginnt.","posterReference":"",)"
+            R"("seasonNumber":1,"episodeNumber":1,"expectedRevision":0})",
+            "user:real-admin");
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"nativeInfoUpdated\":true") != std::string::npos);
+        assert(nativeUpdateCalls == 3);
+        assert(provider.creditCalls == beforeCredits);
+        std::ifstream info(nativeRecording / "info", std::ios::binary);
+        const std::string written((std::istreambuf_iterator<char>(info)),
+                                  std::istreambuf_iterator<char>());
+        assert(written ==
+            "C Channel\nT Star Wars: Andor\nS Kassa\n"
+            "E 123 456 789 4E 00\nF 25\nD Die Suche beginnt.\n");
+        assert(std::filesystem::exists(nativeRoot / ".update"));
+        assert(std::filesystem::exists(
+            nativeRecording / ".vdr-suite-import-origin"));
+        std::ifstream ts(nativeRecording / "00001.ts", std::ios::binary);
+        assert(std::string(std::istreambuf_iterator<char>(ts),
+                           std::istreambuf_iterator<char>()) == "video-bytes");
+        std::ifstream index(nativeRecording / "index", std::ios::binary);
+        assert(std::string(std::istreambuf_iterator<char>(index),
+                           std::istreambuf_iterator<char>()) == "index");
+        ApiResponse persisted;
+        assert(runtime.tryHandleGet(
+            "/api/backends/living-room/recordings/metadata/manual?resourceKey=episode%2Fkey",
+            persisted));
+        assert(persisted.body.find("\"found\":true") != std::string::npos);
+        assert(persisted.body.find("\"title\":\"Kassa\"") != std::string::npos);
+    }
+
+    {
         const ApiResponse response = post(
             runtime,
             "/api/backends/living-room/recordings/metadata/assign",
@@ -387,7 +478,7 @@ int main()
             "");
         assert(response.statusCode == 401);
         assert(provider.creditCalls == 3);
-        assert(presentationChanges.size() == 2);
+        assert(presentationChanges.size() == 3);
     }
 
     {
@@ -396,7 +487,7 @@ int main()
             "/api/backends/living-room/recordings/metadata/withdraw",
             "{\"resourceKey\":\"cache/key\",\"expectedRevision\":9}");
         assert(response.statusCode == 409);
-        assert(presentationChanges.size() == 2);
+        assert(presentationChanges.size() == 3);
     }
 
     {
@@ -408,7 +499,7 @@ int main()
         assert(response.body.find("\"relationshipLocked\":false") != std::string::npos);
         assert(presentationChanges ==
             (std::vector<std::string>{
-                "living-room", "living-room", "living-room"}));
+                "living-room", "living-room", "living-room", "living-room"}));
     }
 
     {
@@ -505,6 +596,7 @@ int main()
     }
 
     runtime.reset();
+    std::filesystem::remove_all(nativeRoot);
     database.close();
     return 0;
 }

@@ -3,13 +3,45 @@
 
   // Media Tools is a view of Core-owned capabilities and Operations, never a job queue.
   const activeAttempts = Object.create(null);
+  // Keep an uncertain operation pinned to its original source, not to the
+  // entire backend media browser. No unknown command is re-dispatched.
+  const unresolvedAttempts = Object.create(null);
   const activeBatches = Object.create(null);
+  // Browser-session HISTORY of a Core 'succeeded' recording readback, keyed
+  // by the operation's source ID. A pinned inventory ID may survive a file
+  // replacement: do not claim a newly scanned file is the verified original.
+  // No source mutation, media identity or durable ledger follows from it.
+  const confirmedImports = Object.create(null);
+  // Latest Core-confirmed outcome per backend, during this authenticated
+  // browser session. Display receipt only; never treat it as source identity.
+  const completedOperations = Object.create(null);
+  // Last successfully verified source inventory per backend, memory-only
+  // within the current authenticated browser session. Never persisted.
+  const lastGoodSourceInventories = Object.create(null);
+  // A Core-confirmed delete can precede the Agent's next published inventory.
+  // Hide ONLY that confirmed source while the older read-only snapshot catches up.
+  // Presentation-only; never grants or denies a server-side action.
+  const confirmedDeletedSources = Object.create(null);
+  // Avoid repeated automatic duplicate operations for a single source observation.
+  const automaticDuplicates = Object.create(null);
   const POLL_MS = 4000;
-  const MAX_AUTOMATIC_READS = 15;
-  // Long-running explicitly approved imports can use the Agent's bounded
-  // 600-second execution window plus dispatch/readback headroom.
+  // A single import has the same Agent execution/readback lifetime as a
+  // batch item. Fifteen checks stopped after 60 seconds and stranded the UI
+  // before the Core could confirm an otherwise successful import.
+  const MAX_AUTOMATIC_READS = 225;
+  // 225 * 4s = 15 minutes, covering the 600s worker plus readback headroom.
   const MAX_BATCH_READS = 225;
   const MAX_IMPORT_FILMS = 100;
+  const BACKGROUND_PREVIEW_POLL_MS = 4000;
+  const BACKGROUND_PREVIEW_MAX_READS = 15;
+  // Sort human-readable labels naturally (S01E02 before S01E10);
+  // opaque source IDs remain the authoritative selection identities.
+  const sourceCollator = new Intl.Collator('de', {numeric: true, sensitivity: 'base'});
+  function compareSources(left, right) {
+    return sourceCollator.compare(left.folder || '', right.folder || '') ||
+      sourceCollator.compare(left.label || '', right.label || '') ||
+      sourceCollator.compare(left.sourceId, right.sourceId);
+  }
   let owner = 0;
   let current = null;
   let client = null;
@@ -32,6 +64,8 @@
     return {backendId: backendId, credentials: 'same-origin', cache: 'no-store'};
   }
 
+  // Advisory observation for the shell tab; NEVER an import/delete gate.
+  // Core alone authorizes an explicitly confirmed action on its POST route.
   function checkCapability(backendId) {
     return publicClient().getMediaImportCapability(readOptions(backendId))
       .then(function (result) {
@@ -82,7 +116,11 @@
       clearPolling(current);
       if (current.previewTimer !== null) global.clearTimeout(current.previewTimer);
       current.previewTimer = null;
+      if (current.backgroundTimer !== null) global.clearTimeout(current.backgroundTimer);
+      current.backgroundTimer = null;
+      ++current.backgroundGeneration;
       ++current.previewGeneration;
+      resetOnline(current);
       ++current.reviewGeneration;
     }
     current = null;
@@ -93,8 +131,26 @@
     Object.keys(activeAttempts).forEach(function (id) {
       delete activeAttempts[id];
     });
+    Object.keys(unresolvedAttempts).forEach(function (id) {
+      delete unresolvedAttempts[id];
+    });
     Object.keys(activeBatches).forEach(function (id) {
       delete activeBatches[id];
+    });
+    Object.keys(automaticDuplicates).forEach(function (id) {
+      delete automaticDuplicates[id];
+    });
+    Object.keys(confirmedImports).forEach(function (id) {
+      delete confirmedImports[id];
+    });
+    Object.keys(completedOperations).forEach(function (id) {
+      delete completedOperations[id];
+    });
+    Object.keys(lastGoodSourceInventories).forEach(function (id) {
+      delete lastGoodSourceInventories[id];
+    });
+    Object.keys(confirmedDeletedSources).forEach(function (id) {
+      delete confirmedDeletedSources[id];
     });
   }
 
@@ -104,9 +160,43 @@
     return match ? match[1].toLowerCase() : '';
   }
 
+  // Rectools-compatible PC handoff: the unmarked PC output and the parked
+  // .pc_encode file remain separate source IDs. This is a read-only name/folder
+  // hint, never a media identity, import approval or cleanup instruction.
+  // The backend owns codec checks and the Core owns VDR recording readback.
+  function pcEncodeCandidates(view, marked) {
+    if (markerSuffix(marked) !== 'pc_encode') return [];
+    const expected = marked.label.slice(0, -'.pc_encode'.length);
+    return view.allOrdinary.filter(function (item) {
+      return item.folder === marked.folder && item.label === expected;
+    });
+  }
+
+  function parkedPcEncodeMatches(view, candidate) {
+    if (!candidate) return [];
+    return view.allMarked.filter(function (marked) {
+      return markerSuffix(marked) === 'pc_encode' &&
+        marked.folder === candidate.folder &&
+        marked.label.slice(0, -'.pc_encode'.length) === candidate.label;
+    });
+  }
+
+  function possiblePcReturn(view, candidate) {
+    const parked = parkedPcEncodeMatches(view, candidate);
+    // Two returned file extensions or two parked originals are ambiguous.
+    // No arbitrary "first matching file" association is ever made.
+    return parked.length === 1 && pcEncodeCandidates(view, parked[0]).length === 1
+      ? parked[0] : null;
+  }
+
+  function confirmedImport(view, sourceId) {
+    return confirmedImports[view.backendId + '|' + sourceId] || null;
+  }
+
   function operationLabel(state, decision) {
     const marker = decision === 'desktop' || decision === 'skip' ||
-      decision === 'release';
+      decision === 'duplicate' || decision === 'release' ||
+      decision === 'delete_duplicate';
     const labels = {
       accepted: 'Angenommen – Ausführung noch nicht bestätigt.',
       queued: 'In Warteschlange des bestehenden Backend-Agenten.',
@@ -115,10 +205,14 @@
       executed_unverified: marker
         ? 'Dateimarkierung ausgeführt, Core-Bestätigung noch ausstehend.'
         : 'Ausgeführt, VDR-Aufnahme noch nicht unabhängig bestätigt.',
-      succeeded: decision === 'desktop'
+      succeeded: decision === 'delete_duplicate'
+        ? 'Doppelte Quelldatei gelöscht – VDR-Aufnahme bleibt erhalten.'
+        : decision === 'desktop'
         ? 'Für PC/HandBrake markiert – Dateimarkierung vom Core bestätigt, keine VDR-Aufnahme.'
         : decision === 'skip'
           ? 'Übersprungen – Dateimarkierung vom Core bestätigt, keine VDR-Aufnahme.'
+          : decision === 'duplicate'
+            ? 'Als Duplikat markiert (.duplicate) – keine neue VDR-Aufnahme.'
           : decision === 'release'
             ? 'Datei ausdrücklich freigegeben – vom Core bestätigt, noch nicht importiert.'
             : 'Importiert – neue VDR-Aufnahme wurde unabhängig bestätigt.',
@@ -133,9 +227,345 @@
       ? labels[state] : 'Unbekannter Operationszustand – bitte prüfen.';
   }
 
+  // Only Core-owned, journal-backed Operation results may assert cleanup.
+  function cleanupLabel(status) {
+    const labels = {
+      pending: 'Quellenbereinigung vom Backend-Agenten noch nicht bestätigt.',
+      removed: 'Importierte Quelldatei erfolgreich entfernt.',
+      already_absent: 'Importierte Quelldatei bereits nicht mehr vorhanden.',
+      not_performed: 'Quellenbereinigung nicht durchgeführt.',
+      failed: 'Quellenbereinigung fehlgeschlagen; die VDR-Aufnahme bleibt bestätigt.',
+      outcome_unknown: 'Quellenbereinigung nach Agent-Unterbrechung unbestätigt; Original prüfen, keine automatische Wiederholung.'
+    };
+    return Object.prototype.hasOwnProperty.call(labels, status)
+      ? labels[status] : '';
+  }
+
+  // A running mutation never blocks read-only selection and preview of film B.
+  function mayBrowseDuringOperation(view) {
+    return Boolean(view && view.attempt && !view.batch);
+  }
+
+  // An unknown Core outcome must not lock unrelated read-only source browsing.
+  // The pinned operation still blocks every new import or source mutation.
+  function mayBrowseWithUnknownOutcome(view) {
+    return Boolean(view && view.attempt && view.attempt.operationId &&
+      view.attempt.state === 'outcome_unknown' && !view.batch && !view.submitting);
+  }
+
+  function enableOperationBrowsing(view) {
+    if (!mayBrowseDuringOperation(view)) return;
+    // Only GET/navigation is enabled. The original operation stays pinned.
+    view.operationBrowsingEnabled = true;
+    view.select.disabled = view.sources.length === 0;
+    view.reloadButton.disabled = false;
+    view.searchInput.disabled = false;
+    view.statusFilter.disabled = false;
+    view.seasonFilter.disabled = false;
+    view.startButton.disabled = true;
+    view.batchButton.disabled = true;
+    view.selectedBatchButton.disabled = true;
+    view.selectAllVisibleButton.disabled = true;
+    if (!view.sources.length && !view.allMarked.length)
+      void loadSources(view);
+  }
+
+  function unresolvedKey(view, sourceId) {
+    return view.backendId + '|' + sourceId;
+  }
+
+  function sourceUnresolved(view, sourceId) {
+    return Boolean(sourceId &&
+      (unresolvedAttempts[unresolvedKey(view, sourceId)] ||
+       (view.attempt && view.attempt.sourceId === sourceId &&
+        view.attempt.state === 'outcome_unknown')));
+  }
+
+  // A failed or uncertain deletion is source-scoped. Do not disable every
+  // other episode's cleanup button merely because view.attempt is populated.
+  // The original source remains locked to its exact durable Operation.
+  function deleteBlockReason(view, sourceId) {
+    if (sourceUnresolved(view, sourceId))
+      return 'Löschen gesperrt: Die vorherige Dateiaktion für diese Quelle ist ' +
+        'ungeklärt. Ihr Ergebnis muss über „Diesen Vorgang prüfen“ geklärt ' +
+        'werden. Kein zweiter Löschauftrag.';
+    if (view.submitting)
+      return 'Löschen gesperrt: Eine Dateiaktion wird gerade übermittelt.';
+    if (view.batch || view.inspectingBatch)
+      return 'Löschen gesperrt: Eine Stapelprüfung läuft.';
+    const attempt = view.attempt;
+    if (!attempt) return '';
+    if (attempt.state === 'outcome_unknown') return '';
+    if (terminalState(attempt.state)) {
+      // A verified import is no longer a same-source UI lock after its
+      // automatic fresh inventory read. Core revalidates any later delete.
+      if (attempt.sourceId === sourceId &&
+          attempt.state === 'succeeded' &&
+          (!attempt.videoDecision || attempt.videoDecision === 'local') &&
+          attempt.sourceCleanup !== 'pending' &&
+          attempt.inventoryRefreshCompleted) return '';
+      return attempt.sourceId === sourceId
+        ? 'Löschen gesperrt: Der Quellenabgleich nach dem Import läuft noch.'
+        : '';
+    }
+    return 'Löschen gesperrt: Der vorherige Auftrag läuft noch.';
+  }
+
+  function updateInlineDeleteAvailability(view) {
+    if (!view || !view.selectionRows) return;
+    Array.from(view.selectionRows.children).forEach(function (row) {
+      const rowId = row.dataset.sourceId;
+      const rowDelete = Array.from(row.children).find(function (child) {
+        return (child.className || '').includes('media-import-delete-duplicate-inline');
+      });
+      if (!rowDelete) return;
+      const reason = deleteBlockReason(view, rowId);
+      rowDelete.disabled = Boolean(reason);
+      rowDelete.title = reason;
+      const blocked = Array.from(row.children).find(function (child) {
+        return (child.className || '').includes('media-import-delete-blocked');
+      });
+      if (blocked) {
+        blocked.textContent = reason;
+        blocked.hidden = !reason;
+      }
+    });
+  }
+
+  function prepareIndependentDelete(view, sourceId) {
+    if (!isCurrent(view) || deleteBlockReason(view, sourceId)) return false;
+    const attempt = view.attempt;
+    if (attempt && attempt.state === 'outcome_unknown')
+      pinUnknownOnSourceChange(view, sourceId);
+    else if (attempt && terminalState(attempt.state) &&
+             (attempt.sourceId !== sourceId ||
+              (attempt.state === 'succeeded' &&
+               (!attempt.videoDecision || attempt.videoDecision === 'local') &&
+               attempt.inventoryRefreshCompleted &&
+               attempt.sourceCleanup !== 'pending'))) {
+      // Finished receipt remains visible in completedOperations. Releasing
+      // the transient view is not a retry and never changes Core state.
+      clearPolling(view);
+      if (activeAttempts[view.backendId] === attempt)
+        delete activeAttempts[view.backendId];
+      view.attempt = null;
+      view.reads = 0;
+      view.refreshButton.hidden = true;
+      view.newButton.hidden = true;
+      view.operationDetail.textContent = '';
+      renderImportFeedback(view);
+      updateOperationDiagnostics(view);
+    }
+    return !view.attempt;
+  }
+
+  // An unknown result is still an existing Core Operation. The separate
+  // status control performs GET only. A different, freshly verified source
+  // must not inherit this source's mutation lock.
+  function renderUnresolvedAttempts(view) {
+    if (!isCurrent(view)) return;
+    view.unresolvedList.replaceChildren();
+    Object.keys(unresolvedAttempts).filter(function (key) {
+      return key.startsWith(view.backendId + '|');
+    }).forEach(function (key) {
+      const attempt = unresolvedAttempts[key];
+      const row = element('div', 'media-import-unresolved-item');
+      row.appendChild(element('span', 'media-import-unresolved-label',
+        'Ungeklärter Auftrag für „' + attempt.sourceLabel + '“ (' +
+        attempt.operationId + '). Nur diese Quelle bleibt für weitere ' +
+        'Dateiaktionen gesperrt. Andere Filme können unabhängig geprüft ' +
+        'und nach Bestätigung importiert werden.'));
+      const check = element('button', 'media-import-unresolved-check',
+        'Diesen Vorgang prüfen');
+      check.type = 'button';
+      check.disabled = Boolean(view.unresolvedReading[key]);
+      check.addEventListener('click', function () {
+        if (!isCurrent(view) || unresolvedAttempts[key] !== attempt ||
+            view.unresolvedReading[key]) return Promise.resolve();
+        view.unresolvedReading[key] = true;
+        check.disabled = true;
+        return publicClient().getOperation({
+          operationId: attempt.operationId,
+          credentials: 'same-origin', cache: 'no-store'
+        }).then(function (response) {
+          if (!isCurrent(view) || unresolvedAttempts[key] !== attempt) return;
+          const operation = response && response.data;
+          if (!operation || operation.operationId !== attempt.operationId ||
+              operation.backendId !== view.backendId ||
+              typeof operation.state !== 'string')
+            throw new Error('Ungültige Operationsantwort');
+          attempt.state = operation.state;
+          attempt.lastStatusRead = new Date().toLocaleTimeString('de-DE');
+          attempt.lastStatusError = '';
+          attempt.sourceCleanup = typeof operation.sourceCleanup === 'string'
+            ? operation.sourceCleanup : '';
+          if (terminalState(operation.state)) {
+            delete unresolvedAttempts[key];
+            const text = 'Früherer Auftrag „' + attempt.sourceLabel +
+              '“: ' + operationLabel(operation.state, attempt.videoDecision) +
+              '. Aktuelle Quelldateien werden getrennt neu gelesen.';
+            completedOperations[view.backendId] = text;
+            view.completedNotice.textContent = text;
+            view.completedNotice.hidden = false;
+            report(view, text);
+            if (!view.attempt && !view.batch && !view.submitting)
+              return loadSources(view);
+          } else {
+            report(view, 'Früherer Auftrag für „' + attempt.sourceLabel +
+              '“ weiterhin ' + operationLabel(operation.state,
+                attempt.videoDecision) + '. Kein erneuter Auftrag für diese Quelle.');
+          }
+        }).catch(function (error) {
+          if (isCurrent(view) && unresolvedAttempts[key] === attempt) {
+            attempt.lastStatusError = operationError(error) +
+              (error && Number.isInteger(error.status)
+                ? ' (HTTP ' + error.status + ')' : '');
+            report(view, attempt.lastStatusError, true);
+          }
+        }).finally(function () {
+          delete view.unresolvedReading[key];
+          if (isCurrent(view)) {
+            renderUnresolvedAttempts(view);
+            updatePreview(view);
+          }
+        });
+      });
+      row.appendChild(check);
+      const diag = element('p', 'media-import-unresolved-diagnostic',
+        attempt.lastStatusError
+          ? 'Letzter Statusabruf: ' + attempt.lastStatusError
+          : 'Core-Zustand: ' + attempt.state +
+            (attempt.videoDecision === 'delete_duplicate'
+              ? '. Dateisystem-Löschung NICHT bestätigt. Quelle möglicherweise ' +
+                'noch vorhanden oder bereits entfernt. Genaue Agent-Ursache ' +
+                'wird von der Public API nicht geliefert.'
+              : '. Agent-Ursache und Ausführungsquittung sind hier nicht verfügbar.'));
+      row.appendChild(diag);
+      view.unresolvedList.appendChild(row);
+    });
+    view.unresolvedList.hidden = view.unresolvedList.children.length === 0;
+    updateInlineDeleteAvailability(view);
+    updateOperationDiagnostics(view);
+  }
+
+  function pinUnknownOnSourceChange(view, selectedSourceId) {
+    const attempt = view.attempt;
+    if (!attempt || !attempt.operationId ||
+        attempt.state !== 'outcome_unknown' ||
+        attempt.sourceId === selectedSourceId) return;
+    // Preserve the exact operation ID and idempotency identity for manual
+    // GET readback. Never retry its source or silently clear its status.
+    unresolvedAttempts[unresolvedKey(view, attempt.sourceId)] = attempt;
+    clearPolling(view);
+    if (activeAttempts[view.backendId] === attempt)
+      delete activeAttempts[view.backendId];
+    view.attempt = null;
+    view.reads = 0;
+    view.reading = false;
+    view.manualCheckQueued = false;
+    view.operationBrowsingEnabled = false;
+    view.refreshButton.hidden = true;
+    view.newButton.hidden = true;
+    view.operationDetail.textContent = '';
+    renderImportFeedback(view);
+    renderUnresolvedAttempts(view);
+  }
+
   function terminalState(state) {
     return ['rejected', 'conflict', 'succeeded', 'failed_before_dispatch',
       'failed_verified', 'cancelled'].includes(state);
+  }
+
+  // Selecting the next film retires a confirmed, finished operation without
+  // requiring "Neuen Import vorbereiten" or a redundant status check.
+  // The completed receipt stays visible; running/unknown operations stay pinned.
+  function releaseCompletedAttemptForNextSource(view, sourceId) {
+    const attempt = view && view.attempt;
+    if (!isCurrent(view) || !attempt || view.batch || view.reading ||
+        !terminalState(attempt.state) ||
+        (attempt.state === 'succeeded' && attempt.sourceCleanup === 'pending') ||
+        !sourceId || sourceId === attempt.sourceId ||
+        !view.sources.includes(sourceId)) return false;
+    clearPolling(view);
+    if (activeAttempts[view.backendId] === attempt)
+      delete activeAttempts[view.backendId];
+    view.attempt = null;
+    view.reads = 0;
+    view.newButton.hidden = true;
+    view.refreshButton.hidden = true;
+    view.operationDetail.textContent = '';
+    view.lastManualCheck = '';
+    renderImportFeedback(view);
+    updateOperationDiagnostics(view);
+    updateInlineDeleteAvailability(view);
+    return true;
+  }
+
+  // Diagnostic projection of already public, actor-scoped Operation facts.
+  // The public GET does NOT expose Agent errno, command receipt or result
+  // evidence. Never invent a "file deleted" or "worker failed" cause here.
+  function operationDiagnosticText(view, attempt) {
+    if (!attempt) return 'Kein aktueller Media-Import-Auftrag.';
+    const action = attempt.videoDecision === 'delete_duplicate'
+      ? 'Dublette aus Importquelle löschen'
+      : attempt.videoDecision === 'duplicate' ? 'Als Dublette markieren'
+        : attempt.videoDecision === 'release' ? 'Markierung freigeben'
+          : attempt.videoDecision === 'skip' ? 'Überspringen'
+            : attempt.videoDecision === 'desktop' ? 'Für PC markieren'
+              : 'VDR-Import';
+    const lines = [
+      'Backend: ' + view.backendId,
+      'Aktion: ' + action,
+      'Quelle: ' + (attempt.sourceLabel || attempt.sourceId),
+      'Quellenkennung: ' + attempt.sourceId,
+      'Operation: ' + (attempt.operationId || 'Nicht bestätigt (HTTP-Antwort fehlt)'),
+      'Core-Status: ' + (attempt.state || 'Nicht abgefragt')
+    ];
+    if (attempt.lastStatusRead)
+      lines.push('Letzte erfolgreiche Core-Abfrage: ' + attempt.lastStatusRead);
+    if (attempt.lastStatusError)
+      lines.push('Letzter Statusabruf: ' + attempt.lastStatusError);
+    if (attempt.sourceCleanup)
+      lines.push('Core-Quellenbereinigung: ' +
+        (cleanupLabel(attempt.sourceCleanup) || 'Unbekannter Wert'));
+    if (attempt.state === 'outcome_unknown') {
+      lines.push(attempt.videoDecision === 'delete_duplicate'
+        ? 'Befund: Die Quelldatei-Löschung ist NICHT bestätigt. Sie kann ' +
+          'noch vorhanden oder bereits entfernt sein; kein zweiter Löschauftrag.'
+        : 'Befund: Die Ausführung ist NICHT bestätigt.');
+      lines.push('Offen: Agent-Ausführungsstufe, Dateisystemfehler und ' +
+        'Quittung sind in dieser Public-API-Antwort nicht enthalten. ' +
+        'Zur Ursachenprüfung das bestehende Agent-Journal und ' +
+        'Core-Command-Ergebnis zur obigen Operation lesen.');
+    } else if (!attempt.operationId) {
+      lines.push('Befund: Keine eindeutige Operations-ID aus der Antwort. ' +
+        'Dies beweist weder Ausführung noch Nichtausführung.');
+    } else if (attempt.state === 'succeeded') {
+      lines.push('Befund: Core hat diese Operation als erfolgreich bestätigt.');
+    } else if (attempt.state === 'failed_verified') {
+      lines.push('Befund: Core hat einen verifizierten Fehlschlag protokolliert.');
+    } else if (attempt.state === 'rejected' ||
+               attempt.state === 'failed_before_dispatch') {
+      lines.push('Befund: Core meldet keine bestätigte Ausführung.');
+    } else {
+      lines.push('Befund: Noch keine abschließende Core-Bestätigung.');
+    }
+    return lines.join('\n');
+  }
+
+  function updateOperationDiagnostics(view) {
+    if (!isCurrent(view) || !view.operationDiagnostics) return;
+    const attempts = Object.keys(unresolvedAttempts).filter(function (key) {
+      return key.startsWith(view.backendId + '|');
+    }).map(function (key) { return unresolvedAttempts[key]; });
+    const active = view.attempt || (attempts.length === 1 ? attempts[0] : null);
+    view.operationDiagnostics.textContent = active
+      ? operationDiagnosticText(view, active)
+      : attempts.length
+        ? attempts.map(function (attempt) {
+          return operationDiagnosticText(view, attempt);
+        }).join('\n\n')
+        : 'Kein offener Auftrag. Für eine konkrete Diagnose einen Vorgang auswählen.';
   }
 
   function operationError(error) {
@@ -200,6 +630,8 @@
     ++view.reviewGeneration;
     view.inspectingBatch = false;
     view.batchReview = null;
+    view.duplicateQueue = [];
+    view.duplicateReviewPending = false;
     view.batchReviewList.replaceChildren();
     view.batchSummary.textContent = '';
     view.batchConfirmButton.hidden = true;
@@ -232,6 +664,7 @@
       }
       view.searchInput.value = '';
       view.folderPath = item.folder || '';
+      view.seasonKey = '';
       filterVisibleSources(view);
       if (!view.sources.includes(sourceId)) {
         report(view, 'Film in der aktuellen Ansicht nicht verfügbar.', true);
@@ -240,7 +673,28 @@
       view.select.value = sourceId;
       view.sourceDetails.textContent = 'Auswahl-ID: ' + sourceId;
       refreshSelectedPreview(view);
+      setMobilePane(view, 'details');
     });
+  }
+
+  // Reuse the already implemented single-source preview and Core marker
+  // operation for each batch-discovered duplicate, one at a time.
+  function nextConfirmedDuplicate(view) {
+    if (!isCurrent(view) || view.attempt || view.batch ||
+        view.submitting || view.inspectingBatch) return;
+    while (view.duplicateQueue.length) {
+      const sourceId = view.duplicateQueue.shift();
+      if (!view.sources.includes(sourceId)) continue;
+      view.duplicateReviewPending = true;
+      view.select.value = sourceId;
+      view.sourceDetails.textContent = 'Auswahl-ID: ' + sourceId;
+      // Batch-discovered duplicates must be independently rechecked before
+      // the existing marker operation, even if a previous read was ready.
+      refreshSelectedPreview(view, true);
+      return;
+    }
+    view.duplicateReviewPending = false;
+    if (view.batchReview) renderBatchReview(view);
   }
 
   function renderBatchReview(view) {
@@ -250,7 +704,8 @@
     const labels = {
       ready: 'Für VDR-Import geeignet',
       encode: 'Zurückgestellt: Video-Umkodierung nötig',
-      duplicate: 'Übersprungen: VDR-Aufnahme vorhanden',
+      duplicate: 'VDR-Aufnahme vorhanden – automatische .duplicate-Markierung läuft',
+      marked: 'Als .duplicate markiert – Core-Bestätigung liegt vor',
       insufficient: 'Zurückgestellt: Speicherplatz fehlt',
       unavailable: 'Zurückgestellt: Backend nicht verfügbar',
       pending: 'Zurückgestellt: Prüfung noch ausstehend',
@@ -282,47 +737,70 @@
       return ['encode', 'insufficient', 'unavailable', 'pending', 'failed'].includes(row.state);
     }).length;
     const duplicates = review.rows.filter(function (row) {
-      return row.state === 'duplicate';
+      return row.state === 'duplicate' || row.state === 'marked';
     }).length;
     const confirmed = review.rows.filter(function (row) {
       return row.state === 'succeeded';
     }).length;
     view.batchSummary.textContent = ready + ' direkt importierbar, ' +
       deferred + ' zurückgestellt, ' + duplicates + ' Dubletten, ' +
-      confirmed + ' bereits bestätigt. Andere Filme bleiben unverändert. ' +
+      confirmed + ' bereits bestätigt.' +
+      (view.duplicateReviewPending ? ' Bestätigte Dubletten werden automatisch markiert.' : '') +
+      ' Andere Filme bleiben unverändert. ' +
       'Zurückgestellte Filme lassen sich über „Einzeln prüfen“ neu untersuchen; ' +
       'PC/HandBrake und Überspringen erfordern weiterhin eine Einzelentscheidung.';
     view.batchConfirmButton.hidden = Boolean(view.batch) || !ready;
     view.batchConfirmButton.disabled = view.inspectingBatch ||
-      Boolean(view.attempt) || !ready;
+      Boolean(view.attempt) || Boolean(view.duplicateReviewPending) || !ready;
   }
 
-  function inspectBatchPreview(view, sourceId) {
-    return publicClient().getMediaImportSourcePreview({
-      backendId: view.backendId, sourceId: sourceId,
-      credentials: 'same-origin', cache: 'no-store'
-    }).then(function (data) {
-      if (!data || data.backendId !== view.backendId ||
-          data.sourceId !== sourceId) throw new Error('Fremde Vorschauantwort');
-      if (data.state === 'pending') return {state: 'pending'};
-      if (!validMediaImportPreview(data, view.backendId, sourceId))
-        throw new Error('Ungültige Importdiagnose');
-      if (data.status === 'duplicate') return {state: 'duplicate', title: data.title};
-      if (data.status === 'unavailable') return {state: 'unavailable', title: data.title};
-      if (data.videoReencodeRequired)
-        return {state: 'encode', title: data.title};
-      if (data.status === 'insufficient')
-        return {state: 'insufficient', title: data.title};
-      return {state: 'ready', title: data.title};
+  function inspectBatchPreview(view, sourceId, generation) {
+    // The existing Agent can answer pending until its next regular scan.
+    // Re-read the same source rather than treating one HTTP 202 as a failure.
+    function poll(attempt) {
+      if (!isCurrent(view) || generation !== view.reviewGeneration)
+        return Promise.resolve({state: 'pending'});
+      return publicClient().getMediaImportSourcePreview({
+        backendId: view.backendId, sourceId: sourceId,
+        credentials: 'same-origin', cache: 'no-store'
+      }).then(function (data) {
+        if (!data || data.backendId !== view.backendId ||
+            data.sourceId !== sourceId) throw new Error('Fremde Vorschauantwort');
+        if (data.state === 'pending') {
+          if (attempt >= 6) return {state: 'pending'};
+          return new Promise(function (resolve) {
+            global.setTimeout(resolve, POLL_MS);
+          }).then(function () { return poll(attempt + 1); });
+        }
+        if (!validMediaImportPreview(data, view.backendId, sourceId))
+          throw new Error('Ungültige Importdiagnose');
+        if (data.status === 'duplicate') return {state: 'duplicate', title: data.title};
+        if (data.status === 'unavailable') return {state: 'unavailable', title: data.title};
+        if (data.videoReencodeRequired)
+          return {state: 'encode', title: data.title};
+        if (data.status === 'insufficient')
+          return {state: 'insufficient', title: data.title};
+        return {state: 'ready', title: data.title};
+      });
+    }
+    return poll(0);
+  }
+
+  function importableSourceIds(view) {
+    return view.sources.filter(function (id) {
+      return !view.allOrdinary.some(function (item) {
+        return item.sourceId === id && item.recordingPresent;
+      });
     });
   }
 
   function startBatch(view, selectedOnly) {
     if (!isCurrent(view) || view.batch || view.attempt ||
         view.submitting || view.inspectingBatch) return Promise.resolve();
+    const candidates = importableSourceIds(view);
     const ids = selectedOnly
-      ? view.sources.filter(function (id) { return view.checkedSourceIds.has(id); })
-      : view.sources.slice();
+      ? candidates.filter(function (id) { return view.checkedSourceIds.has(id); })
+      : candidates;
     if (ids.length < 2 || ids.length > MAX_IMPORT_FILMS) {
       if (ids.length > MAX_IMPORT_FILMS)
         report(view, 'Höchstens 100 Filme pro Importdurchlauf erlaubt.', true);
@@ -335,6 +813,7 @@
     view.batchButton.disabled = true;
     view.selectedBatchButton.disabled = true;
     view.batchConfirmButton.hidden = true;
+    view.seasonFilter.disabled = true;
     view.batchSummary.textContent = 'Technische VDR-Importeignung wird lesend geprüft: 0 von ' +
       ids.length + '. Noch kein Import gestartet.';
     const rows = [];
@@ -342,7 +821,7 @@
     ids.forEach(function (sourceId) {
       chain = chain.then(function () {
         if (!isCurrent(view) || generation !== view.reviewGeneration) return;
-        return inspectBatchPreview(view, sourceId).catch(function (error) {
+        return inspectBatchPreview(view, sourceId, generation).catch(function (error) {
           if (error && (error.status === 401 || error.status === 403)) throw error;
           return {state: 'failed'};
         }).then(function (result) {
@@ -359,6 +838,10 @@
       if (!isCurrent(view) || generation !== view.reviewGeneration ||
           sourceGeneration !== view.sourcesGeneration) return;
       view.batchReview = {rows: rows, ids: ids, sourceGeneration: sourceGeneration};
+      view.duplicateQueue = rows.filter(function (row) {
+        return row.state === 'duplicate';
+      }).map(function (row) { return row.sourceId; });
+      view.duplicateReviewPending = view.duplicateQueue.length > 0;
       view.inspectingBatch = false;
       renderBatchReview(view);
       const ready = rows.filter(function (row) { return row.state === 'ready'; }).length;
@@ -369,20 +852,22 @@
     }).catch(function (error) {
       if (!isCurrent(view) || generation !== view.reviewGeneration) return;
       resetBatchReview(view);
-      view.batchButton.disabled = view.sources.length < 2;
+      view.batchButton.disabled = importableSourceIds(view).length < 2;
       updateSelectionCount(view);
       report(view, operationError(error) + ' Keine Importaufträge erstellt.', true);
     }).finally(function () {
       if (!isCurrent(view) || generation !== view.reviewGeneration) return;
       view.inspectingBatch = false;
-      view.batchButton.disabled = view.sources.length < 2;
+      view.seasonFilter.disabled = Boolean(view.batch) || Boolean(view.attempt);
+      view.batchButton.disabled = importableSourceIds(view).length < 2;
       updateSelectionCount(view);
+      if (view.duplicateReviewPending) nextConfirmedDuplicate(view);
     });
   }
 
   function confirmBatch(view) {
     if (!isCurrent(view) || !view.batchReview || view.inspectingBatch ||
-        view.attempt || view.batch ||
+        view.duplicateReviewPending || view.attempt || view.batch ||
         view.batchReview.sourceGeneration !== view.sourcesGeneration) return;
     const review = view.batchReview;
     const ids = review.rows.filter(function (row) {
@@ -405,22 +890,37 @@
     view.selectAllVisibleButton.disabled = true;
     view.searchInput.disabled = true;
     view.statusFilter.disabled = true;
+    view.seasonFilter.disabled = true;
     view.batchStopButton.hidden = false;
     view.select.value = ids[0];
     renderBatchReview(view);
     return startImport(view);
   }
 
-  function readOperation(view) {
-    if (!isCurrent(view) || !view.attempt || !view.attempt.operationId ||
-        view.reading) return Promise.resolve();
+  function readOperation(view, manual) {
+    if (!isCurrent(view) || !view.attempt || !view.attempt.operationId)
+      return Promise.resolve();
+    if (view.reading) {
+      // An active automatic read must not discard a manual check request.
+      if (manual) {
+        view.manualCheckQueued = true;
+        view.importFeedbackText.textContent =
+          'Status wird nach der laufenden Abfrage erneut geprüft …';
+      }
+      return Promise.resolve();
+    }
+    const checkedAttempt = view.attempt;
     view.reading = true;
     clearPolling(view);
+    if (manual) {
+      view.manualCheckQueued = false;
+      view.importFeedbackText.textContent = 'Vorgangsstatus wird abgefragt …';
+    }
     return publicClient().getOperation({
       operationId: view.attempt.operationId,
       credentials: 'same-origin', cache: 'no-store'
     }).then(function (response) {
-      if (!isCurrent(view)) return;
+      if (!isCurrent(view) || view.attempt !== checkedAttempt) return;
       const operation = response && response.data;
       if (!operation || operation.operationId !== view.attempt.operationId ||
           operation.backendId !== view.backendId ||
@@ -428,29 +928,282 @@
         throw new Error('Ungültige Operationsantwort');
       }
       view.attempt.state = operation.state;
-      report(view, operationLabel(operation.state, view.attempt.videoDecision), false);
+      updateInlineDeleteAvailability(view);
+      view.attempt.lastStatusRead = new Date().toLocaleTimeString('de-DE');
+      view.attempt.lastStatusError = '';
+      view.attempt.sourceCleanup = typeof operation.sourceCleanup === 'string'
+        ? operation.sourceCleanup : '';
+      enableOperationBrowsing(view);
+      if (manual) {
+        view.lastManualCheck = 'Zuletzt geprüft: ' +
+          new Date().toLocaleTimeString('de-DE') + ' – ' +
+          operationLabel(operation.state, view.attempt.videoDecision);
+      }
+      renderImportFeedback(view);
+      const recordingConfirmed = operation.state === 'succeeded' &&
+        (!view.attempt.videoDecision || view.attempt.videoDecision === 'local');
+      if (recordingConfirmed && !view.batch &&
+          view.attempt.metadataSelection && !view.attempt.metadataStarted) {
+        view.attempt.metadataStarted = true;
+        if (view.attempt.frozenMetadata &&
+            view.attempt.frozenMetadata.startsWith('v2|')) {
+          // One writer: Core's existing Recording readback now applies
+          // the frozen metadata from its durable import operation.
+          // Never create a competing second browser-side assignment POST.
+          view.attempt.metadataFeedback =
+            'TMDb-Daten im Importauftrag gespeichert. ' +
+            'Die Suite-Zuordnung wird nach dem VDR-Readback serverseitig abgeschlossen.';
+          renderImportFeedback(view);
+        } else {
+          // Legacy/browser-only selections keep the previous behavior.
+          void applyImportedMetadata(view, view.attempt);
+        }
+      }
+      if (operation.state === 'succeeded') {
+        const markerAction = view.attempt.videoDecision;
+        const confirmedText = recordingConfirmed
+          ? 'Import abgeschlossen ✓ – VDR-Aufnahme bestätigt'
+          : markerAction === 'delete_duplicate'
+            ? 'Aufgeräumt ✓ – „' + view.attempt.sourceLabel + '“ gelöscht; VDR-Aufnahme bleibt'
+          : markerAction === 'duplicate'
+            ? 'Dublette erkannt ✓ – Quelle als .duplicate markiert'
+          : 'Dateiaktion abgeschlossen ✓ – ' +
+              operationLabel(operation.state, markerAction);
+        completedOperations[view.backendId] = confirmedText;
+        view.completedNotice.textContent = confirmedText;
+        view.completedNotice.hidden = false;
+      }
+      if (recordingConfirmed) {
+        // Core only reaches 'succeeded' for a recording after committed
+        // recording-cache readback. Keep a historical operation reference
+        // only: a fixed inventory source ID may later refer to new bytes.
+        confirmedImports[view.backendId + '|' + view.attempt.sourceId] = {
+          operationId: operation.operationId,
+          possiblePcReturn: view.attempt.pcReturn === true
+        };
+      }
+      const possibleReturnCompleted = recordingConfirmed && view.attempt.pcReturn === true;
+      const cleanup = recordingConfirmed && typeof operation.sourceCleanup === 'string'
+        ? cleanupLabel(operation.sourceCleanup) : '';
+      report(view, operationLabel(operation.state, view.attempt.videoDecision) +
+        (possibleReturnCompleted
+          ? ' Möglicher PC-Rücklauf: VDR-Readback bestätigt den Import ' +
+            'der neuen Datei, nicht ihre Medienidentität mit dem geparkten Original.'
+          : '') + (cleanup ? ' ' + cleanup : ''), false);
       view.operationDetail.textContent =
-        'Vorgang ' + operation.operationId + ' · ' + operation.state;
+        'Vorgang ' + operation.operationId + ' · ' + operation.state +
+        (cleanup ? ' · ' + cleanup : '');
+      // A failed automatic duplicate marker is a completed file action,
+      // not an ongoing film import. Do not freeze the entire media browser.
+      // Keep the outcome visible; never retry this source automatically.
+      if (!view.batch && view.attempt.videoDecision === 'duplicate' &&
+          ['rejected', 'conflict', 'failed_before_dispatch',
+           'failed_verified', 'cancelled'].includes(operation.state)) {
+        const failureText = 'Dubletten-Markierung fehlgeschlagen (' +
+          operation.state + '). Die vorhandene VDR-Aufnahme bleibt erhalten. ' +
+          'Filmauswahl und Quellenaktionen sind wieder freigegeben.';
+        completedOperations[view.backendId] = failureText;
+        view.completedNotice.textContent = failureText;
+        view.completedNotice.hidden = false;
+        delete activeAttempts[view.backendId];
+        view.attempt = null;
+        view.refreshButton.hidden = true;
+        view.newButton.hidden = true;
+        view.reloadButton.disabled = false;
+        return loadSources(view).then(function () {
+          if (isCurrent(view) && !view.searchInput.disabled)
+            report(view, failureText, true);
+        });
+      }
       if (terminalState(operation.state) && !view.batch) {
         view.newButton.hidden = false;
       }
+      // Preserve the initiating batch context: advanceBatch() may finish
+      // the final item and set view.batch to null. A single-import source
+      // refresh at that moment would clear the completed batch review.
+      const wasBatchOperation = Boolean(view.batch);
       if (view.batch) advanceBatch(view, operation);
+      // A successful explicit release must be reflected in the source list.
+      // For a parked .pc_encode original, open ONLY its uniquely matched,
+      // newly unmarked source for the usual independent codec preview.
+      // No local encoding or second operation starts automatically.
+      if (!view.batch && operation.state === 'succeeded' &&
+          view.attempt.videoDecision === 'release') {
+        const releasedId = view.attempt.sourceId;
+        const original = view.allMarked.find(function (item) {
+          return item.sourceId === releasedId;
+        });
+        const pcOriginal = original && markerSuffix(original) === 'pc_encode'
+          ? {folder: original.folder,
+             label: original.label.slice(0, -'.pc_encode'.length)}
+          : null;
+        delete activeAttempts[view.backendId];
+        view.attempt = null;
+        view.refreshButton.hidden = true;
+        view.newButton.hidden = true;
+        view.reloadButton.disabled = false;
+        return loadSources(view).then(function () {
+          if (!isCurrent(view)) return;
+          if (!pcOriginal) {
+            report(view, 'Markierung ausdrücklich freigegeben – noch nicht importiert. ' +
+              'Die aktuelle Importliste wurde neu geladen.');
+            return;
+          }
+          const matches = view.allOrdinary.filter(function (item) {
+            return item.folder === pcOriginal.folder &&
+              item.label === pcOriginal.label;
+          });
+          if (matches.length !== 1) {
+            report(view, 'PC-Markierung ausdrücklich freigegeben – noch nicht importiert. ' +
+              'Die Datei bitte in der ' +
+              'aktualisierten Liste auswählen und auf Importfähigkeit prüfen.');
+            return;
+          }
+          view.select.value = matches[0].sourceId;
+          refreshSelectedPreview(view, true);
+          setMobilePane(view, 'details');
+          report(view, 'PC-Markierung ausdrücklich freigegeben – noch nicht importiert. ' +
+            'Die Datei wird erneut ' +
+            'technisch geprüft. Danach kannst du die lokale H.264-Umkodierung ' +
+            'auswählen und ausdrücklich bestätigen; es wurde noch nicht importiert.');
+        });
+      }
+      if (!view.batch && operation.state === 'succeeded' &&
+          (view.attempt.videoDecision === 'duplicate' ||
+           view.attempt.videoDecision === 'delete_duplicate')) {
+        // Core has verified the marker operation; refresh the source inventory
+        // to show the actual Rectools filename, not an imagined local status.
+        const finishedId = view.attempt.sourceId;
+        const deletedDuplicate = view.attempt.videoDecision === 'delete_duplicate';
+        const previousReview = view.batchReview;
+        const remaining = view.duplicateQueue.slice();
+        delete activeAttempts[view.backendId];
+        view.attempt = null;
+        view.refreshButton.hidden = true;
+        view.newButton.hidden = true;
+        view.reloadButton.disabled = false;
+        if (deletedDuplicate) hideConfirmedDeletedSource(view, finishedId);
+        return loadSources(view).then(function () {
+          if (!isCurrent(view)) return;
+          if (deletedDuplicate)
+            report(view, 'Doppelte Quelldatei gelöscht. Die VDR-Aufnahme bleibt erhalten.');
+          if (previousReview) {
+            const row = previousReview.rows.find(function (entry) {
+              return entry.sourceId === finishedId;
+            });
+            if (row && row.state === 'duplicate') row.state = 'marked';
+            previousReview.sourceGeneration = view.sourcesGeneration;
+            view.batchReview = previousReview;
+            view.duplicateQueue = remaining;
+            view.duplicateReviewPending = remaining.length > 0;
+            renderBatchReview(view);
+            view.resumeDuplicateReview = remaining.length > 0;
+          }
+        });
+      }
+      // Readback-confirmed import: refresh the list once, without a page reload.
+      const refreshImportedSources = recordingConfirmed && !wasBatchOperation &&
+        operation.sourceCleanup !== 'pending' &&
+        !view.attempt.inventoryRefreshStarted;
+      if (refreshImportedSources) view.attempt.inventoryRefreshStarted = true;
       const limit = view.batch ? MAX_BATCH_READS : MAX_AUTOMATIC_READS;
-      if (!terminalState(operation.state) && view.reads < limit) {
+      const awaitingCleanup = recordingConfirmed &&
+        operation.sourceCleanup === 'pending';
+      if ((!terminalState(operation.state) || awaitingCleanup) &&
+          view.reads < limit) {
         ++view.reads;
         view.timer = global.setTimeout(function () { readOperation(view); }, POLL_MS);
-      } else if (!terminalState(operation.state) && view.batch) {
-        stopBatch(view, 'Automatische Statusabfrage beendet. ' +
-          'Aktuellen Core-Vorgang manuell prüfen; kein weiterer Import startet.');
+      } else if (!terminalState(operation.state)) {
+        if (view.batch) {
+          stopBatch(view, 'Automatische Statusabfrage beendet. ' +
+            'Aktuellen Core-Vorgang manuell prüfen; kein weiterer Import startet.');
+        } else {
+          view.importFeedbackText.textContent =
+            'Der Auftrag ist noch nicht abgeschlossen. Die automatische Abfrage ' +
+            'ist beendet; über „Vorgang prüfen“ kannst du denselben Auftrag ' +
+            'jederzeit erneut abfragen. Nicht nochmals importieren.';
+        }
+      }
+      if (refreshImportedSources) {
+        const confirmedReport = view.message.textContent;
+        // The Agent's next authenticated source observation may lag behind
+        // the Core recording readback, or one inventory GET may fail. Retry
+        // ONLY read-only source GETs; never submit another operation.
+        const refreshAfterImport = function () {
+          if (!isCurrent(view) || view.attempt !== checkedAttempt) return Promise.resolve();
+          return loadSources(view).then(function (refreshed) {
+            if (!isCurrent(view) || view.attempt !== checkedAttempt) return;
+            const stillPresent = view.allOrdinary.find(function (item) {
+              return item.sourceId === checkedAttempt.sourceId;
+            });
+            const reconciled = refreshed === true &&
+              (!stillPresent || stillPresent.recordingPresent);
+            checkedAttempt.inventoryRefreshCompleted = reconciled;
+            updateInlineDeleteAvailability(view);
+            // The durable VDR readback and source cleanup are already
+            // confirmed. A lagging Agent catalog must never replace their
+            // success receipt with an unrelated source-count message.
+            // The scan notice independently reports stale/error status.
+            report(view, confirmedReport +
+              (reconciled ? '' : ' Quellenabgleich läuft im Hintergrund.'), false);
+            if (!reconciled &&
+                (checkedAttempt.inventoryRefreshRetries || 0) < 12) {
+              checkedAttempt.inventoryRefreshRetries =
+                (checkedAttempt.inventoryRefreshRetries || 0) + 1;
+              view.timer = global.setTimeout(function () {
+                view.timer = null;
+                void refreshAfterImport();
+              }, POLL_MS);
+            }
+          });
+        };
+        return refreshAfterImport();
       }
     }).catch(function (error) {
       if (isCurrent(view)) {
         if (view.batch)
           stopBatch(view, 'Operationsstatus nicht abrufbar. Kein Folgeimport.');
-        else report(view, operationError(error), true);
+        else {
+          if (view.attempt === checkedAttempt) {
+            checkedAttempt.lastStatusError = operationError(error) +
+              (error && Number.isInteger(error.status)
+                ? ' (HTTP ' + error.status + ')' : '');
+            updateOperationDiagnostics(view);
+          }
+          report(view, operationError(error), true);
+          if (manual) {
+            view.lastManualCheck = 'Letzte Abfrage fehlgeschlagen: ' +
+              operationError(error) + ' Kein neuer Import gestartet.';
+            renderImportFeedback(view);
+          }
+        }
       }
     }).finally(function () {
+      // A confirmed marker may replace/remove the attempt while its read
+      // finishes. Always release this view's read state before comparing
+      // attempt identity; otherwise subsequent imports never get polled.
       view.reading = false;
+      // If film B was selected while A finished, unblock B automatically.
+      if (isCurrent(view) && view.attempt === checkedAttempt &&
+          releaseCompletedAttemptForNextSource(view, view.select.value))
+        updatePreview(view);
+      // Refresh existing source-specific buttons on every status-read
+      // completion. Never leave an outdated disabled state in the DOM.
+      if (isCurrent(view)) updateInlineDeleteAvailability(view);
+      // A successful marker deliberately clears the completed attempt after
+      // its inventory readback. Resume the NEXT independently verified
+      // duplicate before the old-attempt identity guard; that guard only
+      // protects the previous operation's manual reads and batch continuation.
+      if (isCurrent(view) && view.resumeDuplicateReview && !view.attempt) {
+        view.resumeDuplicateReview = false;
+        nextConfirmedDuplicate(view);
+      }
+      if (view.attempt !== checkedAttempt) return;
+      if (isCurrent(view) && view.manualCheckQueued && view.attempt &&
+          view.attempt.operationId) {
+        view.manualCheckQueued = false;
+        return readOperation(view, true);
+      }
       const batch = view.batch;
       if (!isCurrent(view) || !batch || !batch.resumeNext ||
           !view.attempt || view.attempt.state !== 'succeeded')
@@ -475,8 +1228,319 @@
     return null;
   }
 
+  // Use only an exact provider selection and the already verified target
+  // folder. The existing Recording metadata API remains the sole writer.
+  // No browser-generated native file path, new metadata database or replayed
+  // import is introduced.
+  function importMetadataSelection(view, plan, source) {
+    const candidate = view.onlineSelected;
+    if (!plan || !source || !candidate ||
+        typeof plan.targetFolder !== 'string' || !plan.targetFolder ||
+        !validRelativeFolder(plan.targetFolder) ||
+        candidate.providerId !== 'tmdb' || typeof candidate.externalId !== 'string' ||
+        !/^[0-9]{1,12}$/.test(candidate.externalId)) return null;
+    const coordinates = episodeCoordinates(source);
+    const episode = candidate.kind === 'episode' && view.onlineSeries &&
+      view.onlineSeries.kind === 'series' &&
+      view.onlineSeries.providerId === 'tmdb' &&
+      candidate.externalNamespace === 'tv-episode' &&
+      candidate.parentExternalId === view.onlineSeries.externalId &&
+      coordinates.episode !== null &&
+      candidate.seasonNumber === coordinates.season &&
+      candidate.episodeNumber === coordinates.episode;
+    const movie = candidate.kind === 'movie' && view.onlineKind === 'movie' &&
+      candidate.externalNamespace === 'movie';
+    if (!episode && !movie) return null;
+    return {
+      folder: plan.targetFolder, title: plan.title,
+      candidate: {
+        providerId: candidate.providerId,
+        externalNamespace: candidate.externalNamespace,
+        externalId: candidate.externalId,
+        mediaType: episode ? 'episode' : 'movie',
+        title: candidate.title,
+        seriesTitle: episode ? view.onlineSeries.title : '',
+        originalTitle: candidate.originalTitle || '',
+        overview: candidate.overview || '',
+        releaseDate: candidate.releaseDate || '',
+        posterReference: episode && view.onlineSeries.posterReference
+          ? view.onlineSeries.posterReference : candidate.posterReference || '',
+        seasonNumber: episode ? candidate.seasonNumber : 0,
+        episodeNumber: episode ? candidate.episodeNumber : 0,
+        expectedRevision: 0
+      }
+    };
+  }
+
+  // Freeze the already-found, exact TMDb episode/movie at admission.
+  // No second TMDb request and no mandatory metadata step: offline import
+  // uses the existing NFO/filename path without changing import availability.
+  // ASCII percent encoding carries UTF-8 across the existing immutable
+  // Core command and into the local worker without a new provider service.
+  function frozenImportMetadata(view, selection) {
+    if (!selection || !selection.candidate) return '';
+    const candidate = selection.candidate;
+    const episode = candidate.mediaType === 'episode';
+    const movie = candidate.mediaType === 'movie';
+    const series = episode && view.onlineSeries;
+    if ((!episode && !movie) ||
+        (episode && (!series || series.kind !== 'series' ||
+          series.providerId !== 'tmdb' || !series.title)))
+      return '';
+    try {
+      const enc = function (value) {
+        return encodeURIComponent(String(value || '')).replace(/~/g, '%7E');
+      };
+      // v2 keeps the SAME pre-import TMDb response and adds its identity
+      // and artwork reference for server-side assignment after readback.
+      // A bad artwork reference is simply omitted, never a video import gate.
+      // Existing v1 snapshots remain supported by the Core/Agent.
+      const suppliedPoster = String(
+        episode && series && series.posterReference
+          ? series.posterReference : candidate.posterReference || '');
+      const safePoster = /^\/[A-Za-z0-9_.-]{5,255}$/.test(suppliedPoster) &&
+        !suppliedPoster.includes('..') ? suppliedPoster : '';
+      const raw = ['v2', episode ? 'episode' : 'movie',
+        enc(episode ? series.title : ''),
+        enc(candidate.title),
+        enc(String(candidate.overview || '').slice(0, 1100)),
+        String(episode ? candidate.seasonNumber : 0),
+        String(episode ? candidate.episodeNumber : 0),
+        episode ? 'tv-episode' : 'movie',
+        String(candidate.externalId),
+        enc(safePoster)
+      ].join('|');
+      return raw.length <= 4096 ? raw : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  // Resolve the exact import target only when the operator explicitly
+  // assigns TMDb data to an existing recording. A confirmed duplicate is
+  // inspected read-only by the existing Agent: its duplicate branch returns
+  // before ffprobe, without starting another import or marker operation.
+  function resolveExistingRecordingMetadataSelection(view, plan, source) {
+    if (!source || !plan || plan.status !== 'duplicate')
+      return Promise.reject(new Error('Keine bestätigte Aufnahme'));
+    if (plan.targetFolder)
+      return Promise.resolve(importMetadataSelection(view, plan, source));
+    const sourceId = source.sourceId;
+    const generation = view.previewGeneration;
+    const candidate = view.onlineSelected;
+    function read(remaining) {
+      if (!isCurrent(view) || view.previewGeneration !== generation ||
+          view.select.value !== sourceId || view.onlineSelected !== candidate)
+        return Promise.reject(new Error('Die Medienauswahl hat sich geändert'));
+      return Promise.resolve(publicClient().getMediaImportSourcePreview({
+        backendId: view.backendId, sourceId: sourceId,
+        credentials: 'same-origin', cache: 'no-store'
+      })).then(function (response) {
+        if (response && response.state === 'pending' && remaining > 0)
+          return new Promise(function (resolve) {
+            global.setTimeout(resolve, 4000);
+          }).then(function () { return read(remaining - 1); });
+        if (!validMediaImportPreview(response, view.backendId, sourceId) ||
+            response.status !== 'duplicate' || !response.targetFolder)
+          throw new Error('Aufnahmeziel nicht eindeutig bestätigt');
+        const selection = importMetadataSelection(view, response, source);
+        if (!selection) throw new Error('TMDb-Auswahl passt nicht zur Episode');
+        return selection;
+      });
+    }
+    return read(20);
+  }
+
+  // The import has already succeeded in the native Recording readback.
+  // This optional second step updates only Suite-owned descriptive metadata;
+  // failed/offline metadata never changes the proven import outcome.
+  function applyImportedMetadata(view, attempt) {
+    const api = global.VdrSuiteClientApi;
+    const selection = attempt.metadataSelection;
+    if (!selection) return Promise.resolve();
+    if (!api || typeof api.fetchClientRecordingFolder !== 'function' ||
+        typeof api.requestJson !== 'function') {
+      attempt.metadataFeedback = 'TMDb-Übernahme nicht verfügbar. ' +
+        'Die VDR-Aufnahme bleibt erhalten.';
+      if (isCurrent(view) && view.attempt === attempt)
+        renderImportFeedback(view);
+      return Promise.resolve();
+    }
+    const fail = function () {
+      attempt.metadataFeedback = 'TMDb-Metadaten nicht übernommen. ' +
+        'Die Aufnahme ist vorhanden; Zuordnung unter „Aufnahmen“ möglich.';
+      if (isCurrent(view) && view.attempt === attempt)
+        renderImportFeedback(view);
+    };
+    return Promise.resolve(api.fetchClientRecordingFolder({
+      query: {
+        backend: view.backendId, path: selection.folder,
+        offset: 0, limit: 3, _: String(Date.now())
+      },
+      cache: 'no-store', credentials: 'same-origin'
+    })).then(function (folder) {
+      // The authoritative Recording cache must resolve this exact imported
+      // folder to ONE recording. No fuzzy title or newest-date matching.
+      const entries = folder && folder.recordings;
+      if (!folder || folder.path !== selection.folder ||
+          folder.cacheReady !== true || folder.recordingCount !== 1 ||
+          !Array.isArray(entries) || entries.length !== 1)
+        throw new Error('Recording target not uniquely resolved');
+      const recording = entries[0];
+      // The exact backend folder and one native .rec identity are stronger
+      // than its mutable display title: T may have been corrected in VDR info.
+      if (!recording ||
+          typeof recording.backendNativeId !== 'string' ||
+          !recording.backendNativeId.endsWith('.rec'))
+        throw new Error('Recording identity did not match import');
+      const browser = global.VdrSuiteBrowserSession;
+      if (!browser || typeof browser.csrfHeaders !== 'function')
+        throw new Error('Missing existing browser session');
+      return api.requestJson('/api/backends/' +
+          encodeURIComponent(view.backendId) + '/recordings/metadata/assign', {
+        method: 'POST',
+        headers: Object.assign({'Content-Type': 'application/json'},
+          browser.csrfHeaders()),
+        body: JSON.stringify(Object.assign({resourceKey: recording.backendNativeId},
+          selection.candidate)),
+        cache: 'no-store', credentials: 'same-origin'
+      });
+    }).then(function (response) {
+      attempt.metadataFeedback = response && response.nativeInfoUpdated === true
+        ? 'TMDb-Zuordnung und native VDR-info aktualisiert ✓.'
+        : 'TMDb-Zuordnung in VDR-Suite gespeichert ✓. ' +
+          'Native VDR-info noch nicht bestätigt.';
+      if (isCurrent(view) && view.attempt === attempt)
+        renderImportFeedback(view);
+    }).catch(fail);
+  }
+
+  // Native indeterminate progress: the existing public Operation API reports
+  // phases but no byte count, percentage or ETA. Elapsed time is factual.
+  function renderOperationProgress(view) {
+    if (!view.operationProgress) return;
+    const attempt = view.attempt;
+    view.operationProgress.hidden = !attempt && !view.submitting;
+    if (view.operationProgress.hidden) return;
+    const state = attempt ? attempt.state : '';
+    const completed = Boolean(attempt && terminalState(state));
+    view.operationProgressBar.hidden = completed;
+    const elapsed = attempt && attempt.startedAt
+      ? Math.max(0, Math.floor((Date.now() - attempt.startedAt) / 1000)) : 0;
+    const duration = Math.floor(elapsed / 60) + ':' +
+      String(elapsed % 60).padStart(2, '0');
+    const kind = attempt && attempt.videoDecision === 'delete_duplicate'
+      ? 'Löschen' : attempt && attempt.videoDecision === 'duplicate'
+        ? 'Dubletten-Markierung' : 'Import';
+    const phase = !attempt || attempt.pending ? 'Auftragsannahme'
+      : state === 'accepted' || state === 'queued' ? 'Wartet auf Ausführung'
+      : state === 'dispatching' ? 'Ausführung läuft'
+      : state === 'executed_unverified' ? 'Bestätigung läuft'
+      : state === 'succeeded' ? 'Bestätigt abgeschlossen'
+      : terminalState(state) ? 'Beendet: ' + state
+      : state === 'outcome_unknown' ? 'Ergebnis ungewiss' : 'Status wird geprüft';
+    view.operationProgressText.textContent = kind + ' · ' +
+      (attempt && attempt.sourceLabel ? attempt.sourceLabel + ' · ' : '') +
+      phase + ' · Verstrichen: ' + duration +
+      (completed ? '' : ' · Restzeit unbekannt');
+  }
+
+  // Display the established Core operation in ordinary language, right
+  // beside the preview action. This does not start or retry operations.
+  function renderImportFeedback(view) {
+    if (!view.importFeedback) return;
+    const attempt = view.attempt;
+    view.importFeedback.hidden = !view.submitting && !attempt;
+    renderOperationProgress(view);
+    if (view.importFeedback.hidden) return;
+    const marker = attempt && ['desktop', 'skip', 'duplicate', 'release',
+      'delete_duplicate'].includes(attempt.videoDecision);
+    const noun = marker ? 'Dateiaktion' : 'Import';
+    const state = attempt && attempt.state || '';
+    const titles = {
+      accepted: noun + ' angenommen',
+      queued: noun + ' wartet auf Verarbeitung',
+      dispatching: noun + ' läuft',
+      executed_unverified: noun + ' ausgeführt – Bestätigung läuft',
+      succeeded: noun + ' abgeschlossen ✓',
+      rejected: noun + ' abgelehnt',
+      conflict: noun + ' nicht ausgeführt',
+      failed_before_dispatch: noun + ' fehlgeschlagen',
+      failed_verified: noun + ' fehlgeschlagen',
+      cancelled: noun + ' abgebrochen',
+      outcome_unknown: 'Ergebnis ungewiss – nicht erneut starten'
+    };
+    const descriptions = {
+      accepted: 'Der Server hat den Auftrag angenommen. Die Ausführung wird automatisch überwacht.',
+      queued: 'Der Import wartet auf den Start. Diese Anzeige aktualisiert sich automatisch.',
+      dispatching: marker
+        ? 'Die Datei wird gerade markiert.'
+        : 'Die Aufnahme wird verarbeitet. Diese Anzeige aktualisiert sich automatisch.',
+      executed_unverified: marker
+        ? 'Die Dateiaktion wurde ausgeführt. Die abschließende Bestätigung steht noch aus.'
+        : 'Die Datei ist verarbeitet. Wir prüfen noch, ob die Aufnahme im VDR angekommen ist.',
+      succeeded: attempt && attempt.videoDecision === 'delete_duplicate'
+        ? 'Die doppelte Quelldatei wurde gelöscht. Die VDR-Aufnahme bleibt erhalten.'
+        : marker ? 'Die Dateiaktion wurde bestätigt.'
+        : 'Die Aufnahme ist im VDR vorhanden.',
+      rejected: 'Der Auftrag wurde nicht angenommen.',
+      conflict: 'Der Auftrag konnte wegen eines Konflikts nicht ausgeführt werden.',
+      failed_before_dispatch: 'Die Ausführung wurde nicht gestartet.',
+      failed_verified: 'Die Ausführung ist fehlgeschlagen.',
+      cancelled: 'Der Auftrag wurde abgebrochen.',
+      outcome_unknown: attempt && attempt.videoDecision === 'delete_duplicate'
+        ? 'Die Quelldatei-Löschung wurde nicht bestätigt. Die Datei kann ' +
+          'bereits entfernt oder noch vorhanden sein. Kein erneuter Löschauftrag ' +
+          'für diese Quelle! Über „Diesen Vorgang prüfen“ nur den bestehenden ' +
+          'Auftrag lesen. Der genaue Dateisystemfehler steht bisher nur im Agent-Journal.'
+        : 'Core meldet outcome_unknown: Die Ausführung ist nicht bestätigt. ' +
+          'Die öffentliche Statusantwort enthält keinen Agent-Fehlergrund. ' +
+          'Bitte denselben Vorgang prüfen; technische Einzelheiten stehen unter „Technische Details“.'
+    };
+    view.importFeedbackTitle.textContent = !attempt
+      ? 'Aktion wird vorbereitet'
+      : attempt.pending ? 'Anfrage wird übermittelt'
+      : !attempt.operationId ? 'Antwort ungewiss – nicht erneut starten'
+      : titles[state] || 'Auftragsstatus wird geprüft';
+    view.importFeedbackText.textContent = !attempt
+      ? 'Quelle und Berechtigung werden geprüft. Noch kein neuer Auftrag bestätigt.'
+      : attempt.pending ? 'Die Anfrage wurde gesendet; eine Antwort steht noch aus.'
+      : !attempt.operationId
+        ? 'Der Server hat keine eindeutige Antwort geliefert. Bitte nicht erneut klicken.'
+        : descriptions[state] || 'Der vorhandene Auftrag wird über „Vorgang prüfen“ abgefragt.';
+    if (view.lastManualCheck && attempt && !attempt.pending)
+      view.importFeedbackText.textContent += ' ' + view.lastManualCheck;
+    if (attempt && attempt.sourceLabel && !terminalState(state))
+      view.importFeedbackText.textContent =
+        '„' + attempt.sourceLabel + '“: ' + view.importFeedbackText.textContent;
+    if (attempt && attempt.metadataFeedback)
+      view.importFeedbackText.textContent += ' ' + attempt.metadataFeedback;
+    if (attempt && state === 'outcome_unknown') {
+      const sourceLabel = attempt.sourceLabel ||
+        view.sourceTitles[attempt.sourceId] || attempt.sourceId;
+      const action = attempt.videoDecision === 'duplicate'
+        ? 'Dubletten-Markierung'
+        : attempt.videoDecision === 'delete_duplicate'
+          ? 'Quelldatei löschen'
+          : attempt.videoDecision === 'desktop' ||
+            attempt.videoDecision === 'skip' ||
+            attempt.videoDecision === 'release'
+            ? 'Dateimarkierung' : 'VDR-Import';
+      view.importFeedbackText.textContent +=
+        ' Betroffener Auftrag: ' + action + ' für „' + sourceLabel + '“' +
+        (attempt.operationId ? ' (' + attempt.operationId + ')' : '') +
+        '. Andere Episoden dürfen unabhängig davon lesend geprüft werden; ' +
+        'dieser unbestätigte Auftrag wird nicht erneut gestartet.';
+    }
+    updateOperationDiagnostics(view);
+    view.importFeedback.className = 'media-import-import-feedback' +
+      (state === 'succeeded' ? ' is-success'
+        : attempt && (terminalState(state) || state === 'outcome_unknown')
+          ? ' is-finished' : ' is-running');
+  }
+
   function showAttempt(view) {
-    view.select.disabled = true;
+    view.select.disabled = view.sources.length === 0;
     view.startButton.disabled = true;
     view.selectedBatchButton.disabled = true;
     view.selectAllVisibleButton.disabled = true;
@@ -484,9 +1548,10 @@
     view.decision.disabled = true;
     view.markedSelect.disabled = true;
     view.releaseButton.disabled = true;
-    view.reloadButton.disabled = true;
-    view.searchInput.disabled = true;
-    view.statusFilter.disabled = true;
+    view.reloadButton.disabled = false;
+    view.searchInput.disabled = false;
+    view.statusFilter.disabled = false;
+    view.seasonFilter.disabled = false;
     view.operationDetail.textContent = view.attempt.operationId
       ? 'Vorgang ' + view.attempt.operationId
       : view.attempt.pending
@@ -500,6 +1565,22 @@
       view.batchReview = view.batch.review;
       renderBatchReview(view);
     }
+    // The same operation indicator is always visible after owner remounts.
+    if (view.attempt.videoDecision === 'delete_duplicate') {
+      view.previewCard.replaceChildren(
+        element('h5', 'media-import-preview-title', 'Dublette aus Importquelle löschen'),
+        view.importFeedback);
+      renderImportFeedback(view);
+    } else {
+      renderPreviewCard(view, view.previewResult,
+        view.allOrdinary.find(function (item) {
+          return item.sourceId === view.attempt.sourceId;
+        }));
+    }
+    // Remount after a known unknown outcome remains browsable even when
+    // the current Agent/Core status request times out again.
+    enableOperationBrowsing(view);
+    updateInlineDeleteAvailability(view);
     if (view.attempt.operationId) {
       readOperation(view);
     } else if (view.attempt.pending) {
@@ -519,6 +1600,392 @@
     });
   }
 
+  function validLocalArtwork(value) {
+    if (typeof value !== 'string' || value.length > 349600) return false;
+    const image = /^(data:image\/(?:jpeg|png|webp);base64,)([A-Za-z0-9+/]+={0,2})$/.exec(value);
+    if (!image || image[2].length % 4 !== 0) return false;
+    return (image[1] === 'data:image/jpeg;base64,' && image[2].startsWith('/9j/')) ||
+      (image[1] === 'data:image/png;base64,' && image[2].startsWith('iVBORw0KGgo')) ||
+      (image[1] === 'data:image/webp;base64,' && image[2].startsWith('UklGR'));
+  }
+
+
+  // TMDb search and preview remain transient and do not modify local NFO.
+  // MT.META6 freezes one exact, already-found episode/movie in the existing
+  // Core import payload only when the user starts that import.
+  function resetOnline(view) {
+    ++view.onlineSeq;
+    view.onlineItems = [];
+    view.onlineSelected = null;
+    view.onlineSeries = null;
+    view.onlineSeason = null;
+    view.onlineMode = 'search';
+    view.onlineQuery = '';
+    view.onlineStatus = '';
+    view.onlinePending = false;
+    view.onlineAuto = false;
+    view.onlineAutoSelected = false;
+  }
+
+  function onlineValid(item, kind, series, season) {
+    const namespaces = {movie: 'movie', series: 'tv',
+      season: 'tv-season', episode: 'tv-episode'};
+    return Boolean(item && item.providerId === 'tmdb' && item.kind === kind &&
+      item.externalNamespace === namespaces[kind] &&
+      typeof item.externalId === 'string' &&
+      /^[0-9]{1,16}$/.test(item.externalId) &&
+      typeof item.title === 'string' && item.title.length > 0 &&
+      item.title.length <= 512 &&
+      (typeof item.overview === 'string' && item.overview.length <= 16384) &&
+      (typeof item.releaseDate === 'string' && item.releaseDate.length <= 64) &&
+      (kind !== 'season' ||
+        (series && item.parentExternalId === series.externalId &&
+         Number.isInteger(item.seasonNumber) && item.seasonNumber >= 0)) &&
+      (kind !== 'episode' ||
+        (series && season && item.parentExternalId === series.externalId &&
+         item.seasonNumber === season.seasonNumber &&
+         Number.isInteger(item.episodeNumber) && item.episodeNumber > 0)));
+  }
+
+  function onlineImageUrl(backendId, candidate) {
+    if (!candidate || !['movie', 'tv', 'tv-season', 'tv-episode']
+        .includes(candidate.externalNamespace) ||
+        !/^[0-9]{1,16}$/.test(candidate.externalId || '') ||
+        typeof candidate.posterReference !== 'string' ||
+        !/^\/[A-Za-z0-9_.-]{5,255}$/.test(candidate.posterReference) ||
+        candidate.posterReference.includes('..')) return '';
+    const path = '/api/backends/' + encodeURIComponent(backendId) +
+      '/settings/series-artwork/candidate-image?externalNamespace=' +
+      encodeURIComponent(candidate.externalNamespace) +
+      '&externalId=' + encodeURIComponent(candidate.externalId) +
+      '&posterReference=' + encodeURIComponent(candidate.posterReference);
+    const resolver = global.VdrSuitePublicUrl;
+    return resolver && typeof resolver.resolvePath === 'function'
+      ? resolver.resolvePath(path) : path;
+  }
+
+  function onlineLookup(view, endpoint, payload, kind) {
+    if (!isCurrent(view) || view.onlinePending ||
+        !view.sources.includes(view.select.value)) return Promise.resolve();
+    const seq = ++view.onlineSeq;
+    const sourceId = view.select.value;
+    view.onlinePending = true;
+    view.onlineItems = [];
+    view.onlineSelected = null;
+    view.onlineStatus = 'Online-Treffer werden gesucht …';
+    updatePreview(view);
+    const session = global.VdrSuiteBrowserSession;
+    const csrf = session && typeof session.csrfHeaders === 'function'
+      ? session.csrfHeaders() : {};
+    const route = '/api/backends/' + encodeURIComponent(view.backendId) +
+      '/recordings/metadata/' + endpoint;
+    return Promise.resolve().then(function () {
+      const api = global.VdrSuiteClientApi;
+      if (!api || typeof api.requestJson !== 'function')
+        throw new Error('Metadaten-API fehlt');
+      return api.requestJson(route, {
+        method: 'POST',
+        headers: Object.assign({'Content-Type': 'application/json'},
+          csrf && typeof csrf === 'object' ? csrf : {}),
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
+    }).then(function (data) {
+      if (!isCurrent(view) || seq !== view.onlineSeq ||
+          sourceId !== view.select.value) return;
+      view.onlinePending = false;
+      if (!data || data.providerId !== 'tmdb' || data.providerAvailable !== true ||
+          !Array.isArray(data.candidates) || data.candidates.length > 20) {
+        view.onlineStatus = 'Keine gültige Online-Antwort. Lokale Informationen bleiben erhalten.';
+      } else {
+        view.onlineItems = data.candidates.filter(function (item) {
+          return onlineValid(item, kind, view.onlineSeries, view.onlineSeason);
+        });
+        view.onlineStatus = view.onlineItems.length
+          ? 'TMDb-Treffer gefunden. Eindeutige Episoden werden automatisch zugeordnet.'
+          : 'Kein passender Treffer. Lokale Metadaten bleiben erhalten.';
+      }
+      updatePreview(view);
+      return view.onlineItems.slice();
+    }).catch(function (error) {
+      if (!isCurrent(view) || seq !== view.onlineSeq ||
+          sourceId !== view.select.value) return;
+      view.onlinePending = false;
+      view.onlineStatus = error && (error.status === 401 || error.status === 403)
+        ? 'Keine Berechtigung zur TMDb-Suche; lokale Daten bleiben verfügbar.'
+        : 'TMDb nicht erreichbar oder nicht eingerichtet; lokale Daten bleiben verfügbar.';
+      updatePreview(view);
+      return [];
+    });
+  }
+
+  // Use the existing TMDb search -> seasons -> episodes API after selecting
+  // one recognized series episode. No import, metadata write or automatic
+  // selection of an ambiguous provider result is authorized here.
+  function normalizedSeriesName(value) {
+    return String(value || '').normalize('NFKC').toLocaleLowerCase('de')
+      .replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  function autoIdentifyEpisode(view, source) {
+    const coords = episodeCoordinates(source);
+    const title = onlineSeriesSearchTitle(source);
+    if (coords.episode === null || !title || title.length < 2 ||
+        title.length > 160 || !view.sources.includes(source.sourceId)) return;
+    const sourceId = source.sourceId;
+    const generation = view.previewGeneration;
+    const active = function () {
+      return isCurrent(view) && view.onlineAuto &&
+        generation === view.previewGeneration && view.select.value === sourceId;
+    };
+    const normalized = normalizedSeriesName(title);
+    const alternative = normalized.replace(/^star wars /, '');
+    const match = function (candidates) {
+      return candidates.filter(function (candidate) {
+        const name = normalizedSeriesName(candidate.title);
+        return name === normalized || (alternative !== normalized &&
+          name === alternative);
+      });
+    };
+    const lookupSeries = function (query) {
+      return onlineLookup(view, 'search',
+        {query: query, kind: 'series', limit: 12}, 'series');
+    };
+    view.onlineAuto = true;
+    view.onlineKind = 'series';
+    view.onlineQuery = title;
+    Promise.resolve().then(function () {
+      if (!active()) return [];
+      return lookupSeries(title);
+    }).then(function (candidates) {
+      if (!active()) return null;
+      const matches = match(candidates || []);
+      // A known franchise prefix can differ from TMDb's displayed title
+      // (e.g. local 'Star Wars-Andor', provider 'Andor'). Search its name
+      // separately only when the first response had no title match.
+      if (!matches.length && alternative !== normalized &&
+          alternative.length >= 2 && alternative.length <= 160) {
+        return lookupSeries(alternative).then(function (fallback) {
+          return active() ? match(fallback || []) : null;
+        });
+      }
+      return matches;
+    }).then(function (matches) {
+      if (!active() || !matches) return null;
+      if (matches.length !== 1) {
+        view.onlineStatus = matches.length
+          ? 'Mehrdeutige Serie: Bitte den TMDb-Treffer manuell auswählen.'
+          : 'Keine eindeutige Serie erkannt. TMDb-Suche bleibt manuell möglich.';
+        updatePreview(view);
+        return null;
+      }
+      view.onlineSeries = matches[0];
+      view.onlineMode = 'seasons';
+      return onlineLookup(view, 'seasons',
+        {seriesExternalId: matches[0].externalId, limit: 20}, 'season');
+    }).then(function (seasons) {
+      if (!active() || !Array.isArray(seasons)) return null;
+      const matches = seasons.filter(function (item) {
+        return item.seasonNumber === coords.season;
+      });
+      if (matches.length !== 1) {
+        view.onlineStatus = 'Staffel nicht eindeutig gefunden. Manuelle TMDb-Auswahl möglich.';
+        updatePreview(view);
+        return null;
+      }
+      view.onlineSeason = matches[0];
+      view.onlineMode = 'episodes';
+      return onlineLookup(view, 'episodes', {
+        seriesExternalId: view.onlineSeries.externalId,
+        seasonNumber: coords.season, limit: 20
+      }, 'episode');
+    }).then(function (episodes) {
+      if (!active() || !Array.isArray(episodes)) return;
+      const matches = episodes.filter(function (item) {
+        return item.seasonNumber === coords.season &&
+          item.episodeNumber === coords.episode;
+      });
+      if (matches.length === 1) {
+        view.onlineSelected = matches[0];
+        view.onlineAutoSelected = true;
+        view.onlineStatus = 'TMDb eindeutig erkannt: Staffel ' +
+          coords.season + ', Folge ' + coords.episode +
+          '. Die bereits gefundenen Metadaten werden beim Importstart ' +
+          'im Auftrag gespeichert und beim VDR-Import übernommen.';
+      } else {
+        view.onlineStatus = matches.length
+          ? 'Episode mehrdeutig. Bitte den TMDb-Treffer manuell auswählen.'
+          : 'Episode nicht gefunden. Manuelle TMDb-Auswahl möglich.';
+      }
+      updatePreview(view);
+    }).catch(function () {
+      if (!active()) return;
+      view.onlinePending = false;
+      view.onlineStatus = 'Automatischer TMDb-Abgleich fehlgeschlagen. Manuelle Suche möglich.';
+      updatePreview(view);
+    });
+  }
+
+  function renderOnline(view, card, plan, source) {
+    if (!source || !view.sources.includes(view.select.value)) return;
+    const box = element('section', 'media-import-online');
+    box.appendChild(element('h6', '', 'Online-Metadaten · TMDb (optional)'));
+    box.appendChild(element('p', 'media-import-online-note',
+      'Eindeutige TMDb-Daten werden nach bestätigtem Import über die bestehende Aufnahme-Metadatenzuordnung gespeichert. Das originale Video bleibt unverändert.'));
+    const tools = element('div', 'media-import-online-tools');
+    const coordinates = episodeCoordinates(source);
+    const seriesTitle = onlineSeriesSearchTitle(source);
+    // The currently browsed TMDb series is the primary context while choosing
+    // a season/episode. Keep recognized local coordinates visible beneath it.
+    if (view.onlineSeries && view.onlineMode !== 'search')
+      box.appendChild(element('p', 'media-import-online-context',
+        'Serie: ' + view.onlineSeries.title +
+        (view.onlineSeason ? ' · Staffel ' + view.onlineSeason.seasonNumber : '')));
+    if (coordinates.episode !== null) {
+      box.appendChild(element('p', 'media-import-online-context',
+        'Erkannt: Staffel ' + coordinates.season + ' · Folge ' +
+        coordinates.episode));
+    }
+    const query = element('input', 'media-import-online-query');
+    query.type = 'search';
+    query.maxLength = 160;
+    query.value = view.onlineQuery || seriesTitle ||
+      (plan && plan.title) || source.label || '';
+    query.setAttribute('aria-label', 'TMDb-Titel');
+    query.addEventListener('input', function () { view.onlineQuery = query.value; });
+    tools.appendChild(query);
+    const kind = element('select', 'media-import-online-kind');
+    kind.setAttribute('aria-label', 'Medientyp');
+    [['movie', 'Film'], ['series', 'Serie']].forEach(function (value) {
+      const option = element('option', '', value[1]);
+      option.value = value[0];
+      kind.appendChild(option);
+    });
+    kind.value = view.onlineKind;
+    kind.addEventListener('change', function () {
+      if (!isCurrent(view)) return;
+      const newKind = kind.value;
+      const value = query.value;
+      resetOnline(view);
+      view.onlineKind = newKind;
+      view.onlineQuery = value;
+      updatePreview(view);
+    });
+    tools.appendChild(kind);
+    const search = element('button', 'media-import-online-search', 'TMDb suchen');
+    search.type = 'button';
+    search.disabled = view.onlinePending;
+    search.addEventListener('click', function () {
+      const value = String(query.value || '').trim();
+      if (!isCurrent(view) || view.onlinePending) return;
+      view.onlineQuery = value;
+      if (value.length < 2 || value.length > 160) {
+        view.onlineStatus = 'Mindestens zwei Zeichen für die Online-Suche eingeben.';
+        updatePreview(view);
+        return;
+      }
+      view.onlineAuto = false;
+      view.onlineAutoSelected = false;
+      view.onlineMode = 'search';
+      view.onlineSeries = null;
+      view.onlineSeason = null;
+      return onlineLookup(view, 'search',
+        {query: value, kind: view.onlineKind, limit: 12}, view.onlineKind);
+    });
+    tools.appendChild(search);
+    box.appendChild(tools);
+    if (view.onlineStatus) {
+      const status = element('p', 'media-import-online-status', view.onlineStatus);
+      status.setAttribute('role', 'status');
+      box.appendChild(status);
+    }
+    const list = element('div', 'media-import-online-results');
+    view.onlineItems.forEach(function (candidate) {
+      const result = element('article', 'media-import-online-result');
+      result.appendChild(element('strong', '', candidate.title));
+      result.appendChild(element('small', '',
+        candidate.kind + ' · TMDb #' + candidate.externalId +
+        (candidate.releaseDate ? ' · ' + candidate.releaseDate : '')));
+      if (candidate.overview)
+        result.appendChild(element('p', '', candidate.overview));
+      const choose = element('button', 'media-import-online-choose',
+        candidate.kind === 'movie' ? 'Film auswählen' :
+          candidate.kind === 'episode' ? 'Episode auswählen' : 'Serie auswählen');
+      choose.type = 'button';
+      choose.disabled = view.onlinePending || candidate.kind === 'season';
+      choose.addEventListener('click', function () {
+        if (!isCurrent(view) || view.onlinePending ||
+            !view.sources.includes(view.select.value)) return;
+        const coords = episodeCoordinates(source);
+        if (candidate.kind === 'series' && coords.episode !== null) {
+          view.onlineStatus = 'Für diese Folge bitte Staffel und Episode auswählen.';
+        } else if (candidate.kind === 'episode' && coords.episode !== null &&
+            (coords.season !== candidate.seasonNumber ||
+             coords.episode !== candidate.episodeNumber)) {
+          view.onlineStatus = 'Episodenkennung passt nicht zur Quelle. Keine Zuordnung.';
+        } else {
+          view.onlineSelected = candidate;
+          view.onlineAutoSelected = false;
+          view.onlineStatus = 'TMDb-Treffer manuell ausgewählt – nur Vorschau, keine NFO-/VDR-Änderung.';
+        }
+        updatePreview(view);
+      });
+      result.appendChild(choose);
+      if (candidate.kind === 'series' || candidate.kind === 'season') {
+        const next = element('button', 'media-import-online-next',
+          candidate.kind === 'series' ? 'Staffeln anzeigen' : 'Episoden anzeigen');
+        next.type = 'button';
+        next.disabled = view.onlinePending;
+        next.addEventListener('click', function () {
+          if (!isCurrent(view) || view.onlinePending) return;
+          if (candidate.kind === 'series') {
+            view.onlineSeries = candidate;
+            view.onlineSeason = null;
+            view.onlineMode = 'seasons';
+            return onlineLookup(view, 'seasons',
+              {seriesExternalId: candidate.externalId, limit: 20}, 'season');
+          }
+          if (!view.onlineSeries) return;
+          view.onlineSeason = candidate;
+          view.onlineMode = 'episodes';
+          return onlineLookup(view, 'episodes', {
+            seriesExternalId: view.onlineSeries.externalId,
+            seasonNumber: candidate.seasonNumber, limit: 20
+          }, 'episode');
+        });
+        result.appendChild(next);
+      }
+      list.appendChild(result);
+    });
+    box.appendChild(list);
+    if (view.onlineSelected) {
+      const selected = view.onlineSelected;
+      const confirmed = element('div', 'media-import-online-confirmed');
+      confirmed.appendChild(element('strong', '',
+        (view.onlineAutoSelected ? 'Automatisch erkannte TMDb-Episode: ' :
+          'Bestätigte TMDb-Vorschau: ') + selected.title));
+      if (selected.overview)
+        confirmed.appendChild(element('p', '', selected.overview));
+      const url = onlineImageUrl(view.backendId, selected);
+      if (url && !view.onlineAutoSelected) {
+        const poster = element('img', 'media-import-online-poster');
+        poster.alt = 'TMDb-Poster für ' + selected.title;
+        poster.loading = 'lazy';
+        poster.src = url;
+        poster.addEventListener('error', function () {
+          // Missing provider artwork must not erase the confirmed title/plot.
+          if (typeof poster.remove === 'function') poster.remove();
+          confirmed.appendChild(element('p', '',
+            'Online-Poster nicht verfügbar; lokale Bilder bleiben erhalten.'));
+        });
+        confirmed.appendChild(poster);
+      }
+      box.appendChild(confirmed);
+    }
+    card.appendChild(box);
+  }
+
   function validMediaImportPreview(data, backendId, sourceId) {
     return Boolean(data && data.backendId === backendId &&
       data.sourceId === sourceId && data.state === 'ready' &&
@@ -529,7 +1996,21 @@
       typeof data.targetFolder === 'string' &&
       (data.status === 'unavailable' || validPreviewTarget(data.targetFolder)) &&
       typeof data.videoCodec === 'string' && /^[a-z0-9_]{0,64}$/.test(data.videoCodec) &&
-      typeof data.title === 'string' && data.title.length > 0 && data.title.length <= 120);
+      typeof data.title === 'string' && data.title.length <= 120 &&
+      (data.failureCode === undefined ||
+        (typeof data.failureCode === 'string' && /^[a-z_]{0,32}$/.test(data.failureCode))) &&
+      ['nfoOutline', 'nfoPlot', 'nfoGenre'].every(function (key) {
+        return data[key] === undefined ||
+          (typeof data[key] === 'string' && data[key].length <= 4096 &&
+           !/[\r\n\x00-\x1f\x7f]/.test(data[key]));
+      }) &&
+      (data.nfoYear === undefined ||
+        (typeof data.nfoYear === 'string' &&
+         (data.nfoYear === '' || /^[0-9]{4}$/.test(data.nfoYear)))) &&
+      (data.durationSeconds === undefined ||
+        (Number.isSafeInteger(data.durationSeconds) &&
+         data.durationSeconds >= 0 && data.durationSeconds <= 4294967295)) &&
+      (data.status === 'unavailable' || data.title.length > 0));
   }
 
   function validPreviewTarget(folder) {
@@ -547,6 +2028,7 @@
     const all = [];
     const seen = new Set();
     let partial = false;
+    let stale = false;
     const prefix = '/api/v1/backends/' + backendId + '/media-import-sources?cursor=';
     function page(cursor, count) {
       const options = readOptions(backendId);
@@ -560,6 +2042,8 @@
               !/^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId) ||
               seen.has(item.sourceId) ||
               (item.folder !== undefined && !validRelativeFolder(item.folder)) ||
+              (item.recordingStatus !== undefined &&
+               !['recording_present', 'unverified'].includes(item.recordingStatus)) ||
               (item.label !== undefined &&
                (typeof item.label !== 'string' || !item.label ||
                 item.label.length > 160 ||
@@ -571,8 +2055,9 @@
         if (all.length > MAX_IMPORT_FILMS)
           throw new Error('Mehr als 100 Importquellen in der Serverantwort');
         partial = partial || Boolean(response.meta && response.meta.partial);
+        stale = stale || Boolean(response.meta && response.meta.stale);
         const link = response.links && response.links.next;
-        if (!link) return {items: all, meta: {partial: partial}};
+        if (!link) return {items: all, meta: {partial: partial, stale: stale}};
         if (typeof link !== 'string' || !link.startsWith(prefix) ||
             response.items.length !== 32 || count >= 3)
           throw new Error('Ungültige Scan-Fortsetzung');
@@ -586,14 +2071,109 @@
   }
 
   function updateSelectionCount(view) {
-    const count = view.sources.filter(function (id) {
+    const eligible = importableSourceIds(view);
+    const count = eligible.filter(function (id) {
       return view.checkedSourceIds.has(id);
     }).length;
     view.selectionCount.textContent = count + ' von ' +
-      view.sources.length + ' sichtbaren Filmen für den Stapel gewählt.';
+      eligible.length + ' noch nicht importierten Filmen für den Stapel gewählt.';
     view.selectedBatchButton.disabled = count < 2 || Boolean(view.batch) ||
       Boolean(view.attempt) || view.localReencode.checked ||
       view.decision.value !== 'import';
+  }
+
+  // MT.META1: presentation-only phone navigation. The same Core/Agent
+  // source selection, preview, import and marker handlers remain the owner.
+  function setMobilePane(view, pane) {
+    if (!isCurrent(view) || !view.mobileButtons[pane]) return;
+    view.root.dataset.mobilePane = pane;
+    Object.keys(view.mobileButtons).forEach(function (name) {
+      const button = view.mobileButtons[name];
+      const active = name === pane;
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      button.className = 'media-import-mobile-switch' +
+        (active ? ' is-active' : '');
+    });
+  }
+
+  // META4: advisory grouping from authenticated relative folders and explicit
+  // S01E02/Staffel 1 tokens only. Neither names nor grouping confer identity
+  // or permission: the opaque sourceId remains the ONLY import selection.
+  function episodeCoordinates(item) {
+    const parts = (item.folder || '').split('/').filter(Boolean);
+    const seasonName = parts.length &&
+      /^(?:Staffel|Season)[ ._-]*(0?[1-9]|[1-9][0-9])$/i.exec(parts[parts.length - 1]);
+    const filename = /(?:^|[\s._-])S(0?[1-9]|[1-9][0-9])E(0?[1-9]|[1-9][0-9]{1,2})(?=$|[\s._-])/i
+      .exec(item.label || '');
+    const named = /(?:^|[\s._-])(?:Staffel|Season)[\s._-]*(0?[1-9]|[1-9][0-9])[\s._-]+(?:Folge|Episode)[\s._-]*(0?[1-9]|[1-9][0-9]{1,2})(?=$|[\s._-])/i
+      .exec(item.label || '');
+    const folderSeason = seasonName ? Number(seasonName[1]) : null;
+    const labelSeason = filename ? Number(filename[1]) :
+      named ? Number(named[1]) : null;
+    const season = folderSeason !== null && labelSeason !== null &&
+      folderSeason !== labelSeason ? null :
+      folderSeason !== null ? folderSeason : labelSeason;
+    const folderEpisode = folderSeason !== null && !filename && !named
+      ? /(?:^|[\s._-])(?:Folge|Episode)[\s._-]*(0?[1-9]|[1-9][0-9]{1,2})(?=$|[\s._-])/i.exec(item.label || '')
+      : null;
+    const episode = filename ? Number(filename[2]) :
+      named ? Number(named[2]) :
+      folderEpisode ? Number(folderEpisode[1]) : null;
+    return {
+      seriesPath: seasonName ? parts.slice(0, -1).join('/') : item.folder || '',
+      season: season,
+      episode: season !== null ? episode : null
+    };
+  }
+
+  function onlineSeriesSearchTitle(source) {
+    const coords = episodeCoordinates(source);
+    if (coords.episode === null) return '';
+    const folders = coords.seriesPath.split('/').filter(Boolean);
+    const raw = folders.length ? folders[folders.length - 1] : '';
+    if (/^(serien|series|tv|shows)$/i.test(raw)) return '';
+    return raw.replace(/[_-]+/g, ' ')
+      .replace(/\s*\((?:19|20)\d{2}\)\s*$/, '')
+      .replace(/\s+/g, ' ').trim();
+  }
+
+  function renderSeasonChoices(view, searching) {
+    const choices = view.seasonFilter;
+    const eligible = view.allOrdinary.concat(view.allMarked).filter(function (item) {
+      const folder = item.folder || '';
+      return folder === view.folderPath ||
+        folder.startsWith(view.folderPath + '/');
+    });
+    const seasons = Array.from(new Set(eligible.map(function (item) {
+      return episodeCoordinates(item).season;
+    }).filter(function (n) { return n !== null; }))).sort(function (a, b) { return a - b; });
+    const unknown = eligible.some(function (item) {
+      return episodeCoordinates(item).season === null;
+    });
+    const available = new Set(seasons.map(function (n) { return 's:' + n; }));
+    if (unknown) available.add('other');
+    if (!available.has(view.seasonKey)) view.seasonKey = '';
+    choices.replaceChildren();
+    const all = element('option', '', 'Alle Staffeln');
+    all.value = '';
+    choices.appendChild(all);
+    seasons.forEach(function (season) {
+      const option = element('option', '', 'Staffel ' + season);
+      option.value = 's:' + season;
+      choices.appendChild(option);
+    });
+    if (unknown) {
+      const option = element('option', '', 'Ohne Staffelzuordnung');
+      option.value = 'other';
+      choices.appendChild(option);
+    }
+    choices.value = view.seasonKey;
+    view.seasonLabel.hidden = searching || !view.folderPath ||
+      (seasons.length === 0 && !unknown);
+    const heading = view.folderPath ?
+      view.folderPath.split('/').join(' › ') : 'Alle Medien';
+    view.seriesCaption.textContent = 'Auswahl: ' + heading +
+      ' · Staffelangaben nur bei eindeutigen Datei-/Ordnerkennungen';
   }
 
   // Build navigation only from previously validated Agent/Core relative
@@ -609,12 +2189,17 @@
     if (!known.has(view.folderPath)) view.folderPath = '';
     view.folderBreadcrumb.replaceChildren();
     view.folderList.replaceChildren();
+    view.seriesGroups.replaceChildren();
     const navigate = function (path) {
-      if (!isCurrent(view) || view.batch || view.attempt || !known.has(path))
+      if (!isCurrent(view) || view.batch ||
+          (view.attempt && !mayBrowseDuringOperation(view)) || !known.has(path))
         return;
       view.folderPath = path;
+      view.seasonKey = '';
+      view.searchInput.value = '';
       view.checkedSourceIds.clear();
       filterVisibleSources(view);
+      setMobilePane(view, 'media');
     };
     const root = element('button', '', 'Importwurzeln');
     root.type = 'button';
@@ -635,7 +2220,7 @@
       const parent = path.lastIndexOf('/') < 0 ? '' :
         path.slice(0, path.lastIndexOf('/'));
       return parent === view.folderPath;
-    }).sort();
+    }).sort(function (left, right) { return sourceCollator.compare(left, right); });
     children.forEach(function (path) {
       const name = path.slice(path.lastIndexOf('/') + 1);
       const button = element('button', 'media-import-folder', '📁 ' + name);
@@ -645,45 +2230,239 @@
     });
     view.folderList.hidden = searching || children.length === 0;
     view.folderBreadcrumb.hidden = known.size <= 1;
+
+    // All groups are grounded in real relative source folders. Distinct
+    // folders with identically named episodes MUST remain separate.
+    const groups = new Map();
+    catalog.forEach(function (item) {
+      const group = episodeCoordinates(item).seriesPath;
+      if (group && known.has(group)) groups.set(group, (groups.get(group) || 0) + 1);
+    });
+    Array.from(groups).sort(function (a, b) {
+      return sourceCollator.compare(a[0], b[0]);
+    }).forEach(function (entry) {
+      const button = element('button', 'media-import-series-group',
+        entry[0].split('/').join(' › ') + ' · ' + entry[1] + ' Dateien');
+      button.type = 'button';
+      button.dataset.folder = entry[0];
+      button.setAttribute('aria-pressed', view.folderPath === entry[0] ? 'true' : 'false');
+      button.addEventListener('click', function () { navigate(entry[0]); });
+      view.seriesGroups.appendChild(button);
+    });
+    view.seriesGroups.hidden = searching || groups.size === 0;
+  }
+
+  // Background checks are read-only presentation hints, never import grants.
+  // The Core has one preview slot per backend: a user's selected preview must
+  // preempt this queue, not compete with another automatic request.
+  function sourceTechnicalLabel(view, item) {
+    if (item.recordingPresent)
+      return '✓ Bereits importiert – VDR-Aufnahme vorhanden';
+    const checked = view.previewCache.get(item.sourceId);
+    if (checked)
+      return '✓ Technisch geprüft · ' +
+        (checked.videoReencodeRequired ? 'Umkodierung nötig'
+          : checked.status === 'insufficient' ? 'Speicherplatz fehlt'
+          : 'Direktimport möglich');
+    const status = view.backgroundStates.get(item.sourceId);
+    return status === 'running' ? 'Technische Prüfung läuft …'
+      : status === 'duplicate' ? 'VDR-Dublette erkannt – bei Auswahl prüfen'
+      : status === 'unavailable' ? 'Prüfung derzeit nicht möglich – manuell erneut prüfen'
+      : 'Noch nicht technisch geprüft';
+  }
+
+  function ordinarySourceMeta(view, item) {
+    const parked = parkedPcEncodeMatches(view, item);
+    const pcHint = possiblePcReturn(view, item)
+      ? ' · Möglicher PC-Encode-Rücklauf'
+      : parked.length ? ' · PC-Encode-Zuordnung mehrdeutig' : '';
+    const confirmed = confirmedImport(view, item.sourceId);
+    const coords = episodeCoordinates(item);
+    const episodeLabel = coords.episode !== null
+      ? ' · S' + String(coords.season).padStart(2, '0') +
+        'E' + String(coords.episode).padStart(2, '0') : '';
+    return (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
+      episodeLabel + ' · ' + sourceTechnicalLabel(view, item) +
+      (confirmed
+        ? ' · Frühere VDR-Operation bestätigt; aktueller Quellinhalt ungeprüft'
+        : '') + pcHint;
+  }
+
+  function updateBackgroundDisplay(view) {
+    if (!isCurrent(view) || !view.backgroundNotice) return;
+    const candidates = view.allOrdinary.filter(function (item) {
+      return !item.recordingPresent;
+    });
+    const completed = candidates.filter(function (item) {
+      return view.previewCache.has(item.sourceId) ||
+        view.backgroundStates.get(item.sourceId) === 'duplicate';
+    }).length;
+    const errors = candidates.filter(function (item) {
+      return view.backgroundStates.get(item.sourceId) === 'unavailable';
+    }).length;
+    const pending = Math.max(0, candidates.length - completed - errors);
+    view.backgroundNotice.textContent = 'Technische Hintergrundprüfung: ' +
+      completed + ' von ' + candidates.length + ' geprüft' +
+      (pending ? ' · ' + pending + ' ausstehend' : '') +
+      (errors ? ' · ' + errors + ' nicht prüfbar' : '') +
+      '. Eine manuelle Auswahl hat Vorrang.';
+    Array.from(view.selectionRows.children).forEach(function (row) {
+      const item = view.allOrdinary.find(function (entry) {
+        return entry.sourceId === row.dataset.sourceId;
+      });
+      if (!item) return;
+      const label = Array.from(row.children).find(function (child) {
+        return (child.className || '').split(' ').includes('media-import-episode-meta');
+      });
+      if (label) label.textContent = ordinarySourceMeta(view, item);
+    });
+  }
+
+  function scheduleBackgroundCheck(view, delay) {
+    if (!isCurrent(view) || view.backgroundTimer !== null ||
+        view.backgroundBusy) return;
+    const generation = view.backgroundGeneration;
+    view.backgroundTimer = global.setTimeout(function () {
+      view.backgroundTimer = null;
+      if (!isCurrent(view) || generation !== view.backgroundGeneration) return;
+      runBackgroundCheck(view, generation);
+    }, delay);
+  }
+
+  function runBackgroundCheck(view, generation) {
+    if (!isCurrent(view) || generation !== view.backgroundGeneration ||
+        view.backgroundBusy) return;
+    if (view.batch || view.submitting || view.inspectingBatch ||
+        (view.attempt && !terminalState(view.attempt.state)) ||
+        (view.select.value && !view.previewResult && !view.previewFailed)) {
+      // A selected source owns the single Core preview slot until its
+      // interactive read completes. Do not starve manual selection.
+      scheduleBackgroundCheck(view, 1000);
+      return;
+    }
+    const next = view.allOrdinary.find(function (item) {
+      return !item.recordingPresent && !view.previewCache.has(item.sourceId) &&
+        !['duplicate', 'unavailable'].includes(
+          view.backgroundStates.get(item.sourceId));
+    });
+    if (!next) {
+      updateBackgroundDisplay(view);
+      return;
+    }
+    const id = next.sourceId;
+    const selectedGeneration = view.previewGeneration;
+    const reads = (view.backgroundReads.get(id) || 0) + 1;
+    view.backgroundReads.set(id, reads);
+    view.backgroundStates.set(id, 'running');
+    view.backgroundBusy = true;
+    updateBackgroundDisplay(view);
+    Promise.resolve(publicClient().getMediaImportSourcePreview({
+      backendId: view.backendId, sourceId: id,
+      credentials: 'same-origin', cache: 'no-store'
+    })).then(function (data) {
+      if (!isCurrent(view) || generation !== view.backgroundGeneration ||
+          selectedGeneration !== view.previewGeneration) return;
+      if (!data || data.backendId !== view.backendId || data.sourceId !== id)
+        throw new Error('Veraltete Hintergrundvorschau');
+      if (data.state === 'pending') {
+        if (reads >= BACKGROUND_PREVIEW_MAX_READS)
+          view.backgroundStates.set(id, 'unavailable');
+        // Otherwise this single source keeps its place until the Agent
+        // replies. Starting another preview would replace its Core slot.
+        return;
+      }
+      if (!validMediaImportPreview(data, view.backendId, id))
+        throw new Error('Ungültige Hintergrundvorschau');
+      if (data.status === 'ready' || data.status === 'insufficient') {
+        view.previewCache.set(id, data);
+        view.backgroundStates.delete(id);
+      } else {
+        // Duplicate discovery is a read-only label, NOT an automatic
+        // source rename or Core mutation. The user can inspect it first.
+        view.backgroundStates.set(id,
+          data.status === 'duplicate' ? 'duplicate' : 'unavailable');
+      }
+    }).catch(function () {
+      if (isCurrent(view) && generation === view.backgroundGeneration &&
+          selectedGeneration === view.previewGeneration)
+        view.backgroundStates.set(id, 'unavailable');
+    }).finally(function () {
+      if (!isCurrent(view) || generation !== view.backgroundGeneration) return;
+      view.backgroundBusy = false;
+      updateBackgroundDisplay(view);
+      scheduleBackgroundCheck(view,
+        view.backgroundStates.get(id) === 'running'
+          ? BACKGROUND_PREVIEW_POLL_MS : 300);
+    });
+  }
+
+  function startBackgroundChecks(view) {
+    if (!isCurrent(view)) return;
+    if (view.backgroundTimer !== null) global.clearTimeout(view.backgroundTimer);
+    view.backgroundTimer = null;
+    ++view.backgroundGeneration;
+    view.backgroundBusy = false;
+    view.backgroundStates.clear();
+    view.backgroundReads.clear();
+    updateBackgroundDisplay(view);
+    // The existing inventory is already visible and navigable before a
+    // single read-only technical check begins.
+    scheduleBackgroundCheck(view, 500);
   }
 
   // UX3 step 1: search/filter only the already authenticated, bounded
   // Agent/Core snapshot. No path guesses, filesystem requests or new grants.
   function filterVisibleSources(view) {
-    if (!isCurrent(view) || view.attempt || view.batch) return;
+    if (!isCurrent(view) || view.batch ||
+        (view.attempt && !mayBrowseDuringOperation(view))) return;
     // A filter or folder change clears the selection and invalidates every
     // outstanding preview, including a late reply for a reselected source.
     if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
     view.previewTimer = null;
     ++view.previewGeneration;
+    resetOnline(view);
     view.previewResult = null;
     view.previewStatus = '';
+    view.previewFailed = false;
+    // A filter change or rescan clears selection; do not leave an inert retry visible.
+    view.previewRetryButton.hidden = true;
     resetBatchReview(view);
     const query = String(view.searchInput.value || '').trim().toLowerCase();
     const mode = view.statusFilter.value;
     renderSourceFolders(view, Boolean(query));
+    renderSeasonChoices(view, Boolean(query));
     const matches = function (item) {
       const labelMatches = !query ||
         (item.label || item.sourceId).toLowerCase().includes(query);
-      // Searching is intentionally cross-folder; browsing without a search
-      // displays just the selected directory. Both use trusted IDs only.
-      const folderMatches = Boolean(query) ||
-        (item.folder || '') === view.folderPath;
-      return labelMatches && folderMatches;
+      // A selected folder shows all verified descendants; opening a series
+      // reveals its episodes without drilling down to a leaf directory.
+      const folder = item.folder || '';
+      const folderMatches = Boolean(query) || !view.folderPath ||
+        folder === view.folderPath || folder.startsWith(view.folderPath + '/');
+      const details = episodeCoordinates(item);
+      const seasonMatches = Boolean(query) || !view.seasonKey ||
+        (view.seasonKey === 'other' ? details.season === null :
+          view.seasonKey === 's:' + details.season);
+      return labelMatches && folderMatches && seasonMatches;
     };
     const normal = mode === 'marked' ? [] :
-      view.allOrdinary.filter(matches);
+      view.allOrdinary.filter(function (item) {
+        return matches(item) && (mode !== 'imported' || item.recordingPresent);
+      });
     const marked = mode === 'normal' ? [] :
-      view.allMarked.filter(matches);
+      view.allMarked.filter(function (item) {
+        return matches(item) && (mode !== 'imported' || markerSuffix(item) === 'duplicate');
+      });
     view.sources = normal.map(function (item) { return item.sourceId; });
     view.markedSources = marked.map(function (item) { return item.sourceId; });
 
     view.select.replaceChildren();
-    const blank = element('option', '', 'Quelle auswählen');
+    const blank = element('option', '', 'Film oder Serienfolge auswählen');
     blank.value = '';
     view.select.appendChild(blank);
     normal.forEach(function (item) {
-      const option = element('option', '', item.label || 'Film');
+      const option = element('option', '', (item.label || 'Film') +
+        (item.recordingPresent ? ' ✓ Importiert' : ''));
       option.value = item.sourceId;
       view.select.appendChild(option);
     });
@@ -691,7 +2470,10 @@
     view.select.disabled = normal.length === 0;
     view.startButton.disabled = true;
     view.sourceDetails.textContent = '';
-    view.preview.textContent = 'Film auswählen. Die technische Importprüfung erfolgt automatisch.';
+    view.preview.textContent = normal.length
+      ? 'Folge in der Episodenliste anklicken. Die technische Vorschau startet automatisch.'
+      : 'In diesem Ordner wurden keine passenden Filme gefunden. Anderen Ordner wählen oder Suche zurücksetzen.';
+    renderPreviewCard(view, null, null);
     view.localReencode.checked = false;
     view.localReencode.disabled = true;
     view.decision.value = 'import';
@@ -700,24 +2482,197 @@
     view.skipButton.hidden = true;
     view.skipButton.disabled = true;
     view.startButton.textContent = 'Import starten';
-    view.batchButton.disabled = normal.length < 2 ||
-      normal.length > MAX_IMPORT_FILMS;
+    const eligibleCount = normal.filter(function (item) {
+      return !item.recordingPresent;
+    }).length;
+    view.batchButton.disabled = Boolean(view.attempt) || eligibleCount < 2 ||
+      eligibleCount > MAX_IMPORT_FILMS;
     view.selectionRows.replaceChildren();
     normal.forEach(function (item) {
-      const label = element('label', 'media-import-select-item', item.label);
-      const checkbox = element('input', '');
+      const row = element('div', 'media-import-select-item' +
+        (item.recordingPresent ? ' is-recording-present' : ''));
+      row.dataset.sourceId = item.sourceId;
+      const checkbox = element('input', 'media-import-episode-check');
       checkbox.type = 'checkbox';
-      checkbox.checked = view.checkedSourceIds.has(item.sourceId);
+      checkbox.setAttribute('aria-label', 'Für Stapel auswählen: ' + item.label);
+      checkbox.checked = !item.recordingPresent &&
+        view.checkedSourceIds.has(item.sourceId);
+      checkbox.disabled = item.recordingPresent;
       checkbox.addEventListener('change', function () {
         if (!isCurrent(view) || view.attempt || view.batch) return;
+        if (item.recordingPresent) return;
         if (checkbox.checked) view.checkedSourceIds.add(item.sourceId);
         else view.checkedSourceIds.delete(item.sourceId);
         updateSelectionCount(view);
       });
-      label.appendChild(checkbox);
-      view.selectionRows.appendChild(label);
+      const open = element('button', 'media-import-episode-open', item.label);
+      open.type = 'button';
+      open.addEventListener('click', function () {
+        if (!isCurrent(view) || view.batch ||
+            (view.attempt && !mayBrowseDuringOperation(view))) return;
+        view.select.value = item.sourceId;
+        view.markedSelect.value = '';
+        view.releaseButton.disabled = true;
+        view.releaseButton.hidden = true;
+        view.sourceDetails.textContent = 'Auswahl-ID: ' + item.sourceId;
+        refreshSelectedPreview(view);
+        setMobilePane(view, 'details');
+      });
+      const parked = parkedPcEncodeMatches(view, item);
+      const pcHint = possiblePcReturn(view, item)
+        ? ' · Möglicher PC-Encode-Rücklauf'
+        : parked.length ? ' · PC-Encode-Zuordnung mehrdeutig' : '';
+      const confirmed = confirmedImport(view, item.sourceId);
+      const coords = episodeCoordinates(item);
+      const episodeLabel = coords.episode !== null
+        ? ' · S' + String(coords.season).padStart(2, '0') +
+          'E' + String(coords.episode).padStart(2, '0') : '';
+      const meta = element('span', 'media-import-episode-meta',
+        ordinarySourceMeta(view, item));
+      row.appendChild(checkbox);
+      row.appendChild(open);
+      row.appendChild(meta);
+      if (item.recordingPresent) {
+        const remove = element('button',
+          'media-import-delete-duplicate media-import-delete-duplicate-inline',
+          'Dublette aus Importquelle löschen');
+        remove.type = 'button';
+        const reason = deleteBlockReason(view, item.sourceId);
+        remove.disabled = Boolean(reason);
+        remove.title = reason;
+        remove.addEventListener('click', function () {
+          if (!prepareIndependentDelete(view, item.sourceId)) return;
+          view.select.value = item.sourceId;
+          view.markedSelect.value = '';
+          refreshSelectedPreview(view);
+          return startImport(view, false, 'delete_duplicate');
+        });
+        row.appendChild(remove);
+        const blocked = element('p', 'media-import-delete-blocked', reason);
+        blocked.hidden = !reason;
+        row.appendChild(blocked);
+      }
+      view.selectionRows.appendChild(row);
     });
-    view.selectAllVisibleButton.disabled = normal.length === 0;
+    marked.forEach(function (item) {
+      const marker = markerSuffix(item);
+      const returns = pcEncodeCandidates(view, item);
+      const returned = returns.length === 1 && possiblePcReturn(view, returns[0])
+        ? returns[0] : null;
+      const row = element('div', 'media-import-select-item media-import-marked-item');
+      row.dataset.sourceId = item.sourceId;
+      const open = element('button', 'media-import-episode-open', item.label || 'Markierte Datei');
+      open.type = 'button';
+      const chooseMarkedSource = function () {
+        if (!isCurrent(view) || view.batch || view.attempt || view.submitting) return false;
+        view.select.value = '';
+        view.markedSelect.value = item.sourceId;
+        view.releaseButton.disabled = false;
+        view.releaseButton.hidden = false;
+        refreshSelectedPreview(view);
+        const statusText = marker === 'duplicate'
+          ? 'Bereits als Duplikat markiert (.duplicate). Kein erneuter Import.'
+          : marker === 'skipped' ? 'Von Rectools oder Media Tools übersprungen (.skipped).'
+            : returned
+              ? 'PC-Encode: möglicher Rücklauf als neue Datei gefunden.'
+              : returns.length
+                ? 'PC-Encode: mehrere gleichnamige Kandidaten, Zuordnung unklar.'
+                : 'Wartet auf die extern umkodierte Datei (.pc_encode).';
+        const hint = returned
+          ? 'Neue Datei „' + returned.label +
+            '“ ist ein separater Importkandidat. Sie wird beim Auswählen ' +
+            'technisch geprüft. Gleicher Name ist noch kein Nachweis für ' +
+            'identischen Inhalt. Die markierte Originaldatei bleibt erhalten.'
+          : marker === 'pc_encode' && returns.length
+            ? 'Mehrere mögliche Dateien haben denselben Titel und Ordner. ' +
+              'Ohne eindeutige Zuordnung wird keine Datei automatisch gewählt, ' +
+              'markiert oder gelöscht. Jede Quelle getrennt prüfen.'
+            : marker === 'pc_encode'
+              ? 'Alternativ die Datei hier ausdrücklich für lokale VDR-' +
+                'Umkodierung freigeben. Nach der bestätigten Freigabe wird ' +
+                'sie erneut technisch geprüft; H.264-Umkodierung und Import ' +
+                'brauchen danach eine eigene Bestätigung. Für PC-Bearbeitung ' +
+                'die neue Videodatei ohne .pc_encode im selben Ordner ablegen.'
+            : 'Diese Rectools-Markierung wird respektiert; keine erneute ' +
+              'Importausführung für die markierte Datei.';
+        view.preview.textContent = statusText + ' ' + hint;
+        view.previewCard.replaceChildren(
+          element('h5', 'media-import-preview-title', item.label || 'Markierte Quelle'),
+          element('div', 'media-import-preview-state is-marked', statusText),
+          element('p', 'media-import-preview-hint', hint));
+        view.deleteDuplicateButton.hidden = marker !== 'duplicate';
+        view.deleteDuplicateButton.disabled = marker !== 'duplicate';
+        if (marker === 'duplicate')
+          view.previewCard.appendChild(view.deleteDuplicateButton);
+        view.previewCard.appendChild(view.importFeedback);
+        renderImportFeedback(view);
+        setMobilePane(view, 'details');
+        return true;
+      };
+      open.addEventListener('click', chooseMarkedSource);
+      const coords = episodeCoordinates(item);
+      const episodeLabel = coords.episode !== null
+        ? ' · S' + String(coords.season).padStart(2, '0') +
+          'E' + String(coords.episode).padStart(2, '0') : '';
+      const meta = element('span', 'media-import-episode-meta',
+        (item.folder ? item.folder.split('/').join(' › ') : 'Importwurzel') +
+        episodeLabel + ' · ' + (marker === 'duplicate' ? 'Bereits vorhanden' :
+          marker === 'skipped' ? 'Übersprungen' : returned
+            ? 'PC-Version gefunden – noch prüfen' : returns.length
+              ? 'PC-Rücklauf mehrdeutig' : 'Wartet auf PC-Bearbeitung'));
+      row.appendChild(open);
+      row.appendChild(meta);
+      if (marker === 'pc_encode') {
+        // Expose the existing explicit release operation directly in the
+        // media list. The returned ordinary source must pass its own codec
+        // preview and per-film local-reencode consent before import.
+        const localRelease = element('button',
+          'media-import-pc-local-release',
+          'Für lokale VDR-Umkodierung freigeben');
+        localRelease.type = 'button';
+        localRelease.addEventListener('click', function () {
+          if (!chooseMarkedSource()) return;
+          return startImport(view, true);
+        });
+        row.appendChild(localRelease);
+      }
+      if (marker === 'duplicate') {
+        // The action must be reachable in the episode list, without opening
+        // collapsed technical details or relying on the transient detail card.
+        // Only the observed .duplicate source is eligible; Core/Agent still
+        // revalidate source and VDR recording before any deletion.
+        const removeDuplicate = element('button',
+          'media-import-delete-duplicate media-import-delete-duplicate-inline',
+          'Dublette aus Importquelle löschen');
+        removeDuplicate.type = 'button';
+        const reason = deleteBlockReason(view, item.sourceId);
+        removeDuplicate.disabled = Boolean(reason);
+        removeDuplicate.title = reason;
+        removeDuplicate.addEventListener('click', function () {
+          if (!prepareIndependentDelete(view, item.sourceId) ||
+              !chooseMarkedSource()) return;
+          return startImport(view, false, 'delete_duplicate');
+        });
+        row.appendChild(removeDuplicate);
+        const blocked = element('p', 'media-import-delete-blocked', reason);
+        blocked.hidden = !reason;
+        row.appendChild(blocked);
+      }
+      if (returned) {
+        const inspect = element('button', 'media-import-pc-return-open',
+          'PC-Version technisch prüfen');
+        inspect.type = 'button';
+        inspect.addEventListener('click', function () {
+          // Navigates to the independently authorized ordinary candidate;
+          // this does not execute an import or release the parked original.
+          return openDeferredFilm(view, returned.sourceId);
+        });
+        row.appendChild(inspect);
+      }
+      view.selectionRows.appendChild(row);
+    });
+    view.selectAllVisibleButton.disabled = Boolean(view.attempt) ||
+      eligibleCount === 0;
     updateSelectionCount(view);
 
     view.markedSelect.replaceChildren();
@@ -733,57 +2688,125 @@
     view.markedSelect.value = '';
     view.markedSelect.disabled = marked.length === 0;
     view.releaseButton.disabled = true;
+    view.releaseButton.hidden = true;
     view.normalLabel.hidden = mode === 'marked';
-    view.markedLabel.hidden = mode === 'normal';
-    view.visibleCount.textContent = normal.length + ' importierbare und ' +
-      marked.length + ' markierte Treffer in dieser Ansicht ' +
-      '(aus maximal ' + MAX_IMPORT_FILMS + ' geprüften Quellen).';
+    view.markedLabel.hidden = mode !== 'marked' || marked.length === 0;
+    view.visibleCount.textContent = normal.length + ' unmarkierte (' +
+      normal.filter(function (item) { return item.recordingPresent; }).length +
+      ' bereits importiert) und ' + marked.length + ' markierte Quellen in dieser Ansicht ' +
+      '(aus maximal ' + MAX_IMPORT_FILMS + ' erfassten Quellen).';
+  }
+
+  function hideConfirmedDeletedSource(view, sourceId) {
+    const backendId = view.backendId;
+    if (!confirmedDeletedSources[backendId])
+      confirmedDeletedSources[backendId] = new Set();
+    confirmedDeletedSources[backendId].add(sourceId);
+    const keep = function (item) { return item.sourceId !== sourceId; };
+    const saved = lastGoodSourceInventories[backendId];
+    if (saved) {
+      saved.ordinary = saved.ordinary.filter(keep);
+      saved.marked = saved.marked.filter(keep);
+    }
+    view.allOrdinary = view.allOrdinary.filter(keep);
+    view.allMarked = view.allMarked.filter(keep);
+    view.previewCache.delete(sourceId);
+    filterVisibleSources(view);
   }
 
   function loadSources(view) {
-    if (!isCurrent(view) || view.attempt) return Promise.resolve();
-    if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
-    view.previewTimer = null;
-    ++view.previewGeneration;
-    view.previewResult = null;
-    view.previewStatus = '';
-    resetBatchReview(view);
+    if (!isCurrent(view) ||
+        (view.attempt && !mayBrowseDuringOperation(view)))
+      return Promise.resolve(false);
+    // A failed refresh must not destroy an already browsable, authenticated
+    // inventory. Only commit a fresh scan after the complete response validates.
     const generation = ++view.sourcesGeneration;
-    view.select.disabled = true;
-    view.startButton.disabled = true;
-    view.markedSelect.disabled = true;
-    view.releaseButton.disabled = true;
-    view.batchButton.disabled = true;
-    view.selectedBatchButton.disabled = true;
-    view.selectAllVisibleButton.disabled = true;
-    view.searchInput.disabled = true;
-    view.statusFilter.disabled = true;
-    view.sources = [];
-    view.markedSources = [];
-    view.checkedSourceIds.clear();
-    view.selectionRows.replaceChildren();
-    view.selectedBatchButton.disabled = true;
-    view.selectAllVisibleButton.disabled = true;
-    view.allOrdinary = [];
-    view.allMarked = [];
-    view.folderPath = '';
-    view.folderBreadcrumb.replaceChildren();
-    view.folderList.replaceChildren();
-    report(view, 'Autorisierte Importquellen werden geladen …');
+    const keepSelection = view.attempt && view.select.value !== view.attempt.sourceId
+      ? view.select.value : '';
+    view.scanNotice.textContent = 'Quellen werden aktualisiert. Die letzte geladene Liste bleibt sichtbar …';
+    report(view, 'Quellenaktualisierung läuft; vorhandene Liste bleibt benutzbar.');
     return readSourcePages(view.backendId)
       .then(function (response) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
-        const items = response && response.items;
+        let items = response && response.items;
         if (!Array.isArray(items) || items.length > MAX_IMPORT_FILMS ||
             !items.every(function (item) {
               return item && typeof item.sourceId === 'string' &&
                 /^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId) &&
                 (item.folder === undefined || validRelativeFolder(item.folder)) &&
+                (item.recordingStatus === undefined ||
+                  ['recording_present', 'unverified'].includes(item.recordingStatus)) &&
                 (item.label === undefined ||
                   (typeof item.label === 'string' &&
                    item.label.length > 0 && item.label.length <= 160 &&
                    !/[\/\\\r\n\x00-\x1f\x7f]/.test(item.label)));
             })) throw new Error('Ungültige Quellenliste');
+        const deleted = confirmedDeletedSources[view.backendId];
+        let waitingForAgentInventory = false;
+        if (deleted && deleted.size) {
+          const presentIds = new Set(items.map(function (item) {
+            return item.sourceId;
+          }));
+          // Only a complete, current observation can establish absence.
+          // An older cached snapshot must not resurrect a confirmed deletion.
+          if (response.meta && response.meta.partial === false &&
+              response.meta.stale !== true) {
+            for (const id of deleted) {
+              if (!presentIds.has(id)) deleted.delete(id);
+            }
+          }
+          waitingForAgentInventory = Array.from(deleted).some(function (id) {
+            return presentIds.has(id);
+          });
+          items = items.filter(function (item) {
+            return !deleted.has(item.sourceId);
+          });
+        }
+        // A stale read is usable for navigation, not a newer scan. Preserve
+        // the active episode and preview when we already display that catalog.
+        if (response.meta && response.meta.stale &&
+            (view.allOrdinary.length || view.allMarked.length)) {
+          view.scanNotice.textContent = 'Zuletzt geladene Quellenliste. ' +
+            'Aktualisierung momentan nicht möglich; Ordner und Filter bleiben nutzbar.';
+          report(view, 'Quellenliste weiterhin sichtbar (zuletzt geladen). ' +
+            'Import/Löschen wird beim Ausführen vom Backend geprüft.');
+          return false;
+        }
+        // Commit a new validated inventory only now. A partial/failed GET
+        // must never blank the source list or throw away an existing selection.
+        // A catalog refresh does not invalidate a completed technical check
+        // for the same unchanged source. Keep the existing read-only result;
+        // Core still validates the file again when importing or deleting.
+        const oldSources = new Map(view.allOrdinary.map(function (source) {
+          return [source.sourceId, source];
+        }));
+        const retainedPreviews = new Map();
+        items.forEach(function (item) {
+          const previous = oldSources.get(item.sourceId);
+          const checked = view.previewCache.get(item.sourceId);
+          if (previous && checked && !previous.recordingPresent &&
+              item.recordingStatus !== 'recording_present' &&
+              !markerSuffix(item) && previous.label === item.label &&
+              previous.folder === (item.folder || '')) {
+            retainedPreviews.set(item.sourceId, checked);
+          }
+        });
+        view.previewCache = retainedPreviews;
+        if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
+        view.previewTimer = null;
+        ++view.previewGeneration;
+        resetOnline(view);
+        view.previewResult = null;
+        view.previewStatus = '';
+        view.previewFailed = false;
+        view.previewRetryButton.hidden = true;
+        resetBatchReview(view);
+        view.checkedSourceIds.clear();
+        view.sourceDetails.textContent = '';
+        view.allOrdinary = [];
+        view.allMarked = [];
+        view.selectionRows.replaceChildren();
+        view.sourceTitles = Object.create(null);
         // The Agent reports whether the bounded local walk reached its end.
         // Missing/legacy completion metadata is conservatively incomplete.
         const bounded = !(response.meta && response.meta.partial === false);
@@ -793,23 +2816,58 @@
         const marked = items.filter(function (item) {
           return Boolean(markerSuffix(item));
         });
+        lastGoodSourceInventories[view.backendId] = {
+          ordinary: ordinary.map(function (item) { return Object.assign({}, item); }),
+          marked: marked.map(function (item) { return Object.assign({}, item); })
+        };
         // Only the verified Agent snapshot can supply selectable opaque IDs.
         // Browser search/status filtering is a view, never a new authority.
         view.allOrdinary = ordinary.map(function (item, index) {
           return {sourceId: item.sourceId,
             label: item.label || ('Film ' + (index + 1)),
             folder: item.folder || '',
-            folderKnown: Object.prototype.hasOwnProperty.call(item, 'folder')};
-        });
-        view.allMarked = marked;
+            folderKnown: Object.prototype.hasOwnProperty.call(item, 'folder'),
+            recordingPresent: item.recordingStatus === 'recording_present'};
+        }).sort(compareSources);
+        view.allMarked = marked.slice().sort(compareSources);
+        // A fresh manual GET can also complete reconciliation if all
+        // automatic attempts encountered a transient Agent outage.
+        const finishedImport = view.attempt;
+        if (!(response.meta && response.meta.stale) && finishedImport &&
+            finishedImport.inventoryRefreshStarted &&
+            finishedImport.state === 'succeeded' &&
+            (!finishedImport.videoDecision || finishedImport.videoDecision === 'local') &&
+            finishedImport.sourceCleanup !== 'pending') {
+          const candidate = view.allOrdinary.find(function (item) {
+            return item.sourceId === finishedImport.sourceId;
+          });
+          if (!candidate || candidate.recordingPresent)
+            finishedImport.inventoryRefreshCompleted = true;
+        }
         view.sourceTitles = Object.create(null);
         view.allOrdinary.forEach(function (item) {
           view.sourceTitles[item.sourceId] = item.label;
         });
+        // A successful new inventory is fresh: require deliberate selection
+        // of a source instead of reusing a potentially expired 422 token.
+        // On transient failure, no inventory is committed and the previous
+        // selection and its visible details remain untouched.
         filterVisibleSources(view);
+        if (keepSelection && view.sources.includes(keepSelection)) {
+          view.select.value = keepSelection;
+          refreshSelectedPreview(view);
+        }
+        startBackgroundChecks(view);
         view.searchInput.disabled = false;
         view.statusFilter.disabled = false;
-        view.scanNotice.textContent = bounded && items.length >= MAX_IMPORT_FILMS
+        view.seasonFilter.disabled = false;
+        view.scanNotice.textContent = waitingForAgentInventory
+          ? 'Löschung bestätigt: Die entfernte Quelle ist aus der Liste genommen. ' +
+            'Der Agent-Quellkatalog wird noch aktualisiert.'
+          : response.meta && response.meta.stale
+          ? 'Zuletzt geladene Quellenliste. Ordner und Filter sind nutzbar; ' +
+            'eine Aktualisierung ist momentan nicht möglich.'
+          : bounded && items.length >= MAX_IMPORT_FILMS
           ? 'Importgrenze: Höchstens 100 Filme pro Durchlauf. ' +
             '100 geprüfte Quellen werden angezeigt. Der Scan ist nicht ' +
             'vollständig. Da Originale erhalten bleiben, für weitere ' +
@@ -821,9 +2879,17 @@
           : 'Scan abgeschlossen (konfigurierte Quellen): alle geeigneten ' +
             'Quellen wurden geprüft. Das bedeutet nicht, dass jeder andere ' +
             'Dateipfad dieser Importwurzel freigegeben ist.';
-        report(view, ordinary.length + ' Filme verfügbar, ' + marked.length +
-          ' zurückgestellt, übersprungen oder doppelt markiert.' +
-          (bounded ? ' Scan unvollständig.' : ''));
+        report(view, ordinary.length + ' unmarkierte Quellen (' +
+          ordinary.filter(function (item) {
+            return item.recordingStatus === 'recording_present';
+          }).length + ' bereits importiert), ' + marked.length +
+          ' bereits markiert.' +
+          (bounded ? ' Scan unvollständig.' : '') +
+          (waitingForAgentInventory ? ' Löschung bestätigt; Agent-Katalog noch nicht aktualisiert.' : '') +
+          (mayBrowseWithUnknownOutcome(view)
+            ? ' Bestehender Auftrag weiterhin ungewiss; nur lesende Prüfung anderer Quellen.'
+            : ''));
+        return !(response.meta && response.meta.stale);
       }).catch(function (error) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
         const exceeded = error && typeof error.message === 'string' &&
@@ -832,40 +2898,84 @@
           ? 'Es sind höchstens 100 Filme pro Importdurchlauf erlaubt. ' +
             'Bitte die Quelle in kleineren Durchläufen importieren.'
           : error && error.status === 503
-            ? 'Quellenliste abgelaufen oder Backend-Agent nicht erreichbar. Bitte aktualisieren.'
+            ? 'Quellen konnten momentan nicht geladen werden. Erneut versuchen.'
           : error && (error.status === 401 || error.status === 403 || error.status === 404)
             ? 'Für dieses Backend sind keine Importquellen zugänglich.'
             : 'Quellenliste konnte nicht geladen werden. Bitte aktualisieren.';
+        const preserved = view.allOrdinary.length + view.allMarked.length > 0;
         view.scanNotice.textContent = exceeded
           ? 'Importgrenze überschritten: Maximal 100 Filme pro Durchlauf. ' +
-            'Keine Auswahl freigegeben; bitte erneut scannen.'
-          : 'Scan nicht abgeschlossen. Keine aktuellen ' +
-            'Ergebnisse; bitte nur nach erfolgreicher Aktualisierung auswählen.';
-        view.preview.textContent = 'Keine aktuelle Auswahl; noch kein Import vorbereitet.';
-        report(view, message, true);
+            (preserved ? 'Die letzte Liste bleibt sichtbar.' :
+              'Keine neue Auswahl freigegeben.')
+          : preserved
+            ? 'Aktualisierung fehlgeschlagen. Letzte erfolgreich geladene ' +
+              'Quellenliste bleibt sichtbar. Import/Löschen wird beim Ausführen ' +
+              'vom Backend erneut geprüft.'
+            : 'Quellenaktualisierung fehlgeschlagen. Noch keine erfolgreich ' +
+              'geladene Liste in dieser Anmeldung vorhanden.';
+        report(view, preserved
+          ? 'Aktualisierung momentan nicht möglich. Die bisherige ' +
+            'Quellenliste bleibt erhalten und ist weiter durchsuchbar.'
+          : message, true);
+        return false;
       });
   }
 
   // Exactly one selected source, using the canonical Public-v1 actor/backend
   // gate. The control plane can answer "pending" until the next Agent scan.
   // This is read-only; it never creates an import operation or writes a marker.
-  function refreshSelectedPreview(view) {
+  function refreshSelectedPreview(view, force) {
     if (!isCurrent(view)) return;
     if (view.previewTimer !== null) {
       global.clearTimeout(view.previewTimer);
       view.previewTimer = null;
     }
     const id = view.select.value;
+    releaseCompletedAttemptForNextSource(view, id);
+    pinUnknownOnSourceChange(view, id);
+    if (force) view.previewCache.delete(id);
     // A new observation never inherits an older film's encoding consent.
     view.decision.value = '';
     view.localReencode.checked = false;
     ++view.previewGeneration;
+    resetOnline(view);
+    const source = view.allOrdinary.find(function (item) {
+      return item.sourceId === id;
+    });
+    // MEDIA4 already recognizes episodes. Reuse those coordinates for the
+    // MEDIA5 provider kind, rather than defaulting every source to a movie.
+    view.onlineKind = source && episodeCoordinates(source).episode !== null
+      ? 'series' : 'movie';
     const generation = view.previewGeneration;
     view.previewResult = null;
     view.previewStatus = '';
+    view.previewFailed = false;
     view.previewReads = 0;
     updatePreview(view);
     if (!view.sources.includes(id)) return;
+    if (source && source.recordingPresent && !force) {
+      // The Agent already confirmed an intact, title-matching .rec target
+      // during the current inventory scan. Browsing does not trigger ffprobe
+      // or another technical request. All destructive operations revalidate.
+      view.previewResult = {sourceId: id, status: 'duplicate',
+        title: source.label, targetFolder: '', videoCodec: '',
+        sourceBytes: 0, availableBytes: 0, requiredBytes: 0,
+        videoReencodeRequired: false};
+      view.previewStatus = 'VDR-Aufnahme bereits vorhanden (Inventarscan).';
+      updatePreview(view);
+      if (view.onlineKind === 'series') autoIdentifyEpisode(view, source);
+      return;
+    }
+    // A successful technical read is reusable only within this authorized
+    // source scan. The Agent still independently rechecks on a real import.
+    const cached = view.previewCache.get(id);
+    if (cached) {
+      view.previewResult = cached;
+      view.previewStatus = 'Technische Prüfung aus diesem Scan wiederverwendet.';
+      updatePreview(view);
+    }
+    if (source && view.onlineKind === 'series') autoIdentifyEpisode(view, source);
+    if (cached) return;
     function poll() {
       if (!isCurrent(view) || generation !== view.previewGeneration ||
           view.select.value !== id) return;
@@ -887,7 +2997,8 @@
               poll();
             }, 4000);
           } else {
-            view.previewStatus = 'Die Vorschau dauert zu lange. Quelle erneut auswählen.';
+            view.previewStatus = 'Zeitüberschreitung: Für die ausgewählte Quelle kam keine fertige Backend-Vorschau.';
+            view.previewFailed = true;
             updatePreview(view);
           }
           return;
@@ -896,19 +3007,48 @@
           throw new Error('Ungültige Vorschauantwort');
         view.previewResult = data;
         view.previewStatus = '';
+        view.previewFailed = data.status === 'unavailable';
+        // Do not cache pending, failed or duplicate observations. A
+        // duplicate requires its existing independently confirmed marker
+        // operation and may change the source inventory immediately.
+        if (data.status === 'ready' || data.status === 'insufficient')
+          view.previewCache.set(id, data);
         updatePreview(view);
+        updateBackgroundDisplay(view);
+        scheduleBackgroundCheck(view, 100);
+        if (view.duplicateReviewPending && data.status !== 'duplicate') {
+          // The target changed during reinspection; do not mark another file.
+          view.duplicateQueue = [];
+          view.duplicateReviewPending = false;
+          if (view.batchReview) renderBatchReview(view);
+        }
+        if (data.status === 'duplicate' && !view.attempt && !view.batch &&
+            !view.submitting && !automaticDuplicates[view.backendId + '|' + id]) {
+          automaticDuplicates[view.backendId + '|' + id] = true;
+          // The selected Agent preview is verified before this automatic
+          // decision; the same Core/Agent operation rechecks source and target.
+          return startImport(view, false, 'duplicate', true);
+        }
       }).catch(function (error) {
         if (!isCurrent(view) || generation !== view.previewGeneration ||
             view.select.value !== id) return;
         view.previewResult = null;
+        view.previewFailed = true;
         view.previewStatus = error && error.status === 401
-          ? 'Anmeldung abgelaufen. Bitte erneut anmelden.'
+          ? 'HTTP 401: Anmeldung abgelaufen. Bitte erneut anmelden.'
           : error && error.status === 403
-            ? 'Keine Berechtigung für diese Importvorschau.'
-            : error && error.status === 503
-              ? 'Backend-Agent oder Quelle nicht mehr verfügbar. Bitte erneut scannen.'
-              : 'Film konnte nicht geprüft werden. Bitte erneut auswählen.';
+            ? 'HTTP 403: Keine Berechtigung für diese Importvorschau.'
+            : error && error.status === 404
+              ? 'HTTP 404: Quelle oder Vorschau-Route nicht gefunden. Erneut scannen.'
+              : error && error.status === 503
+                ? 'HTTP 503: Backend-Agent oder Vorschau derzeit nicht erreichbar.'
+                : error && [408, 504].includes(error.status)
+                  ? 'Zeitüberschreitung der Vorschau (HTTP ' + error.status + ').'
+                  : error && Number.isInteger(error.status) && error.status > 0
+                    ? 'Vorschau-Anfrage fehlgeschlagen (HTTP ' + error.status + ').'
+                    : 'Vorschau fehlgeschlagen: Keine gültige Antwort für die gewählte Quelle.';
         updatePreview(view);
+        scheduleBackgroundCheck(view, 100);
       });
     }
     poll();
@@ -920,6 +3060,269 @@
     return (n / (1024 * 1024 * 1024)).toFixed(1) + ' GiB';
   }
 
+  function renderPreviewCard(view, plan, source) {
+    if (!view.previewCard) return;
+    const card = view.previewCard;
+    card.replaceChildren();
+    const selected = view.sources.includes(view.select.value);
+    const label = source && source.label ||
+      (selected ? view.sourceTitles[view.select.value] : '');
+    const title = plan && plan.title || label || 'Noch keine Folge ausgewählt';
+    const heading = element('h5', 'media-import-preview-title', title);
+    card.appendChild(heading);
+    const artwork = element('div', 'media-import-artwork');
+    const localPoster = plan && validLocalArtwork(plan.posterDataUri)
+      ? plan.posterDataUri : '';
+    // Use the recognized series cover as the main provider image, never
+    // the episode still. Retain source-bound local artwork where available.
+    const seriesPoster = view.onlineSeries
+      ? onlineImageUrl(view.backendId, view.onlineSeries) : '';
+    const selectedPoster = view.onlineSelected
+      ? onlineImageUrl(view.backendId, view.onlineSelected) : '';
+    const episodeStill = view.onlineSelected && view.onlineSelected.kind === 'episode'
+      ? selectedPoster : '';
+    const poster = localPoster || seriesPoster || selectedPoster;
+    const fanart = plan && validLocalArtwork(plan.fanartDataUri)
+      ? plan.fanartDataUri : '';
+    const showEpisodeStill = Boolean(episodeStill && episodeStill !== poster);
+    if (showEpisodeStill) artwork.className += ' has-episode';
+    const picture = function (kind, uri, alt) {
+      const frame = element('div', 'media-import-artwork-frame media-import-artwork-' + kind);
+      const label = kind === 'poster'
+        ? (seriesPoster || selectedPoster) && !localPoster
+          ? 'Online-Poster nicht verfügbar' : 'Kein lokales Poster'
+        : kind === 'episode' ? 'Kein Episodenbild' : 'Keine lokale Fanart';
+      if (uri) {
+        const img = element('img', 'media-import-artwork-image');
+        img.src = uri;
+        img.alt = alt;
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.addEventListener('error', function () {
+          frame.replaceChildren(element('span', 'media-import-artwork-empty', label));
+        });
+        frame.appendChild(img);
+      } else {
+        frame.appendChild(element('span', 'media-import-artwork-empty', label));
+      }
+      return frame;
+    };
+    artwork.appendChild(picture('poster', poster,
+      seriesPoster && poster === seriesPoster
+        ? 'Seriencover für ' + view.onlineSeries.title : 'Poster für ' + title));
+    if (showEpisodeStill)
+      artwork.appendChild(picture('episode', episodeStill,
+        'Episodenbild für ' + title));
+    artwork.appendChild(picture('fanart', fanart, 'Lokale Fanart für ' + title));
+    card.appendChild(artwork);
+    const state = !selected ? 'idle' :
+      !plan ? (view.previewFailed ? 'failed' : 'pending') : plan.status;
+    const stateText = state === 'ready'
+      ? plan.videoReencodeRequired ? 'Video-Umkodierung erforderlich' : 'Direktimport möglich'
+      : state === 'duplicate' ? 'VDR-Aufnahme bereits vorhanden'
+      : state === 'insufficient' ? 'Nicht genügend Speicherplatz'
+      : state === 'unavailable' ? 'Quelle konnte nicht geprüft werden'
+      : state === 'failed' ? 'Vorschau fehlgeschlagen'
+      : state === 'pending' ? 'Technische Prüfung läuft'
+      : 'Folge aus der Liste auswählen';
+    const actions = element('div', 'media-import-preview-actions');
+    actions.appendChild(element('div', 'media-import-preview-state is-' + state,
+      stateText));
+    // Move the *existing* import button; never create a second click handler.
+    view.startButton.hidden = !selected || !plan ||
+      !['ready', 'insufficient'].includes(plan.status);
+    actions.appendChild(view.startButton);
+    // An already imported film may still exist as an unmarked source.
+    // Offer the existing explicit cleanup Operation without forcing a rename
+    // to .duplicate first. The Agent independently verifies the recording.
+    const unmarkedDuplicate = selected && plan && plan.status === 'duplicate';
+    view.deleteDuplicateButton.hidden = !unmarkedDuplicate;
+    view.deleteDuplicateButton.disabled = !unmarkedDuplicate ||
+      Boolean(deleteBlockReason(view, view.select.value));
+    if (unmarkedDuplicate) actions.appendChild(view.deleteDuplicateButton);
+    if (unmarkedDuplicate && view.attempt &&
+        view.attempt.state === 'outcome_unknown') {
+      actions.appendChild(element('p', 'media-import-delete-blocked',
+        'Löschen derzeit gesperrt: Der vorherige Importauftrag ist noch ' +
+        '„Ergebnis ungewiss“. Bitte zuerst den bestehenden Vorgang ' +
+        'prüfen. Es wird kein zweiter Auftrag ausgelöst.'));
+    }
+    card.appendChild(actions);
+    card.appendChild(view.importFeedback);
+    renderImportFeedback(view);
+    if (selected && source && source.folderKnown) {
+      card.appendChild(element('p', 'media-import-preview-path',
+        'Quelle: ' + (source.folder ? source.folder.split('/').join(' › ') : 'Importwurzel')));
+    }
+    if (plan && plan.status !== 'unavailable') {
+      const facts = element('dl', 'media-import-preview-facts');
+      const addFact = function (label, value) {
+        const fact = element('div', 'media-import-preview-fact');
+        fact.appendChild(element('dt', '', label));
+        fact.appendChild(element('dd', '', value));
+        facts.appendChild(fact);
+      };
+      if (plan.videoCodec) addFact('Video-Codec', plan.videoCodec.toUpperCase());
+      if (plan.sourceBytes) addFact('Dateigröße', humanBytes(plan.sourceBytes));
+      if (plan.targetFolder) addFact('VDR-Ziel', plan.targetFolder);
+      if (plan.availableBytes) addFact('Freier Platz', humanBytes(plan.availableBytes));
+      if (plan.requiredBytes) addFact('Zwischenbedarf (nur Info)', humanBytes(plan.requiredBytes));
+      if (plan.durationSeconds) {
+        const seconds = plan.durationSeconds;
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        addFact('Laufzeit (FFprobe)', hours
+          ? hours + ' Std. ' + (minutes % 60) + ' Min.'
+          : minutes + ' Min.');
+      }
+      card.appendChild(facts);
+    }
+    if (plan && ['ready', 'duplicate', 'insufficient'].includes(plan.status)) {
+      const hasNfo = ['nfoOutline', 'nfoPlot', 'nfoYear', 'nfoGenre'].some(
+        function (key) { return Boolean(plan[key]); });
+      if (hasNfo) {
+        const section = element('section', 'media-import-local-metadata');
+        section.appendChild(element('h6', '', 'Lokale Metadaten (NFO)'));
+        if (plan.nfoOutline)
+          section.appendChild(element('p', 'media-import-nfo-outline', plan.nfoOutline));
+        if (plan.nfoPlot)
+          section.appendChild(element('p', 'media-import-nfo-plot', plan.nfoPlot));
+        const facts = element('dl', 'media-import-preview-facts');
+        const add = function (label, value) {
+          const item = element('div', 'media-import-preview-fact');
+          item.appendChild(element('dt', '', label));
+          item.appendChild(element('dd', '', value));
+          facts.appendChild(item);
+        };
+        if (plan.nfoYear) add('Jahr', plan.nfoYear);
+        if (plan.nfoGenre) add('Genre', plan.nfoGenre);
+        if (facts.children.length) section.appendChild(facts);
+        card.appendChild(section);
+      }
+    }
+    renderOnline(view, card, plan, source);
+    // MT.META6: allow an explicit, identity-checked Suite metadata repair
+    // for an already confirmed recording. This reuses the existing recording
+    // assignment route and never starts another media import.
+    const existingSelection = selected && plan && plan.status === 'duplicate'
+      ? importMetadataSelection(view, plan.targetFolder ? plan :
+        Object.assign({}, plan, {targetFolder: '__agent_resolution_pending__'}), source)
+      : null;
+    if (existingSelection && !view.batch) {
+      const sourceId = source.sourceId;
+      const generation = view.previewGeneration;
+      const reviewKey = sourceId + '|' +
+        existingSelection.candidate.externalNamespace + ':' +
+        existingSelection.candidate.externalId;
+      const previous = view.metadataReview[reviewKey];
+      const repair = element('button', 'media-import-existing-metadata',
+        previous ? previous.pending ? 'TMDb-Zuordnung wird gespeichert …'
+          : previous.text && previous.text.includes('✓')
+            ? 'TMDb-Zuordnung gespeichert ✓'
+            : 'TMDb-Zuordnung erneut versuchen'
+          : 'TMDb-Daten für vorhandene Aufnahme übernehmen');
+      repair.type = 'button';
+      repair.disabled = Boolean(previous && previous.pending) || view.submitting;
+      repair.addEventListener('click', function () {
+        if (!isCurrent(view) || view.batch || view.submitting ||
+            view.previewGeneration !== generation ||
+            view.select.value !== sourceId ||
+            (view.metadataReview[reviewKey] &&
+             view.metadataReview[reviewKey].pending) ||
+            !global.confirm ||
+            !global.confirm('Die ausgewählten TMDb-Daten dieser bereits ' +
+              'vorhandenen Aufnahme übernehmen und die native VDR-info ' +
+              'über den bestehenden Aufnahmeweg aktualisieren?'))
+          return Promise.resolve();
+        view.metadataReview[reviewKey] = {pending: true, text: ''};
+        updatePreview(view);
+        const repairAttempt = {metadataSelection: null, metadataFeedback: ''};
+        return resolveExistingRecordingMetadataSelection(view, plan, source)
+          .then(function (resolved) {
+            if (!resolved) throw new Error('Keine eindeutige TMDb-Auswahl');
+            repairAttempt.metadataSelection = resolved;
+            return applyImportedMetadata(view, repairAttempt);
+          }).catch(function (error) {
+            // Do not disguise a 503 capability/preview outage as an ambiguous
+            // recording identity. Keep the selected episode and retry action.
+            const http = error && Number.isInteger(error.status)
+              ? 'HTTP ' + error.status + ': ' : '';
+            const detail = error && typeof error.message === 'string'
+              ? error.message.slice(0, 180) : 'Unbekannte Ursache';
+            repairAttempt.metadataFeedback = 'TMDb-Zuordnung nicht übernommen: ' +
+              http + detail + '. Aufnahme bleibt unverändert.';
+          }).then(function () {
+            if (!isCurrent(view)) return;
+            view.metadataReview[reviewKey] = {
+              pending: false,
+              text: repairAttempt.metadataFeedback ||
+                'Metadatenstatus nicht bestätigt. Bitte die Aufnahme prüfen.'
+            };
+            updatePreview(view);
+          });
+      });
+      card.appendChild(repair);
+      card.appendChild(element('p', 'media-import-metadata-repair-note',
+        previous && previous.text ? previous.text :
+        'Übernimmt die bestätigte TMDb-Zuordnung; die native ' +
+        'VDR-info wird nach erfolgreicher Aktualisierung bestätigt.'));
+    }
+    const diagnostics = {
+      agent_unavailable: 'Der Backend-Agent oder Media Tools ist nicht erreichbar.',
+      maintenance_busy: 'Media Tools ist gerade beschäftigt. Vorschau erneut prüfen.',
+      inventory_missing: 'Die Quelle ist im aktuellen Backend-Quelleninventar nicht mehr auffindbar.',
+      source_invalid: 'Quelldatei oder Quellpfad konnte nicht geprüft werden.',
+      source_changed: 'Die Quelldatei wurde seit dem Scan verändert.',
+      target_invalid: 'Der VDR-Zielordner konnte nicht sicher ermittelt werden.',
+      target_collision: 'Der VDR-Zielordner ist belegt, aber keine vollständige passende Aufnahme nachgewiesen.',
+      ffprobe_failed: 'FFprobe konnte den Videocodec nicht bestimmen (möglicherweise Zeitüberschreitung).',
+      capacity_failed: 'Die Berechnung des freien Speicherplatzes ist fehlgeschlagen.',
+      target_not_writable: 'Der VDR-Zielordner ist nicht beschreibbar.',
+      inspection_failed: 'Die Backend-Vorschau ist ohne nähere Fehlerdiagnose fehlgeschlagen.'
+    };
+    const failure = plan && plan.status === 'unavailable' &&
+      diagnostics[plan.failureCode] || '';
+    const note = !selected ? 'Ordner wählen und eine Episode anklicken.' :
+      !plan ? (view.previewStatus || 'Quelle wird vom Backend-Agent geprüft …') :
+      plan.status === 'duplicate'
+        ? 'Eine VDR-Aufnahme ist bereits vorhanden. Über „Dublette aus ' +
+          'Importquelle löschen“ lässt sich die verbleibende Quelldatei ' +
+          'direkt entfernen; die vollständige passende VDR-Aufnahme wird ' +
+          'vor dem Löschen erneut vom Backend bestätigt.'
+      : plan.status === 'ready' && !plan.videoReencodeRequired
+        ? 'Ohne Video-Neukodierung übernehmen. Jetzt direkt importieren.'
+      : plan.videoReencodeRequired
+        ? 'Auf dem VDR umkodieren oder am PC mit HandBrake bzw. anderer Software bearbeiten. Der Browser kodiert nicht selbst.'
+      : plan.status === 'insufficient'
+        ? 'Für den lokalen Import fehlt Speicherplatz.'
+        : failure || 'Die Quelle oder das Ziel konnte nicht vollständig geprüft werden. Technische Details anzeigen oder erneut prüfen.';
+    card.appendChild(element('p', 'media-import-preview-hint', note));
+    if (selected && confirmedImport(view, view.select.value)) {
+      const history = confirmedImport(view, view.select.value);
+      card.appendChild(element('p', 'media-import-confirmed-readback',
+        'Frühere VDR-Operation ' + history.operationId +
+        ' wurde in dieser Browsersitzung durch Core-Recording-Readback ' +
+        'bestätigt. Das ist KEIN Nachweis für den aktuell unter dieser ' +
+        'Quellen-ID liegenden Dateiinhalt. Die neue Vorschau prüft ihn ' +
+        'unabhängig. Ein bestätigtes Agent-Bereinigungsergebnis bezieht ' +
+        'sich auf die damalige Datei; ein neuer Scan zeigt den aktuellen Dateibestand.'));
+    }
+    const parked = selected ? parkedPcEncodeMatches(view, source) : [];
+    if (parked.length) {
+      const unique = Boolean(possiblePcReturn(view, source));
+      card.appendChild(element('p', 'media-import-pc-return-hint',
+        unique
+          ? 'Möglicher PC-Encode-Rücklauf erkannt (gleicher Titel und Ordner). ' +
+            'Die zurückgestellte .pc_encode-Datei bleibt getrennt. ' +
+            (plan && plan.status === 'ready'
+              ? 'Codec und Importfähigkeit der neuen Quelle sind geprüft; ' +
+                'Medienidentität ist damit nicht nachgewiesen.'
+              : 'Erst die technische Vorschau entscheidet über die Importfähigkeit.')
+          : 'PC-Encode-Rücklauf mehrdeutig: mehrere Quellen teilen Titel und Ordner. ' +
+            'Keine automatische Zuordnung oder Bereinigung.'));
+    }
+  }
+
   function updatePreview(view) {
     if (!isCurrent(view)) return;
     const id = view.select.value;
@@ -929,6 +3332,9 @@
     });
     const plan = selected && view.previewResult &&
       view.previewResult.sourceId === id ? view.previewResult : null;
+    // Recheck is also available after success; switching back is instant.
+    view.previewRetryButton.hidden = !selected || (!plan && !view.previewFailed);
+    view.previewRetryButton.disabled = Boolean(view.batch);
     const ready = Boolean(plan && plan.status === 'ready');
     // A space shortage blocks local import, not a PC-only marker decision.
     const needsEncode = Boolean(plan && plan.videoReencodeRequired &&
@@ -940,11 +3346,60 @@
     view.choiceLabel.hidden = !needsEncode;
     view.decision.disabled = !needsEncode || view.submitting ||
       Boolean(view.attempt) || Boolean(view.batch);
-    view.skipButton.hidden = !plan || needsEncode || plan.status === 'unavailable';
+    // Skip is a separate Rectools action, not an encoding technique.
+    view.skipButton.hidden = !plan || !['ready', 'insufficient'].includes(plan.status);
     view.skipButton.disabled = view.submitting || Boolean(view.attempt) ||
       Boolean(view.batch);
+    Array.from(view.selectionRows.children).forEach(function (row) {
+      const rowId = row.dataset.sourceId;
+      const rowSelected = selected && rowId === id;
+      const marked = row.className.includes('media-import-marked-item');
+      const present = !marked && view.allOrdinary.some(function (item) {
+        return item.sourceId === rowId && item.recordingPresent;
+      });
+      row.className = marked ? 'media-import-select-item media-import-marked-item'
+        : 'media-import-select-item' +
+          (present ? ' is-recording-present' : '') +
+          (rowSelected ? ' is-selected' : '');
+      if (!marked && row.children[2]) {
+        const rowItem = view.allOrdinary.find(function (source) {
+          return source.sourceId === rowId;
+        });
+        const observed = rowSelected ? plan : view.previewCache.get(rowId);
+        const status = rowItem && rowItem.recordingPresent
+          ? '✓ Bereits importiert – VDR-Aufnahme vorhanden'
+          : !observed
+          ? rowSelected ? 'Technische Prüfung läuft' : 'Noch nicht geprüft'
+          : observed.status === 'ready' ? (observed.videoReencodeRequired
+            ? 'Umkodierung nötig' : 'Direktimport möglich')
+          : observed.status === 'duplicate' ? 'VDR-Aufnahme vorhanden'
+          : observed.status === 'insufficient' ? 'Speicherplatz fehlt'
+          : 'Prüfung nicht möglich';
+        const folder = rowItem && rowItem.folder
+          ? rowItem.folder.split('/').join(' › ') : 'Importwurzel';
+        const coords = rowItem ? episodeCoordinates(rowItem) : {season: null, episode: null};
+        const episodeLabel = coords.episode !== null
+          ? ' · S' + String(coords.season).padStart(2, '0') +
+            'E' + String(coords.episode).padStart(2, '0') : '';
+        // A cached technical result is not a confirmed VDR import.
+        const parked = parkedPcEncodeMatches(view, rowItem);
+        const pcHint = possiblePcReturn(view, rowItem)
+          ? ' · Möglicher PC-Encode-Rücklauf'
+          : parked.length ? ' · PC-Encode-Zuordnung mehrdeutig' : '';
+        const confirmed = confirmedImport(view, rowId);
+        row.children[2].textContent = folder + episodeLabel +
+          (!rowItem || !rowItem.recordingPresent ?
+            (view.previewCache.has(rowId) ? ' · ✓ Technisch geprüft' : '') : '') +
+          ' · ' + status +
+          (confirmed
+            ? ' · Frühere VDR-Operation bestätigt; aktueller Quellinhalt ungeprüft'
+            : '') + pcHint;
+      }
+    });
+    updateInlineDeleteAvailability(view);
     if (!selected) {
-      view.preview.textContent = 'Film auswählen. Die technische Importprüfung erfolgt automatisch.';
+      view.preview.textContent = 'Schritt 2: Film oder Serienfolge auswählen. Die Vorschau startet automatisch.';
+      renderPreviewCard(view, null, item);
       view.startButton.disabled = true;
       return;
     }
@@ -956,14 +3411,14 @@
     const decision = view.decision.value;
     const description = !plan
       ? 'Diagnose ausstehend. Es wurde noch kein Importweg freigegeben.'
-      : !ready && !needsEncode
-        ? 'Import derzeit blockiert. Die Ursache steht in der Diagnose.'
+      : plan.status === 'unavailable'
+        ? 'Der Agent konnte Quelle, Codec oder Ziel nicht vollständig prüfen; ein genauerer Grund wurde nicht geliefert. Kein Import möglich.'
+        : !ready && !needsEncode
+          ? 'Import derzeit blockiert. Die Ursache steht in der Diagnose.'
         : needsEncode
           ? decision === 'desktop'
-        ? 'Externe Umkodierung gewählt. Für PC/HandBrake markieren. Kein Import.'
-        : decision === 'skip'
-          ? 'Film überspringen und vom normalen Import ausschließen. Kein Import.'
-          : decision === 'import' && view.localReencode.checked
+        ? 'Externe Bearbeitung: Die Originaldatei über ihren bisherigen Datei-/Netzwerkzugang am PC mit HandBrake oder einem anderen Programm umkodieren. Das Webfrontend konvertiert und überträgt nicht selbst. Die .pc_encode-Markierung kennzeichnet die zurückgestellte Quelle. Die bearbeitete Datei anschließend in der Importquelle bereitstellen und neu prüfen. Kein Import im aktuellen Schritt.'
+        : decision === 'import' && view.localReencode.checked
             ? 'Lokale H.264-Umkodierung nur für diesen Film nach ausdrücklicher Bestätigung.'
             : 'Video-Neukodierung erforderlich. Bitte Bearbeitungsweg auswählen.'
         : 'Video wird ohne Neukodierung in das VDR-Aufnahmeformat übernommen; ' +
@@ -971,7 +3426,7 @@
     let details = view.previewStatus || 'Film wird geprüft …';
     if (plan) {
       if (plan.status === 'unavailable') {
-        details = 'Film konnte vom Backend nicht sicher geprüft werden.';
+        details = 'Die ausgewählte Quelle konnte vom Backend nicht sicher geprüft werden (unavailable).';
       } else {
         const outcome = plan.status === 'duplicate'
           ? 'Bereits als VDR-Aufnahme vorhanden – nicht überschreiben.'
@@ -980,45 +3435,74 @@
             : plan.videoReencodeRequired
               ? 'Video muss für eine VDR-Aufnahme umkodiert werden.'
               : 'Video technisch für den VDR-Import geeignet – verlustfreies Remuxing möglich.';
-        details = 'VDR-Zielordner: ' + plan.targetFolder +
+        details = plan.status === 'duplicate' && !plan.targetFolder
+          ? 'Die vollständige passende VDR-Aufnahme wurde beim Inventarscan ' +
+            'festgestellt. Eine neue technische Prüfung ist zum Anzeigen nicht nötig.'
+          : 'VDR-Zielordner: ' + plan.targetFolder +
           '. Video-Codec: ' + plan.videoCodec +
           '. Quelldatei: ' + humanBytes(plan.sourceBytes) +
           '. Frei: ' + humanBytes(plan.availableBytes) +
-          '. Benötigt einschließlich Reserve: ' + humanBytes(plan.requiredBytes) +
+          '. Geschätzter Zwischenbedarf (nur Info): ' + humanBytes(plan.requiredBytes) +
           '. ' + outcome;
       }
     }
+    const nextStep = !plan
+      ? 'Bitte das Ergebnis der automatischen Prüfung abwarten.'
+      : ready && !needsEncode
+        ? 'Nächster Schritt: „Diesen Film importieren“ anklicken und bestätigen.'
+        : plan.status === 'duplicate'
+          ? 'Bestehende VDR-Aufnahme festgestellt. Zum Aufräumen explizit „Dublette aus Importquelle löschen“ wählen.'
+        : needsEncode
+          ? 'Nächster Schritt: Oben einen Bearbeitungsweg wählen. Lokale Umkodierung braucht eine gesonderte Bestätigung.'
+          : 'Dieser Film ist derzeit nicht importierbar. Einen anderen Film wählen.';
     view.preview.textContent = 'Vorschau: ' + name +
       '. Quellordner: ' + sourceFolder + '. ' + description +
-      ' ' + details +
+      ' ' + details + ' ' + nextStep +
       ' Der Backend-Agent prüft Quelle und Ziel bei Auftragsannahme erneut.';
+    renderPreviewCard(view, plan, item);
     view.startButton.textContent = needsEncode
       ? decision === 'desktop' ? 'Für PC markieren'
-        : decision === 'skip' ? 'Film überspringen'
-          : decision === 'import' ? 'Auf VDR umkodieren'
+        : decision === 'import' ? 'Auf VDR umkodieren'
             : 'Bearbeitungsweg auswählen'
-      : ready ? 'Import starten' : 'Import nicht möglich';
+      : ready ? 'Diesen Film importieren' : 'Import nicht möglich';
     if (!view.submitting && !view.attempt && !view.batch) {
-      view.startButton.disabled = needsEncode
+      view.startButton.disabled = sourceUnresolved(view, id) || (needsEncode
         ? !(decision === 'desktop' || decision === 'skip' ||
           (ready && decision === 'import' && view.localReencode.checked))
-        : !ready;
+        : !ready);
     }
   }
 
-  function startImport(view, releaseMode, forcedDecision) {
+  function startImport(view, releaseMode, forcedDecision, automaticDuplicate) {
     if (!isCurrent(view) || view.submitting || view.attempt ||
         (view.inspectingBatch && !view.batch)) return Promise.resolve();
-    const sourceId = releaseMode ? view.markedSelect.value :
+    const deleteDuplicate = forcedDecision === 'delete_duplicate';
+    const deleteUnmarked = deleteDuplicate &&
+      view.sources.includes(view.select.value) &&
+      Boolean(view.previewResult &&
+        view.previewResult.sourceId === view.select.value &&
+        view.previewResult.status === 'duplicate');
+    const sourceId = releaseMode || (deleteDuplicate && !deleteUnmarked)
+      ? view.markedSelect.value :
       view.batch ? view.batch.remaining[0] : view.select.value;
+    if (sourceUnresolved(view, sourceId)) {
+      report(view, 'Für diese Quelldatei besteht bereits ein ungewisser Auftrag. ' +
+        'Bitte ausschließlich dessen Status prüfen; keine erneute Mutation.', true);
+      return Promise.resolve();
+    }
     // Encoding authority is granted per film, per click, never to a batch.
     const selected = releaseMode ? 'release' :
       view.batch ? 'import' : (forcedDecision || view.decision.value);
-    if (!['import', 'desktop', 'skip', 'release'].includes(selected) ||
-        (releaseMode && view.batch)) return Promise.resolve();
+    if (!['import', 'desktop', 'skip', 'duplicate', 'release',
+          'delete_duplicate'].includes(selected) ||
+        ((releaseMode || deleteDuplicate) && view.batch) ||
+        (deleteDuplicate && !deleteUnmarked &&
+          !view.allMarked.some(function (item) {
+            return item.sourceId === sourceId && markerSuffix(item) === 'duplicate';
+          }))) return Promise.resolve();
     const previewPlan = view.previewResult &&
       view.previewResult.sourceId === sourceId ? view.previewResult : null;
-    if (!releaseMode && !view.batch) {
+    if (!releaseMode && !deleteDuplicate && !view.batch) {
       // Pending/failed preview never admits an import. A marker needs the
       // currently inspected source too; only reencode-required video can
       // be delegated to an external encoder.
@@ -1027,7 +3511,8 @@
             (previewPlan.videoReencodeRequired && !view.localReencode.checked))) ||
           (selected === 'desktop' &&
             !['ready', 'insufficient'].includes(previewPlan.status)) ||
-          (selected === 'desktop' && !previewPlan.videoReencodeRequired))
+          (selected === 'desktop' && !previewPlan.videoReencodeRequired) ||
+          (selected === 'duplicate' && previewPlan.status !== 'duplicate'))
         return Promise.resolve();
     }
     const approveVideoReencode = selected === 'import' &&
@@ -1039,11 +3524,18 @@
     const confirmation = approveVideoReencode
       ? 'Media Tools: Diesen Film bei Bedarf lokal mit FFmpeg in H.264 umkodieren? ' +
         'Die Originaldatei bleibt unverändert. Diese Zustimmung gilt nur für diesen Film.'
+      : selected === 'delete_duplicate'
+        ? 'Die doppelte Quelldatei endgültig aus der Importquelle löschen? ' +
+          'Die fertige VDR-Aufnahme bleibt erhalten. Die Quelldatei und die ' +
+          'passende vollständige Aufnahme werden erneut geprüft. ' +
+          'Das Löschen der Quelldatei ist endgültig.'
       : selected === 'desktop'
         ? 'Diesen Film für PC/HandBrake mit .pc_encode markieren? ' +
           'Es wird keine VDR-Aufnahme importiert.'
         : selected === 'skip'
           ? 'Diesen Film mit .skipped markieren und vom normalen Import ausschließen?'
+          : selected === 'duplicate'
+            ? (automaticDuplicate ? '' : 'Die vorhandene VDR-Aufnahme bleibt erhalten. Diese Quelldatei als .duplicate markieren?')
           : selected === 'release'
             ? 'Diese markierte Datei ausdrücklich wieder freigeben? ' +
               'Es wird noch KEIN Import gestartet. Eine vorhandene Zieldatei wird niemals überschrieben.'
@@ -1054,32 +3546,39 @@
     if (confirmation &&
         (typeof global.confirm !== 'function' || !global.confirm(confirmation)))
       return Promise.resolve();
-    if (!(releaseMode ? view.markedSources : view.sources).includes(sourceId)) {
+    if (!(releaseMode || (deleteDuplicate && !deleteUnmarked)
+          ? view.markedSources : view.sources).includes(sourceId)) {
       if (view.batch) stopBatch(view, 'Quellauswahl nicht mehr verfügbar.');
       return Promise.resolve();
     }
+    // Freeze film A's already selected metadata before asynchronous session
+    // restoration. Browsing film B must never alter film A's import payload.
+    const selectedSource = view.allOrdinary.find(function (item) {
+      return item.sourceId === sourceId;
+    });
+    const metadataSelection = !view.batch && selected === 'import'
+      ? importMetadataSelection(view, previewPlan, selectedSource) : null;
+    const frozenMetadata = frozenImportMetadata(view, metadataSelection);
     view.submitting = true;
+    updateInlineDeleteAvailability(view);
     view.startButton.disabled = true;
+    renderImportFeedback(view);
     view.localReencode.disabled = true;
     view.decision.disabled = true;
     view.skipButton.disabled = true;
     view.markedSelect.disabled = true;
     view.releaseButton.disabled = true;
-    report(view, 'Quelle und Berechtigung werden erneut geprüft …');
-    // Source observations are ephemeral: revalidate before choosing the opaque token.
-    return checkCapability(view.backendId)
-      .then(function (available) {
+    report(view, 'Auftrag wird beim Backend geprüft …');
+    // The selected source was already listed and previewed. Do not ask the
+    // Agent twice for capability/inventory before the one Core operation:
+    // temporary observation failures are not a browser authorization result.
+    // Core independently validates actor, backend, source token and action;
+    // native deletion additionally requires the worker's recording readback.
+    let preAdmissionFailed = false;
+    let refreshRejectedSource = false;
+    let rejectedSourceMessage = '';
+    return Promise.resolve().then(function () {
         if (!isCurrent(view)) return null;
-        if (!available) throw {status: 403};
-        return readSourcePages(view.backendId);
-      }).then(function (sources) {
-        if (!isCurrent(view) || !sources) return null;
-        if (!sources.items || !sources.items.some(function (item) {
-          return item && item.sourceId === sourceId &&
-            (releaseMode ? Boolean(markerSuffix(item)) : !markerSuffix(item));
-        })) {
-          throw {status: 503};
-        }
         const session = global.VdrSuiteBrowserSession;
         if (!session || typeof session.restore !== 'function' ||
             typeof session.csrfHeaders !== 'function') throw {status: 401};
@@ -1088,12 +3587,25 @@
           // Reserve a unique key before dispatch; a lost HTTP response is not a failure.
           const key = makeKey();
           view.attempt = {sourceId: sourceId, key: key, operationId: '',
+            sourceLabel: view.sourceTitles[sourceId] ||
+              (view.allMarked.find(function (item) {
+                return item.sourceId === sourceId;
+              }) || {}).label || sourceId,
             videoDecision: videoDecision,
-            state: '', pending: true};
+            pcReturn: !releaseMode && Boolean(possiblePcReturn(view, selectedSource)),
+            metadataSelection: metadataSelection,
+            frozenMetadata: frozenMetadata,
+            metadataStarted: false, metadataFeedback: '',
+            state: '', pending: true, startedAt: Date.now()};
           activeAttempts[view.backendId] = view.attempt;
+          view.lastManualCheck = '';
+          view.manualCheckQueued = false;
+          renderImportFeedback(view);
           return publicClient().submitMediaImport({
             backendId: view.backendId, sourceId: sourceId, idempotencyKey: key,
             ...(videoDecision ? {videoDecision: videoDecision} : {}),
+            ...(view.attempt.frozenMetadata
+              ? {metadata: view.attempt.frozenMetadata} : {}),
             credentials: 'same-origin', headers: session.csrfHeaders()
           });
         });
@@ -1121,6 +3633,12 @@
           // Timeouts, 5xx, invalid 202 responses and 409 are NOT proof of failure.
           if (error && [400, 401, 403, 404, 422].includes(error.status)) {
             delete activeAttempts[view.backendId];
+            if (attempt.videoDecision === 'duplicate') {
+              delete automaticDuplicates[view.backendId + '|' + attempt.sourceId];
+              view.duplicateQueue = [];
+              view.duplicateReviewPending = false;
+              if (view.batchReview) renderBatchReview(view);
+            }
             view.attempt = null;
             if (target) {
               target.attempt = null;
@@ -1133,9 +3651,17 @@
               target.refreshButton.hidden = true;
               target.newButton.hidden = true;
               target.operationDetail.textContent = '';
+              renderImportFeedback(target);
             }
+            const serverDetail = error && error.payload &&
+              typeof error.payload.detail === 'string'
+                ? error.payload.detail.slice(0, 180) : '';
             const detail = error.status === 422
-              ? 'Ausgewählte Importquelle ungültig oder abgelaufen. Quellen aktualisieren.'
+              ? 'Import abgelehnt (HTTP 422): ' +
+                (serverDetail || 'Auswahl oder Metadatenformat ungültig.') +
+                ' Ursache kann eine abgelaufene Quelle oder ein inkompatibles ' +
+                'Metadatenformat sein. Quellen werden automatisch neu geladen; ' +
+                'Folge danach erneut auswählen. Es wurde kein Importauftrag erstellt.'
               : error.status === 403
                 ? 'Media-Import-Berechtigung wurde verweigert. Kein Auftrag angelegt.'
                 : error.status === 401
@@ -1145,6 +3671,10 @@
                     : 'Import-Anfrage wurde vom Server zurückgewiesen.';
             if (target && target.batch) stopBatch(target, detail);
             if (target) report(target, detail, true);
+            if (error.status === 422 && target && !target.batch) {
+              refreshRejectedSource = true;
+              rejectedSourceMessage = detail;
+            }
             return;
           }
           // Network errors and 5xx can occur after durable operation reservation.
@@ -1154,18 +3684,54 @@
           return;
         }
         if (!isCurrent(view)) return;
+        // No request was admitted: allow a fresh verified preview to retry
+        // automatic marking instead of permanently suppressing this source.
+        if (automaticDuplicate && !view.attempt)
+          delete automaticDuplicates[view.backendId + '|' + sourceId];
         const message = error && error.status === 503
           ? 'Quellenliste veraltet oder Backend-Agent nicht verfügbar. Erneut laden.'
           : error && (error.status === 401 || error.status === 403)
             ? 'Keine gültige Anmeldung oder Media-Import-Berechtigung.'
             : 'Import konnte vor dem Absenden nicht vorbereitet werden.';
         if (view.batch) stopBatch(view, message);
+        view.duplicateQueue = [];
+        view.duplicateReviewPending = false;
+        if (view.batchReview) renderBatchReview(view);
+        // No operation was admitted. The old preview cannot authorize another
+        // click after the permission/source check failed; offer a fresh read.
+        preAdmissionFailed = true;
+        view.previewCache.delete(sourceId);
+        view.previewResult = null;
+        view.previewFailed = true;
+        view.previewStatus = message;
         report(view, message, true);
       }).finally(function () {
         view.submitting = false;
+        // A definite 422 creates no Operation. A fresh inventory is a GET,
+        // never a retry of the rejected POST or its idempotency key.
+        const owner = current && isCurrent(current) &&
+          current.backendId === view.backendId ? current :
+          isCurrent(view) ? view : null;
+        if (refreshRejectedSource && owner && !owner.attempt && !owner.batch) {
+          owner.submitting = false;
+          updateInlineDeleteAvailability(owner);
+          return loadSources(owner).then(function () {
+            if (isCurrent(owner) && !owner.searchInput.disabled)
+              report(owner, rejectedSourceMessage, true);
+          });
+        }
+        if (isCurrent(view)) {
+          updateInlineDeleteAvailability(view);
+          renderImportFeedback(view);
+        }
         if (isCurrent(view) && !view.attempt && !view.batch) {
-          view.localReencode.disabled = view.decision.value !== 'import';
-          view.decision.disabled = false;
+          // Only a pre-admission failure permits read-only retry. A definite
+          // HTTP rejection still requires an explicit sources refresh.
+          if (preAdmissionFailed) updatePreview(view);
+          else {
+            view.localReencode.disabled = view.decision.value !== 'import';
+            view.decision.disabled = false;
+          }
           view.markedSelect.disabled = view.markedSources.length === 0;
           view.releaseButton.disabled =
             !view.markedSources.includes(view.markedSelect.value);
@@ -1177,10 +3743,12 @@
     deactivate();
     if (!mountTarget || typeof mountTarget.replaceChildren !== 'function') return;
     const root = element('section', 'media-import-panel');
-    root.appendChild(element('h3', '', 'Media Import'));
-    root.appendChild(element('p', '', 'Filme aus den freigegebenen Quellen auswählen. ' +
-      'Ein Suchlauf liest nur die Backend-Quellenliste und startet keinen Import. ' +
-      'Maximal 100 Filme pro Durchlauf.'));
+    root.dataset.mobilePane = 'media';
+    const heading = element('h3', '', 'Media Import');
+    const guidance = element('p', '', 'Importquellen durchsuchen, Folgen prüfen und passende Filme ' +
+      'gezielt importieren. Erkannten Dubletten wird automatisch die Rectools-Markierung zugewiesen.');
+    root.appendChild(heading);
+    root.appendChild(guidance);
     const reloadButton = element('button', 'media-import-reload', 'Verzeichnis scannen');
     reloadButton.type = 'button';
     root.appendChild(reloadButton);
@@ -1205,7 +3773,8 @@
     const statusFilter = element('select', 'media-import-filter');
     [
       ['all', 'Alle Quellen'],
-      ['normal', 'Importierbar'],
+      ['normal', 'Unmarkierte Dateien'],
+      ['imported', 'Bereits importiert'],
       ['marked', 'Markierte Dateien']
     ].forEach(function (entry) {
       const option = element('option', '', entry[1]);
@@ -1221,15 +3790,41 @@
     const technical = element('details', 'media-import-technical-details');
     technical.appendChild(element('summary', '', 'Technische Details'));
     technical.appendChild(sourceDetails);
-    const label = element('label', '', 'Film auswählen');
+    const operationDiagnostics = element('pre', 'media-import-operation-diagnostics',
+      'Noch keine Operationsdiagnose.');
+    technical.appendChild(operationDiagnostics);
+    root.appendChild(element('h4', '', 'Einzelimport'));
+    const label = element('label', '', '1. Film oder Serienfolge auswählen');
     const select = element('select', 'media-import-source');
     select.disabled = true;
     label.appendChild(select);
     root.appendChild(label);
     const preview = element('p', 'media-import-preview',
-      'Film auswählen, Entscheidung prüfen und bestätigen.');
+      'Nach der Filmauswahl wird die Diagnose automatisch erstellt.');
     preview.setAttribute('role', 'status');
     root.appendChild(preview);
+    const previewCard = element('div', 'media-import-preview-card');
+    previewCard.setAttribute('role', 'status');
+    const importFeedback = element('div', 'media-import-import-feedback');
+    importFeedback.hidden = true;
+    importFeedback.setAttribute('role', 'status');
+    importFeedback.setAttribute('aria-live', 'polite');
+    const importFeedbackTitle = element('strong', 'media-import-import-title');
+    const importFeedbackText = element('p', 'media-import-import-description');
+    importFeedback.appendChild(importFeedbackTitle);
+    importFeedback.appendChild(importFeedbackText);
+    const operationProgress = element('div', 'media-import-operation-progress');
+    operationProgress.hidden = true;
+    operationProgress.setAttribute('role', 'status');
+    const operationProgressBar = element('progress', 'media-import-operation-progress-bar');
+    operationProgressBar.setAttribute('aria-label', 'Fortschritt des Media-Tools-Auftrags');
+    const operationProgressText = element('p', 'media-import-operation-progress-text');
+    operationProgress.appendChild(operationProgressBar);
+    operationProgress.appendChild(operationProgressText);
+    const previewRetryButton = element('button', 'media-import-preview-retry', 'Vorschau erneut prüfen');
+    previewRetryButton.type = 'button';
+    previewRetryButton.hidden = true;
+    root.appendChild(previewRetryButton);
     const choiceLabel = element('label', 'media-import-decision-label', 'Video muss umkodiert werden – wie möchtest du vorgehen?');
     choiceLabel.hidden = true;
     const decision = element('select', 'media-import-decision');
@@ -1237,8 +3832,7 @@
     [
       ['', 'Bitte Bearbeitungsweg auswählen'],
       ['import', 'Auf dem VDR umkodieren (H.264)'],
-      ['desktop', 'Auf PC umkodieren (z. B. HandBrake)'],
-      ['skip', 'Film überspringen']
+      ['desktop', 'Auf PC umkodieren (z. B. HandBrake)']
     ].forEach(function (choice) {
       const option = element('option', '', choice[1]);
       option.value = choice[0];
@@ -1256,29 +3850,35 @@
     localReencode.disabled = true;
     encodeLabel.appendChild(localReencode);
     root.appendChild(encodeLabel);
-    const markedLabel = element('label', 'media-import-marked-label',
-      'Markierte Dateien (.pc_encode / .skipped / .duplicate)');
-    const markedSelect = element('select', 'media-import-marked-source');
-    markedSelect.disabled = true;
-    markedLabel.appendChild(markedSelect);
-    root.appendChild(markedLabel);
-    const releaseButton = element('button', 'media-import-release',
-      'Ausgewählte Markierung aufheben');
-    releaseButton.type = 'button';
-    releaseButton.disabled = true;
-    root.appendChild(releaseButton);
+    const deleteDuplicateButton = element('button', 'media-import-delete-duplicate',
+      'Dublette aus Importquelle löschen');
+    deleteDuplicateButton.type = 'button';
+    deleteDuplicateButton.hidden = true;
+    deleteDuplicateButton.disabled = true;
     const startButton = element('button', 'media-import-start', 'Import starten');
     startButton.type = 'button';
     startButton.disabled = true;
-    const refreshButton = element('button', 'media-import-refresh', 'Vorgang prüfen');
-    refreshButton.type = 'button';
-    refreshButton.hidden = true;
     root.appendChild(startButton);
     const skipButton = element('button', 'media-import-skip', 'Film überspringen');
     skipButton.type = 'button';
     skipButton.hidden = true;
     skipButton.disabled = true;
     root.appendChild(skipButton);
+    const markedLabel = element('label', 'media-import-marked-label',
+      'Nur zur Fehlerkorrektur: falsch markierte Datei auswählen');
+    const markedSelect = element('select', 'media-import-marked-source');
+    markedSelect.disabled = true;
+    markedLabel.appendChild(markedSelect);
+    root.appendChild(markedLabel);
+    const releaseButton = element('button', 'media-import-release',
+      'Ausnahme: Markierung zurücksetzen');
+    releaseButton.type = 'button';
+    releaseButton.disabled = true;
+    releaseButton.hidden = true;
+    root.appendChild(releaseButton);
+    const refreshButton = element('button', 'media-import-refresh', 'Vorgang prüfen');
+    refreshButton.type = 'button';
+    refreshButton.hidden = true;
     root.appendChild(element('h4', '', 'Mehrfachauswahl'));
     const selectAllVisibleButton = element('button', 'media-import-select-all',
       'Alle sichtbaren Filme auswählen');
@@ -1327,55 +3927,226 @@
     const operationDetail = element('p', 'media-import-operation');
     root.appendChild(operationDetail);
     root.appendChild(technical);
+    // Present the existing actions in a full-width media-library layout.
+    // DOM ownership, handlers and Core/Agent operations remain unchanged.
+    const titleBlock = element('div', 'media-import-title-block');
+    titleBlock.appendChild(heading);
+    titleBlock.appendChild(guidance);
+    const header = element('header', 'media-import-header');
+    header.appendChild(titleBlock);
+    header.appendChild(reloadButton);
+    const toolbar = element('div', 'media-import-toolbar');
+    toolbar.appendChild(searchLabel);
+    toolbar.appendChild(statusLabel);
+    const statusStrip = element('div', 'media-import-status-strip');
+    const completedNotice = element('div', 'media-import-completed-notice');
+    completedNotice.setAttribute('role', 'status');
+    completedNotice.textContent = completedOperations[backendId] || '';
+    completedNotice.hidden = !completedNotice.textContent;
+    statusStrip.appendChild(visibleCount);
+    statusStrip.appendChild(scanNotice);
+    const backgroundNotice = element('p', 'media-import-background-notice',
+      'Technische Hintergrundprüfung startet nach dem Quellenscan.');
+    backgroundNotice.setAttribute('role', 'status');
+    statusStrip.appendChild(backgroundNotice);
+    statusStrip.appendChild(completedNotice);
+    statusStrip.appendChild(operationProgress);
+    const unresolvedList = element('div', 'media-import-unresolved-operations');
+    statusStrip.appendChild(unresolvedList);
+    const library = element('section', 'media-import-pane media-import-library');
+    library.appendChild(element('h4', '', 'Serien und Ordner'));
+    library.appendChild(folderBreadcrumb);
+    library.appendChild(folderList);
+    library.appendChild(element('h5', 'media-import-groups-title',
+      'Serien und Ordnergruppen'));
+    const seriesGroups = element('div', 'media-import-series-groups');
+    library.appendChild(seriesGroups);
+    const episodes = element('section', 'media-import-pane media-import-episodes');
+    episodes.appendChild(element('h4', '', 'Filme und Episoden'));
+    const seriesCaption = element('p', 'media-import-series-caption');
+    episodes.appendChild(seriesCaption);
+    const seasonLabel = element('label', 'media-import-season-label', 'Staffel auswählen');
+    const seasonFilter = element('select', 'media-import-season-filter');
+    seasonLabel.appendChild(seasonFilter);
+    seasonLabel.hidden = true;
+    episodes.appendChild(seasonLabel);
+    label.className = 'media-import-select-label';
+    episodes.appendChild(label);
+    episodes.appendChild(selectionRows);
+    const detail = element('section', 'media-import-pane media-import-detail');
+    const mobileBack = element('button', 'media-import-mobile-back',
+      '← Zur Medienliste');
+    mobileBack.type = 'button';
+    mobileBack.addEventListener('click', function () {
+      setMobilePane(view, 'media');
+    });
+    detail.appendChild(mobileBack);
+    detail.appendChild(element('h4', '', 'Vorschau und Aktionen'));
+    detail.appendChild(previewCard);
+    detail.appendChild(previewRetryButton);
+    detail.appendChild(choiceLabel);
+    detail.appendChild(encodeLabel);
+    detail.appendChild(skipButton);
+    // Rectools markers are normal workflow state, not a request to release.
+    // Keep the existing explicit recovery path exclusively under collapsed
+    // technical details, away from ordinary import/PC handoff actions.
+    technical.appendChild(markedLabel);
+    technical.appendChild(releaseButton);
+    technical.appendChild(preview);
+    technical.appendChild(operationDetail);
+    detail.appendChild(technical);
+    const mobileNav = element('nav', 'media-import-mobile-nav');
+    mobileNav.setAttribute('aria-label', 'Media-Import-Ansichten');
+    const mobileButtons = Object.create(null);
+    [['folders', 'Ordner'], ['media', 'Medien'], ['details', 'Details']]
+      .forEach(function (entry) {
+        const button = element('button', 'media-import-mobile-switch', entry[1]);
+        button.type = 'button';
+        button.setAttribute('aria-pressed', 'false');
+        button.addEventListener('click', function () {
+          setMobilePane(view, entry[0]);
+        });
+        mobileButtons[entry[0]] = button;
+        mobileNav.appendChild(button);
+      });
+    const workspace = element('div', 'media-import-workspace');
+    workspace.appendChild(library);
+    workspace.appendChild(episodes);
+    workspace.appendChild(detail);
+    const footer = element('section', 'media-import-footer');
+    footer.appendChild(selectionCount);
+    footer.appendChild(selectAllVisibleButton);
+    footer.appendChild(selectedBatchButton);
+    footer.appendChild(batchButton);
+    footer.appendChild(batchSummary);
+    footer.appendChild(batchReviewList);
+    footer.appendChild(batchConfirmButton);
+    footer.appendChild(batchStopButton);
+    footer.appendChild(message);
+    importFeedback.appendChild(refreshButton);
+    importFeedback.appendChild(newButton);
+    root.replaceChildren(header, toolbar, statusStrip, mobileNav, workspace, footer);
     mountTarget.replaceChildren(root);
     const view = {owner: owner, backendId: backendId, root: root,
-      select: select, startButton: startButton, reloadButton: reloadButton,
+      select: select, startButton: startButton,
+      reloadButton: reloadButton,
       searchInput: searchInput, statusFilter: statusFilter,
       folderBreadcrumb: folderBreadcrumb, folderList: folderList,
-      folderPath: '',
+      seriesGroups: seriesGroups, seriesCaption: seriesCaption,
+      seasonLabel: seasonLabel, seasonFilter: seasonFilter, seasonKey: '',
+      mobileButtons: mobileButtons, folderPath: '',
       visibleCount: visibleCount, normalLabel: label, markedLabel: markedLabel,
       allOrdinary: [], allMarked: [],
       localReencode: localReencode, decision: decision,
       choiceLabel: choiceLabel, skipButton: skipButton,
+      deleteDuplicateButton: deleteDuplicateButton,
       markedSelect: markedSelect, releaseButton: releaseButton, markedSources: [],
       batchButton: batchButton, batchStopButton: batchStopButton,
       batchSummary: batchSummary, batchReviewList: batchReviewList,
       batchConfirmButton: batchConfirmButton, batchReview: null,
       reviewGeneration: 0, inspectingBatch: false,
+      duplicateQueue: [], duplicateReviewPending: false,
+      resumeDuplicateReview: false,
       selectAllVisibleButton: selectAllVisibleButton,
       selectionRows: selectionRows, selectionCount: selectionCount,
       selectedBatchButton: selectedBatchButton, checkedSourceIds: new Set(),
       batch: activeBatches[backendId] || null,
       refreshButton: refreshButton, newButton: newButton,
       message: message, operationDetail: operationDetail,
-      scanNotice: scanNotice, sourceDetails: sourceDetails,
-      preview: preview, sourceTitles: Object.create(null),
+      operationDiagnostics: operationDiagnostics,
+      importFeedback: importFeedback, importFeedbackTitle: importFeedbackTitle,
+      importFeedbackText: importFeedbackText,
+      operationProgress: operationProgress, operationProgressBar: operationProgressBar,
+      operationProgressText: operationProgressText,
+      scanNotice: scanNotice, backgroundNotice: backgroundNotice,
+      completedNotice: completedNotice,
+      unresolvedList: unresolvedList, unresolvedReading: Object.create(null),
+      sourceDetails: sourceDetails,
+      preview: preview, previewCard: previewCard,
+      previewRetryButton: previewRetryButton,
+      sourceTitles: Object.create(null),
       previewTimer: null, previewGeneration: 0, previewReads: 0,
-      previewResult: null, previewStatus: '',
+      previewResult: null, previewStatus: '', previewFailed: false,
+      previewCache: new Map(),
+      backgroundTimer: null, backgroundGeneration: 0, backgroundBusy: false,
+      backgroundStates: new Map(), backgroundReads: new Map(),
+      metadataReview: Object.create(null),
+      onlineSeq: 0, onlineItems: [], onlineSelected: null,
+      onlineSeries: null, onlineSeason: null, onlineMode: 'search',
+      onlineKind: 'movie', onlineQuery: '', onlineStatus: '', onlinePending: false,
+      onlineAuto: false, onlineAutoSelected: false,
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
-      reads: 0, timer: null, attempt: activeAttempts[backendId] || null};
+      reads: 0, timer: null, manualCheckQueued: false, lastManualCheck: '',
+      operationBrowsingEnabled: false,
+      attempt: activeAttempts[backendId] || null};
     current = view;
+    // Switching tabs must not erase the most recent inventory just because
+    // the Agent's lease temporarily expired between two views.
+    const savedInventory = lastGoodSourceInventories[backendId];
+    if (savedInventory) {
+      view.allOrdinary = savedInventory.ordinary.map(function (item, index) {
+        return {sourceId: item.sourceId,
+          label: item.label || ('Film ' + (index + 1)),
+          folder: item.folder || '',
+          folderKnown: Object.prototype.hasOwnProperty.call(item, 'folder'),
+          recordingPresent: item.recordingStatus === 'recording_present'};
+      }).sort(compareSources);
+      view.allMarked = savedInventory.marked.slice().sort(compareSources);
+      view.allOrdinary.forEach(function (item) {
+        view.sourceTitles[item.sourceId] = item.label;
+      });
+      filterVisibleSources(view);
+      view.scanNotice.textContent = 'Letzte erfolgreich geladene Liste. ' +
+        'Aktualisierung läuft; vorhandene Aufnahmen bleiben sichtbar.';
+    }
+    renderUnresolvedAttempts(view);
+    updateOperationDiagnostics(view);
+    setMobilePane(view, 'media');
     searchInput.addEventListener('input', function () {
       view.checkedSourceIds.clear();
       filterVisibleSources(view);
+      setMobilePane(view, 'media');
     });
     statusFilter.addEventListener('change', function () {
       view.checkedSourceIds.clear();
       filterVisibleSources(view);
+      setMobilePane(view, 'media');
+    });
+    seasonFilter.addEventListener('change', function () {
+      if (!isCurrent(view) || view.batch ||
+          (view.attempt && !mayBrowseDuringOperation(view))) return;
+      view.seasonKey = seasonFilter.value;
+      view.checkedSourceIds.clear();
+      filterVisibleSources(view);
+      setMobilePane(view, 'media');
     });
     selectAllVisibleButton.addEventListener('click', function () {
       if (!isCurrent(view) || view.batch || view.attempt) return;
-      view.sources.forEach(function (id) { view.checkedSourceIds.add(id); });
+      importableSourceIds(view).forEach(function (id) {
+        view.checkedSourceIds.add(id);
+      });
       filterVisibleSources(view);
     });
     selectedBatchButton.addEventListener('click', function () {
       return startBatch(view, true);
     });
+    previewRetryButton.addEventListener('click', function () {
+      if (!isCurrent(view) ||
+          (view.attempt && !mayBrowseDuringOperation(view)) ||
+          view.batch || view.submitting ||
+          !view.sources.includes(view.select.value)) return;
+      refreshSelectedPreview(view, true);
+    });
     select.addEventListener('change', function () {
-      startButton.disabled = view.submitting || !view.sources.includes(select.value);
+      markedSelect.value = '';
+      releaseButton.disabled = true;
+      releaseButton.hidden = true;
+      startButton.disabled = view.submitting || Boolean(view.attempt) ||
+        !view.sources.includes(select.value);
       sourceDetails.textContent = view.sources.includes(select.value)
         ? 'Auswahl-ID: ' + select.value : '';
       refreshSelectedPreview(view);
+      setMobilePane(view, view.sources.includes(select.value) ? 'details' : 'media');
     });
     decision.addEventListener('change', function () {
       if (!isCurrent(view) || view.batch || view.attempt ||
@@ -1391,9 +4162,13 @@
     });
     startButton.addEventListener('click', function () { return startImport(view); });
     skipButton.addEventListener('click', function () { return startImport(view, false, 'skip'); });
+    deleteDuplicateButton.addEventListener('click', function () {
+      return startImport(view, false, 'delete_duplicate');
+    });
     markedSelect.addEventListener('change', function () {
       releaseButton.disabled = view.submitting || Boolean(view.attempt) ||
         !view.markedSources.includes(markedSelect.value);
+      releaseButton.hidden = !view.markedSources.includes(markedSelect.value);
     });
     releaseButton.addEventListener('click', function () {
       return startImport(view, true);
@@ -1404,10 +4179,15 @@
       stopBatch(view, 'Aktuelle Core-Operation bleibt unverändert.');
     });
     reloadButton.addEventListener('click', function () { return loadSources(view); });
-    refreshButton.addEventListener('click', function () { return readOperation(view); });
+    refreshButton.addEventListener('click', function () {
+      return readOperation(view, true);
+    });
     newButton.addEventListener('click', function () {
       if (!isCurrent(view) || view.batch || !view.attempt ||
           !terminalState(view.attempt.state) || view.reading) return;
+      const nextSource = view.select.value &&
+        view.select.value !== view.attempt.sourceId &&
+        view.sources.includes(view.select.value) ? view.select.value : '';
       clearPolling(view);
       delete activeAttempts[backendId];
       view.attempt = null;
@@ -1421,17 +4201,32 @@
       view.refreshButton.hidden = true;
       view.reloadButton.disabled = false;
       view.operationDetail.textContent = '';
+      renderImportFeedback(view);
+      updateOperationDiagnostics(view);
+      if (nextSource) {
+        // Film B was already selected during film A's execution. Preserve its
+        // existing preview instead of forcing the user to start over.
+        if (view.previewResult && view.previewResult.sourceId === nextSource)
+          updatePreview(view);
+        else
+          refreshSelectedPreview(view);
+        return Promise.resolve();
+      }
       return loadSources(view);
     });
-    // Even an already-visible tab must recheck the live Core capability.
-    return checkCapability(backendId).then(function (available) {
+    // Open immediately. An intermittent capability/lease observation must
+    // never blank an installed add-on. Inventory is read-only, while the
+    // existing Core admission check remains mandatory for each mutation.
+    // No new Agent, authorization bypass, or automatic import is introduced.
+    return Promise.resolve().then(function () {
       if (!isCurrent(view)) return;
-      if (!available) {
-        report(view, 'Media Import für dieses Backend oder Konto nicht freigegeben.', true);
+      if (view.attempt) {
+        showAttempt(view);
+        if (!view.sources.length && !view.allMarked.length)
+          return loadSources(view);
         return;
       }
-      if (view.attempt) showAttempt(view);
-      else return loadSources(view);
+      return loadSources(view);
     }).catch(function (error) {
       if (isCurrent(view)) report(view, operationError(error), true);
     });

@@ -1,6 +1,7 @@
 #include "BackendAgentClient.h"
 #include "BackendAgentCommand.h"
 #include "BackendAgentCommandClient.h"
+#include "BackendAgentCommandStateStore.h"
 #include "BackendAgentCommandJson.h"
 #include "BackendAgentNativeTimerCreateExecutor.h"
 #include "BackendAgentNativeTimerDeleteExecutor.h"
@@ -8,6 +9,8 @@
 #include "ISuiteBridgeLegacyOsdInputTransport.h"
 #include "LegacyOsdInputDomain.h"
 #include "MediaShrinkAgentCommand.h"
+#include "MediaToolsAgentExecutor.h"
+#include "MediaImportRecordingEvidence.h"
 
 #include <algorithm>
 #include <cassert>
@@ -33,6 +36,32 @@ public:
     BackendAgentTransportResponse postAuthenticated(const std::string&,const std::string&,const std::string&,const std::string&) override
     {
         ++calls; return {};
+    }
+};
+
+class HistoricalMediaResultTransport final : public IBackendAgentControlPlaneTransport
+{
+public:
+    bool acceptResult = false;
+    std::vector<std::string> calls;
+    BackendAgentTransportResponse postEnrollment(
+        const std::string&, const std::string&, const std::string&,
+        const std::string&) override { return {}; }
+    BackendAgentTransportResponse postAuthenticated(
+        const std::string&, const std::string&, const std::string& path,
+        const std::string&) override
+    {
+        calls.push_back(path);
+        if (path == "/api/agent/v1/commands/result")
+            return acceptResult
+                ? BackendAgentTransportResponse{true, 200, R"({"outcome":"accepted"})", ""}
+                : BackendAgentTransportResponse{true, 409, "", "command_generation_fenced"};
+        if (path == "/api/agent/v1/commands/poll")
+            return {true, 200,
+                R"({"hasAssignment":false,"reasonCode":"no_command_available"})",
+                ""};
+        assert(false && "Unexpected historical command transport");
+        return {};
     }
 };
 
@@ -350,7 +379,7 @@ void testMediaToolsPollAcceptsReviewedShrinkTypes()
     poll.backendGeneration = 8;
     poll.refreshCapabilities = true;
     poll.supportedCommandTypes = {
-        "addon.media.import",
+        "addon.media.import", kMediaImportReadbackCommandType,
         kMediaShrinkStageCommandType,
         kMediaShrinkPublishCommandType
     };
@@ -372,6 +401,342 @@ void testMediaToolsPollAcceptsReviewedShrinkTypes()
     assert(reason == "invalid_command_poll_payload");
 }
 
+void testReadbackCommandContract()
+{
+    using namespace vdrsuite::mediatools;
+    const std::string source = "source_readback_123456";
+    const std::string command = "cmd_original_readback";
+    const std::string evidence = recordingPathEvidence(
+        "/srv/vdr/Imported/2026-10-27.22.00.00-0.rec");
+    const std::string payload =
+        mediaImportReadbackPayload(source, command, evidence);
+    std::string decodedSource, decodedCommand, decodedEvidence;
+    assert(parseMediaImportReadbackPayload(
+        payload, decodedSource, decodedCommand, decodedEvidence));
+    assert(decodedSource == source && decodedCommand == command &&
+           decodedEvidence == evidence);
+    assert(!parseMediaImportReadbackPayload(
+        mediaImportReadbackPayload(source, command, "not_verified"),
+        decodedSource, decodedCommand, decodedEvidence));
+    assert(!parseMediaImportReadbackPayload(
+        payload + " ", decodedSource, decodedCommand, decodedEvidence));
+    auto assignmentValue = assignment();
+    assignmentValue.commandType = kMediaImportReadbackCommandType;
+    assignmentValue.payloadVersion = 1;
+    assignmentValue.payload = payload;
+    assignmentValue.requestFingerprint =
+        backendAgentCommandFingerprint(assignmentValue);
+    assert(backendAgentCommandValidAssignment(assignmentValue));
+    assignmentValue.verificationPolicy = "reconciliation_required";
+    assignmentValue.requestFingerprint =
+        backendAgentCommandFingerprint(assignmentValue);
+    assert(!backendAgentCommandValidAssignment(assignmentValue));
+
+    const auto sourceProof = mediaImportSourceEvidence(
+        "/ci-only/media-in/Film.mp4", 17, 42, 2048, 100, 1234);
+    const auto paired = mediaImportReadbackPayload(
+        source, command, evidence, sourceProof);
+    std::string decodedProof;
+    assert(parseMediaImportReadbackPayload(
+        paired, decodedSource, decodedCommand, decodedEvidence, decodedProof));
+    assert(decodedProof == sourceProof && decodedEvidence == evidence);
+    assignmentValue.verificationPolicy = "none";
+    assignmentValue.payloadVersion = 2;
+    assignmentValue.payload = paired;
+    assignmentValue.requestFingerprint =
+        backendAgentCommandFingerprint(assignmentValue);
+    assert(backendAgentCommandValidAssignment(assignmentValue));
+    assignmentValue.payloadVersion = 1;
+    assignmentValue.requestFingerprint =
+        backendAgentCommandFingerprint(assignmentValue);
+    assert(!backendAgentCommandValidAssignment(assignmentValue));
+    assert(!parseMediaImportReadbackPayload(
+        paired + " ", decodedSource, decodedCommand, decodedEvidence, decodedProof));
+}
+
+// The production command-client composition must durably acknowledge the
+// Core-readback notice, including a lost-result-ACK restart. It must never call
+// the media import executor or touch any source file.
+class ReadbackOnlyExecutor final : public vdrsuite::mediatools::IMediaImportAgentExecutor
+{
+public:
+    int authorizationCalls = 0;
+    int executionCalls = 0;
+    int cleanupCalls = 0;
+    vdrsuite::mediatools::MediaImportCleanupOutcome nextCleanup =
+        vdrsuite::mediatools::MediaImportCleanupOutcome::removed;
+    bool available() override { return true; }
+    bool authorize(const BackendAgentCommandAssignment&,
+                   const std::string&, std::uint64_t) override
+    {
+        ++authorizationCalls;
+        return false;
+    }
+    vdrsuite::mediatools::MediaImportAgentOutcome execute(
+        const BackendAgentCommandAssignment&) override
+    {
+        ++executionCalls;
+        return vdrsuite::mediatools::MediaImportAgentOutcome::rejected;
+    }
+    vdrsuite::mediatools::MediaImportCleanupOutcome cleanupConfirmedSource(
+        const std::string&, const std::string&) override
+    {
+        ++cleanupCalls;
+        return nextCleanup;
+    }
+};
+
+class ReadbackNoticeTransport final : public IBackendAgentControlPlaneTransport
+{
+public:
+    BackendAgentCommandAssignment notice;
+    int polls = 0;
+    int receipts = 0;
+    int results = 0;
+    bool dropFirstResultAck = true;
+    BackendAgentCommandResult lastResult;
+
+    BackendAgentTransportResponse postEnrollment(
+        const std::string&, const std::string&, const std::string&,
+        const std::string&) override
+    {
+        return {};
+    }
+    BackendAgentTransportResponse postAuthenticated(
+        const std::string&, const std::string&, const std::string& path,
+        const std::string& body) override
+    {
+        if (path == "/api/agent/v1/commands/poll")
+        {
+            ++polls;
+            BackendAgentCommandPollRequest request;
+            std::string why;
+            assert(parseBackendAgentCommandPollRequestJson(body, request, why));
+            assert(std::find(request.supportedCommandTypes.begin(),
+                request.supportedCommandTypes.end(),
+                vdrsuite::mediatools::kMediaImportReadbackCommandType) !=
+                request.supportedCommandTypes.end());
+            BackendAgentCommandPollResult response;
+            response.accepted = true;
+            response.reasonCode = "command_assigned";
+            response.assignment = notice;
+            return {true, 200,
+                serializeBackendAgentCommandPollResponseJson(response), ""};
+        }
+        if (path == "/api/agent/v1/commands/receipt")
+        {
+            ++receipts;
+            BackendAgentCommandReceipt receipt;
+            std::string why;
+            assert(parseBackendAgentCommandReceiptJson(body, receipt, why));
+            assert(receipt.commandId == notice.commandId);
+            return {true, 200,
+                "{\"outcome\":\"accepted\",\"reasonCode\":\"command_receipt_accepted\"}",
+                ""};
+        }
+        if (path == "/api/agent/v1/commands/result")
+        {
+            ++results;
+            std::string why;
+            assert(parseBackendAgentCommandResultJson(body, lastResult, why));
+            assert(lastResult.commandId == notice.commandId);
+            if (dropFirstResultAck && results == 1)
+                return {false, 0, "", "connection_lost_after_commit"};
+            return {true, 200,
+                "{\"outcome\":\"accepted\",\"reasonCode\":\"command_result_accepted\"}",
+                ""};
+        }
+        assert(false);
+        return {};
+    }
+};
+
+void testReadbackNoticeAgentRestartDoesNotExecuteImport()
+{
+    using namespace vdrsuite::mediatools;
+    const std::string path = "/tmp/vdr-suite-readback-notification-state";
+    std::remove(path.c_str());
+    ReadbackOnlyExecutor executor;
+    BackendAgentCommandClientConfig config;
+    config.statePath = path;
+    config.mediaImportExecutor = &executor;
+    config.commandTypes = {kMediaImportCommandType, kMediaImportReadbackCommandType};
+    const BackendAgentCommandClientContext context{
+        "agt_client", "secret-material-at-least-thirty-two-bytes",
+        "default", "agi_current", 8};
+    ReadbackNoticeTransport transport;
+    transport.notice = assignment();
+    transport.notice.agentInstanceId = context.agentInstanceId;
+    transport.notice.backendGeneration = context.backendGeneration;
+    transport.notice.commandType = kMediaImportReadbackCommandType;
+    transport.notice.payloadVersion = 1;
+    transport.notice.payload = mediaImportReadbackPayload(
+        "source_readback_123456", "cmd_original_readback",
+        recordingPathEvidence("/srv/vdr/Imported/2026-10-27.22.00.00-0.rec"));
+    transport.notice.verificationPolicy = "none";
+    transport.notice.assignedAt = commandNow() - 1;
+    transport.notice.deadline = commandNow() + 240;
+    transport.notice.requestFingerprint =
+        backendAgentCommandFingerprint(transport.notice);
+    assert(backendAgentCommandValidAssignment(transport.notice));
+
+    std::string reason;
+    assert(!pollBackendAgentCommand(config, context, transport, reason));
+    assert(transport.polls == 1 && transport.receipts == 1);
+    assert(transport.results == 1);
+    assert(transport.lastResult.resultCategory == "succeeded");
+    assert(transport.lastResult.verificationState == "verified");
+    assert(transport.lastResult.boundedDiagnostics.find("no source cleanup") !=
+           std::string::npos);
+    assert(executor.authorizationCalls == 0 && executor.executionCalls == 0 &&
+           executor.cleanupCalls == 0);
+
+    // New Agent process: use only the protected existing local state file,
+    // not a fresh assignment or a second execution.
+    ReadbackOnlyExecutor restartedExecutor;
+    BackendAgentCommandClientConfig restartedConfig = config;
+    restartedConfig.mediaImportExecutor = &restartedExecutor;
+    assert(reconcileBackendAgentCommandState(
+        restartedConfig, context, transport, reason));
+    assert(transport.polls == 1 && transport.receipts == 1);
+    assert(transport.results == 2);
+    assert(restartedExecutor.authorizationCalls == 0 &&
+           restartedExecutor.executionCalls == 0);
+    assert(reconcileBackendAgentCommandState(
+        restartedConfig, context, transport, reason));
+    assert(transport.results == 2);
+    std::remove(path.c_str());
+}
+
+void testReadbackCleanupResultIsDurable()
+{
+    using namespace vdrsuite::mediatools;
+    const std::string path = "/tmp/vdr-suite-readback-cleanup-state";
+    const BackendAgentCommandClientContext context{
+        "agt_client", "secret-material-at-least-thirty-two-bytes",
+        "default", "agi_current", 8};
+    for (const auto& scenario : {
+        MediaImportCleanupOutcome::removed,
+        MediaImportCleanupOutcome::alreadyAbsent,
+        MediaImportCleanupOutcome::notPerformed,
+        MediaImportCleanupOutcome::failed})
+    {
+        std::remove(path.c_str());
+        ReadbackOnlyExecutor executor;
+        executor.nextCleanup = scenario;
+        BackendAgentCommandClientConfig config;
+        config.statePath = path;
+        config.mediaImportExecutor = &executor;
+        config.commandTypes = {kMediaImportCommandType, kMediaImportReadbackCommandType};
+        ReadbackNoticeTransport transport;
+        transport.notice = assignment();
+        transport.notice.agentInstanceId = context.agentInstanceId;
+        transport.notice.backendGeneration = context.backendGeneration;
+        transport.notice.commandType = kMediaImportReadbackCommandType;
+        transport.notice.payloadVersion = 2;
+        transport.notice.payload = mediaImportReadbackPayload(
+            "source_readback_123456", "cmd_original_readback",
+            recordingPathEvidence("/srv/vdr/Imported/2026-10-27.22.00.00-0.rec"),
+            mediaImportSourceEvidence(
+                "/ci-only/media-in/Film.mp4", 17, 42, 2048, 100, 1234));
+        transport.notice.verificationPolicy = "none";
+        transport.notice.assignedAt = commandNow() - 1;
+        transport.notice.deadline = commandNow() + 240;
+        transport.notice.requestFingerprint =
+            backendAgentCommandFingerprint(transport.notice);
+        assert(backendAgentCommandValidAssignment(transport.notice));
+        std::string reason;
+        // The first result has reached the control plane, but its ACK is lost.
+        assert(!pollBackendAgentCommand(config, context, transport, reason));
+        assert(executor.cleanupCalls == 1 && executor.executionCalls == 0);
+        assert(transport.results == 1);
+        const auto result = transport.lastResult;
+        vdrsuite::agent::commandstate::LocalState saved;
+        assert(vdrsuite::agent::commandstate::load(path, saved, reason));
+        assert(saved.resultPresent && !saved.resultAcknowledged);
+        assert(saved.result.resultEvidence == result.resultEvidence);
+        const char* suffix = scenario == MediaImportCleanupOutcome::removed
+            ? "removed" : scenario == MediaImportCleanupOutcome::alreadyAbsent
+                ? "already-absent" : scenario == MediaImportCleanupOutcome::failed
+                    ? "failed" : "not-performed";
+        assert(result.resultEvidence ==
+            std::string("media-tools-cleanup:") + suffix);
+        assert(result.resultCategory ==
+            (scenario == MediaImportCleanupOutcome::failed
+                ? "rejected" : "succeeded"));
+
+        ReadbackOnlyExecutor restarted;
+        BackendAgentCommandClientConfig recovered = config;
+        recovered.mediaImportExecutor = &restarted;
+        assert(reconcileBackendAgentCommandState(
+            recovered, context, transport, reason));
+        assert(transport.results == 2);
+        assert(transport.lastResult.resultEvidence == result.resultEvidence);
+        assert(restarted.cleanupCalls == 0 && restarted.executionCalls == 0);
+        assert(reconcileBackendAgentCommandState(
+            recovered, context, transport, reason));
+        assert(transport.results == 2);
+        std::remove(path.c_str());
+    }
+
+    // Reproduce interruption between durable "starting" and the cleanup
+    // result. On restart the Agent must NOT issue a second unlink attempt.
+    {
+        std::remove(path.c_str());
+        ReadbackOnlyExecutor executor;
+        BackendAgentCommandClientConfig config;
+        config.statePath = path;
+        config.mediaImportExecutor = &executor;
+        config.commandTypes = {
+            kMediaImportCommandType, kMediaImportReadbackCommandType};
+        ReadbackNoticeTransport transport;
+        transport.notice = assignment();
+        transport.notice.agentInstanceId = context.agentInstanceId;
+        transport.notice.backendGeneration = context.backendGeneration;
+        transport.notice.commandType = kMediaImportReadbackCommandType;
+        transport.notice.payloadVersion = 2;
+        transport.notice.payload = mediaImportReadbackPayload(
+            "source_readback_123456", "cmd_original_readback",
+            recordingPathEvidence("/srv/vdr/Imported/2026-10-27.22.00.00-0.rec"),
+            mediaImportSourceEvidence(
+                "/ci-only/media-in/Film.mp4", 17, 42, 2048, 100, 1234));
+        transport.notice.verificationPolicy = "none";
+        transport.notice.assignedAt = commandNow() - 1;
+        transport.notice.deadline = commandNow() + 240;
+        transport.notice.requestFingerprint =
+            backendAgentCommandFingerprint(transport.notice);
+        assert(backendAgentCommandValidAssignment(transport.notice));
+
+        std::string reason;
+        assert(!pollBackendAgentCommand(config, context, transport, reason));
+        assert(executor.cleanupCalls == 1);
+        vdrsuite::agent::commandstate::LocalState interrupted;
+        assert(vdrsuite::agent::commandstate::load(path, interrupted, reason));
+        // The isolated fixture is rewound to the persisted crash boundary.
+        interrupted.dispatchState = "starting";
+        interrupted.resultPresent = false;
+        interrupted.resultAcknowledged = false;
+        assert(vdrsuite::agent::commandstate::persist(path, interrupted, reason));
+
+        ReadbackOnlyExecutor restarted;
+        BackendAgentCommandClientConfig recovered = config;
+        recovered.mediaImportExecutor = &restarted;
+        assert(reconcileBackendAgentCommandState(
+            recovered, context, transport, reason));
+        assert(restarted.cleanupCalls == 0 && restarted.executionCalls == 0);
+        assert(transport.lastResult.resultCategory == "outcome_unknown");
+        assert(transport.lastResult.verificationState == "outcome_unknown");
+        assert(transport.lastResult.retryClassification == "reconcile_only");
+        assert(transport.lastResult.resultEvidence == "media-tools-cleanup:failed");
+        assert(transport.lastResult.boundedDiagnostics.find("interrupted") !=
+            std::string::npos);
+        assert(reconcileBackendAgentCommandState(
+            recovered, context, transport, reason));
+        assert(restarted.cleanupCalls == 0);
+        std::remove(path.c_str());
+    }
+}
+
 void testAddonCommandsNeverSelfAdvertise()
 {
     const std::string path = "/tmp/vdr-suite-addon-command-advertisement";
@@ -379,7 +744,8 @@ void testAddonCommandsNeverSelfAdvertise()
     BackendAgentCommandClientConfig config;
     config.statePath = path;
     config.commandTypes = {
-        "addon.media.import", "addons.media.import", "probe.noop"
+        "addon.media.import", vdrsuite::mediatools::kMediaImportReadbackCommandType,
+        "addons.media.import", "probe.noop"
     };
     const BackendAgentCommandClientContext context{
         "agt_client", "secret-material-at-least-thirty-two-bytes",
@@ -588,6 +954,9 @@ void testOsdInputDispatchAndNoBlindRetry()
 int main()
 {
     testMediaToolsPollAcceptsReviewedShrinkTypes();
+    testReadbackCommandContract();
+    testReadbackNoticeAgentRestartDoesNotExecuteImport();
+    testReadbackCleanupResultIsDurable();
     testAddonCommandsNeverSelfAdvertise();
     testTimerAdvertisementActivation();
     testOsdInputAdvertisement();
@@ -610,6 +979,97 @@ int main()
     assert(reason=="local_command_generation_fenced");
     assert(access(path.c_str(),F_OK)==0);
     assert(transport.calls==0);
+
+    // A stale unacknowledged command blocks only command delivery. It must
+    // stay byte-preserved and must never trigger a poll, native replay or
+    // a network operation from the old generation.
+    std::ifstream pendingBefore(path);
+    const std::string oldInbox((std::istreambuf_iterator<char>(pendingBefore)),
+                               std::istreambuf_iterator<char>());
+    assert(pollBackendAgentCommand(config,current,transport,reason));
+    assert(reason=="local_command_generation_quarantined");
+    assert(transport.calls==0);
+    assert(access(path.c_str(),F_OK)==0);
+    std::ifstream pendingAfter(path);
+    const std::string newInbox((std::istreambuf_iterator<char>(pendingAfter)),
+                               std::istreambuf_iterator<char>());
+    assert(newInbox == oldInbox);
+
     std::remove(path.c_str());
+
+    // A durable Media Import rejection before native execution is the only
+    // historical import allowed to send an old-generation result. A negative
+    // Core ACK must preserve the exact local inbox for later reconciliation.
+    const std::string mediaPath = "/tmp/vdr-suite-historical-media-result-state";
+    std::remove(mediaPath.c_str());
+    auto oldImport = assignment();
+    oldImport.commandType = "addon.media.import";
+    oldImport.payload = R"({"sourceId":"source_historical_123456"})";
+    oldImport.verificationPolicy = "reconciliation_required";
+    oldImport.requestFingerprint = backendAgentCommandFingerprint(oldImport);
+    assert(backendAgentCommandValidAssignment(oldImport));
+    vdrsuite::agent::commandstate::LocalState savedImport;
+    savedImport.assignment = oldImport;
+    savedImport.receipt.commandId = oldImport.commandId;
+    savedImport.receipt.requestFingerprint = oldImport.requestFingerprint;
+    savedImport.receipt.jobId = oldImport.jobId;
+    savedImport.receipt.attemptId = oldImport.attemptId;
+    savedImport.receipt.claimEpoch = oldImport.claimEpoch;
+    savedImport.receipt.backendId = oldImport.backendId;
+    savedImport.receipt.agentId = oldImport.agentId;
+    savedImport.receipt.agentInstanceId = oldImport.agentInstanceId;
+    savedImport.receipt.backendGeneration = oldImport.backendGeneration;
+    savedImport.receipt.receiptCategory = "accepted";
+    savedImport.receipt.receivedAt = 110;
+    savedImport.receipt.reasonCode = "durably_recorded";
+    savedImport.receiptAcknowledged = true;
+    savedImport.dispatchState = "not_started";
+    savedImport.resultPresent = true;
+    savedImport.result.commandId = oldImport.commandId;
+    savedImport.result.requestFingerprint = oldImport.requestFingerprint;
+    savedImport.result.jobId = oldImport.jobId;
+    savedImport.result.attemptId = oldImport.attemptId;
+    savedImport.result.claimEpoch = oldImport.claimEpoch;
+    savedImport.result.backendId = oldImport.backendId;
+    savedImport.result.agentId = oldImport.agentId;
+    savedImport.result.agentInstanceId = oldImport.agentInstanceId;
+    savedImport.result.backendGeneration = oldImport.backendGeneration;
+    savedImport.result.dispatchState = "not_started";
+    savedImport.result.verificationState = "outcome_unknown";
+    savedImport.result.resultCategory = "rejected";
+    savedImport.result.errorCategory = "fenced";
+    savedImport.result.retryClassification = "none";
+    savedImport.result.boundedDiagnostics = "Fenced before native dispatch";
+    savedImport.result.completedAt = 120;
+    assert(vdrsuite::agent::commandstate::persist(mediaPath, savedImport, reason));
+    BackendAgentCommandClientConfig mediaConfig{mediaPath, {"addon.media.import"}};
+    HistoricalMediaResultTransport mediaTransport;
+    assert(!reconcileBackendAgentCommandState(
+        mediaConfig, current, mediaTransport, reason));
+    assert(access(mediaPath.c_str(), F_OK) == 0);
+    mediaTransport.acceptResult = true;
+    assert(reconcileBackendAgentCommandState(
+        mediaConfig, current, mediaTransport, reason));
+    assert(reason == "historical_media_import_rejection_reconciled");
+    vdrsuite::agent::commandstate::LocalState acknowledgedImport;
+    assert(vdrsuite::agent::commandstate::load(
+        mediaPath, acknowledgedImport, reason));
+    assert(acknowledgedImport.resultAcknowledged);
+    assert(pollBackendAgentCommand(mediaConfig, current, mediaTransport, reason));
+    assert(access(mediaPath.c_str(), F_OK) != 0);
+    assert(mediaTransport.calls == std::vector<std::string>({
+        "/api/agent/v1/commands/result", "/api/agent/v1/commands/result",
+        "/api/agent/v1/commands/poll"}));
+
+    // No stale native-starting state may use that historical recovery path.
+    savedImport.dispatchState = "starting";
+    savedImport.result.dispatchState = "starting";
+    assert(vdrsuite::agent::commandstate::persist(mediaPath, savedImport, reason));
+    mediaTransport.calls.clear();
+    assert(!reconcileBackendAgentCommandState(
+        mediaConfig, current, mediaTransport, reason));
+    assert(reason == "local_command_generation_fenced");
+    assert(mediaTransport.calls.empty());
+    std::remove(mediaPath.c_str());
     return 0;
 }

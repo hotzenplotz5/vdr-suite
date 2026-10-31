@@ -11,6 +11,7 @@
 #include "SecurityIdentityRepository.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <cstdio>
@@ -19,6 +20,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 
 #include <sqlite3.h>
 
@@ -1029,6 +1031,9 @@ void test_http_protocol_and_redaction()
     sources.body =
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
         "\"backendGeneration\":1,\"sourceIds\":[\"source_00000000001\"],"
+        "\"sourceLabels\":[\"Andor S01E05\"],"
+        "\"sourceFolders\":[\"Serien/Andor\"],"
+        "\"sourceStatuses\":[\"recording_present\"],"
         "\"handlerOrigin\":\"manual\",\"handlerVersion\":\"0.1.0\","
         "\"handlerSha256\":\"" + std::string(64, 'a') + "\"}";
     const auto sourceObserved = server.handleRequest(sources);
@@ -1039,6 +1044,21 @@ void test_http_protocol_and_redaction()
         std::chrono::system_clock::now().time_since_epoch()).count();
     assert(live && mediaImportCatalog.list(*live, "default", observedNow, ids));
     assert(ids == (std::vector<std::string>{"source_00000000001"}));
+    std::vector<std::string> labels, statuses, folders;
+    bool partial = true;
+    assert(mediaImportCatalog.list(*live, "default", observedNow,
+        ids, labels, &partial, &folders, &statuses));
+    assert(statuses == (std::vector<std::string>{"recording_present"}));
+    assert(labels == (std::vector<std::string>{"Andor S01E05"}));
+    // A mismatched/unknown Agent state cannot be attached to an opaque ID.
+    sources.body =
+        "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
+        "\"backendGeneration\":1,\"sourceIds\":[\"source_00000000001\"],"
+        "\"sourceLabels\":[\"Andor S01E05\"],"
+        "\"sourceStatuses\":[\"made_up_success\"],"
+        "\"handlerOrigin\":\"manual\",\"handlerVersion\":\"0.1.0\","
+        "\"handlerSha256\":\"" + std::string(64, 'a') + "\"}";
+    assert(server.handleRequest(sources).statusCode == 409);
     sources.body =
         "{\"backendId\":\"default\",\"agentInstanceId\":\"http-instance\","
         "\"backendGeneration\":2,\"sourceIds\":[\"source_00000000002\"],"
@@ -1143,6 +1163,43 @@ void test_http_protocol_and_redaction()
     assert(denied.statusCode == 401);
     assert(denied.body.find("wrong-secret") == std::string::npos);
 
+    // Repeated real HTTP requests exercise the cached successful verifier.
+    // A wrong secret must never benefit from the cached Agent identity.
+    HttpServerRequest cachedProbe = connect;
+    cachedProbe.path = "/api/agent/v1/nonexistent-auth-probe";
+    for (int attempt = 0; attempt < 8; ++attempt)
+        assert(server.handleRequest(cachedProbe).statusCode == 404);
+    invalid.path = cachedProbe.path;
+    assert(server.handleRequest(invalid).statusCode == 401);
+    assert(server.handleRequest(cachedProbe).statusCode == 404);
+
+    // Even with a cached correct secret, a revoked credential is rejected
+    // immediately from current durable identity state, without a restart.
+    const auto currentAgent = fixture.agentRepository.findAgent(agentId);
+    assert(currentAgent.has_value());
+    assert(fixture.database.execute(
+        "UPDATE security_credentials SET revoked_at='fixture-revoked' "
+        "WHERE credential_id='" + currentAgent->credentialId + "';"));
+    assert(server.handleRequest(cachedProbe).statusCode == 401);
+    assert(fixture.database.execute(
+        "UPDATE security_credentials SET revoked_at='' "
+        "WHERE credential_id='" + currentAgent->credentialId + "';"));
+    assert(server.handleRequest(cachedProbe).statusCode == 404);
+
+    // Replacing the persisted verifier hash invalidates the cache even if
+    // the agent and credential IDs themselves do not change.
+    const std::string replacementSecret =
+        "replacement-secret-material-000000000000000000000001";
+    const std::string replacementHash = backendAgentHashSecret(replacementSecret);
+    assert(!replacementHash.empty());
+    assert(fixture.verifierRepository.updateVerifier(
+        currentAgent->credentialId, agentId, replacementHash));
+    assert(server.handleRequest(cachedProbe).statusCode == 401);
+    cachedProbe.headers["Authorization"] =
+        "Basic " + base64(agentId + ":" + replacementSecret);
+    assert(server.handleRequest(cachedProbe).statusCode == 404);
+    std::cout << "AGENT_AUTH_CACHE_ROTATION_REVOCATION=PASS\n";
+
     HttpServerRequest oversized = connect;
     oversized.body.assign(16U * 1024U + 1U, 'x');
     const HttpServerResponse tooLarge = server.handleRequest(oversized);
@@ -1152,6 +1209,58 @@ void test_http_protocol_and_redaction()
     ordinary.method = "GET";
     ordinary.path = "/api/backends";
     assert(server.handleRequest(ordinary).statusCode == 299);
+}
+
+void test_http_authentication_read_does_not_wait_for_main_connection()
+{
+    Fixture fixture;
+    assert(fixture.database.execute("PRAGMA journal_mode=WAL;"));
+    const auto enrollment = createAndConsumeEnrollment(fixture);
+
+    Database authReadDatabase;
+    assert(authReadDatabase.open(fixture.path));
+    assert(authReadDatabase.execute("PRAGMA query_only=ON;"));
+    BackendAgentRepository authAgents(authReadDatabase);
+    CredentialVerifierRepository authVerifiers(authReadDatabase);
+    SecurityIdentityRepository authIdentities(authReadDatabase);
+
+    BackendAgentHttpServer server(
+        std::make_unique<FallbackServer>(),
+        fixture.service,
+        fixture.commandService,
+        authAgents,
+        authVerifiers,
+        authIdentities);
+
+    HttpServerRequest probe;
+    probe.method = "POST";
+    probe.path = "/api/agent/v1/nonexistent-auth-probe";
+    probe.headers["Authorization"] =
+        "Basic " + base64(enrollment.agentId + ":" + AgentSecret);
+    assert(server.handleRequest(probe).statusCode == 404);
+
+    // A cache worker may occupy the main sqlite3 handle, but authentication
+    // must still read committed credentials on its own connection.
+    sqlite3_mutex* primaryMutex = sqlite3_db_mutex(fixture.database.handle());
+    assert(primaryMutex != nullptr);
+    std::atomic<bool> mainHandleHeld{false};
+    std::thread busyMainHandle([&]() {
+        sqlite3_mutex_enter(primaryMutex);
+        mainHandleHeld.store(true);
+        std::this_thread::sleep_for(std::chrono::milliseconds(900));
+        sqlite3_mutex_leave(primaryMutex);
+    });
+    while (!mainHandleHeld.load())
+        std::this_thread::yield();
+
+    const auto started = std::chrono::steady_clock::now();
+    const auto response = server.handleRequest(probe);
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started).count();
+    busyMainHandle.join();
+    assert(response.statusCode == 404);
+    assert(elapsed < 650);
+    std::cout << "AGENT_AUTH_READ_CONNECTION_ISOLATION=PASS\n";
 }
 
 void test_accountability_failure_is_fail_closed()
@@ -1234,6 +1343,7 @@ int main()
     test_credential_rotation_fencing_idempotency_and_lease_invalidation();
     test_revoked_agent_can_be_replaced_without_losing_history();
     test_http_protocol_and_redaction();
+    test_http_authentication_read_does_not_wait_for_main_connection();
     test_accountability_failure_is_fail_closed();
     test_enrollment_transaction_rolls_back_partial_identity();
     std::cout << "test_backend_agent_lifecycle passed" << std::endl;

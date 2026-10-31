@@ -93,19 +93,55 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceSnapshot(
     std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
     bool& partial)
 {
+    vdrsuite::mediatools::MediaImportSourcePreview ignored;
+    return listTrustedSourceObservation(ids, labels, partial, {}, ignored);
+}
+
+bool BackendAgentMediaImportRuntime::listTrustedSourceObservation(
+    std::vector<std::string>& ids,
+    std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+    bool& partial, const std::string& selectedSourceId,
+    vdrsuite::mediatools::MediaImportSourcePreview& preview)
+{
+    using namespace vdrsuite::mediatools;
     ids.clear();
     labels.clear();
     partial = true;
-    if (!available()) return false;
+    preview = {};
+    preview.sourceId = selectedSourceId;
+    // Reuse the existing installation/context check but avoid available(),
+    // whose inventory.hasTrustedSource() performs another complete scan.
+    MediaToolsInstallationEvidence installed;
+    if (!verifiedInstallation(installed)) return false;
     try {
-        if (!inventory_.listTrustedSourceSnapshot(backendId_, labels, partial))
+        auto lock = MediaToolsImportRunLock::tryAcquire(
+            trustedRoot_, MediaToolsImportRunLock::Mode::sharedExecution);
+        if (!lock) return false;
+        LocalMediaImportSource selected;
+        if (!inventory_.listTrustedSourceSnapshot(
+                backendId_, labels, partial, selectedSourceId, &selected))
             return false;
         for (const auto& item : labels) ids.push_back(item.sourceId);
+        if (!selectedSourceId.empty()) {
+            if (selected.sourceFile.empty()) {
+                preview.status = "unavailable";
+                preview.failureCode = "inventory_missing";
+            } else if (!inspectResolvedSource(selectedSourceId, selected, preview)) {
+                // Keep diagnostic failures in the existing preview protocol.
+                // An empty status is rejected by the Core observation reader
+                // and leaves the browser waiting for an answer.
+                preview.status = "unavailable";
+                if (preview.failureCode.empty())
+                    preview.failureCode = "inspection_failed";
+            }
+        }
         return true;
     } catch (...) {
         ids.clear();
         labels.clear();
         partial = true;
+        preview = {};
+        preview.sourceId = selectedSourceId;
         return false;
     }
 }
@@ -117,33 +153,57 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
     using namespace vdrsuite::mediatools;
     out = {};
     out.sourceId = sourceId;
-    // The requested key must already be an opaque backend-local inventory
-    // token. Never accept an actor's file path, and never write a marker.
     if (sourceId.size() < 16U || sourceId.size() > 64U ||
         !std::all_of(sourceId.begin(), sourceId.end(),
             [](unsigned char c) {
                 return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') ||
                     (c >= 'A' && c <= 'Z') || c == '_' || c == '-';
-            }) || !available()) return false;
+            })) {
+        out.failureCode = "source_invalid";
+        return false;
+    }
+    if (!available()) {
+        out.failureCode = "agent_unavailable";
+        return false;
+    }
     try {
+        out.failureCode = "maintenance_busy";
         auto lock = MediaToolsImportRunLock::tryAcquire(
             trustedRoot_, MediaToolsImportRunLock::Mode::sharedExecution);
         if (!lock) return false;
+        out.failureCode = "inventory_missing";
         LocalMediaImportSource local;
         if (!inventory_.resolve(backendId_, sourceId, local)) return false;
+        return inspectResolvedSource(sourceId, local, out);
+    } catch (...) {
+        const std::string stage = out.failureCode;
+        out = {};
+        out.sourceId = sourceId;
+        out.failureCode = stage.empty() ? "inspection_failed" : stage;
+        return false;
+    }
+}
+
+bool BackendAgentMediaImportRuntime::inspectResolvedSource(
+    const std::string& sourceId,
+    const vdrsuite::mediatools::LocalMediaImportSource& local,
+    vdrsuite::mediatools::MediaImportSourcePreview& out)
+{
+    using namespace vdrsuite::mediatools;
+    out = {};
+    out.sourceId = sourceId;
+    try {
+        out.failureCode = "source_invalid";
         const auto plan = inspectImportPreview(
             {local.sourceRoot, local.videoRoot, local.sourceFile});
+        out.failureCode = "source_changed";
         if (plan.sourceDevice != local.sourceDevice ||
             plan.sourceInode != local.sourceInode ||
             plan.sourceBytes != local.sourceBytes ||
             plan.sourceMtimeSeconds != local.sourceMtimeSeconds ||
             plan.sourceMtimeNanoseconds != local.sourceMtimeNanoseconds)
             return false;
-        // The same plan/codec/capacity checks are used by the productive
-        // importer. FFprobe reads the source but creates no VDR artifacts.
-        NativeProcessRunner probe(std::chrono::seconds(5));
-        const std::string codec = probeImportVideoCodec(plan, probe);
-        const auto capacity = inspectImportCapacity(plan);
+        out.failureCode = "target_invalid";
         const auto relative =
             plan.titleDirectory.lexically_relative(plan.videoRoot);
         if (relative.empty() || relative == "." ||
@@ -151,23 +211,51 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
             return false;
         out.title = plan.title;
         out.targetFolder = relative.generic_string();
-        out.videoCodec = codec;
         out.sourceBytes = static_cast<std::uint64_t>(plan.sourceBytes);
+        const auto metadata = readImportLocalMetadata(plan);
+        out.nfoOutline = metadata.shortText;
+        out.nfoPlot = metadata.description;
+        out.nfoYear = metadata.year;
+        out.nfoGenre = metadata.genre;
+        const auto artwork = readImportLocalArtwork(plan);
+        out.posterDataUri = artwork.posterDataUri;
+        out.fanartDataUri = artwork.fanartDataUri;
+        // A protected destination collision is not itself proof of a duplicate.
+        if (plan.duplicateTarget) {
+            out.status = confirmedMediaImportDuplicate(plan)
+                ? "duplicate" : "unavailable";
+            out.failureCode = out.status == "duplicate" ? "" : "target_collision";
+            return true;
+        }
+        out.failureCode = "ffprobe_failed";
+        NativeProcessRunner probe(std::chrono::seconds(5));
+        const std::string codec = probeImportVideoCodec(plan, probe);
+        out.failureCode = "capacity_failed";
+        const auto capacity = inspectImportCapacity(plan);
+        out.videoCodec = codec;
+        // Duration is display-only: unsupported duration is not an import error.
+        try {
+            const double seconds = probeImportDurationSeconds(plan, probe);
+            if (seconds > 0.0 && seconds <= 4294967295.0)
+                out.durationSeconds = static_cast<std::uint64_t>(seconds + 0.5);
+        } catch (...) {}
         out.availableBytes = capacity.availableBytes;
-        // The user-facing total includes the mandatory production reserve.
-        // Production itself continues to use the shared capacity policy.
         if (capacity.reserveBytes >
             std::numeric_limits<std::uint64_t>::max() - capacity.requiredBytes)
             return false;
         out.requiredBytes = capacity.requiredBytes + capacity.reserveBytes;
         out.videoReencodeRequired = importVideoNeedsReencode(codec);
-        out.status = plan.duplicateTarget ? "duplicate" :
-            !capacity.writable ? "unavailable" :
+        out.status = !capacity.writable ? "unavailable" :
             capacity.sufficient ? "ready" : "insufficient";
+        out.failureCode = capacity.writable ? "" : "target_not_writable";
         return true;
     } catch (...) {
+        // Preserve the existing stage-only result; no filesystem path is
+        // added to the public preview response.
+        const std::string stage = out.failureCode;
         out = {};
         out.sourceId = sourceId;
+        out.failureCode = stage.empty() ? "inspection_failed" : stage;
         return false;
     }
 }

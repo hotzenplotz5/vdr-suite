@@ -26,6 +26,9 @@ struct PublicOperationResource
     std::string state;
     std::string backendId;
     std::string resourceRevision;
+    // Optional, journal-backed Agent result after independently verified
+    // media import. Absent for all other operation families.
+    std::string sourceCleanup = {};
 };
 
 struct PublicOperationLookupResult
@@ -1335,7 +1338,8 @@ struct PublicMediaImportAdmissionRequest
     std::string sourceId;
     std::string idempotencyKey;
     bool approveVideoReencode = false; // immutable, explicitly selected
-    std::string videoDecision; // optional "desktop" or "skip"
+    std::string videoDecision; // optional "desktop", "skip", "duplicate" or "release"
+    std::string metadata; // already-found, immutable percent-encoded TMDb snapshot
 };
 
 struct PublicMediaImportAdmissionResult
@@ -1449,7 +1453,9 @@ public:
         std::vector<std::string> ids;
         std::vector<std::string> labels; // optional authorized display names
         std::vector<std::string> folders; // optional source-root-relative folders
+        std::vector<std::string> statuses; // advisory recording_present/unverified
         bool partial = true; // fail closed for legacy/unknown observations
+        bool stale = false; // last verified inventory; read-only display, not import authority
     };
     using MediaImportSourceLookup = std::function<MediaImportSourceResult(
         const std::string& actorId, const std::string& backendId)>;
@@ -1466,6 +1472,10 @@ public:
         std::uint64_t availableBytes = 0;
         std::uint64_t requiredBytes = 0;
         bool videoReencodeRequired = false;
+        std::string failureCode;
+        std::string nfoOutline, nfoPlot, nfoYear, nfoGenre;
+        std::uint64_t durationSeconds = 0;
+        std::string posterDataUri, fanartDataUri;
     };
     using MediaImportPreviewLookup = std::function<MediaImportPreviewResult(
         const std::string& actorId, const std::string& backendId,

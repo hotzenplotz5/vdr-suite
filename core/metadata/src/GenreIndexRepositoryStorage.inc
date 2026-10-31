@@ -133,6 +133,52 @@ bool GenreIndexRepository::replaceEpgEvidenceAndReconcile(
     return true;
 }
 
+// Apply each VDR TVScraper type snapshot in bounded write batches. The old
+// per-event path opened a transaction for evidence and a second transaction
+// for its browse classification, unnecessarily competing with Agent polls.
+bool GenreIndexRepository::replaceEpgTypeSnapshotBatch(
+    const std::vector<GenreEvidenceInput>& items)
+{
+    if (items.empty()) return true;
+
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+    if (!ensureSchemaLocked()) return false;
+
+    constexpr std::size_t BatchSize = 16;
+    for (std::size_t begin = 0; begin < items.size(); begin += BatchSize)
+    {
+        const std::size_t end = std::min(items.size(), begin + BatchSize);
+        auto transactionLease = database_.acquireTransactionLease();
+        if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
+            return false;
+
+        bool ok = true;
+        for (std::size_t index = begin; index < end; ++index)
+        {
+            const GenreEvidenceInput& input = items[index];
+            if (input.targetType != "program-event" ||
+                input.resourceKey.empty() ||
+                input.providerId != "tvscraper-media-type" ||
+                !replaceEvidenceLocked(input) ||
+                !reconcileEpgBrowseClassificationLocked(
+                    database_.handle(),
+                    stableTargetId(
+                        input.targetType, input.backendId, input.resourceKey)))
+            {
+                ok = false;
+                break;
+            }
+        }
+
+        if (!ok || !database_.execute("COMMIT;"))
+        {
+            database_.execute("ROLLBACK;");
+            return false;
+        }
+    }
+    return true;
+}
+
 bool GenreIndexRepository::reconcileEpgBrowseClassification(
     const std::string& backendId,
     const std::string& resourceKey)
@@ -339,7 +385,9 @@ bool GenreIndexRepository::retireExpiredEpgTargets(
     sqlite3_stmt* statement = nullptr;
     const char* sql =
         "UPDATE suite_metadata_target_bindings SET lifecycle_state='retired',updated_at=CURRENT_TIMESTAMP "
-        "WHERE backend_id=? AND target_type='program-event' AND end_time>0 AND end_time<?;";
+        "WHERE backend_id=? AND target_type='program-event' "
+        "AND lifecycle_state IN ('active','stale') "
+        "AND end_time>0 AND end_time<?;";
     if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr) != SQLITE_OK) return false;
     bindText(statement, 1, normalizeBackendId(backendId));
     sqlite3_bind_int64(statement, 2, beforeEndTime);

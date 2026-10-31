@@ -1,4 +1,5 @@
 #include "BackendAgentCommandDelivery.h"
+#include "BackendAgentPhaseTiming.h"
 
 #include "AccountabilityEvent.h"
 #include "AccountabilityEventRepository.h"
@@ -593,8 +594,45 @@ bool BackendAgentCommandRepository::localProviderSelectionCurrent(
 BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendAgentCommandPollRequest& request,const std::string& agentId,std::int64_t now)
 {
     using namespace vdrsuite::agent;
-    auto transactionLease = database_.acquireTransactionLease();
     BackendAgentCommandPollResult result; result.accepted=true; result.reasonCode="no_command_available";
+
+    // High-frequency polls do not refresh capabilities. If there is no
+    // assigned command and no requested replay, there is nothing to mutate.
+    // Inspect the dedicated poll connection without taking the shared writer
+    // lease; a command arriving just afterwards is picked up by the next poll.
+    // A pending command (or an SQL error) follows the original transaction
+    // path, retaining receipt and delivery-count semantics.
+    if (!request.refreshCapabilities)
+    {
+        const auto probeStarted = std::chrono::steady_clock::now();
+        sqlite3_stmt* probe = nullptr;
+        const char* probeSql =
+            "SELECT 1 FROM backend_agent_commands "
+            "WHERE backend_id=? AND (state='assigned' OR replay_requested=1) "
+            "LIMIT 1;";
+        const int prepared = sqlite3_prepare_v2(
+            database_.handle(), probeSql, -1, &probe, nullptr);
+        if (prepared == SQLITE_OK && bindText(probe, 1, request.backendId))
+        {
+            const int status = sqlite3_step(probe);
+            sqlite3_finalize(probe);
+            if (status == SQLITE_DONE)
+            {
+                reportSlowBackendAgentPhase(
+                    "command_poll.empty_probe", probeStarted);
+                return result;
+            }
+        }
+        else if (probe != nullptr)
+        {
+            sqlite3_finalize(probe);
+        }
+        reportSlowBackendAgentPhase("command_poll.empty_probe", probeStarted);
+    }
+
+    const auto leaseStarted = std::chrono::steady_clock::now();
+    auto transactionLease = database_.acquireTransactionLease();
+    reportSlowBackendAgentPhase("command_poll.lease_wait", leaseStarted);
     std::string advertisementReason;
     if(request.refreshCapabilities &&
        !backendAgentNativeTimerAdvertisementValid(request,advertisementReason))
@@ -602,8 +640,13 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
 
     const char* beginSql =
         request.refreshCapabilities ? "BEGIN IMMEDIATE;" : "BEGIN;";
+    const auto sqlStarted = std::chrono::steady_clock::now();
     if (!database_.execute(beginSql))
-    {result.accepted=false;result.reasonCode="command_database_unavailable";return result;}
+    {
+        reportSlowBackendAgentPhase("command_poll.sql_transaction", sqlStarted);
+        result.accepted=false;result.reasonCode="command_database_unavailable";return result;
+    }
+    reportSlowBackendAgentPhase("command_poll.begin", sqlStarted);
 
     bool ok=true;
     if (request.refreshCapabilities)
@@ -657,14 +700,34 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
     }
     if (ok)
     {
+        const auto selectStarted = std::chrono::steady_clock::now();
         sqlite3_stmt* select=nullptr;
-        const std::string sql=std::string("SELECT ")+AssignmentColumns+" FROM backend_agent_commands c WHERE c.backend_id=? AND c.agent_id=? AND c.agent_instance_id=? AND c.backend_generation=? AND c.deadline>=? AND ((c.state='assigned' AND NOT EXISTS(SELECT 1 FROM backend_agent_command_receipts r WHERE r.command_id=c.command_id)) OR c.replay_requested=1) AND EXISTS(SELECT 1 FROM backend_agent_command_capabilities x WHERE x.backend_id=c.backend_id AND x.agent_id=c.agent_id AND x.agent_instance_id=c.agent_instance_id AND x.backend_generation=c.backend_generation AND x.command_type=c.command_type) AND (c.command_type NOT IN('vdr.native.probe','vdr.recording.cut') OR EXISTS(SELECT 1 FROM backend_agent_command_provider_selections s JOIN backend_agent_local_provider_ownership o ON o.backend_id=s.backend_id AND o.authority_domain=s.authority_domain JOIN backend_agent_local_provider_facts f ON f.backend_id=s.backend_id AND f.provider_id=s.provider_id WHERE s.command_id=c.command_id AND o.active=1 AND o.provider_id=s.provider_id AND o.provider_kind=s.provider_kind AND o.ownership_generation=s.ownership_generation AND f.agent_id=c.agent_id AND f.agent_instance_id=c.agent_instance_id AND f.backend_generation=c.backend_generation AND f.provider_kind=s.provider_kind AND f.provider_instance_epoch=s.provider_instance_epoch AND f.provider_generation=s.provider_generation AND f.capability_revision=s.capability_revision AND f.available=1 AND (c.command_type!='vdr.recording.cut' OR (s.authority_domain='vdr.recording.cut' AND s.provider_id='suitebridge:recording-cut' AND s.provider_kind='suitebridge' AND s.required_capability='vdr.recording.cut' AND instr(','||o.allowed_capabilities||',',','||s.required_capability||',')>0 AND instr(','||f.capabilities||',',','||s.required_capability||',')>0)))) ORDER BY c.assigned_at LIMIT 1;";
+        // A fresh Agent command journal can exist before the optional Core
+        // operations schema. Generic commands must still poll normally, but
+        // no readback notice can leave Core unless the verified operation
+        // table exists and reports 'succeeded'.
+        sqlite3_stmt* opSchemaProbe=nullptr;
+        const bool operationTableReady =
+            sqlite3_prepare_v2(database_.handle(),
+                "SELECT state FROM mutation_operations LIMIT 0;",
+                -1, &opSchemaProbe, nullptr) == SQLITE_OK;
+        if (opSchemaProbe) sqlite3_finalize(opSchemaProbe);
+        const std::string readbackGate = operationTableReady
+            ? " AND (c.command_type!='addon.media.import.readback' OR "
+              "EXISTS(SELECT 1 FROM mutation_operations m "
+              "WHERE m.operation_id=c.operation_id "
+              "AND m.backend_id=c.backend_id "
+              "AND m.backend_generation=c.backend_generation "
+              "AND m.state='succeeded' AND m.action_family='media.import'))"
+            : " AND c.command_type!='addon.media.import.readback'";
+        const std::string sql=std::string("SELECT ")+AssignmentColumns+" FROM backend_agent_commands c WHERE c.backend_id=? AND c.agent_id=? AND c.agent_instance_id=? AND c.backend_generation=? AND c.deadline>=? AND ((c.state='assigned' AND NOT EXISTS(SELECT 1 FROM backend_agent_command_receipts r WHERE r.command_id=c.command_id)) OR c.replay_requested=1)"+readbackGate+" AND EXISTS(SELECT 1 FROM backend_agent_command_capabilities x WHERE x.backend_id=c.backend_id AND x.agent_id=c.agent_id AND x.agent_instance_id=c.agent_instance_id AND x.backend_generation=c.backend_generation AND x.command_type=c.command_type) AND (c.command_type NOT IN('vdr.native.probe','vdr.recording.cut') OR EXISTS(SELECT 1 FROM backend_agent_command_provider_selections s JOIN backend_agent_local_provider_ownership o ON o.backend_id=s.backend_id AND o.authority_domain=s.authority_domain JOIN backend_agent_local_provider_facts f ON f.backend_id=s.backend_id AND f.provider_id=s.provider_id WHERE s.command_id=c.command_id AND o.active=1 AND o.provider_id=s.provider_id AND o.provider_kind=s.provider_kind AND o.ownership_generation=s.ownership_generation AND f.agent_id=c.agent_id AND f.agent_instance_id=c.agent_instance_id AND f.backend_generation=c.backend_generation AND f.provider_kind=s.provider_kind AND f.provider_instance_epoch=s.provider_instance_epoch AND f.provider_generation=s.provider_generation AND f.capability_revision=s.capability_revision AND f.available=1 AND (c.command_type!='vdr.recording.cut' OR (s.authority_domain='vdr.recording.cut' AND s.provider_id='suitebridge:recording-cut' AND s.provider_kind='suitebridge' AND s.required_capability='vdr.recording.cut' AND instr(','||o.allowed_capabilities||',',','||s.required_capability||',')>0 AND instr(','||f.capabilities||',',','||s.required_capability||',')>0)))) ORDER BY c.assigned_at LIMIT 1;";
         if (sqlite3_prepare_v2(database_.handle(),sql.c_str(),-1,&select,nullptr)!=SQLITE_OK||!bindText(select,1,request.backendId)||!bindText(select,2,agentId)||!bindText(select,3,request.agentInstanceId)||!bindInt(select,4,static_cast<std::int64_t>(request.backendGeneration))||!bindInt(select,5,now)) ok=false;
         else
         {
             if (sqlite3_step(select)==SQLITE_ROW) result.assignment=readAssignment(select);
             sqlite3_finalize(select);
         }
+        reportSlowBackendAgentPhase("command_poll.candidate_select", selectStarted);
     }
     if(ok&&result.assignment.present&&
        (result.assignment.commandType==kBackendAgentNativeTimerCreateCommandType||
@@ -689,6 +752,7 @@ BackendAgentCommandPollResult BackendAgentCommandRepository::poll(const BackendA
     {
         database_.execute("ROLLBACK;"); result.accepted=false; result.assignment={}; result.reasonCode="command_database_unavailable";
     }
+    reportSlowBackendAgentPhase("command_poll.sql_transaction", sqlStarted);
     return result;
 }
 
@@ -1068,7 +1132,17 @@ BackendAgentCommandSummary BackendAgentCommandRepository::summaryForBackend(cons
     if(sqlite3_step(s)==SQLITE_ROW){summary.present=true;summary.commandId=text(s,0);summary.commandType=text(s,1);summary.state=text(s,2);summary.receiptCategory=text(s,3);summary.resultCategory=text(s,4);summary.dispatchState=text(s,5);summary.verificationState=text(s,6);summary.backendGeneration=static_cast<std::uint64_t>(sqlite3_column_int64(s,7));summary.claimEpoch=static_cast<std::uint64_t>(sqlite3_column_int64(s,8));summary.deliveryCount=static_cast<std::uint64_t>(sqlite3_column_int64(s,9));summary.receiptReplayCount=static_cast<std::uint64_t>(sqlite3_column_int64(s,10));summary.resultReplayCount=static_cast<std::uint64_t>(sqlite3_column_int64(s,11));summary.deadline=sqlite3_column_int64(s,12);} sqlite3_finalize(s);return summary;
 }
 
-BackendAgentCommandDeliveryService::BackendAgentCommandDeliveryService(BackendAgentCommandRepository& c,BackendAgentRepository& a,AccountabilityEventRepository& e):commandRepository_(c),agentRepository_(a),accountabilityRepository_(e){}
+BackendAgentCommandDeliveryService::BackendAgentCommandDeliveryService(
+    BackendAgentCommandRepository& c,
+    BackendAgentRepository& a,
+    AccountabilityEventRepository& e,
+    BackendAgentCommandRepository* pollRepository)
+    : commandRepository_(c),
+      pollRepository_(pollRepository != nullptr ? pollRepository : &c),
+      agentRepository_(a),
+      accountabilityRepository_(e)
+{
+}
 
 bool BackendAgentCommandDeliveryService::appendEvent(const RequestSecurityContext& context,const std::string& eventType,const std::string& backendId,const std::string& operationId,const std::string& action,const std::string& decision,const std::string& reason,const std::string& outcome,std::int64_t now) const
 {
@@ -1086,9 +1160,26 @@ bool BackendAgentCommandDeliveryService::agentContextMatches(const RequestSecuri
 
 BackendAgentCommandPollResult BackendAgentCommandDeliveryService::poll(const RequestSecurityContext& context,const BackendAgentCommandPollRequest& request,std::int64_t now)
 {
-    BackendAgentCommandPollResult result; const auto agent=agentRepository_.findAgentForBackend(request.backendId); std::string reason;
-    if(!agent.has_value()||!agentContextMatches(context,request.backendId,agent->agentId,request.agentInstanceId,request.backendGeneration,true,now,reason)){result.reasonCode=reason.empty()?"agent_binding_unavailable":reason;return result;}
-    result=commandRepository_.poll(request,agent->agentId,now); return result;
+    BackendAgentCommandPollResult result;
+    std::string reason;
+    const auto lookupStarted = std::chrono::steady_clock::now();
+    const auto agent = agentRepository_.findAgentForBackend(request.backendId);
+    reportSlowBackendAgentPhase("command_poll.agent_lookup", lookupStarted);
+    if (!agent.has_value()) {
+        result.reasonCode = "agent_binding_unavailable";
+        return result;
+    }
+    const auto bindingStarted = std::chrono::steady_clock::now();
+    const bool matched = agentContextMatches(
+        context, request.backendId, agent->agentId, request.agentInstanceId,
+        request.backendGeneration, true, now, reason);
+    reportSlowBackendAgentPhase("command_poll.binding_check", bindingStarted);
+    if (!matched) {
+        result.reasonCode = reason.empty() ? "agent_binding_unavailable" : reason;
+        return result;
+    }
+    result = pollRepository_->poll(request, agent->agentId, now);
+    return result;
 }
 void BackendAgentCommandDeliveryService::setReceiptFenceCheck(
     ReceiptFenceCheck check)
@@ -1332,7 +1423,35 @@ BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
             value.verificationState == "outcome_unknown" &&
             value.retryClassification == "reconcile_only" &&
             !value.resultEvidence.empty();
-        if (!historicalModifyResult)
+        // Another strictly bounded historical ACK: the original Media Import
+        // was rejected with an already durable "not_started" result. This
+        // reconciles that old failed operation only; it grants no stale poll,
+        // receipt or dispatch authority to the old Agent generation.
+        const bool historicalUndispatchedMediaImport =
+            context.authenticated() &&
+            context.actor.type == ActorType::Agent &&
+            current.has_value() && !current->revoked &&
+            !current->incompatible &&
+            current->actorId == context.actor.actorId &&
+            current->agentId == value.agentId &&
+            current->backendGeneration > value.backendGeneration &&
+            original.has_value() &&
+            original->backendId == value.backendId &&
+            original->agentId == value.agentId &&
+            original->agentInstanceId == value.agentInstanceId &&
+            original->backendGeneration == value.backendGeneration &&
+            original->requestFingerprint == value.requestFingerprint &&
+            original->commandType == "addon.media.import" &&
+            value.dispatchState == "not_started" &&
+            value.resultCategory == "rejected" &&
+            value.verificationState == "outcome_unknown" &&
+            value.errorCategory == "fenced" &&
+            value.retryClassification == "none" &&
+            value.resultEvidence.empty() &&
+            value.completedAt >= original->assignedAt &&
+            value.completedAt <= now &&
+            original->deadline < now;
+        if (!historicalModifyResult && !historicalUndispatchedMediaImport)
         {
             result.reasonCode =
                 reason.empty() ? "command_generation_fenced" : reason;

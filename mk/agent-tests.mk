@@ -149,7 +149,7 @@ test-backend-agent-foundation: test-backend-agent-foundation-architecture
 		core/vdr/src/BackendRegistryService.cpp \
 		$(AGENT_CONTROL_PLANE_SRC) \
 		core/agent/tests/test_backend_agent_lifecycle.cpp \
-		$(LDFLAGS) \
+		$(LDFLAGS) -lcrypto \
 		-o $(BUILD_DIR)/test_backend_agent_lifecycle
 	$(BUILD_DIR)/test_backend_agent_lifecycle
 
@@ -183,7 +183,7 @@ test-phase63-command-delivery-runtime:
 		$(AGENT_COMMAND_JSON_SRC) \
 		$(AGENT_COMMAND_CLIENT_SRC) \
 		core/agent/tests/test_backend_agent_command_client.cpp \
-		-o $(BUILD_DIR)/test_backend_agent_command_client
+		-lcrypto -o $(BUILD_DIR)/test_backend_agent_command_client
 	$(BUILD_DIR)/test_backend_agent_command_client
 	$(BUILD_CXX) $(CXXFLAGS) -pthread \
 		$(SQLITE_SRC) \

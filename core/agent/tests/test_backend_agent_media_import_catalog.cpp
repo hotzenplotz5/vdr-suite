@@ -121,6 +121,13 @@ int main()
     report.targetFolder = "Serien/Andor/Film";
     report.videoCodec = "h264";
     report.sourceBytes = 1000;
+    report.nfoOutline = "Eine kurze NFO";
+    report.nfoPlot = "Handlung & Details";
+    report.nfoYear = "2024";
+    report.nfoGenre = "Drama";
+    report.durationSeconds = 3120;
+    report.posterDataUri = "data:image/jpeg;base64,/9j/2Q==";
+    report.fanartDataUri = "data:image/png;base64,iVBORw0KGgo=";
     report.availableBytes = 8000000000ULL;
     report.requiredBytes = 5000000000ULL;
     assert(!catalog.acceptPreview(live, "backend", 100,
@@ -131,12 +138,26 @@ int main()
         BackendAgentMediaImportCatalog::Preview{
           "source_00000000002", "ready", "Film", "Film", "h264",
           1000, 8000000000ULL, 5000000000ULL, false}));
+    auto invalidArtwork = report;
+    invalidArtwork.posterDataUri = "data:text/html;base64,PHNjcmlwdD4=";
+    assert(!catalog.acceptPreview(live, "backend", 100, invalidArtwork));
+    invalidArtwork = report;
+    invalidArtwork.fanartDataUri = "data:image/png;base64,%%%";
+    assert(!catalog.acceptPreview(live, "backend", 100, invalidArtwork));
     assert(catalog.acceptPreview(live, "backend", 100, report));
     assert(catalog.nextPreviewRequest(live, "backend", 100).empty());
     assert(catalog.requestPreview(live, "backend", 100, selected, observed) ==
         BackendAgentMediaImportCatalog::PreviewState::ready);
     assert(observed.targetFolder == "Serien/Andor/Film" &&
            observed.videoCodec == "h264" && observed.sourceBytes == 1000);
+    assert(observed.posterDataUri == "data:image/jpeg;base64,/9j/2Q==" &&
+           observed.fanartDataUri == "data:image/png;base64,iVBORw0KGgo=");
+    assert(observed.nfoPlot == "Handlung & Details" &&
+           observed.nfoYear == "2024" && observed.nfoGenre == "Drama" &&
+           observed.durationSeconds == 3120);
+    auto invalidYear = report;
+    invalidYear.nfoYear = "20xx";
+    assert(!catalog.acceptPreview(live, "backend", 100, invalidYear));
     assert(catalog.requestPreview(
         live, "backend", 100, "source_no_such_123456", observed) ==
         BackendAgentMediaImportCatalog::PreviewState::denied);
@@ -161,6 +182,30 @@ int main()
         BackendAgentMediaImportCatalog::PreviewState::ready);
     assert(observed.status == "insufficient" && observed.videoCodec == "vp9" &&
            observed.videoReencodeRequired);
+    // A confirmed VDR recording can be classified without probing the
+    // original codec. Core/Agent still validates the marker before execution.
+    assert(catalog.requestPreview(live, "backend", 139, newer, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::pending);
+    const BackendAgentMediaImportCatalog::Preview duplicate{
+        newer, "duplicate", "Film", "Serien/Andor/Film", "",
+        1000, 0, 0, false};
+    assert(catalog.acceptPreview(live, "backend", 139, duplicate));
+    assert(catalog.requestPreview(live, "backend", 139, newer, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::ready);
+    assert(observed.status == "duplicate" && observed.videoCodec.empty());
+    const auto diagnosticSource = exact100[2];
+    assert(catalog.requestPreview(live, "backend", 140, diagnosticSource, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::pending);
+    auto unavailable = report;
+    unavailable.sourceId = diagnosticSource;
+    unavailable.status = "unavailable";
+    unavailable.videoCodec.clear();
+    unavailable.failureCode = "ffprobe_failed";
+    assert(catalog.acceptPreview(live, "backend", 140, unavailable));
+    assert(catalog.requestPreview(live, "backend", 140, diagnosticSource, observed) ==
+        BackendAgentMediaImportCatalog::PreviewState::ready);
+    assert(observed.status == "unavailable" &&
+           observed.failureCode == "ffprobe_failed");
     std::string origin, version, sha256;
     assert(catalog.observedInstallation(
         live, "backend", 100, origin, version, sha256));
@@ -198,6 +243,13 @@ int main()
         {}, 120, "other", "0.1.0", approvedSha));
     assert(!catalog.list(live, "backend", 191, items));
     assert(items.empty());
+    // An expired observation still supplies the browser's last known
+    // directory, while new previews/imports remain lease-bound.
+    assert(catalog.listLastObserved("backend", items, labels));
+    assert(items.size() == 100);
+    assert(catalog.requestPreview(live, "backend", 191,
+        exact100.front(), observed) == BackendAgentMediaImportCatalog::PreviewState::denied);
+    assert(!catalog.listLastObserved("unknown-backend", items, labels));
     assert(!catalog.publish(actor, live, "backend", "instance", 7,
         {"source_00000000001", "source_00000000001"}, 120));
     assert(!catalog.publish(actor, live, "backend", "instance", 7,

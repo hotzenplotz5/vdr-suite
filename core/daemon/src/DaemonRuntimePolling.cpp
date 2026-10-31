@@ -21,7 +21,22 @@
 
 void DaemonRuntime::pollVdrAndUpdateChangeFeed()
 {
+    // Keep the existing single-owner polling path. Report which phase held
+    // the HTTP listener beyond the Agent's 2s fast-poll timeout; do not
+    // dispatch a parallel VDR write or a second reconciliation operation.
+    auto stageStarted = std::chrono::steady_clock::now();
+    const auto reportSlowStage = [&stageStarted](const char* stage) {
+        const auto now = std::chrono::steady_clock::now();
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - stageStarted);
+        if (elapsed >= std::chrono::seconds(2))
+            std::cerr << "VDR_POLL_STALL phase=" << stage
+                      << " duration_ms=" << elapsed.count() << std::endl;
+        stageStarted = now;
+    };
+
     backendPollingCoordinator_->pollAll();
+    reportSlowStage("backend_poll");
 
     // Refresh unchanged, verified managed bindings well before the existing
     // five-minute public API mutation gate expires. Never use cached
@@ -112,6 +127,8 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             }
         }
     }
+
+    reportSlowStage("native_binding_refresh");
 
     using NativeCreateEvidence =
         vdrsuite::timers::NativeTimerCreateReadbackEvidence;
@@ -229,6 +246,8 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             nativeTimerSnapshotRefreshPending_ = true;
     }
 
+    reportSlowStage("native_timer_create");
+
     // Phase-64 native DELETE is an ADR-0042 Agent operation. The writer
     // remains dormant until an actual capability is advertised and selected.
     // Accepted/uncertain mutations are processed only through durable
@@ -294,6 +313,8 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
         if (summary.completed != 0)
             nativeTimerSnapshotRefreshPending_ = true;
     }
+
+    reportSlowStage("native_timer_delete");
 
     // UPDATE and TOGGLE share a provider-fenced Agent but have distinct
     // operation families. A full, current native field readback is required;
@@ -406,6 +427,8 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             nativeTimerSnapshotRefreshPending_ = true;
     }
 
+    reportSlowStage("native_timer_modify");
+
     // RESTfulAPI's change-state counter can remain unchanged for a
     // SuiteBridge-originated native mutation. Once its durable operation
     // succeeded, refresh the legacy snapshot explicitly; otherwise Public v1
@@ -483,6 +506,8 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
         }
         nativeTimerSnapshotRefreshPending_ = !refreshedAll;
     }
+
+    reportSlowStage("timer_snapshot_refresh");
 
     for (const auto& backendRuntimeContext : backendRuntimeContexts_) {
         const int previousLatestSequenceNumber =
@@ -570,4 +595,5 @@ void DaemonRuntime::pollVdrAndUpdateChangeFeed()
             }
         }
     }
+    reportSlowStage("change_feed");
 }

@@ -35,7 +35,6 @@
 namespace vdrsuite::mediatools {
 namespace {
 
-constexpr auto kGiB = std::uint64_t{1024} * 1024 * 1024;
 constexpr auto kMiB = std::uint64_t{1024} * 1024;
 constexpr auto kMaxProcessOutput = std::size_t{4096};
 
@@ -156,6 +155,34 @@ struct FdGuard {
     FdGuard& operator=(const FdGuard&) = delete;
 };
 
+// VDR reads <videoRoot>/.update with *whole-second* timestamps. Its
+// cRecordings::NeedsUpdate() compares lastUpdate < st_mtime, while a scanner
+// sets lastUpdate = time(NULL). Touching .update immediately after an external
+// publish can therefore be invisible when VDR scanned in that same second.
+// Advance into the next real second before notifying, without using a future
+// timestamp. No second queue, external svdrpsend tool, or service is needed.
+// A notification failure cannot undo the committed recording; Core still
+// requires independent recording readback before reporting success.
+void notifyVdrRecordingsChanged(const fs::path& videoRoot)
+{
+    const std::time_t publishedSecond = std::time(nullptr);
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::seconds(3);
+    while (std::time(nullptr) <= publishedSecond &&
+           std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    if (std::time(nullptr) <= publishedSecond)
+        std::fprintf(stderr, "Media Import: clock did not advance to next VDR refresh second\n");
+
+    const fs::path marker = videoRoot / ".update";
+    FdGuard fd(::open(marker.c_str(),
+                      O_WRONLY | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0644));
+    if (fd.fd < 0 || ::futimens(fd.fd, nullptr) != 0)
+        std::fprintf(stderr, "Media Import: VDR recording refresh notification failed: %s\n",
+                     std::strerror(errno));
+}
+
 // Copy the exact opened source into private backend-local staging. Both media
 // subprocesses operate exclusively on this snapshot, never on a pathname
 // that an external importer can swap between probe and remux.
@@ -173,7 +200,9 @@ void stageVerifiedSource(const ImportPlan& plan, const Signature& expected,
                           O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
                           0600));
     require(output.fd >= 0, "cannot create private source snapshot");
-    std::array<char, 65536> buffer{};
+    // Fewer read/write syscalls for gigabyte-sized source snapshots; the
+    // existing per-byte copy count, source identity and fsync checks stay.
+    std::vector<char> buffer(1024U * 1024U);
     std::uintmax_t copied = 0;
     while (true) {
         const ssize_t amount = ::read(input.fd, buffer.data(), buffer.size());
@@ -274,12 +303,8 @@ std::string xmlText(const std::string& xml, const std::string& name) {
     return result.substr(firstCharacter, lastCharacter - firstCharacter + 1);
 }
 
-struct ImportMetadata {
-    std::string title, shortText, description, year, genre;
-};
-
-ImportMetadata adjacentMetadata(const fs::path& sourceFile) {
-    ImportMetadata metadata;
+ImportLocalMetadata adjacentMetadata(const fs::path& sourceFile) {
+    ImportLocalMetadata metadata;
     fs::path file = sourceFile;
     file.replace_extension(".nfo");
     const auto nfo = readOptionalSidecar(file, 65536);
@@ -438,7 +463,8 @@ struct CreatedTitleDirectories {
 };
 
 ImportPlan inspectImportChecked(const ImportRequest& request,
-                                bool rejectDuplicates) {
+                                bool rejectDuplicates,
+                                bool allowMarkedDuplicate = false) {
     const auto sourceRoot = checkedRoot(request.sourceRoot);
     const auto videoRoot = checkedRoot(request.videoRoot);
     require(!isChildOrEqual(sourceRoot, videoRoot) &&
@@ -461,8 +487,9 @@ ImportPlan inspectImportChecked(const ImportRequest& request,
                stem.compare(stem.size() - marker.size(), marker.size(), marker) == 0;
     };
     require(!marked(".pc_encode") && !marked(".skipped") &&
-            !marked(".duplicate"),
-            "source has a Rectools deferred/declined/duplicate marker");
+            (!marked(".duplicate") || allowMarkedDuplicate) &&
+            (!allowMarkedDuplicate || marked(".duplicate")),
+            "source marker is not valid for this operation");
     rejectSymlinkComponents(request.sourceFile);
     const auto resolved = fs::canonical(request.sourceFile);
     require(isChild(sourceRoot, resolved), "source resolves outside import root");
@@ -475,9 +502,20 @@ ImportPlan inspectImportChecked(const ImportRequest& request,
             extension == ".mov" || extension == ".avi" || extension == ".webm" ||
             extension == ".m4v",
             "unsupported source extension");
-    const auto metadata = adjacentMetadata(resolved);
+    // The original NFO remains adjacent to the original unmarked stem,
+    // even after Rectools renames the video to *.duplicate.<ext>.
+    fs::path originalName = resolved;
+    if (allowMarkedDuplicate) {
+        std::string stemBeforeMarker = resolved.stem().string();
+        stemBeforeMarker.resize(stemBeforeMarker.size() -
+                                std::string(".duplicate").size());
+        require(!stemBeforeMarker.empty(), "empty duplicate source title");
+        originalName = resolved.parent_path() /
+            (stemBeforeMarker + resolved.extension().string());
+    }
+    const auto metadata = adjacentMetadata(originalName);
     const auto title = safeTitle(metadata.title.empty() ?
-        resolved.stem().string() : metadata.title);
+        originalName.stem().string() : metadata.title);
     const auto folder = titleDestination(sourceRoot, videoRoot, resolved, title);
     const bool duplicate = containsRecording(folder);
     require(!rejectDuplicates || !duplicate,
@@ -489,11 +527,509 @@ ImportPlan inspectImportChecked(const ImportRequest& request,
             sourceIdentity.seconds,
             sourceIdentity.nanoseconds, duplicate};
 }
+ImportLocalMetadata readImportLocalMetadata(const ImportPlan& plan) {
+    const auto fresh = inspectImportPreview(
+        {plan.sourceRoot, plan.videoRoot, plan.sourceFile});
+    require(fresh.sourceDevice == plan.sourceDevice &&
+            fresh.sourceInode == plan.sourceInode &&
+            fresh.sourceBytes == plan.sourceBytes &&
+            fresh.sourceMtimeSeconds == plan.sourceMtimeSeconds &&
+            fresh.sourceMtimeNanoseconds == plan.sourceMtimeNanoseconds &&
+            fresh.titleDirectory == plan.titleDirectory,
+            "source changed before NFO preview");
+    const auto metadata = adjacentMetadata(plan.sourceFile);
+    require(safeTitle(metadata.title.empty() ?
+        plan.sourceFile.stem().string() : metadata.title) == plan.title,
+        "NFO title changed during preview");
+    return metadata;
+}
+
+// VDR info is line-oriented. Provider descriptions may contain line breaks;
+// treat them as text rather than accidentally creating another native info
+// record (such as a second T/S/D line). Keep Unicode UTF-8 bytes unchanged.
+// Read the same immutable snapshot that the browser found BEFORE import.
+// The Core journal already persists it. This decoder does not use TMDb,
+// guess an episode, or modify the filesystem.
+
+// Normalize one VDR info value: arbitrary provider text may include
+// physical line breaks or control bytes, never treat those as record headers.
+static std::string vdrInfoSingleLine(const std::string& input)
+{
+    std::string output;
+    output.reserve(input.size());
+    bool pendingSpace = false;
+    for (unsigned char ch : input) {
+        if (ch == '\n' || ch == '\r' || ch == '\t' || ch == ' ') {
+            pendingSpace = !output.empty();
+            continue;
+        }
+        if (ch < 32 || ch == 127) continue;
+        if (pendingSpace) output.push_back(' ');
+        pendingSpace = false;
+        output.push_back(static_cast<char>(ch));
+    }
+    return output;
+}
+
+std::string renderNativeVdrRecordingInfo(
+    const ImportPlan& plan, const ImportLocalMetadata& local,
+    const ImportConfirmedMetadata* confirmed)
+{
+    const bool episode = confirmed && confirmed->mediaType == "episode";
+    const bool movie = confirmed && confirmed->mediaType == "movie";
+    const bool selected = episode || movie;
+    const std::string title = vdrInfoSingleLine(
+        episode && !confirmed->seriesTitle.empty()
+            ? confirmed->seriesTitle
+            : selected && !confirmed->title.empty()
+                ? confirmed->title : plan.title);
+    const std::string subtitle = vdrInfoSingleLine(
+        episode && !confirmed->title.empty()
+            ? confirmed->title
+            : local.shortText.empty()
+                ? "Imported via VDR-Suite Media Tools" : local.shortText);
+    std::string description = vdrInfoSingleLine(
+        selected && !confirmed->overview.empty()
+            ? confirmed->overview : local.description);
+    if (!local.year.empty()) {
+        if (!description.empty()) description += " | ";
+        description += "Year: " + vdrInfoSingleLine(local.year);
+    }
+    if (!local.genre.empty()) {
+        if (!description.empty()) description += " | ";
+        description += "Genre: " + vdrInfoSingleLine(local.genre);
+    }
+    std::string info = "T " + title + "\nS " + subtitle + "\n";
+    if (!description.empty()) info += "D " + description + "\n";
+    return info;
+}
+
+// Pure MT.META6.3 transform of an EXISTING native VDR info file. Retain every
+// non-T/S/D record byte-for-byte, especially C, E, F, P and X extension data.
+// For a missing TMDb field, retain the existing native value rather than
+// clearing it. Multiple old D lines are replaced together only if an explicit
+// new description exists. This does not write files or modify TS/index.
+std::string mergeConfirmedMetadataIntoNativeVdrInfo(
+    const std::string& originalInfo, const ImportConfirmedMetadata& confirmed)
+{
+    const bool episode = confirmed.mediaType == "episode";
+    const bool movie = confirmed.mediaType == "movie";
+    if (!episode && !movie) return originalInfo;
+    const std::string title = vdrInfoSingleLine(
+        episode ? confirmed.seriesTitle : confirmed.title);
+    const std::string subtitle = episode
+        ? vdrInfoSingleLine(confirmed.title) : std::string{};
+    const std::string description = vdrInfoSingleLine(confirmed.overview);
+    if (title.empty() && subtitle.empty() && description.empty())
+        return originalInfo;
+
+    std::string output;
+    output.reserve(originalInfo.size() + title.size() +
+                   subtitle.size() + description.size() + 24);
+    bool wroteTitle = false;
+    bool wroteSubtitle = false;
+    bool wroteDescription = false;
+    const bool crlf = originalInfo.find("\r\n") != std::string::npos;
+    const std::string ending = crlf ? "\r\n" : "\n";
+    std::size_t start = 0;
+    while (start < originalInfo.size()) {
+        const auto end = originalInfo.find('\n', start);
+        const bool terminated = end != std::string::npos;
+        const auto finish = terminated ? end + 1 : originalInfo.size();
+        const auto count = (terminated ? end : finish) - start;
+        const std::string line = originalInfo.substr(start, count);
+        const char kind = line.size() >= 2 && line[1] == ' '
+            ? line[0] : '\0';
+        const std::string* value =
+            kind == 'T' ? &title : kind == 'S' ? &subtitle
+            : kind == 'D' ? &description : nullptr;
+        bool* written = kind == 'T' ? &wroteTitle
+            : kind == 'S' ? &wroteSubtitle
+            : kind == 'D' ? &wroteDescription : nullptr;
+        if (value != nullptr && !value->empty()) {
+            if (!*written) {
+                output.push_back(kind);
+                output += " " + *value;
+                if (terminated)
+                    output += !line.empty() && line.back() == '\r'
+                        ? "\r\n" : "\n";
+                *written = true;
+            }
+            // Skip any remaining old lines of the same replaced field.
+        } else {
+            output.append(originalInfo, start, finish - start);
+        }
+        start = finish;
+    }
+    const auto appendMissing = [&](char kind, const std::string& value,
+                                   bool written) {
+        if (value.empty() || written) return;
+        if (!output.empty() && output.back() != '\n')
+            output += ending;
+        output.push_back(kind);
+        output += " " + value + ending;
+    };
+    appendMissing('T', title, wroteTitle);
+    appendMissing('S', subtitle, wroteSubtitle);
+    appendMissing('D', description, wroteDescription);
+    return output;
+}
+
+// Preserve the already established Media Import provenance when a legacy
+// recording had no source-identity sidecar. The original T is read from the
+// EXISTING info only if the importer-owned S marker is present.
+static std::string legacyImportOrigin(const std::string& originalInfo)
+{
+    std::istringstream lines(originalInfo);
+    std::string title;
+    bool imported = false;
+    for (std::string line; std::getline(lines, line);) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.compare(0, 2, "T ") == 0 && title.empty())
+            title = line.substr(2);
+        if (line == "S Imported via VDR-Suite Media Tools")
+            imported = true;
+    }
+    if (!imported || title.empty() || title.size() > 120U ||
+        title.find('\r') != std::string::npos ||
+        title.find('\n') != std::string::npos)
+        return {};
+    return "vdr-suite-import-origin/legacy-title " + title + "\n";
+}
+
+// Existing-recording correction is private to an already authorized native
+// recording owner. No HTTP path input, metadata lookup, FFmpeg or video writes.
+bool updateConfirmedNativeVdrInfo(
+    const fs::path& backendVideoRoot,
+    const fs::path& nativeRecordingPath,
+    const ImportConfirmedMetadata& confirmed)
+{
+    require(confirmed.mediaType == "episode" || confirmed.mediaType == "movie",
+            "confirmed metadata type required");
+    require(backendVideoRoot.is_absolute() && nativeRecordingPath.is_absolute() &&
+            backendVideoRoot.lexically_normal() == backendVideoRoot &&
+            nativeRecordingPath.lexically_normal() == nativeRecordingPath,
+            "native recording identity must be absolute and normalized");
+    const auto root = fs::canonical(backendVideoRoot);
+    const auto rec = fs::canonical(nativeRecordingPath);
+    require(isChild(root, rec) && rec.extension() == ".rec" &&
+            fs::is_directory(fs::symlink_status(nativeRecordingPath)),
+            "recording does not belong to selected VDR root");
+    require(nonemptyRegular(rec / "00001.ts") &&
+            nonemptyRegular(rec / "index"),
+            "VDR recording not complete");
+    FdGuard dir(::open(rec.c_str(), O_RDONLY | O_DIRECTORY |
+                      O_NOFOLLOW | O_CLOEXEC));
+    require(dir.fd >= 0, "cannot open native recording");
+    FdGuard originalFd(::openat(dir.fd, "info",
+                                O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+    require(originalFd.fd >= 0, "cannot open native info");
+    struct stat st{};
+    constexpr off_t MaxInfo = 1024 * 1024;
+    require(::fstat(originalFd.fd, &st) == 0 && S_ISREG(st.st_mode) &&
+            st.st_size > 0 && st.st_size <= MaxInfo,
+            "invalid native info");
+    std::string previous;
+    previous.reserve(static_cast<std::size_t>(st.st_size));
+    std::array<char,8192> buffer{};
+    for (;;) {
+        const ssize_t got = ::read(originalFd.fd, buffer.data(), buffer.size());
+        if (got < 0 && errno == EINTR) continue;
+        require(got >= 0, "native info read failed");
+        if (got == 0) break;
+        previous.append(buffer.data(), static_cast<std::size_t>(got));
+        require(previous.size() <= static_cast<std::size_t>(MaxInfo),
+                "native info grew during read");
+    }
+    struct stat readStat{};
+    require(previous.size() == static_cast<std::size_t>(st.st_size) &&
+            ::fstat(originalFd.fd, &readStat) == 0 &&
+            same({st.st_dev,st.st_ino,st.st_size,st.st_mtim.tv_sec,st.st_mtim.tv_nsec},
+                 {readStat.st_dev,readStat.st_ino,readStat.st_size,
+                  readStat.st_mtim.tv_sec,readStat.st_mtim.tv_nsec}),
+            "native info changed during read");
+    const std::string updated =
+        mergeConfirmedMetadataIntoNativeVdrInfo(previous, confirmed);
+    if (updated == previous) return false;
+    require(updated.size() <= static_cast<std::size_t>(MaxInfo),
+            "native info correction exceeds maximum size");
+    const std::string historicOrigin = legacyImportOrigin(previous);
+    const std::string temp = ".vdr-suite-info-" + std::to_string(::getpid()) +
+        "-" + std::to_string(std::chrono::steady_clock::now()
+                               .time_since_epoch().count());
+    FdGuard staged(::openat(dir.fd, temp.c_str(),
+                            O_WRONLY | O_CREAT | O_EXCL |
+                            O_NOFOLLOW | O_CLOEXEC, 0600));
+    require(staged.fd >= 0, "cannot create temporary native info");
+    struct TempCleanup {
+        int parent; std::string file;
+        ~TempCleanup() { if (!file.empty()) ::unlinkat(parent,file.c_str(),0); }
+    } cleanup{dir.fd,temp};
+    std::size_t offset = 0;
+    while (offset < updated.size()) {
+        const ssize_t n = ::write(staged.fd, updated.data()+offset,
+                                  updated.size()-offset);
+        if (n < 0 && errno == EINTR) continue;
+        require(n > 0, "native info write failed");
+        offset += static_cast<std::size_t>(n);
+    }
+    require(::fchmod(staged.fd,st.st_mode & 07777) == 0,
+            "cannot preserve info mode");
+    struct stat tempStat{};
+    require(::fstat(staged.fd,&tempStat) == 0,
+            "cannot inspect staged info");
+    if (tempStat.st_uid != st.st_uid || tempStat.st_gid != st.st_gid)
+        require(::fchown(staged.fd,st.st_uid,st.st_gid) == 0,
+                "cannot preserve info owner");
+    require(::fsync(staged.fd) == 0, "cannot sync staged info");
+    struct stat beforeReplace{};
+    require(::fstatat(dir.fd,"info",&beforeReplace,AT_SYMLINK_NOFOLLOW) == 0 &&
+            S_ISREG(beforeReplace.st_mode) &&
+            same({st.st_dev,st.st_ino,st.st_size,st.st_mtim.tv_sec,st.st_mtim.tv_nsec},
+                 {beforeReplace.st_dev,beforeReplace.st_ino,beforeReplace.st_size,
+                  beforeReplace.st_mtim.tv_sec,beforeReplace.st_mtim.tv_nsec}),
+            "native info changed before replacement");
+
+    // Old imports stored their source-derived title only in T and the Suite
+    // marker in S. Both will be replaced with real episode metadata. Reuse
+    // the EXISTING .vdr-suite-import-origin sidecar contract instead of
+    // letting the next duplicate scan forget a verified imported source.
+    // New imports already carry the stronger source-signature v1 origin.
+    if (!historicOrigin.empty()) {
+        struct stat originStat{};
+        if (::fstatat(dir.fd, ".vdr-suite-import-origin",
+                      &originStat, AT_SYMLINK_NOFOLLOW) != 0) {
+            require(errno == ENOENT, "cannot inspect existing import origin");
+            FdGuard origin(::openat(dir.fd, ".vdr-suite-import-origin",
+                                    O_WRONLY | O_CREAT | O_EXCL |
+                                    O_NOFOLLOW | O_CLOEXEC, 0644));
+            require(origin.fd >= 0, "cannot preserve legacy import origin");
+            std::size_t position = 0;
+            while (position < historicOrigin.size()) {
+                const ssize_t size =
+                    ::write(origin.fd, historicOrigin.data() + position,
+                            historicOrigin.size() - position);
+                if (size < 0 && errno == EINTR) continue;
+                require(size > 0, "cannot save legacy import origin");
+                position += static_cast<std::size_t>(size);
+            }
+            require(::fsync(origin.fd) == 0,
+                    "cannot sync legacy import origin");
+        }
+    }
+    require(::renameat(dir.fd,temp.c_str(),dir.fd,"info") == 0,
+            "native info atomic replacement failed");
+    cleanup.file.clear();
+    require(::fsync(dir.fd) == 0, "cannot sync native info directory");
+    FdGuard check(::openat(dir.fd,"info",O_RDONLY|O_NOFOLLOW|O_CLOEXEC));
+    require(check.fd >= 0, "cannot read back native info");
+    std::string readback;
+    for (;;) {
+        const ssize_t got = ::read(check.fd,buffer.data(),buffer.size());
+        if (got < 0 && errno == EINTR) continue;
+        require(got >= 0, "native info readback failed");
+        if (got == 0) break;
+        readback.append(buffer.data(),static_cast<std::size_t>(got));
+        require(readback.size() <= updated.size(), "native info readback grew");
+    }
+    require(readback == updated, "native info readback mismatch");
+    notifyVdrRecordingsChanged(root);
+    return true;
+}
+
+ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan) {
+    const auto fresh = inspectImportPreview(
+        {plan.sourceRoot, plan.videoRoot, plan.sourceFile});
+    require(fresh.sourceDevice == plan.sourceDevice &&
+            fresh.sourceInode == plan.sourceInode &&
+            fresh.sourceBytes == plan.sourceBytes &&
+            fresh.sourceMtimeSeconds == plan.sourceMtimeSeconds &&
+            fresh.sourceMtimeNanoseconds == plan.sourceMtimeNanoseconds &&
+            fresh.titleDirectory == plan.titleDirectory,
+            "source changed before artwork preview");
+    constexpr std::size_t MaxImageBytes = 256U * 1024U;
+    const auto encode = [](const std::string& bytes) {
+        static constexpr char alphabet[] =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        std::string result;
+        result.reserve(((bytes.size() + 2U) / 3U) * 4U);
+        for (std::size_t i = 0; i < bytes.size(); i += 3U) {
+            const unsigned a = static_cast<unsigned char>(bytes[i]);
+            const unsigned b = i + 1U < bytes.size()
+                ? static_cast<unsigned char>(bytes[i+1U]) : 0U;
+            const unsigned c = i + 2U < bytes.size()
+                ? static_cast<unsigned char>(bytes[i+2U]) : 0U;
+            result += alphabet[a >> 2U];
+            result += alphabet[((a & 3U) << 4U) | (b >> 4U)];
+            result += i + 1U < bytes.size()
+                ? alphabet[((b & 15U) << 2U) | (c >> 6U)] : '=';
+            result += i + 2U < bytes.size() ? alphabet[c & 63U] : '=';
+        }
+        return result;
+    };
+    const auto unambiguousFolder = [&]() {
+        // Generic poster/fanart is meaningful only for a single unmarked
+        // movie, never a series folder containing several episodes.
+        try {
+            unsigned candidates = 0;
+            unsigned visited = 0;
+            for (const auto& item :
+                 std::filesystem::directory_iterator(plan.sourceFile.parent_path())) {
+                if (++visited > 4096U) return false;
+                if (!std::filesystem::is_regular_file(item.symlink_status()))
+                    continue;
+                const auto ext = item.path().extension().string();
+                if (ext != ".mkv" && ext != ".mp4" && ext != ".ts" &&
+                    ext != ".mov" && ext != ".avi" && ext != ".webm" &&
+                    ext != ".m4v") continue;
+                const auto name = item.path().stem().string();
+                if (name.size() >= 10U &&
+                    (name.compare(name.size()-10U, 10U, ".pc_encode") == 0))
+                    continue;
+                if (name.size() >= 8U &&
+                    (name.compare(name.size()-8U, 8U, ".skipped") == 0))
+                    continue;
+                if (name.size() >= 10U &&
+                    (name.compare(name.size()-10U, 10U, ".duplicate") == 0))
+                    continue;
+                if (++candidates > 1U) return false;
+            }
+            return candidates == 1U;
+        } catch (...) { return false; }
+    };
+    const bool allowGeneric = unambiguousFolder();
+    const auto load = [&](const std::string& kind) {
+        std::vector<std::filesystem::path> candidates;
+        const auto parent = plan.sourceFile.parent_path();
+        const auto stem = plan.sourceFile.stem().string();
+        for (const auto& suffix : {".jpg", ".jpeg", ".png", ".webp"}) {
+            candidates.push_back(parent / (stem + "." + kind + suffix));
+            candidates.push_back(parent / (stem + "-" + kind + suffix));
+        }
+        if (allowGeneric)
+            for (const auto& suffix : {".jpg", ".jpeg", ".png", ".webp"})
+                candidates.push_back(parent / (kind + suffix));
+        for (const auto& file : candidates) {
+            try {
+                const auto value = readOptionalSidecar(file, MaxImageBytes);
+                if (!value || value->empty()) continue;
+                const auto& bytes = *value;
+                const auto starts = [&](std::initializer_list<unsigned char> magic) {
+                    if (bytes.size() < magic.size()) return false;
+                    std::size_t i = 0;
+                    for (unsigned ch : magic)
+                        if (static_cast<unsigned char>(bytes[i++]) != ch) return false;
+                    return true;
+                };
+                const std::string ext = file.extension().string();
+                const std::string mime = (ext == ".jpg" || ext == ".jpeg")
+                    ? "image/jpeg" : ext == ".png" ? "image/png" : "image/webp";
+                const bool matched = mime == "image/jpeg"
+                    ? starts({0xff, 0xd8, 0xff})
+                    : mime == "image/png"
+                    ? starts({0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a})
+                    : bytes.size() >= 12U && bytes.compare(0,4,"RIFF") == 0 &&
+                        bytes.compare(8,4,"WEBP") == 0;
+                if (matched) return "data:" + mime + ";base64," + encode(bytes);
+            } catch (...) {
+                // Missing/unsafe/oversized artwork is an empty thumbnail.
+            }
+        }
+        return std::string{};
+    };
+    return {load("poster"), load("fanart")};
+}
+
+double probeImportDurationSeconds(const ImportPlan& plan, ProcessRunner& runner) {
+    const auto fresh = inspectImportPreview(
+        {plan.sourceRoot, plan.videoRoot, plan.sourceFile});
+    require(fresh.sourceDevice == plan.sourceDevice &&
+            fresh.sourceInode == plan.sourceInode &&
+            fresh.sourceBytes == plan.sourceBytes &&
+            fresh.sourceMtimeSeconds == plan.sourceMtimeSeconds &&
+            fresh.sourceMtimeNanoseconds == plan.sourceMtimeNanoseconds,
+            "source changed before duration preview");
+    return probeDuration(runner, plan.sourceFile);
+}
+
 ImportPlan inspectImport(const ImportRequest& request) {
     return inspectImportChecked(request, true);
 }
 ImportPlan inspectImportPreview(const ImportRequest& request) {
     return inspectImportChecked(request, false);
+}
+ImportPlan inspectMarkedDuplicatePreview(const ImportRequest& request) {
+    return inspectImportChecked(request, false, true);
+}
+
+// A metadata-corrected VDR info deliberately no longer contains the raw
+// source filename nor the legacy S provenance. Persist a small, private
+// source identity beside the staged recording, before atomic promotion.
+// This is NOT a database, an admission gate or another service.
+static std::string nativeImportOrigin(const ImportPlan& plan)
+{
+    return "vdr-suite-import-origin/1 " +
+        std::to_string(plan.sourceDevice) + ":" +
+        std::to_string(plan.sourceInode) + ":" +
+        std::to_string(plan.sourceBytes) + ":" +
+        std::to_string(plan.sourceMtimeSeconds) + ":" +
+        std::to_string(plan.sourceMtimeNanoseconds) + "\n";
+}
+
+bool confirmedMediaImportDuplicate(const ImportPlan& plan)
+{
+    if (!plan.duplicateTarget) return false;
+    try {
+        // The existing duplicateTarget is intentionally conservative: even an
+        // incomplete .rec protects the import destination from overwrite.
+        // Automatic Rectools .duplicate marking requires stronger evidence.
+        const auto titleStatus = fs::symlink_status(plan.titleDirectory);
+        if (!fs::is_directory(titleStatus)) return false;
+        for (const auto& entry : fs::directory_iterator(plan.titleDirectory)) {
+            if (entry.path().extension() != ".rec") continue;
+            const auto status = entry.symlink_status();
+            if (!fs::is_directory(status)) continue;
+            const auto recording = entry.path();
+            if (!nonemptyRegular(recording / "info") ||
+                !nonemptyRegular(recording / "index") ||
+                !nonemptyRegular(recording / "00001.ts"))
+                continue;
+            // The exact source identity survives a TMDb rewrite of native
+            // T/S/D. The original T/S checks remain for legacy recordings.
+            const auto originPath = recording / ".vdr-suite-import-origin";
+            if (fs::is_regular_file(fs::symlink_status(originPath)) &&
+                fs::file_size(originPath) <= 160U) {
+                std::ifstream origin(originPath, std::ios::binary);
+                const std::string content(
+                    (std::istreambuf_iterator<char>(origin)),
+                    std::istreambuf_iterator<char>());
+                if (content == nativeImportOrigin(plan) ||
+                    content == "vdr-suite-import-origin/legacy-title " +
+                        plan.title + "\n")
+                    return true;
+            }
+            std::ifstream metadata(recording / "info", std::ios::binary);
+            std::string line;
+            bool matchingTitle = false;
+            bool suiteImportProvenance = false;
+            // This is the exact, source-derived VDR target directory, not a
+            // fuzzy title search. An operator may subsequently correct T in
+            // the native info file (for example to a TMDb episode title).
+            // Keep accepting the original exact T; after a correction only
+            // accept the importer-owned S marker, never an unrelated title.
+            while (std::getline(metadata, line)) {
+                if (!line.empty() && line.back() == '\r') line.pop_back();
+                if (line.compare(0, 2, "T ") == 0)
+                    matchingTitle = line.substr(2) == plan.title;
+                if (line == "S Imported via VDR-Suite Media Tools")
+                    suiteImportProvenance = true;
+            }
+            if (matchingTitle || suiteImportProvenance) return true;
+        }
+    } catch (...) {
+        return false;
+    }
+    return false;
 }
 
 bool importVideoNeedsReencode(const std::string& codec) {
@@ -540,37 +1076,36 @@ ImportPreview inspectImportPreview(const ImportRequest& request,
 }
 
 ImportCapacityPreview inspectImportCapacity(const ImportPlan& plan) {
+    // Free space and temporary working size are informational only. A full
+    // filesystem is handled by real write errors and staging cleanup, not by
+    // an arbitrary percentage/minimum-free-space admission requirement.
     struct statvfs st{};
-    require(::statvfs(plan.videoRoot.c_str(), &st) == 0,
-            "destination capacity is unavailable");
-    const auto block = static_cast<std::uint64_t>(st.f_frsize);
-    require(block != 0 && st.f_blocks <= UINT64_MAX / block &&
-            st.f_bavail <= UINT64_MAX / block, "capacity overflow");
-    const auto total = st.f_blocks * block;
-    const auto available = st.f_bavail * block;
-    const auto reserve = std::max(4 * kGiB, total / 100 * 15);
-    // Exact production budget: snapshot + bounded output + reserve.
+    const bool haveStats = ::statvfs(plan.videoRoot.c_str(), &st) == 0;
+    std::uint64_t available = 0;
+    if (haveStats) {
+        const auto block = static_cast<std::uint64_t>(st.f_frsize);
+        if (block != 0 && st.f_bavail <= UINT64_MAX / block)
+            available = st.f_bavail * block;
+    }
     require(plan.sourceBytes <=
             (static_cast<std::uint64_t>(INT64_MAX) - 64 * kMiB) / 3,
             "source too large for bounded preflight");
     const auto budget = static_cast<std::uint64_t>(plan.sourceBytes) * 3 + 64 * kMiB;
-    const bool writable = (st.f_flag & ST_RDONLY) == 0 &&
+    const bool writable = (!haveStats || (st.f_flag & ST_RDONLY) == 0) &&
         ::access(plan.videoRoot.c_str(), W_OK | X_OK) == 0;
-    return {available, budget, reserve, writable,
-        writable && available >= reserve && available - reserve >= budget};
+    return {available, budget, 0, writable, true};
 }
 
 void requireProductionCapacity(const ImportPlan& plan) {
     const auto capacity = inspectImportCapacity(plan);
     require(capacity.writable,
             "destination is not writable by the media worker");
-    require(capacity.sufficient,
-            "insufficient capacity for import staging and reserve");
 }
 
 fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
                             const std::function<void(const ImportPlan&)>& capacityPreflight,
-                            bool allowVideoReencode) {
+                            bool allowVideoReencode,
+                            const ImportConfirmedMetadata* confirmedMetadata) {
     // Re-inspect at execution time: no untrusted request may reuse a stale plan.
     const auto fresh = inspectImport({plan.sourceRoot, plan.videoRoot, plan.sourceFile});
     require(fresh.titleDirectory == plan.titleDirectory &&
@@ -652,21 +1187,17 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
         require(currentTitle == plan.title, "NFO title changed during import");
         std::ofstream info(stagedRecording / "info", std::ios::binary | std::ios::trunc);
         require(static_cast<bool>(info), "cannot create VDR metadata");
-        info << "T " << plan.title << "\n";
-        info << "S " << (metadata.shortText.empty() ?
-            "Imported via VDR-Suite Media Tools" : metadata.shortText) << "\n";
-        std::string description = metadata.description;
-        if (!metadata.year.empty()) {
-            if (!description.empty()) description += " | ";
-            description += "Year: " + metadata.year;
-        }
-        if (!metadata.genre.empty()) {
-            if (!description.empty()) description += " | ";
-            description += "Genre: " + metadata.genre;
-        }
-        if (!description.empty()) info << "D " << description << "\n";
+        info << renderNativeVdrRecordingInfo(plan, metadata, confirmedMetadata);
         info.flush();
         require(static_cast<bool>(info), "metadata write failed");
+    }
+    if (confirmedMetadata != nullptr) {
+        std::ofstream origin(stagedRecording / ".vdr-suite-import-origin",
+            std::ios::binary | std::ios::trunc);
+        require(static_cast<bool>(origin), "cannot write import origin");
+        origin << nativeImportOrigin(plan);
+        origin.flush();
+        require(static_cast<bool>(origin), "import origin write failed");
     }
     stageOptionalSubtitle(plan.sourceFile, stagedRecording);
 
@@ -757,6 +1288,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
                               destination.c_str(), RENAME_NOREPLACE);
     require(rc == 0, "atomic non-overwriting recording promotion failed");
     newDirectories.paths.clear(); // retain directories only after visible .rec exists
+    notifyVdrRecordingsChanged(plan.videoRoot);
     return destination;
 }
 

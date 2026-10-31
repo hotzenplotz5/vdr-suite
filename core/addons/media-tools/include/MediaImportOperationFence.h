@@ -56,6 +56,13 @@ public:
                                         std::int64_t now,
                                         std::string& reason) const;
 
+    // Read-only source directory access: actor grant and enabled backend
+    // only. Never depend on Agent lease, capability, handler activation or
+    // dispatch approval for showing a previously observed listing.
+    bool mayBrowseSources(const std::string& actorId,
+                          const std::string& backendId,
+                          std::string& reason) const;
+
     // Called only AFTER the existing Agent result repository durably stores
     // the result. Never equate handler exit with a verified VDR recording.
     bool applyResult(const BackendAgentCommandAssignment& assignment,

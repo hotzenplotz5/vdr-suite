@@ -1,5 +1,8 @@
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <cctype>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -76,6 +79,152 @@ ImportPreview inspectImportPreview(const ImportRequest& request,
 // Identical path/source validation, but returns duplicate status for a
 // read-only browser preview instead of rejecting it as a write attempt.
 ImportPlan inspectImportPreview(const ImportRequest& request);
+// Read-only reinspection of an explicitly selected .duplicate source.
+// Reconstruct the pre-marker title and require a matching complete VDR recording.
+ImportPlan inspectMarkedDuplicatePreview(const ImportRequest& request);
+
+// The existing bounded adjacent .nfo parser, reused for read-only display.
+struct ImportLocalMetadata {
+    std::string title, shortText, description, year, genre;
+};
+ImportLocalMetadata readImportLocalMetadata(const ImportPlan& plan);
+
+// MT.META6: typed, already-confirmed provider selection. Only a trusted
+// Core/Agent import binding may supply this value; normal imports continue
+// to use adjacent NFO without behavioral change. This is NOT an API payload
+// or an authorization to locate or mutate an arbitrary existing recording.
+struct ImportConfirmedMetadata {
+    std::string mediaType; // "episode" or "movie"
+    std::string title; // episode or movie title
+    std::string seriesTitle; // required presentation title for episodes
+    std::string overview;
+    // Optional identity from the same pre-import TMDb response (v2 only).
+    // v1 remains fully readable, with these fields left empty.
+    std::string externalNamespace;
+    std::string externalId;
+    std::string posterReference;
+    int seasonNumber = 0;
+    int episodeNumber = 0;
+};
+
+// Shared, header-only decoder: the daemon can read the SAME immutable
+// metadata bytes after a browser exits, without linking the media worker,
+// adding a database, or querying TMDb.
+inline bool parseFrozenImportMetadata(
+    const std::string& snapshot, ImportConfirmedMetadata& output)
+{
+    output = {};
+    if (snapshot.size() < 12U || snapshot.size() > 4096U) return false;
+    const bool version1 = snapshot.compare(0, 3, "v1|") == 0;
+    const bool version2 = snapshot.compare(0, 3, "v2|") == 0;
+    if (!version1 && !version2) return false;
+    std::array<std::string, 10> parts{};
+    const std::size_t count = version2 ? 10U : 7U;
+    std::size_t from = 0;
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto end = snapshot.find('|', from);
+        if ((i + 1 < count && end == std::string::npos) ||
+            (i + 1 == count && end != std::string::npos)) return false;
+        parts[i] = snapshot.substr(from,
+            (end == std::string::npos ? snapshot.size() : end) - from);
+        from = end == std::string::npos ? snapshot.size() : end + 1;
+    }
+    if ((parts[1] != "episode" && parts[1] != "movie")) return false;
+    const auto decode = [](const std::string& input, std::string& value) {
+        const auto nibble = [](unsigned char ch) -> int {
+            if (ch >= '0' && ch <= '9') return ch - '0';
+            if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
+            if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
+            return -1;
+        };
+        value.clear();
+        for (std::size_t i = 0; i < input.size(); ++i) {
+            unsigned char ch = static_cast<unsigned char>(input[i]);
+            if (ch == '%') {
+                if (i + 2 >= input.size()) return false;
+                const int high = nibble(static_cast<unsigned char>(input[++i]));
+                const int low = nibble(static_cast<unsigned char>(input[++i]));
+                if (high < 0 || low < 0) return false;
+                ch = static_cast<unsigned char>((high << 4) | low);
+            } else if (!(std::isalnum(ch) || ch == '_' || ch == '.' ||
+                         ch == '~' || ch == '!' || ch == '*' ||
+                         ch == 39 || ch == '(' || ch == ')' || ch == '-'))
+                return false;
+            if (ch == 0) return false;
+            value.push_back(static_cast<char>(ch));
+        }
+        return true;
+    };
+    const auto number = [](const std::string& input, int& result) {
+        if (input.empty() || input.size() > 5 ||
+            !std::all_of(input.begin(), input.end(), [](unsigned char ch) {
+                return ch >= '0' && ch <= '9';
+            })) return false;
+        try { result = std::stoi(input); }
+        catch (...) { return false; }
+        return result >= 0;
+    };
+    if (!decode(parts[2], output.seriesTitle) ||
+        !decode(parts[3], output.title) ||
+        !decode(parts[4], output.overview) ||
+        !number(parts[5], output.seasonNumber) ||
+        !number(parts[6], output.episodeNumber) ||
+        output.title.empty()) return false;
+    output.mediaType = parts[1];
+    if (version2) {
+        // The external TMDb identity is already part of the candidate that
+        // produced this snapshot. No provider request is made by the worker.
+        output.externalNamespace = parts[7];
+        output.externalId = parts[8];
+        if (!decode(parts[9], output.posterReference)) return false;
+        const bool numeric = !output.externalId.empty() &&
+            output.externalId.size() <= 16U &&
+            std::all_of(output.externalId.begin(), output.externalId.end(),
+                [](unsigned char ch) { return ch >= '0' && ch <= '9'; });
+        if (!numeric ||
+            output.externalNamespace !=
+                (output.mediaType == "episode" ? "tv-episode" : "movie") ||
+            (output.posterReference.size() > 255U) ||
+            (!output.posterReference.empty() &&
+             (output.posterReference.front() != '/' ||
+              output.posterReference.find("..") != std::string::npos)))
+            return false;
+    }
+    if (output.mediaType == "episode")
+        return !output.seriesTitle.empty() && output.episodeNumber > 0;
+    return output.seriesTitle.empty() && output.seasonNumber == 0 &&
+        output.episodeNumber == 0;
+}
+
+
+// Pure writer; no VDR filesystem access. The verified provider selection
+// takes priority for present fields; local NFO supplies missing fields.
+std::string renderNativeVdrRecordingInfo(
+    const ImportPlan& plan, const ImportLocalMetadata& local,
+    const ImportConfirmedMetadata* confirmed = nullptr);
+
+// MT.META6.3 pure transform for an already imported Recording. Preserve
+// all VDR fields other than T/S/D, their order and their values. No file IO
+// or mutation authority is provided by this helper.
+std::string mergeConfirmedMetadataIntoNativeVdrInfo(
+    const std::string& originalInfo, const ImportConfirmedMetadata& confirmed);
+
+// Backend-internal MT.META6.3 writer: the recording identity MUST originate
+// from the authenticated native VDR inventory, never browser input.
+// Returns false for identical info. Does not reimport or query TMDb.
+bool updateConfirmedNativeVdrInfo(
+    const fs::path& backendVideoRoot,
+    const fs::path& nativeRecordingPath,
+    const ImportConfirmedMetadata& confirmed);
+struct ImportLocalArtwork { std::string posterDataUri, fanartDataUri; };
+ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan);
+// Optional FFprobe duration, never import authority.
+double probeImportDurationSeconds(const ImportPlan& plan, ProcessRunner& runner);
+
+// Stronger read-only evidence than duplicateTarget: a structurally complete
+// VDR recording with matching info title, index and first TS segment. An
+// incomplete .rec still prevents overwriting, but must not be auto-marked.
+bool confirmedMediaImportDuplicate(const ImportPlan& plan);
 
 // Read-only source classification for an explicit local/desktop/skip decision.
 // This is informative only; execution probes the pinned source again.
@@ -89,7 +238,8 @@ bool importVideoNeedsReencode(const std::string& codec);
 // a separately authenticated Core decision is required before setting true.
 fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
                             const std::function<void(const ImportPlan&)>& capacityPreflight,
-                            bool allowVideoReencode = false);
+                            bool allowVideoReencode = false,
+                            const ImportConfirmedMetadata* confirmedMetadata = nullptr);
 
 // Read-only capacity calculation using the exact same budget as production
 // admission. A preview can report insufficient space without staging files.

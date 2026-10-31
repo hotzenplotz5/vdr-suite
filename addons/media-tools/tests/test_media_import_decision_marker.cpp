@@ -109,6 +109,19 @@ int main() {
     assert(markMediaImportSource(source(root, video, second),
            MediaImportMarkerDecision::skip) == MediaImportMarkerOutcome::marked);
 
+    // Rectools duplicate is a first-class marker: same naming and safe release.
+    const auto dupOriginal = root / "folder" / "Already Recorded.mkv";
+    const auto dupMarked = root / "folder" / "Already Recorded.duplicate.mkv";
+    write(dupOriginal);
+    assert(markMediaImportSource(source(root, video, dupOriginal),
+           MediaImportMarkerDecision::duplicate) == MediaImportMarkerOutcome::marked);
+    assert(!fs::exists(dupOriginal));
+    assert(contents(dupMarked) == "unchanged media bytes");
+    assert(markMediaImportSource(source(root, video, dupMarked),
+           MediaImportMarkerDecision::release) == MediaImportMarkerOutcome::marked);
+    assert(!fs::exists(dupMarked));
+    assert(contents(dupOriginal) == "unchanged media bytes");
+
     // No action on already marked or duplicated media.
     assert(markMediaImportSource(source(root, video, secondSkipped),
            MediaImportMarkerDecision::desktop) ==
@@ -154,5 +167,100 @@ int main() {
     assert(markMediaImportSource(forged, MediaImportMarkerDecision::skip) ==
            MediaImportMarkerOutcome::rejected);
     assert(fs::exists(target));
+
+    // An explicit .duplicate deletion affects only the exact marked source,
+    // not an unrelated VDR recording under the separate video root.
+    write(dupMarked, "verified marker payload");
+    const auto dupSource = source(root, video, dupMarked);
+    const auto dupProof = mediaImportSourceEvidence(
+        dupSource.sourceFile, dupSource.sourceDevice, dupSource.sourceInode,
+        dupSource.sourceBytes, dupSource.sourceMtimeSeconds,
+        dupSource.sourceMtimeNanoseconds);
+    const auto existingVdr = video / "Existing.rec";
+    write(existingVdr, "the already imported VDR data");
+    assert(cleanupMediaImportSource(dupSource, dupProof) ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(cleanupConfirmedDuplicateSource(dupSource, "bad proof") ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(fs::exists(dupMarked));
+    assert(cleanupConfirmedDuplicateSource(dupSource, dupProof) ==
+           MediaImportCleanupOutcome::removed);
+    assert(!fs::exists(dupMarked));
+    assert(contents(existingVdr) == "the already imported VDR data");
+    assert(cleanupConfirmedDuplicateSource(dupSource, dupProof) ==
+           MediaImportCleanupOutcome::alreadyAbsent);
+
+    // Source cleanup is explicitly bound to the actual imported snapshot.
+    const auto returned = root / "folder" / "Film.mp4";
+    const auto parked = root / "folder" / "Film.pc_encode.mkv";
+    write(returned, "new PC encode payload");
+    write(parked, "parked source bytes");
+    const auto imported = source(root, video, returned);
+    const auto proof = mediaImportSourceEvidence(
+        imported.sourceFile, imported.sourceDevice, imported.sourceInode,
+        imported.sourceBytes, imported.sourceMtimeSeconds,
+        imported.sourceMtimeNanoseconds);
+    assert(validMediaImportSourceEvidence(proof));
+    assert(cleanupMediaImportSource(imported, "bad-identity") ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(fs::exists(returned));
+    assert(cleanupMediaImportSource(imported, proof) ==
+           MediaImportCleanupOutcome::removed);
+    assert(!fs::exists(returned));
+    assert(contents(parked) == "parked source bytes");
+    assert(cleanupMediaImportSource(imported, proof) ==
+           MediaImportCleanupOutcome::alreadyAbsent);
+
+    // A replacement at the same pathname retains its bytes.
+    write(returned, "old bytes");
+    const auto beforeReplacement = source(root, video, returned);
+    const auto previousProof = mediaImportSourceEvidence(
+        beforeReplacement.sourceFile, beforeReplacement.sourceDevice,
+        beforeReplacement.sourceInode, beforeReplacement.sourceBytes,
+        beforeReplacement.sourceMtimeSeconds,
+        beforeReplacement.sourceMtimeNanoseconds);
+    fs::rename(returned, root / "folder" / "old-file.ts");
+    write(returned, "replacement different bytes");
+    assert(cleanupMediaImportSource(beforeReplacement, previousProof) ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(contents(returned) == "replacement different bytes");
+
+    // Even when the inode stays unchanged, in-place growth invalidates the
+    // import-time snapshot. This is not a deletion permit.
+    const auto modifiedInPlace = root / "folder" / "Growing.ts";
+    write(modifiedInPlace, "original");
+    const auto oldInPlace = source(root, video, modifiedInPlace);
+    const auto oldInPlaceProof = mediaImportSourceEvidence(
+        oldInPlace.sourceFile, oldInPlace.sourceDevice, oldInPlace.sourceInode,
+        oldInPlace.sourceBytes, oldInPlace.sourceMtimeSeconds,
+        oldInPlace.sourceMtimeNanoseconds);
+    write(modifiedInPlace, "original plus new media bytes");
+    assert(cleanupMediaImportSource(oldInPlace, oldInPlaceProof) ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(contents(modifiedInPlace) == "original plus new media bytes");
+
+    fs::create_directories(root / "other");
+    const auto other = root / "other" / "Film.mp4";
+    write(other, "other location");
+    assert(cleanupMediaImportSource(source(root, video, other), previousProof) ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(contents(other) == "other location");
+
+    const auto parkedIdentity = source(root, video, parked);
+    const auto parkedProof = mediaImportSourceEvidence(
+        parkedIdentity.sourceFile, parkedIdentity.sourceDevice,
+        parkedIdentity.sourceInode, parkedIdentity.sourceBytes,
+        parkedIdentity.sourceMtimeSeconds,
+        parkedIdentity.sourceMtimeNanoseconds);
+    assert(cleanupMediaImportSource(parkedIdentity, parkedProof) ==
+           MediaImportCleanupOutcome::notPerformed);
+    const auto linked = root / "folder" / "Film-linked.mp4";
+    fs::create_symlink(returned, linked);
+    auto linkedIdentity = imported;
+    linkedIdentity.sourceFile = linked;
+    assert(cleanupMediaImportSource(linkedIdentity, proof) ==
+           MediaImportCleanupOutcome::notPerformed);
+    assert(contents(returned) == "replacement different bytes");
+
     std::cout << "MEDIA_TOOLS_DECISION_MARKERS=PASS\n";
 }

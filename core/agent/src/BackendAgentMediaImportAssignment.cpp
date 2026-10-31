@@ -17,7 +17,12 @@ bool BackendAgentCommandRepository::ensureMediaImportAssignmentSchema()
         "CREATE UNIQUE INDEX IF NOT EXISTS "
         "idx_backend_agent_media_import_operation "
         "ON backend_agent_commands(backend_id,operation_id) "
-        "WHERE command_type='addon.media.import';");
+        "WHERE command_type='addon.media.import';") &&
+        database_.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS "
+        "idx_backend_agent_media_import_readback "
+        "ON backend_agent_commands(backend_id,operation_id) "
+        "WHERE command_type='addon.media.import.readback';");
 }
 
 namespace vdrsuite::agent {
@@ -45,7 +50,7 @@ bool exactExisting(
         a.payload == payload &&
         a.payloadVersion ==
             vdrsuite::mediatools::mediaImportSelectionVersion(
-                choice) &&
+                choice, a.payload) &&
         a.verificationPolicy == "reconciliation_required" &&
         backendAgentCommandValidAssignment(a);
 }
@@ -92,7 +97,7 @@ BackendAgentMediaImportAssignmentService::assign(
         !vdrsuite::mediatools::parseMediaImportSelection(
             payload.payload.payload, selected, choice) ||
         payload.payload.payloadVersion !=
-            vdrsuite::mediatools::mediaImportSelectionVersion(choice) ||
+            vdrsuite::mediatools::mediaImportSelectionVersion(choice, payload.payload.payload) ||
         selected != op.resourceId)
         return deny("media_import_operation_payload_invalid");
 

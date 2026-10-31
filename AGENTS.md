@@ -9,6 +9,183 @@ Diese Regel gilt für jede `AGENTS.md`-Datei im Repository. Ohne die ausdrückli
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
 
+## Verbindlich: Schnellen inkrementellen C++-Daemon-Build erhalten (30.10.2026)
+
+**Ausdrückliche Maintainer-Anordnung:** Den funktionierenden inkrementellen C++-Build
+für lokale Entwicklung, gezielte Tests und Daemon-Updates beibehalten. Nicht
+leichtfertig durch einen vollständigen Neuaufbau bei jedem Commit ersetzen.
+Referenz: Commit `d80c077ae13eee04e404ccb63e5ab299f3c051bf`;
+auf yaVDR wurde der Daemon nach zuvor ungefähr 18 Minuten mit dem
+wiederverwendeten Objekt-Cache in 47 Sekunden gebaut. Das ist ein gemessener
+Referenzwert, **kein** garantierter Grenzwert oder neues CI-Zeitlimit.
+
+- `tools/build_cpp_cached.py` und `mk/object-cache.mk` sind die vorhandene
+  Build-Cache-Integration. Unveränderte C/C++-Objekte bleiben über lokale
+  Quellcode-Commits hinweg verwendbar; geänderte Quellen und betroffene Header
+  müssen weiterhin korrekt neu kompiliert werden.
+- Eine neue `VDR_SUITE_SERVER_VERSION` darf **nicht** sämtliche sonst
+  unveränderten Objekte invalidieren. Versionsabhängige Übersetzungseinheiten
+  müssen weiterhin die korrekte aktuelle Versionskennung erhalten; die
+  Versionsidentität des fertigen Daemons darf nicht veralten.
+- Bestehende parallele Kompilierung erhalten (derzeit standardmäßig zwei Jobs,
+  über `VDR_SUITE_CXX_JOBS` einstellbar). Den Objekt-Cache nicht durch
+  wechselnde Build-Verzeichnisse pro Commit, unnötige frische Checkouts,
+  pauschales `make clean` oder automatische Cache-Löschung umgehen. Bei
+  notwendiger getrennter Binär-Ausgabe nach Möglichkeit denselben kompatiblen
+  `OBJECT_CACHE_DIR` weiterverwenden.
+- Änderungen am C++-Build-System dürfen diese Eigenschaft nicht unbemerkt
+  regressieren. Der vorhandene Test
+  `python3 tools/test_build_cpp_cached.py` (integriert über
+  `check-cpp-object-cache` / `test-build-artifact-paths`) prüft
+  Objekt-Wiederverwendung, Versionstrennung und Header-Invalidierung.
+  **Keinen zusätzlichen CI-Warte- oder Installations-Gate erfinden.**
+- Ein absichtlicher vollständiger lokaler Neuaufbau bleibt zulässig, wenn
+  tatsächliche inkompatible Compiler-/Build-Optionen, geänderte breite
+  Abhängigkeiten, ein defekter Cache oder eine ausdrückliche Maintainer-Anweisung
+  ihn begründen. Die Optimierung nicht ohne Zustimmung des Maintainers
+  pauschal zurückbauen.
+
+**Ausnahme – Debian-/Ubuntu-Paketbau und Release-Artefakte:** Debian/Ubuntu-
+Pakete müssen aus definierten Quellen und Abhängigkeiten **sauber,
+reproduzierbar und isoliert** baubar bleiben. Ein Paketbuild darf deshalb
+explizit ohne lokalen Entwicklungs-Cache aus einem frischen Build-Verzeichnis
+starten; er darf keine möglicherweise veralteten oder fremden Objektdateien
+aus dem Entwickler-Cache übernehmen. Das gilt auch für andere Release-/CI-
+Workflows, soweit deren Clean-Build-Vertrag dies verlangt. **Die Cache-Regel
+für lokale Daemon-Entwicklung darf Clean-Paketbuilds weder verbieten noch
+beeinflussen.**
+
+## Striktes Branch-Verbot und ein Media-Tools-Entwicklungsbranch (28.10.2026)
+
+**Ausdrückliche Maintainer-Anordnung: AB SOFORT KEINE NEUEN GIT-BRANCHES ANLEGEN.**
+Assistenten dürfen für diese Entwicklung weder zusätzliche Feature-, Fix-, Test-,
+Hotfix- noch Ausweichbranches erstellen. Dieses Verbot gilt auch bei Fehlern,
+Konflikten und CI-Problemen; solche Probleme sind im vorhandenen Branch zu lösen.
+
+**Einziger Entwicklungsbranch für das Media-Tools-/Media-Import-Add-on:**
+`fix/media-tools-root-scan-visible-results` (PR #556).
+Sämtliche Media-Tools-Änderungen an Produktcode, Weboberfläche, Backend/Agent,
+Tests, Installationswerkzeugen und Dokumentation erfolgen in diesem Branch.
+Vor jeder Änderung den aktuellen Remote-HEAD und vorhandene Implementierungen
+prüfen, damit keine bereits umgesetzte Arbeit nochmals oder parallel entsteht.
+Andere bereits existierende Media-Tools-Branches dürfen zur Bestandsaufnahme
+gelesen werden; notwendige noch fehlende Änderungen sind nach Prüfung im
+einzigen Entwicklungsbranch zusammenzuführen, ohne einen neuen Branch
+anzulegen. Keine zusätzlichen Media-Tools-PRs eröffnen.
+
+**Abschluss:** Wenn die vereinbarten Funktionen vollständig implementiert,
+getestet und auf dem echten yaVDR abgenommen sind, den gesamten
+Media-Tools-Entwicklungsstand dieses einen Branches nach `main` mergen.
+Nicht vorzeitig als fertig oder bereits gemergt melden. Bestehende
+fremde Entwicklungsbranches nicht eigenmächtig löschen oder umschreiben.
+
+## Verbindlicher lokaler Branch-Check vor Build, Test und Installation (28.10.2026)
+
+**Ausnahme für reine Zwei-Dateien-Frontend-Updates:** Hierfür gilt die ausdrückliche KISS-Regel „Keine präventiven Sperrprüfungen bei einfachen Dateiupdates“ weiter unten; ein anderer lokaler Branch oder Detached HEAD ist bei einem verifizierten festen Quellcommit kein Stop-Grund.
+
+
+**Ausdrückliche Maintainer-Anordnung:** Vor jedem lokalen Build, Testlauf,
+Staging, Merge oder Installationslauf zuerst den **tatsächlich ausgecheckten
+lokalen Branch** im verwendeten Checkout prüfen. Ein richtiger GitHub-PR-Branch
+oder Remote-HEAD allein ist kein Nachweis für den lokalen Checkout.
+
+- Checkout-Pfad und Git-Top-Level prüfen; `git branch --show-current` sowie
+  `git rev-parse HEAD` aus dem **gleichen Checkout** auswerten, in dem
+  anschließend gebaut/getestet/installiert werden soll. Bei Media Tools
+  ist der erwartete Entwicklungsbranch
+  `fix/media-tools-root-scan-visible-results` (PR #556).
+- Bei Abweichung **vor jeder weiteren Aktion abbrechen**, explizit
+  `FALSCHER_BRANCH: erwartet=<branch> aktuell=<branch>` ausgeben,
+  nicht bloß mit `set -e` und `test` still aussteigen. Detached HEAD
+  ebenfalls sichtbar melden. Auch ein korrekter Branchname reicht ohne
+  passenden, verifizierten lokalen Commit nicht zur Build-Freigabe.
+- Niemals eigenmächtig `git switch`, `git checkout`, `git reset`,
+  `git clean`, `git stash` oder einen neuen Branch anlegen, um diesen
+  Fehler zu übergehen. Bestehende fremde Branches und unversionierte
+  Dateien erhalten. Bei Bedarf können **explizite, branchunabhängige
+  Einzeldatei-Updates aus einem verifizierten Commit** separat
+  durchgeführt werden; sie sind kein lokaler Build und müssen
+  Installationsziel und Backup klar benennen.
+- Fehler in einem von uns gelieferten Shellblock müssen mit konkretem
+  Hinweis ausgegeben werden. Vorher kontrollieren, dass Git-Kommandos
+  ohne fehlende Shellfunktion, ohne vorzeitig abbrechenden `test`
+  und ohne unerwarteten Branchwechsel funktionieren.
+
+## GitHub SSH identity verification before console commands (28.10.2026)
+
+**Explicit maintainer order after a repeated live failure:** Never issue GitHub
+SSH commands under a guessed Unix user or switch users blindly. The existing
+yaVDR checkout is `/home/yavdr/vdr-suite`; the operator currently uses an
+interactive `root` shell. `root` and `yavdr` have distinct SSH identities.
+The actual incident was `runuser -u yavdr -- git push origin --delete ...`
+failing with `git@github.com: Permission denied (publickey)`. No branch was
+deleted. **Do not repeat that command or assume either account has working
+GitHub credentials.**
+
+For each proposed console GitHub operation:
+
+1. Respect the user's current shell and checkout; do not tell them to enter
+   `cd vdr-suite` from inside `/home/yavdr/vdr-suite`, switch shell users,
+   run an interactive `exit`, move keys, or change SSH configuration or file
+   ownership speculatively.
+2. Before suggesting any SSH-based remote mutation (`git push`, push-delete,
+   tag push), verify connectivity **under the same effective Unix identity**
+   and with the same remote as the subsequent write. For the existing root
+   console, a bounded read-only check is:
+   `GIT_SSH_COMMAND='ssh -o BatchMode=yes' git -c safe.directory=/home/yavdr/vdr-suite -C /home/yavdr/vdr-suite ls-remote --heads origin`.
+   Proceed with a root-shell Git mutation only if that check succeeds.
+   `-c safe.directory=...` is process-local, not global Git configuration.
+3. If SSH authentication fails, **do not retry the same SSH transport**,
+   claim anything was deleted, or switch to `runuser -u yavdr` without a
+   separately verified credential. Identify an actually available alternative
+   (for example a verified `gh` authentication or another authorized GitHub
+   API workflow); never assume `gh` is installed or logged in, and never
+   ask users to disclose tokens or private keys.
+4. For branch deletion, inspect remote branch names, preserve `main` and
+   the one authorized Media Tools development branch, and ensure any unique
+   work has been incorporated or explicitly preserved. Verify deletion with
+   a fresh remote listing; describe failed or unattempted deletion accurately.
+   A read-only `ls-remote` success proves remote reachability, not push
+   permission. Do not run deletions until the user authorized them.
+5. Shell examples must be safe when pasted into the current **interactive**
+   root shell: no unguarded `exit` and no `return` as an error handler at
+   the top level. Prefer `git -C /home/yavdr/vdr-suite` or guarded
+   `if cd ...; then ...; fi` for repository commands.
+
+## Usability First – No Unapproved Restrictions
+
+Neue Sicherheits-, Berechtigungs-, Aktivierungs- oder Installationsbeschränkungen dürfen nicht eigenständig eingeführt werden. Bestehende Schutzmechanismen dürfen nicht ohne begründeten Bedarf verschärft werden. Änderungen müssen die Benutzerfreundlichkeit erhalten oder verbessern. Zusätzliche Prüfungen, die keine konkret nachweisbare Fehlerklasse verhindern, sind zu vermeiden. Bereits bestätigte Testergebnisse dürfen nicht ohne Anlass erneut angefordert werden.
+
+### Verbindlich: Keine präventiven Sperrprüfungen bei einfachen Dateiupdates (29.10.2026)
+
+**Ausdrückliche Maintainer-Anordnung: Absicherung nur, wenn ohne sie eine konkrete Gefahr schwerer System- oder Datenbeschädigung besteht. Keine vorsorglichen Abbruchprüfungen bei trivialen Updates.** KISS und Usability First haben Vorrang vor spekulativen Prüfketten.
+
+- **Zwei Frontend-Dateien ersetzen ist kein System-Deployment.** Für ein gezieltes Update bereits bekannter Dateien wie `app.js` und `modules/media-import.js` aus einem festgelegten Commit direkt die beiden Dateien aktualisieren. Keine vollständige Runtime-Stage erzeugen, versiegeln, abgleichen oder deployen; keine Komplettinstallation als Umweg.
+- **Kein Branch-/Detached-HEAD-Gate für Einzeldatei-Updates.** Der lokale Checkout darf einen anderen Branch oder Detached HEAD haben. Bei einem ausdrücklich festgelegten Remote-Commit sind solche Zustände irrelevant und dürfen das Dateiupdate nicht verhindern. Branchprüfungen für tatsächlich geplante Builds oder Repository-Änderungen bleiben davon getrennt.
+- **Kein Stage-Drift-Gate für Einzeldatei-Updates.** Ein Manifest-/Stage-Abgleich, der lediglich ältere Versionen dieser zwei Frontend-Dateien meldet, ist kein Schaden und kein Grund für einen Abbruch. Die alte Stage bei diesem Vorgang nicht als autoritative Live-Basis behandeln.
+- **Keine künstlichen Vorbedingungen.** Keine neuen Capability-, Aktivierungs-, Agent-, Lease-, Datenbank-, CI-, Dienst- oder Installer-Prüfketten; keine ungefragten Backups, Builds oder Dienstneustarts für reine statische Dateiupdates. Ein erfolgreich abgeschlossener Funktionstest ist nicht bei jeder Installation erneut einzufordern.
+- **Schutzprüfungen nur bei konkretem Schadensrisiko.** Eine zusätzliche blockierende Prüfung benötigt eine belegbare, durch das Update verursachte Gefahr schwerer und nicht ohne Weiteres reversibler System- oder Datenbeschädigung. Die bloße Möglichkeit eines fehlgeschlagenen Updates, ein veraltetes Manifest, ein anderer Branch oder ein vorübergehend nicht erreichbarer Agent reichen dafür nicht. Technisch notwendige Dateioperationen dürfen natürlich ihr tatsächliches Ergebnis melden.
+- **Kleiner Änderungsumfang, kleine Lösung.** Bei einem Zwei-Dateien-Update nur die zwei bezeichneten Dateien ersetzen und den tatsächlichen Ausgang melden. Keine neuen Regeln, Skriptframeworks oder globalen Freigaben erfinden. Bestehende serverseitige Autorisierung für echte Import-, Lösch- und andere Datenmutationen bleibt unberührt.
+
+**Vorrang bei Widerspruch:** Diese speziell angeordnete Ausnahme für reine Einzeldatei-Updates geht den älteren lokalen Branch-, Stage- und Installations-Preflight-Regeln vor. Sie gilt nicht für C++-Builds, Eingriffe in Datenbanken, Aufnahmen, Dienste oder andere potentiell systemkritische Änderungen.
+
+### Verbindlich: Agent-Störungen dürfen die Bedienoberfläche nicht blockieren (29.10.2026)
+
+**Ausdrückliche Maintainer-Anordnung: Eine installierte und bereits verwendete Funktion bleibt unabhängig von vorübergehenden Agent-, Capability-, Lease- und Transportstörungen navigierbar und lesend bedienbar.** Das betrifft ausdrücklich Media Tools / Media Import, gilt aber als Usability-Grundsatz für alle Suite-Module.
+
+- **Navigation ist keine Capability-Freigabe.** Ein negatives, ausbleibendes, veraltetes oder temporär fehlerhaftes Capability-Ergebnis darf einen bekannten Tab nicht ausblenden, deaktivieren, zwangsweise wechseln oder die geöffnete Ansicht neu mounten. Den konkreten Status lokal und verständlich anzeigen, statt die gesamte Funktion zu sperren.
+- **Keine Dauerprüf- und Sperrschleifen.** Keine wiederkehrenden Fünf-Sekunden-Gates, automatischen Capability-Neuprüfungen beim bloßen Tabwechsel, versteckten Polling-Kaskaden oder wiederholten Freigabeanforderungen, die die UI unbenutzbar machen. Eine gezielte Statusaktualisierung darf nicht die Navigation oder unabhängige Aktionen blockieren.
+- **Ein fehlgeschlagener Read darf vorhandene Daten nicht vernichten.** HTTP 503, Agent-Ausfall, unvollständiger Scan oder verzögerte Antwort dürfen die zuletzt erfolgreich geladenen Ordner, Episoden, Metadaten, Filter oder eine gültige sichtbare Auswahl nicht einfach leeren. Neue Scanergebnisse erst nach vollständigem erfolgreichen Lesen/Validieren übernehmen. Vorhandene Daten nötigenfalls ausdrücklich als *zuletzt geladen / möglicherweise veraltet* kennzeichnen; niemals als frisch bestätigt ausgeben.
+- **Ausfall lokal begrenzen.** Ein Problem bei Quelle A oder Auftrag A darf Quelle B und unabhängige lesende Bedienhandlungen nicht global sperren. Ein bestätigter Abschluss muss zugehörige temporäre UI-Sperren zuverlässig lösen. Technische Fehlerursachen und konkrete Wiederherstellungswege anzeigen, keine generischen Aktivierungs- oder Berechtigungswarnungen ohne Befund.
+- **Bestehende Autorisierung nicht umgehen.** Explizite Abmeldung/entzogene Berechtigung beendet den geschützten Zugriff. Importieren, Umbenennen, Markieren, Löschen und andere Mutationen benötigen weiterhin die normale serverseitige Prüfung der konkreten Aktion sowie ihren tatsächlichen Ergebnis-/Readback-Nachweis. Alte oder zwischengespeicherte Ansichten sind niemals eine Mutationsfreigabe. Ungewisse Aufträge niemals automatisch erneut dispatchen.
+- **Regressionstests sind verpflichtend:** temporäres negatives Capability-Ergebnis, Agent-503 beim ersten und bei einem späteren Scan, Tabwechsel während des Fehlers, Erhalt der letzten erfolgreichen Liste, Entsperrung unabhängiger Aktionen und korrekte Abmeldung testen. Nicht nur Erfolgsmeldungen oder Mockup prüfen, sondern das tatsächliche Webfrontend-Verhalten.
+
+### Verbindlich: KISS-Updates nur auf Basis der tatsächlich installierten Stage (29.10.2026)
+
+**Nur für Stage-basierte Runtime-Deployments; nicht für gezielte Einzeldatei-Updates gemäß der vorstehenden Ausnahme.**
+
+Ein Installationsblock darf eine alte, inzwischen überholte Runtime-Stage **nicht** als aktuelle Ausgangsbasis verwenden. Vor jedem inkrementellen Update die **zuletzt erfolgreich installierte und mit `install_runtime_stage.py check` verifizierte Stage** aus der realen Host-Ausgabe wählen. Eine ältere Stage meldet bei korrekt veränderten Dateien `RUNTIME_DEPLOYMENT_DRIFT`; diese erwartete Abweichung ist **kein Defekt der Live-Installation**. Bei einem solchen Fehler abbrechen, die tatsächliche aktuelle Stage ermitteln und ausschließlich von ihr aus neu versiegeln/deployen; kein blindes Zurückrollen, kein Drüberbügeln ungeprüfter Dateien. Für reine Webfrontend-Änderungen weder C++ neu bauen noch VDR/Daemon/Agent neu starten. Keine ungefragten Datenbanksicherungen, neuen Dienste oder weiteren Aktivierungsgates einführen.
+
 ## No hallucinated facts, user mandates, or blockers
 
 **Hard rule:** Never invent or imply user instructions, approvals, prohibitions,
@@ -168,7 +345,7 @@ alone proves that a capability works against the operator's real VDR.
 - Maintain one cumulative API-v1 acceptance checklist (by actual route and
   capability) covering authentication/grants, valid and invalid requests,
   expected state mutation, persistence, backend command and readback,
-  externally observable result, and failure/rollback paths as applicable.
+  externally observable result, and failure paths as applicable.
   Close the implementation scope before requesting the operator's **final
   real-VDR API-v1 acceptance run**. Do not claim real-VDR acceptance from
   simulations, CI mocks, a helper's `--help`, or an HTTP 200 alone.
@@ -229,9 +406,9 @@ establish the required facts from the current authoritative source:**
 - Derive HTTP status codes, authentication and authorization behavior from
   the actual gate, router, service and tests. **Never guess a status code,**
   and never weaken a security check just to match an unsupported expectation.
-- Establish the required filesystem/storage preflight, intended output paths,
-  user privileges, possible side effects and whether the action touches the
-  installed service. Host-dependent facts require a read-only preflight.
+- Establish intended output paths, user privileges, possible side effects and
+  whether the action touches the installed service. Host-dependent facts require
+  a read-only compatibility check, without unapproved storage-reserve gates.
 - Check the expected head **before** handing off a long-running, detached or
   resource-intensive build. Never accidentally start an old checkout after
   fixing a newer branch.
@@ -239,7 +416,7 @@ establish the required facts from the current authoritative source:**
 **The test block itself must fail closed on wrong provenance.** It must
 verify the checkout root, actual SHA against the selected immutable test
 candidate (or an explicitly verified tracking policy), required commands
-and Make targets, and applicable resource preflight *before* work begins.
+and Make targets, and applicable non-storage compatibility checks *before* work begins.
 If the branch advanced, fetch and establish the corrected candidate first.
 Do not give a detached build script that silently tests stale code.
 Reuse accepted evidence for unaffected inputs; do not restart tests only
@@ -251,7 +428,7 @@ running. Detached jobs require a recorded exact SHA, log, process identity,
 terminal return codes, and a read-only status command distinguishing running,
 completed successfully, completed with error, and unexpectedly missing.
 Never report success before the result is known. Continue to honor existing
-resource safety, minimal-validation and shell-option rules.
+minimal-validation and shell-option rules.
 
 **If evidence is unavailable, stop the affected unsafe action, not the entire
 authorized workstream.** Retrieve authoritative information or perform a
@@ -295,10 +472,8 @@ belonging to another concurrent workstream. In particular, shared or parallel
 MU/client/runtime work must remain untouched unless its own workstream has
 finished and its state has been checked.
 
-On tmpfs-backed `/tmp` or other capacity-constrained temporary storage, check
-available space before creating a large worktree/build tree when recent evidence
-shows pressure. Prefer a bounded location with sufficient capacity rather than
-allowing a predictable `ENOSPC`/inode failure.
+Do not create large disposable build trees when verified existing artifacts can
+be reused. Report actual filesystem write failures without speculative cleanup.
 
 ## yaVDR root shell, public GitHub checkout and least-privileged daemon build (2026-10-14)
 
@@ -324,7 +499,7 @@ proven read-only. The distinct VIDAA repository is private; see its own
 1. Keep the operator in their existing **root shell**; never demand
    `sudo su`, `su - yavdr`, a change of login, or an interactive `exit`.
    A failed check must not terminate the calling shell.
-2. Preflight the actual checkout/build filesystem before creating a
+2. Identify the actual checkout/build location before creating a
    substantial new clone. Check exact branch and full 40-character pinned
    SHA against the authoritative GitHub ref (never gate install on CI),
    and inspect existing installed service/
@@ -345,8 +520,8 @@ proven read-only. The distinct VIDAA repository is private; see its own
    Because the checkout belongs to `yavdr`, perform repository Git
    inspection using `sudo -u yavdr -H git ...` instead of presuming
    root trusts a differently owned working tree.
-5. **Only after** a successful sealed build, repeated `check`, reviewed
-   `DB_BACKUP_DECISION`, and explicit deployment authorization, execute
+5. **Only after** a successful sealed build, repeated `check`, and
+   explicit deployment authorization, execute
    `python3 tools/install_daemon.py apply --sha ... --confirm-apply`
    **as root** from the same exact checkout. **Root's Git subprocesses
    may refuse a yavdr-owned checkout with `dubious ownership`.** Give
@@ -355,17 +530,14 @@ proven read-only. The distinct VIDAA repository is private; see its own
    GIT_CONFIG_KEY_0=safe.directory
    GIT_CONFIG_VALUE_0="$WORK/repo" python3 ...`; never modify global
    `git config --global safe.directory` or change ownership. The
-   installer alone owns the daemon binary replacement, scoped service
-   restart and rollback.
-6. Database `REVIEW_REQUIRED` is a **hard stop**, not a reason to
-   auto-select `--db-review no-backup`, invent a database path or
-   continue to VIDAA. Review the displayed `DB_REVIEW_PATH` changes.
-7. Do not run recursive `chown`/`chmod`, copy keys, alter global
+   installer alone owns the daemon binary replacement and scoped service
+   restart.
+6. Do not run recursive `chown`/`chmod`, copy keys, alter global
    permissions, run a whole build as root, modify VDR/recordings, or
    overwrite an existing checkout to resolve an authentication failure.
    Preserve the temporary checkout and print its absolute path for a
    rerun/review; no speculative deletion.
-8. For handed-off command blocks follow the repository's interactive-shell
+7. For handed-off command blocks follow the repository's interactive-shell
    safety rules below: **no `set -e/-u/-o pipefail`, no naked `exit`**.
    Treat each step's failure as a STOP and guard subsequent steps. Do not
    report installation success before checking the running service.
@@ -387,8 +559,7 @@ Authoritative operational examples and gates:
   and **actual database risk**. Source-to-source `git diff OLD NEW` works
   without ancestor relationships. Existing historical source information is
   needed for assessing schema changes, **not** to dictate upgrade direction.
-  Keep explicit DB backup/review for actual risks and rollback of the static
-  executable; preserve database, pairing, configuration and recordings.
+  Preserve database, pairing, configuration and recordings.
 - **KISS sequence: `check` → reuse sealed target if present, otherwise build
   exactly once as `yavdr` → separately approved `apply` as root.** No
   needless rebuild after interrupted installation. No root compilation.
@@ -397,10 +568,9 @@ Authoritative operational examples and gates:
   CI is a separate development/merge concern, not an execution step in the
   user's installation. Deliver an accurate existing-installer block promptly.
 - Preserve the regression tests
-  `test_divergent_daemon_history_is_not_an_install_blocker`,
-  `test_divergent_previous_commit_reuses_sealed_target_without_compiling`
-  and `test_divergent_schema_change_still_demands_db_review`. They protect
-  this invariant. **Do not replace them with stricter old-version checks.**
+  `test_divergent_daemon_history_is_not_an_install_blocker` and
+  `test_divergent_previous_commit_reuses_sealed_target_without_compiling`.
+  They protect this invariant. **Do not replace them with stricter old-version checks.**
 
 ## Mandatory established-feature parity and competitor comparison
 
@@ -465,7 +635,7 @@ block is proposed or executed:**
    available to the agent. Record the exact path and source SHA.
 3. Within the correct, clean checkout of that code-SHA, run the installer's
    read-only `check --sha FULL40`; inspect `INSTALLED_SOURCE_SHA`,
-   `TARGET_SOURCE_SHA`, `DB_BACKUP_DECISION`, `BUILD=REUSABLE` versus
+   `TARGET_SOURCE_SHA`, `BUILD=REUSABLE` versus
    `BUILD=NOT_SEALED`, the candidate path, and the running service
    identity. `check` validates an existing sealed candidate's SHA-256
    and embedded `git-<source-prefix>` marker. Do not infer valid reuse
@@ -482,8 +652,7 @@ block is proposed or executed:**
    recovery rather than recompiling. **Only if there is no valid binary
    or seal anywhere in the identified trusted candidate checkout(s)**
    and product-code changes actually require it, authorize **one**
-   unprivileged build, under the installer's existing resource and
-   provenance gates. An invalid/mismatched artifact is a STOP requiring
+   unprivileged build, under the installer's existing provenance gates. An invalid/mismatched artifact is a STOP requiring
    diagnosis; do not overwrite or rebuild over it speculatively.
 7. For an existing build in another checkout, first establish exact
    source provenance, seal integrity, build options and trust. Do not
@@ -498,7 +667,7 @@ block is proposed or executed:**
    compile, never automatically. Report **why** the old build was
    unsuitable before invoking the build tool. Build still runs only
    under `yavdr`, the operator's shell stays root, and `apply` is
-   separately authorized as root with DB/rollback safety intact.
+   separately authorized as root.
 
 **Confirmed installer behavior:** `tools/install_daemon.py check` prints
 `BUILD=REUSABLE` only after validating the seal and binary. Its `build`
@@ -535,51 +704,16 @@ current candidate.
 The detailed contract is
 `docs/development/install-runtime-deployment-reliability.md`.
 
-## Real yaVDR resource-safety gate
+## KISS: no arbitrary storage-reserve gates for Media Tools installation
 
-Every real yaVDR operation that can materially consume persistent or temporary
-storage must pass a capacity preflight immediately before the first write.
-This includes database backups, runtime staging, local builds, package staging,
-exports, media rewrites, generated caches, large logs and any other operation
-that can create or duplicate substantial data.
-
-The preflight is mandatory and must identify the actual destination filesystem,
-measure its currently available bytes, estimate a conservative worst-case number
-of additional bytes that can coexist during the operation, and reserve headroom
-that will still remain afterwards. If the operation size cannot be bounded
-conservatively, the operation is not allowed to start.
-
-For each affected filesystem, require projected free space after all concurrent
-artifacts to remain at least the larger of 4 GiB or 15 percent of that
-filesystem's total capacity. Existing temporary stages, previous backups and
-other retained artifacts on the same filesystem count against the available
-space; never calculate capacity as though they had already been removed.
-
-For a database backup, prefer a quiesced/offline consistent snapshot. Stop the
-owning service first when that is safe and already authorized, then determine
-the stable database size and require sufficient headroom before creating the
-backup. Do not start an unbounded online SQLite backup on a live mutable database
-merely because the source file currently appears small. A backup command that
-can outlive an SSH session must have an explicit bounded lifetime or cleanup
-strategy and must never be allowed to grow until the filesystem is exhausted.
-
-A handed-off test or acceptance block that can materially consume storage must
-print the measured capacity inputs and a clear `RESOURCE_PREFLIGHT=PASS` before
-the first storage-consuming mutation. A failed capacity check is a hard stop:
-do not build, back up, stage, deploy, export or attempt speculative cleanup to
-make the operation fit.
-
-After the operation, recheck the affected filesystems and print
-`RESOURCE_POSTCHECK=PASS` only when the required reserve still exists. Remove
-test-only stages and temporary artifacts once they are no longer needed.
-Rollback backups may be retained only deliberately; keep at most the explicitly
-required backup set, report their exact sizes, and never retain them when doing
-so would violate the same free-space reserve.
-
-If a service is stopped for a backup or other safety operation, install recovery
-handling before the stop so every normal failure path attempts to restore the
-service. Resource-safety checks supplement, rather than replace, the normal
-deployment, database-integrity and runtime acceptance gates.
+The maintainer explicitly rejected mandatory filesystem-capacity preflights and
+fixed free-space reserves (such as 4 GiB or 15%) for Media Tools staging,
+installation and updates on 2026-10-28. Do not reintroduce such restrictions
+in shell installers, stage composers, test blocks, or equivalent wrappers.
+Reuse the already-built binaries and sealed stages whenever available.
+Report real filesystem I/O failures plainly; do not perform speculative cleanup
+or delete existing user data. This instruction does not authorize changes to VDR
+recordings, permissions, configuration or access grants.
 
 ## Testblock repository entry
 
@@ -631,10 +765,8 @@ belonging to another concurrent workstream. In particular, shared or parallel
 MU/client/runtime work must remain untouched unless its own workstream has
 finished and its state has been checked.
 
-On tmpfs-backed `/tmp` or other capacity-constrained temporary storage, check
-available space before creating a large worktree/build tree when recent evidence
-shows pressure. Prefer a bounded location with sufficient capacity rather than
-allowing a predictable `ENOSPC`/inode failure.
+Do not create large disposable build trees when verified existing artifacts can
+be reused. Report actual filesystem write failures without speculative cleanup.
 
 ## Frontend lifecycle and composition gates
 

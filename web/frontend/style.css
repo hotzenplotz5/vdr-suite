@@ -4492,9 +4492,15 @@ body.channel-sorter-dragging * {
 }
 .media-import-panel {
   display: grid;
-  gap: 0.8rem;
-  max-width: 42rem;
-  padding: 1rem;
+  gap: 1rem;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  padding: clamp(.7rem, 1.4vw, 1.3rem);
+  border-radius: 1.1rem;
+  color: #e2e8f0;
+  background: linear-gradient(150deg, #0b1221 0%, #0e1729 48%, #070d1b 100%);
 }
 .media-import-panel label {
   display: grid;
@@ -4637,4 +4643,787 @@ body.channel-sorter-dragging * {
 .media-import-breadcrumb button[disabled] {
   font-weight: 700;
   opacity: 1;
+}
+
+/* MT.REC3: one full-width dashboard; no separate import engine or forms. */
+#detail:has(.module-tab.active[data-module="media-import"]) #detail-data {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+}
+#detail:has(.module-tab.active[data-module="media-import"]) {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+.media-import-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.media-import-title-block h3 {
+  margin: 0;
+  font-size: clamp(1.55rem, 2.5vw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: -.025em;
+  color: #f8fafc;
+}
+.media-import-title-block p {
+  max-width: 65rem;
+  margin-top: .3rem;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+.media-import-panel .media-import-reload,
+.media-import-panel .media-import-start,
+.media-import-panel .media-import-batch-confirm {
+  color: #eff6ff;
+  background: linear-gradient(135deg, #155eef, #2563eb);
+  border: 1px solid #3b82f6;
+  box-shadow: 0 4px 18px rgba(29, 78, 216, .18);
+}
+.media-import-panel .media-import-reload:disabled,
+.media-import-panel .media-import-start:disabled,
+.media-import-panel .media-import-batch-confirm:disabled {
+  opacity: .47;
+  box-shadow: none;
+}
+.media-import-toolbar {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(12rem, 17rem);
+  gap: .8rem;
+}
+.media-import-toolbar label {
+  color: #cbd5e1;
+  font-size: .83rem;
+  font-weight: 600;
+}
+.media-import-panel .media-import-toolbar input,
+.media-import-panel .media-import-toolbar select {
+  width: 100%;
+  color: #f1f5f9;
+  background: #131f33;
+  border: 1px solid #334155;
+  border-radius: .6rem;
+}
+.media-import-status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .7rem 1.3rem;
+  padding: .65rem .85rem;
+  border-radius: .7rem;
+  border: 1px solid rgba(100, 116, 139, .22);
+  background: rgba(15, 23, 42, .65);
+}
+.media-import-status-strip .media-import-scan-notice {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: .8rem;
+  flex: 1 1 20rem;
+}
+.media-import-status-strip .media-import-visible-count {
+  flex: 1 1 20rem;
+  color: #dbeafe;
+  font-size: .88rem;
+  font-weight: 600;
+}
+.media-import-workspace {
+  display: grid;
+  grid-template-columns: minmax(12rem, .92fr) minmax(20rem, 1.75fr) minmax(19rem, 1.25fr);
+  align-items: stretch;
+  gap: .9rem;
+  min-width: 0;
+}
+.media-import-pane {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  gap: .75rem;
+  min-width: 0;
+  min-height: 29rem;
+  padding: clamp(.8rem, 1vw, 1.1rem);
+  border: 1px solid rgba(100, 116, 139, .25);
+  border-radius: .85rem;
+  background: #101b2c;
+}
+.media-import-pane h4 {
+  margin: 0 0 .4rem;
+  color: #f1f5f9;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: .005em;
+}
+.media-import-library .media-import-breadcrumb,
+.media-import-library .media-import-folders {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: .45rem;
+}
+.media-import-library .media-import-breadcrumb button,
+.media-import-library .media-import-folder {
+  justify-self: stretch;
+  width: 100%;
+  text-align: left;
+  color: #cbd5e1;
+  background: #18263a;
+  border-color: #334155;
+  border-radius: .6rem;
+}
+.media-import-library .media-import-folder:hover,
+.media-import-library .media-import-breadcrumb button:hover:not(:disabled) {
+  background: #1d3658;
+  border-color: #60a5fa;
+}
+.media-import-panel .media-import-select-label {
+  display: none;
+}
+.media-import-panel .media-import-selection {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 12rem;
+  max-height: 64vh;
+  gap: .42rem;
+  overflow: auto;
+  border: 0;
+  padding: 0 .2rem 0 0;
+}
+.media-import-panel .media-import-select-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: .22rem .68rem;
+  align-items: center;
+  border: 1px solid rgba(100, 116, 139, .24);
+  border-radius: .65rem;
+  background: #162338;
+  padding: .65rem .7rem;
+}
+.media-import-panel .media-import-select-item:hover,
+.media-import-panel .media-import-select-item:focus-within {
+  border-color: #60a5fa;
+  background: #1b2e4b;
+}
+.media-import-panel .media-import-episode-open {
+  width: 100%;
+  min-height: 1.8rem;
+  padding: 0;
+  border: 0;
+  color: #e2e8f0;
+  text-align: left;
+  background: transparent;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.media-import-panel .media-import-episode-open:hover {
+  color: #93c5fd;
+}
+.media-import-panel .media-import-episode-check {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  accent-color: #3b82f6;
+}
+.media-import-panel .media-import-episode-meta {
+  grid-column: 2;
+  color: #94a3b8;
+  font-size: .76rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.media-import-panel .media-import-marked-item {
+  border-left: 3px solid #a78bfa;
+}
+.media-import-panel .media-import-marked-item .media-import-episode-open,
+.media-import-panel .media-import-marked-item .media-import-episode-meta {
+  grid-column: 1 / -1;
+}
+.media-import-panel .media-import-preview {
+  flex: 1 1 auto;
+  padding: 1rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  color: #cbd5e1;
+  background: #0c1728;
+  border-color: #304968;
+  line-height: 1.65;
+}
+.media-import-panel .media-import-preview-retry {
+  border: 1px solid #f59e0b;
+  color: #fde68a;
+}
+.media-import-panel .media-import-start,
+.media-import-panel .media-import-release {
+  align-self: stretch;
+  width: 100%;
+  min-height: 3rem;
+  font-weight: 800;
+}
+.media-import-panel .media-import-detail label {
+  font-size: .83rem;
+  color: #cbd5e1;
+}
+.media-import-panel .media-import-detail select {
+  color: #f1f5f9;
+  background: #15243b;
+}
+.media-import-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem .8rem;
+  padding: .8rem 1rem;
+  border: 1px solid #334155;
+  border-radius: .85rem;
+  background: #111e31;
+}
+.media-import-footer .media-import-selection-count {
+  flex: 1 1 17rem;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+.media-import-footer .media-import-batch-summary,
+.media-import-footer .media-import-batch-review,
+.media-import-footer .status,
+.media-import-footer .media-import-operation {
+  flex: 1 1 100%;
+  margin: .15rem 0 0;
+  overflow-wrap: anywhere;
+}
+.media-import-footer .media-import-batch-review {
+  display: grid;
+  gap: .35rem;
+}
+.media-import-panel button:focus-visible,
+.media-import-panel input:focus-visible,
+.media-import-panel select:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 3px;
+}
+.media-import-panel button[hidden],
+.media-import-panel label[hidden] {
+  display: none !important;
+}
+@media (max-width: 1100px) {
+  .media-import-workspace {
+    grid-template-columns: minmax(13rem, 1fr) minmax(0, 2fr);
+  }
+  .media-import-detail { grid-column: 1 / -1; min-height: 0; }
+  .media-import-library, .media-import-episodes { min-height: 23rem; }
+}
+@media (max-width: 700px) {
+  .media-import-toolbar, .media-import-workspace { grid-template-columns: minmax(0, 1fr); }
+  .media-import-pane { min-height: 0; }
+  .media-import-detail { grid-column: auto; }
+  .media-import-panel .media-import-selection { max-height: 30rem; }
+  .media-import-panel .media-import-toolbar label { width: 100%; }
+}
+
+/* Verified media facts are visible; long legacy diagnostics stay collapsed. */
+.media-import-preview-card {
+  display: grid;
+  gap: .85rem;
+  align-content: start;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #304968;
+  border-radius: .8rem;
+  background: #0c1728;
+}
+.media-import-preview-title {
+  margin: 0;
+  font-size: 1.17rem;
+  font-weight: 800;
+  color: #f8fafc;
+  overflow-wrap: anywhere;
+}
+.media-import-preview-state {
+  justify-self: start;
+  padding: .4rem .7rem;
+  border: 1px solid #64748b;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, .16);
+  color: #cbd5e1;
+  font-size: .78rem;
+  font-weight: 800;
+}
+/* A directly observed VDR recording stays visibly distinct from files
+   awaiting import. This is an Agent observation, not a browser guess. */
+.media-import-panel .media-import-select-item.is-recording-present {
+  border-left: 3px solid #34d399;
+}
+/* An unmarked, already imported source also exposes explicit cleanup. */
+.media-import-panel .media-import-delete-duplicate {
+  justify-self: start;
+  min-height: 2.6rem;
+  padding: .55rem .95rem;
+  border: 1px solid #ef4444;
+  border-radius: .6rem;
+  background: #7f1d1d;
+  color: #fff;
+  font-weight: 700;
+}
+.media-import-panel .media-import-delete-duplicate:disabled { opacity: .45; }
+/* Confirmed duplicates can be removed directly from the list; keep the
+   destructive action readable across desktop and narrow/mobile layouts. */
+.media-import-panel .media-import-select-item .media-import-delete-duplicate-inline {
+  grid-column: 1 / -1;
+  width: max-content;
+  max-width: 100%;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.media-import-panel .media-import-select-item .media-import-delete-blocked {
+  grid-column: 1 / -1;
+  margin: .15rem 0 0;
+  padding: .3rem .45rem;
+  font-size: .83rem;
+  line-height: 1.35;
+  color: #fecaca;
+  overflow-wrap: anywhere;
+}
+.media-import-panel .media-import-select-item .media-import-delete-blocked[hidden] {
+  display: none !important;
+}
+@media (max-width: 480px) {
+  .media-import-panel .media-import-delete-duplicate { width: 100%; }
+}
+/* Keep the real import action next to the verified readiness label. */
+.media-import-preview-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .6rem;
+}
+.media-import-preview-actions .media-import-start {
+  align-self: auto;
+  width: auto;
+  min-height: 2.35rem;
+  padding: .45rem 1rem;
+  font-size: .87rem;
+}
+.media-import-import-feedback {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .4rem .75rem;
+  padding: .8rem .95rem;
+  border: 1px solid #3b82f6;
+  border-radius: .7rem;
+  background: rgba(37, 99, 235, .13);
+}
+/* Always-visible operation progress independent of the selected film card. */
+.media-import-operation-progress {
+  flex: 1 1 100%;
+  min-width: 0;
+  padding: .4rem .65rem;
+  border: 1px solid rgba(96, 165, 250, .45);
+  border-radius: .55rem;
+  background: rgba(37, 99, 235, .10);
+}
+.media-import-operation-progress[hidden],
+.media-import-operation-progress-bar[hidden] { display: none !important; }
+.media-import-operation-progress-bar {
+  display: block;
+  width: 100%;
+  height: 1rem;
+  margin: .3rem 0;
+  accent-color: #60a5fa;
+}
+.media-import-operation-progress-text {
+  margin: .3rem 0 0;
+  font-size: .83rem;
+  color: #dbeafe;
+  overflow-wrap: anywhere;
+}
+.media-import-import-feedback[hidden] { display: none !important; }
+.media-import-import-feedback.is-finished {
+  border-color: #64748b;
+  background: rgba(100, 116, 139, .13);
+}
+.media-import-completed-notice {
+  flex: 1 1 100%;
+  border: 1px solid #16a34a;
+  background: rgba(22, 163, 74, .12);
+  border-radius: .6rem;
+  padding: .65rem .8rem;
+  color: #86efac;
+  font-weight: 750;
+}
+.media-import-completed-notice[hidden] { display: none !important; }
+.media-import-import-feedback.is-success {
+  border-color: #16a34a;
+  background: rgba(22, 163, 74, .13);
+}
+.media-import-import-feedback.is-success .media-import-import-title {
+  color: #86efac;
+}
+.media-import-import-title { font-weight: 800; color: #eff6ff; }
+.media-import-import-feedback.is-running .media-import-import-title::before {
+  content: '';
+  display: inline-block;
+  width: .6rem;
+  height: .6rem;
+  margin-right: .5rem;
+  border-radius: 50%;
+  background: #60a5fa;
+  box-shadow: 0 0 0 .2rem rgba(96, 165, 250, .14);
+  animation: media-import-status-pulse 1.1s ease-in-out infinite alternate;
+}
+@keyframes media-import-status-pulse {
+  from { opacity: .4; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .media-import-import-feedback.is-running .media-import-import-title::before {
+    animation: none;
+  }
+}
+.media-import-import-description {
+  margin: 0;
+  grid-column: 1;
+  color: #cbd5e1;
+  line-height: 1.45;
+}
+.media-import-import-feedback .media-import-refresh,
+.media-import-import-feedback .media-import-new {
+  justify-self: end;
+  grid-column: 2;
+  grid-row: 1;
+}
+.media-import-import-feedback .media-import-refresh:not([hidden]) +
+.media-import-new:not([hidden]) { grid-row: 2; }
+.media-import-preview-card > .status { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 480px) {
+  .media-import-preview-actions .media-import-start { flex: 1 1 100%; }
+  .media-import-import-feedback { grid-template-columns: minmax(0, 1fr); }
+  .media-import-import-feedback .media-import-refresh,
+  .media-import-import-feedback .media-import-new {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: stretch;
+  }
+}
+.media-import-preview-state.is-ready {
+  color: #86efac;
+  border-color: #15803d;
+  background: rgba(22, 163, 74, .12);
+}
+.media-import-preview-state.is-duplicate,
+.media-import-preview-state.is-marked {
+  color: #c4b5fd;
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, .14);
+}
+.media-import-preview-state.is-insufficient,
+.media-import-preview-state.is-pending {
+  color: #fcd34d;
+  border-color: #a16207;
+  background: rgba(161, 98, 7, .14);
+}
+.media-import-preview-state.is-unavailable,
+.media-import-preview-state.is-failed {
+  color: #fca5a5;
+  border-color: #b91c1c;
+  background: rgba(185, 28, 28, .12);
+}
+.media-import-preview-path {
+  margin: 0;
+  font-size: .85rem;
+  color: #94a3b8;
+  overflow-wrap: anywhere;
+}
+.media-import-preview-facts {
+  display: grid;
+  gap: .5rem;
+  margin: 0;
+}
+.media-import-preview-fact {
+  display: grid;
+  grid-template-columns: minmax(7rem, 9rem) minmax(0, 1fr);
+  gap: .6rem;
+  padding: .55rem 0;
+  border-bottom: 1px solid rgba(100, 116, 139, .18);
+}
+.media-import-preview-fact dt {
+  color: #94a3b8;
+  font-size: .79rem;
+}
+.media-import-preview-fact dd {
+  margin: 0;
+  font-size: .83rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  overflow-wrap: anywhere;
+}
+.media-import-preview-hint {
+  margin: .3rem 0 0;
+  line-height: 1.55;
+  color: #cbd5e1;
+  font-size: .88rem;
+}
+.media-import-detail .media-import-technical-details .media-import-preview {
+  padding: .6rem 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #94a3b8;
+  font-size: .8rem;
+}
+
+/* MT.META2: local NFO is read-only and legible on desktop and phone. */
+.media-import-local-metadata {
+  display: grid;
+  gap: .65rem;
+  padding: .9rem;
+  border-radius: .7rem;
+  border: 1px solid rgba(100,116,139,.24);
+  background: rgba(30,41,59,.46);
+  overflow-wrap: anywhere;
+}
+.media-import-local-metadata h6 {
+  margin: 0;
+  font-size: .94rem;
+  color: #bfdbfe;
+}
+.media-import-nfo-outline {
+  margin: 0;
+  font-weight: 650;
+  color: #e2e8f0;
+}
+.media-import-nfo-plot {
+  margin: 0;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: #cbd5e1;
+}
+/* MT.REC4: clearly indicate the episode driving the detail pane. */
+.media-import-panel .media-import-select-item.is-selected {
+  border-color: #60a5fa;
+  background: #1d3658;
+  box-shadow: inset 3px 0 0 #3b82f6;
+}
+
+
+/* MT.META3: only genuinely present, source-bound local images. */
+.media-import-artwork {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  gap: .65rem;
+}
+.media-import-artwork-frame {
+  display: flex;
+  min-width: 0;
+  height: 11rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid #304968;
+  border-radius: .7rem;
+  background: #162338;
+}
+.media-import-artwork-image { width: 100%; height: 100%; object-fit: contain; }
+.media-import-artwork-fanart .media-import-artwork-image,
+.media-import-artwork-episode .media-import-artwork-image { object-fit: cover; }
+/* Series cover stays prominent; episode still and local fanart stay separate. */
+.media-import-artwork.has-episode {
+  grid-template-areas: "poster episode" "poster fanart";
+}
+.media-import-artwork.has-episode .media-import-artwork-poster {
+  grid-area: poster;
+  height: auto;
+}
+.media-import-artwork.has-episode .media-import-artwork-episode {
+  grid-area: episode;
+  height: 8rem;
+}
+.media-import-artwork.has-episode .media-import-artwork-fanart {
+  grid-area: fanart;
+  height: 8rem;
+}
+.media-import-artwork-empty {
+  padding: .7rem;
+  text-align: center;
+  color: #94a3b8;
+  font-size: .83rem;
+}
+@media (max-width: 700px) {
+  .media-import-artwork { grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); }
+  .media-import-artwork-frame { height: 9rem; }
+  .media-import-artwork.has-episode .media-import-artwork-episode,
+  .media-import-artwork.has-episode .media-import-artwork-fanart { height: 7rem; }
+}
+
+/* MT.META1: same DOM, same import handlers; phone shows one pane at a time. */
+.media-import-mobile-nav,
+.media-import-mobile-back { display: none; }
+@media (max-width: 700px) {
+  .media-import-mobile-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: .35rem;
+    gap: .35rem;
+    background: #101b2c;
+    border: 1px solid #334155;
+    border-radius: .85rem;
+  }
+  .media-import-panel .media-import-mobile-switch {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.85rem;
+    justify-self: stretch;
+    background: transparent;
+    color: #cbd5e1;
+    border: 1px solid transparent;
+    border-radius: .65rem;
+    font-weight: 700;
+  }
+  .media-import-panel .media-import-mobile-switch.is-active {
+    background: #1d4ed8;
+    border-color: #60a5fa;
+    color: #fff;
+  }
+  .media-import-panel .media-import-mobile-switch:focus-visible,
+  .media-import-panel .media-import-mobile-back:focus-visible {
+    outline: 2px solid #bfdbfe;
+    outline-offset: 2px;
+  }
+  .media-import-workspace > .media-import-pane { display: none; }
+  .media-import-panel[data-mobile-pane="folders"] .media-import-library,
+  .media-import-panel[data-mobile-pane="media"] .media-import-episodes,
+  .media-import-panel[data-mobile-pane="details"] .media-import-detail {
+    display: flex;
+    grid-column: 1 / -1;
+  }
+  .media-import-panel .media-import-mobile-back {
+    display: block;
+    width: 100%;
+    min-height: 2.75rem;
+    border: 1px solid #334155;
+    border-radius: .65rem;
+    background: #1d2b41;
+    color: #bfdbfe;
+    text-align: left;
+  }
+  .media-import-panel .media-import-episode-open {
+    min-height: 2.75rem;
+  }
+  .media-import-panel .media-import-selection {
+    max-height: 60vh;
+  }
+  .media-import-preview-fact {
+    grid-template-columns: minmax(5.7rem, 7rem) minmax(0, 1fr);
+  }
+}
+
+
+/* MT.META4: read-only folder/series grouping, with a bounded season selector. */
+.media-import-groups-title {
+  margin: .65rem 0 0;
+  font-size: .83rem;
+  color: #94a3b8;
+}
+.media-import-series-groups {
+  display: grid;
+  gap: .42rem;
+  max-height: 26rem;
+  overflow: auto;
+}
+.media-import-series-groups[hidden],
+.media-import-season-label[hidden] { display: none !important; }
+.media-import-panel .media-import-series-group {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  background: #18263a;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: .65rem;
+  padding: .65rem .75rem;
+}
+.media-import-panel .media-import-series-group[aria-pressed="true"] {
+  border-color: #60a5fa;
+  background: #1d3658;
+}
+.media-import-series-caption {
+  margin: 0;
+  color: #94a3b8;
+  font-size: .82rem;
+  overflow-wrap: anywhere;
+}
+.media-import-panel .media-import-season-label {
+  display: grid;
+  gap: .4rem;
+  font-size: .86rem;
+}
+.media-import-panel .media-import-season-filter {
+  width: 100%;
+  min-height: 2.75rem;
+  color: #e2e8f0;
+  background: #15243b;
+  border: 1px solid #334155;
+  border-radius: .65rem;
+}
+@media (max-width: 700px) {
+  .media-import-panel .media-import-series-group {
+    min-height: 2.9rem;
+  }
+}
+
+
+/* MT.META5: transient, explicitly selected TMDb result below the local facts. */
+.media-import-online {
+  display: grid;
+  gap: .65rem;
+  padding: .9rem;
+  border: 1px solid rgba(96,165,250,.35);
+  border-radius: .7rem;
+  background: rgba(15,32,52,.8);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.media-import-online h6 { margin: 0; color: #bfdbfe; font-size: .94rem; }
+.media-import-online-note,
+.media-import-online-context,
+.media-import-online-status { margin: 0; font-size: .84rem; line-height: 1.45; color: #cbd5e1; }
+.media-import-online-tools { display: flex; gap: .45rem; flex-wrap: wrap; }
+.media-import-panel .media-import-online-query,
+.media-import-panel .media-import-online-kind {
+  min-width: 0; min-height: 2.7rem; padding: .5rem .65rem;
+  border: 1px solid #475569; border-radius: .55rem;
+  background: #15243b; color: #f8fafc;
+}
+.media-import-panel .media-import-online-query { flex: 1 1 12rem; }
+.media-import-panel .media-import-online-kind { flex: 0 1 7rem; }
+.media-import-panel .media-import-online-search { min-height: 2.7rem; }
+.media-import-online-results { display: grid; gap: .55rem; max-height: 25rem; overflow: auto; }
+.media-import-online-result, .media-import-online-confirmed {
+  display: grid; gap: .4rem; min-width: 0;
+  padding: .7rem; border-radius: .6rem;
+  background: rgba(51,65,85,.38); border: 1px solid #334155;
+}
+.media-import-online-result small { color: #94a3b8; }
+.media-import-online-result p, .media-import-online-confirmed p {
+  margin: 0; font-size: .84rem; line-height: 1.45; color: #cbd5e1;
+}
+.media-import-online-result button { justify-self: start; min-height: 2.7rem; }
+.media-import-online-confirmed { border-color: #3b82f6; }
+.media-import-online-poster {
+  width: min(100%, 12rem); max-height: 18rem; object-fit: contain;
+  border-radius: .5rem;
+}
+@media (max-width: 700px) {
+  .media-import-online-tools { display: grid; grid-template-columns: 1fr; }
+  .media-import-online-result button { width: 100%; justify-self: stretch; }
 }

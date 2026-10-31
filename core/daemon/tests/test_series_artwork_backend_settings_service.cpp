@@ -411,6 +411,24 @@ int main()
     assert(seasonCandidateImage.success);
     assert(seasonCandidateImage.body == "true-detective-season-2");
 
+    // MT.META5: reuse the existing server-side poster cache for confirmed
+    // movie and episode candidates, without creating an import artifact.
+    transport.responses = {imageResponse("movie-poster"),
+                           imageResponse("episode-poster")};
+    const auto movieImage = service.tmdbCandidateImage(
+        "default", "movie", "13", "/movie-preview.jpg");
+    assert(movieImage.success);
+    assert(movieImage.body == "movie-poster");
+    const auto episodeImage = service.tmdbCandidateImage(
+        "default", "tv-episode", "321", "/episode-preview.jpg");
+    assert(episodeImage.success);
+    assert(episodeImage.body == "episode-poster");
+    const std::size_t beforeReject = transport.requests.size();
+    const auto rejectedImage = service.tmdbCandidateImage(
+        "default", "movie", "13", "/../../unexpected.jpg");
+    assert(!rejectedImage.success);
+    assert(transport.requests.size() == beforeReject);
+
     SeriesArtworkBackendSettingsUpdate replaceSeasonWithLocal = setCover;
     replaceSeasonWithLocal.seriesKey = seasonCover.seriesKey;
     replaceSeasonWithLocal.posterUrl = firstCover;

@@ -81,7 +81,8 @@ void createSourceSchemas(Database& database)
 
 int browseAssignmentCount(
     sqlite3* database,
-    const std::string& targetId)
+    const std::string& targetId,
+    const std::string& genreId = "movie")
 {
     sqlite3_stmt* statement = nullptr;
     const char* sql =
@@ -89,7 +90,7 @@ int browseAssignmentCount(
         "FROM suite_metadata_genre_assignments "
         "WHERE metadata_target_id=? "
         "AND source_kind='epg-browse-content-class' "
-        "AND genre_id='movie' "
+        "AND genre_id=? "
         "AND assignment_state='active';";
 
     assert(sqlite3_prepare_v2(
@@ -104,6 +105,8 @@ int browseAssignmentCount(
         targetId.c_str(),
         -1,
         SQLITE_TRANSIENT) == SQLITE_OK);
+    assert(sqlite3_bind_text(
+        statement, 2, genreId.c_str(), -1, SQLITE_TRANSIENT) == SQLITE_OK);
 
     int count = 0;
     if (sqlite3_step(statement) == SQLITE_ROW)
@@ -189,6 +192,107 @@ int main()
         assert(browseAssignmentCount(
             database.handle(),
             targetId) == 1);
+
+        // Initial DVB genre synchronization writes the source evidence.
+        // Repeating the identical EPG window must not rewrite thousands of
+        // unchanged assignments. The retirement step still has one transaction.
+        assert(repository.synchronizeEpgCache(
+            "default", 1699999999LL, 1700005401LL));
+        counts = {};
+        assert(sqlite3_trace_v2(
+            database.handle(), SQLITE_TRACE_STMT,
+            traceTransactions, &counts) == SQLITE_OK);
+        assert(repository.synchronizeEpgCache(
+            "default", 1699999999LL, 1700005401LL));
+        assert(sqlite3_trace_v2(
+            database.handle(), 0, nullptr, nullptr) == SQLITE_OK);
+        assert(counts.begins == 1);
+        assert(counts.commits == 1);
+        assert(counts.rollbacks == 0);
+        assert(browseAssignmentCount(database.handle(), targetId) == 1);
+
+        // A changed DVB descriptor must still be persisted and reconciled.
+        assert(database.execute(
+            "UPDATE epg_events SET content_descriptors='Sport' "
+            "WHERE backend_id='default' AND channel_id='C1' "
+            "AND event_id='100';"));
+        counts = {};
+        assert(sqlite3_trace_v2(
+            database.handle(), SQLITE_TRACE_STMT,
+            traceTransactions, &counts) == SQLITE_OK);
+        assert(repository.synchronizeEpgCache(
+            "default", 1699999999LL, 1700005401LL));
+        assert(sqlite3_trace_v2(
+            database.handle(), 0, nullptr, nullptr) == SQLITE_OK);
+        assert(counts.begins == 2);
+        assert(counts.commits == 2);
+        assert(counts.rollbacks == 0);
+        sqlite3_stmt* changedGenre = nullptr;
+        assert(sqlite3_prepare_v2(database.handle(),
+            "SELECT COUNT(*) FROM suite_metadata_genre_assignments "
+            "WHERE metadata_target_id=? AND provider_id='vdr-epg' "
+            "AND original_value='Sport';",
+            -1, &changedGenre, nullptr) == SQLITE_OK);
+        assert(sqlite3_bind_text(changedGenre, 1, targetId.c_str(),
+            -1, SQLITE_TRANSIENT) == SQLITE_OK);
+        assert(sqlite3_step(changedGenre) == SQLITE_ROW);
+        assert(sqlite3_column_int(changedGenre, 0) > 0);
+        sqlite3_finalize(changedGenre);
+        // The live EPG browse taxonomy intentionally prioritizes specific
+        // DVB sports evidence over a TVScraper movie media-type assignment.
+        assert(browseAssignmentCount(
+            database.handle(), targetId, "sports") == 1);
+        assert(browseAssignmentCount(
+            database.handle(), targetId, "movie") == 0);
+
+        // An expired EPG binding should be retired once. Repeating an EPG
+        // refresh must not rewrite already retired rows and hold the shared
+        // SQLite writer lease for redundant updates.
+        assert(repository.retireExpiredEpgTargets("default", 1700005401));
+        assert(sqlite3_changes(database.handle()) == 1);
+        assert(repository.retireExpiredEpgTargets("default", 1700005401));
+        assert(sqlite3_changes(database.handle()) == 0);
+
+        // Stale rows are also eligible; rows already marked retired must
+        // remain untouched on subsequent startup cleanups.
+        assert(database.execute(
+            "UPDATE suite_metadata_target_bindings "
+            "SET lifecycle_state='stale' WHERE metadata_target_id='" +
+            targetId + "';"));
+        assert(repository.retireExpiredEpgTargets("default", 1700005401));
+        assert(sqlite3_changes(database.handle()) == 1);
+        assert(repository.retireExpiredEpgTargets("default", 1700005401));
+        assert(sqlite3_changes(database.handle()) == 0);
+
+        // The existing lookup index has lifecycle_state as the third key.
+        // An IN predicate can constrain it; != 'retired' cannot.
+        sqlite3_stmt* retirementPlan = nullptr;
+        assert(sqlite3_prepare_v2(database.handle(),
+            "EXPLAIN QUERY PLAN UPDATE suite_metadata_target_bindings "
+            "SET lifecycle_state='retired',updated_at=CURRENT_TIMESTAMP "
+            "WHERE backend_id=? AND target_type='program-event' "
+            "AND lifecycle_state IN ('active','stale') "
+            "AND end_time>0 AND end_time<?;",
+            -1, &retirementPlan, nullptr) == SQLITE_OK);
+        assert(sqlite3_bind_text(
+            retirementPlan, 1, "default", -1, SQLITE_STATIC) == SQLITE_OK);
+        assert(sqlite3_bind_int64(retirementPlan, 2, 1700005401) == SQLITE_OK);
+        bool usesLifecycleIndex = false;
+        while (sqlite3_step(retirementPlan) == SQLITE_ROW)
+        {
+            const unsigned char* detail =
+                sqlite3_column_text(retirementPlan, 3);
+            if (detail == nullptr) continue;
+            const std::string plan(reinterpret_cast<const char*>(detail));
+            if (plan.find("idx_suite_metadata_target_bindings_lookup") !=
+                    std::string::npos &&
+                plan.find("lifecycle_state=?") != std::string::npos)
+            {
+                usesLifecycleIndex = true;
+            }
+        }
+        sqlite3_finalize(retirementPlan);
+        assert(usesLifecycleIndex);
     }
 
     std::remove(filename.c_str());

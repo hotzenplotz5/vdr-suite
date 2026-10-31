@@ -1,5 +1,6 @@
 #include "AccountabilityEventRepository.h"
 #include "BackendAgentCommandDelivery.h"
+#include "BackendAgentPhaseTiming.h"
 #include "BackendAgentLifecycle.h"
 #include "BackendAgentNativeTimerModifyExecutor.h"
 #include "BackendAgentNativeTimerModifyLocalState.h"
@@ -8,6 +9,7 @@
 #include "MediaImportOperationAdmission.h"
 #include "AddonActivationIntentRepository.h"
 #include "MediaImportRecordingEvidence.h"
+#include "MediaToolsAgentExecutor.h"
 #include "BackendAgentMediaImportAssignment.h"
 #include "MutationOperationRepository.h"
 #include "SecurityIdentityRepository.h"
@@ -20,7 +22,10 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <cstdlib>
+#include <filesystem>
 #include <iostream>
+#include <sstream>
 #include <sqlite3.h>
 #include <thread>
 
@@ -56,9 +61,24 @@ int main()
     BackendAgentCommandResult result;result.commandId=assignment->commandId;result.requestFingerprint=assignment->requestFingerprint;result.jobId=assignment->jobId;result.attemptId=assignment->attemptId;result.claimEpoch=1;result.backendId="default";result.agentId="agt_test";result.agentInstanceId="inst_test";result.backendGeneration=7;result.dispatchState="effect_reported";result.verificationState="not_required";result.resultCategory="succeeded";result.errorCategory="none";result.retryClassification="none";result.boundedDiagnostics="probe.noop completed without native side effect";result.completedAt=105;auto resultAck=service.result(context(ActorType::Agent,"actor_agent"),result,105);assert(resultAck.accepted&&!resultAck.replayed);auto resultReplay=service.result(context(ActorType::Agent,"actor_agent"),result,106);assert(resultReplay.accepted&&resultReplay.replayed);
     auto summary=service.summaryForBackend("default");assert(summary.present&&summary.state=="completed"&&summary.resultCategory=="succeeded"&&summary.deliveryCount==2&&summary.receiptReplayCount==1&&summary.resultReplayCount==1);
     assert(service.requestReplay(context(ActorType::System,"system_admin"),"default",assignment->commandId,107,reason));auto replayPoll=service.poll(context(ActorType::Agent,"actor_agent"),poll,108);assert(replayPoll.assignment.present&&replayPoll.assignment.commandId==assignment->commandId);summary=service.summaryForBackend("default");assert(summary.deliveryCount==3);
+    // Exact threshold and phase names, without logging request data.
+    std::ostringstream phaseLog;
+    const auto phaseNow = std::chrono::steady_clock::now();
+    reportSlowBackendAgentPhase("authentication",
+        phaseNow - std::chrono::milliseconds(100), phaseLog);
+    assert(phaseLog.str().empty());
+    reportSlowBackendAgentPhase("authentication",
+        phaseNow - std::chrono::milliseconds(1500), phaseLog);
+    reportSlowBackendAgentPhase("command_poll.sql_transaction",
+        phaseNow - std::chrono::milliseconds(1500), phaseLog);
+    assert(phaseLog.str().find("phase=authentication duration_ms=") != std::string::npos);
+    assert(phaseLog.str().find("phase=command_poll.sql_transaction duration_ms=") != std::string::npos);
+
     std::atomic<bool> pollStarted{false};
     std::atomic<bool> pollFinished{false};
     BackendAgentCommandPollResult concurrentPoll;
+    std::ostringstream slowPollLog;
+    auto* previousErrorBuffer = std::cerr.rdbuf(slowPollLog.rdbuf());
     auto transactionLease=db.acquireTransactionLease();
     assert(db.execute("BEGIN IMMEDIATE;"));
     std::thread pollThread([&] {
@@ -68,14 +88,52 @@ int main()
         pollFinished.store(true);
     });
     while(!pollStarted.load())std::this_thread::yield();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1250));
     const bool pollBlocked=!pollFinished.load();
     assert(db.execute("COMMIT;"));
     transactionLease.unlock();
     pollThread.join();
+    std::cerr.rdbuf(previousErrorBuffer);
     assert(
         pollBlocked&&pollFinished.load()&&
         concurrentPoll.accepted);
+    assert(slowPollLog.str().find(
+        "BACKEND_AGENT_PHASE_SLOW phase=command_poll.lease_wait duration_ms=")
+        != std::string::npos);
+    assert(slowPollLog.str().find("phase=command_poll.sql_transaction")
+        == std::string::npos);
+    // A fast, empty poll is read-only: do not let another writer's lease
+    // delay it when the durable command journal has no pending assignments.
+    BackendAgentCommandPollRequest idlePoll = poll;
+    idlePoll.refreshCapabilities = false;
+    idlePoll.supportedCommandTypes.clear();
+    auto idleLease = db.acquireTransactionLease();
+    std::atomic<bool> idleFinished{false};
+    BackendAgentCommandPollResult idleResult;
+    std::thread idleThread([&] {
+        idleResult = commands.poll(idlePoll, "agt_test", 109);
+        idleFinished.store(true);
+    });
+    const auto idleDeadline =
+        std::chrono::steady_clock::now() + std::chrono::milliseconds(650);
+    while (!idleFinished.load() &&
+           std::chrono::steady_clock::now() < idleDeadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    const bool idleCompletedWithoutLease = idleFinished.load();
+    idleLease.unlock();
+    idleThread.join();
+    assert(idleCompletedWithoutLease);
+    assert(idleResult.accepted && !idleResult.assignment.present);
+
+    // A real replay still takes the transaction lease and is delivered.
+    assert(service.requestReplay(
+        context(ActorType::System, "system_admin"), "default",
+        assignment->commandId, 110, reason));
+    auto pendingReplay = commands.poll(idlePoll, "agt_test", 110);
+    assert(pendingReplay.accepted &&
+           pendingReplay.assignment.present &&
+           pendingReplay.assignment.commandId == assignment->commandId);
+
     BackendAgentCommandPollRequest stale=poll;stale.backendGeneration=6;assert(!service.poll(context(ActorType::Agent,"actor_agent"),stale,109).accepted);
     // A native UPDATE was received under generation 7. The Agent persisted
     // its uncertain result locally; heartbeat advanced the Agent to
@@ -222,6 +280,79 @@ int main()
         "WHERE command_id='cmd_historical_modify'") == 1);
     std::cout << "HISTORICAL_MODIFY_RESULT_GENERATION_RECOVERY=PASS\\n";
 
+    // Media Import: generation 7 has a durable receipt and an explicit
+    // pre-dispatch fenced rejection. Generation 8 may ACK that exact old
+    // failure, never an old success, a started import, or a foreign actor.
+    auto rejectedImport = historical;
+    rejectedImport.commandId = "cmd_historical_import_rejected";
+    rejectedImport.requestId = "req_historical_import_rejected";
+    rejectedImport.correlationId = rejectedImport.requestId;
+    rejectedImport.operationId = "op_historical_import_rejected";
+    rejectedImport.jobId = "job_historical_import_rejected";
+    rejectedImport.attemptId = "att_historical_import_rejected";
+    rejectedImport.commandType = "addon.media.import";
+    rejectedImport.payloadVersion = 1;
+    rejectedImport.payload = "{\"sourceId\":\"source_historical_123456\"}";
+    rejectedImport.verificationPolicy = "reconciliation_required";
+    rejectedImport.requestFingerprint =
+        backendAgentCommandFingerprint(rejectedImport);
+    assert(backendAgentCommandValidAssignment(rejectedImport));
+    assert(commands.insertAssignment(rejectedImport));
+    assert(db.execute(
+        "INSERT INTO backend_agent_command_receipts "
+        "(command_id,receipt_identity,receipt_category,reason_code,received_at) "
+        "VALUES('cmd_historical_import_rejected','fixture_old_receipt',"
+        "'accepted','durably_recorded',111);"));
+    BackendAgentCommandResult noDispatch;
+    noDispatch.commandId = rejectedImport.commandId;
+    noDispatch.requestFingerprint = rejectedImport.requestFingerprint;
+    noDispatch.jobId = rejectedImport.jobId;
+    noDispatch.attemptId = rejectedImport.attemptId;
+    noDispatch.claimEpoch = rejectedImport.claimEpoch;
+    noDispatch.backendId = rejectedImport.backendId;
+    noDispatch.agentId = rejectedImport.agentId;
+    noDispatch.agentInstanceId = rejectedImport.agentInstanceId;
+    noDispatch.backendGeneration = rejectedImport.backendGeneration;
+    noDispatch.dispatchState = "not_started";
+    noDispatch.verificationState = "outcome_unknown";
+    noDispatch.resultCategory = "rejected";
+    noDispatch.errorCategory = "fenced";
+    noDispatch.retryClassification = "none";
+    noDispatch.boundedDiagnostics = "Fenced before native dispatch";
+    noDispatch.completedAt = 120;
+    assert(backendAgentCommandValidResult(noDispatch));
+    bool appliedOldImport = false;
+    service.setMediaImportResultApply(
+        [&](const BackendAgentCommandAssignment& original,
+            const BackendAgentCommandResult& oldResult, std::string& applyReason) {
+            assert(original.commandId == rejectedImport.commandId);
+            assert(oldResult.commandId == original.commandId);
+            appliedOldImport = true;
+            applyReason = "historical_failed_before_dispatch";
+            return true;
+        });
+    auto unsafeStarted = noDispatch;
+    unsafeStarted.dispatchState = "starting";
+    assert(!service.result(
+        context(ActorType::Agent, "actor_agent"), unsafeStarted, 900).accepted);
+    auto unsafeSuccess = noDispatch;
+    unsafeSuccess.resultCategory = "succeeded";
+    assert(!service.result(
+        context(ActorType::Agent, "actor_agent"), unsafeSuccess, 900).accepted);
+    assert(!service.result(
+        context(ActorType::Agent, "foreign_actor"), noDispatch, 900).accepted);
+    assert(!appliedOldImport);
+    const auto acceptedOldImport =
+        service.result(context(ActorType::Agent, "actor_agent"), noDispatch, 900);
+    assert(acceptedOldImport.accepted && !acceptedOldImport.replayed);
+    assert(appliedOldImport);
+    assert(service.result(context(ActorType::Agent, "actor_agent"),
+        noDispatch, 901).accepted);
+    assert(sqlCount(db.handle(),
+        "SELECT count(*) FROM backend_agent_command_results "
+        "WHERE command_id='cmd_historical_import_rejected'") == 1);
+    std::cout << "HISTORICAL_MEDIA_IMPORT_NOT_STARTED_RECOVERY=PASS\\n";
+
     assert(service.armFault(context(ActorType::System,"system_admin"),"default","receipt",110,reason));
     // P7 reconstructed pre-result-evidence schema (private in-memory DB).
     // The real command/result roundtrip above persisted this older-style row.
@@ -299,7 +430,7 @@ int main()
     media.commandId = "cmd_media";
     media.commandType = "addon.media.import";
     media.payloadVersion = 1;
-    media.payload = "{\"sourceId\":\"local_token\"}";
+    media.payload = "{\"sourceId\":\"local_media_source_123456\"}";
     media.verificationPolicy = "reconciliation_required";
     media.assignedAt = 111;
     media.deadline = 500;
@@ -453,7 +584,7 @@ int main()
     op.backendId = "default";
     op.backendGeneration = 7;
     op.resourceType = "MediaImportSource";
-    op.resourceId = "local_token";
+    op.resourceId = "local_media_source_123456";
     op.expectedRevision = "1";
     op.actionFamily = "media.import";
     op.requestFingerprint = "logical_api_request_fingerprint";
@@ -537,6 +668,16 @@ int main()
         admin, {"rectools", "default", true, 0}, access, trusted);
     assert(activated.status == vdrsuite::addons::IntentStatus::ok);
     assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
+    // A previous Agent binding is not a second permission decision when
+    // the current Agent, command capability and approved native handler
+    // have already been verified independently.
+    assert(db.execute(
+        "UPDATE addon_activation_agent_bindings "
+        "SET agent_id='agt_previous' "
+        "WHERE module_id='rectools' AND backend_id='default';"));
+    assert(coreFence.effectiveMediaImportCapability(
+        "human_media", "default", 118, fenceReason));
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
     assert(mediaGrants.revokeGrant("human_media", "role.admin", "*"));
     assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
            fenceReason == "media_import_permission_denied");
@@ -549,10 +690,11 @@ int main()
     assert(coreFence.check(media, mediaReceipt, 118, fenceReason) &&
            fenceReason == "media_import_operation_and_grant_verified");
 
-    // This activation is now exercised above, before any positive receipt.
-    // Same Agent/intent but a changed independently approved handler is
-    // never authorized by the old persisted desired-enable state.
+    // An independently verified new handler must not be blocked by an
+    // obsolete activation pin. Core still rejects absent provider proof.
     approvedDigest = std::string(64, 'b');
+    assert(coreFence.check(media, mediaReceipt, 118, fenceReason));
+    approvedDigest.clear();
     assert(!coreFence.check(media, mediaReceipt, 118, fenceReason) &&
            fenceReason == "media_import_provider_untrusted");
     approvedDigest = std::string(64, 'a');
@@ -565,6 +707,11 @@ int main()
         "human_media", "wrong-backend", 118, fenceReason));
     assert(!coreFence.effectiveMediaImportCapability(
         "human_media", "default", 1001, fenceReason));
+    // A dead Agent lease must not remove an authenticated source browser.
+    assert(coreFence.mayBrowseSources("human_media", "default", fenceReason));
+    assert(fenceReason == "media_import_browse_authorized");
+    assert(!coreFence.mayBrowseSources("missing_media_actor", "default", fenceReason) &&
+           fenceReason == "media_import_actor_revoked");
     assert(!coreFence.effectiveMediaImportCapability(
         "admin_media", "default", 118, fenceReason));
 
@@ -672,6 +819,8 @@ int main()
     assert(!coreFence.effectiveMediaImportCapability(
         "human_media", "default", 118, fenceReason) &&
            fenceReason == "media_import_activation_disabled");
+    assert(coreFence.mayBrowseSources("human_media", "default", fenceReason) &&
+           fenceReason == "media_import_browse_authorized");
     assert(activation.update(
         admin, {"rectools", "default", true, 2}, access, trusted).status ==
         vdrsuite::addons::IntentStatus::ok);
@@ -691,6 +840,8 @@ int main()
     assert(!coreFence.check(media, mediaReceipt, 120, fenceReason));
     assert(!coreFence.effectiveMediaImportCapability(
         "human_media", "default", 120, fenceReason));
+    assert(!coreFence.mayBrowseSources("human_media", "default", fenceReason) &&
+           fenceReason == "media_import_permission_denied");
     const auto revokedRealGrant = service.receipt(
         context(ActorType::Agent, "actor_agent"), mediaReceipt, 120);
     assert(!revokedRealGrant.accepted);
@@ -729,12 +880,31 @@ int main()
     mediaOutcome.errorCategory = "none";
     mediaOutcome.retryClassification = "reconcile_only";
     mediaOutcome.boundedDiagnostics = "recording reconciliation pending";
+    // Simulate the real yaVDR provider: the VDR cache reports a relative
+    // display path and an absolute backend-native path via a video-root
+    // symlink; the importer hashes the resolved video.00 destination.
+    char recordRootTemplate[] = "/tmp/vdr-suite-import-identity-XXXXXX";
+    assert(::mkdtemp(recordRootTemplate) != nullptr);
+    const std::filesystem::path recordRoot(recordRootTemplate);
+    const auto importedDirectory =
+        recordRoot / "video.00/Imported/2026-10-21.18.00.00-0.rec";
+    assert(std::filesystem::create_directories(importedDirectory));
+    std::filesystem::create_directory_symlink(
+        "video.00", recordRoot / "video");
     const std::string nativeImportedPath =
-        "/srv/vdr/video/Imported/2026-10-21.18.00.00-0.rec";
+        (recordRoot / "video/Imported/2026-10-21.18.00.00-0.rec").string();
+    assert(std::filesystem::canonical(nativeImportedPath) == importedDirectory);
+    const auto sourceProof = vdrsuite::mediatools::mediaImportSourceEvidence(
+        "/srv/import/Film.mp4", 17, 42, 2048, 100, 1234);
     mediaOutcome.resultEvidence =
-        vdrsuite::mediatools::recordingPathEvidence(nativeImportedPath);
-    assert(vdrsuite::mediatools::validRecordingPathEvidence(
-        mediaOutcome.resultEvidence));
+        vdrsuite::mediatools::mediaImportResultEvidence(
+            vdrsuite::mediatools::recordingPathEvidence(
+                importedDirectory.string()),
+            sourceProof);
+    std::string recordingPart, sourcePart;
+    assert(vdrsuite::mediatools::parseMediaImportResultEvidence(
+        mediaOutcome.resultEvidence, recordingPart, sourcePart));
+    assert(sourcePart == sourceProof);
     mediaOutcome.completedAt = 121;
     assert(backendAgentCommandValidResult(mediaOutcome));
     auto mediaApplied = service.result(
@@ -769,8 +939,17 @@ int main()
     imported.id = "rec-imported";
     imported.backendId = "default";
     imported.backendNativeId = nativeImportedPath;
-    imported.path = nativeImportedPath;
+    imported.path = "/Imported/2026-10-21.18.00.00-0.rec";
     imported.title = "Imported";
+    // Neither uncanonicalized field matches the Agent proof; only the
+    // existing native path's filesystem-resolved identity does.
+    assert(vdrsuite::mediatools::recordingPathEvidence(imported.path) !=
+           recordingPart);
+    assert(vdrsuite::mediatools::recordingPathEvidence(imported.backendNativeId) !=
+           recordingPart);
+    assert(vdrsuite::mediatools::recordingPathEvidence(
+               std::filesystem::canonical(imported.backendNativeId).string()) ==
+           recordingPart);
     std::vector<VdrRecording> actualRecordings{imported};
     auto readbackStatus = readback;
     readbackStatus.state = "stale";
@@ -781,7 +960,9 @@ int main()
     assert(coreFence.reconcileRecordingCache(
         "default", readbackStatus, actualRecordings, 128) == 0);
     auto wrongRecording = imported;
-    wrongRecording.path = "/srv/vdr/video/Other/2026-10-21.18.00.00-0.rec";
+    wrongRecording.path = "/Other/2026-10-21.18.00.00-0.rec";
+    wrongRecording.backendNativeId =
+        (recordRoot / "video/Other/2026-10-21.18.00.00-0.rec").string();
     assert(coreFence.reconcileRecordingCache(
         "default", readback, {wrongRecording}, 128) == 0);
     assert(coreFence.reconcileRecordingCache(
@@ -790,11 +971,75 @@ int main()
         "default", readback, {imported, imported}, 128) == 0);
     assert(operations.findById(media.operationId).operation.state ==
         vdrsuite::operations::MutationOperationState::outcomeUnknown);
+    assert(!commands.findAssignmentForOperation(
+        "default", media.operationId,
+        vdrsuite::mediatools::kMediaImportReadbackCommandType));
     assert(coreFence.reconcileRecordingCache(
         "default", readback, actualRecordings, 128) == 1);
     const auto reconciledOp = operations.findById(media.operationId);
     assert(reconciledOp.ok() && reconciledOp.operation.state ==
         vdrsuite::operations::MutationOperationState::succeeded);
+    const auto notice = commands.findAssignmentForOperation(
+        "default", media.operationId,
+        vdrsuite::mediatools::kMediaImportReadbackCommandType);
+    assert(notice.has_value());
+    assert(notice->operationId == media.operationId);
+    assert(notice->backendGeneration == media.backendGeneration);
+    assert(notice->verificationPolicy == "none");
+    std::string noticeSource, originalCommand, noticeEvidence, noticeSourceProof;
+    assert(vdrsuite::mediatools::parseMediaImportReadbackPayload(
+        notice->payload, noticeSource, originalCommand,
+        noticeEvidence, noticeSourceProof));
+    assert(notice->payloadVersion == 2);
+    assert(noticeSource == op.resourceId &&
+           originalCommand == media.commandId &&
+           noticeEvidence == recordingPart && noticeSourceProof == sourceProof);
+    auto readbackPoll = importPoll;
+    // The installed Agent advertises both operations from the same reviewed
+    // import executor. Publishing readback must not erase the ordinary import
+    // capability needed by the following independent reservation test.
+    readbackPoll.supportedCommandTypes = {
+        "probe.noop", vdrsuite::mediatools::kMediaImportCommandType,
+        vdrsuite::mediatools::kMediaImportReadbackCommandType};
+    const auto delivered = service.poll(
+        context(ActorType::Agent, "actor_agent"), readbackPoll, 129);
+    assert(delivered.accepted && delivered.assignment.present);
+    assert(delivered.assignment.commandId == notice->commandId);
+    auto noticeReceipt = mediaReceipt;
+    noticeReceipt.commandId = notice->commandId;
+    noticeReceipt.requestFingerprint = notice->requestFingerprint;
+    noticeReceipt.jobId = notice->jobId;
+    noticeReceipt.attemptId = notice->attemptId;
+    noticeReceipt.claimEpoch = notice->claimEpoch;
+    noticeReceipt.receivedAt = 130;
+    assert(service.receipt(
+        context(ActorType::Agent, "actor_agent"), noticeReceipt, 130).accepted);
+    BackendAgentCommandResult noticeResult;
+    noticeResult.commandId = notice->commandId;
+    noticeResult.requestFingerprint = notice->requestFingerprint;
+    noticeResult.jobId = notice->jobId;
+    noticeResult.attemptId = notice->attemptId;
+    noticeResult.claimEpoch = notice->claimEpoch;
+    noticeResult.backendId = notice->backendId;
+    noticeResult.agentId = notice->agentId;
+    noticeResult.agentInstanceId = notice->agentInstanceId;
+    noticeResult.backendGeneration = notice->backendGeneration;
+    noticeResult.dispatchState = "effect_reported";
+    noticeResult.verificationState = "verified";
+    noticeResult.resultCategory = "succeeded";
+    noticeResult.errorCategory = "none";
+    noticeResult.retryClassification = "none";
+    noticeResult.boundedDiagnostics =
+        "VDR readback notice durably received; no source cleanup";
+    noticeResult.completedAt = 131;
+    assert(service.result(
+        context(ActorType::Agent, "actor_agent"), noticeResult, 131).accepted);
+    const auto readbackReplay = service.result(
+        context(ActorType::Agent, "actor_agent"), noticeResult, 132);
+    assert(readbackReplay.accepted && readbackReplay.replayed);
+    assert(sqlCount(db.handle(),
+        "SELECT COUNT(*) FROM backend_agent_commands "
+        "WHERE command_type='addon.media.import.readback';") == 1);
     assert(coreFence.reconcileRecordingCache(
         "default", readback, actualRecordings, 129) == 0);
     assert(operations.findById(media.operationId).operation.operationRevision ==
@@ -804,6 +1049,9 @@ int main()
     assert(completedReplay.accepted && completedReplay.replayed);
     assert(operations.findById(media.operationId).operation.operationRevision ==
            reconciledOp.operation.operationRevision);
+    // The synthetic root was only used for path-identity reconciliation;
+    // the journal/operation state and the readback notice remain durable.
+    assert(std::filesystem::remove_all(recordRoot) > 0);
 
 
     // A6: the actual Agent command reservation uses only the existing
@@ -905,6 +1153,82 @@ int main()
         ).replayed);
 
 
+
+    // Poll isolation: a long SQLite statement on the main daemon handle
+    // must not stall an idle command poll on its separate connection. The
+    // authenticated Agent binding is checked via the existing read handle.
+    {
+        const std::string path =
+            "/tmp/vdr-suite-backend-agent-poll-isolation-test.sqlite";
+        std::filesystem::remove(path);
+        std::filesystem::remove(path + "-wal");
+        std::filesystem::remove(path + "-shm");
+
+        Database mainDatabase, authReadDatabase, pollDatabase;
+        assert(mainDatabase.open(path));
+        assert(mainDatabase.execute("PRAGMA journal_mode=WAL;"));
+        AccountabilityEventRepository audit(mainDatabase);
+        BackendAgentRepository mainAgents(mainDatabase);
+        BackendAgentCommandRepository mainCommands(mainDatabase);
+        assert(audit.ensureSchema());
+        assert(mainAgents.ensureSchema());
+        assert(mainCommands.ensureSchema());
+        assert(mainDatabase.execute(
+            "INSERT INTO backend_agents("
+            "agent_id,backend_id,actor_id,device_id,credential_id,"
+            "credential_generation,agent_instance_id,backend_generation,"
+            "protocol_version,software_version,heartbeat_sequence,"
+            "capability_revision,last_connected_at,last_heartbeat_at,"
+            "lease_expires_at,created_at,updated_at) VALUES("
+            "'agt_isolation','default','actor_agent','dev_agent',"
+            "'cred_agent',1,'inst_isolation',7,'vdr-suite-agent/1',"
+            "'test',2,1,100,100,1000,1,1);"));
+
+        assert(authReadDatabase.open(path));
+        assert(authReadDatabase.execute("PRAGMA query_only=ON;"));
+        assert(pollDatabase.open(path));
+        BackendAgentRepository readAgents(authReadDatabase);
+        BackendAgentCommandRepository pollCommands(pollDatabase);
+        BackendAgentCommandDeliveryService isolated(
+            mainCommands, readAgents, audit, &pollCommands);
+
+        std::atomic<bool> mainQueryStarted{false};
+        assert(sqlite3_create_function_v2(mainDatabase.handle(),
+            "slow_main_connection", 0, SQLITE_UTF8,
+            &mainQueryStarted,
+            [](sqlite3_context* ctx, int, sqlite3_value**) {
+                static_cast<std::atomic<bool>*>(
+                    sqlite3_user_data(ctx))->store(true);
+                std::this_thread::sleep_for(std::chrono::milliseconds(950));
+                sqlite3_result_int(ctx, 1);
+            }, nullptr, nullptr, nullptr) == SQLITE_OK);
+
+        std::thread slowMainQuery([&]() {
+            assert(mainDatabase.execute("SELECT slow_main_connection();"));
+        });
+        while (!mainQueryStarted.load()) std::this_thread::yield();
+
+        BackendAgentCommandPollRequest fastPoll;
+        fastPoll.backendId = "default";
+        fastPoll.agentInstanceId = "inst_isolation";
+        fastPoll.backendGeneration = 7;
+        fastPoll.refreshCapabilities = false;
+        const auto pollStarted = std::chrono::steady_clock::now();
+        const auto result = isolated.poll(
+            context(ActorType::Agent, "actor_agent"), fastPoll, 101);
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - pollStarted).count();
+        slowMainQuery.join();
+        assert(result.accepted && !result.assignment.present);
+        assert(elapsed < 600);
+
+        pollDatabase.close();
+        authReadDatabase.close();
+        mainDatabase.close();
+        std::filesystem::remove(path);
+        std::filesystem::remove(path + "-wal");
+        std::filesystem::remove(path + "-shm");
+    }
 
     std::cout << "P7_AGENT_RESULT_EVIDENCE_MIGRATION=PASS\n";
     std::cout<<"Backend Agent command delivery tests passed"<<std::endl;return 0;

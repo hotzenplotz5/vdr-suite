@@ -128,7 +128,7 @@ test-metadata-recording-candidate-provider:
 		-o $(BUILD_DIR)/test_tmdb_recording_metadata_poster_materializer
 	$(BUILD_DIR)/test_tmdb_recording_metadata_poster_materializer
 
-test-metadata-manual-recording-api: CXXFLAGS += -Icore/metadata/include -Icore/recordings/include -Icore/http/include -Iapi/rest/include
+test-metadata-manual-recording-api: CXXFLAGS += -Icore/metadata/include -Icore/recordings/include -Icore/http/include -Iapi/rest/include -Iaddons/media-tools/include
 test-metadata-manual-recording-api:
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
@@ -140,6 +140,7 @@ test-metadata-manual-recording-api:
 		core/http/src/CurlExternalArtworkHttpTransport.cpp \
 		api/rest/src/MetadataController.cpp \
 		api/rest/src/ManualRecordingMetadataApiRuntime.cpp \
+		addons/media-tools/src/MediaImport.cpp \
 		api/rest/tests/test_manual_recording_metadata_api_runtime.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_manual_recording_metadata_api_runtime

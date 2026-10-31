@@ -2,6 +2,8 @@
 
 #include "BackendAgentCommand.h"
 
+#include "MediaImportRecordingEvidence.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -12,6 +14,87 @@
 namespace vdrsuite::mediatools {
 
 inline constexpr const char* kMediaImportCommandType = "addon.media.import";
+// Readback notification uses the existing durable Agent command journal.
+// Core's confirmed Recording-cache readback is the only cleanup trigger.
+// The Agent verifies the original source snapshot again before mutation.
+inline constexpr const char* kMediaImportReadbackCommandType =
+    "addon.media.import.readback";
+
+inline std::string mediaImportReadbackPayload(
+    const std::string& sourceId, const std::string& originalCommandId,
+    const std::string& recordingEvidence,
+    const std::string& sourceEvidence = {})
+{
+    std::string payload = "{\"sourceId\":\"" + sourceId +
+        "\",\"originalCommandId\":\"" + originalCommandId +
+        "\",\"recordingEvidence\":\"" + recordingEvidence + "\"";
+    if (!sourceEvidence.empty())
+        payload += ",\"sourceIdentity\":\"" + sourceEvidence + "\"";
+    return payload + "}";
+}
+
+inline bool parseMediaImportReadbackPayload(
+    const std::string& payload, std::string& sourceId,
+    std::string& originalCommandId, std::string& recordingEvidence,
+    std::string& sourceEvidence)
+{
+    sourceId.clear();
+    originalCommandId.clear();
+    recordingEvidence.clear();
+    sourceEvidence.clear();
+    constexpr const char* start = "{\"sourceId\":\"";
+    constexpr const char* middle = "\",\"originalCommandId\":\"";
+    constexpr const char* end = "\",\"recordingEvidence\":\"";
+    if (payload.compare(0, std::char_traits<char>::length(start), start) != 0)
+        return false;
+    const auto first = payload.find(middle, std::char_traits<char>::length(start));
+    if (first == std::string::npos) return false;
+    const auto second = payload.find(end, first + std::char_traits<char>::length(middle));
+    if (second == std::string::npos ||
+        payload.size() < second + std::char_traits<char>::length(end) + 3 ||
+        payload.back() != '}') return false;
+    sourceId = payload.substr(std::char_traits<char>::length(start),
+        first - std::char_traits<char>::length(start));
+    originalCommandId = payload.substr(
+        first + std::char_traits<char>::length(middle),
+        second - first - std::char_traits<char>::length(middle));
+    const auto evidenceStart = second + std::char_traits<char>::length(end);
+    const auto evidenceEnd = payload.find('"', evidenceStart);
+    if (evidenceEnd == std::string::npos) return false;
+    recordingEvidence = payload.substr(evidenceStart, evidenceEnd - evidenceStart);
+    const auto suffix = payload.substr(evidenceEnd + 1);
+    if (suffix != "}") {
+        constexpr const char* sourcePrefix = ",\"sourceIdentity\":\"";
+        const std::string prefix(sourcePrefix);
+        if (suffix.size() < prefix.size() + 2 ||
+            suffix.compare(0, prefix.size(), prefix) != 0 ||
+            suffix.substr(suffix.size() - 2) != "\"}") return false;
+        sourceEvidence = suffix.substr(prefix.size(),
+            suffix.size() - prefix.size() - 2);
+        if (!validMediaImportSourceEvidence(sourceEvidence)) return false;
+    }
+    const auto opaque = [](const std::string& value, std::size_t maximum) {
+        return !value.empty() && value.size() <= maximum &&
+            std::all_of(value.begin(), value.end(), [](unsigned char ch) {
+                return std::isalnum(ch) || ch == '_' || ch == '-';
+            });
+    };
+    return opaque(sourceId, 64) && sourceId.size() >= 16 &&
+        opaque(originalCommandId, 128) &&
+        validRecordingPathEvidence(recordingEvidence) &&
+        payload == mediaImportReadbackPayload(
+            sourceId, originalCommandId, recordingEvidence, sourceEvidence);
+}
+
+inline bool parseMediaImportReadbackPayload(
+    const std::string& payload, std::string& sourceId,
+    std::string& originalCommandId, std::string& recordingEvidence)
+{
+    std::string sourceEvidence;
+    return parseMediaImportReadbackPayload(
+        payload, sourceId, originalCommandId, recordingEvidence,
+        sourceEvidence);
+}
 
 // Only a backend-local opaque inventory ID. Never deserialize a file path.
 inline bool parseMediaImportSelection(const std::string& payload, std::string& sourceId)
@@ -66,7 +149,7 @@ inline bool parseMediaImportSelection(const std::string& payload,
 
 // Reuse the one Media Import command; versions 3/4 represent a verified
 // backend-local source marker, NOT a VDR recording.
-enum class MediaImportDecision { import, local, desktop, skip, release };
+enum class MediaImportDecision { import, local, desktop, skip, release, duplicate, deleteDuplicate };
 inline bool parseMediaImportSelection(
     const std::string& payload, std::string& sourceId,
     MediaImportDecision& decision)
@@ -82,7 +165,9 @@ inline bool parseMediaImportSelection(
     for (const auto& option : {
         std::pair<const char*, MediaImportDecision>{"desktop", MediaImportDecision::desktop},
         {"skip", MediaImportDecision::skip},
-        {"release", MediaImportDecision::release}
+        {"release", MediaImportDecision::release},
+        {"duplicate", MediaImportDecision::duplicate},
+        {"delete_duplicate", MediaImportDecision::deleteDuplicate}
     }) {
         const std::string suffix =
             std::string("\",\"videoDecision\":\"") + option.first + "\"}";
@@ -102,7 +187,92 @@ inline bool parseMediaImportSelection(
         decision = option.second;
         return true;
     }
+    // MT.META6: backwards-compatible, immutable metadata snapshot for
+    // import/local only. The snapshot is the already-found TMDb data; the
+    // Agent does not make another provider request.
+    const std::string direct = "\",\"metadata\":\"";
+    const std::string local = "\",\"videoDecision\":\"local\",\"metadata\":\"";
+    if (payload.compare(0, prefix.size(), prefix) != 0 ||
+        payload.size() < prefix.size() + 16U + direct.size() + 6U ||
+        payload.substr(payload.size() - 2) != "\"}")
+        return false;
+    for (const auto& option : {
+        std::pair<std::string, MediaImportDecision>{local, MediaImportDecision::local},
+        {direct, MediaImportDecision::import}
+    }) {
+        const auto split = payload.find(option.first, prefix.size());
+        if (split == std::string::npos) continue;
+        const auto id = payload.substr(prefix.size(), split - prefix.size());
+        const auto snapshotStart = split + option.first.size();
+        const auto snapshot = payload.substr(
+            snapshotStart, payload.size() - snapshotStart - 2U);
+        const auto validId = id.size() >= 16U && id.size() <= 64U &&
+            std::all_of(id.begin(), id.end(), [](unsigned char ch) {
+                return std::isalnum(ch) || ch == '_' || ch == '-';
+            });
+        const bool version1 = snapshot.compare(0, 3, "v1|") == 0 &&
+            std::count(snapshot.begin(), snapshot.end(), '|') == 6;
+        const bool version2 = snapshot.compare(0, 3, "v2|") == 0 &&
+            std::count(snapshot.begin(), snapshot.end(), '|') == 9;
+        if (!validId || snapshot.size() < 12U || snapshot.size() > 4096U ||
+            (!version1 && !version2))
+            return false;
+        const bool alphabet = std::all_of(
+            snapshot.begin(), snapshot.end(), [](unsigned char ch) {
+                return std::isalnum(ch) || ch == '_' || ch == '%' ||
+                    ch == '.' || ch == '~' || ch == '!' || ch == '*' ||
+                    ch == 39 || ch == '(' || ch == ')' || ch == '-' ||
+                    ch == '|';
+            });
+        if (!alphabet ||
+            (snapshot.compare(3, 8, "episode|") != 0 &&
+             snapshot.compare(3, 6, "movie|") != 0))
+            return false;
+        for (std::size_t i = 0; i < snapshot.size(); ++i) {
+            if (snapshot[i] != '%') continue;
+            const auto hex = [](unsigned char x) {
+                return (x >= '0' && x <= '9') ||
+                    (x >= 'a' && x <= 'f') ||
+                    (x >= 'A' && x <= 'F');
+            };
+            if (i + 2 >= snapshot.size() ||
+                !hex(snapshot[i+1]) || !hex(snapshot[i+2])) return false;
+            i += 2;
+        }
+        sourceId = id;
+        decision = option.second;
+        return true;
+    }
     return false;
+}
+inline std::string mediaImportSelectionMetadata(const std::string& payload)
+{
+    std::string id;
+    MediaImportDecision decision;
+    if (!parseMediaImportSelection(payload, id, decision)) return {};
+    const std::string marker = "\",\"metadata\":\"";
+    const auto at = payload.find(marker);
+    if (at == std::string::npos) return {};
+    return payload.substr(at + marker.size(),
+                          payload.size() - at - marker.size() - 2U);
+}
+inline unsigned mediaImportSelectionVersion(
+    MediaImportDecision decision, const std::string& payload)
+{
+    const bool withMetadata = !mediaImportSelectionMetadata(payload).empty();
+    if (withMetadata)
+        return decision == MediaImportDecision::import ? 8U
+             : decision == MediaImportDecision::local ? 9U : 0U;
+    switch (decision) {
+        case MediaImportDecision::import: return 1U;
+        case MediaImportDecision::local: return 2U;
+        case MediaImportDecision::desktop: return 3U;
+        case MediaImportDecision::skip: return 4U;
+        case MediaImportDecision::release: return 5U;
+        case MediaImportDecision::duplicate: return 6U;
+        case MediaImportDecision::deleteDuplicate: return 7U;
+    }
+    return 0U;
 }
 inline unsigned mediaImportSelectionVersion(MediaImportDecision decision)
 {
@@ -112,6 +282,8 @@ inline unsigned mediaImportSelectionVersion(MediaImportDecision decision)
         case MediaImportDecision::desktop: return 3U;
         case MediaImportDecision::skip: return 4U;
         case MediaImportDecision::release: return 5U;
+        case MediaImportDecision::duplicate: return 6U;
+        case MediaImportDecision::deleteDuplicate: return 7U;
     }
     return 0U;
 }
@@ -126,19 +298,39 @@ inline std::string mediaImportSelectionJson(
         case MediaImportDecision::desktop: option = "desktop"; break;
         case MediaImportDecision::skip: option = "skip"; break;
         case MediaImportDecision::release: option = "release"; break;
+        case MediaImportDecision::duplicate: option = "duplicate"; break;
+        case MediaImportDecision::deleteDuplicate: option = "delete_duplicate"; break;
     }
     return "{\"sourceId\":\"" + sourceId +
         "\",\"videoDecision\":\"" + option + "\"}";
+}
+// Versioned snapshot stays inside the SAME durable Import operation.
+// No independent scraper, job, or client-side state is required for replay.
+inline std::string mediaImportSelectionJson(
+    const std::string& sourceId, MediaImportDecision choice,
+    const std::string& metadata)
+{
+    const std::string original = mediaImportSelectionJson(sourceId, choice);
+    if (metadata.empty() ||
+        (choice != MediaImportDecision::import &&
+         choice != MediaImportDecision::local)) return original;
+    return original.substr(0, original.size() - 1U) +
+           ",\"metadata\":\"" + metadata + "\"}";
 }
 inline std::string mediaImportMarkerEvidence(
     const std::string& sourceId, MediaImportDecision choice)
 {
     if (choice != MediaImportDecision::desktop &&
         choice != MediaImportDecision::skip &&
+        choice != MediaImportDecision::duplicate &&
+        choice != MediaImportDecision::deleteDuplicate &&
         choice != MediaImportDecision::release) return {};
     return std::string("media-tools-mark:") +
         (choice == MediaImportDecision::desktop ? "desktop:" :
-         choice == MediaImportDecision::skip ? "skip:" : "release:") +
+         choice == MediaImportDecision::skip ? "skip:" :
+         choice == MediaImportDecision::duplicate ? "duplicate:" :
+         choice == MediaImportDecision::deleteDuplicate ? "delete_duplicate:" :
+         "release:") +
         sourceId;
 }
 
@@ -153,6 +345,9 @@ struct MediaImportSourceLabel {
     std::string label;
     // Read-only, root-relative folder presentation. Never a path authority.
     std::string folder = {};
+    // Fresh Agent-side inspection of a complete, matching VDR .rec target.
+    // Presentation only: destructive actions still recheck source + target.
+    bool recordingPresent = false;
 };
 
 // Ephemeral observation for ONE opaque source ID selected by an actor.
@@ -168,6 +363,10 @@ struct MediaImportSourcePreview {
     std::uint64_t availableBytes = 0;
     std::uint64_t requiredBytes = 0;
     bool videoReencodeRequired = false;
+    std::string failureCode; // read-only stage; never a source path or process log
+    std::string nfoOutline, nfoPlot, nfoYear, nfoGenre;
+    std::uint64_t durationSeconds = 0;
+    std::string posterDataUri, fanartDataUri;
 };
 
 // Read-only observation from the fixed root-admin approval + pinned binary.
@@ -176,6 +375,10 @@ struct MediaToolsInstallationEvidence {
     std::string origin;
     std::string version;
     std::string sha256;
+};
+
+enum class MediaImportCleanupOutcome {
+    removed, alreadyAbsent, notPerformed, failed
 };
 
 enum class MediaImportAgentOutcome {
@@ -219,6 +422,28 @@ public:
     virtual bool inspectTrustedSource(
         const std::string& sourceId, MediaImportSourcePreview& out)
     { out = {}; (void)sourceId; return false; }
+    // Return an optional one-source preview alongside the exact same source
+    // snapshot. The production Agent implements this without a second walk;
+    // existing injected test executors retain their previous behavior.
+    virtual bool listTrustedSourceObservation(
+        std::vector<std::string>& ids,
+        std::vector<MediaImportSourceLabel>& labels, bool& partial,
+        const std::string& selectedSourceId, MediaImportSourcePreview& preview)
+    {
+        preview = {};
+        preview.sourceId = selectedSourceId;
+        if (!listTrustedSourceSnapshot(ids, labels, partial)) return false;
+        if (selectedSourceId.empty()) return true;
+        if (std::find(ids.begin(), ids.end(), selectedSourceId) == ids.end()) {
+            preview.failureCode = "inventory_missing";
+        } else if (!inspectTrustedSource(selectedSourceId, preview)) {
+            const std::string stage = preview.failureCode;
+            preview = {};
+            preview.sourceId = selectedSourceId;
+            preview.failureCode = stage.empty() ? "inspection_failed" : stage;
+        }
+        return true;
+    }
     virtual bool authorize(const BackendAgentCommandAssignment& assignment,
                            const std::string& backendId,
                            std::uint64_t generation) = 0;
@@ -228,6 +453,11 @@ public:
     // recording. Never a reason to mark a VDR recording verified by itself.
     virtual std::string takeRecordingEvidence() { return {}; }
     virtual std::string takeMarkerEvidence() { return {}; }
+    // A confirmed Core readback may cleanup the same backend-local source.
+    // Default fails closed; no browser-supplied filesystem paths.
+    virtual MediaImportCleanupOutcome cleanupConfirmedSource(
+        const std::string&, const std::string&)
+    { return MediaImportCleanupOutcome::notPerformed; }
 };
 
 } // namespace vdrsuite::mediatools

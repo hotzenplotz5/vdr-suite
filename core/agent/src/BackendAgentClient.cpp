@@ -34,7 +34,7 @@
 namespace
 {
 constexpr std::size_t MaximumResponseBytes = 16U * 1024U;
-constexpr std::size_t MaximumObservationRequestBytes = 512U * 1024U;
+constexpr std::size_t MaximumObservationRequestBytes = 1024U * 1024U;
 constexpr std::size_t MaximumLocalFileBytes = 16U * 1024U;
 std::once_flag CurlInitialization;
 bool CurlInitialized = false;
@@ -614,10 +614,19 @@ BackendAgentTransportResponse CurlBackendAgentControlPlaneTransport::perform(
     configured = configured && curl_easy_setopt(handle, CURLOPT_PROXY, "") == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_PROTOCOLS_STR, "https") == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_REDIR_PROTOCOLS_STR, "https") == CURLE_OK;
+    // Interactive command polls must not occupy the single Agent loop for
+    // ten seconds. Heartbeats, observations and durable command receipts keep
+    // their configured timeouts; only the optional fast poll is bounded.
+    const bool fastCommandPoll = path == "/api/agent/v1/commands/poll";
+    const long requestTimeout = fastCommandPoll
+        ? std::min(config_.requestTimeoutMilliseconds, 2000L)
+        : config_.requestTimeoutMilliseconds;
+    const long connectTimeout =
+        std::min(config_.connectTimeoutMilliseconds, requestTimeout);
     configured = configured && curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT_MS,
-                                                  config_.connectTimeoutMilliseconds) == CURLE_OK;
+                                                  connectTimeout) == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_TIMEOUT_MS,
-                                                  config_.requestTimeoutMilliseconds) == CURLE_OK;
+                                                  requestTimeout) == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, curlWrite) == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_WRITEDATA, &writeState) == CURLE_OK;
     if (!config_.caCertificatePath.empty())
@@ -2069,10 +2078,12 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
         installed = {};
     std::vector<std::string> ids;
     std::vector<vdrsuite::mediatools::MediaImportSourceLabel> described;
+    vdrsuite::mediatools::MediaImportSourcePreview selectedPreview;
     bool partial = true;
     if (installed.sha256.empty() ||
-        !config_.mediaImportExecutor->listTrustedSourceSnapshot(
-            ids, described, partial)) {
+        !config_.mediaImportExecutor->listTrustedSourceObservation(
+            ids, described, partial, pendingMediaImportPreviewSourceId_,
+            selectedPreview)) {
         ids.clear(); // Withdrawal/unreadable ledger removes all listings.
         described.clear();
         partial = true;
@@ -2115,6 +2126,7 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     };
     std::vector<std::string> labels;
     std::vector<std::string> folders;
+    std::vector<std::string> sourceStatuses;
     if (!ids.empty() && described.size() == ids.size())
     {
         bool consistent = true;
@@ -2135,6 +2147,8 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
             for (const auto& item : described) {
                 labels.push_back(item.label);
                 folders.push_back(item.folder);
+                sourceStatuses.push_back(item.recordingPresent
+                    ? "recording_present" : "unverified");
             }
     }
     std::ostringstream body;
@@ -2159,6 +2173,11 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
         if (index != 0U) body << ',';
         body << '"' << jsonEscape(folders[index]) << '"';
     }
+    body << "],\"sourceStatuses\":[";
+    for (std::size_t index = 0; index < sourceStatuses.size(); ++index) {
+        if (index != 0U) body << ',';
+        body << '\"' << sourceStatuses[index] << '\"';
+    }
     body << "],\"partial\":" << (partial ? "true" : "false")
          << ",\"handlerOrigin\":\"" << jsonEscape(installed.origin)
          << "\",\"handlerVersion\":\"" << jsonEscape(installed.version)
@@ -2167,18 +2186,16 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     // The Core may request ONE previously authorized opaque source ID in
     // the previous observation response. Never accept a path from the wire.
     if (!pendingMediaImportPreviewSourceId_.empty()) {
-        vdrsuite::mediatools::MediaImportSourcePreview preview;
+        // The optional preview comes from the same bounded scan as ids and
+        // labels. Do not resolve the selected ID through a second tree walk.
+        auto preview = std::move(selectedPreview);
         preview.sourceId = pendingMediaImportPreviewSourceId_;
-        if (std::find(ids.begin(), ids.end(), preview.sourceId) != ids.end()) {
-            if (!config_.mediaImportExecutor->inspectTrustedSource(
-                    preview.sourceId, preview))
-            {
-                preview = {};
-                preview.sourceId = pendingMediaImportPreviewSourceId_;
-                preview.status = "unavailable";
-            }
-        } else {
-            preview.status = "unavailable";
+        if (std::find(ids.begin(), ids.end(), preview.sourceId) == ids.end()) {
+            preview = {};
+            preview.sourceId = pendingMediaImportPreviewSourceId_;
+            preview.failureCode = "inventory_missing";
+        } else if (preview.status == "unavailable" && preview.failureCode.empty()) {
+            preview.failureCode = "inspection_failed";
         }
         body << ",\"previewSourceId\":\"" << jsonEscape(preview.sourceId)
              << "\",\"previewStatus\":\"" << jsonEscape(preview.status)
@@ -2186,7 +2203,15 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
              << "\",\"previewTargetFolder\":\""
              << jsonEscape(preview.targetFolder)
              << "\",\"previewVideoCodec\":\"" << jsonEscape(preview.videoCodec)
-             << "\",\"previewSourceBytes\":" << preview.sourceBytes
+             << "\",\"previewFailureCode\":\"" << jsonEscape(preview.failureCode)
+             << "\",\"previewNfoOutline\":\"" << jsonEscape(preview.nfoOutline)
+             << "\",\"previewNfoPlot\":\"" << jsonEscape(preview.nfoPlot)
+             << "\",\"previewNfoYear\":\"" << jsonEscape(preview.nfoYear)
+             << "\",\"previewNfoGenre\":\"" << jsonEscape(preview.nfoGenre)
+             << "\",\"previewPosterDataUri\":\"" << preview.posterDataUri
+             << "\",\"previewFanartDataUri\":\"" << preview.fanartDataUri
+             << "\",\"previewDurationSeconds\":" << preview.durationSeconds
+             << ",\"previewSourceBytes\":" << preview.sourceBytes
              << ",\"previewAvailableBytes\":" << preview.availableBytes
              << ",\"previewRequiredBytes\":" << preview.requiredBytes
              << ",\"previewReencodeRequired\":"
@@ -2240,8 +2265,15 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
     BackendAgentCommandClientContext commandContext{state_.agentId, state_.credentialSecret, state_.backendId, agentInstanceId_, state_.backendGeneration};
     if (!reconcileBackendAgentCommandState(commandConfig, commandContext, transport_, reasonCode))
     {
-        synchronized_ = false;
-        return false;
+        // An unacknowledged assignment from an older Agent generation must
+        // remain durable and must never be replayed under this generation.
+        // It is a COMMAND problem, not a reason to suppress heartbeat,
+        // channels and read-only Media Import source observations forever.
+        if (reasonCode != "local_command_generation_fenced") {
+            synchronized_ = false;
+            return false;
+        }
+        log("Old-generation local command retained; command delivery paused");
     }
     if (!state_.pendingObservationKind.empty() &&
         !publishBackendHealthObservation(reasonCode))
@@ -2424,23 +2456,45 @@ int BackendAgentClientRuntime::run(const std::function<bool()>& stopRequested)
 
         if (config_.commandPollIntervalMilliseconds > 0)
         {
+            // A command poll can block for the full HTTP timeout. Counting
+            // only the requested 250 ms sleep starves the lease heartbeat
+            // during repeated transport stalls (10 seconds each in practice).
+            const auto cycleStarted = std::chrono::steady_clock::now();
+            const int elapsedBeforeCycle = millisecondsSinceHeartbeat;
             const int remainingUntilHeartbeat =
                 heartbeatIntervalMilliseconds - millisecondsSinceHeartbeat;
             const int waitMilliseconds = std::min(
                 config_.commandPollIntervalMilliseconds,
                 remainingUntilHeartbeat);
+            const auto accountElapsed = [&]() {
+                const auto wallMilliseconds =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - cycleStarted).count();
+                const auto elapsed = std::max<std::int64_t>(
+                    waitMilliseconds, wallMilliseconds);
+                millisecondsSinceHeartbeat = static_cast<int>(
+                    std::min<std::int64_t>(
+                        heartbeatIntervalMilliseconds,
+                        static_cast<std::int64_t>(elapsedBeforeCycle) + elapsed));
+            };
             sleepMilliseconds_(waitMilliseconds);
             if (stopRequested()) break;
-            millisecondsSinceHeartbeat += waitMilliseconds;
+            accountElapsed();
 
             if (millisecondsSinceHeartbeat < heartbeatIntervalMilliseconds)
             {
-                if (!pollCommands(reason))
-                {
+                const bool pollOk = pollCommands(reason);
+                if (!pollOk)
                     log("Backend Agent command poll failed: " + reason);
-                }
-                continue;
+                // If the command transport just failed, give the lease
+                // heartbeat priority instead of hammering the same failing
+                // connection with more rapid command polls.
+                accountElapsed();
+                if (!pollOk && reason == "protected_transport_failed")
+                    millisecondsSinceHeartbeat = heartbeatIntervalMilliseconds;
             }
+            if (millisecondsSinceHeartbeat < heartbeatIntervalMilliseconds)
+                continue;
 
             millisecondsSinceHeartbeat = 0;
         }

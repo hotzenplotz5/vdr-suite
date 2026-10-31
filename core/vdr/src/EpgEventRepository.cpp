@@ -4,6 +4,8 @@
 
 #include <sqlite3.h>
 
+#include <chrono>
+#include <iostream>
 #include <set>
 #include <sstream>
 #include <string>
@@ -11,6 +13,23 @@
 
 namespace
 {
+void reportSlowEpgWrite(
+    const char* phase, std::size_t events,
+    std::chrono::steady_clock::time_point waitStarted,
+    std::chrono::steady_clock::time_point transactionStarted)
+{
+    const auto finished = std::chrono::steady_clock::now();
+    const auto waitMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        transactionStarted - waitStarted).count();
+    const auto transactionMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        finished - transactionStarted).count();
+    if (waitMs < 1000 && transactionMs < 1000) return;
+    std::cerr << "CACHE_DB_PHASE_SLOW component=epg phase=" << phase
+              << " wait_ms=" << waitMs
+              << " transaction_ms=" << transactionMs
+              << " items=" << events << std::endl;
+}
+
 std::string columnText(sqlite3_stmt* stmt, int column)
 {
     const unsigned char* text = sqlite3_column_text(stmt, column);
@@ -453,7 +472,9 @@ bool EpgEventRepository::upsertEventsForBackend(
         return true;
     }
 
+    const auto waitStarted = std::chrono::steady_clock::now();
     auto transactionLease = database_.acquireTransactionLease();
+    const auto transactionStarted = std::chrono::steady_clock::now();
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
     {
         return false;
@@ -474,6 +495,7 @@ bool EpgEventRepository::upsertEventsForBackend(
         return false;
     }
 
+    reportSlowEpgWrite("upsert", events.size(), waitStarted, transactionStarted);
     return true;
 }
 
@@ -519,7 +541,9 @@ EpgEventRepository::replaceAuthoritativeWindowForBackend(
         }
     }
 
+    const auto waitStarted = std::chrono::steady_clock::now();
     auto transactionLease = database_.acquireTransactionLease();
+    const auto transactionStarted = std::chrono::steady_clock::now();
     if (!database_.execute("BEGIN IMMEDIATE TRANSACTION;"))
     {
         return result;
@@ -593,6 +617,8 @@ EpgEventRepository::replaceAuthoritativeWindowForBackend(
     }
 
     result.stored = true;
+    reportSlowEpgWrite(
+        "authoritative_window", events.size(), waitStarted, transactionStarted);
     return result;
 }
 
