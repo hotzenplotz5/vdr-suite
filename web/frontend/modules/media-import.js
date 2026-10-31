@@ -292,11 +292,15 @@
     if (!attempt) return '';
     if (attempt.state === 'outcome_unknown') return '';
     if (terminalState(attempt.state)) {
-      // The terminal Core result is already authoritative. A separate,
-      // read-only status GET must not lock other confirmed source actions.
+      // A verified import is no longer a same-source UI lock after its
+      // automatic fresh inventory read. Core revalidates any later delete.
+      if (attempt.sourceId === sourceId &&
+          attempt.state === 'succeeded' &&
+          (!attempt.videoDecision || attempt.videoDecision === 'local') &&
+          attempt.sourceCleanup !== 'pending' &&
+          attempt.inventoryRefreshCompleted) return '';
       return attempt.sourceId === sourceId
-        ? 'Löschen gesperrt: Vor einer erneuten Aktion auf derselben Quelle ' +
-          'zuerst die Quellenliste aktualisieren.'
+        ? 'Löschen gesperrt: Der Quellenabgleich nach dem Import läuft noch.'
         : '';
     }
     return 'Löschen gesperrt: Der vorherige Auftrag läuft noch.';
@@ -329,7 +333,11 @@
     if (attempt && attempt.state === 'outcome_unknown')
       pinUnknownOnSourceChange(view, sourceId);
     else if (attempt && terminalState(attempt.state) &&
-             attempt.sourceId !== sourceId) {
+             (attempt.sourceId !== sourceId ||
+              (attempt.state === 'succeeded' &&
+               (!attempt.videoDecision || attempt.videoDecision === 'local') &&
+               attempt.inventoryRefreshCompleted &&
+               attempt.sourceCleanup !== 'pending'))) {
       // Finished receipt remains visible in completedOperations. Releasing
       // the transient view is not a retry and never changes Core state.
       clearPolling(view);
@@ -1108,9 +1116,13 @@
       }
       if (refreshImportedSources) {
         const confirmedReport = view.message.textContent;
-        return loadSources(view).then(function () {
-          if (isCurrent(view) && view.attempt === checkedAttempt)
-            report(view, confirmedReport, false);
+        return loadSources(view).then(function (refreshed) {
+          if (!isCurrent(view) || view.attempt !== checkedAttempt) return;
+          // Only a fresh validated GET releases the terminal import's
+          // same-source UI lock; the original Core receipt remains visible.
+          checkedAttempt.inventoryRefreshCompleted = refreshed === true;
+          updateInlineDeleteAvailability(view);
+          if (refreshed) report(view, confirmedReport, false);
         });
       }
     }).catch(function (error) {
@@ -2526,7 +2538,7 @@
   function loadSources(view) {
     if (!isCurrent(view) ||
         (view.attempt && !mayBrowseDuringOperation(view)))
-      return Promise.resolve();
+      return Promise.resolve(false);
     // A failed refresh must not destroy an already browsable, authenticated
     // inventory. Only commit a fresh scan after the complete response validates.
     const generation = ++view.sourcesGeneration;
@@ -2579,7 +2591,7 @@
             'Aktualisierung momentan nicht möglich; Ordner und Filter bleiben nutzbar.';
           report(view, 'Quellenliste weiterhin sichtbar (zuletzt geladen). ' +
             'Import/Löschen wird beim Ausführen vom Backend geprüft.');
-          return;
+          return false;
         }
         // Commit a new validated inventory only now. A partial/failed GET
         // must never blank the source list or throw away an existing selection.
@@ -2683,6 +2695,7 @@
           (mayBrowseWithUnknownOutcome(view)
             ? ' Bestehender Auftrag weiterhin ungewiss; nur lesende Prüfung anderer Quellen.'
             : ''));
+        return !(response.meta && response.meta.stale);
       }).catch(function (error) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
         const exceeded = error && typeof error.message === 'string' &&
@@ -2710,6 +2723,7 @@
           ? 'Aktualisierung momentan nicht möglich. Die bisherige ' +
             'Quellenliste bleibt erhalten und ist weiter durchsuchbar.'
           : message, true);
+        return false;
       });
   }
 
