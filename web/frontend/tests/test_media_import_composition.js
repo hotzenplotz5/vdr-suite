@@ -142,6 +142,8 @@ let batchSources = null;
 let markedSources = [];
 let sourcePartial = false;
 let sourceStale = false;
+// Model a confirmed cleanup before the Agent's next inventory heartbeat.
+let delayedDeleteObservation = false;
 let sourceDisplayOverride = null;
 const sourceFolders = Object.create(null);
 const sourceDisplayLabels = Object.create(null);
@@ -281,7 +283,7 @@ function transport(url, options) {
       const targetId = JSON.parse(options.body).sourceId;
       // Only the successful Core/Agent result removes the fixture source.
       // An outcome_unknown cleanup has no confirmed deletion.
-      if (state === 'succeeded') {
+      if (state === 'succeeded' && !delayedDeleteObservation) {
         markedSources = markedSources.filter(function (id) {
           return id !== targetId;
         });
@@ -2835,6 +2837,10 @@ function publishHomeResume() {}
   assert.strictEqual(submits, importedPostCount,
     'cancelled unmarked duplicate cleanup must not submit');
   confirmLocal = true;
+  delayedDeleteObservation = true;
+  const sourceReadsBeforeDelete = requests.filter(function (req) {
+    return req.path.endsWith('/media-import-sources');
+  }).length;
   await importedRemove.listeners.click();
   await settle();
   assert.strictEqual(submits, importedPostCount + 1,
@@ -2844,7 +2850,32 @@ function publishHomeResume() {}
   }).slice(-1)[0].options.body).videoDecision, 'delete_duplicate');
   assert(!findClass(mount, 'media-import-selection').children.some(function (row) {
     return row.dataset.sourceId === SOURCE;
-  }), 'confirmed cleanup refreshes inventory and removes the deleted source');
+  }), 'confirmed cleanup hides the deleted source even before the Agent inventory refreshes');
+  assert(batchSources.includes(SOURCE),
+    'the fixture deliberately still serves an old Agent source observation');
+  assert(requests.filter(function (req) {
+    return req.path.endsWith('/media-import-sources');
+  }).length > sourceReadsBeforeDelete,
+  'confirmed cleanup automatically fetches a newer inventory without a user click');
+  assert(findClass(mount, 'media-import-scan-notice').textContent.includes('Agent-Quellkatalog'),
+    'explain that the backend observation is still catching up');
+  const postDeleteReads = requests.filter(function (req) {
+    return req.options.method === 'POST';
+  }).length;
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  assert(!findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.dataset.sourceId === SOURCE;
+  }), 'a second still-old source observation must not resurrect the deleted item');
+  assert.strictEqual(requests.filter(function (req) {
+    return req.options.method === 'POST';
+  }).length, postDeleteReads, 'source refresh never resubmits a deletion');
+  batchSources = batchSources.filter(function (id) { return id !== SOURCE; });
+  delayedDeleteObservation = false;
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  assert(!findClass(mount, 'media-import-scan-notice').textContent.includes('Agent-Quellkatalog'),
+    'once the Agent observes the removal the catalog is reconciled');
   delete recordingStatuses[SOURCE];
 
   // MT.REC6 regression: an uncertain S01E01 delete must NOT disable
