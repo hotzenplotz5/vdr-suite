@@ -1094,6 +1094,7 @@
       }
       // Readback-confirmed import: refresh the list once, without a page reload.
       const refreshImportedSources = recordingConfirmed && !view.batch &&
+        operation.sourceCleanup !== 'pending' &&
         !view.attempt.inventoryRefreshStarted;
       if (refreshImportedSources) view.attempt.inventoryRefreshStarted = true;
       const limit = view.batch ? MAX_BATCH_READS : MAX_AUTOMATIC_READS;
@@ -1116,14 +1117,32 @@
       }
       if (refreshImportedSources) {
         const confirmedReport = view.message.textContent;
-        return loadSources(view).then(function (refreshed) {
-          if (!isCurrent(view) || view.attempt !== checkedAttempt) return;
-          // Only a fresh validated GET releases the terminal import's
-          // same-source UI lock; the original Core receipt remains visible.
-          checkedAttempt.inventoryRefreshCompleted = refreshed === true;
-          updateInlineDeleteAvailability(view);
-          if (refreshed) report(view, confirmedReport, false);
-        });
+        // The Agent's next authenticated source observation may lag behind
+        // the Core recording readback, or one inventory GET may fail. Retry
+        // ONLY read-only source GETs; never submit another operation.
+        const refreshAfterImport = function () {
+          if (!isCurrent(view) || view.attempt !== checkedAttempt) return Promise.resolve();
+          return loadSources(view).then(function (refreshed) {
+            if (!isCurrent(view) || view.attempt !== checkedAttempt) return;
+            const stillPresent = view.allOrdinary.find(function (item) {
+              return item.sourceId === checkedAttempt.sourceId;
+            });
+            const reconciled = refreshed === true &&
+              (!stillPresent || stillPresent.recordingPresent);
+            checkedAttempt.inventoryRefreshCompleted = reconciled;
+            updateInlineDeleteAvailability(view);
+            if (reconciled) {
+              report(view, confirmedReport, false);
+            } else if ((checkedAttempt.inventoryRefreshRetries || 0) < 12) {
+              ++checkedAttempt.inventoryRefreshRetries || (checkedAttempt.inventoryRefreshRetries = 1);
+              view.timer = global.setTimeout(function () {
+                view.timer = null;
+                void refreshAfterImport();
+              }, POLL_MS);
+            }
+          });
+        };
+        return refreshAfterImport();
       }
     }).catch(function (error) {
       if (isCurrent(view)) {
