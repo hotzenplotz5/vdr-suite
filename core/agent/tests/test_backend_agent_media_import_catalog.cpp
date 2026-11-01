@@ -1,5 +1,7 @@
 #include "BackendAgentMediaImportCatalog.h"
 #include "Database.h"
+#include <unistd.h>
+#include <cstdlib>
 #include <cassert>
 #include <string>
 #include <vector>
@@ -98,8 +100,12 @@ int main()
     // A successful scanned source survives destruction/recreation of the
     // backend Catalog: it is stored in the existing SQLite database.
     {
+        char databaseFile[] = "/tmp/vdr-suite-media-preview-XXXXXX";
+        const int temporary = ::mkstemp(databaseFile);
+        assert(temporary >= 0);
+        ::close(temporary);
         Database database;
-        assert(database.open(":memory:"));
+        assert(database.open(databaseFile));
         BackendAgentRecord persistentLive = live;
         persistentLive.leaseExpiresAt = 6000;
         const std::string key = "scan_0123456789abcdef0123456789abcdef";
@@ -122,6 +128,9 @@ int main()
             verified.durationSeconds = 6060;
             assert(first.acceptPreview(persistentLive, "backend", 100, verified));
         }
+        // Simulate a full daemon shutdown and reopening the on-disk database.
+        database.close();
+        assert(database.open(databaseFile));
         {
             BackendAgentMediaImportCatalog reopened(database);
             assert(publish(reopened, key, 4000));
@@ -156,6 +165,8 @@ int main()
             assert(reopened.nextPreviewRequest(persistentLive, "backend", 4003) ==
                 manualId);
         }
+        database.close();
+        assert(::unlink(databaseFile) == 0);
     }
     // MT.SCAN2: verify the actual server-side queue on a fresh catalog.
     // Published Agent sources are inspected one by one even if no
