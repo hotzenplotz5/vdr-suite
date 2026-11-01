@@ -1801,7 +1801,8 @@ bool DaemonRuntime::initialize()
                                     for (const char* allowed : {
                                         "worker_launch_failed", "worker_signaled",
                                         "worker_failed", "worker_interrupted",
-                                        "worker_time_limit"})
+                                        "worker_time_limit", "ffmpeg_timeout",
+                                        "ffmpeg_failed", "vdr_index_failed"})
                                         if (code == allowed)
                                             result.operation.failureCode = code;
                                 }
