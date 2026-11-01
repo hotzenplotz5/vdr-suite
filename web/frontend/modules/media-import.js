@@ -399,6 +399,8 @@
           attempt.lastStatusError = '';
           attempt.sourceCleanup = typeof operation.sourceCleanup === 'string'
             ? operation.sourceCleanup : '';
+          attempt.failureCode = typeof operation.failureCode === 'string'
+            ? operation.failureCode : '';
           if (terminalState(operation.state)) {
             delete unresolvedAttempts[key];
             const text = 'Früherer Auftrag „' + attempt.sourceLabel +
@@ -525,6 +527,9 @@
       lines.push('Letzte erfolgreiche Core-Abfrage: ' + attempt.lastStatusRead);
     if (attempt.lastStatusError)
       lines.push('Letzter Statusabruf: ' + attempt.lastStatusError);
+    if (attempt.failureCode && importFailureLabel(attempt.failureCode))
+      lines.push('Nachgewiesene Ausführungsdiagnose: ' +
+        importFailureLabel(attempt.failureCode));
     if (attempt.sourceCleanup)
       lines.push('Core-Quellenbereinigung: ' +
         (cleanupLabel(attempt.sourceCleanup) || 'Unbekannter Wert'));
@@ -933,6 +938,8 @@
       view.attempt.lastStatusError = '';
       view.attempt.sourceCleanup = typeof operation.sourceCleanup === 'string'
         ? operation.sourceCleanup : '';
+      view.attempt.failureCode = typeof operation.failureCode === 'string'
+        ? operation.failureCode : '';
       enableOperationBrowsing(view);
       if (manual) {
         view.lastManualCheck = 'Zuletzt geprüft: ' +
@@ -985,14 +992,17 @@
       const possibleReturnCompleted = recordingConfirmed && view.attempt.pcReturn === true;
       const cleanup = recordingConfirmed && typeof operation.sourceCleanup === 'string'
         ? cleanupLabel(operation.sourceCleanup) : '';
+      const failure = importFailureLabel(view.attempt.failureCode);
       report(view, operationLabel(operation.state, view.attempt.videoDecision) +
+        (failure ? ' Ursache: ' + failure : '') +
         (possibleReturnCompleted
           ? ' Möglicher PC-Rücklauf: VDR-Readback bestätigt den Import ' +
             'der neuen Datei, nicht ihre Medienidentität mit dem geparkten Original.'
           : '') + (cleanup ? ' ' + cleanup : ''), false);
       view.operationDetail.textContent =
         'Vorgang ' + operation.operationId + ' · ' + operation.state +
-        (cleanup ? ' · ' + cleanup : '');
+        (cleanup ? ' · ' + cleanup : '') +
+        (failure ? ' · Ursache: ' + failure : '');
       // A failed automatic duplicate marker is a completed file action,
       // not an ongoing film import. Do not freeze the entire media browser.
       // Keep the outcome visible; never retry this source automatically.
@@ -1415,6 +1425,22 @@
     }).catch(fail);
   }
 
+  // Only fixed, actor-scoped codes from the durable Core/Agent result.
+  // Shutdown vs crash cannot be determined from a lost FFmpeg process alone.
+  function importFailureLabel(code) {
+    const reasons = {
+      execution_interrupted: 'Verarbeitung nach Agent- oder Systemunterbrechung nicht bestätigt. Ob Herunterfahren oder Absturz die Ursache war, ist nicht feststellbar.',
+      expired_before_start: 'Auftrag vor Beginn der Verarbeitung abgelaufen.',
+      worker_launch_failed: 'Der Import-/Encoder-Prozess konnte nicht gestartet werden.',
+      worker_signaled: 'Der Import-/Encoder-Prozess wurde durch ein Signal beendet.',
+      worker_failed: 'Der Import-/Encoder-Prozess wurde mit einem Fehler beendet. Technische Details stehen im Agent-Journal.',
+      worker_interrupted: 'Die Überwachung des Import-/Encoder-Prozesses wurde unerwartet unterbrochen.',
+      worker_time_limit: 'Die maximale Verarbeitungszeit wurde erreicht (24 Stunden).'
+    };
+    return Object.prototype.hasOwnProperty.call(reasons, code)
+      ? reasons[code] : '';
+  }
+
   // Native indeterminate progress: the existing public Operation API reports
   // phases but no byte count, percentage or ETA. Elapsed time is factual.
   function renderOperationProgress(view) {
@@ -1508,6 +1534,9 @@
       : !attempt.operationId
         ? 'Der Server hat keine eindeutige Antwort geliefert. Bitte nicht erneut klicken.'
         : descriptions[state] || 'Der vorhandene Auftrag wird über „Vorgang prüfen“ abgefragt.';
+    if (attempt && attempt.failureCode && importFailureLabel(attempt.failureCode))
+      view.importFeedbackText.textContent +=
+        ' Ursache: ' + importFailureLabel(attempt.failureCode);
     if (view.lastManualCheck && attempt && !attempt.pending)
       view.importFeedbackText.textContent += ' ' + view.lastManualCheck;
     if (attempt && attempt.sourceLabel && !terminalState(state))
