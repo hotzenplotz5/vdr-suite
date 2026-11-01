@@ -41,6 +41,8 @@ struct ProcessResult {
 };
 
 // No shell interpolation: implementation uses execv with fixed executable paths.
+// Local video encoding uses an explicitly longer runner timeout; quick
+// stream-copy imports retain the original default.
 struct ProcessRunner {
     virtual ~ProcessRunner() = default;
     virtual ProcessResult run(const std::vector<std::string>& argv, bool captureOutput) = 0;
