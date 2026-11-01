@@ -59,6 +59,7 @@ public:
         const BackendAgentCommandAssignment& assignment) override;
     std::string takeRecordingEvidence() override;
     std::string takeMarkerEvidence() override;
+    std::string takeFailureCode() override;
     MediaImportCleanupOutcome cleanupConfirmedSource(
         const std::string& sourceId,
         const std::string& sourceEvidence) override;
@@ -78,6 +79,7 @@ private:
     MediaImportDecision pendingDecision_ = MediaImportDecision::import;
     std::string recordingEvidence_;
     std::string markerEvidence_;
+    std::string failureCode_;
 };
 
 } // namespace vdrsuite::mediatools
