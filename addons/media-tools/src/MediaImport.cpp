@@ -390,7 +390,13 @@ double probeDuration(ProcessRunner& runner, const fs::path& file) {
 
 void runRequired(ProcessRunner& runner, const std::vector<std::string>& argv) {
     const auto result = runner.run(argv, false);
-    require(result.exitCode == 0, "external media command failed");
+    if (result.exitCode == 0) return;
+    if (argv[0] == "/usr/bin/ffmpeg")
+        throw std::runtime_error(result.timedOut
+            ? "ffmpeg_timeout" : "ffmpeg_failed");
+    if (argv[0] == "/usr/bin/vdr")
+        throw std::runtime_error("vdr_index_failed");
+    throw std::runtime_error("external media command failed");
 }
 
 } // namespace
@@ -1373,7 +1379,9 @@ ProcessResult NativeProcessRunner::run(const std::vector<std::string>& args,
                 else { failed = true; break; }
             }
         }
-        if (failed || std::chrono::steady_clock::now() >= limit) {
+        const bool timeExpired = std::chrono::steady_clock::now() >= limit;
+        if (failed || timeExpired) {
+            result.timedOut = timeExpired;
             failed = true;
             break;
         }
