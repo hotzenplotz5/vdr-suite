@@ -63,9 +63,15 @@ public:
             const auto known = history->second.find(sourceId);
             if (known != history->second.end() &&
                 known->second.first <= now &&
-                now - known->second.first <=
-                    (known->second.second.status == "unavailable" ||
-                     known->second.second.status == "insufficient" ? 60 : 3600)) {
+                // Completed codec checks are tied to the source fingerprint
+                // embedded in sourceId. Never redo FFprobe merely because an
+                // arbitrary hour has passed; a changed source receives a new
+                // ID on the next inventory scan. Imports still independently
+                // validate the source and destination.
+                (known->second.second.status == "ready" ||
+                 now - known->second.first <=
+                     (known->second.second.status == "unavailable" ||
+                      known->second.second.status == "insufficient" ? 60 : 3600))) {
                 out = known->second.second;
                 return PreviewState::ready;
             }
