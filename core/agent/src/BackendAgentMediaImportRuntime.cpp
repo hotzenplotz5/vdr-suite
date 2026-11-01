@@ -11,9 +11,10 @@ namespace vdrsuite::agent {
 BackendAgentMediaImportRuntime::BackendAgentMediaImportRuntime(
     std::string trustedRoot, std::string backendId, std::string statePath,
     IBackendAgentControlPlaneTransport& transport,
-    CurrentContext context)
+    CurrentContext context, KeepAlive keepAlive)
     : trustedRoot_(std::move(trustedRoot)), backendId_(std::move(backendId)),
-      currentContext_(std::move(context)), inventory_(trustedRoot_),
+      currentContext_(std::move(context)), keepAlive_(std::move(keepAlive)),
+      inventory_(trustedRoot_),
       authorization_(std::move(statePath), transport, currentContext_) {}
 
 bool BackendAgentMediaImportRuntime::available()
@@ -277,7 +278,7 @@ bool BackendAgentMediaImportRuntime::authorize(
         auto pinned = std::make_unique<
             vdrsuite::mediatools::PinnedMediaImportAgentExecutor>(
                 trustedRoot_, backendId_, generation,
-                inventory_, authorization_);
+                inventory_, authorization_, keepAlive_);
         if (!pinned->authorize(assignment, backendId, generation)) return false;
         currentExecution_ = std::move(pinned);
         return true;
