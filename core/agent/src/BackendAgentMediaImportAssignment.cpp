@@ -146,7 +146,11 @@ BackendAgentMediaImportAssignmentService::assign(
     a.payload = payload.payload.payload;
     a.verificationPolicy = "reconciliation_required";
     a.assignedAt = now;
-    a.deadline = std::min(op.deadline, now + 600);
+    // Preserve the short window for stream-copy and marker actions.
+    // A locally approved video encode uses the Core operation deadline.
+    a.deadline = std::min(op.deadline,
+        now + (choice == vdrsuite::mediatools::MediaImportDecision::local
+            ? 24 * 3600 : 600));
     a.requestFingerprint = backendAgentCommandFingerprint(a);
     std::string gate;
     if (!fence_.checkCandidate(a, now, gate))
