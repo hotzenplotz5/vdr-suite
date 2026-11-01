@@ -945,6 +945,22 @@ bool reconcileBackendAgentCommandState(
             }
         }
         else
+        {
+            std::string failure;
+            if (outcome == vdrsuite::mediatools::MediaImportAgentOutcome::unknown &&
+                config.mediaImportExecutor)
+            {
+                try { failure = config.mediaImportExecutor->takeFailureCode(); }
+                catch (...) {}
+            }
+            // Only these constant, path-free categories are persisted and
+            // later projected into the actor-scoped operation response.
+            const bool knownFailure =
+                failure == "worker_launch_failed" ||
+                failure == "worker_signaled" ||
+                failure == "worker_failed" ||
+                failure == "worker_interrupted" ||
+                failure == "worker_time_limit";
             createResult(
                 state,
                 outcome == vdrsuite::mediatools::MediaImportAgentOutcome::submitted
@@ -952,7 +968,10 @@ bool reconcileBackendAgentCommandState(
                 "outcome_unknown", "outcome_unknown",
                 outcome == vdrsuite::mediatools::MediaImportAgentOutcome::submitted
                     ? "none" : "executor_unknown",
-                "reconcile_only", "Media import requires recording reconciliation");
+                "reconcile_only",
+                knownFailure ? "media_import_failure:" + failure :
+                    "Media import requires recording reconciliation");
+        }
         if (outcome == vdrsuite::mediatools::MediaImportAgentOutcome::submitted)
         {
             try
