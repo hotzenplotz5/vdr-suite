@@ -47,6 +47,7 @@ public:
         const BackendAgentCommandAssignment& assignment) override;
     std::string takeRecordingEvidence() override;
     std::string takeMarkerEvidence() override;
+    std::string takeFailureCode() override;
 private:
     bool inspectResolvedSource(
         const std::string& sourceId,
