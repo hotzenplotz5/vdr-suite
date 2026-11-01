@@ -126,6 +126,21 @@ int main()
         assert(idle.requestPreview(live, "backend", 140, first, cached) ==
             BackendAgentMediaImportCatalog::PreviewState::ready);
         assert(cached.title == "Film 11");
+        // The same unchanged source remains verified after several hours;
+        // new Agent inventory observations must not launch another FFprobe.
+        BackendAgentMediaImportCatalog longLived;
+        BackendAgentRecord extendedLease = live;
+        extendedLease.leaseExpiresAt = 5000;
+        assert(longLived.publish(actor, extendedLease, "backend", "instance", 7,
+            {first}, 100, "manual", "0.1.0", approvedSha, {"Film 11"}));
+        assert(longLived.nextPreviewRequest(extendedLease, "backend", 100) == first);
+        assert(longLived.acceptPreview(extendedLease, "backend", 100, firstReport));
+        assert(longLived.publish(actor, extendedLease, "backend", "instance", 7,
+            {first}, 4000, "manual", "0.1.0", approvedSha, {"Film 11"}));
+        assert(longLived.requestPreview(extendedLease, "backend", 4000,
+            first, cached) == BackendAgentMediaImportCatalog::PreviewState::ready);
+        assert(cached.videoCodec == "h264");
+        assert(longLived.nextPreviewRequest(extendedLease, "backend", 4000).empty());
         // A transient failure remains visible briefly, then is
         // deliberately rechecked rather than cached forever.
         BackendAgentMediaImportCatalog retry;
