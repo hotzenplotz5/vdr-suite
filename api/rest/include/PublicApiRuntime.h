@@ -29,6 +29,9 @@ struct PublicOperationResource
     // Optional, journal-backed Agent result after independently verified
     // media import. Absent for all other operation families.
     std::string sourceCleanup = {};
+    // Actor-scoped, path-free reason from the original durable import command.
+    // Omitted when no concrete failure is known; never infer a host crash.
+    std::string failureCode = {};
 };
 
 struct PublicOperationLookupResult
