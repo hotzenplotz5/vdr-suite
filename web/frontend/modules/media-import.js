@@ -1435,7 +1435,10 @@
       worker_signaled: 'Der Import-/Encoder-Prozess wurde durch ein Signal beendet.',
       worker_failed: 'Der Import-/Encoder-Prozess wurde mit einem Fehler beendet. Technische Details stehen im Agent-Journal.',
       worker_interrupted: 'Die Überwachung des Import-/Encoder-Prozesses wurde unerwartet unterbrochen.',
-      worker_time_limit: 'Die maximale Verarbeitungszeit wurde erreicht (24 Stunden).'
+      worker_time_limit: 'Die maximale Verarbeitungszeit wurde erreicht (24 Stunden).',
+      ffmpeg_timeout: 'FFmpeg hat die maximale Laufzeit überschritten.',
+      ffmpeg_failed: 'FFmpeg hat die Umkodierung mit einem Fehler beendet.',
+      vdr_index_failed: 'Die Verarbeitung scheiterte beim Erzeugen des VDR-Aufnahmeindex.'
     };
     return Object.prototype.hasOwnProperty.call(reasons, code)
       ? reasons[code] : '';
