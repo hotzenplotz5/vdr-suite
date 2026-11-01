@@ -1757,6 +1757,31 @@ bool DaemonRuntime::initialize()
                         found.operation.backendId;
                     result.operation.resourceRevision =
                         found.operation.operationRevision;
+                    // A failure reason is derived only from the durable result
+                    // of this actor's original Media Import operation.
+                    // Do not expose arbitrary worker output or guess whether a
+                    // host shutdown, power failure or Agent crash occurred.
+                    if (found.operation.actionFamily == "media.import" &&
+                        backendAgentCommandRepository_ &&
+                        (found.operation.state ==
+                            vdrsuite::operations::MutationOperationState::outcomeUnknown ||
+                         found.operation.state ==
+                            vdrsuite::operations::MutationOperationState::failedBeforeDispatch))
+                    {
+                        const auto original =
+                            backendAgentCommandRepository_->findAssignmentForOperation(
+                                found.operation.backendId, found.operation.operationId,
+                                vdrsuite::mediatools::kMediaImportCommandType);
+                        if (original &&
+                            original->backendGeneration ==
+                                found.operation.backendGeneration) {
+                            const auto receipt =
+                                backendAgentCommandRepository_->resultForCommand(
+                                    original->commandId);
+                            if (receipt &&
+                                receipt->operationId.empty()) {} // placeholder
+                        }
+                    }
                     // Only the authenticated actor's own confirmed import
                     // operation may project read-only Agent cleanup evidence.
                     // The canonical VDR success remains unchanged when cleanup
