@@ -960,7 +960,10 @@ bool reconcileBackendAgentCommandState(
                 failure == "worker_signaled" ||
                 failure == "worker_failed" ||
                 failure == "worker_interrupted" ||
-                failure == "worker_time_limit";
+                failure == "worker_time_limit" ||
+                failure == "ffmpeg_timeout" ||
+                failure == "ffmpeg_failed" ||
+                failure == "vdr_index_failed";
             createResult(
                 state,
                 outcome == vdrsuite::mediatools::MediaImportAgentOutcome::submitted
