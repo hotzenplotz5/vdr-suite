@@ -2242,6 +2242,48 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     return true;
 }
 
+bool BackendAgentClientRuntime::renewLeaseDuringMediaImport(
+    std::string& reasonCode)
+{
+    if (!synchronized_ || state_.backendGeneration == 0 ||
+        state_.capabilityRevision == 0)
+    {
+        reasonCode = "agent_not_synchronized";
+        return false;
+    }
+    if (state_.heartbeatSequence >= static_cast<std::uint64_t>(
+            std::numeric_limits<std::int64_t>::max()))
+    {
+        synchronized_ = false;
+        reasonCode = "heartbeat_sequence_exhausted";
+        return false;
+    }
+    const std::uint64_t sequence = state_.heartbeatSequence + 1;
+    std::ostringstream body;
+    body << "{\"backendId\":\"" << jsonEscape(state_.backendId)
+         << "\",\"agentInstanceId\":\"" << jsonEscape(agentInstanceId_)
+         << "\",\"backendGeneration\":" << state_.backendGeneration
+         << ",\"heartbeatSequence\":" << sequence << '}';
+    const BackendAgentTransportResponse response = transport_.postAuthenticated(
+        state_.agentId, state_.credentialSecret, "/api/agent/v1/heartbeat", body.str());
+    std::uint64_t acceptedSequence = 0;
+    if (!response.transportSucceeded || response.statusCode != 200 ||
+        !jsonUnsigned(response.body, "heartbeatSequence", acceptedSequence) ||
+        acceptedSequence != sequence)
+    {
+        synchronized_ = false;
+        reasonCode = response.errorCode.empty() ? "heartbeat_failed" : response.errorCode;
+        return false;
+    }
+    state_.heartbeatSequence = acceptedSequence;
+    if (!persist(reasonCode))
+    {
+        synchronized_ = false;
+        return false;
+    }
+    return true;
+}
+
 bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
 {
     if (!synchronized_ || state_.backendGeneration == 0 || state_.capabilityRevision == 0)
@@ -2298,36 +2340,7 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         reasonCode = "channel_observation_pending_stat_failed";
         return false;
     }
-    if (state_.heartbeatSequence >= static_cast<std::uint64_t>(
-            std::numeric_limits<std::int64_t>::max()))
-    {
-        synchronized_ = false;
-        reasonCode = "heartbeat_sequence_exhausted";
-        return false;
-    }
-    const std::uint64_t sequence = state_.heartbeatSequence + 1;
-    std::ostringstream body;
-    body << "{\"backendId\":\"" << jsonEscape(state_.backendId)
-         << "\",\"agentInstanceId\":\"" << jsonEscape(agentInstanceId_)
-         << "\",\"backendGeneration\":" << state_.backendGeneration
-         << ",\"heartbeatSequence\":" << sequence << '}';
-    const BackendAgentTransportResponse response = transport_.postAuthenticated(
-        state_.agentId, state_.credentialSecret, "/api/agent/v1/heartbeat", body.str());
-    std::uint64_t acceptedSequence = 0;
-    if (!response.transportSucceeded || response.statusCode != 200 ||
-        !jsonUnsigned(response.body, "heartbeatSequence", acceptedSequence) ||
-        acceptedSequence != sequence)
-    {
-        synchronized_ = false;
-        reasonCode = response.errorCode.empty() ? "heartbeat_failed" : response.errorCode;
-        return false;
-    }
-    state_.heartbeatSequence = acceptedSequence;
-    if (!persist(reasonCode))
-    {
-        synchronized_ = false;
-        return false;
-    }
+    if (!renewLeaseDuringMediaImport(reasonCode)) return false;
     if (!publishBackendHealthObservation(reasonCode))
     {
         synchronized_ = false;
