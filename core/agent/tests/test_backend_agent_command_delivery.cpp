@@ -1110,6 +1110,7 @@ int main()
     assert(apiCreated.operation.state ==
         vdrsuite::operations::MutationOperationState::accepted);
     assert(apiCreated.operation.resourceId == apiInput.sourceId);
+    assert(apiCreated.operation.deadline == apiInput.now + 900);
     const auto apiPayload = operations.findPayloadByOperationId(
         apiCreated.operation.operationId);
     assert(apiPayload.ok());
