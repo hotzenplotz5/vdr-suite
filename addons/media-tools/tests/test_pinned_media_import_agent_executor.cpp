@@ -251,6 +251,45 @@ int main()
     assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
     assert(grants.checks >= 2);
 
+    // MT.ENC1: a locally authorized encode may run beyond ten minutes.
+    // Both fixture binaries exit immediately; no media is modified.
+    {
+        Fixture slowFixture;
+        Inventory slowInventory;
+        Grants slowGrants;
+        PinnedMediaImportAgentExecutor slow(
+            slowFixture.root.string(), "backend", 19,
+            slowInventory, slowGrants);
+        auto local = command();
+        local.payload = mediaImportSelectionJson(
+            "inventory_17", MediaImportDecision::local);
+        local.payloadVersion = 2;
+        local.deadline = nowSeconds() + 3600;
+        local.requestFingerprint = backendAgentCommandFingerprint(local);
+        assert(backendAgentCommandValidAssignment(local));
+        assert(slow.authorize(local, "backend", 19));
+        assert(slow.execute(local) == MediaImportAgentOutcome::submitted);
+        assert(slow.takeFailureCode().empty());
+    }
+    {
+        Fixture failingFixture("/bin/false");
+        Inventory failingInventory;
+        Grants failingGrants;
+        PinnedMediaImportAgentExecutor failing(
+            failingFixture.root.string(), "backend", 19,
+            failingInventory, failingGrants);
+        auto local = command();
+        local.payload = mediaImportSelectionJson(
+            "inventory_17", MediaImportDecision::local);
+        local.payloadVersion = 2;
+        local.deadline = nowSeconds() + 3600;
+        local.requestFingerprint = backendAgentCommandFingerprint(local);
+        assert(failing.authorize(local, "backend", 19));
+        assert(failing.execute(local) == MediaImportAgentOutcome::unknown);
+        assert(failing.takeFailureCode() == "worker_failed");
+        assert(failing.takeFailureCode().empty());
+    }
+
     // The installed executable may be altered IN PLACE after its descriptor
     // was pinned. The initial SHA-256 cannot authorize these new bytes.
     assert(executor.authorize(a, "backend", 19));
