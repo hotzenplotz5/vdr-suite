@@ -1,8 +1,9 @@
 .PHONY: test-addon-media-import-catalog
 test-addon-media-import-catalog:
-	$(BUILD_CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) -I core/sqlite/include \
+		core/sqlite/src/Database.cpp \
 		core/agent/tests/test_backend_agent_media_import_catalog.cpp \
-		-o $(BUILD_DIR)/test_backend_agent_media_import_catalog
+		-lsqlite3 -o $(BUILD_DIR)/test_backend_agent_media_import_catalog
 	$(BUILD_DIR)/test_backend_agent_media_import_catalog
 
 # Hosted CI builds and validates live probes; real VDR execution remains explicit and opt-in.
