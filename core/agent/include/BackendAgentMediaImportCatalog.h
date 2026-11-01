@@ -641,7 +641,7 @@ private:
             offset += length;
         }
         if (offset != encoded.size() || fields[0] != "ready" ||
-            fields[7] != "0" && fields[7] != "1") return false;
+            (fields[7] != "0" && fields[7] != "1")) return false;
         const auto number = [](const std::string& v, std::uint64_t& out) {
             if (v.empty() || v.size() > 20) return false;
             std::uint64_t n = 0;
