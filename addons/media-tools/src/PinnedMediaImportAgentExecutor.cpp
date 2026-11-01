@@ -106,7 +106,8 @@ MediaImportAgentOutcome runPinned(
         !safePath(source.videoRoot) || !safePath(source.sourceFile))
         return MediaImportAgentOutcome::rejected;
     const auto now = unixNow();
-    if (deadline <= now || deadline > now + 3600)
+    if (deadline <= now || deadline > now +
+            (approveVideoReencode ? 24 * 3600 : 3600))
         return MediaImportAgentOutcome::rejected;
 
     std::string executable = "vdr-suite-media-import";
@@ -183,7 +184,8 @@ MediaImportAgentOutcome runPinned(
     };
 
     const auto until = std::chrono::steady_clock::now() +
-        std::chrono::seconds(std::min<std::int64_t>(deadline - now, 600));
+        std::chrono::seconds(std::min<std::int64_t>(
+            deadline - now, approveVideoReencode ? 24 * 3600 : 600));
     int status = 0;
     while (std::chrono::steady_clock::now() < until)
     {
