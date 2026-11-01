@@ -190,7 +190,14 @@ int main() {
         // An unresponsive external tool must not hang the import indefinitely.
         NativeProcessRunner runner(std::chrono::seconds(1));
         const auto result = runner.run({"/bin/sleep", "5"}, false);
-        assert(result.exitCode != 0);
+        assert(result.exitCode != 0 && result.timedOut);
+        ++checks;
+    }
+    {
+        // MT.ENC1: long encode runner is constructible without starting a
+        // real encoder or changing media; short jobs keep their own limit.
+        NativeProcessRunner longRunner(std::chrono::seconds(24 * 3600));
+        assert(longRunner.run({"/bin/true"}, false).exitCode == 0);
         ++checks;
     }
     {
