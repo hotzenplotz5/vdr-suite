@@ -453,6 +453,9 @@ public:
     // recording. Never a reason to mark a VDR recording verified by itself.
     virtual std::string takeRecordingEvidence() { return {}; }
     virtual std::string takeMarkerEvidence() { return {}; }
+    // Fixed, path-free failure code from the single native worker execution.
+    // Never expose raw FFmpeg stderr or filesystem paths through the API.
+    virtual std::string takeFailureCode() { return {}; }
     // A confirmed Core readback may cleanup the same backend-local source.
     // Default fails closed; no browser-supplied filesystem paths.
     virtual MediaImportCleanupOutcome cleanupConfirmedSource(
