@@ -38,6 +38,7 @@ struct ImportPlan {
 struct ProcessResult {
     int exitCode = -1;
     std::string output;
+    bool timedOut = false;
 };
 
 // No shell interpolation: implementation uses execv with fixed executable paths.
