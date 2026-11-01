@@ -730,9 +730,9 @@ private:
     mutable std::mutex mutex_;
     std::map<std::string, Snapshot> snapshots_;
     std::map<std::string, PreviewSlot> previews_;
-    // A cached preview is advisory and bounded in age. Free space and
-    // transient probe failures can change without changing source identity;
-    // a deliberate selection rechecks those after 60 seconds.
+    // Successfully checked file content survives without an expiry.
+    // Failures, capacity observations and duplicates may become outdated;
+    // mutations always revalidate the real source and destination.
     std::map<std::string, std::map<std::string,
         std::pair<std::int64_t, Preview>>> checked_;
     std::map<std::string, std::set<std::string>> attempted_;
