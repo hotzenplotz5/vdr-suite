@@ -3,6 +3,10 @@
 #include "BackendAgentLifecycle.h"
 #include "AddonRootApproval.h"
 #include "SecurityIdentity.h"
+#include "Database.h"
+#include <sqlite3.h>
+#include <array>
+#include <limits>
 
 #include <algorithm>
 #include <cctype>
@@ -14,9 +18,9 @@
 #include <vector>
 #include <utility>
 
-// Ephemeral, bounded Agent-reported observations, NOT source authority.
-// Core grants and backend-local root mapping are rechecked separately.
-// No filesystem locations, payloads, metadata or write operations persist.
+// Bounded Agent-reported observations, NOT source authority.
+// Only successful observations for content-identity scan_ sources persist in
+// the existing Suite database. Core still checks grants and actual mutations.
 class BackendAgentMediaImportCatalog
 {
 public:
@@ -36,6 +40,17 @@ public:
         std::string posterDataUri, fanartDataUri;
     };
     enum class PreviewState { denied, pending, ready };
+
+    BackendAgentMediaImportCatalog() = default;
+    explicit BackendAgentMediaImportCatalog(Database& database)
+        : database_(&database)
+    {
+        // A read-only UI cache must never prevent daemon startup.
+        persistent_ = database_->execute(
+            "CREATE TABLE IF NOT EXISTS media_import_checked_previews ("
+            "backend_id TEXT NOT NULL, source_id TEXT NOT NULL, "
+            "payload BLOB NOT NULL, PRIMARY KEY(backend_id,source_id));");
+    }
 
     // One transient requested file per backend. Only a caller that already
     // passed the Core actor/grant/backend gates can initiate this.
@@ -75,6 +90,12 @@ public:
                 out = known->second.second;
                 return PreviewState::ready;
             }
+        }
+        Preview remembered;
+        if (persistentPreview(backendId, sourceId, remembered)) {
+            checked_[backendId][sourceId] = {now, remembered};
+            out = std::move(remembered);
+            return PreviewState::ready;
         }
         auto& slot = previews_[backendId];
         if (slot.sourceId != sourceId || slot.requestedAt <= 0 ||
@@ -204,6 +225,8 @@ public:
         slot->second.updatedAt = now;
         slot->second.ready = true;
         checked_[backendId][data.sourceId] = {now, data};
+        if (data.status == "ready")
+            rememberPreview(backendId, data);
         return true;
     }
 
@@ -313,6 +336,14 @@ public:
             if (!std::binary_search(sorted.begin(), sorted.end(), *it))
                 it = attempted.erase(it);
             else ++it;
+        }
+        // Restore already completed technical checks immediately on inventory
+        // publication, without another Agent FFprobe or browser request.
+        for (const auto& id : sorted) {
+            if (checked.count(id)) continue;
+            Preview remembered;
+            if (persistentPreview(backendId, id, remembered))
+                checked[id] = {now, std::move(remembered)};
         }
         snapshots_[backendId] = Snapshot{
             live.agentId, live.actorId, instanceId, generation, now,
@@ -563,6 +594,139 @@ private:
         std::int64_t updatedAt = 0;
         Preview result;
     };
+    // Persist only successes keyed by the scanned file fingerprint. Arbitrary
+    // manually configured source IDs are not proof of unchanged file bytes.
+    static bool persistentId(const std::string& id)
+    {
+        return id.size() == 37 && id.compare(0, 5, "scan_") == 0 &&
+            std::all_of(id.begin() + 5, id.end(), [](unsigned char c) {
+                return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+            });
+    }
+
+    static std::string pack(const Preview& p)
+    {
+        const std::array<std::string, 16> fields{{
+            p.status, p.title, p.targetFolder, p.videoCodec,
+            std::to_string(p.sourceBytes), std::to_string(p.availableBytes),
+            std::to_string(p.requiredBytes), p.videoReencodeRequired ? "1" : "0",
+            p.failureCode, p.nfoOutline, p.nfoPlot, p.nfoYear, p.nfoGenre,
+            std::to_string(p.durationSeconds), p.posterDataUri, p.fanartDataUri
+        }};
+        std::string encoded;
+        for (const auto& field : fields) {
+            encoded += std::to_string(field.size());
+            encoded += ':';
+            encoded += field;
+        }
+        return encoded;
+    }
+
+    static bool unpack(const std::string& encoded, Preview& p)
+    {
+        std::array<std::string, 16> fields;
+        std::size_t offset = 0;
+        for (auto& field : fields) {
+            const auto colon = encoded.find(':', offset);
+            if (colon == std::string::npos || colon == offset ||
+                colon - offset > 8) return false;
+            std::size_t length = 0;
+            for (std::size_t i = offset; i < colon; ++i) {
+                if (encoded[i] < '0' || encoded[i] > '9') return false;
+                length = length * 10 + (encoded[i] - '0');
+            }
+            offset = colon + 1;
+            if (length > encoded.size() - offset) return false;
+            field.assign(encoded, offset, length);
+            offset += length;
+        }
+        if (offset != encoded.size() || fields[0] != "ready" ||
+            fields[7] != "0" && fields[7] != "1") return false;
+        const auto number = [](const std::string& v, std::uint64_t& out) {
+            if (v.empty() || v.size() > 20) return false;
+            std::uint64_t n = 0;
+            for (char c : v) {
+                if (c < '0' || c > '9' ||
+                    n > (std::numeric_limits<std::uint64_t>::max() -
+                         (c - '0')) / 10) return false;
+                n = n * 10 + (c - '0');
+            }
+            out = n;
+            return true;
+        };
+        if (!number(fields[4], p.sourceBytes) ||
+            !number(fields[5], p.availableBytes) ||
+            !number(fields[6], p.requiredBytes) ||
+            !number(fields[13], p.durationSeconds)) return false;
+        p.status = fields[0];
+        p.title = fields[1];
+        p.targetFolder = fields[2];
+        p.videoCodec = fields[3];
+        p.videoReencodeRequired = fields[7] == "1";
+        p.failureCode = fields[8];
+        p.nfoOutline = fields[9];
+        p.nfoPlot = fields[10];
+        p.nfoYear = fields[11];
+        p.nfoGenre = fields[12];
+        p.posterDataUri = fields[14];
+        p.fanartDataUri = fields[15];
+        return p.title.size() <= 120 && !p.title.empty() &&
+            p.videoCodec.size() <= 64 && !p.videoCodec.empty() &&
+            p.targetFolder.size() <= 512 && !p.targetFolder.empty();
+    }
+
+    bool persistentPreview(const std::string& backend, const std::string& id,
+                           Preview& result)
+    {
+        if (!persistent_ || !persistentId(id)) return false;
+        auto lease = database_->acquireTransactionLease();
+        sqlite3_stmt* statement = nullptr;
+        if (sqlite3_prepare_v2(database_->handle(),
+            "SELECT payload FROM media_import_checked_previews "
+            "WHERE backend_id=? AND source_id=?", -1, &statement, nullptr)
+            != SQLITE_OK) return false;
+        sqlite3_bind_text(statement, 1, backend.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, id.c_str(), -1, SQLITE_TRANSIENT);
+        bool found = false;
+        if (sqlite3_step(statement) == SQLITE_ROW) {
+            const auto* blob = sqlite3_column_blob(statement, 0);
+            const int size = sqlite3_column_bytes(statement, 0);
+            if (blob && size > 0 && size <= 1000000) {
+                Preview decoded;
+                decoded.sourceId = id;
+                if (unpack(std::string(static_cast<const char*>(blob),
+                                       static_cast<std::size_t>(size)), decoded)) {
+                    result = std::move(decoded);
+                    found = true;
+                }
+            }
+        }
+        sqlite3_finalize(statement);
+        return found;
+    }
+
+    void rememberPreview(const std::string& backend, const Preview& preview)
+    {
+        if (!persistent_ || !persistentId(preview.sourceId)) return;
+        const std::string packed = pack(preview);
+        if (packed.size() > 1000000) return;
+        auto lease = database_->acquireTransactionLease();
+        sqlite3_stmt* statement = nullptr;
+        if (sqlite3_prepare_v2(database_->handle(),
+            "INSERT OR REPLACE INTO media_import_checked_previews "
+            "(backend_id,source_id,payload) VALUES (?,?,?)", -1,
+            &statement, nullptr) != SQLITE_OK) return;
+        sqlite3_bind_text(statement, 1, backend.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(statement, 2, preview.sourceId.c_str(), -1,
+                          SQLITE_TRANSIENT);
+        sqlite3_bind_blob(statement, 3, packed.data(),
+                          static_cast<int>(packed.size()), SQLITE_TRANSIENT);
+        sqlite3_step(statement);
+        sqlite3_finalize(statement);
+    }
+
+    Database* database_ = nullptr;
+    bool persistent_ = false;
     mutable std::mutex mutex_;
     std::map<std::string, Snapshot> snapshots_;
     std::map<std::string, PreviewSlot> previews_;
