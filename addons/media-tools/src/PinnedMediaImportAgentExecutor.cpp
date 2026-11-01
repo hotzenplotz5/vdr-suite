@@ -100,9 +100,10 @@ MediaImportAgentOutcome runPinned(
     int fd, const LocalMediaImportSource& source, std::int64_t deadline,
     MediaToolsImportRunLock& runLock, std::string& recordingEvidence,
     bool approveVideoReencode, const std::string& frozenMetadata,
-    const std::function<void()>& keepAlive)
+    const std::function<void()>& keepAlive, std::string& failureCode)
 {
     recordingEvidence.clear();
+    failureCode.clear();
     if (fd < 0 || !safePath(source.sourceRoot) ||
         !safePath(source.videoRoot) || !safePath(source.sourceFile))
         return MediaImportAgentOutcome::rejected;
@@ -131,13 +132,17 @@ MediaImportAgentOutcome runPinned(
     char* const environment[] = {environmentPath, environmentLocale, nullptr};
 
     int capture[2] = {-1, -1};
-    if (::pipe(capture) != 0) return MediaImportAgentOutcome::unknown;
+    if (::pipe(capture) != 0) {
+        failureCode = "worker_launch_failed";
+        return MediaImportAgentOutcome::unknown;
+    }
     (void)::fcntl(capture[0], F_SETFD, FD_CLOEXEC);
     (void)::fcntl(capture[1], F_SETFD, FD_CLOEXEC);
     if (::fcntl(capture[0], F_SETFL, O_NONBLOCK) != 0)
     {
         ::close(capture[0]);
         ::close(capture[1]);
+        failureCode = "worker_launch_failed";
         return MediaImportAgentOutcome::unknown;
     }
     const pid_t pid = ::fork();
@@ -145,6 +150,7 @@ MediaImportAgentOutcome runPinned(
     {
         ::close(capture[0]);
         ::close(capture[1]);
+        failureCode = "worker_launch_failed";
         return MediaImportAgentOutcome::unknown;
     }
     if (pid == 0)
@@ -204,8 +210,11 @@ MediaImportAgentOutcome runPinned(
         {
             drain();
             ::close(capture[0]);
-            if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+            if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+                failureCode = WIFSIGNALED(status)
+                    ? "worker_signaled" : "worker_failed";
                 return MediaImportAgentOutcome::unknown;
+            }
             if (!overflow)
                 recordingEvidence = parseCommittedRecording(output, source);
             // No evidence -> still unverified, never a false success.
@@ -214,6 +223,7 @@ MediaImportAgentOutcome runPinned(
         if (waited < 0)
         {
             ::close(capture[0]);
+            failureCode = "worker_interrupted";
             return MediaImportAgentOutcome::unknown;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(25));
@@ -222,6 +232,7 @@ MediaImportAgentOutcome runPinned(
     ::kill(pid, SIGKILL);
     while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
     ::close(capture[0]);
+    failureCode = "worker_time_limit";
     return MediaImportAgentOutcome::unknown;
 }
 } // namespace
@@ -261,6 +272,7 @@ bool PinnedMediaImportAgentExecutor::authorize(
     pendingSourceValid_ = false;
     pendingDecision_ = MediaImportDecision::import;
     markerEvidence_.clear();
+    failureCode_.clear();
     std::string sourceId;
     MediaImportDecision decision = MediaImportDecision::import;
     if (backendId != backendId_ || generation != generation_ ||
@@ -317,6 +329,7 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
     pendingSourceValid_ = false;
     pendingDecision_ = MediaImportDecision::import;
     markerEvidence_.clear();
+    failureCode_.clear();
     if (!matching) {
         if (approvedDecision == MediaImportDecision::deleteDuplicate)
             logDuplicateDelete(assignment, "authorization", "pinned_request_mismatch");
@@ -474,7 +487,7 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         snapshot->pinnedBinary.get(), local, assignment.deadline,
         *runLock, recordingEvidence_,
         requestedDecision == MediaImportDecision::local,
-        mediaImportSelectionMetadata(assignment.payload), keepAlive_);
+        mediaImportSelectionMetadata(assignment.payload), keepAlive_, failureCode_);
     if (outcome == MediaImportAgentOutcome::submitted &&
         validRecordingPathEvidence(recordingEvidence_)) {
         const auto sourceProof = mediaImportSourceEvidence(
@@ -513,6 +526,11 @@ MediaImportCleanupOutcome PinnedMediaImportAgentExecutor::cleanupConfirmedSource
             root_, snapshot.approvedVersion))
         return MediaImportCleanupOutcome::notPerformed;
     return cleanupMediaImportSource(source, sourceEvidence);
+}
+
+std::string PinnedMediaImportAgentExecutor::takeFailureCode()
+{
+    return std::exchange(failureCode_, {});
 }
 
 std::string PinnedMediaImportAgentExecutor::takeMarkerEvidence()
