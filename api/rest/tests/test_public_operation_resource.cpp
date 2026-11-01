@@ -144,6 +144,24 @@ int main()
     assert(interruptedRead.body.find(
         "\"sourceCleanup\":\"outcome_unknown\"") != std::string::npos);
     assert(interruptedRead.headers.at("ETag") != cleanupRead.headers.at("ETag"));
+    runtime.registerOperationLookup(
+        [](const std::string& operationId, const std::string& actorRef) {
+            auto value = operationResult(operationId, actorRef);
+            if (value.status == PublicOperationLookupStatus::ok) {
+                value.operation.state = "outcome_unknown";
+                value.operation.failureCode = "worker_signaled";
+                value.operation.resourceRevision = "7:media-failure:worker_signaled";
+            }
+            return value;
+        });
+    ApiResponse encodeFailureRead;
+    assert(runtime.tryHandleGet(
+        "/api/v1/operations/op-1", "actor-owner",
+        "encode-failure-projection", "", encodeFailureRead));
+    assert(encodeFailureRead.statusCode == 200);
+    assert(encodeFailureRead.body.find(
+        "\"failureCode\":\"worker_signaled\"") != std::string::npos);
+    assert(encodeFailureRead.headers.at("ETag") != expectedTag);
     runtime.registerOperationLookup(operationResult);
 
     for (const std::string& forbidden :
