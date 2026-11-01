@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -48,7 +49,8 @@ public:
                                   std::string backendId,
                                   std::uint64_t backendGeneration,
                                   ILocalMediaImportInventory& inventory,
-                                  ILocalMediaImportAuthorization& authorization);
+                                  ILocalMediaImportAuthorization& authorization,
+                                  std::function<void()> keepAlive = {});
     bool available() override;
     bool authorize(const BackendAgentCommandAssignment& assignment,
                    const std::string& backendId,
@@ -67,6 +69,7 @@ private:
     std::uint64_t generation_;
     ILocalMediaImportInventory& inventory_;
     ILocalMediaImportAuthorization& authorization_;
+    std::function<void()> keepAlive_;
     std::unique_ptr<vdrsuite::addons::MediaToolsInstallSnapshot> pinned_;
     std::string pendingCommandId_;
     std::string pendingFingerprint_;
