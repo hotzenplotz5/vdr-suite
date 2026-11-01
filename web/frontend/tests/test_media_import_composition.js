@@ -2124,8 +2124,9 @@ function publishHomeResume() {}
   previewMode = 'defer-source';
   raceSelect.value = SOURCE;
   raceSelect.listeners.change();
-  assert(findClass(mount, 'media-import-preview').textContent.includes(
-    'Film wird geprüft'));
+  assert(findClass(mount, 'media-import-preview-state').textContent ===
+    'Prüfergebnis wird geladen',
+    'the frontend must not claim another technical probe while retrieving a saved result');
   assert.strictEqual(typeof resolveDelayedPreview, 'function');
   raceSelect.value = SOURCE_B;
   raceSelect.listeners.change();
@@ -2250,6 +2251,9 @@ function publishHomeResume() {}
   await settle();
   assert(findClass(mount, 'media-import-preview').textContent.includes(
     'HTTP 403: Keine Berechtigung für diese Importvorschau'));
+  assert(findClass(mount, 'media-import-preview-error').textContent.includes(
+    'HTTP 403: Keine Berechtigung'),
+    'the actual preview error must be visible beside the red status, not hidden below details');
   assert(!findClass(mount, 'media-import-preview-retry').hidden,
     'a concrete HTTP error must offer a retry without switching films');
   previewMode = 'ready';
