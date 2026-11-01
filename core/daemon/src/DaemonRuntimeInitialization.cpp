@@ -1779,7 +1779,36 @@ bool DaemonRuntime::initialize()
                                 backendAgentCommandRepository_->resultForCommand(
                                     original->commandId);
                             if (receipt &&
-                                receipt->operationId.empty()) {} // placeholder
+                                receipt->commandId == original->commandId &&
+                                receipt->backendId == original->backendId &&
+                                receipt->agentId == original->agentId &&
+                                receipt->agentInstanceId ==
+                                    original->agentInstanceId &&
+                                receipt->backendGeneration ==
+                                    original->backendGeneration &&
+                                receipt->requestFingerprint ==
+                                    original->requestFingerprint)
+                            {
+                                const auto& message = receipt->boundedDiagnostics;
+                                const std::string prefix = "media_import_failure:";
+                                if (message == "Media import recovered after start; reconcile recording")
+                                    result.operation.failureCode = "execution_interrupted";
+                                else if (message == "Media import deadline expired")
+                                    result.operation.failureCode = "expired_before_start";
+                                else if (message.compare(0, prefix.size(), prefix) == 0)
+                                {
+                                    const auto code = message.substr(prefix.size());
+                                    for (const char* allowed : {
+                                        "worker_launch_failed", "worker_signaled",
+                                        "worker_failed", "worker_interrupted",
+                                        "worker_time_limit"})
+                                        if (code == allowed)
+                                            result.operation.failureCode = code;
+                                }
+                                if (!result.operation.failureCode.empty())
+                                    result.operation.resourceRevision +=
+                                        ":media-failure:" + result.operation.failureCode;
+                            }
                         }
                     }
                     // Only the authenticated actor's own confirmed import
