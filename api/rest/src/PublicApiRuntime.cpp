@@ -4249,6 +4249,9 @@ ApiResponse publicOperationResponse(
         (operation.sourceCleanup.empty() ? std::string{} :
             ",\"sourceCleanup\":\"" + jsonEscape(operation.sourceCleanup) +
             "\"") +
+        (operation.failureCode.empty() ? std::string{} :
+            ",\"failureCode\":\"" + jsonEscape(operation.failureCode) +
+            "\"") +
         ",\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}",
         requestId,
         correlationId);
