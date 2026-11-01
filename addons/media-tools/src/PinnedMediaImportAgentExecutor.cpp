@@ -212,7 +212,13 @@ MediaImportAgentOutcome runPinned(
             ::close(capture[0]);
             if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
                 failureCode = WIFSIGNALED(status)
-                    ? "worker_signaled" : "worker_failed";
+                    ? "worker_signaled" :
+                    WIFEXITED(status) && WEXITSTATUS(status) == 71
+                        ? "ffmpeg_timeout" :
+                    WIFEXITED(status) && WEXITSTATUS(status) == 72
+                        ? "ffmpeg_failed" :
+                    WIFEXITED(status) && WEXITSTATUS(status) == 73
+                        ? "vdr_index_failed" : "worker_failed";
                 return MediaImportAgentOutcome::unknown;
             }
             if (!overflow)
