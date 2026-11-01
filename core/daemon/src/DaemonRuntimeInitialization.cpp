@@ -642,7 +642,7 @@ bool DaemonRuntime::initialize()
         });
     // Agent receipts remain unverified until a separate candidate readback
     // or a successfully committed native Recording cache reconciliation.
-    mediaImportCatalog_ = std::make_unique<BackendAgentMediaImportCatalog>();
+    mediaImportCatalog_ = std::make_unique<BackendAgentMediaImportCatalog>(database_);
     PublicApiRuntime::instance().registerMediaImportSourceLookup(
         [this](const std::string& actorId, const std::string& backendId)
         {
