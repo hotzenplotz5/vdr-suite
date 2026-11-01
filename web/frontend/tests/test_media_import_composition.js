@@ -645,6 +645,31 @@ function publishHomeResume() {}
     const meta = findClass(row, 'media-import-episode-meta');
     return meta && meta.textContent.includes('Technisch geprüft');
   }), 'per-film status changes automatically without a manual rescan');
+
+  // A checked film must not lose its result merely because Media Import was
+  // left and reopened. The unchanged source ID comes from the Agent inventory,
+  // and clicking the film must not invoke another FFprobe preview.
+  const checksBeforeRemount = requests.filter(function (request) {
+    return request.path.includes('/' + SOURCE + '/preview');
+  }).length;
+  context.selectModule('overview');
+  context.selectModule('media-import');
+  await settle();
+  const resumedRow = findClass(mount, 'media-import-selection').children.find(
+    function (row) { return row.dataset.sourceId === SOURCE; });
+  assert(resumedRow, 'the unchanged source is visible after returning');
+  findClass(resumedRow, 'media-import-episode-open').listeners.click();
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-preview-state').textContent,
+    'Direktimport möglich',
+    'a verified source must display its result immediately after tab remount');
+  assert.strictEqual(requests.filter(function (request) {
+    return request.path.includes('/' + SOURCE + '/preview');
+  }).length, checksBeforeRemount,
+  'returning to a checked source must not request another technical preview');
+  assert.strictEqual(submits, backgroundPostsBefore,
+    'restoring an inspection never starts an import or cleanup');
+
   // The background preview uses the Core's single per-backend slot.
   // A manual click must get its preview immediately, rather than wait for
   // another background poll or dispatching an import.
