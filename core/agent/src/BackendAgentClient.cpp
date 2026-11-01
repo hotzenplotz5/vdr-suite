@@ -2271,7 +2271,9 @@ bool BackendAgentClientRuntime::renewLeaseDuringMediaImport(
         !jsonUnsigned(response.body, "heartbeatSequence", acceptedSequence) ||
         acceptedSequence != sequence)
     {
-        synchronized_ = false;
+        // During a long encode, a transient transport miss must not
+        // permanently disable subsequent lease renewal attempts.
+        // The ordinary heartbeat caller still resets synchronization.
         reasonCode = response.errorCode.empty() ? "heartbeat_failed" : response.errorCode;
         return false;
     }
@@ -2340,7 +2342,11 @@ bool BackendAgentClientRuntime::heartbeat(std::string& reasonCode)
         reasonCode = "channel_observation_pending_stat_failed";
         return false;
     }
-    if (!renewLeaseDuringMediaImport(reasonCode)) return false;
+    if (!renewLeaseDuringMediaImport(reasonCode))
+    {
+        synchronized_ = false;
+        return false;
+    }
     if (!publishBackendHealthObservation(reasonCode))
     {
         synchronized_ = false;
