@@ -107,6 +107,7 @@ int main()
         "\"self\":\"/api/v1/operations/op-1\"") !=
         std::string::npos);
     assert(read.body.find("\"sourceCleanup\"") == std::string::npos);
+    assert(read.body.find("\"failureCode\"") == std::string::npos);
 
     runtime.registerOperationLookup(
         [](const std::string& operationId, const std::string& actorRef) {
