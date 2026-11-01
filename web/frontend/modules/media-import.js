@@ -18,6 +18,11 @@
   // Last successfully verified source inventory per backend, memory-only
   // within the current authenticated browser session. Never persisted.
   const lastGoodSourceInventories = Object.create(null);
+  // Keep successful read-only technical checks when the Media Import view is
+  // unmounted. Source IDs include path/device/inode/size/mtime, and every
+  // refreshed inventory reconciles this cache against those exact IDs.
+  // Core/Agent still revalidate sources for any actual import or deletion.
+  const checkedPreviewsByBackend = Object.create(null);
   // A Core-confirmed delete can precede the Agent's next published inventory.
   // Hide ONLY that confirmed source while the older read-only snapshot catches up.
   // Presentation-only; never grants or denies a server-side action.
@@ -148,6 +153,9 @@
     });
     Object.keys(lastGoodSourceInventories).forEach(function (id) {
       delete lastGoodSourceInventories[id];
+    });
+    Object.keys(checkedPreviewsByBackend).forEach(function (id) {
+      delete checkedPreviewsByBackend[id];
     });
     Object.keys(confirmedDeletedSources).forEach(function (id) {
       delete confirmedDeletedSources[id];
@@ -2824,6 +2832,7 @@
           }
         });
         view.previewCache = retainedPreviews;
+        checkedPreviewsByBackend[view.backendId] = retainedPreviews;
         if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
         view.previewTimer = null;
         ++view.previewGeneration;
@@ -4099,7 +4108,8 @@
       sourceTitles: Object.create(null),
       previewTimer: null, previewGeneration: 0, previewReads: 0,
       previewResult: null, previewStatus: '', previewFailed: false,
-      previewCache: new Map(),
+      previewCache: checkedPreviewsByBackend[backendId] ||
+        (checkedPreviewsByBackend[backendId] = new Map()),
       backgroundTimer: null, backgroundGeneration: 0, backgroundBusy: false,
       backgroundStates: new Map(), backgroundReads: new Map(),
       metadataReview: Object.create(null),
