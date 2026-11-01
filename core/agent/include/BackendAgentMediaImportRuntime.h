@@ -17,10 +17,11 @@ class BackendAgentMediaImportRuntime final
     : public vdrsuite::mediatools::IMediaImportAgentExecutor {
 public:
     using CurrentContext = std::function<BackendAgentCommandClientContext()>;
+    using KeepAlive = std::function<void()>;
     BackendAgentMediaImportRuntime(
         std::string trustedRoot, std::string backendId, std::string statePath,
         IBackendAgentControlPlaneTransport& transport,
-        CurrentContext currentContext);
+        CurrentContext currentContext, KeepAlive keepAlive = {});
     bool available() override;
     bool verifiedInstallation(
         vdrsuite::mediatools::MediaToolsInstallationEvidence& out) override;
@@ -54,6 +55,7 @@ private:
     std::string trustedRoot_;
     std::string backendId_;
     CurrentContext currentContext_;
+    KeepAlive keepAlive_;
     vdrsuite::mediatools::RootOwnedMediaImportInventory inventory_;
     ReceiptRevalidatingMediaImportAuthorization authorization_;
     std::unique_ptr<vdrsuite::mediatools::PinnedMediaImportAgentExecutor>
