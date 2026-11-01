@@ -86,6 +86,11 @@ int main(int argc, char* argv[]) {
         return 0;
     } catch (const std::exception& exc) {
         std::cerr << "MEDIA_IMPORT_ERROR=" << exc.what() << "\n";
+        // Fixed native worker exit codes, interpreted by the owning Agent.
+        // Never infer an FFmpeg error from untrusted source filenames.
+        if (std::string(exc.what()) == "ffmpeg_timeout") return 71;
+        if (std::string(exc.what()) == "ffmpeg_failed") return 72;
+        if (std::string(exc.what()) == "vdr_index_failed") return 73;
         return 1;
     }
 }
