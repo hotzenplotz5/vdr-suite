@@ -697,8 +697,10 @@ function publishHomeResume() {}
   assert.strictEqual(submits, postsBeforePriority,
     'manual preview priority never dispatches an import or mutation');
   batchSources = null;
-  // Reset test-only previews. Subsequent interactive tests start unchecked.
+  // Reset test-only previews through the authenticated-session lifecycle;
+  // a simple tab switch is intentionally no longer a cache reset.
   context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
   context.selectModule('media-import');
   await settle();
   let sourceListOnTransientFailure = findClass(mount, 'media-import-source');
