@@ -99,7 +99,8 @@ std::string parseCommittedRecording(
 MediaImportAgentOutcome runPinned(
     int fd, const LocalMediaImportSource& source, std::int64_t deadline,
     MediaToolsImportRunLock& runLock, std::string& recordingEvidence,
-    bool approveVideoReencode, const std::string& frozenMetadata)
+    bool approveVideoReencode, const std::string& frozenMetadata,
+    const std::function<void()>& keepAlive)
 {
     recordingEvidence.clear();
     if (fd < 0 || !safePath(source.sourceRoot) ||
@@ -186,9 +187,17 @@ MediaImportAgentOutcome runPinned(
     const auto until = std::chrono::steady_clock::now() +
         std::chrono::seconds(std::min<std::int64_t>(
             deadline - now, approveVideoReencode ? 24 * 3600 : 600));
+    auto nextKeepAlive = std::chrono::steady_clock::now() +
+        std::chrono::seconds(10);
     int status = 0;
     while (std::chrono::steady_clock::now() < until)
     {
+        if (approveVideoReencode && keepAlive &&
+            std::chrono::steady_clock::now() >= nextKeepAlive) {
+            try { keepAlive(); } catch (...) {} // Do not terminate FFmpeg on transient lease failures.
+            nextKeepAlive = std::chrono::steady_clock::now() +
+                std::chrono::seconds(10);
+        }
         drain();
         const pid_t waited = ::waitpid(pid, &status, WNOHANG);
         if (waited == pid)
@@ -220,12 +229,13 @@ MediaImportAgentOutcome runPinned(
 PinnedMediaImportAgentExecutor::PinnedMediaImportAgentExecutor(
     std::string approvalRoot, std::string backendId,
     std::uint64_t backendGeneration, ILocalMediaImportInventory& inventory,
-    ILocalMediaImportAuthorization& authorization)
+    ILocalMediaImportAuthorization& authorization,
+    std::function<void()> keepAlive)
     : root_(std::move(approvalRoot)),
       backendId_(std::move(backendId)),
       generation_(backendGeneration),
       inventory_(inventory),
-      authorization_(authorization)
+      authorization_(authorization), keepAlive_(std::move(keepAlive))
 {
 }
 
@@ -464,7 +474,7 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         snapshot->pinnedBinary.get(), local, assignment.deadline,
         *runLock, recordingEvidence_,
         requestedDecision == MediaImportDecision::local,
-        mediaImportSelectionMetadata(assignment.payload));
+        mediaImportSelectionMetadata(assignment.payload), keepAlive_);
     if (outcome == MediaImportAgentOutcome::submitted &&
         validRecordingPathEvidence(recordingEvidence_)) {
         const auto sourceProof = mediaImportSourceEvidence(
