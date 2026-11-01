@@ -1121,6 +1121,25 @@ int main()
         vdrsuite::addons::MediaImportOperationAdmissionStatus::replayed);
     assert(apiReplay.operation.operationId ==
         apiCreated.operation.operationId);
+    // MT.ENC1: only explicit local video encoding receives the long
+    // operation and Agent deadlines; ordinary imports remain unchanged.
+    apiInput.idempotencyKey = "media_import_local_encode_1";
+    apiInput.approveVideoReencode = true;
+    const auto encodeCreated = admission.admit(apiInput);
+    assert(encodeCreated.status ==
+        vdrsuite::addons::MediaImportOperationAdmissionStatus::accepted);
+    assert(encodeCreated.operation.deadline == apiInput.now + 24 * 3600);
+    const auto encodeAssigned = assigner.assign(
+        context(ActorType::System, "system_admin"),
+        encodeCreated.operation.operationId, apiInput.now + 1);
+    assert(encodeAssigned.accepted && !encodeAssigned.replayed);
+    assert(encodeAssigned.assignment.deadline == encodeCreated.operation.deadline);
+    const auto encodeReplay = admission.admit(apiInput);
+    assert(encodeReplay.status ==
+        vdrsuite::addons::MediaImportOperationAdmissionStatus::replayed);
+    assert(encodeReplay.operation.operationId ==
+        encodeCreated.operation.operationId);
+    apiInput.approveVideoReencode = false;
     apiInput.idempotencyKey = "media_import_key_2";
     apiInput.sourceId = "../traversal";
     assert(admission.admit(apiInput).status ==
