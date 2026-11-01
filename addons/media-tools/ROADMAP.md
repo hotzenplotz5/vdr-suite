@@ -623,6 +623,33 @@ Ausführen eines möglicherweise schon begonnenen Jobs. Die laufende Verarbeitun
 bleibt vom Browser unabhängig. Akzeptanz: Ein realer Encode über 10 Minuten
 läuft nach Tabwechsel/Logout weiter und endet nach VDR-Readback korrekt.
 
+**MT.ENC1 Quellcode-Stand (01.11.2026, reale Encode-Abnahme offen):**
+Die bestehende Core-Operation, Agent-Zuweisung, der gepinnte Import-Handler
+und der FFmpeg-Läufer haben bei ausdrücklich gewähltem lokalen Video-Encode
+nun eine 24-Stunden-Obergrenze statt der uneinheitlichen 9-/10-/15-Minuten-
+Grenzen. Gewöhnliche Remux-/Marker-Aufträge behalten ihre kurzen Fristen.
+Während eines laufenden Encodes erneuert derselbe Agent die existierende
+Heartbeat-Lease, ohne den dauerhaften Importbefehl nochmals zu pollen oder
+auszuführen. Ein Transportfehler beendet FFmpeg nicht automatisch; der
+nächste Renewal-Versuch bleibt möglich.
+
+Der vorhandene Import-Worker übermittelt feste Fehlerkategorien wie
+`ffmpeg_failed`, `ffmpeg_timeout`, `vdr_index_failed` oder
+`worker_signaled` über das vorhandene Agent-Ergebnis an dieselbe Core-Operation.
+`GET /api/v1/operations/{operationId}` projiziert diese nur lesend und
+akteursgebunden als optionales `failureCode`; Media Import zeigt daraus einen
+verständlichen Grund. Nach einem Agent-Neustart mitten in der Verarbeitung
+ist `execution_interrupted` ausdrücklich **keine** Behauptung, dass ein
+System-Shutdown oder Absturz sicher nachgewiesen wurde. Keine automatische
+Wiederaufnahme oder Wiederholung; ausstehendes Recording-Readback bleibt
+maßgeblich. Fortschritt bleibt zunächst phasenbasiert und ohne erfundene
+Prozent-/ETA-Angaben.
+
+**Noch offen:** Quellcode-/Integrationstests und echte Hardwareabnahme mit
+einem ausdrücklich freigegebenen >10-Minuten-Encode. Wiederentdeckung nach
+Anmeldung ist weiterhin MT.ENC2; echte stufen-/bytegenaue Fortschrittswerte
+sind noch nicht vorhanden.
+
 ### MT.ENC2 – Auftrag nach Wiederanmeldung wiederfinden
 
 Bestehende dauerhafte Core-Operationen als einzige Auftragsidentität nutzen.
