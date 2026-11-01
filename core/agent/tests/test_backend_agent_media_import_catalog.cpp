@@ -1,4 +1,5 @@
 #include "BackendAgentMediaImportCatalog.h"
+#include "Database.h"
 #include <cassert>
 #include <string>
 #include <vector>
@@ -94,6 +95,68 @@ int main()
     assert(!catalog.publish(actor, live, "backend", "instance", 7,
         bulkIds, 100, "manual", "0.1.0", approvedSha));
     assert(catalog.list(live, "backend", 100, items) && items.size() == 100);
+    // A successful scanned source survives destruction/recreation of the
+    // backend Catalog: it is stored in the existing SQLite database.
+    {
+        Database database;
+        assert(database.open(":memory:"));
+        BackendAgentRecord persistentLive = live;
+        persistentLive.leaseExpiresAt = 6000;
+        const std::string key = "scan_0123456789abcdef0123456789abcdef";
+        const std::string changed = "scan_0123456789abcdef0123456789abcdee";
+        const auto publish = [&](BackendAgentMediaImportCatalog& owner,
+                                 const std::string& source, std::int64_t now) {
+            return owner.publish(actor, persistentLive, "backend", "instance", 7,
+                {source}, now, "manual", "0.1.0", approvedSha,
+                {"Film"}, false);
+        };
+        {
+            BackendAgentMediaImportCatalog first(database);
+            assert(publish(first, key, 100));
+            assert(first.nextPreviewRequest(persistentLive, "backend", 100) == key);
+            BackendAgentMediaImportCatalog::Preview verified{
+                key, "ready", "Film", "Fantasy/Film", "hevc",
+                2500000000ULL, 9000000000ULL, 5000000000ULL, false
+            };
+            verified.nfoPlot = "Film mit vollstaendigem VDR-Import";
+            verified.durationSeconds = 6060;
+            assert(first.acceptPreview(persistentLive, "backend", 100, verified));
+        }
+        {
+            BackendAgentMediaImportCatalog reopened(database);
+            assert(publish(reopened, key, 4000));
+            assert(reopened.nextPreviewRequest(persistentLive, "backend", 4000).empty());
+            BackendAgentMediaImportCatalog::Preview recovered;
+            assert(reopened.requestPreview(persistentLive, "backend", 4000,
+                key, recovered) == BackendAgentMediaImportCatalog::PreviewState::ready);
+            assert(recovered.sourceId == key && recovered.videoCodec == "hevc" &&
+                recovered.nfoPlot == "Film mit vollstaendigem VDR-Import" &&
+                recovered.durationSeconds == 6060);
+            assert(publish(reopened, changed, 4001));
+            assert(reopened.requestPreview(persistentLive, "backend", 4001,
+                key, recovered) == BackendAgentMediaImportCatalog::PreviewState::denied);
+            assert(reopened.nextPreviewRequest(persistentLive, "backend", 4001) ==
+                changed);
+        }
+        // Do not persist arbitrary, manually configured IDs whose tokens
+        // cannot prove the original file's size/mtime/inode identity.
+        {
+            const std::string manualId = "source_0123456789abcdef";
+            BackendAgentMediaImportCatalog first(database);
+            assert(publish(first, manualId, 4002));
+            assert(first.nextPreviewRequest(persistentLive, "backend", 4002) ==
+                manualId);
+            BackendAgentMediaImportCatalog::Preview verified{
+                manualId, "ready", "Film", "Fantasy/Film", "h264",
+                1000, 9000, 2000, false
+            };
+            assert(first.acceptPreview(persistentLive, "backend", 4002, verified));
+            BackendAgentMediaImportCatalog reopened(database);
+            assert(publish(reopened, manualId, 4003));
+            assert(reopened.nextPreviewRequest(persistentLive, "backend", 4003) ==
+                manualId);
+        }
+    }
     // MT.SCAN2: verify the actual server-side queue on a fresh catalog.
     // Published Agent sources are inspected one by one even if no
     // interactive Public-v1 preview request has ever been made.
