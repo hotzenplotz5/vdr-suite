@@ -311,6 +311,13 @@ BackendAgentMediaImportRuntime::execute(
     } catch (...) { return Outcome::unknown; }
 }
 
+std::string BackendAgentMediaImportRuntime::takeFailureCode()
+{
+    if (!executionConsumed_ || !currentExecution_) return {};
+    try { return currentExecution_->takeFailureCode(); }
+    catch (...) { return {}; }
+}
+
 std::string BackendAgentMediaImportRuntime::takeMarkerEvidence()
 {
     if (!executionConsumed_ || !currentExecution_) return {};
