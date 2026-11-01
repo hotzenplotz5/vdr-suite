@@ -72,7 +72,11 @@ int main(int argc, char* argv[]) {
                 return 3;
             }
         }
-        NativeProcessRunner runner;
+        // Only an explicitly approved local video encode gets the long
+        // processor window; ordinary imports keep their 540-second tools.
+        NativeProcessRunner runner(localReencode
+            ? std::chrono::seconds(24 * 3600)
+            : std::chrono::seconds(540));
         const auto result = executeRemuxImport(
             plan, runner, requireProductionCapacity, localReencode,
             withMetadata ? &frozenMetadata : nullptr);
