@@ -55,7 +55,8 @@ public:
                                 const std::string& backendId,
                                 std::int64_t now,
                                 const std::string& sourceId, Preview& out,
-                                bool refresh = false)
+                                bool refresh = false,
+                                bool cachedFirst = false)
     {
         out = {};
         if (!validSourceId(sourceId) || now <= 0 ||
@@ -76,15 +77,18 @@ public:
             attempted_[backendId].insert(sourceId);
             return PreviewState::pending;
         }
-        // A fresh dynamic read must finish before we serve an old capacity
-        // or NFO snapshot. Polling the pending slot never starts another read.
+        // The initial page-reload lookup may explicitly ask for the existing
+        // saved observation even while an Agent refresh is already pending.
+        // Subsequent ordinary polling still waits for the fresh Agent result.
+        // Only fingerprinted scan_ sources may bypass the pending slot.
         const auto active = previews_.find(backendId);
         if (active != previews_.end() &&
             active->second.sourceId == sourceId &&
             !active->second.ready &&
             active->second.requestedAt > 0 &&
             active->second.requestedAt <= now &&
-            now - active->second.requestedAt <= 60)
+            now - active->second.requestedAt <= 60 &&
+            !(cachedFirst && persistentId(sourceId)))
             return PreviewState::pending;
         // Reuse observations from this Agent generation, also after the
         // browser has been closed. The source token binds the file identity;
