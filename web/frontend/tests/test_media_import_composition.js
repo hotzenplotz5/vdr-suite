@@ -1035,8 +1035,8 @@ function publishHomeResume() {}
   whileUnknown.value = SOURCE;
   whileUnknown.listeners.change();
   await settle();
-  assert(findClass(mount, 'media-import-preview-state').textContent.includes(
-    'Direktimport möglich'), 'another source can be inspected while uncertain');
+  assert.strictEqual(findClass(mount, 'media-import-preview-state'), null,
+    'same source with unknown import outcome cannot display stale Direktimport möglich');
   assert.strictEqual(findClass(mount, 'media-import-start').disabled, true);
   assert.strictEqual(submits, unknownPosts,
     'read-only browsing may not create another mutation');
