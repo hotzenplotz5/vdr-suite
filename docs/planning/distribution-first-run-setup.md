@@ -23,17 +23,14 @@ Ein Installations- oder First-Boot-Prozess führt den bestehenden lokalen `vdr-s
 
 ## Derzeitiger Quellstand versus offene Arbeit
 
-Der Branch enthält den gemeinsamen `--installer-onboard`-Einstieg und die nur lesend arbeitende Web-Statusanzeige. **Gemeinsames Staging implementiert:** `tools/distribution_first_run_stage.py` ist jetzt der einzige Quellcode für das Paket-Staging; `tools/mld66_stage_first_run.py` delegiert lediglich an ihn (die bisherige MLD-Ausgabe bleibt erhalten). `make stage-distribution-first-run-config` stellt dieselben Optionen für alle Distributionen bereit, während `make stage-mld-first-run-config` weiterhin funktioniert. `tools/test_packaging_distribution_first_run_stage.py` enthält no-root Testfälle für MLD, Ubuntu/yaVDR, Wiederholung und vorhandene Konfiguration; Testergebnisse sind noch nicht ausgeführt und keine reale Paketabnahme. Es gibt **noch keinen nachgewiesenen distributionsübergreifend installierten automatischen Auslöser**. `debian/rules` verwendet derzeit `dh_installsystemd --no-enable --no-start`; dieser Ist-Zustand ist kein erfülltes universelles First-Run-Feature. Eine vorhandene lokale HTTPS-/Channel-Konfiguration ist weiterhin Voraussetzung.
+Der Branch enthält den gemeinsamen `--installer-onboard`-Einstieg und die nur lesend arbeitende Web-Statusanzeige. **Gemeinsames Staging implementiert:** `tools/distribution_first_run_stage.py` ist jetzt der einzige Quellcode für das Paket-Staging; `tools/mld66_stage_first_run.py` delegiert lediglich an ihn (die bisherige MLD-Ausgabe bleibt erhalten). `make stage-distribution-first-run-config` stellt dieselben Optionen für alle Distributionen bereit, während `make stage-mld-first-run-config` weiterhin funktioniert. `tools/test_packaging_distribution_first_run_stage.py` enthält no-root Testfälle für MLD, Ubuntu/yaVDR, Wiederholung und vorhandene Konfiguration; Testergebnisse sind noch nicht ausgeführt und keine reale Paketabnahme. **Ein gemeinsamer systemd-Quell-Trigger ist jetzt implementiert:** Beim Start des VDR-Suite-Daemons zieht dessen `Wants` die getrennte `vdr-suite-first-run.service` und `vdr-suite-first-run.path` heran. Das One-Shot ruft den bestehenden Agent-Helfer mit `--auto-first-run` auf; fehlende VDR-/Daemon-/Agent-/Channel-/HTTPS-Voraussetzungen werden ohne Mutation zurückgestellt. Änderungen der Agent-Konfiguration lösen eine erneute Prüfung aus. `mk/install.mk` installiert beide Units; die Debian-/Ubuntu-/yaVDR-Daemon-Paketliste enthält sie. `debian/rules` behält `dh_installsystemd --no-enable --no-start`: Die First-Run-Units werden nicht eigenständig durch das Paket aktiviert, sondern mit dem bereits laufenden Suite-Daemon angefordert. **Quellimplementierung ist nicht gleich reale Paket- und Boot-Abnahme.** Eine vorhandene lokale HTTPS-/Channel-Konfiguration ist weiterhin Voraussetzung.
 
 **Nicht als fertig markieren**, bevor sämtliche unterstützten Installationswege denselben automatischen Setup-Lifecycle verwenden und mindestens MLD, Ubuntu/yaVDR und Debian einen wiederholbaren Installations-/Upgrade-Test bestehen. Skippys MLD-F2.6-Realtest bleibt eine konkrete Abnahme innerhalb dieser universellen Funktion.
 
 ## Nächste Umsetzung: automatischer First-Run-Trigger
 
 Der universelle Staging-Vertrag alleine richtet noch kein installiertes System ein.
-Nächster notwendiger, distributionsübergreifender Schritt: den bereits bestehenden
-`/usr/sbin/vdr-suite-backend-agent-autostart --installer-onboard` aus dem
-verlässlichen lokalen Installations- oder First-Boot-Lebenszyklus auslösen,
-sobald reale HTTPS-Origin, Senderpfad, VDR und Daemon bereitstehen.
+**Source done, Paket-/Realtest offen:** Der gemeinsame Auto-Trigger ruft `--auto-first-run` auf, das bei Bereitschaft den identischen vorhandenen `--installer-onboard`-Code verwendet. Jetzt müssen die tatsächlichen Paketabläufe eine gültige lokale HTTPS-Origin, den Senderpfad und Dienstkonto-Rechte einrichten sowie auf echten Systemen geprüft werden.
 Debian/Ubuntu/yaVDR und MLD sollen denselben Entry Point benutzen;
 nur die native Paket-Anbindung unterscheidet sich. **Nicht** bei jedem Upgrade
 eine neue Identity erzeugen oder einen existierenden Agent ungewollt neu starten.
@@ -52,3 +49,10 @@ make stage-distribution-first-run-config \
 Ein reales Paket darf diese Werte nicht blind mit Beispiel-URLs befüllen.
 Die Package-Inputs bleiben zunächst explizit; automatische Erkennung der
 tatsächlichen lokalen HTTPS-/Kanal-Konfiguration ist ein offener Schritt.
+
+### Verifikation des neuen automatischen Auslösers
+
+- `tools/test_packaging_backend_agent_autostart.py`: ohne root, konfigurierte und zurückgestellte automatische Ausführung.
+- `tools/test_packaging_distribution_first_run_stage.py`: gemeinsame Paketdateien und Aktivierungskontrakte.
+- `tools/check_systemd_unit_contract.py`: Daemon-`Wants`, unabhängige One-Shot-Unit und `.path`-Beobachter.
+- **Noch nicht belegt:** ausgeführte Tests und echte installierte Systemd-Transaktion; produktive HTTPS-Konfiguration des lokalen Control Plane; MLD-externes Rezept; Web- und Live-TV-End-to-End.
