@@ -651,13 +651,13 @@ class AutostartTests(unittest.TestCase):
             identity = root / "identity"
             enrollment = root / "enrollment"
             config.write_text(
-                "CONTROL_PLANE_URL=https://control-plane.example.invalid\\n"
-                "BACKEND_ID=default\\n"
-                "IDENTITY_PATH=" + str(identity) + "\\n"
-                "ENROLLMENT_PATH=" + str(enrollment) + "\\n"
-                "ADAPTERS=\\n"
-                "OBSERVATION_DOMAINS=backend-health\\n"
-                "CHANNELS_CONF_PATH=\\n")
+                "CONTROL_PLANE_URL=https://control-plane.example.invalid\n"
+                "BACKEND_ID=default\n"
+                "IDENTITY_PATH=" + str(identity) + "\n"
+                "ENROLLMENT_PATH=" + str(enrollment) + "\n"
+                "ADAPTERS=\n"
+                "OBSERVATION_DOMAINS=backend-health\n"
+                "CHANNELS_CONF_PATH=\n")
             with (
                 patch.object(subject, "CONFIG", config),
                 patch.object(subject, "IDENTITY", str(identity)),
