@@ -1898,7 +1898,11 @@
         if (!active() || !Array.isArray(candidates)) return;
         const normalized = normalizedSeriesName(title);
         let matches = candidates.filter(function (item) {
-          return normalizedSeriesName(item.title) === normalized;
+          // TMDb may return a German display title for an English source
+          // filename (or vice versa). originalTitle is part of the existing
+          // metadata response; accept either as an exact normalized match.
+          return normalizedSeriesName(item.title) === normalized ||
+            normalizedSeriesName(item.originalTitle) === normalized;
         });
         // Prefer an exact NFO year when remakes share the same title.
         if (matches.length > 1 && /^\d{4}$/.test(plan.nfoYear || '')) {
