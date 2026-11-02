@@ -104,6 +104,17 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceObservation(
     bool& partial, const std::string& selectedSourceId,
     vdrsuite::mediatools::MediaImportSourcePreview& preview)
 {
+    return listTrustedSourceObservationCached(
+        ids, labels, partial, selectedSourceId, {}, 0, preview);
+}
+
+bool BackendAgentMediaImportRuntime::listTrustedSourceObservationCached(
+    std::vector<std::string>& ids,
+    std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+    bool& partial, const std::string& selectedSourceId,
+    const std::string& codecHint, std::uint64_t durationHint,
+    vdrsuite::mediatools::MediaImportSourcePreview& preview)
+{
     using namespace vdrsuite::mediatools;
     ids.clear();
     labels.clear();
@@ -127,7 +138,8 @@ bool BackendAgentMediaImportRuntime::listTrustedSourceObservation(
             if (selected.sourceFile.empty()) {
                 preview.status = "unavailable";
                 preview.failureCode = "inventory_missing";
-            } else if (!inspectResolvedSource(selectedSourceId, selected, preview)) {
+            } else if (!inspectResolvedSource(
+                    selectedSourceId, selected, preview, codecHint, durationHint)) {
                 // Keep diagnostic failures in the existing preview protocol.
                 // An empty status is rejected by the Core observation reader
                 // and leaves the browser waiting for an answer.
@@ -188,7 +200,8 @@ bool BackendAgentMediaImportRuntime::inspectTrustedSource(
 bool BackendAgentMediaImportRuntime::inspectResolvedSource(
     const std::string& sourceId,
     const vdrsuite::mediatools::LocalMediaImportSource& local,
-    vdrsuite::mediatools::MediaImportSourcePreview& out)
+    vdrsuite::mediatools::MediaImportSourcePreview& out,
+    const std::string& codecHint, std::uint64_t durationHint)
 {
     using namespace vdrsuite::mediatools;
     out = {};
@@ -229,17 +242,26 @@ bool BackendAgentMediaImportRuntime::inspectResolvedSource(
             return true;
         }
         out.failureCode = "ffprobe_failed";
+        // The hint belongs to this exact source fingerprint; only dynamic
+        // capacity, destination and adjacent metadata need reinspection.
+        const bool reusableCodec = sourceId.rfind("scan_", 0) == 0 &&
+            !codecHint.empty();
         NativeProcessRunner probe(std::chrono::seconds(5));
-        const std::string codec = probeImportVideoCodec(plan, probe);
+        const std::string codec = reusableCodec ? codecHint
+            : probeImportVideoCodec(plan, probe);
         out.failureCode = "capacity_failed";
         const auto capacity = inspectImportCapacity(plan);
         out.videoCodec = codec;
         // Duration is display-only: unsupported duration is not an import error.
-        try {
-            const double seconds = probeImportDurationSeconds(plan, probe);
-            if (seconds > 0.0 && seconds <= 4294967295.0)
-                out.durationSeconds = static_cast<std::uint64_t>(seconds + 0.5);
-        } catch (...) {}
+        if (reusableCodec) {
+            out.durationSeconds = durationHint;
+        } else {
+            try {
+                const double seconds = probeImportDurationSeconds(plan, probe);
+                if (seconds > 0.0 && seconds <= 4294967295.0)
+                    out.durationSeconds = static_cast<std::uint64_t>(seconds + 0.5);
+            } catch (...) {}
+        }
         out.availableBytes = capacity.availableBytes;
         if (capacity.reserveBytes >
             std::numeric_limits<std::uint64_t>::max() - capacity.requiredBytes)
