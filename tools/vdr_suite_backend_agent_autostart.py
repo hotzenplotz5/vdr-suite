@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Enable Backend Agent boot startup only after an existing enrollment is healthy.
 
-No enrollment, service start/restart, direct SQL, or secret output. The existing
+Boot activation performs no enrollment or service start/restart. An optional\ninstaller-only --prepare-enrollment step reuses the existing enrollment binary\nand never prints credentials. No direct SQL or secret output. The existing
 Agent admin --status utility performs its normal repository initialization.
 Current readiness lookup requires a same-host Control Plane database; remote
 Agent hosts fail closed until their authenticated status path is implemented.
@@ -24,6 +24,8 @@ CONFIG = Path("/etc/vdr-suite/backend-agent.conf")
 IDENTITY = "/var/lib/vdr-suite/backend-agent/identity"
 ENROLLMENT = "/var/lib/vdr-suite/backend-agent/enrollment"
 AGENT_BIN = "/usr/sbin/vdr-suite-backend-agent"
+ENROLL_BIN = "/usr/sbin/vdr-suite-backend-agent-enroll"
+DATABASE = "/var/lib/vdr-suite/vdr-suite.db"
 ADMIN_BIN = "/usr/sbin/vdr-suite-backend-agent-admin"
 
 
@@ -207,6 +209,71 @@ def first_run_agent_state():
     return "ENROLLMENT_REQUIRED"
 
 
+
+def prepare_local_enrollment():
+    """Installer-owned one-time setup. The Agent consumes this package later.
+
+    Reuses the existing Control Plane enrollment command and does not start
+    services, create credentials itself, or replace prior identities.
+    """
+    if os.geteuid() != 0:
+        raise NotReady("root required for initial Agent enrollment")
+    if first_run_agent_state() != "ENROLLMENT_REQUIRED":
+        raise NotReady("local Agent is not awaiting a first enrollment")
+    backend = read_config(CONFIG)
+    if backend != "default":
+        raise NotReady("automatic local setup requires the default Backend")
+    unit = properties()
+    if (unit["LoadState"] != "loaded" or
+            unit["ActiveState"] != "inactive" or
+            unit["UnitFileState"] not in ("disabled", "enabled") or
+            unit["User"] != "vdr" or unit["Group"] != "vdr" or
+            unit["DropInPaths"] or
+            AGENT_BIN not in unit["ExecStart"] or
+            "--config " + str(CONFIG) not in unit["ExecStart"]):
+        raise NotReady("installed Agent service is not ready for initial setup")
+
+    state_dir = Path(ENROLLMENT).parent
+    try:
+        directory = state_dir.lstat()
+        vdr = pwd.getpwnam("vdr")
+    except (OSError, KeyError) as exc:
+        raise NotReady("Agent state directory or service account missing") from exc
+    if (not stat.S_ISDIR(directory.st_mode) or
+            directory.st_mode & 0o077 or
+            directory.st_uid not in (0, vdr.pw_uid) or
+            Path(IDENTITY).exists() or Path(IDENTITY).is_symlink() or
+            Path(ENROLLMENT).exists() or Path(ENROLLMENT).is_symlink() or
+            Path(ENROLLMENT + ".pending").exists()):
+        raise NotReady("Agent state is not a clean first-install state")
+    database = Path(DATABASE)
+    if database.is_symlink() or not database.is_file():
+        raise NotReady("configured local Control Plane database unavailable")
+    if directory.st_uid == 0 and vdr.pw_uid != 0:
+        os.chown(state_dir, vdr.pw_uid, vdr.pw_gid)
+
+    # Existing tool registers the one-time verifier with the Control Plane;
+    # the raw token is contained only in the protected enrollment file.
+    command([ENROLL_BIN, "--database", str(database), "--backend", backend,
+             "--output", ENROLLMENT])
+
+    # The enrollment binary runs as root. Hand over only the created file
+    # to the packaged vdr:vdr Agent, without reading or printing its token.
+    try:
+        fd = os.open(ENROLLMENT, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        try:
+            entry = os.fstat(fd)
+            if (not stat.S_ISREG(entry.st_mode) or
+                    stat.S_IMODE(entry.st_mode) != 0o600 or
+                    entry.st_nlink != 1 or entry.st_uid != 0):
+                raise NotReady("created enrollment package is not protected")
+            os.fchown(fd, vdr.pw_uid, vdr.pw_gid)
+        finally:
+            os.close(fd)
+    except OSError as exc:
+        raise NotReady("enrollment created but Agent ownership setup failed") from exc
+    return "ENROLLMENT_PREPARED"
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     choice = parser.add_mutually_exclusive_group(required=True)
@@ -216,8 +283,13 @@ def main():
                         help="after enrollment, enable boot startup without restart")
     choice.add_argument("--setup-status", action="store_true",
                         help="inspect local first-run state without enrollment or changes")
+    choice.add_argument("--prepare-enrollment", action="store_true",
+                        help="installer-only: prepare one-time local enrollment")
     args = parser.parse_args()
     try:
+        if args.prepare_enrollment:
+            print("LOCAL_BACKEND_SETUP=" + prepare_local_enrollment())
+            return 0
         if args.setup_status:
             print("LOCAL_BACKEND_SETUP=" + first_run_agent_state())
             return 0
