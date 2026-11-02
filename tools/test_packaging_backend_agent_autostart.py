@@ -293,6 +293,130 @@ class AutostartTests(unittest.TestCase):
                 subject.prepare_local_enrollment()
             execute.assert_not_called()
 
+    def test_local_activation_starts_once_checks_channels_and_enables_boot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            enrollment = Path(tmp) / "enrollment"
+            enrollment.write_text("fixture-only")
+            os.chmod(enrollment, 0o600)
+            vdr_uid = os.stat(enrollment).st_uid
+            current_unit = {
+                "LoadState": "loaded", "ActiveState": "inactive",
+                "UnitFileState": "disabled", "User": "vdr", "Group": "vdr",
+                "DropInPaths": "",
+                "FragmentPath": "/usr/lib/systemd/system/" + subject.UNIT,
+                "ExecStart": subject.AGENT_BIN + " --config " + str(subject.CONFIG)
+            }
+            calls = []
+
+            def systemctl(argv):
+                calls.append(argv)
+                if argv[:2] == ["systemctl", "is-enabled"]:
+                    return "enabled"
+                if argv[:2] == ["systemctl", "is-active"]:
+                    return "active"
+                return ""
+
+            with (
+                patch.object(subject.os, "geteuid", return_value=0),
+                patch.object(subject, "first_run_agent_state",
+                             return_value="ENROLLMENT_PENDING"),
+                patch.object(subject, "read_config", return_value="default"),
+                patch.object(subject, "properties", return_value=current_unit),
+                patch.object(subject, "channel_observation_source") as channels,
+                patch.object(subject, "ENROLLMENT", str(enrollment)),
+                patch.object(subject, "IDENTITY", str(Path(tmp) / "identity")),
+                patch.object(subject.pwd, "getpwnam",
+                             return_value=Mock(pw_uid=vdr_uid)),
+                patch.object(subject, "preflight", side_effect=[
+                    ("disabled", "agt_first", "default"),
+                    ("disabled", "agt_first", "default")]),
+                patch.object(subject, "check_channel_observation") as observation,
+                patch.object(subject, "command", side_effect=systemctl),
+                patch("sys.argv", ["helper", "--activate-local"]),
+                redirect_stdout(io.StringIO()) as output,
+            ):
+                self.assertEqual(subject.main(), 0)
+                self.assertIn("LOCAL_BACKEND_SETUP=READY", output.getvalue())
+                self.assertEqual(calls, [
+                    ["systemctl", "start", subject.UNIT],
+                    ["systemctl", "enable", subject.UNIT],
+                    ["systemctl", "is-enabled", subject.UNIT],
+                    ["systemctl", "is-active", subject.UNIT]
+                ])
+                channels.assert_called_once()
+                self.assertEqual(observation.call_count, 2)
+                observation.assert_any_call("default", "agt_first")
+
+    def test_local_activation_refuses_unconfigured_channels_before_start(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            enrollment = Path(tmp) / "enrollment"
+            enrollment.write_text("fixture-only")
+            os.chmod(enrollment, 0o600)
+            service = {
+                "LoadState": "loaded", "ActiveState": "inactive",
+                "UnitFileState": "disabled", "User": "vdr", "Group": "vdr",
+                "DropInPaths": "",
+                "FragmentPath": "/usr/lib/systemd/system/" + subject.UNIT,
+                "ExecStart": subject.AGENT_BIN + " --config " + str(subject.CONFIG)
+            }
+            with (
+                patch.object(subject.os, "geteuid", return_value=0),
+                patch.object(subject, "first_run_agent_state",
+                             return_value="ENROLLMENT_PENDING"),
+                patch.object(subject, "read_config", return_value="default"),
+                patch.object(subject, "properties", return_value=service),
+                patch.object(subject, "channel_observation_source",
+                             side_effect=subject.NotReady("Channel observation is not configured")),
+                patch.object(subject, "command") as execute,
+            ):
+                with self.assertRaises(subject.NotReady):
+                    subject.activate_local_agent()
+                execute.assert_not_called()
+
+    def test_local_channel_readback_requires_fresh_matching_cursor(self):
+        now = int(time.time())
+        good = {
+            "present": True, "backendId": "default", "agentId": "agt_first",
+            "backendGeneration": 12,
+            "channelObservation": {
+                "present": True, "backendGeneration": 12,
+                "snapshotGeneration": 1, "producerSequence": 4,
+                "resourceRevision": "channels-v1", "factCount": 35,
+                "acceptedAt": now - 3
+            }
+        }
+        with patch.object(subject, "command", return_value=json.dumps(good)):
+            subject.check_channel_observation("default", "agt_first")
+        for item in [
+            dict(good, agentId="agt_wrong"),
+            dict(good, channelObservation=dict(good["channelObservation"],
+                                               present=False)),
+            dict(good, channelObservation=dict(good["channelObservation"],
+                                               backendGeneration=11)),
+            dict(good, channelObservation=dict(good["channelObservation"],
+                                               acceptedAt=now - 10000))
+        ]:
+            with patch.object(subject, "command", return_value=json.dumps(item)):
+                with self.assertRaises(subject.NotReady):
+                    subject.check_channel_observation("default", "agt_first")
+
+    def test_local_channel_source_requires_declared_adapter_and_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "agent.conf"
+            channels = Path(tmp) / "channels.conf"
+            channels.write_text("fixture")
+            config.write_text("ADAPTERS=\nOBSERVATION_DOMAINS=backend-health\n"
+                              f"CHANNELS_CONF_PATH={channels}\n")
+            with self.assertRaises(subject.NotReady):
+                subject.channel_observation_source(config)
+            config.write_text(
+                "ADAPTERS=channels-conf\nOBSERVATION_DOMAINS=backend-health,channels\n"
+                f"CHANNELS_CONF_PATH={channels}\n")
+            self.assertEqual(subject.channel_observation_source(config), channels)
+            channels.unlink()
+            with self.assertRaises(subject.NotReady):
+                subject.channel_observation_source(config)
+
     def test_package_stages_post_enrollment_helper_without_auto_start(self):
         root = SOURCE.parents[1]
         make = (root / "mk/install.mk").read_text(encoding="utf-8")
