@@ -2687,8 +2687,8 @@ function publishHomeResume() {}
     .find(function (fact) { return fact.children[0].textContent === 'Freier Platz'; });
   assert(newCapacityFact.children[1].textContent !== oldCapacity,
     'changed free space is shown without changing the video source ID');
-  assert(findClass(mount, 'media-import-preview').textContent.includes(
-    'NFO wurde nach dem ersten Codec-Check aktualisiert.'),
+  assert.strictEqual(findClass(mount, 'media-import-nfo-plot').textContent,
+    'NFO wurde nach dem ersten Codec-Check aktualisiert.',
     'changed adjacent NFO appears without changing the video source ID');
   previewAvailableBytes = 12000000000;
   previewNfoPlot = 'Eine Handlung aus der tatsächlichen .nfo-Datei.';
