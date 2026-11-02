@@ -104,6 +104,28 @@ class MldFirstRunStagingTests(unittest.TestCase):
         self.assertEqual(private.read_text(), "credential_secret=do-not-touch")
         self.assertFalse((self.root / "etc/vdr/channels.conf").exists())
 
+    def test_package_can_supply_trusted_ca_without_changing_existing_state(self):
+        ca = "/etc/ssl/certs/mld-suite-local-ca.pem"
+        stage(str(self.root), ORIGIN, CHANNELS, ca)
+        content = self.agent.read_text()
+        self.assertIn("CA_CERTIFICATE_PATH=" + ca + "\n", content)
+        stage(str(self.root), ORIGIN, CHANNELS, ca)
+        self.assertEqual(self.agent.read_text(), content)
+        with self.assertRaises(NotReady):
+            stage(str(self.root), ORIGIN, CHANNELS,
+                  "/etc/ssl/certs/different-ca.pem")
+        self.assertEqual(self.agent.read_text(), content)
+
+    def test_invalid_ca_path_does_not_mutate_staging(self):
+        first = self.agent.read_text()
+        second = self.daemon.read_text()
+        for value in ("relative.pem", "/etc/ssl/../secrets", "/etc//ssl/ca.pem",
+                      "/etc/ssl/ca cert.pem"):
+            with self.assertRaises(NotReady):
+                stage(str(self.root), ORIGIN, CHANNELS, value)
+        self.assertEqual(self.agent.read_text(), first)
+        self.assertEqual(self.daemon.read_text(), second)
+
     def test_existing_explicit_daemon_policy_is_preserved(self):
         self.daemon.write_text(self.daemon.read_text() +
                                "\nVDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=false\n")
