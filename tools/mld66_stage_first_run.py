@@ -61,6 +61,16 @@ def validated_channels(value):
     return value
 
 
+
+def validated_ca_certificate(value):
+    """MLD recipe-selected CA file: absolute path, no interpolation or guesses."""
+    if (not value or not value.startswith("/") or "//" in value or
+            any(c.isspace() or ord(c) < 32 for c in value) or
+            any(part in (".", "..") for part in value.split("/"))):
+        raise NotReady("MLD CA certificate path must be a stable absolute path")
+    return value
+
+
 def settings(text):
     items = {}
     for line in text.splitlines():
@@ -115,7 +125,7 @@ def update_atomically(path, content):
     return True
 
 
-def stage(root, origin, channels):
+def stage(root, origin, channels, ca_certificate_path=None):
     root = Path(root)
     # Never change a live installation by inadvertently accepting /.
     if (not root.is_absolute() or root.is_symlink() or
@@ -123,6 +133,10 @@ def stage(root, origin, channels):
         raise NotReady("a separate absolute DESTDIR package staging root is required")
     origin = validated_origin(origin)
     channels = validated_channels(channels)
+    if ca_certificate_path is not None and ca_certificate_path != "":
+        ca_certificate_path = validated_ca_certificate(ca_certificate_path)
+    else:
+        ca_certificate_path = None
     config = checked_staging_file(root, AGENT_REL)
     daemon = checked_staging_file(root, DAEMON_REL)
     content = config.read_text(encoding="utf-8")
@@ -134,6 +148,9 @@ def stage(root, origin, channels):
     if fields.get("CHANNELS_CONF_PATH") not in (
             "/var/lib/vdr/channels.conf", channels):
         raise NotReady("do not replace an existing selected VDR channel source")
+    if (ca_certificate_path is not None and
+            fields.get("CA_CERTIFICATE_PATH") not in ("", ca_certificate_path)):
+        raise NotReady("do not replace an existing Agent CA trust path")
     adapters = [item.strip() for item in fields.get("ADAPTERS", "").split(",")
                 if item.strip()]
     observations = [item.strip() for item in
@@ -145,12 +162,15 @@ def stage(root, origin, channels):
         observations.append("backend-health")
     if "channels" not in observations:
         observations.append("channels")
-    next_config = substitute(content, {
+    updates = {
         "CONTROL_PLANE_URL": origin,
         "CHANNELS_CONF_PATH": channels,
         "ADAPTERS": ",".join(adapters),
         "OBSERVATION_DOMAINS": ",".join(observations),
-    })
+    }
+    if ca_certificate_path is not None:
+        updates["CA_CERTIFICATE_PATH"] = ca_certificate_path
+    next_config = substitute(content, updates)
     # Reuse the Agent's existing HTTPS/identity validation before staging.
     with tempfile.TemporaryDirectory() as tmp:
         candidate = Path(tmp) / "backend-agent.conf"
@@ -182,9 +202,12 @@ def main():
     parser.add_argument("--stage-root", required=True)
     parser.add_argument("--control-plane-url", required=True)
     parser.add_argument("--channels-source", required=True)
+    parser.add_argument("--ca-certificate-path", default="",
+                        help="optional existing MLD-installed trusted CA file")
     args = parser.parse_args()
     try:
-        stage(args.stage_root, args.control_plane_url, args.channels_source)
+        stage(args.stage_root, args.control_plane_url, args.channels_source,
+              args.ca_certificate_path)
     except (NotReady, OSError, UnicodeError) as exc:
         print("MLD_FIRST_RUN_STAGE=BLOCKED: " + str(exc), file=sys.stderr)
         return 1
