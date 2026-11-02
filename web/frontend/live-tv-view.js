@@ -142,6 +142,12 @@
 
   function liveErrorForChannel(error, channel, fallback) {
     const message = error && error.message ? text(error.message) : text(error);
+    const code = error && error.code ? text(error.code) : '';
+    if (code === 'live_backend_authority_required' ||
+        message.indexOf('live_backend_authority_required') !== -1) {
+      return 'Das ausgewählte VDR-Backend ist für Live-TV noch nicht verbunden. ' +
+        'Die Backend-Einrichtung muss abgeschlossen werden.';
+    }
     if (channelIsEncrypted(channel) && message.indexOf('live_source_receiver_unavailable') !== -1) {
       return (channelName(channel) ? channelName(channel) + ': ' : '') +
         'Dieser Sender ist verschlüsselt. VDR konnte aktuell keinen Live-Empfang dafür bereitstellen.';
