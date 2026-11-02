@@ -738,25 +738,30 @@ private:
         const std::map<std::string, std::string>& statuses, bool partial)
     {
         if (!persistent_) return;
-        auto lease = database_->acquireTransactionLease();
-        sqlite3_stmt* query = nullptr;
-        if (sqlite3_prepare_v2(database_->handle(),
-            "SELECT source_id FROM media_import_checked_previews "
-            "WHERE backend_id=?", -1, &query, nullptr) != SQLITE_OK) return;
-        sqlite3_bind_text(query, 1, backend.c_str(), -1, SQLITE_TRANSIENT);
         std::vector<std::string> retired;
-        while (sqlite3_step(query) == SQLITE_ROW) {
-            const auto* value = sqlite3_column_text(query, 0);
-            if (!value) continue;
-            const std::string id(reinterpret_cast<const char*>(value));
-            const auto status = statuses.find(id);
-            if ((status != statuses.end() &&
-                 status->second == "recording_present") ||
-                (!partial && !std::binary_search(
-                    observed.begin(), observed.end(), id)))
-                retired.push_back(id);
+        for (const auto& status : statuses)
+            if (status.second == "recording_present")
+                retired.push_back(status.first);
+        auto lease = database_->acquireTransactionLease();
+        if (!partial) {
+            // Only a complete, successful inventory proves a source is gone.
+            sqlite3_stmt* query = nullptr;
+            if (sqlite3_prepare_v2(database_->handle(),
+                "SELECT source_id FROM media_import_checked_previews "
+                "WHERE backend_id=?", -1, &query, nullptr) == SQLITE_OK) {
+                sqlite3_bind_text(query, 1, backend.c_str(), -1,
+                                  SQLITE_TRANSIENT);
+                while (sqlite3_step(query) == SQLITE_ROW) {
+                    const auto* value = sqlite3_column_text(query, 0);
+                    if (!value) continue;
+                    const std::string id(reinterpret_cast<const char*>(value));
+                    if (!std::binary_search(
+                            observed.begin(), observed.end(), id))
+                        retired.push_back(id);
+                }
+            }
+            sqlite3_finalize(query);
         }
-        sqlite3_finalize(query);
         if (retired.empty()) return;
         sqlite3_stmt* remove = nullptr;
         if (sqlite3_prepare_v2(database_->handle(),
