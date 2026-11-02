@@ -614,6 +614,59 @@ class AutostartTests(unittest.TestCase):
                         .is_file())
 
 
+    def test_automatic_first_run_configures_fresh_package_and_enrolls_once(self):
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         side_effect=("CONFIGURATION_REQUIRED", "ENROLLMENT_REQUIRED")),
+            patch.object(subject, "configure_local_first_run", return_value=True) as setup,
+            patch.object(subject, "read_config", return_value="default"),
+            patch.object(subject, "channel_observation_source") as channels,
+            patch.object(subject, "installer_onboard_local",
+                         return_value="READY") as onboard,
+        ):
+            self.assertEqual(subject.automatic_first_run(), "READY")
+            setup.assert_called_once_with()
+            channels.assert_called_once_with()
+            onboard.assert_called_once_with()
+
+    def test_runtime_config_is_idempotent_and_never_reenrolls_existing_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = root / "backend-agent.conf"
+            channels = root / "channels.conf"
+            channels.write_text("fixture channels")
+            config.write_text(
+                "CONTROL_PLANE_URL=https://control-plane.example.invalid\\n"
+                "BACKEND_ID=default\\n"
+                "IDENTITY_PATH=" + subject.IDENTITY + "\\n"
+                "ENROLLMENT_PATH=" + subject.ENROLLMENT + "\\n"
+                "ADAPTERS=\\n"
+                "OBSERVATION_DOMAINS=backend-health\\n"
+                "CHANNELS_CONF_PATH=/var/lib/vdr/channels.conf\\n")
+            identity = root / "identity"
+            enrollment = root / "enrollment"
+            with (
+                patch.object(subject, "CONFIG", config),
+                patch.object(subject, "IDENTITY", str(identity)),
+                patch.object(subject, "ENROLLMENT", str(enrollment)),
+                patch.object(subject, "DEFAULT_CHANNEL_SOURCES", (str(channels),)),
+                patch.object(subject.os, "geteuid", return_value=0),
+            ):
+                # This test uses fixture identity paths, so validation is
+                # represented by the already tested read_config() contract.
+                with patch.object(subject, "read_config", return_value="default"):
+                    self.assertTrue(subject.configure_local_first_run())
+                    content = config.read_text()
+                    self.assertIn("CONTROL_PLANE_URL=http://127.0.0.1:18080", content)
+                    self.assertIn("ADAPTERS=channels-conf", content)
+                    self.assertIn("OBSERVATION_DOMAINS=backend-health,channels", content)
+                    self.assertIn("CHANNELS_CONF_PATH=" + str(channels), content)
+                    self.assertFalse(subject.configure_local_first_run())
+                    identity.write_text("fixture existing identity")
+                    self.assertFalse(subject.configure_local_first_run())
+                    self.assertEqual(config.read_text(), content)
+
     def test_automatic_first_run_defers_without_touching_existing_system(self):
         for state in ("VDR_UNAVAILABLE", "DAEMON_UNAVAILABLE",
                       "AGENT_NOT_INSTALLED", "CONFIGURATION_REQUIRED",
