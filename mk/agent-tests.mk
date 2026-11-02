@@ -1,7 +1,7 @@
 .PHONY: test-addon-media-import-catalog
 test-addon-media-import-catalog:
 	$(BUILD_CXX) $(CXXFLAGS) -I core/sqlite/include \
-		core/sqlite/src/Database.cpp \
+		$(SQLITE_SRC) \
 		core/agent/tests/test_backend_agent_media_import_catalog.cpp \
 		-lsqlite3 -o $(BUILD_DIR)/test_backend_agent_media_import_catalog
 	$(BUILD_DIR)/test_backend_agent_media_import_catalog
