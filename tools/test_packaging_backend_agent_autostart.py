@@ -413,7 +413,12 @@ class AutostartTests(unittest.TestCase):
                 "ADAPTERS=channels-conf\nOBSERVATION_DOMAINS=backend-health,channels\n"
                 f"CHANNELS_CONF_PATH={channels}\n")
             self.assertEqual(subject.channel_observation_source(config), channels)
-            channels.unlink()
+            # MLD channels.conf may be a symlink to a selected channel set.
+            selected = Path(tmp) / "selected.conf"
+            channels.rename(selected)
+            channels.symlink_to(selected)
+            self.assertEqual(subject.channel_observation_source(config), channels)
+            selected.unlink()
             with self.assertRaises(subject.NotReady):
                 subject.channel_observation_source(config)
 
