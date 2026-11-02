@@ -474,6 +474,27 @@ def installer_onboard_local():
 
 
 
+def automatic_first_run():
+    """Same-host automatic entrypoint for packaged boot/start orchestration.
+
+    Configuration may not exist on a newly installed machine. Report a
+    deferred state without modifying anything; a later service start or
+    config-file change can retry. This reuses the exact installer pathway.
+    """
+    if os.geteuid() != 0:
+        raise NotReady("root required for automatic first-run")
+    state = first_run_agent_state()
+    if state not in ("ENROLLMENT_REQUIRED", "ENROLLMENT_PENDING",
+                     "IDENTITY_PRESENT"):
+        return "DEFERRED_" + state
+    try:
+        read_config()
+        channel_observation_source()
+    except (NotReady, OSError):
+        return "DEFERRED_CONFIGURATION_REQUIRED"
+    return installer_onboard_local()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     choice = parser.add_mutually_exclusive_group(required=True)
@@ -489,8 +510,13 @@ def main():
                         help="installer-only: start enrolled local Agent, confirm Channels, enable boot")
     choice.add_argument("--installer-onboard", action="store_true",
                         help="installer-only: resume local Agent enrollment and activation once")
+    choice.add_argument("--auto-first-run", action="store_true",
+                        help="package-owned automatic first-run; defer if not configured")
     args = parser.parse_args()
     try:
+        if args.auto_first_run:
+            print("LOCAL_BACKEND_SETUP=" + automatic_first_run())
+            return 0
         if args.installer_onboard:
             print("LOCAL_BACKEND_SETUP=" + installer_onboard_local())
             return 0
