@@ -3,12 +3,23 @@
 vdr-suite-backend-agent-autostart \- enable an already enrolled Backend Agent at boot
 .SH SYNOPSIS
 .B vdr-suite-backend-agent-autostart
-.RB ( --check | --enable )
+.RB ( --check | --enable | --setup-status )
 .SH DESCRIPTION
 A protected post-enrollment setup step. The experimental package installs
 this command but deliberately does not invoke it in
 .BR postinst .
 A fresh, unenrolled Agent is not auto-enabled or started by package installation.
+.PP
+.B --setup-status
+reports whether the local VDR and daemon are running and whether the
+Backend Agent package/configuration, identity or one-time enrollment is
+present. It does not read credential contents, initialize the database,
+create enrollment, start a service, or change boot policy. The output
+.B LOCAL_BACKEND_SETUP
+is a preliminary first-run state classification, not evidence of an
+authenticated, connected Agent or a finished installation. The eventual
+installer-owned setup path will consume this status internally; end users
+should not need this command.
 .PP
 .B --check
 validates the current installed systemd service, non-secret configuration,
@@ -46,6 +57,9 @@ of bypassing the safety checks.
 .TP
 .B --check
 Safe preflight; never change systemd startup links.
+.TP
+.B --setup-status
+Read-only local VDR/Agent first-run classification; no enrollment or service changes.
 .TP
 .B --enable
 Enable boot startup after a fresh successful preflight. No service restart.
