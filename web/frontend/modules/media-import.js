@@ -3032,7 +3032,9 @@
         if (!data || data.backendId !== view.backendId ||
             data.sourceId !== id) throw new Error('Veraltete Vorschauantwort');
         if (data.state === 'pending') {
-          view.previewStatus = 'Film wird geprüft …';
+          view.previewStatus = cached
+            ? 'Metadaten und Systemstatus werden aktualisiert …'
+            : 'Film wird geprüft …';
           updatePreview(view);
           if (++view.previewReads < 40) {
             view.previewTimer = global.setTimeout(function () {
