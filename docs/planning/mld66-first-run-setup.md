@@ -106,7 +106,10 @@ Kanal-Cursor ohne echte systemd-Änderungen ab.
 **Weiter offen:** Die MLD-Paketierung muss vor Agentstart den
 **tatsächlichen** `CHANNELS_CONF_PATH` und
 `ADAPTERS=channels-conf` / `OBSERVATION_DOMAINS=backend-health,channels`
-eintragen. Die Paketvorlage schaltet diese Beobachtung absichtlich
+eintragen. In MLD darf `CHANNELS_CONF_PATH` wie dokumentiert ein
+Symlink auf die vom Benutzer ausgewählte Senderliste sein; geprüft wird
+das vorhandene reguläre Zieldokument, nicht die Ablehnung des Symlinks.
+Die Paketvorlage schaltet diese Beobachtung absichtlich
 noch nicht standardmäßig ein. Der bestehende Helper nimmt keine
 unbekannten MLD-Pfade an. Der automatische, für Benutzer unsichtbare
 Installer-/Browser-Aufruf folgt in F2.4/F2.5; die echte MLD- und
