@@ -140,8 +140,17 @@ Backend-Status nutzbar.
 
 Frontend-Regression deckt Registrierung ausstehend, Kanäle
 ausstehend, fertig, normale Installation und manuelle Status-
-Wiederprüfung ab. Der Backend-Health-Routertest prüft die
-optionale Antwort ohne neues Feld für andere Backends.
+Wiederprüfung ab. Zusätzlich sind die Anmeldung mit bereits
+bestehendem Administrator ohne erneuten Claim und der Fall einer
+fehlgeschlagenen Health-Abfrage mit sichtbarem `Erneut prüfen`
+und erfolgreicher Wiederprüfung abgedeckt. Der
+Backend-Health-Routertest prüft die optionale Antwort ohne neues
+Feld für andere Backends.
+
+`ready` bedeutet hier **Agent/Channel-Setup bereit**, nicht
+automatisch erfolgreiche Bild-/Ton-Wiedergabe; die separat
+geprüfte SuiteBridge-Live-Provider-Freigabe und der Realtest
+bleiben F2.6.
 
 **Offen für die echte Ersteinrichtung:** F2.5 muss beim MLD-
 Paket den *tatsächlichen* Kanalpfad und Agent-Dienstnutzer
