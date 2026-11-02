@@ -867,6 +867,13 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-operation').textContent.includes(OP));
   assert.strictEqual(findClass(mount, 'media-import-import-title').textContent,
     'Import läuft', 'processing state appears directly in the preview');
+  assert.strictEqual(findClass(mount, 'media-import-preview-state'), null,
+    'pre-import Direktimport möglich must disappear while this source is being imported');
+  assert.strictEqual(findClass(mount, 'media-import-start').hidden, true,
+    'the disabled pre-import button is hidden while the operation is active');
+  assert(!findClass(mount, 'media-import-preview').textContent.includes(
+    'Nächster Schritt: „Diesen Film importieren“'),
+    'the next-step text must not ask to start an already running import');
   assert(findClass(mount, 'media-import-import-description').textContent.includes(
     'Aufnahme wird verarbeitet'), 'the status uses ordinary language without backend jargon');
   assert(findClass(inlineFeedback, 'media-import-refresh') &&
