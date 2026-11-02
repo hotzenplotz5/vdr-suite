@@ -22,8 +22,15 @@ DAEMON_REL = Path("etc/default/vdr-suite-daemon")
 
 def checked_staging_file(root, rel):
     path = root / rel
-    if path.is_symlink() or not path.is_file():
-        raise NotReady("missing or linked staged package file: " + str(rel))
+    # DESTDIR must not contain links escaping into the host's real /etc.
+    # Checking only the leaf would allow an intermediate /etc symlink.
+    current = root
+    for part in rel.parts:
+        current = current / part
+        if current.is_symlink():
+            raise NotReady("linked package staging path: " + str(rel))
+    if not path.is_file() or not path.resolve().is_relative_to(root.resolve()):
+        raise NotReady("missing or escaped staged package file: " + str(rel))
     return path
 
 
@@ -111,7 +118,8 @@ def update_atomically(path, content):
 def stage(root, origin, channels):
     root = Path(root)
     # Never change a live installation by inadvertently accepting /.
-    if not root.is_absolute() or root.resolve() == Path("/") or not root.is_dir():
+    if (not root.is_absolute() or root.is_symlink() or
+            root.resolve() == Path("/") or not root.is_dir()):
         raise NotReady("a separate absolute DESTDIR package staging root is required")
     origin = validated_origin(origin)
     channels = validated_channels(channels)
