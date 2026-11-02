@@ -141,6 +141,33 @@ int main()
             assert(recovered.sourceId == key && recovered.videoCodec == "hevc" &&
                 recovered.nfoPlot == "Film mit vollstaendigem VDR-Import" &&
                 recovered.durationSeconds == 6060);
+            // The next selection refreshes capacity/metadata through the
+            // Agent but must reuse the known codec/duration for this ID.
+            BackendAgentMediaImportCatalog::Preview updated = recovered;
+            updated.availableBytes = 4000000000ULL;
+            updated.nfoPlot = "NFO aktualisiert";
+            assert(reopened.requestPreview(persistentLive, "backend", 4000,
+                key, recovered, true) ==
+                BackendAgentMediaImportCatalog::PreviewState::pending);
+            assert(reopened.nextPreviewRequest(persistentLive, "backend", 4000)
+                == key);
+            std::string codecHint;
+            std::uint64_t durationHint = 0;
+            assert(reopened.cachedTechnical("backend", key, codecHint,
+                durationHint));
+            assert(codecHint == "hevc" && durationHint == 6060);
+            assert(reopened.requestPreview(persistentLive, "backend", 4000,
+                key, recovered) ==
+                BackendAgentMediaImportCatalog::PreviewState::pending);
+            assert(reopened.acceptPreview(persistentLive, "backend", 4000,
+                updated));
+            assert(reopened.requestPreview(persistentLive, "backend", 4000,
+                key, recovered) ==
+                BackendAgentMediaImportCatalog::PreviewState::ready);
+            assert(recovered.availableBytes == 4000000000ULL &&
+                recovered.nfoPlot == "NFO aktualisiert" &&
+                recovered.videoCodec == "hevc" &&
+                recovered.durationSeconds == 6060);
             assert(publish(reopened, changed, 4001));
             assert(reopened.requestPreview(persistentLive, "backend", 4001,
                 key, recovered) == BackendAgentMediaImportCatalog::PreviewState::denied);
