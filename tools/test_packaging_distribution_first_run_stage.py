@@ -59,8 +59,13 @@ class DistributionFirstRunStageTests(unittest.TestCase):
         self.assertEqual(original, self.agent.read_bytes())
         self.assertEqual(daemon, self.daemon.read_bytes())
 
+    def test_fresh_package_defaults_to_local_control_plane(self):
+        stage(self.package, "", "/var/lib/vdr/channels.conf")
+        self.assertIn("CONTROL_PLANE_URL=http://127.0.0.1:18080",
+                      self.agent.read_text())
+
     def test_rejects_unconfigured_or_live_staging(self):
-        for origin in ("", "http://127.0.0.1:8080", "https://control-plane.example.invalid"):
+        for origin in ("http://127.0.0.1:8080", "https://control-plane.example.invalid"):
             with self.subTest(origin=origin), self.assertRaises(NotReady):
                 stage(self.package, origin, "/var/lib/vdr/channels.conf")
         with self.assertRaises(NotReady):
