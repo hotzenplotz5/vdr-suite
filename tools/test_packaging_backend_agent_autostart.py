@@ -618,15 +618,16 @@ class AutostartTests(unittest.TestCase):
         for state in ("VDR_UNAVAILABLE", "DAEMON_UNAVAILABLE",
                       "AGENT_NOT_INSTALLED", "CONFIGURATION_REQUIRED",
                       "UNEXPECTED_AGENT_STATE"):
-            with self.subTest(state=state), (
-                patch.object(subject.os, "geteuid", return_value=0),
-                patch.object(subject, "first_run_agent_state", return_value=state),
-                patch.object(subject, "installer_onboard_local") as onboard,
-                patch.object(subject, "command") as execute,
-            ):
-                self.assertEqual(subject.automatic_first_run(), "DEFERRED_" + state)
-                onboard.assert_not_called()
-                execute.assert_not_called()
+            with self.subTest(state=state):
+                with (
+                    patch.object(subject.os, "geteuid", return_value=0),
+                    patch.object(subject, "first_run_agent_state", return_value=state),
+                    patch.object(subject, "installer_onboard_local") as onboard,
+                    patch.object(subject, "command") as execute,
+                ):
+                    self.assertEqual(subject.automatic_first_run(), "DEFERRED_" + state)
+                    onboard.assert_not_called()
+                    execute.assert_not_called()
 
     def test_automatic_first_run_deferred_on_missing_channels(self):
         with (
