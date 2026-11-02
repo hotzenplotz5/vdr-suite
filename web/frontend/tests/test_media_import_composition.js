@@ -198,6 +198,13 @@ function transport(url, options) {
         backendId: 'backend-a', sourceId: id, state: 'pending'
       }));
     }
+    if (previewMode === 'pending-initial-scan-once' && id === SCAN_ID &&
+        path.endsWith('/preview')) {
+      previewMode = 'ready';
+      return Promise.resolve(reply(202, {
+        backendId: 'backend-a', sourceId: id, state: 'pending'
+      }));
+    }
     if (previewMode === 'defer-source' && id === SOURCE) {
       previewMode = 'ready';
       return new Promise(function (resolve) { resolveDelayedPreview = resolve; });
@@ -3329,6 +3336,44 @@ function publishHomeResume() {}
     'dynamic refresh may not masquerade as a repeated codec inspection');
   assert.strictEqual(submits, scanPostsBefore,
     'background metadata update never submits a second import');
+
+  // First-time scan: an uncached source may genuinely need FFprobe. When
+  // its first no-refresh GET is pending, completing that same Agent slot
+  // must NOT start a second refresh/FFprobe cycle.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  batchSources = [SCAN_ID];
+  previewMode = 'pending-initial-scan-once';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const firstScanSelect = findClass(mount, 'media-import-source');
+  const firstScanBefore = requests.length;
+  firstScanSelect.value = SCAN_ID;
+  firstScanSelect.listeners.change();
+  await settle();
+  const firstScanInitial = requests.slice(firstScanBefore).filter(function (entry) {
+    return entry.path.includes('/' + SCAN_ID + '/preview');
+  });
+  assert.strictEqual(firstScanInitial.length, 1);
+  assert(firstScanInitial[0].path.endsWith('/preview'),
+    'first-time inspection starts as a normal lookup, not a forced refresh');
+  const firstScanPoll = timerCallbacks[timerCallbacks.length - 1];
+  firstScanPoll();
+  await settle();
+  const firstScanAll = requests.slice(firstScanBefore).filter(function (entry) {
+    return entry.path.includes('/' + SCAN_ID + '/preview');
+  });
+  assert.strictEqual(firstScanAll.length, 2,
+    'initial pending inspection is polled once, not restarted');
+  assert(firstScanAll.every(function (entry) {
+    return entry.path.endsWith('/preview');
+  }), 'completed first-time inspection must not trigger a redundant refresh=1');
+  assert.strictEqual(findClass(mount, 'media-import-preview-state').textContent,
+    'Direktimport möglich');
+  assert.strictEqual(submits, scanPostsBefore,
+    'first-time preview never submits an import');
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
