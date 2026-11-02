@@ -323,12 +323,17 @@ public:
             checked_.erase(backendId);
             attempted_.erase(backendId);
         }
-        // A replaced/deleted source cannot retain its old observation.
+        // Drop completed imports and vanished sources from the disk cache.
+        // Missing rows in a partial inventory are NOT evidence of deletion.
+        prunePersistentPreviews(backendId, sorted, byStatus, partial);
         // The catalog remains bounded by the 100 authenticated source IDs.
         auto& checked = checked_[backendId];
         auto& attempted = attempted_[backendId];
         for (auto it = checked.begin(); it != checked.end();) {
-            if (!std::binary_search(sorted.begin(), sorted.end(), it->first))
+            const auto status = byStatus.find(it->first);
+            if ((status != byStatus.end() &&
+                 status->second == "recording_present") ||
+                !std::binary_search(sorted.begin(), sorted.end(), it->first))
                 it = checked.erase(it);
             else ++it;
         }
@@ -340,6 +345,9 @@ public:
         // Restore already completed technical checks immediately on inventory
         // publication, without another Agent FFprobe or browser request.
         for (const auto& id : sorted) {
+            const auto status = byStatus.find(id);
+            if (status != byStatus.end() &&
+                status->second == "recording_present") continue;
             if (checked.count(id)) continue;
             Preview remembered;
             if (persistentPreview(backendId, id, remembered))
@@ -723,6 +731,46 @@ private:
                           static_cast<int>(packed.size()), SQLITE_TRANSIENT);
         sqlite3_step(statement);
         sqlite3_finalize(statement);
+    }
+
+    void prunePersistentPreviews(
+        const std::string& backend, const std::vector<std::string>& observed,
+        const std::map<std::string, std::string>& statuses, bool partial)
+    {
+        if (!persistent_) return;
+        auto lease = database_->acquireTransactionLease();
+        sqlite3_stmt* query = nullptr;
+        if (sqlite3_prepare_v2(database_->handle(),
+            "SELECT source_id FROM media_import_checked_previews "
+            "WHERE backend_id=?", -1, &query, nullptr) != SQLITE_OK) return;
+        sqlite3_bind_text(query, 1, backend.c_str(), -1, SQLITE_TRANSIENT);
+        std::vector<std::string> retired;
+        while (sqlite3_step(query) == SQLITE_ROW) {
+            const auto* value = sqlite3_column_text(query, 0);
+            if (!value) continue;
+            const std::string id(reinterpret_cast<const char*>(value));
+            const auto status = statuses.find(id);
+            if ((status != statuses.end() &&
+                 status->second == "recording_present") ||
+                (!partial && !std::binary_search(
+                    observed.begin(), observed.end(), id)))
+                retired.push_back(id);
+        }
+        sqlite3_finalize(query);
+        if (retired.empty()) return;
+        sqlite3_stmt* remove = nullptr;
+        if (sqlite3_prepare_v2(database_->handle(),
+            "DELETE FROM media_import_checked_previews "
+            "WHERE backend_id=? AND source_id=?", -1, &remove, nullptr)
+            != SQLITE_OK) return;
+        for (const auto& id : retired) {
+            sqlite3_reset(remove);
+            sqlite3_clear_bindings(remove);
+            sqlite3_bind_text(remove, 1, backend.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(remove, 2, id.c_str(), -1, SQLITE_TRANSIENT);
+            if (sqlite3_step(remove) != SQLITE_DONE) break;
+        }
+        sqlite3_finalize(remove);
     }
 
     Database* database_ = nullptr;
