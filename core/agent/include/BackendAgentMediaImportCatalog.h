@@ -57,7 +57,8 @@ public:
     PreviewState requestPreview(const BackendAgentRecord& live,
                                 const std::string& backendId,
                                 std::int64_t now,
-                                const std::string& sourceId, Preview& out)
+                                const std::string& sourceId, Preview& out,
+                                bool refresh = false)
     {
         out = {};
         if (!validSourceId(sourceId) || now <= 0 ||
@@ -70,6 +71,14 @@ public:
             !std::binary_search(snapshot->second.ids.begin(),
                                 snapshot->second.ids.end(), sourceId))
             return PreviewState::denied;
+        // A newly selected preview refreshes volatile destination/NFO/artwork
+        // through the existing Agent loop; saved codec/duration are reused.
+        if (refresh) {
+            auto& slot = previews_[backendId];
+            slot = {sourceId, now, false, 0, {}};
+            attempted_[backendId].insert(sourceId);
+            return PreviewState::pending;
+        }
         // Reuse observations from this Agent generation, also after the
         // browser has been closed. The source token binds the file identity;
         // Core still revalidates every subsequent import independently.
@@ -105,6 +114,31 @@ public:
         // A selected film overrides the idle background slot immediately.
         attempted_[backendId].insert(sourceId);
         return PreviewState::pending;
+    }
+
+    // Codec/duration hint is never an import approval. Only IDs bound to a
+    // scanned file fingerprint can reuse it across observations.
+    bool cachedTechnical(const std::string& backendId, const std::string& id,
+                         std::string& codec, std::uint64_t& duration)
+    {
+        codec.clear();
+        duration = 0;
+        if (!persistentId(id)) return false;
+        std::lock_guard<std::mutex> guard(mutex_);
+        Preview remembered;
+        const auto backend = checked_.find(backendId);
+        if (backend != checked_.end()) {
+            const auto it = backend->second.find(id);
+            if (it != backend->second.end()) remembered = it->second.second;
+        }
+        if (remembered.videoCodec.empty() &&
+            !persistentPreview(backendId, id, remembered)) return false;
+        if ((remembered.status != "ready" &&
+             remembered.status != "insufficient") ||
+            remembered.videoCodec.empty()) return false;
+        codec = remembered.videoCodec;
+        duration = remembered.durationSeconds;
+        return true;
     }
 
     std::string nextPreviewRequest(const BackendAgentRecord& live,
@@ -225,7 +259,7 @@ public:
         slot->second.updatedAt = now;
         slot->second.ready = true;
         checked_[backendId][data.sourceId] = {now, data};
-        if (data.status == "ready")
+        if (data.status == "ready" || data.status == "insufficient")
             rememberPreview(backendId, data);
         return true;
     }
@@ -648,7 +682,8 @@ private:
             field.assign(encoded, offset, length);
             offset += length;
         }
-        if (offset != encoded.size() || fields[0] != "ready" ||
+        if (offset != encoded.size() ||
+            (fields[0] != "ready" && fields[0] != "insufficient") ||
             (fields[7] != "0" && fields[7] != "1")) return false;
         const auto number = [](const std::string& v, std::uint64_t& out) {
             if (v.empty() || v.size() > 20) return false;
