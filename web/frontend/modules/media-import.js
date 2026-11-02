@@ -3476,13 +3476,22 @@
     // A space shortage blocks local import, not a PC-only marker decision.
     const needsEncode = Boolean(plan && plan.videoReencodeRequired &&
       (plan.status === 'ready' || plan.status === 'insufficient'));
-    // Rectools-style: compatible media has one ordinary import action.
-    // Encoding choices appear only when a checked video needs conversion.
+    // Compatible HEVC is remuxed by default. Its optional per-film
+    // conversion uses the same local H.264 decision as unsupported codecs.
+    const optionalHevcEncode = Boolean(ready && !needsEncode &&
+      plan.videoCodec === 'hevc');
     if (ready && !needsEncode) view.decision.value = 'import';
-    if (!needsEncode) view.localReencode.checked = false;
+    if (!needsEncode && !optionalHevcEncode) view.localReencode.checked = false;
     view.choiceLabel.hidden = !needsEncode;
     view.decision.disabled = !needsEncode || view.submitting ||
       Boolean(view.attempt) || Boolean(view.batch);
+    view.encodeLabel.hidden = !needsEncode && !optionalHevcEncode;
+    view.encodeCaption.textContent = optionalHevcEncode
+      ? 'Optional: HEVC auf dem VDR in H.264 umkodieren (Original bleibt erhalten)'
+      : 'Lokale H.264-Umkodierung nur nach ausdrücklicher Zustimmung';
+    view.localReencode.disabled = !(needsEncode || optionalHevcEncode) ||
+      view.submitting || Boolean(view.attempt) || Boolean(view.batch) ||
+      (needsEncode && view.decision.value !== 'import');
     // Skip is a separate Rectools action, not an encoding technique.
     view.skipButton.hidden = !plan || !['ready', 'insufficient'].includes(plan.status);
     view.skipButton.disabled = view.submitting || Boolean(view.attempt) ||
@@ -3552,6 +3561,8 @@
         ? 'Der Agent konnte Quelle, Codec oder Ziel nicht vollständig prüfen; ein genauerer Grund wurde nicht geliefert. Kein Import möglich.'
         : !ready && !needsEncode
           ? 'Import derzeit blockiert. Die Ursache steht in der Diagnose.'
+        : optionalHevcEncode && view.localReencode.checked
+          ? 'Ausgewählt: HEVC auf dem VDR nach H.264 umkodieren. Der Direktimport bleibt ohne diese Auswahl möglich.'
         : needsEncode
           ? decision === 'desktop'
         ? 'Externe Bearbeitung: Die Originaldatei über ihren bisherigen Datei-/Netzwerkzugang am PC mit HandBrake oder einem anderen Programm umkodieren. Das Webfrontend konvertiert und überträgt nicht selbst. Die .pc_encode-Markierung kennzeichnet die zurückgestellte Quelle. Die bearbeitete Datei anschließend in der Importquelle bereitstellen und neu prüfen. Kein Import im aktuellen Schritt.'
@@ -3588,6 +3599,8 @@
       : view.submitting ? 'Die Import-Anfrage wird übermittelt.'
       : !plan
       ? 'Bitte das Ergebnis der automatischen Prüfung abwarten.'
+      : ready && optionalHevcEncode && view.localReencode.checked
+        ? 'Nächster Schritt: H.264-Umkodierung dieses Films ausdrücklich bestätigen.'
       : ready && !needsEncode
         ? 'Nächster Schritt: „Diesen Film importieren“ anklicken und bestätigen.'
         : plan.status === 'duplicate'
@@ -3604,6 +3617,8 @@
       ? decision === 'desktop' ? 'Für PC markieren'
         : decision === 'import' ? 'Auf VDR umkodieren'
             : 'Bearbeitungsweg auswählen'
+      : optionalHevcEncode && view.localReencode.checked
+        ? 'Auf VDR nach H.264 umkodieren'
       : ready ? 'Diesen Film importieren' : 'Import nicht möglich';
     if (!view.submitting && !view.attempt && !view.batch) {
       view.startButton.disabled = sourceUnresolved(view, id) || (needsEncode
@@ -3657,7 +3672,9 @@
     }
     const approveVideoReencode = selected === 'import' &&
       !view.batch && previewPlan && previewPlan.status === 'ready' &&
-      previewPlan.videoReencodeRequired && view.localReencode.checked === true;
+      (previewPlan.videoReencodeRequired ||
+       previewPlan.videoCodec === 'hevc') &&
+      view.localReencode.checked === true;
     const videoDecision = selected === 'import'
       ? (approveVideoReencode ? 'local' : '') : selected;
     // Import alone is NEVER local FFmpeg encoding consent.
@@ -3981,9 +3998,11 @@
     decision.value = 'import';
     choiceLabel.appendChild(decision);
     root.appendChild(choiceLabel);
-    const encodeLabel = element('label', 'media-import-encode-label',
-      'Lokale Umkodierung ausschließlich nach gesonderter Zustimmung');
+    const encodeLabel = element('label', 'media-import-encode-label');
+    const encodeCaption = element('span', 'media-import-encode-caption',
+      'Lokale H.264-Umkodierung nur nach ausdrücklicher Zustimmung');
     encodeLabel.hidden = true;
+    encodeLabel.appendChild(encodeCaption);
     const localReencode = element('input', 'media-import-local-reencode');
     localReencode.type = 'checkbox';
     localReencode.checked = false;
@@ -4177,7 +4196,8 @@
       mobileButtons: mobileButtons, folderPath: '',
       visibleCount: visibleCount, normalLabel: label, markedLabel: markedLabel,
       allOrdinary: [], allMarked: [],
-      localReencode: localReencode, decision: decision,
+      localReencode: localReencode, encodeLabel: encodeLabel,
+      encodeCaption: encodeCaption, decision: decision,
       choiceLabel: choiceLabel, skipButton: skipButton,
       deleteDuplicateButton: deleteDuplicateButton,
       markedSelect: markedSelect, releaseButton: releaseButton, markedSources: [],
@@ -4298,6 +4318,11 @@
       // The existing 'local' Core request still needs its own confirmation.
       localReencode.checked = decision.value === 'import';
       batchButton.disabled = true;
+      updateSelectionCount(view);
+      updatePreview(view);
+    });
+    localReencode.addEventListener('change', function () {
+      if (!isCurrent(view) || view.submitting || view.attempt || view.batch) return;
       updateSelectionCount(view);
       updatePreview(view);
     });
