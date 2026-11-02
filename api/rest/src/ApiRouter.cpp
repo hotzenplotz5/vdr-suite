@@ -1203,8 +1203,8 @@ ApiResponse ApiRouter::handleGet(
                 if (!status.empty())
                 {
                     response.body.pop_back();
-                    response.body += ",\\\"localBackendSetup\\\":{\\\"status\\\":\\\""
-                        + status + "\\\"}}";
+                    response.body += ",\"localBackendSetup\":{\"status\":\""
+                        + status + "\"}}";
                     response.headers["Cache-Control"] = "no-store";
                 }
             }
