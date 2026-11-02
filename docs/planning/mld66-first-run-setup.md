@@ -171,9 +171,10 @@ Er verbindet die bereits bestehenden Schritte aus F2.2/F2.3:
   Health- und Channel-Readback abwarten, erst dann Autostart freigeben.
 - `ENROLLMENT_PENDING`: vorhandenes Enrollment **weiterverwenden**,
   keine zweite Token-Ausgabe, anschließend Agentstart und Readback.
-- `IDENTITY_PRESENT`: einen **bereits laufenden** Agenten mit
-  gültigem Backend-/Kanal-Readback bestätigen und ggf. nur dessen
-  Boot-Aktivierung abschließen; keine erneute Enrollment-Erzeugung.
+- `IDENTITY_PRESENT`: die geschützte vorhandene Identität und
+  die unveränderte Paket-Unit prüfen, bei unterbrochenem ersten Start
+  denselben Agenten ohne Re-Enrollment wieder starten und erst nach
+  aktuellem Backend-/Kanal-Readback den Autostart abschließen.
 - Ungültiger Dienst, fehlender VDR, abweichendes Backend, fehlende
   Kanal-Konfiguration oder untrusted URL: **blockiert vor einer Mutation**.
 
@@ -202,7 +203,10 @@ die bereits paketierte `--installer-onboard`-Funktion in seinem
 trusted first-run-Lebenszyklus ausführen (nach VDR/Daemon-Start).
 Die MLD HTTPS/TLS-Origin, CA-Vertrauen, Dienstkonto,
 Paket-Reihenfolge und echte Persistenz nach Neustart sind nicht
-bestätigt. Weitere technische Details und der konkrete Übergabevertrag
+bestätigt. Für ein bereits von MLD bereitgestelltes CA-Zertifikat
+kann die Rezeptur `MLD_FIRST_RUN_CA_CERTIFICATE_PATH` an den
+Staging-Schritt weitergeben. Andere bereits gesetzte CA-Pfade
+werden nicht überschrieben; ein Zertifikat wird hier nicht generiert. Weitere technische Details und der konkrete Übergabevertrag
 stehen in [`packaging/mld66/README-first-run.md`](../../packaging/mld66/README-first-run.md).
 Ohne die native Rezept-Integration behebt dieses Ergebnis noch
 **keine** frische skippy-Installation.
