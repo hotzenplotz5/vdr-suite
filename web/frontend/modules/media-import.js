@@ -1891,9 +1891,12 @@
         generation === view.previewGeneration &&
         view.select.value === sourceId;
     };
+    // File-system separators are not search terms. TMDb should receive
+    // "Sherlock Holmes A Game of Shadows", not the literal underscore.
+    const query = title.replace(/[_:]+/g, ' ').replace(/\s+/g, ' ').trim();
     view.onlineAuto = true;
-    view.onlineQuery = title;
-    onlineLookup(view, 'search', {query: title, kind: 'movie', limit: 12}, 'movie')
+    view.onlineQuery = query;
+    onlineLookup(view, 'search', {query: query, kind: 'movie', limit: 12}, 'movie')
       .then(function (candidates) {
         if (!active() || !Array.isArray(candidates)) return;
         const normalized = normalizedSeriesName(title);
