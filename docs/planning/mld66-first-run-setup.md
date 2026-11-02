@@ -24,7 +24,7 @@ Die bestehende First-Admin-Weboberfläche und deren Claim-/Session-Logik bleiben
 | Slice | Umsetzung (kleinstmögliche bestehende Oberfläche) | Nachweis / Fertig wenn | Stand |
 | --- | --- | --- | --- |
 | **F2.0 – Ist-Zustand und Nutzerfehler** | Den bestätigten Agent-/Backend-Fehler mit First-Admin-Flow, bestehender Enrollment-Logik, Paket- und Service-Zustand verknüpfen. Im bestehenden Live-TV-Frontend statt technischer Authority-Codes eine zutreffende Meldung über fehlende Backend-Einrichtung anzeigen; Initialfehler beendet den Start bereits ohne Recovery-Loop. | `web/frontend/live-tv-view.js` klassifiziert Code oder Nachricht; der vorhandene DOM-Stabilitätstest enthält zwei neue Fehlerfälle und hält den verschlüsselten-Sender-Fall intakt. Fokus-V8-Test des produktiven JS-Pfads PASS, CI und MLD-Installation separat. | **SOURCE IMPLEMENTED; FOCUSED V8 PASS; CI / MLD OPEN** |
-| **F2.1 – Lokalen Installationsfall erkennen** | Nach normalem Admin-Claim vorhandene Backend-/SuiteBridge-Fakten lesend prüfen: genau ein lokaler VDR oder bereits konfigurierte/mehrere Backends; keine neue harte Paketabhängigkeit. Bestehende funktionierende Konfiguration wird nicht verändert. | Auf frischem Einzel-VDR wird eindeutig `setup_required` erkannt; auf bestehender Installation `already_configured`; bei unklarer Topologie kein automatischer Eingriff. | **OFFEN** |
+| **F2.1 – Lokalen Installationsfall erkennen** | Nach normalem Admin-Claim vorhandene Backend-/SuiteBridge-Fakten lesend prüfen: genau ein lokaler VDR oder bereits konfigurierte/mehrere Backends; keine neue harte Paketabhängigkeit. Bestehende funktionierende Konfiguration wird nicht verändert. | Auf frischem Einzel-VDR wird eindeutig `setup_required` erkannt; auf bestehender Installation `already_configured`; bei unklarer Topologie kein automatischer Eingriff. | **SOURCE PARTIAL: read-only preflight; browser/install integration OPEN** |
 | **F2.2 – Agent automatisch einmalig registrieren** | Im von der Installation kontrollierten lokalen privilegierten Einrichtungskontext die vorhandene Agent-Konfiguration aus tatsächlichem Backend-/Control-Plane-Kontext nutzen; vorhandenes Enrollment-Werkzeug aufrufen, geschütztes Paket an den bereits vorgesehenen Ort legen, vorhandene Identität niemals überschreiben. Ein einmaliger Setup-Schritt nach erfolgreichem Admin-Claim, kein offenes anonymes Setup-API. | Derselbe Backend-ID-/Datenbank-/Konfigurationskontext, einmalige Registrierung, korrekt geschützte Identity, keine ausgegebenen Secrets und kein zweiter Agent bei Wiederholung. | **OFFEN** |
 | **F2.3 – Dienststart und Kanalbeobachtung** | Vorhandenen Agent-Dienst nach erfolgreichem Enrollment einmalig starten; lokale Senderbeobachtung auf die tatsächlich verwendete MLD-`channels.conf` konfigurieren und Provider-Fakten prüfen. Erst bei Online-/Backend-Health-Readback den vorhandenen Autostart-Helfer nutzen. Keine pauschalen Neustarts von VDR oder Daemon. | Agent online, gültige Lease, passende `BackendAgentRecord`, aktueller `channels`-Cursor, Autostart nach Hostneustart; kein neuer Systemdienst. | **OFFEN** |
 | **F2.4 – Web-Setup-Abschluss und Wiederaufnahme** | First-Admin-Webablauf um tatsächlichen lokalen Backend-Fortschritt ergänzen. Kein technischer Fragebogen; ggf. ein verständlicher Fehler mit `Erneut prüfen`, ohne doppelte Registrierung oder erneute Kontoanlage. Bereits eingerichtete Systeme kommen direkt zur normalen Oberfläche. | Ein Setup-Ablauf im Browser; Fehler lassen sich ohne Konsole erneut prüfen; Authentifizierung und bestehende Admin-Session bleiben erhalten. | **OFFEN** |
@@ -40,3 +40,20 @@ Die bestehende First-Admin-Weboberfläche und deren Claim-/Session-Logik bleiben
 5. **Kein Media-Tools-Code, kein Main-Merge und keine Installation auf yaVDR oder MLD durch diese Roadmap.** F1.4 wird nach F2.3 wieder aufgenommen.
 
 **Abhängigkeit:** Das automatische privilegierte Setup muss dort starten können, wo das MLD-Paket die Agent-Konfiguration und Service-Rechte tatsächlich verwaltet; genau dieser Paket-/Laufzeit-Auslöser ist bisher nicht nachgewiesen. F2.1/F2.2 dürfen daher nicht durch ein unautorisiertes Frontend-`systemctl` ersetzt werden.
+
+### F2.1 Quellstand
+
+Der bereits installierte Helper `vdr-suite-backend-agent-autostart` bietet
+jetzt `--setup-status` als **ausschließlich lesende** Vorprüfung.
+Er unterscheidet fehlenden/laufenden VDR und Daemon, fehlende Agent-
+Installation, unvollständige Konfiguration, bereits vorhandene Identity
+oder Enrollment sowie den Fall `ENROLLMENT_REQUIRED`. Er liest keine
+geschützten Geheimnisse und startet oder registriert keinen Agenten.
+Isolierte Tests in `tools/test_packaging_backend_agent_autostart.py`
+belegen die zustandsbezogene Ausgabe ohne Schreiboperationen.
+
+**Nicht damit erledigt:** Die tatsächliche lokale SuiteBridge-Fähigkeit,
+ein verbindlicher installer-seitiger Setup-Aufruf, Backend-ID-/Kanalpfad-
+Übernahme und die Web-Statusanzeige fehlen noch. Das Hilfswerkzeug ist
+ein interner Baustein für F2.2 bis F2.4 und keine Installationsanweisung
+an skippy.
