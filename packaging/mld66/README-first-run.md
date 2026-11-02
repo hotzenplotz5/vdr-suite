@@ -20,12 +20,12 @@ reviewed `vdr-suite-backend-agent.service` unit.
    `make stage-mld-first-run-config` target (compatibility adapter for the shared
    `make stage-distribution-first-run-config`) on that same separate
    `DESTDIR` with the actual installed MLD channel-selection path and
-   a working HTTPS Control Plane origin. An optional trusted CA
-   certificate path may be supplied when the system trust store does
-   not already trust that origin. For the reported MLD layout,
+   the real VDR channels.conf. The local standard uses the already
+   installed daemon on `http://127.0.0.1:18080` and does not need TLS
+   certificates. A remote Control Plane still requires HTTPS and, if
+   needed, an existing trusted CA. For the reported MLD layout,
    `/etc/vdr/channels.conf` is a link to the selected channel list;
-   this is supported. **Do not choose a fake origin, public HTTP endpoint
-   or a guessed URL.**
+   this is supported. **Never use an arbitrary remote HTTP endpoint.**
 2. Ensure the package's installed Daemon really loads its staged
    `/etc/default/vdr-suite-daemon` file and the Agent unit runs as its
    existing reviewed **non-root** `vdr` account with access to its
@@ -61,14 +61,13 @@ reviewed `vdr-suite-backend-agent.service` unit.
 
 ### Example package-build wiring (illustrative)
 
-The package build system substitutes the actually verified HTTPS origin
-and channel source from its **trusted package recipe metadata**. This
+The package build uses the local Loopback origin when no explicit HTTPS
+origin is supplied. It must still supply the actual MLD VDR channels.conf path. This
 is not an instruction for end users and should not run on a live machine.
 
 ```sh
 make stage-mld-first-run-config \
   DESTDIR="$MLD_PACKAGE_STAGING_ROOT" \
-  MLD_FIRST_RUN_CONTROL_PLANE_URL="$MLD_LOCAL_HTTPS_CONTROL_PLANE_ORIGIN" \
   MLD_FIRST_RUN_CHANNELS_CONF_PATH=/etc/vdr/channels.conf \
   MLD_FIRST_RUN_CA_CERTIFICATE_PATH="$MLD_INSTALLED_CA_PATH"
 ```
@@ -81,10 +80,10 @@ packaging-stage PASS with functional MLD setup or real Live-TV acceptance.
 
 ## Blocking/verification notes
 
-- The Agent requires an actual, trusted **HTTPS** Control Plane; the
-  browser's plain HTTP `:18080` origin is not automatically usable for
-  Agent enrollment. A working MLD TLS front end and trust/CA configuration
-  must be verified before invoking this hook. Do not disable TLS checks.
+- The same-host Agent can now reach the packaged Daemon through the exact
+  built-in loopback endpoint `http://127.0.0.1:18080`. This does **not**
+  allow external HTTP Agents. Remote Agent links still require HTTPS.
+  The existing MLD browser URL is not used to discover Agent credentials.
 - The helper currently requires the packaged Agent unit to run as the
   non-root `vdr` account, with known systemd fragment and no unreviewed
   Agent drop-ins. If MLD chooses a different service account, that is an
