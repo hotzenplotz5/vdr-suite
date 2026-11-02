@@ -169,6 +169,8 @@ let previewMode = 'ready';
 let previewInspectionStatus = 'ready';
 let autoDuplicateReadback = false;
 let previewVideoCodec = 'h264';
+let previewAvailableBytes = 12000000000;
+let previewNfoPlot = 'Eine Handlung aus der tatsächlichen .nfo-Datei.';
 let previewArtworkMode = 'poster';
 const batchProbeOverrides = Object.create(null);
 let resolveDelayedPreview = null;
@@ -185,7 +187,7 @@ function reply(status, value, headers) {
 function transport(url, options) {
   const path = String(url).replace(/^https?:\/\/[^/]+/, '');
   requests.push({path, options});
-  const sourcePreview = /^\/api\/v1\/backends\/backend-a\/media-import-sources\/([A-Za-z0-9_-]{16,64})\/preview$/.exec(path);
+  const sourcePreview = /^\/api\/v1\/backends\/backend-a\/media-import-sources\/([A-Za-z0-9_-]{16,64})\/preview(?:\\?refresh=1)?$/.exec(path);
   if (sourcePreview) {
     const id = sourcePreview[1];
     if (previewMode === 'defer-source' && id === SOURCE) {
@@ -226,10 +228,10 @@ function transport(url, options) {
         ? 'Serien/Andor/Weiterer Film' : 'Die Herrschaft des Feuers',
       videoCodec: codec,
       sourceBytes: 2500000000,
-      availableBytes: 12000000000, requiredBytes: 7600000000,
+      availableBytes: previewAvailableBytes, requiredBytes: 7600000000,
       videoReencodeRequired: codec === 'vp9',
       nfoOutline: 'Ein lokaler NFO-Text',
-      nfoPlot: 'Eine Handlung aus der tatsächlichen .nfo-Datei.',
+      nfoPlot: previewNfoPlot,
       nfoYear: '2024', nfoGenre: 'Drama',
       durationSeconds: 3210,
       posterDataUri: previewArtworkMode === 'bad'
@@ -665,8 +667,11 @@ function publishHomeResume() {}
     'a verified source must display its result immediately after tab remount');
   assert.strictEqual(requests.filter(function (request) {
     return request.path.includes('/' + SOURCE + '/preview');
-  }).length, checksBeforeRemount,
-  'returning to a checked source must not request another technical preview');
+  }).length, checksBeforeRemount + 1,
+  'returning to a checked source refreshes metadata and capacity');
+  assert(requests.some(function (request) {
+    return request.path.includes('/' + SOURCE + '/preview?refresh=1');
+  }), 'selection explicitly asks for cheap metadata refresh');
   assert.strictEqual(submits, backgroundPostsBefore,
     'restoring an inspection never starts an import or cleanup');
 
@@ -2626,7 +2631,7 @@ function publishHomeResume() {}
   // and are not repeated within this source scan.
   const checksFor = function (sourceId) {
     return requests.filter(function (r) {
-      return r.path.endsWith('/media-import-sources/' + sourceId + '/preview');
+      return r.path.includes('/media-import-sources/' + sourceId + '/preview');
     }).length;
   };
   const checkedA = checksFor(SOURCE);
@@ -2639,8 +2644,8 @@ function publishHomeResume() {}
   onlineSelect.listeners.change();
   await settle();
   assert.strictEqual(beforeReturning, checkedA);
-  assert.strictEqual(checksFor(SOURCE), checkedA,
-    'reselecting a checked episode never repeats its technical Agent probe');
+  assert.strictEqual(checksFor(SOURCE), checkedA + 1,
+    'reselecting a checked episode requests current metadata without a fresh codec probe');
   assert(findClass(mount, 'media-import-preview').textContent.includes(
     'VDR-Zielordner:'), 'reused technical details appear immediately');
   assert(findClass(mount, 'media-import-selection').children.some(function (row) {
@@ -2661,8 +2666,8 @@ function publishHomeResume() {}
   reloadedEpisodes.value = SOURCE;
   reloadedEpisodes.listeners.change();
   await settle();
-  assert.strictEqual(checksFor(SOURCE), checksBeforeRescan,
-    'unchanged episode is not technically checked again after catalog rescan');
+  assert.strictEqual(checksFor(SOURCE), checksBeforeRescan + 1,
+    'unchanged episode refreshes non-codec facts after catalog rescan');
   assert(findClass(mount, 'media-import-preview-state').textContent.includes(
     'Direktimport möglich'), 'cached direct-import readiness appears instantly');
   const beforeManualRecheck = checksFor(SOURCE);
