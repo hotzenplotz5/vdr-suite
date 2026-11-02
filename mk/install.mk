@@ -21,13 +21,15 @@ install: install-runtime install-cli install-docs install-manpages install-syste
 # The regular Ubuntu/yaVDR install target remains unchanged.
 MLD_FIRST_RUN_CONTROL_PLANE_URL ?=
 MLD_FIRST_RUN_CHANNELS_CONF_PATH ?= /etc/vdr/channels.conf
+MLD_FIRST_RUN_CA_CERTIFICATE_PATH ?=
 
 .PHONY: stage-mld-first-run-config
 stage-mld-first-run-config:
 	python3 tools/mld66_stage_first_run.py \
 		--stage-root "$(DESTDIR)" \
 		--control-plane-url "$(MLD_FIRST_RUN_CONTROL_PLANE_URL)" \
-		--channels-source "$(MLD_FIRST_RUN_CHANNELS_CONF_PATH)"
+		--channels-source "$(MLD_FIRST_RUN_CHANNELS_CONF_PATH)" \
+		--ca-certificate-path "$(MLD_FIRST_RUN_CA_CERTIFICATE_PATH)"
 
 
 build-runtime-binaries: daemon backend-agent backend-agent-enrollment backend-agent-admin backend-agent-command-admin first-admin-bootstrap-issuer human-account-recovery
