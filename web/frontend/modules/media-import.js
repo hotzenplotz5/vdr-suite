@@ -3250,7 +3250,9 @@
     const state = !selected ? 'idle' :
       !plan ? (view.previewFailed ? 'failed' : 'pending') : plan.status;
     const stateText = state === 'ready'
-      ? plan.videoReencodeRequired ? 'Video-Umkodierung erforderlich' : 'Direktimport möglich'
+      ? plan.videoReencodeRequired ? 'Video-Umkodierung erforderlich'
+        : plan.videoCodec === 'hevc' && view.localReencode.checked
+          ? 'H.264-Umkodierung ausgewählt' : 'Direktimport möglich'
       : state === 'duplicate' ? 'VDR-Aufnahme bereits vorhanden'
       : state === 'insufficient' ? 'Nicht genügend Speicherplatz'
       : state === 'unavailable' ? 'Quelle konnte nicht geprüft werden'
