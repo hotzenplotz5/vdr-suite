@@ -8,6 +8,7 @@
 **Feedback und Plugin-Matrix:** [MLD-Feedbackprotokoll](../development/mld66-skippy-feedback-20261027.md)  
 **Übergeordnete Distributionsintegration:** [MLD.1A–MLD.1E](mld-6.6-integration.md)  
 **Suchtimer-API-Vertrag:** [Public API v1 SearchTimer](../../api/search-timers.md)
+**Ersteinrichtung / Backend-Agent:** [MLD.F2 – Automatische lokale Einrichtung](mld66-first-run-setup.md) (vor abschließender F1.4-Live-TV-Abnahme).
 
 Diese **Feedbackphase** ist ein begrenzter Arbeitspfad innerhalb des bestehenden
 MLD-Ziels, **keine** Umnummerierung von Phase 70, kein neuer Produkt-Fork,
