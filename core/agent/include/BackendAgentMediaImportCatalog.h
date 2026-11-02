@@ -4,7 +4,7 @@
 #include "AddonRootApproval.h"
 #include "SecurityIdentity.h"
 #include "Database.h"
-#include <sqlite3.h>
+#include "MediaImportCheckedPreviewStore.h"
 #include <array>
 #include <limits>
 
@@ -46,10 +46,7 @@ public:
         : database_(&database)
     {
         // A read-only UI cache must never prevent daemon startup.
-        persistent_ = database_->execute(
-            "CREATE TABLE IF NOT EXISTS media_import_checked_previews ("
-            "backend_id TEXT NOT NULL, source_id TEXT NOT NULL, "
-            "payload BLOB NOT NULL, PRIMARY KEY(backend_id,source_id));");
+        persistent_ = media_import_preview_store::ensureSchema(*database_);
     }
 
     // One transient requested file per backend. Only a caller that already
@@ -732,50 +729,22 @@ private:
                            Preview& result)
     {
         if (!persistent_ || !persistentId(id)) return false;
-        auto lease = database_->acquireTransactionLease();
-        sqlite3_stmt* statement = nullptr;
-        if (sqlite3_prepare_v2(database_->handle(),
-            "SELECT payload FROM media_import_checked_previews "
-            "WHERE backend_id=? AND source_id=?", -1, &statement, nullptr)
-            != SQLITE_OK) return false;
-        sqlite3_bind_text(statement, 1, backend.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, id.c_str(), -1, SQLITE_TRANSIENT);
-        bool found = false;
-        if (sqlite3_step(statement) == SQLITE_ROW) {
-            const auto* blob = sqlite3_column_blob(statement, 0);
-            const int size = sqlite3_column_bytes(statement, 0);
-            if (blob && size > 0 && size <= 1000000) {
-                Preview decoded;
-                decoded.sourceId = id;
-                if (unpack(std::string(static_cast<const char*>(blob),
-                                       static_cast<std::size_t>(size)), decoded)) {
-                    result = std::move(decoded);
-                    found = true;
-                }
-            }
-        }
-        sqlite3_finalize(statement);
-        return found;
+        std::string payload;
+        if (!media_import_preview_store::load(
+                *database_, backend, id, payload)) return false;
+        Preview decoded;
+        decoded.sourceId = id;
+        if (!unpack(payload, decoded)) return false;
+        result = std::move(decoded);
+        return true;
     }
 
     void rememberPreview(const std::string& backend, const Preview& preview)
     {
         if (!persistent_ || !persistentId(preview.sourceId)) return;
         const std::string packed = pack(preview);
-        if (packed.size() > 1000000) return;
-        auto lease = database_->acquireTransactionLease();
-        sqlite3_stmt* statement = nullptr;
-        if (sqlite3_prepare_v2(database_->handle(),
-            "INSERT OR REPLACE INTO media_import_checked_previews "
-            "(backend_id,source_id,payload) VALUES (?,?,?)", -1,
-            &statement, nullptr) != SQLITE_OK) return;
-        sqlite3_bind_text(statement, 1, backend.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(statement, 2, preview.sourceId.c_str(), -1,
-                          SQLITE_TRANSIENT);
-        sqlite3_bind_blob(statement, 3, packed.data(),
-                          static_cast<int>(packed.size()), SQLITE_TRANSIENT);
-        sqlite3_step(statement);
-        sqlite3_finalize(statement);
+        media_import_preview_store::save(
+            *database_, backend, preview.sourceId, packed);
     }
 
     void prunePersistentPreviews(
@@ -783,44 +752,8 @@ private:
         const std::map<std::string, std::string>& statuses, bool partial)
     {
         if (!persistent_) return;
-        std::vector<std::string> retired;
-        for (const auto& status : statuses)
-            if (status.second == "recording_present")
-                retired.push_back(status.first);
-        auto lease = database_->acquireTransactionLease();
-        if (!partial) {
-            // Only a complete, successful inventory proves a source is gone.
-            sqlite3_stmt* query = nullptr;
-            if (sqlite3_prepare_v2(database_->handle(),
-                "SELECT source_id FROM media_import_checked_previews "
-                "WHERE backend_id=?", -1, &query, nullptr) == SQLITE_OK) {
-                sqlite3_bind_text(query, 1, backend.c_str(), -1,
-                                  SQLITE_TRANSIENT);
-                while (sqlite3_step(query) == SQLITE_ROW) {
-                    const auto* value = sqlite3_column_text(query, 0);
-                    if (!value) continue;
-                    const std::string id(reinterpret_cast<const char*>(value));
-                    if (!std::binary_search(
-                            observed.begin(), observed.end(), id))
-                        retired.push_back(id);
-                }
-            }
-            sqlite3_finalize(query);
-        }
-        if (retired.empty()) return;
-        sqlite3_stmt* remove = nullptr;
-        if (sqlite3_prepare_v2(database_->handle(),
-            "DELETE FROM media_import_checked_previews "
-            "WHERE backend_id=? AND source_id=?", -1, &remove, nullptr)
-            != SQLITE_OK) return;
-        for (const auto& id : retired) {
-            sqlite3_reset(remove);
-            sqlite3_clear_bindings(remove);
-            sqlite3_bind_text(remove, 1, backend.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(remove, 2, id.c_str(), -1, SQLITE_TRANSIENT);
-            if (sqlite3_step(remove) != SQLITE_DONE) break;
-        }
-        sqlite3_finalize(remove);
+        media_import_preview_store::prune(
+            *database_, backend, observed, statuses, partial);
     }
 
     Database* database_ = nullptr;
