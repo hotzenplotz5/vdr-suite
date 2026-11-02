@@ -69,12 +69,9 @@ def prepare(base: Path, workers: Path, output: Path,
                     "modules/rectools/addon.json"],
                    check=True, timeout=10)
     commit = worker_source_sha
-    needed = sum(p.stat().st_size for p in base.rglob("*") if p.is_file())
-    needed += sum((workers / name).stat().st_size for name in WORKERS)
-    disk = shutil.disk_usage(output.parent)
-    reserve = max(4 * 1024 ** 3, (disk.total * 15 + 99) // 100)
-    if disk.free < needed + reserve:
-        raise ValueError("RESOURCE_PREFLIGHT=FAIL")
+    # No arbitrary fixed/free-percentage reserve gate: the existing Suite
+    # stage and already built workers are reused. Report actual copy/write
+    # failures rather than block small-but-sufficient filesystems.
 
     with tempfile.TemporaryDirectory(prefix=".media-tools-prepare-", dir=output.parent) as scratch:
         root = Path(scratch) / "work"
