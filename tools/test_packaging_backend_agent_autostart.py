@@ -214,6 +214,85 @@ class AutostartTests(unittest.TestCase):
                           side_effect=["RUNNING", "RUNNING", "NOT_INSTALLED"]):
             self.assertEqual(subject.first_run_agent_state(), "AGENT_NOT_INSTALLED")
 
+    def test_prepare_local_enrollment_uses_existing_tool_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            state = root / "backend-agent"
+            state.mkdir(mode=0o700)
+            os.chmod(state, 0o700)
+            database = root / "vdr-suite.db"
+            database.write_text("fixture")
+            enrollment = state / "enrollment"
+            identity = state / "identity"
+            uid, gid = os.getuid(), os.getgid()
+            agent_unit = {
+                "LoadState": "loaded", "ActiveState": "inactive",
+                "UnitFileState": "disabled", "User": "vdr", "Group": "vdr",
+                "DropInPaths": "",
+                "ExecStart": subject.AGENT_BIN + " --config " + str(subject.CONFIG)
+            }
+            invocations = []
+
+            def enroll_tool(argv):
+                invocations.append(argv)
+                enrollment.write_text("version=1\\nfixture-only")
+                os.chmod(enrollment, 0o600)
+                return ""
+
+            with (
+                patch.object(subject, "DATABASE", str(database)),
+                patch.object(subject, "IDENTITY", str(identity)),
+                patch.object(subject, "ENROLLMENT", str(enrollment)),
+                patch.object(subject, "first_run_agent_state",
+                             return_value="ENROLLMENT_REQUIRED"),
+                patch.object(subject, "read_config", return_value="default"),
+                patch.object(subject, "properties", return_value=agent_unit),
+                patch.object(subject.pwd, "getpwnam",
+                             return_value=Mock(pw_uid=uid, pw_gid=gid)),
+                patch.object(subject.os, "geteuid", return_value=0),
+                patch.object(subject.os, "fstat",
+                             return_value=Mock(st_mode=stat.S_IFREG | 0o600,
+                                               st_nlink=1, st_uid=0)),
+                patch.object(subject.os, "fchown") as ownership,
+                patch.object(subject, "command", side_effect=enroll_tool),
+                patch("sys.argv", ["helper", "--prepare-enrollment"]),
+                redirect_stdout(io.StringIO()) as output,
+            ):
+                self.assertEqual(subject.main(), 0)
+                self.assertIn("LOCAL_BACKEND_SETUP=ENROLLMENT_PREPARED",
+                              output.getvalue())
+                self.assertEqual(invocations, [[
+                    subject.ENROLL_BIN, "--database", str(database),
+                    "--backend", "default", "--output", str(enrollment)
+                ]])
+                ownership.assert_called_once()
+                self.assertEqual(ownership.call_args.args[1:], (uid, gid))
+                self.assertFalse(identity.exists())
+                self.assertTrue(enrollment.is_file())
+                # Existing state cannot be re-enrolled by retrying the helper.
+                self.assertEqual(subject.main(), 1)
+                self.assertEqual(len(invocations), 1)
+
+    def test_prepare_local_enrollment_refuses_non_root_and_setup_error(self):
+        with (
+            patch.object(subject.os, "geteuid", return_value=1000),
+            patch.object(subject, "first_run_agent_state") as state,
+            patch.object(subject, "command") as execute,
+        ):
+            with self.assertRaises(subject.NotReady):
+                subject.prepare_local_enrollment()
+            state.assert_not_called()
+            execute.assert_not_called()
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="IDENTITY_PRESENT"),
+            patch.object(subject, "command") as execute,
+        ):
+            with self.assertRaises(subject.NotReady):
+                subject.prepare_local_enrollment()
+            execute.assert_not_called()
+
     def test_package_stages_post_enrollment_helper_without_auto_start(self):
         root = SOURCE.parents[1]
         make = (root / "mk/install.mk").read_text(encoding="utf-8")
