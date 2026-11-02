@@ -931,6 +931,35 @@ int main() {
         ++checks;
     }
     {
+        // A compatible HEVC film copies by default. The existing local
+        // one-film decision intentionally converts it to H.264 when chosen.
+        Fixture f;
+        FakeProcess runner;
+        runner.codec = "hevc\n";
+        const auto plan = inspectImport(f.request());
+        const auto preview = inspectImportPreview(f.request(), runner);
+        assert(preview.videoCodec == "hevc" &&
+               !preview.videoReencodeRequired);
+        const auto output = executeRemuxImport(
+            plan, runner, [](const ImportPlan&) {});
+        assert(fs::exists(output / "index") &&
+               runner.remuxes == 1 && runner.transcodes == 0 &&
+               fs::exists(f.source));
+        ++checks;
+    }
+    {
+        Fixture f;
+        FakeProcess runner;
+        runner.codec = "hevc\n";
+        const auto plan = inspectImport(f.request());
+        const auto output = executeRemuxImport(
+            plan, runner, [](const ImportPlan&) {}, true);
+        assert(fs::exists(output / "index") &&
+               runner.remuxes == 0 && runner.transcodes == 1 &&
+               fs::exists(f.source));
+        ++checks;
+    }
+    {
         Fixture f;
         FakeProcess runner;
         runner.codec = "vp9\n";
