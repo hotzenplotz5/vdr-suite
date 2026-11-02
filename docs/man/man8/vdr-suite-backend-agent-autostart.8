@@ -3,7 +3,7 @@
 vdr-suite-backend-agent-autostart \- enable an already enrolled Backend Agent at boot
 .SH SYNOPSIS
 .B vdr-suite-backend-agent-autostart
-.RB ( --check | --enable | --setup-status | --prepare-enrollment )
+.RB ( --check | --enable | --setup-status | --prepare-enrollment | --activate-local )
 .SH DESCRIPTION
 A protected post-enrollment setup step. The experimental package installs
 this command but deliberately does not invoke it in
@@ -51,6 +51,23 @@ Creating the package is not the same as completing Agent enrollment.
 The installer must arrange service start and successful Agent readback
 as a later separate step.
 .PP
+.B --activate-local
+is an installer-owned continuation after an enrollment package has already
+been prepared. On the reviewed same-host installation, it requires the
+existing channel observation adapter (`channels-conf`) and observation
+domain (`channels`) to be configured against the actual local VDR
+channel source. It starts the inactive Agent once through the existing
+systemd unit, requires authenticated current Agent and backend-health
+readback, then checks a matching fresh channel observation cursor with
+nonempty channel facts. Only then does it enable boot startup, reusing
+the existing post-enrollment activation checks. It does not restart VDR
+or the daemon, replace identities or attempt a second enrollment.
+.PP
+This command is not an interactive end-user setup path, and does not
+discover or rewrite the MLD-specific channel file location. That
+distribution configuration and the browser/installer trigger remain
+separate unfinished work.
+.PP
 .B --enable
 requires root and the same successful preflight immediately before enabling
 the already running service for future boots. It invokes
@@ -78,6 +95,10 @@ Read-only local VDR/Agent first-run classification; no enrollment or service cha
 .B --prepare-enrollment
 Installer-only local first-run package preparation. Mutates local Agent
 enrollment state; it does not start services.
+.TP
+.B --activate-local
+Installer-only Agent startup, authenticated readiness, fresh Channel
+observation and future boot activation. Blocks when not ready.
 .TP
 .B --enable
 Enable boot startup after a fresh successful preflight. No service restart.
