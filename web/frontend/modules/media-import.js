@@ -3094,6 +3094,7 @@
       Promise.resolve(publicClient().getMediaImportSourcePreview({
         backendId: view.backendId, sourceId: id,
         refresh: refresh === true,
+        cached: refresh !== true && view.previewReads === 0 && !cached,
         credentials: 'same-origin', cache: 'no-store'
       })).then(function (data) {
         if (!isCurrent(view) || generation !== view.previewGeneration ||
