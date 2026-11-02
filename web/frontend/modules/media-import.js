@@ -1874,7 +1874,9 @@
     if (!source || !plan || plan.status !== 'ready' ||
         view.onlineKind !== 'movie' || view.onlineAuto ||
         validLocalArtwork(plan.posterDataUri)) return;
-    const title = String(plan.title || source.label || '').trim();
+    // The inventory label is the recognizable filename/title; a probe may
+    // derive a generic title when no NFO exists.
+    const title = String(source.label || plan.title || '').trim();
     if (title.length < 2 || title.length > 160) return;
     const sourceId = source.sourceId;
     const generation = view.previewGeneration;
