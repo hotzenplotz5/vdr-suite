@@ -187,7 +187,7 @@ function reply(status, value, headers) {
 function transport(url, options) {
   const path = String(url).replace(/^https?:\/\/[^/]+/, '');
   requests.push({path, options});
-  const sourcePreview = /^\/api\/v1\/backends\/backend-a\/media-import-sources\/([A-Za-z0-9_-]{16,64})\/preview(?:\\?refresh=1)?$/.exec(path);
+  const sourcePreview = /^\/api\/v1\/backends\/backend-a\/media-import-sources\/([A-Za-z0-9_-]{16,64})\/preview(?:\?refresh=1)?$/.exec(path);
   if (sourcePreview) {
     const id = sourcePreview[1];
     if (previewMode === 'defer-source' && id === SOURCE) {
