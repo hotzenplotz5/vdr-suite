@@ -168,7 +168,7 @@ class AutostartTests(unittest.TestCase):
             config = Path(tmp) / "agent.conf"
             identity = Path(tmp) / "identity"
             enrollment = Path(tmp) / "enrollment"
-            config.write_text("BACKEND_ID=default\\n")
+            config.write_text("BACKEND_ID=default\n")
             with (
                 patch.object(subject, "CONFIG", config),
                 patch.object(subject, "IDENTITY", str(identity)),
