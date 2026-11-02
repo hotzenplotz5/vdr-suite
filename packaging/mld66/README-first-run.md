@@ -33,11 +33,15 @@ reviewed `vdr-suite-backend-agent.service` unit.
    daemon and Agent must use the *same* Control Plane SQLite database
    path. The MLD recipe must own these service/account/path facts;
    this repository has not verified its external BitBake metadata.
-3. During the **trusted MLD first-run install phase**, once the VDR and
-   Suite daemon services are running and the verified HTTPS origin is
-   reachable, invoke the already staged binary
-   `/usr/sbin/vdr-suite-backend-agent-autostart --installer-onboard`
-   **as root, without user interaction**. This single call checks
+3. Install the shared systemd units `vdr-suite-first-run.service` and
+   `vdr-suite-first-run.path` via the existing `make install-systemd` contract
+   and preserve the packaged daemon unit's `Wants` dependency. Once VDR and
+   the Suite daemon are started, the daemon starts the common one-shot
+   `/usr/sbin/vdr-suite-backend-agent-autostart --auto-first-run`
+   **automatically as root, without user interaction**. If the MLD recipe
+   provides a native install/first-boot hook instead, it must call the
+   **same** shared `--installer-onboard` entrypoint, not implement
+   another enrollment path. That shared helper checks
    the local topology, prepares an enrollment only when genuinely absent,
    starts the existing Agent only for pending first enrollment, waits for
    authenticated Agent/health/channel readback, and enables its
@@ -46,8 +50,8 @@ reviewed `vdr-suite-backend-agent.service` unit.
 4. On a first-run failure, preserve the pending enrollment/identity,
    never reissue a token speculatively, and retry the same installer-owned
    entrypoint only after the original precondition is corrected. Since
-   no persistent MLD recipe hook is yet present here, reboot/interrupted
-   resume is **not** proven. Do not print secrets or ask skippy to run
+   no real MLD package installation has been tested, reboot/interrupted
+   resume remains **unproven**. Do not print secrets or ask skippy to run
    root commands.
 5. After the first admin is created or signs in, the existing browser
    retrieves `/api/backends/default/health` and displays the
@@ -70,8 +74,9 @@ make stage-mld-first-run-config \
 ```
 
 The regular `make install` deliberately does **not** invoke this target.
-The MLD recipe must adopt the post-install/first-boot handoff itself; the
-repo cannot edit a BitBake recipe it does not contain. Do not confuse
+The MLD recipe must install the shared units or supply an equivalent native
+first-boot hook; the repo cannot edit the external BitBake recipe it does
+not contain. Do not confuse
 packaging-stage PASS with functional MLD setup or real Live-TV acceptance.
 
 ## Blocking/verification notes
@@ -101,4 +106,5 @@ packaging-stage PASS with functional MLD setup or real Live-TV acceptance.
   never replaced. Staging does not issue certificates or weaken TLS.
 - Host reboot and skippy's browser/live-TV acceptance are MLD.F2.6.
 - No new Agent, HTTP mutation route, privileged browser workflow,
-  systemd unit, package dependency, branch, or PR is introduced here.
+  package dependency, branch or PR is introduced here. The shared first-run
+  one-shot and path units are new but use the existing Agent entrypoint.
