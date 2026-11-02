@@ -17,6 +17,7 @@ import re
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 from urllib.parse import urlsplit
 
@@ -28,6 +29,8 @@ AGENT_BIN = "/usr/sbin/vdr-suite-backend-agent"
 ENROLL_BIN = "/usr/sbin/vdr-suite-backend-agent-enroll"
 DATABASE = "/var/lib/vdr-suite/vdr-suite.db"
 ADMIN_BIN = "/usr/sbin/vdr-suite-backend-agent-admin"
+LOCAL_CONTROL_PLANE = "http://127.0.0.1:18080"
+DEFAULT_CHANNEL_SOURCES = ("/var/lib/vdr/channels.conf", "/etc/vdr/channels.conf")
 
 
 class NotReady(Exception):
@@ -75,12 +78,13 @@ def read_config(path=CONFIG):
         raise NotReady("invalid configured Backend ID")
     origin = values.get("CONTROL_PLANE_URL", "")
     parsed = urlsplit(origin)
-    if (parsed.scheme != "https" or not parsed.hostname or parsed.username or
+    if origin != LOCAL_CONTROL_PLANE and (
+            parsed.scheme != "https" or not parsed.hostname or parsed.username or
             parsed.password or parsed.fragment or parsed.query or
             parsed.hostname.endswith(".invalid") or
             parsed.hostname == "example.invalid" or any(
                 character.isspace() for character in origin)):
-        raise NotReady("real HTTPS Control Plane is not configured")
+        raise NotReady("local loopback or real HTTPS Control Plane required")
     return backend
 
 
@@ -474,6 +478,110 @@ def installer_onboard_local():
 
 
 
+def local_channels_path():
+    """Locate the existing single local VDR channel file, including MLD links."""
+    present = []
+    for candidate in DEFAULT_CHANNEL_SOURCES:
+        path = Path(candidate)
+        if path.is_file() and path.stat().st_size > 0:
+            present.append(path)
+    if not present:
+        raise NotReady("local VDR channels.conf is not available")
+    if len(present) > 1 and present[0].resolve() != present[1].resolve():
+        raise NotReady("multiple different channel sources; select one in the Agent config")
+    return str(present[0])
+
+
+def configure_local_first_run():
+    """Fill only fresh packaged defaults from the local VDR; never edit identity."""
+    if os.geteuid() != 0:
+        raise NotReady("root required for local first-run configuration")
+    if Path(IDENTITY).exists() or Path(ENROLLMENT).exists():
+        return False
+    path = CONFIG
+    if path.is_symlink() or not path.is_file():
+        raise NotReady("packaged Agent configuration unavailable")
+    original = path.read_text(encoding="utf-8")
+    values = {}
+    for line in original.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if "=" not in line:
+            raise NotReady("invalid Agent configuration")
+        key, value = line.split("=", 1)
+        if key in values:
+            raise NotReady("duplicate Agent configuration key")
+        values[key] = value.strip()
+    if (values.get("BACKEND_ID") != "default" or
+            values.get("IDENTITY_PATH") != IDENTITY or
+            values.get("ENROLLMENT_PATH") != ENROLLMENT):
+        raise NotReady("not a packaged local default backend")
+    origin = values.get("CONTROL_PLANE_URL", "")
+    if origin == "https://control-plane.example.invalid":
+        origin = LOCAL_CONTROL_PLANE
+    elif origin != LOCAL_CONTROL_PLANE:
+        # An administrator's existing HTTPS origin is not changed.
+        read_config(path)
+    channel = values.get("CHANNELS_CONF_PATH", "")
+    if not channel or not Path(channel).is_file():
+        # Only the packaged default may be replaced automatically.
+        if channel not in ("", *DEFAULT_CHANNEL_SOURCES):
+            raise NotReady("configured VDR channel source is unavailable")
+        channel = local_channels_path()
+    elif Path(channel).stat().st_size == 0:
+        raise NotReady("VDR channel file is empty")
+    adapters = [v for v in values.get("ADAPTERS", "").split(",") if v]
+    domains = [v for v in values.get("OBSERVATION_DOMAINS", "").split(",") if v]
+    if "channels-conf" not in adapters:
+        adapters.append("channels-conf")
+    for domain in ("backend-health", "channels"):
+        if domain not in domains:
+            domains.append(domain)
+    updates = {
+        "CONTROL_PLANE_URL": origin,
+        "CHANNELS_CONF_PATH": channel,
+        "ADAPTERS": ",".join(adapters),
+        "OBSERVATION_DOMAINS": ",".join(domains),
+    }
+    changed = {k: v for k, v in updates.items() if values.get(k) != v}
+    if not changed:
+        return False
+    details = path.stat()
+    if (not stat.S_ISREG(details.st_mode) or details.st_mode & 0o022 or
+            details.st_nlink != 1):
+        raise NotReady("Agent config has unexpected file permissions")
+    next_lines = []
+    found = set()
+    for line in original.splitlines(keepends=True):
+        key = line.split("=", 1)[0]
+        if key in changed and not line.lstrip().startswith("#"):
+            next_lines.append(key + "=" + changed[key] + "\n")
+            found.add(key)
+        else:
+            next_lines.append(line)
+    if found != set(changed):
+        raise NotReady("Agent configuration is missing packaged keys")
+    # Validate the exact resulting file before replacing the original.
+    candidate = None
+    try:
+        with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=path.parent,
+                prefix=".vdr-suite-first-run-", delete=False) as tmp:
+            candidate = Path(tmp.name)
+            os.fchmod(tmp.fileno(), stat.S_IMODE(details.st_mode))
+            tmp.write("".join(next_lines))
+            tmp.flush()
+            os.fsync(tmp.fileno())
+        read_config(candidate)
+        if Path(IDENTITY).exists() or Path(ENROLLMENT).exists():
+            raise NotReady("Agent identity appeared during setup")
+        os.replace(candidate, path)
+    finally:
+        if candidate is not None and candidate.exists():
+            candidate.unlink()
+    return True
+
+
 def automatic_first_run():
     """Same-host automatic entrypoint for packaged boot/start orchestration.
 
@@ -484,6 +592,14 @@ def automatic_first_run():
     if os.geteuid() != 0:
         raise NotReady("root required for automatic first-run")
     state = first_run_agent_state()
+    if state == "CONFIGURATION_REQUIRED":
+        # A fresh package can contain a placeholder origin and no selected
+        # channels. Reuse its existing local daemon without any TLS proxy.
+        try:
+            configure_local_first_run()
+        except (NotReady, OSError):
+            return "DEFERRED_CONFIGURATION_REQUIRED"
+        state = first_run_agent_state()
     if state not in ("ENROLLMENT_REQUIRED", "ENROLLMENT_PENDING",
                      "IDENTITY_PRESENT"):
         return "DEFERRED_" + state
