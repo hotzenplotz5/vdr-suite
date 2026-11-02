@@ -81,6 +81,21 @@ class MldFirstRunStagingTests(unittest.TestCase):
         self.assertNotIn("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true",
                          self.daemon.read_text())
 
+    def test_stage_rejects_parent_directory_symlink_escape(self):
+        with tempfile.TemporaryDirectory() as external:
+            outside = Path(external)
+            (outside / "vdr-suite").mkdir()
+            copied = outside / "vdr-suite/backend-agent.conf"
+            shutil.copyfile(ROOT / "packaging/systemd/backend-agent.conf", copied)
+            self.agent.unlink()
+            (self.root / "etc/vdr-suite").rmdir()
+            (self.root / "etc/vdr-suite").symlink_to(outside / "vdr-suite")
+            with self.assertRaises(NotReady):
+                stage(str(self.root), ORIGIN, CHANNELS)
+            self.assertIn("control-plane.example.invalid", copied.read_text())
+            self.assertNotIn("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true",
+                             self.daemon.read_text())
+
     def test_staging_does_not_touch_credentials_or_external_vdr_config(self):
         private = self.root / "var/lib/vdr-suite/backend-agent/identity"
         private.parent.mkdir(parents=True)
