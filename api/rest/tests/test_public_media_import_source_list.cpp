@@ -190,7 +190,7 @@ int main()
     assert(getPage(preview).statusCode == 503);
     api.registerMediaImportPreviewLookup(
         [](const std::string& actor, const std::string& backend,
-           const std::string& source)
+           const std::string& source, bool)
         {
             PublicApiRuntime::MediaImportPreviewResult result;
             if (actor != "actor:one" || backend != "backend-a" ||
@@ -204,13 +204,14 @@ int main()
         });
     auto pending = getPage(preview);
     assert(pending.statusCode == 202);
+    assert(getPage(preview + "?refresh=1").statusCode == 202);
     assert(pending.body.find("\"state\":\"pending\"") != std::string::npos);
     assert(pending.headers.at("Cache-Control") == "no-store");
     assert(getPage(preview, "actor:two").statusCode == 403);
     // The same authorized read-only preview can temporarily lose its Agent.
     // A provider outage is 503, not an invented permission revocation.
     api.registerMediaImportPreviewLookup(
-        [](const std::string&, const std::string&, const std::string&) {
+        [](const std::string&, const std::string&, const std::string&, bool) {
             return PublicApiRuntime::MediaImportPreviewResult{};
         });
     assert(getPage(preview).statusCode == 503);
@@ -221,7 +222,7 @@ int main()
                             wrongBackend, "", "", {"backend-b"}));
     assert(wrongBackend.statusCode == 404);
     api.registerMediaImportPreviewLookup(
-        [](const std::string&, const std::string&, const std::string& source)
+        [](const std::string&, const std::string&, const std::string& source, bool)
         {
             PublicApiRuntime::MediaImportPreviewResult result;
             result.status = PublicApiRuntime::MediaImportPreviewStatus::ready;
@@ -267,7 +268,7 @@ int main()
         const std::string inspectionStatus(inspection);
         api.registerMediaImportPreviewLookup(
             [inspectionStatus](const std::string&, const std::string&,
-                               const std::string& source)
+                               const std::string& source, bool)
             {
                 PublicApiRuntime::MediaImportPreviewResult result;
                 result.status = PublicApiRuntime::MediaImportPreviewStatus::ready;
