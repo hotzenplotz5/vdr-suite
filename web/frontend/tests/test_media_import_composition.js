@@ -446,7 +446,13 @@ context.VdrSuiteClientApi = {
     if (route.endsWith('/search')) {
       if (autoMovieExact && body.kind === 'movie')
         return Promise.resolve(onlinePage([
-          onlineCandidate('movie','754','Die Herrschaft des Feuers')]));
+          autoMovieExact === 'localized'
+            ? onlineCandidate('movie', '58574',
+              'Sherlock Holmes: Spiel im Schatten', {
+                originalTitle: 'Sherlock Holmes: A Game of Shadows',
+                releaseDate: '2011-12-15'
+              })
+            : onlineCandidate('movie','754','Die Herrschaft des Feuers')]));
       if (onlineMode === 'ambiguous' && body.kind === 'series')
         return Promise.resolve(onlinePage([
           onlineCandidate('series','1399','Andor'),
@@ -867,9 +873,32 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-online-confirmed').children[0].textContent.includes(
     'Automatisch erkannter TMDb-Film'),
     'film identification is automatic, not mistaken for an episode');
+  // Real filename: Sherlock Holmes_ A Game of Shadows. The TMDb German
+  // display title differs, but its originalTitle matches the English file.
+  sourceDisplayOverride = 'Sherlock Holmes_ A Game of Shadows';
+  autoMovieExact = 'localized';
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  const sherlockSelect = findClass(mount, 'media-import-source');
+  sherlockSelect.value = SOURCE;
+  sherlockSelect.listeners.change();
+  await settle();
+  const sherlockPoster = findClass(
+    findClass(mount, 'media-import-artwork-poster'),
+    'media-import-artwork-image');
+  assert(sherlockPoster && sherlockPoster.src.includes('externalId=58574'),
+    'English filename matches German TMDb display via exact originalTitle');
+  assert(findClass(mount, 'media-import-online-confirmed').children[0]
+    .textContent.includes('Sherlock Holmes: Spiel im Schatten'),
+    'the localized provider title is shown after an exact original-title match');
+  sourceDisplayOverride = null;
   autoMovieExact = false;
   previewArtworkMode = 'poster';
-  await findClass(mount, 'media-import-preview-retry').listeners.click();
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  const restoredMovie = findClass(mount, 'media-import-source');
+  restoredMovie.value = SOURCE;
+  restoredMovie.listeners.change();
   await settle();
   assert(findClass(mount, 'media-import-source-details').textContent.includes(SOURCE),
     'opaque selection token is retained only in technical details');
