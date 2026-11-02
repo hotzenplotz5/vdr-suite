@@ -2676,7 +2676,7 @@ function publishHomeResume() {}
     .find(function (fact) { return fact.children[0].textContent === 'Freier Platz'; });
   assert(oldCapacityFact, 'capacity fact exists before the refresh');
   const oldCapacity = oldCapacityFact.children[1].textContent;
-  previewAvailableBytes = 6000000000;
+  previewAvailableBytes = 9000000000;
   previewNfoPlot = 'NFO wurde nach dem ersten Codec-Check aktualisiert.';
   const metadataChecksBefore = checksFor(SOURCE);
   reloadedEpisodes.listeners.change();
