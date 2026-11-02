@@ -175,6 +175,7 @@ let previewArtworkMode = 'poster';
 const batchProbeOverrides = Object.create(null);
 let resolveDelayedPreview = null;
 const SOURCE = 'source_0123456789abcde';
+const SCAN_ID = 'scan_0123456789abcdef0123456789abcdef';
 const OP = 'op_12345678901234567890123456789012';
 function reply(status, value, headers) {
   return {
@@ -190,6 +191,13 @@ function transport(url, options) {
   const sourcePreview = /^\/api\/v1\/backends\/backend-a\/media-import-sources\/([A-Za-z0-9_-]{16,64})\/preview(?:\?refresh=1)?$/.exec(path);
   if (sourcePreview) {
     const id = sourcePreview[1];
+    if (previewMode === 'pending-refresh-once' && id === SCAN_ID &&
+        path.endsWith('?refresh=1')) {
+      previewMode = 'ready';
+      return Promise.resolve(reply(202, {
+        backendId: 'backend-a', sourceId: id, state: 'pending'
+      }));
+    }
     if (previewMode === 'defer-source' && id === SOURCE) {
       previewMode = 'ready';
       return new Promise(function (resolve) { resolveDelayedPreview = resolve; });
@@ -3283,6 +3291,44 @@ function publishHomeResume() {}
   assert.strictEqual(submits, afterImportSubmits,
     'independent delete must reach confirmation without submitting when cancelled');
   confirmLocal = true;
+
+  // Hard browser reload: JS memory is gone, but Core has already persisted
+  // the technical inspection for this unchanged scan_ fingerprint. The first
+  // GET MUST read readiness; only the second GET may start a dynamic refresh.
+  // During that refresh the ready indicator remains visible, not a new
+  // FFprobe spinner. No import may be submitted by these reads.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  batchSources = [SCAN_ID];
+  sourceDisplayLabels[SCAN_ID] = 'Sherlock Holmes_ A Game of Shadows';
+  previewMode = 'pending-refresh-once';
+  previewInspectionStatus = 'ready';
+  const scanPostsBefore = submits;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const reloadedSelect = findClass(mount, 'media-import-source');
+  const beforeScanRequests = requests.length;
+  reloadedSelect.value = SCAN_ID;
+  reloadedSelect.listeners.change();
+  await settle();
+  const scanGets = requests.slice(beforeScanRequests).filter(function (entry) {
+    return entry.path.includes('/' + SCAN_ID + '/preview');
+  });
+  assert.strictEqual(scanGets.length, 2,
+    'hard reload first fetches saved result, then refreshes NFO/capacity once');
+  assert(scanGets[0].path.endsWith('/preview') &&
+    scanGets[1].path.endsWith('/preview?refresh=1'),
+    'SQLite-read GET MUST precede forced dynamic refresh GET');
+  assert.strictEqual(findClass(mount, 'media-import-preview-state').textContent,
+    'Direktimport möglich',
+    'existing checked film is immediately ready even if dynamic refresh is pending');
+  assert(!findClass(mount, 'media-import-preview').textContent.includes(
+    'Technische Prüfung läuft'),
+    'dynamic refresh may not masquerade as a repeated codec inspection');
+  assert.strictEqual(submits, scanPostsBefore,
+    'background metadata update never submits a second import');
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
