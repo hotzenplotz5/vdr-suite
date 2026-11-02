@@ -871,6 +871,41 @@ function publishHomeResume() {}
     'Direktimport möglich', 'compatible source has a clear direct-import status, not an encoding form');
   assert(findClass(mount, 'media-import-preview').textContent.includes('Die Herrschaft des Feuers'),
     'MT.UX4 selected film is visible before confirmation');
+
+  // HEVC is valid for direct remux, but an operator can deliberately request
+  // an H.264 output. The preview remains read-only and defaults to copy.
+  const postsBeforeHevcChoice = submits;
+  previewVideoCodec = 'hevc';
+  await findClass(mount, 'media-import-preview-retry').listeners.click();
+  await settle();
+  const hevcLabel = findClass(mount, 'media-import-encode-label');
+  const hevcToggle = findClass(mount, 'media-import-local-reencode');
+  assert(hevcLabel && !hevcLabel.hidden && !hevcToggle.disabled &&
+    !hevcToggle.checked, 'HEVC offers an unchecked optional H.264 choice');
+  assert(findClass(mount, 'media-import-decision-label').hidden,
+    'compatible HEVC never requires the incompatible-codec decision menu');
+  assert.strictEqual(findClass(mount, 'media-import-start').textContent,
+    'Diesen Film importieren', 'HEVC defaults to direct remux');
+  hevcToggle.checked = true;
+  hevcToggle.listeners.change();
+  assert.strictEqual(findClass(mount, 'media-import-start').textContent,
+    'Auf VDR nach H.264 umkodieren');
+  assert.strictEqual(findClass(mount, 'media-import-preview-state').textContent,
+    'H.264-Umkodierung ausgewählt');
+  confirmLocal = false;
+  await findClass(mount, 'media-import-start').listeners.click();
+  assert.strictEqual(submits, postsBeforeHevcChoice,
+    'refusing HEVC conversion confirmation must not submit an operation');
+  confirmLocal = true;
+  hevcToggle.checked = false;
+  hevcToggle.listeners.change();
+  assert.strictEqual(findClass(mount, 'media-import-start').textContent,
+    'Diesen Film importieren', 'unchecking restores direct HEVC import');
+  previewVideoCodec = 'h264';
+  await findClass(mount, 'media-import-preview-retry').listeners.click();
+  await settle();
+  assert(findClass(mount, 'media-import-encode-label').hidden,
+    'H.264 requires no additional encoding choice');
   // A movie without local artwork uses one exact TMDb title match without
   // manual search or changing the source video/import operation.
   previewArtworkMode = 'none';
