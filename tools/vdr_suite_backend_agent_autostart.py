@@ -163,6 +163,50 @@ def preflight():
     return unit["UnitFileState"], agent_id, backend
 
 
+def first_run_service_state(unit):
+    """Read-only service discovery; no install, enroll, systemctl mutation."""
+    properties = command(["systemctl", "show", unit, "-p", "LoadState",
+                          "-p", "ActiveState"])
+    values = dict(line.split("=", 1) for line in properties.splitlines()
+                  if "=" in line)
+    if values.get("LoadState") != "loaded":
+        return "NOT_INSTALLED"
+    return "RUNNING" if values.get("ActiveState") == "active" else "NOT_RUNNING"
+
+
+def first_run_agent_state():
+    """Classify local setup without reading or changing protected credentials.
+
+    This is an internal preflight for a later installer-owned setup flow,
+    not an end-user command and not proof that the Agent is connected.
+    """
+    if first_run_service_state("vdr.service") != "RUNNING":
+        return "VDR_UNAVAILABLE"
+    if first_run_service_state("vdr-suite-daemon.service") != "RUNNING":
+        return "DAEMON_UNAVAILABLE"
+    if first_run_service_state(UNIT) == "NOT_INSTALLED":
+        return "AGENT_NOT_INSTALLED"
+    if CONFIG.is_symlink() or not CONFIG.is_file():
+        return "CONFIGURATION_REQUIRED"
+    # An existing enrollment/identity must never be overwritten or
+    # automatically recreated after an interrupted first run.
+    identity = Path(IDENTITY)
+    enrollment = Path(ENROLLMENT)
+    if identity.is_symlink() or enrollment.is_symlink():
+        return "UNEXPECTED_AGENT_STATE"
+    if identity.is_file():
+        return "IDENTITY_PRESENT"
+    if enrollment.is_file():
+        return "ENROLLMENT_PENDING"
+    if identity.exists() or enrollment.exists():
+        return "UNEXPECTED_AGENT_STATE"
+    try:
+        read_config()
+    except (NotReady, OSError):
+        return "CONFIGURATION_REQUIRED"
+    return "ENROLLMENT_REQUIRED"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     choice = parser.add_mutually_exclusive_group(required=True)
@@ -170,8 +214,13 @@ def main():
                         help="readiness check only; never change systemd")
     choice.add_argument("--enable", action="store_true",
                         help="after enrollment, enable boot startup without restart")
+    choice.add_argument("--setup-status", action="store_true",
+                        help="inspect local first-run state without enrollment or changes")
     args = parser.parse_args()
     try:
+        if args.setup_status:
+            print("LOCAL_BACKEND_SETUP=" + first_run_agent_state())
+            return 0
         if args.enable and os.geteuid() != 0:
             raise NotReady("root required for systemd enable")
         state, agent_id, backend = preflight()
