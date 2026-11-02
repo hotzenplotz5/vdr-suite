@@ -400,6 +400,7 @@ const metadataAssignments = [];
 let metadataFolderOverride = null;
 let nativeAssignmentAck = false;
 let onlineMode = 'ready';
+let autoMovieExact = false;
 let resolveOnlineReply = null;
 function onlineCandidate(kind, id, title, extra) {
   return Object.assign({
@@ -443,6 +444,9 @@ context.VdrSuiteClientApi = {
     }
     const body = JSON.parse(options.body);
     if (route.endsWith('/search')) {
+      if (autoMovieExact && body.kind === 'movie')
+        return Promise.resolve(onlinePage([
+          onlineCandidate('movie','754','Die Herrschaft des Feuers')]));
       if (onlineMode === 'ambiguous' && body.kind === 'series')
         return Promise.resolve(onlinePage([
           onlineCandidate('series','1399','Andor'),
@@ -846,6 +850,27 @@ function publishHomeResume() {}
     'Direktimport möglich', 'compatible source has a clear direct-import status, not an encoding form');
   assert(findClass(mount, 'media-import-preview').textContent.includes('Die Herrschaft des Feuers'),
     'MT.UX4 selected film is visible before confirmation');
+  // A movie without local artwork uses one exact TMDb title match without
+  // manual search or changing the source video/import operation.
+  previewArtworkMode = 'none';
+  autoMovieExact = true;
+  const movieOnlineBefore = onlineRequests.length;
+  await findClass(mount, 'media-import-preview-retry').listeners.click();
+  await settle();
+  assert.strictEqual(onlineRequests.length, movieOnlineBefore + 1,
+    'missing movie poster triggers one existing TMDb search');
+  const movieCover = findClass(findClass(mount, 'media-import-artwork-poster'),
+    'media-import-artwork-image');
+  assert(movieCover && movieCover.src.includes('externalNamespace=movie') &&
+    movieCover.src.includes('externalId=754'),
+    'unique TMDb film supplies the main poster without local artwork');
+  assert(findClass(mount, 'media-import-online-confirmed').textContent.includes(
+    'Automatisch erkannter TMDb-Film'),
+    'film identification is automatic, not mistaken for an episode');
+  autoMovieExact = false;
+  previewArtworkMode = 'poster';
+  await findClass(mount, 'media-import-preview-retry').listeners.click();
+  await settle();
   assert(findClass(mount, 'media-import-source-details').textContent.includes(SOURCE),
     'opaque selection token is retained only in technical details');
   const beforeFirstImport = submits;
