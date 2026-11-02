@@ -274,6 +274,126 @@ def prepare_local_enrollment():
         raise NotReady("enrollment created but Agent ownership setup failed") from exc
     return "ENROLLMENT_PREPARED"
 
+
+def channel_observation_source(path=CONFIG):
+    """Require installer-selected channel facts before starting an Agent.
+
+    No guessing the MLD VDR configuration directory or changing a pre-existing
+    Agent configuration. The distribution setup owns this configuration.
+    """
+    fields = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            fields[key] = value.strip()
+    adapters = [x.strip() for x in fields.get("ADAPTERS", "").split(",") if x.strip()]
+    domains = [x.strip() for x in fields.get("OBSERVATION_DOMAINS", "").split(",") if x.strip()]
+    if "channels-conf" not in adapters or "channels" not in domains:
+        raise NotReady("Channel observation is not configured")
+    source = Path(fields.get("CHANNELS_CONF_PATH", ""))
+    if not source.is_absolute() or source.is_symlink() or not source.is_file():
+        raise NotReady("configured VDR channel source is unavailable")
+    return source
+
+
+def check_channel_observation(backend, agent_id):
+    """Read the existing Agent administration cursor; never infer freshness."""
+    try:
+        status = json.loads(command([ADMIN_BIN, "--backend", backend, "--status"]))
+    except (TypeError, ValueError) as exc:
+        raise NotReady("invalid Channel observation response") from exc
+    observation = status.get("channelObservation") or {}
+    now = int(time.time())
+    if (status.get("present") is not True or
+            status.get("backendId") != backend or
+            status.get("agentId") != agent_id or
+            type(status.get("backendGeneration")) is not int or
+            not observation.get("present") or
+            observation.get("backendGeneration") != status["backendGeneration"] or
+            type(observation.get("snapshotGeneration")) is not int or
+            observation["snapshotGeneration"] < 1 or
+            type(observation.get("producerSequence")) is not int or
+            observation["producerSequence"] < 1 or
+            not isinstance(observation.get("resourceRevision"), str) or
+            not observation["resourceRevision"] or
+            type(observation.get("factCount")) is not int or
+            observation["factCount"] < 1 or
+            type(observation.get("acceptedAt")) is not int or
+            not now - 150 <= observation["acceptedAt"] <= now + 5):
+        raise NotReady("matching current VDR Channel observation unavailable")
+
+
+def activate_local_agent():
+    """Installer-owned activation, not a browser or ordinary user command.
+
+    Consumes prepared enrollment through the actual packaged Agent service;
+    checks its original security/health and Channel cursor before enabling
+    boot startup through the existing guarded preflight.
+    """
+    if os.geteuid() != 0:
+        raise NotReady("root required for local Agent activation")
+    if first_run_agent_state() != "ENROLLMENT_PENDING":
+        raise NotReady("local Agent has no pending first enrollment")
+    backend = read_config()
+    if backend != "default":
+        raise NotReady("automatic local activation requires the default Backend")
+    unit = properties()
+    if (unit["LoadState"] != "loaded" or
+            unit["ActiveState"] != "inactive" or
+            unit["UnitFileState"] not in ("disabled", "enabled") or
+            unit["User"] != "vdr" or unit["Group"] != "vdr" or
+            unit["DropInPaths"] or
+            unit["FragmentPath"] not in (
+                "/usr/lib/systemd/system/" + UNIT,
+                "/lib/systemd/system/" + UNIT) or
+            AGENT_BIN not in unit["ExecStart"] or
+            "--config " + str(CONFIG) not in unit["ExecStart"]):
+        raise NotReady("Agent service does not match packaged local setup")
+    channel_observation_source()
+    enrollment = Path(ENROLLMENT)
+    info = enrollment.lstat()
+    vdr = pwd.getpwnam("vdr")
+    if (not stat.S_ISREG(info.st_mode) or
+            stat.S_IMODE(info.st_mode) != 0o600 or
+            info.st_nlink != 1 or info.st_uid != vdr.pw_uid or
+            Path(IDENTITY).exists() or Path(IDENTITY).is_symlink()):
+        raise NotReady("pending enrollment is not owned by packaged Agent")
+
+    command(["systemctl", "start", UNIT])
+
+    # Enrollment, first heartbeat and a complete Channel snapshot are
+    # asynchronous. Never treat a successful systemctl start as readiness.
+    ready = None
+    deadline = time.monotonic() + 90
+    while time.monotonic() < deadline:
+        try:
+            state, agent_id, current_backend = preflight()
+            if current_backend != backend:
+                raise NotReady("Agent bound to unexpected Backend")
+            check_channel_observation(backend, agent_id)
+            ready = (state, agent_id, current_backend)
+            break
+        except NotReady:
+            time.sleep(2)
+    if ready is None:
+        raise NotReady("Agent or Channel observation not ready after first start")
+
+    # Reuse the same approved post-enrollment autostart path and its
+    # mandatory second preflight. No restart and no second enrollment.
+    state, agent_id, current_backend = preflight()
+    if ready[1:] != (agent_id, current_backend):
+        raise NotReady("Agent identity changed before enabling boot startup")
+    check_channel_observation(current_backend, agent_id)
+    if state == "disabled":
+        command(["systemctl", "enable", UNIT])
+    if (command(["systemctl", "is-enabled", UNIT]) != "enabled" or
+            command(["systemctl", "is-active", UNIT]) != "active"):
+        raise NotReady("could not verify Agent boot startup and running state")
+    return "READY"
+
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     choice = parser.add_mutually_exclusive_group(required=True)
@@ -285,8 +405,13 @@ def main():
                         help="inspect local first-run state without enrollment or changes")
     choice.add_argument("--prepare-enrollment", action="store_true",
                         help="installer-only: prepare one-time local enrollment")
+    choice.add_argument("--activate-local", action="store_true",
+                        help="installer-only: start enrolled local Agent, confirm Channels, enable boot")
     args = parser.parse_args()
     try:
+        if args.activate_local:
+            print("LOCAL_BACKEND_SETUP=" + activate_local_agent())
+            return 0
         if args.prepare_enrollment:
             print("LOCAL_BACKEND_SETUP=" + prepare_local_enrollment())
             return 0
