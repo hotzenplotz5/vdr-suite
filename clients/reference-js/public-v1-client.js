@@ -1852,7 +1852,8 @@
           throw new Error('Media Import preview requires one opaque sourceId');
         }
         return request(mediaImportPath(value,
-          'media-import-sources/' + value.sourceId + '/preview'), value);
+          'media-import-sources/' + value.sourceId + '/preview') +
+          (value.refresh === true ? '?refresh=1' : ''), value);
       },
       submitMediaImport(options) {
         return requestMediaImport(options);
