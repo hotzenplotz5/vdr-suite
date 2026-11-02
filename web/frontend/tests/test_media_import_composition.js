@@ -864,7 +864,7 @@ function publishHomeResume() {}
   assert(movieCover && movieCover.src.includes('externalNamespace=movie') &&
     movieCover.src.includes('externalId=754'),
     'unique TMDb film supplies the main poster without local artwork');
-  assert(findClass(mount, 'media-import-online-confirmed').textContent.includes(
+  assert(findClass(mount, 'media-import-online-confirmed').children[0].textContent.includes(
     'Automatisch erkannter TMDb-Film'),
     'film identification is automatic, not mistaken for an episode');
   autoMovieExact = false;
