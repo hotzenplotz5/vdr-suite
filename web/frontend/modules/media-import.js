@@ -1617,6 +1617,12 @@
           return item.sourceId === view.attempt.sourceId;
         }));
     }
+    // Replace the pre-import instruction as well as the badge. The existing
+    // read-only preview can remain visible, but never ask for another POST.
+    if (view.preview && view.select.value === view.attempt.sourceId)
+      view.preview.textContent =
+        'Der bestehende Auftrag wird im Vorgangsstatus angezeigt. ' +
+        'Keinen zweiten Import auslösen.';
     // Remount after a known unknown outcome remains browsable even when
     // the current Agent/Core status request times out again.
     enableOperationBrowsing(view);
