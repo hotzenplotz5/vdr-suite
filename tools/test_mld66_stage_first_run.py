@@ -41,7 +41,7 @@ class MldFirstRunStagingTests(unittest.TestCase):
         self.assertIn("COMMAND_TYPES=vdr.timer.create", config)
         self.assertIn("VDR_SUITE_SUITE_BRIDGE_ENABLED=true", daemon)
         self.assertNotIn("CONTROL_PLANE_URL=" + ORIGIN, before)
-        self.assertNotIn("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true", daemon_before)
+        self.assertIn("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true", daemon_before)
         self.assertEqual(sorted(x.relative_to(self.root).as_posix()
                                 for x in self.root.rglob("*") if x.is_file()),
                          ["etc/default/vdr-suite-daemon",
@@ -127,8 +127,9 @@ class MldFirstRunStagingTests(unittest.TestCase):
         self.assertEqual(self.daemon.read_text(), second)
 
     def test_existing_explicit_daemon_policy_is_preserved(self):
-        self.daemon.write_text(self.daemon.read_text() +
-                               "\nVDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=false\n")
+        self.daemon.write_text(self.daemon.read_text().replace(
+            "VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true",
+            "VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=false"))
         with self.assertRaises(NotReady):
             stage(str(self.root), ORIGIN, CHANNELS)
         self.assertNotIn("CONTROL_PLANE_URL=" + ORIGIN, self.agent.read_text())
