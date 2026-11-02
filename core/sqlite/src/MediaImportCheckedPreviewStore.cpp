@@ -2,6 +2,7 @@
 #include "Database.h"
 
 #include <sqlite3.h>
+#include <algorithm>
 #include <cstdint>
 
 namespace media_import_preview_store {
