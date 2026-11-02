@@ -3,7 +3,7 @@
 vdr-suite-backend-agent-autostart \- enable an already enrolled Backend Agent at boot
 .SH SYNOPSIS
 .B vdr-suite-backend-agent-autostart
-.RB ( --check | --enable | --setup-status | --prepare-enrollment | --activate-local | --installer-onboard )
+.RB ( --check | --enable | --setup-status | --prepare-enrollment | --activate-local | --installer-onboard | --auto-first-run )
 .SH DESCRIPTION
 A protected post-enrollment setup step. The experimental package installs
 this command but deliberately does not invoke it in
@@ -68,6 +68,18 @@ discover or rewrite the MLD-specific channel file location. That
 distribution configuration and the browser/installer trigger remain
 separate unfinished work.
 .PP
+.B --auto-first-run
+is the shared distribution-neutral systemd activation entrypoint.
+It reuses the existing installer-onboard implementation when the local VDR,
+Daemon, authenticated HTTPS Control Plane and configured Channel source
+are available. When prerequisites are absent, it reports a deferred setup
+state without writing enrollment, identity or changing services.
+On complete configuration it uses the same existing identity/resume and
+readback rules as --installer-onboard. The packaged daemon starts the
+separate one-shot vdr-suite-first-run.service when it starts; a
+vdr-suite-first-run.path rechecks when the Agent configuration changes.
+No browser request gains privileged service access.
+.PP
 .B --installer-onboard
 combines the already implemented local first-run actions for the trusted
 distribution installer. It requires the existing packaged local service,
@@ -117,6 +129,9 @@ enrollment state; it does not start services.
 .B --activate-local
 Installer-only Agent startup, authenticated readiness, fresh Channel
 observation and future boot activation. Blocks when not ready.
+.TP
+.B --auto-first-run
+Package-owned best-effort first-run: defer while prerequisites are unavailable.
 .TP
 .B --installer-onboard
 Root-only repeat-safe MLD package handoff; not a browser endpoint.
