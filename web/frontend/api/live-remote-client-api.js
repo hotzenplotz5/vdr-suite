@@ -816,7 +816,11 @@
           setupTimer = global.setTimeout(checkLocalSetup, 5000);
         }
       }).catch(function () {
-        if (!isAuthenticated() || setupPanel.hidden) return;
+        if (!isAuthenticated()) return;
+        // A failed health request is not evidence that setup is complete.
+        // Keep the retry visible; existing hosts with a successful response
+        // lacking localBackendSetup still keep their previous presentation.
+        setupPanel.hidden = false;
         setupMessage.textContent = translated(
           'Statusprüfung nicht möglich. Bitte erneut prüfen.',
           'Could not check status. Please check again.'
