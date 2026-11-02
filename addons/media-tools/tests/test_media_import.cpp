@@ -937,9 +937,7 @@ int main() {
         FakeProcess runner;
         runner.codec = "hevc\n";
         const auto plan = inspectImport(f.request());
-        const auto preview = inspectImportPreview(f.request(), runner);
-        assert(preview.videoCodec == "hevc" &&
-               !preview.videoReencodeRequired);
+        assert(!importVideoNeedsReencode("hevc"));
         const auto output = executeRemuxImport(
             plan, runner, [](const ImportPlan&) {});
         assert(fs::exists(output / "index") &&
