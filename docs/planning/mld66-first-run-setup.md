@@ -1,7 +1,8 @@
-# MLD.F2 – Benutzerfreundliche Erstinstallation und lokale Backend-Einrichtung
+# MLD.F2 – MLD-Pilot der distributionsübergreifenden VDR-Suite-Ersteinrichtung
 
 **Arbeitsbranch:** `work/mld66-skippy-feedback-20261027` (kein weiterer Branch).  
-**Status:** In Umsetzung ab 02.11.2026; keine MLD-Laufzeitfreigabe.  
+**Status:** In Umsetzung ab 02.11.2026; keine MLD-Laufzeitfreigabe. F2.5 gilt **für alle unterstützten Distributionen** (MLD, Ubuntu, yaVDR, Debian und weitere).  
+**Gemeinsamer Vertrag:** [Automatische Ersteinrichtung für alle Distributionen](distribution-first-run-setup.md).  
 **Anlass:** skippys MLD 6.6.0: VDR und Suite-Daemon aktiv, Agent-Dienst inaktiv, `identity` und `enrollment` fehlen, `AGENT_DB=NO_ACTIVE_AGENT_ROWS`, Live-TV meldet `live_backend_authority_required`. FFmpeg ist vorhanden.
 
 ## Ziel / Nutzererlebnis
@@ -28,7 +29,7 @@ Die bestehende First-Admin-Weboberfläche und deren Claim-/Session-Logik bleiben
 | **F2.2 – Agent automatisch einmalig registrieren** | Im von der Installation kontrollierten lokalen privilegierten Einrichtungskontext die vorhandene Agent-Konfiguration aus tatsächlichem Backend-/Control-Plane-Kontext nutzen; vorhandenes Enrollment-Werkzeug aufrufen, geschütztes Paket an den bereits vorgesehenen Ort legen, vorhandene Identität niemals überschreiben. Ein einmaliger Setup-Schritt nach erfolgreichem Admin-Claim, kein offenes anonymes Setup-API. | Derselbe Backend-ID-/Datenbank-/Konfigurationskontext, einmalige Registrierung, korrekt geschützte Identity, keine ausgegebenen Secrets und kein zweiter Agent bei Wiederholung. | **SOURCE PARTIAL: one-time package preparation implemented; automatic trigger / MLD real test OPEN** |
 | **F2.3 – Dienststart und Kanalbeobachtung** | Vorhandenen Agent-Dienst nach erfolgreichem Enrollment einmalig starten; lokale Senderbeobachtung auf die tatsächlich verwendete MLD-`channels.conf` konfigurieren und Provider-Fakten prüfen. Erst bei Online-/Backend-Health-Readback den vorhandenen Autostart-Helfer nutzen. Keine pauschalen Neustarts von VDR oder Daemon. | Agent online, gültige Lease, passende `BackendAgentRecord`, aktueller `channels`-Cursor, Autostart nach Hostneustart; kein neuer Systemdienst. | **SOURCE PARTIAL: Agent start + live Channel readback + autostart wired; MLD config / actual runtime OPEN** |
 | **F2.4 – Web-Setup-Abschluss und Wiederaufnahme** | First-Admin-Webablauf um tatsächlichen lokalen Backend-Fortschritt ergänzen. Kein technischer Fragebogen; ggf. ein verständlicher Fehler mit `Erneut prüfen`, ohne doppelte Registrierung oder erneute Kontoanlage. Bereits eingerichtete Systeme kommen direkt zur normalen Oberfläche. | Ein Setup-Ablauf im Browser; Fehler lassen sich ohne Konsole erneut prüfen; Authentifizierung und bestehende Admin-Session bleiben erhalten. | **SOURCE IMPLEMENTED: existing health readback and simple retry banner; installer flag / real MLD OPEN** |
-| **F2.5 – Distribution und Paketierung** | Bereits vorhandene Dateien/Tools über gemeinsame Runtime-/Package-Contracts installieren; nur Service-User, VDR-ABI, Senderpfad und privilegierten lokalen Setup-Auslöser im MLD-Paket anpassen. Ubuntu/yaVDR mit bestehendem Agent bleibt unverändert. | MLD-/Ubuntu-Paketinhalt, Rechte, Bootverhalten und Upgrade ohne Identity-/DB-Verlust geprüft; kein Debian-Skript in MLD kopiert. | **SOURCE PARTIAL: MLD staging target and idempotent installer entrypoint implemented; external recipe/HTTPS/host acceptance OPEN** |
+| **F2.5 – Distributionen und Paketierung (gemeinsamer Suite-Flow)** | Automatische Ersteinrichtung für **MLD, Ubuntu, yaVDR, Debian und weitere unterstützte Distributionen** aus demselben Suite-Onboarding; nur Pfade, Dienstkonto, HTTPS/CA und nativer First-Run-Auslöser unterscheiden sich in den Paketadaptern. Bestehende Identitäten bleiben erhalten. | Gemeinsamer Setup-Vertrag sowie Paket-/Boot-/Upgrade-Abnahme auf MLD, Ubuntu/yaVDR und Debian; normale Benutzer führen keinerlei technische Registrierungsschritte aus. | **SOURCE PARTIAL: gemeinsamer Onboard-Helper und MLD-Staging vorhanden; automatische Auslöser für alle Installationspfade und reale Abnahmen OFFEN** |
 | **F2.6 – Echte Abnahme mit skippy** | Einen installierten, SHA-identischen MLD-Testkandidaten nach Installationsfreigabe gemeinsam testen. Danach F1.4 Live-TV mit Start, Senderwechsel, Bild/Ton und Stop. | `FIRST_ADMIN=PASS`, `LOCAL_BACKEND_SETUP=PASS`, `AGENT_ONLINE=PASS`, `CHANNEL_OBSERVATION=PASS`, `LIVE_TV=PASS` auf echter MLD-Installation; Fehler getrennt dokumentieren. | **OFFEN** |
 
 ## Umsetzungslinien / Nicht-Ziele
@@ -189,14 +190,14 @@ implementierte Web-Health-Statusfeld. Ein tatsächlicher lokaler
 Ohne Origin läuft das Staging nicht stillschweigend weiter. Bereits
 individuell gesetzte Origins/Senderpfade und die Original-Identity
 werden nicht überschrieben. Normales `make install` auf Ubuntu/yaVDR
-ruft dieses MLD-Ziel nie auf.
+ruft dieses MLD-Ziel derzeit noch nicht auf. **Dies ist eine offene Lücke in F2.5, keine gewollte Produktgrenze.**
 
 Tests im bestehenden Packaging-Verbund prüfen die wiederholbare
 Enrollment-Orchestrierung, vorhandene Identität, fehlende
 Vorbedingungen, MLD-Staging-Idempotenz und Schutz vor Symlink-Escape
 in das Host-`/etc`.
 
-**F2.5 ist noch nicht abgeschlossen:** Das eigentliche
+**F2.5 ist noch nicht abgeschlossen:** Der gemeinsame Onboarding-Ablauf muss in **allen unterstützten Paket-/Installationswegen** automatisch aufgerufen werden. Das eigentliche
 MLD-BitBake-Rezept ist nicht in diesem Repository vorhanden und wurde
 hier nicht mutiert. Es muss die neue Staging-Funktion übernehmen und
 die bereits paketierte `--installer-onboard`-Funktion in seinem
