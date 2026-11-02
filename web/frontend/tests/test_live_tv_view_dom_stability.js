@@ -157,6 +157,25 @@ assert.strictEqual(
   'Kanal 3 · deaktiviert'
 );
 
+// MLD.F2.0: the missing registered Backend Agent is an installation
+// readiness failure, not a failed receiver or a generic ended stream.
+assert.strictEqual(
+  liveTest.liveErrorForChannel(
+    Object.assign(new Error('Live session rejected'), {code: 'live_backend_authority_required'}),
+    {name: 'Das Erste HD', encrypted: false},
+    'fallback'
+  ),
+  'Das ausgewählte VDR-Backend ist für Live-TV noch nicht verbunden. Die Backend-Einrichtung muss abgeschlossen werden.'
+);
+assert.strictEqual(
+  liveTest.liveErrorForChannel(
+    new Error('live_backend_authority_required'),
+    {name: 'Sky Test', encrypted: true},
+    'fallback'
+  ),
+  'Das ausgewählte VDR-Backend ist für Live-TV noch nicht verbunden. Die Backend-Einrichtung muss abgeschlossen werden.'
+);
+
 const encryptedError = liveTest.liveErrorForChannel(
   new Error('live_source_receiver_unavailable'),
   {name: 'Sky Test', encrypted: true},
