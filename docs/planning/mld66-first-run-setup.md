@@ -27,7 +27,7 @@ Die bestehende First-Admin-Weboberfläche und deren Claim-/Session-Logik bleiben
 | **F2.1 – Lokalen Installationsfall erkennen** | Nach normalem Admin-Claim vorhandene Backend-/SuiteBridge-Fakten lesend prüfen: genau ein lokaler VDR oder bereits konfigurierte/mehrere Backends; keine neue harte Paketabhängigkeit. Bestehende funktionierende Konfiguration wird nicht verändert. | Auf frischem Einzel-VDR wird eindeutig `setup_required` erkannt; auf bestehender Installation `already_configured`; bei unklarer Topologie kein automatischer Eingriff. | **SOURCE PARTIAL: read-only preflight; browser/install integration OPEN** |
 | **F2.2 – Agent automatisch einmalig registrieren** | Im von der Installation kontrollierten lokalen privilegierten Einrichtungskontext die vorhandene Agent-Konfiguration aus tatsächlichem Backend-/Control-Plane-Kontext nutzen; vorhandenes Enrollment-Werkzeug aufrufen, geschütztes Paket an den bereits vorgesehenen Ort legen, vorhandene Identität niemals überschreiben. Ein einmaliger Setup-Schritt nach erfolgreichem Admin-Claim, kein offenes anonymes Setup-API. | Derselbe Backend-ID-/Datenbank-/Konfigurationskontext, einmalige Registrierung, korrekt geschützte Identity, keine ausgegebenen Secrets und kein zweiter Agent bei Wiederholung. | **SOURCE PARTIAL: one-time package preparation implemented; automatic trigger / MLD real test OPEN** |
 | **F2.3 – Dienststart und Kanalbeobachtung** | Vorhandenen Agent-Dienst nach erfolgreichem Enrollment einmalig starten; lokale Senderbeobachtung auf die tatsächlich verwendete MLD-`channels.conf` konfigurieren und Provider-Fakten prüfen. Erst bei Online-/Backend-Health-Readback den vorhandenen Autostart-Helfer nutzen. Keine pauschalen Neustarts von VDR oder Daemon. | Agent online, gültige Lease, passende `BackendAgentRecord`, aktueller `channels`-Cursor, Autostart nach Hostneustart; kein neuer Systemdienst. | **SOURCE PARTIAL: Agent start + live Channel readback + autostart wired; MLD config / actual runtime OPEN** |
-| **F2.4 – Web-Setup-Abschluss und Wiederaufnahme** | First-Admin-Webablauf um tatsächlichen lokalen Backend-Fortschritt ergänzen. Kein technischer Fragebogen; ggf. ein verständlicher Fehler mit `Erneut prüfen`, ohne doppelte Registrierung oder erneute Kontoanlage. Bereits eingerichtete Systeme kommen direkt zur normalen Oberfläche. | Ein Setup-Ablauf im Browser; Fehler lassen sich ohne Konsole erneut prüfen; Authentifizierung und bestehende Admin-Session bleiben erhalten. | **OFFEN** |
+| **F2.4 – Web-Setup-Abschluss und Wiederaufnahme** | First-Admin-Webablauf um tatsächlichen lokalen Backend-Fortschritt ergänzen. Kein technischer Fragebogen; ggf. ein verständlicher Fehler mit `Erneut prüfen`, ohne doppelte Registrierung oder erneute Kontoanlage. Bereits eingerichtete Systeme kommen direkt zur normalen Oberfläche. | Ein Setup-Ablauf im Browser; Fehler lassen sich ohne Konsole erneut prüfen; Authentifizierung und bestehende Admin-Session bleiben erhalten. | **SOURCE IMPLEMENTED: existing health readback and simple retry banner; installer flag / real MLD OPEN** |
 | **F2.5 – Distribution und Paketierung** | Bereits vorhandene Dateien/Tools über gemeinsame Runtime-/Package-Contracts installieren; nur Service-User, VDR-ABI, Senderpfad und privilegierten lokalen Setup-Auslöser im MLD-Paket anpassen. Ubuntu/yaVDR mit bestehendem Agent bleibt unverändert. | MLD-/Ubuntu-Paketinhalt, Rechte, Bootverhalten und Upgrade ohne Identity-/DB-Verlust geprüft; kein Debian-Skript in MLD kopiert. | **OFFEN** |
 | **F2.6 – Echte Abnahme mit skippy** | Einen installierten, SHA-identischen MLD-Testkandidaten nach Installationsfreigabe gemeinsam testen. Danach F1.4 Live-TV mit Start, Senderwechsel, Bild/Ton und Stop. | `FIRST_ADMIN=PASS`, `LOCAL_BACKEND_SETUP=PASS`, `AGENT_ONLINE=PASS`, `CHANNEL_OBSERVATION=PASS`, `LIVE_TV=PASS` auf echter MLD-Installation; Fehler getrennt dokumentieren. | **OFFEN** |
 
@@ -114,3 +114,39 @@ noch nicht standardmäßig ein. Der bestehende Helper nimmt keine
 unbekannten MLD-Pfade an. Der automatische, für Benutzer unsichtbare
 Installer-/Browser-Aufruf folgt in F2.4/F2.5; die echte MLD- und
 Neustart-Abnahme bleibt F2.6.
+
+### F2.4 Quellstand
+
+**Einfacher Ablauf ohne zweiten Wizard:** Die bestehende
+`/api/backends/default/health`-Antwort erhält optional
+`localBackendSetup.status`, abgeleitet aus der bestehenden
+registrierten Agent-Identität, aktueller Lease, Backend-Health-
+und Channel-Beobachtung. Fester Status:
+`unregistered`, `agent_offline`, `health_pending`,
+`channels_pending` oder `ready`. Der Daemon bietet das
+Feld **nur nach explizitem Installations-Opt-in**
+`VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true` an; bestehende
+Ubuntu/yaVDR-Installationen ohne Flag bleiben unverändert.
+Kein neuer HTTP-Endpunkt, keine neue Browser-Privilegierung.
+
+Das bestehende First-Admin-/Login-Frontend zeigt nach Anmeldung
+nur bei unvollständiger Backend-Bereitschaft einen kurzen
+Statushinweis mit `Erneut prüfen`. Der Status wird automatisch
+erneut lesend abgefragt, bis `ready` gemeldet wird.
+Bei fertigem oder nicht optiertem Backend wird kein Panel gezeigt.
+Keine erneute Kontoanlage, kein Enrollment-/systemctl-Aufruf
+im Browser. Der vorhandene Login bleibt unabhängig vom
+Backend-Status nutzbar.
+
+Frontend-Regression deckt Registrierung ausstehend, Kanäle
+ausstehend, fertig, normale Installation und manuelle Status-
+Wiederprüfung ab. Der Backend-Health-Routertest prüft die
+optionale Antwort ohne neues Feld für andere Backends.
+
+**Offen für die echte Ersteinrichtung:** F2.5 muss beim MLD-
+Paket den *tatsächlichen* Kanalpfad und Agent-Dienstnutzer
+setzen und den privilegierten lokalen First-Run-Schritt
+auslösen. Ohne diesen Aufruf zeigt F2.4 nur den wahren
+Ist-Zustand, repariert aber kein fehlendes Enrollment.
+Keine MLD-Laufzeit-Abnahme und keine automatische Registrierung
+durch diese UI-Änderung.
