@@ -207,6 +207,8 @@ install-systemd:
 	$(INSTALL) -d $(DESTDIR)$(SYSTEMDUNITDIR)
 	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-daemon.service $(DESTDIR)$(SYSTEMDUNITDIR)/vdr-suite-daemon.service
 	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-backend-agent.service $(DESTDIR)$(SYSTEMDUNITDIR)/vdr-suite-backend-agent.service
+	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-first-run.service $(DESTDIR)$(SYSTEMDUNITDIR)/vdr-suite-first-run.service
+	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-first-run.path $(DESTDIR)$(SYSTEMDUNITDIR)/vdr-suite-first-run.path
 	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/default
 	test -e $(DESTDIR)$(SYSCONFDIR)/default/vdr-suite-daemon || \
 		$(INSTALL) -m 0644 packaging/systemd/vdr-suite-daemon.default $(DESTDIR)$(SYSCONFDIR)/default/vdr-suite-daemon
@@ -344,6 +346,8 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-media-calibrate.1
 	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-daemon.service
 	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-backend-agent.service
+	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-first-run.service
+	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-first-run.path
 	printf '%s\n' 'VDR_SUITE_SECURITY_MODE=legacy-basic' 'VDR_SUITE_UPGRADE_SENTINEL=preserve' > /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon
 	$(MAKE) install-systemd DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr
 	grep -Fx 'VDR_SUITE_SECURITY_MODE=legacy-basic' /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon >/dev/null
