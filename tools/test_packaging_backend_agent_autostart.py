@@ -163,6 +163,57 @@ class AutostartTests(unittest.TestCase):
                         subject.preflight()
 
 
+    def test_mld_first_run_status_without_enrollment_or_service_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = Path(tmp) / "agent.conf"
+            identity = Path(tmp) / "identity"
+            enrollment = Path(tmp) / "enrollment"
+            config.write_text("BACKEND_ID=default\\n")
+            with (
+                patch.object(subject, "CONFIG", config),
+                patch.object(subject, "IDENTITY", str(identity)),
+                patch.object(subject, "ENROLLMENT", str(enrollment)),
+                patch.object(subject, "first_run_service_state", return_value="RUNNING"),
+                patch.object(subject, "read_config", return_value="default") as read,
+                patch.object(subject, "command") as execute,
+                patch("sys.argv", ["helper", "--setup-status"]),
+                redirect_stdout(io.StringIO()) as output,
+            ):
+                self.assertEqual(subject.main(), 0)
+                self.assertIn("LOCAL_BACKEND_SETUP=ENROLLMENT_REQUIRED",
+                              output.getvalue())
+                read.assert_called_once()
+                execute.assert_not_called()
+                self.assertFalse(identity.exists())
+                self.assertFalse(enrollment.exists())
+
+                enrollment.write_text("fixture only")
+                self.assertEqual(subject.first_run_agent_state(), "ENROLLMENT_PENDING")
+                enrollment.unlink()
+                identity.write_text("fixture only")
+                self.assertEqual(subject.first_run_agent_state(), "IDENTITY_PRESENT")
+                identity.unlink()
+                with patch.object(subject, "read_config",
+                                  side_effect=subject.NotReady("template")):
+                    self.assertEqual(subject.first_run_agent_state(),
+                                     "CONFIGURATION_REQUIRED")
+                config.unlink()
+                self.assertEqual(subject.first_run_agent_state(),
+                                 "CONFIGURATION_REQUIRED")
+
+    def test_mld_first_run_status_requires_running_vdr_and_daemon(self):
+        with patch.object(subject, "first_run_service_state",
+                          side_effect=["NOT_RUNNING"]) as status:
+            self.assertEqual(subject.first_run_agent_state(), "VDR_UNAVAILABLE")
+            status.assert_called_once_with("vdr.service")
+        with patch.object(subject, "first_run_service_state",
+                          side_effect=["RUNNING", "NOT_RUNNING"]) as status:
+            self.assertEqual(subject.first_run_agent_state(), "DAEMON_UNAVAILABLE")
+            self.assertEqual(status.call_count, 2)
+        with patch.object(subject, "first_run_service_state",
+                          side_effect=["RUNNING", "RUNNING", "NOT_INSTALLED"]):
+            self.assertEqual(subject.first_run_agent_state(), "AGENT_NOT_INSTALLED")
+
     def test_package_stages_post_enrollment_helper_without_auto_start(self):
         root = SOURCE.parents[1]
         make = (root / "mk/install.mk").read_text(encoding="utf-8")
