@@ -1867,6 +1867,52 @@
     });
   }
 
+  // A standalone film without a local poster should not require a manual
+  // TMDb search just to display its cover. The same existing metadata API is
+  // used; only one unambiguous exact title match is accepted.
+  function autoIdentifyMovie(view, source, plan) {
+    if (!source || !plan || plan.status !== 'ready' ||
+        view.onlineKind !== 'movie' || view.onlineAuto ||
+        validLocalArtwork(plan.posterDataUri)) return;
+    const title = String(plan.title || source.label || '').trim();
+    if (title.length < 2 || title.length > 160) return;
+    const sourceId = source.sourceId;
+    const generation = view.previewGeneration;
+    const active = function () {
+      return isCurrent(view) && view.onlineAuto &&
+        generation === view.previewGeneration &&
+        view.select.value === sourceId;
+    };
+    view.onlineAuto = true;
+    view.onlineQuery = title;
+    onlineLookup(view, 'search', {query: title, kind: 'movie', limit: 12}, 'movie')
+      .then(function (candidates) {
+        if (!active() || !Array.isArray(candidates)) return;
+        const normalized = normalizedSeriesName(title);
+        let matches = candidates.filter(function (item) {
+          return normalizedSeriesName(item.title) === normalized;
+        });
+        // Prefer an exact NFO year when remakes share the same title.
+        if (matches.length > 1 && /^\d{4}$/.test(plan.nfoYear || '')) {
+          matches = matches.filter(function (item) {
+            return String(item.releaseDate || '').slice(0, 4) === plan.nfoYear;
+          });
+        }
+        if (matches.length === 1) {
+          view.onlineSelected = matches[0];
+          view.onlineAutoSelected = true;
+          view.onlineStatus = 'TMDb-Film automatisch erkannt: ' +
+            matches[0].title + '. Poster und bereits gefundene Metadaten ' +
+            'werden für den Import übernommen.';
+        } else {
+          view.onlineStatus = matches.length
+            ? 'Mehrdeutiger TMDb-Film. Eine manuelle Auswahl ist möglich.'
+            : 'Kein eindeutiger TMDb-Film gefunden. Die lokale Vorschau bleibt erhalten.';
+        }
+        updatePreview(view);
+      });
+  }
+
   function renderOnline(view, card, plan, source) {
     if (!source || !view.sources.includes(view.select.value)) return;
     const box = element('section', 'media-import-online');
@@ -2003,8 +2049,10 @@
       const selected = view.onlineSelected;
       const confirmed = element('div', 'media-import-online-confirmed');
       confirmed.appendChild(element('strong', '',
-        (view.onlineAutoSelected ? 'Automatisch erkannte TMDb-Episode: ' :
-          'Bestätigte TMDb-Vorschau: ') + selected.title));
+        (view.onlineAutoSelected
+          ? (selected.kind === 'movie' ? 'Automatisch erkannter TMDb-Film: '
+            : 'Automatisch erkannte TMDb-Episode: ')
+          : 'Bestätigte TMDb-Vorschau: ') + selected.title));
       if (selected.overview)
         confirmed.appendChild(element('p', '', selected.overview));
       const url = onlineImageUrl(view.backendId, selected);
@@ -3059,6 +3107,8 @@
         if (data.status === 'ready' || data.status === 'insufficient')
           view.previewCache.set(id, data);
         updatePreview(view);
+        if (source && view.onlineKind === 'movie' && !view.onlineAuto)
+          autoIdentifyMovie(view, source, data);
         updateBackgroundDisplay(view);
         scheduleBackgroundCheck(view, 100);
         if (view.duplicateReviewPending && data.status !== 'duplicate') {
