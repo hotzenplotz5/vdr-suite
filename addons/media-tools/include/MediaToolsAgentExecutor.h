@@ -444,6 +444,20 @@ public:
         }
         return true;
     }
+    // Existing observation owner with optional Core-verified codec facts.
+    // Older injected executors keep the same behavior.
+    virtual bool listTrustedSourceObservationCached(
+        std::vector<std::string>& ids,
+        std::vector<MediaImportSourceLabel>& labels, bool& partial,
+        const std::string& selectedSourceId,
+        const std::string& codecHint, std::uint64_t durationHint,
+        MediaImportSourcePreview& preview)
+    {
+        (void)codecHint;
+        (void)durationHint;
+        return listTrustedSourceObservation(
+            ids, labels, partial, selectedSourceId, preview);
+    }
     virtual bool authorize(const BackendAgentCommandAssignment& assignment,
                            const std::string& backendId,
                            std::uint64_t generation) = 0;
