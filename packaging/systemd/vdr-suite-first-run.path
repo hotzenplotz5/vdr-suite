@@ -1,0 +1,8 @@
+[Unit]
+Description=VDR-Suite first-run recheck after local Agent configuration changes
+After=vdr-suite-daemon.service
+ConditionPathExists=/usr/sbin/vdr-suite-backend-agent-autostart
+
+[Path]
+PathChanged=/etc/vdr-suite/backend-agent.conf
+Unit=vdr-suite-first-run.service
