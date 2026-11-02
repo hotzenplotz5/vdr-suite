@@ -298,6 +298,7 @@ CI_FRONTEND_TESTS := \
 
 CI_PACKAGING_TESTS := \
 	test-systemd-unit-contract \
+	test-mld-agent-first-run \
 	test-install-runtime-deployment \
 	test-install-staging
 
