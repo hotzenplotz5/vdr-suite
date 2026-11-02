@@ -3086,6 +3086,7 @@
     // can still return the completed check immediately. Only afterwards do
     // we refresh volatile NFO/artwork/capacity for fingerprinted scan sources.
     let dynamicRefreshRequested = Boolean(cached);
+    let initialLookupPending = false;
     function poll(refresh) {
       if (!isCurrent(view) || generation !== view.previewGeneration ||
           view.select.value !== id) return;
@@ -3100,6 +3101,7 @@
         if (!data || data.backendId !== view.backendId ||
             data.sourceId !== id) throw new Error('Veraltete Vorschauantwort');
         if (data.state === 'pending') {
+          if (!dynamicRefreshRequested) initialLookupPending = true;
           view.previewStatus = view.previewResult
             ? 'Metadaten und Systemstatus werden aktualisiert …'
             : 'Film wird geprüft …';
@@ -3134,7 +3136,7 @@
         // The first successful response after a hard page reload can be a
         // persisted Codec result. Show it BEFORE starting the cheap dynamic
         // refresh. Poll the same slot while keeping the displayed result.
-        if (!dynamicRefreshRequested &&
+        if (!dynamicRefreshRequested && !initialLookupPending &&
             /^scan_[0-9a-f]{32}$/.test(id) &&
             (data.status === 'ready' || data.status === 'insufficient')) {
           dynamicRefreshRequested = true;
