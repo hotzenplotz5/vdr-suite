@@ -787,9 +787,17 @@ HttpServerResponse BackendAgentHttpServer::handleMediaImportSourceObservation(
         return errorResponse(409, "media_import_preview_invalid");
     const std::string next = mediaImportCatalog_->nextPreviewRequest(
         *live, backendId, now);
-    return jsonResponse(200, next.empty()
-        ? "{\"outcome\":\"accepted\"}"
-        : "{\"outcome\":\"accepted\",\"previewSourceId\":\"" + next + "\"}");
+    if (next.empty()) return jsonResponse(200, "{\"outcome\":\"accepted\"}");
+    std::string codec;
+    std::uint64_t duration = 0;
+    const bool known = mediaImportCatalog_->cachedTechnical(
+        backendId, next, codec, duration);
+    return jsonResponse(200,
+        "{\"outcome\":\"accepted\",\"previewSourceId\":\"" + next +
+        "\"" + (known
+            ? ",\"previewCodecHint\":\"" + codec +
+              "\",\"previewDurationHint\":" + std::to_string(duration)
+            : std::string{}) + "}");
 }
 
 HttpServerResponse BackendAgentHttpServer::handleCommandPoll(
