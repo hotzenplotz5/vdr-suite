@@ -23,6 +23,32 @@ Ein Installations- oder First-Boot-Prozess führt den bestehenden lokalen `vdr-s
 
 ## Derzeitiger Quellstand versus offene Arbeit
 
-Der Branch enthält den gemeinsamen `--installer-onboard`-Einstieg und die nur lesend arbeitende Web-Statusanzeige. `tools/mld66_stage_first_run.py` ist bisher **nur ein MLD-Staging-Adapter**. Es gibt **noch keinen nachgewiesenen distributionsübergreifend installierten automatischen Auslöser**. `debian/rules` verwendet derzeit `dh_installsystemd --no-enable --no-start`; dieser Ist-Zustand ist kein erfülltes universelles First-Run-Feature. Eine vorhandene lokale HTTPS-/Channel-Konfiguration ist weiterhin Voraussetzung.
+Der Branch enthält den gemeinsamen `--installer-onboard`-Einstieg und die nur lesend arbeitende Web-Statusanzeige. **Gemeinsames Staging implementiert:** `tools/distribution_first_run_stage.py` ist jetzt der einzige Quellcode für das Paket-Staging; `tools/mld66_stage_first_run.py` delegiert lediglich an ihn (die bisherige MLD-Ausgabe bleibt erhalten). `make stage-distribution-first-run-config` stellt dieselben Optionen für alle Distributionen bereit, während `make stage-mld-first-run-config` weiterhin funktioniert. `tools/test_packaging_distribution_first_run_stage.py` enthält no-root Testfälle für MLD, Ubuntu/yaVDR, Wiederholung und vorhandene Konfiguration; Testergebnisse sind noch nicht ausgeführt und keine reale Paketabnahme. Es gibt **noch keinen nachgewiesenen distributionsübergreifend installierten automatischen Auslöser**. `debian/rules` verwendet derzeit `dh_installsystemd --no-enable --no-start`; dieser Ist-Zustand ist kein erfülltes universelles First-Run-Feature. Eine vorhandene lokale HTTPS-/Channel-Konfiguration ist weiterhin Voraussetzung.
 
 **Nicht als fertig markieren**, bevor sämtliche unterstützten Installationswege denselben automatischen Setup-Lifecycle verwenden und mindestens MLD, Ubuntu/yaVDR und Debian einen wiederholbaren Installations-/Upgrade-Test bestehen. Skippys MLD-F2.6-Realtest bleibt eine konkrete Abnahme innerhalb dieser universellen Funktion.
+
+## Nächste Umsetzung: automatischer First-Run-Trigger
+
+Der universelle Staging-Vertrag alleine richtet noch kein installiertes System ein.
+Nächster notwendiger, distributionsübergreifender Schritt: den bereits bestehenden
+`/usr/sbin/vdr-suite-backend-agent-autostart --installer-onboard` aus dem
+verlässlichen lokalen Installations- oder First-Boot-Lebenszyklus auslösen,
+sobald reale HTTPS-Origin, Senderpfad, VDR und Daemon bereitstehen.
+Debian/Ubuntu/yaVDR und MLD sollen denselben Entry Point benutzen;
+nur die native Paket-Anbindung unterscheidet sich. **Nicht** bei jedem Upgrade
+eine neue Identity erzeugen oder einen existierenden Agent ungewollt neu starten.
+Ohne nachgewiesenen Trigger bleibt F2.5 offen.
+
+### Gemeinsamer Staging-Aufruf (Paketbau, nicht Live-System)
+
+```sh
+make stage-distribution-first-run-config \
+  DESTDIR="$PACKAGE_STAGING_ROOT" \
+  DISTRIBUTION_FIRST_RUN_CONTROL_PLANE_URL="$LOCAL_HTTPS_ORIGIN" \
+  DISTRIBUTION_FIRST_RUN_CHANNELS_CONF_PATH="$VDR_CHANNELS_PATH" \
+  DISTRIBUTION_FIRST_RUN_CA_CERTIFICATE_PATH="$TRUSTED_CA_PATH"
+```
+
+Ein reales Paket darf diese Werte nicht blind mit Beispiel-URLs befüllen.
+Die Package-Inputs bleiben zunächst explizit; automatische Erkennung der
+tatsächlichen lokalen HTTPS-/Kanal-Konfiguration ist ein offener Schritt.
