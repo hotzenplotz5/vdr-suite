@@ -40,6 +40,12 @@ public:
         std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
         bool& partial, const std::string& selectedSourceId,
         vdrsuite::mediatools::MediaImportSourcePreview& preview) override;
+    bool listTrustedSourceObservationCached(
+        std::vector<std::string>& ids,
+        std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+        bool& partial, const std::string& selectedSourceId,
+        const std::string& codecHint, std::uint64_t durationHint,
+        vdrsuite::mediatools::MediaImportSourcePreview& preview) override;
     bool authorize(const BackendAgentCommandAssignment& assignment,
                    const std::string& backendId,
                    std::uint64_t generation) override;
@@ -52,7 +58,9 @@ private:
     bool inspectResolvedSource(
         const std::string& sourceId,
         const vdrsuite::mediatools::LocalMediaImportSource& local,
-        vdrsuite::mediatools::MediaImportSourcePreview& out);
+        vdrsuite::mediatools::MediaImportSourcePreview& out,
+        const std::string& codecHint = {},
+        std::uint64_t durationHint = 0);
     std::string trustedRoot_;
     std::string backendId_;
     CurrentContext currentContext_;
