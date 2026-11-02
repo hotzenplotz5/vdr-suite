@@ -688,9 +688,15 @@ class AutostartTests(unittest.TestCase):
                     patch.object(subject.os, "geteuid", return_value=0),
                     patch.object(subject, "first_run_agent_state", return_value=state),
                     patch.object(subject, "installer_onboard_local") as onboard,
+                    patch.object(subject, "configure_local_first_run",
+                                 side_effect=subject.NotReady("not configured")) as configure,
                     patch.object(subject, "command") as execute,
                 ):
                     self.assertEqual(subject.automatic_first_run(), "DEFERRED_" + state)
+                    if state == "CONFIGURATION_REQUIRED":
+                        configure.assert_called_once_with()
+                    else:
+                        configure.assert_not_called()
                     onboard.assert_not_called()
                     execute.assert_not_called()
 
