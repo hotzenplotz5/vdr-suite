@@ -17,8 +17,22 @@ LIVE_ROOT ?= /
 
 install: install-runtime install-cli install-docs install-manpages install-systemd
 
-# Only the MLD package recipe invokes this on a separate DESTDIR tree.
-# The regular Ubuntu/yaVDR install target remains unchanged.
+# Distribution-specific package adapters use the same staged config tool.
+# All variants operate only on a separate DESTDIR, never on live /etc.
+# Actual first-boot invocation is a separate lifecycle integration.
+DISTRIBUTION_FIRST_RUN_CONTROL_PLANE_URL ?=
+DISTRIBUTION_FIRST_RUN_CHANNELS_CONF_PATH ?= /var/lib/vdr/channels.conf
+DISTRIBUTION_FIRST_RUN_CA_CERTIFICATE_PATH ?=
+
+.PHONY: stage-distribution-first-run-config
+stage-distribution-first-run-config:
+	python3 tools/distribution_first_run_stage.py \
+		--stage-root "$(DESTDIR)" \
+		--control-plane-url "$(DISTRIBUTION_FIRST_RUN_CONTROL_PLANE_URL)" \
+		--channels-source "$(DISTRIBUTION_FIRST_RUN_CHANNELS_CONF_PATH)" \
+		--ca-certificate-path "$(DISTRIBUTION_FIRST_RUN_CA_CERTIFICATE_PATH)"
+
+# Backwards-compatible MLD adapter: the implementation is shared.
 MLD_FIRST_RUN_CONTROL_PLANE_URL ?=
 MLD_FIRST_RUN_CHANNELS_CONF_PATH ?= /etc/vdr/channels.conf
 MLD_FIRST_RUN_CA_CERTIFICATE_PATH ?=
