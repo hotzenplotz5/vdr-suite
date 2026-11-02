@@ -1161,7 +1161,11 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     }, true);
     require(probe.exitCode == 0, "ffprobe failed");
     const std::string codec = parseProbedVideoCodec(probe.output);
-    const bool copyVideo = !importVideoNeedsReencode(codec);
+    // Compatible HEVC normally keeps the efficient, lossless remux path.
+    // An explicit per-film Core 'local' decision may instead request H.264
+    // for client compatibility. H.264/MPEG-2 keep their established copy path.
+    const bool copyVideo = !importVideoNeedsReencode(codec) &&
+        !(allowVideoReencode && codec == "hevc");
     // Local re-encode is an explicit operator decision, not a consequence
     // of selecting an import source in the Core API. In particular the
     // existing Agent's --confirm-writes alone never authorizes encoding.
