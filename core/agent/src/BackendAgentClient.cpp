@@ -508,6 +508,10 @@ CurlBackendAgentControlPlaneTransport::CurlBackendAgentControlPlaneTransport(
 bool CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(
     const std::string& url)
 {
+    // The packaged local daemon is already reachable through loopback HTTP.
+    // Permit only this one exact same-host origin: no DNS, proxy, or remote
+    // plaintext enrollment. Remote agents must continue using HTTPS.
+    if (url == "http://127.0.0.1:18080") return true;
     static const std::string Prefix = "https://";
     if (url.rfind(Prefix, 0) != 0 || url.size() <= Prefix.size() ||
         url.size() > 4096 || containsControl(url) ||
@@ -612,8 +616,11 @@ BackendAgentTransportResponse CurlBackendAgentControlPlaneTransport::perform(
     configured = configured && curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, 2L) == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_NETRC, CURL_NETRC_IGNORED) == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_PROXY, "") == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_PROTOCOLS_STR, "https") == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_REDIR_PROTOCOLS_STR, "https") == CURLE_OK;
+    const bool localLoopback = config_.controlPlaneUrl == "http://127.0.0.1:18080";
+    configured = configured && curl_easy_setopt(
+        handle, CURLOPT_PROTOCOLS_STR, localLoopback ? "http" : "https") == CURLE_OK;
+    configured = configured && curl_easy_setopt(
+        handle, CURLOPT_REDIR_PROTOCOLS_STR, localLoopback ? "http" : "https") == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT_MS,
                                                   config_.connectTimeoutMilliseconds) == CURLE_OK;
     configured = configured && curl_easy_setopt(handle, CURLOPT_TIMEOUT_MS,
