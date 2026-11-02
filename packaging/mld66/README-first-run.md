@@ -19,7 +19,9 @@ reviewed `vdr-suite-backend-agent.service` unit.
    `make install-systemd DESTDIR=...` staging steps, run the **opt-in**
    `make stage-mld-first-run-config` target on that same separate
    `DESTDIR` with the actual installed MLD channel-selection path and
-   a working HTTPS Control Plane origin. For the reported MLD layout,
+   a working HTTPS Control Plane origin. An optional trusted CA
+   certificate path may be supplied when the system trust store does
+   not already trust that origin. For the reported MLD layout,
    `/etc/vdr/channels.conf` is a link to the selected channel list;
    this is supported. **Do not choose a fake origin, public HTTP endpoint
    or a guessed URL.**
@@ -62,7 +64,8 @@ is not an instruction for end users and should not run on a live machine.
 make stage-mld-first-run-config \
   DESTDIR="$MLD_PACKAGE_STAGING_ROOT" \
   MLD_FIRST_RUN_CONTROL_PLANE_URL="$MLD_LOCAL_HTTPS_CONTROL_PLANE_ORIGIN" \
-  MLD_FIRST_RUN_CHANNELS_CONF_PATH=/etc/vdr/channels.conf
+  MLD_FIRST_RUN_CHANNELS_CONF_PATH=/etc/vdr/channels.conf \
+  MLD_FIRST_RUN_CA_CERTIFICATE_PATH="$MLD_INSTALLED_CA_PATH"
 ```
 
 The regular `make install` deliberately does **not** invoke this target.
@@ -84,11 +87,17 @@ packaging-stage PASS with functional MLD setup or real Live-TV acceptance.
   post-install execution order remain **unverified**. `vdr.service`
   and `vdr-suite-daemon.service` must actually be running for the
   installer-owned activation.
-- `--installer-onboard` resumes a still-pending enrollment and checks
-  an already **active** enrolled Agent without a second registration.
-  A previously registered but inactive Agent requires a separate
-  reviewed recovery path: the helper does not blindly start an existing
-  unknown installation.
+- `--installer-onboard` resumes a still-pending enrollment without
+  creating another token. If a crash leaves a protected identity behind
+  while the packaged Agent is inactive, it checks the existing unit and
+  identity before starting **that same Agent**, then waits for an
+  authenticated lease and Channel observation. It refuses unknown
+  units or mismatched identities; it never re-enrolls.
+- `MLD_FIRST_RUN_CA_CERTIFICATE_PATH` is optional when the MLD trust
+  store already validates its HTTPS origin. Otherwise the recipe can
+  supply an **existing trusted CA certificate path**, preserved by
+  staging on repetition; an existing different configured CA path is
+  never replaced. Staging does not issue certificates or weaken TLS.
 - Host reboot and skippy's browser/live-TV acceptance are MLD.F2.6.
 - No new Agent, HTTP mutation route, privileged browser workflow,
   systemd unit, package dependency, branch, or PR is introduced here.
