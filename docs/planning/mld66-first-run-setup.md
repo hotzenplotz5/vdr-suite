@@ -26,7 +26,7 @@ Die bestehende First-Admin-Weboberfläche und deren Claim-/Session-Logik bleiben
 | **F2.0 – Ist-Zustand und Nutzerfehler** | Den bestätigten Agent-/Backend-Fehler mit First-Admin-Flow, bestehender Enrollment-Logik, Paket- und Service-Zustand verknüpfen. Im bestehenden Live-TV-Frontend statt technischer Authority-Codes eine zutreffende Meldung über fehlende Backend-Einrichtung anzeigen; Initialfehler beendet den Start bereits ohne Recovery-Loop. | `web/frontend/live-tv-view.js` klassifiziert Code oder Nachricht; der vorhandene DOM-Stabilitätstest enthält zwei neue Fehlerfälle und hält den verschlüsselten-Sender-Fall intakt. Fokus-V8-Test des produktiven JS-Pfads PASS, CI und MLD-Installation separat. | **SOURCE IMPLEMENTED; FOCUSED V8 PASS; CI / MLD OPEN** |
 | **F2.1 – Lokalen Installationsfall erkennen** | Nach normalem Admin-Claim vorhandene Backend-/SuiteBridge-Fakten lesend prüfen: genau ein lokaler VDR oder bereits konfigurierte/mehrere Backends; keine neue harte Paketabhängigkeit. Bestehende funktionierende Konfiguration wird nicht verändert. | Auf frischem Einzel-VDR wird eindeutig `setup_required` erkannt; auf bestehender Installation `already_configured`; bei unklarer Topologie kein automatischer Eingriff. | **SOURCE PARTIAL: read-only preflight; browser/install integration OPEN** |
 | **F2.2 – Agent automatisch einmalig registrieren** | Im von der Installation kontrollierten lokalen privilegierten Einrichtungskontext die vorhandene Agent-Konfiguration aus tatsächlichem Backend-/Control-Plane-Kontext nutzen; vorhandenes Enrollment-Werkzeug aufrufen, geschütztes Paket an den bereits vorgesehenen Ort legen, vorhandene Identität niemals überschreiben. Ein einmaliger Setup-Schritt nach erfolgreichem Admin-Claim, kein offenes anonymes Setup-API. | Derselbe Backend-ID-/Datenbank-/Konfigurationskontext, einmalige Registrierung, korrekt geschützte Identity, keine ausgegebenen Secrets und kein zweiter Agent bei Wiederholung. | **SOURCE PARTIAL: one-time package preparation implemented; automatic trigger / MLD real test OPEN** |
-| **F2.3 – Dienststart und Kanalbeobachtung** | Vorhandenen Agent-Dienst nach erfolgreichem Enrollment einmalig starten; lokale Senderbeobachtung auf die tatsächlich verwendete MLD-`channels.conf` konfigurieren und Provider-Fakten prüfen. Erst bei Online-/Backend-Health-Readback den vorhandenen Autostart-Helfer nutzen. Keine pauschalen Neustarts von VDR oder Daemon. | Agent online, gültige Lease, passende `BackendAgentRecord`, aktueller `channels`-Cursor, Autostart nach Hostneustart; kein neuer Systemdienst. | **OFFEN** |
+| **F2.3 – Dienststart und Kanalbeobachtung** | Vorhandenen Agent-Dienst nach erfolgreichem Enrollment einmalig starten; lokale Senderbeobachtung auf die tatsächlich verwendete MLD-`channels.conf` konfigurieren und Provider-Fakten prüfen. Erst bei Online-/Backend-Health-Readback den vorhandenen Autostart-Helfer nutzen. Keine pauschalen Neustarts von VDR oder Daemon. | Agent online, gültige Lease, passende `BackendAgentRecord`, aktueller `channels`-Cursor, Autostart nach Hostneustart; kein neuer Systemdienst. | **SOURCE PARTIAL: Agent start + live Channel readback + autostart wired; MLD config / actual runtime OPEN** |
 | **F2.4 – Web-Setup-Abschluss und Wiederaufnahme** | First-Admin-Webablauf um tatsächlichen lokalen Backend-Fortschritt ergänzen. Kein technischer Fragebogen; ggf. ein verständlicher Fehler mit `Erneut prüfen`, ohne doppelte Registrierung oder erneute Kontoanlage. Bereits eingerichtete Systeme kommen direkt zur normalen Oberfläche. | Ein Setup-Ablauf im Browser; Fehler lassen sich ohne Konsole erneut prüfen; Authentifizierung und bestehende Admin-Session bleiben erhalten. | **OFFEN** |
 | **F2.5 – Distribution und Paketierung** | Bereits vorhandene Dateien/Tools über gemeinsame Runtime-/Package-Contracts installieren; nur Service-User, VDR-ABI, Senderpfad und privilegierten lokalen Setup-Auslöser im MLD-Paket anpassen. Ubuntu/yaVDR mit bestehendem Agent bleibt unverändert. | MLD-/Ubuntu-Paketinhalt, Rechte, Bootverhalten und Upgrade ohne Identity-/DB-Verlust geprüft; kein Debian-Skript in MLD kopiert. | **OFFEN** |
 | **F2.6 – Echte Abnahme mit skippy** | Einen installierten, SHA-identischen MLD-Testkandidaten nach Installationsfreigabe gemeinsam testen. Danach F1.4 Live-TV mit Start, Senderwechsel, Bild/Ton und Stop. | `FIRST_ADMIN=PASS`, `LOCAL_BACKEND_SETUP=PASS`, `AGENT_ONLINE=PASS`, `CHANNEL_OBSERVATION=PASS`, `LIVE_TV=PASS` auf echter MLD-Installation; Fehler getrennt dokumentieren. | **OFFEN** |
@@ -83,3 +83,31 @@ nach Browser-Claim**: Aufruf durch den MLD-Installer, MLD-spezifischer
 Dienstbenutzer und tatsächlich übereinstimmender Datenbankpfad/HTTPS-Origin
 sind unter F2.5 noch zu verbinden; das Registrieren über die Agent-Laufzeit,
 die Channel-Observation und der Autostart folgen in F2.3.
+
+### F2.3 Quellstand
+
+Der vorhandene installierte Helper besitzt jetzt eine installerinterne
+Fortsetzung `--activate-local` für ein **bereits vorbereitetes**
+Enrollment-Paket. Der Agent wird exakt einmal durch die bestehende
+`vdr-suite-backend-agent.service` gestartet (kein VDR-/Daemon-Neustart).
+Danach wird nicht bloß `systemctl` als Erfolg interpretiert: die
+vorhandene `--status`-Authority muss den registrierten, aktiven Agenten
+mit gültigem Backend-Health-Readback melden. Zusätzlich muss ein
+zu diesem Backend und Agenten passender aktueller
+`channelObservation`-Cursor mit mindestens einem Sender bestätigt
+sein. Erst anschließend darf der bestehende Boot-Aktivierungsweg
+`systemctl enable` ausführen; bei fehlender Beobachtung bleibt der
+Autostart unverändert.
+
+Der Test `test-mld-agent-first-run` deckt den positiven Ablauf,
+fehlende Kanal-Konfiguration, Readback-Mismatch und abgelaufenen
+Kanal-Cursor ohne echte systemd-Änderungen ab.
+
+**Weiter offen:** Die MLD-Paketierung muss vor Agentstart den
+**tatsächlichen** `CHANNELS_CONF_PATH` und
+`ADAPTERS=channels-conf` / `OBSERVATION_DOMAINS=backend-health,channels`
+eintragen. Die Paketvorlage schaltet diese Beobachtung absichtlich
+noch nicht standardmäßig ein. Der bestehende Helper nimmt keine
+unbekannten MLD-Pfade an. Der automatische, für Benutzer unsichtbare
+Installer-/Browser-Aufruf folgt in F2.4/F2.5; die echte MLD- und
+Neustart-Abnahme bleibt F2.6.
