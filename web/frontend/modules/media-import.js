@@ -3160,6 +3160,11 @@
         'Episodenbild für ' + title));
     artwork.appendChild(picture('fanart', fanart, 'Lokale Fanart für ' + title));
     card.appendChild(artwork);
+    // A technical preview describes the state BEFORE import. Once the user
+    // starts this source's operation the operation card owns the status.
+    const operationForSource = Boolean(view.attempt &&
+      view.attempt.sourceId === (source && source.sourceId || view.select.value));
+    const operationActive = operationForSource || Boolean(view.submitting);
     const state = !selected ? 'idle' :
       !plan ? (view.previewFailed ? 'failed' : 'pending') : plan.status;
     const stateText = state === 'ready'
@@ -3172,13 +3177,14 @@
           ? 'Technische Prüfung läuft' : 'Prüfergebnis wird geladen')
       : 'Folge aus der Liste auswählen';
     const actions = element('div', 'media-import-preview-actions');
-    actions.appendChild(element('div', 'media-import-preview-state is-' + state,
-      stateText));
+    if (!operationActive)
+      actions.appendChild(element('div', 'media-import-preview-state is-' + state,
+        stateText));
     if (state === 'failed' && view.previewStatus)
       actions.appendChild(element('p', 'media-import-preview-error',
         view.previewStatus));
     // Move the *existing* import button; never create a second click handler.
-    view.startButton.hidden = !selected || !plan ||
+    view.startButton.hidden = operationActive || !selected || !plan ||
       !['ready', 'insufficient'].includes(plan.status);
     actions.appendChild(view.startButton);
     // An already imported film may still exist as an unmarked source.
@@ -3495,7 +3501,10 @@
           '. ' + outcome;
       }
     }
-    const nextStep = !plan
+    const nextStep = view.attempt && view.attempt.sourceId === id
+      ? 'Der bestehende Auftrag wird im Vorgangsstatus angezeigt.'
+      : view.submitting ? 'Die Import-Anfrage wird übermittelt.'
+      : !plan
       ? 'Bitte das Ergebnis der automatischen Prüfung abwarten.'
       : ready && !needsEncode
         ? 'Nächster Schritt: „Diesen Film importieren“ anklicken und bestätigen.'
