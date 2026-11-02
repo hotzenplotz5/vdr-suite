@@ -134,12 +134,14 @@ observation and future boot activation. Blocks when not ready.
 Package-owned best-effort first-run: defer while prerequisites are unavailable.
 .TP
 .B --installer-onboard
-Root-only repeat-safe MLD package handoff; not a browser endpoint.
+Root-only repeat-safe shared package handoff for all supported distributions;
+not a browser endpoint.
 .TP
 .B --enable
 Enable boot startup after a fresh successful preflight. No service restart.
 .SH EXIT STATUS
-Zero for successful check/enable, nonzero if unsafe or incomplete.
+Zero for successful check/enable or explicitly deferred automatic setup;
+nonzero if a requested ready-state setup fails.
 Output never includes credentials or enrollment tokens.
 .SH SECURITY
 Identity state is reused in
