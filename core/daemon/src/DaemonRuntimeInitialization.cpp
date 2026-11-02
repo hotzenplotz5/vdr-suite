@@ -35,6 +35,7 @@
 #include "BackendAgentNativeTimerDeleteAssignment.h"
 #include <openssl/rand.h>
 #include <array>
+#include <cstdlib>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
