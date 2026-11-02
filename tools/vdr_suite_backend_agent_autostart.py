@@ -292,7 +292,8 @@ def channel_observation_source(path=CONFIG):
     if "channels-conf" not in adapters or "channels" not in domains:
         raise NotReady("Channel observation is not configured")
     source = Path(fields.get("CHANNELS_CONF_PATH", ""))
-    if not source.is_absolute() or source.is_symlink() or not source.is_file():
+    # MLD channels.conf may legitimately link to the selected channel list.
+    if not source.is_absolute() or not source.is_file():
         raise NotReady("configured VDR channel source is unavailable")
     return source
 
