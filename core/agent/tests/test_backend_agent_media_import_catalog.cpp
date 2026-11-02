@@ -149,6 +149,14 @@ int main()
             assert(reopened.requestPreview(persistentLive, "backend", 4000,
                 key, recovered, true) ==
                 BackendAgentMediaImportCatalog::PreviewState::pending);
+            // A new browser tab may read the previously completed inspection
+            // even while the Agent is refreshing NFO/capacity for that source.
+            // Ordinary polling still waits for the new Agent observation.
+            assert(reopened.requestPreview(persistentLive, "backend", 4000,
+                key, recovered, false, true) ==
+                BackendAgentMediaImportCatalog::PreviewState::ready);
+            assert(recovered.videoCodec == "hevc" &&
+                   recovered.availableBytes == 9000000000ULL);
             assert(reopened.nextPreviewRequest(persistentLive, "backend", 4000)
                 == key);
             std::string codecHint;
