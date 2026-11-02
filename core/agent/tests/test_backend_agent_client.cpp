@@ -145,6 +145,19 @@ void test_protected_url_and_configuration()
         "https://control-plane.example.test"));
     assert(!CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(
         "http://control-plane.example.test"));
+    // The only accepted plaintext endpoint is the packaged same-host daemon.
+    assert(CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(
+        "http://127.0.0.1:18080"));
+    for (const auto& invalid : {
+        "http://127.0.0.1:18081", "http://127.0.0.2:18080",
+        "http://localhost:18080", "http://[::1]:18080",
+        "http://127.0.0.1:18080/", "http://127.0.0.1:18080@evil.example",
+        "http://127.0.0.1:18080/api/agent/v1/enroll",
+        "http://192.168.1.10:18080"
+    })
+    {
+        assert(!CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(invalid));
+    }
     assert(!CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(
         "https://user@control-plane.example.test"));
 
