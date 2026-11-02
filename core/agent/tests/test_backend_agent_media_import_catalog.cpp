@@ -122,7 +122,7 @@ int main()
             assert(first.nextPreviewRequest(persistentLive, "backend", 100) == key);
             BackendAgentMediaImportCatalog::Preview verified{
                 key, "ready", "Film", "Fantasy/Film", "hevc",
-                2500000000ULL, 9000000000ULL, 5000000000ULL, false
+                2500000000ULL, 9000000000ULL, 5000000000ULL, false, {}, {}, {}, {}, {}, 0, {}, {}
             };
             verified.nfoPlot = "Film mit vollstaendigem VDR-Import";
             verified.durationSeconds = 6060;
@@ -157,7 +157,7 @@ int main()
                 manualId);
             BackendAgentMediaImportCatalog::Preview verified{
                 manualId, "ready", "Film", "Fantasy/Film", "h264",
-                1000, 9000, 2000, false
+                1000, 9000, 2000, false, {}, {}, {}, {}, {}, 0, {}, {}
             };
             assert(first.acceptPreview(persistentLive, "backend", 4002, verified));
             BackendAgentMediaImportCatalog reopened(database);
@@ -185,7 +185,7 @@ int main()
         assert(first == "source_00000000011");
         BackendAgentMediaImportCatalog::Preview firstReport{
             first, "ready", "Film 11", "Film 11", "h264",
-            1000, 8000000000ULL, 5000000000ULL, false};
+            1000, 8000000000ULL, 5000000000ULL, false, {}, {}, {}, {}, {}, 0, {}, {}};
         assert(idle.acceptPreview(live, "backend", 100, firstReport));
         assert(idle.nextPreviewRequest(live, "backend", 100) ==
             "source_00000000012");
@@ -260,7 +260,7 @@ int main()
     assert(catalog.nextPreviewRequest(live, "backend", 100) == newer);
     BackendAgentMediaImportCatalog::Preview stale{
         selected, "ready", "Alter Film", "Alt/Film", "h264", 1000,
-        8000000000ULL, 5000000000ULL, false};
+        8000000000ULL, 5000000000ULL, false, {}, {}, {}, {}, {}, 0, {}, {}};
     assert(!catalog.acceptPreview(live, "backend", 100, stale));
     assert(catalog.nextPreviewRequest(live, "backend", 100) == newer);
     assert(catalog.requestPreview(live, "backend", 100, selected, observed) ==
@@ -284,11 +284,11 @@ int main()
     assert(!catalog.acceptPreview(live, "backend", 100,
         BackendAgentMediaImportCatalog::Preview{
           selected, "ready", "Film", "../outside", "h264", 1000, 8000000000ULL,
-          5000000000ULL, false}));
+          5000000000ULL, false, {}, {}, {}, {}, {}, 0, {}, {}}));
     assert(!catalog.acceptPreview(live, "backend", 100,
         BackendAgentMediaImportCatalog::Preview{
           "source_00000000002", "ready", "Film", "Film", "h264",
-          1000, 8000000000ULL, 5000000000ULL, false}));
+          1000, 8000000000ULL, 5000000000ULL, false, {}, {}, {}, {}, {}, 0, {}, {}}));
     auto invalidArtwork = report;
     invalidArtwork.posterDataUri = "data:text/html;base64,PHNjcmlwdD4=";
     assert(!catalog.acceptPreview(live, "backend", 100, invalidArtwork));
@@ -347,7 +347,7 @@ int main()
         BackendAgentMediaImportCatalog::PreviewState::pending);
     const BackendAgentMediaImportCatalog::Preview duplicate{
         newer, "duplicate", "Film", "Serien/Andor/Film", "",
-        1000, 0, 0, false};
+        1000, 0, 0, false, {}, {}, {}, {}, {}, 0, {}, {}};
     assert(catalog.acceptPreview(live, "backend", 139, duplicate));
     assert(catalog.requestPreview(live, "backend", 139, newer, observed) ==
         BackendAgentMediaImportCatalog::PreviewState::ready);
