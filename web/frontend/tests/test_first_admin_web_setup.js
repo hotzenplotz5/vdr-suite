@@ -76,6 +76,10 @@ async function scenario(options) {
           ? response(403, {error: {code: 'lan_setup_only', message: 'Trusted LAN required'}})
           : response(201, {status: 'claimed'}));
       }
+      if (input === '/api/backends/default/health') {
+        return Promise.resolve(response(200, options.setupStatus
+          ? {localBackendSetup: {status: options.setupStatus}} : {backendId: 'default'}));
+      }
       if (input === '/api/security/browser-sessions') {
         if (options.badLogin) return Promise.resolve(response(401, {
           error: {code: 'invalid_credentials', message: 'Invalid credentials'}
@@ -180,6 +184,25 @@ async function scenario(options) {
   }
   assert.equal(context.VdrSuiteBrowserSession.isAuthenticated(), true);
   assert.equal(dialog.open, false);
+  await settle();
+  const panel = document.getElementById('vdr-suite-local-backend-setup');
+  assert(panel, 'first-admin flow must use the existing setup page');
+  const backendChecks = requests.filter(r => r.input === '/api/backends/default/health');
+  assert.equal(backendChecks.length, 1);
+  assert.equal(backendChecks[0].config.method, 'GET');
+  assert.equal(backendChecks[0].config.credentials, 'same-origin');
+  assert.equal(backendChecks[0].config.cache, 'no-store');
+  if (options.setupStatus && options.setupStatus !== 'ready') {
+    assert.equal(panel.hidden, false);
+    assert.match(panel.children[1].textContent, /Backend|Senderliste|Verbindung/);
+    assert.equal(panel.children[2].textContent, 'Erneut prüfen');
+    await panel.children[2].fire('click');
+    await settle();
+    assert.equal(requests.filter(r => r.input === '/api/backends/default/health').length, 2);
+    assert.equal(requests.filter(r => r.input === '/api/security/first-admin/claim').length, 1);
+  } else {
+    assert.equal(panel.hidden, true);
+  }
 }
 
 (async () => {
@@ -187,6 +210,9 @@ async function scenario(options) {
   await scenario({unclaimed: false, hostname: '192.168.178.20'});
   await scenario({unclaimed: true, hostname: 'mld.local', denied: true});
   await scenario({unclaimed: true, hostname: '192.168.178.20', badLogin: true});
+  await scenario({unclaimed: true, hostname: '192.168.178.20', setupStatus: 'unregistered'});
+  await scenario({unclaimed: true, hostname: '192.168.178.20', setupStatus: 'channels_pending'});
+  await scenario({unclaimed: true, hostname: '192.168.178.20', setupStatus: 'ready'});
   console.log('FIRST_ADMIN_WEB_SETUP=PASS');
 })().catch(error => {
   console.error(error);
