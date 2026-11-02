@@ -3081,13 +3081,18 @@
     if (source && view.onlineKind === 'series') autoIdentifyEpisode(view, source);
     // Display the last result immediately, then refresh adjacent metadata,
     // target state and free space without re-probing the unchanged video.
-    function poll() {
+    // First retrieve an existing Core/SQLite observation WITHOUT forcing a
+    // new Agent slot. A full browser reload has no JS cache, but the daemon
+    // can still return the completed check immediately. Only afterwards do
+    // we refresh volatile NFO/artwork/capacity for fingerprinted scan sources.
+    let dynamicRefreshRequested = Boolean(cached);
+    function poll(refresh) {
       if (!isCurrent(view) || generation !== view.previewGeneration ||
           view.select.value !== id) return;
       // Reuse the canonical Public-v1 client. No second ad-hoc fetch path.
       Promise.resolve(publicClient().getMediaImportSourcePreview({
         backendId: view.backendId, sourceId: id,
-        refresh: view.previewReads === 0,
+        refresh: refresh === true,
         credentials: 'same-origin', cache: 'no-store'
       })).then(function (data) {
         if (!isCurrent(view) || generation !== view.previewGeneration ||
@@ -3095,14 +3100,14 @@
         if (!data || data.backendId !== view.backendId ||
             data.sourceId !== id) throw new Error('Veraltete Vorschauantwort');
         if (data.state === 'pending') {
-          view.previewStatus = cached
+          view.previewStatus = view.previewResult
             ? 'Metadaten und Systemstatus werden aktualisiert …'
             : 'Film wird geprüft …';
           updatePreview(view);
           if (++view.previewReads < 40) {
             view.previewTimer = global.setTimeout(function () {
               view.previewTimer = null;
-              poll();
+              poll(false);
             }, 4000);
           } else {
             view.previewStatus = 'Zeitüberschreitung: Für die ausgewählte Quelle kam keine fertige Backend-Vorschau.';
@@ -3126,6 +3131,15 @@
           autoIdentifyMovie(view, source, data);
         updateBackgroundDisplay(view);
         scheduleBackgroundCheck(view, 100);
+        // The first successful response after a hard page reload can be a
+        // persisted Codec result. Show it BEFORE starting the cheap dynamic
+        // refresh. Poll the same slot while keeping the displayed result.
+        if (!dynamicRefreshRequested &&
+            /^scan_[0-9a-f]{32}$/.test(id) &&
+            (data.status === 'ready' || data.status === 'insufficient')) {
+          dynamicRefreshRequested = true;
+          poll(true);
+        }
         if (view.duplicateReviewPending && data.status !== 'duplicate') {
           // The target changed during reinspection; do not mark another file.
           view.duplicateQueue = [];
@@ -3161,7 +3175,7 @@
         scheduleBackgroundCheck(view, 100);
       });
     }
-    poll();
+    poll(Boolean(cached));
   }
 
   function humanBytes(n) {
