@@ -4,7 +4,7 @@ Branch: `work/mld66-skippy-feedback-20261027`.
 This is an **MLD recipe integration contract**, not an MLD package install
 or a verified skippy runtime result. The MLD BitBake recipe is **not stored
 in this repository**; it must explicitly adopt these source-level hooks.
-Ordinary Ubuntu/yaVDR installation and upgrades remain unchanged.
+The MLD recipe remains an adapter to the [shared distribution first-run staging contract](../../docs/planning/distribution-first-run-setup.md). Ubuntu/yaVDR installation and upgrades are still unchanged **at this source checkpoint**; implementing automatic onboarding for them is required next, not an intentional permanent exclusion.
 
 ## What the MLD recipe must do
 
@@ -17,7 +17,8 @@ reviewed `vdr-suite-backend-agent.service` unit.
 
 1. After the usual `make install-runtime DESTDIR=...` and
    `make install-systemd DESTDIR=...` staging steps, run the **opt-in**
-   `make stage-mld-first-run-config` target on that same separate
+   `make stage-mld-first-run-config` target (compatibility adapter for the shared
+   `make stage-distribution-first-run-config`) on that same separate
    `DESTDIR` with the actual installed MLD channel-selection path and
    a working HTTPS Control Plane origin. An optional trusted CA
    certificate path may be supplied when the system trust store does
