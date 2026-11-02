@@ -67,5 +67,31 @@ class DistributionFirstRunStageTests(unittest.TestCase):
             stage("/", "https://suite.example.org", "/var/lib/vdr/channels.conf")
 
 
+    def test_common_install_contract_wires_auto_first_run_for_deb_and_manual(self):
+        makefile = (ROOT / "mk/install.mk").read_text(encoding="utf-8")
+        manifest = (ROOT / "debian/vdr-suite-daemon.install").read_text(
+            encoding="utf-8")
+        daemon_unit = (ROOT / "packaging/systemd/vdr-suite-daemon.service").read_text(
+            encoding="utf-8")
+        first_run_unit = (ROOT / "packaging/systemd/vdr-suite-first-run.service").read_text(
+            encoding="utf-8")
+        first_run_path = (ROOT / "packaging/systemd/vdr-suite-first-run.path").read_text(
+            encoding="utf-8")
+        helper = (ROOT / "tools/vdr_suite_backend_agent_autostart.py").read_text(
+            encoding="utf-8")
+        for name in ("vdr-suite-first-run.service", "vdr-suite-first-run.path"):
+            with self.subTest(name=name):
+                self.assertIn("packaging/systemd/" + name, makefile)
+                self.assertIn("usr/lib/systemd/system/" + name, manifest)
+                self.assertIn(name, daemon_unit)
+        self.assertIn("ExecStart=/usr/sbin/vdr-suite-backend-agent-autostart --auto-first-run",
+                      first_run_unit)
+        self.assertIn("After=network-online.target vdr.service vdr-suite-daemon.service",
+                      first_run_unit)
+        self.assertIn("PathChanged=/etc/vdr-suite/backend-agent.conf", first_run_path)
+        self.assertIn('choice.add_argument("--auto-first-run"', helper)
+        self.assertIn("def automatic_first_run():", helper)
+
+
 if __name__ == "__main__":
     unittest.main()
