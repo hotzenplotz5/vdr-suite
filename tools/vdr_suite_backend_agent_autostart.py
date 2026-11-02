@@ -569,6 +569,7 @@ def configure_local_first_run():
                 prefix=".vdr-suite-first-run-", delete=False) as tmp:
             candidate = Path(tmp.name)
             os.fchmod(tmp.fileno(), stat.S_IMODE(details.st_mode))
+            os.fchown(tmp.fileno(), details.st_uid, details.st_gid)
             tmp.write("".join(next_lines))
             tmp.flush()
             os.fsync(tmp.fileno())
@@ -592,6 +593,11 @@ def automatic_first_run():
     if os.geteuid() != 0:
         raise NotReady("root required for automatic first-run")
     state = first_run_agent_state()
+    if state == "IDENTITY_PRESENT":
+        # Existing installations must not be started or re-enrolled during
+        # a daemon reboot or an ordinary upgrade. Explicit installer-onboard
+        # remains available for a deliberately resumed incomplete install.
+        return "ALREADY_CONFIGURED"
     if state == "CONFIGURATION_REQUIRED":
         # A fresh package can contain a placeholder origin and no selected
         # channels. Reuse its existing local daemon without any TLS proxy.
