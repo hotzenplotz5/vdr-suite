@@ -3,7 +3,7 @@
 vdr-suite-backend-agent-autostart \- enable an already enrolled Backend Agent at boot
 .SH SYNOPSIS
 .B vdr-suite-backend-agent-autostart
-.RB ( --check | --enable | --setup-status )
+.RB ( --check | --enable | --setup-status | --prepare-enrollment )
 .SH DESCRIPTION
 A protected post-enrollment setup step. The experimental package installs
 this command but deliberately does not invoke it in
@@ -37,6 +37,20 @@ a same-host Control Plane and Agent: a remote Agent with no local Control
 Plane status database must not bypass the guard. Remote activation requires
 a separately reviewed remote readiness integration.
 .PP
+.B --prepare-enrollment
+is an internal, root-only step for a trusted first-run installer on a
+single local VDR. It uses the configured Backend ID and existing
+.B vdr-suite-backend-agent-enroll
+utility to create one protected enrollment package in the pre-existing
+Agent state directory, then grants the packaged Agent account access to
+that package. It requires a configured trusted HTTPS Control Plane, the
+existing local Control Plane database, an inactive Agent and no existing
+identity or enrollment. It never starts services, overwrites an
+identity, issues a second enrollment during retry, or prints the token.
+Creating the package is not the same as completing Agent enrollment.
+The installer must arrange service start and successful Agent readback
+as a later separate step.
+.PP
 .B --enable
 requires root and the same successful preflight immediately before enabling
 the already running service for future boots. It invokes
@@ -60,6 +74,10 @@ Safe preflight; never change systemd startup links.
 .TP
 .B --setup-status
 Read-only local VDR/Agent first-run classification; no enrollment or service changes.
+.TP
+.B --prepare-enrollment
+Installer-only local first-run package preparation. Mutates local Agent
+enrollment state; it does not start services.
 .TP
 .B --enable
 Enable boot startup after a fresh successful preflight. No service restart.
