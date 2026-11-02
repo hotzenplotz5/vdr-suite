@@ -17,6 +17,19 @@ LIVE_ROOT ?= /
 
 install: install-runtime install-cli install-docs install-manpages install-systemd
 
+# Only the MLD package recipe invokes this on a separate DESTDIR tree.
+# The regular Ubuntu/yaVDR install target remains unchanged.
+MLD_FIRST_RUN_CONTROL_PLANE_URL ?=
+MLD_FIRST_RUN_CHANNELS_CONF_PATH ?= /etc/vdr/channels.conf
+
+.PHONY: stage-mld-first-run-config
+stage-mld-first-run-config:
+	python3 tools/mld66_stage_first_run.py \
+		--stage-root "$(DESTDIR)" \
+		--control-plane-url "$(MLD_FIRST_RUN_CONTROL_PLANE_URL)" \
+		--channels-source "$(MLD_FIRST_RUN_CHANNELS_CONF_PATH)"
+
+
 build-runtime-binaries: daemon backend-agent backend-agent-enrollment backend-agent-admin backend-agent-command-admin first-admin-bootstrap-issuer human-account-recovery
 
 build-cli-binaries: dashboard-cli
