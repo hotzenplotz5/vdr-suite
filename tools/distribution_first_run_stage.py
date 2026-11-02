@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 from vdr_suite_backend_agent_autostart import NotReady, read_config
 
 PLACEHOLDER = "https://control-plane.example.invalid"
+LOCAL_ORIGIN = "http://127.0.0.1:18080"
 AGENT_REL = Path("etc/vdr-suite/backend-agent.conf")
 DAEMON_REL = Path("etc/default/vdr-suite-daemon")
 
@@ -35,8 +36,14 @@ def checked_staging_file(root, rel):
 
 
 def validated_origin(url):
-    if not url or any(c.isspace() or ord(c) < 32 for c in url):
-        raise NotReady("package must supply a trusted HTTPS Control Plane origin")
+    # Fresh same-host installations use the installed Daemon directly.
+    # All non-loopback Control Plane origins still require trusted HTTPS.
+    if not url:
+        return LOCAL_ORIGIN
+    if url == LOCAL_ORIGIN:
+        return url
+    if any(c.isspace() or ord(c) < 32 for c in url):
+        raise NotReady("invalid Control Plane origin")
     try:
         parsed = urlsplit(url)
         # No implicit remote host, credentials, paths, query, or fragments.
@@ -200,10 +207,11 @@ def stage(root, origin, channels, ca_certificate_path=None):
 def main(status_prefix="DISTRIBUTION_FIRST_RUN_STAGE"):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage-root", required=True)
-    parser.add_argument("--control-plane-url", required=True)
+    parser.add_argument("--control-plane-url", default="",
+                        help="optional HTTPS origin; default: local VDR-Suite daemon")
     parser.add_argument("--channels-source", required=True)
     parser.add_argument("--ca-certificate-path", default="",
-                        help="optional existing MLD-installed trusted CA file")
+                        help="optional existing trusted CA certificate for remote HTTPS")
     args = parser.parse_args()
     try:
         stage(args.stage_root, args.control_plane_url, args.channels_source,
