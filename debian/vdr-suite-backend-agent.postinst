@@ -1,0 +1,17 @@
+#!/bin/sh
+set -e
+
+# Package ordering is not fixed: if Agent arrives after Daemon, revisit
+# local first-run once. The shared service does the actual onboarding.
+# Never start or enable an unenrolled Agent directly.
+if [ "$1" = configure ] && [ -z "${2:-}" ] && [ -d /run/systemd/system ]; then
+    if command -v systemctl >/dev/null 2>&1 && \
+       systemctl -q is-active vdr-suite-daemon.service; then
+        if command -v deb-systemd-invoke >/dev/null 2>&1; then
+            deb-systemd-invoke start vdr-suite-first-run.service >/dev/null || true
+        fi
+    fi
+fi
+
+#DEBHELPER#
+exit 0
