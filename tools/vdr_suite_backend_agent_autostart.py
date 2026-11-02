@@ -395,6 +395,51 @@ def activate_local_agent():
 
 
 
+
+def installer_onboard_local():
+    """One installer-owned, resumable step; no browser/daemon privileges.
+
+    MLD calls this only after the package has installed the reviewed Agent
+    unit, real HTTPS Control Plane and selected channels.conf. It never
+    creates a second enrollment or changes an existing Agent identity.
+    """
+    if os.geteuid() != 0:
+        raise NotReady("root required for package-owned local onboarding")
+    state = first_run_agent_state()
+    if state not in ("ENROLLMENT_REQUIRED", "ENROLLMENT_PENDING",
+                     "IDENTITY_PRESENT"):
+        raise NotReady("local VDR/Agent installation is not ready: " + state)
+    if read_config() != "default":
+        raise NotReady("automatic local setup requires the default Backend")
+    channel_observation_source()
+
+    if state == "IDENTITY_PRESENT":
+        # Repeated package configuration is an authenticated readback, not a
+        # request to enroll again, start/restart services, or replace state.
+        unit_state, agent_id, backend = preflight()
+        check_channel_observation(backend, agent_id)
+        if unit_state == "disabled":
+            # Re-check the same identity and observations immediately before
+            # touching the boot policy.
+            next_state, next_agent, next_backend = preflight()
+            if (next_state != "disabled" or next_agent != agent_id or
+                    next_backend != backend):
+                raise NotReady("Agent changed before boot enable")
+            check_channel_observation(backend, agent_id)
+            command(["systemctl", "enable", UNIT])
+        if (command(["systemctl", "is-enabled", UNIT]) != "enabled" or
+                command(["systemctl", "is-active", UNIT]) != "active"):
+            raise NotReady("Agent boot/runtime state not confirmed")
+        return "READY"
+
+    if state == "ENROLLMENT_REQUIRED":
+        # A successful first call leaves an enrollment file, so retrying
+        # cannot issue a second token or re-register the same Backend.
+        prepare_local_enrollment()
+    return activate_local_agent()
+
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     choice = parser.add_mutually_exclusive_group(required=True)
@@ -408,8 +453,13 @@ def main():
                         help="installer-only: prepare one-time local enrollment")
     choice.add_argument("--activate-local", action="store_true",
                         help="installer-only: start enrolled local Agent, confirm Channels, enable boot")
+    choice.add_argument("--installer-onboard", action="store_true",
+                        help="installer-only: resume local Agent enrollment and activation once")
     args = parser.parse_args()
     try:
+        if args.installer_onboard:
+            print("LOCAL_BACKEND_SETUP=" + installer_onboard_local())
+            return 0
         if args.activate_local:
             print("LOCAL_BACKEND_SETUP=" + activate_local_agent())
             return 0
