@@ -2670,6 +2670,28 @@ function publishHomeResume() {}
     'unchanged episode refreshes non-codec facts after catalog rescan');
   assert(findClass(mount, 'media-import-preview-state').textContent.includes(
     'Direktimport möglich'), 'cached direct-import readiness appears instantly');
+  // Metadata and free capacity change while the video fingerprint is fixed.
+  // Reselecting the same film must fetch the new volatile values.
+  const oldCapacityFact = findClass(mount, 'media-import-preview-facts').children
+    .find(function (fact) { return fact.children[0].textContent === 'Freier Platz'; });
+  assert(oldCapacityFact, 'capacity fact exists before the refresh');
+  const oldCapacity = oldCapacityFact.children[1].textContent;
+  previewAvailableBytes = 6000000000;
+  previewNfoPlot = 'NFO wurde nach dem ersten Codec-Check aktualisiert.';
+  const metadataChecksBefore = checksFor(SOURCE);
+  reloadedEpisodes.listeners.change();
+  await settle();
+  assert.strictEqual(checksFor(SOURCE), metadataChecksBefore + 1,
+    'same source requests current metadata and capacity exactly once');
+  const newCapacityFact = findClass(mount, 'media-import-preview-facts').children
+    .find(function (fact) { return fact.children[0].textContent === 'Freier Platz'; });
+  assert(newCapacityFact.children[1].textContent !== oldCapacity,
+    'changed free space is shown without changing the video source ID');
+  assert(findClass(mount, 'media-import-preview').textContent.includes(
+    'NFO wurde nach dem ersten Codec-Check aktualisiert.'),
+    'changed adjacent NFO appears without changing the video source ID');
+  previewAvailableBytes = 12000000000;
+  previewNfoPlot = 'Eine Handlung aus der tatsächlichen .nfo-Datei.';
   const beforeManualRecheck = checksFor(SOURCE);
   await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
