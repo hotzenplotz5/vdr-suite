@@ -1482,7 +1482,7 @@ public:
     };
     using MediaImportPreviewLookup = std::function<MediaImportPreviewResult(
         const std::string& actorId, const std::string& backendId,
-        const std::string& sourceId)>;
+        const std::string& sourceId, bool refresh)>;
 
     using MediaImportCapabilityLookup =
         std::function<bool(const std::string& actorId,
@@ -1737,7 +1737,7 @@ public:
     void resetMediaImportPreviewLookup();
     MediaImportPreviewResult lookupMediaImportPreview(
         const std::string& actorId, const std::string& backendId,
-        const std::string& sourceId) const;
+        const std::string& sourceId, bool refresh = false) const;
 
     void registerMediaImportCapabilityLookup(MediaImportCapabilityLookup lookup);
     void resetMediaImportCapabilityLookup();
