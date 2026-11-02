@@ -5,7 +5,8 @@ Boot activation performs no enrollment or service start/restart. An optional\nin
 Agent admin --status utility performs its normal repository initialization.
 Current readiness lookup requires a same-host Control Plane database; remote
 Agent hosts fail closed until their authenticated status path is implemented.
-Called by the operator's post-enrollment setup flow, never by dpkg postinst.
+The intended caller is the installed distribution's trusted first-run setup;
+package wiring is not yet complete for all supported distributions.
 """
 import argparse
 import json
@@ -399,9 +400,11 @@ def activate_local_agent():
 def installer_onboard_local():
     """One installer-owned, resumable step; no browser/daemon privileges.
 
-    MLD calls this only after the package has installed the reviewed Agent
-    unit, real HTTPS Control Plane and selected channels.conf. It never
-    creates a second enrollment or changes an existing Agent identity.
+    Every supported distribution should call this after installing the
+    packaged Agent unit and configuring its actual HTTPS Control Plane and
+    channels.conf. It never creates a second enrollment or changes an
+    existing Agent identity. Distribution-specific automatic triggers
+    remain packaging integration work.
     """
     if os.geteuid() != 0:
         raise NotReady("root required for package-owned local onboarding")
