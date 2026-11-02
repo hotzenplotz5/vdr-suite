@@ -197,7 +197,7 @@ def stage(root, origin, channels, ca_certificate_path=None):
     update_atomically(daemon, next_daemon)
 
 
-def main():
+def main(status_prefix="DISTRIBUTION_FIRST_RUN_STAGE"):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage-root", required=True)
     parser.add_argument("--control-plane-url", required=True)
@@ -209,9 +209,9 @@ def main():
         stage(args.stage_root, args.control_plane_url, args.channels_source,
               args.ca_certificate_path)
     except (NotReady, OSError, UnicodeError) as exc:
-        print("DISTRIBUTION_FIRST_RUN_STAGE=BLOCKED: " + str(exc), file=sys.stderr)
+        print(status_prefix + "=BLOCKED: " + str(exc), file=sys.stderr)
         return 1
-    print("DISTRIBUTION_FIRST_RUN_STAGE=PASS")
+    print(status_prefix + "=PASS")
     return 0
 
 
