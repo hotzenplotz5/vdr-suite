@@ -2081,9 +2081,10 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
     vdrsuite::mediatools::MediaImportSourcePreview selectedPreview;
     bool partial = true;
     if (installed.sha256.empty() ||
-        !config_.mediaImportExecutor->listTrustedSourceObservation(
+        !config_.mediaImportExecutor->listTrustedSourceObservationCached(
             ids, described, partial, pendingMediaImportPreviewSourceId_,
-            selectedPreview)) {
+            pendingMediaImportPreviewCodecHint_,
+            pendingMediaImportPreviewDurationHint_, selectedPreview)) {
         ids.clear(); // Withdrawal/unreadable ledger removes all listings.
         described.clear();
         partial = true;
@@ -2230,6 +2231,8 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
         return false;
     }
     pendingMediaImportPreviewSourceId_.clear();
+    pendingMediaImportPreviewCodecHint_.clear();
+    pendingMediaImportPreviewDurationHint_ = 0;
     std::string requestedPreview;
     if (jsonString(response.body, "previewSourceId", requestedPreview) &&
         requestedPreview.size() >= 16U && requestedPreview.size() <= 64U &&
@@ -2238,7 +2241,23 @@ bool BackendAgentClientRuntime::publishMediaImportSourceObservation(
                 return std::isalnum(c) || c == '-' || c == '_';
             }) &&
         std::find(ids.begin(), ids.end(), requestedPreview) != ids.end())
+    {
         pendingMediaImportPreviewSourceId_ = requestedPreview;
+        std::string codec;
+        std::uint64_t duration = 0;
+        if (requestedPreview.rfind("scan_", 0) == 0 &&
+            jsonString(response.body, "previewCodecHint", codec) &&
+            !codec.empty() && codec.size() <= 64 &&
+            std::all_of(codec.begin(), codec.end(), [](unsigned char c) {
+                return (c >= 'a' && c <= 'z') ||
+                    (c >= '0' && c <= '9') || c == '_';
+            }) &&
+            jsonUnsigned(response.body, "previewDurationHint", duration) &&
+            duration <= 4294967295ULL) {
+            pendingMediaImportPreviewCodecHint_ = codec;
+            pendingMediaImportPreviewDurationHint_ = duration;
+        }
+    }
     return true;
 }
 
