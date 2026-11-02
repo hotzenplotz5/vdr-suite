@@ -1853,7 +1853,8 @@
         }
         return request(mediaImportPath(value,
           'media-import-sources/' + value.sourceId + '/preview') +
-          (value.refresh === true ? '?refresh=1' : ''), value);
+          (value.refresh === true ? '?refresh=1' :
+            value.cached === true ? '?cached=1' : ''), value);
       },
       submitMediaImport(options) {
         return requestMediaImport(options);
