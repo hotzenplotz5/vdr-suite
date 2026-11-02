@@ -414,10 +414,41 @@ def installer_onboard_local():
     channel_observation_source()
 
     if state == "IDENTITY_PRESENT":
-        # Repeated package configuration is an authenticated readback, not a
-        # request to enroll again, start/restart services, or replace state.
-        unit_state, agent_id, backend = preflight()
-        check_channel_observation(backend, agent_id)
+        # A power loss after enrollment can leave the protected identity on
+        # disk while the service was never enabled. Resume that exact identity
+        # through the reviewed package unit; NEVER create another enrollment.
+        unit = properties()
+        if (unit["LoadState"] != "loaded" or
+                unit["UnitFileState"] not in ("disabled", "enabled") or
+                unit["User"] != "vdr" or unit["Group"] != "vdr" or
+                unit["DropInPaths"] or
+                unit["FragmentPath"] not in (
+                    "/usr/lib/systemd/system/" + UNIT,
+                    "/lib/systemd/system/" + UNIT) or
+                AGENT_BIN not in unit["ExecStart"] or
+                "--config " + str(CONFIG) not in unit["ExecStart"] or
+                unit["ActiveState"] not in ("active", "inactive")):
+            raise NotReady("existing Agent service differs from reviewed unit")
+        agent_id, existing_backend = check_identity()
+        if existing_backend != "default":
+            raise NotReady("existing identity belongs to another Backend")
+        if unit["ActiveState"] == "inactive":
+            command(["systemctl", "start", UNIT])
+        # The previous process may still be establishing its first lease and
+        # Channel observation. Neither a transient offline state nor a
+        # running service is sufficient proof of readiness.
+        deadline = time.monotonic() + 90
+        while True:
+            try:
+                unit_state, current_agent, backend = preflight()
+                if current_agent != agent_id or backend != existing_backend:
+                    raise NotReady("existing Agent identity changed")
+                check_channel_observation(backend, current_agent)
+                break
+            except NotReady:
+                if time.monotonic() >= deadline:
+                    raise NotReady("existing Agent did not become ready")
+                time.sleep(2)
         if unit_state == "disabled":
             # Re-check the same identity and observations immediately before
             # touching the boot policy.
