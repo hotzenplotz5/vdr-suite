@@ -3012,17 +3012,19 @@
     const cached = view.previewCache.get(id);
     if (cached) {
       view.previewResult = cached;
-      view.previewStatus = 'Technische Prüfung aus diesem Scan wiederverwendet.';
+      view.previewStatus = 'Codec gespeichert; Metadaten und Systemstatus werden aktualisiert …';
       updatePreview(view);
     }
     if (source && view.onlineKind === 'series') autoIdentifyEpisode(view, source);
-    if (cached) return;
+    // Display the last result immediately, then refresh adjacent metadata,
+    // target state and free space without re-probing the unchanged video.
     function poll() {
       if (!isCurrent(view) || generation !== view.previewGeneration ||
           view.select.value !== id) return;
       // Reuse the canonical Public-v1 client. No second ad-hoc fetch path.
       Promise.resolve(publicClient().getMediaImportSourcePreview({
         backendId: view.backendId, sourceId: id,
+        refresh: view.previewReads === 0,
         credentials: 'same-origin', cache: 'no-store'
       })).then(function (data) {
         if (!isCurrent(view) || generation !== view.previewGeneration ||
