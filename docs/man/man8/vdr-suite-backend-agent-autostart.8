@@ -74,10 +74,11 @@ distribution installer. It requires the existing packaged local service,
 a configured real HTTPS Control Plane, the observed VDR channel source,
 and the running VDR and daemon. On fresh state it prepares one enrollment
 and activates the Agent. With an existing pending enrollment it resumes
-activation without issuing another token. With an existing identity and
-running Agent it verifies the authenticated backend and Channel readback
-without re-enrollment, and enables boot startup only if needed.
-An existing inactive enrolled Agent is not automatically restarted.
+activation without issuing another token. With an existing protected identity it checks the reviewed package
+unit and non-secret identity fields, resumes an inactive Agent only after
+these match, and requires authenticated Backend and Channel readback
+without re-enrollment before enabling boot startup. Unknown units
+and mismatched identities are never started.
 The MLD package recipe must invoke this entrypoint at the correct
 install/first-boot point. Normal Ubuntu/yaVDR installations do not invoke
 it, and the frontend never runs it.
@@ -92,9 +93,9 @@ and never starts, stops or restarts VDR, the Agent or the daemon.
 It does not enroll a new identity, rotate or revoke credentials, alter
 existing Timers or replay historical Agent commands.
 .PP
-This is not an unattended installer: a trusted setup process or operator must
-invoke the command AFTER the existing enrollment completes. The current
-experimental package does not yet include an interactive first-run wizard.
+The Ubuntu/yaVDR package deliberately does not invoke this enrollment
+entrypoint. A trusted MLD first-run recipe may invoke it automatically
+without asking the browser or operator to run root commands.
 On systems with custom systemd unit drop-ins, unexpected binary locations,
 masked units or unverified state, perform a separate operator review instead
 of bypassing the safety checks.
