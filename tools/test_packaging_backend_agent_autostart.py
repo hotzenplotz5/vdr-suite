@@ -636,16 +636,16 @@ class AutostartTests(unittest.TestCase):
             config = root / "backend-agent.conf"
             channels = root / "channels.conf"
             channels.write_text("fixture channels")
+            identity = root / "identity"
+            enrollment = root / "enrollment"
             config.write_text(
                 "CONTROL_PLANE_URL=https://control-plane.example.invalid\\n"
                 "BACKEND_ID=default\\n"
-                "IDENTITY_PATH=" + subject.IDENTITY + "\\n"
-                "ENROLLMENT_PATH=" + subject.ENROLLMENT + "\\n"
+                "IDENTITY_PATH=" + str(identity) + "\\n"
+                "ENROLLMENT_PATH=" + str(enrollment) + "\\n"
                 "ADAPTERS=\\n"
                 "OBSERVATION_DOMAINS=backend-health\\n"
                 "CHANNELS_CONF_PATH=/var/lib/vdr/channels.conf\\n")
-            identity = root / "identity"
-            enrollment = root / "enrollment"
             with (
                 patch.object(subject, "CONFIG", config),
                 patch.object(subject, "IDENTITY", str(identity)),
