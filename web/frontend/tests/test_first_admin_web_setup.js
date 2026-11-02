@@ -216,7 +216,8 @@ async function scenario(options) {
     await panel.children[2].fire('click');
     await settle();
     assert.equal(requests.filter(r => r.input === '/api/backends/default/health').length, 2);
-    assert.equal(panel.hidden, !options.healthRecover);
+    // A recovered READY response hides the setup banner, not the reverse.
+    assert.equal(panel.hidden, Boolean(options.healthRecover));
     assert.equal(requests.filter(r => r.input === '/api/security/first-admin/claim').length, 1);
   } else if (options.setupStatus && options.setupStatus !== 'ready') {
     assert.equal(panel.hidden, false);
