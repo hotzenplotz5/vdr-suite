@@ -614,5 +614,61 @@ class AutostartTests(unittest.TestCase):
                         .is_file())
 
 
+    def test_automatic_first_run_defers_without_touching_existing_system(self):
+        for state in ("VDR_UNAVAILABLE", "DAEMON_UNAVAILABLE",
+                      "AGENT_NOT_INSTALLED", "CONFIGURATION_REQUIRED",
+                      "UNEXPECTED_AGENT_STATE"):
+            with self.subTest(state=state), (
+                patch.object(subject.os, "geteuid", return_value=0),
+                patch.object(subject, "first_run_agent_state", return_value=state),
+                patch.object(subject, "installer_onboard_local") as onboard,
+                patch.object(subject, "command") as execute,
+            ):
+                self.assertEqual(subject.automatic_first_run(), "DEFERRED_" + state)
+                onboard.assert_not_called()
+                execute.assert_not_called()
+
+    def test_automatic_first_run_deferred_on_missing_channels(self):
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="ENROLLMENT_REQUIRED"),
+            patch.object(subject, "read_config", return_value="default"),
+            patch.object(subject, "channel_observation_source",
+                         side_effect=subject.NotReady("not configured")),
+            patch.object(subject, "installer_onboard_local") as onboard,
+        ):
+            self.assertEqual(subject.automatic_first_run(),
+                             "DEFERRED_CONFIGURATION_REQUIRED")
+            onboard.assert_not_called()
+
+    def test_automatic_first_run_uses_same_existing_onboard_path(self):
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="ENROLLMENT_PENDING"),
+            patch.object(subject, "read_config", return_value="default"),
+            patch.object(subject, "channel_observation_source"),
+            patch.object(subject, "installer_onboard_local",
+                         return_value="READY") as onboard,
+            patch("sys.argv", ["helper", "--auto-first-run"]),
+            redirect_stdout(io.StringIO()) as output,
+        ):
+            self.assertEqual(subject.main(), 0)
+            self.assertIn("LOCAL_BACKEND_SETUP=READY", output.getvalue())
+            onboard.assert_called_once_with()
+
+    def test_automatic_first_run_does_not_run_unprivileged(self):
+        with (
+            patch.object(subject.os, "geteuid", return_value=1000),
+            patch.object(subject, "first_run_agent_state") as detect,
+            patch.object(subject, "installer_onboard_local") as onboard,
+        ):
+            with self.assertRaises(subject.NotReady):
+                subject.automatic_first_run()
+            detect.assert_not_called()
+            onboard.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
