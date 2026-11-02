@@ -614,6 +614,18 @@ class AutostartTests(unittest.TestCase):
                         .is_file())
 
 
+    def test_auto_first_run_preserves_existing_identity_service_policy(self):
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="IDENTITY_PRESENT"),
+            patch.object(subject, "configure_local_first_run") as config,
+            patch.object(subject, "installer_onboard_local") as onboard,
+        ):
+            self.assertEqual(subject.automatic_first_run(), "ALREADY_CONFIGURED")
+            config.assert_not_called()
+            onboard.assert_not_called()
+
     def test_automatic_first_run_configures_fresh_package_and_enrolls_once(self):
         with (
             patch.object(subject.os, "geteuid", return_value=0),
@@ -645,7 +657,7 @@ class AutostartTests(unittest.TestCase):
                 "ENROLLMENT_PATH=" + str(enrollment) + "\\n"
                 "ADAPTERS=\\n"
                 "OBSERVATION_DOMAINS=backend-health\\n"
-                "CHANNELS_CONF_PATH=/var/lib/vdr/channels.conf\\n")
+                "CHANNELS_CONF_PATH=\\n")
             with (
                 patch.object(subject, "CONFIG", config),
                 patch.object(subject, "IDENTITY", str(identity)),
