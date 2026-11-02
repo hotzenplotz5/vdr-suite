@@ -188,7 +188,7 @@ function reply(status, value, headers) {
 function transport(url, options) {
   const path = String(url).replace(/^https?:\/\/[^/]+/, '');
   requests.push({path, options});
-  const sourcePreview = /^\/api\/v1\/backends\/backend-a\/media-import-sources\/([A-Za-z0-9_-]{16,64})\/preview(?:\?refresh=1)?$/.exec(path);
+  const sourcePreview = /^\/api\/v1\/backends\/backend-a\/media-import-sources\/([A-Za-z0-9_-]{16,64})\/preview(?:\?(?:refresh|cached)=1)?$/.exec(path);
   if (sourcePreview) {
     const id = sourcePreview[1];
     if (previewMode === 'pending-refresh-once' && id === SCAN_ID &&
@@ -199,7 +199,7 @@ function transport(url, options) {
       }));
     }
     if (previewMode === 'pending-initial-scan-once' && id === SCAN_ID &&
-        path.endsWith('/preview')) {
+        path.endsWith('/preview?cached=1')) {
       previewMode = 'ready';
       return Promise.resolve(reply(202, {
         backendId: 'backend-a', sourceId: id, state: 'pending'
@@ -3325,7 +3325,7 @@ function publishHomeResume() {}
   });
   assert.strictEqual(scanGets.length, 2,
     'hard reload first fetches saved result, then refreshes NFO/capacity once');
-  assert(scanGets[0].path.endsWith('/preview') &&
+  assert(scanGets[0].path.endsWith('/preview?cached=1') &&
     scanGets[1].path.endsWith('/preview?refresh=1'),
     'SQLite-read GET MUST precede forced dynamic refresh GET');
   assert.strictEqual(findClass(mount, 'media-import-preview-state').textContent,
@@ -3357,8 +3357,8 @@ function publishHomeResume() {}
     return entry.path.includes('/' + SCAN_ID + '/preview');
   });
   assert.strictEqual(firstScanInitial.length, 1);
-  assert(firstScanInitial[0].path.endsWith('/preview'),
-    'first-time inspection starts as a normal lookup, not a forced refresh');
+  assert(firstScanInitial[0].path.endsWith('/preview?cached=1'),
+    'first-time inspection first tries the saved catalog, not forced refresh');
   const firstScanPoll = timerCallbacks[timerCallbacks.length - 1];
   firstScanPoll();
   await settle();
@@ -3368,7 +3368,7 @@ function publishHomeResume() {}
   assert.strictEqual(firstScanAll.length, 2,
     'initial pending inspection is polled once, not restarted');
   assert(firstScanAll.every(function (entry) {
-    return entry.path.endsWith('/preview');
+    return !entry.path.endsWith('/preview?refresh=1');
   }), 'completed first-time inspection must not trigger a redundant refresh=1');
   assert.strictEqual(findClass(mount, 'media-import-preview-state').textContent,
     'Direktimport möglich');
