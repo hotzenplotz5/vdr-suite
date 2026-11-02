@@ -5666,14 +5666,14 @@ void PublicApiRuntime::resetMediaImportPreviewLookup()
 PublicApiRuntime::MediaImportPreviewResult
 PublicApiRuntime::lookupMediaImportPreview(
     const std::string& actorId, const std::string& backendId,
-    const std::string& sourceId) const
+    const std::string& sourceId, bool refresh) const
 {
     MediaImportPreviewLookup lookup;
     {
         std::lock_guard<std::mutex> guard(mediaImportPreviewLookupMutex_);
         lookup = mediaImportPreviewLookup_;
     }
-    return lookup ? lookup(actorId, backendId, sourceId) :
+    return lookup ? lookup(actorId, backendId, sourceId, refresh) :
         MediaImportPreviewResult{};
 }
 
@@ -8960,14 +8960,15 @@ bool PublicApiRuntime::tryHandleGet(
             response = notFoundProblem(path, requestId, correlationId);
             return true;
         }
-        if (!requestQueryString(requestTarget).empty()) {
+        const auto query = requestQueryString(requestTarget);
+        if (!query.empty() && query != "refresh=1") {
             response = invalidRequestProblem(path,
-                "Media Import preview does not accept query parameters.",
+                "Media Import preview only supports refresh=1.",
                 requestId, correlationId);
             return true;
         }
         const auto result = lookupMediaImportPreview(
-            actorRef, previewBackendId, previewSourceId);
+            actorRef, previewBackendId, previewSourceId, query == "refresh=1");
         if (result.status == MediaImportPreviewStatus::forbidden) {
             response = problemResponse(403, "permission_denied", "Forbidden",
                 "Media Import preview is not authorized.", path,
