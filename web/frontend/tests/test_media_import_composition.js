@@ -880,9 +880,16 @@ function publishHomeResume() {}
   await findClass(mount, 'media-import-reload').listeners.click();
   await settle();
   const sherlockSelect = findClass(mount, 'media-import-source');
+  const sherlockRequestsBefore = onlineRequests.length;
   sherlockSelect.value = SOURCE;
   sherlockSelect.listeners.change();
   await settle();
+  const sherlockSearch = onlineRequests.slice(sherlockRequestsBefore)
+    .find(function (entry) { return entry.route.endsWith('/search'); });
+  assert(sherlockSearch &&
+    JSON.parse(sherlockSearch.options.body).query ===
+      'Sherlock Holmes A Game of Shadows',
+    'TMDb search strips filename separators without changing the real title');
   const sherlockPoster = findClass(
     findClass(mount, 'media-import-artwork-poster'),
     'media-import-artwork-image');
