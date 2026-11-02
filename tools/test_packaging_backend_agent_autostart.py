@@ -422,6 +422,101 @@ class AutostartTests(unittest.TestCase):
             with self.assertRaises(subject.NotReady):
                 subject.channel_observation_source(config)
 
+    def test_installer_onboard_prepares_once_then_activates(self):
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="ENROLLMENT_REQUIRED"),
+            patch.object(subject, "read_config", return_value="default"),
+            patch.object(subject, "channel_observation_source") as channels,
+            patch.object(subject, "prepare_local_enrollment") as prepare,
+            patch.object(subject, "activate_local_agent",
+                         return_value="READY") as activate,
+            patch("sys.argv", ["helper", "--installer-onboard"]),
+            redirect_stdout(io.StringIO()) as output,
+        ):
+            self.assertEqual(subject.main(), 0)
+            self.assertIn("LOCAL_BACKEND_SETUP=READY", output.getvalue())
+            channels.assert_called_once()
+            prepare.assert_called_once()
+            activate.assert_called_once()
+
+    def test_installer_onboard_pending_never_registers_twice(self):
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="ENROLLMENT_PENDING"),
+            patch.object(subject, "read_config", return_value="default"),
+            patch.object(subject, "channel_observation_source"),
+            patch.object(subject, "prepare_local_enrollment") as prepare,
+            patch.object(subject, "activate_local_agent",
+                         return_value="READY") as activate,
+        ):
+            self.assertEqual(subject.installer_onboard_local(), "READY")
+            prepare.assert_not_called()
+            activate.assert_called_once()
+
+    def test_installer_onboard_existing_identity_is_readback_only(self):
+        calls = []
+        def systemctl(argv):
+            calls.append(argv)
+            if argv[:2] == ["systemctl", "is-enabled"]:
+                return "enabled"
+            if argv[:2] == ["systemctl", "is-active"]:
+                return "active"
+            return ""
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="IDENTITY_PRESENT"),
+            patch.object(subject, "read_config", return_value="default"),
+            patch.object(subject, "channel_observation_source"),
+            patch.object(subject, "prepare_local_enrollment") as prepare,
+            patch.object(subject, "activate_local_agent") as activate,
+            patch.object(subject, "preflight",
+                         return_value=("enabled", "agt_existing", "default")),
+            patch.object(subject, "check_channel_observation") as observe,
+            patch.object(subject, "command", side_effect=systemctl),
+        ):
+            self.assertEqual(subject.installer_onboard_local(), "READY")
+            prepare.assert_not_called()
+            activate.assert_not_called()
+            observe.assert_called_once_with("default", "agt_existing")
+            self.assertEqual(calls, [
+                ["systemctl", "is-enabled", subject.UNIT],
+                ["systemctl", "is-active", subject.UNIT]
+            ])
+
+    def test_installer_onboard_requires_channels_and_local_topology(self):
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="ENROLLMENT_REQUIRED"),
+            patch.object(subject, "read_config", return_value="default"),
+            patch.object(subject, "channel_observation_source",
+                         side_effect=subject.NotReady("not configured")),
+            patch.object(subject, "prepare_local_enrollment") as prepare,
+        ):
+            with self.assertRaises(subject.NotReady):
+                subject.installer_onboard_local()
+            prepare.assert_not_called()
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="VDR_UNAVAILABLE"),
+            patch.object(subject, "prepare_local_enrollment") as prepare,
+        ):
+            with self.assertRaises(subject.NotReady):
+                subject.installer_onboard_local()
+            prepare.assert_not_called()
+        with (
+            patch.object(subject.os, "geteuid", return_value=1001),
+            patch.object(subject, "first_run_agent_state") as state,
+        ):
+            with self.assertRaises(subject.NotReady):
+                subject.installer_onboard_local()
+            state.assert_not_called()
+
     def test_package_stages_post_enrollment_helper_without_auto_start(self):
         root = SOURCE.parents[1]
         make = (root / "mk/install.mk").read_text(encoding="utf-8")
