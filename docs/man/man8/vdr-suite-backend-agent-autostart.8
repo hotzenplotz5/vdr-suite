@@ -3,7 +3,7 @@
 vdr-suite-backend-agent-autostart \- enable an already enrolled Backend Agent at boot
 .SH SYNOPSIS
 .B vdr-suite-backend-agent-autostart
-.RB ( --check | --enable | --setup-status | --prepare-enrollment | --activate-local )
+.RB ( --check | --enable | --setup-status | --prepare-enrollment | --activate-local | --installer-onboard )
 .SH DESCRIPTION
 A protected post-enrollment setup step. The experimental package installs
 this command but deliberately does not invoke it in
@@ -68,6 +68,20 @@ discover or rewrite the MLD-specific channel file location. That
 distribution configuration and the browser/installer trigger remain
 separate unfinished work.
 .PP
+.B --installer-onboard
+combines the already implemented local first-run actions for the trusted
+distribution installer. It requires the existing packaged local service,
+a configured real HTTPS Control Plane, the observed VDR channel source,
+and the running VDR and daemon. On fresh state it prepares one enrollment
+and activates the Agent. With an existing pending enrollment it resumes
+activation without issuing another token. With an existing identity and
+running Agent it verifies the authenticated backend and Channel readback
+without re-enrollment, and enables boot startup only if needed.
+An existing inactive enrolled Agent is not automatically restarted.
+The MLD package recipe must invoke this entrypoint at the correct
+install/first-boot point. Normal Ubuntu/yaVDR installations do not invoke
+it, and the frontend never runs it.
+.PP
 .B --enable
 requires root and the same successful preflight immediately before enabling
 the already running service for future boots. It invokes
@@ -99,6 +113,9 @@ enrollment state; it does not start services.
 .B --activate-local
 Installer-only Agent startup, authenticated readiness, fresh Channel
 observation and future boot activation. Blocks when not ready.
+.TP
+.B --installer-onboard
+Root-only repeat-safe MLD package handoff; not a browser endpoint.
 .TP
 .B --enable
 Enable boot startup after a fresh successful preflight. No service restart.
