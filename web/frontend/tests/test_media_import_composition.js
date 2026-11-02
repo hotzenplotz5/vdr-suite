@@ -2213,10 +2213,10 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-start').disabled);
   const retryUnavailable = findClass(mount, 'media-import-preview-retry');
   assert(retryUnavailable && !retryUnavailable.hidden && !retryUnavailable.disabled);
-  const getBeforeRetry = requests.filter(r => r.path.endsWith('/preview')).length;
+  const getBeforeRetry = requests.filter(r => r.path.includes('/preview')).length;
   await retryUnavailable.listeners.click();
   await settle();
-  assert.strictEqual(requests.filter(r => r.path.endsWith('/preview')).length,
+  assert.strictEqual(requests.filter(r => r.path.includes('/preview')).length,
     getBeforeRetry + 1, 'retry must inspect exactly the currently selected source');
   assert(findClass(mount, 'media-import-start').disabled,
     'unavailable remains blocked after a repeat inspection');
@@ -2224,7 +2224,7 @@ function publishHomeResume() {}
   // Usability First: while the read-only rescan is pending, the last
   // successful inventory and its selected episode remain usable. Only a
   // successfully validated replacement inventory resets the preview.
-  const beforeRetryReset = requests.filter(r => r.path.endsWith('/preview')).length;
+  const beforeRetryReset = requests.filter(r => r.path.includes('/preview')).length;
   const failedPreviewRescan = findClass(mount, 'media-import-reload').listeners.click();
   assert(!retryUnavailable.hidden && !retryUnavailable.disabled,
     'pending rescan preserves the old preview retry and episode selection');
@@ -2237,7 +2237,7 @@ function publishHomeResume() {}
   assert(retryUnavailable.hidden,
     'retry stays hidden until a new episode is selected and fails preview');
   await retryUnavailable.listeners.click();
-  assert.strictEqual(requests.filter(r => r.path.endsWith('/preview')).length,
+  assert.strictEqual(requests.filter(r => r.path.includes('/preview')).length,
     beforeRetryReset, 'a cleared selection does not issue an orphan preview');
   raceSelect.value = SOURCE;
 
