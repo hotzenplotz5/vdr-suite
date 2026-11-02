@@ -465,12 +465,22 @@ class AutostartTests(unittest.TestCase):
             if argv[:2] == ["systemctl", "is-active"]:
                 return "active"
             return ""
+        unit = {
+            "LoadState": "loaded", "ActiveState": "active",
+            "UnitFileState": "enabled", "User": "vdr", "Group": "vdr",
+            "DropInPaths": "",
+            "FragmentPath": "/usr/lib/systemd/system/" + subject.UNIT,
+            "ExecStart": subject.AGENT_BIN + " --config " + str(subject.CONFIG)
+        }
         with (
             patch.object(subject.os, "geteuid", return_value=0),
             patch.object(subject, "first_run_agent_state",
                          return_value="IDENTITY_PRESENT"),
             patch.object(subject, "read_config", return_value="default"),
             patch.object(subject, "channel_observation_source"),
+            patch.object(subject, "properties", return_value=unit),
+            patch.object(subject, "check_identity",
+                         return_value=("agt_existing", "default")),
             patch.object(subject, "prepare_local_enrollment") as prepare,
             patch.object(subject, "activate_local_agent") as activate,
             patch.object(subject, "preflight",
@@ -486,6 +496,75 @@ class AutostartTests(unittest.TestCase):
                 ["systemctl", "is-enabled", subject.UNIT],
                 ["systemctl", "is-active", subject.UNIT]
             ])
+
+    def test_installer_onboard_resumes_consumed_enrollment_after_power_loss(self):
+        # Enrollment was consumed and the identity stored, but the service
+        # was stopped before the first Channel observation and boot enable.
+        unit = {
+            "LoadState": "loaded", "ActiveState": "inactive",
+            "UnitFileState": "disabled", "User": "vdr", "Group": "vdr",
+            "DropInPaths": "",
+            "FragmentPath": "/lib/systemd/system/" + subject.UNIT,
+            "ExecStart": subject.AGENT_BIN + " --config " + str(subject.CONFIG)
+        }
+        calls = []
+        def execute(argv):
+            calls.append(argv)
+            if argv[:2] == ["systemctl", "is-enabled"]:
+                return "enabled"
+            if argv[:2] == ["systemctl", "is-active"]:
+                return "active"
+            return ""
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="IDENTITY_PRESENT"),
+            patch.object(subject, "read_config", return_value="default"),
+            patch.object(subject, "channel_observation_source"),
+            patch.object(subject, "properties", return_value=unit),
+            patch.object(subject, "check_identity",
+                         return_value=("agt_original", "default")),
+            patch.object(subject, "prepare_local_enrollment") as enroll,
+            patch.object(subject, "activate_local_agent") as activate,
+            patch.object(subject, "preflight",
+                         return_value=("disabled", "agt_original", "default")) as live,
+            patch.object(subject, "check_channel_observation") as channels,
+            patch.object(subject, "command", side_effect=execute),
+        ):
+            self.assertEqual(subject.installer_onboard_local(), "READY")
+            enroll.assert_not_called()
+            activate.assert_not_called()
+            self.assertEqual(live.call_count, 2)
+            self.assertEqual(channels.call_count, 2)
+            self.assertEqual(calls, [
+                ["systemctl", "start", subject.UNIT],
+                ["systemctl", "enable", subject.UNIT],
+                ["systemctl", "is-enabled", subject.UNIT],
+                ["systemctl", "is-active", subject.UNIT]
+            ])
+
+    def test_installer_onboard_refuses_unreviewed_identity_unit(self):
+        unit = {
+            "LoadState": "loaded", "ActiveState": "inactive",
+            "UnitFileState": "disabled", "User": "root", "Group": "root",
+            "DropInPaths": "",
+            "FragmentPath": "/usr/lib/systemd/system/" + subject.UNIT,
+            "ExecStart": subject.AGENT_BIN + " --config " + str(subject.CONFIG)
+        }
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="IDENTITY_PRESENT"),
+            patch.object(subject, "read_config", return_value="default"),
+            patch.object(subject, "channel_observation_source"),
+            patch.object(subject, "properties", return_value=unit),
+            patch.object(subject, "command") as command,
+            patch.object(subject, "prepare_local_enrollment") as enroll,
+        ):
+            with self.assertRaises(subject.NotReady):
+                subject.installer_onboard_local()
+            command.assert_not_called()
+            enroll.assert_not_called()
 
     def test_installer_onboard_requires_channels_and_local_topology(self):
         with (
