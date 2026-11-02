@@ -147,6 +147,54 @@ int main()
             assert(reopened.nextPreviewRequest(persistentLive, "backend", 4001) ==
                 changed);
         }
+        // A confirmed VDR recording retires its technical preview. When the
+        // source is later presented again, it must be inspected afresh.
+        {
+            BackendAgentMediaImportCatalog first(database);
+            assert(publish(first, key, 4100));
+            assert(first.nextPreviewRequest(persistentLive, "backend", 4100) == key);
+            BackendAgentMediaImportCatalog::Preview verified{
+                key, "ready", "Film", "Fantasy/Film", "hevc",
+                2500000000ULL, 9000000000ULL, 5000000000ULL, false,
+                {}, {}, {}, {}, {}, 0, {}, {}
+            };
+            assert(first.acceptPreview(persistentLive, "backend", 4100, verified));
+            assert(first.publish(actor, persistentLive, "backend", "instance", 7,
+                {key}, 4101, "manual", "0.1.0", approvedSha,
+                {"Film"}, false, {}, {"recording_present"}));
+            assert(first.nextPreviewRequest(persistentLive, "backend", 4101).empty());
+        }
+        {
+            BackendAgentMediaImportCatalog afterImport(database);
+            assert(publish(afterImport, key, 4102));
+            assert(afterImport.nextPreviewRequest(persistentLive, "backend", 4102)
+                == key);
+            BackendAgentMediaImportCatalog::Preview verified{
+                key, "ready", "Film", "Fantasy/Film", "h264",
+                1000, 9000, 2000, false, {}, {}, {}, {}, {}, 0, {}, {}
+            };
+            assert(afterImport.acceptPreview(persistentLive, "backend", 4102,
+                verified));
+            // Partial scans must not erase a checked film that was merely
+            // omitted by the 100-source inventory limit.
+            assert(afterImport.publish(actor, persistentLive,
+                "backend", "instance", 7, {changed}, 4103,
+                "manual", "0.1.0", approvedSha, {"Other"}, true));
+        }
+        {
+            BackendAgentMediaImportCatalog partial(database);
+            assert(publish(partial, key, 4104));
+            assert(partial.nextPreviewRequest(persistentLive, "backend", 4104).empty());
+            // A full successful scan that no longer contains the file removes
+            // its stored record, even if the source was never imported.
+            assert(partial.publish(actor, persistentLive, "backend", "instance", 7,
+                {}, 4105, "manual", "0.1.0", approvedSha, {}, false));
+        }
+        {
+            BackendAgentMediaImportCatalog absent(database);
+            assert(publish(absent, key, 4106));
+            assert(absent.nextPreviewRequest(persistentLive, "backend", 4106) == key);
+        }
         // Do not persist arbitrary, manually configured IDs whose tokens
         // cannot prove the original file's size/mtime/inode identity.
         {
