@@ -687,7 +687,7 @@ bool DaemonRuntime::initialize()
         });
     PublicApiRuntime::instance().registerMediaImportPreviewLookup(
         [this](const std::string& actorId, const std::string& backendId,
-               const std::string& sourceId, bool refresh)
+               const std::string& sourceId, bool refresh, bool cachedFirst)
         {
             using API = PublicApiRuntime;
             API::MediaImportPreviewResult out;
@@ -714,7 +714,7 @@ bool DaemonRuntime::initialize()
             if (!live) return out;
             BackendAgentMediaImportCatalog::Preview observed;
             const auto state = mediaImportCatalog_->requestPreview(
-                *live, backendId, now, sourceId, observed, refresh);
+                *live, backendId, now, sourceId, observed, refresh, cachedFirst);
             if (state ==
                 BackendAgentMediaImportCatalog::PreviewState::denied)
                 return out;
