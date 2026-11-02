@@ -79,9 +79,10 @@ unit and non-secret identity fields, resumes an inactive Agent only after
 these match, and requires authenticated Backend and Channel readback
 without re-enrollment before enabling boot startup. Unknown units
 and mismatched identities are never started.
-The MLD package recipe must invoke this entrypoint at the correct
-install/first-boot point. Normal Ubuntu/yaVDR installations do not invoke
-it, and the frontend never runs it.
+The package or first-boot integration for each supported distribution
+must invoke this entrypoint once its local configuration is ready.
+MLD staging has been implemented, but Ubuntu/yaVDR and other automatic
+first-run triggers are still missing. The frontend never runs it.
 .PP
 .B --enable
 requires root and the same successful preflight immediately before enabling
@@ -93,9 +94,11 @@ and never starts, stops or restarts VDR, the Agent or the daemon.
 It does not enroll a new identity, rotate or revoke credentials, alter
 existing Timers or replay historical Agent commands.
 .PP
-The Ubuntu/yaVDR package deliberately does not invoke this enrollment
-entrypoint. A trusted MLD first-run recipe may invoke it automatically
-without asking the browser or operator to run root commands.
+The current Ubuntu/yaVDR package does not yet invoke this enrollment
+entrypoint. This is an unfinished distribution-integration task rather
+than an intended product restriction. A trusted first-run integration on
+every supported distribution should invoke it automatically without
+asking the browser or operator to run root commands.
 On systems with custom systemd unit drop-ins, unexpected binary locations,
 masked units or unverified state, perform a separate operator review instead
 of bypassing the safety checks.
