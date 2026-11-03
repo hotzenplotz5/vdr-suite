@@ -1512,7 +1512,7 @@ BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
 
     // The separate source cleanup receipt changes the public Operation's
     // read model without changing the already succeeded VDR Operation state.
-    if (result.accepted && assignment.has_value() &&
+    if (result.accepted && !result.replayed && assignment.has_value() &&
         assignment->commandType == "addon.media.import.readback" &&
         mediaImportCleanupPublished_)
     {

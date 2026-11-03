@@ -1032,11 +1032,21 @@ int main()
     noticeResult.boundedDiagnostics =
         "VDR readback notice durably received; no source cleanup";
     noticeResult.completedAt = 131;
+    int cleanupNotifications = 0;
+    service.setMediaImportCleanupPublished(
+        [&](const std::string& operationId) {
+            assert(operationId == media.operationId);
+            ++cleanupNotifications;
+        });
     assert(service.result(
         context(ActorType::Agent, "actor_agent"), noticeResult, 131).accepted);
+    assert(cleanupNotifications == 1 &&
+           "durable cleanup result publishes exactly one Operation hint");
     const auto readbackReplay = service.result(
         context(ActorType::Agent, "actor_agent"), noticeResult, 132);
     assert(readbackReplay.accepted && readbackReplay.replayed);
+    assert(cleanupNotifications == 1 &&
+           "idempotent result replay must not emit a second hint");
     assert(sqlCount(db.handle(),
         "SELECT COUNT(*) FROM backend_agent_commands "
         "WHERE command_type='addon.media.import.readback';") == 1);
