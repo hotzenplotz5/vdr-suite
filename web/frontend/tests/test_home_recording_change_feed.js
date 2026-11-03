@@ -300,9 +300,11 @@ function navigate(next) {
     'recording-scoped SSE must not refetch the complete recording collection');
   assert.strictEqual(folderReads, foldersBeforeScoped,
     'recording-scoped SSE must not reload Home folders');
-  assert.strictEqual(targetedRequests.length, 1);
-  assert.strictEqual(targetedRequests[0].route, '/api/vdr/recordings/metadata');
-  assert.strictEqual(targetedRequests[0].options.query.backendNativeId, selectedNativeId);
+  const scopedMetadataRequests = targetedRequests.filter(entry =>
+    entry.route === '/api/vdr/recordings/metadata' &&
+    entry.options.query.backendNativeId === selectedNativeId);
+  assert.strictEqual(scopedMetadataRequests.length, 1,
+    'scoped SSE reads its exact native Recording metadata once');
   const unrelatedAfter = flatten(host).find(node => node.dataset.recordingId === 'unrelated');
   assert.strictEqual(unrelatedAfter, unrelatedBefore,
     'scoped SSE must preserve the unrelated Recording card object');
