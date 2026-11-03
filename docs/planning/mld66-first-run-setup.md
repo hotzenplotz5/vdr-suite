@@ -217,3 +217,65 @@ Der vorhandene universelle Onboarding-Code wird weiterverwendet; eine separate M
 Im VDR-Suite-Branch wurde der tatsächlich festgestellte Debian-/Ubuntu-Erstinstallationsfehler bei der systemd-Unit-Neuladung vor einem expliziten Paket-Hook-Start mit [Commit `46828dd6`](https://github.com/hotzenplotz5/vdr-suite/commit/46828dd62806dc571f17ddd7c2a91e09a559b07c) behoben. Isolierter Packaging-Regressionstest [CI 41592697774](https://github.com/hotzenplotz5/vdr-suite/actions/runs/41592697774): PASS; Start auf echtem systemd/VDR: **nicht nachgewiesen**.
 
 Für Skippys F2.6-Abnahme fehlen weiterhin das tatsächlich aktualisierte MLD-Rezept und dessen Paketbuild sowie auf einem MLD-Testhost ein automatischer Erststart ohne technische Benutzerschritte, Agent-Identity, gültige Health und Channel-Observation, Neustart/Upgrade ohne Identity-Verlust, Senderanzeige und funktionierendes Live-TV. Die nur lesende Diagnose `tools/mld66-live-readonly-diagnostics.sh` kann den ersten Zustand protokollieren, ersetzt die tatsächliche Browser- und Live-TV-Abnahme aber nicht.
+
+## F2.6 – Frische MLD-6.6-Installation: erster gemeldeter Ist-Zustand (03.11.2026)
+
+**Quelle/Evidenzniveau:** Vom MLD-Tester nach Neuinstallation gepostete
+read-only-Ausgaben der allgemeinen First-Run-Diagnose und
+`tools/mld66-live-readonly-diagnostics.sh`, plus Browser-/Paketbeobachtungen.
+Keine unabhängige Ausführung oder Rezeptprüfung durch VDR-Suite; kein
+`REAL-VDR=PASS`.
+
+- **System/Paket:** MLD 6.6.0 (`wrynose`), Kernel
+  `6.18.24-yocto-standard`, x86_64, Paket
+  `vdr-suite 0.14.11751-r0.0`. Der zugehörige Git-`SRCREV` wurde
+  nicht belegt. Ein fehlender Git-Checkout/BitBake-Rezeptfund in der
+  *Zielsystem*-Diagnose ist erwartbar und sagt nichts über das Buildsystem.
+- **Dienste:** `vdr.service` und `vdr-suite-daemon.service`
+  `loaded/active/enabled`; `vdr-suite-backend-agent.service`
+  `loaded/inactive/disabled`. Die für das gemeinsame automatische
+  Onboarding vorgesehenen `vdr-suite-first-run.service` und
+  `vdr-suite-first-run.path` sind **nicht installiert**
+  (`LoadState=not-found`). Damit fehlt der vorhandene systemd-
+  Erststartpfad im getesteten Paket; eine alternative wirksame
+  native Onboarding-Ausführung ist durch den beobachteten Zustand
+  ebenfalls nicht belegt.
+- **Registrierung:** Weder Agent-Identity noch Enrollment-Datei
+  vorhanden; der read-only SQLite-Blick ergab
+  `AGENT_DB=NO_ACTIVE_AGENT_ROWS`. Backend-Einrichtung und Live-TV
+  waren laut Tester weiterhin nicht verfügbar. Nicht einfach manuell
+  re-enrollen: zuerst die Paket- und Aktivierungsverdrahtung prüfen.
+- **Senderliste:** `/etc/vdr/channels.conf` ist ein Symlink auf
+  `channels/my_channels_hd.user.conf`; die Ubuntu-Alternative
+  `/var/lib/vdr/channels.conf` fehlt. Das allein ist **kein Fehler**:
+  `local_channels_path()` unterstützt bestehende Symlinks auf eine
+  nichtleere reguläre Senderliste. Ziel, Dateigröße und Lesbarkeit
+  wurden nicht geprüft; keine Symlink-Änderung ableiten.
+- **Daemon-Port:** Die read-only-`ss`-Filterung auf TCP-Listener
+  `:18080` lieferte keine Ausgabe, obwohl systemd den Daemon als
+  aktiv meldete. Effektiven Listener/Port und Prozesszuordnung vor
+  einer Aussage über lokale Control-Plane-Erreichbarkeit unabhängig
+  prüfen. Ein aktiver Unit-Status allein bestätigt die lokale API nicht.
+- **Zusätzliche Paket-/UI-Beobachtungen:** FFmpeg fehlte zunächst
+  laut Tester und wurde vor Admin-Anlage manuell installiert;
+  tatsächliches `RDEPENDS`/Feature-Abhängigkeitsprofil der
+  externen Rezeptur noch unbekannt. Nach erster Admin-Anlage blieb
+  die WebIf-Ansicht leer; erneutes Öffnen des MLD-Menüpunkts zeigte
+  die Suite-Startseite. Ursache (MLD-WebIf-Navigation oder Suite-
+  Frontend) offen, getrennt von Agent-Enrollment untersuchen.
+- **SVDRP:** `svdrpsend.sh` ist installiert; optionaler
+  `CAPS 1`-Aufruf wurde nicht angefordert. Die Quellwerkzeuge
+  unterstützen inzwischen die native `svdrpsend`- und
+  die MLD-`svdrpsend.sh`-Variante. Kein SuiteBridge-CAPS-
+  Erfolg aus dieser Diagnose ableitbar.
+
+**Direkt belegter nächster MLD-Schritt:** In der echten
+`meta-mld/wrynose-ng/meta/recipes-vdr/vdr-suite`-Rezeptur prüfen,
+warum die beiden Shared-First-Run-Units nicht ins Paket gelangten.
+Mit der bestehenden Shared-Staging-/Install-Vertragsfläche
+einbinden, ohne zweite MLD-Enrollmentschicht. Beim anschließenden
+Pakettest zuerst Unit-Dateien, Agent-Konfiguration,
+`/etc/vdr/channels.conf`-Ziel, tatsächlichen Daemon-Listener
+und automatischen Agent-/Channel-Readback belegen; FFmpeg und
+Browsernavigation separat verfolgen. **MLD_PACKAGE_FIX=OPEN;
+MLD_REBUILD=NOT_RUN; FIRST_RUN_REAL=FAILED/NOT_READY.**
