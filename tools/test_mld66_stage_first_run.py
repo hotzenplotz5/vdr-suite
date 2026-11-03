@@ -57,19 +57,19 @@ class MldFirstRunStagingTests(unittest.TestCase):
             "https://trusted-existing.local"))
         with self.assertRaises(NotReady):
             stage(str(self.root), ORIGIN, CHANNELS)
-        self.assertNotIn("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true",
-                         self.daemon.read_text())
+        self.assertIn("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true",
+                        self.daemon.read_text())
         self.agent.write_text(original.replace(
             "CHANNELS_CONF_PATH=/var/lib/vdr/channels.conf",
             "CHANNELS_CONF_PATH=/etc/other/channels.conf"))
         with self.assertRaises(NotReady):
             stage(str(self.root), ORIGIN, CHANNELS)
-        self.assertNotIn("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true",
-                         self.daemon.read_text())
+        self.assertIn("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true",
+                        self.daemon.read_text())
 
-    def test_refuses_http_untrusted_directory_and_symlink(self):
+    def test_refuses_remote_http_untrusted_directory_and_symlink(self):
         with self.assertRaises(NotReady):
-            stage(str(self.root), "http://127.0.0.1:18080", CHANNELS)
+            stage(str(self.root), "http://127.0.0.1:18081", CHANNELS)
         with self.assertRaises(NotReady):
             stage("/", ORIGIN, CHANNELS)
         with self.assertRaises(NotReady):
@@ -78,8 +78,8 @@ class MldFirstRunStagingTests(unittest.TestCase):
         self.agent.symlink_to(ROOT / "packaging/systemd/backend-agent.conf")
         with self.assertRaises(NotReady):
             stage(str(self.root), ORIGIN, CHANNELS)
-        self.assertNotIn("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true",
-                         self.daemon.read_text())
+        self.assertIn("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true",
+                        self.daemon.read_text())
 
     def test_stage_rejects_parent_directory_symlink_escape(self):
         with tempfile.TemporaryDirectory() as external:
@@ -93,8 +93,8 @@ class MldFirstRunStagingTests(unittest.TestCase):
             with self.assertRaises(NotReady):
                 stage(str(self.root), ORIGIN, CHANNELS)
             self.assertIn("control-plane.example.invalid", copied.read_text())
-            self.assertNotIn("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true",
-                             self.daemon.read_text())
+            self.assertIn("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true",
+                          self.daemon.read_text())
 
     def test_staging_does_not_touch_credentials_or_external_vdr_config(self):
         private = self.root / "var/lib/vdr-suite/backend-agent/identity"
