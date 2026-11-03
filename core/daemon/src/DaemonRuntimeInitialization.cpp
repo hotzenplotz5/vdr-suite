@@ -1669,9 +1669,11 @@ bool DaemonRuntime::initialize()
 
     ManualRecordingMetadataApiRuntime::instance()
         .registerRecordingPresentationChangedCallback(
-            [this](const std::string& backendId)
+            [this](const std::string& backendId,
+                   const std::string& recordingNativeId)
             {
-                recordingPresentationChangeQueue_.request(backendId);
+                recordingPresentationChangeQueue_.request(
+                    backendId, recordingNativeId);
             });
 
     // After the existing authenticated assignment, resolve its native
