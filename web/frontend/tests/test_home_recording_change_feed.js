@@ -327,6 +327,7 @@ function navigate(next) {
     card.__vdrSuiteSeries && card.__vdrSuiteSeries.title === 'Foundation');
   const andorCard = andor();
   const foundationCard = foundation();
+  const andorArtwork = andorCard && andorCard.children[0];
   assert(andorCard && foundationCard);
   const foundationArtwork = foundationCard.children[0];
   seriesRail.scrollLeft = 245;
@@ -343,6 +344,12 @@ function navigate(next) {
   assert.strictEqual(andor(), andorCard,
     'new episode updates existing Series button rather than remounting it');
   assert.strictEqual(andor().__vdrSuiteSeries.episodes.length, 2);
+  assert.strictEqual(andorCard.children[0], andorArtwork,
+    'episode count change preserves the existing Series poster node');
+  assert(targetedRequests.some(entry =>
+    entry.route === '/api/vdr/recordings/metadata' &&
+    entry.options.query.backendNativeId === '/recordings/andor-2'),
+    'domain-only Recording SSE enriches a newly discovered episode');
   assert.strictEqual(foundation(), foundationCard,
     'unrelated Series button is unchanged');
   assert.strictEqual(foundationCard.children[0], foundationArtwork,
@@ -441,6 +448,37 @@ function navigate(next) {
     'updated native episode title appears in the retained open season');
   assert.strictEqual(foundation(), foundationCardBeforeMetadata,
     'metadata correction does not replace unrelated Series cards');
+
+
+  // A slow metadata response must not hold back canonical episode membership.
+  let releaseFifthEpisodeMetadata = null;
+  client.requestJson = (route, options) => {
+    if (route === '/api/vdr/recordings/metadata' &&
+        options.query.backendNativeId === '/recordings/andor-5') {
+      return new Promise(resolve => { releaseFifthEpisodeMetadata = resolve; });
+    }
+    return Promise.resolve({available: false});
+  };
+  seriesRecordings.push({
+    recordingId: 'andor-5', backendNativeId: '/recordings/andor-5',
+    title: 'Serien/Andor/S01E05 Noch ohne Metadaten'
+  });
+  third.emit(109, 'B', ['recordings']);
+  await tick();
+  assert(flatten(episodeRail).some(node => node.dataset.recordingId === 'andor-5'),
+    'canonical episode appears immediately even while native metadata is pending');
+  assert.strictEqual(typeof releaseFifthEpisodeMetadata, 'function');
+  releaseFifthEpisodeMetadata({
+    available: true, provider: 'manual', providerId: 12345,
+    mediaType: 'episode', title: 'Andor', episodeName: 'Fünfte Folge via Native',
+    seasonNumber: 1, episodeNumber: 5
+  });
+  await tick();
+  await tick();
+  assert(flatten(episodeRail).some(node =>
+    typeof node.textContent === 'string' &&
+    node.textContent.includes('Fünfte Folge via Native')),
+    'native metadata enriches the already visible episode without Home reload');
 
   console.log('Home recording and Series SSE lifecycle: PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });
