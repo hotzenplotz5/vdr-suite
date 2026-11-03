@@ -4668,7 +4668,7 @@
     })).then(function (rich) {
       if (!current(expectedGeneration, backendId) ||
           recordingTileRevisions.get(nativeId) !== revision ||
-          rich && rich.available !== true) return false;
+          !rich || rich.available !== true) return false;
       const recording = card.__vdrSuiteRecording;
       if (recordingBackendNativeId(recording) !== nativeId) return false;
       return updateNewlyRecordedTile(recording, backendId, rich);
