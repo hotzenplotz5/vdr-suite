@@ -6,6 +6,38 @@ or a verified skippy runtime result. The MLD BitBake recipe is **not stored
 in this repository**; it must explicitly adopt these source-level hooks.
 The MLD recipe remains an adapter to the [shared distribution first-run staging contract](../../docs/planning/distribution-first-run-setup.md). Debian/Ubuntu/yaVDR already include the common units and first-install package hooks. Their first-boot runtime behavior, like MLD's, still needs real system verification.
 
+## F2.6 missing autostart helper: targeted BitBake overlay candidate
+
+A new MLD live diagnostic (03 November 2026, 22:05 CET) establishes:
+`vdr-suite-first-run.service` is installed and its job is reached,
+but systemd skips it because
+`ConditionPathExists=/usr/sbin/vdr-suite-backend-agent-autostart` is unmet.
+`FIRST_RUN_HELPER=NOT_INSTALLED` confirms that the executable is absent.
+The agent consequently remains disabled and unenrolled. This is **not**
+evidence for changing MLD's channels.conf symlink or SVDRP transports.
+
+A concrete minimal package correction is prepared at
+[`meta/recipes-vdr/vdr-suite/vdr-suite_%.bbappend`](meta/recipes-vdr/vdr-suite/vdr-suite_%.bbappend).
+It appends the normal BitBake `do_install` task to install the **existing**
+VDR-Suite helper from `${S}/tools/vdr_suite_backend_agent_autostart.py`,
+assigns it to `${PN}` through `FILES`, and declares required Python
+runtime modules. The package build **fails** if the pinned `SRCREV` lacks
+that source file or the target `sbindir` differs from `/usr/sbin`.
+There are no new enrollment commands, alternate binaries, or ad-hoc
+actions for MLD users.
+
+**Integration boundary:** The `.bbappend` is a candidate in the VDR-Suite
+source tree and is not read by the external MLD build system until the
+maintainer places/adapts it in the owning `MLD-6/meta-mld` layer.
+The actual MLD recipe and its `S`, `SRCREV`, `FILES` package split
+and effective Python package names are inaccessible and **not verified**.
+A shell-only staged-payload test can verify the copy semantics but is
+not a BitBake package build. The next acceptance must inspect the
+built package's executable `/usr/sbin/vdr-suite-backend-agent-autostart`
+and its interpreter dependencies, then observe the first-run systemd job
+on a fresh MLD image. **MLD_RECIPE_APPLIED=NO;
+MLD_PACKAGE_BUILD=NOT_RUN; REAL_FIRST_RUN=NOT_VERIFIED.**
+
 ## What the MLD recipe must do
 
 The native MLD package build/install context (not the browser) owns all

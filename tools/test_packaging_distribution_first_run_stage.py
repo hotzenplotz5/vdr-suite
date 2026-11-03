@@ -182,6 +182,51 @@ class DistributionFirstRunStageTests(unittest.TestCase):
         self.assertIn("CHANNELS_CONF_PATH=/etc/vdr/channels.conf",
                       self.agent.read_text())
 
+    def test_mld_bitbake_overlay_installs_missing_autostart_helper(self):
+        # Shell-level check of the candidate BitBake do_install:append body.
+        # The real MLD recipe, package ownership and Yocto package build are
+        # external and are NOT validated by this isolated regression.
+        import re
+        overlay = (ROOT / "packaging/mld66/meta/recipes-vdr/vdr-suite"
+                   / "vdr-suite_%.bbappend").read_text(encoding="utf-8")
+        self.assertIn('FILES:${PN}:append = " ${sbindir}/vdr-suite-backend-agent-autostart"',
+                      overlay)
+        self.assertIn('RDEPENDS:${PN}:append = " python3-core python3-modules"',
+                      overlay)
+        found = re.search(r"(?ms)^do_install:append\(\) \{\n(.*?)^\}", overlay)
+        self.assertIsNotNone(found)
+        shell_body = found.group(1)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source_root = root / "source"
+            destination = root / "package"
+            source = source_root / "tools/vdr_suite_backend_agent_autostart.py"
+            target = destination / "usr/sbin/vdr-suite-backend-agent-autostart"
+            source.parent.mkdir(parents=True)
+            shutil.copyfile(ROOT / "tools/vdr_suite_backend_agent_autostart.py",
+                            source)
+            # Substitute the exact known BitBake staging variables; no
+            # real package-manager, systemd, or installed /usr is touched.
+            script = (shell_body.replace("${S}", str(source_root))
+                    .replace("${D}", str(destination))
+                    .replace("${sbindir}", "/usr/sbin"))
+            result = subprocess.run(["sh", "-c", script], check=False,
+                                    capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(target.read_bytes(), source.read_bytes())
+            self.assertTrue(target.stat().st_mode & stat.S_IXUSR)
+
+            # An old SRCREV that lacks the helper must fail packaging.
+            target.unlink()
+            source.unlink()
+            missing = subprocess.run(["sh", "-c", script], check=False,
+                                     capture_output=True, text=True)
+            self.assertNotEqual(missing.returncode, 0)
+            self.assertFalse(target.exists())
+            self.assertIn("MLD_FIRST_RUN_HELPER=BLOCKED_SOURCE_MISSING",
+                          missing.stderr)
+
     def test_common_install_contract_wires_auto_first_run_for_deb_and_manual(self):
         makefile = (ROOT / "mk/install.mk").read_text(encoding="utf-8")
         manifest = (ROOT / "debian/vdr-suite-daemon.install").read_text(
