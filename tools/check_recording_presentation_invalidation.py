@@ -24,9 +24,9 @@ def require(fragment, text, message):
 
 require("registerRecordingPresentationChangedCallback", runtime_h,
         "manual metadata runtime callback contract missing")
-require("notifyRecordingPresentationChanged(route.backendId);", runtime_cpp,
+require("notifyRecordingPresentationChanged(", runtime_cpp,
         "successful manual metadata mutation must publish presentation invalidation")
-require("recordingPresentationChangeQueue_.request(backendId);", daemon_init,
+require("recordingPresentationChangeQueue_.request(", daemon_init,
         "metadata mutation must hand off to daemon-owned invalidation queue")
 require("RecordingPresentationChangeQueue recordingPresentationChangeQueue_;", daemon_h,
         "daemon presentation invalidation queue missing")
@@ -36,12 +36,26 @@ require("publishRecordingPresentationChanges();", daemon_run,
 publication = daemon_publish[
     daemon_publish.index("void DaemonRuntime::publishRecordingPresentationChanges()"):
 ]
-require("recordingPresentationChangeQueue_.takePending()", publication,
+require("recordingPresentationChangeQueue_.takePendingChanges()", publication,
         "presentation invalidations must be coalesced and drained")
 require("VdrChangeType::RecordingsChanged", publication,
         "presentation mutation must reuse canonical recordings change domain")
 require("publishChangeFeedEntry(", publication,
         "presentation mutation must use existing live transport")
+
+artwork_lookup = daemon_init[
+    daemon_init.index("registerRecordingArtworkLookup("):
+    daemon_init.index("// M2.2: local-only Media Check")]
+require("getManualRecordingMetadataReadOnly(", artwork_lookup,
+        "device Recording artwork must resolve the committed manual metadata")
+require("vdrRecordingFolderController_->getMetadataImage(", artwork_lookup,
+        "device poster bytes must reuse existing Web image owner")
+require("VdrRecordingArtworkIdentity::assetId(", artwork_lookup,
+        "device manual posters must use the existing opaque artwork ID")
+require("PublicRecordingArtworkStatus::notFound", artwork_lookup,
+        "missing/manual-stale poster must have a deterministic missing result")
+require("recordingCacheRefreshQueue_.request(", daemon_init,
+        "native info correction must request existing Recording cache refresh")
 require("ManualRecordingMetadataApiRuntime::instance().reset();", daemon_shutdown,
         "shutdown must detach metadata invalidation callback")
 require("'vdr-suite:home-resume'", app,
@@ -97,8 +111,10 @@ if "loadSeries(" in frontend[genre_start:genre_end]:
 feed_start = frontend.index("function scheduleRecordingChangeRefresh()")
 feed_end = frontend.index("function stopRecordingChanges()", feed_start)
 feed_refresh = frontend[feed_start:feed_end]
-require("retainVisible: true", feed_refresh,
-        "recording feed refresh must preserve visible Home presentation")
+require("reconcileNewlyRecordingSnapshot(", feed_refresh,
+        "unknown recording changes must reconcile only the retained Newly Recorded rail")
+if "refresh({" in feed_refresh or "loadGenres(" in feed_refresh or "loadFolders(" in feed_refresh:
+    raise AssertionError("Recording SSE must never reload the full Home presentation")
 if "coalesce: true" in feed_refresh:
     raise AssertionError("new recording generations must supersede slow older refreshes")
 if "refreshRecordingPresentationDependents" in frontend:

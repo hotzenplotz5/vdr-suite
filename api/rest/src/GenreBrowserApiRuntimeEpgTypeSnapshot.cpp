@@ -5,6 +5,8 @@
 #include <chrono>
 #include <cstdint>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -47,6 +49,8 @@ bool GenreBrowserApiRuntime::applyEpgTypeSnapshot(
         GenreIndexRepository::normalizeBackendId(backendId);
     const std::int64_t observedAt = snapshotEpochSeconds();
     bool success = true;
+    std::vector<GenreEvidenceInput> evidenceBatch;
+    evidenceBatch.reserve(items.size());
 
     for (const SuiteBridgeEpgTypeSnapshotTransportItem& item : items)
     {
@@ -74,16 +78,10 @@ bool GenreBrowserApiRuntime::applyEpgTypeSnapshot(
         evidence.confidence = 0.99;
         evidence.observedAt = observedAt;
 
-        const bool stored = repository->replaceEvidence(evidence);
-        const bool reconciled = stored &&
-            repository->reconcileEpgBrowseClassification(
-                normalizedBackendId,
-                evidence.resourceKey);
-        if (!stored || !reconciled)
-        {
-            success = false;
-        }
+        evidenceBatch.push_back(std::move(evidence));
     }
 
-    return success;
+    // Evidence replacement and browse reconciliation are one bounded
+    // transaction per 16 events, not two transactions per event.
+    return repository->replaceEpgTypeSnapshotBatch(evidenceBatch) && success;
 }

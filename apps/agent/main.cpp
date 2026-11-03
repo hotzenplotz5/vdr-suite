@@ -380,10 +380,21 @@ int main(int argc, char** argv)
                         context.backendGeneration = state.backendGeneration;
                     }
                     return context;
+                },
+                [&]() {
+                    // Renew only the existing lease while this one import
+                    // command is executing; never poll a second command.
+                    if (!runtimeAccess) return;
+                    std::string reason;
+                    if (!runtimeAccess->renewLeaseDuringMediaImport(reason))
+                        std::cerr << "MEDIA_IMPORT_HEARTBEAT_UNAVAILABLE="
+                                  << reason << std::endl;
                 });
         config.mediaImportExecutor = mediaImportRuntime.get();
         config.commandTypes.push_back(
             vdrsuite::mediatools::kMediaImportCommandType);
+        config.commandTypes.push_back(
+            vdrsuite::mediatools::kMediaImportReadbackCommandType);
     }
     // HEVC is NEVER enabled by COMMAND_TYPES or manifest presence alone.
     // Only the explicit local CLI opt-in constructs the authenticated,

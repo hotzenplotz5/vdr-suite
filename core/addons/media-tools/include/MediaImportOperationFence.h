@@ -5,6 +5,7 @@
 
 #include <vector>
 #include <functional>
+#include <utility>
 
 #include <cstdint>
 #include <string>
@@ -56,8 +57,20 @@ public:
                                         std::int64_t now,
                                         std::string& reason) const;
 
+    // Read-only source directory access: actor grant and enabled backend
+    // only. Never depend on Agent lease, capability, handler activation or
+    // dispatch approval for showing a previously observed listing.
+    bool mayBrowseSources(const std::string& actorId,
+                          const std::string& backendId,
+                          std::string& reason) const;
+
     // Called only AFTER the existing Agent result repository durably stores
     // the result. Never equate handler exit with a verified VDR recording.
+    void setOperationChanged(std::function<void(
+        const std::string&, const std::string&)> publish) {
+        operationChanged_ = std::move(publish);
+    }
+
     bool applyResult(const BackendAgentCommandAssignment& assignment,
                      const BackendAgentCommandResult& result,
                      std::int64_t now, std::string& reason) const;
@@ -89,6 +102,7 @@ private:
     BackendAccessPolicy& backendAccess_;
     const AddonActivationIntentRepository& activationIntents_;
     std::function<std::string(const std::string&, std::int64_t)> trustedProviderCheck_;
+    std::function<void(const std::string&, const std::string&)> operationChanged_;
 };
 
 } // namespace vdrsuite::addons

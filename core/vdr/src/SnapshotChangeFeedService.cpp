@@ -32,7 +32,8 @@ SnapshotChangeFeedEntry SnapshotChangeFeedService::createEntry(
     int sequenceNumber,
     int snapshotGeneration,
     const std::vector<VdrChangeEvent>& changeEvents,
-    const std::string& backendId) const
+    const std::string& backendId,
+    const std::vector<std::string>& recordingNativeIds) const
 {
     std::vector<std::string> changedDomains;
 
@@ -57,14 +58,16 @@ SnapshotChangeFeedEntry SnapshotChangeFeedService::createEntry(
         sequenceNumber,
         snapshotGeneration,
         changedDomains,
-        backendId);
+        backendId,
+        recordingNativeIds);
 }
 
 SnapshotChangeFeed SnapshotChangeFeedService::createFeed(
     int sequenceNumber,
     int snapshotGeneration,
     const std::vector<VdrChangeEvent>& changeEvents,
-    const std::string& backendId) const
+    const std::string& backendId,
+    const std::vector<std::string>& recordingNativeIds) const
 {
     SnapshotChangeFeed feed;
 
@@ -72,7 +75,8 @@ SnapshotChangeFeed SnapshotChangeFeedService::createFeed(
         sequenceNumber,
         snapshotGeneration,
         changeEvents,
-        backendId);
+        backendId,
+        recordingNativeIds);
 
     if (entry.hasChanges()) {
         feed.addEntry(entry);
@@ -85,14 +89,15 @@ void SnapshotChangeFeedService::appendChanges(
     SnapshotChangeFeed& feed,
     int snapshotGeneration,
     const std::vector<VdrChangeEvent>& changeEvents,
-    const std::string& backendId) const
+    const std::string& backendId,
+    const std::vector<std::string>& recordingNativeIds) const
 {
     SearchTimerPreviewEpgCacheChangeInvalidator::invalidateRegisteredRuntimeCacheForChangeEvents(
         backendId,
         changeEvents);
 
     const int nextSequenceNumber = feed.latestSequenceNumber() + 1;
-    const auto entry = createEntry(nextSequenceNumber, snapshotGeneration, changeEvents, backendId);
+    const auto entry = createEntry(nextSequenceNumber, snapshotGeneration, changeEvents, backendId, recordingNativeIds);
 
     if (entry.hasChanges()) {
         feed.addEntry(entry);

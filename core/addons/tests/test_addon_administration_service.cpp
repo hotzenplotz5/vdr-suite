@@ -248,5 +248,57 @@ int main()
         actor, {"rectools", "backend-a", false, 1}, {}, {}, another).status ==
         IntentStatus::forbidden);
     assert(audit.listAll().size() == 3);
+
+    // A browser may omit X-Correlation-ID. Its authenticated admin session,
+    // request ID and audit event remain mandatory; a missing optional
+    // correlation must not turn a valid activation into HTTP 403.
+    actor.requestId = "request-no-correlation";
+    actor.correlationId.clear();
+    const auto browserEnable = trusted.setDesiredState(
+        actor, {"rectools", "backend-a", true, 3}, {}, {},
+        {"event-no-correlation", "2026-10-20T10:13:00Z"});
+    assert(browserEnable.status == IntentStatus::ok &&
+           browserEnable.intent.revision == 4 &&
+           browserEnable.intent.desiredEnabled);
+    const auto browserEvents = audit.listAll();
+    assert(browserEvents.size() == 4);
+    bool foundBrowserAudit = false;
+    for (const auto& entry : browserEvents) {
+        if (entry.eventId != "event-no-correlation") continue;
+        assert(entry.requestId == "request-no-correlation");
+        assert(entry.correlationId.empty());
+        assert(entry.action == "addons.intent.enable");
+        foundBrowserAudit = true;
+    }
+    assert(foundBrowserAudit);
+
+    // A supplied but malformed correlation ID must still be rejected.
+    actor.correlationId = "invalid correlation";
+    assert(trusted.setDesiredState(
+        actor, {"rectools", "backend-a", false, 4}, {}, {},
+        {"event-invalid-correlation", "2026-10-20T10:14:00Z"}).status ==
+        IntentStatus::forbidden);
+    assert(audit.listAll().size() == 4);
+    // A logged-in global admin can turn an offline module on. Persist only
+    // the audited preference; do not fabricate Agent or handler evidence.
+    auto offlineBackend = writable;
+    offlineBackend.backendId = "backend-offline";
+    AddonAdministrationService offline(intents, audit,
+        [&](const std::string& module, const std::string& backend)
+            -> std::optional<AddonAdministrationService::TrustedActivationSnapshot> {
+            if (module != "rectools" || backend != "backend-offline")
+                return std::nullopt;
+            return AddonAdministrationService::TrustedActivationSnapshot{
+                offlineBackend, {}};
+        });
+    const auto offlineEnabled = offline.setDesiredState(
+        adminActor(), {"rectools", "backend-offline", true, 0}, {}, {},
+        {"event-offline", "2026-10-20T10:15:00Z"});
+    assert(offlineEnabled.status == IntentStatus::ok &&
+           offlineEnabled.intent.desiredEnabled &&
+           offlineEnabled.intent.revision == 1 &&
+           offlineEnabled.intent.agentId.empty());
+    assert(audit.listAll().size() == 5);
+
     std::cout << "ADDON_ADMINISTRATION_AUDIT=PASS\n";
 }

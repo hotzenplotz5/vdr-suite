@@ -948,9 +948,11 @@ across daemon restarts; a failed source requires manual review. Windows
 may cross midnight (for example `23:00-04:00`). There is no browser
 toggle or automatic production deployment yet.
 
-**Not yet production-complete:** the Agent's 600-second assignment
-deadline limits long imported video transcodes. Unattended scheduling is
-implemented in source but has not been accepted on a real VDR host.
+**Not yet production-complete:** Media Import now uses one Core-owned
+24-hour operation deadline for direct import and explicitly approved local
+video encoding. The Agent assignment and CLI no longer impose independent
+600-/540-second limits. Long-running behavior and unattended scheduling are
+not yet accepted on a real VDR host.
 External subtitle search or playback language preference, VDR-compatible
 chapter conversion, remote Media Check, and shrink through authorized API
 v1/Core Operations remain open. The existing Suite recording-cache enrichment and artwork owners
@@ -1367,3 +1369,36 @@ backend authority evaluator rather than duplicating a permission system.
 Missing/stale/invalid input is default-deny. This is a read-only capability,
 not a mutation or permission grant. The real Core operation/command fixture
 covers the enabled, grantless, disabled, wrong backend and stale lease cases.
+
+## Handler-only Hotfix: bestehende Freigaben gemeinsam aktualisieren (29.10.2026)
+
+Wenn ausschließlich der C++-Importhandler auf einem bereits installierten yaVDR
+aktualisiert wird, darf **nicht nur** `/etc/vdr-suite/addon-approvals/rectools.json`
+angepasst werden: Die backendgebundene Freigabe
+`rectools.<BACKEND>.json` muss denselben tatsächlich installierten und
+unabhängig geprüften Handler-SHA256 enthalten. Ein alter Backend-Pin lässt das
+Add-on trotz erfolgreich installiertem Importer als nicht bestätigt erscheinen.
+
+Nach dem separat geprüften Handler-Update ist dafür der vorhandene Installer
+um einen gezielten Aufruf ergänzt worden (als `root`, mit dem **tatsächlich**
+konfigurierten Backend und unabhängig geprüften neuen Digest):
+
+```bash
+bash tools/addons/install_media_tools.sh reconcile-handler-approvals \
+  default REVIEWED_64_CHAR_HANDLER_SHA256 EXISTING-APPROVALS-ONLY
+```
+
+Der Aufruf stellt **keine** neuen Freigaben aus und aktiviert nichts.
+Er verlangt beide bereits bestehenden, gültigen, aktiven manuellen Freigaben,
+prüft den real installierten Importer, legt vor jeder Änderung ein rootprivates
+Backup unter `/root/mt-approval-sync-*` an, rotiert zuerst den Backend-Pin
+und danach den globalen Pin mit dem bestehenden CAS-Issuer und prüft das
+Ergebnis. Eine abgelehnte globale Rotation versucht die vorherige Backend-
+Rotation zu kompensieren. Bereits identische Hashes führen ohne Schreibzugriff
+zu `MT_APPROVALS=ALREADY_CONSISTENT`.
+
+Weder Suite/Agent noch Aufnahmen, Datenbanken oder Aktivierungsstatus werden
+dadurch geändert. Die Agent-Synchronisierung und tatsächliche Aktivierung sind
+anschließend getrennt zu prüfen. Zum isolierten Regressionstest:
+`python3 -m unittest tools/addons/test_reconcile_media_tools_approvals.py`
+(bei Bedarf mit `PYTHONPATH=tools/addons`).

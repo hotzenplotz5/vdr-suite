@@ -151,18 +151,6 @@ def compose(work: Path, output: Path, expected_sha: str) -> None:
     if digest(workers[0]) != expected_sha:
         raise ValueError("approved import-handler bytes changed")
 
-    # Bound the copy before writing; leave >= 4 GiB or 15% on the output FS.
-    stage_bytes = sum(p.stat().st_size for p in input_stage.rglob("*") if p.is_file())
-    extra = sum(p.stat().st_size for p in workers)
-    extra += sum((source_metadata / name).stat().st_size for name in METADATA)
-    budget = stage_bytes + extra + 64*1024*1024
-    disk = shutil.disk_usage(output.parent)
-    reserve = max(4*1024**3, (disk.total*15+99)//100)
-    print(f"RESOURCE_FS={output.parent} FREE={disk.free} BUDGET={budget} RESERVE={reserve}")
-    if disk.free < budget + reserve:
-        raise ValueError("RESOURCE_PREFLIGHT=FAIL")
-    print("RESOURCE_PREFLIGHT=PASS")
-
     with tempfile.TemporaryDirectory(prefix=".media-tools-stage-", dir=output.parent) as scratch:
         stage = Path(scratch) / "stage"
         shutil.copytree(input_stage, stage)
@@ -225,10 +213,6 @@ def compose(work: Path, output: Path, expected_sha: str) -> None:
         verify_media_tools_stage(stage, expected_sha)
         os.replace(stage, output)
 
-    after = shutil.disk_usage(output.parent)
-    if after.free < reserve:
-        raise ValueError("RESOURCE_POSTCHECK=FAIL (stage retained for inspection)")
-    print("RESOURCE_POSTCHECK=PASS")
     print("MEDIA_TOOLS_RUNTIME_STAGE=PASS")
     print(f"PREPARED_SOURCE_SHA={lines[0]}")
     print(f"APPROVED_HANDLER_SHA256={expected_sha}")

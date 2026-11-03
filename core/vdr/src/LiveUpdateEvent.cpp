@@ -4,11 +4,13 @@ LiveUpdateEvent::LiveUpdateEvent(
     int sequenceNumber,
     int snapshotGeneration,
     const std::vector<std::string>& changedDomains,
-    const std::string& backendId)
+    const std::string& backendId,
+    const std::vector<std::string>& recordingNativeIds)
     : sequenceNumber_(sequenceNumber),
       snapshotGeneration_(snapshotGeneration),
       backendId_(backendId),
-      changedDomains_(changedDomains)
+      changedDomains_(changedDomains),
+      recordingNativeIds_(recordingNativeIds)
 {
 }
 
@@ -18,7 +20,8 @@ LiveUpdateEvent::LiveUpdateEvent(
           entry.sequenceNumber(),
           entry.snapshotGeneration(),
           entry.changedDomains(),
-          entry.backendId())
+          entry.backendId(),
+          entry.recordingNativeIds())
 {
 }
 
@@ -40,6 +43,11 @@ const std::string& LiveUpdateEvent::backendId() const
 const std::vector<std::string>& LiveUpdateEvent::changedDomains() const
 {
     return changedDomains_;
+}
+
+const std::vector<std::string>& LiveUpdateEvent::recordingNativeIds() const
+{
+    return recordingNativeIds_;
 }
 
 bool LiveUpdateEvent::hasChanges() const

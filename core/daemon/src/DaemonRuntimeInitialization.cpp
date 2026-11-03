@@ -7,8 +7,10 @@
 #include "EpgNativeTimerPreviewAttestation.h"
 #include "SuiteBridgeNativeTimerCreateTransport.h"
 #include "TimerIntentApplicationService.h"
+#include "MediaImport.h"
 #include "MediaImportOperationAdmission.h"
 #include "MediaImportRecordingEvidence.h"
+#include "MediaToolsAgentExecutor.h"
 #include "MediaShrinkOperationAdmission.h"
 #include "DaemonMediaShrinkAdmissionAuthority.h"
 #include "BackendAgentMediaShrinkAssignment.h"
@@ -466,6 +468,34 @@ bool DaemonRuntime::initialize()
         return false;
     }
 
+    // Poll Command delivery independently from the main busy SQLite handle:
+    // the cache/genre worker can occupy that connection for >1 second even
+    // while an idle command poll needs only BEGIN/SELECT/COMMIT. The existing
+    // per-file transaction lease still serializes all writers.
+    if (!backendAgentCommandPollDatabase_.open(config_.databasePath())) {
+        std::cerr << "failed to open Backend Agent command poll connection"
+                  << std::endl;
+        return false;
+    }
+    backendAgentCommandPollRepository_ =
+        std::make_unique<BackendAgentCommandRepository>(
+            backendAgentCommandPollDatabase_);
+
+    // Share the existing durable tables but not the busy main sqlite3 handle.
+    // These repositories perform SELECTs only; mutations stay on database_.
+    if (!backendAgentAuthReadDatabase_.open(config_.databasePath()) ||
+        !backendAgentAuthReadDatabase_.execute("PRAGMA query_only=ON;")) {
+        std::cerr << "failed to open Backend Agent authentication read connection"
+                  << std::endl;
+        return false;
+    }
+    backendAgentAuthReadRepository_ =
+        std::make_unique<BackendAgentRepository>(backendAgentAuthReadDatabase_);
+    backendAgentAuthReadVerifierRepository_ =
+        std::make_unique<CredentialVerifierRepository>(backendAgentAuthReadDatabase_);
+    backendAgentAuthReadIdentityRepository_ =
+        std::make_unique<SecurityIdentityRepository>(backendAgentAuthReadDatabase_);
+
     humanAccountRepository_ =
         std::make_unique<HumanAccountRepository>(database_);
     if (!humanAccountRepository_->ensureSchema())
@@ -529,11 +559,15 @@ bool DaemonRuntime::initialize()
                   << std::endl;
         return false;
     }
+    // Command delivery only reads Agent identity/binding state; keep those
+    // lookups off the busy primary connection, just like HTTP authentication.
+    // Command transactions and accountability writes still use their owners.
     backendAgentCommandDeliveryService_ =
         std::make_unique<BackendAgentCommandDeliveryService>(
             *backendAgentCommandRepository_,
-            *backendAgentRepository_,
-            *backendAgentAccountabilityRepository_);
+            *backendAgentAuthReadRepository_,
+            *backendAgentAccountabilityRepository_,
+            backendAgentCommandPollRepository_.get());
 
     // A6: bind the real Core operation and effective grant authorities at
     // the Agent receipt boundary. This does not advertise or execute Media
@@ -608,7 +642,7 @@ bool DaemonRuntime::initialize()
         });
     // Agent receipts remain unverified until a separate candidate readback
     // or a successfully committed native Recording cache reconciliation.
-    mediaImportCatalog_ = std::make_unique<BackendAgentMediaImportCatalog>();
+    mediaImportCatalog_ = std::make_unique<BackendAgentMediaImportCatalog>(database_);
     PublicApiRuntime::instance().registerMediaImportSourceLookup(
         [this](const std::string& actorId, const std::string& backendId)
         {
@@ -619,28 +653,41 @@ bool DaemonRuntime::initialize()
             const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
             std::string reason;
-            if (!mediaImportOperationFence_->effectiveMediaImportCapability(
-                    actorId, backendId, now, reason))
+            // Browsing is not an Agent command. Keep actor/backend grants
+            // but never turn a transient lease, capability, provider or
+            // activation state into an empty media directory.
+            if (!mediaImportOperationFence_->mayBrowseSources(
+                    actorId, backendId, reason))
             {
-                result.status = API::MediaImportSourceStatus::forbidden;
+                if (reason == "media_import_actor_revoked" ||
+                    reason == "media_import_permission_denied" ||
+                    reason == "media_import_backend_unavailable")
+                    result.status = API::MediaImportSourceStatus::forbidden;
                 return result;
             }
             const auto live = backendAgentRepository_->findAgentForBackend(backendId);
-            if (!live) return result;
-            // Independent Core-host approval is the EXPECTED digest.
-            // A remote Agent observation cannot approve itself; Core never
-            // inspects the remote handler via its own local filesystem.
-            if (!trustedMediaToolsProvider(backendId, now) ||
-                !mediaImportCatalog_->list(
+            if (live && mediaImportCatalog_->list(
                     *live, backendId, now, result.ids, result.labels,
-                    &result.partial, &result.folders))
+                    &result.partial, &result.folders, &result.statuses))
+            {
+                result.status = API::MediaImportSourceStatus::ok;
                 return result;
-            result.status = API::MediaImportSourceStatus::ok;
+            }
+            // An authenticated Agent observation may remain useful for
+            // read-only browsing after its lease/generation expires. Never
+            // treat this cached presentation as fresh or as import authority.
+            if (mediaImportCatalog_->listLastObserved(
+                    backendId, result.ids, result.labels,
+                    &result.partial, &result.folders, &result.statuses))
+            {
+                result.status = API::MediaImportSourceStatus::ok;
+                result.stale = true;
+            }
             return result;
         });
     PublicApiRuntime::instance().registerMediaImportPreviewLookup(
         [this](const std::string& actorId, const std::string& backendId,
-               const std::string& sourceId)
+               const std::string& sourceId, bool refresh, bool cachedFirst)
         {
             using API = PublicApiRuntime;
             API::MediaImportPreviewResult out;
@@ -649,18 +696,25 @@ bool DaemonRuntime::initialize()
             const auto now = std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
             std::string reason;
-            if (!mediaImportOperationFence_->effectiveMediaImportCapability(
-                    actorId, backendId, now, reason)) {
-                out.status = API::MediaImportPreviewStatus::forbidden;
+            // A source preview is READ-ONLY. A quarantined command from an
+            // older Agent generation must not hide the already observed
+            // sources or prevent an operator from inspecting a VDR target.
+            // Command capability, activation and provider approval remain
+            // enforced at actual import/cleanup admission and dispatch.
+            if (!mediaImportOperationFence_->mayBrowseSources(
+                    actorId, backendId, reason)) {
+                if (reason == "media_import_actor_revoked" ||
+                    reason == "media_import_permission_denied" ||
+                    reason == "media_import_backend_unavailable")
+                    out.status = API::MediaImportPreviewStatus::forbidden;
                 return out;
             }
             const auto live =
                 backendAgentRepository_->findAgentForBackend(backendId);
-            if (!live || !trustedMediaToolsProvider(backendId, now))
-                return out;
+            if (!live) return out;
             BackendAgentMediaImportCatalog::Preview observed;
             const auto state = mediaImportCatalog_->requestPreview(
-                *live, backendId, now, sourceId, observed);
+                *live, backendId, now, sourceId, observed, refresh, cachedFirst);
             if (state ==
                 BackendAgentMediaImportCatalog::PreviewState::denied)
                 return out;
@@ -679,6 +733,14 @@ bool DaemonRuntime::initialize()
             out.availableBytes = observed.availableBytes;
             out.requiredBytes = observed.requiredBytes;
             out.videoReencodeRequired = observed.videoReencodeRequired;
+            out.failureCode = observed.failureCode;
+            out.nfoOutline = observed.nfoOutline;
+            out.nfoPlot = observed.nfoPlot;
+            out.nfoYear = observed.nfoYear;
+            out.nfoGenre = observed.nfoGenre;
+            out.durationSeconds = observed.durationSeconds;
+            out.posterDataUri = observed.posterDataUri;
+            out.fanartDataUri = observed.fanartDataUri;
             return out;
         });
     PublicApiRuntime::instance().registerMediaImportCapabilityLookup(
@@ -725,11 +787,16 @@ bool DaemonRuntime::initialize()
             // Reuse the existing coalesced, read-only Recording refresh
             // queue. Never spawn another job or mutate VDR from this callback.
             if (applied &&
-                vdrsuite::mediatools::validRecordingPathEvidence(
+                vdrsuite::mediatools::validMediaImportResultRecordingEvidence(
                     result.resultEvidence) &&
                 result.dispatchState == "accepted_by_executor")
                 recordingCacheRefreshQueue_.request(assignment.backendId, 2);
             return applied;
+        });
+    backendAgentCommandDeliveryService_->setMediaImportCleanupPublished(
+        [this](const std::string& operationId) {
+            if (deviceLiveEventHub_)
+                deviceLiveEventHub_->publishOperation(operationId);
         });
     std::cout << "Backend Agent enrollment, lease and command delivery runtime initialized" << std::endl;
 
@@ -1266,6 +1333,9 @@ bool DaemonRuntime::initialize()
             (!explicitlyConfigured || configuredRootAvailable) &&
             !invalidNativeRoot;
         recordingActionConfig.readOnly = !recordingActionConfig.allowExecution;
+        backendRuntimeContext->nativeRecordingInfoRoot =
+            recordingActionConfig.readOnly
+                ? std::string{} : recordingActionConfig.videoDirectory;
         // Local startup evidence for read-only acceptance: the operator can
         // confirm which root won without invoking any recording mutation.
         const char* rootSource = configuredRootAvailable ? "configured"
@@ -1588,13 +1658,90 @@ bool DaemonRuntime::initialize()
     liveTransport_->setDeviceLiveEventHub(deviceLiveEventHub_);
     liveTransportService_ = std::make_unique<LiveTransportService>(*liveTransport_);
     liveTransportController_ = std::make_unique<LiveTransportController>(*liveTransport_);
+    if (mediaImportOperationFence_) {
+        mediaImportOperationFence_->setOperationChanged(
+            [this](const std::string& /* backendId */,
+                   const std::string& operationId) {
+                if (deviceLiveEventHub_)
+                    deviceLiveEventHub_->publishOperation(operationId);
+            });
+    }
 
     ManualRecordingMetadataApiRuntime::instance()
         .registerRecordingPresentationChangedCallback(
-            [this](const std::string& backendId)
+            [this](const std::string& backendId,
+                   const std::string& recordingNativeId)
             {
-                recordingPresentationChangeQueue_.request(backendId);
+                recordingPresentationChangeQueue_.request(
+                    backendId, recordingNativeId);
             });
+
+    // After the existing authenticated assignment, resolve its native
+    // Recording identity in the existing backend cache. Do not accept a path
+    // from the browser, request another TMDb search or submit another import.
+    metadataController_->setNativeInfoUpdate(
+        [this](const ManualRecordingMetadataSelection& selected,
+               const ManualRecordingMetadataAssignment& assigned) {
+            if (!vdrRecordingCacheRepository_ || !assigned.found ||
+                selected.providerId != "tmdb" ||
+                (selected.mediaType != "movie" &&
+                 selected.mediaType != "episode") ||
+                (selected.mediaType == "episode" &&
+                 selected.seriesTitle.empty()))
+                return false;
+            std::string videoRoot;
+            for (const auto& backend : backendRuntimeContexts_) {
+                if (backend && backend->backendId == assigned.backendId) {
+                    videoRoot = backend->nativeRecordingInfoRoot;
+                    break;
+                }
+            }
+            if (videoRoot.empty()) return false;
+            const auto recordings =
+                vdrRecordingCacheRepository_->findAllForBackend(
+                    assigned.backendId);
+            const VdrRecording* match = nullptr;
+            for (const auto& recording : recordings) {
+                if (recording.backendId != assigned.backendId ||
+                    recording.backendNativeId != selected.resourceKey ||
+                    recording.backendNativeId.empty() ||
+                    recording.id.empty()) continue;
+                if (match) return false;
+                match = &recording;
+            }
+            if (!match || !metadataRepository_) return false;
+            // The assignment repository stores the canonical cache_key,
+            // while the browser submitted backendNativeId. Re-resolve via
+            // the existing canonical metadata lookup and verify this EXACT
+            // committed assignment before touching native bytes.
+            const auto bound =
+                metadataRepository_->getManualRecordingMetadataReadOnly(
+                    assigned.backendId, match->backendNativeId);
+            if (!bound.found ||
+                bound.metadataAssignmentId != assigned.metadataAssignmentId)
+                return false;
+            vdrsuite::mediatools::ImportConfirmedMetadata confirmed;
+            confirmed.mediaType = assigned.mediaType;
+            confirmed.title = assigned.title;
+            confirmed.seriesTitle = selected.seriesTitle;
+            confirmed.overview = assigned.overview;
+            confirmed.seasonNumber = assigned.seasonNumber;
+            confirmed.episodeNumber = assigned.episodeNumber;
+            try {
+                const bool changed =
+                    vdrsuite::mediatools::updateConfirmedNativeVdrInfo(
+                        videoRoot, match->backendNativeId, confirmed);
+                if (changed)
+                    recordingCacheRefreshQueue_.request(
+                        assigned.backendId, 2);
+                return true; // unchanged info is also a verified result
+            } catch (const std::exception& error) {
+                std::cerr << "Media Import native info correction pending: "
+                          << error.what() << std::endl;
+                return false;
+            }
+        });
+
 
     std::cout << "runtime diagnostics controller initialized" << std::endl;
     std::cout << "snapshot change feed controller initialized" << std::endl;
@@ -1625,6 +1772,133 @@ bool DaemonRuntime::initialize()
                         found.operation.backendId;
                     result.operation.resourceRevision =
                         found.operation.operationRevision;
+                    // A failure reason is derived only from the durable result
+                    // of this actor's original Media Import operation.
+                    // Do not expose arbitrary worker output or guess whether a
+                    // host shutdown, power failure or Agent crash occurred.
+                    if (found.operation.actionFamily == "media.import" &&
+                        backendAgentCommandRepository_ &&
+                        (found.operation.state ==
+                            vdrsuite::operations::MutationOperationState::outcomeUnknown ||
+                         found.operation.state ==
+                            vdrsuite::operations::MutationOperationState::failedBeforeDispatch))
+                    {
+                        const auto original =
+                            backendAgentCommandRepository_->findAssignmentForOperation(
+                                found.operation.backendId, found.operation.operationId,
+                                vdrsuite::mediatools::kMediaImportCommandType);
+                        if (original &&
+                            original->backendGeneration ==
+                                found.operation.backendGeneration) {
+                            const auto receipt =
+                                backendAgentCommandRepository_->resultForCommand(
+                                    original->commandId);
+                            if (receipt &&
+                                receipt->commandId == original->commandId &&
+                                receipt->backendId == original->backendId &&
+                                receipt->agentId == original->agentId &&
+                                receipt->agentInstanceId ==
+                                    original->agentInstanceId &&
+                                receipt->backendGeneration ==
+                                    original->backendGeneration &&
+                                receipt->requestFingerprint ==
+                                    original->requestFingerprint)
+                            {
+                                const auto& message = receipt->boundedDiagnostics;
+                                const std::string prefix = "media_import_failure:";
+                                if (message == "Media import recovered after start; reconcile recording")
+                                    result.operation.failureCode = "execution_interrupted";
+                                else if (message == "Media import deadline expired")
+                                    result.operation.failureCode = "expired_before_start";
+                                else if (message.compare(0, prefix.size(), prefix) == 0)
+                                {
+                                    const auto code = message.substr(prefix.size());
+                                    for (const char* allowed : {
+                                        "worker_launch_failed", "worker_signaled",
+                                        "worker_failed", "worker_interrupted",
+                                        "worker_time_limit", "ffmpeg_timeout",
+                                        "ffmpeg_failed", "vdr_index_failed"})
+                                        if (code == allowed)
+                                            result.operation.failureCode = code;
+                                }
+                                if (!result.operation.failureCode.empty())
+                                    result.operation.resourceRevision +=
+                                        ":media-failure:" + result.operation.failureCode;
+                            }
+                        }
+                    }
+                    // Only the authenticated actor's own confirmed import
+                    // operation may project read-only Agent cleanup evidence.
+                    // The canonical VDR success remains unchanged when cleanup
+                    // fails or the Agent is offline.
+                    if (found.operation.actionFamily == "media.import" &&
+                        found.operation.state ==
+                            vdrsuite::operations::MutationOperationState::succeeded &&
+                        backendAgentCommandRepository_)
+                    {
+                        const auto notice =
+                            backendAgentCommandRepository_->findAssignmentForOperation(
+                                found.operation.backendId, found.operation.operationId,
+                                vdrsuite::mediatools::kMediaImportReadbackCommandType);
+                        if (notice && notice->backendGeneration ==
+                                found.operation.backendGeneration)
+                        {
+                            std::string sourceId, originalCommand, recordingProof;
+                            std::string sourceProof;
+                            if (vdrsuite::mediatools::parseMediaImportReadbackPayload(
+                                    notice->payload, sourceId, originalCommand,
+                                    recordingProof, sourceProof) &&
+                                (notice->payloadVersion == (sourceProof.empty() ? 1U : 2U)))
+                            {
+                                if (sourceProof.empty())
+                                    result.operation.sourceCleanup = "not_performed";
+                                else
+                                {
+                                    result.operation.sourceCleanup = "pending";
+                                    const auto cleanupResult =
+                                        backendAgentCommandRepository_->resultForCommand(
+                                            notice->commandId);
+                                    if (cleanupResult &&
+                                        cleanupResult->commandId == notice->commandId &&
+                                        cleanupResult->backendId == notice->backendId &&
+                                        cleanupResult->agentId == notice->agentId &&
+                                        cleanupResult->agentInstanceId ==
+                                            notice->agentInstanceId &&
+                                        cleanupResult->backendGeneration ==
+                                            notice->backendGeneration &&
+                                        cleanupResult->requestFingerprint ==
+                                            notice->requestFingerprint)
+                                    {
+                                        const auto& evidence =
+                                            cleanupResult->resultEvidence;
+                                        if (cleanupResult->resultCategory == "succeeded" &&
+                                            cleanupResult->verificationState == "verified" &&
+                                            evidence == "media-tools-cleanup:removed")
+                                            result.operation.sourceCleanup = "removed";
+                                        else if (cleanupResult->resultCategory == "succeeded" &&
+                                                 cleanupResult->verificationState == "verified" &&
+                                                 evidence == "media-tools-cleanup:already-absent")
+                                            result.operation.sourceCleanup = "already_absent";
+                                        else if (cleanupResult->resultCategory == "succeeded" &&
+                                                 evidence == "media-tools-cleanup:not-performed")
+                                            result.operation.sourceCleanup = "not_performed";
+                                        else if (cleanupResult->resultCategory == "rejected" &&
+                                                 evidence == "media-tools-cleanup:failed")
+                                            result.operation.sourceCleanup = "failed";
+                                        else if (cleanupResult->resultCategory == "outcome_unknown" &&
+                                                 cleanupResult->verificationState == "outcome_unknown" &&
+                                                 cleanupResult->retryClassification == "reconcile_only" &&
+                                                 evidence == "media-tools-cleanup:failed")
+                                            result.operation.sourceCleanup = "outcome_unknown";
+                                    }
+                                }
+                                // A cleanup ACK can arrive after the Operation
+                                // is succeeded: include its state in the ETag.
+                                result.operation.resourceRevision +=
+                                    ":media-cleanup:" + result.operation.sourceCleanup;
+                            }
+                        }
+                    }
                     return result;
 
                 case vdrsuite::operations::MutationOperationReadStatus::invalid:
@@ -4952,6 +5226,80 @@ bool DaemonRuntime::initialize()
                 result.status = PublicRecordingArtworkStatus::notFound;
                 return result;
             }
+            const auto bound = publicRecordingIdentities_->find(
+                request.backendId, found.recording.backendNativeId);
+            if (!bound || *bound != request.recordingId)
+            {
+                result.status = PublicRecordingArtworkStatus::notFound;
+                return result;
+            }
+
+            // Public-v1 Device/TV clients use the same selected poster as
+            // the Web: the existing backend-scoped manual metadata binding
+            // and the existing authenticated image delivery owner. Never
+            // return the private cache path or replace it with an older
+            // TVScraper poster after an explicit metadata assignment.
+            const auto selected = metadataRepository_
+                ? metadataRepository_->getManualRecordingMetadataReadOnly(
+                    request.backendId, found.recording.backendNativeId)
+                : ManualRecordingMetadataAssignment{};
+            if (selected.found && selected.relationshipLocked &&
+                selected.backendId == request.backendId)
+            {
+                const std::string prefix =
+                    "/var/cache/vdr-suite/recording-metadata/posters/";
+                const bool hasPoster =
+                    selected.posterReference.compare(0, prefix.size(),
+                        prefix) == 0 &&
+                    std::filesystem::is_regular_file(
+                        selected.posterReference);
+                if (hasPoster)
+                {
+                    VdrRecordingArtworkRef poster;
+                    poster.kind = VdrRecordingArtworkKind::Poster;
+                    poster.source =
+                        VdrRecordingMetadataSource::RestfulApiScraperBridge;
+                    poster.reference = selected.posterReference;
+                    poster.temporary = false;
+                    const std::string id =
+                        VdrRecordingArtworkIdentity::assetId(
+                            found.recording, poster);
+                    if (!id.empty() &&
+                        (request.artworkId.empty() || request.artworkId == id))
+                    {
+                        PublicRecordingArtworkItem item;
+                        item.artworkId = id;
+                        item.kind = "poster";
+                        result.items.push_back(std::move(item));
+                        if (!request.artworkId.empty())
+                        {
+                            // Reuse the Web's canonical validated cached
+                            // image reader. It already enforces allowed
+                            // roots, MIME and size and returns actual bytes.
+                            const auto image =
+                                vdrRecordingFolderController_->getMetadataImage(
+                                    request.backendId,
+                                    found.recording.backendNativeId,
+                                    "poster", 0);
+                            if (image.statusCode != 200)
+                            {
+                                result.items.clear();
+                                result.status =
+                                    PublicRecordingArtworkStatus::notFound;
+                                return result;
+                            }
+                            result.contentType = image.contentType;
+                            result.content = image.body;
+                        }
+                    }
+                }
+                result.status = request.artworkId.empty() ||
+                    !result.items.empty()
+                    ? PublicRecordingArtworkStatus::ok
+                    : PublicRecordingArtworkStatus::notFound;
+                return result;
+            }
+
             for (const VdrRecordingArtworkRef& artwork :
                  found.recording.metadata.artwork)
             {
@@ -4977,13 +5325,6 @@ bool DaemonRuntime::initialize()
                 result.items.push_back(std::move(item));
                 if (!request.artworkId.empty())
                     break;
-            }
-            const auto bound = publicRecordingIdentities_->find(
-                request.backendId, found.recording.backendNativeId);
-            if (!bound || *bound != request.recordingId)
-            {
-                result.status = PublicRecordingArtworkStatus::notFound;
-                return result;
             }
             if (!request.artworkId.empty())
             {
@@ -5452,47 +5793,51 @@ bool DaemonRuntime::initialize()
             !backendAgentCommandRepository_ ||
             !backendRegistryService_ || !backendAccessPolicy_)
             return problem(503, "activation_unavailable");
-        // The service independently requires a global administrator; caller
-        // evidence is ignored for enables. A disable never requires a live
-        // provider and remains available after revocation/removal.
+        // Only an authenticated administrator may save desired state.
+        // A transient Agent lease, capability or catalog observation must not
+        // block the administrator's enable/disable preference. Executing an
+        // actual import still requires independent live-provider validation.
         AddonAdministrationService service(
             *mediaImportActivationIntents_, *backendAgentAccountabilityRepository_,
             [this](const std::string& moduleId, const std::string& backendId)
               -> std::optional<AddonAdministrationService::TrustedActivationSnapshot>
             {
                 if (moduleId != "rectools") return std::nullopt;
-                const auto now = std::chrono::duration_cast<std::chrono::seconds>(
-                    std::chrono::system_clock::now().time_since_epoch()).count();
-                const std::string trustedSha =
-                    trustedMediaToolsHandlerDigest(backendId, now);
-                if (trustedSha.empty()) return std::nullopt;
-                const auto agent = backendAgentRepository_->findAgentForBackend(
-                    backendId);
-                if (!agent || agent->leaseExpiresAt < now ||
-                    !backendAgentCommandRepository_->hasCapability(
-                        backendId, agent->agentId, agent->agentInstanceId,
-                        agent->backendGeneration, "addon.media.import"))
-                    return std::nullopt;
                 const auto access = backendAccessPolicy_->canWriteToBackend(
                     *backendRegistryService_, backendId);
                 if (!access.backendFound || !access.allowed || access.readOnly)
                     return std::nullopt;
                 RuntimeEvidence evidence;
-                evidence.moduleId = moduleId;
-                evidence.packageName = "vdr-suite-addon-media-tools";
-                evidence.backendId = backendId;
-                evidence.agentId = agent->agentId;
-                evidence.agentInstanceId = agent->agentInstanceId;
-                evidence.backendGeneration = agent->backendGeneration;
-                evidence.approvedHandlerSha256 = trustedSha;
-                // These are TRUE only after independent administrator digest
-                // and authenticated Agent-local manifest/binary verification.
-                evidence.installed = true;
-                evidence.manifestValid = true;
-                evidence.packageTrusted = true;
-                evidence.versionCompatible = true;
-                evidence.handlerRegistered = true;
-                evidence.handlerHealthy = true;
+                const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count();
+                const auto agent = backendAgentRepository_->findAgentForBackend(
+                    backendId);
+                // When proof is actually current, retain the reviewed handler
+                // pin. Otherwise save a non-executable administrator intent.
+                // Never synthesize installed/healthy facts for an offline Agent.
+                if (agent && !agent->revoked && !agent->incompatible &&
+                    agent->leaseExpiresAt >= now &&
+                    backendAgentCommandRepository_->hasCapability(
+                        backendId, agent->agentId, agent->agentInstanceId,
+                        agent->backendGeneration, "addon.media.import")) {
+                    const std::string trustedSha =
+                        trustedMediaToolsHandlerDigest(backendId, now);
+                    if (!trustedSha.empty()) {
+                        evidence.moduleId = moduleId;
+                        evidence.packageName = "vdr-suite-addon-media-tools";
+                        evidence.backendId = backendId;
+                        evidence.agentId = agent->agentId;
+                        evidence.agentInstanceId = agent->agentInstanceId;
+                        evidence.backendGeneration = agent->backendGeneration;
+                        evidence.approvedHandlerSha256 = trustedSha;
+                        evidence.installed = true;
+                        evidence.manifestValid = true;
+                        evidence.packageTrusted = true;
+                        evidence.versionCompatible = true;
+                        evidence.handlerRegistered = true;
+                        evidence.handlerHealthy = true;
+                    }
+                }
                 return AddonAdministrationService::TrustedActivationSnapshot{
                     access, evidence};
             });
@@ -5647,9 +5992,9 @@ bool DaemonRuntime::initialize()
         std::move(clientHttpServer),
         *backendAgentLifecycleService_,
         *backendAgentCommandDeliveryService_,
-        *backendAgentRepository_,
-        *backendAgentCredentialVerifierRepository_,
-        *backendAgentIdentityRepository_,
+        *backendAgentAuthReadRepository_,
+        *backendAgentAuthReadVerifierRepository_,
+        *backendAgentAuthReadIdentityRepository_,
         mediaImportCatalog_.get());
     agentHttpServer->setMediaShrinkAuthorityLookup(
         [this](const RequestSecurityContext& context,
@@ -5818,6 +6163,7 @@ PublicMediaImportAdmissionResult DaemonRuntime::admitMediaImport(
             input.idempotencyKey = request.idempotencyKey;
             input.approveVideoReencode = request.approveVideoReencode;
             input.videoDecision = request.videoDecision;
+            input.metadata = request.metadata;
             input.now = now;
             const auto accepted = service.admit(input);
             using Status = vdrsuite::addons::MediaImportOperationAdmissionStatus;

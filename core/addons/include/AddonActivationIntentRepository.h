@@ -25,8 +25,10 @@ struct ActivationIntent {
     std::string backendId;
     bool desiredEnabled = false;
     std::int64_t revision = 0; // absent == 0, first explicit update == 1
-    // Zero/empty for disabled or legacy/unbound intents. The operation
-    // fences MUST compare all three fields to a current authenticated Agent.
+    // Zero/empty for disabled or legacy/unbound intents. The saved Agent
+    // identity and reviewed digest identify the administrator-approved provider.
+    // A live Agent generation/instance is checked independently at each
+    // capability/operation fence, not treated as a permanent admin preference.
     std::uint64_t backendGeneration = 0;
     std::string agentId;
     std::string agentInstanceId;
@@ -37,9 +39,12 @@ struct ActivationIntent {
 // handler is on by default once Core verifies the independent backend-specific
 // approval AND the current authenticated Agent/handler. The installer does NOT
 // bypass this provider check. Revision zero is the not-yet-overridden state.
-// An explicit administrator disable creates revision >= 1 and always wins;
-// a later enable is bound to the exact Agent lease and reviewed digest.
-// Provider, operation and actor grants remain independently mandatory.
+// An explicit administrator disable creates revision >= 1 and always wins.
+// A later enable pins the enrolled Agent identity and reviewed handler digest.
+// Current live Agent lease, process generation, capabilities, backend authority,
+// actor grants and operation receipts are independently verified by the fences.
+// Losing a lease pauses operations; a verified restart of the SAME enrollment
+// and SAME handler does not rewrite or revoke administrator intent.
 inline bool mediaToolsActivationPermits(
     const ActivationIntent& intent,
     const std::string& agentId,
@@ -60,10 +65,18 @@ inline bool mediaToolsActivationPermits(
             intent.agentId.empty() && intent.agentInstanceId.empty() &&
             intent.approvedHandlerSha256.empty();
     }
-    return intent.desiredEnabled &&
-        intent.backendGeneration == generation &&
+    // The administrator's explicit enable is persistent configuration, not
+    // an Agent lease. An enable saved while the Agent was offline has no
+    // binding; executing still independently requires an authenticated
+    // current Agent, valid command capability and Core-verified root approval.
+    if (!intent.desiredEnabled) return false;
+    if (intent.backendGeneration == 0 && intent.agentId.empty() &&
+        intent.agentInstanceId.empty() &&
+        intent.approvedHandlerSha256.empty()) return true;
+    // Existing pinned approvals retain their exact enrolled Agent/handler.
+    return intent.backendGeneration > 0 &&
+        !intent.agentInstanceId.empty() &&
         intent.agentId == agentId &&
-        intent.agentInstanceId == instanceId &&
         intent.approvedHandlerSha256 == trustedHandlerSha256;
 }
 

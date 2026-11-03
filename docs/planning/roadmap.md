@@ -42,6 +42,17 @@ A roadmap entry is never automatic permission to implement the next possible dif
 - Accepted architecture does not equal implemented runtime. A gap closes only through implementation plus the appropriate regression and acceptance evidence.
 - Completed phase history is not renumbered. Only not-yet-started future phases may be reordered when architecture/product sequencing is explicitly updated.
 
+
+## Next maintenance/refactoring phase after Media Tools: BAS — Backend-Agent Simplification
+
+**Maintainer decision 2026-10-28:** Finish the currently active Media Tools/Media Import add-on work first. **The next cross-cutting refactoring phase is BAS — Backend-Agent Simplification**, not a new security framework. Its detailed scoped slices **BAS.1–BAS.5** and acceptance criteria are recorded in [Media Tools Roadmap](../../addons/media-tools/ROADMAP.md#bas--backend-agent-simplification-nächste-phase-nach-media-tools-not-started).
+
+**Binding direction:** Favor usable read paths and KISS: a single source observation for a selected preview, no redundant complete scans, concrete failure diagnostics rather than opaque `source_invalid`, actual CLI↔Web end-to-end tests, and reuse of existing build/install/rollback tooling. Introduce no new security, activation, authorization or installation restrictions without the maintainer's explicit consent; retain the existing protections required for authenticated access and actual mutations. The corresponding repository rule is **Usability First – No Unapproved Restrictions** in [AGENTS.md](../../AGENTS.md).
+
+**Status:** BAS = **PLANNED / NOT STARTED**. This prioritizes the maintenance work immediately after Media Tools; it **does not renumber or kick off the previously planned numbered Phase 70**. Until MT has completed its real-user acceptance, continue that workstream rather than switching prematurely.
+
+---
+
 ---
 
 ## Post-69 Public API v1 Recording and router modularization order (decision 2026-10-21)

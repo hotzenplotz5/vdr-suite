@@ -130,6 +130,7 @@ struct IndexedSource {
     LocalMediaImportSource source;
     std::string displayPrefix;
     std::string rootId;
+    bool recordingPresent = false;
 };
 
 // Presentation-only prefix from the root-owned source inventory. The
@@ -331,6 +332,17 @@ bool scanDirectory(const std::array<std::string, 6>& entry,
     // An oversized scan exposes only verified candidates and MUST be
     // reported partial, not silently treated as empty or complete.
     const std::string prefix = displayPrefix(entry[5], isDefault);
+    // The importer and marker worker already accept only these media
+    // extensions. Exclude sidecars before sorting, canonicalization, and NFO
+    // inspection, while still counting all directory entries for scan status.
+    const auto isVideo = [](const fs::path& path) {
+        std::string ext = path.extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(),
+            [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        return ext == ".mkv" || ext == ".mp4" || ext == ".ts" ||
+               ext == ".mov" || ext == ".avi" || ext == ".webm" ||
+               ext == ".m4v";
+    };
     std::vector<fs::path> paths;
     std::vector<fs::path> directories{sourceRoot};
     bool walkTruncated = false;
@@ -340,7 +352,9 @@ bool scanDirectory(const std::array<std::string, 6>& entry,
             if (++entries > 4096U) { walkTruncated = true; break; }
             const auto status = item.symlink_status();
             if (fs::is_symlink(status)) continue;
-            if (fs::is_regular_file(status)) paths.push_back(item.path());
+            if (fs::is_regular_file(status)) {
+                if (isVideo(item.path())) paths.push_back(item.path());
+            }
             else if (fs::is_directory(status)) directories.push_back(item.path());
         }
         if (walkTruncated) break;
@@ -353,10 +367,11 @@ bool scanDirectory(const std::array<std::string, 6>& entry,
         if (now - fs::last_write_time(path) < std::chrono::minutes(2))
             continue;
         try {
-            const auto plan = inspectImport({sourceRoot, videoRoot, path});
+            const auto plan = inspectImportPreview({sourceRoot, videoRoot, path});
             const auto local = toSource(plan);
             if (found.size() == 100U) { partial = true; break; }
-            found.push_back({scannedId(entry[1], local), local, prefix, entry[1]});
+            found.push_back({scannedId(entry[1], local), local, prefix,
+                entry[1], plan.duplicateTarget && confirmedMediaImportDuplicate(plan)});
         } catch (...) {
             LocalMediaImportSource marked;
             if (inspectMarkedSource(sourceRoot, videoRoot, path, marked)) {
@@ -400,10 +415,11 @@ bool inventorySources(const std::filesystem::path& root, const std::string& back
                     return false;
             } else {
                 try {
-                    const auto plan = inspectImport({
+                    const auto plan = inspectImportPreview({
                         entry[2], entry[3], entry[4]});
                     sources.push_back({entry[1], toSource(plan),
-                        displayPrefix(entry[5], isDefault), entry[1]});
+                        displayPrefix(entry[5], isDefault), entry[1],
+                        plan.duplicateTarget && confirmedMediaImportDuplicate(plan)});
                 } catch (...) {
                     // A marked source is selectable only by an explicit release.
                     LocalMediaImportSource marked;
@@ -477,10 +493,12 @@ bool RootOwnedMediaImportInventory::listTrustedSourceIds(
 }
 bool RootOwnedMediaImportInventory::listTrustedSourceSnapshot(
     const std::string& backendId, std::vector<MediaImportSourceLabel>& out,
-    bool& partial)
+    bool& partial, const std::string& selectedSourceId,
+    LocalMediaImportSource* selectedSource)
 {
     out.clear();
     partial = true;
+    if (selectedSource) *selectedSource = {};
     if (!inventoryIdentifier(backendId, 1)) return false;
     std::vector<IndexedSource> sources;
     if (!inventorySources(installRoot_, backendId, sources, &partial)) {
@@ -503,7 +521,14 @@ bool RootOwnedMediaImportInventory::listTrustedSourceSnapshot(
             out.clear();
             return false;
         }
-        out.push_back({source.id, label, folder});
+        out.push_back({source.id, label, folder, source.recordingPresent});
+    }
+    // Keep the one selected source from this very scan. Do not rescan the
+    // complete tree merely to resolve its already verified opaque ID.
+    if (selectedSource && !selectedSourceId.empty()) {
+        const auto selected = std::find_if(sources.begin(), sources.end(),
+            [&](const IndexedSource& item) { return item.id == selectedSourceId; });
+        if (selected != sources.end()) *selectedSource = selected->source;
     }
     return true;
 }
@@ -529,7 +554,7 @@ bool RootOwnedMediaImportInventory::listTrustedSourceLabels(
             out.clear();
             return false;
         }
-        out.push_back({source.id, label, folder});
+        out.push_back({source.id, label, folder, source.recordingPresent});
     }
     return true;
 }

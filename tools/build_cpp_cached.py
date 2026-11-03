@@ -9,6 +9,7 @@ object built using automatic ``-MMD -MP`` dependency files.
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import fcntl
 import hashlib
 import json
@@ -222,6 +223,58 @@ def build_object(
         trace(trace_file, "compile", source, object_file)
 
 
+def server_version_define(flag: str) -> bool:
+    return flag.startswith("-DVDR_SUITE_SERVER_VERSION=")
+
+
+def source_needs_version(source: Path, prior_dependencies: Path | None) -> bool:
+    """The build version is consumed only by ServerBuildIdentity.h.
+
+    A changed source that starts using the header must immediately rebuild
+    against the current version, even if a previous object exists.
+    """
+    try:
+        body = source.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return True
+    if "ServerBuildIdentity.h" in body or "VDR_SUITE_SERVER_VERSION" in body:
+        return True
+    if prior_dependencies is not None and prior_dependencies.is_file():
+        dependencies = parse_depfile(prior_dependencies)
+        if not dependencies or any(
+            dependency.name == "ServerBuildIdentity.h" for dependency in dependencies
+        ):
+            return True
+    return False
+
+
+def seed_stable_object(
+    old_object: Path, old_depfile: Path, target_object: Path, target_depfile: Path,
+    lock_file: Path,
+) -> bool:
+    """Reuse a verified old-version object without recompiling it."""
+    if not cache_is_fresh(old_object, old_depfile):
+        return False
+    target_object.parent.mkdir(parents=True, exist_ok=True)
+    with lock_file.open("a+") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        if cache_is_fresh(target_object, target_depfile):
+            return True
+        # Hardlink saves both compilation and a large copy; recompilation
+        # atomically replaces the stable object without modifying the old one.
+        for old, target in ((old_object, target_object), (old_depfile, target_depfile)):
+            temporary = target.with_name(f".{target.name}.{os.getpid()}.seed")
+            try:
+                try:
+                    os.link(old, temporary)
+                except OSError:
+                    shutil.copy2(old, temporary)
+                os.replace(temporary, target)
+            finally:
+                temporary.unlink(missing_ok=True)
+        return cache_is_fresh(target_object, target_depfile)
+
+
 def replace_sources(arguments: Sequence[str], replacements: dict[str, Path]) -> list[str]:
     return [str(replacements[arg]) if arg in replacements else arg for arg in arguments]
 
@@ -240,23 +293,66 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     flags = compile_arguments(original)
     identity = compiler_identity(compiler)
-    signature = json.dumps(
-        {"compiler": identity, "cwd": str(Path.cwd()), "flags": flags},
-        sort_keys=True,
-    )
-    replacements: dict[str, Path] = {}
-    for source in sources:
-        object_file, depfile, lock_file = object_paths(args.cache_dir, source, signature)
-        build_object(
-            compiler,
-            source,
-            object_file,
-            depfile,
-            lock_file,
-            flags,
-            args.trace_file,
+    def signature(selected_flags: Sequence[str]) -> str:
+        return json.dumps(
+            {"compiler": identity, "cwd": str(Path.cwd()), "flags": list(selected_flags)},
+            sort_keys=True,
         )
-        replacements[str(source)] = object_file
+
+    stable_flags = [flag for flag in flags if not server_version_define(flag)]
+    full_signature = signature(flags)
+    stable_signature = signature(stable_flags)
+
+    # One-time reuse of the *existing* daemon cache when the source commit
+    # changes. The operator supplies the last actually compiled version;
+    # no directory scan, fresh checkout, or speculative full rebuild.
+    from_version = os.environ.get("VDR_SUITE_CXX_CACHE_FROM_VERSION", "")
+    prior_flags = [
+        "-DVDR_SUITE_SERVER_VERSION=" + '"' + from_version + '"'
+        if server_version_define(flag) else flag
+        for flag in flags
+    ]
+    prior_signature = signature(prior_flags) if from_version else ""
+
+    try:
+        jobs = max(1, min(8, int(os.environ.get("VDR_SUITE_CXX_JOBS", "2"))))
+    except ValueError:
+        jobs = 2
+
+    def compile_one(source: Path) -> tuple[str, Path]:
+        current_obj, current_dep, _ = object_paths(
+            args.cache_dir, source, full_signature)
+        stable_obj, stable_dep, stable_lock = object_paths(
+            args.cache_dir, source, stable_signature)
+        prior_obj, prior_dep, _ = object_paths(
+            args.cache_dir, source, prior_signature) if prior_signature else (
+                current_obj, current_dep, stable_lock)
+
+        version_sensitive = source_needs_version(
+            source, prior_dep if prior_signature else current_dep)
+        if version_sensitive:
+            obj, dep, lock = object_paths(args.cache_dir, source, full_signature)
+            selected_flags = flags
+        else:
+            obj, dep, lock = stable_obj, stable_dep, stable_lock
+            selected_flags = stable_flags
+            if not cache_is_fresh(obj, dep):
+                # Prefer the installed FIX3 build's objects, then any object
+                # already made for this exact version.
+                for previous_obj, previous_dep in (
+                    (prior_obj, prior_dep), (current_obj, current_dep)
+                ):
+                    if seed_stable_object(
+                        previous_obj, previous_dep, obj, dep, lock
+                    ):
+                        break
+
+        build_object(
+            compiler, source, obj, dep, lock, selected_flags, args.trace_file)
+        return str(source), obj
+
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        replacements = dict(pool.map(compile_one, sources))
 
     output.parent.mkdir(parents=True, exist_ok=True)
     link_arguments = replace_sources(original, replacements)

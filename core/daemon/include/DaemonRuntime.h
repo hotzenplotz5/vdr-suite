@@ -246,6 +246,12 @@ private:
     ConsoleRuntimeLogger runtimeLogger_;
     RuntimeDiagnosticsService runtimeDiagnosticsService_;
     Database database_;
+    // Authentication reads use their own SQLite handle: the main runtime
+    // connection is also used by background cache / metadata writers.
+    Database backendAgentAuthReadDatabase_;
+    // Polls have a dedicated SQLite handle, separate from the main cache
+    // writers. Both handles still share the existing database transaction lease.
+    Database backendAgentCommandPollDatabase_;
     std::unique_ptr<vdrsuite::operations::MutationOperationRepository>
         mutationOperationRepository_;
     std::unique_ptr<vdrsuite::operations::MutationOperationReadService>
@@ -318,7 +324,12 @@ private:
     std::unique_ptr<CredentialVerifierRepository> backendAgentCredentialVerifierRepository_;
     std::unique_ptr<AccountabilityEventRepository> backendAgentAccountabilityRepository_;
     std::unique_ptr<BackendAgentRepository> backendAgentRepository_;
+    // Read-only counterparts for the HTTP Basic authentication path only.
+    std::unique_ptr<BackendAgentRepository> backendAgentAuthReadRepository_;
+    std::unique_ptr<CredentialVerifierRepository> backendAgentAuthReadVerifierRepository_;
+    std::unique_ptr<SecurityIdentityRepository> backendAgentAuthReadIdentityRepository_;
     std::unique_ptr<BackendAgentCommandRepository> backendAgentCommandRepository_;
+    std::unique_ptr<BackendAgentCommandRepository> backendAgentCommandPollRepository_;
     std::unique_ptr<BackendAgentCommandReservationRepository>
         backendAgentCommandReservationRepository_;
     std::unique_ptr<vdrsuite::agent::BackendAgentNativeTimerCreateReservationService>

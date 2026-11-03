@@ -146,6 +146,24 @@ static void test_append_changes_increments_sequence_number()
     assertDomains(feed.entries()[1], {"recordings"});
 }
 
+static void test_append_changes_preserves_recording_id_scope()
+{
+    SnapshotChangeFeed feed;
+    SnapshotChangeFeedService service;
+    service.appendChanges(
+        feed, 12, {VdrChangeEvent(VdrChangeType::RecordingsChanged)},
+        "home-vdr", {"native-1", "native-2"});
+    assert(feed.entries().size() == 1);
+    assert(feed.entries().front().backendId() == "home-vdr");
+    assert((feed.entries().front().recordingNativeIds() ==
+        std::vector<std::string>{"native-1", "native-2"}));
+    service.appendChanges(
+        feed, 13, {VdrChangeEvent(VdrChangeType::RecordingsChanged)},
+        "home-vdr");
+    assert(feed.entries().size() == 2);
+    assert(feed.entries().back().recordingNativeIds().empty());
+}
+
 static void test_append_changes_does_not_add_empty_entry()
 {
     SnapshotChangeFeed feed;
@@ -267,6 +285,7 @@ int main()
     test_append_changes_adds_next_sequence_number();
     test_append_changes_increments_sequence_number();
     test_append_changes_does_not_add_empty_entry();
+    test_append_changes_preserves_recording_id_scope();
     test_append_changes_preserves_backend_id();
     test_append_changes_preserves_multiple_changed_domains();
     test_append_changes_preserves_multiple_backend_entries();

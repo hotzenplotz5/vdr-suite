@@ -33,6 +33,22 @@
 
 namespace {
 
+// Bounded diagnostics only: a synchronous listener phase that exceeds the
+// Agent's fast-poll timeout must be visible in the daemon journal. This does
+// not start a second HTTP handler or let requests race shared Core state.
+constexpr auto SLOW_LISTENER_PHASE = std::chrono::seconds(2);
+
+void reportSlowListenerPhase(
+    const char* phase,
+    std::chrono::steady_clock::time_point started)
+{
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started);
+    if (elapsed >= SLOW_LISTENER_PHASE)
+        std::cerr << "HTTP_LISTENER_STALL phase=" << phase
+                  << " duration_ms=" << elapsed.count() << std::endl;
+}
+
 // Only direct TCP peers on a private subnet attached to this host are
 // eligible for the one-time first-admin browser form. No forwarded headers,
 // DNS names or environment-provided network range grants this permission.
@@ -926,7 +942,11 @@ int SimpleHttpListener::runUntilStopped()
         << std::endl;
 
     while (!shouldStop_()) {
-        if (onTick_) onTick_();
+        if (onTick_) {
+            const auto started = std::chrono::steady_clock::now();
+            onTick_();
+            reportSlowListenerPhase("tick", started);
+        }
 
         fd_set readSet;
         FD_ZERO(&readSet);
@@ -1148,7 +1168,12 @@ bool SimpleHttpListener::prepareClientResponse(
             }
         }
     }
+    const auto handlerStarted = std::chrono::steady_clock::now();
     const HttpServerResponse response = server_.handleRequest(request);
+    reportSlowListenerPhase(
+        request.path.rfind("/api/agent/v1/", 0) == 0
+            ? "agent-handler" : "http-handler",
+        handlerStarted);
     imageResponse = isImageResponse(response);
     streamBodyPath = response.streamBodyPath;
     deviceEvents = response.deviceEventSubscription;

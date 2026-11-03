@@ -5,8 +5,10 @@
 #include "MetadataRepository.h"
 #include "RecordingMetadataCandidateProvider.h"
 
+#include <functional>
 #include <map>
 #include <string>
+#include <utility>
 
 class IRecordingMetadataCandidateProvider;
 
@@ -105,6 +107,14 @@ public:
         const std::string& resourceKey,
         const std::string& genreId);
 
+    using NativeInfoUpdate = std::function<bool(
+        const ManualRecordingMetadataSelection&,
+        const ManualRecordingMetadataAssignment&)>;
+    void setNativeInfoUpdate(NativeInfoUpdate update)
+    {
+        nativeInfoUpdate_ = std::move(update);
+    }
+
     ApiResponse assignManualRecordingMetadata(
         ManualRecordingMetadataSelection selection,
         const std::string& actorRef);
@@ -118,4 +128,5 @@ public:
 private:
     MetadataRepository& metadataRepository_;
     IRecordingMetadataCandidateProvider* candidateProvider_;
+    NativeInfoUpdate nativeInfoUpdate_;
 };

@@ -183,7 +183,13 @@ bool mutationOperationTransitionAllowed(
                 to == MutationOperationState::failedBeforeDispatch ||
                 to == MutationOperationState::cancelled;
         case MutationOperationState::dispatching:
+            // Core can reserve an Agent command before the Agent starts its
+            // native execution. An authenticated, durable not_started result
+            // must be allowed to close that operation without pretending a
+            // native effect occurred. The Media Import result fence checks
+            // that evidence before requesting this transition.
             return to == MutationOperationState::executedUnverified ||
+                to == MutationOperationState::failedBeforeDispatch ||
                 to == MutationOperationState::outcomeUnknown ||
                 to == MutationOperationState::failedVerified;
         case MutationOperationState::executedUnverified:

@@ -6,6 +6,7 @@
 #include "BackendAgentRecordingCut.h"
 #include "LegacyOsdInputDomain.h"
 #include "MediaShrinkAgentCommand.h"
+#include "MediaToolsAgentExecutor.h"
 
 #include <algorithm>
 #include <cctype>
@@ -290,6 +291,8 @@ bool parseTypes(const Value& value, std::vector<std::string>& types)
                  vdrsuite::agent::kBackendAgentRecordingCutCommandType &&
              item.stringValue != kLegacyOsdInputCommandType &&
              item.stringValue != "addon.media.import" &&
+             item.stringValue !=
+                 vdrsuite::mediatools::kMediaImportReadbackCommandType &&
              item.stringValue !=
                  vdrsuite::mediatools::kMediaShrinkStageCommandType &&
              item.stringValue !=

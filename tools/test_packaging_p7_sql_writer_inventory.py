@@ -45,6 +45,10 @@ PENDING = frozenset({
     "core/addons/media-tools/src/MediaShrinkReviewRepository.cpp",
     "core/agent/src/BackendAgentMediaImportAssignment.cpp",
     "core/agent/src/BackendAgentMediaShrinkAssignment.cpp",
+    # Media Import's durable checked-preview store creates a dedicated table.
+    # It is covered by import/runtime tests but not by the historical P7
+    # database upgrade rehearsal. Keep real-package migration proof pending.
+    "core/sqlite/src/MediaImportCheckedPreviewStore.cpp",
 })
 INDIRECTLY_EXERCISED = frozenset({
     "core/agent/src/BackendRuntimeGeneration.cpp",

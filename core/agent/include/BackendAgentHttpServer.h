@@ -4,8 +4,10 @@
 #include "BackendAgentCommandDelivery.h"
 #include "IHttpServer.h"
 
+#include <array>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 
 class CredentialVerifierRepository;
@@ -36,6 +38,11 @@ public:
 private:
     RequestSecurityContext authenticateAgent(
         const HttpServerRequest& request) const;
+    bool verifyAgentSecret(
+        const std::string& agentId,
+        const std::string& credentialId,
+        const std::string& passwordHash,
+        const std::string& secret) const;
     HttpServerResponse handleEnrollment(
         const HttpServerRequest& request) const;
     HttpServerResponse handleCredentialRotation(
@@ -75,4 +82,16 @@ private:
     SecurityIdentityRepository& identityRepository_;
     BackendAgentMediaImportCatalog* mediaImportCatalog_ = nullptr;
     MediaShrinkAuthorityLookup mediaShrinkAuthorityLookup_;
+
+    // One successful Basic verifier, bound to the current durable credential
+    // identity and hash. Revocation/expiry/permissions are read on every
+    // request; a rotation changes the hash and misses the cache immediately.
+    std::array<unsigned char, 32> secretCacheKey_{};
+    bool secretCacheReady_ = false;
+    mutable std::mutex secretCacheMutex_;
+    mutable bool secretCachePresent_ = false;
+    mutable std::string cachedAgentId_;
+    mutable std::string cachedCredentialId_;
+    mutable std::string cachedPasswordHash_;
+    mutable std::array<unsigned char, 32> cachedSecretMac_{};
 };

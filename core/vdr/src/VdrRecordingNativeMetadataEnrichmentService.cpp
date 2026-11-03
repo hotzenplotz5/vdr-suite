@@ -205,7 +205,8 @@ bool VdrRecordingNativeMetadataEnrichmentService::pop(QueueEntry& entry)
 
 int VdrRecordingNativeMetadataEnrichmentService::processBatch(
     std::int64_t now,
-    int requestedLimit)
+    int requestedLimit,
+    std::vector<std::string>* committedRecordingNativeIds)
 {
     const int limit = requestedLimit > 0
         ? std::min(requestedLimit, config_.maximumBatchSize)
@@ -216,7 +217,12 @@ int VdrRecordingNativeMetadataEnrichmentService::processBatch(
     while (processed < limit && pop(entry))
     {
         const VdrRecordingNativeMetadata metadata = resolver_.resolve(entry.recordingKey);
-        persistResult(entry, metadata, now);
+        const bool stored = persistResult(entry, metadata, now);
+        if (stored && committedRecordingNativeIds &&
+            (metadata.availability == VdrRecordingNativeMetadataAvailability::Found ||
+             metadata.availability == VdrRecordingNativeMetadataAvailability::NotFound)) {
+            committedRecordingNativeIds->push_back(entry.backendNativeId);
+        }
         ++processed;
     }
     return processed;

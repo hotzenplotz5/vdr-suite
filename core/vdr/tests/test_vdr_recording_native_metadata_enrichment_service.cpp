@@ -152,7 +152,14 @@ int main()
 
     assert(service.reconcileInventory(initial, 1000) == 2);
     assert(service.status().queuedCount == 2);
-    assert(service.processBatch(1000, 10) == 2);
+    std::vector<std::string> committedNativeIds;
+    assert(service.processBatch(1000, 10, &committedNativeIds) == 2);
+    assert(committedNativeIds.size() == 2);
+    for (const auto& nativeId : committedNativeIds) {
+        assert(nativeId == forrestNative ||
+               nativeId == unknownNative ||
+               nativeId == thirdNative);
+    }
     assert(resolver.calls[forrestKey] + resolver.calls[unknownKey] + resolver.calls[thirdKey] == 2);
     assert(service.status().queuedCount == 0);
 

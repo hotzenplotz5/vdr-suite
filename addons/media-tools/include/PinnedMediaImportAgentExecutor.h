@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -48,7 +49,8 @@ public:
                                   std::string backendId,
                                   std::uint64_t backendGeneration,
                                   ILocalMediaImportInventory& inventory,
-                                  ILocalMediaImportAuthorization& authorization);
+                                  ILocalMediaImportAuthorization& authorization,
+                                  std::function<void()> keepAlive = {});
     bool available() override;
     bool authorize(const BackendAgentCommandAssignment& assignment,
                    const std::string& backendId,
@@ -57,6 +59,10 @@ public:
         const BackendAgentCommandAssignment& assignment) override;
     std::string takeRecordingEvidence() override;
     std::string takeMarkerEvidence() override;
+    std::string takeFailureCode() override;
+    MediaImportCleanupOutcome cleanupConfirmedSource(
+        const std::string& sourceId,
+        const std::string& sourceEvidence) override;
 
 private:
     std::string root_;
@@ -64,6 +70,7 @@ private:
     std::uint64_t generation_;
     ILocalMediaImportInventory& inventory_;
     ILocalMediaImportAuthorization& authorization_;
+    std::function<void()> keepAlive_;
     std::unique_ptr<vdrsuite::addons::MediaToolsInstallSnapshot> pinned_;
     std::string pendingCommandId_;
     std::string pendingFingerprint_;
@@ -72,6 +79,7 @@ private:
     MediaImportDecision pendingDecision_ = MediaImportDecision::import;
     std::string recordingEvidence_;
     std::string markerEvidence_;
+    std::string failureCode_;
 };
 
 } // namespace vdrsuite::mediatools

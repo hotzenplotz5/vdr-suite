@@ -244,6 +244,22 @@ int main()
     assert(response.contentType == "image/jpeg");
     assert(response.body == "fake-series-cover-jpeg");
 
+    // Unimported movies and episodes use the existing candidate-image GET.
+    assert(runtime.tryHandleGet(
+        "/api/backends/default/settings/series-artwork/"
+        "candidate-image?externalNamespace=movie&externalId=13&"
+        "posterReference=%2Fmovie-preview.jpg",
+        response));
+    assert(response.statusCode == 200);
+    assert(response.contentType == "image/jpeg");
+    assert(runtime.tryHandleGet(
+        "/api/backends/default/settings/series-artwork/"
+        "candidate-image?externalNamespace=tv-episode&externalId=321&"
+        "posterReference=%2Fepisode-preview.jpg",
+        response));
+    assert(response.statusCode == 200);
+    assert(response.contentType == "image/jpeg");
+
     assert(runtime.tryHandleGet(
         "/api/backends/default/settings/series-artwork/image?"
         "seriesKey=folder%3Aserien%2Ftestserie",

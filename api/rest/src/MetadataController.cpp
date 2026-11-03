@@ -8,6 +8,8 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <exception>
+#include <iostream>
 #include <sstream>
 #include <string>
 
@@ -571,10 +573,25 @@ ApiResponse MetadataController::assignManualRecordingMetadata(
                 : "The manual metadata assignment is invalid");
     }
 
+    // Keep the existing authenticated assignment as the only request.
+    // A native write error never reverses the persisted Suite assignment.
+    bool nativeUpdated = false;
+    if (nativeInfoUpdate_) {
+        try { nativeUpdated = nativeInfoUpdate_(selection, assigned); }
+        catch (const std::exception& error) {
+            std::cerr << "VDR native info update deferred: "
+                      << error.what() << std::endl;
+        }
+    }
     ApiResponse response;
     response.statusCode = 200;
     response.contentType = "application/json";
     response.body = serializeAssignment(assigned);
+    if (nativeInfoUpdate_ && !response.body.empty() &&
+        response.body.back() == '}')
+        response.body.insert(response.body.size() - 1,
+            nativeUpdated ? ",\"nativeInfoUpdated\":true"
+                          : ",\"nativeInfoUpdated\":false");
     return response;
 }
 

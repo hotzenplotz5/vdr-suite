@@ -58,7 +58,8 @@ IntentResult AddonAdministrationService::setDesiredState(
         !canInspectInventory(actor).allowed ||
         !safeAuditIdentifier(context.eventId) ||
         !safeAuditIdentifier(actor.requestId) ||
-        !safeAuditIdentifier(actor.correlationId) ||
+        (!actor.correlationId.empty() &&
+         !safeAuditIdentifier(actor.correlationId)) ||
         !validUtcTimestamp(context.occurredAt))
     {
         return {IntentStatus::forbidden,

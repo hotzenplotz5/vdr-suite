@@ -24,7 +24,7 @@ CXXFLAGS += -std=c++17 -Wall -Wextra \
 
 LDFLAGS += $(shell $(PKG_CONFIG) --libs sqlite3)
 
-SQLITE_SRC := core/sqlite/src/Database.cpp
+SQLITE_SRC := core/sqlite/src/Database.cpp core/sqlite/src/MediaImportCheckedPreviewStore.cpp
 
 .PHONY: all test clean prepare-test-db check-vdr-linkage-contracts test-build-artifact-paths test-runtime-config test-epg-event-repository test-epg-cache-service test-epg-cache-controller test-api-router-epg-cache-routes dashboard-cli daemon test-vdr-snapshot-builder-startup-snapshot test-search-timer-preview-epg-cache-refresh-service test-search-timer-preview-epg-cache-refresh-controller test-search-timer-preview-epg-cache-stale-guard test-search-timer-preview-epg-cache-change-invalidator test-snapshot-change-feed-preview-epg-cache-invalidation test-api-router-searchtimer-preview-epg-cache-refresh-route test-api-router-searchtimer-preview-refresh-then-preview
 

@@ -17,10 +17,11 @@ class BackendAgentMediaImportRuntime final
     : public vdrsuite::mediatools::IMediaImportAgentExecutor {
 public:
     using CurrentContext = std::function<BackendAgentCommandClientContext()>;
+    using KeepAlive = std::function<void()>;
     BackendAgentMediaImportRuntime(
         std::string trustedRoot, std::string backendId, std::string statePath,
         IBackendAgentControlPlaneTransport& transport,
-        CurrentContext currentContext);
+        CurrentContext currentContext, KeepAlive keepAlive = {});
     bool available() override;
     bool verifiedInstallation(
         vdrsuite::mediatools::MediaToolsInstallationEvidence& out) override;
@@ -34,6 +35,17 @@ public:
     bool inspectTrustedSource(
         const std::string& sourceId,
         vdrsuite::mediatools::MediaImportSourcePreview& out) override;
+    bool listTrustedSourceObservation(
+        std::vector<std::string>& ids,
+        std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+        bool& partial, const std::string& selectedSourceId,
+        vdrsuite::mediatools::MediaImportSourcePreview& preview) override;
+    bool listTrustedSourceObservationCached(
+        std::vector<std::string>& ids,
+        std::vector<vdrsuite::mediatools::MediaImportSourceLabel>& labels,
+        bool& partial, const std::string& selectedSourceId,
+        const std::string& codecHint, std::uint64_t durationHint,
+        vdrsuite::mediatools::MediaImportSourcePreview& preview) override;
     bool authorize(const BackendAgentCommandAssignment& assignment,
                    const std::string& backendId,
                    std::uint64_t generation) override;
@@ -41,10 +53,18 @@ public:
         const BackendAgentCommandAssignment& assignment) override;
     std::string takeRecordingEvidence() override;
     std::string takeMarkerEvidence() override;
+    std::string takeFailureCode() override;
 private:
+    bool inspectResolvedSource(
+        const std::string& sourceId,
+        const vdrsuite::mediatools::LocalMediaImportSource& local,
+        vdrsuite::mediatools::MediaImportSourcePreview& out,
+        const std::string& codecHint = {},
+        std::uint64_t durationHint = 0);
     std::string trustedRoot_;
     std::string backendId_;
     CurrentContext currentContext_;
+    KeepAlive keepAlive_;
     vdrsuite::mediatools::RootOwnedMediaImportInventory inventory_;
     ReceiptRevalidatingMediaImportAuthorization authorization_;
     std::unique_ptr<vdrsuite::mediatools::PinnedMediaImportAgentExecutor>

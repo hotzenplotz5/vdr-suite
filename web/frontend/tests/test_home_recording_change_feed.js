@@ -55,8 +55,11 @@ const client = {
       handlers: {}, closed: false,
       addEventListener(type, listener) { this.handlers[type] = listener; },
       close() { this.closed = true; },
-      emit(sequenceNumber, backendId = backend, changedDomains = ['recordings']) {
-        this.handlers.update({data: JSON.stringify({sequenceNumber, backendId, changedDomains})});
+      emit(sequenceNumber, backendId = backend, changedDomains = ['recordings'],
+           recordingNativeIds = []) {
+        this.handlers.update({data: JSON.stringify({
+          sequenceNumber, backendId, changedDomains, recordingNativeIds
+        })});
       }
     };
     sources.push(source);
@@ -73,6 +76,11 @@ const client = {
       recordingId: 'import-' + recordingReads, backendId: backend,
       backendNativeId: '/recordings/import-' + recordingReads,
       title: 'Imported movie ' + recordingReads
+    }, {
+      recordingId: 'unrelated', backendId: backend,
+      backendNativeId: '/recordings/unrelated',
+      title: 'Unrelated movie',
+      metadata: {presentation: {posterUrl: '/unrelated.jpg'}}
     }]});
   },
   fetchClientRecordingFolder(options) {
@@ -94,8 +102,17 @@ const window = {
   }
 };
 window.window = window;
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8'),
-  {window, console}, {filename: 'home-recording-discovery.js'});
+const productionContext = vm.createContext({window, console});
+vm.runInContext(
+  fs.readFileSync(path.join(__dirname, '..', 'platform', 'helpers.js'), 'utf8'),
+  productionContext,
+  {filename: 'platform/helpers.js'}
+);
+vm.runInContext(
+  fs.readFileSync(path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8'),
+  productionContext,
+  {filename: 'home-recording-discovery.js'}
+);
 
 const settle = () => new Promise(resolve => setImmediate(resolve));
 async function tick() {
@@ -139,7 +156,8 @@ function navigate(next) {
   first.emit(4);
   await tick();
   assert.strictEqual(recordingReads, 2, 'same-backend recording burst invalidates retained Home once');
-  assert.strictEqual(folderReads, 2);
+  assert.strictEqual(folderReads, 1,
+    'recording SSE must not reload the unrelated Home folders rail');
   const flatten = node => [node, ...node.children.flatMap(flatten)];
   assert(flatten(host).some(node => node.dataset.recordingId === 'import-2'),
     'native import hint reaches the actual Home card projection');
@@ -239,5 +257,41 @@ function navigate(next) {
   third.emit(101, 'B');
   await tick();
   assert.strictEqual(recordingReads, beforeBackend + 1);
+
+  const selectedNativeId = '/recordings/import-' + recordingReads;
+  const unrelatedBefore = flatten(host).find(node => node.dataset.recordingId === 'unrelated');
+  assert(unrelatedBefore);
+  const unrelatedPosterBefore = flatten(unrelatedBefore).find(node => node.src === '/unrelated.jpg');
+  assert(unrelatedPosterBefore);
+  const readsBeforeScoped = recordingReads;
+  const foldersBeforeScoped = folderReads;
+  const targetedRequests = [];
+  client.requestJson = (route, options) => {
+    targetedRequests.push({route, options});
+    return Promise.resolve({
+      available: true, title: 'Corrected imported movie', mediaType: 'movie',
+      preferredArtwork: {available: true, url: '/corrected/new-cover.webp'},
+      images: []
+    });
+  };
+  third.emit(102, 'B', ['recordings'], [selectedNativeId]);
+  await tick();
+  assert.strictEqual(recordingReads, readsBeforeScoped,
+    'recording-scoped SSE must not refetch the complete recording collection');
+  assert.strictEqual(folderReads, foldersBeforeScoped,
+    'recording-scoped SSE must not reload Home folders');
+  assert.strictEqual(targetedRequests.length, 1);
+  assert.strictEqual(targetedRequests[0].route, '/api/vdr/recordings/metadata');
+  assert.strictEqual(targetedRequests[0].options.query.backendNativeId, selectedNativeId);
+  const unrelatedAfter = flatten(host).find(node => node.dataset.recordingId === 'unrelated');
+  assert.strictEqual(unrelatedAfter, unrelatedBefore,
+    'scoped SSE must preserve the unrelated Recording card object');
+  assert.strictEqual(
+    flatten(unrelatedAfter).find(node => node.src === '/unrelated.jpg'),
+    unrelatedPosterBefore,
+    'scoped SSE must not touch or reload another Recording image');
+  assert(flatten(host).some(node => node.src === '/corrected/new-cover.webp'),
+    'recording-scoped SSE updates the existing tile artwork directly');
+
   console.log('Home recording feed production lifecycle: PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });

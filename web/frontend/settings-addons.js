@@ -3,6 +3,19 @@
 
   const path = '/api/v1/addons/rectools/activation';
 
+  // Use the same bounded request correlation as the proven administrator API
+  // mutation. This is diagnostic identity, never an authorization credential.
+  function mutationCorrelationHeader() {
+    if (!global.crypto || typeof global.crypto.getRandomValues !== 'function')
+      return {};
+    const bytes = new Uint8Array(12);
+    global.crypto.getRandomValues(bytes);
+    return {'X-Correlation-ID': 'addon-activation-' +
+      Array.from(bytes, function (byte) {
+        return byte.toString(16).padStart(2, '0');
+      }).join('')};
+  }
+
   function node(tag, text) {
     const result = global.document.createElement(tag);
     if (typeof text === 'string') result.textContent = text;
@@ -20,7 +33,8 @@
       const options = {
         credentials: 'same-origin', cache: 'no-store',
         headers: Object.assign({'Accept': 'application/json'}, mutation
-          ? Object.assign({'Content-Type': 'application/json'}, csrf || {})
+          ? Object.assign({'Content-Type': 'application/json'},
+              csrf || {}, mutationCorrelationHeader())
           : {})
       };
       if (mutation) {
@@ -284,9 +298,8 @@
     card.appendChild(node('h3', 'Media Tools'));
     card.appendChild(node('p',
       'Media Tools werden separat installiert. Diese Anzeige prüft ' +
-      'die Freigabe über den Backend-Agenten, nicht die lokal ' +
-      'installierten Dateien. Import und Shrink sind erst nutzbar, ' +
-      'wenn der Agent die installierten Worker bestätigt hat.'));
+      'den gespeicherten Aktivierungszustand. Die Verfügbarkeit der ' +
+      'lokalen Worker wird bei Import- und Shrink-Aufträgen geprüft.'));
     const status = node('p', 'Aktivierung wird geladen …');
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
@@ -315,17 +328,10 @@
     let busy = false;
     function controls() {
       refresh.disabled = busy;
-      // Installation and saved administrator intent are not the same.
-      // Never offer enabling without server-verified provider evidence.
-      const missingProvider = current && current.providerVerified !== true;
-      const missingAgent = current && current.agentReady !== true;
-      toggle.disabled = busy || !current ||
-        (!current.desiredEnabled && (missingProvider || missingAgent));
-      toggle.title = current && !current.desiredEnabled && missingAgent
-        ? 'Backend-Agent nicht bereit. Lokale Installation bleibt davon unberührt.'
-        : current && !current.desiredEnabled && missingProvider
-          ? 'Agent hat den installierten Handler noch nicht bestätigt.'
-          : '';
+      // The admin enable/disable preference must remain usable while the
+      // worker is offline. Actual imports validate worker readiness later.
+      toggle.disabled = busy || !current;
+      toggle.title = '';
     }
     function reload() {
       busy = true; current = null; controls();
@@ -333,27 +339,18 @@
       return request(backendId, false).then(function (result) {
         current = result;
         card.hidden = false;
-        // Do not fetch or show a source editor for an unverified provider.
-        // A trusted, currently installed worker may still be configured
-        // while the Agent is deliberately stopped for maintenance.
-        if (result.providerVerified === true) sourceEditor.load();
-        else sourceEditor.section.hidden = true;
+        // Source configuration is not an Agent-lease operation.
+        sourceEditor.load();
         // A current, independently verified provider proves more than a
         // saved intent, but still says nothing about dpkg package ownership.
         const trusted = result.providerVerified === true;
         const ready = result.agentReady === true;
         const bound = result.activationBoundToProvider === true;
-        status.textContent = trusted && ready && bound && result.desiredEnabled
-          ? 'Media Tools technisch freigegeben (Benutzerrechte separat prüfen)'
-          : trusted && result.desiredEnabled
-            ? 'Aktivierungswunsch vorhanden; Agent-/Handlerbindung nicht bestätigt'
-            : trusted
-              ? 'Handler verifiziert, Addon deaktiviert'
-              : result.desiredEnabled
-                ? 'Aktivierungswunsch gespeichert; Agent bestätigt Handler aktuell nicht'
-                : !ready
-                  ? 'Backend-Agent nicht bereit; lokale Installation wird hier nicht geprüft'
-                  : 'Backend-Agent bestätigt den Handler noch nicht; lokaler Installationsstatus unbekannt';
+        status.textContent = result.desiredEnabled
+          ? (trusted && ready && bound
+            ? 'Media Tools aktiviert und betriebsbereit'
+            : 'Media Tools aktiviert; Worker-Verfügbarkeit wird beim Auftrag geprüft')
+          : 'Media Tools deaktiviert';
         details.textContent = 'Backend: ' + backendId +
           ' · Freigabe-Revision: ' + result.revision;
         toggle.textContent = result.desiredEnabled ? 'Deaktivieren' : 'Aktivieren';
@@ -378,8 +375,7 @@
       if (!current || busy) return;
       const wanted = !current.desiredEnabled;
       const question = wanted
-        ? 'Media Tools für Backend ' + backendId +
-          ' aktivieren? Nur zuvor geprüfte Handler und vorhandene Benutzerrechte dürfen Aufträge ausführen.'
+        ? 'Media Tools für Backend ' + backendId + ' aktivieren?'
         : 'Media Tools für Backend ' + backendId + ' deaktivieren?';
       if (!global.confirm(question)) return;
       const expectedRevision = current.revision;

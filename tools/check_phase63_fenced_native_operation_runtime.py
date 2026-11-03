@@ -250,13 +250,20 @@ for token in [
 for token in [
     "sleepMilliseconds_(waitMilliseconds);",
     "if (stopRequested()) break;",
-    "millisecondsSinceHeartbeat += waitMilliseconds;",
+    "const auto cycleStarted = std::chrono::steady_clock::now();",
+    "std::chrono::steady_clock::now() - cycleStarted",
+    "const auto elapsed = std::max<std::int64_t>(",
+    "millisecondsSinceHeartbeat = static_cast<int>(",
 ]:
     if token not in backend_agent_client:
         errors.append(
-            "Backend Agent bounded command-poll wait is not stop-interruptible: "
+            "Backend Agent bounded command-poll/heartbeat accounting missing: "
             + token
         )
+if backend_agent_client.count("accountElapsed();") < 2:
+    errors.append(
+        "Backend Agent must account for elapsed time before and after command poll"
+    )
 
 if "sleep_(config_.heartbeatIntervalSeconds);" in backend_agent_client:
     errors.append(

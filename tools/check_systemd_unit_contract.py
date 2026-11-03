@@ -143,6 +143,22 @@ def main() -> int:
             print("Backend Agent credentials must not be process arguments", file=sys.stderr)
             failed = True
 
+    # The Agent's ProtectSystem=strict makes /srv read-only within its mount
+    # namespace. Both media paths must be explicitly writable: the VDR target
+    # for import and the source for confirmed duplicate cleanup.
+    media_path_config = Path("tools/addons/configure_media_tools_paths.sh").read_text(
+        encoding="utf-8")
+    media_first_install = Path("tools/addons/install_media_tools.sh").read_text(
+        encoding="utf-8")
+    if '"ReadWritePaths=$VIDEO"' not in media_path_config or (
+            '"ReadWritePaths=$SOURCE"' not in media_path_config):
+        print("Media Tools path config must allow source and VDR write paths", file=sys.stderr)
+        failed = True
+    if ("override += 'ReadWritePaths=' + video" not in media_first_install or
+            "override += 'ReadWritePaths=' + source" not in media_first_install):
+        print("Media Tools first install must allow source and VDR write paths", file=sys.stderr)
+        failed = True
+
     agent_config = active_lines(AGENT_CONFIG_PATH)
     for required in REQUIRED_AGENT_CONFIG:
         if required not in agent_config:

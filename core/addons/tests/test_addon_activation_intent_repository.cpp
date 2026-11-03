@@ -173,15 +173,52 @@ int main()
            IntentStatus::invalid);
     ++checks;
 
+    // An explicit admin enable is durable even when no live Agent snapshot
+    // exists. This does not grant execution: runtime still verifies the
+    // authenticated Agent, command capability and approved handler digest.
+    auto offlineBackend = backend();
+    offlineBackend.backendId = "backend-offline";
+    const auto offline = store.update(
+        actor, {"rectools", "backend-offline", true, 0},
+        offlineBackend, {});
+    assert(offline.status == IntentStatus::ok &&
+           offline.intent.desiredEnabled && offline.intent.revision == 1 &&
+           offline.intent.agentId.empty() &&
+           offline.intent.approvedHandlerSha256.empty());
+    const auto offlineRead = store.read(actor, "rectools", "backend-offline");
+    assert(offlineRead.status == IntentStatus::ok &&
+           offlineRead.intent.desiredEnabled && offlineRead.intent.revision == 1 &&
+           offlineRead.intent.agentId.empty());
+    assert(mediaToolsActivationPermits(
+        offlineRead.intent, "agent-a", "instance-a", 19,
+        std::string(64, 'a')));
+    assert(!mediaToolsActivationPermits(
+        offlineRead.intent, "agent-a", "instance-a", 19, ""));
+    assert(store.update(
+        actor, {"rectools", "backend-offline", false, 1},
+        {}, {}).status == IntentStatus::ok);
+
     auto committed = store.update(actor, enable, b, evidence);
     assert(committed.status == IntentStatus::ok);
     assert(committed.intent.desiredEnabled && committed.intent.revision == 1);
     assert(mediaToolsActivationPermits(
         committed.intent, "agent-a", "instance-a", 19, std::string(64, 'a')));
+    // A genuine restart or synchronized new generation of the SAME enrolled
+    // Agent must not require another admin click or mutate the saved revision.
+    assert(mediaToolsActivationPermits(
+        committed.intent, "agent-a", "instance-restarted", 20,
+        std::string(64, 'a')));
     assert(!mediaToolsActivationPermits(
-        committed.intent, "agent-a", "instance-a", 20, std::string(64, 'a')));
+        committed.intent, "agent-replaced", "instance-restarted", 20,
+        std::string(64, 'a')));
     assert(!mediaToolsActivationPermits(
-        committed.intent, "agent-a", "instance-a", 19, std::string(64, 'b')));
+        committed.intent, "agent-a", "instance-restarted", 20,
+        std::string(64, 'b')));
+    assert(!mediaToolsActivationPermits(
+        committed.intent, "agent-a", "", 20, std::string(64, 'a')));
+    assert(!mediaToolsActivationPermits(
+        committed.intent, "agent-a", "instance-restarted", 0,
+        std::string(64, 'a')));
     ++checks;
 
     assert(committed.intent.backendGeneration == 19 &&
@@ -191,6 +228,12 @@ int main()
     assert(persistedLease.intent.backendGeneration == 19 &&
            persistedLease.intent.agentInstanceId == "instance-a" &&
            persistedLease.intent.approvedHandlerSha256 == std::string(64, 'a'));
+    assert(persistedLease.intent.revision == 1 &&
+           mediaToolsActivationPermits(
+               persistedLease.intent, "agent-a", "instance-restarted", 20,
+               std::string(64, 'a')));
+    // Read-only recovery must never silently update administrative CAS state.
+    assert(store.read(actor, "rectools", "backend-a").intent.revision == 1);
 
     // A handler hash upgrade cannot reuse an old administrator's enable,
     // even when Agent identity, process instance and generation are unchanged.

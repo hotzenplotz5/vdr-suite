@@ -1,8 +1,10 @@
 #include "MediaImportDecisionMarker.h"
+#include "MediaImportRecordingEvidence.h"
 
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>
+#include <cctype>
 #include <fcntl.h>
 #include <filesystem>
 #include <string>
@@ -103,6 +105,83 @@ bool markedBefore(const std::string& stem)
 }
 } // namespace
 
+
+MediaImportCleanupOutcome cleanupMediaImportSourceImpl(
+    const LocalMediaImportSource& source, const std::string& sourceEvidence,
+    bool markedDuplicate)
+{
+    if (!validMediaImportSourceEvidence(sourceEvidence) ||
+        !insideRoot(source.sourceRoot, source.sourceFile) ||
+        !safeAbsolute(source.videoRoot) ||
+        source.sourceDevice == 0 || source.sourceInode == 0 ||
+        source.sourceBytes == 0 ||
+        mediaImportSourceEvidence(
+            source.sourceFile, source.sourceDevice, source.sourceInode,
+            source.sourceBytes, source.sourceMtimeSeconds,
+            source.sourceMtimeNanoseconds) != sourceEvidence)
+        return MediaImportCleanupOutcome::notPerformed;
+
+    const auto name = source.sourceFile.filename().string();
+    std::string extension = source.sourceFile.extension().string();
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    std::string stem = source.sourceFile.stem().string();
+    std::transform(stem.begin(), stem.end(), stem.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    const std::string duplicateSuffix = ".duplicate";
+    const bool isDuplicate = stem.size() > duplicateSuffix.size() &&
+        stem.compare(stem.size() - duplicateSuffix.size(),
+                     duplicateSuffix.size(), duplicateSuffix) == 0;
+    if (name.empty() || name.front() == '.' ||
+        !safeExtension(extension) ||
+        (markedDuplicate ? !isDuplicate : markedBefore(stem)))
+        return MediaImportCleanupOutcome::notPerformed;
+
+    Fd directory = openDirectoryWithoutSymlinks(
+        source.sourceFile.parent_path());
+    if (directory.get() < 0) return MediaImportCleanupOutcome::notPerformed;
+    Fd input(::openat(directory.get(), name.c_str(),
+        O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW));
+    if (input.get() < 0)
+        return errno == ENOENT
+            ? MediaImportCleanupOutcome::alreadyAbsent
+            : MediaImportCleanupOutcome::failed;
+
+    struct stat opened{}, atName{};
+    if (::fstat(input.get(), &opened) != 0 ||
+        !sameIdentity(opened, source) ||
+        ::flock(input.get(), LOCK_EX | LOCK_NB) != 0)
+        return MediaImportCleanupOutcome::notPerformed;
+    // Same inode, device, bytes and nanosecond mtime at both the opened fd
+    // and pathname. A replaced basename or configured source ID is not a
+    // deletion permit.
+    if (::fstatat(directory.get(), name.c_str(), &atName,
+                  AT_SYMLINK_NOFOLLOW) != 0)
+        return errno == ENOENT
+            ? MediaImportCleanupOutcome::alreadyAbsent
+            : MediaImportCleanupOutcome::failed;
+    if (!sameIdentity(atName, source))
+        return MediaImportCleanupOutcome::notPerformed;
+    if (::unlinkat(directory.get(), name.c_str(), 0) != 0)
+        return errno == ENOENT
+            ? MediaImportCleanupOutcome::alreadyAbsent
+            : MediaImportCleanupOutcome::failed;
+    return ::fsync(directory.get()) == 0
+        ? MediaImportCleanupOutcome::removed
+        : MediaImportCleanupOutcome::failed;
+}
+
+MediaImportCleanupOutcome cleanupMediaImportSource(
+    const LocalMediaImportSource& source, const std::string& evidence)
+{
+    return cleanupMediaImportSourceImpl(source, evidence, false);
+}
+MediaImportCleanupOutcome cleanupConfirmedDuplicateSource(
+    const LocalMediaImportSource& source, const std::string& evidence)
+{
+    return cleanupMediaImportSourceImpl(source, evidence, true);
+}
+
 MediaImportMarkerOutcome markMediaImportSource(
     const LocalMediaImportSource& source,
     MediaImportMarkerDecision decision)
@@ -115,6 +194,7 @@ MediaImportMarkerOutcome markMediaImportSource(
         source.sourceBytes == 0 ||
         (decision != MediaImportMarkerDecision::desktop &&
          decision != MediaImportMarkerDecision::skip &&
+         decision != MediaImportMarkerDecision::duplicate &&
          decision != MediaImportMarkerDecision::release))
         return MediaImportMarkerOutcome::rejected;
 
@@ -156,7 +236,8 @@ MediaImportMarkerOutcome markMediaImportSource(
         markedBefore(checkedStem))
         return MediaImportMarkerOutcome::rejected;
     const std::string suffix = release ? "" :
-        decision == MediaImportMarkerDecision::desktop ? ".pc_encode" : ".skipped";
+        decision == MediaImportMarkerDecision::desktop ? ".pc_encode" :
+        decision == MediaImportMarkerDecision::duplicate ? ".duplicate" : ".skipped";
     const std::string afterName =
         baseStem + suffix + filename.extension().string();
     if (afterName.size() > 255 || afterName == beforeName)

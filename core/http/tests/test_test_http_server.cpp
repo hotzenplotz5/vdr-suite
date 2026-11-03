@@ -52,6 +52,7 @@
 #include "SnapshotChangeFeedController.h"
 #include "SnapshotChangeFeedJsonSerializer.h"
 #include "SseLiveTransport.h"
+#include "DeviceLiveEventHub.h"
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
 #include "TestHttpServer.h"
@@ -72,6 +73,8 @@
 #include "VdrSnapshotReadService.h"
 
 #include <cassert>
+#include <chrono>
+#include <memory>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -339,7 +342,8 @@ int main()
         {
             PublicOperationLookupResult result;
 
-            if (operationId != "http-op-1" ||
+            if ((operationId != "http-op-1" &&
+                 operationId != "op_12345678901234567890123456789012") ||
                 actorRef.empty())
             {
                 result.status =
@@ -348,7 +352,7 @@ int main()
             }
 
             result.status = PublicOperationLookupStatus::ok;
-            result.operation.operationId = "http-op-1";
+            result.operation.operationId = operationId;
             result.operation.state = "dispatching";
             result.operation.backendId = "default";
             result.operation.resourceRevision = "3";
@@ -368,7 +372,8 @@ int main()
         "*@*",
         1);
 
-    TestHttpServer server(router);
+    auto eventHub = std::make_shared<DeviceLiveEventHub>();
+    TestHttpServer server(router, eventHub);
 
     // Public-v1 M2: HTTP route must reject duplicate/encoded-alias EPG
     // identities rather than accepting RestQueryParameters' last value.
@@ -481,6 +486,40 @@ int main()
     assert(conditionalOperationResponse.body.empty());
     assert(conditionalOperationResponse.headers.at("ETag") ==
         operationResponse.headers.at("ETag"));
+
+    // SSE for an Operation is authorized via its existing actor-owned GET.
+    const std::string eventPath =
+        "/api/v1/operations/op_12345678901234567890123456789012/events";
+    HttpServerRequest anonymousEventRequest;
+    anonymousEventRequest.method = "GET";
+    anonymousEventRequest.path = eventPath;
+    const auto anonymousEvent = server.handleRequest(anonymousEventRequest);
+    assert(anonymousEvent.statusCode == 401 &&
+           !anonymousEvent.deviceEventSubscription);
+    HttpServerRequest foreignEvent = operationRequest;
+    foreignEvent.path = "/api/v1/operations/op_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/events";
+    assert(server.handleRequest(foreignEvent).statusCode == 404);
+    HttpServerRequest permittedEvent = operationRequest;
+    permittedEvent.path = eventPath;
+    const auto stream = server.handleRequest(permittedEvent);
+    assert(stream.statusCode == 200);
+    assert(stream.headers.at("Content-Type") == "text/event-stream");
+    assert(stream.deviceEventSubscription);
+    std::string eventFrame;
+    assert(stream.deviceEventSubscription->next(
+        eventFrame, std::chrono::milliseconds(10)));
+    assert(eventFrame.find("event: hello") != std::string::npos);
+    eventHub->publishOperation("op_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    assert(stream.deviceEventSubscription->next(
+        eventFrame, std::chrono::milliseconds(10)));
+    assert(eventFrame.empty());
+    eventHub->publishOperation("op_12345678901234567890123456789012");
+    assert(stream.deviceEventSubscription->next(
+        eventFrame, std::chrono::milliseconds(10)));
+    assert(eventFrame.find("event: operation") != std::string::npos);
+    assert(eventFrame.find("op_12345678901234567890123456789012") !=
+           std::string::npos);
+    stream.deviceEventSubscription->close();
 
     HttpServerRequest dashboardRequest;
     dashboardRequest.method = "GET";

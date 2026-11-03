@@ -282,6 +282,9 @@ class MediaToolsMakeRecipeTests(unittest.TestCase):
         self.assertNotIn("merge-base", source)
         self.assertIn('"cat-file", "-e"', source)
         self.assertIn('"diff", "--quiet"', source)
+        self.assertNotIn("4 * 1024 ** 3", source)
+        self.assertNotIn("disk_usage", source)
+        self.assertNotIn("RESOURCE_PREFLIGHT=FAIL", source)
 
     def test_installer_cannot_mutate_backend_specific_approvals(self):
         import inspect

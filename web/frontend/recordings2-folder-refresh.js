@@ -41,6 +41,9 @@
         }
         if (!data.changedDomains.includes('recordings')) return;
         pending = true;
+        if (state().selectedRecording &&
+            typeof options.onRecordingPresentationChanged === 'function')
+          options.onRecordingPresentationChanged();
         if (!busy) schedule(0);
       });
       source.onerror = function () {

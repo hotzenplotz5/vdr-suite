@@ -1016,9 +1016,20 @@
       : null;
   }
 
+  // Actor-owned Core Operation SSE; the EventSource reconnects itself.
+  function createClientOperationUpdateSource(operationId) {
+    if (typeof operationId !== 'string' ||
+        !/^op_[A-Za-z0-9_-]+$/.test(operationId) ||
+        typeof global.EventSource !== 'function') return null;
+    return new global.EventSource(
+      '/api/v1/operations/' + encodeURIComponent(operationId) + '/events',
+      {withCredentials: true});
+  }
+
   global.VdrSuiteClientApi = Object.freeze(Object.assign({}, base, {
     fetchClientRemoteAction: fetchClientRemoteAction,
     fetchClientLiveOverlay: fetchClientLiveOverlay,
-    createClientLiveUpdateSource: createClientLiveUpdateSource
+    createClientLiveUpdateSource: createClientLiveUpdateSource,
+    createClientOperationUpdateSource: createClientOperationUpdateSource
   }));
 }(window));

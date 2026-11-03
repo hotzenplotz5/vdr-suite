@@ -126,17 +126,22 @@ int main()
            preview.observedIntentRevision == 1);
     ++checks;
 
-    // Even a still-valid desired-enable cannot follow a re-enrolled backend
-    // or changed Agent process instance until the administrator reapproves.
-    auto staleGeneration = e;
-    staleGeneration.backendGeneration = 20;
-    preview = service.previewMediaImport(a, b, staleGeneration);
-    assert(!preview.policy.allowed &&
-           preview.policy.reason == AccessReason::activationStateUnavailable &&
+    // A new process/generation of the SAME enrolled and verified Agent is
+    // a temporary technical lifecycle change, not a new administrator intent.
+    // This is diagnostic-only: policy.allowed never makes it executable.
+    auto newGeneration = e;
+    newGeneration.backendGeneration = 20;
+    preview = service.previewMediaImport(a, b, newGeneration);
+    assert(preview.policy.allowed &&
            preview.observedIntentRevision == 1 && !preview.executable);
     auto restartedAgent = e;
     restartedAgent.agentInstanceId = "new-instance";
     preview = service.previewMediaImport(a, b, restartedAgent);
+    assert(preview.policy.allowed &&
+           preview.observedIntentRevision == 1 && !preview.executable);
+    auto replacedAgent = e;
+    replacedAgent.agentId = "agent-unapproved";
+    preview = service.previewMediaImport(a, b, replacedAgent);
     assert(!preview.policy.allowed &&
            preview.policy.reason == AccessReason::activationStateUnavailable &&
            preview.observedIntentRevision == 1 && !preview.executable);

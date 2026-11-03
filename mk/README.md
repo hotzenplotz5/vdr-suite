@@ -26,7 +26,14 @@ each C/C++ source into a reusable object under `$(OBJECT_CACHE_DIR)`. Cache keys
 include the compiler identity, working directory, compile-relevant environment
 and effective compile flags. Generated `.d` files track source and header
 prerequisites, and per-object file locks make parallel builds safe. The original
-argument order is retained for the final link.
+argument order is retained for the final link. The daemon's commit-version
+compiler definition is omitted from unrelated object signatures; sources using
+`ServerBuildIdentity.h` still compile with the exact supplied version. The
+wrapper runs up to two compilers in parallel by default (override with
+`VDR_SUITE_CXX_JOBS=4`). For the first optimized build after a prior daemon
+installation, pass `VDR_SUITE_CXX_CACHE_FROM_VERSION=git-<previous-sha12>`
+to reuse compatible objects from the already populated cache without another
+full compilation.
 
 The cache contract is covered by `check-cpp-object-cache`. The existing
 `test-build-artifact-paths` gate depends on that check, so fast CI verifies both

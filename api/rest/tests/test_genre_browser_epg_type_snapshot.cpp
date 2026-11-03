@@ -7,11 +7,36 @@
 #include <cassert>
 #include <cstdio>
 #include <iostream>
+#include <sqlite3.h>
 #include <string>
 #include <vector>
 
 namespace
 {
+struct TransactionCounts
+{
+    int begins = 0;
+    int commits = 0;
+    int rollbacks = 0;
+};
+
+int traceTransactions(unsigned traceType, void* context, void* statement, void*)
+{
+    if (traceType != SQLITE_TRACE_STMT || !context || !statement)
+        return 0;
+    const char* sql = sqlite3_sql(static_cast<sqlite3_stmt*>(statement));
+    if (!sql) return 0;
+    const std::string value(sql);
+    auto& counts = *static_cast<TransactionCounts*>(context);
+    if (value.rfind("BEGIN IMMEDIATE TRANSACTION", 0) == 0)
+        ++counts.begins;
+    else if (value.rfind("COMMIT", 0) == 0)
+        ++counts.commits;
+    else if (value.rfind("ROLLBACK", 0) == 0)
+        ++counts.rollbacks;
+    return 0;
+}
+
 bool contains(const ApiResponse& response, const std::string& text)
 {
     return response.body.find(text) != std::string::npos;
@@ -170,10 +195,22 @@ int main()
         item("13", 2200, 3200),
         item("14", 2300, 3300),
     };
+    TransactionCounts counts;
+    assert(sqlite3_trace_v2(
+        database.handle(), SQLITE_TRACE_STMT,
+        traceTransactions, &counts) == SQLITE_OK);
     assert(runtime.applyEpgTypeSnapshot("default", items));
 
     const std::vector<SuiteBridgeEpgTypeSnapshotTransportItem> emptyPage;
     assert(runtime.applyEpgTypeSnapshot("default", emptyPage));
+    assert(sqlite3_trace_v2(
+        database.handle(), 0, nullptr, nullptr) == SQLITE_OK);
+
+    // Fourteen types, one bounded evidence/classification transaction.
+    // The former per-event code took 28 transactions for this same page.
+    assert(counts.begins == 1);
+    assert(counts.commits == 1);
+    assert(counts.rollbacks == 0);
 
     ApiResponse series;
     assert(runtime.tryHandleGet(

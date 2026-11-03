@@ -64,15 +64,20 @@ require(
 )
 if state_owner.count('<< "state_extension="') != 1:
     raise SystemExit("commands.state must persist exactly one generic extension field")
-# Keep the original v3 persistence contract, including when an optional
-# Media Import v4 schema is added. v4 is permitted *only* for the existing
-# addon.media.import command; no generic relaxation of command-state decoding.
+# Preserve the exact-key v3 boundary for unrelated commands. v4 is
+# limited to Media Import and its successor, Core-confirmed readback notice:
+# both need durable command-specific result evidence through Agent restart.
 if state_store:
     require(state_owner, 'values["version"] == "4"', "bounded v4 loader")
-    require(state_owner, 'assignment.commandType != "addon.media.import"',
+    require(state_owner,
+            'assignment.commandType != vdrsuite::mediatools::kMediaImportCommandType',
             "v4 restricted to Media Import")
-    require(state_owner, 'output << "version=" << (mediaImport ? "4" : "3") << "\\n"',
-            "v3 default and Media Import v4 persistence writer")
+    require(state_owner,
+            'assignment.commandType != vdrsuite::mediatools::kMediaImportReadbackCommandType',
+            "v4 restricted to Core-confirmed Media Import readback")
+    require(state_owner,
+            'output << "version=" << ((mediaImport || mediaImportReadback) ? "4" : "3")',
+            "v3 default and Media Import/readback v4 persistence writer")
 else:
     require(state_owner, 'output << "version=3\\n"', "v3 persistence writer")
 

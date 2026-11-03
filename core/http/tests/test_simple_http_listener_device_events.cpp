@@ -23,6 +23,10 @@ public:
         if (request.path == "/device-events") {
             reply.deviceEventSubscription = hub_.subscribe("home", {"timers"});
             reply.headers["Content-Type"] = "text/event-stream";
+        } else if (request.path == "/operation-events") {
+            reply.deviceEventSubscription =
+                hub_.subscribeOperation("op_12345678901234567890123456789012");
+            reply.headers["Content-Type"] = "text/event-stream";
         } else {
             reply.headers["Content-Type"] = "text/plain";
             reply.body = "normal-api-response";
@@ -127,6 +131,20 @@ int main() {
         std::chrono::milliseconds(1500));
     assert(update.find("\"changedDomains\":[\"timers\"]") !=
            std::string::npos);
+    // An unrelated Operation cannot wake the authenticated stream.
+    int operationStream = connectPort(port);
+    request(operationStream, "/operation-events");
+    const auto opHello = readUntil(operationStream, "event: hello",
+        std::chrono::milliseconds(1500));
+    assert(opHello.find("text/event-stream") != std::string::npos);
+    hub.publishOperation("op_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    hub.publishOperation("op_12345678901234567890123456789012");
+    const auto opUpdate = readUntil(operationStream,
+        "event: operation", std::chrono::milliseconds(1500));
+    assert(opUpdate.find("event: operation") != std::string::npos);
+    assert(opUpdate.find("op_12345678901234567890123456789012") != std::string::npos);
+    assert(opUpdate.find("op_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") == std::string::npos);
+
     int normal = connectPort(port);
     request(normal, "/ping");
     const auto response = readUntil(normal, "normal-api-response",
@@ -138,5 +156,6 @@ int main() {
     stopping.store(true);
     worker.join();
     ::close(stream);
+    ::close(operationStream);
     return 0;
 }

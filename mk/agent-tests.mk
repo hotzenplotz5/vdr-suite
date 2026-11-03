@@ -1,8 +1,9 @@
 .PHONY: test-addon-media-import-catalog
 test-addon-media-import-catalog:
-	$(BUILD_CXX) $(CXXFLAGS) \
+	$(BUILD_CXX) $(CXXFLAGS) -I core/sqlite/include \
+		$(SQLITE_SRC) \
 		core/agent/tests/test_backend_agent_media_import_catalog.cpp \
-		-o $(BUILD_DIR)/test_backend_agent_media_import_catalog
+		-lsqlite3 -o $(BUILD_DIR)/test_backend_agent_media_import_catalog
 	$(BUILD_DIR)/test_backend_agent_media_import_catalog
 
 # Hosted CI builds and validates live probes; real VDR execution remains explicit and opt-in.
@@ -149,7 +150,7 @@ test-backend-agent-foundation: test-backend-agent-foundation-architecture
 		core/vdr/src/BackendRegistryService.cpp \
 		$(AGENT_CONTROL_PLANE_SRC) \
 		core/agent/tests/test_backend_agent_lifecycle.cpp \
-		$(LDFLAGS) \
+		$(LDFLAGS) -lcrypto \
 		-o $(BUILD_DIR)/test_backend_agent_lifecycle
 	$(BUILD_DIR)/test_backend_agent_lifecycle
 
@@ -183,7 +184,7 @@ test-phase63-command-delivery-runtime:
 		$(AGENT_COMMAND_JSON_SRC) \
 		$(AGENT_COMMAND_CLIENT_SRC) \
 		core/agent/tests/test_backend_agent_command_client.cpp \
-		-o $(BUILD_DIR)/test_backend_agent_command_client
+		-lcrypto -o $(BUILD_DIR)/test_backend_agent_command_client
 	$(BUILD_DIR)/test_backend_agent_command_client
 	$(BUILD_CXX) $(CXXFLAGS) -pthread \
 		$(SQLITE_SRC) \

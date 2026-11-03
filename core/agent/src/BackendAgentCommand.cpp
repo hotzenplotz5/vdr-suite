@@ -52,6 +52,16 @@ bool allowed(const std::string& value, const std::vector<std::string>& values)
 
 bool validCommandPayload(const BackendAgentCommandAssignment& value)
 {
+    if (value.commandType ==
+            vdrsuite::mediatools::kMediaImportReadbackCommandType)
+    {
+        std::string sourceId, originalCommandId, evidence, sourceEvidence;
+        return value.verificationPolicy == "none" &&
+            vdrsuite::mediatools::parseMediaImportReadbackPayload(
+                value.payload, sourceId, originalCommandId,
+                evidence, sourceEvidence) &&
+            value.payloadVersion == (sourceEvidence.empty() ? 1U : 2U);
+    }
     if (value.commandType == vdrsuite::mediatools::kMediaImportCommandType)
     {
         std::string sourceId;
@@ -60,7 +70,7 @@ bool validCommandPayload(const BackendAgentCommandAssignment& value)
             vdrsuite::mediatools::parseMediaImportSelection(
                 value.payload, sourceId, decision) &&
             value.payloadVersion ==
-                vdrsuite::mediatools::mediaImportSelectionVersion(decision);
+                vdrsuite::mediatools::mediaImportSelectionVersion(decision, value.payload);
     }
     if (value.commandType ==
             vdrsuite::mediatools::kMediaShrinkStageCommandType ||

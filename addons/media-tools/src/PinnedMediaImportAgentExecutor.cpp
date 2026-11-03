@@ -5,13 +5,16 @@
 #include "MediaImportRecordingEvidence.h"
 #include "MediaToolsImportRunLock.h"
 #include "MediaImportDecisionMarker.h"
+#include "MediaImport.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <chrono>
 #include <csignal>
 #include <fcntl.h>
 #include <cstring>
+#include <cstdio>
 #include <iomanip>
 #include <sstream>
 #include <sys/wait.h>
@@ -26,6 +29,19 @@ std::int64_t unixNow()
 {
     return std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+// One-line, bounded, path-free diagnostics in the EXISTING backend-agent
+// journal. No new authority, gate, retry, persistence or network request.
+// Every reason is a fixed literal; never print file paths or HTTP secrets.
+void logDuplicateDelete(const BackendAgentCommandAssignment& assignment,
+                        const char* stage, const char* reason)
+{
+    if (!backendAgentCommandValidAssignment(assignment)) return;
+    std::fprintf(stderr,
+        "MEDIA_IMPORT_DELETE_DIAG operation=%s backend=%s stage=%s result=%s\n",
+        assignment.operationId.c_str(), assignment.backendId.c_str(),
+        stage, reason);
 }
 
 bool safePath(const std::filesystem::path& path)
@@ -83,14 +99,16 @@ std::string parseCommittedRecording(
 MediaImportAgentOutcome runPinned(
     int fd, const LocalMediaImportSource& source, std::int64_t deadline,
     MediaToolsImportRunLock& runLock, std::string& recordingEvidence,
-    bool approveVideoReencode)
+    bool approveVideoReencode, const std::string& frozenMetadata,
+    const std::function<void()>& keepAlive, std::string& failureCode)
 {
     recordingEvidence.clear();
+    failureCode.clear();
     if (fd < 0 || !safePath(source.sourceRoot) ||
         !safePath(source.videoRoot) || !safePath(source.sourceFile))
         return MediaImportAgentOutcome::rejected;
     const auto now = unixNow();
-    if (deadline <= now || deadline > now + 3600)
+    if (deadline <= now || deadline > now + 24 * 3600)
         return MediaImportAgentOutcome::rejected;
 
     std::string executable = "vdr-suite-media-import";
@@ -100,23 +118,30 @@ MediaImportAgentOutcome runPinned(
     std::string sourceFile = source.sourceFile.string();
     std::string confirmation = "--confirm-writes";
     std::string encodingApproval = "--approve-video-reencode";
-    char* const argv[] = {
+    std::string metadataArgument = "--metadata=" + frozenMetadata;
+    std::vector<char*> argv = {
         executable.data(), action.data(), sourceRoot.data(), videoRoot.data(),
-        sourceFile.data(), confirmation.data(),
-        approveVideoReencode ? encodingApproval.data() : nullptr, nullptr
+        sourceFile.data(), confirmation.data()
     };
+    if (approveVideoReencode) argv.push_back(encodingApproval.data());
+    if (!frozenMetadata.empty()) argv.push_back(metadataArgument.data());
+    argv.push_back(nullptr);
     char environmentPath[] = "PATH=/usr/bin:/bin";
     char environmentLocale[] = "LC_ALL=C";
     char* const environment[] = {environmentPath, environmentLocale, nullptr};
 
     int capture[2] = {-1, -1};
-    if (::pipe(capture) != 0) return MediaImportAgentOutcome::unknown;
+    if (::pipe(capture) != 0) {
+        failureCode = "worker_launch_failed";
+        return MediaImportAgentOutcome::unknown;
+    }
     (void)::fcntl(capture[0], F_SETFD, FD_CLOEXEC);
     (void)::fcntl(capture[1], F_SETFD, FD_CLOEXEC);
     if (::fcntl(capture[0], F_SETFL, O_NONBLOCK) != 0)
     {
         ::close(capture[0]);
         ::close(capture[1]);
+        failureCode = "worker_launch_failed";
         return MediaImportAgentOutcome::unknown;
     }
     const pid_t pid = ::fork();
@@ -124,6 +149,7 @@ MediaImportAgentOutcome runPinned(
     {
         ::close(capture[0]);
         ::close(capture[1]);
+        failureCode = "worker_launch_failed";
         return MediaImportAgentOutcome::unknown;
     }
     if (pid == 0)
@@ -139,7 +165,7 @@ MediaImportAgentOutcome runPinned(
             ::_exit(127);
         ::close(capture[1]);
         ::close(devnull);
-        ::fexecve(fd, argv, environment);
+        ::fexecve(fd, argv.data(), environment);
         ::_exit(127);
     }
     ::close(capture[1]);
@@ -163,19 +189,40 @@ MediaImportAgentOutcome runPinned(
         }
     };
 
+    // Do not invent a second six-hundred-second limit in the worker.
     const auto until = std::chrono::steady_clock::now() +
-        std::chrono::seconds(std::min<std::int64_t>(deadline - now, 600));
+        std::chrono::seconds(deadline - now);
+    auto nextKeepAlive = std::chrono::steady_clock::now() +
+        std::chrono::seconds(10);
     int status = 0;
     while (std::chrono::steady_clock::now() < until)
     {
+        // A direct import can also run for hours. Keep its Agent transport
+        // lease alive just like an approved local encoder; lease failure must
+        // never terminate the already running pinned worker.
+        if (keepAlive &&
+            std::chrono::steady_clock::now() >= nextKeepAlive) {
+            try { keepAlive(); } catch (...) {} // Do not terminate FFmpeg on transient lease failures.
+            nextKeepAlive = std::chrono::steady_clock::now() +
+                std::chrono::seconds(10);
+        }
         drain();
         const pid_t waited = ::waitpid(pid, &status, WNOHANG);
         if (waited == pid)
         {
             drain();
             ::close(capture[0]);
-            if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
+            if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+                failureCode = WIFSIGNALED(status)
+                    ? "worker_signaled" :
+                    WIFEXITED(status) && WEXITSTATUS(status) == 71
+                        ? "ffmpeg_timeout" :
+                    WIFEXITED(status) && WEXITSTATUS(status) == 72
+                        ? "ffmpeg_failed" :
+                    WIFEXITED(status) && WEXITSTATUS(status) == 73
+                        ? "vdr_index_failed" : "worker_failed";
                 return MediaImportAgentOutcome::unknown;
+            }
             if (!overflow)
                 recordingEvidence = parseCommittedRecording(output, source);
             // No evidence -> still unverified, never a false success.
@@ -184,6 +231,7 @@ MediaImportAgentOutcome runPinned(
         if (waited < 0)
         {
             ::close(capture[0]);
+            failureCode = "worker_interrupted";
             return MediaImportAgentOutcome::unknown;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(25));
@@ -192,6 +240,7 @@ MediaImportAgentOutcome runPinned(
     ::kill(pid, SIGKILL);
     while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
     ::close(capture[0]);
+    failureCode = "worker_time_limit";
     return MediaImportAgentOutcome::unknown;
 }
 } // namespace
@@ -199,12 +248,13 @@ MediaImportAgentOutcome runPinned(
 PinnedMediaImportAgentExecutor::PinnedMediaImportAgentExecutor(
     std::string approvalRoot, std::string backendId,
     std::uint64_t backendGeneration, ILocalMediaImportInventory& inventory,
-    ILocalMediaImportAuthorization& authorization)
+    ILocalMediaImportAuthorization& authorization,
+    std::function<void()> keepAlive)
     : root_(std::move(approvalRoot)),
       backendId_(std::move(backendId)),
       generation_(backendGeneration),
       inventory_(inventory),
-      authorization_(authorization)
+      authorization_(authorization), keepAlive_(std::move(keepAlive))
 {
 }
 
@@ -230,6 +280,7 @@ bool PinnedMediaImportAgentExecutor::authorize(
     pendingSourceValid_ = false;
     pendingDecision_ = MediaImportDecision::import;
     markerEvidence_.clear();
+    failureCode_.clear();
     std::string sourceId;
     MediaImportDecision decision = MediaImportDecision::import;
     if (backendId != backendId_ || generation != generation_ ||
@@ -242,7 +293,7 @@ bool PinnedMediaImportAgentExecutor::authorize(
         !parseMediaImportSelection(
             assignment.payload, sourceId, decision) ||
         assignment.payloadVersion !=
-            mediaImportSelectionVersion(decision) ||
+            mediaImportSelectionVersion(decision, assignment.payload) ||
         !authorization_.granted(assignment))
         return false;
 
@@ -286,13 +337,22 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
     pendingSourceValid_ = false;
     pendingDecision_ = MediaImportDecision::import;
     markerEvidence_.clear();
-    if (!matching) return MediaImportAgentOutcome::rejected;
+    failureCode_.clear();
+    if (!matching) {
+        if (approvedDecision == MediaImportDecision::deleteDuplicate)
+            logDuplicateDelete(assignment, "authorization", "pinned_request_mismatch");
+        return MediaImportAgentOutcome::rejected;
+    }
     // Grab the kernel lock BEFORE rechecking installed approval, metadata,
     // and source identity. An exclusive maintainer cannot replace anything
     // until this handler and its descendants have stopped.
     auto runLock = MediaToolsImportRunLock::tryAcquire(
         root_, MediaToolsImportRunLock::Mode::sharedExecution);
-    if (!runLock) return MediaImportAgentOutcome::rejected;
+    if (!runLock) {
+        if (approvedDecision == MediaImportDecision::deleteDuplicate)
+            logDuplicateDelete(assignment, "authorization", "maintenance_lock_unavailable");
+        return MediaImportAgentOutcome::rejected;
+    }
     const auto approval = vdrsuite::addons::readRootMediaToolsApproval(root_);
     if (!approval.approved() || approval.sha256 != snapshot->approvedSha256 ||
         approval.version != snapshot->approvedVersion ||
@@ -304,8 +364,11 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         // under the child-inherited shared package-maintenance lock.
         !vdrsuite::addons::pinnedMediaToolsHandlerBytesCurrent(
             snapshot->pinnedBinary.get(), snapshot->approvedSha256) ||
-        !authorization_.granted(assignment))
+        !authorization_.granted(assignment)) {
+        if (approvedDecision == MediaImportDecision::deleteDuplicate)
+            logDuplicateDelete(assignment, "authorization", "approval_or_grant_invalid");
         return MediaImportAgentOutcome::rejected;
+    }
 
     std::string sourceId;
     MediaImportDecision requestedDecision = MediaImportDecision::import;
@@ -323,18 +386,103 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         local.sourceInode != approvedSource.sourceInode ||
         local.sourceBytes != approvedSource.sourceBytes ||
         local.sourceMtimeSeconds != approvedSource.sourceMtimeSeconds ||
-        local.sourceMtimeNanoseconds != approvedSource.sourceMtimeNanoseconds)
+        local.sourceMtimeNanoseconds != approvedSource.sourceMtimeNanoseconds) {
+        if (approvedDecision == MediaImportDecision::deleteDuplicate)
+            logDuplicateDelete(assignment, "inventory", "source_identity_changed_or_missing");
         return MediaImportAgentOutcome::rejected;
+    }
 
+    if (requestedDecision == MediaImportDecision::deleteDuplicate) {
+        // The confirmation is explicit and never deletes the VDR recording.
+        // A previously imported film may retain its unmarked source when
+        // the optional .duplicate rename failed. Both source forms use the
+        // same Core Operation and independent complete-recording proof.
+        std::string stem = local.sourceFile.stem().string();
+        std::transform(stem.begin(), stem.end(), stem.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        const std::string suffix = ".duplicate";
+        const bool marked = stem.size() > suffix.size() &&
+            stem.compare(stem.size() - suffix.size(),
+                         suffix.size(), suffix) == 0;
+        try {
+            const ImportRequest request{
+                local.sourceRoot, local.videoRoot, local.sourceFile};
+            const auto plan = marked
+                ? inspectMarkedDuplicatePreview(request)
+                : inspectImportPreview(request);
+            if (plan.sourceDevice != local.sourceDevice ||
+                plan.sourceInode != local.sourceInode ||
+                plan.sourceBytes != local.sourceBytes ||
+                plan.sourceMtimeSeconds != local.sourceMtimeSeconds ||
+                plan.sourceMtimeNanoseconds != local.sourceMtimeNanoseconds) {
+                logDuplicateDelete(assignment, "preflight", "source_changed");
+                return MediaImportAgentOutcome::rejected;
+            }
+            if (!confirmedMediaImportDuplicate(plan)) {
+                logDuplicateDelete(assignment, "preflight", "recording_not_confirmed");
+                return MediaImportAgentOutcome::rejected;
+            }
+        } catch (...) {
+            logDuplicateDelete(assignment, "preflight", "inspection_exception");
+            return MediaImportAgentOutcome::rejected;
+        }
+        const auto evidence = mediaImportSourceEvidence(
+            local.sourceFile, local.sourceDevice, local.sourceInode,
+            local.sourceBytes, local.sourceMtimeSeconds,
+            local.sourceMtimeNanoseconds);
+        const auto removed = marked
+            ? cleanupConfirmedDuplicateSource(local, evidence)
+            : cleanupMediaImportSource(local, evidence);
+        if (removed == MediaImportCleanupOutcome::removed) {
+            logDuplicateDelete(assignment, "cleanup", "source_removed");
+            markerEvidence_ = mediaImportMarkerEvidence(
+                sourceId, MediaImportDecision::deleteDuplicate);
+            return MediaImportAgentOutcome::marked;
+        }
+        // The cleanup result does not carry errno today; do not invent a
+        // more specific filesystem cause. In particular, a failed fsync may
+        // follow an effective unlink, so preserve the unknown result.
+        logDuplicateDelete(assignment, "cleanup",
+            removed == MediaImportCleanupOutcome::failed
+                ? "filesystem_operation_unconfirmed"
+                : removed == MediaImportCleanupOutcome::alreadyAbsent
+                    ? "source_already_absent"
+                    : "cleanup_not_performed");
+        return removed == MediaImportCleanupOutcome::failed
+            ? MediaImportAgentOutcome::unknown
+            : MediaImportAgentOutcome::rejected;
+    }
+
+    if (requestedDecision == MediaImportDecision::duplicate) {
+        // The preview is read-only and can become stale. Reprove the target
+        // recording against this *same* pinned source immediately before rename.
+        // A mere name collision, empty .rec, or changed source is never enough.
+        try {
+            const auto plan = inspectImportPreview(
+                {local.sourceRoot, local.videoRoot, local.sourceFile});
+            if (plan.sourceDevice != local.sourceDevice ||
+                plan.sourceInode != local.sourceInode ||
+                plan.sourceBytes != local.sourceBytes ||
+                plan.sourceMtimeSeconds != local.sourceMtimeSeconds ||
+                plan.sourceMtimeNanoseconds != local.sourceMtimeNanoseconds ||
+                !confirmedMediaImportDuplicate(plan))
+                return MediaImportAgentOutcome::rejected;
+        } catch (...) {
+            return MediaImportAgentOutcome::rejected;
+        }
+    }
     if (requestedDecision == MediaImportDecision::desktop ||
         requestedDecision == MediaImportDecision::skip ||
+        requestedDecision == MediaImportDecision::duplicate ||
         requestedDecision == MediaImportDecision::release) {
         const auto outcome = markMediaImportSource(
             local, requestedDecision == MediaImportDecision::desktop
                 ? MediaImportMarkerDecision::desktop
                 : requestedDecision == MediaImportDecision::skip
                     ? MediaImportMarkerDecision::skip
-                    : MediaImportMarkerDecision::release);
+                    : requestedDecision == MediaImportDecision::duplicate
+                        ? MediaImportMarkerDecision::duplicate
+                        : MediaImportMarkerDecision::release);
         if (outcome == MediaImportMarkerOutcome::marked) {
             markerEvidence_ = mediaImportMarkerEvidence(sourceId, requestedDecision);
             return MediaImportAgentOutcome::marked;
@@ -343,9 +491,54 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
             ? MediaImportAgentOutcome::rejected
             : MediaImportAgentOutcome::unknown;
     }
-    return runPinned(snapshot->pinnedBinary.get(), local, assignment.deadline,
-                     *runLock, recordingEvidence_,
-                     requestedDecision == MediaImportDecision::local);
+    const auto outcome = runPinned(
+        snapshot->pinnedBinary.get(), local, assignment.deadline,
+        *runLock, recordingEvidence_,
+        requestedDecision == MediaImportDecision::local,
+        mediaImportSelectionMetadata(assignment.payload), keepAlive_, failureCode_);
+    if (outcome == MediaImportAgentOutcome::submitted &&
+        validRecordingPathEvidence(recordingEvidence_)) {
+        const auto sourceProof = mediaImportSourceEvidence(
+            local.sourceFile, local.sourceDevice, local.sourceInode,
+            local.sourceBytes, local.sourceMtimeSeconds,
+            local.sourceMtimeNanoseconds);
+        recordingEvidence_ = mediaImportResultEvidence(
+            recordingEvidence_, sourceProof);
+    }
+    return outcome;
+}
+
+MediaImportCleanupOutcome PinnedMediaImportAgentExecutor::cleanupConfirmedSource(
+    const std::string& sourceId, const std::string& sourceEvidence)
+{
+    if (!validMediaImportSourceEvidence(sourceEvidence) ||
+        !available())
+        return MediaImportCleanupOutcome::notPerformed;
+    LocalMediaImportSource source;
+    if (!inventory_.resolve(backendId_, sourceId, source) ||
+        !safePath(source.sourceRoot) || !safePath(source.sourceFile) ||
+        !safePath(source.videoRoot) ||
+        mediaImportSourceEvidence(
+            source.sourceFile, source.sourceDevice, source.sourceInode,
+            source.sourceBytes, source.sourceMtimeSeconds,
+            source.sourceMtimeNanoseconds) != sourceEvidence)
+        return MediaImportCleanupOutcome::notPerformed;
+    auto lock = MediaToolsImportRunLock::tryAcquire(
+        root_, MediaToolsImportRunLock::Mode::sharedExecution);
+    if (!lock) return MediaImportCleanupOutcome::notPerformed;
+    const auto approval = vdrsuite::addons::readRootMediaToolsApproval(root_);
+    const auto snapshot = vdrsuite::addons::inspectMediaToolsInstallSnapshot(root_);
+    if (!approval.approved() || !snapshot.bytesVerified() ||
+        approval.sha256 != snapshot.approvedSha256 ||
+        !vdrsuite::addons::installedMediaToolsManifestMatches(
+            root_, snapshot.approvedVersion))
+        return MediaImportCleanupOutcome::notPerformed;
+    return cleanupMediaImportSource(source, sourceEvidence);
+}
+
+std::string PinnedMediaImportAgentExecutor::takeFailureCode()
+{
+    return std::exchange(failureCode_, {});
 }
 
 std::string PinnedMediaImportAgentExecutor::takeMarkerEvidence()

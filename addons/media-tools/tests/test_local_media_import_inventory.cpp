@@ -1,4 +1,5 @@
 #include "LocalMediaImportInventory.h"
+#include "MediaImport.h"
 
 #include <cassert>
 #include <chrono>
@@ -98,6 +99,43 @@ int main()
     assert(!inventory.resolve("backend", "../../etc/passwd", selected));
     assert(!inventory.resolve("backend", "short", selected));
 
+    // The observation returns one chosen descriptor from the SAME inventory
+    // pass as its labels, not a second source-tree resolution.
+    LocalMediaImportSource observed;
+    assert(inventory.listTrustedSourceSnapshot(
+        "backend", labels, partial, Key, &observed));
+    assert(!partial && labels.size() == 1 && labels[0].sourceId == Key);
+    assert(observed.sourceFile == fixture.source &&
+           observed.sourceInode != 0 && observed.sourceBytes > 0);
+    assert(inventory.listTrustedSourceSnapshot(
+        "backend", labels, partial, "missing_Token_0001", &observed));
+    assert(observed.sourceFile.empty() && labels.size() == 1);
+
+    // MT.REC6: the existing inventory walk must advertise a proven complete
+    // VDR target without ffprobe, a new agent or a browser-specific ledger.
+    const auto beforeRecording = inspectImportPreview({
+        fixture.source.parent_path(), fixture.destination, fixture.source});
+    assert(!beforeRecording.duplicateTarget);
+    const auto rec = beforeRecording.titleDirectory / "2026-10-29.04.01.1-0.rec";
+    fs::create_directories(rec);
+    { std::ofstream out(rec / "info"); out << "T " << beforeRecording.title << "\n"; }
+    { std::ofstream out(rec / "index"); out << "index"; }
+    { std::ofstream out(rec / "00001.ts"); out << "segment"; }
+    assert(inventory.listTrustedSourceLabels("backend", labels));
+    assert(labels.size() == 1 && labels[0].recordingPresent);
+    // An unrelated title without import provenance is not sufficient.
+    { std::ofstream out(rec / "info", std::ios::trunc); out << "T Other\n"; }
+    assert(inventory.listTrustedSourceLabels("backend", labels));
+    assert(labels.size() == 1 && !labels[0].recordingPresent);
+    // Correcting the native title must not lose an imported recording.
+    { std::ofstream out(rec / "info", std::ios::trunc);
+      out << "T Corrected TMDb Episode\nS Imported via VDR-Suite Media Tools\n"; }
+    assert(inventory.listTrustedSourceLabels("backend", labels));
+    assert(labels.size() == 1 && labels[0].recordingPresent);
+    fs::remove_all(rec);
+    assert(inventory.listTrustedSourceLabels("backend", labels));
+    assert(labels.size() == 1 && !labels[0].recordingPresent);
+
     // MT.UX2: root-owned optional sixth column names each source root.
     // The first matching backend entry becomes the default for display.
     const auto extraDir = fixture.root / "media/extra";
@@ -193,6 +231,13 @@ int main()
     fs::create_directories(deepDir);
     const auto deepFile = deepDir / "episode_deep.mkv";
     { std::ofstream out(deepFile); out << "synthetic-deep-series-media"; }
+    // Sidecars are not import sources. The wildcard walk sees them, but must
+    // not feed them through canonical/NFO/recording inspection.
+    for (const char* filename : {"episode_1.poster.jpg", "episode_1.nfo",
+                                  "episode_1.srt", "notes.txt", "episode_1.fanart.webp"}) {
+        std::ofstream out(seriesDir / filename);
+        out << "not a video";
+    }
     // Directory symlinks remain prohibited, including links to valid media.
     fs::create_directory_symlink(deepDir, fixture.root / "media/input/Falscher Pfad");
     fs::last_write_time(seriesFile,
@@ -247,6 +292,9 @@ int main()
         if (row.sourceFile == newFile) newMovieId = id;
     }
     assert(sawSeries && sawDeep && !newMovieId.empty());
+    assert(inventory.listTrustedSourceSnapshot(
+        "backend", labels, partial, newMovieId, &observed));
+    assert(!partial && labels.size() == 4 && observed.sourceFile == newFile);
     LocalMediaImportSource scanned;
     assert(inventory.resolve("backend", ids[0], scanned));
     assert(scanned.sourceFile == fixture.source ||
@@ -320,6 +368,9 @@ int main()
     fs::last_write_time(newFile, fs::file_time_type::clock::now());
     assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 3);
     assert(!inventory.resolve("backend", newMovieId, scanned));
+    assert(inventory.listTrustedSourceSnapshot(
+        "backend", labels, partial, newMovieId, &observed));
+    assert(observed.sourceFile.empty() && labels.size() == 3);
     fixture.write();
     // A root-approved marked source is observable without becoming importable.
     const auto held = fixture.source.parent_path() / "clip.pc_encode.ts";
@@ -332,6 +383,28 @@ int main()
     assert(inventory.listTrustedSourceLabels("backend", labels));
     assert(labels.size() == 1 && labels[0].label == "clip.pc_encode");
     fs::rename(held, fixture.source);
+    fixture.write();
+
+    // A complete pre-existing VDR recording must not make an unmarked
+    // import source disappear from either the explicit or recursive catalog.
+    // The productive inspector confirms the duplicate before any marker
+    // operation is allowed; scanning itself remains read-only.
+    const auto targetRec =
+        fixture.destination / "clip" / "2026-01-01.00.00.1-0.rec";
+    fs::create_directories(targetRec);
+    std::ofstream(targetRec / "info") << "T clip\n";
+    std::ofstream(targetRec / "index") << "synthetic index";
+    std::ofstream(targetRec / "00001.ts") << "synthetic video";
+    assert(inventory.resolve("backend", Key, selected) &&
+           selected.sourceFile == fixture.source);
+    fixture.write(wildcardRow + "\n");
+    assert(inventory.listTrustedSourceIds("backend", ids) && ids.size() == 3);
+    bool duplicateVisible = false;
+    for (const auto& id : ids) {
+        assert(inventory.resolve("backend", id, selected));
+        duplicateVisible |= selected.sourceFile == fixture.source;
+    }
+    assert(duplicateVisible);
     fixture.write();
 
     // Root-owned inventory is readable by the real unprivileged Agent uid.

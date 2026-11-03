@@ -94,19 +94,38 @@ if min(starting, persist_starting, dispatch) < 0 or not starting < persist_start
     raise SystemExit(
         "Phase-68.G ordering must remain starting -> durable persist -> native dispatch"
     )
-# Media Tools adds two separately fenced native work dispatches. They
-# share the same crash-safety requirement: durable "starting" before the
-# non-idempotent worker executes. No fourth generic starting writer is allowed.
+# Media Tools has import, shrink and a post-readback source cleanup.
+# Every side effect must have its own durable "starting" boundary.
+readback_start = command_client.find(
+    "if (mediaImportReadback && !state.resultPresent)"
+)
 media_start = command_client.find(
     "if (mediaImportCommand && !state.resultPresent)"
 )
 shrink_start = command_client.find(
     "if (mediaShrinkCommand && !state.resultPresent)"
 )
-if not 0 <= media_start < shrink_start < osd_start:
+if not 0 <= readback_start < media_start < shrink_start < osd_start:
     raise SystemExit("Media Tools starting branches not separately bounded")
-if command_client.count(starting_projection) != 3:
+if command_client.count(starting_projection) != 4:
     raise SystemExit("unexpected non-idempotent starting projection")
+readback_branch = command_client[readback_start:media_start]
+if readback_branch.count(starting_projection) != 1:
+    raise SystemExit("Media Readback cleanup starting projection not unique")
+require(readback_branch, 'state.dispatchState == "starting"',
+        "readback no-replay crash recovery fence")
+require(readback_branch, '"outcome_unknown"',
+        "readback interruption outcome")
+position = readback_branch.find(starting_projection)
+persist_position = readback_branch.find(
+    "persist(config.statePath, state, reason)", position
+)
+execute_position = readback_branch.find(
+    "config.mediaImportExecutor->cleanupConfirmedSource(", position
+)
+if min(position, persist_position, execute_position) < 0 or not (
+        position < persist_position < execute_position):
+    raise SystemExit("Media Readback must persist starting before cleanup")
 for label, branch, execute in (
     (
         "Media Import",

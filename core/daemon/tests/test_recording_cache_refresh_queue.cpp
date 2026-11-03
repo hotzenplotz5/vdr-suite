@@ -74,4 +74,21 @@ int main()
     assert(presentation.takePending().empty());
     presentation.request("");
     assert(presentation.takePending().empty());
+    presentation.request("A", "native-1");
+    presentation.request("A", "native-2");
+    presentation.request("A", "native-1");
+    presentation.request("B");
+    const auto scoped = presentation.takePendingChanges();
+    assert(scoped.size() == 2);
+    assert(scoped[0].backendId == "A");
+    assert((scoped[0].recordingNativeIds ==
+        std::vector<std::string>{"native-1", "native-2"}));
+    assert(scoped[1].backendId == "B");
+    assert(scoped[1].recordingNativeIds.empty());
+    presentation.request("A", "native-1");
+    presentation.request("A");
+    presentation.request("A", "native-2");
+    const auto broad = presentation.takePendingChanges();
+    assert(broad.size() == 1);
+    assert(broad[0].recordingNativeIds.empty());
 }

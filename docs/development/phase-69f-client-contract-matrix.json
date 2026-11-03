@@ -263,9 +263,10 @@
       "exports": [
         "fetchClientRemoteAction",
         "fetchClientLiveOverlay",
-        "createClientLiveUpdateSource"
+        "createClientLiveUpdateSource",
+        "createClientOperationUpdateSource"
       ],
-      "note": "Remote action, Live overlay and browser SSE are first-party control/presentation surfaces, not public-v1 promises."
+      "note": "Remote action, Live overlay and browser SSE are first-party control/presentation surfaces; the actor-owned Media-Tools Operation SSE child is an explicitly scoped read-only extension, not an unreviewed public-v1 compatibility promise."
     },
     {
       "domain": "search-timer-create-staging",

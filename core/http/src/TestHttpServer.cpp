@@ -2070,6 +2070,48 @@ HttpServerResponse TestHttpServer::handleRequest(
                 response.body, response.headers));
     }
 
+    // Reuse the same actor-owned Public-v1 Operation GET as the read gate.
+    // Subscription identity is exact; SSE publishes only read hints.
+    const std::string eventPath = pathWithoutQuery(request.path);
+    const std::string eventPrefix = "/api/v1/operations/";
+    const std::string eventSuffix = "/events";
+    if (request.method == "GET" &&
+        eventPath.compare(0, eventPrefix.size(), eventPrefix) == 0 &&
+        eventPath.size() > eventPrefix.size() + eventSuffix.size() &&
+        eventPath.compare(eventPath.size() - eventSuffix.size(),
+                          eventSuffix.size(), eventSuffix) == 0 &&
+        eventPath.find('/', eventPrefix.size()) ==
+            eventPath.size() - eventSuffix.size())
+    {
+        const std::string operationResource = eventPath.substr(
+            0, eventPath.size() - eventSuffix.size());
+        const ApiResponse owned = apiRouter_.handleClientGet(
+            operationResource, gate.context.actor.actorId,
+            hbbtvClientContext(gate.context), gate.context.requestId,
+            gate.context.correlationId, "", "", {}, "");
+        if (owned.statusCode != 200)
+            return finalizeResponse(gate.context,
+                mapApiResponse(owned.statusCode, owned.contentType,
+                    owned.body, owned.headers));
+        HttpServerResponse response;
+        if (deviceEventHub_)
+            response.deviceEventSubscription =
+                deviceEventHub_->subscribeOperation(
+                    operationResource.substr(eventPrefix.size()));
+        if (!response.deviceEventSubscription) {
+            response.statusCode = 503;
+            response.headers["Content-Type"] = "application/json";
+            response.headers["Cache-Control"] = "no-store";
+            response.body = "{\"error\":\"operation_event_stream_unavailable\"}";
+        } else {
+            response.statusCode = 200;
+            response.headers["Content-Type"] = "text/event-stream";
+            response.headers["Cache-Control"] = "no-store";
+            response.headers["X-Accel-Buffering"] = "no";
+        }
+        return finalizeResponse(gate.context, std::move(response));
+    }
+
     if (request.method == "GET" &&
         pathWithoutQuery(request.path) == "/api/v1/events")
     {

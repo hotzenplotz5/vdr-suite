@@ -48,7 +48,10 @@ public:
         const std::vector<VdrRecording>& recordings,
         std::int64_t now);
 
-    int processBatch(std::int64_t now, int requestedLimit = 0);
+    int processBatch(
+        std::int64_t now,
+        int requestedLimit = 0,
+        std::vector<std::string>* committedRecordingNativeIds = nullptr);
 
     void clearQueue();
     VdrRecordingNativeMetadataEnrichmentStatus status() const;

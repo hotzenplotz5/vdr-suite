@@ -171,6 +171,9 @@ public:
     bool synchronize(std::string& reasonCode);
     bool rotateCredential(std::string& reasonCode);
     bool heartbeat(std::string& reasonCode);
+    // Renewal while a single durable Media Import command is executing.
+    // Does not poll, reconcile, or execute another command.
+    bool renewLeaseDuringMediaImport(std::string& reasonCode);
     int run(const std::function<bool()>& stopRequested);
 
     const BackendAgentClientState& state() const;
@@ -230,6 +233,8 @@ private:
     BackendAgentClientState state_;
     std::string agentInstanceId_;
     std::string pendingMediaImportPreviewSourceId_; // ephemeral one-source read
+    std::string pendingMediaImportPreviewCodecHint_;
+    std::uint64_t pendingMediaImportPreviewDurationHint_ = 0;
     BackendAgentCommandAvailabilitySnapshot commandAvailability_;
     bool commandAvailabilityReady_ = false;
     bool synchronized_ = false;
