@@ -2,6 +2,8 @@
 """No-root regression for shared first-run package configuration."""
 from pathlib import Path
 import shutil
+import stat
+import subprocess
 import tempfile
 import unittest
 
@@ -71,6 +73,21 @@ class DistributionFirstRunStageTests(unittest.TestCase):
         with self.assertRaises(NotReady):
             stage("/", "https://suite.example.org", "/var/lib/vdr/channels.conf")
 
+
+    def test_fresh_debian_hooks_have_valid_shell_syntax_and_skip_upgrades(self):
+        for filename, expected in (
+            ("vdr-suite-daemon.postinst", "deb-systemd-invoke start vdr-suite-daemon.service"),
+            ("vdr-suite-backend-agent.postinst",
+             "deb-systemd-invoke start vdr-suite-first-run.service"),
+        ):
+            with self.subTest(filename=filename):
+                script = ROOT / "debian" / filename
+                content = script.read_text(encoding="utf-8")
+                self.assertTrue(script.stat().st_mode & stat.S_IXUSR)
+                self.assertIn('if [ "$1" = configure ] && [ -z "${2:-}" ]', content)
+                self.assertIn(expected, content)
+                self.assertIn("#DEBHELPER#", content)
+                subprocess.run(["sh", "-n", str(script)], check=True)
 
     def test_common_install_contract_wires_auto_first_run_for_deb_and_manual(self):
         makefile = (ROOT / "mk/install.mk").read_text(encoding="utf-8")
