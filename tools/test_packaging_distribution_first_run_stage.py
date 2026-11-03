@@ -162,5 +162,58 @@ class DistributionFirstRunStageTests(unittest.TestCase):
         self.assertIn("def automatic_first_run():", helper)
 
 
+    def test_mld_readonly_caps_uses_installed_svdrp_command(self):
+        # Do not probe a real VDR: isolate the PATH completely and use only
+        # deterministic mock executables for both distribution variants.
+        scripts = (
+            "mld66-readonly-inventory.sh",
+            "mld66-live-readonly-diagnostics.sh",
+        )
+        for filename in scripts:
+            subprocess.run(["sh", "-n", str(ROOT / "tools" / filename)],
+                           check=True)
+        for commands, chosen in (
+            (("svdrpsend",), "NATIVE"),
+            (("svdrpsend.sh",), "MLD"),
+            (("svdrpsend", "svdrpsend.sh"), "NATIVE"),
+        ):
+            with self.subTest(commands=commands):
+                with tempfile.TemporaryDirectory() as temporary:
+                    bin_dir = Path(temporary)
+                    sed_bin = shutil.which("sed")
+                    self.assertIsNotNone(sed_bin)
+                    (bin_dir / "sed").symlink_to(sed_bin)
+                    for name, body in (
+                        ("uname", "printf 'mock-arch\\n'"),
+                        ("timeout", 'shift; exec "$@"'),
+                    ):
+                        stub = bin_dir / name
+                        stub.write_text("#!/bin/sh\\n" + body + "\\n",
+                                        encoding="utf-8")
+                        stub.chmod(0o755)
+                    for name in commands:
+                        stub = bin_dir / name
+                        marker = "NATIVE" if name == "svdrpsend" else "MLD"
+                        stub.write_text(
+                            "#!/bin/sh\\nprintf 'SVDRP_TEST="
+                            + marker + "\\n'\\n",
+                            encoding="utf-8",
+                        )
+                        stub.chmod(0o755)
+                    environment = {"PATH": str(bin_dir), "LANG": "C"}
+                    for filename in scripts:
+                        with self.subTest(script=filename):
+                            completed = subprocess.run(
+                                ["sh", str(ROOT / "tools" / filename), "--caps"],
+                                check=True, capture_output=True, text=True,
+                                env=environment, timeout=10,
+                            )
+                            self.assertIn("SVDRP_TEST=" + chosen,
+                                          completed.stdout)
+                            self.assertNotIn(
+                                "SUITEBRIDGE_CAPS=FAILED_OR_UNAVAILABLE",
+                                completed.stdout,
+                            )
+
 if __name__ == "__main__":
     unittest.main()

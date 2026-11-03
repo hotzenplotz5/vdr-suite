@@ -63,12 +63,19 @@ fi
 # This request is explicitly opt-in and read-only. A bounded timeout is
 # mandatory; no mutation, timer creation or RESTfulAPI probing.
 if [ "$caps" -eq 1 ]; then
-  if command -v timeout >/dev/null 2>&1 && command -v svdrpsend.sh >/dev/null 2>&1; then
+  # Native command first; fall back to MLD's .sh tool only when needed.
+  svdrp_command=""
+  if command -v svdrpsend >/dev/null 2>&1; then
+    svdrp_command=svdrpsend
+  elif command -v svdrpsend.sh >/dev/null 2>&1; then
+    svdrp_command=svdrpsend.sh
+  fi
+  if [ -n "$svdrp_command" ] && command -v timeout >/dev/null 2>&1; then
     echo 'SUITEBRIDGE_CAPS_BEGIN'
-    timeout 8 svdrpsend.sh plug suitebridge CAPS 1 || echo 'SUITEBRIDGE_CAPS=FAILED_OR_UNAVAILABLE'
+    timeout 8 "$svdrp_command" plug suitebridge CAPS 1 || echo 'SUITEBRIDGE_CAPS=FAILED_OR_UNAVAILABLE'
     echo 'SUITEBRIDGE_CAPS_END'
   else
-    echo 'SUITEBRIDGE_CAPS=SKIPPED_REQUIRES_TIMEOUT_AND_SVDRPSEND_SH'
+    echo 'SUITEBRIDGE_CAPS=SKIPPED_REQUIRES_TIMEOUT_AND_SVDRP_TOOL'
   fi
 fi
 echo 'MLD66_INVENTORY=END'

@@ -21,7 +21,7 @@ if [ -r /etc/os-release ]; then
     sed -n '/^ID=/p; /^VERSION_ID=/p' /etc/os-release
 fi
 
-for cmd in vdr systemctl ps sqlite3 timeout svdrpsend.sh ffmpeg; do
+for cmd in vdr systemctl ps sqlite3 timeout svdrpsend svdrpsend.sh ffmpeg; do
     if command -v "$cmd" >/dev/null 2>&1; then
         printf 'COMMAND_%s=PRESENT\n' "$cmd"
     else
@@ -30,7 +30,8 @@ for cmd in vdr systemctl ps sqlite3 timeout svdrpsend.sh ffmpeg; do
 done
 
 if command -v systemctl >/dev/null 2>&1; then
-    for unit in vdr.service vdr-suite-daemon.service vdr-suite-backend-agent.service; do
+    for unit in vdr.service vdr-suite-daemon.service vdr-suite-backend-agent.service \
+        vdr-suite-first-run.service vdr-suite-first-run.path; do
         printf 'UNIT=%s\n' "$unit"
         # Only these non-secret properties are emitted; never ExecStart/Environment.
         status=$(systemctl show "$unit" \
@@ -133,10 +134,16 @@ fi
 # Only the existing read-only SuiteBridge CAPS command is used with a hard
 # timeout. No stream, timer, recording or provider is opened.
 if [ "$caps" -eq 1 ]; then
-    if command -v timeout >/dev/null 2>&1 &&
-        command -v svdrpsend.sh >/dev/null 2>&1; then
+    # Native command first (Ubuntu/yaVDR); MLD may ship the .sh variant.
+    svdrp_command=""
+    if command -v svdrpsend >/dev/null 2>&1; then
+        svdrp_command=svdrpsend
+    elif command -v svdrpsend.sh >/dev/null 2>&1; then
+        svdrp_command=svdrpsend.sh
+    fi
+    if [ -n "$svdrp_command" ] && command -v timeout >/dev/null 2>&1; then
         echo "SUITEBRIDGE_CAPS=BEGIN"
-        if caps_reply=$(timeout 5 svdrpsend.sh plug suitebridge CAPS 1 2>/dev/null); then
+        if caps_reply=$(timeout 5 "$svdrp_command" plug suitebridge CAPS 1 2>/dev/null); then
             printf '%s\n' "$caps_reply" | sed -n '1,12p'
             echo "SUITEBRIDGE_CAPS=RESPONSE_ABOVE"
         else
@@ -144,7 +151,7 @@ if [ "$caps" -eq 1 ]; then
         fi
         echo "SUITEBRIDGE_CAPS=END"
     else
-        echo "SUITEBRIDGE_CAPS=SKIPPED_MISSING_TIMEOUT_OR_MLD_SVDRP_TOOL"
+        echo "SUITEBRIDGE_CAPS=SKIPPED_MISSING_TIMEOUT_OR_SVDRP_TOOL"
     fi
 else
     echo "SUITEBRIDGE_CAPS=NOT_REQUESTED"
