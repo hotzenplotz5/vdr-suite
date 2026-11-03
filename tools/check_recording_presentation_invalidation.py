@@ -24,9 +24,9 @@ def require(fragment, text, message):
 
 require("registerRecordingPresentationChangedCallback", runtime_h,
         "manual metadata runtime callback contract missing")
-require("notifyRecordingPresentationChanged(route.backendId);", runtime_cpp,
+require("notifyRecordingPresentationChanged(", runtime_cpp,
         "successful manual metadata mutation must publish presentation invalidation")
-require("recordingPresentationChangeQueue_.request(backendId);", daemon_init,
+require("recordingPresentationChangeQueue_.request(", daemon_init,
         "metadata mutation must hand off to daemon-owned invalidation queue")
 require("RecordingPresentationChangeQueue recordingPresentationChangeQueue_;", daemon_h,
         "daemon presentation invalidation queue missing")
@@ -36,7 +36,7 @@ require("publishRecordingPresentationChanges();", daemon_run,
 publication = daemon_publish[
     daemon_publish.index("void DaemonRuntime::publishRecordingPresentationChanges()"):
 ]
-require("recordingPresentationChangeQueue_.takePending()", publication,
+require("recordingPresentationChangeQueue_.takePendingChanges()", publication,
         "presentation invalidations must be coalesced and drained")
 require("VdrChangeType::RecordingsChanged", publication,
         "presentation mutation must reuse canonical recordings change domain")
