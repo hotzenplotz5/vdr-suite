@@ -272,8 +272,10 @@ int main()
 
     std::vector<std::string> presentationChanges;
     runtime.registerRecordingPresentationChangedCallback(
-        [&presentationChanges](const std::string& backendId)
+        [&presentationChanges](const std::string& backendId,
+                               const std::string& recordingNativeId)
         {
+            assert(!recordingNativeId.empty());
             presentationChanges.push_back(backendId);
         });
 
