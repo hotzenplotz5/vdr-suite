@@ -4630,30 +4630,114 @@
     return entry.promise;
   }
 
-  // The cache-committed recordings feed invalidates this retained Home owner.
-  // Coalesce bursts and fence reads through refresh()'s existing generation.
+  // The committed recordings feed carries exact native identities when
+  // available. Only unknown/inventory changes require a canonical list diff;
+  // neither kind of SSE event remounts the Home rails.
   let recordingSource = null;
   let recordingSequence = 0;
   let recordingConnectionSequence = 0;
-  let recordingRefreshTimer = null;
   let recordingRefreshPending = false;
+  let recordingRefreshScheduled = false;
+  let recordingRefreshRevision = 0;
+  const recordingTileRevisions = new Map();
+
+  function newlyRecordingRail() {
+    const target = host();
+    const section = target && typeof target.querySelector === 'function'
+      ? target.querySelector('[data-home-discovery-rail="newly-recorded"]')
+      : null;
+    return directChildWithClass(section, 'media-home-discovery-rail');
+  }
+
+  function refreshSpecificRecording(nativeId, backendId, expectedGeneration) {
+    const client = clientApi();
+    const rail = newlyRecordingRail();
+    const card = rail && Array.from(rail.children || []).find(function (entry) {
+      const recording = entry && entry.__vdrSuiteRecording;
+      return text(entry && entry.dataset && entry.dataset.backendId) === backendId &&
+        recordingBackendNativeId(recording) === nativeId;
+    });
+    if (!card || !client || typeof client.requestJson !== 'function')
+      return Promise.resolve(false);
+    const revision = (recordingTileRevisions.get(nativeId) || 0) + 1;
+    recordingTileRevisions.set(nativeId, revision);
+    return Promise.resolve(client.requestJson('/api/vdr/recordings/metadata', {
+      query: {backend: backendId, backendNativeId: nativeId},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    })).then(function (rich) {
+      if (!current(expectedGeneration, backendId) ||
+          recordingTileRevisions.get(nativeId) !== revision ||
+          rich && rich.available !== true) return false;
+      const recording = card.__vdrSuiteRecording;
+      if (recordingBackendNativeId(recording) !== nativeId) return false;
+      return updateNewlyRecordedTile(recording, backendId, rich);
+    }).catch(function () { return false; });
+  }
+
+  // Legacy domain-only events cannot identify a Recording. Reconcile one
+  // canonical snapshot, touching only genuinely added/changed/removed tiles.
+  // Never rerun refresh(), loadGenres(), loadSeries() or loadFolders() here.
+  function reconcileNewlyRecordingSnapshot(backendId, generation, revision) {
+    const client = clientApi();
+    if (!client || typeof client.fetchClientRecordings !== 'function')
+      return Promise.resolve(false);
+    return Promise.resolve(client.fetchClientRecordings({
+      query: {backend: backendId, sort: 'startTime', order: 'desc',
+        limit: NEW_LIMIT, offset: 0},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    })).then(function (payload) {
+      if (!current(generation, backendId) ||
+          revision !== recordingRefreshRevision) return false;
+      const recordings = canonicalRecordings(payload, backendId).slice(0, NEW_LIMIT);
+      const rail = newlyRecordingRail();
+      if (!rail) return renderRecordingRail(
+        'newly-recorded', 'Neu aufgenommen', recordings, backendId
+      );
+      const previous = new Map();
+      Array.from(rail.children || []).forEach(function (card) {
+        if (card && card.__vdrSuiteRecording)
+          previous.set(recordingCardKey(card.__vdrSuiteRecording, backendId), card);
+      });
+      const cards = [];
+      const changed = [];
+      recordings.forEach(function (recording) {
+        const identity = recordingCardKey(recording, backendId);
+        const old = previous.get(identity);
+        if (old && JSON.stringify(old.__vdrSuiteRecording) === JSON.stringify(recording)) {
+          cards.push(old);
+          return;
+        }
+        const card = old || doc.createElement('button');
+        card.type = 'button';
+        card.className = 'media-home-discovery-card recording';
+        const projected = recordingMetadataProjection(recording, null, backendId, true);
+        updateRecordingCard(card, recording, backendId, projected);
+        cards.push(card);
+        if (recordingBackendNativeId(recording))
+          changed.push(recordingBackendNativeId(recording));
+      });
+      reconcileDiscoveryChildren(rail, cards);
+      changed.forEach(function (nativeId) {
+        refreshSpecificRecording(nativeId, backendId, generation);
+      });
+      return true;
+    }).catch(function () { return false; });
+  }
 
   function scheduleRecordingChangeRefresh() {
-    if (!recordingRefreshPending ||
-        recordingRefreshTimer !== null ||
+    if (!recordingRefreshPending || recordingRefreshScheduled ||
         !homeIsActive() || (doc && doc.hidden)) return;
-    recordingRefreshTimer = global.setTimeout(function () {
-      recordingRefreshTimer = null;
-      if (!homeIsActive() || (doc && doc.hidden)) return;
+    recordingRefreshScheduled = true;
+    Promise.resolve().then(function () {
+      recordingRefreshScheduled = false;
+      if (!recordingRefreshPending || !homeIsActive() || (doc && doc.hidden)) return;
       recordingRefreshPending = false;
-      state.homeReadyBackendId = '';
-      state.homeReadyGeneration = -1;
-      clearSeriesWarm();
-      Promise.resolve(refresh({
-        reuseWarm: false,
-        retainVisible: true
-      })).catch(function () { return false; });
-    }, 0);
+      const generation = state.generation;
+      const revision = ++recordingRefreshRevision;
+      reconcileNewlyRecordingSnapshot(selectedBackendId(), generation, revision);
+    });
   }
 
   function stopRecordingChanges() {
@@ -4663,10 +4747,7 @@
       // Catch up after returning, even if the finite feed has rolled over.
       recordingRefreshPending = true;
     }
-    if (recordingRefreshTimer !== null) {
-      global.clearTimeout(recordingRefreshTimer);
-      recordingRefreshTimer = null;
-    }
+    recordingRefreshRevision += 1;
   }
 
   function subscribeRecordingChanges() {
@@ -4689,8 +4770,20 @@
       if (String(data.backendId || 'default') !== selectedBackendId() ||
           !Array.isArray(data.changedDomains) ||
           !data.changedDomains.includes('recordings')) return;
-      recordingRefreshPending = true;
-      scheduleRecordingChangeRefresh();
+      const ids = Array.isArray(data.recordingNativeIds)
+        ? data.recordingNativeIds.filter(function (value) {
+            return typeof value === 'string' && value.length > 0;
+          })
+        : [];
+      if (ids.length) {
+        const generation = state.generation;
+        new Set(ids).forEach(function (id) {
+          refreshSpecificRecording(id, selectedBackendId(), generation);
+        });
+      } else {
+        recordingRefreshPending = true;
+        scheduleRecordingChangeRefresh();
+      }
     });
     source.onerror = function () {
       if (recordingSource !== source) return;
