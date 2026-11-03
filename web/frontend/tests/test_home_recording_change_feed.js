@@ -97,8 +97,17 @@ const window = {
   }
 };
 window.window = window;
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8'),
-  {window, console}, {filename: 'home-recording-discovery.js'});
+const productionContext = vm.createContext({window, console});
+vm.runInContext(
+  fs.readFileSync(path.join(__dirname, '..', 'platform', 'helpers.js'), 'utf8'),
+  productionContext,
+  {filename: 'platform/helpers.js'}
+);
+vm.runInContext(
+  fs.readFileSync(path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8'),
+  productionContext,
+  {filename: 'home-recording-discovery.js'}
+);
 
 const settle = () => new Promise(resolve => setImmediate(resolve));
 async function tick() {
