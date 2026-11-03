@@ -651,9 +651,11 @@
       const override =
         seriesCoverOverride({key: initialMember.seriesKey}, backendId) ||
         seriesCoverOverride({key: enrichedMember.seriesKey}, backendId);
-      const manuallyAssignedPoster = rich.manualAssignment &&
-        rich.manualAssignment.active === true && nativePoster;
-      if (!manuallyAssignedPoster && override && override.posterUrl)
+      // A persisted Series cover is the explicit presentation choice for
+      // Home Series episodes. A later native (including manually assigned)
+      // Recording poster must not undo that choice. Without a Series cover,
+      // keep the existing Recording-specific manual/native priority.
+      if (override && override.posterUrl)
         posterUrl = override.posterUrl;
     }
     return {
@@ -4141,10 +4143,7 @@
             richMetadata = partial;
             renderNewly();
           }
-        ).then(function (complete) {
-          richMetadata = complete;
-          renderNewly();
-        }).catch(function () { return false; });
+        ).catch(function () { return false; });
         // The Series cover request is shared/coalesced with loadSeries().
         // A saved cover must also update a tile that was rendered earlier.
         loadSeriesCoverSettings(client, backendId, generation)
