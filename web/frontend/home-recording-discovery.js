@@ -4421,11 +4421,13 @@
       const readback = client && typeof client.requestJson === 'function'
         ? Promise.allSettled(changedRecordings.map(function (recording) {
           const nativeId = recordingBackendNativeId(recording);
-          return Promise.resolve(client.requestJson('/api/vdr/recordings/metadata', {
-            query: {backend: backendId, backendNativeId: nativeId},
-            cache: 'no-store',
-            credentials: 'same-origin'
-          })).then(function (metadata) {
+          return Promise.resolve().then(function () {
+            return client.requestJson('/api/vdr/recordings/metadata', {
+              query: {backend: backendId, backendNativeId: nativeId},
+              cache: 'no-store',
+              credentials: 'same-origin'
+            });
+          }).then(function (metadata) {
             if (!seriesCurrent() || !metadata || metadata.available !== true) return false;
             const cache = seriesMetadataCache(generation, backendId);
             cache.resolved.set(nativeId, metadata);
@@ -4439,51 +4441,51 @@
       return Promise.resolve(readback).then(function () {
         if (!seriesCurrent()) return false;
 
-      if (!recordings.length) {
-        clearSeriesMetadataRetry();
-        clearSeriesWarm();
-        state.seriesProjection = [];
-        state.seriesBackendId = '';
-        state.seriesViewKey = '';
-        state.seriesSeasonNumber = null;
-        clearRail('series');
-        return false;
-      }
+        if (!recordings.length) {
+          clearSeriesMetadataRetry();
+          clearSeriesWarm();
+          state.seriesProjection = [];
+          state.seriesBackendId = '';
+          state.seriesViewKey = '';
+          state.seriesSeasonNumber = null;
+          clearRail('series');
+          return false;
+        }
 
-      const rendered = applySeriesProjection(
-        recordings,
-        backendId,
-        resolvedSeriesMetadata(generation, backendId)
-      );
-
-      if (rendered && current(generation, backendId)) {
-        markSeriesWarm(backendId);
-      }
-
-      if (client && typeof client.requestJson === 'function') {
-        prefetchSeriesRepresentativeMetadata(
-          client,
+        const rendered = applySeriesProjection(
           recordings,
           backendId,
-          generation,
-          function () {
-            if (!seriesCurrent()) return;
-
-            const rich = resolvedSeriesMetadata(
-              generation,
-              backendId
-            );
-
-            applySeriesProjection(
-              recordings,
-              backendId,
-              rich
-            );
-          }
+          resolvedSeriesMetadata(generation, backendId)
         );
-      }
 
-      return rendered;
+        if (rendered && current(generation, backendId)) {
+          markSeriesWarm(backendId);
+        }
+
+        if (client && typeof client.requestJson === 'function') {
+          prefetchSeriesRepresentativeMetadata(
+            client,
+            recordings,
+            backendId,
+            generation,
+            function () {
+              if (!seriesCurrent()) return;
+
+              const rich = resolvedSeriesMetadata(
+                generation,
+                backendId
+              );
+
+              applySeriesProjection(
+                recordings,
+                backendId,
+                rich
+              );
+            }
+          );
+        }
+
+        return rendered;
       });
     }).catch(function () {
       if (!seriesCurrent()) return false;
