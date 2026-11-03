@@ -4,11 +4,13 @@ SnapshotChangeFeedEntry::SnapshotChangeFeedEntry(
     int sequenceNumber,
     int snapshotGeneration,
     const std::vector<std::string>& changedDomains,
-    const std::string& backendId)
+    const std::string& backendId,
+    const std::vector<std::string>& recordingNativeIds)
     : sequenceNumber_(sequenceNumber),
       snapshotGeneration_(snapshotGeneration),
       backendId_(backendId),
-      changedDomains_(changedDomains)
+      changedDomains_(changedDomains),
+      recordingNativeIds_(recordingNativeIds)
 {
 }
 
@@ -30,6 +32,11 @@ const std::string& SnapshotChangeFeedEntry::backendId() const
 const std::vector<std::string>& SnapshotChangeFeedEntry::changedDomains() const
 {
     return changedDomains_;
+}
+
+const std::vector<std::string>& SnapshotChangeFeedEntry::recordingNativeIds() const
+{
+    return recordingNativeIds_;
 }
 
 bool SnapshotChangeFeedEntry::hasChanges() const

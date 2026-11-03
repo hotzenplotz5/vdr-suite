@@ -14,19 +14,22 @@ public:
         int sequenceNumber,
         int snapshotGeneration,
         const std::vector<VdrChangeEvent>& changeEvents,
-        const std::string& backendId = "default") const;
+        const std::string& backendId = "default",
+        const std::vector<std::string>& recordingNativeIds = {}) const;
 
     SnapshotChangeFeed createFeed(
         int sequenceNumber,
         int snapshotGeneration,
         const std::vector<VdrChangeEvent>& changeEvents,
-        const std::string& backendId = "default") const;
+        const std::string& backendId = "default",
+        const std::vector<std::string>& recordingNativeIds = {}) const;
 
     void appendChanges(
         SnapshotChangeFeed& feed,
         int snapshotGeneration,
         const std::vector<VdrChangeEvent>& changeEvents,
-        const std::string& backendId = "default") const;
+        const std::string& backendId = "default",
+        const std::vector<std::string>& recordingNativeIds = {}) const;
 };
 
 #endif

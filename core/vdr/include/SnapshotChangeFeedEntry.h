@@ -10,12 +10,14 @@ public:
         int sequenceNumber,
         int snapshotGeneration,
         const std::vector<std::string>& changedDomains,
-        const std::string& backendId = "default");
+        const std::string& backendId = "default",
+        const std::vector<std::string>& recordingNativeIds = {});
 
     int sequenceNumber() const;
     int snapshotGeneration() const;
     const std::string& backendId() const;
     const std::vector<std::string>& changedDomains() const;
+    const std::vector<std::string>& recordingNativeIds() const;
     bool hasChanges() const;
 
 private:
@@ -23,6 +25,7 @@ private:
     int snapshotGeneration_;
     std::string backendId_;
     std::vector<std::string> changedDomains_;
+    std::vector<std::string> recordingNativeIds_;
 };
 
 #endif
