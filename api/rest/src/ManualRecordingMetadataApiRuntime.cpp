@@ -360,14 +360,15 @@ MetadataController* ManualRecordingMetadataApiRuntime::controller() const
 }
 
 void ManualRecordingMetadataApiRuntime::notifyRecordingPresentationChanged(
-    const std::string& backendId) const
+    const std::string& backendId,
+    const std::string& recordingNativeId) const
 {
     RecordingPresentationChangedCallback callback;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         callback = recordingPresentationChangedCallback_;
     }
-    if (callback) callback(backendId);
+    if (callback) callback(backendId, recordingNativeId);
 }
 
 bool ManualRecordingMetadataApiRuntime::tryHandleGet(
@@ -483,7 +484,8 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
             stringValue(strings, "genreId"));
         if (response.statusCode >= 200 && response.statusCode < 300)
         {
-            notifyRecordingPresentationChanged(route.backendId);
+            notifyRecordingPresentationChanged(
+                route.backendId, stringValue(strings, "resourceKey"));
         }
         return true;
     }
@@ -549,7 +551,8 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
             actorRef);
         if (response.statusCode >= 200 && response.statusCode < 300)
         {
-            notifyRecordingPresentationChanged(route.backendId);
+            notifyRecordingPresentationChanged(
+                route.backendId, stringValue(strings, "resourceKey"));
         }
         return true;
     }
@@ -563,7 +566,8 @@ bool ManualRecordingMetadataApiRuntime::tryHandlePost(
             actorRef);
         if (response.statusCode >= 200 && response.statusCode < 300)
         {
-            notifyRecordingPresentationChanged(route.backendId);
+            notifyRecordingPresentationChanged(
+                route.backendId, stringValue(strings, "resourceKey"));
         }
         return true;
     }
