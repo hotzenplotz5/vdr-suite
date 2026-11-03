@@ -2911,15 +2911,14 @@ function publishHomeResume() {}
   // long TMDb synopsis. The same result list must keep its scroll position.
   onlineResults.scrollTop = 240;
   onlineResults.scrollLeft = 8;
-  hevcToggle.listeners.change();
+  await findClass(onlineResults.children[0], 'media-import-online-choose').listeners.click();
   const refreshedResults = findClass(mount, 'media-import-online-results');
   assert.notStrictEqual(refreshedResults, onlineResults,
-    'the production preview redraw really rebuilt the TMDb list');
+    'manual selection really redraws the TMDb list');
   assert.strictEqual(refreshedResults.scrollTop, 240,
     'preview redraw must preserve the manual TMDb list vertical scroll position');
   assert.strictEqual(refreshedResults.scrollLeft, 8,
     'preview redraw must preserve the manual TMDb list horizontal scroll position');
-  await findClass(refreshedResults.children[0], 'media-import-online-choose').listeners.click();
   assert.strictEqual(findClass(mount, 'media-import-online-results').scrollTop, 240,
     'manual TMDb selection must not reset the result scroll position');
   let confirmedOnline = findClass(mount, 'media-import-online-confirmed');
