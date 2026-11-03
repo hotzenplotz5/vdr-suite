@@ -641,10 +641,7 @@ async function proveNewlyRecordedUsesCorrectedArtwork(harness) {
       if (route === '/api/backends/default/settings/series-artwork') {
         return Promise.resolve({backendId: 'default', coverOverrides: [
           {seriesKey: 'folder:serien/foundation',
-            posterUrl: selectedSeriesCover, revision: 9},
-          {seriesKey: 'folder:serien/andor',
-            posterUrl: '/api/backends/default/settings/series-artwork/image' +
-              '?seriesKey=folder%3Aserien%2Fandor&revision=4', revision: 4}
+            posterUrl: selectedSeriesCover, revision: 9}
         ]});
       }
       assert.strictEqual(route, '/api/vdr/recordings/metadata');
