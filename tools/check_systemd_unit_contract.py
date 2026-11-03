@@ -6,10 +6,12 @@ UNIT_PATH = Path("packaging/systemd/vdr-suite-daemon.service")
 DEFAULTS_PATH = Path("packaging/systemd/vdr-suite-daemon.default")
 AGENT_UNIT_PATH = Path("packaging/systemd/vdr-suite-backend-agent.service")
 AGENT_CONFIG_PATH = Path("packaging/systemd/backend-agent.conf")
+FIRST_RUN_UNIT_PATH = Path("packaging/systemd/vdr-suite-first-run.service")
+FIRST_RUN_PATH_PATH = Path("packaging/systemd/vdr-suite-first-run.path")
 
 REQUIRED_LINES = [
     "After=network-online.target vdr.service",
-    "Wants=network-online.target vdr.service",
+    "Wants=network-online.target vdr.service vdr-suite-first-run.service vdr-suite-first-run.path",
     "EnvironmentFile=-/etc/default/vdr-suite-daemon",
     "Environment=VDR_SUITE_FRONTEND_ROOT=/usr/share/vdr-suite/web/frontend",
     "Environment=VDR_SUITE_DATABASE_PATH=/var/lib/vdr-suite/vdr-suite.db",
@@ -23,6 +25,7 @@ REQUIRED_DEFAULTS = [
     "VDR_SUITE_SUITE_BRIDGE_BACKEND_ID=default",
     "VDR_SUITE_SUITE_BRIDGE_HOST=127.0.0.1",
     "VDR_SUITE_SUITE_BRIDGE_PORT=6419",
+    "VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED=true",
     "VDR_SUITE_SERIES_ARTWORK_FALLBACK_ENABLED=true",
     "VDR_SUITE_SERIES_ARTWORK_FALLBACK_PROVIDER=tvmaze",
     "VDR_SUITE_TVMAZE_CONNECT_TIMEOUT_MS=2000",
@@ -142,6 +145,31 @@ def main() -> int:
         if "--token" in normalized or "--password" in normalized or "--secret" in normalized:
             print("Backend Agent credentials must not be process arguments", file=sys.stderr)
             failed = True
+
+    for path, required in [
+        (FIRST_RUN_UNIT_PATH, [
+            "After=network-online.target vdr.service vdr-suite-daemon.service",
+            "ConditionPathExists=/usr/sbin/vdr-suite-backend-agent-autostart",
+            "Type=oneshot",
+            "ExecStart=/usr/sbin/vdr-suite-backend-agent-autostart --auto-first-run",
+            "TimeoutStartSec=120",
+        ]),
+        (FIRST_RUN_PATH_PATH, [
+            "After=vdr-suite-daemon.service",
+            "PathChanged=/etc/vdr-suite/backend-agent.conf",
+            "Unit=vdr-suite-first-run.service",
+        ]),
+    ]:
+        if not path.is_file():
+            print(f"missing first-run unit: {path}", file=sys.stderr)
+            failed = True
+            continue
+        unit_text = active_lines(path)
+        for required_line in required:
+            if required_line not in unit_text:
+                print(f"missing first-run contract in {path}: {required_line}",
+                      file=sys.stderr)
+                failed = True
 
     agent_config = active_lines(AGENT_CONFIG_PATH)
     for required in REQUIRED_AGENT_CONFIG:

@@ -35,6 +35,7 @@
 #include "BackendAgentNativeTimerDeleteAssignment.h"
 #include <openssl/rand.h>
 #include <array>
+#include <cstdlib>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -959,7 +960,8 @@ bool DaemonRuntime::initialize()
     if (!backendRuntimeContexts_.empty()
         && backendRuntimeContexts_.front()->searchTimerAdapter) {
         searchTimerCreateService_ =
-            std::make_unique<SearchTimerCreateService>();
+            std::make_unique<SearchTimerCreateService>(
+                backendRuntimeContexts_.front()->backendId);
         searchTimerCreateResultJsonSerializer_ =
             std::make_unique<SearchTimerCreateResultJsonSerializer>();
         searchTimerCreateRequestParser_ =
@@ -2078,7 +2080,7 @@ bool DaemonRuntime::initialize()
                 agent->leaseExpiresAt <= now)
             {
                 result.status =
-                    PublicSearchTimerCreateStatus::backendUnavailable;
+                    PublicSearchTimerCreateStatus::agentUnavailable;
                 return result;
             }
             BackendRuntimeContext* runtime = nullptr;
@@ -2095,7 +2097,7 @@ bool DaemonRuntime::initialize()
             if (!runtime)
             {
                 result.status =
-                    PublicSearchTimerCreateStatus::backendUnavailable;
+                    PublicSearchTimerCreateStatus::providerUnavailable;
                 return result;
             }
 
@@ -2121,7 +2123,7 @@ bool DaemonRuntime::initialize()
             std::string marginReason;
             if (!backendAgentCommandRepository_)
             {
-                result.status = PublicSearchTimerCreateStatus::backendUnavailable;
+                result.status = PublicSearchTimerCreateStatus::marginsUnavailable;
                 return result;
             }
             const auto provider = backendAgentCommandRepository_->selectLocalProvider(
@@ -2134,7 +2136,7 @@ bool DaemonRuntime::initialize()
                     runtime->suiteBridgeTransport->inspectNativeTimerMarginsContract(),
                     *provider, margins, marginReason))
             {
-                result.status = PublicSearchTimerCreateStatus::backendUnavailable;
+                result.status = PublicSearchTimerCreateStatus::marginsUnavailable;
                 return result;
             }
             input.payload.marginStartMinutes = margins.startMinutes;
@@ -4874,6 +4876,50 @@ bool DaemonRuntime::initialize()
 
     apiRouter_->setSearchTimerPreviewEpgCache(
         searchTimerPreviewEpgCache_.get());
+    // MLD.F2.4: optional install-owned, read-only local Backend status.
+    // Never advertise "ready" solely from BackendRegistry::online: the
+    // registered Agent and both observations must match the current lease.
+    // This is opt-in for the package-managed local Agent topology only;
+    // existing Ubuntu/yaVDR installations keep their previous health JSON.
+    const char* localSetup = std::getenv("VDR_SUITE_LOCAL_BACKEND_SETUP_ENABLED");
+    if (localSetup && std::string(localSetup) == "true")
+    {
+        apiRouter_->setLocalBackendSetupStatusLookup([this]() -> std::string
+        {
+            if (!backendAgentRepository_) return "unavailable";
+            const auto agent =
+                backendAgentRepository_->findAgentForBackend("default");
+            if (!agent || agent->revoked || agent->incompatible ||
+                agent->backendGeneration == 0U || agent->agentId.empty())
+                return "unregistered";
+            const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            if (agent->agentInstanceId.empty() ||
+                agent->leaseExpiresAt <= now ||
+                agent->lastHeartbeatAt < now - 150 ||
+                agent->heartbeatSequence == 0U)
+                return "agent_offline";
+            const auto currentCursor = [&](const char* domain) {
+                const auto cursor =
+                    backendAgentRepository_->observationCursorForBackend(
+                        "default", domain);
+                return cursor.present && cursor.agentId == agent->agentId &&
+                    cursor.agentInstanceId == agent->agentInstanceId &&
+                    cursor.backendGeneration == agent->backendGeneration &&
+                    cursor.snapshotGeneration > 0U &&
+                    cursor.producerSequence > 0U &&
+                    !cursor.resourceRevision.empty() &&
+                    cursor.acceptedAt >= now - 150 &&
+                    cursor.acceptedAt <= now + 5;
+            };
+            if (!currentCursor("backend-health")) return "health_pending";
+            if (!currentCursor("channels") ||
+                backendAgentRepository_->channelFactsForBackend("default").empty())
+                return "channels_pending";
+            return "ready";
+        });
+    }
+
 
     // Public-v1 MOVE destinations are looked up through the one existing
     // backend-scoped public fld1_ browse index; never accept native paths.

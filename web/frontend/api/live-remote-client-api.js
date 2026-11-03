@@ -550,6 +550,9 @@
       '.vss-panel [hidden]{display:none!important}' +
       '.vss-message{min-height:1.25rem;margin:0;color:#cbd5e1;font-size:.78rem;line-height:1.4}' +
       '.vss-message.error{color:#fca5a5}' +
+      '.vss-local-setup{position:fixed;top:4.5rem;right:1rem;z-index:1000;width:min(24rem,calc(100vw - 2rem));padding:.9rem;border:1px solid #475569;border-radius:.8rem;background:#0f172a;color:#e2e8f0;box-shadow:0 .5rem 1.5rem rgba(0,0,0,.4)}' +
+      '.vss-local-setup[hidden]{display:none!important}' +
+      '.vss-local-setup p{font-size:.85rem;line-height:1.4}' +
       '.vss-actions{display:flex;justify-content:flex-end;gap:.55rem}' +
       '.vss-submit{background:linear-gradient(145deg,#0c4a6e,#1e3a8a)}' +
       '.vss-cancel{border-color:#475569;color:#cbd5e1}' +
@@ -580,6 +583,22 @@
     button.setAttribute('aria-haspopup', 'dialog');
     controls.append(state, button);
     header.appendChild(controls);
+
+    // Same First Admin flow; no separate wizard or privileged browser action.
+    const setupPanel = createElement('section', 'vss-local-setup');
+    setupPanel.id = 'vdr-suite-local-backend-setup';
+    setupPanel.hidden = true;
+    const setupTitle = createElement('strong', '', translated(
+      'VDR-Backend einrichten', 'Set up VDR backend'
+    ));
+    const setupMessage = createElement('p', '', '');
+    setupMessage.setAttribute('aria-live', 'polite');
+    const setupRetry = createElement('button', 'vss-cancel', translated(
+      'Erneut prüfen', 'Check again'
+    ));
+    setupRetry.type = 'button';
+    setupPanel.append(setupTitle, setupMessage, setupRetry);
+    global.document.body.appendChild(setupPanel);
 
     const dialog = createElement('dialog', 'vss-dialog');
     dialog.id = 'vdr-suite-session-dialog';
@@ -750,6 +769,68 @@
     }
 
     let renderedAuthenticated = false;
+    let setupTimer = null;
+    let setupPending = false;
+
+    function checkLocalSetup() {
+      if (!isAuthenticated() || setupPending) return;
+      if (setupTimer !== null) global.clearTimeout(setupTimer);
+      setupTimer = null;
+      setupPending = true;
+      setupRetry.disabled = true;
+      Promise.resolve().then(function () {
+        return global.fetch('/api/backends/default/health', {
+          method: 'GET', headers: {Accept: 'application/json'},
+          cache: 'no-store', credentials: 'same-origin'
+        });
+      }).then(function (response) {
+        if (!response.ok) throw new Error('health_unavailable');
+        return parseResponse(response);
+      }).then(function (payload) {
+        if (!isAuthenticated()) return;
+        const status = payload && payload.localBackendSetup &&
+          payload.localBackendSetup.status;
+        // Existing installations without the opt-in status remain unchanged.
+        if (typeof status !== 'string') {
+          setupPanel.hidden = true;
+          return;
+        }
+        setupPanel.hidden = status === 'ready';
+        const messages = {
+          unregistered: translated('Die Backend-Registrierung steht noch aus.',
+            'Backend registration is pending.'),
+          agent_offline: translated('Der Backend-Agent wird noch verbunden.',
+            'The backend agent is not yet connected.'),
+          health_pending: translated('Die Backend-Verbindung wird geprüft.',
+            'Checking backend connection.'),
+          channels_pending: translated('Die Senderliste wird noch eingelesen.',
+            'Still loading channels.'),
+          unavailable: translated('Der Backend-Status ist nicht verfügbar.',
+            'Backend status is unavailable.')
+        };
+        setupMessage.textContent = messages[status] || translated(
+          'Die Backend-Einrichtung ist noch nicht abgeschlossen.',
+          'Backend setup is not yet complete.'
+        );
+        if (status !== 'ready' && typeof global.setTimeout === 'function') {
+          setupTimer = global.setTimeout(checkLocalSetup, 5000);
+        }
+      }).catch(function () {
+        if (!isAuthenticated()) return;
+        // A failed health request is not evidence that setup is complete.
+        // Keep the retry visible; existing hosts with a successful response
+        // lacking localBackendSetup still keep their previous presentation.
+        setupPanel.hidden = false;
+        setupMessage.textContent = translated(
+          'Statusprüfung nicht möglich. Bitte erneut prüfen.',
+          'Could not check status. Please check again.'
+        );
+      }).finally(function () {
+        setupPending = false;
+        setupRetry.disabled = false;
+      });
+    }
+    setupRetry.addEventListener('click', checkLocalSetup);
 
     function render(sessionState) {
       const active = Boolean(sessionState && sessionState.authenticated);
@@ -762,6 +843,12 @@
           ? translated('Einrichten', 'Set up')
           : translated('Anmelden', 'Sign in'));
       if (active) setSetupMode(false);
+      if (active && !wasAuthenticated) checkLocalSetup();
+      if (!active) {
+        if (setupTimer !== null) global.clearTimeout(setupTimer);
+        setupTimer = null;
+        setupPanel.hidden = true;
+      }
       state.textContent = active
         ? translated('Angemeldet', 'Signed in')
         : (securityMessage(sessionState && sessionState.reason) ||
