@@ -3103,10 +3103,15 @@
             data.sourceId !== id) throw new Error('Veraltete Vorschauantwort');
         if (data.state === 'pending') {
           if (!dynamicRefreshRequested) initialLookupPending = true;
-          view.previewStatus = view.previewResult
+          const pendingStatus = view.previewResult
             ? 'Metadaten und Systemstatus werden aktualisiert …'
             : 'Film wird geprüft …';
-          updatePreview(view);
+          // Identical pending reads (every four seconds) change no visible
+          // data and must not replace the TMDb list under the user's finger.
+          if (view.previewStatus !== pendingStatus) {
+            view.previewStatus = pendingStatus;
+            updatePreview(view);
+          }
           if (++view.previewReads < 40) {
             view.previewTimer = global.setTimeout(function () {
               view.previewTimer = null;
@@ -3190,8 +3195,18 @@
   function renderPreviewCard(view, plan, source) {
     if (!view.previewCard) return;
     const card = view.previewCard;
-    card.replaceChildren();
     const selected = view.sources.includes(view.select.value);
+    const sourceId = selected ? view.select.value : '';
+    // Technical preview polls must not restart a user's scroll through the
+    // manually selectable TMDb results (especially on mobile).
+    const previousResults = typeof card.querySelector === 'function'
+      ? card.querySelector('.media-import-online-results') : null;
+    const preserveResultScroll = previousResults &&
+      card.dataset.onlineSourceId === sourceId;
+    const resultScrollTop = preserveResultScroll ? previousResults.scrollTop : 0;
+    const resultScrollLeft = preserveResultScroll ? previousResults.scrollLeft : 0;
+    card.replaceChildren();
+    card.dataset.onlineSourceId = sourceId;
     const label = source && source.label ||
       (selected ? view.sourceTitles[view.select.value] : '');
     const title = plan && plan.title || label || 'Noch keine Folge ausgewählt';
@@ -3340,6 +3355,13 @@
       }
     }
     renderOnline(view, card, plan, source);
+    if (preserveResultScroll) {
+      const results = card.querySelector('.media-import-online-results');
+      if (results) {
+        results.scrollTop = resultScrollTop;
+        results.scrollLeft = resultScrollLeft;
+      }
+    }
     // MT.META6: allow an explicit, identity-checked Suite metadata repair
     // for an already confirmed recording. This reuses the existing recording
     // assignment route and never starts another media import.

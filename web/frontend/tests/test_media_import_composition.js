@@ -110,12 +110,18 @@ class Element {
     this.hidden = false;
     this.disabled = false;
     this.value = '';
+    this.scrollTop = 0;
+    this.scrollLeft = 0;
     this.classList = {toggle() {}};
   }
   appendChild(child) { this.children.push(child); return child; }
   replaceChildren(...children) { this.children = children; }
   addEventListener(name, callback) { this.listeners[name] = callback; }
   setAttribute(name, value) { this.attributes[name] = value; }
+  querySelector(selector) {
+    return typeof selector === 'string' && selector.startsWith('.')
+      ? findClass(this, selector.slice(1)) : null;
+  }
 }
 function findClass(node, cls) {
   if ((node.className || '').split(/\s+/).includes(cls)) return node;
@@ -2901,7 +2907,21 @@ function publishHomeResume() {}
     'wrong-provider candidates are not presented as confirmed TMDb results');
   assert.strictEqual(findClass(mount, 'media-import-online-confirmed'), null,
     'multiple candidates never select themselves, even if titles match');
-  await findClass(onlineResults.children[0], 'media-import-online-choose').listeners.click();
+  // Refreshes can redraw the preview while the operator scrolls through a
+  // long TMDb synopsis. The same result list must keep its scroll position.
+  onlineResults.scrollTop = 240;
+  onlineResults.scrollLeft = 8;
+  hevcToggle.listeners.change();
+  const refreshedResults = findClass(mount, 'media-import-online-results');
+  assert.notStrictEqual(refreshedResults, onlineResults,
+    'the production preview redraw really rebuilt the TMDb list');
+  assert.strictEqual(refreshedResults.scrollTop, 240,
+    'preview redraw must preserve the manual TMDb list vertical scroll position');
+  assert.strictEqual(refreshedResults.scrollLeft, 8,
+    'preview redraw must preserve the manual TMDb list horizontal scroll position');
+  await findClass(refreshedResults.children[0], 'media-import-online-choose').listeners.click();
+  assert.strictEqual(findClass(mount, 'media-import-online-results').scrollTop, 240,
+    'manual TMDb selection must not reset the result scroll position');
   let confirmedOnline = findClass(mount, 'media-import-online-confirmed');
   assert(confirmedOnline && confirmedOnline.children[0].textContent.includes('Film mit belegter TMDb-ID'));
   const onlinePoster = findClass(confirmedOnline, 'media-import-online-poster');
