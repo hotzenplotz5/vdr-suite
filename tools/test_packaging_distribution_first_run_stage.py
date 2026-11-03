@@ -136,6 +136,52 @@ class DistributionFirstRunStageTests(unittest.TestCase):
                     upgrade = run_postinst("0.14.0")
                     self.assertEqual(upgrade, ["systemctl --system daemon-reload"])
 
+    def test_mld_cli_refuses_missing_first_run_package_payload(self):
+        # Reproduce the MLD target's missing first-run units entirely in a
+        # disposable DESTDIR. Never inspect or modify installed host units.
+        command = [
+            "python3", str(ROOT / "tools/mld66_stage_first_run.py"),
+            "--stage-root", str(self.package),
+            "--channels-source", "/etc/vdr/channels.conf",
+        ]
+        untouched = self.agent.read_bytes()
+        for missing in ("vdr-suite-first-run.service",
+                        "vdr-suite-first-run.path"):
+            with self.subTest(missing=missing):
+                systemd = self.package / "usr/lib/systemd/system"
+                systemd.mkdir(parents=True, exist_ok=True)
+                for name in ("vdr-suite-daemon.service",
+                             "vdr-suite-backend-agent.service",
+                             "vdr-suite-first-run.service",
+                             "vdr-suite-first-run.path"):
+                    source = ROOT / "packaging/systemd" / name
+                    shutil.copyfile(source, systemd / name)
+                (systemd / missing).unlink()
+                helper = self.package / "usr/sbin/vdr-suite-backend-agent-autostart"
+                helper.parent.mkdir(parents=True, exist_ok=True)
+                helper.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+                helper.chmod(0o755)
+                result = subprocess.run(
+                    command, capture_output=True, text=True, check=False
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("MLD_FIRST_RUN_STAGE=BLOCKED", result.stderr)
+                self.assertEqual(self.agent.read_bytes(), untouched)
+
+        # The complete source-controlled systemd payload passes the same
+        # preflight; only the staged config changes.
+        shutil.copyfile(ROOT / "packaging/systemd/vdr-suite-first-run.path",
+                        self.package / "usr/lib/systemd/system/vdr-suite-first-run.path")
+        result = subprocess.run(
+            command, capture_output=True, text=True, check=False
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("MLD_FIRST_RUN_STAGE=PASS", result.stdout)
+        self.assertIn("CONTROL_PLANE_URL=http://127.0.0.1:18080",
+                      self.agent.read_text())
+        self.assertIn("CHANNELS_CONF_PATH=/etc/vdr/channels.conf",
+                      self.agent.read_text())
+
     def test_common_install_contract_wires_auto_first_run_for_deb_and_manual(self):
         makefile = (ROOT / "mk/install.mk").read_text(encoding="utf-8")
         manifest = (ROOT / "debian/vdr-suite-daemon.install").read_text(

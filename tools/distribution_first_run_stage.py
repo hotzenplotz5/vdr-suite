@@ -204,7 +204,7 @@ def stage(root, origin, channels, ca_certificate_path=None):
     update_atomically(daemon, next_daemon)
 
 
-def main(status_prefix="DISTRIBUTION_FIRST_RUN_STAGE"):
+def main(status_prefix="DISTRIBUTION_FIRST_RUN_STAGE", package_preflight=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage-root", required=True)
     parser.add_argument("--control-plane-url", default="",
@@ -214,6 +214,8 @@ def main(status_prefix="DISTRIBUTION_FIRST_RUN_STAGE"):
                         help="optional existing trusted CA certificate for remote HTTPS")
     args = parser.parse_args()
     try:
+        if package_preflight is not None:
+            package_preflight(args.stage_root)
         stage(args.stage_root, args.control_plane_url, args.channels_source,
               args.ca_certificate_path)
     except (NotReady, OSError, UnicodeError) as exc:
