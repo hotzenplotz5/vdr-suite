@@ -592,7 +592,7 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
         if (choice != vdrsuite::mediatools::MediaImportDecision::import &&
             choice != vdrsuite::mediatools::MediaImportDecision::local)
             continue;
-        if (now > std::numeric_limits<std::int64_t>::max() - 600 ||
+        if (now > std::numeric_limits<std::int64_t>::max() - 24 * 3600 ||
             !commands_.ensureMediaImportAssignmentSchema())
             continue;
         const auto notificationPayload = vdrsuite::mediatools::mediaImportReadbackPayload(
@@ -629,7 +629,9 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
             notice.payload = notificationPayload;
             notice.verificationPolicy = "none";
             notice.assignedAt = now;
-            notice.deadline = now + 600;
+            // Cleanup is a distinct result delivery, not a six-hundred-second
+            // Agent decision about whether the completed import may finish.
+            notice.deadline = now + 24 * 3600;
             notice.requestFingerprint = backendAgentCommandFingerprint(notice);
             if (!backendAgentCommandValidAssignment(notice) ||
                 (!commands_.insertAssignment(notice) &&

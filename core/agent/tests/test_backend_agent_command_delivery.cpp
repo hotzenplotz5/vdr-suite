@@ -986,6 +986,8 @@ int main()
     assert(notice->operationId == media.operationId);
     assert(notice->backendGeneration == media.backendGeneration);
     assert(notice->verificationPolicy == "none");
+    assert(notice->deadline == 128 + 24 * 3600 &&
+           "cleanup notice must survive Agent reconnect beyond ten minutes");
     std::string noticeSource, originalCommand, noticeEvidence, noticeSourceProof;
     assert(vdrsuite::mediatools::parseMediaImportReadbackPayload(
         notice->payload, noticeSource, originalCommand,
