@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """No-root regression for shared first-run package configuration."""
 from pathlib import Path
+import os
 import shutil
 import stat
 import subprocess
@@ -88,6 +89,52 @@ class DistributionFirstRunStageTests(unittest.TestCase):
                 self.assertIn(expected, content)
                 self.assertIn("#DEBHELPER#", content)
                 subprocess.run(["sh", "-n", str(script)], check=True)
+
+    def test_postinst_first_install_reloads_units_before_service_start(self):
+        # --no-start need not emit a debhelper daemon-reload snippet.
+        # Exercise the real maintainer scripts with stubbed systemctl helpers,
+        # on a fake systemd runtime: never touch host services or /run.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            systemd = root / "systemd-running"
+            systemd.mkdir()
+            trace = root / "commands.log"
+            environment = dict(os.environ)
+            environment["TRACE"] = str(trace)
+            environment["PATH"] = str(root) + os.pathsep + environment.get("PATH", "")
+            for name in ("systemctl", "deb-systemd-helper", "deb-systemd-invoke"):
+                stub = root / name
+                stub.write_text(
+                    '#!/bin/sh\nprintf "%s %s\\n" "$(basename "$0")" "$*" >> "$TRACE"\n',
+                    encoding="utf-8",
+                )
+                stub.chmod(0o755)
+
+            for filename, service in (
+                ("vdr-suite-daemon.postinst", "vdr-suite-daemon.service"),
+                ("vdr-suite-backend-agent.postinst", "vdr-suite-first-run.service"),
+            ):
+                with self.subTest(filename=filename):
+                    content = (ROOT / "debian" / filename).read_text(encoding="utf-8")
+                    # Only the mocked test copy uses an alternative runtime root.
+                    content = content.replace("/run/systemd/system", str(systemd))
+                    script = root / filename
+                    script.write_text(content, encoding="utf-8")
+
+                    def run_postinst(previous_version):
+                        trace.write_text("", encoding="utf-8")
+                        subprocess.run(
+                            ["sh", str(script), "configure", previous_version],
+                            env=environment, check=True,
+                        )
+                        return trace.read_text(encoding="utf-8").splitlines()
+
+                    fresh = run_postinst("")
+                    self.assertGreaterEqual(len(fresh), 2)
+                    self.assertEqual(fresh[0], "systemctl --system daemon-reload")
+                    self.assertIn("deb-systemd-invoke start " + service, fresh)
+                    upgrade = run_postinst("0.14.0")
+                    self.assertEqual(upgrade, ["systemctl --system daemon-reload"])
 
     def test_common_install_contract_wires_auto_first_run_for_deb_and_manual(self):
         makefile = (ROOT / "mk/install.mk").read_text(encoding="utf-8")

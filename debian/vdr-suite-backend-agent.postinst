@@ -1,6 +1,14 @@
 #!/bin/sh
 set -e
 
+# dh_installsystemd --no-start can omit its postinst daemon-reload.
+# Reload package units before any explicit first-install service start.
+# Upgrades reload unit definitions without changing existing service state.
+if [ "$1" = configure ] && [ -d /run/systemd/system ] && \
+   command -v systemctl >/dev/null 2>&1; then
+    systemctl --system daemon-reload >/dev/null || true
+fi
+
 # Package ordering is not fixed: if Agent arrives after Daemon, revisit
 # local first-run once. The shared service does the actual onboarding.
 # Never start or enable an unenrolled Agent directly.
