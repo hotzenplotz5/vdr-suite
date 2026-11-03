@@ -618,6 +618,21 @@
       );
 
       rerenderSeriesCoverPresentation(id);
+      // Only the episodes belonging to this Series need a Home tile update.
+      const target = host();
+      const section = target && target.querySelector
+        ? target.querySelector('[data-home-discovery-rail="newly-recorded"]')
+        : null;
+      const rail = directChildWithClass(section, 'media-home-discovery-rail');
+      Array.from(rail && rail.children || []).forEach(function (card) {
+        const recording = card && card.__vdrSuiteRecording;
+        if (!recording || recordingBackendId(recording, id) !== id) return;
+        const rich = card.__vdrSuiteRichMetadata || null;
+        const before = seriesMemberProjection(recording, null, id);
+        const enriched = seriesMemberProjection(recording, rich, id);
+        if (before.seriesKey === seriesKey || enriched.seriesKey === seriesKey)
+          updateNewlyRecordedTile(recording, id, rich);
+      });
 
       return snapshot;
     });
@@ -1207,6 +1222,7 @@
       recording, richMetadata, recordingBackendId(recording, backendId), true
     );
     updateRecordingCard(card, recording, backendId, projected);
+    card.__vdrSuiteRichMetadata = richMetadata;
     return true;
   }
 
