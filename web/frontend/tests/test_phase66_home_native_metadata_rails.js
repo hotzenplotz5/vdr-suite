@@ -581,6 +581,88 @@ async function proveSeriesRepresentativeMetadataPreemptsEpisodeBacklog(api) {
   );
 }
 
+async function proveNewlyRecordedUsesCorrectedArtwork(harness) {
+  const foundation = makeRecording(
+    'foundation-s01e05', 'native-foundation-s01e05',
+    'Serien/Foundation/S01E05 Erwachen',
+    'Foundation/S01E05 Erwachen',
+    '/weak/foundation-episode-still.jpg'
+  );
+  const andor = makeRecording(
+    'andor-s02e02', 'native-andor-s02e02',
+    'Serien/Andor/S02E02',
+    'Andor/S02E02',
+    '/weak/andor-old-poster.jpg'
+  );
+  const selectedSeriesCover =
+    '/api/backends/default/settings/series-artwork/image' +
+    '?seriesKey=folder%3Aserien%2Ffoundation&revision=9';
+  const selectedEpisodePoster =
+    '/api/vdr/recordings/metadata/image?backend=default' +
+    '&backendNativeId=native-andor-s02e02&kind=preferred&index=0';
+  const reads = [];
+  const client = {
+    fetchClientRecordings() {
+      return Promise.resolve({recordings: [foundation, andor]});
+    },
+    fetchClientGenres() { return Promise.resolve({genres: []}); },
+    fetchClientGenreRecordings() {
+      return Promise.resolve({recordings: [], total: 0, hasMore: false});
+    },
+    fetchClientRecordingFolder() {
+      return Promise.resolve({folders: [], recordings: [], recordingCount: 0});
+    },
+    requestJson(route, request) {
+      if (route === '/api/backends/default/settings/series-artwork') {
+        return Promise.resolve({backendId: 'default', coverOverrides: [
+          {seriesKey: 'folder:serien/foundation',
+            posterUrl: selectedSeriesCover, revision: 9},
+          {seriesKey: 'folder:serien/andor',
+            posterUrl: '/api/backends/default/settings/series-artwork/image' +
+              '?seriesKey=folder%3Aserien%2Fandor&revision=4', revision: 4}
+        ]});
+      }
+      assert.strictEqual(route, '/api/vdr/recordings/metadata');
+      assert.strictEqual(request.cache, 'no-store');
+      assert.strictEqual(request.query.backend, 'default');
+      reads.push(request.query.backendNativeId);
+      if (request.query.backendNativeId === foundation.backendNativeId) {
+        return Promise.resolve({
+          available: true, mediaType: 'episode', provider: 'tvscraper',
+          providerId: 1399, title: 'Foundation', episodeName: 'Erwachen',
+          preferredArtwork: {available: true, url:
+            '/api/vdr/recordings/metadata/image?backend=default' +
+            '&backendNativeId=native-foundation-s01e05&kind=preferred&index=0'}
+        });
+      }
+      assert.strictEqual(request.query.backendNativeId, andor.backendNativeId);
+      return Promise.resolve({
+        available: true, mediaType: 'episode', provider: 'manual',
+        providerId: 1399, title: 'Andor', episodeName: 'S02E02',
+        manualAssignment: {active: true},
+        preferredArtwork: {available: true, url: selectedEpisodePoster}
+      });
+    }
+  };
+  harness.setClient(client);
+  assert.strictEqual(await harness.publicApi.refresh(), true);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const newly = findRail(harness.host, 'newly-recorded');
+  assert(newly, 'the production Home refresh must render Neu aufgenommen');
+  const foundationCard = findRecordingCard(newly, foundation.recordingId);
+  const andorCard = findRecordingCard(newly, andor.recordingId);
+  assert(foundationCard && andorCard);
+  assert.strictEqual(findImage(foundationCard).src, selectedSeriesCover,
+    'a corrected Series cover wins over an old episode still in Neu aufgenommen');
+  assert.strictEqual(findImage(andorCard).src,
+    selectedEpisodePoster + '&variant=home',
+    'an explicit episode artwork assignment wins over the generic Series cover');
+  assert.deepStrictEqual(reads.slice().sort(),
+    [foundation.backendNativeId, andor.backendNativeId].sort(),
+    'the visible cards reuse the existing bounded Recording metadata API');
+}
+
 (async function () {
   const seriesHarness = createHarness();
   assert(seriesHarness.publicApi);
@@ -601,6 +683,9 @@ async function proveSeriesRepresentativeMetadataPreemptsEpisodeBacklog(api) {
 
   const genreHarness = createHarness();
   await proveRandomGenreUsesNativeMetadata(genreHarness.api, genreHarness.host);
+
+  const newRecordingHarness = createHarness();
+  await proveNewlyRecordedUsesCorrectedArtwork(newRecordingHarness);
 
   console.log('phase66 Home native metadata rail regressions ok');
 }()).catch(function (error) {
