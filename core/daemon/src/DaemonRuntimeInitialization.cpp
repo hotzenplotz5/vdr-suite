@@ -793,6 +793,11 @@ bool DaemonRuntime::initialize()
                 recordingCacheRefreshQueue_.request(assignment.backendId, 2);
             return applied;
         });
+    backendAgentCommandDeliveryService_->setMediaImportCleanupPublished(
+        [this](const std::string& operationId) {
+            if (deviceLiveEventHub_)
+                deviceLiveEventHub_->publishOperation(operationId);
+        });
     std::cout << "Backend Agent enrollment, lease and command delivery runtime initialized" << std::endl;
 
     epgSearchNativeFuzzyCapabilityRepository_ =

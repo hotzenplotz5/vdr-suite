@@ -1196,6 +1196,11 @@ void BackendAgentCommandDeliveryService::setMediaImportResultApply(
 {
     mediaImportResultApply_ = std::move(apply);
 }
+void BackendAgentCommandDeliveryService::setMediaImportCleanupPublished(
+    MediaImportCleanupPublished publish)
+{
+    mediaImportCleanupPublished_ = std::move(publish);
+}
 void BackendAgentCommandDeliveryService::setMediaShrinkReceiptFenceCheck(
     MediaShrinkReceiptFenceCheck check)
 {
@@ -1503,6 +1508,16 @@ BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
                 ? "media_import_result_apply_failed" : applyReason;
             return result;
         }
+    }
+
+    // The separate source cleanup receipt changes the public Operation's
+    // read model without changing the already succeeded VDR Operation state.
+    if (result.accepted && assignment.has_value() &&
+        assignment->commandType == "addon.media.import.readback" &&
+        mediaImportCleanupPublished_)
+    {
+        try { mediaImportCleanupPublished_(assignment->operationId); }
+        catch (...) {} // An SSE subscriber must never veto a durable ACK.
     }
 
     if (result.accepted && assignment.has_value() &&

@@ -207,6 +207,11 @@ public:
         const BackendAgentCommandAssignment&,
         const BackendAgentCommandResult&, std::string&)>;
     void setMediaImportResultApply(MediaImportResultApply apply);
+    // A committed readback-command result updates the existing Public-v1
+    // sourceCleanup projection. Emit only a hint after durable persistence.
+    using MediaImportCleanupPublished =
+        std::function<void(const std::string& operationId)>;
+    void setMediaImportCleanupPublished(MediaImportCleanupPublished publish);
 
     // Stage and publish require distinct canonical Core authority checks.
     // The shipped daemon registers none: missing handlers deny every HEVC
@@ -279,6 +284,7 @@ private:
     ReceiptFenceCheck receiptFenceCheck_;
     MediaImportReceiptFenceCheck mediaImportReceiptFenceCheck_;
     MediaImportResultApply mediaImportResultApply_;
+    MediaImportCleanupPublished mediaImportCleanupPublished_;
     MediaShrinkReceiptFenceCheck mediaShrinkReceiptFenceCheck_;
     MediaShrinkResultApply mediaShrinkResultApply_;
 };
