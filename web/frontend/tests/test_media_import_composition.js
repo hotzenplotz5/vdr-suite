@@ -165,6 +165,20 @@ const MARK_DUP = 'source_marked_du_123456';
 let batchStates = Object.create(null);
 let delayedSubmit = null;
 let operationReads = 0;
+const operationStreams = [];
+function operationStream(operationId) {
+  return operationStreams.slice().reverse().find(function (source) {
+    return !source.closed && source.operationId === operationId;
+  });
+}
+async function emitOperation(operationId) {
+  const source = operationStream(operationId);
+  assert(source, 'active, actor-scoped SSE subscription for ' + operationId);
+  const listener = source.listeners.operation;
+  assert(listener, 'Operation event listener is registered');
+  listener({data: JSON.stringify({operationId})});
+  await settle();
+}
 let holdOperationRead = false;
 let releaseOperationRead = null;
 let submits = 0;
@@ -439,6 +453,16 @@ function onlinePage(candidates) {
     providerAvailable: true, candidates: candidates};
 }
 context.VdrSuiteClientApi = {
+  createClientOperationUpdateSource(operationId) {
+    assert(/^op_[A-Za-z0-9_-]+$/.test(operationId));
+    const source = {
+      operationId, closed: false, listeners: Object.create(null),
+      addEventListener(name, handler) { this.listeners[name] = handler; },
+      close() { this.closed = true; }
+    };
+    operationStreams.push(source);
+    return source;
+  },
   fetchClientRecordingFolder(options) {
     const path = options.query.path;
     return Promise.resolve(metadataFolderOverride || {
@@ -1048,8 +1072,8 @@ function publishHomeResume() {}
     'Zuletzt geprüft:'), 'manual refresh visibly confirms the returned Core state');
   assert.strictEqual(submits, 1);
 
-  // When automatic polling is already fetching, the click must queue one
-  // additional read of the same durable operation instead of being dropped.
+  // A second request while an SSE-triggered status read is in flight
+  // must never discard the explicit manual check.
   holdOperationRead = true;
   const pendingStatus = findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
@@ -1072,19 +1096,18 @@ function publishHomeResume() {}
   assert.strictEqual(submits, 1,
     'rechecking an existing operation cannot submit a new import');
 
-  // Longer imports exceeded the old 15-read / 60-second automatic status
-  // window, losing their final confirmation until a manual user click.
-  const timerCountBeforeLongImport = timerCallbacks.length;
+  // No timed status reads for six-hour encoding, independent of how often
+  // the UI event loop runs. Only the verified Core SSE hint starts a GET.
   const readsBeforeLongImport = operationReads;
-  for (let step = 0; step < 17; ++step) {
-    await findClass(mount, 'media-import-refresh').listeners.click();
-    await settle();
-  }
-  assert.strictEqual(operationReads, readsBeforeLongImport + 17);
-  assert(timerCallbacks.length >= timerCountBeforeLongImport + 17,
-    'a long-running single import continues automatic polling after 15 reads');
+  for (let step = 0; step < 17; ++step) await settle();
+  assert.strictEqual(operationReads, readsBeforeLongImport,
+    'a long-running import must not poll Core in the background');
+  assert(operationStream(OP), 'SSE subscription stays open for long jobs');
+  await emitOperation(OP);
+  assert.strictEqual(operationReads, readsBeforeLongImport + 1,
+    'one matching SSE hint causes exactly one Core status read');
   assert.strictEqual(submits, 1,
-    'status monitoring must never create a second import operation');
+    'SSE status monitoring must never create a second import operation');
 
   // Owner transition must not delete Core operation tracking.
   context.selectModule('overview');
@@ -1484,8 +1507,7 @@ function publishHomeResume() {}
   await settle();
   assert.strictEqual(batchOperations.length, 1);
   batchStates[BATCH_OP_A] = 'succeeded';
-  await findClass(mount, 'media-import-refresh').listeners.click();
-  await settle();
+  await emitOperation(BATCH_OP_A);
   assert.strictEqual(batchOperations.length, 2,
     'second source can dispatch only after independent readback');
   batchStates[BATCH_OP_B] = 'failed_verified';
@@ -1553,8 +1575,7 @@ function publishHomeResume() {}
       return r.path.endsWith('/media-imports') && r.options.method === 'POST';
     }).slice(-3).map(function (r) { return JSON.parse(r.options.body); })));
   batchStates[BATCH_OP_B] = 'succeeded';
-  await findClass(mount, 'media-import-refresh').listeners.click();
-  await settle();
+  await emitOperation(BATCH_OP_B);
   assert.strictEqual(batchOperations.length, 2, 'held-back VP9 is never implicitly encoded');
   assert(findClass(mount, 'media-import-batch-summary').textContent.includes(
     '2 bereits bestätigt'),
@@ -1791,8 +1812,7 @@ function publishHomeResume() {}
   assert(!findClass(mount, 'status').textContent.includes('VDR-Readback bestätigt'));
   state = 'succeeded';
   cleanupState = 'removed';
-  await findClass(mount, 'media-import-refresh').listeners.click();
-  await settle();
+  await emitOperation(OP);
   assert(findClass(mount, 'status').textContent.includes(
     'VDR-Readback bestätigt den Import'));
   assert(findClass(mount, 'status').textContent.includes(
