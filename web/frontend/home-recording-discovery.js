@@ -623,7 +623,7 @@
     });
   }
 
-  function recordingMetadataProjection(recording, richMetadata) {
+  function recordingMetadataProjection(recording, richMetadata, backendId, useSeriesCover) {
     const rich = richMetadata && richMetadata.available === true ? richMetadata : {};
     const richTitle = text(rich.title);
     const recordingPath = text(recording && recording.path);
@@ -638,10 +638,23 @@
     const projectedTitle = richTitle && !richTitleIsPath
       ? richTitle
       : fallbackTitle;
+    const nativePoster = recordingMetadataPosterUrl(rich);
+    let posterUrl = nativePoster || recordingPosterUrl(recording);
+    if (useSeriesCover === true) {
+      // The Home "Neu aufgenommen" rail must honor the same persisted
+      // Series cover as the Series rail, unless this particular recording
+      // has its own explicit manual artwork assignment.
+      const member = seriesMemberProjection(recording, rich, backendId);
+      const override = seriesCoverOverride({key: member.seriesKey}, backendId);
+      const manuallyAssignedPoster = rich.manualAssignment &&
+        rich.manualAssignment.active === true && nativePoster;
+      if (!manuallyAssignedPoster && override && override.posterUrl)
+        posterUrl = override.posterUrl;
+    }
     return {
       title: projectedTitle,
       subtitle: text(rich.episodeName) || recordingSubtitle(recording),
-      posterUrl: recordingMetadataPosterUrl(rich) || recordingPosterUrl(recording)
+      posterUrl: posterUrl
     };
   }
 
@@ -1154,7 +1167,9 @@
       const nativeId = recordingBackendNativeId(recording);
       const projected = recordingMetadataProjection(
         recording,
-        rich && nativeId ? rich.get(nativeId) || null : null
+        rich && nativeId ? rich.get(nativeId) || null : null,
+        recordingBackendId(recording, backendId),
+        key === 'newly-recorded'
       );
       const identity = recordingCardKey(recording, backendId);
       const card = existing.get(identity) || doc.createElement('button');
@@ -4103,12 +4118,35 @@
       credentials: 'same-origin'
     })).then(function (payload) {
       if (!current(generation, backendId)) return false;
-      return renderRecordingRail(
-        'newly-recorded',
-        'Neu aufgenommen',
-        canonicalRecordings(payload, backendId).slice(0, NEW_LIMIT),
-        backendId
-      );
+      const recordings = canonicalRecordings(payload, backendId).slice(0, NEW_LIMIT);
+      let richMetadata = new Map();
+      const renderNewly = function () {
+        if (!current(generation, backendId)) return false;
+        return renderRecordingRail(
+          'newly-recorded', 'Neu aufgenommen', recordings, backendId,
+          {richMetadataByNativeId: richMetadata}
+        );
+      };
+      const rendered = renderNewly();
+      if (recordings.length && client && typeof client.requestJson === 'function') {
+        // Reuse the canonical per-recording metadata read already used by
+        // Random Genre and Series. Do not wait before showing the rail.
+        fetchSeriesRecordingMetadata(
+          client, recordings, backendId, generation, function (partial) {
+            richMetadata = partial;
+            renderNewly();
+          }
+        ).then(function (complete) {
+          richMetadata = complete;
+          renderNewly();
+        }).catch(function () { return false; });
+        // The Series cover request is shared/coalesced with loadSeries().
+        // A saved cover must also update a tile that was rendered earlier.
+        loadSeriesCoverSettings(client, backendId, generation)
+          .then(function () { renderNewly(); })
+          .catch(function () { return false; });
+      }
+      return rendered;
     }).catch(function () {
       if (!current(generation, backendId)) return false;
       if (retainVisible) return false;
