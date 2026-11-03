@@ -9,6 +9,35 @@ Diese Regel gilt für jede `AGENTS.md`-Datei im Repository. Ohne die ausdrückli
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
 
+## Verbindlich: yaVDR-Installationsbefehle in der bestehenden Root-Shell ausführen (03.11.2026)
+
+**Ausdrückliche Maintainer-Anordnung: Installationen als `root` ausführen.**
+Der Operator ist bereits als `root` auf dem yaVDR angemeldet. Für
+Installationsblöcke und dazugehörige Git-Fetches, Vorbereitung, Staging,
+Deployment, Verifikation und Servicebefehle **keinen Benutzerwechsel**
+mit `runuser`, `sudo -u`, `su` oder ähnlichem verwenden; auch nicht
+stillschweigend Git als `yavdr` ausführen. Die Root-Shell bleibt bestehen.
+Ein fehlgeschlagener Befehl darf sie nicht durch ein nacktes `exit` beenden.
+
+Wenn für die beauftragte Installation ein inkrementeller C++-Build
+erforderlich ist und der Maintainer die Ausführung ausdrücklich als
+`root` verlangt, wird auch dieser Build im bestehenden Root-Kontext
+ausgeführt. Diese ausdrückliche Anordnung hat für diesen Installationsfall
+Vorrang vor älteren Anweisungen zum unprivilegierten Build. Vorhandene
+verifizierte Binaries und den Objekt-Cache zuerst wiederverwenden;
+Root-Ausführung ist **keine** Erlaubnis für unnötige Neubauten, neue
+Branches/Worktrees, rekursive `chmod`/`chown`, Änderung fremder
+Schlüssel/Berechtigungen, DB-Backups oder das Überschreiben nicht
+zugehöriger Installationsdateien. Bereits vorhandene Cache-Rechte nicht
+präventiv verändern; mögliche Root-Dateieigentümer im Build-Cache
+berücksichtigen.
+
+Diese Regel betrifft die Ausführung am yaVDR, nicht die Autorisierung
+von VDR-Suite-Benutzern, Add-ons oder API-Aktionen. Wo ältere
+Installationsabschnitte pauschal `runuser`, `sudo -u yavdr` oder einen
+unprivilegierten C++-Build verlangen, gilt für den hier ausdrücklich
+angeordneten Root-Installationsablauf diese neuere Vorgabe.
+
 ## Verbindliche Architekturregel: SSE geht vor Polling (03.11.2026)
 
 **Ausdrückliche Maintainer-Anordnung: SSE GEHT VOR POLLING.** Diese
