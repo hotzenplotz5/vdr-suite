@@ -29,13 +29,7 @@
   const confirmedDeletedSources = Object.create(null);
   // Avoid repeated automatic duplicate operations for a single source observation.
   const automaticDuplicates = Object.create(null);
-  const POLL_MS = 4000;
-  // A single import has the same Agent execution/readback lifetime as a
-  // batch item. Fifteen checks stopped after 60 seconds and stranded the UI
-  // before the Core could confirm an otherwise successful import.
-  const MAX_AUTOMATIC_READS = 225;
-  // 225 * 4s = 15 minutes, covering the 600s worker plus readback headroom.
-  const MAX_BATCH_READS = 225;
+  const POLL_MS = 4000; // Technical read-only previews, never Operation status.
   const MAX_IMPORT_FILMS = 100;
   const BACKGROUND_PREVIEW_POLL_MS = 4000;
   const BACKGROUND_PREVIEW_MAX_READS = 15;
@@ -115,10 +109,59 @@
     }
   }
 
+  function closeOperationEvents(view) {
+    if (view.operationEventSource &&
+        typeof view.operationEventSource.close === 'function')
+      view.operationEventSource.close();
+    view.operationEventSource = null;
+    view.operationEventId = '';
+    view.operationReadQueued = false;
+  }
+
+  // SSE is a continuous push connection; only an event or reconnect reads
+  // the existing Core Operation. Never schedule a status GET.
+  function ensureOperationEvents(view) {
+    if (!isCurrent(view) || !view.attempt || !view.attempt.operationId) return;
+    const operationId = view.attempt.operationId;
+    if (view.operationEventSource && view.operationEventId === operationId) return;
+    closeOperationEvents(view);
+    const client = global.VdrSuiteClientApi;
+    const source = client && typeof client.createClientOperationUpdateSource ===
+      'function' ? client.createClientOperationUpdateSource(operationId) : null;
+    if (!source) {
+      view.operationDetail.textContent =
+        'Automatische Ereignismeldung nicht verfügbar. ' +
+        'Der bestehende Auftrag läuft unabhängig vom Browser weiter.';
+      return;
+    }
+    view.operationEventSource = source;
+    view.operationEventId = operationId;
+    source.onopen = function () {
+      if (isCurrent(view) && view.attempt &&
+          view.attempt.operationId === operationId &&
+          view.operationEventSource === source)
+        void readOperation(view);
+    };
+    source.addEventListener('operation', function (event) {
+      if (!isCurrent(view) || view.operationEventSource !== source ||
+          !view.attempt || view.attempt.operationId !== operationId) return;
+      let payload;
+      try { payload = JSON.parse(event.data); } catch (_) { return; }
+      if (payload && payload.operationId === operationId)
+        void readOperation(view);
+    });
+    source.addEventListener('resync', function () {
+      if (isCurrent(view) && view.operationEventSource === source &&
+          view.attempt && view.attempt.operationId === operationId)
+        void readOperation(view);
+    });
+  }
+
   function deactivate() {
     ++owner;
     if (current) {
       clearPolling(current);
+      closeOperationEvents(current);
       if (current.previewTimer !== null) global.clearTimeout(current.previewTimer);
       current.previewTimer = null;
       if (current.backgroundTimer !== null) global.clearTimeout(current.backgroundTimer);
@@ -467,6 +510,7 @@
     // GET readback. Never retry its source or silently clear its status.
     unresolvedAttempts[unresolvedKey(view, attempt.sourceId)] = attempt;
     clearPolling(view);
+    closeOperationEvents(view);
     if (activeAttempts[view.backendId] === attempt)
       delete activeAttempts[view.backendId];
     view.attempt = null;
@@ -914,7 +958,8 @@
     if (!isCurrent(view) || !view.attempt || !view.attempt.operationId)
       return Promise.resolve();
     if (view.reading) {
-      // An active automatic read must not discard a manual check request.
+      // Merge hints arriving during a GET into one additional read.
+      view.operationReadQueued = true;
       if (manual) {
         view.manualCheckQueued = true;
         view.importFeedbackText.textContent =
@@ -1124,24 +1169,11 @@
         operation.sourceCleanup !== 'pending' &&
         !view.attempt.inventoryRefreshStarted;
       if (refreshImportedSources) view.attempt.inventoryRefreshStarted = true;
-      const limit = view.batch ? MAX_BATCH_READS : MAX_AUTOMATIC_READS;
       const awaitingCleanup = recordingConfirmed &&
         operation.sourceCleanup === 'pending';
-      if ((!terminalState(operation.state) || awaitingCleanup) &&
-          view.reads < limit) {
-        ++view.reads;
-        view.timer = global.setTimeout(function () { readOperation(view); }, POLL_MS);
-      } else if (!terminalState(operation.state)) {
-        if (view.batch) {
-          stopBatch(view, 'Automatische Statusabfrage beendet. ' +
-            'Aktuellen Core-Vorgang manuell prüfen; kein weiterer Import startet.');
-        } else {
-          view.importFeedbackText.textContent =
-            'Der Auftrag ist noch nicht abgeschlossen. Die automatische Abfrage ' +
-            'ist beendet; über „Vorgang prüfen“ kannst du denselben Auftrag ' +
-            'jederzeit erneut abfragen. Nicht nochmals importieren.';
-        }
-      }
+      // The verified Core readback is final, even after a six-hour encode.
+      if (terminalState(operation.state) && !awaitingCleanup)
+        closeOperationEvents(view);
       if (refreshImportedSources) {
         const confirmedReport = view.message.textContent;
         // The Agent's next authenticated source observation may lag behind
@@ -1220,8 +1252,15 @@
       if (isCurrent(view) && view.manualCheckQueued && view.attempt &&
           view.attempt.operationId) {
         view.manualCheckQueued = false;
+        view.operationReadQueued = false;
         return readOperation(view, true);
       }
+      if (isCurrent(view) && view.operationReadQueued &&
+          !(view.batch && view.batch.resumeNext)) {
+        view.operationReadQueued = false;
+        return readOperation(view);
+      }
+      view.operationReadQueued = false;
       const batch = view.batch;
       if (!isCurrent(view) || !batch || !batch.resumeNext ||
           !view.attempt || view.attempt.state !== 'succeeded')
@@ -1628,7 +1667,8 @@
     enableOperationBrowsing(view);
     updateInlineDeleteAvailability(view);
     if (view.attempt.operationId) {
-      readOperation(view);
+      ensureOperationEvents(view);
+      readOperation(view); // Initial one-time readback, not polling.
     } else if (view.attempt.pending) {
       report(view, 'Import-Anfrage läuft. Bis zur Serverantwort keinen weiteren Import starten.');
     } else {
@@ -4262,6 +4302,7 @@
       onlineAuto: false, onlineAutoSelected: false,
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
       reads: 0, timer: null, manualCheckQueued: false, lastManualCheck: '',
+      operationEventSource: null, operationEventId: '', operationReadQueued: false,
       operationBrowsingEnabled: false,
       attempt: activeAttempts[backendId] || null};
     current = view;
@@ -4379,6 +4420,7 @@
         view.select.value !== view.attempt.sourceId &&
         view.sources.includes(view.select.value) ? view.select.value : '';
       clearPolling(view);
+      closeOperationEvents(view);
       delete activeAttempts[backendId];
       view.attempt = null;
       view.reads = 0;
