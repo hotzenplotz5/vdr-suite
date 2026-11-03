@@ -6,6 +6,21 @@
 **Bestehende Grenzen:** [Add-on-Plattform-Roadmap](../../docs/planning/addon-platform-roadmap.md), dort A6/A7.5 und M1.R (Import/HandBrake/Überspringen).
 
 
+## MT.EVENT — Ereignisgesteuerte Medienaufträge ohne Status-Polling (Auftrag 03.11.2026)
+
+**Priorität: sofort vor weiteren Media-Tools-UX-Erweiterungen.** Umsetzung ausschließlich auf `fix/media-tools-root-scan-visible-results` / PR #556. **Status: beschlossen, noch nicht umgesetzt oder auf yaVDR abgenommen.** Ausgangsbefund: `web/frontend/modules/media-import.js` fragt die Operation alle 4 Sekunden ab und stoppt nach 225 Reads (15 Minuten), obwohl der lokale Reencoding-Pfad bereits Core- und Agent-Zeitfenster bis zu 24 Stunden kennt. `/api/vdr/live` ist ein bestehender endlicher SSE-Feed für VDR-Snapshot-Änderungen, aber noch kein belastbarer Push-Vertrag für Media-Import-Operations.
+
+**Verbindliches Verhalten:** Ein ausdrücklich gestarteter Import oder lokales Reencoding mit anschließendem Import wird vom vorhandenen Worker abgearbeitet; Browser, Pollingzähler und die Agent-Transportverbindung steuern nicht die Ausführungsdauer. Core bleibt die dauerhafte Operation-Autorität und führt Auftrag, Ergebnis und bestätigten VDR-Readback. Der Backend-Agent darf vorhandene authentifizierte Kommandos übermitteln und den Worker bedienen, aber nicht mit einer zusätzlichen, künstlichen Zehn-Minuten-Grenze einen ansonsten gültigen Core-Auftrag beenden. **Keine wiederholten GET-Statusabfragen mit Timer** und keine `225`- oder Ersatzbegrenzung im Frontend; niemals aus Zeitablauf Erfolg oder Scheitern ableiten.
+
+| Slice | Umsetzung und Nachweis |
+| --- | --- |
+| **MT.EVENT1 – Laufzeitvertrag vereinheitlichen** | Bestehende Core-Operation, Agent-Zuweisung, Worker und Readback Ende-zu-Ende verfolgen. Separate pauschale Agent-Timeouts für gültige lokale Langläufer eliminieren bzw. an den einen Core-Auftrag binden; direkte und transcodierende Importe müssen realistisch lange durchlaufen. Bestehende bestätigungspflichtige Mutationsberechtigung, Dateisignatur, No-Overwrite und eindeutige Operation-ID bleiben bestehen. |
+| **MT.EVENT2 – Dauerhafter Abschluss-Push** | Auf die bestehende Core-Operation nach journalisiertem Statuswechsel ein backend-/operationsbezogenes SSE-Ereignis publizieren. Echten fortlaufenden Stream statt endlicher Replay-Antwort anbieten; Backend, Operation-ID und Revision/Sequenz transportieren, keine geheimen Tokens oder frei lesbaren Payloads. Erfassung gilt für `succeeded`, bestätigte Fehler, `outcome_unknown` und nachlaufenden `sourceCleanup`-Readback. Keine zweite Job-Queue oder neue Auftragsdatenbank. |
+| **MT.EVENT3 – Frontend ohne Polling** | Die Media-Import-Ansicht abonniert Statusereignisse, prüft bei passenden Ereignissen genau einmal denselben Core-Operation-GET und zeigt korrekten Stand, automatisches Batch-Fortsetzen, Quellabgleich und fertigen Import an. Beim ersten Öffnen und nach Verbindungswiederherstellung einen einmaligen Readback durchführen. Kein 4-Sekunden-Timer, kein endlicher Statuspoll, kein Doppelimport. Andere Vorschau-/Inventurmechanismen nur ändern, soweit sie echte Status-Polling-Schleifen sind. |
+| **MT.EVENT4 – Ausfall-/Langläufer-Abnahme** | Vertragstests für sechs Stunden simulierte Laufzeit, SSE-Disconnect/Reconnect, Backend-Neustart und bereits vor Wiederverbindung abgeschlossenen Auftrag; Test sowohl für Direktimport als auch Reencode+Import, Batch und Fehler. Frontend zeigt Abschluss ohne Reload; Runtime-/yaVDR-Test separat nach Freigabe und mit echtem sechs-Stunden-Auftrag. Keine neue Agent-/Capability-Freigabe, keine neuen Dienste/Branches. |
+
+**Abnahme:** Während ein Film über sechs Stunden encodiert, bleibt der bestehende Core-Auftrag maßgeblich. Erreicht er terminalen, wirklich bestätigten Status, aktualisiert Media Tools die offene Ansicht ohne Refresh. Ist der Browser zwischendurch geschlossen, wird beim erneuten Öffnen der unveränderte Auftrag gelesen. Fehler/ungewiss werden nicht als Erfolg bezeichnet. Das System sendet Ereignisse statt wiederholt den Operationsstatus abzufragen.
+
 ## Verbindliche Debug- und Sperrfreigabe-Regel (29.10.2026)
 
 **Betreiberentscheidung:** Für **jede neue Sperrlogik** in Media Tools / Media Import
