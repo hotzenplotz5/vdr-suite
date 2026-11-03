@@ -111,8 +111,10 @@ if "loadSeries(" in frontend[genre_start:genre_end]:
 feed_start = frontend.index("function scheduleRecordingChangeRefresh()")
 feed_end = frontend.index("function stopRecordingChanges()", feed_start)
 feed_refresh = frontend[feed_start:feed_end]
-require("retainVisible: true", feed_refresh,
-        "recording feed refresh must preserve visible Home presentation")
+require("reconcileNewlyRecordingSnapshot(", feed_refresh,
+        "unknown recording changes must reconcile only the retained Newly Recorded rail")
+if "refresh({" in feed_refresh or "loadGenres(" in feed_refresh or "loadFolders(" in feed_refresh:
+    raise AssertionError("Recording SSE must never reload the full Home presentation")
 if "coalesce: true" in feed_refresh:
     raise AssertionError("new recording generations must supersede slow older refreshes")
 if "refreshRecordingPresentationDependents" in frontend:
