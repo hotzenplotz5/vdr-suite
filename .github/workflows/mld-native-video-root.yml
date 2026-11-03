@@ -3,7 +3,7 @@ name: MLD native VDR recording-root discovery
 on:
   push:
     branches:
-      - work/mld66-platform-integration
+      - main
     paths:
       - ".github/workflows/mld-native-video-root.yml"
       - "core/agent/include/ISuiteBridgeLocalTransport.h"

@@ -112,29 +112,26 @@ Workflows, soweit deren Clean-Build-Vertrag dies verlangt. **Die Cache-Regel
 für lokale Daemon-Entwicklung darf Clean-Paketbuilds weder verbieten noch
 beeinflussen.**
 
-## Striktes Branch-Verbot und ein Media-Tools-Entwicklungsbranch (28.10.2026)
+## Media Tools nach PR #556: offizieller Quellstand `main` (03.11.2026)
 
-**Ausdrückliche Maintainer-Anordnung: AB SOFORT KEINE NEUEN GIT-BRANCHES ANLEGEN.**
-Assistenten dürfen für diese Entwicklung weder zusätzliche Feature-, Fix-, Test-,
-Hotfix- noch Ausweichbranches erstellen. Dieses Verbot gilt auch bei Fehlern,
-Konflikten und CI-Problemen; solche Probleme sind im vorhandenen Branch zu lösen.
+**Ausdrückliche Maintainer-Anordnung (28.10.2026): Keine neuen Git-Branches
+ohne gesonderte Freigabe.** Keine neuen Feature-/Fix-/Ausweichbranches oder
+Worktrees als Installationsumweg erzeugen und keine fremden Branches
+eigenmächtig löschen oder überschreiben.
 
-**Einziger Entwicklungsbranch für das Media-Tools-/Media-Import-Add-on:**
-`fix/media-tools-root-scan-visible-results` (PR #556).
-Sämtliche Media-Tools-Änderungen an Produktcode, Weboberfläche, Backend/Agent,
-Tests, Installationswerkzeugen und Dokumentation erfolgen in diesem Branch.
-Vor jeder Änderung den aktuellen Remote-HEAD und vorhandene Implementierungen
-prüfen, damit keine bereits umgesetzte Arbeit nochmals oder parallel entsteht.
-Andere bereits existierende Media-Tools-Branches dürfen zur Bestandsaufnahme
-gelesen werden; notwendige noch fehlende Änderungen sind nach Prüfung im
-einzigen Entwicklungsbranch zusammenzuführen, ohne einen neuen Branch
-anzulegen. Keine zusätzlichen Media-Tools-PRs eröffnen.
+**Abgeschlossen:** PR #556 wurde mit Merge-Commit
+`2ebb2d077736e5bbcdeb7472512644095ef06481` nach `main` übernommen.
+Der frühere Media-Tools-Arbeitsbranch ist vollständig in dessen Historie
+enthalten und **keine** Installationsquelle oder verpflichtende
+Entwicklungsbasis mehr. Die offizielle Quelle für Media Tools und Add-ons
+ist `main`; künftig nur ausdrücklich freigegebene Änderungen und das
+geltende Branch-/PR-Verfahren verwenden. Eine Git-Integration ersetzt
+keine eigenständige Release-/Hardwareabnahme.
 
-**Abschluss:** Wenn die vereinbarten Funktionen vollständig implementiert,
-getestet und auf dem echten yaVDR abgenommen sind, den gesamten
-Media-Tools-Entwicklungsstand dieses einen Branches nach `main` mergen.
-Nicht vorzeitig als fertig oder bereits gemergt melden. Bestehende
-fremde Entwicklungsbranches nicht eigenmächtig löschen oder umschreiben.
+**Branch-Bereinigung:** Historische, in `main` enthaltene Branches dürfen
+erst nach Kontrolle von offenen PRs, CI-/Workflow- und
+Launchpad-/Deployment-Referenzen auf ausdrückliche Maintainer-Anweisung
+gelöscht werden. Die laufenden MLD-Tests und offenen PRs nicht mitlöschen.
 
 ## Verbindlicher lokaler Branch-Check vor Build, Test und Installation (28.10.2026)
 
@@ -148,10 +145,12 @@ oder Remote-HEAD allein ist kein Nachweis für den lokalen Checkout.
 
 - Checkout-Pfad und Git-Top-Level prüfen; `git branch --show-current` sowie
   `git rev-parse HEAD` aus dem **gleichen Checkout** auswerten, in dem
-  anschließend gebaut/getestet/installiert werden soll. Bei Media Tools
-  ist der erwartete Entwicklungsbranch
-  `fix/media-tools-root-scan-visible-results` (PR #556).
-- Bei Abweichung **vor jeder weiteren Aktion abbrechen**, explizit
+  anschließend gebaut/getestet/installiert werden soll. Der kanonische
+  Quellbranch ist nach PR #556 `main`; bei einem ausdrücklich festgelegten
+  Commit dessen Herkunft aus `main` prüfen, statt einen gelöschten
+  Entwicklungsbranch zu verlangen.
+- Bei unerwarteten Änderungen der tatsächlich vereinbarten Quellbasis
+  **vor jeder weiteren Aktion abbrechen** und explizit
   `FALSCHER_BRANCH: erwartet=<branch> aktuell=<branch>` ausgeben,
   nicht bloß mit `set -e` und `test` still aussteigen. Detached HEAD
   ebenfalls sichtbar melden. Auch ein korrekter Branchname reicht ohne

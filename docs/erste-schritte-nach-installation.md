@@ -103,7 +103,7 @@ Bei der Diagnose zunächst `systemctl status vdr-suite-daemon.service --no-pager
 
 ## 5. Ersten Administrator anlegen
 
-**MLD-Integrationsbranch (noch nicht in `main`):** Bei der ersten Installation
+**MLD-Vorbereitung (nicht auf echtem MLD-System abgenommen):** Bei der ersten Installation
 erscheint im Webfrontend automatisch die Einrichtung, solange noch kein
 Administratorkonto existiert. Dort werden **nur Benutzername, Anzeigename und
 Passwort mit Wiederholung** ausgefüllt und **„Administrator erstellen“**
@@ -249,10 +249,9 @@ den Test löschen oder zurücksetzen:
 Den MLD-Paketumfang einschließlich des Recovery-Werkzeugs vor dem praktischen
 Test gesondert prüfen.
 
-**Teststatus MLD:** Dieser Ablauf gehört zum noch offenen
-`work/mld66-platform-integration`-Branch und benötigt eine echte
-Paket- und Laufzeitabnahme. Er darf nicht allein aufgrund erfolgreicher
-Dokumentationstests als ausgeliefert gelten.
+**Teststatus MLD:** Der Quellstand ist inzwischen in `main` enthalten,
+benötigt jedoch weiterhin eine echte MLD-Paket- und Laufzeitabnahme.
+Dokumentationstests sind kein Nachweis einer ausgelieferten Funktion.
 
 ## 6. Erstes Backend, Sender, EPG und Aufnahmen
 

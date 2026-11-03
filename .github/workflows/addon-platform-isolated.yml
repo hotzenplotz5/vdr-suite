@@ -3,7 +3,7 @@ name: Add-on platform isolated checks
 on:
   push:
     branches:
-      - work/addon-platform-registry-lifecycle
+      - main
     paths:
       - 'core/addons/**'
       - 'core/daemon/include/DaemonRuntime.h'

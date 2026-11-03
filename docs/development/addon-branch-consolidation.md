@@ -4,13 +4,13 @@ Status: consolidation of historical add-on branches, 2026-10-20.
 This document is a source-tree integration record, **not** a claim that the
 add-on runtime is enabled or installed.
 
-## Single development branch
+## Current source ownership (updated 2026-11-03)
 
-All future Add-on Architecture / Media Tools / Registry / image / music
-slices continue directly on
-`work/addon-platform-registry-lifecycle`. No more per-slice successor
-branches are necessary. Synchronize it with current `main` using regular
-non-force merges without changing `main`.
+The historical Add-on/Registry development tip is now fully contained in
+`main`, including the later Media Tools integration in PR #556.
+The old branch is **not an installation or active development source**.
+Future work follows `main` and the maintainer's explicit branch/PR
+authorization. Do not infer activation or a release from Git ancestry.
 
 Historical development branches to be absorbed by ancestry:
 
@@ -58,4 +58,5 @@ surface has passed isolated tests, and no open PR, workflow, Launchpad recipe,
 release or protected/deployment consumer depends on their names. Deletion
 does not change commit history or delete `main`.
 
-The continued active branch is not a request to merge to `main`.
+Historical note: the former working branch has since been integrated.
+No additional merge or deployment is implied by this document.

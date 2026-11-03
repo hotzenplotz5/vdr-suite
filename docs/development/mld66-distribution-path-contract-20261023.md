@@ -1,6 +1,6 @@
 # MLD 6.6 distribution path contract — Ubuntu/yaVDR stays zero-config
 
-**Implementation branch:** `work/mld66-platform-integration`; work-in-progress candidate following Pit's pinned `SRCREV 9a28cd77a74c85516fc9147cc84bdb1b66edfdf5`. These new code changes are **not** present in Pit's pinned MLD build until he explicitly updates the recipe's `SRCREV`.
+**Source location (updated 2026-11-03):** The previously separate MLD 6.6 code is now contained in official `main`. Pit's pinned MLD recipe `SRCREV 9a28cd77a74c85516fc9147cc84bdb1b66edfdf5` does **not** automatically include later changes: the recipe, native build and installed package require separate approval and verification.
 
 ## MLD maintainer runtime paths (2026-10-23)
 
@@ -122,8 +122,8 @@ remains in the suite.
 Tests and a real MLD build must be run on the **new source head** before
 calling this accepted. The direct MLD BitBake recipes, target service
 identities, VDR sysroot and native runtime remain **unverified**.
-No main-branch merge, MLD recipe SRCREV change or installed host
-modification has been made here.
+The source integration into `main` is complete; **no** MLD recipe
+`SRCREV` change or installed host modification is implied.
 
 ## Senderlogos aus dem optionalen MLD-Paket (2026-10-26)
 

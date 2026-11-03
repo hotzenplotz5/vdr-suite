@@ -27,9 +27,15 @@ SuiteBridge now has candidate read-only `VPATH 1` discovery for VDR's
 root override precedence. It is **not yet verified on a real MLD VDR build**;
 VDR-owned recording mutations remain future work.
 
-**Dedicated branch:** `work/mld66-platform-integration`
-**Branch baseline:** `main` at `01b74e30ec1a09ee68986059f508284564ef67e1` (2026-10-19).
-**Explicit exception:** The project owner authorized a *separate branch* for MLD on 2026-10-19. This is one topic branch originating at current `main`, **not** a stack based on the ongoing API-v1, Timer, codec, Multiuser or VIDAA branches. Retain it for this bounded integration; do not merge, close a PR or delete the branch without explicit approval. Follow [branch lifecycle](../development/branch-pull-request-lifecycle.md).
+**Source status (2026-11-03):** The earlier MLD implementation branch,
+originally based on `main` at `01b74e30ec1a09ee68986059f508284564ef67e1`,
+has **no commits absent from `main`** after the VDR-Suite integration.
+The historical branch name is no longer an active source or CI dependency;
+its removal requires the normal explicit branch-cleanup decision.
+**Acceptance remains open:** This ancestry result does not mean that
+MLD packages, native VDR runtime or host-specific behavior were verified.
+Keep the MLD workstream and its independent package/hardware gates; follow
+[branch lifecycle](../development/branch-pull-request-lifecycle.md).
 
 ## Goal and authority
 
@@ -76,7 +82,7 @@ Publish a documented MLD-supported installation/update flow only after clean ins
 
 ## Non-goals and safety
 
-No migration/reinstallation of the existing yaVDR host, no root-level modifications to a live VDR, no direct `main` writes, no unrelated codec/timer/API-v1/VIDAA changes, no new universal VDR plugin ABI, and no deployment or publication from this planning document. Any later branch-to-main integration requires explicit approval, exact-commit tests and dependency checks.
+No migration/reinstallation of the existing yaVDR host, no root-level modifications to a live VDR, no unapproved direct `main` writes, no unrelated codec/timer/API-v1/VIDAA changes, no new universal VDR plugin ABI, and no deployment or publication from this planning document. Any later branch-to-main integration requires explicit approval, exact-commit tests and dependency checks.
 
 ## Source pointers
 

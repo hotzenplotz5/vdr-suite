@@ -3,12 +3,12 @@
 **Scope:** Non-numbered add-on productization workstream; this document does
 not reopen completed VDR-Suite phases or authorize Phase 70.
 **PR #551 source base:** Merge `ab8eb1f6990e9e0e24bdf5ee9ca0182368c9df0b` is in `main`.
-The historical branch `work/addon-platform-registry-lifecycle` was recreated
-at its exact merged PR #551 head for reference; it is **not** an install
-source. MT.HA integration and acceptance changes use the single working branch
-`work/mt-ha-media-tools-hardware-acceptance`; **no automatic merge, deployment,
-activation, or PPA publication**. Verify actual `main` and docs/CURRENT.md
-again before every source- or host-specific approval.
+The former Add-on Registry branch is entirely contained in `main`;
+PR #556 subsequently integrated Media Tools at
+`2ebb2d077736e5bbcdeb7472512644095ef06481`.
+`main` is now the source reference; this does **not** imply automatic
+deployment, add-on activation, MLD approval or PPA publication.
+Verify actual `main` and docs/CURRENT.md before a new source/host release.
 
 **Binding architecture:** [ADR-0068](../adr/ADR-0068-optional-addons-and-source-packaging.md),
 [ADR-0037](../adr/ADR-0037-packaging-install-api-boundary.md) and the
@@ -36,8 +36,9 @@ package install scripts or executable capability merely by dropping a manifest.
 manuelle Installation/Übernahme, echte Hardware- und Funktionsabnahme,
 Fehlerbehebung, isolierte Regressionen, zweite Distribution, Update/Remove/
 Recovery, Release-GO und **erst danach** Ubuntu-Quell-/Binärpakete.
-`main` bleibt bis zur expliziten Mergefreigabe unverändert.
-`AGENTS.md` bleibt unverändert. Alle produktiven Medienaktionen nur mit
+Der Quellcode-Merge nach `main` ist inzwischen erfolgt.
+Produktive Host-Eingriffe und Änderungen an `AGENTS.md` benötigen weiterhin
+eine eigene ausdrückliche Anweisung. Alle produktiven Medienaktionen nur mit
 isolierten Testdateien und gesonderter Freigabe.
 
 | Slice | Abnahme und bisheriger Nachweis | Status |
@@ -643,7 +644,8 @@ The .pc_encode, .skipped and .duplicate suffixes are meaningful source
 states, not media titles or automatic import candidates.
 The obsolete world-writable .vdr-rectools.prompt must never be used.
 
-All slices remain on work/addon-platform-registry-lifecycle.
+Historical implementation note: these slices originated on the old
+Add-on branch; their Git history is now contained in `main`.
 This section is a work/acceptance inventory, **not** a capability
 advertisement or authorization to touch live recordings.
 
