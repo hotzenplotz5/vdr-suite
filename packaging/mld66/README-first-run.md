@@ -1,16 +1,17 @@
-# MLD 6.6: First-run package integration (MLD.F2.5)
+# MLD 6.6: First-run package integration (MLD.F2.5/F2.6)
 
 Branch: `work/mld66-skippy-feedback-20261027`.
 This is an **MLD recipe integration contract**, not an MLD package install
 or a verified skippy runtime result. The MLD BitBake recipe is **not stored
 in this repository**; it must explicitly adopt these source-level hooks.
-The MLD recipe remains an adapter to the [shared distribution first-run staging contract](../../docs/planning/distribution-first-run-setup.md). Ubuntu/yaVDR installation and upgrades are still unchanged **at this source checkpoint**; implementing automatic onboarding for them is required next, not an intentional permanent exclusion.
+The MLD recipe remains an adapter to the [shared distribution first-run staging contract](../../docs/planning/distribution-first-run-setup.md). Debian/Ubuntu/yaVDR already include the common units and first-install package hooks. Their first-boot runtime behavior, like MLD's, still needs real system verification.
 
 ## What the MLD recipe must do
 
 The native MLD package build/install context (not the browser) owns all
-privileged operations. It already installs the *existing* Suite binaries:
-daemon, Backend Agent, enrollment tool, Agent administrator, and
+privileged operations. **The actual installed MLD recipe payload has not been
+verified.** That recipe must include the existing Suite binaries: daemon,
+Backend Agent, enrollment tool, Agent administrator, and
 `vdr-suite-backend-agent-autostart`. It must also stage the existing
 `backend-agent.conf` and `vdr-suite-daemon` environment file, plus the
 reviewed `vdr-suite-backend-agent.service` unit.
@@ -107,3 +108,12 @@ packaging-stage PASS with functional MLD setup or real Live-TV acceptance.
 - No new Agent, HTTP mutation route, privileged browser workflow,
   package dependency, branch or PR is introduced here. The shared first-run
   one-shot and path units are new but use the existing Agent entrypoint.
+
+## F2.6 verified integration boundary (03 November 2026)
+
+- **Actual MLD recipe path:** NOT LOCATED. The public [MLD-6/mld-dev](https://gitlab.com/MLD-6/mld-dev) project exposes a `scarthgap` KAS/BitBake build entrypoint; this does not establish which external layer owns VDR-Suite. The recipe and its package install, systemd activation, account, and database mapping could not be read through the available access.
+- **External GitLab changes:** NONE. No recipe update, MLD BitBake package build, or MLD first-boot activation has been performed or claimed.
+- **Available shared source:** `make install-systemd` stages the daemon, Backend Agent, first-run one-shot and `.path` units. `make stage-mld-first-run-config` delegates to the same validated staging implementation used by other distributions; `--auto-first-run` reuses the existing enrollment and Agent activation. These are source contracts, **not** confirmation of actual recipe inclusion.
+- **Debian/Ubuntu/yaVDR:** commit [`46828dd6`](https://github.com/hotzenplotz5/vdr-suite/commit/46828dd62806dc571f17ddd7c2a91e09a559b07c) adds a systemd unit reload ahead of first-install starts in both package hooks. Package regression passed in [VDR-Suite CI run 41592697774](https://github.com/hotzenplotz5/vdr-suite/actions/runs/41592697774). Actual systemd start, enrollment, and channel readback on a VDR host remain unverified.
+- **Outstanding MLD adapter work:** locate/read the real `vdr-suite` recipe in its external layer; verify that it installs the shared unit and helper files and that the Daemon's `Wants` plus the MLD package/boot ordering actually trigger the one-shot. Apply only the missing recipe wiring in the owning GitLab repository when accessible; do not copy enrollment logic.
+- **Acceptance:** `SOURCE_CONTRACT=AVAILABLE`, `DEBIAN_PACKAGE_REGRESSION=PASS`, `MLD_RECIPE_INTEGRATION=NOT_VERIFIED`, `MLD_PACKAGE_BUILD=NOT_RUN`, `AUTO_FIRST_BOOT=NOT_VERIFIED`, `REAL_VDR_LIVE_TV=NOT_VERIFIED`. A passing disposable package install with service starts suppressed is not a first-boot test.

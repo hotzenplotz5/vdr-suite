@@ -185,12 +185,10 @@ im Live-System, die bekannten zwei Originaldateien
 `backend-agent.conf` und `vdr-suite-daemon.default`.
 Die Anpassung setzt Channel-Observation auf den von der MLD-Rezeptur
 ausgewählten `channels.conf`-Pfad und aktiviert das bereits
-implementierte Web-Health-Statusfeld. Ein tatsächlicher lokaler
-**HTTPS**-Control-Plane-Origin muss von der Rezeptur übergeben werden.
-Ohne Origin läuft das Staging nicht stillschweigend weiter. Bereits
+implementierte Web-Health-Statusfeld. Für den lokalen Standardfall verwendet das gemeinsame Staging ohne expliziten Origin
+`http://127.0.0.1:18080`; entfernte Control Planes erfordern weiterhin HTTPS. Bereits
 individuell gesetzte Origins/Senderpfade und die Original-Identity
-werden nicht überschrieben. Normales `make install` auf Ubuntu/yaVDR
-ruft dieses MLD-Ziel derzeit noch nicht auf. **Dies ist eine offene Lücke in F2.5, keine gewollte Produktgrenze.**
+werden nicht überschrieben. Normales `make install` auf Ubuntu/yaVDR nutzt bereits dieselben gemeinsamen Systemd-Units und die vorhandenen Debian-Pakethooks, nicht das MLD-Kompatibilitätsziel. Eine echte First-Boot-Abnahme bleibt dennoch offen.
 
 Tests im bestehenden Packaging-Verbund prüfen die wiederholbare
 Enrollment-Orchestrierung, vorhandene Identität, fehlende
@@ -211,3 +209,11 @@ werden nicht überschrieben; ein Zertifikat wird hier nicht generiert. Weitere t
 stehen in [`packaging/mld66/README-first-run.md`](../../packaging/mld66/README-first-run.md).
 Ohne die native Rezept-Integration behebt dieses Ergebnis noch
 **keine** frische skippy-Installation.
+
+## F2.6 – Umsetzungs- und Abnahmestand (03.11.2026)
+
+Der vorhandene universelle Onboarding-Code wird weiterverwendet; eine separate MLD-Registrierung wurde nicht erstellt. Der externe [MLD-6/mld-dev](https://gitlab.com/MLD-6/mld-dev)-KAS/BitBake-Einstieg ist identifiziert, das konkrete VDR-Suite-Rezept ist über den vorhandenen Zugriff nicht lokalisier- oder bearbeitbar. **GitLab-Änderung: keine. MLD-Paketbuild: nicht ausgeführt.**
+
+Im VDR-Suite-Branch wurde der tatsächlich festgestellte Debian-/Ubuntu-Erstinstallationsfehler bei der systemd-Unit-Neuladung vor einem expliziten Paket-Hook-Start mit [Commit `46828dd6`](https://github.com/hotzenplotz5/vdr-suite/commit/46828dd62806dc571f17ddd7c2a91e09a559b07c) behoben. Isolierter Packaging-Regressionstest [CI 41592697774](https://github.com/hotzenplotz5/vdr-suite/actions/runs/41592697774): PASS; Start auf echtem systemd/VDR: **nicht nachgewiesen**.
+
+Für Skippys F2.6-Abnahme fehlen weiterhin das tatsächlich aktualisierte MLD-Rezept und dessen Paketbuild sowie auf einem MLD-Testhost ein automatischer Erststart ohne technische Benutzerschritte, Agent-Identity, gültige Health und Channel-Observation, Neustart/Upgrade ohne Identity-Verlust, Senderanzeige und funktionierendes Live-TV. Die nur lesende Diagnose `tools/mld66-live-readonly-diagnostics.sh` kann den ersten Zustand protokollieren, ersetzt die tatsächliche Browser- und Live-TV-Abnahme aber nicht.

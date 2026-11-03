@@ -75,3 +75,11 @@ Die bestehenden Quelltests und isolierten Debian-Paketbuilds müssen **nicht ern
 4. **Browser:** Bestehenden First-Admin-Dialog, Setup-Status, Senderanzeige und Live-TV auf der realen VDR-Installation prüfen. Separat `UNIT/CONTRACT=PASS`, `PACKAGE-BUILD=PASS`, `FIRST-BOOT=OPEN` und `REAL-VDR=OPEN` dokumentieren.
 
 **Stoppschwelle:** F2.5-Quell- und Packaging-Tests sind abgeschlossen; das End-to-End-Produktziel bleibt bis F2.6-Nachweis auf echten Systemen **offen**. Ein CI-Runner mit blockierten Service-Starts kann diesen Nachweis nicht ersetzen.
+
+## F2.6 – tatsächlicher Paketbefund (03.11.2026)
+
+- **Geprüfter VDR-Suite-Paketstand:** gemeinsamer Auto-First-Run-Helper, Daemon-`Wants`, `vdr-suite-first-run.service`/`.path` und `make install-systemd` existieren bereits; kein zusätzlicher Agent oder Registrierungsweg wurde eingeführt.
+- **Nachgewiesener Debian-/Ubuntu-Fehler korrigiert:** Weil `dh_installsystemd --no-start` die Units nicht zwingend vor einem eigenen `postinst`-Start neu lädt, führen die beiden Paket-Hooks vor dem Erststart nun `systemctl --system daemon-reload` aus. Änderungen nur an `debian/vdr-suite-daemon.postinst`, `debian/vdr-suite-backend-agent.postinst` und einem gezielten Regressionstest; Commit [`46828dd6`](https://github.com/hotzenplotz5/vdr-suite/commit/46828dd62806dc571f17ddd7c2a91e09a559b07c). Der Paket-Regressionstest in [CI 41592697774](https://github.com/hotzenplotz5/vdr-suite/actions/runs/41592697774) war erfolgreich. Ein echter `systemd`-Boot ist damit **nicht** getestet.
+- **MLD:** [`MLD-6/mld-dev`](https://gitlab.com/MLD-6/mld-dev) ist als `scarthgap` KAS/BitBake-Einstieg öffentlich sichtbar. Die genaue VDR-Suite-Rezeptdatei, installierte Paket-Units, Dienstkonten und Hooks konnten nicht gelesen werden; der Rezeptpfad ist **unbestätigt**. Es wurden keine Änderungen auf GitLab vorgenommen und kein MLD-Paket gebaut.
+- **Getrennte Abnahme:** `SOURCE/UNIT=vorhanden`; `DEBIAN_PACKAGE_REGRESSION=PASS`; `MLD_RECIPE=OFFEN`; `MLD_PACKAGE_BUILD=OFFEN`; `AUTO_FIRST_BOOT=OFFEN`; `IDENTITY_REBOOT_UPGRADE=OFFEN`; `REAL_VDR_CHANNELS/LIVE_TV=OFFEN`. Der vorangegangene Build-/Installations-PASS auf `7e5c76cd` blockierte Systemdienststarts und kann die letzte Stufe nicht ersetzen.
+
