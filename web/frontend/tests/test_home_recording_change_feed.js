@@ -34,7 +34,18 @@ let moduleName = 'overview';
 let canonicalBackendReady = false;
 let recordingReads = 0;
 let folderReads = 0;
+let genreReads = 0;
+let seriesReads = 0;
 const queuedRecordingResponses = [];
+const queuedSeriesResponses = [];
+const seriesRecordings = [{
+  recordingId: 'andor-1', backendNativeId: '/recordings/andor-1',
+  title: 'Serien/Andor/S01E01 Pilot'
+}, {
+  recordingId: 'foundation-1', backendNativeId: '/recordings/foundation-1',
+  title: 'Serien/Foundation/S01E01 Start',
+  metadata: {presentation: {posterUrl: '/foundation-poster.webp'}}
+}];
 const doc = {
   hidden: false,
   head: new Element(),
@@ -88,8 +99,17 @@ const client = {
     assert.strictEqual(options.backendId, backend);
     return Promise.resolve({folders: [], recordings: []});
   },
-  fetchClientGenres() { return Promise.resolve({genres: []}); },
-  fetchClientGenreRecordings() { return Promise.resolve({recordings: []}); }
+  fetchClientGenres() { genreReads++; return Promise.resolve({genres: []}); },
+  fetchClientGenreRecordings(options) {
+    seriesReads++;
+    assert.strictEqual(options.backendId, backend);
+    assert.strictEqual(options.genreId, 'series');
+    assert.strictEqual(options.cache, 'no-store');
+    if (queuedSeriesResponses.length) return queuedSeriesResponses.shift()();
+    return Promise.resolve({recordings: seriesRecordings.map(recording => ({
+      ...recording, backendId: backend
+    })), total: seriesRecordings.length});
+  }
 };
 const window = {
   document: doc, console,
@@ -293,5 +313,102 @@ function navigate(next) {
   assert(flatten(host).some(node => node.src === '/corrected/new-cover.webp'),
     'recording-scoped SSE updates the existing tile artwork directly');
 
-  console.log('Home recording feed production lifecycle: PASS');
+  // Series revalidation shares the existing feed but never remounts Home.
+  const seriesSection = host.querySelector('[data-home-discovery-rail="series"]');
+  assert(seriesSection, 'initial Home includes canonical Series');
+  const seriesRail = seriesSection.children.find(node =>
+    node.className === 'media-home-discovery-rail series');
+  assert(seriesRail);
+  const andor = () => seriesRail.children.find(card =>
+    card.__vdrSuiteSeries && card.__vdrSuiteSeries.title === 'Andor');
+  const foundation = () => seriesRail.children.find(card =>
+    card.__vdrSuiteSeries && card.__vdrSuiteSeries.title === 'Foundation');
+  const andorCard = andor();
+  const foundationCard = foundation();
+  assert(andorCard && foundationCard);
+  const foundationArtwork = foundationCard.children[0];
+  seriesRail.scrollLeft = 245;
+  const beforeSeriesUpdate = seriesReads;
+  const beforeOtherHome = [recordingReads, genreReads, folderReads];
+  seriesRecordings.push({
+    recordingId: 'andor-2', backendNativeId: '/recordings/andor-2',
+    title: 'Serien/Andor/S01E02 Zweite Folge'
+  });
+  third.emit(103, 'B', ['recordings']);
+  await tick();
+  assert.strictEqual(seriesReads, beforeSeriesUpdate + 1,
+    'inventory SSE revalidates canonical Series once');
+  assert.strictEqual(andor(), andorCard,
+    'new episode updates existing Series button rather than remounting it');
+  assert.strictEqual(andor().__vdrSuiteSeries.episodes.length, 2);
+  assert.strictEqual(foundation(), foundationCard,
+    'unrelated Series button is unchanged');
+  assert.strictEqual(foundationCard.children[0], foundationArtwork,
+    'unrelated poster node remains untouched');
+  assert.strictEqual(seriesRail.scrollLeft, 245,
+    'Series scroll position remains stable');
+  assert.strictEqual(genreReads, beforeOtherHome[1], 'SSE does not reload Genres');
+  assert.strictEqual(folderReads, beforeOtherHome[2], 'SSE does not reload Folders');
+  assert.strictEqual(recordingReads, beforeOtherHome[0] + 1,
+    'inventory SSE still reconciles Newly Recorded once');
+
+  const andorSeries = andor().__vdrSuiteSeries;
+  const season = andorSeries.seasons.find(entry => entry.number === 1);
+  assert(season);
+  assert.strictEqual(window.VdrSuiteHomeRecordingDiscovery._test.renderSeriesDetail(
+    andorSeries, season, 'B'), true);
+  const detail = seriesSection.__vdrSuiteSeriesDetail;
+  const episodeRail = detail.episodeRail;
+  const seasonRail = detail.seasonRail;
+  episodeRail.scrollLeft = 93;
+  seasonRail.scrollLeft = 48;
+  const firstEpisodeCard = flatten(episodeRail).find(node => node.dataset.recordingId === 'andor-1');
+  assert(firstEpisodeCard);
+
+  seriesRecordings.push({
+    recordingId: 'andor-3', backendNativeId: '/recordings/andor-3',
+    title: 'Serien/Andor/S01E03 Dritte Folge'
+  });
+  third.emit(104, 'B', ['recordings']);
+  await tick();
+  assert.strictEqual(detail.episodeRail, episodeRail, 'open episode rail is not remounted');
+  assert.strictEqual(detail.seasonRail, seasonRail, 'open season rail is not remounted');
+  assert.strictEqual(detail.selectedSeason.number, 1);
+  assert.strictEqual(episodeRail.scrollLeft, 93);
+  assert.strictEqual(seasonRail.scrollLeft, 48);
+  assert.strictEqual(
+    flatten(episodeRail).find(node => node.dataset.recordingId === 'andor-1'),
+    firstEpisodeCard, 'unchanged existing episode card retains identity');
+  assert(flatten(episodeRail).some(node => node.dataset.recordingId === 'andor-3'),
+    'new episode appears in the already open season');
+
+  // A failed read retains the last complete Series projection.
+  queuedSeriesResponses.push(() => Promise.reject(new Error('503')));
+  third.emit(105, 'B', ['recordings']);
+  await tick();
+  assert(flatten(episodeRail).some(node => node.dataset.recordingId === 'andor-3'),
+    'failed SSE read must not clear open Series detail');
+
+  // A slow older read may not undo a newer confirmed Series snapshot.
+  let releaseOldSeries;
+  queuedSeriesResponses.push(() => new Promise(resolve => { releaseOldSeries = resolve; }));
+  seriesRecordings.push({
+    recordingId: 'andor-4', backendNativeId: '/recordings/andor-4',
+    title: 'Serien/Andor/S01E04 Vierte Folge'
+  });
+  third.emit(106, 'B', ['recordings']);
+  await tick();
+  third.emit(107, 'B', ['recordings']);
+  await tick();
+  assert(flatten(episodeRail).some(node => node.dataset.recordingId === 'andor-4'),
+    'newer Series generation must render without waiting for older read');
+  releaseOldSeries({recordings: [{
+    recordingId: 'obsolete', backendId: 'B', backendNativeId: '/recordings/obsolete',
+    title: 'Serien/Andor/S01E99 Alt'
+  }], total: 1});
+  await tick();
+  assert(!flatten(episodeRail).some(node => node.dataset.recordingId === 'obsolete'),
+    'stale Series generation must not overwrite new episodes');
+
+  console.log('Home recording and Series SSE lifecycle: PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });
