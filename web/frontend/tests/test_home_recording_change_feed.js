@@ -432,6 +432,7 @@ function navigate(next) {
   const foundationCardBeforeMetadata = foundationCard;
   third.emit(108, 'B', ['recordings'], ['/recordings/andor-1']);
   await tick();
+  await tick();
   assert.strictEqual(changedSeriesMetadataReads, 1,
     'Series SSE reads only changed native metadata');
   assert(flatten(episodeRail).some(node =>
