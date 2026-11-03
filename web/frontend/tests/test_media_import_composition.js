@@ -1099,15 +1099,30 @@ function publishHomeResume() {}
   // No timed status reads for six-hour encoding, independent of how often
   // the UI event loop runs. Only the verified Core SSE hint starts a GET.
   const readsBeforeLongImport = operationReads;
-  for (let step = 0; step < 17; ++step) await settle();
-  assert.strictEqual(operationReads, readsBeforeLongImport,
-    'a long-running import must not poll Core in the background');
-  assert(operationStream(OP), 'SSE subscription stays open for long jobs');
-  await emitOperation(OP);
-  assert.strictEqual(operationReads, readsBeforeLongImport + 1,
-    'one matching SSE hint causes exactly one Core status read');
-  assert.strictEqual(submits, 1,
-    'SSE status monitoring must never create a second import operation');
+  // Advance the browser clock by six hours with the same Operation and SSE
+  // connection. No browser timer may fetch or complete the job.
+  const sixHoursLater = Date.now() + 6 * 60 * 60 * 1000;
+  const savedClock = context.Date;
+  context.Date = class LongJobClock extends Date {
+    constructor(...args) {
+      super(...(args.length ? args : [sixHoursLater]));
+    }
+    static now() { return sixHoursLater; }
+  };
+  try {
+    for (let step = 0; step < 17; ++step) await settle();
+    assert.strictEqual(operationReads, readsBeforeLongImport,
+      'a six-hour import must not poll Core in the background');
+    assert(operationStream(OP), 'SSE subscription stays open for six-hour jobs');
+    await emitOperation(OP);
+    assert.strictEqual(operationReads, readsBeforeLongImport + 1,
+      'one matching SSE hint causes exactly one Core status read after six hours');
+    assert.strictEqual(submits, 1,
+      'SSE status monitoring must never create a second import operation');
+  } finally {
+    if (savedClock === undefined) delete context.Date;
+    else context.Date = savedClock;
+  }
 
   // Owner transition must not delete Core operation tracking.
   context.selectModule('overview');
