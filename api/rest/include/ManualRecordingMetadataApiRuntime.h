@@ -14,7 +14,8 @@ public:
     static ManualRecordingMetadataApiRuntime& instance();
 
     using RecordingPresentationChangedCallback =
-        std::function<void(const std::string& backendId)>;
+        std::function<void(const std::string& backendId,
+                           const std::string& recordingNativeId)>;
 
     void registerController(MetadataController& controller);
     void registerRecordingPresentationChangedCallback(
@@ -56,7 +57,8 @@ private:
 
     MetadataController* controller() const;
     void notifyRecordingPresentationChanged(
-        const std::string& backendId) const;
+        const std::string& backendId,
+        const std::string& recordingNativeId) const;
 
     mutable std::mutex mutex_;
     MetadataController* controller_ = nullptr;
