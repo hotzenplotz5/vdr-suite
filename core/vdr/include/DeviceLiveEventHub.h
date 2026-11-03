@@ -24,7 +24,8 @@ public:
         : backend_(std::move(backend)), domains_(std::move(domains)),
           epoch_(std::move(epoch)), operationId_(std::move(operationId)),
           expires_(std::chrono::steady_clock::now() +
-                   std::chrono::minutes(2))
+                   (operationId_.empty() ? std::chrono::minutes(2) :
+                                           std::chrono::hours(24)))
     {
         std::ostringstream json;
         json << "{\"backendId\":\"" << backend_
