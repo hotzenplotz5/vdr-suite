@@ -131,8 +131,9 @@ def main() -> int:
         "recording refresh must reconcile the persistent native metadata inventory",
     )
     require(
-        "processBatch(now)" in recording_runtime,
-        "recording refresh must process only the bounded enrichment batch",
+        "processBatch(" in recording_runtime
+        and "now, 0, committedRecordingNativeIds" in recording_runtime,
+        "recording refresh must process only the bounded enrichment batch while returning committed IDs",
     )
     require(
         "findAllForBackend(" in recording_runtime
