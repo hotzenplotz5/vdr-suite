@@ -1218,10 +1218,16 @@
         '\u001f' + text(entry && entry.dataset && entry.dataset.recordingId) === identity;
     });
     if (!card) return false;
+    // The current tile owns the latest canonical Recording snapshot. An
+    // older async metadata callback must never restore an older snapshot.
+    const currentRecording = card.__vdrSuiteRecording || recording;
+    if (recordingBackendNativeId(currentRecording) !==
+        recordingBackendNativeId(recording)) return false;
     const projected = recordingMetadataProjection(
-      recording, richMetadata, recordingBackendId(recording, backendId), true
+      currentRecording, richMetadata,
+      recordingBackendId(currentRecording, backendId), true
     );
-    updateRecordingCard(card, recording, backendId, projected);
+    updateRecordingCard(card, currentRecording, backendId, projected);
     card.__vdrSuiteRichMetadata = richMetadata;
     return true;
   }
@@ -4165,6 +4171,13 @@
       if (!current(generation, backendId)) return false;
       const recordings = canonicalRecordings(payload, backendId).slice(0, NEW_LIMIT);
       const richMetadata = new Map();
+      const initialRevisions = new Map();
+      recordings.forEach(function (recording) {
+        const nativeId = recordingBackendNativeId(recording);
+        if (nativeId)
+          initialRevisions.set(nativeId,
+            recordingTileRevisions.get(recordingTileRevisionKey(backendId, nativeId)) || 0);
+      });
       const rendered = renderRecordingRail(
         'newly-recorded', 'Neu aufgenommen', recordings, backendId
       );
@@ -4175,7 +4188,9 @@
           client, recordings, backendId, generation, function (partial) {
             if (!current(generation, backendId)) return;
             partial.forEach(function (rich, nativeId) {
-              if (richMetadata.has(nativeId)) return;
+              if (richMetadata.has(nativeId) ||
+                  (recordingTileRevisions.get(recordingTileRevisionKey(backendId, nativeId)) || 0) !==
+                    initialRevisions.get(nativeId)) return;
               richMetadata.set(nativeId, rich);
               recordings.forEach(function (recording) {
                 if (recordingBackendNativeId(recording) === nativeId)
@@ -4657,6 +4672,10 @@
   let recordingRefreshRevision = 0;
   const recordingTileRevisions = new Map();
 
+  function recordingTileRevisionKey(backendId, nativeId) {
+    return backendId + '\u001f' + nativeId;
+  }
+
   function newlyRecordingRail() {
     const target = host();
     const section = target && typeof target.querySelector === 'function'
@@ -4675,15 +4694,16 @@
     });
     if (!card || !client || typeof client.requestJson !== 'function')
       return Promise.resolve(false);
-    const revision = (recordingTileRevisions.get(nativeId) || 0) + 1;
-    recordingTileRevisions.set(nativeId, revision);
+    const revisionKey = recordingTileRevisionKey(backendId, nativeId);
+    const revision = (recordingTileRevisions.get(revisionKey) || 0) + 1;
+    recordingTileRevisions.set(revisionKey, revision);
     return Promise.resolve(client.requestJson('/api/vdr/recordings/metadata', {
       query: {backend: backendId, backendNativeId: nativeId},
       cache: 'no-store',
       credentials: 'same-origin'
     })).then(function (rich) {
       if (!current(expectedGeneration, backendId) ||
-          recordingTileRevisions.get(nativeId) !== revision ||
+          recordingTileRevisions.get(revisionKey) !== revision ||
           !rich || rich.available !== true) return false;
       const recording = card.__vdrSuiteRecording;
       if (recordingBackendNativeId(recording) !== nativeId) return false;
@@ -4728,11 +4748,15 @@
         const card = old || doc.createElement('button');
         card.type = 'button';
         card.className = 'media-home-discovery-card recording';
+        const nativeId = recordingBackendNativeId(recording);
+        if (nativeId) {
+          const key = recordingTileRevisionKey(backendId, nativeId);
+          recordingTileRevisions.set(key, (recordingTileRevisions.get(key) || 0) + 1);
+        }
         const projected = recordingMetadataProjection(recording, null, backendId, true);
         updateRecordingCard(card, recording, backendId, projected);
         cards.push(card);
-        if (recordingBackendNativeId(recording))
-          changed.push(recordingBackendNativeId(recording));
+        if (nativeId) changed.push(nativeId);
       });
       reconcileDiscoveryChildren(rail, cards);
       changed.forEach(function (nativeId) {
