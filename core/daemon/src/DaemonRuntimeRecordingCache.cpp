@@ -802,13 +802,14 @@ void DaemonRuntime::publishRecordingPresentationChanges()
     // Manual metadata commit already changed the canonical Recording read
     // presentation. Do not reread VDR or rewrite the Recording cache here:
     // publish only the existing backend-scoped recordings invalidation.
-    for (const auto& backendId :
-         recordingPresentationChangeQueue_.takePending()) {
+    for (const auto& change :
+         recordingPresentationChangeQueue_.takePendingChanges()) {
         snapshotChangeFeedService_->appendChanges(
             *snapshotChangeFeed_,
             snapshotCacheService_->generation(),
             {VdrChangeEvent(VdrChangeType::RecordingsChanged)},
-            backendId);
+            change.backendId,
+            change.recordingNativeIds);
         liveTransportService_->publishChangeFeedEntry(
             snapshotChangeFeed_->entries().back());
     }
