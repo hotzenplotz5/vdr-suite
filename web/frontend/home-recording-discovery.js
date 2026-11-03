@@ -641,11 +641,16 @@
     const nativePoster = recordingMetadataPosterUrl(rich);
     let posterUrl = nativePoster || recordingPosterUrl(recording);
     if (useSeriesCover === true) {
-      // The Home "Neu aufgenommen" rail must honor the same persisted
-      // Series cover as the Series rail, unless this particular recording
-      // has its own explicit manual artwork assignment.
-      const member = seriesMemberProjection(recording, rich, backendId);
-      const override = seriesCoverOverride({key: member.seriesKey}, backendId);
+      // The Recording read and the later native-metadata read can yield
+      // different grouping keys (e.g. an embedded manual episode uses the
+      // folder key, while enriched provider metadata uses the provider key).
+      // Never discard an already saved Series cover merely because native
+      // metadata arrived after the first visible Home render.
+      const initialMember = seriesMemberProjection(recording, null, backendId);
+      const enrichedMember = seriesMemberProjection(recording, rich, backendId);
+      const override =
+        seriesCoverOverride({key: initialMember.seriesKey}, backendId) ||
+        seriesCoverOverride({key: enrichedMember.seriesKey}, backendId);
       const manuallyAssignedPoster = rich.manualAssignment &&
         rich.manualAssignment.active === true && nativePoster;
       if (!manuallyAssignedPoster && override && override.posterUrl)
