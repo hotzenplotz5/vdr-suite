@@ -588,6 +588,18 @@ async function proveNewlyRecordedUsesCorrectedArtwork(harness) {
     'Foundation/S01E05 Erwachen',
     '/weak/foundation-episode-still.jpg'
   );
+  // Simulate the real race: the first Recording snapshot groups the
+  // episode under a manually presented folder, but its asynchronous native
+  // metadata later introduces a provider series identifier.
+  foundation.metadata.provider.seriesId = 'foundation-provider-series';
+  foundation.seriesMetadata = {
+    available: true, provider: 'manual', mediaType: 'episode',
+    title: 'Foundation', episodeName: 'Erwachen'
+  };
+  assert.strictEqual(
+    harness.api.seriesMemberProjection(foundation, null, 'default').seriesKey,
+    'folder:serien/foundation'
+  );
   const andor = makeRecording(
     'andor-s02e02', 'native-andor-s02e02',
     'Serien/Andor/S02E02',
@@ -601,6 +613,19 @@ async function proveNewlyRecordedUsesCorrectedArtwork(harness) {
     '/api/vdr/recordings/metadata/image?backend=default' +
     '&backendNativeId=native-andor-s02e02&kind=preferred&index=0';
   const reads = [];
+  let finishFoundationMetadata = null;
+  const foundationRich = {
+    available: true, mediaType: 'episode', provider: 'tvscraper',
+    providerId: 1399, title: 'Foundation', episodeName: 'Erwachen',
+    preferredArtwork: {available: true, url:
+      '/api/vdr/recordings/metadata/image?backend=default' +
+      '&backendNativeId=native-foundation-s01e05&kind=preferred&index=0'}
+  };
+  assert.strictEqual(
+    harness.api.seriesMemberProjection(foundation, foundationRich, 'default').seriesKey,
+    'provider:foundation-provider-series',
+    'late enrichment really changes the Series key in this regression'
+  );
   const client = {
     fetchClientRecordings() {
       return Promise.resolve({recordings: [foundation, andor]});
@@ -627,12 +652,8 @@ async function proveNewlyRecordedUsesCorrectedArtwork(harness) {
       assert.strictEqual(request.query.backend, 'default');
       reads.push(request.query.backendNativeId);
       if (request.query.backendNativeId === foundation.backendNativeId) {
-        return Promise.resolve({
-          available: true, mediaType: 'episode', provider: 'tvscraper',
-          providerId: 1399, title: 'Foundation', episodeName: 'Erwachen',
-          preferredArtwork: {available: true, url:
-            '/api/vdr/recordings/metadata/image?backend=default' +
-            '&backendNativeId=native-foundation-s01e05&kind=preferred&index=0'}
+        return new Promise(function (resolve) {
+          finishFoundationMetadata = function () { resolve(foundationRich); };
         });
       }
       assert.strictEqual(request.query.backendNativeId, andor.backendNativeId);
@@ -653,8 +674,13 @@ async function proveNewlyRecordedUsesCorrectedArtwork(harness) {
   const foundationCard = findRecordingCard(newly, foundation.recordingId);
   const andorCard = findRecordingCard(newly, andor.recordingId);
   assert(foundationCard && andorCard);
+  assert.strictEqual(typeof finishFoundationMetadata, 'function');
   assert.strictEqual(findImage(foundationCard).src, selectedSeriesCover,
-    'a corrected Series cover wins over an old episode still in Neu aufgenommen');
+    'the saved Series cover must appear before enrichment completes');
+  finishFoundationMetadata();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.strictEqual(findImage(foundationCard).src, selectedSeriesCover,
+    'late metadata must never revert the selected Series cover after it appeared');
   assert.strictEqual(findImage(andorCard).src,
     selectedEpisodePoster + '&variant=home',
     'an explicit episode artwork assignment wins over the generic Series cover');
