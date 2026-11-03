@@ -3601,8 +3601,10 @@
         cache: 'no-store',
         credentials: 'same-origin'
       })).then(function (value) {
-        const active = current(cache.generation, cache.backendId);
-        const result = active && value && value.available === true ? value : null;
+        const active = current(cache.generation, cache.backendId) &&
+          task.seriesRevision === seriesRefreshRevision;
+        if (!active) { task.resolve(null); return; }
+        const result = value && value.available === true ? value : null;
         cache.failedNativeIds.delete(task.nativeId);
         if (active && value && value.available !== true && value.settled === false) {
           cache.unsettledNativeIds.add(task.nativeId);
@@ -3613,6 +3615,8 @@
         if (task.seriesKey) cache.readySeriesKeys.add(task.seriesKey);
         task.resolve(result);
       }).catch(function () {
+        if (task.seriesRevision !== seriesRefreshRevision ||
+            state.seriesMetadataCache !== cache) { task.resolve(null); return; }
         cache.failedNativeIds.add(task.nativeId);
         cache.unsettledNativeIds.delete(task.nativeId);
         cache.resolved.set(task.nativeId, null);
@@ -3683,6 +3687,7 @@
       client: client,
       nativeId: nativeId,
       seriesKey: config.priority === true ? seriesKey : '',
+      seriesRevision: seriesRefreshRevision,
       resolve: resolveTask
     };
     cache.inflight.set(nativeId, promise);
@@ -4337,6 +4342,10 @@
 
   function loadSeries(client, backendId, generation, genreEntries, options) {
     const config = options && typeof options === 'object' ? options : {};
+    const seriesRevision = seriesRefreshRevision;
+    const seriesCurrent = function () {
+      return current(generation, backendId) && seriesRevision === seriesRefreshRevision;
+    };
     const seriesGenre = genreEntries.find(function (entry) {
       return text(entry.id).toLowerCase() === 'series';
     });
@@ -4390,7 +4399,7 @@
       text(seriesGenre.id),
       generation,
       function (recordings) {
-        if (!current(generation, backendId)) return;
+        if (!seriesCurrent()) return;
         if (!recordings.length) return;
 
         if (!retainProjection) {
@@ -4401,7 +4410,34 @@
         }
       }
     ).then(function (recordings) {
-      if (!current(generation, backendId)) return false;
+      if (!seriesCurrent()) return false;
+
+      // Changed native identities require fresh metadata. Preserve all other
+      // cached Series presentation and never reload unrelated Home rails.
+      const changedNativeIds = new Set(config.changedNativeIds || []);
+      const changedRecordings = recordings.filter(function (recording) {
+        return changedNativeIds.has(recordingBackendNativeId(recording));
+      });
+      const readback = client && typeof client.requestJson === 'function'
+        ? Promise.allSettled(changedRecordings.map(function (recording) {
+          const nativeId = recordingBackendNativeId(recording);
+          return Promise.resolve(client.requestJson('/api/vdr/recordings/metadata', {
+            query: {backend: backendId, backendNativeId: nativeId},
+            cache: 'no-store',
+            credentials: 'same-origin'
+          })).then(function (metadata) {
+            if (!seriesCurrent() || !metadata || metadata.available !== true) return false;
+            const cache = seriesMetadataCache(generation, backendId);
+            cache.resolved.set(nativeId, metadata);
+            cache.failedNativeIds.delete(nativeId);
+            cache.unsettledNativeIds.delete(nativeId);
+            return true;
+          }).catch(function () { return false; });
+        }))
+        : Promise.resolve();
+
+      return Promise.resolve(readback).then(function () {
+        if (!seriesCurrent()) return false;
 
       if (!recordings.length) {
         clearSeriesMetadataRetry();
@@ -4431,7 +4467,7 @@
           backendId,
           generation,
           function () {
-            if (!current(generation, backendId)) return;
+            if (!seriesCurrent()) return;
 
             const rich = resolvedSeriesMetadata(
               generation,
@@ -4448,8 +4484,9 @@
       }
 
       return rendered;
+      });
     }).catch(function () {
-      if (!current(generation, backendId)) return false;
+      if (!seriesCurrent()) return false;
 
       clearSeriesMetadataRetry();
       clearSeriesWarm();
@@ -4670,7 +4707,31 @@
   let recordingRefreshPending = false;
   let recordingRefreshScheduled = false;
   let recordingRefreshRevision = 0;
+  let seriesRefreshRevision = 0;
+  let seriesRefreshPending = false;
+  let seriesRefreshScheduled = false;
+  const seriesChangedNativeIds = new Set();
   const recordingTileRevisions = new Map();
+
+  // Revalidate only canonical Series membership and its affected metadata.
+  function scheduleSeriesChangeRefresh() {
+    if (!seriesRefreshPending || seriesRefreshScheduled ||
+        !homeIsActive() || (doc && doc.hidden)) return;
+    seriesRefreshScheduled = true;
+    Promise.resolve().then(function () {
+      seriesRefreshScheduled = false;
+      if (!seriesRefreshPending || !homeIsActive() || (doc && doc.hidden)) return;
+      seriesRefreshPending = false;
+      const client = clientApi();
+      if (!client || typeof client.fetchClientGenreRecordings !== 'function') return;
+      const changedNativeIds = Array.from(seriesChangedNativeIds);
+      seriesChangedNativeIds.clear();
+      clearSeriesWarm();
+      loadSeries(client, selectedBackendId(), state.generation, [{id: 'series'}], {
+        changedNativeIds: changedNativeIds
+      });
+    });
+  }
 
   function recordingTileRevisionKey(backendId, nativeId) {
     return backendId + '\u001f' + nativeId;
@@ -4786,8 +4847,10 @@
       recordingSource = null;
       // Catch up after returning, even if the finite feed has rolled over.
       recordingRefreshPending = true;
+      if (doc && doc.hidden) seriesRefreshPending = true;
     }
     recordingRefreshRevision += 1;
+    seriesRefreshRevision += 1;
   }
 
   function subscribeRecordingChanges() {
@@ -4824,6 +4887,10 @@
         recordingRefreshPending = true;
         scheduleRecordingChangeRefresh();
       }
+      seriesRefreshRevision += 1;
+      seriesRefreshPending = true;
+      ids.forEach(function (id) { seriesChangedNativeIds.add(id); });
+      scheduleSeriesChangeRefresh();
     });
     source.onerror = function () {
       if (recordingSource !== source) return;
@@ -4833,9 +4900,13 @@
         recordingSequence = recordingConnectionSequence;
         recordingRefreshPending = true;
         scheduleRecordingChangeRefresh();
+        seriesRefreshRevision += 1;
+        seriesRefreshPending = true;
+        scheduleSeriesChangeRefresh();
       }
     };
     scheduleRecordingChangeRefresh();
+    scheduleSeriesChangeRefresh();
   }
 
   function refreshForHome() {
@@ -4868,6 +4939,9 @@
     subscribeRecordingChanges();
     const backendId = selectedBackendId();
     if (state.loadedBackendId && state.loadedBackendId !== backendId) {
+      seriesRefreshRevision += 1;
+      seriesRefreshPending = false;
+      seriesChangedNativeIds.clear();
       state.generation += 1;
       state.loadedBackendId = '';
       state.homeReadyBackendId = '';
