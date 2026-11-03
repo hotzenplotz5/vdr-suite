@@ -3,6 +3,7 @@
 test-mld-agent-first-run:
 	python3 tools/test_packaging_backend_agent_autostart.py
 	python3 tools/test_mld66_stage_first_run.py
+	python3 tools/test_packaging_distribution_first_run_stage.py
 
 .PHONY: test-addon-media-import-catalog
 test-addon-media-import-catalog:
