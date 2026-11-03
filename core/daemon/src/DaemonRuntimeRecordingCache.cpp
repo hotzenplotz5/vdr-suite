@@ -271,7 +271,8 @@ bool runRecordingMetadataEnrichment(
     BackendRuntimeContext& context,
     const std::vector<VdrRecording>& recordings,
     std::atomic<bool>& stopRequested,
-    const std::string& reason)
+    const std::string& reason,
+    std::vector<std::string>* committedRecordingNativeIds = nullptr)
 {
     if (!context.recordingMetadataEnrichmentService) {
         return false;
@@ -308,7 +309,8 @@ bool runRecordingMetadataEnrichment(
         context.recordingMetadataEnrichmentService->status();
 
     const int processed =
-        context.recordingMetadataEnrichmentService->processBatch(now);
+        context.recordingMetadataEnrichmentService->processBatch(
+            now, 0, committedRecordingNativeIds);
 
     const VdrRecordingNativeMetadataEnrichmentStatus status =
         context.recordingMetadataEnrichmentService->status();
@@ -453,13 +455,15 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
                         vdrRecordingCacheRepository_->findAllForBackend(
                             backendRuntimeContext->backendId);
 
+                    std::vector<std::string> committedMetadataIds;
                     if (runRecordingMetadataEnrichment(
                             *backendRuntimeContext,
                             recordings,
                             recordingCacheWarmupStopRequested_,
-                            "periodic")) {
-                        recordingPresentationChangeQueue_.request(
-                            backendRuntimeContext->backendId);
+                            "periodic", &committedMetadataIds)) {
+                        for (const auto& nativeId : committedMetadataIds)
+                            recordingPresentationChangeQueue_.request(
+                                backendRuntimeContext->backendId, nativeId);
                     }
 
                     GenreBrowserApiRuntime::instance()
@@ -720,13 +724,15 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                 }
                 recordingCacheRefreshQueue_.completed(backendRuntimeContext->backendId);
 
+                std::vector<std::string> committedMetadataIds;
                 if (runRecordingMetadataEnrichment(
                         *backendRuntimeContext,
                         recordings,
                         recordingCacheWarmupStopRequested_,
-                        reason)) {
-                    recordingPresentationChangeQueue_.request(
-                        backendRuntimeContext->backendId);
+                        reason, &committedMetadataIds)) {
+                    for (const auto& nativeId : committedMetadataIds)
+                        recordingPresentationChangeQueue_.request(
+                            backendRuntimeContext->backendId, nativeId);
                 }
 
                 genreIndexed = GenreBrowserApiRuntime::instance()
