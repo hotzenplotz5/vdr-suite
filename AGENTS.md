@@ -9,6 +9,34 @@ Diese Regel gilt für jede `AGENTS.md`-Datei im Repository. Ohne die ausdrückli
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
 
+## Verbindliche Architekturregel: SSE geht vor Polling (03.11.2026)
+
+**Ausdrückliche Maintainer-Anordnung: SSE GEHT VOR POLLING.** Diese
+Priorität gilt für alle zukünftigen VDR-Suite-Entwicklungen, insbesondere für
+langlaufende Media-Tools-Aufträge und automatische Frontend-Statusupdates.
+
+- Bei asynchronen Statusänderungen, Abschluss, Fehlern und nachgelagertem
+  Readback **zuerst den vorhandenen ereignisgesteuerten SSE-Rückkanal** nutzen
+  oder passend erweitern. Core/Backend veröffentlicht den bestätigten
+  Zustandswechsel; das Frontend reagiert auf das Ereignis.
+- Kein zyklisches `setTimeout`/`setInterval`-Status-Polling als Standardlösung,
+  kein festes Abfragekontingent und kein zeitlicher UI-Abbruch für einen
+  weiterhin laufenden Auftrag. Auch nach stundenlangem Reencoding muss ein
+  bestätigter Abschluss ohne Seiten-Refresh sichtbar werden.
+- Bei initialem Öffnen und nach SSE-Wiederverbindung den aktuellen, dauerhaften
+  Core-Zustand **einmalig** synchronisieren; verpasste Ereignisse dürfen weder
+  hängen bleiben noch denselben Auftrag erneut starten. Die Ausführung selbst
+  darf nicht vom Browser oder dessen SSE-Verbindung abhängen.
+- Polling nur verwenden, wenn ein echter Push-Kanal technisch nachweisbar
+  ungeeignet oder nicht verfügbar ist und diese Ausnahme **vorher mit dem
+  Maintainer abgestimmt** wurde. Es darf nicht als stillschweigender Fallback
+  erneut eingeführt werden. Bestehende Agent-Transportmechanismen sind nicht
+  automatisch Frontend-Status-Polling.
+- Für neue Ereignisverträge gezielte Tests für langen Auftrag,
+  Disconnect/Reconnect, korrekte Autorisierung, Fehler und Abschluss vorsehen;
+  die bestehende Core-Operationsautorität, Idempotenz und Ergebnisbestätigung
+  nicht durch einen zweiten Statusspeicher ersetzen.
+
 ## Verbindlich: Schnellen inkrementellen C++-Daemon-Build erhalten (30.10.2026)
 
 **Ausdrückliche Maintainer-Anordnung:** Den funktionierenden inkrementellen C++-Build
