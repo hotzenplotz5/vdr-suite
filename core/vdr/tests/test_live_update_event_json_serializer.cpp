@@ -56,11 +56,25 @@ static void test_serializer_writes_empty_changed_domains()
     assert(json == "{\"sequenceNumber\":8,\"snapshotGeneration\":43,\"backendId\":\"ferienhaus-vdr\",\"changedDomains\":[]}");
 }
 
+static void test_serializer_writes_scoped_recording_ids()
+{
+    LiveUpdateEvent event(
+        13, 45, {"recordings"}, "home-vdr",
+        {"native/episode-1", "native/quoted\"-2"});
+
+    LiveUpdateEventJsonSerializer serializer;
+    const std::string json = serializer.serializeEvent(event);
+
+    assert(json.find("\"recordingNativeIds\":[\"native/episode-1\","
+                     "\"native/quoted\\\"-2\"]") != std::string::npos);
+}
+
 int main()
 {
     test_serializer_writes_live_update_event_json();
     test_serializer_writes_searchtimer_changed_domain();
     test_serializer_writes_empty_changed_domains();
+    test_serializer_writes_scoped_recording_ids();
 
     std::cout
         << "test_live_update_event_json_serializer passed"
