@@ -408,6 +408,8 @@ bool MediaImportOperationFence::applyResult(
             op.operationId, op.operationRevision, State::executedUnverified,
             State::succeeded, reference, now);
         if (finished.ok()) {
+            if (operationChanged_)
+                operationChanged_(op.backendId, op.operationId);
             reason = "media_import_marker_verified";
             return true;
         }
@@ -437,6 +439,8 @@ bool MediaImportOperationFence::applyResult(
             if (!finished.ok())
                 return denied(reason, "media_import_marker_transition_failed");
         }
+        if (operationChanged_)
+            operationChanged_(op.backendId, op.operationId);
         reason = markerVerified
             ? "media_import_marker_verified" : "media_import_result_applied";
         return true;
@@ -639,7 +643,11 @@ std::size_t MediaImportOperationFence::reconcileRecordingCache(
         const auto committed = operations_.transition(
             op.operationId, op.operationRevision, op.state,
             State::succeeded, op.resultReference, now);
-        if (committed.ok()) ++verified;
+        if (committed.ok()) {
+            ++verified;
+            if (operationChanged_)
+                operationChanged_(op.backendId, op.operationId);
+        }
     }
     return verified;
 }

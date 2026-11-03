@@ -407,6 +407,19 @@ public:
         const bool isPublicOperationRead =
             request.method == "GET" &&
             isPublicOperationResource;
+        const std::string operationEventSuffix = "/events";
+        const bool isPublicOperationEventResource =
+            path.compare(0, publicOperationPrefix.size(),
+                         publicOperationPrefix) == 0 &&
+            path.size() > publicOperationPrefix.size() +
+                operationEventSuffix.size() &&
+            path.compare(path.size() - operationEventSuffix.size(),
+                         operationEventSuffix.size(),
+                         operationEventSuffix) == 0 &&
+            path.find('/', publicOperationPrefix.size()) ==
+                path.size() - operationEventSuffix.size();
+        const bool isPublicOperationEventRead =
+            request.method == "GET" && isPublicOperationEventResource;
         const bool isPublicBackendCollection =
             path == "/api/v1/backends";
         const std::string mediaImportCapabilityPrefix = "/api/v1/backends/";
@@ -1180,6 +1193,7 @@ public:
              isPublicSearchTimerDraftPreview ||
              searchVersionEndpoint ||
              isPublicOperationResource ||
+             isPublicOperationEventResource ||
              isPublicAccountCredentialResource ||
              isPublicAccountSessionResource);
         const bool isSafePost = isPost &&
@@ -2571,7 +2585,7 @@ public:
             return gate;
         }
 
-        if (isPublicOperationRead)
+        if (isPublicOperationRead || isPublicOperationEventRead)
         {
             if (!gate.context.authenticated())
             {

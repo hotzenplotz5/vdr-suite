@@ -19,9 +19,10 @@ class DeviceLiveEventSubscription {
 public:
     DeviceLiveEventSubscription(std::string backend,
                                 std::vector<std::string> domains,
-                                std::string epoch)
+                                std::string epoch,
+                                std::string operationId = {})
         : backend_(std::move(backend)), domains_(std::move(domains)),
-          epoch_(std::move(epoch)),
+          epoch_(std::move(epoch)), operationId_(std::move(operationId)),
           expires_(std::chrono::steady_clock::now() +
                    std::chrono::minutes(2))
     {
@@ -92,6 +93,30 @@ public:
         condition_.notify_one();
     }
 
+    // Only subscribers previously authorized to read this exact Operation
+    // receive its completion hint. Event data has no operation payload.
+    void deliverOperation(const std::string& operationId)
+    {
+        if (operationId_.empty() || operationId_ != operationId) return;
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (closed_ || std::chrono::steady_clock::now() >= expires_) return;
+        if (pending_.size() >= 64) {
+            pending_.clear();
+            pending_.push_back("event: resync\ndata: {}\n\n");
+            closed_ = true;
+            condition_.notify_one();
+            return;
+        }
+        ++sequence_;
+        pending_.push_back(
+            "event: operation\nid: " + std::to_string(sequence_) +
+            "\ndata: {\"operationId\":\"" + operationId_ +
+            "\",\"daemonEpoch\":\"" + epoch_ +
+            "\",\"subscriptionSequence\":" +
+            std::to_string(sequence_) + "}\n\n");
+        condition_.notify_one();
+    }
+
     void close()
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -107,6 +132,7 @@ private:
     std::string backend_;
     std::vector<std::string> domains_;
     std::string epoch_;
+    std::string operationId_;
     std::chrono::steady_clock::time_point expires_;
     std::mutex mutex_;
     std::condition_variable condition_;
@@ -142,6 +168,33 @@ public:
         if (subscriptions_.size() >= 8) return nullptr;
         subscriptions_.push_back(subscriber);
         return subscriber;
+    }
+
+    std::shared_ptr<DeviceLiveEventSubscription> subscribeOperation(
+        const std::string& operationId)
+    {
+        if (operationId.compare(0, 3, "op_") != 0) return nullptr;
+        auto subscriber = std::make_shared<DeviceLiveEventSubscription>(
+            "", std::vector<std::string>{"operations"}, epoch_, operationId);
+        std::lock_guard<std::mutex> lock(mutex_);
+        subscriptions_.erase(
+            std::remove_if(subscriptions_.begin(), subscriptions_.end(),
+                [](const std::weak_ptr<DeviceLiveEventSubscription>& weak) {
+                    return weak.expired();
+                }), subscriptions_.end());
+        if (subscriptions_.size() >= 8) return nullptr;
+        subscriptions_.push_back(subscriber);
+        return subscriber;
+    }
+
+    void publishOperation(const std::string& operationId)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto it = subscriptions_.begin(); it != subscriptions_.end();) {
+            auto subscriber = it->lock();
+            if (!subscriber) it = subscriptions_.erase(it);
+            else { subscriber->deliverOperation(operationId); ++it; }
+        }
     }
 
     void publish(const LiveUpdateEvent& event) {

@@ -1653,6 +1653,14 @@ bool DaemonRuntime::initialize()
     liveTransport_->setDeviceLiveEventHub(deviceLiveEventHub_);
     liveTransportService_ = std::make_unique<LiveTransportService>(*liveTransport_);
     liveTransportController_ = std::make_unique<LiveTransportController>(*liveTransport_);
+    if (mediaImportOperationFence_) {
+        mediaImportOperationFence_->setOperationChanged(
+            [this](const std::string& /* backendId */,
+                   const std::string& operationId) {
+                if (deviceLiveEventHub_)
+                    deviceLiveEventHub_->publishOperation(operationId);
+            });
+    }
 
     ManualRecordingMetadataApiRuntime::instance()
         .registerRecordingPresentationChangedCallback(
