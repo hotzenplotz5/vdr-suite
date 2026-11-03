@@ -412,5 +412,34 @@ function navigate(next) {
   assert(!flatten(episodeRail).some(node => node.dataset.recordingId === 'obsolete'),
     'stale Series generation must not overwrite new episodes');
 
+
+  // A native-id metadata change updates only the affected Series presentation.
+  let changedSeriesMetadataReads = 0;
+  client.requestJson = (route, options) => {
+    if (route === '/api/vdr/recordings/metadata' &&
+        options.query.backendNativeId === '/recordings/andor-1') {
+      changedSeriesMetadataReads++;
+      return Promise.resolve({
+        available: true, provider: 'manual', providerId: 12345,
+        mediaType: 'episode', title: 'Andor', episodeName: 'Korrigierter Episodentitel',
+        seasonNumber: 1, episodeNumber: 1,
+        preferredArtwork: {available: true, url: '/andor-new-cover.webp'},
+        images: []
+      });
+    }
+    return Promise.resolve({available: false});
+  };
+  const foundationCardBeforeMetadata = foundationCard;
+  third.emit(108, 'B', ['recordings'], ['/recordings/andor-1']);
+  await tick();
+  assert.strictEqual(changedSeriesMetadataReads, 1,
+    'Series SSE reads only changed native metadata');
+  assert(flatten(episodeRail).some(node =>
+    typeof node.textContent === 'string' &&
+    node.textContent.includes('Korrigierter Episodentitel')),
+    'updated native episode title appears in the retained open season');
+  assert.strictEqual(foundation(), foundationCardBeforeMetadata,
+    'metadata correction does not replace unrelated Series cards');
+
   console.log('Home recording and Series SSE lifecycle: PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });
