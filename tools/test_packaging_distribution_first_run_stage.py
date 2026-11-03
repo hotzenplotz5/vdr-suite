@@ -170,7 +170,7 @@ class DistributionFirstRunStageTests(unittest.TestCase):
             "mld66-live-readonly-diagnostics.sh",
         )
         for filename in scripts:
-            subprocess.run(["sh", "-n", str(ROOT / "tools" / filename)],
+            subprocess.run(["/bin/sh", "-n", str(ROOT / "tools" / filename)],
                            check=True)
         for commands, chosen in (
             (("svdrpsend",), "NATIVE"),
@@ -184,19 +184,19 @@ class DistributionFirstRunStageTests(unittest.TestCase):
                     self.assertIsNotNone(sed_bin)
                     (bin_dir / "sed").symlink_to(sed_bin)
                     for name, body in (
-                        ("uname", "printf 'mock-arch\\n'"),
+                        ("uname", "printf 'mock-arch\n'"),
                         ("timeout", 'shift; exec "$@"'),
                     ):
                         stub = bin_dir / name
-                        stub.write_text("#!/bin/sh\\n" + body + "\\n",
+                        stub.write_text("#!/bin/sh\n" + body + "\n",
                                         encoding="utf-8")
                         stub.chmod(0o755)
                     for name in commands:
                         stub = bin_dir / name
                         marker = "NATIVE" if name == "svdrpsend" else "MLD"
                         stub.write_text(
-                            "#!/bin/sh\\nprintf 'SVDRP_TEST="
-                            + marker + "\\n'\\n",
+                            "#!/bin/sh\nprintf 'SVDRP_TEST="
+                            + marker + "\n'\n",
                             encoding="utf-8",
                         )
                         stub.chmod(0o755)
@@ -204,7 +204,7 @@ class DistributionFirstRunStageTests(unittest.TestCase):
                     for filename in scripts:
                         with self.subTest(script=filename):
                             completed = subprocess.run(
-                                ["sh", str(ROOT / "tools" / filename), "--caps"],
+                                ["/bin/sh", str(ROOT / "tools" / filename), "--caps"],
                                 check=True, capture_output=True, text=True,
                                 env=environment, timeout=10,
                             )
