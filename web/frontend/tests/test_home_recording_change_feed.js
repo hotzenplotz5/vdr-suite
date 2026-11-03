@@ -76,6 +76,11 @@ const client = {
       recordingId: 'import-' + recordingReads, backendId: backend,
       backendNativeId: '/recordings/import-' + recordingReads,
       title: 'Imported movie ' + recordingReads
+    }, {
+      recordingId: 'unrelated', backendId: backend,
+      backendNativeId: '/recordings/unrelated',
+      title: 'Unrelated movie',
+      metadata: {presentation: {posterUrl: '/unrelated.jpg'}}
     }]});
   },
   fetchClientRecordingFolder(options) {
@@ -254,6 +259,10 @@ function navigate(next) {
   assert.strictEqual(recordingReads, beforeBackend + 1);
 
   const selectedNativeId = '/recordings/import-' + recordingReads;
+  const unrelatedBefore = flatten(host).find(node => node.dataset.recordingId === 'unrelated');
+  assert(unrelatedBefore);
+  const unrelatedPosterBefore = flatten(unrelatedBefore).find(node => node.src === '/unrelated.jpg');
+  assert(unrelatedPosterBefore);
   const readsBeforeScoped = recordingReads;
   const foldersBeforeScoped = folderReads;
   const targetedRequests = [];
@@ -274,6 +283,13 @@ function navigate(next) {
   assert.strictEqual(targetedRequests.length, 1);
   assert.strictEqual(targetedRequests[0].route, '/api/vdr/recordings/metadata');
   assert.strictEqual(targetedRequests[0].options.query.backendNativeId, selectedNativeId);
+  const unrelatedAfter = flatten(host).find(node => node.dataset.recordingId === 'unrelated');
+  assert.strictEqual(unrelatedAfter, unrelatedBefore,
+    'scoped SSE must preserve the unrelated Recording card object');
+  assert.strictEqual(
+    flatten(unrelatedAfter).find(node => node.src === '/unrelated.jpg'),
+    unrelatedPosterBefore,
+    'scoped SSE must not touch or reload another Recording image');
   assert(flatten(host).some(node => node.src === '/corrected/new-cover.webp'),
     'recording-scoped SSE updates the existing tile artwork directly');
 
