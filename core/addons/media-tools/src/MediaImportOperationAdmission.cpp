@@ -139,7 +139,7 @@ MediaImportOperationAdmissionService::admit(
     std::string checkedSource;
     Decision checkedDecision = Decision::import;
     if (req.now <= 0 || req.now > std::numeric_limits<std::int64_t>::max() -
-             (choice == Decision::local ? 24 * 3600 : 900) ||
+             24 * 3600 ||
         !validIdentity(req.actorId) || !validIdentity(req.backendId) ||
         req.backendId == "*" || !validIdentity(req.idempotencyKey) ||
         req.sourceId.size() < 16U || req.sourceId.size() > 64U ||
@@ -198,9 +198,9 @@ MediaImportOperationAdmissionService::admit(
     op.actionFamily = "media.import";
     op.requestFingerprint = fingerprint;
     op.requestedAt = req.now;
-    // Long, explicitly approved local encoding may take hours on a small CPU.
-    // Other import decisions retain their existing 15-minute deadline.
-    op.deadline = req.now + (choice == Decision::local ? 24 * 3600 : 900);
+    // One Core-owned deadline for every explicitly approved media action.
+    // No independent short Agent or CLI deadline may override this Operation.
+    op.deadline = req.now + 24 * 3600;
     op.verificationPolicy =
         MutationOperationVerificationPolicy::reconciliationRequired;
     op.state = MutationOperationState::accepted;

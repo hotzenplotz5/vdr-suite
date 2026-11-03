@@ -72,11 +72,9 @@ int main(int argc, char* argv[]) {
                 return 3;
             }
         }
-        // Only an explicitly approved local video encode gets the long
-        // processor window; ordinary imports keep their 540-second tools.
-        NativeProcessRunner runner(localReencode
-            ? std::chrono::seconds(24 * 3600)
-            : std::chrono::seconds(540));
+        // The Agent owns the Core deadline; individual FFmpeg tools must
+        // not apply a shorter cap to stream-copy or post-encode import.
+        NativeProcessRunner runner(std::chrono::seconds(24 * 3600));
         const auto result = executeRemuxImport(
             plan, runner, requireProductionCapacity, localReencode,
             withMetadata ? &frozenMetadata : nullptr);

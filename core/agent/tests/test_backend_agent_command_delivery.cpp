@@ -1110,7 +1110,12 @@ int main()
     assert(apiCreated.operation.state ==
         vdrsuite::operations::MutationOperationState::accepted);
     assert(apiCreated.operation.resourceId == apiInput.sourceId);
-    assert(apiCreated.operation.deadline == apiInput.now + 900);
+    assert(apiCreated.operation.deadline == apiInput.now + 24 * 3600);
+    const auto directAssigned = assigner.assign(
+        context(ActorType::System, "system_admin"),
+        apiCreated.operation.operationId, apiInput.now + 1);
+    assert(directAssigned.accepted && !directAssigned.replayed);
+    assert(directAssigned.assignment.deadline == apiCreated.operation.deadline);
     const auto apiPayload = operations.findPayloadByOperationId(
         apiCreated.operation.operationId);
     assert(apiPayload.ok());
@@ -1121,8 +1126,8 @@ int main()
         vdrsuite::addons::MediaImportOperationAdmissionStatus::replayed);
     assert(apiReplay.operation.operationId ==
         apiCreated.operation.operationId);
-    // MT.ENC1: only explicit local video encoding receives the long
-    // operation and Agent deadlines; ordinary imports remain unchanged.
+    // MT.EVENT1: direct import and explicitly approved local encoding share
+    // the authoritative Core deadline, without an Agent-specific 600s cap.
     apiInput.idempotencyKey = "media_import_local_encode_1";
     apiInput.approveVideoReencode = true;
     const auto encodeCreated = admission.admit(apiInput);

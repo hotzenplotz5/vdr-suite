@@ -948,9 +948,11 @@ across daemon restarts; a failed source requires manual review. Windows
 may cross midnight (for example `23:00-04:00`). There is no browser
 toggle or automatic production deployment yet.
 
-**Not yet production-complete:** the Agent's 600-second assignment
-deadline limits long imported video transcodes. Unattended scheduling is
-implemented in source but has not been accepted on a real VDR host.
+**Not yet production-complete:** Media Import now uses one Core-owned
+24-hour operation deadline for direct import and explicitly approved local
+video encoding. The Agent assignment and CLI no longer impose independent
+600-/540-second limits. Long-running behavior and unattended scheduling are
+not yet accepted on a real VDR host.
 External subtitle search or playback language preference, VDR-compatible
 chapter conversion, remote Media Check, and shrink through authorized API
 v1/Core Operations remain open. The existing Suite recording-cache enrichment and artwork owners
