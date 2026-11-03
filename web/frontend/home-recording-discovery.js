@@ -1188,6 +1188,28 @@
     return true;
   }
 
+  // Enrichment is a single-Recording presentation update, not a rail refresh.
+  // Keep every unrelated tile and its image node untouched.
+  function updateNewlyRecordedTile(recording, backendId, richMetadata) {
+    const target = host();
+    const section = target && target.querySelector
+      ? target.querySelector('[data-home-discovery-rail="newly-recorded"]')
+      : null;
+    const rail = directChildWithClass(section, 'media-home-discovery-rail');
+    if (!rail) return false;
+    const identity = recordingCardKey(recording, backendId);
+    const card = Array.from(rail.children || []).find(function (entry) {
+      return text(entry && entry.dataset && entry.dataset.backendId) +
+        '\u001f' + text(entry && entry.dataset && entry.dataset.recordingId) === identity;
+    });
+    if (!card) return false;
+    const projected = recordingMetadataProjection(
+      recording, richMetadata, recordingBackendId(recording, backendId), true
+    );
+    updateRecordingCard(card, recording, backendId, projected);
+    return true;
+  }
+
   function renderGenreRail(entries, backendId) {
     if (!entries.length) {
       clearRail('genres');
@@ -4126,29 +4148,42 @@
     })).then(function (payload) {
       if (!current(generation, backendId)) return false;
       const recordings = canonicalRecordings(payload, backendId).slice(0, NEW_LIMIT);
-      let richMetadata = new Map();
-      const renderNewly = function () {
-        if (!current(generation, backendId)) return false;
-        return renderRecordingRail(
-          'newly-recorded', 'Neu aufgenommen', recordings, backendId,
-          {richMetadataByNativeId: richMetadata}
-        );
-      };
-      const rendered = renderNewly();
+      const richMetadata = new Map();
+      const rendered = renderRecordingRail(
+        'newly-recorded', 'Neu aufgenommen', recordings, backendId
+      );
       if (recordings.length && client && typeof client.requestJson === 'function') {
-        // Reuse the canonical per-recording metadata read already used by
-        // Random Genre and Series. Do not wait before showing the rail.
+        // One initial rail render. Subsequent metadata responses update only
+        // their own Recording tile. No rail-wide re-render or status polling.
         fetchSeriesRecordingMetadata(
           client, recordings, backendId, generation, function (partial) {
-            richMetadata = partial;
-            renderNewly();
+            if (!current(generation, backendId)) return;
+            partial.forEach(function (rich, nativeId) {
+              if (richMetadata.has(nativeId)) return;
+              richMetadata.set(nativeId, rich);
+              recordings.forEach(function (recording) {
+                if (recordingBackendNativeId(recording) === nativeId)
+                  updateNewlyRecordedTile(recording, backendId, rich);
+              });
+            });
           }
         ).catch(function () { return false; });
-        // The Series cover request is shared/coalesced with loadSeries().
-        // A saved cover must also update a tile that was rendered earlier.
+        // Once persisted cover settings arrive, touch only tiles whose
+        // effective Series presentation actually has an override.
         loadSeriesCoverSettings(client, backendId, generation)
-          .then(function () { renderNewly(); })
-          .catch(function () { return false; });
+          .then(function () {
+            if (!current(generation, backendId)) return false;
+            recordings.forEach(function (recording) {
+              const nativeId = recordingBackendNativeId(recording);
+              const rich = richMetadata.get(nativeId) || null;
+              const initial = seriesMemberProjection(recording, null, backendId);
+              const enriched = seriesMemberProjection(recording, rich, backendId);
+              if (seriesCoverOverride({key: initial.seriesKey}, backendId) ||
+                  seriesCoverOverride({key: enriched.seriesKey}, backendId))
+                updateNewlyRecordedTile(recording, backendId, rich);
+            });
+            return true;
+          }).catch(function () { return false; });
       }
       return rendered;
     }).catch(function () {
