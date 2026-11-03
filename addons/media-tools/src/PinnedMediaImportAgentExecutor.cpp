@@ -197,7 +197,10 @@ MediaImportAgentOutcome runPinned(
     int status = 0;
     while (std::chrono::steady_clock::now() < until)
     {
-        if (approveVideoReencode && keepAlive &&
+        // A direct import can also run for hours. Keep its Agent transport
+        // lease alive just like an approved local encoder; lease failure must
+        // never terminate the already running pinned worker.
+        if (keepAlive &&
             std::chrono::steady_clock::now() >= nextKeepAlive) {
             try { keepAlive(); } catch (...) {} // Do not terminate FFmpeg on transient lease failures.
             nextKeepAlive = std::chrono::steady_clock::now() +
