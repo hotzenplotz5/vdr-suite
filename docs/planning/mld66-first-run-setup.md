@@ -212,7 +212,7 @@ Ohne die native Rezept-Integration behebt dieses Ergebnis noch
 
 ## F2.6 – Umsetzungs- und Abnahmestand (03.11.2026)
 
-Der vorhandene universelle Onboarding-Code wird weiterverwendet; eine separate MLD-Registrierung wurde nicht erstellt. Der externe [MLD-6/mld-dev](https://gitlab.com/MLD-6/mld-dev)-KAS/BitBake-Einstieg ist identifiziert, das konkrete VDR-Suite-Rezept ist über den vorhandenen Zugriff nicht lokalisier- oder bearbeitbar. **GitLab-Änderung: keine. MLD-Paketbuild: nicht ausgeführt.**
+Der vorhandene universelle Onboarding-Code wird weiterverwendet; eine separate MLD-Registrierung wurde nicht erstellt. Der externe [MLD-6/mld-dev](https://gitlab.com/MLD-6/mld-dev)-KAS/BitBake-Einstieg ist identifiziert. Aus dem bestehenden [Maintainer-Bericht](../development/mld66-pit-runtime-evidence-20261019.md) ist der [`meta-mld`-Rezeptordner auf `wrynose-ng`](https://gitlab.com/MLD-6/meta-mld/-/tree/wrynose-ng/meta/recipes-vdr/vdr-suite?ref_type=heads) bekannt; der genaue Rezeptinhalt und seine Installationshooks sind über den verfügbaren Zugriff aber weiterhin **nicht lesbar und nicht verifiziert**. **GitLab-Änderung: keine. MLD-Paketbuild: nicht ausgeführt.**
 
 Im VDR-Suite-Branch wurde der tatsächlich festgestellte Debian-/Ubuntu-Erstinstallationsfehler bei der systemd-Unit-Neuladung vor einem expliziten Paket-Hook-Start mit [Commit `46828dd6`](https://github.com/hotzenplotz5/vdr-suite/commit/46828dd62806dc571f17ddd7c2a91e09a559b07c) behoben. Isolierter Packaging-Regressionstest [CI 41592697774](https://github.com/hotzenplotz5/vdr-suite/actions/runs/41592697774): PASS; Start auf echtem systemd/VDR: **nicht nachgewiesen**.
 
