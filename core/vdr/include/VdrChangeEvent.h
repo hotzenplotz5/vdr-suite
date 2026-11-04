@@ -8,11 +8,11 @@ enum class VdrChangeType {
     ChannelsChanged,
     RecordingsChanged,
     RecordingMarksChanged,
-    ContinueWatchingChanged,
     TimersChanged,
     SearchTimersChanged,
     EventsChanged,
-    LiveOverlayChanged
+    LiveOverlayChanged,
+    ContinueWatchingChanged
 };
 
 class VdrChangeEvent {
