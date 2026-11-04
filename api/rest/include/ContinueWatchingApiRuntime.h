@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -37,6 +38,8 @@ public:
 
     bool configure(Database& database, VdrRecordingCacheRepository& recordings);
     void reset();
+    // Read-once SSE invalidation hints; persistent progress stays in the repository.
+    std::vector<std::string> takePendingProgressBackends();
 
     static PublicRecordingProgressRequest parsePublicProgressRequest(const std::string& body);
     std::vector<ContinueWatchingItem> publicCandidates(
@@ -66,4 +69,5 @@ private:
     std::unique_ptr<RecentlyWatchedRepository> recentlyWatchedRepository_;
     std::unique_ptr<RecentlyWatchedService> recentlyWatchedService_;
     VdrRecordingCacheRepository* recordings_ = nullptr;
+    std::set<std::string> pendingProgressBackends_;
 };
