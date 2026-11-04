@@ -152,6 +152,15 @@
   function showMode(root, mode, selector, buttonText) {
     if (!root || !root.dataset) return;
     const normalized = ['detail', 'playback', 'marks', 'metadata', 'actions'].includes(mode) ? mode : 'detail';
+    if (root.dataset.recordings2HeroMode === 'playback' && normalized === 'detail') {
+      // Hiding the video is not a Stop action: release the MediaSession and
+      // recreate its canonical owner so the next Play opens a fresh session.
+      root.dataset.recordings2HeroMode = 'detail';
+      const exitPlayback = root.__vdrSuiteRecordingPlaybackExit;
+      if (typeof exitPlayback === 'function' && exitPlayback() === true) return;
+      const playback = root.__vdrSuiteRecordingPlaybackOwner;
+      if (playback && typeof playback.destroy === 'function') playback.destroy();
+    }
     root.dataset.recordings2HeroMode = normalized;
     const back = ensureModeBack(root);
     back.hidden = normalized === 'detail';
@@ -313,7 +322,9 @@
     const position = resumePosition(recording);
     showMode(root, 'playback', '.recordings2-volume-owner-shell');
     global.setTimeout(function () {
-      const owner = root && root.__vdrSuiteRecordingPlaybackOwner;
+      if (!root || !root.dataset || root.dataset.recordings2HeroMode !== 'playback' ||
+          root.isConnected === false) return;
+      const owner = root.__vdrSuiteRecordingPlaybackOwner;
       if (!owner) return;
       let request = null;
       try {
