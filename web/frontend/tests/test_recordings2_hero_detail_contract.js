@@ -230,6 +230,30 @@ const trailerContext = vm.createContext({
 vm.runInContext(source, trailerContext, {filename: 'recordings2-hero-detail.js'});
 const trailerRuntime = trailerContext.window.VdrSuiteRecordings2HeroDetail;
 assert(trailerRuntime && trailerRuntime.__test);
+// Returning from any secondary Hero mode must release the existing playback.
+// This includes a path through Marks/Metadata after playback was started.
+['playback', 'marks', 'metadata', 'actions'].forEach(function (mode) {
+  let exits = 0;
+  const root = {
+    dataset: {recordings2HeroMode: mode},
+    __vdrSuiteRecordingPlaybackExit() { exits += 1; return true; }
+  };
+  trailerRuntime.__test.showMode(root, 'detail');
+  assert.strictEqual(exits, 1, 'Returning to Details must stop playback from ' + mode);
+  assert.strictEqual(root.dataset.recordings2HeroMode, 'detail');
+});
+let unchangedExits = 0;
+trailerRuntime.__test.showMode({
+  dataset: {recordings2HeroMode: 'detail'},
+  __vdrSuiteRecordingPlaybackExit() { unchangedExits += 1; return true; },
+  querySelector(selector) {
+    if (selector === '.recordings2-hero-mode-back')
+      return {hidden: false};
+    return null;
+  }
+}, 'detail');
+assert.strictEqual(unchangedExits, 0, 'Already-visible Details should not recreate the owner');
+
 const trailerIdentity = trailerRuntime.__test.trailerIdentity;
 
 assert.deepStrictEqual(
