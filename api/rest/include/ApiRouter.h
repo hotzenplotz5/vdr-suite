@@ -413,7 +413,11 @@ public:
             return response;
         }
 
-        return handleGet(requestTarget, lastEventId);
+        if (!lastEventId.empty() &&
+            (requestTarget == "/api/vdr/live" ||
+             requestTarget.rfind("/api/vdr/live?", 0) == 0))
+            return handleGet(requestTarget, lastEventId);
+        return handleGet(requestTarget);
     }
 
     ApiResponse handleClientDelete(

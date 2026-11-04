@@ -46,17 +46,8 @@
           options.onRecordingPresentationChanged();
         if (!busy) schedule(0);
       });
-      source.addEventListener('resync', function () {
-        if (source !== currentSource || !state().active) return;
-        lastSequence = 0;
-        connectionSequence = 0;
-        pending = true;
-        if (state().selectedRecording) notifyRecordingMarksChanged();
-        if (!busy) schedule(0);
-      });
+      source.addEventListener('resync', function () { if (source !== currentSource || !state().active) return; lastSequence = connectionSequence = 0; pending = true; if (state().selectedRecording) notifyRecordingMarksChanged(); if (!busy) schedule(0); });
       source.onerror = function () {
-        // The existing endpoint replays a finite feed on reconnect. A daemon
-        // restart can reset sequence numbers; refresh once and accept its epoch.
         if (source !== currentSource) return;
         if (connectionSequence > 0 && connectionSequence < lastSequence) {
           lastSequence = connectionSequence;
