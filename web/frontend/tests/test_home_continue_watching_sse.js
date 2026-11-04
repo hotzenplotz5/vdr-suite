@@ -260,6 +260,14 @@ function tab(module) {
   assert.strictEqual(reads, beforeReset + 1,
     'daemon sequence reset triggers one readback');
 
+  const beforeGap = reads;
+  second.handlers.resync({data: '{"reason":"gap"}'});
+  second.handlers.resync({data: '{"reason":"gap"}'});
+  await tick();
+  assert.strictEqual(reads, beforeGap + 1,
+    'resync burst causes exactly one canonical readback without polling');
+
+
   tab('recordings2');
   assert(second.closed, 'leaving Home closes SSE connection');
   const beforeLeave = reads;

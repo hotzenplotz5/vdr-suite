@@ -10,7 +10,7 @@ public:
     explicit LiveTransportController(
         const ILiveTransport& transport);
 
-    ApiResponse getStream();
+    ApiResponse getStream(const std::string& lastEventId = "");
 
 private:
     const ILiveTransport& transport_;

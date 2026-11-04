@@ -630,7 +630,8 @@ ApiResponse ApiRouter::handlePost(
 }
 
 ApiResponse ApiRouter::handleGet(
-    const std::string& requestTarget)
+    const std::string& requestTarget,
+    const std::string& lastEventId)
 {
     const std::string path =
         requestPath(requestTarget);
@@ -1167,7 +1168,7 @@ ApiResponse ApiRouter::handleGet(
 
     if (path == "/api/vdr/live")
     {
-        return liveTransportController_.getStream();
+        return liveTransportController_.getStream(lastEventId);
     }
 
     if (path == "/api/backends")

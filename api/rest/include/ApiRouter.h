@@ -271,7 +271,8 @@ public:
     }
 
     ApiResponse handleGet(
-        const std::string& path);
+        const std::string& path,
+        const std::string& lastEventId = "");
 
     ApiResponse handlePost(
         const std::string& path,
@@ -289,7 +290,8 @@ public:
         const std::string& ifNoneMatch = "",
         const std::string& authorizedBackendRef = "",
         const std::vector<std::string>& authorizedBackendRefs = {},
-        const std::string& pairingToken = "")
+        const std::string& pairingToken = "",
+        const std::string& lastEventId = "")
     {
         ApiResponse response;
 
@@ -411,7 +413,7 @@ public:
             return response;
         }
 
-        return handleGet(requestTarget);
+        return handleGet(requestTarget, lastEventId);
     }
 
     ApiResponse handleClientDelete(

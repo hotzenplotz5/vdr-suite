@@ -4919,11 +4919,21 @@
       ids.forEach(function (id) { seriesChangedNativeIds.add(id); });
       scheduleSeriesChangeRefresh();
     });
+    source.addEventListener('resync', function () {
+      if (recordingSource !== source) return;
+      recordingSequence = 0;
+      recordingConnectionSequence = 0;
+      recordingRefreshPending = true;
+      scheduleRecordingChangeRefresh();
+      seriesRefreshRevision += 1;
+      seriesRefreshPending = true;
+      scheduleSeriesChangeRefresh();
+    });
     source.onerror = function () {
       if (recordingSource !== source) return;
       // This endpoint replays a finite feed, then reconnects. Only a sequence
       // reset needs a catch-up read, not every normal stream termination.
-      if (recordingConnectionSequence < recordingSequence) {
+      if (recordingConnectionSequence > 0 && recordingConnectionSequence < recordingSequence) {
         recordingSequence = recordingConnectionSequence;
         recordingRefreshPending = true;
         scheduleRecordingChangeRefresh();

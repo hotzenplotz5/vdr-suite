@@ -8,13 +8,15 @@ LiveTransportController::LiveTransportController(
 {
 }
 
-ApiResponse LiveTransportController::getStream()
+ApiResponse LiveTransportController::getStream(const std::string& lastEventId)
 {
     ApiResponse response;
 
     response.statusCode = 200;
     response.contentType = "text/event-stream";
-    response.body = transport_.stream();
+    response.headers["Cache-Control"] = "no-store";
+    response.headers["X-Accel-Buffering"] = "no";
+    response.body = transport_.replay(lastEventId);
 
     return response;
 }

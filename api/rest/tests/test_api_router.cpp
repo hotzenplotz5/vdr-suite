@@ -1533,13 +1533,13 @@ int main()
            != std::string::npos);
 
     ApiResponse vdrLiveResponse =
-        router.handleGet("/api/vdr/live");
+        router.handleGet("/api/vdr/live", liveTransport.daemonEpoch() + ":8");
 
     assert(vdrLiveResponse.statusCode == 200);
     assert(vdrLiveResponse.contentType == "text/event-stream");
     assert(vdrLiveResponse.body.find("event: update\n")
            != std::string::npos);
-    assert(vdrLiveResponse.body.find("id: 9\n")
+    assert(vdrLiveResponse.body.find("id: " + liveTransport.daemonEpoch() + ":9\n")
            != std::string::npos);
     assert(vdrLiveResponse.body.find("\"backendId\":\"home-vdr\"")
            != std::string::npos);

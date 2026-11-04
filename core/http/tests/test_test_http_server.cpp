@@ -375,6 +375,32 @@ int main()
     auto eventHub = std::make_shared<DeviceLiveEventHub>();
     TestHttpServer server(router, eventHub);
 
+    // Verify the productive browser route and existing admission gate.
+    HttpServerRequest unauthenticatedLive;
+    unauthenticatedLive.method = "GET";
+    unauthenticatedLive.path = "/api/vdr/live";
+    assert(server.handleRequest(unauthenticatedLive).statusCode != 200);
+
+    liveTransport.publish(LiveUpdateEvent(1, 1, {"recordings"}, "default"));
+    liveTransport.publish(LiveUpdateEvent(2, 2, {"timers"}, "secondary"));
+    HttpServerRequest authenticatedLive;
+    authenticatedLive.method = "GET";
+    authenticatedLive.path = "/api/vdr/live";
+    authorize(authenticatedLive);
+    authenticatedLive.headers["last-event-id"] =
+        liveTransport.daemonEpoch() + ":1";
+    const auto replay = server.handleRequest(authenticatedLive);
+    assert(replay.statusCode == 200);
+    assert(replay.headers.at("Content-Type") == "text/event-stream");
+    assert(replay.body.find("\"backendId\":\"secondary\"") != std::string::npos);
+    assert(replay.body.find("id: " + liveTransport.daemonEpoch() + ":1\n") ==
+           std::string::npos);
+    assert(replay.body.find("id: " + liveTransport.daemonEpoch() + ":2\n") !=
+           std::string::npos);
+    authenticatedLive.headers["last-event-id"] = "invalid";
+    assert(server.handleRequest(authenticatedLive).body.find("event: resync") !=
+           std::string::npos);
+
     // Public-v1 M2: HTTP route must reject duplicate/encoded-alias EPG
     // identities rather than accepting RestQueryParameters' last value.
     // All examples retain the same authorized backend and valid image IDs.

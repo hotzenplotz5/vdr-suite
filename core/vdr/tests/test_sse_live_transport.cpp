@@ -32,7 +32,7 @@ static void test_transport_serializes_live_update_event_as_sse_frame()
     const std::string frame = transport.frames()[0];
 
     assert(frame.find("event: update\n") != std::string::npos);
-    assert(frame.find("id: 7\n") != std::string::npos);
+    assert(frame.find("id: " + transport.daemonEpoch() + ":7\n") != std::string::npos);
     assert(frame.find("data: {\"sequenceNumber\":7") != std::string::npos);
     assert(frame.find("\"snapshotGeneration\":42") != std::string::npos);
     assert(frame.find("\"backendId\":\"home-vdr\"") != std::string::npos);
@@ -54,7 +54,7 @@ static void test_transport_serializes_searchtimer_update_as_sse_frame()
     const std::string frame = transport.frames()[0];
 
     assert(frame.find("event: update\n") != std::string::npos);
-    assert(frame.find("id: 9\n") != std::string::npos);
+    assert(frame.find("id: " + transport.daemonEpoch() + ":9\n") != std::string::npos);
     assert(frame.find("\"changedDomains\":[\"searchtimers\"]") != std::string::npos);
 }
 
@@ -78,8 +78,8 @@ static void test_transport_preserves_multiple_frames_in_stream()
 
     const std::string stream = transport.stream();
 
-    assert(stream.find("id: 1\n") != std::string::npos);
-    assert(stream.find("id: 2\n") != std::string::npos);
+    assert(stream.find("id: " + transport.daemonEpoch() + ":1\n") != std::string::npos);
+    assert(stream.find("id: " + transport.daemonEpoch() + ":2\n") != std::string::npos);
     assert(stream.find("\"backendId\":\"home-vdr\"") != std::string::npos);
     assert(stream.find("\"backendId\":\"ferienhaus-vdr\"") != std::string::npos);
 }
@@ -161,10 +161,65 @@ static void test_device_subscriber_overload_requires_resync_not_silent_drop()
     assert(!subscriber->next(frame, std::chrono::milliseconds(1)));
 }
 
+
+static void test_cursor_replay_gap_and_restart()
+{
+    SseLiveTransport transport;
+    assert(transport.replay("").find("event: resync\n") != std::string::npos);
+    for (int i = 1; i <= 3; ++i)
+        transport.publish(LiveUpdateEvent(i, i, {"recordings"},
+                                          i == 2 ? "secondary" : "home"));
+    const std::string cursor = transport.daemonEpoch() + ":1";
+    const std::string delta = transport.replay(cursor);
+    assert(delta.find("\"backendId\":\"secondary\"") != std::string::npos);
+    assert(delta.find("id: " + transport.daemonEpoch() + ":1\n") == std::string::npos);
+    assert(delta.find("id: " + transport.daemonEpoch() + ":2\n") != std::string::npos);
+    assert(delta.find("id: " + transport.daemonEpoch() + ":3\n") != std::string::npos);
+    assert(transport.replay(transport.daemonEpoch() + ":3").find("event: update") ==
+           std::string::npos);
+    assert(transport.replay(transport.daemonEpoch() + ":99").find("invalid_cursor") !=
+           std::string::npos);
+    assert(transport.replay(transport.daemonEpoch() + ":invalid").find("invalid_cursor") !=
+           std::string::npos);
+    assert(transport.replay(transport.daemonEpoch() + ":01").find("invalid_cursor") !=
+           std::string::npos);
+    SseLiveTransport restarted;
+    assert(restarted.replay(cursor).find("epoch_changed") != std::string::npos);
+}
+
+static void test_bounded_history_and_missing_sequence()
+{
+    SseLiveTransport transport;
+    for (int i = 1; i <= 2048; ++i)
+        transport.publish(LiveUpdateEvent(i, i, {"recordings"}, "home"));
+    assert(transport.frames().size() <= SseLiveTransport::maxRetainedFrames);
+    assert(transport.stream().size() <= SseLiveTransport::maxRetainedBytes);
+    assert(transport.latestSequenceNumber() == 2048);
+    assert(transport.oldestSequenceNumber() > 1);
+    assert(transport.replay(transport.daemonEpoch() + ":1").find("event: resync") !=
+           std::string::npos);
+    const std::string newest = transport.replay(transport.daemonEpoch() + ":2047");
+    assert(newest.find(":2048\n") != std::string::npos);
+    assert(newest.find(":2047\n") == std::string::npos);
+    transport.publish(LiveUpdateEvent(2050, 2050, {"timers"}, "home"));
+    assert(transport.replay(transport.daemonEpoch() + ":2048").find("event: resync") !=
+           std::string::npos);
+    transport.clear();
+    assert(transport.latestSequenceNumber() == 2050);
+    assert(transport.replay(transport.daemonEpoch() + ":2048").find("event: resync") !=
+           std::string::npos);
+    transport.publish(LiveUpdateEvent(2051, 2051,
+        {std::string(SseLiveTransport::maxRetainedBytes + 1, 'x')}, "home"));
+    assert(transport.frames().empty());
+    assert(transport.latestSequenceNumber() == 2051);
+}
+
 int main()
 {
     test_device_subscriber_filters_backend_and_grant_then_coalesces_cursor();
     test_device_subscriber_overload_requires_resync_not_silent_drop();
+    test_cursor_replay_gap_and_restart();
+    test_bounded_history_and_missing_sequence();
     test_transport_starts_empty();
     test_transport_serializes_live_update_event_as_sse_frame();
     test_transport_serializes_searchtimer_update_as_sse_frame();

@@ -477,11 +477,17 @@
         scheduleLiveRefresh();
       }
     });
+    source.addEventListener('resync', function () {
+      if (liveSource !== source || !liveReady()) return;
+      liveSequence = 0;
+      liveConnectionSequence = 0;
+      scheduleLiveRefresh();
+    });
     source.onerror = function () {
       if (liveSource !== source) return;
       // The existing feed is finite. Normal completion is not a change.
       // A lower sequence after daemon restart requires one canonical read.
-      if (liveConnectionSequence < liveSequence) {
+      if (liveConnectionSequence > 0 && liveConnectionSequence < liveSequence) {
         liveSequence = liveConnectionSequence;
         scheduleLiveRefresh();
       }

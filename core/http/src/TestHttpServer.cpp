@@ -2274,7 +2274,8 @@ HttpServerResponse TestHttpServer::handleRequest(
                 gate.authorizedBackendIds,
                 requestHeaderValue(
                     request,
-                    "X-VDR-Suite-Pairing-Token"));
+                    "X-VDR-Suite-Pairing-Token"),
+                requestHeaderValue(request, "Last-Event-ID"));
         }
     }
     else if (request.method == "POST")

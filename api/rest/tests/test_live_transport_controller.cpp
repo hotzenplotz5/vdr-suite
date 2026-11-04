@@ -19,12 +19,12 @@ static void test_controller_returns_sse_stream_from_interface()
 
     LiveTransportController controller(transport);
 
-    const auto response = controller.getStream();
+    const auto response = controller.getStream(transport.daemonEpoch() + ":6");
 
     assert(response.statusCode == 200);
     assert(response.contentType == "text/event-stream");
     assert(response.body.find("event: update\n") != std::string::npos);
-    assert(response.body.find("id: 7\n") != std::string::npos);
+    assert(response.body.find("id: " + transport.daemonEpoch() + ":7\n") != std::string::npos);
     assert(response.body.find("\"backendId\":\"home-vdr\"") != std::string::npos);
     assert(response.body.find("\"changedDomains\":[\"channels\"]") != std::string::npos);
 }
@@ -57,7 +57,8 @@ static void test_controller_returns_empty_stream()
 
     assert(response.statusCode == 200);
     assert(response.contentType == "text/event-stream");
-    assert(response.body.empty() == true);
+    assert(response.body.find("event: resync\n") != std::string::npos);
+    assert(response.headers.at("Cache-Control") == "no-store");
 }
 
 int main()

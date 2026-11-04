@@ -3,13 +3,18 @@
 
 #include "SnapshotChangeFeedEntry.h"
 
+#include <cstddef>
 #include <vector>
 
 class SnapshotChangeFeed {
 public:
+    static constexpr std::size_t maxRetainedEntries = 256;
+    static constexpr std::size_t maxRetainedBytes = 512 * 1024;
+
     SnapshotChangeFeed();
 
     bool empty() const;
+    int oldestSequenceNumber() const;
     int latestSequenceNumber() const;
     int latestSnapshotGeneration() const;
     const std::vector<SnapshotChangeFeedEntry>& entries() const;
@@ -19,6 +24,9 @@ public:
 
 private:
     std::vector<SnapshotChangeFeedEntry> entries_;
+    std::size_t retainedBytes_ = 0;
+    int latestSequenceNumber_ = 0;
+    int latestSnapshotGeneration_ = 0;
 };
 
 #endif

@@ -285,8 +285,40 @@ static void test_recording_marks_change_tracker_fences_unusable_continuity()
     assert(tracker.observe("epoch-b", 8, true, false));
 }
 
+
+static void test_feed_retention_limits_and_monotonic_cursor()
+{
+    SnapshotChangeFeed feed;
+    SnapshotChangeFeedService service;
+    for (int i = 1; i <= 2048; ++i)
+        service.appendChanges(feed, i,
+            {VdrChangeEvent(VdrChangeType::RecordingsChanged)}, "home");
+    assert(feed.entries().size() == SnapshotChangeFeed::maxRetainedEntries);
+    assert(feed.oldestSequenceNumber() == 1793);
+    assert(feed.latestSequenceNumber() == 2048);
+    assert(feed.latestSnapshotGeneration() == 2048);
+    feed.clear();
+    assert(feed.empty());
+    assert(feed.latestSequenceNumber() == 2048);
+    service.appendChanges(feed, 2049,
+        {VdrChangeEvent(VdrChangeType::TimersChanged)}, "secondary");
+    assert(feed.latestSequenceNumber() == 2049);
+    assert(feed.oldestSequenceNumber() == 2049);
+    assert(feed.entries().front().backendId() == "secondary");
+    feed.addEntry(SnapshotChangeFeedEntry(2048, 2048, {"events"}));
+    assert(feed.entries().size() == 1);
+    feed.addEntry(SnapshotChangeFeedEntry(2050, 2050,
+        {std::string(SnapshotChangeFeed::maxRetainedBytes + 1, 'x')}));
+    assert(feed.empty());
+    assert(feed.latestSequenceNumber() == 2050);
+    service.appendChanges(feed, 2051,
+        {VdrChangeEvent(VdrChangeType::StatusChanged)});
+    assert(feed.oldestSequenceNumber() == 2051);
+}
+
 int main()
 {
+    test_feed_retention_limits_and_monotonic_cursor();
     test_entry_stores_sequence_generation_backend_and_domains();
     test_entry_stores_explicit_backend_id();
     test_feed_tracks_latest_entry();
