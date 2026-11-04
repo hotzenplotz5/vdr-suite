@@ -152,7 +152,8 @@
   function showMode(root, mode, selector, buttonText) {
     if (!root || !root.dataset) return;
     const normalized = ['detail', 'playback', 'marks', 'metadata', 'actions'].includes(mode) ? mode : 'detail';
-    if (root.dataset.recordings2HeroMode === 'playback' && normalized === 'detail') {
+    if (normalized === 'detail' && root.dataset.recordings2HeroMode !== 'detail') {
+      // A user may reach Details from playback, marks or another Hero mode.
       // Hiding the video is not a Stop action: release the MediaSession and
       // recreate its canonical owner so the next Play opens a fresh session.
       root.dataset.recordings2HeroMode = 'detail';
