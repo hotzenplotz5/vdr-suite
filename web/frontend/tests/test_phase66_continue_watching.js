@@ -327,6 +327,8 @@ function flush(count = 8) {
     assert.strictEqual(lifecycleBody.operation, 'progress');
     assert.strictEqual(lifecycleBody.recordingId, 'r-lifecycle');
     assert.strictEqual(lifecycleBody.positionSeconds, 47);
+    assert.strictEqual(lifecycleBody.notifyLive, true,
+        'the final playback position signals a prompt Home SSE readback');
 
     publish({state: 'destroyed', sessionId: null, transition: 'destroyed'});
     assert.strictEqual(lifecycleListeners.length, 0, 'destroyed lifecycle publication must release observation');
