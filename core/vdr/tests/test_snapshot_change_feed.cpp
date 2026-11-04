@@ -99,6 +99,18 @@ static void test_change_feed_service_preserves_backend_id()
     assertDomains(entry, {"channels", "liveOverlay"});
 }
 
+static void test_continue_watching_change_uses_narrow_backend_domain()
+{
+    SnapshotChangeFeedService service;
+    const auto entry = service.createEntry(
+        17, 48, {VdrChangeEvent(VdrChangeType::ContinueWatchingChanged)},
+        "living-room");
+    assert(entry.hasChanges());
+    assert(entry.backendId() == "living-room");
+    assert(entry.recordingNativeIds().empty());
+    assertDomains(entry, {"continueWatching"});
+}
+
 static void test_recording_marks_change_uses_narrow_domain()
 {
     SnapshotChangeFeedService service;
@@ -281,6 +293,7 @@ int main()
     test_service_creates_feed_from_change_events();
     test_service_does_not_add_empty_feed_entry();
     test_change_feed_service_preserves_backend_id();
+    test_continue_watching_change_uses_narrow_backend_domain();
     test_recording_marks_change_uses_narrow_domain();
     test_append_changes_adds_next_sequence_number();
     test_append_changes_increments_sequence_number();
