@@ -79,10 +79,14 @@
 
     if (typeof global.setTimeout !== 'function') return;
     global.setTimeout(function () {
+      if (!root.dataset || root.dataset.recordings2HeroMode !== 'playback' ||
+          root.isConnected === false) return;
       const prepared = root[PREWARM_PROMISE];
       let request = prepared ? Promise.resolve(prepared) : Promise.resolve(null);
 
       request = request.then(function () {
+        if (!root.dataset || root.dataset.recordings2HeroMode !== 'playback' ||
+            root.isConnected === false) return null;
         if (position > 0 && typeof playbackOwner.startAtAbsolute === 'function') {
           return playbackOwner.startAtAbsolute(position);
         }
@@ -96,6 +100,8 @@
         if (typeof playbackOwner.start === 'function') return playbackOwner.start();
         return null;
       }).then(function (result) {
+        if (!root.dataset || root.dataset.recordings2HeroMode !== 'playback' ||
+            root.isConnected === false) return null;
         if (position > 0 && typeof playbackOwner.play === 'function') {
           return Promise.resolve(playbackOwner.play()).then(function () { return result; });
         }
