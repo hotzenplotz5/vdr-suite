@@ -413,9 +413,10 @@ public:
             return response;
         }
 
+        // Preserve the existing canonical route spelling for the Public-v1
+        // inventory; query strings do not create additional endpoints.
         if (!lastEventId.empty() &&
-            (requestTarget == "/api/vdr/live" ||
-             requestTarget.rfind("/api/vdr/live?", 0) == 0))
+            requestTarget.substr(0, requestTarget.find('?')) == "/api/vdr/live")
             return handleGet(requestTarget, lastEventId);
         return handleGet(requestTarget);
     }
