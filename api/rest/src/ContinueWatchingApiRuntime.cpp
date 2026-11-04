@@ -456,6 +456,7 @@ bool ContinueWatchingApiRuntime::configure(
     VdrRecordingCacheRepository& recordings)
 {
     std::lock_guard<std::mutex> lock(mutex_);
+    pendingProgressBackends_.clear();
     repository_ = std::make_unique<ContinueWatchingRepository>(database);
     recentlyWatchedRepository_ = std::make_unique<RecentlyWatchedRepository>(database);
     if (!repository_->ensureSchema() || !recentlyWatchedRepository_->ensureSchema()) {
@@ -550,8 +551,17 @@ void ContinueWatchingApiRuntime::reset()
     service_.reset();
     repository_.reset();
     recordings_ = nullptr;
+    pendingProgressBackends_.clear();
 }
 
+std::vector<std::string> ContinueWatchingApiRuntime::takePendingProgressBackends()
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<std::string> result(pendingProgressBackends_.begin(),
+                                    pendingProgressBackends_.end());
+    pendingProgressBackends_.clear();
+    return result;
+}
 
 PublicRecordingProgressRequest ContinueWatchingApiRuntime::parsePublicProgressRequest(
     const std::string& body)
@@ -685,6 +695,9 @@ ApiResponse ContinueWatchingApiRuntime::publicProgressUpdate(
         return errorResponse(503, "recording_progress_unavailable");
 
     ApiResponse response;
+    if (mutation.status == ContinueWatchingMutationStatus::applied)
+        pendingProgressBackends_.insert(backendId);
+
     response.statusCode = 200;
     response.contentType = "application/json";
     response.headers["Cache-Control"] = "no-store";
@@ -873,6 +886,8 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
             response=errorResponse(503,"continue_watching_write_failed");
             return true;
         }
+        if (updated.status==Status::applied)
+            pendingProgressBackends_.insert(backendId);
         response.statusCode=200;
         response.contentType="application/json";
         response.headers["Cache-Control"]="no-store";
@@ -907,6 +922,7 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
         response = errorResponse(503, "continue_watching_write_failed");
         return true;
     }
+    pendingProgressBackends_.insert(backendId);
     response.statusCode = 200;
     response.contentType = "application/json";
     response.headers["Cache-Control"] = "no-store";
