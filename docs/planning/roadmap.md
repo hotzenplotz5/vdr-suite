@@ -43,6 +43,14 @@ A roadmap entry is never automatic permission to implement the next possible dif
 - Completed phase history is not renumbered. Only not-yet-started future phases may be reordered when architecture/product sequencing is explicitly updated.
 
 
+## SSE.H — Live-Update transport hardening (queued; 04.11.2026)
+
+**Source-reviewed backlog, not implementation or real-yaVDR acceptance.** The existing [ADR-0019 SSE strategy](../adr/ADR-0019-sse-event-stream-transport-strategy.md) remains accepted; its runtime needs targeted [SSE/Continue-Watching hardening](../development/sse-continue-watching-hardening-2026-11-04.md).
+
+**Next narrowly scoped technical slice: SSE.H1 — bounded event retention plus correct delta replay and gap/resync handling.** Subsequent separate slices: SSE.H2 shared Browser EventSource, CW.H1 confirmed stop/finish semantics, CW.H2 race-free restart, SSE.H3 actor-scoped fan-out evaluation, DEP.H1 installed daemon provenance and DB-safe deploy review. Do not start them together or silently change the established BAS/numbered-phase sequence. No new branch, Phase 70, frontend polling fallback or automatic DB backup. Real yaVDR acceptance remains open.
+
+---
+
 ## Next maintenance/refactoring phase after Media Tools: BAS — Backend-Agent Simplification
 
 **Maintainer decision 2026-10-28:** Finish the currently active Media Tools/Media Import add-on work first. **The next cross-cutting refactoring phase is BAS — Backend-Agent Simplification**, not a new security framework. Its detailed scoped slices **BAS.1–BAS.5** and acceptance criteria are recorded in [Media Tools Roadmap](../../addons/media-tools/ROADMAP.md#bas--backend-agent-simplification-nächste-phase-nach-media-tools-not-started).
