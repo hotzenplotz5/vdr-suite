@@ -118,6 +118,24 @@ int DaemonRuntime::run()
         [this, lastVdrPoll, lastMediaImportPoll]() mutable {
             publishCompletedRecordingRefreshes();
             publishRecordingPresentationChanges();
+            // Continue Watching lives in actor-scoped SQLite state, not the
+            // VDR snapshot. Emit only backend-scoped invalidation after a
+            // confirmed Browser/Device commit; authorized clients read back
+            // their own progress through the existing API.
+            const auto progressBackends =
+                ContinueWatchingApiRuntime::instance().takePendingProgressBackends();
+            if (snapshotChangeFeed_ && snapshotChangeFeedService_ &&
+                liveTransportService_ && snapshotCacheService_) {
+                for (const auto& backendId : progressBackends) {
+                    snapshotChangeFeedService_->appendChanges(
+                        *snapshotChangeFeed_,
+                        snapshotCacheService_->generation(),
+                        {VdrChangeEvent(VdrChangeType::ContinueWatchingChanged)},
+                        backendId);
+                    liveTransportService_->publishChangeFeedEntry(
+                        snapshotChangeFeed_->entries().back());
+                }
+            }
             const auto now = std::chrono::steady_clock::now();
             if (now - lastMediaImportPoll >= std::chrono::minutes(1)) {
                 lastMediaImportPoll = now;
