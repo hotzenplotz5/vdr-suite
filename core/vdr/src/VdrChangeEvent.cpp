@@ -21,6 +21,8 @@ std::string VdrChangeEvent::typeName() const
         return "RecordingsChanged";
     case VdrChangeType::RecordingMarksChanged:
         return "RecordingMarksChanged";
+    case VdrChangeType::ContinueWatchingChanged:
+        return "ContinueWatchingChanged";
     case VdrChangeType::TimersChanged:
         return "TimersChanged";
     case VdrChangeType::SearchTimersChanged:
