@@ -25,6 +25,11 @@
   const ENDPOINT = '/api/media/continue-watching';
   const HOME_RESUME_EVENT = 'vdr-suite:home-resume';
   let refreshGeneration = 0;
+  let liveSource = null;
+  let liveSequence = 0;
+  let liveConnectionSequence = 0;
+  let liveRefreshPending = false;
+  let liveRefreshScheduled = false;
 
   function text(value) { return value == null ? '' : String(value); }
   function positiveInt(value) {
@@ -244,6 +249,114 @@
       return true;
     });
   }
+
+  // Keep cards, poster nodes and active scroll in place on every SSE readback.
+  function createContinueCard(item) {
+    const card = doc.createElement('article');
+    card.className = 'media-home-continue-card';
+    card.dataset.recordingId = item.recordingId;
+    card.dataset.backendId = item.backendId;
+    const artwork = createArtwork(item);
+    card.appendChild(artwork);
+    const copy = doc.createElement('div');
+    copy.className = 'media-home-continue-copy';
+    const name = doc.createElement('h4');
+    const subtitle = doc.createElement('p');
+    const progressText = doc.createElement('p');
+    progressText.className = 'media-home-continue-progress-text';
+    const meter = doc.createElement('progress');
+    meter.max = 100;
+    const actions = doc.createElement('div');
+    actions.className = 'media-home-continue-actions';
+    const resume = doc.createElement('button');
+    resume.type = 'button';
+    resume.textContent = 'Fortsetzen';
+    resume.setAttribute('data-home-continue-action', 'continue');
+    const restart = doc.createElement('button');
+    restart.type = 'button';
+    restart.textContent = 'Von vorn';
+    restart.setAttribute('data-home-continue-action', 'restart');
+    resume.addEventListener('click', function () {
+      openItem(card.__vdrSuiteContinueItem, true);
+    });
+    restart.addEventListener('click', function () {
+      openItem(card.__vdrSuiteContinueItem, false);
+    });
+    actions.appendChild(resume);
+    actions.appendChild(restart);
+    copy.appendChild(name);
+    copy.appendChild(subtitle);
+    copy.appendChild(progressText);
+    copy.appendChild(meter);
+    copy.appendChild(actions);
+    card.appendChild(copy);
+    card.__vdrSuiteContinueView = {
+      artwork: artwork, name: name, subtitle: subtitle,
+      progressText: progressText, meter: meter,
+      resume: resume, restart: restart
+    };
+    updateContinueCard(card, item);
+    return card;
+  }
+
+  function updateContinueCard(card, item) {
+    const view = card.__vdrSuiteContinueView;
+    if (!view) return false;
+    const previous = card.__vdrSuiteContinueItem;
+    card.__vdrSuiteContinueItem = item;
+    const oldArtwork = previous && text(previous.posterUrl);
+    if (previous && (oldArtwork !== text(item.posterUrl) ||
+        previous.title !== item.title)) {
+      const artwork = createArtwork(item);
+      card.insertBefore(artwork, view.artwork);
+      view.artwork.remove();
+      view.artwork = artwork;
+    }
+    if (view.name.textContent !== item.title) view.name.textContent = item.title;
+    const subtitle = text(item.subtitle);
+    if (view.subtitle.textContent !== subtitle) view.subtitle.textContent = subtitle;
+    view.subtitle.hidden = !subtitle;
+    view.resume.setAttribute('aria-label', item.title + ' fortsetzen');
+    view.restart.setAttribute('aria-label', item.title + ' von vorn abspielen');
+    const progress = progressModel(item);
+    const progressLabel = progress.hasPercent
+      ? formatTime(progress.positionSeconds) + ' / ' + formatTime(progress.durationSeconds)
+      : 'Fortsetzen bei ' + formatTime(progress.positionSeconds);
+    if (view.progressText.textContent !== progressLabel) {
+      view.progressText.textContent = progressLabel;
+    }
+    view.meter.hidden = !progress.hasPercent;
+    if (progress.hasPercent) {
+      view.meter.value = progress.percent;
+      view.meter.setAttribute('aria-label',
+        'Wiedergabefortschritt ' + progress.percent + ' Prozent');
+    }
+    return true;
+  }
+
+  function reconcileContinueCards(rail, cards) {
+    const old = Array.from(rail.children);
+    if (old.length === cards.length && old.every(function (card, index) {
+      return cards[index] === card;
+    })) return;
+    const scroll = rail.scrollLeft;
+    const focused = doc.activeElement;
+    const retained = new Set(cards);
+    old.forEach(function (card) {
+      if (!retained.has(card)) card.remove();
+    });
+    cards.forEach(function (card, index) {
+      if (rail.children[index] !== card) {
+        rail.insertBefore(card, rail.children[index] || null);
+      }
+    });
+    if (focused && cards.includes(focused) && doc.activeElement !== focused &&
+        typeof focused.focus === 'function') {
+      focused.focus({preventScroll: true});
+    }
+    if (Number.isFinite(scroll)) rail.scrollLeft = scroll;
+  }
+
   function render(items) {
     if (!doc || typeof doc.querySelector !== 'function') return false;
     const host = doc.querySelector('[data-home-zone="additional-sections"]');
@@ -259,53 +372,36 @@
       section.className = 'media-home-continue-watching';
       section.setAttribute('data-home-continue-watching', '');
       section.setAttribute('aria-labelledby', 'media-home-continue-title');
+      const heading = doc.createElement('div');
+      heading.className = 'media-home-section-heading';
+      const title = doc.createElement('h3');
+      title.id = 'media-home-continue-title';
+      title.textContent = 'Weiterschauen';
+      heading.appendChild(title);
+      section.appendChild(heading);
+      const rail = doc.createElement('div');
+      rail.className = 'media-home-continue-rail';
+      rail.setAttribute('aria-label', 'Fortsetzbare Aufnahmen');
+      section.appendChild(rail);
       host.appendChild(section);
     }
-    section.innerHTML = '';
-    const heading = doc.createElement('div');
-    heading.className = 'media-home-section-heading';
-    const title = doc.createElement('h3');
-    title.id = 'media-home-continue-title';
-    title.textContent = 'Weiterschauen';
-    heading.appendChild(title);
-    section.appendChild(heading);
-    const rail = doc.createElement('div');
-    rail.className = 'media-home-continue-rail';
-    rail.setAttribute('aria-label', 'Fortsetzbare Aufnahmen');
-    valid.forEach(function (item) {
-      const card = doc.createElement('article');
-      card.className = 'media-home-continue-card';
-      card.dataset.recordingId = item.recordingId;
-      card.dataset.backendId = item.backendId;
-      card.appendChild(createArtwork(item));
-      const copy = doc.createElement('div');
-      copy.className = 'media-home-continue-copy';
-      const name = doc.createElement('h4'); name.textContent = item.title; copy.appendChild(name);
-      if (item.subtitle) { const subtitle = doc.createElement('p'); subtitle.textContent = item.subtitle; copy.appendChild(subtitle); }
-      const progress = progressModel(item);
-      const progressText = doc.createElement('p');
-      progressText.className = 'media-home-continue-progress-text';
-      progressText.textContent = progress.hasPercent
-        ? formatTime(progress.positionSeconds) + ' / ' + formatTime(progress.durationSeconds)
-        : 'Fortsetzen bei ' + formatTime(progress.positionSeconds);
-      copy.appendChild(progressText);
-      if (progress.hasPercent) {
-        const meter = doc.createElement('progress');
-        meter.max = 100; meter.value = progress.percent;
-        meter.setAttribute('aria-label', 'Wiedergabefortschritt ' + progress.percent + ' Prozent');
-        copy.appendChild(meter);
-      }
-      const actions = doc.createElement('div'); actions.className = 'media-home-continue-actions';
-      const resume = doc.createElement('button'); resume.type = 'button'; resume.textContent = 'Fortsetzen'; resume.setAttribute('data-home-continue-action', 'continue');
-      resume.setAttribute('aria-label', item.title + ' fortsetzen');
-      const restart = doc.createElement('button'); restart.type = 'button'; restart.textContent = 'Von vorn'; restart.setAttribute('data-home-continue-action', 'restart');
-      restart.setAttribute('aria-label', item.title + ' von vorn abspielen');
-      resume.addEventListener('click', function () { openItem(item, true); });
-      restart.addEventListener('click', function () { openItem(item, false); });
-      actions.appendChild(resume); actions.appendChild(restart); copy.appendChild(actions);
-      card.appendChild(copy); rail.appendChild(card);
+    const rail = Array.from(section.children).find(function (element) {
+      return element.className === 'media-home-continue-rail';
     });
-    section.appendChild(rail);
+    if (!rail) return false;
+    const existing = new Map(Array.from(rail.children).map(function (card) {
+      return [card.dataset.backendId + '\u001f' + card.dataset.recordingId, card];
+    }));
+    const nextCards = valid.map(function (item) {
+      const key = item.backendId + '\u001f' + item.recordingId;
+      const card = existing.get(key);
+      if (card) {
+        updateContinueCard(card, item);
+        return card;
+      }
+      return createContinueCard(item);
+    });
+    reconcileContinueCards(rail, nextCards);
     return true;
   }
   function installStyles() {
@@ -314,6 +410,77 @@
     style.id = 'vdr-suite-continue-watching-style';
     style.textContent = '#detail:has(.module-tab.active[data-module="overview"]){display:flex;flex-direction:column}#detail:has(.module-tab.active[data-module="overview"]) [data-home-zone="additional-sections"]{order:40}#detail:has(.module-tab.active[data-module="overview"]) [data-home-zone="primary-rail"]{order:50}#detail:has(.module-tab.active[data-module="overview"]) #detail-data{order:60}.media-home-continue-watching{min-width:0}.media-home-continue-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(17rem,24rem);gap:.85rem;overflow-x:auto;padding:0 .25rem 1rem;scroll-snap-type:x proximity}.media-home-continue-card{scroll-snap-align:start;display:grid;grid-template-columns:6rem 1fr;gap:.8rem;padding:.8rem;border:1px solid rgba(148,163,184,.26);border-radius:1rem;background:linear-gradient(145deg,rgba(15,23,42,.86),rgba(15,23,42,.7));box-shadow:0 .8rem 1.8rem rgba(2,6,23,.14)}.media-home-continue-artwork{display:grid;place-items:center;align-self:start;width:100%;aspect-ratio:2/3;overflow:hidden;border-radius:.75rem;background:linear-gradient(145deg,#1e293b,#334155);font-size:2rem;font-weight:800}.media-home-continue-artwork.is-fallback{position:relative;background:radial-gradient(circle at 70% 22%,rgba(56,189,248,.2),transparent 32%),linear-gradient(145deg,#172033,#26364d);color:#dbeafe;text-shadow:0 .12rem .5rem rgba(2,6,23,.75)}.media-home-continue-artwork.is-fallback::after{content:"";position:absolute;inset:.45rem;border:1px solid rgba(148,163,184,.18);border-radius:.55rem;pointer-events:none}.media-home-continue-artwork img{display:block;width:100%;height:100%;object-fit:cover}.media-home-continue-copy{min-width:0}.media-home-continue-copy h4,.media-home-continue-copy p{margin:.1rem 0 .45rem}.media-home-continue-copy progress{width:100%;accent-color:#38bdf8}.media-home-continue-actions{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.65rem}.media-home-continue-actions button{min-width:2.75rem;min-height:2.75rem;padding:.55rem .75rem;border-radius:.65rem;transition:transform .14s ease,border-color .14s ease}.media-home-continue-actions button:hover{transform:translateY(-1px)}.media-home-continue-actions button:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}@media(min-width:120rem){.media-home-continue-rail{grid-auto-columns:minmax(22rem,29rem);gap:1.15rem}.media-home-continue-card{grid-template-columns:7.5rem 1fr;padding:1rem}}@media(min-width:46.01rem){.media-home-continue-rail{grid-auto-columns:minmax(11rem,15rem);gap:.8rem;padding:0 1rem 1.1rem}.media-home-continue-card{grid-template-columns:1fr;gap:0;padding:0;overflow:hidden}.media-home-continue-artwork{border-radius:0}.media-home-continue-copy{display:grid;gap:.25rem;padding:.7rem}.media-home-continue-actions{display:grid;grid-template-columns:1fr;gap:.45rem}.media-home-continue-actions button{width:100%}}@media(max-width:46rem){.media-home-continue-rail{grid-auto-columns:minmax(80vw,20rem)}.media-home-continue-card{grid-template-columns:5rem 1fr}}@media(prefers-reduced-motion:reduce){.media-home-continue-actions button{transition:none}.media-home-continue-actions button:hover{transform:none}.media-home-continue-rail{scroll-behavior:auto}}';
     doc.head.appendChild(style);
+  }
+
+  function homeIsActive() {
+    const platform = global.VdrSuitePlatform;
+    return !platform || typeof platform.getSelectedModule !== 'function' ||
+      text(platform.getSelectedModule()) === 'overview';
+  }
+  function liveReady() {
+    return browserSessionAuthenticated() && backendSelectionReady() &&
+      homeIsActive() && !(doc && doc.hidden);
+  }
+  function stopLive() {
+    if (liveSource) {
+      liveSource.close();
+      liveSource = null;
+    }
+    liveRefreshPending = false;
+    liveSequence = 0;
+    liveConnectionSequence = 0;
+    ++refreshGeneration; // An old actor/backend read must not repaint this rail.
+  }
+  function scheduleLiveRefresh() {
+    liveRefreshPending = true;
+    if (liveRefreshScheduled || !liveReady()) return;
+    liveRefreshScheduled = true;
+    Promise.resolve().then(function () {
+      liveRefreshScheduled = false;
+      if (!liveRefreshPending || !liveReady()) return;
+      liveRefreshPending = false;
+      refresh({retainVisible: true});
+    });
+  }
+  function subscribeLive() {
+    if (liveSource || !liveReady()) return false;
+    const platform = global.VdrSuitePlatform;
+    const client = platform && typeof platform.getClientApi === 'function'
+      ? platform.getClientApi()
+      : global.VdrSuiteClientApi;
+    if (!client || typeof client.createClientLiveUpdateSource !== 'function') return false;
+    const source = client.createClientLiveUpdateSource();
+    if (!source) return false;
+    liveSource = source;
+    source.onopen = function () {
+      liveConnectionSequence = 0;
+    };
+    source.addEventListener('update', function (event) {
+      if (liveSource !== source || !liveReady()) return;
+      let data = null;
+      try { data = JSON.parse(event.data); } catch (_) { return; }
+      const sequence = Number(data && data.sequenceNumber);
+      if (!Number.isSafeInteger(sequence) || sequence < 1) return;
+      liveConnectionSequence = Math.max(liveConnectionSequence, sequence);
+      if (sequence <= liveSequence) return;
+      liveSequence = sequence;
+      if (text(data.backendId || 'default') !== selectedBackendId() ||
+          !Array.isArray(data.changedDomains)) return;
+      if (data.changedDomains.includes('continueWatching') ||
+          data.changedDomains.includes('recordings')) {
+        scheduleLiveRefresh();
+      }
+    });
+    source.onerror = function () {
+      if (liveSource !== source) return;
+      // The existing feed is finite. Normal completion is not a change.
+      // A lower sequence after daemon restart requires one canonical read.
+      if (liveConnectionSequence < liveSequence) {
+        liveSequence = liveConnectionSequence;
+        scheduleLiveRefresh();
+      }
+    };
+    return true;
   }
   function refresh(options) {
     if (!browserSessionAuthenticated()) return Promise.resolve(false);
@@ -334,14 +501,36 @@
   }
   function install() {
     installStyles();
-    if (browserSessionAuthenticated() &&
-        backendSelectionReady() &&
+    if (browserSessionAuthenticated() && backendSelectionReady() &&
         typeof global.setTimeout === 'function') {
-      global.setTimeout(refresh, 0);
+      global.setTimeout(function () {
+        if (liveReady()) subscribeLive();
+        refresh({retainVisible: true});
+      }, 0);
     }
     if (doc && typeof doc.addEventListener === 'function') {
       doc.addEventListener(HOME_RESUME_EVENT, function () {
+        if (liveReady()) subscribeLive();
         refresh({retainVisible: true});
+      });
+      doc.addEventListener('visibilitychange', function () {
+        if (!liveReady()) stopLive();
+        else {
+          subscribeLive();
+          refresh({retainVisible: true});
+        }
+      });
+      doc.addEventListener('click', function (event) {
+        const target = event && event.target;
+        if (!target || typeof target.closest !== 'function') return;
+        const tab = target.closest('.module-tab[data-module], [data-brand-module]');
+        const moduleName = text(tab && tab.dataset &&
+          (tab.dataset.module || tab.dataset.brandModule));
+        if (moduleName && moduleName !== 'overview') stopLive();
+        if (target.closest('#backends')) {
+          stopLive();
+          // The canonical Home-resume event owns the backend readback.
+        }
       });
     }
     return true;
@@ -350,7 +539,7 @@
   global.VdrSuiteHomeContinueWatching = Object.freeze({
     install,
     refresh,
-    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, ensureContinueWatchingPlaybackRuntime, continueWatchingPlaybackReady, releasePreview, clearBeforeRestart, selectShellModule, refreshHomeAfterPersistence, returnHome, publicPath, createArtwork})
+    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, ensureContinueWatchingPlaybackRuntime, continueWatchingPlaybackReady, releasePreview, clearBeforeRestart, selectShellModule, refreshHomeAfterPersistence, returnHome, publicPath, createArtwork, render, subscribeLive, stopLive, scheduleLiveRefresh})
   });
   if (doc) {
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', install, {once: true});
