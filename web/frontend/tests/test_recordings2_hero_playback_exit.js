@@ -59,6 +59,7 @@ const shared = {
     return fallback;
   },
   selectedBackendId() { return 'default'; },
+  text(value) { return value == null ? '' : String(value); },
   recordingTitle(recording) { return recording.title || ''; },
   recordingSubtitle() { return ''; },
   recordingSummary() { return ''; },
