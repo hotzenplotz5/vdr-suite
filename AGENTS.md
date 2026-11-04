@@ -114,10 +114,17 @@ beeinflussen.**
 
 ## Media Tools nach PR #556: offizieller Quellstand `main` (03.11.2026)
 
-**Ausdrückliche Maintainer-Anordnung (28.10.2026): Keine neuen Git-Branches
-ohne gesonderte Freigabe.** Keine neuen Feature-/Fix-/Ausweichbranches oder
-Worktrees als Installationsumweg erzeugen und keine fremden Branches
-eigenmächtig löschen oder überschreiben.
+**Verbindliche Maintainer-Vorgabe: Neue Git-Branches nur nach ausdrücklicher
+Zustimmung des Maintainers anlegen.** Das gilt für Feature-, Fix- und
+Ausweichbranches. Keine neuen Branches oder Worktrees als Installationsumweg
+erzeugen; bestehende Branches nicht ohne Auftrag löschen oder überschreiben.
+
+**Ausdrücklich erlaubt:** Zwischen bereits vorhandenen Branches wechseln
+(z. B. `git switch main`), `git fetch` und einen bestehenden Branch mit
+`git pull --ff-only` aktualisieren. Für diese normalen Git-Operationen
+ist keine zusätzliche Freigabe erforderlich, wenn sie zur beauftragten
+Entwicklung, zum Test oder zur Installation gehören. Dabei lokale Änderungen
+erhalten; keine destruktiven Git-Befehle als Abkürzung verwenden.
 
 **Abgeschlossen:** PR #556 wurde mit Merge-Commit
 `2ebb2d077736e5bbcdeb7472512644095ef06481` nach `main` übernommen.
@@ -133,39 +140,45 @@ erst nach Kontrolle von offenen PRs, CI-/Workflow- und
 Launchpad-/Deployment-Referenzen auf ausdrückliche Maintainer-Anweisung
 gelöscht werden. Die laufenden MLD-Tests und offenen PRs nicht mitlöschen.
 
-## Verbindlicher lokaler Branch-Check vor Build, Test und Installation (28.10.2026)
+## Lokalen Quellstand vor Build, Test und Installation prüfen (04.11.2026)
 
-**Ausnahme für reine Zwei-Dateien-Frontend-Updates:** Hierfür gilt die ausdrückliche KISS-Regel „Keine präventiven Sperrprüfungen bei einfachen Dateiupdates“ weiter unten; ein anderer lokaler Branch oder Detached HEAD ist bei einem verifizierten festen Quellcommit kein Stop-Grund.
+**Branchwechsel ist normaler Arbeitsablauf, keine Branch-Neuanlage.**
+Für eine beauftragte Entwicklung oder Installation darf der Assistent
+selbstständig auf einen **bereits vorhandenen** passenden Branch wechseln,
+insbesondere auf `main`, und diesen per `git fetch` und
+`git pull --ff-only` aktualisieren. Dafür ist keine gesonderte Nachfrage
+erforderlich. Die Zustimmungspflicht betrifft **nur das Anlegen neuer
+Branches**; sie darf nicht als Verbot von `git switch main` ausgelegt werden.
 
-
-**Ausdrückliche Maintainer-Anordnung:** Vor jedem lokalen Build, Testlauf,
-Staging, Merge oder Installationslauf zuerst den **tatsächlich ausgecheckten
-lokalen Branch** im verwendeten Checkout prüfen. Ein richtiger GitHub-PR-Branch
-oder Remote-HEAD allein ist kein Nachweis für den lokalen Checkout.
-
-- Checkout-Pfad und Git-Top-Level prüfen; `git branch --show-current` sowie
-  `git rev-parse HEAD` aus dem **gleichen Checkout** auswerten, in dem
-  anschließend gebaut/getestet/installiert werden soll. Der kanonische
-  Quellbranch ist nach PR #556 `main`; bei einem ausdrücklich festgelegten
-  Commit dessen Herkunft aus `main` prüfen, statt einen gelöschten
-  Entwicklungsbranch zu verlangen.
-- Bei unerwarteten Änderungen der tatsächlich vereinbarten Quellbasis
-  **vor jeder weiteren Aktion abbrechen** und explizit
-  `FALSCHER_BRANCH: erwartet=<branch> aktuell=<branch>` ausgeben,
-  nicht bloß mit `set -e` und `test` still aussteigen. Detached HEAD
-  ebenfalls sichtbar melden. Auch ein korrekter Branchname reicht ohne
-  passenden, verifizierten lokalen Commit nicht zur Build-Freigabe.
-- Niemals eigenmächtig `git switch`, `git checkout`, `git reset`,
-  `git clean`, `git stash` oder einen neuen Branch anlegen, um diesen
-  Fehler zu übergehen. Bestehende fremde Branches und unversionierte
-  Dateien erhalten. Bei Bedarf können **explizite, branchunabhängige
-  Einzeldatei-Updates aus einem verifizierten Commit** separat
-  durchgeführt werden; sie sind kein lokaler Build und müssen
-  Installationsziel und Backup klar benennen.
-- Fehler in einem von uns gelieferten Shellblock müssen mit konkretem
-  Hinweis ausgegeben werden. Vorher kontrollieren, dass Git-Kommandos
-  ohne fehlende Shellfunktion, ohne vorzeitig abbrechenden `test`
-  und ohne unerwarteten Branchwechsel funktionieren.
+- Vor dem Wechsel den tatsächlichen Checkout und `git status` prüfen.
+  Bei lokal geänderten oder unversionierten Dateien nichts verwerfen oder
+  überschreiben. Einen gefahrlosen normalen Wechsel zulassen; wenn Git
+  dadurch Änderungen überschreiben würde, gezielt stoppen und den
+  Konflikt melden. Kein automatisches `reset --hard`, `git clean`,
+  erzwungenes `checkout` oder ungefragtes `stash`.
+- Vor dem Build/Test/Staging/Deployment das Git-Top-Level, den **danach
+  tatsächlich ausgecheckten** Branch und `git rev-parse HEAD` im
+  verwendeten Checkout prüfen. Die für den Auftrag vereinbarte Quelle
+  ist maßgeblich; nach Media Tools PR #556 ist `main` die kanonische
+  Quelle. Einen ausdrücklich festgelegten Commit gegen den Quellbranch
+  verifizieren.
+- Ist der Checkout noch auf einem alten Arbeitsbranch, **nicht einfach
+  wegen des Branch-Namens abbrechen**: den bestehenden Zielbranch regulär
+  auswählen und aktualisieren, danach den gewünschten Commit verifizieren.
+  Nur bei tatsächlichem Konflikt, fehlendem Zielbranch, nicht
+  vorwärtsgerichtetem Pull oder nicht passendem Quellstand mit einem
+  konkreten Fehler stoppen. Kein `FALSCHER_BRANCH` als künstliches
+  Hindernis für einen sicheren, erlaubten Wechsel.
+- Keine neuen Git-Branches ohne ausdrückliche Freigabe und keine
+  eigenmächtigen Löschungen, Force-Pushes oder History-Rewrites. Bereits
+  vorhandene Branches, Änderungen und unversionierte Dateien bewahren.
+- **Reine gezielte Frontend-Dateiupdates** aus einem fest verifizierten
+  Commit benötigen weiterhin weder Branchwechsel noch einen lokalen
+  Build und werden nicht durch einen abweichenden lokalen Branch blockiert.
+- Installations- und Testblöcke müssen nach dem gegebenenfalls nötigen
+  Branchwechsel den tatsächlichen Quellstand überprüfen und Fehler
+  verständlich melden. Keine stillen Abbrüche oder ungeschützten
+  Git-Operationen.
 
 ## GitHub SSH identity verification before console commands (28.10.2026)
 
