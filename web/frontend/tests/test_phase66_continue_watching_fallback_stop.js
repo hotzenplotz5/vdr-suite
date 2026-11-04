@@ -161,6 +161,7 @@ const suiteWrites = [];
 let progressRevision = 0;
 const mediaRequests = [];
 let hlsSequence = 0;
+let releaseLateRecordingSession = null;
 const document = {
   readyState: 'complete',
   visibilityState: 'visible',
@@ -221,6 +222,22 @@ const window = {
       const body = JSON.parse(options.body);
       mediaRequests.push({path: requestPath, body});
       if (body.operation === 'stop') return Promise.resolve({ok: true});
+      if (body.recordingId === 'late-closed-player') {
+        return new Promise(resolve => {
+          releaseLateRecordingSession = () => resolve({mediaSession: {
+            id: 'late-closed-session',
+            state: 'ready',
+            presentationProfileId: 'progressive-fmp4',
+            mediaPath: '/api/media/sessions/late-closed-session/recording/stream.mp4',
+            playback: {
+              positionSeconds: 0, durationSeconds: 7200,
+              seek: {supported: true, preparing: false,
+                window: {startSeconds: 0, endSeconds: 7200}},
+              resume: {supported: true, preparing: false}
+            }
+          }});
+        });
+      }
       if (body.operation === 'playback-status') {
         return Promise.resolve({mediaSession: {
           id: body.sessionId,
@@ -417,6 +434,22 @@ function progressWrite(recordingId) {
     entry.body.operation === 'stop' && entry.body.sessionId === 'fast-provisional-malkovich'
   );
   assert.ok(provisionalStop, 'transport replacement must still clean up the provisional fast session');
+
+  // Leaving playback while MediaSession creation is pending must stop the
+  // late server session, not discard its ID and leave an orphaned stream.
+  const closing = factory.createPanel({id: 'late-closed-player'}, 'default');
+  const startedAfterClose = closing.start();
+  await flush(20);
+  assert.equal(typeof releaseLateRecordingSession, 'function');
+  closing.destroy();  // Hero "← Details" destroys the current playback owner.
+  releaseLateRecordingSession();
+  assert.strictEqual(await startedAfterClose, '', 'closed playback must not restart');
+  await flush(30);
+  const lateStop = mediaRequests.filter(entry =>
+    entry.body.operation === 'stop' &&
+    entry.body.sessionId === 'late-closed-session');
+  assert.strictEqual(lateStop.length, 1,
+    'late MediaSession must be stopped exactly once after returning to Details');
 
   console.log('phase66 fallback Stop persists Continue Watching and preserves progressive path');
 }()).catch(error => {
