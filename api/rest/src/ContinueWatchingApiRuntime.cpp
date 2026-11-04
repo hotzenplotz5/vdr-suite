@@ -21,6 +21,10 @@ namespace
 {
 constexpr const char* ContinueWatchingRoute = "/api/media/continue-watching";
 constexpr const char* RecentlyWatchedRoute = "/api/media/recently-watched";
+// A progress checkpoint is saved every few seconds. Surface the first
+// checkpoint, periodic advances and terminal/explicit updates, without
+// turning the finite SSE replay history into a second progress log.
+constexpr std::int64_t ContinueWatchingLiveRevisionInterval = 6;
 
 std::string jsonEscape(const std::string& value)
 {
@@ -695,7 +699,9 @@ ApiResponse ContinueWatchingApiRuntime::publicProgressUpdate(
         return errorResponse(503, "recording_progress_unavailable");
 
     ApiResponse response;
-    if (mutation.status == ContinueWatchingMutationStatus::applied)
+    if (mutation.status == ContinueWatchingMutationStatus::applied &&
+        (position == 0 || mutation.revision == 1 ||
+         mutation.revision % ContinueWatchingLiveRevisionInterval == 0))
         pendingProgressBackends_.insert(backendId);
 
     response.statusCode = 200;
@@ -886,7 +892,10 @@ bool ContinueWatchingApiRuntime::tryHandlePost(
             response=errorResponse(503,"continue_watching_write_failed");
             return true;
         }
-        if (updated.status==Status::applied)
+        if (updated.status == Status::applied &&
+            (operation == "clear" || parser.boolValue("notifyLive") ||
+             updated.revision == 1 ||
+             updated.revision % ContinueWatchingLiveRevisionInterval == 0))
             pendingProgressBackends_.insert(backendId);
         response.statusCode=200;
         response.contentType="application/json";
