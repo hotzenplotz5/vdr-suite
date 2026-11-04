@@ -43,11 +43,11 @@ A roadmap entry is never automatic permission to implement the next possible dif
 - Completed phase history is not renumbered. Only not-yet-started future phases may be reordered when architecture/product sequencing is explicitly updated.
 
 
-## SSE.H — Live-Update transport hardening (queued; 04.11.2026)
+## SSE.H — Live-Update transport hardening (SSE.H1 code committed; tests/yaVDR open; 04.11.2026)
 
-**Source-reviewed backlog, not implementation or real-yaVDR acceptance.** The existing [ADR-0019 SSE strategy](../adr/ADR-0019-sse-event-stream-transport-strategy.md) remains accepted; its runtime needs targeted [SSE/Continue-Watching hardening](../development/sse-continue-watching-hardening-2026-11-04.md).
+**SSE.H1 in Produktcode/Tests auf main committed (d1085f50), aber noch keine verifizierte C++-/Browser-/yaVDR-Abnahme.** The existing [ADR-0019 SSE strategy](../adr/ADR-0019-sse-event-stream-transport-strategy.md) remains accepted; its runtime needs targeted [SSE/Continue-Watching hardening](../development/sse-continue-watching-hardening-2026-11-04.md).
 
-**Next narrowly scoped technical slice: SSE.H1 — bounded event retention plus correct delta replay and gap/resync handling.** Subsequent separate slices: SSE.H2 shared Browser EventSource, CW.H1 confirmed stop/finish semantics, CW.H2 race-free restart, SSE.H3 actor-scoped fan-out evaluation, DEP.H1 installed daemon provenance and DB-safe deploy review. Do not start them together or silently change the established BAS/numbered-phase sequence. No new branch, Phase 70, frontend polling fallback or automatic DB backup. Real yaVDR acceptance remains open.
+**Current technical gate: SSE.H1 gezielt kompilieren, testen und auf realem yaVDR abnehmen.** Bounded retention, epoch-aware Last-Event-ID replay und resync sind im Quellcode ergänzt; der Browser-HTTP-Socket bleibt endlich. Ein neuer produktiver Daemon-Build ist erforderlich. Subsequent separate slices: SSE.H2 shared Browser EventSource, CW.H1 confirmed stop/finish semantics, CW.H2 race-free restart, SSE.H3 actor-scoped fan-out evaluation, DEP.H1 installed daemon provenance and DB-safe deploy review. Do not start them together or silently change the established BAS/numbered-phase sequence. No new branch, Phase 70, frontend polling fallback or automatic DB backup. Real yaVDR acceptance remains open.
 
 ---
 
