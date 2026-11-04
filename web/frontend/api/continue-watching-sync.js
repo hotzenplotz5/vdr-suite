@@ -287,12 +287,16 @@
       const duration = readDuration();
       const complete = forceClear || (duration > 0 && position >= duration);
       if (!complete && (!position || !canResume() || position === lastPosition)) return Promise.resolve(false);
+      // Notify Home promptly on the first observed playback checkpoint and
+      // final pause/stop. Routine five-second samples remain persisted but
+      // do not each inflate the finite SSE event history.
+      const notifyLive = lastPosition < 0 || allowInactive === true;
       lastPosition = position;
       return enqueueVersioned(complete ? {
         operation: 'clear', backendId, recordingId: recordingId(recording), operationId: nextOperationId('clear')
       } : {
         operation: 'progress', backendId, recordingId: recordingId(recording), positionSeconds: position,
-        resumeSupported: true, operationId: nextOperationId('progress')
+        resumeSupported: true, notifyLive: notifyLive, operationId: nextOperationId('progress')
       }, revisionState).then(function (success) { return success === true; }, function () { return false; });
     }
     function syncHistory(ended, allowInactive) {
