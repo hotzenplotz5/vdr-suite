@@ -175,14 +175,14 @@ const flush = (times = 24) => {
   assert.equal(timers.length, 1);
   writeFailures = 2;
   timers.shift()();
-  await sync.flush();
+  await sync.flushPending();
   await flush();
   assert.equal(timers.length, 1);
   assert.equal(storedPosition, 5400, 'failure must not claim persistence');
   assert(alerts.some(a => a && a.textContent && a.textContent.includes('nicht gespeichert')),
     'the playback owner must visibly report a failed persistence attempt');
   timers.shift()();
-  await sync.flush();
+  await sync.flushPending();
   await flush();
   assert.equal(storedPosition, 4800, 'same-position retry must recover the saved checkpoint');
   assert(alerts.includes('removed'), 'save success clears the warning');
