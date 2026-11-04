@@ -90,11 +90,15 @@ function item(id, position, poster = '/poster-' + id + '.webp') {
     backendId: backend,
     recordingId: id,
     title: 'Film ' + id,
+    subtitle: '|Abenteuer|Mystery|Drama|',
     posterUrl: poster,
     resumePositionSeconds: position,
     durationKnown: true,
     durationSeconds: 600,
-    recording: {id, recordingId: id, backendId: backend, title: 'Film ' + id}
+    recording: {
+      id, recordingId: id, backendId: backend, title: 'Film ' + id,
+      metadata: {presentation: {summary: 'Eine Beschreibung von Film ' + id}}
+    }
   };
 }
 items = [item('one', 80), item('two', 140)];
@@ -173,6 +177,11 @@ function tab(module) {
   const oldTwo = card('two');
   const artwork = oldOne.children[0];
   const poster = artwork.children[0];
+  const synopsis = oldOne.__vdrSuiteContinueView.synopsis;
+  assert.strictEqual(oldOne.__vdrSuiteContinueView.subtitle.textContent,
+    'Abenteuer · Mystery · Drama');
+  assert.strictEqual(synopsis.textContent, 'Eine Beschreibung von Film one');
+  assert.strictEqual(synopsis.hidden, false);
   rail().scrollLeft = 215;
 
   first.onopen();
@@ -198,6 +207,7 @@ function tab(module) {
 
   const renamed = item('one', 200);
   renamed.title = 'Film Eins – umbenannt';
+  renamed.recording.metadata.presentation.summary = 'Aktualisierte Kurzbeschreibung';
   items = [renamed, item('two', 140)];
   first.emit(6);
   await tick();
@@ -207,6 +217,9 @@ function tab(module) {
   assert.strictEqual(artwork.children[0], poster,
     'title-only correction does not request the poster again');
   assert.strictEqual(poster.alt, 'Poster zu Film Eins – umbenannt');
+  assert.strictEqual(oldOne.__vdrSuiteContinueView.synopsis, synopsis,
+    'metadata updates must reuse the existing synopsis DOM node');
+  assert.strictEqual(synopsis.textContent, 'Aktualisierte Kurzbeschreibung');
 
   items = [item('one', 200)];
   first.emit(7);
