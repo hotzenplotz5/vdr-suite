@@ -2196,9 +2196,19 @@
       });
 
       const promise = createRecordingSession(backendId, recording).then(function (session) {
-        if (destroyed) return '';
         const mediaSession = session && session.mediaSession;
         const id = safeSessionId(mediaSession && mediaSession.id);
+        if (destroyed) {
+          // The user left Playback while the HTTP request was in flight.
+          // The server has already allocated this session; dropping the
+          // response without STOP leaves a background playback resource.
+          if (!id) return '';
+          return stopRecordingSession(backendId, id, false).then(function () {
+            return '';
+          }, function () {
+            return '';
+          });
+        }
         if (!id || !mediaSession || mediaSession.state !== 'ready') {
           throw new Error('Schnelle Recording-MediaSession wurde nicht bereitgestellt.');
         }
