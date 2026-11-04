@@ -196,23 +196,35 @@ function tab(module) {
   assert.strictEqual(oldOne.__vdrSuiteContinueView.meter.value, 33);
   assert(oldOne.__vdrSuiteContinueView.progressText.textContent.includes('3:20'));
 
-  items = [item('one', 200)];
+  const renamed = item('one', 200);
+  renamed.title = 'Film Eins – umbenannt';
+  items = [renamed, item('two', 140)];
   first.emit(6);
+  await tick();
+  assert.strictEqual(card('one'), oldOne, 'title correction retains the Recording card');
+  assert.strictEqual(card('one').children[0], artwork,
+    'title-only correction retains the existing artwork container');
+  assert.strictEqual(artwork.children[0], poster,
+    'title-only correction does not request the poster again');
+  assert.strictEqual(poster.alt, 'Poster zu Film Eins – umbenannt');
+
+  items = [item('one', 200)];
+  first.emit(7);
   await tick();
   assert(!card('two'), 'completed/cleared recording leaves the rail');
   assert.strictEqual(card('one'), oldOne);
 
   queuedResponses.push(() => Promise.resolve({ok: false}));
-  first.emit(7);
+  first.emit(8);
   await tick();
   assert.strictEqual(card('one'), oldOne, 'failed read retains last good projection');
 
   let releaseOld;
   queuedResponses.push(() => new Promise(resolve => { releaseOld = resolve; }));
-  first.emit(8);
+  first.emit(9);
   await tick();
   items = [item('one', 360)];
-  first.emit(9);
+  first.emit(10);
   await tick();
   assert.strictEqual(card('one').__vdrSuiteContinueItem.resumePositionSeconds, 360);
   releaseOld({ok: true, json: () => Promise.resolve({items: [item('one', 12)]})});
@@ -223,7 +235,7 @@ function tab(module) {
   document.hidden = true;
   dispatch('visibilitychange');
   assert(first.closed, 'hidden Home closes SSE connection');
-  first.emit(10);
+  first.emit(11);
   await tick();
   assert.strictEqual(card('one').__vdrSuiteContinueItem.resumePositionSeconds, 360);
   document.hidden = false;
