@@ -59,31 +59,41 @@
     if (Number.isSafeInteger(state.revision)) return Promise.resolve(state.revision);
     if (state.loading) return state.loading;
     const fetcher = global.fetch || fetch;
-    state.loading = fetcher(CONTINUE_ENDPOINT, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
-      body: JSON.stringify({
-        operation: 'revision', backendId, recordingId: currentRecordingId
-      })
-    }).then(function (response) {
-      if (!response || !response.ok || typeof response.json !== 'function') {
-        throw new Error('Resume revision unavailable');
-      }
-      return response.json();
-    }).then(function (data) {
-      if (!data || !Number.isSafeInteger(data.revision) || data.revision < 0) {
-        throw new Error('Invalid resume revision');
-      }
-      state.revision = data.revision;
-      return data.revision;
-    }).catch(function () {
-      // A failed baseline read is not a CAS conflict. The next sample may
-      // retry; no mutation is sent without a confirmed revision.
+    function read(retriesLeft) {
+      return Promise.resolve().then(function () {
+        return fetcher(CONTINUE_ENDPOINT, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+          body: JSON.stringify({
+            operation: 'revision', backendId, recordingId: currentRecordingId
+          })
+        });
+      }).then(function (response) {
+        if (!response || !response.ok || typeof response.json !== 'function') {
+          if (retriesLeft > 0 && (!response || response.status === 429 || response.status >= 500)) {
+            return read(retriesLeft - 1);
+          }
+          throw new Error('Resume revision unavailable');
+        }
+        return response.json().then(function (data) {
+          if (!data || !Number.isSafeInteger(data.revision) || data.revision < 0) {
+            throw new Error('Invalid resume revision');
+          }
+          state.revision = data.revision;
+          return data.revision;
+        });
+      }, function () {
+        if (retriesLeft > 0) return read(retriesLeft - 1);
+        throw new Error('Resume revision network unavailable');
+      });
+    }
+    // Retry only at admission. After playback has advanced, silently
+    // acquiring a new baseline could overwrite a newer linked Device.
+    state.loading = read(1).catch(function () {
+      state.blocked = true;
+      state.failure = 'baseline';
       return null;
-    }).then(function (revision) {
-      state.loading = null;
-      return revision;
     });
     return state.loading;
   }
@@ -310,7 +320,9 @@
         ? 'Wiedergabefortschritt nicht gespeichert: Eine neuere Position liegt vor. Bitte die Aufnahme erneut öffnen.'
         : revisionState.failure === 'authorization'
           ? 'Wiedergabefortschritt nicht gespeichert: Anmeldung prüfen.'
-          : 'Wiedergabefortschritt noch nicht gespeichert. Erneuter Versuch folgt.';
+          : revisionState.failure === 'baseline'
+            ? 'Wiedergabefortschritt nicht gespeichert: Ausgangsstand unbekannt. Bitte Aufnahme neu öffnen.'
+            : 'Wiedergabefortschritt noch nicht gespeichert. Erneuter Versuch folgt.';
       const root = owner.element;
       const document = global.document;
       if (!root || typeof root.appendChild !== 'function' ||
