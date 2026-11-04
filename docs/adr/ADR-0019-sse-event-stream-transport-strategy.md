@@ -63,6 +63,12 @@ Trade-offs:
 
 ---
 
+## Implementation hardening follow-up (04.11.2026)
+
+The accepted choice of SSE remains unchanged. Source inspection found a finite cumulative SSE replay response, potentially unbounded history, and Continue-Watching lifecycle questions. These are **open implementation findings, not accepted runtime behavior**. The scoped plan, source references, tests and real-system acceptance gates are in [SSE.H — Live Transport and Continue Watching Hardening](../development/sse-continue-watching-hardening-2026-11-04.md). The [Strict Roadmap](../planning/roadmap.md) controls execution order; the first slice is **SSE.H1**, bounded retention and replay/gap handling.
+
+---
+
 ## Related ADRs
 
 - [ADR-0016 Snapshot Change Feed Architecture](ADR-0016-snapshot-change-feed-architecture.md)
