@@ -203,8 +203,8 @@ assert(!heroSource.includes('/api/media/sessions'));
 // semantics, focus, touch sizing, fallback art and below-fold image behavior.
 assert(continueSource.includes("section.setAttribute('aria-labelledby', 'media-home-continue-title')"));
 assert(continueSource.includes("rail.setAttribute('aria-label', 'Fortsetzbare Aufnahmen')"));
-assert(continueSource.includes("resume.setAttribute('aria-label', item.title + ' fortsetzen')"));
-assert(continueSource.includes("restart.setAttribute('aria-label', item.title + ' von vorn abspielen')"));
+assert(continueSource.includes("view.resume.setAttribute('aria-label', item.title + ' fortsetzen')"));
+assert(continueSource.includes("view.restart.setAttribute('aria-label', item.title + ' von vorn abspielen')"));
 assert(continueSource.includes("image.loading = 'lazy'"));
 assert(continueSource.includes("image.decoding = 'async'"));
 assert(continueSource.includes("image.fetchPriority = 'low'"));
