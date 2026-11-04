@@ -69,5 +69,5 @@ private:
     std::unique_ptr<RecentlyWatchedRepository> recentlyWatchedRepository_;
     std::unique_ptr<RecentlyWatchedService> recentlyWatchedService_;
     VdrRecordingCacheRepository* recordings_ = nullptr;
-    std::set<std::string> pendingProgressBackends_;
+    mutable std::set<std::string> pendingProgressBackends_;
 };
