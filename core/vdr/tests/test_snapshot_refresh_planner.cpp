@@ -136,6 +136,17 @@ static void test_recording_marks_event_does_not_refresh_snapshot_domains()
     assert(plan.hasSelectiveEventRefresh() == false);
 }
 
+static void test_continue_watching_event_does_not_refresh_snapshot_domains()
+{
+    SnapshotRefreshPlanner planner;
+    const auto plan = planner.createPlan({
+        VdrChangeEvent(VdrChangeType::ContinueWatchingChanged)
+    });
+    assert(plan.hasRefreshWork() == false);
+    assert(plan.requiresFullSnapshot() == false);
+    assert(plan.hasSelectiveEventRefresh() == false);
+}
+
 static void test_live_overlay_event_does_not_refresh_snapshot_domains()
 {
     SnapshotRefreshPlanner planner;
@@ -164,6 +175,7 @@ int main()
     test_mixed_events_change_keeps_lightweight_refreshes_only();
     test_status_event_creates_status_refresh();
     test_recording_marks_event_does_not_refresh_snapshot_domains();
+    test_continue_watching_event_does_not_refresh_snapshot_domains();
     test_live_overlay_event_does_not_refresh_snapshot_domains();
 
     std::cout
