@@ -108,7 +108,10 @@ assert.equal(initialRoot.__vdrSuiteRecordingPlaybackOwner, owners[0]);
 
 hero.showMode(initialRoot, 'playback');
 assert.equal(initialRoot.dataset.recordings2HeroMode, 'playback');
-hero.showMode(initialRoot, 'detail');
+const backButton = initialRoot.children.find(child =>
+  child.className === 'recordings2-hero-mode-back');
+assert(backButton, 'the real Details button must be present');
+backButton.click();
 assert.equal(stoppedCount, 1, 'Back to Details must destroy active media owner');
 assert.equal(owners[0].playing, false, 'hidden playback may not continue playing');
 assert.equal(owners.length, 2, 'returning to Details must prepare a fresh usable owner');
