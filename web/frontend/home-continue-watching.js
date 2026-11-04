@@ -305,12 +305,18 @@
     const previous = card.__vdrSuiteContinueItem;
     card.__vdrSuiteContinueItem = item;
     const oldArtwork = previous && text(previous.posterUrl);
-    if (previous && (oldArtwork !== text(item.posterUrl) ||
-        previous.title !== item.title)) {
+    if (previous && oldArtwork !== text(item.posterUrl)) {
       const artwork = createArtwork(item);
       card.insertBefore(artwork, view.artwork);
       view.artwork.remove();
       view.artwork = artwork;
+    } else if (previous && previous.title !== item.title) {
+      // A title correction alone must not detach or refetch an unchanged poster.
+      const image = Array.from(view.artwork.children || []).find(function (node) {
+        return node.tagName === 'IMG';
+      });
+      if (image) image.alt = 'Poster zu ' + item.title;
+      else view.artwork.textContent = item.title.slice(0, 1).toUpperCase() || '▶';
     }
     if (view.name.textContent !== item.title) view.name.textContent = item.title;
     const subtitle = text(item.subtitle);
