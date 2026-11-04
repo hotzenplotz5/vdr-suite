@@ -55,6 +55,8 @@
   // the baseline once for this playback owner, not immediately before every
   // position update (that would let a stale session overwrite a newer TV).
   function loadRevision(state, backendId, currentRecordingId) {
+    if (state.blocked) return Promise.resolve(null);
+    if (Number.isSafeInteger(state.revision)) return Promise.resolve(state.revision);
     if (state.loading) return state.loading;
     const fetcher = global.fetch || fetch;
     state.loading = fetcher(CONTINUE_ENDPOINT, {
@@ -76,50 +78,92 @@
       state.revision = data.revision;
       return data.revision;
     }).catch(function () {
-      state.blocked = true;
+      // A failed baseline read is not a CAS conflict. The next sample may
+      // retry; no mutation is sent without a confirmed revision.
       return null;
+    }).then(function (revision) {
+      state.loading = null;
+      return revision;
     });
     return state.loading;
   }
 
-  function enqueueVersioned(body, state) {
-    const operation = mutationQueue.catch(function () {}).then(function () {
-      return loadRevision(state, body.backendId, body.recordingId);
-    }).then(function () {
-      if (state.blocked || !Number.isSafeInteger(state.revision)) return false;
-      const fetcher = global.fetch || fetch;
-      const request = Object.assign({}, body, {expectedRevision: state.revision});
-      return fetcher(CONTINUE_ENDPOINT, {
-        method: 'POST', credentials: 'same-origin',
-        headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
-        body: JSON.stringify(request)
+  // Repeat an unacknowledged mutation with the SAME CAS revision and
+  // operation ID. A lost HTTP reply must never silently rebase an old
+  // player against a newer Browser/Device checkpoint.
+  function sendVersioned(request, state) {
+    const fetcher = global.fetch || fetch;
+    function attempt(retriesLeft) {
+      return Promise.resolve().then(function () {
+        return fetcher(CONTINUE_ENDPOINT, {
+          method: 'POST', credentials: 'same-origin',
+          headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
+          body: JSON.stringify(request)
+        });
       }).then(function (response) {
-        if (!response || response.status === 409) {
-          // Never take a new revision and silently resubmit a stale position.
+        if (response && response.status === 409) {
           state.blocked = true;
+          state.failure = 'conflict';
           return false;
         }
-        if (!response.ok || typeof response.json !== 'function') {
-          state.blocked = true;
+        if (!response || !response.ok || typeof response.json !== 'function') {
+          if (retriesLeft > 0 && (!response || response.status === 429 || response.status >= 500)) {
+            return attempt(retriesLeft - 1);
+          }
+          state.failure = response && (response.status === 401 || response.status === 403)
+            ? 'authorization' : 'temporary';
+          if (state.failure === 'authorization') state.blocked = true;
           return false;
         }
         return response.json().then(function (data) {
           if (!data || data.ok !== true ||
               !Number.isSafeInteger(data.revision) ||
-              data.revision !== state.revision + 1 &&
-              data.revision !== state.revision) {
+              (data.revision !== state.revision + 1 &&
+               data.revision !== state.revision)) {
             state.blocked = true;
+            state.failure = 'invalid';
             return false;
           }
           state.revision = data.revision;
+          state.failure = '';
           return true;
         }, function () {
-          state.blocked = true;
+          if (retriesLeft > 0) return attempt(retriesLeft - 1);
+          state.failure = 'temporary';
           return false;
         });
       }, function () {
-        state.blocked = true;
+        if (retriesLeft > 0) return attempt(retriesLeft - 1);
+        state.failure = 'temporary';
         return false;
+      });
+    }
+    return attempt(1);
+  }
+
+  function enqueueVersioned(body, state) {
+    const operation = mutationQueue.catch(function () {}).then(function () {
+      if (state.blocked) return false;
+      return loadRevision(state, body.backendId, body.recordingId);
+    }).then(function (revision) {
+      if (state.blocked || !Number.isSafeInteger(revision)) {
+        if (!state.blocked) state.failure = 'temporary';
+        return false;
+      }
+      const pending = state.pending
+        ? sendVersioned(state.pending, state).then(function (saved) {
+            if (saved) state.pending = null;
+            return saved;
+          })
+        : Promise.resolve(true);
+      return pending.then(function (saved) {
+        if (!saved || state.blocked) return false;
+        const request = Object.assign({}, body, {expectedRevision: state.revision});
+        state.pending = request;
+        return sendVersioned(request, state).then(function (confirmed) {
+          if (confirmed) state.pending = null;
+          return confirmed;
+        });
       });
     });
     mutationQueue = operation.catch(function () {});
@@ -260,6 +304,34 @@
     let mediaObserver = null;
     const boundMedia = [];
     const revisionState = {revision: null, loading: null, blocked: false};
+    let progressWarning = null;
+    function showProgressWarning() {
+      const message = revisionState.failure === 'conflict'
+        ? 'Wiedergabefortschritt nicht gespeichert: Eine neuere Position liegt vor. Bitte die Aufnahme erneut öffnen.'
+        : revisionState.failure === 'authorization'
+          ? 'Wiedergabefortschritt nicht gespeichert: Anmeldung prüfen.'
+          : 'Wiedergabefortschritt noch nicht gespeichert. Erneuter Versuch folgt.';
+      const root = owner.element;
+      const document = global.document;
+      if (!root || typeof root.appendChild !== 'function' ||
+          !document || typeof document.createElement !== 'function') {
+        if (global.console && typeof global.console.warn === 'function') global.console.warn(message);
+        return;
+      }
+      if (!progressWarning) {
+        progressWarning = document.createElement('p');
+        progressWarning.className = 'recordings2-continue-save-warning';
+        progressWarning.setAttribute('role', 'alert');
+        root.appendChild(progressWarning);
+      }
+      progressWarning.textContent = message;
+    }
+    function clearProgressWarning() {
+      if (!progressWarning) return;
+      if (typeof progressWarning.remove === 'function') progressWarning.remove();
+      else progressWarning.textContent = '';
+      progressWarning = null;
+    }
     // Do not emit a progress read for a prewarmed session that has not
     // entered actual playback; acquire the baseline on active admission.
 
@@ -291,13 +363,21 @@
       // final pause/stop. Routine five-second samples remain persisted but
       // do not each inflate the finite SSE event history.
       const notifyLive = lastPosition < 0 || allowInactive === true;
-      lastPosition = position;
       return enqueueVersioned(complete ? {
         operation: 'clear', backendId, recordingId: recordingId(recording), operationId: nextOperationId('clear')
       } : {
         operation: 'progress', backendId, recordingId: recordingId(recording), positionSeconds: position,
         resumeSupported: true, notifyLive: notifyLive, operationId: nextOperationId('progress')
-      }, revisionState).then(function (success) { return success === true; }, function () { return false; });
+      }, revisionState).then(function (success) {
+        if (success) {
+          lastPosition = position; // Only a confirmed Core write advances the saved checkpoint.
+          clearProgressWarning();
+        } else showProgressWarning();
+        return success === true;
+      }, function () {
+        showProgressWarning();
+        return false;
+      });
     }
     function syncHistory(ended, allowInactive) {
       if (disposed && !ended) return Promise.resolve(false);
