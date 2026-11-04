@@ -370,6 +370,13 @@
           root.__vdrSuiteRecordingPlaybackOwner = activePlayback;
           root.appendChild(activePlayback.element);
           const ownedPlayback = activePlayback;
+          root.__vdrSuiteRecordingPlaybackExit = function () {
+            if (activePlayback !== ownedPlayback) return false;
+            // prepareTarget() destroys the current playback and builds a
+            // fresh owner, rather than leaving a hidden stream or dead controls.
+            renderDetail();
+            return true;
+          };
           ensureRestartChoiceRuntime().then(function (helper) { if (activePlayback === ownedPlayback && helper && typeof helper.install === 'function') helper.install(ownedPlayback); }).catch(function (error) { console.error('VDR-Suite Recording restart choice runtime failed', error); });
         }
       }
