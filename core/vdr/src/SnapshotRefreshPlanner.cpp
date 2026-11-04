@@ -32,6 +32,10 @@ SnapshotUpdatePlan SnapshotRefreshPlanner::createPlan(
                 plan.markRecordingsRefresh();
             }
             break;
+        case VdrChangeType::ContinueWatchingChanged:
+            // Actor-owned playback progress is stored independently of VDR
+            // snapshots; this narrow hint must not trigger a VDR refresh.
+            break;
         case VdrChangeType::RecordingMarksChanged:
             // Recording marks are resolved independently from the cached
             // recording snapshot. Their change event is a narrow SSE hint and
