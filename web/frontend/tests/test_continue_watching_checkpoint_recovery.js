@@ -97,15 +97,25 @@ const flush = (times = 24) => {
 };
 
 (async function () {
-  // A temporary failure to read the baseline must NOT disable the owner for
-  // the remaining 1h20 of playback. No write can precede a valid baseline.
+  // A transient baseline outage is retried immediately at admission.
+  // Never refetch a baseline minutes later into a stale browser owner.
   const state = {revision: null, loading: null, blocked: false};
-  assert.equal(await sync.loadRevision(state, 'default', 'medicus2'), null);
+  assert.equal(await sync.loadRevision(state, 'default', 'medicus2'), 2);
   assert.equal(state.blocked, false);
   assert.equal(writes.length, 0);
   assert.equal(await sync.enqueueVersioned(progress(4800, 'medicus-recovered'), state), true);
   assert.equal(storedPosition, 4800);
   assert.equal(state.revision, 3);
+
+  // A permanently unavailable admission baseline must fail closed, rather
+  // than rebasing an old playing session after a newer Device checkpoint.
+  baselineFailures = 2;
+  const unavailable = {revision: null, loading: null, blocked: false};
+  assert.equal(await sync.loadRevision(unavailable, 'default', 'medicus2'), null);
+  assert.equal(unavailable.blocked, true);
+  const beforeUnavailable = writes.length;
+  assert.equal(await sync.enqueueVersioned(progress(4810, 'invalid-baseline'), unavailable), false);
+  assert.equal(writes.length, beforeUnavailable);
 
   // Two unanswered 503 writes must retain their CAS and operation ID.
   // When the connection recovers, the pending write is acknowledged first
