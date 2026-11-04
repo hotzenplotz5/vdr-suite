@@ -36,6 +36,27 @@
     const number = Number(value);
     return Number.isFinite(number) && number > 0 ? Math.floor(number) : 0;
   }
+  function readableSubtitle(value) {
+    const raw = text(value).trim();
+    // TVScraper genre lists can arrive as |Abenteuer|Mystery|Drama|.
+    // Keep ordinary episode subtitles unchanged.
+    return raw.indexOf('|') >= 0
+      ? raw.split('|').map(function (part) { return part.trim(); }).filter(Boolean).join(' · ')
+      : raw;
+  }
+  function recordingSynopsis(recording) {
+    const metadata = recording && recording.metadata;
+    if (!metadata || typeof metadata !== 'object') return '';
+    const presentation = metadata.presentation && typeof metadata.presentation === 'object'
+      ? metadata.presentation : {};
+    const provider = metadata.provider && typeof metadata.provider === 'object'
+      ? metadata.provider : {};
+    const native = metadata.native && typeof metadata.native === 'object'
+      ? metadata.native : {};
+    // Use the same read-only metadata precedence as Recordings2 recordingSummary.
+    return text(presentation.summary || provider.overview ||
+      native.description || native.shortText).trim();
+  }
   function homePreview(path) {
     const helpers = global.VdrSuiteFrontendHelpers;
     return helpers && typeof helpers.homeArtworkPreviewUrl === 'function'
@@ -262,6 +283,8 @@
     copy.className = 'media-home-continue-copy';
     const name = doc.createElement('h4');
     const subtitle = doc.createElement('p');
+    const synopsis = doc.createElement('p');
+    synopsis.className = 'media-home-continue-synopsis';
     const progressText = doc.createElement('p');
     progressText.className = 'media-home-continue-progress-text';
     const meter = doc.createElement('progress');
@@ -289,9 +312,10 @@
     copy.appendChild(progressText);
     copy.appendChild(meter);
     copy.appendChild(actions);
+    copy.appendChild(synopsis);
     card.appendChild(copy);
     card.__vdrSuiteContinueView = {
-      artwork: artwork, name: name, subtitle: subtitle,
+      artwork: artwork, name: name, subtitle: subtitle, synopsis: synopsis,
       progressText: progressText, meter: meter,
       resume: resume, restart: restart
     };
@@ -319,9 +343,12 @@
       else view.artwork.textContent = item.title.slice(0, 1).toUpperCase() || '▶';
     }
     if (view.name.textContent !== item.title) view.name.textContent = item.title;
-    const subtitle = text(item.subtitle);
+    const subtitle = readableSubtitle(item.subtitle);
     if (view.subtitle.textContent !== subtitle) view.subtitle.textContent = subtitle;
     view.subtitle.hidden = !subtitle;
+    const synopsis = recordingSynopsis(item.recording);
+    if (view.synopsis.textContent !== synopsis) view.synopsis.textContent = synopsis;
+    view.synopsis.hidden = !synopsis;
     view.resume.setAttribute('aria-label', item.title + ' fortsetzen');
     view.restart.setAttribute('aria-label', item.title + ' von vorn abspielen');
     const progress = progressModel(item);
@@ -414,7 +441,7 @@
     if (!doc || !doc.head || doc.getElementById('vdr-suite-continue-watching-style')) return;
     const style = doc.createElement('style');
     style.id = 'vdr-suite-continue-watching-style';
-    style.textContent = '#detail:has(.module-tab.active[data-module="overview"]){display:flex;flex-direction:column}#detail:has(.module-tab.active[data-module="overview"]) [data-home-zone="additional-sections"]{order:40}#detail:has(.module-tab.active[data-module="overview"]) [data-home-zone="primary-rail"]{order:50}#detail:has(.module-tab.active[data-module="overview"]) #detail-data{order:60}.media-home-continue-watching{min-width:0}.media-home-continue-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(17rem,24rem);gap:.85rem;overflow-x:auto;padding:0 .25rem 1rem;scroll-snap-type:x proximity}.media-home-continue-card{scroll-snap-align:start;display:grid;grid-template-columns:6rem 1fr;gap:.8rem;padding:.8rem;border:1px solid rgba(148,163,184,.26);border-radius:1rem;background:linear-gradient(145deg,rgba(15,23,42,.86),rgba(15,23,42,.7));box-shadow:0 .8rem 1.8rem rgba(2,6,23,.14)}.media-home-continue-artwork{display:grid;place-items:center;align-self:start;width:100%;aspect-ratio:2/3;overflow:hidden;border-radius:.75rem;background:linear-gradient(145deg,#1e293b,#334155);font-size:2rem;font-weight:800}.media-home-continue-artwork.is-fallback{position:relative;background:radial-gradient(circle at 70% 22%,rgba(56,189,248,.2),transparent 32%),linear-gradient(145deg,#172033,#26364d);color:#dbeafe;text-shadow:0 .12rem .5rem rgba(2,6,23,.75)}.media-home-continue-artwork.is-fallback::after{content:"";position:absolute;inset:.45rem;border:1px solid rgba(148,163,184,.18);border-radius:.55rem;pointer-events:none}.media-home-continue-artwork img{display:block;width:100%;height:100%;object-fit:cover}.media-home-continue-copy{min-width:0}.media-home-continue-copy h4,.media-home-continue-copy p{margin:.1rem 0 .45rem}.media-home-continue-copy progress{width:100%;accent-color:#38bdf8}.media-home-continue-actions{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.65rem}.media-home-continue-actions button{min-width:2.75rem;min-height:2.75rem;padding:.55rem .75rem;border-radius:.65rem;transition:transform .14s ease,border-color .14s ease}.media-home-continue-actions button:hover{transform:translateY(-1px)}.media-home-continue-actions button:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}@media(min-width:120rem){.media-home-continue-rail{grid-auto-columns:minmax(22rem,29rem);gap:1.15rem}.media-home-continue-card{grid-template-columns:7.5rem 1fr;padding:1rem}}@media(min-width:46.01rem){.media-home-continue-rail{grid-auto-columns:minmax(11rem,15rem);gap:.8rem;padding:0 1rem 1.1rem}.media-home-continue-card{grid-template-columns:1fr;gap:0;padding:0;overflow:hidden}.media-home-continue-artwork{border-radius:0}.media-home-continue-copy{display:grid;gap:.25rem;padding:.7rem}.media-home-continue-actions{display:grid;grid-template-columns:1fr;gap:.45rem}.media-home-continue-actions button{width:100%}}@media(max-width:46rem){.media-home-continue-rail{grid-auto-columns:minmax(80vw,20rem)}.media-home-continue-card{grid-template-columns:5rem 1fr}}@media(prefers-reduced-motion:reduce){.media-home-continue-actions button{transition:none}.media-home-continue-actions button:hover{transform:none}.media-home-continue-rail{scroll-behavior:auto}}';
+    style.textContent = '#detail:has(.module-tab.active[data-module="overview"]){display:flex;flex-direction:column}#detail:has(.module-tab.active[data-module="overview"]) [data-home-zone="additional-sections"]{order:40}#detail:has(.module-tab.active[data-module="overview"]) [data-home-zone="primary-rail"]{order:50}#detail:has(.module-tab.active[data-module="overview"]) #detail-data{order:60}.media-home-continue-watching{min-width:0}.media-home-continue-rail{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(17rem,24rem);gap:.85rem;overflow-x:auto;padding:0 .25rem 1rem;scroll-snap-type:x proximity}.media-home-continue-card{scroll-snap-align:start;display:grid;grid-template-columns:6rem 1fr;gap:.8rem;padding:.8rem;border:1px solid rgba(148,163,184,.26);border-radius:1rem;background:linear-gradient(145deg,rgba(15,23,42,.86),rgba(15,23,42,.7));box-shadow:0 .8rem 1.8rem rgba(2,6,23,.14)}.media-home-continue-artwork{display:grid;place-items:center;align-self:start;width:100%;aspect-ratio:2/3;overflow:hidden;border-radius:.75rem;background:linear-gradient(145deg,#1e293b,#334155);font-size:2rem;font-weight:800}.media-home-continue-artwork.is-fallback{position:relative;background:radial-gradient(circle at 70% 22%,rgba(56,189,248,.2),transparent 32%),linear-gradient(145deg,#172033,#26364d);color:#dbeafe;text-shadow:0 .12rem .5rem rgba(2,6,23,.75)}.media-home-continue-artwork.is-fallback::after{content:"";position:absolute;inset:.45rem;border:1px solid rgba(148,163,184,.18);border-radius:.55rem;pointer-events:none}.media-home-continue-artwork img{display:block;width:100%;height:100%;object-fit:cover}.media-home-continue-copy{min-width:0}.media-home-continue-copy h4,.media-home-continue-copy p{margin:.1rem 0 .45rem}.media-home-continue-synopsis{color:#cbd5e1;font-size:.88rem;line-height:1.4;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;overflow-wrap:anywhere;margin-top:.8rem!important}.media-home-continue-synopsis[hidden]{display:none}.media-home-continue-copy progress{width:100%;accent-color:#38bdf8}.media-home-continue-actions{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.65rem}.media-home-continue-actions button{min-width:2.75rem;min-height:2.75rem;padding:.55rem .75rem;border-radius:.65rem;transition:transform .14s ease,border-color .14s ease}.media-home-continue-actions button:hover{transform:translateY(-1px)}.media-home-continue-actions button:focus-visible{outline:3px solid rgba(125,211,252,.96);outline-offset:2px}@media(min-width:120rem){.media-home-continue-rail{grid-auto-columns:minmax(22rem,29rem);gap:1.15rem}.media-home-continue-card{grid-template-columns:7.5rem 1fr;padding:1rem}}@media(min-width:46.01rem){.media-home-continue-rail{grid-auto-columns:minmax(11rem,15rem);gap:.8rem;padding:0 1rem 1.1rem}.media-home-continue-card{grid-template-columns:1fr;gap:0;padding:0;overflow:hidden}.media-home-continue-artwork{border-radius:0}.media-home-continue-copy{display:grid;gap:.25rem;padding:.7rem}.media-home-continue-actions{display:grid;grid-template-columns:1fr;gap:.45rem}.media-home-continue-actions button{width:100%}}@media(max-width:46rem){.media-home-continue-rail{grid-auto-columns:minmax(80vw,20rem)}.media-home-continue-card{grid-template-columns:5rem 1fr}}@media(prefers-reduced-motion:reduce){.media-home-continue-actions button{transition:none}.media-home-continue-actions button:hover{transform:none}.media-home-continue-rail{scroll-behavior:auto}}';
     doc.head.appendChild(style);
   }
 
@@ -551,7 +578,7 @@
   global.VdrSuiteHomeContinueWatching = Object.freeze({
     install,
     refresh,
-    _test: Object.freeze({normalizeItem, progressModel, openItem, formatTime, post, ensureRecordings2, ensureContinueWatchingPlaybackRuntime, continueWatchingPlaybackReady, releasePreview, clearBeforeRestart, selectShellModule, refreshHomeAfterPersistence, returnHome, publicPath, createArtwork, render, subscribeLive, stopLive, scheduleLiveRefresh})
+    _test: Object.freeze({normalizeItem, progressModel, readableSubtitle, recordingSynopsis, openItem, formatTime, post, ensureRecordings2, ensureContinueWatchingPlaybackRuntime, continueWatchingPlaybackReady, releasePreview, clearBeforeRestart, selectShellModule, refreshHomeAfterPersistence, returnHome, publicPath, createArtwork, render, subscribeLive, stopLive, scheduleLiveRefresh})
   });
   if (doc) {
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', install, {once: true});
