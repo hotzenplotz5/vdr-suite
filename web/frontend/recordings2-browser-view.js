@@ -52,10 +52,25 @@
     let activePlayback = null; let detailStartRevealed = false;
 
     function destroyPlayback() {
-      if (activePlayback && typeof activePlayback.destroy === 'function') {
-        activePlayback.destroy();
-      }
+      const playback = activePlayback;
       activePlayback = null;
+      if (!playback) return;
+      // Navigation out of Playback is a user Stop, not just DOM teardown:
+      // publish the final checkpoint while the MediaSession and position
+      // are still available. destroy() then releases the local stream now.
+      if (typeof playback.stop === 'function') {
+        try {
+          const stopped = playback.stop();
+          if (stopped && typeof stopped.catch === 'function') {
+            stopped.catch(function (error) {
+              console.error('Recording playback Stop on navigation failed', error);
+            });
+          }
+        } catch (error) {
+          console.error('Recording playback Stop on navigation failed', error);
+        }
+      }
+      if (typeof playback.destroy === 'function') playback.destroy();
     }
 
     function state() {
