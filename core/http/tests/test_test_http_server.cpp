@@ -1,3 +1,4 @@
+#include "BrowserLiveEventSubscription.h"
 #include "ApiRouter.h"
 #include "BackendRegistry.h"
 #include "BackendRegistryController.h"
@@ -379,7 +380,9 @@ int main()
     HttpServerRequest unauthenticatedLive;
     unauthenticatedLive.method = "GET";
     unauthenticatedLive.path = "/api/vdr/live";
-    assert(server.handleRequest(unauthenticatedLive).statusCode != 200);
+    const auto rejectedLive = server.handleRequest(unauthenticatedLive);
+    assert(rejectedLive.statusCode != 200);
+    assert(!rejectedLive.browserEventSubscription);
 
     liveTransport.publish(LiveUpdateEvent(1, 1, {"recordings"}, "default"));
     liveTransport.publish(LiveUpdateEvent(2, 2, {"timers"}, "secondary"));
@@ -392,14 +395,29 @@ int main()
     const auto replay = server.handleRequest(authenticatedLive);
     assert(replay.statusCode == 200);
     assert(replay.headers.at("Content-Type") == "text/event-stream");
-    assert(replay.body.find("\"backendId\":\"secondary\"") != std::string::npos);
-    assert(replay.body.find("id: " + liveTransport.daemonEpoch() + ":1\n") ==
+    assert(replay.body.empty());
+    assert(replay.browserEventSubscription);
+    std::string browserFrame;
+    assert(replay.browserEventSubscription->next(
+        browserFrame, std::chrono::milliseconds(10)));
+    assert(browserFrame.find("\"backendId\":\"secondary\"") != std::string::npos);
+    assert(browserFrame.find("id: " + liveTransport.daemonEpoch() + ":1\\n") ==
            std::string::npos);
-    assert(replay.body.find("id: " + liveTransport.daemonEpoch() + ":2\n") !=
+    assert(browserFrame.find("id: " + liveTransport.daemonEpoch() + ":2\\n") !=
+           std::string::npos);
+    liveTransport.publish(LiveUpdateEvent(3, 3, {"continueWatching"}, "default"));
+    assert(replay.browserEventSubscription->next(
+        browserFrame, std::chrono::milliseconds(10)));
+    assert(browserFrame.find("\"changedDomains\":[\"continueWatching\"]") !=
            std::string::npos);
     authenticatedLive.headers["last-event-id"] = "invalid";
-    assert(server.handleRequest(authenticatedLive).body.find("event: resync") !=
-           std::string::npos);
+    const auto invalidLive = server.handleRequest(authenticatedLive);
+    assert(invalidLive.browserEventSubscription);
+    assert(invalidLive.browserEventSubscription->next(
+        browserFrame, std::chrono::milliseconds(10)));
+    assert(browserFrame.find("event: resync") != std::string::npos);
+    replay.browserEventSubscription->close();
+    invalidLive.browserEventSubscription->close();
 
     // Public-v1 M2: HTTP route must reject duplicate/encoded-alias EPG
     // identities rather than accepting RestQueryParameters' last value.

@@ -1,4 +1,5 @@
 #include "SseLiveTransport.h"
+#include "BrowserLiveEventSubscription.h"
 #include "DeviceLiveEventHub.h"
 
 #include <cassert>
@@ -214,8 +215,40 @@ static void test_bounded_history_and_missing_sequence()
     assert(transport.latestSequenceNumber() == 2051);
 }
 
+static void test_browser_subscriber_live_replay_and_backpressure()
+{
+    SseLiveTransport transport;
+    auto subscriber = transport.subscribeBrowser("");
+    assert(subscriber);
+    std::string frame;
+    assert(subscriber->next(frame, std::chrono::milliseconds(1)));
+    assert(frame.find("event: resync") != std::string::npos);
+    transport.publish(LiveUpdateEvent(1, 1, {"recordings"}, "home"));
+    assert(subscriber->next(frame, std::chrono::milliseconds(1)));
+    assert(frame.find("event: update") != std::string::npos);
+    assert(frame.find("\"sequenceNumber\":1") != std::string::npos);
+
+    auto resumed = transport.subscribeBrowser(transport.daemonEpoch() + ":1");
+    assert(resumed);
+    assert(resumed->next(frame, std::chrono::milliseconds(1)));
+    assert(frame.find("event: update") == std::string::npos);
+    transport.publish(LiveUpdateEvent(2, 2, {"continueWatching"}, "home"));
+    assert(resumed->next(frame, std::chrono::milliseconds(1)));
+    assert(frame.find("\"changedDomains\":[\"continueWatching\"]") !=
+           std::string::npos);
+
+    for (int sequence = 3; sequence <= 100; ++sequence)
+        transport.publish(LiveUpdateEvent(sequence, sequence,
+                                          {"recordings"}, "home"));
+    assert(resumed->next(frame, std::chrono::milliseconds(1)));
+    assert(frame.find("event: resync") != std::string::npos);
+    assert(!resumed->next(frame, std::chrono::milliseconds(1)));
+    subscriber->close();
+}
+
 int main()
 {
+    test_browser_subscriber_live_replay_and_backpressure();
     test_device_subscriber_filters_backend_and_grant_then_coalesces_cursor();
     test_device_subscriber_overload_requires_resync_not_silent_drop();
     test_cursor_replay_gap_and_restart();
