@@ -172,6 +172,18 @@
     global.setTimeout(function () { focusSection(root, selector, buttonText); }, 0);
   }
 
+  // Home Continue Watching enters the visible Player before its MediaSession
+  // starts. Metadata may still be loading, but audio must never begin behind
+  // the Detail layout.
+  function enterPlaybackMode(root) {
+    if (!root || !root.dataset || root.isConnected === false ||
+        !root.classList || typeof root.classList.add !== 'function') return false;
+    installStyles();
+    root.classList.add('recordings2-hero-page');
+    showMode(root, 'playback', '.recordings2-volume-owner-shell');
+    return root.dataset.recordings2HeroMode === 'playback';
+  }
+
   function positiveExternalId(value) {
     const raw = text(value).trim();
     return /^[1-9][0-9]{0,15}$/.test(raw) ? raw : '';
@@ -1285,8 +1297,9 @@
     if (!root || !recording) return root;
     installStyles();
     root.classList.add('recordings2-hero-page');
-    root.dataset.recordings2HeroMode = 'detail';
-    ensureModeBack(root).hidden = true;
+    const alreadyPlaying = root.dataset.recordings2HeroMode === 'playback';
+    if (!alreadyPlaying) root.dataset.recordings2HeroMode = 'detail';
+    ensureModeBack(root).hidden = !alreadyPlaying;
     const backdrop = backdropUrl(metadata);
     if (backdrop && root.style && typeof root.style.setProperty === 'function') {
       root.style.setProperty('--recordings2-hero-backdrop', 'url("' + backdrop.replace(/"/g, '%22') + '")');
@@ -1301,6 +1314,7 @@
 
   global.VdrSuiteRecordings2HeroDetail = Object.freeze({
     enhance,
+    enterPlaybackMode,
     __test: Object.freeze({
       backdropUrl,
       actorList,
