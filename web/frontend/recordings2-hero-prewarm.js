@@ -9,6 +9,11 @@
   }
 
   const PREWARM_DELAY_MS = 700;
+  // The server reaps Recording MediaSessions after 300 seconds without use.
+  // Reuse only within 240 seconds; on click a stale owner gets one fresh
+  // session instead of periodic background keepalives or a failed Seek.
+  const PREWARM_REUSE_MAX_MS = 240000;
+  const PREWARM_STARTED_AT = '__vdrSuiteHeroPlaybackPrewarmStartedAt';
   const PREWARM_PROMISE = '__vdrSuiteHeroPlaybackPrewarmPromise';
   const PREWARM_TIMER = '__vdrSuiteHeroPlaybackPrewarmTimer';
 
@@ -49,6 +54,7 @@
       return null;
     }
 
+    root[PREWARM_STARTED_AT] = Date.now();
     root[PREWARM_PROMISE] = Promise.resolve(request).catch(function () { return ''; });
     return root[PREWARM_PROMISE];
   }
@@ -86,6 +92,24 @@
 
       request = request.then(function () {
         if (!root.dataset || root.dataset.recordings2HeroMode !== 'playback' ||
+            root.isConnected === false) return false;
+        const startedAt = Number(root[PREWARM_STARTED_AT]);
+        const agedOut = Boolean(prepared) && Number.isFinite(startedAt) &&
+          startedAt >= 0 && Date.now() - startedAt >= PREWARM_REUSE_MAX_MS;
+        if (!agedOut) return true;
+        if (typeof playbackOwner.stop !== 'function') {
+          throw new Error('Abgelaufene vorbereitete MediaSession kann nicht freigegeben werden.');
+        }
+        return Promise.resolve(playbackOwner.stop()).then(function (stopped) {
+          if (stopped === false) {
+            throw new Error('Abgelaufene vorbereitete MediaSession konnte nicht gestoppt werden.');
+          }
+          root[PREWARM_STARTED_AT] = 0;
+          root[PREWARM_PROMISE] = null;
+          return true;
+        });
+      }).then(function (ready) {
+        if (!ready || !root.dataset || root.dataset.recordings2HeroMode !== 'playback' ||
             root.isConnected === false) return null;
         if (position > 0 && typeof playbackOwner.startAtAbsolute === 'function') {
           return playbackOwner.startAtAbsolute(position);
@@ -108,7 +132,9 @@
         return result;
       });
 
-      request.catch(function () {});
+      request.catch(function (error) {
+        console.error('Recording Hero playback failed', error);
+      });
     }, 0);
   }
 
