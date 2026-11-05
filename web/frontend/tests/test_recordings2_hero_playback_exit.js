@@ -34,6 +34,7 @@ const mount = element('div');
 const scheduled = [];
 const owners = [];
 let stoppedCount = 0;
+const stopSequence = [];
 const document = {
   createElement: element,
   getElementById() { return null; }
@@ -77,7 +78,15 @@ const window = {
     createPanel() {
       const player = {
         element: element('div'), playing: true, destroyed: false, starts: 0,
-        destroy() { this.destroyed = true; this.playing = false; stoppedCount += 1; },
+        stop() {
+          stopSequence.push('stop');
+          this.playing = false;
+          return Promise.resolve(true);
+        },
+        destroy() {
+          stopSequence.push('destroy');
+          this.destroyed = true; this.playing = false; stoppedCount += 1;
+        },
         startAtAbsolute() { this.starts += 1; return Promise.resolve('playing'); },
         play() { this.starts += 1; return Promise.resolve(true); }
       };
@@ -113,6 +122,8 @@ const backButton = initialRoot.children.find(child =>
 assert(backButton, 'the real Details button must be present');
 backButton.click();
 assert.equal(stoppedCount, 1, 'Back to Details must destroy active media owner');
+assert.deepEqual(stopSequence, ['stop', 'destroy'],
+  'Details must commit a canonical Stop checkpoint BEFORE tearing down the media owner');
 assert.equal(owners[0].playing, false, 'hidden playback may not continue playing');
 assert.equal(owners.length, 2, 'returning to Details must prepare a fresh usable owner');
 assert.notEqual(mount.children[0], initialRoot);
@@ -127,6 +138,7 @@ hero.playPrepared(nextRoot, {resumePositionSeconds: 120});
 assert(scheduled.length > oldTimeouts, 'prepared playback schedules its promotion');
 hero.showMode(nextRoot, 'detail');
 assert.equal(stoppedCount, 2);
+assert.deepEqual(stopSequence, ['stop', 'destroy', 'stop', 'destroy']);
 assert.equal(owners.length, 3);
 assert.equal(nextRoot.isConnected, false);
 while (scheduled.length) scheduled.shift()();
