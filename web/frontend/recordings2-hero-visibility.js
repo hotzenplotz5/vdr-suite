@@ -189,6 +189,8 @@
     setHidden(root, '.recordings2-marks-detail', !playbackSurface);
     setHidden(root, '.recordings2-actions', !actions, 'block');
     setHidden(root, '.recordings2-metadata-tabs', !metadata);
+    // The deferred metadata loader/status is not part of the cinematic Hero.
+    setHidden(root, '.recordings2-metadata-status', !metadata);
     setHidden(root, '.recordings2-metadata-assignment', !metadata);
     setHidden(root, '[data-recordings2-metadata-assignment-error]', !metadata);
 
