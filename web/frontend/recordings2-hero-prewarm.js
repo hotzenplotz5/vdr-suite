@@ -135,6 +135,10 @@
 
   global.VdrSuiteRecordings2HeroDetail = Object.freeze({
     enhance,
+    enterPlaybackMode: function (root) {
+      return typeof owner.enterPlaybackMode === 'function' &&
+        owner.enterPlaybackMode(root) === true;
+    },
     __test: Object.freeze(Object.assign({}, owner.__test, {
       fastPrewarmSupported,
       prewarmPlayback,
