@@ -359,7 +359,9 @@
         shared.recordingSummary(recording) || 'Keine Beschreibung vorhanden.'
       ));
       hero.appendChild(copy);
-      root.appendChild(hero);
+      const recordingPanel = document.createElement('section');
+      recordingPanel.className = 'recordings2-metadata-panel recordings2-hero-recording-panel';
+      recordingPanel.appendChild(hero);
 
       const provider = shared.provider(recording);
       const details = document.createElement('section');
@@ -377,7 +379,8 @@
           : ''
       ));
       details.appendChild(detailField('Metadatenquelle', shared.first(provider, ['source'], 'VDR')));
-      root.appendChild(details);
+      recordingPanel.appendChild(details);
+      root.appendChild(recordingPanel);
 
       const playback = global.VdrSuiteRecordings2Playback; if (playback && typeof playback.createPanel === 'function') {
         activePlayback = playback.createPanel(recording, currentState.backendId);
@@ -405,6 +408,12 @@
       const metadataDetail = global.VdrSuiteRecordings2MetadataDetail;
       if (metadataDetail && typeof metadataDetail.enhance === 'function') {
         metadataDetail.enhance(root, recording, currentState.backendId);
+      } else {
+        // Metadata is a deferred addon. The first frame is already the Hero,
+        // even when the addon or TVScraper has not arrived.
+        const heroDetail = global.VdrSuiteRecordings2HeroDetail;
+        if (heroDetail && typeof heroDetail.enhance === 'function')
+          heroDetail.enhance(root, recording, currentState.backendId);
       }
     }
 
