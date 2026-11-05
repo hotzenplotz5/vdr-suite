@@ -451,6 +451,22 @@ function progressWrite(recordingId) {
   assert.strictEqual(navigating.position(), 4800,
     'destroyed HLS owner must retain the last confirmed local position');
 
+  // The previously fast Progressive path must remain fast when a fresh
+  // Recording owner opens after returning to Details and Stop cleanup.
+  const fastAgain = factory.createPanel({id: '1917'}, 'default');
+  assert.strictEqual(await fastAgain.start(), 'fast-1917');
+  await flush();
+  const resumedFastVideo = findLatest(value =>
+    value.tagName === 'VIDEO' && value['aria-label'] === 'VDR-Aufnahme');
+  assert.ok(resumedFastVideo);
+  resumedFastVideo.currentTime = 215;
+  resumedFastVideo.dispatch('timeupdate');
+  assert.strictEqual(await fastAgain.stop(), true);
+  fastAgain.destroy();
+  await flush(40);
+  assert.strictEqual(progressWrite('1917').body.positionSeconds, 215,
+    'navigation back from fast playback must retain its final position');
+
   const provisionalStop = mediaRequests.find(entry =>
     entry.body.operation === 'stop' && entry.body.sessionId === 'fast-provisional-malkovich'
   );
