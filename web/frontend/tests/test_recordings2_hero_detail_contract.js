@@ -108,6 +108,8 @@ assert(visibility.includes("setHidden(root, '.recordings2-actions', !actions, 'b
   'Recording actions must be visible only in the dedicated Hero action mode');
 assert(visibility.includes("setHidden(root, '.recordings2-metadata-tabs', !metadata)"),
   'metadata tabs must stay hidden in the normal Hero and appear only in metadata mode');
+assert(visibility.includes("setHidden(root, '.recordings2-metadata-status', !metadata)"),
+  'a pending or failed metadata request must not place a technical status above the cinematic Hero');
 assert(source.includes("showMode(root, 'metadata', '.recordings2-metadata-tabs')"),
   'the Hero Metadata action must open the canonical metadata mode');
 assert(visibility.includes('data-recordings2-hero-mode="metadata"]>.recordings2-metadata-tabs{position:relative'),
