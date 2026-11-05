@@ -236,8 +236,21 @@
     return result;
   }
 
+  function enterPlaybackMode(root) {
+    if (!owner.enterPlaybackMode || owner.enterPlaybackMode(root) !== true) return false;
+    installNestedStyles();
+    apply(root);
+    observe(root);
+    return true;
+  }
+
   global.VdrSuiteRecordings2HeroDetail = Object.freeze({
     enhance,
-    __test: Object.freeze({apply, recordingPanel, selectedMetadataPanel, syncHeroFactsFromDetail})
+    enterPlaybackMode,
+    // Do not discard the underlying Hero's resumePosition/showMode helpers.
+    // The prewarm wrapper consumes those helpers on its own Play action.
+    __test: Object.freeze(Object.assign({}, owner.__test || {}, {
+      apply, recordingPanel, selectedMetadataPanel, syncHeroFactsFromDetail
+    }))
   });
 }(window));
