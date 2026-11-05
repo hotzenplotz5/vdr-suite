@@ -430,6 +430,27 @@ function progressWrite(recordingId) {
   assert.strictEqual(progressiveWrite.body.positionSeconds, 94);
   assert.strictEqual(progressiveWrite.body.resumeSupported, true);
 
+  // Navigation back to Details invokes Stop on the canonical (fast)
+  // owner even after the transport switched to its HLS child. Persist the
+  // final fallback position before destroying the nested video.
+  const navigating = factory.createPanel({id: 'being-john-malkovich'}, 'default');
+  assert.strictEqual(await navigating.start(), 'hls-malkovich-2');
+  await flush();
+  const navigationVideo = findLatest(value => value.tagName === 'VIDEO');
+  assert.ok(navigationVideo);
+  navigationVideo.currentTime = 4800;
+  navigationVideo.dispatch('timeupdate');
+  assert.strictEqual(navigating.position(), 4800);
+  assert.strictEqual(await navigating.stop(), true,
+    'canonical Stop must delegate to the HLS child on navigation');
+  navigating.destroy();
+  await flush(40);
+  const navigationWrite = progressWrite('being-john-malkovich');
+  assert.ok(navigationWrite, 'navigation must persist the final HLS progress');
+  assert.strictEqual(navigationWrite.body.positionSeconds, 4800);
+  assert.strictEqual(navigating.position(), 4800,
+    'destroyed HLS owner must retain the last confirmed local position');
+
   const provisionalStop = mediaRequests.find(entry =>
     entry.body.operation === 'stop' && entry.body.sessionId === 'fast-provisional-malkovich'
   );
