@@ -22,7 +22,14 @@ require(
     str(server_header_path),
 )
 require(server_header, "response.headers);", str(server_header_path))
-require(server_source, "apiResponse.headers));", str(server_source_path))
+require(
+    server_source,
+    "apiResponse.headers);",
+    str(server_source_path),
+)
+# SSE.H2 retains the forwarded ApiResponse headers in a named response so
+# the authorized live stream can attach its socket subscription afterward.
+# Other endpoints still use the identical mapApiResponse contract.
 require(server_source, "response.headers = headers;", str(server_source_path))
 require(
     server_source,
