@@ -401,9 +401,9 @@ int main()
     assert(replay.browserEventSubscription->next(
         browserFrame, std::chrono::milliseconds(10)));
     assert(browserFrame.find("\"backendId\":\"secondary\"") != std::string::npos);
-    assert(browserFrame.find("id: " + liveTransport.daemonEpoch() + ":1\\n") ==
+    assert(browserFrame.find("id: " + liveTransport.daemonEpoch() + ":1\n") ==
            std::string::npos);
-    assert(browserFrame.find("id: " + liveTransport.daemonEpoch() + ":2\\n") !=
+    assert(browserFrame.find("id: " + liveTransport.daemonEpoch() + ":2\n") !=
            std::string::npos);
     liveTransport.publish(LiveUpdateEvent(3, 3, {"continueWatching"}, "default"));
     assert(replay.browserEventSubscription->next(

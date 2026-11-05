@@ -19,11 +19,11 @@ class FakeAdmittedEventServer final : public IHttpServer {
 public:
     explicit FakeAdmittedEventServer(DeviceLiveEventHub& hub)
         : hub_(hub), browser_(std::make_shared<BrowserLiveEventSubscription>(
-              "retry: 5000\\n\\nevent: resync\\nid: sse_test:0\\ndata: {}\\n\\n")) {}
+              "retry: 5000\n\nevent: resync\nid: sse_test:0\ndata: {}\n\n")) {}
     void publishBrowser() const {
         browser_->deliver(
-            "event: update\\nid: sse_test:1\\ndata: {\"sequenceNumber\":1}\\n\\n",
-            "event: resync\\ndata: {}\\n\\n");
+            "event: update\nid: sse_test:1\ndata: {\"sequenceNumber\":1}\n\n",
+            "event: resync\ndata: {}\n\n");
     }
     HttpServerResponse handleRequest(const HttpServerRequest& request) const override {
         HttpServerResponse reply;
