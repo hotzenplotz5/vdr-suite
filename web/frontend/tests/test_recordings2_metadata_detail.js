@@ -487,9 +487,9 @@ function verifyFirstFrameHeroWithLateMetadata() {
 }
 
 Promise.all([
-  verifyFirstFrameHeroWithLateMetadata(),
   api.fetchMetadata({backendNativeId: '/srv/vdr/video/Inferno.rec'}, 'remote'),
-  personView.findRecordings({name: 'Harrison Ford'}, 'remote', 12)
+  personView.findRecordings({name: 'Harrison Ford'}, 'remote', 12),
+  verifyFirstFrameHeroWithLateMetadata()
 ]).then(results => {
   const recordings = results[1];
   assert.strictEqual(requestedPath, '/api/vdr/recordings/metadata');
