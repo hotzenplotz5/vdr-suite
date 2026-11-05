@@ -61,7 +61,7 @@ Continue-Watching-SSE wurde auf `main` bis Code-Commit `99790c74d3d45228c0778783
 
 ### SSE.H2 — Gemeinsamer Browser-SSE-Bezug
 
-**Implementiert, Abnahme offen.** `createClientLiveUpdateSource()` liefert disposable Rail-Subscriptions auf eine gemeinsame authentifizierte Browser-EventSource pro Web-Dokument. Beim letzten Abonnenten wird sie geschlossen, ebenso bei Logout und Sessionverlust. Eine geaenderte Session erneuert die Verbindung und loest einen einmaligen kanonischen Resync aus. Operation- und Device-SSE bleiben getrennt.
+**Implementiert, Abnahme offen.** `createClientLiveUpdateSource()` liefert disposable Rail-Subscriptions auf eine gemeinsame authentifizierte Browser-EventSource pro Web-Dokument. Beim letzten Abonnenten wird sie geschlossen; Logout und Sessionverlust schliessen den physischen Socket sofort, lassen aber die inaktiven Rail-Handles fuer eine moegliche neue Anmeldung erhalten. Eine geaenderte Session erneuert die Verbindung und loest einen einmaligen kanonischen Resync aus. Operation- und Device-SSE bleiben getrennt.
 
 Server: `SseLiveTransport::subscribeBrowser` verbindet das bestehende `Last-Event-ID`-Replay mit einer bounded Queue (64 Frames/1 MiB pro Subscription), ohne zweite persistente Ereignisquelle. Bei Queue-Ueberlauf oder Sequenzluecke wird `resync` gesendet und die Verbindung getrennt. `TestHttpServer` erstellt eine Browser-Subscription ausschliesslich nach dem regulaeren SecurityHttpGate und erfolgreichem GET. `SimpleHttpListener` schreibt SSE ohne `Content-Length` in einem eigenen 4-Worker-Pool, sendet Heartbeats und beendet jeden Stream nach maximal zwei Minuten fuer erneute HTTP-Autorisierung.
 

@@ -81,10 +81,14 @@ const session = window.VdrSuiteBrowserSession;
   token = 'b'.repeat(40);
   session.clear('session_revoked');
   assert.strictEqual(physical[1].closed, true);
-  assert.strictEqual(three.closed, true);
+  assert.strictEqual(three.closed, false,
+    'existing rail handles must survive logout without a live socket');
   assert.strictEqual(client.createClientLiveUpdateSource(), null);
 
   await session.restore();
+  assert.strictEqual(physical.length, 3,
+    'the surviving rail reconnects after a successful new session');
+  assert.strictEqual(resync, 1, 'old actor readback must be invalidated');
   const four = client.createClientLiveUpdateSource();
   assert(four);
   assert.strictEqual(physical.length, 3);
@@ -92,8 +96,10 @@ const session = window.VdrSuiteBrowserSession;
   four.addEventListener('resync', () => fourth++);
   physical[2].emit('resync');
   assert.strictEqual(fourth, 1);
-  assert.strictEqual(resync, 0, 'retired actor must not receive new events');
+  assert.strictEqual(resync, 2);
   await session.logout();
-  assert(physical[2].closed && four.closed);
+  assert(physical[2].closed);
+  three.close();
+  four.close();
   console.log('test_shared_browser_sse passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -1097,11 +1097,7 @@
     if (token !== browserLiveSessionToken) {
       browserLiveSessionToken = token;
       closeBrowserLiveConnection();
-      if (!token) {
-        Array.from(browserLiveClients).forEach(function (client) {
-          client.close();
-        });
-      } else if (browserLiveClients.size > 0) {
+      if (token && browserLiveClients.size > 0) {
         // A changed authenticated session invalidates prior actor readbacks.
         dispatchBrowserLive('resync', {data: '{"reason":"session_changed"}'});
       }
