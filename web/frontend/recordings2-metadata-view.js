@@ -228,8 +228,14 @@
     const tabs = shared.node('nav', 'recordings2-metadata-tabs');
     tabs.setAttribute('role', 'tablist');
     tabs.setAttribute('aria-label', 'Aufnahmedetailbereiche');
+    // The initial Hero panel is already visible before this deferred addon
+    // loads. Adopt it rather than constructing a second recording surface.
+    const parent = hero.parentNode;
+    const existingRecordingPanel = parent && parent.parentNode === root &&
+      parent.classList && parent.classList.contains('recordings2-metadata-panel')
+      ? parent : null;
     const panels = {
-      recording: shared.node('section', 'recordings2-metadata-panel'),
+      recording: existingRecordingPanel || shared.node('section', 'recordings2-metadata-panel'),
       scraper: shared.node('section', 'recordings2-metadata-panel'),
       cast: shared.node('section', 'recordings2-metadata-panel'),
       images: shared.node('section', 'recordings2-metadata-panel')
