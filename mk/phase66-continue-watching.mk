@@ -36,6 +36,7 @@ test-phase66-continue-watching-frontend:
 	node web/frontend/tests/test_p1_browser_resume_cas.js
 	node web/frontend/tests/test_phase66_continue_watching_artwork.js
 	node web/frontend/tests/test_phase66_continue_watching_resume_ready.js
+	node web/frontend/tests/test_home_continue_watching_visible_autoplay.js
 	node web/frontend/tests/test_phase66_continue_watching_home_runtime.js
 	node web/frontend/tests/test_home_continue_watching_sse.js
 	node web/frontend/tests/test_phase66_continue_watching_fast_owner_contract.js
