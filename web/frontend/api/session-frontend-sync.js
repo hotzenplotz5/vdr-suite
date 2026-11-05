@@ -2288,7 +2288,15 @@
     }
 
     function stopPlayback() {
-      if (!started || destroyed || fallbackPanel || stopped) return Promise.resolve(false);
+      // The fast owner remains the public canonical owner after switching to
+      // HLS. Navigation must delegate Stop to that active child, otherwise
+      // only destroy() runs and the final HLS checkpoint is lost.
+      if (fallbackPanel) {
+        return typeof fallbackPanel.stop === 'function'
+          ? Promise.resolve(fallbackPanel.stop())
+          : Promise.resolve(false);
+      }
+      if (!started || destroyed || stopped) return Promise.resolve(false);
       stoppedPositionSeconds = Math.max(0, Math.floor(positionSeconds()));
       stoppedResumeSupported = Boolean(resumeSupported && stoppedPositionSeconds > 0);
       stopped = true;
