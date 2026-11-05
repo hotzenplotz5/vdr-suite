@@ -23,9 +23,7 @@
     copy.appendChild(shared.node('span', 'recordings2-title', shared.recordingTitle(recording)));
     const subtitle = shared.recordingSubtitle(recording);
     if (subtitle) copy.appendChild(shared.node('span', 'recordings2-subtitle', subtitle));
-    copy.appendChild(shared.node(
-      'span',
-      'recordings2-meta',
+    copy.appendChild(shared.node('span', 'recordings2-meta',
       shared.formatStart(shared.first(recording, ['startTime', 'start'], '')) + ' · ' +
         shared.formatDuration(shared.first(recording, ['durationSeconds', 'duration'], 0)) + ' · ' +
         shared.formatSize(shared.first(recording, ['sizeMb'], 0))
@@ -91,9 +89,7 @@
         const separator = shared.node('span', 'recordings2-separator', '›');
         breadcrumbs.appendChild(separator);
         breadcrumbs.appendChild(shared.createButton(
-          shared.decodeDisplayText(part),
-          function () { options.openFolder(target); }
-        ));
+          shared.decodeDisplayText(part), function () { options.openFolder(target); }));
       });
       return breadcrumbs;
     }
@@ -106,33 +102,21 @@
       heading.className = 'recordings2-heading';
       const copy = document.createElement('div');
       copy.className = 'recordings2-heading-copy';
-      copy.appendChild(shared.node(
-        'h3',
-        '',
-        currentState.selectedRecording ? 'Aufnahmedetails' : 'Aufnahmen'
-      ));
-      copy.appendChild(shared.node(
-        'p',
-        '',
-        'Backend ' + (currentState.backendId || shared.selectedBackendId())
-      ));
+      copy.appendChild(shared.node('h3', '',
+        currentState.selectedRecording ? 'Aufnahmedetails' : 'Aufnahmen'));
+      copy.appendChild(shared.node('p', '',
+        'Backend ' + (currentState.backendId || shared.selectedBackendId())));
       heading.appendChild(copy);
       header.appendChild(heading);
 
       const toolbar = document.createElement('div'); toolbar.className = 'recordings2-toolbar';
       if (currentState.selectedRecording) {
         toolbar.appendChild(shared.createButton(
-          currentState.detailReturnLabel || '← Zum Ordner',
-          options.closeDetail,
-          'recordings2-primary'
-        ));
+          currentState.detailReturnLabel || '← Zum Ordner', options.closeDetail, 'recordings2-primary'));
         if (typeof options.goHome === 'function') toolbar.appendChild(shared.createButton(currentState.detailHomeLabel || '⌂ Home', options.goHome, 'recordings2-primary recordings2-home'));
       } else if (currentState.path) {
-        toolbar.appendChild(shared.createButton(
-          '← Zurück',
-          function () { options.openFolder(currentState.parentPath || ''); },
-          'recordings2-primary'
-        ));
+        toolbar.appendChild(shared.createButton('← Zurück',
+          function () { options.openFolder(currentState.parentPath || ''); }, 'recordings2-primary'));
       }
       toolbar.appendChild(shared.createButton('Neu laden', options.reload));
       header.appendChild(toolbar);
@@ -173,14 +157,11 @@
       const target = prepareTarget();
       if (!target) return;
       const root = createRoot('recordings2');
-      const status = createStatus(
-        'Aufnahmeordner wird geladen …',
+      const status = createStatus('Aufnahmeordner wird geladen …',
         currentState.path
           ? 'Ordner: ' + shared.decodeDisplayText(currentState.path)
           : 'Lade den Hauptordner.',
-        false,
-        '/api/vdr/recordings/folder · Backend ' + currentState.backendId
-      );
+        false, '/api/vdr/recordings/folder · Backend ' + currentState.backendId);
       const progress = document.createElement('progress');
       progress.className = 'recordings2-progress';
       progress.setAttribute('aria-label', 'Aufnahmeordner wird geladen');
@@ -197,19 +178,11 @@
       const message = currentState.error && currentState.error.message
         ? currentState.error.message
         : String(currentState.error || 'Unbekannter Fehler');
-      const status = createStatus(
-        'Aufnahmeordner konnte nicht geladen werden',
-        message,
-        true,
-        'Backend: ' + currentState.backendId +
+      const status = createStatus('Aufnahmeordner konnte nicht geladen werden',
+        message, true, 'Backend: ' + currentState.backendId +
           ' · Pfad: ' + (currentState.path || '<Hauptordner>') +
-          ' · Endpunkt: /api/vdr/recordings/folder'
-      );
-      status.appendChild(shared.createButton(
-        'Erneut versuchen',
-        options.reload,
-        'recordings2-primary'
-      ));
+          ' · Endpunkt: /api/vdr/recordings/folder');
+      status.appendChild(shared.createButton('Erneut versuchen', options.reload, 'recordings2-primary'));
       root.appendChild(status);
       target.appendChild(root);
     }
@@ -233,16 +206,10 @@
       if (artwork) button.classList.add('has-genre-artwork');
       const copy = document.createElement('span');
       copy.className = 'recordings2-folder-copy';
-      copy.appendChild(shared.node(
-        'span',
-        'recordings2-folder-name',
-        shared.decodeDisplayText(shared.first(folder, ['name'], 'Ordner'))
-      ));
-      copy.appendChild(shared.node(
-        'span',
-        'recordings2-folder-meta',
-        String(shared.number(folder.recordingCount, 0)) + ' Aufnahme(n) · antippen zum Öffnen'
-      ));
+      copy.appendChild(shared.node('span', 'recordings2-folder-name',
+        shared.decodeDisplayText(shared.first(folder, ['name'], 'Ordner'))));
+      copy.appendChild(shared.node('span', 'recordings2-folder-meta',
+        String(shared.number(folder.recordingCount, 0)) + ' Aufnahme(n) · antippen zum Öffnen'));
       button.append(icon, copy, shared.node('span', 'recordings2-chevron', '›'));
       button.addEventListener('click', function () {
         options.openFolder(shared.normalizePath(shared.first(folder, ['path'], '')));
