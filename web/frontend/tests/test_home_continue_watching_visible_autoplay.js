@@ -53,6 +53,7 @@ const window = {
       for (const key of keys) if (value && value[key] != null) return value[key];
       return fallback;
     },
+    clientApi() {return null;},
     node(tag, cls, value) {
       const node = document.createElement(tag);
       node.className = cls;
@@ -142,6 +143,11 @@ async function flush() {
   await flush();
   assert.deepEqual(calls, ['start:playback', 'seek:238'],
     'Fast playback may start only after the player is visible and must resume at 238');
+  hero.enhance(root, recording, 'default', {});
+  assert.equal(root.dataset.recordings2HeroMode, 'playback',
+    'Late metadata may enrich the Hero, but must never hide an active Player');
+  assert.equal(root.querySelector('.recordings2-hero-mode-back').hidden, false,
+    'Late metadata must not remove the visible Details back button');
 
   // A detached owner may never play audio behind the Details screen.
   const orphanCalls = [];
