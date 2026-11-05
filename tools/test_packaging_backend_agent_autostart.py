@@ -273,6 +273,50 @@ class AutostartTests(unittest.TestCase):
                 self.assertEqual(subject.main(), 1)
                 self.assertEqual(len(invocations), 1)
 
+    def test_prepare_local_enrollment_identifies_rejected_unit_property(self):
+        # Read-only systemd property classification must not leak the unit's
+        # ExecStart, credentials, environment, or attempt registration.
+        valid = {
+            "LoadState": "loaded", "ActiveState": "inactive",
+            "UnitFileState": "disabled", "User": "vdr", "Group": "vdr",
+            "DropInPaths": "",
+            "ExecStart": subject.AGENT_BIN + " --config " + str(subject.CONFIG),
+        }
+        mismatches = (
+            ("LoadState", "not-found", "load-state"),
+            ("ActiveState", "active", "active-state"),
+            ("UnitFileState", "static", "unit-file-state"),
+            ("User", "root", "service-user"),
+            ("Group", "root", "service-group"),
+            ("DropInPaths", "/etc/systemd/system/secret.conf", "drop-ins"),
+            ("ExecStart", "/usr/sbin/different-agent --config /some/file",
+             "agent-executable"),
+            ("ExecStart", subject.AGENT_BIN + " --other hidden-token",
+             "agent-config-argument"),
+        )
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="ENROLLMENT_REQUIRED"),
+            patch.object(subject, "read_config", return_value="default"),
+            patch.object(subject, "command") as execute,
+        ):
+            for key, value, failure in mismatches:
+                with self.subTest(field=key, value=failure), (
+                    patch.object(subject, "properties",
+                                 return_value=dict(valid, **{key: value}))
+                ):
+                    with self.assertRaises(subject.NotReady) as context:
+                        subject.prepare_local_enrollment()
+                    self.assertEqual(
+                        str(context.exception),
+                        "installed Agent service is not ready for initial setup: "
+                        + failure,
+                    )
+                    self.assertNotIn("hidden-token", str(context.exception))
+                    self.assertNotIn("secret.conf", str(context.exception))
+            execute.assert_not_called()
+
     def test_prepare_local_enrollment_refuses_non_root_and_setup_error(self):
         with (
             patch.object(subject.os, "geteuid", return_value=1000),

@@ -229,14 +229,24 @@ def prepare_local_enrollment():
     if backend != "default":
         raise NotReady("automatic local setup requires the default Backend")
     unit = properties()
-    if (unit["LoadState"] != "loaded" or
-            unit["ActiveState"] != "inactive" or
-            unit["UnitFileState"] not in ("disabled", "enabled") or
-            unit["User"] != "vdr" or unit["Group"] != "vdr" or
-            unit["DropInPaths"] or
-            AGENT_BIN not in unit["ExecStart"] or
-            "--config " + str(CONFIG) not in unit["ExecStart"]):
-        raise NotReady("installed Agent service is not ready for initial setup")
+    # Report the exact rejected property without logging ExecStart,
+    # environment, enrollment material or any systemd override contents.
+    # Keep the existing reviewed-unit requirements unchanged.
+    checks = (
+        ("load-state", unit["LoadState"] == "loaded"),
+        ("active-state", unit["ActiveState"] == "inactive"),
+        ("unit-file-state", unit["UnitFileState"] in ("disabled", "enabled")),
+        ("service-user", unit["User"] == "vdr"),
+        ("service-group", unit["Group"] == "vdr"),
+        ("drop-ins", not unit["DropInPaths"]),
+        ("agent-executable", AGENT_BIN in unit["ExecStart"]),
+        ("agent-config-argument",
+         "--config " + str(CONFIG) in unit["ExecStart"]),
+    )
+    for property_name, accepted in checks:
+        if not accepted:
+            raise NotReady("installed Agent service is not ready for initial setup: "
+                           + property_name)
 
     state_dir = Path(ENROLLMENT).parent
     try:
