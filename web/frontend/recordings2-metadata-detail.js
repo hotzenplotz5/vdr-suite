@@ -109,10 +109,8 @@
   function enhance(root, recording, backendId) {
     if (!root || !recording || root.dataset.recordings2MetadataDetail === 'true') return root; root.dataset.recordings2MetadataDetail = 'true';
     const mounted = metadataView.mount(root, recording, backendId);
-    // The Hero belongs to the Recording, not to the metadata response.
-    const initialHero = global.VdrSuiteRecordings2HeroDetail;
-    if (initialHero && typeof initialHero.enhance === 'function')
-      initialHero.enhance(root, recording, backendId);
+    const initialHero = global.VdrSuiteRecordings2HeroDetail; // First frame, before async metadata.
+    if (initialHero && typeof initialHero.enhance === 'function') initialHero.enhance(root, recording, backendId);
     if (!mounted) return root; root.__vdrSuiteMetadataMounted = mounted; const generation = (root.__vdrSuiteMetadataRefreshGeneration || 0) + 1;
     root.__vdrSuiteMetadataRefreshGeneration = generation;
     fetchMetadata(recording, backendId).then(function (metadata) {
