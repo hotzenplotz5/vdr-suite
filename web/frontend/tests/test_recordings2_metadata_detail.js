@@ -380,7 +380,114 @@ metadataImage.src = 'unchanged';
 api.repairMetadataImagePaths({querySelectorAll() { return [metadataImage]; }});
 assert.strictEqual(metadataImage.src, 'unchanged');
 
+// Exercise the real deferred metadata-detail adapter with a pending request.
+// The first Hero enhancement must happen before the API resolves, and every
+// eventual outcome must leave the canonical playback owner untouched.
+function verifyFirstFrameHeroWithLateMetadata() {
+  const pending = [];
+  const events = [];
+  const owner = {id: 'canonical-player'};
+  const sharedForDetail = {
+    text(value) { return value == null ? '' : String(value); },
+    first(value, keys, fallback) {
+      for (const key of keys) if (value && value[key] != null) return value[key];
+      return fallback;
+    },
+    clientApi() {
+      return {
+        requestJson(path) {
+          assert.strictEqual(path, '/api/vdr/recordings/metadata');
+          events.push('fetch');
+          return new Promise((resolve, reject) => pending.push({resolve, reject}));
+        }
+      };
+    }
+  };
+  const metadataView = {
+    mount(root) {
+      events.push('mount');
+      return {
+        setMetadata(value) { events.push('metadata:' + String(value.available)); },
+        setError() { events.push('error'); }
+      };
+    },
+    applyToDetail(root) { events.push('apply'); },
+    isPublicMetadataImageUrl() { return false; },
+    preferredArtworkUrl() { return ''; },
+    formatDate() { return ''; },
+    mediaTypeLabel() { return ''; },
+    orientationLabel() { return ''; },
+    roleLabel() { return ''; }
+  };
+  const isolatedWindow = {
+    VdrSuiteRecordings2Shared: sharedForDetail,
+    VdrSuiteRecordings2MetadataView: metadataView,
+    VdrSuiteRecordings2MetadataAssignment: {mount() { events.push('assignment'); }},
+    VdrSuiteRecordings2HeroDetail: {
+      enhance(root, recording, backendId, metadata) {
+        events.push(metadata ? 'hero-late' : 'hero-first');
+        if (!root.dataset.recordings2HeroMode) root.dataset.recordings2HeroMode = 'detail';
+        return root;
+      }
+    }
+  };
+  const isolated = vm.createContext({
+    window: isolatedWindow, document: {head: {appendChild() {}}},
+    console, Date, Number, String, Object, Array, Promise, Math
+  });
+  vm.runInContext(metadataDetailSource, isolated, {filename: 'recordings2-metadata-detail.js'});
+  const adapter = isolatedWindow.VdrSuiteRecordings2MetadataDetail;
+  assert(adapter);
+  const recording = {backendNativeId: 'local-recording', title: 'Film'};
+  function root() {
+    return {
+      dataset: {}, __vdrSuiteRecordingPlaybackOwner: owner,
+      querySelector() { return null; }, querySelectorAll() { return []; }
+    };
+  }
+  async function flush() { await Promise.resolve(); await Promise.resolve(); }
+  return (async () => {
+    const available = root();
+    adapter.enhance(available, recording, 'default');
+    assert.deepStrictEqual(events.slice(0, 3), ['mount', 'hero-first', 'fetch']);
+    assert.strictEqual(available.dataset.recordings2HeroMode, 'detail');
+    assert.strictEqual(available.__vdrSuiteRecordingPlaybackOwner, owner);
+    adapter.enhance(available, recording, 'default');
+    assert.strictEqual(pending.length, 1, 'enhance must fetch only once');
+    pending.shift().resolve({available: true, genres: ['Drama']});
+    await flush();
+    assert(events.includes('hero-late'));
+    assert(events.includes('metadata:true'));
+    assert.strictEqual(available.__vdrSuiteRecordingPlaybackOwner, owner);
+
+    const missing = root();
+    adapter.enhance(missing, recording, 'default');
+    assert.strictEqual(missing.dataset.recordings2HeroMode, 'detail');
+    pending.shift().resolve({available: false});
+    await flush();
+    assert.strictEqual(missing.dataset.recordings2HeroMode, 'detail');
+    assert.strictEqual(missing.__vdrSuiteRecordingPlaybackOwner, owner);
+
+    const failed = root();
+    adapter.enhance(failed, recording, 'default');
+    assert.strictEqual(failed.dataset.recordings2HeroMode, 'detail');
+    pending.shift().reject(new Error('TVScraper offline'));
+    await flush();
+    assert(events.includes('error'));
+    assert.strictEqual(failed.dataset.recordings2HeroMode, 'detail');
+    assert.strictEqual(failed.__vdrSuiteRecordingPlaybackOwner, owner);
+
+    const noNativeId = root();
+    adapter.enhance(noNativeId, {title: 'Offline'}, 'default');
+    assert.strictEqual(noNativeId.dataset.recordings2HeroMode, 'detail');
+    await flush();
+    assert.strictEqual(noNativeId.__vdrSuiteRecordingPlaybackOwner, owner);
+    return true;
+  })();
+}
+
 Promise.all([
+  verifyFirstFrameHeroWithLateMetadata(),
   api.fetchMetadata({backendNativeId: '/srv/vdr/video/Inferno.rec'}, 'remote'),
   personView.findRecordings({name: 'Harrison Ford'}, 'remote', 12)
 ]).then(results => {
