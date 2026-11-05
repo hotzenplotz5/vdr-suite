@@ -257,7 +257,11 @@
         recordingId: normalized.recordingId,
         backendId: normalized.backendId,
         backendNativeId: normalized.backendNativeId,
-        title: normalized.recording.title || normalized.title
+        title: normalized.recording.title || normalized.title,
+        // Preserve the explicit Home resume target through Recordings2 hero
+        // re-renders. Previously the card knew the position but the detail
+        // player's own "Fortsetzen" action could fall back to zero.
+        resumePositionSeconds: resume ? normalized.resumePositionSeconds : 0
       });
       global.VdrSuiteRecordings2.openRecording(recording, {
         backendId: normalized.backendId,
