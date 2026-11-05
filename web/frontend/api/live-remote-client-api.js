@@ -1010,11 +1010,104 @@
     });
   }
 
-  function createClientLiveUpdateSource() {
-    return typeof global.EventSource === 'function'
-      ? new global.EventSource('/api/vdr/live', {withCredentials: true})
-      : null;
+  // SSE.H2: one physical browser connection, with disposable per-rail
+  // subscriptions. Closing a rail must not disconnect the other rails.
+  let browserLiveConnection = null;
+  let browserLiveSessionToken = '';
+  const browserLiveClients = new Set();
+
+  function dispatchBrowserLive(type, event) {
+    Array.from(browserLiveClients).forEach(function (client) {
+      if (client.closed) return;
+      const handlers = (client.listeners[type] || []).slice();
+      handlers.forEach(function (handler) {
+        try { handler(event); } catch (error) {
+          if (global.console && global.console.error) global.console.error(error);
+        }
+      });
+      const property = type === 'open' ? client.onopen :
+        type === 'error' ? client.onerror : null;
+      if (typeof property === 'function') {
+        try { property(event); } catch (error) {
+          if (global.console && global.console.error) global.console.error(error);
+        }
+      }
+    });
   }
+
+  function closeBrowserLiveConnection() {
+    if (browserLiveConnection) {
+      browserLiveConnection.close();
+      browserLiveConnection = null;
+    }
+  }
+
+  function openBrowserLiveConnection() {
+    if (browserLiveConnection || browserLiveClients.size === 0 ||
+        !sessionApi.isAuthenticated() ||
+        typeof global.EventSource !== 'function') return;
+    const source = new global.EventSource('/api/vdr/live', {withCredentials: true});
+    browserLiveConnection = source;
+    source.onopen = function (event) {
+      if (browserLiveConnection === source) dispatchBrowserLive('open', event);
+    };
+    source.onerror = function (event) {
+      if (browserLiveConnection === source) dispatchBrowserLive('error', event);
+    };
+    ['update', 'resync'].forEach(function (type) {
+      source.addEventListener(type, function (event) {
+        if (browserLiveConnection === source) dispatchBrowserLive(type, event);
+      });
+    });
+  }
+
+  function createClientLiveUpdateSource() {
+    if (typeof global.EventSource !== 'function' ||
+        !sessionApi.isAuthenticated()) return null;
+    const client = {
+      closed: false,
+      listeners: Object.create(null),
+      onopen: null,
+      onerror: null,
+      addEventListener: function (type, handler) {
+        if (this.closed || typeof handler !== 'function') return;
+        (this.listeners[type] ||= []).push(handler);
+      },
+      removeEventListener: function (type, handler) {
+        if (this.closed || !this.listeners[type]) return;
+        this.listeners[type] = this.listeners[type].filter(function (fn) {
+          return fn !== handler;
+        });
+      },
+      close: function () {
+        if (this.closed) return;
+        this.closed = true;
+        this.listeners = Object.create(null);
+        browserLiveClients.delete(this);
+        if (browserLiveClients.size === 0) closeBrowserLiveConnection();
+      }
+    };
+    browserLiveClients.add(client);
+    openBrowserLiveConnection();
+    return client;
+  }
+
+  sessionApi.subscribe(function (state) {
+    const token = state.authenticated ? csrfToken : '';
+    if (token !== browserLiveSessionToken) {
+      browserLiveSessionToken = token;
+      closeBrowserLiveConnection();
+      if (!token) {
+        Array.from(browserLiveClients).forEach(function (client) {
+          client.close();
+        });
+      } else if (browserLiveClients.size > 0) {
+        // A changed authenticated session invalidates prior actor readbacks.
+        dispatchBrowserLive('resync', {data: '{"reason":"session_changed"}'});
+      }
+    }
+    if (token) openBrowserLiveConnection();
+  });
 
   // Actor-owned Core Operation SSE; the EventSource reconnects itself.
   function createClientOperationUpdateSource(operationId) {
