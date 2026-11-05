@@ -906,8 +906,18 @@
     });
   }
 
+  function syncHeroTrailerAction(actions, root, backendId, metadata) {
+    const identity = trailerIdentity(metadata);
+    if (!identity || actions.querySelector('[data-recordings2-hero-trailer]')) return;
+    const trailer = makeButton('▶ Trailer', function () { showTrailer(root, backendId, identity); });
+    trailer.dataset.recordings2HeroTrailer = 'true';
+    actions.insertBefore(trailer, actions.querySelector('button:not(.primary)'));
+  }
+
   function renderHeroActions(root, copy, recording, backendId, metadata) {
-    if (!copy || copy.querySelector('.recordings2-hero-actions')) return;
+    if (!copy) return;
+    const existing = copy.querySelector('.recordings2-hero-actions');
+    if (existing) { syncHeroTrailerAction(existing, root, backendId, metadata); return; }
     const actions = shared.node('div', 'recordings2-hero-actions');
     const position = resumePosition(recording);
     actions.appendChild(makeButton(
@@ -915,12 +925,7 @@
       function () { startPlayback(root, recording); },
       true
     ));
-    const identity = trailerIdentity(metadata);
-    if (identity) {
-      actions.appendChild(makeButton('▶ Trailer', function () {
-        showTrailer(root, backendId, identity);
-      }));
-    }
+    syncHeroTrailerAction(actions, root, backendId, metadata);
     actions.appendChild(makeButton('Schnittmarken', function () {
       showMode(root, 'marks', '.recordings2-marks-detail', 'Marke setzen');
     }));
@@ -1297,9 +1302,10 @@
     if (!root || !recording) return root;
     installStyles();
     root.classList.add('recordings2-hero-page');
-    const alreadyPlaying = root.dataset.recordings2HeroMode === 'playback';
-    if (!alreadyPlaying) root.dataset.recordings2HeroMode = 'detail';
-    ensureModeBack(root).hidden = !alreadyPlaying;
+    const mode = root.dataset.recordings2HeroMode;
+    if (!['detail', 'playback', 'marks', 'metadata', 'actions'].includes(mode))
+      root.dataset.recordings2HeroMode = 'detail';
+    ensureModeBack(root).hidden = root.dataset.recordings2HeroMode === 'detail';
     const backdrop = backdropUrl(metadata);
     if (backdrop && root.style && typeof root.style.setProperty === 'function') {
       root.style.setProperty('--recordings2-hero-backdrop', 'url("' + backdrop.replace(/"/g, '%22') + '")');
