@@ -159,7 +159,7 @@ async function flush() {
   assert.deepEqual(orphanCalls, [], 'No mounted player means no automatic playback');
 
   console.log('Home Continue Watching visible-player-first autoplay and resume PASS');
-}()).catch(error => {
+})().catch(error => {
   console.error(error);
   process.exitCode = 1;
 });
