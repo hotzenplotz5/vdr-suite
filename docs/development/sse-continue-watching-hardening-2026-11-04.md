@@ -65,7 +65,7 @@ Continue-Watching-SSE wurde auf `main` bis Code-Commit `99790c74d3d45228c0778783
 
 Server: `SseLiveTransport::subscribeBrowser` verbindet das bestehende `Last-Event-ID`-Replay mit einer bounded Queue (64 Frames/1 MiB pro Subscription), ohne zweite persistente Ereignisquelle. Bei Queue-Ueberlauf oder Sequenzluecke wird `resync` gesendet und die Verbindung getrennt. `TestHttpServer` erstellt eine Browser-Subscription ausschliesslich nach dem regulaeren SecurityHttpGate und erfolgreichem GET. `SimpleHttpListener` schreibt SSE ohne `Content-Length` in einem eigenen 4-Worker-Pool, sendet Heartbeats und beendet jeden Stream nach maximal zwei Minuten fuer erneute HTTP-Autorisierung.
 
-**Tests im Repository:** `node web/frontend/tests/test_shared_browser_sse.js`, `make test-sse-live-transport test-test-http-server`, und der Socket-Test `test_device_live_http_stream`. Noch nicht belegte Abnahme: ausgefuehrte Regressionen, mehrere gleichzeitige Rails, Browser-Proxy, Reconnect und yaVDR im laufenden Betrieb. Kein weiterer Statusspeicher, kein Polling-Fallback, kein automatischer DB-Backup.
+**Tests im Repository:** `node web/frontend/tests/test_shared_browser_sse.js`, `make test-sse-live-transport test-test-http-server`, und der Socket-Test `make test-device-live-http-stream`. Noch nicht belegte Abnahme: ausgefuehrte Regressionen, mehrere gleichzeitige Rails, Browser-Proxy, Reconnect und yaVDR im laufenden Betrieb. Kein weiterer Statusspeicher, kein Polling-Fallback, kein automatischer DB-Backup.
 
 ### CW.H1 — Bestätigte Stop-/Abschluss-Semantik
 
