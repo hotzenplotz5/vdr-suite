@@ -178,8 +178,10 @@ function flush(count = 8) {
     assert.strictEqual(await api._test.openItem(base, false), true);
     assert.strictEqual(opened.length, 2);
     assert.strictEqual(opened[0].recording.id, 'r1');
+    assert.strictEqual(opened[0].recording.resumePositionSeconds, 120);
     assert.strictEqual(opened[0].options.playbackStartPositionSeconds, 120);
     assert.strictEqual(opened[0].options.autoStartPlayback, true);
+    assert.strictEqual(opened[1].recording.resumePositionSeconds, 0);
     assert.strictEqual(opened[1].options.playbackStartPositionSeconds, 0);
     assert.strictEqual(opened[1].options.autoStartPlayback, true);
     assert.deepStrictEqual(homeRestartClears, [{backendId: 'default', recordingId: 'r1'}]);
