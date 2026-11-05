@@ -37,7 +37,8 @@ let stoppedCount = 0;
 const stopSequence = [];
 const document = {
   createElement: element,
-  getElementById() { return null; }
+  getElementById() { return null; },
+  head: {appendChild() {}}
 };
 const shared = {
   mountTarget() { return mount; },
@@ -68,6 +69,7 @@ const shared = {
   formatDuration() { return ''; },
   formatSize() { return ''; },
   provider() { return {}; },
+  clientApi() { return null; },
   number(value) { return Number(value) || 0; }
 };
 
@@ -114,6 +116,11 @@ view.renderDetail();
 assert.equal(owners.length, 1);
 const initialRoot = mount.children[0];
 assert.equal(initialRoot.__vdrSuiteRecordingPlaybackOwner, owners[0]);
+assert.equal(initialRoot.dataset.recordings2HeroMode, 'detail',
+  'the actual browser view must show the Hero before the metadata addon loads');
+assert(initialRoot.children.some(child =>
+  child.className.includes('recordings2-hero-recording-panel')),
+  'the first frame must have the final Hero recording panel');
 
 hero.showMode(initialRoot, 'playback');
 assert.equal(initialRoot.dataset.recordings2HeroMode, 'playback');
