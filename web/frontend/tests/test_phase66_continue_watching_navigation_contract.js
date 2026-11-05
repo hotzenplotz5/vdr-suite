@@ -73,6 +73,8 @@ const item = {
   assert.strictEqual(opened.length, 1);
   assert.strictEqual(opened[0].activeModule, 'recordings2');
   assert.strictEqual(opened[0].recording.id, 'recording-1');
+  assert.strictEqual(opened[0].recording.resumePositionSeconds, 238,
+    'Details must retain the Home resume target even after owner recreation');
   assert.strictEqual(opened[0].options.backendId, 'default');
   assert.strictEqual(opened[0].options.autoStartPlayback, true);
   assert.strictEqual(opened[0].options.playbackStartPositionSeconds, 238);
