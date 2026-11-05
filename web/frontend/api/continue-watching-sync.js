@@ -416,7 +416,27 @@
       const position = pending.positionSeconds;
       pending.autoStart = false;
       if (typeof global.setTimeout === 'function') {
-        global.setTimeout(function () { result.startAtAbsolute(position).catch(function () {}); }, 0);
+        global.setTimeout(function () {
+          const panel = result.element;
+          const root = panel && typeof panel.closest === 'function'
+            ? panel.closest('.recordings2-detail') : null;
+          const hero = global.VdrSuiteRecordings2HeroDetail;
+          // A failed or still-unmounted Hero is NOT permission to play
+          // invisibly behind Details. Never start until the Player is visible.
+          if (!root || root.isConnected === false || !hero ||
+              typeof hero.enterPlaybackMode !== 'function' ||
+              hero.enterPlaybackMode(root) !== true) {
+            if (global.console && typeof global.console.error === 'function') {
+              global.console.error('Continue Watching: sichtbare Player-Ansicht nicht verfügbar');
+            }
+            return;
+          }
+          result.startAtAbsolute(position).catch(function (error) {
+            if (global.console && typeof global.console.error === 'function') {
+              global.console.error('Continue Watching: Fortsetzen fehlgeschlagen', error);
+            }
+          });
+        }, 0);
       }
     }
     return result;
