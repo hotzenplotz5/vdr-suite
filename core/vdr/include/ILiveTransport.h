@@ -3,7 +3,10 @@
 
 #include "LiveUpdateEvent.h"
 
+#include <memory>
 #include <string>
+
+class BrowserLiveEventSubscription;
 
 class ILiveTransport {
 public:
@@ -14,6 +17,13 @@ public:
     virtual std::string replay(const std::string& lastEventId) const {
         (void)lastEventId;
         return stream();
+    }
+    // Optional authorized HTTP streaming upgrade; existing transport fakes
+    // retain finite replay behavior without a new parallel transport API.
+    virtual std::shared_ptr<BrowserLiveEventSubscription> subscribeBrowser(
+        const std::string& lastEventId) const {
+        (void)lastEventId;
+        return nullptr;
     }
     virtual bool empty() const = 0;
     virtual void clear() = 0;

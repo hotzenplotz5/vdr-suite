@@ -297,6 +297,12 @@ static bool parseBackendSnapshotRoute(
 }
 
 
+std::shared_ptr<BrowserLiveEventSubscription>
+ApiRouter::subscribeBrowserLive(const std::string& lastEventId) const
+{
+    return liveTransportController_.subscribeBrowser(lastEventId);
+}
+
 ApiRouter::ApiRouter(
     DashboardController& dashboardController,
     JobsController& jobsController,

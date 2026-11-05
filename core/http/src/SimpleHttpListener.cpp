@@ -3,6 +3,7 @@
 #include "HttpServerRequest.h"
 #include "HttpServerResponse.h"
 #include "DeviceLiveEventHub.h"
+#include "BrowserLiveEventSubscription.h"
 
 #include <arpa/inet.h>
 #include <ifaddrs.h>
@@ -759,7 +760,18 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         if (stopping_ || jobs_.size() >= DEVICE_EVENT_MAX_PENDING)
             return false;
-        jobs_.push_back(Job{fd, std::move(headers), std::move(subscriber)});
+        jobs_.push_back(Job{fd, std::move(headers), std::move(subscriber), nullptr});
+        condition_.notify_one();
+        return true;
+    }
+
+    bool enqueue(int fd, std::string headers,
+                 std::shared_ptr<BrowserLiveEventSubscription> subscriber)
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (stopping_ || jobs_.size() >= DEVICE_EVENT_MAX_PENDING)
+            return false;
+        jobs_.push_back(Job{fd, std::move(headers), nullptr, std::move(subscriber)});
         condition_.notify_one();
         return true;
     }
@@ -774,7 +786,8 @@ public:
             pending.swap(jobs_);
         }
         for (auto& job : pending) {
-            job.subscriber->close();
+            if (job.subscriber) job.subscriber->close();
+            if (job.browserSubscriber) job.browserSubscriber->close();
             ::close(job.fd);
         }
         condition_.notify_all();
@@ -787,6 +800,7 @@ private:
         int fd;
         std::string headers;
         std::shared_ptr<DeviceLiveEventSubscription> subscriber;
+        std::shared_ptr<BrowserLiveEventSubscription> browserSubscriber;
     };
 
     bool stopping() const {
@@ -822,8 +836,10 @@ private:
         auto lastHeartbeat = std::chrono::steady_clock::now();
         while (!stopping()) {
             std::string frame;
-            if (!job.subscriber->next(frame, std::chrono::milliseconds(250)))
-                break;
+            const bool ready = job.subscriber
+                ? job.subscriber->next(frame, std::chrono::milliseconds(250))
+                : job.browserSubscriber->next(frame, std::chrono::milliseconds(250));
+            if (!ready) break;
             if (!frame.empty()) {
                 if (!sendBounded(job.fd, frame)) break;
                 lastHeartbeat = std::chrono::steady_clock::now();
@@ -833,7 +849,8 @@ private:
                 lastHeartbeat = std::chrono::steady_clock::now();
             }
         }
-        job.subscriber->close();
+        if (job.subscriber) job.subscriber->close();
+        if (job.browserSubscriber) job.browserSubscriber->close();
     }
 
     void runWorker() {
@@ -933,6 +950,9 @@ int SimpleHttpListener::runUntilStopped()
         STREAM_WRITER_THREAD_COUNT,
         STREAM_WRITER_MAX_PENDING);
     DeviceEventResponseWriterPool deviceEventWriters;
+    // Independent bounded workers: browser EventSources cannot starve
+    // authenticated Device and Operation event delivery.
+    DeviceEventResponseWriterPool browserEventWriters;
 
     std::cout
         << "simple HTTP listener running on "
@@ -989,13 +1009,15 @@ int SimpleHttpListener::runUntilStopped()
         bool imageResponse = false;
         std::string streamBodyPath;
         std::shared_ptr<DeviceLiveEventSubscription> deviceEvents;
+        std::shared_ptr<BrowserLiveEventSubscription> browserEvents;
 
         if (!prepareClientResponse(
                 clientSocket,
                 rawResponse,
                 imageResponse,
                 streamBodyPath,
-                deviceEvents)) {
+                deviceEvents,
+                browserEvents)) {
             close(clientSocket);
             continue;
         }
@@ -1005,6 +1027,15 @@ int SimpleHttpListener::runUntilStopped()
                     clientSocket, std::move(rawResponse),
                     std::move(deviceEvents))) continue;
             // No SSE headers were written: fail closed with an ordinary 503.
+            writeAll(clientSocket, streamQueueBusyResponse());
+            close(clientSocket);
+            continue;
+        }
+
+        if (browserEvents) {
+            if (browserEventWriters.enqueue(
+                    clientSocket, std::move(rawResponse),
+                    std::move(browserEvents))) continue;
             writeAll(clientSocket, streamQueueBusyResponse());
             close(clientSocket);
             continue;
@@ -1037,6 +1068,7 @@ int SimpleHttpListener::runUntilStopped()
         close(clientSocket);
     }
 
+    browserEventWriters.shutdown();
     deviceEventWriters.shutdown();
     streamWriters.shutdown();
     imageWriters.shutdown();
@@ -1122,7 +1154,8 @@ bool SimpleHttpListener::prepareClientResponse(
     std::string& rawResponse,
     bool& imageResponse,
     std::string& streamBodyPath,
-    std::shared_ptr<DeviceLiveEventSubscription>& deviceEvents) const
+    std::shared_ptr<DeviceLiveEventSubscription>& deviceEvents,
+    std::shared_ptr<BrowserLiveEventSubscription>& browserEvents) const
 {
     std::string rawRequest;
     char buffer[4096];
@@ -1177,7 +1210,9 @@ bool SimpleHttpListener::prepareClientResponse(
     imageResponse = isImageResponse(response);
     streamBodyPath = response.streamBodyPath;
     deviceEvents = response.deviceEventSubscription;
+    browserEvents = response.browserEventSubscription;
     rawResponse = serializeResponse(
-        response, !streamBodyPath.empty() || static_cast<bool>(deviceEvents));
+        response, !streamBodyPath.empty() || static_cast<bool>(deviceEvents) ||
+                  static_cast<bool>(browserEvents));
     return true;
 }

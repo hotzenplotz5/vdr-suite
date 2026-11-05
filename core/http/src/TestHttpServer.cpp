@@ -2372,13 +2372,29 @@ HttpServerResponse TestHttpServer::handleRequest(
          pathWithoutQuery(request.path) == "/api/v1/devices"))
         deviceEventHub_->disconnectAll();
 
-    return finalizeResponse(
-        gate.context,
-        mapApiResponse(
-            apiResponse.statusCode,
-            apiResponse.contentType,
-            apiResponse.body,
-            apiResponse.headers));
+    HttpServerResponse response = mapApiResponse(
+        apiResponse.statusCode,
+        apiResponse.contentType,
+        apiResponse.body,
+        apiResponse.headers);
+    // Never subscribe before SecurityHttpGate and the actual live route
+    // have both authorized the request. Replay is queued on subscription,
+    // then the writer streams future events from that same feed.
+    if (request.method == "GET" &&
+        pathWithoutQuery(request.path) == "/api/vdr/live" &&
+        response.statusCode == 200 &&
+        apiResponse.contentType == "text/event-stream") {
+        response.browserEventSubscription = apiRouter_.subscribeBrowserLive(
+            requestHeaderValue(request, "Last-Event-ID"));
+        if (response.browserEventSubscription) {
+            response.body.clear(); // Initial replay is inside the SSE queue.
+        } else {
+            response.statusCode = 503;
+            response.headers["Content-Type"] = "application/json";
+            response.body = "{\"error\":{\"code\":\"browser_sse_capacity_exhausted\"}}";
+        }
+    }
+    return finalizeResponse(gate.context, std::move(response));
 }
 
 HttpServerResponse TestHttpServer::mapApiResponse(

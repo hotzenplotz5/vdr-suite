@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 
+class BrowserLiveEventSubscription;
 class BackendRegistryController;
 class CapabilityController;
 class EpgController;
@@ -269,6 +270,10 @@ public:
         return epgCacheController_->getMetadataImage(
             backendId, channelId, eventId, "preferred", 0);
     }
+
+    // Called only after the normal authenticated GET admission.
+    std::shared_ptr<BrowserLiveEventSubscription> subscribeBrowserLive(
+        const std::string& lastEventId) const;
 
     ApiResponse handleGet(
         const std::string& path,

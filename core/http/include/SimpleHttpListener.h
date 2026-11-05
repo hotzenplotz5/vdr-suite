@@ -8,6 +8,7 @@
 #include <memory>
 
 class DeviceLiveEventSubscription;
+class BrowserLiveEventSubscription;
 #include <string>
 
 class SimpleHttpListener {
@@ -54,7 +55,8 @@ private:
         std::string& rawResponse,
         bool& imageResponse,
         std::string& streamBodyPath,
-        std::shared_ptr<DeviceLiveEventSubscription>& deviceEvents) const;
+        std::shared_ptr<DeviceLiveEventSubscription>& deviceEvents,
+        std::shared_ptr<BrowserLiveEventSubscription>& browserEvents) const;
 };
 
 #endif

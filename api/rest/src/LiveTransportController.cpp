@@ -2,6 +2,12 @@
 
 #include "ILiveTransport.h"
 
+std::shared_ptr<BrowserLiveEventSubscription>
+LiveTransportController::subscribeBrowser(const std::string& lastEventId) const
+{
+    return transport_.subscribeBrowser(lastEventId);
+}
+
 LiveTransportController::LiveTransportController(
     const ILiveTransport& transport)
     : transport_(transport)

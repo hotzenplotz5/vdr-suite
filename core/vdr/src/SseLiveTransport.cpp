@@ -1,5 +1,8 @@
 #include "SseLiveTransport.h"
 #include "DeviceLiveEventHub.h"
+#include "BrowserLiveEventSubscription.h"
+
+#include <algorithm>
 
 #include <charconv>
 #include <cstdint>
@@ -28,6 +31,8 @@ void SseLiveTransport::publish(const LiveUpdateEvent& event)
 {
     const int sequence = event.sequenceNumber();
     if (sequence > latestSequenceNumber_) {
+        const bool gap = latestSequenceNumber_ > 0 &&
+            sequence != latestSequenceNumber_ + 1;
         latestSequenceNumber_ = sequence;
         std::ostringstream frame;
         frame << "event: update\n"
@@ -47,8 +52,9 @@ void SseLiveTransport::publish(const LiveUpdateEvent& event)
                 frameSequenceNumbers_.erase(frameSequenceNumbers_.begin());
             }
             retainedBytes_ += serialized.size();
-            frames_.push_back(std::move(serialized));
+            frames_.push_back(serialized);
             frameSequenceNumbers_.push_back(sequence);
+            notifyBrowserSubscribers(serialized, gap);
         }
     }
     if (deviceLiveEventHub_) deviceLiveEventHub_->publish(event);
@@ -123,6 +129,37 @@ std::string SseLiveTransport::replay(const std::string& lastEventId) const
     return response;
 }
 
+std::shared_ptr<BrowserLiveEventSubscription>
+SseLiveTransport::subscribeBrowser(const std::string& lastEventId) const
+{
+    browserSubscribers_.erase(
+        std::remove_if(browserSubscribers_.begin(), browserSubscribers_.end(),
+            [](const std::weak_ptr<BrowserLiveEventSubscription>& weak) {
+                return weak.expired();
+            }), browserSubscribers_.end());
+    if (browserSubscribers_.size() >= 8) return nullptr;
+    auto subscription = std::make_shared<BrowserLiveEventSubscription>(
+        replay(lastEventId));
+    browserSubscribers_.push_back(subscription);
+    return subscription;
+}
+
+void SseLiveTransport::notifyBrowserSubscribers(
+    const std::string& frame, bool gap)
+{
+    const std::string resync = resyncFrame("gap");
+    for (auto it = browserSubscribers_.begin(); it != browserSubscribers_.end();) {
+        auto subscriber = it->lock();
+        if (!subscriber) {
+            it = browserSubscribers_.erase(it);
+        } else {
+            if (gap) subscriber->resyncAndClose(resync);
+            else subscriber->deliver(frame, resync);
+            ++it;
+        }
+    }
+}
+
 bool SseLiveTransport::empty() const
 {
     return frames_.empty();
@@ -130,6 +167,10 @@ bool SseLiveTransport::empty() const
 
 void SseLiveTransport::clear()
 {
+    for (auto& weak : browserSubscribers_) {
+        if (auto subscriber = weak.lock())
+            subscriber->resyncAndClose(resyncFrame("gap"));
+    }
     frames_.clear();
     frameSequenceNumbers_.clear();
     retainedBytes_ = 0;

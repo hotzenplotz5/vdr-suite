@@ -27,6 +27,8 @@ public:
     const std::vector<std::string>& frames() const;
     std::string stream() const override;
     std::string replay(const std::string& lastEventId) const override;
+    std::shared_ptr<BrowserLiveEventSubscription> subscribeBrowser(
+        const std::string& lastEventId) const override;
     bool empty() const override;
     void clear() override;
 
@@ -36,6 +38,10 @@ public:
 
 private:
     std::string resyncFrame(const char* reason) const;
+    void notifyBrowserSubscribers(
+        const std::string& frame, bool gap);
+    mutable std::vector<std::weak_ptr<BrowserLiveEventSubscription>>
+        browserSubscribers_;
 
     std::vector<std::string> frames_;
     std::vector<int> frameSequenceNumbers_;

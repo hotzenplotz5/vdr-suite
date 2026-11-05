@@ -5,6 +5,7 @@
 #include <memory>
 
 class DeviceLiveEventSubscription;
+class BrowserLiveEventSubscription;
 #include <string>
 
 struct HttpServerResponse {
@@ -20,6 +21,10 @@ struct HttpServerResponse {
     // Authenticated, backend-scoped incremental Device events. Never use a
     // media FIFO or a serialized credential URL for this response.
     std::shared_ptr<DeviceLiveEventSubscription> deviceEventSubscription;
+
+    // One authorized browser SSE subscription, drained off the listener
+    // thread with bounded backlog and a periodic reconnect for re-admission.
+    std::shared_ptr<BrowserLiveEventSubscription> browserEventSubscription;
 };
 
 #endif
