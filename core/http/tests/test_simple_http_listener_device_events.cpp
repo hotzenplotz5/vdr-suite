@@ -1,5 +1,6 @@
 #include "SimpleHttpListener.h"
 #include "DeviceLiveEventHub.h"
+#include "BrowserLiveEventSubscription.h"
 
 #include <arpa/inet.h>
 #include <atomic>
@@ -16,11 +17,21 @@
 namespace {
 class FakeAdmittedEventServer final : public IHttpServer {
 public:
-    explicit FakeAdmittedEventServer(DeviceLiveEventHub& hub) : hub_(hub) {}
+    explicit FakeAdmittedEventServer(DeviceLiveEventHub& hub)
+        : hub_(hub), browser_(std::make_shared<BrowserLiveEventSubscription>(
+              "retry: 5000\\n\\nevent: resync\\nid: sse_test:0\\ndata: {}\\n\\n")) {}
+    void publishBrowser() const {
+        browser_->deliver(
+            "event: update\\nid: sse_test:1\\ndata: {\"sequenceNumber\":1}\\n\\n",
+            "event: resync\\ndata: {}\\n\\n");
+    }
     HttpServerResponse handleRequest(const HttpServerRequest& request) const override {
         HttpServerResponse reply;
         reply.headers["Cache-Control"] = "no-store";
-        if (request.path == "/device-events") {
+        if (request.path == "/browser-events") {
+            reply.browserEventSubscription = browser_;
+            reply.headers["Content-Type"] = "text/event-stream";
+        } else if (request.path == "/device-events") {
             reply.deviceEventSubscription = hub_.subscribe("home", {"timers"});
             reply.headers["Content-Type"] = "text/event-stream";
         } else if (request.path == "/operation-events") {
@@ -35,6 +46,7 @@ public:
     }
 private:
     DeviceLiveEventHub& hub_;
+    std::shared_ptr<BrowserLiveEventSubscription> browser_;
 };
 
 int portAvailable() {
@@ -145,6 +157,18 @@ int main() {
     assert(opUpdate.find("op_12345678901234567890123456789012") != std::string::npos);
     assert(opUpdate.find("op_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") == std::string::npos);
 
+    int browserStream = connectPort(port);
+    request(browserStream, "/browser-events");
+    const auto browserHello = readUntil(browserStream, "event: resync",
+        std::chrono::milliseconds(1500));
+    assert(browserHello.find("HTTP/1.1 200 OK") == 0);
+    assert(browserHello.find("text/event-stream") != std::string::npos);
+    assert(browserHello.find("Content-Length") == std::string::npos);
+    server.publishBrowser();
+    const auto browserUpdate = readUntil(browserStream, "\"sequenceNumber\":1",
+        std::chrono::milliseconds(1500));
+    assert(browserUpdate.find("event: update") != std::string::npos);
+
     int normal = connectPort(port);
     request(normal, "/ping");
     const auto response = readUntil(normal, "normal-api-response",
@@ -157,5 +181,6 @@ int main() {
     worker.join();
     ::close(stream);
     ::close(operationStream);
+    ::close(browserStream);
     return 0;
 }
