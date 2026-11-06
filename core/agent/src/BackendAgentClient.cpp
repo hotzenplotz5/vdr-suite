@@ -659,13 +659,13 @@ BackendAgentTransportResponse CurlBackendAgentControlPlaneTransport::perform(
         if (!configured)
         {
             std::fprintf(stderr,
-                "BACKEND_AGENT_CURL_DIAG=SETUP_FAILED option=%s code=%d runtime=%s\\n",
+                "BACKEND_AGENT_CURL_DIAG=SETUP_FAILED option=%s code=%d runtime=%s\n",
                 failedOption, static_cast<int>(setupError), curlVersion);
         }
         else
         {
             std::fprintf(stderr,
-                "BACKEND_AGENT_CURL_DIAG=PERFORM_FAILED code=%d runtime=%s\\n",
+                "BACKEND_AGENT_CURL_DIAG=PERFORM_FAILED code=%d runtime=%s\n",
                 static_cast<int>(result), curlVersion);
         }
     }
