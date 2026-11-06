@@ -41,6 +41,22 @@ struct PublicOperationLookupResult
     PublicOperationResource operation;
 };
 
+struct PublicMediaImportRecentItem
+{
+    std::string operationId;
+    std::string backendId;
+    std::string sourceId;
+    std::string state;
+    std::string videoDecision;
+    std::int64_t requestedAt = 0;
+};
+
+struct PublicMediaImportRecentResult
+{
+    bool available = false;
+    std::vector<PublicMediaImportRecentItem> items;
+};
+
 enum class PublicTimerAssignmentLookupStatus
 {
     ok,
@@ -1376,6 +1392,10 @@ public:
             const std::string& operationId,
             const std::string& actorRef)>;
 
+    using MediaImportRecentLookup =
+        std::function<PublicMediaImportRecentResult(
+            const std::string& actorId, const std::string& backendId)>;
+
     using TimerAssignmentLookup =
         std::function<PublicTimerAssignmentLookupResult(
             const std::string& timerAssignmentId,
@@ -1612,6 +1632,9 @@ public:
     void registerOperationLookup(OperationLookup lookup);
     void resetOperationLookup();
     bool operationLookupConfigured() const;
+
+    void registerMediaImportRecentLookup(MediaImportRecentLookup lookup);
+    void resetMediaImportRecentLookup();
 
     void registerTimerAssignmentLookup(TimerAssignmentLookup lookup);
     void resetTimerAssignmentLookup();
@@ -2062,6 +2085,9 @@ private:
 
     mutable std::mutex operationLookupMutex_;
     OperationLookup operationLookup_;
+
+    mutable std::mutex mediaImportRecentLookupMutex_;
+    MediaImportRecentLookup mediaImportRecentLookup_;
 
     mutable std::mutex timerAssignmentLookupMutex_;
     TimerAssignmentLookup timerAssignmentLookup_;

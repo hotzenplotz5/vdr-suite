@@ -1833,6 +1833,10 @@
         return request(mediaImportPath(normalizedOptions,
           'capabilities/media-import'), normalizedOptions);
       },
+      getRecentMediaImports(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        return request(mediaImportPath(value, 'media-imports'), value);
+      },
       getMediaImportSources(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};
         const cursor = normalizedOptions.cursor;

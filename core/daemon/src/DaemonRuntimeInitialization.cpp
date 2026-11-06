@@ -753,6 +753,52 @@ bool DaemonRuntime::initialize()
             return mediaImportOperationFence_->effectiveMediaImportCapability(
                 actorId, backendId, now, reason);
         });
+    PublicApiRuntime::instance().registerMediaImportRecentLookup(
+        [this](const std::string& actor, const std::string& backend) {
+            PublicMediaImportRecentResult output;
+            if (!mutationOperationRepository_) return output;
+            const auto found =
+                mutationOperationRepository_->listRecentForActorBackendActionFamily(
+                    actor, backend, "media.import", 64U);
+            if (!found.ok()) return output;
+            for (const auto& op : found.operations) {
+                const auto payload =
+                    mutationOperationRepository_->findPayloadByOperationId(
+                        op.operationId);
+                if (!payload.ok()) return output;
+                std::string sourceId;
+                vdrsuite::mediatools::MediaImportDecision decision;
+                if (!vdrsuite::mediatools::parseMediaImportSelection(
+                        payload.payload.payload, sourceId, decision) ||
+                    sourceId != op.resourceId) return output;
+                PublicMediaImportRecentItem item;
+                item.operationId = op.operationId;
+                item.backendId = op.backendId;
+                item.sourceId = sourceId;
+                item.state =
+                    vdrsuite::operations::mutationOperationStateName(op.state);
+                item.requestedAt = op.requestedAt;
+                switch (decision) {
+                    case vdrsuite::mediatools::MediaImportDecision::import:
+                        break;
+                    case vdrsuite::mediatools::MediaImportDecision::local:
+                        item.videoDecision = "local"; break;
+                    case vdrsuite::mediatools::MediaImportDecision::desktop:
+                        item.videoDecision = "desktop"; break;
+                    case vdrsuite::mediatools::MediaImportDecision::skip:
+                        item.videoDecision = "skip"; break;
+                    case vdrsuite::mediatools::MediaImportDecision::release:
+                        item.videoDecision = "release"; break;
+                    case vdrsuite::mediatools::MediaImportDecision::duplicate:
+                        item.videoDecision = "duplicate"; break;
+                    case vdrsuite::mediatools::MediaImportDecision::deleteDuplicate:
+                        item.videoDecision = "delete_duplicate"; break;
+                }
+                output.items.push_back(std::move(item));
+            }
+            output.available = true;
+            return output;
+        });
     PublicApiRuntime::instance().registerMediaImportAdmission(
         [this](const PublicMediaImportAdmissionRequest& request) {
             return admitMediaImport(request);

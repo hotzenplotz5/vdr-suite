@@ -157,6 +157,65 @@
     });
   }
 
+  // Browser restart loses activeAttempts. Rejoin this actor's existing
+  // durable Core Operation with SSE; never submit a replacement job.
+  function restoreDurableAttempt(view) {
+    if (!isCurrent(view) || view.attempt) return Promise.resolve();
+    const api = publicClient();
+    if (typeof api.getRecentMediaImports !== 'function') return Promise.resolve();
+    return api.getRecentMediaImports(readOptions(view.backendId))
+      .then(function (response) {
+        if (!isCurrent(view) || view.attempt) return;
+        const items = response && response.data && response.data.items;
+        if (!Array.isArray(items)) return;
+        const valid = items.filter(function (item) {
+          return item && item.backendId === view.backendId &&
+            typeof item.operationId === 'string' &&
+            /^op_[A-Za-z0-9_-]+$/.test(item.operationId) &&
+            typeof item.sourceId === 'string' &&
+            /^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId) &&
+            typeof item.state === 'string' &&
+            ['','local','desktop','skip','release','duplicate',
+              'delete_duplicate'].includes(item.videoDecision);
+        });
+        if (!valid.length) return;
+        const running = valid.find(function (item) {
+          return ['accepted','queued','dispatching','executed_unverified',
+            'outcome_unknown'].includes(item.state);
+        });
+        if (!running) {
+          const completed = valid[0];
+          const message = 'Letzter eigener Media-Import-Auftrag ' +
+            completed.operationId + ': ' +
+            operationLabel(completed.state, completed.videoDecision);
+          completedOperations[view.backendId] = message;
+          view.completedNotice.textContent = message;
+          view.completedNotice.hidden = false;
+          return;
+        }
+        const attempt = {
+          sourceId: running.sourceId,
+          sourceLabel: view.sourceTitles[running.sourceId] || running.sourceId,
+          videoDecision: running.videoDecision,
+          key: '', operationId: running.operationId,
+          state: running.state,
+          startedAt: Number.isFinite(running.requestedAt) && running.requestedAt > 0
+            ? running.requestedAt * 1000 : Date.now(),
+          pending: false, metadataSelection: null, frozenMetadata: '',
+          metadataStarted: false, metadataFeedback: '', recovered: true
+        };
+        activeAttempts[view.backendId] = attempt;
+        view.attempt = attempt;
+        showAttempt(view);
+      }).catch(function (error) {
+        // The existing scan and navigation remain usable on a GET failure.
+        if (isCurrent(view) && !view.attempt)
+          view.operationDetail.textContent =
+            'Frühere Importaufträge derzeit nicht abrufbar: ' +
+            operationError(error);
+      });
+  }
+
   function deactivate() {
     ++owner;
     if (current) {
@@ -4458,7 +4517,9 @@
           return loadSources(view);
         return;
       }
-      return loadSources(view);
+      return loadSources(view).then(function () {
+        return restoreDurableAttempt(view);
+      });
     }).catch(function (error) {
       if (isCurrent(view)) report(view, operationError(error), true);
     });

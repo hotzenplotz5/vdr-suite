@@ -710,6 +710,53 @@ MutationOperationRepository::listByActionFamilyAndStates(
     return result;
 }
 
+MutationOperationRepositoryListResult
+MutationOperationRepository::listRecentForActorBackendActionFamily(
+    const std::string& actorId, const std::string& backendId,
+    const std::string& actionFamily, std::size_t limit) const
+{
+    MutationOperationRepositoryListResult result;
+    if (!safeIdentity(actorId) || !safeIdentity(backendId) ||
+        !safeIdentity(actionFamily) || limit == 0 || limit > 128U) {
+        result.status = MutationOperationRepositoryStatus::invalid;
+        return result;
+    }
+    const std::string sql = std::string("SELECT ") + kColumns +
+        " FROM mutation_operations WHERE actor_id=? AND backend_id=? "
+        "AND action_family=? "
+        "ORDER BY CASE WHEN state IN ('accepted','queued','dispatching',"
+        "'executed_unverified','outcome_unknown') THEN 0 ELSE 1 END ASC,"
+        "updated_at DESC,operation_id DESC LIMIT ?;";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), sql.c_str(), -1,
+            &statement, nullptr) != SQLITE_OK ||
+        !bindText(statement, 1, actorId) ||
+        !bindText(statement, 2, backendId) ||
+        !bindText(statement, 3, actionFamily) ||
+        sqlite3_bind_int64(statement, 4,
+            static_cast<sqlite3_int64>(limit)) != SQLITE_OK)
+    {
+        if (statement) sqlite3_finalize(statement);
+        result.status = MutationOperationRepositoryStatus::storageError;
+        return result;
+    }
+    while (true) {
+        const int step = sqlite3_step(statement);
+        if (step == SQLITE_DONE) break;
+        MutationOperation operation;
+        if (step != SQLITE_ROW || !readOperation(statement, operation)) {
+            sqlite3_finalize(statement);
+            result.operations.clear();
+            result.status = MutationOperationRepositoryStatus::storageError;
+            return result;
+        }
+        result.operations.push_back(std::move(operation));
+    }
+    sqlite3_finalize(statement);
+    result.status = MutationOperationRepositoryStatus::ok;
+    return result;
+}
+
 MutationOperationPayloadRepositoryResult
 MutationOperationRepository::findPayloadByOperationId(
     const std::string& operationId)

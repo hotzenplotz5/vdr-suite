@@ -590,7 +590,7 @@ public:
         const bool isPublicBackendRead =
             request.method == "GET" &&
             (isPublicBackendCollection || isPublicMediaImportCapabilityResource ||
-             isPublicMediaImportSourcesResource ||
+             isPublicMediaImportCollection || isPublicMediaImportSourcesResource ||
              isPublicMediaImportPreviewResource ||
              isPublicMediaCheckCapabilityResource ||
              isPublicMediaShrinkCapabilityResource);

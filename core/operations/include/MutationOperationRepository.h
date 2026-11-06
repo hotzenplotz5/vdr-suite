@@ -113,6 +113,11 @@ public:
         const std::vector<MutationOperationState>& states,
         std::size_t limit) const;
 
+    // Read-only actor/backend-scoped recovery from the existing operation journal.
+    MutationOperationRepositoryListResult listRecentForActorBackendActionFamily(
+        const std::string& actorId, const std::string& backendId,
+        const std::string& actionFamily, std::size_t limit) const;
+
     MutationOperationPayloadRepositoryResult findPayloadByOperationId(
         const std::string& operationId);
 

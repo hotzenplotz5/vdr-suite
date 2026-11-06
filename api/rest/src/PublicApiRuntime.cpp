@@ -5521,6 +5521,19 @@ PublicApiRuntime& PublicApiRuntime::instance()
     return runtime;
 }
 
+void PublicApiRuntime::registerMediaImportRecentLookup(
+    MediaImportRecentLookup lookup)
+{
+    std::lock_guard<std::mutex> lock(mediaImportRecentLookupMutex_);
+    mediaImportRecentLookup_ = std::move(lookup);
+}
+
+void PublicApiRuntime::resetMediaImportRecentLookup()
+{
+    std::lock_guard<std::mutex> lock(mediaImportRecentLookupMutex_);
+    mediaImportRecentLookup_ = {};
+}
+
 void PublicApiRuntime::registerOperationLookup(
     OperationLookup lookup)
 {
@@ -9637,11 +9650,63 @@ bool PublicApiRuntime::tryHandleGet(
     std::string mediaImportBackend;
     if (publicMediaImportCollectionPath(path, mediaImportBackend))
     {
-        response = methodNotAllowedProblem(
-            path, requestId, correlationId, "POST");
+        if (actorRef.empty()) {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        const bool scoped =
+            authorizedBackendId == mediaImportBackend ||
+            authorizedBackendId == "*" ||
+            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
+                      mediaImportBackend) != authorizedBackendIds.end() ||
+            std::find(authorizedBackendIds.begin(), authorizedBackendIds.end(),
+                      std::string("*")) != authorizedBackendIds.end();
+        if (!scoped) {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path) {
+            response = invalidRequestProblem(path,
+                "Media Import recovery accepts no query parameters.",
+                requestId, correlationId);
+            return true;
+        }
+        MediaImportRecentLookup lookup;
+        {
+            std::lock_guard<std::mutex> lock(mediaImportRecentLookupMutex_);
+            lookup = mediaImportRecentLookup_;
+        }
+        if (!lookup) {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        const PublicMediaImportRecentResult recent =
+            lookup(actorRef, mediaImportBackend);
+        if (!recent.available) {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        std::string body = "{\"items\":[";
+        for (const auto& item : recent.items) {
+            if (item.operationId.empty() ||
+                item.backendId != mediaImportBackend ||
+                item.sourceId.empty() || item.state.empty() ||
+                item.requestedAt <= 0) {
+                response = serviceUnavailableProblem(path, requestId, correlationId);
+                return true;
+            }
+            if (body.back() != '[') body += ",";
+            body += "{\"operationId\":\"" + jsonEscape(item.operationId) +
+                "\",\"backendId\":\"" + jsonEscape(item.backendId) +
+                "\",\"sourceId\":\"" + jsonEscape(item.sourceId) +
+                "\",\"state\":\"" + jsonEscape(item.state) +
+                "\",\"videoDecision\":\"" + jsonEscape(item.videoDecision) +
+                "\",\"requestedAt\":" + std::to_string(item.requestedAt) + "}";
+        }
+        body += "],\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}";
+        response = jsonResponse(body, requestId, correlationId);
         return true;
     }
-
 
     if (isPublicV1Path(path))
     {

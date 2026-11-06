@@ -165,6 +165,7 @@ const MARK_DUP = 'source_marked_du_123456';
 let batchStates = Object.create(null);
 let delayedSubmit = null;
 let operationReads = 0;
+let recentImports = [];
 const operationStreams = [];
 function operationStream(operationId) {
   return operationStreams.slice().reverse().find(function (source) {
@@ -315,6 +316,8 @@ function transport(url, options) {
       : reply(sourcesStatus, {detail: 'Source unavailable'}));
   }
   if (path.endsWith('/media-imports')) {
+    if (options.method !== 'POST')
+      return Promise.resolve(reply(200, {items: recentImports}));
     ++submits;
     if (JSON.parse(options.body).videoDecision === 'delete_duplicate') {
       const targetId = JSON.parse(options.body).sourceId;
@@ -3515,6 +3518,45 @@ function publishHomeResume() {}
     'Direktimport möglich');
   assert.strictEqual(submits, scanPostsBefore,
     'first-time preview never submits an import');
+
+  // MT.EVENT4: browser restart loses activeAttempts but not the durable
+  // actor-owned import. Restore SSE without a second POST.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  previewMode = 'ready';
+  recentImports = [{operationId: OP, backendId: 'backend-a',
+    sourceId: SOURCE, state: 'dispatching', videoDecision: '',
+    requestedAt: 1720000000}];
+  state = 'dispatching';
+  const postsBeforeRestart = submits;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  assert(findClass(mount, 'media-import-operation').textContent.includes(OP),
+    'browser restart restores the same Core Operation ID');
+  assert(operationStream(OP), 'restored job subscribes to the existing SSE channel');
+  assert.strictEqual(submits, postsBeforeRestart,
+    'recovery is read-only and does not dispatch a worker');
+  state = 'succeeded';
+  await emitOperation(OP);
+  assert(findClass(mount, 'status').textContent.includes('abgeschlossen') ||
+    findClass(mount, 'media-import-operation').textContent.includes('succeeded'),
+    'a recovered job renders its verified terminal status');
+
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  recentImports[0].state = 'succeeded';
+  const postsBeforeCompleteReload = submits;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  assert(findClass(mount, 'media-import-completed-notice').textContent.includes(OP),
+    'offline completion remains visible after a browser restart');
+  assert.strictEqual(submits, postsBeforeCompleteReload,
+    'completed recovery never submits another import');
+  recentImports = [];
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {

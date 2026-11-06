@@ -75,6 +75,43 @@ int main()
         "\"version\":1,\"availability\":\"available\"}") !=
         std::string::npos);
 
+    runtime.registerMediaImportRecentLookup(
+        [](const std::string& actor, const std::string& backend) {
+            PublicMediaImportRecentResult result;
+            result.available = true;
+            if (actor == "actor-owner" && backend == "default") {
+                PublicMediaImportRecentItem item;
+                item.operationId = "op_12345678901234567890123456789012";
+                item.backendId = "default";
+                item.sourceId = "source_0123456789abcde";
+                item.state = "dispatching";
+                item.videoDecision = "local";
+                item.requestedAt = 1720000000;
+                result.items.push_back(item);
+            }
+            return result;
+        });
+    ApiResponse recent;
+    assert(runtime.tryHandleGet(
+        "/api/v1/backends/default/media-imports", "actor-owner",
+        "recent-imports", "", recent, "", "default"));
+    assert(recent.statusCode == 200);
+    assert(recent.body.find("\"state\":\"dispatching\"") != std::string::npos);
+    assert(recent.body.find("\"videoDecision\":\"local\"") != std::string::npos);
+    assert(recent.body.find("source_0123456789abcde") != std::string::npos);
+    ApiResponse foreignRecent;
+    assert(runtime.tryHandleGet(
+        "/api/v1/backends/default/media-imports", "foreign-actor",
+        "recent-imports-foreign", "", foreignRecent, "", "default"));
+    assert(foreignRecent.statusCode == 200 &&
+           foreignRecent.body.find("\"items\":[]") != std::string::npos);
+    ApiResponse wrongBackend;
+    assert(runtime.tryHandleGet(
+        "/api/v1/backends/default/media-imports", "actor-owner",
+        "recent-imports-unscoped", "", wrongBackend));
+    assert(wrongBackend.statusCode == 404);
+    runtime.resetMediaImportRecentLookup();
+
     const std::string requestId = "request-operation-1";
     const std::string correlationId = "correlation-operation-1";
 
