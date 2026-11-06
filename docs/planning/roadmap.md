@@ -43,11 +43,11 @@ A roadmap entry is never automatic permission to implement the next possible dif
 - Completed phase history is not renumbered. Only not-yet-started future phases may be reordered when architecture/product sequencing is explicitly updated.
 
 
-## SSE.H — Live-Update transport hardening (SSE.H1 installed; SSE.H2 code committed/test pending; 05.11.2026)
+## SSE.H — Live-Update transport hardening (funktionale yaVDR-Abnahme PASS; 06.11.2026)
 
-**SSE.H1 wurde vom Operator mit versiegelter Runtime-Stage auf yaVDR installiert (RUNTIME_DEPLOYMENT_MATCH=YES, Daemon/Agent aktiv), die Browser-SSE-Funktion ist noch nicht im Feld abgenommen. SSE.H2 ist im Produktcode inklusive gezielter Tests committed, nicht installiert oder als gruen abgenommen.** The existing [ADR-0019 SSE strategy](../adr/ADR-0019-sse-event-stream-transport-strategy.md) remains accepted; its runtime needs targeted [SSE/Continue-Watching hardening](../development/sse-continue-watching-hardening-2026-11-04.md).
+**SSE.H1/H2 und CW.H2 im realen yaVDR-Betrieb funktional abgenommen.** Der Operator installierte den verifizierten Daemon `b45c0cfe4a4` (`DAEMON_INSTALL=PASS`, aktiver Service, kein DB-Backup) und bestätigte direkte Wiedergabefortsetzung, Von-vorn-Start, Tonstopp beim Zurückgehen und browserübergreifende SSE-Home-Aktualisierung ohne Seiten-Neuladen. Getrennte Langzeitlast-, Cursor-Reconnect- und Mehrbenutzermessungen sind weiterhin nicht nachgewiesen. [ADR-0019 SSE strategy](../adr/ADR-0019-sse-event-stream-transport-strategy.md) bleibt gültig; Details im [SSE/Continue-Watching-Befund](../development/sse-continue-watching-hardening-2026-11-04.md).
 
-**Current technical gate: SSE.H2 gezielt testen, danach Daemon und Frontend kanonisch auf yaVDR installieren und echten HTTP-Stream/Reconnect abnehmen.** Eine Browser-EventSource pro Dokument und dauerhafte, bounded SSE-HTTP-Sockets mit 2-Minuten-Reauth sind im Code; noch kein Laufzeitnachweis. Weitere separate Slices: CW.H1, CW.H2, SSE.H3 und DEP.H1. Keine neue Branch, Phase 70, Polling-Fallback, Media-Tools-Worker-Aenderung oder automatisches DB-Backup.
+**SSE.H3 evaluiert: Backend-weite Continue-Watching-Invalidierung vorerst beibehalten.** Die API liest Fortschritt actor-scoped nach; im SSE-Hinweis stehen keine Actor-ID oder Wiedergabeposition. Eine indirekte Aktivitätsanzeige und redundante actor-scoped Readbacks bleiben als Rest-Effekt dokumentiert. Ohne gemessene Last oder strengere Privatsphäre-Vorgabe kein zusätzlicher Actor-Fanout. **DEP.H1 auf diesem yaVDR geklärt und Installation bestanden.** Kein neuer Build, kein weiterer Dienstneustart, keine neue Branch/Phase 70, keine Zusatzberechtigungen oder Polling-Fallbacks.
 
 ---
 

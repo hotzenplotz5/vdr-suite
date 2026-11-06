@@ -1,6 +1,6 @@
 # SSE.H — Live-Transport und „Weiterschauen“ härten (04.11.2026)
 
-**Status (05.11.2026):** **SSE.H2 in Produktcode und Regressionstests auf main committed (noch nicht abgenommen).** **SSE.H1 im Quellcode auf main umgesetzt** (Produktcode-/Test-Commit [d1085f50c42b32488b667cc28bfdd01f0ad63ded](https://github.com/hotzenplotz5/vdr-suite/commit/d1085f50c42b32488b667cc28bfdd01f0ad63ded); zwei CI-Vertragskorrekturen [b950b20a942825f046856b96101d51bcb49604c6](https://github.com/hotzenplotz5/vdr-suite/commit/b950b20a942825f046856b96101d51bcb49604c6)). **Eine erste C++-Probe ist im CI bestanden; vollständige Test-, Browser- und yaVDR-Abnahme noch NICHT verifiziert.** CW.H1, CW.H2, SSE.H3 und DEP.H1 bleiben offen; SSE.H2 = CODE-COMMITTED / TEST-PENDING. Kein neuer nummerierter Runtime-Abschnitt/Phase 70. **SSE vor Frontend-Polling** bleibt verbindlich.
+**Status (06.11.2026):** **SSE.H1/H2 und CW.H2: funktionale yaVDR-Abnahme durch den Operator PASS.** Der aktuelle Daemon wurde mit dem verifizierten Installer von `a8b19c56a804` auf `b45c0cfe4a4` aktualisiert (`DAEMON_INSTALL=PASS`, Service `active`, kein Datenbank-Backup). Der Operator meldete PASS für direktes Fortsetzen, „Von vorn“, Tonende beim Zurückgehen und browserübergreifende Continue-Watching-Aktualisierung ohne manuelles Neuladen. **SSE.H3: Evaluierung abgeschlossen; keine Codeänderung angezeigt.** Gesonderte Reconnect-/Langzeitlast- und Mehrbenutzer-Messungen sind dadurch nicht belegt. Frühere Zeitstandsnotizen unten dokumentieren den ursprünglichen Quellbefund und sind nicht mit dem aktuellen Installationsstatus gleichzusetzen.
 
 **Grundlage:** [ADR-0019 — SSE](../adr/ADR-0019-sse-event-stream-transport-strategy.md), [ADR-0018 — Incremental Snapshot Synchronization](../adr/ADR-0018-incremental-snapshot-synchronization.md), [ADR-0017 — Live Transport Boundary](../adr/ADR-0017-live-transport-boundary.md). Umsetzung gemäß [Strict Roadmap](../planning/roadmap.md).
 
@@ -19,16 +19,16 @@ Continue-Watching-SSE wurde auf `main` bis Code-Commit `99790c74d3d45228c0778783
 
 | ID | Befund | Prüfung |
 | --- | --- | --- |
-| SSE.H1 | **Ausgangsbefund durch Quelländerung adressiert:** SnapshotChangeFeed und SseLiveTransport behalten höchstens 256 Einträge bzw. jeweils 512 KiB gewichtetes/serialisiertes Ereignisvolumen; Last-Event-ID liefert epochengebundenes Delta oder explizites resync. Die Browser-Antwort bleibt allerdings endlich. | CODE-COMMITTED (d1085f50, b950b20a); `test_snapshot_change_feed` im ersten CI **PASS**; andere gezielte Tests/Daemon-Build, Langzeitlast, Browser und yaVDR noch offen. |
-| SSE.H2 | **Code committed:** Browser-Rails teilen eine EventSource pro Dokument; der Server transportiert Browser-Events jetzt ueber eine dauerhafte, begrenzte SSE-Queue mit Heartbeat und erneuter Authentisierung nach maximal 2 Minuten. | CI / realer Socket / yaVDR noch offen; kein Installationsnachweis. |
+| SSE.H1 | Retention (256 Frames/512 KiB), epochengebundenes Delta und explizites Resync implementiert. Der Browser-Socket wurde in SSE.H2 langlebig gemacht. | Funktionale yaVDR-Abnahme mit SSE.H2 **PASS** (Operator); separater Replay-/Langzeitlasttest im Feld nicht nachgewiesen. |
+| SSE.H2 | Browser-Rails teilen eine EventSource pro Dokument; der Server nutzt eine bounded SSE-Queue mit Heartbeat und erneuter HTTP-Authentisierung nach maximal zwei Minuten. | Produktiv installiert; browserübergreifende Live-Aktualisierung laut Operator **PASS**; separater Socket-Dauerlasttest offen. |
 | CW.H1 | **Codepfad bestätigt, sichtbare Nutzerwirkung offen:** `continue-watching-sync.js::syncProgress()` überspringt bei `position === lastPosition` auch eine geplante Abschluss-`notifyLive`-Mutation. Das heißt **nicht**, dass gespeicherte Daten verloren gehen. | Sollte ein Stop/Pause bei unveränderter Position einen zusätzlichen bestätigten Status auslösen? Test mit zweitem Client. |
-| CW.H2 | **Konkurrierende Aktionen möglich:** `home-continue-watching.js::openItem()` ruft für „Von vorn“ `clearBeforeRestart()` ohne Await auf und startet die Wiedergabe unmittelbar. Ein verzögerter Clear könnte eine neue Position überschneiden. | Reproduktions-Test mit verzögertem Clear, CAS-Konflikt und zwei Clients. |
-| SSE.H3 | **Optimierungsfrage, keine belegte Datenoffenlegung:** `ContinueWatchingApiRuntime` sammelt nach `backendId`, `DaemonRuntime` publiziert backendweite Invalidierungen. Das Event enthält keine actor-spezifischen Positionen; andere angemeldete Benutzer können aber unnötig nachlesen. | Aufwand/Nutzen actor-scoped Fanout und bestehende Authentisierung prüfen. |
-| DEP.H1 | **Beobachteter Installationsblocker:** Auf yaVDR meldete `install_daemon.py check` `INSTALLED_SOURCE_ID_UNKNOWN`: die alte ausführbare Datei hat keine vom Installer erkennbare `git-<SHA>`-Quellkennung. Der direkte Binäraustausch ersetzt keinen überprüften Alt-Neu-Datenbank-/Rollback-Vertrag. | Altes Binary/Schema read-only beurteilen, bevor produktiv ersetzt wird. Kein automatisches DB-Backup. |
+| CW.H2 | „Von vorn“-Ablauf ist in den folgenden Code-/Testkorrekturen gegen die frühere Clear/Start-Race gehärtet. | Fortsetzen, Von-vorn-Start und Stop/Zurück laut Operator **PASS**; zusätzliche konkurrierende Device-CAS-Lastfälle nicht als Feldtest belegt. |
+| SSE.H3 | Backendweite Benachrichtigung enthält `backendId`, Sequenz/Generation und Domäne, aber weder Actor-ID noch Wiedergabeposition. Ein fremder authentifizierter Browser kann indirekt eine Aktivität erkennen und einen unnötigen eigenen Readback auslösen; dieser Readback ist actor-scoped. | **EVALUIERT: KISS/BEIBEHALTEN**; actor-scoped Fanout erst bei gemessener Last oder verbindlicher strengeren Privatsphäre-Anforderung. |
+| DEP.H1 | Der frühere Provenance-Blocker wurde zwischenzeitlich geklärt; der Installer erkannte `a8b19c56a804` als Altstand und `b45c0cfe4a4` als Ziel. | **AUF yaVDR ERLEDIGT:** versiegelter Kandidat, `DB_BACKUP_DECISION=NOT_REQUIRED`, `DAEMON_INSTALL=PASS`, laufender Service. |
 
 ## Umsetzbare Slices (Reihenfolge)
 
-### SSE.H1 — Retention und korrektes Delta-/Gap-Replay (Quellcode-Commit; Testabnahme offen)
+### SSE.H1 — Retention und korrektes Delta-/Gap-Replay (funktionale yaVDR-Abnahme 06.11.2026)
 
 **Ziel:** Begrenzte Change-Feed-/SSE-Historie, keine erneute Komplettübertragung bei jedem normalen Reconnect, fehlende Events zuverlässig erkennbar.
 
@@ -56,12 +56,12 @@ Continue-Watching-SSE wurde auf `main` bis Code-Commit `99790c74d3d45228c0778783
 
 **Offene Abnahmerisiken:** C++- und JavaScript-Tests tatsächlich ausführen; Browser-/Header-/Authentisierungs- und Backend-Abgrenzung auf installiertem Candidate verifizieren; RSS- und Antwortgrößen unter längerer Last messen; parallele Home-Rails einschließlich Serien-Rail und Recording Discovery prüfen. Produktive yaVDR-Wirksamkeit erfordert **einen neuen Daemon-Build und kontrollierte Installation** der geänderten C++-Quellen. Der getrennte DEP.H1-Altbinary-Provenance-Blocker gilt vor Live-Deployment weiter. Kein automatischer DB-Backup.
 
-**Status: CODE-COMMITTED / TEST-PENDING; nicht funktional abgenommen.**
+**Aktueller Status: funktionale yaVDR-Abnahme PASS (06.11.2026); der vorherige Quellprüfungsstand oben ist historisch.**
 
 
 ### SSE.H2 — Gemeinsamer Browser-SSE-Bezug
 
-**Implementiert, Abnahme offen.** `createClientLiveUpdateSource()` liefert disposable Rail-Subscriptions auf eine gemeinsame authentifizierte Browser-EventSource pro Web-Dokument. Beim letzten Abonnenten wird sie geschlossen; Logout und Sessionverlust schliessen den physischen Socket sofort, lassen aber die inaktiven Rail-Handles fuer eine moegliche neue Anmeldung erhalten. Eine geaenderte Session erneuert die Verbindung und loest einen einmaligen kanonischen Resync aus. Operation- und Device-SSE bleiben getrennt.
+**Implementiert; funktionale yaVDR-Abnahme PASS am 06.11.2026.** `createClientLiveUpdateSource()` liefert disposable Rail-Subscriptions auf eine gemeinsame authentifizierte Browser-EventSource pro Web-Dokument. Beim letzten Abonnenten wird sie geschlossen; Logout und Sessionverlust schliessen den physischen Socket sofort, lassen aber die inaktiven Rail-Handles fuer eine moegliche neue Anmeldung erhalten. Eine geaenderte Session erneuert die Verbindung und loest einen einmaligen kanonischen Resync aus. Operation- und Device-SSE bleiben getrennt.
 
 Server: `SseLiveTransport::subscribeBrowser` verbindet das bestehende `Last-Event-ID`-Replay mit einer bounded Queue (64 Frames/1 MiB pro Subscription), ohne zweite persistente Ereignisquelle. Bei Queue-Ueberlauf oder Sequenzluecke wird `resync` gesendet und die Verbindung getrennt. `TestHttpServer` erstellt eine Browser-Subscription ausschliesslich nach dem regulaeren SecurityHttpGate und erfolgreichem GET. `SimpleHttpListener` schreibt SSE ohne `Content-Length` in einem eigenen 4-Worker-Pool, sendet Heartbeats und beendet jeden Stream nach maximal zwei Minuten fuer erneute HTTP-Autorisierung.
 
@@ -75,9 +75,13 @@ Reproduktion zuerst. Falls ein zusätzlicher Abschlusszustand fachlich notwendig
 
 Clear und neue Wiedergabesitzung korrekt ordnen, Fehler sichtbar machen und CAS-Revisionsschutz weiterverwenden. Tests: verzögerter Clear, fehlgeschlagener Clear, schneller Doppelklick, konkurrierender Device-Fortschritt.
 
-### SSE.H3 — Fanout/Actor-Isolation evaluieren
+### SSE.H3 — Fanout/Actor-Isolation (Evaluation abgeschlossen 06.11.2026)
 
-Backend-weiten, inhaltlich schmalen Hinweis nur dann durch actor-scoped Fanout ersetzen, wenn belastbare Leistungs-/Privacy-Anforderungen und ein schlanker Weg nachgewiesen sind. Keine ungefragten zusätzlichen Rechte- oder Aktivierungsmechanismen.
+**Befund aus Produktcode:** `ContinueWatchingApiRuntime::tryHandlePost()` bzw. `publicProgressUpdate()` schreibt Fortschritt actor-scoped in die vorhandene Repository-/CAS-Schicht. Für SSE werden nur betroffene `backendId`-Werte in einer `std::set`-Queue zusammengefasst. `DaemonRuntime` erzeugt daraus die Domäne `continueWatching`; `LiveUpdateEventJsonSerializer` überträgt Backend, Sequenznummer, Snapshot-Generation und Domänen, aber weder Actor-ID noch Titel oder Abspielposition. `home-continue-watching.js` filtert nach ausgewähltem Backend und lädt bei einem Treffer die eigene Liste authentifiziert nach. `SseLiveTransport::subscribeBrowser()` führt globales Cursor-Replay aus und ist nicht actor-scoped.
+
+**Abwägung:** Es gibt eine geringe Metadaten-Offenlegung: ein anderer bereits authentifizierter Benutzer am selben Backend erkennt, *dass* irgendein Fortschrittsereignis aufgetreten ist, aber nicht, welcher Benutzer welche Aufnahme wo abgespielt hat. Zusätzlich kann jede offene Home-Ansicht eine unnötige, actor-scoped Listenabfrage auslösen. Eine relevante Laststeigerung ist bislang nicht gemessen. Für actor-scoped Fanout wären Identity-Bindung in der Browser-Subscription, Filterung von Live-Replay und Queue bei Reconnect sowie Absicherung von Sessionwechseln und Device-/Browser-Grenzen nötig. Der Aufwand und das Regressionsrisiko rechtfertigen sich aktuell nicht.
+
+**Entscheidung: EVALUIERT / KEIN PRODUKTCODE-UMBAU.** Den bewährten backendweiten Hinweis beibehalten; keine neuen Rechte, Statusspeicher oder Polling-Fallbacks. Eine erneute Entscheidung ist nur bei einer nachgewiesenen Last-/Skalierungsschwelle oder einer verbindlichen Anforderung nötig, dass selbst die Existenz fremder Wiedergabeaktivität nicht erkennbar sein darf. Dann zuerst gezielte Mehrbenutzer-/Reconnect-Tests und das bestehende Authentisierungskonzept prüfen.
 
 ### DEP.H1 — Installations-Herkunft vor realer Abnahme klären
 
@@ -85,10 +89,10 @@ Bei unbekanntem Alt-Binary nur nach einem belegten Alt-Neu-Vertrag installieren;
 
 ## Grenzen und Abschlusskriterien
 
-**Der laufende Arbeitsumfang bleibt ausschließlich SSE.H1 und dessen Test-/Runtime-Abnahme**, nicht alle Slices gleichzeitig. Kein Refactoring von Media Tools, kein API-v1-Neuentwurf, keine neue Datenbank, kein unerlaubter Git-Branch, keine neue Phase 70. Produktcode nur auf geprüfter Basis des bestehenden `main` bearbeiten und `AGENTS.md` beachten. Gezielte C++-Tests, Browser-Verträge und Device-Kompatibilität prüfen; offene real-yaVDR-Abnahme klar kennzeichnen. Kein CI-Warten als Sperre.
+**Historischer Scope der Erstuntersuchung war SSE.H1.** Der aktuelle Stand (06.11.2026) enthält die funktionale SSE.H1/H2- und CW.H2-Abnahme sowie die abgeschlossene SSE.H3-Evaluierung, ohne neue Produktcodeänderung. Kein Refactoring von Media Tools, kein API-v1-Neuentwurf, keine neue Datenbank, kein unerlaubter Git-Branch, keine neue Phase 70. Produktcode nur auf geprüfter Basis des bestehenden `main` bearbeiten und `AGENTS.md` beachten. Gezielte C++-Tests, Browser-Verträge und Device-Kompatibilität prüfen; offene real-yaVDR-Abnahme klar kennzeichnen. Kein CI-Warten als Sperre.
 
 **Code-Einstiege:** `core/vdr/src/{SnapshotChangeFeed,SnapshotChangeFeedService,SseLiveTransport}.cpp`, `api/rest/src/LiveTransportController.cpp`, `core/daemon/src/DaemonRuntime.cpp`, `web/frontend/api/live-remote-client-api.js`, `web/frontend/{home-recording-discovery,home-continue-watching,recordings2-folder-refresh}.js`, `web/frontend/api/continue-watching-sync.js`.
 
 **Test-Einstiege:** `core/vdr/tests/test_snapshot_change_feed.cpp`, `core/vdr/tests/test_sse_live_transport.cpp`, `api/rest/tests/test_live_transport_controller.cpp`, `web/frontend/tests/test_home_continue_watching_sse.js`.
 
-*Stand der Belege: reine Repository-Quellprüfung am 04.11.2026; kein realer Last-/Hardwarelauf in diesem Dokument.*
+*Belegstand: historische Quellprüfung ab 04.11.2026; produktive Daemon-Installation und funktionale Operatorabnahme vom 06.11.2026. Ein Langzeitlast-/Mehrbenutzer-Messlauf ist nicht belegt.*
