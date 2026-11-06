@@ -263,13 +263,30 @@ class InstallerTests(unittest.TestCase):
             mod.verify_source(self.root, new)
 
 
-    def test_build_as_root_is_refused_before_creating_artifacts(self):
+    def test_build_as_root_compiles_once_and_reuses_candidate(self):
         new = commit(self.root, "core/daemon/src/DeviceTrack.cpp",
-                     "// candidate\\n")
+                     "// candidate\n")
+        directory, binary, seal = mod.candidate(self.root, new)
+        calls = []
+
+        def fake_make(command, **_kwargs):
+            calls.append(command)
+            self.assertEqual(command[:3], ["make", "-C", str(self.root)])
+            self.assertIn(f"BUILD_DIR={directory}", command)
+            self.assertIn(f"VDR_SUITE_SERVER_VERSION=git-{new[:12]}", command)
+            binary.write_bytes(b"\x7fELFgit-" + new[:12].encode()
+                               + b" " + b" ".join(mod.FEATURES))
+            binary.chmod(0o755)
+            return subprocess.CompletedProcess(command, 0)
+
         with mock.patch.object(mod.os, "geteuid", return_value=0):
-            with self.assertRaisesRegex(mod.Rejected, "BUILD_AS_ROOT_REFUSED"):
-                mod.build(self.root, new)
-        self.assertFalse((self.root / ".build").exists())
+            with mock.patch.object(mod, "free_budget"):
+                with mock.patch.object(mod.subprocess, "run", side_effect=fake_make):
+                    mod.build(self.root, new)
+                    mod.build(self.root, new)
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(seal.is_file())
+        self.assertEqual(mod.verified_candidate(self.root, new), binary)
 
     def test_service_binary_identity_requires_vdr_suite_execstart(self):
         live = self.live
