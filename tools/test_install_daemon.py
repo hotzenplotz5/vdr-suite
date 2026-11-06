@@ -142,6 +142,25 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("INSTALLED_SOURCE_ID_UNKNOWN", stderr.getvalue())
         self.assertFalse((self.root / ".build").exists())
 
+    def test_build_preflight_accepts_realistic_free_space_on_large_disk(self):
+        # 234 GB total, 25 GB free: 2 GiB build + 4 GiB reserve fits.
+        space = argparse.Namespace(total=234039422976, free=25257037824)
+        output = io.StringIO()
+        with mock.patch.object(mod.shutil, "disk_usage", return_value=space):
+            with contextlib.redirect_stdout(output):
+                mod.free_budget(self.root / ".build", mod.BUILD_BUDGET)
+        self.assertIn(f"RESERVE={mod.MIN_HEADROOM}", output.getvalue())
+        self.assertIn("RESOURCE_PREFLIGHT=PASS", output.getvalue())
+
+    def test_build_preflight_still_rejects_insufficient_disk_space(self):
+        needed = mod.BUILD_BUDGET
+        space = argparse.Namespace(total=234039422976,
+                                   free=needed + mod.MIN_HEADROOM - 1)
+        with mock.patch.object(mod.shutil, "disk_usage", return_value=space):
+            with self.assertRaisesRegex(mod.Rejected,
+                                        "RESOURCE_PREFLIGHT_INSUFFICIENT"):
+                mod.free_budget(self.root / ".build", needed)
+
     def test_build_seal_reuse_and_apply_without_seal_rejected(self):
         new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// no schema\n")
         directory, binary, seal = mod.candidate(self.root, new)

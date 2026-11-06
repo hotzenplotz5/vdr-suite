@@ -135,7 +135,7 @@ the code candidate as changed and do not claim reuse.
 If the branch HEAD does not match `DOC_HEAD`, stop. Verify
 storage before cloning: after all planned clone, retained output and candidate
 build bytes, free space on `/home/yavdr` must remain at least
-`max(4 GiB, 15% filesystem total)`. Use an explicit, conservatively bounded
+`4 GiB`. Use an explicit, conservatively bounded
 budget for that filesystem; `install_daemon.py build` repeats its own 2 GiB
 preflight. An unbounded clone/build must not begin.
 
@@ -255,7 +255,7 @@ Cache data might be regenerated, but human accounts, device credentials, grants 
 
 - The tool does not clone, fetch, checkout, rebase or merge Git history.
 - It never changes recordings, recording indexes, the VDR daemon, Nginx, TV apps, frontend assets or SQLite on a no-backup path.
-- Its disk preflight reserves the larger of 4 GiB and 15 percent of total filesystem capacity; the build uses a conservative 2 GiB estimate.
+- Its disk preflight reserves 4 GiB of free space after the estimated operation; the build uses a conservative 2 GiB estimate.
 - A failure cannot silently erase the successfully compiled candidate; no automatic removal of old tree directories or backups occurs.
 - This is a bounded **daemon-only** workflow, not a replacement for full staged runtime/frontend deployments or an application-package upgrade.
 - CI acceptance is not proof of operation on yaVDR, authenticated Device API behavior or actual Hisense playback.

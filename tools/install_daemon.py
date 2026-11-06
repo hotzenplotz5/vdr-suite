@@ -168,7 +168,7 @@ def free_budget(path: Path, needed: int) -> None:
     while not location.exists():
         location = location.parent
     usage = shutil.disk_usage(location)
-    reserve = max(MIN_HEADROOM, (usage.total * 15 + 99) // 100)
+    reserve = MIN_HEADROOM
     print(f"RESOURCE_PREFLIGHT_TOTAL={usage.total} FREE={usage.free} "
           f"NEEDED={needed} RESERVE={reserve}", flush=True)
     require(usage.free - needed >= reserve, "RESOURCE_PREFLIGHT_INSUFFICIENT")
