@@ -98,6 +98,7 @@ const base = {
     recordingId: 'r1',
     title: 'Film',
     resumePositionSeconds: 120,
+    progressRevision: 3,
     durationKnown: true,
     durationSeconds: 600
 };
@@ -122,8 +123,8 @@ context.window.VdrSuiteRecordings2Playback = {
     createPanel() {}
 };
 context.window.VdrSuiteContinueWatchingSync = {
-    clear(backendId, recordingId) {
-        homeRestartClears.push({backendId, recordingId});
+    clear(backendId, recordingId, expectedRevision) {
+        homeRestartClears.push({backendId, recordingId, expectedRevision});
         return Promise.resolve(true);
     }
 };
@@ -189,7 +190,9 @@ function flush(count = 8) {
     assert.strictEqual(opened[1].recording.resumePositionSeconds, 0);
     assert.strictEqual(opened[1].options.playbackStartPositionSeconds, 0);
     assert.strictEqual(opened[1].options.autoStartPlayback, true);
-    assert.deepStrictEqual(homeRestartClears, [{backendId: 'default', recordingId: 'r1'}]);
+    assert.deepStrictEqual(homeRestartClears, [{
+        backendId: 'default', recordingId: 'r1', expectedRevision: 3
+    }]);
 
     const hlsCalls = [];
     await syncApi.__test.startAtAbsolute({
@@ -202,16 +205,21 @@ function flush(count = 8) {
 
     const fastCalls = [];
     await syncApi.__test.startAtAbsolute({
-        start() {
-            fastCalls.push('start');
+        start(options) {
+            fastCalls.push(options && options.autoPlay === false ? 'start-paused' : 'start-autoplay');
             return Promise.resolve('fast-session');
         },
+        canResume() { return true; },
         seekAbsolute(position) {
             fastCalls.push('seek:' + position);
-            return Promise.resolve('fast-replacement');
+            return Promise.resolve(true);
+        },
+        play() {
+            fastCalls.push('play');
+            return Promise.resolve(true);
         }
     }, 120);
-    assert.deepStrictEqual(fastCalls, ['start', 'seek:120']);
+    assert.deepStrictEqual(fastCalls, ['start-paused', 'seek:120', 'play']);
 
     const restartCalls = [];
     await syncApi.__test.startAtAbsolute({
