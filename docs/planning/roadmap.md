@@ -49,6 +49,8 @@ A roadmap entry is never automatic permission to implement the next possible dif
 
 **SSE.H3 evaluiert: Backend-weite Continue-Watching-Invalidierung vorerst beibehalten.** Die API liest Fortschritt actor-scoped nach; im SSE-Hinweis stehen keine Actor-ID oder Wiedergabeposition. Eine indirekte Aktivitätsanzeige und redundante actor-scoped Readbacks bleiben als Rest-Effekt dokumentiert. Ohne gemessene Last oder strengere Privatsphäre-Vorgabe kein zusätzlicher Actor-Fanout. **DEP.H1 auf diesem yaVDR geklärt und Installation bestanden.** Kein neuer Build, kein weiterer Dienstneustart, keine neue Branch/Phase 70, keine Zusatzberechtigungen oder Polling-Fallbacks.
 
+**CW.H1 evaluiert (06.11.2026):** Ein Stop mit unveränderter, bereits gespeicherter Position benötigt keine weitere CAS-Mutation/SSE-Meldung, weil Continue Watching keinen separaten Stop-Status führt. Bei geändertem Endstand erfolgt ein CAS-bestätigter `notifyLive`-Write; beide Fälle sind im Frontend-Vertrag ergänzt. Keine Produktcodeänderung oder Neuinstallation nötig.
+
 ---
 
 ## Next maintenance/refactoring phase after Media Tools: BAS — Backend-Agent Simplification

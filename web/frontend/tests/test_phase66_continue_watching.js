@@ -348,6 +348,50 @@ function flush(count = 8) {
     publish({state: 'destroyed', sessionId: null, transition: 'destroyed'});
     assert.strictEqual(lifecycleListeners.length, 0, 'destroyed lifecycle publication must release observation');
 
+    // CW.H1: Stop at an already acknowledged position changes no Core state.
+    // No redundant CAS write (and therefore no fabricated SSE update) is needed.
+    function playbackWritesFor(id) {
+        return syncRequests.map(request => JSON.parse(request.options.body)).filter(body =>
+            body.operation === 'progress' && body.recordingId === id);
+    }
+    function beginObservedPlayback(id, position) {
+        ownerSnapshot = {state: 'idle', sessionId: null, transition: 'snapshot'};
+        absolutePosition = position;
+        syncApi.__test.decorateOwner(owner, {id}, 'default');
+        publish({state: 'playing', sessionId: 'session-' + id, transition: 'session-started'});
+        const samples = scheduled.filter(task => task.active && task.delay === 5000);
+        assert(samples.length > 0, 'active playback must schedule progress sampling');
+        const sample = samples[samples.length - 1];
+        sample.active = false;
+        sample.callback();
+    }
+    beginObservedPlayback('r-cw-h1-unchanged', 73);
+    await flush(24);
+    const firstSample = playbackWritesFor('r-cw-h1-unchanged');
+    assert.strictEqual(firstSample.length, 1, 'initial position must be committed');
+    assert.strictEqual(firstSample[0].notifyLive, true, 'initial checkpoint announces real new progress');
+    publish({state: 'stopped', sessionId: null, transition: 'stopped'});
+    await flush(24);
+    assert.strictEqual(playbackWritesFor('r-cw-h1-unchanged').length, 1,
+        'unchanged Stop must not advance a revision merely to trigger SSE');
+    publish({state: 'destroyed', sessionId: null, transition: 'destroyed'});
+
+    // A changed final position must create one acknowledged CAS mutation
+    // with notifyLive so other authorized Home views can read the new truth.
+    beginObservedPlayback('r-cw-h1-changed', 73);
+    await flush(24);
+    absolutePosition = 94;
+    publish({state: 'stopped', sessionId: null, transition: 'stopped'});
+    await flush(24);
+    const changedWrites = playbackWritesFor('r-cw-h1-changed');
+    assert.strictEqual(changedWrites.length, 2,
+        'a changed final position must be persisted when playback stops');
+    assert.deepStrictEqual(changedWrites.map(body => body.positionSeconds), [73, 94]);
+    assert.deepStrictEqual(changedWrites.map(body => body.expectedRevision), [0, 1]);
+    assert.strictEqual(changedWrites[1].notifyLive, true,
+        'final changed position must request SSE only after successful CAS');
+    publish({state: 'destroyed', sessionId: null, transition: 'destroyed'});
+
     const homeRequests = [];
     context.window.VdrSuiteBrowserSession = {
         csrfHeaders() { return {'X-VDR-Suite-CSRF': 'phase66-home-csrf'}; }
