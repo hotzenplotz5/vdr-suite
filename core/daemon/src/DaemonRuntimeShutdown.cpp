@@ -81,6 +81,7 @@ void DaemonRuntime::shutdown()
     PublicApiRuntime::instance().resetSearchTimerCollectionLookup();
     PublicApiRuntime::instance().resetTimerAssignmentLookup();
     PublicApiRuntime::instance().resetOperationLookup();
+    PublicApiRuntime::instance().resetMediaImportRecentLookup();
     resetDaemonLegacyOsdRuntime();
     resetDaemonHbbtvRuntime();
     resetDaemonTeletextRuntime();

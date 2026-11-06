@@ -3544,6 +3544,24 @@ function publishHomeResume() {}
     findClass(mount, 'media-import-operation').textContent.includes('succeeded'),
     'a recovered job renders its verified terminal status');
 
+  // Core VDR success is terminal, but its source cleanup may still need an
+  // Agent result. A restarted browser must reattach until that result arrives.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  recentImports[0].state = 'succeeded';
+  cleanupState = 'pending';
+  const postsBeforePendingCleanup = submits;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  assert(operationStream(OP),
+    'restart restores the SSE stream for still-pending cleanup');
+  cleanupState = 'removed';
+  await emitOperation(OP);
+  assert.strictEqual(submits, postsBeforePendingCleanup,
+    'recovery of pending cleanup must not restart the import');
+
   context.selectModule('overview');
   context.VdrSuiteMediaImport.clearSession();
   context.resetMediaImportVisibility(true);

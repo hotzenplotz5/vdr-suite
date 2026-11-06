@@ -425,6 +425,49 @@ int main()
         {MutationOperationState::accepted},
         0).status == MutationOperationRepositoryStatus::invalid);
 
+    // MT.EVENT4: SQLite itself filters recovery by exact actor/backend;
+    // a newer completed operation never hides an older active one.
+    auto activeImport = makeOperation(
+        "op-active-import", "idem-active-import", "sha256:active-import");
+    activeImport.resourceType = "MediaImportSource";
+    activeImport.resourceId = "source_0123456789abcde";
+    activeImport.actionFamily = "media.import";
+    assert(repository.reserve(activeImport).ok());
+
+    auto otherActorImport = makeOperation(
+        "op-other-actor-import", "idem-other-actor-import",
+        "sha256:other-actor-import");
+    otherActorImport.actorId = "actor-2";
+    otherActorImport.resourceType = "MediaImportSource";
+    otherActorImport.resourceId = "source_123456789abcdef";
+    otherActorImport.actionFamily = "media.import";
+    assert(repository.reserve(otherActorImport).ok());
+
+    auto otherBackendImport = makeOperation(
+        "op-other-backend-import", "idem-other-backend-import",
+        "sha256:other-backend-import");
+    otherBackendImport.backendId = "backend-2";
+    otherBackendImport.resourceType = "MediaImportSource";
+    otherBackendImport.resourceId = "source_23456789abcdef0";
+    otherBackendImport.actionFamily = "media.import";
+    assert(repository.reserve(otherBackendImport).ok());
+
+    const auto recovered = repository.listRecentForActorBackendActionFamily(
+        "actor-1", "backend-1", "media.import", 16);
+    assert(recovered.ok());
+    assert(recovered.operations.size() == 2);
+    assert(recovered.operations.front().operationId == activeImport.operationId);
+    assert(recovered.operations.back().operationId == preDispatch.operationId);
+    for (const auto& op : recovered.operations) {
+        assert(op.actorId == "actor-1");
+        assert(op.backendId == "backend-1");
+        assert(op.actionFamily == "media.import");
+    }
+    assert(repository.listRecentForActorBackendActionFamily(
+        "actor-2", "backend-1", "media.import", 16).operations.size() == 1);
+    assert(repository.listRecentForActorBackendActionFamily(
+        "actor-1", "backend-2", "media.import", 16).operations.size() == 1);
+
     std::cout << "Phase 64 mutation operation repository regression passed\n";
     return 0;
 }

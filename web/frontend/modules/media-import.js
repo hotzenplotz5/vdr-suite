@@ -159,10 +159,39 @@
 
   // Browser restart loses activeAttempts. Rejoin this actor's existing
   // durable Core Operation with SSE; never submit a replacement job.
+  // Browser restart loses activeAttempts, not the durable actor-owned Core
+  // Operation. A succeeded import may still have pending source cleanup.
   function restoreDurableAttempt(view) {
     if (!isCurrent(view) || view.attempt) return Promise.resolve();
     const api = publicClient();
     if (typeof api.getRecentMediaImports !== 'function') return Promise.resolve();
+    function reattach(item) {
+      if (!isCurrent(view) || view.attempt) return;
+      const attempt = {
+        sourceId: item.sourceId,
+        sourceLabel: view.sourceTitles[item.sourceId] || item.sourceId,
+        videoDecision: item.videoDecision,
+        key: '', operationId: item.operationId, state: item.state,
+        startedAt: Number.isFinite(item.requestedAt) && item.requestedAt > 0
+          ? item.requestedAt * 1000 : Date.now(),
+        pending: false, metadataSelection: null, frozenMetadata: '',
+        metadataStarted: false, metadataFeedback: '', recovered: true
+      };
+      activeAttempts[view.backendId] = attempt;
+      view.attempt = attempt;
+      showAttempt(view);
+    }
+    function showCompleted(item, sourceCleanup) {
+      if (!isCurrent(view) || view.attempt) return;
+      const extra = typeof sourceCleanup === 'string'
+        ? cleanupLabel(sourceCleanup) : '';
+      const message = 'Letzter eigener Media-Import-Auftrag ' +
+        item.operationId + ': ' + operationLabel(item.state, item.videoDecision) +
+        (extra ? ' ' + extra : '');
+      completedOperations[view.backendId] = message;
+      view.completedNotice.textContent = message;
+      view.completedNotice.hidden = false;
+    }
     return api.getRecentMediaImports(readOptions(view.backendId))
       .then(function (response) {
         if (!isCurrent(view) || view.attempt) return;
@@ -183,32 +212,32 @@
           return ['accepted','queued','dispatching','executed_unverified',
             'outcome_unknown'].includes(item.state);
         });
-        if (!running) {
-          const completed = valid[0];
-          const message = 'Letzter eigener Media-Import-Auftrag ' +
-            completed.operationId + ': ' +
-            operationLabel(completed.state, completed.videoDecision);
-          completedOperations[view.backendId] = message;
-          view.completedNotice.textContent = message;
-          view.completedNotice.hidden = false;
+        if (running) {
+          reattach(running);
           return;
         }
-        const attempt = {
-          sourceId: running.sourceId,
-          sourceLabel: view.sourceTitles[running.sourceId] || running.sourceId,
-          videoDecision: running.videoDecision,
-          key: '', operationId: running.operationId,
-          state: running.state,
-          startedAt: Number.isFinite(running.requestedAt) && running.requestedAt > 0
-            ? running.requestedAt * 1000 : Date.now(),
-          pending: false, metadataSelection: null, frozenMetadata: '',
-          metadataStarted: false, metadataFeedback: '', recovered: true
-        };
-        activeAttempts[view.backendId] = attempt;
-        view.attempt = attempt;
-        showAttempt(view);
+        // One authenticated GET resolves the most recent completed import,
+        // including a sourceCleanup receipt that might still be pending.
+        const completed = valid[0];
+        return api.getOperation({
+          operationId: completed.operationId,
+          credentials: 'same-origin', cache: 'no-store'
+        }).then(function (observed) {
+          if (!isCurrent(view) || view.attempt) return;
+          const item = observed && observed.data;
+          if (!item || item.operationId !== completed.operationId ||
+              item.backendId !== view.backendId) return;
+          if (item.state === 'succeeded' && item.sourceCleanup === 'pending') {
+            reattach(completed); // Follow the later cleanup SSE hint.
+          } else {
+            showCompleted(completed, item.sourceCleanup);
+          }
+        }, function () {
+          // The durable listing still shows a historical state without
+          // inventing cleanup success; never send a recovery POST.
+          showCompleted(completed, '');
+        });
       }).catch(function (error) {
-        // The existing scan and navigation remain usable on a GET failure.
         if (isCurrent(view) && !view.attempt)
           view.operationDetail.textContent =
             'Frühere Importaufträge derzeit nicht abrufbar: ' +
