@@ -629,6 +629,7 @@ build-media-tools-pinned-agent-executor-test:
 		core/addons/src/AddonPinnedHandler.cpp \
 		core/addons/src/AddonInstallSnapshot.cpp \
 		addons/media-tools/src/PinnedMediaImportAgentExecutor.cpp \
+		addons/media-tools/src/MediaImport.cpp \
 		addons/media-tools/src/MediaImportDecisionMarker.cpp \
 		addons/media-tools/tests/test_pinned_media_import_agent_executor.cpp \
 		-lcrypto -o "$(BUILD_DIR)/addons/test_pinned_media_import_agent_executor"
