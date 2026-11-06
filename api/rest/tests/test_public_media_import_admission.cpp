@@ -114,8 +114,26 @@ int main()
 
     ApiResponse get;
     assert(api.tryHandleGet(path, "actor:alice", "", "", get));
-    assert(get.statusCode == 405);
-    assert(get.headers.at("Allow") == "POST");
+    // An actor without backend read scope cannot enumerate imports.
+    assert(get.statusCode == 404);
+    ApiResponse scopedGet;
+    assert(api.tryHandleGet(path, "actor:alice", "", "", scopedGet,
+                            "", "backend-a"));
+    assert(scopedGet.statusCode == 503);
+    // The new read route reports unavailable until its Core lookup is bound.
+    api.registerMediaImportRecentLookup(
+        [](const std::string& actor, const std::string& backend) {
+            PublicMediaImportRecentResult out;
+            if (actor == "actor:alice" && backend == "backend-a")
+                out.available = true;
+            return out;
+        });
+    ApiResponse ownedGet;
+    assert(api.tryHandleGet(path, "actor:alice", "", "", ownedGet,
+                            "", "backend-a"));
+    assert(ownedGet.statusCode == 200);
+    assert(ownedGet.body.find("\"items\":[]") != std::string::npos);
+    api.resetMediaImportRecentLookup();
     ApiResponse patch;
     assert(api.tryHandleUnsupportedMethod(
         "PATCH", path, "", "", patch));

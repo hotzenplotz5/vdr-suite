@@ -3534,7 +3534,14 @@ function publishHomeResume() {}
   context.selectModule('media-import');
   await settle();
   assert(findClass(mount, 'media-import-operation').textContent.includes(OP),
-    'browser restart restores the same Core Operation ID');
+    'browser restart restores the same Core Operation ID; ' +
+    'recent GETs=' + JSON.stringify(requests.filter(function (entry) {
+      return entry.path.endsWith('/media-imports');
+    }).slice(-4).map(function (entry) {
+      return {path: entry.path, method: entry.options.method};
+    })) +
+    '; detail=' + findClass(mount, 'media-import-operation').textContent +
+    '; status=' + findClass(mount, 'status').textContent);
   assert(operationStream(OP), 'restored job subscribes to the existing SSE channel');
   assert.strictEqual(submits, postsBeforeRestart,
     'recovery is read-only and does not dispatch a worker');
