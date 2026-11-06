@@ -1119,6 +1119,32 @@ function publishHomeResume() {}
       'one matching SSE hint causes exactly one Core status read after six hours');
     assert.strictEqual(submits, 1,
       'SSE status monitoring must never create a second import operation');
+
+    // The same long-running Core job survives EventSource reconnects.
+    // Browser must read once on reconnect/resync, not on a timer or via POST.
+    const continuingStream = operationStream(OP);
+    assert(continuingStream && typeof continuingStream.onopen === 'function' &&
+      typeof continuingStream.listeners.resync === 'function');
+    const foreignHintReads = operationReads;
+    continuingStream.listeners.operation({
+      data: JSON.stringify({operationId: BATCH_OP_A})
+    });
+    await settle();
+    assert.strictEqual(operationReads, foreignHintReads,
+      'a foreign Operation SSE hint must never read this Core Operation');
+
+    const beforeResync = operationReads;
+    continuingStream.listeners.resync();
+    await settle();
+    assert.strictEqual(operationReads, beforeResync + 1,
+      'SSE replay gap needs one authenticated readback, not a new import');
+    const beforeReconnect = operationReads;
+    continuingStream.onopen();
+    await settle();
+    assert.strictEqual(operationReads, beforeReconnect + 1,
+      'EventSource reconnect re-reads the existing Core operation once');
+    assert.strictEqual(submits, 1,
+      'reconnect and resync must never re-submit the import');
   } finally {
     if (savedClock === undefined) delete context.Date;
     else context.Date = savedClock;
@@ -1130,9 +1156,19 @@ function publishHomeResume() {}
   await settle();
   assert(findClass(mount, 'media-import-operation').textContent.includes(OP));
   assert.strictEqual(submits, 1);
+  // The Agent may have reported an uncertain outcome during an SSE outage.
+  // EventSource reconnection must read durable Core truth without retrying.
   state = 'outcome_unknown';
-  await findClass(mount, 'media-import-refresh').listeners.click();
+  const unknownStream = operationStream(OP);
+  assert(unknownStream && typeof unknownStream.onopen === 'function');
+  const unknownReads = operationReads;
+  const unknownSubmits = submits;
+  unknownStream.onopen();
   await settle();
+  assert.strictEqual(operationReads, unknownReads + 1,
+    'reconnect must recover an unknown Core result without manual refresh');
+  assert.strictEqual(submits, unknownSubmits,
+    'outcome_unknown reconnection must never dispatch another worker');
   assert(findClass(mount, 'status').textContent.includes('ungewiss'));
   assert(findClass(mount, 'media-import-import-title').textContent.includes(
     'Ergebnis ungewiss'), 'unknown outcomes must never look like a success');
@@ -1526,9 +1562,9 @@ function publishHomeResume() {}
   assert.strictEqual(batchOperations.length, 2,
     'second source can dispatch only after independent readback');
   batchStates[BATCH_OP_B] = 'failed_verified';
-  await findClass(mount, 'media-import-refresh').listeners.click();
-  await settle();
-  assert.strictEqual(batchOperations.length, 2);
+  await emitOperation(BATCH_OP_B);
+  assert.strictEqual(batchOperations.length, 2,
+    'an SSE-confirmed failed batch item cannot dispatch another import');
   assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true);
 
   // UX5: a mixed four-film set gets individual, read-only diagnoses.
@@ -1826,8 +1862,24 @@ function publishHomeResume() {}
     'returned file imports only after an explicit user action');
   assert(!findClass(mount, 'status').textContent.includes('VDR-Readback bestätigt'));
   state = 'succeeded';
-  cleanupState = 'removed';
+  cleanupState = 'pending';
   await emitOperation(OP);
+  assert(operationStream(OP),
+    'verified VDR success keeps SSE alive while source cleanup is pending');
+
+  // The source cleanup ACK arrives while the SSE connection is disrupted.
+  // Reconnecting must recover the later cleanup state from the same Core GET.
+  cleanupState = 'removed';
+  const cleanupStream = operationStream(OP);
+  const readsBeforeCleanupReconnect = operationReads;
+  const submitsBeforeCleanupReconnect = submits;
+  assert(cleanupStream && typeof cleanupStream.onopen === 'function');
+  cleanupStream.onopen();
+  await settle();
+  assert.strictEqual(operationReads, readsBeforeCleanupReconnect + 1,
+    'reconnected client reads the persisted cleanup outcome exactly once');
+  assert.strictEqual(submits, submitsBeforeCleanupReconnect,
+    'source cleanup readback never starts a second import');
   assert(findClass(mount, 'status').textContent.includes(
     'VDR-Readback bestätigt den Import'));
   assert(findClass(mount, 'status').textContent.includes(
