@@ -251,7 +251,25 @@ int main()
     assert(executor.execute(a) == MediaImportAgentOutcome::rejected);
     assert(grants.checks >= 2);
 
-    // MT.ENC1: a locally authorized encode may run beyond ten minutes.
+    // MT.EVENT1: direct import has the same six-hour-capable Core deadline.
+    // Synthetic approved handler exits immediately; no actual long encode.
+    {
+        Fixture longDirectFixture;
+        Inventory longDirectInventory;
+        Grants longDirectGrants;
+        PinnedMediaImportAgentExecutor longDirect(
+            longDirectFixture.root.string(), "backend", 19,
+            longDirectInventory, longDirectGrants);
+        auto direct = command();
+        direct.deadline = nowSeconds() + 6 * 3600;
+        direct.requestFingerprint = backendAgentCommandFingerprint(direct);
+        assert(backendAgentCommandValidAssignment(direct));
+        assert(longDirect.authorize(direct, "backend", 19));
+        assert(longDirect.execute(direct) == MediaImportAgentOutcome::submitted);
+        assert(longDirect.takeFailureCode().empty());
+    }
+
+    // MT.EVENT1: a locally authorized encode has that same Core deadline.
     // Both fixture binaries exit immediately; no media is modified.
     {
         Fixture slowFixture;
@@ -264,7 +282,7 @@ int main()
         local.payload = mediaImportSelectionJson(
             "inventory_17", MediaImportDecision::local);
         local.payloadVersion = 2;
-        local.deadline = nowSeconds() + 3600;
+        local.deadline = nowSeconds() + 6 * 3600;
         local.requestFingerprint = backendAgentCommandFingerprint(local);
         assert(backendAgentCommandValidAssignment(local));
         assert(slow.authorize(local, "backend", 19));
@@ -282,7 +300,7 @@ int main()
         local.payload = mediaImportSelectionJson(
             "inventory_17", MediaImportDecision::local);
         local.payloadVersion = 2;
-        local.deadline = nowSeconds() + 3600;
+        local.deadline = nowSeconds() + 6 * 3600;
         local.requestFingerprint = backendAgentCommandFingerprint(local);
         assert(failing.authorize(local, "backend", 19));
         assert(failing.execute(local) == MediaImportAgentOutcome::unknown);
