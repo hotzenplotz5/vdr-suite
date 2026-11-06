@@ -601,46 +601,74 @@ BackendAgentTransportResponse CurlBackendAgentControlPlaneTransport::perform(
 
     CurlWriteState writeState{&response.body};
     bool configured = headers != nullptr;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_URL, url.c_str()) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_POST, 1L) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_POSTFIELDS, body.data()) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE_LARGE,
-                                                  static_cast<curl_off_t>(body.size())) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_USERAGENT,
-                                                  "vdr-suite-backend-agent/1") == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_NOSIGNAL, 1L) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 0L) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_MAXREDIRS, 0L) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 1L) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, 2L) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_NETRC, CURL_NETRC_IGNORED) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_PROXY, "") == CURLE_OK;
+    const char* failedOption = configured ? "none" : "headers";
+    CURLcode setupError = CURLE_OK;
+    // Preserve the existing curl settings and fail-closed policy. Record only
+    // the name and numeric error of the first failing setting; never the URL,
+    // request body, auth header or any enrollment/identity secret.
+    auto setOption = [&](const char* label, CURLoption option, auto value) {
+        if (!configured) return;
+        const CURLcode code = curl_easy_setopt(handle, option, value);
+        if (code != CURLE_OK)
+        {
+            configured = false;
+            failedOption = label;
+            setupError = code;
+        }
+    };
+    setOption("url", CURLOPT_URL, url.c_str());
+    setOption("headers", CURLOPT_HTTPHEADER, headers);
+    setOption("post", CURLOPT_POST, 1L);
+    setOption("postfields", CURLOPT_POSTFIELDS, body.data());
+    setOption("postfieldsize", CURLOPT_POSTFIELDSIZE_LARGE,
+              static_cast<curl_off_t>(body.size()));
+    setOption("useragent", CURLOPT_USERAGENT, "vdr-suite-backend-agent/1");
+    setOption("nosignal", CURLOPT_NOSIGNAL, 1L);
+    setOption("followlocation", CURLOPT_FOLLOWLOCATION, 0L);
+    setOption("maxredirs", CURLOPT_MAXREDIRS, 0L);
+    setOption("ssl_verifypeer", CURLOPT_SSL_VERIFYPEER, 1L);
+    setOption("ssl_verifyhost", CURLOPT_SSL_VERIFYHOST, 2L);
+    setOption("netrc", CURLOPT_NETRC, CURL_NETRC_IGNORED);
+    setOption("proxy", CURLOPT_PROXY, "");
     const bool localLoopback = config_.controlPlaneUrl == "http://127.0.0.1:18080";
-    configured = configured && curl_easy_setopt(
-        handle, CURLOPT_PROTOCOLS_STR, localLoopback ? "http" : "https") == CURLE_OK;
-    configured = configured && curl_easy_setopt(
-        handle, CURLOPT_REDIR_PROTOCOLS_STR, localLoopback ? "http" : "https") == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT_MS,
-                                                  config_.connectTimeoutMilliseconds) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_TIMEOUT_MS,
-                                                  config_.requestTimeoutMilliseconds) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, curlWrite) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_WRITEDATA, &writeState) == CURLE_OK;
+    setOption("protocols", CURLOPT_PROTOCOLS_STR, localLoopback ? "http" : "https");
+    setOption("redir_protocols", CURLOPT_REDIR_PROTOCOLS_STR,
+              localLoopback ? "http" : "https");
+    setOption("connecttimeout", CURLOPT_CONNECTTIMEOUT_MS,
+              config_.connectTimeoutMilliseconds);
+    setOption("timeout", CURLOPT_TIMEOUT_MS, config_.requestTimeoutMilliseconds);
+    setOption("writefunction", CURLOPT_WRITEFUNCTION, curlWrite);
+    setOption("writedata", CURLOPT_WRITEDATA, &writeState);
     if (!config_.caCertificatePath.empty())
-    {
-        configured = configured && curl_easy_setopt(
-            handle, CURLOPT_CAINFO, config_.caCertificatePath.c_str()) == CURLE_OK;
-    }
+        setOption("cainfo", CURLOPT_CAINFO, config_.caCertificatePath.c_str());
     if (!basicLogin.empty())
     {
-        configured = configured && curl_easy_setopt(handle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC) == CURLE_OK;
-        configured = configured && curl_easy_setopt(handle, CURLOPT_USERNAME, basicLogin.c_str()) == CURLE_OK;
-        configured = configured && curl_easy_setopt(handle, CURLOPT_PASSWORD, basicSecret.c_str()) == CURLE_OK;
+        setOption("httpauth", CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+        setOption("username", CURLOPT_USERNAME, basicLogin.c_str());
+        setOption("password", CURLOPT_PASSWORD, basicSecret.c_str());
     }
 
     const CURLcode result = configured ? curl_easy_perform(handle) : CURLE_FAILED_INIT;
     long status = 0;
+    if (result != CURLE_OK)
+    {
+        const curl_version_info_data* runtime = curl_version_info(CURLVERSION_NOW);
+        const char* curlVersion =
+            runtime != nullptr && runtime->version != nullptr
+                ? runtime->version : "unknown";
+        if (!configured)
+        {
+            std::fprintf(stderr,
+                "BACKEND_AGENT_CURL_DIAG=SETUP_FAILED option=%s code=%d runtime=%s\\n",
+                failedOption, static_cast<int>(setupError), curlVersion);
+        }
+        else
+        {
+            std::fprintf(stderr,
+                "BACKEND_AGENT_CURL_DIAG=PERFORM_FAILED code=%d runtime=%s\\n",
+                static_cast<int>(result), curlVersion);
+        }
+    }
     if (result == CURLE_OK) curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status);
     curl_slist_free_all(headers);
     curl_easy_cleanup(handle);
