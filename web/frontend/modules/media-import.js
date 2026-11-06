@@ -195,7 +195,9 @@
     return api.getRecentMediaImports(readOptions(view.backendId))
       .then(function (response) {
         if (!isCurrent(view) || view.attempt) return;
-        const items = response && response.data && response.data.items;
+        // Public-v1 collection GET returns its JSON document directly.
+        // Unlike revisioned getOperation(), it has no {data} wrapper.
+        const items = response && response.items;
         if (!Array.isArray(items)) return;
         const valid = items.filter(function (item) {
           return item && item.backendId === view.backendId &&
