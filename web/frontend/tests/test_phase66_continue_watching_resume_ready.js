@@ -124,7 +124,8 @@ function flush(count = 8) {
       start() { return Promise.resolve('stopped-session'); },
       canResume() { return false; },
       state() { return 'stopped'; },
-      seekAbsolute() { throw new Error('must not seek'); }
+      seekAbsolute() { throw new Error('must not seek'); },
+      play() { throw new Error('must not play'); }
     }, 82),
     /stopped before resume became ready/
   );
