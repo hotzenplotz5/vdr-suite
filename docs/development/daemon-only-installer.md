@@ -132,12 +132,10 @@ from `PIN` to `DOC_HEAD` changes **only** non-build documentation
 If any executable input, packaging, generated source, version-stamp
 input, build flag, toolchain/dependency or unreviewed file changed, treat
 the code candidate as changed and do not claim reuse.
-If the branch HEAD does not match `DOC_HEAD`, stop. Verify
-storage before cloning: after all planned clone, retained output and candidate
-build bytes, free space on `/home/yavdr` must remain at least
-`4 GiB`. Use an explicit, conservatively bounded
-budget for that filesystem; `install_daemon.py build` repeats its own 2 GiB
-preflight. An unbounded clone/build must not begin.
+If the branch HEAD does not match `DOC_HEAD`, stop. Do not require
+fixed free-space reserves or percentage-based capacity gates for checkout
+or daemon compilation; the filesystem reports real write errors if it fills.
+Keep existing source, binary-provenance and rollback checks.
 
 ### Conditional checkout and build (only after no-reuse preflight)
 
@@ -197,7 +195,7 @@ systemctl is-active vdr-suite-daemon.service
 ```
 
 `apply` never compiles. It checks the sealed binary, current service
-identity, source ancestry, DB risk and backup reserve, retains a rollback
+identity, source ancestry and DB risk, retains a rollback
 binary/receipt, and restarts only `vdr-suite-daemon.service`. If SQLite
 review requires a real offline backup, use **only** the explicitly verified
 `--database` path and reviewed `--db-review backup --db-review-reason`
@@ -247,7 +245,7 @@ Or only if the reviewed migration really requires a backup, give the **verified 
 
     python3 tools/install_daemon.py apply --sha "$SHA" --confirm-apply --db-review backup --database /path/to/verified/vdr-suite.db --db-review-reason "Reviewed startup migration; offline snapshot required"
 
-The optional database snapshot is made only **after stopping the daemon**, under the candidate directory, with a storage reserve check. It is never launched as an unbounded live SQLite backup. A source-pattern review is conservative and may flag unchanged SQL; it is not a proof that the database or a migration is harmless.
+The optional database snapshot is made only **after stopping the daemon**, under the candidate directory, without an arbitrary free-space reserve gate. It is never launched as an unbounded live SQLite backup. A source-pattern review is conservative and may flag unchanged SQL; it is not a proof that the database or a migration is harmless.
 
 Cache data might be regenerated, but human accounts, device credentials, grants and other VDR-Suite-authored state cannot simply be recreated from VDR. Therefore a schema-changing deployment requires an explicit human review, not an arbitrary global rule to skip or perform backups.
 
@@ -255,7 +253,7 @@ Cache data might be regenerated, but human accounts, device credentials, grants 
 
 - The tool does not clone, fetch, checkout, rebase or merge Git history.
 - It never changes recordings, recording indexes, the VDR daemon, Nginx, TV apps, frontend assets or SQLite on a no-backup path.
-- Its disk preflight reserves 4 GiB of free space after the estimated operation; the build uses a conservative 2 GiB estimate.
+- It does not impose fixed or percentage-based free-space reserves on builds, binary rollback copies or explicitly requested database backups.
 - A failure cannot silently erase the successfully compiled candidate; no automatic removal of old tree directories or backups occurs.
 - This is a bounded **daemon-only** workflow, not a replacement for full staged runtime/frontend deployments or an application-package upgrade.
 - CI acceptance is not proof of operation on yaVDR, authenticated Device API behavior or actual Hisense playback.

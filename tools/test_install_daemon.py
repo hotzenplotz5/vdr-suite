@@ -142,25 +142,6 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("INSTALLED_SOURCE_ID_UNKNOWN", stderr.getvalue())
         self.assertFalse((self.root / ".build").exists())
 
-    def test_build_preflight_accepts_realistic_free_space_on_large_disk(self):
-        # 234 GB total, 25 GB free: 2 GiB build + 4 GiB reserve fits.
-        space = argparse.Namespace(total=234039422976, free=25257037824)
-        output = io.StringIO()
-        with mock.patch.object(mod.shutil, "disk_usage", return_value=space):
-            with contextlib.redirect_stdout(output):
-                mod.free_budget(self.root / ".build", mod.BUILD_BUDGET)
-        self.assertIn(f"RESERVE={mod.MIN_HEADROOM}", output.getvalue())
-        self.assertIn("RESOURCE_PREFLIGHT=PASS", output.getvalue())
-
-    def test_build_preflight_still_rejects_insufficient_disk_space(self):
-        needed = mod.BUILD_BUDGET
-        space = argparse.Namespace(total=234039422976,
-                                   free=needed + mod.MIN_HEADROOM - 1)
-        with mock.patch.object(mod.shutil, "disk_usage", return_value=space):
-            with self.assertRaisesRegex(mod.Rejected,
-                                        "RESOURCE_PREFLIGHT_INSUFFICIENT"):
-                mod.free_budget(self.root / ".build", needed)
-
     def test_build_seal_reuse_and_apply_without_seal_rejected(self):
         new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// no schema\n")
         directory, binary, seal = mod.candidate(self.root, new)
@@ -178,7 +159,8 @@ class InstallerTests(unittest.TestCase):
                          f"printf '\\177ELFgit-{new[:12]} device_subtitle_delivery_invalid track-status /tracks /subtitles trickplay_request_invalid trickplay_worker_busy trickplay_source_not_ready /trickplay\\n' > \"$out/vdr-suite-daemon\"\n"
                          "chmod 755 \"$out/vdr-suite-daemon\"\n")
         faker.chmod(0o755)
-        with mock.patch.object(mod, "free_budget"):
+        with mock.patch.object(mod.shutil, "disk_usage",
+                               side_effect=AssertionError("unrequested disk preflight")):
             with mock.patch.dict(os.environ, {"PATH": str(fakebin) + ":" + os.environ["PATH"]}):
                 mod.build(self.root, new)
                 mod.build(self.root, new)
@@ -210,9 +192,8 @@ class InstallerTests(unittest.TestCase):
         directory.mkdir(parents=True)
         binary.write_bytes(b"\x7fELFgit-" + new[:12].encode() + b" " + b" ".join(mod.FEATURES))
         binary.chmod(0o755)
-        with mock.patch.object(mod, "free_budget"):
-            with mock.patch.object(mod.subprocess, "run", side_effect=AssertionError("make must not run")):
-                mod.build(self.root, new)
+        with mock.patch.object(mod.subprocess, "run", side_effect=AssertionError("make must not run")):
+            mod.build(self.root, new)
         self.assertTrue(seal.is_file())
         self.assertEqual(mod.verified_candidate(self.root, new), binary)
 
@@ -235,7 +216,8 @@ class InstallerTests(unittest.TestCase):
         original_run = mod.run
         with (mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
               mock.patch.object(mod, "INSTALL_LOCK", Path(self.tmp.name) / "lock"),
-              mock.patch.object(mod, "free_budget"),
+              mock.patch.object(mod.shutil, "disk_usage",
+                                side_effect=AssertionError("unrequested disk preflight")),
               mock.patch.object(mod, "service_bin_identity"),
               mock.patch.object(mod, "backup_database_offline", side_effect=AssertionError("DB backup forbidden")),
               mock.patch.object(mod, "run", side_effect=lambda *a, **k: "" if a[0] == "systemctl" else original_run(*a, **k)),
@@ -263,7 +245,8 @@ class InstallerTests(unittest.TestCase):
             return "" if cmd[0] == "systemctl" else original_run(*cmd, **_kwargs)
         with (mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
               mock.patch.object(mod, "INSTALL_LOCK", Path(self.tmp.name) / "lock"),
-              mock.patch.object(mod, "free_budget"),
+              mock.patch.object(mod.shutil, "disk_usage",
+                                side_effect=AssertionError("unrequested disk preflight")),
               mock.patch.object(mod, "service_bin_identity"),
               mock.patch.object(mod, "backup_database_offline", side_effect=AssertionError("DB backup forbidden")),
               mock.patch.object(mod, "run", side_effect=fake_run),
@@ -299,7 +282,8 @@ class InstallerTests(unittest.TestCase):
             return subprocess.CompletedProcess(command, 0)
 
         with mock.patch.object(mod.os, "geteuid", return_value=0):
-            with mock.patch.object(mod, "free_budget"):
+            with mock.patch.object(mod.shutil, "disk_usage",
+                                   side_effect=AssertionError("unrequested disk preflight")):
                 with mock.patch.object(mod.subprocess, "run", side_effect=fake_make):
                     mod.build(self.root, new)
                     mod.build(self.root, new)
@@ -357,7 +341,8 @@ class InstallerTests(unittest.TestCase):
         with (mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
               mock.patch.object(mod, "INSTALL_LOCK",
                                 Path(self.tmp.name) / "installer-lock"),
-              mock.patch.object(mod, "free_budget"),
+              mock.patch.object(mod.shutil, "disk_usage",
+                                side_effect=AssertionError("unrequested disk preflight")),
               mock.patch.object(mod, "service_bin_identity"),
               mock.patch.object(mod, "run", side_effect=fake_run),
               mock.patch.object(mod.time, "sleep"),
@@ -386,7 +371,8 @@ class InstallerTests(unittest.TestCase):
         with (mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
               mock.patch.object(mod, "INSTALL_LOCK",
                                 Path(self.tmp.name) / "installer-lock"),
-              mock.patch.object(mod, "free_budget"),
+              mock.patch.object(mod.shutil, "disk_usage",
+                                side_effect=AssertionError("unrequested disk preflight")),
               mock.patch.object(mod, "service_bin_identity"),
               mock.patch.object(mod, "run",
                                 side_effect=lambda *cmd, **kw:

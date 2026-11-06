@@ -37,8 +37,6 @@ FEATURES = (
     b"trickplay_request_invalid", b"trickplay_worker_busy",
     b"trickplay_source_not_ready", b"/trickplay",
 )
-BUILD_BUDGET = 2 * 1024 ** 3
-MIN_HEADROOM = 4 * 1024 ** 3
 LIVE_PATH = Path("/usr/sbin/vdr-suite-daemon")
 INSTALL_LOCK = Path("/run/lock/vdr-suite-daemon-installer.lock")
 
@@ -163,18 +161,6 @@ def verified_candidate(root: Path, sha: str) -> Path:
     return binary
 
 
-def free_budget(path: Path, needed: int) -> None:
-    location = path
-    while not location.exists():
-        location = location.parent
-    usage = shutil.disk_usage(location)
-    reserve = MIN_HEADROOM
-    print(f"RESOURCE_PREFLIGHT_TOTAL={usage.total} FREE={usage.free} "
-          f"NEEDED={needed} RESERVE={reserve}", flush=True)
-    require(usage.free - needed >= reserve, "RESOURCE_PREFLIGHT_INSUFFICIENT")
-    print("RESOURCE_PREFLIGHT=PASS", flush=True)
-
-
 def build(root: Path, sha: str) -> None:
     directory, binary, seal = candidate(root, sha)
     require(not any(p.is_symlink() for p in (directory, directory.parent, directory.parent.parent)),
@@ -191,7 +177,6 @@ def build(root: Path, sha: str) -> None:
         seal.write_text(json.dumps(payload, sort_keys=True) + "\n")
         print(f"BUILD=RECOVERED_NO_COMPILE CANDIDATE={binary}", flush=True)
         return
-    free_budget(directory, BUILD_BUDGET)
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     require(not directory.is_symlink(), "UNSAFE_CANDIDATE_DIRECTORY")
     log = directory / "build.log"
@@ -239,7 +224,6 @@ def atomic_replace(source: Path, target: Path, owner: os.stat_result) -> None:
 
 def backup_database_offline(database: Path, destination: Path) -> None:
     require(database.is_file() and not database.is_symlink(), "DATABASE_PATH_UNSAFE")
-    free_budget(destination, 2 * database.stat().st_size + 64 * 1024 * 1024)
     started = time.monotonic()
     def bounded_progress(_status: int, _remaining: int, _total: int) -> None:
         if time.monotonic() - started > 120:
@@ -304,9 +288,6 @@ def apply(root: Path, sha: str, args: argparse.Namespace,
                 "ROLLBACK_RECEIPT_MISMATCH")
     else:
         require(not backup_receipt.exists(), "ROLLBACK_RECEIPT_COLLISION")
-        free_budget(directory, 2 * args.live.stat().st_size +
-                    (2 * args.database.stat().st_size if args.db_review == "backup" else 0) +
-                    64 * 1024 * 1024)
         shutil.copy2(args.live, backup_binary)
         require(digest(backup_binary) == digest(args.live),
                 "ROLLBACK_BINARY_FAILED")
