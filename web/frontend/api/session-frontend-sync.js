@@ -2545,7 +2545,12 @@
     video.addEventListener('ended', function () {
       if (!destroyed && !fallbackPanel && !stopped) {
         stoppedPositionSeconds = Math.max(0, Math.floor(positionSeconds()));
-        stoppedResumeSupported = false;
+        if (durationSeconds > 0 && stoppedPositionSeconds < durationSeconds) {
+          // A partial transport EOF is not a finished Recording.
+          stoppedResumeSupported = Boolean(resumeSupported && stoppedPositionSeconds > 0);
+        } else {
+          stoppedResumeSupported = false;
+        }
         stopped = true;
         seekPreparing = false;
         clearIndexStatusPoll();

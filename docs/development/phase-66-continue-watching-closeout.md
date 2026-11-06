@@ -157,7 +157,7 @@ It does not use DOM observation, polling or method interception as primary sessi
 
 A five-second timer is transport-local sampling only. It samples canonical absolute Recording position while the published owner state proves active playback ownership. When ownership is not active, the timer does not create progress truth.
 
-Stop/relinquish transitions flush the last truthful resumable absolute position through the serialized mutation queue. Destroyed lifecycle publication releases observation. The media `ended` signal clears Continue Watching state, including cases where duration is unknown to the projection.
+Stop/relinquish transitions flush the last truthful resumable absolute position through the serialized mutation queue. Destroyed lifecycle publication releases observation. The media `ended` signal clears Continue Watching only for verified completion when the canonical Recording duration is known. A transport EOF before that duration preserves the final resumable checkpoint and must not mark Recently Watched as completed. Where the Recording duration is unknown, the existing `ended` completion behavior remains unchanged.
 
 Absolute Recording position is canonical throughout; Slice 66.4 does not introduce a second heuristic timeline or a near-end threshold.
 

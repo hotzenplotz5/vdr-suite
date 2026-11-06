@@ -363,8 +363,13 @@
         element.addEventListener('ended', function () {
           stopSampling();
           stopHistoryStart();
-          syncProgress(true, true);
-          syncHistory(true, true);
+          // A media transport may reach EOF before the full Recording does.
+          // Preserve resumable truth unless completion is actually observed.
+          const duration = readDuration();
+          const position = readPosition();
+          const prematureEnd = duration > 0 && position < duration;
+          syncProgress(!prematureEnd, true);
+          syncHistory(!prematureEnd, true);
         });
       });
       if (mediaObserver || typeof global.MutationObserver !== 'function') return;

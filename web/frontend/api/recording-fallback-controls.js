@@ -423,7 +423,9 @@
         if (destroyed) return;
         stoppedPosition = position();
         stoppedDuration = durationSeconds;
-        stoppedResumeSupported = false;
+        // A finite HLS/MSE transport can end before the whole Recording.
+        stoppedResumeSupported = stoppedDuration > 0 && stoppedPosition < stoppedDuration &&
+          Boolean(resumeSupported && stoppedPosition > 0);
         started = false;
         stopped = true;
         clearIndexPoll();

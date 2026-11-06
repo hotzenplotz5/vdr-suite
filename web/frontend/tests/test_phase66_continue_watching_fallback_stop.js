@@ -467,6 +467,75 @@ function progressWrite(recordingId) {
   assert.strictEqual(progressWrite('1917').body.positionSeconds, 215,
     'navigation back from fast playback must retain its final position');
 
+  // A browser media "ended" event at 55% of the actual Recording must not
+  // clear the resumable position or classify the Recording as completed.
+  const prematureFast = factory.createPanel({id: '1917'}, 'default');
+  assert.strictEqual(await prematureFast.start(), 'fast-1917');
+  await flush();
+  const prematureFastVideo = findLatest(value =>
+    value.tagName === 'VIDEO' && value['aria-label'] === 'VDR-Aufnahme');
+  assert.ok(prematureFastVideo);
+  prematureFastVideo.currentTime = 4459;
+  prematureFastVideo.dispatch('ended');
+  await flush(40);
+  assert.strictEqual(prematureFast.position(), 4459);
+  assert.strictEqual(prematureFast.canResume(), true,
+    'premature progressive EOF must keep Recording resume capability');
+  assert.strictEqual(progressWrite('1917').body.positionSeconds, 4459,
+    'premature progressive EOF must persist the final partial checkpoint');
+  assert.strictEqual(suiteWrites.some(entry =>
+    entry.path === '/api/media/continue-watching' &&
+    entry.body.recordingId === '1917' && entry.body.operation === 'clear'), false,
+    'premature progressive EOF must never clear Continue Watching');
+  const prematureFastHistory = suiteWrites.filter(entry =>
+    entry.path === '/api/media/recently-watched' && entry.body.recordingId === '1917'
+  ).pop();
+  assert.ok(prematureFastHistory);
+  assert.strictEqual(prematureFastHistory.body.ended, false);
+
+  const prematureHls = factory.createPanel({id: 'being-john-malkovich'}, 'default');
+  assert.strictEqual(await prematureHls.start(), 'hls-malkovich-3');
+  await flush();
+  const prematureHlsVideo = findLatest(value => value.tagName === 'VIDEO');
+  assert.ok(prematureHlsVideo);
+  prematureHlsVideo.currentTime = 4459;
+  prematureHlsVideo.dispatch('ended');
+  await flush(40);
+  assert.strictEqual(prematureHls.position(), 4459);
+  assert.strictEqual(prematureHls.canResume(), true,
+    'premature HLS EOF must preserve canonical resume truth');
+  assert.strictEqual(progressWrite('being-john-malkovich').body.positionSeconds, 4459);
+  assert.strictEqual(suiteWrites.some(entry =>
+    entry.path === '/api/media/continue-watching' &&
+    entry.body.recordingId === 'being-john-malkovich' && entry.body.operation === 'clear'), false,
+    'premature HLS EOF must never clear Continue Watching');
+  const prematureHlsHistory = suiteWrites.filter(entry =>
+    entry.path === '/api/media/recently-watched' &&
+    entry.body.recordingId === 'being-john-malkovich'
+  ).pop();
+  assert.ok(prematureHlsHistory);
+  assert.strictEqual(prematureHlsHistory.body.ended, false);
+
+  // A genuine EOF at the canonical duration still clears Continue Watching.
+  const completedFast = factory.createPanel({id: '1917'}, 'default');
+  assert.strictEqual(await completedFast.start(), 'fast-1917');
+  await flush();
+  const completedVideo = findLatest(value =>
+    value.tagName === 'VIDEO' && value['aria-label'] === 'VDR-Aufnahme');
+  completedVideo.currentTime = 7140;
+  completedVideo.dispatch('ended');
+  await flush(40);
+  assert.strictEqual(completedFast.canResume(), false);
+  assert.strictEqual(suiteWrites.some(entry =>
+    entry.path === '/api/media/continue-watching' &&
+    entry.body.recordingId === '1917' && entry.body.operation === 'clear'), true,
+    'full Recording completion must still clear Continue Watching');
+  const completedHistory = suiteWrites.filter(entry =>
+    entry.path === '/api/media/recently-watched' && entry.body.recordingId === '1917'
+  ).pop();
+  assert.ok(completedHistory);
+  assert.strictEqual(completedHistory.body.ended, true);
+
   const provisionalStop = mediaRequests.find(entry =>
     entry.body.operation === 'stop' && entry.body.sessionId === 'fast-provisional-malkovich'
   );
