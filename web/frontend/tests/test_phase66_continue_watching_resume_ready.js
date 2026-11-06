@@ -67,9 +67,10 @@ function flush(count = 8) {
 (async function () {
   const calls = [];
   let resumeReady = false;
+  let resolveSeek = null;
   const fastOwner = {
-    start() {
-      calls.push('start');
+    start(options) {
+      calls.push('start:' + (options && options.autoPlay === false ? 'paused' : 'autoplay'));
       return Promise.resolve('fast-session');
     },
     canResume() {
@@ -79,22 +80,35 @@ function flush(count = 8) {
     state() { return 'playing'; },
     seekAbsolute(position) {
       calls.push('seek:' + position);
+      return new Promise(function (resolve) { resolveSeek = resolve; });
+    },
+    play() {
+      calls.push('play');
       return Promise.resolve(true);
     }
   };
 
   const resume = api.__test.startAtAbsolute(fastOwner, 82);
   await flush();
-  assert.strictEqual(calls[0], 'start');
+  assert.strictEqual(calls[0], 'start:paused',
+    'Continue Watching must not autoplay progressive playback at zero before seeking');
   assert.strictEqual(calls.includes('seek:82'), false, 'seek must not run before canonical resume truth is ready');
   assert.strictEqual(scheduled.length, 1, 'Continue Watching may wait only on in-memory owner readiness');
   assert.strictEqual(scheduled[0].delay, 100);
 
   resumeReady = true;
   scheduled.shift().callback();
-  await resume;
-  assert.strictEqual(calls.includes('seek:82'), true, 'seek must run after the canonical owner reports resume readiness');
+  await flush();
+  assert.strictEqual(calls.includes('seek:82'), true,
+    'seek must run after the canonical owner reports resume readiness');
   assert.ok(calls.indexOf('seek:82') > calls.indexOf('canResume:true'));
+  assert.strictEqual(calls.includes('play'), false,
+    'no first frame can play while the absolute resume seek is pending');
+  assert.strictEqual(typeof resolveSeek, 'function');
+  resolveSeek(true);
+  await resume;
+  assert.ok(calls.indexOf('play') > calls.indexOf('seek:82'),
+    'the canonical player may play only after its absolute seek succeeds');
 
   const hlsCalls = [];
   await api.__test.startAtAbsolute({

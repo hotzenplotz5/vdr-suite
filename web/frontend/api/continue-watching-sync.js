@@ -236,11 +236,23 @@
       return Promise.resolve(owner.start());
     }
     if (typeof owner.startAtAbsolute === 'function') return Promise.resolve(owner.startAtAbsolute(target));
-    if (typeof owner.start === 'function' && typeof owner.seekAbsolute === 'function') {
-      return Promise.resolve(owner.start()).then(function (sessionId) {
+    if (typeof owner.start === 'function' && typeof owner.seekAbsolute === 'function' &&
+        typeof owner.play === 'function') {
+      // Progressive-fMP4 cannot start at an absolute position on session CREATE.
+      // Prepare without autoplay, seek through the existing owner, then play.
+      // Otherwise the browser briefly renders the first frames from zero.
+      return Promise.resolve(owner.start({autoPlay: false})).then(function (sessionId) {
         if (!sessionId) throw new Error('Canonical Recording session did not start.');
         return waitForResumeReady(owner, 0);
-      }).then(function () { return owner.seekAbsolute(target); });
+      }).then(function () {
+        return owner.seekAbsolute(target);
+      }).then(function (seeked) {
+        if (seeked !== true) throw new Error('Canonical Recording resume seek failed.');
+        return owner.play();
+      }).then(function (played) {
+        if (played === false) throw new Error('Canonical Recording resume playback failed.');
+        return true;
+      });
     }
     return Promise.reject(new Error('Canonical Recording absolute start is unavailable.'));
   }

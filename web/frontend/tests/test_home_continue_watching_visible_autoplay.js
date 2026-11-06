@@ -111,13 +111,18 @@ const owner = {
     callback({state: 'idle', sessionId: null});
     return () => {};
   },
-  start() {
-    calls.push('start:' + root.dataset.recordings2HeroMode);
+  start(options) {
+    calls.push('start:' + root.dataset.recordings2HeroMode +
+      ':' + (options && options.autoPlay === false ? 'paused' : 'autoplay'));
     return Promise.resolve('fast-media-session');
   },
   canResume() {return true;},
   seekAbsolute(position) {
     calls.push('seek:' + position);
+    return Promise.resolve(true);
+  },
+  play() {
+    calls.push('play:' + root.dataset.recordings2HeroMode);
     return Promise.resolve(true);
   }
 };
@@ -141,8 +146,8 @@ async function flush() {
   assert.equal(root.children.some(node => node.className === 'recordings2-hero-mode-back'), true,
     'The visible player must have a return-to-Details control');
   await flush();
-  assert.deepEqual(calls, ['start:playback', 'seek:238'],
-    'Fast playback may start only after the player is visible and must resume at 238');
+  assert.deepEqual(calls, ['start:playback:paused', 'seek:238', 'play:playback'],
+    'Fast playback must become visible before starting, and play only after seeking to 238');
   hero.enhance(root, recording, 'default', {});
   assert.equal(root.dataset.recordings2HeroMode, 'playback',
     'Late metadata may enrich the Hero, but must never hide an active Player');
