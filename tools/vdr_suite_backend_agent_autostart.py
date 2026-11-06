@@ -356,8 +356,12 @@ def activate_local_agent():
     if backend != "default":
         raise NotReady("automatic local activation requires the default Backend")
     unit = properties()
+    # A previous first-run attempt may have started the reviewed Agent,
+    # then timed out while its enrollment transport was unavailable. Resume
+    # the same pending enrollment without starting a second Agent process.
     if (unit["LoadState"] != "loaded" or
-            unit["ActiveState"] != "inactive" or
+            unit["ActiveState"] not in ("inactive", "active") or
+            (unit["ActiveState"] == "active" and unit["SubState"] != "running") or
             unit["UnitFileState"] not in ("disabled", "enabled") or
             unit["User"] != "vdr" or unit["Group"] != "vdr" or
             unit["DropInPaths"] or
@@ -377,7 +381,8 @@ def activate_local_agent():
             Path(IDENTITY).exists() or Path(IDENTITY).is_symlink()):
         raise NotReady("pending enrollment is not owned by packaged Agent")
 
-    command(["systemctl", "start", UNIT])
+    if unit["ActiveState"] == "inactive":
+        command(["systemctl", "start", UNIT])
 
     # Enrollment, first heartbeat and a complete Channel snapshot are
     # asynchronous. Never treat a successful systemctl start as readiness.

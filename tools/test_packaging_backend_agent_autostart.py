@@ -391,6 +391,63 @@ class AutostartTests(unittest.TestCase):
                 self.assertEqual(observation.call_count, 2)
                 observation.assert_any_call("default", "agt_first")
 
+    def test_local_activation_resumes_running_agent_without_start_or_reenrollment(self):
+        # The MLD failure leaves the protected enrollment file present while
+        # the reviewed Agent is active. A safe retry must not start or enroll
+        # a second time; it can only enable boot after authenticated readback.
+        with tempfile.TemporaryDirectory() as tmp:
+            enrollment = Path(tmp) / "enrollment"
+            enrollment.write_text("fixture-only")
+            os.chmod(enrollment, 0o600)
+            agent_unit = {
+                "LoadState": "loaded", "ActiveState": "active",
+                "SubState": "running", "UnitFileState": "disabled",
+                "User": "vdr", "Group": "vdr", "DropInPaths": "",
+                "FragmentPath": "/usr/lib/systemd/system/" + subject.UNIT,
+                "ExecStart": subject.AGENT_BIN + " --config " + str(subject.CONFIG)
+            }
+            calls = []
+            def systemctl(argv):
+                calls.append(argv)
+                if argv[:2] == ["systemctl", "is-enabled"]:
+                    return "enabled"
+                if argv[:2] == ["systemctl", "is-active"]:
+                    return "active"
+                return ""
+            with (
+                patch.object(subject.os, "geteuid", return_value=0),
+                patch.object(subject, "first_run_agent_state",
+                             return_value="ENROLLMENT_PENDING"),
+                patch.object(subject, "read_config", return_value="default"),
+                patch.object(subject, "properties", return_value=agent_unit),
+                patch.object(subject, "channel_observation_source"),
+                patch.object(subject, "ENROLLMENT", str(enrollment)),
+                patch.object(subject, "IDENTITY", str(Path(tmp) / "identity")),
+                patch.object(subject.pwd, "getpwnam",
+                             return_value=Mock(pw_uid=enrollment.stat().st_uid)),
+                patch.object(subject, "preflight", return_value=(
+                    "disabled", "agt_first", "default")),
+                patch.object(subject, "check_channel_observation"),
+                patch.object(subject, "command", side_effect=systemctl),
+            ):
+                self.assertEqual(subject.activate_local_agent(), "READY")
+                self.assertEqual(calls, [
+                    ["systemctl", "enable", subject.UNIT],
+                    ["systemctl", "is-enabled", subject.UNIT],
+                    ["systemctl", "is-active", subject.UNIT],
+                ])
+                self.assertFalse(any(call[:2] == ["systemctl", "start"]
+                                     for call in calls))
+                self.assertTrue(enrollment.exists())
+
+                # An active unit without the reviewed 'running' substate
+                # must still be rejected without any service mutation.
+                agent_unit["SubState"] = "exited"
+                calls.clear()
+                with self.assertRaises(subject.NotReady):
+                    subject.activate_local_agent()
+                self.assertEqual(calls, [])
+
     def test_local_activation_refuses_unconfigured_channels_before_start(self):
         with tempfile.TemporaryDirectory() as tmp:
             enrollment = Path(tmp) / "enrollment"
