@@ -6,6 +6,35 @@ or a verified skippy runtime result. The MLD BitBake recipe is **not stored
 in this repository**; it must explicitly adopt these source-level hooks.
 The MLD recipe remains an adapter to the [shared distribution first-run staging contract](../../docs/planning/distribution-first-run-setup.md). Debian/Ubuntu/yaVDR already include the common units and first-install package hooks. Their first-boot runtime behavior, like MLD's, still needs real system verification.
 
+## F2.6 MLD root-VDR versus Agent service account (05 November 2026)
+
+Pit confirmed on the MLD test system that the installed Agent unit says
+`User=root` and `Group=root`, although a `vdr` user was later added
+manually. The improved first-run check names the exact rejection:
+`AGENT_BOOT_PREFLIGHT=BLOCKED: installed Agent service is not ready for initial setup: service-user`.
+The VDR itself runs under root by MLD policy and must **not** be changed.
+
+The candidate BitBake `.bbappend` now explicitly provisions the separate
+`vdr:vdr` **Agent service account** using Yocto `useradd.bbclass`;
+installs the unchanged reviewed `packaging/systemd/vdr-suite-backend-agent.service`
+(`User=vdr`, `Group=vdr`) into `${systemd_system_unitdir}`;
+and stages the protected root-owned `/var/lib/vdr-suite/backend-agent`
+directory with mode 0700, ready for the existing first-run helper's verified
+ownership handoff. It does not modify MLD `vdr.service`, create enrollment
+tokens or grant the Agent root privileges. The previously added executable
+first-run helper remains included.
+
+**External recipe integration:** The owner must merge `inherit useradd` and
+the `USERADD_*`/`GROUPADD_*` settings with any existing MLD account
+definitions, check whether another MLD package already owns the `vdr`
+account, and verify `${systemd_system_unitdir}`, `${S}`, package ownership
+and `SRCREV` in the real BitBake environment. Since the external recipe
+cannot be read here, these facts are not claimed as verified. The contained
+staging regression checks the exact staged helper, reviewed unit, private
+directory and unchanged MLD root-VDR, **not** the real `useradd`
+preinstall, BitBake package manager or first boot. Source regression passing
+alone does not mean an MLD test package was built.
+
 ## F2.6 missing autostart helper: targeted BitBake overlay candidate
 
 A new MLD live diagnostic (03 November 2026, 22:05 CET) establishes:

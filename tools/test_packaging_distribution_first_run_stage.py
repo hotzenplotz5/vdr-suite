@@ -182,14 +182,19 @@ class DistributionFirstRunStageTests(unittest.TestCase):
         self.assertIn("CHANNELS_CONF_PATH=/etc/vdr/channels.conf",
                       self.agent.read_text())
 
-    def test_mld_bitbake_overlay_installs_missing_autostart_helper(self):
-        # Shell-level check of the candidate BitBake do_install:append body.
-        # The real MLD recipe, package ownership and Yocto package build are
-        # external and are NOT validated by this isolated regression.
+    def test_mld_bitbake_overlay_stages_unprivileged_agent_and_helper(self):
+        # Reproduce do_install:append into an isolated DESTDIR, not a real
+        # MLD image. BitBake useradd metadata is checked separately below.
         import re
         overlay = (ROOT / "packaging/mld66/meta/recipes-vdr/vdr-suite"
                    / "vdr-suite_%.bbappend").read_text(encoding="utf-8")
-        self.assertIn('FILES:${PN}:append = " ${sbindir}/vdr-suite-backend-agent-autostart"',
+        self.assertIn("inherit useradd", overlay)
+        self.assertIn('USERADD_PACKAGES = "${PN}"', overlay)
+        self.assertIn('GROUPADD_PARAM:${PN} = "--system vdr"', overlay)
+        self.assertIn('USERADD_PARAM:${PN} = "--system --gid vdr ', overlay)
+        self.assertIn("--no-create-home --shell /bin/false vdr", overlay)
+        self.assertIn("${localstatedir}/lib/vdr-suite/backend-agent", overlay)
+        self.assertIn("${systemd_system_unitdir}/vdr-suite-backend-agent.service",
                       overlay)
         self.assertIn('RDEPENDS:${PN}:append = " python3-core python3-modules"',
                       overlay)
@@ -201,31 +206,66 @@ class DistributionFirstRunStageTests(unittest.TestCase):
             root = Path(temporary)
             source_root = root / "source"
             destination = root / "package"
-            source = source_root / "tools/vdr_suite_backend_agent_autostart.py"
-            target = destination / "usr/sbin/vdr-suite-backend-agent-autostart"
-            source.parent.mkdir(parents=True)
+            helper_source = source_root / "tools/vdr_suite_backend_agent_autostart.py"
+            unit_source = source_root / "packaging/systemd/vdr-suite-backend-agent.service"
+            helper_target = destination / "usr/sbin/vdr-suite-backend-agent-autostart"
+            unit_target = destination / "usr/lib/systemd/system/vdr-suite-backend-agent.service"
+            state_target = destination / "var/lib/vdr-suite/backend-agent"
+
+            helper_source.parent.mkdir(parents=True)
+            unit_source.parent.mkdir(parents=True)
             shutil.copyfile(ROOT / "tools/vdr_suite_backend_agent_autostart.py",
-                            source)
-            # Substitute the exact known BitBake staging variables; no
-            # real package-manager, systemd, or installed /usr is touched.
+                            helper_source)
+            shutil.copyfile(ROOT / "packaging/systemd/vdr-suite-backend-agent.service",
+                            unit_source)
+
+            # Never change the VDR unit: MLD may continue to run it as root.
+            daemon_unit = destination / "usr/lib/systemd/system/vdr.service"
+            daemon_unit.parent.mkdir(parents=True, exist_ok=True)
+            daemon_unit.write_text("[Service]\nUser=root\n", encoding="utf-8")
+            unchanged = daemon_unit.read_bytes()
+
             script = (shell_body.replace("${S}", str(source_root))
                     .replace("${D}", str(destination))
-                    .replace("${sbindir}", "/usr/sbin"))
+                    .replace("${sbindir}", "/usr/sbin")
+                    .replace("${systemd_system_unitdir}",
+                             "/usr/lib/systemd/system")
+                    .replace("${localstatedir}", "/var"))
             result = subprocess.run(["sh", "-c", script], check=False,
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(target.read_bytes(), source.read_bytes())
-            self.assertTrue(target.stat().st_mode & stat.S_IXUSR)
+            self.assertEqual(helper_target.read_bytes(),
+                             helper_source.read_bytes())
+            self.assertTrue(helper_target.stat().st_mode & stat.S_IXUSR)
+            self.assertEqual(unit_target.read_bytes(), unit_source.read_bytes())
+            self.assertEqual(stat.S_IMODE(unit_target.stat().st_mode), 0o644)
+            self.assertIn("User=vdr\nGroup=vdr\n", unit_target.read_text())
+            self.assertEqual(stat.S_IMODE(state_target.stat().st_mode), 0o700)
+            self.assertEqual(daemon_unit.read_bytes(), unchanged)
 
-            # An old SRCREV that lacks the helper must fail packaging.
-            target.unlink()
-            source.unlink()
-            missing = subprocess.run(["sh", "-c", script], check=False,
-                                     capture_output=True, text=True)
-            self.assertNotEqual(missing.returncode, 0)
-            self.assertFalse(target.exists())
-            self.assertIn("MLD_FIRST_RUN_HELPER=BLOCKED_SOURCE_MISSING",
-                          missing.stderr)
+            # A stale SRCREV lacking either source must block package staging.
+            for source, target, marker in (
+                (helper_source, helper_target,
+                 "MLD_FIRST_RUN_HELPER=BLOCKED_SOURCE_MISSING"),
+                (unit_source, unit_target, "MLD_AGENT_UNIT=BLOCKED_SOURCE_MISSING"),
+            ):
+                with self.subTest(missing=source.name):
+                    source.unlink()
+                    target.unlink()
+                    failure = subprocess.run(
+                        ["sh", "-c", script], check=False,
+                        capture_output=True, text=True
+                    )
+                    self.assertNotEqual(failure.returncode, 0)
+                    self.assertIn(marker, failure.stderr)
+                    self.assertFalse(target.exists())
+                    self.assertEqual(daemon_unit.read_bytes(), unchanged)
+                    shutil.copyfile(
+                        ROOT / ("tools/vdr_suite_backend_agent_autostart.py"
+                                if source == helper_source else
+                                "packaging/systemd/vdr-suite-backend-agent.service"),
+                        source
+                    )
 
     def test_common_install_contract_wires_auto_first_run_for_deb_and_manual(self):
         makefile = (ROOT / "mk/install.mk").read_text(encoding="utf-8")
