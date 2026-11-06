@@ -30,6 +30,7 @@
   let liveConnectionSequence = 0;
   let liveRefreshPending = false;
   let liveRefreshScheduled = false;
+  const pendingOpens = new Map();
 
   function text(value) { return value == null ? '' : String(value); }
   function positiveInt(value) {
@@ -79,6 +80,8 @@
     const recordingId = text(value.recordingId);
     const backendNativeId = text(value.backendNativeId);
     const position = positiveInt(value.resumePositionSeconds);
+    const progressRevision = Number.isSafeInteger(value.progressRevision) && value.progressRevision >= 0
+      ? value.progressRevision : null;
     const durationKnown = value.durationKnown === true;
     const duration = durationKnown ? positiveInt(value.durationSeconds) : 0;
     if (!backendId || !recordingId || !position) return null;
@@ -99,6 +102,7 @@
       subtitle: text(value.subtitle),
       posterUrl: text(value.posterUrl),
       resumePositionSeconds: position,
+      progressRevision,
       durationKnown,
       durationSeconds: duration,
       lastActivityAt: text(value.lastActivityAt),
@@ -240,39 +244,83 @@
   }
   function clearBeforeRestart(item) {
     const sync = global.VdrSuiteContinueWatchingSync;
-    if (!sync || typeof sync.clear !== 'function') return false;
-    Promise.resolve(sync.clear(item.backendId, item.recordingId)).catch(function () {});
-    return true;
+    if (!sync || typeof sync.clear !== 'function' ||
+        !Number.isSafeInteger(item.progressRevision) || item.progressRevision < 0) {
+      return Promise.resolve(false);
+    }
+    // Reset only the version shown by this card. A newer Device checkpoint
+    // must fail the existing CAS comparison instead of being silently erased.
+    return Promise.resolve().then(function () {
+      return sync.clear(item.backendId, item.recordingId, item.progressRevision);
+    }).then(function (cleared) {
+      return cleared === true;
+    }).catch(function () { return false; });
   }
-  function openItem(item, resume) {
+  function openingStatus(card, pending, message) {
+    const view = card && card.__vdrSuiteContinueView;
+    if (!view) return;
+    view.resume.disabled = pending;
+    view.restart.disabled = pending;
+    if (view.error) {
+      view.error.textContent = message || '';
+      view.error.hidden = !message;
+    }
+  }
+  function openItem(item, resume, card) {
     const normalized = normalizeItem(item);
     if (!normalized) return Promise.resolve(false);
-    releasePreview();
-    return ensureRecordings2().then(function (ready) {
-      if (!ready) return false;
-      selectShellModule('recordings2');
-      if (!resume) clearBeforeRestart(normalized);
-      const recording = Object.assign({}, normalized.recording, {
-        id: normalized.recordingId,
-        recordingId: normalized.recordingId,
-        backendId: normalized.backendId,
-        backendNativeId: normalized.backendNativeId,
-        title: normalized.recording.title || normalized.title,
-        // Preserve the explicit Home resume target through Recordings2 hero
-        // re-renders. Previously the card knew the position but the detail
-        // player's own "Fortsetzen" action could fall back to zero.
-        resumePositionSeconds: resume ? normalized.resumePositionSeconds : 0
+    const key = normalized.backendId + '\u001f' + normalized.recordingId;
+    if (pendingOpens.has(key)) return pendingOpens.get(key);
+    openingStatus(card, true, '');
+    const operation = ensureRecordings2().then(function (ready) {
+      if (!ready) {
+        openingStatus(card, true, 'Aufnahme-Player konnte nicht geladen werden.');
+        return false;
+      }
+      function openRecording() {
+        releasePreview();
+        selectShellModule('recordings2');
+        const recording = Object.assign({}, normalized.recording, {
+          id: normalized.recordingId,
+          recordingId: normalized.recordingId,
+          backendId: normalized.backendId,
+          backendNativeId: normalized.backendNativeId,
+          title: normalized.recording.title || normalized.title,
+          resumePositionSeconds: resume ? normalized.resumePositionSeconds : 0
+        });
+        global.VdrSuiteRecordings2.openRecording(recording, {
+          backendId: normalized.backendId,
+          autoStartPlayback: true,
+          playbackStartPositionSeconds: resume ? normalized.resumePositionSeconds : 0,
+          continueWatching: true,
+          backLabel: '← Zurück zu Home',
+          onClose: returnHome
+        });
+        return true;
+      }
+      if (resume) return openRecording();
+      return clearBeforeRestart(normalized).then(function (cleared) {
+        if (!cleared) {
+          openingStatus(card, true,
+            'Neustart abgebrochen: Fortschritt konnte nicht zurückgesetzt werden. ' +
+            'Möglicherweise wurde die Aufnahme auf einem anderen Gerät fortgesetzt. ' +
+            'Bitte Home aktualisieren und erneut versuchen.');
+          return false;
+        }
+        return openRecording();
       });
-      global.VdrSuiteRecordings2.openRecording(recording, {
-        backendId: normalized.backendId,
-        autoStartPlayback: true,
-        playbackStartPositionSeconds: resume ? normalized.resumePositionSeconds : 0,
-        continueWatching: true,
-        backLabel: '← Zurück zu Home',
-        onClose: returnHome
-      });
-      return true;
+    }).catch(function () {
+      openingStatus(card, true, 'Wiedergabe konnte nicht gestartet werden. Bitte erneut versuchen.');
+      return false;
+    }).then(function (opened) {
+      const view = card && card.__vdrSuiteContinueView;
+      const message = view && view.error ? view.error.textContent : '';
+      openingStatus(card, false, message);
+      pendingOpens.delete(key);
+      return opened;
     });
+    pendingOpens.set(key, operation);
+    return operation;
   }
 
   // Keep cards, poster nodes and active scroll in place on every SSE readback.
@@ -304,24 +352,31 @@
     restart.textContent = 'Von vorn';
     restart.setAttribute('data-home-continue-action', 'restart');
     resume.addEventListener('click', function () {
-      openItem(card.__vdrSuiteContinueItem, true);
+      openItem(card.__vdrSuiteContinueItem, true, card);
     });
     restart.addEventListener('click', function () {
-      openItem(card.__vdrSuiteContinueItem, false);
+      openItem(card.__vdrSuiteContinueItem, false, card);
     });
     actions.appendChild(resume);
     actions.appendChild(restart);
+    const error = doc.createElement('p');
+    error.className = 'media-home-continue-error';
+    error.setAttribute('role', 'alert');
+    error.hidden = true;
+    error.style.color = '#fda4af';
+    error.style.fontSize = '.82rem';
     copy.appendChild(name);
     copy.appendChild(subtitle);
     copy.appendChild(progressText);
     copy.appendChild(meter);
     copy.appendChild(actions);
+    copy.appendChild(error);
     copy.appendChild(synopsis);
     card.appendChild(copy);
     card.__vdrSuiteContinueView = {
       artwork: artwork, name: name, subtitle: subtitle, synopsis: synopsis,
       progressText: progressText, meter: meter,
-      resume: resume, restart: restart
+      resume: resume, restart: restart, error: error
     };
     updateContinueCard(card, item);
     return card;

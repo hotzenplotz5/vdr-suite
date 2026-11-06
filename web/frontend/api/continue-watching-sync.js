@@ -142,11 +142,21 @@
       historyMutationQueue.catch(function () {})
     ]).then(function () { return true; });
   }
-  function clearCurrent(backendId, currentRecordingId) {
+  function clearCurrent(backendId, currentRecordingId, expectedRevision) {
     const id = text(currentRecordingId);
     if (!id) return Promise.resolve(false);
+    const pinned = expectedRevision !== undefined;
+    if (pinned && (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0)) {
+      return Promise.resolve(false);
+    }
     const scope = text(backendId) || 'default';
-    const state = {revision: null, loading: null, blocked: false};
+    // Home passes the revision of the displayed card. Do not rebase it on a
+    // newer Device write just before clearing.
+    const state = {
+      revision: pinned ? expectedRevision : null,
+      loading: pinned ? Promise.resolve(expectedRevision) : null,
+      blocked: false
+    };
     return enqueueVersioned({
       operation: 'clear', backendId: scope,
       recordingId: id, operationId: nextOperationId('clear')

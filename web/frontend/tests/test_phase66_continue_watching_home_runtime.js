@@ -79,6 +79,7 @@ const item = {
   backendNativeId,
   title: 'Deferred Recording',
   resumePositionSeconds: 93,
+  progressRevision: 2,
   durationKnown: true,
   durationSeconds: 600,
   recording: {
@@ -155,8 +156,8 @@ const item = {
     if (src === '/frontend/recordings2-playback.js') {
       first.window.VdrSuiteRecordings2Playback = {createPanel() {}};
       first.window.VdrSuiteContinueWatchingSync = {
-        clear(backendId, recordingId) {
-          restartClears.push({backendId, recordingId});
+        clear(backendId, recordingId, expectedRevision) {
+          restartClears.push({backendId, recordingId, expectedRevision});
           events.push('clear:' + backendId + ':' + recordingId);
           return Promise.resolve(true);
         }
@@ -207,7 +208,9 @@ const item = {
   assert.strictEqual(opened[1].recording.path, item.recording.path);
   assert.strictEqual(opened[1].recording.metadata.provider.genreText, 'Drama');
   assert.strictEqual(opened[1].options.playbackStartPositionSeconds, 0);
-  assert.deepStrictEqual(restartClears, [{backendId: 'default', recordingId: 'rec-deferred'}]);
+  assert.deepStrictEqual(restartClears, [{
+    backendId: 'default', recordingId: 'rec-deferred', expectedRevision: 2
+  }]);
   assert.deepStrictEqual(events.slice(-2), [
     'clear:default:rec-deferred',
     'open:0'

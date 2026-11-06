@@ -16,6 +16,7 @@ class Element {
     this.attributes = {};
     this.className = '';
     this.textContent = '';
+    this.style = {};
     this.scrollLeft = 0;
     this.listeners = {};
     this.classList = {

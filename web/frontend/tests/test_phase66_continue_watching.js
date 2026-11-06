@@ -29,6 +29,11 @@ assert(source.includes('VdrSuiteRecordings2.openRecording'));
 assert(source.includes('releasePreview()'));
 assert(source.includes("typeof preview.cancel === 'function'"));
 assert(source.includes('clearBeforeRestart(normalized)'));
+assert(source.includes('pendingOpens.has(key)'));
+assert(source.includes('progressRevision'));
+assert(syncSource.includes('loading: pinned ? Promise.resolve(expectedRevision) : null'));
+assert(continueApiSource.includes('progressRevision'));
+
 assert(source.includes("'/frontend/api/session-frontend-sync.js'"));
 assert(source.includes("'/frontend/recordings2-playback.js'"));
 assert(source.includes('continueWatchingPlaybackReady'));
