@@ -602,7 +602,7 @@ BackendAgentTransportResponse CurlBackendAgentControlPlaneTransport::perform(
     CurlWriteState writeState{&response.body};
     bool configured = headers != nullptr;
     const char* failedOption = configured ? "none" : "headers";
-    CURLcode setupError = CURLE_OK;
+    CURLcode setupError = configured ? CURLE_OK : CURLE_OUT_OF_MEMORY;
     // Preserve the existing curl settings and fail-closed policy. Record only
     // the name and numeric error of the first failing setting; never the URL,
     // request body, auth header or any enrollment/identity secret.
