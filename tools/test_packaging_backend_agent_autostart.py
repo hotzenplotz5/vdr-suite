@@ -774,6 +774,67 @@ class AutostartTests(unittest.TestCase):
             self.assertIn("LOCAL_BACKEND_SETUP=READY", output.getvalue())
             onboard.assert_called_once_with()
 
+    def test_local_daemon_origin_match_is_exact_and_read_only(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            config = Path(temporary) / "backend-agent.conf"
+            with patch.object(subject, "CONFIG", config):
+                self.assertFalse(subject.local_control_plane_configured())
+                config.write_text("CONTROL_PLANE_URL=http://127.0.0.1:18080\n")
+                self.assertTrue(subject.local_control_plane_configured())
+                for value in ("http://127.0.0.1:18080/",
+                              "http://localhost:18080",
+                              "https://remote.example.test"):
+                    config.write_text("CONTROL_PLANE_URL=" + value + "\n")
+                    self.assertFalse(subject.local_control_plane_configured())
+
+    def test_first_run_waits_for_local_daemon_listener_before_enrollment(self):
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="ENROLLMENT_REQUIRED"),
+            patch.object(subject, "read_config", return_value="default"),
+            patch.object(subject, "channel_observation_source"),
+            patch.object(subject, "local_control_plane_configured",
+                         return_value=True),
+            patch.object(subject, "wait_for_local_daemon_listener",
+                         return_value=False) as listener,
+            patch.object(subject, "installer_onboard_local") as onboard,
+        ):
+            self.assertEqual(subject.automatic_first_run(),
+                             "DEFERRED_DAEMON_UNAVAILABLE")
+            listener.assert_called_once_with()
+            onboard.assert_not_called()
+
+        with (
+            patch.object(subject.os, "geteuid", return_value=0),
+            patch.object(subject, "first_run_agent_state",
+                         return_value="ENROLLMENT_PENDING"),
+            patch.object(subject, "read_config", return_value="default"),
+            patch.object(subject, "channel_observation_source"),
+            patch.object(subject, "local_control_plane_configured",
+                         return_value=True),
+            patch.object(subject, "wait_for_local_daemon_listener",
+                         return_value=True),
+            patch.object(subject, "installer_onboard_local",
+                         return_value="READY") as onboard,
+        ):
+            self.assertEqual(subject.automatic_first_run(), "READY")
+            onboard.assert_called_once_with()
+
+    def test_local_daemon_listener_poll_is_bounded(self):
+        with (
+            patch.object(subject.socket, "create_connection",
+                         side_effect=OSError("unavailable")) as connect,
+            patch.object(subject.time, "sleep") as sleep,
+        ):
+            self.assertFalse(subject.wait_for_local_daemon_listener(attempts=2))
+            self.assertEqual(connect.call_count, 3)
+            self.assertEqual(sleep.call_count, 2)
+            connect.assert_called_with(("127.0.0.1", 18080), timeout=1)
+        with patch.object(subject.socket, "create_connection") as connect:
+            self.assertTrue(subject.wait_for_local_daemon_listener(attempts=2))
+            connect.assert_called_once_with(("127.0.0.1", 18080), timeout=1)
+
     def test_automatic_first_run_does_not_run_unprivileged(self):
         with (
             patch.object(subject.os, "geteuid", return_value=1000),

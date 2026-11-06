@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import pwd
 import re
+import socket
 import stat
 import subprocess
 import sys
@@ -593,6 +594,31 @@ def configure_local_first_run():
     return True
 
 
+def local_control_plane_configured():
+    """Only the exact packaged loopback origin uses the daemon-ready gate."""
+    try:
+        return ("CONTROL_PLANE_URL=" + LOCAL_CONTROL_PLANE in
+                CONFIG.read_text(encoding="utf-8").splitlines())
+    except OSError:
+        return False
+
+
+def wait_for_local_daemon_listener(attempts=30):
+    """Wait for the daemon's actual loopback listener, not just systemd active.
+
+    On MLD the daemon can be active while its HTTP runtime is still starting.
+    This never performs enrollment, touches credentials or follows redirects.
+    """
+    for attempt in range(attempts + 1):
+        try:
+            with socket.create_connection(("127.0.0.1", 18080), timeout=1):
+                return True
+        except OSError:
+            if attempt < attempts:
+                time.sleep(1)
+    return False
+
+
 def automatic_first_run():
     """Same-host automatic entrypoint for packaged boot/start orchestration.
 
@@ -624,6 +650,12 @@ def automatic_first_run():
         channel_observation_source()
     except (NotReady, OSError):
         return "DEFERRED_CONFIGURATION_REQUIRED"
+    # systemd 'active' only means the daemon process started. On a fresh
+    # MLD boot its API can become available several seconds later. Do not
+    # create a one-time enrollment before the local daemon is listening.
+    if (local_control_plane_configured() and
+            not wait_for_local_daemon_listener()):
+        return "DEFERRED_DAEMON_UNAVAILABLE"
     return installer_onboard_local()
 
 
