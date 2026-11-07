@@ -152,7 +152,7 @@ struct Inventory final : ILocalMediaImportInventory {
                  LocalMediaImportSource& out) override
     {
         ++resolutions;
-        if (backend != "backend" || sourceId != "inventory_17") return false;
+        if (backend != "backend" || sourceId != "inventory_17_opaque") return false;
         out = {"/ci-only/media-in",
                swappedTarget ? "/ci-only/other-destination" : "/ci-only/media-out",
                !valid ? "/ci-only/media-in/../private" :
@@ -192,7 +192,7 @@ BackendAgentCommandAssignment command()
     a.backendGeneration = 19;
     a.commandType = kMediaImportCommandType;
     a.payloadVersion = 1;
-    a.payload = "{\"sourceId\":\"inventory_17\"}";
+    a.payload = "{\"sourceId\":\"inventory_17_opaque\"}";
     a.verificationPolicy = "reconciliation_required";
     a.assignedAt = nowSeconds() - 1;
     a.deadline = nowSeconds() + 40;
@@ -280,7 +280,7 @@ int main()
             slowInventory, slowGrants);
         auto local = command();
         local.payload = mediaImportSelectionJson(
-            "inventory_17", MediaImportDecision::local);
+            "inventory_17_opaque", MediaImportDecision::local);
         local.payloadVersion = 2;
         local.deadline = nowSeconds() + 6 * 3600;
         local.requestFingerprint = backendAgentCommandFingerprint(local);
@@ -298,7 +298,7 @@ int main()
             failingInventory, failingGrants);
         auto local = command();
         local.payload = mediaImportSelectionJson(
-            "inventory_17", MediaImportDecision::local);
+            "inventory_17_opaque", MediaImportDecision::local);
         local.payloadVersion = 2;
         local.deadline = nowSeconds() + 6 * 3600;
         local.requestFingerprint = backendAgentCommandFingerprint(local);
