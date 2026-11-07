@@ -48,6 +48,9 @@
         .replace(/\s+/g, ' ').trim();
     };
     const raw = value.trim().replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v)$/i, '');
+    // An opaque backend token is NOT a filename; never prettify it into a
+    // fictional movie title. Keep source identity readable in diagnostics.
+    if (/^(?:source|scan)_[A-Za-z0-9_-]{12,}$/.test(raw)) return raw;
     const episode = /^(.+?)\s+-\s+(S\d{1,2}E\d{1,3})\s+-\s+(.+)$/i.exec(raw);
     if (episode) {
       const prefix = episode[1] + ' - ' + episode[2] + ' - ';
