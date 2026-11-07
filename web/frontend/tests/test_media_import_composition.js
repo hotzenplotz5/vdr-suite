@@ -2233,9 +2233,13 @@ function publishHomeResume() {}
   const sortedCheckboxes = findClass(mount, 'media-import-selection');
   assert.strictEqual(sortedCheckboxes.children.map(function (row) {
     return row.children[1].textContent;
-  }).join('|'), orderedIds.map(function (id) {
-    return sourceDisplayLabels[id];
-  }).join('|'), 'episode buttons use the same natural order as batch checkboxes');
+  }).join('|'), [
+    'Andor · S01E02 · Episode 2',
+    'Andor · S01E09 · Niemand hört zu',
+    'Andor · S02E02 · Sagrona Teema',
+    'Andor · S02E10 · Mach, dass es aufhört',
+    'Zusatzfilm 2', 'Zusatzfilm 10'
+  ].join('|'), 'readable episode labels preserve the same natural checkbox order');
   const beforeEpisodeClick = submits;
   sortedCheckboxes.children[0].children[1].listeners.click();
   await settle();
