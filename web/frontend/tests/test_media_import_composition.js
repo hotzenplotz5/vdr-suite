@@ -3581,6 +3581,70 @@ function publishHomeResume() {}
     'offline completion remains visible after a browser restart');
   assert.strictEqual(submits, postsBeforeCompleteReload,
     'completed recovery never submits another import');
+  // MT.EVENT4 real browser-restart regression: an eight-day-old
+  // outcome_unknown deletion is a source-scoped history item, NOT an
+  // active import. It must never replace the normal preview or auto-POST.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B];
+  previewMode = 'ready';
+  previewInspectionStatus = 'ready';
+  state = 'outcome_unknown';
+  cleanupState = '';
+  const olderUnknown = {operationId: OP, backendId: 'backend-a',
+    sourceId: SOURCE, state: 'outcome_unknown',
+    videoDecision: 'delete_duplicate',
+    requestedAt: Math.floor(Date.now() / 1000) - 8 * 86400};
+  recentImports = [olderUnknown];
+  const oldPosts = submits;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const oldUnresolved = findClass(mount, 'media-import-unresolved-operations');
+  assert(oldUnresolved && oldUnresolved.children.length === 1 &&
+    findClass(oldUnresolved, 'media-import-unresolved-label').textContent.includes(OP),
+    'recovered unknown deletion remains explicitly queryable by its old ID');
+  assert(!findClass(mount, 'media-import-operation').textContent.includes(OP),
+    'an old unknown delete does not take over the active import panel');
+  assert(!operationStream(OP),
+    'old uncertain deletion is read-only history, not a live import SSE');
+  const independent = findClass(mount, 'media-import-source');
+  independent.value = SOURCE_B;
+  independent.listeners.change();
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, false,
+    'another verified source remains importable after reopening the browser');
+  independent.value = SOURCE;
+  independent.listeners.change();
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-start').disabled, true,
+    'the exact unresolved source remains blocked against another mutation');
+  await findClass(oldUnresolved, 'media-import-unresolved-check').listeners.click();
+  await settle();
+  assert.strictEqual(submits, oldPosts,
+    'manual checking of recovered old deletion must be GET-only');
+
+  // A fresh real import must take precedence over older unknown history,
+  // even though the Core returns outcome_unknown first in its collection.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  recentImports = [olderUnknown, {operationId: BATCH_OP_A,
+    backendId: 'backend-a', sourceId: SOURCE_B, state: 'dispatching',
+    videoDecision: '', requestedAt: Math.floor(Date.now() / 1000)}];
+  batchStates[BATCH_OP_A] = 'dispatching';
+  const mixedPosts = submits;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  assert(findClass(mount, 'media-import-operation').textContent.includes(BATCH_OP_A) &&
+    operationStream(BATCH_OP_A),
+    'genuinely running import is reattached with the same Operation ID and SSE');
+  assert(findClass(mount, 'media-import-unresolved-operations').children.length === 1,
+    'older uncertain deletion remains separately visible while import runs');
+  assert.strictEqual(submits, mixedPosts,
+    'mixed recovery must not submit any new import or deletion');
   recentImports = [];
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');

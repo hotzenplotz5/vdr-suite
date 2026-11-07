@@ -210,17 +210,38 @@
               'delete_duplicate'].includes(item.videoDecision);
         });
         if (!valid.length) return;
+        // An old outcome_unknown is durable but NOT a running job. Keep
+        // its exact Operation ID available for a GET-only status check, and
+        // lock just its source. It must not take over the import preview or
+        // hide a newer, genuinely running operation after browser restart.
+        valid.filter(function (item) {
+          return item.state === 'outcome_unknown';
+        }).forEach(function (item) {
+          const key = unresolvedKey(view, item.sourceId);
+          if (unresolvedAttempts[key]) return;
+          unresolvedAttempts[key] = {
+            sourceId: item.sourceId,
+            sourceLabel: view.sourceTitles[item.sourceId] || item.sourceId,
+            videoDecision: item.videoDecision,
+            key: '', operationId: item.operationId,
+            state: item.state, recovered: true
+          };
+        });
+        renderUnresolvedAttempts(view);
         const running = valid.find(function (item) {
-          return ['accepted','queued','dispatching','executed_unverified',
-            'outcome_unknown'].includes(item.state);
+          return ['accepted','queued','dispatching',
+            'executed_unverified'].includes(item.state);
         });
         if (running) {
           reattach(running);
           return;
         }
-        // One authenticated GET resolves the most recent completed import,
-        // including a sourceCleanup receipt that might still be pending.
-        const completed = valid[0];
+        // Old unconfirmed operations do not eclipse the latest completed
+        // operation, including any sourceCleanup that is still pending.
+        const completed = valid.find(function (item) {
+          return terminalState(item.state);
+        });
+        if (!completed) return;
         return api.getOperation({
           operationId: completed.operationId,
           credentials: 'same-origin', cache: 'no-store'
