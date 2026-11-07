@@ -3622,6 +3622,14 @@ function publishHomeResume() {}
   assert(findClass(mount, 'status').textContent.includes('abgeschlossen') ||
     findClass(mount, 'media-import-operation').textContent.includes('succeeded'),
     'a recovered job renders its verified terminal status');
+  const liveHistory = findClass(mount, 'media-import-recent-results');
+  assert(findClass(liveHistory, 'media-import-recent-summary').textContent.includes(
+    '1 bestätigt') &&
+    findClass(liveHistory, 'media-import-recent-row').textContent.includes(
+      'VDR-Aufnahme bestätigt'),
+    'SSE-driven Core readback immediately updates existing import history without reloading');
+  assert.strictEqual(submits, postsBeforeRestart,
+    'updating the visible import log does not submit another mutation');
 
   // Core VDR success is terminal, but its source cleanup may still need an
   // Agent result. A restarted browser must reattach until that result arrives.
@@ -3662,6 +3670,36 @@ function publishHomeResume() {}
     findClass(historyAfterRestart, 'media-import-recent-row').textContent.includes(
       'VDR-Aufnahme bestätigt'),
     'restart reconstructs one Core-confirmed import in a readable per-film ledger');
+  // The visible log is always the 20 newest real import operations, not
+  // the oldest 20, and does not contain automatic delete operations.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  const recentNow = Math.floor(Date.now() / 1000);
+  recentImports = [{operationId: OP, backendId: 'backend-a',
+    sourceId: SOURCE, state: 'succeeded', videoDecision: '',
+    requestedAt: recentNow}].concat(Array.from({length: 22}, function (_, index) {
+    return {operationId: 'op_' + String(index).padStart(32, '0'),
+      backendId: 'backend-a', sourceId: SOURCE_B, state: 'succeeded',
+      videoDecision: '', requestedAt: recentNow - (index + 1) * 60};
+  }));
+  recentImports.push({operationId: BATCH_OP_B, backendId: 'backend-a',
+    sourceId: SOURCE_B, state: 'succeeded',
+    videoDecision: 'delete_duplicate', requestedAt: recentNow + 60});
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const cappedLog = findClass(mount, 'media-import-recent-results');
+  const cappedRows = cappedLog.children.filter(function (node) {
+    return node.className === 'media-import-recent-row';
+  });
+  assert.strictEqual(cappedRows.length, 20,
+    'import history displays at most 20 newest import operations');
+  assert(findClass(cappedLog, 'media-import-recent-summary').textContent.includes(
+    '20 bestätigt') && !cappedRows.some(function (row) {
+      return row.textContent.includes('Löschen');
+    }), 'file actions are excluded from the 20 most recent imported recordings');
+
   // MT.EVENT4 real browser-restart regression: an eight-day-old
   // outcome_unknown deletion is a source-scoped history item, NOT an
   // active import. It must never replace the normal preview or auto-POST.

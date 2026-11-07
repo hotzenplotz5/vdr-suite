@@ -15,6 +15,9 @@
   // Latest Core-confirmed outcome per backend, during this authenticated
   // browser session. Display receipt only; never treat it as source identity.
   const completedOperations = Object.create(null);
+  // Keep titles for Core-confirmed import receipts while this browser session
+  // is open, even if a source cleanup removes the file from the next scan.
+  const recentImportLabels = Object.create(null);
   // Last successfully verified source inventory per backend, memory-only
   // within the current authenticated browser session. Never persisted.
   const lastGoodSourceInventories = Object.create(null);
@@ -344,6 +347,9 @@
     Object.keys(completedOperations).forEach(function (id) {
       delete completedOperations[id];
     });
+    Object.keys(recentImportLabels).forEach(function (id) {
+      delete recentImportLabels[id];
+    });
     Object.keys(lastGoodSourceInventories).forEach(function (id) {
       delete lastGoodSourceInventories[id];
     });
@@ -587,6 +593,35 @@
     });
   }
 
+  // Update the visible history from the same verified Core Operation GET
+  // already used for progress/SSE. No second POST and no status polling.
+  function rememberRecentImportResult(view, attempt, operation) {
+    if (!isCurrent(view) || !attempt || !operation ||
+        (attempt.videoDecision !== '' && attempt.videoDecision !== 'local'))
+      return;
+    const label = attempt.sourceLabel;
+    if (typeof label === 'string' && label &&
+        !/(?:^|\s)(?:source|scan)_[A-Za-z0-9_-]{8,}(?=$|\s)/.test(label))
+      recentImportLabels[view.backendId + '|' + operation.operationId] = label;
+    const records = view.recentImportRecords || [];
+    const previous = records.find(function (item) {
+      return item.operationId === operation.operationId;
+    });
+    const item = Object.assign({}, previous || {}, {
+      operationId: operation.operationId,
+      backendId: view.backendId,
+      sourceId: attempt.sourceId,
+      videoDecision: attempt.videoDecision,
+      state: operation.state,
+      requestedAt: previous && Number.isFinite(previous.requestedAt)
+        ? previous.requestedAt : Math.floor(attempt.startedAt / 1000)
+    });
+    view.recentImportRecords = [item].concat(records.filter(function (entry) {
+      return entry.operationId !== item.operationId;
+    }));
+    renderRecentImportResults(view);
+  }
+
   function renderRecentImportResults(view) {
     if (!isCurrent(view) || !view.recentResults) return;
     const imports = (view.recentImportRecords || []).filter(function (item) {
@@ -616,7 +651,8 @@
       const source = view.allOrdinary.find(function (entry) {
         return entry.sourceId === item.sourceId;
       });
-      const title = source && source.label || view.sourceTitles[item.sourceId];
+      const title = source && source.label || view.sourceTitles[item.sourceId] ||
+        recentImportLabels[view.backendId + '|' + item.operationId];
       const display = title ? readableMediaTitle(title) : 'Filmname nicht mehr verfügbar';
       const outcome = item.state === 'succeeded' ? 'VDR-Aufnahme bestätigt' :
         ['rejected','conflict','failed_before_dispatch','failed_verified',
@@ -1251,6 +1287,7 @@
         throw new Error('Ungültige Operationsantwort');
       }
       view.attempt.state = operation.state;
+      rememberRecentImportResult(view, checkedAttempt, operation);
       updateInlineDeleteAvailability(view);
       view.attempt.lastStatusRead = new Date().toLocaleTimeString('de-DE');
       view.attempt.lastStatusError = '';
