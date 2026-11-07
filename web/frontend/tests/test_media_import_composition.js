@@ -407,10 +407,16 @@ tab.hidden = true;
 tab.disabled = true;
 const mount = new Element('section');
 const timerCallbacks = [];
+const documentListeners = Object.create(null);
 const modules = {};
 const context = {
   console, Promise, Uint8Array, setImmediate,
   document: {
+    visibilityState: 'visible',
+    addEventListener(name, fn) { documentListeners[name] = fn; },
+    removeEventListener(name, fn) {
+      if (documentListeners[name] === fn) delete documentListeners[name];
+    },
     createElement(name) { return new Element(name); },
     // The real app's extracted runtime gate invokes placeMediaImportTab().
     // Model that native DOM lookup instead of throwing during VM startup.
@@ -1204,6 +1210,26 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-import-title').textContent.includes(
     'Ergebnis ungewiss'), 'unknown outcomes must never look like a success');
   assert.strictEqual(findClass(mount, 'media-import-new').hidden, true);
+  assert(findClass(mount, 'media-import-operation-progress-bar').hidden,
+    'unknown Core outcome does not animate a pretend running import');
+  assert(!findClass(mount, 'media-import-operation-progress-text').textContent.includes(
+    'Restzeit unbekannt'), 'unknown outcome does not advertise a running ETA');
+  // Return to the still-open mobile tab: recheck only the existing Core operation.
+  const beforeForegroundRead = operationReads;
+  const beforeForegroundPosts = submits;
+  assert.strictEqual(typeof documentListeners.visibilitychange, 'function');
+  context.document.visibilityState = 'hidden';
+  documentListeners.visibilitychange();
+  await settle();
+  assert.strictEqual(operationReads, beforeForegroundRead,
+    'backgrounding does not start status reads');
+  context.document.visibilityState = 'visible';
+  documentListeners.visibilitychange();
+  await settle();
+  assert.strictEqual(operationReads, beforeForegroundRead + 1,
+    'returning to visible page reads exactly the existing Core operation');
+  assert.strictEqual(submits, beforeForegroundPosts,
+    'visibility recovery never dispatches another import');
   // An uncertain earlier operation may never be silently retried. It must
   // also not lock source selection and *read-only* preview for other films.
   assert.strictEqual(findClass(mount, 'media-import-source').disabled, false,
@@ -1323,6 +1349,10 @@ function publishHomeResume() {}
   assert(findClass(mount, 'status').textContent.includes('ungewiss'));
   assert.strictEqual(findClass(mount, 'media-import-start').disabled, true);
   assert.strictEqual(findClass(mount, 'media-import-new').hidden, true);
+  assert(findClass(mount, 'media-import-completed-notice').hidden,
+    'old green success is hidden when a new import response is uncertain');
+  assert(findClass(mount, 'media-import-operation-progress-bar').hidden,
+    'lost admission response is not a running progress bar');
   const posts = requests.filter(x => x.options.method === 'POST');
   assert.notStrictEqual(posts[0].options.headers['Idempotency-Key'],
     posts[1].options.headers['Idempotency-Key']);

@@ -316,6 +316,10 @@
       ++current.previewGeneration;
       resetOnline(current);
       ++current.reviewGeneration;
+      if (current.resumeStatusOnVisibility &&
+          typeof global.document.removeEventListener === 'function')
+        global.document.removeEventListener(
+          'visibilitychange', current.resumeStatusOnVisibility);
     }
     current = null;
   }
@@ -1761,7 +1765,11 @@
     if (view.operationProgress.hidden) return;
     const state = attempt ? attempt.state : '';
     const completed = Boolean(attempt && terminalState(state));
-    view.operationProgressBar.hidden = completed;
+    // outcome_unknown may later reconcile to succeeded, but it is NOT a
+    // running progress phase. Keep SSE/GET alive without animating forever.
+    const uncertain = state === 'outcome_unknown' ||
+      Boolean(attempt && !attempt.pending && !attempt.operationId);
+    view.operationProgressBar.hidden = completed || uncertain;
     const elapsed = attempt && attempt.startedAt
       ? Math.max(0, Math.floor((Date.now() - attempt.startedAt) / 1000)) : 0;
     const duration = Math.floor(elapsed / 60) + ':' +
@@ -1778,8 +1786,10 @@
       : state === 'outcome_unknown' ? 'Ergebnis ungewiss' : 'Status wird geprüft';
     view.operationProgressText.textContent = kind + ' · ' +
       (attempt && attempt.sourceLabel ? attempt.sourceLabel + ' · ' : '') +
-      phase + ' · Verstrichen: ' + duration +
-      (completed ? '' : ' · Restzeit unbekannt');
+      phase + (uncertain
+        ? ' · Kein laufender Fortschritt bestätigt; vorhandenen Auftrag prüfen'
+        : ' · Verstrichen: ' + duration +
+          (completed ? '' : ' · Restzeit unbekannt'));
   }
 
   // Display the established Core operation in ordinary language, right
@@ -1787,6 +1797,11 @@
   function renderImportFeedback(view) {
     if (!view.importFeedback) return;
     const attempt = view.attempt;
+    // A previous operation's green success must not describe a new import
+    // whose outcome is still unknown. Its history remains in the ledger.
+    if (view.completedNotice &&
+        (view.submitting || (attempt && attempt.state !== 'succeeded')))
+      view.completedNotice.hidden = true;
     view.importFeedback.hidden = !view.submitting && !attempt;
     renderOperationProgress(view);
     if (view.importFeedback.hidden) return;
@@ -4605,6 +4620,19 @@
       operationBrowsingEnabled: false,
       attempt: activeAttempts[backendId] || null};
     current = view;
+    // Mobile browsers can suspend an SSE connection without navigating away.
+    // One foreground return performs a single read of the existing operation;
+    // no polling timer, mutation request or automatic replay.
+    if (typeof global.document.addEventListener === 'function') {
+      view.resumeStatusOnVisibility = function () {
+        if (!isCurrent(view) || global.document.visibilityState !== 'visible' ||
+            !view.attempt || !view.attempt.operationId ||
+            view.submitting || view.reading) return;
+        void readOperation(view);
+      };
+      global.document.addEventListener(
+        'visibilitychange', view.resumeStatusOnVisibility);
+    }
     // Switching tabs must not erase the most recent inventory just because
     // the Agent's lease temporarily expired between two views.
     const savedInventory = lastGoodSourceInventories[backendId];
