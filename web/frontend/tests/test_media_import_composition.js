@@ -347,6 +347,22 @@ function transport(url, options) {
         operationId: OP, backendId: 'backend-a', state: 'dispatching'
       }));
     }
+    if (submitMode === 'batch-lost-first') {
+      const operationId = batchOperations.length === 0 ? BATCH_OP_A : BATCH_OP_B;
+      const sourceId = JSON.parse(options.body).sourceId;
+      batchOperations.push(operationId);
+      if (batchOperations.length === 1) {
+        recentImports = [{
+          operationId, sourceId, backendId: 'backend-a',
+          state: 'succeeded', videoDecision: '',
+          requestedAt: Math.floor(Date.now() / 1000)
+        }];
+        return Promise.reject(new Error('HTTP response lost after Core reservation'));
+      }
+      return Promise.resolve(reply(202, {
+        operationId, backendId: 'backend-a', state: 'dispatching'
+      }));
+    }
     if (submitMode === 'batch') {
       const operationId = batchOperations.length === 0 ? BATCH_OP_A : BATCH_OP_B;
       batchOperations.push(operationId);
@@ -3715,6 +3731,43 @@ function publishHomeResume() {}
   assert.strictEqual(submits, mixedPosts,
     'mixed recovery must not submit any new import or deletion');
   recentImports = [];
+
+  // A response can be lost even when the browser stays open and the first
+  // Andor episode reaches Core succeeded. Exactly one actor-scoped matching
+  // GET result reattaches that operation; only its confirmed readback allows
+  // the already consented second episode to start. Never replay episode A.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B];
+  markedSources = [];
+  delete recordingStatuses[SOURCE];
+  delete recordingStatuses[SOURCE_B];
+  previewMode = 'ready';
+  previewInspectionStatus = 'ready';
+  batchOperations = [];
+  batchStates = Object.create(null);
+  batchStates[BATCH_OP_A] = 'succeeded';
+  batchStates[BATCH_OP_B] = 'succeeded';
+  submitMode = 'batch-lost-first';
+  recentImports = [];
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  await findClass(mount, 'media-import-batch').listeners.click();
+  await settle();
+  const beforeRecoveredBatch = submits;
+  await findClass(mount, 'media-import-batch-confirm').listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeRecoveredBatch + 2,
+    'lost first HTTP response recovers its Core operation and advances exactly once');
+  assert.deepStrictEqual(batchOperations, [BATCH_OP_A, BATCH_OP_B],
+    'first episode was never resubmitted with another idempotency key');
+  assert(findClass(mount, 'status').textContent.includes(
+    '2 Aufnahmen unabhängig bestätigt'),
+    'two independently confirmed operations finish the batch in the same browser');
+  recentImports = [];
+  submitMode = 'accepted';
 
   // Filename-derived preview titles must be understandable in the list,
   // preview and multi-import review. The underlying source ID and backend

@@ -862,6 +862,37 @@
     return 'Operationsstatus derzeit nicht abrufbar. Bitte später erneut prüfen.';
   }
 
+  // If the POST reply was lost after Core admission, read the existing actor-
+  // scoped operation journal once. Only a unique same-source, same-action
+  // operation admitted at this click may be reattached. Never resend that POST.
+  function recoverBatchAdmission(view, attempt) {
+    if (!view.batch || !attempt || !attempt.sourceId ||
+        !Number.isFinite(attempt.startedAt)) return Promise.resolve(false);
+    const startSecond = Math.floor(attempt.startedAt / 1000);
+    const endSecond = Math.floor(Date.now() / 1000) + 10;
+    return publicClient().getRecentMediaImports(readOptions(view.backendId))
+      .then(function (response) {
+        if (activeAttempts[view.backendId] !== attempt ||
+            !response || !Array.isArray(response.items)) return false;
+        const matches = response.items.filter(function (item) {
+          return item && item.backendId === view.backendId &&
+            item.sourceId === attempt.sourceId &&
+            item.videoDecision === attempt.videoDecision &&
+            /^op_[A-Za-z0-9_-]+$/.test(item.operationId) &&
+            Number.isFinite(item.requestedAt) &&
+            item.requestedAt >= startSecond - 10 &&
+            item.requestedAt <= endSecond;
+        });
+        if (matches.length !== 1) return false;
+        attempt.operationId = matches[0].operationId;
+        attempt.state = matches[0].state;
+        const batch = activeBatches[view.backendId];
+        if (batch && batch.remaining[0] === attempt.sourceId)
+          batch.waiting = attempt.operationId;
+        return true;
+      }).catch(function () { return false; });
+  }
+
   // The browser coordinates only an explicitly requested sequence. Core owns
   // each durable Operation; unknown outcomes must never start a second import.
   function stopBatch(view, reason) {
@@ -4034,6 +4065,7 @@
     // Core independently validates actor, backend, source token and action;
     // native deletion additionally requires the worker's recording readback.
     let preAdmissionFailed = false;
+    let recoveredBatchAdmission = false;
     let refreshRejectedSource = false;
     let rejectedSourceMessage = '';
     return Promise.resolve().then(function () {
@@ -4136,9 +4168,21 @@
             }
             return;
           }
-          // Network errors and 5xx can occur after durable operation reservation.
+          // A missing HTTP reply can follow a successful Core reservation.
+          // Reattach the uniquely matching Operation via GET only. Advance the
+          // already confirmed batch only after its normal Core readback succeeds.
           if (target && target.batch)
-            stopBatch(target, 'Auftragsannahme ungewiss. Keine Folgeimporte.');
+            return recoverBatchAdmission(target, attempt).then(function (found) {
+              const ownerView = currentAttemptView(view, attempt);
+              if (found) {
+                recoveredBatchAdmission = true;
+                return;
+              }
+              if (ownerView && ownerView.batch)
+                stopBatch(ownerView,
+                  'Auftragsannahme ungewiss. Kein Folgeimport ohne Core-Nachweis.');
+              if (ownerView) showAttempt(ownerView);
+            });
           if (target) showAttempt(target);
           return;
         }
@@ -4178,6 +4222,13 @@
             if (isCurrent(owner) && !owner.searchInput.disabled)
               report(owner, rejectedSourceMessage, true);
           });
+        }
+        if (recoveredBatchAdmission && owner &&
+            owner.attempt && owner.attempt.operationId && !owner.reading) {
+          // The original submit has finished; a fast successful Core readback
+          // can now safely start the next *different* batch source.
+          owner.submitting = false;
+          showAttempt(owner);
         }
         if (isCurrent(view)) {
           updateInlineDeleteAvailability(view);
