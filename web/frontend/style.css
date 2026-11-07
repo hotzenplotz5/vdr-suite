@@ -4881,22 +4881,45 @@ body.channel-sorter-dragging * {
   border-radius: .85rem;
   background: #111e31;
 }
-.media-import-footer .media-import-selection-count {
-  flex: 1 1 17rem;
+.media-import-multi-select-hint {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: .86rem;
+  line-height: 1.45;
+}
+.media-import-batch-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: .55rem;
+  padding: .75rem;
+  border: 1px solid #334155;
+  border-radius: .75rem;
+  background: #15243a;
+}
+.media-import-batch-actions .media-import-selection-count {
   color: #e2e8f0;
   font-weight: 600;
 }
-.media-import-footer .media-import-batch-summary,
-.media-import-footer .media-import-batch-review,
+.media-import-batch-actions button {
+  width: 100%;
+  min-height: 2.65rem;
+  white-space: normal;
+}
+.media-import-batch-actions .media-import-batch-summary,
+.media-import-batch-actions .media-import-batch-review {
+  margin: .15rem 0 0;
+  overflow-wrap: anywhere;
+}
+.media-import-batch-actions .media-import-batch-review {
+  display: grid;
+  gap: .35rem;
+}
 .media-import-footer .status,
 .media-import-footer .media-import-operation {
   flex: 1 1 100%;
   margin: .15rem 0 0;
   overflow-wrap: anywhere;
-}
-.media-import-footer .media-import-batch-review {
-  display: grid;
-  gap: .35rem;
 }
 .media-import-panel button:focus-visible,
 .media-import-panel input:focus-visible,

@@ -2331,9 +2331,10 @@
     }).length;
     view.selectionCount.textContent = count + ' von ' +
       eligible.length + ' noch nicht importierten Filmen für den Stapel gewählt.';
+    // A batch performs its own direct-import suitability review. A local
+    // reencode choice in the single-film preview is unrelated to that review.
     view.selectedBatchButton.disabled = count < 2 || Boolean(view.batch) ||
-      Boolean(view.attempt) || view.localReencode.checked ||
-      view.decision.value !== 'import';
+      Boolean(view.attempt) || view.submitting || view.inspectingBatch;
   }
 
   // MT.META1: presentation-only phone navigation. The same Core/Agent
@@ -4306,7 +4307,21 @@
     episodes.appendChild(seasonLabel);
     label.className = 'media-import-select-label';
     episodes.appendChild(label);
+    episodes.appendChild(element('p', 'media-import-multi-select-hint',
+      'Mehrere Filme: Kästchen links neben mindestens zwei noch nicht importierten Filmen markieren. Anschließend die Auswahl prüfen und den Import getrennt bestätigen.'));
     episodes.appendChild(selectionRows);
+    // Keep the existing batch controls next to their selection. On phones
+    // the old footer below all panes was not visible while picking movies.
+    const batchActions = element('section', 'media-import-batch-actions');
+    batchActions.appendChild(selectionCount);
+    batchActions.appendChild(selectAllVisibleButton);
+    batchActions.appendChild(selectedBatchButton);
+    batchActions.appendChild(batchButton);
+    batchActions.appendChild(batchSummary);
+    batchActions.appendChild(batchReviewList);
+    batchActions.appendChild(batchConfirmButton);
+    batchActions.appendChild(batchStopButton);
+    episodes.appendChild(batchActions);
     const detail = element('section', 'media-import-pane media-import-detail');
     const mobileBack = element('button', 'media-import-mobile-back',
       '← Zur Medienliste');
@@ -4348,14 +4363,6 @@
     workspace.appendChild(episodes);
     workspace.appendChild(detail);
     const footer = element('section', 'media-import-footer');
-    footer.appendChild(selectionCount);
-    footer.appendChild(selectAllVisibleButton);
-    footer.appendChild(selectedBatchButton);
-    footer.appendChild(batchButton);
-    footer.appendChild(batchSummary);
-    footer.appendChild(batchReviewList);
-    footer.appendChild(batchConfirmButton);
-    footer.appendChild(batchStopButton);
     footer.appendChild(message);
     importFeedback.appendChild(refreshButton);
     importFeedback.appendChild(newButton);

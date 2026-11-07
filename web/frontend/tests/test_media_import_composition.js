@@ -817,6 +817,18 @@ function publishHomeResume() {}
     'production module composes genuine folder/episode/detail columns');
   // MT.META1: Mobile navigation changes the visible pane only, with no
   // second import route, selection or backend mutation.
+  const batchActions = findClass(threePanes, 'media-import-batch-actions');
+  const episodePane = findClass(threePanes, 'media-import-episodes');
+  const footer = findClass(importPanel, 'media-import-footer');
+  assert(batchActions && episodePane.children.includes(batchActions) &&
+    episodePane.children.indexOf(batchActions) >
+      episodePane.children.indexOf(findClass(episodePane, 'media-import-selection')) &&
+    findClass(batchActions, 'media-import-selection-count') &&
+    findClass(batchActions, 'media-import-batch-selected') &&
+    findClass(batchActions, 'media-import-batch') &&
+    findClass(batchActions, 'media-import-batch-confirm') &&
+    !findClass(footer, 'media-import-batch-selected'),
+    'batch selection, review and confirmation remain in the mobile media pane next to checkboxes');
   const mobileNav = findClass(mount, 'media-import-mobile-nav');
   assert(mobileNav && mobileNav.children.length === 3);
   assert.strictEqual(importPanel.dataset.mobilePane, 'details');
@@ -2125,6 +2137,15 @@ function publishHomeResume() {}
   checkRows.children[2].children[0].checked = true;
   checkRows.children[2].children[0].listeners.change();
   assert.strictEqual(selectedBatch.disabled, false);
+  const singleFilmDecision = findClass(mount, 'media-import-decision');
+  const singleFilmEncode = findClass(mount, 'media-import-local-reencode');
+  singleFilmDecision.value = 'desktop';
+  singleFilmEncode.checked = true;
+  checkRows.children[1].children[0].listeners.change();
+  assert.strictEqual(selectedBatch.disabled, false,
+    'unrelated single-film encode choice cannot grey out batch review');
+  singleFilmEncode.checked = false;
+  singleFilmDecision.value = 'import';
   confirmLocal = false;
   const beforeSelectionConfirmation = confirmCalls;
   await selectedBatch.listeners.click();
