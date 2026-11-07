@@ -213,11 +213,16 @@
       if (!isCurrent(view) || view.attempt) return;
       const extra = typeof sourceCleanup === 'string'
         ? cleanupLabel(sourceCleanup) : '';
-      const message = 'Letzter eigener Media-Import-Auftrag ' +
-        item.operationId + ': ' + operationLabel(item.state, item.videoDecision) +
+      const message = 'Letzter Media-Import: ' +
+        operationLabel(item.state, item.videoDecision) +
         (extra ? ' ' + extra : '');
       completedOperations[view.backendId] = message;
       view.completedNotice.textContent = message;
+      const technical = element('details', 'media-import-completed-technical');
+      technical.appendChild(element('summary', '', 'Auftragskennung'));
+      technical.appendChild(element('span', 'media-import-completed-operation-id',
+        item.operationId));
+      view.completedNotice.appendChild(technical);
       view.completedNotice.hidden = false;
     }
     return api.getRecentMediaImports(readOptions(view.backendId))
@@ -552,6 +557,19 @@
   // An unknown result is still an existing Core Operation. The separate
   // status control performs GET only. A different, freshly verified source
   // must not inherit this source's mutation lock.
+  function knownRecoveryTitle(view, attempt) {
+    const source = view.allOrdinary.concat(view.allMarked).find(function (item) {
+      return item.sourceId === attempt.sourceId;
+    });
+    const label = source && source.label ||
+      view.sourceTitles[attempt.sourceId] ||
+      (attempt.sourceLabel !== attempt.sourceId ? attempt.sourceLabel : '');
+    // Recovery can have only an opaque source ID, not a movie title.
+    if (!label || /(?:^|\s)(?:source|scan)_[A-Za-z0-9_-]{8,}(?=$|\s)/.test(label))
+      return '';
+    return readableMediaTitle(label);
+  }
+
   function renderUnresolvedAttempts(view) {
     if (!isCurrent(view)) return;
     view.unresolvedList.replaceChildren();
@@ -560,11 +578,18 @@
     }).forEach(function (key) {
       const attempt = unresolvedAttempts[key];
       const row = element('div', 'media-import-unresolved-item');
-      row.appendChild(element('span', 'media-import-unresolved-label',
-        'Ungeklärter Auftrag für „' + attempt.sourceLabel + '“ (' +
-        attempt.operationId + '). Nur diese Quelle bleibt für weitere ' +
-        'Dateiaktionen gesperrt. Andere Filme können unabhängig geprüft ' +
-        'und nach Bestätigung importiert werden.'));
+      const isDelete = attempt.videoDecision === 'delete_duplicate';
+      const humanTitle = knownRecoveryTitle(view, attempt);
+      row.appendChild(element('strong', 'media-import-unresolved-label',
+        isDelete ? 'Früherer Löschauftrag – Ergebnis ungeklärt' :
+          'Früherer Media-Import-Auftrag – Ergebnis ungeklärt'));
+      row.appendChild(element('p', 'media-import-unresolved-summary',
+        (humanTitle ? 'Betroffen: „' + humanTitle + '“. ' :
+          'Der Dateiname ist derzeit nicht verfügbar. ') +
+        (isDelete ? 'Die Löschung ist nicht bestätigt. ' :
+          'Die Ausführung ist nicht bestätigt. ') +
+        'Nur diese Quelle bleibt für neue Dateiaktionen gesperrt. ' +
+        'Andere Filme können unabhängig importiert werden.'));
       const check = element('button', 'media-import-unresolved-check',
         'Diesen Vorgang prüfen');
       check.type = 'button';
@@ -593,8 +618,10 @@
             ? operation.failureCode : '';
           if (terminalState(operation.state)) {
             delete unresolvedAttempts[key];
-            const text = 'Früherer Auftrag „' + attempt.sourceLabel +
-              '“: ' + operationLabel(operation.state, attempt.videoDecision) +
+            const text = 'Früherer Auftrag ' +
+              (knownRecoveryTitle(view, attempt)
+                ? '„' + knownRecoveryTitle(view, attempt) + '“' : 'für diese Quelldatei') +
+              ': ' + operationLabel(operation.state, attempt.videoDecision) +
               '. Aktuelle Quelldateien werden getrennt neu gelesen.';
             completedOperations[view.backendId] = text;
             view.completedNotice.textContent = text;
@@ -603,9 +630,9 @@
             if (!view.attempt && !view.batch && !view.submitting)
               return loadSources(view);
           } else {
-            report(view, 'Früherer Auftrag für „' + attempt.sourceLabel +
-              '“ weiterhin ' + operationLabel(operation.state,
-                attempt.videoDecision) + '. Kein erneuter Auftrag für diese Quelle.');
+            report(view, 'Früherer Auftrag weiterhin ' +
+              operationLabel(operation.state, attempt.videoDecision) +
+              '. Kein erneuter Auftrag für diese Quelle.');
           }
         }).catch(function (error) {
           if (isCurrent(view) && unresolvedAttempts[key] === attempt) {
@@ -625,14 +652,18 @@
       row.appendChild(check);
       const diag = element('p', 'media-import-unresolved-diagnostic',
         attempt.lastStatusError
-          ? 'Letzter Statusabruf: ' + attempt.lastStatusError
-          : 'Core-Zustand: ' + attempt.state +
-            (attempt.videoDecision === 'delete_duplicate'
-              ? '. Dateisystem-Löschung NICHT bestätigt. Quelle möglicherweise ' +
-                'noch vorhanden oder bereits entfernt. Genaue Agent-Ursache ' +
-                'wird von der Public API nicht geliefert.'
-              : '. Agent-Ursache und Ausführungsquittung sind hier nicht verfügbar.'));
+          ? 'Statusabfrage fehlgeschlagen: ' + attempt.lastStatusError
+          : isDelete
+            ? 'Die Quelldatei kann noch vorhanden oder bereits entfernt sein. ' +
+              'Nicht erneut löschen.'
+            : 'Ergebnis noch nicht bestätigt. Nicht erneut starten.');
       row.appendChild(diag);
+      const technical = element('details', 'media-import-unresolved-technical');
+      technical.appendChild(element('summary', '',
+        'Technische Angaben zum bisherigen Auftrag'));
+      technical.appendChild(element('pre', 'media-import-unresolved-technical-text',
+        operationDiagnosticText(view, attempt)));
+      row.appendChild(technical);
       view.unresolvedList.appendChild(row);
     });
     view.unresolvedList.hidden = view.unresolvedList.children.length === 0;
@@ -3140,6 +3171,9 @@
         // On transient failure, no inventory is committed and the previous
         // selection and its visible details remain untouched.
         filterVisibleSources(view);
+        // The recovery collection can arrive before the source inventory:
+        // render a verified human-readable title as soon as one is available.
+        renderUnresolvedAttempts(view);
         if (keepSelection && view.sources.includes(keepSelection)) {
           view.select.value = keepSelection;
           refreshSelectedPreview(view);

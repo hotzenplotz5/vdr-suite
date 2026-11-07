@@ -3347,9 +3347,10 @@ function publishHomeResume() {}
   const unresolved = findClass(mount, 'media-import-unresolved-operations');
   assert(unresolved && unresolved.children.length === 1,
     'old S01E01 operation remains displayed after switching episodes');
-  assert(unresolved.children[0].textContent === '' ||
-    findClass(unresolved, 'media-import-unresolved-label').textContent.includes(OP),
-    'the old exact Core operation identity remains visible');
+  assert(findClass(unresolved, 'media-import-unresolved-label').textContent.includes('Löschauftrag') &&
+    !findClass(unresolved, 'media-import-unresolved-label').textContent.includes(OP) &&
+    findClass(unresolved, 'media-import-unresolved-technical-text').textContent.includes(OP),
+    'recovered delete has a human summary; exact Core identity stays in technical details');
   const beforeUnknownCheck = submits;
   await findClass(unresolved, 'media-import-unresolved-check').listeners.click();
   await settle();
@@ -3602,8 +3603,10 @@ function publishHomeResume() {}
   assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
   context.selectModule('media-import');
   await settle();
-  assert(findClass(mount, 'media-import-completed-notice').textContent.includes(OP),
-    'offline completion remains visible after a browser restart');
+  assert(findClass(mount, 'media-import-completed-notice').textContent.includes('Letzter Media-Import') &&
+    !findClass(mount, 'media-import-completed-notice').textContent.includes(OP) &&
+    findClass(mount, 'media-import-completed-operation-id').textContent === OP,
+    'offline completion remains clear, with its exact operation ID in expandable details');
   assert.strictEqual(submits, postsBeforeCompleteReload,
     'completed recovery never submits another import');
   // MT.EVENT4 real browser-restart regression: an eight-day-old
@@ -3628,8 +3631,12 @@ function publishHomeResume() {}
   await settle();
   const oldUnresolved = findClass(mount, 'media-import-unresolved-operations');
   assert(oldUnresolved && oldUnresolved.children.length === 1 &&
-    findClass(oldUnresolved, 'media-import-unresolved-label').textContent.includes(OP),
-    'recovered unknown deletion remains explicitly queryable by its old ID');
+    findClass(oldUnresolved, 'media-import-unresolved-label').textContent ===
+      'Früherer Löschauftrag – Ergebnis ungeklärt' &&
+    !findClass(oldUnresolved, 'media-import-unresolved-label').textContent.includes(OP) &&
+    findClass(oldUnresolved, 'media-import-unresolved-technical-text').textContent.includes(OP) &&
+    findClass(oldUnresolved, 'media-import-unresolved-summary').textContent.includes('Betroffen:'),
+    'old uncertain deletion is legible and still queryable by its original ID');
   assert(!findClass(mount, 'media-import-operation').textContent.includes(OP),
     'an old unknown delete does not take over the active import panel');
   assert(!operationStream(OP),
@@ -3649,6 +3656,8 @@ function publishHomeResume() {}
   await settle();
   assert.strictEqual(submits, oldPosts,
     'manual checking of recovered old deletion must be GET-only');
+  assert(findClass(oldUnresolved, 'media-import-unresolved-technical-text').textContent.includes(
+    'Core-Status: outcome_unknown'), 'manual GET retains the exact technical state without repeating deletion');
 
   // A fresh real import must take precedence over older unknown history,
   // even though the Core returns outcome_unknown first in its collection.
