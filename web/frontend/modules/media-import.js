@@ -981,6 +981,130 @@
     batch.resumeNext = true;
   }
 
+  // Resolve a batch film's *pre-import* TMDb data using the same metadata
+  // endpoints and exact-match rules as the single-film preview. Cache within
+  // one review so ten episodes of one season reuse the series/episode list.
+  // Failed/ambiguous provider results leave the normal NFO import available.
+  function batchMetadataLookup(view, endpoint, payload, kind, series, season) {
+    const api = global.VdrSuiteClientApi;
+    if (!isCurrent(view) || !api || typeof api.requestJson !== 'function')
+      return Promise.resolve([]);
+    const session = global.VdrSuiteBrowserSession;
+    const csrf = session && typeof session.csrfHeaders === 'function'
+      ? session.csrfHeaders() : {};
+    return Promise.resolve().then(function () {
+      return api.requestJson(
+        '/api/backends/' + encodeURIComponent(view.backendId) +
+          '/recordings/metadata/' + endpoint, {
+          method: 'POST',
+          headers: Object.assign({'Content-Type': 'application/json'},
+            csrf && typeof csrf === 'object' ? csrf : {}),
+          body: JSON.stringify(payload),
+          cache: 'no-store', credentials: 'same-origin'
+        });
+    }).then(function (data) {
+      return isCurrent(view) && data && data.providerId === 'tmdb' &&
+        data.providerAvailable === true &&
+        Array.isArray(data.candidates) && data.candidates.length <= 20
+        ? data.candidates.filter(function (item) {
+          return onlineValid(item, kind, series, season);
+        }) : [];
+    }).catch(function () { return []; });
+  }
+
+  function batchMetadataSnapshot(view, source, plan, cache) {
+    if (!source || !plan || plan.state !== 'ready' ||
+        !validRelativeFolder(plan.targetFolder)) return Promise.resolve('');
+    const cached = function (key, load) {
+      if (!cache.has(key)) cache.set(key, Promise.resolve().then(load));
+      return cache.get(key);
+    };
+    const coords = episodeCoordinates(source);
+    if (coords.episode !== null) {
+      const title = onlineSeriesSearchTitle(source);
+      if (title.length < 2 || title.length > 160) return Promise.resolve('');
+      const normalized = normalizedSeriesName(title);
+      const alternative = normalized.replace(/^star wars /, '');
+      const match = function (items) {
+        return items.filter(function (candidate) {
+          const name = normalizedSeriesName(candidate.title);
+          return name === normalized || (alternative !== normalized &&
+            name === alternative);
+        });
+      };
+      return cached('series:' + normalized, function () {
+        return batchMetadataLookup(view, 'search',
+          {query: title, kind: 'series', limit: 12}, 'series'
+        ).then(function (items) {
+          const matches = match(items);
+          if (matches.length || alternative === normalized ||
+              alternative.length < 2 || alternative.length > 160)
+            return matches.length === 1 ? matches[0] : null;
+          return batchMetadataLookup(view, 'search',
+            {query: alternative, kind: 'series', limit: 12}, 'series'
+          ).then(function (fallback) {
+            const found = match(fallback);
+            return found.length === 1 ? found[0] : null;
+          });
+        });
+      }).then(function (series) {
+        if (!series) return '';
+        return cached('seasons:' + series.externalId, function () {
+          return batchMetadataLookup(view, 'seasons',
+            {seriesExternalId: series.externalId, limit: 20},
+            'season', series);
+        }).then(function (seasons) {
+          const matching = seasons.filter(function (season) {
+            return season.seasonNumber === coords.season;
+          });
+          if (matching.length !== 1) return '';
+          const season = matching[0];
+          return cached('episodes:' + series.externalId + ':' + coords.season,
+            function () {
+              return batchMetadataLookup(view, 'episodes', {
+                seriesExternalId: series.externalId,
+                seasonNumber: coords.season, limit: 20
+              }, 'episode', series, season);
+            }).then(function (episodes) {
+              const found = episodes.filter(function (episode) {
+                return episode.seasonNumber === coords.season &&
+                  episode.episodeNumber === coords.episode;
+              });
+              if (found.length !== 1) return '';
+              // The worker and Core already accept this v2 snapshot; the
+              // batch does not do an after-import metadata assignment.
+              return frozenImportMetadata(view, {candidate: Object.assign({}, found[0], {
+                mediaType: 'episode'
+              })}, series);
+            });
+        });
+      }).catch(function () { return ''; });
+    }
+    // Standalone movies use the same exact title/original-title and NFO-year
+    // disambiguation as their existing single-film automatic discovery.
+    const title = String(source.label || plan.title || '').trim();
+    if (title.length < 2 || title.length > 160) return Promise.resolve('');
+    const normalized = normalizedSeriesName(title);
+    const query = title.replace(/[_:]+/g, ' ').replace(/\s+/g, ' ').trim();
+    return cached('movie:' + normalized, function () {
+      return batchMetadataLookup(view, 'search',
+        {query: query, kind: 'movie', limit: 12}, 'movie');
+    }).then(function (items) {
+      let matches = items.filter(function (candidate) {
+        return normalizedSeriesName(candidate.title) === normalized ||
+          normalizedSeriesName(candidate.originalTitle) === normalized;
+      });
+      if (matches.length > 1 && /^\d{4}$/.test(plan.nfoYear || ''))
+        matches = matches.filter(function (candidate) {
+          return String(candidate.releaseDate || '').slice(0, 4) === plan.nfoYear;
+        });
+      return matches.length === 1
+        ? frozenImportMetadata(view, {candidate: Object.assign({}, matches[0], {
+          mediaType: 'movie'
+        })}) : '';
+    }).catch(function () { return ''; });
+  }
+
   // Local, read-only preflight. It is an ephemeral review of the existing
   // Public-v1 source catalogue, NOT an operation reservation or a job queue.
   function resetBatchReview(view) {
@@ -1074,7 +1198,12 @@
     review.rows.forEach(function (row) {
       const line = element('p', 'media-import-batch-row',
         readableMediaTitle(row.title) + ' – ' +
-        (labels[row.state] || 'Prüfung ausstehend'));
+        (labels[row.state] || 'Prüfung ausstehend') +
+        (row.state === 'ready'
+          ? row.frozenMetadata
+            ? ' · TMDb-Metadaten vorbereitet'
+            : ' · lokale Metadaten'
+          : ''));
       if (['encode', 'insufficient', 'unavailable', 'pending', 'failed'].includes(row.state)) {
         const action = element('button', 'media-import-batch-deferred',
           'Einzeln prüfen');
@@ -1138,7 +1267,8 @@
           return {state: 'encode', title: data.title};
         if (data.status === 'insufficient')
           return {state: 'insufficient', title: data.title};
-        return {state: 'ready', title: data.title};
+        return {state: 'ready', title: data.title,
+          targetFolder: data.targetFolder, nfoYear: data.nfoYear || ''};
       });
     }
     return poll(0);
@@ -1175,6 +1305,7 @@
     view.batchSummary.textContent = 'Technische VDR-Importeignung wird lesend geprüft: 0 von ' +
       ids.length + '. Noch kein Import gestartet.';
     const rows = [];
+    const metadataCache = new Map();
     let chain = Promise.resolve();
     ids.forEach(function (sourceId) {
       chain = chain.then(function () {
@@ -1184,11 +1315,22 @@
           return {state: 'failed'};
         }).then(function (result) {
           if (!isCurrent(view) || generation !== view.reviewGeneration) return;
-          rows.push({sourceId: sourceId,
+          const row = {sourceId: sourceId,
             title: result.title || view.sourceTitles[sourceId] || 'Film',
-            state: result.state});
-          view.batchSummary.textContent = 'Technische VDR-Importeignung wird lesend geprüft: ' +
-            rows.length + ' von ' + ids.length + '. Noch kein Import gestartet.';
+            state: result.state, frozenMetadata: ''};
+          rows.push(row);
+          const source = view.allOrdinary.find(function (item) {
+            return item.sourceId === sourceId;
+          });
+          return (row.state === 'ready'
+            ? batchMetadataSnapshot(view, source, result, metadataCache)
+            : Promise.resolve('')).then(function (snapshot) {
+              if (!isCurrent(view) || generation !== view.reviewGeneration) return;
+              row.frozenMetadata = snapshot || '';
+              view.batchSummary.textContent =
+                'Technische VDR-Importeignung und optionale TMDb-Daten geprüft: ' +
+                rows.length + ' von ' + ids.length + '. Noch kein Import gestartet.';
+            });
         });
       });
     });
@@ -1641,7 +1783,7 @@
     const candidate = selection.candidate;
     const episode = candidate.mediaType === 'episode';
     const movie = candidate.mediaType === 'movie';
-    const series = episode && view.onlineSeries;
+    const series = episode && (arguments[2] || view.onlineSeries);
     if ((!episode && !movie) ||
         (episode && (!series || series.kind !== 'series' ||
           series.providerId !== 'tmdb' || !series.title)))
@@ -4100,7 +4242,13 @@
     });
     const metadataSelection = !view.batch && selected === 'import'
       ? importMetadataSelection(view, previewPlan, selectedSource) : null;
-    const frozenMetadata = frozenImportMetadata(view, metadataSelection);
+    const batchRow = view.batch && view.batch.review &&
+      view.batch.review.rows.find(function (row) {
+        return row.sourceId === sourceId;
+      });
+    const frozenMetadata = view.batch
+      ? batchRow && batchRow.frozenMetadata || ''
+      : frozenImportMetadata(view, metadataSelection);
     view.submitting = true;
     updateInlineDeleteAvailability(view);
     view.startButton.disabled = true;

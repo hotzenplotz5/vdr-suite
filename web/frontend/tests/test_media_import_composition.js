@@ -460,6 +460,7 @@ const metadataAssignments = [];
 let metadataFolderOverride = null;
 let nativeAssignmentAck = false;
 let onlineMode = 'ready';
+let batchAndorMetaFixture = false;
 let autoMovieExact = false;
 let resolveOnlineReply = null;
 function onlineCandidate(kind, id, title, extra) {
@@ -535,14 +536,25 @@ context.VdrSuiteClientApi = {
           onlineCandidate('movie','15','Anderer Film')]));
     }
     if (route.endsWith('/seasons'))
-      return Promise.resolve(onlinePage([onlineCandidate('season','3624','Staffel 1',
-        {parentExternalId:'1399',seasonNumber:1})]));
+      return Promise.resolve(onlinePage(batchAndorMetaFixture
+        ? [onlineCandidate('season','3625','Staffel 2',
+          {parentExternalId:'1399',seasonNumber:2})]
+        : [onlineCandidate('season','3624','Staffel 1',
+          {parentExternalId:'1399',seasonNumber:1})]));
     if (route.endsWith('/episodes'))
-      return Promise.resolve(onlinePage([
-        onlineCandidate('episode','222','Falsche Folge',
-          {parentExternalId:'1399',seasonNumber:1,episodeNumber:2}),
-        onlineCandidate('episode','221','Pilot',
-          {parentExternalId:'1399',seasonNumber:1,episodeNumber:1})]));
+      return Promise.resolve(onlinePage(batchAndorMetaFixture
+        ? [
+          onlineCandidate('episode','911','Wer weiß noch davon', {
+            parentExternalId:'1399', seasonNumber:2,episodeNumber:11,
+            posterReference:'/episode.jpg'}),
+          onlineCandidate('episode','912','Jedha, Kyber, Erso', {
+            parentExternalId:'1399', seasonNumber:2,episodeNumber:12,
+            posterReference:'/episode.jpg'})
+        ] : [
+          onlineCandidate('episode','222','Falsche Folge',
+            {parentExternalId:'1399',seasonNumber:1,episodeNumber:2}),
+          onlineCandidate('episode','221','Pilot',
+            {parentExternalId:'1399',seasonNumber:1,episodeNumber:1})]));
     throw Error('Unexpected online route: '+route);
   }
 };
@@ -3878,6 +3890,73 @@ function publishHomeResume() {}
   assert.strictEqual(submits, noNameFixPosts,
     'display-only title processing never changes Core operations');
   delete batchProbeOverrides[SCAN_ID];
+
+  // A real two-episode batch must freeze the same uniquely identified TMDb
+  // episode and series poster BEFORE each Core POST. The second film must
+  // not inherit the first episode's metadata or trigger an after-import POST.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  batchAndorMetaFixture = true;
+  batchSources = [SOURCE, SOURCE_B];
+  markedSources = [];
+  sourceFolders[SOURCE] = 'Serien/Star Wars-Andor';
+  sourceFolders[SOURCE_B] = 'Serien/Star Wars-Andor';
+  sourceDisplayOverride = 'DE - Star Wars_ Andor (2022) - S02E11 - Wer weiss noch davon';
+  sourceDisplayLabels[SOURCE_B] =
+    'DE - Star Wars_ Andor (2022) - S02E12 - Jedha Kyber Erso';
+  batchOperations = [];
+  batchStates = Object.create(null);
+  submitMode = 'batch';
+  state = 'dispatching';
+  const beforeMetadataBatch = submits;
+  const providerReadsBefore = onlineRequests.length;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  await findClass(mount, 'media-import-batch').listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeMetadataBatch,
+    'TMDb enrichment during batch review never imports a film');
+  assert(findClass(mount, 'media-import-batch-review').children.every(function (row) {
+    return row.textContent.includes('TMDb-Metadaten vorbereitet');
+  }), 'both Andor episodes receive automatic metadata in read-only batch review');
+  const providerReads = onlineRequests.slice(providerReadsBefore);
+  assert.strictEqual(providerReads.filter(function (req) {
+    return req.route.endsWith('/episodes');
+  }).length, 1, 'episodes of the same season share the existing TMDb response');
+  await findClass(mount, 'media-import-batch-confirm').listeners.click();
+  await settle();
+  let metadataPosts = requests.filter(function (req) {
+    return req.path.endsWith('/media-imports') && req.options.method === 'POST';
+  }).slice(-1);
+  assert.strictEqual(metadataPosts.length, 1);
+  let snapshot = JSON.parse(metadataPosts[0].options.body).metadata;
+  assert(snapshot && snapshot.startsWith('v2|episode|') &&
+    decodeURIComponent(snapshot.split('|')[3]) === 'Wer weiß noch davon' &&
+    snapshot.split('|')[6] === '11' &&
+    decodeURIComponent(snapshot.split('|')[9]) === '/preview.jpg',
+    'batch first POST freezes Andor S02E11 and actual series poster');
+  batchStates[BATCH_OP_A] = 'succeeded';
+  await emitOperation(BATCH_OP_A);
+  await settle();
+  metadataPosts = requests.filter(function (req) {
+    return req.path.endsWith('/media-imports') && req.options.method === 'POST';
+  }).slice(-2);
+  assert.strictEqual(metadataPosts.length, 2);
+  snapshot = JSON.parse(metadataPosts[1].options.body).metadata;
+  assert(snapshot && snapshot.startsWith('v2|episode|') &&
+    decodeURIComponent(snapshot.split('|')[3]) === 'Jedha, Kyber, Erso' &&
+    snapshot.split('|')[6] === '12',
+    'batch second POST freezes its OWN S02E12 episode, not S02E11');
+  batchStates[BATCH_OP_B] = 'succeeded';
+  await emitOperation(BATCH_OP_B);
+  await settle();
+  assert.strictEqual(submits, beforeMetadataBatch + 2,
+    'two confirmed imports with metadata create exactly two Core POSTs');
+  assert.strictEqual(onlineRequests.length, providerReadsBefore +
+    providerReads.length, 'neither Core confirmation repeats a TMDb lookup');
+  batchAndorMetaFixture = false;
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
