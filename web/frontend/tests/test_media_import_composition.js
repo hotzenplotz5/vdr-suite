@@ -3609,6 +3609,13 @@ function publishHomeResume() {}
     'offline completion remains clear, with its exact operation ID in expandable details');
   assert.strictEqual(submits, postsBeforeCompleteReload,
     'completed recovery never submits another import');
+  const historyAfterRestart = findClass(mount, 'media-import-recent-results');
+  assert(historyAfterRestart && !historyAfterRestart.hidden &&
+    findClass(historyAfterRestart, 'media-import-recent-summary').textContent.includes(
+      '1 bestätigt') &&
+    findClass(historyAfterRestart, 'media-import-recent-row').textContent.includes(
+      'VDR-Aufnahme bestätigt'),
+    'restart reconstructs one Core-confirmed import in a readable per-film ledger');
   // MT.EVENT4 real browser-restart regression: an eight-day-old
   // outcome_unknown deletion is a source-scoped history item, NOT an
   // active import. It must never replace the normal preview or auto-POST.
@@ -3659,11 +3666,39 @@ function publishHomeResume() {}
   assert(findClass(oldUnresolved, 'media-import-unresolved-technical-text').textContent.includes(
     'Core-Status: outcome_unknown'), 'manual GET retains the exact technical state without repeating deletion');
 
+  // The reported real source was missing from the current scanned catalogue.
+  // An eight-day-old unknown deletion must not become a recurring false
+  // warning while another film's import results remain accessible.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE_B];
+  recentImports = [olderUnknown, {operationId: BATCH_OP_A,
+    backendId: 'backend-a', sourceId: SOURCE_B, state: 'succeeded',
+    videoDecision: '', requestedAt: Math.floor(Date.now() / 1000)}];
+  const beforeMissingHistorical = submits;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const missingHistorical = findClass(mount, 'media-import-unresolved-operations');
+  assert(missingHistorical.hidden && missingHistorical.children.length === 0,
+    'unknown deletion of an absent scan identity disappears from normal import UI');
+  assert(!findClass(mount, 'media-import-operation-diagnostics').textContent.includes(OP),
+    'historical missing source does not flood ordinary technical diagnostics');
+  const savedResults = findClass(mount, 'media-import-recent-results');
+  assert(!savedResults.hidden &&
+    findClass(savedResults, 'media-import-recent-summary').textContent.includes('1 bestätigt') &&
+    findClass(savedResults, 'media-import-recent-row').textContent.includes('VDR-Aufnahme bestätigt'),
+    'actual import outcome is visible independently of stale deletion');
+  assert.strictEqual(submits, beforeMissingHistorical,
+    'building recent import receipts performs no new import or delete');
+
   // A fresh real import must take precedence over older unknown history,
   // even though the Core returns outcome_unknown first in its collection.
   context.selectModule('overview');
   context.VdrSuiteMediaImport.clearSession();
   context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B];
   recentImports = [olderUnknown, {operationId: BATCH_OP_A,
     backendId: 'backend-a', sourceId: SOURCE_B, state: 'dispatching',
     videoDecision: '', requestedAt: Math.floor(Date.now() / 1000)}];

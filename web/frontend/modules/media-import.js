@@ -243,6 +243,8 @@
               'delete_duplicate'].includes(item.videoDecision);
         });
         if (!valid.length) return;
+        view.recentImportRecords = valid;
+        renderRecentImportResults(view);
         // An old outcome_unknown is durable but NOT a running job. Keep
         // its exact Operation ID available for a GET-only status check, and
         // lock just its source. It must not take over the import preview or
@@ -570,11 +572,67 @@
     return readableMediaTitle(label);
   }
 
+  // The historical Core ledger can retain an old source long after the
+  // Agent's verified inventory stops listing that exact source identity.
+  // Do not keep re-displaying its unrelated historical warning.
+  function unresolvedInCurrentCatalog(view, attempt) {
+    return view.allOrdinary.some(function (item) {
+      return item.sourceId === attempt.sourceId;
+    }) || view.allMarked.some(function (item) {
+      return item.sourceId === attempt.sourceId;
+    });
+  }
+
+  function renderRecentImportResults(view) {
+    if (!isCurrent(view) || !view.recentResults) return;
+    const imports = (view.recentImportRecords || []).filter(function (item) {
+      return item && item.backendId === view.backendId &&
+        (item.videoDecision === '' || item.videoDecision === 'local');
+    }).sort(function (a, b) {
+      return (b.requestedAt || 0) - (a.requestedAt || 0);
+    }).slice(0, 20);
+    view.recentResults.replaceChildren();
+    view.recentResults.hidden = imports.length === 0;
+    if (!imports.length) return;
+    const confirmed = imports.filter(function (item) {
+      return item.state === 'succeeded';
+    }).length;
+    const failed = imports.filter(function (item) {
+      return ['rejected', 'conflict', 'failed_before_dispatch',
+        'failed_verified', 'cancelled'].includes(item.state);
+    }).length;
+    const open = imports.length - confirmed - failed;
+    view.recentResults.appendChild(element('summary', 'media-import-recent-summary',
+      'Importprotokoll: ' + confirmed + ' bestätigt, ' + failed +
+      ' ohne Erfolg, ' + open + ' offen (' + imports.length + ' Aufträge)'));
+    view.recentResults.appendChild(element('p', 'media-import-recent-hint',
+      'Einzelaufträge aus dem Core, kein vollständiger Sammelimport-Beleg. ' +
+      'Nur geprüfte, aber nie gestartete Filme werden hier nicht erfasst.'));
+    imports.forEach(function (item) {
+      const source = view.allOrdinary.find(function (entry) {
+        return entry.sourceId === item.sourceId;
+      });
+      const title = source && source.label || view.sourceTitles[item.sourceId];
+      const display = title ? readableMediaTitle(title) : 'Filmname nicht mehr verfügbar';
+      const outcome = item.state === 'succeeded' ? 'VDR-Aufnahme bestätigt' :
+        ['rejected','conflict','failed_before_dispatch','failed_verified',
+          'cancelled'].includes(item.state) ? 'Nicht erfolgreich' :
+        item.state === 'outcome_unknown' ? 'Ergebnis ungeklärt' :
+        'Bestätigung ausstehend';
+      const date = Number.isFinite(item.requestedAt) && item.requestedAt > 0
+        ? new Date(item.requestedAt * 1000).toLocaleString('de-DE') + ' · '
+        : '';
+      view.recentResults.appendChild(element('p', 'media-import-recent-row',
+        date + display + ' – ' + outcome));
+    });
+  }
+
   function renderUnresolvedAttempts(view) {
     if (!isCurrent(view)) return;
     view.unresolvedList.replaceChildren();
     Object.keys(unresolvedAttempts).filter(function (key) {
-      return key.startsWith(view.backendId + '|');
+      return key.startsWith(view.backendId + '|') &&
+        unresolvedInCurrentCatalog(view, unresolvedAttempts[key]);
     }).forEach(function (key) {
       const attempt = unresolvedAttempts[key];
       const row = element('div', 'media-import-unresolved-item');
@@ -783,7 +841,8 @@
   function updateOperationDiagnostics(view) {
     if (!isCurrent(view) || !view.operationDiagnostics) return;
     const attempts = Object.keys(unresolvedAttempts).filter(function (key) {
-      return key.startsWith(view.backendId + '|');
+      return key.startsWith(view.backendId + '|') &&
+        unresolvedInCurrentCatalog(view, unresolvedAttempts[key]);
     }).map(function (key) { return unresolvedAttempts[key]; });
     const active = view.attempt || (attempts.length === 1 ? attempts[0] : null);
     view.operationDiagnostics.textContent = active
@@ -3171,6 +3230,7 @@
         // On transient failure, no inventory is committed and the previous
         // selection and its visible details remain untouched.
         filterVisibleSources(view);
+        renderRecentImportResults(view);
         // The recovery collection can arrive before the source inventory:
         // render a verified human-readable title as soon as one is available.
         renderUnresolvedAttempts(view);
@@ -4351,6 +4411,9 @@
     backgroundNotice.setAttribute('role', 'status');
     statusStrip.appendChild(backgroundNotice);
     statusStrip.appendChild(completedNotice);
+    const recentResults = element('details', 'media-import-recent-results');
+    recentResults.hidden = true;
+    statusStrip.appendChild(recentResults);
     statusStrip.appendChild(operationProgress);
     const unresolvedList = element('div', 'media-import-unresolved-operations');
     statusStrip.appendChild(unresolvedList);
@@ -4468,6 +4531,7 @@
       operationProgressText: operationProgressText,
       scanNotice: scanNotice, backgroundNotice: backgroundNotice,
       completedNotice: completedNotice,
+      recentResults: recentResults, recentImportRecords: [],
       unresolvedList: unresolvedList, unresolvedReading: Object.create(null),
       sourceDetails: sourceDetails,
       preview: preview, previewCard: previewCard,
