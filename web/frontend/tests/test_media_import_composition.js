@@ -258,8 +258,8 @@ function transport(url, options) {
     return Promise.resolve(reply(200, {
       backendId: 'backend-a', sourceId: id,
       state: 'ready', status: status,
-      title: id === SOURCE_B ? 'Backend geprüfter Andor-Film' :
-        'Backend geprüfter Film',
+      title: override.title || (id === SOURCE_B ? 'Backend geprüfter Andor-Film' :
+        'Backend geprüfter Film'),
       targetFolder: id === SOURCE_B
         ? 'Serien/Andor/Weiterer Film' : 'Die Herrschaft des Feuers',
       videoCodec: codec,
@@ -3667,6 +3667,48 @@ function publishHomeResume() {}
   assert.strictEqual(submits, mixedPosts,
     'mixed recovery must not submit any new import or deletion');
   recentImports = [];
+
+  // Filename-derived preview titles must be understandable in the list,
+  // preview and multi-import review. The underlying source ID and backend
+  // title must be unchanged; no metadata request or additional POST.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  batchSources = [SCAN_ID, SOURCE_B];
+  const ugly = 'DE - Star Wars_ Andor (2022) - S02E04 - ' +
+    'DE - Star Wars_ Andor (2022) - S02E04 - Waren Sie schon einmal in Ghorman_';
+  sourceDisplayLabels[SCAN_ID] = ugly;
+  batchProbeOverrides[SCAN_ID] = {title: ugly};
+  previewMode = 'ready';
+  previewInspectionStatus = 'ready';
+  state = 'dispatching';
+  const noNameFixPosts = submits;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const humanRow = findClass(mount, 'media-import-selection').children.find(
+    function (row) { return row.dataset.sourceId === SCAN_ID; });
+  assert(humanRow && findClass(humanRow, 'media-import-episode-open').textContent ===
+    'Star Wars: Andor (2022) · S02E04 · Waren Sie schon einmal in Ghorman',
+    'selected episode row shows a human title rather than repeated filename prefixes');
+  await findClass(humanRow, 'media-import-episode-open').listeners.click();
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-preview-title').textContent,
+    'Star Wars: Andor (2022) · S02E04 · Waren Sie schon einmal in Ghorman',
+    'individual technical preview displays the same human title');
+  const reviewPostsBefore = submits;
+  await findClass(mount, 'media-import-batch').listeners.click();
+  await settle();
+  const firstReviewed = findClass(mount, 'media-import-batch-review').children[0];
+  assert(firstReviewed && firstReviewed.textContent.includes(
+    'Star Wars: Andor (2022) · S02E04 · Waren Sie schon einmal in Ghorman') &&
+    !firstReviewed.textContent.includes('DE - Star Wars_ Andor (2022) - S02E04 - DE'),
+    'multi-import review displays readable film and episode names');
+  assert.strictEqual(submits, reviewPostsBefore,
+    'readable titles never launch or retry a background import');
+  assert.strictEqual(submits, noNameFixPosts,
+    'display-only title processing never changes Core operations');
+  delete batchProbeOverrides[SCAN_ID];
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {

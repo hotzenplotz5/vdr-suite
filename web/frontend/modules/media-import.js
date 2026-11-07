@@ -36,6 +36,31 @@
   // Sort human-readable labels naturally (S01E02 before S01E10);
   // opaque source IDs remain the authoritative selection identities.
   const sourceCollator = new Intl.Collator('de', {numeric: true, sensitivity: 'base'});
+  // Presentation only: source IDs, paths and native NFO/write targets remain
+  // byte-for-byte unchanged. No provider request or metadata assignment.
+  function readableMediaTitle(value) {
+    if (typeof value !== 'string' || !value.trim()) return 'Film';
+    const tidy = function (part) {
+      return part.trim().replace(/_+$/, '')
+        .replace(/^(?:DE|EN|FR|ES|IT|PT)\s*-\s*/i, '')
+        .replace(/_+\s+/g, ': ')
+        .replace(/_+/g, ' ')
+        .replace(/\s+/g, ' ').trim();
+    };
+    const raw = value.trim().replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v)$/i, '');
+    const episode = /^(.+?)\s+-\s+(S\d{1,2}E\d{1,3})\s+-\s+(.+)$/i.exec(raw);
+    if (episode) {
+      const prefix = episode[1] + ' - ' + episode[2] + ' - ';
+      const subtitle = episode[3].startsWith(prefix)
+        ? episode[3].slice(prefix.length) : episode[3];
+      const series = tidy(episode[1]);
+      const name = tidy(subtitle);
+      if (series && name)
+        return series + ' · ' + episode[2].toUpperCase() + ' · ' + name;
+    }
+    return tidy(raw) || 'Film';
+  }
+
   function compareSources(left, right) {
     return sourceCollator.compare(left.folder || '', right.folder || '') ||
       sourceCollator.compare(left.label || '', right.label || '') ||
@@ -884,7 +909,8 @@
     };
     review.rows.forEach(function (row) {
       const line = element('p', 'media-import-batch-row',
-        row.title + ' – ' + (labels[row.state] || 'Prüfung ausstehend'));
+        readableMediaTitle(row.title) + ' – ' +
+        (labels[row.state] || 'Prüfung ausstehend'));
       if (['encode', 'insufficient', 'unavailable', 'pending', 'failed'].includes(row.state)) {
         const action = element('button', 'media-import-batch-deferred',
           'Einzeln prüfen');
@@ -2716,7 +2742,7 @@
     blank.value = '';
     view.select.appendChild(blank);
     normal.forEach(function (item) {
-      const option = element('option', '', (item.label || 'Film') +
+      const option = element('option', '', readableMediaTitle(item.label || 'Film') +
         (item.recordingPresent ? ' ✓ Importiert' : ''));
       option.value = item.sourceId;
       view.select.appendChild(option);
@@ -2760,7 +2786,8 @@
         else view.checkedSourceIds.delete(item.sourceId);
         updateSelectionCount(view);
       });
-      const open = element('button', 'media-import-episode-open', item.label);
+      const open = element('button', 'media-import-episode-open',
+        readableMediaTitle(item.label));
       open.type = 'button';
       open.addEventListener('click', function () {
         if (!isCurrent(view) || view.batch ||
@@ -2816,7 +2843,8 @@
         ? returns[0] : null;
       const row = element('div', 'media-import-select-item media-import-marked-item');
       row.dataset.sourceId = item.sourceId;
-      const open = element('button', 'media-import-episode-open', item.label || 'Markierte Datei');
+      const open = element('button', 'media-import-episode-open',
+        readableMediaTitle(item.label || 'Markierte Datei'));
       open.type = 'button';
       const chooseMarkedSource = function () {
         if (!isCurrent(view) || view.batch || view.attempt || view.submitting) return false;
@@ -3362,7 +3390,8 @@
     const label = source && source.label ||
       (selected ? view.sourceTitles[view.select.value] : '');
     const title = plan && plan.title || label || 'Noch keine Folge ausgewählt';
-    const heading = element('h5', 'media-import-preview-title', title);
+    const heading = element('h5', 'media-import-preview-title',
+      readableMediaTitle(title));
     card.appendChild(heading);
     const artwork = element('div', 'media-import-artwork');
     const localPoster = plan && validLocalArtwork(plan.posterDataUri)
