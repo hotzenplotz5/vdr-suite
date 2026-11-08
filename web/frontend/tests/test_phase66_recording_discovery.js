@@ -194,6 +194,54 @@ const obiWanFolderFallback = api._test.seriesMemberProjection({
 assert.strictEqual(obiWanFolderFallback.seriesTitle, 'Obi-Wan Kenobi',
   'the VDR series folder is used when the provider series title is absent');
 assert.strictEqual(obiWanFolderFallback.episodeTitle, 'Teil VI');
+
+// Regression: native/tvscraper "series" metadata can contain the episode
+// title in its title slot. A rich metadata readback must not replace the
+// existing canonical series name with the last episode title.
+const misleadingObiWanNative = {
+  available: true, provider: 'tvscraper', mediaType: 'series',
+  providerId: 456, title: 'Teil VI', episodeName: 'Teil VI',
+  seasonNumber: 1, episodeNumber: 6,
+  preferredArtwork: {available: true, url: '/poster/obi-wan.jpg'}
+};
+const obiWanMislabelledMember = api._test.seriesMemberProjection(
+  obiWanImported, misleadingObiWanNative, 'default');
+assert.strictEqual(obiWanMislabelledMember.seriesTitle, 'Obi-Wan Kenobi',
+  'mislabelled rich series title cannot become the parent Series card title');
+assert.strictEqual(obiWanMislabelledMember.episodeTitle, 'Teil VI');
+const obiWanMislabelledWithoutProvider = api._test.seriesMemberProjection({
+  recordingId: 'obi-wan-no-provider', path: 'Serien/Obi-Wan Kenobi/S01E06 Teil VI',
+  metadata: {provider: {}}
+}, misleadingObiWanNative, 'default');
+assert.strictEqual(obiWanMislabelledWithoutProvider.seriesTitle, 'Obi-Wan Kenobi',
+  'canonical series folder fixes the label without an independent provider series title');
+assert.strictEqual(api._test.buildSeriesProjection([
+  obiWanMember, obiWanMislabelledMember
+])[0].title, 'Obi-Wan Kenobi',
+  'late rich metadata must not overwrite an already-correct series group title');
+const misleadingAndorNative = api._test.seriesMemberProjection({
+  recordingId: 'andor-last', path: 'Serien/Andor/S02E12 Jedha, Kyber, Erso',
+  metadata: {provider: {
+    seriesTitle: 'Jedha, Kyber, Erso', episodeTitle: 'Jedha, Kyber, Erso'
+  }}
+}, {
+  available: true, provider: 'tvscraper', mediaType: 'series',
+  providerId: 504, title: 'Jedha, Kyber, Erso',
+  episodeName: 'Jedha, Kyber, Erso', seasonNumber: 2, episodeNumber: 12
+}, 'default');
+assert.strictEqual(misleadingAndorNative.seriesTitle, 'Andor',
+  'provider and native episode-name collisions must fall back to the series folder');
+assert.strictEqual(misleadingAndorNative.episodeTitle, 'Jedha, Kyber, Erso');
+const misleadingFoundationNative = api._test.seriesMemberProjection({
+  recordingId: 'foundation-episode', path: 'Serien/Foundation/S01E05 Erwachen',
+  metadata: {provider: {}}
+}, {
+  available: true, provider: 'tvscraper', mediaType: 'series',
+  providerId: 643, title: 'Erwachen', episodeName: 'Erwachen',
+  seasonNumber: 1, episodeNumber: 5
+}, 'default');
+assert.strictEqual(misleadingFoundationNative.seriesTitle, 'Foundation');
+
 const andorEpisodeMember = api._test.seriesMemberProjection({
   recordingId: 'andor-imported', path: 'Serien/Andor/S01E03 Jedha, Kyber, Erso',
   metadata: {provider: {}}

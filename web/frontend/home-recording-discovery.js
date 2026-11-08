@@ -1452,7 +1452,27 @@
     const richSeriesTitle = richMediaType === 'series'
       ? text(rich.title)
       : richMediaType === 'episode' ? text(rich.seriesTitle) : '';
-    const seriesTitle = richSeriesTitle || providerSeriesTitle || folderTitle || recordingTitle(recording);
+    const episodeNames = [
+      text(rich.episodeName),
+      text(sourceProvider.episodeTitle),
+      recordingSubtitle(recording),
+      episodeLeafTitle(recording)
+    ].filter(Boolean);
+    // Some metadata records advertise mediaType=series while rich.title
+    // actually contains the episode name. A Series card must not inherit
+    // that title. Prefer the independent series identity from the provider
+    // or canonical VDR folder, without changing any episode metadata.
+    const isEpisodeName = function (candidate) {
+      return Boolean(candidate) && episodeNames.some(function (episodeName) {
+        return candidate.toLocaleLowerCase() === episodeName.toLocaleLowerCase();
+      });
+    };
+    const safeRichSeriesTitle = isEpisodeName(richSeriesTitle)
+      ? '' : richSeriesTitle;
+    const safeProviderSeriesTitle = isEpisodeName(providerSeriesTitle)
+      ? '' : providerSeriesTitle;
+    const seriesTitle = safeRichSeriesTitle || safeProviderSeriesTitle ||
+      folderTitle || recordingTitle(recording);
 
     const providerSeriesId = text(sourceProvider.seriesId);
     const richProvider = text(rich.provider);
