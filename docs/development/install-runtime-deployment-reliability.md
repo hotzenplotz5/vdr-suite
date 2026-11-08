@@ -33,6 +33,30 @@ make check-install-runtime-deployment \
   LIVE_ROOT=/
 ```
 
+### One-shot installation without leftover staging trees
+
+For an explicitly approved **full** runtime installation, the managed Make
+entrypoint runs the same canonical stage → deploy → verify sequence:
+
+```bash
+cd /home/yavdr/vdr-suite
+make install-runtime-managed
+```
+
+The target uses the existing checkout's `BUILD_DIR` (by default
+`.build`), including its reusable C++ object cache. It creates one
+unique temporary `RUNTIME_STAGE`, never a fresh source checkout.
+**Only when the final deployment check passes** does it remove that exact
+stage tree; if build, deploy or verification fails, it prints the retained
+stage path for diagnosis or recovery. It does not touch SQLite databases,
+database backups, VDR recordings, Git worktrees or persistent daemon-only
+candidate/rollback artifacts. It does not restart services or replace the
+separate approval requirements for a real installation.
+
+The three explicit Make targets below remain supported when stages must be
+reviewed separately before deployment; such operator-managed stages are not
+automatically deleted.
+
 `stage-install-runtime`:
 
 1. builds the current runtime binaries through the existing runtime build graph;
