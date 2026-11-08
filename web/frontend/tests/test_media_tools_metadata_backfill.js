@@ -150,6 +150,30 @@ const client = {
   assert.strictEqual(locked.skipped, 1);
   assert(!noWriteCalls.includes('assign'));
 
+  const mismatchedPosterOnlyCalls = [];
+  const mismatchedClient = {
+    requestJson(route, options) {
+      const action = route.split('/').pop().split('?')[0];
+      mismatchedPosterOnlyCalls.push(action);
+      if (action === 'search') return Promise.resolve({
+        providerId: 'tmdb', providerAvailable: true, candidates: [seriesCandidate]
+      });
+      if (action === 'episodes') return Promise.resolve({
+        providerId: 'tmdb', providerAvailable: true,
+        candidates: [episodeCandidate(6, 'Alternative regionale Übersetzung')]
+      });
+      if (action === 'manual') return Promise.resolve({found: false});
+      throw new Error('Correct episode title must not be replaced for artwork-only update');
+    }
+  };
+  const mismatched = await api.backfillSeriesEpisodeMetadata({
+    title: 'Andor', episodes: [posterMissing]
+  }, 'default', mismatchedClient);
+  assert.strictEqual(mismatched.updated, 0);
+  assert.strictEqual(mismatched.skipped, 1);
+  assert(!mismatchedPosterOnlyCalls.includes('assign'),
+    'missing artwork must not overwrite a correct regional episode title');
+
   const ambiguousClient = {
     requestJson(route) {
       if (route.endsWith('/search')) return Promise.resolve({

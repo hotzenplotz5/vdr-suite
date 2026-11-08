@@ -3188,9 +3188,15 @@
                   }
                   const poster = text(foundSeries.posterReference ||
                     candidate.posterReference);
+                  const currentTitle = text(member.episodeTitle);
                   const titleNeedsRepair = /\bS\d{1,3}\s*E\d{1,4}\b/i
-                    .test(text(member.episodeTitle));
-                  if (!poster && !titleNeedsRepair) {
+                    .test(currentTitle) ||
+                    /^\s*(?:DE|EN)\s*[-–]\s*.+\(\d{4}\)/i.test(currentTitle);
+                  // Artwork-only completion may not rename an otherwise
+                  // valid episode if the provider's regional title differs.
+                  if (!titleNeedsRepair &&
+                      (!poster || currentTitle.toLocaleLowerCase() !==
+                        text(candidate.title).toLocaleLowerCase())) {
                     result.skipped += 1;
                     return;
                   }
