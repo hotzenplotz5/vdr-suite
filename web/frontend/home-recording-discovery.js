@@ -3077,6 +3077,154 @@
     });
   }
 
+  // MT.META8: backfill already imported episodes using only the existing
+  // Recording metadata search/episodes/assign API. The VDR recording is never
+  // re-imported. Fully described episodes and selected assignments are retained.
+  function missingSeriesEpisodeMetadata(member) {
+    if (!member || !member.recording ||
+        Number(member.seasonNumber) <= 0 || Number(member.episodeNumber) <= 0 ||
+        !recordingBackendNativeId(member.recording)) return false;
+    const embedded = member.recording.seriesMetadata || {};
+    if (embedded.manualAssignment && embedded.manualAssignment.active === true)
+      return false;
+    const title = text(member.episodeTitle);
+    const rawTitle = /\bS\d{1,3}\s*E\d{1,4}\b/i.test(title) ||
+      /^\s*(?:DE|EN)\s*[-–]\s*.+\(\d{4}\)/i.test(title);
+    return rawTitle || !text(member.posterUrl);
+  }
+
+  function seriesMetadataBackfillTargets(series) {
+    return ((series && series.episodes) || []).filter(missingSeriesEpisodeMetadata);
+  }
+
+  function normalizedSeriesMatch(value) {
+    return text(value).toLocaleLowerCase().normalize('NFKC')
+      .replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
+  }
+
+  function backfillSeriesEpisodeMetadata(series, backendId, client, progress) {
+    const targets = seriesMetadataBackfillTargets(series);
+    const result = {total: targets.length, updated: 0, skipped: 0, failed: 0};
+    if (!targets.length) return Promise.resolve(result);
+    if (!client || typeof client.requestJson !== 'function')
+      return Promise.reject(new Error('Recording-Metadaten-API nicht verfügbar.'));
+    const title = text(series.title);
+    const normalized = normalizedSeriesMatch(title);
+    if (!normalized || targets.length > SERIES_PAGE_LIMIT)
+      return Promise.reject(new Error('Serienname oder Umfang nicht eindeutig.'));
+    const endpoint = '/api/backends/' + encodeURIComponent(backendId) +
+      '/recordings/metadata/';
+    const session = global.VdrSuiteBrowserSession;
+    const csrf = session && typeof session.csrfHeaders === 'function'
+      ? session.csrfHeaders() : {};
+    const post = function (operation, payload) {
+      return client.requestJson(endpoint + operation, {
+        method: 'POST', cache: 'no-store', credentials: 'same-origin',
+        headers: Object.assign({'Content-Type': 'application/json'}, csrf || {}),
+        body: JSON.stringify(payload)
+      });
+    };
+    const status = function (message) {
+      if (typeof progress === 'function') progress(message, result);
+    };
+    // Exactly one TMDb series must match; a similar search hit is not proof.
+    status('TMDb-Serie wird eindeutig ermittelt …');
+    return post('search', {query: title, kind: 'series', limit: 12})
+      .then(function (response) {
+        const matches = response && response.providerId === 'tmdb' &&
+          response.providerAvailable === true &&
+          Array.isArray(response.candidates)
+          ? response.candidates.filter(function (item) {
+            return item && item.kind === 'series' && item.providerId === 'tmdb' &&
+              /^\d{1,12}$/.test(text(item.externalId)) &&
+              (normalizedSeriesMatch(item.title) === normalized ||
+               normalizedSeriesMatch(item.originalTitle) === normalized);
+          }) : [];
+        if (matches.length !== 1)
+          throw new Error('Keine eindeutige TMDb-Serie gefunden. Keine Metadaten verändert.');
+        const foundSeries = matches[0];
+        const seasons = new Map();
+        let chain = Promise.resolve();
+        targets.forEach(function (member, index) {
+          chain = chain.then(function () {
+            const season = Number(member.seasonNumber);
+            const episode = Number(member.episodeNumber);
+            const resourceKey = recordingBackendNativeId(member.recording);
+            status((index + 1) + '/' + targets.length + ': ' +
+              text(member.episodeTitle) + ' wird geprüft …');
+            if (!seasons.has(season)) {
+              seasons.set(season, post('episodes', {
+                seriesExternalId: foundSeries.externalId, seasonNumber: season,
+                limit: 20
+              }));
+            }
+            return seasons.get(season).then(function (page) {
+              const matches = page && page.providerId === 'tmdb' &&
+                page.providerAvailable === true && Array.isArray(page.candidates)
+                ? page.candidates.filter(function (candidate) {
+                  return candidate && candidate.kind === 'episode' &&
+                    candidate.providerId === 'tmdb' &&
+                    candidate.externalNamespace === 'tv-episode' &&
+                    /^\d{1,12}$/.test(text(candidate.externalId)) &&
+                    text(candidate.parentExternalId) === text(foundSeries.externalId) &&
+                    Number(candidate.seasonNumber) === season &&
+                    Number(candidate.episodeNumber) === episode &&
+                    Boolean(text(candidate.title));
+                }) : [];
+              if (matches.length !== 1) {
+                result.skipped += 1;
+                return;
+              }
+              const candidate = matches[0];
+              // Do not replace a selected/locked assignment. The existing
+              // server revision also guards against concurrent selections.
+              return client.requestJson(endpoint + 'manual?resourceKey=' +
+                encodeURIComponent(resourceKey), {
+                  method: 'GET', cache: 'no-store', credentials: 'same-origin'
+                }).then(function (existing) {
+                  if (!existing || existing.found !== false) {
+                    result.skipped += 1;
+                    return;
+                  }
+                  const poster = text(foundSeries.posterReference ||
+                    candidate.posterReference);
+                  const titleNeedsRepair = /\bS\d{1,3}\s*E\d{1,4}\b/i
+                    .test(text(member.episodeTitle));
+                  if (!poster && !titleNeedsRepair) {
+                    result.skipped += 1;
+                    return;
+                  }
+                  return post('assign', {
+                    resourceKey: resourceKey, providerId: 'tmdb',
+                    externalNamespace: candidate.externalNamespace,
+                    externalId: candidate.externalId, mediaType: 'episode',
+                    title: candidate.title, seriesTitle: title,
+                    originalTitle: candidate.originalTitle || '',
+                    overview: candidate.overview || '',
+                    releaseDate: candidate.releaseDate || '',
+                    posterReference: poster,
+                    seasonNumber: season, episodeNumber: episode,
+                    expectedRevision: 0
+                  }).then(function (saved) {
+                    if (saved && saved.found === true) result.updated += 1;
+                    else result.failed += 1;
+                  });
+                });
+            }).catch(function (error) {
+              result.failed += 1;
+              if (error && (error.status === 401 || error.status === 403))
+                throw error;
+            });
+          });
+        });
+        return chain.then(function () {
+          status(result.updated + ' ergänzt, ' + result.skipped +
+            ' unverändert, ' + result.failed + ' fehlgeschlagen.');
+          return result;
+        });
+      });
+  }
+
   function renderSeriesDetail(series, selectedSeason, backendId, options) {
     const config = options && typeof options === 'object' ? options : {};
     const metadataLoading =
@@ -3134,11 +3282,13 @@
       : seriesCountLabel(series);
     const detailPosterUrl =
       seriesCoverPosterUrl(series, backendId);
+    const repairTargets = seriesMetadataBackfillTargets(series);
     const summarySignature = JSON.stringify([
       series.title,
       detailPosterUrl,
       detailCount,
-      metadataLoading
+      metadataLoading,
+      repairTargets.length
     ]);
     if (view.summarySignature !== summarySignature) {
       view.summarySignature = summarySignature;
@@ -3170,6 +3320,50 @@
       });
 
       copy.appendChild(coverButton);
+      if (repairTargets.length) {
+        const repairButton = doc.createElement('button');
+        repairButton.type = 'button';
+        repairButton.className = 'media-home-series-cover-change';
+        repairButton.textContent = 'Fehlende Folgen-Metadaten ergänzen (' +
+          repairTargets.length + ')';
+        repairButton.disabled = metadataLoading || view.backfillRunning === true;
+        repairButton.addEventListener('click', function () {
+          if (view.backfillRunning) return;
+          view.backfillRunning = true;
+          repairButton.disabled = true;
+          const notify = function (message) {
+            view.backfillMessage = message;
+            if (view.backfillStatus) {
+              view.backfillStatus.textContent = message;
+              view.backfillStatus.hidden = false;
+            }
+          };
+          backfillSeriesEpisodeMetadata(view.series, backendId, clientApi(),
+            notify).then(function (result) {
+              notify(result.updated + ' Folgen ergänzt; ' + result.skipped +
+                ' bereits zugeordnet/nicht eindeutig; ' + result.failed +
+                ' fehlgeschlagen. Aufnahmen bleiben erhalten.');
+              if (result.updated > 0) {
+                clearSeriesWarm();
+                return refresh({reuseWarm: false, retainVisible: true});
+              }
+            }).catch(function (error) {
+              notify('Metadaten-Nachtrag fehlgeschlagen: ' +
+                (error && error.message || 'API nicht verfügbar'));
+            }).finally(function () {
+              view.backfillRunning = false;
+              repairButton.disabled = false;
+            });
+        });
+        copy.appendChild(repairButton);
+      }
+      const repairStatus = doc.createElement('span');
+      repairStatus.className = 'media-home-series-metadata-backfill-status';
+      repairStatus.setAttribute('role', 'status');
+      repairStatus.textContent = view.backfillMessage || '';
+      repairStatus.hidden = !view.backfillMessage;
+      view.backfillStatus = repairStatus;
+      copy.appendChild(repairStatus);
       view.summary.appendChild(copy);
     }
 
@@ -5123,6 +5317,9 @@
       canonicalSeriesPath: canonicalSeriesPath,
       seriesMemberProjection: seriesMemberProjection,
       buildSeriesProjection: buildSeriesProjection,
+      missingSeriesEpisodeMetadata: missingSeriesEpisodeMetadata,
+      seriesMetadataBackfillTargets: seriesMetadataBackfillTargets,
+      backfillSeriesEpisodeMetadata: backfillSeriesEpisodeMetadata,
       seriesHierarchyOverride: seriesHierarchyOverride,
       applySeriesHierarchyOverride: applySeriesHierarchyOverride,
       seriesEpisodeNumberLabel: seriesEpisodeNumberLabel,
