@@ -101,4 +101,12 @@ printf 'PLUGIN_ONLY_DEB=PASS\n'
 read -r total_after free_after < <(df -B1 --output=size,avail "$base" | awk 'NR==2 {print $1, $2}')
 (( free_after >= reserve )) || fail "post-build filesystem reserve violated"
 printf 'RESOURCE_POSTCHECK=PASS\n'
+
+# Successful package validation makes the isolated checkout disposable.
+# Keep the .deb and build.log in BUILD_AREA for the operator; delete only the
+# source/build subtree created by this invocation. Failed builds keep it.
+[[ -d "$work/src" && ! -L "$work/src" ]] ||
+    fail "isolated source checkout missing or unsafe for cleanup"
+rm -rf -- "$work/src" || fail "unable to remove verified disposable source checkout"
+printf 'ISOLATED_SOURCE_CLEANED=YES\n'
 printf 'RESULT=PASS\n'
