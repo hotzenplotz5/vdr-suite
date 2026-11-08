@@ -182,6 +182,7 @@ async function emitOperation(operationId) {
 }
 let holdOperationRead = false;
 let releaseOperationRead = null;
+let failFirstBatchStatusRead = false;
 let submits = 0;
 let counter = 0;
 const requests = [];
@@ -385,6 +386,10 @@ function transport(url, options) {
   if (path === '/api/v1/operations/' + BATCH_OP_A ||
       path === '/api/v1/operations/' + BATCH_OP_B) {
     ++operationReads;
+    if (path.endsWith(BATCH_OP_A) && failFirstBatchStatusRead) {
+      failFirstBatchStatusRead = false;
+      return Promise.reject(new Error('temporary Core status read unavailable'));
+    }
     return Promise.resolve(reply(200, {
       operationId: path.split('/').pop(), backendId: 'backend-a',
       state: batchStates[path.split('/').pop()] || 'dispatching'
@@ -4063,6 +4068,57 @@ function publishHomeResume() {}
     'one lost attempt, one same-key confirmation, one next episode');
   submitMode = 'accepted';
   recentImports = [];
+
+  // MT.META8: A single temporary Core GET failure while importing the
+  // first of two episodes must NOT destroy the still-open bulk sequence.
+  // The later SSE success readback advances without a page reload or
+  // another user click. Never retry episode A just because status GET failed.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B];
+  markedSources = [];
+  delete recordingStatuses[SOURCE];
+  delete recordingStatuses[SOURCE_B];
+  batchOperations = [];
+  batchStates = Object.create(null);
+  submitMode = 'batch';
+  previewMode = 'ready';
+  previewInspectionStatus = 'ready';
+  recentImports = [];
+  failFirstBatchStatusRead = true;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  await findClass(mount, 'media-import-batch').listeners.click();
+  await settle();
+  const beforeTransientGet = submits;
+  await findClass(mount, 'media-import-batch-confirm').listeners.click();
+  await settle();
+  assert.strictEqual(failFirstBatchStatusRead, false,
+    'the initial status GET failure was exercised');
+  assert.strictEqual(batchOperations.length, 1);
+  assert.strictEqual(submits, beforeTransientGet + 1,
+    'temporary GET failure must never retry the first import');
+  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, false,
+    'temporary GET failure must retain the original bulk sequence');
+  assert(findClass(mount, 'status').textContent.includes(
+    'Sammelimport wartet auf die Bestätigung'),
+    'the user sees that the batch is awaiting its current Core result');
+  batchStates[BATCH_OP_A] = 'succeeded';
+  await emitOperation(BATCH_OP_A);
+  assert.strictEqual(batchOperations.length, 2,
+    'SSE-confirmed first import advances to second despite earlier GET outage');
+  assert.strictEqual(submits, beforeTransientGet + 2,
+    'second item is the only subsequent POST, not an A retry');
+  batchStates[BATCH_OP_B] = 'succeeded';
+  await emitOperation(BATCH_OP_B);
+  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true,
+    'two SSE-confirmed episodes complete the original batch without reload');
+  assert(findClass(mount, 'media-import-batch-summary').textContent.includes(
+    '2 bereits bestätigt'), 'both records stay in the completed batch review');
+  failFirstBatchStatusRead = false;
+  submitMode = 'accepted';
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {

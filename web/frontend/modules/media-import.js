@@ -1737,23 +1737,25 @@
         return refreshAfterImport();
       }
     }).catch(function (error) {
-      if (isCurrent(view)) {
-        if (view.batch)
-          stopBatch(view, 'Operationsstatus nicht abrufbar. Kein Folgeimport.');
-        else {
-          if (view.attempt === checkedAttempt) {
-            checkedAttempt.lastStatusError = operationError(error) +
-              (error && Number.isInteger(error.status)
-                ? ' (HTTP ' + error.status + ')' : '');
-            updateOperationDiagnostics(view);
-          }
-          report(view, operationError(error), true);
-          if (manual) {
-            view.lastManualCheck = 'Letzte Abfrage fehlgeschlagen: ' +
-              operationError(error) + ' Kein neuer Import gestartet.';
-            renderImportFeedback(view);
-          }
-        }
+      if (!isCurrent(view) || view.attempt !== checkedAttempt) return;
+      checkedAttempt.lastStatusError = operationError(error) +
+        (error && Number.isInteger(error.status)
+          ? ' (HTTP ' + error.status + ')' : '');
+      updateOperationDiagnostics(view);
+      if (view.batch) {
+        // One transient GET error is not a failed import. Keep the exact
+        // batch/Operation pinned: SSE or a manual read can still confirm it.
+        // Never dispatch the following episode without Core success readback.
+        report(view, 'Statusabfrage vorübergehend fehlgeschlagen. ' +
+          'Der Sammelimport wartet auf die Bestätigung der aktuellen Folge. ' +
+          'Keine neue Importanfrage gestartet.', true);
+      } else {
+        report(view, operationError(error), true);
+      }
+      if (manual) {
+        view.lastManualCheck = 'Letzte Abfrage fehlgeschlagen: ' +
+          operationError(error) + ' Kein neuer Import gestartet.';
+        renderImportFeedback(view);
       }
     }).finally(function () {
       // A confirmed marker may replace/remove the attempt while its read
