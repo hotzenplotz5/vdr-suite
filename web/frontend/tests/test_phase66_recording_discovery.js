@@ -159,6 +159,52 @@ assert.strictEqual(projectedFromRichMetadata.seriesTitle, 'The Walking Dead');
 assert.strictEqual(projectedFromRichMetadata.seasonNumber, 10);
 assert.strictEqual(projectedFromRichMetadata.episodeNumber, 14);
 assert.strictEqual(projectedFromRichMetadata.episodeTitle, 'Abschiede');
+
+// A TMDb episode assignment has title="Teil VI", not the parent series title.
+// The imported VDR folder/recording metadata still identifies the series.
+// No re-import or native info rewrite should be needed to render this rail.
+const obiWanImported = {
+  recordingId: 'obi-wan-imported-s01e06', backendId: 'default',
+  backendNativeId: 'native-obi-wan-6',
+  path: 'Serien/Obi-Wan Kenobi/S01E06 Teil VI',
+  metadata: {provider: {
+    seriesTitle: 'Obi-Wan Kenobi', episodeTitle: 'Teil VI',
+    seasonNumber: 1, episodeNumber: 6
+  }}
+};
+const obiWanManualEpisode = {
+  available: true, mediaType: 'episode', provider: 'manual',
+  providerId: 0, title: 'Teil VI', episodeName: 'Teil VI',
+  seasonNumber: 1, episodeNumber: 6,
+  preferredArtwork: {available: true, url: '/poster/obi-wan.jpg'}
+};
+const obiWanMember = api._test.seriesMemberProjection(
+  obiWanImported, obiWanManualEpisode, 'default');
+assert.strictEqual(obiWanMember.seriesTitle, 'Obi-Wan Kenobi',
+  'the imported episode title must not replace the series name');
+assert.strictEqual(obiWanMember.episodeTitle, 'Teil VI',
+  'the real episode title stays intact');
+assert.strictEqual(api._test.buildSeriesProjection([obiWanMember])[0].title,
+  'Obi-Wan Kenobi', 'the Series card uses the series identity, not the final episode');
+const obiWanFolderFallback = api._test.seriesMemberProjection({
+  recordingId: 'obi-wan-imported-no-provider',
+  path: 'Serien/Obi-Wan Kenobi/S01E06 Teil VI',
+  metadata: {provider: {}}
+}, obiWanManualEpisode, 'default');
+assert.strictEqual(obiWanFolderFallback.seriesTitle, 'Obi-Wan Kenobi',
+  'the VDR series folder is used when the provider series title is absent');
+assert.strictEqual(obiWanFolderFallback.episodeTitle, 'Teil VI');
+const andorEpisodeMember = api._test.seriesMemberProjection({
+  recordingId: 'andor-imported', path: 'Serien/Andor/S01E03 Jedha, Kyber, Erso',
+  metadata: {provider: {}}
+}, {
+  available: true, mediaType: 'episode', provider: 'manual',
+  providerId: 0, title: 'Jedha, Kyber, Erso', episodeName: 'Jedha, Kyber, Erso',
+  seasonNumber: 1, episodeNumber: 3
+}, 'default');
+assert.strictEqual(andorEpisodeMember.seriesTitle, 'Andor');
+assert.strictEqual(andorEpisodeMember.episodeTitle, 'Jedha, Kyber, Erso');
+
 assert(projectedFromRichMetadata.posterUrl.includes('kind=preferred'));
 
 const stargateTimestampRecording = {

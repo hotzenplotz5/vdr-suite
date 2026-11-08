@@ -1445,9 +1445,13 @@
     const folderTitle = seriesFolderTitle(recording);
     const providerSeriesTitle = text(sourceProvider.seriesTitle);
     const richMediaType = text(rich.mediaType).toLowerCase();
-    const richSeriesTitle = richMediaType === 'episode' || richMediaType === 'series'
+    // Manual/TMDb episode assignments put the EPISODE name in rich.title.
+    // Never promote that name (e.g. "Teil VI") to the parent Series card.
+    // A genuine series assignment can override the series label; an episode
+    // instead uses its explicit seriesTitle, provider title or VDR folder.
+    const richSeriesTitle = richMediaType === 'series'
       ? text(rich.title)
-      : '';
+      : richMediaType === 'episode' ? text(rich.seriesTitle) : '';
     const seriesTitle = richSeriesTitle || providerSeriesTitle || folderTitle || recordingTitle(recording);
 
     const providerSeriesId = text(sourceProvider.seriesId);
