@@ -957,13 +957,16 @@
     });
     if (row) {
       row.state = operation.state === 'succeeded' ? 'succeeded' :
-        operation.state === 'outcome_unknown' || terminalState(operation.state)
-          ? 'stopped' : 'running';
+        terminalState(operation.state) ? 'stopped' :
+          operation.state === 'outcome_unknown' ? 'awaiting_confirmation' : 'running';
       view.batchReview = batch.review;
       renderBatchReview(view);
     }
     if (operation.state !== 'succeeded') {
-      if (operation.state === 'outcome_unknown' || terminalState(operation.state))
+      // outcome_unknown is not a terminal failure: Core may still reconcile
+      // this SAME Operation to succeeded. Keep the batch waiting and the
+      // SSE subscription open. Do not import the next episode prematurely.
+      if (terminalState(operation.state))
         stopBatch(view, 'Operation ' + operation.state + '. Kein Folgeimport.');
       return;
     }
@@ -1208,6 +1211,7 @@
       pending: 'Zurückgestellt: Prüfung noch ausstehend',
       failed: 'Zurückgestellt: Prüfung fehlgeschlagen',
       running: 'Import läuft / Bestätigung ausstehend',
+      awaiting_confirmation: 'Core-Ergebnis ungewiss – Bestätigung abwarten',
       admission_unknown: 'Auftragsannahme ungewiss – gleiche Kennung bestätigen',
       succeeded: 'VDR-Aufnahme unabhängig bestätigt',
       stopped: 'Import angehalten'

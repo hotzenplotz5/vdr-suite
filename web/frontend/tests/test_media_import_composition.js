@@ -1596,8 +1596,9 @@ function publishHomeResume() {}
   assert.strictEqual(findClass(mount, 'media-import-start').disabled, true);
 
 
-  // User-style batch click submits only the first source. Unknown outcomes
-  // must never generate a follow-on POST.
+  // User-style batch click submits only the first source. A temporary
+  // outcome_unknown must never generate a follow-on POST until later Core
+  // success, but must not destroy the approved remaining episodes.
   submitMode = 'batch';
   batchSources = [SOURCE, SOURCE_B];
   context.selectModule('overview');
@@ -1619,7 +1620,27 @@ function publishHomeResume() {}
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
   assert.strictEqual(batchOperations.length, 1);
-  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true);
+  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, false,
+    'outcome_unknown is a pending reconciliation, not a completed failed batch');
+  assert(findClass(mount, 'media-import-batch-review').children.some(function (row) {
+    return row.textContent.includes('Core-Ergebnis ungewiss – Bestätigung abwarten');
+  }), 'the first episode visibly waits for its late Core confirmation');
+  const beforeLateSuccess = submits;
+  await emitOperation(BATCH_OP_A);
+  assert.strictEqual(submits, beforeLateSuccess,
+    'repeated outcome_unknown cannot create another import request');
+  batchStates[BATCH_OP_A] = 'succeeded';
+  await emitOperation(BATCH_OP_A);
+  assert.strictEqual(batchOperations.length, 2,
+    'late SSE success after outcome_unknown must advance to episode B');
+  assert.strictEqual(submits, beforeLateSuccess + 1,
+    'late success starts only the next episode, never retries episode A');
+  batchStates[BATCH_OP_B] = 'succeeded';
+  await emitOperation(BATCH_OP_B);
+  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true,
+    'the original bulk selection completes after both late confirmations');
+  assert(findClass(mount, 'media-import-batch-summary').textContent.includes(
+    '2 bereits bestätigt'), 'both episodes are confirmed in the original batch');
 
   // Logout clears in-session batch authority. A new deliberate click can
   // start two sequential Operations, provided VDR confirms the first.
