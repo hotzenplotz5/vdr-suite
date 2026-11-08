@@ -3077,6 +3077,22 @@
     });
   }
 
+  // The original filename records the series premiere year, not the episode
+  // air date. Foundation (2021) otherwise matches multiple catalog series.
+  function seriesPremiereYearFromMember(member) {
+    const recording = member && member.recording;
+    const labels = [
+      text(recording && recording.path),
+      text(recording && recording.title),
+      text(member && member.episodeTitle)
+    ];
+    for (const label of labels) {
+      const match = /\(((?:19|20)\d{2})\)/.exec(label);
+      if (match) return Number(match[1]);
+    }
+    return 0;
+  }
+
   // MT.META8: backfill already imported episodes using only the existing
   // Recording metadata search/episodes/assign API. The VDR recording is never
   // re-imported. Fully described episodes and selected assignments are retained.
@@ -3134,10 +3150,11 @@
         const resourceKey = recordingBackendNativeId(member.recording);
         status((index + 1) + '/' + targets.length + ': ' +
           text(member.episodeTitle) + ' – zentrale TMDb-Zuordnung …');
-        return post(resolver, {
+        const year = seriesPremiereYearFromMember(member);
+        return post(resolver, Object.assign({
           title: title, kind: 'series',
           seasonNumber: season, episodeNumber: episodeNumber
-        }).then(function (resolved) {
+        }, year ? {year: year} : {})).then(function (resolved) {
           const foundSeries = resolved && resolved.series;
           const candidate = resolved && resolved.episode;
           if (!resolved || resolved.status !== 'matched' ||
@@ -3156,19 +3173,46 @@
             encodeURIComponent(resourceKey), {
               method: 'GET', cache: 'no-store', credentials: 'same-origin'
             }).then(function (existing) {
-              if (!existing || existing.found !== false) {
+              if (!existing ||
+                  (existing.found !== false && existing.found !== true)) {
                 result.skipped += 1;
                 return;
               }
-              const currentTitle = text(member.episodeTitle);
+              const selected = existing.found === true;
+              // A previous import may have selected the right TMDb episode
+              // without all fields. Preserve unrelated manual assignments.
+              if (selected && (
+                  existing.providerId !== candidate.providerId ||
+                  existing.externalNamespace !== candidate.externalNamespace ||
+                  existing.externalId !== candidate.externalId ||
+                  existing.mediaType !== 'episode' ||
+                  Number(existing.seasonNumber) !== season ||
+                  Number(existing.episodeNumber) !== episodeNumber)) {
+                result.skipped += 1;
+                return;
+              }
+              const currentTitle = text(selected
+                ? existing.title : member.episodeTitle);
               const titleNeedsRepair = /\bS\d{1,3}\s*E\d{1,4}\b/i
                 .test(currentTitle) ||
                 /^\s*(?:DE|EN)\s*[-–]\s*.+\(\d{4}\)/i.test(currentTitle);
               const poster = text(foundSeries.posterReference ||
                 candidate.posterReference);
-              if (!titleNeedsRepair &&
-                  (!poster || currentTitle.toLocaleLowerCase() !==
-                    text(candidate.title).toLocaleLowerCase())) {
+              if (selected) {
+                const missingPoster = existing.posterAvailable !== true &&
+                  Boolean(poster);
+                const missingOverview = !text(existing.overview) &&
+                  Boolean(text(candidate.overview));
+                // Existing selected artwork is not exposed as a writable
+                // poster reference: never replace it with a catalog default.
+                if (existing.posterAvailable === true ||
+                    (!titleNeedsRepair && !missingPoster && !missingOverview)) {
+                  result.skipped += 1;
+                  return;
+                }
+              } else if (!titleNeedsRepair &&
+                         (!poster || currentTitle.toLocaleLowerCase() !==
+                           text(candidate.title).toLocaleLowerCase())) {
                 result.skipped += 1;
                 return;
               }
@@ -3176,13 +3220,18 @@
                 resourceKey: resourceKey, providerId: 'tmdb',
                 externalNamespace: candidate.externalNamespace,
                 externalId: candidate.externalId, mediaType: 'episode',
-                title: candidate.title, seriesTitle: foundSeries.title,
-                originalTitle: candidate.originalTitle || '',
-                overview: candidate.overview || '',
-                releaseDate: candidate.releaseDate || '',
+                title: titleNeedsRepair ? candidate.title :
+                  (selected ? currentTitle : candidate.title),
+                seriesTitle: foundSeries.title,
+                originalTitle: selected && text(existing.originalTitle) ||
+                  candidate.originalTitle || '',
+                overview: selected && text(existing.overview) ||
+                  candidate.overview || '',
+                releaseDate: selected && text(existing.releaseDate) ||
+                  candidate.releaseDate || '',
                 posterReference: poster,
                 seasonNumber: season, episodeNumber: episodeNumber,
-                expectedRevision: 0
+                expectedRevision: selected ? Number(existing.revision) : 0
               }).then(function (saved) {
                 if (saved && saved.found === true) result.updated += 1;
                 else result.failed += 1;

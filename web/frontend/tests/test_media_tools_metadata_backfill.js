@@ -141,6 +141,93 @@ function clientFor(requests, resolver) {
   assert.deepStrictEqual(wrongTranslationRequests.map(x => x.action),
     ['resolve', 'manual'], 'correct regional title remains untouched');
 
+
+  // Foundation (2021) S01E05: an old import has the correct episode identity
+  // but raw title, missing poster and no description.
+  const foundationMember = {
+    seasonNumber: 1, episodeNumber: 5, posterUrl: '',
+    episodeTitle: 'DE - Foundation (2021) - S01E05 - Erwachen',
+    recording: {
+      backendNativeId: '/video/Foundation/S01E05.rec',
+      path: 'Serien/Foundation (2021)/S01E05',
+      title: 'DE - Foundation (2021) - S01E05 - Erwachen'
+    }
+  };
+  const existingFoundation = {
+    found: true, providerId: 'tmdb', mediaType: 'episode',
+    externalNamespace: 'tv-episode', externalId: '555',
+    seasonNumber: 1, episodeNumber: 5,
+    title: foundationMember.episodeTitle,
+    overview: '', posterAvailable: false, revision: 3
+  };
+  async function repairFoundation(existing) {
+    const calls = [];
+    const client = {
+      requestJson(route, options) {
+        const action = route.split('/').pop().split('?')[0];
+        const body = options && options.body ? JSON.parse(options.body) : {};
+        calls.push({action, body});
+        if (action === 'resolve') {
+          assert.strictEqual(body.year, 2021,
+            'original filename supplies the series premiere year');
+          assert.strictEqual(body.title, 'Foundation');
+          return Promise.resolve({
+            status: 'matched', mediaType: 'episode',
+            series: {
+              providerId: 'tmdb', kind: 'series',
+              externalId: '93740', title: 'Foundation',
+              posterReference: '/foundation-poster.jpg'
+            },
+            episode: {
+              providerId: 'tmdb', kind: 'episode',
+              externalNamespace: 'tv-episode', externalId: '555',
+              parentExternalId: '93740',
+              seasonNumber: 1, episodeNumber: 5,
+              title: 'Erwachen', overview: 'Beschreibung von Folge 5',
+              releaseDate: '2021-10-22'
+            }
+          });
+        }
+        if (action === 'manual') return Promise.resolve(existing);
+        if (action === 'assign') return Promise.resolve({found: true, revision: 4});
+        throw new Error('Unexpected API route: ' + route);
+      }
+    };
+    const result = await api.backfillSeriesEpisodeMetadata(
+      {title: 'Foundation', episodes: [foundationMember]},
+      'default', client);
+    return {result, calls};
+  }
+  assert.strictEqual(api.missingSeriesEpisodeMetadata(foundationMember), true);
+  const corrected = await repairFoundation(existingFoundation);
+  assert.strictEqual(corrected.result.updated, 1);
+  assert.deepStrictEqual(corrected.calls.map(call => call.action),
+    ['resolve', 'manual', 'assign']);
+  assert.strictEqual(corrected.calls[2].body.title, 'Erwachen');
+  assert.strictEqual(corrected.calls[2].body.overview,
+    'Beschreibung von Folge 5');
+  assert.strictEqual(corrected.calls[2].body.expectedRevision, 3);
+  assert.strictEqual(corrected.calls[2].body.posterReference,
+    '/foundation-poster.jpg');
+  const foreign = await repairFoundation(
+    Object.assign({}, existingFoundation, {externalId: 'different-episode'}));
+  assert.strictEqual(foreign.result.skipped, 1);
+  assert.deepStrictEqual(foreign.calls.map(call => call.action),
+    ['resolve', 'manual']);
+  const localized = await repairFoundation(
+    Object.assign({}, existingFoundation, {
+      title: 'Deutscher Alternativtitel',
+      overview: 'Vorhandener deutscher Beschreibungstext'
+    }));
+  assert.strictEqual(localized.result.updated, 1);
+  assert.strictEqual(localized.calls[2].body.title, 'Deutscher Alternativtitel');
+  assert.strictEqual(localized.calls[2].body.overview,
+    'Vorhandener deutscher Beschreibungstext');
+  const posterSelected = await repairFoundation(
+    Object.assign({}, existingFoundation, {posterAvailable: true}));
+  assert.strictEqual(posterSelected.result.skipped, 1,
+    'existing selected artwork must not be lost');
+
   let untouched = 0;
   const empty = await api.backfillSeriesEpisodeMetadata({
     title, episodes: [complete, raw11]
