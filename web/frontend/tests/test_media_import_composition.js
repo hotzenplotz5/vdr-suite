@@ -158,6 +158,8 @@ let pagedSourceIds = null;
 let batchOperations = [];
 const BATCH_OP_A = 'op_' + 'd'.repeat(32);
 const BATCH_OP_B = 'op_' + 'e'.repeat(32);
+const BATCH_OP_C = 'op_' + 'f'.repeat(32);
+const deleteBatchOps = Object.create(null);
 const SOURCE_B = 'source_987654321012345';
 const MARK_PC = 'source_marked_pc_123456';
 const MARK_SKIP = 'source_marked_sk_123456';
@@ -322,6 +324,16 @@ function transport(url, options) {
     ++submits;
     if (JSON.parse(options.body).videoDecision === 'delete_duplicate') {
       const targetId = JSON.parse(options.body).sourceId;
+      if (submitMode === 'delete-batch') {
+        const ids = [BATCH_OP_A, BATCH_OP_B, BATCH_OP_C];
+        const operationId = ids[batchOperations.length];
+        assert(operationId, 'bounded cleanup fixture sequence');
+        deleteBatchOps[operationId] = targetId;
+        batchOperations.push(operationId);
+        return Promise.resolve(reply(202, {
+          operationId, backendId: 'backend-a', state: 'dispatching'
+        }));
+      }
       // Only the successful Core/Agent result removes the fixture source.
       // An outcome_unknown cleanup has no confirmed deletion.
       if (state === 'succeeded' && !delayedDeleteObservation) {
@@ -384,8 +396,19 @@ function transport(url, options) {
       state: 'dispatching'}, {'Location': '/api/v1/operations/' + OP}));
   }
   if (path === '/api/v1/operations/' + BATCH_OP_A ||
-      path === '/api/v1/operations/' + BATCH_OP_B) {
+      path === '/api/v1/operations/' + BATCH_OP_B ||
+      path === '/api/v1/operations/' + BATCH_OP_C) {
     ++operationReads;
+    const operationId = path.split('/').pop();
+    if (batchStates[operationId] === 'succeeded' && deleteBatchOps[operationId]) {
+      const deleted = deleteBatchOps[operationId];
+      batchSources = (batchSources || [SOURCE]).filter(function (id) {
+        return id !== deleted;
+      });
+      markedSources = markedSources.filter(function (id) {
+        return id !== deleted;
+      });
+    }
     if (path.endsWith(BATCH_OP_A) && failFirstBatchStatusRead) {
       failFirstBatchStatusRead = false;
       return Promise.reject(new Error('temporary Core status read unavailable'));
@@ -3294,8 +3317,8 @@ function publishHomeResume() {}
     function (row) { return row.dataset.sourceId === SOURCE; });
   assert(importedRow && importedRow.children[2].textContent.includes('Bereits importiert'),
     'fresh login gets recording presence from the backend, not browser memory');
-  assert(findClass(importedRow, 'media-import-episode-check').disabled,
-    'already imported source cannot be bulk-selected for another import');
+  assert(!findClass(importedRow, 'media-import-episode-check').disabled,
+    'already imported source can be selected for deletion, not reimported');
   assert(findClass(mount, 'media-import-batch').disabled,
     'bulk import does not include previously imported recordings');
   const importedFilter = findClass(mount, 'media-import-filter');
@@ -4140,6 +4163,84 @@ function publishHomeResume() {}
     '2 bereits bestätigt'), 'both records stay in the completed batch review');
   failFirstBatchStatusRead = false;
   submitMode = 'accepted';
+
+  // MT.REC7: Three duplicates, including a marked .duplicate file, can be
+  // selected together. One confirmation, one existing Core delete_duplicate
+  // operation per file, sequenced strictly by SSE-confirmed Core readback.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B];
+  markedSources = [MARK_DUP];
+  recordingStatuses[SOURCE] = 'recording_present';
+  recordingStatuses[SOURCE_B] = 'recording_present';
+  delete sourceFolders[SOURCE];
+  delete sourceFolders[SOURCE_B];
+  batchOperations = [];
+  batchStates = Object.create(null);
+  recentImports = [];
+  submitMode = 'delete-batch';
+  state = 'dispatching';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const duplicateRows = findClass(mount, 'media-import-selection').children;
+  const deletable = [SOURCE, SOURCE_B, MARK_DUP];
+  deletable.forEach(function (id) {
+    const row = duplicateRows.find(function (item) { return item.dataset.sourceId === id; });
+    assert(row, 'duplicate exists in list: ' + id);
+    const checkbox = findClass(row, 'media-import-episode-check');
+    assert(checkbox && !checkbox.disabled,
+      'recorded and marked duplicates have enabled cleanup checkboxes');
+    checkbox.checked = true;
+    checkbox.listeners.change();
+  });
+  const deleteButton = findClass(mount, 'media-import-batch-delete');
+  assert(deleteButton && !deleteButton.disabled, 'cleanup button enabled after selecting duplicates');
+  const beforeDeletePosts = submits;
+  const beforeDeleteConfirm = confirmCalls;
+  await deleteButton.listeners.click();
+  await settle();
+  assert.strictEqual(confirmCalls, beforeDeleteConfirm + 1,
+    'three deletions need one explicit confirmation');
+  assert.strictEqual(submits, beforeDeletePosts + 1,
+    'only the first duplicate is dispatched before Core confirmation');
+  assert.strictEqual(batchOperations.length, 1);
+  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, false);
+  batchStates[BATCH_OP_A] = 'outcome_unknown';
+  await emitOperation(BATCH_OP_A);
+  assert.strictEqual(submits, beforeDeletePosts + 1,
+    'uncertain deletion neither retries nor proceeds to the next file');
+  batchStates[BATCH_OP_A] = 'succeeded';
+  await emitOperation(BATCH_OP_A);
+  assert.strictEqual(submits, beforeDeletePosts + 2,
+    'confirmed first deletion starts exactly the next duplicate');
+  batchStates[BATCH_OP_B] = 'succeeded';
+  await emitOperation(BATCH_OP_B);
+  assert.strictEqual(submits, beforeDeletePosts + 3,
+    'confirmed second deletion starts the marked duplicate');
+  batchStates[BATCH_OP_C] = 'succeeded';
+  await emitOperation(BATCH_OP_C);
+  await settle();
+  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true);
+  assert.strictEqual(submits, beforeDeletePosts + 3,
+    'exactly three confirmed delete_duplicate Operations, no extra imports');
+  const deletedPosts = requests.filter(function (req) {
+    return req.path.endsWith('/media-imports') && req.options.method === 'POST';
+  }).slice(-3);
+  assert.deepStrictEqual(deletedPosts.map(function (req) {
+    return JSON.parse(req.options.body).videoDecision;
+  }), ['delete_duplicate', 'delete_duplicate', 'delete_duplicate'],
+    'all files use the existing Core delete_duplicate route');
+  assert(findClass(mount, 'media-import-delete-batch-summary').textContent.includes(
+    '3 von 3'), 'three independently confirmed deletions are shown');
+  assert(!findClass(mount, 'media-import-selection').children.some(function (row) {
+    return deletable.includes(row.dataset.sourceId);
+  }), 'fresh source inventory no longer shows deleted duplicates');
+  assert.strictEqual(findClass(mount, 'media-import-batch-delete').disabled, true);
+  submitMode = 'accepted';
+  delete recordingStatuses[SOURCE];
+  delete recordingStatuses[SOURCE_B];
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {

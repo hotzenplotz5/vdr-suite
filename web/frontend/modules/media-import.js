@@ -933,20 +933,59 @@
       }).catch(function () { return false; });
   }
 
+  function visibleDuplicateIds(view) {
+    return view.allOrdinary.filter(function (item) {
+      return item.recordingPresent && view.sources.includes(item.sourceId);
+    }).map(function (item) { return item.sourceId; }).concat(
+      view.allMarked.filter(function (item) {
+        return markerSuffix(item) === 'duplicate' &&
+          view.markedSources.includes(item.sourceId);
+      }).map(function (item) { return item.sourceId; })
+    );
+  }
+
+  function renderDeleteBatch(view, batch) {
+    if (!isCurrent(view) || !view.deleteBatchResults || !batch || !batch.review) return;
+    view.deleteBatchReview = batch.review;
+    view.deleteBatchResults.replaceChildren();
+    const rows = batch.review.rows;
+    const done = rows.filter(function (row) { return row.state === 'succeeded'; }).length;
+    view.deleteBatchResults.appendChild(element('strong', 'media-import-delete-batch-summary',
+      'Dublettenbereinigung: ' + done + ' von ' + rows.length +
+      ' Quelldateien bestätigt gelöscht. VDR-Aufnahmen bleiben erhalten.'));
+    const statuses = {
+      queued: 'Wartet auf vorherigen Löschauftrag',
+      running: 'Löschung läuft / Bestätigung ausstehend',
+      awaiting_confirmation: 'Ergebnis ungewiss – Core-Bestätigung abwarten',
+      admission_unknown: 'Auftragsannahme ungewiss – gleicher Auftrag prüfen',
+      succeeded: 'Quelldatei bestätigt gelöscht',
+      stopped: 'Nicht gelöscht – Stapel angehalten'
+    };
+    rows.forEach(function (row) {
+      view.deleteBatchResults.appendChild(element('p', 'media-import-delete-batch-row',
+        readableMediaTitle(row.title) + ' – ' +
+        (statuses[row.state] || 'Status ausstehend')));
+    });
+  }
+
   // The browser coordinates only an explicitly requested sequence. Core owns
-  // each durable Operation; unknown outcomes must never start a second import.
+  // each durable Operation; unknown outcomes must never start a second action.
   function stopBatch(view, reason) {
     if (!isCurrent(view) || !view.batch) return;
-    const completed = view.batch.completed;
+    const batch = view.batch;
+    const completed = batch.completed;
     delete activeBatches[view.backendId];
     view.batch = null;
     view.batchStopButton.hidden = true;
-    if (view.batchReview) renderBatchReview(view);
+    if (batch.kind === 'delete') renderDeleteBatch(view, batch);
+    else if (view.batchReview) renderBatchReview(view);
     view.batchButton.disabled = true;
     view.newButton.hidden = !view.attempt ||
       !terminalState(view.attempt.state);
-    if (reason) report(view, 'Mehrfachimport nach ' + completed +
-      ' bestätigten Aufnahmen angehalten: ' + reason, true);
+    if (reason) report(view, (batch.kind === 'delete'
+      ? 'Sammellöschung nach ' + completed + ' bestätigten Quelldateien'
+      : 'Mehrfachimport nach ' + completed + ' bestätigten Aufnahmen') +
+      ' angehalten: ' + reason, true);
   }
 
   function advanceBatch(view, operation) {
@@ -959,8 +998,11 @@
       row.state = operation.state === 'succeeded' ? 'succeeded' :
         terminalState(operation.state) ? 'stopped' :
           operation.state === 'outcome_unknown' ? 'awaiting_confirmation' : 'running';
-      view.batchReview = batch.review;
-      renderBatchReview(view);
+      if (batch.kind === 'delete') renderDeleteBatch(view, batch);
+      else {
+        view.batchReview = batch.review;
+        renderBatchReview(view);
+      }
     }
     if (operation.state !== 'succeeded') {
       // outcome_unknown is not a terminal failure: Core may still reconcile
@@ -975,8 +1017,15 @@
     batch.remaining.shift();
     if (!batch.remaining.length) {
       const done = batch.completed;
+      const deleting = batch.kind === 'delete';
       stopBatch(view);
-      report(view, done + ' Aufnahmen unabhängig bestätigt. Mehrfachimport abgeschlossen.');
+      if (deleting) {
+        view.deleteBatchRefreshPending = true;
+        report(view, done + ' doppelte Quelldateien bestätigt gelöscht. ' +
+          'Die fertigen VDR-Aufnahmen bleiben unverändert.');
+      } else {
+        report(view, done + ' Aufnahmen unabhängig bestätigt. Mehrfachimport abgeschlossen.');
+      }
       return;
     }
     // A navigation away from the tab cannot lose an already authorized
@@ -1386,6 +1435,44 @@
     });
   }
 
+  function startDeleteBatch(view) {
+    if (!isCurrent(view) || view.batch || view.submitting || view.inspectingBatch)
+      return Promise.resolve();
+    const ids = visibleDuplicateIds(view).filter(function (id) {
+      return view.checkedDuplicateIds.has(id) && !sourceUnresolved(view, id);
+    });
+    if (!ids.length) return Promise.resolve();
+    if (typeof global.confirm !== 'function' ||
+        !global.confirm(ids.length + ' doppelte Quelldateien endgültig aus den ' +
+          'Importquellen löschen? Die fertigen VDR-Aufnahmen bleiben erhalten. ' +
+          'Jede Löschung wird vom bestehenden Backend einzeln geprüft.'))
+      return Promise.resolve();
+    if (!prepareIndependentDelete(view, ids[0])) {
+      report(view, 'Der vorherige Auftrag muss zuerst abgeschlossen werden.', true);
+      return Promise.resolve();
+    }
+    resetBatchReview(view);
+    const review = {rows: ids.map(function (id) {
+      const source = view.allOrdinary.concat(view.allMarked).find(function (item) {
+        return item.sourceId === id;
+      });
+      return {sourceId: id, title: source && source.label || id, state: 'queued'};
+    })};
+    const batch = {kind: 'delete', remaining: ids.slice(), total: ids.length,
+      completed: 0, waiting: '', review: review};
+    view.batch = batch;
+    activeBatches[view.backendId] = batch;
+    view.checkedDuplicateIds.clear();
+    view.deleteBatchRefreshPending = false;
+    view.selectedDeleteButton.disabled = true;
+    view.batchStopButton.hidden = false;
+    view.batchButton.disabled = true;
+    view.selectedBatchButton.disabled = true;
+    view.selectAllVisibleButton.disabled = true;
+    renderDeleteBatch(view, batch);
+    return startImport(view);
+  }
+
   function confirmBatch(view) {
     if (!isCurrent(view) || !view.batchReview || view.inspectingBatch ||
         view.duplicateReviewPending || view.attempt || view.batch ||
@@ -1466,7 +1553,8 @@
         });
         if (row) {
           row.state = 'running';
-          view.batchReview = batch.review;
+          if (batch.kind === 'delete') renderDeleteBatch(view, batch);
+          else view.batchReview = batch.review;
         }
       }
     }).catch(function (error) {
@@ -1662,7 +1750,7 @@
             'auswählen und ausdrücklich bestätigen; es wurde noch nicht importiert.');
         });
       }
-      if (!view.batch && operation.state === 'succeeded' &&
+      if (!wasBatchOperation && !view.batch && operation.state === 'succeeded' &&
           (view.attempt.videoDecision === 'duplicate' ||
            view.attempt.videoDecision === 'delete_duplicate')) {
         // Core has verified the marker operation; refresh the source inventory
@@ -1751,8 +1839,10 @@
         // batch/Operation pinned: SSE or a manual read can still confirm it.
         // Never dispatch the following episode without Core success readback.
         report(view, 'Statusabfrage vorübergehend fehlgeschlagen. ' +
-          'Der Sammelimport wartet auf die Bestätigung der aktuellen Folge. ' +
-          'Keine neue Importanfrage gestartet.', true);
+          (view.batch.kind === 'delete'
+            ? 'Die Sammellöschung wartet auf die Bestätigung der aktuellen Datei. '
+            : 'Der Sammelimport wartet auf die Bestätigung der aktuellen Folge. ') +
+          'Keine neue Dateiaktion gestartet.', true);
       } else {
         report(view, operationError(error), true);
       }
@@ -1780,6 +1870,21 @@
       if (isCurrent(view) && view.resumeDuplicateReview && !view.attempt) {
         view.resumeDuplicateReview = false;
         nextConfirmedDuplicate(view);
+      }
+      if (isCurrent(view) && view.attempt === checkedAttempt &&
+          view.deleteBatchRefreshPending && checkedAttempt.state === 'succeeded') {
+        view.deleteBatchRefreshPending = false;
+        delete activeAttempts[view.backendId];
+        view.attempt = null;
+        view.refreshButton.hidden = true;
+        view.newButton.hidden = true;
+        return loadSources(view).then(function () {
+          if (!isCurrent(view)) return;
+          renderDeleteBatch(view, {review: view.deleteBatchReview});
+          report(view, 'Sammellöschung abgeschlossen. ' +
+            'Die gelöschten Quellen wurden erneut eingelesen. ' +
+            'Alle VDR-Aufnahmen bleiben erhalten.');
+        });
       }
       if (view.attempt !== checkedAttempt) return;
       if (isCurrent(view) && view.manualCheckQueued && view.attempt &&
@@ -2188,8 +2293,11 @@
     view.newButton.hidden = Boolean(view.batch) || !terminalState(view.attempt.state);
     view.batchStopButton.hidden = !view.batch;
     if (view.batch && view.batch.review) {
-      view.batchReview = view.batch.review;
-      renderBatchReview(view);
+      if (view.batch.kind === 'delete') renderDeleteBatch(view, view.batch);
+      else {
+        view.batchReview = view.batch.review;
+        renderBatchReview(view);
+      }
     }
     // The same operation indicator is always visible after owner remounts.
     if (view.attempt.videoDecision === 'delete_duplicate') {
@@ -2765,10 +2873,17 @@
     const count = eligible.filter(function (id) {
       return view.checkedSourceIds.has(id);
     }).length;
+    const duplicates = visibleDuplicateIds(view);
+    const deleteCount = duplicates.filter(function (id) {
+      return view.checkedDuplicateIds.has(id);
+    }).length;
     view.selectionCount.textContent = count + ' von ' +
-      eligible.length + ' noch nicht importierten Filmen für den Stapel gewählt.';
-    // A batch performs its own direct-import suitability review. A local
-    // reencode choice in the single-film preview is unrelated to that review.
+      eligible.length + ' noch nicht importierten Filmen für den Stapel gewählt. ' +
+      deleteCount + ' von ' + duplicates.length +
+      ' Dubletten zur Löschung ausgewählt.';
+    view.selectedDeleteButton.disabled = deleteCount === 0 || Boolean(view.batch) ||
+      Boolean(view.attempt && !terminalState(view.attempt.state)) ||
+      view.submitting || view.inspectingBatch;
     view.selectedBatchButton.disabled = count < 2 || Boolean(view.batch) ||
       Boolean(view.attempt) || view.submitting || view.inspectingBatch;
   }
@@ -2905,6 +3020,7 @@
       view.seasonKey = '';
       view.searchInput.value = '';
       view.checkedSourceIds.clear();
+      view.checkedDuplicateIds.clear();
       filterVisibleSources(view);
       setMobilePane(view, 'media');
     };
@@ -3202,14 +3318,19 @@
       const checkbox = element('input', 'media-import-episode-check');
       checkbox.type = 'checkbox';
       checkbox.setAttribute('aria-label', 'Für Stapel auswählen: ' + item.label);
-      checkbox.checked = !item.recordingPresent &&
-        view.checkedSourceIds.has(item.sourceId);
-      checkbox.disabled = item.recordingPresent;
+      checkbox.checked = item.recordingPresent
+        ? view.checkedDuplicateIds.has(item.sourceId)
+        : view.checkedSourceIds.has(item.sourceId);
+      checkbox.disabled = Boolean(view.batch) ||
+        (item.recordingPresent && sourceUnresolved(view, item.sourceId));
+      checkbox.setAttribute('aria-label', (item.recordingPresent
+        ? 'Dublette zur Löschung auswählen: ' : 'Für Stapel auswählen: ') + item.label);
       checkbox.addEventListener('change', function () {
         if (!isCurrent(view) || view.attempt || view.batch) return;
-        if (item.recordingPresent) return;
-        if (checkbox.checked) view.checkedSourceIds.add(item.sourceId);
-        else view.checkedSourceIds.delete(item.sourceId);
+        const selection = item.recordingPresent
+          ? view.checkedDuplicateIds : view.checkedSourceIds;
+        if (checkbox.checked) selection.add(item.sourceId);
+        else selection.delete(item.sourceId);
         updateSelectionCount(view);
       });
       const open = element('button', 'media-import-episode-open',
@@ -3329,6 +3450,20 @@
           marker === 'skipped' ? 'Übersprungen' : returned
             ? 'PC-Version gefunden – noch prüfen' : returns.length
               ? 'PC-Rücklauf mehrdeutig' : 'Wartet auf PC-Bearbeitung'));
+      if (marker === 'duplicate') {
+        const checkbox = element('input', 'media-import-episode-check');
+        checkbox.type = 'checkbox';
+        checkbox.setAttribute('aria-label', 'Dublette zur Löschung auswählen: ' + item.label);
+        checkbox.checked = view.checkedDuplicateIds.has(item.sourceId);
+        checkbox.disabled = Boolean(view.batch) || sourceUnresolved(view, item.sourceId);
+        checkbox.addEventListener('change', function () {
+          if (!isCurrent(view) || view.batch || view.attempt) return;
+          if (checkbox.checked) view.checkedDuplicateIds.add(item.sourceId);
+          else view.checkedDuplicateIds.delete(item.sourceId);
+          updateSelectionCount(view);
+        });
+        row.appendChild(checkbox);
+      }
       row.appendChild(open);
       row.appendChild(meta);
       if (marker === 'pc_encode') {
@@ -4266,15 +4401,19 @@
   function startImport(view, releaseMode, forcedDecision, automaticDuplicate) {
     if (!isCurrent(view) || view.submitting || view.attempt ||
         (view.inspectingBatch && !view.batch)) return Promise.resolve();
-    const deleteDuplicate = forcedDecision === 'delete_duplicate';
-    const deleteUnmarked = deleteDuplicate &&
-      view.sources.includes(view.select.value) &&
-      Boolean(view.previewResult &&
-        view.previewResult.sourceId === view.select.value &&
-        view.previewResult.status === 'duplicate');
-    const sourceId = releaseMode || (deleteDuplicate && !deleteUnmarked)
-      ? view.markedSelect.value :
-      view.batch ? view.batch.remaining[0] : view.select.value;
+    const batchDelete = Boolean(view.batch && view.batch.kind === 'delete');
+    const deleteDuplicate = forcedDecision === 'delete_duplicate' || batchDelete;
+    const deleteUnmarked = deleteDuplicate && (batchDelete
+      ? view.allOrdinary.some(function (item) {
+        return item.sourceId === view.batch.remaining[0] && item.recordingPresent;
+      })
+      : view.sources.includes(view.select.value) &&
+        Boolean(view.previewResult &&
+          view.previewResult.sourceId === view.select.value &&
+          view.previewResult.status === 'duplicate'));
+    const sourceId = view.batch ? view.batch.remaining[0] :
+      releaseMode || (deleteDuplicate && !deleteUnmarked)
+        ? view.markedSelect.value : view.select.value;
     if (sourceUnresolved(view, sourceId)) {
       report(view, 'Für diese Quelldatei besteht bereits ein ungewisser Auftrag. ' +
         'Bitte ausschließlich dessen Status prüfen; keine erneute Mutation.', true);
@@ -4282,10 +4421,11 @@
     }
     // Encoding authority is granted per film, per click, never to a batch.
     const selected = releaseMode ? 'release' :
+      batchDelete ? 'delete_duplicate' :
       view.batch ? 'import' : (forcedDecision || view.decision.value);
     if (!['import', 'desktop', 'skip', 'duplicate', 'release',
           'delete_duplicate'].includes(selected) ||
-        ((releaseMode || deleteDuplicate) && view.batch) ||
+        ((releaseMode || (deleteDuplicate && !batchDelete)) && view.batch) ||
         (deleteDuplicate && !deleteUnmarked &&
           !view.allMarked.some(function (item) {
             return item.sourceId === sourceId && markerSuffix(item) === 'duplicate';
@@ -4317,7 +4457,8 @@
       ? 'Media Tools: Diesen Film bei Bedarf lokal mit FFmpeg in H.264 umkodieren? ' +
         'Die Originaldatei bleibt unverändert. Diese Zustimmung gilt nur für diesen Film.'
       : selected === 'delete_duplicate'
-        ? 'Die doppelte Quelldatei endgültig aus der Importquelle löschen? ' +
+        ? batchDelete ? '' :
+          'Die doppelte Quelldatei endgültig aus der Importquelle löschen? ' +
           'Die fertige VDR-Aufnahme bleibt erhalten. Die Quelldatei und die ' +
           'passende vollständige Aufnahme werden erneut geprüft. ' +
           'Das Löschen der Quelldatei ist endgültig.'
@@ -4468,7 +4609,18 @@
                   : error.status === 404
                     ? 'Backend nicht verfügbar oder nicht zugänglich.'
                     : 'Import-Anfrage wurde vom Server zurückgewiesen.';
-            if (target && target.batch) stopBatch(target, detail);
+            if (target && target.batch) {
+              if (target.batch.kind === 'delete') {
+                const row = target.batch.review.rows.find(function (item) {
+                  return item.sourceId === attempt.sourceId;
+                });
+                if (row) {
+                  row.state = 'stopped';
+                  renderDeleteBatch(target, target.batch);
+                }
+              }
+              stopBatch(target, detail);
+            }
             if (target) report(target, detail, true);
             if (error.status === 422 && target && !target.batch) {
               refreshRejectedSource = true;
@@ -4492,8 +4644,12 @@
                  });
                  if (row) {
                    row.state = 'admission_unknown';
-                   ownerView.batchReview = ownerView.batch.review;
-                   renderBatchReview(ownerView);
+                   if (ownerView.batch.kind === 'delete')
+                     renderDeleteBatch(ownerView, ownerView.batch);
+                   else {
+                     ownerView.batchReview = ownerView.batch.review;
+                     renderBatchReview(ownerView);
+                   }
                  }
                }
                // Pause the approved sequence; no later source is submitted
@@ -4723,6 +4879,15 @@
     selectedBatchButton.type = 'button';
     selectedBatchButton.disabled = true;
     root.appendChild(selectedBatchButton);
+    const selectedDeleteButton = element('button',
+      'media-import-delete-duplicate media-import-batch-delete',
+      'Ausgewählte Dubletten löschen');
+    selectedDeleteButton.type = 'button';
+    selectedDeleteButton.disabled = true;
+    root.appendChild(selectedDeleteButton);
+    const deleteBatchResults = element('div', 'media-import-delete-batch-results');
+    deleteBatchResults.setAttribute('role', 'status');
+    root.appendChild(deleteBatchResults);
     const batchButton = element('button', 'media-import-batch',
       'Alle sichtbaren Filme prüfen');
     batchButton.type = 'button';
@@ -4813,6 +4978,8 @@
     batchActions.appendChild(selectionCount);
     batchActions.appendChild(selectAllVisibleButton);
     batchActions.appendChild(selectedBatchButton);
+    batchActions.appendChild(selectedDeleteButton);
+    batchActions.appendChild(deleteBatchResults);
     batchActions.appendChild(batchButton);
     batchActions.appendChild(batchSummary);
     batchActions.appendChild(batchReviewList);
@@ -4881,6 +5048,9 @@
       deleteDuplicateButton: deleteDuplicateButton,
       markedSelect: markedSelect, releaseButton: releaseButton, markedSources: [],
       batchButton: batchButton, batchStopButton: batchStopButton,
+      selectedDeleteButton: selectedDeleteButton,
+      deleteBatchResults: deleteBatchResults, deleteBatchReview: null,
+      deleteBatchRefreshPending: false,
       batchSummary: batchSummary, batchReviewList: batchReviewList,
       batchConfirmButton: batchConfirmButton, batchReview: null,
       reviewGeneration: 0, inspectingBatch: false,
@@ -4889,6 +5059,7 @@
       selectAllVisibleButton: selectAllVisibleButton,
       selectionRows: selectionRows, selectionCount: selectionCount,
       selectedBatchButton: selectedBatchButton, checkedSourceIds: new Set(),
+      checkedDuplicateIds: new Set(),
       batch: activeBatches[backendId] || null,
       refreshButton: refreshButton, newButton: newButton,
       message: message, operationDetail: operationDetail,
@@ -4956,13 +5127,17 @@
     }
     renderUnresolvedAttempts(view);
     updateOperationDiagnostics(view);
+    if (view.batch && view.batch.kind === 'delete')
+      renderDeleteBatch(view, view.batch);
     setMobilePane(view, 'media');
     searchInput.addEventListener('input', function () {
+      view.checkedDuplicateIds.clear();
       view.checkedSourceIds.clear();
       filterVisibleSources(view);
       setMobilePane(view, 'media');
     });
     statusFilter.addEventListener('change', function () {
+      view.checkedDuplicateIds.clear();
       view.checkedSourceIds.clear();
       filterVisibleSources(view);
       setMobilePane(view, 'media');
@@ -4971,6 +5146,7 @@
       if (!isCurrent(view) || view.batch ||
           (view.attempt && !mayBrowseDuringOperation(view))) return;
       view.seasonKey = seasonFilter.value;
+      view.checkedDuplicateIds.clear();
       view.checkedSourceIds.clear();
       filterVisibleSources(view);
       setMobilePane(view, 'media');
@@ -4984,6 +5160,9 @@
     });
     selectedBatchButton.addEventListener('click', function () {
       return startBatch(view, true);
+    });
+    selectedDeleteButton.addEventListener('click', function () {
+      return startDeleteBatch(view);
     });
     previewRetryButton.addEventListener('click', function () {
       if (!isCurrent(view) ||
