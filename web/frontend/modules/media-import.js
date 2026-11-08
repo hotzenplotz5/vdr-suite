@@ -1012,6 +1012,13 @@
         stopBatch(view, 'Operation ' + operation.state + '. Kein Folgeimport.');
       return;
     }
+    if (batch.kind === 'delete') {
+      // The Core already confirmed deletion. Keep the source hidden even if
+      // the Agent serves its previous inventory for one more scan cycle.
+      if (!confirmedDeletedSources[view.backendId])
+        confirmedDeletedSources[view.backendId] = new Set();
+      confirmedDeletedSources[view.backendId].add(batch.remaining[0]);
+    }
     batch.waiting = '';
     ++batch.completed;
     batch.remaining.shift();
@@ -3326,7 +3333,8 @@
       checkbox.setAttribute('aria-label', (item.recordingPresent
         ? 'Dublette zur Löschung auswählen: ' : 'Für Stapel auswählen: ') + item.label);
       checkbox.addEventListener('change', function () {
-        if (!isCurrent(view) || view.attempt || view.batch) return;
+        if (!isCurrent(view) || view.batch ||
+            (view.attempt && !terminalState(view.attempt.state))) return;
         const selection = item.recordingPresent
           ? view.checkedDuplicateIds : view.checkedSourceIds;
         if (checkbox.checked) selection.add(item.sourceId);
@@ -3457,7 +3465,8 @@
         checkbox.checked = view.checkedDuplicateIds.has(item.sourceId);
         checkbox.disabled = Boolean(view.batch) || sourceUnresolved(view, item.sourceId);
         checkbox.addEventListener('change', function () {
-          if (!isCurrent(view) || view.batch || view.attempt) return;
+          if (!isCurrent(view) || view.batch ||
+              (view.attempt && !terminalState(view.attempt.state))) return;
           if (checkbox.checked) view.checkedDuplicateIds.add(item.sourceId);
           else view.checkedDuplicateIds.delete(item.sourceId);
           updateSelectionCount(view);
