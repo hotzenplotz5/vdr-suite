@@ -62,6 +62,40 @@ class ManualInstallerProvenanceTests(unittest.TestCase):
             self.skipTest("bash unavailable")
         subprocess.run(["bash", "-n", str(SCRIPT)],
                        check=True, capture_output=True, text=True, timeout=20)
+    def test_cleanup_execution_only_deletes_installer_owned_scratch(self) -> None:
+        # Exercise the real shell cleanup block with synthetic paths only.
+        if shutil.which("bash") is None:
+            self.skipTest("bash unavailable")
+        source = SCRIPT.read_text(encoding="utf-8")
+        begin = '# SAFE_DIR is the root-owned rollback/DB-backup snapshot and must survive.\n'
+        end = "echo 'SUITE_SERVICES=STOPPED_REQUIRES_EXPLICIT_OPERATOR_START'"
+        snippet = source.split(begin, 1)[1].split(end, 1)[0]
+        with tempfile.TemporaryDirectory(prefix="mt-cleanup-") as temp:
+            base = Path(temp)
+            scratch = base / "owned-scratch"
+            backup = base / "persistent-rollback"
+            prepared = base / "prepared-by-operator"
+            for directory in (scratch, backup, prepared):
+                directory.mkdir()
+                (directory / "sentinel").write_text("keep")
+            result = subprocess.run(
+                ["bash", "-c", snippet], check=False,
+                capture_output=True, text=True, timeout=20,
+                env=dict(__import__("os").environ, TEMP_INSTALL_WORKDIR=str(scratch)),
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertIn("MEDIA_TOOLS_TEMP_WORK_CLEANED=YES", result.stdout)
+            self.assertFalse(scratch.exists())
+            self.assertTrue((backup / "sentinel").is_file())
+            self.assertTrue((prepared / "sentinel").is_file())
+            # --prepare or reused workspaces are not owned by this invocation.
+            result = subprocess.run(
+                ["bash", "-c", snippet], check=False,
+                capture_output=True, text=True, timeout=20,
+                env=dict(__import__("os").environ, TEMP_INSTALL_WORKDIR=""),
+            )
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertTrue((prepared / "sentinel").is_file())
     def test_main_only_remote_is_sufficient_for_ancestry_check(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mt-ha-origin-") as scratch:
             root = Path(scratch)
