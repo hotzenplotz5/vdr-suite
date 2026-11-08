@@ -163,6 +163,47 @@ const client = {
     'persistent episode metadata uses the canonical TMDb series name');
   assert.strictEqual(aliasAssignments[0].episodeNumber, 4);
 
+  // TMDb may return the *full* Star Wars branding for the short-query
+  // fallback. Media Tools accepts either normalized title across both
+  // requests; Home must behave identically.
+  const brandedQueries = [];
+  const brandedAssignments = [];
+  const brandedSeriesCandidate = Object.assign({}, seriesCandidate, {
+    title: 'Star Wars: Andor', originalTitle: 'Star Wars: Andor'
+  });
+  const brandedClient = {
+    requestJson(route, options) {
+      const action = route.split('/').pop().split('?')[0];
+      const body = options && options.body ? JSON.parse(options.body) : {};
+      if (action === 'search') {
+        brandedQueries.push(body.query);
+        return Promise.resolve({
+          providerId: 'tmdb', providerAvailable: true,
+          candidates: body.query === 'Andor' ? [brandedSeriesCandidate] : []
+        });
+      }
+      if (action === 'episodes') return Promise.resolve({
+        providerId: 'tmdb', providerAvailable: true,
+        candidates: [episodeCandidate(4, 'Waren Sie schon einmal in Ghorman')]
+      });
+      if (action === 'manual') return Promise.resolve({found: false});
+      if (action === 'assign') {
+        brandedAssignments.push(body);
+        return Promise.resolve({found: true, revision: 1});
+      }
+      throw new Error('Unexpected branded series metadata route ' + action);
+    }
+  };
+  const brandedResult = await api.backfillSeriesEpisodeMetadata({
+    title: 'Star Wars-Andor', episodes: [raw]
+  }, 'default', brandedClient);
+  assert.deepStrictEqual(brandedQueries, ['Star Wars-Andor', 'Andor']);
+  assert.strictEqual(brandedResult.updated, 1,
+    'TMDb full brand name must match the local franchise name after fallback');
+  assert.strictEqual(brandedAssignments.length, 1);
+  assert.strictEqual(brandedAssignments[0].seriesTitle, 'Star Wars: Andor');
+  assert.strictEqual(brandedAssignments[0].episodeNumber, 4);
+
   const ambiguousAliasClient = {
     requestJson(route, options) {
       if (route.endsWith('/search')) return Promise.resolve({

@@ -3133,27 +3133,30 @@
     // Each lookup must yield exactly ONE matching TMDb series identity.
     const alternativeTitle = title.replace(
       /^star[\s._:-]+wars[\s._:-]+/i, '').trim();
-    const searches = [{query: title, expected: normalized}];
-    if (alternativeTitle.length >= 2 &&
-        normalizedSeriesMatch(alternativeTitle) !== normalized) {
-      searches.push({
-        query: alternativeTitle,
-        expected: normalizedSeriesMatch(alternativeTitle)
-      });
+    // Reuse the Media Tools search contract: both the local franchise title
+    // and the stripped alias remain valid matches across BOTH queries. TMDb
+    // may return "Star Wars: Andor" even when searching for "Andor".
+    const acceptedNames = new Set([normalized]);
+    const searches = [title];
+    const alternativeNormalized = normalizedSeriesMatch(alternativeTitle);
+    if (alternativeTitle.length >= 2 && alternativeNormalized !== normalized) {
+      searches.push(alternativeTitle);
+      acceptedNames.add(alternativeNormalized);
     }
     const searchSeries = function (index) {
-      const wanted = searches[index];
-      status('TMDb-Serie wird eindeutig ermittelt: ' + wanted.query + ' …');
-      return post('search', {query: wanted.query, kind: 'series', limit: 12})
+      const query = searches[index];
+      status('TMDb-Serie wird eindeutig ermittelt: ' + query + ' …');
+      return post('search', {query: query, kind: 'series', limit: 12})
         .then(function (response) {
           const matches = response && response.providerId === 'tmdb' &&
             response.providerAvailable === true &&
             Array.isArray(response.candidates)
             ? response.candidates.filter(function (item) {
               return item && item.kind === 'series' && item.providerId === 'tmdb' &&
+                item.externalNamespace === 'tv' &&
                 /^\d{1,12}$/.test(text(item.externalId)) &&
-                (normalizedSeriesMatch(item.title) === wanted.expected ||
-                 normalizedSeriesMatch(item.originalTitle) === wanted.expected);
+                (acceptedNames.has(normalizedSeriesMatch(item.title)) ||
+                 acceptedNames.has(normalizedSeriesMatch(item.originalTitle)));
             }) : [];
           const byId = new Map(matches.map(function (item) {
             return [text(item.externalId), item];
