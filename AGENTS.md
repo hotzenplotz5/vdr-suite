@@ -577,6 +577,16 @@ be reused. Report actual filesystem write failures without speculative cleanup.
   fremde Worktrees automatisch entfernen. Keine zusätzlichen Backups,
   Dienstneustarts oder Rechteänderungen bloß für das Cleanup.
 
+**Verbindliche Umsetzungsregel fuer neue oder geaenderte Installer, Build-Skripte
+und Installations-Bash-Bloecke:** Den selbst erzeugten temporaeren Pfad beim
+Anlegen merken und im selben Ablauf nach bestaetigter Installation/Verifikation
+gezielt entfernen. Bei Fehlschlag Pfad zur Diagnose ausgeben und stehen lassen.
+Ein blosses `AGENTS.md`-Versprechen ohne Cleanup im ausfuehrbaren Ablauf
+reicht nicht: den Erfolgspfad, den Fehlerpfad und den Erhalt von
+`BUILD_DIR`/`OBJECT_CACHE_DIR` durch einen fokussierten Regressionstest
+absichern. `--prepare`-Artefakte, operatorverwaltete Stages und root-eigene
+Rollback-Snapshots nur durch eine ausdrueckliche separate Aktion entfernen.
+
 ## yaVDR root shell, public GitHub checkout and least-privileged daemon build (2026-10-14)
 
 **Confirmed incident:** The operator works in a persistent
