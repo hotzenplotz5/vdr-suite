@@ -72,6 +72,15 @@ public:
             limit);
     }
 
+    // Single read-only TMDb resolver for all clients.
+    ApiResponse resolveRecordingMetadata(
+        const std::string& backendId,
+        const std::string& title,
+        RecordingMetadataCandidateKind kind,
+        int seasonNumber,
+        int episodeNumber,
+        int releaseYear = 0);
+
     ApiResponse getRecordingMetadataTrailer(
         const std::string& backendId,
         const std::string& mediaType,

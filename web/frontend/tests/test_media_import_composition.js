@@ -542,6 +542,44 @@ context.VdrSuiteClientApi = {
       return new Promise(function (resolve) { resolveOnlineReply = resolve; });
     }
     const body = JSON.parse(options.body);
+    if (route.endsWith('/metadata/resolve')) {
+      // Public-v1 resolver delegates to the established TMDb provider.
+      // Every episode receives its own exact matched identity.
+      if (batchAndorMetaFixture && body.kind === 'series' &&
+          body.seasonNumber === 2 &&
+          (body.episodeNumber === 11 || body.episodeNumber === 12)) {
+        const episode = body.episodeNumber === 11
+          ? onlineCandidate('episode', '911', 'Wer weiß noch davon', {
+            parentExternalId: '1399', seasonNumber: 2, episodeNumber: 11,
+            posterReference: '/episode.jpg'
+          })
+          : onlineCandidate('episode', '912', 'Jedha, Kyber, Erso', {
+            parentExternalId: '1399', seasonNumber: 2, episodeNumber: 12,
+            posterReference: '/episode.jpg'
+          });
+        return Promise.resolve({
+          status: 'matched', mediaType: 'episode',
+          series: onlineCandidate('series', '1399', 'Star Wars: Andor', {
+            posterReference: '/preview.jpg'
+          }),
+          episode: episode
+        });
+      }
+      if (body.kind === 'series' && body.seasonNumber === 1 &&
+          body.episodeNumber === 1 && /andor/i.test(body.title || '')) {
+        return Promise.resolve({
+          status: 'matched', mediaType: 'episode',
+          series: onlineCandidate('series', '1399', 'Andor', {
+            posterReference: '/preview.jpg'
+          }),
+          episode: onlineCandidate('episode', '221', 'Pilot', {
+            parentExternalId: '1399', seasonNumber: 1, episodeNumber: 1,
+            posterReference: '/episode.jpg'
+          })
+        });
+      }
+      return Promise.resolve({status: 'not_found'});
+    }
     if (route.endsWith('/search')) {
       if (autoMovieExact && body.kind === 'movie')
         return Promise.resolve(onlinePage([
@@ -2966,12 +3004,11 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-local-metadata'),
     'local NFO is preserved during automatic TMDb lookup');
   const autoRequests = onlineRequests.slice(beforeAutoRequests);
-  assert.strictEqual(autoRequests.length, 3,
-    'one selected series episode performs search, season and episode lookup');
-  assert(autoRequests[0].route.endsWith('/search') &&
-    autoRequests[1].route.endsWith('/seasons') &&
-    autoRequests[2].route.endsWith('/episodes'));
-  assert.strictEqual(JSON.parse(autoRequests[2].options.body).seasonNumber, 1);
+  assert.strictEqual(autoRequests.length, 1,
+    'one selected series episode now uses one central Public-v1 resolver');
+  assert(autoRequests[0].route.endsWith('/metadata/resolve'),
+    'automatic matching never repeats search, seasons and episodes in UI');
+  assert.strictEqual(JSON.parse(autoRequests[0].options.body).seasonNumber, 1);
   const automaticOnline = findClass(mount, 'media-import-online-confirmed');
   assert(automaticOnline && automaticOnline.children[0].textContent.includes('Pilot'),
     'exact S01E01 is automatically identified from provider results');
@@ -3976,8 +4013,8 @@ function publishHomeResume() {}
   }), 'both Andor episodes receive automatic metadata in read-only batch review');
   const providerReads = onlineRequests.slice(providerReadsBefore);
   assert.strictEqual(providerReads.filter(function (req) {
-    return req.route.endsWith('/episodes');
-  }).length, 1, 'episodes of the same season share the existing TMDb response');
+    return req.route.endsWith('/metadata/resolve');
+  }).length, 2, 'each selected episode uses the central Public-v1 resolver once');
   await findClass(mount, 'media-import-batch-confirm').listeners.click();
   await settle();
   let metadataPosts = requests.filter(function (req) {

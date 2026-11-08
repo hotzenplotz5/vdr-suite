@@ -465,6 +465,33 @@ public:
                 });
         const bool isPublicMediaImportCreate =
             isPost && isPublicMediaImportCollection;
+        const std::string metadataResolveSuffix = "/metadata/resolve";
+        const bool metadataResolvePrefix =
+            path.compare(0, mediaImportCapabilityPrefix.size(),
+                         mediaImportCapabilityPrefix) == 0 &&
+            path.size() > mediaImportCapabilityPrefix.size() +
+                metadataResolveSuffix.size() &&
+            path.compare(path.size() - metadataResolveSuffix.size(),
+                         metadataResolveSuffix.size(),
+                         metadataResolveSuffix) == 0;
+        const std::string publicMetadataResolveBackendId =
+            metadataResolvePrefix
+                ? path.substr(mediaImportCapabilityPrefix.size(),
+                    path.size() - mediaImportCapabilityPrefix.size() -
+                    metadataResolveSuffix.size())
+                : std::string();
+        const bool isPublicMetadataResolve = isPost &&
+            !publicMetadataResolveBackendId.empty() &&
+            publicMetadataResolveBackendId.size() <= 128U &&
+            publicMetadataResolveBackendId != "*" &&
+            publicMetadataResolveBackendId != "." &&
+            publicMetadataResolveBackendId != ".." &&
+            std::all_of(publicMetadataResolveBackendId.begin(),
+                publicMetadataResolveBackendId.end(), [](unsigned char ch) {
+                    return std::isalnum(ch) || ch == '-' ||
+                        ch == '_' || ch == '.';
+                });
+
         const std::string mediaImportSourcesSuffix = "/media-import-sources";
         const bool isPublicMediaImportSourcesResource =
             path.compare(0, mediaImportCapabilityPrefix.size(),
@@ -1224,6 +1251,7 @@ public:
             isPublicSearchTimerCreate ||
             isPublicSearchTimerMutation ||
             isPublicMediaImportCreate ||
+            isPublicMetadataResolve ||
             isPublicMediaCheckCreate ||
             isPublicMediaShrinkPlanCreate ||
             isPublicMediaShrinkStageCreate ||
@@ -3162,6 +3190,14 @@ public:
             // Only this exact action receives role.admin@* expansion.
             requestToAuthorize.action = "native_timers.create";
             requestToAuthorize.backendId = publicEpgTimerBackendId;
+        }
+        else if (isPublicMetadataResolve)
+        {
+            // The resolver only returns TMDb candidates: no assignment.
+            // Reuse the existing recordings.view grant, no new role.
+            requestToAuthorize.permission = "recordings.view";
+            requestToAuthorize.action = "metadata.recording.resolve";
+            requestToAuthorize.backendId = publicMetadataResolveBackendId;
         }
         else if (isPublicMediaImportCreate)
         {

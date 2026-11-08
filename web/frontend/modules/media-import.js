@@ -1040,50 +1040,42 @@
     batch.resumeNext = true;
   }
 
-  // Resolve a batch film's *pre-import* TMDb data using the same metadata
-  // endpoints and exact-match rules as the single-film preview. Cache within
-  // one review so ten episodes of one season reuse the series/episode list.
-  // Failed/ambiguous provider results leave the normal NFO import available.
-  function batchMetadataLookup(view, endpoint, payload, kind, series, season) {
-    const api = global.VdrSuiteClientApi;
-    if (!isCurrent(view) || !api || typeof api.requestJson !== 'function')
-      return Promise.resolve([]);
-    const session = global.VdrSuiteBrowserSession;
-    const csrf = session && typeof session.csrfHeaders === 'function'
-      ? session.csrfHeaders() : {};
-    return Promise.resolve().then(function () {
-      return api.requestJson(
-        '/api/backends/' + encodeURIComponent(view.backendId) +
-          '/recordings/metadata/' + endpoint, {
-          method: 'POST',
-          headers: Object.assign({'Content-Type': 'application/json'},
-            csrf && typeof csrf === 'object' ? csrf : {}),
-          body: JSON.stringify(payload),
-          cache: 'no-store', credentials: 'same-origin'
-        });
-    }).then(function (data) {
-      return isCurrent(view) && data && data.providerId === 'tmdb' &&
-        data.providerAvailable === true &&
-        Array.isArray(data.candidates) && data.candidates.length <= 20
-        ? data.candidates.filter(function (item) {
-          return onlineValid(item, kind, series, season);
-        }) : [];
-    }).catch(function () { return []; });
-  }
-
+  // TMDb identity is resolved once by the existing Metadata Core, exposed
+  // through Public API v1. The browser only freezes the exact returned
+  // episode/movie candidate into the existing import Operation payload.
   function batchMetadataSnapshot(view, source, plan, cache) {
     if (!source || !plan || plan.state !== 'ready' ||
         !validRelativeFolder(plan.targetFolder)) return Promise.resolve('');
-    const cached = function (key, load) {
-      if (!cache.has(key)) cache.set(key, Promise.resolve().then(load));
+    const api = global.VdrSuiteClientApi;
+    if (!isCurrent(view) || !api || typeof api.requestJson !== 'function')
+      return Promise.resolve('');
+    const session = global.VdrSuiteBrowserSession;
+    const csrf = session && typeof session.csrfHeaders === 'function'
+      ? session.csrfHeaders() : {};
+    const resolve = function (title, kind, season, episode, year) {
+      const key = 'v1-resolve:' + kind + ':' +
+        normalizedSeriesName(title) + ':' + season + ':' + episode +
+        ':' + (year || 0);
+      if (!cache.has(key)) cache.set(key, Promise.resolve().then(function () {
+        return api.requestJson(
+          '/api/v1/backends/' + encodeURIComponent(view.backendId) +
+          '/metadata/resolve', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type':'application/json'},
+              csrf && typeof csrf === 'object' ? csrf : {}),
+            body: JSON.stringify({
+              title: title, kind: kind,
+              ...(kind === 'series'
+                ? {seasonNumber: season, episodeNumber: episode}
+                : year ? {year: year} : {})
+            }),
+            cache: 'no-store', credentials: 'same-origin'
+          });
+      }).catch(function () { return null; }));
       return cache.get(key);
     };
     const coords = episodeCoordinates(source);
     if (coords.episode !== null) {
-      // The final source folder may be generic ("Import") or an individual
-      // episode directory. Try a filename-derived series name first, then
-      // the existing folder hint. Both still require one exact TMDb series
-      // and the exact season/episode before freezing any metadata.
       const titles = [batchSeriesTitleFromLabel(source),
         onlineSeriesSearchTitle(source)].filter(function (title, index, all) {
         return title.length >= 2 && title.length <= 160 &&
@@ -1091,92 +1083,36 @@
             return normalizedSeriesName(other) === normalizedSeriesName(title);
           }) === index;
       });
-      const findSeries = function (index) {
-        if (index >= titles.length) return Promise.resolve(null);
-        const title = titles[index];
-        const normalized = normalizedSeriesName(title);
-        const alternative = normalized.replace(/^star wars /, '');
-        const match = function (items) {
-          return items.filter(function (candidate) {
-            const name = normalizedSeriesName(candidate.title);
-            return name === normalized || (alternative !== normalized &&
-              name === alternative);
+      const tryTitle = function (index) {
+        if (index >= titles.length) return Promise.resolve('');
+        return resolve(titles[index], 'series', coords.season, coords.episode)
+          .then(function (data) {
+            if (!isCurrent(view) || !data || data.status !== 'matched' ||
+                data.mediaType !== 'episode' || !data.series ||
+                !data.episode || data.series.kind !== 'series' ||
+                data.episode.kind !== 'episode' ||
+                data.episode.parentExternalId !== data.series.externalId ||
+                data.episode.seasonNumber !== coords.season ||
+                data.episode.episodeNumber !== coords.episode)
+              return tryTitle(index + 1);
+            return frozenImportMetadata(view, {candidate:
+              Object.assign({}, data.episode, {mediaType: 'episode'})
+            }, data.series);
           });
-        };
-        return cached('series:' + normalized, function () {
-          return batchMetadataLookup(view, 'search',
-            {query: title, kind: 'series', limit: 12}, 'series'
-          ).then(function (items) {
-            const matches = match(items);
-            if (matches.length || alternative === normalized ||
-                alternative.length < 2 || alternative.length > 160)
-              return matches.length === 1 ? matches[0] : null;
-            return batchMetadataLookup(view, 'search',
-              {query: alternative, kind: 'series', limit: 12}, 'series'
-            ).then(function (fallback) {
-              const found = match(fallback);
-              return found.length === 1 ? found[0] : null;
-            });
-          });
-        }).then(function (series) {
-          return series || findSeries(index + 1);
-        });
       };
-      return findSeries(0).then(function (series) {
-        if (!series) return '';
-        return cached('seasons:' + series.externalId, function () {
-          return batchMetadataLookup(view, 'seasons',
-            {seriesExternalId: series.externalId, limit: 20},
-            'season', series);
-        }).then(function (seasons) {
-          const matching = seasons.filter(function (season) {
-            return season.seasonNumber === coords.season;
-          });
-          if (matching.length !== 1) return '';
-          const season = matching[0];
-          return cached('episodes:' + series.externalId + ':' + coords.season,
-            function () {
-              return batchMetadataLookup(view, 'episodes', {
-                seriesExternalId: series.externalId,
-                seasonNumber: coords.season, limit: 20
-              }, 'episode', series, season);
-            }).then(function (episodes) {
-              const found = episodes.filter(function (episode) {
-                return episode.seasonNumber === coords.season &&
-                  episode.episodeNumber === coords.episode;
-              });
-              if (found.length !== 1) return '';
-              // The worker and Core already accept this v2 snapshot; the
-              // batch does not do an after-import metadata assignment.
-              return frozenImportMetadata(view, {candidate: Object.assign({}, found[0], {
-                mediaType: 'episode'
-              })}, series);
-            });
-        });
-      }).catch(function () { return ''; });
+      return tryTitle(0).catch(function () { return ''; });
     }
-    // Standalone movies use the same exact title/original-title and NFO-year
-    // disambiguation as their existing single-film automatic discovery.
-    const title = String(source.label || plan.title || '').trim();
+    const title = String(source.label || plan.title || '').trim()
+      .replace(/[_:]+/g, ' ').replace(/\s+/g, ' ');
     if (title.length < 2 || title.length > 160) return Promise.resolve('');
-    const normalized = normalizedSeriesName(title);
-    const query = title.replace(/[_:]+/g, ' ').replace(/\s+/g, ' ').trim();
-    return cached('movie:' + normalized, function () {
-      return batchMetadataLookup(view, 'search',
-        {query: query, kind: 'movie', limit: 12}, 'movie');
-    }).then(function (items) {
-      let matches = items.filter(function (candidate) {
-        return normalizedSeriesName(candidate.title) === normalized ||
-          normalizedSeriesName(candidate.originalTitle) === normalized;
-      });
-      if (matches.length > 1 && /^\d{4}$/.test(plan.nfoYear || ''))
-        matches = matches.filter(function (candidate) {
-          return String(candidate.releaseDate || '').slice(0, 4) === plan.nfoYear;
-        });
-      return matches.length === 1
-        ? frozenImportMetadata(view, {candidate: Object.assign({}, matches[0], {
-          mediaType: 'movie'
-        })}) : '';
+    const year = /^\d{4}$/.test(plan.nfoYear || '')
+      ? Number(plan.nfoYear) : 0;
+    return resolve(title, 'movie', 0, 0, year).then(function (data) {
+      return data && data.status === 'matched' &&
+        data.mediaType === 'movie' && data.movie &&
+        data.movie.kind === 'movie'
+        ? frozenImportMetadata(view, {candidate: Object.assign({},
+          data.movie, {mediaType: 'movie'})}) : '';
     }).catch(function () { return ''; });
   }
 
@@ -2478,8 +2414,9 @@
 
   function autoIdentifyEpisode(view, source) {
     const coords = episodeCoordinates(source);
-    const title = onlineSeriesSearchTitle(source);
-    if (coords.episode === null || !title || title.length < 2 ||
+    const title = batchSeriesTitleFromLabel(source) ||
+      onlineSeriesSearchTitle(source);
+    if (coords.episode === null || title.length < 2 ||
         title.length > 160 || !view.sources.includes(source.sourceId)) return;
     const sourceId = source.sourceId;
     const generation = view.previewGeneration;
@@ -2487,85 +2424,58 @@
       return isCurrent(view) && view.onlineAuto &&
         generation === view.previewGeneration && view.select.value === sourceId;
     };
-    const normalized = normalizedSeriesName(title);
-    const alternative = normalized.replace(/^star wars /, '');
-    const match = function (candidates) {
-      return candidates.filter(function (candidate) {
-        const name = normalizedSeriesName(candidate.title);
-        return name === normalized || (alternative !== normalized &&
-          name === alternative);
-      });
-    };
-    const lookupSeries = function (query) {
-      return onlineLookup(view, 'search',
-        {query: query, kind: 'series', limit: 12}, 'series');
-    };
+    const api = global.VdrSuiteClientApi;
+    if (!api || typeof api.requestJson !== 'function') return;
+    const session = global.VdrSuiteBrowserSession;
+    const csrf = session && typeof session.csrfHeaders === 'function'
+      ? session.csrfHeaders() : {};
     view.onlineAuto = true;
     view.onlineKind = 'series';
     view.onlineQuery = title;
+    view.onlinePending = true;
+    view.onlineStatus = 'TMDb-Folge wird vom Metadata Core zugeordnet …';
+    updatePreview(view);
     Promise.resolve().then(function () {
-      if (!active()) return [];
-      return lookupSeries(title);
-    }).then(function (candidates) {
       if (!active()) return null;
-      const matches = match(candidates || []);
-      // A known franchise prefix can differ from TMDb's displayed title
-      // (e.g. local 'Star Wars-Andor', provider 'Andor'). Search its name
-      // separately only when the first response had no title match.
-      if (!matches.length && alternative !== normalized &&
-          alternative.length >= 2 && alternative.length <= 160) {
-        return lookupSeries(alternative).then(function (fallback) {
-          return active() ? match(fallback || []) : null;
+      return api.requestJson(
+        '/api/v1/backends/' + encodeURIComponent(view.backendId) +
+        '/metadata/resolve', {
+          method: 'POST',
+          headers: Object.assign({'Content-Type':'application/json'},
+            csrf && typeof csrf === 'object' ? csrf : {}),
+          body: JSON.stringify({
+            title: title, kind: 'series',
+            seasonNumber: coords.season, episodeNumber: coords.episode
+          }),
+          cache: 'no-store', credentials: 'same-origin'
         });
-      }
-      return matches;
-    }).then(function (matches) {
-      if (!active() || !matches) return null;
-      if (matches.length !== 1) {
-        view.onlineStatus = matches.length
-          ? 'Mehrdeutige Serie: Bitte den TMDb-Treffer manuell auswählen.'
-          : 'Keine eindeutige Serie erkannt. TMDb-Suche bleibt manuell möglich.';
+    }).then(function (matched) {
+      if (!active()) return;
+      view.onlinePending = false;
+      if (!matched || matched.status !== 'matched' ||
+          matched.mediaType !== 'episode' ||
+          !matched.series || !matched.episode ||
+          !onlineValid(matched.series, 'series') ||
+          matched.episode.providerId !== 'tmdb' ||
+          matched.episode.kind !== 'episode' ||
+          matched.episode.externalNamespace !== 'tv-episode' ||
+          matched.episode.parentExternalId !== matched.series.externalId ||
+          matched.episode.seasonNumber !== coords.season ||
+          matched.episode.episodeNumber !== coords.episode) {
+        view.onlineStatus = 'Keine eindeutige TMDb-Folge erkannt. Manuelle Suche möglich.';
         updatePreview(view);
-        return null;
+        return;
       }
-      view.onlineSeries = matches[0];
-      view.onlineMode = 'seasons';
-      return onlineLookup(view, 'seasons',
-        {seriesExternalId: matches[0].externalId, limit: 20}, 'season');
-    }).then(function (seasons) {
-      if (!active() || !Array.isArray(seasons)) return null;
-      const matches = seasons.filter(function (item) {
-        return item.seasonNumber === coords.season;
-      });
-      if (matches.length !== 1) {
-        view.onlineStatus = 'Staffel nicht eindeutig gefunden. Manuelle TMDb-Auswahl möglich.';
-        updatePreview(view);
-        return null;
-      }
-      view.onlineSeason = matches[0];
+      view.onlineSeries = matched.series;
+      view.onlineSeason = {seasonNumber: coords.season};
       view.onlineMode = 'episodes';
-      return onlineLookup(view, 'episodes', {
-        seriesExternalId: view.onlineSeries.externalId,
-        seasonNumber: coords.season, limit: 20
-      }, 'episode');
-    }).then(function (episodes) {
-      if (!active() || !Array.isArray(episodes)) return;
-      const matches = episodes.filter(function (item) {
-        return item.seasonNumber === coords.season &&
-          item.episodeNumber === coords.episode;
-      });
-      if (matches.length === 1) {
-        view.onlineSelected = matches[0];
-        view.onlineAutoSelected = true;
-        view.onlineStatus = 'TMDb eindeutig erkannt: Staffel ' +
-          coords.season + ', Folge ' + coords.episode +
-          '. Die bereits gefundenen Metadaten werden beim Importstart ' +
-          'im Auftrag gespeichert und beim VDR-Import übernommen.';
-      } else {
-        view.onlineStatus = matches.length
-          ? 'Episode mehrdeutig. Bitte den TMDb-Treffer manuell auswählen.'
-          : 'Episode nicht gefunden. Manuelle TMDb-Auswahl möglich.';
-      }
+      view.onlineItems = [matched.episode];
+      view.onlineSelected = matched.episode;
+      view.onlineAutoSelected = true;
+      view.onlineStatus = 'TMDb eindeutig erkannt: Staffel ' +
+        coords.season + ', Folge ' + coords.episode +
+        '. Die vorhandenen Metadaten werden beim Importstart ' +
+        'mit dem Auftrag übernommen.';
       updatePreview(view);
     }).catch(function () {
       if (!active()) return;

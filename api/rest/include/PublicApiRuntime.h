@@ -1392,6 +1392,13 @@ public:
             const std::string& operationId,
             const std::string& actorRef)>;
 
+    // Public-v1 read-only metadata resolve uses an existing backend owner.
+    // Callback keeps the Public runtime independently linkable in tests.
+    using MetadataResolveCallback = std::function<ApiResponse(
+        const std::string& backendId,
+        const std::string& requestBody,
+        const std::string& actorRef)>;
+
     using MediaImportRecentLookup =
         std::function<PublicMediaImportRecentResult(
             const std::string& actorId, const std::string& backendId)>;
@@ -1628,6 +1635,12 @@ public:
             const PublicTimerCreateAdmissionRequest& request)>;
 
     static PublicApiRuntime& instance();
+
+    void registerMetadataResolveCallback(MetadataResolveCallback callback)
+    {
+        std::lock_guard<std::mutex> guard(metadataResolveMutex_);
+        metadataResolveCallback_ = std::move(callback);
+    }
 
     void registerOperationLookup(OperationLookup lookup);
     void resetOperationLookup();
@@ -2082,6 +2095,9 @@ private:
     PublicOperationLookupResult lookupOperation(
         const std::string& operationId,
         const std::string& actorRef) const;
+
+    mutable std::mutex metadataResolveMutex_;
+    MetadataResolveCallback metadataResolveCallback_;
 
     mutable std::mutex operationLookupMutex_;
     OperationLookup operationLookup_;

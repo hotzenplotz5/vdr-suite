@@ -46,6 +46,13 @@ public:
         const std::string& requestTarget,
         ApiResponse& response) const;
 
+    // Public-v1 façade: parse one canonical read-only resolve request.
+    bool resolveReadOnly(
+        const std::string& backendId,
+        const std::string& body,
+        const std::string& actorRef,
+        ApiResponse& response) const;
+
     bool tryHandlePost(
         const std::string& requestTarget,
         const std::string& body,

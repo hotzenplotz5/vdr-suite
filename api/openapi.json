@@ -77,6 +77,142 @@
     }
   ],
   "paths": {
+    "/api/v1/backends/{backendId}/metadata/resolve": {
+      "post": {
+        "tags": [
+          "Recording metadata"
+        ],
+        "operationId": "resolvePublicRecordingMetadata",
+        "summary": "Resolve an exact movie or series episode using the existing TMDb provider",
+        "description": "Read-only POST. Reuses the existing Metadata Core candidate provider and the recordings.view permission for the authorized backend. Never imports, assigns, or overwrites a Recording. A matched episode includes its canonical series candidate; ambiguous/no-match responses do not claim a selected identity.",
+        "parameters": [
+          {
+            "name": "backendId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "title",
+                  "kind"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 160
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "series",
+                      "movie"
+                    ]
+                  },
+                  "seasonNumber": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                  },
+                  "episodeNumber": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                  },
+                  "year": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9999
+                  }
+                }
+              },
+              "examples": {
+                "series": {
+                  "value": {
+                    "kind": "series",
+                    "title": "Star Wars-Andor",
+                    "seasonNumber": 2,
+                    "episodeNumber": 4
+                  }
+                },
+                "movie": {
+                  "value": {
+                    "kind": "movie",
+                    "title": "Forrest Gump",
+                    "year": 1994
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "status matched (with exact candidate series/episode or movie), not_found, or ambiguous; never writes metadata.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "matched",
+                        "not_found",
+                        "ambiguous"
+                      ]
+                    },
+                    "mediaType": {
+                      "type": "string",
+                      "enum": [
+                        "episode",
+                        "movie"
+                      ]
+                    },
+                    "series": {
+                      "type": "object"
+                    },
+                    "episode": {
+                      "type": "object"
+                    },
+                    "movie": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid bounded title/kind/season/episode/year or JSON"
+          },
+          "401": {
+            "description": "Actor authentication required"
+          },
+          "403": {
+            "description": "Actor lacks existing recordings.view permission for this backend"
+          },
+          "503": {
+            "description": "TMDb candidate provider unavailable"
+          }
+        }
+      }
+    },
     "/api/v1/epg/window": {
       "get": {
         "tags": [

@@ -3097,11 +3097,9 @@
     return ((series && series.episodes) || []).filter(missingSeriesEpisodeMetadata);
   }
 
-  function normalizedSeriesMatch(value) {
-    return text(value).toLocaleLowerCase().normalize('NFKC')
-      .replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
-  }
-
+  // Read-only resolution lives in the Metadata Core, not the Home view.
+  // The subsequent already-existing assignment endpoint stays explicit and
+  // continues to protect correctly selected and localized episode metadata.
   function backfillSeriesEpisodeMetadata(series, backendId, client, progress) {
     const targets = seriesMetadataBackfillTargets(series);
     const result = {total: targets.length, updated: 0, skipped: 0, failed: 0};
@@ -3109,16 +3107,17 @@
     if (!client || typeof client.requestJson !== 'function')
       return Promise.reject(new Error('Recording-Metadaten-API nicht verfügbar.'));
     const title = text(series.title);
-    const normalized = normalizedSeriesMatch(title);
-    if (!normalized || targets.length > SERIES_PAGE_LIMIT)
+    if (!title || targets.length > SERIES_PAGE_LIMIT)
       return Promise.reject(new Error('Serienname oder Umfang nicht eindeutig.'));
     const endpoint = '/api/backends/' + encodeURIComponent(backendId) +
       '/recordings/metadata/';
+    const resolver = '/api/v1/backends/' + encodeURIComponent(backendId) +
+      '/metadata/resolve';
     const session = global.VdrSuiteBrowserSession;
     const csrf = session && typeof session.csrfHeaders === 'function'
       ? session.csrfHeaders() : {};
-    const post = function (operation, payload) {
-      return client.requestJson(endpoint + operation, {
+    const post = function (route, payload) {
+      return client.requestJson(route, {
         method: 'POST', cache: 'no-store', credentials: 'same-origin',
         headers: Object.assign({'Content-Type': 'application/json'}, csrf || {}),
         body: JSON.stringify(payload)
@@ -3127,134 +3126,80 @@
     const status = function (message) {
       if (typeof progress === 'function') progress(message, result);
     };
-    // Local VDR folder names may prefix the canonical title, e.g.
-    // "Star Wars-Andor" while TMDb calls the series "Andor". Try the
-    // original name first, then only this explicit franchise-prefix alias.
-    // Each lookup must yield exactly ONE matching TMDb series identity.
-    const alternativeTitle = title.replace(
-      /^star[\s._:-]+wars[\s._:-]+/i, '').trim();
-    // Reuse the Media Tools search contract: both the local franchise title
-    // and the stripped alias remain valid matches across BOTH queries. TMDb
-    // may return "Star Wars: Andor" even when searching for "Andor".
-    const acceptedNames = new Set([normalized]);
-    const searches = [title];
-    const alternativeNormalized = normalizedSeriesMatch(alternativeTitle);
-    if (alternativeTitle.length >= 2 && alternativeNormalized !== normalized) {
-      searches.push(alternativeTitle);
-      acceptedNames.add(alternativeNormalized);
-    }
-    const searchSeries = function (index) {
-      const query = searches[index];
-      status('TMDb-Serie wird eindeutig ermittelt: ' + query + ' …');
-      return post('search', {query: query, kind: 'series', limit: 12})
-        .then(function (response) {
-          const matches = response && response.providerId === 'tmdb' &&
-            response.providerAvailable === true &&
-            Array.isArray(response.candidates)
-            ? response.candidates.filter(function (item) {
-              return item && item.kind === 'series' && item.providerId === 'tmdb' &&
-                item.externalNamespace === 'tv' &&
-                /^\d{1,12}$/.test(text(item.externalId)) &&
-                (acceptedNames.has(normalizedSeriesMatch(item.title)) ||
-                 acceptedNames.has(normalizedSeriesMatch(item.originalTitle)));
-            }) : [];
-          const byId = new Map(matches.map(function (item) {
-            return [text(item.externalId), item];
-          }));
-          if (byId.size === 1) return byId.values().next().value;
-          if (byId.size > 1)
-            throw new Error('Mehrere passende TMDb-Serien gefunden. Keine Metadaten verändert.');
-          if (index + 1 < searches.length) return searchSeries(index + 1);
-          throw new Error('Keine eindeutige TMDb-Serie gefunden. Keine Metadaten verändert.');
-        });
-    };
-    return searchSeries(0).then(function (foundSeries) {
-        const seasons = new Map();
-        let chain = Promise.resolve();
-        targets.forEach(function (member, index) {
-          chain = chain.then(function () {
-            const season = Number(member.seasonNumber);
-            const episode = Number(member.episodeNumber);
-            const resourceKey = recordingBackendNativeId(member.recording);
-            status((index + 1) + '/' + targets.length + ': ' +
-              text(member.episodeTitle) + ' wird geprüft …');
-            if (!seasons.has(season)) {
-              seasons.set(season, post('episodes', {
-                seriesExternalId: foundSeries.externalId, seasonNumber: season,
-                limit: 20
-              }));
-            }
-            return seasons.get(season).then(function (page) {
-              const matches = page && page.providerId === 'tmdb' &&
-                page.providerAvailable === true && Array.isArray(page.candidates)
-                ? page.candidates.filter(function (candidate) {
-                  return candidate && candidate.kind === 'episode' &&
-                    candidate.providerId === 'tmdb' &&
-                    candidate.externalNamespace === 'tv-episode' &&
-                    /^\d{1,12}$/.test(text(candidate.externalId)) &&
-                    text(candidate.parentExternalId) === text(foundSeries.externalId) &&
-                    Number(candidate.seasonNumber) === season &&
-                    Number(candidate.episodeNumber) === episode &&
-                    Boolean(text(candidate.title));
-                }) : [];
-              if (matches.length !== 1) {
+    let sequence = Promise.resolve();
+    targets.forEach(function (member, index) {
+      sequence = sequence.then(function () {
+        const season = Number(member.seasonNumber);
+        const episodeNumber = Number(member.episodeNumber);
+        const resourceKey = recordingBackendNativeId(member.recording);
+        status((index + 1) + '/' + targets.length + ': ' +
+          text(member.episodeTitle) + ' – zentrale TMDb-Zuordnung …');
+        return post(resolver, {
+          title: title, kind: 'series',
+          seasonNumber: season, episodeNumber: episodeNumber
+        }).then(function (resolved) {
+          const foundSeries = resolved && resolved.series;
+          const candidate = resolved && resolved.episode;
+          if (!resolved || resolved.status !== 'matched' ||
+              resolved.mediaType !== 'episode' ||
+              !foundSeries || foundSeries.providerId !== 'tmdb' ||
+              foundSeries.kind !== 'series' ||
+              !candidate || candidate.providerId !== 'tmdb' ||
+              candidate.kind !== 'episode' ||
+              candidate.parentExternalId !== foundSeries.externalId ||
+              candidate.seasonNumber !== season ||
+              candidate.episodeNumber !== episodeNumber) {
+            result.skipped += 1;
+            return;
+          }
+          return client.requestJson(endpoint + 'manual?resourceKey=' +
+            encodeURIComponent(resourceKey), {
+              method: 'GET', cache: 'no-store', credentials: 'same-origin'
+            }).then(function (existing) {
+              if (!existing || existing.found !== false) {
                 result.skipped += 1;
                 return;
               }
-              const candidate = matches[0];
-              // Do not replace a selected/locked assignment. The existing
-              // server revision also guards against concurrent selections.
-              return client.requestJson(endpoint + 'manual?resourceKey=' +
-                encodeURIComponent(resourceKey), {
-                  method: 'GET', cache: 'no-store', credentials: 'same-origin'
-                }).then(function (existing) {
-                  if (!existing || existing.found !== false) {
-                    result.skipped += 1;
-                    return;
-                  }
-                  const poster = text(foundSeries.posterReference ||
-                    candidate.posterReference);
-                  const currentTitle = text(member.episodeTitle);
-                  const titleNeedsRepair = /\bS\d{1,3}\s*E\d{1,4}\b/i
-                    .test(currentTitle) ||
-                    /^\s*(?:DE|EN)\s*[-–]\s*.+\(\d{4}\)/i.test(currentTitle);
-                  // Artwork-only completion may not rename an otherwise
-                  // valid episode if the provider's regional title differs.
-                  if (!titleNeedsRepair &&
-                      (!poster || currentTitle.toLocaleLowerCase() !==
-                        text(candidate.title).toLocaleLowerCase())) {
-                    result.skipped += 1;
-                    return;
-                  }
-                  return post('assign', {
-                    resourceKey: resourceKey, providerId: 'tmdb',
-                    externalNamespace: candidate.externalNamespace,
-                    externalId: candidate.externalId, mediaType: 'episode',
-                    title: candidate.title, seriesTitle: foundSeries.title,
-                    originalTitle: candidate.originalTitle || '',
-                    overview: candidate.overview || '',
-                    releaseDate: candidate.releaseDate || '',
-                    posterReference: poster,
-                    seasonNumber: season, episodeNumber: episode,
-                    expectedRevision: 0
-                  }).then(function (saved) {
-                    if (saved && saved.found === true) result.updated += 1;
-                    else result.failed += 1;
-                  });
-                });
-            }).catch(function (error) {
-              result.failed += 1;
-              if (error && (error.status === 401 || error.status === 403))
-                throw error;
+              const currentTitle = text(member.episodeTitle);
+              const titleNeedsRepair = /\bS\d{1,3}\s*E\d{1,4}\b/i
+                .test(currentTitle) ||
+                /^\s*(?:DE|EN)\s*[-–]\s*.+\(\d{4}\)/i.test(currentTitle);
+              const poster = text(foundSeries.posterReference ||
+                candidate.posterReference);
+              if (!titleNeedsRepair &&
+                  (!poster || currentTitle.toLocaleLowerCase() !==
+                    text(candidate.title).toLocaleLowerCase())) {
+                result.skipped += 1;
+                return;
+              }
+              return post(endpoint + 'assign', {
+                resourceKey: resourceKey, providerId: 'tmdb',
+                externalNamespace: candidate.externalNamespace,
+                externalId: candidate.externalId, mediaType: 'episode',
+                title: candidate.title, seriesTitle: foundSeries.title,
+                originalTitle: candidate.originalTitle || '',
+                overview: candidate.overview || '',
+                releaseDate: candidate.releaseDate || '',
+                posterReference: poster,
+                seasonNumber: season, episodeNumber: episodeNumber,
+                expectedRevision: 0
+              }).then(function (saved) {
+                if (saved && saved.found === true) result.updated += 1;
+                else result.failed += 1;
+              });
             });
-          });
-        });
-        return chain.then(function () {
-          status(result.updated + ' ergänzt, ' + result.skipped +
-            ' unverändert, ' + result.failed + ' fehlgeschlagen.');
-          return result;
+        }).catch(function (error) {
+          result.failed += 1;
+          if (error && (error.status === 401 || error.status === 403))
+            throw error;
         });
       });
+    });
+    return sequence.then(function () {
+      status(result.updated + ' ergänzt, ' + result.skipped +
+        ' unverändert, ' + result.failed + ' fehlgeschlagen.');
+      return result;
+    });
   }
 
   function renderSeriesDetail(series, selectedSeason, backendId, options) {

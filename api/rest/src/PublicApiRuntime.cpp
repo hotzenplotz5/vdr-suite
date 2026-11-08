@@ -215,6 +215,25 @@ bool publicMediaImportCapabilityPath(
         backendId.find('%') == std::string::npos;
 }
 
+bool publicMetadataResolvePath(
+    const std::string& path, std::string& backendId)
+{
+    static const std::string prefix = "/api/v1/backends/";
+    static const std::string suffix = "/metadata/resolve";
+    if (path.compare(0U, prefix.size(), prefix) != 0 ||
+        path.size() <= prefix.size() + suffix.size() ||
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) != 0)
+        return false;
+    backendId = path.substr(prefix.size(),
+        path.size() - prefix.size() - suffix.size());
+    return backendId.size() <= 128U &&
+        backendId != "*" && backendId != "." && backendId != ".." &&
+        std::all_of(backendId.begin(), backendId.end(),
+            [](unsigned char c) {
+                return std::isalnum(c) || c == '-' || c == '_' || c == '.';
+            });
+}
+
 bool publicMediaImportCollectionPath(
     const std::string& path, std::string& backendId)
 {
@@ -12561,6 +12580,47 @@ bool PublicApiRuntime::tryHandlePost(
     std::string operationId;
     std::string timerAssignmentId;
     std::string mediaCapabilityBackendId;
+
+    std::string metadataBackend;
+    if (publicMetadataResolvePath(path, metadataBackend))
+    {
+        if (actorRef.empty())
+        {
+            response = unauthorizedProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (authorizedBackendId != metadataBackend)
+        {
+            response = notFoundProblem(path, requestId, correlationId);
+            return true;
+        }
+        if (requestTarget != path || body.size() > 4096U)
+        {
+            response = invalidRequestProblem(path,
+                "Invalid metadata resolve request.", requestId, correlationId);
+            return true;
+        }
+        if (!applicationJsonContentType(contentType))
+        {
+            response = problemResponse(415, "unsupported_media_type",
+                "Unsupported media type",
+                "Metadata resolve requires application/json.",
+                path, requestId, correlationId);
+            return true;
+        }
+        MetadataResolveCallback callback;
+        {
+            std::lock_guard<std::mutex> lock(metadataResolveMutex_);
+            callback = metadataResolveCallback_;
+        }
+        if (!callback)
+        {
+            response = serviceUnavailableProblem(path, requestId, correlationId);
+            return true;
+        }
+        response = callback(metadataBackend, body, actorRef);
+        return true;
+    }
 
     std::string mediaImportBackend;
     if (publicMediaImportCollectionPath(path, mediaImportBackend))

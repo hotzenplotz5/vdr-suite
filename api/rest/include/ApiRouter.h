@@ -498,6 +498,20 @@ public:
             return response;
         }
 
+        // Register the existing MetadataController before the Public-v1
+        // metadata resolver can dispatch to its read-only façade.
+        ManualRecordingMetadataApiRuntime::instance().registerController(
+            metadataController_);
+        PublicApiRuntime::instance().registerMetadataResolveCallback(
+            [](const std::string& backendId,
+               const std::string& body,
+               const std::string& actorRef) {
+                ApiResponse resolved;
+                ManualRecordingMetadataApiRuntime::instance()
+                    .resolveReadOnly(backendId, body, actorRef, resolved);
+                return resolved;
+            });
+
         if (PublicApiRuntime::instance().tryHandlePost(
                 requestTarget,
                 requestRef,
@@ -576,8 +590,6 @@ public:
             return response;
         }
 
-        ManualRecordingMetadataApiRuntime::instance().registerController(
-            metadataController_);
         if (ManualRecordingMetadataApiRuntime::instance().tryHandlePost(
                 requestTarget,
                 body,

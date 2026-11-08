@@ -27,6 +27,7 @@ public:
     int lastLimit = 0;
     int creditCalls = 0;
     bool emptyCredits = false;
+    bool ambiguousResolve = false;
     std::string creditError;
     bool creditProviderAvailable = true;
     int trailerCalls = 0;
@@ -53,6 +54,22 @@ public:
                 ? "Forrest Gump"
                 : "Sherlock";
         candidate.originalTitle = candidate.title;
+        if (kind == RecordingMetadataCandidateKind::Series &&
+            query == "Star Wars-Andor")
+        {
+            RecordingMetadataCandidatePage noMatch;
+            noMatch.attempted = true;
+            noMatch.providerAvailable = true;
+            noMatch.providerId = "tmdb";
+            return noMatch;
+        }
+        if (kind == RecordingMetadataCandidateKind::Series &&
+            query == "andor")
+        {
+            candidate.externalId = "4321";
+            candidate.title = "Star Wars: Andor";
+            candidate.originalTitle = candidate.title;
+        }
         candidate.overview = "Candidate overview";
         candidate.releaseDate = "1994-07-06";
         candidate.posterReference = "/candidate.jpg";
@@ -62,6 +79,12 @@ public:
         page.providerAvailable = true;
         page.providerId = "tmdb";
         page.candidates.push_back(candidate);
+        if (ambiguousResolve)
+        {
+            RecordingMetadataCandidate second = candidate;
+            second.externalId = "9999";
+            page.candidates.push_back(second);
+        }
         return page;
     }
 
@@ -103,10 +126,15 @@ public:
         candidate.externalNamespace = "tv-episode";
         candidate.externalId = "123";
         candidate.parentExternalId = seriesExternalId;
-        candidate.title = "Ein Fall von Pink";
+        candidate.title = seriesExternalId == "4321"
+            ? "Waren Sie schon einmal in Ghorman" : "Ein Fall von Pink";
+        if (seriesExternalId == "4321")
+        {
+            candidate.episodeNumber = 4;
+        }
         candidate.posterReference = "/episode.jpg";
         candidate.seasonNumber = seasonNumber;
-        candidate.episodeNumber = 1;
+        if (candidate.episodeNumber == 0) candidate.episodeNumber = 1;
 
         RecordingMetadataCandidatePage page;
         page.attempted = true;
@@ -291,6 +319,71 @@ int main()
         assert(provider.lastKind == RecordingMetadataCandidateKind::Movie);
         assert(provider.lastLimit == 5);
         assert(provider.creditCalls == 0);
+    }
+
+    // CORE1: one deterministic, read-only TMDb resolution shared by all
+    // frontends. No metadata assignment, native writer or video import.
+    {
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            "{\"title\":\"Sherlock\",\"kind\":\"series\","
+            "\"seasonNumber\":1,\"episodeNumber\":1}",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"matched\"") != std::string::npos);
+        assert(response.body.find("\"series\":") != std::string::npos);
+        assert(response.body.find("\"episode\":") != std::string::npos);
+        assert(response.body.find("Ein Fall von Pink") != std::string::npos);
+        assert(nativeUpdateCalls == 0);
+    }
+    {
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            "{\"title\":\"Star Wars-Andor\",\"kind\":\"series\","
+            "\"seasonNumber\":2,\"episodeNumber\":4}",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"matched\"") != std::string::npos);
+        assert(response.body.find("Star Wars: Andor") != std::string::npos);
+        assert(response.body.find("Waren Sie schon einmal in Ghorman") !=
+            std::string::npos);
+        assert(provider.lastQuery == "andor");
+        assert(provider.lastSeriesId == "4321");
+        assert(nativeUpdateCalls == 0);
+    }
+    {
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            "{\"title\":\"Sherlock\",\"kind\":\"series\","
+            "\"seasonNumber\":1,\"episodeNumber\":8}",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"not_found\"") !=
+            std::string::npos);
+        assert(nativeUpdateCalls == 0);
+    }
+    {
+        provider.ambiguousResolve = true;
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            "{\"title\":\"Sherlock\",\"kind\":\"series\","
+            "\"seasonNumber\":1,\"episodeNumber\":1}",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"ambiguous\"") !=
+            std::string::npos);
+        provider.ambiguousResolve = false;
+        assert(nativeUpdateCalls == 0);
+    }
+    {
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            "{\"title\":\"Forrest Gump\",\"kind\":\"movie\"}",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"mediaType\":\"movie\"") !=
+            std::string::npos);
+        assert(nativeUpdateCalls == 0);
     }
 
     {

@@ -697,6 +697,47 @@
       });
     }
 
+    // Public-v1 single metadata identity resolver for Web, TV and other clients.
+    // Pure read despite POST: no assignment, import or native writer action.
+    function requestMetadataResolve(options) {
+      const o = options && typeof options === 'object' ? options : {};
+      const path = mediaImportPath(o, 'metadata/resolve');
+      if (!['series', 'movie'].includes(o.kind) ||
+          typeof o.title !== 'string' || o.title.length < 2 ||
+          o.title.length > 160)
+        throw new Error('Metadata resolve requires kind and title');
+      if (o.kind === 'series' &&
+          (!Number.isInteger(o.seasonNumber) || o.seasonNumber < 1 ||
+           !Number.isInteger(o.episodeNumber) || o.episodeNumber < 1))
+        throw new Error('Metadata episode resolve requires season and episode');
+      const payload = {kind: o.kind, title: o.title};
+      if (o.kind === 'series') {
+        payload.seasonNumber = o.seasonNumber;
+        payload.episodeNumber = o.episodeNumber;
+      }
+      if (o.kind === 'movie' && o.year !== undefined) {
+        if (!Number.isInteger(o.year) || o.year < 1900 || o.year > 9999)
+          throw new Error('Metadata movie year is invalid');
+        payload.year = o.year;
+      }
+      const headers = Object.assign({Accept:'application/json'},
+        defaultHeaders, copyHeaders(o.headers),
+        {'Content-Type': 'application/json'});
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST', headers,
+        credentials: o.credentials !== undefined
+          ? o.credentials : normalized.credentials,
+        signal: o.signal, body: JSON.stringify(payload)
+      }).then(function (response) {
+        return parseJsonBody(response).then(function (data) {
+          if (!response.ok)
+            throw new VdrSuitePublicClientError(path,
+              response.status, data, response);
+          return data;
+        });
+      });
+    }
+
     function requestMediaImport(options) {
       const requestOptions = options && typeof options === 'object' ? options : {};
       const path = mediaImportPath(requestOptions, 'media-imports');
@@ -1859,6 +1900,9 @@
           'media-import-sources/' + value.sourceId + '/preview') +
           (value.refresh === true ? '?refresh=1' :
             value.cached === true ? '?cached=1' : ''), value);
+      },
+      resolveMetadata(options) {
+        return requestMetadataResolve(options);
       },
       submitMediaImport(options) {
         return requestMediaImport(options);

@@ -433,6 +433,49 @@ bool ManualRecordingMetadataApiRuntime::tryHandleGet(
     return true;
 }
 
+bool ManualRecordingMetadataApiRuntime::resolveReadOnly(
+    const std::string& backendId,
+    const std::string& body,
+    const std::string& actorRef,
+    ApiResponse& response) const
+{
+    if (actorRef.empty())
+    {
+        response = errorResponse(401, "authenticated_actor_required",
+            "An authenticated actor is required");
+        return true;
+    }
+    MetadataController* metadata = controller();
+    if (metadata == nullptr)
+    {
+        response = errorResponse(503, "metadata_runtime_unavailable",
+            "Recording metadata resolver is unavailable");
+        return true;
+    }
+    std::map<std::string, std::string> strings;
+    std::map<std::string, int> integers;
+    FlatJsonParser parser(body);
+    if (!parser.parse(strings, integers))
+    {
+        response = errorResponse(400, "invalid_metadata_resolve_request",
+            "The metadata resolver JSON is invalid");
+        return true;
+    }
+    RecordingMetadataCandidateKind kind;
+    if (!parseKind(stringValue(strings, "kind"), kind))
+    {
+        response = errorResponse(400, "invalid_metadata_candidate_kind",
+            "Candidate kind must be movie or series");
+        return true;
+    }
+    response = metadata->resolveRecordingMetadata(
+        backendId, stringValue(strings, "title"), kind,
+        intValue(integers, "seasonNumber", 0),
+        intValue(integers, "episodeNumber", 0),
+        intValue(integers, "year", 0));
+    return true;
+}
+
 bool ManualRecordingMetadataApiRuntime::tryHandlePost(
     const std::string& requestTarget,
     const std::string& body,

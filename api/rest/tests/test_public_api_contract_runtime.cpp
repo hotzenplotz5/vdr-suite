@@ -202,6 +202,51 @@ int main()
     assert(missing.body.find(
         "\"instance\":\"/api/v1/private\"") != std::string::npos);
 
+    // Public-v1 metadata lookup stays independently linkable: the real
+    // MetadataController is provided by the parent API router, not linked
+    // into each unrelated Public-v1 unit test.
+    runtime.registerMetadataResolveCallback(
+        [](const std::string& backend, const std::string& body,
+           const std::string& actor) {
+            assert(backend == "living-room");
+            assert(actor == "actor-test");
+            assert(body.find("Star Wars-Andor") != std::string::npos);
+            ApiResponse response;
+            response.statusCode = 200;
+            response.contentType = "application/json";
+            response.body = "{\"status\":\"matched\"}";
+            return response;
+        });
+    {
+        ApiResponse resolved;
+        assert(runtime.tryHandlePost(
+            "/api/v1/backends/living-room/metadata/resolve",
+            requestId, correlationId, resolved,
+            "{\"kind\":\"series\",\"title\":\"Star Wars-Andor\","
+            "\"seasonNumber\":2,\"episodeNumber\":4}",
+            "actor-test", "", "", "application/json", "living-room"));
+        assert(resolved.statusCode == 200);
+        assert(resolved.body == "{\"status\":\"matched\"}");
+    }
+    {
+        ApiResponse wrongScope;
+        assert(runtime.tryHandlePost(
+            "/api/v1/backends/living-room/metadata/resolve",
+            requestId, correlationId, wrongScope,
+            "{\"title\":\"Star Wars-Andor\",\"kind\":\"series\"}",
+            "actor-test", "", "", "application/json", "other-room"));
+        assert(wrongScope.statusCode == 404);
+    }
+    {
+        ApiResponse anonymous;
+        assert(runtime.tryHandlePost(
+            "/api/v1/backends/living-room/metadata/resolve",
+            requestId, correlationId, anonymous,
+            "{\"title\":\"Star Wars-Andor\",\"kind\":\"series\"}",
+            "", "", "", "application/json", "living-room"));
+        assert(anonymous.statusCode == 401);
+    }
+
     ApiResponse rootPost;
     assert(runtime.tryHandlePost(
         "/api/v1",

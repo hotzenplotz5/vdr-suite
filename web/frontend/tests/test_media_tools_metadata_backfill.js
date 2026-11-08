@@ -4,290 +4,148 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const frontend = path.join(__dirname, '..');
-const window = {document: null};
-window.window = window;
-window.VdrSuitePlatform = {
+const root = path.join(__dirname, '..');
+const win = {document: null};
+win.window = win;
+win.VdrSuitePlatform = {
   getSelectedBackendId() { return 'default'; },
   getSelectedModule() { return 'overview'; },
   getClientApi() { return null; }
 };
-window.VdrSuiteBrowserSession = {
+win.VdrSuiteBrowserSession = {
   csrfHeaders() { return {'X-CSRF-Token': 'existing-session-token'}; }
 };
-vm.createContext(window);
+vm.createContext(win);
 vm.runInContext([
-  fs.readFileSync(path.join(frontend, 'platform/helpers.js'), 'utf8'),
-  fs.readFileSync(path.join(frontend, 'home-recording-discovery.js'), 'utf8')
-].join('\n'), window);
-const api = window.VdrSuiteHomeRecordingDiscovery._test;
-
-function recording(id, name, poster, embeddedManual) {
-  const rec = {
-    recordingId: 'andor-' + id, backendId: 'default',
-    backendNativeId: '/srv/vdr/video/Serien/Andor/S02E' + id + '.rec',
-    path: 'Serien/Andor/S02E' + id + ' ' + name,
-    metadata: {provider: {
-      episodeTitle: name, seasonNumber: 2, episodeNumber: Number(id)
-    }, presentation: {posterUrl: poster}}
-  };
-  if (embeddedManual) rec.seriesMetadata = {
-    manualAssignment: {active: true}
-  };
-  return api.seriesMemberProjection(rec, null, 'default');
-}
-
-const raw = recording('04', 'DE - Star Wars Andor (2022) - S02E04 - Waren Sie schon einmal in Ghorman', '');
-const raw11 = recording('11', 'DE - Star Wars Andor (2022) - S02E11 - Wer weiß noch davon', '', true);
-const posterMissing = recording('06', 'Die Freude ist ganz meinerseits', '');
-const complete = recording('01', 'Ein Jahr später', '/existing/episode-art.jpg');
+  fs.readFileSync(path.join(root, 'platform/helpers.js'), 'utf8'),
+  fs.readFileSync(path.join(root, 'home-recording-discovery.js'), 'utf8')
+].join('\n'), win);
+const api = win.VdrSuiteHomeRecordingDiscovery._test;
 const series = {
-  key: 'folder:serien/andor', title: 'Andor', path: 'Serien/Andor',
-  episodes: [raw, posterMissing, complete, raw11]
-};
-assert.strictEqual(api.missingSeriesEpisodeMetadata(raw), true);
-assert.strictEqual(api.missingSeriesEpisodeMetadata(posterMissing), true);
-assert.strictEqual(api.missingSeriesEpisodeMetadata(complete), false);
-assert.strictEqual(api.missingSeriesEpisodeMetadata(raw11), false);
-assert.strictEqual(api.seriesMetadataBackfillTargets(series).length, 2);
-
-const seriesCandidate = {
   kind: 'series', providerId: 'tmdb', externalNamespace: 'tv',
-  externalId: '4321', title: 'Andor', posterReference: '/series-original.jpg'
+  externalId: '4321', title: 'Star Wars: Andor',
+  posterReference: '/series-original.jpg'
 };
-function episodeCandidate(number, title) {
+function episode(number, title) {
   return {
     kind: 'episode', providerId: 'tmdb', externalNamespace: 'tv-episode',
     parentExternalId: '4321', externalId: String(71000 + number),
-    title, overview: 'Originale TMDb-Folgenbeschreibung',
-    seasonNumber: 2, episodeNumber: number,
-    posterReference: '/episode-original.jpg'
+    title, overview: 'TMDb-Folgenbeschreibung', seasonNumber: 2,
+    episodeNumber: number, posterReference: '/episode-poster.jpg'
   };
 }
-const assigned = [];
-const calls = [];
-const client = {
-  requestJson(route, options) {
-    const action = route.split('/').pop().split('?')[0];
-    const body = options && options.body ? JSON.parse(options.body) : {};
-    calls.push({route, action, body, options});
-    if (action === 'search') {
-      assert.strictEqual(body.query, 'Andor');
-      return Promise.resolve({
-        providerId: 'tmdb', providerAvailable: true,
-        candidates: [seriesCandidate]
-      });
+function member(number, title, poster, locked) {
+  const recording = {
+    recordingId: 'andor-' + number, backendId: 'default',
+    backendNativeId: '/srv/vdr/video/Serien/Andor/S02E' + number + '.rec',
+    path: 'Serien/Andor/S02E' + number + ' ' + title,
+    metadata: {
+      provider: {episodeTitle: title, seasonNumber: 2, episodeNumber: Number(number)},
+      presentation: {posterUrl: poster}
     }
-    if (action === 'episodes') {
-      assert.strictEqual(body.seriesExternalId, '4321');
-      assert.strictEqual(body.seasonNumber, 2);
-      return Promise.resolve({
-        providerId: 'tmdb', providerAvailable: true,
-        candidates: [episodeCandidate(4, 'Waren Sie schon einmal in Ghorman'),
-          episodeCandidate(6, 'Die Freude ist ganz meinerseits')]
-      });
-    }
-    if (action === 'manual') {
-      assert.strictEqual(options.method, 'GET');
-      return Promise.resolve({found: false});
-    }
-    if (action === 'assign') {
-      assert.strictEqual(body.mediaType, 'episode');
-      assert.strictEqual(body.providerId, 'tmdb');
-      assert.strictEqual(body.seriesTitle, 'Andor');
-      assert.strictEqual(body.expectedRevision, 0);
-      assert.strictEqual(body.posterReference, '/series-original.jpg');
-      assert.strictEqual(options.headers['X-CSRF-Token'], 'existing-session-token');
-      assigned.push(body);
-      return Promise.resolve({found: true, revision: 1});
-    }
-    throw new Error('Unexpected metadata API: ' + route);
-  }
-};
+  };
+  if (locked) recording.seriesMetadata = {manualAssignment: {active: true}};
+  return api.seriesMemberProjection(recording, null, 'default');
+}
+const raw04 = member('04',
+  'DE - Star Wars Andor (2022) - S02E04 - Waren Sie schon einmal in Ghorman', '');
+const raw11 = member('11',
+  'DE - Star Wars Andor (2022) - S02E11 - Wer weiß noch davon', '', true);
+const posterOnly = member('06', 'Die Freude ist ganz meinerseits', '');
+const complete = member('01', 'Ein Jahr später', '/already-correct.jpg');
+const title = 'Star Wars-Andor';
 
+assert.strictEqual(api.missingSeriesEpisodeMetadata(raw04), true);
+assert.strictEqual(api.missingSeriesEpisodeMetadata(raw11), false,
+  'selected assignment cannot be overwritten');
+assert.strictEqual(api.missingSeriesEpisodeMetadata(posterOnly), true);
+assert.strictEqual(api.missingSeriesEpisodeMetadata(complete), false);
+assert.strictEqual(api.seriesMetadataBackfillTargets({
+  title, episodes: [raw04, raw11, posterOnly, complete]
+}).length, 2);
+
+function clientFor(requests, resolver) {
+  return {
+    requestJson(route, opts) {
+      const action = route.split('/').pop().split('?')[0];
+      const body = opts && opts.body ? JSON.parse(opts.body) : {};
+      requests.push({route, action, opts, body});
+      if (action === 'resolve') {
+        assert.strictEqual(route, '/api/v1/backends/default/metadata/resolve');
+        assert.strictEqual(opts.method, 'POST');
+        assert.strictEqual(opts.headers['X-CSRF-Token'], 'existing-session-token');
+        assert.strictEqual(body.title, 'Star Wars-Andor');
+        assert.strictEqual(body.kind, 'series');
+        assert.strictEqual(body.seasonNumber, 2);
+        return Promise.resolve(resolver(body));
+      }
+      if (action === 'manual') {
+        assert.strictEqual(opts.method, 'GET');
+        return Promise.resolve({found: false});
+      }
+      if (action === 'assign') {
+        assert.strictEqual(opts.method, 'POST');
+        assert.strictEqual(body.providerId, 'tmdb');
+        assert.strictEqual(body.seriesTitle, 'Star Wars: Andor');
+        assert.strictEqual(body.mediaType, 'episode');
+        assert.strictEqual(body.expectedRevision, 0);
+        assert.strictEqual(body.posterReference, '/series-original.jpg');
+        return Promise.resolve({found: true, revision: 1});
+      }
+      throw new Error('Unexpected legacy metadata search: ' + route);
+    }
+  };
+}
 (async function () {
-  const statuses = [];
-  const done = await api.backfillSeriesEpisodeMetadata(series, 'default', client,
-    function (message) { statuses.push(message); });
-  assert.strictEqual(done.total, 2);
-  assert.strictEqual(done.updated, 2);
-  assert.strictEqual(done.skipped, 0);
-  assert.strictEqual(done.failed, 0);
-  assert.strictEqual(assigned.length, 2);
-  assert.strictEqual(assigned[0].episodeNumber, 4);
-  assert.strictEqual(assigned[0].title, 'Waren Sie schon einmal in Ghorman');
-  assert.strictEqual(assigned[1].episodeNumber, 6);
-  assert.strictEqual(assigned[1].title, 'Die Freude ist ganz meinerseits');
-  assert.strictEqual(calls.filter(x => x.action === 'episodes').length, 1,
-    'TMDb season fetched once for all missing episodes');
-  assert.strictEqual(calls.filter(x => x.action === 'manual').length, 2);
-  assert.strictEqual(calls.filter(x => x.action === 'assign').length, 2);
-  assert(calls.every(x => x.route.includes('/recordings/metadata/')),
-    'never calls media-import or video endpoints');
-  assert(statuses.some(s => s.includes('2 ergänzt')));
-
-  // MT.META8: Local franchise-prefixed group name must resolve the same
-  // exact TMDb identity without fuzzy matching or a second video import.
-  const aliasQueries = [];
-  const aliasAssignments = [];
-  const aliasClient = {
-    requestJson(route, options) {
-      const action = route.split('/').pop().split('?')[0];
-      const body = options && options.body ? JSON.parse(options.body) : {};
-      if (action === 'search') {
-        aliasQueries.push(body.query);
-        return Promise.resolve({
-          providerId: 'tmdb', providerAvailable: true,
-          candidates: body.query === 'Andor' ? [seriesCandidate] : []
-        });
-      }
-      if (action === 'episodes') return Promise.resolve({
-        providerId: 'tmdb', providerAvailable: true,
-        candidates: [episodeCandidate(4, 'Waren Sie schon einmal in Ghorman')]
-      });
-      if (action === 'manual') return Promise.resolve({found: false});
-      if (action === 'assign') {
-        aliasAssignments.push(body);
-        return Promise.resolve({found: true, revision: 1});
-      }
-      throw new Error('Unexpected alias metadata call ' + action);
-    }
-  };
-  const aliasResult = await api.backfillSeriesEpisodeMetadata({
-    title: 'Star Wars-Andor', episodes: [raw]
-  }, 'default', aliasClient);
-  assert.strictEqual(aliasResult.updated, 1);
-  assert.deepStrictEqual(aliasQueries, ['Star Wars-Andor', 'Andor']);
-  assert.strictEqual(aliasAssignments.length, 1);
-  assert.strictEqual(aliasAssignments[0].seriesTitle, 'Andor',
-    'persistent episode metadata uses the canonical TMDb series name');
-  assert.strictEqual(aliasAssignments[0].episodeNumber, 4);
-
-  // TMDb may return the *full* Star Wars branding for the short-query
-  // fallback. Media Tools accepts either normalized title across both
-  // requests; Home must behave identically.
-  const brandedQueries = [];
-  const brandedAssignments = [];
-  const brandedSeriesCandidate = Object.assign({}, seriesCandidate, {
-    title: 'Star Wars: Andor', originalTitle: 'Star Wars: Andor'
+  const requests = [];
+  const resolver = b => ({
+    status: 'matched', mediaType: 'episode', series,
+    episode: b.episodeNumber === 4
+      ? episode(4, 'Waren Sie schon einmal in Ghorman')
+      : episode(6, 'Die Freude ist ganz meinerseits')
   });
-  const brandedClient = {
-    requestJson(route, options) {
-      const action = route.split('/').pop().split('?')[0];
-      const body = options && options.body ? JSON.parse(options.body) : {};
-      if (action === 'search') {
-        brandedQueries.push(body.query);
-        return Promise.resolve({
-          providerId: 'tmdb', providerAvailable: true,
-          candidates: body.query === 'Andor' ? [brandedSeriesCandidate] : []
-        });
-      }
-      if (action === 'episodes') return Promise.resolve({
-        providerId: 'tmdb', providerAvailable: true,
-        candidates: [episodeCandidate(4, 'Waren Sie schon einmal in Ghorman')]
-      });
-      if (action === 'manual') return Promise.resolve({found: false});
-      if (action === 'assign') {
-        brandedAssignments.push(body);
-        return Promise.resolve({found: true, revision: 1});
-      }
-      throw new Error('Unexpected branded series metadata route ' + action);
-    }
-  };
-  const brandedResult = await api.backfillSeriesEpisodeMetadata({
-    title: 'Star Wars-Andor', episodes: [raw]
-  }, 'default', brandedClient);
-  assert.deepStrictEqual(brandedQueries, ['Star Wars-Andor', 'Andor']);
-  assert.strictEqual(brandedResult.updated, 1,
-    'TMDb full brand name must match the local franchise name after fallback');
-  assert.strictEqual(brandedAssignments.length, 1);
-  assert.strictEqual(brandedAssignments[0].seriesTitle, 'Star Wars: Andor');
-  assert.strictEqual(brandedAssignments[0].episodeNumber, 4);
+  const reports = [];
+  const result = await api.backfillSeriesEpisodeMetadata({
+    title, episodes: [raw04, posterOnly, complete, raw11]
+  }, 'default', clientFor(requests, resolver), message => reports.push(message));
+  assert.strictEqual(result.total, 2);
+  assert.strictEqual(result.updated, 2);
+  assert.strictEqual(result.failed, 0);
+  assert.strictEqual(result.skipped, 0);
+  assert.deepStrictEqual(requests.map(x => x.action), [
+    'resolve', 'manual', 'assign', 'resolve', 'manual', 'assign'
+  ]);
+  assert.deepStrictEqual(requests.filter(x => x.action === 'assign').map(x =>
+    x.body.episodeNumber), [4, 6]);
+  assert(reports.some(x => x.includes('2 ergänzt')));
 
-  const ambiguousAliasClient = {
-    requestJson(route, options) {
-      if (route.endsWith('/search')) return Promise.resolve({
-        providerId: 'tmdb', providerAvailable: true,
-        candidates: JSON.parse(options.body).query === 'Andor'
-          ? [seriesCandidate, Object.assign({}, seriesCandidate,
-            {externalId: '9999'})] : []
-      });
-      throw new Error('Ambiguous alias must never dispatch any metadata write');
-    }
-  };
-  await assert.rejects(
-    api.backfillSeriesEpisodeMetadata({
-      title: 'Star Wars-Andor', episodes: [raw]
-    }, 'default', ambiguousAliasClient),
-    /Mehrere passende TMDb-Serien/
-  );
+  const unresolvedRequests = [];
+  const unresolved = await api.backfillSeriesEpisodeMetadata({
+    title, episodes: [raw04]
+  }, 'default', clientFor(unresolvedRequests, () => ({
+    status: 'ambiguous'
+  })));
+  assert.strictEqual(unresolved.updated, 0);
+  assert.strictEqual(unresolved.skipped, 1);
+  assert.deepStrictEqual(unresolvedRequests.map(x => x.action), ['resolve']);
 
-  const noWriteCalls = [];
-  const lockedClient = {
-    requestJson(route, options) {
-      const action = route.split('/').pop().split('?')[0];
-      noWriteCalls.push(action);
-      if (action === 'search') return Promise.resolve({
-        providerId: 'tmdb', providerAvailable: true,
-        candidates: [seriesCandidate]
-      });
-      if (action === 'episodes') return Promise.resolve({
-        providerId: 'tmdb', providerAvailable: true,
-        candidates: [episodeCandidate(4, 'Waren Sie schon einmal in Ghorman')]
-      });
-      if (action === 'manual') return Promise.resolve({found: true, revision: 3});
-      throw new Error('Existing manual assignment must not be overwritten');
-    }
-  };
-  const locked = await api.backfillSeriesEpisodeMetadata({
-    title: 'Andor', episodes: [raw]
-  }, 'default', lockedClient);
-  assert.strictEqual(locked.updated, 0);
-  assert.strictEqual(locked.skipped, 1);
-  assert(!noWriteCalls.includes('assign'));
+  const wrongTranslationRequests = [];
+  const wrongTranslation = await api.backfillSeriesEpisodeMetadata({
+    title, episodes: [posterOnly]
+  }, 'default', clientFor(wrongTranslationRequests, () => ({
+    status: 'matched', mediaType: 'episode', series,
+    episode: episode(6, 'Alternative regionale Übersetzung')
+  })));
+  assert.strictEqual(wrongTranslation.updated, 0);
+  assert.strictEqual(wrongTranslation.skipped, 1);
+  assert.deepStrictEqual(wrongTranslationRequests.map(x => x.action),
+    ['resolve', 'manual'], 'correct regional title remains untouched');
 
-  const mismatchedPosterOnlyCalls = [];
-  const mismatchedClient = {
-    requestJson(route, options) {
-      const action = route.split('/').pop().split('?')[0];
-      mismatchedPosterOnlyCalls.push(action);
-      if (action === 'search') return Promise.resolve({
-        providerId: 'tmdb', providerAvailable: true, candidates: [seriesCandidate]
-      });
-      if (action === 'episodes') return Promise.resolve({
-        providerId: 'tmdb', providerAvailable: true,
-        candidates: [episodeCandidate(6, 'Alternative regionale Übersetzung')]
-      });
-      if (action === 'manual') return Promise.resolve({found: false});
-      throw new Error('Correct episode title must not be replaced for artwork-only update');
-    }
-  };
-  const mismatched = await api.backfillSeriesEpisodeMetadata({
-    title: 'Andor', episodes: [posterMissing]
-  }, 'default', mismatchedClient);
-  assert.strictEqual(mismatched.updated, 0);
-  assert.strictEqual(mismatched.skipped, 1);
-  assert(!mismatchedPosterOnlyCalls.includes('assign'),
-    'missing artwork must not overwrite a correct regional episode title');
-
-  const ambiguousClient = {
-    requestJson(route) {
-      if (route.endsWith('/search')) return Promise.resolve({
-        providerId: 'tmdb', providerAvailable: true,
-        candidates: [seriesCandidate, Object.assign({}, seriesCandidate, {
-          externalId: '8765'
-        })]
-      });
-      throw new Error('Ambiguous candidates must not trigger another API operation');
-    }
-  };
-  await assert.rejects(
-    api.backfillSeriesEpisodeMetadata({title: 'Andor', episodes: [raw]},
-      'default', ambiguousClient),
-    /Mehrere passende TMDb-Serien/
-  );
-  console.log('MT.META8 exact existing episode metadata backfill: PASS');
-}()).catch(function (error) {
-  console.error(error);
-  process.exitCode = 1;
-});
+  let untouched = 0;
+  const empty = await api.backfillSeriesEpisodeMetadata({
+    title, episodes: [complete, raw11]
+  }, 'default', {requestJson() { ++untouched; throw Error('Must not call'); }});
+  assert.strictEqual(empty.total, 0);
+  assert.strictEqual(untouched, 0);
+  console.log('MT.META8 Public-v1 metadata resolver backfill: PASS');
+}()).catch(err => { console.error(err); process.exitCode = 1; });
