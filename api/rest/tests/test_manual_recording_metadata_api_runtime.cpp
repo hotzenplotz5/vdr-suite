@@ -300,7 +300,8 @@ int main()
                 return selected.title == "Forrest Gump";
             assert(selected.resourceKey == "episode/key");
             assert(assigned.resourceKey == "episode/key");
-            assert(selected.seriesTitle == "Star Wars: Andor");
+            assert(selected.seriesTitle == "Star Wars: Andor" ||
+                   selected.seriesTitle == "Foundation");
             vdrsuite::mediatools::ImportConfirmedMetadata confirmed;
             confirmed.mediaType = assigned.mediaType;
             confirmed.title = assigned.title;
@@ -745,6 +746,62 @@ int main()
             "{}",
             "user:test-admin",
             response));
+    }
+
+
+    {
+        // MT.META6.5 / Foundation S01E05: a previous import/assignment is
+        // corrected through the existing authenticated metadata API. The
+        // same native VDR recording receives its changed episode title and
+        // description without touching TS/index or starting a new import.
+        const int beforeWriter = nativeUpdateCalls;
+        const int beforeProvider = provider.creditCalls;
+        const ApiResponse changed = post(
+            runtime,
+            "/api/backends/living-room/recordings/metadata/assign",
+            R"({"resourceKey":"episode/key","providerId":"tmdb",)"
+            R"("externalNamespace":"tv-episode","externalId":"123",)"
+            R"("mediaType":"episode","title":"Erwachen",)"
+            R"("seriesTitle":"Foundation","overview":"Foundation Folge 5.",)"
+            R"("posterReference":"","seasonNumber":1,"episodeNumber":5,)"
+            R"("expectedRevision":1})",
+            "user:real-admin");
+        assert(changed.statusCode == 200);
+        assert(changed.body.find("\"revision\":2") != std::string::npos);
+        assert(changed.body.find("\"nativeInfoUpdated\":true") != std::string::npos);
+        assert(nativeUpdateCalls == beforeWriter + 1);
+        assert(provider.creditCalls == beforeProvider);
+        std::ifstream info(nativeRecording / "info", std::ios::binary);
+        const std::string written((std::istreambuf_iterator<char>(info)),
+                                  std::istreambuf_iterator<char>());
+        assert(written ==
+            "C Channel\\nT Foundation\\nS Erwachen\\n"
+            "E 123 456 789 4E 00\\nF 25\\nD Foundation Folge 5.\\n");
+        std::ifstream ts(nativeRecording / "00001.ts", std::ios::binary);
+        assert(std::string(std::istreambuf_iterator<char>(ts),
+                           std::istreambuf_iterator<char>()) == "video-bytes");
+        std::ifstream index(nativeRecording / "index", std::ios::binary);
+        assert(std::string(std::istreambuf_iterator<char>(index),
+                           std::istreambuf_iterator<char>()) == "index");
+        ApiResponse persisted;
+        assert(runtime.tryHandleGet(
+            "/api/backends/living-room/recordings/metadata/manual?resourceKey=episode%2Fkey",
+            persisted));
+        assert(persisted.body.find("\"title\":\"Erwachen\"") !=
+               std::string::npos);
+        assert(persisted.body.find("\"revision\":2") !=
+               std::string::npos);
+        const ApiResponse conflict = post(
+            runtime,
+            "/api/backends/living-room/recordings/metadata/assign",
+            R"({"resourceKey":"episode/key","providerId":"tmdb",)"
+            R"("externalNamespace":"tv-episode","externalId":"123",)"
+            R"("mediaType":"episode","title":"Falscher Titel",)"
+            R"("seriesTitle":"Foundation","seasonNumber":1,)"
+            R"("episodeNumber":5,"expectedRevision":1})",
+            "user:real-admin");
+        assert(conflict.statusCode == 409);
+        assert(nativeUpdateCalls == beforeWriter + 1);
     }
 
     runtime.reset();

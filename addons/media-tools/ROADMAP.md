@@ -139,6 +139,20 @@ Das **zweite, zuletzt gezeigte Media-Tools-Mockup** im Chat vom 27.10.2026 ist d
 | **MT.META5 – Optionale Online-Metadaten** | TMDb soweit über bestehende Suite-Metadatendienste verfügbar ergänzen; explizite Trefferprüfung statt Titelraten, lokale NFO-Inhalte nicht still überschreiben. | Authentifizierte Datenquelle und Bildherkunft, mehrdeutige Treffer, Offline-Fallback, keine Fake-Bewertung. |
 | **MT.META6 – VDR-Metadaten-Übernahme, Korrektur und Aufnahmeaktualisierung** | Bestätigte Serien-/Episoden-Metadaten auf die gespeicherte VDR-Aufnahme übertragen, bereits importierte Aufnahmen ohne erneuten Videoimport korrigierbar machen und nach erfolgreicher Veröffentlichung **die vorhandene VDR-/Suite-Aufnahmeliste automatisch aktualisieren**. | Tatsächliche `info`-/Metadata-Readback-Belege, neue Aufnahmen ohne Browser-Neuladen sichtbar, erneute Titel-/Artwork-Projektion nach Korrektur; Core-/Agent-/Frontend- und REAL-VDR-Nachweise getrennt. |
 
+
+**Realer Foundation-Web-Abnahmestand (08.11.2026):** Auf yaVDR wurden
+Foundation (2021) S01E06–E08 als zusammenhängender Sammelimport mit korrekt
+zugeordneten TMDb-Folgentiteln/Artwork angezeigt. Die zuvor bereits importierte
+S01E05 („Erwachen“) wurde durch den nachträglichen Backfill **ohne erneuten
+Videoimport** vervollständigt; die Oberfläche meldete
+`1 Folgen ergänzt; 0 bereits zugeordnet/nicht eindeutig; 0 fehlgeschlagen`
+(Commit `15115744fb5920da062f453c12469ff4256a9a7e`).
+**Abnahmegrenze:** Dies bestätigt die sichtbare Suite-Metadatenprojektion, nicht
+automatisch den nativen `info`-Inhalt oder einen VDR-Neuladevorgang.
+Der zusätzliche isolierte MT.META6.5-API→Writer→`info`→Readback-Test prüft
+deshalb eine nachträgliche Episode-5-Korrektur mit erhaltenen TS-/Index-Bytes;
+REAL-yaVDR-`info`-Readback bleibt getrennt zu verifizieren.
+
 ### MT.META6 — verbindlicher Integrationsablauf (28.10.2026)
 
 **Erweiterung 29.10.2026 – MT.META6 dauerhafte Suite-Zuordnung, Quellcode:**
