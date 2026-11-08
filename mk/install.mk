@@ -51,6 +51,7 @@ install-runtime-managed:
 
 test-install-runtime-deployment:
 	python3 tools/test_install_runtime_stage.py
+	python3 tools/test_install_runtime_managed.py
 
 test-systemd-unit-contract:
 	python3 tools/check_systemd_unit_contract.py
