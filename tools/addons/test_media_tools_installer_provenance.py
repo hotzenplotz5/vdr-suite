@@ -35,6 +35,33 @@ class ManualInstallerProvenanceTests(unittest.TestCase):
         self.assertIn('git merge-base --is-ancestor "$SHA" "$REMOTE"', source)
         self.assertIn('git rev-parse FETCH_HEAD', source)
 
+    def test_successful_first_install_cleans_only_its_own_scratch(self) -> None:
+        # No live installation: assert the destructive path is constrained
+        # to the scratch allocated by this same invocation and occurs
+        # strictly after the final verified deployment and capacity check.
+        source = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn('WORK=$(mktemp -d "$HOME/vdr-suite-media-tools.XXXXXXXX")', source)
+        self.assertIn('if [ "$MODE" = install ]; then TEMP_INSTALL_WORKDIR=$WORK; fi', source)
+        self.assertIn('if [ -n "${TEMP_INSTALL_WORKDIR:-}" ]; then', source)
+        self.assertIn('rm -rf -- "$TEMP_INSTALL_WORKDIR"', source)
+        self.assertIn('MEDIA_TOOLS_TEMP_WORK_CLEANED=YES', source)
+        self.assertIn('MEDIA_TOOLS_TEMP_WORK_RETAINED=', source)
+        self.assertLess(source.index('resource_preflight after || stop'),
+                        source.index('rm -rf -- "$TEMP_INSTALL_WORKDIR"'))
+        self.assertLess(source.index('rm -rf -- "$TEMP_INSTALL_WORKDIR"'),
+                        source.index('echo "MEDIA_TOOLS_INSTALL=PASS"'))
+        # The root-owned database/rollback snapshot is a separate path.
+        self.assertIn('WORK=$SAFE_DIR', source)
+        self.assertIn('DATABASE_BACKUP=$WORK/backup/vdr-suite.db', source)
+        self.assertNotIn('rm -rf -- "$SAFE_DIR"', source)
+        # Prepared stages are intentionally retained for operator review.
+        self.assertIn('MEDIA_TOOLS_PREPARED=YES', source)
+
+    def test_installer_has_valid_bash_syntax(self) -> None:
+        if shutil.which("bash") is None:
+            self.skipTest("bash unavailable")
+        subprocess.run(["bash", "-n", str(SCRIPT)],
+                       check=True, capture_output=True, text=True, timeout=20)
     def test_main_only_remote_is_sufficient_for_ancestry_check(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mt-ha-origin-") as scratch:
             root = Path(scratch)
