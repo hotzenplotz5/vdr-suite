@@ -489,6 +489,7 @@ let metadataFolderOverride = null;
 let nativeAssignmentAck = false;
 let onlineMode = 'ready';
 let batchAndorMetaFixture = false;
+let batchFoundationYearFixture = false;
 let autoMovieExact = false;
 let resolveOnlineReply = null;
 function onlineCandidate(kind, id, title, extra) {
@@ -544,6 +545,22 @@ context.VdrSuiteClientApi = {
     const body = JSON.parse(options.body);
     if (route.endsWith('/metadata/resolve')) {
       if (onlineMode === 'ambiguous') return Promise.resolve({status: 'ambiguous'});
+      if (batchFoundationYearFixture && body.kind === 'series' &&
+          body.title === 'Foundation' && body.seasonNumber === 1 &&
+          body.episodeNumber >= 5 && body.episodeNumber <= 9) {
+        if (body.year !== 2021) return Promise.resolve({status:'ambiguous'});
+        return Promise.resolve({
+          status:'matched', mediaType:'episode',
+          series:onlineCandidate('series','777','Foundation',{
+            releaseDate:'2021-09-24'
+          }),
+          episode:onlineCandidate('episode',String(800+body.episodeNumber),
+            'Foundation episode '+body.episodeNumber,{
+              parentExternalId:'777',seasonNumber:1,
+              episodeNumber:body.episodeNumber
+            })
+        });
+      }
       // Public-v1 resolver delegates to the established TMDb provider.
       // Every episode receives its own exact matched identity.
       if (batchAndorMetaFixture && body.kind === 'series' &&
@@ -4087,6 +4104,52 @@ function publishHomeResume() {}
   assert.strictEqual(submits, beforeGenericBatch + 2,
     'generic-folder batch creates one exact snapshot per import, not retries');
   batchAndorMetaFixture = false;
+
+  // META.CORE1 Foundation (2021): the local filename carries the series
+  // premiere year. Without that hint the central resolver sees multiple
+  // title-identical TMDb series and correctly refuses to guess.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  const previousDisplay = sourceDisplayOverride;
+  const previousDisplayB = sourceDisplayLabels[SOURCE_B];
+  batchFoundationYearFixture = true;
+  batchSources = [SOURCE, SOURCE_B];
+  sourceFolders[SOURCE] = 'Serien/Foundation';
+  sourceFolders[SOURCE_B] = 'Serien/Foundation';
+  sourceDisplayOverride = 'Foundation (2021) - S01E05 - Erwachen';
+  sourceDisplayLabels[SOURCE_B] =
+    'Foundation (2021) - S01E06 - Der Tod und die Jungfer';
+  batchOperations = [];
+  batchStates = Object.create(null);
+  recentImports = [];
+  submitMode = 'batch';
+  state = 'dispatching';
+  const beforeFoundationPosts = submits;
+  const beforeFoundationResolve = onlineRequests.length;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  await findClass(mount, 'media-import-batch').listeners.click();
+  await settle();
+  assert(findClass(mount, 'media-import-batch-review').children.every(function (row) {
+    return row.textContent.includes('TMDb-Metadaten vorbereitet');
+  }), 'Foundation (2021) episodes must not fall back to local metadata');
+  const foundationResolveCalls = onlineRequests.slice(beforeFoundationResolve)
+    .filter(function (call) { return call.route.endsWith('/metadata/resolve'); })
+    .map(function (call) { return JSON.parse(call.options.body); });
+  assert.strictEqual(foundationResolveCalls.length >= 2, true);
+  assert(foundationResolveCalls.every(function (body) {
+    return body.title === 'Foundation' && body.kind === 'series' &&
+      body.seasonNumber === 1 && body.year === 2021;
+  }), 'both automatic preview and batch send the series premiere year via API v1');
+  assert(foundationResolveCalls.some(function (body) { return body.episodeNumber === 5; }));
+  assert(foundationResolveCalls.some(function (body) { return body.episodeNumber === 6; }));
+  assert.strictEqual(submits, beforeFoundationPosts,
+    'Foundation metadata review must not dispatch an import');
+  batchFoundationYearFixture = false;
+  sourceDisplayOverride = previousDisplay;
+  sourceDisplayLabels[SOURCE_B] = previousDisplayB;
 
   // MT.META7: An unconfirmed first batch admission must not leave its
   // confirmation button disabled or silently resubmit a new operation.

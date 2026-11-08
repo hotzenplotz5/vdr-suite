@@ -480,8 +480,10 @@ ApiResponse MetadataController::resolveRecordingMetadata(
                 })) continue;
             if (!accepted.count(normalized(candidate.title)) &&
                 !accepted.count(normalized(candidate.originalTitle))) continue;
-            if (kind == RecordingMetadataCandidateKind::Movie &&
-                releaseYear > 0 &&
+            // Series and movies alike can have identical titles across
+            // different years. TMDb exposes first_air_date for series and
+            // release_date for movies in this same candidate field.
+            if (releaseYear > 0 &&
                 candidate.releaseDate.substr(0, 4) !=
                     std::to_string(releaseYear)) continue;
             matches.emplace(id, candidate);

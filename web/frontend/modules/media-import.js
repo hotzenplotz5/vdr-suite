@@ -1043,6 +1043,14 @@
   // TMDb identity is resolved once by the existing Metadata Core, exposed
   // through Public API v1. The browser only freezes the exact returned
   // episode/movie candidate into the existing import Operation payload.
+  // The franchise name is a lookup hint; the year is a distinct, source-
+  // derived identity hint (e.g. Foundation (2021)), not episode air date.
+  function seriesPremiereYearFromSource(source) {
+    const label = String(source && source.label || '');
+    const match = /\(((?:19|20)\d{2})\)/.exec(label);
+    return match ? Number(match[1]) : 0;
+  }
+
   function batchMetadataSnapshot(view, source, plan, cache) {
     if (!source || !plan || plan.state !== 'ready' ||
         !validRelativeFolder(plan.targetFolder)) return Promise.resolve('');
@@ -1066,7 +1074,8 @@
             body: JSON.stringify({
               title: title, kind: kind,
               ...(kind === 'series'
-                ? {seasonNumber: season, episodeNumber: episode}
+                ? {seasonNumber: season, episodeNumber: episode,
+                    ...(year ? {year: year} : {})}
                 : year ? {year: year} : {})
             }),
             cache: 'no-store', credentials: 'same-origin'
@@ -1076,6 +1085,7 @@
     };
     const coords = episodeCoordinates(source);
     if (coords.episode !== null) {
+      const year = seriesPremiereYearFromSource(source);
       const titles = [batchSeriesTitleFromLabel(source),
         onlineSeriesSearchTitle(source)].filter(function (title, index, all) {
         return title.length >= 2 && title.length <= 160 &&
@@ -1085,8 +1095,8 @@
       });
       const tryTitle = function (index) {
         if (index >= titles.length) return Promise.resolve('');
-        return resolve(titles[index], 'series', coords.season, coords.episode)
-          .then(function (data) {
+        return resolve(titles[index], 'series', coords.season,
+          coords.episode, year).then(function (data) {
             if (!isCurrent(view) || !data || data.status !== 'matched' ||
                 data.mediaType !== 'episode' || !data.series ||
                 !data.episode || data.series.kind !== 'series' ||
@@ -2416,6 +2426,7 @@
     const coords = episodeCoordinates(source);
     const title = batchSeriesTitleFromLabel(source) ||
       onlineSeriesSearchTitle(source);
+    const year = seriesPremiereYearFromSource(source);
     if (coords.episode === null || title.length < 2 ||
         title.length > 160 || !view.sources.includes(source.sourceId)) return;
     const sourceId = source.sourceId;
@@ -2445,7 +2456,8 @@
             csrf && typeof csrf === 'object' ? csrf : {}),
           body: JSON.stringify({
             title: title, kind: 'series',
-            seasonNumber: coords.season, episodeNumber: coords.episode
+            seasonNumber: coords.season, episodeNumber: coords.episode,
+            ...(year ? {year: year} : {})
           }),
           cache: 'no-store', credentials: 'same-origin'
         });

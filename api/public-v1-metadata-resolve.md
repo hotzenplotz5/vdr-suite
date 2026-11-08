@@ -23,7 +23,13 @@ Film:
 {"title":"Forrest Gump","kind":"movie","year":1994}
 ```
 
-Die Film-Jahresangabe ist optional. Der Resolver verwendet den
+Die Jahresangabe ist für Filme und Serien optional. Bei gleichnamigen
+Serien wird das Jahr des **Serienstarts** aus TMDb `first_air_date`
+verglichen (nicht das Ausstrahlungsjahr einer einzelnen Folge).
+Bei `Foundation (2021)` ist `year: 2021` daher entscheidend.
+Ohne hinreichende Identität bleibt das Ergebnis `ambiguous`.
+
+Der Resolver verwendet den
 vorhandenen `TmdbRecordingMetadataCandidateProvider` mit dessen
 konfiguriertem Credential-/Sprachmodell. Er prüft eindeutige
 Kandidatenidentitäten, Aliasnamen und bei Serien die genaue

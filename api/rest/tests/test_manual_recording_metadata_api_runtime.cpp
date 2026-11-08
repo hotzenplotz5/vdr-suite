@@ -70,8 +70,16 @@ public:
             candidate.title = "Star Wars: Andor";
             candidate.originalTitle = candidate.title;
         }
+        if (kind == RecordingMetadataCandidateKind::Series &&
+            query == "Foundation")
+        {
+            candidate.externalId = "777";
+            candidate.title = "Foundation";
+            candidate.originalTitle = candidate.title;
+        }
         candidate.overview = "Candidate overview";
-        candidate.releaseDate = "1994-07-06";
+        candidate.releaseDate = query == "Foundation"
+            ? "2021-09-24" : "1994-07-06";
         candidate.posterReference = "/candidate.jpg";
 
         RecordingMetadataCandidatePage page;
@@ -79,6 +87,15 @@ public:
         page.providerAvailable = true;
         page.providerId = "tmdb";
         page.candidates.push_back(candidate);
+        if (kind == RecordingMetadataCandidateKind::Series &&
+            query == "Foundation")
+        {
+            // Identical TMDb title, different series premiere year.
+            RecordingMetadataCandidate older = candidate;
+            older.externalId = "778";
+            older.releaseDate = "1951-09-24";
+            page.candidates.push_back(older);
+        }
         if (ambiguousResolve)
         {
             RecordingMetadataCandidate second = candidate;
@@ -127,11 +144,13 @@ public:
         candidate.externalId = "123";
         candidate.parentExternalId = seriesExternalId;
         candidate.title = seriesExternalId == "4321"
-            ? "Waren Sie schon einmal in Ghorman" : "Ein Fall von Pink";
+            ? "Waren Sie schon einmal in Ghorman"
+            : seriesExternalId == "777"
+                ? "Erwachen" : "Ein Fall von Pink";
         if (seriesExternalId == "4321")
-        {
             candidate.episodeNumber = 4;
-        }
+        else if (seriesExternalId == "777")
+            candidate.episodeNumber = 5;
         candidate.posterReference = "/episode.jpg";
         candidate.seasonNumber = seasonNumber;
         if (candidate.episodeNumber == 0) candidate.episodeNumber = 1;
@@ -356,6 +375,44 @@ int main()
         assert(runtime.resolveReadOnly("living-room",
             "{\"title\":\"Sherlock\",\"kind\":\"series\","
             "\"seasonNumber\":1,\"episodeNumber\":8}",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"not_found\"") !=
+            std::string::npos);
+        assert(nativeUpdateCalls == 0);
+    }
+    // The year is part of the central candidate identity for TV series
+    // as well as films. The same show name without year stays ambiguous.
+    {
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            "{\"title\":\"Foundation\",\"kind\":\"series\","
+            "\"seasonNumber\":1,\"episodeNumber\":5}",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"ambiguous\"") !=
+            std::string::npos);
+        assert(nativeUpdateCalls == 0);
+    }
+    {
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            "{\"title\":\"Foundation\",\"kind\":\"series\","
+            "\"year\":2021,\"seasonNumber\":1,\"episodeNumber\":5}",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"matched\"") !=
+            std::string::npos);
+        assert(response.body.find("\"Foundation\"") != std::string::npos);
+        assert(response.body.find("Erwachen") != std::string::npos);
+        assert(provider.lastSeriesId == "777");
+        assert(nativeUpdateCalls == 0);
+    }
+    {
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            "{\"title\":\"Foundation\",\"kind\":\"series\","
+            "\"year\":2022,\"seasonNumber\":1,\"episodeNumber\":5}",
             "user:test-admin", response));
         assert(response.statusCode == 200);
         assert(response.body.find("\"status\":\"not_found\"") !=
