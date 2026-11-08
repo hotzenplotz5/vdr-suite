@@ -543,6 +543,7 @@ context.VdrSuiteClientApi = {
     }
     const body = JSON.parse(options.body);
     if (route.endsWith('/metadata/resolve')) {
+      if (onlineMode === 'ambiguous') return Promise.resolve({status: 'ambiguous'});
       // Public-v1 resolver delegates to the established TMDb provider.
       // Every episode receives its own exact matched identity.
       if (batchAndorMetaFixture && body.kind === 'series' &&

@@ -2462,7 +2462,9 @@
           matched.episode.parentExternalId !== matched.series.externalId ||
           matched.episode.seasonNumber !== coords.season ||
           matched.episode.episodeNumber !== coords.episode) {
-        view.onlineStatus = 'Keine eindeutige TMDb-Folge erkannt. Manuelle Suche möglich.';
+        view.onlineStatus = matched && matched.status === 'ambiguous'
+          ? 'Mehrdeutige Serie oder Folge: Bitte den TMDb-Treffer manuell auswählen.'
+          : 'Keine eindeutige TMDb-Folge erkannt. Manuelle Suche möglich.';
         updatePreview(view);
         return;
       }
