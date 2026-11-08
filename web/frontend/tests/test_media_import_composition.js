@@ -3997,6 +3997,73 @@ function publishHomeResume() {}
     'generic-folder batch creates one exact snapshot per import, not retries');
   batchAndorMetaFixture = false;
 
+  // MT.META7: An unconfirmed first batch admission must not leave its
+  // confirmation button disabled or silently resubmit a new operation.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B];
+  markedSources = [];
+  delete recordingStatuses[SOURCE];
+  delete recordingStatuses[SOURCE_B];
+  previewMode = 'ready';
+  previewInspectionStatus = 'ready';
+  batchOperations = [];
+  batchStates = Object.create(null);
+  recentImports = [];
+  submitMode = 'uncertain';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  await findClass(mount, 'media-import-batch').listeners.click();
+  await settle();
+  const beforeLostBatch = submits;
+  await findClass(mount, 'media-import-batch-confirm').listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeLostBatch + 1,
+    'lost first response does not automatically resubmit');
+  const lostPost = requests.filter(function (req) {
+    return req.path.endsWith('/media-imports') && req.options.method === 'POST';
+  }).slice(-1)[0];
+  const admissionButton = findClass(mount, 'media-import-refresh');
+  assert(admissionButton && !admissionButton.disabled &&
+    admissionButton.textContent.includes('Auftragsannahme bestätigen'),
+    'missing Operation ID has an enabled manual confirmation button');
+  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, false,
+    'bulk import remains paused with the remaining approved episodes');
+  submitMode = 'batch';
+  await admissionButton.listeners.click();
+  await settle();
+  assert.strictEqual(submits, beforeLostBatch + 2,
+    'user confirmation sends only one same-key request');
+  const replayPost = requests.filter(function (req) {
+    return req.path.endsWith('/media-imports') && req.options.method === 'POST';
+  }).slice(-1)[0];
+  assert.strictEqual(replayPost.options.headers['Idempotency-Key'],
+    lostPost.options.headers['Idempotency-Key'],
+    'manual admission confirmation reuses original idempotency key');
+  assert.strictEqual(replayPost.options.body, lostPost.options.body,
+    'manual confirmation reuses exact source, action and frozen metadata');
+  assert.strictEqual(batchOperations.length, 1);
+  batchStates[BATCH_OP_A] = 'succeeded';
+  await findClass(mount, 'media-import-refresh').listeners.click();
+  await settle();
+  assert.strictEqual(batchOperations.length, 2,
+    'second episode starts only after first Core success readback');
+  const nextPost = requests.filter(function (req) {
+    return req.path.endsWith('/media-imports') && req.options.method === 'POST';
+  }).slice(-1)[0];
+  assert.notStrictEqual(nextPost.options.headers['Idempotency-Key'],
+    lostPost.options.headers['Idempotency-Key'],
+    'a different episode receives its own key');
+  batchStates[BATCH_OP_B] = 'succeeded';
+  await emitOperation(BATCH_OP_B);
+  await settle();
+  assert.strictEqual(submits, beforeLostBatch + 3,
+    'one lost attempt, one same-key confirmation, one next episode');
+  submitMode = 'accepted';
+  recentImports = [];
+
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {
   console.error(error);

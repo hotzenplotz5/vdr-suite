@@ -906,7 +906,7 @@
   // scoped operation journal once. Only a unique same-source, same-action
   // operation admitted at this click may be reattached. Never resend that POST.
   function recoverBatchAdmission(view, attempt) {
-    if (!view.batch || !attempt || !attempt.sourceId ||
+    if (!attempt || !attempt.sourceId ||
         !Number.isFinite(attempt.startedAt)) return Promise.resolve(false);
     const startSecond = Math.floor(attempt.startedAt / 1000);
     const endSecond = Math.floor(Date.now() / 1000) + 10;
@@ -1208,6 +1208,7 @@
       pending: 'Zurückgestellt: Prüfung noch ausstehend',
       failed: 'Zurückgestellt: Prüfung fehlgeschlagen',
       running: 'Import läuft / Bestätigung ausstehend',
+      admission_unknown: 'Auftragsannahme ungewiss – gleiche Kennung bestätigen',
       succeeded: 'VDR-Aufnahme unabhängig bestätigt',
       stopped: 'Import angehalten'
     };
@@ -1413,9 +1414,75 @@
     return startImport(view);
   }
 
-  function readOperation(view, manual) {
-    if (!isCurrent(view) || !view.attempt || !view.attempt.operationId)
+  // A lost submit response has no Operation ID. Manual confirmation first
+  // inspects Core's journal, then reuses the exact original idempotency key,
+  // source, action and frozen metadata. Core replays an existing Operation.
+  function confirmMissingAdmission(view) {
+    const attempt = view.attempt;
+    if (!isCurrent(view) || !attempt || attempt.operationId ||
+        attempt.pending || view.admissionConfirming || !attempt.key)
       return Promise.resolve();
+    view.admissionConfirming = true;
+    view.refreshButton.disabled = true;
+    view.lastManualCheck = '';
+    view.importFeedbackText.textContent =
+      'Core-Auftragsprotokoll wird geprüft. Falls keine Zuordnung vorliegt, ' +
+      'wird die ursprüngliche Anfrage mit derselben Kennung bestätigt …';
+    return recoverBatchAdmission(view, attempt).then(function (found) {
+      if (found || !isCurrent(view) || view.attempt !== attempt) return null;
+      const session = global.VdrSuiteBrowserSession;
+      if (!session || typeof session.restore !== 'function' ||
+          typeof session.csrfHeaders !== 'function') throw {status: 401};
+      return Promise.resolve(session.restore()).then(function () {
+        if (!isCurrent(view) || view.attempt !== attempt) return null;
+        return publicClient().submitMediaImport({
+          backendId: view.backendId, sourceId: attempt.sourceId,
+          idempotencyKey: attempt.key,
+          ...(attempt.videoDecision ? {videoDecision: attempt.videoDecision} : {}),
+          ...(attempt.frozenMetadata ? {metadata: attempt.frozenMetadata} : {}),
+          credentials: 'same-origin', headers: session.csrfHeaders()
+        });
+      });
+    }).then(function (response) {
+      if (!isCurrent(view) || view.attempt !== attempt ||
+          attempt.operationId || !response) return;
+      const operation = response.data;
+      if (!operation ||
+          !/^op_[A-Za-z0-9_-]+$/.test(operation.operationId) ||
+          operation.backendId !== view.backendId)
+        throw new Error('Ungültige Auftragsbestätigung');
+      attempt.operationId = operation.operationId;
+      attempt.state = operation.state || 'accepted';
+      attempt.lastStatusError = '';
+      const batch = view.batch;
+      if (batch && batch.remaining[0] === attempt.sourceId) {
+        batch.waiting = attempt.operationId;
+        const row = batch.review && batch.review.rows.find(function (item) {
+          return item.sourceId === attempt.sourceId;
+        });
+        if (row) {
+          row.state = 'running';
+          view.batchReview = batch.review;
+        }
+      }
+    }).catch(function (error) {
+      if (!isCurrent(view) || view.attempt !== attempt) return;
+      const reason = error && Number.isInteger(error.status)
+        ? 'HTTP ' + error.status : 'Verbindung oder Antwort nicht bestätigt';
+      attempt.lastStatusError = 'Auftragsannahme nicht bestätigt: ' + reason;
+      view.lastManualCheck = 'Bestätigung nicht möglich (' + reason +
+        '). Derselbe Auftrag kann erneut bestätigt werden.';
+    }).finally(function () {
+      view.admissionConfirming = false;
+      if (isCurrent(view) && view.attempt === attempt) showAttempt(view);
+    });
+  }
+
+  function readOperation(view, manual) {
+    if (!isCurrent(view) || !view.attempt) return Promise.resolve();
+    if (!view.attempt.operationId)
+      return manual && !view.attempt.pending
+        ? confirmMissingAdmission(view) : Promise.resolve();
     if (view.reading) {
       // Merge hints arriving during a GET into one additional read.
       view.operationReadQueued = true;
@@ -2053,7 +2120,8 @@
       ? 'Quelle und Berechtigung werden geprüft. Noch kein neuer Auftrag bestätigt.'
       : attempt.pending ? 'Die Anfrage wurde gesendet; eine Antwort steht noch aus.'
       : !attempt.operationId
-        ? 'Der Server hat keine eindeutige Antwort geliefert. Bitte nicht erneut klicken.'
+        ? 'Die Serverantwort fehlt. „Auftragsannahme bestätigen“ verwendet exakt ' +
+          'die ursprüngliche Kennung und Importdaten; kein zweiter Auftrag.'
         : descriptions[state] || 'Der vorhandene Auftrag wird über „Vorgang prüfen“ abgefragt.';
     if (attempt && attempt.failureCode && importFailureLabel(attempt.failureCode))
       view.importFeedbackText.textContent +=
@@ -2108,7 +2176,9 @@
         ? 'Import-Anfrage übermittelt, Serverantwort steht noch aus.'
         : 'Anfrage gesendet, Antwort nicht bestätigt.';
     view.refreshButton.hidden = false;
-    view.refreshButton.disabled = !view.attempt.operationId;
+    view.refreshButton.textContent = view.attempt.operationId
+      ? 'Vorgang prüfen' : 'Auftragsannahme bestätigen';
+    view.refreshButton.disabled = Boolean(view.attempt.pending || view.admissionConfirming);
     view.newButton.hidden = Boolean(view.batch) || !terminalState(view.attempt.state);
     view.batchStopButton.hidden = !view.batch;
     if (view.batch && view.batch.review) {
@@ -2143,8 +2213,8 @@
     } else if (view.attempt.pending) {
       report(view, 'Import-Anfrage läuft. Bis zur Serverantwort keinen weiteren Import starten.');
     } else {
-      report(view, 'Ergebnis der Auftragsannahme ungewiss. Keine neue Anfrage erzeugen. ' +
-        'Die ursprüngliche Idempotency-Key-Zuordnung bleibt für diese Browsersitzung gesperrt.', true);
+      report(view, 'Auftragsannahme ungewiss. „Auftragsannahme bestätigen“ ' +
+        'verwendet ausschließlich dieselbe Kennung und dieselben Importdaten.', true);
     }
   }
 
@@ -4410,10 +4480,19 @@
                 recoveredBatchAdmission = true;
                 return;
               }
-              if (ownerView && ownerView.batch)
-                stopBatch(ownerView,
-                  'Auftragsannahme ungewiss. Kein Folgeimport ohne Core-Nachweis.');
-              if (ownerView) showAttempt(ownerView);
+              if (ownerView && ownerView.batch && ownerView.batch.review) {
+                 const row = ownerView.batch.review.rows.find(function (item) {
+                   return item.sourceId === attempt.sourceId;
+                 });
+                 if (row) {
+                   row.state = 'admission_unknown';
+                   ownerView.batchReview = ownerView.batch.review;
+                   renderBatchReview(ownerView);
+                 }
+               }
+               // Pause the approved sequence; no later source is submitted
+               // until manual same-key admission and Core success readback.
+               if (ownerView) showAttempt(ownerView);
             });
           if (target) showAttempt(target);
           return;
