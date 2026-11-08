@@ -544,6 +544,39 @@ finished and its state has been checked.
 Do not create large disposable build trees when verified existing artifacts can
 be reused. Report actual filesystem write failures without speculative cleanup.
 
+### Installations-Cleanup: manuelle Builds versus Ubuntu-/Debian-Pakete (08.11.2026)
+
+- **Manuelle Quellcode-/Runtime-Installation:** Temporäre Checkouts, Build-
+  und Stage-Verzeichnisse nur dann automatisch entfernen, wenn sie **durch
+  genau diesen Lauf** erzeugt wurden und die Installation einschließlich
+  der abschließenden Deployment-Prüfung erfolgreich war. Bei Fehlern den
+  Diagnose-/Rollback-Stand erhalten und den Pfad ausgeben. Bereits vorhandene,
+  fremde oder bewusst separat verwaltete Arbeitsverzeichnisse nicht löschen.
+  Der bestehende `make install-runtime-managed`-Weg räumt seine eigene
+  temporäre Stage nach erfolgreicher Prüfung auf; einzeln aufgerufene
+  Stage-/Deploy-/Check-Ziele behalten ihre vom Operator verwaltete Stage.
+- **Inkrementelle Entwicklung:** Den zentralen Checkout samt `.build`,
+  insbesondere `.build/obj` und kompatiblen `OBJECT_CACHE_DIR`, niemals
+  durch Installations-Cleanup entfernen oder durch frische Build-Checkouts
+  ersetzen. Verifizierte, versiegelte Daemon-Kandidaten sowie für einen
+  möglichen Rollback benötigte Binaries/Receipts bleiben ebenfalls erhalten.
+  Keine automatische Löschung von Datenbanken, Datenbank-Backups,
+  Aufnahmen, Live-Konfiguration oder persistentem Runtime-State.
+- **Ubuntu-/Debian-Paket (`.deb`):** Paketbau und dessen temporäre
+  Quell-/Objekt-/Staging-Verzeichnisse gehören in die isolierte
+  **Paketbauumgebung**, nicht in das installierte Paket. Eine normale
+  `apt`-/`dpkg`-Installation auf dem Zielsystem kompiliert VDR-Suite nicht
+  und darf keine solchen Build-Reste erzeugen. Aufräumen ist Aufgabe des
+  abgeschlossenen Paketbau-Workflows, **nicht** eines `postinst`-, `prerm`-
+  oder anderen Maintainer-Skripts auf dem Zielsystem. Falls auf dem
+  Zielsystem selbst Pakete gebaut werden, nur dessen eigene temporäre
+  Build-Arbeitsverzeichnisse gezielt bereinigen; fertige `.deb`-Artefakte
+  und ausdrücklich benötigte Protokolle erhalten.
+- **Keine pauschalen Löschungen:** Weder alte `/tmp`-/`/home`-/`/root`-
+  Verzeichnisse nach Namensmuster noch globale Cache-Verzeichnisse oder
+  fremde Worktrees automatisch entfernen. Keine zusätzlichen Backups,
+  Dienstneustarts oder Rechteänderungen bloß für das Cleanup.
+
 ## yaVDR root shell, public GitHub checkout and least-privileged daemon build (2026-10-14)
 
 **Confirmed incident:** The operator works in a persistent
