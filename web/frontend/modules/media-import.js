@@ -4889,7 +4889,7 @@
     selectedBatchButton.disabled = true;
     root.appendChild(selectedBatchButton);
     const selectedDeleteButton = element('button',
-      'media-import-delete-duplicate media-import-batch-delete',
+      'media-import-batch-delete',
       'Ausgewählte Dubletten löschen');
     selectedDeleteButton.type = 'button';
     selectedDeleteButton.disabled = true;

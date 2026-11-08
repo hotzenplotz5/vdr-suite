@@ -4981,7 +4981,8 @@ body.channel-sorter-dragging * {
   border-left: 3px solid #34d399;
 }
 /* An unmarked, already imported source also exposes explicit cleanup. */
-.media-import-panel .media-import-delete-duplicate {
+.media-import-panel .media-import-delete-duplicate,
+.media-import-panel .media-import-batch-delete {
   justify-self: start;
   min-height: 2.6rem;
   padding: .55rem .95rem;
@@ -4991,7 +4992,8 @@ body.channel-sorter-dragging * {
   color: #fff;
   font-weight: 700;
 }
-.media-import-panel .media-import-delete-duplicate:disabled { opacity: .45; }
+.media-import-panel .media-import-delete-duplicate:disabled,
+.media-import-panel .media-import-batch-delete:disabled { opacity: .45; }
 /* Confirmed duplicates can be removed directly from the list; keep the
    destructive action readable across desktop and narrow/mobile layouts. */
 .media-import-panel .media-import-select-item .media-import-delete-duplicate-inline {
@@ -5015,7 +5017,8 @@ body.channel-sorter-dragging * {
   display: none !important;
 }
 @media (max-width: 480px) {
-  .media-import-panel .media-import-delete-duplicate { width: 100%; }
+  .media-import-panel .media-import-delete-duplicate,
+  .media-import-panel .media-import-batch-delete { width: 100%; }
 }
 /* Keep the real import action next to the verified readiness label. */
 .media-import-preview-actions {

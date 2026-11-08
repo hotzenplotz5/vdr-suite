@@ -2850,6 +2850,9 @@ function publishHomeResume() {}
   assert.strictEqual(submits, failedDuplicatePosts + 1,
     'same source is not automatically re-marked after terminal failure');
   const deleteAlreadyImported = findClass(mount, 'media-import-delete-duplicate');
+  assert(deleteAlreadyImported &&
+    !(deleteAlreadyImported.className || '').includes('media-import-batch-delete'),
+    'the single-file delete action must never resolve to the bulk delete button');
   assert(deleteAlreadyImported && !deleteAlreadyImported.hidden &&
     !deleteAlreadyImported.disabled,
     'unmarked source with duplicate preview offers explicit cleanup');
