@@ -34,7 +34,10 @@ class IsolatedBuildTests(unittest.TestCase):
         self.assertNotIn("sudo ", source)
         self.assertNotIn("apt-get ", source)
         self.assertNotIn("systemctl ", source)
-        self.assertNotIn("rm -rf ", source)
+        self.assertIn('rm -rf -- "$work/src"', source)
+        self.assertNotIn('rm -rf -- "$work"', source)
+        self.assertLess(source.index("RESOURCE_POSTCHECK=PASS"), source.index('rm -rf -- "$work/src"'))
+        self.assertLess(source.index('rm -rf -- "$work/src"'), source.index("RESULT=PASS"))
 
     def test_build_runs_in_clone_after_preflight(self):
         source = SCRIPT.read_text(encoding="utf-8")
