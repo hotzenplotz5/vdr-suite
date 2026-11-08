@@ -3956,6 +3956,45 @@ function publishHomeResume() {}
     'two confirmed imports with metadata create exactly two Core POSTs');
   assert.strictEqual(onlineRequests.length, providerReadsBefore +
     providerReads.length, 'neither Core confirmation repeats a TMDb lookup');
+  // MT.META6: Generic inbound directories cannot suppress an otherwise
+  // exact filename-derived series/season/episode metadata snapshot.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B];
+  sourceFolders[SOURCE] = 'Eingang/Unsortiert';
+  sourceFolders[SOURCE_B] = 'Eingang/Unsortiert';
+  batchOperations = [];
+  batchStates = Object.create(null);
+  state = 'dispatching';
+  recentImports = [];
+  const beforeGenericBatch = submits;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  await findClass(mount, 'media-import-batch').listeners.click();
+  await settle();
+  assert(findClass(mount, 'media-import-batch-review').children.every(function (row) {
+    return row.textContent.includes('TMDb-Metadaten vorbereitet');
+  }), 'generic source folders cannot discard uniquely recognized Andor episodes');
+  await findClass(mount, 'media-import-batch-confirm').listeners.click();
+  await settle();
+  const genericFirst = requests.filter(function (req) {
+    return req.path.endsWith('/media-imports') && req.options.method === 'POST';
+  }).slice(-1)[0];
+  assert.strictEqual(JSON.parse(genericFirst.options.body).metadata.split('|')[6], '11');
+  batchStates[BATCH_OP_A] = 'succeeded';
+  await emitOperation(BATCH_OP_A);
+  await settle();
+  const genericSecond = requests.filter(function (req) {
+    return req.path.endsWith('/media-imports') && req.options.method === 'POST';
+  }).slice(-1)[0];
+  assert.strictEqual(JSON.parse(genericSecond.options.body).metadata.split('|')[6], '12');
+  batchStates[BATCH_OP_B] = 'succeeded';
+  await emitOperation(BATCH_OP_B);
+  await settle();
+  assert.strictEqual(submits, beforeGenericBatch + 2,
+    'generic-folder batch creates one exact snapshot per import, not retries');
   batchAndorMetaFixture = false;
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');

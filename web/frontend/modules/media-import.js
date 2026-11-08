@@ -1021,33 +1021,49 @@
     };
     const coords = episodeCoordinates(source);
     if (coords.episode !== null) {
-      const title = onlineSeriesSearchTitle(source);
-      if (title.length < 2 || title.length > 160) return Promise.resolve('');
-      const normalized = normalizedSeriesName(title);
-      const alternative = normalized.replace(/^star wars /, '');
-      const match = function (items) {
-        return items.filter(function (candidate) {
-          const name = normalizedSeriesName(candidate.title);
-          return name === normalized || (alternative !== normalized &&
-            name === alternative);
+      // The final source folder may be generic ("Import") or an individual
+      // episode directory. Try a filename-derived series name first, then
+      // the existing folder hint. Both still require one exact TMDb series
+      // and the exact season/episode before freezing any metadata.
+      const titles = [batchSeriesTitleFromLabel(source),
+        onlineSeriesSearchTitle(source)].filter(function (title, index, all) {
+        return title.length >= 2 && title.length <= 160 &&
+          all.findIndex(function (other) {
+            return normalizedSeriesName(other) === normalizedSeriesName(title);
+          }) === index;
+      });
+      const findSeries = function (index) {
+        if (index >= titles.length) return Promise.resolve(null);
+        const title = titles[index];
+        const normalized = normalizedSeriesName(title);
+        const alternative = normalized.replace(/^star wars /, '');
+        const match = function (items) {
+          return items.filter(function (candidate) {
+            const name = normalizedSeriesName(candidate.title);
+            return name === normalized || (alternative !== normalized &&
+              name === alternative);
+          });
+        };
+        return cached('series:' + normalized, function () {
+          return batchMetadataLookup(view, 'search',
+            {query: title, kind: 'series', limit: 12}, 'series'
+          ).then(function (items) {
+            const matches = match(items);
+            if (matches.length || alternative === normalized ||
+                alternative.length < 2 || alternative.length > 160)
+              return matches.length === 1 ? matches[0] : null;
+            return batchMetadataLookup(view, 'search',
+              {query: alternative, kind: 'series', limit: 12}, 'series'
+            ).then(function (fallback) {
+              const found = match(fallback);
+              return found.length === 1 ? found[0] : null;
+            });
+          });
+        }).then(function (series) {
+          return series || findSeries(index + 1);
         });
       };
-      return cached('series:' + normalized, function () {
-        return batchMetadataLookup(view, 'search',
-          {query: title, kind: 'series', limit: 12}, 'series'
-        ).then(function (items) {
-          const matches = match(items);
-          if (matches.length || alternative === normalized ||
-              alternative.length < 2 || alternative.length > 160)
-            return matches.length === 1 ? matches[0] : null;
-          return batchMetadataLookup(view, 'search',
-            {query: alternative, kind: 'series', limit: 12}, 'series'
-          ).then(function (fallback) {
-            const found = match(fallback);
-            return found.length === 1 ? found[0] : null;
-          });
-        });
-      }).then(function (series) {
+      return findSeries(0).then(function (series) {
         if (!series) return '';
         return cached('seasons:' + series.externalId, function () {
           return batchMetadataLookup(view, 'seasons',
@@ -2723,6 +2739,22 @@
       season: season,
       episode: season !== null ? episode : null
     };
+  }
+
+  // A series episode can live directly in a generic import folder or in
+  // an episode-named subfolder. The source filename still contains the
+  // series identity ahead of SxxExx. This is only a TMDb search hint; the
+  // exact provider series and episode must still be uniquely confirmed.
+  function batchSeriesTitleFromLabel(source) {
+    const label = String(source && source.label || '');
+    const marker = /(?:^|[\s._-])S(0?[1-9]|[1-9][0-9])E(0?[1-9]|[1-9][0-9]{1,2})(?=$|[\s._-])/i.exec(label);
+    if (!marker || marker.index < 3) return '';
+    return label.slice(0, marker.index)
+      .replace(/^(?:(?:DE|EN|GER|ENG)[\s._-]+)+/i, '')
+      .replace(/[\s._-]+$/, '')
+      .replace(/\s*\((?:19|20)\d{2}\)$/, '')
+      .replace(/[_-]+/g, ' ')
+      .replace(/\s+/g, ' ').trim();
   }
 
   function onlineSeriesSearchTitle(source) {
