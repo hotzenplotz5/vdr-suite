@@ -38,14 +38,14 @@ check-install-runtime-deployment:
 # this invocation; the real BUILD_DIR (and its incremental object cache)
 # remains untouched. Preserve the stage on failure for diagnosis/rollback.
 install-runtime-managed:
-	@stage=$(mktemp -d "${TMPDIR:-/tmp}/vdr-suite-runtime-stage.XXXXXXXX") || exit 1; \
-	  echo "RUNTIME_TEMP_STAGE=$stage"; \
-	  if $(MAKE) stage-install-runtime RUNTIME_STAGE="$stage" BUILD_DIR="$(BUILD_DIR)" && \
-	     $(MAKE) deploy-install-runtime RUNTIME_STAGE="$stage" LIVE_ROOT="$(LIVE_ROOT)" && \
-	     $(MAKE) check-install-runtime-deployment RUNTIME_STAGE="$stage" LIVE_ROOT="$(LIVE_ROOT)"; then \
-	    rm -rf -- "$stage" && echo "RUNTIME_TEMP_STAGE_CLEANED=YES"; \
+	@stage=$$(mktemp -d "$${TMPDIR:-/tmp}/vdr-suite-runtime-stage.XXXXXXXX") || exit 1; \
+	  echo "RUNTIME_TEMP_STAGE=$$stage"; \
+	  if $(MAKE) stage-install-runtime RUNTIME_STAGE="$$stage" BUILD_DIR="$(BUILD_DIR)" && \
+	     $(MAKE) deploy-install-runtime RUNTIME_STAGE="$$stage" LIVE_ROOT="$(LIVE_ROOT)" && \
+	     $(MAKE) check-install-runtime-deployment RUNTIME_STAGE="$$stage" LIVE_ROOT="$(LIVE_ROOT)"; then \
+	    rm -rf -- "$$stage" && echo "RUNTIME_TEMP_STAGE_CLEANED=YES"; \
 	  else \
-	    echo "RUNTIME_TEMP_STAGE_RETAINED=$stage" >&2; \
+	    echo "RUNTIME_TEMP_STAGE_RETAINED=$$stage" >&2; \
 	    exit 1; \
 	  fi
 
