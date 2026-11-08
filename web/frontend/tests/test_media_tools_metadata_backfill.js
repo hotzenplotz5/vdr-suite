@@ -126,6 +126,61 @@ const client = {
     'never calls media-import or video endpoints');
   assert(statuses.some(s => s.includes('2 ergänzt')));
 
+  // MT.META8: Local franchise-prefixed group name must resolve the same
+  // exact TMDb identity without fuzzy matching or a second video import.
+  const aliasQueries = [];
+  const aliasAssignments = [];
+  const aliasClient = {
+    requestJson(route, options) {
+      const action = route.split('/').pop().split('?')[0];
+      const body = options && options.body ? JSON.parse(options.body) : {};
+      if (action === 'search') {
+        aliasQueries.push(body.query);
+        return Promise.resolve({
+          providerId: 'tmdb', providerAvailable: true,
+          candidates: body.query === 'Andor' ? [seriesCandidate] : []
+        });
+      }
+      if (action === 'episodes') return Promise.resolve({
+        providerId: 'tmdb', providerAvailable: true,
+        candidates: [episodeCandidate(4, 'Waren Sie schon einmal in Ghorman')]
+      });
+      if (action === 'manual') return Promise.resolve({found: false});
+      if (action === 'assign') {
+        aliasAssignments.push(body);
+        return Promise.resolve({found: true, revision: 1});
+      }
+      throw new Error('Unexpected alias metadata call ' + action);
+    }
+  };
+  const aliasResult = await api.backfillSeriesEpisodeMetadata({
+    title: 'Star Wars-Andor', episodes: [raw]
+  }, 'default', aliasClient);
+  assert.strictEqual(aliasResult.updated, 1);
+  assert.deepStrictEqual(aliasQueries, ['Star Wars-Andor', 'Andor']);
+  assert.strictEqual(aliasAssignments.length, 1);
+  assert.strictEqual(aliasAssignments[0].seriesTitle, 'Andor',
+    'persistent episode metadata uses the canonical TMDb series name');
+  assert.strictEqual(aliasAssignments[0].episodeNumber, 4);
+
+  const ambiguousAliasClient = {
+    requestJson(route, options) {
+      if (route.endsWith('/search')) return Promise.resolve({
+        providerId: 'tmdb', providerAvailable: true,
+        candidates: JSON.parse(options.body).query === 'Andor'
+          ? [seriesCandidate, Object.assign({}, seriesCandidate,
+            {externalId: '9999'})] : []
+      });
+      throw new Error('Ambiguous alias must never dispatch any metadata write');
+    }
+  };
+  await assert.rejects(
+    api.backfillSeriesEpisodeMetadata({
+      title: 'Star Wars-Andor', episodes: [raw]
+    }, 'default', ambiguousAliasClient),
+    /Mehrere passende TMDb-Serien/
+  );
+
   const noWriteCalls = [];
   const lockedClient = {
     requestJson(route, options) {

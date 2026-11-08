@@ -3127,22 +3127,45 @@
     const status = function (message) {
       if (typeof progress === 'function') progress(message, result);
     };
-    // Exactly one TMDb series must match; a similar search hit is not proof.
-    status('TMDb-Serie wird eindeutig ermittelt …');
-    return post('search', {query: title, kind: 'series', limit: 12})
-      .then(function (response) {
-        const matches = response && response.providerId === 'tmdb' &&
-          response.providerAvailable === true &&
-          Array.isArray(response.candidates)
-          ? response.candidates.filter(function (item) {
-            return item && item.kind === 'series' && item.providerId === 'tmdb' &&
-              /^\d{1,12}$/.test(text(item.externalId)) &&
-              (normalizedSeriesMatch(item.title) === normalized ||
-               normalizedSeriesMatch(item.originalTitle) === normalized);
-          }) : [];
-        if (matches.length !== 1)
+    // Local VDR folder names may prefix the canonical title, e.g.
+    // "Star Wars-Andor" while TMDb calls the series "Andor". Try the
+    // original name first, then only this explicit franchise-prefix alias.
+    // Each lookup must yield exactly ONE matching TMDb series identity.
+    const alternativeTitle = title.replace(
+      /^star[\s._:-]+wars[\s._:-]+/i, '').trim();
+    const searches = [{query: title, expected: normalized}];
+    if (alternativeTitle.length >= 2 &&
+        normalizedSeriesMatch(alternativeTitle) !== normalized) {
+      searches.push({
+        query: alternativeTitle,
+        expected: normalizedSeriesMatch(alternativeTitle)
+      });
+    }
+    const searchSeries = function (index) {
+      const wanted = searches[index];
+      status('TMDb-Serie wird eindeutig ermittelt: ' + wanted.query + ' …');
+      return post('search', {query: wanted.query, kind: 'series', limit: 12})
+        .then(function (response) {
+          const matches = response && response.providerId === 'tmdb' &&
+            response.providerAvailable === true &&
+            Array.isArray(response.candidates)
+            ? response.candidates.filter(function (item) {
+              return item && item.kind === 'series' && item.providerId === 'tmdb' &&
+                /^\d{1,12}$/.test(text(item.externalId)) &&
+                (normalizedSeriesMatch(item.title) === wanted.expected ||
+                 normalizedSeriesMatch(item.originalTitle) === wanted.expected);
+            }) : [];
+          const byId = new Map(matches.map(function (item) {
+            return [text(item.externalId), item];
+          }));
+          if (byId.size === 1) return byId.values().next().value;
+          if (byId.size > 1)
+            throw new Error('Mehrere passende TMDb-Serien gefunden. Keine Metadaten verändert.');
+          if (index + 1 < searches.length) return searchSeries(index + 1);
           throw new Error('Keine eindeutige TMDb-Serie gefunden. Keine Metadaten verändert.');
-        const foundSeries = matches[0];
+        });
+    };
+    return searchSeries(0).then(function (foundSeries) {
         const seasons = new Map();
         let chain = Promise.resolve();
         targets.forEach(function (member, index) {
@@ -3204,7 +3227,7 @@
                     resourceKey: resourceKey, providerId: 'tmdb',
                     externalNamespace: candidate.externalNamespace,
                     externalId: candidate.externalId, mediaType: 'episode',
-                    title: candidate.title, seriesTitle: title,
+                    title: candidate.title, seriesTitle: foundSeries.title,
                     originalTitle: candidate.originalTitle || '',
                     overview: candidate.overview || '',
                     releaseDate: candidate.releaseDate || '',
