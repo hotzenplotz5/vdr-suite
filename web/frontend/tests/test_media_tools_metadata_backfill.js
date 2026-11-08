@@ -284,7 +284,7 @@ const client = {
   await assert.rejects(
     api.backfillSeriesEpisodeMetadata({title: 'Andor', episodes: [raw]},
       'default', ambiguousClient),
-    /Keine eindeutige TMDb-Serie/
+    /Mehrere passende TMDb-Serien/
   );
   console.log('MT.META8 exact existing episode metadata backfill: PASS');
 }()).catch(function (error) {
