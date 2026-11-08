@@ -295,6 +295,10 @@ if [ -n "$PREPARED_WORKDIR" ]; then
   [ "$(sed -n '1p' "$WORK/candidate.txt")" = "$SHA" ] || stop "prepared build SHA differs"
 else
   WORK=$(mktemp -d "$HOME/vdr-suite-media-tools.XXXXXXXX") || stop "unable to create work directory"
+  # Only this invocation owns this disposable checkout/build area.
+  # --prepare must retain it for independent approval; install may clean it
+  # only after the live deployment and final verification succeeded.
+  if [ "$MODE" = install ]; then TEMP_INSTALL_WORKDIR=$WORK; fi
   mkdir -m 0700 "$WORK/build" "$WORK/tmp"
   export TMPDIR="$WORK/tmp"
   [ "$(id -u)" -ne 0 ] || stop "refuse root compilation"
@@ -492,6 +496,20 @@ sudo make check-install-runtime-deployment RUNTIME_STAGE="$STAGE" LIVE_ROOT=/ ||
   stop "installed Suite + Media Tools runtime drift"
 resource_preflight after || stop "post-install reserve insufficient"
 RESTART=0
+# SAFE_DIR is the root-owned rollback/DB-backup snapshot and must survive.
+# Only the separate transient build checkout created by THIS install can go.
+# Reused PREPARED_WORKDIR and --prepare output remain operator-owned.
+if [ -n "${TEMP_INSTALL_WORKDIR:-}" ]; then
+  if [ -d "$TEMP_INSTALL_WORKDIR" ] && [ ! -L "$TEMP_INSTALL_WORKDIR" ]; then
+    rm -rf -- "$TEMP_INSTALL_WORKDIR" ||
+      echo "MEDIA_TOOLS_TEMP_WORK_CLEANUP=FAILED $TEMP_INSTALL_WORKDIR" >&2
+  fi
+  if [ ! -e "$TEMP_INSTALL_WORKDIR" ] && [ ! -L "$TEMP_INSTALL_WORKDIR" ]; then
+    echo 'MEDIA_TOOLS_TEMP_WORK_CLEANED=YES'
+  else
+    echo "MEDIA_TOOLS_TEMP_WORK_RETAINED=$TEMP_INSTALL_WORKDIR" >&2
+  fi
+fi
 echo 'SUITE_SERVICES=STOPPED_REQUIRES_EXPLICIT_OPERATOR_START'
 echo 'MEDIA_TOOLS_HANDLER_APPROVAL=NOT_ISSUED'
 echo 'MEDIA_TOOLS_CORE_APPROVAL=NOT_ISSUED'
