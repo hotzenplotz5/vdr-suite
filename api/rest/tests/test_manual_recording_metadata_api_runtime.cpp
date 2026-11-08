@@ -775,8 +775,8 @@ int main()
         const std::string written((std::istreambuf_iterator<char>(info)),
                                   std::istreambuf_iterator<char>());
         assert(written ==
-            "C Channel\\nT Foundation\\nS Erwachen\\n"
-            "E 123 456 789 4E 00\\nF 25\\nD Foundation Folge 5.\\n");
+            "C Channel\nT Foundation\nS Erwachen\n"
+            "E 123 456 789 4E 00\nF 25\nD Foundation Folge 5.\n");
         std::ifstream ts(nativeRecording / "00001.ts", std::ios::binary);
         assert(std::string(std::istreambuf_iterator<char>(ts),
                            std::istreambuf_iterator<char>()) == "video-bytes");
