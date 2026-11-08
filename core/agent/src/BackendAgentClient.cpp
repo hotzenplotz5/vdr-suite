@@ -1,4 +1,5 @@
 #include "BackendAgentClient.h"
+#include "BackendAgentCurlProxyCompatibility.h"
 #include "MediaToolsAgentExecutor.h"
 #include "SuiteBridgeControlSocketPath.h"
 #include "BackendAgentChannelObservation.h"
@@ -629,7 +630,21 @@ BackendAgentTransportResponse CurlBackendAgentControlPlaneTransport::perform(
     setOption("ssl_verifypeer", CURLOPT_SSL_VERIFYPEER, 1L);
     setOption("ssl_verifyhost", CURLOPT_SSL_VERIFYHOST, 2L);
     setOption("netrc", CURLOPT_NETRC, CURL_NETRC_IGNORED);
-    setOption("proxy", CURLOPT_PROXY, "");
+    // MLD builds libcurl without proxy support. Disabling an absent proxy
+    // feature can return CURLE_UNKNOWN_OPTION (48) or CURLE_NOT_BUILT_IN;
+    // either means there is no proxy support to disable. On normal builds
+    // the explicit empty proxy still prevents environment proxy injection.
+    // Every other option and error remains fail-closed.
+    if (configured)
+    {
+        const CURLcode proxyResult = curl_easy_setopt(handle, CURLOPT_PROXY, "");
+        if (!vdrsuite::agent::proxyDisableOptionAccepted(proxyResult))
+        {
+            configured = false;
+            failedOption = "proxy";
+            setupError = proxyResult;
+        }
+    }
     const bool localLoopback = config_.controlPlaneUrl == "http://127.0.0.1:18080";
     setOption("protocols", CURLOPT_PROTOCOLS_STR, localLoopback ? "http" : "https");
     setOption("redir_protocols", CURLOPT_REDIR_PROTOCOLS_STR,

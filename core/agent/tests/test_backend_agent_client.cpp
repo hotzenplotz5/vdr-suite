@@ -1,4 +1,5 @@
 #include "BackendAgentClient.h"
+#include "BackendAgentCurlProxyCompatibility.h"
 #include "BackendAgentCommandJson.h"
 #include "BackendAgentCommandClient.h"
 #include "MediaShrinkAgentCommand.h"
@@ -137,6 +138,19 @@ void removeTree(const std::string& root)
     std::remove((root + "/config").c_str());
     std::remove((root + "/command.state").c_str());
     rmdir(root.c_str());
+}
+
+void test_curl_proxy_disable_option_without_proxy_support()
+{
+    // MLD libcurl 8.19 reports code 48 on CURLOPT_PROXY="".
+    // A proxy-disabled library cannot use an environment proxy; reject
+    // other failures without weakening TLS, URL or protocol checks.
+    using vdrsuite::agent::proxyDisableOptionAccepted;
+    assert(proxyDisableOptionAccepted(CURLE_OK));
+    assert(proxyDisableOptionAccepted(CURLE_UNKNOWN_OPTION));
+    assert(proxyDisableOptionAccepted(CURLE_NOT_BUILT_IN));
+    assert(!proxyDisableOptionAccepted(CURLE_FAILED_INIT));
+    assert(!proxyDisableOptionAccepted(CURLE_BAD_FUNCTION_ARGUMENT));
 }
 
 void test_protected_url_and_configuration()
@@ -1360,6 +1374,7 @@ void test_shrink_requires_explicit_trusted_executor()
 
 int main()
 {
+    test_curl_proxy_disable_option_without_proxy_support();
     test_protected_url_and_configuration();
     test_enrollment_connect_capability_heartbeat_and_restart();
     test_credential_rotation_and_lost_response_recovery();
