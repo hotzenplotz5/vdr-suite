@@ -671,6 +671,40 @@ durch einen stillen Defaultwechsel.
    **REAL-Status getrennt:** yaVDR geprüft; MLD/openSUSE erst nach
    tatsächlicher Host-/ABI-/Init-/Paketabnahme als unterstützt kennzeichnen.
 
+**MT.I3.1 – Read-only Quellinventar (09.11.2026, SOURCE PASS):**
+- `MediaImport.cpp`: FFprobe an mehreren Vorprüf-/Dauer-/Codecstellen;
+  FFmpeg bei Remux/Reencode; VDR `--genindex` nach dem Encode – alle
+  drei derzeit als feste `/usr/bin/...`-Programme. Der bisherige
+  `runRequired`-Fehlerklassifikator vergleicht ebenfalls exakt diese
+  Pfadstrings; MT.I3.2 muss auch diese Klassifikation auf einen
+  Werkzeugtyp statt einen hart kodierten Pfad umstellen.
+- `MediaShrink.cpp`: eigene fest kodierte FFprobe-, FFmpeg- und
+  VDR-`--genindex`-Aufrufe sowie VAAPI-Gerätestandard
+  `/dev/dri/renderD128` (nicht universell vorhanden). Software-H.265
+  nutzt derzeit CRF 27; dies ist noch **kein** freigegebener Wechsel auf
+  den geplanten CRF-23-Wert.
+- `MediaCheckFfmpeg.cpp`: bereits vorhandenes Vorbild eines
+  konstruktorgebundenen `trustedExecutable` mit direktem `execv`
+  ohne Shell. Dessen Vertrag gezielt wiederverwenden, nicht duplizieren.
+- `addons/media-tools/src/main.cpp` und
+  `PinnedMediaImportAgentExecutor.cpp`: der Import-CLI-Einstieg erzeugt
+  einen `NativeProcessRunner`; der Agent startet den geprüften
+  Handler über seinen gepinnten Dateideskriptor. Die neue Werkzeugwahl
+  darf diese geprüfte Handleridentität und die Auftragsevidenz nicht
+  ersetzen oder per Benutzer-POST steuerbar machen.
+- `tools/addons/install_media_tools.sh` und
+  `configure_media_tools_paths.sh`: yaVDR-/systemd-spezifische
+  Host-/Installationsschicht mit Beispielpfaden
+  `/srv/video/Filme`, `/srv/vdr/video.00`. **Nicht** als allgemeine
+  Linux-/MLD-/openSUSE-Defaults übernehmen.
+
+**Nächster Code-Slice ist MT.I3.2**, zunächst mit einem kleinen
+testbaren Werkzeugprofil für FFmpeg/FFprobe/VDR im vorhandenen
+Import-/Shrink-Executor und unverändert funktionierenden yaVDR-Defaults.
+Synthetische Pfadvarianten zuerst testen; echte andere Distributionen
+bleiben bis zur Hostabnahme NOT_VERIFIED. Dieses Quellinventar
+hat keine Host-, Dienst- oder Medienänderung ausgelöst.
+
 **Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
 oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
 echte lange Aufträge, Browser-/Agent-Reconnect und VDR-Readback zuständig.
