@@ -917,6 +917,18 @@ PASS auf yaVDR, distributionsspezifische Live- und Core-/Agent-Recovery-
 Abnahmen offen.** Keine automatische Umstellung der yaVDR-Pfade auf
 andere Distributionen.
 
+**MT.I3.3 – vorhandene Frontend-Verträge auf yaVDR bestätigt
+(09.11.2026, SOURCE/FRONTEND PASS):** Nutzerseitig ausgeführt:
+`make test-addon-media-import-ui` meldete
+`A7.5 real web composition and media import lifecycle: PASS`;
+`node web/frontend/tests/test_shared_browser_sse.js` meldete
+`test_shared_browser_sse passed`;
+`node web/frontend/tests/test_media_check_composition.js` meldete
+`MEDIA_CHECK_API_V1_FRONTEND=PASS HEVC_STAGE_PUBLISH_CLIENT=PASS`.
+Keine Dienste neu gestartet, keine produktiven Aufträge verändert.
+Dies bestätigt Frontend-Kompositions- und SSE-Verträge, **keinen**
+realen Core-/Agent-/VDR-Neustart.
+
 **MT.I3.3 – Core/Agent-SQL-Regressionsnachtrag (09.11.2026, Testcode):**
 - Neuer `make test-media-tools-i33-core-recovery`-Test liest die
   **tatsächliche** SQL-Auswahl aus `DaemonRuntime.cpp` und die beiden
