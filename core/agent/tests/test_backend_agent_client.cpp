@@ -128,6 +128,10 @@ BackendAgentClientConfig configFor(const std::string& root)
     config.backendId = "default";
     config.identityPath = root + "/identity";
     config.enrollmentPath = root + "/enrollment";
+    // Isolate every synthetic command from the production Agent state.
+    // A live Agent's durable command.state otherwise suppresses the OSD
+    // discovery/poll expected in the low-latency test.
+    config.commandStatePath = root + "/command.state";
     config.adapters = {};
     config.observationDomains = {"backend-health"};
     config.heartbeatIntervalSeconds = 10;
