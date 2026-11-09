@@ -16,6 +16,7 @@ import unittest
 REPO = Path(__file__).resolve().parents[2]
 DAEMON = REPO / "core/daemon/src/DaemonRuntime.cpp"
 ASSIGNMENT = REPO / "core/agent/src/BackendAgentMediaImportAssignment.cpp"
+OPERATIONS = REPO / "core/operations/src/MutationOperationRepository.cpp"
 
 NOW = 1700000000
 BATCH = "mb1_" + "a" * 32
@@ -60,6 +61,20 @@ def production_agent_unique_indexes() -> tuple[str, str]:
     return statements
 
 
+def production_operation_idempotency_index() -> str:
+    code = OPERATIONS.read_text(encoding="utf-8")
+    body = code.split("bool MutationOperationRepository::ensureSchema()", 1)[1]
+    body = body.split("MutationOperationRepositoryResult MutationOperationRepository::reserve(", 1)[0]
+    match = re.search(r"return database_\.execute\(\s*((?:" + QUOTED + r"\s*)+)\);", body)
+    if match is None:
+        raise AssertionError("canonical Core operation idempotency indexes not found")
+    # The existing Core statement creates multiple indexes; inspect only the
+    # first idempotency index without copying it or updating the live schema.
+    first = joined_cpp_literals(match.group(1)).split(";", 1)[0] + ";"
+    assert "idx_mutation_operations_idempotency_scope" in first
+    return first
+
+
 def operations_db(path: Path) -> sqlite3.Connection:
     db = sqlite3.connect(path)
     db.execute(
@@ -67,7 +82,9 @@ def operations_db(path: Path) -> sqlite3.Connection:
         "operation_id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, "
         "backend_id TEXT NOT NULL, action_family TEXT NOT NULL, "
         "state TEXT NOT NULL, idempotency_key TEXT NOT NULL, "
-        "requested_at INTEGER NOT NULL, deadline INTEGER NOT NULL)"
+        "requested_at INTEGER NOT NULL, deadline INTEGER NOT NULL, "
+        "resource_type TEXT NOT NULL DEFAULT 'MediaImportSource', "
+        "resource_id TEXT NOT NULL DEFAULT 'fixture-source')"
     )
     return db
 
@@ -80,7 +97,9 @@ def add_batch(db: sqlite3.Connection, batch: str, count: int = 7,
         operation_id = actor + "/" + backend + "/" + batch + "/" + str(position)
         ids.append(operation_id)
         db.execute(
-            "INSERT INTO mutation_operations VALUES (?,?,?,?,?,?,?,?)",
+            "INSERT INTO mutation_operations "
+            "(operation_id,actor_id,backend_id,action_family,state,"
+            "idempotency_key,requested_at,deadline) VALUES (?,?,?,?,?,?,?,?)",
             (operation_id, actor, backend, "media.import", initial,
              batch + f"_{position:03d}", NOW - 10, NOW + 3600))
     db.commit()
@@ -154,12 +173,37 @@ class DurableBatchSqlTests(unittest.TestCase):
             update(db, first[0], "outcome_unknown")
             self.assertEqual(set(ready(db, self.sql)), {other[0], separate[0]})
             db.execute(
-                "INSERT INTO mutation_operations VALUES (?,?,?,?,?,?,?,?)",
+                "INSERT INTO mutation_operations "
+                "(operation_id,actor_id,backend_id,action_family,state,"
+                "idempotency_key,requested_at,deadline) VALUES (?,?,?,?,?,?,?,?)",
                 ("not-a-batch", "actor-a", "backend-a", "media.import",
                  "accepted", "mb1_" + "c" * 31 + "_000",
                  NOW - 10, NOW + 3600))
             db.commit()
             self.assertNotIn("not-a-batch", ready(db, self.sql))
+            db.close()
+
+    def test_lost_post_response_cannot_reserve_second_operation_for_same_scope(self):
+        with tempfile.TemporaryDirectory() as temp:
+            filename = Path(temp) / "operations.db"
+            db = operations_db(filename)
+            db.execute(production_operation_idempotency_index())
+            ids = add_batch(db, BATCH, 2)
+            conflict = ("replayed-with-new-id", "actor-a", "backend-a",
+                        "media.import", "accepted", BATCH + "_000",
+                        NOW - 10, NOW + 3600)
+            insert = ("INSERT INTO mutation_operations "
+                      "(operation_id,actor_id,backend_id,action_family,state,"
+                      "idempotency_key,requested_at,deadline) VALUES (?,?,?,?,?,?,?,?)")
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute(insert, conflict)
+            self.assertEqual(ready(db, self.sql), ids[:1])
+            db.close()
+            db = operations_db(filename)
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute(insert, conflict)
+            self.assertEqual(db.execute(
+                "SELECT COUNT(*) FROM mutation_operations").fetchone()[0], 2)
             db.close()
 
     def test_real_agent_unique_indexes_reject_duplicate_command_and_readback(self):
