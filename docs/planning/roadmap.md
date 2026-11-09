@@ -59,6 +59,8 @@ A roadmap entry is never automatic permission to implement the next possible dif
 
 **Binding direction:** Favor usable read paths and KISS: a single source observation for a selected preview, no redundant complete scans, concrete failure diagnostics rather than opaque `source_invalid`, actual CLI↔Web end-to-end tests, and reuse of existing build/install/rollback tooling. Introduce no new security, activation, authorization or installation restrictions without the maintainer's explicit consent; retain the existing protections required for authenticated access and actual mutations. The corresponding repository rule is **Usability First – No Unapproved Restrictions** in [AGENTS.md](../../AGENTS.md).
 
+**Media-Tools-Portabilität vor BAS:** MT.I3 und MT.ENC3 enthalten jetzt den verbindlichen gemeinsamen Ausführungsvertrag für yaVDR/Ubuntu sowie spätere MLD-/openSUSE-Adapter (Werkzeugpfade, VDR-Wurzel, Backend-Konfiguration, typisierte Encoderwerte und getrennte reale Abnahme). Kein zweiter Importer und keine pauschale Distributionsfreigabe. Reihenfolge und Abnahmekriterien stehen in der [Media-Tools-Roadmap](../../addons/media-tools/ROADMAP.md#mti3--mtenc3--distributionsneutraler-ausführungsvertrag-09112026).
+
 **Status:** BAS = **PLANNED / NOT STARTED**. This prioritizes the maintenance work immediately after Media Tools; it **does not renumber or kick off the previously planned numbered Phase 70**. Until MT has completed its real-user acceptance, continue that workstream rather than switching prematurely.
 
 ---

@@ -617,6 +617,66 @@ ist nicht behauptet.
   gezieltes JS-Update, für spätere Backend-Änderungen den vorhandenen
   schnellen inkrementellen Build nutzen.
 
+### MT.I3 / MT.ENC3 – Distributionsneutraler Ausführungsvertrag (09.11.2026)
+
+**Verbindliches Ziel:** Media Import, Metadaten-Writer, langlaufende Core-Operationen,
+SSE und Encoding benutzen **einen gemeinsamen Linux-/VDR-Produktpfad**.
+yaVDR/Ubuntu ist das real geprüfte Referenzsystem; MLD und openSUSE dürfen
+nicht durch hart kodierte yaVDR-Pfade ausgeschlossen werden. Unterschiede in
+Werkzeugen, VDR-Videoverzeichnis, Init/Diensten, Paketmanager, Benutzer/Gruppe
+und VDR-/FFmpeg-ABI bleiben Host-/Distributionskonfiguration. Das ist ein
+**Querschnittsvertrag innerhalb MT.I3 und MT.ENC3**, keine neue Phase,
+kein eigener Importer, keine zweite Queue und keine neue Sicherheitsfreigabe.
+
+**Aktueller Quellbefund:** `addons/media-tools/src/MediaImport.cpp` verwendet
+`/usr/bin/ffmpeg`, `/usr/bin/ffprobe`, `/usr/bin/vdr` und festes
+`libx264 -preset medium -crf 23 -threads 2`. Der native `info`-Writer
+arbeitet bereits mit übergebenem VDR-Root, nicht mit festem
+`/srv/vdr/video.00`; die Foundation-S01E05–E08-`info`-Dateien wurden
+am 09.11.2026 auf realem yaVDR vollständig gelesen (4/4, T/S/D vorhanden).
+Der einzige erfolgreiche Hostbefund ist **keine** Freigabe für MLD/openSUSE.
+Außerdem nutzt der aktuelle Software-Shrink-Pfad in
+`addons/media-tools/src/MediaShrink.cpp` `libx265 -crf 27`, während
+MT.ENC3 den gewünschten Rectools-Ausgangswert CRF 23 aufführt: diese
+Abweichung vor einer Übernahme der Settings ausdrücklich auflösen, nicht
+durch einen stillen Defaultwechsel.
+
+**Nächste Slices in verbindlicher Reihenfolge:**
+
+1. **MT.I3.1 – Read-only Portabilitätsinventar:** Alle vom laufenden
+   Media-Import-/Shrink-Worker tatsächlich verwendeten FFmpeg-/FFprobe-/VDR-
+   Programm- und Videowurzelpfade und ihre vorhandenen Config-/Stage-Owner
+   ermitteln. Installiertes yaVDR-Verhalten dokumentieren; für MLD/openSUSE
+   keine Pfade oder ABI-Werte erraten. Nur Quellprüfung und synthetische Tests,
+   kein Eingriff in den Host.
+2. **MT.I3.2 – Ein backendgebundenes Werkzeugprofil:** Den vorhandenen
+   Worker mit den nachgewiesenen Programmpfaden für FFmpeg, FFprobe und
+   VDR-Indexbildung versorgen. Die Quelle ist die vorhandene vertrauenswürdige
+   Backend-/Agent-Hostkonfiguration, **nicht** ein Browser-POST, frei
+   editierbare FFmpeg-Kommandozeile oder ein zweiter Launcher. Bestehende
+   yaVDR-Defaults funktionieren ohne Konfigurationszwang. Fehlende Werkzeuge
+   zeigen einen konkreten Fehler, statt neue Add-on-Sperren einzuführen.
+   Keine Shell-Interpolation, bestehende gepinnte Ausführung erhalten.
+3. **MT.ENC3.1 – Typisierte Encoderwerte:** Erst auf dieser Grundlage die
+   geplanten backendbezogenen CRF-/Preset-/Audio-/Hardwarewerte in den
+   **bestehenden** Core-Auftrag und Worker einhängen. Nur unterstützte Werte,
+   kein freies `argv`; einen bei Auftragsstart fixierten Snapshot verwenden,
+   keine Änderung eines laufenden Encodes. Import-H.264 und Shrink-H.265
+   getrennt behandeln. Vor dem Ändern des Shrink-Standards CRF 27 vs.
+   gewünschtem CRF 23 bewusst entscheiden.
+4. **MT.I3.3 – Portabilitätsregression:** Synthetische Hosts mit
+   unterschiedlichen existierenden Binär-, VDR- und Servicepfaden prüfen;
+   identisches Import-/SSE-/Readback-Verhalten, kein zweiter Import und
+   kein Wegfall der inkrementellen Build-/Stage-Verträge.
+   **REAL-Status getrennt:** yaVDR geprüft; MLD/openSUSE erst nach
+   tatsächlicher Host-/ABI-/Init-/Paketabnahme als unterstützt kennzeichnen.
+
+**Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
+oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
+echte lange Aufträge, Browser-/Agent-Reconnect und VDR-Readback zuständig.
+Kein Installations-, Dienst- oder Medienänderungsautomatismus durch
+Portabilitätsprüfung.
+
 ## MT.ENC – Hintergrund-Umkodierung, Wiederanmeldung und Encoder-Einstellungen (31.10.2026, geplant)
 
 **Produktanforderung:** Ein bewusst gestarteter VDR-Encode läuft serverseitig weiter,
