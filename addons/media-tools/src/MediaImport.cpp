@@ -1114,6 +1114,9 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
                             const std::function<void(const ImportPlan&)>& capacityPreflight,
                             bool allowVideoReencode,
                             const ImportConfirmedMetadata* confirmedMetadata) {
+    // Freeze backend-local settings for the whole job, including FFmpeg retries.
+    const auto encoding = runner.encodingSettings();
+    require(encoding.valid(), "invalid_media_encoding_settings");
     // Re-inspect at execution time: no untrusted request may reuse a stale plan.
     const auto fresh = inspectImport({plan.sourceRoot, plan.videoRoot, plan.sourceFile});
     require(fresh.titleDirectory == plan.titleDirectory &&
@@ -1228,8 +1231,9 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
         encode.insert(encode.end(), {"-c:v", "copy"});
     else {
         encode.insert(encode.end(), {
-            "-c:v", "libx264", "-preset", "medium", "-crf", "23",
-            "-pix_fmt", "yuv420p", "-threads", "2",
+            "-c:v", "libx264", "-preset", encoding.importH264Preset,
+            "-crf", std::to_string(encoding.importH264Crf),
+            "-profile:v", "main", "-pix_fmt", "yuv420p", "-threads", "2",
             "-g", "50"
         });
     }
@@ -1261,6 +1265,15 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     require(encodedVideo.exitCode == 0 &&
             parseProbedVideoCodec(encodedVideo.output) == expectedCodec,
             "import output video codec verification failed");
+    if (!copyVideo) {
+        const auto profile = runner.run({
+            runner.executable(MediaTool::ffprobe), "-v", "error",
+            "-select_streams", "v:0", "-show_entries", "stream=profile,pix_fmt",
+            "-of", "default=nw=1", output.string()
+        }, true);
+        require(profile.exitCode == 0 && vdrEightBitMainProfile(profile.output),
+                "import output is not VDR-compatible H.264 Main 8-bit");
+    }
     runRequired(runner, MediaTool::vdr,
                 {runner.executable(MediaTool::vdr), "--genindex=" + stagedRecording.string()});
     require(nonemptyRegular(stagedRecording / "index"), "VDR index missing or empty");

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BackendAgentCommandClient.h"
+#include "MediaImport.h"
 #include "BackendAgentOsdObservation.h"
 #include <atomic>
 #include <cstdint>
@@ -41,6 +42,7 @@ struct BackendAgentClientConfig
     std::string mediaFfmpegPath = "/usr/bin/ffmpeg";
     std::string mediaFfprobePath = "/usr/bin/ffprobe";
     std::string mediaVdrPath = "/usr/bin/vdr";
+    vdrsuite::mediatools::MediaEncodingSettings mediaEncoding;
     vdrsuite::agent::IBackendAgentNativeTimerCreateTransport*
         nativeTimerCreateTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport*

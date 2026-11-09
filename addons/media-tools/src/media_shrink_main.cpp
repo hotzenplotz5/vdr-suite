@@ -8,7 +8,8 @@
 using namespace vdrsuite::mediatools;
 
 namespace {
-ShrinkOptions optionsFor(int argc, char* argv[], int from) {
+ShrinkOptions optionsFor(int argc, char* argv[], int from,
+                         MediaToolExecutables& tools) {
     ShrinkOptions options;
     for (int i = from; i < argc; ++i) {
         const std::string arg(argv[i]);
@@ -23,6 +24,8 @@ ShrinkOptions optionsFor(int argc, char* argv[], int from) {
         else if (arg == "--encoder=vaapi") options.encoder = ShrinkEncoder::vaapi;
         else if (arg == "--encoder=qsv") options.encoder = ShrinkEncoder::qsv;
         else if (arg == "--encoder=nvenc") options.encoder = ShrinkEncoder::nvenc;
+        else if (arg.rfind("--vaapi-render-device=", 0) == 0)
+            tools.encoding.vaapiRenderDevice = arg.substr(22);
         else throw std::invalid_argument("unrecognized shrink option");
     }
     return options;
@@ -33,7 +36,8 @@ int main(int argc, char* argv[]) {
     if (argc < 4) {
         std::cerr << "Usage: vdr-suite-media-shrink plan VIDEO_ROOT RELATIVE.rec [options]\n"
                   << "       vdr-suite-media-shrink stage VIDEO_ROOT RELATIVE.rec --confirm-staging [options]\n"
-                  << "       vdr-suite-media-shrink publish VIDEO_ROOT RELATIVE.rec CANDIDATE --confirm-new-recording\n";
+                  << "       vdr-suite-media-shrink publish VIDEO_ROOT RELATIVE.rec CANDIDATE --confirm-new-recording\n"
+                  << "       Optional local VAAPI: --encoder=vaapi --vaapi-render-device=/dev/dri/renderDxxx\n";
         return 2;
     }
     try {
@@ -58,7 +62,10 @@ int main(int argc, char* argv[]) {
                 throw std::invalid_argument("staging requires explicit confirmation");
             firstOption = 5;
         }
-        const auto settings = optionsFor(argc, argv, firstOption);
+        MediaToolExecutables tools;
+        const auto settings = optionsFor(argc, argv, firstOption, tools);
+        if (!tools.valid())
+            throw std::invalid_argument("invalid local media encoding settings");
         const auto plan = inspectShrink(root, relative, settings);
         std::cout << "SHRINK_SOURCE_BYTES=" << plan.totalBytes << "\n"
                   << "SHRINK_SEGMENTS=" << plan.segments.size() << "\n";
@@ -68,7 +75,7 @@ int main(int argc, char* argv[]) {
         }
         // This administrator-invoked local conversion is not a remote Agent
         // command. The protected Agent importer retains its shorter default.
-        NativeProcessRunner runner(std::chrono::seconds(4 * 3600));
+        NativeProcessRunner runner(std::chrono::seconds(4 * 3600), tools);
         const auto candidate = stageShrink(plan, runner, requireShrinkCapacity);
         std::cout << "SHRINK_REVIEW_CANDIDATE=" << candidate << "\n"
                   << "ORIGINAL_RECORDING_PRESERVED=YES\n"

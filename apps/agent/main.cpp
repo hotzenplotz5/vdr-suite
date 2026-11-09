@@ -166,7 +166,8 @@ int main(int argc, char** argv)
     // One typed profile shared by this Agent's import and shrink workflows.
     // Defaults preserve the existing behavior on a configured yaVDR host.
     const vdrsuite::mediatools::MediaToolExecutables mediaTools{
-        config.mediaFfmpegPath, config.mediaFfprobePath, config.mediaVdrPath};
+        config.mediaFfmpegPath, config.mediaFfprobePath, config.mediaVdrPath,
+        config.mediaEncoding};
 
     // The agent's explicit configuration has priority over the private
     // process environment shared by the daemon and the VDR plugin.

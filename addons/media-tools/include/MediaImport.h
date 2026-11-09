@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -44,10 +45,58 @@ struct ProcessResult {
 // MT.I3.2: backend-local executable profile, never actor/HTTP-controlled.
 enum class MediaTool { ffmpeg, ffprobe, vdr };
 
+// Backend-local values only. Codec, VDR MPEG-TS and 8-bit Main profile
+// remain fixed by the existing encoding workers.
+struct MediaEncodingSettings {
+    int importH264Crf = 23;
+    std::string importH264Preset = "medium";
+    int shrinkH265Crf = 27; // Keep existing production default.
+    std::string shrinkH265Preset = "medium";
+    std::string vaapiRenderDevice; // No universal renderD128 assumption.
+    static bool validPreset(const std::string& value) {
+        for (const char* preset : {"ultrafast", "superfast", "veryfast",
+                "faster", "fast", "medium", "slow", "slower", "veryslow"})
+            if (value == preset) return true;
+        return false;
+    }
+    bool valid() const {
+        if (importH264Crf < 0 || importH264Crf > 51 ||
+            shrinkH265Crf < 0 || shrinkH265Crf > 51 ||
+            !validPreset(importH264Preset) || !validPreset(shrinkH265Preset))
+            return false;
+        if (vaapiRenderDevice.empty()) return true;
+        const fs::path p(vaapiRenderDevice);
+        return vaapiRenderDevice.size() <= 1024 && p.is_absolute() &&
+            p.lexically_normal() == p && p.has_filename() &&
+            std::none_of(vaapiRenderDevice.begin(), vaapiRenderDevice.end(),
+                [](unsigned char c) { return c < 0x20U || c == 0x7fU; });
+    }
+};
+
+// Post-encode FFprobe readback. The actual output plugin's decoder support
+// remains a separate host requirement, especially for HEVC.
+inline bool vdrEightBitMainProfile(const std::string& report) {
+    bool profile = false, pixels = false;
+    std::istringstream input(report);
+    std::string line;
+    while (std::getline(input, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.rfind("profile=", 0) == 0) {
+            if (line != "profile=Main") return false;
+            profile = true;
+        } else if (line.rfind("pix_fmt=", 0) == 0) {
+            if (line != "pix_fmt=yuv420p") return false;
+            pixels = true;
+        }
+    }
+    return profile && pixels;
+}
+
 struct MediaToolExecutables {
     std::string ffmpeg = "/usr/bin/ffmpeg";
     std::string ffprobe = "/usr/bin/ffprobe";
     std::string vdr = "/usr/bin/vdr";
+    MediaEncodingSettings encoding;
 
     std::string forTool(MediaTool tool) const {
         switch (tool) {
@@ -67,7 +116,8 @@ struct MediaToolExecutables {
             });
     }
     bool valid() const {
-        return validPath(ffmpeg) && validPath(ffprobe) && validPath(vdr);
+        return validPath(ffmpeg) && validPath(ffprobe) && validPath(vdr) &&
+            encoding.valid();
     }
 };
 
@@ -80,6 +130,7 @@ struct ProcessRunner {
     virtual std::string executable(MediaTool tool) const {
         return MediaToolExecutables{}.forTool(tool);
     }
+    virtual MediaEncodingSettings encodingSettings() const { return {}; }
 };
 
 class NativeProcessRunner final : public ProcessRunner {
@@ -90,6 +141,9 @@ public:
     ProcessResult run(const std::vector<std::string>& argv, bool captureOutput) override;
     std::string executable(MediaTool tool) const override {
         return executables_.forTool(tool);
+    }
+    MediaEncodingSettings encodingSettings() const override {
+        return executables_.encoding;
     }
     // Used only by the backend Agent's scoped Media Tools maintenance guard.
     // -1 clears the binding. The Runner never owns or closes the descriptor.

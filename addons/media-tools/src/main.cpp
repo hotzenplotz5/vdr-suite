@@ -45,8 +45,28 @@ int main(int argc, char* argv[]) {
             tools.ffprobe = value;
         if (const char* value = std::getenv("VDR_SUITE_MEDIA_VDR"))
             tools.vdr = value;
+        // Agent-owned values are passed in the pinned child environment.
+        // No browser argument can provide an FFmpeg option or encoding profile.
+        const auto parseCrf = [](const char* key, int& target) {
+            if (const char* raw = std::getenv(key)) {
+                const std::string value(raw);
+                if (value.empty() || value.size() > 2 ||
+                    !std::all_of(value.begin(), value.end(),
+                        [](unsigned char c) { return c >= '0' && c <= '9'; }))
+                    throw std::invalid_argument(std::string("invalid ") + key);
+                target = std::stoi(value);
+            }
+        };
+        parseCrf("VDR_SUITE_MEDIA_IMPORT_H264_CRF", tools.encoding.importH264Crf);
+        parseCrf("VDR_SUITE_MEDIA_SHRINK_H265_CRF", tools.encoding.shrinkH265Crf);
+        if (const char* v = std::getenv("VDR_SUITE_MEDIA_IMPORT_H264_PRESET"))
+            tools.encoding.importH264Preset = v;
+        if (const char* v = std::getenv("VDR_SUITE_MEDIA_SHRINK_H265_PRESET"))
+            tools.encoding.shrinkH265Preset = v;
+        if (const char* v = std::getenv("VDR_SUITE_MEDIA_VAAPI_RENDER_DEVICE"))
+            tools.encoding.vaapiRenderDevice = v;
         if (!tools.valid())
-            throw std::invalid_argument("invalid backend media tool executable path");
+            throw std::invalid_argument("invalid backend media tool or encoding settings");
         const auto plan = action == "plan"
             ? inspectImportPreview(ImportRequest{argv[2], argv[3], argv[4]})
             : inspectImport(ImportRequest{argv[2], argv[3], argv[4]});
@@ -102,6 +122,10 @@ int main(int argc, char* argv[]) {
         if (std::string(exc.what()) == "ffmpeg_timeout") return 71;
         if (std::string(exc.what()) == "ffmpeg_failed") return 72;
         if (std::string(exc.what()) == "vdr_index_failed") return 73;
+        if (std::string(exc.what()) ==
+                "import output is not VDR-compatible H.264 Main 8-bit") return 74;
+        if (std::string(exc.what()) ==
+                "invalid_media_encoding_settings") return 75;
         return 1;
     }
 }

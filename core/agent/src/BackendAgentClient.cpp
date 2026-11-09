@@ -715,7 +715,10 @@ bool BackendAgentClientRuntime::loadConfig(
         "HEARTBEAT_INTERVAL_SECONDS", "RECONNECT_INITIAL_SECONDS",
         "RECONNECT_MAXIMUM_SECONDS", "CONNECT_TIMEOUT_MILLISECONDS",
         "REQUEST_TIMEOUT_MILLISECONDS",
-        "MEDIA_FFMPEG_PATH", "MEDIA_FFPROBE_PATH", "MEDIA_VDR_PATH"};
+        "MEDIA_FFMPEG_PATH", "MEDIA_FFPROBE_PATH", "MEDIA_VDR_PATH",
+        "MEDIA_IMPORT_H264_CRF", "MEDIA_IMPORT_H264_PRESET",
+        "MEDIA_SHRINK_H265_CRF", "MEDIA_SHRINK_H265_PRESET",
+        "MEDIA_VAAPI_RENDER_DEVICE"};
     for (const auto& value : values)
     {
         if (std::find(Allowed.begin(), Allowed.end(), value.first) == Allowed.end())
@@ -762,6 +765,38 @@ bool BackendAgentClientRuntime::loadConfig(
         config.mediaFfmpegPath, config.mediaFfprobePath, config.mediaVdrPath};
     if (!tools.valid()) {
         reasonCode = "invalid_media_tool_executable_path";
+        return false;
+    }
+    config.mediaEncoding = {}; // Missing keys always restore 0-config defaults.
+    auto& enc = config.mediaEncoding;
+    if (values.count("MEDIA_IMPORT_H264_CRF") &&
+        !strictInt(values["MEDIA_IMPORT_H264_CRF"], 0, 51, enc.importH264Crf)) {
+        reasonCode = "invalid_media_import_h264_crf";
+        return false;
+    }
+    if (values.count("MEDIA_SHRINK_H265_CRF") &&
+        !strictInt(values["MEDIA_SHRINK_H265_CRF"], 0, 51, enc.shrinkH265Crf)) {
+        reasonCode = "invalid_media_shrink_h265_crf";
+        return false;
+    }
+    if (values.count("MEDIA_IMPORT_H264_PRESET"))
+        enc.importH264Preset = values["MEDIA_IMPORT_H264_PRESET"];
+    if (values.count("MEDIA_SHRINK_H265_PRESET"))
+        enc.shrinkH265Preset = values["MEDIA_SHRINK_H265_PRESET"];
+    if (values.count("MEDIA_VAAPI_RENDER_DEVICE"))
+        enc.vaapiRenderDevice = values["MEDIA_VAAPI_RENDER_DEVICE"];
+    if (!vdrsuite::mediatools::MediaEncodingSettings::validPreset(
+            enc.importH264Preset)) {
+        reasonCode = "invalid_media_import_h264_preset";
+        return false;
+    }
+    if (!vdrsuite::mediatools::MediaEncodingSettings::validPreset(
+            enc.shrinkH265Preset)) {
+        reasonCode = "invalid_media_shrink_h265_preset";
+        return false;
+    }
+    if (!enc.valid()) {
+        reasonCode = "invalid_media_vaapi_render_device";
         return false;
     }
     config.nativeTimerCreateTransport = nullptr;

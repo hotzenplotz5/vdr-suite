@@ -195,6 +195,11 @@ void test_protected_url_and_configuration()
     assert(config.mediaFfmpegPath == "/usr/bin/ffmpeg");
     assert(config.mediaFfprobePath == "/usr/bin/ffprobe");
     assert(config.mediaVdrPath == "/usr/bin/vdr");
+    assert(config.mediaEncoding.importH264Crf == 23);
+    assert(config.mediaEncoding.importH264Preset == "medium");
+    assert(config.mediaEncoding.shrinkH265Crf == 27);
+    assert(config.mediaEncoding.shrinkH265Preset == "medium");
+    assert(config.mediaEncoding.vaapiRenderDevice.empty());
 
     // Optional tool paths live in the same root-owned backend config.
     // Invalid/relative paths are rejected before any worker is constructed.
@@ -213,6 +218,46 @@ void test_protected_url_and_configuration()
         assert(config.mediaFfprobePath == "/opt/media/bin/ffprobe");
         assert(config.mediaVdrPath == "/usr/local/bin/vdr");
     }
+    {
+        std::ofstream configured(path);
+        configured << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+                   << "BACKEND_ID=default\n"
+                   << "IDENTITY_PATH=" << root << "/identity\n"
+                   << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+                   << "MEDIA_IMPORT_H264_CRF=19\n"
+                   << "MEDIA_IMPORT_H264_PRESET=veryfast\n"
+                   << "MEDIA_SHRINK_H265_CRF=24\n"
+                   << "MEDIA_SHRINK_H265_PRESET=slow\n"
+                   << "MEDIA_VAAPI_RENDER_DEVICE=/dev/dri/renderD137\n";
+        configured.close();
+        assert(BackendAgentClientRuntime::loadConfig(path, config, reason));
+        assert(config.mediaEncoding.importH264Crf == 19);
+        assert(config.mediaEncoding.importH264Preset == "veryfast");
+        assert(config.mediaEncoding.shrinkH265Crf == 24);
+        assert(config.mediaEncoding.shrinkH265Preset == "slow");
+        assert(config.mediaEncoding.vaapiRenderDevice == "/dev/dri/renderD137");
+    }
+    const auto rejectEncoderKey = [&](const char* setting, const char* expected) {
+        std::ofstream malformed(path);
+        malformed << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+                  << "BACKEND_ID=default\n"
+                  << "IDENTITY_PATH=" << root << "/identity\n"
+                  << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+                  << setting << "\n";
+        malformed.close();
+        assert(!BackendAgentClientRuntime::loadConfig(path, config, reason));
+        assert(reason == expected);
+    };
+    rejectEncoderKey("MEDIA_IMPORT_H264_CRF=60",
+                     "invalid_media_import_h264_crf");
+    rejectEncoderKey("MEDIA_SHRINK_H265_CRF=-1",
+                     "invalid_media_shrink_h265_crf");
+    rejectEncoderKey("MEDIA_IMPORT_H264_PRESET=unsafe",
+                     "invalid_media_import_h264_preset");
+    rejectEncoderKey("MEDIA_SHRINK_H265_PRESET=unsafe",
+                     "invalid_media_shrink_h265_preset");
+    rejectEncoderKey("MEDIA_VAAPI_RENDER_DEVICE=renderD128",
+                     "invalid_media_vaapi_render_device");
     {
         std::ofstream malformed(path);
         malformed << "CONTROL_PLANE_URL=https://control-plane.example.test\n"

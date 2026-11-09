@@ -759,6 +759,43 @@ REAL-VDR noch nicht installiert):**
   vorhandene Agent-Konfiguration passend; es gibt keinen separaten
   Media-Tools-Daemon oder zweiten Importer.
 
+**MT.ENC3.1 – Typisierte Encoding-Einstellungen (09.11.2026, SOURCE-Kandidat; Build/REAL-VDR noch offen):**
+- H.264-Import: optional backendlokale Werte `MEDIA_IMPORT_H264_CRF` (Default 23)
+  und `MEDIA_IMPORT_H264_PRESET` (Default medium). H.265-Shrink separat:
+  `MEDIA_SHRINK_H265_CRF` (**Default bleibt 27**) und
+  `MEDIA_SHRINK_H265_PRESET` (medium). CRF 0–51 und nur fest bekannte
+  libx264/libx265-Presets. Kein frei editierbares Browser-`argv`.
+- Die vorhandene geschützte `backend-agent.conf` bleibt einzige Quelle.
+  `MediaEncodingSettings` wird als typisierte Wertkopie an das vorhandene
+  `MediaToolExecutables`-Profil gebunden. Der Agent lädt es beim Start,
+  übergibt es via bereinigter Umgebung an den **gleichen gepinnten** Importer
+  und direkt an den vorhandenen Shrink-Runner. Beide Worker frieren die
+  Werte zu Auftragsbeginn ein; Konfigurationsänderungen erfordern für neue
+  Jobs einen Agent-Neustart, laufende Jobs bleiben unverändert.
+- **VDR-Kompatibilität:** Es entstehen ausschließlich H.264 Main / HEVC Main
+  mit 8-Bit `yuv420p` in unverändertem MPEG-TS. Nach Umkodierung prüfen
+  FFprobe-Readback (Main und 8-Bit) sowie die vorhandene VDR-`--genindex`-
+  Prüfung die neue Aufnahme vor Veröffentlichung. Quell-Remux bleibt wie
+  zuvor. Das VDR-Ausgabeplugin/der TV-Client muss den Codec selbst
+  unterstützen: ein gültiger Index alleine beweist noch keine Wiedergabe.
+- Software bleibt Default. Die bestehenden Shrink-Hardwarepfade werden nur
+  benutzt, wenn explizit gewählt. Für VAAPI ist der tatsächliche
+  `MEDIA_VAAPI_RENDER_DEVICE`-Pfad pro Backend zu konfigurieren, nicht
+  automatisch `/dev/dri/renderD128` zu unterstellen. QSV und NVENC sind
+  ausschließlich bereits vorhandene, hostabhängige FFmpeg-Wege.
+  Gleiche Zahlen bei Hardware-QP/Global-Quality/CQ und Software-CRF
+  bedeuten **nicht** identische Bildqualität.
+- **CRF 23 vs. CRF 27 bewusst geklärt:** Ein Wechsel des produktiven
+  Software-HEVC-Standards auf 23 ist **nicht** freigegeben; 27 bleibt.
+  Vor einer späteren Änderung braucht es reale Bild-/Größenvergleiche.
+  Gezielte C++-Tests für Defaults, alternative Einstellungen, FFmpeg-
+  Argumente, Hardware-Fallback-Snapshot und inkompatibles Profil wurden
+  ergänzt; deren erfolgreiche Ausführung sowie reale yaVDR-Wiedergabe
+  sind noch zu verifizieren. Kein neuer Core-Auftrag, Importer, Poller,
+  Berechtigungs-Gate oder Eingriff in produktive Aufnahmen.
+- Nächster technischer Slice nach erfolgreicher Hostabnahme: **MT.I3.3**
+  Portabilitätsregression und tatsächliche MLD-/openSUSE-Hosttests.
+
 **Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
 oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
 echte lange Aufträge, Browser-/Agent-Reconnect und VDR-Readback zuständig.

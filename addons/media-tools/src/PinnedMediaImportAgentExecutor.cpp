@@ -134,9 +134,22 @@ MediaImportAgentOutcome runPinned(
     std::string ffmpegEnv = "VDR_SUITE_MEDIA_FFMPEG=" + executables.ffmpeg;
     std::string ffprobeEnv = "VDR_SUITE_MEDIA_FFPROBE=" + executables.ffprobe;
     std::string vdrEnv = "VDR_SUITE_MEDIA_VDR=" + executables.vdr;
+    // Exact, already validated Agent configuration is frozen in this one
+    // pinned child. Config edits cannot alter its running FFmpeg arguments.
+    std::string h264Crf = "VDR_SUITE_MEDIA_IMPORT_H264_CRF=" +
+        std::to_string(executables.encoding.importH264Crf);
+    std::string h264Preset = "VDR_SUITE_MEDIA_IMPORT_H264_PRESET=" +
+        executables.encoding.importH264Preset;
+    std::string h265Crf = "VDR_SUITE_MEDIA_SHRINK_H265_CRF=" +
+        std::to_string(executables.encoding.shrinkH265Crf);
+    std::string h265Preset = "VDR_SUITE_MEDIA_SHRINK_H265_PRESET=" +
+        executables.encoding.shrinkH265Preset;
+    std::string vaapiDevice = "VDR_SUITE_MEDIA_VAAPI_RENDER_DEVICE=" +
+        executables.encoding.vaapiRenderDevice;
     char* const environment[] = {
         environmentPath, environmentLocale, ffmpegEnv.data(),
-        ffprobeEnv.data(), vdrEnv.data(), nullptr
+        ffprobeEnv.data(), vdrEnv.data(), h264Crf.data(), h264Preset.data(),
+        h265Crf.data(), h265Preset.data(), vaapiDevice.data(), nullptr
     };
 
     int capture[2] = {-1, -1};
@@ -229,7 +242,11 @@ MediaImportAgentOutcome runPinned(
                     WIFEXITED(status) && WEXITSTATUS(status) == 72
                         ? "ffmpeg_failed" :
                     WIFEXITED(status) && WEXITSTATUS(status) == 73
-                        ? "vdr_index_failed" : "worker_failed";
+                        ? "vdr_index_failed" :
+                    WIFEXITED(status) && WEXITSTATUS(status) == 74
+                        ? "vdr_incompatible_video_profile" :
+                    WIFEXITED(status) && WEXITSTATUS(status) == 75
+                        ? "invalid_media_encoding_settings" : "worker_failed";
                 return MediaImportAgentOutcome::unknown;
             }
             if (!overflow)

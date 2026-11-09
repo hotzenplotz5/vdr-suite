@@ -48,8 +48,13 @@ struct FakeProcess : ProcessRunner {
     std::string outputDuration{"60.0\n"};
     bool failRemux = false;
     bool failIndex = false;
+    bool incompatibleProfile = false;
     fs::path probedSource;
     MediaToolExecutables tools;
+    MediaEncodingSettings encodingSettings() const override {
+        return tools.encoding;
+    }
+    std::vector<std::string> lastVideoEncode;
     std::string executable(MediaTool tool) const override {
         return tools.forTool(tool);
     }
@@ -66,6 +71,11 @@ struct FakeProcess : ProcessRunner {
             const fs::path target = argv.back();
             const bool duration = std::find(argv.begin(), argv.end(),
                 "format=duration") != argv.end();
+            if (std::find(argv.begin(), argv.end(),
+                          "stream=profile,pix_fmt") != argv.end())
+                return {0, incompatibleProfile ?
+                    "profile=Main 10\npix_fmt=yuv420p10le\n" :
+                    "profile=Main\npix_fmt=yuv420p\n"};
             if (std::find(argv.begin(), argv.end(), "a") != argv.end())
                 return {0, audioCodec};
             if (target.filename() == "00001.ts") {
@@ -93,6 +103,8 @@ struct FakeProcess : ProcessRunner {
             const bool encodeAudio =
                 std::find(argv.begin(), argv.end(), "aac") != argv.end();
             if (encodeVideo) {
+                lastVideoEncode = argv;
+                assert(std::find(argv.begin(), argv.end(), "main") != argv.end());
                 ++transcodes;
                 assert(std::find(argv.begin(), argv.end(), "yuv420p") != argv.end());
                 assert(std::find(argv.begin(), argv.end(), "-g") != argv.end());
@@ -138,6 +150,23 @@ int main() {
         // MT.I3.2: configurable backend paths, unchanged production defaults.
         MediaToolExecutables defaults;
         assert(defaults.valid());
+        assert(defaults.encoding.importH264Crf == 23 &&
+               defaults.encoding.importH264Preset == "medium" &&
+               defaults.encoding.shrinkH265Crf == 27 &&
+               defaults.encoding.shrinkH265Preset == "medium" &&
+               defaults.encoding.vaapiRenderDevice.empty());
+        auto badEncoding = defaults;
+        badEncoding.encoding.importH264Crf = 52;
+        assert(!badEncoding.valid());
+        badEncoding = defaults;
+        badEncoding.encoding.importH264Preset = "-inject";
+        assert(!badEncoding.valid());
+        badEncoding = defaults;
+        badEncoding.encoding.vaapiRenderDevice = "renderD128";
+        assert(!badEncoding.valid());
+        assert(vdrEightBitMainProfile("profile=Main\npix_fmt=yuv420p\n"));
+        assert(!vdrEightBitMainProfile("profile=Main 10\npix_fmt=yuv420p\n"));
+        assert(!vdrEightBitMainProfile("profile=Main\npix_fmt=yuv420p10le\n"));
         assert(defaults.forTool(MediaTool::ffmpeg) == "/usr/bin/ffmpeg");
         assert(defaults.forTool(MediaTool::ffprobe) == "/usr/bin/ffprobe");
         assert(defaults.forTool(MediaTool::vdr) == "/usr/bin/vdr");
@@ -1042,9 +1071,20 @@ int main() {
             [](const ImportPlan&) {}); });
         assert(fs::exists(f.source) && runner.remuxes == 0 &&
                runner.transcodes == 0 && !fs::exists(f.video / "Sample"));
-        // A distinct, explicit operator approval is required.
+        // A distinct, explicit operator approval is required. The
+        // backend-local, frozen configuration changes quality, not codec.
+        runner.tools.encoding.importH264Crf = 19;
+        runner.tools.encoding.importH264Preset = "veryfast";
         const auto output = executeRemuxImport(
             plan, runner, [](const ImportPlan&) {}, true);
+        const auto& args = runner.lastVideoEncode;
+        const auto arg = [&](const char* name) {
+            const auto it = std::find(args.begin(), args.end(), name);
+            assert(it != args.end() && it + 1 != args.end());
+            return *(it + 1);
+        };
+        assert(arg("-crf") == "19" && arg("-preset") == "veryfast" &&
+               arg("-profile:v") == "main" && arg("-pix_fmt") == "yuv420p");
         assert(fs::exists(output / "00001.ts") && fs::exists(output / "index"));
         assert(fs::exists(f.source) && runner.remuxes == 0 &&
                runner.transcodes == 1);
@@ -1108,6 +1148,21 @@ int main() {
         mustFail([&] { executeRemuxImport(plan, runner, [](const ImportPlan&) {}); });
         assert(runner.probes == 0 && runner.remuxes == 0);
         assert(fs::exists(original) && fs::exists(f.source));
+        ++checks;
+    }
+    {
+        // Even an FFmpeg exit 0 cannot publish an incompatible video profile.
+        Fixture f;
+        FakeProcess runner;
+        runner.codec = "vp9\n";
+        runner.incompatibleProfile = true;
+        const auto plan = inspectImport(f.request());
+        mustFail([&] {
+            (void)executeRemuxImport(
+                plan, runner, [](const ImportPlan&) {}, true);
+        });
+        assert(!fs::exists(f.video / "Sample") && fs::exists(f.source));
+        assert(runner.transcodes == 1 && runner.indices == 0);
         ++checks;
     }
     std::cout << "MEDIA_IMPORT_CPP_TEST=PASS checks=" << checks << "\n";

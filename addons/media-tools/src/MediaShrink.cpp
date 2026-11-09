@@ -406,34 +406,48 @@ std::string signature(const ShrinkPlan& plan) {
 std::vector<std::string> ffmpegArguments(
     const ProcessRunner& runner, const ShrinkPlan& plan, const fs::path& input,
     const fs::path& output, std::uint64_t limit,
-    ShrinkEncoder requested, bool scaled, bool copyAudio)
+    ShrinkEncoder requested, bool scaled, bool copyAudio,
+    const MediaEncodingSettings& encoding)
 {
     std::vector<std::string> args = {
         runner.executable(MediaTool::ffmpeg), "-nostdin", "-hide_banner", "-v", "error",
         "-xerror"
     };
-    if (requested == ShrinkEncoder::vaapi)
-        args.insert(args.end(), {"-vaapi_device", "/dev/dri/renderD128"});
+    if (requested == ShrinkEncoder::vaapi) {
+        demand(!encoding.vaapiRenderDevice.empty(),
+               "vaapi_render_device_not_configured");
+        args.insert(args.end(), {"-vaapi_device", encoding.vaapiRenderDevice});
+    }
     args.insert(args.end(), {"-i", input.string(), "-map", "0:v:0",
                              "-map", "0:a?", "-sn", "-dn"});
     if (scaled) {
         const std::string scale = "scale=-2:" +
             std::to_string(plan.options.maxHeight);
         args.insert(args.end(), {"-vf", requested == ShrinkEncoder::vaapi
-            ? scale + ",format=nv12,hwupload" : scale});
+            ? scale + ",format=nv12,hwupload" :
+            requested == ShrinkEncoder::qsv ? scale + ",format=nv12" : scale});
     } else if (requested == ShrinkEncoder::vaapi) {
         args.insert(args.end(), {"-vf", "format=nv12,hwupload"});
+    } else if (requested == ShrinkEncoder::qsv) {
+        args.insert(args.end(), {"-vf", "format=nv12"});
     }
+    args.insert(args.end(), {"-profile:v", "main"});
     switch (requested) {
     case ShrinkEncoder::vaapi:
-        args.insert(args.end(), {"-c:v", "hevc_vaapi", "-qp", "27"}); break;
+        args.insert(args.end(), {"-c:v", "hevc_vaapi", "-qp",
+                                  std::to_string(encoding.shrinkH265Crf)}); break;
     case ShrinkEncoder::qsv:
-        args.insert(args.end(), {"-c:v", "hevc_qsv", "-global_quality", "27"}); break;
+        args.insert(args.end(), {"-c:v", "hevc_qsv", "-global_quality",
+                                  std::to_string(encoding.shrinkH265Crf)}); break;
     case ShrinkEncoder::nvenc:
-        args.insert(args.end(), {"-c:v", "hevc_nvenc", "-cq", "27"}); break;
+        args.insert(args.end(), {"-c:v", "hevc_nvenc", "-cq",
+                                  std::to_string(encoding.shrinkH265Crf),
+                                  "-pix_fmt", "yuv420p"}); break;
     case ShrinkEncoder::software:
-        args.insert(args.end(), {"-c:v", "libx265", "-preset", "medium",
-                                 "-crf", "27", "-threads", "2"}); break;
+        args.insert(args.end(), {"-c:v", "libx265", "-preset",
+                                  encoding.shrinkH265Preset, "-crf",
+                                  std::to_string(encoding.shrinkH265Crf),
+                                  "-pix_fmt", "yuv420p", "-threads", "2"}); break;
     }
     // VDR's HEVC indexer requires independently decodable frames at
     // predictable intervals. Default x265 GOPs may contain a single IDR
@@ -542,6 +556,8 @@ void requireShrinkCapacity(const ShrinkPlan& plan)
 fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
                      const std::function<void(const ShrinkPlan&)>& preflight)
 {
+    const auto encoding = runner.encodingSettings(); // frozen job snapshot
+    demand(encoding.valid(), "invalid_media_encoding_settings");
     const auto current = inspectShrink(expected.videoRoot,
         expected.relativeRecording, expected.options);
     demand(signature(current) == signature(expected), "shrink plan became stale");
@@ -576,7 +592,7 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
            "shrink output limit overflow");
     const auto limit = current.totalBytes * 2 + 16 * MiB;
     auto argv = ffmpegArguments(runner, current, source, output, limit,
-                                 current.options.encoder, scaling, copyAudio);
+                                 current.options.encoder, scaling, copyAudio, encoding);
     auto conversion = runner.run(argv, false);
     if (conversion.exitCode != 0 &&
         current.options.encoder != ShrinkEncoder::software) {
@@ -586,7 +602,7 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
         fs::remove(output, error);
         demand(!error, "cannot clear failed hardware candidate");
         argv = ffmpegArguments(runner, current, source, output, limit,
-                               ShrinkEncoder::software, scaling, copyAudio);
+                               ShrinkEncoder::software, scaling, copyAudio, encoding);
         conversion = runner.run(argv, false);
     }
     demand(conversion.exitCode == 0 && nonempty(output),
@@ -595,6 +611,13 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
     demand(generated < limit && generated < current.totalBytes,
            "HEVC output is incomplete or does not save space");
     demand(probeCodec(runner, output) == "hevc", "HEVC codec verification failed");
+    const auto profile = runner.run({
+        runner.executable(MediaTool::ffprobe), "-v", "error",
+        "-select_streams", "v:0", "-show_entries", "stream=profile,pix_fmt",
+        "-of", "default=nw=1", output.string()
+    }, true);
+    demand(profile.exitCode == 0 && vdrEightBitMainProfile(profile.output),
+           "shrink output is not VDR-compatible HEVC Main 8-bit");
     const double finalDuration = probeDuration(runner, output);
     demand(std::fabs(finalDuration - originalDuration) <=
            std::max(4.0, originalDuration * 0.02),

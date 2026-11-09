@@ -56,8 +56,13 @@ struct FakeProcess final : ProcessRunner {
     bool badDuration = false, badHeight = false;
     bool discontinuousSourceTimestamps = false;
     bool divergingLiveSourceDuration = false;
-    bool incompatibleAudio = false;
+    bool incompatibleAudio = false, incompatibleProfile = false;
+    bool mutateEncodingOnHardwareFailure = false;
     MediaToolExecutables tools;
+    MediaEncodingSettings encodingSettings() const override {
+        return tools.encoding;
+    }
+    std::vector<std::string> lastHardwareEncode, lastSoftwareEncode;
     std::string executable(MediaTool tool) const override {
         return tools.forTool(tool);
     }
@@ -73,6 +78,10 @@ struct FakeProcess final : ProcessRunner {
             const bool isOutput =
                 args.back().find(".vdr-suite-shrink-") != std::string::npos &&
                 args.back().find("00001.ts") != std::string::npos;
+            if (contains("stream=profile,pix_fmt"))
+                return {0, incompatibleProfile ?
+                    "profile=Main 10\npix_fmt=yuv420p10le\n" :
+                    "profile=Main\npix_fmt=yuv420p\n"};
             if (contains("stream=codec_name")) {
                 if (contains("a"))
                     return {0, incompatibleAudio ? "opus\n" : "aac\n"};
@@ -109,12 +118,20 @@ struct FakeProcess final : ProcessRunner {
             assert(contains("-g") && contains("50"));
             const bool hw = contains("hevc_vaapi") || contains("hevc_qsv") ||
                 contains("hevc_nvenc");
-            if (hw) ++hardwareCalls;
-            else {
-                assert(contains("libx265"));
+            assert(contains("-profile:v") && contains("main"));
+            if (hw) {
+                ++hardwareCalls;
+                lastHardwareEncode = args;
+            } else {
+                assert(contains("libx265") && contains("yuv420p"));
                 ++softwareCalls;
+                lastSoftwareEncode = args;
             }
-            if (hw && rejectHardware) return {1, ""};
+            if (hw && rejectHardware) {
+                if (mutateEncodingOnHardwareFailure)
+                    tools.encoding.shrinkH265Crf = 11;
+                return {1, ""};
+            }
             if (incompatibleAudio)
                 assert(contains("aac") && contains("192k"));
             if (failEncode) return {1, ""};
@@ -286,12 +303,26 @@ int main() {
         options.encoder = ShrinkEncoder::vaapi;
         options.maxHeight = 720;
         options.nightMode = true;
+        runner.tools.encoding.vaapiRenderDevice = "/dev/dri/renderD137";
+        runner.tools.encoding.shrinkH265Crf = 22;
+        runner.tools.encoding.shrinkH265Preset = "slow";
+        runner.mutateEncodingOnHardwareFailure = true;
         const auto configured = inspectShrink(
             fixture.video, fixture.relative(), options);
         const auto staged = stageShrink(configured, runner,
             [](const ShrinkPlan&) {});
         assert(fs::exists(staged / "00001.ts"));
         assert(runner.hardwareCalls == 1 && runner.softwareCalls == 1);
+        const auto arg = [](const std::vector<std::string>& args, const char* key) {
+            auto it = std::find(args.begin(), args.end(), key);
+            assert(it != args.end() && it + 1 != args.end());
+            return *(it + 1);
+        };
+        assert(arg(runner.lastHardwareEncode, "-vaapi_device") ==
+                   "/dev/dri/renderD137");
+        assert(arg(runner.lastHardwareEncode, "-qp") == "22");
+        assert(arg(runner.lastSoftwareEncode, "-crf") == "22" &&
+               arg(runner.lastSoftwareEncode, "-preset") == "slow");
         assert(fixture.input().size() == plan.totalBytes);
         ++checks;
     }
@@ -605,6 +636,19 @@ int main() {
         assert(fs::exists(candidate / "00001.ts") &&
                fs::exists(unsafe / fixture.recording.filename() / "00001.ts") &&
                fs::exists(unsafe / fixture.recording.filename() / "00002.ts"));
+        ++checks;
+    }
+    {
+        // HEVC Main10/10-bit video is not a valid VDR-compatible result.
+        Fixture fixture;
+        FakeProcess runner;
+        runner.incompatibleProfile = true;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        reject([&] {
+            (void)stageShrink(plan, runner, [](const ShrinkPlan&) {});
+        });
+        assert(fs::exists(fixture.recording / "00001.ts") &&
+               runner.softwareCalls == 1 && runner.indexes == 0);
         ++checks;
     }
     std::cout << "MEDIA_SHRINK_CPP_TEST=PASS checks=" << checks << "\n";
