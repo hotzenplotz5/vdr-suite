@@ -42,7 +42,7 @@ durch die automatische Wiederherstellung.
 
 **Abnahme:** Während ein Film über sechs Stunden encodiert, bleibt der bestehende Core-Auftrag maßgeblich. Erreicht er terminalen, wirklich bestätigten Status, aktualisiert Media Tools die offene Ansicht ohne Refresh. Ist der Browser zwischendurch geschlossen, wird beim erneuten Öffnen der unveränderte Auftrag gelesen. Fehler/ungewiss werden nicht als Erfolg bezeichnet. Das System sendet Ereignisse statt wiederholt den Operationsstatus abzufragen.
 
-## MT.EVENT5 – Browserunabhängiger Sammelimport (09.11.2026, FEHLER BESTÄTIGT / OFFEN)
+## MT.EVENT5 – Browserunabhängiger Sammelimport (09.11.2026, Code-Kandidat auf main / Live-Test offen)
 
 **Reproduzierter Nutzerbefund:** Nach Bestätigung eines Stapels mit sieben
 Foundation-Folgen und Schließen des Browsers wird der bereits gestartete
@@ -87,10 +87,29 @@ Problem der MT.ENC3.1-Encoder oder der bestehenden SSE-Ereignisse.
    Idempotency-Key-Wiederholung sowie ein fehlerhafter Einzelfilm.
    SOURCE/UNIT, PRODUKTIONS-INTEGRATION und REAL-VDR separat kennzeichnen.
 
-**Status:** Fehlerursache im Frontend **bestätigt**, serverseitige
-Stapelannahme **noch nicht implementiert**. Bestehende Import-Worker,
-Agent, Freigaben und Live-Daten nicht verändern, bis ein gezielter Fix
-gebaut und verifiziert ist.
+**Code-Kandidat (09.11.2026):** Der bestätigte Direktimport-Stapel
+geht jetzt in **einem** `POST /media-imports` (`batch` mit 2–100
+opaque Source-IDs und vorhandenen TMDb-Snapshots) an den Core. Dort werden
+sämtliche einzelnen ADR-0042-`media.import`-Operationen samt immutable
+Payload und deterministischen `mb1_<32hex>_NNN`-Schlüsseln in **einer**
+SQLite-Transaktion reserviert. Der bestehende Daemon-Lifecycle-Tick
+(2 Sekunden) weist nur die erste noch nicht gestartete Folge zu, für
+die **alle Vorgänger durch den Core mit `succeeded` und nativer
+Aufnahmebestätigung** abgeschlossen wurden. Die Agent-Kommandos, deren
+Reconciliation, Autorisierung und die vorhandene Datenbank werden
+wiederverwendet. Der Browser versendet **keine** Nachfolge-POSTs und
+kann nach einem Neustart die Stapelgruppe anhand der bestehenden
+actor-scoped `GET /media-imports`-Projektion wieder anbinden.
+
+Ein bestätigter `outcome_unknown` oder Fehler stoppt weitere
+Folgezuweisungen. Der bisherige nur lokal wirksame Stopp-Knopf wird für
+solche serverseitig bereits angenommenen Stapel ausgeblendet; die
+Sammellöschung bleibt wie bisher separat browsergesteuert.
+
+**Status:** Implementierung und gezielte API-/Frontend-Regressionen
+quellseitig ergänzt, **Build, Tests und realer Browser-Schließen-Test
+auf yaVDR noch nicht bestätigt**. Ein bereits auf dem VDR installierter
+MT.ENC3.1-Worker/Agent bleibt bis zur gesonderten Installation unverändert.
 
 ## Verbindliche Debug- und Sperrfreigabe-Regel (29.10.2026)
 
