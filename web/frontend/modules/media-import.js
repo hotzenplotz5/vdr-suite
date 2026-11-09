@@ -1340,7 +1340,25 @@
     const confirmed = review.rows.filter(function (row) {
       return row.state === 'succeeded';
     }).length;
-    view.batchSummary.textContent = ready + ' direkt importierbar, ' +
+    const durable = view.batch && view.batch.durable;
+    const running = review.rows.filter(function (row) {
+      return row.state === 'running';
+    }).length;
+    const queued = review.rows.filter(function (row) {
+      return row.state === 'queued';
+    }).length;
+    const uncertain = review.rows.filter(function (row) {
+      return row.state === 'awaiting_confirmation';
+    }).length;
+    const coreProgress = durable
+      ? view.batch.total + ' Aufträge im Core angenommen, ' +
+        confirmed + ' bestätigt, ' + running + ' in Bearbeitung, ' +
+        queued + ' wartend' +
+        (uncertain ? ', ' + uncertain + ' Ergebnis ungewiss' : '') +
+        '. '
+      : '';
+    view.batchSummary.textContent = coreProgress +
+      ready + ' direkt importierbar, ' +
       deferred + ' zurückgestellt, ' + duplicates + ' Dubletten, ' +
       confirmed + ' bereits bestätigt.' +
       (view.duplicateReviewPending ? ' Bestätigte Dubletten werden automatisch markiert.' : '') +

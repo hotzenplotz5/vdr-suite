@@ -4240,7 +4240,12 @@ function publishHomeResume() {}
   assert.strictEqual(submits, beforeLostBatch + 1,
     'new browser reattaches without ANY replacement POST');
   assert(findClass(mount, 'media-import-batch-summary').textContent.includes(
-    '2'), 'recovery rebuilds the original Core-owned selection');
+    '2 Aufträge im Core angenommen') &&
+    findClass(mount, 'media-import-batch-summary').textContent.includes(
+      '1 in Bearbeitung') &&
+    findClass(mount, 'media-import-batch-summary').textContent.includes(
+      '1 wartend'),
+    'recovery rebuilds both persisted operations and displays their actual progress');
   batchStates[BATCH_OP_A] = 'succeeded';
   await emitOperation(BATCH_OP_A);
   batchStates[BATCH_OP_B] = 'succeeded';
