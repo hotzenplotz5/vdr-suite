@@ -153,6 +153,8 @@ Der zusätzliche isolierte MT.META6.5-API→Writer→`info`→Readback-Test prü
 deshalb eine nachträgliche Episode-5-Korrektur mit erhaltenen TS-/Index-Bytes;
 REAL-yaVDR-`info`-Readback bleibt getrennt zu verifizieren.
 
+**09.11.2026 – isolierter yaVDR-Test PASS:** `make test-metadata-manual-recording-api` auf dem aktualisierten `main` ausgeführt; `FOUNDATION_NATIVE_TEST=PASS`. Der Test verwendet eine künstliche `.rec`-Aufnahme und bestätigt API→Writer→`info`-Readback, Erhalt der TS-/Index-Bytes und Revisionskonflikt. Die anschließende nur lesende Echtdateisuche unter `/srv/vdr/video`, `/var/lib/video` und `/video` lieferte **keine Ergebnisse**; das ist noch kein Negativbefund für die Dateien, weil `/srv/vdr/video` auf diesem yaVDR gemäß dem früheren VDR-Hostbefund auf `video.00` zeigt und `find` Symlink-Wurzeln ohne `-L` nicht durchläuft. Der nächste Hosttest verwendet deshalb die absoluten `backend_native_id`-Pfade des bestehenden `vdr_recording_cache`; bis dahin ist der native `info`-Inhalt von Foundation S01E05–E08 REAL **nicht verifiziert**.
+
 ### MT.META6 — verbindlicher Integrationsablauf (28.10.2026)
 
 **Erweiterung 29.10.2026 – MT.META6 dauerhafte Suite-Zuordnung, Quellcode:**
