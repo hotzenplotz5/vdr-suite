@@ -84,6 +84,7 @@ int main()
                 item.operationId = "op_12345678901234567890123456789012";
                 item.backendId = "default";
                 item.sourceId = "source_0123456789abcde";
+                item.title = "Foundation · S01E01 · Der Kaiser";
                 item.state = "dispatching";
                 item.videoDecision = "local";
                 item.requestedAt = 1720000000;
@@ -98,6 +99,7 @@ int main()
     assert(recent.statusCode == 200);
     assert(recent.body.find("\"state\":\"dispatching\"") != std::string::npos);
     assert(recent.body.find("\"videoDecision\":\"local\"") != std::string::npos);
+    assert(recent.body.find("\"title\":\"Foundation") != std::string::npos);
     assert(recent.body.find("source_0123456789abcde") != std::string::npos);
     ApiResponse foreignRecent;
     assert(runtime.tryHandleGet(

@@ -3862,6 +3862,30 @@ function publishHomeResume() {}
       return row.textContent.includes('Löschen');
     }), 'file actions are excluded from the 20 most recent imported recordings');
 
+  // A durable Core title survives a removed source and a browser restart.
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  batchSources = [];
+  recentImports = [{operationId: BATCH_OP_A, backendId: 'backend-a',
+    sourceId: SCAN_ID, state: 'succeeded', videoDecision: '',
+    title: 'Star Wars · S02E04 · Waren Sie schon einmal in Ghorman?',
+    requestedAt: recentNow + 15}];
+  const beforeSnapshotHistory = submits;
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  const snapshotHistory = findClass(mount, 'media-import-recent-results');
+  const snapshotRow = findClass(snapshotHistory, 'media-import-recent-row');
+  assert(snapshotRow.textContent.includes(
+    'Star Wars · S02E04 · Waren Sie schon einmal in Ghorman?'),
+    'durable Core title remains visible after source removal');
+  assert(!snapshotRow.textContent.includes(SCAN_ID),
+    'opaque source ID is not a film title');
+  assert.strictEqual(submits, beforeSnapshotHistory,
+    'reopening a display-only history never starts a new import');
+  recentImports = [];
+
   // MT.EVENT4 real browser-restart regression: an eight-day-old
   // outcome_unknown deletion is a source-scoped history item, NOT an
   // active import. It must never replace the normal preview or auto-POST.

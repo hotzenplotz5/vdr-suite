@@ -994,6 +994,24 @@ angenommenen Stapel würde ein bloßer Daemon-Neustart die behauptete
 Batch-Wiederaufnahme nicht belegen. Alte `outcome_unknown`-Operationen
 nicht automatisch wiederholen oder als erfolgreich markieren.
 
+**MT.EVENT5 / MT.I3.3 – Anzeige-Fix für Importprotokoll-Titel
+(09.11.2026, SOURCE, Test/Installation offen):** Echter yaVDR-
+Sammelimport `mb1_ed6d4633eedef31354f94a62828a2ce5` nach Daemon-
+Restart 13:10:23 weitergelaufen: erster Auftrag 13:12:18 `succeeded`,
+zweiter 13:12:20 `dispatching`; Agent-PID unverändert. In Home und
+Aufnahmen sind fertige Medien korrekt angekommen. 4/4-Endergebnis
+noch ausstehend. Das Importprotokoll zeigte nach Quellenentfernung
+und Browser-Neuladen kryptische `scan_...`-IDs statt Filmtiteln.
+Optionaler Titel kommt nun aus dem **schon vorhandenen unveränderlichen
+Metadatensnapshot der selben Core-Operation**, wird in der actor- und
+backendgebundenen Public-v1-Leseantwort angezeigt und im Frontend
+für Historie, Wiederaufnahme und Stapelzeilen verwendet. Kein neuer
+TMDb-Lookup, keine zusätzliche Persistenz, Queue oder neue Berechtigung.
+Ohne Snapshot: `Filmname nicht mehr verfügbar` statt einer Quell-ID.
+**Quelländerung vorhanden, Tests/Installation NOT_RUN**; API-Projektion
+erfordert nach laufendem Import einen gezielten Daemon-Build/Neustart,
+nicht den Agent oder VDR.
+
 **Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
 oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
 echte lange Aufträge, Browser-/Agent-Reconnect und VDR-Readback zuständig.

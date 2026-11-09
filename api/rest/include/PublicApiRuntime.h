@@ -46,6 +46,8 @@ struct PublicMediaImportRecentItem
     std::string operationId;
     std::string backendId;
     std::string sourceId;
+    // Optional, display-only title decoded from the same durable operation.
+    std::string title;
     std::string state;
     std::string videoDecision;
     std::int64_t requestedAt = 0;

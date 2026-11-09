@@ -775,6 +775,29 @@ bool DaemonRuntime::initialize()
                 item.operationId = op.operationId;
                 item.backendId = op.backendId;
                 item.sourceId = sourceId;
+                // Read the exact immutable snapshot already stored for this
+                // operation; never search TMDb or match a recording by title.
+                const std::string frozen =
+                    vdrsuite::mediatools::mediaImportSelectionMetadata(
+                        payload.payload.payload);
+                vdrsuite::mediatools::ImportConfirmedMetadata selected;
+                if (!frozen.empty() &&
+                    vdrsuite::mediatools::parseFrozenImportMetadata(
+                        frozen, selected)) {
+                    if (selected.mediaType == "episode") {
+                        const auto padded = [](int number) {
+                            return (number < 10 ? std::string("0") : std::string{}) +
+                                std::to_string(number);
+                        };
+                        item.title = selected.seriesTitle + " · S" +
+                            padded(selected.seasonNumber) + "E" +
+                            padded(selected.episodeNumber) + " · " +
+                            selected.title;
+                    } else {
+                        item.title = selected.title;
+                    }
+                    if (item.title.size() > 240U) item.title.clear();
+                }
                 item.state =
                     vdrsuite::operations::mutationOperationStateName(op.state);
                 item.requestedAt = op.requestedAt;

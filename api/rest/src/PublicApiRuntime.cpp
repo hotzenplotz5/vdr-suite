@@ -9793,6 +9793,8 @@ bool PublicApiRuntime::tryHandleGet(
             body += "{\"operationId\":\"" + jsonEscape(item.operationId) +
                 "\",\"backendId\":\"" + jsonEscape(item.backendId) +
                 "\",\"sourceId\":\"" + jsonEscape(item.sourceId) +
+                (item.title.empty() ? std::string{} :
+                    "\",\"title\":\"" + jsonEscape(item.title)) +
                 "\",\"state\":\"" + jsonEscape(item.state) +
                 "\",\"videoDecision\":\"" + jsonEscape(item.videoDecision) +
                 "\",\"requestedAt\":" + std::to_string(item.requestedAt) +

@@ -67,6 +67,14 @@
     return tidy(raw) || 'Film';
   }
 
+  // Display only: source IDs must never masquerade as film titles.
+  function readableImportLabel(value) {
+    if (typeof value !== 'string' || !value.trim() ||
+        value.length > 240 || /[\r\n\x00-\x1f\x7f]/.test(value) ||
+        /^(?:scan|source)_[A-Za-z0-9_-]{8,}$/.test(value.trim())) return '';
+    return readableMediaTitle(value);
+  }
+
   function compareSources(left, right) {
     return sourceCollator.compare(left.folder || '', right.folder || '') ||
       sourceCollator.compare(left.label || '', right.label || '') ||
@@ -204,7 +212,8 @@
       if (!isCurrent(view) || view.attempt) return;
       const attempt = {
         sourceId: item.sourceId,
-        sourceLabel: view.sourceTitles[item.sourceId] || item.sourceId,
+        sourceLabel: readableImportLabel(item.title) ||
+          readableImportLabel(view.sourceTitles[item.sourceId]) || item.sourceId,
         videoDecision: item.videoDecision,
         key: '', operationId: item.operationId, state: item.state,
         startedAt: Number.isFinite(item.requestedAt) && item.requestedAt > 0
@@ -273,7 +282,9 @@
         const currentItem = ordered[nextIndex];
         const review = {rows: ordered.map(function (item) {
           return {sourceId: item.sourceId,
-            title: view.sourceTitles[item.sourceId] || item.sourceId,
+            title: readableImportLabel(item.title) ||
+              readableImportLabel(view.sourceTitles[item.sourceId]) ||
+              'Filmname nicht mehr verfügbar',
             state: item.state === 'succeeded' ? 'succeeded' :
               item.state === 'accepted' || item.state === 'queued'
                 ? 'queued' : 'running'};
@@ -328,7 +339,8 @@
           if (unresolvedAttempts[key]) return;
           unresolvedAttempts[key] = {
             sourceId: item.sourceId,
-            sourceLabel: view.sourceTitles[item.sourceId] || item.sourceId,
+            sourceLabel: readableImportLabel(item.title) ||
+          readableImportLabel(view.sourceTitles[item.sourceId]) || item.sourceId,
             videoDecision: item.videoDecision,
             key: '', operationId: item.operationId,
             state: item.state, recovered: true
@@ -721,9 +733,12 @@
       const source = view.allOrdinary.find(function (entry) {
         return entry.sourceId === item.sourceId;
       });
-      const title = source && source.label || view.sourceTitles[item.sourceId] ||
-        recentImportLabels[view.backendId + '|' + item.operationId];
-      const display = title ? readableMediaTitle(title) : 'Filmname nicht mehr verfügbar';
+      const display = readableImportLabel(item.title) ||
+        readableImportLabel(source && source.label) ||
+        readableImportLabel(view.sourceTitles[item.sourceId]) ||
+        readableImportLabel(recentImportLabels[
+          view.backendId + '|' + item.operationId]) ||
+        'Filmname nicht mehr verfügbar';
       const outcome = item.state === 'succeeded' ? 'VDR-Aufnahme bestätigt' :
         ['rejected','conflict','failed_before_dispatch','failed_verified',
           'cancelled'].includes(item.state) ? 'Nicht erfolgreich' :
