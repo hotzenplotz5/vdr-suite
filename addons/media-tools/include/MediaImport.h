@@ -9,6 +9,7 @@
 #include <functional>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace vdrsuite::mediatools {
@@ -97,6 +98,18 @@ struct MediaToolExecutables {
     std::string ffprobe = "/usr/bin/ffprobe";
     std::string vdr = "/usr/bin/vdr";
     MediaEncodingSettings encoding;
+
+    // Preserve the existing three-path callers after MT.ENC3.1 added the
+    // optional encoding profile: no aggregate missing-field warning under
+    // -Werror, and all original defaults remain unchanged.
+    MediaToolExecutables() = default;
+    MediaToolExecutables(std::string ffmpegPath, std::string ffprobePath,
+                         std::string vdrPath,
+                         MediaEncodingSettings settings = {})
+        : ffmpeg(std::move(ffmpegPath)),
+          ffprobe(std::move(ffprobePath)),
+          vdr(std::move(vdrPath)),
+          encoding(std::move(settings)) {}
 
     std::string forTool(MediaTool tool) const {
         switch (tool) {
