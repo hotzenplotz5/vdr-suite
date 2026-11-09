@@ -706,7 +706,7 @@ test-media-tools-i33-agent-recovery:
 	@test -d /run && test -x /bin/true && test -d /root || { echo "MT_I33_AGENT=FIXTURE_PREREQUISITES_MISSING" >&2; exit 1; }
 	$(MAKE) test-media-tools-canonical-agent-bridge
 	$(MAKE) test-media-tools-agent-dispatch
-	$(MAKE) test-media-tools-effective-authorization
+	TMPDIR=/root $(MAKE) test-media-tools-effective-authorization
 	$(MAKE) build-media-tools-agent-composition-test
 	TMPDIR=/root "$(BUILD_DIR)/addons/test_backend_agent_media_import_runtime"
 	@echo "MT_I33_AGENT_RECOVERY=PASS"
