@@ -28,6 +28,11 @@ AUDITED = {
     "/api/v1": {"get": 'if (path == "/api/v1")'},
     "/api/v1/capabilities": {"get": 'if (path == "/api/v1/capabilities")'},
     "/api/v1/backends": {"get": "if (path == PublicBackendCollectionPath)"},
+    # Existing exact TMDb resolver is a read-only POST in PublicApiRuntime.
+    # Its OpenAPI route was added without registering this audited anchor.
+    "/api/v1/backends/{backendId}/metadata/resolve": {
+        "post": "if (publicMetadataResolvePath(path, metadataBackend))",
+    },
     "/api/v1/channels": {"get": "if (path == PublicChannelCollectionPath)"},
     "/api/v1/recordings": {"get": "if (path == PublicRecordingCollectionPath)"},
     "/api/v1/recordings/{recordingId}": {"get": "if (isRecordingDetailPath)"},
