@@ -917,6 +917,26 @@ PASS auf yaVDR, distributionsspezifische Live- und Core-/Agent-Recovery-
 Abnahmen offen.** Keine automatische Umstellung der yaVDR-Pfade auf
 andere Distributionen.
 
+**MT.I3.3 – Core/Agent-SQL-Regressionsnachtrag (09.11.2026, Testcode):**
+- Neuer `make test-media-tools-i33-core-recovery`-Test liest die
+  **tatsächliche** SQL-Auswahl aus `DaemonRuntime.cpp` und die beiden
+  produktiven Unique-Index-Statements aus
+  `BackendAgentMediaImportAssignment.cpp`; keine kopierte Scheduler-
+  Implementierung oder neue Queue.
+- Vier isolierte SQLite-Verträge: sieben angenommene Folgen werden erst
+  nach bestätigtem `succeeded` jeweils um eine Folge freigegeben;
+  Datenbank schließen/neu öffnen erhält diese Zuordnung; Fehler,
+  `outcome_unknown` und abgelaufene Fristen blockieren weitere
+  Zuweisungen; voneinander unabhängige Actor-/Batch-Scope werden
+  getrennt behandelt; doppelte Import- oder Readback-Command-
+  Zuordnungen verletzen die vorhandenen Unique-Indizes.
+- **SOURCE/UNIT: AUSFÜHRUNG AUSSTEHEND.** Die SQL-Verträge verwenden
+  synthetische Tabellen/Operationen und simulieren einen Datenbank-
+  Wiederanlauf. Sie starten weder den tatsächlichen Daemon noch den
+  Agent und bestätigen keine echten VDR-Aufnahmen. Ein vollständig
+  durchlaufener Core-/Agent-Integrationstest samt echten Dienstneustarts
+  und MLD-/openSUSE-Hostabnahmen bleibt separat offen.
+
 **Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
 oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
 echte lange Aufträge, Browser-/Agent-Reconnect und VDR-Readback zuständig.

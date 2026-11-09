@@ -262,6 +262,14 @@ test-media-tools-i33-portability:
 
 test-install-staging: test-media-tools-i33-portability
 
+# MT.I3.3: execute the existing Core progression query and Agent uniqueness
+# indexes against isolated SQLite fixtures (including simulated DB reopen).
+.PHONY: test-media-tools-i33-core-recovery
+test-media-tools-i33-core-recovery:
+	python3 -B -m unittest discover -s tools/addons -p 'test_media_tools_i33_core_recovery.py' -v
+
+test-install-staging: test-media-tools-i33-core-recovery
+
 # MT.I4: build a disabled .deb from the already composed, independently
 # reviewed MT.I1 sealed runtime. Never compile, install, migrate or activate.
 .PHONY: build-media-tools-stage-deb
