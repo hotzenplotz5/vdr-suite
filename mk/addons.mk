@@ -695,6 +695,22 @@ build-media-tools-agent-composition-test:
 		core/agent/tests/test_backend_agent_media_import_runtime.cpp \
 		-lcrypto -o "$(BUILD_DIR)/addons/test_backend_agent_media_import_runtime"
 
+# MT.I3.3 real C++ Agent lifecycle regression, on isolated fixture roots.
+# This is NOT a live daemon/agent service restart and does NOT mutate media.
+# Existing Agent test fixture requires root, TMPDIR=/root, safe /run and uses
+# /bin/true as a fake pinned import executable. Keep its /run cleanup local.
+# Explicitly excluded from generic staging/CI tests because it needs root.
+.PHONY: test-media-tools-i33-agent-recovery
+test-media-tools-i33-agent-recovery:
+	@test "$(id -u)" -eq 0 || { echo "MT_I33_AGENT=ROOT_REQUIRED" >&2; exit 1; }
+	@test -d /run && test -x /bin/true && test -d /root || { echo "MT_I33_AGENT=FIXTURE_PREREQUISITES_MISSING" >&2; exit 1; }
+	$(MAKE) test-media-tools-canonical-agent-bridge
+	$(MAKE) test-media-tools-agent-dispatch
+	$(MAKE) test-media-tools-effective-authorization
+	$(MAKE) build-media-tools-agent-composition-test
+	TMPDIR=/root "$(BUILD_DIR)/addons/test_backend_agent_media_import_runtime"
+	@echo "MT_I33_AGENT_RECOVERY=PASS"
+
 # MT.HA portable payload install. No init system, service, Suite deploy,
 # frontend, media-root or database operations. A stage is built as a user;
 # sudo make install-media-tools only consumes independently reviewed bytes.
