@@ -912,9 +912,10 @@ REAL-VDR noch nicht installiert):**
 | MLD 6.6 | Synthetischer `ID=mld`-Testfall **PASS auf yaVDR** | NOT_VERIFIED; reale Agent-Unit/Init, Paketbesitz, FFmpeg/VDR-ABI/Hardware erforderlich |
 | openSUSE | Synthetische `ID=opensuse`/`opensuse-leap`-Testfälle **PASS auf yaVDR** | NOT_VERIFIED; reale Unit, Paketmanager, Dienstnutzer, FFmpeg/VDR/Hardware erforderlich |
 
-**Status MT.I3.3: PARTIAL – synthetische Portabilitätsregression und
-Core-SQL-Recovery jeweils PASS auf yaVDR; native Agent-Integration sowie
-distributionsspezifische Live- und Dienstneustart-Abnahmen offen.** Keine automatische Umstellung der yaVDR-Pfade auf
+**Status MT.I3.3: PARTIAL – synthetische Portabilitätsregression,
+Core-SQL-Recovery und native C++-Agent-Wiederanlaufregression jeweils PASS
+auf yaVDR; distributionsspezifische Live- und echte Dienstneustart-
+Abnahmen offen.** Keine automatische Umstellung der yaVDR-Pfade auf
 andere Distributionen.
 
 **MT.I3.3 – vorhandene Frontend-Verträge auf yaVDR bestätigt
@@ -953,16 +954,23 @@ realen Core-/Agent-/VDR-Neustart.
   Integrationstest samt echten Dienstneustarts und MLD-/openSUSE-
   Hostabnahmen bleibt separat offen.
 
-**MT.I3.3 – native C++-Agentregression (Testziel vorhanden, Ausführung
-ausstehend):** `make test-media-tools-i33-agent-recovery` bündelt
+**MT.I3.3 – native C++-Agentregression (09.11.2026, UNIT/NATIVE PASS
+auf yaVDR):** `make test-media-tools-i33-agent-recovery` bündelt
 bestehende native Canonical-Bridge-, Agent-Dispatch-, wirksame
 Autorisierungs- und Backend-Agent-Runtime-/Wiederanlauf-Tests.
-Der root-only Runtime-Test erzeugt einen temporären eigenen
-`/run/vdr-a6-runtime-XXXXXX`-Baum und führt nur das künstliche
-`/bin/true`-ELF aus; er prüft den echten C++-Agentzustand einschließlich
-wiederholtem Receipt, einem persistierten `starting`-Status und
-`outcome_unknown`, aber keine produktiven Aufnahmen, Services oder
-Daemon-Neustarts. **UNIT/NATIVE NOT_RUN** bis zum separaten yaVDR-Log.
+Der Testblock lief zunächst beim Autorisierungstest wegen fehlendem
+`TMPDIR` ab; das Make-Ziel wurde mit `da80f36ecda2bd5564baa0e7333ce34609603e87`
+korrigiert. Anschließend bestätigte die Nutzer-Shell
+`test-media-tools-effective-authorization` und den gebauten, ausgeführten
+`test_backend_agent_media_import_runtime` mit
+`MT_I33_NATIVE_AGENT=PASS`. Auch Canonical-Bridge und Agent-Dispatch
+waren zuvor erfolgreich. Der root-only Runtime-Test verwendet
+einen separaten temporären `/run/vdr-a6-runtime-XXXXXX`-Baum und
+`/bin/true` als nicht schreibenden Handler; darunter werden echte
+C++-Agentzustände, wiederholte Receipts, persistiertes `starting`,
+`outcome_unknown` und Idempotenz getestet.
+**Keine produktiven Aufnahmen, keine Service- oder Daemon-Neustarts:**
+Die tatsächliche yaVDR-Live-Recovery-Abnahme bleibt bewusst offen.
 
 **Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
 oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
