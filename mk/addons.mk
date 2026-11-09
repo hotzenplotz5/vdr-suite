@@ -702,7 +702,7 @@ build-media-tools-agent-composition-test:
 # Explicitly excluded from generic staging/CI tests because it needs root.
 .PHONY: test-media-tools-i33-agent-recovery
 test-media-tools-i33-agent-recovery:
-	@test "$(id -u)" -eq 0 || { echo "MT_I33_AGENT=ROOT_REQUIRED" >&2; exit 1; }
+	@test "`id -u`" -eq 0 || { echo "MT_I33_AGENT=ROOT_REQUIRED" >&2; exit 1; }
 	@test -d /run && test -x /bin/true && test -d /root || { echo "MT_I33_AGENT=FIXTURE_PREREQUISITES_MISSING" >&2; exit 1; }
 	$(MAKE) test-media-tools-canonical-agent-bridge
 	$(MAKE) test-media-tools-agent-dispatch
