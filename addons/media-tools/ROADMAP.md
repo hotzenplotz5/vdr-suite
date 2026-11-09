@@ -895,22 +895,27 @@ REAL-VDR noch nicht installiert):**
   teiligen Stapels, verlorene Antwort und Reconciliation müssen
   weiterhin separat live beziehungsweise mit gezielten Core-Fixtures
   abgenommen werden; synthetische OS-Dateien belegen das **nicht**.
-- **Ergebnisstand:** Neue Python-Datei syntaktisch geprüft (PASS);
-  vollständiger Unit-/C++-/Frontend-Lauf hier **NOT_RUN** (kein lokaler
-  Repository-/Hostzugriff zum Ausführen), keine neue MLD-/openSUSE-
-  Installation. Die frühere yaVDR-Live-Abnahme von MT.ENC3.1 und
-  MT.EVENT5 bleibt unverändert bestehen.
+- **yaVDR-Ausführung am 09.11.2026: PASS (5/5 isolierte Tests, 0.804 s)**,
+  `make test-media-tools-i33-portability` bei HEAD
+  `f3c2cb84be3c476844fa85b09d2b6b760c07f58b`.
+  Eine zunächst fehlende Bindung der wiederverwendeten Fixture-Methode
+  `refresh_seal` wurde mit `f3c2cb84b` korrigiert und der vollständige
+  Test danach erfolgreich wiederholt. Der Test verwendete nur temporäre
+  synthetische Roots; kein Hostdeploy, Dienstneustart, Medien- oder DB-Backup.
+  Der ergänzende C++-/Frontend-/Core-Recovery-Testlauf steht noch aus.
+  Die frühere echte yaVDR-Live-Abnahme von MT.ENC3.1 und MT.EVENT5
+  bleibt unverändert bestehen.
 
 | Distribution | Isolierte Testmatrix | Live-/Paket-/VDR-Abnahme für MT.I3.3 |
 | --- | --- | --- |
-| yaVDR/Ubuntu | Testfall ergänzt; Ausführung ausstehend | Bisherige MT.ENC3.1/MT.EVENT5-Abnahme bleibt gültig; I3.3-Hostprüfung ausstehend |
-| MLD 6.6 | Synthetischer `ID=mld`-Testfall ergänzt; Ausführung ausstehend | NOT_VERIFIED; reale Agent-Unit/Init, Paketbesitz, FFmpeg/VDR-ABI/Hardware erforderlich |
-| openSUSE | Synthetische `ID=opensuse`/`opensuse-leap`-Testfälle ergänzt; Ausführung ausstehend | NOT_VERIFIED; reale Unit, Paketmanager, Dienstnutzer, FFmpeg/VDR/Hardware erforderlich |
+| yaVDR/Ubuntu | **PASS**, einschließlich synthetischer `ID=ubuntu`-Fixture (09.11.2026) | Bisherige MT.ENC3.1/MT.EVENT5-Abnahme bleibt gültig; spezifischer I3.3-Live-Neustarttest offen |
+| MLD 6.6 | Synthetischer `ID=mld`-Testfall **PASS auf yaVDR** | NOT_VERIFIED; reale Agent-Unit/Init, Paketbesitz, FFmpeg/VDR-ABI/Hardware erforderlich |
+| openSUSE | Synthetische `ID=opensuse`/`opensuse-leap`-Testfälle **PASS auf yaVDR** | NOT_VERIFIED; reale Unit, Paketmanager, Dienstnutzer, FFmpeg/VDR/Hardware erforderlich |
 
-**Status MT.I3.3: PARTIAL – Regressionstestcode vorhanden,
-Testausführung und Host-Abnahmen offen.** Erst belegte Testausgaben und
-echte Hostbefunde dürfen diesen Status erhöhen. Keine automatische
-Umstellung der yaVDR-Pfade auf andere Distributionen.
+**Status MT.I3.3: PARTIAL – synthetische Portabilitätsregression
+PASS auf yaVDR, distributionsspezifische Live- und Core-/Agent-Recovery-
+Abnahmen offen.** Keine automatische Umstellung der yaVDR-Pfade auf
+andere Distributionen.
 
 **Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
 oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
