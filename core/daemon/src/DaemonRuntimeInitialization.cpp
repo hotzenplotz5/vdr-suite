@@ -6229,6 +6229,61 @@ PublicMediaImportAdmissionResult DaemonRuntime::admitMediaImport(
             input.videoDecision = request.videoDecision;
             input.metadata = request.metadata;
             input.now = now;
+            if (!request.batchSources.empty()) {
+                vdrsuite::addons::MediaImportBatchAdmissionRequest batch;
+                batch.actorId = request.actorRef;
+                batch.backendId = request.backendId;
+                batch.batchId = request.idempotencyKey;
+                batch.now = now;
+                for (const auto& source : request.batchSources)
+                    batch.sources.push_back({source.sourceId, source.metadata});
+                const auto admitted = service.admitBatch(batch);
+                using S = vdrsuite::addons::MediaImportOperationAdmissionStatus;
+                switch (admitted.status) {
+                    case S::accepted: case S::replayed: break;
+                    case S::invalid:
+                        result.status = PublicMediaImportAdmissionStatus::invalid;
+                        return result;
+                    case S::forbidden:
+                        result.status = PublicMediaImportAdmissionStatus::forbidden;
+                        return result;
+                    case S::idempotencyConflict:
+                        result.status =
+                            PublicMediaImportAdmissionStatus::idempotencyConflict;
+                        return result;
+                    case S::conflict:
+                        result.status = PublicMediaImportAdmissionStatus::conflict;
+                        return result;
+                    case S::unavailable: return result;
+                }
+                // Commit of ALL source operations precedes any assignment.
+                // If this daemon is interrupted here, the existing runtime
+                // tick dispatches the earliest accepted operation after restart.
+                progressDurableMediaImportBatches();
+                result.batchId = batch.batchId;
+                for (std::size_t index = 0;
+                     index < admitted.operations.size(); ++index) {
+                    const auto& original = admitted.operations[index];
+                    const auto observed = mutationOperationRepository_->findById(
+                        original.operationId);
+                    if (!observed.ok()) return {};
+                    PublicOperationResource resource;
+                    resource.operationId = observed.operation.operationId;
+                    resource.backendId = observed.operation.backendId;
+                    resource.state =
+                        vdrsuite::operations::mutationOperationStateName(
+                            observed.operation.state);
+                    resource.resourceRevision =
+                        observed.operation.operationRevision;
+                    result.batchOperations.push_back(resource);
+                    result.batchSourceIds.push_back(batch.sources[index].sourceId);
+                }
+                result.operation = result.batchOperations.front();
+                result.status = admitted.status == S::accepted
+                    ? PublicMediaImportAdmissionStatus::accepted
+                    : PublicMediaImportAdmissionStatus::replayed;
+                return result;
+            }
             const auto accepted = service.admit(input);
             using Status = vdrsuite::addons::MediaImportOperationAdmissionStatus;
             switch (accepted.status)

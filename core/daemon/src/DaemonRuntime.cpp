@@ -11,6 +11,11 @@
 #include "RecordingMediaHttpRuntime.h"
 #include "PublicApiRuntime.h"
 #include "MediaImportScheduleWindow.h"
+#include "BackendAgentMediaImportAssignment.h"
+#include "MediaImportOperationFence.h"
+#include "MutationOperationRepository.h"
+#include "Database.h"
+#include <sqlite3.h>
 #include "SeriesArtworkSettingsApiRuntime.h"
 
 #include <chrono>
@@ -104,6 +109,8 @@ int DaemonRuntime::run()
     auto lastVdrPoll = std::chrono::steady_clock::now();
     auto lastMediaImportPoll =
         std::chrono::steady_clock::now() - std::chrono::minutes(1);
+    auto lastDurableBatchProgress =
+        std::chrono::steady_clock::now() - std::chrono::seconds(3);
     return runRecordingMediaHttpRuntime(
         database_,
         *apiRouter_,
@@ -115,7 +122,8 @@ int DaemonRuntime::run()
         []() {
             return shutdownRequested_.load();
         },
-        [this, lastVdrPoll, lastMediaImportPoll]() mutable {
+        [this, lastVdrPoll, lastMediaImportPoll,
+         lastDurableBatchProgress]() mutable {
             publishCompletedRecordingRefreshes();
             publishRecordingPresentationChanges();
             // Continue Watching lives in actor-scoped SQLite state, not the
@@ -137,6 +145,17 @@ int DaemonRuntime::run()
                 }
             }
             const auto now = std::chrono::steady_clock::now();
+            // Core owns continuation of already-confirmed, durably reserved
+            // per-source imports. No browser/SSE connection drives dispatch.
+            // This uses the existing daemon lifecycle tick, not a new worker.
+            if (now - lastDurableBatchProgress >= std::chrono::seconds(2)) {
+                lastDurableBatchProgress = now;
+                try { progressDurableMediaImportBatches(); }
+                catch (...) {
+                    std::cerr << "Durable Media Import batch progression failed"
+                              << std::endl;
+                }
+            }
             if (now - lastMediaImportPoll >= std::chrono::minutes(1)) {
                 lastMediaImportPoll = now;
                 try {
@@ -159,6 +178,71 @@ int DaemonRuntime::run()
             lastVdrPoll = now;
             pollVdrAndUpdateChangeFeed();
         });
+}
+
+void DaemonRuntime::progressDurableMediaImportBatches()
+{
+    if (!mutationOperationRepository_ || !backendAgentCommandRepository_ ||
+        !backendAgentRepository_ || !mediaImportOperationFence_)
+        return;
+
+    // All batch items live in the existing mutation_operations table.
+    // Only the earliest not-yet-dispatched item whose EVERY predecessor has
+    // the real 'succeeded' Core/VDR readback may be assigned. A failed or
+    // unknown predecessor intentionally pauses the rest; never replay it.
+    auto* db = const_cast<Database*>(
+        mutationOperationRepository_->databaseIdentity());
+    if (!db) return;
+    const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    std::vector<std::string> ready;
+    {
+        auto lease = db->acquireTransactionLease();
+        const std::string pattern = std::string("mb1_") +
+            std::string(32U, '@') + "_[0-9][0-9][0-9]";
+        std::string glob;
+        for (char ch : pattern)
+            glob += ch == '@' ? "[0-9a-f]" : std::string(1U, ch);
+        const char* sql =
+            "SELECT m.operation_id FROM mutation_operations m "
+            "WHERE m.action_family='media.import' AND m.state='accepted' "
+            "AND m.idempotency_key GLOB ? AND m.deadline>? "
+            "AND NOT EXISTS("
+            "SELECT 1 FROM mutation_operations p "
+            "WHERE p.actor_id=m.actor_id AND p.backend_id=m.backend_id "
+            "AND p.action_family='media.import' "
+            "AND substr(p.idempotency_key,1,37)=substr(m.idempotency_key,1,37) "
+            "AND p.idempotency_key<m.idempotency_key "
+            "AND p.state!='succeeded') "
+            "ORDER BY m.requested_at,m.idempotency_key LIMIT 8;";
+        sqlite3_stmt* statement = nullptr;
+        if (sqlite3_prepare_v2(db->handle(), sql, -1, &statement, nullptr)
+                != SQLITE_OK || sqlite3_bind_text(
+                    statement, 1, glob.c_str(), -1, SQLITE_TRANSIENT) != SQLITE_OK ||
+            sqlite3_bind_int64(statement, 2, seconds) != SQLITE_OK) {
+            if (statement) sqlite3_finalize(statement);
+            return;
+        }
+        while (sqlite3_step(statement) == SQLITE_ROW) {
+            const auto* raw = sqlite3_column_text(statement, 0);
+            if (raw) ready.emplace_back(
+                reinterpret_cast<const char*>(raw));
+        }
+        sqlite3_finalize(statement);
+    }
+    if (ready.empty()) return;
+    RequestSecurityContext system;
+    system.authenticationState = AuthenticationState::Authenticated;
+    system.actor = {"media_import_batch_dispatch", ActorType::System,
+                    "Media Import batch progression", true};
+    vdrsuite::agent::BackendAgentMediaImportAssignmentService assigner(
+        *mutationOperationRepository_, *backendAgentCommandRepository_,
+        *backendAgentRepository_, *mediaImportOperationFence_);
+    // Progress each eligible batch at most one item. All authoritative
+    // revisions, actor grants, backend and Agent generation are rechecked by
+    // the SAME existing Agent assignment service as a normal user POST.
+    for (const auto& operationId : ready)
+        (void)assigner.assign(system, operationId, seconds);
 }
 
 void DaemonRuntime::pollScheduledMediaImport()

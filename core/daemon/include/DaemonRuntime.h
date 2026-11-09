@@ -203,6 +203,7 @@ private:
     static void handleSignal(int signalNumber);
     void pollVdrAndUpdateChangeFeed();
     void pollScheduledMediaImport();
+    void progressDurableMediaImportBatches();
     PublicMediaImportAdmissionResult admitMediaImport(
         const PublicMediaImportAdmissionRequest& request);
     // Core-owned backend-specific approval + live authenticated Agent digest.
