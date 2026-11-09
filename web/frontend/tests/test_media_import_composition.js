@@ -322,7 +322,36 @@ function transport(url, options) {
     if (options.method !== 'POST')
       return Promise.resolve(reply(200, {items: recentImports}));
     ++submits;
-    if (JSON.parse(options.body).videoDecision === 'delete_duplicate') {
+    const submittedBody = JSON.parse(options.body);
+    if (Array.isArray(submittedBody.batch)) {
+      // One POST durably reserves every source. The Core/Agent, not SSE,
+      // assigns the next one after confirmed VDR readback.
+      assert(/^mb1_[0-9a-f]{32}$/.test(
+        options.headers['Idempotency-Key']));
+      const selected = submittedBody.batch;
+      const operationIds = [BATCH_OP_A, BATCH_OP_B, BATCH_OP_C];
+      assert(selected.length >= 2 && selected.length <= operationIds.length);
+      batchOperations = selected.map(function (_, index) {
+        return operationIds[index];
+      });
+      const body = {
+        operationId: operationIds[0], backendId: 'backend-a',
+        state: 'dispatching',
+        batchId: options.headers['Idempotency-Key'],
+        batchOperations: selected.map(function (item, index) {
+          return {sourceId: item.sourceId, operationId: operationIds[index],
+            state: index === 0 ? 'dispatching' : 'accepted'};
+        })
+      };
+      if (submitMode === 'batch-lost-first' ||
+          submitMode === 'uncertain')
+        return Promise.reject(new Error(
+          'HTTP reply lost after durable batch reservation'));
+      if (submitMode === 'denied')
+        return Promise.resolve(reply(403, {detail: 'Permission denied'}));
+      return Promise.resolve(reply(202, body));
+    }
+    if (submittedBody.videoDecision === 'delete_duplicate') {
       const targetId = JSON.parse(options.body).sourceId;
       if (submitMode === 'delete-batch' ||
           submitMode === 'delete-batch-late-ledger') {
