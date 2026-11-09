@@ -923,13 +923,15 @@ andere Distributionen.
   produktiven Unique-Index-Statements aus
   `BackendAgentMediaImportAssignment.cpp`; keine kopierte Scheduler-
   Implementierung oder neue Queue.
-- Vier isolierte SQLite-Verträge: sieben angenommene Folgen werden erst
+- Fünf isolierte SQLite-Verträge: sieben angenommene Folgen werden erst
   nach bestätigtem `succeeded` jeweils um eine Folge freigegeben;
   Datenbank schließen/neu öffnen erhält diese Zuordnung; Fehler,
   `outcome_unknown` und abgelaufene Fristen blockieren weitere
   Zuweisungen; voneinander unabhängige Actor-/Batch-Scope werden
-  getrennt behandelt; doppelte Import- oder Readback-Command-
-  Zuordnungen verletzen die vorhandenen Unique-Indizes.
+  getrennt behandelt; ein verlorener POST-Response kann wegen des
+  tatsächlichen Core-Idempotenz-Unique-Index nicht dieselbe Operation
+  erneut reservieren; doppelte Import- oder Readback-Command-Zuordnungen
+  verletzen die vorhandenen Agent-Unique-Indizes.
 - **SOURCE/UNIT: AUSFÜHRUNG AUSSTEHEND.** Die SQL-Verträge verwenden
   synthetische Tabellen/Operationen und simulieren einen Datenbank-
   Wiederanlauf. Sie starten weder den tatsächlichen Daemon noch den
