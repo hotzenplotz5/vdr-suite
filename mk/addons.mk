@@ -255,6 +255,13 @@ test-addon-media-tools-package:
 	bash -n tools/addons/install_media_tools_mixed_yavdr.sh
 	bash -n tools/addons/resume_media_tools_mixed_yavdr.sh
 
+# MT.I3.3: synthetic distribution/payload matrix only; no C++ build or host changes.
+.PHONY: test-media-tools-i33-portability
+test-media-tools-i33-portability:
+	python3 -B -m unittest discover -s tools/addons -p 'test_media_tools_i33_portability.py' -v
+
+test-install-staging: test-media-tools-i33-portability
+
 # MT.I4: build a disabled .deb from the already composed, independently
 # reviewed MT.I1 sealed runtime. Never compile, install, migrate or activate.
 .PHONY: build-media-tools-stage-deb

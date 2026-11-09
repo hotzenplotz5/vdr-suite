@@ -865,6 +865,53 @@ REAL-VDR noch nicht installiert):**
 - Nächster technischer Slice nach erfolgreicher Hostabnahme: **MT.I3.3**
   Portabilitätsregression und tatsächliche MLD-/openSUSE-Hosttests.
 
+**MT.I3.3 – distributionsübergreifende Regressionen (09.11.2026, Testcode):**
+- Neuer Offline-Einstieg `make test-media-tools-i33-portability`, eingebunden
+  in das bestehende `test-install-staging`; ausschließlich Python-
+  Standardbibliothek und vorhandene Install-/Stage-Funktionen. Keine neue
+  Installationsarchitektur, kein C++-Rebuild und keine Hostdienst-Änderung.
+- Synthetische `ID=ubuntu`, `ID=mld`, `ID=opensuse` und
+  `ID=opensuse-leap`: vorhandenen read-only Host-Profiler und den
+  realen `install_media_tools.sh profile`-CLI-Einstieg vergleichen;
+  Service-/VDR-ABI-/Nutzer-/Quellpfade bleiben ausdrücklich NOT_VERIFIED.
+  Ungültige IDs und fremde `os-release`-Symlinks werden abgewiesen.
+- Dieselbe bereits versiegelte MT.I4-Teststage auf vier **wegwerfbaren**
+  simulierten Root-Dateisystemen installieren, mit bestehendem
+  `media_tools_install_preflight.inspect` auf Byte-/Modus-Übereinstimmung
+  prüfen und die idempotente Wiederholung ausführen. Agent-Konfiguration
+  einschließlich alternativem FFmpeg-Pfad, Quellledger, systemd-Drop-in,
+  backendgebundene Freigabe, SQLite, Quellfilm und VDR-Aufnahme müssen
+  byteidentisch erhalten bleiben. Nur synthetische Root-Pfade, keine
+  Paketverwaltung oder Dienste.
+- Vorhandene, weiterhin relevante isolierte Testverträge (nicht verdoppelt):
+  `test-addon-media-import`, `test-addon-media-shrink`,
+  `test-addon-media-check`, `test-addon-media-check-api`,
+  `test-addon-media-import-api-admission`,
+  `test-media-tools-agent-dispatch`,
+  `test-addon-media-import-ui`, sowie die bisherigen
+  `test_install_media_tools_payload.py`-Rollback-/Pin-Fälle. Sie
+  prüfen Teile der Encoder-, VDR-Readback-, API-, Agent-, Fehler- und
+  Auftragsverträge. Ein echter Daemon-Neustart während eines sieben-
+  teiligen Stapels, verlorene Antwort und Reconciliation müssen
+  weiterhin separat live beziehungsweise mit gezielten Core-Fixtures
+  abgenommen werden; synthetische OS-Dateien belegen das **nicht**.
+- **Ergebnisstand:** Neue Python-Datei syntaktisch geprüft (PASS);
+  vollständiger Unit-/C++-/Frontend-Lauf hier **NOT_RUN** (kein lokaler
+  Repository-/Hostzugriff zum Ausführen), keine neue MLD-/openSUSE-
+  Installation. Die frühere yaVDR-Live-Abnahme von MT.ENC3.1 und
+  MT.EVENT5 bleibt unverändert bestehen.
+
+| Distribution | Isolierte Testmatrix | Live-/Paket-/VDR-Abnahme für MT.I3.3 |
+| --- | --- | --- |
+| yaVDR/Ubuntu | Testfall ergänzt; Ausführung ausstehend | Bisherige MT.ENC3.1/MT.EVENT5-Abnahme bleibt gültig; I3.3-Hostprüfung ausstehend |
+| MLD 6.6 | Synthetischer `ID=mld`-Testfall ergänzt; Ausführung ausstehend | NOT_VERIFIED; reale Agent-Unit/Init, Paketbesitz, FFmpeg/VDR-ABI/Hardware erforderlich |
+| openSUSE | Synthetische `ID=opensuse`/`opensuse-leap`-Testfälle ergänzt; Ausführung ausstehend | NOT_VERIFIED; reale Unit, Paketmanager, Dienstnutzer, FFmpeg/VDR/Hardware erforderlich |
+
+**Status MT.I3.3: PARTIAL – Regressionstestcode vorhanden,
+Testausführung und Host-Abnahmen offen.** Erst belegte Testausgaben und
+echte Hostbefunde dürfen diesen Status erhöhen. Keine automatische
+Umstellung der yaVDR-Pfade auf andere Distributionen.
+
 **Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
 oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
 echte lange Aufträge, Browser-/Agent-Reconnect und VDR-Readback zuständig.
