@@ -725,9 +725,17 @@ REAL-VDR noch nicht installiert):**
 - Gezielte C++-Regressionen mit synthetischen alternativen
   Werkzeugpfaden, normalem Import, Shrink-Stage, unverändertem
   Fehlercode, Defaultwerten und ungültigen Konfigurationswerten
-  sind ergänzt. **Testausführung am konkreten SHA und echte
-  Agent-/Host-Abnahme stehen noch aus**. Keine Produktionsdatei wurde
-  verändert; MLD/openSUSE weiterhin NOT_VERIFIED. Die bestehende
+  sind ergänzt. **yaVDR-Quelltest vom 09.11.2026: PASS**:
+  `MEDIA_IMPORT_CPP_TEST=PASS checks=43`,
+  `MEDIA_SHRINK_CPP_TEST=PASS checks=27`,
+  `test_backend_agent_client passed`,
+  `OPENAPI_DRIFT=PASS paths=59 methods=73` und
+  `MT_I3_2_BUILD=PASS` für Import, Shrink und Agent.
+  Der isolierte Agent-Test benötigt seinen eigenen Command-State:
+  behoben in `6f626d6964`; OpenAPI-Audit nachgeführt bis `62251721cb`.
+  **Live-Installation und echte Agent-/Host-Abnahme stehen noch aus**.
+  Keine Produktionsdatei wurde verändert; MLD/openSUSE weiterhin
+  NOT_VERIFIED. Die bestehende
   Handler-Pinning-/Approval-Grenze, SSE und Import-Berechtigung bleiben
   unverändert.
 - **Keine neue Einstellungspflicht:** yaVDR nutzt unverändert die
