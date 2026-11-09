@@ -2,6 +2,7 @@
 #include "BackendAgentMediaImportAuthorization.h"
 #include "LocalMediaImportInventory.h"
 #include "MediaToolsAgentExecutor.h"
+#include "MediaImport.h"
 #include "PinnedMediaImportAgentExecutor.h"
 #include <functional>
 #include <memory>
@@ -21,7 +22,8 @@ public:
     BackendAgentMediaImportRuntime(
         std::string trustedRoot, std::string backendId, std::string statePath,
         IBackendAgentControlPlaneTransport& transport,
-        CurrentContext currentContext, KeepAlive keepAlive = {});
+        CurrentContext currentContext, KeepAlive keepAlive = {},
+        vdrsuite::mediatools::MediaToolExecutables executables = {});
     bool available() override;
     bool verifiedInstallation(
         vdrsuite::mediatools::MediaToolsInstallationEvidence& out) override;
@@ -65,6 +67,7 @@ private:
     std::string backendId_;
     CurrentContext currentContext_;
     KeepAlive keepAlive_;
+    vdrsuite::mediatools::MediaToolExecutables executables_;
     vdrsuite::mediatools::RootOwnedMediaImportInventory inventory_;
     ReceiptRevalidatingMediaImportAuthorization authorization_;
     std::unique_ptr<vdrsuite::mediatools::PinnedMediaImportAgentExecutor>

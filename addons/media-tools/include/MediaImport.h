@@ -41,24 +41,62 @@ struct ProcessResult {
     bool timedOut = false;
 };
 
-// No shell interpolation: implementation uses execv with fixed executable paths.
+// MT.I3.2: backend-local executable profile, never actor/HTTP-controlled.
+enum class MediaTool { ffmpeg, ffprobe, vdr };
+
+struct MediaToolExecutables {
+    std::string ffmpeg = "/usr/bin/ffmpeg";
+    std::string ffprobe = "/usr/bin/ffprobe";
+    std::string vdr = "/usr/bin/vdr";
+
+    std::string forTool(MediaTool tool) const {
+        switch (tool) {
+        case MediaTool::ffmpeg: return ffmpeg;
+        case MediaTool::ffprobe: return ffprobe;
+        case MediaTool::vdr: return vdr;
+        }
+        return {};
+    }
+    static bool validPath(const std::string& value) {
+        if (value.empty() || value.size() > 1024) return false;
+        const fs::path path(value);
+        return path.is_absolute() && path.lexically_normal() == path &&
+            path.has_filename() &&
+            std::none_of(value.begin(), value.end(), [](unsigned char ch) {
+                return ch < 0x20U || ch == 0x7fU;
+            });
+    }
+    bool valid() const {
+        return validPath(ffmpeg) && validPath(ffprobe) && validPath(vdr);
+    }
+};
+
+// No shell interpolation: implementation uses execv with backend-owned absolute executable paths.
 // Local video encoding uses an explicitly longer runner timeout; quick
 // stream-copy imports retain the original default.
 struct ProcessRunner {
     virtual ~ProcessRunner() = default;
     virtual ProcessResult run(const std::vector<std::string>& argv, bool captureOutput) = 0;
+    virtual std::string executable(MediaTool tool) const {
+        return MediaToolExecutables{}.forTool(tool);
+    }
 };
 
 class NativeProcessRunner final : public ProcessRunner {
 public:
     explicit NativeProcessRunner(
-        std::chrono::seconds maximum = std::chrono::seconds(540));
+        std::chrono::seconds maximum = std::chrono::seconds(540),
+        MediaToolExecutables executables = {});
     ProcessResult run(const std::vector<std::string>& argv, bool captureOutput) override;
+    std::string executable(MediaTool tool) const override {
+        return executables_.forTool(tool);
+    }
     // Used only by the backend Agent's scoped Media Tools maintenance guard.
     // -1 clears the binding. The Runner never owns or closes the descriptor.
     void bindMaintenanceLockFd(int fd) noexcept { maintenanceLockFd_ = fd; }
 private:
     std::chrono::seconds maximum_;
+    MediaToolExecutables executables_;
     int maintenanceLockFd_ = -1;
 };
 

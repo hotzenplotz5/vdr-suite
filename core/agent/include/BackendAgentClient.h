@@ -37,6 +37,10 @@ struct BackendAgentClientConfig
     std::string suiteBridgeHost;
     int suiteBridgePort = 0;
     std::string suiteBridgeControlSocketPath;
+    // Optional backend-local executable paths from the protected Agent config.
+    std::string mediaFfmpegPath = "/usr/bin/ffmpeg";
+    std::string mediaFfprobePath = "/usr/bin/ffprobe";
+    std::string mediaVdrPath = "/usr/bin/vdr";
     vdrsuite::agent::IBackendAgentNativeTimerCreateTransport*
         nativeTimerCreateTransport = nullptr;
     vdrsuite::agent::IBackendAgentNativeTimerDeleteTransport*

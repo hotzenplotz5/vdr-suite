@@ -1,5 +1,6 @@
 #include "MediaImport.h"
 
+#include <cstdlib>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -34,6 +35,18 @@ int main(int argc, char* argv[]) {
         if (withMetadata && !parseFrozenImportMetadata(
                 std::string(argv[metadataIndex]).substr(11), frozenMetadata))
             throw std::invalid_argument("invalid frozen import metadata");
+        // The pinned Agent supplies only these three trusted values through
+        // its sanitized child environment; no HTTP operation controls them.
+        // Direct backend-local CLI keeps the historical defaults.
+        MediaToolExecutables tools;
+        if (const char* value = std::getenv("VDR_SUITE_MEDIA_FFMPEG"))
+            tools.ffmpeg = value;
+        if (const char* value = std::getenv("VDR_SUITE_MEDIA_FFPROBE"))
+            tools.ffprobe = value;
+        if (const char* value = std::getenv("VDR_SUITE_MEDIA_VDR"))
+            tools.vdr = value;
+        if (!tools.valid())
+            throw std::invalid_argument("invalid backend media tool executable path");
         const auto plan = action == "plan"
             ? inspectImportPreview(ImportRequest{argv[2], argv[3], argv[4]})
             : inspectImport(ImportRequest{argv[2], argv[3], argv[4]});
@@ -42,7 +55,7 @@ int main(int argc, char* argv[]) {
                   << "SOURCE_BYTES=" << plan.sourceBytes << "\n"
                   << "TARGET_PARENT=" << plan.titleDirectory << "\n";
         if (action == "plan") {
-            NativeProcessRunner probe(std::chrono::seconds(30));
+            NativeProcessRunner probe(std::chrono::seconds(30), tools);
             const auto codec = probeImportVideoCodec(plan, probe);
             const auto capacity = inspectImportCapacity(plan);
             std::cout << "VIDEO_CODEC=" << codec << "\n"
@@ -62,7 +75,7 @@ int main(int argc, char* argv[]) {
             // Fail before copying gigabytes into private staging. The
             // executor repeats this check on the immutable staged snapshot
             // in case the source or codec changes after the plan.
-            NativeProcessRunner preview(std::chrono::seconds(30));
+            NativeProcessRunner preview(std::chrono::seconds(30), tools);
             const auto codec = probeImportVideoCodec(plan, preview);
             if (importVideoNeedsReencode(codec)) {
                 std::cout << "VIDEO_CODEC=" << codec << "\n"
@@ -74,7 +87,7 @@ int main(int argc, char* argv[]) {
         }
         // The Agent owns the Core deadline; individual FFmpeg tools must
         // not apply a shorter cap to stream-copy or post-encode import.
-        NativeProcessRunner runner(std::chrono::seconds(24 * 3600));
+        NativeProcessRunner runner(std::chrono::seconds(24 * 3600), tools);
         const auto result = executeRemuxImport(
             plan, runner, requireProductionCapacity, localReencode,
             withMetadata ? &frozenMetadata : nullptr);

@@ -49,6 +49,10 @@ struct FakeProcess : ProcessRunner {
     bool failRemux = false;
     bool failIndex = false;
     fs::path probedSource;
+    MediaToolExecutables tools;
+    std::string executable(MediaTool tool) const override {
+        return tools.forTool(tool);
+    }
     int probes = 0;
     int remuxes = 0;
     int transcodes = 0;
@@ -56,7 +60,7 @@ struct FakeProcess : ProcessRunner {
     int indices = 0;
     ProcessResult run(const std::vector<std::string>& argv, bool output) override {
         assert(!argv.empty());
-        if (argv[0] == "/usr/bin/ffprobe") {
+        if (argv[0] == tools.ffprobe) {
             assert(output);
             ++probes;
             const fs::path target = argv.back();
@@ -79,7 +83,7 @@ struct FakeProcess : ProcessRunner {
             return {0, duration ? "60.0\n" : codec};
         }
         assert(!output);
-        if (argv[0] == "/usr/bin/ffmpeg") {
+        if (argv[0] == tools.ffmpeg) {
             const auto input = std::find(argv.begin(), argv.end(), "-i");
             assert(input != argv.end() && (input + 1) != argv.end());
             assert(fs::path(*(input + 1)) == probedSource);
@@ -105,7 +109,7 @@ struct FakeProcess : ProcessRunner {
             std::ofstream(argv.back()) << "synthetic ts bytes";
             return {0, ""};
         }
-        if (argv[0] == "/usr/bin/vdr") {
+        if (argv[0] == tools.vdr) {
             ++indices;
             if (failIndex) return {1, ""};
             const std::string param = argv[1];
@@ -130,6 +134,76 @@ void mustFail(F&& f) {
 
 int main() {
     int checks = 0;
+    {
+        // MT.I3.2: configurable backend paths, unchanged production defaults.
+        MediaToolExecutables defaults;
+        assert(defaults.valid());
+        assert(defaults.forTool(MediaTool::ffmpeg) == "/usr/bin/ffmpeg");
+        assert(defaults.forTool(MediaTool::ffprobe) == "/usr/bin/ffprobe");
+        assert(defaults.forTool(MediaTool::vdr) == "/usr/bin/vdr");
+        auto invalid = defaults;
+        invalid.ffmpeg = "ffmpeg";
+        assert(!invalid.valid());
+        invalid.ffmpeg = "/opt/tools/../ffmpeg";
+        assert(!invalid.valid());
+        invalid = defaults;
+        invalid.ffprobe = "/opt/tools/ffprobe\nmalformed";
+        assert(!invalid.valid());
+        invalid = defaults;
+        invalid.vdr.clear();
+        assert(!invalid.valid());
+        Fixture f;
+        FakeProcess runner;
+        runner.tools = {"/opt/media-tools/ffmpeg",
+                        "/opt/media-tools/ffprobe",
+                        "/opt/local-vdr/bin/vdr"};
+        assert(runner.tools.valid());
+        assert(runner.executable(MediaTool::ffmpeg) == runner.tools.ffmpeg);
+        const auto result = executeRemuxImport(
+            inspectImport(f.request()), runner, [](const ImportPlan&) {});
+        assert(fs::exists(result / "00001.ts") &&
+               fs::exists(result / "index") &&
+               runner.remuxes == 1 && runner.indices == 1);
+        ++checks;
+    }
+    {
+        // A relocated executable still produces the original fixed agent
+        // error category; do not classify failures by an absolute path.
+        Fixture f;
+        FakeProcess runner;
+        runner.tools = {"/opt/media-tools/ffmpeg",
+                        "/opt/media-tools/ffprobe",
+                        "/opt/local-vdr/bin/vdr"};
+        runner.failRemux = true;
+        bool correct = false;
+        try {
+            (void)executeRemuxImport(
+                inspectImport(f.request()), runner,
+                [](const ImportPlan&) {});
+        } catch (const std::runtime_error& error) {
+            correct = std::string(error.what()) == "ffmpeg_failed";
+        }
+        assert(correct && fs::exists(f.source));
+        ++checks;
+    }
+    {
+        Fixture f;
+        FakeProcess runner;
+        runner.tools = {"/opt/media-tools/ffmpeg",
+                        "/opt/media-tools/ffprobe",
+                        "/opt/local-vdr/bin/vdr"};
+        runner.failIndex = true;
+        bool correct = false;
+        try {
+            (void)executeRemuxImport(
+                inspectImport(f.request()), runner,
+                [](const ImportPlan&) {});
+        } catch (const std::runtime_error& error) {
+            correct = std::string(error.what()) == "vdr_index_failed";
+        }
+        assert(correct && fs::exists(f.source));
+        ++checks;
+    }
     {
         // Native FFmpeg/VDR children must retain the exact borrowed
         // maintenance lock FD after execv, even though it starts CLOEXEC.

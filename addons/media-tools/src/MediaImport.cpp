@@ -373,7 +373,7 @@ void stageOptionalSubtitle(const fs::path& sourceFile,
 
 double probeDuration(ProcessRunner& runner, const fs::path& file) {
     const auto result = runner.run({
-        "/usr/bin/ffprobe", "-v", "error", "-show_entries",
+        runner.executable(MediaTool::ffprobe), "-v", "error", "-show_entries",
         "format=duration", "-of", "default=nw=1:nk=1", file.string()
     }, true);
     require(result.exitCode == 0 && result.output.size() < 64,
@@ -388,13 +388,14 @@ double probeDuration(ProcessRunner& runner, const fs::path& file) {
     return seconds;
 }
 
-void runRequired(ProcessRunner& runner, const std::vector<std::string>& argv) {
+void runRequired(ProcessRunner& runner, MediaTool tool,
+                 const std::vector<std::string>& argv) {
     const auto result = runner.run(argv, false);
     if (result.exitCode == 0) return;
-    if (argv[0] == "/usr/bin/ffmpeg")
+    if (tool == MediaTool::ffmpeg)
         throw std::runtime_error(result.timedOut
             ? "ffmpeg_timeout" : "ffmpeg_failed");
-    if (argv[0] == "/usr/bin/vdr")
+    if (tool == MediaTool::vdr)
         throw std::runtime_error("vdr_index_failed");
     throw std::runtime_error("external media command failed");
 }
@@ -1057,7 +1058,7 @@ std::string probeImportVideoCodec(const ImportPlan& plan, ProcessRunner& runner)
             fresh.titleDirectory == plan.titleDirectory,
             "media source changed before codec preview");
     const auto probe = runner.run({
-        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "v:0",
+        runner.executable(MediaTool::ffprobe), "-v", "error", "-select_streams", "v:0",
         "-show_entries", "stream=codec_name", "-of", "default=nw=1:nk=1",
         plan.sourceFile.string()
     }, true);
@@ -1155,7 +1156,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
         stage.path / ("input" + plan.sourceFile.extension().string());
     stageVerifiedSource(plan, before, stagedSource);
     const auto probe = runner.run({
-        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "v:0",
+        runner.executable(MediaTool::ffprobe), "-v", "error", "-select_streams", "v:0",
         "-show_entries", "stream=codec_name", "-of", "default=nw=1:nk=1",
         stagedSource.string()
     }, true);
@@ -1173,7 +1174,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
             "REENCODE_APPROVAL_REQUIRED: choose local, PC/HandBrake or skip");
     const double inputDuration = probeDuration(runner, stagedSource);
     const auto audio = runner.run({
-        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "a",
+        runner.executable(MediaTool::ffprobe), "-v", "error", "-select_streams", "a",
         "-show_entries", "stream=codec_name",
         "-of", "default=nw=1:nk=1", stagedSource.string()
     }, true);
@@ -1218,7 +1219,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     const auto outputLimit = static_cast<std::uint64_t>(plan.sourceBytes) * 2 +
                              16 * kMiB;
     std::vector<std::string> encode = {
-        "/usr/bin/ffmpeg", "-nostdin", "-hide_banner", "-v", "error",
+        runner.executable(MediaTool::ffmpeg), "-nostdin", "-hide_banner", "-v", "error",
         "-i", stagedSource.string(), "-map", "0:v:0", "-map", "0:a?",
         "-sn"
     };
@@ -1240,7 +1241,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
         "-fs", std::to_string(outputLimit), "-f", "mpegts",
         "-y", output.string()
     });
-    runRequired(runner, encode);
+    runRequired(runner, MediaTool::ffmpeg, encode);
     require(nonemptyRegular(output), "import output missing or empty");
     require(fs::file_size(output) < outputLimit,
             "import output reached size limit; incomplete recording rejected");
@@ -1251,7 +1252,7 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
             std::max(4.0, inputDuration * 0.02),
             "import duration differs from source; incomplete output rejected");
     const auto encodedVideo = runner.run({
-        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "v:0",
+        runner.executable(MediaTool::ffprobe), "-v", "error", "-select_streams", "v:0",
         "-show_entries", "stream=codec_name",
         "-of", "default=nw=1:nk=1", output.string()
     }, true);
@@ -1259,7 +1260,8 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     require(encodedVideo.exitCode == 0 &&
             parseProbedVideoCodec(encodedVideo.output) == expectedCodec,
             "import output video codec verification failed");
-    runRequired(runner, {"/usr/bin/vdr", "--genindex=" + stagedRecording.string()});
+    runRequired(runner, MediaTool::vdr,
+                {runner.executable(MediaTool::vdr), "--genindex=" + stagedRecording.string()});
     require(nonemptyRegular(stagedRecording / "index"), "VDR index missing or empty");
     require(same(before, signature(plan.sourceFile)), "source changed during media processing");
     require(fs::remove(stagedSource), "cannot remove private source snapshot");
@@ -1302,10 +1304,12 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
     return destination;
 }
 
-NativeProcessRunner::NativeProcessRunner(std::chrono::seconds maximum)
-    : maximum_(maximum) {
+NativeProcessRunner::NativeProcessRunner(
+    std::chrono::seconds maximum, MediaToolExecutables executables)
+    : maximum_(maximum), executables_(std::move(executables)) {
     require(maximum_.count() >= 1 && maximum_.count() <= 24 * 3600,
             "invalid native media command deadline");
+    require(executables_.valid(), "invalid backend media tool executable path");
 }
 
 ProcessResult NativeProcessRunner::run(const std::vector<std::string>& args,

@@ -47,6 +47,18 @@ an add-on or setting COMMAND_TYPES cannot activate imports. No service has been
 installed or restarted as part of this implementation, and the module manifest
 remains disabled.
 
+## MT.I3.2 – backendgebundene Media-Werkzeugpfade
+
+Die bestehende geschützte Backend-Agent-Konfiguration kann optional
+`MEDIA_FFMPEG_PATH`, `MEDIA_FFPROBE_PATH` und `MEDIA_VDR_PATH` enthalten.
+Ohne diese Werte bleiben `/usr/bin/ffmpeg`, `/usr/bin/ffprobe` und
+`/usr/bin/vdr` aktiv. Dieselben typisierten Pfade gelten für Import,
+Import-Vorschau und HEVC-Shrink. Der Agent übergibt sie an den bereits
+gepinnten Import-Worker, niemals über öffentliche HTTP-Aufträge.
+Nur vorliegende, normalisierte absolute Pfade verwenden; der jeweilige
+Host-Administrator muss die echten Werkzeuge bereitstellen. Das ist
+noch **keine** MLD-/openSUSE-Hostabnahme. Siehe [MT.I3.2](ROADMAP.md).
+
 ## MT.I0/MT.I1 — belegte Installationsbasis
 
 Die [MT.I0-Installationsinventur](INSTALLATION-BASELINE.md) trennt die

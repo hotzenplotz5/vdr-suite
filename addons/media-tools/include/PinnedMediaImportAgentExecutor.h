@@ -2,6 +2,7 @@
 
 #include "AddonInstallSnapshot.h"
 #include "MediaToolsAgentExecutor.h"
+#include "MediaImport.h"
 
 #include <cstdint>
 #include <filesystem>
@@ -50,7 +51,8 @@ public:
                                   std::uint64_t backendGeneration,
                                   ILocalMediaImportInventory& inventory,
                                   ILocalMediaImportAuthorization& authorization,
-                                  std::function<void()> keepAlive = {});
+                                  std::function<void()> keepAlive = {},
+                                  MediaToolExecutables executables = {});
     bool available() override;
     bool authorize(const BackendAgentCommandAssignment& assignment,
                    const std::string& backendId,
@@ -71,6 +73,7 @@ private:
     ILocalMediaImportInventory& inventory_;
     ILocalMediaImportAuthorization& authorization_;
     std::function<void()> keepAlive_;
+    MediaToolExecutables executables_;
     std::unique_ptr<vdrsuite::addons::MediaToolsInstallSnapshot> pinned_;
     std::string pendingCommandId_;
     std::string pendingFingerprint_;

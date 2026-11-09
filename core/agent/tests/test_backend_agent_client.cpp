@@ -188,6 +188,39 @@ void test_protected_url_and_configuration()
         "vdr.timer.create", "vdr.timer.update",
         "vdr.timer.toggle", "vdr.timer.delete"}));
     assert(config.nativeTimerCreateTransport == nullptr);
+    assert(config.mediaFfmpegPath == "/usr/bin/ffmpeg");
+    assert(config.mediaFfprobePath == "/usr/bin/ffprobe");
+    assert(config.mediaVdrPath == "/usr/bin/vdr");
+
+    // Optional tool paths live in the same root-owned backend config.
+    // Invalid/relative paths are rejected before any worker is constructed.
+    {
+        std::ofstream alternative(path);
+        alternative << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+                    << "BACKEND_ID=default\n"
+                    << "IDENTITY_PATH=" << root << "/identity\n"
+                    << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+                    << "MEDIA_FFMPEG_PATH=/opt/media/bin/ffmpeg\n"
+                    << "MEDIA_FFPROBE_PATH=/opt/media/bin/ffprobe\n"
+                    << "MEDIA_VDR_PATH=/usr/local/bin/vdr\n";
+        alternative.close();
+        assert(BackendAgentClientRuntime::loadConfig(path, config, reason));
+        assert(config.mediaFfmpegPath == "/opt/media/bin/ffmpeg");
+        assert(config.mediaFfprobePath == "/opt/media/bin/ffprobe");
+        assert(config.mediaVdrPath == "/usr/local/bin/vdr");
+    }
+    {
+        std::ofstream malformed(path);
+        malformed << "CONTROL_PLANE_URL=https://control-plane.example.test\n"
+                  << "BACKEND_ID=default\n"
+                  << "IDENTITY_PATH=" << root << "/identity\n"
+                  << "ENROLLMENT_PATH=" << root << "/enrollment\n"
+                  << "MEDIA_FFMPEG_PATH=ffmpeg\n";
+        malformed.close();
+        assert(!BackendAgentClientRuntime::loadConfig(path, config, reason));
+        assert(reason == "invalid_media_tool_executable_path");
+    }
+
     assert(config.nativeTimerDeleteTransport == nullptr);
 
     std::ofstream invalid(path);

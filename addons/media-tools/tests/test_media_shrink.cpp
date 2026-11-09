@@ -57,6 +57,10 @@ struct FakeProcess final : ProcessRunner {
     bool discontinuousSourceTimestamps = false;
     bool divergingLiveSourceDuration = false;
     bool incompatibleAudio = false;
+    MediaToolExecutables tools;
+    std::string executable(MediaTool tool) const override {
+        return tools.forTool(tool);
+    }
     int hardwareCalls = 0, softwareCalls = 0;
     int indexes = 0;
     ProcessResult run(const std::vector<std::string>& args, bool captured) override {
@@ -64,7 +68,7 @@ struct FakeProcess final : ProcessRunner {
         const auto contains = [&](const std::string& what) {
             return std::find(args.begin(), args.end(), what) != args.end();
         };
-        if (args.front() == "/usr/bin/ffprobe") {
+        if (args.front() == tools.ffprobe) {
             assert(captured);
             const bool isOutput =
                 args.back().find(".vdr-suite-shrink-") != std::string::npos &&
@@ -99,7 +103,7 @@ struct FakeProcess final : ProcessRunner {
             throw std::runtime_error("unexpected FFprobe request");
         }
         assert(!captured);
-        if (args.front() == "/usr/bin/ffmpeg") {
+        if (args.front() == tools.ffmpeg) {
             assert(contains("0:v:0"));
             assert(contains("-fs"));
             assert(contains("-g") && contains("50"));
@@ -118,7 +122,7 @@ struct FakeProcess final : ProcessRunner {
                 std::string(8192, 'Y');
             return {0, ""};
         }
-        if (args.front() == "/usr/bin/vdr") {
+        if (args.front() == tools.vdr) {
             ++indexes;
             if (failIndex) return {1, ""};
             assert(args.size() == 2 && args[1].rfind("--genindex=", 0) == 0);
@@ -142,6 +146,22 @@ void reject(F callback) {
 
 int main() {
     int checks = 0;
+    {
+        // The same backend-local tool profile applies to Shrink staging.
+        Fixture fixture;
+        FakeProcess runner;
+        runner.tools = {"/srv/media/bin/ffmpeg",
+                        "/srv/media/bin/ffprobe",
+                        "/usr/local/bin/vdr"};
+        assert(runner.tools.valid());
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto candidate = stageShrink(
+            plan, runner, [](const ShrinkPlan&) {});
+        assert(fs::exists(candidate / "00001.ts") &&
+               fs::exists(candidate / "index") &&
+               runner.softwareCalls == 1 && runner.indexes == 1);
+        ++checks;
+    }
     {
         OpaqueShrinkSelection req;
         req.recordingId = "rec_0123456789abcdef0123456789abcdef";

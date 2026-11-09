@@ -115,7 +115,7 @@ void invoke(ProcessRunner& runner, const std::vector<std::string>& args) {
 
 std::string probeCodec(ProcessRunner& runner, const fs::path& input) {
     const auto result = runner.run({
-        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "v:0",
+        runner.executable(MediaTool::ffprobe), "-v", "error", "-select_streams", "v:0",
         "-show_entries", "stream=codec_name", "-of",
         "default=nw=1:nk=1", input.string()
     }, true);
@@ -126,7 +126,7 @@ std::string probeCodec(ProcessRunner& runner, const fs::path& input) {
 
 bool canCopyAudio(ProcessRunner& runner, const fs::path& input) {
     const auto probe = runner.run({
-        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "a",
+        runner.executable(MediaTool::ffprobe), "-v", "error", "-select_streams", "a",
         "-show_entries", "stream=codec_name", "-of",
         "default=nw=1:nk=1", input.string()
     }, true);
@@ -146,7 +146,7 @@ bool canCopyAudio(ProcessRunner& runner, const fs::path& input) {
 
 double probeDuration(ProcessRunner& runner, const fs::path& input) {
     const auto result = runner.run({
-        "/usr/bin/ffprobe", "-v", "error", "-show_entries",
+        runner.executable(MediaTool::ffprobe), "-v", "error", "-show_entries",
         "format=duration", "-of", "default=nw=1:nk=1", input.string()
     }, true);
     demand(result.exitCode == 0 && result.output.size() < 64,
@@ -196,7 +196,7 @@ double probeLiveOriginalDuration(ProcessRunner& runner, const ShrinkPlan& plan) 
 
 unsigned probeHeight(ProcessRunner& runner, const fs::path& input) {
     const auto result = runner.run({
-        "/usr/bin/ffprobe", "-v", "error", "-select_streams", "v:0",
+        runner.executable(MediaTool::ffprobe), "-v", "error", "-select_streams", "v:0",
         "-show_entries", "stream=height", "-of", "default=nw=1:nk=1",
         input.string()
     }, true);
@@ -404,12 +404,12 @@ std::string signature(const ShrinkPlan& plan) {
 }
 
 std::vector<std::string> ffmpegArguments(
-    const ShrinkPlan& plan, const fs::path& input,
+    const ProcessRunner& runner, const ShrinkPlan& plan, const fs::path& input,
     const fs::path& output, std::uint64_t limit,
     ShrinkEncoder requested, bool scaled, bool copyAudio)
 {
     std::vector<std::string> args = {
-        "/usr/bin/ffmpeg", "-nostdin", "-hide_banner", "-v", "error",
+        runner.executable(MediaTool::ffmpeg), "-nostdin", "-hide_banner", "-v", "error",
         "-xerror"
     };
     if (requested == ShrinkEncoder::vaapi)
@@ -575,7 +575,7 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
     demand(current.totalBytes <= (UINT64_MAX - 16 * MiB) / 2,
            "shrink output limit overflow");
     const auto limit = current.totalBytes * 2 + 16 * MiB;
-    auto argv = ffmpegArguments(current, source, output, limit,
+    auto argv = ffmpegArguments(runner, current, source, output, limit,
                                  current.options.encoder, scaling, copyAudio);
     auto conversion = runner.run(argv, false);
     if (conversion.exitCode != 0 &&
@@ -585,7 +585,7 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
         std::error_code error;
         fs::remove(output, error);
         demand(!error, "cannot clear failed hardware candidate");
-        argv = ffmpegArguments(current, source, output, limit,
+        argv = ffmpegArguments(runner, current, source, output, limit,
                                ShrinkEncoder::software, scaling, copyAudio);
         conversion = runner.run(argv, false);
     }
@@ -601,7 +601,7 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
            "HEVC output duration differs from original");
     copyInfo(current, candidate / "info");
     copySubtitles(current, candidate);
-    invoke(runner, {"/usr/bin/vdr", "--genindex=" + candidate.string()});
+    invoke(runner, {runner.executable(MediaTool::vdr), "--genindex=" + candidate.string()});
     demand(nonempty(candidate / "index"), "HEVC recording index missing");
     // Reinspect all TS/Index/Info/SRT identities after encoding. The
     // source recording may have been enriched while FFmpeg was running.

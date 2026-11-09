@@ -705,6 +705,37 @@ Synthetische Pfadvarianten zuerst testen; echte andere Distributionen
 bleiben bis zur Hostabnahme NOT_VERIFIED. Dieses Quellinventar
 hat keine Host-, Dienst- oder Medienänderung ausgelöst.
 
+**MT.I3.2 – gemeinsame Werkzeugpfade (09.11.2026, quellseitig implementiert;
+REAL-VDR noch nicht installiert):**
+- Ein `MediaToolExecutables`-Profil mit den bestehenden Defaults
+  `/usr/bin/ffmpeg`, `/usr/bin/ffprobe`, `/usr/bin/vdr` wird am
+  `ProcessRunner` typisiert abgefragt. Die Import- und Shrink-Aufrufe
+  einschließlich VDR-`--genindex` verwenden dieselbe Auswahl.
+  Der Import-Fehlercode unterscheidet FFmpeg/Index nach Werkzeugtyp,
+  unabhängig vom Installationspfad.
+- Die bereits geschützte, backend-lokale
+  `/etc/vdr-suite/backend-agent.conf` akzeptiert optional
+  `MEDIA_FFMPEG_PATH`, `MEDIA_FFPROBE_PATH`, `MEDIA_VDR_PATH`
+  als absolute normalisierte Programmdateipfade. Fehlende Schlüssel
+  verändern nichts. Agent-Importvorschau, gepinnter Worker und
+  HEVC-Shrink-Runner erhalten den gleichen bei Agent-Start geladenen
+  Stand. Der Agent übergibt dem gepinnten Import-Handler nur diese
+  drei Werte in dessen bewusst bereinigter `fexecve`-Umgebung,
+  **nicht** in einem Browser- oder Core-Auftrag.
+- Gezielte C++-Regressionen mit synthetischen alternativen
+  Werkzeugpfaden, normalem Import, Shrink-Stage, unverändertem
+  Fehlercode, Defaultwerten und ungültigen Konfigurationswerten
+  sind ergänzt. **Testausführung am konkreten SHA und echte
+  Agent-/Host-Abnahme stehen noch aus**. Keine Produktionsdatei wurde
+  verändert; MLD/openSUSE weiterhin NOT_VERIFIED. Die bestehende
+  Handler-Pinning-/Approval-Grenze, SSE und Import-Berechtigung bleiben
+  unverändert.
+- **Keine neue Einstellungspflicht:** yaVDR nutzt unverändert die
+  bisherigen Pfade. Wenn eine andere Distribution die Werkzeuge
+  anders installiert, setzt der lokale Administrator nur die
+  vorhandene Agent-Konfiguration passend; es gibt keinen separaten
+  Media-Tools-Daemon oder zweiten Importer.
+
 **Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
 oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
 echte lange Aufträge, Browser-/Agent-Reconnect und VDR-Readback zuständig.

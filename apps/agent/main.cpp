@@ -9,6 +9,7 @@
 #include "AddonInstallSnapshot.h"
 #include "MediaShrinkAgentCommand.h"
 #include "MediaToolsAgentExecutor.h"
+#include "MediaImport.h"
 #include "SuiteBridgeNativeTimerCreateTransport.h"
 #include "SuiteBridgeNativeTimerDeleteTransport.h"
 #include "SuiteBridgeNativeTimerModifyTransport.h"
@@ -161,6 +162,11 @@ int main(int argc, char** argv)
         std::cerr << "Backend Agent configuration rejected: " << reason << std::endl;
         return 78;
     }
+
+    // One typed profile shared by this Agent's import and shrink workflows.
+    // Defaults preserve the existing behavior on a configured yaVDR host.
+    const vdrsuite::mediatools::MediaToolExecutables mediaTools{
+        config.mediaFfmpegPath, config.mediaFfprobePath, config.mediaVdrPath};
 
     // The agent's explicit configuration has priority over the private
     // process environment shared by the daemon and the VDR plugin.
@@ -389,7 +395,7 @@ int main(int argc, char** argv)
                     if (!runtimeAccess->renewLeaseDuringMediaImport(reason))
                         std::cerr << "MEDIA_IMPORT_HEARTBEAT_UNAVAILABLE="
                                   << reason << std::endl;
-                });
+                }, mediaTools);
         config.mediaImportExecutor = mediaImportRuntime.get();
         config.commandTypes.push_back(
             vdrsuite::mediatools::kMediaImportCommandType);
@@ -450,7 +456,7 @@ int main(int argc, char** argv)
                 });
         shrinkRunner = std::make_unique<
             vdrsuite::mediatools::NativeProcessRunner>(
-                std::chrono::seconds(4 * 3600));
+                std::chrono::seconds(4 * 3600), mediaTools);
         shrinkExecutor = std::make_unique<
             vdrsuite::mediatools::LocalMediaShrinkAgentExecutor>(
                 *shrinkReviews,

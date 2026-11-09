@@ -100,11 +100,12 @@ MediaImportAgentOutcome runPinned(
     int fd, const LocalMediaImportSource& source, std::int64_t deadline,
     MediaToolsImportRunLock& runLock, std::string& recordingEvidence,
     bool approveVideoReencode, const std::string& frozenMetadata,
+    const MediaToolExecutables& executables,
     const std::function<void()>& keepAlive, std::string& failureCode)
 {
     recordingEvidence.clear();
     failureCode.clear();
-    if (fd < 0 || !safePath(source.sourceRoot) ||
+    if (fd < 0 || !executables.valid() || !safePath(source.sourceRoot) ||
         !safePath(source.videoRoot) || !safePath(source.sourceFile))
         return MediaImportAgentOutcome::rejected;
     const auto now = unixNow();
@@ -128,7 +129,15 @@ MediaImportAgentOutcome runPinned(
     argv.push_back(nullptr);
     char environmentPath[] = "PATH=/usr/bin:/bin";
     char environmentLocale[] = "LC_ALL=C";
-    char* const environment[] = {environmentPath, environmentLocale, nullptr};
+    // fexecve receives an explicit environment: only paths parsed from the
+    // protected Agent configuration reach the verified pinned handler.
+    std::string ffmpegEnv = "VDR_SUITE_MEDIA_FFMPEG=" + executables.ffmpeg;
+    std::string ffprobeEnv = "VDR_SUITE_MEDIA_FFPROBE=" + executables.ffprobe;
+    std::string vdrEnv = "VDR_SUITE_MEDIA_VDR=" + executables.vdr;
+    char* const environment[] = {
+        environmentPath, environmentLocale, ffmpegEnv.data(),
+        ffprobeEnv.data(), vdrEnv.data(), nullptr
+    };
 
     int capture[2] = {-1, -1};
     if (::pipe(capture) != 0) {
@@ -249,12 +258,13 @@ PinnedMediaImportAgentExecutor::PinnedMediaImportAgentExecutor(
     std::string approvalRoot, std::string backendId,
     std::uint64_t backendGeneration, ILocalMediaImportInventory& inventory,
     ILocalMediaImportAuthorization& authorization,
-    std::function<void()> keepAlive)
+    std::function<void()> keepAlive, MediaToolExecutables executables)
     : root_(std::move(approvalRoot)),
       backendId_(std::move(backendId)),
       generation_(backendGeneration),
       inventory_(inventory),
-      authorization_(authorization), keepAlive_(std::move(keepAlive))
+      authorization_(authorization), keepAlive_(std::move(keepAlive)),
+      executables_(std::move(executables))
 {
 }
 
@@ -495,7 +505,8 @@ MediaImportAgentOutcome PinnedMediaImportAgentExecutor::execute(
         snapshot->pinnedBinary.get(), local, assignment.deadline,
         *runLock, recordingEvidence_,
         requestedDecision == MediaImportDecision::local,
-        mediaImportSelectionMetadata(assignment.payload), keepAlive_, failureCode_);
+        mediaImportSelectionMetadata(assignment.payload),
+        executables_, keepAlive_, failureCode_);
     if (outcome == MediaImportAgentOutcome::submitted &&
         validRecordingPathEvidence(recordingEvidence_)) {
         const auto sourceProof = mediaImportSourceEvidence(

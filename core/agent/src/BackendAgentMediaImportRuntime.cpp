@@ -11,10 +11,11 @@ namespace vdrsuite::agent {
 BackendAgentMediaImportRuntime::BackendAgentMediaImportRuntime(
     std::string trustedRoot, std::string backendId, std::string statePath,
     IBackendAgentControlPlaneTransport& transport,
-    CurrentContext context, KeepAlive keepAlive)
+    CurrentContext context, KeepAlive keepAlive,
+    vdrsuite::mediatools::MediaToolExecutables executables)
     : trustedRoot_(std::move(trustedRoot)), backendId_(std::move(backendId)),
       currentContext_(std::move(context)), keepAlive_(std::move(keepAlive)),
-      inventory_(trustedRoot_),
+      executables_(std::move(executables)), inventory_(trustedRoot_),
       authorization_(std::move(statePath), transport, currentContext_) {}
 
 bool BackendAgentMediaImportRuntime::available()
@@ -246,7 +247,7 @@ bool BackendAgentMediaImportRuntime::inspectResolvedSource(
         // capacity, destination and adjacent metadata need reinspection.
         const bool reusableCodec = sourceId.rfind("scan_", 0) == 0 &&
             !codecHint.empty();
-        NativeProcessRunner probe(std::chrono::seconds(5));
+        NativeProcessRunner probe(std::chrono::seconds(5), executables_);
         const std::string codec = reusableCodec ? codecHint
             : probeImportVideoCodec(plan, probe);
         out.failureCode = "capacity_failed";
@@ -300,7 +301,7 @@ bool BackendAgentMediaImportRuntime::authorize(
         auto pinned = std::make_unique<
             vdrsuite::mediatools::PinnedMediaImportAgentExecutor>(
                 trustedRoot_, backendId_, generation,
-                inventory_, authorization_, keepAlive_);
+                inventory_, authorization_, keepAlive_, executables_);
         if (!pinned->authorize(assignment, backendId, generation)) return false;
         currentExecution_ = std::move(pinned);
         return true;

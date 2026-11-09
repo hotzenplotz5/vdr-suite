@@ -1,5 +1,6 @@
 #include "BackendAgentClient.h"
 #include "MediaToolsAgentExecutor.h"
+#include "MediaImport.h"
 #include "SuiteBridgeControlSocketPath.h"
 #include "BackendAgentChannelObservation.h"
 #include "BackendAgentChannelObservationJson.h"
@@ -713,7 +714,8 @@ bool BackendAgentClientRuntime::loadConfig(
         "SUITEBRIDGE_HOST", "SUITEBRIDGE_PORT", "SUITEBRIDGE_CONTROL_SOCKET_PATH",
         "HEARTBEAT_INTERVAL_SECONDS", "RECONNECT_INITIAL_SECONDS",
         "RECONNECT_MAXIMUM_SECONDS", "CONNECT_TIMEOUT_MILLISECONDS",
-        "REQUEST_TIMEOUT_MILLISECONDS"};
+        "REQUEST_TIMEOUT_MILLISECONDS",
+        "MEDIA_FFMPEG_PATH", "MEDIA_FFPROBE_PATH", "MEDIA_VDR_PATH"};
     for (const auto& value : values)
     {
         if (std::find(Allowed.begin(), Allowed.end(), value.first) == Allowed.end())
@@ -745,6 +747,21 @@ bool BackendAgentClientRuntime::loadConfig(
             config.suiteBridgeControlSocketPath))
     {
         reasonCode = "invalid_suitebridge_control_socket_path";
+        return false;
+    }
+    // Exact paths from the existing root-owned, backend-scoped Agent file.
+    // No new HTTP fields, plugin registry or owner-assignable command.
+    const vdrsuite::mediatools::MediaToolExecutables defaults;
+    config.mediaFfmpegPath = values.count("MEDIA_FFMPEG_PATH")
+        ? values["MEDIA_FFMPEG_PATH"] : defaults.ffmpeg;
+    config.mediaFfprobePath = values.count("MEDIA_FFPROBE_PATH")
+        ? values["MEDIA_FFPROBE_PATH"] : defaults.ffprobe;
+    config.mediaVdrPath = values.count("MEDIA_VDR_PATH")
+        ? values["MEDIA_VDR_PATH"] : defaults.vdr;
+    const vdrsuite::mediatools::MediaToolExecutables tools{
+        config.mediaFfmpegPath, config.mediaFfprobePath, config.mediaVdrPath};
+    if (!tools.valid()) {
+        reasonCode = "invalid_media_tool_executable_path";
         return false;
     }
     config.nativeTimerCreateTransport = nullptr;
