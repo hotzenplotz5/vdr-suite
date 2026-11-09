@@ -34,6 +34,11 @@ struct Process final : ProcessRunner {
                 return {0, args.back().find("input.ts") != std::string::npos ?
                     "h264\n" : "hevc\n"};
             }
+            if (has("stream=profile,pix_fmt")) {
+                // MT.ENC3.1: the encoded HEVC candidate must be Main 8-bit.
+                assert(args.back().find(".vdr-suite-shrink-") != std::string::npos);
+                return {0, "profile=Main\npix_fmt=yuv420p\n"};
+            }
             if (has("format=duration")) return {0, "60.0\n"};
             if (has("stream=height")) return {0, "1080\n"};
         }
