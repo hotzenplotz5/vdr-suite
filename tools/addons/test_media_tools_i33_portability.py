@@ -88,6 +88,9 @@ class DistributionProfileTests(unittest.TestCase):
 
 @unittest.skipUnless(Path("/usr/bin/true").is_file(), "synthetic ELF fixture missing")
 class SyntheticPayloadDistributionTests(unittest.TestCase):
+    # The reused fixture setup calls self.refresh_seal(); bind that helper too.
+    refresh_seal = fixtures.PortableMediaToolsInstallTests.refresh_seal
+
     def setUp(self):
         # Reuse the already tested sealed MT.I4 fixture; no second stage format.
         fixtures.PortableMediaToolsInstallTests.setUp(self)
