@@ -59,6 +59,29 @@ Nur vorliegende, normalisierte absolute Pfade verwenden; der jeweilige
 Host-Administrator muss die echten Werkzeuge bereitstellen. Das ist
 noch **keine** MLD-/openSUSE-Hostabnahme. Siehe [MT.I3.2](ROADMAP.md).
 
+## MT.ENC3.1 – backendbezogene Encoding-Werte
+
+Zusätzlich zu den vorhandenen Werkzeugpfaden können in der
+`/etc/vdr-suite/backend-agent.conf` folgende **optionale** Werte gesetzt
+werden (keine Browser-Kommandozeilen, keine zweite Encoding-Engine):
+
+- `MEDIA_IMPORT_H264_CRF` (23), `MEDIA_IMPORT_H264_PRESET` (`medium`)
+- `MEDIA_SHRINK_H265_CRF` (**27**, nicht 23), `MEDIA_SHRINK_H265_PRESET` (`medium`)
+- `MEDIA_VAAPI_RENDER_DEVICE` (nur bei ausdrücklich verwendeter VAAPI,
+  tatsächlichen Render-Knoten des Backends angeben)
+
+Die Worker kodieren immer in MPEG-TS mit H.264 Main beziehungsweise HEVC Main
+und 8-Bit `yuv420p`. Das Ausgabeprofil wird via FFprobe geprüft und muss
+anschließend einen VDR-Index erhalten; das ursprüngliche Recording bleibt bis
+zur gesonderten Shrink-Freigabe erhalten. Ein VDR-Index ist **kein** Beweis
+für die Unterstützung von HEVC durch das angeschlossene Wiedergabeplugin
+oder den TV-Client. Falls ein Hardware-Encoder fehlschlägt, kann der
+vorhandene Shrink-Worker auf Software zurückfallen; ohne konfigurierte
+VAAPI-Gerätedatei erfolgt eine konkrete Fehlermeldung statt eines geratenen
+`renderD128`. Ein Agent liest Konfigurationswerte beim Start; laufende
+Aufträge behalten ihre bereits gewählte Wertkopie. Reale Hardware-Abnahme
+und MLD/openSUSE-Tests stehen aus.
+
 ## MT.I0/MT.I1 — belegte Installationsbasis
 
 Die [MT.I0-Installationsinventur](INSTALLATION-BASELINE.md) trennt die
