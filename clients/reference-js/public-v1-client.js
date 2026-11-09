@@ -792,6 +792,47 @@
     }
 
 
+
+    function requestMediaImportBatch(options) {
+      const value = options && typeof options === 'object' ? options : {};
+      const path = mediaImportPath(value, 'media-imports');
+      if (typeof value.idempotencyKey !== 'string' ||
+          !/^mb1_[0-9a-f]{32}$/.test(value.idempotencyKey) ||
+          !Array.isArray(value.batch) ||
+          value.batch.length < 2 || value.batch.length > 100 ||
+          value.batch.some(function (item) {
+            return !item || typeof item.sourceId !== 'string' ||
+              !/^[A-Za-z0-9_-]{16,64}$/.test(item.sourceId) ||
+              (item.metadata !== undefined && item.metadata !== '' &&
+               (typeof item.metadata !== 'string' ||
+                item.metadata.length > 4096 ||
+                !/^v(?:1|2)\|(episode|movie)\|/.test(item.metadata)));
+          }))
+        throw new Error('Media Import batch requires confirmed opaque sources');
+      const headers = Object.assign(
+        {Accept: 'application/json'}, defaultHeaders,
+        copyHeaders(value.headers),
+        {'Content-Type': 'application/json',
+         'Idempotency-Key': value.idempotencyKey});
+      return fetchImpl(buildUrl(baseUrl, path), {
+        method: 'POST', headers: headers,
+        credentials: value.credentials !== undefined
+          ? value.credentials : normalized.credentials,
+        cache: 'no-store',
+        body: JSON.stringify({batch: value.batch.map(function (item) {
+          return Object.assign({sourceId: item.sourceId},
+            item.metadata ? {metadata: item.metadata} : {});
+        })})
+      }).then(function (response) {
+        const location = headerValue(response, 'Location');
+        return parseJsonBody(response).then(function (payload) {
+          if (!response.ok)
+            throw new VdrSuitePublicClientError(path, response.status, payload, response);
+          return {status: response.status, location: location, data: payload};
+        });
+      });
+    }
+
     function requestMediaShrinkPlan(options) {
       const value = options && typeof options === 'object' ? options : {};
       const path = mediaImportPath(value, 'media-shrink-plans');
@@ -1906,6 +1947,9 @@
       },
       submitMediaImport(options) {
         return requestMediaImport(options);
+      },
+      submitMediaImportBatch(options) {
+        return requestMediaImportBatch(options);
       },
       getOperation(options) {
         const normalizedOptions = options && typeof options === 'object' ? options : {};

@@ -116,6 +116,10 @@
     }).join('');
   }
 
+  function makeBatchId() {
+    return 'mb1_' + makeKey().slice('media-import-'.length);
+  }
+
   function element(tag, className, text) {
     const node = global.document.createElement(tag);
     if (className) node.className = className;
@@ -1444,6 +1448,86 @@
     return startImport(view);
   }
 
+
+  // The complete, individually prechecked selection is committed by Core
+  // before this one POST returns. Afterwards only Core dispatches jobs.
+  // Browser closing, tab deactivation and SSE loss cannot strand successors.
+  function submitDurableBatch(view, batch, ids) {
+    const session = global.VdrSuiteBrowserSession;
+    const api = publicClient();
+    const body = ids.map(function (sourceId) {
+      const row = batch.review.rows.find(function (entry) {
+        return entry.sourceId === sourceId;
+      });
+      return {sourceId: sourceId,
+        ...(row && row.frozenMetadata
+          ? {metadata: row.frozenMetadata} : {})};
+    });
+    view.submitting = true;
+    if (!session || typeof session.restore !== 'function' ||
+        typeof session.csrfHeaders !== 'function') {
+      report(view, 'Anmeldung für Sammelimport nicht verfügbar.', true);
+      view.submitting = false;
+      return Promise.resolve();
+    }
+    report(view, 'Der vollständige Stapel wird im Core gespeichert …');
+    return Promise.resolve(session.restore()).then(function () {
+      if (!isCurrent(view)) return null;
+      return api.submitMediaImportBatch({
+        backendId: view.backendId, idempotencyKey: batch.id,
+        batch: body, credentials: 'same-origin',
+        headers: session.csrfHeaders()
+      });
+    }).then(function (response) {
+      if (!isCurrent(view) || !response) return;
+      const data = response.data;
+      const operations = data && data.batchOperations;
+      if (!data || data.batchId !== batch.id ||
+          !Array.isArray(operations) || operations.length !== ids.length ||
+          operations.some(function (item, index) {
+            return !item || item.sourceId !== ids[index] ||
+              typeof item.operationId !== 'string' ||
+              !/^op_[A-Za-z0-9_-]+$/.test(item.operationId);
+          }))
+        throw new Error('Unvollständige Core-Stapelbestätigung');
+      batch.operations = operations;
+      batch.waiting = operations[0].operationId;
+      const first = operations[0];
+      const row = batch.review.rows.find(function (item) {
+        return item.sourceId === first.sourceId;
+      });
+      if (row) row.state = 'running';
+      view.attempt = {sourceId: first.sourceId,
+        sourceLabel: view.sourceTitles[first.sourceId] || first.sourceId,
+        key: '', operationId: first.operationId,
+        state: first.state || 'accepted', videoDecision: '',
+        pending: false, recovered: true, metadataStarted: false};
+      activeAttempts[view.backendId] = view.attempt;
+      view.submitting = false;
+      report(view, ids.length +
+        ' Aufträge dauerhaft angenommen. Import läuft ohne Browser weiter.');
+      showAttempt(view);
+    }).catch(function (error) {
+      if (!isCurrent(view)) return;
+      // A lost reply is not proof that Core rejected the batch. Never
+      // regenerate the idempotency key or replay imports automatically.
+      const definite = error && [400, 401, 403, 404, 422].includes(error.status);
+      if (definite) {
+        delete activeBatches[view.backendId];
+        view.batch = null;
+        view.batchStopButton.hidden = true;
+      }
+      report(view, definite
+        ? 'Sammelimport abgelehnt: ' + operationError(error)
+        : 'Stapelannahme nicht bestätigt. Der Core kann bereits alle Aufträge ' +
+          'gespeichert haben. Browser neu öffnen und Aufträge lesen; nicht erneut starten.',
+        true);
+    }).finally(function () {
+      view.submitting = false;
+      if (isCurrent(view)) updateInlineDeleteAvailability(view);
+    });
+  }
+
   function confirmBatch(view) {
     if (!isCurrent(view) || !view.batchReview || view.inspectingBatch ||
         view.duplicateReviewPending || view.attempt || view.batch ||
@@ -1459,8 +1543,9 @@
           'in VDR importieren? ' + deferred + ' bleiben zurückgestellt oder ' +
           'werden wegen einer Dublette übersprungen. ' +
           'Jeder Auftrag wird separat geprüft. Keine Videoumkodierung freigegeben.')) return;
-    const batch = {remaining: ids, total: ids.length, completed: 0, waiting: '',
-      review: review};
+    const batch = {remaining: ids.slice(), total: ids.length, completed: 0,
+      waiting: '', review: review, durable: true, id: makeBatchId(),
+      operations: []};
     view.batch = batch;
     activeBatches[view.backendId] = batch;
     view.batchConfirmButton.hidden = true;
@@ -1470,10 +1555,13 @@
     view.searchInput.disabled = true;
     view.statusFilter.disabled = true;
     view.seasonFilter.disabled = true;
-    view.batchStopButton.hidden = false;
+    // After Core commits the whole batch there is no local "stop after
+    // current": hiding this old button avoids claiming to cancel durable
+    // commands. A server cancellation action requires its own contract.
+    view.batchStopButton.hidden = true;
     view.select.value = ids[0];
     renderBatchReview(view);
-    return startImport(view);
+    return submitDurableBatch(view, batch, ids);
   }
 
   // A lost submit response has no Operation ID. Manual confirmation first
@@ -1883,6 +1971,21 @@
       view.select.value = batch.remaining[0];
       report(view, batch.completed + ' von ' + batch.total +
         ' bestätigt. Nächste Quelle wird geprüft …');
+      if (batch.durable) {
+        const next = batch.operations[batch.completed];
+        if (!next || next.sourceId !== batch.remaining[0]) {
+          stopBatch(view, 'Core-Auftrag für nächste Quelle nicht bestätigt.');
+          return;
+        }
+        view.attempt = {sourceId: next.sourceId,
+          sourceLabel: view.sourceTitles[next.sourceId] || next.sourceId,
+          key: '', operationId: next.operationId,
+          state: next.state || 'accepted', videoDecision: '',
+          pending: false, recovered: true, metadataStarted: false};
+        activeAttempts[view.backendId] = view.attempt;
+        showAttempt(view); // GET + SSE only; never another POST.
+        return;
+      }
       return startImport(view);
     });
   }
@@ -2262,7 +2365,7 @@
       ? 'Vorgang prüfen' : 'Auftragsannahme bestätigen';
     view.refreshButton.disabled = Boolean(view.attempt.pending || view.admissionConfirming);
     view.newButton.hidden = Boolean(view.batch) || !terminalState(view.attempt.state);
-    view.batchStopButton.hidden = !view.batch;
+    view.batchStopButton.hidden = !view.batch || Boolean(view.batch.durable);
     if (view.batch && view.batch.review) {
       if (view.batch.kind === 'delete') renderDeleteBatch(view, view.batch);
       else {
