@@ -34,6 +34,36 @@ int main()
             ++admissions;
             assert(input.actorRef == "actor:alice");
             assert(input.backendId == "backend-a");
+            if (!input.batchSources.empty()) {
+                const std::string batchId =
+                    "mb1_0123456789abcdef0123456789abcdef";
+                assert(input.idempotencyKey == batchId);
+                assert(input.batchSources.size() == 2U);
+                assert(input.batchSources[0].sourceId ==
+                       "opaque_source_123456");
+                assert(input.batchSources[0].metadata ==
+                       "v1|episode|Andor|Auge|Episode%206|1|6");
+                assert(input.batchSources[1].sourceId ==
+                       "opaque_source_654321");
+                assert(input.batchSources[1].metadata.empty());
+                PublicMediaImportAdmissionResult r;
+                r.status = PublicMediaImportAdmissionStatus::accepted;
+                r.batchId = batchId;
+                for (std::size_t index = 0; index < 2U; ++index) {
+                    PublicOperationResource item;
+                    item.operationId = index == 0U
+                        ? "op_12345678901234567890123456789012"
+                        : "op_abcdefabcdefabcdefabcdefabcdefab";
+                    item.backendId = "backend-a";
+                    item.state = index == 0U ? "dispatching" : "accepted";
+                    item.resourceRevision = "1";
+                    r.batchOperations.push_back(item);
+                    r.batchSourceIds.push_back(
+                        input.batchSources[index].sourceId);
+                }
+                r.operation = r.batchOperations.front();
+                return r;
+            }
             assert(input.sourceId == "opaque_source_123456");
             assert(input.idempotencyKey == "a7-idem");
             assert(input.videoDecision ==
@@ -111,6 +141,36 @@ int main()
                    "actor:alice", "backend-a", "a7-idem").statusCode == 422);
     assert(request(body, "actor:alice", "backend-a", "").statusCode == 400);
     assert(admissions == 9);
+
+    // One client confirmation atomically reserves both canonical source
+    // Operations; only the first is dispatching. A browser disconnect does
+    // not cause a second POST for the later source.
+    const std::string batchKey =
+        "mb1_0123456789abcdef0123456789abcdef";
+    const std::string batchBody =
+        "{\"batch\":[{\"sourceId\":\"opaque_source_123456\","
+        "\"metadata\":\"v1|episode|Andor|Auge|Episode%206|1|6\"},"
+        "{\"sourceId\":\"opaque_source_654321\"}]}";
+    const ApiResponse batch = request(
+        batchBody, "actor:alice", "backend-a", batchKey);
+    assert(batch.statusCode == 202);
+    assert(batch.body.find("\"batchId\":\"" + batchKey + "\"") !=
+           std::string::npos);
+    assert(batch.body.find("\"batchOperations\":[") !=
+           std::string::npos);
+    assert(batch.body.find("opaque_source_654321") != std::string::npos);
+    assert(batch.body.find("op_abcdefabcdefabcdefabcdefabcdefab") !=
+           std::string::npos);
+    assert(admissions == 10);
+    assert(request("{\"batch\":[{\"sourceId\":\"opaque_source_123456\"}]}",
+                   "actor:alice", "backend-a", batchKey).statusCode == 422);
+    assert(request(batchBody, "actor:alice", "backend-a", "a7-idem")
+                   .statusCode == 400);
+    assert(request("{\"batch\":[{\"sourceId\":\"opaque_source_123456\","
+                   "\"videoDecision\":\"desktop\"},{\"sourceId\":"
+                   "\"opaque_source_654321\"}]}",
+                   "actor:alice", "backend-a", batchKey).statusCode == 422);
+    assert(admissions == 10);
 
     ApiResponse get;
     assert(api.tryHandleGet(path, "actor:alice", "", "", get));
