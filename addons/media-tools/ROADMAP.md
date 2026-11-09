@@ -912,9 +912,9 @@ REAL-VDR noch nicht installiert):**
 | MLD 6.6 | Synthetischer `ID=mld`-Testfall **PASS auf yaVDR** | NOT_VERIFIED; reale Agent-Unit/Init, Paketbesitz, FFmpeg/VDR-ABI/Hardware erforderlich |
 | openSUSE | Synthetische `ID=opensuse`/`opensuse-leap`-Testfälle **PASS auf yaVDR** | NOT_VERIFIED; reale Unit, Paketmanager, Dienstnutzer, FFmpeg/VDR/Hardware erforderlich |
 
-**Status MT.I3.3: PARTIAL – synthetische Portabilitätsregression
-PASS auf yaVDR, distributionsspezifische Live- und Core-/Agent-Recovery-
-Abnahmen offen.** Keine automatische Umstellung der yaVDR-Pfade auf
+**Status MT.I3.3: PARTIAL – synthetische Portabilitätsregression und
+Core-SQL-Recovery jeweils PASS auf yaVDR; native Agent-Integration sowie
+distributionsspezifische Live- und Dienstneustart-Abnahmen offen.** Keine automatische Umstellung der yaVDR-Pfade auf
 andere Distributionen.
 
 **MT.I3.3 – vorhandene Frontend-Verträge auf yaVDR bestätigt
@@ -944,12 +944,25 @@ realen Core-/Agent-/VDR-Neustart.
   tatsächlichen Core-Idempotenz-Unique-Index nicht dieselbe Operation
   erneut reservieren; doppelte Import- oder Readback-Command-Zuordnungen
   verletzen die vorhandenen Agent-Unique-Indizes.
-- **SOURCE/UNIT: AUSFÜHRUNG AUSSTEHEND.** Die SQL-Verträge verwenden
-  synthetische Tabellen/Operationen und simulieren einen Datenbank-
-  Wiederanlauf. Sie starten weder den tatsächlichen Daemon noch den
-  Agent und bestätigen keine echten VDR-Aufnahmen. Ein vollständig
-  durchlaufener Core-/Agent-Integrationstest samt echten Dienstneustarts
-  und MLD-/openSUSE-Hostabnahmen bleibt separat offen.
+- **SOURCE/UNIT: PASS auf yaVDR (09.11.2026, 5/5 in 0.035 s)**;
+  `make test-media-tools-i33-core-recovery` wurde vom Nutzer ausgeführt.
+  Die SQL-Verträge verwenden synthetische Tabellen/Operationen und
+  simulieren einen Datenbank-Wiederanlauf. Sie starten weder den
+  tatsächlichen Daemon noch den Agent und bestätigen keine echten
+  VDR-Aufnahmen. Ein vollständig durchlaufener Core-/Agent-
+  Integrationstest samt echten Dienstneustarts und MLD-/openSUSE-
+  Hostabnahmen bleibt separat offen.
+
+**MT.I3.3 – native C++-Agentregression (Testziel vorhanden, Ausführung
+ausstehend):** `make test-media-tools-i33-agent-recovery` bündelt
+bestehende native Canonical-Bridge-, Agent-Dispatch-, wirksame
+Autorisierungs- und Backend-Agent-Runtime-/Wiederanlauf-Tests.
+Der root-only Runtime-Test erzeugt einen temporären eigenen
+`/run/vdr-a6-runtime-XXXXXX`-Baum und führt nur das künstliche
+`/bin/true`-ELF aus; er prüft den echten C++-Agentzustand einschließlich
+wiederholtem Receipt, einem persistierten `starting`-Status und
+`outcome_unknown`, aber keine produktiven Aufnahmen, Services oder
+Daemon-Neustarts. **UNIT/NATIVE NOT_RUN** bis zum separaten yaVDR-Log.
 
 **Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
 oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
