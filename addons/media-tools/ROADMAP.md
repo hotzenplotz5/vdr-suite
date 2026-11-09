@@ -972,6 +972,24 @@ C++-Agentzustände, wiederholte Receipts, persistiertes `starting`,
 **Keine produktiven Aufnahmen, keine Service- oder Daemon-Neustarts:**
 Die tatsächliche yaVDR-Live-Recovery-Abnahme bleibt bewusst offen.
 
+**MT.I3.3 – yaVDR-Live-Preflight (09.11.2026, READ_ONLY PASS):**
+Der Nutzer hat bei laufendem `vdr-suite-daemon.service` und
+`vdr-suite-backend-agent.service` den vorhandenen aktiven
+`mutation_operations`-Bestand nur gelesen: `media.import` =
+131 `succeeded`, 4 `failed_before_dispatch`, 2
+`failed_verified`, 3 `outcome_unknown`; keine Operation im
+Zustand `accepted`, `queued`, `dispatching` oder
+`executed_unverified`. Die ausgewiesenen drei offenen Operationen
+sind somit ausschließlich **ungeklärte Ergebnisse**, nicht der
+Nachweis dreier laufender Importprozesse.
+Es erfolgte kein Neustart und kein Datenbank-Backup.
+**REAL-VDR-RESTART weiterhin NOT_VERIFIED**: Ohne aktuell
+angenommenen Stapel würde ein bloßer Daemon-Neustart die behauptete
+Batch-Wiederaufnahme nicht belegen. Ungeklärte Operations dürfen nicht
+automatisch erneut ausgeführt oder manuell auf `succeeded` gesetzt
+werden; zuerst Quelle, Zeitstempel und Batch-Zuordnung rein lesend
+bestimmen.
+
 **Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
 oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
 echte lange Aufträge, Browser-/Agent-Reconnect und VDR-Readback zuständig.
