@@ -2049,6 +2049,7 @@
           state: next.state || 'accepted', videoDecision: '',
           pending: false, recovered: true, metadataStarted: false};
         activeAttempts[view.backendId] = view.attempt;
+        batch.waiting = next.operationId;
         showAttempt(view); // GET + SSE only; never another POST.
         return;
       }
