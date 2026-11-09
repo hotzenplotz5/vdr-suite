@@ -4077,11 +4077,12 @@ function publishHomeResume() {}
   }).length, 2, 'each selected episode uses the central Public-v1 resolver once');
   await findClass(mount, 'media-import-batch-confirm').listeners.click();
   await settle();
-  let metadataPosts = requests.filter(function (req) {
+  const metadataPost = requests.filter(function (req) {
     return req.path.endsWith('/media-imports') && req.options.method === 'POST';
-  }).slice(-1);
-  assert.strictEqual(metadataPosts.length, 1);
-  let snapshot = JSON.parse(metadataPosts[0].options.body).metadata;
+  }).slice(-1)[0];
+  const submittedMetadata = JSON.parse(metadataPost.options.body).batch;
+  assert.strictEqual(submittedMetadata.length, 2);
+  let snapshot = submittedMetadata[0].metadata;
   assert(snapshot && snapshot.startsWith('v2|episode|') &&
     decodeURIComponent(snapshot.split('|')[3]) === 'Wer weiß noch davon' &&
     snapshot.split('|')[6] === '11' &&
@@ -4090,11 +4091,9 @@ function publishHomeResume() {}
   batchStates[BATCH_OP_A] = 'succeeded';
   await emitOperation(BATCH_OP_A);
   await settle();
-  metadataPosts = requests.filter(function (req) {
-    return req.path.endsWith('/media-imports') && req.options.method === 'POST';
-  }).slice(-2);
-  assert.strictEqual(metadataPosts.length, 2);
-  snapshot = JSON.parse(metadataPosts[1].options.body).metadata;
+  assert.strictEqual(submits, beforeMetadataBatch + 1,
+    'episode B was already durably submitted with episode A');
+  snapshot = submittedMetadata[1].metadata;
   assert(snapshot && snapshot.startsWith('v2|episode|') &&
     decodeURIComponent(snapshot.split('|')[3]) === 'Jedha, Kyber, Erso' &&
     snapshot.split('|')[6] === '12',
@@ -4102,8 +4101,8 @@ function publishHomeResume() {}
   batchStates[BATCH_OP_B] = 'succeeded';
   await emitOperation(BATCH_OP_B);
   await settle();
-  assert.strictEqual(submits, beforeMetadataBatch + 2,
-    'two confirmed imports with metadata create exactly two Core POSTs');
+  assert.strictEqual(submits, beforeMetadataBatch + 1,
+    'both frozen episode snapshots are committed in one Core POST');
   assert.strictEqual(onlineRequests.length, providerReadsBefore +
     providerReads.length, 'neither Core confirmation repeats a TMDb lookup');
   // MT.META6: Generic inbound directories cannot suppress an otherwise
@@ -4132,19 +4131,19 @@ function publishHomeResume() {}
   const genericFirst = requests.filter(function (req) {
     return req.path.endsWith('/media-imports') && req.options.method === 'POST';
   }).slice(-1)[0];
-  assert.strictEqual(JSON.parse(genericFirst.options.body).metadata.split('|')[6], '11');
+  assert.strictEqual(JSON.parse(genericFirst.options.body).batch[0].metadata.split('|')[6], '11');
   batchStates[BATCH_OP_A] = 'succeeded';
   await emitOperation(BATCH_OP_A);
   await settle();
   const genericSecond = requests.filter(function (req) {
     return req.path.endsWith('/media-imports') && req.options.method === 'POST';
   }).slice(-1)[0];
-  assert.strictEqual(JSON.parse(genericSecond.options.body).metadata.split('|')[6], '12');
+  assert.strictEqual(JSON.parse(genericSecond.options.body).batch[1].metadata.split('|')[6], '12');
   batchStates[BATCH_OP_B] = 'succeeded';
   await emitOperation(BATCH_OP_B);
   await settle();
-  assert.strictEqual(submits, beforeGenericBatch + 2,
-    'generic-folder batch creates one exact snapshot per import, not retries');
+  assert.strictEqual(submits, beforeGenericBatch + 1,
+    'generic-folder batch commits two distinct snapshots in one POST');
   batchAndorMetaFixture = false;
 
   // META.CORE1 Foundation (2021): the local filename carries the series
@@ -4193,8 +4192,9 @@ function publishHomeResume() {}
   sourceDisplayOverride = previousDisplay;
   sourceDisplayLabels[SOURCE_B] = previousDisplayB;
 
-  // MT.META7: An unconfirmed first batch admission must not leave its
-  // confirmation button disabled or silently resubmit a new operation.
+  // MT.EVENT5: After a lost batch POST reply, even a completely new
+  // browser context READS the two existing Core operations. It never
+  // replays the body with a new key or dispatches episode B itself.
   context.selectModule('overview');
   context.VdrSuiteMediaImport.clearSession();
   context.resetMediaImportVisibility(true);
@@ -4216,47 +4216,37 @@ function publishHomeResume() {}
   const beforeLostBatch = submits;
   await findClass(mount, 'media-import-batch-confirm').listeners.click();
   await settle();
-  assert.strictEqual(submits, beforeLostBatch + 1,
-    'lost first response does not automatically resubmit');
+  assert.strictEqual(submits, beforeLostBatch + 1);
+  assert(findClass(mount, 'status').textContent.includes(
+    'Stapelannahme nicht bestätigt'));
   const lostPost = requests.filter(function (req) {
     return req.path.endsWith('/media-imports') && req.options.method === 'POST';
   }).slice(-1)[0];
-  const admissionButton = findClass(mount, 'media-import-refresh');
-  assert(admissionButton && !admissionButton.disabled &&
-    admissionButton.textContent.includes('Auftragsannahme bestätigen'),
-    'missing Operation ID has an enabled manual confirmation button');
-  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, false,
-    'bulk import remains paused with the remaining approved episodes');
-  submitMode = 'batch';
-  await admissionButton.listeners.click();
+  const durableId = lostPost.options.headers['Idempotency-Key'];
+  assert.strictEqual(JSON.parse(lostPost.options.body).batch.length, 2);
+  recentImports = [SOURCE, SOURCE_B].map(function (sourceId, index) {
+    return {operationId: [BATCH_OP_A, BATCH_OP_B][index],
+      backendId: 'backend-a', sourceId,
+      state: index === 0 ? 'dispatching' : 'accepted',
+      videoDecision: '', requestedAt: Math.floor(Date.now() / 1000),
+      batchId: durableId, batchIndex: index};
+  });
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
   await settle();
-  assert.strictEqual(submits, beforeLostBatch + 2,
-    'user confirmation sends only one same-key request');
-  const replayPost = requests.filter(function (req) {
-    return req.path.endsWith('/media-imports') && req.options.method === 'POST';
-  }).slice(-1)[0];
-  assert.strictEqual(replayPost.options.headers['Idempotency-Key'],
-    lostPost.options.headers['Idempotency-Key'],
-    'manual admission confirmation reuses original idempotency key');
-  assert.strictEqual(replayPost.options.body, lostPost.options.body,
-    'manual confirmation reuses exact source, action and frozen metadata');
-  assert.strictEqual(batchOperations.length, 1);
+  assert.strictEqual(submits, beforeLostBatch + 1,
+    'new browser reattaches without ANY replacement POST');
+  assert(findClass(mount, 'media-import-batch-summary').textContent.includes(
+    '2'), 'recovery rebuilds the original Core-owned selection');
   batchStates[BATCH_OP_A] = 'succeeded';
-  await findClass(mount, 'media-import-refresh').listeners.click();
-  await settle();
-  assert.strictEqual(batchOperations.length, 2,
-    'second episode starts only after first Core success readback');
-  const nextPost = requests.filter(function (req) {
-    return req.path.endsWith('/media-imports') && req.options.method === 'POST';
-  }).slice(-1)[0];
-  assert.notStrictEqual(nextPost.options.headers['Idempotency-Key'],
-    lostPost.options.headers['Idempotency-Key'],
-    'a different episode receives its own key');
+  await emitOperation(BATCH_OP_A);
   batchStates[BATCH_OP_B] = 'succeeded';
   await emitOperation(BATCH_OP_B);
-  await settle();
-  assert.strictEqual(submits, beforeLostBatch + 3,
-    'one lost attempt, one same-key confirmation, one next episode');
+  assert.strictEqual(submits, beforeLostBatch + 1,
+    'both episodes complete without another browser mutation');
   submitMode = 'accepted';
   recentImports = [];
 
@@ -4288,11 +4278,11 @@ function publishHomeResume() {}
   await settle();
   assert.strictEqual(failFirstBatchStatusRead, false,
     'the initial status GET failure was exercised');
-  assert.strictEqual(batchOperations.length, 1);
+  assert.strictEqual(batchOperations.length, 2);
   assert.strictEqual(submits, beforeTransientGet + 1,
-    'temporary GET failure must never retry the first import');
-  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, false,
-    'temporary GET failure must retain the original bulk sequence');
+    'temporary GET failure must never retry any import');
+  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true,
+    'durable Core batch is not stoppable by a client-only button');
   assert(findClass(mount, 'status').textContent.includes(
     'Sammelimport wartet auf die Bestätigung'),
     'the user sees that the batch is awaiting its current Core result');
@@ -4300,8 +4290,8 @@ function publishHomeResume() {}
   await emitOperation(BATCH_OP_A);
   assert.strictEqual(batchOperations.length, 2,
     'SSE-confirmed first import advances to second despite earlier GET outage');
-  assert.strictEqual(submits, beforeTransientGet + 2,
-    'second item is the only subsequent POST, not an A retry');
+  assert.strictEqual(submits, beforeTransientGet + 1,
+    'episode B was already reserved; no subsequent POST after SSE');
   batchStates[BATCH_OP_B] = 'succeeded';
   await emitOperation(BATCH_OP_B);
   assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true,
