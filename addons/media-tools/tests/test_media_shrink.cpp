@@ -57,6 +57,8 @@ struct FakeProcess final : ProcessRunner {
     bool discontinuousSourceTimestamps = false;
     bool divergingLiveSourceDuration = false;
     bool incompatibleAudio = false, incompatibleProfile = false;
+    std::string outputAudioCodec = "aac";
+    std::string outputContainer = "mpegts";
     bool mutateEncodingOnHardwareFailure = false;
     MediaToolExecutables tools;
     MediaEncodingSettings encodingSettings() const override {
@@ -78,6 +80,11 @@ struct FakeProcess final : ProcessRunner {
             const bool isOutput =
                 args.back().find(".vdr-suite-shrink-") != std::string::npos &&
                 args.back().find("00001.ts") != std::string::npos;
+            if (contains("stream=codec_name:format=format_name")) {
+                assert(isOutput);
+                return {0, "codec_name=" + outputAudioCodec +
+                    "\nformat_name=" + outputContainer + "\n"};
+            }
             if (contains("stream=profile,pix_fmt"))
                 return {0, incompatibleProfile ?
                     "profile=Main 10\npix_fmt=yuv420p10le\n" :
@@ -649,6 +656,28 @@ int main() {
         });
         assert(fs::exists(fixture.recording / "00001.ts") &&
                runner.softwareCalls == 1 && runner.indexes == 0);
+        ++checks;
+    }
+    {
+        Fixture fixture;
+        FakeProcess runner;
+        runner.outputAudioCodec = "opus";
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        reject([&] { (void)stageShrink(
+            plan, runner, [](const ShrinkPlan&) {}); });
+        assert(runner.indexes == 0 &&
+               fs::exists(fixture.recording / "00001.ts"));
+        ++checks;
+    }
+    {
+        Fixture fixture;
+        FakeProcess runner;
+        runner.outputContainer = "matroska";
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        reject([&] { (void)stageShrink(
+            plan, runner, [](const ShrinkPlan&) {}); });
+        assert(runner.indexes == 0 &&
+               fs::exists(fixture.recording / "00001.ts"));
         ++checks;
     }
     std::cout << "MEDIA_SHRINK_CPP_TEST=PASS checks=" << checks << "\n";

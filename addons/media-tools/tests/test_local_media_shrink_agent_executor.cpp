@@ -29,6 +29,8 @@ struct Process final : ProcessRunner {
         };
         if (args.at(0) == "/usr/bin/ffprobe") {
             assert(captured);
+            if (has("stream=codec_name:format=format_name"))
+                return {0, "codec_name=aac\nformat_name=mpegts\n"};
             if (has("stream=codec_name")) {
                 if (has("a")) return {0, "aac\n"};
                 return {0, args.back().find("input.ts") != std::string::npos ?

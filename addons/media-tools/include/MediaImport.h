@@ -93,6 +93,29 @@ inline bool vdrEightBitMainProfile(const std::string& report) {
     return profile && pixels;
 }
 
+// FFprobe readback of the finished transport stream. Checking source audio
+// alone cannot prove that FFmpeg emitted VDR-compatible audio/container bytes.
+// A video-only MPEG-TS (no audio stream) remains valid.
+inline bool vdrMpegTsAudioReadback(const std::string& report) {
+    bool hasMpegTs = false;
+    std::istringstream input(report);
+    std::string line;
+    while (std::getline(input, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.rfind("format_name=", 0) == 0) {
+            if (hasMpegTs || line != "format_name=mpegts") return false;
+            hasMpegTs = true;
+        } else if (line.rfind("codec_name=", 0) == 0) {
+            if (line != "codec_name=aac" && line != "codec_name=ac3" &&
+                line != "codec_name=eac3" && line != "codec_name=mp2")
+                return false;
+        } else if (!line.empty()) {
+            return false;
+        }
+    }
+    return hasMpegTs;
+}
+
 struct MediaToolExecutables {
     std::string ffmpeg = "/usr/bin/ffmpeg";
     std::string ffprobe = "/usr/bin/ffprobe";

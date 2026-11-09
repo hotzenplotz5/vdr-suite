@@ -71,8 +71,9 @@ werden (keine Browser-Kommandozeilen, keine zweite Encoding-Engine):
   tatsächlichen Render-Knoten des Backends angeben)
 
 Die Worker kodieren immer in MPEG-TS mit H.264 Main beziehungsweise HEVC Main
-und 8-Bit `yuv420p`. Das Ausgabeprofil wird via FFprobe geprüft und muss
-anschließend einen VDR-Index erhalten; das ursprüngliche Recording bleibt bis
+und 8-Bit `yuv420p`. FFprobe prüft auch den tatsächlich geschriebenen MPEG-TS-
+Container und die fertigen Audio-Spuren (AAC, AC-3, E-AC-3 oder MP2), bevor
+ein VDR-Index erzeugt wird; das ursprüngliche Recording bleibt bis
 zur gesonderten Shrink-Freigabe erhalten. Ein VDR-Index ist **kein** Beweis
 für die Unterstützung von HEVC durch das angeschlossene Wiedergabeplugin
 oder den TV-Client. Falls ein Hardware-Encoder fehlschlägt, kann der

@@ -1274,6 +1274,15 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
         require(profile.exitCode == 0 && vdrEightBitMainProfile(profile.output),
                 "import output is not VDR-compatible H.264 Main 8-bit");
     }
+    const auto transport = runner.run({
+        runner.executable(MediaTool::ffprobe), "-v", "error",
+        "-select_streams", "a", "-show_entries",
+        "stream=codec_name:format=format_name", "-of", "default=nw=1",
+        output.string()
+    }, true);
+    require(transport.exitCode == 0 && transport.output.size() <= 2048 &&
+            vdrMpegTsAudioReadback(transport.output),
+            "import output has incompatible MPEG-TS or audio");
     runRequired(runner, MediaTool::vdr,
                 {runner.executable(MediaTool::vdr), "--genindex=" + stagedRecording.string()});
     require(nonemptyRegular(stagedRecording / "index"), "VDR index missing or empty");

@@ -49,6 +49,8 @@ struct FakeProcess : ProcessRunner {
     bool failRemux = false;
     bool failIndex = false;
     bool incompatibleProfile = false;
+    std::string outputAudioCodec = "aac";
+    std::string outputContainer = "mpegts";
     fs::path probedSource;
     MediaToolExecutables tools;
     MediaEncodingSettings encodingSettings() const override {
@@ -76,6 +78,12 @@ struct FakeProcess : ProcessRunner {
                 return {0, incompatibleProfile ?
                     "profile=Main 10\npix_fmt=yuv420p10le\n" :
                     "profile=Main\npix_fmt=yuv420p\n"};
+            if (std::find(argv.begin(), argv.end(),
+                          "stream=codec_name:format=format_name") != argv.end()) {
+                assert(target.filename() == "00001.ts");
+                return {0, "codec_name=" + outputAudioCodec +
+                    "\nformat_name=" + outputContainer + "\n"};
+            }
             if (std::find(argv.begin(), argv.end(), "a") != argv.end())
                 return {0, audioCodec};
             if (target.filename() == "00001.ts") {
@@ -164,6 +172,12 @@ int main() {
         badEncoding = defaults;
         badEncoding.encoding.vaapiRenderDevice = "renderD128";
         assert(!badEncoding.valid());
+        assert(vdrMpegTsAudioReadback(
+            "codec_name=aac\ncodec_name=ac3\nformat_name=mpegts\n"));
+        assert(vdrMpegTsAudioReadback("format_name=mpegts\n"));
+        assert(!vdrMpegTsAudioReadback("codec_name=opus\nformat_name=mpegts\n"));
+        assert(!vdrMpegTsAudioReadback("codec_name=aac\nformat_name=matroska\n"));
+        assert(!vdrMpegTsAudioReadback("codec_name=aac\n"));
         assert(vdrEightBitMainProfile("profile=Main\npix_fmt=yuv420p\n"));
         assert(!vdrEightBitMainProfile("profile=Main 10\npix_fmt=yuv420p\n"));
         assert(!vdrEightBitMainProfile("profile=Main\npix_fmt=yuv420p10le\n"));
@@ -1163,6 +1177,28 @@ int main() {
         });
         assert(!fs::exists(f.video / "Sample") && fs::exists(f.source));
         assert(runner.transcodes == 1 && runner.indices == 0);
+        ++checks;
+    }
+    for (const auto& bad : {"opus", "pcm_s16le"}) {
+        Fixture f;
+        FakeProcess runner;
+        runner.outputAudioCodec = bad;
+        const auto plan = inspectImport(f.request());
+        mustFail([&] { (void)executeRemuxImport(
+            plan, runner, [](const ImportPlan&) {}); });
+        assert(runner.indices == 0 && fs::exists(f.source) &&
+               !fs::exists(f.video / "Sample"));
+        ++checks;
+    }
+    {
+        Fixture f;
+        FakeProcess runner;
+        runner.outputContainer = "matroska";
+        const auto plan = inspectImport(f.request());
+        mustFail([&] { (void)executeRemuxImport(
+            plan, runner, [](const ImportPlan&) {}); });
+        assert(runner.indices == 0 && fs::exists(f.source) &&
+               !fs::exists(f.video / "Sample"));
         ++checks;
     }
     std::cout << "MEDIA_IMPORT_CPP_TEST=PASS checks=" << checks << "\n";

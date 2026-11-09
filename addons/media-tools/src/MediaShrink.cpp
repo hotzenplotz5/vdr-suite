@@ -624,6 +624,15 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
            "HEVC output duration differs from original");
     copyInfo(current, candidate / "info");
     copySubtitles(current, candidate);
+    const auto transport = runner.run({
+        runner.executable(MediaTool::ffprobe), "-v", "error",
+        "-select_streams", "a", "-show_entries",
+        "stream=codec_name:format=format_name", "-of", "default=nw=1",
+        output.string()
+    }, true);
+    demand(transport.exitCode == 0 && transport.output.size() <= 2048 &&
+           vdrMpegTsAudioReadback(transport.output),
+           "shrink output has incompatible MPEG-TS or audio");
     invoke(runner, {runner.executable(MediaTool::vdr), "--genindex=" + candidate.string()});
     demand(nonempty(candidate / "index"), "HEVC recording index missing");
     // Reinspect all TS/Index/Info/SRT identities after encoding. The

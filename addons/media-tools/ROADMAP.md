@@ -828,7 +828,7 @@ REAL-VDR noch nicht installiert):**
   vorhandene Agent-Konfiguration passend; es gibt keinen separaten
   Media-Tools-Daemon oder zweiten Importer.
 
-**MT.ENC3.1 – Typisierte Encoding-Einstellungen (09.11.2026, SOURCE-Kandidat; Build/REAL-VDR noch offen):**
+**MT.ENC3.1 – Typisierte Encoding-Einstellungen (09.11.2026, SOURCE ergänzt; Build/REAL-VDR noch offen):**
 - H.264-Import: optional backendlokale Werte `MEDIA_IMPORT_H264_CRF` (Default 23)
   und `MEDIA_IMPORT_H264_PRESET` (Default medium). H.265-Shrink separat:
   `MEDIA_SHRINK_H265_CRF` (**Default bleibt 27**) und
@@ -843,9 +843,10 @@ REAL-VDR noch nicht installiert):**
   Jobs einen Agent-Neustart, laufende Jobs bleiben unverändert.
 - **VDR-Kompatibilität:** Es entstehen ausschließlich H.264 Main / HEVC Main
   mit 8-Bit `yuv420p` in unverändertem MPEG-TS. Nach Umkodierung prüfen
-  FFprobe-Readback (Main und 8-Bit) sowie die vorhandene VDR-`--genindex`-
-  Prüfung die neue Aufnahme vor Veröffentlichung. Quell-Remux bleibt wie
-  zuvor. Das VDR-Ausgabeplugin/der TV-Client muss den Codec selbst
+  FFprobe-Readback (Main und 8-Bit), den tatsächlichen MPEG-TS-Container
+  und die Audio-Streams (AAC, AC-3, E-AC-3, MP2 bzw. kein Ton) sowie die
+  vorhandene VDR-`--genindex`-Prüfung vor Veröffentlichung. Quell-Remux
+  bleibt wie zuvor. Das VDR-Ausgabeplugin/der TV-Client muss den Codec selbst
   unterstützen: ein gültiger Index alleine beweist noch keine Wiedergabe.
 - Software bleibt Default. Die bestehenden Shrink-Hardwarepfade werden nur
   benutzt, wenn explizit gewählt. Für VAAPI ist der tatsächliche
@@ -858,10 +859,26 @@ REAL-VDR noch nicht installiert):**
   Software-HEVC-Standards auf 23 ist **nicht** freigegeben; 27 bleibt.
   Vor einer späteren Änderung braucht es reale Bild-/Größenvergleiche.
   Gezielte C++-Tests für Defaults, alternative Einstellungen, FFmpeg-
-  Argumente, Hardware-Fallback-Snapshot und inkompatibles Profil wurden
-  ergänzt; deren erfolgreiche Ausführung sowie reale yaVDR-Wiedergabe
-  sind noch zu verifizieren. Kein neuer Core-Auftrag, Importer, Poller,
-  Berechtigungs-Gate oder Eingriff in produktive Aufnahmen.
+  Argumente, Hardware-Fallback-Snapshot, inkompatibles Profil und
+  fehlerhafte MPEG-TS-/Audio-Readbacks sind ergänzt. Kein neuer Core-Auftrag,
+  Importer, Poller, Berechtigungs-Gate oder Eingriff in produktive Aufnahmen.
+- **Abnahme getrennt (dieser Änderungskandidat):**
+  **SOURCE=IMPLEMENTED** (bestehender Agent/Importer/Shrink-Runner,
+  Ausgabe-Readback ergänzt);
+  **TEST=NOT_VERIFIED** (C++-Build und fokussierte Regressionen auf
+  exaktem Commit noch auszuführen);
+  **INSTALL=NOT_INSTALLED** (kein neuer Media-Tools-Worker aus diesem
+  Kandidaten produktiv ausgerollt);
+  **REAL-VDR=NOT_VERIFIED** (kein ausdrücklich freigegebenes >10-Minuten-
+  Medium encodiert, keine Decoder-/TV-Wiedergabe bestätigt). Ein
+  bestandener VDR-Index beweist keine Ausgabegeräte-Kompatibilität.
+- **MT.ENC3-Webfrontend-Vorbereitung:** Unter
+  `Einstellungen → Media Tools → Encoding` fehlt weiterhin die
+  verständliche backendbezogene Bedienoberfläche. Zunächst bestehenden
+  Administrations-/Konfigurationsweg auf sichere Wiederverwendung prüfen;
+  `backend-agent.conf` bleibt die einzige Wertquelle. Kein Browser-FFmpeg-
+  `argv`, keine neue Konfigurationstabelle, kein automatischer Encode.
+  Nur hardware- und clientseitig real abgenommene Optionen anbieten.
 - Nächster technischer Slice nach erfolgreicher Hostabnahme: **MT.I3.3**
   Portabilitätsregression und tatsächliche MLD-/openSUSE-Hosttests.
 
@@ -903,12 +920,13 @@ REAL-VDR noch nicht installiert):**
   Test danach erfolgreich wiederholt. Der Test verwendete nur temporäre
   synthetische Roots; kein Hostdeploy, Dienstneustart, Medien- oder DB-Backup.
   Der ergänzende C++-/Frontend-/Core-Recovery-Testlauf steht noch aus.
-  Die frühere echte yaVDR-Live-Abnahme von MT.ENC3.1 und MT.EVENT5
-  bleibt unverändert bestehen.
+  Die echte yaVDR-Abnahme der bisherigen Import-/EVENT5-Funktionen
+  bleibt bestehen; eine MT.ENC3.1-Encoder-/TV-Wiedergabeabnahme ist
+  davon ausdrücklich nicht abgedeckt.
 
 | Distribution | Isolierte Testmatrix | Live-/Paket-/VDR-Abnahme für MT.I3.3 |
 | --- | --- | --- |
-| yaVDR/Ubuntu | **PASS**, einschließlich synthetischer `ID=ubuntu`-Fixture (09.11.2026) | Bisherige MT.ENC3.1/MT.EVENT5-Abnahme bleibt gültig; spezifischer I3.3-Live-Neustarttest offen |
+| yaVDR/Ubuntu | **PASS**, einschließlich synthetischer `ID=ubuntu`-Fixture (09.11.2026) | 4/4 bisherige Import-Readbacks bestätigt; MT.ENC3.1-Encode/Wiedergabe und spezifischer I3.3-Live-Neustarttest offen |
 | MLD 6.6 | Synthetischer `ID=mld`-Testfall **PASS auf yaVDR** | NOT_VERIFIED; reale Agent-Unit/Init, Paketbesitz, FFmpeg/VDR-ABI/Hardware erforderlich |
 | openSUSE | Synthetische `ID=opensuse`/`opensuse-leap`-Testfälle **PASS auf yaVDR** | NOT_VERIFIED; reale Unit, Paketmanager, Dienstnutzer, FFmpeg/VDR/Hardware erforderlich |
 
@@ -1121,17 +1139,19 @@ Agent-Transportfehler dürfen keinen zweiten POST auslösen. Bei
 
 ### MT.ENC3 – Encoding-Einstellungen mit Rectools-Defaults
 
-In `Einstellungen → Media Tools → Encoding` persistente, backendbezogene
-Einstellungen anbieten, standardmäßig **ohne Einrichtungszwang**.
+Als noch offene MT.ENC3-Oberfläche in `Einstellungen → Media Tools → Encoding`
+backendbezogene Einstellungen anbieten, standardmäßig **ohne Einrichtungszwang**.
+Die produktive Speicherung bleibt bis dahin ausschließlich in der bestehenden
+backendlokalen Agent-Konfiguration; keine zweite Settings-Verwaltung.
 Werte werden bei **Auftragsstart** übernommen; spätere Änderungen wirken
 nicht rückwirkend auf laufende Aufträge:
 
-| Einstellung | Standard aus vdr-rectools `develop` | Einordnung |
+| Einstellung | VDR-Suite-Produktstandard (Rectools als Referenz) | Einordnung |
 | --- | --- | --- |
 | Import-Video | H.264 / libx264 | lokale, inkompatible Videoquelle |
 | H.264-Qualität | CRF **23** | niedriger = bessere Qualität/größere Datei |
 | H.264-Preset | **medium** | Geschwindigkeit / Kompression |
-| H.265 für Shrink | CRF **23**, Preset **medium** | getrennt vom Import |
+| H.265 für Shrink | CRF **27**, Preset **medium** | Produktstandard; Rectools-Referenz 23 bewusst nicht übernommen |
 | Hardwarebeschleunigung | **none** (CPU) | später optional VAAPI, QSV, NVENC abhängig von realer Verfügbarkeit |
 | Audio-Normalisierung | **aus** | nicht ungefragt Tonspuren verändern |
 | Bestätigung vor Encode | **ein** | keine heimliche Videoneukodierung |
