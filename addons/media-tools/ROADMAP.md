@@ -1001,7 +1001,7 @@ unverändert. Bei der anschließenden read-only-Datenbankabnahme waren
 vom 29.10. blieben unverändert.
 
 **MT.EVENT5 / MT.I3.3 – Anzeige-Fix für Importprotokoll-Titel
-(09.11.2026, TEST PASS / auf yaVDR installiert, Sichtprüfung offen):** Echter yaVDR-
+(09.11.2026, TEST / INSTALL / LIVE-SICHTPRÜFUNG PASS auf yaVDR):** Echter yaVDR-
 Sammelimport `mb1_ed6d4633eedef31354f94a62828a2ce5` nach Daemon-
 Restart 13:10:23 weitergelaufen: erster Auftrag 13:12:18 `succeeded`,
 zweiter 13:12:20 `dispatching`; Agent-PID unverändert. In Home und
@@ -1028,8 +1028,7 @@ konnte initial den alten Git-markerlosen Daemon nicht identifizieren
 (`INSTALLED_SOURCE_ID_UNKNOWN`); einmaliger Legacy-Install mit
 Rückfallkopie `/root/vdr-suite-titlefix.BEEos5XS` abgeschlossen:
 `MT_TITLE_INSTALL=PASS`. Neues Binary trägt nun Git-Quellmarker.
-**Sichtprüfung der angezeigten Titel nach Browser-Reload noch
-ausstehend**; erst danach UI-Anzeigefix als LIVE PASS markieren.
+**LIVE-SICHTPRÜFUNG PASS (09.11.2026):** Screenshot des neugestarteten Webfrontends zeigt im Importprotokoll für True Blood S01E01–S01E04 die korrekten Serien-/Folgentitel und jeweils `VDR-Aufnahme bestätigt`; auch Foundation S03E03–S03E10 wird mit lesbaren Titeln bestätigt angezeigt. Die vorherigen `scan_...`-Quellkennungen erscheinen dort nicht mehr als Filmtitel. Damit ist der Titel-Anzeigefix nach Reload abgenommen.
 
 **Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
 oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
