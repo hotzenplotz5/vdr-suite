@@ -1714,11 +1714,12 @@ function publishHomeResume() {}
   assert.strictEqual(findClass(mount, 'media-import-start').disabled, true);
 
 
-  // User-style batch click submits only the first source. A temporary
-  // outcome_unknown must never generate a follow-on POST until later Core
-  // success, but must not destroy the approved remaining episodes.
+  // Browser-independent import: exactly ONE explicit POST reserves all
+  // independently checked sources. SSE only reads durable per-source results.
   submitMode = 'batch';
   batchSources = [SOURCE, SOURCE_B];
+  batchOperations = [];
+  batchStates = Object.create(null);
   context.selectModule('overview');
   context.selectModule('media-import');
   await settle();
@@ -1727,41 +1728,44 @@ function publishHomeResume() {}
   const countBefore = submits;
   await batchButton.listeners.click();
   await settle();
-  assert.strictEqual(submits, countBefore, 'read-only batch diagnosis must never submit');
-  assert(findClass(mount, 'media-import-batch-summary').textContent.includes('2 direkt importierbar'));
-  assert.strictEqual(findClass(mount, 'media-import-batch-review').children.length, 2);
+  assert.strictEqual(submits, countBefore,
+    'read-only batch diagnosis must not submit');
+  assert(findClass(mount, 'media-import-batch-summary').textContent
+    .includes('2 direkt importierbar'));
   await findClass(mount, 'media-import-batch-confirm').listeners.click();
   await settle();
   assert.strictEqual(submits, countBefore + 1);
-  assert.strictEqual(batchOperations.length, 1);
+  assert.strictEqual(batchOperations.length, 2,
+    'both selected Core operation identities reserved by a single POST');
+  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true,
+    'browser-only stop cannot pretend to cancel durable server commands');
+  const batchPost = requests.filter(function (req) {
+    return req.path.endsWith('/media-imports') && req.options.method === 'POST';
+  }).slice(-1)[0];
+  assert.deepStrictEqual(JSON.parse(batchPost.options.body).batch.map(
+    item => item.sourceId), [SOURCE, SOURCE_B],
+    'all confirmed sources are durably submitted in selection order');
   batchStates[BATCH_OP_A] = 'outcome_unknown';
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
-  assert.strictEqual(batchOperations.length, 1);
-  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, false,
-    'outcome_unknown is a pending reconciliation, not a completed failed batch');
-  assert(findClass(mount, 'media-import-batch-review').children.some(function (row) {
-    return row.textContent.includes('Core-Ergebnis ungewiss – Bestätigung abwarten');
-  }), 'the first episode visibly waits for its late Core confirmation');
+  assert.strictEqual(submits, countBefore + 1,
+    'uncertain first result never triggers a second POST');
   const beforeLateSuccess = submits;
   await emitOperation(BATCH_OP_A);
   assert.strictEqual(submits, beforeLateSuccess,
-    'repeated outcome_unknown cannot create another import request');
+    'SSE of an unknown result never creates another request');
   batchStates[BATCH_OP_A] = 'succeeded';
   await emitOperation(BATCH_OP_A);
-  assert.strictEqual(batchOperations.length, 2,
-    'late SSE success after outcome_unknown must advance to episode B');
-  assert.strictEqual(submits, beforeLateSuccess + 1,
-    'late success starts only the next episode, never retries episode A');
+  assert.strictEqual(batchOperations.length, 2);
+  assert.strictEqual(submits, beforeLateSuccess,
+    'Core, not browser, already owns episode B');
   batchStates[BATCH_OP_B] = 'succeeded';
   await emitOperation(BATCH_OP_B);
-  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true,
-    'the original bulk selection completes after both late confirmations');
-  assert(findClass(mount, 'media-import-batch-summary').textContent.includes(
-    '2 bereits bestätigt'), 'both episodes are confirmed in the original batch');
+  assert.strictEqual(submits, beforeLateSuccess);
+  assert(findClass(mount, 'media-import-batch-summary').textContent
+    .includes('2 bereits bestätigt'));
 
-  // Logout clears in-session batch authority. A new deliberate click can
-  // start two sequential Operations, provided VDR confirms the first.
+  // Restart the browser-side module while the NEXT durable Core import waits.
   context.resetMediaImportVisibility(true);
   batchOperations = [];
   batchStates = Object.create(null);
@@ -1770,18 +1774,17 @@ function publishHomeResume() {}
   await settle();
   await findClass(mount, 'media-import-batch').listeners.click();
   await settle();
-  assert.strictEqual(batchOperations.length, 0, 'diagnosis alone cannot create an Operation');
+  const beforeSecondBatch = submits;
   await findClass(mount, 'media-import-batch-confirm').listeners.click();
   await settle();
-  assert.strictEqual(batchOperations.length, 1);
+  assert.strictEqual(batchOperations.length, 2);
+  assert.strictEqual(submits, beforeSecondBatch + 1);
   batchStates[BATCH_OP_A] = 'succeeded';
   await emitOperation(BATCH_OP_A);
-  assert.strictEqual(batchOperations.length, 2,
-    'second source can dispatch only after independent readback');
   batchStates[BATCH_OP_B] = 'failed_verified';
   await emitOperation(BATCH_OP_B);
-  assert.strictEqual(batchOperations.length, 2,
-    'an SSE-confirmed failed batch item cannot dispatch another import');
+  assert.strictEqual(submits, beforeSecondBatch + 1,
+    'failed verified source is not replayed or replaced by browser POST');
   assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true);
 
   // UX5: a mixed four-film set gets individual, read-only diagnoses.
@@ -1829,7 +1832,7 @@ function publishHomeResume() {}
   confirmLocal = true;
   await mixedReviewConfirm.listeners.click();
   await settle();
-  assert.strictEqual(batchOperations.length, 1);
+  assert.strictEqual(batchOperations.length, 2);
   batchStates[BATCH_OP_A] = 'succeeded';
   await findClass(mount, 'media-import-refresh').listeners.click();
   await settle();
