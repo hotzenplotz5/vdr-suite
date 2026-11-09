@@ -1,6 +1,7 @@
 #include "MediaImportOperationAdmission.h"
 
 #include "BackendAgentLifecycle.h"
+#include "Database.h"
 #include "MediaImportOperationFence.h"
 #include "MediaToolsAgentExecutor.h"
 #include "MutationOperationIdentity.h"
@@ -11,6 +12,8 @@
 #include <sstream>
 #include <iomanip>
 #include <string>
+#include <unordered_set>
+#include <vector>
 
 namespace vdrsuite::addons {
 namespace {
@@ -119,6 +122,14 @@ MediaImportOperationAdmissionResult
 MediaImportOperationAdmissionService::admit(
     const MediaImportOperationAdmissionRequest& req)
 {
+    return admitInternal(req, false);
+}
+
+MediaImportOperationAdmissionResult
+MediaImportOperationAdmissionService::admitInternal(
+    const MediaImportOperationAdmissionRequest& req,
+    bool inExistingTransaction)
+{
     using Decision = vdrsuite::mediatools::MediaImportDecision;
     if (req.approveVideoReencode && !req.videoDecision.empty())
         return output(Status::invalid);
@@ -215,7 +226,9 @@ MediaImportOperationAdmissionService::admit(
     payload.payload = serialized;
     payload.payloadFingerprint = fingerprint;
 
-    const auto reserved = operations_.reserveWithPayload(op, payload);
+    const auto reserved = inExistingTransaction
+        ? operations_.reserveWithPayloadInCurrentTransaction(op, payload)
+        : operations_.reserveWithPayload(op, payload);
     if (reserved.status == MutationOperationRepositoryStatus::ok)
         return output(Status::accepted, reserved.operation);
     if (reserved.status == MutationOperationRepositoryStatus::idempotencyConflict)
@@ -236,6 +249,83 @@ MediaImportOperationAdmissionService::admit(
     if (reserved.status == MutationOperationRepositoryStatus::invalid)
         return output(Status::invalid);
     return output(Status::unavailable);
+}
+
+// Reserve the WHOLE confirmed browser selection before any Agent side effect.
+// Existing per-source validation, grants, immutable payload and idempotency
+// apply to every item; a rejected item rolls the transaction back atomically.
+// A browser closing after the HTTP request cannot strand unreserved sources.
+MediaImportBatchAdmissionResult
+MediaImportOperationAdmissionService::admitBatch(
+    const MediaImportBatchAdmissionRequest& req)
+{
+    MediaImportBatchAdmissionResult out;
+    if (req.batchId.size() != 36U ||
+        req.batchId.compare(0U, 4U, "mb1_") != 0 ||
+        req.sources.size() < 2U || req.sources.size() > 100U)
+    {
+        out.status = Status::invalid;
+        return out;
+    }
+    for (std::size_t i = 4U; i < req.batchId.size(); ++i)
+        if (!((req.batchId[i] >= '0' && req.batchId[i] <= '9') ||
+              (req.batchId[i] >= 'a' && req.batchId[i] <= 'f'))) {
+            out.status = Status::invalid;
+            return out;
+        }
+    std::unordered_set<std::string> distinct;
+    for (const auto& item : req.sources) {
+        if (!distinct.insert(item.sourceId).second) {
+            out.status = Status::invalid;
+            return out;
+        }
+    }
+
+    auto* db = const_cast<Database*>(operations_.databaseIdentity());
+    if (!db) return out;
+    auto lease = db->acquireTransactionLease();
+    if (!db->execute("BEGIN IMMEDIATE TRANSACTION;")) return out;
+    bool inserted = false;
+    bool replayed = false;
+    for (std::size_t index = 0; index < req.sources.size(); ++index)
+    {
+        MediaImportOperationAdmissionRequest item;
+        item.actorId = req.actorId;
+        item.backendId = req.backendId;
+        item.sourceId = req.sources[index].sourceId;
+        item.metadata = req.sources[index].metadata;
+        item.now = req.now;
+        std::ostringstream key;
+        key << req.batchId << "_" << std::setfill('0') <<
+            std::setw(3) << index;
+        item.idempotencyKey = key.str();
+        // Batch imports only accept a direct, prechecked media source; no
+        // implicit re-encode, source deletion, or marking is authorized.
+        const auto admitted = admitInternal(item, true);
+        if (admitted.status != Status::accepted &&
+            admitted.status != Status::replayed)
+        {
+            db->execute("ROLLBACK;");
+            out.operations.clear();
+            out.status = admitted.status;
+            return out;
+        }
+        inserted |= admitted.status == Status::accepted;
+        replayed |= admitted.status == Status::replayed;
+        out.operations.push_back(admitted.operation);
+    }
+    // A prior successful attempt can only replay entirely. A mixed state
+    // could indicate an inconsistent batch identity; never dispatch it.
+    if ((inserted && replayed) || !db->execute("COMMIT;"))
+    {
+        db->execute("ROLLBACK;");
+        out.operations.clear();
+        out.status = inserted && replayed
+            ? Status::idempotencyConflict : Status::unavailable;
+        return out;
+    }
+    out.status = inserted ? Status::accepted : Status::replayed;
+    return out;
 }
 
 } // namespace vdrsuite::addons
