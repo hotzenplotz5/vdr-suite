@@ -42,6 +42,56 @@ durch die automatische Wiederherstellung.
 
 **Abnahme:** Während ein Film über sechs Stunden encodiert, bleibt der bestehende Core-Auftrag maßgeblich. Erreicht er terminalen, wirklich bestätigten Status, aktualisiert Media Tools die offene Ansicht ohne Refresh. Ist der Browser zwischendurch geschlossen, wird beim erneuten Öffnen der unveränderte Auftrag gelesen. Fehler/ungewiss werden nicht als Erfolg bezeichnet. Das System sendet Ereignisse statt wiederholt den Operationsstatus abzufragen.
 
+## MT.EVENT5 – Browserunabhängiger Sammelimport (09.11.2026, FEHLER BESTÄTIGT / OFFEN)
+
+**Reproduzierter Nutzerbefund:** Nach Bestätigung eines Stapels mit sieben
+Foundation-Folgen und Schließen des Browsers wird der bereits gestartete
+Einzelauftrag über Core/Agent weiter nachgehalten, **die nächste ausgewählte
+Folge wird aber nicht automatisch gestartet**. Die Oberfläche stellt beim
+Wiederöffnen einzelne vergangene Core-Operationen wieder her, nicht den Stapel
+als fortzusetzenden Auftrag. Die Aussage, dass der laufende FFmpeg-Prozess
+selbst durch das Schließen beendet wird, ist damit **nicht** belegt.
+
+**Quellbefund auf `main` e31a532c5d4064e7c619f8185d3fecd5a1a0aec4:**
+`web/frontend/modules/media-import.js::confirmBatch` legt `remaining`,
+`completed` und `waiting` ausschließlich in `activeBatches` im
+JavaScript-Speicher ab. `advanceBatch` setzt `resumeNext`; erst
+`readOperation` ruft für den nächsten Film `startImport(view)` auf.
+`restoreDurableAttempt` kennt dagegen nur einzelne
+`media.import`-Operationen. Bei geschlossenem Browser existiert kein
+Aufrufer für die noch nicht reservierten Folgeaufträge. Das ist **kein**
+Problem der MT.ENC3.1-Encoder oder der bestehenden SSE-Ereignisse.
+
+**Verbindliche Korrektur:**
+1. Nach einer einmaligen, ausdrücklichen Stapelbestätigung die **gesamte**
+   geordnete Auswahl aus ausschließlich vorgeprüften, direkt importierbaren
+   Quellen und die zugehörigen bereits aufgelösten TMDb-Metadaten beim Core
+   dauerhaft annehmen. Kein Import weiterer nicht ausgewählter Quellen.
+2. Für jede Folge dieselben bestehenden ADR-0042-Operationen, immutable
+   Payloads, Idempotency-Key-Fences, Agent-Kommandos, VDR-Readback und
+   einzelnen Fehler-/Unknown-Zustände verwenden. Browser und SSE sind nur
+   Beobachter, niemals Treiber des nächsten POST. Keine zusätzliche
+   Auftragsdatenbank oder zweiter ausführender Worker.
+3. Nach Tab-/Browser-Schließen, Seitenneustart und SSE-Unterbrechung muss
+   der Core alle angenommenen Folgen **ohne Browser** weiter abarbeiten.
+   Bereits bestätigte Folgen dürfen nicht wieder importiert werden; ein
+   unklares Ergebnis darf niemals durch einen neuen Import derselben
+   Quelle kaschiert werden.
+4. Beim Wiederöffnen den Core-Auftrag samt Fortschritt und Fehlern aus
+   dauerhaftem Zustand lesen und anschließend SSE verwenden; kein
+   Status-Polling. Ein „Stop“ darf ausschließlich noch nicht begonnene
+   Aufträge betreffen, niemals den aktiven Core-Import abbrechen.
+5. Gezielt testen: sieben ausgewählte Folgen, Browser nach erstem POST
+   geschlossen, alle sieben VDR-Readbacks mit korrekten TMDb-Metadaten;
+   Browser- und Agent-Neustart, verlorene POST-Antwort, doppelte
+   Idempotency-Key-Wiederholung sowie ein fehlerhafter Einzelfilm.
+   SOURCE/UNIT, PRODUKTIONS-INTEGRATION und REAL-VDR separat kennzeichnen.
+
+**Status:** Fehlerursache im Frontend **bestätigt**, serverseitige
+Stapelannahme **noch nicht implementiert**. Bestehende Import-Worker,
+Agent, Freigaben und Live-Daten nicht verändern, bis ein gezielter Fix
+gebaut und verifiziert ist.
+
 ## Verbindliche Debug- und Sperrfreigabe-Regel (29.10.2026)
 
 **Betreiberentscheidung:** Für **jede neue Sperrlogik** in Media Tools / Media Import
