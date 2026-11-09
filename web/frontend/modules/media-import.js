@@ -232,6 +232,71 @@
       view.completedNotice.appendChild(technical);
       view.completedNotice.hidden = false;
     }
+
+    function rejoinDurableBatch(items) {
+      const groups = new Map();
+      items.forEach(function (item) {
+        if (typeof item.batchId !== 'string' ||
+            !/^mb1_[0-9a-f]{32}$/.test(item.batchId) ||
+            !Number.isSafeInteger(item.batchIndex) ||
+            item.batchIndex < 0 || item.batchIndex >= MAX_IMPORT_FILMS) return;
+        if (!groups.has(item.batchId)) groups.set(item.batchId, []);
+        groups.get(item.batchId).push(item);
+      });
+      const candidates = Array.from(groups.entries()).sort(function (a, b) {
+        return (Math.max.apply(null, b[1].map(x => x.requestedAt)) -
+          Math.max.apply(null, a[1].map(x => x.requestedAt)));
+      });
+      for (const entry of candidates) {
+        const ordered = entry[1].sort(function (a, b) {
+          return a.batchIndex - b.batchIndex;
+        });
+        if (!ordered.length || ordered[0].batchIndex !== 0 ||
+            ordered.some(function (item, index) {
+              return item.batchIndex !== index;
+            })) continue;
+        const nextIndex = ordered.findIndex(function (item) {
+          return item.state !== 'succeeded';
+        });
+        if (nextIndex < 0) continue;
+        const blocked = ordered.slice(0, nextIndex + 1).find(function (item) {
+          return terminalState(item.state) && item.state !== 'succeeded';
+        });
+        if (blocked) {
+          view.completedNotice.textContent =
+            'Sammelimport nach ' + nextIndex +
+            ' bestätigten Aufnahmen angehalten: ' + blocked.state +
+            '. Keine Quelldatei erneut importiert.';
+          view.completedNotice.hidden = false;
+          return true;
+        }
+        const currentItem = ordered[nextIndex];
+        const review = {rows: ordered.map(function (item) {
+          return {sourceId: item.sourceId,
+            title: view.sourceTitles[item.sourceId] || item.sourceId,
+            state: item.state === 'succeeded' ? 'succeeded' :
+              item.state === 'accepted' || item.state === 'queued'
+                ? 'queued' : 'running'};
+        })};
+        const operations = ordered.map(function (item) {
+          return {sourceId: item.sourceId, operationId: item.operationId,
+            state: item.state};
+        });
+        const batch = {durable: true, id: entry[0], kind: 'import',
+          remaining: ordered.slice(nextIndex).map(function (item) {
+            return item.sourceId;
+          }), total: ordered.length, completed: nextIndex,
+          waiting: currentItem.operationId, operations: operations,
+          review: review};
+        activeBatches[view.backendId] = batch;
+        view.batch = batch;
+        view.batchReview = review;
+        view.batchStopButton.hidden = true;
+        reattach(currentItem);
+        return true;
+      }
+      return false;
+    }
     return api.getRecentMediaImports(readOptions(view.backendId))
       .then(function (response) {
         if (!isCurrent(view) || view.attempt) return;
@@ -270,6 +335,7 @@
           };
         });
         renderUnresolvedAttempts(view);
+        if (rejoinDurableBatch(valid)) return;
         const running = valid.find(function (item) {
           return ['accepted','queued','dispatching',
             'executed_unverified'].includes(item.state);
