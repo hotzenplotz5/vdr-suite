@@ -912,11 +912,13 @@ REAL-VDR noch nicht installiert):**
 | MLD 6.6 | Synthetischer `ID=mld`-Testfall **PASS auf yaVDR** | NOT_VERIFIED; reale Agent-Unit/Init, Paketbesitz, FFmpeg/VDR-ABI/Hardware erforderlich |
 | openSUSE | Synthetische `ID=opensuse`/`opensuse-leap`-Testfälle **PASS auf yaVDR** | NOT_VERIFIED; reale Unit, Paketmanager, Dienstnutzer, FFmpeg/VDR/Hardware erforderlich |
 
-**Status MT.I3.3: PARTIAL – synthetische Portabilitätsregression,
-Core-SQL-Recovery und native C++-Agent-Wiederanlaufregression jeweils PASS
-auf yaVDR; distributionsspezifische Live- und echte Dienstneustart-
-Abnahmen offen.** Keine automatische Umstellung der yaVDR-Pfade auf
-andere Distributionen.
+**Status MT.I3.3: PASS für yaVDR einschließlich echtem Daemon-Neustart
+und 4/4 VDR-bestätigten Sammelimporten; PARTIAL für die
+distributionsübergreifende Gesamtmatrix (MLD/openSUSE Live NOT_VERIFIED).**
+Synthetische Portabilitätsregression, Core-SQL-Recovery, native
+C++-Agent-Wiederanlaufregression und Frontend-/Public-v1-Verträge jeweils
+PASS auf yaVDR. Kein automatisches Übertragen der yaVDR-Pfade auf andere
+Distributionen.
 
 **MT.I3.3 – vorhandene Frontend-Verträge auf yaVDR bestätigt
 (09.11.2026, SOURCE/FRONTEND PASS):** Nutzerseitig ausgeführt:
@@ -989,18 +991,24 @@ für alle drei `outcome_unknown` Einzelimporte vom **29.10.2026**
 **keiner ist Teil eines Sammelimports**. Nutzerbestätigung: alte
 Aufträge. Unverändert lassen; kein Blocker für MT.I3.3, kein Grund für
 weitere Altfall-Diagnostik.
-**REAL-VDR-RESTART weiterhin NOT_VERIFIED**: Ohne einen **neuen**
-angenommenen Stapel würde ein bloßer Daemon-Neustart die behauptete
-Batch-Wiederaufnahme nicht belegen. Alte `outcome_unknown`-Operationen
-nicht automatisch wiederholen oder als erfolgreich markieren.
+**REAL-VDR-RESTART PASS auf yaVDR (09.11.2026):** Neuer, während der
+Verarbeitung angenommener Stapel
+`mb1_ed6d4633eedef31354f94a62828a2ce5` überstand den echten
+Daemon-Neustart (13:10:23 CET); erster Auftrag danach um 13:12:18
+`succeeded`, zweiter um 13:12:20 `dispatching`; Agent-PID blieb
+unverändert. Bei der anschließenden read-only-Datenbankabnahme waren
+**alle vier `succeeded`**. Die drei alten `outcome_unknown`-Einzelaufträge
+vom 29.10. blieben unverändert.
 
 **MT.EVENT5 / MT.I3.3 – Anzeige-Fix für Importprotokoll-Titel
-(09.11.2026, SOURCE, Test/Installation offen):** Echter yaVDR-
+(09.11.2026, TEST PASS / auf yaVDR installiert, Sichtprüfung offen):** Echter yaVDR-
 Sammelimport `mb1_ed6d4633eedef31354f94a62828a2ce5` nach Daemon-
 Restart 13:10:23 weitergelaufen: erster Auftrag 13:12:18 `succeeded`,
 zweiter 13:12:20 `dispatching`; Agent-PID unverändert. In Home und
-Aufnahmen sind fertige Medien korrekt angekommen. 4/4-Endergebnis
-noch ausstehend. Das Importprotokoll zeigte nach Quellenentfernung
+Aufnahmen sind fertige Medien korrekt angekommen. Spätere read-only-
+Abnahme: **vier von vier `succeeded`**; Titel aus bestehenden
+Metadatensnapshots: True Blood – Strange Love, Blut geleckt,
+Sie gehört zu mir, Flucht aus dem Drachenhaus. Das Importprotokoll zeigte nach Quellenentfernung
 und Browser-Neuladen kryptische `scan_...`-IDs statt Filmtiteln.
 Optionaler Titel kommt nun aus dem **schon vorhandenen unveränderlichen
 Metadatensnapshot der selben Core-Operation**, wird in der actor- und
@@ -1008,9 +1016,20 @@ backendgebundenen Public-v1-Leseantwort angezeigt und im Frontend
 für Historie, Wiederaufnahme und Stapelzeilen verwendet. Kein neuer
 TMDb-Lookup, keine zusätzliche Persistenz, Queue oder neue Berechtigung.
 Ohne Snapshot: `Filmname nicht mehr verfügbar` statt einer Quell-ID.
-**Quelländerung vorhanden, Tests/Installation NOT_RUN**; API-Projektion
-erfordert nach laufendem Import einen gezielten Daemon-Build/Neustart,
-nicht den Agent oder VDR.
+**Quell-/API-Regression PASS:** `make test-addon-media-import-ui` und
+`make test-phase69-public-operation-resource` ausgeführt.
+**yaVDR INSTALL PASS:** Gezielter Daemon-Build mit
+`VDR_SUITE_SERVER_VERSION=git-56cc0453a499`, inkrementeller
+Root-eigener `.build/obj`-Cache beibehalten, Daemon-Binary und
+`/usr/share/vdr-suite/web/frontend/modules/media-import.js`
+installiert; Daemon neugestartet, Agent und VDR nicht neugestartet.
+Kein Datenbank-Backup. Bestehender Installer `install_daemon.py`
+konnte initial den alten Git-markerlosen Daemon nicht identifizieren
+(`INSTALLED_SOURCE_ID_UNKNOWN`); einmaliger Legacy-Install mit
+Rückfallkopie `/root/vdr-suite-titlefix.BEEos5XS` abgeschlossen:
+`MT_TITLE_INSTALL=PASS`. Neues Binary trägt nun Git-Quellmarker.
+**Sichtprüfung der angezeigten Titel nach Browser-Reload noch
+ausstehend**; erst danach UI-Anzeigefix als LIVE PASS markieren.
 
 **Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
 oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
