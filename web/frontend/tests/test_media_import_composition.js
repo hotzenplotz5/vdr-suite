@@ -3989,13 +3989,13 @@ function publishHomeResume() {}
   const beforeRecoveredBatch = submits;
   await findClass(mount, 'media-import-batch-confirm').listeners.click();
   await settle();
-  assert.strictEqual(submits, beforeRecoveredBatch + 2,
-    'lost first HTTP response recovers its Core operation and advances exactly once');
+  assert.strictEqual(submits, beforeRecoveredBatch + 1,
+    'lost batch response must never trigger another POST');
   assert.deepStrictEqual(batchOperations, [BATCH_OP_A, BATCH_OP_B],
-    'first episode was never resubmitted with another idempotency key');
+    'all two operations were durably reserved before HTTP reply was lost');
   assert(findClass(mount, 'status').textContent.includes(
-    '2 Aufnahmen unabhängig bestätigt'),
-    'two independently confirmed operations finish the batch in the same browser');
+    'Stapelannahme nicht bestätigt'),
+    'uncertain transport outcome is reported without inventing completion');
   recentImports = [];
   submitMode = 'accepted';
 
