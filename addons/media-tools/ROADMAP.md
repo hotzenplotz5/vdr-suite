@@ -983,12 +983,16 @@ Zustand `accepted`, `queued`, `dispatching` oder
 sind somit ausschließlich **ungeklärte Ergebnisse**, nicht der
 Nachweis dreier laufender Importprozesse.
 Es erfolgte kein Neustart und kein Datenbank-Backup.
-**REAL-VDR-RESTART weiterhin NOT_VERIFIED**: Ohne aktuell
+**Altbestand abgeklärt:** Der anschließende read-only-Check ergab
+für alle drei `outcome_unknown` Einzelimporte vom **29.10.2026**
+(08:04, 08:48, 14:52 lokale Zeit), Backend `default`;
+**keiner ist Teil eines Sammelimports**. Nutzerbestätigung: alte
+Aufträge. Unverändert lassen; kein Blocker für MT.I3.3, kein Grund für
+weitere Altfall-Diagnostik.
+**REAL-VDR-RESTART weiterhin NOT_VERIFIED**: Ohne einen **neuen**
 angenommenen Stapel würde ein bloßer Daemon-Neustart die behauptete
-Batch-Wiederaufnahme nicht belegen. Ungeklärte Operations dürfen nicht
-automatisch erneut ausgeführt oder manuell auf `succeeded` gesetzt
-werden; zuerst Quelle, Zeitstempel und Batch-Zuordnung rein lesend
-bestimmen.
+Batch-Wiederaufnahme nicht belegen. Alte `outcome_unknown`-Operationen
+nicht automatisch wiederholen oder als erfolgreich markieren.
 
 **Abnahmegrenze:** Eine erfolgreiche Build-/Mockprüfung auf Ubuntu macht MLD
 oder openSUSE nicht automatisch unterstützt. MT.EVENT4/MT.ENC4 bleiben für
