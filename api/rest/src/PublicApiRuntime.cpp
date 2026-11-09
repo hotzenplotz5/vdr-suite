@@ -3240,6 +3240,81 @@ bool parseMediaImportAdmissionBody(
         });
 }
 
+// A single confirmed browser action can include 2..100 prechecked direct
+// imports with already-resolved per-film metadata. No paths, arbitrary
+// commands, user-supplied operation states, or encoding decisions are allowed.
+bool parseMediaImportBatchBody(
+    const std::string& input,
+    std::vector<PublicMediaImportBatchSource>& items)
+{
+    std::size_t pos = 0;
+    skipAccountMutationWhitespace(input, pos);
+    if (pos >= input.size() || input[pos++] != '{') return false;
+    skipAccountMutationWhitespace(input, pos);
+    std::string key;
+    if (!parseAccountMutationJsonString(input, pos, key) || key != "batch")
+        return false;
+    skipAccountMutationWhitespace(input, pos);
+    if (pos >= input.size() || input[pos++] != ':') return false;
+    skipAccountMutationWhitespace(input, pos);
+    if (pos >= input.size() || input[pos++] != '[') return false;
+    skipAccountMutationWhitespace(input, pos);
+    std::vector<PublicMediaImportBatchSource> parsed;
+    while (pos < input.size() && input[pos] != ']') {
+        if (parsed.size() >= 100U || input[pos++] != '{') return false;
+        skipAccountMutationWhitespace(input, pos);
+        if (!parseAccountMutationJsonString(input, pos, key) ||
+            key != "sourceId") return false;
+        skipAccountMutationWhitespace(input, pos);
+        if (pos >= input.size() || input[pos++] != ':') return false;
+        skipAccountMutationWhitespace(input, pos);
+        PublicMediaImportBatchSource item;
+        if (!parseAccountMutationJsonString(input, pos, item.sourceId))
+            return false;
+        if (item.sourceId.size() < 16U || item.sourceId.size() > 64U ||
+            !std::all_of(item.sourceId.begin(), item.sourceId.end(),
+                [](unsigned char ch) {
+                    return std::isalnum(ch) || ch == '_' || ch == '-';
+                }))
+            return false;
+        skipAccountMutationWhitespace(input, pos);
+        if (pos < input.size() && input[pos] == ',') {
+            ++pos;
+            skipAccountMutationWhitespace(input, pos);
+            if (!parseAccountMutationJsonString(input, pos, key) ||
+                key != "metadata") return false;
+            skipAccountMutationWhitespace(input, pos);
+            if (pos >= input.size() || input[pos++] != ':') return false;
+            skipAccountMutationWhitespace(input, pos);
+            if (!parseAccountMutationJsonString(input, pos, item.metadata))
+                return false;
+            const bool v1 = item.metadata.compare(0U, 3U, "v1|") == 0 &&
+                std::count(item.metadata.begin(), item.metadata.end(), '|') == 6;
+            const bool v2 = item.metadata.compare(0U, 3U, "v2|") == 0 &&
+                std::count(item.metadata.begin(), item.metadata.end(), '|') == 9;
+            if (item.metadata.size() < 12U || item.metadata.size() > 4096U ||
+                (!v1 && !v2)) return false;
+        }
+        skipAccountMutationWhitespace(input, pos);
+        if (pos >= input.size() || input[pos++] != '}') return false;
+        parsed.push_back(std::move(item));
+        skipAccountMutationWhitespace(input, pos);
+        if (pos < input.size() && input[pos] == ',') {
+            ++pos;
+            skipAccountMutationWhitespace(input, pos);
+            if (pos >= input.size() || input[pos] == ']') return false;
+        } else if (pos < input.size() && input[pos] != ']') return false;
+    }
+    if (pos >= input.size() || input[pos++] != ']') return false;
+    skipAccountMutationWhitespace(input, pos);
+    if (pos >= input.size() || input[pos++] != '}') return false;
+    skipAccountMutationWhitespace(input, pos);
+    if (pos != input.size() || parsed.size() < 2U) return false;
+    items = std::move(parsed);
+    return true;
+}
+
+
 bool parsePublicAccountCreateBody(
     const std::string& input,
     std::string& loginName,
@@ -9720,7 +9795,11 @@ bool PublicApiRuntime::tryHandleGet(
                 "\",\"sourceId\":\"" + jsonEscape(item.sourceId) +
                 "\",\"state\":\"" + jsonEscape(item.state) +
                 "\",\"videoDecision\":\"" + jsonEscape(item.videoDecision) +
-                "\",\"requestedAt\":" + std::to_string(item.requestedAt) + "}";
+                "\",\"requestedAt\":" + std::to_string(item.requestedAt) +
+                (item.batchId.empty() ? std::string{} :
+                    ",\"batchId\":\"" + jsonEscape(item.batchId) +
+                    "\",\"batchIndex\":" + std::to_string(item.batchIndex)) +
+                "}";
         }
         body += "],\"links\":{\"self\":\"" + jsonEscape(path) + "\"}}";
         response = jsonResponse(body, requestId, correlationId);
@@ -12651,7 +12730,7 @@ bool PublicApiRuntime::tryHandlePost(
                 path, requestId, correlationId);
             return true;
         }
-        if (body.size() > 4608U)
+        if (body.size() > 460800U)
         {
             response = invalidRequestProblem(path,
                 "Media Import body is too large.",
@@ -12669,12 +12748,15 @@ bool PublicApiRuntime::tryHandlePost(
         bool approveVideoReencode = false;
         std::string videoDecision;
         std::string metadata;
-        if (!parseMediaImportAdmissionBody(
-                body, sourceId, approveVideoReencode, videoDecision, metadata))
+        std::vector<PublicMediaImportBatchSource> batch;
+        const bool isBatch = parseMediaImportBatchBody(body, batch);
+        if (!isBatch && (body.size() > 4608U ||
+            !parseMediaImportAdmissionBody(
+                body, sourceId, approveVideoReencode, videoDecision, metadata)))
         {
             response = problemResponse(422, "validation_error",
                 "Validation failed",
-                "A sourceId or explicit local videoDecision is required.",
+                "A sourceId or confirmed direct-import batch is required.",
                 path, requestId, correlationId);
             return true;
         }
@@ -12703,6 +12785,14 @@ bool PublicApiRuntime::tryHandlePost(
         input.approveVideoReencode = approveVideoReencode;
         input.videoDecision = videoDecision;
         input.metadata = metadata;
+        input.batchSources = std::move(batch);
+        if (isBatch && (idempotencyKey.size() != 36U ||
+            idempotencyKey.compare(0U, 4U, "mb1_") != 0)) {
+            response = invalidRequestProblem(path,
+                "A canonical batch Idempotency-Key is required.",
+                requestId, correlationId);
+            return true;
+        }
         const auto result = admit(input);
         switch (result.status)
         {
@@ -12726,6 +12816,33 @@ bool PublicApiRuntime::tryHandlePost(
                         requestId, correlationId, "");
                     response.statusCode = 202;
                     response.headers["Location"] = operationPath;
+                    if (!result.batchOperations.empty()) {
+                        // All accepted operation identities are durable before
+                        // the response; the browser only observes them.
+                        if (result.batchId != idempotencyKey ||
+                            result.batchOperations.size() !=
+                                result.batchSourceIds.size() ||
+                            response.body.empty() || response.body.back() != '}') {
+                            response = serviceUnavailableProblem(
+                                path, requestId, correlationId);
+                            return true;
+                        }
+                        response.body.pop_back();
+                        response.body += ",\"batchId\":\"" +
+                            jsonEscape(result.batchId) + "\",\"batchOperations\":[";
+                        for (std::size_t index = 0;
+                             index < result.batchOperations.size(); ++index) {
+                            if (index) response.body += ",";
+                            response.body += "{\"sourceId\":\"" +
+                                jsonEscape(result.batchSourceIds[index]) +
+                                "\",\"operationId\":\"" +
+                                jsonEscape(result.batchOperations[index].operationId) +
+                                "\",\"state\":\"" +
+                                jsonEscape(result.batchOperations[index].state) + "\"}";
+                        }
+                        response.body += "]}";
+                        response.headers["Cache-Control"] = "no-store";
+                    }
                     return true;
                 }
             case PublicMediaImportAdmissionStatus::invalid:

@@ -49,6 +49,8 @@ struct PublicMediaImportRecentItem
     std::string state;
     std::string videoDecision;
     std::int64_t requestedAt = 0;
+    std::string batchId;
+    int batchIndex = -1;
 };
 
 struct PublicMediaImportRecentResult
@@ -1350,6 +1352,12 @@ enum class PublicMediaImportAdmissionStatus
     conflict, unavailable
 };
 
+struct PublicMediaImportBatchSource
+{
+    std::string sourceId;
+    std::string metadata;
+};
+
 struct PublicMediaImportAdmissionRequest
 {
     std::string actorRef;
@@ -1359,6 +1367,7 @@ struct PublicMediaImportAdmissionRequest
     bool approveVideoReencode = false; // immutable, explicitly selected
     std::string videoDecision; // optional "desktop", "skip", "duplicate" or "release"
     std::string metadata; // already-found, immutable percent-encoded TMDb snapshot
+    std::vector<PublicMediaImportBatchSource> batchSources;
 };
 
 struct PublicMediaImportAdmissionResult
@@ -1366,6 +1375,9 @@ struct PublicMediaImportAdmissionResult
     PublicMediaImportAdmissionStatus status =
         PublicMediaImportAdmissionStatus::unavailable;
     PublicOperationResource operation;
+    std::string batchId;
+    std::vector<PublicOperationResource> batchOperations;
+    std::vector<std::string> batchSourceIds;
 };
 
 struct PublicTimerCreateAdmissionRequest

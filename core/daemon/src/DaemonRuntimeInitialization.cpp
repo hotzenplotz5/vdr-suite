@@ -759,7 +759,7 @@ bool DaemonRuntime::initialize()
             if (!mutationOperationRepository_) return output;
             const auto found =
                 mutationOperationRepository_->listRecentForActorBackendActionFamily(
-                    actor, backend, "media.import", 64U);
+                    actor, backend, "media.import", 128U);
             if (!found.ok()) return output;
             for (const auto& op : found.operations) {
                 const auto payload =
@@ -778,6 +778,24 @@ bool DaemonRuntime::initialize()
                 item.state =
                     vdrsuite::operations::mutationOperationStateName(op.state);
                 item.requestedAt = op.requestedAt;
+                // Recognize durable batches by exact closed-form operation
+                // idempotency keys; no second source of job truth.
+                const auto& key = op.idempotencyKey;
+                if (key.size() == 40U &&
+                    key.compare(0U, 4U, "mb1_") == 0 &&
+                    key[36] == '_' &&
+                    std::all_of(key.begin() + 4, key.begin() + 36,
+                        [](unsigned char ch) {
+                            return (ch >= '0' && ch <= '9') ||
+                                   (ch >= 'a' && ch <= 'f');
+                        }) &&
+                    std::all_of(key.begin() + 37, key.end(),
+                        [](unsigned char ch) {
+                            return ch >= '0' && ch <= '9';
+                        })) {
+                    item.batchId = key.substr(0U, 36U);
+                    item.batchIndex = std::stoi(key.substr(37U, 3U));
+                }
                 switch (decision) {
                     case vdrsuite::mediatools::MediaImportDecision::import:
                         break;
