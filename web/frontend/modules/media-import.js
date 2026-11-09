@@ -902,35 +902,53 @@
     return 'Operationsstatus derzeit nicht abrufbar. Bitte später erneut prüfen.';
   }
 
-  // If the POST reply was lost after Core admission, read the existing actor-
-  // scoped operation journal once. Only a unique same-source, same-action
-  // operation admitted at this click may be reattached. Never resend that POST.
-  function recoverBatchAdmission(view, attempt) {
+  // If the POST reply was lost after Core admission, inspect the existing
+  // actor-scoped journal. A delete batch may get one delayed READ-ONLY second
+  // look, because the new Operation can appear just after the first GET.
+  // Only a unique same-source, same-action item may be reattached.
+  // No automatic POST replay, polling loop or new Core operation.
+  function recoverBatchAdmission(view, attempt, retryDelayedRead) {
     if (!attempt || !attempt.sourceId ||
         !Number.isFinite(attempt.startedAt)) return Promise.resolve(false);
     const startSecond = Math.floor(attempt.startedAt / 1000);
-    const endSecond = Math.floor(Date.now() / 1000) + 10;
-    return publicClient().getRecentMediaImports(readOptions(view.backendId))
-      .then(function (response) {
-        if (activeAttempts[view.backendId] !== attempt ||
-            !response || !Array.isArray(response.items)) return false;
-        const matches = response.items.filter(function (item) {
-          return item && item.backendId === view.backendId &&
-            item.sourceId === attempt.sourceId &&
-            item.videoDecision === attempt.videoDecision &&
-            /^op_[A-Za-z0-9_-]+$/.test(item.operationId) &&
-            Number.isFinite(item.requestedAt) &&
-            item.requestedAt >= startSecond - 10 &&
-            item.requestedAt <= endSecond;
-        });
-        if (matches.length !== 1) return false;
-        attempt.operationId = matches[0].operationId;
-        attempt.state = matches[0].state;
-        const batch = activeBatches[view.backendId];
-        if (batch && batch.remaining[0] === attempt.sourceId)
-          batch.waiting = attempt.operationId;
-        return true;
-      }).catch(function () { return false; });
+    function inspect() {
+      if (!isCurrent(view) || activeAttempts[view.backendId] !== attempt ||
+          attempt.operationId) return Promise.resolve(false);
+      const endSecond = Math.floor(Date.now() / 1000) + 10;
+      return publicClient().getRecentMediaImports(readOptions(view.backendId))
+        .then(function (response) {
+          if (!isCurrent(view) ||
+              activeAttempts[view.backendId] !== attempt ||
+              !response || !Array.isArray(response.items)) return false;
+          const matches = response.items.filter(function (item) {
+            return item && item.backendId === view.backendId &&
+              item.sourceId === attempt.sourceId &&
+              item.videoDecision === attempt.videoDecision &&
+              /^op_[A-Za-z0-9_-]+$/.test(item.operationId) &&
+              Number.isFinite(item.requestedAt) &&
+              item.requestedAt >= startSecond - 10 &&
+              item.requestedAt <= endSecond;
+          });
+          if (matches.length !== 1) return false;
+          attempt.operationId = matches[0].operationId;
+          attempt.state = matches[0].state;
+          const batch = activeBatches[view.backendId];
+          if (batch && batch.remaining[0] === attempt.sourceId)
+            batch.waiting = attempt.operationId;
+          return true;
+        }).catch(function () { return false; });
+    }
+    return inspect().then(function (found) {
+      if (found || !retryDelayedRead || !isCurrent(view) ||
+          activeAttempts[view.backendId] !== attempt ||
+          attempt.operationId) return found;
+      // One follow-up after a lost response, not recurring polling.
+      // Even if no Operation becomes visible, the original same-key manual
+      // confirmation remains available and no further deletion is launched.
+      return new Promise(function (resolve) {
+        global.setTimeout(resolve, 750);
+      }).then(inspect);
+    });
   }
 
   function visibleDuplicateIds(view) {
@@ -4565,7 +4583,8 @@
           // Reattach the uniquely matching Operation via GET only. Advance the
           // already confirmed batch only after its normal Core readback succeeds.
           if (target && target.batch)
-            return recoverBatchAdmission(target, attempt).then(function (found) {
+            return recoverBatchAdmission(target, attempt,
+              target.batch.kind === 'delete').then(function (found) {
               const ownerView = currentAttemptView(view, attempt);
               if (found) {
                 recoveredBatchAdmission = true;

@@ -324,12 +324,17 @@ function transport(url, options) {
     ++submits;
     if (JSON.parse(options.body).videoDecision === 'delete_duplicate') {
       const targetId = JSON.parse(options.body).sourceId;
-      if (submitMode === 'delete-batch') {
+      if (submitMode === 'delete-batch' ||
+          submitMode === 'delete-batch-late-ledger') {
         const ids = [BATCH_OP_A, BATCH_OP_B, BATCH_OP_C];
         const operationId = ids[batchOperations.length];
         assert(operationId, 'bounded cleanup fixture sequence');
         deleteBatchOps[operationId] = targetId;
         batchOperations.push(operationId);
+        if (submitMode === 'delete-batch-late-ledger' &&
+            batchOperations.length === 3)
+          return Promise.reject(new Error(
+            'HTTP response lost before third delete admission was visible'));
         return Promise.resolve(reply(202, {
           operationId, backendId: 'backend-a', state: 'dispatching'
         }));
@@ -435,6 +440,7 @@ tab.hidden = true;
 tab.disabled = true;
 const mount = new Element('section');
 const timerCallbacks = [];
+const timerDelays = [];
 const documentListeners = Object.create(null);
 const modules = {};
 const context = {
@@ -465,7 +471,11 @@ const context = {
   },
   location: {origin: 'https://suite.test'},
   confirm() { ++confirmCalls; return confirmLocal; },
-  setTimeout(fn) { timerCallbacks.push(fn); return timerCallbacks.length; },
+  setTimeout(fn, delay) {
+    timerCallbacks.push(fn);
+    timerDelays.push(delay);
+    return timerCallbacks.length;
+  },
   clearTimeout() {},
   VdrSuitePlatform: {
     registerModule(name, api) { modules[name] = api; },
@@ -4346,6 +4356,71 @@ function publishHomeResume() {}
   submitMode = 'accepted';
   delete recordingStatuses[SOURCE];
   delete recordingStatuses[SOURCE_B];
+
+  // A previously unconfirmed third duplicate deletion may become visible
+  // after the immediate Core journal GET. A single delayed GET must reattach
+  // the same durable Operation, without repeating the deletion POST or
+  // pausing forever behind "Eine Stapelprüfung läuft".
+  context.selectModule('overview');
+  context.VdrSuiteMediaImport.clearSession();
+  context.resetMediaImportVisibility(true);
+  batchSources = [SOURCE, SOURCE_B];
+  markedSources = [MARK_DUP];
+  recordingStatuses[SOURCE] = 'recording_present';
+  recordingStatuses[SOURCE_B] = 'recording_present';
+  batchOperations = [];
+  batchStates = Object.create(null);
+  deleteBatchOps[BATCH_OP_A] = undefined;
+  deleteBatchOps[BATCH_OP_B] = undefined;
+  deleteBatchOps[BATCH_OP_C] = undefined;
+  recentImports = [];
+  submitMode = 'delete-batch-late-ledger';
+  assert.strictEqual(await context.refreshMediaImportVisibility('backend-a'), true);
+  context.selectModule('media-import');
+  await settle();
+  for (const id of [SOURCE, SOURCE_B, MARK_DUP]) {
+    const item = findClass(mount, 'media-import-selection').children.find(function (row) {
+      return row.dataset.sourceId === id;
+    });
+    const checkbox = findClass(item, 'media-import-episode-check');
+    assert(checkbox && !checkbox.disabled, 'source selected for uncertain cleanup test');
+    checkbox.checked = true;
+    checkbox.listeners.change();
+  }
+  const beforeLateDeletePosts = submits;
+  await findClass(mount, 'media-import-batch-delete').listeners.click();
+  await settle();
+  batchStates[BATCH_OP_A] = 'succeeded';
+  await emitOperation(BATCH_OP_A);
+  batchStates[BATCH_OP_B] = 'succeeded';
+  await emitOperation(BATCH_OP_B);
+  assert.strictEqual(submits, beforeLateDeletePosts + 3,
+    'exactly the three separately confirmed cleanup submissions are sent');
+  assert.strictEqual(batchOperations[2], BATCH_OP_C);
+  const delayedIndex = timerDelays.lastIndexOf(750);
+  assert(delayedIndex >= 0 && typeof timerCallbacks[delayedIndex] === 'function',
+    'lost delete reply schedules exactly one bounded read-only journal recheck');
+  const automaticPosts = submits;
+  batchStates[BATCH_OP_C] = 'succeeded';
+  recentImports = [{
+    operationId: BATCH_OP_C,
+    sourceId: MARK_DUP, backendId: 'backend-a', state: 'succeeded',
+    videoDecision: 'delete_duplicate',
+    requestedAt: Math.floor(Date.now() / 1000)
+  }];
+  timerCallbacks[delayedIndex]();
+  await settle();
+  assert.strictEqual(submits, automaticPosts,
+    'delayed admission recheck NEVER repeats delete_duplicate POST');
+  assert.strictEqual(batchOperations.length, 3,
+    'no fourth deletion or new operation was started');
+  assert(findClass(mount, 'media-import-delete-batch-summary')
+    .textContent.includes('3 von 3'),
+    'successful reattachment of third deletion finishes batch automatically');
+  assert.strictEqual(findClass(mount, 'media-import-batch-stop').hidden, true,
+    'completed delete batch has no remaining global batch lock');
+  submitMode = 'accepted';
+  recentImports = [];
 
   console.log('A7.5 real web composition and media import lifecycle: PASS');
 }()).catch(function (error) {

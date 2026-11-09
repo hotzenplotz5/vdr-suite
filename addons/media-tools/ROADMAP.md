@@ -21,6 +21,21 @@
 
 **MT.EVENT4 ergänzte Frontend-Regressionsfälle (06.11.2026):** `test_media_import_composition.js` prüft jetzt zusätzlich zum simulierten sechsstündigen Vorgang, dass ein unzuständiges Operationsereignis keinen Readback auslöst, `resync` und `EventSource.onopen` den bestehenden Auftrag genau einmal lesen, `outcome_unknown` bei Reconnect sichtbar wird ohne erneuten POST, eine während der Unterbrechung abgeschlossene `sourceCleanup` nach einem `succeeded`-Readback sichtbar wird und ein `failed_verified`-Batchglied per SSE keinen weiteren Auftrag auslöst. Diese Mock-/Vertragstests ersetzen weder einen Neustart der realen Core-/Agent-Prozesse noch den yaVDR-Feldtest. **Der Fall eines vollständig geschlossenen und neu gestarteten Browsers ohne gespeicherte Operation-ID ist damit nicht bewiesen** und bleibt als gesonderte Wiederaufnahmefrage offen. Keine Produktcodeänderung, kein zusätzlicher Worker oder Speicherzustand.
 
+**MT.EVENT4 – verlorene Löschantwort beim Sammellöschen (09.11.2026,
+Frontend-Fix):** Die Core-Operation wird nach einem unbestätigten POST zuerst
+über das bestehende actor-/backendgebundene Journal lesend abgefragt. War
+der Eintrag noch nicht sichtbar, folgt **genau ein** verzögerter GET nach
+750 ms für das Sammellöschen; kein weiterer POST, kein neuer Key und kein
+Polling. Erst bei eindeutig passender Source-ID, `delete_duplicate`,
+Auftragszeit und Operation-ID wird derselbe Auftrag angehängt und nach
+dessen normalem Status-Readback der Stapel abgeschlossen. Bleibt der
+Eintrag unklar, bleibt die bisherige manuelle Bestätigung mit **dem
+ursprünglichen Idempotency-Key** erhalten. Regression: zwei erfolgreich
+gelöschte Dubletten, dritte HTTP-Antwort fehlt, Core-Eintrag erscheint
+erst beim zweiten GET; genau drei statt vier Lösch-POSTs, kein
+hängender Batch. REAL-Host-Abnahme separat. Keine erneute Datenmutation
+durch die automatische Wiederherstellung.
+
 **MT.EVENT4 Browser-Neustart-Recovery (06.11.2026, Code-Kandidat; inklusive ausstehender Source-Cleanup-Quittung):** Der vorhandene Core-Auftragsbestand wird für einen angemeldeten Benutzer und ein Backend lesend projiziert: `GET /api/v1/backends/{backend}/media-imports` liefert nur actor-eigene Operation-ID, opaque Source-ID, Zustand, Video-Entscheidung und Auftragszeit. Das Webfrontend bindet bei einem neuen Browser-Kontext einen noch laufenden/ungewissen Auftrag wieder an denselben SSE-Kanal; ein abgeschlossener Auftrag erscheint als read-only Hinweis. Keine neue Jobdatenbank, keine Wiederholung eines Imports und kein Status-Polling. **Regression und reale yaVDR-Abnahme sind nach der Implementierung separat zu bestätigen.**
 
 **MT.EVENT1 Quellbefund (06.11.2026):** Der frühere separate Agent-Zehn-Minuten-Timeout ist auf `main` für den Import nicht vorhanden. Die 24-Stunden-Frist wird zentral bei der Core-Zulassung erzeugt und nicht beim Agent-Dispatch neu gestartet. Nach Ablauf der Frist vor Start wird der Auftrag ohne ausgeführten Worker abgelehnt; ein laufender Worker folgt der gleichen Frist. Ein kurzzeitig gescheiterter Lease-Heartbeat beendet ihn nicht; ein Agent-Neustart führt zur dauerhaften Ergebnis-Reconciliation, nicht zum erneuten Import. Der vorhandene Root-/Handler-Pin, die eindeutige Command-/Operation-ID, Source-Signatur, No-Overwrite-Promotion und die Bestätigung durch VDR-Readback wurden nicht verändert. **Keine neue Zeitgrenze, kein neuer Worker oder Dienst, keine Installation.** `test_backend_agent_command_delivery.cpp` prüft beide Zulassungswege mit Core-Deadline; `test_pinned_media_import_agent_executor.cpp` prüft jetzt ebenfalls eine sechs Stunden entfernte Frist für beide Workerpfade. Diese synthetischen Tests sind kein Nachweis eines realen sechsstündigen Imports.
