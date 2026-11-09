@@ -1,4 +1,5 @@
 #include "BackendAgentClient.h"
+#include "BackendAgentBasicAuthorization.h"
 #include "BackendAgentCurlProxyCompatibility.h"
 #include "BackendAgentCommandJson.h"
 #include "BackendAgentCommandClient.h"
@@ -151,6 +152,21 @@ void test_curl_proxy_disable_option_without_proxy_support()
     assert(proxyDisableOptionAccepted(CURLE_NOT_BUILT_IN));
     assert(!proxyDisableOptionAccepted(CURLE_FAILED_INIT));
     assert(!proxyDisableOptionAccepted(CURLE_BAD_FUNCTION_ARGUMENT));
+}
+
+void test_mld_basic_authorization_without_curl_httpauth()
+{
+    using vdrsuite::agent::backendAgentBasicAuthorizationValue;
+    // Known RFC 7617 Basic encoding. MLD HTTP libcurl must not need to
+    // implement authentication to send an explicit Authorization header.
+    assert(backendAgentBasicAuthorizationValue("agent", "secret") ==
+           "Basic YWdlbnQ6c2VjcmV0");
+    assert(backendAgentBasicAuthorizationValue("agt_123", "test-secret") ==
+           "Basic YWd0XzEyMzp0ZXN0LXNlY3JldA==");
+    assert(backendAgentBasicAuthorizationValue("a", "b") ==
+           "Basic YTpi");
+    assert(backendAgentBasicAuthorizationValue("ab", "c") ==
+           "Basic YWI6Yw==");
 }
 
 void test_protected_url_and_configuration()
@@ -1374,6 +1390,7 @@ void test_shrink_requires_explicit_trusted_executor()
 
 int main()
 {
+    test_mld_basic_authorization_without_curl_httpauth();
     test_curl_proxy_disable_option_without_proxy_support();
     test_protected_url_and_configuration();
     test_enrollment_connect_capability_heartbeat_and_restart();

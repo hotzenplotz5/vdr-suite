@@ -1,5 +1,6 @@
 #include "BackendAgentClient.h"
 #include "BackendAgentCurlProxyCompatibility.h"
+#include "BackendAgentBasicAuthorization.h"
 #include "MediaToolsAgentExecutor.h"
 #include "SuiteBridgeControlSocketPath.h"
 #include "BackendAgentChannelObservation.h"
@@ -599,6 +600,17 @@ BackendAgentTransportResponse CurlBackendAgentControlPlaneTransport::perform(
         const std::string authorization = "Authorization: " + enrollmentAuthorization;
         headers = curl_slist_append(headers, authorization.c_str());
     }
+    else if (!basicLogin.empty())
+    {
+        // The MLD libcurl build can perform HTTP without constructing
+        // Basic auth headers via CURLOPT_HTTPAUTH/USERNAME/PASSWORD.
+        // Use the exact standard Basic Authorization header, as the
+        // reviewed local server expects; no credentials enter diagnostics.
+        const std::string authorization = "Authorization: " +
+            vdrsuite::agent::backendAgentBasicAuthorizationValue(
+                basicLogin, basicSecret);
+        headers = curl_slist_append(headers, authorization.c_str());
+    }
 
     CurlWriteState writeState{&response.body};
     bool configured = headers != nullptr;
@@ -656,13 +668,6 @@ BackendAgentTransportResponse CurlBackendAgentControlPlaneTransport::perform(
     setOption("writedata", CURLOPT_WRITEDATA, &writeState);
     if (!config_.caCertificatePath.empty())
         setOption("cainfo", CURLOPT_CAINFO, config_.caCertificatePath.c_str());
-    if (!basicLogin.empty())
-    {
-        setOption("httpauth", CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-        setOption("username", CURLOPT_USERNAME, basicLogin.c_str());
-        setOption("password", CURLOPT_PASSWORD, basicSecret.c_str());
-    }
-
     const CURLcode result = configured ? curl_easy_perform(handle) : CURLE_FAILED_INIT;
     long status = 0;
     if (result != CURLE_OK)
