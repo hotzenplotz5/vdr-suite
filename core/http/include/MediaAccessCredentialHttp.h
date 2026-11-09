@@ -66,6 +66,32 @@ public:
             publicV1CookiePath(sessionId, trustedExternalPrefix));
     }
 
+    // The Browser MediaSession issuer is intentionally Secure by default.
+    // Only the server's already-verified direct-HTTP LAN request may drop
+    // Secure for that single legacy Browser cookie. Device/Public-v1 cookies
+    // never use this transport exception.
+    static std::string browserCookieForDirectHttpLan(
+        const std::string& issuedCookie,
+        bool allowDirectHttpLan)
+    {
+        if (!allowDirectHttpLan ||
+            issuedCookie.rfind(std::string(CookieName) + "=", 0) != 0)
+            return issuedCookie;
+
+        const std::string secureSuffix =
+            "; HttpOnly; Secure; SameSite=Strict";
+        if (issuedCookie.size() < secureSuffix.size() ||
+            issuedCookie.compare(
+                issuedCookie.size() - secureSuffix.size(),
+                secureSuffix.size(),
+                secureSuffix) != 0)
+            return issuedCookie;
+
+        return issuedCookie.substr(
+            0, issuedCookie.size() - secureSuffix.size()) +
+            "; HttpOnly; SameSite=Strict";
+    }
+
 private:
     static std::string makeCookie(
         const std::string& path,

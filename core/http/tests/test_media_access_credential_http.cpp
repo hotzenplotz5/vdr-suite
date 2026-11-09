@@ -33,6 +33,25 @@ int main()
         "; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; "
         "HttpOnly; Secure; SameSite=Strict");
 
+    const std::string secureBrowserCookie =
+        MediaAccessCredentialHttp::sessionCookie(sessionId, credential, 21600);
+    const std::string directHttpBrowserCookie =
+        "vdr_suite_media=" + credential + "; Path=" + path +
+        "; Max-Age=21600; HttpOnly; SameSite=Strict";
+    assert(MediaAccessCredentialHttp::browserCookieForDirectHttpLan(
+        secureBrowserCookie, true) == directHttpBrowserCookie);
+    assert(MediaAccessCredentialHttp::browserCookieForDirectHttpLan(
+        secureBrowserCookie, false) == secureBrowserCookie);
+    assert(MediaAccessCredentialHttp::browserCookieForDirectHttpLan(
+        "vdr_suite_session=abc; Path=/; HttpOnly; Secure; SameSite=Strict",
+        true) == "vdr_suite_session=abc; Path=/; HttpOnly; Secure; SameSite=Strict");
+    assert(MediaAccessCredentialHttp::browserCookieForDirectHttpLan(
+        "vdr_suite_media=abc; Path=/; HttpOnly; SameSite=Strict",
+        true) == "vdr_suite_media=abc; Path=/; HttpOnly; SameSite=Strict");
+    assert(MediaAccessCredentialHttp::browserCookieForDirectHttpLan(
+        "vdr_suite_media=abc; Path=/; HttpOnly; Secure; SameSite=Lax",
+        true) == "vdr_suite_media=abc; Path=/; HttpOnly; Secure; SameSite=Lax");
+
     // The Web/browser credential remains restricted to its legacy path.
     // Public-v1 media access uses a different, explicitly scoped cookie.
     const std::string publicV1Path =

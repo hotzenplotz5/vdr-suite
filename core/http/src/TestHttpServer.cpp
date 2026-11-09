@@ -6,6 +6,7 @@
 #include "BrowserSessionCsrfRecoveryService.h"
 #include "ContinueWatchingSecurityRequest.h"
 #include "FirstAdminClaimHttpService.h"
+#include "MediaAccessCredentialHttp.h"
 #include "SecurityConfiguration.h"
 #include "RestQueryParameters.h"
 #include "SeriesArtworkSettingsSecurityRequest.h"
@@ -124,6 +125,20 @@ std::string requestHeaderValue(
     }
 
     return "";
+}
+
+// Reuse the existing Browser-session rule for direct HTTP LAN cookies.
+// These fields are kernel-derived at the listener, not proxy claims.
+bool directHttpLanCookieRequest(const HttpServerRequest& request)
+{
+    const std::string host = requestHeaderValue(request, "Host");
+    const std::string origin = requestHeaderValue(request, "Origin");
+    return request.peerIsDirectPrivateLan &&
+        !host.empty() && origin == "http://" + host &&
+        requestHeaderValue(request, "Forwarded").empty() &&
+        requestHeaderValue(request, "X-Forwarded-For").empty() &&
+        requestHeaderValue(request, "X-Forwarded-Host").empty() &&
+        requestHeaderValue(request, "X-Forwarded-Proto").empty();
 }
 
 PublicDevicePairingAdministrationStatus
@@ -1952,17 +1967,9 @@ HttpServerResponse TestHttpServer::handleRequest(
             return browserGate.rejection;
         }
 
-        // Cookies without Secure are confined to direct, HTTP-only clients on
-        // a private LAN. Loopback reverse proxies keep Secure by default.
-        // Never infer transport security from client-controlled proxy headers.
-        const std::string host = requestHeaderValue(request, "Host");
-        const std::string origin = requestHeaderValue(request, "Origin");
-        const bool directHttpLan = request.peerIsDirectPrivateLan &&
-            !host.empty() && origin == "http://" + host &&
-            requestHeaderValue(request, "Forwarded").empty() &&
-            requestHeaderValue(request, "X-Forwarded-For").empty() &&
-            requestHeaderValue(request, "X-Forwarded-Host").empty() &&
-            requestHeaderValue(request, "X-Forwarded-Proto").empty();
+        // Keep existing direct HTTP LAN eligibility shared with Browser
+        // MediaSessions; proxy/HTTPS requests still issue Secure cookies.
+        const bool directHttpLan = directHttpLanCookieRequest(request);
         HttpServerResponse response = browserGate.login
             ? browserSessionHttpService_->login(browserGate.context, directHttpLan)
             : browserSessionHttpService_->logout(browserGate.context, directHttpLan);
@@ -2377,6 +2384,19 @@ HttpServerResponse TestHttpServer::handleRequest(
         apiResponse.contentType,
         apiResponse.body,
         apiResponse.headers);
+    // Browser MediaSessions are issued with Secure cookies by default, but
+    // direct HTTP on a verified local LAN must use the same cookie transport
+    // exception as Browser-session login. Never apply it to Public-v1 Device
+    // playback, forwarded requests, errors or unrelated Set-Cookie headers.
+    if (request.method == "POST" &&
+        request.path == "/api/media/sessions" &&
+        response.statusCode == 201)
+    {
+        auto cookie = response.headers.find("Set-Cookie");
+        if (cookie != response.headers.end())
+            cookie->second = MediaAccessCredentialHttp::browserCookieForDirectHttpLan(
+                cookie->second, directHttpLanCookieRequest(request));
+    }
     // Never subscribe before SecurityHttpGate and the actual live route
     // have both authorized the request. Replay is queued on subscription,
     // then the writer streams future events from that same feed.
