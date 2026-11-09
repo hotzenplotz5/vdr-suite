@@ -56,6 +56,10 @@
       "description": "Authorized Suite recording identity, bounded keyset recording collection and folder-aware view"
     },
     {
+      "name": "Recording metadata",
+      "description": "Authenticated backend-scoped read-only TMDb movie and episode candidate resolution"
+    },
+    {
       "name": "Recording genres",
       "description": "Backend-scoped recording genre facets and genre-membership listing"
     },
