@@ -83,6 +83,10 @@
           "Recording metadata"
         ],
         "operationId": "resolvePublicRecordingMetadata",
+        "x-vdr-suite-authentication": {
+          "actorRequired": true,
+          "authorization": "authenticated Actor and existing recordings.view@backendId; exact requested backend scope, no new metadata mutation grant"
+        },
         "summary": "Resolve an exact movie or series episode using the existing TMDb provider",
         "description": "Read-only POST. Reuses the existing Metadata Core candidate provider and the recordings.view permission for the authorized backend. Never imports, assigns, or overwrites a Recording. A matched episode includes its canonical series candidate; ambiguous/no-match responses do not claim a selected identity.",
         "parameters": [
