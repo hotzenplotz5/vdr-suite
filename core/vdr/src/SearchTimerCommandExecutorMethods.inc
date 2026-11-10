@@ -27,21 +27,11 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
             });
     }
 
-    std::string createdId = extractReturnedId(response.body);
-    if (createdId.empty())
-    {
-        createdId = readBackCreatedIdByExactQuery(httpClient_, request.query);
-    }
-
-    if (createdId.empty())
-    {
-        return SearchTimerCreateResult::failed(
-            "RESTfulAPI searchtimer create did not return an id",
-            {
-                response.body,
-                "readback did not find a unique created searchtimer id for query: " + request.query
-            });
-    }
+    // No query-only post-CREATE lookup: the durable dispatcher already has
+    // a complete pre/post provider inventory and must resolve native ID
+    // there. HTTP 200 without Id is never sufficient to report success
+    // from the Public-v1 operation.
+    const std::string createdId = extractReturnedId(response.body);
 
     return SearchTimerCreateResult::ok(
         SearchTimer::create(
@@ -51,7 +41,9 @@ SearchTimerCreateResult RestfulApiSearchTimerCommandExecutor::create(
             request.active
                 ? SearchTimerState::Active
                 : SearchTimerState::Inactive),
-        "searchtimer created through RESTfulAPI");
+        createdId.empty()
+            ? "RESTfulAPI accepted CREATE; native ID must be reconciled"
+            : "searchtimer created through RESTfulAPI");
 }
 
 SearchTimerUpdateResult RestfulApiSearchTimerCommandExecutor::update(
