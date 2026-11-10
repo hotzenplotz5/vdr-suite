@@ -515,7 +515,8 @@
     if (payload.useTime && (!Number.isInteger(payload.startTime) ||
         !Number.isInteger(payload.stopTime) || payload.startTime < 0 ||
         payload.startTime > 2359 || payload.stopTime < 0 ||
-        payload.stopTime > 2359)) {
+        payload.stopTime > 2359 || payload.startTime % 100 >= 60 ||
+        payload.stopTime % 100 >= 60)) {
       errors.push('Ungültiger Uhrzeitfilter (HHMM).');
     }
     if (![0, 1, 2, 3].includes(numberValue(payload.useChannel, -1))) {
@@ -915,7 +916,7 @@
     grid.appendChild(field('Suchmodus', select('mode',
       [0, 1, 2, 3, 4, 5].includes(source.mode) ? source.mode : 0,
       [[0, 'Phrase'], [1, 'Alle Wörter'], [2, 'Ein Wort'],
-       [3, 'Exakt'], [5, 'Unscharf']])));
+       [3, 'Exakt'], [4, 'Regulärer Ausdruck'], [5, 'Unscharf']])));
     grid.appendChild(field('Toleranz (nur Unscharf)', input('tolerance',
       source.mode === 5 ? source.tolerance : 0, 'number')));
     form.appendChild(grid);
