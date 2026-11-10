@@ -1191,6 +1191,19 @@
             result.state !== 'failed_before_dispatch')
           subscribeOperation();
       }).catch(error => {
+        // A confirmed Public-v1 validation_error means no provider dispatch.
+        // Unlock only for this definitive rejection, never for 409 or
+        // ambiguous network/transport failures.
+        if (error && error.status === 422 &&
+            error.code === 'validation_error') {
+          submitted = false;
+          saveButton.disabled = false;
+          setFeedback(feedback,
+            'Eingabe abgelehnt: ' +
+            String(error.message || 'Ungültige Angaben.') +
+            '. Angaben korrigieren und erneut speichern.', true);
+          return;
+        }
         setFeedback(feedback,
           'Anlageausgang unklar: ' +
           String(error && error.message ? error.message : error) +

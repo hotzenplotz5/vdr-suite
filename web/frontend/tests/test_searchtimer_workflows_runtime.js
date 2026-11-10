@@ -517,8 +517,12 @@ async function checkEditorFullWrites() {
   const client = {
     fetchClientSearchTimerCreateStaged(options) {
       writes.push(options);
-      if (rejectCreate) {
-        return Promise.reject(new Error('validation_error status=422'));
+      if (rejectCreate === 'validation') {
+        return Promise.reject(Object.assign(new Error('validation_error status=422'),
+          {status: 422, code: 'validation_error'}));
+      }
+      if (rejectCreate === 'network') {
+        return Promise.reject(new Error('network disconnected after POST'));
       }
       return Promise.resolve({
         operationId: 'op_' + writes.length.toString(16).padStart(32, '0'),
@@ -658,7 +662,7 @@ async function checkEditorFullWrites() {
 
   mod.renderList({searchTimers: []});
   const rejected = findForm(mount);
-  rejectCreate = true;
+  rejectCreate = 'validation';
   rejected.elements.query.value = 'Tatort';
   rejected.elements.active.checked = true;
   rejected.listeners.submit({preventDefault() {}});
@@ -669,8 +673,31 @@ async function checkEditorFullWrites() {
   assert(feedback);
   assert(feedback.textContent.includes('validation_error status=422'));
   assert.strictEqual(writes.length, 3);
+  const retryButton = rejected.children
+    .flatMap(child => child.children)
+    .find(child => child.tagName === 'BUTTON' &&
+      child.dataset.searchtimerAction === 'save');
+  assert(retryButton && !retryButton.disabled,
+    'definite 422 rejection unlocks the submit button');
+  // The promise chain must settle through its finally handler.
+  for (let step = 0; step < 8; step++) await Promise.resolve();
+  rejectCreate = false;
+  rejected.elements.query.value = 'Tatort korrigiert';
   rejected.listeners.submit({preventDefault() {}});
-  assert.strictEqual(writes.length, 3);
+  for (let step = 0; step < 8; step++) await Promise.resolve();
+  assert.strictEqual(writes.length, 4,
+    'user may explicitly resubmit corrected input after 422');
+
+  mod.renderList({searchTimers: []});
+  const ambiguous = findForm(mount);
+  ambiguous.elements.query.value = 'Ungewisser Tatort';
+  rejectCreate = 'network';
+  ambiguous.listeners.submit({preventDefault() {}});
+  for (let step = 0; step < 8; step++) await Promise.resolve();
+  assert.strictEqual(writes.length, 5);
+  ambiguous.listeners.submit({preventDefault() {}});
+  assert.strictEqual(writes.length, 5,
+    'ambiguous transport failure must never dispatch a second CREATE');
 }
 checkEditorFullWrites().then(function() {
   console.log('test_searchtimer_workflows_runtime passed');
