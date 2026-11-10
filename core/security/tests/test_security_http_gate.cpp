@@ -692,8 +692,9 @@ int main()
     assert(outcomeAuditFailure.headers.at("X-Correlation-ID") ==
         "phase62-test-correlation");
 
-    // Full epgsearch CREATE is Browser-only and keeps the existing
-    // SearchTimer permission and CSRF requirements.
+    // The legacy Browser route may still pass authorization for old
+    // clients, but the runtime policy permanently prevents its write.
+    // Authorization is NOT a separate production CREATE dispatch.
     assert(fixture.grantRepository.ensureGrant(
         fixture.actorId, "role.admin", "*"));
     HttpServerRequest legacySearchCreate = fixture.mutationRequest(
@@ -719,8 +720,8 @@ int main()
     assert(!legacyAnonRejected.allowed);
     assert(legacyAnonRejected.rejection.statusCode == 401);
 
-    // SearchTimer CREATE: authenticated Browser administrator may use the
-    // durable inactive-only Public-v1 path; browser CSRF is mandatory.
+    // SearchTimer CREATE: an authenticated Browser administrator uses the
+    // same durable Public-v1 CREATE as a Device; browser CSRF is mandatory.
     assert(fixture.grantRepository.ensureGrant(
         fixture.actorId, "role.admin", "*"));
     HttpServerRequest browserSearchCreate = fixture.mutationRequest(

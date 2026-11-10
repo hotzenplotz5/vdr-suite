@@ -121,26 +121,6 @@ void closedPolicyBlocksCreateUpdateDelete()
     assert(delegate.deleteCalls == 0);
 }
 
-void browserCreateOnlyKeepsUpdateAndDeleteClosed()
-{
-    CountingExecutor delegate;
-    SearchTimerRuntimeMutationPolicyExecutor executor(
-        delegate, false,
-        "searchtimer runtime mutation policy gate is closed", true);
-
-    const auto createResult = executor.create(makeCreateRequest());
-    const auto updateResult = executor.update(makeUpdateRequest());
-    const auto deleteResult = executor.remove(makeDeleteRequest());
-
-    assert(!executor.mutationAllowed());
-    assert(createResult.success);
-    assert(!updateResult.success);
-    assert(!deleteResult.success);
-    assert(delegate.createCalls == 1);
-    assert(delegate.updateCalls == 0);
-    assert(delegate.deleteCalls == 0);
-}
-
 void openPolicyDelegatesCreateUpdateDelete()
 {
     CountingExecutor delegate;
@@ -171,7 +151,6 @@ void openPolicyDelegatesCreateUpdateDelete()
 int main()
 {
     closedPolicyBlocksCreateUpdateDelete();
-    browserCreateOnlyKeepsUpdateAndDeleteClosed();
     openPolicyDelegatesCreateUpdateDelete();
 
     std::cout

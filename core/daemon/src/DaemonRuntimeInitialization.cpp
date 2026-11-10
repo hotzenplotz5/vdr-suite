@@ -1141,7 +1141,7 @@ bool DaemonRuntime::initialize()
         searchTimerRuntimeMutationPolicyExecutor_ =
             std::make_unique<SearchTimerRuntimeMutationPolicyExecutor>(
                 *searchTimerCommandExecutor_, false,
-                "searchtimer runtime mutation policy gate is closed", true);
+                "searchtimer runtime mutation policy gate is closed");
 
         searchTimerController_ = std::make_unique<SearchTimerController>(
             *searchTimerService_,
@@ -1159,7 +1159,7 @@ bool DaemonRuntime::initialize()
 
         std::cout << "SearchTimer controller runtime initialized" << std::endl;
         std::cout << "SearchTimer command executor runtime initialized" << std::endl;
-        std::cout << "SearchTimer browser CREATE enabled; legacy UPDATE/DELETE closed" << std::endl;
+        std::cout << "SearchTimer legacy CREATE/UPDATE/DELETE disabled; use Public API v1" << std::endl;
     }
     else {
         std::cout << "SearchTimer controller runtime skipped: no VDR backend configured" << std::endl;
