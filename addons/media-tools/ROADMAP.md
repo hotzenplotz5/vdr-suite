@@ -828,7 +828,7 @@ REAL-VDR noch nicht installiert):**
   vorhandene Agent-Konfiguration passend; es gibt keinen separaten
   Media-Tools-Daemon oder zweiten Importer.
 
-**MT.ENC3.1 – Typisierte Encoding-Einstellungen (09.11.2026, SOURCE ergänzt; Build/REAL-VDR noch offen):**
+**MT.ENC3.1 – Typisierte Encoding-Einstellungen (10.11.2026, installiert; reale Encode-Abnahme offen):**
 - H.264-Import: optional backendlokale Werte `MEDIA_IMPORT_H264_CRF` (Default 23)
   und `MEDIA_IMPORT_H264_PRESET` (Default medium). H.265-Shrink separat:
   `MEDIA_SHRINK_H265_CRF` (**Default bleibt 27**) und
@@ -862,16 +862,16 @@ REAL-VDR noch nicht installiert):**
   Argumente, Hardware-Fallback-Snapshot, inkompatibles Profil und
   fehlerhafte MPEG-TS-/Audio-Readbacks sind ergänzt. Kein neuer Core-Auftrag,
   Importer, Poller, Berechtigungs-Gate oder Eingriff in produktive Aufnahmen.
-- **Abnahme getrennt (dieser Änderungskandidat):**
-  **SOURCE=IMPLEMENTED** (bestehender Agent/Importer/Shrink-Runner,
-  Ausgabe-Readback ergänzt);
-  **TEST=NOT_VERIFIED** (C++-Build und fokussierte Regressionen auf
-  exaktem Commit noch auszuführen);
-  **INSTALL=NOT_INSTALLED** (kein neuer Media-Tools-Worker aus diesem
-  Kandidaten produktiv ausgerollt);
-  **REAL-VDR=NOT_VERIFIED** (kein ausdrücklich freigegebenes >10-Minuten-
-  Medium encodiert, keine Decoder-/TV-Wiedergabe bestätigt). Ein
-  bestandener VDR-Index beweist keine Ausgabegeräte-Kompatibilität.
+- **Abnahme getrennt (yaVDR-Rueckmeldung 09.–10.11.2026):**
+  **SOURCE=IMPLEMENTED** (bestehender Agent/Importer/Shrink-Runner und
+  Ausgabe-Readback); **INSTALL=PASS** (MT_ENC31_INSTALL=PASS,
+  Worker-Freigaben konsistent, Agent-Neustart erfolgt, kein Daemon-/VDR-Neustart,
+  zentraler Cache erhalten); **CONFIG-NAMES=VERIFIED** (alle vier
+  Encoder-Konfigurationsnamen in der laufenden Backend-Agent-Binaerdatei);
+  **C++-REGRESSION=NOT_SEPARATELY_VERIFIED** (kein vollstaendiger neuer
+  Testlauf aus den vorliegenden Hostdaten ableitbar);
+  **REAL-H264-ENCODE=NOT_VERIFIED**, **REAL-HEVC-SHRINK=NOT_VERIFIED**,
+  **PLAYBACK=NOT_VERIFIED**. VDR-Index allein beweist keine Wiedergabe.
 - **MT.ENC3-Webfrontend-Vorbereitung:** Unter
   `Einstellungen → Media Tools → Encoding` fehlt weiterhin die
   verständliche backendbezogene Bedienoberfläche. Zunächst bestehenden
@@ -1165,6 +1165,32 @@ nächsten Auftrag real an FFmpeg übergeben und nach erneutem Login korrekt
 angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
 
 ### MT.ENC4 – Echte yaVDR-Abnahme
+
+**Host-Bestandsaufnahme 10.11.2026 (read-only; keine neue Encode-Abnahme):**
+- Checkout /home/yavdr/vdr-suite auf main, HEAD == origin/main ==
+  efd0f6769250cb0b75c15911cc5ecd0bb833f2d8. Die drei unversionierten
+  Dateien cleanup-branches.py, x.recordingStatus und { bleiben unberuehrt.
+- VDR 2.8.3 laeuft. `vdrctl status` bestaetigt softhddevice=disabled;
+  das Ausgabeplugin nicht ungefragt aktivieren. Eine reale Wiedergabe
+  muss spaeter mit einem tatsaechlich genutzten VDR-Suite-Client erfolgen.
+- FFmpeg/FFprobe 8.0.1 enthalten libx264 und libx265 sowie angezeigte
+  VAAPI-/QSV-Encoder. GPU: Intel UHD Graphics 605. vainfo fehlt.
+  Vorhandensein eines Encoders belegt keine funktionierende Hardware-Kodierung.
+- Videowurzel: /srv/vdr/video -> /srv/vdr/video.00.
+  Kein Unterschied zwischen User-Checkout und origin/main beim Readback.
+- Die vier Encoder-Schluessel erschienen nicht im lesenden grep der
+  angegebenen Agent-Konfigurationsdatei; gueltige Defaults sind damit
+  weder nachgewiesen noch widerlegt.
+- True Blood S01E12 wurde erfolgreich DIREKT importiert. VDR-Sichtbarkeit,
+  H.264 High/yuv420p/AC-3 in MPEG-TS, FFprobe und nativer Index sind
+  ein Direktimport-Beleg, kein Encoding-Beleg.
+- **Offen:** Echte H.264-Umkodierung mit konfigurierten Werten samt Index,
+  Bild/Ton/Seek; HEVC-Shrink mit realem VDR-Index und echter
+  Decoder-/Client-Wiedergabe. Originale bleiben unangetastet.
+- **Naechster Schritt:** Zuerst isolierter H.264-FFmpeg->MPEG-TS->
+  VDR-`--genindex`-Host-Smoke mit kuenstlichem Testmedium ausserhalb der
+  Videowurzel, dann Media-Tools-Worker-End-to-End nur mit ausdruecklich
+  freigegebener Quelle. Synthetic Host-Smoke != REAL-VDR-Produktabnahme.
 
 Inkrementell bauen, vorhandene Runtime-Artefakte wiederverwenden,
 kein neues Branch/PR, keine DB-Backups oder unnötigen Aktivierungsprüfungen.
