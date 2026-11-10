@@ -234,27 +234,28 @@ resolving it; the client must not make a new POST with a different idempotency
 key. A crash during dispatch likewise does not establish success or authorize
 retry.
 
-### Bundled Web UI: Human administrator staged CREATE only
+### Bundled Web UI: full-field Browser CREATE (MLD-Suchtimer candidate)
 
-The SearchTimer **new-rule form** in the bundled Web UI calls the same
-`POST /api/v1/search-timers?backend=<id>` path, not the blocked legacy
-`/api/vdr/searchtimers` write route. This is a *narrow* Browser exception:
-a signed-in Human account with `role.admin@*` (or `role.admin@backend`)
-may submit a confirmed, idempotent **inactive** CREATE, with the normal
-Browser CSRF check. The form explicitly sends `active:false`,
-`confirmed:true` and a cryptographically generated `Idempotency-Key`;
-if dispatch outcome is uncertain, it must not resubmit a different
-operation. Backend write policy, online Agent generation, provider support
-and authoritative readback remain independent runtime requirements.
+The bundled SearchTimer editor on branch `MLD-Suchtimer` uses the existing
+Browser-session `POST /api/vdr/searchtimers` controller for **one** active
+or inactive CREATE with the supported epgsearch options: channels/groups,
+time and weekdays, duration, repeats, blacklists, recording directory,
+margins and advanced rule settings. Active CREATE requires explicit
+confirmation because epgsearch can schedule recordings immediately.
 
-This Browser exception **does not** unlock activation, editing,
-deactivation or deletion through Device-only version-fenced Public-v1
-mutation routes, nor does it grant Browser sessions Device-only read
-resources. The existing browser read/preview routes keep their own
-contracts. Advanced recording/filter settings are *not* saved by the
-staged-create form. The exact packaged frontend, backend connectivity and
-a successful inactive CREATE on MLD 6.6 have not yet been verified on a
-real MLD installation.
+This does not expand Device-v1: the legacy CREATE route requires an authenticated
+Browser User, existing `searchtimers.create` permission and Browser CSRF.
+Device/Service actors retain the separate `POST /api/v1/search-timers`
+inactive-only contract. The runtime binds the legacy CREATE to its actual
+RESTfulAPI backend. Legacy UPDATE/DELETE remain closed by the mutation policy;
+the existing native CAS mutation contract is unchanged.
+
+After a single CREATE the Browser fetches the rule list, verifies native ID,
+backend, active state and the available full rule options. An unknown or
+mismatched outcome does **not** trigger another CREATE. This Browser
+one-shot RESTfulAPI CREATE still lacks a native epgsearch lock-atomic CREATE
+CAS guarantee. Release requires real MLD/yaVDR package, VDR and readback
+acceptance; isolated source/DOM tests cannot substitute for it.
 
 ### Backend SearchTimer name versus search string
 
@@ -340,18 +341,12 @@ checklist](../docs/development/public-v1-final-hardware-acceptance.md) are
 release gates. No production installation, VDR restart or destructive
 hardware exercise has been performed by this PR.
 
-## Browser administrator: safe inactive CREATE (2026-10-26)
+## Browser administrator: historical inactive staged CREATE (2026-10-26)
 
-An authenticated Human administrator (`role.admin@*` or a role scoped to
-the selected backend), with Browser CSRF, may use the existing
-`POST /api/v1/search-timers?backend=<id>` inactive CREATE operation.
-The independently reviewed Device grant contract remains unchanged.
-No Browser access is added to Public-v1 SearchTimer read, edit, delete or
-activation routes. The legacy direct RESTfulAPI mutation gate stays closed.
-
-The Browser create form sends only name=query, match mode, tolerance and
-title/subtitle/description comparison. The rule is **inactive**, with an
-idempotency key and explicit confirmation. Advanced epgsearch fields cannot
-be silently discarded. A 202 response is an operation admission, not
-confirmation of a provider write. Online writable backend, active Backend
-Agent generation/lease and successful provider readback remain mandatory.
+The earlier bundled Browser create form used the inactive-only Public-v1
+`POST /api/v1/search-timers?backend=<id>` with `active:false`,
+`confirmed:true`, and a client Idempotency-Key. That Public-v1 route,
+including its Device and Browser permissions, remains unchanged. On the
+`MLD-Suchtimer` candidate the full-field Browser form uses the separately
+authorized Browser CREATE route above. This does not enable active/full-field
+CREATE for Device clients or release native CAS requirements.
