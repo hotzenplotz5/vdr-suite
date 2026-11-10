@@ -860,8 +860,8 @@
     }).finally(() => { button.disabled = false; });
   }
 
-  // Keep full legacy field mapping for read/preview, but never submit
-  // those fields through the intentionally locked RESTfulAPI write route.
+  // Draft preview is EPG text-only; full CREATE settings are transported
+  // through the common Public-v1 operation, never a legacy browser writer.
   function stagedCreateValidation(payload) {
     const errors = [];
     const query = String(payload.query || '').trim();
@@ -902,7 +902,7 @@
       'VDR-Suite: Suchtimer können mit den vorhandenen epgsearch-Optionen ' +
       'direkt inaktiv oder aktiv angelegt werden. Die Vorschau zeigt nur EPG-' +
       'Texttreffer, keine tatsächliche Aufnahmeprognose. Der Browser benutzt ' +
-      'die bestehende angemeldete VDR-Suite-Browser-API, nicht die Device-API.');
+      'Public API v1 mit der angemeldeten Browser-Sitzung.');
     notice.className = 'searchtimer-safety-note';
     form.appendChild(notice);
     const grid = document.createElement('div');
@@ -930,10 +930,10 @@
     advancedGrid.appendChild(check('useVps', 'VPS verwenden', source.useVps));
     advancedGrid.appendChild(field('Aufnahme-Priorität', input('priority', source.priority, 'number')));
     advancedGrid.appendChild(field('Lebensdauer', input('lifetime', source.lifetime, 'number')));
-    advancedGrid.appendChild(field('Vorlauf in Minuten (VDR-Standard wird verwendet)',
-      input('marginStartMinutes', source.marginStartMinutes, 'number')));
-    advancedGrid.appendChild(field('Nachlauf in Minuten (VDR-Standard wird verwendet)',
-      input('marginStopMinutes', source.marginStopMinutes, 'number')));
+    advancedGrid.appendChild(field('Vorlauf in Minuten (leer = VDR-Standard)',
+      input('marginStartMinutes', template ? source.marginStartMinutes : '', 'number')));
+    advancedGrid.appendChild(field('Nachlauf in Minuten (leer = VDR-Standard)',
+      input('marginStopMinutes', template ? source.marginStopMinutes : '', 'number')));
     createDirectoryFields(advancedGrid, source);
     createChannelFilterFields(advancedGrid, source);
     advancedGrid.appendChild(check('useDuration', 'Dauerfilter aktivieren', source.useDuration));
@@ -1038,6 +1038,86 @@
       const result = payload();
       if (result) runPreview(result, previewButton, feedback);
     });
+    let operationId = '';
+    let operationEvents = null;
+    function showOperation(record, expectedBackend) {
+      if (!record || record.operationId !== operationId ||
+          record.backendId !== expectedBackend ||
+          typeof record.state !== 'string') {
+        throw new Error('Vorgang entspricht nicht der angefragten Anlage.');
+      }
+      const state = record.state;
+      if (state === 'succeeded') {
+        setFeedback(feedback,
+          'SearchTimer erfolgreich angelegt und durch epgsearch-Readback bestätigt.', false);
+        checkOperationButton.hidden = true;
+        checkOperationButton.disabled = true;
+        if (operationEvents) { operationEvents.close(); operationEvents = null; }
+        global.setTimeout(reloadSearchTimers, 300);
+      } else if (state === 'outcome_unknown' ||
+                 state === 'executed_unverified' || state === 'dispatching') {
+        setFeedback(feedback, 'CREATE-Ausgang nicht zweifelsfrei bestätigt (' +
+          state + '). Keine zweite Anlage durchführen. Vorgang erneut prüfen.', true);
+      } else if (state === 'failed_before_dispatch') {
+        setFeedback(feedback,
+          'Anlage vom Backend vor dem Schreiben abgelehnt. Vorgang prüfen.', true);
+        if (operationEvents) { operationEvents.close(); operationEvents = null; }
+      } else {
+        setFeedback(feedback,
+          'Anlagevorgang ' + state +
+          ': epgsearch-Readback steht noch aus. Nicht erneut anlegen.', false);
+      }
+      return record;
+    }
+    function checkOperation() {
+      const api = clientApi();
+      if (!operationId ||
+          !api || typeof api.fetchClientSearchTimerOperation !== 'function') {
+        setFeedback(feedback, 'Vorgangsabfrage derzeit nicht verfügbar.', true);
+        return Promise.resolve(null);
+      }
+      checkOperationButton.disabled = true;
+      return api.fetchClientSearchTimerOperation({operationId})
+        .then(record => showOperation(record, selectedBackendId()))
+        .catch(error => {
+          setFeedback(feedback,
+            'Vorgang kann nicht bestätigt werden: ' +
+            String(error && error.message ? error.message : error) +
+            '. Bitte keinen zweiten CREATE auslösen.', true);
+          return null;
+        })
+        .finally(() => {
+          if (!checkOperationButton.hidden)
+            checkOperationButton.disabled = false;
+        });
+    }
+    checkOperationButton.addEventListener('click', checkOperation);
+
+    function subscribeOperation() {
+      if (!operationId || typeof global.EventSource !== 'function') return;
+      // Reuse the existing Public-v1 operation SSE resource. No polling loop.
+      operationEvents = new global.EventSource(
+        '/api/v1/operations/' + encodeURIComponent(operationId) + '/events',
+        {withCredentials: true});
+      const handle = event => {
+        let record;
+        try { record = JSON.parse(String(event.data || '')); }
+        catch (_) { return; }
+        if (!record || !record.state) return;
+        try { showOperation(record, selectedBackendId()); }
+        catch (_) { /* Leave explicit manual verification available. */ }
+      };
+      operationEvents.onmessage = handle;
+      if (typeof operationEvents.addEventListener === 'function') {
+        operationEvents.addEventListener('operation', handle);
+      }
+      operationEvents.onerror = () => {
+        if (operationEvents) { operationEvents.close(); operationEvents = null; }
+        checkOperationButton.hidden = false;
+        checkOperationButton.disabled = false;
+      };
+    }
+
     form.addEventListener('submit', event => {
       event.preventDefault();
       if (pending || submitted) {
@@ -1049,120 +1129,54 @@
       const requested = payload();
       if (!requested) return;
       const api = clientApi();
-      if (!api || typeof api.fetchClientSearchTimerCreateAction !== 'function' ||
-          typeof api.fetchClientSearchTimers !== 'function') {
-        setFeedback(feedback, 'Der Browser-Suchtimer-Pfad ist nicht verfügbar.', true);
+      if (!api || typeof api.fetchClientSearchTimerCreateStaged !== 'function') {
+        setFeedback(feedback, 'Public API v1 ist nicht verfügbar.', true);
+        return;
+      }
+      const idempotencyKey = newStagedIdempotencyKey();
+      if (!idempotencyKey) {
+        setFeedback(feedback,
+          'Sichere Vorgangs-ID kann nicht erzeugt werden. Keine Anlage gesendet.', true);
         return;
       }
       if (!global.confirm('SearchTimer „' + requested.query +
           '“ auf Backend „' + requested.backendId + '“ ' +
           (requested.active ? 'AKTIV anlegen? Die Regel kann sofort Timer erzeugen.'
             : 'inaktiv anlegen?'))) return;
+      const body = Object.assign({}, requested, {confirmed: true});
+      delete body.backendId; // Authoritative scope comes from ?backend=.
+      if (form.elements.marginStartMinutes &&
+          String(form.elements.marginStartMinutes.value).trim() === '')
+        delete body.marginStartMinutes;
+      if (form.elements.marginStopMinutes &&
+          String(form.elements.marginStopMinutes.value).trim() === '')
+        delete body.marginStopMinutes;
       pending = true;
       submitted = true;
       saveButton.disabled = true;
-      checkOperationButton.hidden = true;
-      checkOperationButton.disabled = true;
-      setFeedback(feedback, 'SearchTimer wird einmalig an epgsearch gesendet …', false);
-      api.fetchClientSearchTimerCreateAction({
-        payload: requested, cache: 'no-store', credentials: 'same-origin'
-      }).then(created => {
-        // The existing Browser controller serializes application-level
-        // failure with HTTP 200 and success:false, including a useful message
-        // and errors array. Do not replace that evidence with a generic
-        // missing-id error; the write outcome can still be uncertain.
-        if (created && created.success === false) {
-          const message = String(resultMessage(
-            created, 'Der epgsearch-Provider hat keine Anlage bestätigt.'));
-          // Errors from the underlying RESTfulAPI adapter can contain
-          // requestBody/responseBody diagnostic dumps. Only show the status
-          // and bounded non-payload reason tokens in the Browser.
-          const details = Array.isArray(created.errors)
-            ? created.errors.filter(value => typeof value === 'string' &&
-                value.length > 0 && value.length <= 120 &&
-                (/^status=[0-9]{3}$/.test(value) ||
-                 /^readback did not find a unique created searchtimer id/.test(value))
-              ).slice(0, 3)
-            : [];
-          throw new Error('Backend meldet: ' + message +
-            (details.length ? ' (' + details.join(' · ') + ')' : ''));
-        }
-        if (!created || created.success !== true ||
-            created.backendId !== requested.backendId ||
-            !String(created.backendNativeId || '') ||
-            created.query !== requested.query ||
-            created.state !== (requested.active ? 'active' : 'inactive')) {
-          throw new Error('Backendantwort unvollständig oder nicht dem ' +
-            'angefragten Backend/Suchtimer zuzuordnen.');
-        }
-        return api.fetchClientSearchTimers({
-          query: {backend: requested.backendId, text: requested.query, limit: 1000},
-          cache: 'no-store', credentials: 'same-origin'
-        }).then(readback => {
-          const count = Number(readback && readback.totalCount);
-          const items = listFromResponse(readback, 'searchTimers')
-            .map(normalizeSearchTimer);
-          const matches = items.filter(item =>
-            item.backendId === requested.backendId &&
-            item.backendNativeId === String(created.backendNativeId));
-          if (!Number.isFinite(count) || count !== items.length ||
-              matches.length !== 1 ||
-              matches[0].query !== requested.query ||
-              matches[0].active !== requested.active) {
-            throw new Error('Suchtimer geschrieben, Backend-Readback noch unklar.');
-          }
-          const actual = matches[0];
-          const fields = [
-            'directory','priority','lifetime','marginStartMinutes',
-            'marginStopMinutes','useVps','useChannel','channels',
-            'channelMin','channelMax','useTime','startTime','stopTime',
-            'useDayOfWeek','dayOfWeek','useDuration',
-            'durationMinMinutes','durationMaxMinutes','avoidRepeats',
-            'allowedRepeats','repeatsWithinDays','compareTitle',
-            'compareSubtitle','compareSummary','compareCategories',
-            'compareTime','useSeriesRecording','keepRecordings','deleteMode',
-            'searchTimerAction','blacklistMode','blacklistIds','mode','matchCase',
-            'tolerance','summaryMatch','useExtendedEpgInfo','extendedEpgInfo',
-            'ignoreMissingEpgCategories','contentDescriptors','useInFavorites',
-            'activeFrom','activeUntil','pauseOnRecordings','switchMinutesBefore',
-            'unmuteSoundOnSwitch','deleteRecordingsAfterDays',
-            'deleteAfterCountRecordings','deleteAfterDaysOfFirstRecording'
-          ];
-          const listFields = new Set(['blacklistIds', 'extendedEpgInfo']);
-          const comparisonValue = (name, value) => listFields.has(name)
-            ? String(value || '').split(/[,;]/).map(part => part.trim())
-                .filter(Boolean).join(',')
-            : String(value);
-          const relevant = fields.filter(name => {
-            if (name === 'channels') return requested.useChannel === 2;
-            if (name === 'channelMin' || name === 'channelMax')
-              return requested.useChannel === 1;
-            if (name === 'startTime' || name === 'stopTime')
-              return requested.useTime;
-            if (name === 'dayOfWeek') return requested.useDayOfWeek;
-            if (name === 'durationMinMinutes' || name === 'durationMaxMinutes')
-              return requested.useDuration;
-            return true;
-          });
-          const changed = relevant.filter(name =>
-            comparisonValue(name, actual[name]) !==
-            comparisonValue(name, requested[name]));
-          if (changed.length) {
-            throw new Error('Suchtimer angelegt, aber Einstellungen abweichend: ' +
-              changed.join(', '));
-          }
-          setFeedback(feedback, 'SearchTimer „' + requested.query + '“ ' +
-            (requested.active ? 'AKTIV' : 'inaktiv') +
-            ' angelegt und im Backend bestätigt.', false);
-          global.setTimeout(reloadSearchTimers, 300);
-          return actual;
-        });
+      setFeedback(feedback,
+        'SearchTimer wird über Public API v1 einmalig angelegt …', false);
+      api.fetchClientSearchTimerCreateStaged({
+        backend: requested.backendId,
+        idempotencyKey,
+        payload: body
+      }).then(result => {
+        if (!result || !/^op_[0-9a-f]{32}$/.test(
+              String(result.operationId || '')) ||
+            result.backendId !== requested.backendId)
+          throw new Error('Public-v1-Vorgangsbestätigung fehlt.');
+        operationId = result.operationId;
+        checkOperationButton.hidden = false;
+        checkOperationButton.disabled = false;
+        showOperation(result, requested.backendId);
+        if (result.state !== 'succeeded' &&
+            result.state !== 'failed_before_dispatch')
+          subscribeOperation();
       }).catch(error => {
         setFeedback(feedback,
-          'Anlage oder Readback nicht zweifelsfrei bestätigt: ' +
+          'Anlageausgang unklar: ' +
           String(error && error.message ? error.message : error) +
-          '. Bitte VDR-Suchtimerliste prüfen. Dieser Dialog wiederholt ' +
-          'den Schreibvorgang nicht.', true);
+          '. Diesen Vorgang nicht erneut senden. epgsearch-Liste prüfen.', true);
       }).finally(() => { pending = false; });
     });
     activeCreateForm = form;
