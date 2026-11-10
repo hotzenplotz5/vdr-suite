@@ -1184,9 +1184,11 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
 - True Blood S01E12 wurde erfolgreich DIREKT importiert. VDR-Sichtbarkeit,
   H.264 High/yuv420p/AC-3 in MPEG-TS, FFprobe und nativer Index sind
   ein Direktimport-Beleg, kein Encoding-Beleg.
-- **Offen:** Echte H.264-Umkodierung mit konfigurierten Werten samt Index,
-  Bild/Ton/Seek; HEVC-Shrink mit realem VDR-Index und echter
-  Decoder-/Client-Wiedergabe. Originale bleiben unangetastet.
+- **Abnahmegrenzen:** Die unten dokumentierten synthetischen Host- und
+  Worker-Tests belegen reale H.264-/HEVC-Umkodierung und native Indizes.
+  Offen bleiben die tatsächliche Core-/Agent-Produktoperation,
+  Client-Bild/Ton/Seek, Langläufer und Bestätigung geänderter
+  Agent-Konfigurationswerte. Produktive Originale bleiben unangetastet.
 - **MT.ENC4 H.264 Host-Smoke PASS (10.11.2026, rückgemeldete Shell-Ausgabe):**
   Künstliche achtsekündige MPEG-4-/AAC-Datei unter
   `/var/tmp/mt-enc4-h264.AleXVV/source.mkv` mit dem installierten FFmpeg
@@ -1225,12 +1227,22 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
   kein Datenbank-Backup und kein Eingriff in produktive Aufnahmen.
   **REAL_CORE_AGENT_IMPORT=NOT_TESTED**,
   **TV_PLAYBACK=NOT_TESTED**, **HEVC_SHRINK=NOT_TESTED**.
-- **Nächster Schritt:** HEVC-Shrink per bestehendem C++-Worker und
-  echtem FFmpeg/VDR-Indexer auf isolierter künstlicher `.rec` unter
-  `/var/tmp` testen. Nur `plan` und `stage` (kein `publish`),
-  Original und Index bytegleich erhalten. Danach realen Core-/Agent-
-  Produktpfad nur mit ausdrücklich freigegebener Quelle sowie
-  die tatsächliche TV-Wiedergabe separat abnehmen.
+- **MT.ENC4 HEVC-Shrink-Stage PASS (10.11.2026, yaVDR):**
+  Bestehender C++-Shrink-Worker gegen künstliche MPEG-2-/MP2-VDR-Aufnahme
+  unter `/var/tmp/mt-enc4-hevc.NRDoOI` ausgeführt, ausschließlich
+  `plan` und `stage`; keine Veröffentlichung. `libx265` mit
+  produktivem CRF-27-Default, Preset medium, HEVC Main / MPEG-TS,
+  20,00 s und nativer Index geprüft. Original 10.328.344 Byte,
+  Candidate 2.095.636 Byte (79,7 % Ersparnis bei diesem Testmuster).
+  Original-TS, Index und info bytegleich geblieben.
+  `MT_ENC4_HEVC_WORKER_STAGE=PASS`, `HEVC_PUBLICATION=NEIN`,
+  `REAL_CORE_AGENT_IMPORT=NOT_TESTED`, `TV_PLAYBACK=NOT_TESTED`.
+- **Nächster Schritt:** Den bereits geprüften HEVC-Kandidaten auf
+  **derselben künstlichen `/var/tmp`-Videowurzel** mit dem bestehenden
+  `publish`-Pfad veröffentlichen und unabhängigen Readback plus Erhalt
+  des Originals bestätigen. Keine neue Umkodierung, kein `/srv/vdr`-
+  Eingriff. Danach echte Core-/Agent-Operation nur mit ausdrücklich
+  freigegebener Quelle und Wiedergabe mit tatsächlichem TV-Client.
 
 Inkrementell bauen, vorhandene Runtime-Artefakte wiederverwenden,
 kein neues Branch/PR, keine DB-Backups oder unnötigen Aktivierungsprüfungen.
