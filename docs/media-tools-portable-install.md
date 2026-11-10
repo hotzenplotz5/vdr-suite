@@ -10,6 +10,8 @@ FHS paths under `/usr`, not arbitrary `PREFIX` installations.
 
 ## Reuse the installed Suite stage — never rebuild the daemon
 
+Preparation and staging may be run from the existing root shell on yaVDR;
+this does not permit Suite runtime deployment or grant new capabilities.
 The three worker executables are built separately with
 `make addon-media-import addon-media-check addon-media-shrink`. Existing
 builds can be reused with **no C++ compilation**. The portable prepare

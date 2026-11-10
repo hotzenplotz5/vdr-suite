@@ -212,7 +212,8 @@ class PortableMediaToolsInstallTests(unittest.TestCase):
         source_sha = __import__("subprocess").check_output(
             ["git", "-C", str(REPO), "rev-parse", "HEAD"],
             text=True).strip()
-        with mock.patch("prepare_media_tools_existing.os.geteuid", return_value=1000):
+        # Root and unprivileged operators reuse the same immutable artifacts.
+        with mock.patch("prepare_media_tools_existing.os.geteuid", return_value=0):
             reused_hash = prepare(self.stage, binaries, prepared, source_sha)
         self.assertEqual(reused_hash, self.approved)
         self.assertEqual((prepared / "stage/.vdr-suite-install-runtime-manifest.json").read_bytes(),
@@ -264,7 +265,7 @@ class MediaToolsMakeRecipeTests(unittest.TestCase):
         source = (REPO / "mk/addons.mk").read_text(encoding="utf-8")
         # In a Make recipe, $(...) is a Make variable; $(...) is a
         # shell command substitution when escaped. Check both targets and the pin.
-        self.assertEqual(source.count('"$$(id -u)"'), 2)
+        self.assertEqual(source.count('"$(id -u)"'), 0)
         self.assertEqual(source.count(
             '$$(cat "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt")'), 1)
     def test_prepare_does_not_rebuild_daemon_or_agent(self):

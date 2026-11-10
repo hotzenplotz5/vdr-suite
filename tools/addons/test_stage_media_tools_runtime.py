@@ -31,7 +31,6 @@ def private(path: Path) -> None:
     path.chmod(0o700)
 
 
-@unittest.skipIf(os.geteuid() == 0, "staging is intentionally forbidden as root")
 @unittest.skipUnless(Path("/usr/bin/true").is_file(), "ELF test fixture unavailable")
 class MediaToolsSealedStageTests(unittest.TestCase):
     def setUp(self):

@@ -712,8 +712,9 @@ test-media-tools-i33-agent-recovery:
 	@echo "MT_I33_AGENT_RECOVERY=PASS"
 
 # MT.HA portable payload install. No init system, service, Suite deploy,
-# frontend, media-root or database operations. A stage is built as a user;
-# sudo make install-media-tools only consumes independently reviewed bytes.
+# frontend, media-root or database operations. The existing operator shell
+# (including root on yaVDR) may prepare and seal; no Suite rebuild happens.
+# install-media-tools consumes independently reviewed bytes.
 MEDIA_TOOLS_WORKDIR ?= $(CURDIR)/.build/media-tools-prepared
 MEDIA_TOOLS_STAGE ?= $(MEDIA_TOOLS_WORKDIR)/stage-with-media-tools
 MEDIA_TOOLS_BASE_STAGE ?=
@@ -724,7 +725,6 @@ MEDIA_TOOLS_WORKER_SOURCE_COMMIT ?=
 # Reuse the already sealed Suite stage and already compiled add-on workers.
 # Deliberately no call to stage-install-runtime, daemon or backend-agent.
 prepare-media-tools:
-	@test "$$(id -u)" -ne 0 || { echo 'Prepare Media Tools as an unprivileged user' >&2; exit 1; }
 	@test -n "$(MEDIA_TOOLS_BASE_STAGE)" || { echo 'MEDIA_TOOLS_BASE_STAGE required (reuse sealed Suite stage)' >&2; exit 1; }
 	@test -n "$(MEDIA_TOOLS_WORKER_SOURCE_COMMIT)" || { echo 'MEDIA_TOOLS_WORKER_SOURCE_COMMIT required (exact commit that built the workers)' >&2; exit 1; }
 	python3 -B tools/addons/prepare_media_tools_existing.py \
@@ -734,7 +734,6 @@ prepare-media-tools:
 		--output-workdir "$(MEDIA_TOOLS_WORKDIR)"
 
 stage-media-tools:
-	@test "$$(id -u)" -ne 0 || { echo 'Seal Media Tools as an unprivileged user' >&2; exit 1; }
 	@test -n "$(APPROVED_HANDLER_SHA256)" || { echo 'APPROVED_HANDLER_SHA256 required (independent review)' >&2; exit 1; }
 	@test -f "$(MEDIA_TOOLS_WORKDIR)/source-commit.txt" || { echo 'Run make prepare-media-tools first' >&2; exit 1; }
 	@test -f "$(MEDIA_TOOLS_WORKDIR)/stage/.vdr-suite-install-runtime-manifest.json" || { echo 'Sealed base stage missing' >&2; exit 1; }

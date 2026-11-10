@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Prepare Media Tools from an existing sealed Suite stage and already built workers.
 
-No compilation, live deployment, service action, root privileges or approval.
+No compilation, live deployment, service action or approval. The operator may
+prepare in the existing root shell or as an unprivileged checkout owner.
 Output is created atomically under an unprivileged, new workdir.
 """
 from __future__ import annotations
@@ -38,8 +39,6 @@ def regular_executable(path: Path) -> bool:
 
 def prepare(base: Path, workers: Path, output: Path,
             worker_source_sha: str) -> str:
-    if os.geteuid() == 0:
-        raise ValueError("prepare as an unprivileged user")
     for label, path in (("Suite stage", base), ("worker directory", workers)):
         if not path.is_absolute() or path.is_symlink() or not path.is_dir():
             raise ValueError("unsafe " + label)
