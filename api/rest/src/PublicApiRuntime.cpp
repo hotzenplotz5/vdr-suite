@@ -3094,6 +3094,30 @@ bool parsePublicSearchTimerNativeMutationBody(
         : out.query.empty();
 }
 
+bool parseSearchTimerJsonInteger(
+    const std::string& text, std::size_t& offset, int& result)
+{
+    const std::size_t begin = offset;
+    const bool negative = offset < text.size() && text[offset] == '-';
+    if (negative) ++offset;
+    const std::size_t digits = offset;
+    std::int64_t number = 0;
+    while (offset < text.size() &&
+           text[offset] >= '0' && text[offset] <= '9')
+    {
+        number = number * 10 + (text[offset] - '0');
+        if (number > 2147483648LL) return false;
+        ++offset;
+    }
+    if (offset == digits || (negative && offset == begin + 1U))
+        return false;
+    number = negative ? -number : number;
+    if (number < -2147483648LL || number > 2147483647LL)
+        return false;
+    result = static_cast<int>(number);
+    return true;
+}
+
 bool parsePublicSearchTimerCreateBody(
     const std::string& input, PublicSearchTimerCreateRequest& out)
 {
@@ -3113,36 +3137,126 @@ bool parsePublicSearchTimerCreateBody(
         skipAccountMutationWhitespace(input,pos);
         if (pos >= input.size() || input[pos++] != ':') return false;
         skipAccountMutationWhitespace(input,pos);
-        if (key == "name" || key == "query")
+        if (key == "name" || key == "query" ||
+            key == "directory" ||
+            key == "channels" ||
+            key == "channelMin" ||
+            key == "channelMax" ||
+            key == "blacklistIds" ||
+            key == "extendedEpgInfo" ||
+            key == "contentDescriptors" ||
+            key == "activeFrom" ||
+            key == "activeUntil")
         {
-            std::string val;
-            if (!parseAccountMutationJsonString(input,pos,val)) return false;
-            if (key == "name") out.name = std::move(val);
-            else out.query = std::move(val);
+            std::string value;
+            if (!parseAccountMutationJsonString(input,pos,value)) return false;
+            if (key == "name") out.name = std::move(value);
+            else if (key == "query") out.query = std::move(value);
+            else if (key == "directory") out.directory = std::move(value);
+            else if (key == "channels") out.channels = std::move(value);
+            else if (key == "channelMin") out.channelMin = std::move(value);
+            else if (key == "channelMax") out.channelMax = std::move(value);
+            else if (key == "blacklistIds") out.blacklistIds = std::move(value);
+            else if (key == "extendedEpgInfo") out.extendedEpgInfo = std::move(value);
+            else if (key == "contentDescriptors") out.contentDescriptors = std::move(value);
+            else if (key == "activeFrom") out.activeFrom = std::move(value);
+            else if (key == "activeUntil") out.activeUntil = std::move(value);
         }
-        else if (key == "mode" || key == "tolerance")
+        else if (key == "mode" || key == "tolerance" ||
+            key == "priority" ||
+            key == "lifetime" ||
+            key == "marginStartMinutes" ||
+            key == "marginStopMinutes" ||
+            key == "useChannel" ||
+            key == "startTime" ||
+            key == "stopTime" ||
+            key == "durationMinMinutes" ||
+            key == "durationMaxMinutes" ||
+            key == "dayOfWeek" ||
+            key == "allowedRepeats" ||
+            key == "repeatsWithinDays" ||
+            key == "keepRecordings" ||
+            key == "deleteMode" ||
+            key == "searchTimerAction" ||
+            key == "blacklistMode" ||
+            key == "summaryMatch" ||
+            key == "switchMinutesBefore" ||
+            key == "deleteRecordingsAfterDays" ||
+            key == "deleteAfterCountRecordings" ||
+            key == "deleteAfterDaysOfFirstRecording")
         {
-            if (pos >= input.size() || input[pos] < '0' ||
-                input[pos] > '9') return false;
-            const int val = input[pos++] - '0';
-            if (key == "mode") out.mode = val;
-            else out.tolerance = val;
+            int value = 0;
+            if (!parseSearchTimerJsonInteger(input,pos,value)) return false;
+            if (key == "mode") out.mode = value;
+            else if (key == "tolerance") out.tolerance = value;
+            else if (key == "priority") out.priority = value;
+            else if (key == "lifetime") out.lifetime = value;
+            else if (key == "marginStartMinutes") out.marginStartMinutes = value;
+            else if (key == "marginStopMinutes") out.marginStopMinutes = value;
+            else if (key == "useChannel") out.useChannel = value;
+            else if (key == "startTime") out.startTime = value;
+            else if (key == "stopTime") out.stopTime = value;
+            else if (key == "durationMinMinutes") out.durationMinMinutes = value;
+            else if (key == "durationMaxMinutes") out.durationMaxMinutes = value;
+            else if (key == "dayOfWeek") out.dayOfWeek = value;
+            else if (key == "allowedRepeats") out.allowedRepeats = value;
+            else if (key == "repeatsWithinDays") out.repeatsWithinDays = value;
+            else if (key == "keepRecordings") out.keepRecordings = value;
+            else if (key == "deleteMode") out.deleteMode = value;
+            else if (key == "searchTimerAction") out.searchTimerAction = value;
+            else if (key == "blacklistMode") out.blacklistMode = value;
+            else if (key == "summaryMatch") out.summaryMatch = value;
+            else if (key == "switchMinutesBefore") out.switchMinutesBefore = value;
+            else if (key == "deleteRecordingsAfterDays") out.deleteRecordingsAfterDays = value;
+            else if (key == "deleteAfterCountRecordings") out.deleteAfterCountRecordings = value;
+            else if (key == "deleteAfterDaysOfFirstRecording") out.deleteAfterDaysOfFirstRecording = value;
+            if (key == "marginStartMinutes")
+                out.hasMarginStartMinutes = true;
+            if (key == "marginStopMinutes")
+                out.hasMarginStopMinutes = true;
         }
         else if (key == "active" || key == "compareTitle" ||
                  key == "compareSubtitle" || key == "compareSummary" ||
-                 key == "confirmed")
+                 key == "confirmed" ||
+                 key == "useVps" ||
+                 key == "useTime" ||
+                 key == "useDuration" ||
+                 key == "useDayOfWeek" ||
+                 key == "avoidRepeats" ||
+                 key == "compareCategories" ||
+                 key == "compareTime" ||
+                 key == "useSeriesRecording" ||
+                 key == "matchCase" ||
+                 key == "useExtendedEpgInfo" ||
+                 key == "ignoreMissingEpgCategories" ||
+                 key == "useInFavorites" ||
+                 key == "pauseOnRecordings" ||
+                 key == "unmuteSoundOnSwitch")
         {
-            bool val;
-            if (consumeAccountMutationLiteral(input,pos,"true"))
-                val = true;
+            bool value;
+            if (consumeAccountMutationLiteral(input,pos,"true")) value = true;
             else if (consumeAccountMutationLiteral(input,pos,"false"))
-                val = false;
+                value = false;
             else return false;
-            if (key == "active") out.active = val;
-            if (key == "compareTitle") out.compareTitle = val;
-            if (key == "compareSubtitle") out.compareSubtitle = val;
-            if (key == "compareSummary") out.compareSummary = val;
-            if (key == "confirmed" && !val) return false;
+            if (key == "active") out.active = value;
+            else if (key == "compareTitle") out.compareTitle = value;
+            else if (key == "compareSubtitle") out.compareSubtitle = value;
+            else if (key == "compareSummary") out.compareSummary = value;
+            else if (key == "confirmed" && !value) return false;
+            else if (key == "useVps") out.useVps = value;
+            else if (key == "useTime") out.useTime = value;
+            else if (key == "useDuration") out.useDuration = value;
+            else if (key == "useDayOfWeek") out.useDayOfWeek = value;
+            else if (key == "avoidRepeats") out.avoidRepeats = value;
+            else if (key == "compareCategories") out.compareCategories = value;
+            else if (key == "compareTime") out.compareTime = value;
+            else if (key == "useSeriesRecording") out.useSeriesRecording = value;
+            else if (key == "matchCase") out.matchCase = value;
+            else if (key == "useExtendedEpgInfo") out.useExtendedEpgInfo = value;
+            else if (key == "ignoreMissingEpgCategories") out.ignoreMissingEpgCategories = value;
+            else if (key == "useInFavorites") out.useInFavorites = value;
+            else if (key == "pauseOnRecordings") out.pauseOnRecordings = value;
+            else if (key == "unmuteSoundOnSwitch") out.unmuteSoundOnSwitch = value;
         }
         else return false;
         skipAccountMutationWhitespace(input,pos);
@@ -3157,14 +3271,11 @@ bool parsePublicSearchTimerCreateBody(
          "compareTitle","compareSubtitle","compareSummary","confirmed"})
         if (std::find(seen.begin(),seen.end(),required) == seen.end())
             return false;
-    // epgsearch /searchtimers represents the rule name by its "search"
-    // field. Its backend readback maps name = query; a different title
-    // cannot round-trip or be verified as a successful native CREATE.
-    return !out.active && out.name == out.query &&
+    // Native epgsearch readback exposes 'search' as both name and query.
+    return out.name == out.query &&
         !out.name.empty() && out.name.size() <= 240U &&
         out.query.size() >= 2U && out.query.size() <= 240U &&
-        (out.mode == 0 || out.mode == 1 || out.mode == 2 ||
-         out.mode == 3 || out.mode == 5) &&
+        out.mode >= 0 && out.mode <= 5 &&
         out.tolerance >= 0 && out.tolerance <= 3 &&
         (out.mode == 5 || out.tolerance == 0) &&
         (out.compareTitle || out.compareSubtitle || out.compareSummary);
@@ -12048,7 +12159,7 @@ bool PublicApiRuntime::tryHandleTimerWorkflowPost(
                 path,requestId,correlationId);
             return true;
         }
-        if (body.empty() || body.size() > 1200U)
+        if (body.empty() || body.size() > 32768U)
         {
             response = invalidRequestProblem(path,
                 "SearchTimer CREATE body size is invalid.",
