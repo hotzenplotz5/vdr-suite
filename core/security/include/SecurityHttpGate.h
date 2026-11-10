@@ -2982,6 +2982,24 @@ public:
             return rejectWithAudit(gate, denial, 403,
                 "A verified administrator Browser Session is required", "");
         }
+        // The full-field Browser SearchTimer CREATE uses the existing
+        // authenticated legacy controller. A Device/Service actor must use
+        // Public-v1's independent inactive-only CREATE contract instead.
+        if (isSearchTimerCreateAction &&
+            (!gate.browserAuthenticated ||
+             gate.context.actor.type != ActorType::User ||
+             !gate.context.session.has_value()))
+        {
+            if (!gate.context.authenticated())
+                return rejectAuthentication(gate);
+            AuthorizationDecision denial;
+            denial.permission = "searchtimers.create";
+            denial.action = "searchtimers.create";
+            denial.backendId = jsonStringValue(request.body, "backendId");
+            denial.reasonCode = "browser_session_required";
+            return rejectWithAudit(gate, denial, 403,
+                "SearchTimer full CREATE requires a Browser Session", "");
+        }
         if (isPublicDeviceCredentialRotation && !gate.browserAuthenticated)
         {
             if (!gate.context.authenticated())
