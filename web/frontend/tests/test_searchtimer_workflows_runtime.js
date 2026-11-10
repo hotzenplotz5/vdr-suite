@@ -376,10 +376,10 @@ assert.ok(
   source.includes('fetchClientSearchTimerPreview')
 );
 assert.ok(
-  source.includes('fetchClientSearchTimerCreateAction')
+  source.includes('fetchClientSearchTimerCreateStaged')
 );
-// The full Browser editor no longer submits through inactive-only staging.
-assert.ok(!source.includes('fetchClientSearchTimerCreateStaged'));
+// The full Browser editor uses Public-v1 admission, never a legacy writer.
+assert.ok(!source.includes('api.fetchClientSearchTimerCreateAction({'));
 assert.strictEqual(api.stagedCreateValidation({
   query: 'Terra X', mode: 1, tolerance: 0,
   compareTitle: true, compareSubtitle: false, compareSummary: false
@@ -473,44 +473,6 @@ function findForm(node) {
   }
   return null;
 }
-function fakeReadback(payload) {
-  const select = (...names) => Object.fromEntries(
-    names.map(name => [name, payload[name]])
-  );
-  return {
-    totalCount: 1,
-    searchTimers: [{
-      backendId: payload.backendId, backendNativeId: '42',
-      query: payload.query, name: payload.query,
-      state: payload.active ? 'active' : 'inactive',
-      recordingOptions: select('directory', 'priority', 'lifetime'),
-      scheduleOptions: select('marginStartMinutes', 'marginStopMinutes', 'useVps'),
-      filterOptions: Object.assign(
-        select('useTime', 'startTime', 'stopTime', 'useDayOfWeek',
-          'dayOfWeek', 'useDuration', 'durationMinMinutes',
-          'durationMaxMinutes'),
-        {useChannelMode: payload.useChannel}
-      ),
-      channelOptions: Object.assign(
-        select('channels'),
-        {channelMinId: payload.channelMin, channelMaxId: payload.channelMax}
-      ),
-      comparisonOptions: select('compareTitle', 'compareSubtitle',
-        'compareSummary', 'compareCategories', 'compareTime'),
-      repeatOptions: select('avoidRepeats', 'allowedRepeats', 'repeatsWithinDays'),
-      seriesOptions: select('useSeriesRecording', 'keepRecordings',
-        'deleteMode', 'searchTimerAction'),
-      blacklistOptions: select('blacklistMode', 'blacklistIds'),
-      matchOptions: select('mode', 'matchCase', 'tolerance', 'summaryMatch'),
-      extendedEpgOptions: select('useExtendedEpgInfo', 'extendedEpgInfo',
-        'ignoreMissingEpgCategories', 'contentDescriptors'),
-      validityOptions: select('useInFavorites', 'activeFrom', 'activeUntil'),
-      actionOptions: select('pauseOnRecordings', 'switchMinutesBefore',
-        'unmuteSoundOnSwitch', 'deleteRecordingsAfterDays',
-        'deleteAfterCountRecordings', 'deleteAfterDaysOfFirstRecording')
-    }]
-  };
-}
 async function checkEditorFullWrites() {
   const mount = new FormElement('main');
   const document = {
@@ -519,33 +481,39 @@ async function checkEditorFullWrites() {
     getElementById() { return null; }
   };
   const writes = [];
-  const readbacks = [];
-  let resultState = 'active';
+  const operationReads = [];
+  let state = 'succeeded';
   let rejectCreate = false;
+  let keyCounter = 0;
   const browser = {
     setTimeout() {},
-    confirm() { return true; }
+    confirm() { return true; },
+    crypto: {
+      getRandomValues(bytes) {
+        keyCounter++;
+        bytes.fill(keyCounter);
+        return bytes;
+      }
+    }
   };
   const client = {
-    fetchClientSearchTimerCreateAction(options) {
+    fetchClientSearchTimerCreateStaged(options) {
       writes.push(options);
-      const payload = options.payload;
-      if (rejectCreate) return Promise.resolve({
-        success: false, message: 'searchtimer backend does not match provider',
-        errors: ['status=503', 'requestBody=PRIVATE_SENTINEL']
-      });
+      if (rejectCreate) {
+        return Promise.reject(new Error('validation_error status=422'));
+      }
       return Promise.resolve({
-        success: true, backendId: payload.backendId, query: payload.query,
-        backendNativeId: '42',
-        state: payload.active ? 'active' : 'inactive'
+        operationId: 'op_' + writes.length.toString(16).padStart(32, '0'),
+        backendId: options.backend,
+        state
       });
     },
-    fetchClientSearchTimers(options) {
-      readbacks.push(options);
-      const payload = writes[writes.length - 1].payload;
-      const readback = fakeReadback(payload);
-      readback.searchTimers[0].state = resultState;
-      return Promise.resolve(readback);
+    fetchClientSearchTimerOperation(options) {
+      operationReads.push(options.operationId);
+      return Promise.resolve({
+        operationId: options.operationId, backendId: 'living-room',
+        state: 'succeeded'
+      });
     }
   };
   vm.runInNewContext(source, {
@@ -593,67 +561,77 @@ async function checkEditorFullWrites() {
   await Promise.resolve();
   await Promise.resolve();
   assert.strictEqual(writes.length, 1, 'one user action => one CREATE');
-  assert.strictEqual(writes[0].payload.active, true);
-  assert.strictEqual(writes[0].payload.priority, 50);
-  assert.strictEqual(writes[0].payload.useTime, true);
-  assert.strictEqual(writes[0].payload.startTime, 930);
-  assert.strictEqual(writes[0].payload.stopTime, 1130);
-  assert.strictEqual(writes[0].payload.dayOfWeek, 31);
-  assert.strictEqual(writes[0].payload.useChannel, 2);
-  assert.strictEqual(writes[0].payload.channels, 'ARD');
-  assert.strictEqual(writes[0].payload.durationMinMinutes, 35);
-  assert.strictEqual(writes[0].payload.blacklistIds, '4, 5');
-  assert.strictEqual(writes[0].payload.extendedEpgInfo,
+  const request = writes[0];
+  assert.strictEqual(request.backend, 'living-room');
+  assert(/^search-web-[0-9a-f]{32}$/.test(request.idempotencyKey));
+  assert.strictEqual(request.payload.backendId, undefined,
+    'backend authority comes only from scoped query');
+  assert.strictEqual(request.payload.confirmed, true);
+  assert.strictEqual(request.payload.active, true);
+  assert.strictEqual(request.payload.priority, 50);
+  assert.strictEqual(request.payload.useTime, true);
+  assert.strictEqual(request.payload.startTime, 930);
+  assert.strictEqual(request.payload.stopTime, 1130);
+  assert.strictEqual(request.payload.dayOfWeek, 31);
+  assert.strictEqual(request.payload.useChannel, 2);
+  assert.strictEqual(request.payload.channels, 'ARD');
+  assert.strictEqual(request.payload.durationMinMinutes, 35);
+  assert.strictEqual(request.payload.blacklistIds, '4, 5');
+  assert.strictEqual(request.payload.extendedEpgInfo,
     'category=movie; actor=Jane');
-  assert.strictEqual(writes[0].payload.backendId, 'living-room');
-  assert.strictEqual(readbacks.length, 1);
-  assert.strictEqual(readbacks[0].query.backend, 'living-room');
-  assert.strictEqual(readbacks[0].query.text, 'Tatort');
+  assert.strictEqual(request.payload.marginStartMinutes, undefined,
+    'unset margins use live VDR defaults');
+  assert.strictEqual(request.payload.marginStopMinutes, undefined);
+  assert.strictEqual(operationReads.length, 0,
+    'succeeded means the backend already verified full readback');
   assert.strictEqual(form.elements.active.checked, true);
 
-  // New form with conflicting backend readback: preserve outcome as unknown;
-  // do not silently retry, even when the user clicks Save twice.
+  // A still-unverified operation must not trigger another write.
   mod.renderList({searchTimers: []});
   const second = findForm(mount);
-  resultState = 'inactive';
+  state = 'outcome_unknown';
   second.elements.query.value = 'Tatort';
-  second.elements.active.checked = true;
+  second.elements.active.checked = false;
   second.listeners.submit({preventDefault() {}});
-  await Promise.resolve();
-  await Promise.resolve();
   await Promise.resolve();
   await Promise.resolve();
   assert.strictEqual(writes.length, 2);
-  assert.strictEqual(readbacks.length, 2);
+  assert.strictEqual(writes[1].payload.active, false);
   second.listeners.submit({preventDefault() {}});
-  assert.strictEqual(writes.length, 2,
-    'ambiguous readback must not lead to another write');
+  assert.strictEqual(writes.length, 2);
+  // The user can inspect the exact existing operation, but not re-CREATE it.
+  function findOperationButton(node) {
+    if (node.tagName === 'BUTTON' && node.textContent === 'Anlagevorgang prüfen')
+      return node;
+    for (const child of node.children) {
+      const match = findOperationButton(child);
+      if (match) return match;
+    }
+    return null;
+  }
+  const inspect = findOperationButton(second);
+  assert(inspect && !inspect.hidden);
+  inspect.listeners.click();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.strictEqual(operationReads.length, 1);
+  assert.strictEqual(writes.length, 2);
 
   mod.renderList({searchTimers: []});
   const rejected = findForm(mount);
-  assert(rejected);
   rejectCreate = true;
   rejected.elements.query.value = 'Tatort';
   rejected.elements.active.checked = true;
   rejected.listeners.submit({preventDefault() {}});
   await Promise.resolve();
   await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
   const feedback = rejected.children.find(child =>
-    child.className === 'searchtimer-feedback' ||
     String(child.className).indexOf('searchtimer-feedback') === 0);
   assert(feedback);
-  assert(feedback.textContent.includes('backend does not match provider'),
-    'provider denial must be shown instead of generic create response');
-  assert(feedback.textContent.includes('status=503'));
-  assert(!feedback.textContent.includes('PRIVATE_SENTINEL'),
-    'raw provider request content must never enter feedback');
+  assert(feedback.textContent.includes('validation_error status=422'));
   assert.strictEqual(writes.length, 3);
-  assert.strictEqual(readbacks.length, 2);
   rejected.listeners.submit({preventDefault() {}});
-  assert.strictEqual(writes.length, 3,
-    'server-side rejection must not create a new request in this editor');
+  assert.strictEqual(writes.length, 3);
 }
 checkEditorFullWrites().then(function() {
   console.log('test_searchtimer_workflows_runtime passed');
