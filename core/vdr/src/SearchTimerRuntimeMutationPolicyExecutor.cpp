@@ -5,9 +5,11 @@
 SearchTimerRuntimeMutationPolicyExecutor::SearchTimerRuntimeMutationPolicyExecutor(
     ISearchTimerCommandExecutor& delegate,
     bool mutationAllowed,
-    std::string blockedMessage)
+    std::string blockedMessage,
+    bool allowBrowserCreate)
     : delegate_(delegate),
       mutationAllowed_(mutationAllowed),
+      allowBrowserCreate_(allowBrowserCreate),
       blockedMessage_(std::move(blockedMessage))
 {
 }
@@ -15,7 +17,9 @@ SearchTimerRuntimeMutationPolicyExecutor::SearchTimerRuntimeMutationPolicyExecut
 SearchTimerCreateResult SearchTimerRuntimeMutationPolicyExecutor::create(
     const SearchTimerCreateRequest& request)
 {
-    if (!mutationAllowed_)
+    // Only the existing, authenticated Browser CREATE route can use this
+    // separately enabled entry. Legacy UPDATE/DELETE stay closed.
+    if (!mutationAllowed_ && !allowBrowserCreate_)
     {
         return SearchTimerCreateResult::failed(
             blockedMessage_,
