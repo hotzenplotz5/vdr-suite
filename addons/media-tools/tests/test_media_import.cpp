@@ -573,7 +573,8 @@ int main() {
         assert(!fs::exists(output.parent_path() / ".update"));
         assert(fs::exists(f.source));
         assert(!fs::exists(runner.probedSource));
-        assert(runner.probes == 5 && runner.remuxes == 1 && runner.indices == 1);
+        // Source codec/duration/audio, output duration/codec and TS/audio readback.
+        assert(runner.probes == 6 && runner.remuxes == 1 && runner.indices == 1);
         assert(fs::path(output).extension() == ".rec");
         mustFail([&] { inspectImport(f.request()); });
         ++checks;
