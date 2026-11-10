@@ -802,7 +802,10 @@
             "description": "Optional keyset sort. Legacy ID order is the default; native channel-number ordering uses separate ch2_ cursors and is not interchangeable with legacy ch1_ cursors.",
             "schema": {
               "type": "string",
-              "enum": ["backendId,channelId", "backendId,channelNumber,channelId"],
+              "enum": [
+                "backendId,channelId",
+                "backendId,channelNumber,channelId"
+              ],
               "default": "backendId,channelId"
             }
           },
@@ -1238,11 +1241,11 @@
           "SearchTimers"
         ],
         "operationId": "createSearchTimer",
-        "summary": "Create one backend SearchTimer from a paired Device",
-        "description": "A verified Device with independent searchtimers.create@backend grant may submit one confirmed, durable and idempotent SearchTimer CREATE, but only with explicitly inactive state (active=false). Missing active or active=true returns HTTP 422; Separate guarded mutations use /api/v1/search-timers/{searchTimerId}/mutations, with independent grants and native generation/revision CAS. Backend must be online and writable with live Agent generation. One-shot provider dispatch and exact native-ID readback; HTTP 202 is an Operation, never a promise of recording. An ambiguous result must not be automatically retried. The native RESTfulAPI mapping uses the search text as the rule name; name must equal query or HTTP 422.",
+        "summary": "Create an active or inactive epgsearch SearchTimer through Public API v1",
+        "description": "Browser sessions (with existing CSRF and searchtimers.create authorization) and verified paired Devices (with exact searchtimers.create@backend grant) share a single durable, idempotent backend CREATE operation. The complete supported epgsearch settings are frozen in a version-3 operation payload, sent by a single RESTfulAPI writer and checked against a complete native readback including native ID and requested fields. active=true may cause recordings immediately; an ambiguous outcome is never retried automatically. If margins are omitted, live VDR margins are used. name must equal query for lossless provider readback. HTTP 202 returns an Operation, not an independently verified success.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "verified Device and exact searchtimers.create@backend; no Browser/legacy fallback"
+          "authorization": "verified Device with exact searchtimers.create@backend OR authorized Browser session with CSRF and searchtimers.create; both use one Public-v1 operation"
         },
         "parameters": [
           {
@@ -1297,8 +1300,8 @@
                     "const": true
                   },
                   "active": {
-                    "const": false,
-                    "description": "Explicit inactive staging only. Activation requires a separate, confirmed /api/v1/search-timers/{searchTimerId}/mutations request, a strong native revision If-Match, the searchtimers.execute Device/backend grant, and compatible generation-fenced epgsearch CAS. An unpatched provider fails closed."
+                    "type": "boolean",
+                    "description": "true creates an immediately active epgsearch rule; false creates an inactive one. Caller must explicitly confirm recording effects."
                   },
                   "mode": {
                     "type": "integer",
@@ -1307,8 +1310,10 @@
                       1,
                       2,
                       3,
+                      4,
                       5
-                    ]
+                    ],
+                    "description": "epgsearch match mode including regex mode 4 and fuzzy mode 5"
                   },
                   "tolerance": {
                     "type": "integer",
@@ -1324,9 +1329,166 @@
                   },
                   "compareSummary": {
                     "type": "boolean"
+                  },
+                  "directory": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "priority": {
+                    "type": "integer"
+                  },
+                  "lifetime": {
+                    "type": "integer"
+                  },
+                  "marginStartMinutes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1440,
+                    "description": "Optional explicit override; omitted means the live VDR configuration is used at admission."
+                  },
+                  "marginStopMinutes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1440,
+                    "description": "Optional explicit override; omitted means the live VDR configuration is used at admission."
+                  },
+                  "useVps": {
+                    "type": "boolean"
+                  },
+                  "useChannel": {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1,
+                      2,
+                      3
+                    ]
+                  },
+                  "channels": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "channelMin": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "channelMax": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "useTime": {
+                    "type": "boolean"
+                  },
+                  "startTime": {
+                    "type": "integer",
+                    "description": "HHMM 24-hour integer; validated when useTime=true."
+                  },
+                  "stopTime": {
+                    "type": "integer",
+                    "description": "HHMM 24-hour integer; validated when useTime=true."
+                  },
+                  "useDuration": {
+                    "type": "boolean"
+                  },
+                  "durationMinMinutes": {
+                    "type": "integer"
+                  },
+                  "durationMaxMinutes": {
+                    "type": "integer"
+                  },
+                  "useDayOfWeek": {
+                    "type": "boolean"
+                  },
+                  "dayOfWeek": {
+                    "type": "integer"
+                  },
+                  "avoidRepeats": {
+                    "type": "boolean"
+                  },
+                  "allowedRepeats": {
+                    "type": "integer"
+                  },
+                  "repeatsWithinDays": {
+                    "type": "integer"
+                  },
+                  "compareCategories": {
+                    "type": "boolean"
+                  },
+                  "compareTime": {
+                    "type": "boolean"
+                  },
+                  "useSeriesRecording": {
+                    "type": "boolean"
+                  },
+                  "keepRecordings": {
+                    "type": "integer"
+                  },
+                  "deleteMode": {
+                    "type": "integer"
+                  },
+                  "searchTimerAction": {
+                    "type": "integer"
+                  },
+                  "blacklistMode": {
+                    "type": "integer"
+                  },
+                  "blacklistIds": {
+                    "type": "string",
+                    "maxLength": 4096,
+                    "description": "Provider-supported identifiers/settings as comma or semicolon separated list; persisted and compared canonically."
+                  },
+                  "matchCase": {
+                    "type": "boolean"
+                  },
+                  "summaryMatch": {
+                    "type": "integer"
+                  },
+                  "useExtendedEpgInfo": {
+                    "type": "boolean"
+                  },
+                  "extendedEpgInfo": {
+                    "type": "string",
+                    "maxLength": 4096,
+                    "description": "Provider-supported identifiers/settings as comma or semicolon separated list; persisted and compared canonically."
+                  },
+                  "ignoreMissingEpgCategories": {
+                    "type": "boolean"
+                  },
+                  "contentDescriptors": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "useInFavorites": {
+                    "type": "boolean"
+                  },
+                  "activeFrom": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "activeUntil": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "pauseOnRecordings": {
+                    "type": "boolean"
+                  },
+                  "switchMinutesBefore": {
+                    "type": "integer"
+                  },
+                  "unmuteSoundOnSwitch": {
+                    "type": "boolean"
+                  },
+                  "deleteRecordingsAfterDays": {
+                    "type": "integer"
+                  },
+                  "deleteAfterCountRecordings": {
+                    "type": "integer"
+                  },
+                  "deleteAfterDaysOfFirstRecording": {
+                    "type": "integer"
                   }
                 },
-                "description": "name must exactly equal query; independent labels do not round-trip through epgsearch RESTfulAPI."
+                "description": "Complete flat epgsearch provider option vocabulary; extra/duplicate keys, untyped values, and values that cannot be durably verified are rejected. name equals query. Only the server's backend scope identifies the destination."
               }
             }
           }
@@ -1370,10 +1532,10 @@
             "description": "Invalid query or idempotency key"
           },
           "401": {
-            "description": "Missing Device authentication"
+            "description": "Missing or invalid Browser-session / Device authentication"
           },
           "403": {
-            "description": "Device backend CREATE permission denied"
+            "description": "Missing searchtimers.create grant, CSRF or backend authorization"
           },
           "409": {
             "description": "Idempotency conflict"
