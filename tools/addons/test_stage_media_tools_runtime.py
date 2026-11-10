@@ -11,6 +11,7 @@ import stat
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 HERE = Path(__file__).resolve().parent
 SPEC = importlib.util.spec_from_file_location(
@@ -107,9 +108,16 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         output = Path(self.temp.name) / "packages"
         output.mkdir()
         before = (self.target / MODULE.INVENTORY_REL).read_bytes()
-        result = build_from_sealed_stage(
-            self.target, self.hash, str(output), "Media Tools Test <ci@example.org>",
-        )
+        # Check package contents using synthetic ample disk capacity;
+        # a separate test verifies the real reserve rejection path.
+        usage = shutil.disk_usage(output)
+        ample = usage._replace(total=16 * 1024**3,
+                               used=4 * 1024**3, free=12 * 1024**3)
+        with patch("build_media_tools_cpp_deb.shutil.disk_usage",
+                   return_value=ample):
+            result = build_from_sealed_stage(
+                self.target, self.hash, str(output), "Media Tools Test <ci@example.org>",
+            )
         assert "~stage1+git" + "1" * 12 in result.name
         description = subprocess.check_output(
             ["dpkg-deb", "--field", str(result)], text=True,
@@ -139,6 +147,24 @@ class MediaToolsSealedStageTests(unittest.TestCase):
                 self.target, self.hash, str(output),
                 "Media Tools Test <ci@example.org>",
             )
+
+    @unittest.skipUnless(shutil.which("dpkg-deb") and shutil.which("dpkg"),
+                         "Debian package tools unavailable")
+    def test_mt_i4_package_reserve_gate_is_preserved(self):
+        from addon_contract import ContractError
+        from build_media_tools_cpp_deb import build_from_sealed_stage
+        MODULE.compose(self.work, self.target, self.hash)
+        output = Path(self.temp.name) / "package-reserve-check"
+        output.mkdir()
+        usage = shutil.disk_usage(output)
+        depleted = usage._replace(free=0, used=usage.total)
+        with patch("build_media_tools_cpp_deb.shutil.disk_usage",
+                   return_value=depleted):
+            with self.assertRaisesRegex(ContractError, "RESOURCE_PREFLIGHT=FAIL"):
+                build_from_sealed_stage(
+                    self.target, self.hash, str(output), "Media Tools Test <ci@example.org>",
+                )
+        assert not list(output.iterdir())
 
     @unittest.skipUnless(shutil.which("dpkg-deb") and shutil.which("dpkg"),
                          "Debian package tools unavailable")
@@ -420,19 +446,33 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         lock.chmod(0o644)
         return previous, candidate, live
 
+    def synthetic_transaction(self, action, previous, candidate, live):
+        from media_tools_runtime_transaction import transaction, MARKER
+        # This test-only override accepts exactly the disposable fixture root.
+        # The production ban on root-driven synthetic transactions is intact.
+        assert live == Path(self.temp.name) / "isolated-live"
+        assert (live / MARKER).read_text() == "MT_I2_SYNTHETIC_ROOT\n"
+        if os.geteuid() == 0:
+            with patch("media_tools_runtime_transaction.synthetic_only",
+                       return_value=live):
+                return transaction(action, previous, candidate, live,
+                                   self.hash, self.hash)
+        return transaction(action, previous, candidate, live,
+                           self.hash, self.hash)
+
     def test_mt_i2_synthetic_update_and_explicit_rollback(self):
         from media_tools_runtime_transaction import transaction
         from install_runtime_stage import check
         previous, candidate, live = self.synthetic_update_fixture()
         changed = candidate / MODULE.SHARED_REL / "README.md"
         expected = changed.read_bytes()
-        result = transaction("update", previous, candidate, live,
-                             self.hash, self.hash)
+        result = self.synthetic_transaction(
+            "update", previous, candidate, live)
         assert result == "MEDIA_TOOLS_ISOLATED_UPDATE=PASS"
         assert (live / MODULE.SHARED_REL / "README.md").read_bytes() == expected
         check(candidate, live)
-        reverted = transaction("rollback", previous, candidate, live,
-                               self.hash, self.hash)
+        reverted = self.synthetic_transaction(
+            "rollback", previous, candidate, live)
         assert reverted == "MEDIA_TOOLS_ISOLATED_ROLLBACK=PASS"
         check(previous, live)
 
@@ -449,8 +489,8 @@ class MediaToolsSealedStageTests(unittest.TestCase):
                 raise RuntimeError("synthetic post-deploy failure")
         with patch("media_tools_runtime_transaction.deploy", side_effect=injected):
             with self.assertRaisesRegex(PreflightError, "AUTOMATIC_ROLLBACK=PASS"):
-                transaction("update", previous, candidate, live,
-                            self.hash, self.hash)
+                self.synthetic_transaction(
+                    "update", previous, candidate, live)
         assert attempts == [candidate, previous]
         check(previous, live)
 
@@ -468,8 +508,8 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         new_file.write_text("extra payload\n")
         seal(candidate)
         with self.assertRaisesRegex(PreflightError, "stage tree shape differs"):
-            transaction("update", previous, candidate, live,
-                        self.hash, self.hash)
+            self.synthetic_transaction(
+                "update", previous, candidate, live)
         check(previous, live)
 
     def test_mt_i2_synthetic_cli_update_denies_missing_consent(self):
@@ -504,12 +544,15 @@ class MediaToolsSealedStageTests(unittest.TestCase):
         from media_tools_runtime_transaction import (
             live_update, live_rollback, PreflightError,
         )
-        with self.assertRaisesRegex(PreflightError, "root invocation"):
-            live_update(Path("/"), Path("/"), self.hash, self.hash,
-                        Path("/root/never-constructed"))
-        with self.assertRaisesRegex(PreflightError, "root invocation"):
-            live_rollback(Path("/root/never-constructed"),
-                          self.hash, self.hash)
+        # Simulate an unprivileged caller from either test runner identity.
+        with patch("media_tools_runtime_transaction.os.geteuid",
+                   return_value=1000):
+            with self.assertRaisesRegex(PreflightError, "root invocation"):
+                live_update(Path("/"), Path("/"), self.hash, self.hash,
+                            Path("/root/never-constructed"))
+            with self.assertRaisesRegex(PreflightError, "root invocation"):
+                live_rollback(Path("/root/never-constructed"),
+                              self.hash, self.hash)
 
     def test_mt_i2_live_maintenance_rejects_running_services(self):
         from media_tools_runtime_transaction import (
