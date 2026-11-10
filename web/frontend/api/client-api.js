@@ -711,7 +711,9 @@
     );
   }
 
-  // Public-v1 staged CREATE: separate from the locked legacy mutation path.
+  // Both Browser and Device clients use the same Public-v1 domain CREATE.
+  // Browser cookie/CSRF is handled by queryMutationOptions; operation
+  // identity and idempotency are owned by the Public-v1 backend.
   function fetchClientSearchTimerCreateStaged(options) {
     const normalized = normalizeOptions(options);
     return requestJson(
@@ -727,10 +729,18 @@
   }
 
   function fetchClientSearchTimerCreateAction(options) {
-    return requestJson(
-      '/api/vdr/searchtimers',
-      jsonPostOptions(options)
-    );
+    return fetchClientSearchTimerCreateStaged(options);
+  }
+
+  function fetchClientSearchTimerOperation(options) {
+    const normalized = normalizeOptions(options);
+    const id = String(normalized.operationId || '');
+    if (!/^op_[0-9a-f]{32}$/.test(id)) {
+      return Promise.reject(new Error('Ungültige Suchtimer-Vorgangs-ID.'));
+    }
+    return requestJson('/api/v1/operations/' + encodeURIComponent(id), {
+      cache: 'no-store', credentials: 'same-origin'
+    });
   }
 
   function fetchClientSearchTimerUpdateAction(options) {
@@ -808,6 +818,7 @@
     fetchClientSearchTimerRealTest: fetchClientSearchTimerRealTest,
     fetchClientSearchTimerCreateAction: fetchClientSearchTimerCreateAction,
     fetchClientSearchTimerCreateStaged: fetchClientSearchTimerCreateStaged,
+    fetchClientSearchTimerOperation: fetchClientSearchTimerOperation,
     fetchClientSearchTimerUpdateAction: fetchClientSearchTimerUpdateAction,
     fetchClientSearchTimerDeleteAction: fetchClientSearchTimerDeleteAction
   });
