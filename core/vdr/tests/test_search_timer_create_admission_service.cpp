@@ -45,6 +45,25 @@ void assertPayloadCodec()
     assert(decoded.matchMode == 1);
     assert(decoded.compareTitle && decoded.compareSummary);
     assert(decoded.marginStartMinutes == 2 && decoded.marginStopMinutes == 10);
+    p.priority = 50;
+    p.useChannel = 2;
+    p.channels = "ARD";
+    p.useTime = true;
+    p.startTime = 930;
+    p.stopTime = 1130;
+    p.avoidRepeats = true;
+    p.blacklistIds = "4,5";
+    p.extendedEpgInfo = "genre=movie";
+    const std::string full = serializeSearchTimerCreateOperationPayload(p);
+    assert(parseSearchTimerCreateOperationPayload(full, decoded));
+    assert(decoded.priority == 50 && decoded.channels == "ARD");
+    assert(decoded.startTime == 930 && decoded.avoidRepeats);
+    assert(decoded.blacklistIds == "4,5" &&
+        decoded.extendedEpgInfo == "genre=movie");
+    auto changed = p;
+    changed.priority = 49;
+    assert(searchTimerCreateOperationPayloadFingerprint(changed) !=
+        searchTimerCreateOperationPayloadFingerprint(p));
     const std::string fingerprint =
         searchTimerCreateOperationPayloadFingerprint(p);
     assert(fingerprint.size() == 71U);
@@ -66,8 +85,8 @@ void assertPayloadCodec()
     p.marginStartMinutes = -1;
     assert(!searchTimerCreateOperationPayloadValid(p));
     p.marginStartMinutes = 2;
-    p.matchMode = 4; // Regexp explicitly not in Public v1 draft contract.
-    assert(!searchTimerCreateOperationPayloadValid(p));
+    p.matchMode = 4; // Existing epgsearch provider supports regex.
+    assert(searchTimerCreateOperationPayloadValid(p));
     p.matchMode = 5;
     p.matchTolerance = 3;
     assert(searchTimerCreateOperationPayloadValid(p));
@@ -105,7 +124,7 @@ void assertDurableAdmissionAndReplay()
         store.findPayloadByOperationId(first.operation.operationId);
     assert(stored.status == MutationOperationRepositoryStatus::ok);
     assert(stored.payload.payloadType == "searchtimer.create");
-    assert(stored.payload.payloadVersion == 2U);
+    assert(stored.payload.payloadVersion == 3U);
     assert(stored.payload.payloadFingerprint ==
         first.operation.requestFingerprint);
 
