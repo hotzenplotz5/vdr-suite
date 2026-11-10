@@ -1069,6 +1069,193 @@
       });
     }
 
+    // Full provider vocabulary, shared by Samsung/VIDAA/Browser consumers.
+    // There is only one native CREATE route: POST /api/v1/search-timers.
+    function requestSearchTimerCreate(options) {
+      const o = options && typeof options === 'object' ? options : {};
+      const allowed = new Set([
+        'name',
+        'query',
+        'active',
+        'directory',
+        'priority',
+        'lifetime',
+        'marginStartMinutes',
+        'marginStopMinutes',
+        'useVps',
+        'useChannel',
+        'channels',
+        'channelMin',
+        'channelMax',
+        'useTime',
+        'startTime',
+        'stopTime',
+        'useDuration',
+        'durationMinMinutes',
+        'durationMaxMinutes',
+        'useDayOfWeek',
+        'dayOfWeek',
+        'avoidRepeats',
+        'allowedRepeats',
+        'repeatsWithinDays',
+        'compareTitle',
+        'compareSubtitle',
+        'compareSummary',
+        'compareCategories',
+        'compareTime',
+        'useSeriesRecording',
+        'keepRecordings',
+        'deleteMode',
+        'searchTimerAction',
+        'blacklistMode',
+        'blacklistIds',
+        'matchCase',
+        'summaryMatch',
+        'useExtendedEpgInfo',
+        'extendedEpgInfo',
+        'ignoreMissingEpgCategories',
+        'contentDescriptors',
+        'useInFavorites',
+        'activeFrom',
+        'activeUntil',
+        'pauseOnRecordings',
+        'switchMinutesBefore',
+        'unmuteSoundOnSwitch',
+        'deleteRecordingsAfterDays',
+        'deleteAfterCountRecordings',
+        'deleteAfterDaysOfFirstRecording',
+        'mode',
+        'tolerance',
+        'confirmed',
+        'backendId',
+        'idempotencyKey',
+        'headers',
+        'credentials',
+        'signal'
+      ]);
+      Object.keys(o).forEach(function (key) {
+        if (!allowed.has(key)) throw new Error('unsupported SearchTimer field: ' + key);
+      });
+      if (typeof o.backendId !== 'string' ||
+          !/^[A-Za-z0-9._-]{1,128}$/.test(o.backendId) ||
+          typeof o.name !== 'string' || o.name !== o.query ||
+          o.name.length < 2 || o.name.length > 240 ||
+          typeof o.active !== 'boolean' || o.confirmed !== true ||
+          !Number.isInteger(o.mode) || o.mode < 0 || o.mode > 5 ||
+          typeof o.compareTitle !== 'boolean' ||
+          typeof o.compareSubtitle !== 'boolean' ||
+          typeof o.compareSummary !== 'boolean' ||
+          !(o.compareTitle || o.compareSubtitle || o.compareSummary) ||
+          typeof o.idempotencyKey !== 'string' ||
+          !/^[A-Za-z0-9._:-]{1,160}$/.test(o.idempotencyKey))
+        throw new Error('SearchTimer CREATE requires validated scope, settings, confirmation and idempotency key');
+      const tolerance = o.tolerance === undefined ? 0 : o.tolerance;
+      if (!Number.isInteger(tolerance) || tolerance < 0 ||
+          tolerance > 3 || (o.mode !== 5 && tolerance !== 0))
+        throw new Error('invalid SearchTimer tolerance');
+      const payload = {name:o.name,query:o.query,active:o.active,
+        confirmed:true,mode:o.mode,tolerance:tolerance,
+        compareTitle:o.compareTitle,compareSubtitle:o.compareSubtitle,
+        compareSummary:o.compareSummary};
+      const optional = [
+        'directory',
+        'priority',
+        'lifetime',
+        'marginStartMinutes',
+        'marginStopMinutes',
+        'useVps',
+        'useChannel',
+        'channels',
+        'channelMin',
+        'channelMax',
+        'useTime',
+        'startTime',
+        'stopTime',
+        'useDuration',
+        'durationMinMinutes',
+        'durationMaxMinutes',
+        'useDayOfWeek',
+        'dayOfWeek',
+        'avoidRepeats',
+        'allowedRepeats',
+        'repeatsWithinDays',
+        'compareCategories',
+        'compareTime',
+        'useSeriesRecording',
+        'keepRecordings',
+        'deleteMode',
+        'searchTimerAction',
+        'blacklistMode',
+        'blacklistIds',
+        'matchCase',
+        'summaryMatch',
+        'useExtendedEpgInfo',
+        'extendedEpgInfo',
+        'ignoreMissingEpgCategories',
+        'contentDescriptors',
+        'useInFavorites',
+        'activeFrom',
+        'activeUntil',
+        'pauseOnRecordings',
+        'switchMinutesBefore',
+        'unmuteSoundOnSwitch',
+        'deleteRecordingsAfterDays',
+        'deleteAfterCountRecordings',
+        'deleteAfterDaysOfFirstRecording'
+      ];
+      optional.forEach(function (key) {
+        if (o[key] !== undefined) payload[key] = o[key];
+      });
+      const strings = new Set(['name','query','directory','channels','channelMin','channelMax','blacklistIds','extendedEpgInfo','contentDescriptors','activeFrom','activeUntil']);
+      const booleans = new Set(['active','useVps','useTime','useDuration','useDayOfWeek','avoidRepeats','compareTitle','compareSubtitle','compareSummary','compareCategories','compareTime','useSeriesRecording','matchCase','useExtendedEpgInfo','ignoreMissingEpgCategories','useInFavorites','pauseOnRecordings','unmuteSoundOnSwitch','confirmed']);
+      const integers = new Set(['priority','lifetime','marginStartMinutes','marginStopMinutes','useChannel','startTime','stopTime','durationMinMinutes','durationMaxMinutes','dayOfWeek','allowedRepeats','repeatsWithinDays','keepRecordings','deleteMode','searchTimerAction','blacklistMode','summaryMatch','switchMinutesBefore','deleteRecordingsAfterDays','deleteAfterCountRecordings','deleteAfterDaysOfFirstRecording','mode','tolerance']);
+      Object.keys(payload).forEach(function (key) {
+        const value = payload[key];
+        if (strings.has(key) &&
+            (typeof value !== 'string' || value.length > (key === 'name' ||
+                key === 'query' ? 240 : 4096)))
+          throw new Error('invalid SearchTimer text option: ' + key);
+        if (booleans.has(key) && typeof value !== 'boolean')
+          throw new Error('invalid SearchTimer boolean option: ' + key);
+        if (integers.has(key) && (!Number.isInteger(value) ||
+            value < -2147483648 || value > 2147483647))
+          throw new Error('invalid SearchTimer integer option: ' + key);
+      });
+      if (payload.useChannel !== undefined &&
+          ![0,1,2,3].includes(payload.useChannel))
+        throw new Error('invalid SearchTimer channel filter');
+      if (payload.useTime === true &&
+          ['startTime','stopTime'].some(function (key) {
+            const t = payload[key];
+            return !Number.isInteger(t) || t < 0 || t > 2359 || t % 100 >= 60;
+          }))
+        throw new Error('invalid SearchTimer HHMM time range');
+      const path = '/api/v1/search-timers?backend=' +
+        encodeURIComponent(o.backendId);
+      const headers = Object.assign({Accept:'application/json'},
+        defaultHeaders,copyHeaders(o.headers));
+      if (headers['If-Match'] !== undefined ||
+          headers['if-match'] !== undefined)
+        throw new Error('SearchTimer CREATE cannot have If-Match');
+      headers['Content-Type'] = 'application/json';
+      headers['Idempotency-Key'] = o.idempotencyKey;
+      return fetchImpl(buildUrl(baseUrl,path), {
+        method:'POST',headers,
+        credentials:o.credentials !== undefined ? o.credentials :
+          normalized.credentials,
+        signal:o.signal,
+        body:JSON.stringify(payload)
+      }).then(function (response) {
+        const location = headerValue(response,'Location');
+        return parseJsonBody(response).then(function (data) {
+          if (!response.ok)
+            throw new VdrSuitePublicClientError(path,response.status,data,response);
+          return {status:response.status,location,data};
+        });
+      });
+    }
+
+    // Backward-compatible convenience wrapper; no separate writer or route.
     function requestInactiveSearchTimerCreate(options) {
       const o = options && typeof options === 'object' ? options : {};
       const allowed = new Set(['backendId','name','query','active','mode',
@@ -1076,51 +1263,15 @@
         'idempotencyKey','previewAcknowledged','confirmed','headers',
         'credentials','signal']);
       Object.keys(o).forEach(function (key) {
-        if (!allowed.has(key)) throw new Error('unsupported SearchTimer staging field: ' + key);
+        if (!allowed.has(key))
+          throw new Error('unsupported SearchTimer staging field: ' + key);
       });
-      if (typeof o.backendId !== 'string' ||
-          !/^[A-Za-z0-9._-]{1,128}$/.test(o.backendId) ||
-          typeof o.query !== 'string' || o.query.length < 2 ||
-          o.query.length > 240 || o.name !== o.query ||
-          o.active !== false || o.confirmed !== true ||
-          o.previewAcknowledged !== true ||
-          ![0,1,2,3,5].includes(o.mode) ||
-          typeof o.compareTitle !== 'boolean' ||
-          typeof o.compareSubtitle !== 'boolean' ||
-          typeof o.compareSummary !== 'boolean' ||
-          !(o.compareTitle || o.compareSubtitle || o.compareSummary) ||
-          typeof o.idempotencyKey !== 'string' ||
-          !/^[A-Za-z0-9._:-]{1,160}$/.test(o.idempotencyKey))
-        throw new Error('SearchTimer staging requires explicit inactive state, EPG preview acknowledgement and confirmation');
-      const tolerance = o.tolerance === undefined ? 0 : o.tolerance;
-      if (!Number.isInteger(tolerance) || tolerance < 0 ||
-          tolerance > 3 || (o.mode !== 5 && tolerance !== 0))
-        throw new Error('invalid SearchTimer staging tolerance');
-      const path = '/api/v1/search-timers?backend=' + encodeURIComponent(o.backendId);
-      const headers = Object.assign({Accept:'application/json'}, defaultHeaders,
-        copyHeaders(o.headers));
-      if (headers['If-Match'] !== undefined || headers['if-match'] !== undefined)
-        throw new Error('SearchTimer CREATE cannot have If-Match');
-      headers['Content-Type'] = 'application/json';
-      headers['Idempotency-Key'] = o.idempotencyKey;
-      const payload = {
-        name:o.name,query:o.query,active:false,confirmed:true,
-        mode:o.mode,tolerance:tolerance,
-        compareTitle:o.compareTitle,compareSubtitle:o.compareSubtitle,
-        compareSummary:o.compareSummary
-      };
-      return fetchImpl(buildUrl(baseUrl,path), {
-        method:'POST', headers,
-        credentials:o.credentials !== undefined ? o.credentials : normalized.credentials,
-        signal:o.signal,
-        body:JSON.stringify(payload)
-      }).then(function (response) {
-        const location = headerValue(response,'Location');
-        return parseJsonBody(response).then(function (data) {
-          if (!response.ok) throw new VdrSuitePublicClientError(path,response.status,data,response);
-          return {status:response.status,location,data};
-        });
-      });
+      if (o.active !== false || o.previewAcknowledged !== true ||
+          o.confirmed !== true || ![0,1,2,3,5].includes(o.mode))
+        throw new Error('Legacy staging wrapper requires inactive, preview acknowledgement and confirmation');
+      const staged = Object.assign({},o);
+      delete staged.previewAcknowledged;
+      return requestSearchTimerCreate(staged);
     }
 
     function requestRevisioned(path, options) {
@@ -1831,6 +1982,9 @@
       },
       createInactiveSearchTimer(options) {
         return requestInactiveSearchTimerCreate(options);
+      },
+      createSearchTimer(options) {
+        return requestSearchTimerCreate(options);
       },
       getSearchTimerVersion(options) {
         const o = options && typeof options === 'object' ? options : {};
