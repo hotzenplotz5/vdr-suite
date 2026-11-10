@@ -3105,8 +3105,9 @@ bool parseSearchTimerJsonInteger(
     while (offset < text.size() &&
            text[offset] >= '0' && text[offset] <= '9')
     {
-        number = number * 10 + (text[offset] - '0');
-        if (number > 2147483648LL) return false;
+        const auto digit = static_cast<std::int64_t>(text[offset] - '0');
+        if (number > (2147483648LL - digit) / 10LL) return false;
+        number = number * 10LL + digit;
         ++offset;
     }
     if (offset == digits || (negative && offset == begin + 1U))
