@@ -187,6 +187,14 @@ public:
             searchTimerPreviewEpgCache);
     }
 
+    // Optional, read-only first-run progress for the existing backend health
+    // response. Disabled by default: no new endpoint, mutation or permissions.
+    using LocalBackendSetupStatusLookup = std::function<std::string()>;
+    void setLocalBackendSetupStatusLookup(LocalBackendSetupStatusLookup lookup)
+    {
+        localBackendSetupStatusLookup_ = std::move(lookup);
+    }
+
     void setRecordingMediaSessionHandler(
         RecordingMediaSessionHandler handler)
     {
@@ -676,6 +684,7 @@ private:
     EpgSearchNativeFuzzyOperatorRefreshController* nativeFuzzyOperatorRefreshController_;
     VdrChannelMoveController* vdrChannelMoveController_;
     VdrRecordingFolderController* vdrRecordingFolderController_;
+    LocalBackendSetupStatusLookup localBackendSetupStatusLookup_;
     RecordingMediaSessionHandler recordingMediaSessionHandler_;
     DeviceRecordingPlaybackHandler deviceRecordingPlaybackHandler_;
     DeviceRecordingPlaybackHandler deviceLivePlaybackHandler_;

@@ -848,6 +848,24 @@ int main()
     assert(backendHealthResponse.body.find("\"channelCount\":1")
            != std::string::npos);
 
+    // MLD.F2.4: read-only setup status uses existing backend-health
+    // response. Without opt-in, established installs receive no new field.
+    assert(backendHealthResponse.body.find("localBackendSetup")
+           == std::string::npos);
+    router.setLocalBackendSetupStatusLookup([] { return "unregistered"; });
+    const auto onboardingPending =
+        router.handleGet("/api/backends/default/health");
+    assert(onboardingPending.body.find(
+        "\"localBackendSetup\":{\"status\":\"unregistered\"}") != std::string::npos);
+    router.setLocalBackendSetupStatusLookup([] { return "ready"; });
+    const auto onboardingReady =
+        router.handleGet("/api/backends/default/health");
+    assert(onboardingReady.body.find(
+        "\"localBackendSetup\":{\"status\":\"ready\"}") != std::string::npos);
+    const auto unrelatedBackend =
+        router.handleGet("/api/backends/ferienhaus/health");
+    assert(unrelatedBackend.body.find("localBackendSetup") == std::string::npos);
+
     ApiResponse backendSnapshotResponse =
         router.handleGet("/api/backends/default/snapshot");
 

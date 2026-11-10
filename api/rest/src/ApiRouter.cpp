@@ -1199,7 +1199,23 @@ ApiResponse ApiRouter::handleGet(
 
         if (backendEndpoint == "health")
         {
-            return vdrController_.getHealthForBackend(backendId);
+            ApiResponse response = vdrController_.getHealthForBackend(backendId);
+            // Reuse the already authenticated backend-health GET. The optional
+            // setup status is daemon-derived, never supplied by the browser.
+            if (backendId == "default" && localBackendSetupStatusLookup_ &&
+                response.statusCode == 200 && !response.body.empty() &&
+                response.body.back() == '}')
+            {
+                const std::string status = localBackendSetupStatusLookup_();
+                if (!status.empty())
+                {
+                    response.body.pop_back();
+                    response.body += ",\"localBackendSetup\":{\"status\":\""
+                        + status + "\"}}";
+                    response.headers["Cache-Control"] = "no-store";
+                }
+            }
+            return response;
         }
 
         if (backendEndpoint == "snapshot")
