@@ -523,6 +523,66 @@ class AutostartTests(unittest.TestCase):
             with self.assertRaises(subject.NotReady):
                 subject.channel_observation_source(config)
 
+    def test_fresh_local_providers_seeded_once_and_repeat_safe(self):
+        current = {"--live-provider-ownership-status": False,
+                   "--timer-provider-ownership-status": False}
+        writes = []
+
+        def execute(argv):
+            self.assertEqual(argv[:5], [
+                subject.COMMAND_ADMIN_BIN, "--database", subject.DATABASE,
+                "--backend", "default"])
+            action = argv[-1]
+            if action in current:
+                return json.dumps({"present": current[action],
+                                   "active": current[action]})
+            writes.append(action)
+            if action == "--set-live-owner":
+                current["--live-provider-ownership-status"] = True
+            elif action == "--set-timer-create-owner":
+                current["--timer-provider-ownership-status"] = True
+            else:
+                self.fail("unexpected provider owner command")
+            return '{"accepted":true}'
+
+        with patch.object(subject, "command", side_effect=execute):
+            subject.initialize_fresh_local_provider_ownership("default")
+            subject.initialize_fresh_local_provider_ownership("default")
+        self.assertEqual(writes, ["--set-live-owner", "--set-timer-create-owner"])
+
+    def test_fresh_local_providers_preserve_inactive_and_custom(self):
+        calls = []
+
+        def execute(argv):
+            calls.append(argv[-1])
+            if argv[-1] == "--live-provider-ownership-status":
+                return '{"present":true,"active":false,"providerId":"custom"}'
+            if argv[-1] == "--timer-provider-ownership-status":
+                return '{"present":true,"active":true,"providerId":"custom"}'
+            self.fail("existing owner must never be overwritten")
+
+        with patch.object(subject, "command", side_effect=execute):
+            subject.initialize_fresh_local_provider_ownership("default")
+        self.assertEqual(calls, ["--live-provider-ownership-status",
+                                 "--timer-provider-ownership-status"])
+
+    def test_fresh_local_provider_rejects_invalid_status(self):
+        with patch.object(subject, "command",
+                          return_value='{"present":"false"}') as execute:
+            with self.assertRaises(subject.NotReady):
+                subject.initialize_fresh_local_provider_ownership("default")
+        self.assertEqual(execute.call_count, 1)
+
+    def test_fresh_local_provider_requires_accepted_write(self):
+        def execute(argv):
+            if argv[-1] == "--live-provider-ownership-status":
+                return '{"present":false,"active":false}'
+            return '{"accepted":false}'
+        with patch.object(subject, "command", side_effect=execute) as calls:
+            with self.assertRaises(subject.NotReady):
+                subject.initialize_fresh_local_provider_ownership("default")
+        self.assertEqual(calls.call_count, 2)
+
     def test_installer_onboard_prepares_once_then_activates(self):
         with (
             patch.object(subject.os, "geteuid", return_value=0),
@@ -531,6 +591,7 @@ class AutostartTests(unittest.TestCase):
             patch.object(subject, "read_config", return_value="default"),
             patch.object(subject, "channel_observation_source") as channels,
             patch.object(subject, "prepare_local_enrollment") as prepare,
+            patch.object(subject, "initialize_fresh_local_provider_ownership") as owners,
             patch.object(subject, "activate_local_agent",
                          return_value="READY") as activate,
             patch("sys.argv", ["helper", "--installer-onboard"]),
@@ -540,6 +601,7 @@ class AutostartTests(unittest.TestCase):
             self.assertIn("LOCAL_BACKEND_SETUP=READY", output.getvalue())
             channels.assert_called_once()
             prepare.assert_called_once()
+            owners.assert_called_once_with("default")
             activate.assert_called_once()
 
     def test_installer_onboard_pending_never_registers_twice(self):
@@ -550,11 +612,13 @@ class AutostartTests(unittest.TestCase):
             patch.object(subject, "read_config", return_value="default"),
             patch.object(subject, "channel_observation_source"),
             patch.object(subject, "prepare_local_enrollment") as prepare,
+            patch.object(subject, "initialize_fresh_local_provider_ownership") as owners,
             patch.object(subject, "activate_local_agent",
                          return_value="READY") as activate,
         ):
             self.assertEqual(subject.installer_onboard_local(), "READY")
             prepare.assert_not_called()
+            owners.assert_called_once_with("default")
             activate.assert_called_once()
 
     def test_installer_onboard_existing_identity_is_readback_only(self):
