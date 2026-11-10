@@ -1,10 +1,39 @@
 # MLD 6.6: First-run package integration (MLD.F2.5/F2.6)
 
-Branch: `work/mld66-skippy-feedback-20261027`.
-This is an **MLD recipe integration contract**, not an MLD package install
-or a verified skippy runtime result. The MLD BitBake recipe is **not stored
+Canonical source: **`main`** (MLD integration consolidated 10 November 2026).
+The former `work/mld66-skippy-feedback-20261027` branch is retained as
+historical test evidence, not a package source. The proven libcurl proxy
+and Basic-auth fixes, repeat-safe first-run, shared staging, and direct LAN
+HTTP media-cookie fix are now on `main`. Skippy reported working Live-TV
+(direct and MLD-embedded) and recording playback, while Pit confirmed
+Agent synchronization and functioning timer creation/deletion on their
+previously assembled test builds. An MLD package built from the new
+consolidated `main` has **not** yet been hardware-tested. This remains
+an **MLD recipe integration contract**. The MLD BitBake recipe is **not stored
 in this repository**; it must explicitly adopt these source-level hooks.
 The MLD recipe remains an adapter to the [shared distribution first-run staging contract](../../docs/planning/distribution-first-run-setup.md). Debian/Ubuntu/yaVDR already include the common units and first-install package hooks. Their first-boot runtime behavior, like MLD's, still needs real system verification.
+
+## Consolidated main acceptance (10 November 2026)
+
+The owning MLD BitBake recipe must point to the tested `main` revision,
+not the old work branch. Its package must contain the shared first-run
+service/path, the `vdr-suite-backend-agent-autostart` helper, and the
+MLD `vdr:vdr` Agent account. Keep the MLD VDR service itself unchanged.
+
+Focused source tests (run without waiting for CI):
+
+```sh
+make test-mld-agent-first-run test-systemd-unit-contract
+make test-backend-agent-client
+node web/frontend/tests/test_searchtimer_workflows_runtime.js
+```
+
+Do not mistake successful Agent enrollment for complete interactive
+functionality. Fresh MLD installations still need validated automatic
+`vdr.live` and `vdr.timer` provider ownership and a measured media
+transcode performance profile for encoder mode `auto`. Browser SearchTimer
+creation in `main` remains staged/inactive; direct editing/activation needs
+a separate authorized feature completion, not replacement by legacy UI.
 
 ## F2.6 MLD root-VDR versus Agent service account (05 November 2026)
 

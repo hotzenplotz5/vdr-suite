@@ -5,10 +5,11 @@ vdr-suite-backend-agent-autostart \- enable an already enrolled Backend Agent at
 .B vdr-suite-backend-agent-autostart
 .RB ( --check | --enable | --setup-status | --prepare-enrollment | --activate-local | --installer-onboard | --auto-first-run )
 .SH DESCRIPTION
-A protected post-enrollment setup step. The experimental package installs
-this command but deliberately does not invoke it in
-.BR postinst .
-A fresh, unenrolled Agent is not auto-enabled or started by package installation.
+A shared package-owned enrollment, readiness and boot setup helper.
+The local first-run systemd one-shot invokes
+.B --auto-first-run
+when the packaged daemon starts. Existing identity files are never replaced,
+and installation upgrades do not silently re-enroll an Agent.
 .PP
 .B --setup-status
 reports whether the local VDR and daemon are running and whether the
@@ -26,7 +27,7 @@ validates the current installed systemd service, non-secret configuration,
 protected local identity and the existing Backend Agent administration status.
 It requires an active
 .B vdr:vdr
-service, trusted HTTPS Control Plane, consumed enrollment package, current
+service, trusted HTTPS Control Plane or the exact packaged local loopback HTTP origin, consumed enrollment package, current
 authenticated online lease and recent Backend health observation.
 The verification uses the existing local
 .B vdr-suite-backend-agent-admin --status
@@ -43,7 +44,7 @@ single local VDR. It uses the configured Backend ID and existing
 .B vdr-suite-backend-agent-enroll
 utility to create one protected enrollment package in the pre-existing
 Agent state directory, then grants the packaged Agent account access to
-that package. It requires a configured trusted HTTPS Control Plane, the
+that package. It requires a configured trusted HTTPS Control Plane or the exact packaged local loopback HTTP origin, the
 existing local Control Plane database, an inactive Agent and no existing
 identity or enrollment. It never starts services, overwrites an
 identity, issues a second enrollment during retry, or prints the token.
@@ -63,10 +64,9 @@ nonempty channel facts. Only then does it enable boot startup, reusing
 the existing post-enrollment activation checks. It does not restart VDR
 or the daemon, replace identities or attempt a second enrollment.
 .PP
-This command is not an interactive end-user setup path, and does not
-discover or rewrite the MLD-specific channel file location. That
-distribution configuration and the browser/installer trigger remain
-separate unfinished work.
+This command is not an interactive end-user setup path. The reviewed
+automatic first-run resolves a fresh packaged local VDR channel source,
+including MLD symlinks, without changing any existing Agent identity.
 .PP
 .B --auto-first-run
 is the shared distribution-neutral systemd activation entrypoint.
@@ -83,7 +83,7 @@ No browser request gains privileged service access.
 .B --installer-onboard
 combines the already implemented local first-run actions for the trusted
 distribution installer. It requires the existing packaged local service,
-a configured real HTTPS Control Plane, the observed VDR channel source,
+a configured protected Control Plane, the observed VDR channel source,
 and the running VDR and daemon. On fresh state it prepares one enrollment
 and activates the Agent. With an existing pending enrollment it resumes
 activation without issuing another token. With an existing protected identity it checks the reviewed package
@@ -91,10 +91,9 @@ unit and non-secret identity fields, resumes an inactive Agent only after
 these match, and requires authenticated Backend and Channel readback
 without re-enrollment before enabling boot startup. Unknown units
 and mismatched identities are never started.
-The package or first-boot integration for each supported distribution
-must invoke this entrypoint once its local configuration is ready.
-MLD staging has been implemented, but Ubuntu/yaVDR and other automatic
-first-run triggers are still missing. The frontend never runs it.
+The shared first-run systemd one-shot is included in the distribution
+runtime package. Actual distribution packaging must preserve its service
+and path units. The frontend never invokes this privileged command.
 .PP
 .B --enable
 requires root and the same successful preflight immediately before enabling
@@ -106,11 +105,10 @@ and never starts, stops or restarts VDR, the Agent or the daemon.
 It does not enroll a new identity, rotate or revoke credentials, alter
 existing Timers or replay historical Agent commands.
 .PP
-The current Ubuntu/yaVDR package does not yet invoke this enrollment
-entrypoint. This is an unfinished distribution-integration task rather
-than an intended product restriction. A trusted first-run integration on
-every supported distribution should invoke it automatically without
-asking the browser or operator to run root commands.
+The Ubuntu/yaVDR package provides the same first-run systemd units and
+first-install hooks. MLD packages must include the helper, reviewed Agent
+unit and first-run units via their own recipe. No browser or operator
+root command is needed for a ready packaged single-host installation.
 On systems with custom systemd unit drop-ins, unexpected binary locations,
 masked units or unverified state, perform a separate operator review instead
 of bypassing the safety checks.
