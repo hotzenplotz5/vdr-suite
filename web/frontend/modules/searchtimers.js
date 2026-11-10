@@ -913,7 +913,7 @@
     grid.appendChild(check('compareSubtitle', 'Untertitel durchsuchen', source.compareSubtitle));
     grid.appendChild(check('compareSummary', 'Beschreibung durchsuchen', source.compareSummary));
     grid.appendChild(field('Suchmodus', select('mode',
-      [0, 1, 2, 3, 5].includes(source.mode) ? source.mode : 0,
+      [0, 1, 2, 3, 4, 5].includes(source.mode) ? source.mode : 0,
       [[0, 'Phrase'], [1, 'Alle Wörter'], [2, 'Ein Wort'],
        [3, 'Exakt'], [5, 'Unscharf']])));
     grid.appendChild(field('Toleranz (nur Unscharf)', input('tolerance',

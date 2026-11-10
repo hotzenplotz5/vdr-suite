@@ -112,6 +112,39 @@ async function run() {
     tolerance:0,compareTitle:true,compareSubtitle:false,compareSummary:false
   });
   assert.equal(staged.data.operationId,'op_'+'1'.repeat(32));
+  // Full Public-v1 CREATE is usable by every Device client, including
+  // active epgsearch rules and advanced provider options.
+  const advanced = Object.assign({}, sample, {
+    active:true,mode:4,priority:50,useChannel:2,channels:'Öffentlich',
+    useTime:true,startTime:930,stopTime:1130,
+    avoidRepeats:true,allowedRepeats:2,blacklistIds:'4,5',
+    useExtendedEpgInfo:true,extendedEpgInfo:'genre=movie',
+    marginStartMinutes:0
+  });
+  delete advanced.previewAcknowledged;
+  const full = await client.createSearchTimer(advanced);
+  assert.equal(full.status,202);
+  const fullWrite = calls.at(-1);
+  assert.equal(fullWrite.url,
+    'https://suite.example/api/v1/search-timers?backend=home');
+  const body = JSON.parse(fullWrite.options.body);
+  assert.equal(body.active,true);
+  assert.equal(body.mode,4);
+  assert.equal(body.priority,50);
+  assert.equal(body.useChannel,2);
+  assert.equal(body.channels,'Öffentlich');
+  assert.equal(body.startTime,930);
+  assert.equal(body.avoidRepeats,true);
+  assert.equal(body.blacklistIds,'4,5');
+  assert.equal(body.extendedEpgInfo,'genre=movie');
+  assert.equal(body.marginStartMinutes,0);
+  const beforeInvalid = calls.length;
+  for (const delta of [
+    {useChannel:4}, {startTime:2360}, {priority:'50'},
+    {confirmed:false}, {active:undefined}, {unknownOption:'unsafe'}
+  ]) assert.throws(()=>client.createSearchTimer(
+    Object.assign({},advanced,delta)));
+  assert.equal(calls.length,beforeInvalid);
   status=503;
   const beforeError = calls.length;
   await assert.rejects(client.getSearchTimers({query:{backendId:'home'}}),
