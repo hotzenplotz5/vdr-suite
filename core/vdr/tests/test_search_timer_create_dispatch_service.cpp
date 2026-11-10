@@ -36,6 +36,18 @@ SearchTimerCreateAdmissionRequest input()
     item.payload.compareSummary = true;
     item.payload.marginStartMinutes = 2;
     item.payload.marginStopMinutes = 10;
+    item.payload.useChannel = 2;
+    item.payload.channels = "ARD";
+    item.payload.useTime = true;
+    item.payload.startTime = 930;
+    item.payload.stopTime = 1130;
+    item.payload.priority = 50;
+    item.payload.avoidRepeats = true;
+    item.payload.allowedRepeats = 2;
+    item.payload.useSeriesRecording = true;
+    item.payload.blacklistIds = "4,5";
+    item.payload.useExtendedEpgInfo = true;
+    item.payload.extendedEpgInfo = "genre=movie";
     return item;
 }
 
@@ -46,13 +58,55 @@ SearchTimer createdTimer(const SearchTimerCreateRequest& request,
         SearchTimerId::fromBackendNativeId(request.backendId, nativeId),
         request.name, request.query,
         request.active ? SearchTimerState::Active : SearchTimerState::Inactive);
-    timer.matchOptions().setMode(request.matchMode);
-    timer.matchOptions().setTolerance(request.matchTolerance);
+    timer.recordingOptions().setDirectory(request.directory);
+    timer.recordingOptions().setPriority(request.priority);
+    timer.recordingOptions().setLifetime(request.lifetime);
+    timer.scheduleOptions().setMarginStartMinutes(request.marginStartMinutes);
+    timer.scheduleOptions().setMarginStopMinutes(request.marginStopMinutes);
+    timer.scheduleOptions().setUseVps(request.useVps);
+    timer.filterOptions().setChannelMode(request.useChannel);
+    timer.filterOptions().setUseTime(request.useTime);
+    timer.filterOptions().setStartTime(request.startTime);
+    timer.filterOptions().setStopTime(request.stopTime);
+    timer.filterOptions().setUseDuration(request.useDuration);
+    timer.filterOptions().setDurationMinMinutes(request.durationMinMinutes);
+    timer.filterOptions().setDurationMaxMinutes(request.durationMaxMinutes);
+    timer.filterOptions().setUseDayOfWeek(request.useDayOfWeek);
+    timer.filterOptions().setDayOfWeek(request.dayOfWeek);
+    timer.channelOptions().setChannels(request.channels);
+    timer.channelOptions().setChannelMinId(request.channelMin);
+    timer.channelOptions().setChannelMaxId(request.channelMax);
+    timer.repeatOptions().setAvoidRepeats(request.avoidRepeats);
+    timer.repeatOptions().setAllowedRepeats(request.allowedRepeats);
+    timer.repeatOptions().setRepeatsWithinDays(request.repeatsWithinDays);
     timer.comparisonOptions().setCompareTitle(request.compareTitle);
     timer.comparisonOptions().setCompareSubtitle(request.compareSubtitle);
     timer.comparisonOptions().setCompareSummary(request.compareSummary);
-    timer.scheduleOptions().setMarginStartMinutes(request.marginStartMinutes);
-    timer.scheduleOptions().setMarginStopMinutes(request.marginStopMinutes);
+    timer.comparisonOptions().setCompareCategories(request.compareCategories);
+    timer.comparisonOptions().setCompareTime(request.compareTime);
+    timer.seriesOptions().setUseSeriesRecording(request.useSeriesRecording);
+    timer.seriesOptions().setKeepRecordings(request.keepRecordings);
+    timer.seriesOptions().setDeleteMode(request.deleteMode);
+    timer.seriesOptions().setSearchTimerAction(request.searchTimerAction);
+    timer.blacklistOptions().setBlacklistMode(request.blacklistMode);
+    timer.blacklistOptions().setBlacklistIds(request.blacklistIds);
+    timer.matchOptions().setMode(request.matchMode);
+    timer.matchOptions().setMatchCase(request.matchCase);
+    timer.matchOptions().setTolerance(request.matchTolerance);
+    timer.matchOptions().setSummaryMatch(request.summaryMatch);
+    timer.extendedEpgOptions().setUseExtendedEpgInfo(request.useExtendedEpgInfo);
+    timer.extendedEpgOptions().setExtendedEpgInfo(request.extendedEpgInfo);
+    timer.extendedEpgOptions().setIgnoreMissingEpgCategories(request.ignoreMissingEpgCategories);
+    timer.extendedEpgOptions().setContentDescriptors(request.contentDescriptors);
+    timer.validityOptions().setUseInFavorites(request.useInFavorites);
+    timer.validityOptions().setActiveFrom(request.activeFrom);
+    timer.validityOptions().setActiveUntil(request.activeUntil);
+    timer.actionOptions().setPauseOnRecordings(request.pauseOnRecordings);
+    timer.actionOptions().setSwitchMinutesBefore(request.switchMinutesBefore);
+    timer.actionOptions().setUnmuteSoundOnSwitch(request.unmuteSoundOnSwitch);
+    timer.actionOptions().setDeleteRecordingsAfterDays(request.deleteRecordingsAfterDays);
+    timer.actionOptions().setDeleteAfterCountRecordings(request.deleteAfterCountRecordings);
+    timer.actionOptions().setDeleteAfterDaysOfFirstRecording(request.deleteAfterDaysOfFirstRecording);
     return timer;
 }
 
@@ -141,30 +195,22 @@ struct Rig
         assert(database.open(":memory:"));
         assert(storage.ensureSchema());
         source.generation = &generation;
-        // Simulate durable active CREATE accepted before inactive-only API v1.
+        // Exercise the same durable create path for active and inactive rules.
         auto admissionRequest = input();
         admissionRequest.payload.active = historicalActive;
         const auto made = admission.admit(admissionRequest);
         assert(made.status == SearchTimerCreateAdmissionStatus::prepared);
         id = made.operation.operationId;
-        source.finalItems.push_back(
-            createdTimer(toCommand(), executor.nativeId));
+        SearchTimerCreateRequest command =
+            static_cast<const SearchTimerCreateRequest&>(admissionRequest.payload);
+        command.backendId = admissionRequest.backendId;
+        source.finalItems.push_back(createdTimer(command, executor.nativeId));
     }
     SearchTimerCreateRequest toCommand()
     {
-        SearchTimerCreateRequest command;
-        const auto draft = input();
-        command.backendId = draft.backendId;
-        command.name = draft.payload.name;
-        command.query = draft.payload.query;
-        command.active = draft.payload.active;
-        command.matchMode = draft.payload.matchMode;
-        command.matchTolerance = draft.payload.matchTolerance;
-        command.compareTitle = draft.payload.compareTitle;
-        command.compareSubtitle = draft.payload.compareSubtitle;
-        command.compareSummary = draft.payload.compareSummary;
-        command.marginStartMinutes = draft.payload.marginStartMinutes;
-        command.marginStopMinutes = draft.payload.marginStopMinutes;
+        SearchTimerCreateRequest command =
+            static_cast<const SearchTimerCreateRequest&>(input().payload);
+        command.backendId = input().backendId;
         return command;
     }
     SearchTimerCreateDispatchRequest request()
@@ -302,25 +348,25 @@ void assertLeaseExpiryCannotBeMaskedByRequestTimestamp()
     assert(expiresDuringReadback.executor.creates == 1);
 }
 
-void assertHistoricalActivePayloadNeverDispatches()
+void assertActiveCreateUsesSameOneShotPath()
 {
-    Rig old(true);
-    const auto denied = old.dispatch.dispatchOnce(
-        old.request(), old.executor, old.source);
-    assert(denied.status == SearchTimerCreateDispatchStatus::denied);
-    assert(old.executor.creates == 0);
-    assert(old.source.reads == 0);
-    // No automatic recovery/redispatch of the prior active mutation.
-    const auto stored = old.storage.findById(old.id);
-    assert(stored.operation.state ==
-        MutationOperationState::failedBeforeDispatch);
-    assert(stored.operation.resultReference ==
-        "searchtimer-active-create-disallowed");
-    const auto again = old.dispatch.dispatchOnce(
-        old.request(), old.executor, old.source);
-    assert(again.status == SearchTimerCreateDispatchStatus::conflict);
-    assert(old.executor.creates == 0);
-    assert(old.source.reads == 0);
+    Rig active(true);
+    const auto created = active.dispatch.dispatchOnce(
+        active.request(), active.executor, active.source);
+    assert(created.status == SearchTimerCreateDispatchStatus::verified);
+    assert(created.operation.state == MutationOperationState::succeeded);
+    assert(active.executor.creates == 1);
+    assert(active.executor.last.active);
+    assert(active.executor.last.priority == 50);
+    assert(active.executor.last.channels == "ARD");
+    assert(active.executor.last.useTime);
+    assert(active.executor.last.startTime == 930);
+    assert(active.executor.last.avoidRepeats);
+    assert(active.executor.last.blacklistIds == "4,5");
+    const auto second = active.dispatch.dispatchOnce(
+        active.request(), active.executor, active.source);
+    assert(second.status == SearchTimerCreateDispatchStatus::conflict);
+    assert(active.executor.creates == 1);
 }
 
 void assertAmbiguousOutcomeNeverRetries()
@@ -422,7 +468,7 @@ int main()
     assertGuards();
     assertBackendRestartCannotDispatch();
     assertLeaseExpiryCannotBeMaskedByRequestTimestamp();
-    assertHistoricalActivePayloadNeverDispatches();
+    assertActiveCreateUsesSameOneShotPath();
     assertAmbiguousOutcomeNeverRetries();
     assertReadbackAndPreexistingIdentity();
     std::cout << "SearchTimer CREATE one-shot dispatch: PASS (mock only)\n";
