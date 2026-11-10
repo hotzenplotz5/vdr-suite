@@ -97,6 +97,9 @@ assert(!importClickBody.includes('checkCapability(view.backendId)') &&
 assert(!view.includes('.innerHTML'));
 assert(!view.includes('localStorage'));
 assert(!view.includes('sessionStorage'));
+assert(view.includes('view.onlineUserControlled') &&
+  view.includes('Import nicht gestartet.'),
+  'manual TMDb selection must not silently become a metadata-free import');
 
 class Element {
   constructor(name) {
@@ -646,7 +649,10 @@ context.VdrSuiteClientApi = {
                 originalTitle: 'Sherlock Holmes: A Game of Shadows',
                 releaseDate: '2011-12-15'
               })
-            : onlineCandidate('movie','754','Die Herrschaft des Feuers')]));
+            : autoMovieExact === 'numeric'
+              ? onlineCandidate('movie','7540','Sieben Jahre in Tibet',
+                {releaseDate: '1997-09-12'})
+              : onlineCandidate('movie','754','Die Herrschaft des Feuers')]));
       if (onlineMode === 'ambiguous' && body.kind === 'series')
         return Promise.resolve(onlinePage([
           onlineCandidate('series','1399','Andor'),
@@ -722,6 +728,15 @@ async function verifyMeta6Handoff() {
     {targetFolder:'Serien/Andor/Andor S01E01', title:'Andor S01E01'},
     {folder:'Serien/Andor',label:'Andor S01E01'}), null,
     'a candidate from a different series must not be transferred');
+  const selectedMovie = context.__meta6Contract.importMetadataSelection({
+    onlineKind: 'movie',
+    onlineSelected: onlineCandidate('movie','7540','Sieben Jahre in Tibet')
+  }, {targetFolder:'Drama/Sieben Jahre in Tibet',title:'Sieben Jahre in Tibet'},
+  {label:'7 Jahre in Tibet'});
+  assert(selectedMovie &&
+    context.__meta6Contract.frozenImportMetadata({}, selectedMovie)
+      .startsWith('v2|movie||Sieben%20Jahre%20in%20Tibet|'),
+    'a manually selected movie becomes a durable v2 snapshot');
   const targetView = {backendId:'backend-a'};
   const attempt = {metadataSelection:selected, metadataFeedback:''};
   await context.__meta6Contract.applyImportedMetadata(targetView, attempt);
@@ -1150,6 +1165,20 @@ function publishHomeResume() {}
   assert(findClass(mount, 'media-import-online-confirmed').children[0]
     .textContent.includes('Sherlock Holmes: Spiel im Schatten'),
     'the localized provider title is shown after an exact original-title match');
+  // Spelled German numerals are an exact token variant, not a fuzzy match.
+  sourceDisplayOverride = '7 Jahre in Tibet';
+  autoMovieExact = 'numeric';
+  await findClass(mount, 'media-import-reload').listeners.click();
+  await settle();
+  const tibetSource = findClass(mount, 'media-import-source');
+  tibetSource.value = SOURCE;
+  tibetSource.listeners.change();
+  await settle();
+  const tibetPoster = findClass(findClass(mount, 'media-import-artwork-poster'),
+    'media-import-artwork-image');
+  assert(tibetPoster && tibetPoster.src.includes('externalId=7540'),
+    'German numeric movie title matches its single spelled-out TMDb title');
+
   sourceDisplayOverride = null;
   autoMovieExact = false;
   previewArtworkMode = 'poster';
@@ -3260,6 +3289,15 @@ function publishHomeResume() {}
     'confirmed online metadata must not replace or suppress NFO text');
   assert.strictEqual(submits, importedBeforeOnline,
     'online selection must never submit a media import or mutation');
+  const requestsBeforeManualRefresh = onlineRequests.length;
+  await findClass(mount, 'media-import-preview-retry').listeners.click();
+  await settle();
+  const retainedChoice = findClass(mount, 'media-import-online-confirmed');
+  assert(retainedChoice && retainedChoice.children[0].textContent.includes(
+    'Film mit belegter TMDb-ID'),
+    'refreshing the same source retains an explicit TMDb choice');
+  assert.strictEqual(onlineRequests.length, requestsBeforeManualRefresh,
+    'the preview refresh must not restart auto-search over a manual choice');
 
   // Real series -> season -> episode search, with local S01E01 conflict check.
   let onlineKind = findClass(mount, 'media-import-online-kind');

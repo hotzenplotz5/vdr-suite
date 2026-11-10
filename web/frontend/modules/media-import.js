@@ -2107,7 +2107,7 @@
         typeof plan.targetFolder !== 'string' || !plan.targetFolder ||
         !validRelativeFolder(plan.targetFolder) ||
         candidate.providerId !== 'tmdb' || typeof candidate.externalId !== 'string' ||
-        !/^[0-9]{1,12}$/.test(candidate.externalId)) return null;
+        !/^[0-9]{1,16}$/.test(candidate.externalId)) return null;
     const coordinates = episodeCoordinates(source);
     const episode = candidate.kind === 'episode' && view.onlineSeries &&
       view.onlineSeries.kind === 'series' &&
@@ -2507,7 +2507,7 @@
   }
 
   function validRelativeFolder(folder) {
-    if (typeof folder !== 'string' || folder.length > 240 ||
+    if (typeof folder !== 'string' || folder.length > 512 ||
         /[\\\r\n\x00-\x1f\x7f]/.test(folder) ||
         folder.startsWith('/') || folder.endsWith('/')) return false;
     return !folder || folder.split('/').every(function (part) {
@@ -2540,6 +2540,7 @@
     view.onlinePending = false;
     view.onlineAuto = false;
     view.onlineAutoSelected = false;
+    view.onlineUserControlled = false;
   }
 
   function onlineValid(item, kind, series, season) {
@@ -2643,7 +2644,23 @@
       .replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
   }
 
+  // Match an exact unique movie title even when German numerals are spelled
+  // out instead of digits. No fuzzy/partial provider assignment.
+  function normalizedMovieMatchTitle(value) {
+    const numerals = {
+      null: '0', eins: '1', zwei: '2', drei: '3', vier: '4',
+      fuenf: '5', fünf: '5', sechs: '6', sieben: '7',
+      acht: '8', neun: '9', zehn: '10', elf: '11',
+      zwoelf: '12', zwölf: '12'
+    };
+    return normalizedSeriesName(value).split(' ').map(function (word) {
+      return Object.prototype.hasOwnProperty.call(numerals, word)
+        ? numerals[word] : word;
+    }).join(' ');
+  }
+
   function autoIdentifyEpisode(view, source) {
+    if (view.onlineUserControlled) return;
     const coords = episodeCoordinates(source);
     const title = batchSeriesTitleFromLabel(source) ||
       onlineSeriesSearchTitle(source);
@@ -2726,7 +2743,7 @@
   function autoIdentifyMovie(view, source, plan) {
     if (!source || !plan || plan.status !== 'ready' ||
         view.onlineKind !== 'movie' || view.onlineAuto ||
-        validLocalArtwork(plan.posterDataUri)) return;
+        view.onlineUserControlled || validLocalArtwork(plan.posterDataUri)) return;
     // The inventory label is the recognizable filename/title; a probe may
     // derive a generic title when no NFO exists.
     const title = String(source.label || plan.title || '').trim();
@@ -2735,7 +2752,7 @@
     const generation = view.previewGeneration;
     const active = function () {
       return isCurrent(view) && view.onlineAuto &&
-        generation === view.previewGeneration &&
+        !view.onlineUserControlled && generation === view.previewGeneration &&
         view.select.value === sourceId;
     };
     // File-system separators are not search terms. TMDb should receive
@@ -2746,13 +2763,13 @@
     onlineLookup(view, 'search', {query: query, kind: 'movie', limit: 12}, 'movie')
       .then(function (candidates) {
         if (!active() || !Array.isArray(candidates)) return;
-        const normalized = normalizedSeriesName(title);
+        const normalized = normalizedMovieMatchTitle(title);
         let matches = candidates.filter(function (item) {
           // TMDb may return a German display title for an English source
           // filename (or vice versa). originalTitle is part of the existing
           // metadata response; accept either as an exact normalized match.
-          return normalizedSeriesName(item.title) === normalized ||
-            normalizedSeriesName(item.originalTitle) === normalized;
+          return normalizedMovieMatchTitle(item.title) === normalized ||
+            normalizedMovieMatchTitle(item.originalTitle) === normalized;
         });
         // Prefer an exact NFO year when remakes share the same title.
         if (matches.length > 1 && /^\d{4}$/.test(plan.nfoYear || '')) {
@@ -2801,7 +2818,10 @@
     query.value = view.onlineQuery || seriesTitle ||
       (plan && plan.title) || source.label || '';
     query.setAttribute('aria-label', 'TMDb-Titel');
-    query.addEventListener('input', function () { view.onlineQuery = query.value; });
+    query.addEventListener('input', function () {
+      view.onlineQuery = query.value;
+      view.onlineUserControlled = true;
+    });
     tools.appendChild(query);
     const kind = element('select', 'media-import-online-kind');
     kind.setAttribute('aria-label', 'Medientyp');
@@ -2816,6 +2836,7 @@
       const newKind = kind.value;
       const value = query.value;
       resetOnline(view);
+      view.onlineUserControlled = true;
       view.onlineKind = newKind;
       view.onlineQuery = value;
       updatePreview(view);
@@ -2833,6 +2854,7 @@
         updatePreview(view);
         return;
       }
+      view.onlineUserControlled = true;
       view.onlineAuto = false;
       view.onlineAutoSelected = false;
       view.onlineMode = 'search';
@@ -2874,6 +2896,8 @@
           view.onlineStatus = 'Episodenkennung passt nicht zur Quelle. Keine Zuordnung.';
         } else {
           view.onlineSelected = candidate;
+          view.onlineUserControlled = true;
+          view.onlineAuto = false;
           view.onlineAutoSelected = false;
           view.onlineStatus = 'TMDb-Treffer manuell ausgewählt – nur Vorschau, keine NFO-/VDR-Änderung.';
         }
@@ -3934,6 +3958,15 @@
       view.previewTimer = null;
     }
     const id = view.select.value;
+    // A repeated preview for this same source must not discard a confirmed
+    // manual TMDb choice. Changing source still resets the online context.
+    const retainedMetadata = view.onlineSourceId === id &&
+      view.onlineUserControlled && view.onlineSelected ? {
+        onlineItems: view.onlineItems, onlineSelected: view.onlineSelected,
+        onlineSeries: view.onlineSeries, onlineSeason: view.onlineSeason,
+        onlineMode: view.onlineMode, onlineKind: view.onlineKind,
+        onlineQuery: view.onlineQuery, onlineStatus: view.onlineStatus
+      } : null;
     releaseCompletedAttemptForNextSource(view, id);
     pinUnknownOnSourceChange(view, id);
     if (force) view.previewCache.delete(id);
@@ -3942,13 +3975,19 @@
     view.localReencode.checked = false;
     ++view.previewGeneration;
     resetOnline(view);
+    view.onlineSourceId = id;
+    if (retainedMetadata) {
+      Object.assign(view, retainedMetadata);
+      view.onlineUserControlled = true;
+    }
     const source = view.allOrdinary.find(function (item) {
       return item.sourceId === id;
     });
     // MEDIA4 already recognizes episodes. Reuse those coordinates for the
     // MEDIA5 provider kind, rather than defaulting every source to a movie.
-    view.onlineKind = source && episodeCoordinates(source).episode !== null
-      ? 'series' : 'movie';
+    view.onlineKind = retainedMetadata ? retainedMetadata.onlineKind :
+      source && episodeCoordinates(source).episode !== null
+        ? 'series' : 'movie';
     const generation = view.previewGeneration;
     view.previewResult = null;
     view.previewStatus = '';
@@ -4652,6 +4691,14 @@
     const frozenMetadata = view.batch
       ? batchRow && batchRow.frozenMetadata || ''
       : frozenImportMetadata(view, metadataSelection);
+    // Explicit provider selection must never silently become an import
+    // without metadata when its immutable snapshot cannot be created.
+    if (!view.batch && selected === 'import' && view.onlineSelected &&
+        (!metadataSelection || !frozenMetadata)) {
+      report(view, 'Die ausgewählten TMDb-Metadaten konnten nicht in den ' +
+        'Importauftrag übernommen werden. Import nicht gestartet.', true);
+      return Promise.resolve();
+    }
     view.submitting = true;
     updateInlineDeleteAvailability(view);
     view.startButton.disabled = true;
@@ -5241,6 +5288,7 @@
       onlineSeq: 0, onlineItems: [], onlineSelected: null,
       onlineSeries: null, onlineSeason: null, onlineMode: 'search',
       onlineKind: 'movie', onlineQuery: '', onlineStatus: '', onlinePending: false,
+      onlineSourceId: '', onlineUserControlled: false,
       onlineAuto: false, onlineAutoSelected: false,
       sources: [], sourcesGeneration: 0, submitting: false, reading: false,
       reads: 0, timer: null, manualCheckQueued: false, lastManualCheck: '',
