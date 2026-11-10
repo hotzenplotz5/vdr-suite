@@ -1,0 +1,11 @@
+[Unit]
+Description=VDR-Suite automatic local first-run configuration
+Documentation=man:vdr-suite-backend-agent-autostart(8)
+After=network-online.target vdr.service vdr-suite-daemon.service
+ConditionPathExists=/usr/sbin/vdr-suite-backend-agent-autostart
+ConditionPathExists=/etc/vdr-suite/backend-agent.conf
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/vdr-suite-backend-agent-autostart --auto-first-run
+TimeoutStartSec=120

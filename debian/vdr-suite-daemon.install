@@ -13,6 +13,8 @@ usr/share/man/man1/vdr-suite-dashboard.1
 usr/share/man/man1/vdr-suite-logo-sync.1
 usr/share/man/man1/vdr-suite-media-calibrate.1
 usr/lib/systemd/system/vdr-suite-daemon.service
+usr/lib/systemd/system/vdr-suite-first-run.service
+usr/lib/systemd/system/vdr-suite-first-run.path
 etc/default/vdr-suite-daemon
 usr/bin/vdr-suite-media-calibrate
 etc/nginx/snippets/vdr-suite.conf

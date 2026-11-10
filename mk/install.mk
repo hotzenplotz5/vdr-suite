@@ -17,6 +17,36 @@ LIVE_ROOT ?= /
 
 install: install-runtime install-cli install-docs install-manpages install-systemd
 
+# Distribution-specific package adapters use the same staged config tool.
+# All variants operate only on a separate DESTDIR, never on live /etc.
+# Actual first-boot invocation is a separate lifecycle integration.
+DISTRIBUTION_FIRST_RUN_CONTROL_PLANE_URL ?=
+DISTRIBUTION_FIRST_RUN_CHANNELS_CONF_PATH ?= /var/lib/vdr/channels.conf
+DISTRIBUTION_FIRST_RUN_CA_CERTIFICATE_PATH ?=
+
+.PHONY: stage-distribution-first-run-config
+stage-distribution-first-run-config:
+	python3 tools/distribution_first_run_stage.py \
+		--stage-root "$(DESTDIR)" \
+		--control-plane-url "$(DISTRIBUTION_FIRST_RUN_CONTROL_PLANE_URL)" \
+		--channels-source "$(DISTRIBUTION_FIRST_RUN_CHANNELS_CONF_PATH)" \
+		--ca-certificate-path "$(DISTRIBUTION_FIRST_RUN_CA_CERTIFICATE_PATH)"
+
+# Backwards-compatible MLD adapter: the implementation is shared.
+MLD_FIRST_RUN_CONTROL_PLANE_URL ?=
+MLD_FIRST_RUN_CHANNELS_CONF_PATH ?= /etc/vdr/channels.conf
+MLD_FIRST_RUN_CA_CERTIFICATE_PATH ?=
+
+.PHONY: stage-mld-first-run-config
+stage-mld-first-run-config:
+	python3 tools/mld66_stage_first_run.py \
+		--stage-root "$(DESTDIR)" \
+		--control-plane-url "$(MLD_FIRST_RUN_CONTROL_PLANE_URL)" \
+		--channels-source "$(MLD_FIRST_RUN_CHANNELS_CONF_PATH)" \
+		--ca-certificate-path "$(MLD_FIRST_RUN_CA_CERTIFICATE_PATH)"
+
+
+
 build-runtime-binaries: daemon backend-agent backend-agent-enrollment backend-agent-admin backend-agent-command-admin first-admin-bootstrap-issuer human-account-recovery
 
 build-cli-binaries: dashboard-cli
@@ -194,6 +224,8 @@ install-systemd:
 	$(INSTALL) -d $(DESTDIR)$(SYSTEMDUNITDIR)
 	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-daemon.service $(DESTDIR)$(SYSTEMDUNITDIR)/vdr-suite-daemon.service
 	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-backend-agent.service $(DESTDIR)$(SYSTEMDUNITDIR)/vdr-suite-backend-agent.service
+	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-first-run.service $(DESTDIR)$(SYSTEMDUNITDIR)/vdr-suite-first-run.service
+	$(INSTALL) -m 0644 packaging/systemd/vdr-suite-first-run.path $(DESTDIR)$(SYSTEMDUNITDIR)/vdr-suite-first-run.path
 	$(INSTALL) -d $(DESTDIR)$(SYSCONFDIR)/default
 	test -e $(DESTDIR)$(SYSCONFDIR)/default/vdr-suite-daemon || \
 		$(INSTALL) -m 0644 packaging/systemd/vdr-suite-daemon.default $(DESTDIR)$(SYSCONFDIR)/default/vdr-suite-daemon
@@ -331,6 +363,8 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/man/man1/vdr-suite-media-calibrate.1
 	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-daemon.service
 	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-backend-agent.service
+	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-first-run.service
+	test -f /tmp/vdr-suite-pkgroot/lib/systemd/system/vdr-suite-first-run.path
 	printf '%s\n' 'VDR_SUITE_SECURITY_MODE=legacy-basic' 'VDR_SUITE_UPGRADE_SENTINEL=preserve' > /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon
 	$(MAKE) install-systemd DESTDIR=/tmp/vdr-suite-pkgroot PREFIX=/usr
 	grep -Fx 'VDR_SUITE_SECURITY_MODE=legacy-basic' /tmp/vdr-suite-pkgroot/etc/default/vdr-suite-daemon >/dev/null
