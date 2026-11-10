@@ -1199,11 +1199,26 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
   Der erste Versuch lief durch einen zu streng formulierten
   FFprobe-Shell-Stringvergleich vor dem Indexschritt aus; der unmittelbar
   folgende JSON-Readback und native Indexlauf bestätigten den Host-Smoke.
-- **Nächste Ausführung:** Vorhandenen Media-Tools-C++-Worker auf derselben
-  echten yaVDR-FFmpeg-/VDR-Basis isoliert mit ausschließlich künstlicher
-  Testquelle und separatem `/var/tmp`-Video-Root prüfen. Danach Core-/Agent-
-  Produktpfad nur mit ausdrücklich freigegebener Quelle und echte
-  Wiedergabe separat. HEVC-Shrink bleibt weiterhin offen.
+- **MT.ENC4 isolierter Media-Tools-Worker PASS (10.11.2026, yaVDR):**
+  Der vorhandene C++-Importer wurde auf `main` mit `addon-media-import`
+  gebaut. `plan` erkannte die künstliche MPEG-4-Quelle (1.876.169 Byte)
+  als umkodierungsbedürftig. Die explizit ausgelöste lokale H.264-
+  Umkodierung (`CRF=23`, `preset=medium`) unter der ausschließlich
+  synthetischen Wurzel `/var/tmp/mt-enc4-worker.yDZ7gF` meldete
+  `IMPORT_STATUS=COMMITTED`; FFprobe-Readback der veröffentlichten
+  `00001.ts`: H.264 Main/yuv420p, AAC, MPEG-TS, Dauer 8,04 s.
+  Native `index` (~1,6 KB) und `info` (101 B) vorhanden;
+  Quelle mit Original bytegleich; keine produktiven Aufnahmen verändert.
+  `MT_ENC4_ISOLATED_WORKER=PASS`, `WORKER_VDR_INDEX=PASS`.
+  Die Ursache der ersten Readback-Pause war der von der CLI ausgegebene
+  quotierte `RECORDING`-Pfad; der Folgetest entfernte die Quotes und
+  bestätigte die fertige Aufnahme **ohne erneute Umkodierung**.
+  Die CLI meldet korrekt `SUITE_RECONCILIATION=NOT_CONNECTED`:
+  damit sind Core-/Agent-End-to-End, SSE und Playback **nicht** abgenommen.
+- **Nächste Ausführung:** Vorhandene isolierte Core-/Public-API-/Agent-
+  Vertragstests auf demselben `main` ausführen (keine Hostmedien
+  verändern). Erst danach realen Core-/Agent-Import einer **explizit**
+  freigegebenen Testquelle abnehmen. HEVC-Shrink und TV-Wiedergabe offen.
 
 Inkrementell bauen, vorhandene Runtime-Artefakte wiederverwenden,
 kein neues Branch/PR, keine DB-Backups oder unnötigen Aktivierungsprüfungen.
