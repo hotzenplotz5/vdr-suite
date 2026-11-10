@@ -30,6 +30,7 @@ AGENT_BIN = "/usr/sbin/vdr-suite-backend-agent"
 ENROLL_BIN = "/usr/sbin/vdr-suite-backend-agent-enroll"
 DATABASE = "/var/lib/vdr-suite/vdr-suite.db"
 ADMIN_BIN = "/usr/sbin/vdr-suite-backend-agent-admin"
+COMMAND_ADMIN_BIN = "/usr/sbin/vdr-suite-backend-agent-command-admin"
 LOCAL_CONTROL_PLANE = "http://127.0.0.1:18080"
 DEFAULT_CHANNEL_SOURCES = ("/var/lib/vdr/channels.conf", "/etc/vdr/channels.conf")
 
@@ -417,6 +418,32 @@ def activate_local_agent():
 
 
 
+def initialize_fresh_local_provider_ownership(backend):
+    """Set only missing local owner bindings during first-time enrollment.
+
+    Existing records, including inactive ones, are deliberate admin choices.
+    Ordinary restarts and upgrades with an existing identity skip this path.
+    """
+    for status_option, set_option in (
+            ("--live-provider-ownership-status", "--set-live-owner"),
+            ("--timer-provider-ownership-status", "--set-timer-create-owner")):
+        argv = [COMMAND_ADMIN_BIN, "--database", DATABASE, "--backend", backend]
+        try:
+            status = json.loads(command(argv + [status_option]))
+        except (TypeError, ValueError) as exc:
+            raise NotReady("invalid local provider ownership status") from exc
+        if not isinstance(status, dict) or type(status.get("present")) is not bool:
+            raise NotReady("invalid local provider ownership status")
+        if status["present"]:
+            continue
+        try:
+            result = json.loads(command(argv + [set_option]))
+        except (TypeError, ValueError) as exc:
+            raise NotReady("invalid local provider ownership update") from exc
+        if not isinstance(result, dict) or result.get("accepted") is not True:
+            raise NotReady("local provider ownership update was not accepted")
+
+
 def installer_onboard_local():
     """One installer-owned, resumable step; no browser/daemon privileges.
 
@@ -490,6 +517,9 @@ def installer_onboard_local():
         # A successful first call leaves an enrollment file, so retrying
         # cannot issue a second token or re-register the same Backend.
         prepare_local_enrollment()
+    # A pending enrollment resumes here. Seed missing owners before the
+    # Agent consumes the enrollment; existing identities are never changed.
+    initialize_fresh_local_provider_ownership("default")
     return activate_local_agent()
 
 
