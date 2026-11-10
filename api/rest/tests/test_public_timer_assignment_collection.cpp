@@ -486,6 +486,27 @@ int main()
         std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
             "\"active\":false,\"confirmed\":false,\"mode\":1,\"compareTitle\":true,"
             "\"compareSubtitle\":false,\"compareSummary\":true}"),
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"active\":true,\"confirmed\":true,\"mode\":1,"
+            "\"compareTitle\":true,\"compareSubtitle\":false,"
+            "\"compareSummary\":true,\"useChannel\":4}"),
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"active\":true,\"confirmed\":true,\"mode\":1,"
+            "\"compareTitle\":true,\"compareSubtitle\":false,"
+            "\"compareSummary\":true,\"priority\":\"50\"}"),
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"active\":true,\"confirmed\":true,\"mode\":1,"
+            "\"compareTitle\":true,\"compareSubtitle\":false,"
+            "\"compareSummary\":true,\"useTime\":true,"
+            "\"startTime\":2460,\"stopTime\":2330}"),
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"active\":true,\"confirmed\":true,\"mode\":1,"
+            "\"compareTitle\":true,\"compareSubtitle\":false,"
+            "\"compareSummary\":true,\"marginStopMinutes\":-1}"),
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"active\":true,\"confirmed\":true,\"mode\":1,"
+            "\"compareTitle\":true,\"compareSubtitle\":false,"
+            "\"compareSummary\":true,\"priority\":999999999999999999999999}"),
         std::string("{\"name\":\"Fremder Anzeigename\","
             "\"query\":\"Terra X\",\"active\":false,\"confirmed\":true,"
             "\"mode\":1,\"compareTitle\":true,\"compareSubtitle\":false,"

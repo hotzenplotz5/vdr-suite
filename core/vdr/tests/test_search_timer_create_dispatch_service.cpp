@@ -28,8 +28,7 @@ SearchTimerCreateAdmissionRequest input()
     item.requestedAt = 1000;
     item.payload.name = "Terra X";
     item.payload.query = "Terra X";
-    // The normal public-v1 dispatch fixture stages an inactive rule.
-    // Rig(true) exercises the pre-upgrade active-operation exception.
+    // The same Public-v1 v3 admission/dispatch supports active or inactive.
     item.payload.active = false;
     item.payload.matchMode = 1;
     item.payload.compareTitle = true;
