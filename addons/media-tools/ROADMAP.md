@@ -1215,10 +1215,22 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
   bestätigte die fertige Aufnahme **ohne erneute Umkodierung**.
   Die CLI meldet korrekt `SUITE_RECONCILIATION=NOT_CONNECTED`:
   damit sind Core-/Agent-End-to-End, SSE und Playback **nicht** abgenommen.
-- **Nächste Ausführung:** Vorhandene isolierte Core-/Public-API-/Agent-
-  Vertragstests auf demselben `main` ausführen (keine Hostmedien
-  verändern). Erst danach realen Core-/Agent-Import einer **explizit**
-  freigegebenen Testquelle abnehmen. HEVC-Shrink und TV-Wiedergabe offen.
+- **MT.ENC4 Core-/Agent-Vertragstests PASS (10.11.2026, yaVDR):**
+  `test-addon-media-import` bestand 47 C++-Prüfungen;
+  `test-addon-media-import-api-admission`,
+  `test-media-tools-canonical-agent-bridge` und
+  `test-media-tools-agent-dispatch` bestanden ebenfalls auf
+  `33c41f9f5b788680f9cd09021f3aa16c8e26ba06`.
+  `MT_ENC4_CORE_AGENT_CONTRACTS=PASS`; kein Dienstneustart,
+  kein Datenbank-Backup und kein Eingriff in produktive Aufnahmen.
+  **REAL_CORE_AGENT_IMPORT=NOT_TESTED**,
+  **TV_PLAYBACK=NOT_TESTED**, **HEVC_SHRINK=NOT_TESTED**.
+- **Nächster Schritt:** HEVC-Shrink per bestehendem C++-Worker und
+  echtem FFmpeg/VDR-Indexer auf isolierter künstlicher `.rec` unter
+  `/var/tmp` testen. Nur `plan` und `stage` (kein `publish`),
+  Original und Index bytegleich erhalten. Danach realen Core-/Agent-
+  Produktpfad nur mit ausdrücklich freigegebener Quelle sowie
+  die tatsächliche TV-Wiedergabe separat abnehmen.
 
 Inkrementell bauen, vorhandene Runtime-Artefakte wiederverwenden,
 kein neues Branch/PR, keine DB-Backups oder unnötigen Aktivierungsprüfungen.
