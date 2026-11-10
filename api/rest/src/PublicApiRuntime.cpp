@@ -3279,7 +3279,18 @@ bool parsePublicSearchTimerCreateBody(
         out.mode >= 0 && out.mode <= 5 &&
         out.tolerance >= 0 && out.tolerance <= 3 &&
         (out.mode == 5 || out.tolerance == 0) &&
-        (out.compareTitle || out.compareSubtitle || out.compareSummary);
+        (out.compareTitle || out.compareSubtitle || out.compareSummary) &&
+        out.useChannel >= 0 && out.useChannel <= 3 &&
+        out.marginStartMinutes >= 0 && out.marginStartMinutes <= 1440 &&
+        out.marginStopMinutes >= 0 && out.marginStopMinutes <= 1440 &&
+        (!out.useTime ||
+            (out.startTime >= 0 && out.startTime <= 2359 &&
+             out.startTime % 100 < 60 &&
+             out.stopTime >= 0 && out.stopTime <= 2359 &&
+             out.stopTime % 100 < 60)) &&
+        (!out.useDuration || out.durationMaxMinutes == 0 ||
+            (out.durationMinMinutes >= 0 &&
+             out.durationMinMinutes <= out.durationMaxMinutes));
 }
 
 // A7.3: a single JSON string field, closed grammar; never a source path.
