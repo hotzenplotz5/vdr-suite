@@ -12,7 +12,8 @@ public:
         ISearchTimerCommandExecutor& delegate,
         bool mutationAllowed,
         std::string blockedMessage =
-            "searchtimer runtime mutation policy gate is closed");
+            "searchtimer runtime mutation policy gate is closed",
+        bool allowBrowserCreate = false);
 
     SearchTimerCreateResult create(
         const SearchTimerCreateRequest& request) override;
@@ -28,5 +29,6 @@ public:
 private:
     ISearchTimerCommandExecutor& delegate_;
     bool mutationAllowed_;
+    bool allowBrowserCreate_;
     std::string blockedMessage_;
 };
