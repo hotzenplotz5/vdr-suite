@@ -1237,12 +1237,23 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
   Original-TS, Index und info bytegleich geblieben.
   `MT_ENC4_HEVC_WORKER_STAGE=PASS`, `HEVC_PUBLICATION=NEIN`,
   `REAL_CORE_AGENT_IMPORT=NOT_TESTED`, `TV_PLAYBACK=NOT_TESTED`.
-- **Nächster Schritt:** Den bereits geprüften HEVC-Kandidaten auf
-  **derselben künstlichen `/var/tmp`-Videowurzel** mit dem bestehenden
-  `publish`-Pfad veröffentlichen und unabhängigen Readback plus Erhalt
-  des Originals bestätigen. Keine neue Umkodierung, kein `/srv/vdr`-
-  Eingriff. Danach echte Core-/Agent-Operation nur mit ausdrücklich
-  freigegebener Quelle und Wiedergabe mit tatsächlichem TV-Client.
+- **MT.ENC4 HEVC-Publish PASS (10.11.2026, yaVDR):**
+  Derselbe zuvor geprüfte Kandidat wurde ohne erneute Umkodierung mit
+  `vdr-suite-media-shrink publish` ausschließlich unter
+  `/var/tmp/mt-enc4-hevc.NRDoOI/video/MT-ENC4-Test_HEVC/` veröffentlicht.
+  `MT_ENC4_HEVC_ISOLATED_PUBLISH=PASS`, unabhängiger FFprobe-
+  Readback `HEVC_PUBLISHED_READBACK=PASS`, 20,00 s, TS rund 2,0 MiB,
+  nativer Index 4,0 KiB, `info` 68 B.
+  Originalaufnahme und Originalindex per Hash vor/nach der
+  Veröffentlichung unverändert, `HEVC_PUBLICATION` nur im Testbaum.
+  Die Ausgabe `SUITE_RECONCILIATION=REQUIRED` ist ein explizit
+  noch offener Core-Aufnahmeabgleich und kein Erfolgsbeleg für Core.
+- **Nächste Ausführung:** Verbliebene HEVC-Core-/Agent-Vertragstests
+  sowie tatsächliche laufende Agent-/Quellkonfiguration nur lesend
+  prüfen; eine produktive Core-/Agent-Operation und echte
+  TV-Bild/Ton/Seek-Abnahme erfordern jeweils ein vom Maintainer
+  ausdrücklich ausgewähltes Testmedium. Kein erneuter H.264-/HEVC-
+  Encode-Smoke und keine Änderungen an bestehenden Aufnahmen.
 
 Inkrementell bauen, vorhandene Runtime-Artefakte wiederverwenden,
 kein neues Branch/PR, keine DB-Backups oder unnötigen Aktivierungsprüfungen.
