@@ -1248,12 +1248,33 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
   Veröffentlichung unverändert, `HEVC_PUBLICATION` nur im Testbaum.
   Die Ausgabe `SUITE_RECONCILIATION=REQUIRED` ist ein explizit
   noch offener Core-Aufnahmeabgleich und kein Erfolgsbeleg für Core.
-- **Nächste Ausführung:** Verbliebene HEVC-Core-/Agent-Vertragstests
-  sowie tatsächliche laufende Agent-/Quellkonfiguration nur lesend
-  prüfen; eine produktive Core-/Agent-Operation und echte
-  TV-Bild/Ton/Seek-Abnahme erfordern jeweils ein vom Maintainer
-  ausdrücklich ausgewähltes Testmedium. Kein erneuter H.264-/HEVC-
-  Encode-Smoke und keine Änderungen an bestehenden Aufnahmen.
+- **MT.ENC4 HEVC-Core-/Agent-Tests PASS (10.11.2026, yaVDR):**
+  `test-addon-media-shrink-core-review`: PASS (inklusive P7-Backup-Testfixture);
+  `test-addon-media-shrink-core-admission`: PASS;
+  `test-addon-media-shrink-agent-executor`: PASS
+  (`STAGE_CRASH_REPLAY_FENCED=YES`, `RECONCILIATION_REQUIRED=YES`,
+  `ORIGINAL_PRESERVED=YES`);
+  `test-addon-media-shrink-command-fence`: PASS;
+  `test-addon-media-shrink-mutation-api`: PASS
+  (`BACKEND_SCOPE=PASS`, `OPERATION_READ=PASS`, `FAIL_CLOSED=YES`).
+  Zusammen `MT_ENC4_HEVC_CORE_AGENT_CONTRACTS=PASS` auf
+  `3c0d6150791665ebdaf927e1860f667a8f0d5c8f`.
+  Vorhandener `vdr-suite-daemon` (PID 1891) und
+  `vdr-suite-backend-agent` (PID 4794) sind `active`.
+  In `/etc/vdr-suite/backend-agent.conf` sind keine expliziten
+  Encoderoptionen gesetzt: Default H.264 CRF 23/medium,
+  HEVC CRF 27/medium. Die Quellliste enthält
+  `local-media-import` von `/srv/video/Filme` nach
+  `/srv/vdr/video.00`. Keine Produktionsdatei verändert.
+- **Nächste Ausführung:** Realen Produktpfad über den bereits laufenden
+  Backend-Agent mit einem **explizit ausgewählten synthetischen
+  Importmedium** aus der konfigurierten Importquelle testen;
+  Autorisierung/Start ausschließlich über das vorhandene Webfrontend.
+  Core-Operation, SSE-Fortschritt, native VDR-Reconciliation und
+  unveränderte Quellbytes prüfen. Den erfolgreichen isolierten Worker-
+  Tests nicht erneut ausführen. Anschließend echte TV-Bild/Ton/Seek-
+  Abnahme mit dem tatsächlich genutzten Client.
+  **REAL_CORE_AGENT_OPERATION=NOT_TESTED, TV_PLAYBACK=NOT_TESTED**.
 
 Inkrementell bauen, vorhandene Runtime-Artefakte wiederverwenden,
 kein neues Branch/PR, keine DB-Backups oder unnötigen Aktivierungsprüfungen.
