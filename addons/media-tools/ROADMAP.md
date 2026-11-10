@@ -1187,10 +1187,23 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
 - **Offen:** Echte H.264-Umkodierung mit konfigurierten Werten samt Index,
   Bild/Ton/Seek; HEVC-Shrink mit realem VDR-Index und echter
   Decoder-/Client-Wiedergabe. Originale bleiben unangetastet.
-- **Naechster Schritt:** Zuerst isolierter H.264-FFmpeg->MPEG-TS->
-  VDR-`--genindex`-Host-Smoke mit kuenstlichem Testmedium ausserhalb der
-  Videowurzel, dann Media-Tools-Worker-End-to-End nur mit ausdruecklich
-  freigegebener Quelle. Synthetic Host-Smoke != REAL-VDR-Produktabnahme.
+- **MT.ENC4 H.264 Host-Smoke PASS (10.11.2026, rückgemeldete Shell-Ausgabe):**
+  Künstliche achtsekündige MPEG-4-/AAC-Datei unter
+  `/var/tmp/mt-enc4-h264.AleXVV/source.mkv` mit dem installierten FFmpeg
+  real nach H.264 Main / yuv420p / AAC / MPEG-TS umkodiert.
+  FFprobe-Readback PASS; `vdr --genindex` erzeugte einen nichtleeren
+  nativen Index (ca. 1,6 KB) zur Testaufnahme mit ca. 985 KB TS.
+  `MT_ENC4_H264_HOST_SMOKE=PASS` und `SOURCE_UNVERAENDERT=PASS`.
+  Dieser isolierte Hosttest ist **kein** Media-Tools-Worker-/Core-/Agent-
+  End-to-End-Test und **kein** Client-Wiedergabenachweis.
+  Der erste Versuch lief durch einen zu streng formulierten
+  FFprobe-Shell-Stringvergleich vor dem Indexschritt aus; der unmittelbar
+  folgende JSON-Readback und native Indexlauf bestätigten den Host-Smoke.
+- **Nächste Ausführung:** Vorhandenen Media-Tools-C++-Worker auf derselben
+  echten yaVDR-FFmpeg-/VDR-Basis isoliert mit ausschließlich künstlicher
+  Testquelle und separatem `/var/tmp`-Video-Root prüfen. Danach Core-/Agent-
+  Produktpfad nur mit ausdrücklich freigegebener Quelle und echte
+  Wiedergabe separat. HEVC-Shrink bleibt weiterhin offen.
 
 Inkrementell bauen, vorhandene Runtime-Artefakte wiederverwenden,
 kein neues Branch/PR, keine DB-Backups oder unnötigen Aktivierungsprüfungen.
