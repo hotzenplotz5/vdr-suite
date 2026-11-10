@@ -482,10 +482,28 @@ async function checkEditorFullWrites() {
   };
   const writes = [];
   const operationReads = [];
+  const eventStreams = [];
+  let operationReadState = 'outcome_unknown';
+  class FakeEventSource {
+    constructor(url, options) {
+      this.url = url;
+      this.options = options;
+      this.listeners = {};
+      this.closed = false;
+      eventStreams.push(this);
+    }
+    addEventListener(name, callback) { this.listeners[name] = callback; }
+    emit(name, payload) {
+      if (this.listeners[name])
+        this.listeners[name]({data: JSON.stringify(payload)});
+    }
+    close() { this.closed = true; }
+  }
   let state = 'succeeded';
   let rejectCreate = false;
   let keyCounter = 0;
   const browser = {
+    EventSource: FakeEventSource,
     setTimeout() {},
     confirm() { return true; },
     crypto: {
@@ -512,7 +530,7 @@ async function checkEditorFullWrites() {
       operationReads.push(options.operationId);
       return Promise.resolve({
         operationId: options.operationId, backendId: 'living-room',
-        state: 'succeeded'
+        state: operationReadState
       });
     }
   };
@@ -597,6 +615,27 @@ async function checkEditorFullWrites() {
   await Promise.resolve();
   assert.strictEqual(writes.length, 2);
   assert.strictEqual(writes[1].payload.active, false);
+  assert.strictEqual(eventStreams.length, 1);
+  const stream = eventStreams[0];
+  assert.strictEqual(stream.url,
+    '/api/v1/operations/op_00000000000000000000000000000002/events');
+  stream.emit('operation', {operationId: 'op_00000000000000000000000000000001'});
+  assert.strictEqual(operationReads.length, 0,
+    'unrelated operation hints must not read this operation');
+  // Actual SSE frames contain no state. A hello followed by completion
+  // during an in-flight GET must still read the final state.
+  stream.emit('hello', {daemonEpoch: 'test'});
+  stream.emit('operation', {
+    operationId: 'op_00000000000000000000000000000002',
+    daemonEpoch: 'test', subscriptionSequence: 1
+  });
+  for (let step = 0; step < 8; step++) await Promise.resolve();
+  assert.strictEqual(operationReads.length, 2,
+    'hello and concurrent completion hint require two GETs, no polling');
+  stream.emit('resync', {});
+  for (let step = 0; step < 6; step++) await Promise.resolve();
+  assert.strictEqual(operationReads.length, 3,
+    'resync must recover missed operation changes');
   second.listeners.submit({preventDefault() {}});
   assert.strictEqual(writes.length, 2);
   // The user can inspect the exact existing operation, but not re-CREATE it.
@@ -614,7 +653,7 @@ async function checkEditorFullWrites() {
   inspect.listeners.click();
   await Promise.resolve();
   await Promise.resolve();
-  assert.strictEqual(operationReads.length, 1);
+  assert.strictEqual(operationReads.length, 4);
   assert.strictEqual(writes.length, 2);
 
   mod.renderList({searchTimers: []});

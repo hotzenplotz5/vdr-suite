@@ -1041,6 +1041,8 @@
     });
     let operationId = '';
     let operationEvents = null;
+    let operationReadPending = false;
+    let operationReadAgain = false;
     function showOperation(record, expectedBackend) {
       if (!record || record.operationId !== operationId ||
           record.backendId !== expectedBackend ||
@@ -1077,6 +1079,12 @@
         setFeedback(feedback, 'Vorgangsabfrage derzeit nicht verfügbar.', true);
         return Promise.resolve(null);
       }
+      if (operationReadPending) {
+        // Coalesce a completion hint received during an in-flight GET.
+        operationReadAgain = true;
+        return Promise.resolve(null);
+      }
+      operationReadPending = true;
       checkOperationButton.disabled = true;
       return api.fetchClientSearchTimerOperation({operationId})
         .then(record => showOperation(record, selectedBackendId()))
@@ -1088,8 +1096,13 @@
           return null;
         })
         .finally(() => {
+          operationReadPending = false;
           if (!checkOperationButton.hidden)
             checkOperationButton.disabled = false;
+          if (operationReadAgain) {
+            operationReadAgain = false;
+            if (!checkOperationButton.hidden) checkOperation();
+          }
         });
     }
     checkOperationButton.addEventListener('click', checkOperation);
@@ -1100,17 +1113,21 @@
       operationEvents = new global.EventSource(
         '/api/v1/operations/' + encodeURIComponent(operationId) + '/events',
         {withCredentials: true});
+      // Operation SSE carries a scoped change hint (operationId), NOT a
+      // trusted state object. Read the existing actor-owned Public-v1 GET.
       const handle = event => {
-        let record;
-        try { record = JSON.parse(String(event.data || '')); }
+        let hint;
+        try { hint = JSON.parse(String(event.data || '')); }
         catch (_) { return; }
-        if (!record || !record.state) return;
-        try { showOperation(record, selectedBackendId()); }
-        catch (_) { /* Leave explicit manual verification available. */ }
+        if (!hint || hint.operationId !== operationId) return;
+        checkOperation();
       };
       operationEvents.onmessage = handle;
       if (typeof operationEvents.addEventListener === 'function') {
         operationEvents.addEventListener('operation', handle);
+        // One-time sync on subscribe/reconnect and overflow recovery.
+        operationEvents.addEventListener('hello', checkOperation);
+        operationEvents.addEventListener('resync', checkOperation);
       }
       operationEvents.onerror = () => {
         if (operationEvents) { operationEvents.close(); operationEvents = null; }
