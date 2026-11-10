@@ -837,26 +837,6 @@
     }).finally(() => { button.disabled = false; });
   }
 
-  function runCreate(payload, button, target) {
-    const api = clientApi();
-    if (!api || typeof api.fetchClientSearchTimerCreateAction !== 'function') {
-      setFeedback(target, 'SearchTimer-Erstellung ist nicht verfügbar.', true);
-      return Promise.resolve(null);
-    }
-    button.disabled = true;
-    setFeedback(target, 'SearchTimer wird erstellt …', false);
-    return api.fetchClientSearchTimerCreateAction({payload, cache: 'no-store', credentials: 'same-origin'})
-      .then(result => {
-        if (!result || result.success !== true) throw new Error(resultMessage(result, 'Backend hat die Erstellung abgelehnt.'));
-        setFeedback(target, resultMessage(result, 'SearchTimer erstellt.'), false);
-        global.setTimeout(reloadSearchTimers, 300);
-        return result;
-      }).catch(error => {
-        setFeedback(target, String(error && error.message ? error.message : error), true);
-        return null;
-      }).finally(() => { button.disabled = false; });
-  }
-
   function runDelete(timer, button, target) {
     const api = clientApi();
     if (!api || typeof api.fetchClientSearchTimerDeleteAction !== 'function') {
