@@ -235,6 +235,8 @@ void assertHappyPathAndNoRetry()
         r.request(),r.executor,r.source);
     assert(status.status == SearchTimerCreateDispatchStatus::verified);
     assert(status.operation.state == MutationOperationState::succeeded);
+    assert(status.operation.resultReference ==
+        "searchtimer-create-verified:31");
     assert(r.executor.creates == 1);
     assert(r.executor.last.marginStartMinutes == 2);
     assert(r.executor.last.marginStopMinutes == 10);
@@ -244,6 +246,25 @@ void assertHappyPathAndNoRetry()
     assert(retry.status == SearchTimerCreateDispatchStatus::conflict);
     assert(r.executor.creates == 1);
     assert(r.source.reads == 2);
+}
+
+void assertHttpAcceptedWithoutIdUsesSingleInventory()
+{
+    Rig r;
+    // The provider accepted the POST but did not return an ID. The existing
+    // pre-/post-inventories still establish the one new native identity.
+    r.executor.nativeId.clear();
+    const auto result = r.dispatch.dispatchOnce(
+        r.request(), r.executor, r.source);
+    assert(result.status == SearchTimerCreateDispatchStatus::verified);
+    assert(result.operation.state == MutationOperationState::succeeded);
+    assert(result.operation.resultReference ==
+        "searchtimer-create-verified:31");
+    assert(r.executor.creates == 1);
+    assert(r.source.reads == 2);
+    assert(r.dispatch.dispatchOnce(r.request(), r.executor, r.source).status ==
+        SearchTimerCreateDispatchStatus::conflict);
+    assert(r.executor.creates == 1);
 }
 
 void assertGuards()
@@ -459,12 +480,61 @@ void assertReadbackAndPreexistingIdentity()
         wrongMargin.request(), wrongMargin.executor, wrongMargin.source);
     assert(wrong.status == SearchTimerCreateDispatchStatus::outcomeUnknown);
     assert(wrongMargin.executor.creates == 1);
+
+    Rig wrongChannel;
+    wrongChannel.source.finalItems.front().channelOptions()
+        .setChannels("ZDF");
+    assert(wrongChannel.dispatch.dispatchOnce(
+        wrongChannel.request(), wrongChannel.executor, wrongChannel.source)
+        .status == SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(wrongChannel.executor.creates == 1);
+
+    Rig wrongPriority;
+    wrongPriority.source.finalItems.front().recordingOptions()
+        .setPriority(49);
+    assert(wrongPriority.dispatch.dispatchOnce(
+        wrongPriority.request(),wrongPriority.executor,wrongPriority.source)
+        .status == SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(wrongPriority.executor.creates == 1);
+
+    Rig wrongTime;
+    wrongTime.source.finalItems.front().filterOptions().setStartTime(1000);
+    assert(wrongTime.dispatch.dispatchOnce(
+        wrongTime.request(),wrongTime.executor,wrongTime.source)
+        .status == SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(wrongTime.executor.creates == 1);
+
+    Rig wrongRepeats;
+    wrongRepeats.source.finalItems.front().repeatOptions()
+        .setAllowedRepeats(4);
+    assert(wrongRepeats.dispatch.dispatchOnce(
+        wrongRepeats.request(),wrongRepeats.executor,wrongRepeats.source)
+        .status == SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(wrongRepeats.executor.creates == 1);
+
+    Rig wrongBlacklist;
+    wrongBlacklist.source.finalItems.front().blacklistOptions()
+        .setBlacklistIds("4");
+    assert(wrongBlacklist.dispatch.dispatchOnce(
+        wrongBlacklist.request(),wrongBlacklist.executor,wrongBlacklist.source)
+        .status == SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(wrongBlacklist.executor.creates == 1);
+
+    Rig wrongExtendedEpg;
+    wrongExtendedEpg.source.finalItems.front().extendedEpgOptions()
+        .setExtendedEpgInfo("genre=documentary");
+    assert(wrongExtendedEpg.dispatch.dispatchOnce(
+        wrongExtendedEpg.request(),wrongExtendedEpg.executor,
+        wrongExtendedEpg.source)
+        .status == SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(wrongExtendedEpg.executor.creates == 1);
 }
 }
 
 int main()
 {
     assertHappyPathAndNoRetry();
+    assertHttpAcceptedWithoutIdUsesSingleInventory();
     assertGuards();
     assertBackendRestartCannotDispatch();
     assertLeaseExpiryCannotBeMaskedByRequestTimestamp();
