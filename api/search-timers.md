@@ -1,4 +1,4 @@
-# Public-v1 VDR SearchTimers: read, preview, inactive CREATE and native CAS management
+# Public-v1 VDR SearchTimers: read, preview, complete active/inactive CREATE and native CAS management
 
 **Abnahmestand 24.10.2026:** Der bereits erfolgreich auf yaVDR durchgeführte [direkte RESTfulAPI-SearchTimer-CREATE/UPDATE/DELETE-Smoke-Test](../docs/development/searchtimer-yavdr-smoke-test-execution-report.md) bleibt **PASS – PROVIDER** und ist nicht erneut auszuführen. Die nachträglich implementierte Public-v1-Device-/HTTP-/native-epgsearch-CAS-Kette für UPDATE/ACTIVATE/DEACTIVATE/DELETE ist ein **anderer, noch offener REAL-VDR-Ende-zu-Ende-Pfad**. CREATE bleibt ein einmaliger RESTfulAPI-Write ohne native epgsearch-lock-atomare CREATE-CAS-Garantie; diese Garantie muss vor der Releasefreigabe entweder implementiert oder ausdrücklich aus dem Scope ausgeschlossen werden. Die [einzige zentrale Abnahmematrix](../docs/development/public-v1-final-hardware-acceptance.md) und der [Dokumentations-Closeout](../docs/development/public-api-v1-documentation-closeout-20261024.md) sind für den Test-/Release-Status maßgeblich; historische Implementierungsabschnitte darunter sind keine neuen Testaufträge.
 
@@ -70,78 +70,139 @@ Source CI and package builds are required for the exact integration commit; the 
 - Response: `{backendId,totalCount,items:[{title,subtitle,channelId,startTime,endTime}],meta:{partial:false,epgInput:"ready",evaluation:"epg-match-only"}}`. `limit` default/max 30. Empty valid match is 200/`[]`; cache/backend unavailable 503. 400 for unsupported options, duplicate/oversized/mismatched query; 401/403 for authentication/grants. `Cache-Control: no-store`.
 - **Does not authorize CREATE**. A real SearchTimer CREATE requires separate permission, backend write policy, idempotency, and authoritative post-creation readback. Do not reinterpret this GET as permission to save a rule.
 
-## CREATE: durable admission and one-shot dispatch (wired to Public-v1)
+## CREATE: vollständige aktive und inaktive epgsearch-Regel über Public API v1
 
-**Live-VDR-Margins (2026-10-26, source-only):** Neue inaktive
-SearchTimer erhalten `margin_start`/`margin_stop` direkt aus den
-laufenden `Setup.MarginStart`/`Setup.MarginStop`-Werten ihres VDR-Backends.
-Der SuiteBridge-Befehl `NTCREATE MARGINS 1` liefert nur diese Werte;
-Provider-Epoch und Capability-Revision werden vor der Verwendung geprueft.
-Der Server speichert die Minuten in der unveraenderlichen CREATE-Payload
-Version 2 und reicht sie als explizite epgsearch-Regelwerte weiter.
-Die Readback-Pruefung erwartet dieselben Werte. Aeltere V1-Operationen
-ohne aufgezeichnete Margins werden nicht stillschweigend mit `0/0`
-weitergeschrieben. Kann die neue VDR-seitige Auskunft nicht bestaetigt
-werden, erfolgt keine neue CREATE-Mutation. Ein Source-Test ist kein
-Nachweis fuer eine erfolgreiche Installation auf MLD/yaVDR.
+**ST.V1-Entwicklungsstand (10.11.2026, Branch `MLD-Suchtimer`):**
+Der Quellcode des gemeinsamen CREATE-Pfads wurde erweitert. **Das ist
+keine Bestätigung einer erfolgreichen produktiven Kompilierung, Installation
+oder MLD-/yaVDR-Hardwareabnahme.** Die historischen Provider-Smoke-Tests
+dürfen nicht als Prüfung dieses neuen Kandidaten ausgegeben werden.
 
+`POST /api/v1/search-timers?backend=<backendId>`
 
-`SearchTimerCreateAdmissionService` persists one immutable, versioned
-`SearchTimerCreateOperationPayload` in the shared
-`MutationOperationRepository.reserveWithPayload`. Idempotency binds actor,
-backend, `SearchTimer/new`, `searchtimer.create`, and the request key;
-a SHA-256 payload fingerprint enforces byte-stable replays. A changed payload
-with the same key fails as a conflict.
+Erforderlich sind `Idempotency-Key` sowie `Content-Type: application/json`
+und im Body `name`, `query`, `active` (explizit `true` oder `false`),
+`confirmed:true`, `mode`, `compareTitle`, `compareSubtitle`,
+`compareSummary`. Native epgsearch speichert Suchtext und Regelnamen als
+denselben Wert: `name` muss `query` gleichen. Fehlende `tolerance` ist
+`0`, gültig `0..3` nur bei `mode=5`; die nativen Match-Modi `0..5`
+einschließlich Regex-Modus 4 sind für CREATE erlaubt.
 
-**Safety change (2026-10-22):** the Public-v1 JSON body must include
-`"active":false` explicitly. Missing `active` or `"active":true`
-returns **HTTP 422 before durable admission/provider write**. The daemon
-callback independently rejects active requests. The durable CREATE dispatcher
-also refuses **previously accepted but still queued active CREATE operations**
-before contacting the provider, to prevent pre-upgrade jobs from bypassing
-the rule; these historical jobs move atomically to the terminal
-`failed_before_dispatch` state (with a policy reason) and remain auditable
-instead of being silently rewritten or retried. This makes
-Public-v1 CREATE an inactive **staging** operation: epgsearch must not
-schedule recordings from the rule until a separately authorized, generation-
-fenced activation is explicitly requested through the native CAS mutation endpoint. Existing legacy/browser integrations remain
-separate and unchanged. See `docs/development/public-v1-searchtimer-native-generation-fence.md` for
-why MODIFY, ACTIVATE, DEACTIVATE and DELETE cannot safely use native numeric IDs
-alone, and the required provider generation/CAS contract.
+**Autorisierung:** Eine eingeloggte Browser-Sitzung benötigt die bestehende
+CSRF- und SearchTimer-CREATE-Berechtigung; ein gepaartes Device benötigt den
+bereits bestehenden unabhängigen `searchtimers.create@backend`-Grant.
+Keine Device-Berechtigung darf unversionierte Legacy-API-Routen freischalten.
+Beide Akteure gelangen nach Autorisierung in **denselben** Public-v1-
+Controller, die gemeinsame Admission/Operation, den einmaligen
+RESTfulAPI-Provider-Writer und die native Readback-Verifikation. MLD,
+yaVDR und die späteren Samsung-/VIDAA-Clients benötigen keinen Backend-Fork.
 
-A Device/TV client should present the read-only
-`draft-preview` first, prominently show `totalCount`, and require a human
-confirmation. That count is **EPG text matches**, not the final number of
-recordings. The JavaScript reference client enforces explicit preview
-acknowledgement before sending the inactive CREATE, but the backend does
-not claim that a GET preview was executed beforehand.
+### Vollständige unterstützte epgsearch-Optionen
 
-After exact Device HTTP authorization and backend write/online/Agent-generation
-checks, `DaemonRuntime` invokes this existing admission service and, only
-for an eligible `accepted` operation, the existing
-`SearchTimerCreateDispatchService.dispatchOnce`. The dispatcher acquires
-an atomic `accepted -> dispatching` CAS **before** a single RESTfulAPI
-CREATE attempt. It requires a complete preflight backend rule inventory and
-authoritatively verifies the returned new native ID against a fresh complete
-post-write inventory, including name, query, active state, match mode,
-tolerance and comparison flags. Ambiguous provider results become
-`outcome_unknown`, **never an automatic second POST**. The operation read
-endpoint is `GET /api/v1/operations/{operationId}`.
+| Bereich | Zusätzliche JSON-Felder (CamelCase) |
+|---|---|
+| Suche | `matchCase`, `summaryMatch`, `compareCategories`, `compareTime` |
+| Sender | `useChannel` (0–3), `channels`, `channelMin`, `channelMax` |
+| Zeit | `useTime`, `startTime`, `stopTime` (HHMM), `useDuration`, `durationMinMinutes`, `durationMaxMinutes`, `useDayOfWeek`, `dayOfWeek` |
+| Aufnahme | `directory`, `priority`, `lifetime`, `useVps`, `marginStartMinutes`, `marginStopMinutes`, `useSeriesRecording`, `keepRecordings`, `deleteMode`, `searchTimerAction` |
+| Wiederholungen | `avoidRepeats`, `allowedRepeats`, `repeatsWithinDays` |
+| Blacklist | `blacklistMode`, `blacklistIds` |
+| EPG | `useExtendedEpgInfo`, `extendedEpgInfo`, `ignoreMissingEpgCategories`, `contentDescriptors` |
+| Gültigkeit/Favoriten | `useInFavorites`, `activeFrom`, `activeUntil` |
+| Aktion/Aufbewahrung | `pauseOnRecordings`, `switchMinutesBefore`, `unmuteSoundOnSwitch`, `deleteRecordingsAfterDays`, `deleteAfterCountRecordings`, `deleteAfterDaysOfFirstRecording` |
 
-This path uses the existing backend-specific RESTfulAPI adapter; it does not
-enable Device access to legacy APIs, unrestricted SearchTimer settings
-editing, arbitrary native VDR Timer creation, or exact future recording
-prediction. Native UPDATE/TOGGLE/DELETE use only the separately authorized
-version-fenced SuiteBridge/epgsearch CAS route described below. A confirmed
-CREATE requests an epgsearch rule; any automated recording effects depend on
-the backend epgsearch configuration and are **not** proven by HTTP 202.
+`blacklistIds` und `extendedEpgInfo` verwenden die vorhandene
+RESTfulAPI-Listenabbildung; Stringwerte werden vor Vergleich kanonisiert.
+Die ursprünglichen Core-Listenvarianten bleiben im Provider-Adapter
+erhalten, sind aber nicht zusätzlich als eigene Public-v1-Arrayfelder
+angeboten. Unbekannte JSON-Felder werden verworfen **durch einen Fehler**,
+nicht durch stillschweigendes Ignorieren. Providerabhängig nicht
+roundtripfähige Werte bleiben im Ergebnis `outcome_unknown`, nicht
+`succeeded`.
 
-The CI-fast targets `test-searchtimer-create-durable-admission`,
-`test-searchtimer-create-one-shot-dispatch`, and
-`test-searchtimer-create-orphan-recovery` use isolated SQLite/mock providers.
-The compiled daemon wiring and HTTP tests are also checked in GitHub CI.
-Real yaVDR backend creation, readback behavior and VIDAA hardware acceptance
-remain separate gates.
+Eine neue Regel kann direkt aktiv angelegt werden; `active:true` kann
+unmittelbar Timer/Automationsaktionen auslösen. Der Browser verlangt
+ausdrückliche Bestätigung. Für `marginStartMinutes` und
+`marginStopMinutes` gilt: Bei fehlenden JSON-Feldern werden die live
+ermittelten VDR-Setup-Werte der zugehörigen SuiteBridge verwendet;
+ausdrücklich gesetzte Zahlen (auch `0`) sind wirksame Überschreibungen.
+Die VDR-Setup-Auskunft hat bisher weiterhin einen vorhandenen
+Backend-/Agent-Vertrag. Sie ist kein zusätzlich für diese Phase
+eingeführtes Berechtigungsgate.
+
+### Beispiel
+
+```http
+POST /api/v1/search-timers?backend=default
+Idempotency-Key: search-web-0123456789abcdef0123456789abcdef
+Content-Type: application/json
+
+{
+  "name": "Tatort",
+  "query": "Tatort",
+  "active": true,
+  "confirmed": true,
+  "mode": 1,
+  "tolerance": 0,
+  "compareTitle": true,
+  "compareSubtitle": false,
+  "compareSummary": false,
+  "useChannel": 2,
+  "channels": "Öffentlich",
+  "useTime": true,
+  "startTime": 2015,
+  "stopTime": 2359,
+  "priority": 50,
+  "avoidRepeats": true,
+  "allowedRepeats": 1
+}
+```
+
+### Einmalige Mutation und erfolgreicher Readback
+
+Der bestehende `SearchTimerCreateAdmissionService` schreibt den
+vollständigen, unveränderlichen `SearchTimerCreateOperationPayload`
+**Version 3** in dieselbe `MutationOperationRepository` wie andere
+API-v1-Operations. Ein SHA-256-Fingerprint bindet jede Option an
+Akteur, Backend, Idempotency-Key und Generation. Veränderte Requests
+unter gleichem Key werden abgelehnt. Ein alter Version-2-Vorgang wird
+nicht blind mit neu interpretierten Optionen neu versendet.
+
+Der bestehende `SearchTimerCreateDispatchService` führt exakt einen
+`POST /searchtimers` durch, eingerahmt von **einer vollständigen
+nativen Vorher-Inventur und einer vollständigen Nachher-Inventur**.
+Eine unklare oder fehlende ID in der POST-Antwort führt zu **keiner
+weiteren Suchtext-Abfrage**. Nur eine eindeutige neue native ID, eine
+eindeutig passende Backendgeneration und der vollständige Vergleich
+aller wirksamen angeforderten Optionen können die Operation in
+`succeeded` überführen; die native ID bleibt als interne
+Result-Referenz nachvollziehbar. Eine fehlende, geänderte oder
+mehrdeutige Bestätigung führt zu `outcome_unknown`. Keine automatische
+Wiederholung eines CREATE.
+
+Ein HTTP 202 enthält `operationId`, `backendId`, `state` und
+`Location: /api/v1/operations/{operationId}`. Die Browser-Oberfläche
+kann den Vorgang über die bereits vorhandene Operation-SSE-Route
+beobachten und ihn gezielt nachlesen; sie sendet bei Unklarheit
+keinen zweiten POST. Ein `succeeded`-Zustand besagt nur, dass epgsearch
+die angeforderte Regel bestätigt hat, nicht wie viele Aufnahmen
+später tatsächlich erstellt werden.
+
+**Nicht betroffen:** Die separat generation-/revisionsgeschützten
+Public-v1-UPDATE-/ACTIVATE-/DEACTIVATE-/DELETE-Mutationen nutzen
+weiterhin ihren eigenen bestehenden native-CAS-Teilpfad.
+Der frühere `POST /api/vdr/searchtimers`-Browser-CREATE ist durch den
+Runtime-Mutationspolicy-Executor produktiv gesperrt.
+
+**Test- und Abnahmetrennung:** Die gezielten C++-Targets sind
+`test-searchtimer-create-durable-admission`,
+`test-searchtimer-create-one-shot-dispatch`,
+`test-searchtimer-create-orphan-recovery`,
+`test-restful-api-search-timer-command-executor`.
+Browser- und Referenzclient-Tests sowie
+`test-public-timer-assignment-collection` (Public-v1 HTTP Vertrag)
+sind zusätzlich auszuführen. Ein PASS dieser Tests ersetzt
+**keine** MLD-6.6-Paketinstallation oder einen echten yaVDR-/epgsearch-Readback.
 
 ### Device mutation permission must never unlock the legacy path
 
