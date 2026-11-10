@@ -1,4 +1,6 @@
 #include "BackendAgentClient.h"
+#include "BackendAgentCurlProxyCompatibility.h"
+#include "BackendAgentBasicAuthorization.h"
 #include "MediaToolsAgentExecutor.h"
 #include "MediaImport.h"
 #include "SuiteBridgeControlSocketPath.h"
@@ -509,6 +511,8 @@ CurlBackendAgentControlPlaneTransport::CurlBackendAgentControlPlaneTransport(
 bool CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(
     const std::string& url)
 {
+    // Packaged local first-run connects only to the same-host daemon.
+    if (url == "http://127.0.0.1:18080") return true;
     static const std::string Prefix = "https://";
     if (url.rfind(Prefix, 0) != 0 || url.size() <= Prefix.size() ||
         url.size() > 4096 || containsControl(url) ||
@@ -595,55 +599,99 @@ BackendAgentTransportResponse CurlBackendAgentControlPlaneTransport::perform(
         const std::string authorization = "Authorization: " + enrollmentAuthorization;
         headers = curl_slist_append(headers, authorization.c_str());
     }
+    else if (!basicLogin.empty())
+    {
+        // MLD's libcurl can send HTTP headers but lacks its Basic auth feature.
+        // The credential remains confined to the protected request header.
+        const std::string authorization = "Authorization: " +
+            vdrsuite::agent::backendAgentBasicAuthorizationValue(
+                basicLogin, basicSecret);
+        headers = curl_slist_append(headers, authorization.c_str());
+    }
 
     CurlWriteState writeState{&response.body};
     bool configured = headers != nullptr;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_URL, url.c_str()) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_POST, 1L) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_POSTFIELDS, body.data()) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE_LARGE,
-                                                  static_cast<curl_off_t>(body.size())) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_USERAGENT,
-                                                  "vdr-suite-backend-agent/1") == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_NOSIGNAL, 1L) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 0L) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_MAXREDIRS, 0L) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 1L) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, 2L) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_NETRC, CURL_NETRC_IGNORED) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_PROXY, "") == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_PROTOCOLS_STR, "https") == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_REDIR_PROTOCOLS_STR, "https") == CURLE_OK;
-    // Interactive command polls must not occupy the single Agent loop for
-    // ten seconds. Heartbeats, observations and durable command receipts keep
-    // their configured timeouts; only the optional fast poll is bounded.
+    const char* failedOption = configured ? "none" : "headers";
+    CURLcode setupError = configured ? CURLE_OK : CURLE_OUT_OF_MEMORY;
+    // Preserve the existing curl settings and fail-closed policy. Record only
+    // the name and numeric error of the first failing setting; never the URL,
+    // request body, auth header or any enrollment/identity secret.
+    auto setOption = [&](const char* label, CURLoption option, auto value) {
+        if (!configured) return;
+        const CURLcode code = curl_easy_setopt(handle, option, value);
+        if (code != CURLE_OK)
+        {
+            configured = false;
+            failedOption = label;
+            setupError = code;
+        }
+    };
+    setOption("url", CURLOPT_URL, url.c_str());
+    setOption("headers", CURLOPT_HTTPHEADER, headers);
+    setOption("post", CURLOPT_POST, 1L);
+    setOption("postfields", CURLOPT_POSTFIELDS, body.data());
+    setOption("postfieldsize", CURLOPT_POSTFIELDSIZE_LARGE,
+              static_cast<curl_off_t>(body.size()));
+    setOption("useragent", CURLOPT_USERAGENT, "vdr-suite-backend-agent/1");
+    setOption("nosignal", CURLOPT_NOSIGNAL, 1L);
+    setOption("followlocation", CURLOPT_FOLLOWLOCATION, 0L);
+    setOption("maxredirs", CURLOPT_MAXREDIRS, 0L);
+    setOption("ssl_verifypeer", CURLOPT_SSL_VERIFYPEER, 1L);
+    setOption("ssl_verifyhost", CURLOPT_SSL_VERIFYHOST, 2L);
+    setOption("netrc", CURLOPT_NETRC, CURL_NETRC_IGNORED);
+    // MLD builds libcurl without proxy support. Disabling an absent proxy
+    // feature can return CURLE_UNKNOWN_OPTION (48) or CURLE_NOT_BUILT_IN;
+    // either means there is no proxy support to disable. On normal builds
+    // the explicit empty proxy still prevents environment proxy injection.
+    // Every other option and error remains fail-closed.
+    if (configured)
+    {
+        const CURLcode proxyResult = curl_easy_setopt(handle, CURLOPT_PROXY, "");
+        if (!vdrsuite::agent::proxyDisableOptionAccepted(proxyResult))
+        {
+            configured = false;
+            failedOption = "proxy";
+            setupError = proxyResult;
+        }
+    }
+    const bool localLoopback = config_.controlPlaneUrl == "http://127.0.0.1:18080";
+    setOption("protocols", CURLOPT_PROTOCOLS_STR, localLoopback ? "http" : "https");
+    setOption("redir_protocols", CURLOPT_REDIR_PROTOCOLS_STR,
+              localLoopback ? "http" : "https");
+    // Preserve main's fast command poll while using the MLD-compatible transport.
     const bool fastCommandPoll = path == "/api/agent/v1/commands/poll";
     const long requestTimeout = fastCommandPoll
         ? std::min(config_.requestTimeoutMilliseconds, 2000L)
         : config_.requestTimeoutMilliseconds;
     const long connectTimeout =
         std::min(config_.connectTimeoutMilliseconds, requestTimeout);
-    configured = configured && curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT_MS,
-                                                  connectTimeout) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_TIMEOUT_MS,
-                                                  requestTimeout) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, curlWrite) == CURLE_OK;
-    configured = configured && curl_easy_setopt(handle, CURLOPT_WRITEDATA, &writeState) == CURLE_OK;
+    setOption("connecttimeout", CURLOPT_CONNECTTIMEOUT_MS, connectTimeout);
+    setOption("timeout", CURLOPT_TIMEOUT_MS, requestTimeout);
+    setOption("writefunction", CURLOPT_WRITEFUNCTION, curlWrite);
+    setOption("writedata", CURLOPT_WRITEDATA, &writeState);
     if (!config_.caCertificatePath.empty())
-    {
-        configured = configured && curl_easy_setopt(
-            handle, CURLOPT_CAINFO, config_.caCertificatePath.c_str()) == CURLE_OK;
-    }
-    if (!basicLogin.empty())
-    {
-        configured = configured && curl_easy_setopt(handle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC) == CURLE_OK;
-        configured = configured && curl_easy_setopt(handle, CURLOPT_USERNAME, basicLogin.c_str()) == CURLE_OK;
-        configured = configured && curl_easy_setopt(handle, CURLOPT_PASSWORD, basicSecret.c_str()) == CURLE_OK;
-    }
-
+        setOption("cainfo", CURLOPT_CAINFO, config_.caCertificatePath.c_str());
     const CURLcode result = configured ? curl_easy_perform(handle) : CURLE_FAILED_INIT;
     long status = 0;
+    if (result != CURLE_OK)
+    {
+        const curl_version_info_data* runtime = curl_version_info(CURLVERSION_NOW);
+        const char* curlVersion =
+            runtime != nullptr && runtime->version != nullptr
+                ? runtime->version : "unknown";
+        if (!configured)
+        {
+            std::fprintf(stderr,
+                "BACKEND_AGENT_CURL_DIAG=SETUP_FAILED option=%s code=%d runtime=%s\n",
+                failedOption, static_cast<int>(setupError), curlVersion);
+        }
+        else
+        {
+            std::fprintf(stderr,
+                "BACKEND_AGENT_CURL_DIAG=PERFORM_FAILED code=%d runtime=%s\n",
+                static_cast<int>(result), curlVersion);
+        }
+    }
     if (result == CURLE_OK) curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &status);
     curl_slist_free_all(headers);
     curl_easy_cleanup(handle);

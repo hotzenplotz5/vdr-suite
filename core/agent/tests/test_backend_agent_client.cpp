@@ -1,4 +1,6 @@
 #include "BackendAgentClient.h"
+#include "BackendAgentCurlProxyCompatibility.h"
+#include "BackendAgentBasicAuthorization.h"
 #include "BackendAgentCommandJson.h"
 #include "BackendAgentCommandClient.h"
 #include "MediaShrinkAgentCommand.h"
@@ -152,12 +154,53 @@ void removeTree(const std::string& root)
     rmdir(root.c_str());
 }
 
+void test_curl_proxy_disable_option_without_proxy_support()
+{
+    // MLD libcurl 8.19 reports code 48 on CURLOPT_PROXY="".
+    // A proxy-disabled library cannot use an environment proxy; reject
+    // other failures without weakening TLS, URL or protocol checks.
+    using vdrsuite::agent::proxyDisableOptionAccepted;
+    assert(proxyDisableOptionAccepted(CURLE_OK));
+    assert(proxyDisableOptionAccepted(CURLE_UNKNOWN_OPTION));
+    assert(proxyDisableOptionAccepted(CURLE_NOT_BUILT_IN));
+    assert(!proxyDisableOptionAccepted(CURLE_FAILED_INIT));
+    assert(!proxyDisableOptionAccepted(CURLE_BAD_FUNCTION_ARGUMENT));
+}
+
+void test_mld_basic_authorization_without_curl_httpauth()
+{
+    using vdrsuite::agent::backendAgentBasicAuthorizationValue;
+    // Known RFC 7617 Basic encoding. MLD HTTP libcurl must not need to
+    // implement authentication to send an explicit Authorization header.
+    assert(backendAgentBasicAuthorizationValue("agent", "secret") ==
+           "Basic YWdlbnQ6c2VjcmV0");
+    assert(backendAgentBasicAuthorizationValue("agt_123", "test-secret") ==
+           "Basic YWd0XzEyMzp0ZXN0LXNlY3JldA==");
+    assert(backendAgentBasicAuthorizationValue("a", "b") ==
+           "Basic YTpi");
+    assert(backendAgentBasicAuthorizationValue("ab", "c") ==
+           "Basic YWI6Yw==");
+}
+
 void test_protected_url_and_configuration()
 {
     assert(CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(
         "https://control-plane.example.test"));
     assert(!CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(
         "http://control-plane.example.test"));
+    // The only accepted plaintext endpoint is the packaged same-host daemon.
+    assert(CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(
+        "http://127.0.0.1:18080"));
+    for (const auto& invalid : {
+        "http://127.0.0.1:18081", "http://127.0.0.2:18080",
+        "http://localhost:18080", "http://[::1]:18080",
+        "http://127.0.0.1:18080/", "http://127.0.0.1:18080@evil.example",
+        "http://127.0.0.1:18080/api/agent/v1/enroll",
+        "http://192.168.1.10:18080"
+    })
+    {
+        assert(!CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(invalid));
+    }
     assert(!CurlBackendAgentControlPlaneTransport::validProtectedControlPlaneUrl(
         "https://user@control-plane.example.test"));
 
@@ -1538,6 +1581,8 @@ void test_shrink_requires_explicit_trusted_executor()
 
 int main()
 {
+    test_curl_proxy_disable_option_without_proxy_support();
+    test_mld_basic_authorization_without_curl_httpauth();
     test_protected_url_and_configuration();
     test_enrollment_connect_capability_heartbeat_and_restart();
     test_credential_rotation_and_lost_response_recovery();
