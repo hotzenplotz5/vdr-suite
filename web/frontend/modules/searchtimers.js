@@ -246,9 +246,9 @@
     const actions = objectValue(source, 'actionOptions');
     const state = String(firstValue(source, ['state'], '')).toLowerCase();
     const channelNames = String(firstValue(channels, ['channels'], firstValue(source, ['channels'], '')));
-    const channelMin = String(firstValue(channels, ['channelMin'], firstValue(source, ['channel_min', 'channelMin'], '')));
-    const channelMax = String(firstValue(channels, ['channelMax'], firstValue(source, ['channel_max', 'channelMax'], '')));
-    const rawUseChannel = firstValue(filters, ['useChannel'], firstValue(source, ['use_channel', 'useChannel'], 0));
+    const channelMin = String(firstValue(channels, ['channelMinId', 'channelMin'], firstValue(source, ['channel_min', 'channelMin'], '')));
+    const channelMax = String(firstValue(channels, ['channelMaxId', 'channelMax'], firstValue(source, ['channel_max', 'channelMax'], '')));
+    const rawUseChannel = firstValue(filters, ['useChannelMode', 'useChannel'], firstValue(source, ['use_channel', 'useChannel'], 0));
 
     return {
       source,
@@ -268,6 +268,10 @@
       channels: channelNames,
       channelMin,
       channelMax,
+      useTime: boolValue(firstValue(filters, ['useTime'], firstValue(source, ['use_time', 'useTime'], false)), false),
+      startTime: numberValue(firstValue(filters, ['startTime'], firstValue(source, ['start_time', 'startTime'], 0)), 0),
+      stopTime: numberValue(firstValue(filters, ['stopTime'], firstValue(source, ['stop_time', 'stopTime'], 0)), 0),
+      dayOfWeek: numberValue(firstValue(filters, ['dayOfWeek'], firstValue(source, ['dayofweek', 'dayOfWeek'], 0)), 0),
       useDuration: boolValue(firstValue(filters, ['useDuration'], firstValue(source, ['use_duration', 'useDuration'], false)), false),
       durationMinMinutes: numberValue(firstValue(filters, ['durationMinMinutes'], firstValue(source, ['duration_min', 'durationMin'], 0)), 0),
       durationMaxMinutes: numberValue(firstValue(filters, ['durationMaxMinutes'], firstValue(source, ['duration_max', 'durationMax'], 0)), 0),
@@ -1121,12 +1125,16 @@
     appendMeta(meta, 'Marge Start / Stop', String(timer.marginStartMinutes) + ' / ' + String(timer.marginStopMinutes) + ' Min.');
     appendMeta(meta, 'Suchfelder', [timer.compareTitle ? 'Titel' : '', timer.compareSubtitle ? 'Untertitel' : '', timer.compareSummary ? 'Beschreibung' : ''].filter(Boolean).join(', ') || '-');
     appendMeta(meta, 'Kanalfilter', channelFilterLabel(timer));
+    appendMeta(meta, 'Zeitfenster', timer.useTime
+      ? String(timer.startTime).padStart(4, '0') + '–' + String(timer.stopTime).padStart(4, '0')
+      : 'alle Zeiten');
+    if (timer.useDayOfWeek) appendMeta(meta, 'Wochentage (VDR-Maske)', String(timer.dayOfWeek));
     appendMeta(meta, 'Duplikate', timer.avoidRepeats ? 'vermeiden' : 'zulassen');
     body.appendChild(meta);
 
     const safety = document.createElement('p');
     safety.className = 'searchtimer-safety-note';
-    safety.textContent = 'Vorhandene SearchTimer werden noch nicht direkt überschrieben: Der aktuelle Leservertrag liefert Zeitfenster und konkreten Wochentag nicht vollständig zurück. „Als Vorlage“ übernimmt die sicher bekannten Werte in einen neuen SearchTimer.';
+    safety.textContent = 'Die vollständigen Zeit- und Kanalfilter werden angezeigt. Bearbeitung und Aktivierung bestehender SearchTimer bleiben bis zur passenden bestätigten Update-API deaktiviert. „Als Vorlage“ erstellt weiterhin zunächst einen inaktiven neuen SearchTimer.';
     body.appendChild(safety);
 
     const actions = document.createElement('div');

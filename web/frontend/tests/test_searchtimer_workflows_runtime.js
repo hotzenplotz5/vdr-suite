@@ -351,6 +351,26 @@ assert.strictEqual(
   2
 );
 
+const completeMldTimer = api.normalizeSearchTimer({
+  backendId: 'default',
+  filterOptions: {
+    useChannelMode: 2, useTime: true, startTime: 930,
+    stopTime: 1120, useDayOfWeek: true, dayOfWeek: 31
+  },
+  channelOptions: {
+    channels: 'Öffentlich',
+    channelMinId: 'S19.2E-1-1011-11110',
+    channelMaxId: 'S19.2E-1-1011-11111'
+  }
+}, 0);
+assert.strictEqual(completeMldTimer.useChannel, 2);
+assert.strictEqual(completeMldTimer.useTime, true);
+assert.strictEqual(completeMldTimer.startTime, 930);
+assert.strictEqual(completeMldTimer.stopTime, 1120);
+assert.strictEqual(completeMldTimer.dayOfWeek, 31);
+assert.strictEqual(completeMldTimer.channelMin, 'S19.2E-1-1011-11110');
+assert.strictEqual(completeMldTimer.channelMax, 'S19.2E-1-1011-11111');
+
 assert.ok(!source.includes('fetch('));
 assert.ok(
   source.includes('fetchClientSearchTimerPreview')
