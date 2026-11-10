@@ -692,6 +692,33 @@ int main()
     assert(outcomeAuditFailure.headers.at("X-Correlation-ID") ==
         "phase62-test-correlation");
 
+    // Full epgsearch CREATE is Browser-only and keeps the existing
+    // SearchTimer permission and CSRF requirements.
+    assert(fixture.grantRepository.ensureGrant(
+        fixture.actorId, "role.admin", "*"));
+    HttpServerRequest legacySearchCreate = fixture.mutationRequest(
+        "/api/vdr/searchtimers", "default");
+    fixture.addBrowserAuthentication(legacySearchCreate, true);
+    const auto legacyAllowed = fixture.gate.evaluate(legacySearchCreate);
+    assert(legacyAllowed.allowed);
+    assert(legacyAllowed.browserAuthenticated);
+    assert(legacyAllowed.authorizationDecision.permission ==
+        "searchtimers.create");
+
+    HttpServerRequest legacyNoCsrf = fixture.mutationRequest(
+        "/api/vdr/searchtimers", "default");
+    fixture.addBrowserAuthentication(legacyNoCsrf);
+    const auto legacyCsrfRejected = fixture.gate.evaluate(legacyNoCsrf);
+    assert(!legacyCsrfRejected.allowed);
+    assert(legacyCsrfRejected.rejection.statusCode == 403);
+
+    HttpServerRequest legacyUnauthenticated = fixture.mutationRequest(
+        "/api/vdr/searchtimers", "default");
+    const auto legacyAnonRejected = fixture.gate.evaluate(
+        legacyUnauthenticated);
+    assert(!legacyAnonRejected.allowed);
+    assert(legacyAnonRejected.rejection.statusCode == 401);
+
     // SearchTimer CREATE: authenticated Browser administrator may use the
     // durable inactive-only Public-v1 path; browser CSRF is mandatory.
     assert(fixture.grantRepository.ensureGrant(
