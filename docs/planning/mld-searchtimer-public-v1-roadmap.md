@@ -175,3 +175,71 @@ Die Tabellenzeilen wurden gegen `SearchTimerCreateRequest.h`, `SearchTimerRestfu
 **Definition of Done: Noch NICHT erfüllt.** Änderungen sind auf dem Arbeitsbranch; keine produktive Installation und kein Merge nach `main`. Insbesondere bedeutet ein Commit oder ein Mocktest kein REAL-VDR PASS. Ohne Zugriff auf den tatsächlichen Host-Checkout und Build-Cache dürfen keine C++-/Node-/MLD-Testresultate behauptet werden.
 
 **Noch erforderliche Abnahme:** gezielte C++-Targets `test-searchtimer-create-durable-admission`, `test-searchtimer-create-one-shot-dispatch`, `test-searchtimer-create-orphan-recovery`, `test-searchtimer-create-device-admission`, `test-restful-api-search-timer-command-executor`, `test-public-timer-assignment-collection`; Node-Tests `web/frontend/tests/test_searchtimer_workflows_runtime.js`, `web/frontend/tests/test_phase69f_client_error_mutation_fallback.js`, `clients/reference-js/tests/test_public_v1_search_timer_client.js`, plus OpenAPI-Checker. Danach inkrementellen **Kandidaten-Daemon** bauen und den tatsächlichen VDR/epgsearch-Readback separat auf MLD 6.6 und yaVDR prüfen. Bei jedem Testfehler den Branch korrigieren, nicht die Tests als PASS kennzeichnen.
+
+---
+
+### ST.V1 – Nachprüfung und gezielte Korrekturen (10.11.2026)
+
+Ausgangsstand für diese Nachprüfung war `0c1364d889ab280f4966f27e520289d03f0883f4`
+auf **`MLD-Suchtimer`**, nicht der ältere in der Aufgabenstellung genannte
+`037e0545a89e5c86670563b6ce046f24947704e1`. Dieser vorhandene
+Branch enthielt bereits die Payload-v3-Umsetzung und die 52-Felder-Matrix.
+Es wurde **keine** zweite produktive CREATE-Architektur geschrieben.
+
+**Quellbefund und behobene konkrete Abweichungen:**
+
+1. `b93ad280ac2a9c0b46e23d60e66d327f34803f88`:
+   `/api/v1/operations/{operationId}/events` sendet nur ein
+   autorisiertes `operationId`-Änderungsereignis, keine vollständige Operation
+   mit `state`. Der Editor wertete den SSE-Hinweis fälschlich als Zustand aus
+   und ignorierte ihn. Jetzt liest er auf einen passenden Hinweis die
+   **bereits bestehende actor-gebundene Public-v1-GET-Ressource**, synchronisiert
+   auf `hello` und `resync` und fasst überlappende Hinweise zusammen.
+   Kein Polling und keine erneute Schreiboperation.
+2. `6dc14c2a23bdd5ad39c08d7fb315535bb1c3bbaf`:
+   Eindeutig abgewiesene `422 validation_error`-CREATE-Aufrufe geben den
+   Formular-Submit für einen **ausdrücklich vom Benutzer ausgelösten** neuen
+   Versuch nach Eingabekorrektur wieder frei. Bei unklarem Transportfehler
+   oder `409` bleibt der erneute CREATE gesperrt.
+3. `7104b09f9efab8e67d54cd01cdcb79a380ad2300`:
+   Der exportierte Browser-Validator akzeptiert nun den durch OpenAPI
+   und epgsearch unterstützten Regex-Modus 4; ungültiger Modus 6 wird weiter
+   abgelehnt. Bestehender Editor und API-v1-Writer bleiben identisch.
+
+**Verifizierte Quell- und JS-Evidenz:**
+
+- Aus `api/openapi.json` extrahierte CREATE-Body-Definition: 53 Felder,
+  davon 52 fachliche Felder und `confirmed`. Alle 53 Schlüssel wurden im
+  Public-v1-Parser gefunden, alle 52 fachlichen Felder in der Daemon-Zuordnung,
+  der v3-Operations-Serialisierung und in `buildCreatePayload`. Dieser
+  Abgleich ist **statisch**, kein Provider-Roundtrip.
+- `web/frontend/tests/test_searchtimer_workflows_runtime.js` vollständig
+  in isolierter V8-Ausführung mit Node-Modul-Shims getestet: PASS,
+  einschließlich aktiv/inaktiv, erweiterter Optionen, SSE, 422-Recovery,
+  unklarem POST-Ausgang und Regex-Modus. Die komplette Testdatei wurde
+  ausgeführt, aber **nicht durch Node auf dem echten Checkout**.
+- `clients/reference-js/tests/test_public_v1_search_timer_client.js`
+  vollständig in isolierter V8-Ausführung mit Node-Modul-Shims: PASS
+  (inkl. aktiver und inaktiver CREATE-Varianten).
+- `web/frontend/tests/test_phase69f_client_error_mutation_fallback.js`
+  vollständig in isolierter V8-Ausführung mit Node-Modul-Shims: PASS.
+  Das ersetzt weder produktive Browser-/HTTP-Tests noch Node-CLI-Tests.
+
+**Nicht ausgeführt / nicht als PASS markieren:**
+C++-Kompilation der 20 vorbestehenden SearchTimer-Quellcommits, C++-Tests,
+echter API-v1-HTTP-Produktionspfad, natives RESTfulAPI-/epgsearch-Readback,
+MLD-6.6-Paketprüfung, yaVDR-Installation oder Real-VDR-Abnahme. In dieser
+Arbeitsumgebung existiert **kein verifizierter yaVDR-Checkout oder dessen
+inkrementeller Objektcache**; die GitHub-Anbindung ist nur für
+Quellcode-Lesen/Commits verfügbar. Es wurde nicht behauptet, dass ein
+GitHub-Commit einen Build nachweist. Auf dem Arbeitsbranch lag zum
+Prüfzeitpunkt kein GitHub-Actions-Run vor. Keine Installation,
+kein Dienstneustart, keine Datenbanksicherung, kein Branch-/Worktree-Neubau
+und kein Merge nach `main`.
+
+**Noch offenes Gate:** Den **exakten Produktkandidaten** mit dem vorhandenen
+`OBJECT_CACHE_DIR` auf dem bestehenden Checkout kompilieren, die
+fokussierten SearchTimer-C++-Targets und Node-Tests ausführen und alle
+auftretenden Fehler auf `MLD-Suchtimer` korrigieren. Erst anschließend
+reale MLD-/yaVDR-epgsearch-Readbacks getrennt freigeben und nachweisen.
+Die Definition of Done ist bis dahin **nicht erfüllt**.
