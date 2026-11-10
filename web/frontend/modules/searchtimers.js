@@ -872,7 +872,7 @@
     if (!payload.compareTitle && !payload.compareSubtitle && !payload.compareSummary) {
       errors.push('Mindestens ein Suchfeld auswählen.');
     }
-    if (![0, 1, 2, 3, 5].includes(payload.mode)) {
+    if (![0, 1, 2, 3, 4, 5].includes(payload.mode)) {
       errors.push('Dieser Suchmodus wird beim sicheren Anlegen nicht unterstützt.');
     }
     if (!Number.isInteger(payload.tolerance) || payload.tolerance < 0 ||

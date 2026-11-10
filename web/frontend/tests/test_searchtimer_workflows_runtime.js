@@ -384,8 +384,13 @@ assert.strictEqual(api.stagedCreateValidation({
   query: 'Terra X', mode: 1, tolerance: 0,
   compareTitle: true, compareSubtitle: false, compareSummary: false
 }).length, 0);
-assert.ok(api.stagedCreateValidation({
+// Public-v1 supports native epgsearch regular expressions (mode 4).
+assert.strictEqual(api.stagedCreateValidation({
   query: 'Terra X', mode: 4, tolerance: 0,
+  compareTitle: true, compareSubtitle: false, compareSummary: false
+}).length, 0);
+assert.ok(api.stagedCreateValidation({
+  query: 'Terra X', mode: 6, tolerance: 0,
   compareTitle: true, compareSubtitle: false, compareSummary: false
 }).length > 0);
 assert.ok(api.stagedCreateValidation({
