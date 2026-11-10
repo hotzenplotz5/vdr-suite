@@ -1113,8 +1113,11 @@ bool DaemonRuntime::initialize()
 
     if (!backendRuntimeContexts_.empty()
         && backendRuntimeContexts_.front()->searchTimerAdapter) {
+        // The legacy Browser controller has a single RESTfulAPI client:
+        // bind CREATE to its real backend rather than accepting another ID.
         searchTimerCreateService_ =
-            std::make_unique<SearchTimerCreateService>();
+            std::make_unique<SearchTimerCreateService>(
+                backendRuntimeContexts_.front()->backendId);
         searchTimerCreateResultJsonSerializer_ =
             std::make_unique<SearchTimerCreateResultJsonSerializer>();
         searchTimerCreateRequestParser_ =
@@ -1137,8 +1140,8 @@ bool DaemonRuntime::initialize()
                 *backendRuntimeContexts_.front()->httpClient);
         searchTimerRuntimeMutationPolicyExecutor_ =
             std::make_unique<SearchTimerRuntimeMutationPolicyExecutor>(
-                *searchTimerCommandExecutor_,
-                false);
+                *searchTimerCommandExecutor_, false,
+                "searchtimer runtime mutation policy gate is closed", true);
 
         searchTimerController_ = std::make_unique<SearchTimerController>(
             *searchTimerService_,
@@ -1156,7 +1159,7 @@ bool DaemonRuntime::initialize()
 
         std::cout << "SearchTimer controller runtime initialized" << std::endl;
         std::cout << "SearchTimer command executor runtime initialized" << std::endl;
-        std::cout << "SearchTimer runtime mutation policy executor initialized closed" << std::endl;
+        std::cout << "SearchTimer browser CREATE enabled; legacy UPDATE/DELETE closed" << std::endl;
     }
     else {
         std::cout << "SearchTimer controller runtime skipped: no VDR backend configured" << std::endl;
