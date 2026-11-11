@@ -2879,7 +2879,9 @@
       result.appendChild(element('small', '',
         candidate.kind + ' · TMDb #' + candidate.externalId +
         (candidate.releaseDate ? ' · ' + candidate.releaseDate : '')));
-      if (candidate.overview)
+      // The selected synopsis is shown once in the confirmation below.
+      // Keep other candidates' text for comparison without repeating it.
+      if (candidate.overview && candidate !== view.onlineSelected)
         result.appendChild(element('p', '', candidate.overview));
       const choose = element('button', 'media-import-online-choose',
         candidate.kind === 'movie' ? 'Film auswählen' :
@@ -2943,20 +2945,10 @@
           : 'Bestätigte TMDb-Vorschau: ') + selected.title));
       if (selected.overview)
         confirmed.appendChild(element('p', '', selected.overview));
-      const url = onlineImageUrl(view.backendId, selected);
-      if (url && !view.onlineAutoSelected) {
-        const poster = element('img', 'media-import-online-poster');
-        poster.alt = 'TMDb-Poster für ' + selected.title;
-        poster.loading = 'lazy';
-        poster.src = url;
-        poster.addEventListener('error', function () {
-          // Missing provider artwork must not erase the confirmed title/plot.
-          if (typeof poster.remove === 'function') poster.remove();
-          confirmed.appendChild(element('p', '',
-            'Online-Poster nicht verfügbar; lokale Bilder bleiben erhalten.'));
-        });
-        confirmed.appendChild(poster);
-      }
+      // renderPreviewCard() already presents the local or provider poster
+      // (and any separate episode still) above the technical facts. A
+      // second full-size image here produced a duplicate, oversized panel.
+      // The selected title/plot remain visible even if its image fails.
       box.appendChild(confirmed);
     }
     card.appendChild(box);
