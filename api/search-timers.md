@@ -4,6 +4,49 @@
 
 The current implemented version is **Public API v1**, not v2.
 
+## Einheitlicher Serververtrag für Web, MLD, yaVDR, VIDAA und Samsung
+
+**Architekturgrenze (Stand 11.11.2026):** `hotzenplotz5/vdr-suite` ist
+der **einzige produktive Eigentümer** der epgsearch-Suchtimer-API,
+des CREATE-Controllers, der Operations-Persistenz, des RESTfulAPI-Writers
+und des nativen Readbacks. MLD und yaVDR installieren denselben
+VDR-Suite-Serververtrag; Web, VIDAA und Samsung sind unterschiedliche
+Oberflächen und **keine eigenständigen Suchtimer-Backends**. Eine
+Clientbibliothek oder TV-Ansicht ist keine weitere API-Version.
+
+| Verbraucher | Tatsächliche Quelle / Funktion | Noch offen |
+|---|---|---|
+| Webfrontend (VDR-Suite) | `web/frontend/modules/searchtimers.js`: vollständiger aktiver/inaktiver Public-v1-CREATE mit bestehendem Browser-Login, SSE-Hinweis und Operation-GET | Produktivbuild und Browser-/VDR-Abnahme |
+| MLD 6.6 / yaVDR | Dieselben `/api/v1/search-timers`-Endpunkte im distributionsübergreifenden Server; keine eigene MLD-API | Reale Paket-/Host-Abnahme auf beiden Distributionen |
+| VIDAA (separates Repository) | Entwicklungsbranch `work/vidaa-hardware-acceptance-v6-after-logos-20261017`: `searchtimer-browser.js` und `device-pairing-client.js` nutzen Public-v1-Liste, Preview, vereinfachten CREATE mit `active:true` und Operation-GET | Client-Feldumfang abgleichen, echtes Hisense-Gerät testen |
+| Samsung Tizen (separates Repository) | Entwicklungsbranch `work/s6-tv-api-v1`: `app/src/api/search-timers.js` bietet bisher nur Public-v1-Liste, Detail, Preview | CREATE als dünnen Device-Client ergänzen; Tizen-Hardwaretest |
+
+Die TV-Branch-Befunde sind **Quellstandprüfungen**, keine
+Geräteabnahmen. Auf dem Server-`main` besteht weiterhin der ältere
+inactive-only-CREATE-Vertrag. **Erst** der ungemergte Branch
+`MLD-Suchtimer` enthält den unten beschriebenen erweiterten
+`active:true/false`-Vertrag. Kein TV-Client darf aus dem Dokument
+ableiten, diese Erweiterung sei bereits auf dem laufenden VDR installiert.
+
+**Verbindliche Integration:** Eine einzige veröffentlichte
+`api/openapi.json` und dieser Serververtrag bestimmen die Felder.
+TV-Clients nutzen die vorhandene Device-Authentifizierung und den
+bestehenden backendgebundenen `searchtimers.create`-Grant; das
+Webfrontend die vorhandene Browser-Session/CSRF. Verschiedene
+Anmeldungen bedeuten **keine** getrennten Domänenservices, Operationen,
+Suchtimer-Provider oder Writer. Keine neue `/api/vdr/searchtimers`-
+Fallback-Mutation, kein TV-eigenes epgsearch-Protokoll, kein Client-POST
+bei unklarem Ausgang und keine neue API-Hauptversion für Client-Parität.
+
+**Geltungsbereich:** CREATE ist Gegenstand von ST.V1. Bestehende
+read-only LIST/DETAIL/PREVIEW und native versionierte
+UPDATE/ACTIVATE/DEACTIVATE/DELETE-Verträge sind andere Operationen und
+werden weder durch CREATE ersetzt noch ohne eigene Abnahme freigegeben.
+Die Draft-Preview hat ausdrücklich einen kleineren EPG-Match-Only-Vertrag
+und darf nicht als vollständige CREATE-Simulation bezeichnet werden.
+Siehe [ST.V1-Roadmap](../docs/planning/mld-searchtimer-public-v1-roadmap.md).
+
+
 `GET /api/v1/search-timers?backend=<backendId>&limit=30[&cursor=<opaque>]`
 
 - This is **VDR SearchTimer**, distinct from native VDR Timer and Suite TimerAssignment.
@@ -214,7 +257,10 @@ legacy SearchTimer mutation actions, including `POST /api/searchtimers`,
 permission was inserted directly into grant persistence. A second,
 later route-specific Device block is unnecessary because Device authentication
 has already failed. The CI regression verifies the existing fail-closed
-boundary, not a new HTTP 403 policy. Browser legacy behavior is unchanged.
+boundary, not a new HTTP 403 policy. Auf dem Branch `MLD-Suchtimer` ist der Browser-Legacy-CREATE
+`POST /api/vdr/searchtimers` ebenfalls geschlossen; die Browser-Oberfläche
+verwendet den gemeinsamen Public-v1-CREATE. Andere historische Legacy-Routen
+sind nicht durch einen Device-Grant nutzbar.
 `DeviceGrantAdministrationService::supportedGrant` now accepts
 `searchtimers.create` for a **concrete** backend, never `*`. The new
 Public-v1 POST independently checks Device identity and exact scope; legacy
@@ -272,51 +318,23 @@ daemon admission uses the shared durable service. Its standalone
 `test-searchtimer-create-device-admission` protects the same identity,
 write-policy and generation invariants against regression.
 
-## Public-v1 SearchTimer CREATE (Device)
+## Historischer Hinweis: früherer inactive-only Device-CREATE
 
-`POST /api/v1/search-timers?backend=<id>` accepts JSON
-`{"name":"Terra X","query":"Terra X","active":false,"confirmed":true,"mode":1,"compareTitle":true,"compareSubtitle":false,"compareSummary":false}`
-with mandatory `Idempotency-Key` and application/json. `active:false`
-MUST be explicit; omitted `active` or `active:true` returns 422 before
-dispatch. `tolerance` (default zero) is optional; unknown/duplicate
-fields are rejected. Exact backend-scoped
-`searchtimers.create` Device grant, verified credential,
-server-owned online writable backend and fresh Backend Agent generation
-are mandatory. The existing immutable SQLite admission and one-shot
-native-ID readback dispatcher are used, without legacy mutation fallback.
-HTTP 202 references an Operation; it is **not** itself proof of success.
-Timeouts and unverifiable effects are never automatically resent:
-inspect Operation state, including `outcome_unknown`.
+Vor ST.V1 erlaubte Public API v1 Device-CREATE ausschließlich mit
+`active:false` und einer stark verkleinerten Feldmenge. Der damalige
+Browser-Editor nutzte vorübergehend einen separaten Legacy-CREATE.
+**Beides ist keine Beschreibung des aktuellen Entwicklungsstands**
+auf `MLD-Suchtimer`: Der oben dokumentierte gemeinsame Public-v1-CREATE
+nimmt explizit `active:true` **oder** `active:false` an und verarbeitet
+alle unterstützten epgsearch-Optionen. Die bestehende Geräteautorisierung
+bleibt unverändert. Der alte eingeschränkte Vertrag gilt bis zu einem
+entsprechenden Server-Update weiterhin für die bereits ausgelieferten
+`main`-/Installationsstände.
 
-The daemon performs the first attempt inline after reservation and never
-transitions a dispatched operation back to accepted. An `outcome_unknown` operation has **no automatic reconciliation worker**
-connected yet. An operator must inspect authoritative backend evidence before
-resolving it; the client must not make a new POST with a different idempotency
-key. A crash during dispatch likewise does not establish success or authorize
-retry.
-
-### Bundled Web UI: full-field Browser CREATE (MLD-Suchtimer candidate)
-
-The bundled SearchTimer editor on branch `MLD-Suchtimer` uses the existing
-Browser-session `POST /api/vdr/searchtimers` controller for **one** active
-or inactive CREATE with the supported epgsearch options: channels/groups,
-time and weekdays, duration, repeats, blacklists, recording directory,
-margins and advanced rule settings. Active CREATE requires explicit
-confirmation because epgsearch can schedule recordings immediately.
-
-This does not expand Device-v1: the legacy CREATE route requires an authenticated
-Browser User, existing `searchtimers.create` permission and Browser CSRF.
-Device/Service actors retain the separate `POST /api/v1/search-timers`
-inactive-only contract. The runtime binds the legacy CREATE to its actual
-RESTfulAPI backend. Legacy UPDATE/DELETE remain closed by the mutation policy;
-the existing native CAS mutation contract is unchanged.
-
-After a single CREATE the Browser fetches the rule list, verifies native ID,
-backend, active state and the available full rule options. An unknown or
-mismatched outcome does **not** trigger another CREATE. This Browser
-one-shot RESTfulAPI CREATE still lacks a native epgsearch lock-atomic CREATE
-CAS guarantee. Release requires real MLD/yaVDR package, VDR and readback
-acceptance; isolated source/DOM tests cannot substitute for it.
+Ein bestätigtes HTTP 202 bedeutet lediglich dauerhafte Admission.
+Bei ungewissem Dispatch bleibt `outcome_unknown` und ein erneuter
+CREATE unter einem neuen Idempotency-Key ist verboten. Das gilt
+gleichermaßen für Browser, VIDAA und später Samsung.
 
 ### Backend SearchTimer name versus search string
 
@@ -402,12 +420,14 @@ checklist](../docs/development/public-v1-final-hardware-acceptance.md) are
 release gates. No production installation, VDR restart or destructive
 hardware exercise has been performed by this PR.
 
-## Browser administrator: historical inactive staged CREATE (2026-10-26)
+## Browseradministrator: frühere Implementierungen (historisch)
 
-The earlier bundled Browser create form used the inactive-only Public-v1
-`POST /api/v1/search-timers?backend=<id>` with `active:false`,
-`confirmed:true`, and a client Idempotency-Key. That Public-v1 route,
-including its Device and Browser permissions, remains unchanged. On the
-`MLD-Suchtimer` candidate the full-field Browser form uses the separately
-authorized Browser CREATE route above. This does not enable active/full-field
-CREATE for Device clients or release native CAS requirements.
+Am 26.10.2026 verwendete das Webfrontend einen inactive-only
+Public-v1-CREATE. Ein späterer Arbeitsstand verwendete einen
+separaten Browser-Legacy-CREATE für vollständige Optionen.
+**Beide Varianten sind überholt.** Im Kandidaten `MLD-Suchtimer`
+verwendet auch der vollständige Browser-Editor ausschließlich
+`POST /api/v1/search-timers`, einschließlich aktiver Regeln, und
+die gleiche dauerhafte Operation samt Readback wie die Device-Clients.
+Dies ist noch **nicht** als produktive Installation oder Real-VDR-PASS
+bestätigt. Siehe die einzige [ST.V1-Feldmatrix und Abnahmeroadmap](../docs/planning/mld-searchtimer-public-v1-roadmap.md).
