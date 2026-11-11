@@ -154,8 +154,7 @@ int main() {
     const auto originalIndexSize = fs::file_size(recording / "index");
     const auto shrinkPlan = inspectShrink(
         fixture.video, recording.lexically_relative(fixture.video));
-    const auto candidate = stageShrink(
-        shrinkPlan, runner, [](const ShrinkPlan&) {});
+    const auto candidate = stageShrink(shrinkPlan, runner);
     assert(candidate.extension() == ".rec");
     assert(fs::is_regular_file(candidate / "index"));
     assert(fs::is_regular_file(candidate / "00001.ts"));
