@@ -1291,25 +1291,56 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
   beweisen Screenshots allein nicht. Auch Audio und Seek nicht
   unabhängig bestätigt; Playeranzeige `0 min` bei acht Sekunden
   war dagegen ein reproduzierbarer Anzeige-Rundungsfehler.
-- **MT.ENC4 gezielte Frontend-Fixes auf `main` (11.11.2026):**
-  `recordings2-shared.js` formatiert Aufnahmen <60 s mit Sekunden
-  statt `0 min` (Testfälle 8, 59, 60 s sowie unbekannt in
-  `test_recordings2_runtime.js` ergänzt). Media-Import erklärt
-  `outcome_unknown` nun als möglichen ausstehenden VDR-Readback
-  desselben Auftrags, ohne ungesicherte Erfolgsbehauptung oder
-  zweite POST-Aktion. **SOURCE-UPDATED; lokale JS-Regression
-  und produktiver Frontend-Dateirollout noch ausstehend**.
-  `Größe unbekannt` ist noch nicht erklärt: Größe wird aus
-  `sizeMb` im bestehenden Recording-Cache projiziert.
-  Keine pauschale Größe aus Testdateien erfinden.
-- **Nächste Ausführung:** Gezielten `node`-Regressionstest auf
-  dem aktualisierten yaVDR-Checkout und danach nur die beiden
-  geänderten bestehenden Frontend-Dateien aus den feststehenden
-  Commits aktualisieren. Die fertige Testaufnahme ausschließlich
-  lesend auf TS/Index/Info/Audio/Videocodec/Größe kontrollieren;
-  bei Bedarf vorhandene, autorisierte Core-Operation lesend
-  verifizieren. SSE, Audio/Seek und TV-Clients separat bestätigen;
-  **keinen neuen Import starten**.
+- **MT.ENC4 H.264 produktives Core-/Agent-Readback PASS (11.11.2026):**
+  Die über das Webfrontend importierte Testaufnahme
+  `/srv/vdr/video.00/MT-ENC4-CoreAgent-Test-20261111-060450/2026-11-11.06.07.1-0.rec`
+  enthält `00001.ts` (1.014.072 Byte), `index` (ca. 1,6 KiB),
+  `info` (123 Byte), jeweils Eigentümer `vdr`. FFprobe:
+  H.264 Main, yuv420p, AAC-LC, MPEG-TS, **8,04 Sekunden**.
+  Vollständiger FFmpeg-Video-/Audio-Decode `VIDEO_AUDIO_DECODE=PASS`.
+  Das aktive Daemon-Journal belegt um **06:08:13**:
+  `Media Import readback verified: backend=default, operations=1`.
+  `MT_ENC4_REAL_MEDIA_CHECK=PASS`; kein VDR-/Agent-/Daemon-Neustart
+  und keine bestehenden Medien verändert. Damit ist der **reale
+  H.264-Webfrontend→Public-v1→Core→Agent→Worker→VDR-Readback-Pfad
+  abgenommen**. Die vorherige `outcome_unknown`-Phase wurde
+  für genau eine Operation durch frischen nativen Aufnahme-Readback
+  bestätigt; kein zusätzlicher Import nötig.
+- **MT.ENC4 Frontend-Fixes installiert (11.11.2026, yaVDR):**
+  `recordings2-shared.js` formatiert Aufnahmen unter 60 s in
+  Sekunden statt `0 min`; Media-Import erklärt `outcome_unknown`
+  als möglichen späteren VDR-Readback desselben Auftrags ohne Retry.
+  Beide fokussierten Node-Tests bestanden
+  (`recordings2 modular runtime ok`,
+  `A7.5 real web composition and media import lifecycle: PASS`).
+  Beide JS-Dateien wurden ausschließlich unter der tatsächlich
+  konfigurierten `VDR_SUITE_FRONTEND_ROOT=/usr/share/vdr-suite/web/frontend`
+  aktualisiert. **`MT_ENC4_FRONTEND_INSTALL=PASS`,
+  `HTTP_READBACK=PASS` für beide Dateien** auf dem direkten
+  Daemon-Port 18080; kein Build, kein Dienstneustart.
+  Ein Browser-Neuladen/visuelles Nachmessen der `8 s`-Anzeige
+  wurde noch nicht gesondert gemeldet.
+- **Anzeige `Größe unbekannt` eingegrenzt, nicht als Media-Fehler werten:**
+  Die tatsächliche TS hat 1.014.072 Byte, also **weniger als
+  1 MiB**. Der vorhandene RESTfulAPI-Mapper übernimmt ausschließlich
+  das ganzzahlige `filesize_mb` in `sizeMb`; der Renderer
+  bezeichnet `sizeMb <= 0` als unbekannt. Dies ist mit auf null
+  quantisierter Größe der künstlich kurzen Aufnahme vereinbar,
+  **aber nicht der Nachweis**, dass der installierte RESTfulAPI-
+  Provider tatsächlich null geliefert hat. Kein neuer Datei-Scan,
+  Größe nicht raten und keine produktive Backend-Änderung.
+- **Noch offen (getrennte Abnahme):** Hörbarer Ton und interaktives
+  Seek im realen Browser; tatsächliche HEVC-Wiedergabe auf einem
+  Client (bisher HEVC nur isoliert vollständig erzeugt/veröffentlicht);
+  Samsung-/Hisense-Decoder-Wiedergabe und Langläufer/Agent-Unterbrechung.
+  SSE-Ereigniszustellung ist aus Screenshots und Journal allein
+  **nicht separat bewiesen**, obwohl Core-Readback und UI-Erfolg
+  bestätigt sind. Keine alten Encoder-Smokes oder H.264-Imports
+  wiederholen. Als nächster isolierter, nicht destruktiver Schritt
+  kann der bereits erzeugte synthetische HEVC-TS-Kandidat als neue
+  Quelle mit eigenem Namen in die konfigurierte Importwurzel kopiert
+  und über den vorhandenen Webfrontend-Direktimport auf einem Client
+  abgespielt werden; bereits vorhandene Aufnahme unverändert lassen.
 
 Inkrementell bauen, vorhandene Runtime-Artefakte wiederverwenden,
 kein neues Branch/PR, keine DB-Backups oder unnötigen Aktivierungsprüfungen.
