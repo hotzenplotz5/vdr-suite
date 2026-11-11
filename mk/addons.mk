@@ -114,6 +114,19 @@ test-addon-media-shrink-agent-executor:
 
 test-ci-fast: test-addon-media-shrink-agent-executor
 
+# Source-only regression for the shared ADR-0035 cache-recording native
+# path projection, including distribution-neutral provider mount aliases.
+.PHONY: test-addon-media-recording-source-resolution
+test-addon-media-recording-source-resolution:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+		-I core/daemon/include -I core/vdr/include \
+		addons/media-tools/tests/test_media_recording_source_resolution.cpp \
+		-o "$(BUILD_DIR)/addons/test_media_recording_source_resolution"
+	"$(BUILD_DIR)/addons/test_media_recording_source_resolution"
+
+test-ci-fast: test-addon-media-recording-source-resolution
+
 # Public HEVC mutation contract, no durable reservation and no VDR IO.
 .PHONY: test-addon-media-shrink-mutation-api
 test-addon-media-shrink-mutation-api:
