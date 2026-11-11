@@ -45,13 +45,14 @@
     style.textContent = [
       '.recordings2-card-action{position:relative;min-width:0}',
       '.recordings2-card-action>.recordings2-recording{width:100%;padding-right:3.5rem}',
-      '.recordings2-card-action-menu{position:absolute;top:.5rem;right:.5rem;z-index:2}',
+      '.recordings2-card-action-menu{position:absolute;top:.5rem;right:.5rem;width:2.5rem;z-index:2}',
       '.recordings2-card-action-menu[open]{z-index:5}',
       '.recordings2-card-action-menu>summary{display:grid;place-items:center;width:2.5rem;height:2.5rem;list-style:none;border:1px solid #64748b;border-radius:.65rem;background:#172233;color:white;font-size:1.5rem;cursor:pointer}',
       '.recordings2-card-action-menu>summary::-webkit-details-marker{display:none}',
       '.recordings2-card-action-menu>summary:focus-visible{outline:2px solid #7dd3fc}',
-      '.recordings2-card-action-menu>button,.recordings2-card-action-menu>p{display:block;margin:.25rem 0 0;padding:.65rem .75rem;width:min(19rem,78vw);border:1px solid #475569;border-radius:.55rem;background:#111827;color:#f8fafc;text-align:left;font-size:.8rem;line-height:1.35}',
-      '.recordings2-card-action-menu>button:disabled{opacity:.6}'
+      '.recordings2-card-action-panel{position:absolute;right:0;top:2.75rem;display:grid;gap:.35rem;width:min(19rem,78vw);padding:.5rem;border:1px solid #475569;border-radius:.7rem;background:#111827;box-shadow:0 .7rem 2rem rgba(0,0,0,.35)}',
+      '.recordings2-card-action-panel>button,.recordings2-card-action-panel>p{margin:0;padding:.55rem .65rem;width:100%;border:1px solid #475569;border-radius:.55rem;background:#182235;color:#f8fafc;text-align:left;font-size:.8rem;line-height:1.35}',
+      '.recordings2-card-action-panel>button:disabled{opacity:.6}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -268,7 +269,10 @@
       });
       action.disabled = true;
       const note = shared.node('p', '', 'HEVC-Verfügbarkeit wird beim Öffnen geprüft.');
-      menu.append(action, note);
+      const popover = document.createElement('div');
+      popover.className = 'recordings2-card-action-panel';
+      popover.append(action, note);
+      menu.appendChild(popover);
       let requested = false;
       menu.addEventListener('toggle', function () {
         if (!menu.open || requested) return;
