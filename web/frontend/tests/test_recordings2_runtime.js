@@ -205,6 +205,10 @@ async function run() {
   assert.strictEqual(test.normalizePath('/Serien//Tatort/'), 'Serien/Tatort');
   assert.strictEqual(test.decodeDisplayText('Der#20Film_2026'), 'Der Film 2026');
   assert.strictEqual(test.formatDuration(3660), '1 h 1 min');
+  assert.strictEqual(test.formatDuration(8), '8 s');
+  assert.strictEqual(test.formatDuration(59), '59 s');
+  assert.strictEqual(test.formatDuration(60), '1 min');
+  assert.strictEqual(test.formatDuration(0), 'Dauer unbekannt');
   assert.strictEqual(test.formatSize(1536), '1.5 GB');
 
   const recording = {
