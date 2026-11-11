@@ -1347,12 +1347,29 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
   Damit ist auch **HEVC-Direktimport → Core/Agent → nativer
   VDR-Aufnahmeabgleich** im realen yaVDR erfolgreich getestet.
   Keine neue HEVC-Umkodierung und kein neuer Import nötig.
-- **Noch offen (getrennte Abnahme):** Wiedergabe von HEVC im
-  tatsächlich genutzten Webbrowser und auf Samsung/Hisense
-  einschließlich sichtbarem Bild, **hörbarem MP2-Audio** und
-  interaktivem Seek; FFmpeg-Decodierung ist kein Client-Nachweis.
-  Auch die H.264-Browser-Audio-/Seek-Prüfung, SSE-Ereigniszustellung,
-  Langläufer und Agent-Unterbrechungsfälle sind noch separat offen.
+- **MT.ENC4 Android-Webbrowser: HEVC-Aufnahme mit Bild/Ton
+  und vollständiger ruckelfreier Wiedergabe PASS (11.11.2026):**
+  Maintainer-Screenshot der echten VDR-Suite-Recording-Wiedergabe
+  zeigt das synthetische Testbild, laufende Wiedergabe bei ca. 3/20 s,
+  20-s-Zeitleiste sowie Pause/Stop/±10/±60-Steuerungen.
+  Maintainer meldet ausdrücklich **Ton hörbar** und **Video läuft
+  bis zum Ende ohne Ruckeln**. Dies ist ein positiver realer
+  Android-Webplayer-Bild-/Ton-/Kontinuitätstest der aus einer
+  **HEVC/MP2-VDR-Quelle** importierten Aufnahme.
+  **Nicht als nativer Browser-HEVC- oder MP2-Decoder-Nachweis
+  fehlinterpretieren:** `web/frontend/recordings2-playback.js`
+  deklariert H.264/AAC-Clientcodecs, und
+  `MediaPresentationSelector` kann für unpassende Quellcodecs
+  H.264/AAC-Adaptation verwenden. Das auf dem Host tatsächlich
+  gewählte Session-Profil/Transcoding wurde nicht separat gemessen.
+  Der Screenshot zeigt die Seek-Steuerung, aber keine
+  **bestätigte erfolgreiche Seek-Aktion**.
+- **Noch offen (getrennte Abnahme):** Echtes interaktives Seek
+  (z.B. Zeitleiste von 3 s auf 15 s) im Android-Webplayer;
+  Wiedergabe auf Samsung-Tizen und Hisense-VIDAA mit Bild, Ton,
+  Seek und jeweils tatsächlich gewähltem Client-Profil.
+  Separat bleiben H.264-Browser-Audio-/Seek-Bestätigung,
+  SSE-Ereigniszustellung, Langläufer und Agent-Unterbrechungen.
   Beide Core-Reconciliations (H.264 06:08:13, HEVC 06:39:24)
   sind bestätigt. Keine Encoder-Smokes oder Imports wiederholen;
   nur bestehende Aufnahmen im jeweiligen Client abspielen.
