@@ -85,7 +85,7 @@ Die [Media-Tools-Roadmap](ROADMAP.md) hält die Einzelheiten und Nachweisgrenzen
 | **HEVC-Aufnahme im Android-Webplayer** | Bild/Ton und durchgängige Wiedergabe **PASS**; aktueller Seek-Fix nach wiederhergestelltem Produktionsbundle vom Maintainer **PASS** gemeldet |
 | **Browserunabhängiger Sammelimport (MT.EVENT5)** | Implementiert und durch Maintainer als **erfolgreich getestet** bestätigt |
 | **Operation-SSE und Langläufer (MT.EVENT2–4)** | Integriert und durch Maintainer als **erfolgreich getestet** bestätigt |
-| **Metadaten (MT.META6)** | Vollständige Codekette vorhanden; sichtbare Foundation-Zuordnung/Backfill und isolierter nativer `info`-Test **PASS**. Echter `info`-Readback für alle Bestandsfolgen nicht separat belegt |
+| **Metadaten (MT.META6)** | Produktcode integriert; echter yaVDR-Native-`info`-Readback vom 11.11.: **50/50** `.rec`-Aufnahmen lesbar und mit `00001.ts`/`index`; **26/26 Foundation** und **22/24 Andor** mit konsistentem nativen `T`-Serientitel. Nur die alten Andor-Folgen S01E01/S01E02 haben trotz korrekter `S`/`D` noch den ursprünglichen Dateinamen als `T`; gezielte Altbestandskorrektur offen |
 | **Scan, responsive UI, Marker, Import-/Batch-Ansichten** | Implementiert; die abschließende Gesamt-/Mockup-Abnahme ist separat zu bewerten |
 | **Encoding-Konfiguration** | Typisierte Backend-Werte vorhanden; komfortable Web-Einstellungsseite noch nicht implementiert |
 | **MLD/openSUSE und Release-Paketmigration** | Portabilitäts-/Staging-Arbeit vorhanden; reale distributionsspezifische Media-Tools-Abnahme offen |
