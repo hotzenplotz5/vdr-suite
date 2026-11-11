@@ -38,7 +38,8 @@
   }
 
   function installCardActionsStyle() {
-    if (document.getElementById('recordings2-card-actions-style')) return;
+    if (typeof document.getElementById === 'function' &&
+        document.getElementById('recordings2-card-actions-style')) return;
     const style = document.createElement('style');
     style.id = 'recordings2-card-actions-style';
     style.textContent = [
