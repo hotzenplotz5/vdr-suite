@@ -1391,8 +1391,19 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
   oder Berechtigungen; kein automatischer Neuimport.
   `test_phase65d2_recording_playback_controls.js` enthält
   kurze 20-s-Session-EOF-Regression und Negativfall bei anderem
-  Fehlercode. **Code-/Teständerungen committet, Node-Tests,
-  gezieltes Live-JS-Update und erneuter Android-Seek noch offen.**
+  Fehlercode. **Host-Abnahme der fokussierten Node-Regressionen
+  PASS (11.11.2026):** `test_phase65d2_recording_playback_controls.js`,
+  `test_phase65d2_recording_fallback_restart_seek.js` und
+  `test_phase65d_timeline_continuity_progressive.js` bestanden
+  auf yaVDR nach Fast-forward von `main`. Exakt
+  `/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js`
+  aktualisiert; `MT_ENC4_SEEK_TESTS=PASS`,
+  `MT_ENC4_SEEK_FIX_INSTALL=PASS` und `HTTP_READBACK=PASS`
+  vom direkten HTTP-Server Port 18080. Kein neuer Build,
+  kein Daemon-/Agent-/VDR-Neustart, Buildcache erhalten.
+  **Android-Seeking im wirklichen Browser weiterhin UNBESTÄTIGT**;
+  erst erneuter Clienttest (Pause ca. 3 s, +10, erwartete
+  Position ca. 13 s ohne Autoplay) kann den Fix abnehmen.
 - **Weiterhin offen:** Client-Seek unter realer Last nach obigem
   Frontend-Fix, Wiedergabe auf Samsung-Tizen/Hisense-VIDAA mit
   Bild, Ton, Seek und jeweils tatsächlichem Client-Profil;
