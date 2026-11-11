@@ -3279,15 +3279,19 @@ function publishHomeResume() {}
     'manual TMDb selection must not reset the result scroll position');
   let confirmedOnline = findClass(mount, 'media-import-online-confirmed');
   assert(confirmedOnline && confirmedOnline.children[0].textContent.includes('Film mit belegter TMDb-ID'));
-  const onlinePoster = findClass(confirmedOnline, 'media-import-online-poster');
-  assert(onlinePoster && onlinePoster.src.includes('/settings/series-artwork/candidate-image?') &&
-    onlinePoster.src.includes('externalNamespace=movie'),
-    'poster URL is served by the existing authenticated Suite image route');
-  onlinePoster.listeners.error();
-  assert(confirmedOnline.children[0].textContent.includes('Film mit belegter TMDb-ID') &&
-    confirmedOnline.children.some(function (child) {
-      return child.textContent.includes('Online-Poster nicht verfügbar');
-    }), 'missing TMDb artwork leaves the selected title and plot intact');
+  const selectedResult = findClass(mount, 'media-import-online-results').children[0];
+  assert(selectedResult && !selectedResult.children.some(function (child) {
+    return child.textContent.includes('Echte Provider-Vorschau Film mit belegter TMDb-ID');
+  }), 'the selected TMDb synopsis must not be duplicated in its result row');
+  assert(confirmedOnline.children.some(function (child) {
+    return child.textContent.includes('Echte Provider-Vorschau Film mit belegter TMDb-ID');
+  }), 'the selected TMDb synopsis stays visible once in its confirmation');
+  assert.strictEqual(findClass(confirmedOnline, 'media-import-online-poster'), null,
+    'the confirmed TMDb poster must not repeat the full-size preview artwork');
+  const previewArtwork = findClass(findClass(mount, 'media-import-artwork-poster'),
+    'media-import-artwork-image');
+  assert(previewArtwork && previewArtwork.src === 'data:image/jpeg;base64,/9j/2Q==',
+    'local poster stays in the main preview instead of being replaced');
   assert(findClass(mount, 'media-import-local-metadata') &&
     findClass(mount, 'media-import-nfo-plot'),
     'confirmed online metadata must not replace or suppress NFO text');
