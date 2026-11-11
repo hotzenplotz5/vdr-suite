@@ -554,6 +554,7 @@ public:
         bool isPublicMediaShrinkStageCollection = false;
         bool isPublicMediaShrinkPublishCollection = false;
         bool isPublicMediaShrinkReviewResource = false;
+        bool isPublicMediaShrinkOperationResource = false;
         std::string publicMediaShrinkBackendId;
         if (path.compare(0, mediaCheckBase.size(), mediaCheckBase) == 0) {
             const std::size_t split = path.find('/', mediaCheckBase.size());
@@ -597,11 +598,20 @@ public:
                         tail.compare(0, reviewPrefix.size(), reviewPrefix) == 0 &&
                         tail.size() > reviewPrefix.size() &&
                         tail.find('/', reviewPrefix.size()) == std::string::npos;
+                    const std::string operationPrefix =
+                        "/media-shrink-operations/";
+                    isPublicMediaShrinkOperationResource =
+                        tail.compare(0, operationPrefix.size(),
+                                     operationPrefix) == 0 &&
+                        tail.size() > operationPrefix.size() &&
+                        tail.find('/', operationPrefix.size()) ==
+                            std::string::npos;
                     if (isPublicMediaShrinkCapabilityResource ||
                         isPublicMediaShrinkPlanCollection ||
                         isPublicMediaShrinkStageCollection ||
                         isPublicMediaShrinkPublishCollection ||
-                        isPublicMediaShrinkReviewResource)
+                        isPublicMediaShrinkReviewResource ||
+                        isPublicMediaShrinkOperationResource)
                         publicMediaShrinkBackendId = candidate;
                 }
             }
@@ -1771,23 +1781,28 @@ public:
             return gate;
         }
 
-        // M2 report reads require the same effective backend grant as the
-        // POST that starts a check. Discovery visibility alone is insufficient
-        // after permission revocation.
+        // M2 reports and HEVC Operation readbacks require the same backend
+        // playback grant as their read-only review/check resources. The
+        // read facade additionally scopes each Operation to its owning actor,
+        // so knowing an op_ ID does not reveal another actor's work.
         if (request.method == "GET" &&
             (isPublicMediaCheckStatusResource ||
-             isPublicMediaShrinkReviewResource))
+             isPublicMediaShrinkReviewResource ||
+             isPublicMediaShrinkOperationResource))
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
 
             AuthorizationRequest checkRead;
             checkRead.permission = "media.recording.play";
-            checkRead.backendId = isPublicMediaShrinkReviewResource
+            checkRead.backendId = (isPublicMediaShrinkReviewResource ||
+                                   isPublicMediaShrinkOperationResource)
                 ? publicMediaShrinkBackendId : publicMediaCheckBackendId;
-            checkRead.action = isPublicMediaShrinkReviewResource
-                ? "media.recording.shrink.review.read"
-                : "media.recording.check.read";
+            checkRead.action = isPublicMediaShrinkOperationResource
+                ? "media.recording.shrink.operation.read"
+                : (isPublicMediaShrinkReviewResource
+                    ? "media.recording.shrink.review.read"
+                    : "media.recording.check.read");
             const AuthorizationDecision decision =
                 authorizationService_.authorize(gate.context, checkRead);
             if (!appendDecisionEvent(gate.context, decision, ""))
