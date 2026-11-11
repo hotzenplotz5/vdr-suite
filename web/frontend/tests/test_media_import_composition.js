@@ -36,6 +36,10 @@ assert(view.includes('media-import-existing-metadata') &&
 assert(view.includes('response.nativeInfoUpdated === true') &&
   view.includes('Native VDR-info noch nicht bestätigt.'),
   'the frontend claims native success only after the normal assignment reports write/readback');
+assert(view.includes('Die Ausführung ist noch nicht durch einen frischen VDR-Aufnahmeabgleich bestätigt.') &&
+  view.includes('Keinen zweiten Import starten.') &&
+  view.includes("state === 'outcome_unknown'"),
+  'uncertain import presents possible subsequent Core VDR reconciliation without retrying the mutation');
 
 const clientFactory = require('../api/public-v1-client.js');
 
