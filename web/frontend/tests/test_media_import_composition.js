@@ -3337,7 +3337,8 @@ function publishHomeResume() {}
   findClass(onlineResults.children[1], 'media-import-online-choose').listeners.click();
   confirmedOnline = findClass(mount, 'media-import-online-confirmed');
   assert(confirmedOnline && confirmedOnline.children[0].textContent.includes('Pilot'));
-  assert(findClass(confirmedOnline, 'media-import-online-poster').src.includes('externalNamespace=tv-episode'));
+  assert.strictEqual(findClass(confirmedOnline, 'media-import-online-poster'), null,
+    'the selected episode poster must not be repeated inside confirmation');
   const manualCover = findClass(findClass(mount, 'media-import-artwork-poster'),
     'media-import-artwork-image');
   const manualStill = findClass(findClass(mount, 'media-import-artwork-episode'),
