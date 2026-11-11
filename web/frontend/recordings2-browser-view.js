@@ -37,6 +37,24 @@
     return button;
   }
 
+  function installCardActionsStyle() {
+    if (document.getElementById('recordings2-card-actions-style')) return;
+    const style = document.createElement('style');
+    style.id = 'recordings2-card-actions-style';
+    style.textContent = [
+      '.recordings2-card-action{position:relative;min-width:0}',
+      '.recordings2-card-action>.recordings2-recording{width:100%;padding-right:3.5rem}',
+      '.recordings2-card-action-menu{position:absolute;top:.5rem;right:.5rem;z-index:2}',
+      '.recordings2-card-action-menu[open]{z-index:5}',
+      '.recordings2-card-action-menu>summary{display:grid;place-items:center;width:2.5rem;height:2.5rem;list-style:none;border:1px solid #64748b;border-radius:.65rem;background:#172233;color:white;font-size:1.5rem;cursor:pointer}',
+      '.recordings2-card-action-menu>summary::-webkit-details-marker{display:none}',
+      '.recordings2-card-action-menu>summary:focus-visible{outline:2px solid #7dd3fc}',
+      '.recordings2-card-action-menu>button,.recordings2-card-action-menu>p{display:block;margin:.25rem 0 0;padding:.65rem .75rem;width:min(19rem,78vw);border:1px solid #475569;border-radius:.55rem;background:#111827;color:#f8fafc;text-align:left;font-size:.8rem;line-height:1.35}',
+      '.recordings2-card-action-menu>button:disabled{opacity:.6}'
+    ].join('');
+    document.head.appendChild(style);
+  }
+
   function create(options) {
     const getState = options.getState;
     const actionView = actions && typeof actions.create === 'function'
@@ -140,6 +158,7 @@
       const target = shared.mountTarget();
       if (!target) return null;
       shared.installStyles();
+      installCardActionsStyle();
       target.classList.add('recordings2-mount');
       target.replaceChildren();
       return target;
@@ -231,6 +250,60 @@
       return {section: section, list: list};
     }
 
+    function recordingCardWithActions(recording) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'recordings2-card-action';
+      wrapper.appendChild(createRecordingCard(recording, options.selectRecording));
+      const menu = document.createElement('details');
+      menu.className = 'recordings2-card-action-menu';
+      const summary = document.createElement('summary');
+      summary.textContent = '⋯';
+      summary.setAttribute('aria-label', 'Aufnahmeaktionen für ' + shared.recordingTitle(recording));
+      menu.appendChild(summary);
+      const action = shared.createButton('Aufnahme verkleinern (HEVC)', function () {
+        if (action.disabled || typeof options.selectRecording !== 'function') return;
+        menu.open = false;
+        options.selectRecording(Object.assign({}, recording, {__vdrSuiteOpenHevcShrink: true}));
+      });
+      action.disabled = true;
+      const note = shared.node('p', '', 'HEVC-Verfügbarkeit wird beim Öffnen geprüft.');
+      menu.append(action, note);
+      let requested = false;
+      menu.addEventListener('toggle', function () {
+        if (!menu.open || requested) return;
+        requested = true;
+        const factory = global.VdrSuitePublicV1Client;
+        const client = factory && typeof factory.createClient === 'function'
+          ? factory.createClient({baseUrl: global.location && global.location.origin || '',
+            credentials: 'same-origin'}) : null;
+        if (!client || typeof client.getMediaShrinkCapability !== 'function') {
+          note.textContent = 'HEVC-Vorprüfung ist auf diesem Client nicht verfügbar.';
+          return;
+        }
+        const backendId = String(state().backendId || shared.selectedBackendId() || 'default');
+        note.textContent = 'HEVC-Verfügbarkeit wird geprüft …';
+        client.getMediaShrinkCapability({
+          backendId: backendId, credentials: 'same-origin', cache: 'no-store'
+        }).then(function (capability) {
+          if (!capability || capability.backendId !== backendId ||
+              capability.capability !== 'addons.media.shrink' ||
+              capability.planningAvailable !== true) {
+            note.textContent = 'HEVC-Vorprüfung ist auf diesem Backend nicht verfügbar.';
+            return;
+          }
+          action.disabled = false;
+          note.textContent = capability.available === true
+            ? 'Das Original bleibt erhalten; Umkodierung und Veröffentlichung erfordern Bestätigung.'
+            : 'Vorprüfung möglich; HEVC-Konvertierung ist derzeit nicht freigeschaltet.';
+        }).catch(function (error) {
+          note.textContent = 'HEVC-Status nicht verfügbar: ' +
+            String(error && error.message ? error.message : error);
+        });
+      });
+      wrapper.appendChild(menu);
+      return wrapper;
+    }
+
     function renderFolder() { detailStartRevealed = false;
       const currentState = state();
       const target = prepareTarget();
@@ -273,7 +346,7 @@
           'recordings2-recording-list'
         );
         recordings.forEach(function (recording) {
-          recordingSection.list.appendChild(createRecordingCard(recording, options.selectRecording));
+          recordingSection.list.appendChild(recordingCardWithActions(recording));
         });
         root.appendChild(recordingSection.section);
       }
