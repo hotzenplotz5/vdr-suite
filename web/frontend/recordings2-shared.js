@@ -205,6 +205,8 @@
   function formatDuration(value) {
     const seconds = number(value, 0);
     if (seconds <= 0) return 'Dauer unbekannt';
+    // Native recordings shorter than one minute must not display "0 min".
+    if (seconds < 60) return String(Math.max(1, Math.round(seconds))) + ' s';
     const minutes = Math.round(seconds / 60);
     if (minutes < 60) return String(minutes) + ' min';
     const hours = Math.floor(minutes / 60);
