@@ -1329,18 +1329,33 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
   **aber nicht der Nachweis**, dass der installierte RESTfulAPI-
   Provider tatsächlich null geliefert hat. Kein neuer Datei-Scan,
   Größe nicht raten und keine produktive Backend-Änderung.
-- **Noch offen (getrennte Abnahme):** Hörbarer Ton und interaktives
-  Seek im realen Browser; tatsächliche HEVC-Wiedergabe auf einem
-  Client (bisher HEVC nur isoliert vollständig erzeugt/veröffentlicht);
-  Samsung-/Hisense-Decoder-Wiedergabe und Langläufer/Agent-Unterbrechung.
-  SSE-Ereigniszustellung ist aus Screenshots und Journal allein
-  **nicht separat bewiesen**, obwohl Core-Readback und UI-Erfolg
-  bestätigt sind. Keine alten Encoder-Smokes oder H.264-Imports
-  wiederholen. Als nächster isolierter, nicht destruktiver Schritt
-  kann der bereits erzeugte synthetische HEVC-TS-Kandidat als neue
-  Quelle mit eigenem Namen in die konfigurierte Importwurzel kopiert
-  und über den vorhandenen Webfrontend-Direktimport auf einem Client
-  abgespielt werden; bereits vorhandene Aufnahme unverändert lassen.
+- **MT.ENC4 HEVC-Direktimport im echten Suite-Produktpfad PASS
+  (11.11.2026, yaVDR):** Die bereits isoliert erzeugte synthetische
+  HEVC-TS wurde unverändert als
+  `/srv/video/Filme/MT-ENC4-HEVC-Playback.ts` bereitgestellt
+  (`HEVC_PLAYBACK_SOURCE=READY`). Der anschließend durch Media Import
+  angelegte VDR-Zielordner
+  `/srv/vdr/video.00/MT-ENC4-HEVC-Playback/2026-11-11.06.39.1-0.rec`
+  enthält TS, nativen `index` und `info`.
+  Unabhängiger FFprobe-Readback: **HEVC Main, yuv420p,
+  MP2-Audio, MPEG-TS, 20,000 s, 2.095.636 Byte**.
+  Der vollständige FFmpeg-Decode von Video und Audio bestand
+  (`HEVC_FULL_DECODE=PASS`, `HEVC_NATIVE_INDEX=PASS`).
+  Wichtigster Core-Beleg ist das aktive Daemon-Journal um
+  **06:39:24 Uhr**:
+  `Media Import readback verified: backend=default, operations=1`.
+  Damit ist auch **HEVC-Direktimport → Core/Agent → nativer
+  VDR-Aufnahmeabgleich** im realen yaVDR erfolgreich getestet.
+  Keine neue HEVC-Umkodierung und kein neuer Import nötig.
+- **Noch offen (getrennte Abnahme):** Wiedergabe von HEVC im
+  tatsächlich genutzten Webbrowser und auf Samsung/Hisense
+  einschließlich sichtbarem Bild, **hörbarem MP2-Audio** und
+  interaktivem Seek; FFmpeg-Decodierung ist kein Client-Nachweis.
+  Auch die H.264-Browser-Audio-/Seek-Prüfung, SSE-Ereigniszustellung,
+  Langläufer und Agent-Unterbrechungsfälle sind noch separat offen.
+  Beide Core-Reconciliations (H.264 06:08:13, HEVC 06:39:24)
+  sind bestätigt. Keine Encoder-Smokes oder Imports wiederholen;
+  nur bestehende Aufnahmen im jeweiligen Client abspielen.
 
 Inkrementell bauen, vorhandene Runtime-Artefakte wiederverwenden,
 kein neues Branch/PR, keine DB-Backups oder unnötigen Aktivierungsprüfungen.
