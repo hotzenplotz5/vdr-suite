@@ -5,6 +5,7 @@ const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 const hero = fs.readFileSync('web/frontend/recordings2-hero-detail.js', 'utf8');
+const browser = fs.readFileSync('web/frontend/recordings2-browser-view.js', 'utf8');
 const backendId = 'backend-a';
 const recordingId = 'rec_' + 'a'.repeat(32);
 const reviewId = 'shk_' + 'b'.repeat(32);
@@ -32,6 +33,10 @@ class Node {
   }
   appendChild(node) {this.children.push(node); node.parentNode = this; return node;}
   append(...nodes) {for (const n of nodes) this.appendChild(n);}
+  replaceChildren(...nodes) {
+    this.children = [];
+    this.append(...nodes);
+  }
   prepend(node) {this.children.unshift(node); node.parentNode = this;}
   insertBefore(node, reference) {
     const at = reference ? this.children.indexOf(reference) : -1;
@@ -105,7 +110,10 @@ const context = {console, document: {
   crypto: {randomUUID() {return '00000000-0000-4000-8000-' +
     String(++keys).padStart(12, '0');}},
   confirm(message) {assert(message.includes('Original bleibt erhalten')); ++confirmations; return true;},
-  setTimeout() {throw new Error('Reconciled operations must not poll again');},
+  setTimeout(callback, delay) {
+    if (delay === 0) return callback(); // Hero opens the action view on navigation.
+    throw new Error('Reconciled operations must not poll again');
+  },
   sessionStorage: {
     setItem(key, value) {storage.set(key, value);},
     getItem(key) {return storage.get(key) || null;}
@@ -122,12 +130,34 @@ const context = {console, document: {
       for (const field of fields) if (item && item[field] != null) return item[field];
       return fallback;
     },
-    clientApi() {return null;}
+    clientApi() {return null;},
+    createPoster() {return new Node('span', 'recordings2-poster');},
+    createButton(label, callback) {
+      const button = new Node('button', '', label);
+      button.addEventListener('click', callback);
+      return button;
+    },
+    recordingTitle(recording) {return recording.title || 'Aufnahme';},
+    recordingSubtitle() {return '';},
+    recordingSummary() {return '';},
+    formatStart() {return '';},
+    formatDuration() {return '';},
+    formatSize() {return '';},
+    folderList() {return [];},
+    recordingList() {return [];},
+    number(value, fallback) {return typeof value === 'number' ? value : fallback;},
+    selectedBackendId() {return backendId;},
+    normalizePath(value) {return value || '';},
+    decodeDisplayText(value) {return value || '';},
+    installStyles() {},
+    mountTarget() {return listTarget;}
   }
 };
 context.window = context;
 vm.createContext(context);
 vm.runInContext(hero, context);
+vm.runInContext(browser, context);
+const listTarget = new Node('section');
 const root = new Node('main');
 const copy = root.appendChild(new Node('div', 'recordings2-detail-copy'));
 const actionHost = root.appendChild(new Node('details', 'recordings2-actions'));
@@ -153,8 +183,39 @@ function nodesByTag(tag) {
   return nodes;
 }
 (async function run() {
-  context.VdrSuiteRecordings2HeroDetail.enhance(root, recording, backendId, {});
+  // Card menu -> existing selection callback -> canonical Hero owner.
+  const state = {backendId, path: '', selectedRecording: null,
+    data: {recordingCount: 1}, recordings: [recording]};
+  let selected = null;
+  const view = context.VdrSuiteRecordings2BrowserView.create({
+    getState() {return state;},
+    openFolder() {}, reload() {},
+    selectRecording(value) {selected = value;}
+  });
+  view.renderFolder();
+  const menu = listTarget.querySelector('.recordings2-card-action-menu');
+  assert(menu, 'recording card offers one ⋯ action menu');
+  const cardAction = menu.children.find(n =>
+    n.tagName === 'button' && n.textContent === 'Aufnahme verkleinern (HEVC)');
+  assert(cardAction && cardAction.disabled,
+    'HEVC card action waits for existing backend capability');
+  menu.open = true;
+  menu.events.toggle();
   await flush();
+  assert.strictEqual(cardAction.disabled, false);
+  assert.strictEqual(calls.filter(c => c.action === 'stage' ||
+    c.action === 'publish' || c.action === 'plan').length, 0,
+    'opening the menu is read-only');
+  cardAction.click();
+  assert(selected && selected.__vdrSuiteOpenHevcShrink === true);
+  assert.strictEqual(selected.recordingId, recordingId);
+  context.VdrSuiteRecordings2HeroDetail.enhance(root, selected, backendId, {});
+  await flush();
+  assert.strictEqual(root.dataset.recordings2HeroMode, 'actions',
+    'card selection enters canonical recording-actions mode');
+  assert.strictEqual(actionHost.open, true);
+  assert.strictEqual(actionHost.querySelector('.recordings2-media-check').hidden,
+    false, 'existing HEVC workflow panel is open without starting a mutation');
   const shrink = button('Aufnahme verkleinern (HEVC)');
   assert.strictEqual(shrink.parentNode, actionHost,
     'MT.UX6 HEVC action belongs to the existing recording actions');
