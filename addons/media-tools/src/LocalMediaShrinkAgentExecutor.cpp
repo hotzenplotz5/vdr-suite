@@ -83,10 +83,9 @@ ShrinkOptions options(const MediaShrinkAgentSelection& request) {
 
 LocalMediaShrinkAgentExecutor::LocalMediaShrinkAgentExecutor(
     LocalMediaShrinkReviewStore& reviews, LiveCapability available,
-    CoreAuthorize authorize, RunnerFactory runner, CapacityPreflight capacity)
+    CoreAuthorize authorize, RunnerFactory runner)
     : reviews_(reviews), availability_(std::move(available)),
-      authorize_(std::move(authorize)), runner_(std::move(runner)),
-      capacity_(std::move(capacity)) {}
+      authorize_(std::move(authorize)), runner_(std::move(runner)) {}
 
 bool LocalMediaShrinkAgentExecutor::available(const std::string& commandType) {
     if (!known(commandType) || !availability_ || !authorize_ || !runner_)
@@ -164,7 +163,6 @@ MediaShrinkAgentOutcome LocalMediaShrinkAgentExecutor::execute(
                 fresh->videoRoot, fresh->relativeRecording, options(selection));
             if (shrinkSourceFingerprint(plan) != fresh->sourceFingerprint)
                 return MediaShrinkAgentOutcome::rejected;
-            capacity_(plan);
             // Durable start fence is written before any FFmpeg or staging IO.
             // An ambiguous prior attempt cannot be silently restarted after
             // a process crash, dispatch replay or an Agent lease takeover.
@@ -173,7 +171,7 @@ MediaShrinkAgentOutcome LocalMediaShrinkAgentExecutor::execute(
                     fresh->recordingId, fresh->sourceFingerprint,
                     fresh->backendGeneration))
                 return MediaShrinkAgentOutcome::unknown;
-            const auto candidate = stageShrink(plan, runner, capacity_);
+            const auto candidate = stageShrink(plan, runner);
             LocalMediaShrinkReview local;
             local.actorId = fresh->actorId;
             local.backendId = fresh->backendId;
