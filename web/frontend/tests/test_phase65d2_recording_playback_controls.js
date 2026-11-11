@@ -140,10 +140,12 @@ function createRuntime(options) {
     durationSeconds: 5530,
     indexPreparing: false,
     immediateTimers: false,
-    indexReadyAfterStatusCalls: 1
+    indexReadyAfterStatusCalls: 1,
+    seekFailureCode: ''
   }, options || {});
   const requests = [];
   const videos = [];
+  const fallbackStarts = [];
   let sessionSequence = 0;
   let playbackStatusCalls = 0;
 
@@ -225,6 +227,10 @@ function createRuntime(options) {
         return Object.freeze({
           element: node('section'),
           start() { return Promise.resolve('legacy-session'); },
+          startAtAbsolute(positionSeconds, options) {
+            fallbackStarts.push({positionSeconds, autoPlay: options && options.autoPlay});
+            return Promise.resolve('fresh-hls-session');
+          },
           destroy() {},
           sessionId() { return 'legacy-session'; }
         });
@@ -238,6 +244,9 @@ function createRuntime(options) {
           return Promise.resolve({mediaSession: {id: body.sessionId, state: 'ended'}});
         }
         if (body.operation === 'seek') {
+          if (settings.seekFailureCode) {
+            return Promise.reject(new Error(settings.seekFailureCode));
+          }
           return Promise.resolve(recordingSession(
             body.sessionId,
             body.backendId,
@@ -299,7 +308,7 @@ function createRuntime(options) {
   );
   vm.runInContext(source, context, {filename: 'session-frontend-sync.js'});
 
-  return {window, requests, videos};
+  return {window, requests, videos, fallbackStarts};
 }
 
 (async function () {
@@ -600,6 +609,41 @@ function createRuntime(options) {
     1,
     'failure classification must not create a replacement MediaSession'
   );
+
+  // A 20-second Recording can finish its accelerated fMP4 worker while
+  // buffered playback remains visible. The reaper has ended the old session,
+  // so an explicit seek must start a newly authorized HLS session at the
+  // requested absolute position, not retry the already-ended session.
+  const workerEnded = createRuntime({
+    durationSeconds: 20,
+    seekFailureCode: 'media_session_not_active'
+  });
+  const shortPlayback = workerEnded.window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-hevc-short'}, 'living-room'
+  );
+  await shortPlayback.start();
+  workerEnded.videos[0].dispatch('playing');
+  shortPlayback.pause();
+  assert.strictEqual(await shortPlayback.seekAbsolute(13), true);
+  assert.strictEqual(shortPlayback.state(), 'fallback');
+  assert.deepStrictEqual(workerEnded.fallbackStarts, [{
+    positionSeconds: 13, autoPlay: false
+  }], 'paused explicit seek uses the original absolute position without autoplay');
+  assert.strictEqual(
+    workerEnded.requests.filter(entry => !entry.body.operation).length, 1,
+    'no second progressive request or unverified silent replay'
+  );
+
+  // Other seek errors must not trigger a hidden stream/profile replacement.
+  const otherFailure = createRuntime({seekFailureCode: 'recording_seek_outside_window'});
+  const rejectedPlayback = otherFailure.window.VdrSuiteRecordings2Playback.createPanel(
+    {id: 'recording-bad-seek'}, 'living-room'
+  );
+  await rejectedPlayback.start();
+  otherFailure.videos[0].dispatch('playing');
+  await assert.rejects(rejectedPlayback.seekAbsolute(15), /recording_seek_outside_window/);
+  assert.strictEqual(rejectedPlayback.state(), 'playing');
+  assert.strictEqual(otherFailure.fallbackStarts.length, 0);
 
   const seekFailure = createRuntime();
   const seekFailurePlayback = seekFailure.window.VdrSuiteRecordings2Playback.createPanel(
