@@ -633,6 +633,10 @@ function createRuntime(options) {
     workerEnded.requests.filter(entry => !entry.body.operation).length, 1,
     'no second progressive request or unverified silent replay'
   );
+  assert.strictEqual(
+    workerEnded.requests.filter(entry => entry.body.operation === 'stop').length, 0,
+    'an already-terminal MediaSession needs no stale STOP that could expire the new HLS cookie'
+  );
 
   // Other seek errors must not trigger a hidden stream/profile replacement.
   const otherFailure = createRuntime({seekFailureCode: 'recording_seek_outside_window'});
