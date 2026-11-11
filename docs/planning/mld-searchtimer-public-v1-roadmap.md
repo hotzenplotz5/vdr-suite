@@ -167,8 +167,8 @@ Die Tabellenzeilen wurden gegen `SearchTimerCreateRequest.h`, `SearchTimerRestfu
 | ST.V1.2 | Existing Controller/Admission/Operation/Backend-Agent/RESTfulAPI weiterverwendet; 52 wirksame Felder bis zum Provider-Body geführt | Echte Provider-Response noch offen |
 | ST.V1.3 | Native Vorher-/Nachher-Inventur, exklusive neue ID, Feldvergleich, Generationsprüfung, UNKNOWN ohne Retry implementiert | Kein echter epgsearch-Readback bestätigt |
 | ST.V1.4 | Vorhandener Browser-Editor sendet v1, bietet aktiv/inaktiv, Operation/SSE und bewahrt alle Felder; Legacy Browser-Writer gesperrt | Browser-Test nicht auf echtem Webserver ausgeführt |
-| ST.V1.5 | OpenAPI und Reference-JS `createSearchTimer`, alte inactive-Wrapper-Methode über denselben API-v1-Weg | Samsung/VIDAA noch nicht auf Geräten integriert |
-| ST.V1.6 | C++/JS-Testfälle und zusätzliche Readback-/Negativfälle quellsseitig ergänzt | **Kein C++-Build und keine Node-Tests auf genau diesem Branch ausgeführt.** Nur Syntaxparse von sechs JS-Dateien mit V8 bestanden |
+| ST.V1.5 | OpenAPI und Reference-JS `createSearchTimer`, alte inactive-Wrapper-Methode über denselben API-v1-Weg | VIDAA hat einen vereinfachten aktiven Device-CREATE, Samsung einen read-only Client; beide TV-Hardwaretests offen |
+| ST.V1.6 | C++/JS-Testfälle und zusätzliche Readback-/Negativfälle quellsseitig ergänzt | **Kein C++-Build und keine Node-CLI-Tests auf dem echten Checkout.** Drei JS-Testdateien wurden in isolierter V8 mit Node-Modul-Shims ausgeführt und bestanden |
 | ST.V1.7 | Source-Kandidat vorbereitet; keine Installation/Neustarts/DB-Backups vorgenommen | MLD 6.6 und yaVDR Hardware-Tests **offen** |
 | ST.V1.8 | API-/OpenAPI-Dokumentation und Roadmap aktualisiert | Abschluss erst nach belastbaren Build-/Integrationstests |
 
@@ -243,3 +243,75 @@ fokussierten SearchTimer-C++-Targets und Node-Tests ausführen und alle
 auftretenden Fehler auf `MLD-Suchtimer` korrigieren. Erst anschließend
 reale MLD-/yaVDR-epgsearch-Readbacks getrennt freigeben und nachweisen.
 Die Definition of Done ist bis dahin **nicht erfüllt**.
+
+---
+
+## ST.V1 – Konsolidierung und Übergabe nach Chat-Wechsel (11.11.2026)
+
+**Entscheidung: Eine einzige Public API v1, keine App-spezifischen Versionen.**
+Der fachliche SearchTimer-Vertrag wird ausschließlich in
+`hotzenplotz5/vdr-suite/api/openapi.json` und
+[`api/search-timers.md`](../../api/search-timers.md) definiert.
+`MLD-Suchtimer` ist der bereits genehmigte Arbeitsbranch; `main`
+und alle TV-Repositorys werden in diesem Abschluss nicht verändert.
+Es darf weder eine zweite CREATE-Route noch ein eigener epgsearch-Writer
+für MLD, yaVDR, VIDAA oder Samsung entstehen. Das Version-3-Schema der
+**internen** dauerhaften CREATE-Payload ist **keine Public API v3**.
+
+### Cross-Repository-Inventur (Quellstand, kein Hardware-PASS)
+
+| Repository/Branch | Suchtimer-Funktion heute | Abgleich mit ST.V1 |
+|---|---|---|
+| VDR-Suite / `MLD-Suchtimer` | vollständiger Browser- und Device-CREATE via Public v1; native vor/nach CREATE-Inventur | C++-Build, produktive Route und echtes epgsearch-Readback noch nicht nachgewiesen |
+| VDR-Suite / `main` | ältere, eingeschränkte Public-v1-CREATE-Implementierung, nur inaktiv | nicht als Beweis für die neue aktive CREATE-Fähigkeit verwenden |
+| VIDAA / `work/vidaa-hardware-acceptance-v6-after-logos-20261017` (geprüft `99ee4f8ad716`) | `app/src/searchtimer-browser.js` und `app/src/device-pairing-client.js` mit Device-`POST /search-timers?backend=`, `active:true`, vereinfachten Optionen und Operation-GET | kein eigener Provider/Writer; Vollfeld-/Regex-Editor nicht vorhanden; funktioniert nur mit geeignetem Serverstand und echten Grants |
+| Samsung / `work/s6-tv-api-v1` (geprüft `b74b75362677`) | `app/src/api/search-timers.js` nur Liste/Detail/Preview via Public-v1-Device-GET | CREATE fehlt im Client; später dünne UI/Device-Anbindung nach freigegebenem Serververtrag |
+| MLD 6.6 / yaVDR | Linux-Distributionen, die denselben VDR-Suite-Service betreiben | Paket-/Agent-/epgsearch-Kompatibilität testen, keine neue API-Schicht implementieren |
+
+**Konkrete Überlappung:** VIDAA sendet bereits
+`active:true`; auf aktuellem Server-`main` wurde das früher mit
+422 abgewiesen. Der Kandidat `MLD-Suchtimer` erweitert denselben
+Public-v1-Endpunkt um `active:true/false` und vollständige Optionen.
+Die vorhandenen TV-UI-Module sind Clientcode, **keine konkurrierenden
+API-Versionen**. Samsung hat im inspizierten Entwicklungsbranch
+noch keinen Suchtimer-CREATE. Diese Befunde sind keine Aussagen über die
+installierten oder am TV ausgeführten Versionen.
+
+### Priorisierte Restarbeiten (keine neue Phase und keine Parallel-API)
+
+1. **Exakten aktuellen Remote-HEAD** von `MLD-Suchtimer` erneut lesen und
+   die seit `8c0440be2ff7ecc47b53c265235eb8dd1fcca46a`
+   hinzugekommenen **reinen Dokumentationscommits** getrennt vom
+   letzten Produktcode-SHA behandeln. Bereits verifizierte Tests und
+   Build-Caches nicht wegen Doku-Änderungen verwerfen.
+2. **Gezielte Tests**: Node-CLI für die drei bekannten JS-Tests,
+   `python3 tools/check_public_v1_openapi.py`, relevante C++-Make-
+   Targets für Admission, One-Shot, Orphan-Recovery, Device-Admission,
+   RESTfulAPI-Executor, Public-v1-Router und native Mapper. Exakte
+   Targetnamen vor Ausführung aus den vorhandenen `mk/*.mk` übernehmen.
+   Reale Kompilier- oder Laufzeitfehler **auf demselben Branch** beheben.
+3. **Produktivpfad nachweisen**: HTTP/CSRF-/Device-Authentifizierung →
+   Public-v1-Controller → Operation → genau ein RESTfulAPI-POST →
+   eindeutige neue native ID/Backendgeneration → voller
+   epgsearch-Readback → dauerhafter `succeeded`- oder
+   `outcome_unknown`-Status, einschließlich SSE/Operation-GET.
+   Testfälle für aktiv und inaktiv, Providerfehler, unklare Antwort,
+   idempotentes Replay und vollständige Optionen; kein blindes Retry.
+4. **Installations-/Hardwareabnahme separat**: vorhandene
+   Build-Artefakte/Objektcache vor Neubau prüfen. Erst danach
+   kontrollierte yaVDR-/MLD-6.6-Pakete und echte VDR-Tests mit
+   ausdrücklich autorisierter Mutation; **nicht** aus einem
+   Quellcode-Mocktest auf Hardware-PASS schließen.
+5. **Client-Parität danach**: VIDAA nur an den bestätigten Serververtrag
+   anpassen; Samsung CREATE später durch den gleichen Endpunkt
+   ergänzen. Kein gleichzeitiger Doppelumbau der TV-Repositories
+   während ST.V1.6/1.7. Jede App hat eigene Bedienung, aber keinen
+   eigenen epgsearch-Domänenservice. Genau einen Abnahmebeleg
+   pro Ebene festhalten: UNIT/CONTRACT, PRODUCTION-INTEGRATION,
+   CI und REAL-VDR.
+
+**Übergabestand:** Dokumentation und Source-Inventur sind fertig.
+**Nicht fertig** sind ein bestätigter C++-Kompilierlauf des Kandidaten,
+die produktive Runtime-Integration und MLD-/yaVDR-/TV-Hardwareabnahmen.
+Kein Merge nach `main`, kein CI-Warten, keine neue Branch-/Worktree-
+Anlage, keine DB-Sicherung und kein Deployment durch diesen Dokumentationsschritt.
