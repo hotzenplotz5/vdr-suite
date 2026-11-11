@@ -148,13 +148,6 @@ int main() {
     bool available = true;
     bool allowed = true;
     unsigned authorizeCalls = 0;
-    unsigned fixtureCapacityChecks = 0;
-    const auto fixtureCapacity = [&](const ShrinkPlan& plan) {
-        // The integration test exercises lifecycle behavior, not free
-        // space on the host running it. Production retains the real policy.
-        assert(plan.totalBytes == 32768);
-        ++fixtureCapacityChecks;
-    };
     LocalMediaShrinkAgentExecutor executor(
         store,
         [&](const std::string&) { return available; },
@@ -168,7 +161,7 @@ int main() {
                 7, root, relative
             };
         },
-        [&]() -> ProcessRunner& { return process; }, fixtureCapacity);
+        [&]() -> ProcessRunner& { return process; });
     auto stage = assignment();
     assert(executor.available(kMediaShrinkStageCommandType));
     assert(!executor.available("addon.media.shrink.erase"));
@@ -195,7 +188,6 @@ int main() {
     assert(executor.execute(altered) == MediaShrinkAgentOutcome::rejected);
     assert(executor.execute(stage) == MediaShrinkAgentOutcome::submitted);
     assert(process.transcodes == 1);
-    assert(fixtureCapacityChecks == 2);
     assert(original == [&] {
         std::ifstream file(recording / "00001.ts", std::ios::binary);
         return std::string(std::istreambuf_iterator<char>(file),
@@ -220,7 +212,7 @@ int main() {
                 fingerprint, 7, root, relative
             };
         },
-        [&]() -> ProcessRunner& { return process; }, fixtureCapacity);
+        [&]() -> ProcessRunner& { return process; });
     auto replay = stage;
     replay.attemptId = "attempt-after-restart";
     assert(restarted.authorize(replay, "backend-a", 7));
