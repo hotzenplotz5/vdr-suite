@@ -35,14 +35,10 @@ public:
     using CoreAuthorize = std::function<std::optional<LocalMediaShrinkAuthority>(
         const BackendAgentCommandAssignment&)>;
     using RunnerFactory = std::function<ProcessRunner&()>;
-    using CapacityPreflight = std::function<void(const ShrinkPlan&)>;
 
     LocalMediaShrinkAgentExecutor(
         LocalMediaShrinkReviewStore& reviews, LiveCapability available,
-        CoreAuthorize authorize, RunnerFactory runner,
-        // Real Agent defaults to the full filesystem capacity policy.
-        // Tests can inject deterministic capacity into synthetic fixtures.
-        CapacityPreflight capacity = requireShrinkCapacity);
+        CoreAuthorize authorize, RunnerFactory runner);
 
     bool available(const std::string& commandType) override;
     bool authorize(const BackendAgentCommandAssignment& assignment,
@@ -57,7 +53,6 @@ private:
     LiveCapability availability_;
     CoreAuthorize authorize_;
     RunnerFactory runner_;
-    CapacityPreflight capacity_;
     std::optional<BackendAgentCommandAssignment> assignment_;
     std::optional<LocalMediaShrinkAuthority> authority_;
     bool consumed_ = false;
