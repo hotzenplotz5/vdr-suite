@@ -2063,7 +2063,7 @@
       return fallbackPanel;
     }
 
-    function activateFallback(error, autoPlay) {
+    function activateFallback(error, autoPlay, requestedStartSeconds) {
       if (destroyed) return Promise.resolve('');
       if (fallbackActivation) return fallbackActivation;
 
@@ -2089,7 +2089,17 @@
         return Promise.resolve('');
       }
 
-      fallbackActivation = Promise.resolve(legacy.start({autoPlay: autoPlay !== false})).catch(function () {
+      // A short completed Recording can reach worker EOF while the browser
+      // still plays buffered fMP4. Seek then receives media_session_not_active.
+      // Only an explicit user seek may replace that terminal session with a
+      // newly authorized HLS session starting at the requested absolute time.
+      const requestedStart = Math.max(0, Math.floor(Number(requestedStartSeconds) || 0));
+      const startRequest = requestedStart > 0 && typeof legacy.startAtAbsolute === 'function'
+        ? legacy.startAtAbsolute(requestedStart, {autoPlay: autoPlay !== false})
+        : requestedStart > 0
+          ? Promise.reject(new Error('Zeit-Sprung kann auf dem Kompatibilitätspfad nicht fortgesetzt werden.'))
+          : legacy.start({autoPlay: autoPlay !== false});
+      fallbackActivation = Promise.resolve(startRequest).catch(function () {
         return '';
       });
       return fallbackActivation;
@@ -2406,6 +2416,18 @@
         return true;
       }).catch(function (error) {
         seekInFlight = false;
+        // The finished progressive FFmpeg worker is reaped and ends its
+        // MediaSession even when the browser still has buffered frames.
+        // Never seek the terminal session again. Use the existing HLS owner
+        // to create one fresh, authorized MediaSession at the requested time.
+        if (!destroyed && !stopped && !fallbackPanel &&
+            text(error && error.message).includes('media_session_not_active')) {
+          setStatus('Wiedergabe-Session beendet · starte Zeit-Sprung über den Kompatibilitätspfad …', false);
+          return activateFallback(error, shouldResume, target).then(function (sessionId) {
+            if (!sessionId) throw new Error('Neue MediaSession für Zeit-Sprung nicht verfügbar.');
+            return true;
+          });
+        }
         setStatus(
           error && error.message ? 'Seek fehlgeschlagen: ' + error.message : 'Seek fehlgeschlagen.',
           true
