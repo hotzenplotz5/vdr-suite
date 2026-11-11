@@ -1364,14 +1364,42 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
   gewählte Session-Profil/Transcoding wurde nicht separat gemessen.
   Der Screenshot zeigt die Seek-Steuerung, aber keine
   **bestätigte erfolgreiche Seek-Aktion**.
-- **Noch offen (getrennte Abnahme):** Echtes interaktives Seek
-  (z.B. Zeitleiste von 3 s auf 15 s) im Android-Webplayer;
-  Wiedergabe auf Samsung-Tizen und Hisense-VIDAA mit Bild, Ton,
-  Seek und jeweils tatsächlich gewähltem Client-Profil.
-  Separat bleiben H.264-Browser-Audio-/Seek-Bestätigung,
-  SSE-Ereigniszustellung, Langläufer und Agent-Unterbrechungen.
-  Beide Core-Reconciliations (H.264 06:08:13, HEVC 06:39:24)
-  sind bestätigt. Keine Encoder-Smokes oder Imports wiederholen;
+- **MT.ENC4 Android-HEVC-Seek-Regressionsbefund (11.11.2026,
+  Screenshot 10:10 Uhr):** Bei pausierter, sichtbar gepufferter
+  20-s-Wiedergabe scheitert `+10`/Seek ausdrücklich mit
+  `Seek fehlgeschlagen: media_session_not_active`;
+  Playerzeit (~0:02) und Suite-Timeline (~0:05/0:20)
+  sind währenddessen nicht gleich. Kein Medienimport- oder Codecfehler.
+  Produktcode-Ursache: `RecordingMediaSessionRuntime::reapInactive`
+  beendet kontinuierliche Sessions nach Worker-EOF mit
+  `recording_stream_worker_exited`. Bei sehr kurzen Aufnahmen
+  können die gesamten fMP4-Bytes bereits im Browserpuffer liegen,
+  während `RecordingMediaSessionController::seekSession` die
+  inzwischen `ended`-Session mit `media_session_not_active`
+  zurückweist. Der genaue terminal_reason im installierten Host
+  wurde nicht unabhängig aus der DB gelesen; der Codepfad erklärt
+  den beobachteten Fehler.
+- **Gezielte Seek-Reparatur auf `main`, Host-Abnahme offen
+  (11.11.2026):** `web/frontend/api/session-frontend-sync.js`
+  behandelt ausschließlich den expliziten Seek-Fehler
+  `media_session_not_active` durch Wechsel zum vorhandenen
+  HLS-Kompatibilitätsowner mit **neuer, autorisierter Session
+  am ursprünglich gewünschten absoluten Sekundenwert**.
+  Pausierter Zustand bleibt durch `autoPlay:false` erhalten;
+  sonstige Seek-Fehler bleiben unverändert sichtbar.
+  Keine Änderung an Server-Reaper, Aufnahme, Encoder, Source-Bytes
+  oder Berechtigungen; kein automatischer Neuimport.
+  `test_phase65d2_recording_playback_controls.js` enthält
+  kurze 20-s-Session-EOF-Regression und Negativfall bei anderem
+  Fehlercode. **Code-/Teständerungen committet, Node-Tests,
+  gezieltes Live-JS-Update und erneuter Android-Seek noch offen.**
+- **Weiterhin offen:** Client-Seek unter realer Last nach obigem
+  Frontend-Fix, Wiedergabe auf Samsung-Tizen/Hisense-VIDAA mit
+  Bild, Ton, Seek und jeweils tatsächlichem Client-Profil;
+  H.264-Browser-Audio-/Seek-Bestätigung, SSE-Ereigniszustellung,
+  Langläufer und Agent-Unterbrechungen. Beide
+  Core-Reconciliations (H.264 06:08:13, HEVC 06:39:24) sind
+  bestätigt. Keine Encoder-Smokes oder Imports wiederholen;
   nur bestehende Aufnahmen im jeweiligen Client abspielen.
 
 Inkrementell bauen, vorhandene Runtime-Artefakte wiederverwenden,
