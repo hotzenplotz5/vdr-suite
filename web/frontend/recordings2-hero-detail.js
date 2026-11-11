@@ -901,6 +901,13 @@
       });
       (actionHost || actions).appendChild(action);
       (actionHost || copy).appendChild(panel);
+      // Card-menu navigation enters this same Hero-owned read-only workflow.
+      // No Plan/Stage/Publish POST is started by opening the action.
+      if (actionHost && recording.__vdrSuiteOpenHevcShrink === true) {
+        actionHost.open = true;
+        panel.hidden = false;
+        showMode(root, 'actions', '.recordings2-actions', 'Aufnahme verkleinern');
+      }
     }).catch(function () {
       // Inactive or inaccessible HEVC never disrupts playback.
     });
