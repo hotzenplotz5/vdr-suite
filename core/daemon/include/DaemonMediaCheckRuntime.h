@@ -89,13 +89,13 @@ public:
         const auto recording = resolve_(backend, publicId);
         if (!recording)
             return MediaCheckApiRuntime::problem(404,
-                "Recording not found in the current backend snapshot.");
+                "Recording not found in the current backend recording cache.");
 
         namespace fs = std::filesystem;
         const fs::path videoRoot(root->second);
         const fs::path absolute(*recording);
         // Never trust a browser pathname. The root and recording are supplied
-        // only by administrator configuration and the live VDR snapshot.
+        // only by administrator configuration and the current backend cache.
         if (!videoRoot.is_absolute() ||
             videoRoot.lexically_normal() != videoRoot ||
             !absolute.is_absolute() ||
