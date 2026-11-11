@@ -49,6 +49,7 @@
 #include "PublicRecordingCollectionProjection.h"
 #include "PublicRecordingMetadataDetailProjection.h"
 #include "PublicRecordingPlaybackTargetResolver.h"
+#include "DaemonMediaRecordingSourceResolution.h"
 #include "PublicRecordingActionReadback.h"
 #include "RestfulApiRecordingMapper.h"
 #include "HttpRequest.h"
@@ -5491,31 +5492,32 @@ bool DaemonRuntime::initialize()
             result.status = PublicRecordingArtworkStatus::ok;
             return result;
         });
-    // M2.2: local-only Media Check using live canonical recording identity.
-    // Backend-mounted video roots must be explicitly configured; remote
-    // Agent execution is not advertised by this implementation.
-    mediaCheckRuntime_ = std::make_unique<DaemonMediaCheckRuntime>(
-        config_.mediaCheckVideoRoots(),
+    // ADR-0035: the authoritative Public-v1 Recording collection is the
+    // current per-backend Recording cache, not the recording-free snapshot.
+    // Resolve its opaque identity through the existing playback read model,
+    // then map the trusted provider native ID to the configured local root.
+    // Media Check and HEVC Shrink use exactly this same resolver.
+    const auto resolveMediaRecording =
         [this](const std::string& backend, const std::string& publicId)
             -> std::optional<std::filesystem::path>
         {
-            if (!publicRecordingIdentities_ || !vdrSnapshotReadService_ ||
-                !vdrSnapshotReadService_->hasSnapshotForBackend(backend))
+            if (!publicRecordingIdentities_ || !vdrRecordingCacheRepository_)
                 return std::nullopt;
-            const auto native =
-                publicRecordingIdentities_->findNativeForPublicId(
-                    backend, publicId);
-            if (!native) return std::nullopt;
-            for (const VdrRecording& recording :
-                vdrSnapshotReadService_->getRecordingsForBackend(backend))
-            {
-                if (recording.backendId == backend &&
-                    recording.backendNativeId == *native &&
-                    !recording.path.empty())
-                    return std::filesystem::path(recording.path);
-            }
-            return std::nullopt;
-        },
+            const auto root = config_.mediaCheckVideoRoots().find(backend);
+            if (root == config_.mediaCheckVideoRoots().end())
+                return std::nullopt;
+            PublicRecordingPlaybackTargetResolver resolver(
+                *publicRecordingIdentities_, *vdrRecordingCacheRepository_);
+            const auto found = resolver.resolveForRead(backend, publicId);
+            if (found.status != PublicRecordingPlaybackTargetStatus::ready)
+                return std::nullopt;
+            return vdrsuite::mediatools::resolveConfiguredRecordingPath(
+                root->second, found.recording);
+        };
+
+    // M2.2: local-only Media Check. Explicit backend root required.
+    mediaCheckRuntime_ = std::make_unique<DaemonMediaCheckRuntime>(
+        config_.mediaCheckVideoRoots(), resolveMediaRecording,
         [this](const std::string& backend)
         {
             if (!backendRegistryService_ || !vdrSnapshotReadService_)
@@ -5546,31 +5548,10 @@ bool DaemonRuntime::initialize()
             return mediaCheckRuntime_->capability(backend);
         });
 
-    // Media Shrink is exposed ONLY as a read-only preflight at this stage.
-    // Reuse the exact canonical recording identity/snapshot used by Media
-    // Check. No caller-controlled paths, FFmpeg or filesystem writes.
+    // HEVC plan uses the same current cache/identity and configured root.
+    // Stage/Publish admission, fencing and source readback remain unchanged.
     mediaShrinkPlanRuntime_ = std::make_unique<DaemonMediaShrinkPlanRuntime>(
-        config_.mediaCheckVideoRoots(),
-        [this](const std::string& backend, const std::string& publicId)
-            -> std::optional<std::filesystem::path>
-        {
-            if (!publicRecordingIdentities_ || !vdrSnapshotReadService_ ||
-                !vdrSnapshotReadService_->hasSnapshotForBackend(backend))
-                return std::nullopt;
-            const auto native =
-                publicRecordingIdentities_->findNativeForPublicId(
-                    backend, publicId);
-            if (!native) return std::nullopt;
-            for (const VdrRecording& recording :
-                 vdrSnapshotReadService_->getRecordingsForBackend(backend))
-            {
-                if (recording.backendId == backend &&
-                    recording.backendNativeId == *native &&
-                    !recording.path.empty())
-                    return std::filesystem::path(recording.path);
-            }
-            return std::nullopt;
-        },
+        config_.mediaCheckVideoRoots(), resolveMediaRecording,
         [this](const std::string& backend)
         {
             if (!backendRegistryService_ || !vdrSnapshotReadService_)
