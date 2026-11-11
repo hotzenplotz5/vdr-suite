@@ -1273,15 +1273,43 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
   eingebracht (ca. 1,8 MiB). `cmp` gegen die Testquelle PASS;
   `MT_ENC4_CORE_AGENT_SOURCE=READY`. Dies ist nur Quellbereitstellung;
   **IMPORT_AUSGEFUEHRT=NEIN** und VDR-Aufnahmen noch unverändert.
-- **Unmittelbare nächste Ausführung:** Ausschließlich diesen Testfilm
-  im vorhandenen Webfrontend `Media Tools → Media Import` auswählen;
-  Voransicht muss `mpeg4`/Reencode-Bedarf ergeben. Lokale
-  H.264-Umkodierung für diese Quelle ausdrücklich bestätigen, dann
-  über Public API v1 und laufenden Backend-Agent ausführen.
-  Core-Operation `succeeded`, unabhängigen VDR-Readback, erhaltene
-  Quellbytes und SSE-Abschluss beobachten. Keine direkte CLI-
-  Umgehung der Suite und keine erneuten isolierten Encoder-Smokes.
-  **REAL_CORE_AGENT_OPERATION=NOT_TESTED, TV_PLAYBACK=NOT_TESTED**.
+- **MT.ENC4 echter Core-/Agent-Import: UI/Recording PASS (11.11.2026):**
+  Screenshots des laufenden yaVDR-Webfrontends zeigen den ausdrücklich
+  bestätigten lokalen MPEG-4→H.264-Import für
+  `MT-ENC4-CoreAgent-Test-20261111-060450`. Zunächst
+  `Import läuft`, danach `outcome_unknown`, anschließend
+  **`Import abgeschlossen ✓` und `Die Aufnahme ist im VDR vorhanden`**.
+  Derselbe Testtitel erscheint unmittelbar unter `Neu aufgenommen`
+  sowie in Recording-Detail/Player mit sichtbarem FFmpeg-Testbild
+  und Wiedergabedauer etwa 8 Sekunden. Das ist ein realer
+  Core-/Agent-/VDR-Inventar-Erfolg, kein bloßer Worker-Exit-Code.
+  Der Codepfad `MediaImportOperationFence::reconcileRecordingCache`
+  erlaubt ausdrücklich `outcome_unknown`→`succeeded` erst nach
+  frischem, passend gefencetem nativen VDR-Inventar; der beobachtete
+  Zwischenzustand belegt daher **nicht automatisch einen Fehler**.
+  Ob UI-Erfolg unmittelbar per SSE oder per `Vorgang prüfen` kam,
+  beweisen Screenshots allein nicht. Auch Audio und Seek nicht
+  unabhängig bestätigt; Playeranzeige `0 min` bei acht Sekunden
+  war dagegen ein reproduzierbarer Anzeige-Rundungsfehler.
+- **MT.ENC4 gezielte Frontend-Fixes auf `main` (11.11.2026):**
+  `recordings2-shared.js` formatiert Aufnahmen <60 s mit Sekunden
+  statt `0 min` (Testfälle 8, 59, 60 s sowie unbekannt in
+  `test_recordings2_runtime.js` ergänzt). Media-Import erklärt
+  `outcome_unknown` nun als möglichen ausstehenden VDR-Readback
+  desselben Auftrags, ohne ungesicherte Erfolgsbehauptung oder
+  zweite POST-Aktion. **SOURCE-UPDATED; lokale JS-Regression
+  und produktiver Frontend-Dateirollout noch ausstehend**.
+  `Größe unbekannt` ist noch nicht erklärt: Größe wird aus
+  `sizeMb` im bestehenden Recording-Cache projiziert.
+  Keine pauschale Größe aus Testdateien erfinden.
+- **Nächste Ausführung:** Gezielten `node`-Regressionstest auf
+  dem aktualisierten yaVDR-Checkout und danach nur die beiden
+  geänderten bestehenden Frontend-Dateien aus den feststehenden
+  Commits aktualisieren. Die fertige Testaufnahme ausschließlich
+  lesend auf TS/Index/Info/Audio/Videocodec/Größe kontrollieren;
+  bei Bedarf vorhandene, autorisierte Core-Operation lesend
+  verifizieren. SSE, Audio/Seek und TV-Clients separat bestätigen;
+  **keinen neuen Import starten**.
 
 Inkrementell bauen, vorhandene Runtime-Artefakte wiederverwenden,
 kein neues Branch/PR, keine DB-Backups oder unnötigen Aktivierungsprüfungen.
