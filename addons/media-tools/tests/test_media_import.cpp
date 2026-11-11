@@ -775,6 +775,13 @@ int main() {
             "T Legacy source name\n"
             "S Local outline\n"
             "D Local plot | Year: 2022 | Genre: Drama\n");
+        // A confirmed feature film has no episode subtitle. Never emit the
+        // generic importer marker when there is no genuine local short text.
+        movie.overview = "Caligula plot";
+        assert(renderNativeVdrRecordingInfo(
+            plan, ImportLocalMetadata{}, &movie) ==
+            "T Der Film\n"
+            "D Caligula plot\n");
         ++checks;
     }
     {
@@ -855,6 +862,57 @@ int main() {
         movie.overview = "Confirmed description";
         assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, movie) ==
             "T New Movie\nS Old Summary\nD Confirmed description\nF 25\n");
+        // A previous Suite movie import left this technical marker in S.
+        // Remove just that marker; preserve every independent info record,
+        // including a CRLF-encoded channel/extension and genuine subtitles.
+        const std::string legacy =
+            "C Local Channel\r\nT Caligola\r\n"
+            "S Imported via VDR-Suite Media Tools\r\n"
+            "D Alte Beschreibung\r\nF 25\r\nX 1 03 deu\r\n";
+        const std::string corrected =
+            "C Local Channel\r\nT New Movie\r\n"
+            "D Confirmed description\r\nF 25\r\nX 1 03 deu\r\n";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(legacy, movie) ==
+               corrected);
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(corrected, movie) ==
+               corrected);
+        ++checks;
+    }
+    {
+        // Real Caligola regression: a confirmed TMDb movie should lose only
+        // its importer-owned S placeholder. The exact legacy source identity
+        // must remain usable for duplicate detection after the native rewrite.
+        Fixture f;
+        const fs::path rec = f.video / "Sample" /
+            "2026-11-11.17.28.1-0.rec";
+        fs::create_directories(rec);
+        std::ofstream(rec / "info", std::ios::binary)
+            << "T Sample\n"
+               "S Imported via VDR-Suite Media Tools\n"
+               "D Lokaler Alttext\nF 25\n";
+        std::ofstream(rec / "index", std::ios::binary) << "index";
+        std::ofstream(rec / "00001.ts", std::ios::binary) << "video";
+        ImportConfirmedMetadata movie;
+        movie.mediaType = "movie";
+        movie.title = "Caligula - Aufstieg und Fall eines Tyrannen";
+        movie.overview = "TMDb-Filmbeschreibung";
+        const auto before = inspectImportPreview(f.request());
+        assert(before.duplicateTarget &&
+               confirmedMediaImportDuplicate(before));
+        assert(updateConfirmedNativeVdrInfo(f.video, rec, movie));
+        std::ifstream info(rec / "info", std::ios::binary);
+        const std::string actual(
+            (std::istreambuf_iterator<char>(info)),
+            std::istreambuf_iterator<char>());
+        assert(actual ==
+            "T Caligula - Aufstieg und Fall eines Tyrannen\n"
+            "D TMDb-Filmbeschreibung\nF 25\n");
+        assert(fs::is_regular_file(rec / ".vdr-suite-import-origin"));
+        assert(confirmedMediaImportDuplicate(inspectImportPreview(f.request())));
+        assert(!updateConfirmedNativeVdrInfo(f.video, rec, movie));
+        assert(fs::file_size(rec / "00001.ts") == 5 &&
+               fs::file_size(rec / "index") == 5 &&
+               fs::exists(f.source) && fs::exists(f.video / ".update"));
         ++checks;
     }
     {
