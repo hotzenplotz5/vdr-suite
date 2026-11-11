@@ -57,7 +57,7 @@ public:
         const auto recording = resolve_(backend, recordingId);
         if (!recording)
             return MediaShrinkPlanApiRuntime::problem(404,
-                "Recording not in current backend snapshot.");
+                "Recording not in current backend recording cache.");
         namespace fs = std::filesystem;
         const fs::path videoRoot(root->second), absolute(*recording);
         if (!videoRoot.is_absolute() ||
