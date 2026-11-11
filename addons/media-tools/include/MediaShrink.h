@@ -4,7 +4,6 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -49,13 +48,9 @@ ShrinkPlan inspectShrink(
 // Recomputed at each Core/Agent mutation boundary, never supplied by HTTP.
 std::string shrinkSourceFingerprint(const ShrinkPlan& plan);
 
-void requireShrinkCapacity(const ShrinkPlan& plan);
-
 // The first explicit write action only creates a private review candidate.
 // No VDR recording path is changed, and no root/source file is removed.
-fs::path stageShrink(
-    const ShrinkPlan& plan, ProcessRunner& runner,
-    const std::function<void(const ShrinkPlan&)>& capacityPreflight);
+fs::path stageShrink(const ShrinkPlan& plan, ProcessRunner& runner);
 
 // Durable, opaque Agent-to-Core review binding kept INSIDE the private
 // candidate until publication. This is NOT a mutation credential and is
