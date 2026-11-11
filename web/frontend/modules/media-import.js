@@ -2392,9 +2392,11 @@
           'bereits entfernt oder noch vorhanden sein. Kein erneuter Löschauftrag ' +
           'für diese Quelle! Über „Diesen Vorgang prüfen“ nur den bestehenden ' +
           'Auftrag lesen. Der genaue Dateisystemfehler steht bisher nur im Agent-Journal.'
-        : 'Core meldet outcome_unknown: Die Ausführung ist nicht bestätigt. ' +
-          'Die öffentliche Statusantwort enthält keinen Agent-Fehlergrund. ' +
-          'Bitte denselben Vorgang prüfen; technische Einzelheiten stehen unter „Technische Details“.'
+        : 'Die Ausführung ist noch nicht durch einen frischen VDR-Aufnahmeabgleich bestätigt. ' +
+          'Der Import kann bereits abgeschlossen sein: Core kann denselben Auftrag ' +
+          'nach dem VDR-Readback auf erfolgreich setzen. Keinen zweiten Import starten. ' +
+          'Über „Vorgang prüfen“ den vorhandenen Auftrag beobachten; ' +
+          'technische Einzelheiten stehen unter „Technische Details“.'
     };
     view.importFeedbackTitle.textContent = !attempt
       ? 'Aktion wird vorbereitet'
