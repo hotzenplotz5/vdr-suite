@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
         // This administrator-invoked local conversion is not a remote Agent
         // command. The protected Agent importer retains its shorter default.
         NativeProcessRunner runner(std::chrono::seconds(4 * 3600), tools);
-        const auto candidate = stageShrink(plan, runner, requireShrinkCapacity);
+        const auto candidate = stageShrink(plan, runner);
         std::cout << "SHRINK_REVIEW_CANDIDATE=" << candidate << "\n"
                   << "ORIGINAL_RECORDING_PRESERVED=YES\n"
                   << "SHRINK_PUBLICATION=REQUIRES_SEPARATE_CONFIRMATION\n";
