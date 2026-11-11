@@ -217,7 +217,7 @@ int main()
         std::vector<std::string>{"backend-a"}));
     assert(malformed.statusCode == 400);
 
-    for (const std::string& badQuery : {
+    for (const char* badQuery : {
              "limit=0",
              "limit=101",
              "sort=name",
