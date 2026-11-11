@@ -594,8 +594,9 @@ std::string renderNativeVdrRecordingInfo(
     const std::string subtitle = vdrInfoSingleLine(
         episode && !confirmed->title.empty()
             ? confirmed->title
-            : local.shortText.empty()
-                ? "Imported via VDR-Suite Media Tools" : local.shortText);
+            : !local.shortText.empty()
+                ? local.shortText
+                : movie ? "" : "Imported via VDR-Suite Media Tools");
     std::string description = vdrInfoSingleLine(
         selected && !confirmed->overview.empty()
             ? confirmed->overview : local.description);
@@ -607,7 +608,8 @@ std::string renderNativeVdrRecordingInfo(
         if (!description.empty()) description += " | ";
         description += "Genre: " + vdrInfoSingleLine(local.genre);
     }
-    std::string info = "T " + title + "\nS " + subtitle + "\n";
+    std::string info = "T " + title + "\n";
+    if (!subtitle.empty()) info += "S " + subtitle + "\n";
     if (!description.empty()) info += "D " + description + "\n";
     return info;
 }
@@ -654,7 +656,16 @@ std::string mergeConfirmedMetadataIntoNativeVdrInfo(
         bool* written = kind == 'T' ? &wroteTitle
             : kind == 'S' ? &wroteSubtitle
             : kind == 'D' ? &wroteDescription : nullptr;
-        if (value != nullptr && !value->empty()) {
+        // Only the importer-owned placeholder is expendable for a
+        // confirmed movie. Keep genuine local subtitles untouched; a
+        // series episode continues to receive the exact episode title.
+        const bool oldImportMarker = movie && !title.empty() &&
+            kind == 'S' &&
+            (line == "S Imported via VDR-Suite Media Tools" ||
+             line == "S Imported via VDR-Suite Media Tools\r");
+        if (oldImportMarker) {
+            // The writer saves legacy source provenance before replacing info.
+        } else if (value != nullptr && !value->empty()) {
             if (!*written) {
                 output.push_back(kind);
                 output += " " + *value;
