@@ -195,7 +195,7 @@ function nodesByTag(tag) {
   view.renderFolder();
   const menu = listTarget.querySelector('.recordings2-card-action-menu');
   assert(menu, 'recording card offers one ⋯ action menu');
-  const cardAction = menu.children.find(n =>
+  const cardAction = menu.querySelector('.recordings2-card-action-panel').children.find(n =>
     n.tagName === 'button' && n.textContent === 'Aufnahme verkleinern (HEVC)');
   assert(cardAction && cardAction.disabled,
     'HEVC card action waits for existing backend capability');
@@ -223,7 +223,7 @@ function nodesByTag(tag) {
   unavailableMenu.open = true;
   unavailableMenu.events.toggle();
   await flush();
-  const unavailableAction = unavailableMenu.children.find(n =>
+  const unavailableAction = unavailableMenu.querySelector('.recordings2-card-action-panel').children.find(n =>
     n.tagName === 'button' && n.textContent === 'Aufnahme verkleinern (HEVC)');
   assert(unavailableAction && unavailableAction.disabled,
     'unavailable backend must not enable HEVC card action');
