@@ -209,6 +209,28 @@ function nodesByTag(tag) {
   cardAction.click();
   assert(selected && selected.__vdrSuiteOpenHevcShrink === true);
   assert.strictEqual(selected.recordingId, recordingId);
+
+  // An unavailable plan capability must not expose the same card action.
+  const approvedSelection = selected;
+  const originalCapability = api.getMediaShrinkCapability;
+  api.getMediaShrinkCapability = function () {
+    return Promise.resolve({backendId, capability: 'addons.media.shrink',
+      planningAvailable: false, available: false});
+  };
+  view.renderFolder();
+  const unavailableMenu = listTarget.querySelector('.recordings2-card-action-menu');
+  assert(unavailableMenu);
+  unavailableMenu.open = true;
+  unavailableMenu.events.toggle();
+  await flush();
+  const unavailableAction = unavailableMenu.children.find(n =>
+    n.tagName === 'button' && n.textContent === 'Aufnahme verkleinern (HEVC)');
+  assert(unavailableAction && unavailableAction.disabled,
+    'unavailable backend must not enable HEVC card action');
+  assert.strictEqual(selected, approvedSelection,
+    'read-only unavailable result never navigates or starts a job');
+  api.getMediaShrinkCapability = originalCapability;
+
   context.VdrSuiteRecordings2HeroDetail.enhance(root, selected, backendId, {});
   await flush();
   assert.strictEqual(root.dataset.recordings2HeroMode, 'actions',
