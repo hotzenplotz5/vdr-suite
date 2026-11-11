@@ -1,12 +1,37 @@
 # MT — Media Tools: Installation, Import und Aufnahmeaktionen
 
-**Datum:** 25.10.2026 — **Status:** **MT.I2 bewusst pausiert vor REAL-VDR-Abnahme**, Übergabe in [INSTALLER-RESUME.md](INSTALLER-RESUME.md). **MT.UX begonnen**: Navigation direkt hinter Aufnahmen, lesender Backend-Quellenscan mit klarer Teilmengenwarnung, tiefere Verzeichnisse innerhalb der bestehenden Grenzen, lesbare Filmtitel/Vorschau und bestätigter Import, vorhandener HEVC-Flow unter Aufnahmeaktionen. MT.UX noch **nicht insgesamt abgeschlossen**. MT.I0/MT.I1 abgeschlossen; **MT.I2 quellseitig implementiert**, mit wiederverwendbarem Stage-Prepare, read-only Check/Verify, expliziter yaVDR-Erstinstallation ohne automatische Grants/Starts, gleicher Suite-Deploy für offline Update/Rollback und verifizierter SQLite-/Stage-Sicherung. Isolierte MT.I2-Regressionen sowie **alle vier CI-Jobs PASS** für Code-HEAD `f4b9c9dac2fb8fde6dc2804bfc2d97b345ae512f` ([Actions #40159699229](https://github.com/hotzenplotz5/vdr-suite/actions/runs/40159699229)). **REAL-VDR, Paketmigration und Live-Update nicht abgenommen**; MT.I3–I5 und MT.UX0–UX7 offen.  
-**Owner:** `addons/media-tools/` in `hotzenplotz5/vdr-suite`.  
-**Branch:** PR #551 ist auf `main` gemergt. Für MT.HA gilt ausschließlich der Integrationsbranch `work/mt-ha-media-tools-hardware-acceptance` bis zur getrennten Mergefreigabe; kein neues Repo, keine Phase 70.  
-**Bestehende Grenzen:** [Add-on-Plattform-Roadmap](../../docs/planning/addon-platform-roadmap.md), dort A6/A7.5 und M1.R (Import/HandBrake/Überspringen).
+**Konsolidierter Status vom 11.11.2026.** Offizieller Quellbranch: `main`. Codebasis vor dieser Dokumentationsbereinigung: `e3a8f2993fbc0709af55f5f048287304dcde7f6a`. **Lesbarer Einstieg:** [Media-Tools-README](README.md). **Installation nach Distribution:** [README.install.md](README.install.md). Historische technische Details: [IMPLEMENTATION-NOTES.md](IMPLEMENTATION-NOTES.md). Übergreifende volatile VDR-Suite-Statusautorität: [CURRENT.md](../../docs/CURRENT.md).
 
+**Leseregel:** Die folgende Tabelle ist der aktuelle *konsolidierte* Media-Tools-Befund. Weiter unten bleiben datierte Entwicklungs-, Zwischen- und Testprotokolle erhalten. Historische Aussagen wie „noch nicht implementiert“, „kein Live-Test“ oder „nächster Slice“ sind **nicht** erneut maßgeblich, wenn spätere Implementierungen, Abnahmen oder die hier ausdrücklich dokumentierte Betreiberbestätigung sie überholt haben. Frühere PASS-Belege behalten ihren exakten damaligen Geltungsbereich.
+
+## Konsolidierte Statusmatrix – 11.11.2026
+
+| Bereich / Slice | Implementierung und vorhandene Evidenz | Aktuelle Einstufung / Rest |
+| --- | --- | --- |
+| **MT.EVENT1–4 – Langläufer und Operation-SSE** | Dauerhafter Core-Auftrag und 24h-Deadline, fortlaufender autorisierter `/api/v1/operations/{id}/events`-Stream, SSE-Frontend, einmaliger Readback bei Öffnen/Reconnect, Browser-Neustart-Recovery und gezielte Regressionen im Quellstand vorhanden. | **INTEGRIERT; Betreiber meldet Funktions-/Langläufer-Test PASS (11.11.)**. Die konkreten Laufzeiten, Host-Logs und Unterfälle wurden in diesem Dokumentationsabgleich nicht unabhängig erneut eingelesen; deshalb keine neue Sechs-Stunden-Messung behaupten. |
+| **MT.EVENT5 – browserunabhängiger Sammelimport** | Ganzer bestätigter Stapel (2–100 Quellen) wird in einer Core-Transaktion reserviert; Daemon setzt nach bestätigtem Vorgänger autonom fort; Frontend kann denselben Stapel wiederfinden. API-/Frontend-Vertrag und isolierter SQLite-Neustarttest einschließlich sieben Quellen vorhanden. | **INTEGRIERT; Betreiber meldet Real-Funktionstest PASS (11.11.)**. Nicht erneut als fehlende Implementierung führen und bestandene Bedienabläufe nicht ohne neue Ursache wiederholen. Ein separater, maschinenlesbarer Testlog/Runtime-SHA wurde in diesem Abgleich nicht vorgelegt. |
+| **MT.ENC3.1 / MT.ENC4 – H.264/HEVC und Wiedergabe** | Typisierte Agent-Encoderwerte; realer H.264-Core-/Agent-/VDR-Readback sowie HEVC-Direktimport, native Indizes, Android-Bild/Ton und vollständige Wiedergabe dokumentiert. Das zusammengesetzte fünfteilige Produktiv-Playback-Bundle wurde am 11.11. mit Syntax-, HTTP-Readback- und Seiten-Bundle-Prüfung wiederhergestellt. | **REAL-yaVDR PASS für die dokumentierten Einzelpfade.** Nutzer bestätigt den anschließenden praktischen Wiedergabe-/Seek-Test mit `Pass!`. Weitere Samsung-/VIDAA-Client-Profile, konkrete Hardware-Encoder-Profile und nicht einzeln belegte Unterfälle bleiben davon getrennt. |
+| **MT.META1–5 – Daten/Artwork/Serienansicht** | Responsive Frontend, lokale NFO-/FFprobe-Daten, vorhandenes Artwork, Serien-/Staffel-/Episodenansicht und automatische eindeutige TMDb-Kandidatenbindung im Produktcode; Quell-/UI-Regressionen vorhanden. | **IMPLEMENTIERT**; die umfassende Screenshot-/Geräteabnahme des gesamten Mockups nicht als automatisch bestätigt ausweisen. |
+| **MT.META6 – persistente Metadaten/`info`** | Eingefrorene TMDb-Metadaten im Core/Agent/Worker, native `info`-Writer- und Korrekturfunktion, automatischer Suite-Assignment-/Cache-Pfad im Produktcode. Foundation S01E06–E08 mit sichtbaren Metadaten und Backfill S01E05 auf yaVDR dokumentiert; isolierter Native-`info`-Test PASS. | **INTEGRIERT; Teilabnahmen PASS**. Exakter produktiver Native-`info`-Readback der historischen realen Aufnahmen und vollständiger Refresh-/Clientnachweis bleiben getrennt zu prüfen; nicht den gesamten Metadatenpfad neu entwerfen. |
+| **MT.SCAN1–3 – automatische Quellprüfung** | Startliste, gestaffelte lesende technische Vorschau, Backend-Quellbeobachtungen und Vorrang interaktiver Auswahl sind implementiert; Core-/Agent-Regressionen existieren. | **IMPLEMENTIERT**, Gesamtabnahme auf realem yaVDR für Starts, Wiederanmeldung, Störung und manuelle Priorität nicht abschließend konsolidiert. |
+| **MT.REC / MT.UX – Oberfläche** | Drei-Spalten-Dashboard, mobile Teilansichten, Ordner/Serien, Marker, Quellstatus, Vorschau, Batch- und Dublettenaktionen bereits im Code. | **WEITGEHEND INTEGRIERT**; gezielter optischer/bedienbezogener Endabgleich gegen das vorhandene Mockup und reale Smartphones offen, nicht pauschal „UX0–UX7 unimplementiert“. |
+| **MT.ENC3 – Web-Einstellungen** | Backendseitig CRF-/Preset-Konfiguration vorhanden und installiert. | **ECHTE FUNKTIONSLÜCKE:** Eine verständliche Einstellungssicht im Webfrontend unter „Einstellungen → Media Tools → Encoding“ fehlt. Keine zweite Settings-Datenbank einführen. |
+| **MT.I0–I5 / MT.HA – Installation und Portabilität** | Gemeinsame Stage/Hash-Inventur, yaVDR-Pfade, synthetische MLD-/openSUSE-Portabilitätsregressionen und getrennter inaktiver `.deb`-Payload-Code vorhanden. | **TEILWEISE TESTET/IMPLEMENTIERT**; reales MLD/openSUSE-Media-Tools-Hosting, Gesamtpaket-/PPA-Integration, Altbestand-Migration und freigegebene Installations-/Rollback-Abnahme weiterhin offen. Siehe [Distributionsübersicht](README.install.md). |
+| **BAS.1–5 – Backend-Agent Simplification** | Als nächste getrennte Refactoringarbeit nach Media Tools vereinbart. | **GEPLANT; NICHT GESTARTET.** Keine neue Architekturarbeit durch diese Dokumentationskorrektur. |
+
+**Explizite Betreiberabnahme für MT.EVENT5 und MT.EVENT2–4 (11.11.2026):** Im laufenden Austausch wurden Punkt 1 „browserunabhängiger Sammelimport“ und Punkt 2 „SSE/Langläufer“ ausdrücklich als erfolgreich getestet bestätigt. Diese Bestätigung zählt als akzeptierter Funktionsstand; sie ist keine nachträglich erfundene Testausgabe für jeden früher geplanten Grenzfall. Ohne neue Fehlersymptome oder nachgewiesene Änderung ist **keine Wiederholung dieser beiden Tests** vorgesehen.
+
+**Tatsächlich nächste Arbeit nach der Dokumentationsbereinigung:** Erst die verbleibenden echten Realnachweis-/UX-Lücken gegenüber dem vorhandenen Code prüfen; vorhandene PASS nicht erneut erzeugen. Priorität: Native-`info`-Readback der realen Bestandsaufnahmen, finaler Mockup-/Scan-Check, fehlende Web-Encoding-Einstellungen sowie später getrennte Client-/Distributionsabnahmen. Keine neuen Dienste, Worker, Queues, Branches, ungefragten Builds oder VDR-Neustarts.
+
+---
+
+## Historische Entwicklungs- und Abnahmeprotokolle
+
+*Die folgenden datierten Abschnitte dokumentieren ihren jeweiligen damaligen Kenntnisstand. Bei Widersprüchen hat die konsolidierte Statusmatrix oben Vorrang.*
 
 ## MT.EVENT — Ereignisgesteuerte Medienaufträge ohne Status-Polling (Auftrag 03.11.2026)
+
+**Statuskorrektur 11.11.2026:** MT.EVENT2–4 sind im aktuellen Produktcode integriert; Betreiber bestätigt die Funktions-/Langläuferabnahme als PASS. Die nachfolgenden Vermerke vom 03.–06.11. sind historische Zwischenstände, keine aktuellen Entwicklungsaufträge.
 
 **Priorität: vor weiteren Media-Tools-UX-Erweiterungen.** **Stand 06.11.2026 auf dem kanonischen `main`: MT.EVENT1 im Produktcode bereits umgesetzt; Quellpfade geprüft und Langläufer-Vertrag gezielt regressionsgesichert. Eine reale mehrstündige yaVDR-Importabnahme liegt noch nicht vor.** Die frühere 4-Sekunden-/225-Reads-Statusabfrage ist im aktuellen Operationspfad bereits durch den actor-scoped Operation-SSE-Kanal (`createClientOperationUpdateSource`) und einmalige authentifizierte Readbacks ersetzt. Der älteren Roadmap-Vermerk über ausschließliche Umsetzung auf `fix/media-tools-root-scan-visible-results` / PR #556 ist überholt: `AGENTS.md` benennt `main` als offizielle Quelle. Die aktuelle SSE-Implementierung und ihre Ende-zu-Ende-Abnahme bleiben in MT.EVENT2–4 gesondert zu beurteilen.
 
@@ -42,7 +67,9 @@ durch die automatische Wiederherstellung.
 
 **Abnahme:** Während ein Film über sechs Stunden encodiert, bleibt der bestehende Core-Auftrag maßgeblich. Erreicht er terminalen, wirklich bestätigten Status, aktualisiert Media Tools die offene Ansicht ohne Refresh. Ist der Browser zwischendurch geschlossen, wird beim erneuten Öffnen der unveränderte Auftrag gelesen. Fehler/ungewiss werden nicht als Erfolg bezeichnet. Das System sendet Ereignisse statt wiederholt den Operationsstatus abzufragen.
 
-## MT.EVENT5 – Browserunabhängiger Sammelimport (09.11.2026, Code-Kandidat auf main / Live-Test offen)
+## MT.EVENT5 – Browserunabhängiger Sammelimport (integriert; Betreiberabnahme PASS 11.11.2026)
+
+**Statuskorrektur 11.11.2026:** Produktcode und Tests sind vorhanden. Der Betreiber hat den Funktionsfall ausdrücklich als erfolgreich getestet bestätigt. Die nachfolgenden Beschreibungen der anfänglichen Browser-Abhängigkeit und des damaligen Code-Kandidaten bleiben zur Fehlerhistorie erhalten; `Live-Test offen` in älteren Absätzen bezeichnet keinen aktuellen Entwicklungsbedarf mehr.
 
 **Reproduzierter Nutzerbefund:** Nach Bestätigung eines Stapels mit sieben
 Foundation-Folgen und Schließen des Browsers wird der bereits gestartete
@@ -1165,6 +1192,9 @@ nächsten Auftrag real an FFmpeg übergeben und nach erneutem Login korrekt
 angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
 
 ### MT.ENC4 – Echte yaVDR-Abnahme
+
+**Nachtrag 11.11.2026 (nach den unten stehenden früheren Fehlbefunden):** Der Maintainer hat das aus fünf Modulen bestehende Produktions-Playback-Bundle wiederhergestellt. `BUNDLE_SYNTAX=PASS`, `HTTP_READBACK=PASS` und `PAGE_BUNDLE=PASS` wurden gemeldet; danach bestätigte er den praktischen Wiedergabe-/Seek-Test mit `Pass!`. Damit ist der unten beschriebene unvollständige Live-Bundle-Stand überholt. Die in diesem Abschnitt belegten H.264-/HEVC-Import-/Android-Tests bleiben erhalten. Samsung-/VIDAA-spezifische Wiedergabe ist dadurch nicht automatisch getestet.
+
 
 **Host-Bestandsaufnahme 10.11.2026 (read-only; keine neue Encode-Abnahme):**
 - Checkout /home/yavdr/vdr-suite auf main, HEAD == origin/main ==
