@@ -18,7 +18,6 @@
 #include <stdexcept>
 #include <string>
 #include <sys/stat.h>
-#include <sys/statvfs.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <linux/fs.h>
@@ -28,7 +27,6 @@ namespace vdrsuite::mediatools {
 namespace {
 
 constexpr std::uint64_t MiB = UINT64_C(1024) * 1024;
-constexpr std::uint64_t GiB = MiB * 1024;
 
 void demand(bool valid, const char* problem) {
     if (!valid) throw std::runtime_error(problem);
@@ -531,37 +529,13 @@ ShrinkPlan inspectShrink(const fs::path& videoRoot,
     return plan;
 }
 
-void requireShrinkCapacity(const ShrinkPlan& plan)
-{
-    struct statvfs fsInfo{};
-    demand(::statvfs(plan.videoRoot.c_str(), &fsInfo) == 0 &&
-           fsInfo.f_frsize > 0, "cannot inspect shrink destination capacity");
-    demand((fsInfo.f_flag & ST_RDONLY) == 0 &&
-           ::access(plan.videoRoot.c_str(), W_OK | X_OK) == 0,
-           "shrink destination is not writable by the media worker");
-    const std::uint64_t block = fsInfo.f_frsize;
-    demand(fsInfo.f_blocks <= UINT64_MAX / block &&
-           fsInfo.f_bavail <= UINT64_MAX / block,
-           "shrink capacity overflow");
-    const auto total = static_cast<std::uint64_t>(fsInfo.f_blocks) * block;
-    const auto available = static_cast<std::uint64_t>(fsInfo.f_bavail) * block;
-    const auto reserve = std::max(4 * GiB, total / 100 * 15);
-    demand(plan.totalBytes <= (UINT64_MAX - 64 * MiB) / 3,
-           "shrink source exceeds bounded size");
-    const auto required = plan.totalBytes * 3 + 64 * MiB;
-    demand(available >= reserve && available - reserve >= required,
-           "insufficient shrink staging capacity and reserve");
-}
-
-fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
-                     const std::function<void(const ShrinkPlan&)>& preflight)
+fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner)
 {
     const auto encoding = runner.encodingSettings(); // frozen job snapshot
     demand(encoding.valid(), "invalid_media_encoding_settings");
     const auto current = inspectShrink(expected.videoRoot,
         expected.relativeRecording, expected.options);
     demand(signature(current) == signature(expected), "shrink plan became stale");
-    preflight(current);
     std::string pattern =
         (current.videoRoot / ".vdr-suite-shrink-XXXXXX").string();
     std::vector<char> name(pattern.begin(), pattern.end());
