@@ -2075,7 +2075,15 @@
         sessionId: activeSessionId || null,
         transport: activeSessionId ? 'progressive-fmp4' : 'none'
       });
-      stopActive(false).catch(function () {});
+      // A terminal session has already been revoked by the server. Do not
+      // send another STOP that could expire its media cookie after the newly
+      // authorized HLS session has been issued.
+      if (text(error && error.message).includes('media_session_not_active')) {
+        stopIssued = true;
+      }
+      else {
+        stopActive(false).catch(function () {});
+      }
       releaseVideo();
       const legacy = replaceWithFallback();
       if (!legacy || typeof legacy.start !== 'function') {
