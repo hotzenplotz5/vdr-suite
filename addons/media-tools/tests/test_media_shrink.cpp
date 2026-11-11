@@ -180,7 +180,7 @@ int main() {
         assert(runner.tools.valid());
         const auto plan = inspectShrink(fixture.video, fixture.relative());
         const auto candidate = stageShrink(
-            plan, runner, [](const ShrinkPlan&) {});
+            plan, runner);
         assert(fs::exists(candidate / "00001.ts") &&
                fs::exists(candidate / "index") &&
                runner.softwareCalls == 1 && runner.indexes == 1);
@@ -240,7 +240,7 @@ int main() {
         const auto original = fixture.input();
         const auto plan = inspectShrink(fixture.video, fixture.relative());
         FakeProcess runner;
-        const auto stage = stageShrink(plan, runner, [](const ShrinkPlan&) {});
+        const auto stage = stageShrink(plan, runner);
         assert(fs::exists(stage / "00001.ts") &&
                fs::exists(stage / "index") &&
                fs::exists(stage / "info") &&
@@ -263,8 +263,7 @@ int main() {
         Fixture fixture;
         FakeProcess runner;
         const auto first = inspectShrink(fixture.video, fixture.relative());
-        const auto firstStage = stageShrink(first, runner,
-            [](const ShrinkPlan&) {});
+        const auto firstStage = stageShrink(first, runner);
         const auto firstPublished = publishShrinkCandidate(
             first, firstStage, runner);
         const auto sibling = fixture.video / "Sample" /
@@ -276,8 +275,7 @@ int main() {
         std::ofstream(sibling / "index") << "native-index";
         const auto second = inspectShrink(fixture.video,
             fs::path("Sample") / sibling.filename());
-        const auto secondStage = stageShrink(second, runner,
-            [](const ShrinkPlan&) {});
+        const auto secondStage = stageShrink(second, runner);
         const auto secondPublished = publishShrinkCandidate(
             second, secondStage, runner);
         assert(firstPublished.parent_path() == secondPublished.parent_path());
@@ -292,8 +290,7 @@ int main() {
         Fixture fixture;
         FakeProcess runner;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        const auto stage = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto stage = stageShrink(plan, runner);
         fs::create_symlink(fixture.recording.parent_path(),
                            fixture.video / "Sample_HEVC");
         reject([&] { publishShrinkCandidate(plan, stage, runner); });
@@ -316,8 +313,7 @@ int main() {
         runner.mutateEncodingOnHardwareFailure = true;
         const auto configured = inspectShrink(
             fixture.video, fixture.relative(), options);
-        const auto staged = stageShrink(configured, runner,
-            [](const ShrinkPlan&) {});
+        const auto staged = stageShrink(configured, runner);
         assert(fs::exists(staged / "00001.ts"));
         assert(runner.hardwareCalls == 1 && runner.softwareCalls == 1);
         const auto arg = [](const std::vector<std::string>& args, const char* key) {
@@ -338,8 +334,7 @@ int main() {
         FakeProcess runner;
         runner.incompatibleAudio = true;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         assert(fs::exists(candidate / "00001.ts") && runner.softwareCalls == 1);
         assert(fixture.input().size() == 32768);
         ++checks;
@@ -349,7 +344,7 @@ int main() {
         FakeProcess runner;
         runner.badHeight = true;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        reject([&] { stageShrink(plan, runner, [](const ShrinkPlan&) {}); });
+        reject([&] { stageShrink(plan, runner); });
         assert(fixture.input().size() == 32768);
         ++checks;
     }
@@ -358,7 +353,7 @@ int main() {
         FakeProcess runner;
         runner.badDuration = true;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        reject([&] { stageShrink(plan, runner, [](const ShrinkPlan&) {}); });
+        reject([&] { stageShrink(plan, runner); });
         assert(fs::exists(fixture.recording / "index"));
         assert(fixture.input().size() == 32768);
         ++checks;
@@ -368,7 +363,7 @@ int main() {
         FakeProcess runner;
         runner.failIndex = true;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        reject([&] { stageShrink(plan, runner, [](const ShrinkPlan&) {}); });
+        reject([&] { stageShrink(plan, runner); });
         assert(fixture.input().size() == 32768);
         ++checks;
     }
@@ -376,8 +371,7 @@ int main() {
         Fixture fixture;
         FakeProcess runner;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         std::ofstream(fixture.recording / "00001.ts", std::ios::app) << "changed";
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(candidate));
@@ -388,8 +382,7 @@ int main() {
         Fixture fixture;
         FakeProcess runner;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         std::ofstream(fixture.recording / "info", std::ios::app) <<
             "D Metadata changed after review\n";
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
@@ -402,8 +395,7 @@ int main() {
         Fixture fixture;
         FakeProcess runner;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         std::ofstream(fixture.recording / "de.srt", std::ios::app) <<
             "2\n00:00:03,000 --> 00:00:04,000\nWelt\n";
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
@@ -415,8 +407,7 @@ int main() {
         Fixture fixture;
         FakeProcess runner;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         std::ofstream(candidate / "info", std::ios::binary | std::ios::trunc)
             << "T Tampered\\nD Changed\\n";
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
@@ -428,8 +419,7 @@ int main() {
         Fixture fixture;
         FakeProcess runner;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         std::ofstream(candidate / "de.srt", std::ios::binary | std::ios::trunc)
             << "1\\n00:00:01,000 --> 00:00:02,000\\nHullo\\n";
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
@@ -441,8 +431,7 @@ int main() {
         Fixture fixture;
         FakeProcess runner;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         // A shortened candidate is rejected even with matching codec,
         // valid index and savings; the original stays untouched.
         runner.badDuration = true;
@@ -455,8 +444,7 @@ int main() {
         Fixture fixture;
         FakeProcess runner;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         // A candidate must still save space at the separate publication gate.
         std::ofstream(candidate / "00001.ts", std::ios::binary | std::ios::app)
             << std::string(32768, 'Z');
@@ -483,8 +471,7 @@ int main() {
         const auto plan = inspectShrink(fixture.video, fixture.relative());
         assert(plan.segments.size() == 2);
         FakeProcess runner;
-        const auto staged = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto staged = stageShrink(plan, runner);
         assert(verifyShrinkCandidate(plan, staged, runner) > 0);
         const auto published = publishShrinkCandidate(plan, staged, runner);
         assert(fs::exists(published / "00001.ts") &&
@@ -504,8 +491,7 @@ int main() {
         const auto plan = inspectShrink(fixture.video, fixture.relative());
         assert(plan.segments.size() == 2);
         FakeProcess runner;
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         runner.badDuration = true;
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(candidate / "00001.ts") &&
@@ -518,8 +504,7 @@ int main() {
         Fixture fixture;
         FakeProcess runner;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         // An untrusted edit to the staged duration must not become a
         // valid publication proof even if all candidate files are present.
         const auto evidenceFile = candidate / ".shrink-review";
@@ -542,8 +527,7 @@ int main() {
         Fixture fixture;
         FakeProcess runner;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         const auto evidenceFile = candidate / ".shrink-review";
         std::ifstream input(evidenceFile, std::ios::binary);
         const std::string evidence(std::istreambuf_iterator<char>{input},
@@ -566,8 +550,7 @@ int main() {
             << std::string(32768, 'X');
         FakeProcess runner;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         // A forged numeric duration is invalid even when a candidate is
         // shortened to MATCH that forged duration after Stage.
         const auto markerPath = candidate / ".shrink-review";
@@ -594,8 +577,7 @@ int main() {
         const auto plan = inspectShrink(fixture.video, fixture.relative());
         FakeProcess runner;
         runner.discontinuousSourceTimestamps = true;
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         // 45+45 != 60 seconds; addition of segment durations would deny
         // this candidate despite the complete read-only source probe.
         assert(verifyShrinkCandidate(plan, candidate, runner) > 0);
@@ -611,8 +593,7 @@ int main() {
             << std::string(32768, 'X');
         const auto plan = inspectShrink(fixture.video, fixture.relative());
         FakeProcess runner;
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         // The live concatenated source and staged marker now disagree.
         // Both review and publish must deny without changing originals.
         runner.divergingLiveSourceDuration = true;
@@ -636,8 +617,7 @@ int main() {
             fixture.recording.filename();
         const auto plan = inspectShrink(fixture.video, relative);
         FakeProcess runner;
-        const auto candidate = stageShrink(plan, runner,
-            [](const ShrinkPlan&) {});
+        const auto candidate = stageShrink(plan, runner);
         reject([&] { verifyShrinkCandidate(plan, candidate, runner); });
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(candidate / "00001.ts") &&
@@ -652,7 +632,7 @@ int main() {
         runner.incompatibleProfile = true;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
         reject([&] {
-            (void)stageShrink(plan, runner, [](const ShrinkPlan&) {});
+            (void)stageShrink(plan, runner);
         });
         assert(fs::exists(fixture.recording / "00001.ts") &&
                runner.softwareCalls == 1 && runner.indexes == 0);
@@ -664,7 +644,7 @@ int main() {
         runner.outputAudioCodec = "opus";
         const auto plan = inspectShrink(fixture.video, fixture.relative());
         reject([&] { (void)stageShrink(
-            plan, runner, [](const ShrinkPlan&) {}); });
+            plan, runner); });
         assert(runner.indexes == 0 &&
                fs::exists(fixture.recording / "00001.ts"));
         ++checks;
@@ -675,7 +655,7 @@ int main() {
         runner.outputContainer = "matroska";
         const auto plan = inspectShrink(fixture.video, fixture.relative());
         reject([&] { (void)stageShrink(
-            plan, runner, [](const ShrinkPlan&) {}); });
+            plan, runner); });
         assert(runner.indexes == 0 &&
                fs::exists(fixture.recording / "00001.ts"));
         ++checks;
