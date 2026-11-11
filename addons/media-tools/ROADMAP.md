@@ -1395,15 +1395,31 @@ angezeigt. PC-`.pc_encode` bleibt externe Übergabe, kein lokaler Encode.
   PASS (11.11.2026):** `test_phase65d2_recording_playback_controls.js`,
   `test_phase65d2_recording_fallback_restart_seek.js` und
   `test_phase65d_timeline_continuity_progressive.js` bestanden
-  auf yaVDR nach Fast-forward von `main`. Exakt
-  `/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js`
-  aktualisiert; `MT_ENC4_SEEK_TESTS=PASS`,
-  `MT_ENC4_SEEK_FIX_INSTALL=PASS` und `HTTP_READBACK=PASS`
-  vom direkten HTTP-Server Port 18080. Kein neuer Build,
-  kein Daemon-/Agent-/VDR-Neustart, Buildcache erhalten.
-  **Android-Seeking im wirklichen Browser weiterhin UNBESTÄTIGT**;
-  erst erneuter Clienttest (Pause ca. 3 s, +10, erwartete
-  Position ca. 13 s ohne Autoplay) kann den Fix abnehmen.
+  auf yaVDR nach Fast-forward von `main`.
+  **WICHTIGE KORREKTUR DER INSTALLATIONSABNAHME:** Der manuelle
+  Host-Befehl installierte irrtümlich nur die Quell-Datei
+  `web/frontend/api/session-frontend-sync.js` direkt über die
+  produktive **zusammengesetzte** Datei
+  `/usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js`.
+  `HTTP_READBACK=PASS` bestätigte deshalb lediglich diese
+  **unvollständige** Dateikopie, nicht das produktive Bundle!
+  `mk/live-remote.mk` erzeugt dieses Bundle in exakter Reihenfolge
+  aus `session-frontend-sync.js`, `live-replacement-cleanup.js`,
+  `recording-fallback-restart-seek.js`,
+  `recording-fallback-controls.js`,
+  `recording-time-input-mask.js`. In der verkürzten
+  Produktion fehlte insbesondere der HLS-Owner mit
+  `startAtAbsolute`; der neue Fehler beim Android-Seek führte
+  am 11.11. um 10:30 Uhr zu `Bereit zum Starten` und
+  `Aufnahme abspielen` statt Fortsetzung.
+  **`MT_ENC4_SEEK_TESTS=PASS` gilt für die Quelldateien,
+  produktiver Browser-Seek = FAIL / nicht abgenommen.**
+  Die manuell gelieferte Datei muss gemäß bestehender
+  `install-live-remote-frontend`-Rezeptur aus genau diesen
+  fünf Dateien atomar wiederhergestellt, syntaktisch geprüft,
+  mit direktem HTTP- und Seiten-Bundle-Readback verifiziert und
+  erst dann am Android-Client erneut getestet werden.
+  Kein vollständiges Install-/Build-/Service-Update notwendig.
 - **Weiterhin offen:** Client-Seek unter realer Last nach obigem
   Frontend-Fix, Wiedergabe auf Samsung-Tizen/Hisense-VIDAA mit
   Bild, Ton, Seek und jeweils tatsächlichem Client-Profil;
