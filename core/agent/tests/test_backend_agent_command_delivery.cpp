@@ -353,6 +353,76 @@ int main()
         "WHERE command_id='cmd_historical_import_rejected'") == 1);
     std::cout << "HISTORICAL_MEDIA_IMPORT_NOT_STARTED_RECOVERY=PASS\\n";
 
+    // HEVC Stage: generation 7 completed the durable receipt but restarted
+    // before publishing its result. Generation 8 may submit only a result
+    // for that exact original command. No old poll, receipt or execution is
+    // allowed, and a "starting" result MUST remain outcome_unknown.
+    auto oldShrink = rejectedImport;
+    oldShrink.commandId = "cmd_historical_hevc_stage";
+    oldShrink.requestId = "req_historical_hevc_stage";
+    oldShrink.correlationId = oldShrink.requestId;
+    oldShrink.operationId = "op_historical_hevc_stage";
+    oldShrink.jobId = "job_historical_hevc_stage";
+    oldShrink.attemptId = "att_historical_hevc_stage";
+    oldShrink.commandType = "addon.media.shrink.stage";
+    oldShrink.payload =
+        R"({"recordingId":"rec_0123456789abcdef0123456789abcdef","encoder":"software","maxHeight":0,"nightMode":false})";
+    oldShrink.verificationPolicy = "readback_required";
+    oldShrink.requestFingerprint = backendAgentCommandFingerprint(oldShrink);
+    assert(backendAgentCommandValidAssignment(oldShrink));
+    assert(commands.insertAssignment(oldShrink));
+    assert(db.execute(
+        "INSERT INTO backend_agent_command_receipts "
+        "(command_id,receipt_identity,receipt_category,reason_code,received_at) "
+        "VALUES('cmd_historical_hevc_stage','fixture_hevc_receipt',"
+        "'accepted','durably_recorded',111);"));
+    auto oldShrinkResult = noDispatch;
+    oldShrinkResult.commandId = oldShrink.commandId;
+    oldShrinkResult.requestFingerprint = oldShrink.requestFingerprint;
+    oldShrinkResult.jobId = oldShrink.jobId;
+    oldShrinkResult.attemptId = oldShrink.attemptId;
+    oldShrinkResult.dispatchState = "starting";
+    oldShrinkResult.resultCategory = "outcome_unknown";
+    oldShrinkResult.errorCategory = "executor_unknown";
+    oldShrinkResult.retryClassification = "reconcile_only";
+    oldShrinkResult.resultEvidence.clear();
+    oldShrinkResult.boundedDiagnostics = "HEVC historical execution uncertain";
+    assert(backendAgentCommandValidResult(oldShrinkResult));
+    bool appliedOldShrink = false;
+    service.setMediaShrinkResultApply(
+        [&](const BackendAgentCommandAssignment& original,
+            const BackendAgentCommandResult& candidate, std::string& applyReason) {
+            assert(original.commandId == oldShrink.commandId);
+            assert(candidate.commandId == original.commandId);
+            assert(candidate.dispatchState == "starting");
+            appliedOldShrink = true;
+            applyReason = "historical_hevc_uncertain";
+            return true;
+        });
+    assert(!service.result(
+        context(ActorType::Agent, "foreign_actor"), oldShrinkResult, 900).accepted);
+    auto invalidHevcSuccess = oldShrinkResult;
+    invalidHevcSuccess.resultCategory = "succeeded";
+    assert(!service.result(
+        context(ActorType::Agent, "actor_agent"), invalidHevcSuccess, 900).accepted);
+    auto invalidHevcEvidence = oldShrinkResult;
+    invalidHevcEvidence.resultEvidence = "shk_0123456789abcdef0123456789abcdef";
+    assert(!service.result(
+        context(ActorType::Agent, "actor_agent"), invalidHevcEvidence, 900).accepted);
+    assert(!appliedOldShrink);
+    const auto oldShrinkAck = service.result(
+        context(ActorType::Agent, "actor_agent"), oldShrinkResult, 900);
+    assert(oldShrinkAck.accepted && !oldShrinkAck.replayed && appliedOldShrink);
+    const auto oldShrinkReplay = service.result(
+        context(ActorType::Agent, "actor_agent"), oldShrinkResult, 901);
+    assert(oldShrinkReplay.accepted && oldShrinkReplay.replayed);
+    assert(sqlCount(db.handle(),
+        "SELECT COUNT(*) FROM backend_agent_command_results "
+        "WHERE command_id='cmd_historical_hevc_stage' AND "
+        "result_category='outcome_unknown' AND "
+        "dispatch_state='starting' AND result_evidence='';") == 1);
+    std::cout << "HISTORICAL_HEVC_RESULT_NO_REEXECUTION=PASS\\n";
+
     assert(service.armFault(context(ActorType::System,"system_admin"),"default","receipt",110,reason));
     // P7 reconstructed pre-result-evidence schema (private in-memory DB).
     // The real command/result roundtrip above persisted this older-style row.
