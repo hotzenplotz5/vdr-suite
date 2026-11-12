@@ -5721,6 +5721,49 @@ bool DaemonRuntime::initialize()
                 body += stage ? ",\"reviewId\":\"" : ",\"publishedRecordingId\":\"";
                 body += op.resultReference + "\"";
             }
+            // The actor may inspect their own durable Agent outcome, but
+            // never an arbitrary worker diagnostic, command payload or path.
+            // Only the exact operation-bound, fixed-vocabulary code is safe.
+            if ((op.state ==
+                    vdrsuite::operations::MutationOperationState::failedVerified ||
+                 op.state ==
+                    vdrsuite::operations::MutationOperationState::outcomeUnknown) &&
+                backendAgentCommandRepository_) {
+                const auto assignment =
+                    backendAgentCommandRepository_->findAssignmentForOperation(
+                        backend, op.operationId,
+                        stage ? vdrsuite::mediatools::kMediaShrinkStageCommandType
+                              : vdrsuite::mediatools::kMediaShrinkPublishCommandType);
+                if (assignment &&
+                    op.resultReference ==
+                        "agent.media.shrink:" + assignment->commandId) {
+                    const auto result =
+                        backendAgentCommandRepository_->resultForCommand(
+                            assignment->commandId);
+                    constexpr const char* prefix = "media_shrink_failure:";
+                    if (result && result->boundedDiagnostics.rfind(prefix, 0) == 0) {
+                        const std::string code = result->boundedDiagnostics.substr(
+                            std::char_traits<char>::length(prefix));
+                        const bool known =
+                            code == "ffmpeg_failed" ||
+                            code == "ffmpeg_timeout" ||
+                            code == "no_size_savings" ||
+                            code == "size_limit" ||
+                            code == "codec_verification_failed" ||
+                            code == "hevc_profile_invalid" ||
+                            code == "duration_mismatch" ||
+                            code == "vdr_index_or_external_failed" ||
+                            code == "media_probe_failed" ||
+                            code == "source_changed" ||
+                            code == "staging_io_failed" ||
+                            code == "stage_claim_conflict" ||
+                            code == "publish_claim_conflict" ||
+                            code == "unclassified_failure" ||
+                            code == "unexpected_exception";
+                        if (known) body += ",\"failureCode\":\"" + code + "\"";
+                    }
+                }
+            }
             return MediaShrinkPlanApiRuntime::json(200, body + "}");
         });
 
