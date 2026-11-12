@@ -46,6 +46,9 @@ struct Process final : ProcessRunner {
         }
         if (args.at(0) == "/usr/bin/ffmpeg") {
             assert(!captured && has("libx265") && has("-fs"));
+            // Broadcast TS may contain recoverable packet/decoder errors;
+            // the candidate is verified after ffmpeg instead of -xerror.
+            assert(!has("-xerror"));
             ++transcodes;
             if (failTranscode) return {1, ""};
             std::ofstream(args.back(), std::ios::binary) <<
