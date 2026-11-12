@@ -787,6 +787,62 @@ bool reconcileBackendAgentCommandState(
             return true;
         }
 
+        // A prior-generation HEVC command may already have crossed the
+        // durable mutation boundary. Report ONLY the original immutable
+        // command's result to Core; never dispatch it in this generation.
+        // A missing result after "starting" is uncertainty, not permission
+        // to retry FFmpeg. "not_started" is a verified local no-effect fence
+        // once the original deadline has expired.
+        const bool historicalShrink =
+            mediaShrinkCommand && state.receiptAcknowledged &&
+            !state.stateExtensionPresent && !state.resultAcknowledged &&
+            state.assignment.backendId == context.backendId &&
+            state.assignment.agentId == context.agentId &&
+            state.assignment.backendGeneration < context.backendGeneration &&
+            (state.resultPresent
+                ? ((state.result.resultCategory == "outcome_unknown" &&
+                    state.result.verificationState == "outcome_unknown" &&
+                    state.result.retryClassification == "reconcile_only" &&
+                    ((state.result.dispatchState == "starting" &&
+                      state.result.errorCategory == "executor_unknown" &&
+                      state.result.resultEvidence.empty()) ||
+                     (state.result.dispatchState == "accepted_by_executor" &&
+                      state.result.errorCategory == "none" &&
+                      vdrsuite::mediatools::validShrinkReviewEvidence(
+                          state.assignment, state.result.resultEvidence)))) ||
+                   (state.result.resultCategory == "rejected" &&
+                    state.result.verificationState == "outcome_unknown" &&
+                    state.result.retryClassification == "none" &&
+                    state.result.resultEvidence.empty() &&
+                    ((state.result.dispatchState == "starting" &&
+                      state.result.errorCategory == "fenced") ||
+                     (state.result.dispatchState == "not_started" &&
+                      (state.result.errorCategory == "fenced" ||
+                       state.result.errorCategory == "expired")))))
+                : (state.dispatchState == "starting" ||
+                   (state.dispatchState == "not_started" &&
+                    state.assignment.deadline < nowSeconds())));
+        if (historicalShrink)
+        {
+            if (!state.resultPresent)
+            {
+                if (state.dispatchState == "starting")
+                    createResult(state, "starting", "outcome_unknown",
+                                 "outcome_unknown", "executor_unknown",
+                                 "reconcile_only",
+                                 "HEVC old-generation execution uncertain; reconcile only");
+                else
+                    createResult(state, "not_started", "outcome_unknown",
+                                 "rejected", "fenced", "none",
+                                 "HEVC old-generation command expired before dispatch");
+                if (!persist(config.statePath, state, reason)) return false;
+            }
+            if (!sendResult(config, context, transport, state, reason))
+                return false;
+            reason = "historical_media_shrink_result_reconciled";
+            return true;
+        }
+
         reason = "local_command_generation_fenced";
         return false;
     }
