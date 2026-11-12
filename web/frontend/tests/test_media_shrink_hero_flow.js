@@ -87,6 +87,7 @@ const api = {
     if (request.operationId === stageOperationId)
       return Promise.resolve({backendId, operationId: stageOperationId,
         action: 'stage', state: stageState,
+        failureCode: stageState === 'failed_verified' ? 'ffmpeg_failed' : '',
         resultReconciled: stageState === 'succeeded',
         reviewId: stageState === 'succeeded' ? reviewId : ''});
     if (request.operationId === publishOperationId)
@@ -420,8 +421,9 @@ function nodesByTag(tag) {
   await flush();
   const failedLabel = retryRoot.querySelector('.recordings2-media-check-status');
   assert(failedLabel.textContent.includes('failed_verified') &&
-         failedLabel.textContent.includes(stageOperationId),
-    'verified failure shows canonical operation and remains readable');
+         failedLabel.textContent.includes(stageOperationId) &&
+         failedLabel.textContent.includes('FFmpeg konnte die Aufnahme'),
+    'verified failure shows canonical operation and a clear reason');
   assert.strictEqual(retryButton('HEVC-Konvertierung starten').disabled, false,
     'only Core-verified no-effect permits a new explicit action');
   assert.strictEqual(storage.has('vdr-suite-hevc-v1.' + backendId +
