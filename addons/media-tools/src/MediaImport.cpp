@@ -1339,8 +1339,15 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
 }
 
 NativeProcessRunner::NativeProcessRunner(
-    std::chrono::seconds maximum, MediaToolExecutables executables)
-    : maximum_(maximum), executables_(std::move(executables)) {
+    std::chrono::seconds maximum, MediaToolExecutables executables,
+    std::function<void()> keepAlive,
+    std::chrono::milliseconds keepAliveInterval)
+    : maximum_(maximum), executables_(std::move(executables)),
+      keepAlive_(std::move(keepAlive)),
+      keepAliveInterval_(keepAliveInterval) {
+    require(keepAliveInterval_.count() >= 1 &&
+            keepAliveInterval_ <= std::chrono::seconds(60),
+            "invalid media keep-alive interval");
     require(maximum_.count() >= 1 && maximum_.count() <= 24 * 3600,
             "invalid native media command deadline");
     require(executables_.valid(), "invalid backend media tool executable path");
@@ -1398,7 +1405,19 @@ ProcessResult NativeProcessRunner::run(const std::vector<std::string>& args,
     bool eof = !captureOutput;
     bool failed = false;
     const auto limit = std::chrono::steady_clock::now() + maximum_;
+    auto nextKeepAlive =
+        std::chrono::steady_clock::now() + keepAliveInterval_;
     while (!exited || !eof) {
+        // The Agent event loop is blocked while a native media process runs.
+        // Renew the existing lease from this SAME thread, without polling a
+        // command or spawning a second executor. A transient heartbeat
+        // failure must never kill the already-running encoder.
+        if (!exited && keepAlive_ &&
+            std::chrono::steady_clock::now() >= nextKeepAlive) {
+            try { keepAlive_(); } catch (...) {}
+            nextKeepAlive =
+                std::chrono::steady_clock::now() + keepAliveInterval_;
+        }
         if (!exited) {
             const pid_t waited = ::waitpid(pid, &status, WNOHANG);
             if (waited == pid) exited = true;
