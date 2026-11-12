@@ -638,10 +638,12 @@
             plan.segments + ' TS-Segment(e). ' +
             (planReady ? 'Konvertierung als privater Kandidat möglich.' :
               'HEVC-Konvertierung ist auf diesem Backend nicht freigeschaltet.');
-          if (planReady) {
-            controls.hidden = false;
-            restorePending();
-          }
+          // A temporary Agent/capability outage must not hide an already
+          // accepted Core Operation. Its GET/SSE status remains read-only.
+          stage.disabled = !planReady;
+          controls.hidden = !planReady &&
+            !remembered('stage') && !remembered('publish');
+          if (!controls.hidden) restorePending();
         }).catch(function (error) {
           status.textContent = 'HEVC-Vorprüfung fehlgeschlagen: ' +
             text(error && error.message ? error.message : error);
