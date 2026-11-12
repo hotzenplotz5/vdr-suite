@@ -23,6 +23,8 @@ constexpr const char* kRecording = "rec_0123456789abcdef0123456789abcdef";
 struct Process final : ProcessRunner {
     unsigned transcodes = 0;
     bool failTranscode = false;
+    bool timeoutTranscode = false;
+    bool failIndex = false;
     ProcessResult run(const std::vector<std::string>& args, bool captured) override {
         const auto has = [&](const std::string& s) {
             return std::find(args.begin(), args.end(), s) != args.end();
@@ -51,6 +53,7 @@ struct Process final : ProcessRunner {
             assert(!has("-xerror"));
             ++transcodes;
             if (failTranscode) return {1, ""};
+            if (timeoutTranscode) return {-1, "", true};
             std::ofstream(args.back(), std::ios::binary) <<
                 std::string(8192, 'H');
             return {0, ""};
@@ -60,6 +63,7 @@ struct Process final : ProcessRunner {
             const auto prefix = std::string("--genindex=");
             assert(args[1].compare(0, prefix.size(), prefix) == 0);
             const fs::path candidate(args[1].substr(prefix.size()));
+            if (failIndex) return {1, ""};
             std::ofstream(candidate / "index") << "INDEX";
             return {0, ""};
         }
@@ -223,20 +227,54 @@ int main() {
     assert(process.transcodes == 1);
     assert(restarted.takeReviewId().empty());
 
-    // An FFmpeg failure is outcome-unknown once the durable stage start
-    // fence exists. A restart cannot repeat the same failed stage attempt.
+    // Once FFmpeg fails, stageShrink removes ALL private staging output
+    // and verifies absence. A confirmed no-effect failure can be reported
+    // as rejected, not left forever as outcome_unknown. The old operation
+    // claim remains fenced, so a replay still cannot transcode again.
     auto failed = stage;
     failed.operationId = "op_ffmpeg-failed";
     failed.commandId = "cmd_ffmpeg-failed";
     failed.requestFingerprint = "request-ffmpeg-failed";
     process.failTranscode = true;
     assert(executor.authorize(failed, "backend-a", 7));
-    assert(executor.execute(failed) == MediaShrinkAgentOutcome::unknown);
+    assert(executor.execute(failed) == MediaShrinkAgentOutcome::rejected);
+    assert(executor.takeFailureCode() == "ffmpeg_failed");
+    assert(executor.takeFailureCode().empty());
     process.failTranscode = false;
     const unsigned failedCount = process.transcodes;
     assert(restarted.authorize(failed, "backend-a", 7));
     assert(restarted.execute(failed) == MediaShrinkAgentOutcome::unknown);
+    assert(restarted.takeFailureCode() == "stage_claim_conflict");
     assert(process.transcodes == failedCount);
+
+    auto timeout = stage;
+    timeout.operationId = "op_ffmpeg-timeout";
+    timeout.commandId = "cmd_ffmpeg-timeout";
+    timeout.requestFingerprint = "request-ffmpeg-timeout";
+    process.timeoutTranscode = true;
+    assert(executor.authorize(timeout, "backend-a", 7));
+    assert(executor.execute(timeout) == MediaShrinkAgentOutcome::rejected);
+    assert(executor.takeFailureCode() == "ffmpeg_timeout");
+    process.timeoutTranscode = false;
+
+    auto indexFail = stage;
+    indexFail.operationId = "op_index-failed";
+    indexFail.commandId = "cmd_index-failed";
+    indexFail.requestFingerprint = "request-index-failed";
+    process.failIndex = true;
+    assert(executor.authorize(indexFail, "backend-a", 7));
+    assert(executor.execute(indexFail) == MediaShrinkAgentOutcome::rejected);
+    assert(executor.takeFailureCode() == "vdr_index_or_external_failed");
+    process.failIndex = false;
+
+    // The only surviving private candidate is the original successful
+    // stage. Failed transcodes, timeouts and index attempts left no files.
+    unsigned candidates = 0;
+    for (const auto& entry : fs::directory_iterator(root))
+        if (entry.path().filename().string().rfind(
+                ".vdr-suite-shrink-", 0) == 0)
+            ++candidates;
+    assert(candidates == 1);
     assert(fs::exists(recording / "00001.ts"));
 
     auto publish = stage;
@@ -260,5 +298,5 @@ int main() {
     assert(!executor.authorize(publish, "backend-a", 7));
     assert(authorizeCalls >= 4);
     std::cout << "HEVC_AGENT_STAGE_PUBLISH=PASS "
-              << "STAGE_CRASH_REPLAY_FENCED=YES RECONCILIATION_REQUIRED=YES ORIGINAL_PRESERVED=YES\n";
+              << "STAGE_CRASH_REPLAY_FENCED=YES CLEAN_STAGE_FAILURE=REJECTED ORIGINAL_PRESERVED=YES\n";
 }
