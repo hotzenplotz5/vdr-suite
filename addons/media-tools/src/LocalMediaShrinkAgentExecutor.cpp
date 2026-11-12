@@ -196,10 +196,20 @@ MediaShrinkAgentOutcome LocalMediaShrinkAgentExecutor::execute(
             return MediaShrinkAgentOutcome::rejected;
         auto& runner = runner_();
         if (selection.action == ShrinkRequestAction::stage) {
-            const auto plan = inspectShrink(
-                fresh->videoRoot, fresh->relativeRecording, options(selection));
-            if (shrinkSourceFingerprint(plan) != fresh->sourceFingerprint)
+            // These are read-only checks, BEFORE the durable stage claim.
+            // Their failure cannot leave a candidate or execute FFmpeg.
+            ShrinkPlan plan;
+            try {
+                plan = inspectShrink(fresh->videoRoot,
+                                     fresh->relativeRecording, options(selection));
+                if (shrinkSourceFingerprint(plan) != fresh->sourceFingerprint) {
+                    failureCode_ = "source_changed";
+                    return MediaShrinkAgentOutcome::rejected;
+                }
+            } catch (const std::exception& failure) {
+                failureCode_ = safeShrinkFailureCode(failure.what());
                 return MediaShrinkAgentOutcome::rejected;
+            }
             // Durable start fence is written before any FFmpeg or staging IO.
             // An ambiguous prior attempt cannot be silently restarted after
             // a process crash, dispatch replay or an Agent lease takeover.
