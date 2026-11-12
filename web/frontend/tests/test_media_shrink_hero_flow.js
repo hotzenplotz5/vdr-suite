@@ -121,6 +121,7 @@ const context = {console, document: {
   sessionStorage: {
     setItem(key, value) {storage.set(key, value);},
     getItem(key) {return storage.get(key) || null;}
+    removeItem(key) {storage.delete(key);}
   },
   VdrSuiteBrowserSession: {
     restore() {return Promise.resolve(true);},
@@ -389,6 +390,53 @@ function nodesByTag(tag) {
     'read-only recovery shows exact saved operation, not generic dispatching');
   assert.strictEqual(calls.filter(c => c.action === 'stage').length, 1,
     'read-only recovery never reissues an old Stage');
+
+  // A genuinely verified no-effect result is distinct from outcome_unknown:
+  // it lifts the saved one-shot block but NEVER dispatches automatically.
+  api.getMediaShrinkCapability = originalCapability;
+  api.submitMediaShrinkPlan = function () {
+    return Promise.resolve({backendId, recordingId, readOnly: true,
+      stageAvailable: true, sourceBytes: 1000000, segments: 1});
+  };
+  stageState = 'failed_verified';
+  const retryRoot = new Node('main');
+  retryRoot.appendChild(new Node('div', 'recordings2-detail-copy'));
+  retryRoot.appendChild(new Node('details', 'recordings2-actions'));
+  context.VdrSuiteRecordings2HeroDetail.enhance(
+    retryRoot, recording, backendId, {});
+  await flush();
+  const retryButton = function (label) {
+    const visit = function (node) {
+      if (node.tagName === 'button' && node.textContent === label) return node;
+      for (const child of node.children) {
+        const found = visit(child);
+        if (found) return found;
+      }
+      return null;
+    };
+    return visit(retryRoot);
+  };
+  retryButton('Vorprüfung starten').click();
+  await flush();
+  const failedLabel = retryRoot.querySelector('.recordings2-media-check-status');
+  assert(failedLabel.textContent.includes('failed_verified') &&
+         failedLabel.textContent.includes(stageOperationId),
+    'verified failure shows canonical operation and remains readable');
+  assert.strictEqual(retryButton('HEVC-Konvertierung starten').disabled, false,
+    'only Core-verified no-effect permits a new explicit action');
+  assert.strictEqual(storage.has('vdr-suite-hevc-v1.' + backendId +
+    '.' + recordingId + '.stage'), false,
+    'verified terminal stage releases the old session fence');
+  assert.strictEqual(calls.filter(c => c.action === 'stage').length, 1,
+    'status and SSE readback never perform a new POST');
+  retryButton('HEVC-Konvertierung starten').click();
+  await flush();
+  const afterRetry = calls.filter(c => c.action === 'stage');
+  assert.strictEqual(afterRetry.length, 2,
+    'only a NEW user click initiates another HEVC stage');
+  assert.notStrictEqual(afterRetry[0].request.idempotencyKey,
+    afterRetry[1].request.idempotencyKey,
+    'retry must have a new idempotency identity');
 
   console.log('MEDIA_SHRINK_HERO_OWNER_STAGE_REVIEW_PUBLISH=PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});
