@@ -826,6 +826,9 @@ bool reconcileBackendAgentCommandState(
         {
             if (!state.resultPresent)
             {
+                // No durable result was recorded; never treat residual memory
+                // or an incomplete journal field as HEVC review evidence.
+                state.result.resultEvidence.clear();
                 if (state.dispatchState == "starting")
                     createResult(state, "starting", "outcome_unknown",
                                  "outcome_unknown", "executor_unknown",
