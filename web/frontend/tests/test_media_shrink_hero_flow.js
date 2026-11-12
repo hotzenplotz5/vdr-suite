@@ -340,5 +340,53 @@ function nodesByTag(tag) {
   assert.strictEqual(publish.hidden, true);
   assert(storage.size >= 2);
   for (const entry of calls) assert(!JSON.stringify(entry).includes('/srv/'));
+
+  // Another page opening the same recording during a temporary capability
+  // outage must still show its existing uncertain operation and ID. A new
+  // native HEVC command is never submitted from this read-only recovery.
+  stageState = 'outcome_unknown';
+  api.getMediaShrinkCapability = function () {
+    return Promise.resolve({backendId, capability: 'addons.media.shrink',
+      planningAvailable: true, available: false, encoders: ['software']});
+  };
+  api.submitMediaShrinkPlan = function () {
+    return Promise.resolve({backendId, recordingId, readOnly: true,
+      stageAvailable: false, sourceBytes: 1000000, segments: 1});
+  };
+  const restoredRoot = new Node('main');
+  restoredRoot.appendChild(new Node('div', 'recordings2-detail-copy'));
+  restoredRoot.appendChild(new Node('details', 'recordings2-actions'));
+  context.VdrSuiteRecordings2HeroDetail.enhance(
+    restoredRoot, recording, backendId, {});
+  await flush();
+  function restoredButton(label) {
+    const visit = function (node) {
+      if (node.tagName === 'button' && node.textContent === label) return node;
+      for (const child of node.children) {
+        const found = visit(child);
+        if (found) return found;
+      }
+      return null;
+    };
+    return visit(restoredRoot);
+  }
+  const preview = restoredButton('Vorprüfung starten');
+  assert(preview);
+  preview.click();
+  await flush();
+  const savedControls =
+    restoredRoot.querySelector('.recordings2-media-shrink-controls');
+  assert(savedControls && !savedControls.hidden,
+    'existing uncertain HEVC remains readable when capability is unavailable');
+  assert(restoredButton('HEVC-Konvertierung starten').disabled,
+    'unavailable capability never authorizes another Stage POST');
+  const restoredStatus =
+    restoredRoot.querySelector('.recordings2-media-check-status');
+  assert(restoredStatus.textContent.includes('outcome_unknown') &&
+         restoredStatus.textContent.includes(stageOperationId),
+    'read-only recovery shows exact saved operation, not generic dispatching');
+  assert.strictEqual(calls.filter(c => c.action === 'stage').length, 1,
+    'read-only recovery never reissues an old Stage');
+
   console.log('MEDIA_SHRINK_HERO_OWNER_STAGE_REVIEW_PUBLISH=PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});
