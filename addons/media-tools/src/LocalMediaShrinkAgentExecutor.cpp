@@ -69,6 +69,41 @@ bool sameAuthority(const LocalMediaShrinkAuthority& a,
         a.relativeRecording == b.relativeRecording;
 }
 
+// All reported values are fixed, path-free tokens. Never leak a caught
+// exception's what() text (filesystem_error can include recording paths).
+std::string safeShrinkFailureCode(const std::string& detail) {
+    if (detail == "HEVC transcode failed") return "ffmpeg_failed";
+    if (detail == "HEVC transcode timed out") return "ffmpeg_timeout";
+    if (detail == "HEVC output does not save space") return "no_size_savings";
+    if (detail == "HEVC output hit the size limit") return "size_limit";
+    if (detail == "HEVC codec verification failed") return "codec_verification_failed";
+    if (detail == "shrink output is not VDR-compatible HEVC Main 8-bit")
+        return "hevc_profile_invalid";
+    if (detail == "HEVC output duration differs from original")
+        return "duration_mismatch";
+    if (detail == "HEVC recording index missing" ||
+        detail == "shrink external command failed")
+        return "vdr_index_or_external_failed";
+    if (detail == "shrink codec probe failed" ||
+        detail == "shrink duration probe failed" ||
+        detail == "shrink height probe failed" ||
+        detail == "cannot inspect shrink source audio" ||
+        detail == "shrink output has incompatible MPEG-TS or audio")
+        return "media_probe_failed";
+    if (detail == "shrink plan became stale" ||
+        detail == "source recording or sidecars changed during HEVC operation" ||
+        detail == "shrink source changed during snapshot" ||
+        detail == "shrink source changed before opening")
+        return "source_changed";
+    if (detail == "cannot create shrink staging directory" ||
+        detail == "cannot create private shrink snapshot" ||
+        detail == "shrink snapshot write failed" ||
+        detail == "shrink snapshot is incomplete" ||
+        detail == "cannot protect shrink candidate")
+        return "staging_io_failed";
+    return "unclassified_failure";
+}
+
 ShrinkOptions options(const MediaShrinkAgentSelection& request) {
     ShrinkOptions settings;
     settings.maxHeight = request.maxHeight;
@@ -100,6 +135,7 @@ bool LocalMediaShrinkAgentExecutor::authorize(
     assignment_.reset();
     authority_.reset();
     reviewId_.clear();
+    failureCode_.clear();
     consumed_ = false;
     MediaShrinkAgentSelection selection;
     if (!assignment.present || !known(assignment.commandType) ||
@@ -146,6 +182,7 @@ MediaShrinkAgentOutcome LocalMediaShrinkAgentExecutor::execute(
         return MediaShrinkAgentOutcome::rejected;
     consumed_ = true; // Never execute even a failed/unknown assignment twice.
     reviewId_.clear();
+    failureCode_.clear();
     try {
         MediaShrinkAgentSelection selection;
         if (!parseMediaShrinkAgentSelection(
@@ -169,8 +206,10 @@ MediaShrinkAgentOutcome LocalMediaShrinkAgentExecutor::execute(
             if (!reviews_.claimStageOnce(
                     fresh->operationId, fresh->actorId, fresh->backendId,
                     fresh->recordingId, fresh->sourceFingerprint,
-                    fresh->backendGeneration))
+                    fresh->backendGeneration)) {
+                failureCode_ = "stage_claim_conflict";
                 return MediaShrinkAgentOutcome::unknown;
+            }
             const auto candidate = stageShrink(plan, runner);
             LocalMediaShrinkReview local;
             local.actorId = fresh->actorId;
@@ -201,14 +240,28 @@ MediaShrinkAgentOutcome LocalMediaShrinkAgentExecutor::execute(
                 return MediaShrinkAgentOutcome::rejected;
             // A durable irreversible start fence prevents double publication
             // after any crash, timeout or uncertain Agent result.
-            if (!reviews_.claimOnce(selection.reviewId, fresh->operationId))
+            if (!reviews_.claimOnce(selection.reviewId, fresh->operationId)) {
+                failureCode_ = "publish_claim_conflict";
                 return MediaShrinkAgentOutcome::unknown;
+            }
             (void)publishShrinkCandidate(plan, local->candidateDirectory, runner);
             reviewId_ = selection.reviewId;
         }
         return MediaShrinkAgentOutcome::submitted;
+    } catch (const MediaShrinkCleanStageFailure& failure) {
+        // Only stageShrink can certify that its private candidate was
+        // completely removed; no review registration has been attempted.
+        failureCode_ = safeShrinkFailureCode(failure.what());
+        reviewId_.clear();
+        return MediaShrinkAgentOutcome::rejected;
+    } catch (const std::exception& failure) {
+        // Candidate registration or publication may have crossed a durable
+        // boundary. Do not infer absence or automatically retry.
+        failureCode_ = safeShrinkFailureCode(failure.what());
+        reviewId_.clear();
+        return MediaShrinkAgentOutcome::unknown;
     } catch (...) {
-        // Side effects may already exist; Core readback must disambiguate.
+        failureCode_ = "unexpected_exception";
         reviewId_.clear();
         return MediaShrinkAgentOutcome::unknown;
     }
@@ -216,5 +269,9 @@ MediaShrinkAgentOutcome LocalMediaShrinkAgentExecutor::execute(
 
 std::string LocalMediaShrinkAgentExecutor::takeReviewId() {
     return std::exchange(reviewId_, {});
+}
+
+std::string LocalMediaShrinkAgentExecutor::takeFailureCode() {
+    return std::exchange(failureCode_, {});
 }
 } // namespace vdrsuite::mediatools
