@@ -908,11 +908,34 @@
               operation.backendId !== backendId || operation.action !== action)
             throw new Error('HEVC-Operation gehört nicht zur gewählten Aufnahme.');
           const label = action === 'stage' ? 'Stage' : 'Publish';
+          const failureLabels = {
+            ffmpeg_failed: 'FFmpeg konnte die Aufnahme nicht vollständig konvertieren.',
+            ffmpeg_timeout: 'HEVC-Konvertierung hat das Zeitlimit erreicht.',
+            no_size_savings: 'HEVC-Datei wäre nicht kleiner als das Original.',
+            size_limit: 'HEVC-Ausgabedatei überschreitet das Größenlimit.',
+            codec_verification_failed: 'HEVC-Codec konnte nicht bestätigt werden.',
+            hevc_profile_invalid: 'HEVC-Profil ist nicht VDR-kompatibel.',
+            duration_mismatch: 'Laufzeit weicht vom Original ab.',
+            vdr_index_or_external_failed: 'VDR-Index oder externer Prüfschritt fehlgeschlagen.',
+            media_probe_failed: 'Medienprüfung fehlgeschlagen.',
+            source_changed: 'Originalaufnahme wurde während der Prüfung verändert.',
+            staging_io_failed: 'Fehler beim Schreiben der privaten Arbeitsdateien.',
+            stage_claim_conflict: 'Früherer Startversuch benötigt Ergebnisabgleich.',
+            publish_claim_conflict: 'Frühere Veröffentlichung benötigt Ergebnisabgleich.',
+            unclassified_failure: 'Ein nicht näher klassifizierter Verarbeitungsfehler ist aufgetreten.',
+            unexpected_exception: 'Der HEVC-Verarbeitungsschritt wurde unerwartet unterbrochen.'
+          };
+          const code = typeof operation.failureCode === 'string' &&
+            Object.prototype.hasOwnProperty.call(failureLabels, operation.failureCode)
+            ? operation.failureCode : '';
+          const hint = code ? failureLabels[code] + ' ' : '';
           const explanation = operation.state === 'outcome_unknown'
-            ? 'Ausgang ungeklärt. Keine automatische Wiederholung; Nachprüfung erforderlich.'
-            : operation.resultReconciled === true
-              ? 'Ergebnis durch Core verifiziert.'
-              : 'Ausführung/Prüfung noch nicht abgeschlossen.';
+            ? hint + 'Ausgang ungeklärt. Keine automatische Wiederholung; Nachprüfung erforderlich.'
+            : operation.state === 'failed_verified'
+              ? hint + 'Fehlgeschlagen, ohne veröffentlichten Kandidaten. Ein neuer Versuch ist nur ausdrücklich möglich.'
+              : operation.resultReconciled === true
+                ? 'Ergebnis durch Core verifiziert.'
+                : 'Ausführung/Prüfung noch nicht abgeschlossen.';
           // Show the precise operation identity: a previously saved attempt
           // can differ from another command inspected in the backend journal.
           status.textContent = 'HEVC-' + label + ': ' + operation.state +
@@ -921,6 +944,16 @@
               ['rejected', 'conflict', 'failed_before_dispatch',
                'failed_verified', 'cancelled'].includes(operation.state))
             closeOperationStream(action);
+          // A Core-verified no-effect failure may be explicitly retried with
+          // a NEW key. Uncertainty must never clear the one-shot fence.
+          if (action === 'stage' && operation.state === 'failed_verified') {
+            try {
+              global.sessionStorage.removeItem(storageName('stage'));
+            } catch (_) {}
+            stageOperationId = '';
+            stage.disabled = !planReady;
+            refreshStage.disabled = true;
+          }
           // outcome_unknown remains subscribed: a later independent Core
           // readback may reconcile it without ever rerunning the encoder.
           if (action === 'stage' && operation.resultReconciled === true &&
