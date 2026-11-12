@@ -173,7 +173,10 @@ class NativeProcessRunner final : public ProcessRunner {
 public:
     explicit NativeProcessRunner(
         std::chrono::seconds maximum = std::chrono::seconds(540),
-        MediaToolExecutables executables = {});
+        MediaToolExecutables executables = {},
+        std::function<void()> keepAlive = {},
+        std::chrono::milliseconds keepAliveInterval =
+            std::chrono::seconds(10));
     ProcessResult run(const std::vector<std::string>& argv, bool captureOutput) override;
     std::string executable(MediaTool tool) const override {
         return executables_.forTool(tool);
@@ -187,6 +190,8 @@ public:
 private:
     std::chrono::seconds maximum_;
     MediaToolExecutables executables_;
+    std::function<void()> keepAlive_;
+    std::chrono::milliseconds keepAliveInterval_;
     int maintenanceLockFd_ = -1;
 };
 
