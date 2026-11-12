@@ -120,7 +120,7 @@ const context = {console, document: {
   },
   sessionStorage: {
     setItem(key, value) {storage.set(key, value);},
-    getItem(key) {return storage.get(key) || null;}
+    getItem(key) {return storage.get(key) || null;},
     removeItem(key) {storage.delete(key);}
   },
   VdrSuiteBrowserSession: {
