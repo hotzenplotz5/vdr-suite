@@ -13,6 +13,8 @@ const stageOperationId = 'op_' + 'c'.repeat(32);
 const publishOperationId = 'op_' + 'd'.repeat(32);
 const publishedRecordingId = 'rec_' + 'e'.repeat(32);
 const calls = [];
+const sources = [];
+let stageState = 'dispatching';
 const storage = new Map();
 let keys = 0;
 let confirmations = 0;
@@ -84,7 +86,9 @@ const api = {
     calls.push({action: 'readOperation', request});
     if (request.operationId === stageOperationId)
       return Promise.resolve({backendId, operationId: stageOperationId,
-        action: 'stage', state: 'succeeded', resultReconciled: true, reviewId});
+        action: 'stage', state: stageState,
+        resultReconciled: stageState === 'succeeded',
+        reviewId: stageState === 'succeeded' ? reviewId : ''});
     if (request.operationId === publishOperationId)
       return Promise.resolve({backendId, operationId: publishOperationId,
         action: 'publish', state: 'succeeded', resultReconciled: true,
@@ -123,6 +127,18 @@ const context = {console, document: {
     csrfHeaders() {return {'X-CSRF-Token': 'test-csrf'};}
   },
   VdrSuitePublicV1Client: {createClient() {return api;}},
+  VdrSuiteClientApi: {
+    createClientOperationUpdateSource(operationId) {
+      assert(/^op_[0-9a-f]{32}$/.test(operationId));
+      const source = {
+        operationId, closed: false, listeners: {},
+        addEventListener(name, callback) {this.listeners[name] = callback;},
+        close() {this.closed = true;}
+      };
+      sources.push(source);
+      return source;
+    }
+  },
   VdrSuiteRecordings2Shared: {
     node(tag, classes, label) {return new Node(tag, classes, label);},
     text(value) {return value == null ? '' : String(value);},
@@ -268,7 +284,44 @@ function nodesByTag(tag) {
   assert.strictEqual(stages[0].request.nightMode, true);
   assert.strictEqual(stages[0].request.headers['X-CSRF-Token'], 'test-csrf');
   assert.strictEqual(stages[0].request.recordingId, recordingId);
+  assert.strictEqual(calls.filter(c => c.action === 'readReview').length, 0,
+    'dispatching is not a verified HEVC candidate');
+  const stream = sources.find(s => s.operationId === stageOperationId);
+  assert(stream && !stream.closed, 'HEVC stage uses actor-owned SSE');
+  const status = actionHost.querySelector('.recordings2-media-check-status');
+  assert(status && status.textContent.includes(stageOperationId),
+    'UI shows exact command identity, not a misleading generic status');
+  let readCount = calls.filter(c => c.action === 'readOperation').length;
+  stream.listeners.operation({data: JSON.stringify({
+    operationId: 'op_' + 'f'.repeat(32)
+  })});
+  await flush();
+  assert.strictEqual(calls.filter(c => c.action === 'readOperation').length,
+    readCount, 'foreign Operation event cannot refresh this HEVC operation');
+
+  stageState = 'outcome_unknown';
+  stream.listeners.operation({data: JSON.stringify({operationId: stageOperationId})});
+  await flush();
+  assert(status.textContent.includes('outcome_unknown'));
+  assert(status.textContent.includes('Keine automatische Wiederholung'));
+  assert.strictEqual(button('HEVC-Konvertierung starten').disabled, true,
+    'old uncertainty never removes the one-shot safety fence');
+  assert.strictEqual(stream.closed, false,
+    'outcome_unknown remains subscribed for later independent readback');
+
+  stream.onopen(); // Initial connect/reconnect must read fresh Core truth.
+  await flush();
+  readCount = calls.filter(c => c.action === 'readOperation').length;
+  stream.listeners.resync();
+  await flush();
+  assert.strictEqual(calls.filter(c => c.action === 'readOperation').length,
+    readCount + 1, 'resync reads once rather than polling');
+
+  stageState = 'succeeded'; // Independent Core-side readback, no second POST.
+  stream.listeners.operation({data: JSON.stringify({operationId: stageOperationId})});
+  await flush();
   assert.strictEqual(calls.filter(c => c.action === 'readReview').length, 1);
+  assert.strictEqual(stream.closed, true, 'reconciled stream is closed');
   const publish = button('Kandidaten ausdrücklich veröffentlichen');
   assert.strictEqual(publish.hidden, false);
   publish.click();
