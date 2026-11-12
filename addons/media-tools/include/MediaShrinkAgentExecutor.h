@@ -33,6 +33,10 @@ public:
     // One-shot opaque stage review ID, or the already-bound publish review
     // ID. Never expose a local filesystem path in a control-plane result.
     virtual std::string takeReviewId() { return {}; }
+
+    // Bounded path-free code for this ONE execution. Never forward exception
+    // text, filesystem paths or raw ffmpeg stderr to the Core ledger.
+    virtual std::string takeFailureCode() { return {}; }
 };
 
 inline bool validShrinkReviewEvidence(
