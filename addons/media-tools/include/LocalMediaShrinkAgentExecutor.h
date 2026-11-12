@@ -47,6 +47,7 @@ public:
     MediaShrinkAgentOutcome execute(
         const BackendAgentCommandAssignment& assignment) override;
     std::string takeReviewId() override;
+    std::string takeFailureCode() override;
 
 private:
     LocalMediaShrinkReviewStore& reviews_;
@@ -57,5 +58,6 @@ private:
     std::optional<LocalMediaShrinkAuthority> authority_;
     bool consumed_ = false;
     std::string reviewId_;
+    std::string failureCode_;
 };
 } // namespace vdrsuite::mediatools
