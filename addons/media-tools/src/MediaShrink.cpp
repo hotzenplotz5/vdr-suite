@@ -408,8 +408,9 @@ std::vector<std::string> ffmpegArguments(
     const MediaEncodingSettings& encoding)
 {
     std::vector<std::string> args = {
-        runner.executable(MediaTool::ffmpeg), "-nostdin", "-hide_banner", "-v", "error",
-        "-xerror"
+        // Do not abort a long DVB-TS re-encode on a recoverable packet error.
+        // Duration, codec, size and VDR-index checks still gate the candidate.
+        runner.executable(MediaTool::ffmpeg), "-nostdin", "-hide_banner", "-v", "error"
     };
     if (requested == ShrinkEncoder::vaapi) {
         demand(!encoding.vaapiRenderDevice.empty(),
