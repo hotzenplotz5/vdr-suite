@@ -345,6 +345,8 @@ function nodesByTag(tag) {
   // outage must still show its existing uncertain operation and ID. A new
   // native HEVC command is never submitted from this read-only recovery.
   stageState = 'outcome_unknown';
+  storage.delete('vdr-suite-hevc-v1.' + backendId + '.' + recordingId +
+    '.publish'); // This recovery fixture has only an old Stage.
   api.getMediaShrinkCapability = function () {
     return Promise.resolve({backendId, capability: 'addons.media.shrink',
       planningAvailable: true, available: false, encoders: ['software']});
