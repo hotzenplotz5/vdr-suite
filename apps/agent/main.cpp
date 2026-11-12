@@ -457,7 +457,17 @@ int main(int argc, char** argv)
                 });
         shrinkRunner = std::make_unique<
             vdrsuite::mediatools::NativeProcessRunner>(
-                std::chrono::seconds(4 * 3600), mediaTools);
+                std::chrono::seconds(4 * 3600), mediaTools,
+                [&]() {
+                    // The same authenticated Agent renews its current lease
+                    // while HEVC's ffmpeg/ffprobe/VDR child is running.
+                    // Never poll or dispatch another command from here.
+                    if (!runtimeAccess) return;
+                    std::string reason;
+                    if (!runtimeAccess->renewLeaseDuringMediaImport(reason))
+                        std::cerr << "MEDIA_SHRINK_HEARTBEAT_UNAVAILABLE="
+                                  << reason << std::endl;
+                });
         shrinkExecutor = std::make_unique<
             vdrsuite::mediatools::LocalMediaShrinkAgentExecutor>(
                 *shrinkReviews,
