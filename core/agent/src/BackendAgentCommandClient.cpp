@@ -1095,10 +1095,38 @@ bool reconcileBackendAgentCommandState(
         auto outcome = vdrsuite::mediatools::MediaShrinkAgentOutcome::unknown;
         try { outcome = config.mediaShrinkExecutor->execute(state.assignment); }
         catch (...) {} // Unknown side effect; no blind retry.
+        std::string failureCode;
+        if (config.mediaShrinkExecutor)
+        {
+            try { failureCode = config.mediaShrinkExecutor->takeFailureCode(); }
+            catch (...) {}
+        }
+        // The executor interface is injectable; accept only these exact
+        // built-in, path-free categories. Never persist exception text.
+        const bool safeFailure =
+            failureCode == "ffmpeg_failed" ||
+            failureCode == "ffmpeg_timeout" ||
+            failureCode == "no_size_savings" ||
+            failureCode == "size_limit" ||
+            failureCode == "codec_verification_failed" ||
+            failureCode == "hevc_profile_invalid" ||
+            failureCode == "duration_mismatch" ||
+            failureCode == "vdr_index_or_external_failed" ||
+            failureCode == "media_probe_failed" ||
+            failureCode == "source_changed" ||
+            failureCode == "staging_io_failed" ||
+            failureCode == "stage_claim_conflict" ||
+            failureCode == "publish_claim_conflict" ||
+            failureCode == "unclassified_failure" ||
+            failureCode == "unexpected_exception";
+        const std::string diagnostic = safeFailure
+            ? "media_shrink_failure:" + failureCode
+            : "HEVC requires Core reconciliation";
         if (outcome == vdrsuite::mediatools::MediaShrinkAgentOutcome::rejected)
         {
             createResult(state, "starting", "outcome_unknown", "rejected",
-                         "fenced", "none", "HEVC rejected without effect");
+                         "fenced", "none", safeFailure
+                             ? diagnostic : "HEVC rejected without effect");
         }
         else
         {
@@ -1113,7 +1141,7 @@ bool reconcileBackendAgentCommandState(
             createResult(state, reviewBound ? "accepted_by_executor" : "starting",
                          "outcome_unknown", "outcome_unknown",
                          reviewBound ? "none" : "executor_unknown",
-                         "reconcile_only", "HEVC requires Core reconciliation");
+                         "reconcile_only", diagnostic);
             if (reviewBound)
                 state.result.resultEvidence = evidence;
         }
