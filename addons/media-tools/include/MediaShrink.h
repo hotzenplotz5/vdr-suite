@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <stdexcept>
 #include <vector>
 
 namespace vdrsuite::mediatools {
@@ -47,6 +48,15 @@ ShrinkPlan inspectShrink(
 // Stable, path-free identity of the inspected source snapshot and sidecars.
 // Recomputed at each Core/Agent mutation boundary, never supplied by HTTP.
 std::string shrinkSourceFingerprint(const ShrinkPlan& plan);
+
+// A staging error is definitive only after every private output was
+// synchronously removed and its absence verified. No public recording/review
+// was created by stageShrink. A failed cleanup remains outcome_unknown.
+class MediaShrinkCleanStageFailure final : public std::runtime_error {
+public:
+    explicit MediaShrinkCleanStageFailure(const std::string& detail)
+        : std::runtime_error(detail) {}
+};
 
 // The first explicit write action only creates a private review candidate.
 // No VDR recording path is changed, and no root/source file is removed.
