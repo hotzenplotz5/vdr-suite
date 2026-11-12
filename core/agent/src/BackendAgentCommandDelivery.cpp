@@ -14,7 +14,7 @@
 #include "BackendAgentRecordingCut.h"
 #include "BackendAgentRecordingCutPayload.h"
 #include "LegacyOsdInputDomain.h"
-#include "MediaShrinkAgentCommand.h"
+#include "MediaShrinkAgentExecutor.h"
 #include "Database.h"
 
 #include <sqlite3.h>
