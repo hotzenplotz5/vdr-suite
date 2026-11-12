@@ -311,6 +311,22 @@ int main() {
         ++checks;
     }
     {
+        // HEVC uses the existing Agent heartbeat during long-running child
+        // processes. A temporary renewal failure must not kill the child,
+        // poll a second command or turn an encoder success into failure.
+        int renewals = 0;
+        NativeProcessRunner leaseRunner(
+            std::chrono::seconds(2), {},
+            [&] {
+                ++renewals;
+                throw std::runtime_error("synthetic transient heartbeat loss");
+            },
+            std::chrono::milliseconds(20));
+        assert(leaseRunner.run({"/bin/sleep", "0.15"}, false).exitCode == 0);
+        assert(renewals >= 1);
+        ++checks;
+    }
+    {
         // MT.ENC1: long encode runner is constructible without starting a
         // real encoder or changing media; short jobs keep their own limit.
         NativeProcessRunner longRunner(std::chrono::seconds(24 * 3600));
