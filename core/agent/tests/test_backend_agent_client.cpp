@@ -1425,6 +1425,7 @@ class SyntheticShrinkExecutor final
 public:
     int executions = 0;
     int authorizations = 0;
+    bool cleanFailure = false;
     bool available(const std::string& type) override {
         return type == vdrsuite::mediatools::kMediaShrinkStageCommandType;
     }
@@ -1446,16 +1447,22 @@ public:
         const BackendAgentCommandAssignment&) override {
         ++executions;
         // Synthetic stage only: no FFmpeg or media write occurs.
-        return vdrsuite::mediatools::MediaShrinkAgentOutcome::submitted;
+        return cleanFailure ? vdrsuite::mediatools::MediaShrinkAgentOutcome::rejected
+                            : vdrsuite::mediatools::MediaShrinkAgentOutcome::submitted;
     }
     std::string takeReviewId() override {
-        return "shk_0123456789abcdef0123456789abcdef";
+        return cleanFailure ? "" : "shk_0123456789abcdef0123456789abcdef";
+    }
+    std::string takeFailureCode() override {
+        return cleanFailure ? "ffmpeg_failed" : "";
     }
 };
 
-void test_shrink_actual_agent_runtime_no_double_dispatch()
+void test_shrink_actual_agent_runtime_no_double_dispatch(bool cleanFailure = false)
 {
-    const std::string root = "/tmp/vdr-suite-agent-shrink-runtime";
+    const std::string root = cleanFailure
+        ? "/tmp/vdr-suite-agent-shrink-runtime-failed"
+        : "/tmp/vdr-suite-agent-shrink-runtime";
     removeTree(root);
     assert(mkdir(root.c_str(), 0700) == 0);
     BackendAgentClientConfig config = configFor(root);
@@ -1465,6 +1472,7 @@ void test_shrink_actual_agent_runtime_no_double_dispatch()
         vdrsuite::mediatools::kMediaShrinkPublishCommandType
     };
     SyntheticShrinkExecutor executor;
+    executor.cleanFailure = cleanFailure;
     config.mediaShrinkExecutor = &executor;
 
     BackendAgentClientState state;
@@ -1535,9 +1543,17 @@ void test_shrink_actual_agent_runtime_no_double_dispatch()
     for (std::size_t i = 0; i < transport.paths.size(); ++i) {
         if (transport.paths[i] == "/api/agent/v1/commands/result") {
             foundResult = true;
-            assert(transport.bodies[i].find(
-                "shk_0123456789abcdef0123456789abcdef") != std::string::npos);
-            assert(transport.bodies[i].find("reconcile_only") != std::string::npos);
+            if (cleanFailure) {
+                assert(transport.bodies[i].find(
+                    "media_shrink_failure:ffmpeg_failed") != std::string::npos);
+                assert(transport.bodies[i].find(
+                    "shk_0123456789abcdef0123456789abcdef") == std::string::npos);
+                assert(transport.bodies[i].find("rejected") != std::string::npos);
+            } else {
+                assert(transport.bodies[i].find(
+                    "shk_0123456789abcdef0123456789abcdef") != std::string::npos);
+                assert(transport.bodies[i].find("reconcile_only") != std::string::npos);
+            }
             assert(transport.bodies[i].find("/tmp/") == std::string::npos);
         }
         if (transport.paths[i] == "/api/agent/v1/commands/poll") {
@@ -1597,6 +1613,7 @@ int main()
     test_media_import_actual_agent_runtime_no_double_dispatch();
     test_shrink_requires_explicit_trusted_executor();
     test_shrink_actual_agent_runtime_no_double_dispatch();
+    test_shrink_actual_agent_runtime_no_double_dispatch(true);
     test_heartbeat_wait_is_interruptible();
     std::cout << "test_backend_agent_client passed" << std::endl;
     return 0;
