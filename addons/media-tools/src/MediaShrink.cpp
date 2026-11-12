@@ -544,6 +544,7 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner)
     char* made = ::mkdtemp(name.data());
     demand(made != nullptr, "cannot create shrink staging directory");
     CleanStage stage{fs::path(made)};
+    try {
     demand(::chmod(stage.path.c_str(), 0700) == 0,
            "cannot protect shrink candidate");
     const fs::path candidate = stage.path /
@@ -569,6 +570,7 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner)
     auto argv = ffmpegArguments(runner, current, source, output, limit,
                                  current.options.encoder, scaling, copyAudio, encoding);
     auto conversion = runner.run(argv, false);
+    demand(!conversion.timedOut, "HEVC transcode timed out");
     if (conversion.exitCode != 0 &&
         current.options.encoder != ShrinkEncoder::software) {
         // Hardware failure may leave a partial TS. Only our private output
@@ -579,12 +581,13 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner)
         argv = ffmpegArguments(runner, current, source, output, limit,
                                ShrinkEncoder::software, scaling, copyAudio, encoding);
         conversion = runner.run(argv, false);
+        demand(!conversion.timedOut, "HEVC transcode timed out");
     }
     demand(conversion.exitCode == 0 && nonempty(output),
            "HEVC transcode failed");
     const auto generated = fs::file_size(output);
-    demand(generated < limit && generated < current.totalBytes,
-           "HEVC output is incomplete or does not save space");
+    demand(generated < limit, "HEVC output hit the size limit");
+    demand(generated < current.totalBytes, "HEVC output does not save space");
     demand(probeCodec(runner, output) == "hevc", "HEVC codec verification failed");
     const auto profile = runner.run({
         runner.executable(MediaTool::ffprobe), "-v", "error",
@@ -631,6 +634,20 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner)
     demand(fs::remove(source), "cannot remove private TS snapshot");
     stage.path.clear();
     return candidate;
+    } catch (const std::exception& failure) {
+        // Stage has not registered a review yet. Only a SUCCESSFUL, verified
+        // cleanup proves that this attempt left no private candidate.
+        // If removal or absence readback fails, retain outcome_unknown.
+        if (stage.path.empty()) throw;
+        const std::string detail(failure.what());
+        std::error_code cleanupError;
+        fs::remove_all(stage.path, cleanupError);
+        if (cleanupError) throw;
+        std::error_code readbackError;
+        if (fs::exists(stage.path, readbackError) || readbackError) throw;
+        stage.path.clear();
+        throw MediaShrinkCleanStageFailure(detail);
+    }
 }
 
 namespace {
