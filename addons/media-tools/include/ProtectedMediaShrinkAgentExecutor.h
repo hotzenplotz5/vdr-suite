@@ -72,6 +72,12 @@ public:
         return inner_.takeReviewId();
     }
 
+    std::string takeFailureCode() override
+    {
+        std::lock_guard<std::mutex> guard(mutex_);
+        return inner_.takeFailureCode();
+    }
+
 private:
     LocalMediaShrinkAgentExecutor& inner_;
     NativeProcessRunner& runner_;
