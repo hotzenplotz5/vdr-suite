@@ -652,8 +652,8 @@
       let stageOperationId = '';
       let publishOperationId = '';
       let reviewId = '';
-      let stagePolls = 0;
-      let publishPolls = 0;
+      const operationStreams = {stage: null, publish: null};
+      const operationReadSequence = {stage: 0, publish: 0};
 
       const controls = shared.node('div', 'recordings2-media-shrink-controls');
       controls.hidden = true;
@@ -707,6 +707,7 @@
           stageOperationId = result.operationId;
           remember('stage', {key: key, operationId: stageOperationId});
           refreshStage.disabled = false;
+          watchOperation('stage');
           refreshOperation('stage');
         }).catch(function (error) {
           // Request may have reached the backend. Never submit again, even
@@ -745,6 +746,7 @@
           publishOperationId = result.operationId;
           remember('publish', {key: key, operationId: publishOperationId});
           refreshPublish.disabled = false;
+          watchOperation('publish');
           refreshOperation('publish');
         }).catch(function (error) {
           status.textContent = 'Veröffentlichung unklar: ' +
@@ -801,7 +803,10 @@
           status.textContent = stageOperationId
             ? 'Gespeicherte Stage-Operation gefunden. Status abfragen.'
             : 'Unklarer früherer Stage-Start. Aus Sicherheitsgründen gesperrt.';
-          if (stageOperationId) refreshOperation('stage');
+          if (stageOperationId) {
+            watchOperation('stage');
+            refreshOperation('stage');
+          }
         }
         if (!encoders.length) stage.disabled = true;
         const savedPublish = remembered('publish');
@@ -809,7 +814,10 @@
           publish.disabled = true;
           publishOperationId = savedPublish.operationId;
           refreshPublish.disabled = !publishOperationId;
-          if (publishOperationId) refreshOperation('publish');
+          if (publishOperationId) {
+            watchOperation('publish');
+            refreshOperation('publish');
+          }
         }
       }
       function fetchReview(id) {
@@ -838,31 +846,81 @@
           publish.hidden = true;
         });
       }
+      function closeOperationStream(action) {
+        const existing = operationStreams[action];
+        operationStreams[action] = null;
+        if (existing && existing.source &&
+            typeof existing.source.close === 'function')
+          existing.source.close();
+      }
+      function watchOperation(action) {
+        const id = action === 'stage' ? stageOperationId : publishOperationId;
+        if (!/^op_[0-9a-f]{32}$/.test(id)) return;
+        const previous = operationStreams[action];
+        if (previous && previous.id === id) return;
+        closeOperationStream(action);
+        // Reuse the actor-owned SSE client already used by Media Import.
+        // Events are read hints, never confirmation or permission to POST.
+        const events = global.VdrSuiteClientApi;
+        const source = events &&
+          typeof events.createClientOperationUpdateSource === 'function'
+          ? events.createClientOperationUpdateSource(id) : null;
+        if (!source) return; // Explicit manual status refresh stays available.
+        operationStreams[action] = {id: id, source: source};
+        const alive = function () {
+          if (panel.isConnected === false || !panel.parentNode) {
+            closeOperationStream(action);
+            return false;
+          }
+          return operationStreams[action] &&
+            operationStreams[action].source === source &&
+            (action === 'stage' ? stageOperationId : publishOperationId) === id;
+        };
+        source.onopen = function () {
+          // Reconnect/initial connect performs exactly one Core readback.
+          if (alive()) refreshOperation(action);
+        };
+        source.addEventListener('operation', function (event) {
+          if (!alive()) return;
+          let hint;
+          try { hint = JSON.parse(event.data); } catch (_) { return; }
+          if (hint && hint.operationId === id) refreshOperation(action);
+        });
+        source.addEventListener('resync', function () {
+          if (alive()) refreshOperation(action);
+        });
+      }
       function refreshOperation(action) {
         const id = action === 'stage' ? stageOperationId : publishOperationId;
         if (!/^op_[0-9a-f]{32}$/.test(id) ||
             typeof client.getMediaShrinkOperation !== 'function') return;
+        const sequence = ++operationReadSequence[action];
         client.getMediaShrinkOperation({
           backendId: backendId, operationId: id, credentials: 'same-origin',
           cache: 'no-store'
         }).then(function (operation) {
+          if (sequence !== operationReadSequence[action] ||
+              (action === 'stage' ? stageOperationId : publishOperationId) !== id)
+            return;
           if (!operation || operation.operationId !== id ||
               operation.backendId !== backendId || operation.action !== action)
             throw new Error('HEVC-Operation gehört nicht zur gewählten Aufnahme.');
-          status.textContent = 'HEVC-' + action + ': ' + operation.state +
-            (operation.resultReconciled === true ? ' (verifiziert)' :
-              ' (noch nicht reconciled)');
-          // Poll only the canonical read-only status. Never retry Stage or
-          // Publish when their outcome is unclear or still reconciling.
-          if (operation.resultReconciled !== true &&
-              ['accepted', 'queued', 'dispatching', 'executed_unverified',
-                'outcome_unknown'].includes(operation.state) &&
-              typeof global.setTimeout === 'function') {
-            const next = action === 'stage' ? ++stagePolls : ++publishPolls;
-            if (next <= 120) global.setTimeout(function () {
-              if (panel.isConnected !== false) refreshOperation(action);
-            }, 3000);
-          }
+          const label = action === 'stage' ? 'Stage' : 'Publish';
+          const explanation = operation.state === 'outcome_unknown'
+            ? 'Ausgang ungeklärt. Keine automatische Wiederholung; Nachprüfung erforderlich.'
+            : operation.resultReconciled === true
+              ? 'Ergebnis durch Core verifiziert.'
+              : 'Ausführung/Prüfung noch nicht abgeschlossen.';
+          // Show the precise operation identity: a previously saved attempt
+          // can differ from another command inspected in the backend journal.
+          status.textContent = 'HEVC-' + label + ': ' + operation.state +
+            ' · Auftrag ' + id + '. ' + explanation;
+          if (operation.resultReconciled === true ||
+              ['rejected', 'conflict', 'failed_before_dispatch',
+               'failed_verified', 'cancelled'].includes(operation.state))
+            closeOperationStream(action);
+          // outcome_unknown remains subscribed: a later independent Core
+          // readback may reconcile it without ever rerunning the encoder.
           if (action === 'stage' && operation.resultReconciled === true &&
               /^shk_[0-9a-f]{32}$/.test(text(operation.reviewId))) {
             reviewId = operation.reviewId;
@@ -871,11 +929,14 @@
           if (action === 'publish' && operation.resultReconciled === true &&
               /^rec_[0-9a-f]{32}$/.test(text(operation.publishedRecordingId))) {
             status.textContent = 'Neue HEVC-Aufnahme bestätigt: ' +
-              operation.publishedRecordingId + '. Original erhalten.';
+              operation.publishedRecordingId + '. Original erhalten.' +
+              ' Auftrag ' + id + '.';
             publish.hidden = true;
           }
         }).catch(function (error) {
-          status.textContent = 'HEVC-Status nicht verfügbar: ' +
+          if (sequence !== operationReadSequence[action]) return;
+          status.textContent = 'HEVC-Status für Auftrag ' + id +
+            ' nicht verfügbar: ' +
             text(error && error.message ? error.message : error) +
             '. Keine neue Mutation starten.';
         });
