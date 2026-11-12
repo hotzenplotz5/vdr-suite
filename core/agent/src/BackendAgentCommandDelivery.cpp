@@ -14,6 +14,7 @@
 #include "BackendAgentRecordingCut.h"
 #include "BackendAgentRecordingCutPayload.h"
 #include "LegacyOsdInputDomain.h"
+#include "MediaShrinkAgentCommand.h"
 #include "Database.h"
 
 #include <sqlite3.h>
@@ -1456,7 +1457,52 @@ BackendAgentCommandResultAck BackendAgentCommandDeliveryService::result(
             value.completedAt >= original->assignedAt &&
             value.completedAt <= now &&
             original->deadline < now;
-        if (!historicalModifyResult && !historicalUndispatchedMediaImport)
+        // Historical HEVC result recovery is result-only. Exact original
+        // command identity, durable receipt and Core operation are checked
+        // again below; this never authorizes stale poll/receipt/dispatch.
+        // A crashed "starting" execution is ALWAYS outcome_unknown.
+        const bool historicalMediaShrink =
+            context.authenticated() &&
+            context.actor.type == ActorType::Agent &&
+            current.has_value() && !current->revoked &&
+            !current->incompatible &&
+            current->actorId == context.actor.actorId &&
+            current->agentId == value.agentId &&
+            current->backendGeneration > value.backendGeneration &&
+            original.has_value() &&
+            original->backendId == value.backendId &&
+            original->agentId == value.agentId &&
+            original->agentInstanceId == value.agentInstanceId &&
+            original->backendGeneration == value.backendGeneration &&
+            original->requestFingerprint == value.requestFingerprint &&
+            (original->commandType ==
+                 vdrsuite::mediatools::kMediaShrinkStageCommandType ||
+             original->commandType ==
+                 vdrsuite::mediatools::kMediaShrinkPublishCommandType) &&
+            value.completedAt >= original->assignedAt &&
+            value.completedAt <= now &&
+            ((value.resultCategory == "outcome_unknown" &&
+              value.verificationState == "outcome_unknown" &&
+              value.retryClassification == "reconcile_only" &&
+              ((value.dispatchState == "starting" &&
+                value.errorCategory == "executor_unknown" &&
+                value.resultEvidence.empty()) ||
+               (value.dispatchState == "accepted_by_executor" &&
+                value.errorCategory == "none" &&
+                vdrsuite::mediatools::validShrinkReviewEvidence(
+                    *original, value.resultEvidence)))) ||
+             (value.resultCategory == "rejected" &&
+              value.verificationState == "outcome_unknown" &&
+              value.retryClassification == "none" &&
+              value.resultEvidence.empty() &&
+              ((value.dispatchState == "starting" &&
+                value.errorCategory == "fenced") ||
+               (value.dispatchState == "not_started" &&
+                (value.errorCategory == "fenced" ||
+                 value.errorCategory == "expired") &&
+                original->deadline < now))));
+        if (!historicalModifyResult && !historicalUndispatchedMediaImport &&
+            !historicalMediaShrink)
         {
             result.reasonCode =
                 reason.empty() ? "command_generation_fenced" : reason;
