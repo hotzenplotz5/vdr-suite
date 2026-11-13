@@ -132,6 +132,13 @@
       ['path', 'backendNativeId', 'nativePath', 'fileName', 'directory'],
       ''
     )).replace(/\\/g, '/').replace(/~+/g, '/').replace(/\/+$/g, '');
+    // The Core inventory keeps the native private path so VDR can identify
+    // the existing file. Its title is intentionally original-title.shrink.
+    // Do not turn that path back into the visible staging-directory name.
+    if (/(^|\/)\.vdr-suite-shrink-[^/]+\/[^/]+\.rec$/i.test(raw)) {
+      const friendly = recordingNativeTitle(recording);
+      if (/\.shrink$/i.test(friendly)) return friendly;
+    }
     const parts = raw.split('/').map(function (part) { return part.trim(); }).filter(Boolean);
     if (parts.length && /\.rec$/i.test(parts[parts.length - 1])) parts.pop();
     return parts.length ? decodeDisplayText(parts[parts.length - 1]) : '';
@@ -157,8 +164,13 @@
     const manualTitle = manualAssignment(recording).active === true
       ? recordingMetadataTitle(recording)
       : '';
+    const titleFromPath = recordingPathTitle(recording);
+    if (/\.shrink$/i.test(titleFromPath) &&
+        /(^|\/)\.vdr-suite-shrink-[^/]+\/[^/]+\.rec$/i.test(text(first(
+          recording, ['path', 'backendNativeId', 'nativePath', 'fileName', 'directory'], ''
+        )).replace(/\\/g, '/'))) return titleFromPath;
     return manualTitle ||
-      recordingPathTitle(recording) ||
+      titleFromPath ||
       recordingNativeTitle(recording) ||
       recordingMetadataTitle(recording) ||
       'Aufnahme';
