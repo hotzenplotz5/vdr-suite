@@ -24,6 +24,7 @@
 #include <ctime>
 #include <exception>
 #include <iostream>
+#include <map>
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
 
