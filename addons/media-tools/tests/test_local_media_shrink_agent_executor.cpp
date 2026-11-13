@@ -293,7 +293,7 @@ int main() {
     assert(executor.authorize(publish, "backend-a", 8));
     assert(executor.execute(publish) == MediaShrinkAgentOutcome::submitted);
     assert(executor.takeReviewId() == id);
-    assert(fs::exists(root / "Example_HEVC" / recording.filename() / "00001.ts"));
+    assert(fs::exists(root / "Example.shrink" / recording.filename() / "00001.ts"));
     assert(fs::exists(recording / "00001.ts"));
     assert(!store.find(id)); // Candidate was atomically published.
     assert(!store.claimOnce(id, "op_publish-other"));
