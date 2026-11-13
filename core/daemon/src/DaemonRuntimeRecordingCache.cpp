@@ -669,9 +669,13 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                             std::string matchedNative;
                             unsigned matches = 0;
                             for (const auto& recording : nativeRecordings) {
+                                // RESTfulAPI path is usually relative_file_name;
+                                // only backendNativeId is the absolute VDR .rec
+                                // directory read from provider file_name.
                                 if (recording.backendId == op.backendId &&
-                                    fs::path(recording.path) == publishedNative &&
                                     !recording.backendNativeId.empty() &&
+                                    fs::path(recording.backendNativeId) ==
+                                        publishedNative &&
                                     !recording.title.empty()) {
                                     ++matches;
                                     matchedNative = recording.backendNativeId;
