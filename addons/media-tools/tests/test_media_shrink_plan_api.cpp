@@ -159,6 +159,31 @@ int main() {
             const std::string& id) {
             return runtime.reviewStatus(actor, backend, id);
         });
+    // Recovery lookup uses the same durable operation repository and
+    // actor/backend scope as the existing operation read, not browser storage.
+    api.registerRecordingStatusHandler(
+        [&](const std::string& actor, const std::string& backend,
+            const std::string& id) -> ApiResponse {
+            const auto found =
+                operations.listRecentForActorBackendActionFamily(
+                    actor, backend, "media.shrink.stage", 128U);
+            if (!found.ok()) return MediaShrinkPlanApiRuntime::problem(
+                503, "Unavailable.");
+            for (const auto& op : found.operations) {
+                if (op.resourceId != id || op.resourceType != "Recording" ||
+                    op.state != MutationOperationState::succeeded)
+                    continue;
+                const auto review = reviews.find(actor, backend, op.resultReference);
+                if (!review.ok()) continue;
+                return MediaShrinkPlanApiRuntime::json(200,
+                    "{\"recordingId\":\"" + id +
+                    "\",\"state\":\"ready\",\"reviewId\":\"" +
+                    review.review.reviewId + "\"}");
+            }
+            return MediaShrinkPlanApiRuntime::json(200,
+                "{\"recordingId\":\"" + id +
+                "\",\"state\":\"none\"}");
+        });
     auto post = [&](const std::string& body, const std::string& actor,
                     const std::string& scope) {
         ApiResponse response;
@@ -216,6 +241,28 @@ int main() {
     assert(readReview("actor-b", "local", kReviewId).statusCode == 404);
     assert(readReview("actor-a", "elsewhere", kReviewId).statusCode == 404);
     assert(readReview("actor-a", "local", "../../etc/passwd").statusCode == 404);
+    auto readRecording = [&](const std::string& actor,
+                             const std::string& scope,
+                             const std::string& id) {
+        ApiResponse response;
+        assert(api.tryHandleGet(
+            "/api/v1/backends/local/media-shrink-recordings/" + id,
+            actor, scope, {}, response));
+        return response;
+    };
+    assert(readRecording("", "local", kRecordingId).statusCode == 401);
+    assert(readRecording("actor-a", "elsewhere", kRecordingId).statusCode == 404);
+    assert(readRecording("actor-a", "local", "../../etc/passwd").statusCode == 404);
+    const auto existing = readRecording("actor-a", "local", kRecordingId);
+    assert(existing.statusCode == 200);
+    assert(existing.body.find("\"state\":\"ready\"") !=
+           std::string::npos);
+    assert(existing.body.find(kReviewId) != std::string::npos);
+    const auto foreign = readRecording("actor-b", "local", kRecordingId);
+    assert(foreign.statusCode == 200);
+    assert(foreign.body.find("\"state\":\"none\"") !=
+           std::string::npos);
+
     const auto staged = readReview("actor-a", "local", kReviewId);
     assert(staged.statusCode == 200);
     assert(staged.body.find("\"state\":\"staged\"") != std::string::npos);
