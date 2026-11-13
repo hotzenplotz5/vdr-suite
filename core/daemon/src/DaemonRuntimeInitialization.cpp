@@ -1403,9 +1403,11 @@ bool DaemonRuntime::initialize()
         RestfulApiRecordingActionBackendConfig recordingActionConfig;
         recordingActionConfig.backendId = backendRuntimeContext->backendId;
         recordingActionConfig.basePath = "";
-        // A declared backend-root map is authoritative. Without a valid
-        // backend-specific configuration or VDR discovery result, native
-        // recording writes are unavailable; never invent a distro path.
+        // A configured or VDR-discovered root is preferred. On existing
+        // RESTfulAPI backends without VPATH, safe recording actions derive
+        // the native video root from the provider's absolute file_name and
+        // relative_file_name for the selected recording. No distro path and
+        // no additional configuration are required.
         const auto& recordingRoots = config_.recordingVideoRoots();
         const auto rootIt = recordingRoots.find(backendRuntimeContext->backendId);
         const bool explicitlyConfigured = config_.recordingVideoRootsSpecified();
@@ -1446,7 +1448,6 @@ bool DaemonRuntime::initialize()
         recordingActionConfig.apiMode =
             RestfulApiRecordingActionApiMode::SafeMutation;
         recordingActionConfig.allowExecution =
-            rootAvailable &&
             (!explicitlyConfigured || configuredRootAvailable) &&
             !invalidNativeRoot;
         recordingActionConfig.readOnly = !recordingActionConfig.allowExecution;
