@@ -9,6 +9,18 @@ Diese Regel gilt für jede `AGENTS.md`-Datei im Repository. Ohne die ausdrückli
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
 
+## Höchste Maintainer-Vorgabe: KEINE neuen Sperren ohne vorherige Genehmigung (13.11.2026)
+
+**Ausdrückliche Anordnung des Maintainers: KEINE NEUEN SPERREN, GATES ODER BERECHTIGUNGSREGELN eigenmächtig einführen. AUSNAHMEN NUR, WENN TATSÄCHLICH NOTWENDIG, UND AUSSCHLIESSLICH NACH MEINER VORHERIGEN AUSDRÜCKLICHEN GENEHMIGUNG.**
+
+- Gilt für Core, Public API, Backend-Agent, Add-ons, VDR-Integration, TV-/Web-Clients, Installer, Build-/Testskripte und Konfiguration. Dazu zählen insbesondere neue Ablehnungen, künstliche Vorbedingungen, Capability-/Lease-/Aktivierungs-/Authentifizierungs-Zusatzprüfungen, Fail-closed-Fallbacks, deaktivierte Buttons/Funktionen, erzwungene Konfigurationspflichten, zusätzliche Freigabeschritte, Installationsabbrüche und restriktive Änderungen vorhandener Regeln.
+- **Keine Sperre als vermeintlichen Sicherheits-, Robustheits-, Architektur- oder Distributionsunabhängigkeits-Fix einbauen.** Ein nicht erkannter Pfad, ein fehlender optionaler Agent/Transport oder ein unsicherer Status darf nicht zum Anlass genommen werden, bisher funktionierende unabhängige Funktionen pauschal abzuschalten. Vorhandene VDR-/Backend-Informationen und bestehende Abläufe zuerst wiederverwenden; keine distributionsspezifischen Pfade fest codieren.
+- **Wenn eine zusätzliche blockierende Maßnahme wirklich unvermeidbar erscheint:** Arbeit an genau dieser Maßnahme **vor dem Coding stoppen**, den konkreten technischen Grund und nachgewiesenen Schaden, die betroffenen Funktionen/Distributionen, die mildere Alternative und den geplanten Umfang erläutern und die persönliche Entscheidung des Maintainers einholen. **Schweigen, allgemeine Entwicklungsfreigabe, ein bestandener Test oder eine angebliche Sicherheitsbest-Practice sind keine Zustimmung.** Ohne ausdrückliches Ja keine Implementierung, kein Commit und kein Deployment dieser Sperre.
+- Bereits existierende fachlich erforderliche Autorisierung und Schutzvorgaben bleiben bestehen; sie dürfen weder stillschweigend erweitert noch umgangen oder entfernt werden. Diese Regel erlaubt keine eigenmächtige Abschaltung bestehender Berechtigungen. **Neue oder verschärfte Regeln benötigen die oben beschriebene Zustimmung.**
+- Fehler transparent melden und den konkret betroffenen Vorgang diagnostizieren, statt zusätzliche globale Sperren zu erfinden. Bei ungewissem Ergebnis niemals denselben mutierenden Auftrag unkontrolliert erneut ausführen. Alle zulässigen, unabhängigen Bedien- und Lesefunktionen verfügbar halten.
+- **Vorrang:** Bei Widerspruch zu älteren AGENTS-/Roadmap-/ADR-/Sicherheits- oder Installationsanweisungen für *neu einzuführende Sperren* ist zuerst die konkrete Genehmigung des Maintainers einzuholen. Diese Regel gilt verbindlich für alle künftigen Agent-Änderungen.
+
+
 ## Verbindlich: yaVDR-Installationsbefehle in der bestehenden Root-Shell ausführen (03.11.2026)
 
 **Ausdrückliche Maintainer-Anordnung: Installationen als `root` ausführen.**
