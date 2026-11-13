@@ -4,10 +4,12 @@
 #include <array>
 #include <cctype>
 #include <cerrno>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 #include <fcntl.h>
 #include <fstream>
@@ -17,6 +19,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -39,6 +42,30 @@ struct Descriptor {
     Descriptor(const Descriptor&) = delete;
     Descriptor& operator=(const Descriptor&) = delete;
 };
+
+// Like Media Import, notify the native VDR scanner after an external
+// recording promotion. VDR compares .update mtime in whole seconds; wait for
+// the next real second rather than setting a future timestamp. This notification
+// does not claim success: Core still requires provider readback.
+void notifyVdrAfterShrinkPublish(const fs::path& videoRoot)
+{
+    const std::time_t publishedSecond = std::time(nullptr);
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::seconds(3);
+    while (std::time(nullptr) <= publishedSecond &&
+           std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    if (std::time(nullptr) <= publishedSecond)
+        std::fprintf(stderr,
+                     "Media Shrink: VDR refresh second did not advance\n");
+    const fs::path marker = videoRoot / ".update";
+    Descriptor fd(::open(marker.c_str(),
+                         O_WRONLY | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0644));
+    if (fd.fd < 0 || ::futimens(fd.fd, nullptr) != 0)
+        std::fprintf(stderr, "Media Shrink: VDR refresh notification failed: %s\n",
+                     std::strerror(errno));
+}
 
 struct CleanStage {
     fs::path path;
@@ -1052,6 +1079,7 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
     // unexpectedly replaced parent is never recursively removed.
     std::error_code cleanupError;
     fs::remove(privateParent, cleanupError);
+    notifyVdrAfterShrinkPublish(checked.videoRoot);
     return destination;
 }
 
