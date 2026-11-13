@@ -189,7 +189,7 @@ public:
         namespace fs = std::filesystem;
         if (!shrinkOpaqueId(recordingId, "rec_") ||
             !shrinkOpaqueId(operationId, "op_") ||
-            !shrinkOpaqueId(reviewId, "shk_") ||
+            (!reviewId.empty() && !shrinkOpaqueId(reviewId, "shk_")) ||
             generation == 0)
             return std::nullopt;
         const auto paths = trustedSourcePaths(
@@ -216,9 +216,14 @@ public:
                 const auto candidate = entry.path() /
                     paths->relativeRecording.filename();
                 const auto marker = readShrinkReviewBinding(candidate);
-                if (!marker || marker->reviewId != reviewId)
+                // An Agent crash may leave a complete private review but
+                // only a durable "starting/outcome_unknown" result. Core
+                // may discover its ID by the exact original operation.
+                if (!marker || marker->stageOperationId != operationId)
                     continue;
-                if (match || marker->actorId != actor ||
+                if (match ||
+                    (!reviewId.empty() && marker->reviewId != reviewId) ||
+                    marker->actorId != actor ||
                     marker->backendId != backend ||
                     marker->recordingId != recordingId ||
                     marker->stageOperationId != operationId ||
@@ -228,7 +233,7 @@ public:
                 const auto bytes = verifyShrinkCandidate(
                     plan, candidate, runner);
                 match = VerifiedStageReadback{
-                    reviewId, plan.totalBytes, bytes};
+                    marker->reviewId, plan.totalBytes, bytes};
             }
             // Source identity is independently rechecked AFTER verifying
             // the candidate against potentially long FFprobe readback.
@@ -238,6 +243,19 @@ public:
                 return std::nullopt;
             return match;
         } catch (...) { return std::nullopt; }
+    }
+
+    // Recover a completed private Stage from its exact Core-bound marker.
+    // The source and candidate are independently verified; no worker is run
+    // and no new Stage/Publish operation is admitted.
+    std::optional<VerifiedStageReadback> recoverStagedCandidate(
+        const std::string& actor, const std::string& backend,
+        const std::string& recordingId, const std::string& operationId,
+        const std::string& expectedFingerprint, std::uint64_t generation,
+        vdrsuite::mediatools::ProcessRunner& runner) const {
+        return verifyStagedCandidate(
+            actor, backend, recordingId, operationId,
+            expectedFingerprint, generation, {}, runner);
     }
 
     ApiResponse reviewStatus(const std::string& actor,
