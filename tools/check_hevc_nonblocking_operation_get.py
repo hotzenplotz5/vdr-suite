@@ -39,4 +39,26 @@ assert "deviceLiveEventHub_->publishOperation(op.operationId)" in init, (
 assert "watchOperation('stage')" in hero, (
     "Recordings detail must retain actor-owned operation SSE"
 )
+# VDR RESTfulAPI carries both paths: relative_file_name for folders and
+# absolute file_name for native operations. Publish readback MUST use the latter
+# or a genuine native .shrink recording can never complete its Operation.
+mapper = Path("core/vdr/src/RestfulApiRecordingMapper.cpp").read_text()
+reconciliation = Path(
+    "core/daemon/src/DaemonRuntimeRecordingCache.cpp"
+).read_text()
+assert "recording.path = relativePath.empty() ? fileName : relativePath;" in mapper
+assert "recording.backendNativeId = fileName;" in mapper
+start = reconciliation.index("// Mirror the native No-Replace target")
+end = reconciliation.index("if (matches != 1) continue;", start)
+lookup = reconciliation[start:end]
+assert "fs::path(recording.backendNativeId)" in lookup, (
+    "HEVC Publish must match the absolute native VDR file_name"
+)
+assert "fs::path(recording.path) == publishedNative" not in lookup, (
+    "relative_file_name cannot match the absolute published directory"
+)
+assert "fs::path(source->relativeRecording.parent_path()" in lookup
+assert 'string() + ".shrink")' in lookup
+print("HEVC_PUBLISH_NATIVE_READBACK=PASS")
+
 print("HEVC_NONBLOCKING_GET_BACKGROUND_SSE=PASS")
