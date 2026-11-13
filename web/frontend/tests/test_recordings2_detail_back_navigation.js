@@ -138,6 +138,12 @@ const context = vm.createContext({
 });
 
 vm.runInContext(
+  fs.readFileSync('web/frontend/recordings2-browser-cards.js', 'utf8'),
+  context,
+  {filename:'web/frontend/recordings2-browser-cards.js'}
+);
+
+vm.runInContext(
   fs.readFileSync('web/frontend/recordings2-browser-view.js', 'utf8'),
   context,
   {filename:'web/frontend/recordings2-browser-view.js'}
