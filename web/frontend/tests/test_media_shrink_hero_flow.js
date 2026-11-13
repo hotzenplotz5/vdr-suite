@@ -15,6 +15,7 @@ const publishedRecordingId = 'rec_' + 'e'.repeat(32);
 const calls = [];
 const sources = [];
 let stageState = 'dispatching';
+let durableState = 'none';
 const storage = new Map();
 let keys = 0;
 let confirmations = 0;
@@ -73,6 +74,13 @@ const api = {
     available: true, encoders: ['software', 'vaapi', 'qsv', 'nvenc'],
     encoderFallbackToSoftware: true
   });},
+  getMediaShrinkRecording(request) {
+    calls.push({action: 'findRecording', request});
+    if (durableState === 'ready') return Promise.resolve({
+      recordingId, backendId, state: 'ready', operationId: stageOperationId, reviewId
+    });
+    return Promise.resolve({recordingId, backendId, state: durableState});
+  },
   submitMediaShrinkPlan(request) {
     calls.push({action: 'plan', request});
     return Promise.resolve({backendId, recordingId, readOnly: true,
@@ -263,7 +271,7 @@ function nodesByTag(tag) {
   assert.strictEqual(actionHost.open, true);
   assert(actionHost.querySelector('.recordings2-media-check'),
     'one existing HEVC plan/stage/publish panel, not a second flow');
-  button('Vorprüfung starten').click();
+  button('Aufnahme verkleinern').click();
   await flush();
   assert.strictEqual(calls.filter(c => c.action === 'plan').length, 1);
   assert.strictEqual(calls[0].request.recordingId, recordingId);
@@ -277,7 +285,7 @@ function nodesByTag(tag) {
   assert.strictEqual(inputs.length, 2);
   inputs[0].checked = true;
   inputs[1].checked = true;
-  button('HEVC-Konvertierung starten').click();
+  button('Verkleinerung starten').click();
   await flush();
   const stages = calls.filter(c => c.action === 'stage');
   assert.strictEqual(stages.length, 1);
@@ -312,7 +320,7 @@ function nodesByTag(tag) {
   await flush();
   assert(status.textContent.includes('outcome_unknown'));
   assert(status.textContent.includes('Keine automatische Wiederholung'));
-  assert.strictEqual(button('HEVC-Konvertierung starten').disabled, true,
+  assert.strictEqual(button('Verkleinerung starten').disabled, true,
     'old uncertainty never removes the one-shot safety fence');
   assert.strictEqual(stream.closed, false,
     'outcome_unknown remains subscribed for later independent readback');
@@ -330,7 +338,7 @@ function nodesByTag(tag) {
   await flush();
   assert.strictEqual(calls.filter(c => c.action === 'readReview').length, 1);
   assert.strictEqual(stream.closed, true, 'reconciled stream is closed');
-  const publish = button('Kandidaten ausdrücklich veröffentlichen');
+  const publish = button('Als neue Aufnahme hinzufügen');
   assert.strictEqual(publish.hidden, false);
   publish.click();
   await flush();
@@ -341,7 +349,7 @@ function nodesByTag(tag) {
   assert.strictEqual(publishes[0].request.revision, 1);
   assert.strictEqual(publishes[0].request.headers['X-CSRF-Token'], 'test-csrf');
   publish.click();
-  button('HEVC-Konvertierung starten').click();
+  button('Verkleinerung starten').click();
   await flush();
   assert.strictEqual(calls.filter(c => c.action === 'stage').length, 1);
   assert.strictEqual(calls.filter(c => c.action === 'publish').length, 1);
@@ -391,7 +399,7 @@ function nodesByTag(tag) {
   const planCountBefore = calls.filter(c => c.action === 'plan').length;
   assert.strictEqual(planCountBefore, 1,
     'passive restore must not POST a new Plan request');
-  const preview = restoredButton('Vorprüfung starten');
+  const preview = restoredButton('Aufnahme verkleinern');
   assert(preview);
   preview.click();
   await flush();
@@ -403,7 +411,7 @@ function nodesByTag(tag) {
     restoredRoot.querySelector('.recordings2-media-shrink-controls');
   assert(savedControls && !savedControls.hidden,
     'existing uncertain HEVC remains readable when capability is unavailable');
-  assert(restoredButton('HEVC-Konvertierung starten').disabled,
+  assert(restoredButton('Verkleinerung starten').disabled,
     'unavailable capability never authorizes another Stage POST');
   const restoredStatus =
     restoredRoot.querySelector('.recordings2-hevc-operation-status');
@@ -438,21 +446,21 @@ function nodesByTag(tag) {
     };
     return visit(retryRoot);
   };
-  retryButton('Vorprüfung starten').click();
+  retryButton('Aufnahme verkleinern').click();
   await flush();
   const failedLabel = retryRoot.querySelector('.recordings2-hevc-operation-status');
   assert(failedLabel.textContent.includes('failed_verified') &&
          failedLabel.textContent.includes(stageOperationId) &&
          failedLabel.textContent.includes('FFmpeg konnte die Aufnahme'),
     'verified failure shows canonical operation and a clear reason');
-  assert.strictEqual(retryButton('HEVC-Konvertierung starten').disabled, false,
+  assert.strictEqual(retryButton('Verkleinerung starten').disabled, false,
     'only Core-verified no-effect permits a new explicit action');
   assert.strictEqual(storage.has('vdr-suite-hevc-v1.' + backendId +
     '.' + recordingId + '.stage'), false,
     'verified terminal stage releases the old session fence');
   assert.strictEqual(calls.filter(c => c.action === 'stage').length, 1,
     'status and SSE readback never perform a new POST');
-  retryButton('HEVC-Konvertierung starten').click();
+  retryButton('Verkleinerung starten').click();
   await flush();
   const afterRetry = calls.filter(c => c.action === 'stage');
   assert.strictEqual(afterRetry.length, 2,
@@ -460,6 +468,45 @@ function nodesByTag(tag) {
   assert.notStrictEqual(afterRetry[0].request.idempotencyKey,
     afterRetry[1].request.idempotencyKey,
     'retry must have a new idempotency identity');
+
+  // Reopened on a different phone: no sessionStorage operation reference,
+  // but Core has already recovered the HEVC file and review.
+  storage.delete('vdr-suite-hevc-v1.' + backendId + '.' + recordingId + '.stage');
+  storage.delete('vdr-suite-hevc-v1.' + backendId + '.' + recordingId + '.publish');
+  durableState = 'ready';
+  api.getMediaShrinkCapability = originalCapability;
+  const recoveredRoot = new Node('main');
+  recoveredRoot.appendChild(new Node('div', 'recordings2-detail-copy'));
+  recoveredRoot.appendChild(new Node('details', 'recordings2-actions'));
+  const countBefore = calls.filter(c =>
+    ['plan', 'stage', 'publish'].includes(c.action)).length;
+  context.VdrSuiteRecordings2HeroDetail.enhance(
+    recoveredRoot, recording, backendId, {});
+  await flush();
+  const recoveredStatus =
+    recoveredRoot.querySelector('.recordings2-hevc-operation-status');
+  const recoveredControls =
+    recoveredRoot.querySelector('.recordings2-media-shrink-controls');
+  assert(recoveredStatus && recoveredStatus.textContent.includes('HEVC fertig'),
+    'finished candidate is immediately visible without a manual preflight');
+  assert(recoveredControls && !recoveredControls.hidden);
+  assert(recoveredRoot.querySelector('.recordings2-media-shrink-setup').hidden,
+    'encoder settings hidden when finished HEVC recording already exists');
+  const recoveredButtons = [];
+  (function visit(node) {
+    if (node.tagName === 'button') recoveredButtons.push(node);
+    node.children.forEach(visit);
+  })(recoveredRoot);
+  const add = recoveredButtons.find(node =>
+    node.textContent === 'Als neue Aufnahme hinzufügen');
+  assert(add && !add.hidden,
+    'finished HEVC file is offered for explicit addition');
+  assert(recoveredButtons.find(node =>
+    node.textContent === 'Aufnahme verkleinern').hidden,
+    'existing result never asks for a new preflight');
+  assert.strictEqual(calls.filter(c =>
+    ['plan', 'stage', 'publish'].includes(c.action)).length, countBefore,
+    'read-only recovery never starts a second conversion');
 
   console.log('MEDIA_SHRINK_HERO_OWNER_STAGE_REVIEW_PUBLISH=PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});
