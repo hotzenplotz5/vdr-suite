@@ -139,7 +139,8 @@ public:
     std::optional<TrustedRecordingPaths> trustedSourcePaths(
         const std::string& backend, const std::string& recordingId,
         const std::string& expectedFingerprint,
-        bool requireBackendOnline = true) const {
+        bool requireBackendOnline = true,
+        bool requireCurrentSourceFingerprint = true) const {
         if (!vdrsuite::mediatools::shrinkOpaqueId(recordingId, "rec_") ||
             expectedFingerprint.size() != 26 ||
             !available_ ||
@@ -167,10 +168,16 @@ public:
                 }))
             return std::nullopt;
         try {
-            const auto plan = vdrsuite::mediatools::inspectShrink(
-                videoRoot, relative);
-            if (vdrsuite::mediatools::shrinkSourceFingerprint(plan) !=
-                expectedFingerprint) return std::nullopt;
+            // Admission and Stage recovery require an unchanged source.
+            // After an already-dispatched Publish, only the independent
+            // VDR inventory and HEVC output establish completion. Updated
+            // original info/sidecars must not hide a published recording.
+            if (requireCurrentSourceFingerprint) {
+                const auto plan = vdrsuite::mediatools::inspectShrink(
+                    videoRoot, relative);
+                if (vdrsuite::mediatools::shrinkSourceFingerprint(plan) !=
+                    expectedFingerprint) return std::nullopt;
+            }
             return TrustedRecordingPaths{videoRoot, relative};
         } catch (...) { return std::nullopt; }
     }
