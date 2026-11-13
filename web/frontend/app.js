@@ -3923,7 +3923,9 @@ function renderHevcHomeActivity() {
   homeHevcOperationId = item.operationId;
   stateNode.textContent = 'Aktueller Auftragsstatus wird geladen …';
   const operationId = item.operationId;
-  const api = window.VdrSuiteClientApi;
+  const publicFactory = window.VdrSuitePublicV1Client;
+  const api = publicFactory && typeof publicFactory.createClient === 'function'
+    ? publicFactory.createClient() : null;
   const readStatus = function () {
     if (!api || typeof api.getMediaShrinkOperation !== 'function') {
       stateNode.textContent = 'Auftragsstatus derzeit nicht verfügbar.';
@@ -3956,9 +3958,10 @@ function renderHevcHomeActivity() {
   };
   // One read on opening and on SSE reconnect; never cyclic polling.
   readStatus();
-  const source = api &&
-    typeof api.createClientOperationUpdateSource === 'function'
-    ? api.createClientOperationUpdateSource(operationId) : null;
+  const live = window.VdrSuiteClientApi;
+  const source = live &&
+    typeof live.createClientOperationUpdateSource === 'function'
+    ? live.createClientOperationUpdateSource(operationId) : null;
   if (source) {
     homeHevcStream = source;
     source.onopen = readStatus;
@@ -4402,6 +4405,7 @@ let browserSessionFrontendActive = false;
 let browserSessionFrontendBound = false;
 
 function renderAuthenticationRequiredFrontend() {
+  closeHomeHevcStream();
   resetMediaImportVisibility(true);
   selectedBackendId = '';
   selectedBackend = null;
