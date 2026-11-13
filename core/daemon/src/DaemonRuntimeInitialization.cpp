@@ -5669,57 +5669,17 @@ bool DaemonRuntime::initialize()
             if (!found.ok())
                 return MediaShrinkPlanApiRuntime::problem(
                     503, "HEVC operation readback unavailable.");
-            // A process restart must not repeat Stage/Publish. Retry only
-            // the existing readback against already durable Agent evidence.
+            // This is an actor-owned, read-only HTTP status GET. Do not
+            // synchronously inspect large MPEG-TS files here: ffprobe may
+            // take minutes and previously blocked navigation/SSE reconnect.
+            // The autonomous Core recovery worker verifies the ORIGINAL
+            // private Stage exactly once per attempt, publishes a confirmed
+            // transition over SSE, and never repeats FFmpeg encoding.
             if (found.operation.backendId == backend &&
-                (found.operation.state ==
-                    vdrsuite::operations::MutationOperationState::outcomeUnknown ||
-                 (found.operation.actionFamily == "media.shrink.stage" &&
-                  found.operation.state ==
-                    vdrsuite::operations::MutationOperationState::succeeded))) {
-                const bool isStage = found.operation.actionFamily ==
-                    "media.shrink.stage";
-                const bool isPublish = found.operation.actionFamily ==
-                    "media.shrink.publish";
-                bool reviewAlreadyRegistered = false;
-                if (isStage && mediaShrinkReviewRepository_ &&
-                    found.operation.state ==
-                        vdrsuite::operations::MutationOperationState::succeeded) {
-                    const auto review = mediaShrinkReviewRepository_->find(
-                        actor, backend, found.operation.resultReference);
-                    reviewAlreadyRegistered = review.ok() &&
-                        review.review.stageOperationId == operationId;
-                }
-                // After successful reconciliation this GET is a cheap Core
-                // status read, not another potentially long FFprobe scan.
-                if (isStage && !reviewAlreadyRegistered &&
-                    backendAgentCommandRepository_) {
-                    const auto assignment =
-                        backendAgentCommandRepository_->findAssignmentForOperation(
-                            backend, operationId,
-                            vdrsuite::mediatools::kMediaShrinkStageCommandType);
-                    if (assignment) {
-                        const auto result =
-                            backendAgentCommandRepository_->resultForCommand(
-                                assignment->commandId);
-                        if (result) {
-                            const auto now =
-                                std::chrono::duration_cast<std::chrono::seconds>(
-                                    std::chrono::system_clock::now()
-                                        .time_since_epoch()).count();
-                            if (tryReconcileMediaShrinkStage(
-                                    *assignment, *result, now)) {
-                                const auto updated =
-                                    mutationOperationReadService_->findForActor(
-                                        operationId, actor);
-                                if (updated.ok()) found = updated;
-                            }
-                        }
-                    }
-                }
-                if (isPublish)
-                    recordingCacheRefreshQueue_.request(backend);
-            }
+                found.operation.actionFamily == "media.shrink.publish" &&
+                found.operation.state ==
+                    vdrsuite::operations::MutationOperationState::outcomeUnknown)
+                recordingCacheRefreshQueue_.request(backend);
             const auto& op = found.operation;
             // If Core crashed between a verified Publish transition and
             // the Review update, finish that same review without re-publishing.
