@@ -199,6 +199,28 @@ static void test_parse_recordings_derives_start_time_from_rec_directory()
     assert(std::stoll(recordings[0].startTime) > 1000000000);
 }
 
+// A mount-looking folder name is ordinary provider data, not proof that
+// two different native recordings are aliases of each other.
+static void test_parse_recordings_preserves_distinct_mount_named_copies()
+{
+    const std::string json = R"JSON({"recordings":[
+      {"number":40,"name":"Archive A",
+       "file_name":"/data/tv/Recordings_on_yavdr(nfs)/Recordings_on_yavdr(nfs)/Alpha/2026-11-13.20.00.1-0.rec",
+       "relative_file_name":"/Recordings_on_yavdr(nfs)/Recordings_on_yavdr(nfs)/Alpha/2026-11-13.20.00.1-0.rec",
+       "inode":"100:100","duration":600,"filesize_mb":120,
+       "event_start_time":1794600000},
+      {"number":41,"name":"Archive B",
+       "file_name":"/media/recordings/Beta/2026-11-13.20.00.1-0.rec",
+       "relative_file_name":"/Beta/2026-11-13.20.00.1-0.rec",
+       "inode":"100:101","duration":600,"filesize_mb":120,
+       "event_start_time":1794600000}
+    ]})JSON";
+    const auto recordings = RestfulApiRecordingMapper::parseRecordings(json);
+    assert(recordings.size() == 2);
+    assert(recordings[0].backendNativeId.find("/data/tv/") == 0);
+    assert(recordings[1].backendNativeId.find("/media/recordings/") == 0);
+}
+
 static void test_parse_recordings_prefers_canonical_entry_over_recursive_aliases()
 {
     const std::string json =
@@ -360,6 +382,7 @@ int main()
     test_parse_recordings_ignores_objects_without_number();
     test_parse_recordings_imports_additional_media_actors();
     test_parse_recordings_derives_start_time_from_rec_directory();
+    test_parse_recordings_preserves_distinct_mount_named_copies();
     test_parse_recordings_prefers_canonical_entry_over_recursive_aliases();
     test_parse_recordings_preserves_distinct_real_copies();
     test_private_hevc_candidates_are_visible_under_source_title();
