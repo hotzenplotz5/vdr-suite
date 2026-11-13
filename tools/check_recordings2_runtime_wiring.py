@@ -429,11 +429,10 @@ for filename, global_name in runtime_assets:
     if f'web/frontend/{filename}' not in module_makefile:
         raise SystemExit(f'Recordings 2 install rule is missing {filename}')
 
-card_bundle = (
-    'web/frontend/recordings2-browser-cards.js \\'
-    '\\n\\t\\tweb/frontend/recordings2-browser-view.js'
-)
-if card_bundle not in module_makefile:
+card_module = 'web/frontend/recordings2-browser-cards.js'
+browser_module = 'web/frontend/recordings2-browser-view.js'
+if (card_module not in module_makefile or browser_module not in module_makefile or
+        module_makefile.index(card_module) > module_makefile.index(browser_module)):
     raise SystemExit(
         'Recordings 2 card runtime must be bundled before browser-view'
     )
