@@ -236,7 +236,7 @@ MediaShrinkAgentOutcome LocalMediaShrinkAgentExecutor::execute(
             const auto local = reviews_.find(selection.reviewId);
             if (!local || local->actorId != fresh->actorId ||
                 local->backendId != fresh->backendId ||
-                local->backendGeneration != fresh->backendGeneration ||
+                local->backendGeneration > fresh->backendGeneration ||
                 local->recordingId != fresh->recordingId ||
                 local->sourceFingerprint != fresh->sourceFingerprint ||
                 local->videoRoot != fresh->videoRoot ||
