@@ -979,7 +979,7 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
     const auto title = checked.relativeRecording.parent_path();
     demand(!title.empty(), "shrink recording requires a title directory");
     const auto destinationParent =
-        checked.videoRoot / (title.string() + "_HEVC");
+        checked.videoRoot / (title.string() + ".shrink");
     // Multiple recordings may share one title. Reuse an existing HEVC
     // sibling title only if it is an actual VDR-owned directory. A symlink,
     // writable-by-others parent or preexisting target never gets replaced.
