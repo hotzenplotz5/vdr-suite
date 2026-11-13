@@ -604,12 +604,17 @@
 
       const panel = shared.node('section', 'recordings2-media-check');
       panel.hidden = true;
-      const status = shared.node('p', 'recordings2-media-check-status',
+      // Keep admission/preflight messages separate from the durable
+      // Operation readback. Late plan responses must never overwrite an SSE
+      // result (the first message previously vanished immediately).
+      const planStatus = shared.node('p', 'recordings2-media-check-status',
         'HEVC-Vorprüfung liest die Aufnahme nur. Das Original bleibt erhalten.');
+      const status = shared.node('p', 'recordings2-media-check-status',
+        'Noch kein HEVC-Auftrag für diese Aufnahme.');
       status.setAttribute('role', 'status');
       const launch = makeButton('Vorprüfung starten', function () {
         launch.disabled = true;
-        status.textContent = 'Aufnahme wird zugeordnet …';
+        planStatus.textContent = 'Aufnahme wird zugeordnet …';
         Promise.resolve().then(function () {
           return resolveMediaCheckIdentity(client, recording, backendId);
         }).then(function (identity) {
@@ -633,7 +638,7 @@
             throw new Error('Unbekannte HEVC-Vorprüfung.');
           planReady = plan.stageAvailable === true &&
             capability.available === true;
-          status.textContent = 'Original: ' +
+          planStatus.textContent = 'Original: ' +
             (plan.sourceBytes / 1048576).toFixed(1) + ' MiB, ' +
             plan.segments + ' TS-Segment(e). ' +
             (planReady ? 'Konvertierung als privater Kandidat möglich.' :
@@ -645,7 +650,7 @@
             !remembered('stage') && !remembered('publish');
           if (!controls.hidden) restorePending();
         }).catch(function (error) {
-          status.textContent = 'HEVC-Vorprüfung fehlgeschlagen: ' +
+          planStatus.textContent = 'HEVC-Vorprüfung fehlgeschlagen: ' +
             text(error && error.message ? error.message : error);
         }).then(function () { launch.disabled = false; });
       });
@@ -656,6 +661,27 @@
       let reviewId = '';
       const operationStreams = {stage: null, publish: null};
       const operationReadSequence = {stage: 0, publish: 0};
+      const currentActivityKey = 'vdr-suite-hevc-current-v1.' + backendId;
+      function noteCurrentActivity(operationId) {
+        if (!/^rec_[0-9a-f]{32}$/.test(recordingId) ||
+            !/^op_[0-9a-f]{32}$/.test(operationId)) return;
+        try {
+          global.sessionStorage.setItem(currentActivityKey, JSON.stringify({
+            backendId: backendId, recordingId: recordingId,
+            operationId: operationId,
+            recording: {
+              backendId: backendId, recordingId: recordingId,
+              id: recordingId,
+              title: text(recording && recording.title) || 'Aufnahme',
+              startTime: text(shared.first(recording, ['startTime', 'recordedAt'], '')),
+              backendNativeId: text(recording && recording.backendNativeId)
+            }
+          }));
+          if (typeof global.CustomEvent === 'function')
+            document.dispatchEvent(new global.CustomEvent(
+              'vdr-suite:hevc-activity-changed', {detail: {backendId: backendId}}));
+        } catch (_) {}
+      }
 
       const controls = shared.node('div', 'recordings2-media-shrink-controls');
       controls.hidden = true;
@@ -708,6 +734,7 @@
             throw new Error('Stage-Operation konnte nicht sicher zugeordnet werden.');
           stageOperationId = result.operationId;
           remember('stage', {key: key, operationId: stageOperationId});
+          noteCurrentActivity(stageOperationId);
           refreshStage.disabled = false;
           watchOperation('stage');
           refreshOperation('stage');
@@ -801,6 +828,7 @@
         if (savedStage) {
           stage.disabled = true;
           stageOperationId = savedStage.operationId;
+          if (stageOperationId) noteCurrentActivity(stageOperationId);
           refreshStage.disabled = !stageOperationId;
           status.textContent = stageOperationId
             ? 'Gespeicherte Stage-Operation gefunden. Status abfragen.'
@@ -981,6 +1009,7 @@
         stage, refreshStage, candidate, publish, refreshPublish);
       panel.appendChild(shared.node('h4', '', 'HEVC-Speicherplatzoptimierung'));
       panel.appendChild(launch);
+      panel.appendChild(planStatus);
       panel.appendChild(status);
       panel.appendChild(controls);
       // MT.UX6: the existing Hero-owned plan/stage/review/publish workflow
@@ -997,6 +1026,27 @@
       });
       (actionHost || actions).appendChild(action);
       (actionHost || copy).appendChild(panel);
+      // Restore the saved Operation at mount, not only after a new manual
+      // "Vorprüfung starten" POST. This is a read-only operation + SSE path.
+      const directId = text(recording && recording.recordingId);
+      if (/^rec_[0-9a-f]{32}$/.test(directId)) recordingId = directId;
+      if (!recordingId) {
+        try {
+          const activity = JSON.parse(global.sessionStorage.getItem(currentActivityKey));
+          const recordedAt = text(shared.first(recording, ['startTime', 'recordedAt'], ''));
+          if (activity && activity.backendId === backendId &&
+              activity.recording &&
+              activity.recording.startTime === recordedAt &&
+              activity.recording.title === text(recording && recording.title) &&
+              /^rec_[0-9a-f]{32}$/.test(activity.recordingId))
+            recordingId = activity.recordingId;
+        } catch (_) {}
+      }
+      if (recordingId && (remembered('stage') || remembered('publish'))) {
+        controls.hidden = false;
+        planStatus.textContent = 'Früheren Auftrag automatisch geladen.';
+        restorePending();
+      }
       // Card-menu navigation enters this same Hero-owned read-only workflow.
       // No Plan/Stage/Publish POST is started by opening the action.
       if (actionHost && recording.__vdrSuiteOpenHevcShrink === true) {
