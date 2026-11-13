@@ -204,6 +204,9 @@ private:
     void pollVdrAndUpdateChangeFeed();
     void pollScheduledMediaImport();
     void progressDurableMediaImportBatches();
+    // Continue opt-in one-click HEVC after the original Stage was verified.
+    // Reuses the existing Publish admission and Agent assignment.
+    void progressDurableMediaShrinkAutoPublish();
     // Passive recovery of completed private HEVC stages after a lost Agent
     // result or daemon restart. This never invokes an encoding worker.
     void runMediaShrinkRecoveryWorker();
