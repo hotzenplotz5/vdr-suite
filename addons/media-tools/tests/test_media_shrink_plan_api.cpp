@@ -285,11 +285,19 @@ int main() {
         backendOnline = false;
         assert(!runtime.trustedSourcePaths("local", kRecordingId, fingerprint));
         assert(!runtime.trustedSourceFingerprint("local", kRecordingId));
+        std::string readbackDiagnostic;
         const auto recoveredOffline = runtime.recoverStagedCandidate(
             "actor-a", "local", kRecordingId, recoveredOperation,
-            fingerprint, 7, runner);
+            fingerprint, 7, runner, &readbackDiagnostic);
         assert(recoveredOffline &&
                recoveredOffline->reviewId == recoveredReview);
+        assert(readbackDiagnostic.empty());
+        const auto wrongOperationWhileOffline =
+            runtime.recoverStagedCandidate("actor-a", "local", kRecordingId,
+                "op_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                fingerprint, 7, runner, &readbackDiagnostic);
+        assert(!wrongOperationWhileOffline);
+        assert(readbackDiagnostic == "private_review_not_found_for_operation");
         assert(runner.encodes == 1 && runner.indexes == 1);
         backendOnline = true;
         const auto exact = runtime.verifyStagedCandidate(
