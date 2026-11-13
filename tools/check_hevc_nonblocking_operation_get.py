@@ -71,6 +71,31 @@ assert "notifyVdrAfterShrinkPublish(checked.videoRoot);" in shrink
 assert 'videoRoot / ".update"' in shrink, (
     "Native VDR recordings must be rescanned after a completed Publish"
 )
+# The HEVC core and the normal recording mutation path must use the same
+# backend-owned root contract on every supported distribution.
+roots = Path("core/daemon/src/DaemonRuntimeInitialization.cpp").read_text()
+request_builder = Path(
+    "core/recordings/include/RestfulApiRecordingActionRequestBuilder.h"
+).read_text()
+backend_config = Path(
+    "core/recordings/include/RestfulApiRecordingActionBackendConfig.h"
+).read_text()
+recording_cache = Path("core/vdr/src/VdrRecordingCacheRepository.cpp").read_text()
+recording_mapper = Path("core/vdr/src/RestfulApiRecordingMapper.cpp").read_text()
+assert "recordingActionConfig.allowExecution =" in roots
+assert "rootAvailable &&" in roots
+assert "configuredRootAvailable" in roots and "nativeRoot.videoDirectory" in roots
+assert "recordingVideoDirectory(config)" in request_builder
+assert "config.videoDirectory" in request_builder
+for production in (
+    roots, request_builder, backend_config, recording_cache,
+    recording_mapper, reconciliation
+):
+    assert '"/srv/vdr/video"' not in production
+    assert '"/srv/vdr/video/"' not in production
+    assert '"Recordings_on_yavdr(nfs)"' not in production
+print("HEVC_DISTRIBUTION_INDEPENDENT_ROOT=PASS")
+
 print("HEVC_PUBLISH_NATIVE_READBACK=PASS")
 
 print("HEVC_NONBLOCKING_GET_BACKGROUND_SSE=PASS")
