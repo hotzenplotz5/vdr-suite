@@ -739,6 +739,7 @@
               !/^op_[0-9a-f]{32}$/.test(text(result.operationId)))
             throw new Error('Stage-Operation konnte nicht sicher zugeordnet werden.');
           stageOperationId = result.operationId;
+          autoPublishRequested = true;
           remember('stage', {key: key, operationId: stageOperationId,
             autoPublish: true});
           noteCurrentActivity(stageOperationId);
