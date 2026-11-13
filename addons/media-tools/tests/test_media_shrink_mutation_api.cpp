@@ -42,10 +42,13 @@ int main() {
     api.registerMutationHandlers(
         [&](const std::string& actor, const std::string& backend,
             const std::string& recording, const std::string& encoder,
-            unsigned maxHeight, bool nightMode, const std::string& key) {
+            unsigned maxHeight, bool nightMode, bool autoPublish,
+            const std::string& key) {
             assert(actor == "actor1" && backend == "backend1" &&
                    recording == rec && encoder == "software" &&
                    maxHeight == 720 && nightMode && key == "key-12345678");
+            // Legacy clients are still accepted without automatic publish.
+            assert(autoPublish == (staged == 1));
             ++staged;
             return MediaShrinkPlanApiRuntime::json(202, R"({"accepted":true})");
         },
@@ -58,10 +61,13 @@ int main() {
             return MediaShrinkPlanApiRuntime::json(202, R"({"accepted":true})");
         });
     assert(post(stageUrl, stage).statusCode == 202);
+    const std::string oneClick = stage.substr(0, stage.size() - 1) +
+        R"(,"autoPublish":true})";
+    assert(post(stageUrl, oneClick).statusCode == 202);
     assert(post(publishUrl, publish).statusCode == 202);
-    assert(staged == 1 && published == 1);
+    assert(staged == 2 && published == 1);
     assert(post(stageUrl, stage, "actor1", "outside").statusCode == 403);
-    assert(staged == 1 && published == 1);
+    assert(staged == 2 && published == 1);
     api.registerMutationHandlers({}, {});
     const std::string operation = "op_0123456789abcdef0123456789abcdef";
     const std::string operationUrl =
