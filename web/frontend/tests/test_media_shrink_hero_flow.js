@@ -305,8 +305,9 @@ function nodesByTag(tag) {
   const stream = sources.find(s => s.operationId === stageOperationId);
   assert(stream && !stream.closed, 'HEVC stage uses actor-owned SSE');
   const status = actionHost.querySelector('.recordings2-hevc-operation-status');
-  assert(status && status.textContent.includes(stageOperationId),
-    'UI shows exact command identity, not a misleading generic status');
+  assert(status && status.textContent.includes('Verkleinerung läuft') &&
+    status.title.includes(stageOperationId),
+    'UI shows simple status; operation identity remains available in diagnostics');
   let readCount = calls.filter(c => c.action === 'readOperation').length;
   stream.listeners.operation({data: JSON.stringify({
     operationId: 'op_' + 'f'.repeat(32)
@@ -318,8 +319,8 @@ function nodesByTag(tag) {
   stageState = 'outcome_unknown';
   stream.listeners.operation({data: JSON.stringify({operationId: stageOperationId})});
   await flush();
-  assert(status.textContent.includes('outcome_unknown'));
-  assert(status.textContent.includes('Keine automatische Wiederholung'));
+  assert(status.textContent.includes('wird überprüft'));
+  assert(status.title.includes('Keine automatische Wiederholung'));
   assert.strictEqual(button('Verkleinerung starten').disabled, true,
     'old uncertainty never removes the one-shot safety fence');
   assert.strictEqual(stream.closed, false,
@@ -393,8 +394,8 @@ function nodesByTag(tag) {
   const restoredPlanStatus =
     restoredRoot.querySelector('.recordings2-hevc-plan-status');
   assert(restoredStatusBeforePlan &&
-    restoredStatusBeforePlan.textContent.includes('outcome_unknown') &&
-    restoredStatusBeforePlan.textContent.includes(stageOperationId),
+    restoredStatusBeforePlan.textContent.includes('wird überprüft') &&
+    restoredStatusBeforePlan.title.includes(stageOperationId),
     'the old stage is restored on detail mount with no manual preflight');
   const planCountBefore = calls.filter(c => c.action === 'plan').length;
   assert.strictEqual(planCountBefore, 1,
@@ -405,7 +406,7 @@ function nodesByTag(tag) {
   await flush();
   assert(restoredPlanStatus &&
     restoredPlanStatus.textContent.includes('Original:') &&
-    restoredStatusBeforePlan.textContent.includes('outcome_unknown'),
+    restoredStatusBeforePlan.textContent.includes('wird überprüft'),
     'late preflight message cannot overwrite operation result');
   const savedControls =
     restoredRoot.querySelector('.recordings2-media-shrink-controls');
@@ -415,9 +416,9 @@ function nodesByTag(tag) {
     'unavailable capability never authorizes another Stage POST');
   const restoredStatus =
     restoredRoot.querySelector('.recordings2-hevc-operation-status');
-  assert(restoredStatus.textContent.includes('outcome_unknown') &&
-         restoredStatus.textContent.includes(stageOperationId),
-    'read-only recovery shows exact saved operation, not generic dispatching');
+  assert(restoredStatus.textContent.includes('wird überprüft') &&
+         restoredStatus.title.includes(stageOperationId),
+    'read-only recovery shows the restored operation in a simple status');
   assert.strictEqual(calls.filter(c => c.action === 'stage').length, 1,
     'read-only recovery never reissues an old Stage');
 
@@ -449,10 +450,10 @@ function nodesByTag(tag) {
   retryButton('Aufnahme verkleinern').click();
   await flush();
   const failedLabel = retryRoot.querySelector('.recordings2-hevc-operation-status');
-  assert(failedLabel.textContent.includes('failed_verified') &&
-         failedLabel.textContent.includes(stageOperationId) &&
+  assert(failedLabel.textContent.includes('Verkleinerung fehlgeschlagen') &&
+         failedLabel.title.includes(stageOperationId) &&
          failedLabel.textContent.includes('FFmpeg konnte die Aufnahme'),
-    'verified failure shows canonical operation and a clear reason');
+    'verified failure shows a clear message without technical state labels');
   assert.strictEqual(retryButton('Verkleinerung starten').disabled, false,
     'only Core-verified no-effect permits a new explicit action');
   assert.strictEqual(storage.has('vdr-suite-hevc-v1.' + backendId +
