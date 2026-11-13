@@ -221,6 +221,13 @@ void DaemonRuntime::runMediaShrinkRecoveryWorker()
                 if (pending.ok()) {
                     for (const auto& op : pending.operations) {
                         if (mediaShrinkRecoveryStopRequested_.load()) break;
+                        // Completed reviews need no further media probing.
+                        // Only a crashed CAS->register gap needs readback.
+                        if (op.state == State::succeeded &&
+                            mediaShrinkReviewRepository_->find(
+                                op.actorId, op.backendId,
+                                op.resultReference).ok())
+                            continue;
                         const auto assignment =
                             backendAgentCommandRepository_->
                                 findAssignmentForOperation(
