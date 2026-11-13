@@ -10,6 +10,7 @@ runtime_paths = {
     'move_editor': ROOT / 'web/frontend/recordings2-move-editor.js',
     'folder_refresh': ROOT / 'web/frontend/recordings2-folder-refresh.js',
     'browser_view': ROOT / 'web/frontend/recordings2-browser-view.js',
+    'browser_cards': ROOT / 'web/frontend/recordings2-browser-cards.js',
     'marks_detail': ROOT / 'web/frontend/recordings2-marks-detail.js',
     'marks_editor': ROOT / 'web/frontend/recordings2-marks-editor.js',
     'marks_timeline': ROOT / 'web/frontend/recordings2-marks-timeline.js',
@@ -90,6 +91,13 @@ required_tokens = {
         'sameRecordingIdentity',
         'forgetRecording',
         'updatePresentedFolderState',
+    ),
+    'browser_cards': (
+        'global.VdrSuiteRecordings2Cards',
+        'createRecordingCard',
+        'recordingCardWithActions',
+        'getMediaShrinkCapability',
+        'recordings2-card-action-menu',
     ),
     'browser_view': (
         'global.VdrSuiteRecordings2BrowserView',
@@ -253,6 +261,7 @@ line_limits = {
     'actions': 620,
     'move_editor': 220,
     'browser_view': 400,
+    'browser_cards': 200,
     'marks_detail': 260,
     'marks_timeline': 200,
     'marks_editor': 270,
@@ -280,6 +289,7 @@ for owner in (
     'actions',
     'move_editor',
     'browser_view',
+    'browser_cards',
     'marks_detail',
     'marks_timeline',
     'metadata_assignment',
@@ -418,6 +428,15 @@ for filename, global_name in runtime_assets:
         raise SystemExit(f'HTTP server does not serve {filename}')
     if f'web/frontend/{filename}' not in module_makefile:
         raise SystemExit(f'Recordings 2 install rule is missing {filename}')
+
+card_bundle = (
+    'web/frontend/recordings2-browser-cards.js \\'
+    '\\n\\t\\tweb/frontend/recordings2-browser-view.js'
+)
+if card_bundle not in module_makefile:
+    raise SystemExit(
+        'Recordings 2 card runtime must be bundled before browser-view'
+    )
 
 marks_asset = 'recordings2-marks-detail.js'
 if f'"/frontend/{marks_asset}"' not in server:
