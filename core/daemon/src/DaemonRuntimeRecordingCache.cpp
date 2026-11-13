@@ -658,7 +658,7 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                 trustedSourcePaths(op.backendId,
                                     review.review.recordingId,
                                     op.expectedResourceFingerprint,
-                                    true, false);
+                                    false, false);
                             if (!source) continue;
                             // Mirror the native No-Replace target from
                             // publishShrinkCandidate, never an Agent path.
