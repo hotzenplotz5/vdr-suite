@@ -5834,7 +5834,7 @@ bool DaemonRuntime::initialize()
     auto submitMediaShrink = [this](
         const std::string& actor, const std::string& backend,
         const std::string& resourceId, const std::string& encoder,
-        unsigned maxHeight, bool nightMode,
+        unsigned maxHeight, bool nightMode, bool autoPublish,
         std::uint64_t revision, const std::string& key,
         bool publish) -> ApiResponse
     {
@@ -5878,6 +5878,7 @@ bool DaemonRuntime::initialize()
             request.encoder = encoder;
             request.maxHeight = maxHeight;
             request.nightMode = nightMode;
+            request.autoPublish = autoPublish;
             request.now = now;
             outcome = service.stage(request);
         }
@@ -5937,10 +5938,11 @@ bool DaemonRuntime::initialize()
         [submitMediaShrink](
             const std::string& actor, const std::string& backend,
             const std::string& recording, const std::string& encoder,
-            unsigned height, bool nightMode, const std::string& key)
+            unsigned height, bool nightMode, bool autoPublish,
+            const std::string& key)
         {
             return submitMediaShrink(actor, backend, recording, encoder,
-                                     height, nightMode, 0, key, false);
+                                     height, nightMode, autoPublish, 0, key, false);
         },
         [submitMediaShrink](
             const std::string& actor, const std::string& backend,
@@ -5948,7 +5950,7 @@ bool DaemonRuntime::initialize()
             const std::string& key)
         {
             return submitMediaShrink(actor, backend, review, "",
-                                     0, false, revision, key, true);
+                                     0, false, false, revision, key, true);
         });
 
     // Grant eligibility uses live Agent capabilities but does not require
