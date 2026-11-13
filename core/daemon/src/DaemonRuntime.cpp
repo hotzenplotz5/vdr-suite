@@ -285,10 +285,6 @@ void DaemonRuntime::runMediaShrinkRecoveryWorker()
                         }
                     }
                 }
-                // Stage recovery above can make a verified review available
-                // after restart. Continue only Stage operations explicitly
-                // marked one-click; no FFmpeg and no duplicate publication.
-                progressDurableMediaShrinkAutoPublish();
             }
         } catch (const std::exception&) {
             // Avoid leaking file paths; the authoritative operation stays
