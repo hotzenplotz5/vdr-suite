@@ -90,5 +90,14 @@ int main()
         "\"target_file\":\"/data/tv/Library/Films/Move_Root_Test/"
         "2026-07-13.10.00.1-0.rec\"") != std::string::npos);
 
+    // A RESTfulAPI backend without optional SuiteBridge VPATH provides the
+    // same directory through its native and relative recording identities.
+    // Do not disable the action or require a new operator configuration.
+    alternateConfig.videoDirectory.clear();
+    alternateConfig.videoDirectoryExplicit = false;
+    const HttpRequest inferredMove = builder.buildSafeMovePreviewRequest(
+        alternateConfig, alternatePayload);
+    assert(inferredMove.body == nativeMove.body);
+
     return 0;
 }
