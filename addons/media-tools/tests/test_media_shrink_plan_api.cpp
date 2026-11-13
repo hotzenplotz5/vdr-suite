@@ -256,6 +256,19 @@ int main() {
         writeShrinkReviewBinding(candidate, ShrinkReviewBinding{
             recoveredReview, recoveredOperation, "actor-a",
             "local", kRecordingId, fingerprint, 7});
+        // The installed Core daemon runs as root while the Agent creates
+        // private candidates as vdr. Reproduce this real UID separation
+        // when the fixture itself is being run by root.
+        if (::geteuid() == 0) {
+            constexpr uid_t agentOwner = 65534;
+            assert(::chown(recording.c_str(), agentOwner, static_cast<gid_t>(-1)) == 0);
+            assert(::chown(candidate.parent_path().c_str(),
+                           agentOwner, static_cast<gid_t>(-1)) == 0);
+            assert(::chown(candidate.c_str(), agentOwner,
+                           static_cast<gid_t>(-1)) == 0);
+            assert(::chown((candidate / ".shrink-core-review").c_str(),
+                           agentOwner, static_cast<gid_t>(-1)) == 0);
+        }
         assert(runner.encodes == 1 && runner.indexes == 1);
         const auto recovered = runtime.recoverStagedCandidate(
             "actor-a", "local", kRecordingId, recoveredOperation,
