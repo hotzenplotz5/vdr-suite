@@ -1093,6 +1093,7 @@
             planStatus.hidden = true;
             refreshStage.disabled = false;
             status.textContent = 'HEVC fertig – der verkleinerte Film ist vorhanden.';
+            action.textContent = 'HEVC fertig – hinzufügen';
             candidate.textContent = 'Dateigröße wird geladen …';
             noteCurrentActivity(stageOperationId);
             fetchReview(reviewId);
@@ -1106,6 +1107,7 @@
             refreshStage.hidden = true;
             publish.hidden = true;
             status.textContent = 'HEVC-Aufnahme bereits hinzugefügt. Original erhalten.';
+            action.textContent = 'HEVC-Aufnahme hinzugefügt';
             candidate.textContent = 'Neue Aufnahme: ' + existing.publishedRecordingId;
             return;
           }
