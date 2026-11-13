@@ -4,6 +4,7 @@
 #include "MutationOperationRepository.h"
 #include "MediaShrinkReviewRepository.h"
 
+#include <algorithm>
 #include <cassert>
 #include <filesystem>
 #include <fstream>
