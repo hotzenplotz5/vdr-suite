@@ -263,6 +263,10 @@ int main() {
                fs::exists(fixture.recording / "info") &&
                fs::exists(fixture.recording / "de.srt"));
         assert(published.string().find(".shrink") != std::string::npos);
+        // VDR must rescan the new native .rec after an external Publish.
+        // A Suite cache refresh alone cannot make VDR discover the new file.
+        assert(fs::exists(fixture.video / ".update"));
+        assert(fs::is_regular_file(fixture.video / ".update"));
         reject([&] { publishShrinkCandidate(plan, stage, runner); });
         ++checks;
     }
