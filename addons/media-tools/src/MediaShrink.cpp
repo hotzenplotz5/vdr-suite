@@ -799,9 +799,22 @@ std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
            candidate.extension() == ".rec",
            "invalid shrink review location");
     prohibitSymlinks(candidate);
-    struct stat parent{};
+    // The Agent creates the private Stage as the VDR recording owner,
+    // normally "vdr". The independently verifying Core daemon may run as
+    // root; requiring its EUID here rejects every otherwise valid Agent
+    // candidate. Bind ownership to the CURRENT original recording instead:
+    // root may read back the trusted VDR user's private files, while a
+    // non-root publisher must still own them itself.
+    struct stat sourceDirectory{}, parent{};
+    const auto sourcePath = checked.videoRoot / checked.relativeRecording;
+    demand(::lstat(sourcePath.c_str(), &sourceDirectory) == 0 &&
+           S_ISDIR(sourceDirectory.st_mode),
+           "original shrink recording ownership unavailable");
+    const uid_t sourceOwner = sourceDirectory.st_uid;
     demand(::lstat(privateParent.c_str(), &parent) == 0 &&
-           S_ISDIR(parent.st_mode) && parent.st_uid == ::geteuid() &&
+           S_ISDIR(parent.st_mode) &&
+           parent.st_uid == sourceOwner &&
+           (::geteuid() == 0 || parent.st_uid == ::geteuid()) &&
            (parent.st_mode & 0077) == 0,
            "unprotected shrink review parent");
     demand(fs::is_directory(candidate), "shrink review candidate missing");
@@ -858,7 +871,9 @@ std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
            "HEVC candidate duration differs from original");
     struct stat folder{};
     demand(::lstat(candidate.c_str(), &folder) == 0 &&
-           S_ISDIR(folder.st_mode) && folder.st_uid == ::geteuid() &&
+           S_ISDIR(folder.st_mode) && folder.st_uid == sourceOwner &&
+           folder.st_uid == parent.st_uid &&
+           (::geteuid() == 0 || folder.st_uid == ::geteuid()) &&
            (folder.st_mode & 0077) == 0,
            "unprotected shrink review directory");
     std::vector<std::string> expectedFiles = {
