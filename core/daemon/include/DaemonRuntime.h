@@ -227,7 +227,7 @@ private:
     bool tryReconcileMediaShrinkStage(
         const BackendAgentCommandAssignment& assignment,
         const BackendAgentCommandResult& result,
-        std::int64_t now);
+        std::int64_t now, std::string* diagnostic = nullptr);
 
     void refreshRecordingCacheForAllBackends(
         const std::string& reason, const std::string& backendId = "");
