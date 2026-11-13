@@ -164,7 +164,8 @@ bool MediaShrinkOperationFence::applyResult(
                ((result.dispatchState == "accepted_by_executor" &&
                  op.resultReference == result.resultEvidence) ||
                 (result.dispatchState == "starting" &&
-                 result.errorCategory == "executor_unknown" &&
+                 (result.errorCategory == "none" ||
+                  result.errorCategory == "executor_unknown") &&
                  result.resultEvidence.empty())))
             : (result.dispatchState == "accepted_by_executor" &&
                vdrsuite::mediatools::shrinkOpaqueId(
