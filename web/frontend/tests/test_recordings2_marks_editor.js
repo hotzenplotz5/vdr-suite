@@ -236,6 +236,7 @@ async function run() {
 
   const context = vm.createContext({window, document, console, Promise, Uint32Array});
   for (const path of [
+    'web/frontend/recordings2-browser-cards.js',
     'web/frontend/recordings2-browser-view.js',
     'web/frontend/recordings2-marks-editor.js',
     'web/frontend/recordings2-marks-detail.js',
