@@ -5670,7 +5670,19 @@ bool DaemonRuntime::initialize()
                     "media.shrink.stage";
                 const bool isPublish = found.operation.actionFamily ==
                     "media.shrink.publish";
-                if (isStage && backendAgentCommandRepository_) {
+                bool reviewAlreadyRegistered = false;
+                if (isStage && mediaShrinkReviewRepository_ &&
+                    found.operation.state ==
+                        vdrsuite::operations::MutationOperationState::succeeded) {
+                    const auto review = mediaShrinkReviewRepository_->find(
+                        actor, backend, found.operation.resultReference);
+                    reviewAlreadyRegistered = review.ok() &&
+                        review.review.stageOperationId == operationId;
+                }
+                // After successful reconciliation this GET is a cheap Core
+                // status read, not another potentially long FFprobe scan.
+                if (isStage && !reviewAlreadyRegistered &&
+                    backendAgentCommandRepository_) {
                     const auto assignment =
                         backendAgentCommandRepository_->findAssignmentForOperation(
                             backend, operationId,
