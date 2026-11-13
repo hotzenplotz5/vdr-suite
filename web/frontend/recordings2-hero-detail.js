@@ -650,6 +650,10 @@
           controls.hidden = !planReady &&
             !remembered('stage') && !remembered('publish');
           if (!controls.hidden) restorePending();
+          // The original click finishes the job. Stage is never a second
+          // user action; the Core publishes after its verified readback.
+          if (planReady && !remembered('stage') && !remembered('publish'))
+            stage.click();
         }).catch(function (error) {
           planStatus.textContent = 'Prüfung fehlgeschlagen: ' +
             text(error && error.message ? error.message : error);
@@ -660,6 +664,7 @@
       let stageOperationId = '';
       let publishOperationId = '';
       let reviewId = '';
+      let autoPublishRequested = false;
       const operationStreams = {stage: null, publish: null};
       const operationReadSequence = {stage: 0, publish: 0};
       const currentActivityKey = 'vdr-suite-hevc-current-v1.' + backendId;
@@ -726,15 +731,16 @@
           return client.submitMediaShrinkStage({
             backendId: backendId, recordingId: recordingId,
             encoder: encoder.value, maxHeight: height.checked ? 720 : 0,
-            nightMode: night.checked, idempotencyKey: key,
-            headers: headers, credentials: 'same-origin'
+            nightMode: night.checked, autoPublish: true,
+            idempotencyKey: key, headers: headers, credentials: 'same-origin'
           });
         }).then(function (result) {
           if (!result || result.backendId !== backendId ||
               !/^op_[0-9a-f]{32}$/.test(text(result.operationId)))
             throw new Error('Stage-Operation konnte nicht sicher zugeordnet werden.');
           stageOperationId = result.operationId;
-          remember('stage', {key: key, operationId: stageOperationId});
+          remember('stage', {key: key, operationId: stageOperationId,
+            autoPublish: true});
           noteCurrentActivity(stageOperationId);
           refreshStage.disabled = false;
           watchOperation('stage');
@@ -747,6 +753,7 @@
             '. Bitte nicht erneut starten.';
         });
       });
+      stage.hidden = true; // No second "Verkleinerung starten" button.
       const refreshStage = makeButton('Status aktualisieren', function () {
         refreshOperation('stage');
       });
@@ -829,6 +836,7 @@
       function restorePending() {
         const savedStage = remembered('stage');
         if (savedStage) {
+          autoPublishRequested = savedStage.autoPublish === true;
           stage.disabled = true;
           stageOperationId = savedStage.operationId;
           if (stageOperationId) noteCurrentActivity(stageOperationId);
@@ -874,8 +882,12 @@
             : review.state === 'published'
               ? 'HEVC-Aufnahme hinzugefügt.' + sizes
               : 'HEVC-Aufnahme wird hinzugefügt.' + sizes;
-          publish.hidden = review.state !== 'staged' ||
+          publish.hidden = autoPublishRequested ||
+            review.state !== 'staged' ||
             review.revision !== 1 || review.publishAvailable !== true;
+          if (autoPublishRequested && review.state === 'staged')
+            status.textContent =
+              'HEVC fertig – Veröffentlichung läuft automatisch …';
           if (remembered('publish')) publish.disabled = true;
         }).catch(function (error) {
           candidate.textContent = 'Kandidatenprüfung fehlgeschlagen: ' +
@@ -1082,6 +1094,8 @@
           if (!existing || existing.backendId && existing.backendId !== backendId ||
               existing.recordingId !== recordingId)
             throw new Error('Antwort passt nicht zu dieser Aufnahme.');
+          autoPublishRequested = existing.autoPublish === true ||
+            autoPublishRequested;
           if (existing.state === 'ready' &&
               /^op_[0-9a-f]{32}$/.test(text(existing.operationId)) &&
               /^shk_[0-9a-f]{32}$/.test(text(existing.reviewId))) {
