@@ -204,6 +204,9 @@ private:
     void pollVdrAndUpdateChangeFeed();
     void pollScheduledMediaImport();
     void progressDurableMediaImportBatches();
+    // Passive recovery of completed private HEVC stages after a lost Agent
+    // result or daemon restart. This never invokes an encoding worker.
+    void runMediaShrinkRecoveryWorker();
     PublicMediaImportAdmissionResult admitMediaImport(
         const PublicMediaImportAdmissionRequest& request);
     // Core-owned backend-specific approval + live authenticated Agent digest.
@@ -238,10 +241,12 @@ private:
     std::atomic<bool> epgCacheWarmupStopRequested_;
     std::atomic<bool> epgCacheDirtyHint_;
     std::atomic<bool> recordingCacheWarmupStopRequested_;
+    std::atomic<bool> mediaShrinkRecoveryStopRequested_{false};
     RecordingCacheRefreshQueue recordingCacheRefreshQueue_;
     RecordingPresentationChangeQueue recordingPresentationChangeQueue_;
     std::thread epgCacheWarmupThread_;
     std::thread recordingCacheWarmupThread_;
+    std::thread mediaShrinkRecoveryThread_;
 
     RuntimeConfig config_;
     ConsoleRuntimeLogger runtimeLogger_;
