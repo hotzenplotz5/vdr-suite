@@ -17,6 +17,52 @@ namespace fs = std::filesystem;
 constexpr const char* kRecordingId = "rec_0123456789abcdef0123456789abcdef";
 constexpr const char* kReviewId = "shk_0123456789abcdef0123456789abcdef";
 
+// Stub native process output is confined to this test's disposable recording.
+// Core readback must NOT invoke FFmpeg or the VDR index generator again.
+struct FakeShrinkRunner final : vdrsuite::mediatools::ProcessRunner {
+    unsigned encodes = 0;
+    unsigned indexes = 0;
+
+    vdrsuite::mediatools::ProcessResult run(
+        const std::vector<std::string>& args, bool captured) override {
+        const auto has = [&](const std::string& value) {
+            return std::find(args.begin(), args.end(), value) != args.end();
+        };
+        if (args.at(0) == "/usr/bin/ffprobe") {
+            assert(captured);
+            if (has("stream=codec_name:format=format_name"))
+                return {0, "codec_name=aac\nformat_name=mpegts\n"};
+            if (has("stream=codec_name")) {
+                if (has("a")) return {0, "aac\n"};
+                return {0, args.back().find("input.ts") != std::string::npos
+                    ? "h264\n" : "hevc\n"};
+            }
+            if (has("stream=profile,pix_fmt"))
+                return {0, "profile=Main\npix_fmt=yuv420p\n"};
+            if (has("format=duration")) return {0, "60.0\n"};
+            if (has("stream=height")) return {0, "576\n"};
+        }
+        if (args.at(0) == "/usr/bin/ffmpeg") {
+            assert(!captured);
+            ++encodes;
+            std::ofstream(args.back(), std::ios::binary)
+                << std::string(8192, 'H');
+            return {0, ""};
+        }
+        if (args.at(0) == "/usr/bin/vdr") {
+            assert(!captured);
+            const std::string prefix = "--genindex=";
+            assert(args.size() == 2 &&
+                   args[1].compare(0, prefix.size(), prefix) == 0);
+            ++indexes;
+            std::ofstream(fs::path(args[1].substr(prefix.size())) / "index")
+                << "INDEX";
+            return {0, ""};
+        }
+        return {1, ""};
+    }
+};
+
 int main() {
     const auto sample = (fs::temp_directory_path() /
         "vdr-suite-shrink-plan-XXXXXX").string();
@@ -190,6 +236,64 @@ int main() {
     assert(publishing.statusCode == 200);
     assert(publishing.body.find("\"state\":\"publishing\"") != std::string::npos);
     assert(publishing.body.find("\"revision\":2") != std::string::npos);
+
+    // A completed x265 stage can outlive its Agent generation and leave
+    // only a durable outcome_unknown result. Recover its opaque review ID
+    // from the private Core-bound marker, never from the browser or a new
+    // execution, and verify the source/candidate independently.
+    {
+        using namespace vdrsuite::mediatools;
+        const auto relative = recording.lexically_relative(root);
+        const auto source = inspectShrink(root, relative);
+        const auto fingerprint = shrinkSourceFingerprint(source);
+        const std::string recoveredOperation =
+            "op_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        const std::string recoveredReview =
+            "shk_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        FakeShrinkRunner runner;
+        const auto candidate = stageShrink(source, runner);
+        writeShrinkReviewBinding(candidate, ShrinkReviewBinding{
+            recoveredReview, recoveredOperation, "actor-a",
+            "local", kRecordingId, fingerprint, 7});
+        assert(runner.encodes == 1 && runner.indexes == 1);
+        const auto recovered = runtime.recoverStagedCandidate(
+            "actor-a", "local", kRecordingId, recoveredOperation,
+            fingerprint, 7, runner);
+        assert(recovered && recovered->reviewId == recoveredReview);
+        assert(recovered->sourceBytes == 32768 &&
+               recovered->candidateBytes == 8192);
+        const auto exact = runtime.verifyStagedCandidate(
+            "actor-a", "local", kRecordingId, recoveredOperation,
+            fingerprint, 7, recoveredReview, runner);
+        assert(exact && exact->reviewId == recoveredReview);
+        assert(!runtime.recoverStagedCandidate(
+            "actor-b", "local", kRecordingId, recoveredOperation,
+            fingerprint, 7, runner));
+        assert(!runtime.recoverStagedCandidate(
+            "actor-a", "local", kRecordingId,
+            "op_cccccccccccccccccccccccccccccccc",
+            fingerprint, 7, runner));
+        assert(!runtime.recoverStagedCandidate(
+            "actor-a", "local", kRecordingId, recoveredOperation,
+            fingerprint, 8, runner));
+        assert(!runtime.verifyStagedCandidate(
+            "actor-a", "local", kRecordingId, recoveredOperation,
+            fingerprint, 7, kReviewId, runner));
+        assert(runner.encodes == 1 && runner.indexes == 1);
+
+        // Two Core-bound reviews for the SAME operation are ambiguous.
+        // Never pick the first directory arbitrarily.
+        const auto competing = stageShrink(source, runner);
+        writeShrinkReviewBinding(competing, ShrinkReviewBinding{
+            "shk_cccccccccccccccccccccccccccccccc",
+            recoveredOperation, "actor-a", "local",
+            kRecordingId, fingerprint, 7});
+        assert(!runtime.recoverStagedCandidate(
+            "actor-a", "local", kRecordingId, recoveredOperation,
+            fingerprint, 7, runner));
+        assert(runner.encodes == 2 && runner.indexes == 2);
+        // Readback did not touch the original recording or re-encode.
+    }
 
     std::set<std::string> names;
     for (const auto& item : fs::directory_iterator(recording))
