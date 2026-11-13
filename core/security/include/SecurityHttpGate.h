@@ -555,6 +555,7 @@ public:
         bool isPublicMediaShrinkPublishCollection = false;
         bool isPublicMediaShrinkReviewResource = false;
         bool isPublicMediaShrinkOperationResource = false;
+        bool isPublicMediaShrinkRecordingResource = false;
         std::string publicMediaShrinkBackendId;
         if (path.compare(0, mediaCheckBase.size(), mediaCheckBase) == 0) {
             const std::size_t split = path.find('/', mediaCheckBase.size());
@@ -606,12 +607,21 @@ public:
                         tail.size() > operationPrefix.size() &&
                         tail.find('/', operationPrefix.size()) ==
                             std::string::npos;
+                    const std::string recordingPrefix =
+                        "/media-shrink-recordings/";
+                    isPublicMediaShrinkRecordingResource =
+                        tail.compare(0, recordingPrefix.size(),
+                                     recordingPrefix) == 0 &&
+                        tail.size() > recordingPrefix.size() &&
+                        tail.find('/', recordingPrefix.size()) ==
+                            std::string::npos;
                     if (isPublicMediaShrinkCapabilityResource ||
                         isPublicMediaShrinkPlanCollection ||
                         isPublicMediaShrinkStageCollection ||
                         isPublicMediaShrinkPublishCollection ||
                         isPublicMediaShrinkReviewResource ||
-                        isPublicMediaShrinkOperationResource)
+                        isPublicMediaShrinkOperationResource ||
+                        isPublicMediaShrinkRecordingResource)
                         publicMediaShrinkBackendId = candidate;
                 }
             }
@@ -1788,7 +1798,8 @@ public:
         if (request.method == "GET" &&
             (isPublicMediaCheckStatusResource ||
              isPublicMediaShrinkReviewResource ||
-             isPublicMediaShrinkOperationResource))
+             isPublicMediaShrinkOperationResource ||
+             isPublicMediaShrinkRecordingResource))
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
@@ -1796,9 +1807,11 @@ public:
             AuthorizationRequest checkRead;
             checkRead.permission = "media.recording.play";
             checkRead.backendId = (isPublicMediaShrinkReviewResource ||
-                                   isPublicMediaShrinkOperationResource)
+                                   isPublicMediaShrinkOperationResource ||
+                                   isPublicMediaShrinkRecordingResource)
                 ? publicMediaShrinkBackendId : publicMediaCheckBackendId;
-            checkRead.action = isPublicMediaShrinkOperationResource
+            checkRead.action = (isPublicMediaShrinkOperationResource ||
+                                isPublicMediaShrinkRecordingResource)
                 ? "media.recording.shrink.operation.read"
                 : (isPublicMediaShrinkReviewResource
                     ? "media.recording.shrink.review.read"
