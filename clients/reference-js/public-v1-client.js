@@ -883,6 +883,7 @@
         }
         payload = {recordingId: value.recordingId, encoder: value.encoder,
           maxHeight: value.maxHeight, nightMode: value.nightMode};
+        if (value.autoPublish === true) payload.autoPublish = true;
         suffix = 'media-shrink-stages';
       } else if (action === 'publish') {
         if (typeof value.reviewId !== 'string' ||
