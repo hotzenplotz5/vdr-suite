@@ -265,6 +265,37 @@ static void test_parse_recordings_preserves_distinct_real_copies()
     assert(recordings.size() == 2);
 }
 
+static void test_private_hevc_candidates_are_not_recordings()
+{
+    // VDR/RESTfulAPI can discover a private .rec before Publish. Such an
+    // internal stage must remain available for recovery, but not as a
+    // selectable recording in the normal catalog.
+    const std::string json =
+        "{\"recordings\":["
+        "{\"number\":10,"
+        "\"name\":\".vdr-suite-shrink-2276JE\","
+        "\"relative_file_name\":\"/.vdr-suite-shrink-2276JE/"
+        "2015-12-15.12.29.17-0.rec\","
+        "\"file_name\":\"/srv/vdr/video.00/.vdr-suite-shrink-2276JE/"
+        "2015-12-15.12.29.17-0.rec\"},"
+        "{\"number\":11,"
+        "\"name\":\"Dokumentation~Original\","
+        "\"relative_file_name\":\"/Dokumentation/Original/"
+        "2015-12-15.12.29.17-0.rec\"},"
+        "{\"number\":12,"
+        "\"name\":\"Dokumentation~Original.shrink\","
+        "\"relative_file_name\":\"/Dokumentation/Original.shrink/"
+        "2015-12-15.12.29.17-0.rec\"}"
+        "]}";
+    const auto recordings =
+        RestfulApiRecordingMapper::parseRecordings(json);
+    assert(recordings.size() == 2);
+    assert(recordings[0].id == "11");
+    assert(recordings[1].id == "12");
+    assert(recordings[1].path.find("/Original.shrink/") !=
+           std::string::npos);
+}
+
 static void test_parse_recordings_tolerates_invalid_json()
 {
     std::vector<VdrRecording> recordings =
@@ -284,6 +315,7 @@ int main()
     test_parse_recordings_derives_start_time_from_rec_directory();
     test_parse_recordings_prefers_canonical_entry_over_recursive_aliases();
     test_parse_recordings_preserves_distinct_real_copies();
+    test_private_hevc_candidates_are_not_recordings();
     test_parse_recordings_tolerates_invalid_json();
 
     return 0;
