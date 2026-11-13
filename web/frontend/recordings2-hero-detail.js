@@ -1125,7 +1125,8 @@
             }
             return;
           }
-          if (!remembered('stage') && !remembered('publish'))
+          if (!remembered('stage') && !remembered('publish') &&
+              status.textContent === 'Bereits verkleinerte Aufnahme wird gesucht …')
             status.textContent = 'Noch keine verkleinerte Version dieser Aufnahme.';
         });
       }).catch(function (error) {
