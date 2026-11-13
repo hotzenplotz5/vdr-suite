@@ -16,6 +16,7 @@
 #include "BackendAgentMediaShrinkAssignment.h"
 #include "BackendAgentMediaImportAssignment.h"
 #include "MediaShrinkAuthorityCodec.h"
+#include "MediaShrinkAgentExecutor.h"
 #include "AddonRootApproval.h"
 #include "AddonAdministrationService.h"
 #include "AddonActivationHttpPayload.h"
