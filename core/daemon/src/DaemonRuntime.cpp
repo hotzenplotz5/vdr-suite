@@ -14,6 +14,9 @@
 #include "BackendAgentMediaImportAssignment.h"
 #include "MediaImportOperationFence.h"
 #include "MediaShrinkAgentCommand.h"
+#include "MediaShrinkOperationAdmission.h"
+#include "DaemonMediaShrinkAdmissionAuthority.h"
+#include "BackendAgentMediaShrinkAssignment.h"
 #include "MutationOperationRepository.h"
 #include "Database.h"
 #include <sqlite3.h>
@@ -166,6 +169,11 @@ int DaemonRuntime::run()
                     std::cerr << "Durable Media Import batch progression failed"
                               << std::endl;
                 }
+                try { progressDurableMediaShrinkAutoPublish(); }
+                catch (...) {
+                    std::cerr << "Durable HEVC auto-publication progression failed"
+                              << std::endl;
+                }
             }
             if (now - lastMediaImportPoll >= std::chrono::minutes(1)) {
                 lastMediaImportPoll = now;
@@ -199,6 +207,132 @@ int DaemonRuntime::run()
     if (mediaShrinkRecoveryThread_.joinable())
         mediaShrinkRecoveryThread_.join();
     return runtimeExit;
+}
+
+void DaemonRuntime::progressDurableMediaShrinkAutoPublish()
+{
+    using namespace vdrsuite::addons;
+    using State = vdrsuite::operations::MutationOperationState;
+    if (!mutationOperationRepository_ || !mediaShrinkReviewRepository_ ||
+        !mediaShrinkOperationFence_ || !mediaShrinkPlanRuntime_ ||
+        !backendAgentRepository_ || !backendAgentCommandRepository_)
+        return;
+
+    // Select only verified stages that still have an unfinished review.
+    // Original Stage intent lives in mutation_operation_payloads, so there
+    // is no magic idempotency prefix, schema migration or browser dependency.
+    auto* db = const_cast<Database*>(
+        mutationOperationRepository_->databaseIdentity());
+    if (!db) return;
+    std::vector<std::string> stageIds;
+    {
+        auto lease = db->acquireTransactionLease();
+        const char* sql =
+            "SELECT m.operation_id FROM mutation_operations m "
+            "JOIN addon_media_shrink_reviews r "
+            "ON r.stage_operation_id=m.operation_id "
+            "AND r.actor_id=m.actor_id AND r.backend_id=m.backend_id "
+            "WHERE m.action_family='media.shrink.stage' "
+            "AND m.state='succeeded' "
+            "AND r.state IN ('staged','publishing') "
+            "ORDER BY m.updated_at DESC LIMIT 128;";
+        sqlite3_stmt* stmt = nullptr;
+        if (sqlite3_prepare_v2(db->handle(), sql, -1, &stmt, nullptr)
+                != SQLITE_OK) {
+            if (stmt) sqlite3_finalize(stmt);
+            return;
+        }
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            const auto* value = sqlite3_column_text(stmt, 0);
+            if (value)
+                stageIds.emplace_back(reinterpret_cast<const char*>(value));
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    if (stageIds.empty()) return;
+    const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    DaemonMediaShrinkAdmissionAuthority authority(
+        *mediaShrinkPlanRuntime_, *mediaShrinkOperationFence_,
+        *mediaShrinkReviewRepository_);
+    MediaShrinkOperationAdmissionService admissions(
+        *mutationOperationRepository_, *mediaShrinkReviewRepository_,
+        authority);
+    RequestSecurityContext system;
+    system.authenticationState = AuthenticationState::Authenticated;
+    system.actor = {"media_shrink_auto_publish", ActorType::System,
+                    "HEVC Stage automatic publication", true};
+    vdrsuite::agent::BackendAgentMediaShrinkAssignmentService assigner(
+        *mutationOperationRepository_, *backendAgentCommandRepository_,
+        *backendAgentRepository_, *mediaShrinkOperationFence_);
+
+    for (const auto& stageId : stageIds) {
+        const auto stageResult =
+            mutationOperationRepository_->findById(stageId);
+        const auto payload =
+            mutationOperationRepository_->findPayloadByOperationId(stageId);
+        if (!stageResult.ok() || !payload.ok()) continue;
+        const auto& stage = stageResult.operation;
+        if (stage.state != State::succeeded ||
+            stage.actionFamily != "media.shrink.stage" ||
+            stage.resourceType != "Recording" ||
+            payload.payload.payloadType !=
+                vdrsuite::mediatools::kMediaShrinkStageCommandType ||
+            payload.payload.payloadVersion != 1)
+            continue;
+        vdrsuite::mediatools::MediaShrinkAgentSelection selection;
+        if (!vdrsuite::mediatools::parseMediaShrinkAgentSelection(
+                payload.payload.payloadType, payload.payload.payload,
+                selection) ||
+            !selection.autoPublish ||
+            selection.recordingId != stage.resourceId ||
+            !vdrsuite::mediatools::shrinkOpaqueId(
+                stage.resultReference, "shk_"))
+            continue;
+        const auto review = mediaShrinkReviewRepository_->find(
+            stage.actorId, stage.backendId, stage.resultReference);
+        if (!review.ok() ||
+            review.review.stageOperationId != stage.operationId ||
+            review.review.recordingId != stage.resourceId ||
+            review.review.sourceFingerprint !=
+                stage.expectedResourceFingerprint)
+            continue;
+
+        if (review.review.state == "staged" &&
+            review.review.revision == 1) {
+            MediaShrinkPublishAdmission request;
+            request.actorId = stage.actorId;
+            request.backendId = stage.backendId;
+            request.reviewId = review.review.reviewId;
+            request.expectedRevision = 1;
+            request.idempotencyKey = stage.operationId;
+            request.now = now;
+            const auto result = admissions.publish(request);
+            if (result.status == MediaShrinkAdmissionStatus::accepted &&
+                result.operation.state == State::accepted)
+                (void)assigner.assign(
+                    system, result.operation.operationId, now);
+        } else if (review.review.state == "publishing" &&
+                   review.review.revision == 2) {
+            // Restore the single accepted command after a Core restart.
+            // Never replay a dispatched or outcome-unknown mutation.
+            const auto existing = mutationOperationRepository_->findById(
+                review.review.publishOperationId);
+            if (!existing.ok() ||
+                existing.operation.state != State::accepted ||
+                existing.operation.actionFamily != "media.shrink.publish" ||
+                existing.operation.actorId != stage.actorId ||
+                existing.operation.backendId != stage.backendId ||
+                existing.operation.resourceId != review.review.reviewId)
+                continue;
+            if (!backendAgentCommandRepository_->findAssignmentForOperation(
+                    stage.backendId, existing.operation.operationId,
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType))
+                (void)assigner.assign(
+                    system, existing.operation.operationId, now);
+        }
+    }
 }
 
 void DaemonRuntime::runMediaShrinkRecoveryWorker()
