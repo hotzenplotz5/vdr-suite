@@ -287,6 +287,22 @@ async function run() {
     '/vdr-suite/api/vdr/recordings/metadata/image?backend=default'
   );
 
+  // Private candidates remain under their native Stage path but appear
+  // as the original's title plus .shrink throughout Recordings 2.
+  const hevc = {
+    title: 'Original.shrink',
+    path: '/.vdr-suite-shrink-2276JE/2015-12-15.12.29.17-0.rec',
+    backendNativeId: '/srv/vdr/video.00/.vdr-suite-shrink-2276JE/2015-12-15.12.29.17-0.rec',
+    metadata: {manualAssignment: {active: true},
+      presentation: {title: 'Anderer Metadatentitel'}}
+  };
+  assert.strictEqual(test.recordingPathTitle(hevc), 'Original.shrink');
+  assert.strictEqual(test.recordingTitle(hevc), 'Original.shrink');
+  const renderedHevc = test.normalizeRecording(hevc);
+  assert.strictEqual(renderedHevc.title, 'Original.shrink');
+  assert.strictEqual(renderedHevc.backendNativeId, hevc.backendNativeId);
+  assert.strictEqual(hevc.title, 'Original.shrink');
+
   const normalized = test.normalizeRecording(recording);
   assert.strictEqual(normalized.title, 'Tigeren Club gggg');
   assert.strictEqual(recording.title, 'Technischer_Titel');
