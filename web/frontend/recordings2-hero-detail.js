@@ -1034,8 +1034,11 @@
 
       const setup = shared.node('div', 'recordings2-media-shrink-setup');
       setup.append(encoderLabel, fallbackNotice, heightLabel, nightLabel, stage);
-      controls.append(setup, refreshStage, candidate, publish, refreshPublish);
+      controls.append(refreshStage, candidate, publish, refreshPublish);
       panel.appendChild(shared.node('h4', '', 'HEVC-Aufnahme'));
+      // Encoder/options precede the sole start button. A user can still
+      // choose VAAPI/QSV/NVENC or resolution before one-click submission.
+      panel.appendChild(setup);
       panel.appendChild(launch);
       panel.appendChild(planStatus);
       panel.appendChild(status);
