@@ -164,10 +164,8 @@ bool MediaShrinkOperationFence::applyResult(
                    op.resultReference, "shk_") &&
                ((result.dispatchState == "accepted_by_executor" &&
                  op.resultReference == result.resultEvidence) ||
-                (result.dispatchState == "starting" &&
-                 (result.errorCategory == "none" ||
-                  result.errorCategory == "executor_unknown") &&
-                 result.resultEvidence.empty())))
+                vdrsuite::mediatools::shrinkUnknownStageAllowsPrivateReadback(
+                    result)))
             : (result.dispatchState == "accepted_by_executor" &&
                vdrsuite::mediatools::shrinkOpaqueId(
                    op.resultReference, "rec_")))) {
