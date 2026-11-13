@@ -729,9 +729,15 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                     mediaShrinkReviewRepository_->completePublication(
                                         op.actorId, op.backendId,
                                         op.resourceId, 2);
-                                if (completed.ok())
+                                if (completed.ok()) {
                                     std::cout << "HEVC Publish reconciled: backend="
                                               << op.backendId << std::endl;
+                                    // Same SSE subscription as the original
+                                    // one-click Stage. No browser polling.
+                                    if (deviceLiveEventHub_)
+                                        deviceLiveEventHub_->publishOperation(
+                                            review.review.stageOperationId);
+                                }
                             } catch (...) {
                                 // Keep outcomeUnknown for later independent
                                 // readback; never re-dispatch the mutation.
@@ -762,11 +768,15 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                             if (review.ok() &&
                                 review.review.state == "publishing" &&
                                 review.review.revision == 2 &&
-                                review.review.publishOperationId == op.operationId)
-                                (void)mediaShrinkReviewRepository_->
-                                    completePublication(
+                                review.review.publishOperationId == op.operationId) {
+                                const auto completed =
+                                    mediaShrinkReviewRepository_->completePublication(
                                         op.actorId, op.backendId,
                                         op.resourceId, 2);
+                                if (completed.ok() && deviceLiveEventHub_)
+                                    deviceLiveEventHub_->publishOperation(
+                                        review.review.stageOperationId);
+                            }
                         }
                     }
                 }
