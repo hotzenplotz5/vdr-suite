@@ -696,7 +696,8 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                     // otherwise choose deterministically.
                                     if (matchedNative.empty() ||
                                         native == publishedNative ||
-                                        recording.backendNativeId < matchedNative)
+                                        (fs::path(matchedNative) != publishedNative &&
+                                         recording.backendNativeId < matchedNative))
                                         matchedNative = recording.backendNativeId;
                                 }
                             }
