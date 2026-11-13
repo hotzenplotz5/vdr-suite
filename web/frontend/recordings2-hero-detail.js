@@ -888,6 +888,29 @@
           if (autoPublishRequested && review.state === 'staged')
             status.textContent =
               'HEVC fertig – Veröffentlichung läuft automatisch …';
+          if (autoPublishRequested && review.state === 'published') {
+            status.textContent = 'HEVC-Aufnahme veröffentlicht. Original erhalten.';
+            closeOperationStream('stage');
+          }
+          if (autoPublishRequested && review.state === 'publishing' &&
+              typeof client.getMediaShrinkRecording === 'function') {
+            client.getMediaShrinkRecording({
+              backendId: backendId, recordingId: recordingId,
+              credentials: 'same-origin', cache: 'no-store'
+            }).then(function (progress) {
+              if (!progress || progress.backendId !== backendId ||
+                  progress.recordingId !== recordingId ||
+                  progress.state !== 'publishing' ||
+                  !/^op_[0-9a-f]{32}$/.test(text(progress.publishOperationId)))
+                return;
+              publishOperationId = progress.publishOperationId;
+              refreshPublish.disabled = false;
+              watchOperation('publish');
+              refreshOperation('publish');
+            }).catch(function () {
+              // Keep the Stage SSE subscription for the next Core hint.
+            });
+          }
           if (remembered('publish')) publish.disabled = true;
         }).catch(function (error) {
           candidate.textContent = 'Kandidatenprüfung fehlgeschlagen: ' +
@@ -996,7 +1019,11 @@
                 : label + ' läuft …';
           status.textContent = simpleStatus;
           status.title = 'Auftrag ' + id + ': ' + explanation;
-          if (operation.resultReconciled === true ||
+          // A verified one-click Stage remains subscribed until the
+          // existing Publish completes; Core sends its completion hint on
+          // this same Stage operation stream.
+          if ((operation.resultReconciled === true &&
+               !(action === 'stage' && autoPublishRequested)) ||
               ['rejected', 'conflict', 'failed_before_dispatch',
                'failed_verified', 'cancelled'].includes(operation.state))
             closeOperationStream(action);
@@ -1135,6 +1162,13 @@
             status.textContent = existing.state === 'publishing'
               ? 'HEVC-Aufnahme wird hinzugefügt.'
               : 'Vorhandene HEVC-Konvertierung wird überprüft.';
+            if (existing.state === 'publishing' &&
+                /^op_[0-9a-f]{32}$/.test(text(existing.publishOperationId))) {
+              publishOperationId = existing.publishOperationId;
+              refreshPublish.disabled = false;
+              watchOperation('publish');
+              refreshOperation('publish');
+            }
             if (existing.state === 'processing' &&
                 /^op_[0-9a-f]{32}$/.test(text(existing.operationId))) {
               stageOperationId = existing.operationId;
