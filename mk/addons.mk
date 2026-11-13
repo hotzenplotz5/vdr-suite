@@ -141,6 +141,7 @@ test-ci-fast: test-addon-media-shrink-mutation-api
 
 .PHONY: test-addon-media-shrink-plan-api
 test-addon-media-shrink-plan-api:
+	python3 tools/check_hevc_nonblocking_operation_get.py
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
 		-I addons/media-tools/include -I api/rest/include \
