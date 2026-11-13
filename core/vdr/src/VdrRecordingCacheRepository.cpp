@@ -96,28 +96,12 @@ bool endsWith(
         suffix) == 0;
 }
 
-bool startsWith(
-    const std::string& value,
-    const std::string& prefix)
-{
-    if (prefix.size() > value.size())
-    {
-        return false;
-    }
-
-    return value.compare(0, prefix.size(), prefix) == 0;
-}
-
 std::vector<std::string> splitPath(
     std::string path)
 {
-    const std::string srvPrefix =
-        "/srv/vdr/video/";
-
-    if (startsWith(path, srvPrefix))
-    {
-        path = path.substr(srvPrefix.size());
-    }
+    // Relative paths from the backend stay relative. Absolute native paths
+    // stay intact: the recording root belongs to the configured VDR backend,
+    // not to a particular Linux distribution.
 
     std::replace(path.begin(), path.end(), '\\', '/');
 
@@ -164,23 +148,6 @@ std::string joinPath(
     return result;
 }
 
-bool isStorageMountSegment(
-    const std::string& segment)
-{
-    return segment == "Recordings_on_yavdr(nfs)";
-}
-
-void removeStorageMountSegments(
-    std::vector<std::string>& segments)
-{
-    segments.erase(
-        std::remove_if(
-            segments.begin(),
-            segments.end(),
-            isStorageMountSegment),
-        segments.end());
-}
-
 std::string recordingDeduplicationKey(
     const VdrRecording& recording)
 {
@@ -192,7 +159,6 @@ std::string recordingDeduplicationKey(
     std::vector<std::string> segments =
         splitPath(path);
 
-    removeStorageMountSegments(segments);
 
     if (!segments.empty())
     {
@@ -202,7 +168,6 @@ std::string recordingDeduplicationKey(
     std::vector<std::string> titleSegments =
         splitPath(recording.title);
 
-    removeStorageMountSegments(titleSegments);
 
     if (!titleSegments.empty())
     {
@@ -1364,7 +1329,6 @@ std::string VdrRecordingCacheRepository::folderPathForRecording(
     std::vector<std::string> segments =
         splitPath(path);
 
-    removeStorageMountSegments(segments);
 
     if (!segments.empty())
     {
@@ -1380,7 +1344,6 @@ std::string VdrRecordingCacheRepository::folderPathForRecording(
     std::vector<std::string> titleSegments =
         splitPath(recording.title);
 
-    removeStorageMountSegments(titleSegments);
 
     if (titleSegments.size() > 1)
     {
