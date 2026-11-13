@@ -187,8 +187,13 @@ bool DaemonRuntime::trustedMediaToolsProvider(
 bool DaemonRuntime::tryReconcileMediaShrinkStage(
     const BackendAgentCommandAssignment& assignment,
     const BackendAgentCommandResult& result,
-    std::int64_t now)
+    std::int64_t now, std::string* diagnostic)
 {
+    if (diagnostic) diagnostic->clear();
+    const auto fail = [diagnostic](const char* reason) {
+        if (diagnostic) *diagnostic = reason;
+        return false;
+    };
     using namespace vdrsuite::mediatools;
     using State = vdrsuite::operations::MutationOperationState;
     // A durable "starting/outcome_unknown" result can have no review ID
@@ -210,16 +215,16 @@ bool DaemonRuntime::tryReconcileMediaShrinkStage(
         result.verificationState != "outcome_unknown" ||
         result.retryClassification != "reconcile_only" ||
         (!agentReview && !unreportedReview) || now <= 0)
-        return false;
+        return fail("agent_result_not_eligible_for_recovery");
     const auto persisted = backendAgentCommandRepository_->resultForCommand(
         assignment.commandId);
     if (!persisted ||
         backendAgentCommandResultIdentity(*persisted) !=
             backendAgentCommandResultIdentity(result))
-        return false;
+        return fail("durable_agent_result_identity_missing");
     const auto selected = mutationOperationRepository_->findById(
         assignment.operationId);
-    if (!selected.ok()) return false;
+    if (!selected.ok()) return fail("original_operation_not_found");
     const auto& op = selected.operation;
     if (op.operationId != assignment.operationId ||
         op.backendId != assignment.backendId ||
@@ -229,14 +234,14 @@ bool DaemonRuntime::tryReconcileMediaShrinkStage(
         !shrinkOpaqueId(op.resourceId, "rec_") ||
         (op.state != State::outcomeUnknown &&
          op.state != State::succeeded))
-        return false;
+        return fail("original_operation_identity_or_state_mismatch");
     if (op.state == State::outcomeUnknown &&
         op.resultReference !=
             "agent.media.shrink:" + assignment.commandId)
-        return false;
+        return fail("original_operation_reference_mismatch");
     if (op.state == State::succeeded &&
         !shrinkOpaqueId(op.resultReference, "shk_"))
-        return false;
+        return fail("verified_operation_has_invalid_review");
     // This is readback of the ORIGINAL immutable operation, not admission
     // of a new mutation. A restarted Agent can have a newer generation, or
     // be briefly offline, while the completed candidate still belongs to
@@ -248,19 +253,24 @@ bool DaemonRuntime::tryReconcileMediaShrinkStage(
         ? mediaShrinkPlanRuntime_->verifyStagedCandidate(
             op.actorId, op.backendId, op.resourceId, op.operationId,
             op.expectedResourceFingerprint, op.backendGeneration,
-            result.resultEvidence, runner)
+            result.resultEvidence, runner, diagnostic)
         : mediaShrinkPlanRuntime_->recoverStagedCandidate(
             op.actorId, op.backendId, op.resourceId, op.operationId,
-            op.expectedResourceFingerprint, op.backendGeneration, runner);
-    if (!verified ||
-        (op.state == State::succeeded &&
-         op.resultReference != verified->reviewId))
+            op.expectedResourceFingerprint, op.backendGeneration, runner,
+            diagnostic);
+    if (!verified) {
+        if (diagnostic && diagnostic->empty())
+            *diagnostic = "private_stage_verification_failed";
         return false;
+    }
+    if (op.state == State::succeeded &&
+        op.resultReference != verified->reviewId)
+        return fail("verified_review_reference_conflict");
     if (op.state != State::succeeded) {
         const auto advanced = mutationOperationRepository_->transition(
             op.operationId, op.operationRevision, op.state,
             State::succeeded, verified->reviewId, now);
-        if (!advanced.ok()) return false;
+        if (!advanced.ok()) return fail("operation_transition_failed");
     }
     const auto review = mediaShrinkReviewRepository_->registerStaged(
         verified->reviewId, op.operationId);
@@ -270,7 +280,8 @@ bool DaemonRuntime::tryReconcileMediaShrinkStage(
     // channel. Never require a refresh button or a second operation.
     if (registered && deviceLiveEventHub_)
         deviceLiveEventHub_->publishOperation(op.operationId);
-    return registered;
+    if (!registered) return fail("review_registration_failed");
+    return true;
 }
 
 bool DaemonRuntime::initialize()
