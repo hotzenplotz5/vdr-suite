@@ -215,6 +215,17 @@ void DaemonRuntime::runMediaShrinkRecoveryWorker()
         return mediaShrinkRecoveryStopRequested_.load();
     };
     if (waitForStop(2)) return;
+    // Report a reason once per distinct operation/reason. A long-lived
+    // uncertain Stage must not spam journald at every maintenance tick.
+    std::map<std::string, std::string> reported;
+    const auto report = [&reported](const std::string& operationId,
+                                    const std::string& reason) {
+        if (reason.empty() || reported[operationId] == reason) return;
+        reported[operationId] = reason;
+        std::cerr << "HEVC_STAGE_RECOVERY=BLOCKED"
+                  << " operation=" << operationId
+                  << " reason=" << reason << std::endl;
+    };
     while (!mediaShrinkRecoveryStopRequested_.load()) {
         try {
             if (mutationOperationRepository_ &&
@@ -248,18 +259,29 @@ void DaemonRuntime::runMediaShrinkRecoveryWorker()
                                     op.backendId, op.operationId,
                                     vdrsuite::mediatools::
                                         kMediaShrinkStageCommandType);
-                        if (!assignment) continue;
+                        if (!assignment) {
+                            report(op.operationId, "agent_assignment_missing");
+                            continue;
+                        }
                         const auto result =
                             backendAgentCommandRepository_->resultForCommand(
                                 assignment->commandId);
-                        if (!result) continue;
+                        if (!result) {
+                            report(op.operationId, "durable_agent_result_missing");
+                            continue;
+                        }
                         const auto now = duration_cast<seconds>(
                             system_clock::now().time_since_epoch()).count();
+                        std::string diagnostic;
                         if (tryReconcileMediaShrinkStage(
-                                *assignment, *result, now))
+                                *assignment, *result, now, &diagnostic)) {
+                            reported.erase(op.operationId);
                             std::cout << "HEVC_STAGE_RECOVERY=VERIFIED"
                                       << " operation=" << op.operationId
                                       << std::endl;
+                        } else {
+                            report(op.operationId, diagnostic);
+                        }
                     }
                 }
             }
