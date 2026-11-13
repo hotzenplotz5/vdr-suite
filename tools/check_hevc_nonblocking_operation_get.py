@@ -51,8 +51,9 @@ assert "recording.backendNativeId = fileName;" in mapper
 start = reconciliation.index("// Mirror the native No-Replace target")
 end = reconciliation.index("if (matches != 1) continue;", start)
 lookup = reconciliation[start:end]
-assert "fs::path(recording.backendNativeId)" in lookup, (
-    "HEVC Publish must match the absolute native VDR file_name"
+assert "const fs::path native(recording.backendNativeId)" in lookup and \
+       "fs::equivalent(native, publishedNative" in lookup, (
+    "HEVC Publish must recognize the absolute native VDR directory or its mount alias"
 )
 assert "fs::path(recording.path) == publishedNative" not in lookup, (
     "relative_file_name cannot match the absolute published directory"
