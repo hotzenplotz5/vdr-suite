@@ -662,7 +662,7 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                             namespace fs = std::filesystem;
                             const fs::path publishedRelative =
                                 fs::path(source->relativeRecording.parent_path()
-                                    .string() + "_HEVC") /
+                                    .string() + ".shrink") /
                                 source->relativeRecording.filename();
                             const fs::path publishedNative =
                                 source->videoRoot / publishedRelative;
