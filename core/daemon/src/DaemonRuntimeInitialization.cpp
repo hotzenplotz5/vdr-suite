@@ -5768,6 +5768,65 @@ bool DaemonRuntime::initialize()
             return MediaShrinkPlanApiRuntime::json(200, body + "}");
         });
 
+    // A reopened recording must discover its EXISTING candidate in SQLite,
+    // even on a different browser where sessionStorage has no operation ID.
+    // This is only an actor-owned, backend-scoped read of the existing journal.
+    MediaShrinkPlanApiRuntime::instance().registerRecordingStatusHandler(
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& recordingId) -> ApiResponse
+        {
+            using namespace vdrsuite::operations;
+            if (!mutationOperationRepository_ || !mediaShrinkReviewRepository_)
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC recording readback unavailable.");
+            const auto found =
+                mutationOperationRepository_->listRecentForActorBackendActionFamily(
+                    actor, backend, "media.shrink.stage", 128U);
+            if (!found.ok())
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC recording readback unavailable.");
+            const MutationOperation* unfinished = nullptr;
+            for (const auto& op : found.operations) {
+                if (op.resourceType != "Recording" ||
+                    op.resourceId != recordingId ||
+                    op.backendId != backend || op.actorId != actor)
+                    continue;
+                if (!unfinished) unfinished = &op;
+                if (op.state != MutationOperationState::succeeded ||
+                    !vdrsuite::mediatools::shrinkOpaqueId(
+                        op.resultReference, "shk_"))
+                    continue;
+                const auto review = mediaShrinkReviewRepository_->find(
+                    actor, backend, op.resultReference);
+                if (!review.ok() || review.review.recordingId != recordingId ||
+                    review.review.stageOperationId != op.operationId)
+                    continue;
+                const std::string state =
+                    review.review.state == "staged" ? "ready" :
+                    review.review.state == "publishing" ? "publishing" :
+                    review.review.state == "published" ? "published" : "";
+                if (state.empty()) continue;
+                std::string body = "{\"recordingId\":\"" + recordingId +
+                    "\",\"state\":\"" + state +
+                    "\",\"operationId\":\"" + op.operationId +
+                    "\",\"reviewId\":\"" + op.resultReference + "\"";
+                if (state == "published" &&
+                    vdrsuite::mediatools::shrinkOpaqueId(
+                        review.review.publishedRecordingId, "rec_"))
+                    body += ",\"publishedRecordingId\":\"" +
+                        review.review.publishedRecordingId + "\"";
+                return MediaShrinkPlanApiRuntime::json(200, body + "}");
+            }
+            if (unfinished)
+                return MediaShrinkPlanApiRuntime::json(200,
+                    "{\"recordingId\":\"" + recordingId +
+                    "\",\"state\":\"processing\",\"operationId\":\"" +
+                    unfinished->operationId + "\"}");
+            return MediaShrinkPlanApiRuntime::json(200,
+                "{\"recordingId\":\"" + recordingId +
+                "\",\"state\":\"none\"}");
+        });
+
     // Core-owned HEVC mutation entrypoint. No caller-controlled path,
     // subprocess or direct write is admitted through public API parsing.
     // Absent reviewed grants, activation or Agent capability, this is 403/503
