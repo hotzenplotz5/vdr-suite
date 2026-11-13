@@ -544,18 +544,6 @@ std::string recordingDirectoryLeaf(
     return segments.back();
 }
 
-std::size_t storageMountSegmentCount(
-    const VdrRecording& recording)
-{
-    const std::vector<std::string> segments =
-        splitRecordingPath(recordingSelectionPath(recording));
-
-    return static_cast<std::size_t>(std::count(
-        segments.begin(),
-        segments.end(),
-        "Recordings_on_yavdr(nfs)"));
-}
-
 std::size_t recordingPathDepth(
     const VdrRecording& recording)
 {
@@ -585,7 +573,6 @@ bool isAliasFamily(
 {
     bool hasEmptyInode = false;
     bool hasNonEmptyInode = false;
-    bool hasRepeatedStorageMount = false;
     bool hasDuplicateInode = false;
     std::set<std::string> seenInodes;
 
@@ -602,13 +589,12 @@ bool isAliasFamily(
             }
         }
 
-        if (storageMountSegmentCount(candidate.recording) > 1) {
-            hasRepeatedStorageMount = true;
-        }
     }
 
+    // Treat actual provider inode evidence as alias information.
+    // A folder name is never an alias marker: it may be a real recording
+    // category on any distribution or mounted backend.
     return (hasEmptyInode && hasNonEmptyInode) ||
-           hasRepeatedStorageMount ||
            hasDuplicateInode;
 }
 
@@ -618,15 +604,6 @@ bool preferRecordingCandidate(
 {
     if (candidate.inode.empty() != current.inode.empty()) {
         return !candidate.inode.empty();
-    }
-
-    const std::size_t candidateMountCount =
-        storageMountSegmentCount(candidate.recording);
-    const std::size_t currentMountCount =
-        storageMountSegmentCount(current.recording);
-
-    if (candidateMountCount != currentMountCount) {
-        return candidateMountCount < currentMountCount;
     }
 
     const std::size_t candidateDepth =
