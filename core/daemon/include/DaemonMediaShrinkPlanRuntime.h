@@ -97,9 +97,11 @@ public:
     // Canonical backend-local source revision. HTTP callers never receive a
     // filesystem path or select a root. Used only by Core mutation admission.
     std::optional<std::string> trustedSourceFingerprint(
-        const std::string& backend, const std::string& recordingId) const {
+        const std::string& backend, const std::string& recordingId,
+        bool requireBackendOnline = true) const {
         const auto root = roots_.find(backend);
-        if (root == roots_.end() || !available_ || !available_(backend) ||
+        if (root == roots_.end() || !available_ ||
+            (requireBackendOnline && !available_(backend)) ||
             !resolve_ ||
             !vdrsuite::mediatools::shrinkOpaqueId(recordingId, "rec_"))
             return std::nullopt;
@@ -136,10 +138,12 @@ public:
     };
     std::optional<TrustedRecordingPaths> trustedSourcePaths(
         const std::string& backend, const std::string& recordingId,
-        const std::string& expectedFingerprint) const {
+        const std::string& expectedFingerprint,
+        bool requireBackendOnline = true) const {
         if (!vdrsuite::mediatools::shrinkOpaqueId(recordingId, "rec_") ||
             expectedFingerprint.size() != 26 ||
-            !available_ || !available_(backend) || !resolve_)
+            !available_ ||
+            (requireBackendOnline && !available_(backend)) || !resolve_)
             return std::nullopt;
         const auto root = roots_.find(backend);
         if (root == roots_.end()) return std::nullopt;
@@ -192,8 +196,13 @@ public:
             (!reviewId.empty() && !shrinkOpaqueId(reviewId, "shk_")) ||
             generation == 0)
             return std::nullopt;
+        // This is readback of the immutable ORIGINAL operation, never
+        // new work. A disconnected Agent must not prevent the Core from
+        // verifying bytes already present on its trusted local filesystem.
+        // The canonical recording identity and source fingerprint still
+        // must match; fresh Stage/Publish admission retains online gating.
         const auto paths = trustedSourcePaths(
-            backend, recordingId, expectedFingerprint);
+            backend, recordingId, expectedFingerprint, false);
         if (!paths) return std::nullopt;
         try {
             const auto plan = inspectShrink(
@@ -238,8 +247,8 @@ public:
             // Source identity is independently rechecked AFTER verifying
             // the candidate against potentially long FFprobe readback.
             if (!match ||
-                trustedSourceFingerprint(backend, recordingId) !=
-                    expectedFingerprint)
+                trustedSourceFingerprint(
+                    backend, recordingId, false) != expectedFingerprint)
                 return std::nullopt;
             return match;
         } catch (...) { return std::nullopt; }
