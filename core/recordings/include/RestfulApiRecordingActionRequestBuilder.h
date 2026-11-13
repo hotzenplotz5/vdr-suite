@@ -352,14 +352,24 @@ private:
         return source.substr(leafStart + 1, leafEnd - leafStart);
     }
 
+    static std::string logicalRecordingPath(
+        const RecordingActionJobPayload& payload)
+    {
+        // RESTfulAPI reports a backend-relative recordingPath separately
+        // from the absolute backendNativeId used for native I/O.
+        const std::string relative =
+            findParameter(payload.parameters, "recordingPath");
+        return relative.empty() ? recordingPath(payload) : relative;
+    }
+
     static std::string normalizedRecordingPath(
         const RecordingActionJobPayload& payload)
     {
         const std::vector<std::string> segments =
-            splitRecordingPathSegments(recordingPath(payload));
+            splitRecordingPathSegments(logicalRecordingPath(payload));
 
         if (segments.empty()) {
-            return recordingPath(payload);
+            return logicalRecordingPath(payload);
         }
 
         return "/" + joinRecordingPathSegments(segments);
@@ -423,50 +433,25 @@ private:
         return targetPath + "/" + leaf;
     }
 
-    static bool isStorageMountSegment(const std::string& segment)
-    {
-        return segment == "Recordings_on_yavdr(nfs)";
-    }
-
     static std::vector<std::string> splitRecordingPathSegments(
-        std::string source,
-        const bool useYaVdrCompatibility = true)
+        std::string source)
     {
-        const std::string srvPrefix =
-            "/srv/vdr/video/";
-
-        if (useYaVdrCompatibility && source.rfind(srvPrefix, 0) == 0) {
-            source = source.substr(srvPrefix.size());
-        }
-
-        while (!source.empty() && source.front() == '/') {
+        while (!source.empty() && source.front() == '/')
             source.erase(source.begin());
-        }
-
-        while (!source.empty() && source.back() == '/') {
+        while (!source.empty() && source.back() == '/')
             source.pop_back();
-        }
 
         std::vector<std::string> segments;
         std::string current;
-
         for (char c : source) {
             if (c == '/') {
-                if (!current.empty() && (!useYaVdrCompatibility || !isStorageMountSegment(current))) {
-                    segments.push_back(current);
-                }
-
+                if (!current.empty()) segments.push_back(current);
                 current.clear();
-                continue;
+            } else {
+                current.push_back(c);
             }
-
-            current.push_back(c);
         }
-
-        if (!current.empty() && (!useYaVdrCompatibility || !isStorageMountSegment(current))) {
-            segments.push_back(current);
-        }
-
+        if (!current.empty()) segments.push_back(current);
         return segments;
     }
 
@@ -490,7 +475,7 @@ private:
         const RecordingActionJobPayload& payload)
     {
         std::vector<std::string> segments =
-            splitRecordingPathSegments(recordingPath(payload));
+            splitRecordingPathSegments(logicalRecordingPath(payload));
 
         if (segments.size() <= 2) {
             return "";
@@ -669,11 +654,10 @@ private:
     }
 
     static std::string encodeVdrFilesystemPath(
-        const std::string& path,
-        const bool useYaVdrCompatibility = true)
+        const std::string& path)
     {
         const std::vector<std::string> segments =
-            splitRecordingPathSegments(path, useYaVdrCompatibility);
+            splitRecordingPathSegments(path);
 
         std::vector<std::string> encodedSegments;
         encodedSegments.reserve(segments.size());
@@ -689,62 +673,12 @@ private:
     }
 
     static std::string recordingVideoDirectory(
-        const RestfulApiRecordingActionBackendConfig& config,
-        const RecordingActionJobPayload& payload)
+        const RestfulApiRecordingActionBackendConfig& config)
     {
-        // A configured per-backend root is authoritative; the legacy source
-        // inference below is allowed only for existing unconfigured setups.
-        if (config.videoDirectoryExplicit)
-        {
-            return normalizeSlashes(config.videoDirectory);
-        }
-
-        const std::string source =
-            normalizeSlashes(
-                recordingPath(payload));
-
-        std::string relative =
-            normalizeSlashes(
-                findParameter(
-                    payload.parameters,
-                    "recordingPath"));
-
-        if (!relative.empty() &&
-            relative.front() != '/')
-        {
-            relative = "/" + relative;
-        }
-
-        if (!relative.empty() &&
-            endsWith(source, relative))
-        {
-            std::string directory =
-                source.substr(
-                    0,
-                    source.size() - relative.size());
-
-            while (directory.size() > 1 &&
-                   directory.back() == '/')
-            {
-                directory.pop_back();
-            }
-
-            if (!directory.empty())
-            {
-                return directory;
-            }
-        }
-
-        std::string directory =
-            normalizeSlashes(
-                config.videoDirectory);
-
-        if (directory.empty())
-        {
-            directory = "/srv/vdr/video";
-        }
-
-        return directory;
+        // The caller is given only the root configured for this backend
+        // or discovered from VDR. No distribution fallback or source-path
+        // guessing can redirect a native recording write.
+        return normalizeSlashes(config.videoDirectory);
     }
 
     static std::string safeMoveTargetFile(
@@ -770,14 +704,10 @@ private:
         const std::string encodedTargetPath =
             targetPath == "/"
                 ? ""
-                : encodeVdrFilesystemPath(
-                    targetPath,
-                    !config.videoDirectoryExplicit);
+                : encodeVdrFilesystemPath(targetPath);
 
-        std::string target =
-            recordingVideoDirectory(
-                config,
-                payload);
+        std::string target = recordingVideoDirectory(config);
+        if (target.empty()) return {};
 
         if (!encodedTargetPath.empty())
         {
