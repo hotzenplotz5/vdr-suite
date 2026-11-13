@@ -748,6 +748,14 @@ static std::string sourceTitleForPrivateStage(
             continue;
         const std::string leaf = recordingTitleLeaf(possible.recording);
         if (leaf.empty()) continue;
+        // An already published HEVC sibling can share the same .rec leaf.
+        // It is not another source title and must not make this match
+        // ambiguous or create a doubled ".shrink.shrink" display suffix.
+        if ((leaf.size() >= 7 &&
+             leaf.compare(leaf.size() - 7, 7, ".shrink") == 0) ||
+            (leaf.size() >= 5 &&
+             leaf.compare(leaf.size() - 5, 5, "_HEVC") == 0))
+            continue;
         if (!title.empty() && title != leaf) return {};
         title = leaf;
     }
