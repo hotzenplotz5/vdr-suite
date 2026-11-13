@@ -83,10 +83,15 @@ backend_config = Path(
 recording_cache = Path("core/vdr/src/VdrRecordingCacheRepository.cpp").read_text()
 recording_mapper = Path("core/vdr/src/RestfulApiRecordingMapper.cpp").read_text()
 assert "recordingActionConfig.allowExecution =" in roots
-assert "rootAvailable &&" in roots
+assert "rootAvailable &&" not in roots, (
+    "RESTfulAPI recording actions must remain available without optional VPATH"
+)
 assert "configuredRootAvailable" in roots and "nativeRoot.videoDirectory" in roots
 assert "recordingVideoDirectory(config)" in request_builder
 assert "config.videoDirectory" in request_builder
+assert 'findParameter(payload.parameters, "backendNativeId")' in request_builder
+assert 'findParameter(payload.parameters, "recordingPath")' in request_builder
+assert "native.compare(native.size() - relative.size()" in request_builder
 for production in (
     roots, request_builder, backend_config, recording_cache,
     recording_mapper, reconciliation
