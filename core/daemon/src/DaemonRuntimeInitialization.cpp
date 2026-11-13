@@ -201,7 +201,8 @@ bool DaemonRuntime::tryReconcileMediaShrinkStage(
         validShrinkReviewEvidence(assignment, result.resultEvidence);
     const bool unreportedReview =
         result.dispatchState == "starting" &&
-        result.errorCategory == "executor_unknown" &&
+        (result.errorCategory == "none" ||
+         result.errorCategory == "executor_unknown") &&
         result.resultEvidence.empty();
     if (!mediaShrinkPlanRuntime_ || !mutationOperationRepository_ ||
         !mediaShrinkReviewRepository_ || !backendAgentCommandRepository_ ||
