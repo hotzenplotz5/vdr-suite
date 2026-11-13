@@ -640,8 +640,12 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                 result->commandId != assignment->commandId ||
                                 result->resultCategory != "outcome_unknown" ||
                                 result->dispatchState != "accepted_by_executor" ||
-                                result->resultEvidence != op.resourceId)
+                                result->resultEvidence != op.resourceId) {
+                                std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                          << op.operationId
+                                          << " reason=agent_result_binding" << std::endl;
                                 continue;
+                            }
                             const auto review = mediaShrinkReviewRepository_->find(
                                 op.actorId, op.backendId, op.resourceId);
                             if (!review.ok() || review.review.state != "publishing" ||
@@ -652,14 +656,23 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                 review.review.backendGeneration >
                                     op.backendGeneration ||
                                 review.review.sourceFingerprint !=
-                                    op.expectedResourceFingerprint)
+                                    op.expectedResourceFingerprint) {
+                                std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                          << op.operationId
+                                          << " reason=review_binding" << std::endl;
                                 continue;
+                            }
                             const auto source = mediaShrinkPlanRuntime_->
                                 trustedSourcePaths(op.backendId,
                                     review.review.recordingId,
                                     op.expectedResourceFingerprint,
                                     false, false);
-                            if (!source) continue;
+                            if (!source) {
+                                std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                          << op.operationId
+                                          << " reason=source_resolution" << std::endl;
+                                continue;
+                            }
                             // Mirror the native No-Replace target from
                             // publishShrinkCandidate, never an Agent path.
                             namespace fs = std::filesystem;
@@ -704,12 +717,22 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                         matchedNative = recording.backendNativeId;
                                 }
                             }
-                            if (matchedNative.empty()) continue;
+                            if (matchedNative.empty()) {
+                                std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                          << op.operationId
+                                          << " reason=native_inventory_missing" << std::endl;
+                                continue;
+                            }
                             try {
                                 const auto published = vdrsuite::mediatools::
                                     inspectShrink(source->videoRoot,
                                                   publishedRelative);
-                                if (published.segments.empty()) continue;
+                                if (published.segments.empty()) {
+                                    std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                              << op.operationId
+                                              << " reason=published_segments_missing" << std::endl;
+                                    continue;
+                                }
                                 vdrsuite::mediatools::NativeProcessRunner probe(
                                     std::chrono::seconds(120));
                                 const auto codec = probe.run({
@@ -721,24 +744,41 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                 }, true);
                                 if (codec.exitCode != 0 ||
                                     (codec.output != "hevc\n" &&
-                                     codec.output != "hevc\r\n"))
+                                     codec.output != "hevc\r\n")) {
+                                    std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                              << op.operationId
+                                              << " reason=hevc_codec_readback" << std::endl;
                                     continue;
+                                }
                                 const auto publicId = publicRecordingIdentities_->
                                     resolveOrCreate(op.backendId, matchedNative);
                                 if (!publicId ||
                                     !vdrsuite::mediatools::shrinkOpaqueId(
-                                        *publicId, "rec_"))
+                                        *publicId, "rec_")) {
+                                    std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                              << op.operationId
+                                              << " reason=public_recording_identity" << std::endl;
                                     continue;
+                                }
                                 const auto transition =
                                     mutationOperationRepository_->transition(
                                         op.operationId, op.operationRevision,
                                         op.state, State::succeeded,
                                         *publicId, recordingMetadataEpochSeconds());
-                                if (!transition.ok()) continue;
+                                if (!transition.ok()) {
+                                    std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                              << op.operationId
+                                              << " reason=operation_transition" << std::endl;
+                                    continue;
+                                }
                                 const auto completed =
                                     mediaShrinkReviewRepository_->completePublication(
                                         op.actorId, op.backendId,
                                         op.resourceId, 2);
+                                if (!completed.ok())
+                                    std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                              << op.operationId
+                                              << " reason=review_completion" << std::endl;
                                 if (completed.ok()) {
                                     std::cout << "HEVC Publish reconciled: backend="
                                               << op.backendId << std::endl;
@@ -751,6 +791,9 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                             } catch (...) {
                                 // Keep outcomeUnknown for later independent
                                 // readback; never re-dispatch the mutation.
+                                std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                          << op.operationId
+                                          << " reason=published_media_inspection" << std::endl;
                             }
                         }
                     }
