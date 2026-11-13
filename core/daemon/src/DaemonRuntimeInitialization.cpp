@@ -264,8 +264,13 @@ bool DaemonRuntime::tryReconcileMediaShrinkStage(
     }
     const auto review = mediaShrinkReviewRepository_->registerStaged(
         verified->reviewId, op.operationId);
-    return review.ok() ||
+    const bool registered = review.ok() ||
         review.status == vdrsuite::addons::MediaShrinkReviewStatus::replayed;
+    // The original actor-owned operation SSE stream is the notification
+    // channel. Never require a refresh button or a second operation.
+    if (registered && deviceLiveEventHub_)
+        deviceLiveEventHub_->publishOperation(op.operationId);
+    return registered;
 }
 
 bool DaemonRuntime::initialize()
