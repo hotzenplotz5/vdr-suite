@@ -7,7 +7,7 @@ const clientFactory = require('../api/public-v1-client.js');
 const hero = fs.readFileSync('web/frontend/recordings2-hero-detail.js', 'utf8');
 const packaging = fs.readFileSync('mk/recordings2.mk', 'utf8');
 assert(hero.includes("makeButton('Aufnahme prüfen'"));
-assert(hero.includes("'HEVC-Vorprüfung'"));
+assert(hero.includes("'HEVC-Aufnahme'"));
 assert(hero.includes("'Aufnahme verkleinern (HEVC)'"));
 assert(hero.includes("root.querySelector('.recordings2-actions')"));
 assert(hero.includes('fallbackNotice.hidden = capability.encoderFallbackToSoftware !== true'));
@@ -56,6 +56,11 @@ const api = clientFactory.createClient({
       return Promise.resolve(response(200, {
         operationId: shrinkPublishOperationId, backendId: backend,
         action: 'publish', state: 'dispatching', resultReconciled: false
+      }));
+    if (url.endsWith('/media-shrink-recordings/' + id))
+      return Promise.resolve(response(200, {
+        recordingId: id, backendId: backend,
+        state: 'ready', operationId: shrinkOperationId, reviewId: shrinkReviewId
       }));
     if (url.endsWith('/media-shrink-reviews/' + shrinkReviewId))
       return Promise.resolve(response(200, {
@@ -138,6 +143,17 @@ const api = clientFactory.createClient({
   assert.strictEqual(sentPlan.options.headers['X-CSRF-Token'], 'hevc-csrf');
   assert.deepStrictEqual(JSON.parse(sentPlan.options.body),
     {recordingId: id});
+  assert.throws(() => api.getMediaShrinkRecording({
+    backendId: backend, recordingId: '/tmp/malformed.rec'
+  }));
+  const existing = await api.getMediaShrinkRecording({
+    backendId: backend, recordingId: id
+  });
+  assert.strictEqual(existing.state, 'ready');
+  assert.strictEqual(existing.reviewId, shrinkReviewId);
+  const existingRequest = requests[requests.length - 1];
+  assert(existingRequest.url.endsWith('/media-shrink-recordings/' + id));
+  assert.notStrictEqual(existingRequest.options.method, 'POST');
   assert.throws(() => api.getMediaShrinkReview({
     backendId: backend, reviewId: '/tmp/staged.rec'
   }));
