@@ -673,12 +673,30 @@ private:
     }
 
     static std::string recordingVideoDirectory(
-        const RestfulApiRecordingActionBackendConfig& config)
+        const RestfulApiRecordingActionBackendConfig& config,
+        const RecordingActionJobPayload& payload)
     {
-        // The caller is given only the root configured for this backend
-        // or discovered from VDR. No distribution fallback or source-path
-        // guessing can redirect a native recording write.
-        return normalizeSlashes(config.videoDirectory);
+        // Use the already-known backend root when configured or discovered.
+        // Older RESTfulAPI backends provide the SAME native recording as
+        // absolute file_name and relative_file_name. Their exact suffix
+        // relation yields the video root without any distro-specific path.
+        if (!config.videoDirectory.empty())
+            return normalizeSlashes(config.videoDirectory);
+
+        const std::string native = normalizeSlashes(
+            findParameter(payload.parameters, "backendNativeId"));
+        std::string relative = normalizeSlashes(
+            findParameter(payload.parameters, "recordingPath"));
+        if (native.empty() || relative.empty() || native.front() != '/')
+            return {};
+        if (relative.front() != '/') relative.insert(relative.begin(), '/');
+        if (native.size() <= relative.size() ||
+            native.compare(native.size() - relative.size(),
+                           relative.size(), relative) != 0)
+            return {};
+        const std::string root = native.substr(
+            0, native.size() - relative.size());
+        return root.empty() || root == "/" ? std::string{} : root;
     }
 
     static std::string safeMoveTargetFile(
@@ -706,7 +724,7 @@ private:
                 ? ""
                 : encodeVdrFilesystemPath(targetPath);
 
-        std::string target = recordingVideoDirectory(config);
+        std::string target = recordingVideoDirectory(config, payload);
         if (target.empty()) return {};
 
         if (!encodedTargetPath.empty())
