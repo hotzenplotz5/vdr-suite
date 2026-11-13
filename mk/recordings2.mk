@@ -19,6 +19,7 @@ install-recordings2-runtime:
 	cat \
 		web/frontend/recording-playback-restart-choice.js \
 		web/frontend/recordings2-folder-refresh.js \
+		web/frontend/recordings2-browser-cards.js \
 		web/frontend/recordings2-browser-view.js \
 		web/frontend/recordings2-hero-detail.js \
 		web/frontend/recordings2-hero-prewarm.js \
@@ -56,6 +57,7 @@ test-recordings2-runtime:
 	node --check web/frontend/recordings2-playback.js
 	node --check web/frontend/recording-playback-restart-choice.js
 	node --check web/frontend/recordings2-folder-refresh.js
+	node --check web/frontend/recordings2-browser-cards.js
 	node --check web/frontend/recordings2-browser-view.js
 	node --check web/frontend/recordings2-hero-detail.js
 	node --check web/frontend/recordings2-hero-prewarm.js
