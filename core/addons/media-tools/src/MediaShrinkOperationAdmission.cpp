@@ -43,7 +43,8 @@ std::string stagePayload(const MediaShrinkStageAdmission& request) {
     return "{\"recordingId\":\"" + request.recordingId +
         "\",\"encoder\":\"" + request.encoder +
         "\",\"maxHeight\":" + std::to_string(request.maxHeight) +
-        ",\"nightMode\":" + (request.nightMode ? "true" : "false") + "}";
+        ",\"nightMode\":" + (request.nightMode ? "true" : "false") +
+        (request.autoPublish ? ",\"autoPublish\":true" : "") + "}";
 }
 std::string publishPayload(const std::string& id, std::uint64_t revision) {
     return "{\"reviewId\":\"" + id + "\",\"revision\":" +
