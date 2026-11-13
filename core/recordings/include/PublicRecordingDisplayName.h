@@ -108,6 +108,20 @@ inline std::vector<std::string> segments(std::string raw, bool nativeTitle)
 
 inline Result project(const VdrRecording& recording)
 {
+    // A staged HEVC recording retains its private native path for identity
+    // and playback, but the inventory mapper supplies a friendly display
+    // title (original-title.shrink) instead of its temporary folder name.
+    if (recording.path.find("/.vdr-suite-shrink-") != std::string::npos ||
+        recording.backendNativeId.find("/.vdr-suite-shrink-") !=
+            std::string::npos)
+    {
+        const auto friendly = segments(recording.title, true);
+        if (!friendly.empty())
+        {
+            const std::string name = trim(decodeDisplayText(friendly.back()));
+            if (!name.empty()) return {name, false};
+        }
+    }
     // Web first selects the last title directory of the native path,
     // dropping the final VDR .rec timestamp directory.
     // An opaque backendNativeId is not a path. Do not display it as a title
