@@ -188,14 +188,21 @@ public:
         const std::string& recordingId, const std::string& operationId,
         const std::string& expectedFingerprint, std::uint64_t generation,
         const std::string& reviewId,
-        vdrsuite::mediatools::ProcessRunner& runner) const {
+        vdrsuite::mediatools::ProcessRunner& runner,
+        std::string* diagnostic = nullptr) const {
         using namespace vdrsuite::mediatools;
         namespace fs = std::filesystem;
+        const auto fail = [diagnostic](const char* reason)
+            -> std::optional<VerifiedStageReadback> {
+            if (diagnostic) *diagnostic = reason;
+            return std::nullopt;
+        };
+        if (diagnostic) diagnostic->clear();
         if (!shrinkOpaqueId(recordingId, "rec_") ||
             !shrinkOpaqueId(operationId, "op_") ||
             (!reviewId.empty() && !shrinkOpaqueId(reviewId, "shk_")) ||
             generation == 0)
-            return std::nullopt;
+            return fail("invalid_operation_binding");
         // This is readback of the immutable ORIGINAL operation, never
         // new work. A disconnected Agent must not prevent the Core from
         // verifying bytes already present on its trusted local filesystem.
@@ -203,12 +210,12 @@ public:
         // must match; fresh Stage/Publish admission retains online gating.
         const auto paths = trustedSourcePaths(
             backend, recordingId, expectedFingerprint, false);
-        if (!paths) return std::nullopt;
+        if (!paths) return fail("trusted_recording_unavailable_or_changed");
         try {
             const auto plan = inspectShrink(
                 paths->videoRoot, paths->relativeRecording);
             if (shrinkSourceFingerprint(plan) != expectedFingerprint)
-                return std::nullopt;
+                return fail("source_snapshot_changed");
             unsigned checked = 0;
             std::optional<VerifiedStageReadback> match;
             for (const auto& entry :
@@ -219,7 +226,7 @@ public:
                     continue;
                 // A cap on all stage dirs prevents unbounded namespace
                 // scans if a malicious producer fills the video root.
-                if (++checked > 128) return std::nullopt;
+                if (++checked > 128) return fail("too_many_private_stages");
                 if (!fs::is_directory(entry.symlink_status()))
                     continue;
                 const auto candidate = entry.path() /
@@ -238,7 +245,7 @@ public:
                     marker->stageOperationId != operationId ||
                     marker->sourceFingerprint != expectedFingerprint ||
                     marker->backendGeneration != generation)
-                    return std::nullopt;
+                    return fail("private_review_binding_mismatch_or_ambiguous");
                 const auto bytes = verifyShrinkCandidate(
                     plan, candidate, runner);
                 match = VerifiedStageReadback{
@@ -246,12 +253,32 @@ public:
             }
             // Source identity is independently rechecked AFTER verifying
             // the candidate against potentially long FFprobe readback.
-            if (!match ||
-                trustedSourceFingerprint(
+            if (!match)
+                return fail("private_review_not_found_for_operation");
+            if (trustedSourceFingerprint(
                     backend, recordingId, false) != expectedFingerprint)
-                return std::nullopt;
+                return fail("source_changed_after_candidate_probe");
             return match;
-        } catch (...) { return std::nullopt; }
+        } catch (const std::exception& error) {
+            // Only known, bounded library exceptions; never log paths or
+            // arbitrary filesystem data into the daemon journal.
+            const std::string detail = error.what();
+            if (diagnostic) {
+                const bool safe = !detail.empty() && detail.size() <= 110 &&
+                    std::all_of(detail.begin(), detail.end(),
+                        [](unsigned char c) {
+                            return (c >= 'a' && c <= 'z') ||
+                                   (c >= 'A' && c <= 'Z') ||
+                                   (c >= '0' && c <= '9') ||
+                                   c == '_' || c == '-' || c == ' ';
+                        });
+                *diagnostic = safe ? "candidate_verify_" + detail :
+                                     "candidate_verify_exception";
+            }
+            return std::nullopt;
+        } catch (...) {
+            return fail("candidate_verify_exception");
+        }
     }
 
     // Recover a completed private Stage from its exact Core-bound marker.
@@ -261,10 +288,11 @@ public:
         const std::string& actor, const std::string& backend,
         const std::string& recordingId, const std::string& operationId,
         const std::string& expectedFingerprint, std::uint64_t generation,
-        vdrsuite::mediatools::ProcessRunner& runner) const {
+        vdrsuite::mediatools::ProcessRunner& runner,
+        std::string* diagnostic = nullptr) const {
         return verifyStagedCandidate(
             actor, backend, recordingId, operationId,
-            expectedFingerprint, generation, {}, runner);
+            expectedFingerprint, generation, {}, runner, diagnostic);
     }
 
     ApiResponse reviewStatus(const std::string& actor,
