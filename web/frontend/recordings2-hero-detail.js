@@ -735,9 +735,11 @@
       night.type = 'checkbox';
       nightLabel.prepend(night);
 
-      const stage = makeButton('Verkleinerung starten', function () {
+      function startShrink() {
         if (!planReady || !recordingId || stage.disabled) return;
-        const key = newIdempotencyKey();
+        // The Stage is the user's one-click consent to finish publication
+        // after Core verification. Older stages keep their old semantics.
+        const key = newIdempotencyKey().replace(/^hevc-/, 'hevc-auto-');
         if (!key || !remember('stage', {key: key, operationId: ''})) {
           status.textContent = 'Sichere Wiederholsperre nicht verfügbar.';
           return;
@@ -768,7 +770,11 @@
             text(error && error.message ? error.message : error) +
             '. Bitte nicht erneut starten.';
         });
-      });
+      }
+      const stage = makeButton('Verkleinerung starten', startShrink);
+      // The ordinary shrink action starts the whole workflow directly.
+      // Keep the established control internally for old integration callers.
+      stage.hidden = true;
       const refreshStage = makeButton('Status aktualisieren', function () {
         refreshOperation('stage');
       });
