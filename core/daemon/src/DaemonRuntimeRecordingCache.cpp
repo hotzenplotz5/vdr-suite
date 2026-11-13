@@ -672,11 +672,24 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                 // RESTfulAPI path is usually relative_file_name;
                                 // only backendNativeId is the absolute VDR .rec
                                 // directory read from provider file_name.
-                                if (recording.backendId == op.backendId &&
-                                    !recording.backendNativeId.empty() &&
-                                    fs::path(recording.backendNativeId) ==
-                                        publishedNative &&
-                                    !recording.title.empty()) {
+                                if (recording.backendId != op.backendId ||
+                                    recording.backendNativeId.empty() ||
+                                    recording.title.empty())
+                                    continue;
+                                const fs::path native(recording.backendNativeId);
+                                if (!native.is_absolute() ||
+                                    native.extension() != ".rec")
+                                    continue;
+                                std::error_code pathError;
+                                // RESTfulAPI may expose the configured VDR
+                                // video-root alias (/srv/vdr/video) while the
+                                // Agent publishes under video.00. Compare
+                                // the actual native directory, not strings.
+                                const bool sameDirectory =
+                                    native == publishedNative ||
+                                    fs::equivalent(native, publishedNative,
+                                                   pathError);
+                                if (sameDirectory) {
                                     ++matches;
                                     matchedNative = recording.backendNativeId;
                                 }
