@@ -190,17 +190,27 @@ bool DaemonRuntime::tryReconcileMediaShrinkStage(
 {
     using namespace vdrsuite::mediatools;
     using State = vdrsuite::operations::MutationOperationState;
-    if (!mediaShrinkPlanRuntime_ || !mediaShrinkOperationFence_ ||
-        !mutationOperationRepository_ || !mediaShrinkReviewRepository_ ||
-        !backendAgentCommandRepository_ ||
+    // A durable "starting/outcome_unknown" result can have no review ID
+    // even though the worker completed and wrote its private Core marker.
+    // Neither case authorizes a second execution: only a full independent
+    // recording/candidate readback may advance the original Operation.
+    const bool agentReview =
+        result.dispatchState == "accepted_by_executor" &&
+        result.errorCategory == "none" &&
+        validShrinkReviewEvidence(assignment, result.resultEvidence);
+    const bool unreportedReview =
+        result.dispatchState == "starting" &&
+        result.errorCategory == "executor_unknown" &&
+        result.resultEvidence.empty();
+    if (!mediaShrinkPlanRuntime_ || !mutationOperationRepository_ ||
+        !mediaShrinkReviewRepository_ || !backendAgentCommandRepository_ ||
         assignment.commandType != kMediaShrinkStageCommandType ||
         result.commandId != assignment.commandId ||
         result.requestFingerprint != assignment.requestFingerprint ||
         result.resultCategory != "outcome_unknown" ||
         result.verificationState != "outcome_unknown" ||
-        result.dispatchState != "accepted_by_executor" ||
-        !shrinkOpaqueId(result.resultEvidence, "shk_") ||
-        now <= 0)
+        result.retryClassification != "reconcile_only" ||
+        (!agentReview && !unreportedReview) || now <= 0)
         return false;
     const auto persisted = backendAgentCommandRepository_->resultForCommand(
         assignment.commandId);
@@ -221,28 +231,32 @@ bool DaemonRuntime::tryReconcileMediaShrinkStage(
         (op.state != State::outcomeUnknown &&
          op.state != State::succeeded))
         return false;
-    if (op.state == State::succeeded &&
-        op.resultReference != result.resultEvidence)
-        return false;
     if (op.state == State::outcomeUnknown &&
         op.resultReference !=
             "agent.media.shrink:" + assignment.commandId)
         return false;
-    std::uint64_t effectiveGeneration = 0;
-    std::string reason;
-    if (!mediaShrinkOperationFence_->effectiveCapability(
-            op.actorId, op.backendId, kMediaShrinkStageCommandType,
-            now, effectiveGeneration, reason) ||
-        effectiveGeneration != op.backendGeneration)
+    if (op.state == State::succeeded &&
+        !shrinkOpaqueId(op.resultReference, "shk_"))
         return false;
-    // Independent media probes happen AFTER durable Agent result ACK;
-    // they cannot be performed by the mutation executor itself.
+    // This is readback of the ORIGINAL immutable operation, not admission
+    // of a new mutation. A restarted Agent can have a newer generation, or
+    // be briefly offline, while the completed candidate still belongs to
+    // the old assignment. Never require a current-generation Stage grant to
+    // verify existing private bytes: require the recorded Agent result,
+    // exact Core-bound marker and independently validated source instead.
     NativeProcessRunner runner(std::chrono::seconds(120));
-    const auto verified = mediaShrinkPlanRuntime_->verifyStagedCandidate(
-        op.actorId, op.backendId, op.resourceId, op.operationId,
-        op.expectedResourceFingerprint, op.backendGeneration,
-        result.resultEvidence, runner);
-    if (!verified) return false;
+    const auto verified = agentReview
+        ? mediaShrinkPlanRuntime_->verifyStagedCandidate(
+            op.actorId, op.backendId, op.resourceId, op.operationId,
+            op.expectedResourceFingerprint, op.backendGeneration,
+            result.resultEvidence, runner)
+        : mediaShrinkPlanRuntime_->recoverStagedCandidate(
+            op.actorId, op.backendId, op.resourceId, op.operationId,
+            op.expectedResourceFingerprint, op.backendGeneration, runner);
+    if (!verified ||
+        (op.state == State::succeeded &&
+         op.resultReference != verified->reviewId))
+        return false;
     if (op.state != State::succeeded) {
         const auto advanced = mutationOperationRepository_->transition(
             op.operationId, op.operationRevision, op.state,
