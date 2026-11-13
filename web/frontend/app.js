@@ -3826,9 +3826,161 @@ function renderSettingsView(data) {
 }
 
 
+// A compact shortcut to the already-owned HEVC operation. This is a
+// same-browser convenience, not a second job store or an execution path.
+// The state and permissions always come from actor-owned Core GET/SSE.
+let homeHevcStream = null;
+let homeHevcOperationId = '';
+let homeHevcReadSequence = 0;
+function closeHomeHevcStream() {
+  if (homeHevcStream && typeof homeHevcStream.close === 'function')
+    homeHevcStream.close();
+  homeHevcStream = null;
+  homeHevcOperationId = '';
+  ++homeHevcReadSequence;
+}
+function renderHevcHomeActivity() {
+  const host = document.querySelector('[data-home-zone="additional-sections"]');
+  if (!host) return;
+  const backendId = selectedBackendId || 'default';
+  const currentKey = 'vdr-suite-hevc-current-v1.' + backendId;
+  let item = null;
+  try {
+    item = JSON.parse(window.sessionStorage.getItem(currentKey));
+  } catch (_) {}
+  const valid = item && item.backendId === backendId &&
+    /^rec_[0-9a-f]{32}$/.test(item.recordingId || '') &&
+    /^op_[0-9a-f]{32}$/.test(item.operationId || '') &&
+    item.recording && typeof item.recording === 'object';
+  let section = host.querySelector('[data-home-hevc-activity]');
+  if (!valid) {
+    if (section) section.remove();
+    closeHomeHevcStream();
+    return;
+  }
+  if (!section) {
+    section = document.createElement('section');
+    section.setAttribute('data-home-hevc-activity', '');
+    section.setAttribute('aria-label', 'HEVC-Aktivität');
+    section.style.cssText = 'display:grid;gap:.6rem;padding:1rem;border:1px solid rgba(125,211,252,.38);border-radius:1rem;background:rgba(15,23,42,.8);color:#f8fafc';
+    const heading = document.createElement('strong');
+    heading.textContent = 'HEVC · Aktuelle Aktivität';
+    section.appendChild(heading);
+    const name = document.createElement('div');
+    name.setAttribute('data-home-hevc-title', '');
+    section.appendChild(name);
+    const state = document.createElement('div');
+    state.setAttribute('data-home-hevc-state', '');
+    state.setAttribute('role', 'status');
+    state.style.cssText = 'font-size:.9rem;color:#cbd5e1;overflow-wrap:anywhere';
+    section.appendChild(state);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'HEVC-Auftrag direkt öffnen';
+    button.style.cssText = 'min-height:2.8rem;padding:.7rem 1rem;border:1px solid #7dd3fc;border-radius:.7rem;background:#102b4c;color:#fff;text-align:center;font:inherit;cursor:pointer';
+    section.appendChild(button);
+    host.prepend(section);
+  }
+  section.querySelector('[data-home-hevc-title]').textContent =
+    String(item.recording.title || 'Aufnahme');
+  const button = section.querySelector('button');
+  button.onclick = function () {
+    button.disabled = true;
+    const ready = window.VdrSuiteRecordings2 &&
+      typeof window.VdrSuiteRecordings2.openRecording === 'function'
+      ? Promise.resolve(true)
+      : (function () {
+          const loader = window.VdrSuiteDeferredFrontendRuntimes;
+          return loader && typeof loader.loadRecordings2 === 'function'
+            ? Promise.resolve(loader.loadRecordings2()).then(function () {
+                return Boolean(window.VdrSuiteRecordings2 &&
+                  typeof window.VdrSuiteRecordings2.openRecording === 'function');
+              })
+            : Promise.resolve(false);
+        }());
+    ready.then(function (ok) {
+      if (!ok) throw new Error('Aufnahmenansicht nicht verfügbar.');
+      closeHomeHevcStream();
+      selectModule('recordings2');
+      window.VdrSuiteRecordings2.openRecording(
+        Object.assign({}, item.recording, {
+          backendId: backendId, recordingId: item.recordingId,
+          id: item.recordingId, __vdrSuiteOpenHevcShrink: true
+        }), {
+          backendId: backendId,
+          backLabel: '← Zurück zu Home',
+          onClose: function () { selectModule('overview'); }
+        });
+    }).catch(function () {
+      const state = section.querySelector('[data-home-hevc-state]');
+      if (state) state.textContent =
+        'Aufnahmenansicht konnte nicht geöffnet werden.';
+    }).then(function () { button.disabled = false; });
+  };
+  const stateNode = section.querySelector('[data-home-hevc-state]');
+  if (homeHevcOperationId === item.operationId && homeHevcStream) return;
+  closeHomeHevcStream();
+  homeHevcOperationId = item.operationId;
+  stateNode.textContent = 'Aktueller Auftragsstatus wird geladen …';
+  const operationId = item.operationId;
+  const api = window.VdrSuiteClientApi;
+  const readStatus = function () {
+    if (!api || typeof api.getMediaShrinkOperation !== 'function') {
+      stateNode.textContent = 'Auftragsstatus derzeit nicht verfügbar.';
+      return;
+    }
+    const sequence = ++homeHevcReadSequence;
+    api.getMediaShrinkOperation({
+      backendId: backendId, operationId: operationId,
+      credentials: 'same-origin', cache: 'no-store'
+    }).then(function (op) {
+      if (sequence !== homeHevcReadSequence ||
+          homeHevcOperationId !== operationId ||
+          !op || op.operationId !== operationId || op.backendId !== backendId)
+        return;
+      if (op.state === 'succeeded' && op.resultReconciled === true)
+        stateNode.textContent = 'HEVC-Kandidat geprüft und fertig – zur Veröffentlichung bereit.';
+      else if (op.state === 'outcome_unknown')
+        stateNode.textContent = 'Ergebnis noch ungeklärt. Der Core prüft den vorhandenen Kandidaten.';
+      else if (op.state === 'failed_verified')
+        stateNode.textContent = 'Konvertierung fehlgeschlagen; kein bestätigter Kandidat.';
+      else if (op.state === 'dispatching')
+        stateNode.textContent = 'HEVC-Auftrag läuft im Hintergrund.';
+      else
+        stateNode.textContent = 'HEVC-Auftrag: ' + String(op.state || 'unbekannt');
+    }).catch(function () {
+      if (sequence === homeHevcReadSequence &&
+          homeHevcOperationId === operationId)
+        stateNode.textContent = 'Status momentan nicht erreichbar – bisherige Aufnahme bleibt erhalten.';
+    });
+  };
+  // One read on opening and on SSE reconnect; never cyclic polling.
+  readStatus();
+  const source = api &&
+    typeof api.createClientOperationUpdateSource === 'function'
+    ? api.createClientOperationUpdateSource(operationId) : null;
+  if (source) {
+    homeHevcStream = source;
+    source.onopen = readStatus;
+    source.addEventListener('operation', function (event) {
+      let hint = null;
+      try { hint = JSON.parse(event.data); } catch (_) {}
+      if (homeHevcStream === source && hint &&
+          hint.operationId === operationId) readStatus();
+    });
+    source.addEventListener('resync', function () {
+      if (homeHevcStream === source) readStatus();
+    });
+  }
+}
+document.addEventListener('vdr-suite:hevc-activity-changed', function () {
+  if (selectedModule === 'overview') renderHevcHomeActivity();
+});
+
 function renderSelectedModule(data) {
   if (selectedModule === 'overview') {
     renderSnapshotMetrics(data);
+    renderHevcHomeActivity();
     return;
   }
 
@@ -3973,6 +4125,7 @@ function selectModule(moduleName) {
   }
 
   selectedModule = moduleName;
+  if (moduleName !== 'overview') closeHomeHevcStream();
 
   if (moduleName === 'channels') {
     if (typeof selectedChannelId !== 'undefined') {
