@@ -15,6 +15,7 @@ const publishedRecordingId = 'rec_' + 'e'.repeat(32);
 const calls = [];
 const sources = [];
 let stageState = 'dispatching';
+let publishState = 'dispatching';
 let durableState = 'none';
 const storage = new Map();
 let keys = 0;
@@ -100,8 +101,10 @@ const api = {
         reviewId: stageState === 'succeeded' ? reviewId : ''});
     if (request.operationId === publishOperationId)
       return Promise.resolve({backendId, operationId: publishOperationId,
-        action: 'publish', state: 'succeeded', resultReconciled: true,
-        publishedRecordingId});
+        action: 'publish', state: publishState,
+        resultReconciled: publishState === 'succeeded',
+        publishedRecordingId: publishState === 'succeeded'
+          ? publishedRecordingId : ''});
     throw new Error('Unexpected operation');
   },
   getMediaShrinkReview(request) {
@@ -365,6 +368,7 @@ function nodesByTag(tag) {
   const publishedStream = sources.find(x => x.operationId === publishOperationId);
   assert(publishedStream && !publishedStream.closed,
     'Core auto-publish uses the existing Publish SSE subscription');
+  publishState = 'succeeded';
   publishedStream.listeners.operation({
     data: JSON.stringify({operationId: publishOperationId})
   });
