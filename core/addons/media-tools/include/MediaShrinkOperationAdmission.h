@@ -44,6 +44,8 @@ struct MediaShrinkStageAdmission {
     std::string encoder = "software";
     unsigned maxHeight = 0;
     bool nightMode = false;
+    // True for the user-facing one-click Stage -> Publish workflow.
+    bool autoPublish = false;
     std::int64_t now = 0;
 };
 
