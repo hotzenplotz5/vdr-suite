@@ -77,7 +77,8 @@ std::optional<ShrinkReviewBinding> readShrinkReviewBinding(
 
 // Independent read-only verification on a fresh source snapshot. Can be
 // used by Core reconciliation without publishing or changing original files.
-// Throws on missing, modified, foreign or incomplete HEVC candidates.
+// Rejects incomplete/foreign HEVC data and missing or unsafe metadata;
+// copied metadata need not match byte-for-byte until Publish refreshes it.
 std::uint64_t verifyShrinkCandidate(
     const ShrinkPlan& source, const fs::path& candidateDirectory,
     ProcessRunner& runner);
