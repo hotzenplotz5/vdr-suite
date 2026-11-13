@@ -608,13 +608,15 @@
       // Operation readback. Late plan responses must never overwrite an SSE
       // result (the first message previously vanished immediately).
       const planStatus = shared.node('p', 'recordings2-media-check-status recordings2-hevc-plan-status',
-        'HEVC-Vorprüfung liest die Aufnahme nur. Das Original bleibt erhalten.');
+        '');
+      planStatus.hidden = true;
       const status = shared.node('p', 'recordings2-media-check-status recordings2-hevc-operation-status',
-        'Noch kein HEVC-Auftrag für diese Aufnahme.');
+        'Bereits verkleinerte Aufnahme wird gesucht …');
       status.setAttribute('role', 'status');
-      const launch = makeButton('Vorprüfung starten', function () {
+      const launch = makeButton('Aufnahme verkleinern', function () {
         launch.disabled = true;
-        planStatus.textContent = 'Aufnahme wird zugeordnet …';
+        planStatus.hidden = false;
+        planStatus.textContent = 'Aufnahme wird geprüft …';
         Promise.resolve().then(function () {
           return resolveMediaCheckIdentity(client, recording, backendId);
         }).then(function (identity) {
@@ -650,7 +652,7 @@
             !remembered('stage') && !remembered('publish');
           if (!controls.hidden) restorePending();
         }).catch(function (error) {
-          planStatus.textContent = 'HEVC-Vorprüfung fehlgeschlagen: ' +
+          planStatus.textContent = 'Prüfung fehlgeschlagen: ' +
             text(error && error.message ? error.message : error);
         }).then(function () { launch.disabled = false; });
       });
@@ -712,7 +714,7 @@
       night.type = 'checkbox';
       nightLabel.prepend(night);
 
-      const stage = makeButton('HEVC-Konvertierung starten', function () {
+      const stage = makeButton('Verkleinerung starten', function () {
         if (!planReady || !recordingId || stage.disabled) return;
         const key = newIdempotencyKey();
         if (!key || !remember('stage', {key: key, operationId: ''})) {
@@ -746,12 +748,12 @@
             '. Bitte nicht erneut starten.';
         });
       });
-      const refreshStage = makeButton('Stage-Status aktualisieren', function () {
+      const refreshStage = makeButton('Status aktualisieren', function () {
         refreshOperation('stage');
       });
       refreshStage.disabled = true;
       const candidate = shared.node('p', 'recordings2-media-check-status');
-      const publish = makeButton('Kandidaten ausdrücklich veröffentlichen', function () {
+      const publish = makeButton('Als neue Aufnahme hinzufügen', function () {
         if (!/^shk_[0-9a-f]{32}$/.test(reviewId) || publish.disabled ||
             typeof global.confirm !== 'function' ||
             !global.confirm('HEVC-Kandidat als zusätzliche VDR-Aufnahme veröffentlichen? Das Original bleibt erhalten.'))
@@ -784,7 +786,7 @@
         });
       });
       publish.hidden = true;
-      const refreshPublish = makeButton('Publish-Status aktualisieren', function () {
+      const refreshPublish = makeButton('Status der Veröffentlichung', function () {
         refreshOperation('publish');
       });
       refreshPublish.disabled = true;
@@ -866,7 +868,11 @@
               ' MiB; Einsparung: ' +
               ((review.sourceBytes - review.candidateBytes) / 1048576).toFixed(1) +
               ' MiB.' : '';
-          candidate.textContent = 'Review: ' + review.state + '.' + sizes;
+          candidate.textContent = review.state === 'staged'
+            ? 'Fertiger HEVC-Film.' + sizes
+            : review.state === 'published'
+              ? 'HEVC-Aufnahme hinzugefügt.' + sizes
+              : 'HEVC-Aufnahme wird hinzugefügt.' + sizes;
           publish.hidden = review.state !== 'staged' ||
             review.revision !== 1 || review.publishAvailable !== true;
           if (remembered('publish')) publish.disabled = true;
@@ -1005,9 +1011,10 @@
         });
       }
 
-      controls.append(encoderLabel, fallbackNotice, heightLabel, nightLabel,
-        stage, refreshStage, candidate, publish, refreshPublish);
-      panel.appendChild(shared.node('h4', '', 'HEVC-Speicherplatzoptimierung'));
+      const setup = shared.node('div', 'recordings2-media-shrink-setup');
+      setup.append(encoderLabel, fallbackNotice, heightLabel, nightLabel, stage);
+      controls.append(setup, refreshStage, candidate, publish, refreshPublish);
+      panel.appendChild(shared.node('h4', '', 'HEVC-Aufnahme'));
       panel.appendChild(launch);
       panel.appendChild(planStatus);
       panel.appendChild(status);
@@ -1018,7 +1025,7 @@
       // worker/operation flow and no additional authority.
       const actionHost = root.querySelector('.recordings2-actions');
       const action = makeButton(actionHost
-        ? 'Aufnahme verkleinern (HEVC)' : 'HEVC-Vorprüfung', function () {
+        ? 'Aufnahme verkleinern (HEVC)' : 'HEVC-Aufnahme', function () {
         if (actionHost) actionHost.open = true;
         panel.hidden = false;
         if (typeof panel.scrollIntoView === 'function')
@@ -1044,9 +1051,79 @@
       }
       if (recordingId && (remembered('stage') || remembered('publish'))) {
         controls.hidden = false;
-        planStatus.textContent = 'Früheren Auftrag automatisch geladen.';
+        planStatus.textContent = 'Bereits gestarteter Auftrag geladen.';
         restorePending();
       }
+      // Always discover a completed Stage from the durable backend journal.
+      // This works on a phone or after browser storage has been cleared.
+      Promise.resolve(recordingId ||
+        resolveMediaCheckIdentity(client, recording, backendId)
+      ).then(function (identity) {
+        if (!/^rec_[0-9a-f]{32}$/.test(identity) ||
+            !panel.parentNode) return;
+        recordingId = identity;
+        if (typeof client.getMediaShrinkRecording !== 'function') {
+          status.textContent = 'Gespeicherte HEVC-Aufnahme derzeit nicht abrufbar.';
+          return;
+        }
+        return client.getMediaShrinkRecording({
+          backendId: backendId, recordingId: recordingId,
+          credentials: 'same-origin', cache: 'no-store'
+        }).then(function (existing) {
+          if (!existing || existing.backendId && existing.backendId !== backendId ||
+              existing.recordingId !== recordingId)
+            throw new Error('Antwort passt nicht zu dieser Aufnahme.');
+          if (existing.state === 'ready' &&
+              /^op_[0-9a-f]{32}$/.test(text(existing.operationId)) &&
+              /^shk_[0-9a-f]{32}$/.test(text(existing.reviewId))) {
+            stageOperationId = existing.operationId;
+            reviewId = existing.reviewId;
+            controls.hidden = false;
+            setup.hidden = true;
+            launch.hidden = true;
+            planStatus.hidden = true;
+            refreshStage.disabled = false;
+            status.textContent = 'HEVC fertig – der verkleinerte Film ist vorhanden.';
+            candidate.textContent = 'Dateigröße wird geladen …';
+            noteCurrentActivity(stageOperationId);
+            fetchReview(reviewId);
+            return;
+          }
+          if (existing.state === 'published' &&
+              /^rec_[0-9a-f]{32}$/.test(text(existing.publishedRecordingId))) {
+            controls.hidden = false;
+            setup.hidden = true;
+            launch.hidden = true;
+            refreshStage.hidden = true;
+            publish.hidden = true;
+            status.textContent = 'HEVC-Aufnahme bereits hinzugefügt. Original erhalten.';
+            candidate.textContent = 'Neue Aufnahme: ' + existing.publishedRecordingId;
+            return;
+          }
+          if (existing.state === 'publishing' || existing.state === 'processing') {
+            controls.hidden = false;
+            setup.hidden = true;
+            launch.hidden = true;
+            status.textContent = existing.state === 'publishing'
+              ? 'HEVC-Aufnahme wird hinzugefügt.'
+              : 'Vorhandene HEVC-Konvertierung wird überprüft.';
+            if (existing.state === 'processing' &&
+                /^op_[0-9a-f]{32}$/.test(text(existing.operationId))) {
+              stageOperationId = existing.operationId;
+              refreshStage.disabled = false;
+              watchOperation('stage');
+              refreshOperation('stage');
+            }
+            return;
+          }
+          if (!remembered('stage') && !remembered('publish'))
+            status.textContent = 'Noch keine verkleinerte Version dieser Aufnahme.';
+        });
+      }).catch(function (error) {
+        if (!remembered('stage') && !remembered('publish'))
+          status.textContent = 'Vorhandene HEVC-Aufnahme konnte nicht geladen werden: ' +
+            text(error && error.message ? error.message : error);
+      });
       // Card-menu navigation enters this same Hero-owned read-only workflow.
       // No Plan/Stage/Publish POST is started by opening the action.
       if (actionHost && recording.__vdrSuiteOpenHevcShrink === true) {
