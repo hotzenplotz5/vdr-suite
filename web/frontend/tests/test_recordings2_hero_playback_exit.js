@@ -100,6 +100,8 @@ const window = {
 };
 window.window = window;
 const context = vm.createContext({window, document, console, Promise, Number, String, Math, Object});
+vm.runInContext(fs.readFileSync('web/frontend/recordings2-browser-cards.js', 'utf8'),
+  context, {filename: 'recordings2-browser-cards.js'});
 vm.runInContext(viewSource, context, {filename: 'recordings2-browser-view.js'});
 vm.runInContext(heroSource, context, {filename: 'recordings2-hero-detail.js'});
 vm.runInContext(prewarmSource, context, {filename: 'recordings2-hero-prewarm.js'});
