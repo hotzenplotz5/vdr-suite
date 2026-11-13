@@ -5822,6 +5822,11 @@ bool DaemonRuntime::initialize()
                     "\",\"operationId\":\"" + op.operationId +
                     "\",\"reviewId\":\"" + op.resultReference + "\"";
                 if (automatic) body += ",\"autoPublish\":true";
+                if (state == "publishing" &&
+                    vdrsuite::mediatools::shrinkOpaqueId(
+                        review.review.publishOperationId, "op_"))
+                    body += ",\"publishOperationId\":\"" +
+                        review.review.publishOperationId + "\"";
                 if (state == "published" &&
                     vdrsuite::mediatools::shrinkOpaqueId(
                         review.review.publishedRecordingId, "rec_"))
