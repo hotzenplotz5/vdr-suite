@@ -3848,10 +3848,35 @@ function renderHevcHomeActivity() {
   try {
     item = JSON.parse(window.sessionStorage.getItem(currentKey));
   } catch (_) {}
-  const valid = item && item.backendId === backendId &&
-    /^rec_[0-9a-f]{32}$/.test(item.recordingId || '') &&
-    /^op_[0-9a-f]{32}$/.test(item.operationId || '') &&
-    item.recording && typeof item.recording === 'object';
+  const validItem = function (value) {
+    return value && value.backendId === backendId &&
+      /^rec_[0-9a-f]{32}$/.test(value.recordingId || '') &&
+      /^op_[0-9a-f]{32}$/.test(value.operationId || '') &&
+      value.recording && typeof value.recording === 'object';
+  };
+  if (!validItem(item)) {
+    // Migrate the pre-Home session format: existing HEVC operations must
+    // appear without navigating through folders merely to save a shortcut.
+    try {
+      const session = window.sessionStorage;
+      const prefix = 'vdr-suite-hevc-v1.' + backendId + '.';
+      for (let i = session.length - 1; i >= 0; --i) {
+        const key = session.key(i) || '';
+        if (!key.startsWith(prefix) || !key.endsWith('.stage')) continue;
+        const rec = key.slice(prefix.length, -'.stage'.length);
+        if (!/^rec_[0-9a-f]{32}$/.test(rec)) continue;
+        const saved = JSON.parse(session.getItem(key));
+        if (!saved || !/^op_[0-9a-f]{32}$/.test(saved.operationId || ''))
+          continue;
+        item = {backendId: backendId, recordingId: rec,
+          operationId: saved.operationId,
+          recording: {recordingId: rec, title: 'Früherer HEVC-Auftrag'}};
+        session.setItem(currentKey, JSON.stringify(item));
+        break;
+      }
+    } catch (_) {}
+  }
+  const valid = validItem(item);
   let section = host.querySelector('[data-home-hevc-activity]');
   if (!valid) {
     if (section) section.remove();
