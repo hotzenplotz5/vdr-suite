@@ -9,6 +9,7 @@
 #include "BackendAgentLifecycle.h"
 #include "BackendRegistryService.h"
 #include "MediaShrinkAgentCommand.h"
+#include "MediaShrinkAgentExecutor.h"
 #include "MediaShrinkCommandFence.h"
 #include "MediaShrinkReviewRepository.h"
 #include "MutationOperationRepository.h"
