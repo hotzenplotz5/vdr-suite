@@ -168,6 +168,13 @@ void reject(F callback) {
     assert(failed);
 }
 
+std::string readFixtureFile(const fs::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    assert(input);
+    return std::string(std::istreambuf_iterator<char>(input),
+                       std::istreambuf_iterator<char>());
+}
+
 int main() {
     int checks = 0;
     {
@@ -408,11 +415,17 @@ int main() {
         FakeProcess runner;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
         const auto candidate = stageShrink(plan, runner);
+        // A stale/edited private info copy must not make a completed HEVC
+        // encode disappear. Publish replaces it with current original info.
         std::ofstream(candidate / "info", std::ios::binary | std::ios::trunc)
-            << "T Tampered\\nD Changed\\n";
-        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
-        assert(fs::exists(candidate) && fs::exists(fixture.recording / "info"));
-        assert(!fs::exists(fixture.video / "Sample_HEVC"));
+            << "T Stale\\nD Outdated\\n";
+        assert(verifyShrinkCandidate(plan, candidate, runner) > 0);
+        const auto published = publishShrinkCandidate(plan, candidate, runner);
+        assert(fs::exists(published / "00001.ts"));
+        assert(readFixtureFile(published / "info") ==
+               readFixtureFile(fixture.recording / "info"));
+        assert(!fs::exists(candidate) &&
+               fs::exists(fixture.recording / "00001.ts"));
         ++checks;
     }
     {
@@ -420,11 +433,35 @@ int main() {
         FakeProcess runner;
         const auto plan = inspectShrink(fixture.video, fixture.relative());
         const auto candidate = stageShrink(plan, runner);
+        // Same recovery/publish behavior for a stale subtitle copy.
         std::ofstream(candidate / "de.srt", std::ios::binary | std::ios::trunc)
-            << "1\\n00:00:01,000 --> 00:00:02,000\\nHullo\\n";
-        reject([&] { publishShrinkCandidate(plan, candidate, runner); });
-        assert(fs::exists(candidate) && fs::exists(fixture.recording / "de.srt"));
-        assert(!fs::exists(fixture.video / "Sample_HEVC"));
+            << "1\\n00:00:01,000 --> 00:00:02,000\\nOutdated\\n";
+        assert(verifyShrinkCandidate(plan, candidate, runner) > 0);
+        const auto published = publishShrinkCandidate(plan, candidate, runner);
+        assert(readFixtureFile(published / "de.srt") ==
+               readFixtureFile(fixture.recording / "de.srt"));
+        assert(fs::exists(fixture.recording / "00001.ts"));
+        ++checks;
+    }
+    {
+        Fixture fixture;
+        FakeProcess runner;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto candidate = stageShrink(plan, runner);
+        // Missing essential metadata is not equivalent to stale metadata.
+        fs::remove(candidate / "info");
+        reject([&] { verifyShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(fixture.recording / "info"));
+        ++checks;
+    }
+    {
+        Fixture fixture;
+        FakeProcess runner;
+        const auto plan = inspectShrink(fixture.video, fixture.relative());
+        const auto candidate = stageShrink(plan, runner);
+        fs::remove(candidate / "de.srt");
+        reject([&] { verifyShrinkCandidate(plan, candidate, runner); });
+        assert(fs::exists(fixture.recording / "de.srt"));
         ++checks;
     }
     {
