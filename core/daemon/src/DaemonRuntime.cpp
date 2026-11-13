@@ -310,9 +310,14 @@ void DaemonRuntime::progressDurableMediaShrinkAutoPublish()
             request.now = now;
             const auto result = admissions.publish(request);
             if (result.status == MediaShrinkAdmissionStatus::accepted &&
-                result.operation.state == State::accepted)
-                (void)assigner.assign(
+                result.operation.state == State::accepted) {
+                const auto dispatched = assigner.assign(
                     system, result.operation.operationId, now);
+                // Wake subscribers of the original Stage; the browser
+                // discovers the existing Publish operation by readback.
+                if (dispatched.accepted && deviceLiveEventHub_)
+                    deviceLiveEventHub_->publishOperation(stage.operationId);
+            }
         } else if (review.review.state == "publishing" &&
                    review.review.revision == 2) {
             // Restore the single accepted command after a Core restart.
@@ -328,9 +333,12 @@ void DaemonRuntime::progressDurableMediaShrinkAutoPublish()
                 continue;
             if (!backendAgentCommandRepository_->findAssignmentForOperation(
                     stage.backendId, existing.operation.operationId,
-                    vdrsuite::mediatools::kMediaShrinkPublishCommandType))
-                (void)assigner.assign(
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType)) {
+                const auto dispatched = assigner.assign(
                     system, existing.operation.operationId, now);
+                if (dispatched.accepted && deviceLiveEventHub_)
+                    deviceLiveEventHub_->publishOperation(stage.operationId);
+            }
         }
     }
 }
