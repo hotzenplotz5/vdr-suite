@@ -6222,7 +6222,7 @@ bool DaemonRuntime::initialize()
                 if (!review.ok() ||
                     review.review.state != "publishing" ||
                     review.review.publishOperationId != op.operationId ||
-                    review.review.backendGeneration !=
+                    review.review.backendGeneration >
                         op.backendGeneration ||
                     review.review.sourceFingerprint !=
                         op.expectedResourceFingerprint)
