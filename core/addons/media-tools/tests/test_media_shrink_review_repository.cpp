@@ -128,7 +128,17 @@ int main()
     succeed(operations, "op-publish", newRecordingId);
     assert(reviews.claimPublication("actor-a","backend-a",reviewId,
         1,"op-publish").status == MediaShrinkReviewStatus::conflict);
-    const auto completed = reviews.completePublication(
+    // Simulate a crash after operation=succeeded but before the separate
+    // review-row commit. An independent reopened Core repository must be
+    // able to finish the existing review without executing Publish again.
+    MediaShrinkReviewRepository recoveredAfterPublish(database, operations);
+    assert(recoveredAfterPublish.ensureSchema());
+    const auto interrupted = recoveredAfterPublish.find(
+        "actor-a", "backend-a", reviewId);
+    assert(interrupted.ok() && interrupted.review.state == "publishing" &&
+           interrupted.review.revision == 2 &&
+           interrupted.review.publishOperationId == "op-publish");
+    const auto completed = recoveredAfterPublish.completePublication(
         "actor-a","backend-a",reviewId, 2);
     assert(completed.ok() && completed.review.state == "published" &&
            completed.review.publishedRecordingId == newRecordingId &&
