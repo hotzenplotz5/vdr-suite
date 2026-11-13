@@ -262,7 +262,7 @@ int main() {
                fixture.input() == original &&
                fs::exists(fixture.recording / "info") &&
                fs::exists(fixture.recording / "de.srt"));
-        assert(published.string().find("_HEVC") != std::string::npos);
+        assert(published.string().find(".shrink") != std::string::npos);
         reject([&] { publishShrinkCandidate(plan, stage, runner); });
         ++checks;
     }
@@ -299,7 +299,7 @@ int main() {
         const auto plan = inspectShrink(fixture.video, fixture.relative());
         const auto stage = stageShrink(plan, runner);
         fs::create_symlink(fixture.recording.parent_path(),
-                           fixture.video / "Sample_HEVC");
+                           fixture.video / "Sample.shrink");
         reject([&] { publishShrinkCandidate(plan, stage, runner); });
         assert(fs::exists(stage / "00001.ts"));
         assert(fs::exists(fixture.recording / "00001.ts"));
@@ -382,7 +382,7 @@ int main() {
         std::ofstream(fixture.recording / "00001.ts", std::ios::app) << "changed";
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(candidate));
-        assert(!fs::exists(fixture.video / "Sample_HEVC"));
+        assert(!fs::exists(fixture.video / "Sample.shrink"));
         ++checks;
     }
     {
@@ -395,7 +395,7 @@ int main() {
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(candidate / ".shrink-review"));
         assert(fs::exists(fixture.recording / "00001.ts"));
-        assert(!fs::exists(fixture.video / "Sample_HEVC"));
+        assert(!fs::exists(fixture.video / "Sample.shrink"));
         ++checks;
     }
     {
@@ -407,7 +407,7 @@ int main() {
             "2\n00:00:03,000 --> 00:00:04,000\nWelt\n";
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(candidate / ".shrink-review"));
-        assert(!fs::exists(fixture.video / "Sample_HEVC"));
+        assert(!fs::exists(fixture.video / "Sample.shrink"));
         ++checks;
     }
     {
@@ -474,7 +474,7 @@ int main() {
         runner.badDuration = true;
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(candidate) && fs::exists(fixture.recording / "00001.ts"));
-        assert(!fs::exists(fixture.video / "Sample_HEVC"));
+        assert(!fs::exists(fixture.video / "Sample.shrink"));
         ++checks;
     }
     {
@@ -487,7 +487,7 @@ int main() {
             << std::string(32768, 'Z');
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(candidate) && fs::exists(fixture.recording / "00001.ts"));
-        assert(!fs::exists(fixture.video / "Sample_HEVC"));
+        assert(!fs::exists(fixture.video / "Sample.shrink"));
         ++checks;
     }
     {
@@ -534,7 +534,7 @@ int main() {
         assert(fs::exists(candidate / "00001.ts") &&
                fs::exists(fixture.recording / "00002.ts") &&
                fixture.input() == source &&
-               !fs::exists(fixture.video / "Sample_HEVC"));
+               !fs::exists(fixture.video / "Sample.shrink"));
         ++checks;
     }
     {
@@ -557,7 +557,7 @@ int main() {
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(candidate / "00001.ts") &&
                fs::exists(fixture.recording / "00001.ts") &&
-               !fs::exists(fixture.video / "Sample_HEVC"));
+               !fs::exists(fixture.video / "Sample.shrink"));
         ++checks;
     }
     {
@@ -578,7 +578,7 @@ int main() {
             << evidence.substr(0, offset + marker.size()) << "10.0\n";
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(fixture.recording / "00001.ts") &&
-               !fs::exists(fixture.video / "Sample_HEVC"));
+               !fs::exists(fixture.video / "Sample.shrink"));
         ++checks;
     }
     {
@@ -603,7 +603,7 @@ int main() {
         reject([&] { publishShrinkCandidate(plan, candidate, runner); });
         assert(fs::exists(fixture.recording / "00001.ts") &&
                fs::exists(fixture.recording / "00002.ts") &&
-               !fs::exists(fixture.video / "Sample_HEVC"));
+               !fs::exists(fixture.video / "Sample.shrink"));
         ++checks;
     }
 
@@ -639,7 +639,7 @@ int main() {
         assert(fs::exists(candidate / "00001.ts") &&
                fs::exists(fixture.recording / "00001.ts") &&
                fs::exists(fixture.recording / "00002.ts") &&
-               !fs::exists(fixture.video / "Sample_HEVC"));
+               !fs::exists(fixture.video / "Sample.shrink"));
         ++checks;
     }
     {
