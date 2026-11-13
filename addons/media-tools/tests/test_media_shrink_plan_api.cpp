@@ -388,6 +388,23 @@ int main() {
     const std::string after{std::istreambuf_iterator<char>(in),
                             std::istreambuf_iterator<char>()};
     assert(before == after);
+    // After a completed Stage, metadata enrichment may rewrite the original
+    // info file before Core reads back a previously published VDR recording.
+    // The read-only Publish path still resolves the trusted native identity,
+    // but must not require the obsolete Stage source fingerprint.
+    const auto relative = recording.lexically_relative(root);
+    const auto stageFingerprint = vdrsuite::mediatools::shrinkSourceFingerprint(
+        vdrsuite::mediatools::inspectShrink(root, relative));
+    assert(runtime.trustedSourcePaths("local", kRecordingId, stageFingerprint));
+    std::ofstream(recording / "info", std::ios::app)
+        << "D Metadata nach Stage aktualisiert\n";
+    assert(!runtime.trustedSourcePaths("local", kRecordingId, stageFingerprint));
+    const auto publishedReadback = runtime.trustedSourcePaths(
+        "local", kRecordingId, stageFingerprint, true, false);
+    assert(publishedReadback && publishedReadback->videoRoot == root &&
+           publishedReadback->relativeRecording == relative);
+    assert(!runtime.trustedSourcePaths("local", "rec_wrong",
+                                       stageFingerprint, true, false));
     // Failed-open if a recording path is replaced by a symlink.
     fs::rename(recording / "00001.ts", recording / "saved.ts");
     fs::create_symlink(recording / "saved.ts", recording / "00001.ts");
