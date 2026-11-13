@@ -132,6 +132,7 @@ int main() {
         MutationOperationState::executedUnverified,
         MutationOperationState::succeeded, kReviewId, 140).ok());
     assert(reviews.registerStaged(kReviewId, stage.operationId).ok());
+    bool backendOnline = true;
     DaemonMediaShrinkPlanRuntime runtime(
         {{"local", root.string()}},
         [&](const std::string& backend, const std::string& id)
@@ -140,7 +141,9 @@ int main() {
                 return recording;
             return std::nullopt;
         },
-        [](const std::string& backend) {return backend == "local";},
+        [&](const std::string& backend) {
+            return backendOnline && backend == "local";
+        },
         &reviews);
     auto& api = MediaShrinkPlanApiRuntime::instance();
     api.registerHandlers(
@@ -276,6 +279,19 @@ int main() {
         assert(recovered && recovered->reviewId == recoveredReview);
         assert(recovered->sourceBytes == 32768 &&
                recovered->candidateBytes == 8192);
+        // A Stage completed under generation 7 before the Agent dropped
+        // offline. Core must still verify its private immutable candidate.
+        // New Stage/Publish admissions remain gated by live capabilities.
+        backendOnline = false;
+        assert(!runtime.trustedSourcePaths("local", kRecordingId, fingerprint));
+        assert(!runtime.trustedSourceFingerprint("local", kRecordingId));
+        const auto recoveredOffline = runtime.recoverStagedCandidate(
+            "actor-a", "local", kRecordingId, recoveredOperation,
+            fingerprint, 7, runner);
+        assert(recoveredOffline &&
+               recoveredOffline->reviewId == recoveredReview);
+        assert(runner.encodes == 1 && runner.indexes == 1);
+        backendOnline = true;
         const auto exact = runtime.verifyStagedCandidate(
             "actor-a", "local", kRecordingId, recoveredOperation,
             fingerprint, 7, recoveredReview, runner);
