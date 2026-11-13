@@ -490,6 +490,7 @@ struct RecordingCandidate
 {
     VdrRecording recording;
     std::string inode;
+    std::string eventTitle;
     std::size_t originalIndex = 0;
 };
 
@@ -767,6 +768,7 @@ std::vector<VdrRecording> RestfulApiRecordingMapper::parseRecordings(const std::
         RecordingCandidate candidate;
         candidate.recording = mapObjectToRecording(objectText);
         candidate.inode = getStringField(objectText, "inode");
+        candidate.eventTitle = getStringField(objectText, "event_title");
         candidate.originalIndex = candidates.size();
 
         if (!candidate.recording.id.empty()) {
@@ -783,8 +785,7 @@ std::vector<VdrRecording> RestfulApiRecordingMapper::parseRecordings(const std::
         if (sourceTitle.empty()) {
             // The original may be unavailable in this inventory. Prefer the
             // VDR event title to leaking the temporary working-directory ID.
-            sourceTitle = getStringField(
-                objects.at(candidate.originalIndex), "event_title");
+            sourceTitle = candidate.eventTitle;
         }
         if (sourceTitle.empty()) sourceTitle = "HEVC-Aufnahme";
         candidate.recording.title = sourceTitle + ".shrink";
