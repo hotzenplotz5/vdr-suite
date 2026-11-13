@@ -85,6 +85,7 @@ test-recordings2-runtime:
 	node web/frontend/tests/test_recordings2_hero_playback_exit.js
 	node web/frontend/tests/test_media_check_composition.js
 	node web/frontend/tests/test_media_shrink_hero_flow.js
+	node web/frontend/tests/test_hevc_home_activity.js
 	node web/frontend/tests/test_recordings2_hero_prewarm_contract.js
 	node web/frontend/tests/test_recordings2_hero_prewarm_idle_expiry.js
 	node web/frontend/tests/test_recordings2_metadata_assignment.js
