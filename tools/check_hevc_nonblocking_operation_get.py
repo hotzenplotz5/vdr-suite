@@ -59,6 +59,17 @@ assert "fs::path(recording.path) == publishedNative" not in lookup, (
 )
 assert "fs::path(source->relativeRecording.parent_path()" in lookup
 assert 'string() + ".shrink")' in lookup
+# A crash after the durable operation transitions to succeeded but before
+# the review advances must not strand "publishing" indefinitely.
+assert '"media.shrink.publish", {State::succeeded}, 128' in reconciliation
+assert "completePublication(" in reconciliation, (
+    "Core must recover a stranded published review from succeeded evidence"
+)
+shrink = Path("addons/media-tools/src/MediaShrink.cpp").read_text()
+assert "notifyVdrAfterShrinkPublish(checked.videoRoot);" in shrink
+assert 'videoRoot / ".update"' in shrink, (
+    "Native VDR recordings must be rescanned after a completed Publish"
+)
 print("HEVC_PUBLISH_NATIVE_READBACK=PASS")
 
 print("HEVC_NONBLOCKING_GET_BACKGROUND_SSE=PASS")
