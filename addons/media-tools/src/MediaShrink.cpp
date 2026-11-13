@@ -337,44 +337,80 @@ void copySubtitles(const ShrinkPlan& plan, const fs::path& destination) {
     }
 }
 
-void requireMatchingSidecar(const fs::path& original, const fs::path& staged) {
-    Descriptor left(::open(original.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
-    Descriptor right(::open(staged.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
-    struct stat a{}, b{}, afterA{}, afterB{};
-    demand(left.fd >= 0 && right.fd >= 0 &&
-           ::fstat(left.fd, &a) == 0 && ::fstat(right.fd, &b) == 0 &&
-           S_ISREG(a.st_mode) && S_ISREG(b.st_mode) &&
-           a.st_size > 0 && a.st_size == b.st_size &&
-           a.st_size <= 8 * 1024 * 1024,
-           "shrink candidate sidecar is missing or changed");
-    std::array<char, 4096> source{}, candidate{};
-    std::uint64_t offset = 0;
-    while (offset < static_cast<std::uint64_t>(a.st_size)) {
-        const auto size = static_cast<std::size_t>(
-            std::min<std::uint64_t>(source.size(),
-                static_cast<std::uint64_t>(a.st_size) - offset));
-        const ssize_t n = ::pread(left.fd, source.data(), size,
-                                  static_cast<off_t>(offset));
-        const ssize_t m = ::pread(right.fd, candidate.data(), size,
-                                  static_cast<off_t>(offset));
-        demand(n == static_cast<ssize_t>(size) &&
-               m == static_cast<ssize_t>(size) &&
-               std::equal(source.begin(), source.begin() + size,
-                          candidate.begin()),
-               "shrink candidate sidecar differs from original");
-        offset += size;
+// Staged metadata is a copy, not evidence that FFmpeg produced valid video.
+// A difference from the original must not invalidate independent HEVC readback.
+void requireUsableStagedSidecar(const fs::path& staged, std::int64_t maxBytes) {
+    struct stat file{};
+    demand(::lstat(staged.c_str(), &file) == 0 &&
+           S_ISREG(file.st_mode) && file.st_size > 0 &&
+           file.st_size <= maxBytes,
+           "shrink candidate sidecar is missing or unsafe");
+}
+
+// Publication uses fresh original metadata, not possibly stale/stale-edited
+// private copies. Write a complete replacement before atomically renaming it;
+// failure leaves the original and the existing staged copy untouched.
+void refreshSidecarForPublication(const fs::path& original,
+                                  const fs::path& staged,
+                                  std::int64_t maxBytes) {
+    const std::string pattern = staged.string() + ".refresh-XXXXXX";
+    std::vector<char> name(pattern.begin(), pattern.end());
+    name.push_back('\0');
+    Descriptor output(::mkstemp(name.data()));
+    demand(output.fd >= 0, "cannot prepare refreshed shrink metadata");
+    const fs::path temporary(name.data());
+    try {
+        Descriptor input(::open(original.c_str(),
+            O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+        struct stat before{}, after{}, prior{};
+        demand(input.fd >= 0 && ::fstat(input.fd, &before) == 0 &&
+               S_ISREG(before.st_mode) && before.st_size > 0 &&
+               before.st_size <= maxBytes,
+               "original shrink metadata unavailable");
+        demand(::lstat(staged.c_str(), &prior) == 0 &&
+               S_ISREG(prior.st_mode),
+               "unsafe staged shrink metadata");
+        std::array<char, 4096> buffer{};
+        std::uint64_t remaining =
+            static_cast<std::uint64_t>(before.st_size);
+        while (remaining > 0) {
+            const auto size = static_cast<std::size_t>(
+                std::min<std::uint64_t>(remaining, buffer.size()));
+            const ssize_t count = ::read(input.fd, buffer.data(), size);
+            if (count < 0 && errno == EINTR) continue;
+            demand(count > 0 && static_cast<std::size_t>(count) <= size,
+                   "original shrink metadata changed during copy");
+            std::size_t offset = 0;
+            while (offset < static_cast<std::size_t>(count)) {
+                const ssize_t written = ::write(output.fd,
+                    buffer.data() + offset,
+                    static_cast<std::size_t>(count) - offset);
+                if (written < 0 && errno == EINTR) continue;
+                demand(written > 0, "cannot copy refreshed shrink metadata");
+                offset += static_cast<std::size_t>(written);
+            }
+            remaining -= static_cast<std::uint64_t>(count);
+        }
+        demand(::fstat(input.fd, &after) == 0 &&
+               before.st_dev == after.st_dev &&
+               before.st_ino == after.st_ino &&
+               before.st_size == after.st_size &&
+               before.st_mtim.tv_sec == after.st_mtim.tv_sec &&
+               before.st_mtim.tv_nsec == after.st_mtim.tv_nsec,
+               "original shrink metadata changed during publication");
+        demand(::fsync(output.fd) == 0,
+               "cannot persist refreshed shrink metadata");
+        demand(::rename(temporary.c_str(), staged.c_str()) == 0,
+               "cannot replace staged shrink metadata");
+        Descriptor directory(::open(staged.parent_path().c_str(),
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+        demand(directory.fd >= 0 && ::fsync(directory.fd) == 0,
+               "cannot persist refreshed shrink directory");
+    } catch (...) {
+        std::error_code ignored;
+        fs::remove(temporary, ignored);
+        throw;
     }
-    demand(::fstat(left.fd, &afterA) == 0 &&
-           ::fstat(right.fd, &afterB) == 0 &&
-           a.st_dev == afterA.st_dev && a.st_ino == afterA.st_ino &&
-           a.st_size == afterA.st_size &&
-           a.st_mtim.tv_sec == afterA.st_mtim.tv_sec &&
-           a.st_mtim.tv_nsec == afterA.st_mtim.tv_nsec &&
-           b.st_dev == afterB.st_dev && b.st_ino == afterB.st_ino &&
-           b.st_size == afterB.st_size &&
-           b.st_mtim.tv_sec == afterB.st_mtim.tv_sec &&
-           b.st_mtim.tv_nsec == afterB.st_mtim.tv_nsec,
-           "shrink sidecar changed during publication verification");
 }
 
 std::string signature(const ShrinkPlan& plan) {
@@ -888,12 +924,11 @@ std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
     const auto subtitleFiles = subtitleNames(checked);
     expectedFiles.insert(expectedFiles.end(),
                          subtitleFiles.begin(), subtitleFiles.end());
-    // Reject modifications to previously staged metadata/subtitles before
-    // exposing a new recording. The original files remain read-only.
-    const auto originalSidecars = checked.videoRoot / checked.relativeRecording;
-    requireMatchingSidecar(originalSidecars / "info", candidate / "info");
+    // Video integrity is independent from the staged copy of VDR metadata.
+    // Publication refreshes these copies from the original recording.
+    requireUsableStagedSidecar(candidate / "info", 1024 * 1024);
     for (const auto& name : subtitleFiles)
-        requireMatchingSidecar(originalSidecars / name, candidate / name);
+        requireUsableStagedSidecar(candidate / name, 8 * 1024 * 1024);
     std::size_t seen = 0;
     for (const auto& entry : fs::directory_iterator(candidate)) {
         const auto filename = entry.path().filename().string();
@@ -918,6 +953,17 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
         plan.relativeRecording, plan.options);
     demand(signature(checked) == signature(plan),
            "original recording changed before publication");
+    // Keep the fresh HEVC file and its generated index; refresh only VDR
+    // metadata at explicit Publish time. Never modify the original.
+    const auto originalSidecars = checked.videoRoot / checked.relativeRecording;
+    refreshSidecarForPublication(
+        originalSidecars / "info", candidate / "info", 1024 * 1024);
+    for (const auto& name : subtitleNames(checked))
+        refreshSidecarForPublication(
+            originalSidecars / name, candidate / name, 8 * 1024 * 1024);
+    demand(signature(inspectShrink(
+        checked.videoRoot, checked.relativeRecording, checked.options)) ==
+        signature(checked), "original changed during metadata refresh");
     const auto privateParent = candidate.parent_path();
     std::vector<std::string> expectedFiles = {
         ".shrink-review", "00001.ts", "index", "info"
