@@ -1868,6 +1868,17 @@
         const value = options && typeof options === 'object' ? options : {};
         return request(mediaImportPath(value, 'capabilities/media-shrink'), value);
       },
+      // Read only: restores the last durable HEVC candidate for a recording
+      // even when this browser has no sessionStorage operation reference.
+      getMediaShrinkRecording(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        if (typeof value.recordingId !== 'string' ||
+            !/^rec_[0-9a-f]{32}$/.test(value.recordingId)) {
+          throw new Error('HEVC recording requires canonical recordingId');
+        }
+        return request(mediaImportPath(value,
+          'media-shrink-recordings/' + value.recordingId), value);
+      },
       getMediaShrinkReview(options) {
         const value = options && typeof options === 'object' ? options : {};
         if (typeof value.reviewId !== 'string' ||
