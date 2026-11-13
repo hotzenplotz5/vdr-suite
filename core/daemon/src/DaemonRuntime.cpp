@@ -119,7 +119,9 @@ int DaemonRuntime::run()
         std::chrono::steady_clock::now() - std::chrono::minutes(1);
     auto lastDurableBatchProgress =
         std::chrono::steady_clock::now() - std::chrono::seconds(3);
-    const int runtimeExit = runRecordingMediaHttpRuntime(
+    int runtimeExit = 1;
+    try {
+    runtimeExit = runRecordingMediaHttpRuntime(
         database_,
         *apiRouter_,
         *vdrRecordingQueryService_,
@@ -186,6 +188,12 @@ int DaemonRuntime::run()
             lastVdrPoll = now;
             pollVdrAndUpdateChangeFeed();
         });
+    } catch (...) {
+        mediaShrinkRecoveryStopRequested_.store(true);
+        if (mediaShrinkRecoveryThread_.joinable())
+            mediaShrinkRecoveryThread_.join();
+        throw;
+    }
     mediaShrinkRecoveryStopRequested_.store(true);
     if (mediaShrinkRecoveryThread_.joinable())
         mediaShrinkRecoveryThread_.join();
