@@ -465,9 +465,9 @@ std::int64_t sqliteUtcSeconds(const std::string& timestamp)
 // Provider recording.path is normally a recording-relative display path
 // (e.g. /Serien/Andor/...rec), NOT the absolute .rec path emitted by the
 // importer. backendNativeId is the provider's full recording identity;
-// it can contain a VDR video-root symlink such as /srv/vdr/video ->
-// /srv/vdr/video.00. The importing Agent hashes the literal installed
-// destination (/srv/vdr/video.00/...rec), so compare all *observed* forms.
+// it can contain an alias of the configured VDR video root. The importing
+// Agent hashes the installed native destination, so compare all observed
+// provider and canonical filesystem forms, regardless of distribution.
 // Never infer a root from a title, construct a path from browser data, or
 // treat an unmatched recording as confirmation.
 bool recordingIdentityMatches(
