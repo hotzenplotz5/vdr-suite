@@ -13,6 +13,7 @@
 #include "MediaImportScheduleWindow.h"
 #include "BackendAgentMediaImportAssignment.h"
 #include "MediaImportOperationFence.h"
+#include "MediaShrinkAgentCommand.h"
 #include "MutationOperationRepository.h"
 #include "Database.h"
 #include <sqlite3.h>
@@ -241,7 +242,7 @@ void DaemonRuntime::runMediaShrinkRecoveryWorker()
                     }
                 }
             }
-        } catch (const std::exception& error) {
+        } catch (const std::exception&) {
             // Avoid leaking file paths; the authoritative operation stays
             // untouched for the next independent readback.
             std::cerr << "HEVC_STAGE_RECOVERY=RETRYABLE" << std::endl;
