@@ -87,7 +87,7 @@ assert "rootAvailable &&" not in roots, (
     "RESTfulAPI recording actions must remain available without optional VPATH"
 )
 assert "configuredRootAvailable" in roots and "nativeRoot.videoDirectory" in roots
-assert "recordingVideoDirectory(config)" in request_builder
+assert "recordingVideoDirectory(config, payload)" in request_builder
 assert "config.videoDirectory" in request_builder
 assert 'findParameter(payload.parameters, "backendNativeId")' in request_builder
 assert 'findParameter(payload.parameters, "recordingPath")' in request_builder
@@ -99,6 +99,13 @@ for production in (
     assert '"/srv/vdr/video"' not in production
     assert '"/srv/vdr/video/"' not in production
     assert '"Recordings_on_yavdr(nfs)"' not in production
+assert 'selection.autoPublish' in worker
+assert 'MediaShrinkPublishAdmission request;' in worker
+assert 'progressDurableMediaShrinkAutoPublish();' in worker
+assert 'deviceLiveEventHub_->publishOperation(stage.operationId)' in worker
+assert 'review.review.stageOperationId' in reconciliation
+assert 'autoPublish: true' in hero
+print("HEVC_ONE_CLICK_DURABLE_PUBLICATION=PASS")
 print("HEVC_DISTRIBUTION_INDEPENDENT_ROOT=PASS")
 
 print("HEVC_PUBLISH_NATIVE_READBACK=PASS")
