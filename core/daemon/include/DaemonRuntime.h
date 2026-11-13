@@ -204,6 +204,9 @@ private:
     void pollVdrAndUpdateChangeFeed();
     void pollScheduledMediaImport();
     void progressDurableMediaImportBatches();
+    // Continue only Stage operations with explicit durable autoPublish=true.
+    // Reuses the existing verified Publish operation; no second encoder job.
+    void progressDurableMediaShrinkAutoPublish();
     // Passive recovery of completed private HEVC stages after a lost Agent
     // result or daemon restart. This never invokes an encoding worker.
     void runMediaShrinkRecoveryWorker();
