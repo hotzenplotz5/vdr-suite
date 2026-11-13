@@ -162,7 +162,7 @@ bool LocalMediaShrinkAgentExecutor::authorize(
             const auto prior = reviews_.find(selection.reviewId);
             if (!prior || prior->actorId != evidence->actorId ||
                 prior->backendId != evidence->backendId ||
-                prior->backendGeneration != evidence->backendGeneration ||
+                prior->backendGeneration > evidence->backendGeneration ||
                 prior->recordingId != evidence->recordingId ||
                 prior->sourceFingerprint != evidence->sourceFingerprint ||
                 prior->videoRoot != evidence->videoRoot ||
