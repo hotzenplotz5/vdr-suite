@@ -5,23 +5,18 @@ set -Eeuo pipefail
 stop() { printf 'MEDIA_TOOLS_CONFIG=STOP %s\n' "$*" >&2; exit 1; }
 
 if [ "$#" -eq 1 ] && [ "$1" = --help ]; then
-  echo 'Usage: configure_media_tools_paths.sh [SOURCE_ROOT VIDEO_ROOT]'
-  echo 'Default SOURCE_ROOT=/srv/video/Filme VIDEO_ROOT=/srv/vdr/video.00'
+  echo 'Usage: configure_media_tools_paths.sh SOURCE_ROOT VIDEO_ROOT'
+  echo 'Supply the actual import directory and video root of this VDR backend.'
   echo 'Stop the Backend Agent before using; restart it only after reviewing the result.'
   exit 0
 fi
-[ "$#" -eq 0 ] || [ "$#" -eq 2 ] || stop 'provide both paths or neither'
+[ "$#" -eq 2 ] || stop 'provide both actual SOURCE_ROOT and VIDEO_ROOT'
 [ "$(id -u)" -eq 0 ] || stop 'root required'
 for cmd in realpath stat sudo flock mktemp python3 systemctl find grep id getent; do
   command -v "$cmd" >/dev/null || stop "missing tool $cmd"
 done
-if [ "$#" -eq 0 ]; then
-  SOURCE=/srv/video/Filme
-  VIDEO=/srv/vdr/video.00
-else
-  SOURCE=$1
-  VIDEO=$2
-fi
+SOURCE=$1
+VIDEO=$2
 BACKEND=$(sed -n 's/^BACKEND_ID=//p' /etc/vdr-suite/backend-agent.conf | head -n 1)
 [[ "$BACKEND" =~ ^[A-Za-z0-9_.:-]{1,128}$ ]] &&
   [ "$BACKEND" != . ] && [ "$BACKEND" != .. ] || stop 'backend not configured'
