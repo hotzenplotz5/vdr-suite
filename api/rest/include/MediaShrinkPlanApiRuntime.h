@@ -23,6 +23,7 @@ public:
                                                    const std::string&,
                                                    const std::string&)>;
     using OperationStatus = ReviewStatus;
+    using RecordingStatus = ReviewStatus;
     using Stage = std::function<ApiResponse(
         const std::string&, const std::string&, const std::string&,
         const std::string&, unsigned, bool, const std::string&)>;
@@ -42,6 +43,13 @@ public:
         capability_ = std::move(capability);
         reviewStatus_ = std::move(reviewStatus);
         operationStatus_ = std::move(operationStatus);
+    }
+
+    // Read-only lookup of existing operations for one canonical recording.
+    // No new Stage, Plan or FFmpeg work is performed by this handler.
+    void registerRecordingStatusHandler(RecordingStatus read) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        recordingStatus_ = std::move(read);
     }
 
     // Core provides these only after a trusted live permission/Agent
@@ -66,7 +74,11 @@ public:
         const std::string operationPrefix = "/media-shrink-operations/";
         const bool operationRequest =
             suffix.compare(0, operationPrefix.size(), operationPrefix) == 0;
-        if (!capabilityRequest && !reviewRequest && !operationRequest)
+        const std::string recordingPrefix = "/media-shrink-recordings/";
+        const bool recordingRequest =
+            suffix.compare(0, recordingPrefix.size(), recordingPrefix) == 0;
+        if (!capabilityRequest && !reviewRequest && !operationRequest &&
+            !recordingRequest)
             return false;
         if (target.find('?') != std::string::npos) {
             response = problem(400, "Query parameters are not accepted.");
@@ -78,6 +90,27 @@ public:
         }
         if (!scoped(backend, authorizedBackend, authorizedBackends)) {
             response = problem(404, "Resource not found.");
+            return true;
+        }
+        if (recordingRequest) {
+            const std::string recordingId = suffix.substr(recordingPrefix.size());
+            if (recordingId.size() != 36 ||
+                recordingId.compare(0, 4, "rec_") != 0 ||
+                !std::all_of(recordingId.begin() + 4, recordingId.end(),
+                    [](unsigned char ch) {
+                        return (ch >= '0' && ch <= '9') ||
+                               (ch >= 'a' && ch <= 'f');
+                    })) {
+                response = problem(404, "Resource not found.");
+                return true;
+            }
+            RecordingStatus read;
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                read = recordingStatus_;
+            }
+            response = read ? read(actor, backend, recordingId)
+                            : problem(503, "Media Shrink recording unavailable.");
             return true;
         }
         if (operationRequest) {
@@ -251,6 +284,7 @@ private:
     Capability capability_;
     ReviewStatus reviewStatus_;
     OperationStatus operationStatus_;
+    RecordingStatus recordingStatus_;
     Stage stage_;
     Publish publish_;
 
