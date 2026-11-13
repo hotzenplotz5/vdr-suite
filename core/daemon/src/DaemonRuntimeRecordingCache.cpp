@@ -77,8 +77,8 @@ bool assignFrozenMetadataAfterImport(
             continue;
 
         // Match the *proven* native .rec, not a browser-supplied folder,
-        // a fuzzy filename, or "latest recording". Native providers may
-        // report the symlink /srv/vdr/video rather than video.00.
+        // a fuzzy filename, or "latest recording". Providers may report
+        // a configured VDR video-root alias rather than its physical path.
         const VdrRecording* matched = nullptr;
         bool ambiguous = false;
         for (const auto& rec : recordings) {
@@ -681,10 +681,10 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                     native.extension() != ".rec")
                                     continue;
                                 std::error_code pathError;
-                                // RESTfulAPI may expose the configured VDR
-                                // video-root alias (/srv/vdr/video) while the
-                                // Agent publishes under video.00. Compare
-                                // the actual native directory, not strings.
+                                // RESTfulAPI and the local Agent may use
+                                // different aliases for the SAME configured
+                                // VDR directory. Compare actual filesystem
+                                // identity, independent of distro/mount name.
                                 const bool sameDirectory =
                                     native == publishedNative ||
                                     fs::equivalent(native, publishedNative,
