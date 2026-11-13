@@ -26,7 +26,7 @@ public:
     using RecordingStatus = ReviewStatus;
     using Stage = std::function<ApiResponse(
         const std::string&, const std::string&, const std::string&,
-        const std::string&, unsigned, bool, const std::string&)>;
+        const std::string&, unsigned, bool, bool, const std::string&)>;
     using Publish = std::function<ApiResponse(
         const std::string&, const std::string&, const std::string&,
         std::uint64_t, const std::string&)>;
@@ -226,7 +226,7 @@ public:
         }
         if (suffix == "/media-shrink-stages") {
             static const std::regex shape(
-                R"MS(^\s*\{\s*"recordingId"\s*:\s*"(rec_[0-9a-f]{32})"\s*,\s*"encoder"\s*:\s*"(software|vaapi|qsv|nvenc)"\s*,\s*"maxHeight"\s*:\s*(0|[1-9][0-9]{0,3})\s*,\s*"nightMode"\s*:\s*(true|false)\s*\}\s*$)MS");
+                R"MS(^\s*\{\s*"recordingId"\s*:\s*"(rec_[0-9a-f]{32})"\s*,\s*"encoder"\s*:\s*"(software|vaapi|qsv|nvenc)"\s*,\s*"maxHeight"\s*:\s*(0|[1-9][0-9]{0,3})\s*,\s*"nightMode"\s*:\s*(true|false)(?:\s*,\s*"autoPublish"\s*:\s*(true|false))?\s*\}\s*$)MS");
             if (!std::regex_match(body, match, shape)) {
                 response = problem(422, "Invalid HEVC stage selection.");
                 return true;
@@ -244,7 +244,9 @@ public:
             }
             response = stage
                 ? stage(actor, backend, match[1].str(), match[2].str(),
-                        height, match[4].str() == "true", idempotencyKey)
+                        height, match[4].str() == "true",
+                        match[5].matched && match[5].str() == "true",
+                        idempotencyKey)
                 : problem(503, "Media Shrink staging unavailable.");
             return true;
         }
