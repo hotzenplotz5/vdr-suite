@@ -265,11 +265,10 @@ static void test_parse_recordings_preserves_distinct_real_copies()
     assert(recordings.size() == 2);
 }
 
-static void test_private_hevc_candidates_are_not_recordings()
+static void test_private_hevc_candidates_are_visible_under_source_title()
 {
-    // VDR/RESTfulAPI can discover a private .rec before Publish. Such an
-    // internal stage must remain available for recovery, but not as a
-    // selectable recording in the normal catalog.
+    // Finished HEVC Stage .rec must remain visible with the source title,
+    // while keeping the exact native candidate path for playback and recovery.
     const std::string json =
         "{\"recordings\":["
         "{\"number\":10,"
@@ -277,10 +276,13 @@ static void test_private_hevc_candidates_are_not_recordings()
         "\"relative_file_name\":\"/.vdr-suite-shrink-2276JE/"
         "2015-12-15.12.29.17-0.rec\","
         "\"file_name\":\"/srv/vdr/video.00/.vdr-suite-shrink-2276JE/"
-        "2015-12-15.12.29.17-0.rec\"},"
+        "2015-12-15.12.29.17-0.rec\","
+        "\"event_title\":\"Folge 1\"},"
         "{\"number\":11,"
         "\"name\":\"Dokumentation~Original\","
         "\"relative_file_name\":\"/Dokumentation/Original/"
+        "2015-12-15.12.29.17-0.rec\","
+        "\"file_name\":\"/srv/vdr/video.00/Dokumentation/Original/"
         "2015-12-15.12.29.17-0.rec\"},"
         "{\"number\":12,"
         "\"name\":\"Dokumentation~Original.shrink\","
@@ -289,11 +291,56 @@ static void test_private_hevc_candidates_are_not_recordings()
         "]}";
     const auto recordings =
         RestfulApiRecordingMapper::parseRecordings(json);
-    assert(recordings.size() == 2);
-    assert(recordings[0].id == "11");
-    assert(recordings[1].id == "12");
-    assert(recordings[1].path.find("/Original.shrink/") !=
+    assert(recordings.size() == 3);
+    assert(recordings[0].id == "10");
+    assert(recordings[0].title == "Original.shrink");
+    assert(recordings[0].path ==
+           "/.vdr-suite-shrink-2276JE/2015-12-15.12.29.17-0.rec");
+    assert(recordings[0].backendNativeId ==
+           "/srv/vdr/video.00/.vdr-suite-shrink-2276JE/"
+           "2015-12-15.12.29.17-0.rec");
+    assert(recordings[1].id == "11");
+    assert(recordings[2].id == "12");
+    assert(recordings[2].path.find("/Original.shrink/") !=
            std::string::npos);
+}
+
+static void test_hevc_candidate_without_original_uses_event_title()
+{
+    const auto result = RestfulApiRecordingMapper::parseRecordings(
+        "{\"recordings\":["
+        "{\"number\":21,"
+        "\"name\":\".vdr-suite-shrink-q4feJ7\","
+        "\"file_name\":\"/srv/vdr/video.00/.vdr-suite-shrink-q4feJ7/"
+        "2015-02-03.19.31.36-0.rec\","
+        "\"event_title\":\"Kampf gegen die Krise\"}"
+        "]}");
+    assert(result.size() == 1);
+    assert(result[0].title == "Kampf gegen die Krise.shrink");
+    assert(result[0].backendNativeId.find("/.vdr-suite-shrink-q4feJ7/") !=
+           std::string::npos);
+}
+
+static void test_hevc_candidate_ambiguous_source_uses_event_title()
+{
+    const auto result = RestfulApiRecordingMapper::parseRecordings(
+        "{\"recordings\":["
+        "{\"number\":25,"
+        "\"name\":\".vdr-suite-shrink-q4feJ7\","
+        "\"file_name\":\"/srv/vdr/video.00/.vdr-suite-shrink-q4feJ7/"
+        "2015-02-03.19.31.36-0.rec\","
+        "\"event_title\":\"Kampf gegen die Krise\"},"
+        "{\"number\":26,"
+        "\"name\":\"Doku~Original A\","
+        "\"file_name\":\"/srv/vdr/video.00/Doku/Original_A/"
+        "2015-02-03.19.31.36-0.rec\"},"
+        "{\"number\":27,"
+        "\"name\":\"Doku~Original B\","
+        "\"file_name\":\"/srv/vdr/video.00/Doku/Original_B/"
+        "2015-02-03.19.31.36-0.rec\"}"
+        "]}");
+    assert(result.size() == 3);
+    assert(result[0].title == "Kampf gegen die Krise.shrink");
 }
 
 static void test_parse_recordings_tolerates_invalid_json()
@@ -315,7 +362,9 @@ int main()
     test_parse_recordings_derives_start_time_from_rec_directory();
     test_parse_recordings_prefers_canonical_entry_over_recursive_aliases();
     test_parse_recordings_preserves_distinct_real_copies();
-    test_private_hevc_candidates_are_not_recordings();
+    test_private_hevc_candidates_are_visible_under_source_title();
+    test_hevc_candidate_without_original_uses_event_title();
+    test_hevc_candidate_ambiguous_source_uses_event_title();
     test_parse_recordings_tolerates_invalid_json();
 
     return 0;
