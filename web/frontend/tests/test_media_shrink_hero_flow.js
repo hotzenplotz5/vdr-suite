@@ -286,11 +286,17 @@ function nodesByTag(tag) {
   assert.strictEqual(stages[0].request.nightMode, true);
   assert.strictEqual(stages[0].request.headers['X-CSRF-Token'], 'test-csrf');
   assert.strictEqual(stages[0].request.recordingId, recordingId);
+  const homeActivity = JSON.parse(storage.get(
+    'vdr-suite-hevc-current-v1.' + backendId));
+  assert(homeActivity && homeActivity.operationId === stageOperationId &&
+    homeActivity.recordingId === recordingId &&
+    homeActivity.recording.title === 'Testaufnahme',
+    'HEVC activity is available as read-only Home shortcut in this session');
   assert.strictEqual(calls.filter(c => c.action === 'readReview').length, 0,
     'dispatching is not a verified HEVC candidate');
   const stream = sources.find(s => s.operationId === stageOperationId);
   assert(stream && !stream.closed, 'HEVC stage uses actor-owned SSE');
-  const status = actionHost.querySelector('.recordings2-media-check-status');
+  const status = actionHost.querySelector('.recordings2-hevc-operation-status');
   assert(status && status.textContent.includes(stageOperationId),
     'UI shows exact command identity, not a misleading generic status');
   let readCount = calls.filter(c => c.action === 'readOperation').length;
@@ -374,10 +380,25 @@ function nodesByTag(tag) {
     };
     return visit(restoredRoot);
   }
+  const restoredStatusBeforePlan =
+    restoredRoot.querySelector('.recordings2-hevc-operation-status');
+  const restoredPlanStatus =
+    restoredRoot.querySelector('.recordings2-hevc-plan-status');
+  assert(restoredStatusBeforePlan &&
+    restoredStatusBeforePlan.textContent.includes('outcome_unknown') &&
+    restoredStatusBeforePlan.textContent.includes(stageOperationId),
+    'the old stage is restored on detail mount with no manual preflight');
+  const planCountBefore = calls.filter(c => c.action === 'plan').length;
+  assert.strictEqual(planCountBefore, 1,
+    'passive restore must not POST a new Plan request');
   const preview = restoredButton('Vorprüfung starten');
   assert(preview);
   preview.click();
   await flush();
+  assert(restoredPlanStatus &&
+    restoredPlanStatus.textContent.includes('Original:') &&
+    restoredStatusBeforePlan.textContent.includes('outcome_unknown'),
+    'late preflight message cannot overwrite operation result');
   const savedControls =
     restoredRoot.querySelector('.recordings2-media-shrink-controls');
   assert(savedControls && !savedControls.hidden,
@@ -385,7 +406,7 @@ function nodesByTag(tag) {
   assert(restoredButton('HEVC-Konvertierung starten').disabled,
     'unavailable capability never authorizes another Stage POST');
   const restoredStatus =
-    restoredRoot.querySelector('.recordings2-media-check-status');
+    restoredRoot.querySelector('.recordings2-hevc-operation-status');
   assert(restoredStatus.textContent.includes('outcome_unknown') &&
          restoredStatus.textContent.includes(stageOperationId),
     'read-only recovery shows exact saved operation, not generic dispatching');
@@ -419,7 +440,7 @@ function nodesByTag(tag) {
   };
   retryButton('Vorprüfung starten').click();
   await flush();
-  const failedLabel = retryRoot.querySelector('.recordings2-media-check-status');
+  const failedLabel = retryRoot.querySelector('.recordings2-hevc-operation-status');
   assert(failedLabel.textContent.includes('failed_verified') &&
          failedLabel.textContent.includes(stageOperationId) &&
          failedLabel.textContent.includes('FFmpeg konnte die Aufnahme'),
