@@ -1403,10 +1403,9 @@ bool DaemonRuntime::initialize()
         RestfulApiRecordingActionBackendConfig recordingActionConfig;
         recordingActionConfig.backendId = backendRuntimeContext->backendId;
         recordingActionConfig.basePath = "";
-        // The packaged yaVDR fallback remains for existing installations.
-        // A declared backend-root map is authoritative: missing/invalid
-        // entries must disable native recording writes, not silently write
-        // to another distribution's recording directory.
+        // A declared backend-root map is authoritative. Without a valid
+        // backend-specific configuration or VDR discovery result, native
+        // recording writes are unavailable; never invent a distro path.
         const auto& recordingRoots = config_.recordingVideoRoots();
         const auto rootIt = recordingRoots.find(backendRuntimeContext->backendId);
         const bool explicitlyConfigured = config_.recordingVideoRootsSpecified();
@@ -1442,12 +1441,12 @@ bool DaemonRuntime::initialize()
         recordingActionConfig.videoDirectory = configuredRootAvailable
             ? rootIt->second
             : (nativeRootAvailable ? nativeRoot.videoDirectory
-                : (explicitlyConfigured || invalidNativeRoot
-                    ? std::string() : "/srv/vdr/video"));
+                                   : std::string());
         recordingActionConfig.videoDirectoryExplicit = rootAvailable;
         recordingActionConfig.apiMode =
             RestfulApiRecordingActionApiMode::SafeMutation;
         recordingActionConfig.allowExecution =
+            rootAvailable &&
             (!explicitlyConfigured || configuredRootAvailable) &&
             !invalidNativeRoot;
         recordingActionConfig.readOnly = !recordingActionConfig.allowExecution;
@@ -1459,7 +1458,7 @@ bool DaemonRuntime::initialize()
         const char* rootSource = configuredRootAvailable ? "configured"
             : nativeRootAvailable ? "suitebridge-vpath"
             : invalidNativeRoot ? "invalid-vpath"
-            : explicitlyConfigured ? "invalid-config" : "legacy";
+            : explicitlyConfigured ? "invalid-config" : "unavailable";
         std::cout << "recording-root backend="
                   << backendRuntimeContext->backendId
                   << " source=" << rootSource
