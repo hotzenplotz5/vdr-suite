@@ -613,7 +613,7 @@
       const status = shared.node('p', 'recordings2-media-check-status recordings2-hevc-operation-status',
         'Bereits verkleinerte Aufnahme wird gesucht …');
       status.setAttribute('role', 'status');
-      const launch = makeButton('Aufnahme verkleinern', function () {
+      function planAndStartShrink() {
         launch.disabled = true;
         planStatus.hidden = false;
         planStatus.textContent = 'Aufnahme wird geprüft …';
@@ -621,6 +621,24 @@
           return resolveMediaCheckIdentity(client, recording, backendId);
         }).then(function (identity) {
           recordingId = identity;
+          // Never start another encoder when the original Stage, Publish or
+          // completed HEVC recording already exists in the Core journal.
+          return client.getMediaShrinkRecording({
+            backendId: backendId, recordingId: recordingId,
+            credentials: 'same-origin', cache: 'no-store'
+          });
+        }).then(function (existing) {
+          if (!existing || existing.recordingId !== recordingId ||
+              existing.backendId && existing.backendId !== backendId)
+            throw new Error('HEVC-Aufnahme konnte nicht eindeutig geprüft werden.');
+          if (existing.state !== 'none' ||
+              remembered('stage') || remembered('publish')) {
+            status.textContent = existing.state === 'published'
+              ? 'HEVC-Aufnahme bereits vorhanden.'
+              : 'Vorhandener HEVC-Auftrag wird fortgesetzt.';
+            restorePending();
+            return null;
+          }
           const session = global.VdrSuiteBrowserSession;
           if (!session || typeof session.restore !== 'function' ||
               typeof session.csrfHeaders !== 'function')
@@ -632,6 +650,7 @@
             });
           });
         }).then(function (plan) {
+          if (plan === null) return;
           if (!plan || plan.backendId !== backendId ||
               plan.recordingId !== recordingId || plan.readOnly !== true ||
               typeof plan.stageAvailable !== 'boolean' ||
@@ -650,11 +669,14 @@
           controls.hidden = !planReady &&
             !remembered('stage') && !remembered('publish');
           if (!controls.hidden) restorePending();
+          if (planReady && !remembered('stage') &&
+              !remembered('publish')) startShrink();
         }).catch(function (error) {
           planStatus.textContent = 'Prüfung fehlgeschlagen: ' +
             text(error && error.message ? error.message : error);
         }).then(function () { launch.disabled = false; });
-      });
+      }
+      const launch = makeButton('Aufnahme verkleinern', planAndStartShrink);
       let recordingId = '';
       let planReady = false;
       let stageOperationId = '';
