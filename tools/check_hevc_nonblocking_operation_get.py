@@ -49,7 +49,7 @@ reconciliation = Path(
 assert "recording.path = relativePath.empty() ? fileName : relativePath;" in mapper
 assert "recording.backendNativeId = fileName;" in mapper
 start = reconciliation.index("// Mirror the native No-Replace target")
-end = reconciliation.index("if (matches != 1) continue;", start)
+end = reconciliation.index("if (matchedNative.empty()) continue;", start)
 lookup = reconciliation[start:end]
 assert "const fs::path native(recording.backendNativeId)" in lookup and \
        "fs::equivalent(native, publishedNative" in lookup, (
@@ -57,6 +57,10 @@ assert "const fs::path native(recording.backendNativeId)" in lookup and \
 )
 assert "fs::path(recording.path) == publishedNative" not in lookup, (
     "relative_file_name cannot match the absolute published directory"
+)
+assert "unsigned matches = 0;" not in lookup
+assert "fs::path(matchedNative) != publishedNative" in lookup, (
+    "multiple provider aliases of one native directory must not strand HEVC"
 )
 assert "fs::path(source->relativeRecording.parent_path()" in lookup
 assert 'string() + ".shrink")' in lookup
