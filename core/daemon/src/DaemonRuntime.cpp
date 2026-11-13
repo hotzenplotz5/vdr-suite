@@ -220,13 +220,19 @@ void DaemonRuntime::runMediaShrinkRecoveryWorker()
             if (mutationOperationRepository_ &&
                 backendAgentCommandRepository_ &&
                 mediaShrinkPlanRuntime_ && mediaShrinkReviewRepository_) {
-                // Succeeded is included to finish registering a staged review
-                // if the daemon crashed between the CAS and registry insert.
-                const auto pending =
+                // Prioritize uncertain operations: old successful reviews
+                // must never starve recovery by filling the bounded scan.
+                auto pending =
                     mutationOperationRepository_->listByActionFamilyAndStates(
-                        "media.shrink.stage",
-                        {State::outcomeUnknown, State::succeeded}, 32);
-                if (pending.ok()) {
+                        "media.shrink.stage", {State::outcomeUnknown}, 32);
+                // Also heal a crash between Stage CAS and review registration.
+                const auto completed =
+                    mutationOperationRepository_->listByActionFamilyAndStates(
+                        "media.shrink.stage", {State::succeeded}, 16);
+                if (pending.ok() && completed.ok()) {
+                    pending.operations.insert(pending.operations.end(),
+                        completed.operations.begin(),
+                        completed.operations.end());
                     for (const auto& op : pending.operations) {
                         if (mediaShrinkRecoveryStopRequested_.load()) break;
                         // Completed reviews need no further media probing.
