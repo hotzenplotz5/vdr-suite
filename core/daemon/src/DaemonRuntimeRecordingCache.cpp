@@ -725,6 +725,37 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                             }
                         }
                     }
+
+                    // A process crash can occur after the authoritative
+                    // Publish operation reached succeeded but before the
+                    // separate review row advanced to published. Reconcile
+                    // only this exact durable operation/review binding, with
+                    // no second filesystem move or Agent dispatch.
+                    const auto succeeded =
+                        mutationOperationRepository_->listByActionFamilyAndStates(
+                            "media.shrink.publish", {State::succeeded}, 128);
+                    if (succeeded.ok()) {
+                        for (const auto& op : succeeded.operations) {
+                            if (op.backendId != backendRuntimeContext->backendId ||
+                                op.resourceType != "MediaShrinkReview" ||
+                                !vdrsuite::mediatools::shrinkOpaqueId(
+                                    op.resourceId, "shk_") ||
+                                !vdrsuite::mediatools::shrinkOpaqueId(
+                                    op.resultReference, "rec_"))
+                                continue;
+                            const auto review =
+                                mediaShrinkReviewRepository_->find(
+                                    op.actorId, op.backendId, op.resourceId);
+                            if (review.ok() &&
+                                review.review.state == "publishing" &&
+                                review.review.revision == 2 &&
+                                review.review.publishOperationId == op.operationId)
+                                (void)mediaShrinkReviewRepository_->
+                                    completePublication(
+                                        op.actorId, op.backendId,
+                                        op.resourceId, 2);
+                        }
+                    }
                 }
                 recordingCacheRefreshQueue_.completed(backendRuntimeContext->backendId);
 
