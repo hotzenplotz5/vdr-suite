@@ -641,10 +641,9 @@
           planReady = plan.stageAvailable === true &&
             capability.available === true;
           planStatus.textContent = 'Original: ' +
-            (plan.sourceBytes / 1048576).toFixed(1) + ' MiB, ' +
-            plan.segments + ' TS-Segment(e). ' +
-            (planReady ? 'Konvertierung als privater Kandidat möglich.' :
-              'HEVC-Konvertierung ist auf diesem Backend nicht freigeschaltet.');
+            (plan.sourceBytes / 1048576).toFixed(1) + ' MiB. ' +
+            (planReady ? 'Verkleinerung kann gestartet werden.' :
+              'Verkleinerung derzeit nicht verfügbar.');
           // A temporary Agent/capability outage must not hide an already
           // accepted Core Operation. Its GET/SSE status remains read-only.
           stage.disabled = !planReady;
@@ -722,7 +721,7 @@
           return;
         }
         stage.disabled = true;
-        status.textContent = 'HEVC-Staging angefordert; keine automatische Wiederholung.';
+        status.textContent = 'Verkleinerung wird gestartet …';
         mutationHeaders().then(function (headers) {
           return client.submitMediaShrinkStage({
             backendId: backendId, recordingId: recordingId,
@@ -743,7 +742,7 @@
         }).catch(function (error) {
           // Request may have reached the backend. Never submit again, even
           // if the response was lost or the browser was reloaded.
-          status.textContent = 'Stage-Ausgang unklar: ' +
+          status.textContent = 'Verkleinerung wird geprüft: ' +
             text(error && error.message ? error.message : error) +
             '. Bitte nicht erneut starten.';
         });
@@ -756,7 +755,7 @@
       const publish = makeButton('Als neue Aufnahme hinzufügen', function () {
         if (!/^shk_[0-9a-f]{32}$/.test(reviewId) || publish.disabled ||
             typeof global.confirm !== 'function' ||
-            !global.confirm('HEVC-Kandidat als zusätzliche VDR-Aufnahme veröffentlichen? Das Original bleibt erhalten.'))
+            !global.confirm('Verkleinerten Film als neue Aufnahme hinzufügen? Das Original bleibt erhalten.'))
           return;
         const key = newIdempotencyKey();
         if (!key || !remember('publish', {key: key, operationId: ''})) {
@@ -764,7 +763,7 @@
           return;
         }
         publish.disabled = true;
-        status.textContent = 'Veröffentlichung angefordert; auf Recording-Reconciliation warten.';
+        status.textContent = 'HEVC-Aufnahme wird hinzugefügt …';
         mutationHeaders().then(function (headers) {
           return client.submitMediaShrinkPublish({
             backendId: backendId, reviewId: reviewId, revision: 1,
@@ -777,10 +776,11 @@
           publishOperationId = result.operationId;
           remember('publish', {key: key, operationId: publishOperationId});
           refreshPublish.disabled = false;
+          refreshPublish.hidden = false;
           watchOperation('publish');
           refreshOperation('publish');
         }).catch(function (error) {
-          status.textContent = 'Veröffentlichung unklar: ' +
+          status.textContent = 'Hinzufügen wird geprüft: ' +
             text(error && error.message ? error.message : error) +
             '. Keine automatische Wiederholung.';
         });
@@ -790,6 +790,7 @@
         refreshOperation('publish');
       });
       refreshPublish.disabled = true;
+      refreshPublish.hidden = true;
 
       function storageName(action) {
         return 'vdr-suite-hevc-v1.' + backendId + '.' + recordingId +
@@ -833,8 +834,8 @@
           if (stageOperationId) noteCurrentActivity(stageOperationId);
           refreshStage.disabled = !stageOperationId;
           status.textContent = stageOperationId
-            ? 'Gespeicherte Stage-Operation gefunden. Status abfragen.'
-            : 'Unklarer früherer Stage-Start. Aus Sicherheitsgründen gesperrt.';
+            ? 'Vorhandene Verkleinerung wird geladen …'
+            : 'Frühere Verkleinerung wird überprüft. Kein erneuter Start.';
           if (stageOperationId) {
             watchOperation('stage');
             refreshOperation('stage');
@@ -941,7 +942,7 @@
           if (!operation || operation.operationId !== id ||
               operation.backendId !== backendId || operation.action !== action)
             throw new Error('HEVC-Operation gehört nicht zur gewählten Aufnahme.');
-          const label = action === 'stage' ? 'Stage' : 'Publish';
+          const label = action === 'stage' ? 'Verkleinerung' : 'Hinzufügen';
           const failureLabels = {
             ffmpeg_failed: 'FFmpeg konnte die Aufnahme nicht vollständig konvertieren.',
             ffmpeg_timeout: 'HEVC-Konvertierung hat das Zeitlimit erreicht.',
@@ -972,8 +973,17 @@
                 : 'Ausführung/Prüfung noch nicht abgeschlossen.';
           // Show the precise operation identity: a previously saved attempt
           // can differ from another command inspected in the backend journal.
-          status.textContent = 'HEVC-' + label + ': ' + operation.state +
-            ' · Auftrag ' + id + '. ' + explanation;
+          const simpleStatus = operation.state === 'succeeded'
+            ? (action === 'stage'
+                ? 'HEVC fertig – der verkleinerte Film ist vorhanden.'
+                : 'HEVC-Aufnahme erfolgreich hinzugefügt.')
+            : operation.state === 'outcome_unknown'
+              ? label + ' wird überprüft. Kein erneuter Start.'
+              : operation.state === 'failed_verified'
+                ? label + ' fehlgeschlagen. ' + hint
+                : label + ' läuft …';
+          status.textContent = simpleStatus;
+          status.title = 'Auftrag ' + id + ': ' + explanation;
           if (operation.resultReconciled === true ||
               ['rejected', 'conflict', 'failed_before_dispatch',
                'failed_verified', 'cancelled'].includes(operation.state))
@@ -1004,8 +1014,7 @@
           }
         }).catch(function (error) {
           if (sequence !== operationReadSequence[action]) return;
-          status.textContent = 'HEVC-Status für Auftrag ' + id +
-            ' nicht verfügbar: ' +
+          status.textContent = 'HEVC-Status derzeit nicht verfügbar: ' +
             text(error && error.message ? error.message : error) +
             '. Keine neue Mutation starten.';
         });
