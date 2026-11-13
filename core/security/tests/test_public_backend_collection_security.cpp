@@ -362,6 +362,26 @@ int main()
         assert(operation.authorizedBackendIds ==
                (std::vector<std::string>{"backend-a"}));
 
+        // Recovery lookup for one recording reuses the same playback grant,
+        // never becoming an unauthenticated or global operation listing.
+        read.path = "/api/v1/backends/backend-a/media-shrink-recordings/"
+            "rec_0123456789abcdef0123456789abcdef";
+        const auto recordingResult = fixture.gate.evaluate(read);
+        assert(recordingResult.allowed && !recordingResult.protectedMutation);
+        assert(recordingResult.authorizationDecision.permission ==
+               "media.recording.play");
+        assert(recordingResult.authorizationDecision.action ==
+               "media.recording.shrink.operation.read");
+        assert(recordingResult.authorizedBackendIds ==
+               (std::vector<std::string>{"backend-a"}));
+        read.path = "/api/v1/backends/backend-b/media-shrink-recordings/"
+            "rec_0123456789abcdef0123456789abcdef";
+        assert(fixture.gate.evaluate(read).rejection.statusCode == 403);
+        anonymousRead.path =
+            "/api/v1/backends/backend-a/media-shrink-recordings/"
+            "rec_0123456789abcdef0123456789abcdef";
+        assert(fixture.gate.evaluate(anonymousRead).rejection.statusCode == 401);
+
         read.path = "/api/v1/backends/backend-b/media-shrink-operations/"
             "op_0123456789abcdef0123456789abcdef";
         assert(fixture.gate.evaluate(read).rejection.statusCode == 403);
