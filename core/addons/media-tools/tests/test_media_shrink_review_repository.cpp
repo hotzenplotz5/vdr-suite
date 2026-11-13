@@ -102,6 +102,16 @@ int main()
     auto publish = operation("op-publish", "media.shrink.publish",
         "MediaShrinkReview", reviewId, "1",
         MutationOperationVerificationPolicy::reconciliationRequired);
+    // Current Agent generation can advance while Stage remains bound to 7.
+    auto stalePublish = publish;
+    stalePublish.operationId = "op-stale-publish";
+    stalePublish.idempotencyKey = "op-stale-publish_once";
+    stalePublish.requestFingerprint = "request_op-stale-publish";
+    stalePublish.backendGeneration = 6;
+    assert(operations.reserve(stalePublish).ok());
+    assert(reviews.claimPublication("actor-a", "backend-a", reviewId,
+        1, stalePublish.operationId).status == MediaShrinkReviewStatus::conflict);
+    publish.backendGeneration = 8;
     assert(operations.reserve(publish).ok());
     assert(reviews.claimPublication("actor-b", "backend-a", reviewId,
         1, "op-publish").status == MediaShrinkReviewStatus::notFound);
