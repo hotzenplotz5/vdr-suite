@@ -667,7 +667,6 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                             const fs::path publishedNative =
                                 source->videoRoot / publishedRelative;
                             std::string matchedNative;
-                            unsigned matches = 0;
                             for (const auto& recording : nativeRecordings) {
                                 // RESTfulAPI path is usually relative_file_name;
                                 // only backendNativeId is the absolute VDR .rec
@@ -690,11 +689,18 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                     fs::equivalent(native, publishedNative,
                                                    pathError);
                                 if (sameDirectory) {
-                                    ++matches;
-                                    matchedNative = recording.backendNativeId;
+                                    // Multiple RESTfulAPI entries can name
+                                    // this exact same directory via aliases.
+                                    // They are not multiple physical results.
+                                    // Prefer the configured-root spelling,
+                                    // otherwise choose deterministically.
+                                    if (matchedNative.empty() ||
+                                        native == publishedNative ||
+                                        recording.backendNativeId < matchedNative)
+                                        matchedNative = recording.backendNativeId;
                                 }
                             }
-                            if (matches != 1) continue;
+                            if (matchedNative.empty()) continue;
                             try {
                                 const auto published = vdrsuite::mediatools::
                                     inspectShrink(source->videoRoot,
