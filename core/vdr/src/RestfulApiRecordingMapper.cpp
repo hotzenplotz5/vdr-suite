@@ -704,6 +704,16 @@ std::vector<VdrRecording> canonicalizeRecordingAliases(
 
 }
 
+// Private HEVC Stage candidates are not VDR recordings for browsing or
+// playback. They remain on disk and are discoverable via the HEVC review API.
+// Never put these temporary folders into the persisted recording catalog.
+static bool isPrivateMediaShrinkStage(const VdrRecording& recording)
+{
+    constexpr const char* marker = "/.vdr-suite-shrink-";
+    return recording.path.find(marker) != std::string::npos ||
+           recording.backendNativeId.find(marker) != std::string::npos;
+}
+
 std::vector<VdrRecording> RestfulApiRecordingMapper::parseRecordings(const std::string& json)
 {
     std::vector<RecordingCandidate> candidates;
@@ -720,7 +730,8 @@ std::vector<VdrRecording> RestfulApiRecordingMapper::parseRecordings(const std::
         candidate.inode = getStringField(objectText, "inode");
         candidate.originalIndex = candidates.size();
 
-        if (!candidate.recording.id.empty()) {
+        if (!candidate.recording.id.empty() &&
+            !isPrivateMediaShrinkStage(candidate.recording)) {
             candidates.push_back(candidate);
         }
     }
