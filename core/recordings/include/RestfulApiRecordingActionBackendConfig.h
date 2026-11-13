@@ -14,7 +14,7 @@ struct RestfulApiRecordingActionBackendConfig
     std::string host;
     int port = 0;
     std::string basePath;
-    std::string videoDirectory = "/srv/vdr/video";
+    // Supplied by the matching backend configuration or VDR discovery.\n    std::string videoDirectory;
     bool videoDirectoryExplicit = false;
     RestfulApiRecordingActionApiMode apiMode =
         RestfulApiRecordingActionApiMode::Legacy;
