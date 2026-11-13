@@ -607,9 +607,9 @@
       // Keep admission/preflight messages separate from the durable
       // Operation readback. Late plan responses must never overwrite an SSE
       // result (the first message previously vanished immediately).
-      const planStatus = shared.node('p', 'recordings2-media-check-status',
+      const planStatus = shared.node('p', 'recordings2-media-check-status recordings2-hevc-plan-status',
         'HEVC-Vorprüfung liest die Aufnahme nur. Das Original bleibt erhalten.');
-      const status = shared.node('p', 'recordings2-media-check-status',
+      const status = shared.node('p', 'recordings2-media-check-status recordings2-hevc-operation-status',
         'Noch kein HEVC-Auftrag für diese Aufnahme.');
       status.setAttribute('role', 'status');
       const launch = makeButton('Vorprüfung starten', function () {
