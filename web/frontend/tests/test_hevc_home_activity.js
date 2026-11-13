@@ -86,7 +86,9 @@ const fakePublicClient = {
 const window = {
   sessionStorage: {
     getItem(key) {return storage.get(key) || null;},
-    setItem(key, value) {storage.set(key, value);}
+    setItem(key, value) {storage.set(key, value);},
+    get length() {return storage.size;},
+    key(index) {return Array.from(storage.keys())[index] || null;}
   },
   VdrSuitePublicV1Client: {createClient() {return fakePublicClient;}},
   VdrSuiteClientApi: {
@@ -161,6 +163,19 @@ async function flush() {
   storage.delete('vdr-suite-hevc-current-v1.' + backendId);
   sandbox.renderHevcHomeActivity();
   assert.strictEqual(host.querySelector('[data-home-hevc-activity]'), null);
+
+  // Upgrade from the already-installed stage-only session format. The
+  // user must not find the original recording again just to see progress.
+  storage.set('vdr-suite-hevc-v1.' + backendId + '.' + recordingId + '.stage',
+    JSON.stringify({key: 'existing_hevc_operation', operationId}));
+  stageState = 'outcome_unknown';
+  sandbox.renderHevcHomeActivity();
+  await flush();
+  const migrated = host.querySelector('[data-home-hevc-activity]');
+  assert(migrated && migrated.querySelector('[data-home-hevc-title]')
+    .textContent === 'Früherer HEVC-Auftrag');
+  assert(migrated.querySelector('[data-home-hevc-state]').textContent
+    .includes('Ergebnis noch ungeklärt'));
   assert(typeof listeners['vdr-suite:hevc-activity-changed'] === 'function');
   console.log('HEVC_HOME_OPERATION_SSE_DIRECT_NAVIGATION=PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });
