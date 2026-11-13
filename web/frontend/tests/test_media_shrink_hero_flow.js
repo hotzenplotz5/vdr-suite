@@ -346,6 +346,8 @@ function nodesByTag(tag) {
     'one-click Stage never asks for a separate Publish action');
   // The existing Stage SSE carries a Core hint when its durable Publish
   // begins. Its published operation ID is obtained by readback, not guessed.
+  const previousRecordingStatus = api.getMediaShrinkRecording;
+  const previousReviewStatus = api.getMediaShrinkReview;
   api.getMediaShrinkRecording = function () {
     calls.push({action: 'findRecording'});
     return Promise.resolve({backendId, recordingId, state: 'publishing',
@@ -376,6 +378,8 @@ function nodesByTag(tag) {
     'the durable Core, not the browser, continues publication');
   assert(storage.size >= 2);
   for (const entry of calls) assert(!JSON.stringify(entry).includes('/srv/'));
+  api.getMediaShrinkRecording = previousRecordingStatus;
+  api.getMediaShrinkReview = previousReviewStatus;
 
   // Another page opening the same recording during a temporary capability
   // outage must still show its existing uncertain operation and ID. A new
