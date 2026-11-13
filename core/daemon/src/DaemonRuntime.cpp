@@ -106,12 +106,19 @@ int DaemonRuntime::run()
             *backendAgentCommandRepository_)) {
         std::cerr << "Recording editing runtime unavailable" << std::endl; return 1;
     }
+    // Recover finished, already durably recorded HEVC stages without a
+    // browser GET and without blocking the HTTP/Agent control-plane thread.
+    mediaShrinkRecoveryStopRequested_.store(false);
+    mediaShrinkRecoveryThread_ = std::thread([this]() {
+        runMediaShrinkRecoveryWorker();
+    });
+
     auto lastVdrPoll = std::chrono::steady_clock::now();
     auto lastMediaImportPoll =
         std::chrono::steady_clock::now() - std::chrono::minutes(1);
     auto lastDurableBatchProgress =
         std::chrono::steady_clock::now() - std::chrono::seconds(3);
-    return runRecordingMediaHttpRuntime(
+    const int runtimeExit = runRecordingMediaHttpRuntime(
         database_,
         *apiRouter_,
         *vdrRecordingQueryService_,
@@ -178,6 +185,71 @@ int DaemonRuntime::run()
             lastVdrPoll = now;
             pollVdrAndUpdateChangeFeed();
         });
+    mediaShrinkRecoveryStopRequested_.store(true);
+    if (mediaShrinkRecoveryThread_.joinable())
+        mediaShrinkRecoveryThread_.join();
+    return runtimeExit;
+}
+
+void DaemonRuntime::runMediaShrinkRecoveryWorker()
+{
+    using State = vdrsuite::operations::MutationOperationState;
+    using namespace std::chrono;
+    // Backend-owned readback rather than browser polling. All attempts
+    // operate on the ORIGINAL durable Agent assignment and exact candidate.
+    // No new command or FFmpeg execution can be dispatched from this worker.
+    const auto waitForStop = [this](int seconds) {
+        for (int i = 0; i < seconds; ++i) {
+            if (mediaShrinkRecoveryStopRequested_.load()) return true;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        return mediaShrinkRecoveryStopRequested_.load();
+    };
+    if (waitForStop(2)) return;
+    while (!mediaShrinkRecoveryStopRequested_.load()) {
+        try {
+            if (mutationOperationRepository_ &&
+                backendAgentCommandRepository_ &&
+                mediaShrinkPlanRuntime_ && mediaShrinkReviewRepository_) {
+                // Succeeded is included to finish registering a staged review
+                // if the daemon crashed between the CAS and registry insert.
+                const auto pending =
+                    mutationOperationRepository_->listByActionFamilyAndStates(
+                        "media.shrink.stage",
+                        {State::outcomeUnknown, State::succeeded}, 32);
+                if (pending.ok()) {
+                    for (const auto& op : pending.operations) {
+                        if (mediaShrinkRecoveryStopRequested_.load()) break;
+                        const auto assignment =
+                            backendAgentCommandRepository_->
+                                findAssignmentForOperation(
+                                    op.backendId, op.operationId,
+                                    vdrsuite::mediatools::
+                                        kMediaShrinkStageCommandType);
+                        if (!assignment) continue;
+                        const auto result =
+                            backendAgentCommandRepository_->resultForCommand(
+                                assignment->commandId);
+                        if (!result) continue;
+                        const auto now = duration_cast<seconds>(
+                            system_clock::now().time_since_epoch()).count();
+                        if (tryReconcileMediaShrinkStage(
+                                *assignment, *result, now))
+                            std::cout << "HEVC_STAGE_RECOVERY=VERIFIED"
+                                      << " operation=" << op.operationId
+                                      << std::endl;
+                    }
+                }
+            }
+        } catch (const std::exception& error) {
+            // Avoid leaking file paths; the authoritative operation stays
+            // untouched for the next independent readback.
+            std::cerr << "HEVC_STAGE_RECOVERY=RETRYABLE" << std::endl;
+        } catch (...) {
+            std::cerr << "HEVC_STAGE_RECOVERY=RETRYABLE" << std::endl;
+        }
+        if (waitForStop(60)) break;
+    }
 }
 
 void DaemonRuntime::progressDurableMediaImportBatches()
