@@ -63,7 +63,10 @@ function createElement(tagName) {
 
 const target = createElement('div');
 const document = {
-  createElement:createElement
+  createElement:createElement,
+  // The real browser always provides document.head. The DOM fixture must
+  // support the stylesheet installed when recording detail is opened.
+  head: { appendChild() {} }
 };
 
 function first(object, names, fallback) {
