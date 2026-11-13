@@ -5806,10 +5806,22 @@ bool DaemonRuntime::initialize()
                     review.review.state == "publishing" ? "publishing" :
                     review.review.state == "published" ? "published" : "";
                 if (state.empty()) continue;
+                const auto stagePayload =
+                    mutationOperationRepository_->findPayloadByOperationId(
+                        op.operationId);
+                vdrsuite::mediatools::MediaShrinkAgentSelection stageSelection;
+                const bool automatic = stagePayload.ok() &&
+                    stagePayload.payload.payloadType ==
+                        vdrsuite::mediatools::kMediaShrinkStageCommandType &&
+                    vdrsuite::mediatools::parseMediaShrinkAgentSelection(
+                        stagePayload.payload.payloadType,
+                        stagePayload.payload.payload, stageSelection) &&
+                    stageSelection.autoPublish;
                 std::string body = "{\"recordingId\":\"" + recordingId +
                     "\",\"state\":\"" + state +
                     "\",\"operationId\":\"" + op.operationId +
                     "\",\"reviewId\":\"" + op.resultReference + "\"";
+                if (automatic) body += ",\"autoPublish\":true";
                 if (state == "published" &&
                     vdrsuite::mediatools::shrinkOpaqueId(
                         review.review.publishedRecordingId, "rec_"))
