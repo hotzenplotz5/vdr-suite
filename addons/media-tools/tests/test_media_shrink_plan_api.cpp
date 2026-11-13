@@ -403,6 +403,16 @@ int main() {
         "local", kRecordingId, stageFingerprint, true, false);
     assert(publishedReadback && publishedReadback->videoRoot == root &&
            publishedReadback->relativeRecording == relative);
+    // A fresh VDR recording inventory is sufficient for read-only Publish
+    // reconciliation even when the unrelated backend snapshot is offline.
+    backendOnline = false;
+    assert(!runtime.trustedSourcePaths(
+        "local", kRecordingId, stageFingerprint, true, false));
+    const auto offlineReadback = runtime.trustedSourcePaths(
+        "local", kRecordingId, stageFingerprint, false, false);
+    assert(offlineReadback && offlineReadback->videoRoot == root &&
+           offlineReadback->relativeRecording == relative);
+    backendOnline = true;
     assert(!runtime.trustedSourcePaths("local", "rec_wrong",
                                        stageFingerprint, true, false));
     // Failed-open if a recording path is replaced by a symlink.
