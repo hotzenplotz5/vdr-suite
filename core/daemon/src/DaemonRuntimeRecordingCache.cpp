@@ -657,7 +657,8 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                             const auto source = mediaShrinkPlanRuntime_->
                                 trustedSourcePaths(op.backendId,
                                     review.review.recordingId,
-                                    op.expectedResourceFingerprint);
+                                    op.expectedResourceFingerprint,
+                                    true, false);
                             if (!source) continue;
                             // Mirror the native No-Replace target from
                             // publishShrinkCandidate, never an Agent path.
