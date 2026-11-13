@@ -368,7 +368,7 @@ bool MediaShrinkOperationFence::check(
                                          operation.operation.resourceId);
         if (!stored.ok() || stored.review.state != "publishing" ||
             stored.review.publishOperationId != operation.operation.operationId ||
-            stored.review.backendGeneration != assignment.backendGeneration ||
+            stored.review.backendGeneration > assignment.backendGeneration ||
             stored.review.sourceFingerprint !=
                 operation.operation.expectedResourceFingerprint ||
             stored.review.revision != 2 ||
