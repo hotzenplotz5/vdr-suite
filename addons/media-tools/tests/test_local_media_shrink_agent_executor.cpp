@@ -165,7 +165,7 @@ int main() {
             return LocalMediaShrinkAuthority{
                 "actor-a", "backend-a", a.operationId, kRecording,
                 incorrectFingerprint ? "forged_snapshot" : fingerprint,
-                7, root, relative
+                a.backendGeneration, root, relative
             };
         },
         [&]() -> ProcessRunner& { return process; });
@@ -283,7 +283,14 @@ int main() {
     publish.commandType = kMediaShrinkPublishCommandType;
     publish.payload = "{\"reviewId\":\"" + id + "\",\"revision\":1}";
     publish.verificationPolicy = "reconciliation_required";
-    assert(executor.authorize(publish, "backend-a", 7));
+    // The original Stage is generation 7. After a long x265 job the
+    // live Agent can be generation 8; the current, independently checked
+    // permission permits a single publication of that exact private review.
+    auto stalePublish = publish;
+    stalePublish.backendGeneration = 6;
+    assert(!executor.authorize(stalePublish, "backend-a", 6));
+    publish.backendGeneration = 8;
+    assert(executor.authorize(publish, "backend-a", 8));
     assert(executor.execute(publish) == MediaShrinkAgentOutcome::submitted);
     assert(executor.takeReviewId() == id);
     assert(fs::exists(root / "Example_HEVC" / recording.filename() / "00001.ts"));
@@ -295,7 +302,7 @@ int main() {
         return std::string(std::istreambuf_iterator<char>(file),
                            std::istreambuf_iterator<char>());
     }());
-    assert(!executor.authorize(publish, "backend-a", 7));
+    assert(!executor.authorize(publish, "backend-a", 8));
     assert(authorizeCalls >= 4);
     std::cout << "HEVC_AGENT_STAGE_PUBLISH=PASS "
               << "STAGE_CRASH_REPLAY_FENCED=YES CLEAN_STAGE_FAILURE=REJECTED ORIGINAL_PRESERVED=YES\n";
