@@ -339,10 +339,37 @@ function nodesByTag(tag) {
   stream.listeners.operation({data: JSON.stringify({operationId: stageOperationId})});
   await flush();
   assert.strictEqual(calls.filter(c => c.action === 'readReview').length, 1);
-  assert.strictEqual(stream.closed, true, 'reconciled stream is closed');
+  assert.strictEqual(stream.closed, false,
+    'one-click Stage stays on existing SSE until publication readback');
   const publish = button('Als neue Aufnahme hinzufügen');
   assert.strictEqual(publish.hidden, true,
     'one-click Stage never asks for a separate Publish action');
+  // The existing Stage SSE carries a Core hint when its durable Publish
+  // begins. Its published operation ID is obtained by readback, not guessed.
+  api.getMediaShrinkRecording = function () {
+    calls.push({action: 'findRecording'});
+    return Promise.resolve({backendId, recordingId, state: 'publishing',
+      autoPublish: true, publishOperationId});
+  };
+  api.getMediaShrinkReview = function () {
+    calls.push({action: 'readReview'});
+    return Promise.resolve({backendId, recordingId, reviewId,
+      state: 'publishing', revision: 2,
+      publishAvailable: false, candidateBytes: 400000,
+      sourceBytes: 1000000});
+  };
+  stream.listeners.operation({data: JSON.stringify({operationId: stageOperationId})});
+  await flush();
+  const publishedStream = sources.find(x => x.operationId === publishOperationId);
+  assert(publishedStream && !publishedStream.closed,
+    'Core auto-publish uses the existing Publish SSE subscription');
+  publishedStream.listeners.operation({
+    data: JSON.stringify({operationId: publishOperationId})
+  });
+  await flush();
+  assert(status.textContent.includes('HEVC-Aufnahme') ||
+         status.textContent.includes('Aufnahme bestätigt'),
+    'automatic publication completion reaches the UI without polling');
   assert.strictEqual(confirmations, 0);
   assert.strictEqual(calls.filter(c => c.action === 'stage').length, 1);
   assert.strictEqual(calls.filter(c => c.action === 'publish').length, 0,
