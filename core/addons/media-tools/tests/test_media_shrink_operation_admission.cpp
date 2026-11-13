@@ -130,8 +130,15 @@ int main() {
     assert(service.publish(publication).status ==
            MediaShrinkAdmissionStatus::forbidden);
     authority.enabledPublish = true;
+    // Stage was stored under generation 7; a newer live lease (8) must
+    // still authorize a fresh publish for the verified original review.
+    authority.generation = 6;
+    assert(service.publish(publication).status ==
+           MediaShrinkAdmissionStatus::forbidden);
+    authority.generation = 8;
     auto accepted = service.publish(publication);
     assert(accepted.status == MediaShrinkAdmissionStatus::accepted);
+    assert(accepted.operation.backendGeneration == 8);
     assert(accepted.operation.actionFamily == "media.shrink.publish");
     assert(accepted.operation.verificationPolicy ==
            MutationOperationVerificationPolicy::reconciliationRequired);
@@ -153,7 +160,7 @@ int main() {
     wrong = publication;
     wrong.expectedRevision = 2;
     assert(service.publish(wrong).status == MediaShrinkAdmissionStatus::invalid);
-    authority.generation = 8;
+    authority.generation = 6;
     assert(service.publish(publication).status ==
            MediaShrinkAdmissionStatus::forbidden);
 
