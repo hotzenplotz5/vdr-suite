@@ -53,4 +53,24 @@ inline bool validShrinkReviewEvidence(
             selection.reviewId == reviewId);
 }
 
+/*
+ * A durable Agent result can say "starting/outcome_unknown" with
+ * errorCategory="none": the executor completed its private work but its
+ * precise review ID was lost at the control-plane boundary. The older
+ * "executor_unknown" variant is also supported. Neither is a license to
+ * restart work; both only allow Core's strict, independently verified
+ * private candidate readback by the ORIGINAL operation identity.
+ */
+inline bool shrinkUnknownStageAllowsPrivateReadback(
+    const BackendAgentCommandResult& result)
+{
+    return result.dispatchState == "starting" &&
+        result.verificationState == "outcome_unknown" &&
+        result.resultCategory == "outcome_unknown" &&
+        result.retryClassification == "reconcile_only" &&
+        (result.errorCategory == "none" ||
+         result.errorCategory == "executor_unknown") &&
+        result.resultEvidence.empty();
+}
+
 } // namespace vdrsuite::mediatools
