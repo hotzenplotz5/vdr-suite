@@ -647,7 +647,9 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                             if (!review.ok() || review.review.state != "publishing" ||
                                 review.review.revision != 2 ||
                                 review.review.publishOperationId != op.operationId ||
-                                review.review.backendGeneration !=
+                                // A later Publish may use a newer backend
+                                // generation than its verified Stage review.
+                                review.review.backendGeneration >
                                     op.backendGeneration ||
                                 review.review.sourceFingerprint !=
                                     op.expectedResourceFingerprint)
