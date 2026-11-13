@@ -272,10 +272,6 @@ function nodesByTag(tag) {
   assert.strictEqual(actionHost.open, true);
   assert(actionHost.querySelector('.recordings2-media-check'),
     'one existing HEVC plan/stage/publish panel, not a second flow');
-  button('Aufnahme verkleinern').click();
-  await flush();
-  assert.strictEqual(calls.filter(c => c.action === 'plan').length, 1);
-  assert.strictEqual(calls[0].request.recordingId, recordingId);
   const select = nodesByTag('select').find(n =>
     n.className === 'recordings2-media-shrink-encoder');
   assert(select);
@@ -286,13 +282,17 @@ function nodesByTag(tag) {
   assert.strictEqual(inputs.length, 2);
   inputs[0].checked = true;
   inputs[1].checked = true;
-  button('Verkleinerung starten').click();
+  // One explicit click starts the verified Stage and durable auto-publish.
+  button('Aufnahme verkleinern').click();
   await flush();
+  assert.strictEqual(calls.filter(c => c.action === 'plan').length, 1);
+  assert.strictEqual(calls[0].request.recordingId, recordingId);
   const stages = calls.filter(c => c.action === 'stage');
   assert.strictEqual(stages.length, 1);
   assert.strictEqual(stages[0].request.encoder, 'vaapi');
   assert.strictEqual(stages[0].request.maxHeight, 720);
   assert.strictEqual(stages[0].request.nightMode, true);
+  assert.strictEqual(stages[0].request.autoPublish, true);
   assert.strictEqual(stages[0].request.headers['X-CSRF-Token'], 'test-csrf');
   assert.strictEqual(stages[0].request.recordingId, recordingId);
   const homeActivity = JSON.parse(storage.get(
@@ -341,21 +341,12 @@ function nodesByTag(tag) {
   assert.strictEqual(calls.filter(c => c.action === 'readReview').length, 1);
   assert.strictEqual(stream.closed, true, 'reconciled stream is closed');
   const publish = button('Als neue Aufnahme hinzufügen');
-  assert.strictEqual(publish.hidden, false);
-  publish.click();
-  await flush();
-  assert.strictEqual(confirmations, 1);
-  const publishes = calls.filter(c => c.action === 'publish');
-  assert.strictEqual(publishes.length, 1);
-  assert.strictEqual(publishes[0].request.reviewId, reviewId);
-  assert.strictEqual(publishes[0].request.revision, 1);
-  assert.strictEqual(publishes[0].request.headers['X-CSRF-Token'], 'test-csrf');
-  publish.click();
-  button('Verkleinerung starten').click();
-  await flush();
+  assert.strictEqual(publish.hidden, true,
+    'one-click Stage never asks for a separate Publish action');
+  assert.strictEqual(confirmations, 0);
   assert.strictEqual(calls.filter(c => c.action === 'stage').length, 1);
-  assert.strictEqual(calls.filter(c => c.action === 'publish').length, 1);
-  assert.strictEqual(publish.hidden, true);
+  assert.strictEqual(calls.filter(c => c.action === 'publish').length, 0,
+    'the durable Core, not the browser, continues publication');
   assert(storage.size >= 2);
   for (const entry of calls) assert(!JSON.stringify(entry).includes('/srv/'));
 
@@ -448,21 +439,17 @@ function nodesByTag(tag) {
     };
     return visit(retryRoot);
   };
-  retryButton('Aufnahme verkleinern').click();
-  await flush();
   const failedLabel = retryRoot.querySelector('.recordings2-hevc-operation-status');
   assert(failedLabel.textContent.includes('Verkleinerung fehlgeschlagen') &&
          failedLabel.title.includes(stageOperationId) &&
          failedLabel.textContent.includes('FFmpeg konnte die Aufnahme'),
     'verified failure shows a clear message without technical state labels');
-  assert.strictEqual(retryButton('Verkleinerung starten').disabled, false,
-    'only Core-verified no-effect permits a new explicit action');
   assert.strictEqual(storage.has('vdr-suite-hevc-v1.' + backendId +
     '.' + recordingId + '.stage'), false,
     'verified terminal stage releases the old session fence');
   assert.strictEqual(calls.filter(c => c.action === 'stage').length, 1,
     'status and SSE readback never perform a new POST');
-  retryButton('Verkleinerung starten').click();
+  retryButton('Aufnahme verkleinern').click();
   await flush();
   const afterRetry = calls.filter(c => c.action === 'stage');
   assert.strictEqual(afterRetry.length, 2,
@@ -510,5 +497,5 @@ function nodesByTag(tag) {
     ['plan', 'stage', 'publish'].includes(c.action)).length, countBefore,
     'read-only recovery never starts a second conversion');
 
-  console.log('MEDIA_SHRINK_HERO_OWNER_STAGE_REVIEW_PUBLISH=PASS');
+  console.log('MEDIA_SHRINK_HERO_ONE_CLICK_AUTO_PUBLISH=PASS');
 })().catch(error => {console.error(error); process.exitCode = 1;});
