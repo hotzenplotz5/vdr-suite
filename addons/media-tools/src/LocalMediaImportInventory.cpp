@@ -287,7 +287,7 @@ bool inspectMarkedSource(const std::filesystem::path& sourceRoot,
         [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     if (ext != ".mkv" && ext != ".mp4" && ext != ".ts" &&
         ext != ".mov" && ext != ".avi" && ext != ".webm" &&
-        ext != ".m4v") return false;
+        ext != ".m4v" && ext != ".php") return false;
     bool marked = false;
     for (const char* value : {".pc_encode", ".skipped", ".duplicate"}) {
         const std::string suffix(value);
@@ -341,7 +341,7 @@ bool scanDirectory(const std::array<std::string, 6>& entry,
             [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
         return ext == ".mkv" || ext == ".mp4" || ext == ".ts" ||
                ext == ".mov" || ext == ".avi" || ext == ".webm" ||
-               ext == ".m4v";
+               ext == ".m4v" || ext == ".php";
     };
     std::vector<fs::path> paths;
     std::vector<fs::path> directories{sourceRoot};
