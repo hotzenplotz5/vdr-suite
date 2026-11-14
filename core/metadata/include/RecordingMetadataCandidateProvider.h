@@ -27,6 +27,7 @@ struct RecordingMetadataCandidate
     std::string overview;
     std::string releaseDate;
     std::string posterReference;
+    std::string backdropReference;
     int seasonNumber = 0;
     int episodeNumber = 0;
     double rating = 0.0;
