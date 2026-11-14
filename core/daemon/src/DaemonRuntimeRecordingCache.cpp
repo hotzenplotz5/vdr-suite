@@ -673,48 +673,62 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                           << " reason=source_resolution" << std::endl;
                                 continue;
                             }
-                            // Mirror the native No-Replace target from
-                            // publishShrinkCandidate, never an Agent path.
+                            // Publish originally used _HEVC before the
+                            // sibling title changed to .shrink. Read back
+                            // either actual native VDR directory; prefer the
+                            // current target if both exist.
                             namespace fs = std::filesystem;
                             const fs::path publishedRelative =
                                 fs::path(source->relativeRecording.parent_path()
                                     .string() + ".shrink") /
                                 source->relativeRecording.filename();
-                            const fs::path publishedNative =
-                                source->videoRoot / publishedRelative;
+                            const fs::path legacyPublishedRelative =
+                                fs::path(source->relativeRecording.parent_path()
+                                    .string() + "_HEVC") /
+                                source->relativeRecording.filename();
+                            fs::path matchedRelative;
+                            fs::path publishedNative;
                             std::string matchedNative;
-                            for (const auto& recording : nativeRecordings) {
-                                // RESTfulAPI path is usually relative_file_name;
-                                // only backendNativeId is the absolute VDR .rec
-                                // directory read from provider file_name.
-                                if (recording.backendId != op.backendId ||
-                                    recording.backendNativeId.empty() ||
-                                    recording.title.empty())
-                                    continue;
-                                const fs::path native(recording.backendNativeId);
-                                if (!native.is_absolute() ||
-                                    native.extension() != ".rec")
-                                    continue;
-                                std::error_code pathError;
-                                // RESTfulAPI and the local Agent may use
-                                // different aliases for the SAME configured
-                                // VDR directory. Compare actual filesystem
-                                // identity, independent of distro/mount name.
-                                const bool sameDirectory =
-                                    native == publishedNative ||
-                                    fs::equivalent(native, publishedNative,
-                                                   pathError);
-                                if (sameDirectory) {
-                                    // Multiple RESTfulAPI entries can name
-                                    // this exact same directory via aliases.
-                                    // They are not multiple physical results.
-                                    // Prefer the configured-root spelling,
-                                    // otherwise choose deterministically.
-                                    if (matchedNative.empty() ||
+                            for (const fs::path& candidateRelative :
+                                 {publishedRelative, legacyPublishedRelative}) {
+                                publishedNative = source->videoRoot / candidateRelative;
+                                for (const auto& recording : nativeRecordings) {
+                                    // RESTfulAPI path is usually relative_file_name;
+                                    // only backendNativeId is the absolute VDR .rec
+                                    // directory read from provider file_name.
+                                    if (recording.backendId != op.backendId ||
+                                        recording.backendNativeId.empty() ||
+                                        recording.title.empty())
+                                        continue;
+                                    const fs::path native(recording.backendNativeId);
+                                    if (!native.is_absolute() ||
+                                        native.extension() != ".rec")
+                                        continue;
+                                    std::error_code pathError;
+                                    // RESTfulAPI and the local Agent may use
+                                    // different aliases for the SAME configured
+                                    // VDR directory. Compare actual filesystem
+                                    // identity, independent of distro/mount name.
+                                    const bool sameDirectory =
                                         native == publishedNative ||
-                                        (fs::path(matchedNative) != publishedNative &&
-                                         recording.backendNativeId < matchedNative))
-                                        matchedNative = recording.backendNativeId;
+                                        fs::equivalent(native, publishedNative,
+                                                       pathError);
+                                    if (sameDirectory) {
+                                        // Multiple RESTfulAPI entries can name
+                                        // this exact same directory via aliases.
+                                        // They are not multiple physical results.
+                                        // Prefer the configured-root spelling,
+                                        // otherwise choose deterministically.
+                                        if (matchedNative.empty() ||
+                                            native == publishedNative ||
+                                            (fs::path(matchedNative) != publishedNative &&
+                                             recording.backendNativeId < matchedNative))
+                                            matchedNative = recording.backendNativeId;
+                                    }
+                                }
+                                if (!matchedNative.empty()) {
+                                    matchedRelative = candidateRelative;
+                                    break;
                                 }
                             }
                             if (matchedNative.empty()) {
@@ -726,7 +740,7 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                             try {
                                 const auto published = vdrsuite::mediatools::
                                     inspectShrink(source->videoRoot,
-                                                  publishedRelative);
+                                                  matchedRelative);
                                 if (published.segments.empty()) {
                                     std::cerr << "HEVC_PUBLISH_PENDING operation="
                                               << op.operationId
