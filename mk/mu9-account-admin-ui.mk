@@ -40,4 +40,5 @@ test-addon-media-import-ui:
 	node --check web/frontend/api/public-v1-client.js
 	node --check web/frontend/modules/media-import.js
 	node --check web/frontend/app.js
+	node web/frontend/tests/test_media_import_source_identity.js
 	node web/frontend/tests/test_media_import_composition.js
