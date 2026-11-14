@@ -3146,8 +3146,13 @@
     const nfoYear = plan && /^(?:19|20)\d{2}$/.test(String(plan.nfoYear || ''))
       ? Number(plan.nfoYear) : 0;
     const year = yearMatch ? Number(yearMatch[1]) : nfoYear;
-    const languageMatch = /^(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[-_:]\s*/i.exec(filename);
-    const language = languageMatch ? languageMatch[1].toUpperCase() : '';
+    // Source feeds may decorate a language marker as "| DE |", "[EN]",
+    // "(FR)" or "DE -". Strip these generic leading markers from the
+    // metadata title, never from names elsewhere inside a film title.
+    const languagePrefix = /^(?:\s*(?:\|\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\||\[\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\]|\(\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\)|(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[-_:|])\s*)+/i;
+    const languageMatch = languagePrefix.exec(filename);
+    const language = languageMatch
+      ? languageMatch.slice(1).find(Boolean).toUpperCase() : '';
     const countries = [];
     const regionPattern = /\((US|UK|GB|DE|GER|FR|CA|AU|NL|IT|ES)\)/ig;
     let region;
@@ -3158,7 +3163,7 @@
     function cleanTitle(value) {
       return String(value || '')
         .replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v|php)$/i, '')
-        .replace(/^(?:(?:DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[-_:]\s*)+/i, '')
+        .replace(languagePrefix, '')
         .replace(/\((?:19|20)\d{2}\)/g, ' ')
         .replace(/\((?:US|UK|GB|DE|GER|FR|CA|AU|NL|IT|ES)\)/gi, ' ')
         .replace(/[_]+/g, ' ')
