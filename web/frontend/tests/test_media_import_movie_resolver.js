@@ -19,8 +19,8 @@ const hooked = src.replace(/\}\)\(window\);\s*$/, [
   'global.__movieResolverTest = {',
   '  activate(v) {current = v; owner = v.owner;',
   '    updatePreview = function() {};},',
-  '  movie: autoIdentifyMovie,
-  visible: identifyVisibleReadyMovie',
+  '  movie: autoIdentifyMovie,',
+  '  visible: identifyVisibleReadyMovie',
   '};',
   '})(window);'
 ].join('\n'));
