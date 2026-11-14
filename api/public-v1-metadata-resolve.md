@@ -17,6 +17,18 @@ Serienepisode:
 {"title":"Star Wars-Andor","kind":"series","seasonNumber":2,"episodeNumber":4}
 ```
 
+Optionale Episodentitel-Evidenz zur Unterscheidung gleichnamiger Serien:
+
+```json
+{"title":"Harbor Watch","kind":"series","seasonNumber":1,"episodeNumber":8,"episodeTitle":"Das geheimnisvolle Signal"}
+```
+
+`episodeTitle` ist **optional** und stammt aus der vorhandenen
+Quellidentität (z. B. Dateiname hinter `S01E08`). Sowohl die einzelne
+Serienvorschau als auch der Stapelimport übergeben es bei vorhandener
+Folgenbezeichnung; der Public-v1-Referenzclient unterstützt das Feld
+ohne inkompatible Änderung älterer Aufrufe.
+
 Film:
 
 ```json
@@ -27,6 +39,19 @@ Die Jahresangabe ist für Filme und Serien optional. Bei gleichnamigen
 Serien wird das Jahr des **Serienstarts** aus TMDb `first_air_date`
 verglichen (nicht das Ausstrahlungsjahr einer einzelnen Folge).
 Bei `Foundation (2021)` ist `year: 2021` daher entscheidend.
+Bei mehreren gleich guten Serien-Titeltreffern berücksichtigt der Resolver
+jetzt die **konkrete Folge**: Er liest für jeden solchen Kandidaten die
+vorhandene TMDb-Staffelliste, prüft die exakten Staffel-/Folgenkoordinaten
+und vergleicht den optionalen Quell-`episodeTitle` mit dem lokalisierten
+Folgentitel sowie gegebenenfalls dem Originaltitel. Nur ein einzelner
+bestbewerteter Episodentreffer führt zu `matched` und liefert genau
+diese bestätigte Serien-/Episoden-ID. Mehrere identische, fehlende oder
+nicht passende Titelbelege ergeben weiterhin `ambiguous`. Ohne
+`episodeTitle` bleibt das bisherige Titel-/Jahrverhalten unverändert.
+Ein Providerfehler bleibt HTTP 503. Ein bloß vorhandener `S01E08`-Eintrag
+allein wählt **keine** Serie aus; es gibt keine film- oder serientitelspezifische
+Ausnahme.
+
 Ohne hinreichende Identität bleibt das Ergebnis `ambiguous`.
 
 Der Resolver verwendet den **vorhandenen** `TmdbRecordingMetadataCandidateProvider`
