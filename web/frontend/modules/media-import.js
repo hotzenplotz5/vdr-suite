@@ -1149,9 +1149,7 @@
   // The franchise name is a lookup hint; the year is a distinct, source-
   // derived identity hint (e.g. Foundation (2021)), not episode air date.
   function seriesPremiereYearFromSource(source) {
-    const label = String(source && source.label || '');
-    const match = /\(((?:19|20)\d{2})\)/.exec(label);
-    return match ? Number(match[1]) : 0;
+    return sourceMetadataIdentity(source).year;
   }
 
   function batchMetadataSnapshot(view, source, plan, cache) {
@@ -1186,15 +1184,12 @@
       }).catch(function () { return null; }));
       return cache.get(key);
     };
-    const coords = episodeCoordinates(source);
+    const identity = sourceMetadataIdentity(source, plan);
+    const coords = identity;
     if (coords.episode !== null) {
-      const year = seriesPremiereYearFromSource(source);
-      const titles = [batchSeriesTitleFromLabel(source),
-        onlineSeriesSearchTitle(source)].filter(function (title, index, all) {
-        return title.length >= 2 && title.length <= 160 &&
-          all.findIndex(function (other) {
-            return normalizedSeriesName(other) === normalizedSeriesName(title);
-          }) === index;
+      const year = identity.year;
+      const titles = identity.titleHints.map(function (hint) {
+        return hint.title;
       });
       const tryTitle = function (index) {
         if (index >= titles.length) return Promise.resolve('');
@@ -2663,12 +2658,12 @@
 
   function autoIdentifyEpisode(view, source) {
     if (view.onlineUserControlled) return;
-    const coords = episodeCoordinates(source);
-    const title = batchSeriesTitleFromLabel(source) ||
-      onlineSeriesSearchTitle(source);
-    const year = seriesPremiereYearFromSource(source);
-    if (coords.episode === null || title.length < 2 ||
-        title.length > 160 || !view.sources.includes(source.sourceId)) return;
+    const identity = sourceMetadataIdentity(source);
+    const coords = identity;
+    const hints = identity.titleHints;
+    const year = identity.year;
+    if (coords.episode === null || !hints.length ||
+        !view.sources.includes(source.sourceId)) return;
     const sourceId = source.sourceId;
     const generation = view.previewGeneration;
     const active = function () {
@@ -2682,28 +2677,41 @@
       ? session.csrfHeaders() : {};
     view.onlineAuto = true;
     view.onlineKind = 'series';
-    view.onlineQuery = title;
+    view.onlineQuery = hints[0].title;
     view.onlinePending = true;
     view.onlineStatus = 'TMDb-Folge wird vom Metadata Core zugeordnet …';
     updatePreview(view);
-    Promise.resolve().then(function () {
-      if (!active()) return null;
-      return api.requestJson(
+    // Both title hints go through the SAME Public-v1 Core resolver, not
+    // separate frontend TMDb matchers. Only an explicit not_found may try
+    // the next source-derived hint. Ambiguous/provider errors never turn
+    // into a guessed match or an implicit import.
+    function resolveHint(index) {
+      if (index >= hints.length)
+        return Promise.resolve({matched: {status: 'not_found'}, hint: null});
+      return Promise.resolve(api.requestJson(
         '/api/v1/backends/' + encodeURIComponent(view.backendId) +
         '/metadata/resolve', {
           method: 'POST',
           headers: Object.assign({'Content-Type':'application/json'},
             csrf && typeof csrf === 'object' ? csrf : {}),
           body: JSON.stringify({
-            title: title, kind: 'series',
+            title: hints[index].title, kind: 'series',
             seasonNumber: coords.season, episodeNumber: coords.episode,
             ...(year ? {year: year} : {})
           }),
           cache: 'no-store', credentials: 'same-origin'
+        })).then(function (matched) {
+          if (active() && matched && matched.status === 'not_found' &&
+              index + 1 < hints.length) return resolveHint(index + 1);
+          return {matched: matched, hint: hints[index]};
         });
-    }).then(function (matched) {
-      if (!active()) return;
+    }
+    Promise.resolve().then(function () {
+      return active() ? resolveHint(0) : null;
+    }).then(function (resolved) {
+      if (!active() || !resolved) return;
       view.onlinePending = false;
+      const matched = resolved.matched;
       if (!matched || matched.status !== 'matched' ||
           matched.mediaType !== 'episode' ||
           !matched.series || !matched.episode ||
@@ -2720,6 +2728,7 @@
         updatePreview(view);
         return;
       }
+      view.onlineQuery = resolved.hint.title;
       view.onlineSeries = matched.series;
       view.onlineSeason = {seasonNumber: coords.season};
       view.onlineMode = 'episodes';
@@ -2746,9 +2755,12 @@
     if (!source || !plan || plan.status !== 'ready' ||
         view.onlineKind !== 'movie' || view.onlineAuto ||
         view.onlineUserControlled || validLocalArtwork(plan.posterDataUri)) return;
-    // The inventory label is the recognizable filename/title; a probe may
-    // derive a generic title when no NFO exists.
-    const title = String(source.label || plan.title || '').trim();
+    // The same source-derived title/year parser used by serial and batch
+    // matching also supplies the movie preview hint. Candidate ranking and
+    // translated aliases remain the central META7.2 work.
+    const identity = sourceMetadataIdentity(source, plan);
+    const title = identity.fileTitle ||
+      (identity.titleHints[0] && identity.titleHints[0].title) || '';
     if (title.length < 2 || title.length > 160) return;
     const sourceId = source.sourceId;
     const generation = view.previewGeneration;
@@ -2802,7 +2814,9 @@
       'Eindeutige TMDb-Daten werden nach bestätigtem Import über die bestehende Aufnahme-Metadatenzuordnung gespeichert. Das originale Video bleibt unverändert.'));
     const tools = element('div', 'media-import-online-tools');
     const coordinates = episodeCoordinates(source);
-    const seriesTitle = onlineSeriesSearchTitle(source);
+    const identity = sourceMetadataIdentity(source, plan);
+    const seriesTitle = identity.titleHints.length
+      ? identity.titleHints[0].title : '';
     // The currently browsed TMDb series is the primary context while choosing
     // a season/episode. Keep recognized local coordinates visible beneath it.
     if (view.onlineSeries && view.onlineMode !== 'search')
@@ -3106,27 +3120,91 @@
   // an episode-named subfolder. The source filename still contains the
   // series identity ahead of SxxExx. This is only a TMDb search hint; the
   // exact provider series and episode must still be uniquely confirmed.
+
+  // MT.META7.1: one side-effect-free observation of file and folder hints.
+  // This is NOT a TMDb identity or an authorization decision. A confirmed
+  // provider match still comes exclusively from the existing Metadata Core.
+  function sourceMetadataIdentity(source, plan) {
+    const label = String(source && source.label || plan && plan.title || '').trim();
+    const folder = String(source && source.folder || '');
+    const coordinates = episodeCoordinates(source || {});
+    const isEpisode = coordinates.episode !== null;
+    const filename = label.replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v)$/i, '');
+    const yearMatch = /\(((?:19|20)\d{2})\)/.exec(filename) ||
+      /\(((?:19|20)\d{2})\)/.exec(folder);
+    const nfoYear = plan && /^(?:19|20)\d{2}$/.test(String(plan.nfoYear || ''))
+      ? Number(plan.nfoYear) : 0;
+    const year = yearMatch ? Number(yearMatch[1]) : nfoYear;
+    const languageMatch = /^(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[-_:]\s*/i.exec(filename);
+    const language = languageMatch ? languageMatch[1].toUpperCase() : '';
+    const countries = [];
+    const regionPattern = /\((US|UK|GB|DE|GER|FR|CA|AU|NL|IT|ES)\)/ig;
+    let region;
+    while ((region = regionPattern.exec(filename)) !== null)
+      if (!countries.includes(region[1].toUpperCase()))
+        countries.push(region[1].toUpperCase());
+
+    function cleanTitle(value) {
+      return String(value || '')
+        .replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v)$/i, '')
+        .replace(/^(?:(?:DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[-_:]\s*)+/i, '')
+        .replace(/\((?:19|20)\d{2}\)/g, ' ')
+        .replace(/\((?:US|UK|GB|DE|GER|FR|CA|AU|NL|IT|ES)\)/gi, ' ')
+        .replace(/[_]+/g, ' ')
+        .replace(/\s+/g, ' ').replace(/^[\s._:-]+|[\s._:-]+$/g, '').trim();
+    }
+    const episodeMarker = isEpisode
+      ? /(?:^|[\s._-])(?:S\d{1,2}E\d{1,3}|(?:Staffel|Season)[\s._-]*\d{1,2}[\s._-]+(?:Folge|Episode)[\s._-]*\d{1,3}|(?:Folge|Episode)[\s._-]*\d{1,3})(?=$|[\s._-])/i.exec(filename)
+      : null;
+    const filePart = episodeMarker
+      ? filename.slice(0, episodeMarker.index) : isEpisode ? '' : filename;
+    const fileTitle = cleanTitle(filePart);
+    const episodeTitle = episodeMarker
+      ? cleanTitle(filename.slice(episodeMarker.index + episodeMarker[0].length))
+      : '';
+
+    // A season folder is a coordinate, not a show name. Generic library,
+    // genre/import roots also cannot become an automatic series title.
+    const directories = folder.split('/').filter(Boolean);
+    let folderTitle = '';
+    for (let i = directories.length - 1; i >= 0; --i) {
+      const name = directories[i];
+      if (/^(?:Staffel|Season)[ ._-]*\d{1,2}$/i.test(name)) continue;
+      if (/^(?:Serien|Series|TV|Shows|Filme|Movies|Eingang|Unsortiert|Import|Medien|Downloads|Video)$/i.test(name))
+        break;
+      folderTitle = cleanTitle(name);
+      break;
+    }
+    const titleHints = [];
+    const normalized = new Set();
+    function addHint(title, origin) {
+      const key = normalizedSeriesName(title);
+      if (title.length < 2 || title.length > 160 || !key ||
+          normalized.has(key)) return;
+      normalized.add(key);
+      titleHints.push({title: title, origin: origin});
+    }
+    addHint(fileTitle, 'filename');
+    addHint(folderTitle, 'folder');
+    return {
+      kind: isEpisode ? 'series' : 'movie',
+      fileTitle: fileTitle, folderTitle: folderTitle,
+      titleHints: titleHints, year: year, language: language,
+      countries: countries, season: coordinates.season,
+      episode: coordinates.episode, episodeTitle: episodeTitle
+    };
+  }
+
+  // Compatibility adapters for existing UI call sites. They cannot apply a
+  // different title-cleaning rule than the single/batch metadata path.
   function batchSeriesTitleFromLabel(source) {
-    const label = String(source && source.label || '');
-    const marker = /(?:^|[\s._-])S(0?[1-9]|[1-9][0-9])E(0?[1-9]|[1-9][0-9]{1,2})(?=$|[\s._-])/i.exec(label);
-    if (!marker || marker.index < 3) return '';
-    return label.slice(0, marker.index)
-      .replace(/^(?:(?:DE|EN|GER|ENG)[\s._-]+)+/i, '')
-      .replace(/[\s._-]+$/, '')
-      .replace(/\s*\((?:19|20)\d{2}\)$/, '')
-      .replace(/[_-]+/g, ' ')
-      .replace(/\s+/g, ' ').trim();
+    return sourceMetadataIdentity(source).fileTitle;
   }
 
   function onlineSeriesSearchTitle(source) {
-    const coords = episodeCoordinates(source);
-    if (coords.episode === null) return '';
-    const folders = coords.seriesPath.split('/').filter(Boolean);
-    const raw = folders.length ? folders[folders.length - 1] : '';
-    if (/^(serien|series|tv|shows)$/i.test(raw)) return '';
-    return raw.replace(/[_-]+/g, ' ')
-      .replace(/\s*\((?:19|20)\d{2}\)\s*$/, '')
-      .replace(/\s+/g, ' ').trim();
+    const identity = sourceMetadataIdentity(source);
+    return identity.folderTitle || (identity.titleHints[0] &&
+      identity.titleHints[0].title) || '';
   }
 
   function renderSeasonChoices(view, searching) {
