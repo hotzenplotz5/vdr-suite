@@ -28,6 +28,8 @@ public:
     int creditCalls = 0;
     bool emptyCredits = false;
     bool ambiguousResolve = false;
+    bool identicalEpisodes = false;
+    bool episodeLookupUnavailable = false;
     std::string creditError;
     bool creditProviderAvailable = true;
     int trailerCalls = 0;
@@ -54,6 +56,25 @@ public:
                 ? "Forrest Gump"
                 : "Sherlock";
         candidate.originalTitle = candidate.title;
+        // Two fictional shows have exactly the same localized/original
+        // series title, but different identities and eighth episodes.
+        if (kind == RecordingMetadataCandidateKind::Series &&
+            query == "Harbor Watch")
+        {
+            RecordingMetadataCandidatePage page;
+            page.attempted = true;
+            page.providerAvailable = true;
+            page.providerId = "tmdb";
+            candidate.externalId = "7101";
+            candidate.title = "Harbor Watch";
+            candidate.originalTitle = "Harbor Watch";
+            candidate.releaseDate = "1999-10-20";
+            page.candidates.push_back(candidate);
+            candidate.externalId = "7202";
+            candidate.releaseDate = "2023-08-31";
+            page.candidates.push_back(candidate);
+            return page;
+        }
         // Generic international film series: full filename-style phrase is
         // not indexed by the provider, but a common title prefix returns two
         // differently numbered films with translated display titles.
@@ -175,6 +196,15 @@ public:
         lastSeriesId = seriesExternalId;
         lastSeason = seasonNumber;
         lastLimit = limit;
+        if (episodeLookupUnavailable &&
+            (seriesExternalId == "7101" || seriesExternalId == "7202"))
+        {
+            RecordingMetadataCandidatePage failed;
+            failed.attempted = true;
+            failed.providerAvailable = false;
+            failed.error = "simulated provider outage";
+            return failed;
+        }
         RecordingMetadataCandidate candidate;
         candidate.kind = RecordingMetadataCandidateKind::Episode;
         candidate.providerId = "tmdb";
@@ -184,8 +214,16 @@ public:
         candidate.title = seriesExternalId == "4321"
             ? "Waren Sie schon einmal in Ghorman"
             : seriesExternalId == "777"
-                ? "Erwachen" : "Ein Fall von Pink";
-        if (seriesExternalId == "4321")
+                ? "Erwachen"
+                : seriesExternalId == "7101"
+                    ? "Das geheimnisvolle Signal"
+                    : seriesExternalId == "7202"
+                        ? (identicalEpisodes
+                            ? "Das geheimnisvolle Signal" : "Gesucht")
+                        : "Ein Fall von Pink";
+        if (seriesExternalId == "7101" || seriesExternalId == "7202")
+            candidate.episodeNumber = 8;
+        else if (seriesExternalId == "4321")
             candidate.episodeNumber = 4;
         else if (seriesExternalId == "777")
             candidate.episodeNumber = 5;
@@ -458,6 +496,93 @@ int main()
             std::string::npos);
         assert(nativeUpdateCalls == 0);
     }
+    // MT.META7.2: the actual episode title supplied by a source filename
+    // disambiguates same-named series via their own season/episode lists.
+    // No series title, provider ID or episode name is a product exception.
+    {
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            R"({"title":"Harbor Watch","kind":"series",)"
+            R"("seasonNumber":1,"episodeNumber":8})",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"ambiguous\"") !=
+            std::string::npos);
+        assert(nativeUpdateCalls == 0);
+    }
+    {
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            R"({"title":"Harbor Watch","kind":"series",)"
+            R"("seasonNumber":1,"episodeNumber":8,)"
+            R"("episodeTitle":"Das geheimnisvolle Signal"})",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"matched\"") !=
+            std::string::npos);
+        assert(response.body.find("\"externalId\":\"7101\"") !=
+            std::string::npos);
+        assert(response.body.find("\"externalId\":\"7202\"") ==
+            std::string::npos);
+        assert(response.body.find("Das geheimnisvolle Signal") !=
+            std::string::npos);
+        assert(nativeUpdateCalls == 0);
+    }
+    {
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            R"({"title":"Harbor Watch","kind":"series",)"
+            R"("seasonNumber":1,"episodeNumber":8,)"
+            R"("episodeTitle":"Gesucht"})",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"matched\"") !=
+            std::string::npos);
+        assert(response.body.find("\"externalId\":\"7202\"") !=
+            std::string::npos);
+        assert(nativeUpdateCalls == 0);
+    }
+    {
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            R"({"title":"Harbor Watch","kind":"series",)"
+            R"("seasonNumber":1,"episodeNumber":8,)"
+            R"("episodeTitle":"Nicht vorhandener Episodentitel"})",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"ambiguous\"") !=
+            std::string::npos);
+        assert(nativeUpdateCalls == 0);
+    }
+    {
+        provider.identicalEpisodes = true;
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            R"({"title":"Harbor Watch","kind":"series",)"
+            R"("seasonNumber":1,"episodeNumber":8,)"
+            R"("episodeTitle":"Das geheimnisvolle Signal"})",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"ambiguous\"") !=
+            std::string::npos);
+        provider.identicalEpisodes = false;
+        assert(nativeUpdateCalls == 0);
+    }
+    {
+        provider.episodeLookupUnavailable = true;
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            R"({"title":"Harbor Watch","kind":"series",)"
+            R"("seasonNumber":1,"episodeNumber":8,)"
+            R"("episodeTitle":"Das geheimnisvolle Signal"})",
+            "user:test-admin", response));
+        assert(response.statusCode == 503);
+        assert(response.body.find("simulated provider outage") !=
+            std::string::npos);
+        provider.episodeLookupUnavailable = false;
+        assert(nativeUpdateCalls == 0);
+    }
+
     {
         provider.ambiguousResolve = true;
         ApiResponse response;
