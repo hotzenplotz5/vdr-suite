@@ -178,6 +178,33 @@ inline std::string trimmed(const std::string& value)
     return value.substr(first, last - first + 1U);
 }
 
+struct NameSeparator
+{
+    std::size_t position = 0U;
+    std::size_t length = 0U;
+};
+
+inline std::vector<NameSeparator> nameSeparators(const std::string& text)
+{
+    std::vector<NameSeparator> result;
+    for (std::size_t i = 0; i < text.size(); ++i)
+    {
+        std::size_t width = 0U;
+        const unsigned char first = static_cast<unsigned char>(text[i]);
+        if (first == '-' || first == ':') width = 1U;
+        else if (first == 0xe2U && i + 2U < text.size() &&
+            static_cast<unsigned char>(text[i + 1U]) == 0x80U &&
+            static_cast<unsigned char>(text[i + 2U]) >= 0x90U &&
+            static_cast<unsigned char>(text[i + 2U]) <= 0x95U)
+            width = 3U; // Unicode hyphen, en dash, em dash.
+        if (width == 0U) continue;
+        if (words(text.substr(0U, i)).size() >= 2U)
+            result.push_back({i, width});
+        i += width - 1U;
+    }
+    return result;
+}
+
 inline int score(const std::string& supplied, const std::string& candidate)
 {
     const auto expected = canonicalWords(supplied);
@@ -191,10 +218,10 @@ inline int score(const std::string& supplied, const std::string& candidate)
     // Series frequently carry a franchise prefix separated by a colon
     // (e.g. "Franchise: Series"). A complete suffix may be an alias.
     // Single-token generic prefixes are NOT accepted as evidence.
-    const auto colon = candidate.find_last_of(':');
-    if (colon != std::string::npos &&
-        canonicalWords(candidate.substr(colon + 1U)) == expected)
-        return 105;
+    for (const auto& divider : nameSeparators(candidate))
+        if (canonicalWords(candidate.substr(
+                divider.position + divider.length)) == expected)
+            return 105;
     return 0;
 }
 
@@ -224,11 +251,9 @@ inline std::vector<std::string> searchQueries(const std::string& title)
     // Generic franchise/series suffix: "Star Wars-Andor" -> "Andor".
     // A single hyphen inside a word is left intact unless a meaningful
     // multiword prefix precedes it.
-    for (std::size_t i = 0; i < title.size(); ++i)
+    for (const auto& divider : nameSeparators(title))
     {
-        if (title[i] != ':' && title[i] != '-') continue;
-        if (words(title.substr(0U, i)).size() < 2U) continue;
-        append(title.substr(i + 1U));
+        append(title.substr(divider.position + divider.length));
         break;
     }
     return queries;
