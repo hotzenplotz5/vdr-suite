@@ -1195,14 +1195,19 @@
         if (index >= titles.length) return Promise.resolve('');
         return resolve(titles[index], 'series', coords.season,
           coords.episode, year).then(function (data) {
-            if (!isCurrent(view) || !data || data.status !== 'matched' ||
-                data.mediaType !== 'episode' || !data.series ||
-                !data.episode || data.series.kind !== 'series' ||
-                data.episode.kind !== 'episode' ||
-                data.episode.parentExternalId !== data.series.externalId ||
-                data.episode.seasonNumber !== coords.season ||
-                data.episode.episodeNumber !== coords.episode)
+            if (!isCurrent(view) || !data) return '';
+          if (data.status === 'not_found')
               return tryTitle(index + 1);
+          // A provider error, ambiguous result or malformed matched payload
+          // cannot authorize searching another identity as a silent fallback.
+          if (data.status !== 'matched' ||
+              data.mediaType !== 'episode' || !data.series ||
+              !data.episode || data.series.kind !== 'series' ||
+              data.episode.kind !== 'episode' ||
+              data.episode.parentExternalId !== data.series.externalId ||
+              data.episode.seasonNumber !== coords.season ||
+              data.episode.episodeNumber !== coords.episode)
+              return '';
             return frozenImportMetadata(view, {candidate:
               Object.assign({}, data.episode, {mediaType: 'episode'})
             }, data.series);
