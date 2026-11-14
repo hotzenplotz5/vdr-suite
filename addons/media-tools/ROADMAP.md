@@ -70,6 +70,8 @@ Die aktive Media-Tools-Ansicht abonniert den **gemeinsamen** Browser-SSE-Client 
 
 **Commits:** `9db1159ad77b03cb1cdfe16a913ebdadac7eed57` (Produktcode), `fb64403b172e591bb6ebbd9c0afa9aa455a45b5c` (Staffelordner-Muster), `a0b13097de6cdd309ba7b85c464df854b579173e` (Core-Fake-Regressionen), `7042840a104483a5323ce6bfdf3bd9da481d1f8d` (Jahresbeleg), `bd245511c7d13e2e9409ac85faca0c1885d1acc4` (Negativkontrollen ohne Jahr). **Keine Testausführung oder Hostabnahme behaupten**, solange deren Ergebnisse fehlen.
 
+**Nachstabilisierung:** `854a2690e1934d278deb60b1392d1b005716e356` erhält den bisherigen Core-Resolver als Fallback, wenn der wiederverwendete Serien-ID-Episodenabruf keine eindeutig belegte Folge liefert (einschließlich abgeschnittener Staffel, Providerfehler oder abweichender Episodentitel). `066c7fc26f5d3a57928f70cdb8f4cf8086400f86` ergänzt dazu einen gezielten negativen Episodentitel-Test. Diese Änderung verhindert, dass die Optimierung bestehende individuelle Metadatenauflösung stillschweigend verdrängt. Noch keine behauptete CI- oder yaVDR-Abnahme.
+
 **Grenzen dieses ersten Slices:** Einzelvorschau und Bestands-Backfill werden noch nicht von einem geteilten Serienidentitätscache gespeist. Die vorhandene Core-Episoden-API ist auf höchstens 20 Ergebnisse je Staffelabruf begrenzt. Die vollständige 22-Folgen-/Mehrstaffel-/Quellenwechsel-Matrix und eine robuste, zentralisierte gruppenweite Core-Identität bleiben deshalb **MT.META7.3 offen**. Vor einem echten User-Import müssen gezielte JS-Frontendtests und die reale Zuordnung geprüft werden; keine historischen Aufträge wiederholen.
 
 ### MT.META7.1 – Quellcodecheckpoint und Legacy-Dateiendung (14.11.2026)
