@@ -139,7 +139,7 @@ async function flush() {
   requests.length = 0;
   const taggedSource = {
     sourceId: 'scan_language_movie_test', folder: 'SciFi',
-    label: '| DE | Mickey 17.mkv'
+    label: '┃DE┃ Mickey 17.mkv'
   };
   const taggedView = view();
   taggedView.select.value = taggedSource.sourceId;
@@ -150,6 +150,8 @@ async function flush() {
   assert.deepStrictEqual(JSON.parse(JSON.stringify(requests)),
     [{title: 'Mickey 17', kind: 'movie'}],
     'generic language prefix removed before automatic Core resolution');
+  assert.strictEqual(taggedView.onlineQuery, 'Mickey 17',
+    'visible TMDb query shows cleaned title, not Unicode source marker');
   assert.strictEqual(taggedView.onlineSelected, movie);
 
   // Late replies from an old source selection are read-only and ignored.
