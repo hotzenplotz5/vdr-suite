@@ -1272,7 +1272,7 @@
       const folderTail = seriesFolder.split('/').filter(Boolean).pop() || '';
       const namedFolder = folderTail &&
         !/^(?:Doku|Dokumentation|Horror|Oskar|SciFi|Serien|Series|TV|Shows|Filme|Movies|Import|Eingang|Unsortiert|Medien|Downloads|Video)$/i.test(folderTail) &&
-        !/^(?:Staffel|Season)[ ._-]*\\d{1,2}$/i.test(folderTail);
+        !/^(?:Staffel|Season)[ ._-]*\d{1,2}$/i.test(folderTail);
       const groupTitle = normalizedSeriesName(titles[0] || '');
       const seriesKey = namedFolder && groupTitle
         ? 'v1-series:' + view.backendId + ':' +
