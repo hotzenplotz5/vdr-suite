@@ -2645,21 +2645,6 @@
       .replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
   }
 
-  // Match an exact unique movie title even when German numerals are spelled
-  // out instead of digits. No fuzzy/partial provider assignment.
-  function normalizedMovieMatchTitle(value) {
-    const numerals = {
-      null: '0', eins: '1', zwei: '2', drei: '3', vier: '4',
-      fuenf: '5', fünf: '5', sechs: '6', sieben: '7',
-      acht: '8', neun: '9', zehn: '10', elf: '11',
-      zwoelf: '12', zwölf: '12'
-    };
-    return normalizedSeriesName(value).split(' ').map(function (word) {
-      return Object.prototype.hasOwnProperty.call(numerals, word)
-        ? numerals[word] : word;
-    }).join(' ');
-  }
-
   function autoIdentifyEpisode(view, source) {
     if (view.onlineUserControlled) return;
     const identity = sourceMetadataIdentity(source);
@@ -2755,13 +2740,13 @@
   // A standalone film without a local poster should not require a manual
   // TMDb search just to display its cover. The same existing metadata API is
   // used; only one unambiguous exact title match is accepted.
+  // Movies and episodes share the single Public-v1 Metadata Core resolver.
+  // Browser lookup never guesses from TMDb search order, writes metadata or
+  // performs a video import. Manual TMDb search remains a separate UI action.
   function autoIdentifyMovie(view, source, plan) {
     if (!source || !plan || plan.status !== 'ready' ||
         view.onlineKind !== 'movie' || view.onlineAuto ||
-        view.onlineUserControlled || validLocalArtwork(plan.posterDataUri)) return;
-    // The same source-derived title/year parser used by serial and batch
-    // matching also supplies the movie preview hint. Candidate ranking and
-    // translated aliases remain the central META7.2 work.
+        view.onlineUserControlled) return;
     const identity = sourceMetadataIdentity(source, plan);
     const title = identity.fileTitle ||
       (identity.titleHints[0] && identity.titleHints[0].title) || '';
@@ -2773,41 +2758,54 @@
         !view.onlineUserControlled && generation === view.previewGeneration &&
         view.select.value === sourceId;
     };
-    // File-system separators are not search terms. TMDb should receive
-    // "Sherlock Holmes A Game of Shadows", not the literal underscore.
-    const query = title.replace(/[_:]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const api = global.VdrSuiteClientApi;
+    if (!api || typeof api.requestJson !== 'function') return;
+    const session = global.VdrSuiteBrowserSession;
+    const csrf = session && typeof session.csrfHeaders === 'function'
+      ? session.csrfHeaders() : {};
     view.onlineAuto = true;
-    view.onlineQuery = query;
-    onlineLookup(view, 'search', {query: query, kind: 'movie', limit: 12}, 'movie')
-      .then(function (candidates) {
-        if (!active() || !Array.isArray(candidates)) return;
-        const normalized = normalizedMovieMatchTitle(title);
-        let matches = candidates.filter(function (item) {
-          // TMDb may return a German display title for an English source
-          // filename (or vice versa). originalTitle is part of the existing
-          // metadata response; accept either as an exact normalized match.
-          return normalizedMovieMatchTitle(item.title) === normalized ||
-            normalizedMovieMatchTitle(item.originalTitle) === normalized;
+    view.onlineQuery = title;
+    view.onlinePending = true;
+    view.onlineStatus = 'TMDb-Film wird vom Metadata Core zugeordnet …';
+    updatePreview(view);
+    Promise.resolve().then(function () {
+      if (!active()) return null;
+      return api.requestJson(
+        '/api/v1/backends/' + encodeURIComponent(view.backendId) +
+        '/metadata/resolve', {
+          method: 'POST',
+          headers: Object.assign({'Content-Type': 'application/json'},
+            csrf && typeof csrf === 'object' ? csrf : {}),
+          body: JSON.stringify({
+            title: title, kind: 'movie',
+            ...(identity.year ? {year: identity.year} : {})
+          }),
+          cache: 'no-store', credentials: 'same-origin'
         });
-        // Prefer an exact NFO year when remakes share the same title.
-        if (matches.length > 1 && /^\d{4}$/.test(plan.nfoYear || '')) {
-          matches = matches.filter(function (item) {
-            return String(item.releaseDate || '').slice(0, 4) === plan.nfoYear;
-          });
-        }
-        if (matches.length === 1) {
-          view.onlineSelected = matches[0];
-          view.onlineAutoSelected = true;
-          view.onlineStatus = 'TMDb-Film automatisch erkannt: ' +
-            matches[0].title + '. Poster und bereits gefundene Metadaten ' +
-            'werden für den Import übernommen.';
-        } else {
-          view.onlineStatus = matches.length
-            ? 'Mehrdeutiger TMDb-Film. Eine manuelle Auswahl ist möglich.'
-            : 'Kein eindeutiger TMDb-Film gefunden. Die lokale Vorschau bleibt erhalten.';
-        }
-        updatePreview(view);
-      });
+    }).then(function (result) {
+      if (!active() || !result) return;
+      view.onlinePending = false;
+      if (result.status === 'matched' && result.mediaType === 'movie' &&
+          onlineValid(result.movie, 'movie')) {
+        view.onlineSelected = result.movie;
+        view.onlineAutoSelected = true;
+        view.onlineStatus = 'TMDb-Film automatisch erkannt: ' +
+          result.movie.title + '. Poster und bereits gefundene Metadaten ' +
+          'werden für den Import übernommen.';
+      } else {
+        view.onlineStatus = result.status === 'ambiguous'
+          ? 'Mehrdeutiger TMDb-Film. Eine manuelle Auswahl ist möglich.'
+          : 'Kein eindeutiger TMDb-Film gefunden. Die lokale Vorschau bleibt erhalten.';
+      }
+      updatePreview(view);
+    }).catch(function (error) {
+      if (!active()) return;
+      view.onlinePending = false;
+      view.onlineStatus = error && (error.status === 401 || error.status === 403)
+        ? 'Keine Berechtigung zur TMDb-Suche; lokale Daten bleiben verfügbar.'
+        : 'TMDb nicht erreichbar oder nicht eingerichtet; lokale Daten bleiben verfügbar.';
+      updatePreview(view);
+    });
   }
 
   function renderOnline(view, card, plan, source) {
