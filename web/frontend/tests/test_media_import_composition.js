@@ -176,6 +176,7 @@ let delayedSubmit = null;
 let operationReads = 0;
 let recentImports = [];
 const operationStreams = [];
+const sourceStreams = [];
 function operationStream(operationId) {
   return operationStreams.slice().reverse().find(function (source) {
     return !source.closed && source.operationId === operationId;
@@ -554,6 +555,15 @@ function onlinePage(candidates) {
     providerAvailable: true, candidates: candidates};
 }
 context.VdrSuiteClientApi = {
+  createClientLiveUpdateSource() {
+    const source = {
+      closed: false, listeners: Object.create(null),
+      addEventListener(name, handler) { this.listeners[name] = handler; },
+      close() { this.closed = true; }
+    };
+    sourceStreams.push(source);
+    return source;
+  },
   createClientOperationUpdateSource(operationId) {
     assert(/^op_[A-Za-z0-9_-]+$/.test(operationId));
     const source = {
@@ -900,6 +910,78 @@ function renderHevcHomeActivity() {}
     const meta = findClass(row, 'media-import-episode-meta');
     return meta && meta.textContent.includes('Technisch geprüft');
   }), 'per-film status changes automatically without a manual rescan');
+
+  // MT.SCAN source discovery: a fresh Agent observation is announced on
+  // the *existing* backend-scoped live SSE channel, then reconciled through
+  // the regular authenticated GET without a manual scan or page reload.
+  const inventoryStream = sourceStreams[sourceStreams.length - 1];
+  assert(inventoryStream && !inventoryStream.closed,
+    'Media Import subscribes to the shared browser SSE channel');
+  const catalogReads = function () {
+    return requests.filter(function (request) {
+      return request.path.endsWith('/media-import-sources');
+    }).length;
+  };
+  const readsBeforeIrrelevant = catalogReads();
+  inventoryStream.listeners.update({data: JSON.stringify({
+    backendId: 'other-backend', changedDomains: ['mediaImportSources']
+  })});
+  inventoryStream.listeners.update({data: JSON.stringify({
+    backendId: 'backend-a', changedDomains: ['recordings']
+  })});
+  await settle();
+  assert.strictEqual(catalogReads(), readsBeforeIrrelevant,
+    'other backends and unrelated live updates do not rescan Media Import');
+
+  // Keep an already inspected source selected while a new film arrives.
+  const existingSourceRow = findClass(mount, 'media-import-selection')
+    .children.find(function (row) { return row.dataset.sourceId === SOURCE; });
+  findClass(existingSourceRow, 'media-import-episode-open').listeners.click();
+  await settle();
+  const selectedBeforeSse = findClass(mount, 'media-import-source').value;
+  const statusBeforeSse = findClass(mount, 'media-import-preview-state').textContent;
+  const postsBeforeSse = submits;
+  batchSources = [SOURCE, SOURCE_B];
+  sourceDisplayLabels[SOURCE_B] = 'Neuer Film aus dem Importordner';
+  const readsBeforeSse = catalogReads();
+  inventoryStream.listeners.update({data: JSON.stringify({
+    backendId: 'backend-a', changedDomains: ['mediaImportSources']
+  })});
+  await settle();
+  assert.strictEqual(catalogReads(), readsBeforeSse + 1,
+    'one confirmed inventory SSE event performs one canonical GET');
+  assert(findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.dataset.sourceId === SOURCE_B;
+  }), 'a newly copied source appears without F5 or a manual rescan');
+  assert.strictEqual(findClass(mount, 'media-import-source').value,
+    selectedBeforeSse, 'passive catalog updates preserve the current selection');
+  assert.strictEqual(findClass(mount, 'media-import-preview-state').textContent,
+    statusBeforeSse, 'unchanged technical preview stays visible');
+  assert.strictEqual(submits, postsBeforeSse,
+    'source SSE cannot trigger a video import or mutation');
+  const readsBeforeSame = catalogReads();
+  inventoryStream.listeners.update({data: JSON.stringify({
+    backendId: 'backend-a', changedDomains: ['mediaImportSources']
+  })});
+  await settle();
+  assert.strictEqual(catalogReads(), readsBeforeSame + 1,
+    'a duplicate hint performs only a harmless readback');
+  assert.strictEqual(findClass(mount, 'media-import-source').value,
+    selectedBeforeSse, 'unchanged catalog does not reset current metadata');
+  batchSources = null;
+  inventoryStream.listeners.resync();
+  await settle();
+  assert(!findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.dataset.sourceId === SOURCE_B;
+  }), 'resync removes vanished files using the canonical source inventory');
+  assert.strictEqual(submits, postsBeforeSse);
+  // Reconnect catches changes missed while EventSource was disconnected.
+  const readsBeforeReconnect = catalogReads();
+  inventoryStream.onopen(); // first connection; activate already did initial GET
+  inventoryStream.onopen(); // reconnect; one canonical readback
+  await settle();
+  assert.strictEqual(catalogReads(), readsBeforeReconnect + 1);
+  assert.strictEqual(submits, postsBeforeSse);
 
   // A checked film must not lose its result merely because Media Import was
   // left and reopened. The unchanged source ID comes from the Agent inventory,
