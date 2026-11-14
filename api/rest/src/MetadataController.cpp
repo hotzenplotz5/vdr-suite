@@ -126,6 +126,8 @@ std::string serializeCandidate(
          << jsonEscape(candidate.releaseDate) << "\",";
     json << "\"posterReference\":\""
          << jsonEscape(candidate.posterReference) << "\",";
+    json << "\"backdropReference\":\""
+         << jsonEscape(candidate.backdropReference) << "\",";
     json << "\"seasonNumber\":" << candidate.seasonNumber << ",";
     json << "\"episodeNumber\":" << candidate.episodeNumber << ",";
     json << "\"rating\":" << candidate.rating;
