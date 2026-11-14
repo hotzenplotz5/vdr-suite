@@ -52,11 +52,11 @@ check(qualified, {fileTitle: 'Rom', folderTitle: 'Rom',
 // TMDb lookup. Keep unrelated title text and numeric sequel identifiers.
 check({folder: 'SciFi', label: '| DE | Mickey 17.mkv'}, {
   kind: 'movie', fileTitle: 'Mickey 17', language: 'DE',
-  titleHints: ['Mickey 17'], year: 0
+  titleHints: ['Mickey 17', 'SciFi'], year: 0
 });
 check({folder: 'SciFi', label: '[EN] Silent Orbit Part 2.PHP'}, {
   kind: 'movie', fileTitle: 'Silent Orbit Part 2', language: 'EN',
-  titleHints: ['Silent Orbit Part 2']
+  titleHints: ['Silent Orbit Part 2', 'SciFi']
 });
 check({folder: 'Filme', label: '(FR) La Planète Perdue (2022).mkv'}, {
   kind: 'movie', fileTitle: 'La Planète Perdue', language: 'FR',
