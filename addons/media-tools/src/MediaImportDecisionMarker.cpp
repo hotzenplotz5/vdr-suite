@@ -91,7 +91,7 @@ bool safeExtension(const std::string& extension)
     return extension == ".mkv" || extension == ".mp4" ||
         extension == ".ts" || extension == ".mov" ||
         extension == ".avi" || extension == ".webm" ||
-        extension == ".m4v";
+        extension == ".m4v" || extension == ".php";
 }
 
 bool markedBefore(const std::string& stem)
