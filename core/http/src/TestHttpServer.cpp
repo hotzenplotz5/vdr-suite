@@ -1,4 +1,5 @@
 #include "TestHttpServer.h"
+#include "LocalMediaEncodingAdmin.h"
 #include "TestDatabasePath.h"
 
 #include "ApiRouter.h"
@@ -2253,6 +2254,12 @@ HttpServerResponse TestHttpServer::handleRequest(
                 : ApiResponse{503, "application/json",
                       "{\"error\":\"addon_sources_unavailable\"}", {}};
         }
+        else if (pathWithoutQuery(request.path) ==
+                "/api/v1/addons/media-tools/encoding")
+        {
+            apiResponse = vdrsuite::mediatools::local_encoding_admin::read(
+                request.path);
+        }
         else if (pathWithoutQuery(request.path).rfind(
                 "/api/v1/recording-playback-sessions", 0) == 0)
         {
@@ -2302,6 +2309,12 @@ HttpServerResponse TestHttpServer::handleRequest(
                 ? addonSourceMutation_(gate.context, request.body)
                 : ApiResponse{503, "application/json",
                       "{\"error\":\"addon_sources_unavailable\"}", {}};
+        } 
+        else if (pathWithoutQuery(request.path) ==
+                "/api/v1/addons/media-tools/encoding")
+        {
+            apiResponse = vdrsuite::mediatools::local_encoding_admin::save(
+                request.body);
         }
         else if (pathWithoutQuery(request.path).rfind(
                 "/api/v1/recording-playback-sessions", 0) == 0)

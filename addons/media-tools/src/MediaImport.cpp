@@ -1341,16 +1341,28 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
 NativeProcessRunner::NativeProcessRunner(
     std::chrono::seconds maximum, MediaToolExecutables executables,
     std::function<void()> keepAlive,
-    std::chrono::milliseconds keepAliveInterval)
+    std::chrono::milliseconds keepAliveInterval,
+    std::function<MediaEncodingSettings()> encodingProvider)
     : maximum_(maximum), executables_(std::move(executables)),
       keepAlive_(std::move(keepAlive)),
-      keepAliveInterval_(keepAliveInterval) {
+      keepAliveInterval_(keepAliveInterval),
+      encodingProvider_(std::move(encodingProvider)) {
     require(keepAliveInterval_.count() >= 1 &&
             keepAliveInterval_ <= std::chrono::seconds(60),
             "invalid media keep-alive interval");
     require(maximum_.count() >= 1 && maximum_.count() <= 24 * 3600,
             "invalid native media command deadline");
     require(executables_.valid(), "invalid backend media tool executable path");
+}
+
+bool NativeProcessRunner::refreshForNextJob() {
+    if (!encodingProvider_) return true;
+    try {
+        auto fresh = encodingProvider_();
+        if (!fresh.valid()) return false;
+        executables_.encoding = std::move(fresh);
+        return true;
+    } catch (...) { return false; }
 }
 
 ProcessResult NativeProcessRunner::run(const std::vector<std::string>& args,

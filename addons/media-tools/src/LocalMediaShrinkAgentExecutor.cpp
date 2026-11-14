@@ -210,6 +210,11 @@ MediaShrinkAgentOutcome LocalMediaShrinkAgentExecutor::execute(
                 failureCode_ = safeShrinkFailureCode(failure.what());
                 return MediaShrinkAgentOutcome::rejected;
             }
+            // Freeze the current profile before the irreversible stage claim.
+            if (!runner.refreshForNextJob()) {
+                failureCode_ = "invalid_media_encoding_settings";
+                return MediaShrinkAgentOutcome::rejected;
+            }
             // Durable start fence is written before any FFmpeg or staging IO.
             // An ambiguous prior attempt cannot be silently restarted after
             // a process crash, dispatch replay or an Agent lease takeover.

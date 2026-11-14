@@ -19,11 +19,13 @@ class BackendAgentMediaImportRuntime final
 public:
     using CurrentContext = std::function<BackendAgentCommandClientContext()>;
     using KeepAlive = std::function<void()>;
+    using EncodingProvider = std::function<vdrsuite::mediatools::MediaEncodingSettings()>;
     BackendAgentMediaImportRuntime(
         std::string trustedRoot, std::string backendId, std::string statePath,
         IBackendAgentControlPlaneTransport& transport,
         CurrentContext currentContext, KeepAlive keepAlive = {},
-        vdrsuite::mediatools::MediaToolExecutables executables = {});
+        vdrsuite::mediatools::MediaToolExecutables executables = {},
+        EncodingProvider encodingProvider = {});
     bool available() override;
     bool verifiedInstallation(
         vdrsuite::mediatools::MediaToolsInstallationEvidence& out) override;
@@ -68,6 +70,7 @@ private:
     CurrentContext currentContext_;
     KeepAlive keepAlive_;
     vdrsuite::mediatools::MediaToolExecutables executables_;
+    EncodingProvider encodingProvider_;
     vdrsuite::mediatools::RootOwnedMediaImportInventory inventory_;
     ReceiptRevalidatingMediaImportAuthorization authorization_;
     std::unique_ptr<vdrsuite::mediatools::PinnedMediaImportAgentExecutor>

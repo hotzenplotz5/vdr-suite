@@ -167,6 +167,7 @@ struct ProcessRunner {
         return MediaToolExecutables{}.forTool(tool);
     }
     virtual MediaEncodingSettings encodingSettings() const { return {}; }
+    virtual bool refreshForNextJob() { return true; }
 };
 
 class NativeProcessRunner final : public ProcessRunner {
@@ -176,7 +177,8 @@ public:
         MediaToolExecutables executables = {},
         std::function<void()> keepAlive = {},
         std::chrono::milliseconds keepAliveInterval =
-            std::chrono::seconds(10));
+            std::chrono::seconds(10),
+        std::function<MediaEncodingSettings()> encodingProvider = {});
     ProcessResult run(const std::vector<std::string>& argv, bool captureOutput) override;
     std::string executable(MediaTool tool) const override {
         return executables_.forTool(tool);
@@ -184,6 +186,7 @@ public:
     MediaEncodingSettings encodingSettings() const override {
         return executables_.encoding;
     }
+    bool refreshForNextJob() override;
     // Used only by the backend Agent's scoped Media Tools maintenance guard.
     // -1 clears the binding. The Runner never owns or closes the descriptor.
     void bindMaintenanceLockFd(int fd) noexcept { maintenanceLockFd_ = fd; }
@@ -192,6 +195,7 @@ private:
     MediaToolExecutables executables_;
     std::function<void()> keepAlive_;
     std::chrono::milliseconds keepAliveInterval_;
+    std::function<MediaEncodingSettings()> encodingProvider_;
     int maintenanceLockFd_ = -1;
 };
 

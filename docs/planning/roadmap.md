@@ -1331,3 +1331,7 @@ The packaging milestone must add real `debian/` metadata, reproducible package b
 
 No public C++ ABI or `-dev` package is implied.
 
+
+### Media Tools MT.ENC3.2 – Software-Encoding-Einstellungen (14.11.2026)
+
+Eigene Settings-Karte für H.264-Import und HEVC-Shrink; persistiert ausschließlich in der vorhandenen Backend-Agent-Konfiguration. Die vier typisierten Werte werden vor einem neuen Auftrag erneut eingelesen und eingefroren. Software-CRF/Presets nicht mit VAAPI-/QSV-/NVENC-Qualitätssteuerungen gleichsetzen. Implementierung im Quellstand; isolierte und reale yaVDR-/SSE-/VDR-/Playback-Abnahmen bleiben getrennt offen. BAS erst nach Media Tools.

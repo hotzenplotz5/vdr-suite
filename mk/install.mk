@@ -141,6 +141,7 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/platform/helpers.js $(DESTDIR)$(DATADIR)/web/frontend/platform/helpers.js
 	$(INSTALL) -m 0644 web/frontend/platform/deferred-runtime-loader.js $(DESTDIR)$(DATADIR)/web/frontend/platform/deferred-runtime-loader.js
 	$(INSTALL) -m 0644 web/frontend/settings-series-artwork.js $(DESTDIR)$(DATADIR)/web/frontend/settings-series-artwork.js
+	$(INSTALL) -m 0644 web/frontend/settings-media-tools-encoding.js $(DESTDIR)$(DATADIR)/web/frontend/settings-media-tools-encoding.js
 	$(INSTALL) -m 0644 web/frontend/settings-account-admin.js $(DESTDIR)$(DATADIR)/web/frontend/settings-account-admin.js
 	$(INSTALL) -m 0644 web/frontend/settings-device-admin.js $(DESTDIR)$(DATADIR)/web/frontend/settings-device-admin.js
 	$(INSTALL) -m 0644 web/frontend/settings-addons.js $(DESTDIR)$(DATADIR)/web/frontend/settings-addons.js
