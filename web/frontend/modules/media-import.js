@@ -3840,15 +3840,16 @@
     filterVisibleSources(view);
   }
 
-  function loadSources(view) {
+  function loadSources(view, passive) {
     if (!isCurrent(view) ||
         (view.attempt && !mayBrowseDuringOperation(view)))
       return Promise.resolve(false);
     // A failed refresh must not destroy an already browsable, authenticated
     // inventory. Only commit a fresh scan after the complete response validates.
     const generation = ++view.sourcesGeneration;
-    const keepSelection = view.attempt && view.select.value !== view.attempt.sourceId
-      ? view.select.value : '';
+    const keepSelection = passive ? view.select.value :
+      view.attempt && view.select.value !== view.attempt.sourceId
+        ? view.select.value : '';
     view.scanNotice.textContent = 'Quellen werden aktualisiert. Die letzte geladene Liste bleibt sichtbar …';
     report(view, 'Quellenaktualisierung läuft; vorhandene Liste bleibt benutzbar.');
     return readSourcePages(view.backendId)
@@ -3898,6 +3899,24 @@
             'Import/Löschen wird beim Ausführen vom Backend geprüft.');
           return false;
         }
+        // A heartbeat/resync must not reset a valid active preview when the
+        // authenticated inventory is unchanged. Comparing source metadata
+        // instead of merely counting entries also catches file replacements.
+        if (passive) {
+          const old = view.allOrdinary.concat(view.allMarked);
+          const byId = new Map(old.map(function (item) {
+            return [item.sourceId, item];
+          }));
+          const changed = old.length !== items.length || items.some(function (item) {
+            const previous = byId.get(item.sourceId);
+            return !previous || previous.label !== item.label ||
+              previous.folder !== (item.folder || '') ||
+              Boolean(previous.recordingPresent ||
+                previous.recordingStatus === 'recording_present') !==
+                (item.recordingStatus === 'recording_present');
+          });
+          if (!changed) return true;
+        }
         // Commit a new validated inventory only now. A partial/failed GET
         // must never blank the source list or throw away an existing selection.
         // A catalog refresh does not invalidate a completed technical check
@@ -3906,6 +3925,15 @@
         const oldSources = new Map(view.allOrdinary.map(function (source) {
           return [source.sourceId, source];
         }));
+        const selectedBefore = oldSources.get(keepSelection);
+        const preserveSelected = Boolean(passive && selectedBefore &&
+          items.some(function (item) {
+            return item.sourceId === keepSelection &&
+              item.label === selectedBefore.label &&
+              (item.folder || '') === selectedBefore.folder &&
+              (item.recordingStatus === 'recording_present') ===
+                selectedBefore.recordingPresent;
+          }));
         const retainedPreviews = new Map();
         items.forEach(function (item) {
           const previous = oldSources.get(item.sourceId);
@@ -3919,17 +3947,28 @@
         });
         view.previewCache = retainedPreviews;
         checkedPreviewsByBackend[view.backendId] = retainedPreviews;
-        if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
-        view.previewTimer = null;
-        ++view.previewGeneration;
-        resetOnline(view);
-        view.previewResult = null;
-        view.previewStatus = '';
-        view.previewFailed = false;
-        view.previewRetryButton.hidden = true;
-        resetBatchReview(view);
-        view.checkedSourceIds.clear();
-        view.sourceDetails.textContent = '';
+        if (!preserveSelected) {
+          if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
+          view.previewTimer = null;
+          ++view.previewGeneration;
+          resetOnline(view);
+          view.previewResult = null;
+          view.previewStatus = '';
+          view.previewFailed = false;
+          view.previewRetryButton.hidden = true;
+          resetBatchReview(view);
+          view.sourceDetails.textContent = '';
+        }
+        if (!passive) view.checkedSourceIds.clear();
+        else {
+          const present = new Set(items.map(function (item) {
+            return item.sourceId;
+          }));
+          for (const id of view.checkedSourceIds)
+            if (!present.has(id)) view.checkedSourceIds.delete(id);
+          for (const id of view.checkedDuplicateIds)
+            if (!present.has(id)) view.checkedDuplicateIds.delete(id);
+        }
         view.allOrdinary = [];
         view.allMarked = [];
         view.selectionRows.replaceChildren();
@@ -3979,14 +4018,15 @@
         // of a source instead of reusing a potentially expired 422 token.
         // On transient failure, no inventory is committed and the previous
         // selection and its visible details remain untouched.
-        filterVisibleSources(view);
+        filterVisibleSources(view, preserveSelected);
         renderRecentImportResults(view);
         // The recovery collection can arrive before the source inventory:
         // render a verified human-readable title as soon as one is available.
         renderUnresolvedAttempts(view);
         if (keepSelection && view.sources.includes(keepSelection)) {
           view.select.value = keepSelection;
-          refreshSelectedPreview(view);
+          if (!preserveSelected) refreshSelectedPreview(view);
+          else updatePreview(view);
         }
         startBackgroundChecks(view);
         view.searchInput.disabled = false;
