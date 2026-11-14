@@ -48,6 +48,31 @@ check(qualified, {fileTitle: 'Rom', folderTitle: 'Rom',
   titleHints: ['Rom'], language: 'DE', year: 2005,
   season: 1, episode: 2, episodeTitle: 'Folge Zwei'});
 
+// Generic external-feed language decorations must never become part of a
+// TMDb lookup. Keep unrelated title text and numeric sequel identifiers.
+check({folder: 'SciFi', label: '| DE | Mickey 17.mkv'}, {
+  kind: 'movie', fileTitle: 'Mickey 17', language: 'DE',
+  titleHints: ['Mickey 17'], year: 0
+});
+check({folder: 'SciFi', label: '[EN] Silent Orbit Part 2.PHP'}, {
+  kind: 'movie', fileTitle: 'Silent Orbit Part 2', language: 'EN',
+  titleHints: ['Silent Orbit Part 2']
+});
+check({folder: 'Filme', label: '(FR) La Planète Perdue (2022).mkv'}, {
+  kind: 'movie', fileTitle: 'La Planète Perdue', language: 'FR',
+  year: 2022, titleHints: ['La Planète Perdue']
+});
+check({folder: 'Serien/Another Show',
+  label: '| EN | Another Show (2020) - S01E03 - Un épisode.ts'}, {
+  kind: 'series', fileTitle: 'Another Show', language: 'EN',
+  folderTitle: 'Another Show', titleHints: ['Another Show'],
+  season: 1, episode: 3, year: 2020
+});
+check({folder: 'Filme', label: 'Der Untergang.mkv'}, {
+  fileTitle: 'Der Untergang', language: '',
+  titleHints: ['Der Untergang']
+});
+
 // Episode is named by coordinates; the adjacent show folder supplies title.
 const folderBased = {folder: 'Serien/Andor/Staffel 1',
   label: 'S01E01 Pilot.mkv'};
