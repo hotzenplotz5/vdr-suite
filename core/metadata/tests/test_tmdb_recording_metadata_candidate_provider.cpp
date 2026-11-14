@@ -113,6 +113,7 @@ int main()
               "overview": "Ein Film.",
               "release_date": "1994-07-06",
               "poster_path": "/forrest.jpg",
+              "backdrop_path": "/forrest-background.jpg",
               "vote_average": 8.5
             },
             {
@@ -145,6 +146,7 @@ int main()
         assert(candidate.externalId == "13");
         assert(candidate.title == "Forrest Gump");
         assert(candidate.posterReference == "/forrest.jpg");
+        assert(candidate.backdropReference == "/forrest-background.jpg");
         assert(transport.requests.size() == 1U);
         assert(transport.requests.front().url.find(
             "/search/movie?query=Forrest%20Gump") != std::string::npos);
