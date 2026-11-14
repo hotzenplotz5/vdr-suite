@@ -3,6 +3,7 @@
 #include "CurlExternalArtworkHttpTransport.h"
 #include "CanonicalGenreRegistry.h"
 #include "MetadataRepository.h"
+#include "RecordingMetadataTitleMatch.h"
 #include "TmdbRecordingMetadataCandidateProvider.h"
 #include "TmdbRecordingMetadataCredentialResolver.h"
 
@@ -399,27 +400,6 @@ ApiResponse MetadataController::resolveRecordingMetadata(
     int episodeNumber,
     int releaseYear)
 {
-    auto normalized = [](const std::string& value) {
-        std::string out;
-        bool spaced = true;
-        for (unsigned char ch : value)
-        {
-            if (ch >= 0x80U || std::isalnum(ch))
-            {
-                out.push_back(ch < 0x80U
-                    ? static_cast<char>(std::tolower(ch))
-                    : static_cast<char>(ch));
-                spaced = false;
-            }
-            else if (!spaced)
-            {
-                out.push_back(' ');
-                spaced = true;
-            }
-        }
-        while (!out.empty() && out.back() == ' ') out.pop_back();
-        return out;
-    };
     auto outcome = [](const char* status) {
         ApiResponse response;
         response.statusCode = 200;
@@ -443,19 +423,8 @@ ApiResponse MetadataController::resolveRecordingMetadata(
     IRecordingMetadataCandidateProvider& provider = candidateProvider_
         ? *candidateProvider_ : defaultProvider;
 
-    const std::string name = normalized(title);
-    const std::string prefix("star wars ");
-    const std::string shortName =
-        kind == RecordingMetadataCandidateKind::Series &&
-        name.compare(0U, prefix.size(), prefix) == 0
-            ? name.substr(prefix.size()) : std::string();
-    std::set<std::string> accepted{name};
-    std::vector<std::string> queries{title};
-    if (shortName.size() >= 2U)
-    {
-        accepted.insert(shortName);
-        queries.push_back(shortName);
-    }
+    const std::vector<std::string> queries =
+        recordingMetadataTitleMatch::searchQueries(title);
     const std::string space = kind == RecordingMetadataCandidateKind::Series
         ? "tv" : "movie";
 
@@ -468,7 +437,10 @@ ApiResponse MetadataController::resolveRecordingMetadata(
         if (!page.providerAvailable || !page.error.empty())
             return errorResponse(503, "metadata_provider_unavailable",
                 page.error.empty() ? "TMDb unavailable" : page.error);
-        std::map<std::string, RecordingMetadataCandidate> matches;
+        // Rank by title/original-title evidence, not TMDb result order.
+        // A localized title may differ completely from the original title.
+        // Never infer a match from a shortened search query alone.
+        std::map<std::string, std::pair<int, RecordingMetadataCandidate>> matches;
         for (const RecordingMetadataCandidate& candidate : page.candidates)
         {
             const std::string& id = candidate.externalId;
@@ -478,20 +450,38 @@ ApiResponse MetadataController::resolveRecordingMetadata(
                 !std::all_of(id.begin(), id.end(), [](unsigned char c) {
                     return c >= '0' && c <= '9';
                 })) continue;
-            if (!accepted.count(normalized(candidate.title)) &&
-                !accepted.count(normalized(candidate.originalTitle))) continue;
-            // Series and movies alike can have identical titles across
-            // different years. TMDb exposes first_air_date for series and
-            // release_date for movies in this same candidate field.
+            const int evidence = std::max(
+                recordingMetadataTitleMatch::score(title, candidate.title),
+                recordingMetadataTitleMatch::score(
+                    title, candidate.originalTitle));
+            if (evidence == 0) continue;
+            // Series and movies alike can share a title across years.
+            // This year refers to the first series air date / film release,
+            // never to an individual episode.
             if (releaseYear > 0 &&
                 candidate.releaseDate.substr(0, 4) !=
                     std::to_string(releaseYear)) continue;
-            matches.emplace(id, candidate);
+            const auto existing = matches.find(id);
+            if (existing == matches.end() || evidence > existing->second.first)
+                matches[id] = {evidence, candidate};
         }
-        if (matches.size() > 1U) return outcome("ambiguous");
-        if (matches.size() == 1U)
+        int highest = 0;
+        std::size_t equallyStrong = 0U;
+        for (const auto& entry : matches)
         {
-            found = matches.begin()->second;
+            const int evidence = entry.second.first;
+            if (evidence > highest)
+            {
+                highest = evidence;
+                equallyStrong = 1U;
+                found = entry.second.second;
+            }
+            else if (evidence == highest && highest != 0)
+                ++equallyStrong;
+        }
+        if (equallyStrong > 1U) return outcome("ambiguous");
+        if (equallyStrong == 1U)
+        {
             hasMatch = true;
             break;
         }
