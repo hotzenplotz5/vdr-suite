@@ -164,6 +164,84 @@ assert.strictEqual(Array.from(parse(regionalMovie).countries).join(','), 'GB');
 assert(!production.includes('Rom (2005) (US)'),
   'no title-specific workaround belongs in the parser');
 
+// MT.META7.3: exercise the production batch snapshot against a fake Core.
+// A confirmed series directory may reuse its series ID, but each episode is
+// checked by the existing authenticated episodes endpoint, never assumed.
+const batchCalls = [];
+const batchSeries = {kind: 'series', providerId: 'tmdb',
+  externalNamespace: 'tv', externalId: '202359',
+  title: 'Rom', originalTitle: 'Rome', overview: '',
+  releaseDate: '2005-01-01', posterReference: '/rom-poster.jpg'};
+function batchEpisode(number) {
+  return {kind: 'episode', providerId: 'tmdb',
+    externalNamespace: 'tv-episode', externalId: String(1100 + number),
+    parentExternalId: '202359', title: 'Episode ' + number,
+    originalTitle: '', overview: '', releaseDate: '2005-01-02',
+    posterReference: '/rom-episode.jpg',
+    seasonNumber: 1, episodeNumber: number};
+}
+const batchWindow = {
+  VdrSuiteBrowserSession: {csrfHeaders() { return {}; }},
+  VdrSuiteClientApi: {
+    requestJson(route, options) {
+      const data = JSON.parse(options.body);
+      batchCalls.push({route, data});
+      if (route.endsWith('/metadata/resolve')) {
+        return Promise.resolve({status: 'matched', mediaType: 'episode',
+          series: batchSeries, episode: batchEpisode(data.episodeNumber)});
+      }
+      assert(route.endsWith('/recordings/metadata/episodes'));
+      assert.strictEqual(data.seriesExternalId, '202359');
+      return Promise.resolve({providerId: 'tmdb', providerAvailable: true,
+        truncated: false, candidates: [batchEpisode(2), batchEpisode(3)]});
+    }
+  }
+};
+const batchHook = production.replace(/\}\)\(window\);\s*$/, [
+  "global.__meta73 = {",
+  " activate(view) { current = view; owner = view.owner; },",
+  " snapshot: batchMetadataSnapshot",
+  "};",
+  "})(window);"
+].join('\n'));
+assert.notStrictEqual(batchHook, production);
+vm.runInNewContext(batchHook, {window: batchWindow},
+  {filename: 'media-import.js'});
+function batchSource(folder, number) {
+  return {sourceId: 'batch_' + folder + '_' + number,
+    folder, label: 'Rom (2005) - S01E' +
+      String(number).padStart(2, '0') + ' - Episode ' + number + '.mkv'};
+}
+const batchPlan = {state: 'ready', targetFolder: 'Serien/Rom'};
+(async function testBatchSeriesReuse() {
+  const view = {owner: 7, backendId: 'default', onlineSeries: null};
+  batchWindow.__meta73.activate(view);
+  const cache = new Map();
+  const first = await batchWindow.__meta73.snapshot(
+    view, batchSource('Serien/Rom', 1), batchPlan, cache);
+  const second = await batchWindow.__meta73.snapshot(
+    view, batchSource('Serien/Rom', 2), batchPlan, cache);
+  assert(first.startsWith('v2|episode|'));
+  assert(second.startsWith('v2|episode|'));
+  assert.deepStrictEqual(batchCalls.map(x => x.route.split('/').pop()),
+    ['resolve', 'episodes'], 'same named group reuses confirmed series ID');
+  // A distinct directory never inherits the first group's identity.
+  await batchWindow.__meta73.snapshot(
+    view, batchSource('Serien/Other', 3), batchPlan, cache);
+  assert(batchCalls[2].route.endsWith('/metadata/resolve'));
+  // Generic import/genre roots never share identity merely by title.
+  const doku = batchSource('Doku', 1);
+  await batchWindow.__meta73.snapshot(view, doku, batchPlan, cache);
+  await batchWindow.__meta73.snapshot(view,
+    batchSource('Doku', 2), batchPlan, cache);
+  assert(batchCalls[3].route.endsWith('/metadata/resolve'));
+  assert(batchCalls[4].route.endsWith('/metadata/resolve'));
+  console.log('MT_META73_BATCH_SERIES_REUSE=PASS');
+})().catch(function (error) {
+  console.error(error);
+  process.exitCode = 1;
+});
+
 // Exercise the actual automatic single-source resolver wiring. A distinct
 // folder hint is tried only after not_found, not after ambiguity or failure.
 const liveRequests = [];
