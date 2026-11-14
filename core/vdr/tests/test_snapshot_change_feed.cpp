@@ -111,6 +111,18 @@ static void test_continue_watching_change_uses_narrow_backend_domain()
     assertDomains(entry, {"continueWatching"});
 }
 
+static void test_media_import_sources_change_uses_narrow_backend_domain()
+{
+    SnapshotChangeFeedService service;
+    const auto entry = service.createEntry(
+        21, 48, {VdrChangeEvent(VdrChangeType::MediaImportSourcesChanged)},
+        "backend-a");
+    assert(entry.hasChanges());
+    assert(entry.backendId() == "backend-a");
+    assert(entry.recordingNativeIds().empty());
+    assertDomains(entry, {"mediaImportSources"});
+}
+
 static void test_recording_marks_change_uses_narrow_domain()
 {
     SnapshotChangeFeedService service;
@@ -326,6 +338,7 @@ int main()
     test_service_does_not_add_empty_feed_entry();
     test_change_feed_service_preserves_backend_id();
     test_continue_watching_change_uses_narrow_backend_domain();
+    test_media_import_sources_change_uses_narrow_backend_domain();
     test_recording_marks_change_uses_narrow_domain();
     test_append_changes_adds_next_sequence_number();
     test_append_changes_increments_sequence_number();
