@@ -67,6 +67,15 @@ assert "fs::path(matchedNative) != publishedNative" in lookup, (
 )
 assert "fs::path(source->relativeRecording.parent_path()" in lookup
 assert 'string() + ".shrink")' in lookup
+assert 'string() + "_HEVC")' in lookup, (
+    "pre-rename HEVC publications must still reconcile"
+)
+assert "matchedRelative = candidateRelative;" in lookup, (
+    "Core must inspect the actual matched legacy or current target"
+)
+assert "inspectShrink(source->videoRoot," in reconciliation and (
+    "matchedRelative);" in reconciliation
+), "Core must inspect the selected native recording, not just the current path"
 # A crash after the durable operation transitions to succeeded but before
 # the review advances must not strand "publishing" indefinitely.
 assert '"media.shrink.publish", {State::succeeded}, 128' in reconciliation
