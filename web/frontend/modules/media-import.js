@@ -3505,21 +3505,27 @@
 
   // UX3 step 1: search/filter only the already authenticated, bounded
   // Agent/Core snapshot. No path guesses, filesystem requests or new grants.
-  function filterVisibleSources(view) {
+  function filterVisibleSources(view, preserveSelection) {
     if (!isCurrent(view) || view.batch ||
         (view.attempt && !mayBrowseDuringOperation(view))) return;
-    // A filter or folder change clears the selection and invalidates every
-    // outstanding preview, including a late reply for a reselected source.
-    if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
-    view.previewTimer = null;
-    ++view.previewGeneration;
-    resetOnline(view);
-    view.previewResult = null;
-    view.previewStatus = '';
-    view.previewFailed = false;
-    // A filter change or rescan clears selection; do not leave an inert retry visible.
-    view.previewRetryButton.hidden = true;
-    resetBatchReview(view);
+    // An SSE inventory invalidation is presentation-only. Retain the live
+    // selected preview/metadata when the exact source ID is still present.
+    // Deliberate folder/filter changes and manual rescans still clear it.
+    const retainedId = preserveSelection && view.select.value &&
+      view.allOrdinary.some(function (source) {
+        return source.sourceId === view.select.value;
+      }) ? view.select.value : '';
+    if (!retainedId) {
+      if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
+      view.previewTimer = null;
+      ++view.previewGeneration;
+      resetOnline(view);
+      view.previewResult = null;
+      view.previewStatus = '';
+      view.previewFailed = false;
+      view.previewRetryButton.hidden = true;
+      resetBatchReview(view);
+    }
     const query = String(view.searchInput.value || '').trim().toLowerCase();
     const mode = view.statusFilter.value;
     renderSourceFolders(view, Boolean(query));
@@ -3559,22 +3565,26 @@
       option.value = item.sourceId;
       view.select.appendChild(option);
     });
-    view.select.value = '';
+    view.select.value = retainedId && normal.some(function (item) {
+      return item.sourceId === retainedId;
+    }) ? retainedId : '';
     view.select.disabled = normal.length === 0;
-    view.startButton.disabled = true;
-    view.sourceDetails.textContent = '';
-    view.preview.textContent = normal.length
-      ? 'Folge in der Episodenliste anklicken. Die technische Vorschau startet automatisch.'
-      : 'In diesem Ordner wurden keine passenden Filme gefunden. Anderen Ordner wählen oder Suche zurücksetzen.';
-    renderPreviewCard(view, null, null);
-    view.localReencode.checked = false;
-    view.localReencode.disabled = true;
-    view.decision.value = 'import';
-    view.decision.disabled = true;
-    view.choiceLabel.hidden = true;
-    view.skipButton.hidden = true;
-    view.skipButton.disabled = true;
-    view.startButton.textContent = 'Import starten';
+    if (!view.select.value) {
+      view.startButton.disabled = true;
+      view.sourceDetails.textContent = '';
+      view.preview.textContent = normal.length
+        ? 'Folge in der Episodenliste anklicken. Die technische Vorschau startet automatisch.'
+        : 'In diesem Ordner wurden keine passenden Filme gefunden. Anderen Ordner wählen oder Suche zurücksetzen.';
+      renderPreviewCard(view, null, null);
+      view.localReencode.checked = false;
+      view.localReencode.disabled = true;
+      view.decision.value = 'import';
+      view.decision.disabled = true;
+      view.choiceLabel.hidden = true;
+      view.skipButton.hidden = true;
+      view.skipButton.disabled = true;
+      view.startButton.textContent = 'Import starten';
+    }
     const eligibleCount = normal.filter(function (item) {
       return !item.recordingPresent;
     }).length;
