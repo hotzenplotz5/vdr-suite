@@ -11,11 +11,16 @@ const src = fs.readFileSync(path.join(__dirname, '..', 'modules',
   'media-import.js'), 'utf8');
 assert(!src.includes('normalizedMovieMatchTitle('),
   'automatic movie identity belongs to the central Core resolver');
+assert(src.includes('identifyVisibleReadyMovie(view, item, plan);'),
+  'the real ready preview renderer must start metadata lookup from cache');
+assert(!src.includes('autoIdentifyMovie(view, source, data);'),
+  'the core preview response must not own a second lookup trigger');
 const hooked = src.replace(/\}\)\(window\);\s*$/, [
   'global.__movieResolverTest = {',
   '  activate(v) {current = v; owner = v.owner;',
   '    updatePreview = function() {};},',
-  '  movie: autoIdentifyMovie',
+  '  movie: autoIdentifyMovie,
+  visible: identifyVisibleReadyMovie',
   '};',
   '})(window);'
 ].join('\n'));
@@ -91,6 +96,41 @@ async function flush() {
     if (answer === 'offline')
       assert(current.onlineStatus.includes('nicht erreichbar'));
   }
+
+  // MT.META7.2 real-browser regression: a cached, already checked source
+  // renders immediately, while a new Agent preview may still be pending.
+  // Previously this state never started the automatic film lookup.
+  mode = 'matched';
+  requests.length = 0;
+  const cached = view();
+  win.__movieResolverTest.activate(cached);
+  win.__movieResolverTest.visible(cached, source,
+    Object.assign({}, plan, {status: 'pending'}));
+  await flush();
+  assert.strictEqual(requests.length, 0,
+    'unfinished technical previews do not start metadata resolution');
+  win.__movieResolverTest.visible(cached, source, plan);
+  assert(cached.onlineStatus.includes('zugeordnet'),
+    'cached ready preview visibly reports metadata lookup as pending');
+  // Re-render from a still-ready cache must not duplicate the request.
+  win.__movieResolverTest.visible(cached, source, plan);
+  await flush();
+  assert.strictEqual(requests.length, 1,
+    'one cached ready preview starts exactly one Core resolver request');
+  assert.strictEqual(cached.onlineSelected, movie);
+  win.__movieResolverTest.visible(cached, source, plan);
+  await flush();
+  assert.strictEqual(requests.length, 1,
+    'completed cached metadata lookup is retained across rerenders');
+
+  const manuallySelected = view();
+  manuallySelected.onlineUserControlled = true;
+  requests.length = 0;
+  win.__movieResolverTest.activate(manuallySelected);
+  win.__movieResolverTest.visible(manuallySelected, source, plan);
+  await flush();
+  assert.strictEqual(requests.length, 0,
+    'automatic cached lookup never overwrites manual metadata selection');
 
   // Late replies from an old source selection are read-only and ignored.
   mode = 'late';
