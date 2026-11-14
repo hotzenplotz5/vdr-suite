@@ -158,6 +158,24 @@ int DaemonRuntime::run()
                         snapshotChangeFeed_->entries().back());
                 }
             }
+            // The Agent already publishes its bounded source inventory.
+            // Emit one backend-scoped SSE invalidation only when the actual
+            // catalog contents changed, never on every Agent heartbeat.
+            // Clients read their normal authenticated source list afterward.
+            if (mediaImportCatalog_ && snapshotChangeFeed_ &&
+                snapshotChangeFeedService_ && liveTransportService_ &&
+                snapshotCacheService_) {
+                for (const auto& backendId :
+                     mediaImportCatalog_->takeChangedSourceBackends()) {
+                    snapshotChangeFeedService_->appendChanges(
+                        *snapshotChangeFeed_,
+                        snapshotCacheService_->generation(),
+                        {VdrChangeEvent(VdrChangeType::MediaImportSourcesChanged)},
+                        backendId);
+                    liveTransportService_->publishChangeFeedEntry(
+                        snapshotChangeFeed_->entries().back());
+                }
+            }
             const auto now = std::chrono::steady_clock::now();
             // Core owns continuation of already-confirmed, durably reserved
             // per-source imports. No browser/SSE connection drives dispatch.
