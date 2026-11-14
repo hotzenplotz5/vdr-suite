@@ -4146,9 +4146,9 @@
         // operation and may change the source inventory immediately.
         if (data.status === 'ready' || data.status === 'insufficient')
           view.previewCache.set(id, data);
+        // A ready cached preview also goes through updatePreview(), which
+        // owns the single automatic read-only movie identity lookup.
         updatePreview(view);
-        if (source && view.onlineKind === 'movie' && !view.onlineAuto)
-          autoIdentifyMovie(view, source, data);
         updateBackgroundDisplay(view);
         scheduleBackgroundCheck(view, 100);
         // The first successful response after a hard page reload can be a
@@ -4650,6 +4650,14 @@
       ' ' + details + ' ' + nextStep +
       ' Der Backend-Agent prüft Quelle und Ziel bei Auftragsannahme erneut.';
     renderPreviewCard(view, plan, item);
+    // The preview may be immediately available from the existing Core/SQLite
+    // cache without a new successful Agent poll. Start metadata discovery
+    // from the *visible ready state*, not only from one poll callback.
+    // autoIdentifyMovie sets onlineAuto before its own updatePreview(), so
+    // there is no loop or duplicate request for this source generation.
+    if (ready && item && view.onlineKind === 'movie' &&
+        !view.onlineAuto && !view.onlineUserControlled)
+      autoIdentifyMovie(view, item, plan);
     view.startButton.textContent = needsEncode
       ? decision === 'desktop' ? 'Für PC markieren'
         : decision === 'import' ? 'Auf VDR umkodieren'
