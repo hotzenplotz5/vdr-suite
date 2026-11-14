@@ -1177,7 +1177,7 @@ function renderHevcHomeActivity() {}
   assert(findClass(artwork, 'media-import-artwork-image').src ===
     'data:image/jpeg;base64,/9j/2Q==');
   assert(findClass(artwork, 'media-import-artwork-empty').textContent ===
-    'Keine lokale Fanart');
+    'Keine lokale oder TMDb-Fanart');
   // Malformed MIME cannot become a live image src or a second network URL.
   previewArtworkMode = 'bad';
   await findClass(mount, 'media-import-preview-retry').listeners.click();
