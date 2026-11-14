@@ -51,7 +51,10 @@ assert "recording.backendNativeId = fileName;" in mapper
 start = reconciliation.index("// Mirror the native No-Replace target")
 end = reconciliation.index("const auto published = vdrsuite::mediatools::", start)
 lookup = reconciliation[start:end]
-assert "if (matchedNative.empty())" in lookup, (\n    "HEVC Publish must require an actual native inventory match"\n)\nassert "const fs::path native(recording.backendNativeId)" in lookup and \
+assert "if (matchedNative.empty())" in lookup, (
+    "HEVC Publish must require an actual native inventory match"
+)
+assert "const fs::path native(recording.backendNativeId)" in lookup and \
        "fs::equivalent(native, publishedNative" in lookup, (
     "HEVC Publish must recognize the absolute native VDR directory or its mount alias"
 )
