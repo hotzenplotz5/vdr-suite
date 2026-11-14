@@ -110,6 +110,21 @@ check({folder: 'Oskar',
   titleHints: ['Ocean Stories', 'Oskar']
 });
 
+// Real Media Tools feed labels use U+258E (▎) after the language code.
+// The repeated dotted source basename is not an episode title.
+check({folder: 'Doku',
+  label: 'DE ▎ Lost Treasures of Rome - S01E06 - Lost.Treasures.Of.Rome.S01E06.mkv'}, {
+  kind: 'series', fileTitle: 'Lost Treasures of Rome', language: 'DE',
+  season: 1, episode: 6, episodeTitle: '',
+  titleHints: ['Lost Treasures of Rome', 'Doku']
+});
+// Preserve genuine episode names and remove no legitimate title suffix.
+check({folder: 'Serien',
+  label: 'EN ▎ Sample Series - S01E06 - A New Discovery.mkv'}, {
+  kind: 'series', fileTitle: 'Sample Series', language: 'EN',
+  season: 1, episode: 6, episodeTitle: 'A New Discovery'
+});
+
 // Episode is named by coordinates; the adjacent show folder supplies title.
 const folderBased = {folder: 'Serien/Andor/Staffel 1',
   label: 'S01E01 Pilot.mkv'};
