@@ -48,7 +48,7 @@ reconciliation = Path(
 ).read_text()
 assert "recording.path = relativePath.empty() ? fileName : relativePath;" in mapper
 assert "recording.backendNativeId = fileName;" in mapper
-start = reconciliation.index("// Mirror the native No-Replace target")
+start = reconciliation.index("const fs::path publishedRelative =")
 end = reconciliation.index("const auto published = vdrsuite::mediatools::", start)
 lookup = reconciliation[start:end]
 assert "if (matchedNative.empty())" in lookup, (
