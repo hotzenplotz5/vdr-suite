@@ -194,7 +194,9 @@ const batchWindow = {
       assert.strictEqual(data.seriesExternalId, '202359');
       assert.strictEqual(data.limit, 100);
       return Promise.resolve({providerId: 'tmdb', providerAvailable: true,
-        truncated: false, candidates: [batchEpisode(2), batchEpisode(3)]});
+        truncated: false, candidates: Array.from({length: 22}, function (_, i) {
+          return batchEpisode(i + 1);
+        })});
     }
   }
 };
@@ -272,8 +274,9 @@ const batchPlan = {state: 'ready', targetFolder: 'Serien/Rom'};
     view, batchSource('Serien/Rom', 1), batchPlan, lateCache);
   const lateResult = await batchWindow.__meta73.snapshot(
     view, late, batchPlan, lateCache);
-  assert.strictEqual(lateResult, '',
-    'a truncated/absent episode must not be assigned by position');
+  assert(lateResult.startsWith('v2|episode|') &&
+    lateResult.split('|')[6] === '22',
+    'a 22-episode season selects exact S01E22 with the confirmed series ID');
   console.log('MT_META73_BATCH_SERIES_REUSE=PASS');
 })().catch(function (error) {
   console.error(error);
