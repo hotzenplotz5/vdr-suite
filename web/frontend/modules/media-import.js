@@ -2808,6 +2808,15 @@
     });
   }
 
+  // One owner for read-only automatic film lookup. A cached ready preview
+  // and an asynchronously completed technical preview must behave alike.
+  function identifyVisibleReadyMovie(view, source, plan) {
+    if (source && plan && plan.status === 'ready' &&
+        view.onlineKind === 'movie' && !view.onlineAuto &&
+        !view.onlineUserControlled)
+      autoIdentifyMovie(view, source, plan);
+  }
+
   function renderOnline(view, card, plan, source) {
     if (!source || !view.sources.includes(view.select.value)) return;
     const box = element('section', 'media-import-online');
@@ -4655,9 +4664,7 @@
     // from the *visible ready state*, not only from one poll callback.
     // autoIdentifyMovie sets onlineAuto before its own updatePreview(), so
     // there is no loop or duplicate request for this source generation.
-    if (ready && item && view.onlineKind === 'movie' &&
-        !view.onlineAuto && !view.onlineUserControlled)
-      autoIdentifyMovie(view, item, plan);
+    identifyVisibleReadyMovie(view, item, plan);
     view.startButton.textContent = needsEncode
       ? decision === 'desktop' ? 'Für PC markieren'
         : decision === 'import' ? 'Auf VDR umkodieren'
