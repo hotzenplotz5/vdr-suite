@@ -132,6 +132,26 @@ async function flush() {
   assert.strictEqual(requests.length, 0,
     'automatic cached lookup never overwrites manual metadata selection');
 
+  // A source-feed language decoration is not part of the film title.
+  // The automatic lookup must pass the cleaned identity to the SAME Core
+  // endpoint, not special-case any individual movie in the resolver.
+  mode = 'matched';
+  requests.length = 0;
+  const taggedSource = {
+    sourceId: 'scan_language_movie_test', folder: 'SciFi',
+    label: '| DE | Mickey 17.mkv'
+  };
+  const taggedView = view();
+  taggedView.select.value = taggedSource.sourceId;
+  taggedView.sources = [taggedSource.sourceId];
+  win.__movieResolverTest.activate(taggedView);
+  win.__movieResolverTest.visible(taggedView, taggedSource, {status: 'ready'});
+  await flush();
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(requests)),
+    [{title: 'Mickey 17', kind: 'movie'}],
+    'generic language prefix removed before automatic Core resolution');
+  assert.strictEqual(taggedView.onlineSelected, movie);
+
   // Late replies from an old source selection are read-only and ignored.
   mode = 'late';
   requests.length = 0;
