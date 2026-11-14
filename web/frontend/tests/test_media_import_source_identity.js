@@ -73,6 +73,33 @@ check({folder: 'Filme', label: 'Der Untergang.mkv'}, {
   titleHints: ['Der Untergang']
 });
 
+// Exact bytes from the real yaVDR checked-preview database: U+2503 heavy
+// box-drawing strokes, NOT ASCII pipes. All paths use the same source parser.
+const liveUnicode = {folder: 'SciFi', label: '┃DE┃ Mickey 17.mkv'};
+check(liveUnicode, {kind: 'movie', fileTitle: 'Mickey 17',
+  language: 'DE', year: 0, titleHints: ['Mickey 17', 'SciFi']});
+check({folder: 'SciFi', label: '│ EN │ Deep Space (2025).php'}, {
+  kind: 'movie', fileTitle: 'Deep Space', language: 'EN', year: 2025,
+  titleHints: ['Deep Space', 'SciFi']
+});
+check({folder: 'Filme', label: '║FR║ La Planète Perdue.mkv'}, {
+  fileTitle: 'La Planète Perdue', language: 'FR',
+  titleHints: ['La Planète Perdue']
+});
+check({folder: 'Serien/Rom', label: '｜DE｜ Rom (2005) - S01E02 - Folge Zwei.mkv'}, {
+  kind: 'series', fileTitle: 'Rom', language: 'DE', year: 2005,
+  season: 1, episode: 2, episodeTitle: 'Folge Zwei',
+  titleHints: ['Rom']
+});
+// Language-looking text in the middle of a title is NOT a file prefix;
+// arbitrary delimited words or numbers must never be removed.
+check({folder: 'Filme', label: 'Film ┃DE┃ und das Geheimnis.mkv'}, {
+  fileTitle: 'Film ┃DE┃ und das Geheimnis', language: ''
+});
+check({folder: 'Filme', label: '┃XYZ┃ Der letzte Planet.mkv'}, {
+  fileTitle: '┃XYZ┃ Der letzte Planet', language: ''
+});
+
 // Episode is named by coordinates; the adjacent show folder supplies title.
 const folderBased = {folder: 'Serien/Andor/Staffel 1',
   label: 'S01E01 Pilot.mkv'};
