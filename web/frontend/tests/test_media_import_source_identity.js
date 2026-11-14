@@ -100,6 +100,16 @@ check({folder: 'Filme', label: '┃XYZ┃ Der letzte Planet.mkv'}, {
   fileTitle: '┃XYZ┃ Der letzte Planet', language: ''
 });
 
+// A source-supplied episode title remains independent evidence for the
+// single series resolver. The actual external-feed Unicode separator must
+// not contaminate either the series identity or the episode hint.
+check({folder: 'Oskar',
+  label: '┃DE┃ Ocean Stories - S01E08 - Die Flaschenpost.mkv'}, {
+  kind: 'series', fileTitle: 'Ocean Stories', language: 'DE',
+  season: 1, episode: 8, episodeTitle: 'Die Flaschenpost',
+  titleHints: ['Ocean Stories', 'Oskar']
+});
+
 // Episode is named by coordinates; the adjacent show folder supplies title.
 const folderBased = {folder: 'Serien/Andor/Staffel 1',
   label: 'S01E01 Pilot.mkv'};
@@ -210,6 +220,10 @@ async function settle() {
   assert.deepStrictEqual(liveRequests.map(x => x.title),
     ['Some Show', 'Alternate Show'],
     'only not_found tries the separate normalized folder hint');
+  assert(liveRequests.every(function (payload) {
+    return payload.episodeTitle === 'Episode' &&
+      payload.seasonNumber === 2 && payload.episodeNumber === 4;
+  }), 'series fallback preserves filename-derived episode title and coordinates');
   assert.strictEqual(view.onlineSelected, liveEpisode);
 
   liveRequests.length = 0;
