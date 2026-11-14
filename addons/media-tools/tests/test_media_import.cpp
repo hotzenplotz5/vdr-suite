@@ -280,6 +280,8 @@ int main() {
     }
     {
         assert(parseProbedVideoCodec("h264\nh264\n") == "h264");
+        // Exact FFprobe output observed from published VDR MPEG-TS recordings.
+        assert(parseProbedVideoCodec("hevc\nhevc\n") == "hevc");
         assert(parseProbedVideoCodec("hevc\r\n\r\nhevc\n") == "hevc");
         mustFail([] { parseProbedVideoCodec("h264\nhevc\n"); });
         mustFail([] { parseProbedVideoCodec(""); });
