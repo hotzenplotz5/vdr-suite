@@ -87,4 +87,104 @@ assert.strictEqual(Array.from(parse(regionalMovie).countries).join(','), 'GB');
 assert(!production.includes('Rom (2005) (US)'),
   'no title-specific workaround belongs in the parser');
 
-console.log('MT_META71_SOURCE_IDENTITY=PASS');
+// Exercise the actual automatic single-source resolver wiring. A distinct
+// folder hint is tried only after not_found, not after ambiguity or failure.
+const liveRequests = [];
+let replyMode = 'matched';
+const liveSeries = {
+  kind: 'series', providerId: 'tmdb', externalNamespace: 'tv',
+  externalId: '1456', title: 'Some Show',
+  originalTitle: 'Some Show', overview: '', releaseDate: '2022-01-01',
+  posterReference: '/cover.jpg'
+};
+const liveEpisode = {
+  kind: 'episode', providerId: 'tmdb', externalNamespace: 'tv-episode',
+  externalId: '778', parentExternalId: '1456', title: 'Episode',
+  seasonNumber: 2, episodeNumber: 4, overview: '',
+  releaseDate: '2022-01-02', posterReference: '/episode.jpg'
+};
+const liveWindow = {
+  VdrSuiteBrowserSession: {
+    csrfHeaders() { return {'X-CSRF-Token': 'existing-session'}; }
+  },
+  VdrSuiteClientApi: {
+    requestJson(route, options) {
+      assert(route.endsWith('/metadata/resolve'));
+      assert.strictEqual(options.method, 'POST');
+      const body = JSON.parse(options.body);
+      liveRequests.push(body);
+      if (replyMode === 'ambiguous')
+        return Promise.resolve({status: 'ambiguous'});
+      if (replyMode === 'offline')
+        return Promise.reject({status: 503});
+      if (liveRequests.length === 1)
+        return Promise.resolve({status: 'not_found'});
+      return Promise.resolve({
+        status: 'matched', mediaType: 'episode',
+        series: liveSeries, episode: liveEpisode
+      });
+    }
+  }
+};
+const autoHook = production.replace(/\}\)\(window\);\s*$/, [
+  "global.__meta71Auto = {",
+  " activate(view) { current = view; owner = view.owner;",
+  "   updatePreview = function() {}; },",
+  " auto: autoIdentifyEpisode",
+  "};",
+  "})(window);"
+].join('\n'));
+assert.notStrictEqual(autoHook, production);
+vm.runInNewContext(autoHook, {window: liveWindow}, {filename: 'media-import.js'});
+
+const liveSource = {
+  sourceId: 'scan_meta71_test', folder: 'Serien/Alternate Show',
+  label: 'Some Show (2022) - S02E04 - Episode.mkv'
+};
+function liveView() {
+  return {owner: 4, backendId: 'default', previewGeneration: 7,
+    select: {value: liveSource.sourceId}, sources: [liveSource.sourceId],
+    onlineUserControlled: false, onlineAuto: false,
+    onlineSelected: null, onlineItems: [], onlineAutoSelected: false};
+}
+async function settle() {
+  for (let i = 0; i < 20; ++i) await Promise.resolve();
+}
+(async function () {
+  let view = liveView();
+  liveWindow.__meta71Auto.activate(view);
+  liveWindow.__meta71Auto.auto(view, liveSource);
+  await settle();
+  assert.deepStrictEqual(liveRequests.map(x => x.title),
+    ['Some Show', 'Alternate Show'],
+    'only not_found tries the separate normalized folder hint');
+  assert.strictEqual(view.onlineSelected, liveEpisode);
+
+  liveRequests.length = 0;
+  replyMode = 'ambiguous';
+  view = liveView();
+  liveWindow.__meta71Auto.activate(view);
+  liveWindow.__meta71Auto.auto(view, liveSource);
+  await settle();
+  assert.strictEqual(liveRequests.length, 1);
+  assert.strictEqual(view.onlineSelected, null);
+  assert(view.onlineStatus.includes('Mehrdeutige'),
+    'an ambiguous series must not be auto-assigned');
+
+  liveRequests.length = 0;
+  replyMode = 'offline';
+  view = liveView();
+  liveWindow.__meta71Auto.activate(view);
+  liveWindow.__meta71Auto.auto(view, liveSource);
+  await settle();
+  assert.strictEqual(liveRequests.length, 1);
+  assert.strictEqual(view.onlineSelected, null);
+  assert(view.onlineStatus.includes('fehlgeschlagen'),
+    'a provider error must not turn into a second hidden search');
+
+  console.log('MT_META71_SOURCE_IDENTITY=PASS');
+  console.log('MT_META71_AUTO_LOOKUP_FALLBACK=PASS');
+}()).catch(function (error) {
+  console.error(error);
+  process.exitCode = 1;
+});
