@@ -242,6 +242,33 @@ int main()
             "/tv/19885/season/1?") != std::string::npos);
     }
 
+    // MT.META7.3: a complete 22-episode season must include S01E22,
+    // not silently truncate at the former 20-candidate default.
+    {
+        std::string body = "{\\\"episodes\\\":[";
+        for (int number = 1; number <= 22; ++number)
+        {
+            if (number > 1) body += ",";
+            body += "{\\\"id\\\":" + std::to_string(1200 + number) +
+                ",\\\"name\\\":\\\"Episode " + std::to_string(number) +
+                "\\\",\\\"season_number\\\":1,\\\"episode_number\\\":" +
+                std::to_string(number) + "}";
+        }
+        body += "]}";
+        FakeTransport transport;
+        transport.responses.push_back(jsonResponse(body));
+        TmdbRecordingMetadataCandidateProvider provider(transport, config());
+        const auto page = provider.episodes("19885", 1, 100);
+        assert(page.providerAvailable);
+        assert(page.error.empty());
+        assert(!page.truncated);
+        assert(page.candidates.size() == 22U);
+        assert(page.candidates.back().episodeNumber == 22);
+        assert(page.candidates.back().parentExternalId == "19885");
+        const auto invalid = provider.episodes("19885", 1, 101);
+        assert(!invalid.error.empty());
+    }
+
     {
         FakeTransport transport;
         transport.responses.push_back(jsonResponse(R"json({
