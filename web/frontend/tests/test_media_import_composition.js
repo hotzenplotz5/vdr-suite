@@ -657,7 +657,8 @@ context.VdrSuiteClientApi = {
         return Promise.resolve({
           status: 'matched', mediaType: 'episode',
           series: onlineCandidate('series', '1399', 'Andor', {
-            posterReference: '/preview.jpg'
+            posterReference: '/preview.jpg',
+            backdropReference: '/andor-backdrop.jpg'
           }),
           episode: onlineCandidate('episode', '221', 'Pilot', {
             parentExternalId: '1399', seasonNumber: 1, episodeNumber: 1,
@@ -3338,9 +3339,13 @@ function renderHevcHomeActivity() {}
     'identified Andor series supplies the main cover');
   assert(autoStill && autoStill.src.includes('externalNamespace=tv-episode'),
     'episode photo appears only in a separate slot');
-  assert(findClass(findClass(mount, 'media-import-artwork-fanart'),
-    'media-import-artwork-empty').textContent === 'Keine lokale Fanart',
-    'missing fanart stays independent of the episode image');
+  const autoFanart = findClass(findClass(mount, 'media-import-artwork-fanart'),
+    'media-import-artwork-image');
+  assert(autoFanart &&
+    autoFanart.src.includes('posterReference=%2Fandor-backdrop.jpg') &&
+    autoFanart.src.includes('externalNamespace=tv') &&
+    !autoFanart.src.includes('externalNamespace=tv-episode'),
+    'confirmed series backdrop uses the established TMDb image route, not a poster or episode still');
   previewArtworkMode = 'poster';
   await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
