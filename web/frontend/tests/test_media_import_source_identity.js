@@ -230,10 +230,14 @@ const batchPlan = {state: 'ready', targetFolder: 'Serien/Rom'};
     view, batchSource('Serien/Other', 3), batchPlan, cache);
   assert(batchCalls[2].route.endsWith('/metadata/resolve'));
   // Generic import/genre roots never share identity merely by title.
+  // This group is independent of the already checked Rom episodes. Keep
+  // the per-review request deduplication, but don't reuse requests from an
+  // earlier fixture to assert a fresh HTTP call.
+  const dokuCache = new Map();
   const doku = batchSource('Doku', 1);
-  await batchWindow.__meta73.snapshot(view, doku, batchPlan, cache);
+  await batchWindow.__meta73.snapshot(view, doku, batchPlan, dokuCache);
   await batchWindow.__meta73.snapshot(view,
-    batchSource('Doku', 2), batchPlan, cache);
+    batchSource('Doku', 2), batchPlan, dokuCache);
   assert(batchCalls[3].route.endsWith('/metadata/resolve'));
   assert(batchCalls[4].route.endsWith('/metadata/resolve'));
   // Same-title productions without a source year cannot borrow a previous
