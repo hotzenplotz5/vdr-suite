@@ -242,16 +242,15 @@ int main()
             "/tv/19885/season/1?") != std::string::npos);
     }
 
-    // MT.META7.3: a complete 22-episode season must include S01E22,
-    // not silently truncate at the former 20-candidate default.
+    // MT.META7.3: a complete 22-episode season includes S01E22.
     {
-        std::string body = "{\\\"episodes\\\":[";
+        std::string body = R"({"episodes":[)";
         for (int number = 1; number <= 22; ++number)
         {
             if (number > 1) body += ",";
-            body += "{\\\"id\\\":" + std::to_string(1200 + number) +
-                ",\\\"name\\\":\\\"Episode " + std::to_string(number) +
-                "\\\",\\\"season_number\\\":1,\\\"episode_number\\\":" +
+            body += R"({"id":)" + std::to_string(1200 + number) +
+                R"(,"name":"Episode )" + std::to_string(number) +
+                R"(","season_number":1,"episode_number":)" +
                 std::to_string(number) + "}";
         }
         body += "]}";
