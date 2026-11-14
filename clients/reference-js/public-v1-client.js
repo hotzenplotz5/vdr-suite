@@ -714,6 +714,8 @@
       if (o.kind === 'series') {
         payload.seasonNumber = o.seasonNumber;
         payload.episodeNumber = o.episodeNumber;
+        if (typeof o.episodeTitle === 'string' && o.episodeTitle.length)
+          payload.episodeTitle = o.episodeTitle;
       }
       if (o.year !== undefined) {
         if (!Number.isInteger(o.year) || o.year < 1900 || o.year > 9999)
