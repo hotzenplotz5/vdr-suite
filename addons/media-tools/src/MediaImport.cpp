@@ -508,7 +508,7 @@ ImportPlan inspectImportChecked(const ImportRequest& request,
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     require(extension == ".mkv" || extension == ".mp4" || extension == ".ts" ||
             extension == ".mov" || extension == ".avi" || extension == ".webm" ||
-            extension == ".m4v",
+            extension == ".m4v" || extension == ".php",
             "unsupported source extension");
     // The original NFO remains adjacent to the original unmarked stem,
     // even after Rectools renames the video to *.duplicate.<ext>.
@@ -900,7 +900,7 @@ ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan) {
                 const auto ext = item.path().extension().string();
                 if (ext != ".mkv" && ext != ".mp4" && ext != ".ts" &&
                     ext != ".mov" && ext != ".avi" && ext != ".webm" &&
-                    ext != ".m4v") continue;
+                    ext != ".m4v" && ext != ".php") continue;
                 const auto name = item.path().stem().string();
                 if (name.size() >= 10U &&
                     (name.compare(name.size()-10U, 10U, ".pc_encode") == 0))
