@@ -366,7 +366,9 @@ bool parseArray(
 {
     candidates.clear();
     truncated = false;
-    if (!validLimit(limit)) return false;
+    if (limit < 1 || limit >
+        (kind == RecordingMetadataCandidateKind::Episode ? 100 : 20))
+        return false;
 
     Value root;
     if (!Parser(body, maximumBytes).parse(root) || root.type != Value::Type::Object)
@@ -429,7 +431,8 @@ bool parseTmdbRecordingCandidateEpisodes(
     std::vector<RecordingMetadataCandidate>& candidates,
     bool& truncated)
 {
-    if (seasonNumber <= 0 || seasonNumber > 10000) return false;
+    if (seasonNumber <= 0 || seasonNumber > 10000 ||
+        limit < 1 || limit > 100) return false;
     return parseArray(
         body, maximumBytes, "episodes",
         RecordingMetadataCandidateKind::Episode,
