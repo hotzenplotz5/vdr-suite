@@ -27,6 +27,24 @@ int main()
     assert(catalog.list(live, "backend", 100, items));
     assert(items == (std::vector<std::string>{"source_00000000001",
                                              "source_00000000002"}));
+    // Initial observation -> one invalidation. Unchanged Agent heartbeat
+    // -> none. Adding/removing a source -> exactly one backend hint.
+    assert(catalog.takeChangedSourceBackends() ==
+        (std::vector<std::string>{"backend"}));
+    assert(catalog.takeChangedSourceBackends().empty());
+    assert(catalog.publish(actor, live, "backend", "instance", 7,
+        {"source_00000000001", "source_00000000002"}, 101,
+        "manual", "0.1.0", approvedSha));
+    assert(catalog.takeChangedSourceBackends().empty());
+    assert(catalog.publish(actor, live, "backend", "instance", 7,
+        {"source_00000000001", "source_00000000002",
+         "source_00000000003"}, 102, "manual", "0.1.0", approvedSha));
+    assert(catalog.publish(actor, live, "backend", "instance", 7,
+        {"source_00000000001", "source_00000000002"}, 103,
+        "manual", "0.1.0", approvedSha));
+    assert(catalog.takeChangedSourceBackends() ==
+        (std::vector<std::string>{"backend"}));
+    assert(catalog.takeChangedSourceBackends().empty());
     // Advisory names follow their IDs even when Agent order is reversed.
     // An invalid label must not poison the previous good observation.
     std::vector<std::string> labels;
