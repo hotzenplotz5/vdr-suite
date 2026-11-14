@@ -250,6 +250,14 @@ const batchPlan = {state: 'ready', targetFolder: 'Serien/Rom'};
     batchPlan, undatedCache);
   assert(batchCalls[5].route.endsWith('/metadata/resolve'));
   assert(batchCalls[6].route.endsWith('/metadata/resolve'));
+  // A different descriptive title on a same-coordinate source must go
+  // through the normal Core resolver, not inherit a cached series blindly.
+  const differentTitle = batchSource('Serien/Rom', 3);
+  differentTitle.label = 'Rom (2005) - S01E03 - A Different Story.mkv';
+  await batchWindow.__meta73.snapshot(view, differentTitle,
+    batchPlan, cache);
+  assert(batchCalls[7].route.endsWith('/recordings/metadata/episodes'));
+  assert(batchCalls[8].route.endsWith('/metadata/resolve'));
   console.log('MT_META73_BATCH_SERIES_REUSE=PASS');
 })().catch(function (error) {
   console.error(error);
