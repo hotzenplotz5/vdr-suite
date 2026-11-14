@@ -4445,8 +4445,20 @@
     const episodeStill = view.onlineSelected && view.onlineSelected.kind === 'episode'
       ? selectedPoster : '';
     const poster = localPoster || seriesPoster || selectedPoster;
-    const fanart = plan && validLocalArtwork(plan.fanartDataUri)
+    const localFanart = plan && validLocalArtwork(plan.fanartDataUri)
       ? plan.fanartDataUri : '';
+    // Prefer source-owned artwork. Use an actual TMDb backdrop only when
+    // the confirmed movie/series carries a separate backdrop_path; never
+    // stretch the poster or episode still into the fanart slot.
+    const onlineBackdrop = view.onlineSeries && view.onlineSeries.backdropReference
+      ? onlineImageUrl(view.backendId, Object.assign({}, view.onlineSeries, {
+          posterReference: view.onlineSeries.backdropReference
+        }))
+      : view.onlineSelected && view.onlineSelected.backdropReference
+        ? onlineImageUrl(view.backendId, Object.assign({}, view.onlineSelected, {
+            posterReference: view.onlineSelected.backdropReference
+          })) : '';
+    const fanart = localFanart || onlineBackdrop;
     const showEpisodeStill = Boolean(episodeStill && episodeStill !== poster);
     if (showEpisodeStill) artwork.className += ' has-episode';
     const picture = function (kind, uri, alt) {
@@ -4454,7 +4466,8 @@
       const label = kind === 'poster'
         ? (seriesPoster || selectedPoster) && !localPoster
           ? 'Online-Poster nicht verfügbar' : 'Kein lokales Poster'
-        : kind === 'episode' ? 'Kein Episodenbild' : 'Keine lokale Fanart';
+        : kind === 'episode' ? 'Kein Episodenbild'
+          : onlineBackdrop ? 'TMDb-Fanart nicht verfügbar' : 'Keine lokale oder TMDb-Fanart';
       if (uri) {
         const img = element('img', 'media-import-artwork-image');
         img.src = uri;
@@ -4476,7 +4489,8 @@
     if (showEpisodeStill)
       artwork.appendChild(picture('episode', episodeStill,
         'Episodenbild für ' + title));
-    artwork.appendChild(picture('fanart', fanart, 'Lokale Fanart für ' + title));
+    artwork.appendChild(picture('fanart', fanart,
+      localFanart ? 'Lokale Fanart für ' + title : 'TMDb-Fanart für ' + title));
     card.appendChild(artwork);
     // A technical preview describes the state BEFORE import. Once the user
     // starts this source's operation the operation card owns the status.
