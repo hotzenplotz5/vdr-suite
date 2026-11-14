@@ -210,6 +210,19 @@ int main() {
         ++checks;
     }
     {
+        // A legacy filename suffix may select a media file for inspection,
+        // but never invokes PHP. Real FFprobe will still check the content
+        // when an import is actually executed.
+        Fixture f;
+        const auto renamed = f.input / "Sample.php";
+        fs::rename(f.source, renamed);
+        const auto plan = inspectImport({f.input, f.video, renamed});
+        assert(plan.sourceFile == renamed);
+        assert(plan.title == "Sample");
+        assert(plan.titleDirectory == f.video / "Sample");
+        ++checks;
+    }
+    {
         // A relocated executable still produces the original fixed agent
         // error category; do not classify failures by an absolute path.
         Fixture f;
