@@ -3981,7 +3981,7 @@
           const changed = old.length !== items.length || items.some(function (item) {
             const previous = byId.get(item.sourceId);
             return !previous || previous.label !== item.label ||
-              previous.folder !== (item.folder || '') ||
+              (previous.folder || '') !== (item.folder || '') ||
               Boolean(previous.recordingPresent ||
                 previous.recordingStatus === 'recording_present') !==
                 (item.recordingStatus === 'recording_present');
