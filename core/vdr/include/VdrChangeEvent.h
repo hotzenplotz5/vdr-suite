@@ -12,7 +12,8 @@ enum class VdrChangeType {
     SearchTimersChanged,
     EventsChanged,
     LiveOverlayChanged,
-    ContinueWatchingChanged
+    ContinueWatchingChanged,
+    MediaImportSourcesChanged
 };
 
 class VdrChangeEvent {
