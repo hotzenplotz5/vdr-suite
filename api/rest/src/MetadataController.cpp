@@ -520,7 +520,7 @@ ApiResponse MetadataController::resolveRecordingMetadata(
                     const RecordingMetadataCandidate& series =
                         entry.second.second;
                     const RecordingMetadataCandidatePage season =
-                        provider.episodes(series.externalId, seasonNumber, 20);
+                        provider.episodes(series.externalId, seasonNumber, 100);
                     if (!season.providerAvailable || !season.error.empty())
                         return errorResponse(503, "metadata_provider_unavailable",
                             season.error.empty()
@@ -583,7 +583,7 @@ ApiResponse MetadataController::resolveRecordingMetadata(
     if (!hasSelectedEpisode)
     {
         const RecordingMetadataCandidatePage page =
-            provider.episodes(found.externalId, seasonNumber, 20);
+            provider.episodes(found.externalId, seasonNumber, 100);
         if (!page.providerAvailable || !page.error.empty())
             return errorResponse(503, "metadata_provider_unavailable",
                 page.error.empty() ? "TMDb unavailable" : page.error);
