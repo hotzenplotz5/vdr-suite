@@ -1274,7 +1274,9 @@
         !/^(?:Doku|Dokumentation|Horror|Oskar|SciFi|Serien|Series|TV|Shows|Filme|Movies|Import|Eingang|Unsortiert|Medien|Downloads|Video)$/i.test(folderTail) &&
         !/^(?:Staffel|Season)[ ._-]*\d{1,2}$/i.test(folderTail);
       const groupTitle = normalizedSeriesName(titles[0] || '');
-      const seriesKey = namedFolder && groupTitle
+      // A named folder alone cannot disambiguate same-titled productions
+      // without a year; keep those on the full per-episode resolver path.
+      const seriesKey = namedFolder && groupTitle && year > 0
         ? 'v1-series:' + view.backendId + ':' +
           normalizedSeriesName(seriesFolder) + ':' + groupTitle + ':' +
           (year || 0) : '';
