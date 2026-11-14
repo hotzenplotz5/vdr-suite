@@ -236,6 +236,20 @@ const batchPlan = {state: 'ready', targetFolder: 'Serien/Rom'};
     batchSource('Doku', 2), batchPlan, cache);
   assert(batchCalls[3].route.endsWith('/metadata/resolve'));
   assert(batchCalls[4].route.endsWith('/metadata/resolve'));
+  // Same-title productions without a source year cannot borrow a previous
+  // series identity even when they share a named directory.
+  function undated(number) {
+    return {sourceId: 'undated_' + number, folder: 'Serien/Rom',
+      label: 'Rom - S01E' + String(number).padStart(2, '0') +
+        ' - Episode ' + number + '.mkv'};
+  }
+  const undatedCache = new Map();
+  await batchWindow.__meta73.snapshot(view, undated(1),
+    batchPlan, undatedCache);
+  await batchWindow.__meta73.snapshot(view, undated(2),
+    batchPlan, undatedCache);
+  assert(batchCalls[5].route.endsWith('/metadata/resolve'));
+  assert(batchCalls[6].route.endsWith('/metadata/resolve'));
   console.log('MT_META73_BATCH_SERIES_REUSE=PASS');
 })().catch(function (error) {
   console.error(error);
