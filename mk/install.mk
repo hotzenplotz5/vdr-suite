@@ -130,7 +130,9 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/app.js $(DESTDIR)$(DATADIR)/web/frontend/app.js
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/api
 	$(INSTALL) -m 0644 web/frontend/api/client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/client-api.js
-	$(INSTALL) -m 0644 web/frontend/api/session-frontend-sync.js $(DESTDIR)$(DATADIR)/web/frontend/api/session-frontend-sync.js
+	# The Playback owner is composed by install-live-remote-frontend and the
+	# phase65d append targets (install-runtime prerequisites). Never overwrite
+	# that composed artifact with the bare source module here.
 	$(INSTALL) -m 0644 web/frontend/api/public-v1-client.js $(DESTDIR)$(DATADIR)/web/frontend/api/public-v1-client.js
 	$(INSTALL) -m 0644 web/frontend/api/account-admin-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/account-admin-client-api.js
 	$(INSTALL) -m 0644 web/frontend/api/device-admin-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/device-admin-client-api.js
