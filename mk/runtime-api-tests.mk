@@ -18,6 +18,18 @@ test-recordings-controller: prepare-test-db
 		-o $(BUILD_DIR)/test_recordings_controller
 	$(BUILD_DIR)/test_recordings_controller
 
+# MT.META7.2: deterministic international-title evidence, standalone C++17.
+# Source-only fixtures: no external TMDb requests or production recordings.
+.PHONY: test-metadata-resolve-title-matching
+test-metadata-resolve-title-matching:
+	mkdir -p "$(BUILD_DIR)"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror -Iapi/rest/include \
+		api/rest/tests/test_recording_metadata_title_match.cpp \
+		-o "$(BUILD_DIR)/test_recording_metadata_title_match"
+	"$(BUILD_DIR)/test_recording_metadata_title_match"
+
+test-ci-fast: test-metadata-resolve-title-matching
+
 test-metadata-controller: prepare-test-db
 	$(BUILD_CXX) $(CXXFLAGS) \
 		$(SQLITE_SRC) \
