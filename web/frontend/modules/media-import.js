@@ -1263,6 +1263,48 @@
       const titles = identity.titleHints.map(function (hint) {
         return hint.title;
       });
+      // MT.META7.3: a named series directory is stronger than a generic
+      // import root. Reuse a Core-confirmed series identity ONLY inside this
+      // one batch review and only for the same named folder/title/year.
+      // Every subsequent episode must still be read and verified by the
+      // existing Core metadata episodes endpoint before snapshot freezing.
+      const seriesFolder = episodeCoordinates(source).seriesPath || '';
+      const folderTail = seriesFolder.split('/').filter(Boolean).pop() || '';
+      const namedFolder = folderTail &&
+        !/^(?:Doku|Dokumentation|Horror|Oskar|SciFi|Serien|Series|TV|Shows|Filme|Movies|Import|Eingang|Unsortiert|Medien|Downloads|Video)$/i.test(folderTail) &&
+        !/^(?:Staffel|Season)[ ._-]*\\d{1,2}$/i.test(folderTail);
+      const groupTitle = normalizedSeriesName(titles[0] || '');
+      const seriesKey = namedFolder && groupTitle
+        ? 'v1-series:' + view.backendId + ':' +
+          normalizedSeriesName(seriesFolder) + ':' + groupTitle + ':' +
+          (year || 0) : '';
+      const cachedSeries = seriesKey ? cache.get(seriesKey) : null;
+      if (cachedSeries) {
+        return Promise.resolve(api.requestJson(
+          '/api/backends/' + encodeURIComponent(view.backendId) +
+          '/recordings/metadata/episodes', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type':'application/json'},
+              csrf && typeof csrf === 'object' ? csrf : {}),
+            body: JSON.stringify({
+              seriesExternalId: cachedSeries.externalId,
+              seasonNumber: coords.season, limit: 20
+            }),
+            cache: 'no-store', credentials: 'same-origin'
+          })).then(function (page) {
+            if (!isCurrent(view) || !page || !page.providerAvailable ||
+                page.truncated || !Array.isArray(page.candidates)) return '';
+            const matches = page.candidates.filter(function (episode) {
+              return onlineValid(episode, 'episode', cachedSeries,
+                {seasonNumber: coords.season}) &&
+                episode.episodeNumber === coords.episode;
+            });
+            if (matches.length !== 1) return '';
+            return frozenImportMetadata(view, {candidate:
+              Object.assign({}, matches[0], {mediaType: 'episode'})
+            }, cachedSeries);
+          }).catch(function () { return ''; });
+      }
       const tryTitle = function (index) {
         if (index >= titles.length) return Promise.resolve('');
         return resolve(titles[index], 'series', coords.season,
@@ -1280,6 +1322,9 @@
               data.episode.seasonNumber !== coords.season ||
               data.episode.episodeNumber !== coords.episode)
               return '';
+            if (seriesKey && onlineValid(data.series, 'series') &&
+                !cache.has(seriesKey))
+              cache.set(seriesKey, data.series);
             return frozenImportMetadata(view, {candidate:
               Object.assign({}, data.episode, {mediaType: 'episode'})
             }, data.series);
