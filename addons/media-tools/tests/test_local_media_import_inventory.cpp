@@ -301,6 +301,34 @@ int main()
            scanned.sourceFile == newFile ||
            scanned.sourceFile == seriesFile ||
            scanned.sourceFile == deepFile);
+    // Old import feeds sometimes store actual media under .php/.PHP.
+    // The source inventory admits them for the normal codec probe, without
+    // executing PHP or treating the extension itself as video evidence.
+    const auto legacyPhp = fixture.root / "media/input/Legacy Movie.php";
+    const auto legacyUpper = fixture.root / "media/input/Legacy Series.PHP";
+    { std::ofstream out(legacyPhp); out << "synthetic video payload"; }
+    { std::ofstream out(legacyUpper); out << "synthetic second payload"; }
+    fs::last_write_time(legacyPhp,
+        fs::file_time_type::clock::now() - std::chrono::minutes(10));
+    fs::last_write_time(legacyUpper,
+        fs::file_time_type::clock::now() - std::chrono::minutes(10));
+    assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
+    assert(!partial && labels.size() == 6);
+    bool foundPhp = false, foundUpper = false;
+    for (const auto& item : labels) {
+        LocalMediaImportSource candidate;
+        assert(inventory.resolve("backend", item.sourceId, candidate));
+        foundPhp |= candidate.sourceFile == legacyPhp;
+        foundUpper |= candidate.sourceFile == legacyUpper;
+    }
+    assert(foundPhp && foundUpper);
+    assert(inspectImportPreview({fixture.root / "media/input",
+        fixture.destination, legacyPhp}).title == "Legacy Movie");
+    fs::remove(legacyPhp);
+    fs::remove(legacyUpper);
+    assert(inventory.listTrustedSourceSnapshot("backend", labels, partial));
+    assert(!partial && labels.size() == 4);
+
     // MT.UX1 bounded catalog regression: all 74 eligible files are visible,
     // not silently truncated at the former 32-ID Agent ceiling.
     const auto bulkDir = fixture.root / "media/input/Bulk";
