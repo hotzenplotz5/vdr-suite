@@ -1161,10 +1161,13 @@
     const session = global.VdrSuiteBrowserSession;
     const csrf = session && typeof session.csrfHeaders === 'function'
       ? session.csrfHeaders() : {};
-    const resolve = function (title, kind, season, episode, year) {
+    const resolve = function (title, kind, season, episode, year, episodeTitle) {
+      // The candidate identity includes the optional episode-title evidence:
+      // two sources with identical SxxExx but different descriptive titles
+      // must not reuse an unrelated resolution result during batch review.
       const key = 'v1-resolve:' + kind + ':' +
         normalizedSeriesName(title) + ':' + season + ':' + episode +
-        ':' + (year || 0);
+        ':' + (year || 0) + ':' + normalizedSeriesName(episodeTitle);
       if (!cache.has(key)) cache.set(key, Promise.resolve().then(function () {
         return api.requestJson(
           '/api/v1/backends/' + encodeURIComponent(view.backendId) +
@@ -1176,6 +1179,7 @@
               title: title, kind: kind,
               ...(kind === 'series'
                 ? {seasonNumber: season, episodeNumber: episode,
+                    ...(episodeTitle ? {episodeTitle: episodeTitle} : {}),
                     ...(year ? {year: year} : {})}
                 : year ? {year: year} : {})
             }),
@@ -1194,7 +1198,7 @@
       const tryTitle = function (index) {
         if (index >= titles.length) return Promise.resolve('');
         return resolve(titles[index], 'series', coords.season,
-          coords.episode, year).then(function (data) {
+          coords.episode, year, identity.episodeTitle).then(function (data) {
             if (!isCurrent(view) || !data) return '';
           if (data.status === 'not_found')
               return tryTitle(index + 1);
