@@ -832,10 +832,12 @@ function selectedEpgBackendId() { return selectedBackendId; }
 function renderSnapshotMetrics() {}
 function shouldPublishHomeResume() { return false; }
 function publishHomeResume() {}
-// The selected production navigation fragment calls the Home HEVC stream
-// cleanup owner defined elsewhere in app.js. This isolated composition test
-// provides that unrelated owner's no-op boundary, not a production change.
+// The extracted production navigation and rendering fragments both refer
+// to the independent Home HEVC component in app.js. Model its lifecycle
+// boundary here; Media Import tests must not mount Home, read sessionStorage,
+// or modify HEVC operations while switching tabs.
 function closeHomeHevcStream() {}
+function renderHevcHomeActivity() {}
 `, Object.assign(context, {testMount: mount}));
 
 (async function () {
