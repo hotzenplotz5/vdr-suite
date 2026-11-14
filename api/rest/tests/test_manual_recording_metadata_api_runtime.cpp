@@ -54,6 +54,44 @@ public:
                 ? "Forrest Gump"
                 : "Sherlock";
         candidate.originalTitle = candidate.title;
+        // Generic international film series: full filename-style phrase is
+        // not indexed by the provider, but a common title prefix returns two
+        // differently numbered films with translated display titles.
+        if (kind == RecordingMetadataCandidateKind::Movie &&
+            query == "Solar Voyage Deel 2 The Red Horizon")
+        {
+            RecordingMetadataCandidatePage noMatch;
+            noMatch.attempted = true;
+            noMatch.providerAvailable = true;
+            noMatch.providerId = "tmdb";
+            return noMatch;
+        }
+        if (kind == RecordingMetadataCandidateKind::Movie &&
+            query == "Solar Voyage")
+        {
+            RecordingMetadataCandidatePage matches;
+            matches.attempted = true;
+            matches.providerAvailable = true;
+            matches.providerId = "tmdb";
+            RecordingMetadataCandidate first = candidate;
+            first.externalId = "5001";
+            first.title = "Solarreise – Teil 1";
+            first.originalTitle = "Solar Voyage - Part One: The Beginning";
+            first.releaseDate = "2023-12-01";
+            RecordingMetadataCandidate second = candidate;
+            second.externalId = "5002";
+            second.title = "Solarreise – Teil 2";
+            second.originalTitle = "Solar Voyage - Part Two: The Red Horizon";
+            second.releaseDate = "2024-04-11";
+            matches.candidates = {first, second};
+            if (ambiguousResolve)
+            {
+                RecordingMetadataCandidate equal = second;
+                equal.externalId = "5003";
+                matches.candidates.push_back(equal);
+            }
+            return matches;
+        }
         if (kind == RecordingMetadataCandidateKind::Series &&
             query == "Star Wars-Andor")
         {
@@ -64,7 +102,7 @@ public:
             return noMatch;
         }
         if (kind == RecordingMetadataCandidateKind::Series &&
-            query == "andor")
+            query == "Andor")
         {
             candidate.externalId = "4321";
             candidate.title = "Star Wars: Andor";
@@ -367,7 +405,7 @@ int main()
         assert(response.body.find("Star Wars: Andor") != std::string::npos);
         assert(response.body.find("Waren Sie schon einmal in Ghorman") !=
             std::string::npos);
-        assert(provider.lastQuery == "andor");
+        assert(provider.lastQuery == "Andor");
         assert(provider.lastSeriesId == "4321");
         assert(nativeUpdateCalls == 0);
     }
@@ -441,6 +479,43 @@ int main()
         assert(response.statusCode == 200);
         assert(response.body.find("\"mediaType\":\"movie\"") !=
             std::string::npos);
+        assert(nativeUpdateCalls == 0);
+    }
+
+    // MT.META7.2: different languages and instalment markers must be
+    // resolved by the ONE Core endpoint; the prefix query is only candidate
+    // discovery and cannot pick Part One when Part Two was requested.
+    {
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            "{\"title\":\"Solar Voyage Deel 2 The Red Horizon\",\"kind\":\"movie\"}",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"matched\"") != std::string::npos);
+        assert(response.body.find("\"externalId\":\"5002\"") != std::string::npos);
+        assert(response.body.find("\"externalId\":\"5001\"") == std::string::npos);
+        assert(provider.lastQuery == "Solar Voyage");
+        assert(nativeUpdateCalls == 0);
+    }
+    {
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            "{\"title\":\"Solar Voyage Deel 2 The Red Horizon\","
+            "\"kind\":\"movie\",\"year\":2023}",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"not_found\"") != std::string::npos);
+        assert(nativeUpdateCalls == 0);
+    }
+    {
+        provider.ambiguousResolve = true;
+        ApiResponse response;
+        assert(runtime.resolveReadOnly("living-room",
+            "{\"title\":\"Solar Voyage Deel 2 The Red Horizon\",\"kind\":\"movie\"}",
+            "user:test-admin", response));
+        assert(response.statusCode == 200);
+        assert(response.body.find("\"status\":\"ambiguous\"") != std::string::npos);
+        provider.ambiguousResolve = false;
         assert(nativeUpdateCalls == 0);
     }
 
