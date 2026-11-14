@@ -18,31 +18,85 @@ struct Word
     std::size_t end = 0;
 };
 
+// TMDb commonly uses Unicode en/em dashes and typographic quotation
+// marks. Treat punctuation as separators, but preserve actual UTF-8 letters.
+// Latin-1 uppercase letters are folded to the corresponding lowercase form.
+inline bool separator(unsigned codepoint)
+{
+    if (codepoint < 128U)
+        return std::isalnum(static_cast<unsigned char>(codepoint)) == 0;
+    return (codepoint >= 0x2000U && codepoint <= 0x206fU) ||
+        (codepoint >= 0x3000U && codepoint <= 0x303fU) ||
+        (codepoint >= 0xff00U && codepoint <= 0xff65U) ||
+        (codepoint >= 0x00a0U && codepoint <= 0x00bfU) ||
+        codepoint == 0x00d7U || codepoint == 0x00f7U;
+}
+
 inline std::vector<Word> words(const std::string& title)
 {
     std::vector<Word> result;
+    std::string token;
+    std::size_t start = 0U;
     for (std::size_t i = 0; i < title.size();)
     {
-        const unsigned char ch = static_cast<unsigned char>(title[i]);
-        if (!(ch >= 0x80U || std::isalnum(ch)))
+        const unsigned char first = static_cast<unsigned char>(title[i]);
+        unsigned cp = first;
+        std::size_t width = 1U;
+        if (first >= 0xc2U && first <= 0xdfU) width = 2U;
+        else if (first >= 0xe0U && first <= 0xefU) width = 3U;
+        else if (first >= 0xf0U && first <= 0xf4U) width = 4U;
+        if (width > 1U && i + width <= title.size())
         {
-            ++i;
-            continue;
+            bool valid = true;
+            for (std::size_t j = 1U; j < width; ++j)
+                valid = valid &&
+                    (static_cast<unsigned char>(title[i + j]) & 0xc0U) == 0x80U;
+            if (valid)
+            {
+                cp = first & (width == 2U ? 0x1fU :
+                    width == 3U ? 0x0fU : 0x07U);
+                for (std::size_t j = 1U; j < width; ++j)
+                    cp = (cp << 6U) |
+                        (static_cast<unsigned char>(title[i + j]) & 0x3fU);
+            }
+            else width = 1U;
         }
-        const std::size_t start = i;
-        std::string token;
-        while (i < title.size())
+        else width = 1U;
+
+        if (separator(cp))
         {
-            const unsigned char character =
-                static_cast<unsigned char>(title[i]);
-            if (!(character >= 0x80U || std::isalnum(character))) break;
-            token.push_back(character < 0x80U
-                ? static_cast<char>(std::tolower(character))
-                : static_cast<char>(character));
-            ++i;
+            if (!token.empty())
+            {
+                result.push_back({token, start, i});
+                token.clear();
+            }
         }
-        result.push_back({token, start, i});
+        else
+        {
+            if (token.empty()) start = i;
+            if (cp >= 0x00c0U && cp <= 0x00d6U)
+                cp += 0x20U;
+            else if (cp >= 0x00d8U && cp <= 0x00deU)
+                cp += 0x20U;
+            if (cp < 128U)
+                token.push_back(static_cast<char>(
+                    std::tolower(static_cast<unsigned char>(cp))));
+            else if (cp < 0x800U)
+            {
+                token.push_back(static_cast<char>(0xc0U | (cp >> 6U)));
+                token.push_back(static_cast<char>(0x80U | (cp & 0x3fU)));
+            }
+            else if (cp < 0x10000U)
+            {
+                token.push_back(static_cast<char>(0xe0U | (cp >> 12U)));
+                token.push_back(static_cast<char>(0x80U | ((cp >> 6U) & 0x3fU)));
+                token.push_back(static_cast<char>(0x80U | (cp & 0x3fU)));
+            }
+            else token.append(title, i, width);
+        }
+        i += width;
     }
+    if (!token.empty()) result.push_back({token, start, title.size()});
     return result;
 }
 
