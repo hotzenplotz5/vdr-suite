@@ -317,6 +317,7 @@ bool appendCandidate(
         candidate.originalTitle = text(item, "original_title");
         candidate.releaseDate = text(item, "release_date");
         candidate.posterReference = text(item, "poster_path");
+        candidate.backdropReference = text(item, "backdrop_path");
         break;
     case RecordingMetadataCandidateKind::Series:
         candidate.externalNamespace = "tv";
@@ -324,6 +325,7 @@ bool appendCandidate(
         candidate.originalTitle = text(item, "original_name");
         candidate.releaseDate = text(item, "first_air_date");
         candidate.posterReference = text(item, "poster_path");
+        candidate.backdropReference = text(item, "backdrop_path");
         break;
     case RecordingMetadataCandidateKind::Season:
         candidate.externalNamespace = "tv-season";
@@ -331,6 +333,7 @@ bool appendCandidate(
         candidate.overview = text(item, "overview");
         candidate.releaseDate = text(item, "air_date");
         candidate.posterReference = text(item, "poster_path");
+        candidate.backdropReference = text(item, "backdrop_path");
         candidate.seasonNumber = integer(item, "season_number");
         break;
     case RecordingMetadataCandidateKind::Episode:
