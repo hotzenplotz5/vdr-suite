@@ -137,6 +137,20 @@ int main() {
     assert(!fs::exists(duplicate));
     assert(contents(root / "folder/Old.mkv") == "unchanged media bytes");
 
+    // .php is a legacy media FILE suffix, not a script execution request.
+    // Preserve the exact bytes, case and suffix through Rectools markers.
+    const auto disguised = root / "folder" / "Legacy Film.PHP";
+    const auto disguisedHeld = root / "folder" / "Legacy Film.pc_encode.PHP";
+    write(disguised, "actual video byte fixture");
+    assert(markMediaImportSource(source(root, video, disguised),
+           MediaImportMarkerDecision::desktop) == MediaImportMarkerOutcome::marked);
+    assert(!fs::exists(disguised));
+    assert(contents(disguisedHeld) == "actual video byte fixture");
+    assert(markMediaImportSource(source(root, video, disguisedHeld),
+           MediaImportMarkerDecision::release) == MediaImportMarkerOutcome::marked);
+    assert(!fs::exists(disguisedHeld));
+    assert(contents(disguised) == "actual video byte fixture");
+
     // Stale source identity can never rename a newly replaced file.
     const auto changed = root / "folder" / "Stale.ts";
     write(changed);
