@@ -2686,6 +2686,7 @@
           body: JSON.stringify({
             title: hints[index].title, kind: 'series',
             seasonNumber: coords.season, episodeNumber: coords.episode,
+            ...(identity.episodeTitle ? {episodeTitle: identity.episodeTitle} : {}),
             ...(year ? {year: year} : {})
           }),
           cache: 'no-store', credentials: 'same-origin'
