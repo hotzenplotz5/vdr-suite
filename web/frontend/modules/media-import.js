@@ -3223,7 +3223,7 @@
     // including the actual source label "┃DE┃" (U+2503), not just ASCII
     // "| DE |". Match a leading recognized language code only; an
     // unrelated vertical bar within a film or episode title is preserved.
-    const languagePrefix = /^(?:\s*(?:[|│┃║¦｜]\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[|│┃║¦｜]|\[\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\]|\(\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\)|(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[-_:|│┃║¦｜])\s*)+/i;
+    const languagePrefix = /^(?:\s*(?:[|│┃║¦｜▎]\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[|│┃║¦｜▎]|\[\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\]|\(\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\)|(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[-_:|│┃║¦｜▎])\s*)+/i;
     const languageMatch = languagePrefix.exec(filename);
     const language = languageMatch
       ? languageMatch.slice(1).find(Boolean).toUpperCase() : '';
@@ -3249,9 +3249,17 @@
     const filePart = episodeMarker
       ? filename.slice(0, episodeMarker.index) : isEpisode ? '' : filename;
     const fileTitle = cleanTitle(filePart);
-    const episodeTitle = episodeMarker
+    const parsedEpisodeTitle = episodeMarker
       ? cleanTitle(filename.slice(episodeMarker.index + episodeMarker[0].length))
       : '';
+    // Some source labels append their original dotted filename after SxxExx.
+    // That is not an episode title and must not be supplied as matching
+    // evidence to the Metadata Core (e.g. Series.S01E06).
+    const episodeTitleWithoutCoordinates = parsedEpisodeTitle.replace(
+      /(?:^|[\s._-])S\d{1,2}E\d{1,3}(?=$|[\s._-])/gi, ' ');
+    const episodeTitle = normalizedSeriesName(
+      episodeTitleWithoutCoordinates) === normalizedSeriesName(fileTitle)
+      ? '' : parsedEpisodeTitle;
 
     // A season folder is a coordinate, not a show name. Generic library,
     // genre/import roots also cannot become an automatic series title.
