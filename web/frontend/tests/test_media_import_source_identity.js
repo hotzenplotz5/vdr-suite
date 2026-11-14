@@ -192,6 +192,7 @@ const batchWindow = {
       }
       assert(route.endsWith('/recordings/metadata/episodes'));
       assert.strictEqual(data.seriesExternalId, '202359');
+      assert.strictEqual(data.limit, 100);
       return Promise.resolve({providerId: 'tmdb', providerAvailable: true,
         truncated: false, candidates: [batchEpisode(2), batchEpisode(3)]});
     }
@@ -262,6 +263,17 @@ const batchPlan = {state: 'ready', targetFolder: 'Serien/Rom'};
     batchPlan, cache);
   assert(batchCalls[7].route.endsWith('/recordings/metadata/episodes'));
   assert(batchCalls[8].route.endsWith('/metadata/resolve'));
+  // A long season is fetched with enough capacity to include episode 22.
+  // The episode must be matched by exact coordinates, not list position.
+  const late = batchSource('Serien/Rom', 22);
+  late.label = 'Rom (2005) - S01E22.mkv';
+  const lateCache = new Map();
+  await batchWindow.__meta73.snapshot(
+    view, batchSource('Serien/Rom', 1), batchPlan, lateCache);
+  const lateResult = await batchWindow.__meta73.snapshot(
+    view, late, batchPlan, lateCache);
+  assert.strictEqual(lateResult, '',
+    'a truncated/absent episode must not be assigned by position');
   console.log('MT_META73_BATCH_SERIES_REUSE=PASS');
 })().catch(function (error) {
   console.error(error);
