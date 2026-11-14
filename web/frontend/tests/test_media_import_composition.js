@@ -969,6 +969,7 @@ function renderHevcHomeActivity() {}
   assert.strictEqual(findClass(mount, 'media-import-source').value,
     selectedBeforeSse, 'unchanged catalog does not reset current metadata');
   batchSources = null;
+  delete sourceDisplayLabels[SOURCE_B];
   inventoryStream.listeners.resync();
   await settle();
   assert(!findClass(mount, 'media-import-selection').children.some(function (row) {
