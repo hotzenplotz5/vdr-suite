@@ -913,8 +913,39 @@ function renderHevcHomeActivity() {}
   const resumedRow = findClass(mount, 'media-import-selection').children.find(
     function (row) { return row.dataset.sourceId === SOURCE; });
   assert(resumedRow, 'the unchanged source is visible after returning');
+  // MT.META7.2: the known source is immediately ready from Core's
+  // persisted preview, while the optional refresh is intentionally held.
+  // The auto movie resolver must run from that *visible* ready state and
+  // must not wait for the Agent preview callback to finish.
+  previewMode = 'defer-source';
+  const metadataBeforeCached = onlineRequests.length;
   findClass(resumedRow, 'media-import-episode-open').listeners.click();
   await settle();
+  assert.strictEqual(typeof resolveDelayedPreview, 'function',
+    'a technical metadata refresh remains pending behind a cached ready preview');
+  assert.strictEqual(onlineRequests.length, metadataBeforeCached + 1,
+    'cached ready preview initiates exactly one automatic Core movie lookup');
+  assert(onlineRequests[onlineRequests.length - 1].route.endsWith('/metadata/resolve'),
+    'the cached preview uses the shared metadata resolver');
+  const cachedOnlineStatus = findClass(mount, 'media-import-online-status');
+  assert(cachedOnlineStatus && cachedOnlineStatus.textContent.includes(
+    'Kein eindeutiger TMDb-Film'),
+    'read-only not_found outcome remains visible while technical refresh is pending');
+  resolveDelayedPreview(reply(200, {
+    backendId: 'backend-a', sourceId: SOURCE,
+    state: 'ready', status: 'ready', title: 'Backend geprüfter Film',
+    targetFolder: 'Die Herrschaft des Feuers', videoCodec: 'h264',
+    sourceBytes: 2500000000, availableBytes: previewAvailableBytes,
+    requiredBytes: 7600000000, videoReencodeRequired: false,
+    nfoOutline: 'Ein lokaler NFO-Text', nfoPlot: previewNfoPlot,
+    nfoYear: '2024', nfoGenre: 'Drama', durationSeconds: 3210,
+    posterDataUri: previewArtworkMode === 'none' ? '' :
+      'data:image/jpeg;base64,/9j/2Q==', fanartDataUri: ''
+  }));
+  resolveDelayedPreview = null;
+  await settle();
+  assert.strictEqual(onlineRequests.length, metadataBeforeCached + 1,
+    'a later successful technical preview cannot repeat movie metadata lookup');
   assert.strictEqual(findClass(mount, 'media-import-preview-state').textContent,
     'Direktimport möglich',
     'a verified source must display its result immediately after tab remount');
