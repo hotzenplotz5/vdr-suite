@@ -4281,12 +4281,17 @@ function renderHevcHomeActivity() {}
   const batchResolveBodies = providerReads.filter(function (req) {
     return req.route.endsWith('/metadata/resolve');
   }).map(function (req) { return JSON.parse(req.options.body); });
-  assert.strictEqual(batchResolveBodies.length, 2,
-    'each selected episode uses the central Public-v1 resolver once');
-  assert.deepStrictEqual(batchResolveBodies.map(function (body) {
-    return body.episodeTitle;
-  }), ['Wer weiss noch davon', 'Jedha Kyber Erso'],
-  'batch review preserves each distinct episode name in the Core request');
+  assert.strictEqual(batchResolveBodies.length, 1,
+    'only the first grouped episode resolves the shared series identity');
+  assert.strictEqual(batchResolveBodies[0].episodeTitle,
+    'Wer weiss noch davon',
+    'initial Core resolver receives the first source episode title');
+  const batchEpisodeReads = providerReads.filter(function (req) {
+    return req.route.endsWith('/recordings/metadata/episodes');
+  }).map(function (req) { return JSON.parse(req.options.body); });
+  assert.deepStrictEqual(batchEpisodeReads, [{
+    seriesExternalId: '1399', seasonNumber: 2, limit: 20
+  }], 'second grouped episode is checked against the confirmed series ID');
   await findClass(mount, 'media-import-batch-confirm').listeners.click();
   await settle();
   const metadataPost = requests.filter(function (req) {
