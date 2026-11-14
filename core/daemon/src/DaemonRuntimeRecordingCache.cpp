@@ -742,9 +742,12 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                     "-of", "default=nw=1:nk=1",
                                     (publishedNative / "00001.ts").string()
                                 }, true);
+                                // MPEG-TS program tables can cause FFprobe to
+                                // report the same video codec multiple times.
+                                // Reuse the existing strict multi-stream parser.
                                 if (codec.exitCode != 0 ||
-                                    (codec.output != "hevc\n" &&
-                                     codec.output != "hevc\r\n")) {
+                                    vdrsuite::mediatools::parseProbedVideoCodec(
+                                        codec.output) != "hevc") {
                                     std::cerr << "HEVC_PUBLISH_PENDING operation="
                                               << op.operationId
                                               << " reason=hevc_codec_readback" << std::endl;
