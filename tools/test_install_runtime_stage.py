@@ -50,6 +50,13 @@ def main() -> int:
     frontend_install = "$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend"
     assert make_source.count(public_install) == 1
     assert make_source.index(public_install) < make_source.index(frontend_install)
+    # install-runtime runs after its composition prerequisites; a later raw
+    # source copy would discard the transport/seek/volume decorators.
+    assert "$(INSTALL) -m 0644 web/frontend/api/session-frontend-sync.js " not in make_source
+    live_remote = (Path(__file__).resolve().parents[1] / "mk/live-remote.mk").read_text()
+    assert "install-runtime: install-live-remote-frontend" in live_remote
+    assert "web/frontend/api/recording-fallback-controls.js" in live_remote
+    assert "web/frontend/api/recording-fallback-restart-seek.js" in live_remote
 
     with tempfile.TemporaryDirectory(prefix="vdr-suite-runtime-deploy-test-") as tmp:
         root = Path(tmp)
@@ -76,7 +83,7 @@ def main() -> int:
         # A byte-for-byte sealed stage may still be unusable if the raw
         # session source overwrote the fully composed Recording Player.
         playback = stage / "usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js"
-        write(playback, "/* naked playback owner */\\n")
+        write(playback, "/* naked playback owner */\n")
         incomplete = run("seal", "--stage-root", str(stage), expect=1)
         assert "incomplete Recording playback bundle" in incomplete.stdout
         for marker in (
@@ -86,12 +93,12 @@ def main() -> int:
             "__vdrSuitePlaybackVolumeControlsBound",
         ):
             assert marker in incomplete.stdout
-        write(playback, "\\n".join((
+        write(playback, "\n".join((
             "__vdrSuiteRecordingFallbackControlsBound",
             "__vdrSuiteRecordingFallbackRestartSeekBound",
             "__vdrSuiteRecordingTrackControlsBound",
             "__vdrSuitePlaybackVolumeControlsBound",
-        )) + "\\n")
+        )) + "\n")
 
         sealed = run("seal", "--stage-root", str(stage))
         assert "INSTALL_RUNTIME_STAGE_SEALED=YES" in sealed.stdout
