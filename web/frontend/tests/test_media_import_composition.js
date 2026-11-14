@@ -3152,6 +3152,8 @@ function renderHevcHomeActivity() {}
   assert(autoRequests[0].route.endsWith('/metadata/resolve'),
     'automatic matching never repeats search, seasons and episodes in UI');
   assert.strictEqual(JSON.parse(autoRequests[0].options.body).seasonNumber, 1);
+  assert.strictEqual(JSON.parse(autoRequests[0].options.body).episodeTitle, 'Pilot',
+    'single preview passes the source episode name through Public-v1');
   const automaticOnline = findClass(mount, 'media-import-online-confirmed');
   assert(automaticOnline && automaticOnline.children[0].textContent.includes('Pilot'),
     'exact S01E01 is automatically identified from provider results');
@@ -4193,9 +4195,15 @@ function renderHevcHomeActivity() {}
     return row.textContent.includes('TMDb-Metadaten vorbereitet');
   }), 'both Andor episodes receive automatic metadata in read-only batch review');
   const providerReads = onlineRequests.slice(providerReadsBefore);
-  assert.strictEqual(providerReads.filter(function (req) {
+  const batchResolveBodies = providerReads.filter(function (req) {
     return req.route.endsWith('/metadata/resolve');
-  }).length, 2, 'each selected episode uses the central Public-v1 resolver once');
+  }).map(function (req) { return JSON.parse(req.options.body); });
+  assert.strictEqual(batchResolveBodies.length, 2,
+    'each selected episode uses the central Public-v1 resolver once');
+  assert.deepStrictEqual(batchResolveBodies.map(function (body) {
+    return body.episodeTitle;
+  }), ['Wer weiss noch davon', 'Jedha Kyber Erso'],
+  'batch review preserves each distinct episode name in the Core request');
   await findClass(mount, 'media-import-batch-confirm').listeners.click();
   await settle();
   const metadataPost = requests.filter(function (req) {
