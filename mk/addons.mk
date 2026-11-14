@@ -768,3 +768,12 @@ install-media-tools:
 
 test-install-media-tools-payload:
 	python3 -B -m unittest discover -s tools/addons -p 'test_install_media_tools_payload.py'
+
+# MT.ENC3.2: independent frontend GET/POST contract, also in ordinary UI tests.
+.PHONY: test-media-tools-encoding-settings
+test-media-tools-encoding-settings:
+	node --check web/frontend/settings-media-tools-encoding.js
+	node web/frontend/tests/test_media_tools_encoding_settings.js
+
+test-ci-frontend: test-media-tools-encoding-settings
+test-frontend-contracts: test-media-tools-encoding-settings

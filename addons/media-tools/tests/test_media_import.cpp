@@ -1278,6 +1278,41 @@ int main() {
                !fs::exists(f.video / "Sample"));
         ++checks;
     }
+    {
+        // MT.ENC3.2: the running job retains its frozen encoder profile.
+        int refreshes = 0;
+        NativeProcessRunner runner(
+            std::chrono::seconds(60), MediaToolExecutables{}, {},
+            std::chrono::seconds(10), [&]() {
+                MediaEncodingSettings current;
+                current.importH264Crf = refreshes++ == 0 ? 19 : 27;
+                current.shrinkH265Crf = refreshes == 1 ? 23 : 30;
+                current.importH264Preset = "slow";
+                current.shrinkH265Preset = "fast";
+                return current;
+            });
+        assert(runner.encodingSettings().importH264Crf == 23);
+        assert(runner.refreshForNextJob());
+        assert(runner.encodingSettings().importH264Crf == 19);
+        assert(runner.encodingSettings().shrinkH265Crf == 23);
+        assert(runner.refreshForNextJob());
+        assert(runner.encodingSettings().importH264Crf == 27);
+        assert(runner.encodingSettings().shrinkH265Crf == 30);
+        ++checks;
+    }
+    {
+        // Rejected configuration does not replace the last valid snapshot.
+        NativeProcessRunner runner(
+            std::chrono::seconds(60), MediaToolExecutables{}, {},
+            std::chrono::seconds(10), []() {
+                MediaEncodingSettings invalid;
+                invalid.shrinkH265Crf = 75;
+                return invalid;
+            });
+        assert(!runner.refreshForNextJob());
+        assert(runner.encodingSettings().shrinkH265Crf == 27);
+        ++checks;
+    }
     std::cout << "MEDIA_IMPORT_CPP_TEST=PASS checks=" << checks << "\n";
     return 0;
 }
