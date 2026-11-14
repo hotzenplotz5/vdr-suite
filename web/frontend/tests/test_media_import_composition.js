@@ -4290,7 +4290,7 @@ function renderHevcHomeActivity() {}
     return req.route.endsWith('/recordings/metadata/episodes');
   }).map(function (req) { return JSON.parse(req.options.body); });
   assert.deepStrictEqual(batchEpisodeReads, [{
-    seriesExternalId: '1399', seasonNumber: 2, limit: 20
+    seriesExternalId: '1399', seasonNumber: 2, limit: 100
   }], 'second grouped episode is checked against the confirmed series ID');
   await findClass(mount, 'media-import-batch-confirm').listeners.click();
   await settle();
