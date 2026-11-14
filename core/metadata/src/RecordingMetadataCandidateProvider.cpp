@@ -70,6 +70,7 @@ bool RecordingMetadataCandidate::valid() const
         !safeText(overview, 16384U, true) ||
         !safeText(releaseDate, 64U, true) ||
         !safePoster(posterReference) ||
+        !safePoster(backdropReference) ||
         seasonNumber < 0 || seasonNumber > 10000 ||
         episodeNumber < 0 || episodeNumber > 100000 ||
         rating < 0.0 || rating > 10.0)
