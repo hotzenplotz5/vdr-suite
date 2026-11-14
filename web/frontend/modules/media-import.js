@@ -1210,11 +1210,10 @@
       };
       return tryTitle(0).catch(function () { return ''; });
     }
-    const title = String(source.label || plan.title || '').trim()
-      .replace(/[_:]+/g, ' ').replace(/\s+/g, ' ');
+    const title = identity.fileTitle ||
+      (identity.titleHints[0] && identity.titleHints[0].title) || '';
     if (title.length < 2 || title.length > 160) return Promise.resolve('');
-    const year = /^\d{4}$/.test(plan.nfoYear || '')
-      ? Number(plan.nfoYear) : 0;
+    const year = identity.year;
     return resolve(title, 'movie', 0, 0, year).then(function (data) {
       return data && data.status === 'matched' &&
         data.mediaType === 'movie' && data.movie &&
