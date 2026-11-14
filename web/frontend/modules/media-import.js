@@ -3146,10 +3146,11 @@
     const nfoYear = plan && /^(?:19|20)\d{2}$/.test(String(plan.nfoYear || ''))
       ? Number(plan.nfoYear) : 0;
     const year = yearMatch ? Number(yearMatch[1]) : nfoYear;
-    // Source feeds may decorate a language marker as "| DE |", "[EN]",
-    // "(FR)" or "DE -". Strip these generic leading markers from the
-    // metadata title, never from names elsewhere inside a film title.
-    const languagePrefix = /^(?:\s*(?:\|\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\||\[\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\]|\(\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\)|(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[-_:|])\s*)+/i;
+    // External feeds use several vertical-stroke glyphs as language tags,
+    // including the actual source label "┃DE┃" (U+2503), not just ASCII
+    // "| DE |". Match a leading recognized language code only; an
+    // unrelated vertical bar within a film or episode title is preserved.
+    const languagePrefix = /^(?:\s*(?:[|│┃║¦｜]\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[|│┃║¦｜]|\[\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\]|\(\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\)|(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[-_:|│┃║¦｜])\s*)+/i;
     const languageMatch = languagePrefix.exec(filename);
     const language = languageMatch
       ? languageMatch.slice(1).find(Boolean).toUpperCase() : '';
