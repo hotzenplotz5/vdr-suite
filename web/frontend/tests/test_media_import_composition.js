@@ -591,6 +591,19 @@ context.VdrSuiteClientApi = {
     const body = JSON.parse(options.body);
     if (route.endsWith('/metadata/resolve')) {
       if (onlineMode === 'ambiguous') return Promise.resolve({status: 'ambiguous'});
+      if (autoMovieExact && body.kind === 'movie') {
+        const movie = autoMovieExact === 'localized'
+          ? onlineCandidate('movie', '58574',
+            'Sherlock Holmes: Spiel im Schatten', {
+              originalTitle: 'Sherlock Holmes: A Game of Shadows',
+              releaseDate: '2011-12-15'
+            })
+          : autoMovieExact === 'numeric'
+            ? onlineCandidate('movie', '7540', 'Sieben Jahre in Tibet',
+              {releaseDate: '1997-09-12'})
+            : onlineCandidate('movie', '754', 'Die Herrschaft des Feuers');
+        return Promise.resolve({status: 'matched', mediaType: 'movie', movie});
+      }
       if (batchFoundationYearFixture && body.kind === 'series' &&
           body.title === 'Foundation' && body.seasonNumber === 1 &&
           body.episodeNumber >= 5 && body.episodeNumber <= 9) {
@@ -1141,7 +1154,7 @@ function renderHevcHomeActivity() {}
   await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
   assert.strictEqual(onlineRequests.length, movieOnlineBefore + 1,
-    'missing movie poster triggers one existing TMDb search');
+    'movie preview triggers one central Public-v1 metadata resolution');
   const movieCover = findClass(findClass(mount, 'media-import-artwork-poster'),
     'media-import-artwork-image');
   assert(movieCover && movieCover.src.includes('externalNamespace=movie') &&
@@ -1162,11 +1175,11 @@ function renderHevcHomeActivity() {}
   sherlockSelect.listeners.change();
   await settle();
   const sherlockSearch = onlineRequests.slice(sherlockRequestsBefore)
-    .find(function (entry) { return entry.route.endsWith('/search'); });
+    .find(function (entry) { return entry.route.endsWith('/metadata/resolve'); });
   assert(sherlockSearch &&
-    JSON.parse(sherlockSearch.options.body).query ===
+    JSON.parse(sherlockSearch.options.body).title ===
       'Sherlock Holmes A Game of Shadows',
-    'TMDb search strips filename separators without changing the real title');
+    'central resolver receives the normalized movie title, not filename separators');
   const sherlockPoster = findClass(
     findClass(mount, 'media-import-artwork-poster'),
     'media-import-artwork-image');
