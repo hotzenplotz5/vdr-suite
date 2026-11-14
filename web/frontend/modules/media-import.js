@@ -152,6 +152,73 @@
     }
   }
 
+  function closeSourceEvents(view) {
+    if (view.sourceEventSource &&
+        typeof view.sourceEventSource.close === 'function')
+      view.sourceEventSource.close();
+    view.sourceEventSource = null;
+    view.sourceRefreshPending = false;
+  }
+
+  // Agent inventory changes already flow through the existing Core/SSE
+  // transport. One event invalidates this backend's read-only source list;
+  // the event contains no filenames, paths or untrusted selectable IDs.
+  // On resync/reconnect read the canonical list once, never poll for it.
+  function queueSourceRefresh(view) {
+    if (!isCurrent(view)) return;
+    if (global.document && global.document.visibilityState === 'hidden') {
+      view.sourceRefreshPending = true;
+      return;
+    }
+    if (view.sourceRefreshBusy) {
+      view.sourceRefreshPending = true;
+      return;
+    }
+    if (view.batch || view.submitting ||
+        (view.attempt && !mayBrowseDuringOperation(view))) {
+      view.sourceRefreshPending = true;
+      return;
+    }
+    view.sourceRefreshBusy = true;
+    view.sourceRefreshPending = false;
+    Promise.resolve(loadSources(view, true)).catch(function () {
+      // A failed read leaves the last valid inventory visible. Reconnect or
+      // another genuine change can retry without any scheduled GET.
+    }).finally(function () {
+      if (!isCurrent(view)) return;
+      view.sourceRefreshBusy = false;
+      if (view.sourceRefreshPending) queueSourceRefresh(view);
+    });
+  }
+
+  function ensureSourceEvents(view) {
+    if (!isCurrent(view) || view.sourceEventSource) return;
+    const api = global.VdrSuiteClientApi;
+    const source = api &&
+      typeof api.createClientLiveUpdateSource === 'function'
+      ? api.createClientLiveUpdateSource() : null;
+    if (!source) return;
+    view.sourceEventSource = source;
+    source.onopen = function () {
+      if (!isCurrent(view) || view.sourceEventSource !== source) return;
+      if (view.sourceEventsOpened) queueSourceRefresh(view);
+      view.sourceEventsOpened = true;
+    };
+    source.addEventListener('update', function (event) {
+      if (!isCurrent(view) || view.sourceEventSource !== source) return;
+      let data;
+      try { data = JSON.parse(event.data); } catch (_) { return; }
+      if (data && data.backendId === view.backendId &&
+          Array.isArray(data.changedDomains) &&
+          data.changedDomains.includes('mediaImportSources'))
+        queueSourceRefresh(view);
+    });
+    source.addEventListener('resync', function () {
+      if (isCurrent(view) && view.sourceEventSource === source)
+        queueSourceRefresh(view);
+    });
+  }
+
   function closeOperationEvents(view) {
     if (view.operationEventSource &&
         typeof view.operationEventSource.close === 'function')
@@ -392,6 +459,7 @@
     ++owner;
     if (current) {
       clearPolling(current);
+      closeSourceEvents(current);
       closeOperationEvents(current);
       if (current.previewTimer !== null) global.clearTimeout(current.previewTimer);
       current.previewTimer = null;
@@ -3850,8 +3918,11 @@
     const keepSelection = passive ? view.select.value :
       view.attempt && view.select.value !== view.attempt.sourceId
         ? view.select.value : '';
-    view.scanNotice.textContent = 'Quellen werden aktualisiert. Die letzte geladene Liste bleibt sichtbar …';
-    report(view, 'Quellenaktualisierung läuft; vorhandene Liste bleibt benutzbar.');
+    if (!passive) {
+      view.scanNotice.textContent =
+        'Quellen werden aktualisiert. Die letzte geladene Liste bleibt sichtbar …';
+      report(view, 'Quellenaktualisierung läuft; vorhandene Liste bleibt benutzbar.');
+    }
     return readSourcePages(view.backendId)
       .then(function (response) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
@@ -5444,15 +5515,20 @@
       reads: 0, timer: null, manualCheckQueued: false, lastManualCheck: '',
       operationEventSource: null, operationEventId: '', operationReadQueued: false,
       operationBrowsingEnabled: false,
+      sourceEventSource: null, sourceEventsOpened: false,
+      sourceRefreshBusy: false, sourceRefreshPending: false,
       attempt: activeAttempts[backendId] || null};
     current = view;
+    ensureSourceEvents(view);
     // Mobile browsers can suspend an SSE connection without navigating away.
     // One foreground return performs a single read of the existing operation;
     // no polling timer, mutation request or automatic replay.
     if (typeof global.document.addEventListener === 'function') {
       view.resumeStatusOnVisibility = function () {
-        if (!isCurrent(view) || global.document.visibilityState !== 'visible' ||
-            !view.attempt || !view.attempt.operationId ||
+        if (!isCurrent(view) || global.document.visibilityState !== 'visible')
+          return;
+        if (view.sourceRefreshPending) queueSourceRefresh(view);
+        if (!view.attempt || !view.attempt.operationId ||
             view.submitting || view.reading) return;
         void readOperation(view);
       };
