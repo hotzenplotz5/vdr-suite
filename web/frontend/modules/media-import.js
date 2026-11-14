@@ -50,7 +50,7 @@
         .replace(/_+/g, ' ')
         .replace(/\s+/g, ' ').trim();
     };
-    const raw = value.trim().replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v)$/i, '');
+    const raw = value.trim().replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v|php)$/i, '');
     // An opaque backend token is NOT a filename; never prettify it into a
     // fictional movie title. Keep source identity readable in diagnostics.
     if (/(?:^|\s)(?:source|scan)_[A-Za-z0-9_-]{8,}(?=$|\s)/.test(raw)) return raw;
@@ -3129,7 +3129,7 @@
     const folder = String(source && source.folder || '');
     const coordinates = episodeCoordinates(source || {});
     const isEpisode = coordinates.episode !== null;
-    const filename = label.replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v)$/i, '');
+    const filename = label.replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v|php)$/i, '');
     const yearMatch = /\(((?:19|20)\d{2})\)/.exec(filename) ||
       /\(((?:19|20)\d{2})\)/.exec(folder);
     const nfoYear = plan && /^(?:19|20)\d{2}$/.test(String(plan.nfoYear || ''))
@@ -3146,7 +3146,7 @@
 
     function cleanTitle(value) {
       return String(value || '')
-        .replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v)$/i, '')
+        .replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v|php)$/i, '')
         .replace(/^(?:(?:DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[-_:]\s*)+/i, '')
         .replace(/\((?:19|20)\d{2}\)/g, ' ')
         .replace(/\((?:US|UK|GB|DE|GER|FR|CA|AU|NL|IT|ES)\)/gi, ' ')
