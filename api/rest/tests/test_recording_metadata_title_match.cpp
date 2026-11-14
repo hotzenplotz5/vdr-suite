@@ -14,6 +14,12 @@ int main()
     // title evidence, not title-specific metadata database entries.
     assert(match::score("Solar Voyage Deel 2 The Red Horizon",
                         "Solar Voyage - Part Two: The Red Horizon") == 120);
+    assert(match::score("Solar Voyage Deel 2 The Red Horizon",
+                        "Solar Voyage — Part Two: The Red Horizon") == 120);
+    assert(match::score("Solar Voyage Deel 2 The Red Horizon",
+                        "Solar Voyage – Part Two: The Red Horizon") == 120);
+    assert(match::score("MÄDCHEN IN DER STADT",
+                        "Mädchen in der Stadt") == 120);
     assert(match::score("Solar Voyage Teil 2 Der rote Horizont",
                         "Solar Voyage - Part II: Der rote Horizont") == 120);
     assert(match::score("Quiet Bay: Part III",
@@ -43,6 +49,7 @@ int main()
     // Non-franchise series: punctuation variations are general.
     assert(match::score("Star Wars-Andor", "Star Wars: Andor") == 120);
     assert(match::score("Andor", "Star Wars: Andor") == 105);
+    assert(match::score("Andor", "Star Wars – Andor") == 105);
     assert(match::score("Andor", "Different Series") == 0);
     assert(match::score("Foundation", "Foundation") == 120);
 
@@ -57,6 +64,9 @@ int main()
     assert(franchise.size() == 2);
     assert(franchise[0] == "Star Wars-Andor");
     assert(franchise[1] == "Andor");
+    const auto unicodeFranchise = match::searchQueries("Star Wars—Andor");
+    assert(unicodeFranchise.size() == 2);
+    assert(unicodeFranchise[1] == "Andor");
 
     const auto exact = match::searchQueries("Foundation");
     assert(exact.size() == 1 && exact[0] == "Foundation");
