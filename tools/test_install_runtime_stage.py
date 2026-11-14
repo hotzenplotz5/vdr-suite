@@ -73,6 +73,26 @@ def main() -> int:
                     "var", "var/lib", "var/cache", "var/lib/vdr-suite"):
             mkdir(stage / rel, 0o700)
 
+        # A byte-for-byte sealed stage may still be unusable if the raw
+        # session source overwrote the fully composed Recording Player.
+        playback = stage / "usr/share/vdr-suite/web/frontend/api/session-frontend-sync.js"
+        write(playback, "/* naked playback owner */\\n")
+        incomplete = run("seal", "--stage-root", str(stage), expect=1)
+        assert "incomplete Recording playback bundle" in incomplete.stdout
+        for marker in (
+            "__vdrSuiteRecordingFallbackControlsBound",
+            "__vdrSuiteRecordingFallbackRestartSeekBound",
+            "__vdrSuiteRecordingTrackControlsBound",
+            "__vdrSuitePlaybackVolumeControlsBound",
+        ):
+            assert marker in incomplete.stdout
+        write(playback, "\\n".join((
+            "__vdrSuiteRecordingFallbackControlsBound",
+            "__vdrSuiteRecordingFallbackRestartSeekBound",
+            "__vdrSuiteRecordingTrackControlsBound",
+            "__vdrSuitePlaybackVolumeControlsBound",
+        )) + "\\n")
+
         sealed = run("seal", "--stage-root", str(stage))
         assert "INSTALL_RUNTIME_STAGE_SEALED=YES" in sealed.stdout
         assert "DIRS=" in sealed.stdout
