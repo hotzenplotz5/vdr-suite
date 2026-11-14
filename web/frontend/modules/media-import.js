@@ -1315,7 +1315,7 @@
               csrf && typeof csrf === 'object' ? csrf : {}),
             body: JSON.stringify({
               seriesExternalId: cachedSeries.externalId,
-              seasonNumber: coords.season, limit: 20
+              seasonNumber: coords.season, limit: 100
             }),
             cache: 'no-store', credentials: 'same-origin'
           })).then(function (page) {
