@@ -13,11 +13,11 @@ ROOT = Path(__file__).resolve().parents[1]
 REGISTER = Path('docs/development/agent-rule-register.md')
 RULE_ROW = re.compile(r'^\s*\|\s*(AG-\d{3})\s*\|')
 LINK = re.compile(r'(?<!!)\[[^\]\n]+\]\(([^)\n]+)\)')
-FENCE = re.compile(r'^\s*(§{3,}|~{3,})\s*([a-zA-Z0-9_-]*)')
+FENCE = re.compile(r'^\s*(`{3,}|~{3,})\s*([a-zA-Z0-9_-]*)')
 STALE_PROSE = re.compile(
     r'^\s*(?:[-*]\s*)?(?:No root compilation\.|'
-    r'Build still runs only (?:under|as) [§\x27\"]?yavdr\b|'
-    r'Build exactly once as [§\x27\"]?yavdr\b)', re.IGNORECASE
+    r'Build still runs only (?:under|as) [`\x27\"]?yavdr\b|'
+    r'Build exactly once as [`\x27\"]?yavdr\b)', re.IGNORECASE
 )
 STALE_SHELL = re.compile(
     r'^\s*(?:sudo\s+-u\s+yavdr\b|runuser\s+-u\s+yavdr\b|'
