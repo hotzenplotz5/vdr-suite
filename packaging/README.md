@@ -147,6 +147,8 @@ Für die **spätere** Abnahme des tatsächlich aus Launchpad bezogenen `vdr-suit
 
 **Status:** Quellcode und CI-/APT-Lifecycle PASS; **PPA-Veröffentlichung, opt-in-PPA-Test und REAL-yaVDR-Migration NOT_VERIFIED**. Die existierenden Daily-Quellen und -Workflows wurden nicht geändert; diese Option ist weder eine automatische Release-Freigabe noch ein Daily-Auslöser. Ein PPA-Build/Upload erfordert weiterhin eine getrennte konkrete Release-Entscheidung.
 
+**MT.I4.3 Kandidaten-Herkunft (15.11.2026):** Im schreibgeschützten APT-Preflight muss die **konkret gewählte Kandidatenversion** aus der VDR-Suite-PPA-Versionstabelle stammen; eine ältere PPA-Version darf keine höher priorisierte fremde Kandidatenversion bestätigen. Der gezielte Regressionstest deckt diese Mehrversions-Konstellation sowie die APT-Tabellenform mit `***` für bereits installierte Kandidaten ab. Die normalen, bisherigen Drei-Paket-Smokes bleiben unverändert. **Die neue Testfassung ist vor ihrem eigenen CI-Lauf noch nicht als PASS bestätigt.**
+
 ## Back
 
 - [Projekt-README](../README.md)

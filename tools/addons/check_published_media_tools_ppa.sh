@@ -17,8 +17,20 @@ test -n "$candidate" && test "$candidate" != '(none)' || {
   echo 'MT_I43_PUBLISHED_ADDON=NOT_AVAILABLE (no install or acceptance)' >&2
   exit 1
 }
-printf '%s\n' "$policy" |
-  grep -F "ppa.launchpadcontent.net/hotzenplotz5/vdr-suite/ubuntu $series/"
+# The PPA URL must belong to the selected candidate's VERSION ROW.
+# A PPA offering only an older version must not validate a foreign candidate.
+printf '%s\n' "$policy" | awk \
+  -v candidate="$candidate" \
+  -v origin="ppa.launchpadcontent.net/hotzenplotz5/vdr-suite/ubuntu" \
+  -v series="$series" '
+    $1 == "***" && $3 ~ /^[0-9]+$/ { active=($2 == candidate); next }
+    $2 ~ /^[0-9]+$/ && $1 != "Candidate:" { active=($1 == candidate); next }
+    active && index($0, origin) && index($0, " " series "/") { accepted=1 }
+    END { exit !accepted }
+  ' || {
+    echo "MT_I43_CANDIDATE_PPA_ORIGIN=INVALID version=$candidate" >&2
+    exit 1
+  }
 # All four binaries from the same source recipe carry one version.
 for required in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge; do
   installed="$(dpkg-query -W -f='${Version}' "$required")"

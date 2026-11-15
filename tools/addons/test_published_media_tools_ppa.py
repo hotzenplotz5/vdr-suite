@@ -24,8 +24,15 @@ print('vdr-suite-addon-media-tools:')
 print('  Installed: (none)')
 print('  Candidate: ' + candidate)
 print('  Version table:')
-print('     ' + version + ' 500')
-print('        500 https://' + origin + ' noble/main amd64 Packages')
+if os.environ.get('MOCK_FOREIGN_CANDIDATE') == '1':
+    print('     ' + version + ' 700')
+    print('        700 https://example.invalid/foreign noble/main amd64 Packages')
+    print('     0.14.1-1~exp1 500')
+    print('        500 https://' + origin + ' noble/main amd64 Packages')
+else:
+    marker = ' *** ' if os.environ.get('MOCK_INSTALLED') == '1' else '     '
+    print(marker + version + ' 500')
+    print('        500 https://' + origin + ' noble/main amd64 Packages')
 """
 DPKG_QUERY = """#!/usr/bin/env python3
 import os
@@ -113,6 +120,18 @@ class PpaPreflightContract(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("MT_I43_SOURCE_VERSION_MISMATCH", result.stderr)
         self.assertEqual(calls, "")
+
+    def test_ppa_offers_only_older_version_foreign_candidate_refused(self):
+        result, calls = self.run_mock(MOCK_FOREIGN_CANDIDATE="1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("MT_I43_CANDIDATE_PPA_ORIGIN=INVALID", result.stderr)
+        self.assertEqual(calls, "")
+
+    def test_installed_candidate_row_still_reaches_simulation(self):
+        result, calls = self.run_mock(MOCK_INSTALLED="1")
+        self.assertEqual(result.returncode, 79, result.stdout + result.stderr)
+        self.assertIn("vdr-suite-addon-media-tools=" + VERSION, calls)
+        self.assertNotIn("MT_I43_PUBLISHED_PPA_APT=PASS", result.stdout)
 
 
 if __name__ == "__main__":
