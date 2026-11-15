@@ -117,6 +117,13 @@ class PackagingProfileTests(unittest.TestCase):
                 self.assertIn(name + " <!plugin-only>", data)
         self.assertIn("${vdr:Depends}", data)
 
+    @unittest.skipUnless(shutil.which("make"), "GNU make unavailable")
+    def test_media_tools_makefile_is_parseable(self):
+        run = subprocess.run(
+            ["make", "-n", "test-addon-media-tools-package", "MAKE=/bin/echo"],
+            cwd=ROOT, text=True, capture_output=True, check=True)
+        self.assertIn("test_debian_media_tools_lifecycle.py", run.stdout)
+
     def test_media_tools_uses_existing_sealed_stage_and_is_not_in_plugin_only(self):
         control = (ROOT / "debian/control").read_text(encoding="utf-8")
         self.assertIn("Package: vdr-suite-addon-media-tools", control)
