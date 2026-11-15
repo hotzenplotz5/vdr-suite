@@ -262,6 +262,8 @@ build-media-tools-cpp-deb: addon-media-import addon-media-shrink addon-media-che
 		--output-dir "$(OUTPUT_DIR)" --maintainer "$(ADDON_MAINTAINER)"
 
 test-addon-media-tools-package:
+\tpython3 -B -m unittest discover -s tools/addons -p 'test_debian_media_tools.py' -v
+	python3 -B -m unittest discover -s tools/addons -p 'test_debian_media_tools_lifecycle.py' -v
 	python3 -m unittest discover -s tools/addons -p 'test_media_tools_cpp_deb.py'
 	python3 -m unittest discover -s tools/addons -p 'test_stage_media_tools_runtime.py'
 	python3 -B -m unittest discover -s tools/addons -p 'test_install_media_tools_payload.py'
