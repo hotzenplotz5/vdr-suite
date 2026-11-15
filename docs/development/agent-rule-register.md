@@ -31,6 +31,7 @@ Regel wiederverwenden.
 
 | ID | Verbindlicher Gegenstand | Autoritative Stelle | Typischer Nachweis |
 | --- | --- | --- | --- |
+| AG-000 | Vor der Arbeit geltende Regeln tatsächlich lesen und Datei-/SHA-Beleg liefern | Root: „Arbeitsbeginn: verbindliche Lesepflicht und Regel-Nachweis“ | nachvollziehbare Dateiabrufe und geprüfter Ref; keine Behauptung ohne Abruf |
 | AG-001 | `AGENTS.md` nur mit persönlicher Maintainer-Genehmigung ändern | Root `AGENTS.md`: „AGENTS.md-Änderungen ...“ | expliziter Auftrag; Git-Diff |
 | AG-002 | Keine neuen Sperren, Gates oder Berechtigungsregeln ohne vorherige Genehmigung | Root: „KEINE neuen Sperren ...“ | Diff/Vertragsprüfung, Maintainer-Freigabe bei neuer Sperre |
 | AG-003 | Keine erfundenen Fakten/Befehle, Quellen-/SHA-Nachweis | Root: „No hallucinated facts — verified evidence ...“ | tatsächliche Datei-/Werkzeugabrufe und geprüftes HEAD |
@@ -46,6 +47,14 @@ Regel wiederverwenden.
 | AG-013 | Modul-/Media-Tools-Rechte aus bestehenden kanonischen Eigentümern ableiten | [Core-Addons](../../core/addons/AGENTS.md), [Media Tools](../../addons/media-tools/AGENTS.md), Root AG-002 | gezielte produktive Grants-/Autorisierungstests |
 | AG-014 | Frontend-Lifecycle und produktive Composition prüfen | Root: „Frontend lifecycle and composition gates“ | gezielte Composition-/User-Action-Regression statt nur Mock |
 | AG-015 | Paketbau isolieren, keine Installationsbelege aus Paket-CI erfinden | [Debian](../../debian/AGENTS.md), Root „Schnellen inkrementellen C++-Daemon-Build ...“ | saubere Paketbau- und gezielte Profiltests |
+
+## Grenzen des Nachweises
+
+Werkzeugabrufe und Blob-SHAs belegen den **Zugriff** auf die geltenden Regeln,
+nicht automatisch ihr Verständnis oder ihre Einhaltung. Produkt- und
+Regressionstests sichern konkrete technische Eigenschaften ab; es gibt
+keinen universellen Automatismus, der jeden Agentenfehler verhindert.
+Das Register erzeugt insbesondere **keinen neuen blockierenden CI-Check**.
 
 ## Konflikte und Änderungen
 
