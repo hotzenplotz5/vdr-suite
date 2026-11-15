@@ -133,6 +133,7 @@ Growing-Recording seek and Live-TV timeshift remain truthful deferred capability
 
 ## Developer references
 
+- [Agenten-Dokumentationsprüfer](agent-doc-checker.md) — freiwillige Diagnose für Regelkennungen, lokale Links und überholte aktive Anweisungen (kein CI-Gate).
 - [Documentation Guide / authority map](../documentation-guide.md)
 - [Historical Documentation Hub](../history/index.md)
 - [Pruning Decisions and Deletion Evidence](documentation-pruning-review.md)
