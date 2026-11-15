@@ -41,6 +41,8 @@ Für den SHA-Provenienznachweis im bestehenden `git archive`-Quellpaketweg wird 
 
 **Bestätigte Paketbau-Abnahme vs. noch offener APT-Test (Run 43686642950):** Vollständiger Vier-Binärpaket-Build und Paketbaum-Inventar unter Ubuntu Noble/Resolute **PASS**; bestehende P7/P8- und Profil-Regressionen **PASS**. Nur die zwei neuen APT-Jobs scheiterten vor der ersten Paketinstallation an Git `dubious ownership` im disposable Checkout. Die auf exakt `$PWD` begrenzte prozesslokale Git-Option in `check_debian_media_tools_apt_lifecycle.sh` korrigiert ausschließlich den Testcontainer-Readback. **Echter APT-/Migrationstest bleibt bis zur neuen CI-Quelle NOT_VERIFIED.**
 
+**MT.I4.2 echte APT-Tests (Run 43690165234, 15.11.2026):** Noble und Resolute bestanden reale Ablehnung manueller Kollision, synthetische Vorversion, Upgrade auf den echten Vier-Paket-Build, SHA256-/Modus-/Besitz-Prüfung der acht installierten Artefakte, Reinstall und Remove mit unveränderten Testdaten. Der abschließende Test scheiterte ausschließlich, weil `apt-get purge` das bereits entfernte lokale Paket ohne Repositoryindex nicht findet. Nach Remove wird deshalb dasselbe Test-`.deb` wieder installiert und das installierte Paket separat per APT gepurgt. **Purge-Ergebnis weiterhin NOT_VERIFIED bis CI-Readback.**
+
 ## Independent VDR plugin build
 
 SuiteBridge can be built **without building the daemon or Backend Agent**:

@@ -103,6 +103,14 @@ apt-get -y remove vdr-suite-addon-media-tools
 test ! -e "$target"
 sha256sum -c "$snapshot"
 echo MT_I42_REAL_APT_REMOVE=PASS
+# This exact-run .deb is local, not indexed in an APT repository. After
+# removing its conffile-free package, APT cannot resolve the old package name.
+# Reinstall the same .deb so purge exercises an INSTALLED package separately.
+apt-get -y install "./$package"
+test "$(dpkg-query -W -f='${Status}' vdr-suite-addon-media-tools)" = 'install ok installed'
+test -x "$target"
+sha256sum -c "$snapshot"
+echo MT_I42_REAL_APT_REINSTALL_BEFORE_PURGE=PASS
 apt-get -y purge vdr-suite-addon-media-tools
 test ! -e "$target"
 sha256sum -c "$snapshot"
