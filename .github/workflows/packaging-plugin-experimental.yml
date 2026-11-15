@@ -22,6 +22,10 @@ on:
       - "tools/fixtures/packaging/**"
       - "database/schema/metadata-platform-v1.sql"
       - "tools/*packaging*.py"
+      - "tools/addons/debian_media_tools.py"
+      - "tools/addons/test_debian_media_tools.py"
+      - "tools/addons/test_debian_media_tools_lifecycle.py"
+      - "tools/addons/check_debian_media_tools_apt_lifecycle.sh"
       - ".gitignore"
       - "VERSION"
       - ".github/workflows/packaging-plugin-experimental.yml"
@@ -45,6 +49,10 @@ on:
       - "tools/fixtures/packaging/**"
       - "database/schema/metadata-platform-v1.sql"
       - "tools/*packaging*.py"
+      - "tools/addons/debian_media_tools.py"
+      - "tools/addons/test_debian_media_tools.py"
+      - "tools/addons/test_debian_media_tools_lifecycle.py"
+      - "tools/addons/check_debian_media_tools_apt_lifecycle.sh"
       - ".gitignore"
       - "VERSION"
       - ".github/workflows/packaging-plugin-experimental.yml"
@@ -569,6 +577,26 @@ jobs:
             grep -Fw 'vdr-abi-2.8.3-0yavdr'
           test "$(find package-artifacts-full-resolute -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
           echo 'RESOLUTE_FULL_THREE_BINARIES_MANIFEST_ABI_P8=PASS'
+      - name: Verify and stage fourth Media Tools binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mt_debs=("$RESOLUTE_FULL_BUILD_ROOT"/vdr-suite-addon-media-tools_*_amd64.deb)
+          test "${#mt_debs[@]}" -eq 1
+          mt_deb="${mt_debs[0]}"
+          test "$(dpkg-deb --field "$mt_deb" Package)" = vdr-suite-addon-media-tools
+          test "$(dpkg-deb --field "$mt_deb" Version)" = "$(dpkg-parsechangelog -l debian/changelog -S Version)"
+          dpkg-deb --field "$mt_deb" Depends | grep -Fw ffmpeg
+          dpkg-deb --field "$mt_deb" Depends | grep -Fw vdr
+          dpkg-deb --ctrl-tarfile "$mt_deb" | tar -xOf - ./preinst | sh -n
+          dpkg-deb --ctrl-tarfile "$mt_deb" | tar -xOf - ./preinst | grep -F 'MEDIA_TOOLS_DPKG=BLOCKED'
+          mt_extract="$(mktemp -d)"
+          dpkg-deb --extract "$mt_deb" "$mt_extract"
+          python3 tools/addons/debian_media_tools.py --verify-package-root --package-root "$mt_extract"
+          mkdir -p media-tools-artifacts-resolute
+          cp -- "$mt_deb" media-tools-artifacts-resolute/
+          echo 'MT_I41_RESOLUTE_FOURTH_BINARY_BUILD=PASS'
       - name: Record advisory Lintian baseline for all three Resolute packages
         shell: bash
         env:
@@ -627,6 +655,14 @@ jobs:
         with:
           name: vdr-suite-three-binaries-resolute-experimental
           path: package-artifacts-full-resolute/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload separate Resolute Media Tools binary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vdr-suite-media-tools-resolute-experimental
+          path: media-tools-artifacts-resolute/
           if-no-files-found: warn
           retention-days: 7
 
@@ -753,6 +789,9 @@ jobs:
             cp -- ../"${package}"_*.deb packaging-artifacts-full/
           done
           test "$(find packaging-artifacts-full -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+          mkdir -p media-tools-artifacts-noble
+          cp -- ../vdr-suite-addon-media-tools_*.deb media-tools-artifacts-noble/
+          test "$(find media-tools-artifacts-noble -maxdepth 1 -name '*.deb' | wc -l)" -eq 1
           cp -- tools/fixtures/packaging/v1.60.15m-vdr-suite.sql packaging-artifacts-full/p7-tagged-historical.sql
           cp -- tools/fixtures/packaging/p7-pre-revision-security-operations.sql packaging-artifacts-full/p7-pre-revision.sql
       - name: Share unsigned test binaries with isolated container
@@ -760,6 +799,13 @@ jobs:
         with:
           name: vdr-suite-three-binaries-noble-experimental
           path: packaging-artifacts-full/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload separate Noble Media Tools binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: vdr-suite-media-tools-noble-experimental
+          path: media-tools-artifacts-noble/
           if-no-files-found: error
           retention-days: 7
       - name: Collect build log on failure
@@ -770,6 +816,58 @@ jobs:
           path: default-package-build.log
           if-no-files-found: warn
           retention-days: 7
+
+  media-tools-apt-lifecycle-noble:
+    name: MT.I4.2 Noble actual APT lifecycle and state preservation
+    needs: full-default-packages-noble
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    timeout-minutes: 35
+    steps:
+      - name: Bootstrap checkout in disposable Noble
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git python3
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-media-tools-noble-experimental
+          path: media-tools
+      - name: Real APT negative and positive lifecycle cases
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          bash tools/addons/check_debian_media_tools_apt_lifecycle.sh noble
+
+  media-tools-apt-lifecycle-resolute:
+    name: MT.I4.2 Resolute actual APT lifecycle and state preservation
+    needs: full-default-packages-resolute
+    runs-on: ubuntu-24.04
+    container: ubuntu:26.04
+    timeout-minutes: 35
+    steps:
+      - name: Bootstrap checkout in disposable Resolute
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git python3
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-media-tools-resolute-experimental
+          path: media-tools
+      - name: Real APT negative and positive lifecycle cases
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          bash tools/addons/check_debian_media_tools_apt_lifecycle.sh resolute
 
   p8-preunpack-collision-noble:
     name: P8 disposable dpkg refusal (${{ matrix.case }})

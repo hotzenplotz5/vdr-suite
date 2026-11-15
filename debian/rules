@@ -50,6 +50,14 @@ override_dh_strip:
 override_dh_dwz:
 	dh_dwz -Nvdr-suite-addon-media-tools
 
+# dh_fixperms marks every usr/libexec file executable, including addon.json.
+# Restore the sealed-stage JSON mode; the three workers remain executable.
+override_dh_fixperms:
+	dh_fixperms
+ifeq ($(PLUGIN_ONLY),)
+	chmod 0644 debian/vdr-suite-addon-media-tools/usr/libexec/vdr-suite/addons/rectools/addon.json
+endif
+
 override_dh_auto_test:
 	python3 tools/check_packaging_version.py
 	python3 -m unittest discover -s tools -p 'test_packaging_*.py'
