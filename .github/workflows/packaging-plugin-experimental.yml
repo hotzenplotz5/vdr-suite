@@ -728,6 +728,20 @@ jobs:
             dpkg-deb --ctrl-tarfile "${files[0]}" | tar -xOf - ./preinst | sh -n
             dpkg-deb --ctrl-tarfile "${files[0]}" | tar -xOf - ./preinst | grep -F 'P8_PREUNPACK=BLOCKED'
           done
+          # MT.I4.1: fourth default binary is verified separately from P8 guards.
+          shopt -s nullglob
+          mt_debs=(../vdr-suite-addon-media-tools_*.deb)
+          test "${#mt_debs[@]}" -eq 1
+          mt_deb="${mt_debs[0]}"
+          test "$(dpkg-deb --field "$mt_deb" Package)" = vdr-suite-addon-media-tools
+          dpkg-deb --field "$mt_deb" Depends | grep -Fw ffmpeg
+          dpkg-deb --field "$mt_deb" Depends | grep -Fw vdr
+          dpkg-deb --ctrl-tarfile "$mt_deb" | tar -xOf - ./preinst | sh -n
+          dpkg-deb --ctrl-tarfile "$mt_deb" | tar -xOf - ./preinst | grep -F "MEDIA_TOOLS_DPKG=BLOCKED"
+          mt_extract="$(mktemp -d "$RUNNER_TEMP/mt-i41-package.XXXXXXXX")"
+          dpkg-deb --extract "$mt_deb" "$mt_extract"
+          python3 tools/addons/debian_media_tools.py --verify-package-root --package-root "$mt_extract"
+          echo "MT_I41_FOURTH_BINARY_BUILD=PASS"
           echo "P8_PACKAGE_PREINST_CONTROL=PASS"
           echo "FULL_DEFAULT_PACKAGING=PASS"
       - name: Stage unsigned binaries for a disposable installation test
