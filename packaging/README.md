@@ -139,6 +139,14 @@ Wiedergabe-, Backend-Agent-Verbindungs- oder Produktivmigrationsabnahme.
 Weder die Noble-Abnahme noch ein PPA-Build autorisieren eine produktive
 Installation oder ungeprüfte Migration einer bestehenden yaVDR-Installation.
 
+## MT.I4.3 – optionaler PPA-Test des vierten Media-Tools-Pakets (15.11.2026)
+
+Die vollständig aus `main` gebauten **vier** experimentellen Binärpakete sowie die isolierten Noble-/Resolute-APT-Lebenszyklusfälle wurden in [Run 43691443834](https://github.com/hotzenplotz5/vdr-suite/actions/runs/43691443834) einschließlich Purge bestätigt (**21/21 Jobs PASS**). Das beweist noch **keine** PPA-Veröffentlichung des vierten Pakets.
+
+Für die **spätere** Abnahme des tatsächlich aus Launchpad bezogenen `vdr-suite-addon-media-tools` stehen die beiden bereits vorhandenen manuellen PPA-Smokes bereit: `.github/workflows/ppa-noble-install-smoke.yml` und `.github/workflows/ppa-resolute-install-smoke.yml`. Die Option `verify_media_tools` ist standardmäßig `false` und bleibt für die alten drei Suite-Pakete und das HbbTV-Web-Plugin ohne Wirkung. Nur bei ausdrücklich ausgewähltem `true` wird über `tools/addons/check_published_media_tools_ppa.sh` der vierte **publizierte** PPA-Kandidat per APT installiert und auf Versionsgleichheit aller vier Suite-Pakete, PPA-Herkunft, VDR-ABI, `ffmpeg`/`vdr`-Depends, acht Datei-Hashes/-Modi, dpkg-Besitzer und Worker-ELF-Bibliotheken geprüft; die Metadaten verbleiben `state=scaffold` und aktivieren keine Rechte.
+
+**Status:** Quellcode und CI-/APT-Lifecycle PASS; **PPA-Veröffentlichung, opt-in-PPA-Test und REAL-yaVDR-Migration NOT_VERIFIED**. Die existierenden Daily-Quellen und -Workflows wurden nicht geändert; diese Option ist weder eine automatische Release-Freigabe noch ein Daily-Auslöser. Ein PPA-Build/Upload erfordert weiterhin eine getrennte konkrete Release-Entscheidung.
+
 ## Back
 
 - [Projekt-README](../README.md)
