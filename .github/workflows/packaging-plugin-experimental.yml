@@ -26,6 +26,9 @@ on:
       - "tools/addons/test_debian_media_tools.py"
       - "tools/addons/test_debian_media_tools_lifecycle.py"
       - "tools/addons/check_debian_media_tools_apt_lifecycle.sh"
+      - "tools/addons/check_published_media_tools_ppa.sh"
+      - "tools/addons/check_installed_media_tools_payload.py"
+      - "tools/addons/test_published_media_tools_ppa.py"
       - ".gitignore"
       - "VERSION"
       - ".github/workflows/packaging-plugin-experimental.yml"
@@ -53,6 +56,9 @@ on:
       - "tools/addons/test_debian_media_tools.py"
       - "tools/addons/test_debian_media_tools_lifecycle.py"
       - "tools/addons/check_debian_media_tools_apt_lifecycle.sh"
+      - "tools/addons/check_published_media_tools_ppa.sh"
+      - "tools/addons/check_installed_media_tools_payload.py"
+      - "tools/addons/test_published_media_tools_ppa.py"
       - ".gitignore"
       - "VERSION"
       - ".github/workflows/packaging-plugin-experimental.yml"
@@ -84,6 +90,8 @@ jobs:
           python3 -m unittest -v tools.test_packaging_profiles tools.test_packaging_p8_preinst tools.test_packaging_host_collision_preflight tools.test_packaging_p8_installer 2>&1 | tee packaging-offline-regressions.log
           python3 -B -m unittest discover -s tools/addons -p 'test_debian_media_tools.py' -v 2>&1 | tee -a packaging-offline-regressions.log
           python3 -B -m unittest discover -s tools/addons -p 'test_debian_media_tools_lifecycle.py' -v 2>&1 | tee -a packaging-offline-regressions.log
+          bash -n tools/addons/check_published_media_tools_ppa.sh tools/addons/check_debian_media_tools_apt_lifecycle.sh
+          python3 -B -m unittest discover -s tools/addons -p 'test_published_media_tools_ppa.py' -v 2>&1 | tee -a packaging-offline-regressions.log
           python3 tools/check_packaging_tracked_artifacts.py
           python3 tools/check_packaging_version.py
           echo 'PACKAGING_OFFLINE_P8_AND_MANIFEST=PASS'

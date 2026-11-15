@@ -96,6 +96,7 @@ for rel in stage_package_paths():
     assert owner == 'vdr-suite-addon-media-tools: ' + str(installed), (rel, owner)
 print('MT_I42_EIGHT_INSTALLED_FILES_AND_OWNERSHIP=PASS')
 PY
+python3 tools/addons/check_installed_media_tools_payload.py
 apt-get -y --reinstall install "./$package"
 sha256sum -c "$snapshot"
 echo MT_I42_REAL_APT_REINSTALL=PASS
