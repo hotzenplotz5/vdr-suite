@@ -327,6 +327,18 @@ hypothesis, partial validation, partial implementation, commit, CI result,
 runtime observation or progress summary into a final response while authorized
 executable work remains. Continue immediately with the next executable step.
 
+**Acceptance handoff:** Do not hand over an intermediate candidate that
+still has a *known* implementation, runtime-wiring, packaging, deployment or
+validation gap preventing the requested real acceptance scenario. Continue
+the authorized stabilization until that scenario can truthfully be tested.
+
+**Actual blockers only:** A remote branch conflict, inseparable unrelated
+edits, unavailable required source, necessary new security/data-loss/runtime
+compatibility decision, irreparable required check, or genuinely missing
+approval can block the affected action. First verify the blocker, exhaust
+independent authorized work and keep the task reported as **blocked**, not
+complete. Do not invent permission boundaries or another confirmation pause.
+
 Every working response that is permitted to end must end with the heading
 `## Testblock` followed by exactly one ordinary fenced `bash` block containing
 the concrete branch-/head-specific commands the user can run to validate the
@@ -770,30 +782,6 @@ owners instead of adding parallel player, request, restart or cleanup paths.
 When persistent browser objects are involved, installed bundle identity and
 syntax are deployment evidence only; runtime acceptance must recreate the
 relevant owner before claiming the new lifecycle integration is active.
-
-## Continuous approved work
-
-Continue through all already-approved steps of a bounded workstream without
-artificial confirmation pauses. Do not stop after analysis, after each file, or
-after each commit when the next operation is already covered by the user's
-instruction and the repository contract.
-
-Do not hand a candidate to the user for acceptance testing while the current
-branch head has a known implementation, runtime-wiring, packaging, deployment or
-validation gap that prevents the requested acceptance scenario from being tested
-truthfully. Such an intermediate head is not a testable candidate. Continue the
-approved implementation and stabilization work until the requested acceptance
-scope is actually runnable.
-
-Potential blockers are not stop permissions. They matter only when they make
-every remaining authorized operation impossible after all safe evidence and
-independent work have been exhausted. Examples include an unrecoverable remote
-branch conflict, inseparable unrelated changes, unavailable required source
-content, a genuine security/data-loss/runtime compatibility decision requiring
-new input, an irreparable required stabilization failure, or an exact gated
-operation for which authorization has genuinely never been granted. In each
-case, continue every other approved operation first and preserve the workstream
-as blocked rather than declaring it complete.
 
 ## Commit, push, CI and minimal necessary validation
 
