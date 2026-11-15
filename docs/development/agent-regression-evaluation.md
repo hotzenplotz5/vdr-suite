@@ -1,6 +1,11 @@
 # Agenten-Regressionen – zehn ausführbare Bewertungsfälle (manuelle Evaluation)
 
-Stand: 15.11.2026 · Status: **Bewertungsfälle dokumentiert, nicht ausgeführt**.
+Stand: 15.11.2026 · Status: **Bewertungsfälle dokumentiert, noch nicht als Agenten-Testserie ausgeführt**.
+
+Ein [erster praktischer Pilot](agent-regression-pilot-2026-11-15.md)
+verifiziert die sieben isolierten Python-Fixture-Tests des Dokumentationsprüfers
+und dokumentiert eine frühere Nachweislücke. **Keiner der zehn ARS-Agentenfälle
+wurde dadurch auf PASS gesetzt.**
 
 **Zweck:** Die [zehn Fehlerfälle](agent-regression-scenarios.md) in konkrete
 Beispielaufträge mit eindeutig beobachtbaren PASS-/FAIL-Kriterien übersetzen.
