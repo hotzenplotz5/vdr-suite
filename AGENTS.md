@@ -138,19 +138,13 @@ ist keine zusätzliche Freigabe erforderlich, wenn sie zur beauftragten
 Entwicklung, zum Test oder zur Installation gehören. Dabei lokale Änderungen
 erhalten; keine destruktiven Git-Befehle als Abkürzung verwenden.
 
-**Abgeschlossen:** PR #556 wurde mit Merge-Commit
-`2ebb2d077736e5bbcdeb7472512644095ef06481` nach `main` übernommen.
-Der frühere Media-Tools-Arbeitsbranch ist vollständig in dessen Historie
-enthalten und **keine** Installationsquelle oder verpflichtende
-Entwicklungsbasis mehr. Die offizielle Quelle für Media Tools und Add-ons
-ist `main`; künftig nur ausdrücklich freigegebene Änderungen und das
-geltende Branch-/PR-Verfahren verwenden. Eine Git-Integration ersetzt
-keine eigenständige Release-/Hardwareabnahme.
-
-**Branch-Bereinigung:** Historische, in `main` enthaltene Branches dürfen
-erst nach Kontrolle von offenen PRs, CI-/Workflow- und
-Launchpad-/Deployment-Referenzen auf ausdrückliche Maintainer-Anweisung
-gelöscht werden. Die laufenden MLD-Tests und offenen PRs nicht mitlöschen.
+**Media-Tools-Quellstand:** Nach PR #556 ist `main` die kanonische Quelle
+für Media Tools und Add-ons. Der frühere Arbeitsbranch ist keine
+verpflichtende Installations- oder Entwicklungsbasis. Historischer
+Merge-Commit, Branch-Bereinigung und externe Rezept-/PR-Abhängigkeiten:
+[Branch-/PR-Lebenszyklus](docs/development/branch-pull-request-lifecycle.md).
+Alte Branches nur auf ausdrückliche Anweisung und nach Prüfung aller
+Abhängigkeiten löschen. Ein Merge ersetzt keine Paket-/Hardwareabnahme.
 
 ## Lokalen Quellstand vor Build, Test und Installation prüfen (04.11.2026)
 
@@ -194,44 +188,20 @@ Branches**; sie darf nicht als Verbot von `git switch main` ausgelegt werden.
 
 ## GitHub SSH identity verification before console commands (28.10.2026)
 
-**Explicit maintainer order after a repeated live failure:** Never issue GitHub
-SSH commands under a guessed Unix user or switch users blindly. The existing
-yaVDR checkout is `/home/yavdr/vdr-suite`; the operator currently uses an
-interactive `root` shell. `root` and `yavdr` have distinct SSH identities.
-The actual incident was `runuser -u yavdr -- git push origin --delete ...`
-failing with `git@github.com: Permission denied (publickey)`. No branch was
-deleted. **Do not repeat that command or assume either account has working
-GitHub credentials.**
+**Verbindlich:** Vor GitHub-SSH-Mutationen die tatsächliche Git-Remote-
+und SSH-Identität des bestehenden Root-Kontos lesend überprüfen. Niemals
+einen anderen Unix-Benutzer oder dessen SSH-Berechtigung vermuten,
+Schlüssel kopieren, Berechtigungen spekulativ verändern oder die
+interaktive Root-Shell durch `exit` verlassen. Eine erfolgreiche
+`ls-remote`-Abfrage bestätigt noch keine Push-Berechtigung. Bei
+Authentifizierungsfehlern den konkreten Vorgang stoppen; vorhandene
+autorisierte GitHub-Connectoren können unabhängig verwendet werden.
+Branch-Löschungen erfordern eine ausdrückliche Freigabe und Prüfung
+bestehender Abhängigkeiten.
 
-For each proposed console GitHub operation:
-
-1. Respect the user's current shell and checkout; do not tell them to enter
-   `cd vdr-suite` from inside `/home/yavdr/vdr-suite`, switch shell users,
-   run an interactive `exit`, move keys, or change SSH configuration or file
-   ownership speculatively.
-2. Before suggesting any SSH-based remote mutation (`git push`, push-delete,
-   tag push), verify connectivity **under the same effective Unix identity**
-   and with the same remote as the subsequent write. For the existing root
-   console, a bounded read-only check is:
-   `GIT_SSH_COMMAND='ssh -o BatchMode=yes' git -c safe.directory=/home/yavdr/vdr-suite -C /home/yavdr/vdr-suite ls-remote --heads origin`.
-   Proceed with a root-shell Git mutation only if that check succeeds.
-   `-c safe.directory=...` is process-local, not global Git configuration.
-3. If SSH authentication fails, **do not retry the same SSH transport**,
-   claim anything was deleted, or switch to `runuser -u yavdr` without a
-   separately verified credential. Identify an actually available alternative
-   (for example a verified `gh` authentication or another authorized GitHub
-   API workflow); never assume `gh` is installed or logged in, and never
-   ask users to disclose tokens or private keys.
-4. For branch deletion, inspect remote branch names, preserve `main` and
-   the one authorized Media Tools development branch, and ensure any unique
-   work has been incorporated or explicitly preserved. Verify deletion with
-   a fresh remote listing; describe failed or unattempted deletion accurately.
-   A read-only `ls-remote` success proves remote reachability, not push
-   permission. Do not run deletions until the user authorized them.
-5. Shell examples must be safe when pasted into the current **interactive**
-   root shell: no unguarded `exit` and no `return` as an error handler at
-   the top level. Prefer `git -C /home/yavdr/vdr-suite` or guarded
-   `if cd ...; then ...; fi` for repository commands.
+**Pflichtlektüre vor GitHub-SSH-Befehlen am yaVDR:**
+[Nachgewiesene SSH-Probleme und genaue Prüfverfahren](docs/development/agent-yavdr-github-ssh.md).
+Die neuere Root-Shell-Anordnung in diesem Dokument hat Vorrang.
 
 ## Usability First – No Unapproved Restrictions
 
@@ -653,15 +623,10 @@ competitor does.
 
 ## Public-v1 VIDAA search permission contract (2026-10-15)
 
-Public-v1 Device `/search/recordings` requires `recordings.view`, and
-`/search/epg` plus `/epg/now-next` requires `epg.view`, independently
-of `channels.view` or `media.live.play`. The product grant vocabulary,
-Device supported-grant allowlist and Device-grant HTTP `supportedPermissions`
-**must include both read-only permissions**, and tests must prove assignment
-through the normal administration service and Device authentication. Never
-work around missing grants with a weaker HTTP gate, inherited browser grants,
-implicit pairing rights, or unauthenticated Client fallback. Existing devices
-are granted rights only by an explicit authorized administrator mutation.
+**Verbindlich bei Änderungen an Device-Suche oder Grants:** Vorher den
+[Public-v1-VIDAA-Berechtigungsvertrag](docs/development/public-v1-vidaa-search-permissions.md)
+vollständig lesen und seine bestehenden Berechtigungen samt Tests
+beibehalten. Keine stillschweigende Aufweichung der Autorisierung.
 
 ## Mandatory: NEVER compile the same daemon twice / reuse before building
 
@@ -735,28 +700,15 @@ repeatedly.
 
 ## Canonical runtime/frontend deployment
 
-For real yaVDR installation or runtime acceptance of repository-built VDR-Suite
-runtime/frontend changes, the raw source tree is never the deployment payload.
-Use the repository's canonical staged path:
-
-1. `make stage-install-runtime RUNTIME_STAGE=...`;
-2. `sudo make deploy-install-runtime RUNTIME_STAGE=... LIVE_ROOT=/`;
-3. `make check-install-runtime-deployment RUNTIME_STAGE=... LIVE_ROOT=/`.
-
-The sealed `install-runtime` `DESTDIR` tree is the authority for installable
-runtime artifacts. Never cherry-pick files from `web/frontend` into
-`/usr/share/vdr-suite/web/frontend`, and never treat a direct
-`web/frontend` versus live-directory comparison as deployment evidence because
-source-only and composed runtime artifacts differ by design.
-
-A real runtime/frontend acceptance is not valid until the post-deployment check
-reports `RUNTIME_DEPLOYMENT_MATCH=YES`. Existing `/etc` files are preserved by
-the deploy helper. Frontend deployment replaces the complete staged frontend
-tree so missing, stale or extra live frontend files cannot be accepted as a
-current candidate.
-
-The detailed contract is
-`docs/development/install-runtime-deployment-reliability.md`.
+**Verbindlich für vollständige yaVDR-Runtime-/Frontend-Deployments:**
+Nur die vorhandene gestagte `install-runtime`-/`DESTDIR`-Komposition
+deployen, niemals den ungepackten Frontend-Quellbaum als Live-Payload
+verwenden. Die Installation erst nach
+`RUNTIME_DEPLOYMENT_MATCH=YES` als verifiziert melden.
+**Vor einem solchen Deployment vollständig lesen:**
+[Canonical Runtime-Deployment-Vertrag](docs/development/install-runtime-deployment-reliability.md).
+Die gesondert genehmigten reinen Einzeldatei-Updates unter
+„Usability First“ sind keine vollständigen Runtime-Deployments.
 
 ## KISS: no arbitrary storage-reserve gates for Media Tools installation
 
@@ -792,35 +744,6 @@ Immediately after entering, verify the repository root with
 `git rev-parse --show-toplevel` and, when useful, the expected repository name
 before branch/head validation. Test blocks must be self-contained and safe to
 paste from an arbitrary shell working directory.
-
-## Temporary worktree and test-artifact lifecycle
-
-Temporary Git worktrees, detached test checkouts, build directories and staging
-directories created for a bounded test or acceptance step must be treated as
-short-lived resources, not retained project state.
-
-As soon as the test or acceptance step no longer needs them:
-
-1. verify that the exact temporary worktree contains no uncommitted or otherwise
-   unsaved work that belongs to the active workstream;
-2. remove that exact worktree immediately with `git worktree remove` (use
-   `--force` only when the worktree is intentionally disposable);
-3. remove the test-specific build/stage directories created for that step;
-4. run `git worktree prune` to discard stale metadata.
-
-Do not defer this cleanup to a later phase or accumulate obsolete worktrees in
-`/tmp`, `/home`, `/root` or tool-managed worktree directories. Test blocks
-that create temporary worktrees or substantial temporary build/stage trees must
-include their own cleanup path in the same bounded workflow.
-
-Before deleting anything, identify the exact resource created by the current
-test. Never delete or prune a still-active worktree, build tree or stage tree
-belonging to another concurrent workstream. In particular, shared or parallel
-MU/client/runtime work must remain untouched unless its own workstream has
-finished and its state has been checked.
-
-Do not create large disposable build trees when verified existing artifacts can
-be reused. Report actual filesystem write failures without speculative cleanup.
 
 ## Frontend lifecycle and composition gates
 
