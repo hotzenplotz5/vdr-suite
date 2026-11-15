@@ -1,5 +1,35 @@
 # VDR-Suite Agent and Repository Workflow Rules
 
+## Arbeitsbeginn: verbindliche Lesepflicht und Regel-Nachweis (AG-000)
+
+**Vor substantieller Repository-Entwicklung, Diagnose oder einem
+Installations-/Testblock die geltenden Regeln tatsächlich einlesen.**
+Vollständige aktuelle Root-`AGENTS.md` aus dem zutreffenden Git-Ref lesen,
+dann alle vom betroffenen Pfad geltenden untergeordneten `AGENTS.md` und
+die ausdrücklich verlinkten, für die Aufgabe relevanten Fachverträge.
+Bei bereichsübergreifenden Änderungen auch die zusätzlichen Owner-Regeln
+einbeziehen; keine Teil-Suchergebnisse als vollständige Lektüre ausgeben.
+
+- **Nachweis statt Behauptung:** Zu Beginn kurz den geprüften Repository-
+  und Branch-/Commitstand, die tatsächlich abgerufenen Regeldateien
+  und deren Blob-SHA oder geprüften Ref nennen. `GELESEN` nicht behaupten,
+  wenn der tatsächliche Abruf nicht stattgefunden hat. Nur relevante
+  Regeln für den beauftragten Slice hervorheben, keine Abschrift aller Regeln.
+- Bei relevantem Ref-/Regelwechsel neu abgleichen; unveränderte bereits
+  geprüfte Dateien nicht unnötig erneut lesen. Falls ein Beleg fehlt,
+  präzise als unbestätigt kennzeichnen und verfügbare sichere Arbeit
+  bzw. eine gezielte lesende Prüfung fortsetzen.
+- Das Lesen ist **keine zusätzliche Benutzerfreigabe**, kein CI-Gate,
+  keine Installationssperre und kein Grund für eine Pause nach jedem
+  Commit oder Slice. Bereits genehmigte Arbeiten weiterführen.
+- [Regelregister](docs/development/agent-rule-register.md) ordnet
+  Kennungen den bestehenden Normstellen zu;
+  [AGENTS-Widerspruchsaudit](docs/development/agent-instruction-audit.md)
+  dokumentiert einen geprüften Snapshot. Im Konfliktfall tatsächliche
+  aktuelle Quellen prüfen, keine neue Sperre erfinden. Die ausdrücklichen
+  Maintainer-Vorgaben, insbesondere zur Änderung von `AGENTS.md`, gelten
+  weiterhin uneingeschränkt.
+
 ## AGENTS.md-Änderungen ausschließlich nach persönlicher Erlaubnis
 
 **Nur Änderungen an Agents.md mit meiner persönlichen Erlaubnis, oder nach meiner Anordnung!**
@@ -373,13 +403,46 @@ approval can block the affected action. First verify the blocker, exhaust
 independent authorized work and keep the task reported as **blocked**, not
 complete. Do not invent permission boundaries or another confirmation pause.
 
-Every working response that is permitted to end must end with the heading
-`## Testblock` followed by exactly one ordinary fenced `bash` block containing
-the concrete branch-/head-specific commands the user can run to validate the
-current candidate. The test block is the final content; no prose, status, offer
-or summary may follow it. If no truthful test block can yet be produced because
-the candidate is not testable, the response is not permitted to end; continue
-working instead.
+**Verbindlicher sofort nutzbarer Test- oder Diagnoseblock:**
+Bei VDR-Suite-Fixes, Updates, Installationsvorbereitung und Fehlersuche
+den passenden, überprüften Befehlsblock **in derselben Antwort** liefern.
+Nicht nach einem abgeschlossenen Fix unnötig anhalten oder erst anbieten,
+später einen Installationsblock zu schreiben. Kein bloßer Commit-Link
+als Ersatz für handhabbare Operator-Anweisungen.
+
+1. **Fix / fertiger installierbarer Kandidat:** Mit der Antwort den
+   `## Testblock` liefern: konkret auf den geprüften Repository-/Branch-/
+   Code-SHA bezogene **Update-/Installationsbefehle samt anschließender
+   Funktions- und Versionsprüfung**, sofern für genau diesen Kandidaten
+   der reale Installationsweg verifiziert ist. Bestehende Builds/Stages
+   wiederverwenden, kleinsten passenden Updateweg wählen; keinen
+   Komplettbuild, Dienstneustart oder CI-Wartezyklus als Routine einfügen.
+   Ein bereitgestellter Operator-Block ist **keine** automatische
+   Installation und ersetzt keine tatsächlich erforderliche Freigabe.
+2. **Fehlersuche / noch kein verifizierter Fix:** Statt eines erfundenen
+   Installationsrezepts **sofort** `## Diagnoseblock` liefern:
+   kurze, relevante, direkt ausführbare **lesende** Abfragen zu genau dem
+   bekannten Problem, mit sicherer Zustands-/Log-/Versionsprüfung und
+   erkennbarem Ergebnis. Keine spekulativen Eingriffe, keine pauschalen
+   Cleanup- oder Rechteänderungen. Bei zusätzlichem Hostwissen zuerst
+   die notwendige gefahrlose Ermittlung **im selben Block** anbieten.
+   Die Diagnose kann den nächsten Schritt vorbereiten, ohne einen
+   künstlichen Zwischenstopp zu erfinden.
+3. **Reine Doku-/Regeländerung:** `## Testblock` für den kleinsten
+   tatsächlich sinnvollen **lesenden** Commit-/Datei-/Diff-Nachweis.
+   Keine Installations- oder Kompilierungsbefehle ohne Produktänderung.
+
+Jede solche Arbeitsantwort endet mit **genau einer** passenden Überschrift
+`## Testblock` oder `## Diagnoseblock` und direkt danach **genau einem**
+gewöhnlichen `bash`-Codeblock. Danach keine weiteren Statusmeldungen,
+Angebote oder Prosa. Befehle müssen aus tatsächlich geprüften Quellen
+stammen, unmittelbar kopierbar sein, den passenden Checkout/Commit
+identifizieren und die vorhandenen Root-Shell-, Sicherheits-,
+Installations- und Shell-Option-Regeln einhalten. Keine unbewiesenen
+Erfolgsbehauptungen oder erfundenen Make-/Servicebefehle. Falls ein
+Installationsweg noch nicht nachweisbar ist, sichere Diagnose statt
+einer plausibel klingenden Installation liefern und unabhängige
+genehmigte Arbeiten trotzdem fortsetzen.
 
 There is no generic repository permission to stop an authorized workstream.
 A genuinely external dependency or genuinely new user decision may make the
@@ -709,6 +772,10 @@ recordings, permissions, configuration or access grants.
 
 ## Testblock repository entry
 
+Diagnosis blocks are subject to the same checkout-verification rule
+when they invoke repository tools. For host-only read-only service/log probes
+do not invent a repository dependency or force a needless checkout switch.
+
 Every local VDR-Suite test or acceptance block handed to the user must enter the
 intended VDR-Suite checkout before any Git, build, test, install, service or
 runtime command. The first executable repository action in the block must be an
@@ -882,7 +949,7 @@ still executable with the available tools; perform that step instead.
 
 ## Testblock shell option safety
 
-VDR-Suite and yaVDR test/acceptance blocks must never enable shell fail-fast or
+VDR-Suite and yaVDR test, update, installation and diagnosis blocks must never enable shell fail-fast or
 unset-variable abort semantics. Do not use `set -e`, `set -u`, `set -o pipefail`
 or combined forms such as `set -euo pipefail`. Test blocks must keep the
 interactive shell alive so later diagnostics remain visible. At the beginning
