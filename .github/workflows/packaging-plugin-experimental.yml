@@ -877,6 +877,100 @@ jobs:
         run: |
           bash tools/addons/check_debian_media_tools_apt_lifecycle.sh resolute
 
+
+  media-tools-four-package-coinstall:
+    name: "MT.I4.3 four-binary simultaneous APT install (${{ matrix.series }})"
+    needs: [full-default-packages-noble, full-default-packages-resolute]
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.image }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - series: noble
+            image: ubuntu:24.04
+          - series: resolute
+            image: ubuntu:26.04
+    steps:
+      - name: Retrieve all four binaries from the same workflow
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vdr-suite-*-binaries-${{ matrix.series }}-experimental
+          path: packages
+          merge-multiple: true
+      - name: Retrieve the fourth Media Tools package
+        uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-media-tools-${{ matrix.series }}-experimental
+          path: packages
+      - name: Check out canonical installed-payload verifier
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Simultaneously install and inspect exact four binaries with real APT
+        shell: bash
+        env:
+          SERIES: ${{ matrix.series }}
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -Eeuo pipefail
+          test -f /.dockerenv
+          test "$(id -u)" -eq 0
+          test "$(dpkg --print-architecture)" = amd64
+          test "$( . /etc/os-release; printf '%s' "$VERSION_CODENAME" )" = "$SERIES"
+          # The container checkout can have different uid ownership from the runner.
+          test "$(git -c safe.directory="$PWD" rev-parse HEAD)" = "$GITHUB_SHA"
+          printf '%s\n' '#!/bin/sh' 'exit 101' > /usr/sbin/policy-rc.d
+          chmod 0755 /usr/sbin/policy-rc.d
+
+          shopt -s nullglob
+          all=(packages/*.deb)
+          test "${#all[@]}" -eq 4
+          source_version=''
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-suite-addon-media-tools; do
+            files=(packages/"$package"_*_amd64.deb)
+            test "${#files[@]}" -eq 1
+            deb="${files[0]}"
+            test "$(dpkg-deb --field "$deb" Package)" = "$package"
+            test "$(dpkg-deb --field "$deb" Architecture)" = amd64
+            version="$(dpkg-deb --field "$deb" Version)"
+            if test -z "$source_version"; then source_version="$version"; fi
+            test "$version" = "$source_version"
+          done
+          test "$source_version" = '0.14.1-1~exp2'
+          dpkg-deb --field packages/vdr-plugin-suitebridge_*_amd64.deb Depends |
+            grep -Fw vdr-abi-2.8.3-0yavdr
+          dpkg-deb --field packages/vdr-suite-addon-media-tools_*_amd64.deb Depends |
+            grep -Fw ffmpeg
+          dpkg-deb --field packages/vdr-suite-addon-media-tools_*_amd64.deb Depends |
+            grep -Fw vdr
+          echo "MT_I43_FOUR_BINARY_IDENTITY=PASS series=$SERIES version=$source_version"
+
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates gnupg software-properties-common python3
+          add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          apt-get update
+          apt-get -s install --no-install-recommends ./packages/*.deb
+          apt-get install -y --no-install-recommends ./packages/*.deb
+          dpkg --audit
+
+          test "$(dpkg-query -W -f='${Version}' vdr)" = "2.8.3-0yavdr0~$SERIES"
+          dpkg-query -W -f='${Provides}\n' vdr | grep -Fw vdr-abi-2.8.3-0yavdr
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-suite-addon-media-tools; do
+            test "$(dpkg-query -W -f='${Status}' "$package")" = 'install ok installed'
+            test "$(dpkg-query -W -f='${Version}' "$package")" = "$source_version"
+          done
+          test -f /usr/lib/systemd/system/vdr-suite-daemon.service
+          test -f /usr/lib/systemd/system/vdr-suite-backend-agent.service
+          test ! -L /etc/systemd/system/multi-user.target.wants/vdr-suite-daemon.service
+          test ! -L /etc/systemd/system/multi-user.target.wants/vdr-suite-backend-agent.service
+          test -s /usr/lib/vdr/plugins/libvdr-suitebridge.so.14
+          test ! -f /var/lib/vdr-suite/vdr-suite.db
+          python3 tools/addons/check_installed_media_tools_payload.py
+          echo "MT_I43_FOUR_PACKAGE_COINSTALL=PASS series=$SERIES version=$source_version"
+
   p8-preunpack-collision-noble:
     name: P8 disposable dpkg refusal (${{ matrix.case }})
     needs: full-default-packages-noble
