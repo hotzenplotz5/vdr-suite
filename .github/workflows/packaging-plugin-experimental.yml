@@ -894,17 +894,6 @@ jobs:
           - series: resolute
             image: ubuntu:26.04
     steps:
-      - name: Retrieve all four binaries from the same workflow
-        uses: actions/download-artifact@v4
-        with:
-          pattern: vdr-suite-*-binaries-${{ matrix.series }}-experimental
-          path: packages
-          merge-multiple: true
-      - name: Retrieve the fourth Media Tools package
-        uses: actions/download-artifact@v4
-        with:
-          name: vdr-suite-media-tools-${{ matrix.series }}-experimental
-          path: packages
       - name: Bootstrap Git for source identity verification in disposable container
         shell: bash
         run: |
@@ -920,6 +909,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      # Checkout clears the initially empty workspace on a fresh container.
+      # Download the same-run binaries only AFTER checkout to preserve them.
+      - name: Retrieve exact three base binaries from the same workflow
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vdr-suite-*-binaries-${{ matrix.series }}-experimental
+          path: packages
+          merge-multiple: true
+      - name: Retrieve the fourth Media Tools package
+        uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-media-tools-${{ matrix.series }}-experimental
+          path: packages
       - name: Simultaneously install and inspect exact four binaries with real APT
         shell: bash
         env:
@@ -938,6 +940,8 @@ jobs:
 
           shopt -s nullglob
           all=(packages/*.deb)
+          printf 'MT_I43_DOWNLOADED_DEB_COUNT=%s series=%s\n' "${#all[@]}" "$SERIES"
+          printf 'MT_I43_DOWNLOADED_DEB=%s\n' "${all[@]}"
           test "${#all[@]}" -eq 4
           source_version=''
           for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-suite-addon-media-tools; do
