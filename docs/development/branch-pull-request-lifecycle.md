@@ -7,8 +7,12 @@ Sie ändert keine laufenden Systeme, PPA-Pakete oder bestehenden PRs.
 
 ## Neue Arbeiten: direkt von `main`
 
-1. Repository und **exakten aktuellen** `main`-HEAD prüfen, dann jeden neuen
-   Arbeitsbranch grundsätzlich **von `main` desselben Repositories** anlegen.
+1. **Vor einer Branch-Neuanlage die ausdrückliche Maintainer-Freigabe
+   einholen; eine allgemeine Arbeitsfreigabe ist keine Freigabe für neue
+   Branches.** Normaler Wechsel zwischen bestehenden erlaubten Branches
+   benötigt keine erneute Zustimmung. Nur wenn ein neuer Branch genehmigt
+   wurde, Repository und **exakten aktuellen** `main`-HEAD prüfen und
+   ihn grundsätzlich **von `main` desselben Repositories** anlegen.
    Keine neuen Arbeitsbranches von älteren Feature-, Packaging- oder Fixbranches.
 2. Ein klar begrenztes Thema auf **einem** Branch mit **einem PR nach `main`**
    weiterführen. Für bloße Nacharbeiten keinen neuen Folgebranch erzeugen.
