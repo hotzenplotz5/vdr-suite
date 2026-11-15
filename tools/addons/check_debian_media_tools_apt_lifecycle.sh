@@ -7,7 +7,9 @@ test "$(id -u)" -eq 0
 test -f /.dockerenv
 test "$(dpkg --print-architecture)" = amd64
 test "$(. /etc/os-release; printf '%s' "$VERSION_CODENAME")" = "$series"
-test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+# CI mounts the checkout under a different uid inside the disposable container.
+# Trust only this exact workspace for this single read-only Git identity check.
+test "$(git -c safe.directory="$PWD" rev-parse HEAD)" = "$GITHUB_SHA"
 shopt -s nullglob
 packages=(media-tools/vdr-suite-addon-media-tools_*_amd64.deb)
 test "${#packages[@]}" -eq 1
