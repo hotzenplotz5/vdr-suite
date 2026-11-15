@@ -81,3 +81,22 @@ unintegrierte Commits und externe Referenzen prüfen. Ergebnis als
 `MERGED/DELETE-READY` oder `UNMERGED/REVIEW` dokumentieren.
 Löschung nur für `MERGED/DELETE-READY` nach Freigabe; andere Fälle
 bleiben erhalten, bis ihr Zweck bzw. ihre Abhängigkeit geklärt ist.
+
+## Historischer Media-Tools-Merge PR #556 (03.11.2026)
+
+Die folgende Entscheidung erklärt, warum Media Tools auf `main` statt auf dem
+früheren Arbeitsbranch entwickelt und installiert wird.
+
+**Abgeschlossen:** PR #556 wurde mit Merge-Commit
+`2ebb2d077736e5bbcdeb7472512644095ef06481` nach `main` übernommen.
+Der frühere Media-Tools-Arbeitsbranch ist vollständig in dessen Historie
+enthalten und **keine** Installationsquelle oder verpflichtende
+Entwicklungsbasis mehr. Die offizielle Quelle für Media Tools und Add-ons
+ist `main`; künftig nur ausdrücklich freigegebene Änderungen und das
+geltende Branch-/PR-Verfahren verwenden. Eine Git-Integration ersetzt
+keine eigenständige Release-/Hardwareabnahme.
+
+**Branch-Bereinigung:** Historische, in `main` enthaltene Branches dürfen
+erst nach Kontrolle von offenen PRs, CI-/Workflow- und
+Launchpad-/Deployment-Referenzen auf ausdrückliche Maintainer-Anweisung
+gelöscht werden. Die laufenden MLD-Tests und offenen PRs nicht mitlöschen.
