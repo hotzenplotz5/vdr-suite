@@ -237,25 +237,59 @@ Neue Sicherheits-, Berechtigungs-, Aktivierungs- oder Installationsbeschränkung
 
 Ein Installationsblock darf eine alte, inzwischen überholte Runtime-Stage **nicht** als aktuelle Ausgangsbasis verwenden. Vor jedem inkrementellen Update die **zuletzt erfolgreich installierte und mit `install_runtime_stage.py check` verifizierte Stage** aus der realen Host-Ausgabe wählen. Eine ältere Stage meldet bei korrekt veränderten Dateien `RUNTIME_DEPLOYMENT_DRIFT`; diese erwartete Abweichung ist **kein Defekt der Live-Installation**. Bei einem solchen Fehler abbrechen, die tatsächliche aktuelle Stage ermitteln und ausschließlich von ihr aus neu versiegeln/deployen; kein blindes Zurückrollen, kein Drüberbügeln ungeprüfter Dateien. Für reine Webfrontend-Änderungen weder C++ neu bauen noch VDR/Daemon/Agent neu starten. Keine ungefragten Datenbanksicherungen, neuen Dienste oder weiteren Aktivierungsgates einführen.
 
-## No hallucinated facts, user mandates, or blockers
+## No hallucinated facts — verified evidence before instructions
 
-**Hard rule:** Never invent or imply user instructions, approvals, prohibitions,
-repository requirements, CI outcomes, tested behavior, repository paths, or
-technical blockers. Separate **user instruction**, **actual repository rule**,
-**verified source/tool result**, and **assistant recommendation/inference**.
-If a rule was written by an assistant, do not attribute it to the user;
-quote its actual wording and path before invoking it as a constraint. An
-assistant-authored rule is not evidence that the user requested that rule.
+**Strict rule:** Never invent, assume or imply user instructions, approvals,
+prohibitions, repository rules, CI results, tested behavior, paths, commands,
+status codes, builds, deployments or blockers. Urgency and previous phases
+never justify guesses. Distinguish **user instruction**, **actual repository
+rule**, **verified source/tool evidence** and **assistant inference/advice**.
+Do not attribute assistant-authored rules to the maintainer; quote their
+real wording and source if invoking them. Recommendations, pending tests,
+incidental findings and CI delays are not invented mandatory stop gates.
+Mark missing facts **UNVERIFIED**, inferences as inferences with evidence,
+and incomplete tests explicitly; never claim success before confirmation.
 
-Check the actual file or tool result before making factual claims. If a fact
-cannot be verified, say **unverified**, not "confirmed"; if a conclusion is
-inferred, label it an inference and its supporting observations. Do not
-reinterpret a recommendation, pending test, or incidental discovery as a
-mandatory stop gate. A queued, running, slow or unavailable CI job alone is
-not a reason to stop already authorized independent analysis, implementation
-or local tests. Continue bounded independent work without overstating its
-validation, and explicitly report what is still untested. Never fabricate
-successful builds, validations, deployments, or approvals.
+**Mandatory evidence before code, tests or executable instructions:**
+- Verify the correct repository, current branch, **exact remote head SHA**,
+  checkout root, tested candidate SHA and presence of all needed fixes.
+  Old checkout results are not proof for the current candidate.
+- Inspect the actual Makefile/includes or verified target inventory for
+  build/test commands, prerequisites and flags. Never invent a Make target,
+  executable, path or invocation.
+- Check actual HTTP router, permission gates, services and tests before
+  stating status codes or authorization behavior. Never weaken an existing
+  security check to match a guessed outcome.
+- Verify target output paths, user privileges, side effects and contact with
+  live services. Check unknown host-dependent facts using bounded **read-only**
+  probes, not speculative free-space or activation gates.
+- Recheck the exact head before a long-running, detached or expensive build;
+  never accidentally test stale code after changing a newer branch.
+
+**Provenance in handed-off test blocks:** Validate the intended checkout
+root, selected immutable SHA (or explicitly verified tracking policy), real
+commands/targets and necessary non-storage compatibility facts **before**
+mutating anything. On head drift, verify the corrected candidate first.
+Do not hand over a background build that can silently run stale code.
+Reuse accepted tests for unchanged inputs rather than restarting them for
+documentation or unrelated changes.
+
+**Detached-process evidence:** A `nohup` command, PID or missing output
+file alone is not proof of a running or successful build. Record exact SHA,
+log, process identity, exit status and a read-only check that distinguishes
+running, completed successfully, failed and unexpectedly missing.
+
+**Unknowns and failures:** Stop only the affected unsafe action until
+verified; continue independent authorized work, including while CI is
+queued/running/unavailable. Never shift basic repository fact-checks to
+the operator. Diagnose reported test failures against the exact tested
+SHA and demonstrated failure before asking for a repeat.
+
+**Mandatory pre-handoff check:** Verify every command, path, target,
+branch/SHA precondition, expected status, effect, output, failure path
+and acceptance criterion against current repository evidence and applicable
+`AGENTS.md` rules. Correct discrepancies; if a host fact is unknown,
+include a harmless read-only check instead of claiming verification.
 
 ## Non-negotiable scope, simplicity, and verification gates
 
@@ -448,66 +482,6 @@ change as complete.
 On the user's Ubuntu/yaVDR host, **never propose or invoke `svdrpsend.sh`** (nor silently substitute a shell-script wrapper for an executable). This is an explicit operator prohibition, not a fallback preference. Do not confuse MLD-specific `svdrpsend.sh` behavior or forum examples with the Ubuntu host.
 
 For all VDR/SVDRP operator test blocks, verify the Ubuntu-installed command name, binary path, supported syntax and service context from actual host/package evidence before issuing commands. If the exact working Ubuntu invocation is unverified, avoid issuing a guessed command; perform a bounded read-only identification instead. Use the verified native Ubuntu command, never a `.sh` workaround. Shell code blocks may use Bash for orchestration; the prohibition concerns invoking `.sh` wrappers as replacement utilities.
-
-## Absolute prohibition on guessing: verified evidence before instructions
-
-**Guessing operational facts is strictly forbidden.** Never invent, assume,
-estimate, extrapolate from an earlier phase, or hand the user plausible-looking
-commands when correctness is verifiable. Urgency, prior success, or pressure to
-finish never waives this rule. The user's time, yaVDR installation, and live
-project state must not be used to discover preventable mistakes.
-
-**Before writing code, starting tests, or handing over executable commands,
-establish the required facts from the current authoritative source:**
-
-- Verify the intended repository, branch, **exact** remote head SHA, checkout
-  root, tested SHA, and whether all necessary fixes are present. Do not
-  present an older checkout's result as evidence for the current PR head.
-- Read the current Makefile and included makefiles (or inspected target list)
-  to prove the actual build/test targets, their prerequisites and flags.
-  **Never invent a Make target, executable name or path.**
-- Derive HTTP status codes, authentication and authorization behavior from
-  the actual gate, router, service and tests. **Never guess a status code,**
-  and never weaken a security check just to match an unsupported expectation.
-- Establish intended output paths, user privileges, possible side effects and
-  whether the action touches the installed service. Host-dependent facts require
-  a read-only compatibility check, without unapproved storage-reserve gates.
-- Check the expected head **before** handing off a long-running, detached or
-  resource-intensive build. Never accidentally start an old checkout after
-  fixing a newer branch.
-
-**The test block itself must fail closed on wrong provenance.** It must
-verify the checkout root, actual SHA against the selected immutable test
-candidate (or an explicitly verified tracking policy), required commands
-and Make targets, and applicable non-storage compatibility checks *before* work begins.
-If the branch advanced, fetch and establish the corrected candidate first.
-Do not give a detached build script that silently tests stale code.
-Reuse accepted evidence for unaffected inputs; do not restart tests only
-because documentation or unrelated code changed.
-
-**A background process is not proof of a completed build.** `nohup`, a
-printed PID or an absent result file alone does not prove the job is still
-running. Detached jobs require a recorded exact SHA, log, process identity,
-terminal return codes, and a read-only status command distinguishing running,
-completed successfully, completed with error, and unexpectedly missing.
-Never report success before the result is known. Continue to honor existing
-minimal-validation and shell-option rules.
-
-**If evidence is unavailable, stop the affected unsafe action, not the entire
-authorized workstream.** Retrieve authoritative information or perform a
-bounded read-only diagnostic; continue independent approved work. State
-precisely what is unknown rather than manufacturing an answer. Never shift
-basic repository fact-checking to the user. Diagnose a failed user test
-against the exact tested SHA and demonstrated failure before requesting
-another test.
-
-**Mandatory pre-handoff self-check:** Inspect every command, checkout path,
-Make target, branch/SHA precondition, expected status, side effect, output,
-failure path and success criterion against the current repository and
-applicable `AGENTS.md` requirements. Correct known discrepancies before
-handing over any test or acceptance block. If some fact is only knowable on
-the host, build a harmless read-only check into the block instead of
-pretending it has already been established.
 
 ## Temporary worktree and test-artifact lifecycle
 
