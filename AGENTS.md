@@ -615,8 +615,9 @@ Rollback-Snapshots nur durch eine ausdrueckliche separate Aktion entfernen.
   needed for assessing schema changes, **not** to dictate upgrade direction.
   Preserve database, pairing, configuration and recordings.
 - **KISS sequence: `check` → reuse sealed target if present, otherwise build
-  exactly once as `yavdr` → separately approved `apply` as root.** No
-  needless rebuild after interrupted installation. No root compilation.
+  exactly once in the existing authorized root shell on yaVDR → separately
+  approved `apply` as root.** No needless rebuild after interrupted installation.
+  Do not switch Unix users for the installation workflow.
 - **Never put GitHub Actions queries, CI polling, `sleep` loops, CI waits or
   external CI status checks in any installation command block or installer.**
   CI is a separate development/merge concern, not an execution step in the
@@ -706,7 +707,7 @@ block is proposed or executed:**
    recovery rather than recompiling. **Only if there is no valid binary
    or seal anywhere in the identified trusted candidate checkout(s)**
    and product-code changes actually require it, authorize **one**
-   unprivileged build, under the installer's existing provenance gates. An invalid/mismatched artifact is a STOP requiring
+   build in the already authorized yaVDR root shell, under the installer's existing provenance gates. An invalid/mismatched artifact is a STOP requiring
    diagnosis; do not overwrite or rebuild over it speculatively.
 7. For an existing build in another checkout, first establish exact
    source provenance, seal integrity, build options and trust. Do not
@@ -719,9 +720,8 @@ block is proposed or executed:**
    binary after exhaustive bounded inspection, or an explicitly
    demonstrated corrupt/nonreusable artifact can warrant **one** new
    compile, never automatically. Report **why** the old build was
-   unsuitable before invoking the build tool. Build still runs only
-   under `yavdr`, the operator's shell stays root, and `apply` is
-   separately authorized as root.
+   unsuitable before invoking the build tool. On yaVDR, keep the operator's
+   existing root shell for the build; `apply` remains separately authorized.
 
 **Confirmed installer behavior:** `tools/install_daemon.py check` prints
 `BUILD=REUSABLE` only after validating the seal and binary. Its `build`
