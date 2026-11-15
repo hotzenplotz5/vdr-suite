@@ -10,7 +10,7 @@ Stand: 15.11.2026. Zweck: **Agentenverhalten anhand wiederkehrender Probleme pr�
 - **Vorhandene technische Prüfung** bedeutet: Dateipfad im Repository verifiziert, **nicht**: Test heute ausgeführt, grün oder vollumfänglicher Nachweis des Agentenverhaltens.
 - Für **Agenten-Antwortformat und Auftragsführung** ist derzeit kein automatisierter Evaluationslauf nachgewiesen. Die unten genannten Soll-Kriterien dienen zunächst einer **manuellen Stichprobe**, nicht als verpflichtender CI-Gate.
 
-Autoritativ bleiben die jeweils aktuellen [Root-AGENTS-Regeln](../../AGENTS.md), [Regelkennungen](agent-rule-register.md), relevante Unterbereichsregeln und [Branch-/PR-Vorgaben](branch-pull-request-lifecycle.md). Der [Operator-Leitfaden](agent-operator-workflows.md) beschreibt dazu die vorhandenen direkten Update- und Diagnosewege. Die Szenarien **ersetzen sie nicht**. Vor einer echten Ausführung immer den aktuellen Commit, Codepfad, Hostkontext und Sicherheitsvertrag prüfen.
+Autoritativ bleiben die jeweils aktuellen [Root-AGENTS-Regeln](../../AGENTS.md), [Regelkennungen](agent-rule-register.md), relevante Unterbereichsregeln und [Branch-/PR-Vorgaben](branch-pull-request-lifecycle.md). Der [Operator-Leitfaden](agent-operator-workflows.md) beschreibt dazu die vorhandenen direkten Update- und Diagnosewege. [Zehn konkrete Evaluationsaufgaben mit PASS-/FAIL-Kriterien](agent-regression-evaluation.md) unterstützen eine freiwillige, nachweisbasierte Bewertung. Die Szenarien **ersetzen sie nicht**. Vor einer echten Ausführung immer den aktuellen Commit, Codepfad, Hostkontext und Sicherheitsvertrag prüfen.
 
 ## Bewertungsschema (kein neues Gate)
 
