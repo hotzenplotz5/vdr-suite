@@ -26,187 +26,100 @@ Regression contract: `tools/test_install_daemon.py` covers diverged
 old/new commits, read-only `check`, sealed build reuse without invoking
 `make`, and schema changes still requiring review.
 
-## Real yaVDR root-shell installation: verified GitHub identity split (14 October 2026)
+## Aktueller yaVDR-Ablauf in der bestehenden Root-Shell (03.11.2026)
 
-**Observed failure / confirmed cause:** The operator is logged in as root and
-intends to stay root. A past block ran
-`sudo -u yavdr -H git clone git@github.com:hotzenplotz5/vdr-suite.git`,
-and GitHub replied `Permission denied (publickey)`. SSH identities are
-account-specific; root having a configured key does **not** grant it to
-`yavdr`. A previous interactive `exit` also inadvertently closed the
-root shell. Both are prohibited in future acceptance blocks.
+**Verbindlicher Vorrang:** Die neuere [Root-Shell-Vorgabe](../../AGENTS.md)
+ersetzt die älteren Beispiele vom 14.10.2026, die `sudo -u yavdr`,
+separate Benutzer-Checkouts und unprivilegierte Daemon-Builds verlangten.
+Der Operator bleibt für die gesamte beauftragte yaVDR-Installation
+einschließlich eines nötigen C++-Builds in seiner **bestehenden Root-Shell**.
+Kein `runuser`, `su`, `sudo -u`, interaktives `exit` oder spekulatives
+Umschreiben von SSH-Schlüsseln, Berechtigungen oder Dateieigentümern.
+Die nachgewiesenen SSH-Fehler und die passende Identitätsprüfung sind in
+[agent-yavdr-github-ssh.md](agent-yavdr-github-ssh.md) dokumentiert.
 
-**Solution:** This repository is **public** on GitHub. Clone it over public
-HTTPS **as `yavdr`** into an isolated `yavdr`-owned directory, while the
-terminal remains `root@yavdr`. The clone and the daemon compilation need no
-SSH credential. The only privileged step is `apply`, which the installer
-intentionally runs as root. In contrast, `vdr-suite-vidaa` is **private**;
-its clone and the VIDAA static updater need the account whose private-repo
-SSH access has been verified; see that repository's `AGENTS.md`.
+Die aktuellen ausführbaren Voraussetzungen stammen aus
+`tools/install_daemon.py`: `check` ist lesend, `build` prüft die
+versiegelten Artefakte und enthält keine eigene UID-0-Sperre, `apply`
+und `rollback` verlangen Root-Rechte sowie ihre jeweilige
+ausdrückliche Bestätigung. Vor einer Ausführung den tatsächlichen
+Quellstand und die aktuelle Implementierung prüfen.
 
-### Mandatory no-duplicate-build gate (before new checkout or apply)
+### Quelle, Kandidat und Wiederverwendung
 
-A new documentation commit does **not** demand a new daemon compilation.
-Separate `DOC_HEAD` (latest repository/documentation commit) from
-`CODE_PIN` (last CI-/test-verified product-code commit whose daemon
-binary is actually intended). Check the commit range between them:
-only genuine documentation differences permit reusing `CODE_PIN`
-without a new build. Do **not** relabel an old binary with a new
-documentation SHA: the installer validates both the Git source marker
-and the sealed SHA-256. The already verified code commit remains an
-installable candidate even if newer documentation exists.
-
-**Mandatory sequence:**
-
-1. **Before cloning**, inspect all *known* existing, permitted yaVDR
-   checkout paths and previously preserved `.build/daemon-installer/
-   <CODE_PIN>/` artifacts. Confirm their exact Git root/HEAD,
-   immutable code-SHA, complete binary and candidate seal. Do not use
-   file names or timestamps as sufficient evidence, and do not make
-   directory/permission changes to search. An unfamiliar location
-   is not a reason to copy the binary or create another checkout.
-2. On the matching existing code checkout, run `tools/install_daemon.py
-   check --sha "$CODE_PIN"` as its owning `yavdr` account. Examine
+1. Zuerst den **vorhandenen** Checkout `/home/yavdr/vdr-suite`, seinen
+   tatsächlichen Branch, Git-Status und vollständigen HEAD prüfen.
+   Vorhandene gültige Kandidaten, Objekt-Caches und Builds in bekannten
+   genehmigten Checkouts zuerst identifizieren; kein unnötiger neuer Clone.
+   Ein anderer existierender Branch darf gemäß `AGENTS.md` regulär
+   gewechselt werden; keine neuen Branches oder Worktrees als Umweg.
+2. `CODE_PIN` ist die tatsächlich zu installierende, zuvor geprüfte
+   **40-stellige Produktcode-SHA**, nicht automatisch der neueste
+   Dokumentations-HEAD (`DOC_HEAD`). Bei reinem Dokumentations-Commit
+   bleiben belegte Build-/Testnachweise des passenden Code-Kandidaten
+   gültig; Änderungen an Build-Eingaben müssen separat bewertet werden.
+   Ein vorhandenes Binary niemals mit einer fremden SHA neu etikettieren.
+3. Im zur `CODE_PIN` passenden, sauberen Checkout
+   `tools/install_daemon.py check --sha CODE_PIN` **lesend** ausführen.
    `INSTALLED_SOURCE_SHA`, `TARGET_SOURCE_SHA`,
-   `DB_BACKUP_DECISION`, `DB_REVIEW_PATH` and `BUILD`.
-   The tool checks the seal's SHA-256 plus the ELF source marker.
-   It does **not** discover saved builds in *other* worktrees for you.
-3. If the required binary is **already installed/running**, **STOP
-   successfully without compile or apply**. If `BUILD=REUSABLE`,
-   **do not run `build`**: proceed to the separately authorized root
-   apply with the already proven candidate. If `BUILD=NOT_SEALED`,
-   inspect whether an intact binary already exists in that same
-   candidate directory. The `build` action can recover such a
-   verified unsealed binary with `BUILD=RECOVERED_NO_COMPILE`.
-4. Only if the candidate is genuinely missing after bounded discovery
-   and code changes warrant compilation, run the tool's **one**
-   unprivileged build. A corrupt or mismatched binary **blocks** until
-   diagnosed; never overwrite, bypass integrity verification or
-   silently compile anew. Never create a fresh clone merely to lose
-   sight of a prior sealed candidate.
+   `DB_BACKUP_DECISION`, `DB_REVIEW_PATH` und `BUILD` prüfen.
+   Die Identität von Binary und Seal wird über SHA-256 und eingebettete
+   Source-Markierung geprüft; Dateiname oder Zeitstempel genügen nicht.
+4. Falls der Ziel-Daemon bereits korrekt installiert und aktiv ist,
+   weder bauen noch anwenden. Bei `BUILD=REUSABLE` den Build
+   überspringen. Wenn nur das Seal fehlt, kann `build` ein
+   vollständiges, verifizierbares Binary ohne Kompilierung nachversiegeln
+   (`BUILD=RECOVERED_NO_COMPILE`).
+5. Nur falls nach gezielter Prüfung kein gültiger Build existiert und
+   eine echte Änderung der Build-Eingaben es erfordert, **einmal**
+   `tools/install_daemon.py build --sha CODE_PIN` im bestehenden
+   Root-Kontext ausführen. Fehlende oder beschädigte Artefakte nicht
+   spekulativ überschreiben, verschieben, neu etikettieren oder durch
+   frische Checkouts verstecken.
+6. Vor `apply` die tatsächlichen Datenbank-/Schema-Risiken prüfen.
+   `apply` ist eine getrennt zu genehmigende mutierende Aktion,
+   die selbst niemals kompiliert. Bestehende Daten, Zugangsdaten,
+   Konfigurationen und Aufnahmen bleiben geschützt. Keine CI-Wartezeit,
+   kein pauschales Speicherkontingent und keine erfundenen
+   Vorbedingungen in Installationskommandos einführen.
 
-**Build path is checkout-local**:
-`.build/daemon-installer/<CODE_PIN>/vdr-suite-daemon` and
-`.build/daemon-installer/<CODE_PIN>/candidate.json`.
-`build` itself is reusable/idempotent within that exact tree, but
-running it indiscriminately from *new* checkouts defeats the purpose.
-Preserve verified existing checkouts, use `check` first, and report
-`BUILD=SKIPPED_ALREADY_INSTALLED`, `BUILD=SKIPPED_REUSABLE`,
-`BUILD=RECOVERED_NO_COMPILE` or `BUILD=NECESSARY` with evidence.
-Do not assume a new GitHub docs HEAD is an updated C++ binary.
+### Kompakte, lesende Identifizierung im vorhandenen Checkout
 
-**Documentation-only CI:** Do not wait for automatic CI from docs
-commits. Review/push documentation immediately. A complete CI pass
-for the final reviewed candidate is mandatory before **merge into
-`main`**, not before each doc commit. Changes to product code or
-deployment/security behavior still require their directly relevant
-tests at the corresponding pre-install gate.
-
-### Preflight in the existing root shell — does not install anything
-
-Use an **independently reviewed product-code 40-character SHA** for `PIN`.
-For docs-only commits the previously validated daemon code-SHA stays valid;
-a docs-only branch HEAD and its fresh CI result are **not** new build gates.
-Do not substitute an unverified moving HEAD. This block does not change the
-calling shell's user or its fail-fast options:
+Das folgende Beispiel **installiert nichts**. Der spätere
+`CODE_PIN` ist aus dem geprüften Produktcode-Stand zu bestimmen und
+muss mit dem tatsächlich verwendeten Checkout übereinstimmen.
+Nicht ohne Prüfung direkt `HEAD` als installierbaren Code-Stand ausgeben.
 
 ```bash
-PIN="REVIEWED_LAST_PRODUCT_CODE_40_CHARACTER_SHA"
-DOC_HEAD="REVIEWED_CURRENT_BRANCH_HEAD_40_CHARACTER_SHA"
-BRANCH="work/device-media-profile-binding-v1-20261012"
-REPO="https://github.com/hotzenplotz5/vdr-suite.git"
-OK=1
-[ "$(id -u)" = 0 ] || { echo "STOP=ROOT_SHELL_REQUIRED"; OK=0; }
-[ "${#PIN}" -eq 40 ] || { echo "STOP=REVIEWED_CODE_SHA_REQUIRED"; OK=0; }
-[ "${#DOC_HEAD}" -eq 40 ] || { echo "STOP=REVIEWED_DOC_SHA_REQUIRED"; OK=0; }
-command -v sudo >/dev/null || { echo "STOP=SUDO_MISSING"; OK=0; }
-command -v git >/dev/null || { echo "STOP=GIT_MISSING"; OK=0; }
-[ "$OK" -eq 0 ] || sudo -u yavdr -H git ls-remote "$REPO" "refs/heads/$BRANCH"
+set +e
+set +u
+set +o pipefail
+cd /home/yavdr/vdr-suite
+git -c safe.directory=/home/yavdr/vdr-suite status --short
+git -c safe.directory=/home/yavdr/vdr-suite branch --show-current
+git -c safe.directory=/home/yavdr/vdr-suite rev-parse HEAD
 ```
 
-The last read-only Git result must equal the independently reviewed
-`DOC_HEAD` (current remote branch HEAD), **not necessarily `PIN`**.
-`PIN` is the last verified actual daemon-code SHA. Verify every change
-from `PIN` to `DOC_HEAD` changes **only** non-build documentation
-(e.g. `AGENTS.md`, Markdown documentation); inspect the complete diff.
-If any executable input, packaging, generated source, version-stamp
-input, build flag, toolchain/dependency or unreviewed file changed, treat
-the code candidate as changed and do not claim reuse.
-If the branch HEAD does not match `DOC_HEAD`, stop. Do not require
-fixed free-space reserves or percentage-based capacity gates for checkout
-or daemon compilation; the filesystem reports real write errors if it fills.
-Keep existing source, binary-provenance and rollback checks.
+Bei einem von `root` nicht als sicher eingestuften bestehenden Checkout
+nur die **konkrete geprüfte** Git-`safe.directory`-Ausnahme pro Prozess
+verwenden; keine globale Git-Konfiguration oder rekursiven
+`chown`/`chmod`-Anpassungen. Ein nicht zur geprüften SHA
+passender Checkout ist vor `check`/`build` gezielt und verlustfrei
+zu korrigieren. In der vorhandenen Root-Shell bleiben alle Installations-
+und Verifikationsbefehle unter derselben Identität; der getrennte
+`apply`-Schritt benötigt die ausdrückliche Installationsfreigabe.
 
-### Conditional checkout and build (only after no-reuse preflight)
+### Historische Einordnung
 
-**Do not run these commands when an existing matching checkout/build is
-available.** This is the *last-resort new-checkout path* only when the
-mandatory inspection above has proven no reusable candidate exists.
-The commands are a sequenced operator procedure, not permission for a
-blind install. Execute the next only after the previous reports success.
-The root prompt does not change and none of these commands runs a root build.
-All `git` inspection commands use the checkout's owning `yavdr` identity
-so root Git's optional dubious-ownership restriction cannot be triggered:
-
-```bash
-WORK="$(sudo -u yavdr -H mktemp -d /home/yavdr/vdr-suite-daemon-install-XXXXXXXX)"
-sudo -u yavdr -H git clone --single-branch --branch "$BRANCH" "$REPO" "$WORK/repo"
-cd "$WORK/repo"
-sudo -u yavdr -H git rev-parse --show-toplevel
-# The checkout initially tracks DOC_HEAD; verify that fact:
-sudo -u yavdr -H git rev-parse HEAD
-# After independently reviewing source inputs changed since PIN:
-sudo -u yavdr -H git diff --name-only "$PIN" "$DOC_HEAD"
-sudo -u yavdr -H git merge-base --is-ancestor "$PIN" "$DOC_HEAD"
-# Then explicitly select the already-verified product-code commit:
-sudo -u yavdr -H git checkout --detach "$PIN"
-sudo -u yavdr -H git rev-parse HEAD
-sudo -u yavdr -H git status --porcelain --untracked-files=no
-sudo -u yavdr -H python3 tools/test_install_daemon.py -v
-sudo -u yavdr -H python3 tools/install_daemon.py check --sha "$PIN"
-# STOP HERE: decide from check output whether any compilation is necessary.
-# ONLY when BUILD=NOT_SEALED and no verified reusable candidate exists:
-# sudo -u yavdr -H python3 tools/install_daemon.py build --sha "$PIN"
-# Then re-run read-only check and verify BUILD=REUSABLE:
-# sudo -u yavdr -H python3 tools/install_daemon.py check --sha "$PIN"
-```
-
-Do **not** proceed automatically if clone, exact `DOC_HEAD`/branch,
-reviewed documentation-only diff, checked-out exact code `PIN`,
-clean source, tests or any `check` failed. A successful `check` must be interpreted
-**before** invoking the optional `build` step. If `BUILD=REUSABLE`,
-skip build; if installed daemon is already the target, skip both build
-and apply. Never permit a new checkout to hide a previously sealed binary. Read the complete output, especially
-`INSTALLED_SOURCE_SHA`, `DB_BACKUP_DECISION` and `DB_REVIEW_PATH`.
-`DB_BACKUP_DECISION=REVIEW_REQUIRED` requires a separate review of every
-flagged file. Never auto-approve `no-backup` or invent a database path.
-The existing binary's embedded source must resolve within the candidate's
-full Git history; do not delete the prior version or fabricate provenance.
-
-### Separate, explicit root installation (only after checks and consent)
-
-```bash
-# Root shell, inside the verified checkout of the same exact PIN:
-# Git trust is process-local for this one precisely reviewed yavdr-owned tree.
-env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory \
-  GIT_CONFIG_VALUE_0="$WORK/repo" \
-  python3 tools/install_daemon.py apply --sha "$PIN" --confirm-apply
-systemctl is-active vdr-suite-daemon.service
-```
-
-`apply` never compiles. It checks the sealed binary, current service
-identity, source ancestry and DB risk, retains a rollback
-binary/receipt, and restarts only `vdr-suite-daemon.service`. If SQLite
-review requires a real offline backup, use **only** the explicitly verified
-`--database` path and reviewed `--db-review backup --db-review-reason`
-option described below. A refusal is not an invitation to bypass gates.
-
-**Security boundary:** No global `chown`/`chmod`, private-key copying,
-root-owned build checkout, VDR/plugin/recording changes, arbitrary service
-restarts, blind repository cleanup or automatic "permissions repair". No
-`exit`/fail-fast toggle in an interactive root prompt. Print and retain
-the exact candidate checkout path if a step fails. GitHub CI green alone
-does not establish real yaVDR deployment or Hisense playback.
+Der früher dokumentierte Ablauf vom 14.10.2026 enthielt einen
+als `yavdr` gestarteten SSH-Clone, einen Wechsel in einen temporären
+Benutzer-Checkout und den pauschalen Ausschluss von Root-Builds.
+**Diese damaligen Beispiele sind keine aktuell gültige Anleitung.**
+Die Belege zu den damaligen Fehlern stehen in
+[agent-yavdr-github-ssh.md](agent-yavdr-github-ssh.md).
+Der Installer unterscheidet weiterhin `check`, `build`,
+`apply` und `rollback`; daraus entsteht keine Verpflichtung,
+den Unix-Benutzer zu wechseln.
 
 ## Three independent commands
 
@@ -218,10 +131,10 @@ From the exact, clean source checkout (normally /home/yavdr/vdr-suite), select a
     # If already installed: do nothing.
     # If BUILD=REUSABLE: do NOT invoke build.
     # Only if BUILD=NOT_SEALED, no valid binary/reusable prior build exists,
-    # and actual product changes demand it: build once as yavdr, never root.
+    # and actual product changes demand it: build once in the existing root shell.
     # After rechecking the sealed result and DB gate, root applies explicitly.
 
-**check** is read-only. It requires an exact clean source HEAD, determines the old commit from the running binary's embedded git-version marker, checks ancestry and evaluates database migration risk. If source identity or history is unknown, it refuses installation instead of creating an unrequested backup.
+**check** is read-only. It requires an exact clean source HEAD, determines the old commit from the running binary's embedded git-version marker, evaluates database migration risk across the verified old and target sources. If source identity or history is unknown, it refuses installation instead of creating an unrequested backup.
 
 **build** is **not** a mandatory step in every installation. Use it once
 only when the no-duplicate-build gate proves there is no reusable artifact.
@@ -273,8 +186,8 @@ Device-Track-Funktionen als auch die neue Device-JPEG-Trickplay-Route enthält.
 Das ist eine statische Binärprüfung und kein Ersatz für einen authentifizierten
 HTTP-Hardwaretest.
 
-Die Befehle sind absichtlich getrennt; alle Arbeiten im Checkout als
-normaler Benutzer. Niemals den Source-Build mit sudo starten:
+Die Befehle sind absichtlich getrennt; der folgende historische Testfall
+unterliegt heute der Root-Shell-Vorgabe und wird im bereits geprüften Checkout ausgeführt:
 
 ```bash
 # Nur im explizit geprüften Checkout dieses Branches:
@@ -291,7 +204,7 @@ Erst nach grünem `check`, vollständig versiegeltem Build, überprüftem
 `DB_BACKUP_DECISION` und ausdrücklicher Installationsfreigabe:
 
 ```bash
-sudo python3 tools/install_daemon.py apply --sha "$PIN" --confirm-apply
+python3 tools/install_daemon.py apply --sha "$PIN" --confirm-apply
 ```
 
 Bei `DB_BACKUP_DECISION=REVIEW_REQUIRED` erfolgt **keine automatische
@@ -307,7 +220,7 @@ Binary-Rollback. Er ist nur bei nachgewiesener Binärherkunft, versiegeltem
 Vorversion-Backup und geprüfter Datenbank-Risikostufe erlaubt:
 
 ```bash
-sudo python3 tools/install_daemon.py rollback --sha "$PIN" --confirm-rollback
+python3 tools/install_daemon.py rollback --sha "$PIN" --confirm-rollback
 ```
 
 Bei historisch `REVIEW_REQUIRED` ist zusätzlich die Bewertung und
@@ -316,7 +229,7 @@ bei einem tatsächlichen SQLite-Schemawechsel reicht ein Binary-Rollback
 nicht aus. Datenbanken werden **niemals** automatisch zurückgeschrieben.
 
 `check` ist ohne Produktionsschreibzugriffe. `build` schreibt nur ins
-persistente private SHA-Artefaktverzeichnis; root-Build ist verboten.
+persistente private SHA-Artefaktverzeichnis; ein nötiger Build erfolgt im bestehenden autorisierten Root-Kontext.
 `apply` stoppt/startet ausschließlich `vdr-suite-daemon.service`,
 kopiert die vorherige Binärdatei samt SHA-Receipt und prüft danach den
 laufenden Prozess. Fehler führen zum automatischen Wiederanlauf der
