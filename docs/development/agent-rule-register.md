@@ -55,6 +55,9 @@ nicht automatisch ihr Verständnis oder ihre Einhaltung. Produkt- und
 Regressionstests sichern konkrete technische Eigenschaften ab; es gibt
 keinen universellen Automatismus, der jeden Agentenfehler verhindert.
 Das Register erzeugt insbesondere **keinen neuen blockierenden CI-Check**.
+Der freiwillige [Agent-Dokumentationsprüfer](agent-doc-checker.md) meldet
+Doppelkennungen, fehlerhafte lokale Verweise und ausgewählte veraltete
+Anweisungen ohne Schreibzugriff und ohne Freigabe- oder Installations-Gate.
 
 ## Konflikte und Änderungen
 
