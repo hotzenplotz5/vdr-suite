@@ -25,6 +25,7 @@ on:
       - "tools/addons/debian_media_tools.py"
       - "tools/addons/test_debian_media_tools.py"
       - "tools/addons/test_debian_media_tools_lifecycle.py"
+      - "tools/test_packaging_p7_historical_schema.py"
       - "tools/test_packaging_i44_four_package_adoption.py"
       - "tools/addons/check_debian_media_tools_apt_lifecycle.sh"
       - "tools/addons/check_published_media_tools_ppa.sh"
@@ -56,6 +57,7 @@ on:
       - "tools/addons/debian_media_tools.py"
       - "tools/addons/test_debian_media_tools.py"
       - "tools/addons/test_debian_media_tools_lifecycle.py"
+      - "tools/test_packaging_p7_historical_schema.py"
       - "tools/test_packaging_i44_four_package_adoption.py"
       - "tools/addons/check_debian_media_tools_apt_lifecycle.sh"
       - "tools/addons/check_published_media_tools_ppa.sh"
@@ -90,6 +92,7 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           git ls-files --stage debian/rules | grep -E '^100755 '
           python3 -m unittest -v tools.test_packaging_profiles tools.test_packaging_p8_preinst tools.test_packaging_host_collision_preflight tools.test_packaging_p8_installer 2>&1 | tee packaging-offline-regressions.log
+          python3 -B -m unittest -v tools.test_packaging_p7_historical_schema 2>&1 | tee -a packaging-offline-regressions.log
           python3 -B -m unittest discover -s tools/addons -p 'test_debian_media_tools.py' -v 2>&1 | tee -a packaging-offline-regressions.log
           python3 -B -m unittest discover -s tools/addons -p 'test_debian_media_tools_lifecycle.py' -v 2>&1 | tee -a packaging-offline-regressions.log
           python3 -B -m unittest -v tools.test_packaging_i44_four_package_adoption 2>&1 | tee -a packaging-offline-regressions.log

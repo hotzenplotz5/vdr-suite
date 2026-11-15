@@ -32,6 +32,12 @@ The exact package source commit [46e77f6bc2e692ad0e9030953f800518798dc3b5](https
 
 **Next technical boundary:** MT.I4.4c must reuse the existing P7 historical C++/SQL schema and writer inventory (`tools/packaging_p7_runtime_schema_rehearsal.py`, `tools/test_packaging_p7_historical_schema.py`, `tools/test_packaging_p7_sql_writer_inventory.py`, and their focused tests) and establish whether the actual manually installed predecessor is a supported schema/version. Existing synthetic P7 success cannot establish that host-specific provenance. Design a quiesced, WAL-aware, recoverable host migration with individually verified service/approval/configuration boundaries *before* any new live installer is proposed. No new SQLite backup program should be introduced merely to duplicate the tested P7 fixtures.
 
+## MT.I4.4c – WAL-aware historical-schema recovery (first isolated regression)
+
+**Source scope (15.11.2026):** The existing `tools/test_packaging_p7_historical_schema.py` now includes a focused MT.I4.4c case reusing its **Git-blob-verified** historical SQL, `create_legacy_database`, `legacy_snapshot`, `require_consistent`, and `apply_current_additive_metadata_schema` helpers. The test creates a disposable legacy database, leaves a WAL-writing connection open, commits a second recording to its WAL, deliberately leaves a third recording uncommitted, and creates a consistent backup using the same SQLite `Connection.backup()` operation already used by P7. It verifies that the backup contains committed WAL state but not the uncommitted row, then exercises a failed additive schema transaction, a successful one, and restore into an independent test database. Historical row tuples, SQLite integrity, and the pre-upgrade schema remain recoverable. The existing packaging offline job now runs this P7 test module. **CI status is NOT_VERIFIED until a successful run on the exact new commit.**
+
+This is a deliberately **synthetic historical predecessor**, not an inspection, backup, checkpoint, or schema read of the user's active `/var/lib/vdr-suite/vdr-suite.db`; no live writer is frozen, no real service state is changed, and no real source/version-to-schema compatibility is asserted. The actual manual daemon SHA, schema provenance, active operations, review of root/agent service/drop-in/nginx behavior, package ABI, and release-version rollback remain separate MT.I4.4c/MT.I4.4d obligations. **Do not derive a live migration command from this test.**
+
 ## Current decision
 
 - The current manual VDR-Suite remains installed, running, and untouched.

@@ -184,5 +184,96 @@ class HistoricalSchemaRehearsalTests(unittest.TestCase):
                 ).fetchone()[0], 0)
 
 
+    def test_i44c_wal_commits_backup_failure_and_original_recovery(self):
+        """Offline historical P7 WAL snapshot and rollback; never a host DB.
+
+        Reuse the Git-blob-verified legacy fixture and existing P7 SQLite
+        backup/schema helpers. This demonstrates backup semantics with a
+        live WAL writer, not safety of a running production VDR migration.
+        """
+        self.assertEqual(
+            source_git_blob_hash(LEGACY.read_bytes()), LEGACY_GIT_BLOB_SHA1)
+        with tempfile.TemporaryDirectory(prefix="mt-i44c-wal-fixture-") as temp:
+            folder = Path(temp)
+            original = folder / "historical.db"
+            backup = folder / "consistent-backup.db"
+            recovered = folder / "restored.db"
+            create_legacy_database(original)
+
+            with closing(sqlite3.connect(original)) as writer:
+                writer.execute("PRAGMA foreign_keys=ON")
+                self.assertEqual(
+                    writer.execute("PRAGMA journal_mode=WAL").fetchone()[0],
+                    "wal")
+                writer.execute("PRAGMA wal_autocheckpoint=0")
+                writer.execute(
+                    "INSERT INTO recordings(title,recording_path,recording_format) "
+                    "VALUES(?,?,?)",
+                    ("MT.I4.4c committed WAL", "/offline/wal-commit.rec", "TS"))
+                writer.commit()
+                # Keep the writer open: its committed row is still recorded
+                # in a live WAL while an independent reader takes the backup.
+                self.assertGreater(
+                    (folder / "historical.db-wal").stat().st_size, 0)
+                writer.execute("BEGIN IMMEDIATE")
+                writer.execute(
+                    "INSERT INTO recordings(title,recording_path,recording_format) "
+                    "VALUES(?,?,?)",
+                    ("MT.I4.4c UNCOMMITTED", "/offline/pending.rec", "TS"))
+
+                with closing(sqlite3.connect(original)) as reader, closing(
+                        sqlite3.connect(backup)) as target:
+                    before = legacy_snapshot(reader)
+                    require_consistent(reader)
+                    self.assertEqual(len(before["rows"]["recordings"]), 2)
+                    self.assertFalse(any(
+                        row[0] == "MT.I4.4c UNCOMMITTED"
+                        for row in reader.execute(
+                            "SELECT title FROM recordings").fetchall()))
+                    # The existing SQLite connection.backup() method captures
+                    # committed WAL rows and excludes the uncommitted writer.
+                    reader.backup(target)
+                    require_consistent(target)
+                    self.assertEqual(legacy_snapshot(target), before)
+                writer.rollback()
+
+                with closing(sqlite3.connect(original)) as connection:
+                    with self.assertRaisesRegex(
+                            sqlite3.Error, "p7_missing_table"):
+                        apply_current_additive_metadata_schema(
+                            connection, fail_after=True)
+                    require_consistent(connection)
+                    self.assertEqual(legacy_snapshot(connection), before)
+                    self.assertEqual(connection.execute(
+                        "SELECT count(*) FROM sqlite_master "
+                        "WHERE name='suite_metadata_schema_versions'"
+                    ).fetchone()[0], 0)
+
+                # Successful isolated upgrade mutates the source schema but
+                # cannot change the previously captured pre-upgrade backup.
+                with closing(sqlite3.connect(original)) as connection:
+                    apply_current_additive_metadata_schema(connection)
+                    require_consistent(connection)
+                    self.assertEqual(legacy_snapshot(connection), before)
+                    self.assertEqual(connection.execute(
+                        "SELECT count(*) FROM suite_metadata_schema_versions"
+                    ).fetchone()[0], 1)
+
+                with closing(sqlite3.connect(backup)) as source, closing(
+                        sqlite3.connect(recovered)) as target:
+                    source.backup(target)
+                    require_consistent(target)
+                    self.assertEqual(legacy_snapshot(target), before)
+                    self.assertEqual(target.execute(
+                        "SELECT count(*) FROM sqlite_master "
+                        "WHERE name='suite_metadata_schema_versions'"
+                    ).fetchone()[0], 0)
+                    titles = {row[0] for row in target.execute(
+                        "SELECT title FROM recordings").fetchall()}
+                    self.assertIn("MT.I4.4c committed WAL", titles)
+                    self.assertNotIn("MT.I4.4c UNCOMMITTED", titles)
+        print("MT_I44C_HISTORICAL_WAL_BACKUP_RECOVERY=PASS")
+
+
 if __name__ == "__main__":
     unittest.main()
