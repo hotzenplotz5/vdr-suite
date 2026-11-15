@@ -1,5 +1,7 @@
 # VDR-Suite – AGENTS-Widerspruchsaudit (15.11.2026)
 
+Siehe auch das [Agent-Regelregister](agent-rule-register.md).
+
 **Gegenstand:** Vollständiger Git-Tree `main` vom 15.11.2026
 (`git/trees/main?recursive=1`, `truncated=false`, 4.424 Einträge).
 Darin waren **zehn** `AGENTS.md`-Dateien enthalten. Jede wurde
@@ -30,12 +32,12 @@ Zusätzlich abgeglichen: `CONTRIBUTING.md`, der
 
 | Status | Fund und tatsächliche Einordnung | Maßnahme |
 | --- | --- | --- |
-| **Widerspruch in angrenzender Doku** | `CONTRIBUTING.md` empfiehlt uneingeschränkt einen „fresh branch“. `docs/development/branch-pull-request-lifecycle.md` fordert bei neuen Arbeiten ebenfalls die Branch-Anlage von `main`. Die spätere Root-`AGENTS.md` verlangt jedoch ausdrückliche Maintainer-Genehmigung für **jeden neuen Branch**. | Contributor- und Branch-Lebenszyklus-Text klarstellen: **Falls** neue Branch-Anlage genehmigt, von aktuellem `main`; sonst auf bestehendem autorisiertem Branch arbeiten. |
+| **Widerspruch behoben (15.11.2026)** | `CONTRIBUTING.md` empfiehlt uneingeschränkt einen „fresh branch“. `docs/development/branch-pull-request-lifecycle.md` fordert bei neuen Arbeiten ebenfalls die Branch-Anlage von `main`. Die spätere Root-`AGENTS.md` verlangt jedoch ausdrückliche Maintainer-Genehmigung für **jeden neuen Branch**. | **Umgesetzt:** `CONTRIBUTING.md` und `docs/development/branch-pull-request-lifecycle.md` unterscheiden nun neue, ausdrücklich genehmigte Branches von erlaubten bestehenden Branchwechseln. |
 | **Scope-Klärung, kein belegter Widerspruch** | `debian/AGENTS.md` fordert gewöhnliche Benutzerprivilegien für isolierte Paket-/Source-Builds; die Root-`AGENTS.md` fordert Root-Shell für beauftragte **yaVDR-Installationen**. Die Root-Datei lässt Clean-Paketbuilds ausdrücklich als separaten Prozess zu. | Bereich unterscheiden. Keine automatische Änderung von `debian/AGENTS.md`; beim konkreten Paket-/Host-Workflow beide lesen. |
 | **Scope-Klärung** | `modules/rectools/AGENTS.md` fordert Speicherplatzprüfung für bestimmte Import-/Remux- und isolierte Paket-Arbeiten. Die Root-Datei verbietet **willkürliche pauschale** Speicherplatzreserven (z. B. feste GiB- oder Prozentgrenzen). | Nur belegte Ressourcenanforderungen des konkreten Vorgangs werten, keine neue pauschale Installationssperre ableiten. Eine technische Änderung bedarf eigenen Auftrags. |
 | **Kein unmittelbarer Widerspruch** | `modules/AGENTS.md`, `core/addons/AGENTS.md` und die Media-Tools-Unterregeln verlangen bestehende Rechte-/Handler-/Grant-Prüfungen. Die Root-Regel „keine **neuen** Sperren“ hebt bestehende Autorisierung ausdrücklich **nicht** auf. | Vor jeder neuen oder verschärften Blockierung AG-002 einhalten; vorhandene Autorisierung nicht entfernen. |
 | **Potenzielle Überbreite für spätere Features** | `modules/rectools/AGENTS.md` schließt mehrere Legacy-Funktionen strikt aus; `addons/media-tools/AGENTS.md` übernimmt diese Regeln. Ob das mit späteren ausdrücklich gewünschten Media-Tools-Funktionen kollidiert, hängt vom konkreten Auftrag und tatsächlichem Codepfad ab. | Bei der betreffenden neuen Funktion gezielt prüfen; keine Abschwächung oder eigenmächtige Sperre im Rahmen dieses Dokumentationsaudits. |
-| **Bisherige Antwortregel unpräzise** | Root-`AGENTS.md` verlangte für jede Arbeitsantwort einen `## Testblock`, sagte aber nicht, dass nach **Fix** unmittelbar Update-/Installationsbefehle und bei **Fehlersuche** direkt lesende Diagnosekommandos zu liefern sind. | Root-Antwortregel präzisieren; nur belegte Befehle, kein unnötiger Nutzer-Rückfragezyklus, keine erzwungene neue Kompilierung. |
+| **Antwortregel präzisiert (15.11.2026)** | Root-`AGENTS.md` verlangte für jede Arbeitsantwort einen `## Testblock`, sagte aber nicht, dass nach **Fix** unmittelbar Update-/Installationsbefehle und bei **Fehlersuche** direkt lesende Diagnosekommandos zu liefern sind. | **Umgesetzt:** direkt ausführbarer `## Testblock` nach Fix/Doku-Änderung und `## Diagnoseblock` bei Fehlersuche; kein erfundener Installationsweg. |
 | **Kein direkter Konflikt** | `vdr-plugin-suite-bridge/AGENTS.md` verlangt unabhängigen Plugin-Build mit eigenem `DESTDIR`; Root-Installationsregeln unterscheiden bereits Projekt-Build, isolierten Paketbau und Live-Deployment. | Unverändert belassen. |
 
 ## Grenzen des Audits
