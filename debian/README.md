@@ -27,6 +27,14 @@ explicit publishing policy. [Current PPA acceptance](../packaging/README.md).
 
 This root `debian/` directory is the canonical source-package location for `dpkg-buildpackage`. The historical `packaging/debian/` directory is documentation, not an alternative `debian/` source tree.
 
+## MT.I4.1: optionales viertes Binärpaket (Quellintegration, 15.11.2026)
+
+Der reguläre Build ohne `plugin-only` erzeugt jetzt auch `vdr-suite-addon-media-tools` als **inaktives** Paket. Die drei Worker werden im normalen Build gezielt mitgebaut, aber nicht ein zweites Mal für das Paket kompiliert. `debian/rules` übernimmt über `tools/addons/debian_media_tools.py` die bestehende versiegelte Suite-/Media-Tools-Stage und `stage_package_paths()` als einzige Liste der acht Add-on-Artefakte. Die von Debian zusätzlich vorgeschriebenen Lizenz-/Changelogdateien gehören nicht zu diesen acht Stage-Dateien.
+
+Die Add-on-Dateien werden nach `dh_install` getrennt in den vierten Paketbaum übernommen, damit das bestehende rekursive Daemon-Manifest `usr/share/vdr-suite/` keine Media-Tools-Dateien mitbeansprucht. `dh_strip` und `dh_dwz` bearbeiten nur die bisherigen Pakete; vor `dh_installdeb` werden Add-on-Hashes und Modi nochmals mit dem Stage-Inventar abgeglichen. Der vorhandene Kollisions-`preinst` wird wiederverwendet. Weder ein automatischer Dienststart noch eine Rechtefreigabe oder Migration sind Teil der Paketierung. Das Profil `plugin-only` schließt dieses Paket aus.
+
+Für den SHA-Provenienznachweis im bestehenden `git archive`-Quellpaketweg wird `.vdr-suite-source-commit` per `export-subst` auf die echte Commit-SHA erweitert. **Aktueller Nachweis:** Python-Syntaxprüfung und Make-Dry-Runs; ein vollständiger Debian-Binärpaketbau, Installations-/Upgrade-/Purge-Lebenszyklus, CI und produktiver yaVDR-Readback bleiben **NOT_VERIFIED**, bis sie tatsächlich ausgeführt und protokolliert wurden. Keine PPA-Veröffentlichung ausgelöst.
+
 ## Independent VDR plugin build
 
 SuiteBridge can be built **without building the daemon or Backend Agent**:

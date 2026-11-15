@@ -3,16 +3,17 @@ export DH_VERBOSE = 1
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 # Explicitly supported profile: dpkg-buildpackage -B -Pplugin-only
-# No daemon, agent, CLI or web assets are built or staged in that profile.
+# No daemon, agent, CLI, web assets or Media Tools are built in this profile.
 PLUGIN_ONLY := $(filter plugin-only,$(DEB_BUILD_PROFILES))
 STAGE := $(CURDIR)/debian/tmp
+MEDIA_TOOLS_BASE := $(CURDIR)/debian/.media-tools-base-stage
 
 %:
 	dh $@ --with vdrplugin
 
 override_dh_auto_build:
 ifeq ($(PLUGIN_ONLY),)
-	$(MAKE) build-installable PREFIX=/usr
+	$(MAKE) build-installable addon-media-import addon-media-shrink addon-media-check PREFIX=/usr
 endif
 	$(MAKE) -C vdr-plugin-suite-bridge
 
@@ -27,13 +28,40 @@ endif
 	test ! -e $(STAGE)/var/lib/vdr-suite/vdr-suite.db
 	test ! -e $(STAGE)/var/lib/vdr-suite/secrets/credentials
 
+override_dh_install:
+	dh_install
+ifeq ($(PLUGIN_ONLY),)
+	# Keep Media Tools outside debian/tmp: the daemon's existing usr/share/vdr-suite/
+	# manifest must not accidentally claim add-on metadata. Reuse the sealed stage.
+	$(MAKE) stage-install-runtime RUNTIME_STAGE="$(MEDIA_TOOLS_BASE)" PREFIX=/usr
+	python3 tools/addons/debian_media_tools.py \
+		--base-stage "$(MEDIA_TOOLS_BASE)" \
+		--workers "$(CURDIR)/.build/addons" \
+		--package-root "$(CURDIR)/debian/vdr-suite-addon-media-tools" \
+		--preinst "$(CURDIR)/debian/vdr-suite-addon-media-tools.preinst"
+	rm -rf -- "$(MEDIA_TOOLS_BASE)"
+endif
+
+# Preserve the exact sealed-stage ELF bytes; other Suite binaries retain
+# their existing debhelper strip/dwz processing.
+override_dh_strip:
+	dh_strip -Nvdr-suite-addon-media-tools
+
+override_dh_dwz:
+	dh_dwz -Nvdr-suite-addon-media-tools
+
 override_dh_auto_test:
 	python3 tools/check_packaging_version.py
 	python3 -m unittest discover -s tools -p 'test_packaging_*.py'
+	python3 -m unittest discover -s tools/addons -p 'test_debian_media_tools.py'
 
 # dh_installdeb assembles package control directories before dh_builddeb.
 # Generate package-specific, manifest-derived preinst collision guards there.
 override_dh_installdeb:
+ifeq ($(PLUGIN_ONLY),)
+	python3 tools/addons/debian_media_tools.py --verify-package-root \
+		--package-root "$(CURDIR)/debian/vdr-suite-addon-media-tools"
+endif
 	dh_installdeb
 	python3 tools/packaging_p8_preinst.py --stage
 
@@ -42,3 +70,8 @@ override_dh_installsystemd:
 
 override_dh_missing:
 	dh_missing --fail-missing
+
+override_dh_clean:
+	dh_clean
+	rm -rf -- "$(MEDIA_TOOLS_BASE)"
+	rm -f -- "$(CURDIR)/debian/vdr-suite-addon-media-tools.preinst"
