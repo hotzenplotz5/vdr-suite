@@ -7,6 +7,7 @@ No host /usr, /etc, /var, services, packages or VDR recordings are touched.
 from __future__ import annotations
 
 import os
+import stat
 from pathlib import Path
 import shlex
 import shutil
@@ -167,6 +168,87 @@ printf '%s: %s\\n' "$owner" "$2"
         purged = self.dpkg("--purge", "vdr-suite-addon-media-tools")
         self.assertEqual(purged.returncode, 0, purged.stderr)
         self.check_preserved()
+
+    def test_i44_manual_payload_to_dpkg_and_manual_rollback_fixture(self):
+        """Synthetic manual adoption rehearsal, not a production migration.
+
+        Start with all eight canonical manual files, prove dpkg cannot
+        overwrite them, then simulate an operator-reviewed change of file
+        ownership in the private root and restore the original manual bytes.
+        The separate Suite daemon/agent/bridge and live SQLite schema are
+        deliberately NOT exercised by this focused add-on regression.
+        """
+        package = self.package(1)
+        extras = (
+            ("var/lib/vdr-suite/vdr-suite.db-wal", b"synthetic WAL bytes"),
+            ("var/lib/vdr-suite/vdr-suite.db-shm", b"synthetic SHM bytes"),
+            ("etc/vdr-suite/addon-approvals/rectools.import-running.lock", b""),
+            ("etc/vdr-suite/addon-sources/media-import.tsv", b"synthetic source ledger"),
+            ("etc/systemd/system/vdr-suite-backend-agent.service.d/20-media-tools.conf",
+             b"synthetic manual override"),
+            ("etc/systemd/system/vdr-suite-daemon.service.d/recording-artwork.conf",
+             b"synthetic artwork override"),
+            ("etc/nginx/snippets/vdr-suite.conf", b"synthetic nginx config"),
+        )
+        for rel, content in extras:
+            destination = self.host / rel
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(content)
+            destination.chmod(0o644)
+            self.preserved[rel] = content
+
+        # The package's eight verified stage files are our old manual fixture,
+        # including the inventory file. No source archive or live path is read.
+        before = {}
+        for rel in stage_package_paths():
+            source = self.tmp / "pkg1" / rel
+            destination = self.host / rel
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, destination)
+            mode = stat.S_IMODE(source.stat().st_mode)
+            destination.chmod(mode)
+            before[rel] = (destination.read_bytes(), mode)
+
+        refused = self.dpkg("-i", str(package))
+        self.assertNotEqual(refused.returncode, 0, refused.stdout)
+        self.assertIn("MEDIA_TOOLS_DPKG=BLOCKED", refused.stderr)
+        for rel, (content, mode) in before.items():
+            destination = self.host / rel
+            self.assertEqual(destination.read_bytes(), content)
+            self.assertEqual(stat.S_IMODE(destination.stat().st_mode), mode)
+        self.check_preserved()
+
+        # This deliberately models a reviewed, offline manual-file retirement
+        # in a disposable fixture. It is NOT a recipe for deleting host files.
+        for rel in before:
+            (self.host / rel).unlink()
+        adopted = self.dpkg("-i", str(package))
+        self.assertEqual(adopted.returncode, 0, adopted.stderr)
+        self.assertEqual(
+            subprocess.check_output(
+                ["dpkg-query", "--admindir=" + str(self.db), "-W",
+                 "-f=" + "\u0024{Status}", "vdr-suite-addon-media-tools"],
+                text=True).strip(), "install ok installed")
+        for rel, (content, mode) in before.items():
+            destination = self.host / rel
+            self.assertEqual(destination.read_bytes(), content)
+            self.assertEqual(stat.S_IMODE(destination.stat().st_mode), mode)
+        self.check_preserved()
+
+        removed = self.dpkg("--purge", "vdr-suite-addon-media-tools")
+        self.assertEqual(removed.returncode, 0, removed.stderr)
+        for rel in before:
+            self.assertFalse((self.host / rel).exists(), rel)
+        self.check_preserved()
+        for rel, (content, mode) in before.items():
+            destination = self.host / rel
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(content)
+            destination.chmod(mode)
+            self.assertEqual(destination.read_bytes(), content)
+            self.assertEqual(stat.S_IMODE(destination.stat().st_mode), mode)
+        self.check_preserved()
+        print("MT_I44_SYNTHETIC_ADDON_ADOPTION_ROLLBACK=PASS")
 
     def test_symlinked_target_parent_refused_before_unpack(self):
         pkg = self.package(1)
