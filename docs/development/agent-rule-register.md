@@ -37,7 +37,7 @@ Regel wiederverwenden.
 | AG-003 | Keine erfundenen Fakten/Befehle, Quellen-/SHA-Nachweis | Root: „No hallucinated facts — verified evidence ...“ | tatsächliche Datei-/Werkzeugabrufe und geprüftes HEAD |
 | AG-004 | Auftragsumfang klein halten; keine spekulativen Refactorings | Root: „Non-negotiable scope ...“ | konkretes Akzeptanzkriterium, überprüfbarer Diff |
 | AG-005 | Genehmigte Arbeit ohne künstliche Unterbrechung zu Ende führen | Root: „Top-level non-stop execution mandate“ | fertiggestellter Slice oder belegter externer Blocker |
-| AG-006 | Zu Fix, Diagnose oder Doku passende **direkt benutzbare** Testblöcke | Root: „Top-level non-stop ...“, „Testblock repository entry“, „Testblock shell option safety“ | überprüfbarer Bash-Block mit echtem Checkout/Commit und passender Aktion |
+| AG-006 | Zu Fix, Diagnose oder Doku passende **direkt benutzbare** Testblöcke | Root: „Top-level non-stop ...“, „Testblock repository entry“, „Testblock shell option safety“; [Operator-Leitfaden](agent-operator-workflows.md) | überprüfbarer Bash-Block mit echtem Checkout/Commit und passender Aktion |
 | AG-007 | Auf yaVDR im vorhandenen Root-Shell-Kontext installieren | Root: „yaVDR-Installationsbefehle ...“; [Installer](daemon-only-installer.md) | kein unbegründeter Benutzerwechsel im Installationsblock |
 | AG-008 | C++-Objektcache erhalten; identische Daemon-Builds nicht wiederholen | Root: „Schnellen inkrementellen C++-Daemon-Build ...“ und „NEVER compile ...“ | geprüfte Artefakte/Build-SHA; vorhandene Tests `tools/test_build_cpp_cached.py`, `tools/test_install_daemon.py` |
 | AG-009 | SSE für asynchronen Frontend-Status priorisieren | Root: „SSE geht vor Polling“ | produktiver SSE-/Reconnect-Nachweis und gezielter Regressionstest |
