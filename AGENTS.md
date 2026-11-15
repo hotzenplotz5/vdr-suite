@@ -795,120 +795,77 @@ operation for which authorization has genuinely never been granted. In each
 case, continue every other approved operation first and preserve the workstream
 as blocked rather than declaring it complete.
 
-## Commit, push and CI batching
+## Commit, push, CI and minimal necessary validation
 
-Create small, coherent commits at meaningful checkpoints. Push each completed
-and scoped commit immediately with fast-forward-only semantics.
+**Grundsatz:** Safe, tested product code comes first. Complete the bounded
+implementation and its relevant focused tests before full-CI stabilization.
+Use the shortest checks that can still affect the next decision. Do not turn
+unrelated CI, documentation or tests into extra installation blockers.
 
-Do not wait for GitHub Actions after every commit. Multiple commits may be
-created and pushed consecutively while earlier workflow runs are still queued or
-running. Superseded intermediate runs do not need separate analysis unless they
-reveal a failure that also affects the current head.
+**Commits and iterative work:**
+- Create small, coherent, scoped commits; push each finished commit promptly
+  with fast-forward-only semantics. Do not await GitHub Actions after every
+  commit. Continue already-approved independent work while earlier runs are
+  queued or running. Superseded intermediate runs need separate diagnosis
+  only if they reveal a problem affecting the current candidate.
+- Select checks by the *actual changed surface*, before its relevant gate:
+  - frontend JS/CSS/HTML: focused frontend tests and
+    `frontend-regression-test` before installing the candidate;
+  - frontend installation or packaging wiring: relevant staging/packaging
+    check as well;
+  - backend, daemon, C++, runtime contracts: matching build,
+    fast-regression, architecture and other directly affected checks;
+  - documentation only: review content, text, links and formatting;
+    normally the minimum local check is `git diff --check`.
+- A required failed check must be diagnosed and repaired before crossing its
+  gate. Reproduce with the smallest relevant check and fix only the
+  demonstrated cause; do not hide failures with unrelated commits or bypass
+  relevant tests, security requirements or branch protection.
+- Do not run broad local Make targets, full regression suites, packaging
+  builds or local copies of hosted CI on unchanged code when GitHub Actions
+  already supplies the needed evidence. Additional full documentation suites
+  are not justified for routine docs-only edits unless the exact change
+  cannot be appropriately validated through the final-head CI.
 
-Validation gates are surface-scoped during iterative implementation and runtime
-acceptance. Require only the checks that can materially validate the changed
-surface and the next action:
+**CI and acceptance gates:**
+- During draft development and targeted runtime acceptance, require only
+  surface-relevant tests. An unrelated workflow job must not block a
+  separately authorized installation or acceptance test merely because it
+  belongs to the same workflow; establish that the failure is genuinely
+  unrelated before continuing. Targeted tests for changed product code
+  remain mandatory before the corresponding risky action.
+- The **complete repository-required CI graph for the exact final head**
+  is mandatory at Ready-for-review, merge into `main`, phase closeout or
+  another explicitly required full-stabilization gate. Before merging to
+  `main`, all required final-head checks must pass, together with any
+  distinct safety/hardware/branch-protection requirements. Do not merge red
+  or unverified code.
+- A successful **local build of the exact daemon candidate** counts as its
+  compilation evidence. Do not require an additional hosted build solely
+  to prove compilation a second time; this does not waive distinct
+  functional/security checks or hosted checks imposed by branch protection.
+- After an authorized merge, verify the actual merged `main` SHA and its
+  hosted CI. If it exposes a defect, repair the current `main` through the
+  permitted branch/PR procedure, then verify the newly merged result.
+  Never rewrite `main`, bypass PR restrictions or overlap others' work.
 
-- frontend-only JavaScript/CSS/HTML changes require the focused frontend tests
-  and `frontend-regression-test` before installing that frontend candidate;
-- frontend install or packaging wiring changes additionally require the relevant
-  packaging/install staging check;
-- backend, daemon, C++ or runtime-contract changes require the corresponding
-  build, fast-regression, architecture and other directly affected checks;
-- documentation-only changes require documentation validation and do not
-  invalidate already accepted product/runtime evidence. Validate relevant
-  text/link/format, not a new build or unrelated runtime acceptance.
-  **Do not wait for GitHub Actions to finish for docs-only commits.**
-
-Do not block a targeted runtime installation or acceptance test on unrelated CI
-jobs merely because they belong to the same workflow. Such jobs may still be
-queued, running, or failed for a demonstrably unrelated reason. Diagnose enough
-to establish that the failure is unrelated to the candidate being installed,
-then continue with the already-approved targeted acceptance path.
-
-The complete repository-required CI graph is a gate for Ready-for-review, merge,
-phase closeout or another explicit full-stabilization boundary. Use
-surface-scoped checks for draft development and independently gated deployment.
-
-**FULL CI is a mandatory gate immediately before merging the reviewed
-candidate into `main`, not a reason to wait on documentation-only commits,
-draft updates, interim work or routine source handoffs.** The full final-head
-CI must pass before merge, plus any genuinely separate safety/hardware gates.
-Relevant targeted tests for code/runtime changes still apply before risky
-actions; do not skip them under this rule.
-
-A failed check that is required for the current changed surface or current gate
-must be diagnosed and fixed before crossing that gate. Do not hide failures by
-adding unrelated commits or by bypassing genuinely relevant checks.
-
-## Product-code-first CI and post-merge stabilization
-
-**Documentation-only changes must NEVER cause waiting for a CI run, a CI
-polling loop, a new daemon build or a repeat of already proven runtime
-acceptance.** Commit the documentation, inspect its contents and the
-branch/commit, report the status and proceed immediately. GitHub Actions may
-run automatically; do not await completion or generate another commit to
-"make CI green" merely for docs. Require the full relevant CI graph
-**once, at the actual final-head pre-merge-to-`main` gate**. If code changes
-alter a relevant safety/test surface, validate that surface at the time it
-matters; this rule never permits installing untested changed product code.
-
-**Finish the bounded productive code and focused tests before spending time on
-full CI stabilization.** Batch coherent implementation commits and validate the
-relevant final candidate. Respect required pre-merge security, architecture,
-test, runtime and branch-protection gates; this rule does not authorize merging
-red or unverified code or skipping required checks.
-
-**A successful local daemon build is sufficient build evidence before merge.**
-When the daemon must be built locally, a successful build of the exact candidate
-is the build proof. Do not demand, repeat or await an additional hosted CI
-build merely to prove that the same daemon compiles. Record the tested commit
-and build result. This does not substitute for distinct functional/security
-acceptance or checks that GitHub branch protection actually requires.
-
-**After an authorized merge, verify the exact merged `main` head and its hosted
-CI run.** If that run reveals a defect, repair it promptly against the current
-`main` through the repository's permitted branch/PR workflow, then verify the
-resulting merged `main` again. Do not silently rewrite `main`, bypass PR
-restrictions or overlap other developers' work. Avoid endless repetitive CI
-polling: use checks only when they can change the next action; keep advancing
-independent approved product tasks while the run progresses.
-
-**Priority:** shipping safe, tested product functionality over polishing
-intermediate documentation status. Status docs and guards should be updated at
-a meaningful product closeout, not as repeated standalone blockers.
-
-## Minimal necessary validation
-
-Choose the shortest safe path and treat the user's time as a project resource.
-Run only checks that can still change the next decision.
-
-Do not repeat a test merely because another commit was created, documentation
-was edited, the chat changed, or an earlier accepted result is inconvenient to
-reuse. Accepted CI, runtime evidence and immutable fingerprints remain valid
-until a directly relevant input changes.
-
-Do not run broad local Make targets, full regression suites or local CI copies
-when GitHub Actions already covers the same unchanged product code. In
-particular, a documentation-only closeout must not trigger local product,
-architecture, packaging or full documentation suites unless that exact change
-cannot be validated by the final-head GitHub CI.
-
-Use the local yaVDR host only for facts GitHub cannot establish, such as the
-installed daemon, service state, real configuration, database integrity and
-controlled runtime acceptance. Once that runtime acceptance is recorded, do not
-repeat it for a documentation-only follow-up.
-
-When a check fails, run the smallest command that reproduces the failure and
-fix only the demonstrated cause. Do not add speculative validators, duplicate
-safety gates or large recovery scripts without a concrete risk they uniquely
-cover.
-
-Before a routine documentation commit, the normal local maximum is the minimal
-content edit plus `git diff --check`. Commit and push immediately, **do not
-wait for or poll the automatically triggered CI**, and reuse accepted product
-evidence. Require complete CI only when the exact candidate is about to be
-merged to `main`.
+**Documentation and evidence reuse:**
+- Documentation-only changes do **not** trigger a daemon rebuild, fresh
+  runtime/hardware acceptance, CI polling/waiting or a new commit merely
+  to obtain a green check. Commit, inspect and report the actual docs
+  change, then proceed with remaining authorized work. GitHub Actions may
+  run automatically; full CI is evaluated at its actual final-head gate.
+- Reuse accepted CI, builds, runtime checks and immutable fingerprints
+  until a *relevant input* changes. A new chat, unrelated commit or docs
+  update alone is not a reason to repeat verification.
+- Use the local yaVDR host for evidence GitHub cannot supply: installed
+  binary, service, real configuration, database integrity and controlled
+  live-VDR acceptance. Do not repeat recorded runtime acceptance merely
+  because documentation changed.
+- Never introduce speculative validators, duplicate safety gates, large
+  recovery scripts or repeated CI polling. Status documentation and
+  closeout notes should be updated at a meaningful product milestone
+  rather than repeatedly blocking productive changes.
 
 ## Branch and pull-request safety
 
