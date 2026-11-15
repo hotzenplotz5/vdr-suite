@@ -4,8 +4,10 @@
 # No Launchpad upload, runtime activation, migration or live-host operation.
 set -euo pipefail
 
-series="${1:?usage: check_published_media_tools_ppa.sh noble|resolute}"
+series="${1:?usage: check_published_media_tools_ppa.sh noble|resolute [vdr-suite|vdr-suite-daily]}"
+archive="${2:-vdr-suite}"
 case "$series" in noble|resolute) ;; *) printf 'MT_I43_SERIES=INVALID\n' >&2; exit 1 ;; esac
+case "$archive" in vdr-suite|vdr-suite-daily) ;; *) printf 'MT_I43_PPA_ARCHIVE=INVALID\n' >&2; exit 1 ;; esac
 test "$(. /etc/os-release; printf '%s' "$VERSION_CODENAME")" = "$series"
 test "$(dpkg --print-architecture)" = amd64
 
@@ -21,7 +23,7 @@ test -n "$candidate" && test "$candidate" != '(none)' || {
 # A PPA offering only an older version must not validate a foreign candidate.
 printf '%s\n' "$policy" | awk \
   -v candidate="$candidate" \
-  -v origin="ppa.launchpadcontent.net/hotzenplotz5/vdr-suite/ubuntu" \
+  -v origin="ppa.launchpadcontent.net/hotzenplotz5/$archive/ubuntu" \
   -v series="$series" '
     $1 == "***" && $3 ~ /^[0-9]+$/ { active=($2 == candidate); next }
     $2 ~ /^[0-9]+$/ && $1 != "Candidate:" { active=($1 == candidate); next }
@@ -66,4 +68,4 @@ for worker in /usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-*; do
     exit 1
   fi
 done
-echo "MT_I43_PUBLISHED_PPA_APT=PASS series=$series version=$candidate"
+echo "MT_I43_PUBLISHED_PPA_APT=PASS series=$series archive=$archive version=$candidate"

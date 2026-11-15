@@ -17,7 +17,7 @@ APT_CACHE = """#!/usr/bin/env python3
 import os
 version = os.environ['MOCK_VERSION']
 candidate = '(none)' if os.environ.get('MOCK_MISSING') == '1' else version
-origin = 'ppa.launchpadcontent.net/hotzenplotz5/vdr-suite/ubuntu'
+origin = 'ppa.launchpadcontent.net/hotzenplotz5/' + os.environ['MOCK_ARCHIVE'] + '/ubuntu'
 if os.environ.get('MOCK_WRONG_ORIGIN') == '1':
     origin = 'example.invalid/not-the-vdr-suite-ppa'
 print('vdr-suite-addon-media-tools:')
@@ -65,7 +65,7 @@ class PpaPreflightContract(unittest.TestCase):
         if 'VERSION_CODENAME=noble' not in os_release:
             raise unittest.SkipTest("preflight shell fixture runs on Ubuntu 24.04 Noble CI")
 
-    def run_mock(self, **switches):
+    def run_mock(self, archive="vdr-suite", **switches):
         with tempfile.TemporaryDirectory(prefix="mt-i43-preflight-") as tmp:
             root = Path(tmp)
             bindir = root / "bin"
@@ -83,11 +83,12 @@ class PpaPreflightContract(unittest.TestCase):
             env.update({
                 "PATH": str(bindir) + os.pathsep + env["PATH"],
                 "MOCK_VERSION": VERSION,
+                "MOCK_ARCHIVE": archive,
                 "MOCK_APT_CALLS": str(calls),
             })
             env.update(switches)
             result = subprocess.run(
-                ["bash", str(SCRIPT), "noble"],
+                ["bash", str(SCRIPT), "noble", archive],
                 cwd=SCRIPT.parent.parent.parent,
                 env=env,
                 text=True,
@@ -132,6 +133,18 @@ class PpaPreflightContract(unittest.TestCase):
         self.assertEqual(result.returncode, 79, result.stdout + result.stderr)
         self.assertIn("vdr-suite-addon-media-tools=" + VERSION, calls)
         self.assertNotIn("MT_I43_PUBLISHED_PPA_APT=PASS", result.stdout)
+
+    def test_daily_candidate_reaches_simulation_without_install(self):
+        result, calls = self.run_mock(archive="vdr-suite-daily")
+        self.assertEqual(result.returncode, 79, result.stdout + result.stderr)
+        self.assertIn("vdr-suite-addon-media-tools=" + VERSION, calls)
+        self.assertNotIn("MT_I43_PUBLISHED_PPA_APT=PASS", result.stdout)
+
+    def test_daily_archive_rejects_regular_ppa_candidate(self):
+        result, calls = self.run_mock(archive="vdr-suite-daily", MOCK_ARCHIVE="vdr-suite")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("MT_I43_CANDIDATE_PPA_ORIGIN=INVALID", result.stderr)
+        self.assertEqual(calls, "")
 
 
 if __name__ == "__main__":

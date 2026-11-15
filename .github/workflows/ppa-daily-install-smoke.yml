@@ -20,6 +20,11 @@ on:
         required: true
         type: string
         default: "202610181549"
+      verify_media_tools:
+        description: "Also validate the fourth Media Tools package if published in the Daily PPA"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -237,3 +242,16 @@ jobs:
           stop_daemon
           echo "DAILY_DAEMON_HTTP_RESTART=PASS series=$SERIES"
           echo "DAILY_SUITE_AND_WEB_COMBINED_ACCEPTANCE=PASS series=$SERIES"
+
+      # Separate opt-in: the existing Daily three-package/HbbTV acceptance is unchanged.
+      # A published fourth package is required; no upload or daily recipe build is triggered.
+      - name: Check out Media Tools published-package verifier
+        if: ${{ inputs.verify_media_tools }}
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify fourth published Daily Media Tools package
+        if: ${{ inputs.verify_media_tools }}
+        shell: bash
+        run: |
+          bash tools/addons/check_published_media_tools_ppa.sh "$SERIES" vdr-suite-daily
