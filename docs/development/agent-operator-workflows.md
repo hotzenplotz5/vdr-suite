@@ -248,6 +248,10 @@ fi
 
 ## Bezug zu den zehn Agenten-Regressionsfällen
 
+Die [konkreten Evaluationsaufgaben mit PASS-/FAIL-Kriterien](agent-regression-evaluation.md)
+prüfen, ob der Agent diese Abläufe in einer simulierten Situation tatsächlich
+anwendet; sie ersetzen keinen Produkt- oder Live-VDR-Test.
+
 - [ARS-01 und ARS-02](agent-regression-scenarios.md):
   Fix + sofortiger Updateblock; Problem + sofortiger Diagnoseblock.
 - ARS-03/04/05: vorhandene Root-Shell, Build-Wiederverwendung, kein
