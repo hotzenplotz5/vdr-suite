@@ -218,6 +218,13 @@ printf '%s: %s\n' "$owner" "$target"
             shutil.move(str(target), str(saved))
         for rel in all_paths:
             (self.root / rel).unlink()
+        # An unmanaged manually deployed web subtree can leave EMPTY
+        # directories behind. P8 correctly refuses those unowned children
+        # when Add-on precedes Daemon; this fixture explicitly retires only
+        # the known empty manual subtree, never any real host directory.
+        for rel in ("usr/share/vdr-suite/web/frontend",
+                    "usr/share/vdr-suite/web"):
+            (self.root / rel).rmdir()
 
         # APT clean-host co-install was proved separately under Noble and
         # Resolute. Here we force the harder ordering: add-on before daemon
