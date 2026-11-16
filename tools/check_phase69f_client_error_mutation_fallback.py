@@ -65,12 +65,6 @@ mutation_contracts = (
         "/api/searchtimers/execute",
     ),
     (
-        "fetchClientSearchTimerCreateAction",
-        "fetchClientSearchTimerUpdateAction",
-        "/api/vdr/searchtimers",
-        "/api/searchtimers",
-    ),
-    (
         "fetchClientSearchTimerUpdateAction",
         "fetchClientSearchTimerDeleteAction",
         "/api/vdr/searchtimers/update",
@@ -89,6 +83,28 @@ for function_name, next_name, primary_route, alternate_route in mutation_contrac
     require("requestJson(" in body and primary_route in body, f"{function_name} primary route drifted")
     require("requestJsonWithFallback" not in body, f"{function_name} restored mutation fallback")
     require(alternate_route not in body, f"{function_name} restored alternate mutation dispatch")
+
+# ST.V1 supersedes the legacy Browser CREATE with a single Public-v1
+# admission. Keep JSON, CSRF and idempotency, and never re-dispatch on error.
+create_staged = function_body(client_api,
+    "fetchClientSearchTimerCreateStaged",
+    "fetchClientSearchTimerCreateAction")
+require(
+    "requestJson(" in create_staged
+    and "'/api/v1/search-timers'" in create_staged
+    and "queryMutationOptions(jsonPostOptions(" in create_staged
+    and "'Idempotency-Key'" in create_staged,
+    "SearchTimer CREATE must remain an idempotent CSRF-bound Public-v1 POST",
+)
+create_action = function_body(client_api,
+    "fetchClientSearchTimerCreateAction",
+    "fetchClientSearchTimerOperation")
+require(
+    "return fetchClientSearchTimerCreateStaged(options)" in create_action
+    and "requestJson(" not in create_action
+    and "requestJsonWithFallback" not in create_action,
+    "SearchTimer Browser CREATE must delegate once without a fallback",
+)
 
 # The first 69.F slice does not own later removal of read/query fallback debt.
 # Successor 69.F slices may retire compatibility helpers once their semantics are
