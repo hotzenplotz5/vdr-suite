@@ -105,6 +105,11 @@ public:
     MutationOperationRepositoryResult findById(
         const std::string& operationId);
 
+    // Existing media.import batch ordering, with a durable predecessor
+    // success fence and deadline. No second operation queue or dispatcher.
+    std::vector<std::string> listReadyMediaImportBatchIds(
+        std::int64_t now) const;
+
     // Bounded lifecycle discovery for productive runtime owners. This is a
     // read of the existing MutationOperation authority, not a scheduling or
     // retry queue. Callers select the exact action family and states they own.

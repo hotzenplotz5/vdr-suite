@@ -399,14 +399,38 @@ int main()
             ++createCalls;
             assert(request.actorRef == "actor:test");
             assert(request.backendId == "one");
-            assert(request.idempotencyKey == "test-create-unique-1");
-            assert(request.name == "Terra X");
-            assert(request.query == "Terra X");
-            assert(!request.active);
-            assert(request.mode == 1);
-            assert(request.compareTitle);
-            assert(!request.compareSubtitle);
-            assert(request.compareSummary);
+            if (request.idempotencyKey == "test-create-unique-1")
+            {
+                assert(request.name == "Terra X");
+                assert(request.query == "Terra X");
+                assert(!request.active);
+                assert(request.mode == 1);
+                assert(request.compareTitle);
+                assert(!request.compareSubtitle);
+                assert(request.compareSummary);
+            }
+            else
+            {
+                assert(request.idempotencyKey == "test-create-unique-2");
+                assert(request.name == "Tatort");
+                assert(request.query == "Tatort");
+                assert(request.active);
+                assert(request.mode == 4);
+                assert(request.priority == 60);
+                assert(request.useChannel == 2);
+                assert(request.channels == "Öffentlich");
+                assert(request.useTime);
+                assert(request.startTime == 930);
+                assert(request.stopTime == 1130);
+                assert(request.avoidRepeats);
+                assert(request.allowedRepeats == 2);
+                assert(request.useVps);
+                assert(request.useSeriesRecording);
+                assert(request.blacklistIds == "4,5");
+                assert(request.extendedEpgInfo == "genre=movie");
+                assert(request.hasMarginStartMinutes);
+                assert(request.marginStartMinutes == 0);
+            }
             PublicSearchTimerCreateResult result;
             result.status = PublicSearchTimerCreateStatus::accepted;
             result.operation.operationId =
@@ -431,18 +455,58 @@ int main()
     assert(acceptedSearch.body.find("\"state\":\"succeeded\"") !=
         std::string::npos);
     assert(createCalls == 1);
+    const std::string activeBody =
+        "{\"name\":\"Tatort\",\"query\":\"Tatort\","
+        "\"active\":true,\"confirmed\":true,\"mode\":4,"
+        "\"compareTitle\":true,\"compareSubtitle\":false,"
+        "\"compareSummary\":false,\"priority\":60,"
+        "\"useChannel\":2,\"channels\":\"Öffentlich\","
+        "\"useTime\":true,\"startTime\":930,\"stopTime\":1130,"
+        "\"avoidRepeats\":true,\"allowedRepeats\":2,"
+        "\"useVps\":true,\"useSeriesRecording\":true,"
+        "\"blacklistIds\":\"4,5\","
+        "\"extendedEpgInfo\":\"genre=movie\","
+        "\"marginStartMinutes\":0}";
+    ApiResponse activeResult;
+    assert(runtime.tryHandlePost(
+        "/api/v1/search-timers?backend=one",
+        "st-active", "", activeResult, activeBody, "actor:test",
+        "", "test-create-unique-2", "application/json", "one"));
+    assert(activeResult.statusCode == 202);
+    assert(createCalls == 2);
     for (const std::string& malformed : {
         // Omitting active used to activate every matching EPG event.
         std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
             "\"confirmed\":true,\"mode\":1,\"compareTitle\":true,"
             "\"compareSubtitle\":false,\"compareSummary\":true}"),
         std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
-            "\"active\":true,\"confirmed\":true,\"mode\":1,"
+            "\"active\":\"yes\",\"confirmed\":true,\"mode\":1,"
             "\"compareTitle\":true,\"compareSubtitle\":false,"
             "\"compareSummary\":true}"),
         std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
             "\"active\":false,\"confirmed\":false,\"mode\":1,\"compareTitle\":true,"
             "\"compareSubtitle\":false,\"compareSummary\":true}"),
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"active\":true,\"confirmed\":true,\"mode\":1,"
+            "\"compareTitle\":true,\"compareSubtitle\":false,"
+            "\"compareSummary\":true,\"useChannel\":4}"),
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"active\":true,\"confirmed\":true,\"mode\":1,"
+            "\"compareTitle\":true,\"compareSubtitle\":false,"
+            "\"compareSummary\":true,\"priority\":\"50\"}"),
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"active\":true,\"confirmed\":true,\"mode\":1,"
+            "\"compareTitle\":true,\"compareSubtitle\":false,"
+            "\"compareSummary\":true,\"useTime\":true,"
+            "\"startTime\":2460,\"stopTime\":2330}"),
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"active\":true,\"confirmed\":true,\"mode\":1,"
+            "\"compareTitle\":true,\"compareSubtitle\":false,"
+            "\"compareSummary\":true,\"marginStopMinutes\":-1}"),
+        std::string("{\"name\":\"Terra X\",\"query\":\"Terra X\","
+            "\"active\":true,\"confirmed\":true,\"mode\":1,"
+            "\"compareTitle\":true,\"compareSubtitle\":false,"
+            "\"compareSummary\":true,\"priority\":999999999999999999999999}"),
         std::string("{\"name\":\"Fremder Anzeigename\","
             "\"query\":\"Terra X\",\"active\":false,\"confirmed\":true,"
             "\"mode\":1,\"compareTitle\":true,\"compareSubtitle\":false,"
@@ -464,7 +528,7 @@ int main()
             "", "test-create-unique-1", "application/json", "one"));
         assert(denied.statusCode == 422);
     }
-    assert(createCalls == 1);
+    assert(createCalls == 2);
     runtime.resetSearchTimerCreate();
     ApiResponse searchDelete;
     assert(runtime.tryHandleUnsupportedMethod(

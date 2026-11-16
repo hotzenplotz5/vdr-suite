@@ -14,7 +14,7 @@ import tempfile
 import unittest
 
 REPO = Path(__file__).resolve().parents[2]
-DAEMON = REPO / "core/daemon/src/DaemonRuntime.cpp"
+SCHEDULER = REPO / "core/operations/src/MutationOperationRepository.cpp"
 ASSIGNMENT = REPO / "core/agent/src/BackendAgentMediaImportAssignment.cpp"
 OPERATIONS = REPO / "core/operations/src/MutationOperationRepository.cpp"
 
@@ -32,9 +32,9 @@ def joined_cpp_literals(expression: str) -> str:
 
 
 def production_schedule_sql() -> str:
-    code = DAEMON.read_text(encoding="utf-8")
-    method = code.split("void DaemonRuntime::progressDurableMediaImportBatches()", 1)[1]
-    method = method.split("void DaemonRuntime::pollScheduledMediaImport()", 1)[0]
+    code = SCHEDULER.read_text(encoding="utf-8")
+    method = code.split("MutationOperationRepository::listReadyMediaImportBatchIds(", 1)[1]
+    method = method.split("MutationOperationRepository::listByActionFamilyAndStates(", 1)[0]
     # Keep the 32-hex/three-digit filter aligned with the query's C++ builder.
     assert 'std::string("mb1_")' in method
     assert "std::string(32U, '@')" in method

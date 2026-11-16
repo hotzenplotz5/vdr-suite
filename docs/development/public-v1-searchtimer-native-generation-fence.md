@@ -15,10 +15,17 @@ identity of a native rule that was removed and recreated identically
 
 ## Implemented Public-v1 safety boundary (source; hardware acceptance pending)
 
-- `POST /api/v1/search-timers?backend=<id>` requires explicit `active:false`,
-  `confirmed:true`, a scoped Device `searchtimers.create` grant, and a
-  durable, idempotent single-attempt CREATE. Missing or active state is 422.
-  Historical queued active CREATE operations fail before dispatch.
+- `POST /api/v1/search-timers?backend=<id>` now accepts explicit
+  `active:true` or `active:false`, `confirmed:true`, and the complete
+  epgsearch CREATE field set through one durable Public-v1 operation.
+  An authorized Browser session requires existing CSRF and CREATE grants;
+  a verified Device requires the independent scoped `searchtimers.create`
+  grant. Missing or untyped active state is HTTP 422. The immutable v3
+  operation retains full settings and a native pre/post provider inventory
+  verifies the unique new rule. This is branch `MLD-Suchtimer` source work;
+  compiled integration and real VDR/MLD acceptance remain outstanding.
+  Activation of a *previously created* SearchTimer still requires the
+  separate native-generation-fenced mutation below.
 - `GET /api/v1/search-timers/{searchTimerId}/version?backend=<id>`
   reads a native durable `sr_` revision as a strong ETag, only for the
   exact authorized Device/backend. The native `sg_` generation and numeric

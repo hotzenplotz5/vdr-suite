@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 class Database;
 namespace vdrsuite::operations { class MutationOperationRepository; }
@@ -41,6 +43,11 @@ public:
         Database& database,
         vdrsuite::operations::MutationOperationRepository& operations);
     bool ensureSchema();
+
+    // Bounded, read-only recovery candidates from the existing stage/review
+    // join. The caller still checks the full immutable Stage payload.
+    std::vector<std::string> listAutoPublishStageOperationIds(
+        std::size_t limit) const;
 
     // Exact successful stage Operation required. Its opaque resultReference
     // must equal reviewId; no path or worker-selected authorization is stored.

@@ -249,6 +249,7 @@ DAEMON_SRC := \
         core/daemon/src/DaemonRuntimeSignal.cpp \
         core/daemon/src/RecordingMediaHttpRuntime.cpp \
         core/daemon/src/DaemonRuntime.cpp \
+        core/daemon/src/DaemonRuntimeMediaTools.cpp \
         core/daemon/src/DaemonApp.cpp \
         api/rest/src/SearchTimerCreateRequestParser.cpp \
         api/rest/src/SearchTimerUpdateRequestParser.cpp \

@@ -69,8 +69,7 @@ searchtimer_contracts = (
     ("fetchClientSearchTimerPlan", "fetchClientSearchTimerValidate", "/api/vdr/searchtimers/plan", "/api/searchtimers/plan"),
     ("fetchClientSearchTimerValidate", "fetchClientSearchTimerExecute", "/api/vdr/searchtimers/validate", "/api/searchtimers/validate"),
     ("fetchClientSearchTimerExecute", "fetchClientSearchTimerRealTest", "/api/vdr/searchtimers/execute", "/api/searchtimers/execute"),
-    ("fetchClientSearchTimerRealTest", "fetchClientSearchTimerCreateAction", "/api/vdr/searchtimers/real-test", "/api/searchtimers/real-test"),
-    ("fetchClientSearchTimerCreateAction", "fetchClientSearchTimerUpdateAction", "/api/vdr/searchtimers", "/api/searchtimers"),
+    ("fetchClientSearchTimerRealTest", "fetchClientSearchTimerCreateStaged", "/api/vdr/searchtimers/real-test", "/api/searchtimers/real-test"),
     ("fetchClientSearchTimerUpdateAction", "fetchClientSearchTimerDeleteAction", "/api/vdr/searchtimers/update", "/api/searchtimers/update"),
 )
 for function_name, next_name, primary_route, alternate_route in searchtimer_contracts:
@@ -87,6 +86,39 @@ for function_name, next_name, primary_route, alternate_route in searchtimer_cont
         alternate_route not in body,
         f"{function_name} restored alternate SearchTimer alias probing",
     )
+
+# SearchTimer CREATE intentionally migrated to one reviewed Public-v1 route.
+# The Browser action delegates instead of probing any legacy alias.
+create_staged = function_body(
+    client_api, "fetchClientSearchTimerCreateStaged",
+    "fetchClientSearchTimerCreateAction",
+)
+require(
+    "requestJson(" in create_staged
+    and "'/api/v1/search-timers'" in create_staged
+    and "'Idempotency-Key'" in create_staged
+    and "queryMutationOptions(" in create_staged,
+    "SearchTimer CREATE must use the guarded Public-v1 admission",
+)
+create_action = function_body(
+    client_api, "fetchClientSearchTimerCreateAction",
+    "fetchClientSearchTimerOperation",
+)
+require(
+    "return fetchClientSearchTimerCreateStaged(options)" in create_action
+    and "requestJson(" not in create_action
+    and "requestJsonWithFallback" not in create_action,
+    "Browser CREATE must delegate once to the reviewed v1 route",
+)
+operation_get = function_body(
+    client_api, "fetchClientSearchTimerOperation",
+    "fetchClientSearchTimerUpdateAction",
+)
+require(
+    "requestJson('/api/v1/operations/' + encodeURIComponent(id)" in operation_get
+    and "requestJsonWithFallback" not in operation_get,
+    "Browser SearchTimer Operation GET must not probe legacy aliases",
+)
 
 delete_body = function_body(client_api, "fetchClientSearchTimerDeleteAction", None)
 require(

@@ -621,6 +621,52 @@ MutationOperationRepositoryResult MutationOperationRepository::findById(
         : statusResult(MutationOperationRepositoryStatus::notFound);
 }
 
+std::vector<std::string>
+MutationOperationRepository::listReadyMediaImportBatchIds(
+    std::int64_t seconds) const
+{
+    if (seconds <= 0) return {};
+    auto lease = database_.acquireTransactionLease();
+    const std::string pattern = std::string("mb1_") +
+        std::string(32U, '@') + "_[0-9][0-9][0-9]";
+    std::string glob;
+    for (char ch : pattern)
+        glob += ch == '@' ? "[0-9a-f]" : std::string(1U, ch);
+    const char* sql =
+        "SELECT m.operation_id FROM mutation_operations m "
+        "WHERE m.action_family='media.import' AND m.state='accepted' "
+        "AND m.idempotency_key GLOB ? AND m.deadline>? "
+        "AND NOT EXISTS("
+        "SELECT 1 FROM mutation_operations p "
+        "WHERE p.actor_id=m.actor_id AND p.backend_id=m.backend_id "
+        "AND p.action_family='media.import' "
+        "AND substr(p.idempotency_key,1,37)=substr(m.idempotency_key,1,37) "
+        "AND p.idempotency_key<m.idempotency_key "
+        "AND p.state!='succeeded') "
+        "ORDER BY m.requested_at,m.idempotency_key LIMIT 8;";
+    sqlite3_stmt* statement = nullptr;
+    if (sqlite3_prepare_v2(database_.handle(), sql, -1, &statement, nullptr)
+            != SQLITE_OK ||
+        !bindText(statement, 1, glob) ||
+        !bindInt64(statement, 2, seconds)) {
+        if (statement) sqlite3_finalize(statement);
+        return {};
+    }
+    std::vector<std::string> ready;
+    for (;;) {
+        const int step = sqlite3_step(statement);
+        if (step == SQLITE_DONE) break;
+        if (step != SQLITE_ROW) {
+            ready.clear();
+            break;
+        }
+        const std::string id = columnText(statement, 0);
+        if (!id.empty()) ready.push_back(id);
+    }
+    sqlite3_finalize(statement);
+    return ready;
+}
+
 MutationOperationRepositoryListResult
 MutationOperationRepository::listByActionFamilyAndStates(
     const std::string& actionFamily,

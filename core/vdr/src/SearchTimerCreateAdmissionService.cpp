@@ -17,7 +17,7 @@ constexpr const char* kPayloadType = "searchtimer.create";
 constexpr const char* kExpectedRevision = "new";
 // Version 1 lacked backend-owned margins; never dispatch an old
 // accepted rule with a silently assumed zero-minute margin.
-constexpr std::uint32_t kPayloadVersion = 2U;
+constexpr std::uint32_t kPayloadVersion = 3U;
 
 bool boundedPrintableAscii(const std::string& value, std::size_t max)
 {

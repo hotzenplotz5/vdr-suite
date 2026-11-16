@@ -376,15 +376,21 @@ assert.ok(
   source.includes('fetchClientSearchTimerPreview')
 );
 assert.ok(
-  source.includes('fetchClientSearchTimerCreateAction')
+  source.includes('fetchClientSearchTimerCreateStaged')
 );
-assert.ok(source.includes('fetchClientSearchTimerCreateStaged'));
+// The full Browser editor uses Public-v1 admission, never a legacy writer.
+assert.ok(!source.includes('api.fetchClientSearchTimerCreateAction({'));
 assert.strictEqual(api.stagedCreateValidation({
   query: 'Terra X', mode: 1, tolerance: 0,
   compareTitle: true, compareSubtitle: false, compareSummary: false
 }).length, 0);
-assert.ok(api.stagedCreateValidation({
+// Public-v1 supports native epgsearch regular expressions (mode 4).
+assert.strictEqual(api.stagedCreateValidation({
   query: 'Terra X', mode: 4, tolerance: 0,
+  compareTitle: true, compareSubtitle: false, compareSummary: false
+}).length, 0);
+assert.ok(api.stagedCreateValidation({
+  query: 'Terra X', mode: 6, tolerance: 0,
   compareTitle: true, compareSubtitle: false, compareSummary: false
 }).length > 0);
 assert.ok(api.stagedCreateValidation({
@@ -425,4 +431,289 @@ assert.ok(source.includes(
 // caller-must-not-override are now exercised by the focused
 // test_searchtimer_maintenance_security_runtime.js contract.
 
-console.log('test_searchtimer_workflows_runtime passed');
+// F1.3 browser form E2E: active full-provider CREATE, native-ID readback,
+// selected backend, and no duplicate writes even on an ambiguous result.
+class FormElement {
+  constructor(tag) {
+    this.tagName = String(tag).toUpperCase();
+    this.children = [];
+    this.dataset = {};
+    this.style = {};
+    this.listeners = {};
+    this.className = '';
+    this.textContent = '';
+    this.value = '';
+    this.checked = false;
+    this.disabled = false;
+    this.type = '';
+    this.name = '';
+    this.hidden = false;
+  }
+  appendChild(child) {
+    this.children.push(child);
+    child.parentElement = this;
+    return child;
+  }
+  replaceChildren(...children) {
+    this.children = [];
+    children.forEach(child => this.appendChild(child));
+  }
+  addEventListener(name, handler) { this.listeners[name] = handler; }
+  setAttribute(name, value) { this[name] = value; }
+  get elements() {
+    const controls = {};
+    function visit(current) {
+      if (current.name) controls[current.name] = current;
+      current.children.forEach(visit);
+    }
+    visit(this);
+    return controls;
+  }
+}
+function findForm(node) {
+  if (node.tagName === 'FORM') return node;
+  for (const child of node.children) {
+    const found = findForm(child);
+    if (found) return found;
+  }
+  return null;
+}
+async function checkEditorFullWrites() {
+  const mount = new FormElement('main');
+  const document = {
+    head: new FormElement('head'),
+    createElement(tag) { return new FormElement(tag); },
+    getElementById() { return null; }
+  };
+  const writes = [];
+  const operationReads = [];
+  const eventStreams = [];
+  let operationReadState = 'outcome_unknown';
+  class FakeEventSource {
+    constructor(url, options) {
+      this.url = url;
+      this.options = options;
+      this.listeners = {};
+      this.closed = false;
+      eventStreams.push(this);
+    }
+    addEventListener(name, callback) { this.listeners[name] = callback; }
+    emit(name, payload) {
+      if (this.listeners[name])
+        this.listeners[name]({data: JSON.stringify(payload)});
+    }
+    close() { this.closed = true; }
+  }
+  let state = 'succeeded';
+  let rejectCreate = false;
+  let keyCounter = 0;
+  const browser = {
+    setTimeout() {},
+    confirm() { return true; },
+    crypto: {
+      getRandomValues(bytes) {
+        keyCounter++;
+        bytes.fill(keyCounter);
+        return bytes;
+      }
+    }
+  };
+  const client = {
+    createClientOperationUpdateSource(operationId) {
+      assert(/^op_[0-9a-f]{32}$/.test(operationId));
+      return new FakeEventSource(
+        '/api/v1/operations/' + encodeURIComponent(operationId) + '/events',
+        {withCredentials: true});
+    },
+    fetchClientSearchTimerCreateStaged(options) {
+      writes.push(options);
+      if (rejectCreate === 'validation') {
+        return Promise.reject(Object.assign(new Error('validation_error status=422'),
+          {status: 422, code: 'validation_error'}));
+      }
+      if (rejectCreate === 'network') {
+        return Promise.reject(new Error('network disconnected after POST'));
+      }
+      return Promise.resolve({
+        operationId: 'op_' + writes.length.toString(16).padStart(32, '0'),
+        backendId: options.backend,
+        state
+      });
+    },
+    fetchClientSearchTimerOperation(options) {
+      operationReads.push(options.operationId);
+      return Promise.resolve({
+        operationId: options.operationId, backendId: 'living-room',
+        state: operationReadState
+      });
+    }
+  };
+  vm.runInNewContext(source, {
+    window: browser, document, Promise, Object, Array, Boolean, Number,
+    Date, String, Set, Math, JSON, Uint8Array
+  }, {filename: sourcePath});
+  const mod = browser.VdrSuiteSearchTimerBrowser;
+  mod.configureContext({
+    detailDataElement: mount,
+    clientApi: client,
+    getSelectedBackendId() { return 'living-room'; }
+  });
+  mod.renderList({searchTimers: []});
+  const form = findForm(mount);
+  assert(form);
+  assert(form.elements.active);
+  assert(form.elements.priority);
+  assert(form.elements.useTime);
+  assert(form.elements.channelFilterMode);
+  assert(form.elements.useExtendedEpgInfo);
+  assert(form.elements.deleteMode);
+  form.elements.query.value = 'Tatort';
+  form.elements.priority.value = '50';
+  form.elements.active.checked = true;
+  form.elements.useTime.checked = true;
+  form.elements.startTime.value = '930';
+  form.elements.stopTime.value = '1130';
+  form.elements.useDayOfWeek.checked = true;
+  form.elements.dayOfWeek.value = '31';
+  form.elements.manualUseChannel.value = '2';
+  form.elements.manualChannels.value = 'ARD';
+  form.elements.useDuration.checked = true;
+  form.elements.durationMinMinutes.value = '35';
+  form.elements.durationMaxMinutes.value = '100';
+  form.elements.avoidRepeats.checked = true;
+  form.elements.allowedRepeats.value = '1';
+  form.elements.blacklistMode.value = '2';
+  form.elements.blacklistIds.value = '4, 5';
+  form.elements.useExtendedEpgInfo.checked = true;
+  form.elements.extendedEpgInfo.value = 'category=movie; actor=Jane';
+  form.listeners.submit({preventDefault() {}});
+  form.listeners.submit({preventDefault() {}});
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.strictEqual(writes.length, 1, 'one user action => one CREATE');
+  const request = writes[0];
+  assert.strictEqual(request.backend, 'living-room');
+  assert(/^search-web-[0-9a-f]{32}$/.test(request.idempotencyKey));
+  assert.strictEqual(request.payload.backendId, undefined,
+    'backend authority comes only from scoped query');
+  assert.strictEqual(request.payload.confirmed, true);
+  assert.strictEqual(request.payload.active, true);
+  assert.strictEqual(request.payload.priority, 50);
+  assert.strictEqual(request.payload.useTime, true);
+  assert.strictEqual(request.payload.startTime, 930);
+  assert.strictEqual(request.payload.stopTime, 1130);
+  assert.strictEqual(request.payload.dayOfWeek, 31);
+  assert.strictEqual(request.payload.useChannel, 2);
+  assert.strictEqual(request.payload.channels, 'ARD');
+  assert.strictEqual(request.payload.durationMinMinutes, 35);
+  assert.strictEqual(request.payload.blacklistIds, '4, 5');
+  assert.strictEqual(request.payload.extendedEpgInfo,
+    'category=movie; actor=Jane');
+  assert.strictEqual(request.payload.marginStartMinutes, undefined,
+    'unset margins use live VDR defaults');
+  assert.strictEqual(request.payload.marginStopMinutes, undefined);
+  assert.strictEqual(operationReads.length, 0,
+    'succeeded means the backend already verified full readback');
+  assert.strictEqual(form.elements.active.checked, true);
+
+  // A still-unverified operation must not trigger another write.
+  mod.renderList({searchTimers: []});
+  const second = findForm(mount);
+  state = 'outcome_unknown';
+  second.elements.query.value = 'Tatort';
+  second.elements.active.checked = false;
+  second.listeners.submit({preventDefault() {}});
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.strictEqual(writes.length, 2);
+  assert.strictEqual(writes[1].payload.active, false);
+  assert.strictEqual(eventStreams.length, 1);
+  const stream = eventStreams[0];
+  assert.strictEqual(stream.url,
+    '/api/v1/operations/op_00000000000000000000000000000002/events');
+  assert.strictEqual(stream.options.withCredentials, true,
+    'Client API SSE must preserve Browser session credentials');
+  stream.emit('operation', {operationId: 'op_00000000000000000000000000000001'});
+  assert.strictEqual(operationReads.length, 0,
+    'unrelated operation hints must not read this operation');
+  // Actual SSE frames contain no state. A hello followed by completion
+  // during an in-flight GET must still read the final state.
+  stream.emit('hello', {daemonEpoch: 'test'});
+  stream.emit('operation', {
+    operationId: 'op_00000000000000000000000000000002',
+    daemonEpoch: 'test', subscriptionSequence: 1
+  });
+  for (let step = 0; step < 8; step++) await Promise.resolve();
+  assert.strictEqual(operationReads.length, 2,
+    'hello and concurrent completion hint require two GETs, no polling');
+  stream.emit('resync', {});
+  for (let step = 0; step < 6; step++) await Promise.resolve();
+  assert.strictEqual(operationReads.length, 3,
+    'resync must recover missed operation changes');
+  second.listeners.submit({preventDefault() {}});
+  assert.strictEqual(writes.length, 2);
+  // The user can inspect the exact existing operation, but not re-CREATE it.
+  function findOperationButton(node) {
+    if (node.tagName === 'BUTTON' && node.textContent === 'Anlagevorgang prüfen')
+      return node;
+    for (const child of node.children) {
+      const match = findOperationButton(child);
+      if (match) return match;
+    }
+    return null;
+  }
+  const inspect = findOperationButton(second);
+  assert(inspect && !inspect.hidden);
+  inspect.listeners.click();
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.strictEqual(operationReads.length, 4);
+  assert.strictEqual(writes.length, 2);
+
+  mod.renderList({searchTimers: []});
+  const rejected = findForm(mount);
+  rejectCreate = 'validation';
+  rejected.elements.query.value = 'Tatort';
+  rejected.elements.active.checked = true;
+  rejected.listeners.submit({preventDefault() {}});
+  await Promise.resolve();
+  await Promise.resolve();
+  const feedback = rejected.children.find(child =>
+    String(child.className).indexOf('searchtimer-feedback') === 0);
+  assert(feedback);
+  assert(feedback.textContent.includes('validation_error status=422'));
+  assert.strictEqual(writes.length, 3);
+  const retryButton = rejected.children
+    .flatMap(child => child.children)
+    .find(child => child.tagName === 'BUTTON' &&
+      child.dataset.searchtimerAction === 'save');
+  assert(retryButton && !retryButton.disabled,
+    'definite 422 rejection unlocks the submit button');
+  // The promise chain must settle through its finally handler.
+  for (let step = 0; step < 8; step++) await Promise.resolve();
+  rejectCreate = false;
+  rejected.elements.query.value = 'Tatort korrigiert';
+  rejected.listeners.submit({preventDefault() {}});
+  for (let step = 0; step < 8; step++) await Promise.resolve();
+  assert.strictEqual(writes.length, 4,
+    'user may explicitly resubmit corrected input after 422');
+
+  mod.renderList({searchTimers: []});
+  const ambiguous = findForm(mount);
+  ambiguous.elements.query.value = 'Ungewisser Tatort';
+  rejectCreate = 'network';
+  ambiguous.listeners.submit({preventDefault() {}});
+  for (let step = 0; step < 8; step++) await Promise.resolve();
+  assert.strictEqual(writes.length, 5);
+  ambiguous.listeners.submit({preventDefault() {}});
+  assert.strictEqual(writes.length, 5,
+    'ambiguous transport failure must never dispatch a second CREATE');
+}
+checkEditorFullWrites().then(function() {
+  console.log('test_searchtimer_workflows_runtime passed');
+}).catch(function(error) {
+  console.error(error);
+  process.exitCode = 1;
+});

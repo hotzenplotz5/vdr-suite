@@ -225,7 +225,7 @@ async function run() {
   );
   await verifyMutationDoesNotFallback(
     'fetchClientSearchTimerCreateAction',
-    '/api/vdr/searchtimers'
+    '/api/v1/search-timers'
   );
   await verifyMutationDoesNotFallback(
     'fetchClientSearchTimerUpdateAction',

@@ -164,14 +164,60 @@ struct PublicSearchTimerCreateRequest
     std::string idempotencyKey;
     std::string name;
     std::string query;
-    // Safe creation staging: public-v1 rules are created inactive only.
-    // Activation requires a separately fenced, future mutation workflow.
     bool active = false;
     int mode = 0;
     int tolerance = 0;
     bool compareTitle = true;
     bool compareSubtitle = false;
     bool compareSummary = false;
+    // Public-v1 options mirror the already supported epgsearch provider.
+    // Missing margins continue to use the live VDR backend defaults.
+    std::string directory;
+    int priority = 0;
+    int lifetime = 0;
+    int marginStartMinutes = 0;
+    int marginStopMinutes = 0;
+    bool useVps = false;
+    int useChannel = 0;
+    std::string channels;
+    std::string channelMin;
+    std::string channelMax;
+    bool useTime = false;
+    int startTime = 0;
+    int stopTime = 0;
+    bool useDuration = false;
+    int durationMinMinutes = 0;
+    int durationMaxMinutes = 0;
+    bool useDayOfWeek = false;
+    int dayOfWeek = 0;
+    bool avoidRepeats = false;
+    int allowedRepeats = 0;
+    int repeatsWithinDays = 0;
+    bool compareCategories = false;
+    bool compareTime = false;
+    bool useSeriesRecording = false;
+    int keepRecordings = 0;
+    int deleteMode = 0;
+    int searchTimerAction = 0;
+    int blacklistMode = 0;
+    std::string blacklistIds;
+    bool matchCase = false;
+    int summaryMatch = 0;
+    bool useExtendedEpgInfo = false;
+    std::string extendedEpgInfo;
+    bool ignoreMissingEpgCategories = false;
+    std::string contentDescriptors;
+    bool useInFavorites = false;
+    std::string activeFrom;
+    std::string activeUntil;
+    bool pauseOnRecordings = false;
+    int switchMinutesBefore = 0;
+    bool unmuteSoundOnSwitch = false;
+    int deleteRecordingsAfterDays = 0;
+    int deleteAfterCountRecordings = 0;
+    int deleteAfterDaysOfFirstRecording = 0;
+    bool hasMarginStartMinutes = false;
+    bool hasMarginStopMinutes = false;
 };
 struct PublicSearchTimerCreateResult
 {

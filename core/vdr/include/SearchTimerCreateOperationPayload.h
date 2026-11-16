@@ -1,23 +1,15 @@
 #pragma once
 
+#include "SearchTimerCreateRequest.h"
+
 #include <string>
 
-// Versioned, immutable request evidence for a future SearchTimer CREATE worker.
-// This is NOT a native recording timer and must never be dispatched
-// without an independently verified backend write policy and readback.
-struct SearchTimerCreateOperationPayload
+// Versioned, immutable request evidence for SearchTimer CREATE.
+// Share the exact provider option vocabulary rather than maintain an
+// incomplete second list of fields in this durable operation type.
+struct SearchTimerCreateOperationPayload : SearchTimerCreateRequest
 {
-    std::string name;
-    std::string query;
-    bool active = true;
-    int matchMode = 0;
-    int matchTolerance = 0;
-    bool compareTitle = true;
-    bool compareSubtitle = false;
-    bool compareSummary = false;
-    // Live settings of the selected VDR, captured at CREATE admission.
-    int marginStartMinutes = 0;
-    int marginStopMinutes = 0;
+    SearchTimerCreateOperationPayload() { compareTitle = true; }
 };
 
 bool searchTimerCreateOperationPayloadValid(
@@ -30,6 +22,5 @@ bool parseSearchTimerCreateOperationPayload(
     const std::string& serialized,
     SearchTimerCreateOperationPayload& payload);
 
-// A bounded, collision-resistant request fingerprint (sha256:<lowercase hex>).
 std::string searchTimerCreateOperationPayloadFingerprint(
     const SearchTimerCreateOperationPayload& payload);

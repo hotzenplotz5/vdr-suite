@@ -273,9 +273,10 @@
       "classification": "bounded-domain-plane",
       "publicV1Relation": "scoped-public-v1",
       "exports": [
-        "fetchClientSearchTimerCreateStaged"
+        "fetchClientSearchTimerCreateStaged",
+        "fetchClientSearchTimerOperation"
       ],
-      "note": "Browser Human administrators use the separately authorized, CSRF-bound, inactive-only Public-v1 SearchTimer CREATE with durable idempotency; legacy full-field SearchTimer mutation remains blocked."
+      "note": "Browser Human administrators use the same authorized, CSRF-bound Public-v1 SearchTimer CREATE for active or inactive rules with durable idempotency, plus the actor-bound read-only Operation GET; the independently guarded native update/delete operations remain separate."
     },
     {
       "domain": "epg-timer-create",

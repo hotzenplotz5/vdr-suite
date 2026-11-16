@@ -138,6 +138,7 @@ const detailDataElement = {
 };
 let homeResumeEvents = 0;
 let renderSelectedModuleCalls = 0;
+let homeHevcCloseCalls = 0;
 const document = {
   dispatchEvent(event) {
     if (event && event.type === 'vdr-suite:home-resume') homeResumeEvents += 1;
@@ -170,6 +171,7 @@ const context = {
   selectedModule: 'overview',
   homeResumeBackendId: '',
   renderSelectedModule() { renderSelectedModuleCalls += 1; },
+  closeHomeHevcStream() { homeHevcCloseCalls += 1; },
   // Media Import tab placement is covered by its own real-DOM composition
   // test. This isolated Phase-66 Home navigation fixture has no module-nav.
   placeMediaImportTab() {}
@@ -188,6 +190,8 @@ function brandButton(name) {
 }
 
 brandButton('recordings2').dispatch('click');
+assert.strictEqual(homeHevcCloseCalls, 1,
+  'leaving Home must stop the Home HEVC stream');
 assert(moduleTab('recordings2').classList.contains('active'));
 assert(!moduleTab('overview').classList.contains('active'));
 assert.strictEqual(detailDataScrolls, 1);

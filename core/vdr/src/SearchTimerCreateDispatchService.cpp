@@ -39,6 +39,28 @@ bool completeInventory(const SearchTimerResult& inventory)
             inventory.items().size();
 }
 
+std::string normalizedList(const std::string& text)
+{
+    std::string output, part;
+    const auto flush = [&output, &part]() {
+        const auto first = part.find_first_not_of(" \t\n\r");
+        if (first != std::string::npos)
+        {
+            const auto last = part.find_last_not_of(" \t\n\r");
+            if (!output.empty()) output += ',';
+            output += part.substr(first, last - first + 1U);
+        }
+        part.clear();
+    };
+    for (char c : text)
+    {
+        if (c == ',' || c == ';') flush();
+        else part += c;
+    }
+    flush();
+    return output;
+}
+
 bool matchesRequested(
     const SearchTimer& timer, const SearchTimerCreateRequest& request)
 {
@@ -48,32 +70,65 @@ bool matchesRequested(
         timer.query() == request.query &&
         timer.state() == (request.active
             ? SearchTimerState::Active : SearchTimerState::Inactive) &&
-        timer.matchOptions().mode() == request.matchMode &&
-        timer.matchOptions().tolerance() == request.matchTolerance &&
-        timer.comparisonOptions().compareTitle() == request.compareTitle &&
-        timer.comparisonOptions().compareSubtitle() ==
-            request.compareSubtitle &&
-        timer.comparisonOptions().compareSummary() == request.compareSummary &&
-        timer.scheduleOptions().marginStartMinutes() == request.marginStartMinutes &&
-        timer.scheduleOptions().marginStopMinutes() == request.marginStopMinutes;
+        (timer.matchOptions().mode() == request.matchMode) &&
+        (timer.matchOptions().tolerance() == request.matchTolerance) &&
+        (timer.matchOptions().matchCase() == request.matchCase) &&
+        (timer.matchOptions().summaryMatch() == request.summaryMatch) &&
+        (timer.comparisonOptions().compareTitle() == request.compareTitle) &&
+        (timer.comparisonOptions().compareSubtitle() == request.compareSubtitle) &&
+        (timer.comparisonOptions().compareSummary() == request.compareSummary) &&
+        (timer.comparisonOptions().compareCategories() == request.compareCategories) &&
+        (timer.comparisonOptions().compareTime() == request.compareTime) &&
+        (timer.scheduleOptions().marginStartMinutes() == request.marginStartMinutes) &&
+        (timer.scheduleOptions().marginStopMinutes() == request.marginStopMinutes) &&
+        (timer.scheduleOptions().useVps() == request.useVps) &&
+        (timer.recordingOptions().directory() == request.directory) &&
+        (timer.recordingOptions().priority() == request.priority) &&
+        (timer.recordingOptions().lifetime() == request.lifetime) &&
+        (timer.filterOptions().channelMode() == request.useChannel) &&
+        (timer.filterOptions().useTime() == request.useTime) &&
+        (!(request.useTime) || (timer.filterOptions().startTime() == request.startTime)) &&
+        (!(request.useTime) || (timer.filterOptions().stopTime() == request.stopTime)) &&
+        (timer.filterOptions().useDuration() == request.useDuration) &&
+        (!(request.useDuration) || (timer.filterOptions().durationMinMinutes() == request.durationMinMinutes)) &&
+        (!(request.useDuration) || (timer.filterOptions().durationMaxMinutes() == request.durationMaxMinutes)) &&
+        (timer.filterOptions().useDayOfWeek() == request.useDayOfWeek) &&
+        (!(request.useDayOfWeek) || (timer.filterOptions().dayOfWeek() == request.dayOfWeek)) &&
+        (!(request.useChannel == 2) || (timer.channelOptions().channels() == request.channels)) &&
+        (!(request.useChannel == 1) || (timer.channelOptions().channelMinId() == request.channelMin)) &&
+        (!(request.useChannel == 1) || (timer.channelOptions().channelMaxId() == request.channelMax)) &&
+        (timer.repeatOptions().avoidRepeats() == request.avoidRepeats) &&
+        (timer.repeatOptions().allowedRepeats() == request.allowedRepeats) &&
+        (timer.repeatOptions().repeatsWithinDays() == request.repeatsWithinDays) &&
+        (timer.seriesOptions().useSeriesRecording() == request.useSeriesRecording) &&
+        (timer.seriesOptions().keepRecordings() == request.keepRecordings) &&
+        (timer.seriesOptions().deleteMode() == request.deleteMode) &&
+        (timer.seriesOptions().searchTimerAction() == request.searchTimerAction) &&
+        (timer.blacklistOptions().blacklistMode() == request.blacklistMode) &&
+        (normalizedList(timer.blacklistOptions().blacklistIds()) == normalizedList(request.blacklistIds)) &&
+        (timer.extendedEpgOptions().useExtendedEpgInfo() == request.useExtendedEpgInfo) &&
+        (normalizedList(timer.extendedEpgOptions().extendedEpgInfo()) == normalizedList(request.extendedEpgInfo)) &&
+        (timer.extendedEpgOptions().ignoreMissingEpgCategories() == request.ignoreMissingEpgCategories) &&
+        (timer.extendedEpgOptions().contentDescriptors() == request.contentDescriptors) &&
+        (timer.validityOptions().useInFavorites() == request.useInFavorites) &&
+        (timer.validityOptions().activeFrom() == request.activeFrom) &&
+        (timer.validityOptions().activeUntil() == request.activeUntil) &&
+        (timer.actionOptions().pauseOnRecordings() == request.pauseOnRecordings) &&
+        (timer.actionOptions().switchMinutesBefore() == request.switchMinutesBefore) &&
+        (timer.actionOptions().unmuteSoundOnSwitch() == request.unmuteSoundOnSwitch) &&
+        (timer.actionOptions().deleteRecordingsAfterDays() == request.deleteRecordingsAfterDays) &&
+        (timer.actionOptions().deleteAfterCountRecordings() == request.deleteAfterCountRecordings) &&
+        (timer.actionOptions().deleteAfterDaysOfFirstRecording() == request.deleteAfterDaysOfFirstRecording) &&
+        true;
 }
 
 SearchTimerCreateRequest commandFor(
     const MutationOperation& operation,
     const SearchTimerCreateOperationPayload& payload)
 {
-    SearchTimerCreateRequest command;
+    SearchTimerCreateRequest command =
+        static_cast<const SearchTimerCreateRequest&>(payload);
     command.backendId = operation.backendId;
-    command.name = payload.name;
-    command.query = payload.query;
-    command.active = payload.active;
-    command.matchMode = payload.matchMode;
-    command.matchTolerance = payload.matchTolerance;
-    command.compareTitle = payload.compareTitle;
-    command.compareSubtitle = payload.compareSubtitle;
-    command.compareSummary = payload.compareSummary;
-    command.marginStartMinutes = payload.marginStartMinutes;
-    command.marginStopMinutes = payload.marginStopMinutes;
     return command;
 }
 
@@ -130,7 +185,7 @@ SearchTimerCreateDispatchResult SearchTimerCreateDispatchService::dispatchOnce(
         operation.operationId);
     SearchTimerCreateOperationPayload payload;
     if (!stored.ok() || stored.payload.payloadType != "searchtimer.create" ||
-        stored.payload.payloadVersion != 2U ||
+        stored.payload.payloadVersion != 3U ||
         !parseSearchTimerCreateOperationPayload(
             stored.payload.payload, payload) ||
         stored.payload.payloadFingerprint !=
@@ -139,22 +194,6 @@ SearchTimerCreateDispatchResult SearchTimerCreateDispatchService::dispatchOnce(
         stored.payload.payloadFingerprint !=
             operation.expectedResourceFingerprint)
         return result(SearchTimerCreateDispatchStatus::unavailable, operation);
-
-    // Previously admitted active CREATE operations can survive daemon
-    // upgrades. Reject them durably BEFORE contacting the provider, so
-    // the old operation cannot be left accepted for later execution.
-    if (payload.active)
-    {
-        const auto blocked = operations_.transition(
-            operation.operationId, operation.operationRevision,
-            MutationOperationState::accepted,
-            MutationOperationState::failedBeforeDispatch,
-            "searchtimer-active-create-disallowed", request.now);
-        return blocked.status == MutationOperationRepositoryStatus::ok
-            ? result(SearchTimerCreateDispatchStatus::denied,
-                blocked.operation)
-            : result(SearchTimerCreateDispatchStatus::unavailable, operation);
-    }
 
     // A retained accepted operation is not authority to send a POST to a
     // restarted backend. Validate live generation before the inventory read.
@@ -232,15 +271,19 @@ SearchTimerCreateDispatchResult SearchTimerCreateDispatchService::dispatchOnce(
     try { created = executor.create(command); }
     catch (...) { return unknown(locked.operation); }
 
-    // A failure or missing/old backend ID after an attempted POST is UNKNOWN,
-    // never "not created": it might have been applied before transport broke.
+    // An unsuccessful HTTP write or a returned ID that existed before
+    // the POST is ambiguous and cannot be verified as our new rule.
+    // HTTP 200 without an ID is only a provisional provider reply:
+    // the one authoritative post-write inventory must supply one new,
+    // uniquely matched native identity. No second query-only GET/POST.
+    const std::string returnedId = created.searchTimer.backendNativeId();
     if (!created.success ||
-        created.searchTimer.backendNativeId().empty() ||
-        existingIds.count(created.searchTimer.backendNativeId()) != 0U ||
+        (!returnedId.empty() && existingIds.count(returnedId) != 0U) ||
         created.searchTimer.backendId() != operation.backendId ||
         created.searchTimer.name() != payload.name ||
         created.searchTimer.query() != payload.query ||
-        created.searchTimer.isActive() != payload.active)
+        created.searchTimer.state() != (payload.active
+            ? SearchTimerState::Active : SearchTimerState::Inactive))
         return unknown(locked.operation);
 
     const auto unverified = operations_.transition(
@@ -253,26 +296,40 @@ SearchTimerCreateDispatchResult SearchTimerCreateDispatchService::dispatchOnce(
             locked.operation);
 
     bool verified = false;
+    std::string verifiedNativeId;
     try
     {
         const SearchTimerResult after =
             readback.list(SearchTimerQuery::byBackend(operation.backendId));
         if (completeInventory(after))
         {
-            int nativeIdentityCount = 0;
-            int exactMatches = 0;
+            std::unordered_set<std::string> allIds;
+            bool uniqueInventory = true;
+            int newNativeIds = 0;
+            int matchedNewIds = 0;
             for (const auto& timer : after.items())
             {
-                if (timer.backendNativeId() !=
-                    created.searchTimer.backendNativeId())
-                    continue;
-                ++nativeIdentityCount;
+                const std::string& nativeId = timer.backendNativeId();
+                if (timer.backendId() != operation.backendId ||
+                    nativeId.empty() || !allIds.insert(nativeId).second)
+                {
+                    uniqueInventory = false;
+                    break;
+                }
+                if (existingIds.count(nativeId) != 0U) continue;
+                ++newNativeIds;
                 if (matchesRequested(timer, command))
-                    ++exactMatches;
+                {
+                    ++matchedNewIds;
+                    verifiedNativeId = nativeId;
+                }
             }
-            // A repeated native ID cannot be authoritative even if just
-            // one of the duplicate rows matches the requested options.
-            verified = nativeIdentityCount == 1 && exactMatches == 1;
+            // Both an explicit returned ID and an ID-less HTTP 200 require
+            // exactly one *new* provider rule. Any competing new rule,
+            // duplicate native ID, or options mismatch remains UNKNOWN.
+            verified = uniqueInventory && newNativeIds == 1 &&
+                matchedNewIds == 1 &&
+                (returnedId.empty() || returnedId == verifiedNativeId);
         }
     }
     catch (...)
@@ -299,7 +356,7 @@ SearchTimerCreateDispatchResult SearchTimerCreateDispatchService::dispatchOnce(
         operation.operationId, unverified.operation.operationRevision,
         MutationOperationState::executedUnverified,
         MutationOperationState::succeeded,
-        "searchtimer-create-verified", request.now);
+        "searchtimer-create-verified:" + verifiedNativeId, request.now);
     if (completed.status != MutationOperationRepositoryStatus::ok)
         return result(SearchTimerCreateDispatchStatus::outcomeUnknown,
             unverified.operation);

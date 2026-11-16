@@ -692,8 +692,36 @@ int main()
     assert(outcomeAuditFailure.headers.at("X-Correlation-ID") ==
         "phase62-test-correlation");
 
-    // SearchTimer CREATE: authenticated Browser administrator may use the
-    // durable inactive-only Public-v1 path; browser CSRF is mandatory.
+    // The legacy Browser route may still pass authorization for old
+    // clients, but the runtime policy permanently prevents its write.
+    // Authorization is NOT a separate production CREATE dispatch.
+    assert(fixture.grantRepository.ensureGrant(
+        fixture.actorId, "role.admin", "*"));
+    HttpServerRequest legacySearchCreate = fixture.mutationRequest(
+        "/api/vdr/searchtimers", "default");
+    fixture.addBrowserAuthentication(legacySearchCreate, true);
+    const auto legacyAllowed = fixture.gate.evaluate(legacySearchCreate);
+    assert(legacyAllowed.allowed);
+    assert(legacyAllowed.browserAuthenticated);
+    assert(legacyAllowed.authorizationDecision.permission ==
+        "searchtimers.create");
+
+    HttpServerRequest legacyNoCsrf = fixture.mutationRequest(
+        "/api/vdr/searchtimers", "default");
+    fixture.addBrowserAuthentication(legacyNoCsrf);
+    const auto legacyCsrfRejected = fixture.gate.evaluate(legacyNoCsrf);
+    assert(!legacyCsrfRejected.allowed);
+    assert(legacyCsrfRejected.rejection.statusCode == 403);
+
+    HttpServerRequest legacyUnauthenticated = fixture.mutationRequest(
+        "/api/vdr/searchtimers", "default");
+    const auto legacyAnonRejected = fixture.gate.evaluate(
+        legacyUnauthenticated);
+    assert(!legacyAnonRejected.allowed);
+    assert(legacyAnonRejected.rejection.statusCode == 401);
+
+    // SearchTimer CREATE: an authenticated Browser administrator uses the
+    // same durable Public-v1 CREATE as a Device; browser CSRF is mandatory.
     assert(fixture.grantRepository.ensureGrant(
         fixture.actorId, "role.admin", "*"));
     HttpServerRequest browserSearchCreate = fixture.mutationRequest(

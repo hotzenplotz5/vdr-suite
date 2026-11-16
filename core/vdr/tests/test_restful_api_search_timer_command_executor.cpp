@@ -101,55 +101,22 @@ void createUsesReturnedTextIdWhenAvailable()
     assert(httpClient.requests()[0].url == "/searchtimers");
 }
 
-void createFallsBackToReadbackWhenCreateBodyHasNoId()
+void createDefersMissingNativeIdToDurableDispatcher()
 {
-    const std::string query =
-        "VDR-Suite Native Fuzzy Empty Body";
-
     HttpResponse createResponse;
     createResponse.statusCode = 200;
     createResponse.body = "";
-
-    HttpResponse readbackResponse;
-    readbackResponse.statusCode = 200;
-    readbackResponse.body =
-        "{"
-        "\"searchtimers\":["
-        "{"
-        "\"id\":41,"
-        "\"search\":\"Other SearchTimer\","
-        "\"mode\":5,"
-        "\"tolerance\":2"
-        "},"
-        "{"
-        "\"id\":42,"
-        "\"search\":\"VDR-Suite Native Fuzzy Empty Body\","
-        "\"mode\":5,"
-        "\"tolerance\":2"
-        "}"
-        "]"
-        "}";
-
-    SequencedHttpClient httpClient({
-        createResponse,
-        readbackResponse
-    });
+    SequencedHttpClient httpClient({createResponse});
     RestfulApiSearchTimerCommandExecutor executor(httpClient);
-
-    const auto result =
-        executor.create(
-            makeCreateRequest(query));
-
+    const auto result = executor.create(
+        makeCreateRequest("VDR-Suite Native Fuzzy Empty Body"));
     assert(result.success);
     assert(result.searchTimer.backendId() == "default");
-    assert(result.searchTimer.backendNativeId() == "42");
-    assert(result.searchTimer.query() == query);
-
-    assert(httpClient.requests().size() == 2);
+    assert(result.searchTimer.backendNativeId().empty());
+    // The command executor is not a second query-only readback owner.
+    assert(httpClient.requests().size() == 1);
     assert(httpClient.requests()[0].method == "POST");
     assert(httpClient.requests()[0].url == "/searchtimers");
-    assert(httpClient.requests()[1].method == "GET");
-    assert(httpClient.requests()[1].url == "/searchtimers.json");
 }
 
 void createInactiveStagingNeverEnablesNativeEpgsearchAutomation()
@@ -347,59 +314,33 @@ void updateUsesRestfulApiPostContractWithNumericIdInBody()
     assert(body.find("\"use_as_searchtimer\":1") != std::string::npos);
 }
 
-void createFailsWhenReadbackCannotFindUniqueCreatedId()
+void createNeverGuessesIdFromAmbiguousQuery()
 {
-    const std::string query =
-        "VDR-Suite Native Fuzzy Ambiguous";
-
     HttpResponse createResponse;
     createResponse.statusCode = 200;
     createResponse.body = "";
-
-    HttpResponse readbackResponse;
-    readbackResponse.statusCode = 200;
-    readbackResponse.body =
-        "{"
-        "\"searchtimers\":["
-        "{"
-        "\"id\":1,"
-        "\"search\":\"VDR-Suite Native Fuzzy Ambiguous\""
-        "},"
-        "{"
-        "\"id\":2,"
-        "\"search\":\"VDR-Suite Native Fuzzy Ambiguous\""
-        "}"
-        "]"
-        "}";
-
-    SequencedHttpClient httpClient({
-        createResponse,
-        readbackResponse
-    });
+    SequencedHttpClient httpClient({createResponse});
     RestfulApiSearchTimerCommandExecutor executor(httpClient);
-
-    const auto result =
-        executor.create(
-            makeCreateRequest(query));
-
-    assert(!result.success);
-    assert(result.message == "RESTfulAPI searchtimer create did not return an id");
-    assert(!result.errors.empty());
-    assert(httpClient.requests().size() == 2);
+    const auto result = executor.create(
+        makeCreateRequest("VDR-Suite Native Fuzzy Ambiguous"));
+    assert(result.success);
+    assert(result.searchTimer.backendNativeId().empty());
+    assert(httpClient.requests().size() == 1);
 }
+
 }
 
 int main()
 {
     createUsesReturnedTextIdWhenAvailable();
-    createFallsBackToReadbackWhenCreateBodyHasNoId();
+    createDefersMissingNativeIdToDurableDispatcher();
     createInactiveStagingNeverEnablesNativeEpgsearchAutomation();
     createMapsTitleOnlySearchFieldsToRestfulApiBody();
     createMapsSubtitleAndSummarySearchFieldsToRestfulApiBody();
     createSerializesStructuredSearchTimerOptionListsAsJsonArrays();
     updateSerializesLegacySearchTimerOptionListsAsJsonArrays();
     updateUsesRestfulApiPostContractWithNumericIdInBody();
-    createFailsWhenReadbackCannotFindUniqueCreatedId();
+    createNeverGuessesIdFromAmbiguousQuery();
 
     std::cout
         << "test_restful_api_search_timer_command_executor passed"

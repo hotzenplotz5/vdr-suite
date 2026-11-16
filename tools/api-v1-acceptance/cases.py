@@ -264,9 +264,17 @@ def controlled_contracts_offline(a):
                       shape=route + " request body")
     search_create = spec["paths"]["/api/v1/search-timers"]["post"]
     shape = search_create["requestBody"]["content"]["application/json"]["schema"]
-    bad = dict(plan[4][2], active=True)
-    a.require(not validate(bad, shape, refs),
-              "unsafe active SearchTimer creation fixture was accepted")
+    # Public API v1 supports both active and inactive epgsearch rules.
+    # The confirmed=true contract remains mandatory in either mode.
+    active = dict(plan[4][2], active=True)
+    a.require(validate(active, shape, refs),
+              "valid active SearchTimer creation fixture was rejected")
+    unconfirmed = dict(active, confirmed=False)
+    a.require(not validate(unconfirmed, shape, refs),
+              "unconfirmed SearchTimer creation fixture was accepted")
+    bad_active = dict(active, active="true")
+    a.require(not validate(bad_active, shape, refs),
+              "non-boolean active SearchTimer creation fixture was accepted")
     return "9-controlled-contract-scenarios-validated-offline"
 
 

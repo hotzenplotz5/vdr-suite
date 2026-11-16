@@ -15,6 +15,8 @@ SearchTimerRuntimeMutationPolicyExecutor::SearchTimerRuntimeMutationPolicyExecut
 SearchTimerCreateResult SearchTimerRuntimeMutationPolicyExecutor::create(
     const SearchTimerCreateRequest& request)
 {
+    // All legacy CREATE/UPDATE/DELETE routes are closed. Both Browser
+    // sessions and Devices use the single Public-v1 durable operation.
     if (!mutationAllowed_)
     {
         return SearchTimerCreateResult::failed(

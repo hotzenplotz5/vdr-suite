@@ -1143,8 +1143,11 @@ bool DaemonRuntime::initialize()
 
     if (!backendRuntimeContexts_.empty()
         && backendRuntimeContexts_.front()->searchTimerAdapter) {
+        // The legacy Browser controller has a single RESTfulAPI client:
+        // bind CREATE to its real backend rather than accepting another ID.
         searchTimerCreateService_ =
-            std::make_unique<SearchTimerCreateService>();
+            std::make_unique<SearchTimerCreateService>(
+                backendRuntimeContexts_.front()->backendId);
         searchTimerCreateResultJsonSerializer_ =
             std::make_unique<SearchTimerCreateResultJsonSerializer>();
         searchTimerCreateRequestParser_ =
@@ -1167,8 +1170,8 @@ bool DaemonRuntime::initialize()
                 *backendRuntimeContexts_.front()->httpClient);
         searchTimerRuntimeMutationPolicyExecutor_ =
             std::make_unique<SearchTimerRuntimeMutationPolicyExecutor>(
-                *searchTimerCommandExecutor_,
-                false);
+                *searchTimerCommandExecutor_, false,
+                "searchtimer runtime mutation policy gate is closed");
 
         searchTimerController_ = std::make_unique<SearchTimerController>(
             *searchTimerService_,
@@ -1186,7 +1189,7 @@ bool DaemonRuntime::initialize()
 
         std::cout << "SearchTimer controller runtime initialized" << std::endl;
         std::cout << "SearchTimer command executor runtime initialized" << std::endl;
-        std::cout << "SearchTimer runtime mutation policy executor initialized closed" << std::endl;
+        std::cout << "SearchTimer legacy CREATE/UPDATE/DELETE disabled; use Public API v1" << std::endl;
     }
     else {
         std::cout << "SearchTimer controller runtime skipped: no VDR backend configured" << std::endl;
@@ -2437,14 +2440,6 @@ bool DaemonRuntime::initialize()
         [this](const PublicSearchTimerCreateRequest& request)
         {
             PublicSearchTimerCreateResult result;
-            // Defense in depth: never admit an active SearchTimer even if a
-            // caller bypasses the public JSON parser. Activation needs its
-            // own generation-fenced workflow and explicit recording preview.
-            if (request.active)
-            {
-                result.status = PublicSearchTimerCreateStatus::invalid;
-                return result;
-            }
             if (!mutationOperationRepository_ || !backendRegistryService_ ||
                 !backendAccessPolicy_ || !backendAgentRepository_)
                 return result;
@@ -2507,6 +2502,48 @@ bool DaemonRuntime::initialize()
             input.payload.compareTitle = request.compareTitle;
             input.payload.compareSubtitle = request.compareSubtitle;
             input.payload.compareSummary = request.compareSummary;
+            input.payload.directory = request.directory;
+            input.payload.priority = request.priority;
+            input.payload.lifetime = request.lifetime;
+            input.payload.useVps = request.useVps;
+            input.payload.useChannel = request.useChannel;
+            input.payload.channels = request.channels;
+            input.payload.channelMin = request.channelMin;
+            input.payload.channelMax = request.channelMax;
+            input.payload.useTime = request.useTime;
+            input.payload.startTime = request.startTime;
+            input.payload.stopTime = request.stopTime;
+            input.payload.useDuration = request.useDuration;
+            input.payload.durationMinMinutes = request.durationMinMinutes;
+            input.payload.durationMaxMinutes = request.durationMaxMinutes;
+            input.payload.useDayOfWeek = request.useDayOfWeek;
+            input.payload.dayOfWeek = request.dayOfWeek;
+            input.payload.avoidRepeats = request.avoidRepeats;
+            input.payload.allowedRepeats = request.allowedRepeats;
+            input.payload.repeatsWithinDays = request.repeatsWithinDays;
+            input.payload.compareCategories = request.compareCategories;
+            input.payload.compareTime = request.compareTime;
+            input.payload.useSeriesRecording = request.useSeriesRecording;
+            input.payload.keepRecordings = request.keepRecordings;
+            input.payload.deleteMode = request.deleteMode;
+            input.payload.searchTimerAction = request.searchTimerAction;
+            input.payload.blacklistMode = request.blacklistMode;
+            input.payload.blacklistIds = request.blacklistIds;
+            input.payload.matchCase = request.matchCase;
+            input.payload.summaryMatch = request.summaryMatch;
+            input.payload.useExtendedEpgInfo = request.useExtendedEpgInfo;
+            input.payload.extendedEpgInfo = request.extendedEpgInfo;
+            input.payload.ignoreMissingEpgCategories = request.ignoreMissingEpgCategories;
+            input.payload.contentDescriptors = request.contentDescriptors;
+            input.payload.useInFavorites = request.useInFavorites;
+            input.payload.activeFrom = request.activeFrom;
+            input.payload.activeUntil = request.activeUntil;
+            input.payload.pauseOnRecordings = request.pauseOnRecordings;
+            input.payload.switchMinutesBefore = request.switchMinutesBefore;
+            input.payload.unmuteSoundOnSwitch = request.unmuteSoundOnSwitch;
+            input.payload.deleteRecordingsAfterDays = request.deleteRecordingsAfterDays;
+            input.payload.deleteAfterCountRecordings = request.deleteAfterCountRecordings;
+            input.payload.deleteAfterDaysOfFirstRecording = request.deleteAfterDaysOfFirstRecording;
             // epgsearch has independent defaults, so persist the live VDR
             // margins on the inactive rule before it can be activated.
             vdrsuite::agent::SuiteBridgeNativeTimerMarginsProjection margins;
@@ -2529,8 +2566,10 @@ bool DaemonRuntime::initialize()
                 result.status = PublicSearchTimerCreateStatus::backendUnavailable;
                 return result;
             }
-            input.payload.marginStartMinutes = margins.startMinutes;
-            input.payload.marginStopMinutes = margins.stopMinutes;
+            input.payload.marginStartMinutes = request.hasMarginStartMinutes
+                ? request.marginStartMinutes : margins.startMinutes;
+            input.payload.marginStopMinutes = request.hasMarginStopMinutes
+                ? request.marginStopMinutes : margins.stopMinutes;
             const auto admitted = admission.admit(input);
             if (admitted.status == SearchTimerCreateAdmissionStatus::invalid)
             {
