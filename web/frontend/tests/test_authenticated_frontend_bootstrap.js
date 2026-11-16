@@ -47,6 +47,7 @@ let sessionListener = null;
 let restoreCalls = 0;
 let backendFetches = 0;
 let detailLoads = 0;
+let closeHomeHevcStreamCalls = 0;
 let lastFetchOptions = null;
 
 const session = {
@@ -86,6 +87,9 @@ const context = {
   // Media Import's own view/session lifecycle is exercised by its composition test.
   resetMediaImportVisibility(clearSession) {
     assert.strictEqual(clearSession, true);
+  },
+  closeHomeHevcStream() {
+    closeHomeHevcStreamCalls += 1;
   },
   frontendPlatformClientApi() {
     return {
@@ -138,6 +142,8 @@ async function flush() {
     'anonymous bootstrap must not request backend content');
   assert.strictEqual(detailLoads, 0,
     'anonymous bootstrap must not enter Home/backend details');
+  assert.strictEqual(closeHomeHevcStreamCalls, 1,
+    'anonymous bootstrap must close the Home HEVC preview');
   assert.strictEqual(detailMetaElement.textContent,
     'Bitte anmelden, um VDR-Suite zu verwenden.');
   assert.strictEqual(detailDataElement.children.length, 1);
@@ -159,6 +165,8 @@ async function flush() {
     'repeated authenticated notifications must not duplicate Home bootstrap');
 
   sessionListener({authenticated: false, expiresAt: '', reason: 'logout'});
+  assert.strictEqual(closeHomeHevcStreamCalls, 2,
+    'logout must close any Home HEVC preview');
   assert.strictEqual(backendsElement.children.length, 0,
     'logout must remove visible backend choices');
   assert.strictEqual(additionalSections.children.length, 0,

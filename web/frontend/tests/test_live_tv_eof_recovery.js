@@ -7,6 +7,7 @@ const fs = require('fs');
 // An explicit HTML script would execute the same owner module twice.
 const frontendHtml = fs.readFileSync('web/frontend/index.html', 'utf8');
 const installRules = fs.readFileSync('mk/install.mk', 'utf8');
+const liveRemoteRules = fs.readFileSync('mk/live-remote.mk', 'utf8');
 const routes = fs.readFileSync('core/http/src/TestHttpServerPaths.inc', 'utf8');
 const scripts = [...frontendHtml.matchAll(/<script\b[^>]*\bsrc="\.\.\/frontend\/([^"]+)"/g)]
   .map(match => match[1]);
@@ -18,8 +19,12 @@ assert.ok(!scripts.includes('api/session-frontend-sync.js'),
   'owner must not also be loaded directly: it would run twice');
 assert.ok(routes.includes('"/frontend/channel-day-program.js", "channel-day-program.js", "application/javascript; charset=utf-8", "api/session-frontend-sync.js"'),
   'production HTTP route must bundle session owner onto channel-day-program.js');
-assert.ok(installRules.includes('web/frontend/api/session-frontend-sync.js $(DESTDIR)$(DATADIR)/web/frontend/api/session-frontend-sync.js'),
-  'runtime package must deploy the exact bundled Live session owner source');
+assert.ok(liveRemoteRules.includes('install-runtime: install-live-remote-frontend') &&
+  liveRemoteRules.includes('web/frontend/api/session-frontend-sync.js \\') &&
+  liveRemoteRules.includes('$(DESTDIR)$(DATADIR)/web/frontend/api/session-frontend-sync.js'),
+  'runtime package must compose and stage the Live session owner source');
+assert.ok(!installRules.includes('$(INSTALL) -m 0644 web/frontend/api/session-frontend-sync.js '),
+  'install-runtime must not overwrite the composed session owner with the raw source');
 
 // Test the entire shipped HTML-to-runtime asset graph, not just the new player.
 const htmlRuntimeScripts = [...frontendHtml.matchAll(/<script\b[^>]*\bsrc="\.\.\/frontend\/([^"]+)"/g)]

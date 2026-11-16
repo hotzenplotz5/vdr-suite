@@ -137,7 +137,6 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/api/account-admin-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/account-admin-client-api.js
 	$(INSTALL) -m 0644 web/frontend/api/device-admin-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/device-admin-client-api.js
 	$(INSTALL) -m 0644 web/frontend/api/genre-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/genre-client-api.js
-	$(INSTALL) -m 0644 web/frontend/api/session-frontend-sync.js $(DESTDIR)$(DATADIR)/web/frontend/api/session-frontend-sync.js
 	$(INSTALL) -m 0644 web/frontend/platform/bootstrap.js $(DESTDIR)$(DATADIR)/web/frontend/platform/bootstrap.js
 	$(INSTALL) -m 0644 web/frontend/platform/public-url.js $(DESTDIR)$(DATADIR)/web/frontend/platform/public-url.js
 	$(INSTALL) -m 0644 web/frontend/platform/i18n.js $(DESTDIR)$(DATADIR)/web/frontend/platform/i18n.js
