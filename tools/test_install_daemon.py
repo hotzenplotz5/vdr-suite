@@ -188,6 +188,43 @@ class InstallerTests(unittest.TestCase):
                     with self.assertRaisesRegex(mod.Rejected, "LEGACY_DATABASE_BACKUP_REQUIRED"):
                         mod.apply(self.root, new, args, mod.LEGACY_SOURCE, "REVIEW_REQUIRED")
 
+    def test_legacy_apply_backs_up_database_and_explicit_rollback_restores_binary(self):
+        import hashlib
+        import sqlite3
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// changed\\n")
+        binary = self._sealed_binary(new)
+        self.live.write_bytes(b"unversioned old daemon fixture")
+        before = self.live.read_bytes()
+        old_hash = hashlib.sha256(before).hexdigest()
+        database = Path(self.tmp.name) / "state.db"
+        with sqlite3.connect(database) as db:
+            db.execute("CREATE TABLE keep_me (value TEXT)")
+            db.execute("INSERT INTO keep_me VALUES ('preserved')")
+
+        args = argparse.Namespace(confirm_apply=True, live=self.live,
+            service="vdr-suite-daemon.service", legacy_live_sha256=old_hash,
+            db_review="backup",
+            db_review_reason="The original unversioned build has unknown database provenance",
+            database=database)
+        with (mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
+              mock.patch.object(mod, "INSTALL_LOCK", Path(self.tmp.name) / "lock"),
+              mock.patch.object(mod, "service_bin_identity"),
+              mock.patch.object(mod, "run", return_value=""),
+              mock.patch.object(mod.time, "sleep")):
+            mod.apply(self.root, new, args, mod.LEGACY_SOURCE, "REVIEW_REQUIRED")
+            self.assertEqual(mod.digest(self.live), mod.digest(binary))
+            directory, _, _ = mod.candidate(self.root, new)
+            self.assertEqual((directory / "previous-daemon").read_bytes(), before)
+            with sqlite3.connect(directory / "database-before.sqlite") as db:
+                self.assertEqual(db.execute(
+                    "SELECT value FROM keep_me").fetchone(), ("preserved",))
+            rollback_args = argparse.Namespace(confirm_rollback=True,
+                live=self.live, service="vdr-suite-daemon.service",
+                db_review="no-backup",
+                db_review_reason="Explicitly return to the previous daemon binary, do not restore SQLite")
+            mod.rollback(self.root, new, rollback_args, new, "NOT_REQUIRED")
+            self.assertEqual(self.live.read_bytes(), before)
+
     def test_unknown_binary_provenance_fails_closed_without_backup(self):
         new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// no schema\n")
         self.live.write_bytes(b"no embedded git version")
