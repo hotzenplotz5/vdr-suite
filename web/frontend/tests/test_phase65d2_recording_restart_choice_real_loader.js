@@ -12,7 +12,7 @@ const source = fs.readFileSync(
 const preloadCall = source.indexOf(
   "if (typeof global.loadVdrSuiteDeferredRuntime === 'function') ensureRestartChoiceRuntime()"
 );
-const firstViewFactory = source.indexOf('function createRecordingCard');
+const firstViewFactory = source.indexOf('function create(options)');
 const detailBinding = source.indexOf(
   'ensureRestartChoiceRuntime().then(function (helper)'
 );
