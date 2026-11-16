@@ -268,6 +268,9 @@ def apply(root: Path, sha: str, args: argparse.Namespace,
             require(args.database is not None, "EXPLICIT_DATABASE_PATH_REQUIRED")
     else:
         require(args.db_review is None, "DB_BACKUP_NOT_NEEDED_REVIEW_FLAG_REFUSED")
+    if prior == LEGACY_SOURCE:
+        require(args.db_review == "backup" and args.database is not None,
+                "LEGACY_DATABASE_BACKUP_REQUIRED")
     service_bin_identity(args.service, args.live)
     if prior == LEGACY_SOURCE:
         require(args.legacy_live_sha256 and
