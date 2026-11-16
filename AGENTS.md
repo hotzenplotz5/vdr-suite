@@ -1,5 +1,35 @@
 # VDR-Suite Agent and Repository Workflow Rules
 
+## Arbeitsbeginn: verbindliche Lesepflicht und Regel-Nachweis (AG-000)
+
+**Vor substantieller Repository-Entwicklung, Diagnose oder einem
+Installations-/Testblock die geltenden Regeln tatsächlich einlesen.**
+Vollständige aktuelle Root-`AGENTS.md` aus dem zutreffenden Git-Ref lesen,
+dann alle vom betroffenen Pfad geltenden untergeordneten `AGENTS.md` und
+die ausdrücklich verlinkten, für die Aufgabe relevanten Fachverträge.
+Bei bereichsübergreifenden Änderungen auch die zusätzlichen Owner-Regeln
+einbeziehen; keine Teil-Suchergebnisse als vollständige Lektüre ausgeben.
+
+- **Nachweis statt Behauptung:** Zu Beginn kurz den geprüften Repository-
+  und Branch-/Commitstand, die tatsächlich abgerufenen Regeldateien
+  und deren Blob-SHA oder geprüften Ref nennen. `GELESEN` nicht behaupten,
+  wenn der tatsächliche Abruf nicht stattgefunden hat. Nur relevante
+  Regeln für den beauftragten Slice hervorheben, keine Abschrift aller Regeln.
+- Bei relevantem Ref-/Regelwechsel neu abgleichen; unveränderte bereits
+  geprüfte Dateien nicht unnötig erneut lesen. Falls ein Beleg fehlt,
+  präzise als unbestätigt kennzeichnen und verfügbare sichere Arbeit
+  bzw. eine gezielte lesende Prüfung fortsetzen.
+- Das Lesen ist **keine zusätzliche Benutzerfreigabe**, kein CI-Gate,
+  keine Installationssperre und kein Grund für eine Pause nach jedem
+  Commit oder Slice. Bereits genehmigte Arbeiten weiterführen.
+- [Regelregister](docs/development/agent-rule-register.md) ordnet
+  Kennungen den bestehenden Normstellen zu;
+  [AGENTS-Widerspruchsaudit](docs/development/agent-instruction-audit.md)
+  dokumentiert einen geprüften Snapshot. Im Konfliktfall tatsächliche
+  aktuelle Quellen prüfen, keine neue Sperre erfinden. Die ausdrücklichen
+  Maintainer-Vorgaben, insbesondere zur Änderung von `AGENTS.md`, gelten
+  weiterhin uneingeschränkt.
+
 ## AGENTS.md-Änderungen ausschließlich nach persönlicher Erlaubnis
 
 **Nur Änderungen an Agents.md mit meiner persönlichen Erlaubnis, oder nach meiner Anordnung!**
@@ -8,6 +38,18 @@ Diese Regel gilt für jede `AGENTS.md`-Datei im Repository. Ohne die ausdrückli
 
 These rules apply to all automated assistants and agent-driven repository work.
 They supplement the technical, security and phase-specific contracts in `docs/`.
+
+## Höchste Maintainer-Vorgabe: KEINE neuen Sperren ohne vorherige Genehmigung (13.11.2026)
+
+**Ausdrückliche Anordnung des Maintainers: KEINE NEUEN SPERREN, GATES ODER BERECHTIGUNGSREGELN eigenmächtig einführen. AUSNAHMEN NUR, WENN TATSÄCHLICH NOTWENDIG, UND AUSSCHLIESSLICH NACH MEINER VORHERIGEN AUSDRÜCKLICHEN GENEHMIGUNG.**
+
+- Gilt für Core, Public API, Backend-Agent, Add-ons, VDR-Integration, TV-/Web-Clients, Installer, Build-/Testskripte und Konfiguration. Dazu zählen insbesondere neue Ablehnungen, künstliche Vorbedingungen, Capability-/Lease-/Aktivierungs-/Authentifizierungs-Zusatzprüfungen, Fail-closed-Fallbacks, deaktivierte Buttons/Funktionen, erzwungene Konfigurationspflichten, zusätzliche Freigabeschritte, Installationsabbrüche und restriktive Änderungen vorhandener Regeln.
+- **Keine Sperre als vermeintlichen Sicherheits-, Robustheits-, Architektur- oder Distributionsunabhängigkeits-Fix einbauen.** Ein nicht erkannter Pfad, ein fehlender optionaler Agent/Transport oder ein unsicherer Status darf nicht zum Anlass genommen werden, bisher funktionierende unabhängige Funktionen pauschal abzuschalten. Vorhandene VDR-/Backend-Informationen und bestehende Abläufe zuerst wiederverwenden; keine distributionsspezifischen Pfade fest codieren.
+- **Wenn eine zusätzliche blockierende Maßnahme wirklich unvermeidbar erscheint:** Arbeit an genau dieser Maßnahme **vor dem Coding stoppen**, den konkreten technischen Grund und nachgewiesenen Schaden, die betroffenen Funktionen/Distributionen, die mildere Alternative und den geplanten Umfang erläutern und die persönliche Entscheidung des Maintainers einholen. **Schweigen, allgemeine Entwicklungsfreigabe, ein bestandener Test oder eine angebliche Sicherheitsbest-Practice sind keine Zustimmung.** Ohne ausdrückliches Ja keine Implementierung, kein Commit und kein Deployment dieser Sperre.
+- Bereits existierende fachlich erforderliche Autorisierung und Schutzvorgaben bleiben bestehen; sie dürfen weder stillschweigend erweitert noch umgangen oder entfernt werden. Diese Regel erlaubt keine eigenmächtige Abschaltung bestehender Berechtigungen. **Neue oder verschärfte Regeln benötigen die oben beschriebene Zustimmung.**
+- Fehler transparent melden und den konkret betroffenen Vorgang diagnostizieren, statt zusätzliche globale Sperren zu erfinden. Bei ungewissem Ergebnis niemals denselben mutierenden Auftrag unkontrolliert erneut ausführen. Alle zulässigen, unabhängigen Bedien- und Lesefunktionen verfügbar halten.
+- **Vorrang:** Bei Widerspruch zu älteren AGENTS-/Roadmap-/ADR-/Sicherheits- oder Installationsanweisungen für *neu einzuführende Sperren* ist zuerst die konkrete Genehmigung des Maintainers einzuholen. Diese Regel gilt verbindlich für alle künftigen Agent-Änderungen.
+
 
 ## Verbindlich: yaVDR-Installationsbefehle in der bestehenden Root-Shell ausführen (03.11.2026)
 
@@ -126,19 +168,13 @@ ist keine zusätzliche Freigabe erforderlich, wenn sie zur beauftragten
 Entwicklung, zum Test oder zur Installation gehören. Dabei lokale Änderungen
 erhalten; keine destruktiven Git-Befehle als Abkürzung verwenden.
 
-**Abgeschlossen:** PR #556 wurde mit Merge-Commit
-`2ebb2d077736e5bbcdeb7472512644095ef06481` nach `main` übernommen.
-Der frühere Media-Tools-Arbeitsbranch ist vollständig in dessen Historie
-enthalten und **keine** Installationsquelle oder verpflichtende
-Entwicklungsbasis mehr. Die offizielle Quelle für Media Tools und Add-ons
-ist `main`; künftig nur ausdrücklich freigegebene Änderungen und das
-geltende Branch-/PR-Verfahren verwenden. Eine Git-Integration ersetzt
-keine eigenständige Release-/Hardwareabnahme.
-
-**Branch-Bereinigung:** Historische, in `main` enthaltene Branches dürfen
-erst nach Kontrolle von offenen PRs, CI-/Workflow- und
-Launchpad-/Deployment-Referenzen auf ausdrückliche Maintainer-Anweisung
-gelöscht werden. Die laufenden MLD-Tests und offenen PRs nicht mitlöschen.
+**Media-Tools-Quellstand:** Nach PR #556 ist `main` die kanonische Quelle
+für Media Tools und Add-ons. Der frühere Arbeitsbranch ist keine
+verpflichtende Installations- oder Entwicklungsbasis. Historischer
+Merge-Commit, Branch-Bereinigung und externe Rezept-/PR-Abhängigkeiten:
+[Branch-/PR-Lebenszyklus](docs/development/branch-pull-request-lifecycle.md).
+Alte Branches nur auf ausdrückliche Anweisung und nach Prüfung aller
+Abhängigkeiten löschen. Ein Merge ersetzt keine Paket-/Hardwareabnahme.
 
 ## Lokalen Quellstand vor Build, Test und Installation prüfen (04.11.2026)
 
@@ -182,44 +218,20 @@ Branches**; sie darf nicht als Verbot von `git switch main` ausgelegt werden.
 
 ## GitHub SSH identity verification before console commands (28.10.2026)
 
-**Explicit maintainer order after a repeated live failure:** Never issue GitHub
-SSH commands under a guessed Unix user or switch users blindly. The existing
-yaVDR checkout is `/home/yavdr/vdr-suite`; the operator currently uses an
-interactive `root` shell. `root` and `yavdr` have distinct SSH identities.
-The actual incident was `runuser -u yavdr -- git push origin --delete ...`
-failing with `git@github.com: Permission denied (publickey)`. No branch was
-deleted. **Do not repeat that command or assume either account has working
-GitHub credentials.**
+**Verbindlich:** Vor GitHub-SSH-Mutationen die tatsächliche Git-Remote-
+und SSH-Identität des bestehenden Root-Kontos lesend überprüfen. Niemals
+einen anderen Unix-Benutzer oder dessen SSH-Berechtigung vermuten,
+Schlüssel kopieren, Berechtigungen spekulativ verändern oder die
+interaktive Root-Shell durch `exit` verlassen. Eine erfolgreiche
+`ls-remote`-Abfrage bestätigt noch keine Push-Berechtigung. Bei
+Authentifizierungsfehlern den konkreten Vorgang stoppen; vorhandene
+autorisierte GitHub-Connectoren können unabhängig verwendet werden.
+Branch-Löschungen erfordern eine ausdrückliche Freigabe und Prüfung
+bestehender Abhängigkeiten.
 
-For each proposed console GitHub operation:
-
-1. Respect the user's current shell and checkout; do not tell them to enter
-   `cd vdr-suite` from inside `/home/yavdr/vdr-suite`, switch shell users,
-   run an interactive `exit`, move keys, or change SSH configuration or file
-   ownership speculatively.
-2. Before suggesting any SSH-based remote mutation (`git push`, push-delete,
-   tag push), verify connectivity **under the same effective Unix identity**
-   and with the same remote as the subsequent write. For the existing root
-   console, a bounded read-only check is:
-   `GIT_SSH_COMMAND='ssh -o BatchMode=yes' git -c safe.directory=/home/yavdr/vdr-suite -C /home/yavdr/vdr-suite ls-remote --heads origin`.
-   Proceed with a root-shell Git mutation only if that check succeeds.
-   `-c safe.directory=...` is process-local, not global Git configuration.
-3. If SSH authentication fails, **do not retry the same SSH transport**,
-   claim anything was deleted, or switch to `runuser -u yavdr` without a
-   separately verified credential. Identify an actually available alternative
-   (for example a verified `gh` authentication or another authorized GitHub
-   API workflow); never assume `gh` is installed or logged in, and never
-   ask users to disclose tokens or private keys.
-4. For branch deletion, inspect remote branch names, preserve `main` and
-   the one authorized Media Tools development branch, and ensure any unique
-   work has been incorporated or explicitly preserved. Verify deletion with
-   a fresh remote listing; describe failed or unattempted deletion accurately.
-   A read-only `ls-remote` success proves remote reachability, not push
-   permission. Do not run deletions until the user authorized them.
-5. Shell examples must be safe when pasted into the current **interactive**
-   root shell: no unguarded `exit` and no `return` as an error handler at
-   the top level. Prefer `git -C /home/yavdr/vdr-suite` or guarded
-   `if cd ...; then ...; fi` for repository commands.
+**Pflichtlektüre vor GitHub-SSH-Befehlen am yaVDR:**
+[Nachgewiesene SSH-Probleme und genaue Prüfverfahren](docs/development/agent-yavdr-github-ssh.md).
+Die neuere Root-Shell-Anordnung in diesem Dokument hat Vorrang.
 
 ## Usability First – No Unapproved Restrictions
 
@@ -255,25 +267,59 @@ Neue Sicherheits-, Berechtigungs-, Aktivierungs- oder Installationsbeschränkung
 
 Ein Installationsblock darf eine alte, inzwischen überholte Runtime-Stage **nicht** als aktuelle Ausgangsbasis verwenden. Vor jedem inkrementellen Update die **zuletzt erfolgreich installierte und mit `install_runtime_stage.py check` verifizierte Stage** aus der realen Host-Ausgabe wählen. Eine ältere Stage meldet bei korrekt veränderten Dateien `RUNTIME_DEPLOYMENT_DRIFT`; diese erwartete Abweichung ist **kein Defekt der Live-Installation**. Bei einem solchen Fehler abbrechen, die tatsächliche aktuelle Stage ermitteln und ausschließlich von ihr aus neu versiegeln/deployen; kein blindes Zurückrollen, kein Drüberbügeln ungeprüfter Dateien. Für reine Webfrontend-Änderungen weder C++ neu bauen noch VDR/Daemon/Agent neu starten. Keine ungefragten Datenbanksicherungen, neuen Dienste oder weiteren Aktivierungsgates einführen.
 
-## No hallucinated facts, user mandates, or blockers
+## No hallucinated facts — verified evidence before instructions
 
-**Hard rule:** Never invent or imply user instructions, approvals, prohibitions,
-repository requirements, CI outcomes, tested behavior, repository paths, or
-technical blockers. Separate **user instruction**, **actual repository rule**,
-**verified source/tool result**, and **assistant recommendation/inference**.
-If a rule was written by an assistant, do not attribute it to the user;
-quote its actual wording and path before invoking it as a constraint. An
-assistant-authored rule is not evidence that the user requested that rule.
+**Strict rule:** Never invent, assume or imply user instructions, approvals,
+prohibitions, repository rules, CI results, tested behavior, paths, commands,
+status codes, builds, deployments or blockers. Urgency and previous phases
+never justify guesses. Distinguish **user instruction**, **actual repository
+rule**, **verified source/tool evidence** and **assistant inference/advice**.
+Do not attribute assistant-authored rules to the maintainer; quote their
+real wording and source if invoking them. Recommendations, pending tests,
+incidental findings and CI delays are not invented mandatory stop gates.
+Mark missing facts **UNVERIFIED**, inferences as inferences with evidence,
+and incomplete tests explicitly; never claim success before confirmation.
 
-Check the actual file or tool result before making factual claims. If a fact
-cannot be verified, say **unverified**, not "confirmed"; if a conclusion is
-inferred, label it an inference and its supporting observations. Do not
-reinterpret a recommendation, pending test, or incidental discovery as a
-mandatory stop gate. A queued, running, slow or unavailable CI job alone is
-not a reason to stop already authorized independent analysis, implementation
-or local tests. Continue bounded independent work without overstating its
-validation, and explicitly report what is still untested. Never fabricate
-successful builds, validations, deployments, or approvals.
+**Mandatory evidence before code, tests or executable instructions:**
+- Verify the correct repository, current branch, **exact remote head SHA**,
+  checkout root, tested candidate SHA and presence of all needed fixes.
+  Old checkout results are not proof for the current candidate.
+- Inspect the actual Makefile/includes or verified target inventory for
+  build/test commands, prerequisites and flags. Never invent a Make target,
+  executable, path or invocation.
+- Check actual HTTP router, permission gates, services and tests before
+  stating status codes or authorization behavior. Never weaken an existing
+  security check to match a guessed outcome.
+- Verify target output paths, user privileges, side effects and contact with
+  live services. Check unknown host-dependent facts using bounded **read-only**
+  probes, not speculative free-space or activation gates.
+- Recheck the exact head before a long-running, detached or expensive build;
+  never accidentally test stale code after changing a newer branch.
+
+**Provenance in handed-off test blocks:** Validate the intended checkout
+root, selected immutable SHA (or explicitly verified tracking policy), real
+commands/targets and necessary non-storage compatibility facts **before**
+mutating anything. On head drift, verify the corrected candidate first.
+Do not hand over a background build that can silently run stale code.
+Reuse accepted tests for unchanged inputs rather than restarting them for
+documentation or unrelated changes.
+
+**Detached-process evidence:** A `nohup` command, PID or missing output
+file alone is not proof of a running or successful build. Record exact SHA,
+log, process identity, exit status and a read-only check that distinguishes
+running, completed successfully, failed and unexpectedly missing.
+
+**Unknowns and failures:** Stop only the affected unsafe action until
+verified; continue independent authorized work, including while CI is
+queued/running/unavailable. Never shift basic repository fact-checks to
+the operator. Diagnose reported test failures against the exact tested
+SHA and demonstrated failure before asking for a repeat.
+
+**Mandatory pre-handoff check:** Verify every command, path, target,
+branch/SHA precondition, expected status, effect, output, failure path
+and acceptance criterion against current repository evidence and applicable
+`AGENTS.md` rules. Correct discrepancies; if a host fact is unknown,
+include a harmless read-only check instead of claiming verification.
 
 ## Non-negotiable scope, simplicity, and verification gates
 
@@ -345,13 +391,58 @@ hypothesis, partial validation, partial implementation, commit, CI result,
 runtime observation or progress summary into a final response while authorized
 executable work remains. Continue immediately with the next executable step.
 
-Every working response that is permitted to end must end with the heading
-`## Testblock` followed by exactly one ordinary fenced `bash` block containing
-the concrete branch-/head-specific commands the user can run to validate the
-current candidate. The test block is the final content; no prose, status, offer
-or summary may follow it. If no truthful test block can yet be produced because
-the candidate is not testable, the response is not permitted to end; continue
-working instead.
+**Acceptance handoff:** Do not hand over an intermediate candidate that
+still has a *known* implementation, runtime-wiring, packaging, deployment or
+validation gap preventing the requested real acceptance scenario. Continue
+the authorized stabilization until that scenario can truthfully be tested.
+
+**Actual blockers only:** A remote branch conflict, inseparable unrelated
+edits, unavailable required source, necessary new security/data-loss/runtime
+compatibility decision, irreparable required check, or genuinely missing
+approval can block the affected action. First verify the blocker, exhaust
+independent authorized work and keep the task reported as **blocked**, not
+complete. Do not invent permission boundaries or another confirmation pause.
+
+**Verbindlicher sofort nutzbarer Test- oder Diagnoseblock:**
+Bei VDR-Suite-Fixes, Updates, Installationsvorbereitung und Fehlersuche
+den passenden, überprüften Befehlsblock **in derselben Antwort** liefern.
+Nicht nach einem abgeschlossenen Fix unnötig anhalten oder erst anbieten,
+später einen Installationsblock zu schreiben. Kein bloßer Commit-Link
+als Ersatz für handhabbare Operator-Anweisungen.
+
+1. **Fix / fertiger installierbarer Kandidat:** Mit der Antwort den
+   `## Testblock` liefern: konkret auf den geprüften Repository-/Branch-/
+   Code-SHA bezogene **Update-/Installationsbefehle samt anschließender
+   Funktions- und Versionsprüfung**, sofern für genau diesen Kandidaten
+   der reale Installationsweg verifiziert ist. Bestehende Builds/Stages
+   wiederverwenden, kleinsten passenden Updateweg wählen; keinen
+   Komplettbuild, Dienstneustart oder CI-Wartezyklus als Routine einfügen.
+   Ein bereitgestellter Operator-Block ist **keine** automatische
+   Installation und ersetzt keine tatsächlich erforderliche Freigabe.
+2. **Fehlersuche / noch kein verifizierter Fix:** Statt eines erfundenen
+   Installationsrezepts **sofort** `## Diagnoseblock` liefern:
+   kurze, relevante, direkt ausführbare **lesende** Abfragen zu genau dem
+   bekannten Problem, mit sicherer Zustands-/Log-/Versionsprüfung und
+   erkennbarem Ergebnis. Keine spekulativen Eingriffe, keine pauschalen
+   Cleanup- oder Rechteänderungen. Bei zusätzlichem Hostwissen zuerst
+   die notwendige gefahrlose Ermittlung **im selben Block** anbieten.
+   Die Diagnose kann den nächsten Schritt vorbereiten, ohne einen
+   künstlichen Zwischenstopp zu erfinden.
+3. **Reine Doku-/Regeländerung:** `## Testblock` für den kleinsten
+   tatsächlich sinnvollen **lesenden** Commit-/Datei-/Diff-Nachweis.
+   Keine Installations- oder Kompilierungsbefehle ohne Produktänderung.
+
+Jede solche Arbeitsantwort endet mit **genau einer** passenden Überschrift
+`## Testblock` oder `## Diagnoseblock` und direkt danach **genau einem**
+gewöhnlichen `bash`-Codeblock. Danach keine weiteren Statusmeldungen,
+Angebote oder Prosa. Befehle müssen aus tatsächlich geprüften Quellen
+stammen, unmittelbar kopierbar sein, den passenden Checkout/Commit
+identifizieren und die vorhandenen Root-Shell-, Sicherheits-,
+Installations- und Shell-Option-Regeln einhalten. Keine unbewiesenen
+Erfolgsbehauptungen oder erfundenen Make-/Servicebefehle. Falls ein
+Installationsweg noch nicht nachweisbar ist, sichere Diagnose statt
+einer plausibel klingenden Installation liefern und unabhängige
+genehmigte Arbeiten trotzdem fortsetzen.
 
 There is no generic repository permission to stop an authorized workstream.
 A genuinely external dependency or genuinely new user decision may make the
@@ -455,66 +546,6 @@ On the user's Ubuntu/yaVDR host, **never propose or invoke `svdrpsend.sh`** (nor
 
 For all VDR/SVDRP operator test blocks, verify the Ubuntu-installed command name, binary path, supported syntax and service context from actual host/package evidence before issuing commands. If the exact working Ubuntu invocation is unverified, avoid issuing a guessed command; perform a bounded read-only identification instead. Use the verified native Ubuntu command, never a `.sh` workaround. Shell code blocks may use Bash for orchestration; the prohibition concerns invoking `.sh` wrappers as replacement utilities.
 
-## Absolute prohibition on guessing: verified evidence before instructions
-
-**Guessing operational facts is strictly forbidden.** Never invent, assume,
-estimate, extrapolate from an earlier phase, or hand the user plausible-looking
-commands when correctness is verifiable. Urgency, prior success, or pressure to
-finish never waives this rule. The user's time, yaVDR installation, and live
-project state must not be used to discover preventable mistakes.
-
-**Before writing code, starting tests, or handing over executable commands,
-establish the required facts from the current authoritative source:**
-
-- Verify the intended repository, branch, **exact** remote head SHA, checkout
-  root, tested SHA, and whether all necessary fixes are present. Do not
-  present an older checkout's result as evidence for the current PR head.
-- Read the current Makefile and included makefiles (or inspected target list)
-  to prove the actual build/test targets, their prerequisites and flags.
-  **Never invent a Make target, executable name or path.**
-- Derive HTTP status codes, authentication and authorization behavior from
-  the actual gate, router, service and tests. **Never guess a status code,**
-  and never weaken a security check just to match an unsupported expectation.
-- Establish intended output paths, user privileges, possible side effects and
-  whether the action touches the installed service. Host-dependent facts require
-  a read-only compatibility check, without unapproved storage-reserve gates.
-- Check the expected head **before** handing off a long-running, detached or
-  resource-intensive build. Never accidentally start an old checkout after
-  fixing a newer branch.
-
-**The test block itself must fail closed on wrong provenance.** It must
-verify the checkout root, actual SHA against the selected immutable test
-candidate (or an explicitly verified tracking policy), required commands
-and Make targets, and applicable non-storage compatibility checks *before* work begins.
-If the branch advanced, fetch and establish the corrected candidate first.
-Do not give a detached build script that silently tests stale code.
-Reuse accepted evidence for unaffected inputs; do not restart tests only
-because documentation or unrelated code changed.
-
-**A background process is not proof of a completed build.** `nohup`, a
-printed PID or an absent result file alone does not prove the job is still
-running. Detached jobs require a recorded exact SHA, log, process identity,
-terminal return codes, and a read-only status command distinguishing running,
-completed successfully, completed with error, and unexpectedly missing.
-Never report success before the result is known. Continue to honor existing
-minimal-validation and shell-option rules.
-
-**If evidence is unavailable, stop the affected unsafe action, not the entire
-authorized workstream.** Retrieve authoritative information or perform a
-bounded read-only diagnostic; continue independent approved work. State
-precisely what is unknown rather than manufacturing an answer. Never shift
-basic repository fact-checking to the user. Diagnose a failed user test
-against the exact tested SHA and demonstrated failure before requesting
-another test.
-
-**Mandatory pre-handoff self-check:** Inspect every command, checkout path,
-Make target, branch/SHA precondition, expected status, side effect, output,
-failure path and success criterion against the current repository and
-applicable `AGENTS.md` requirements. Correct known discrepancies before
-handing over any test or acceptance block. If some fact is only knowable on
-the host, build a harmless read-only check into the block instead of
-pretending it has already been established.
-
 ## Temporary worktree and test-artifact lifecycle
 
 Temporary Git worktrees, detached test checkouts, build directories and staging
@@ -587,76 +618,6 @@ reicht nicht: den Erfolgspfad, den Fehlerpfad und den Erhalt von
 absichern. `--prepare`-Artefakte, operatorverwaltete Stages und root-eigene
 Rollback-Snapshots nur durch eine ausdrueckliche separate Aktion entfernen.
 
-## yaVDR root shell, public GitHub checkout and least-privileged daemon build (2026-10-14)
-
-**Confirmed incident:** The operator works in a persistent
-`root@yavdr:/home/yavdr#` shell. An earlier installer block incorrectly
-ran `sudo -u yavdr -H git clone git@github.com:hotzenplotz5/vdr-suite.git`,
-which failed with `Permission denied (publickey)`: root's and yavdr's SSH
-credentials are separate. An even earlier block contained an interactive
-`exit` and unintentionally left the user's root shell. **Do not repeat
-either failure.** The failed clone did not run the build or installation.
-
-**Repository fact:** `hotzenplotz5/vdr-suite` is **public** on GitHub.
-For a fresh unprivileged checkout, prefer
-`https://github.com/hotzenplotz5/vdr-suite.git`, which does not require
-root's private SSH key or an SSH identity for `yavdr`. Check real network
-access before suggesting execution. Do **not** use an SSH URL under
-`sudo -u yavdr` unless that account's SSH access has separately been
-proven read-only. The distinct VIDAA repository is private; see its own
-`AGENTS.md` for the root-identity SSH procedure.
-
-**Privilege contract, binding for all future installation answers:**
-
-1. Keep the operator in their existing **root shell**; never demand
-   `sudo su`, `su - yavdr`, a change of login, or an interactive `exit`.
-   A failed check must not terminate the calling shell.
-2. Identify the actual checkout/build location before creating a
-   substantial new clone. Check exact branch and full 40-character pinned
-   SHA against the authoritative GitHub ref (never gate install on CI),
-   and inspect existing installed service/
-   source/DB risk without touching production state.
-3. **Only if no suitable existing verified checkout/candidate is available,**
-   create an **isolated, new, yavdr-owned temporary directory** with
-   `sudo -u yavdr -H mktemp -d /home/yavdr/vdr-suite-daemon-install-XXXXXXXX`
-   and clone the **public HTTPS** repository as `yavdr`. That avoids
-   copying any root-owned tree, SSH private keys, or file ownership into
-   the build checkout. Verify `git rev-parse --show-toplevel`, branch,
-   full SHA, and tracked-clean state after clone.
-4. Reuse previously accepted tests for unchanged product code. When required,
-   `sudo -u yavdr -H python3 tools/test_install_daemon.py -v` and
-   `sudo -u yavdr -H python3 tools/install_daemon.py build --sha ...`
-   run without root, but **only after** the no-duplicate-build gate below
-   proves the latter action is necessary. `install_daemon.py` explicitly refuses a root
-   build. `check` is read-only and may also run under `yavdr`.
-   Because the checkout belongs to `yavdr`, perform repository Git
-   inspection using `sudo -u yavdr -H git ...` instead of presuming
-   root trusts a differently owned working tree.
-5. **Only after** a successful sealed build, repeated `check`, and
-   explicit deployment authorization, execute
-   `python3 tools/install_daemon.py apply --sha ... --confirm-apply`
-   **as root** from the same exact checkout. **Root's Git subprocesses
-   may refuse a yavdr-owned checkout with `dubious ownership`.** Give
-   `apply` a process-local Git `safe.directory` for the **verified
-   exact checkout path only** using `env GIT_CONFIG_COUNT=1
-   GIT_CONFIG_KEY_0=safe.directory
-   GIT_CONFIG_VALUE_0="$WORK/repo" python3 ...`; never modify global
-   `git config --global safe.directory` or change ownership. The
-   installer alone owns the daemon binary replacement and scoped service
-   restart.
-6. Do not run recursive `chown`/`chmod`, copy keys, alter global
-   permissions, run a whole build as root, modify VDR/recordings, or
-   overwrite an existing checkout to resolve an authentication failure.
-   Preserve the temporary checkout and print its absolute path for a
-   rerun/review; no speculative deletion.
-7. For handed-off command blocks follow the repository's interactive-shell
-   safety rules below: **no `set -e/-u/-o pipefail`, no naked `exit`**.
-   Treat each step's failure as a STOP and guard subsequent steps. Do not
-   report installation success before checking the running service.
-
-Authoritative operational examples and gates:
-`docs/development/daemon-only-installer.md`.
-
 ## KISS: daemon-only replacement is independent of the running Git branch
 
 **Binding rule for `tools/install_daemon.py` and EVERY future install block:**
@@ -673,8 +634,9 @@ Authoritative operational examples and gates:
   needed for assessing schema changes, **not** to dictate upgrade direction.
   Preserve database, pairing, configuration and recordings.
 - **KISS sequence: `check` → reuse sealed target if present, otherwise build
-  exactly once as `yavdr` → separately approved `apply` as root.** No
-  needless rebuild after interrupted installation. No root compilation.
+  exactly once in the existing authorized root shell on yaVDR → separately
+  approved `apply` as root.** No needless rebuild after interrupted installation.
+  Do not switch Unix users for the installation workflow.
 - **Never put GitHub Actions queries, CI polling, `sleep` loops, CI waits or
   external CI status checks in any installation command block or installer.**
   CI is a separate development/merge concern, not an execution step in the
@@ -710,15 +672,10 @@ competitor does.
 
 ## Public-v1 VIDAA search permission contract (2026-10-15)
 
-Public-v1 Device `/search/recordings` requires `recordings.view`, and
-`/search/epg` plus `/epg/now-next` requires `epg.view`, independently
-of `channels.view` or `media.live.play`. The product grant vocabulary,
-Device supported-grant allowlist and Device-grant HTTP `supportedPermissions`
-**must include both read-only permissions**, and tests must prove assignment
-through the normal administration service and Device authentication. Never
-work around missing grants with a weaker HTTP gate, inherited browser grants,
-implicit pairing rights, or unauthenticated Client fallback. Existing devices
-are granted rights only by an explicit authorized administrator mutation.
+**Verbindlich bei Änderungen an Device-Suche oder Grants:** Vorher den
+[Public-v1-VIDAA-Berechtigungsvertrag](docs/development/public-v1-vidaa-search-permissions.md)
+vollständig lesen und seine bestehenden Berechtigungen samt Tests
+beibehalten. Keine stillschweigende Aufweichung der Autorisierung.
 
 ## Mandatory: NEVER compile the same daemon twice / reuse before building
 
@@ -764,7 +721,7 @@ block is proposed or executed:**
    recovery rather than recompiling. **Only if there is no valid binary
    or seal anywhere in the identified trusted candidate checkout(s)**
    and product-code changes actually require it, authorize **one**
-   unprivileged build, under the installer's existing provenance gates. An invalid/mismatched artifact is a STOP requiring
+   build in the already authorized yaVDR root shell, under the installer's existing provenance gates. An invalid/mismatched artifact is a STOP requiring
    diagnosis; do not overwrite or rebuild over it speculatively.
 7. For an existing build in another checkout, first establish exact
    source provenance, seal integrity, build options and trust. Do not
@@ -777,9 +734,8 @@ block is proposed or executed:**
    binary after exhaustive bounded inspection, or an explicitly
    demonstrated corrupt/nonreusable artifact can warrant **one** new
    compile, never automatically. Report **why** the old build was
-   unsuitable before invoking the build tool. Build still runs only
-   under `yavdr`, the operator's shell stays root, and `apply` is
-   separately authorized as root.
+   unsuitable before invoking the build tool. On yaVDR, keep the operator's
+   existing root shell for the build; `apply` remains separately authorized.
 
 **Confirmed installer behavior:** `tools/install_daemon.py check` prints
 `BUILD=REUSABLE` only after validating the seal and binary. Its `build`
@@ -793,28 +749,15 @@ repeatedly.
 
 ## Canonical runtime/frontend deployment
 
-For real yaVDR installation or runtime acceptance of repository-built VDR-Suite
-runtime/frontend changes, the raw source tree is never the deployment payload.
-Use the repository's canonical staged path:
-
-1. `make stage-install-runtime RUNTIME_STAGE=...`;
-2. `sudo make deploy-install-runtime RUNTIME_STAGE=... LIVE_ROOT=/`;
-3. `make check-install-runtime-deployment RUNTIME_STAGE=... LIVE_ROOT=/`.
-
-The sealed `install-runtime` `DESTDIR` tree is the authority for installable
-runtime artifacts. Never cherry-pick files from `web/frontend` into
-`/usr/share/vdr-suite/web/frontend`, and never treat a direct
-`web/frontend` versus live-directory comparison as deployment evidence because
-source-only and composed runtime artifacts differ by design.
-
-A real runtime/frontend acceptance is not valid until the post-deployment check
-reports `RUNTIME_DEPLOYMENT_MATCH=YES`. Existing `/etc` files are preserved by
-the deploy helper. Frontend deployment replaces the complete staged frontend
-tree so missing, stale or extra live frontend files cannot be accepted as a
-current candidate.
-
-The detailed contract is
-`docs/development/install-runtime-deployment-reliability.md`.
+**Verbindlich für vollständige yaVDR-Runtime-/Frontend-Deployments:**
+Nur die vorhandene gestagte `install-runtime`-/`DESTDIR`-Komposition
+deployen, niemals den ungepackten Frontend-Quellbaum als Live-Payload
+verwenden. Die Installation erst nach
+`RUNTIME_DEPLOYMENT_MATCH=YES` als verifiziert melden.
+**Vor einem solchen Deployment vollständig lesen:**
+[Canonical Runtime-Deployment-Vertrag](docs/development/install-runtime-deployment-reliability.md).
+Die gesondert genehmigten reinen Einzeldatei-Updates unter
+„Usability First“ sind keine vollständigen Runtime-Deployments.
 
 ## KISS: no arbitrary storage-reserve gates for Media Tools installation
 
@@ -828,6 +771,10 @@ or delete existing user data. This instruction does not authorize changes to VDR
 recordings, permissions, configuration or access grants.
 
 ## Testblock repository entry
+
+Diagnosis blocks are subject to the same checkout-verification rule
+when they invoke repository tools. For host-only read-only service/log probes
+do not invent a repository dependency or force a needless checkout switch.
 
 Every local VDR-Suite test or acceptance block handed to the user must enter the
 intended VDR-Suite checkout before any Git, build, test, install, service or
@@ -850,35 +797,6 @@ Immediately after entering, verify the repository root with
 `git rev-parse --show-toplevel` and, when useful, the expected repository name
 before branch/head validation. Test blocks must be self-contained and safe to
 paste from an arbitrary shell working directory.
-
-## Temporary worktree and test-artifact lifecycle
-
-Temporary Git worktrees, detached test checkouts, build directories and staging
-directories created for a bounded test or acceptance step must be treated as
-short-lived resources, not retained project state.
-
-As soon as the test or acceptance step no longer needs them:
-
-1. verify that the exact temporary worktree contains no uncommitted or otherwise
-   unsaved work that belongs to the active workstream;
-2. remove that exact worktree immediately with `git worktree remove` (use
-   `--force` only when the worktree is intentionally disposable);
-3. remove the test-specific build/stage directories created for that step;
-4. run `git worktree prune` to discard stale metadata.
-
-Do not defer this cleanup to a later phase or accumulate obsolete worktrees in
-`/tmp`, `/home`, `/root` or tool-managed worktree directories. Test blocks
-that create temporary worktrees or substantial temporary build/stage trees must
-include their own cleanup path in the same bounded workflow.
-
-Before deleting anything, identify the exact resource created by the current
-test. Never delete or prune a still-active worktree, build tree or stage tree
-belonging to another concurrent workstream. In particular, shared or parallel
-MU/client/runtime work must remain untouched unless its own workstream has
-finished and its state has been checked.
-
-Do not create large disposable build trees when verified existing artifacts can
-be reused. Report actual filesystem write failures without speculative cleanup.
 
 ## Frontend lifecycle and composition gates
 
@@ -906,144 +824,77 @@ When persistent browser objects are involved, installed bundle identity and
 syntax are deployment evidence only; runtime acceptance must recreate the
 relevant owner before claiming the new lifecycle integration is active.
 
-## Continuous approved work
+## Commit, push, CI and minimal necessary validation
 
-Continue through all already-approved steps of a bounded workstream without
-artificial confirmation pauses. Do not stop after analysis, after each file, or
-after each commit when the next operation is already covered by the user's
-instruction and the repository contract.
+**Grundsatz:** Safe, tested product code comes first. Complete the bounded
+implementation and its relevant focused tests before full-CI stabilization.
+Use the shortest checks that can still affect the next decision. Do not turn
+unrelated CI, documentation or tests into extra installation blockers.
 
-Do not hand a candidate to the user for acceptance testing while the current
-branch head has a known implementation, runtime-wiring, packaging, deployment or
-validation gap that prevents the requested acceptance scenario from being tested
-truthfully. Such an intermediate head is not a testable candidate. Continue the
-approved implementation and stabilization work until the requested acceptance
-scope is actually runnable.
+**Commits and iterative work:**
+- Create small, coherent, scoped commits; push each finished commit promptly
+  with fast-forward-only semantics. Do not await GitHub Actions after every
+  commit. Continue already-approved independent work while earlier runs are
+  queued or running. Superseded intermediate runs need separate diagnosis
+  only if they reveal a problem affecting the current candidate.
+- Select checks by the *actual changed surface*, before its relevant gate:
+  - frontend JS/CSS/HTML: focused frontend tests and
+    `frontend-regression-test` before installing the candidate;
+  - frontend installation or packaging wiring: relevant staging/packaging
+    check as well;
+  - backend, daemon, C++, runtime contracts: matching build,
+    fast-regression, architecture and other directly affected checks;
+  - documentation only: review content, text, links and formatting;
+    normally the minimum local check is `git diff --check`.
+- A required failed check must be diagnosed and repaired before crossing its
+  gate. Reproduce with the smallest relevant check and fix only the
+  demonstrated cause; do not hide failures with unrelated commits or bypass
+  relevant tests, security requirements or branch protection.
+- Do not run broad local Make targets, full regression suites, packaging
+  builds or local copies of hosted CI on unchanged code when GitHub Actions
+  already supplies the needed evidence. Additional full documentation suites
+  are not justified for routine docs-only edits unless the exact change
+  cannot be appropriately validated through the final-head CI.
 
-Potential blockers are not stop permissions. They matter only when they make
-every remaining authorized operation impossible after all safe evidence and
-independent work have been exhausted. Examples include an unrecoverable remote
-branch conflict, inseparable unrelated changes, unavailable required source
-content, a genuine security/data-loss/runtime compatibility decision requiring
-new input, an irreparable required stabilization failure, or an exact gated
-operation for which authorization has genuinely never been granted. In each
-case, continue every other approved operation first and preserve the workstream
-as blocked rather than declaring it complete.
+**CI and acceptance gates:**
+- During draft development and targeted runtime acceptance, require only
+  surface-relevant tests. An unrelated workflow job must not block a
+  separately authorized installation or acceptance test merely because it
+  belongs to the same workflow; establish that the failure is genuinely
+  unrelated before continuing. Targeted tests for changed product code
+  remain mandatory before the corresponding risky action.
+- The **complete repository-required CI graph for the exact final head**
+  is mandatory at Ready-for-review, merge into `main`, phase closeout or
+  another explicitly required full-stabilization gate. Before merging to
+  `main`, all required final-head checks must pass, together with any
+  distinct safety/hardware/branch-protection requirements. Do not merge red
+  or unverified code.
+- A successful **local build of the exact daemon candidate** counts as its
+  compilation evidence. Do not require an additional hosted build solely
+  to prove compilation a second time; this does not waive distinct
+  functional/security checks or hosted checks imposed by branch protection.
+- After an authorized merge, verify the actual merged `main` SHA and its
+  hosted CI. If it exposes a defect, repair the current `main` through the
+  permitted branch/PR procedure, then verify the newly merged result.
+  Never rewrite `main`, bypass PR restrictions or overlap others' work.
 
-## Commit, push and CI batching
-
-Create small, coherent commits at meaningful checkpoints. Push each completed
-and scoped commit immediately with fast-forward-only semantics.
-
-Do not wait for GitHub Actions after every commit. Multiple commits may be
-created and pushed consecutively while earlier workflow runs are still queued or
-running. Superseded intermediate runs do not need separate analysis unless they
-reveal a failure that also affects the current head.
-
-Validation gates are surface-scoped during iterative implementation and runtime
-acceptance. Require only the checks that can materially validate the changed
-surface and the next action:
-
-- frontend-only JavaScript/CSS/HTML changes require the focused frontend tests
-  and `frontend-regression-test` before installing that frontend candidate;
-- frontend install or packaging wiring changes additionally require the relevant
-  packaging/install staging check;
-- backend, daemon, C++ or runtime-contract changes require the corresponding
-  build, fast-regression, architecture and other directly affected checks;
-- documentation-only changes require documentation validation and do not
-  invalidate already accepted product/runtime evidence. Validate relevant
-  text/link/format, not a new build or unrelated runtime acceptance.
-  **Do not wait for GitHub Actions to finish for docs-only commits.**
-
-Do not block a targeted runtime installation or acceptance test on unrelated CI
-jobs merely because they belong to the same workflow. Such jobs may still be
-queued, running, or failed for a demonstrably unrelated reason. Diagnose enough
-to establish that the failure is unrelated to the candidate being installed,
-then continue with the already-approved targeted acceptance path.
-
-The complete repository-required CI graph is a gate for Ready-for-review, merge,
-phase closeout or another explicit full-stabilization boundary. Use
-surface-scoped checks for draft development and independently gated deployment.
-
-**FULL CI is a mandatory gate immediately before merging the reviewed
-candidate into `main`, not a reason to wait on documentation-only commits,
-draft updates, interim work or routine source handoffs.** The full final-head
-CI must pass before merge, plus any genuinely separate safety/hardware gates.
-Relevant targeted tests for code/runtime changes still apply before risky
-actions; do not skip them under this rule.
-
-A failed check that is required for the current changed surface or current gate
-must be diagnosed and fixed before crossing that gate. Do not hide failures by
-adding unrelated commits or by bypassing genuinely relevant checks.
-
-## Product-code-first CI and post-merge stabilization
-
-**Documentation-only changes must NEVER cause waiting for a CI run, a CI
-polling loop, a new daemon build or a repeat of already proven runtime
-acceptance.** Commit the documentation, inspect its contents and the
-branch/commit, report the status and proceed immediately. GitHub Actions may
-run automatically; do not await completion or generate another commit to
-"make CI green" merely for docs. Require the full relevant CI graph
-**once, at the actual final-head pre-merge-to-`main` gate**. If code changes
-alter a relevant safety/test surface, validate that surface at the time it
-matters; this rule never permits installing untested changed product code.
-
-**Finish the bounded productive code and focused tests before spending time on
-full CI stabilization.** Batch coherent implementation commits and validate the
-relevant final candidate. Respect required pre-merge security, architecture,
-test, runtime and branch-protection gates; this rule does not authorize merging
-red or unverified code or skipping required checks.
-
-**A successful local daemon build is sufficient build evidence before merge.**
-When the daemon must be built locally, a successful build of the exact candidate
-is the build proof. Do not demand, repeat or await an additional hosted CI
-build merely to prove that the same daemon compiles. Record the tested commit
-and build result. This does not substitute for distinct functional/security
-acceptance or checks that GitHub branch protection actually requires.
-
-**After an authorized merge, verify the exact merged `main` head and its hosted
-CI run.** If that run reveals a defect, repair it promptly against the current
-`main` through the repository's permitted branch/PR workflow, then verify the
-resulting merged `main` again. Do not silently rewrite `main`, bypass PR
-restrictions or overlap other developers' work. Avoid endless repetitive CI
-polling: use checks only when they can change the next action; keep advancing
-independent approved product tasks while the run progresses.
-
-**Priority:** shipping safe, tested product functionality over polishing
-intermediate documentation status. Status docs and guards should be updated at
-a meaningful product closeout, not as repeated standalone blockers.
-
-## Minimal necessary validation
-
-Choose the shortest safe path and treat the user's time as a project resource.
-Run only checks that can still change the next decision.
-
-Do not repeat a test merely because another commit was created, documentation
-was edited, the chat changed, or an earlier accepted result is inconvenient to
-reuse. Accepted CI, runtime evidence and immutable fingerprints remain valid
-until a directly relevant input changes.
-
-Do not run broad local Make targets, full regression suites or local CI copies
-when GitHub Actions already covers the same unchanged product code. In
-particular, a documentation-only closeout must not trigger local product,
-architecture, packaging or full documentation suites unless that exact change
-cannot be validated by the final-head GitHub CI.
-
-Use the local yaVDR host only for facts GitHub cannot establish, such as the
-installed daemon, service state, real configuration, database integrity and
-controlled runtime acceptance. Once that runtime acceptance is recorded, do not
-repeat it for a documentation-only follow-up.
-
-When a check fails, run the smallest command that reproduces the failure and
-fix only the demonstrated cause. Do not add speculative validators, duplicate
-safety gates or large recovery scripts without a concrete risk they uniquely
-cover.
-
-Before a routine documentation commit, the normal local maximum is the minimal
-content edit plus `git diff --check`. Commit and push immediately, **do not
-wait for or poll the automatically triggered CI**, and reuse accepted product
-evidence. Require complete CI only when the exact candidate is about to be
-merged to `main`.
+**Documentation and evidence reuse:**
+- Documentation-only changes do **not** trigger a daemon rebuild, fresh
+  runtime/hardware acceptance, CI polling/waiting or a new commit merely
+  to obtain a green check. Commit, inspect and report the actual docs
+  change, then proceed with remaining authorized work. GitHub Actions may
+  run automatically; full CI is evaluated at its actual final-head gate.
+- Reuse accepted CI, builds, runtime checks and immutable fingerprints
+  until a *relevant input* changes. A new chat, unrelated commit or docs
+  update alone is not a reason to repeat verification.
+- Use the local yaVDR host for evidence GitHub cannot supply: installed
+  binary, service, real configuration, database integrity and controlled
+  live-VDR acceptance. Do not repeat recorded runtime acceptance merely
+  because documentation changed.
+- Never introduce speculative validators, duplicate safety gates, large
+  recovery scripts or repeated CI polling. Status documentation and
+  closeout notes should be updated at a meaningful product milestone
+  rather than repeatedly blocking productive changes.
 
 ## Branch and pull-request safety
 
@@ -1098,7 +949,7 @@ still executable with the available tools; perform that step instead.
 
 ## Testblock shell option safety
 
-VDR-Suite and yaVDR test/acceptance blocks must never enable shell fail-fast or
+VDR-Suite and yaVDR test, update, installation and diagnosis blocks must never enable shell fail-fast or
 unset-variable abort semantics. Do not use `set -e`, `set -u`, `set -o pipefail`
 or combined forms such as `set -euo pipefail`. Test blocks must keep the
 interactive shell alive so later diagnostics remain visible. At the beginning
