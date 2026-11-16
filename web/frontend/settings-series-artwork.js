@@ -4,6 +4,7 @@
   const CARD_ID = 'series-artwork-backend-settings-card';
   const STYLE_ID = 'series-artwork-backend-settings-style';
   const MEDIA_TRANSCODE_SCRIPT_ID = 'vdr-suite-media-transcode-settings-runtime';
+  const MEDIA_TOOLS_ENCODING_SCRIPT_ID = 'vdr-suite-media-tools-encoding-settings-runtime';
   let loadingBackendId = '';
 
   function english() {
@@ -98,6 +99,19 @@
     script.async = false;
     script.addEventListener('error', function () {
       console.error('VDR-Suite media transcode settings runtime failed');
+    }, {once: true});
+    document.head.appendChild(script);
+  }
+
+  function loadMediaToolsEncodingSettingsRuntime() {
+    if (global.VdrSuiteMediaToolsEncodingSettings) return;
+    if (document.getElementById(MEDIA_TOOLS_ENCODING_SCRIPT_ID)) return;
+    const script = document.createElement('script');
+    script.id = MEDIA_TOOLS_ENCODING_SCRIPT_ID;
+    script.src = '/frontend/settings-media-tools-encoding.js';
+    script.async = false;
+    script.addEventListener('error', function () {
+      console.error('VDR-Suite Media Tools encoding settings runtime failed');
     }, {once: true});
     document.head.appendChild(script);
   }
@@ -352,6 +366,7 @@
 
   function start() {
     loadMediaTranscodeSettingsRuntime();
+    loadMediaToolsEncodingSettingsRuntime();
     mount();
     const observer = new MutationObserver(mount);
     observer.observe(document.documentElement, {

@@ -306,13 +306,18 @@
     const details = node('p', '');
     const refresh = node('button', 'Status aktualisieren');
     const toggle = node('button', 'Aktivieren');
+    const renew = node('button', 'Agent-Freigabe erneuern');
     refresh.type = 'button';
     toggle.type = 'button';
     toggle.disabled = true;
+    renew.type = 'button';
+    renew.hidden = true;
+    renew.disabled = true;
     card.appendChild(status);
     card.appendChild(details);
     card.appendChild(refresh);
     card.appendChild(toggle);
+    card.appendChild(renew);
     const sourceEditor = appendSourceEditor(card, backendId);
     parent.appendChild(card);
     if (typeof backendId !== 'string' ||
@@ -332,6 +337,11 @@
       // worker is offline. Actual imports validate worker readiness later.
       toggle.disabled = busy || !current;
       toggle.title = '';
+      const canRenew = current && current.desiredEnabled === true &&
+        current.providerVerified === true && current.agentReady === true &&
+        current.activationBoundToProvider === false;
+      renew.hidden = !canRenew;
+      renew.disabled = busy || !canRenew;
     }
     function reload() {
       busy = true; current = null; controls();
@@ -349,7 +359,9 @@
         status.textContent = result.desiredEnabled
           ? (trusted && ready && bound
             ? 'Media Tools aktiviert und betriebsbereit'
-            : 'Media Tools aktiviert; Worker-Verfügbarkeit wird beim Auftrag geprüft')
+            : (trusted && ready && !bound
+              ? 'Media Tools aktiviert; Agent-Freigabe ist veraltet'
+              : 'Media Tools aktiviert; Worker-Verfügbarkeit wird beim Auftrag geprüft'))
           : 'Media Tools deaktiviert';
         details.textContent = 'Backend: ' + backendId +
           ' · Freigabe-Revision: ' + result.revision;
@@ -371,6 +383,28 @@
     }
 
     refresh.addEventListener('click', reload);
+    // An Agent reconnect changes its generation. Rebind an already-enabled
+    // intent through the existing audited, CSRF-protected CAS endpoint.
+    // Never disable Media Tools or mutate a provider binding from the browser.
+    renew.addEventListener('click', function () {
+      if (busy || !current || current.desiredEnabled !== true ||
+          current.providerVerified !== true || current.agentReady !== true ||
+          current.activationBoundToProvider !== false) return;
+      if (!global.confirm('Media-Tools-Freigabe für den aktuellen Agenten auf ' +
+          backendId + ' erneuern?')) return;
+      const expectedRevision = current.revision;
+      busy = true; controls();
+      status.textContent = 'Aktuelle Agent-Freigabe wird geprüft und erneuert …';
+      request(backendId, true, expectedRevision, true).then(function () {
+        return reload();
+      }).catch(function (error) {
+        return reload().then(function () {
+          if (!card.hidden)
+            status.textContent = 'Freigabe konnte nicht erneuert werden: ' +
+              error.message;
+        });
+      }).finally(function () { busy = false; controls(); });
+    });
     toggle.addEventListener('click', function () {
       if (!current || busy) return;
       const wanted = !current.desiredEnabled;

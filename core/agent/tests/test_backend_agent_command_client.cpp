@@ -44,18 +44,25 @@ class HistoricalMediaResultTransport final : public IBackendAgentControlPlaneTra
 public:
     bool acceptResult = false;
     std::vector<std::string> calls;
+    BackendAgentCommandResult lastResult;
+    bool parsedResult = false;
     BackendAgentTransportResponse postEnrollment(
         const std::string&, const std::string&, const std::string&,
         const std::string&) override { return {}; }
     BackendAgentTransportResponse postAuthenticated(
         const std::string&, const std::string&, const std::string& path,
-        const std::string&) override
+        const std::string& body) override
     {
         calls.push_back(path);
-        if (path == "/api/agent/v1/commands/result")
+        if (path == "/api/agent/v1/commands/result") {
+            std::string reason;
+            parsedResult = parseBackendAgentCommandResultJson(
+                body, lastResult, reason);
+            assert(parsedResult);
             return acceptResult
                 ? BackendAgentTransportResponse{true, 200, R"({"outcome":"accepted"})", ""}
                 : BackendAgentTransportResponse{true, 409, "", "command_generation_fenced"};
+        }
         if (path == "/api/agent/v1/commands/poll")
             return {true, 200,
                 R"({"hasAssignment":false,"reasonCode":"no_command_available"})",
@@ -1071,5 +1078,96 @@ int main()
     assert(reason == "local_command_generation_fenced");
     assert(mediaTransport.calls.empty());
     std::remove(mediaPath.c_str());
+
+    // Production incident: the Core received a HEVC Stage receipt, but the
+    // Agent's generation changed before its outcome was acknowledged. The
+    // saved "starting" journal is never executed again. Only a bounded
+    // uncertainty report for the ORIGINAL command crosses generations.
+    const std::string shrinkPath = "/tmp/vdr-suite-historical-hevc-result-state";
+    std::remove(shrinkPath.c_str());
+    auto oldShrink = oldImport;
+    oldShrink.commandType =
+        vdrsuite::mediatools::kMediaShrinkStageCommandType;
+    oldShrink.payload =
+        R"({"recordingId":"rec_0123456789abcdef0123456789abcdef","encoder":"software","maxHeight":0,"nightMode":false})";
+    oldShrink.verificationPolicy = "readback_required";
+    oldShrink.requestFingerprint = backendAgentCommandFingerprint(oldShrink);
+    assert(backendAgentCommandValidAssignment(oldShrink));
+    auto staleShrink = savedImport;
+    staleShrink.assignment = oldShrink;
+    staleShrink.receipt.requestFingerprint = oldShrink.requestFingerprint;
+    staleShrink.dispatchState = "starting";
+    staleShrink.resultPresent = false;
+    staleShrink.resultAcknowledged = false;
+    staleShrink.result = {};
+    assert(vdrsuite::agent::commandstate::persist(
+        shrinkPath, staleShrink, reason));
+    BackendAgentCommandClientConfig shrinkConfig{
+        shrinkPath, {vdrsuite::mediatools::kMediaShrinkStageCommandType}};
+    HistoricalMediaResultTransport shrinkTransport;
+
+    // Lost result ACK: preserve the original bound result and never poll.
+    assert(!reconcileBackendAgentCommandState(
+        shrinkConfig, current, shrinkTransport, reason));
+    assert(shrinkTransport.parsedResult);
+    assert(shrinkTransport.lastResult.commandId == oldShrink.commandId);
+    assert(shrinkTransport.lastResult.backendGeneration == 7);
+    assert(shrinkTransport.lastResult.dispatchState == "starting");
+    assert(shrinkTransport.lastResult.resultCategory == "outcome_unknown");
+    assert(shrinkTransport.lastResult.verificationState == "outcome_unknown");
+    assert(shrinkTransport.lastResult.errorCategory == "executor_unknown");
+    assert(shrinkTransport.lastResult.retryClassification == "reconcile_only");
+    assert(shrinkTransport.lastResult.resultEvidence.empty());
+    assert(shrinkTransport.calls ==
+           std::vector<std::string>{"/api/agent/v1/commands/result"});
+    vdrsuite::agent::commandstate::LocalState durableShrink;
+    assert(vdrsuite::agent::commandstate::load(
+        shrinkPath, durableShrink, reason));
+    assert(durableShrink.resultPresent && !durableShrink.resultAcknowledged);
+    assert(durableShrink.result.resultEvidence.empty());
+
+    // Core ACK resumes capability publishing on the next normal poll while
+    // the stale command is retired; never dispatch a replacement here.
+    shrinkTransport.acceptResult = true;
+    assert(reconcileBackendAgentCommandState(
+        shrinkConfig, current, shrinkTransport, reason));
+    assert(reason == "historical_media_shrink_result_reconciled");
+    assert(pollBackendAgentCommand(
+        shrinkConfig, current, shrinkTransport, reason));
+    assert(access(shrinkPath.c_str(), F_OK) != 0);
+    assert(shrinkTransport.calls ==
+        std::vector<std::string>({
+            "/api/agent/v1/commands/result",
+            "/api/agent/v1/commands/result",
+            "/api/agent/v1/commands/poll"}));
+
+    // A receipt without a durable start fence is safe to report as
+    // rejected/no-effect ONLY after the original deadline has expired.
+    staleShrink.dispatchState = "not_started";
+    staleShrink.resultPresent = false;
+    staleShrink.resultAcknowledged = false;
+    assert(vdrsuite::agent::commandstate::persist(
+        shrinkPath, staleShrink, reason));
+    shrinkTransport.calls.clear();
+    assert(reconcileBackendAgentCommandState(
+        shrinkConfig, current, shrinkTransport, reason));
+    assert(shrinkTransport.lastResult.dispatchState == "not_started");
+    assert(shrinkTransport.lastResult.resultCategory == "rejected");
+    assert(shrinkTransport.lastResult.errorCategory == "fenced");
+    assert(shrinkTransport.lastResult.resultEvidence.empty());
+    std::remove(shrinkPath.c_str());
+
+    // Without an acknowledged old receipt, no historical result may cross
+    // the generation fence.
+    staleShrink.dispatchState = "starting";
+    staleShrink.receiptAcknowledged = false;
+    assert(vdrsuite::agent::commandstate::persist(
+        shrinkPath, staleShrink, reason));
+    shrinkTransport.calls.clear();
+    assert(!reconcileBackendAgentCommandState(
+        shrinkConfig, current, shrinkTransport, reason));
+    assert(reason == "local_command_generation_fenced");
+    assert(shrinkTransport.calls.empty());
+    std::remove(shrinkPath.c_str());
     return 0;
 }

@@ -22,6 +22,8 @@ struct MediaShrinkAgentSelection {
     std::string encoder = "software";
     unsigned maxHeight = 0;
     bool nightMode = false;
+    // Durable one-click intent, written only by the Core Stage admission.
+    bool autoPublish = false;
     std::uint64_t expectedReviewRevision = 0;
 };
 
@@ -33,7 +35,7 @@ inline bool parseMediaShrinkAgentSelection(
     if (payload.size() > 256) return false;
     if (commandType == kMediaShrinkStageCommandType) {
         static const std::regex stage(
-            R"SH(^\{"recordingId":"(rec_[0-9a-f]{32})","encoder":"(software|vaapi|qsv|nvenc)","maxHeight":(0|[1-9][0-9]{0,3}),"nightMode":(true|false)\}$)SH");
+            R"SH(^\{"recordingId":"(rec_[0-9a-f]{32})","encoder":"(software|vaapi|qsv|nvenc)","maxHeight":(0|[1-9][0-9]{0,3}),"nightMode":(true|false)(?:,"autoPublish":(true|false))?\}$)SH");
         std::smatch match;
         if (!std::regex_match(payload, match, stage)) return false;
         output.action = ShrinkRequestAction::stage;
@@ -41,6 +43,7 @@ inline bool parseMediaShrinkAgentSelection(
         output.encoder = match[2].str();
         output.maxHeight = static_cast<unsigned>(std::stoul(match[3].str()));
         output.nightMode = match[4].str() == "true";
+        output.autoPublish = match[5].matched && match[5].str() == "true";
         const OpaqueShrinkSelection shape{
             output.recordingId, "", output.action, output.encoder,
             output.maxHeight, output.nightMode

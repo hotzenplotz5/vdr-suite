@@ -122,6 +122,51 @@ class SourcePackagingTests(TestCase):
         with self.assertRaisesRegex(RuntimeError, "unsupported Ubuntu target"):
             srcpkg.prepare_ubuntu_preview(source, "0.14.1", 1791940000, "jammy")
 
+    def test_signed_experimental_ppa_source_versions_from_main(self):
+        original = ("vdr-suite (0.14.1-1~exp2) unstable; urgency=low\n\n"
+                    "  * Existing packaged build.\n")
+        for suite, ubuntu in (("noble", "24.04"), ("resolute", "26.04")):
+            with self.subTest(suite=suite):
+                source, version = srcpkg.prepare_ubuntu_preview(
+                    original, "0.14.1", 1791940000, suite,
+                    srcpkg.SIGNING_IDENTITY, ppa_revision=3)
+                self.assertTrue(
+                    version.startswith("0.14.1-1~exp2~ppa3+"))
+                self.assertTrue(version.endswith("~ubuntu" + ubuntu + ".1"))
+                self.assertIn("Experimental PPA source build", source)
+                self.assertIn(" -- Holger Schvestka <hotzenplotz5@gmx.de> ", source)
+                self.assertTrue(source.endswith(original))
+                self.assertEqual(srcpkg.BRANCH, "main")
+
+    def test_ppa_release_mode_requires_explicit_signer_and_series(self):
+        for args in (
+            ["0" * 40, "--experimental-ppa-revision", "3"],
+            ["0" * 40, "--experimental-ppa-revision", "3",
+             "--ubuntu-preview", "noble"],
+            ["0" * 40, "--experimental-ppa-revision", "2",
+             "--ubuntu-preview", "noble", "--sign-with", "A" * 40],
+        ):
+            with self.subTest(args=args):
+                with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                    with self.assertRaises(SystemExit) as error:
+                        srcpkg.main(args)
+                self.assertEqual(error.exception.code, 2)
+                self.assertIn("experimental-ppa-revision", stderr.getvalue())
+
+    def test_release_revision_monotonic_against_prior_ppa2(self):
+        original = "vdr-suite (0.14.1-1~exp2) unstable; urgency=low\n"
+        _, newer = srcpkg.prepare_ubuntu_preview(
+            original, "0.14.1", 1791940000, "noble",
+            srcpkg.SIGNING_IDENTITY, ppa_revision=3)
+        result = srcpkg.subprocess.run(
+            ["dpkg", "--compare-versions", newer, "gt",
+             "0.14.1-1~exp2~ppa2+202610170549~ubuntu24.04.1"],
+            check=False, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0)
+        # Deliberately *not* a claim that this beats an unknown current PPA3.
+        self.assertNotIn("PPA_UPLOAD_READY=YES",
+                         SCRIPT.read_text(encoding="utf-8"))
+
     def test_no_build_before_storage_preflight(self):
         source = SCRIPT.read_text(encoding="utf-8")
         self.assertLess(source.index("RESOURCE_PREFLIGHT=PASS"),

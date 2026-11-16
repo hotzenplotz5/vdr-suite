@@ -1,7 +1,19 @@
 name: Published PPA Noble 24.04 clean-install acceptance
 
 on:
+  # Run once when this acceptance workflow is updated on main. GitHub
+  # runners only: never the maintainer's manually managed yaVDR host.
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ppa-noble-install-smoke.yml"
   workflow_dispatch:
+    inputs:
+      verify_media_tools:
+        description: "Also test the fourth Media Tools package after its PPA publication"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -203,3 +215,15 @@ jobs:
           dpkg-query -W -f='${binary:Package} ${Version} ${Status}\n' vdr vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-plugin-web
           systemctl is-enabled vdr-suite-daemon.service vdr-suite-backend-agent.service || true
           apt-cache policy vdr-suite-daemon vdr-plugin-web vdr-plugin-suitebridge
+      # Optional postpublication acceptance; the current PPA may still offer only
+      # the three historical binaries, which must remain independently testable.
+      - name: Check out Media Tools package verification helper
+        if: ${{ github.event_name == 'push' || inputs.verify_media_tools }}
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify actual fourth Media Tools package from published Noble PPA
+        if: ${{ github.event_name == 'push' || inputs.verify_media_tools }}
+        shell: bash
+        run: |
+          bash tools/addons/check_published_media_tools_ppa.sh noble

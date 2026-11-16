@@ -33,6 +33,10 @@ public:
     // One-shot opaque stage review ID, or the already-bound publish review
     // ID. Never expose a local filesystem path in a control-plane result.
     virtual std::string takeReviewId() { return {}; }
+
+    // Bounded path-free code for this ONE execution. Never forward exception
+    // text, filesystem paths or raw ffmpeg stderr to the Core ledger.
+    virtual std::string takeFailureCode() { return {}; }
 };
 
 inline bool validShrinkReviewEvidence(
@@ -47,6 +51,26 @@ inline bool validShrinkReviewEvidence(
     return selection.action == ShrinkRequestAction::stage ||
            (selection.action == ShrinkRequestAction::publish &&
             selection.reviewId == reviewId);
+}
+
+/*
+ * A durable Agent result can say "starting/outcome_unknown" with
+ * errorCategory="none": the executor completed its private work but its
+ * precise review ID was lost at the control-plane boundary. The older
+ * "executor_unknown" variant is also supported. Neither is a license to
+ * restart work; both only allow Core's strict, independently verified
+ * private candidate readback by the ORIGINAL operation identity.
+ */
+inline bool shrinkUnknownStageAllowsPrivateReadback(
+    const BackendAgentCommandResult& result)
+{
+    return result.dispatchState == "starting" &&
+        result.verificationState == "outcome_unknown" &&
+        result.resultCategory == "outcome_unknown" &&
+        result.retryClassification == "reconcile_only" &&
+        (result.errorCategory == "none" ||
+         result.errorCategory == "executor_unknown") &&
+        result.resultEvidence.empty();
 }
 
 } // namespace vdrsuite::mediatools

@@ -204,6 +204,12 @@ private:
     void pollVdrAndUpdateChangeFeed();
     void pollScheduledMediaImport();
     void progressDurableMediaImportBatches();
+    // Continue only Stage operations with explicit durable autoPublish=true.
+    // Reuses the existing verified Publish operation; no second encoder job.
+    void progressDurableMediaShrinkAutoPublish();
+    // Passive recovery of completed private HEVC stages after a lost Agent
+    // result or daemon restart. This never invokes an encoding worker.
+    void runMediaShrinkRecoveryWorker();
     PublicMediaImportAdmissionResult admitMediaImport(
         const PublicMediaImportAdmissionRequest& request);
     // Core-owned backend-specific approval + live authenticated Agent digest.
@@ -224,7 +230,7 @@ private:
     bool tryReconcileMediaShrinkStage(
         const BackendAgentCommandAssignment& assignment,
         const BackendAgentCommandResult& result,
-        std::int64_t now);
+        std::int64_t now, std::string* diagnostic = nullptr);
 
     void refreshRecordingCacheForAllBackends(
         const std::string& reason, const std::string& backendId = "");
@@ -238,10 +244,12 @@ private:
     std::atomic<bool> epgCacheWarmupStopRequested_;
     std::atomic<bool> epgCacheDirtyHint_;
     std::atomic<bool> recordingCacheWarmupStopRequested_;
+    std::atomic<bool> mediaShrinkRecoveryStopRequested_{false};
     RecordingCacheRefreshQueue recordingCacheRefreshQueue_;
     RecordingPresentationChangeQueue recordingPresentationChangeQueue_;
     std::thread epgCacheWarmupThread_;
     std::thread recordingCacheWarmupThread_;
+    std::thread mediaShrinkRecoveryThread_;
 
     RuntimeConfig config_;
     ConsoleRuntimeLogger runtimeLogger_;

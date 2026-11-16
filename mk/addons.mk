@@ -114,6 +114,19 @@ test-addon-media-shrink-agent-executor:
 
 test-ci-fast: test-addon-media-shrink-agent-executor
 
+# Source-only regression for the shared ADR-0035 cache-recording native
+# path projection, including distribution-neutral provider mount aliases.
+.PHONY: test-addon-media-recording-source-resolution
+test-addon-media-recording-source-resolution:
+	mkdir -p "$(BUILD_DIR)/addons"
+	$(CXX) -std=c++17 -Wall -Wextra -Werror \
+		-I core/daemon/include -I core/vdr/include \
+		addons/media-tools/tests/test_media_recording_source_resolution.cpp \
+		-o "$(BUILD_DIR)/addons/test_media_recording_source_resolution"
+	"$(BUILD_DIR)/addons/test_media_recording_source_resolution"
+
+test-ci-fast: test-addon-media-recording-source-resolution
+
 # Public HEVC mutation contract, no durable reservation and no VDR IO.
 .PHONY: test-addon-media-shrink-mutation-api
 test-addon-media-shrink-mutation-api:
@@ -128,6 +141,7 @@ test-ci-fast: test-addon-media-shrink-mutation-api
 
 .PHONY: test-addon-media-shrink-plan-api
 test-addon-media-shrink-plan-api:
+	python3 tools/check_hevc_nonblocking_operation_get.py
 	mkdir -p "$(BUILD_DIR)/addons"
 	$(CXX) -std=c++17 -Wall -Wextra -Werror -pthread \
 		-I addons/media-tools/include -I api/rest/include \
@@ -248,6 +262,8 @@ build-media-tools-cpp-deb: addon-media-import addon-media-shrink addon-media-che
 		--output-dir "$(OUTPUT_DIR)" --maintainer "$(ADDON_MAINTAINER)"
 
 test-addon-media-tools-package:
+	python3 -B -m unittest discover -s tools/addons -p 'test_debian_media_tools.py' -v
+	python3 -B -m unittest discover -s tools/addons -p 'test_debian_media_tools_lifecycle.py' -v
 	python3 -m unittest discover -s tools/addons -p 'test_media_tools_cpp_deb.py'
 	python3 -m unittest discover -s tools/addons -p 'test_stage_media_tools_runtime.py'
 	python3 -B -m unittest discover -s tools/addons -p 'test_install_media_tools_payload.py'
@@ -754,3 +770,12 @@ install-media-tools:
 
 test-install-media-tools-payload:
 	python3 -B -m unittest discover -s tools/addons -p 'test_install_media_tools_payload.py'
+
+# MT.ENC3.2: independent frontend GET/POST contract, also in ordinary UI tests.
+.PHONY: test-media-tools-encoding-settings
+test-media-tools-encoding-settings:
+	node --check web/frontend/settings-media-tools-encoding.js
+	node web/frontend/tests/test_media_tools_encoding_settings.js
+
+test-ci-frontend: test-media-tools-encoding-settings
+test-frontend-contracts: test-media-tools-encoding-settings

@@ -217,7 +217,7 @@ TmdbRecordingMetadataCandidateProvider::episodes(
     invalid.providerId = "tmdb";
     if (!configurationValid(config_) || !digits(seriesExternalId) ||
         seasonNumber <= 0 || seasonNumber > 10000 ||
-        limit < 1 || limit > 20)
+        limit < 1 || limit > 100)
     {
         invalid.error = "invalid series episodes request";
         return invalid;

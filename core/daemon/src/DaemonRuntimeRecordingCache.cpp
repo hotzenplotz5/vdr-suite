@@ -77,8 +77,8 @@ bool assignFrozenMetadataAfterImport(
             continue;
 
         // Match the *proven* native .rec, not a browser-supplied folder,
-        // a fuzzy filename, or "latest recording". Native providers may
-        // report the symlink /srv/vdr/video rather than video.00.
+        // a fuzzy filename, or "latest recording". Providers may report
+        // a configured VDR video-root alias rather than its physical path.
         const VdrRecording* matched = nullptr;
         bool ambiguous = false;
         for (const auto& rec : recordings) {
@@ -640,49 +640,113 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                 result->commandId != assignment->commandId ||
                                 result->resultCategory != "outcome_unknown" ||
                                 result->dispatchState != "accepted_by_executor" ||
-                                result->resultEvidence != op.resourceId)
+                                result->resultEvidence != op.resourceId) {
+                                std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                          << op.operationId
+                                          << " reason=agent_result_binding" << std::endl;
                                 continue;
+                            }
                             const auto review = mediaShrinkReviewRepository_->find(
                                 op.actorId, op.backendId, op.resourceId);
                             if (!review.ok() || review.review.state != "publishing" ||
                                 review.review.revision != 2 ||
                                 review.review.publishOperationId != op.operationId ||
-                                review.review.backendGeneration !=
+                                // A later Publish may use a newer backend
+                                // generation than its verified Stage review.
+                                review.review.backendGeneration >
                                     op.backendGeneration ||
                                 review.review.sourceFingerprint !=
-                                    op.expectedResourceFingerprint)
+                                    op.expectedResourceFingerprint) {
+                                std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                          << op.operationId
+                                          << " reason=review_binding" << std::endl;
                                 continue;
+                            }
                             const auto source = mediaShrinkPlanRuntime_->
                                 trustedSourcePaths(op.backendId,
                                     review.review.recordingId,
-                                    op.expectedResourceFingerprint);
-                            if (!source) continue;
-                            // Mirror the native No-Replace target from
-                            // publishShrinkCandidate, never an Agent path.
+                                    op.expectedResourceFingerprint,
+                                    false, false);
+                            if (!source) {
+                                std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                          << op.operationId
+                                          << " reason=source_resolution" << std::endl;
+                                continue;
+                            }
+                            // Publish originally used _HEVC before the
+                            // sibling title changed to .shrink. Read back
+                            // either actual native VDR directory; prefer the
+                            // current target if both exist.
                             namespace fs = std::filesystem;
                             const fs::path publishedRelative =
                                 fs::path(source->relativeRecording.parent_path()
+                                    .string() + ".shrink") /
+                                source->relativeRecording.filename();
+                            const fs::path legacyPublishedRelative =
+                                fs::path(source->relativeRecording.parent_path()
                                     .string() + "_HEVC") /
                                 source->relativeRecording.filename();
-                            const fs::path publishedNative =
-                                source->videoRoot / publishedRelative;
+                            fs::path matchedRelative;
+                            fs::path publishedNative;
                             std::string matchedNative;
-                            unsigned matches = 0;
-                            for (const auto& recording : nativeRecordings) {
-                                if (recording.backendId == op.backendId &&
-                                    fs::path(recording.path) == publishedNative &&
-                                    !recording.backendNativeId.empty() &&
-                                    !recording.title.empty()) {
-                                    ++matches;
-                                    matchedNative = recording.backendNativeId;
+                            for (const fs::path& candidateRelative :
+                                 {publishedRelative, legacyPublishedRelative}) {
+                                publishedNative = source->videoRoot / candidateRelative;
+                                for (const auto& recording : nativeRecordings) {
+                                    // RESTfulAPI path is usually relative_file_name;
+                                    // only backendNativeId is the absolute VDR .rec
+                                    // directory read from provider file_name.
+                                    if (recording.backendId != op.backendId ||
+                                        recording.backendNativeId.empty() ||
+                                        recording.title.empty())
+                                        continue;
+                                    const fs::path native(recording.backendNativeId);
+                                    if (!native.is_absolute() ||
+                                        native.extension() != ".rec")
+                                        continue;
+                                    std::error_code pathError;
+                                    // RESTfulAPI and the local Agent may use
+                                    // different aliases for the SAME configured
+                                    // VDR directory. Compare actual filesystem
+                                    // identity, independent of distro/mount name.
+                                    const bool sameDirectory =
+                                        native == publishedNative ||
+                                        fs::equivalent(native, publishedNative,
+                                                       pathError);
+                                    if (sameDirectory) {
+                                        // Multiple RESTfulAPI entries can name
+                                        // this exact same directory via aliases.
+                                        // They are not multiple physical results.
+                                        // Prefer the configured-root spelling,
+                                        // otherwise choose deterministically.
+                                        if (matchedNative.empty() ||
+                                            native == publishedNative ||
+                                            (fs::path(matchedNative) != publishedNative &&
+                                             recording.backendNativeId < matchedNative))
+                                            matchedNative = recording.backendNativeId;
+                                    }
+                                }
+                                if (!matchedNative.empty()) {
+                                    matchedRelative = candidateRelative;
+                                    break;
                                 }
                             }
-                            if (matches != 1) continue;
+                            if (matchedNative.empty()) {
+                                std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                          << op.operationId
+                                          << " reason=native_inventory_missing" << std::endl;
+                                continue;
+                            }
                             try {
                                 const auto published = vdrsuite::mediatools::
                                     inspectShrink(source->videoRoot,
-                                                  publishedRelative);
-                                if (published.segments.empty()) continue;
+                                                  matchedRelative);
+                                if (published.segments.empty()) {
+                                    std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                              << op.operationId
+                                              << " reason=published_segments_missing" << std::endl;
+                                    continue;
+                                }
                                 vdrsuite::mediatools::NativeProcessRunner probe(
                                     std::chrono::seconds(120));
                                 const auto codec = probe.run({
@@ -692,32 +756,96 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                                     "-of", "default=nw=1:nk=1",
                                     (publishedNative / "00001.ts").string()
                                 }, true);
+                                // MPEG-TS program tables can cause FFprobe to
+                                // report the same video codec multiple times.
+                                // Reuse the existing strict multi-stream parser.
                                 if (codec.exitCode != 0 ||
-                                    (codec.output != "hevc\n" &&
-                                     codec.output != "hevc\r\n"))
+                                    vdrsuite::mediatools::parseProbedVideoCodec(
+                                        codec.output) != "hevc") {
+                                    std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                              << op.operationId
+                                              << " reason=hevc_codec_readback" << std::endl;
                                     continue;
+                                }
                                 const auto publicId = publicRecordingIdentities_->
                                     resolveOrCreate(op.backendId, matchedNative);
                                 if (!publicId ||
                                     !vdrsuite::mediatools::shrinkOpaqueId(
-                                        *publicId, "rec_"))
+                                        *publicId, "rec_")) {
+                                    std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                              << op.operationId
+                                              << " reason=public_recording_identity" << std::endl;
                                     continue;
+                                }
                                 const auto transition =
                                     mutationOperationRepository_->transition(
                                         op.operationId, op.operationRevision,
                                         op.state, State::succeeded,
                                         *publicId, recordingMetadataEpochSeconds());
-                                if (!transition.ok()) continue;
+                                if (!transition.ok()) {
+                                    std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                              << op.operationId
+                                              << " reason=operation_transition" << std::endl;
+                                    continue;
+                                }
                                 const auto completed =
                                     mediaShrinkReviewRepository_->completePublication(
                                         op.actorId, op.backendId,
                                         op.resourceId, 2);
-                                if (completed.ok())
+                                if (!completed.ok())
+                                    std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                              << op.operationId
+                                              << " reason=review_completion" << std::endl;
+                                if (completed.ok()) {
                                     std::cout << "HEVC Publish reconciled: backend="
                                               << op.backendId << std::endl;
+                                    // Same SSE subscription as the original
+                                    // one-click Stage. No browser polling.
+                                    if (deviceLiveEventHub_)
+                                        deviceLiveEventHub_->publishOperation(
+                                            review.review.stageOperationId);
+                                }
                             } catch (...) {
                                 // Keep outcomeUnknown for later independent
                                 // readback; never re-dispatch the mutation.
+                                std::cerr << "HEVC_PUBLISH_PENDING operation="
+                                          << op.operationId
+                                          << " reason=published_media_inspection" << std::endl;
+                            }
+                        }
+                    }
+
+                    // A process crash can occur after the authoritative
+                    // Publish operation reached succeeded but before the
+                    // separate review row advanced to published. Reconcile
+                    // only this exact durable operation/review binding, with
+                    // no second filesystem move or Agent dispatch.
+                    const auto succeeded =
+                        mutationOperationRepository_->listByActionFamilyAndStates(
+                            "media.shrink.publish", {State::succeeded}, 128);
+                    if (succeeded.ok()) {
+                        for (const auto& op : succeeded.operations) {
+                            if (op.backendId != backendRuntimeContext->backendId ||
+                                op.resourceType != "MediaShrinkReview" ||
+                                !vdrsuite::mediatools::shrinkOpaqueId(
+                                    op.resourceId, "shk_") ||
+                                !vdrsuite::mediatools::shrinkOpaqueId(
+                                    op.resultReference, "rec_"))
+                                continue;
+                            const auto review =
+                                mediaShrinkReviewRepository_->find(
+                                    op.actorId, op.backendId, op.resourceId);
+                            if (review.ok() &&
+                                review.review.state == "publishing" &&
+                                review.review.revision == 2 &&
+                                review.review.publishOperationId == op.operationId) {
+                                const auto completed =
+                                    mediaShrinkReviewRepository_->completePublication(
+                                        op.actorId, op.backendId,
+                                        op.resourceId, 2);
+                                if (completed.ok() && deviceLiveEventHub_)
+                                    deviceLiveEventHub_->publishOperation(
+                                        review.review.stageOperationId);
                             }
                         }
                     }

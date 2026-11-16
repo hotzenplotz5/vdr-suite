@@ -43,7 +43,8 @@ std::string stagePayload(const MediaShrinkStageAdmission& request) {
     return "{\"recordingId\":\"" + request.recordingId +
         "\",\"encoder\":\"" + request.encoder +
         "\",\"maxHeight\":" + std::to_string(request.maxHeight) +
-        ",\"nightMode\":" + (request.nightMode ? "true" : "false") + "}";
+        ",\"nightMode\":" + (request.nightMode ? "true" : "false") +
+        (request.autoPublish ? ",\"autoPublish\":true" : "") + "}";
 }
 std::string publishPayload(const std::string& id, std::uint64_t revision) {
     return "{\"reviewId\":\"" + id + "\",\"revision\":" +
@@ -232,7 +233,7 @@ MediaShrinkAdmissionResult MediaShrinkOperationAdmissionService::publish(
     if (!authority_.allowPublish(req.actorId, req.backendId, req.reviewId,
                                  review.review.sourceFingerprint, req.now,
                                  generation) ||
-        generation == 0 || generation != review.review.backendGeneration)
+        generation == 0 || generation < review.review.backendGeneration)
         return out(Status::forbidden);
     const auto serialized = publishPayload(req.reviewId, req.expectedRevision);
     Selection selection;

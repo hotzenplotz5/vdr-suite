@@ -13,6 +13,10 @@
 #include "MediaImportScheduleWindow.h"
 #include "BackendAgentMediaImportAssignment.h"
 #include "MediaImportOperationFence.h"
+#include "MediaShrinkAgentCommand.h"
+#include "MediaShrinkOperationAdmission.h"
+#include "DaemonMediaShrinkAdmissionAuthority.h"
+#include "BackendAgentMediaShrinkAssignment.h"
 #include "MutationOperationRepository.h"
 #include "Database.h"
 #include <sqlite3.h>
@@ -23,6 +27,7 @@
 #include <ctime>
 #include <exception>
 #include <iostream>
+#include <map>
 
 std::atomic<bool> DaemonRuntime::shutdownRequested_(false);
 
@@ -106,12 +111,21 @@ int DaemonRuntime::run()
             *backendAgentCommandRepository_)) {
         std::cerr << "Recording editing runtime unavailable" << std::endl; return 1;
     }
+    // Recover finished, already durably recorded HEVC stages without a
+    // browser GET and without blocking the HTTP/Agent control-plane thread.
+    mediaShrinkRecoveryStopRequested_.store(false);
+    mediaShrinkRecoveryThread_ = std::thread([this]() {
+        runMediaShrinkRecoveryWorker();
+    });
+
     auto lastVdrPoll = std::chrono::steady_clock::now();
     auto lastMediaImportPoll =
         std::chrono::steady_clock::now() - std::chrono::minutes(1);
     auto lastDurableBatchProgress =
         std::chrono::steady_clock::now() - std::chrono::seconds(3);
-    return runRecordingMediaHttpRuntime(
+    int runtimeExit = 1;
+    try {
+    runtimeExit = runRecordingMediaHttpRuntime(
         database_,
         *apiRouter_,
         *vdrRecordingQueryService_,
@@ -144,6 +158,24 @@ int DaemonRuntime::run()
                         snapshotChangeFeed_->entries().back());
                 }
             }
+            // The Agent already publishes its bounded source inventory.
+            // Emit one backend-scoped SSE invalidation only when the actual
+            // catalog contents changed, never on every Agent heartbeat.
+            // Clients read their normal authenticated source list afterward.
+            if (mediaImportCatalog_ && snapshotChangeFeed_ &&
+                snapshotChangeFeedService_ && liveTransportService_ &&
+                snapshotCacheService_) {
+                for (const auto& backendId :
+                     mediaImportCatalog_->takeChangedSourceBackends()) {
+                    snapshotChangeFeedService_->appendChanges(
+                        *snapshotChangeFeed_,
+                        snapshotCacheService_->generation(),
+                        {VdrChangeEvent(VdrChangeType::MediaImportSourcesChanged)},
+                        backendId);
+                    liveTransportService_->publishChangeFeedEntry(
+                        snapshotChangeFeed_->entries().back());
+                }
+            }
             const auto now = std::chrono::steady_clock::now();
             // Core owns continuation of already-confirmed, durably reserved
             // per-source imports. No browser/SSE connection drives dispatch.
@@ -153,6 +185,11 @@ int DaemonRuntime::run()
                 try { progressDurableMediaImportBatches(); }
                 catch (...) {
                     std::cerr << "Durable Media Import batch progression failed"
+                              << std::endl;
+                }
+                try { progressDurableMediaShrinkAutoPublish(); }
+                catch (...) {
+                    std::cerr << "Durable HEVC auto-publication progression failed"
                               << std::endl;
                 }
             }
@@ -178,6 +215,246 @@ int DaemonRuntime::run()
             lastVdrPoll = now;
             pollVdrAndUpdateChangeFeed();
         });
+    } catch (...) {
+        mediaShrinkRecoveryStopRequested_.store(true);
+        if (mediaShrinkRecoveryThread_.joinable())
+            mediaShrinkRecoveryThread_.join();
+        throw;
+    }
+    mediaShrinkRecoveryStopRequested_.store(true);
+    if (mediaShrinkRecoveryThread_.joinable())
+        mediaShrinkRecoveryThread_.join();
+    return runtimeExit;
+}
+
+void DaemonRuntime::progressDurableMediaShrinkAutoPublish()
+{
+    using namespace vdrsuite::addons;
+    using State = vdrsuite::operations::MutationOperationState;
+    if (!mutationOperationRepository_ || !mediaShrinkReviewRepository_ ||
+        !mediaShrinkOperationFence_ || !mediaShrinkPlanRuntime_ ||
+        !backendAgentRepository_ || !backendAgentCommandRepository_)
+        return;
+
+    // Select only verified stages that still have an unfinished review.
+    // Original Stage intent lives in mutation_operation_payloads, so there
+    // is no magic idempotency prefix, schema migration or browser dependency.
+    auto* db = const_cast<Database*>(
+        mutationOperationRepository_->databaseIdentity());
+    if (!db) return;
+    std::vector<std::string> stageIds;
+    {
+        auto lease = db->acquireTransactionLease();
+        const char* sql =
+            "SELECT m.operation_id FROM mutation_operations m "
+            "JOIN addon_media_shrink_reviews r "
+            "ON r.stage_operation_id=m.operation_id "
+            "AND r.actor_id=m.actor_id AND r.backend_id=m.backend_id "
+            "WHERE m.action_family='media.shrink.stage' "
+            "AND m.state='succeeded' "
+            "AND r.state IN ('staged','publishing') "
+            "ORDER BY m.updated_at DESC LIMIT 128;";
+        sqlite3_stmt* stmt = nullptr;
+        if (sqlite3_prepare_v2(db->handle(), sql, -1, &stmt, nullptr)
+                != SQLITE_OK) {
+            if (stmt) sqlite3_finalize(stmt);
+            return;
+        }
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            const auto* value = sqlite3_column_text(stmt, 0);
+            if (value)
+                stageIds.emplace_back(reinterpret_cast<const char*>(value));
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    if (stageIds.empty()) return;
+    const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    DaemonMediaShrinkAdmissionAuthority authority(
+        *mediaShrinkPlanRuntime_, *mediaShrinkOperationFence_,
+        *mediaShrinkReviewRepository_);
+    MediaShrinkOperationAdmissionService admissions(
+        *mutationOperationRepository_, *mediaShrinkReviewRepository_,
+        authority);
+    RequestSecurityContext system;
+    system.authenticationState = AuthenticationState::Authenticated;
+    system.actor = {"media_shrink_auto_publish", ActorType::System,
+                    "HEVC Stage automatic publication", true};
+    vdrsuite::agent::BackendAgentMediaShrinkAssignmentService assigner(
+        *mutationOperationRepository_, *backendAgentCommandRepository_,
+        *backendAgentRepository_, *mediaShrinkOperationFence_);
+
+    for (const auto& stageId : stageIds) {
+        const auto stageResult =
+            mutationOperationRepository_->findById(stageId);
+        const auto payload =
+            mutationOperationRepository_->findPayloadByOperationId(stageId);
+        if (!stageResult.ok() || !payload.ok()) continue;
+        const auto& stage = stageResult.operation;
+        if (stage.state != State::succeeded ||
+            stage.actionFamily != "media.shrink.stage" ||
+            stage.resourceType != "Recording" ||
+            payload.payload.payloadType !=
+                vdrsuite::mediatools::kMediaShrinkStageCommandType ||
+            payload.payload.payloadVersion != 1)
+            continue;
+        vdrsuite::mediatools::MediaShrinkAgentSelection selection;
+        if (!vdrsuite::mediatools::parseMediaShrinkAgentSelection(
+                payload.payload.payloadType, payload.payload.payload,
+                selection) ||
+            !selection.autoPublish ||
+            selection.recordingId != stage.resourceId ||
+            !vdrsuite::mediatools::shrinkOpaqueId(
+                stage.resultReference, "shk_"))
+            continue;
+        const auto review = mediaShrinkReviewRepository_->find(
+            stage.actorId, stage.backendId, stage.resultReference);
+        if (!review.ok() ||
+            review.review.stageOperationId != stage.operationId ||
+            review.review.recordingId != stage.resourceId ||
+            review.review.sourceFingerprint !=
+                stage.expectedResourceFingerprint)
+            continue;
+
+        if (review.review.state == "staged" &&
+            review.review.revision == 1) {
+            MediaShrinkPublishAdmission request;
+            request.actorId = stage.actorId;
+            request.backendId = stage.backendId;
+            request.reviewId = review.review.reviewId;
+            request.expectedRevision = 1;
+            request.idempotencyKey = stage.operationId;
+            request.now = now;
+            const auto result = admissions.publish(request);
+            if (result.status == MediaShrinkAdmissionStatus::accepted &&
+                result.operation.state == State::accepted) {
+                const auto dispatched = assigner.assign(
+                    system, result.operation.operationId, now);
+                // Wake subscribers of the original Stage; the browser
+                // discovers the existing Publish operation by readback.
+                if (dispatched.accepted && deviceLiveEventHub_)
+                    deviceLiveEventHub_->publishOperation(stage.operationId);
+            }
+        } else if (review.review.state == "publishing" &&
+                   review.review.revision == 2) {
+            // Restore the single accepted command after a Core restart.
+            // Never replay a dispatched or outcome-unknown mutation.
+            const auto existing = mutationOperationRepository_->findById(
+                review.review.publishOperationId);
+            if (!existing.ok() ||
+                existing.operation.state != State::accepted ||
+                existing.operation.actionFamily != "media.shrink.publish" ||
+                existing.operation.actorId != stage.actorId ||
+                existing.operation.backendId != stage.backendId ||
+                existing.operation.resourceId != review.review.reviewId)
+                continue;
+            if (!backendAgentCommandRepository_->findAssignmentForOperation(
+                    stage.backendId, existing.operation.operationId,
+                    vdrsuite::mediatools::kMediaShrinkPublishCommandType)) {
+                const auto dispatched = assigner.assign(
+                    system, existing.operation.operationId, now);
+                if (dispatched.accepted && deviceLiveEventHub_)
+                    deviceLiveEventHub_->publishOperation(stage.operationId);
+            }
+        }
+    }
+}
+
+void DaemonRuntime::runMediaShrinkRecoveryWorker()
+{
+    using State = vdrsuite::operations::MutationOperationState;
+    using namespace std::chrono;
+    // Backend-owned readback rather than browser polling. All attempts
+    // operate on the ORIGINAL durable Agent assignment and exact candidate.
+    // No new command or FFmpeg execution can be dispatched from this worker.
+    const auto waitForStop = [this](int seconds) {
+        for (int i = 0; i < seconds; ++i) {
+            if (mediaShrinkRecoveryStopRequested_.load()) return true;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        return mediaShrinkRecoveryStopRequested_.load();
+    };
+    if (waitForStop(2)) return;
+    // Report a reason once per distinct operation/reason. A long-lived
+    // uncertain Stage must not spam journald at every maintenance tick.
+    std::map<std::string, std::string> reported;
+    const auto report = [&reported](const std::string& operationId,
+                                    const std::string& reason) {
+        if (reason.empty() || reported[operationId] == reason) return;
+        reported[operationId] = reason;
+        std::cerr << "HEVC_STAGE_RECOVERY=BLOCKED"
+                  << " operation=" << operationId
+                  << " reason=" << reason << std::endl;
+    };
+    while (!mediaShrinkRecoveryStopRequested_.load()) {
+        try {
+            if (mutationOperationRepository_ &&
+                backendAgentCommandRepository_ &&
+                mediaShrinkPlanRuntime_ && mediaShrinkReviewRepository_) {
+                // Prioritize uncertain operations: old successful reviews
+                // must never starve recovery by filling the bounded scan.
+                auto pending =
+                    mutationOperationRepository_->listByActionFamilyAndStates(
+                        "media.shrink.stage", {State::outcomeUnknown}, 32);
+                // Also heal a crash between Stage CAS and review registration.
+                const auto completed =
+                    mutationOperationRepository_->listByActionFamilyAndStates(
+                        "media.shrink.stage", {State::succeeded}, 16);
+                if (pending.ok() && completed.ok()) {
+                    pending.operations.insert(pending.operations.end(),
+                        completed.operations.begin(),
+                        completed.operations.end());
+                    for (const auto& op : pending.operations) {
+                        if (mediaShrinkRecoveryStopRequested_.load()) break;
+                        // Completed reviews need no further media probing.
+                        // Only a crashed CAS->register gap needs readback.
+                        if (op.state == State::succeeded &&
+                            mediaShrinkReviewRepository_->find(
+                                op.actorId, op.backendId,
+                                op.resultReference).ok())
+                            continue;
+                        const auto assignment =
+                            backendAgentCommandRepository_->
+                                findAssignmentForOperation(
+                                    op.backendId, op.operationId,
+                                    vdrsuite::mediatools::
+                                        kMediaShrinkStageCommandType);
+                        if (!assignment) {
+                            report(op.operationId, "agent_assignment_missing");
+                            continue;
+                        }
+                        const auto result =
+                            backendAgentCommandRepository_->resultForCommand(
+                                assignment->commandId);
+                        if (!result) {
+                            report(op.operationId, "durable_agent_result_missing");
+                            continue;
+                        }
+                        const auto now = duration_cast<seconds>(
+                            system_clock::now().time_since_epoch()).count();
+                        std::string diagnostic;
+                        if (tryReconcileMediaShrinkStage(
+                                *assignment, *result, now, &diagnostic)) {
+                            reported.erase(op.operationId);
+                            std::cout << "HEVC_STAGE_RECOVERY=VERIFIED"
+                                      << " operation=" << op.operationId
+                                      << std::endl;
+                        } else {
+                            report(op.operationId, diagnostic);
+                        }
+                    }
+                }
+            }
+        } catch (const std::exception&) {
+            // Avoid leaking file paths; the authoritative operation stays
+            // untouched for the next independent readback.
+            std::cerr << "HEVC_STAGE_RECOVERY=RETRYABLE" << std::endl;
+        } catch (...) {
+            std::cerr << "HEVC_STAGE_RECOVERY=RETRYABLE" << std::endl;
+        }
+        if (waitForStop(60)) break;
+    }
 }
 
 void DaemonRuntime::progressDurableMediaImportBatches()

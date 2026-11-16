@@ -472,7 +472,8 @@ bool ManualRecordingMetadataApiRuntime::resolveReadOnly(
         backendId, stringValue(strings, "title"), kind,
         intValue(integers, "seasonNumber", 0),
         intValue(integers, "episodeNumber", 0),
-        intValue(integers, "year", 0));
+        intValue(integers, "year", 0),
+        stringValue(strings, "episodeTitle"));
     return true;
 }
 

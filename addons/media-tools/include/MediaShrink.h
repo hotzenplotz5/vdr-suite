@@ -4,9 +4,9 @@
 
 #include <cstdint>
 #include <filesystem>
-#include <functional>
 #include <optional>
 #include <string>
+#include <stdexcept>
 #include <vector>
 
 namespace vdrsuite::mediatools {
@@ -49,13 +49,18 @@ ShrinkPlan inspectShrink(
 // Recomputed at each Core/Agent mutation boundary, never supplied by HTTP.
 std::string shrinkSourceFingerprint(const ShrinkPlan& plan);
 
-void requireShrinkCapacity(const ShrinkPlan& plan);
+// A staging error is definitive only after every private output was
+// synchronously removed and its absence verified. No public recording/review
+// was created by stageShrink. A failed cleanup remains outcome_unknown.
+class MediaShrinkCleanStageFailure final : public std::runtime_error {
+public:
+    explicit MediaShrinkCleanStageFailure(const std::string& detail)
+        : std::runtime_error(detail) {}
+};
 
 // The first explicit write action only creates a private review candidate.
 // No VDR recording path is changed, and no root/source file is removed.
-fs::path stageShrink(
-    const ShrinkPlan& plan, ProcessRunner& runner,
-    const std::function<void(const ShrinkPlan&)>& capacityPreflight);
+fs::path stageShrink(const ShrinkPlan& plan, ProcessRunner& runner);
 
 // Durable, opaque Agent-to-Core review binding kept INSIDE the private
 // candidate until publication. This is NOT a mutation credential and is
@@ -72,7 +77,8 @@ std::optional<ShrinkReviewBinding> readShrinkReviewBinding(
 
 // Independent read-only verification on a fresh source snapshot. Can be
 // used by Core reconciliation without publishing or changing original files.
-// Throws on missing, modified, foreign or incomplete HEVC candidates.
+// Rejects incomplete/foreign HEVC data and missing or unsafe metadata;
+// copied metadata need not match byte-for-byte until Publish refreshes it.
 std::uint64_t verifyShrinkCandidate(
     const ShrinkPlan& source, const fs::path& candidateDirectory,
     ProcessRunner& runner);

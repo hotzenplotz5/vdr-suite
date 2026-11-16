@@ -32,6 +32,10 @@ SnapshotUpdatePlan SnapshotRefreshPlanner::createPlan(
                 plan.markRecordingsRefresh();
             }
             break;
+        case VdrChangeType::MediaImportSourcesChanged:
+            // Narrow invalidation for the authorized Media Import catalog.
+            // Never schedule a VDR snapshot refresh for filesystem sources.
+            break;
         case VdrChangeType::ContinueWatchingChanged:
             // Actor-owned playback progress is stored independently of VDR
             // snapshots; this narrow hint must not trigger a VDR refresh.

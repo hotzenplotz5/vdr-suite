@@ -113,6 +113,7 @@ int main()
               "overview": "Ein Film.",
               "release_date": "1994-07-06",
               "poster_path": "/forrest.jpg",
+              "backdrop_path": "/forrest-background.jpg",
               "vote_average": 8.5
             },
             {
@@ -145,6 +146,7 @@ int main()
         assert(candidate.externalId == "13");
         assert(candidate.title == "Forrest Gump");
         assert(candidate.posterReference == "/forrest.jpg");
+        assert(candidate.backdropReference == "/forrest-background.jpg");
         assert(transport.requests.size() == 1U);
         assert(transport.requests.front().url.find(
             "/search/movie?query=Forrest%20Gump") != std::string::npos);
@@ -240,6 +242,32 @@ int main()
         assert(episode.episodeNumber == 1);
         assert(transport.requests.front().url.find(
             "/tv/19885/season/1?") != std::string::npos);
+    }
+
+    // MT.META7.3: a complete 22-episode season includes S01E22.
+    {
+        std::string body = R"({"episodes":[)";
+        for (int number = 1; number <= 22; ++number)
+        {
+            if (number > 1) body += ",";
+            body += R"({"id":)" + std::to_string(1200 + number) +
+                R"(,"name":"Episode )" + std::to_string(number) +
+                R"(","season_number":1,"episode_number":)" +
+                std::to_string(number) + "}";
+        }
+        body += "]}";
+        FakeTransport transport;
+        transport.responses.push_back(jsonResponse(body));
+        TmdbRecordingMetadataCandidateProvider provider(transport, config());
+        const auto page = provider.episodes("19885", 1, 100);
+        assert(page.providerAvailable);
+        assert(page.error.empty());
+        assert(!page.truncated);
+        assert(page.candidates.size() == 22U);
+        assert(page.candidates.back().episodeNumber == 22);
+        assert(page.candidates.back().parentExternalId == "19885");
+        const auto invalid = provider.episodes("19885", 1, 101);
+        assert(!invalid.error.empty());
     }
 
     {

@@ -3,6 +3,7 @@
 #include "CurlExternalArtworkHttpTransport.h"
 #include "CanonicalGenreRegistry.h"
 #include "MetadataRepository.h"
+#include "RecordingMetadataTitleMatch.h"
 #include "TmdbRecordingMetadataCandidateProvider.h"
 #include "TmdbRecordingMetadataCredentialResolver.h"
 
@@ -125,6 +126,8 @@ std::string serializeCandidate(
          << jsonEscape(candidate.releaseDate) << "\",";
     json << "\"posterReference\":\""
          << jsonEscape(candidate.posterReference) << "\",";
+    json << "\"backdropReference\":\""
+         << jsonEscape(candidate.backdropReference) << "\",";
     json << "\"seasonNumber\":" << candidate.seasonNumber << ",";
     json << "\"episodeNumber\":" << candidate.episodeNumber << ",";
     json << "\"rating\":" << candidate.rating;
@@ -397,29 +400,9 @@ ApiResponse MetadataController::resolveRecordingMetadata(
     RecordingMetadataCandidateKind kind,
     int seasonNumber,
     int episodeNumber,
-    int releaseYear)
+    int releaseYear,
+    const std::string& episodeTitle)
 {
-    auto normalized = [](const std::string& value) {
-        std::string out;
-        bool spaced = true;
-        for (unsigned char ch : value)
-        {
-            if (ch >= 0x80U || std::isalnum(ch))
-            {
-                out.push_back(ch < 0x80U
-                    ? static_cast<char>(std::tolower(ch))
-                    : static_cast<char>(ch));
-                spaced = false;
-            }
-            else if (!spaced)
-            {
-                out.push_back(' ');
-                spaced = true;
-            }
-        }
-        while (!out.empty() && out.back() == ' ') out.pop_back();
-        return out;
-    };
     auto outcome = [](const char* status) {
         ApiResponse response;
         response.statusCode = 200;
@@ -443,24 +426,33 @@ ApiResponse MetadataController::resolveRecordingMetadata(
     IRecordingMetadataCandidateProvider& provider = candidateProvider_
         ? *candidateProvider_ : defaultProvider;
 
-    const std::string name = normalized(title);
-    const std::string prefix("star wars ");
-    const std::string shortName =
-        kind == RecordingMetadataCandidateKind::Series &&
-        name.compare(0U, prefix.size(), prefix) == 0
-            ? name.substr(prefix.size()) : std::string();
-    std::set<std::string> accepted{name};
-    std::vector<std::string> queries{title};
-    if (shortName.size() >= 2U)
-    {
-        accepted.insert(shortName);
-        queries.push_back(shortName);
-    }
+    const std::vector<std::string> queries =
+        recordingMetadataTitleMatch::searchQueries(title);
     const std::string space = kind == RecordingMetadataCandidateKind::Series
         ? "tv" : "movie";
 
     RecordingMetadataCandidate found;
+    RecordingMetadataCandidate selectedEpisode;
+    bool hasSelectedEpisode = false;
     bool hasMatch = false;
+
+    // The same provider-identity and exact-coordinate validation is used
+    // for ordinary episode lookup and for tie-breaking equal series titles.
+    const auto validEpisode = [seasonNumber, episodeNumber](
+        const RecordingMetadataCandidate& ep,
+        const RecordingMetadataCandidate& series) {
+        const std::string& id = ep.externalId;
+        return ep.kind == RecordingMetadataCandidateKind::Episode &&
+            ep.providerId == "tmdb" && ep.externalNamespace == "tv-episode" &&
+            ep.parentExternalId == series.externalId &&
+            ep.seasonNumber == seasonNumber &&
+            ep.episodeNumber == episodeNumber &&
+            !ep.title.empty() && !id.empty() && id.size() <= 16U &&
+            std::all_of(id.begin(), id.end(), [](unsigned char c) {
+                return c >= '0' && c <= '9';
+            });
+    };
+
     for (const std::string& query : queries)
     {
         const RecordingMetadataCandidatePage page =
@@ -468,7 +460,10 @@ ApiResponse MetadataController::resolveRecordingMetadata(
         if (!page.providerAvailable || !page.error.empty())
             return errorResponse(503, "metadata_provider_unavailable",
                 page.error.empty() ? "TMDb unavailable" : page.error);
-        std::map<std::string, RecordingMetadataCandidate> matches;
+        // Rank by title/original-title evidence, not TMDb result order.
+        // A localized title may differ completely from the original title.
+        // Never infer a match from a shortened search query alone.
+        std::map<std::string, std::pair<int, RecordingMetadataCandidate>> matches;
         for (const RecordingMetadataCandidate& candidate : page.candidates)
         {
             const std::string& id = candidate.externalId;
@@ -478,20 +473,99 @@ ApiResponse MetadataController::resolveRecordingMetadata(
                 !std::all_of(id.begin(), id.end(), [](unsigned char c) {
                     return c >= '0' && c <= '9';
                 })) continue;
-            if (!accepted.count(normalized(candidate.title)) &&
-                !accepted.count(normalized(candidate.originalTitle))) continue;
-            // Series and movies alike can have identical titles across
-            // different years. TMDb exposes first_air_date for series and
-            // release_date for movies in this same candidate field.
+            const int evidence = std::max(
+                recordingMetadataTitleMatch::score(title, candidate.title),
+                recordingMetadataTitleMatch::score(
+                    title, candidate.originalTitle));
+            if (evidence == 0) continue;
+            // Series and movies alike can share a title across years.
+            // This year refers to the first series air date / film release,
+            // never to an individual episode.
             if (releaseYear > 0 &&
                 candidate.releaseDate.substr(0, 4) !=
                     std::to_string(releaseYear)) continue;
-            matches.emplace(id, candidate);
+            const auto existing = matches.find(id);
+            if (existing == matches.end() || evidence > existing->second.first)
+                matches[id] = {evidence, candidate};
         }
-        if (matches.size() > 1U) return outcome("ambiguous");
-        if (matches.size() == 1U)
+        int highest = 0;
+        std::size_t equallyStrong = 0U;
+        for (const auto& entry : matches)
         {
-            found = matches.begin()->second;
+            const int evidence = entry.second.first;
+            if (evidence > highest)
+            {
+                highest = evidence;
+                equallyStrong = 1U;
+                found = entry.second.second;
+            }
+            else if (evidence == highest && highest != 0)
+                ++equallyStrong;
+        }
+        if (equallyStrong > 1U)
+        {
+            // Equally named TV series can have completely different S01E08.
+            // An optional, filename-derived episode title is *positive*
+            // evidence for one candidate; coordinates alone are not enough
+            // to prefer a popular series, its provider order, or its year.
+            // Without that evidence, the historical ambiguous result remains.
+            if (kind == RecordingMetadataCandidateKind::Series &&
+                !episodeTitle.empty())
+            {
+                int strongestEpisode = 0;
+                std::size_t equallyStrongEpisodes = 0U;
+                RecordingMetadataCandidate bestSeries;
+                RecordingMetadataCandidate bestEpisode;
+                for (const auto& entry : matches)
+                {
+                    if (entry.second.first != highest) continue;
+                    const RecordingMetadataCandidate& series =
+                        entry.second.second;
+                    const RecordingMetadataCandidatePage season =
+                        provider.episodes(series.externalId, seasonNumber, 100);
+                    if (!season.providerAvailable || !season.error.empty())
+                        return errorResponse(503, "metadata_provider_unavailable",
+                            season.error.empty()
+                                ? "TMDb unavailable" : season.error);
+                    std::map<std::string, RecordingMetadataCandidate> episodes;
+                    for (const auto& ep : season.candidates)
+                        if (validEpisode(ep, series))
+                            episodes.emplace(ep.externalId, ep);
+
+                    for (const auto& item : episodes)
+                    {
+                        const RecordingMetadataCandidate& ep = item.second;
+                        const int evidence = std::max(
+                            recordingMetadataTitleMatch::score(
+                                episodeTitle, ep.title),
+                            recordingMetadataTitleMatch::score(
+                                episodeTitle, ep.originalTitle));
+                        if (evidence == 0) continue;
+                        if (evidence > strongestEpisode)
+                        {
+                            strongestEpisode = evidence;
+                            equallyStrongEpisodes = 1U;
+                            bestSeries = series;
+                            bestEpisode = ep;
+                        }
+                        else if (evidence == strongestEpisode)
+                            ++equallyStrongEpisodes;
+                    }
+                }
+                if (strongestEpisode > 0 &&
+                    equallyStrongEpisodes == 1U)
+                {
+                    found = bestSeries;
+                    selectedEpisode = bestEpisode;
+                    hasSelectedEpisode = true;
+                    hasMatch = true;
+                    break;
+                }
+            }
+            return outcome("ambiguous");
+        }
+        if (equallyStrong == 1U)
+        {
             hasMatch = true;
             break;
         }
@@ -508,30 +582,24 @@ ApiResponse MetadataController::resolveRecordingMetadata(
         return response;
     }
 
-    const RecordingMetadataCandidatePage page =
-        provider.episodes(found.externalId, seasonNumber, 20);
-    if (!page.providerAvailable || !page.error.empty())
-        return errorResponse(503, "metadata_provider_unavailable",
-            page.error.empty() ? "TMDb unavailable" : page.error);
-    std::map<std::string, RecordingMetadataCandidate> episodes;
-    for (const RecordingMetadataCandidate& ep : page.candidates)
+    if (!hasSelectedEpisode)
     {
-        const std::string& id = ep.externalId;
-        if (ep.kind != RecordingMetadataCandidateKind::Episode ||
-            ep.providerId != "tmdb" || ep.externalNamespace != "tv-episode" ||
-            ep.parentExternalId != found.externalId ||
-            ep.seasonNumber != seasonNumber || ep.episodeNumber != episodeNumber ||
-            ep.title.empty() || id.empty() || id.size() > 16U ||
-            !std::all_of(id.begin(), id.end(), [](unsigned char c) {
-                return c >= '0' && c <= '9';
-            })) continue;
-        episodes.emplace(id, ep);
+        const RecordingMetadataCandidatePage page =
+            provider.episodes(found.externalId, seasonNumber, 100);
+        if (!page.providerAvailable || !page.error.empty())
+            return errorResponse(503, "metadata_provider_unavailable",
+                page.error.empty() ? "TMDb unavailable" : page.error);
+        std::map<std::string, RecordingMetadataCandidate> episodes;
+        for (const RecordingMetadataCandidate& ep : page.candidates)
+            if (validEpisode(ep, found))
+                episodes.emplace(ep.externalId, ep);
+        if (episodes.size() > 1U) return outcome("ambiguous");
+        if (episodes.empty()) return outcome("not_found");
+        selectedEpisode = episodes.begin()->second;
     }
-    if (episodes.size() > 1U) return outcome("ambiguous");
-    if (episodes.empty()) return outcome("not_found");
     response.body = "{\"status\":\"matched\",\"mediaType\":\"episode\","
         "\"series\":" + serializeCandidate(found) +
-        ",\"episode\":" + serializeCandidate(episodes.begin()->second) + "}";
+        ",\"episode\":" + serializeCandidate(selectedEpisode) + "}";
     return response;
 }
 

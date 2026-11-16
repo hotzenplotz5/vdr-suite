@@ -119,6 +119,7 @@ const context = vm.createContext({
   'web/frontend/recordings2-folder-artwork.js',
   'web/frontend/recordings2-actions.js',
   'web/frontend/recordings2-folder-refresh.js',
+  'web/frontend/recordings2-browser-cards.js',
   'web/frontend/recordings2-browser-view.js',
   'web/frontend/recordings2.js'
 ].forEach(path => {
@@ -205,6 +206,10 @@ async function run() {
   assert.strictEqual(test.normalizePath('/Serien//Tatort/'), 'Serien/Tatort');
   assert.strictEqual(test.decodeDisplayText('Der#20Film_2026'), 'Der Film 2026');
   assert.strictEqual(test.formatDuration(3660), '1 h 1 min');
+  assert.strictEqual(test.formatDuration(8), '8 s');
+  assert.strictEqual(test.formatDuration(59), '59 s');
+  assert.strictEqual(test.formatDuration(60), '1 min');
+  assert.strictEqual(test.formatDuration(0), 'Dauer unbekannt');
   assert.strictEqual(test.formatSize(1536), '1.5 GB');
 
   const recording = {
@@ -282,6 +287,22 @@ async function run() {
     shared.createPoster(manualRecording).children[0].src,
     '/vdr-suite/api/vdr/recordings/metadata/image?backend=default'
   );
+
+  // Private candidates remain under their native Stage path but appear
+  // as the original's title plus .shrink throughout Recordings 2.
+  const hevc = {
+    title: 'Original.shrink',
+    path: '/.vdr-suite-shrink-2276JE/2015-12-15.12.29.17-0.rec',
+    backendNativeId: '/srv/vdr/video.00/.vdr-suite-shrink-2276JE/2015-12-15.12.29.17-0.rec',
+    metadata: {manualAssignment: {active: true},
+      presentation: {title: 'Anderer Metadatentitel'}}
+  };
+  assert.strictEqual(test.recordingPathTitle(hevc), 'Original.shrink');
+  assert.strictEqual(test.recordingTitle(hevc), 'Original.shrink');
+  const renderedHevc = test.normalizeRecording(hevc);
+  assert.strictEqual(renderedHevc.title, 'Original.shrink');
+  assert.strictEqual(renderedHevc.backendNativeId, hevc.backendNativeId);
+  assert.strictEqual(hevc.title, 'Original.shrink');
 
   const normalized = test.normalizeRecording(recording);
   assert.strictEqual(normalized.title, 'Tigeren Club gggg');

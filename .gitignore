@@ -32,3 +32,8 @@ __pycache__/
 
 # Keep debian/control, rules, changelog, copyright, *.install,
 # source/format, and packaging documentation under version control.
+
+# Generated fourth Debian binary package and its offline stage.
+/debian/vdr-suite-addon-media-tools/
+/debian/vdr-suite-addon-media-tools.preinst
+/debian/.media-tools-base-stage/

@@ -117,7 +117,7 @@ def describe(streams):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("root", nargs="?", default="/srv/vdr/video.00")
+    p.add_argument("root", help="actual video root of the VDR backend")
     p.add_argument("--limit", type=int, default=800)
     p.add_argument("--budget", type=int, default=240,
                    help="global limit in seconds (default: four minutes)")

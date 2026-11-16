@@ -3,39 +3,16 @@
   'use strict';
 
   const shared = global.VdrSuiteRecordings2Shared;
+  const cards = global.VdrSuiteRecordings2Cards;
   const folderArtwork = global.VdrSuiteRecordings2FolderArtwork;
   const actions = global.VdrSuiteRecordings2Actions; let restartChoiceRuntimePromise = null;
-  if (!shared) {
+  if (!shared || !cards) {
     console.error('VDR-Suite Recordings 2 shared runtime is unavailable');
     return;
   }
 
   function ensureRestartChoiceRuntime() { const ready = global.VdrSuiteRecordingPlaybackRestartChoice; if (ready && typeof ready.install === 'function') return Promise.resolve(ready); if (restartChoiceRuntimePromise) return restartChoiceRuntimePromise; if (typeof global.loadVdrSuiteDeferredRuntime !== 'function') return Promise.reject(new Error('Recording restart choice runtime loader is unavailable.')); restartChoiceRuntimePromise = global.loadVdrSuiteDeferredRuntime('vdr-suite-recording-playback-restart-choice-runtime', '/frontend/recording-playback-restart-choice.js', function () { return Boolean(global.VdrSuiteRecordingPlaybackRestartChoice && typeof global.VdrSuiteRecordingPlaybackRestartChoice.install === 'function'); }).then(function () { return global.VdrSuiteRecordingPlaybackRestartChoice; }); return restartChoiceRuntimePromise; }
   if (typeof global.loadVdrSuiteDeferredRuntime === 'function') ensureRestartChoiceRuntime().catch(function (error) { console.error('VDR-Suite Recording restart choice preload failed', error); });
-
-  function createRecordingCard(recording, onSelect) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'recordings2-recording';
-    button.appendChild(shared.createPoster(recording));
-    const copy = document.createElement('span');
-    copy.className = 'recordings2-recording-copy';
-    copy.appendChild(shared.node('span', 'recordings2-title', shared.recordingTitle(recording)));
-    const subtitle = shared.recordingSubtitle(recording);
-    if (subtitle) copy.appendChild(shared.node('span', 'recordings2-subtitle', subtitle));
-    copy.appendChild(shared.node('span', 'recordings2-meta',
-      shared.formatStart(shared.first(recording, ['startTime', 'start'], '')) + ' · ' +
-        shared.formatDuration(shared.first(recording, ['durationSeconds', 'duration'], 0)) + ' · ' +
-        shared.formatSize(shared.first(recording, ['sizeMb'], 0))
-    ));
-    const summary = shared.recordingSummary(recording);
-    if (summary) copy.appendChild(shared.node('span', 'recordings2-summary-text', summary));
-    button.appendChild(copy);
-    button.addEventListener('click', function () {
-      if (typeof onSelect === 'function') onSelect(recording);
-    });
-    return button;
-  }
 
   function create(options) {
     const getState = options.getState;
@@ -140,6 +117,7 @@
       const target = shared.mountTarget();
       if (!target) return null;
       shared.installStyles();
+      cards.installStyles();
       target.classList.add('recordings2-mount');
       target.replaceChildren();
       return target;
@@ -273,7 +251,9 @@
           'recordings2-recording-list'
         );
         recordings.forEach(function (recording) {
-          recordingSection.list.appendChild(createRecordingCard(recording, options.selectRecording));
+          recordingSection.list.appendChild(cards.withActions(recording, {
+            getState: getState, selectRecording: options.selectRecording
+          }));
         });
         root.appendChild(recordingSection.section);
       }
@@ -393,5 +373,5 @@
     });
   }
 
-  global.VdrSuiteRecordings2BrowserView = Object.freeze({create: create, createRecordingCard: createRecordingCard});
+  global.VdrSuiteRecordings2BrowserView = Object.freeze({create: create, createRecordingCard: cards.createRecordingCard});
 }(window));

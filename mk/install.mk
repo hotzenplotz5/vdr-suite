@@ -130,7 +130,9 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/app.js $(DESTDIR)$(DATADIR)/web/frontend/app.js
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/api
 	$(INSTALL) -m 0644 web/frontend/api/client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/client-api.js
-	$(INSTALL) -m 0644 web/frontend/api/session-frontend-sync.js $(DESTDIR)$(DATADIR)/web/frontend/api/session-frontend-sync.js
+	# The Playback owner is composed by install-live-remote-frontend and the
+	# phase65d append targets (install-runtime prerequisites). Never overwrite
+	# that composed artifact with the bare source module here.
 	$(INSTALL) -m 0644 web/frontend/api/public-v1-client.js $(DESTDIR)$(DATADIR)/web/frontend/api/public-v1-client.js
 	$(INSTALL) -m 0644 web/frontend/api/account-admin-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/account-admin-client-api.js
 	$(INSTALL) -m 0644 web/frontend/api/device-admin-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/device-admin-client-api.js
@@ -141,6 +143,7 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/platform/helpers.js $(DESTDIR)$(DATADIR)/web/frontend/platform/helpers.js
 	$(INSTALL) -m 0644 web/frontend/platform/deferred-runtime-loader.js $(DESTDIR)$(DATADIR)/web/frontend/platform/deferred-runtime-loader.js
 	$(INSTALL) -m 0644 web/frontend/settings-series-artwork.js $(DESTDIR)$(DATADIR)/web/frontend/settings-series-artwork.js
+	$(INSTALL) -m 0644 web/frontend/settings-media-tools-encoding.js $(DESTDIR)$(DATADIR)/web/frontend/settings-media-tools-encoding.js
 	$(INSTALL) -m 0644 web/frontend/settings-account-admin.js $(DESTDIR)$(DATADIR)/web/frontend/settings-account-admin.js
 	$(INSTALL) -m 0644 web/frontend/settings-device-admin.js $(DESTDIR)$(DATADIR)/web/frontend/settings-device-admin.js
 	$(INSTALL) -m 0644 web/frontend/settings-addons.js $(DESTDIR)$(DATADIR)/web/frontend/settings-addons.js

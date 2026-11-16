@@ -24,6 +24,7 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/settings-addons.js", "settings-addons.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/settings-device-admin.js", "settings-device-admin.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/settings-media-transcode.js", "settings-media-transcode.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/settings-media-tools-encoding.js", "settings-media-tools-encoding.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/locales/de.js", "locales/de.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/locales/en.js", "locales/en.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/channel-logos.js", "channel-logos.js", "application/javascript; charset=utf-8", "epg-cache.js"},

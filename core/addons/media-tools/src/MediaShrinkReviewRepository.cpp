@@ -142,7 +142,7 @@ bool validPublish(const vdrsuite::operations::MutationOperation& op,
            op.resourceType == "MediaShrinkReview" &&
            op.resourceId == review.reviewId &&
            op.actorId == review.actorId && op.backendId == review.backendId &&
-           op.backendGeneration == review.backendGeneration &&
+           op.backendGeneration >= review.backendGeneration &&
            op.expectedRevision == std::to_string(revision) &&
            op.expectedResourceFingerprint == review.sourceFingerprint &&
            op.verificationPolicy ==

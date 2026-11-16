@@ -199,6 +199,28 @@ static void test_parse_recordings_derives_start_time_from_rec_directory()
     assert(std::stoll(recordings[0].startTime) > 1000000000);
 }
 
+// A mount-looking folder name is ordinary provider data, not proof that
+// two different native recordings are aliases of each other.
+static void test_parse_recordings_preserves_distinct_mount_named_copies()
+{
+    const std::string json = R"JSON({"recordings":[
+      {"number":40,"name":"Archive A",
+       "file_name":"/data/tv/Recordings_on_yavdr(nfs)/Recordings_on_yavdr(nfs)/Alpha/2026-11-13.20.00.1-0.rec",
+       "relative_file_name":"/Recordings_on_yavdr(nfs)/Recordings_on_yavdr(nfs)/Alpha/2026-11-13.20.00.1-0.rec",
+       "inode":"100:100","duration":600,"filesize_mb":120,
+       "event_start_time":1794600000},
+      {"number":41,"name":"Archive B",
+       "file_name":"/media/recordings/Beta/2026-11-13.20.00.1-0.rec",
+       "relative_file_name":"/Beta/2026-11-13.20.00.1-0.rec",
+       "inode":"100:101","duration":600,"filesize_mb":120,
+       "event_start_time":1794600000}
+    ]})JSON";
+    const auto recordings = RestfulApiRecordingMapper::parseRecordings(json);
+    assert(recordings.size() == 2);
+    assert(recordings[0].backendNativeId.find("/data/tv/") == 0);
+    assert(recordings[1].backendNativeId.find("/media/recordings/") == 0);
+}
+
 static void test_parse_recordings_prefers_canonical_entry_over_recursive_aliases()
 {
     const std::string json =
@@ -265,6 +287,84 @@ static void test_parse_recordings_preserves_distinct_real_copies()
     assert(recordings.size() == 2);
 }
 
+static void test_private_hevc_candidates_are_visible_under_source_title()
+{
+    // Finished HEVC Stage .rec must remain visible with the source title,
+    // while keeping the exact native candidate path for playback and recovery.
+    const std::string json =
+        "{\"recordings\":["
+        "{\"number\":10,"
+        "\"name\":\".vdr-suite-shrink-2276JE\","
+        "\"relative_file_name\":\"/.vdr-suite-shrink-2276JE/"
+        "2015-12-15.12.29.17-0.rec\","
+        "\"file_name\":\"/srv/vdr/video.00/.vdr-suite-shrink-2276JE/"
+        "2015-12-15.12.29.17-0.rec\","
+        "\"event_title\":\"Folge 1\"},"
+        "{\"number\":11,"
+        "\"name\":\"Dokumentation~Original\","
+        "\"relative_file_name\":\"/Dokumentation/Original/"
+        "2015-12-15.12.29.17-0.rec\","
+        "\"file_name\":\"/srv/vdr/video.00/Dokumentation/Original/"
+        "2015-12-15.12.29.17-0.rec\"},"
+        "{\"number\":12,"
+        "\"name\":\"Dokumentation~Original.shrink\","
+        "\"relative_file_name\":\"/Dokumentation/Original.shrink/"
+        "2015-12-15.12.29.17-0.rec\"}"
+        "]}";
+    const auto recordings =
+        RestfulApiRecordingMapper::parseRecordings(json);
+    assert(recordings.size() == 3);
+    assert(recordings[0].id == "10");
+    assert(recordings[0].title == "Original.shrink");
+    assert(recordings[0].path ==
+           "/.vdr-suite-shrink-2276JE/2015-12-15.12.29.17-0.rec");
+    assert(recordings[0].backendNativeId ==
+           "/srv/vdr/video.00/.vdr-suite-shrink-2276JE/"
+           "2015-12-15.12.29.17-0.rec");
+    assert(recordings[1].id == "11");
+    assert(recordings[2].id == "12");
+    assert(recordings[2].path.find("/Original.shrink/") !=
+           std::string::npos);
+}
+
+static void test_hevc_candidate_without_original_uses_event_title()
+{
+    const auto result = RestfulApiRecordingMapper::parseRecordings(
+        "{\"recordings\":["
+        "{\"number\":21,"
+        "\"name\":\".vdr-suite-shrink-q4feJ7\","
+        "\"file_name\":\"/srv/vdr/video.00/.vdr-suite-shrink-q4feJ7/"
+        "2015-02-03.19.31.36-0.rec\","
+        "\"event_title\":\"Kampf gegen die Krise\"}"
+        "]}");
+    assert(result.size() == 1);
+    assert(result[0].title == "Kampf gegen die Krise.shrink");
+    assert(result[0].backendNativeId.find("/.vdr-suite-shrink-q4feJ7/") !=
+           std::string::npos);
+}
+
+static void test_hevc_candidate_ambiguous_source_uses_event_title()
+{
+    const auto result = RestfulApiRecordingMapper::parseRecordings(
+        "{\"recordings\":["
+        "{\"number\":25,"
+        "\"name\":\".vdr-suite-shrink-q4feJ7\","
+        "\"file_name\":\"/srv/vdr/video.00/.vdr-suite-shrink-q4feJ7/"
+        "2015-02-03.19.31.36-0.rec\","
+        "\"event_title\":\"Kampf gegen die Krise\"},"
+        "{\"number\":26,"
+        "\"name\":\"Doku~Original A\","
+        "\"file_name\":\"/srv/vdr/video.00/Doku/Original_A/"
+        "2015-02-03.19.31.36-0.rec\"},"
+        "{\"number\":27,"
+        "\"name\":\"Doku~Original B\","
+        "\"file_name\":\"/srv/vdr/video.00/Doku/Original_B/"
+        "2015-02-03.19.31.36-0.rec\"}"
+        "]}");
+    assert(result.size() == 3);
+    assert(result[0].title == "Kampf gegen die Krise.shrink");
+}
+
 static void test_parse_recordings_tolerates_invalid_json()
 {
     std::vector<VdrRecording> recordings =
@@ -282,8 +382,12 @@ int main()
     test_parse_recordings_ignores_objects_without_number();
     test_parse_recordings_imports_additional_media_actors();
     test_parse_recordings_derives_start_time_from_rec_directory();
+    test_parse_recordings_preserves_distinct_mount_named_copies();
     test_parse_recordings_prefers_canonical_entry_over_recursive_aliases();
     test_parse_recordings_preserves_distinct_real_copies();
+    test_private_hevc_candidates_are_visible_under_source_title();
+    test_hevc_candidate_without_original_uses_event_title();
+    test_hevc_candidate_ambiguous_source_uses_event_title();
     test_parse_recordings_tolerates_invalid_json();
 
     return 0;

@@ -35,6 +35,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <stdexcept>
 
 namespace
 {
@@ -168,6 +169,14 @@ int main(int argc, char** argv)
     const vdrsuite::mediatools::MediaToolExecutables mediaTools{
         config.mediaFfmpegPath, config.mediaFfprobePath, config.mediaVdrPath,
         config.mediaEncoding};
+    // Existing Agent parser is reused before each new media job.
+    const auto currentMediaEncoding = [configPath]() {
+        BackendAgentClientConfig latest;
+        std::string reason;
+        if (!BackendAgentClientRuntime::loadConfig(configPath, latest, reason))
+            throw std::runtime_error("invalid_media_encoding_settings");
+        return latest.mediaEncoding;
+    };
 
     // The agent's explicit configuration has priority over the private
     // process environment shared by the daemon and the VDR plugin.
@@ -396,7 +405,7 @@ int main(int argc, char** argv)
                     if (!runtimeAccess->renewLeaseDuringMediaImport(reason))
                         std::cerr << "MEDIA_IMPORT_HEARTBEAT_UNAVAILABLE="
                                   << reason << std::endl;
-                }, mediaTools);
+                }, mediaTools, currentMediaEncoding);
         config.mediaImportExecutor = mediaImportRuntime.get();
         config.commandTypes.push_back(
             vdrsuite::mediatools::kMediaImportCommandType);
@@ -457,7 +466,17 @@ int main(int argc, char** argv)
                 });
         shrinkRunner = std::make_unique<
             vdrsuite::mediatools::NativeProcessRunner>(
-                std::chrono::seconds(4 * 3600), mediaTools);
+                std::chrono::seconds(4 * 3600), mediaTools,
+                [&]() {
+                    // The same authenticated Agent renews its current lease
+                    // while HEVC's ffmpeg/ffprobe/VDR child is running.
+                    // Never poll or dispatch another command from here.
+                    if (!runtimeAccess) return;
+                    std::string reason;
+                    if (!runtimeAccess->renewLeaseDuringMediaImport(reason))
+                        std::cerr << "MEDIA_SHRINK_HEARTBEAT_UNAVAILABLE="
+                                  << reason << std::endl;
+                }, std::chrono::seconds(10), currentMediaEncoding);
         shrinkExecutor = std::make_unique<
             vdrsuite::mediatools::LocalMediaShrinkAgentExecutor>(
                 *shrinkReviews,

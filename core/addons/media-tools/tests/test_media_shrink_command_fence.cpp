@@ -136,6 +136,36 @@ int main() {
         f.command, review));
     assert(!vdrsuite::mediatools::validShrinkReviewEvidence(
         f.command, "/tmp/fake.rec"));
+    // Reproduce the ACTUAL overnight HEVC outcome: the Agent persisted
+    // starting/outcome_unknown with errorCategory "none" and no review ID,
+    // while the private x265 candidate and Core binding both survived.
+    // This cannot authorize a replay or publication; only readback.
+    BackendAgentCommandResult unknown;
+    unknown.dispatchState = "starting";
+    unknown.resultCategory = "outcome_unknown";
+    unknown.verificationState = "outcome_unknown";
+    unknown.retryClassification = "reconcile_only";
+    unknown.errorCategory = "none";
+    unknown.resultEvidence.clear();
+    using vdrsuite::mediatools::shrinkUnknownStageAllowsPrivateReadback;
+    assert(shrinkUnknownStageAllowsPrivateReadback(unknown));
+    unknown.errorCategory = "executor_unknown";
+    assert(shrinkUnknownStageAllowsPrivateReadback(unknown));
+    unknown.errorCategory = "fenced";
+    assert(!shrinkUnknownStageAllowsPrivateReadback(unknown));
+    unknown.errorCategory = "none";
+    unknown.resultEvidence = review;
+    assert(!shrinkUnknownStageAllowsPrivateReadback(unknown));
+    unknown.resultEvidence.clear();
+    unknown.resultCategory = "succeeded";
+    assert(!shrinkUnknownStageAllowsPrivateReadback(unknown));
+    unknown.resultCategory = "outcome_unknown";
+    unknown.retryClassification = "none";
+    assert(!shrinkUnknownStageAllowsPrivateReadback(unknown));
+    unknown.retryClassification = "reconcile_only";
+    unknown.dispatchState = "not_started";
+    assert(!shrinkUnknownStageAllowsPrivateReadback(unknown));
+
     f.publish();
     assert(f.inspect() == Status::candidateOnly);
     assert(vdrsuite::mediatools::validShrinkReviewEvidence(

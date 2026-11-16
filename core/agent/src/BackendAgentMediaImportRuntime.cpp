@@ -12,10 +12,12 @@ BackendAgentMediaImportRuntime::BackendAgentMediaImportRuntime(
     std::string trustedRoot, std::string backendId, std::string statePath,
     IBackendAgentControlPlaneTransport& transport,
     CurrentContext context, KeepAlive keepAlive,
-    vdrsuite::mediatools::MediaToolExecutables executables)
+    vdrsuite::mediatools::MediaToolExecutables executables,
+    EncodingProvider encodingProvider)
     : trustedRoot_(std::move(trustedRoot)), backendId_(std::move(backendId)),
       currentContext_(std::move(context)), keepAlive_(std::move(keepAlive)),
-      executables_(std::move(executables)), inventory_(trustedRoot_),
+      executables_(std::move(executables)),
+      encodingProvider_(std::move(encodingProvider)), inventory_(trustedRoot_),
       authorization_(std::move(statePath), transport, currentContext_) {}
 
 bool BackendAgentMediaImportRuntime::available()
@@ -298,10 +300,13 @@ bool BackendAgentMediaImportRuntime::authorize(
             context.agentInstanceId != assignment.agentInstanceId ||
             context.backendGeneration != assignment.backendGeneration)
             return false;
+        auto selected = executables_;
+        if (encodingProvider_) selected.encoding = encodingProvider_();
+        if (!selected.valid()) return false;
         auto pinned = std::make_unique<
             vdrsuite::mediatools::PinnedMediaImportAgentExecutor>(
                 trustedRoot_, backendId_, generation,
-                inventory_, authorization_, keepAlive_, executables_);
+                inventory_, authorization_, keepAlive_, std::move(selected));
         if (!pinned->authorize(assignment, backendId, generation)) return false;
         currentExecution_ = std::move(pinned);
         return true;

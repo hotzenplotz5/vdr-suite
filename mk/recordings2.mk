@@ -19,6 +19,7 @@ install-recordings2-runtime:
 	cat \
 		web/frontend/recording-playback-restart-choice.js \
 		web/frontend/recordings2-folder-refresh.js \
+		web/frontend/recordings2-browser-cards.js \
 		web/frontend/recordings2-browser-view.js \
 		web/frontend/recordings2-hero-detail.js \
 		web/frontend/recordings2-hero-prewarm.js \
@@ -56,6 +57,7 @@ test-recordings2-runtime:
 	node --check web/frontend/recordings2-playback.js
 	node --check web/frontend/recording-playback-restart-choice.js
 	node --check web/frontend/recordings2-folder-refresh.js
+	node --check web/frontend/recordings2-browser-cards.js
 	node --check web/frontend/recordings2-browser-view.js
 	node --check web/frontend/recordings2-hero-detail.js
 	node --check web/frontend/recordings2-hero-prewarm.js
@@ -85,6 +87,7 @@ test-recordings2-runtime:
 	node web/frontend/tests/test_recordings2_hero_playback_exit.js
 	node web/frontend/tests/test_media_check_composition.js
 	node web/frontend/tests/test_media_shrink_hero_flow.js
+	node web/frontend/tests/test_hevc_home_activity.js
 	node web/frontend/tests/test_recordings2_hero_prewarm_contract.js
 	node web/frontend/tests/test_recordings2_hero_prewarm_idle_expiry.js
 	node web/frontend/tests/test_recordings2_metadata_assignment.js

@@ -112,6 +112,74 @@ class P8InstallerGateTests(unittest.TestCase):
             self.assertTrue(active.is_file())
             self.assertNotIn("private sentinel", install.stdout)
 
+    def test_i44_observed_four_component_manual_host_never_auto_adopted(self):
+        """Reproduce only the operator-reported path shape in a private root.
+
+        The existing P8 installer has no authorized manual-to-package
+        transition. Even with a matching optional Media Tools inventory,
+        all manual files, approval and SQLite/WAL sentinels remain unchanged.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            paths = (
+                "usr/sbin/vdr-suite-daemon",
+                "usr/sbin/vdr-suite-backend-agent",
+                "usr/lib/vdr/plugins/libvdr-suitebridge.so.14",
+                "usr/lib/systemd/system/vdr-suite-daemon.service",
+                "usr/lib/systemd/system/vdr-suite-backend-agent.service",
+                "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-import",
+                "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-check",
+                "usr/libexec/vdr-suite/addons/rectools/vdr-suite-media-shrink",
+                "usr/libexec/vdr-suite/addons/rectools/addon.json",
+                "usr/share/vdr-suite/addons/rectools/addon.json",
+                "usr/share/vdr-suite/addons/rectools/media-tools-install-inventory.json",
+                "etc/vdr-suite/backend-agent.conf",
+                "etc/vdr-suite/addon-approvals/rectools.json",
+                "etc/vdr-suite/addon-approvals/rectools.import-running.lock",
+                "etc/vdr-suite/addon-sources/media-import.tsv",
+                "etc/systemd/system/vdr-suite-daemon.service.d/recording-artwork.conf",
+                "etc/systemd/system/vdr-suite-backend-agent.service.d/20-media-tools.conf",
+                "etc/nginx/snippets/vdr-suite.conf",
+                "var/lib/vdr-suite/vdr-suite.db",
+                "var/lib/vdr-suite/vdr-suite.db-wal",
+            )
+            files = {
+                rel: self.put(root, rel,
+                              "" if rel.endswith(".lock") else "private-host-fixture")
+                for rel in paths
+            }
+            before = {rel: file.read_bytes() for rel, file in files.items()}
+            scan = self.run_gate(root, "--check")
+            self.assertEqual(scan.returncode, 2, scan.stderr)
+            observation = json.loads(scan.stdout)
+            self.assertEqual(observation["verdict"], "BLOCKED")
+            self.assertFalse(observation["install_approved"])
+            findings = {(entry["path"], entry["code"])
+                        for entry in observation["checks"]}
+            for rel in (
+                "usr/sbin/vdr-suite-daemon",
+                "usr/sbin/vdr-suite-backend-agent",
+                "usr/lib/systemd/system/vdr-suite-daemon.service",
+                "usr/lib/systemd/system/vdr-suite-backend-agent.service",
+                "etc/vdr-suite/backend-agent.conf",
+                "etc/nginx/snippets/vdr-suite.conf",
+            ):
+                self.assertIn(("/" + rel, "UNOWNED_PACKAGE_TARGET"), findings)
+            self.assertIn(
+                ("/usr/lib/vdr/plugins/libvdr-suitebridge.so.14",
+                 "INSTALLED_VDR_PLUGIN_ABI_REVIEW"), findings)
+
+            denied = self.run_gate(root, "--install")
+            self.assertEqual(denied.returncode, 3, denied.stderr)
+            decision = json.loads(denied.stdout)
+            self.assertEqual(decision["decision"], "BLOCKED")
+            self.assertFalse(decision["install_approved"])
+            self.assertTrue(decision["read_only"])
+            self.assertNotIn("private-host-fixture", denied.stdout)
+            for rel, file in files.items():
+                self.assertEqual(file.read_bytes(), before[rel], rel)
+            print("MT_I44_FOUR_COMPONENT_MANUAL_HOST_REFUSAL=PASS")
+
     def test_unknown_root_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
             missing = Path(tmp) / "missing"

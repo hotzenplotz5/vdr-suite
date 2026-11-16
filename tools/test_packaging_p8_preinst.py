@@ -42,6 +42,25 @@ case "$1" in
         exit 0
         ;;
     esac
+    if [ "$3" = "$MOCK_BAD_PATH" ]; then exit 1; fi
+    if [ "$3" = "$MOCK_FOREIGN_PATH" ]; then
+      printf 'unrelated: %s\\n' "$3"
+      exit 0
+    fi
+    case "$3" in
+      */usr/share/vdr-suite)
+        if [ -n "$MOCK_SHARED_ROOT_OWNER" ]; then
+          printf '%s: %s\\n' "$MOCK_SHARED_ROOT_OWNER" "$3"
+          exit 0
+        fi
+        ;;
+      */usr/share/vdr-suite/*)
+        if [ -n "$MOCK_SHARED_CHILD_OWNER" ]; then
+          printf '%s: %s\\n' "$MOCK_SHARED_CHILD_OWNER" "$3"
+          exit 0
+        fi
+        ;;
+    esac
     if [ "$MOCK_OWNER" = '' ]; then exit 1; fi
     printf '%s: %s\\n' "$MOCK_OWNER" "$3"
     ;;
@@ -70,11 +89,16 @@ esac
 
     @staticmethod
     def run_gate(bindir, script, package="vdr-suite-daemon", owner="", installed=False,
-                 action="install", legacy_owner="", usr_unit_query_rc=0):
+                 action="install", legacy_owner="", usr_unit_query_rc=0,
+                 shared_root_owner="", shared_child_owner="", bad_path="",
+                 foreign_path=""):
         env = dict(os.environ, PATH=str(bindir) + os.pathsep + os.environ["PATH"],
                    MOCK_OWNER=owner, MOCK_INSTALLED="1" if installed else "0",
                    MOCK_LEGACY_OWNER=legacy_owner,
-                   MOCK_USR_UNIT_QUERY_RC=str(usr_unit_query_rc))
+                   MOCK_USR_UNIT_QUERY_RC=str(usr_unit_query_rc),
+                   MOCK_SHARED_ROOT_OWNER=shared_root_owner,
+                   MOCK_SHARED_CHILD_OWNER=shared_child_owner,
+                   MOCK_BAD_PATH=bad_path, MOCK_FOREIGN_PATH=foreign_path)
         return subprocess.run(["/bin/sh", "-s", "--", action], input=script,
                               text=True, capture_output=True, timeout=8, env=env)
 
@@ -162,6 +186,67 @@ esac
         self.assertEqual(result.returncode, 1)
         self.assertIn("/usr/share/vdr-suite", result.stderr)
         self.assertEqual(file.read_text(), "operator sentinel")
+
+    def test_media_tools_owner_allows_clean_shared_root(self):
+        host, bindir, script = self.fixture()
+        addon = self.put(host, "usr/share/vdr-suite/addons/rectools/addon.json")
+        result = self.run_gate(
+            bindir, script, shared_root_owner="vdr-suite-addon-media-tools",
+            shared_child_owner="vdr-suite-addon-media-tools")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(addon.read_text(), "operator sentinel")
+
+    def test_shared_root_preserves_safe_upgrade_with_two_known_owners(self):
+        for owners in ("vdr-suite-daemon, vdr-suite-addon-media-tools",
+                       "vdr-suite-addon-media-tools, vdr-suite-daemon"):
+            with self.subTest(owners=owners):
+                host, bindir, script = self.fixture()
+                self.put(host, "usr/sbin/vdr-suite-daemon")
+                addon = self.put(host, "usr/share/vdr-suite/addons/rectools/addon.json")
+                result = self.run_gate(
+                    bindir, script, owner="vdr-suite-daemon", action="upgrade",
+                    shared_root_owner=owners,
+                    shared_child_owner="vdr-suite-addon-media-tools")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(addon.read_text(), "operator sentinel")
+
+    def test_shared_root_still_blocks_manual_and_foreign_children(self):
+        for foreign in (False, True):
+            with self.subTest(foreign=foreign):
+                host, bindir, script = self.fixture()
+                self.put(host, "usr/share/vdr-suite/addons/rectools/addon.json")
+                bad = self.put(host, "usr/share/vdr-suite/web/frontend/operator.html")
+                result = self.run_gate(
+                    bindir, script, shared_root_owner="vdr-suite-addon-media-tools",
+                    shared_child_owner="vdr-suite-addon-media-tools",
+                    foreign_path=str(bad) if foreign else "",
+                    bad_path="" if foreign else str(bad))
+                self.assertEqual(result.returncode, 1)
+                self.assertIn("FOREIGN_OR_AMBIGUOUS_OWNER" if foreign
+                              else "OWNERSHIP_UNKNOWN", result.stderr)
+                self.assertIn(str(bad), result.stderr)
+                self.assertEqual(bad.read_text(), "operator sentinel")
+
+    def test_shared_root_rejects_foreign_coowner(self):
+        host, bindir, script = self.fixture()
+        self.put(host, "usr/share/vdr-suite/addons/rectools/addon.json")
+        result = self.run_gate(
+            bindir, script,
+            shared_root_owner="vdr-suite-addon-media-tools, unrelated")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("FOREIGN_OR_AMBIGUOUS_OWNER", result.stderr)
+
+    def test_shared_root_rejects_nested_symlink(self):
+        host, bindir, script = self.fixture()
+        addon = self.put(host, "usr/share/vdr-suite/addons/rectools/addon.json")
+        link = addon.parent / "other.json"
+        link.symlink_to(addon.name)
+        result = self.run_gate(
+            bindir, script, shared_root_owner="vdr-suite-addon-media-tools",
+            shared_child_owner="vdr-suite-addon-media-tools")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("SYMLINK_TARGET", result.stderr)
+        self.assertIn(str(link), result.stderr)
 
     def test_legacy_manual_and_state_block(self):
         for path in ("usr/local/sbin/vdr-suite-daemon", "var/lib/vdr-suite/user.db",

@@ -4,10 +4,12 @@
 #include <array>
 #include <cctype>
 #include <cerrno>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 #include <fcntl.h>
 #include <fstream>
@@ -17,8 +19,8 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <sys/stat.h>
-#include <sys/statvfs.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <linux/fs.h>
@@ -28,7 +30,6 @@ namespace vdrsuite::mediatools {
 namespace {
 
 constexpr std::uint64_t MiB = UINT64_C(1024) * 1024;
-constexpr std::uint64_t GiB = MiB * 1024;
 
 void demand(bool valid, const char* problem) {
     if (!valid) throw std::runtime_error(problem);
@@ -41,6 +42,30 @@ struct Descriptor {
     Descriptor(const Descriptor&) = delete;
     Descriptor& operator=(const Descriptor&) = delete;
 };
+
+// Like Media Import, notify the native VDR scanner after an external
+// recording promotion. VDR compares .update mtime in whole seconds; wait for
+// the next real second rather than setting a future timestamp. This notification
+// does not claim success: Core still requires provider readback.
+void notifyVdrAfterShrinkPublish(const fs::path& videoRoot)
+{
+    const std::time_t publishedSecond = std::time(nullptr);
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::seconds(3);
+    while (std::time(nullptr) <= publishedSecond &&
+           std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    if (std::time(nullptr) <= publishedSecond)
+        std::fprintf(stderr,
+                     "Media Shrink: VDR refresh second did not advance\n");
+    const fs::path marker = videoRoot / ".update";
+    Descriptor fd(::open(marker.c_str(),
+                         O_WRONLY | O_CREAT | O_CLOEXEC | O_NOFOLLOW, 0644));
+    if (fd.fd < 0 || ::futimens(fd.fd, nullptr) != 0)
+        std::fprintf(stderr, "Media Shrink: VDR refresh notification failed: %s\n",
+                     std::strerror(errno));
+}
 
 struct CleanStage {
     fs::path path;
@@ -339,44 +364,80 @@ void copySubtitles(const ShrinkPlan& plan, const fs::path& destination) {
     }
 }
 
-void requireMatchingSidecar(const fs::path& original, const fs::path& staged) {
-    Descriptor left(::open(original.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
-    Descriptor right(::open(staged.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
-    struct stat a{}, b{}, afterA{}, afterB{};
-    demand(left.fd >= 0 && right.fd >= 0 &&
-           ::fstat(left.fd, &a) == 0 && ::fstat(right.fd, &b) == 0 &&
-           S_ISREG(a.st_mode) && S_ISREG(b.st_mode) &&
-           a.st_size > 0 && a.st_size == b.st_size &&
-           a.st_size <= 8 * 1024 * 1024,
-           "shrink candidate sidecar is missing or changed");
-    std::array<char, 4096> source{}, candidate{};
-    std::uint64_t offset = 0;
-    while (offset < static_cast<std::uint64_t>(a.st_size)) {
-        const auto size = static_cast<std::size_t>(
-            std::min<std::uint64_t>(source.size(),
-                static_cast<std::uint64_t>(a.st_size) - offset));
-        const ssize_t n = ::pread(left.fd, source.data(), size,
-                                  static_cast<off_t>(offset));
-        const ssize_t m = ::pread(right.fd, candidate.data(), size,
-                                  static_cast<off_t>(offset));
-        demand(n == static_cast<ssize_t>(size) &&
-               m == static_cast<ssize_t>(size) &&
-               std::equal(source.begin(), source.begin() + size,
-                          candidate.begin()),
-               "shrink candidate sidecar differs from original");
-        offset += size;
+// Staged metadata is a copy, not evidence that FFmpeg produced valid video.
+// A difference from the original must not invalidate independent HEVC readback.
+void requireUsableStagedSidecar(const fs::path& staged, std::int64_t maxBytes) {
+    struct stat file{};
+    demand(::lstat(staged.c_str(), &file) == 0 &&
+           S_ISREG(file.st_mode) && file.st_size > 0 &&
+           file.st_size <= maxBytes,
+           "shrink candidate sidecar is missing or unsafe");
+}
+
+// Publication uses fresh original metadata, not possibly stale/stale-edited
+// private copies. Write a complete replacement before atomically renaming it;
+// failure leaves the original and the existing staged copy untouched.
+void refreshSidecarForPublication(const fs::path& original,
+                                  const fs::path& staged,
+                                  std::int64_t maxBytes) {
+    const std::string pattern = staged.string() + ".refresh-XXXXXX";
+    std::vector<char> name(pattern.begin(), pattern.end());
+    name.push_back('\0');
+    Descriptor output(::mkstemp(name.data()));
+    demand(output.fd >= 0, "cannot prepare refreshed shrink metadata");
+    const fs::path temporary(name.data());
+    try {
+        Descriptor input(::open(original.c_str(),
+            O_RDONLY | O_NOFOLLOW | O_CLOEXEC));
+        struct stat before{}, after{}, prior{};
+        demand(input.fd >= 0 && ::fstat(input.fd, &before) == 0 &&
+               S_ISREG(before.st_mode) && before.st_size > 0 &&
+               before.st_size <= maxBytes,
+               "original shrink metadata unavailable");
+        demand(::lstat(staged.c_str(), &prior) == 0 &&
+               S_ISREG(prior.st_mode),
+               "unsafe staged shrink metadata");
+        std::array<char, 4096> buffer{};
+        std::uint64_t remaining =
+            static_cast<std::uint64_t>(before.st_size);
+        while (remaining > 0) {
+            const auto size = static_cast<std::size_t>(
+                std::min<std::uint64_t>(remaining, buffer.size()));
+            const ssize_t count = ::read(input.fd, buffer.data(), size);
+            if (count < 0 && errno == EINTR) continue;
+            demand(count > 0 && static_cast<std::size_t>(count) <= size,
+                   "original shrink metadata changed during copy");
+            std::size_t offset = 0;
+            while (offset < static_cast<std::size_t>(count)) {
+                const ssize_t written = ::write(output.fd,
+                    buffer.data() + offset,
+                    static_cast<std::size_t>(count) - offset);
+                if (written < 0 && errno == EINTR) continue;
+                demand(written > 0, "cannot copy refreshed shrink metadata");
+                offset += static_cast<std::size_t>(written);
+            }
+            remaining -= static_cast<std::uint64_t>(count);
+        }
+        demand(::fstat(input.fd, &after) == 0 &&
+               before.st_dev == after.st_dev &&
+               before.st_ino == after.st_ino &&
+               before.st_size == after.st_size &&
+               before.st_mtim.tv_sec == after.st_mtim.tv_sec &&
+               before.st_mtim.tv_nsec == after.st_mtim.tv_nsec,
+               "original shrink metadata changed during publication");
+        demand(::fsync(output.fd) == 0,
+               "cannot persist refreshed shrink metadata");
+        demand(::rename(temporary.c_str(), staged.c_str()) == 0,
+               "cannot replace staged shrink metadata");
+        Descriptor directory(::open(staged.parent_path().c_str(),
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC));
+        demand(directory.fd >= 0 && ::fsync(directory.fd) == 0,
+               "cannot persist refreshed shrink directory");
+    } catch (...) {
+        std::error_code ignored;
+        fs::remove(temporary, ignored);
+        throw;
     }
-    demand(::fstat(left.fd, &afterA) == 0 &&
-           ::fstat(right.fd, &afterB) == 0 &&
-           a.st_dev == afterA.st_dev && a.st_ino == afterA.st_ino &&
-           a.st_size == afterA.st_size &&
-           a.st_mtim.tv_sec == afterA.st_mtim.tv_sec &&
-           a.st_mtim.tv_nsec == afterA.st_mtim.tv_nsec &&
-           b.st_dev == afterB.st_dev && b.st_ino == afterB.st_ino &&
-           b.st_size == afterB.st_size &&
-           b.st_mtim.tv_sec == afterB.st_mtim.tv_sec &&
-           b.st_mtim.tv_nsec == afterB.st_mtim.tv_nsec,
-           "shrink sidecar changed during publication verification");
 }
 
 std::string signature(const ShrinkPlan& plan) {
@@ -410,8 +471,9 @@ std::vector<std::string> ffmpegArguments(
     const MediaEncodingSettings& encoding)
 {
     std::vector<std::string> args = {
-        runner.executable(MediaTool::ffmpeg), "-nostdin", "-hide_banner", "-v", "error",
-        "-xerror"
+        // Do not abort a long DVB-TS re-encode on a recoverable packet error.
+        // Duration, codec, size and VDR-index checks still gate the candidate.
+        runner.executable(MediaTool::ffmpeg), "-nostdin", "-hide_banner", "-v", "error"
     };
     if (requested == ShrinkEncoder::vaapi) {
         demand(!encoding.vaapiRenderDevice.empty(),
@@ -531,37 +593,13 @@ ShrinkPlan inspectShrink(const fs::path& videoRoot,
     return plan;
 }
 
-void requireShrinkCapacity(const ShrinkPlan& plan)
-{
-    struct statvfs fsInfo{};
-    demand(::statvfs(plan.videoRoot.c_str(), &fsInfo) == 0 &&
-           fsInfo.f_frsize > 0, "cannot inspect shrink destination capacity");
-    demand((fsInfo.f_flag & ST_RDONLY) == 0 &&
-           ::access(plan.videoRoot.c_str(), W_OK | X_OK) == 0,
-           "shrink destination is not writable by the media worker");
-    const std::uint64_t block = fsInfo.f_frsize;
-    demand(fsInfo.f_blocks <= UINT64_MAX / block &&
-           fsInfo.f_bavail <= UINT64_MAX / block,
-           "shrink capacity overflow");
-    const auto total = static_cast<std::uint64_t>(fsInfo.f_blocks) * block;
-    const auto available = static_cast<std::uint64_t>(fsInfo.f_bavail) * block;
-    const auto reserve = std::max(4 * GiB, total / 100 * 15);
-    demand(plan.totalBytes <= (UINT64_MAX - 64 * MiB) / 3,
-           "shrink source exceeds bounded size");
-    const auto required = plan.totalBytes * 3 + 64 * MiB;
-    demand(available >= reserve && available - reserve >= required,
-           "insufficient shrink staging capacity and reserve");
-}
-
-fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
-                     const std::function<void(const ShrinkPlan&)>& preflight)
+fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner)
 {
     const auto encoding = runner.encodingSettings(); // frozen job snapshot
     demand(encoding.valid(), "invalid_media_encoding_settings");
     const auto current = inspectShrink(expected.videoRoot,
         expected.relativeRecording, expected.options);
     demand(signature(current) == signature(expected), "shrink plan became stale");
-    preflight(current);
     std::string pattern =
         (current.videoRoot / ".vdr-suite-shrink-XXXXXX").string();
     std::vector<char> name(pattern.begin(), pattern.end());
@@ -569,6 +607,7 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
     char* made = ::mkdtemp(name.data());
     demand(made != nullptr, "cannot create shrink staging directory");
     CleanStage stage{fs::path(made)};
+    try {
     demand(::chmod(stage.path.c_str(), 0700) == 0,
            "cannot protect shrink candidate");
     const fs::path candidate = stage.path /
@@ -594,6 +633,7 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
     auto argv = ffmpegArguments(runner, current, source, output, limit,
                                  current.options.encoder, scaling, copyAudio, encoding);
     auto conversion = runner.run(argv, false);
+    demand(!conversion.timedOut, "HEVC transcode timed out");
     if (conversion.exitCode != 0 &&
         current.options.encoder != ShrinkEncoder::software) {
         // Hardware failure may leave a partial TS. Only our private output
@@ -604,12 +644,13 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
         argv = ffmpegArguments(runner, current, source, output, limit,
                                ShrinkEncoder::software, scaling, copyAudio, encoding);
         conversion = runner.run(argv, false);
+        demand(!conversion.timedOut, "HEVC transcode timed out");
     }
     demand(conversion.exitCode == 0 && nonempty(output),
            "HEVC transcode failed");
     const auto generated = fs::file_size(output);
-    demand(generated < limit && generated < current.totalBytes,
-           "HEVC output is incomplete or does not save space");
+    demand(generated < limit, "HEVC output hit the size limit");
+    demand(generated < current.totalBytes, "HEVC output does not save space");
     demand(probeCodec(runner, output) == "hevc", "HEVC codec verification failed");
     const auto profile = runner.run({
         runner.executable(MediaTool::ffprobe), "-v", "error",
@@ -656,6 +697,20 @@ fs::path stageShrink(const ShrinkPlan& expected, ProcessRunner& runner,
     demand(fs::remove(source), "cannot remove private TS snapshot");
     stage.path.clear();
     return candidate;
+    } catch (const std::exception& failure) {
+        // Stage has not registered a review yet. Only a SUCCESSFUL, verified
+        // cleanup proves that this attempt left no private candidate.
+        // If removal or absence readback fails, retain outcome_unknown.
+        if (stage.path.empty()) throw;
+        const std::string detail(failure.what());
+        std::error_code cleanupError;
+        fs::remove_all(stage.path, cleanupError);
+        if (cleanupError) throw;
+        std::error_code readbackError;
+        if (fs::exists(stage.path, readbackError) || readbackError) throw;
+        stage.path.clear();
+        throw MediaShrinkCleanStageFailure(detail);
+    }
 }
 
 namespace {
@@ -807,9 +862,22 @@ std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
            candidate.extension() == ".rec",
            "invalid shrink review location");
     prohibitSymlinks(candidate);
-    struct stat parent{};
+    // The Agent creates the private Stage as the VDR recording owner,
+    // normally "vdr". The independently verifying Core daemon may run as
+    // root; requiring its EUID here rejects every otherwise valid Agent
+    // candidate. Bind ownership to the CURRENT original recording instead:
+    // root may read back the trusted VDR user's private files, while a
+    // non-root publisher must still own them itself.
+    struct stat sourceDirectory{}, parent{};
+    const auto sourcePath = checked.videoRoot / checked.relativeRecording;
+    demand(::lstat(sourcePath.c_str(), &sourceDirectory) == 0 &&
+           S_ISDIR(sourceDirectory.st_mode),
+           "original shrink recording ownership unavailable");
+    const uid_t sourceOwner = sourceDirectory.st_uid;
     demand(::lstat(privateParent.c_str(), &parent) == 0 &&
-           S_ISDIR(parent.st_mode) && parent.st_uid == ::geteuid() &&
+           S_ISDIR(parent.st_mode) &&
+           parent.st_uid == sourceOwner &&
+           (::geteuid() == 0 || parent.st_uid == ::geteuid()) &&
            (parent.st_mode & 0077) == 0,
            "unprotected shrink review parent");
     demand(fs::is_directory(candidate), "shrink review candidate missing");
@@ -866,7 +934,9 @@ std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
            "HEVC candidate duration differs from original");
     struct stat folder{};
     demand(::lstat(candidate.c_str(), &folder) == 0 &&
-           S_ISDIR(folder.st_mode) && folder.st_uid == ::geteuid() &&
+           S_ISDIR(folder.st_mode) && folder.st_uid == sourceOwner &&
+           folder.st_uid == parent.st_uid &&
+           (::geteuid() == 0 || folder.st_uid == ::geteuid()) &&
            (folder.st_mode & 0077) == 0,
            "unprotected shrink review directory");
     std::vector<std::string> expectedFiles = {
@@ -881,12 +951,11 @@ std::uint64_t verifyShrinkCandidate(const ShrinkPlan& plan,
     const auto subtitleFiles = subtitleNames(checked);
     expectedFiles.insert(expectedFiles.end(),
                          subtitleFiles.begin(), subtitleFiles.end());
-    // Reject modifications to previously staged metadata/subtitles before
-    // exposing a new recording. The original files remain read-only.
-    const auto originalSidecars = checked.videoRoot / checked.relativeRecording;
-    requireMatchingSidecar(originalSidecars / "info", candidate / "info");
+    // Video integrity is independent from the staged copy of VDR metadata.
+    // Publication refreshes these copies from the original recording.
+    requireUsableStagedSidecar(candidate / "info", 1024 * 1024);
     for (const auto& name : subtitleFiles)
-        requireMatchingSidecar(originalSidecars / name, candidate / name);
+        requireUsableStagedSidecar(candidate / name, 8 * 1024 * 1024);
     std::size_t seen = 0;
     for (const auto& entry : fs::directory_iterator(candidate)) {
         const auto filename = entry.path().filename().string();
@@ -911,6 +980,17 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
         plan.relativeRecording, plan.options);
     demand(signature(checked) == signature(plan),
            "original recording changed before publication");
+    // Keep the fresh HEVC file and its generated index; refresh only VDR
+    // metadata at explicit Publish time. Never modify the original.
+    const auto originalSidecars = checked.videoRoot / checked.relativeRecording;
+    refreshSidecarForPublication(
+        originalSidecars / "info", candidate / "info", 1024 * 1024);
+    for (const auto& name : subtitleNames(checked))
+        refreshSidecarForPublication(
+            originalSidecars / name, candidate / name, 8 * 1024 * 1024);
+    demand(signature(inspectShrink(
+        checked.videoRoot, checked.relativeRecording, checked.options)) ==
+        signature(checked), "original changed during metadata refresh");
     const auto privateParent = candidate.parent_path();
     std::vector<std::string> expectedFiles = {
         ".shrink-review", "00001.ts", "index", "info"
@@ -926,7 +1006,7 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
     const auto title = checked.relativeRecording.parent_path();
     demand(!title.empty(), "shrink recording requires a title directory");
     const auto destinationParent =
-        checked.videoRoot / (title.string() + "_HEVC");
+        checked.videoRoot / (title.string() + ".shrink");
     // Multiple recordings may share one title. Reuse an existing HEVC
     // sibling title only if it is an actual VDR-owned directory. A symlink,
     // writable-by-others parent or preexisting target never gets replaced.
@@ -999,6 +1079,7 @@ fs::path publishShrinkCandidate(const ShrinkPlan& plan,
     // unexpectedly replaced parent is never recursively removed.
     std::error_code cleanupError;
     fs::remove(privateParent, cleanupError);
+    notifyVdrAfterShrinkPublish(checked.videoRoot);
     return destination;
 }
 

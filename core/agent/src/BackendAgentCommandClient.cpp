@@ -787,6 +787,65 @@ bool reconcileBackendAgentCommandState(
             return true;
         }
 
+        // A prior-generation HEVC command may already have crossed the
+        // durable mutation boundary. Report ONLY the original immutable
+        // command's result to Core; never dispatch it in this generation.
+        // A missing result after "starting" is uncertainty, not permission
+        // to retry FFmpeg. "not_started" is a verified local no-effect fence
+        // once the original deadline has expired.
+        const bool historicalShrink =
+            mediaShrinkCommand && state.receiptAcknowledged &&
+            !state.stateExtensionPresent && !state.resultAcknowledged &&
+            state.assignment.backendId == context.backendId &&
+            state.assignment.agentId == context.agentId &&
+            state.assignment.backendGeneration < context.backendGeneration &&
+            (state.resultPresent
+                ? ((state.result.resultCategory == "outcome_unknown" &&
+                    state.result.verificationState == "outcome_unknown" &&
+                    state.result.retryClassification == "reconcile_only" &&
+                    ((state.result.dispatchState == "starting" &&
+                      state.result.errorCategory == "executor_unknown" &&
+                      state.result.resultEvidence.empty()) ||
+                     (state.result.dispatchState == "accepted_by_executor" &&
+                      state.result.errorCategory == "none" &&
+                      vdrsuite::mediatools::validShrinkReviewEvidence(
+                          state.assignment, state.result.resultEvidence)))) ||
+                   (state.result.resultCategory == "rejected" &&
+                    state.result.verificationState == "outcome_unknown" &&
+                    state.result.retryClassification == "none" &&
+                    state.result.resultEvidence.empty() &&
+                    ((state.result.dispatchState == "starting" &&
+                      state.result.errorCategory == "fenced") ||
+                     (state.result.dispatchState == "not_started" &&
+                      (state.result.errorCategory == "fenced" ||
+                       state.result.errorCategory == "expired")))))
+                : (state.dispatchState == "starting" ||
+                   (state.dispatchState == "not_started" &&
+                    state.assignment.deadline < nowSeconds())));
+        if (historicalShrink)
+        {
+            if (!state.resultPresent)
+            {
+                // No durable result was recorded; never treat residual memory
+                // or an incomplete journal field as HEVC review evidence.
+                state.result.resultEvidence.clear();
+                if (state.dispatchState == "starting")
+                    createResult(state, "starting", "outcome_unknown",
+                                 "outcome_unknown", "executor_unknown",
+                                 "reconcile_only",
+                                 "HEVC old-generation execution uncertain; reconcile only");
+                else
+                    createResult(state, "not_started", "outcome_unknown",
+                                 "rejected", "fenced", "none",
+                                 "HEVC old-generation command expired before dispatch");
+                if (!persist(config.statePath, state, reason)) return false;
+            }
+            if (!sendResult(config, context, transport, state, reason))
+                return false;
+            reason = "historical_media_shrink_result_reconciled";
+            return true;
+        }
+
         reason = "local_command_generation_fenced";
         return false;
     }
@@ -1036,10 +1095,38 @@ bool reconcileBackendAgentCommandState(
         auto outcome = vdrsuite::mediatools::MediaShrinkAgentOutcome::unknown;
         try { outcome = config.mediaShrinkExecutor->execute(state.assignment); }
         catch (...) {} // Unknown side effect; no blind retry.
+        std::string failureCode;
+        if (config.mediaShrinkExecutor)
+        {
+            try { failureCode = config.mediaShrinkExecutor->takeFailureCode(); }
+            catch (...) {}
+        }
+        // The executor interface is injectable; accept only these exact
+        // built-in, path-free categories. Never persist exception text.
+        const bool safeFailure =
+            failureCode == "ffmpeg_failed" ||
+            failureCode == "ffmpeg_timeout" ||
+            failureCode == "no_size_savings" ||
+            failureCode == "size_limit" ||
+            failureCode == "codec_verification_failed" ||
+            failureCode == "hevc_profile_invalid" ||
+            failureCode == "duration_mismatch" ||
+            failureCode == "vdr_index_or_external_failed" ||
+            failureCode == "media_probe_failed" ||
+            failureCode == "source_changed" ||
+            failureCode == "staging_io_failed" ||
+            failureCode == "stage_claim_conflict" ||
+            failureCode == "publish_claim_conflict" ||
+            failureCode == "unclassified_failure" ||
+            failureCode == "unexpected_exception";
+        const std::string diagnostic = safeFailure
+            ? "media_shrink_failure:" + failureCode
+            : "HEVC requires Core reconciliation";
         if (outcome == vdrsuite::mediatools::MediaShrinkAgentOutcome::rejected)
         {
             createResult(state, "starting", "outcome_unknown", "rejected",
-                         "fenced", "none", "HEVC rejected without effect");
+                         "fenced", "none", safeFailure
+                             ? diagnostic : "HEVC rejected without effect");
         }
         else
         {
@@ -1054,7 +1141,7 @@ bool reconcileBackendAgentCommandState(
             createResult(state, reviewBound ? "accepted_by_executor" : "starting",
                          "outcome_unknown", "outcome_unknown",
                          reviewBound ? "none" : "executor_unknown",
-                         "reconcile_only", "HEVC requires Core reconciliation");
+                         "reconcile_only", diagnostic);
             if (reviewBound)
                 state.result.resultEvidence = evidence;
         }

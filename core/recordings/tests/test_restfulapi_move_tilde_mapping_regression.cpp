@@ -75,5 +75,29 @@ int main()
         "\"source\":\"/srv/vdr/video/Archive/Move_Root_Test/2026-07-13.10.00.1-0.rec\"")
         != std::string::npos);
 
+    // The modern native safe-move path uses ONLY the backend's real
+    // configured video root, regardless of the distribution it runs on.
+    RestfulApiRecordingActionBackendConfig alternateConfig = config;
+    alternateConfig.videoDirectory = "/data/tv";
+    alternateConfig.videoDirectoryExplicit = true;
+    RecordingActionJobPayload alternatePayload = rootPayload;
+    alternatePayload.parameters["backendNativeId"] =
+        "/data/tv/Archive/Move_Root_Test/2026-07-13.10.00.1-0.rec";
+    alternatePayload.parameters["targetPath"] = "Library/Films";
+    const HttpRequest nativeMove = builder.buildSafeMovePreviewRequest(
+        alternateConfig, alternatePayload);
+    assert(nativeMove.body.find(
+        "\"target_file\":\"/data/tv/Library/Films/Move_Root_Test/"
+        "2026-07-13.10.00.1-0.rec\"") != std::string::npos);
+
+    // A RESTfulAPI backend without optional SuiteBridge VPATH provides the
+    // same directory through its native and relative recording identities.
+    // Do not disable the action or require a new operator configuration.
+    alternateConfig.videoDirectory.clear();
+    alternateConfig.videoDirectoryExplicit = false;
+    const HttpRequest inferredMove = builder.buildSafeMovePreviewRequest(
+        alternateConfig, alternatePayload);
+    assert(inferredMove.body == nativeMove.body);
+
     return 0;
 }

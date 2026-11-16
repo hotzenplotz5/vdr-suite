@@ -16,6 +16,7 @@
 #include "BackendAgentMediaShrinkAssignment.h"
 #include "BackendAgentMediaImportAssignment.h"
 #include "MediaShrinkAuthorityCodec.h"
+#include "MediaShrinkAgentExecutor.h"
 #include "AddonRootApproval.h"
 #include "AddonAdministrationService.h"
 #include "AddonActivationHttpPayload.h"
@@ -49,6 +50,7 @@
 #include "PublicRecordingCollectionProjection.h"
 #include "PublicRecordingMetadataDetailProjection.h"
 #include "PublicRecordingPlaybackTargetResolver.h"
+#include "DaemonMediaRecordingSourceResolution.h"
 #include "PublicRecordingActionReadback.h"
 #include "RestfulApiRecordingMapper.h"
 #include "HttpRequest.h"
@@ -185,31 +187,44 @@ bool DaemonRuntime::trustedMediaToolsProvider(
 bool DaemonRuntime::tryReconcileMediaShrinkStage(
     const BackendAgentCommandAssignment& assignment,
     const BackendAgentCommandResult& result,
-    std::int64_t now)
+    std::int64_t now, std::string* diagnostic)
 {
+    if (diagnostic) diagnostic->clear();
+    const auto fail = [diagnostic](const char* reason) {
+        if (diagnostic) *diagnostic = reason;
+        return false;
+    };
     using namespace vdrsuite::mediatools;
     using State = vdrsuite::operations::MutationOperationState;
-    if (!mediaShrinkPlanRuntime_ || !mediaShrinkOperationFence_ ||
-        !mutationOperationRepository_ || !mediaShrinkReviewRepository_ ||
-        !backendAgentCommandRepository_ ||
+    // A durable "starting/outcome_unknown" result can have no review ID
+    // even though the worker completed and wrote its private Core marker.
+    // Neither case authorizes a second execution: only a full independent
+    // recording/candidate readback may advance the original Operation.
+    const bool agentReview =
+        result.dispatchState == "accepted_by_executor" &&
+        result.errorCategory == "none" &&
+        validShrinkReviewEvidence(assignment, result.resultEvidence);
+    const bool unreportedReview =
+        shrinkUnknownStageAllowsPrivateReadback(result);
+    if (!mediaShrinkPlanRuntime_ || !mutationOperationRepository_ ||
+        !mediaShrinkReviewRepository_ || !backendAgentCommandRepository_ ||
         assignment.commandType != kMediaShrinkStageCommandType ||
         result.commandId != assignment.commandId ||
         result.requestFingerprint != assignment.requestFingerprint ||
         result.resultCategory != "outcome_unknown" ||
         result.verificationState != "outcome_unknown" ||
-        result.dispatchState != "accepted_by_executor" ||
-        !shrinkOpaqueId(result.resultEvidence, "shk_") ||
-        now <= 0)
-        return false;
+        result.retryClassification != "reconcile_only" ||
+        (!agentReview && !unreportedReview) || now <= 0)
+        return fail("agent_result_not_eligible_for_recovery");
     const auto persisted = backendAgentCommandRepository_->resultForCommand(
         assignment.commandId);
     if (!persisted ||
         backendAgentCommandResultIdentity(*persisted) !=
             backendAgentCommandResultIdentity(result))
-        return false;
+        return fail("durable_agent_result_identity_missing");
     const auto selected = mutationOperationRepository_->findById(
         assignment.operationId);
-    if (!selected.ok()) return false;
+    if (!selected.ok()) return fail("original_operation_not_found");
     const auto& op = selected.operation;
     if (op.operationId != assignment.operationId ||
         op.backendId != assignment.backendId ||
@@ -219,39 +234,54 @@ bool DaemonRuntime::tryReconcileMediaShrinkStage(
         !shrinkOpaqueId(op.resourceId, "rec_") ||
         (op.state != State::outcomeUnknown &&
          op.state != State::succeeded))
-        return false;
-    if (op.state == State::succeeded &&
-        op.resultReference != result.resultEvidence)
-        return false;
+        return fail("original_operation_identity_or_state_mismatch");
     if (op.state == State::outcomeUnknown &&
         op.resultReference !=
             "agent.media.shrink:" + assignment.commandId)
-        return false;
-    std::uint64_t effectiveGeneration = 0;
-    std::string reason;
-    if (!mediaShrinkOperationFence_->effectiveCapability(
-            op.actorId, op.backendId, kMediaShrinkStageCommandType,
-            now, effectiveGeneration, reason) ||
-        effectiveGeneration != op.backendGeneration)
-        return false;
-    // Independent media probes happen AFTER durable Agent result ACK;
-    // they cannot be performed by the mutation executor itself.
+        return fail("original_operation_reference_mismatch");
+    if (op.state == State::succeeded &&
+        !shrinkOpaqueId(op.resultReference, "shk_"))
+        return fail("verified_operation_has_invalid_review");
+    // This is readback of the ORIGINAL immutable operation, not admission
+    // of a new mutation. A restarted Agent can have a newer generation, or
+    // be briefly offline, while the completed candidate still belongs to
+    // the old assignment. Never require a current-generation Stage grant to
+    // verify existing private bytes: require the recorded Agent result,
+    // exact Core-bound marker and independently validated source instead.
     NativeProcessRunner runner(std::chrono::seconds(120));
-    const auto verified = mediaShrinkPlanRuntime_->verifyStagedCandidate(
-        op.actorId, op.backendId, op.resourceId, op.operationId,
-        op.expectedResourceFingerprint, op.backendGeneration,
-        result.resultEvidence, runner);
-    if (!verified) return false;
+    const auto verified = agentReview
+        ? mediaShrinkPlanRuntime_->verifyStagedCandidate(
+            op.actorId, op.backendId, op.resourceId, op.operationId,
+            op.expectedResourceFingerprint, op.backendGeneration,
+            result.resultEvidence, runner, diagnostic)
+        : mediaShrinkPlanRuntime_->recoverStagedCandidate(
+            op.actorId, op.backendId, op.resourceId, op.operationId,
+            op.expectedResourceFingerprint, op.backendGeneration, runner,
+            diagnostic);
+    if (!verified) {
+        if (diagnostic && diagnostic->empty())
+            *diagnostic = "private_stage_verification_failed";
+        return false;
+    }
+    if (op.state == State::succeeded &&
+        op.resultReference != verified->reviewId)
+        return fail("verified_review_reference_conflict");
     if (op.state != State::succeeded) {
         const auto advanced = mutationOperationRepository_->transition(
             op.operationId, op.operationRevision, op.state,
             State::succeeded, verified->reviewId, now);
-        if (!advanced.ok()) return false;
+        if (!advanced.ok()) return fail("operation_transition_failed");
     }
     const auto review = mediaShrinkReviewRepository_->registerStaged(
         verified->reviewId, op.operationId);
-    return review.ok() ||
+    const bool registered = review.ok() ||
         review.status == vdrsuite::addons::MediaShrinkReviewStatus::replayed;
+    // The original actor-owned operation SSE stream is the notification
+    // channel. Never require a refresh button or a second operation.
+    if (registered && deviceLiveEventHub_)
+        deviceLiveEventHub_->publishOperation(op.operationId);
+    if (!registered) return fail("review_registration_failed");
+    return true;
 }
 
 bool DaemonRuntime::initialize()
@@ -1376,10 +1406,11 @@ bool DaemonRuntime::initialize()
         RestfulApiRecordingActionBackendConfig recordingActionConfig;
         recordingActionConfig.backendId = backendRuntimeContext->backendId;
         recordingActionConfig.basePath = "";
-        // The packaged yaVDR fallback remains for existing installations.
-        // A declared backend-root map is authoritative: missing/invalid
-        // entries must disable native recording writes, not silently write
-        // to another distribution's recording directory.
+        // A configured or VDR-discovered root is preferred. On existing
+        // RESTfulAPI backends without VPATH, safe recording actions derive
+        // the native video root from the provider's absolute file_name and
+        // relative_file_name for the selected recording. No distro path and
+        // no additional configuration are required.
         const auto& recordingRoots = config_.recordingVideoRoots();
         const auto rootIt = recordingRoots.find(backendRuntimeContext->backendId);
         const bool explicitlyConfigured = config_.recordingVideoRootsSpecified();
@@ -1415,8 +1446,7 @@ bool DaemonRuntime::initialize()
         recordingActionConfig.videoDirectory = configuredRootAvailable
             ? rootIt->second
             : (nativeRootAvailable ? nativeRoot.videoDirectory
-                : (explicitlyConfigured || invalidNativeRoot
-                    ? std::string() : "/srv/vdr/video"));
+                                   : std::string());
         recordingActionConfig.videoDirectoryExplicit = rootAvailable;
         recordingActionConfig.apiMode =
             RestfulApiRecordingActionApiMode::SafeMutation;
@@ -1432,7 +1462,7 @@ bool DaemonRuntime::initialize()
         const char* rootSource = configuredRootAvailable ? "configured"
             : nativeRootAvailable ? "suitebridge-vpath"
             : invalidNativeRoot ? "invalid-vpath"
-            : explicitlyConfigured ? "invalid-config" : "legacy";
+            : explicitlyConfigured ? "invalid-config" : "unavailable";
         std::cout << "recording-root backend="
                   << backendRuntimeContext->backendId
                   << " source=" << rootSource
@@ -5530,31 +5560,32 @@ bool DaemonRuntime::initialize()
             result.status = PublicRecordingArtworkStatus::ok;
             return result;
         });
-    // M2.2: local-only Media Check using live canonical recording identity.
-    // Backend-mounted video roots must be explicitly configured; remote
-    // Agent execution is not advertised by this implementation.
-    mediaCheckRuntime_ = std::make_unique<DaemonMediaCheckRuntime>(
-        config_.mediaCheckVideoRoots(),
+    // ADR-0035: the authoritative Public-v1 Recording collection is the
+    // current per-backend Recording cache, not the recording-free snapshot.
+    // Resolve its opaque identity through the existing playback read model,
+    // then map the trusted provider native ID to the configured local root.
+    // Media Check and HEVC Shrink use exactly this same resolver.
+    const auto resolveMediaRecording =
         [this](const std::string& backend, const std::string& publicId)
             -> std::optional<std::filesystem::path>
         {
-            if (!publicRecordingIdentities_ || !vdrSnapshotReadService_ ||
-                !vdrSnapshotReadService_->hasSnapshotForBackend(backend))
+            if (!publicRecordingIdentities_ || !vdrRecordingCacheRepository_)
                 return std::nullopt;
-            const auto native =
-                publicRecordingIdentities_->findNativeForPublicId(
-                    backend, publicId);
-            if (!native) return std::nullopt;
-            for (const VdrRecording& recording :
-                vdrSnapshotReadService_->getRecordingsForBackend(backend))
-            {
-                if (recording.backendId == backend &&
-                    recording.backendNativeId == *native &&
-                    !recording.path.empty())
-                    return std::filesystem::path(recording.path);
-            }
-            return std::nullopt;
-        },
+            const auto root = config_.mediaCheckVideoRoots().find(backend);
+            if (root == config_.mediaCheckVideoRoots().end())
+                return std::nullopt;
+            PublicRecordingPlaybackTargetResolver resolver(
+                *publicRecordingIdentities_, *vdrRecordingCacheRepository_);
+            const auto found = resolver.resolveForRead(backend, publicId);
+            if (found.status != PublicRecordingPlaybackTargetStatus::ready)
+                return std::nullopt;
+            return vdrsuite::mediatools::resolveConfiguredRecordingPath(
+                root->second, found.recording);
+        };
+
+    // M2.2: local-only Media Check. Explicit backend root required.
+    mediaCheckRuntime_ = std::make_unique<DaemonMediaCheckRuntime>(
+        config_.mediaCheckVideoRoots(), resolveMediaRecording,
         [this](const std::string& backend)
         {
             if (!backendRegistryService_ || !vdrSnapshotReadService_)
@@ -5585,31 +5616,10 @@ bool DaemonRuntime::initialize()
             return mediaCheckRuntime_->capability(backend);
         });
 
-    // Media Shrink is exposed ONLY as a read-only preflight at this stage.
-    // Reuse the exact canonical recording identity/snapshot used by Media
-    // Check. No caller-controlled paths, FFmpeg or filesystem writes.
+    // HEVC plan uses the same current cache/identity and configured root.
+    // Stage/Publish admission, fencing and source readback remain unchanged.
     mediaShrinkPlanRuntime_ = std::make_unique<DaemonMediaShrinkPlanRuntime>(
-        config_.mediaCheckVideoRoots(),
-        [this](const std::string& backend, const std::string& publicId)
-            -> std::optional<std::filesystem::path>
-        {
-            if (!publicRecordingIdentities_ || !vdrSnapshotReadService_ ||
-                !vdrSnapshotReadService_->hasSnapshotForBackend(backend))
-                return std::nullopt;
-            const auto native =
-                publicRecordingIdentities_->findNativeForPublicId(
-                    backend, publicId);
-            if (!native) return std::nullopt;
-            for (const VdrRecording& recording :
-                 vdrSnapshotReadService_->getRecordingsForBackend(backend))
-            {
-                if (recording.backendId == backend &&
-                    recording.backendNativeId == *native &&
-                    !recording.path.empty())
-                    return std::filesystem::path(recording.path);
-            }
-            return std::nullopt;
-        },
+        config_.mediaCheckVideoRoots(), resolveMediaRecording,
         [this](const std::string& backend)
         {
             if (!backendRegistryService_ || !vdrSnapshotReadService_)
@@ -5698,45 +5708,17 @@ bool DaemonRuntime::initialize()
             if (!found.ok())
                 return MediaShrinkPlanApiRuntime::problem(
                     503, "HEVC operation readback unavailable.");
-            // A process restart must not repeat Stage/Publish. Retry only
-            // the existing readback against already durable Agent evidence.
+            // This is an actor-owned, read-only HTTP status GET. Do not
+            // synchronously inspect large MPEG-TS files here: ffprobe may
+            // take minutes and previously blocked navigation/SSE reconnect.
+            // The autonomous Core recovery worker verifies the ORIGINAL
+            // private Stage exactly once per attempt, publishes a confirmed
+            // transition over SSE, and never repeats FFmpeg encoding.
             if (found.operation.backendId == backend &&
-                (found.operation.state ==
-                    vdrsuite::operations::MutationOperationState::outcomeUnknown ||
-                 (found.operation.actionFamily == "media.shrink.stage" &&
-                  found.operation.state ==
-                    vdrsuite::operations::MutationOperationState::succeeded))) {
-                const bool isStage = found.operation.actionFamily ==
-                    "media.shrink.stage";
-                const bool isPublish = found.operation.actionFamily ==
-                    "media.shrink.publish";
-                if (isStage && backendAgentCommandRepository_) {
-                    const auto assignment =
-                        backendAgentCommandRepository_->findAssignmentForOperation(
-                            backend, operationId,
-                            vdrsuite::mediatools::kMediaShrinkStageCommandType);
-                    if (assignment) {
-                        const auto result =
-                            backendAgentCommandRepository_->resultForCommand(
-                                assignment->commandId);
-                        if (result) {
-                            const auto now =
-                                std::chrono::duration_cast<std::chrono::seconds>(
-                                    std::chrono::system_clock::now()
-                                        .time_since_epoch()).count();
-                            if (tryReconcileMediaShrinkStage(
-                                    *assignment, *result, now)) {
-                                const auto updated =
-                                    mutationOperationReadService_->findForActor(
-                                        operationId, actor);
-                                if (updated.ok()) found = updated;
-                            }
-                        }
-                    }
-                }
-                if (isPublish)
-                    recordingCacheRefreshQueue_.request(backend);
-            }
+                found.operation.actionFamily == "media.shrink.publish" &&
+                found.operation.state ==
+                    vdrsuite::operations::MutationOperationState::outcomeUnknown)
+                recordingCacheRefreshQueue_.request(backend);
             const auto& op = found.operation;
             // If Core crashed between a verified Publish transition and
             // the Review update, finish that same review without re-publishing.
@@ -5779,7 +5761,126 @@ bool DaemonRuntime::initialize()
                 body += stage ? ",\"reviewId\":\"" : ",\"publishedRecordingId\":\"";
                 body += op.resultReference + "\"";
             }
+            // The actor may inspect their own durable Agent outcome, but
+            // never an arbitrary worker diagnostic, command payload or path.
+            // Only the exact operation-bound, fixed-vocabulary code is safe.
+            if ((op.state ==
+                    vdrsuite::operations::MutationOperationState::failedVerified ||
+                 op.state ==
+                    vdrsuite::operations::MutationOperationState::outcomeUnknown) &&
+                backendAgentCommandRepository_) {
+                const auto assignment =
+                    backendAgentCommandRepository_->findAssignmentForOperation(
+                        backend, op.operationId,
+                        stage ? vdrsuite::mediatools::kMediaShrinkStageCommandType
+                              : vdrsuite::mediatools::kMediaShrinkPublishCommandType);
+                if (assignment &&
+                    op.resultReference ==
+                        "agent.media.shrink:" + assignment->commandId) {
+                    const auto result =
+                        backendAgentCommandRepository_->resultForCommand(
+                            assignment->commandId);
+                    constexpr const char* prefix = "media_shrink_failure:";
+                    if (result && result->boundedDiagnostics.rfind(prefix, 0) == 0) {
+                        const std::string code = result->boundedDiagnostics.substr(
+                            std::char_traits<char>::length(prefix));
+                        const bool known =
+                            code == "ffmpeg_failed" ||
+                            code == "ffmpeg_timeout" ||
+                            code == "no_size_savings" ||
+                            code == "size_limit" ||
+                            code == "codec_verification_failed" ||
+                            code == "hevc_profile_invalid" ||
+                            code == "duration_mismatch" ||
+                            code == "vdr_index_or_external_failed" ||
+                            code == "media_probe_failed" ||
+                            code == "source_changed" ||
+                            code == "staging_io_failed" ||
+                            code == "stage_claim_conflict" ||
+                            code == "publish_claim_conflict" ||
+                            code == "unclassified_failure" ||
+                            code == "unexpected_exception";
+                        if (known) body += ",\"failureCode\":\"" + code + "\"";
+                    }
+                }
+            }
             return MediaShrinkPlanApiRuntime::json(200, body + "}");
+        });
+
+    // A reopened recording must discover its EXISTING candidate in SQLite,
+    // even on a different browser where sessionStorage has no operation ID.
+    // This is only an actor-owned, backend-scoped read of the existing journal.
+    MediaShrinkPlanApiRuntime::instance().registerRecordingStatusHandler(
+        [this](const std::string& actor, const std::string& backend,
+               const std::string& recordingId) -> ApiResponse
+        {
+            using namespace vdrsuite::operations;
+            if (!mutationOperationRepository_ || !mediaShrinkReviewRepository_)
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC recording readback unavailable.");
+            const auto found =
+                mutationOperationRepository_->listRecentForActorBackendActionFamily(
+                    actor, backend, "media.shrink.stage", 128U);
+            if (!found.ok())
+                return MediaShrinkPlanApiRuntime::problem(
+                    503, "HEVC recording readback unavailable.");
+            const MutationOperation* unfinished = nullptr;
+            for (const auto& op : found.operations) {
+                if (op.resourceType != "Recording" ||
+                    op.resourceId != recordingId ||
+                    op.backendId != backend || op.actorId != actor)
+                    continue;
+                if (!unfinished) unfinished = &op;
+                if (op.state != MutationOperationState::succeeded ||
+                    !vdrsuite::mediatools::shrinkOpaqueId(
+                        op.resultReference, "shk_"))
+                    continue;
+                const auto review = mediaShrinkReviewRepository_->find(
+                    actor, backend, op.resultReference);
+                if (!review.ok() || review.review.recordingId != recordingId ||
+                    review.review.stageOperationId != op.operationId)
+                    continue;
+                const std::string state =
+                    review.review.state == "staged" ? "ready" :
+                    review.review.state == "publishing" ? "publishing" :
+                    review.review.state == "published" ? "published" : "";
+                if (state.empty()) continue;
+                const auto stagePayload =
+                    mutationOperationRepository_->findPayloadByOperationId(
+                        op.operationId);
+                vdrsuite::mediatools::MediaShrinkAgentSelection stageSelection;
+                const bool automatic = stagePayload.ok() &&
+                    stagePayload.payload.payloadType ==
+                        vdrsuite::mediatools::kMediaShrinkStageCommandType &&
+                    vdrsuite::mediatools::parseMediaShrinkAgentSelection(
+                        stagePayload.payload.payloadType,
+                        stagePayload.payload.payload, stageSelection) &&
+                    stageSelection.autoPublish;
+                std::string body = "{\"recordingId\":\"" + recordingId +
+                    "\",\"state\":\"" + state +
+                    "\",\"operationId\":\"" + op.operationId +
+                    "\",\"reviewId\":\"" + op.resultReference + "\"";
+                if (automatic) body += ",\"autoPublish\":true";
+                if (state == "publishing" &&
+                    vdrsuite::mediatools::shrinkOpaqueId(
+                        review.review.publishOperationId, "op_"))
+                    body += ",\"publishOperationId\":\"" +
+                        review.review.publishOperationId + "\"";
+                if (state == "published" &&
+                    vdrsuite::mediatools::shrinkOpaqueId(
+                        review.review.publishedRecordingId, "rec_"))
+                    body += ",\"publishedRecordingId\":\"" +
+                        review.review.publishedRecordingId + "\"";
+                return MediaShrinkPlanApiRuntime::json(200, body + "}");
+            }
+            if (unfinished)
+                return MediaShrinkPlanApiRuntime::json(200,
+                    "{\"recordingId\":\"" + recordingId +
+                    "\",\"state\":\"processing\",\"operationId\":\"" +
+                    unfinished->operationId + "\"}");
+            return MediaShrinkPlanApiRuntime::json(200,
+                "{\"recordingId\":\"" + recordingId +
+                "\",\"state\":\"none\"}");
         });
 
     // Core-owned HEVC mutation entrypoint. No caller-controlled path,
@@ -5789,7 +5890,7 @@ bool DaemonRuntime::initialize()
     auto submitMediaShrink = [this](
         const std::string& actor, const std::string& backend,
         const std::string& resourceId, const std::string& encoder,
-        unsigned maxHeight, bool nightMode,
+        unsigned maxHeight, bool nightMode, bool autoPublish,
         std::uint64_t revision, const std::string& key,
         bool publish) -> ApiResponse
     {
@@ -5833,6 +5934,7 @@ bool DaemonRuntime::initialize()
             request.encoder = encoder;
             request.maxHeight = maxHeight;
             request.nightMode = nightMode;
+            request.autoPublish = autoPublish;
             request.now = now;
             outcome = service.stage(request);
         }
@@ -5892,10 +5994,11 @@ bool DaemonRuntime::initialize()
         [submitMediaShrink](
             const std::string& actor, const std::string& backend,
             const std::string& recording, const std::string& encoder,
-            unsigned height, bool nightMode, const std::string& key)
+            unsigned height, bool nightMode, bool autoPublish,
+            const std::string& key)
         {
             return submitMediaShrink(actor, backend, recording, encoder,
-                                     height, nightMode, 0, key, false);
+                                     height, nightMode, autoPublish, 0, key, false);
         },
         [submitMediaShrink](
             const std::string& actor, const std::string& backend,
@@ -5903,7 +6006,7 @@ bool DaemonRuntime::initialize()
             const std::string& key)
         {
             return submitMediaShrink(actor, backend, review, "",
-                                     0, false, revision, key, true);
+                                     0, false, false, revision, key, true);
         });
 
     // Grant eligibility uses live Agent capabilities but does not require
@@ -6222,7 +6325,7 @@ bool DaemonRuntime::initialize()
                 if (!review.ok() ||
                     review.review.state != "publishing" ||
                     review.review.publishOperationId != op.operationId ||
-                    review.review.backendGeneration !=
+                    review.review.backendGeneration >
                         op.backendGeneration ||
                     review.review.sourceFingerprint !=
                         op.expectedResourceFingerprint)

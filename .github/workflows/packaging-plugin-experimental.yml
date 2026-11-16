@@ -22,6 +22,16 @@ on:
       - "tools/fixtures/packaging/**"
       - "database/schema/metadata-platform-v1.sql"
       - "tools/*packaging*.py"
+      - "tools/build_vdr_suite_sourcepkg_isolated.py"
+      - "tools/addons/debian_media_tools.py"
+      - "tools/addons/test_debian_media_tools.py"
+      - "tools/addons/test_debian_media_tools_lifecycle.py"
+      - "tools/test_packaging_p7_historical_schema.py"
+      - "tools/test_packaging_i44_four_package_adoption.py"
+      - "tools/addons/check_debian_media_tools_apt_lifecycle.sh"
+      - "tools/addons/check_published_media_tools_ppa.sh"
+      - "tools/addons/check_installed_media_tools_payload.py"
+      - "tools/addons/test_published_media_tools_ppa.py"
       - ".gitignore"
       - "VERSION"
       - ".github/workflows/packaging-plugin-experimental.yml"
@@ -45,6 +55,16 @@ on:
       - "tools/fixtures/packaging/**"
       - "database/schema/metadata-platform-v1.sql"
       - "tools/*packaging*.py"
+      - "tools/build_vdr_suite_sourcepkg_isolated.py"
+      - "tools/addons/debian_media_tools.py"
+      - "tools/addons/test_debian_media_tools.py"
+      - "tools/addons/test_debian_media_tools_lifecycle.py"
+      - "tools/test_packaging_p7_historical_schema.py"
+      - "tools/test_packaging_i44_four_package_adoption.py"
+      - "tools/addons/check_debian_media_tools_apt_lifecycle.sh"
+      - "tools/addons/check_published_media_tools_ppa.sh"
+      - "tools/addons/check_installed_media_tools_payload.py"
+      - "tools/addons/test_published_media_tools_ppa.py"
       - ".gitignore"
       - "VERSION"
       - ".github/workflows/packaging-plugin-experimental.yml"
@@ -74,6 +94,12 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           git ls-files --stage debian/rules | grep -E '^100755 '
           python3 -m unittest -v tools.test_packaging_profiles tools.test_packaging_p8_preinst tools.test_packaging_host_collision_preflight tools.test_packaging_p8_installer 2>&1 | tee packaging-offline-regressions.log
+          python3 -B -m unittest -v tools.test_packaging_p7_historical_schema 2>&1 | tee -a packaging-offline-regressions.log
+          python3 -B -m unittest discover -s tools/addons -p 'test_debian_media_tools.py' -v 2>&1 | tee -a packaging-offline-regressions.log
+          python3 -B -m unittest discover -s tools/addons -p 'test_debian_media_tools_lifecycle.py' -v 2>&1 | tee -a packaging-offline-regressions.log
+          python3 -B -m unittest -v tools.test_packaging_i44_four_package_adoption 2>&1 | tee -a packaging-offline-regressions.log
+          bash -n tools/addons/check_published_media_tools_ppa.sh tools/addons/check_debian_media_tools_apt_lifecycle.sh
+          python3 -B -m unittest discover -s tools/addons -p 'test_published_media_tools_ppa.py' -v 2>&1 | tee -a packaging-offline-regressions.log
           python3 tools/check_packaging_tracked_artifacts.py
           python3 tools/check_packaging_version.py
           echo 'PACKAGING_OFFLINE_P8_AND_MANIFEST=PASS'
@@ -567,6 +593,26 @@ jobs:
             grep -Fw 'vdr-abi-2.8.3-0yavdr'
           test "$(find package-artifacts-full-resolute -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
           echo 'RESOLUTE_FULL_THREE_BINARIES_MANIFEST_ABI_P8=PASS'
+      - name: Verify and stage fourth Media Tools binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mt_debs=("$RESOLUTE_FULL_BUILD_ROOT"/vdr-suite-addon-media-tools_*_amd64.deb)
+          test "${#mt_debs[@]}" -eq 1
+          mt_deb="${mt_debs[0]}"
+          test "$(dpkg-deb --field "$mt_deb" Package)" = vdr-suite-addon-media-tools
+          test "$(dpkg-deb --field "$mt_deb" Version)" = "$(dpkg-parsechangelog -l debian/changelog -S Version)"
+          dpkg-deb --field "$mt_deb" Depends | grep -Fw ffmpeg
+          dpkg-deb --field "$mt_deb" Depends | grep -Fw vdr
+          dpkg-deb --ctrl-tarfile "$mt_deb" | tar -xOf - ./preinst | sh -n
+          dpkg-deb --ctrl-tarfile "$mt_deb" | tar -xOf - ./preinst | grep -F 'MEDIA_TOOLS_DPKG=BLOCKED'
+          mt_extract="$(mktemp -d)"
+          dpkg-deb --extract "$mt_deb" "$mt_extract"
+          python3 tools/addons/debian_media_tools.py --verify-package-root --package-root "$mt_extract"
+          mkdir -p media-tools-artifacts-resolute
+          cp -- "$mt_deb" media-tools-artifacts-resolute/
+          echo 'MT_I41_RESOLUTE_FOURTH_BINARY_BUILD=PASS'
       - name: Record advisory Lintian baseline for all three Resolute packages
         shell: bash
         env:
@@ -625,6 +671,14 @@ jobs:
         with:
           name: vdr-suite-three-binaries-resolute-experimental
           path: package-artifacts-full-resolute/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Upload separate Resolute Media Tools binary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vdr-suite-media-tools-resolute-experimental
+          path: media-tools-artifacts-resolute/
           if-no-files-found: warn
           retention-days: 7
 
@@ -726,6 +780,20 @@ jobs:
             dpkg-deb --ctrl-tarfile "${files[0]}" | tar -xOf - ./preinst | sh -n
             dpkg-deb --ctrl-tarfile "${files[0]}" | tar -xOf - ./preinst | grep -F 'P8_PREUNPACK=BLOCKED'
           done
+          # MT.I4.1: fourth default binary is verified separately from P8 guards.
+          shopt -s nullglob
+          mt_debs=(../vdr-suite-addon-media-tools_*.deb)
+          test "${#mt_debs[@]}" -eq 1
+          mt_deb="${mt_debs[0]}"
+          test "$(dpkg-deb --field "$mt_deb" Package)" = vdr-suite-addon-media-tools
+          dpkg-deb --field "$mt_deb" Depends | grep -Fw ffmpeg
+          dpkg-deb --field "$mt_deb" Depends | grep -Fw vdr
+          dpkg-deb --ctrl-tarfile "$mt_deb" | tar -xOf - ./preinst | sh -n
+          dpkg-deb --ctrl-tarfile "$mt_deb" | tar -xOf - ./preinst | grep -F "MEDIA_TOOLS_DPKG=BLOCKED"
+          mt_extract="$(mktemp -d "$RUNNER_TEMP/mt-i41-package.XXXXXXXX")"
+          dpkg-deb --extract "$mt_deb" "$mt_extract"
+          python3 tools/addons/debian_media_tools.py --verify-package-root --package-root "$mt_extract"
+          echo "MT_I41_FOURTH_BINARY_BUILD=PASS"
           echo "P8_PACKAGE_PREINST_CONTROL=PASS"
           echo "FULL_DEFAULT_PACKAGING=PASS"
       - name: Stage unsigned binaries for a disposable installation test
@@ -737,6 +805,9 @@ jobs:
             cp -- ../"${package}"_*.deb packaging-artifacts-full/
           done
           test "$(find packaging-artifacts-full -maxdepth 1 -name '*.deb' | wc -l)" -eq 3
+          mkdir -p media-tools-artifacts-noble
+          cp -- ../vdr-suite-addon-media-tools_*.deb media-tools-artifacts-noble/
+          test "$(find media-tools-artifacts-noble -maxdepth 1 -name '*.deb' | wc -l)" -eq 1
           cp -- tools/fixtures/packaging/v1.60.15m-vdr-suite.sql packaging-artifacts-full/p7-tagged-historical.sql
           cp -- tools/fixtures/packaging/p7-pre-revision-security-operations.sql packaging-artifacts-full/p7-pre-revision.sql
       - name: Share unsigned test binaries with isolated container
@@ -744,6 +815,13 @@ jobs:
         with:
           name: vdr-suite-three-binaries-noble-experimental
           path: packaging-artifacts-full/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload separate Noble Media Tools binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: vdr-suite-media-tools-noble-experimental
+          path: media-tools-artifacts-noble/
           if-no-files-found: error
           retention-days: 7
       - name: Collect build log on failure
@@ -754,6 +832,167 @@ jobs:
           path: default-package-build.log
           if-no-files-found: warn
           retention-days: 7
+
+  media-tools-apt-lifecycle-noble:
+    name: MT.I4.2 Noble actual APT lifecycle and state preservation
+    needs: full-default-packages-noble
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    timeout-minutes: 35
+    steps:
+      - name: Bootstrap checkout in disposable Noble
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git python3
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-media-tools-noble-experimental
+          path: media-tools
+      - name: Real APT negative and positive lifecycle cases
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          bash tools/addons/check_debian_media_tools_apt_lifecycle.sh noble
+
+  media-tools-apt-lifecycle-resolute:
+    name: MT.I4.2 Resolute actual APT lifecycle and state preservation
+    needs: full-default-packages-resolute
+    runs-on: ubuntu-24.04
+    container: ubuntu:26.04
+    timeout-minutes: 35
+    steps:
+      - name: Bootstrap checkout in disposable Resolute
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git python3
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-media-tools-resolute-experimental
+          path: media-tools
+      - name: Real APT negative and positive lifecycle cases
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          bash tools/addons/check_debian_media_tools_apt_lifecycle.sh resolute
+
+
+  media-tools-four-package-coinstall:
+    name: "MT.I4.3 four-binary simultaneous APT install (${{ matrix.series }})"
+    needs: [full-default-packages-noble, full-default-packages-resolute]
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.image }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - series: noble
+            image: ubuntu:24.04
+          - series: resolute
+            image: ubuntu:26.04
+    steps:
+      - name: Bootstrap Git for source identity verification in disposable container
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -f /.dockerenv
+          test "$(id -u)" -eq 0
+          # Minimal Ubuntu containers lack git; keep all installs container-only.
+          printf '%s\n' '#!/bin/sh' 'exit 101' > /usr/sbin/policy-rc.d
+          chmod 0755 /usr/sbin/policy-rc.d
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git python3
+      - name: Check out canonical installed-payload verifier
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      # Checkout clears the initially empty workspace on a fresh container.
+      # Download the same-run binaries only AFTER checkout to preserve them.
+      - name: Retrieve exact three base binaries from the same workflow
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vdr-suite-*-binaries-${{ matrix.series }}-experimental
+          path: packages
+          merge-multiple: true
+      - name: Retrieve the fourth Media Tools package
+        uses: actions/download-artifact@v4
+        with:
+          name: vdr-suite-media-tools-${{ matrix.series }}-experimental
+          path: packages
+      - name: Simultaneously install and inspect exact four binaries with real APT
+        shell: bash
+        env:
+          SERIES: ${{ matrix.series }}
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -Eeuo pipefail
+          test -f /.dockerenv
+          test "$(id -u)" -eq 0
+          test "$(dpkg --print-architecture)" = amd64
+          test "$( . /etc/os-release; printf '%s' "$VERSION_CODENAME" )" = "$SERIES"
+          # The container checkout can have different uid ownership from the runner.
+          test "$(git -c safe.directory="$PWD" rev-parse HEAD)" = "$GITHUB_SHA"
+          printf '%s\n' '#!/bin/sh' 'exit 101' > /usr/sbin/policy-rc.d
+          chmod 0755 /usr/sbin/policy-rc.d
+
+          shopt -s nullglob
+          all=(packages/*.deb)
+          printf 'MT_I43_DOWNLOADED_DEB_COUNT=%s series=%s\n' "${#all[@]}" "$SERIES"
+          printf 'MT_I43_DOWNLOADED_DEB=%s\n' "${all[@]}"
+          test "${#all[@]}" -eq 4
+          source_version=''
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-suite-addon-media-tools; do
+            files=(packages/"$package"_*_amd64.deb)
+            test "${#files[@]}" -eq 1
+            deb="${files[0]}"
+            test "$(dpkg-deb --field "$deb" Package)" = "$package"
+            test "$(dpkg-deb --field "$deb" Architecture)" = amd64
+            version="$(dpkg-deb --field "$deb" Version)"
+            if test -z "$source_version"; then source_version="$version"; fi
+            test "$version" = "$source_version"
+          done
+          test "$source_version" = '0.14.1-1~exp2'
+          dpkg-deb --field packages/vdr-plugin-suitebridge_*_amd64.deb Depends |
+            grep -Fw vdr-abi-2.8.3-0yavdr
+          dpkg-deb --field packages/vdr-suite-addon-media-tools_*_amd64.deb Depends |
+            grep -Fw ffmpeg
+          dpkg-deb --field packages/vdr-suite-addon-media-tools_*_amd64.deb Depends |
+            grep -Fw vdr
+          echo "MT_I43_FOUR_BINARY_IDENTITY=PASS series=$SERIES version=$source_version"
+
+          # Lists and core packages were prepared by the bootstrap step.
+          apt-get install -y --no-install-recommends gnupg software-properties-common
+          add-apt-repository -y ppa:seahawk1986-hotmail/vdr-2.8.3
+          apt-get update
+          apt-get -s install --no-install-recommends ./packages/*.deb
+          apt-get install -y --no-install-recommends ./packages/*.deb
+          dpkg --audit
+
+          test "$(dpkg-query -W -f='${Version}' vdr)" = "2.8.3-0yavdr0~$SERIES"
+          dpkg-query -W -f='${Provides}\n' vdr | grep -Fw vdr-abi-2.8.3-0yavdr
+          for package in vdr-suite-daemon vdr-suite-backend-agent vdr-plugin-suitebridge vdr-suite-addon-media-tools; do
+            test "$(dpkg-query -W -f='${Status}' "$package")" = 'install ok installed'
+            test "$(dpkg-query -W -f='${Version}' "$package")" = "$source_version"
+          done
+          test -f /usr/lib/systemd/system/vdr-suite-daemon.service
+          test -f /usr/lib/systemd/system/vdr-suite-backend-agent.service
+          test ! -L /etc/systemd/system/multi-user.target.wants/vdr-suite-daemon.service
+          test ! -L /etc/systemd/system/multi-user.target.wants/vdr-suite-backend-agent.service
+          test -s /usr/lib/vdr/plugins/libvdr-suitebridge.so.14
+          test ! -f /var/lib/vdr-suite/vdr-suite.db
+          python3 tools/addons/check_installed_media_tools_payload.py
+          echo "MT_I43_FOUR_PACKAGE_COINSTALL=PASS series=$SERIES version=$source_version"
 
   p8-preunpack-collision-noble:
     name: P8 disposable dpkg refusal (${{ matrix.case }})

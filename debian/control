@@ -37,3 +37,11 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, ${vdr:Depends}
 Description: Native VDR-Suite bridge plugin
  VDR plugin built for the VDR ABI provided by the target distribution.
+
+Package: vdr-suite-addon-media-tools
+Architecture: any
+Build-Profiles: <!plugin-only>
+Depends: ${shlibs:Depends}, ${misc:Depends}, ffmpeg, vdr
+Description: Inactive VDR-Suite Media Tools workers
+ Import, read-only check and optional shrink workers from the sealed runtime.
+ Package installation does not activate rights, jobs, or services.

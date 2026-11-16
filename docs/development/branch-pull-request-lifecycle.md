@@ -7,8 +7,12 @@ Sie ändert keine laufenden Systeme, PPA-Pakete oder bestehenden PRs.
 
 ## Neue Arbeiten: direkt von `main`
 
-1. Repository und **exakten aktuellen** `main`-HEAD prüfen, dann jeden neuen
-   Arbeitsbranch grundsätzlich **von `main` desselben Repositories** anlegen.
+1. **Vor einer Branch-Neuanlage die ausdrückliche Maintainer-Freigabe
+   einholen; eine allgemeine Arbeitsfreigabe ist keine Freigabe für neue
+   Branches.** Normaler Wechsel zwischen bestehenden erlaubten Branches
+   benötigt keine erneute Zustimmung. Nur wenn ein neuer Branch genehmigt
+   wurde, Repository und **exakten aktuellen** `main`-HEAD prüfen und
+   ihn grundsätzlich **von `main` desselben Repositories** anlegen.
    Keine neuen Arbeitsbranches von älteren Feature-, Packaging- oder Fixbranches.
 2. Ein klar begrenztes Thema auf **einem** Branch mit **einem PR nach `main`**
    weiterführen. Für bloße Nacharbeiten keinen neuen Folgebranch erzeugen.
@@ -81,3 +85,22 @@ unintegrierte Commits und externe Referenzen prüfen. Ergebnis als
 `MERGED/DELETE-READY` oder `UNMERGED/REVIEW` dokumentieren.
 Löschung nur für `MERGED/DELETE-READY` nach Freigabe; andere Fälle
 bleiben erhalten, bis ihr Zweck bzw. ihre Abhängigkeit geklärt ist.
+
+## Historischer Media-Tools-Merge PR #556 (03.11.2026)
+
+Die folgende Entscheidung erklärt, warum Media Tools auf `main` statt auf dem
+früheren Arbeitsbranch entwickelt und installiert wird.
+
+**Abgeschlossen:** PR #556 wurde mit Merge-Commit
+`2ebb2d077736e5bbcdeb7472512644095ef06481` nach `main` übernommen.
+Der frühere Media-Tools-Arbeitsbranch ist vollständig in dessen Historie
+enthalten und **keine** Installationsquelle oder verpflichtende
+Entwicklungsbasis mehr. Die offizielle Quelle für Media Tools und Add-ons
+ist `main`; künftig nur ausdrücklich freigegebene Änderungen und das
+geltende Branch-/PR-Verfahren verwenden. Eine Git-Integration ersetzt
+keine eigenständige Release-/Hardwareabnahme.
+
+**Branch-Bereinigung:** Historische, in `main` enthaltene Branches dürfen
+erst nach Kontrolle von offenen PRs, CI-/Workflow- und
+Launchpad-/Deployment-Referenzen auf ausdrückliche Maintainer-Anweisung
+gelöscht werden. Die laufenden MLD-Tests und offenen PRs nicht mitlöschen.

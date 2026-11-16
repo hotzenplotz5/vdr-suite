@@ -131,6 +131,22 @@ int main()
     assert(projection.project("backend-a", {unknown}).items[0].recordingId ==
            unknownItem->recordingId);
 
+    // The private HEVC .rec remains identifiable by its exact original
+    // path, but is displayed as original-title.shrink, not a temp folder.
+    VdrRecording candidate = first;
+    candidate.path =
+        "/.vdr-suite-shrink-2276JE/2015-12-15.12.29.17-0.rec";
+    candidate.backendNativeId =
+        "/srv/vdr/video.00/.vdr-suite-shrink-2276JE/"
+        "2015-12-15.12.29.17-0.rec";
+    candidate.title = "Original.shrink";
+    const auto stage = projection.project("backend-a", {candidate});
+    assert(stage.valid);
+    assert(stage.items.size() == 1U);
+    assert(stage.items[0].title == "Original.shrink");
+    assert(stage.items[0].recordingId.rfind("rec_", 0U) == 0U);
+    assert(stage.items[0].recordingId != result.items[0].recordingId);
+
     // Still fail closed for contradictory authoritative metadata.
     unknown.recordingDurationKnown = true;
     assert(!projection.project("backend-a", {unknown}).valid);

@@ -180,15 +180,55 @@ async function test() {
     r.url.startsWith('/api/v1/addons/rectools/sources')).length, 1,
     'administrator may inspect configured roots while Agent is offline');
 
-  // Byte-verified provider with a stale Agent generation is not activated.
-  const staleBinding = harness(() => response(200, {
-    backendId: 'default', desiredEnabled: true, revision: 3,
-    providerVerified: true, agentReady: true, activationBoundToProvider: false
-  }), {count: 0});
+  // A stale, already-enabled activation MUST be renewable without first
+  // disabling the addon. That disables operation access unnecessarily and
+  // destroys the current intent/provider binding before the new admin CAS.
+  let bindingCurrent = false;
+  let bindingRevision = 3;
+  const staleBinding = harness((url, options) => {
+    if (options.method === 'POST') {
+      assert.equal(url, '/api/v1/addons/rectools/activation');
+      assert.equal(options.credentials, 'same-origin');
+      assert.equal(options.headers['X-CSRF-Token'], 'test-token');
+      assert.match(options.headers['X-Correlation-ID'],
+        /^addon-activation-[0-9a-f]{24}$/);
+      assert.deepEqual(JSON.parse(options.body), {
+        backendId: 'default', desiredEnabled: true,
+        expectedRevision: bindingRevision
+      }, 'renewal may only repost enabled=true at the current revision');
+      bindingCurrent = true;
+      bindingRevision += 1;
+    }
+    return response(200, {
+      backendId: 'default', desiredEnabled: true,
+      revision: bindingRevision,
+      providerVerified: true, agentReady: true,
+      activationBoundToProvider: bindingCurrent
+    });
+  }, {count: 0});
   staleBinding.window.VdrSuiteAddonSettings.render(staleBinding.parent, 'default');
   await flush();
   assert.ok(staleBinding.elements.some(e =>
-    e.textContent === 'Media Tools aktiviert; Worker-Verfügbarkeit wird beim Auftrag geprüft'));
+    e.textContent === 'Media Tools aktiviert; Agent-Freigabe ist veraltet'));
+  const renew = staleBinding.elements.find(e =>
+    e.textContent === 'Agent-Freigabe erneuern');
+  assert(renew && !renew.disabled && !renew.hidden);
+  assert.equal(staleBinding.requests.filter(r =>
+    r.options.method === 'POST').length, 0,
+    'status reload must NEVER automatically reactivate');
+  renew.handlers.click();
+  await flush();
+  assert.equal(staleBinding.requests.filter(r =>
+    r.options.method === 'POST').length, 1);
+  assert.equal(bindingRevision, 4);
+  assert.equal(bindingCurrent, true);
+  assert.equal(renew.hidden, true);
+  assert.ok(staleBinding.elements.some(e =>
+    e.textContent === 'Media Tools aktiviert und betriebsbereit'));
+  assert.ok(staleBinding.elements.some(e => e.textContent === 'Deaktivieren'));
+
+  // Without a verified provider, a saved enable is a read-only preference;
+  // no shortcut to an unbound/persisted activation may be presented.
 
   const agentOffline = harness(() => response(200, {
     backendId: 'default', desiredEnabled: false, revision: 0,
@@ -209,6 +249,10 @@ async function test() {
   assert.ok(stale.elements.some(e =>
     e.textContent === 'Media Tools aktiviert; Worker-Verfügbarkeit wird beim Auftrag geprüft'));
   assert.ok(!stale.elements.find(e => e.textContent === 'Deaktivieren').disabled);
+  assert.ok(stale.elements.find(e =>
+    e.textContent === 'Agent-Freigabe erneuern').hidden);
+  assert.equal(stale.requests.filter(r =>
+    r.options.method === 'POST').length, 0);
 
   // MT.UX2: actual administrator save, no generated shell command.
   const managed = harness(() => response(200, {

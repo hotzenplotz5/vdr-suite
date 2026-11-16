@@ -714,6 +714,8 @@
       if (o.kind === 'series') {
         payload.seasonNumber = o.seasonNumber;
         payload.episodeNumber = o.episodeNumber;
+        if (typeof o.episodeTitle === 'string' && o.episodeTitle.length)
+          payload.episodeTitle = o.episodeTitle;
       }
       if (o.year !== undefined) {
         if (!Number.isInteger(o.year) || o.year < 1900 || o.year > 9999)
@@ -883,6 +885,7 @@
         }
         payload = {recordingId: value.recordingId, encoder: value.encoder,
           maxHeight: value.maxHeight, nightMode: value.nightMode};
+        if (value.autoPublish === true) payload.autoPublish = true;
         suffix = 'media-shrink-stages';
       } else if (action === 'publish') {
         if (typeof value.reviewId !== 'string' ||
@@ -2021,6 +2024,17 @@
       getMediaShrinkCapability(options) {
         const value = options && typeof options === 'object' ? options : {};
         return request(mediaImportPath(value, 'capabilities/media-shrink'), value);
+      },
+      // Read only: restores the last durable HEVC candidate for a recording
+      // even when this browser has no sessionStorage operation reference.
+      getMediaShrinkRecording(options) {
+        const value = options && typeof options === 'object' ? options : {};
+        if (typeof value.recordingId !== 'string' ||
+            !/^rec_[0-9a-f]{32}$/.test(value.recordingId)) {
+          throw new Error('HEVC recording requires canonical recordingId');
+        }
+        return request(mediaImportPath(value,
+          'media-shrink-recordings/' + value.recordingId), value);
       },
       getMediaShrinkReview(options) {
         const value = options && typeof options === 'object' ? options : {};

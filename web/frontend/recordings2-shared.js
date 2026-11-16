@@ -132,6 +132,10 @@
       ['path', 'backendNativeId', 'nativePath', 'fileName', 'directory'],
       ''
     )).replace(/\\/g, '/').replace(/~+/g, '/').replace(/\/+$/g, '');
+    // Preserve the real Stage path; show original-title.shrink instead.
+    const friendly = recordingNativeTitle(recording);
+    if (/(^|\/)\.vdr-suite-shrink-[^/]+\/[^/]+\.rec$/i.test(raw) &&
+        /\.shrink$/i.test(friendly)) return friendly;
     const parts = raw.split('/').map(function (part) { return part.trim(); }).filter(Boolean);
     if (parts.length && /\.rec$/i.test(parts[parts.length - 1])) parts.pop();
     return parts.length ? decodeDisplayText(parts[parts.length - 1]) : '';
@@ -155,10 +159,14 @@
 
   function recordingTitle(recording) {
     const manualTitle = manualAssignment(recording).active === true
-      ? recordingMetadataTitle(recording)
-      : '';
+      ? recordingMetadataTitle(recording) : '';
+    const titleFromPath = recordingPathTitle(recording);
+    if (/\.shrink$/i.test(titleFromPath) &&
+        /(^|\/)\.vdr-suite-shrink-[^/]+\/[^/]+\.rec$/i.test(text(first(
+          recording, ['path', 'backendNativeId', 'nativePath', 'fileName', 'directory'], ''
+        )).replace(/\\/g, '/'))) return titleFromPath;
     return manualTitle ||
-      recordingPathTitle(recording) ||
+      titleFromPath ||
       recordingNativeTitle(recording) ||
       recordingMetadataTitle(recording) ||
       'Aufnahme';
@@ -205,6 +213,8 @@
   function formatDuration(value) {
     const seconds = number(value, 0);
     if (seconds <= 0) return 'Dauer unbekannt';
+    // Native recordings shorter than one minute must not display "0 min".
+    if (seconds < 60) return String(Math.max(1, Math.round(seconds))) + ' s';
     const minutes = Math.round(seconds / 60);
     if (minutes < 60) return String(minutes) + ' min';
     const hours = Math.floor(minutes / 60);

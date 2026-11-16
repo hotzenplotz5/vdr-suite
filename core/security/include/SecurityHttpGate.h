@@ -119,6 +119,11 @@ public:
         const bool isAddonSourceRead =
             request.method == "GET" &&
             path == "/api/v1/addons/rectools/sources";
+        const bool isAddonEncodingMutation =
+            isPost && path == "/api/v1/addons/media-tools/encoding";
+        const bool isAddonEncodingRead =
+            request.method == "GET" &&
+            path == "/api/v1/addons/media-tools/encoding";
         const bool isRemoteAction = isPost && path == "/api/vdr/remote/actions";
         const bool isTimerCreateAction = isPost && path == "/api/vdr/timers/actions/create";
         const bool isTimerUpdateAction = isPost && path == "/api/vdr/timers/actions/update";
@@ -554,6 +559,8 @@ public:
         bool isPublicMediaShrinkStageCollection = false;
         bool isPublicMediaShrinkPublishCollection = false;
         bool isPublicMediaShrinkReviewResource = false;
+        bool isPublicMediaShrinkOperationResource = false;
+        bool isPublicMediaShrinkRecordingResource = false;
         std::string publicMediaShrinkBackendId;
         if (path.compare(0, mediaCheckBase.size(), mediaCheckBase) == 0) {
             const std::size_t split = path.find('/', mediaCheckBase.size());
@@ -597,11 +604,29 @@ public:
                         tail.compare(0, reviewPrefix.size(), reviewPrefix) == 0 &&
                         tail.size() > reviewPrefix.size() &&
                         tail.find('/', reviewPrefix.size()) == std::string::npos;
+                    const std::string operationPrefix =
+                        "/media-shrink-operations/";
+                    isPublicMediaShrinkOperationResource =
+                        tail.compare(0, operationPrefix.size(),
+                                     operationPrefix) == 0 &&
+                        tail.size() > operationPrefix.size() &&
+                        tail.find('/', operationPrefix.size()) ==
+                            std::string::npos;
+                    const std::string recordingPrefix =
+                        "/media-shrink-recordings/";
+                    isPublicMediaShrinkRecordingResource =
+                        tail.compare(0, recordingPrefix.size(),
+                                     recordingPrefix) == 0 &&
+                        tail.size() > recordingPrefix.size() &&
+                        tail.find('/', recordingPrefix.size()) ==
+                            std::string::npos;
                     if (isPublicMediaShrinkCapabilityResource ||
                         isPublicMediaShrinkPlanCollection ||
                         isPublicMediaShrinkStageCollection ||
                         isPublicMediaShrinkPublishCollection ||
-                        isPublicMediaShrinkReviewResource)
+                        isPublicMediaShrinkReviewResource ||
+                        isPublicMediaShrinkOperationResource ||
+                        isPublicMediaShrinkRecordingResource)
                         publicMediaShrinkBackendId = candidate;
                 }
             }
@@ -1235,6 +1260,7 @@ public:
         const bool isProtectedMutation =
             isPublicNativeTimerModify ||
             isAddonActivationMutation || isAddonSourceMutation ||
+            isAddonEncodingMutation ||
             isRemoteAction || isTimerCreateAction ||
             isPublicDevicePairingDecision ||
             isPublicAccountCreate ||
@@ -1280,7 +1306,7 @@ public:
             isLegacyOsdViewerAttach ||
             isLegacyOsdViewerDetach;
 
-        if (isAddonActivationRead || isAddonSourceRead)
+        if (isAddonActivationRead || isAddonSourceRead || isAddonEncodingRead)
         {
             if (!gate.browserAuthenticated ||
                 gate.context.actor.type != ActorType::User ||
@@ -1290,7 +1316,8 @@ public:
                 AuthorizationDecision denial;
                 denial.permission = "role.admin";
                 denial.backendId = "*";
-                denial.action = isAddonSourceRead ? "addons.sources.read" : "addons.intent.read";
+                denial.action = isAddonEncodingRead ? "addons.encoding.read" :
+                    (isAddonSourceRead ? "addons.sources.read" : "addons.intent.read");
                 denial.reasonCode = "browser_session_required";
                 return rejectWithAudit(gate, denial, 403,
                     "An administrator Browser Session is required", "");
@@ -1298,8 +1325,9 @@ public:
             const AuthorizationDecision decision =
                 authorizationService_.authorize(
                     gate.context, {"role.admin", "*",
-                        isAddonSourceRead ? "addons.sources.read"
-                                          : "addons.intent.read"});
+                        isAddonEncodingRead ? "addons.encoding.read" :
+                            (isAddonSourceRead ? "addons.sources.read"
+                                               : "addons.intent.read")});
             if (!decision.allowed)
                 return rejectWithAudit(gate, decision, 403,
                     "Administrator permission is required", "");
@@ -1771,23 +1799,31 @@ public:
             return gate;
         }
 
-        // M2 report reads require the same effective backend grant as the
-        // POST that starts a check. Discovery visibility alone is insufficient
-        // after permission revocation.
+        // M2 reports and HEVC Operation readbacks require the same backend
+        // playback grant as their read-only review/check resources. The
+        // read facade additionally scopes each Operation to its owning actor,
+        // so knowing an op_ ID does not reveal another actor's work.
         if (request.method == "GET" &&
             (isPublicMediaCheckStatusResource ||
-             isPublicMediaShrinkReviewResource))
+             isPublicMediaShrinkReviewResource ||
+             isPublicMediaShrinkOperationResource ||
+             isPublicMediaShrinkRecordingResource))
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
 
             AuthorizationRequest checkRead;
             checkRead.permission = "media.recording.play";
-            checkRead.backendId = isPublicMediaShrinkReviewResource
+            checkRead.backendId = (isPublicMediaShrinkReviewResource ||
+                                   isPublicMediaShrinkOperationResource ||
+                                   isPublicMediaShrinkRecordingResource)
                 ? publicMediaShrinkBackendId : publicMediaCheckBackendId;
-            checkRead.action = isPublicMediaShrinkReviewResource
-                ? "media.recording.shrink.review.read"
-                : "media.recording.check.read";
+            checkRead.action = (isPublicMediaShrinkOperationResource ||
+                                isPublicMediaShrinkRecordingResource)
+                ? "media.recording.shrink.operation.read"
+                : (isPublicMediaShrinkReviewResource
+                    ? "media.recording.shrink.review.read"
+                    : "media.recording.check.read");
             const AuthorizationDecision decision =
                 authorizationService_.authorize(gate.context, checkRead);
             if (!appendDecisionEvent(gate.context, decision, ""))
@@ -2967,7 +3003,8 @@ public:
         }
         // Credential issuance to an existing Device is administrator-browser
         // only even if a Service Actor somehow obtained an administrative grant.
-        if ((isAddonActivationMutation || isAddonSourceMutation) &&
+        if ((isAddonActivationMutation || isAddonSourceMutation ||
+             isAddonEncodingMutation) &&
             (!gate.browserAuthenticated ||
              gate.context.actor.type != ActorType::User ||
              !gate.context.session.has_value()))
@@ -3019,12 +3056,15 @@ public:
         bool recordingActionSupported = true;
         bool publicAccountMutationSupported = true;
 
-        if (isAddonActivationMutation || isAddonSourceMutation)
+        if (isAddonActivationMutation || isAddonSourceMutation ||
+            isAddonEncodingMutation)
         {
             requestToAuthorize.backendId = "*";
             requestToAuthorize.permission = "role.admin";
-            requestToAuthorize.action = isAddonSourceMutation
-                ? "addons.sources.update" : "addons.intent.update";
+            requestToAuthorize.action = isAddonEncodingMutation
+                ? "addons.encoding.update"
+                : (isAddonSourceMutation
+                    ? "addons.sources.update" : "addons.intent.update");
         }
         else if (isPublicDevicePairingDecision)
         {

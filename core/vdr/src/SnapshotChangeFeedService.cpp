@@ -17,6 +17,8 @@ static std::string domainNameForChangeType(VdrChangeType type)
         return "recordingMarks";
     case VdrChangeType::ContinueWatchingChanged:
         return "continueWatching";
+    case VdrChangeType::MediaImportSourcesChanged:
+        return "mediaImportSources";
     case VdrChangeType::TimersChanged:
         return "timers";
     case VdrChangeType::SearchTimersChanged:

@@ -89,12 +89,37 @@ def require_stage_shape(stage_root: Path) -> None:
             fail(f"stage is not a complete install-runtime tree; missing {rel.as_posix()}")
 
 
+# A matching stage/live checksum does not prove the Player was assembled.
+# The raw session owner has no seek/transport decorators, and shipping it
+# silently removes Recording controls. Validate the stage before sealing.
+REQUIRED_PLAYBACK_BUNDLE_MARKERS = (
+    "__vdrSuiteRecordingFallbackControlsBound",
+    "__vdrSuiteRecordingFallbackRestartSeekBound",
+    "__vdrSuiteRecordingTrackControlsBound",
+    "__vdrSuitePlaybackVolumeControlsBound",
+)
+
+
+def validate_playback_bundle(stage_root: Path) -> None:
+    target = stage_root / FRONTEND_ROOT / "api/session-frontend-sync.js"
+    # Synthetic minimal stage fixtures may omit the optional playback asset.
+    # A production install-runtime stage always includes this asset.
+    if not target.is_file():
+        return
+    content = target.read_text(encoding="utf-8")
+    missing = tuple(marker for marker in REQUIRED_PLAYBACK_BUNDLE_MARKERS
+                    if marker not in content)
+    if missing:
+        fail("incomplete Recording playback bundle: " + ", ".join(missing))
+
+
 def manifest_path(stage_root: Path) -> Path:
     return stage_root / MANIFEST_NAME
 
 
 def seal(stage_root: Path) -> None:
     require_stage_shape(stage_root)
+    validate_playback_bundle(stage_root)
     directories, files = iter_stage_tree(stage_root)
     payload = {
         "schema": SCHEMA_VERSION,

@@ -508,7 +508,7 @@ ImportPlan inspectImportChecked(const ImportRequest& request,
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     require(extension == ".mkv" || extension == ".mp4" || extension == ".ts" ||
             extension == ".mov" || extension == ".avi" || extension == ".webm" ||
-            extension == ".m4v",
+            extension == ".m4v" || extension == ".php",
             "unsupported source extension");
     // The original NFO remains adjacent to the original unmarked stem,
     // even after Rectools renames the video to *.duplicate.<ext>.
@@ -594,8 +594,9 @@ std::string renderNativeVdrRecordingInfo(
     const std::string subtitle = vdrInfoSingleLine(
         episode && !confirmed->title.empty()
             ? confirmed->title
-            : local.shortText.empty()
-                ? "Imported via VDR-Suite Media Tools" : local.shortText);
+            : !local.shortText.empty()
+                ? local.shortText
+                : movie ? "" : "Imported via VDR-Suite Media Tools");
     std::string description = vdrInfoSingleLine(
         selected && !confirmed->overview.empty()
             ? confirmed->overview : local.description);
@@ -607,7 +608,8 @@ std::string renderNativeVdrRecordingInfo(
         if (!description.empty()) description += " | ";
         description += "Genre: " + vdrInfoSingleLine(local.genre);
     }
-    std::string info = "T " + title + "\nS " + subtitle + "\n";
+    std::string info = "T " + title + "\n";
+    if (!subtitle.empty()) info += "S " + subtitle + "\n";
     if (!description.empty()) info += "D " + description + "\n";
     return info;
 }
@@ -654,7 +656,16 @@ std::string mergeConfirmedMetadataIntoNativeVdrInfo(
         bool* written = kind == 'T' ? &wroteTitle
             : kind == 'S' ? &wroteSubtitle
             : kind == 'D' ? &wroteDescription : nullptr;
-        if (value != nullptr && !value->empty()) {
+        // Only the importer-owned placeholder is expendable for a
+        // confirmed movie. Keep genuine local subtitles untouched; a
+        // series episode continues to receive the exact episode title.
+        const bool oldImportMarker = movie && !title.empty() &&
+            kind == 'S' &&
+            (line == "S Imported via VDR-Suite Media Tools" ||
+             line == "S Imported via VDR-Suite Media Tools\r");
+        if (oldImportMarker) {
+            // The writer saves legacy source provenance before replacing info.
+        } else if (value != nullptr && !value->empty()) {
             if (!*written) {
                 output.push_back(kind);
                 output += " " + *value;
@@ -889,7 +900,7 @@ ImportLocalArtwork readImportLocalArtwork(const ImportPlan& plan) {
                 const auto ext = item.path().extension().string();
                 if (ext != ".mkv" && ext != ".mp4" && ext != ".ts" &&
                     ext != ".mov" && ext != ".avi" && ext != ".webm" &&
-                    ext != ".m4v") continue;
+                    ext != ".m4v" && ext != ".php") continue;
                 const auto name = item.path().stem().string();
                 if (name.size() >= 10U &&
                     (name.compare(name.size()-10U, 10U, ".pc_encode") == 0))
@@ -1328,11 +1339,30 @@ fs::path executeRemuxImport(const ImportPlan& plan, ProcessRunner& runner,
 }
 
 NativeProcessRunner::NativeProcessRunner(
-    std::chrono::seconds maximum, MediaToolExecutables executables)
-    : maximum_(maximum), executables_(std::move(executables)) {
+    std::chrono::seconds maximum, MediaToolExecutables executables,
+    std::function<void()> keepAlive,
+    std::chrono::milliseconds keepAliveInterval,
+    std::function<MediaEncodingSettings()> encodingProvider)
+    : maximum_(maximum), executables_(std::move(executables)),
+      keepAlive_(std::move(keepAlive)),
+      keepAliveInterval_(keepAliveInterval),
+      encodingProvider_(std::move(encodingProvider)) {
+    require(keepAliveInterval_.count() >= 1 &&
+            keepAliveInterval_ <= std::chrono::seconds(60),
+            "invalid media keep-alive interval");
     require(maximum_.count() >= 1 && maximum_.count() <= 24 * 3600,
             "invalid native media command deadline");
     require(executables_.valid(), "invalid backend media tool executable path");
+}
+
+bool NativeProcessRunner::refreshForNextJob() {
+    if (!encodingProvider_) return true;
+    try {
+        auto fresh = encodingProvider_();
+        if (!fresh.valid()) return false;
+        executables_.encoding = std::move(fresh);
+        return true;
+    } catch (...) { return false; }
 }
 
 ProcessResult NativeProcessRunner::run(const std::vector<std::string>& args,
@@ -1387,7 +1417,19 @@ ProcessResult NativeProcessRunner::run(const std::vector<std::string>& args,
     bool eof = !captureOutput;
     bool failed = false;
     const auto limit = std::chrono::steady_clock::now() + maximum_;
+    auto nextKeepAlive =
+        std::chrono::steady_clock::now() + keepAliveInterval_;
     while (!exited || !eof) {
+        // The Agent event loop is blocked while a native media process runs.
+        // Renew the existing lease from this SAME thread, without polling a
+        // command or spawning a second executor. A transient heartbeat
+        // failure must never kill the already-running encoder.
+        if (!exited && keepAlive_ &&
+            std::chrono::steady_clock::now() >= nextKeepAlive) {
+            try { keepAlive_(); } catch (...) {}
+            nextKeepAlive =
+                std::chrono::steady_clock::now() + keepAliveInterval_;
+        }
         if (!exited) {
             const pid_t waited = ::waitpid(pid, &status, WNOHANG);
             if (waited == pid) exited = true;

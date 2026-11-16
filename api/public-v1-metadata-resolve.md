@@ -17,6 +17,18 @@ Serienepisode:
 {"title":"Star Wars-Andor","kind":"series","seasonNumber":2,"episodeNumber":4}
 ```
 
+Optionale Episodentitel-Evidenz zur Unterscheidung gleichnamiger Serien:
+
+```json
+{"title":"Harbor Watch","kind":"series","seasonNumber":1,"episodeNumber":8,"episodeTitle":"Das geheimnisvolle Signal"}
+```
+
+`episodeTitle` ist **optional** und stammt aus der vorhandenen
+Quellidentität (z. B. Dateiname hinter `S01E08`). Sowohl die einzelne
+Serienvorschau als auch der Stapelimport übergeben es bei vorhandener
+Folgenbezeichnung; der Public-v1-Referenzclient unterstützt das Feld
+ohne inkompatible Änderung älterer Aufrufe.
+
 Film:
 
 ```json
@@ -27,14 +39,34 @@ Die Jahresangabe ist für Filme und Serien optional. Bei gleichnamigen
 Serien wird das Jahr des **Serienstarts** aus TMDb `first_air_date`
 verglichen (nicht das Ausstrahlungsjahr einer einzelnen Folge).
 Bei `Foundation (2021)` ist `year: 2021` daher entscheidend.
+Bei mehreren gleich guten Serien-Titeltreffern berücksichtigt der Resolver
+jetzt die **konkrete Folge**: Er liest für jeden solchen Kandidaten die
+vorhandene TMDb-Staffelliste, prüft die exakten Staffel-/Folgenkoordinaten
+und vergleicht den optionalen Quell-`episodeTitle` mit dem lokalisierten
+Folgentitel sowie gegebenenfalls dem Originaltitel. Nur ein einzelner
+bestbewerteter Episodentreffer führt zu `matched` und liefert genau
+diese bestätigte Serien-/Episoden-ID. Mehrere identische, fehlende oder
+nicht passende Titelbelege ergeben weiterhin `ambiguous`. Ohne
+`episodeTitle` bleibt das bisherige Titel-/Jahrverhalten unverändert.
+Ein Providerfehler bleibt HTTP 503. Ein bloß vorhandener `S01E08`-Eintrag
+allein wählt **keine** Serie aus; es gibt keine film- oder serientitelspezifische
+Ausnahme.
+
 Ohne hinreichende Identität bleibt das Ergebnis `ambiguous`.
 
-Der Resolver verwendet den
-vorhandenen `TmdbRecordingMetadataCandidateProvider` mit dessen
-konfiguriertem Credential-/Sprachmodell. Er prüft eindeutige
-Kandidatenidentitäten, Aliasnamen und bei Serien die genaue
-Staffel-/Episodennummer. Abweichende oder mehrdeutige Ergebnisse
-werden niemals als Treffer deklariert.
+Der Resolver verwendet den **vorhandenen** `TmdbRecordingMetadataCandidateProvider`
+mit dessen konfiguriertem Credential-/Sprachmodell. Seit MT.META7.2
+(Quellcode-Slice 14.11.2026) gelten generische, sprachneutrale
+Titelhinweise: Satzzeichen, gebräuchliche Artikel, Teil-/Kapitelbezeichnungen
+(`Deel`, `Teil`, `Part`, `Chapter` usw.), numerische und ausgeschriebene
+Folgenummern sowie sinnvoll abgetrennte Serientitel können die
+*Kandidatensuche* erweitern. TMDb-`title` **und** `originalTitle` werden
+anschließend aber erneut gegen den vollständigen Ursprungstitel bewertet.
+Eine Verkürzung allein ist niemals ein Trefferbeleg. Mit dem optionalen
+Jahr wird weiterhin das Film-Release bzw. der Serienstart abgeglichen;
+bei Serien folgt die genaue Staffel-/Episodenprüfung. Nur ein eindeutiger
+Kandidat darf `matched` ergeben; gleich starke Kandidaten bleiben
+`ambiguous`. Providerprobleme liefern weiterhin HTTP 503.
 
 Eindeutige Episode:
 
@@ -76,12 +108,18 @@ HTTP-Gate.
 
 ## Grenzen und nächste Slices
 
-Dieser Slice ist ein **deterministischer Resolver für vorhandene,
-eindeutig nummerierte Serienepisoden bzw. Titel/Jahr-Filme**. Er ist keine
-unscharfe KI-Suche und vergibt keine Identität bei mehreren Treffern.
-Weitere nicht-franchisebezogene Titelaliasnamen, internationale Namensvarianten,
-Sprach-Fallback, späte Providerverfügbarkeit und Mehrfachquellen-Provenienz
-werden nach gesonderter Vertragsprüfung ergänzt.
+MT.META7.2 vereinheitlicht den automatischen Film- und Serien-Resolver:
+Media Import verwendet `POST /metadata/resolve` auch für Filme,
+statt im Browser einen separaten TMDb-Exakttitelvergleich auszuführen.
+Die manuelle Such-/Auswahloberfläche bleibt für mehrdeutige oder nicht
+aufgelöste Titel vorhanden. Der Resolver ist **keine unscharfe KI-Suche**:
+Eine vollständig anders übersetzte Filmbezeichnung ohne passenden
+lokalisierten Titel oder `originalTitle` lässt sich daraus nicht
+zuverlässig ableiten. Zusätzliche Kandidaten sind kein Grund, willkürlich
+eine falsche TMDb-ID zu übernehmen. Serien-ID-Wiederverwendung für ganze
+Staffeln (META7.3), vollständiges Artwork (META7.4) und persistente
+Import-/Bestands-Übernahme (META7.5) sind separate Slices.
+Quellcode ist noch nicht als reales yaVDR-Deployment von META7.2 abgenommen.
 
 Die Samsung- und VIDAA-Repositorys müssen den neuen API-v1-Aufruf selbst
 integrieren und auf echten TVs abnehmen; die Server-Schnittstelle ist dafür

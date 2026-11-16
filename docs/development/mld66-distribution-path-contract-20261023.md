@@ -31,28 +31,24 @@ Ubuntu/yaVDR must remain zero-config.
 
 ## Mandatory compatibility invariant
 
-A clean Ubuntu/yaVDR installation and an existing upgraded Ubuntu/yaVDR
-installation must continue to use the **same paths and behavior without any
-new configuration edits**. No automatic migration or change to existing
-operator `/etc` files is required.
+The recording root is owned by the configured VDR backend, **not** by
+the Linux distribution. Existing operator `/etc` files remain untouched.
 
-- When the new variables below are **unset or empty**, the previous yaVDR
-  fallback values and behavior remain in effect.
-- Other distribution recipes may explicitly set overrides for **their own**
-  layouts; they must not move VDR-managed `channels.conf`, `setup.conf`,
-  `timers.conf`, caches or recordings into an Ubuntu layout.
-- An **invalid explicit nonempty override** fails closed for the affected
-  operation. No silent fallback to the yaVDR recording directory or to a
-  permissive local socket/artwork root.
-- In-tree Ubuntu defaults deliberately keep all three new variables
-  **commented out**. Avoid changing live VDR service or installed yaVDR
-  services without an independently approved runtime gate.
+- Recording mutations require either an explicit backend-specific
+  `VDR_SUITE_RECORDING_VIDEO_ROOTS` entry or the matching SuiteBridge
+  `VPATH 1` discovery result. If neither exists, these mutations are
+  unavailable rather than using a guessed distribution path.
+- Other distribution recipes may configure **their own** layouts; they must
+  not relocate VDR-managed files to fit an Ubuntu default.
+- Invalid explicit nonempty overrides fail closed for the affected backend.
+- Packaged service and agent root settings must be derived from the actual
+  backend. Do not change any installed service automatically during upgrade.
 
 ## Configuration matrix
 
 | Setting | Scope | Absent (Ubuntu/yaVDR) | MLD/other distro opt-in |
 | --- | --- | --- | --- |
-| `VDR_SUITE_RECORDING_VIDEO_ROOTS` | Daemon process; backend ID to physical VDR video-root map | Existing `/srv/vdr/video` and legacy source-path behavior unchanged | `default=/ACTUAL/MLD/VDR-VIDEO`; semicolon-delimited for multiple backends. Invalid mapping or missing backend disables that backend's recording mutation adapter |
+| `VDR_SUITE_RECORDING_VIDEO_ROOTS` | Daemon process; backend ID to physical VDR video-root map | Discover via the backend's SuiteBridge `VPATH 1` if enabled, otherwise recording mutations are unavailable until configured | `default=/ACTUAL/VDR/VIDEO`; semicolon-delimited for multiple backends. Invalid mapping or missing backend disables that backend's recording mutation adapter |
 | `VDR_SUITE_CONTROL_SOCKET_PATH` | **VDR process hosting SuiteBridge**, daemon and local clients | `/run/vdr/vdr-suite-control/control.sock` | One identical, explicitly approved socket path **below `/run/`** in each participating process's environment. Malformed nonempty override rejects socket startup/connection |
 | `SUITEBRIDGE_CONTROL_SOCKET_PATH` | Optional Backend Agent `backend-agent.conf` key | Agent uses its existing local transport default (or the shared VDR environment when provided) | An explicit `/run/...` pathname takes precedence for local Agent OSD/probe transports. Align with the VDR SuiteBridge socket |
 | `VDR_SUITE_EPG_ARTWORK_ROOTS` | Daemon-process local artwork allowlist | Original roots `/var/cache/vdr/plugins/tvscraper` and `/var/cache/vdr-suite/epg-artwork` | One or more absolute trusted roots separated by semicolons; **replaces** default list; invalid entries deny all local EPG artwork access |
@@ -105,7 +101,7 @@ VDR_SUITE_CONTROL_SOCKET_PATH=/run/REPLACE-WITH-APPROVED-PRIVATE-DIR/control.soc
 The VDR service hosting SuiteBridge must receive the **same**
 `VDR_SUITE_CONTROL_SOCKET_PATH`, while the Backend Agent may set
 `SUITEBRIDGE_CONTROL_SOCKET_PATH` in `/etc/vdr-suite/backend-agent.conf`.
-Leave the variables unset on Ubuntu/yaVDR.
+On every distribution, configure the recording root explicitly if SuiteBridge `VPATH 1` is not available. Do not infer it from a distribution name.
 
 ## MLD command validation update (2026-10-23)
 
@@ -113,7 +109,7 @@ Pit has now reported the read-only SuiteBridge `VPATH 1` command returning `900 
 
 ## Verification boundary
 
-Unit tests cover the default paths, explicit paths, invalid/missing video
+Unit tests cover explicit paths and discovery, invalid/missing video
 root mappings, cross-root/traversal source rejection, MLD-safe target directory
 encoding, Agent config validation, private socket env/default behavior, and
 Artwork allowlist overrides. The existing yaVDR recording move regression

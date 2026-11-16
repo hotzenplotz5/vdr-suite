@@ -490,6 +490,7 @@ struct RecordingCandidate
 {
     VdrRecording recording;
     std::string inode;
+    std::string eventTitle;
     std::size_t originalIndex = 0;
 };
 
@@ -543,18 +544,6 @@ std::string recordingDirectoryLeaf(
     return segments.back();
 }
 
-std::size_t storageMountSegmentCount(
-    const VdrRecording& recording)
-{
-    const std::vector<std::string> segments =
-        splitRecordingPath(recordingSelectionPath(recording));
-
-    return static_cast<std::size_t>(std::count(
-        segments.begin(),
-        segments.end(),
-        "Recordings_on_yavdr(nfs)"));
-}
-
 std::size_t recordingPathDepth(
     const VdrRecording& recording)
 {
@@ -584,7 +573,6 @@ bool isAliasFamily(
 {
     bool hasEmptyInode = false;
     bool hasNonEmptyInode = false;
-    bool hasRepeatedStorageMount = false;
     bool hasDuplicateInode = false;
     std::set<std::string> seenInodes;
 
@@ -601,13 +589,12 @@ bool isAliasFamily(
             }
         }
 
-        if (storageMountSegmentCount(candidate.recording) > 1) {
-            hasRepeatedStorageMount = true;
-        }
     }
 
+    // Treat actual provider inode evidence as alias information.
+    // A folder name is never an alias marker: it may be a real recording
+    // category on any distribution or mounted backend.
     return (hasEmptyInode && hasNonEmptyInode) ||
-           hasRepeatedStorageMount ||
            hasDuplicateInode;
 }
 
@@ -617,15 +604,6 @@ bool preferRecordingCandidate(
 {
     if (candidate.inode.empty() != current.inode.empty()) {
         return !candidate.inode.empty();
-    }
-
-    const std::size_t candidateMountCount =
-        storageMountSegmentCount(candidate.recording);
-    const std::size_t currentMountCount =
-        storageMountSegmentCount(current.recording);
-
-    if (candidateMountCount != currentMountCount) {
-        return candidateMountCount < currentMountCount;
     }
 
     const std::size_t candidateDepth =
@@ -704,6 +682,63 @@ std::vector<VdrRecording> canonicalizeRecordingAliases(
 
 }
 
+// Keep native Stage paths and opaque identities unchanged. The VDR provider
+// may expose a completed HEVC candidate under its private directory; the
+// catalog shows a friendly title derived from the ORIGINAL recording instead.
+static bool isPrivateMediaShrinkStage(const VdrRecording& recording)
+{
+    constexpr const char* marker = "/.vdr-suite-shrink-";
+    return recording.path.find(marker) != std::string::npos ||
+           recording.backendNativeId.find(marker) != std::string::npos;
+}
+
+static std::string recordingDirectoryName(const VdrRecording& recording)
+{
+    const std::string& path = recording.path.empty()
+        ? recording.backendNativeId : recording.path;
+    const auto slash = path.rfind('/');
+    return slash == std::string::npos ? path : path.substr(slash + 1);
+}
+
+static std::string recordingTitleLeaf(const VdrRecording& recording)
+{
+    const auto slash = recording.title.rfind('/');
+    const std::string value = slash == std::string::npos
+        ? recording.title : recording.title.substr(slash + 1);
+    return value;
+}
+
+// Same exact VDR .rec directory name, not just a broadcast time or metadata
+// title. If multiple original copies exist with different names, don't guess.
+static std::string sourceTitleForPrivateStage(
+    const std::vector<RecordingCandidate>& candidates,
+    const RecordingCandidate& stage)
+{
+    const std::string recLeaf = recordingDirectoryName(stage.recording);
+    if (recLeaf.size() < 5 ||
+        recLeaf.compare(recLeaf.size() - 4, 4, ".rec") != 0)
+        return {};
+    std::string title;
+    for (const auto& possible : candidates) {
+        if (isPrivateMediaShrinkStage(possible.recording) ||
+            recordingDirectoryName(possible.recording) != recLeaf)
+            continue;
+        const std::string leaf = recordingTitleLeaf(possible.recording);
+        if (leaf.empty()) continue;
+        // An already published HEVC sibling can share the same .rec leaf.
+        // It is not another source title and must not make this match
+        // ambiguous or create a doubled ".shrink.shrink" display suffix.
+        if ((leaf.size() >= 7 &&
+             leaf.compare(leaf.size() - 7, 7, ".shrink") == 0) ||
+            (leaf.size() >= 5 &&
+             leaf.compare(leaf.size() - 5, 5, "_HEVC") == 0))
+            continue;
+        if (!title.empty() && title != leaf) return {};
+        title = leaf;
+    }
+    return title;
+}
+
 std::vector<VdrRecording> RestfulApiRecordingMapper::parseRecordings(const std::string& json)
 {
     std::vector<RecordingCandidate> candidates;
@@ -718,11 +753,27 @@ std::vector<VdrRecording> RestfulApiRecordingMapper::parseRecordings(const std::
         RecordingCandidate candidate;
         candidate.recording = mapObjectToRecording(objectText);
         candidate.inode = getStringField(objectText, "inode");
+        candidate.eventTitle = getStringField(objectText, "event_title");
         candidate.originalIndex = candidates.size();
 
         if (!candidate.recording.id.empty()) {
             candidates.push_back(candidate);
         }
+    }
+
+    // Keep the converted recording visible in VDR-Suite without moving the
+    // private candidate or breaking the durable Stage/Review binding.
+    for (auto& candidate : candidates) {
+        if (!isPrivateMediaShrinkStage(candidate.recording)) continue;
+        std::string sourceTitle =
+            sourceTitleForPrivateStage(candidates, candidate);
+        if (sourceTitle.empty()) {
+            // The original may be unavailable in this inventory. Prefer the
+            // VDR event title to leaking the temporary working-directory ID.
+            sourceTitle = candidate.eventTitle;
+        }
+        if (sourceTitle.empty()) sourceTitle = "HEVC-Aufnahme";
+        candidate.recording.title = sourceTitle + ".shrink";
     }
 
     return canonicalizeRecordingAliases(candidates);

@@ -25,7 +25,7 @@ const {createClient} = require('../public-v1-client.js');
   const result = await client.resolveMetadata({
     backendId: 'backend-a', kind: 'series',
     title: 'Star Wars-Andor', seasonNumber: 2, episodeNumber: 4,
-    year: 2022
+    episodeTitle: 'Waren Sie schon einmal in Ghorman', year: 2022
   });
   assert.strictEqual(result.status, 'matched');
   assert.strictEqual(result.series.title, 'Star Wars: Andor');
@@ -35,7 +35,8 @@ const {createClient} = require('../public-v1-client.js');
   assert.strictEqual(calls[0].opts.method, 'POST');
   assert.deepStrictEqual(JSON.parse(calls[0].opts.body), {
     kind: 'series', title: 'Star Wars-Andor',
-    seasonNumber: 2, episodeNumber: 4, year: 2022
+    seasonNumber: 2, episodeNumber: 4,
+    episodeTitle: 'Waren Sie schon einmal in Ghorman', year: 2022
   });
   assert.throws(() => client.resolveMetadata({
     backendId: 'backend-a', kind: 'series', title: 'Andor',

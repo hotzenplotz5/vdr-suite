@@ -8,12 +8,13 @@ Thanks for your interest in VDR-Suite! Small, focused contributions are welcome:
 
 1. Read [what the project does](docs/getting-started.md) and [which area owns your topic](docs/development/quickstart.md#4-locate-the-code-you-need).
 2. Confirm a bug or document the improvement in a way someone else can reproduce. Distinguish a tested repository commit from what is actually installed on a VDR host.
-3. Work on a fresh branch from the **currently verified** `main`; keep unrelated cleanups out of the change.
+3. Keep unrelated cleanups out of the change. **For agent-driven repository work**, use an already authorized existing branch; create a new branch only after the maintainer's express approval. When a new branch is approved, base it on the currently verified `main`.
 4. Run the smallest relevant test first. For a documentation-only change, use `make test-docs`; for affected runtime or client code, see [Make/test groups](mk/README.md).
 5. Open a pull request describing **what changed, why, how it was tested, and what remains unverified**. Include the exact candidate commit and relevant risk/compatibility notes.
 
-**Branch- und PR-Lebenszyklus (verbindlich):** Für neue Arbeiten gilt ab
-18.10.2026 `main` als Ausgangsbasis. Nach einem erfolgreichen Merge sind
+**Branch- und PR-Lebenszyklus (verbindlich):** Für ausdrücklich genehmigte
+neue Branches gilt ab 18.10.2026 `main` als Ausgangsbasis. Eine
+Ausgangsbasis ist **keine** eigenständige Genehmigung zur Branch-Anlage. Nach einem erfolgreichen Merge sind
 PR-Abschluss und sichere Branch-Bereinigung zu prüfen. **Bereits laufende
 Branches besitzen Bestandsschutz** und müssen nicht neu angelegt, rebaset
 oder vorzeitig geschlossen werden. Die vollständige Richtlinie samt

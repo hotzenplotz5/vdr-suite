@@ -80,7 +80,7 @@ if [ "$#" -eq 1 ] && { [ "$1" = "--help" ] || [ "$1" = "-h" ]; }; then
   echo 'Isolated test only: install_media_tools.sh (update|rollback) OLD_STAGE NEW_STAGE SYNTHETIC_ROOT OLD_SHA256 NEW_SHA256 ISOLATED-ONLY'
   echo 'Read-only: install_media_tools.sh (check|verify) ABSOLUTE_STAGE ABSOLUTE_ROOT REVIEWED_SHA256'
   echo 'Read-only: install_media_tools.sh profile ABSOLUTE_ROOT'
-  echo 'Defaults: SOURCE_ROOT=/srv/video/Filme VIDEO_ROOT=/srv/vdr/video.00'
+  echo 'Source and video directories must be supplied from the actual backend configuration.'
   echo 'Missing paths are allowed at install time but imports remain unconfigured.'
   exit 0
 fi
@@ -89,15 +89,15 @@ if [ "$#" -lt 3 ] || [ "$#" -gt 6 ]; then
   exit 2
 fi
 SHA=$1; APPROVED=$2; BACKEND=$3
-# Confirmed Rectools import directory on yaVDR; override both paths if needed.
-SOURCE=/srv/video/Filme
-VIDEO=/srv/vdr/video.00
+# No implicit backend or distribution paths. Both roots are explicit.
+SOURCE=
+VIDEO=
 PREPARED_WORKDIR=
 MODE=install
 if [ "$APPROVED" = --prepare ]; then MODE=prepare; fi
 case "$#" in
-  3) [ "$MODE" = prepare ] || stop "install needs prepared workdir or explicit source/video paths" ;;
-  4) [ "$MODE" = install ] || stop "prepare does not accept a workdir"; PREPARED_WORKDIR=$4 ;;
+  3) stop "both SOURCE_ROOT and VIDEO_ROOT are required" ;;
+  4) stop "both SOURCE_ROOT and VIDEO_ROOT are required" ;;
   5) SOURCE=$4; VIDEO=$5 ;;
   6) SOURCE=$4; VIDEO=$5; PREPARED_WORKDIR=$6 ;;
 esac

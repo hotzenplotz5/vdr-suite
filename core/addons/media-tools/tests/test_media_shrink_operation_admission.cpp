@@ -2,6 +2,7 @@
 
 #include "Database.h"
 #include "MediaShrinkReviewRepository.h"
+#include "MediaShrinkAgentCommand.h"
 #include "MutationOperation.h"
 #include "MutationOperationRepository.h"
 
@@ -94,7 +95,29 @@ int main() {
     assert(p.payload.payloadType == "addon.media.shrink.stage");
     assert(p.payload.payload.find("rec_0123456789abcdef") != std::string::npos);
     assert(p.payload.payload.find('/') == std::string::npos);
+    assert(p.payload.payload.find("autoPublish") == std::string::npos);
     assert(p.payload.payloadFingerprint != first.operation.requestFingerprint);
+
+    // The one-click decision is a typed, durable Stage payload field,
+    // NOT an idempotency-key prefix or another local state store.
+    auto automatic = stage;
+    automatic.idempotencyKey = "stage_request_auto_002";
+    automatic.autoPublish = true;
+    const auto autoStage = service.stage(automatic);
+    assert(autoStage.status == MediaShrinkAdmissionStatus::accepted);
+    const auto autoPayload = operations.findPayloadByOperationId(
+        autoStage.operation.operationId);
+    assert(autoPayload.ok());
+    vdrsuite::mediatools::MediaShrinkAgentSelection parsed;
+    assert(vdrsuite::mediatools::parseMediaShrinkAgentSelection(
+        autoPayload.payload.payloadType,
+        autoPayload.payload.payload, parsed));
+    assert(parsed.autoPublish && parsed.recordingId == recording);
+    assert(service.stage(automatic).operation.operationId ==
+           autoStage.operation.operationId);
+    automatic.autoPublish = false;
+    assert(service.stage(automatic).status ==
+           MediaShrinkAdmissionStatus::idempotencyConflict);
 
     auto replay = service.stage(stage);
     assert(replay.status == MediaShrinkAdmissionStatus::replayed);
@@ -130,8 +153,15 @@ int main() {
     assert(service.publish(publication).status ==
            MediaShrinkAdmissionStatus::forbidden);
     authority.enabledPublish = true;
+    // Stage was stored under generation 7; a newer live lease (8) must
+    // still authorize a fresh publish for the verified original review.
+    authority.generation = 6;
+    assert(service.publish(publication).status ==
+           MediaShrinkAdmissionStatus::forbidden);
+    authority.generation = 8;
     auto accepted = service.publish(publication);
     assert(accepted.status == MediaShrinkAdmissionStatus::accepted);
+    assert(accepted.operation.backendGeneration == 8);
     assert(accepted.operation.actionFamily == "media.shrink.publish");
     assert(accepted.operation.verificationPolicy ==
            MutationOperationVerificationPolicy::reconciliationRequired);
@@ -153,7 +183,7 @@ int main() {
     wrong = publication;
     wrong.expectedRevision = 2;
     assert(service.publish(wrong).status == MediaShrinkAdmissionStatus::invalid);
-    authority.generation = 8;
+    authority.generation = 6;
     assert(service.publish(publication).status ==
            MediaShrinkAdmissionStatus::forbidden);
 

@@ -424,8 +424,47 @@ static void test_flat_recordings_warmed_cache_not_startup_snapshot()
     assert(cache.findAllForBackend("default").empty());
 }
 
+// Backend-supplied paths are authoritative on any VDR distribution.
+// Do not collapse real title folders or strip a presumed yaVDR root.
+static void test_distribution_independent_recording_paths()
+{
+    Database database;
+    assert(database.open(":memory:"));
+    VdrRecordingCacheRepository repository(database);
+    const auto first = makeRecording(
+        "a", "/data/tv/Movies/Example/2026-11-13.20.15.1-0.rec",
+        "Example", "/Movies/Example/2026-11-13.20.15.1-0.rec",
+        "1794597300", 1800, 160);
+    const auto second = makeRecording(
+        "b", "/mnt/archive/vdr/Movies/Example/2026-11-13.20.15.1-0.rec",
+        "Example Archive",
+        "/Recordings_on_yavdr(nfs)/Movies/Example/2026-11-13.20.15.1-0.rec",
+        "1794597300", 1800, 160);
+    assert(repository.replaceRecordingsForBackend(
+        "mld-backend", {first, second}));
+    assert(repository.countForBackend("mld-backend") == 2);
+    VdrRecordingFolderPage root;
+    assert(repository.folderPageForBackendByPublicId(
+        "mld-backend", "", 20, 0, root));
+    assert(root.folderCount == 2);
+    bool foundMountFolder = false;
+    for (const auto& folder : root.folders)
+        if (folder.name == "Recordings_on_yavdr(nfs)")
+            foundMountFolder = true;
+    assert(foundMountFolder);
+
+    VdrRecording original;
+    assert(repository.findByBackendNativeId(
+        "mld-backend", first.backendNativeId, original));
+    assert(original.path == first.path);
+    assert(repository.findByBackendNativeId(
+        "mld-backend", second.backendNativeId, original));
+    assert(original.path == second.path);
+}
+
 int main()
 {
+    test_distribution_independent_recording_paths();
     test_flat_recordings_warmed_cache_not_startup_snapshot();
     test_public_root_leaf_preserves_backend_scope_after_replace();
     test_genre_members_resolve_from_cache_without_startup_recording_snapshot();

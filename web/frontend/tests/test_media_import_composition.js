@@ -36,6 +36,10 @@ assert(view.includes('media-import-existing-metadata') &&
 assert(view.includes('response.nativeInfoUpdated === true') &&
   view.includes('Native VDR-info noch nicht bestätigt.'),
   'the frontend claims native success only after the normal assignment reports write/readback');
+assert(view.includes('Die Ausführung ist noch nicht durch einen frischen VDR-Aufnahmeabgleich bestätigt.') &&
+  view.includes('Keinen zweiten Import starten.') &&
+  view.includes("state === 'outcome_unknown'"),
+  'uncertain import presents possible subsequent Core VDR reconciliation without retrying the mutation');
 
 const clientFactory = require('../api/public-v1-client.js');
 
@@ -172,6 +176,7 @@ let delayedSubmit = null;
 let operationReads = 0;
 let recentImports = [];
 const operationStreams = [];
+const sourceStreams = [];
 function operationStream(operationId) {
   return operationStreams.slice().reverse().find(function (source) {
     return !source.closed && source.operationId === operationId;
@@ -550,6 +555,15 @@ function onlinePage(candidates) {
     providerAvailable: true, candidates: candidates};
 }
 context.VdrSuiteClientApi = {
+  createClientLiveUpdateSource() {
+    const source = {
+      closed: false, listeners: Object.create(null),
+      addEventListener(name, handler) { this.listeners[name] = handler; },
+      close() { this.closed = true; }
+    };
+    sourceStreams.push(source);
+    return source;
+  },
   createClientOperationUpdateSource(operationId) {
     assert(/^op_[A-Za-z0-9_-]+$/.test(operationId));
     const source = {
@@ -587,6 +601,19 @@ context.VdrSuiteClientApi = {
     const body = JSON.parse(options.body);
     if (route.endsWith('/metadata/resolve')) {
       if (onlineMode === 'ambiguous') return Promise.resolve({status: 'ambiguous'});
+      if (autoMovieExact && body.kind === 'movie') {
+        const movie = autoMovieExact === 'localized'
+          ? onlineCandidate('movie', '58574',
+            'Sherlock Holmes: Spiel im Schatten', {
+              originalTitle: 'Sherlock Holmes: A Game of Shadows',
+              releaseDate: '2011-12-15'
+            })
+          : autoMovieExact === 'numeric'
+            ? onlineCandidate('movie', '7540', 'Sieben Jahre in Tibet',
+              {releaseDate: '1997-09-12'})
+            : onlineCandidate('movie', '754', 'Die Herrschaft des Feuers');
+        return Promise.resolve({status: 'matched', mediaType: 'movie', movie});
+      }
       if (batchFoundationYearFixture && body.kind === 'series' &&
           body.title === 'Foundation' && body.seasonNumber === 1 &&
           body.episodeNumber >= 5 && body.episodeNumber <= 9) {
@@ -630,7 +657,8 @@ context.VdrSuiteClientApi = {
         return Promise.resolve({
           status: 'matched', mediaType: 'episode',
           series: onlineCandidate('series', '1399', 'Andor', {
-            posterReference: '/preview.jpg'
+            posterReference: '/preview.jpg',
+            backdropReference: '/andor-backdrop.jpg'
           }),
           episode: onlineCandidate('episode', '221', 'Pilot', {
             parentExternalId: '1399', seasonNumber: 1, episodeNumber: 1,
@@ -828,6 +856,12 @@ function selectedEpgBackendId() { return selectedBackendId; }
 function renderSnapshotMetrics() {}
 function shouldPublishHomeResume() { return false; }
 function publishHomeResume() {}
+// The extracted production navigation and rendering fragments both refer
+// to the independent Home HEVC component in app.js. Model its lifecycle
+// boundary here; Media Import tests must not mount Home, read sessionStorage,
+// or modify HEVC operations while switching tabs.
+function closeHomeHevcStream() {}
+function renderHevcHomeActivity() {}
 `, Object.assign(context, {testMount: mount}));
 
 (async function () {
@@ -878,6 +912,79 @@ function publishHomeResume() {}
     return meta && meta.textContent.includes('Technisch geprüft');
   }), 'per-film status changes automatically without a manual rescan');
 
+  // MT.SCAN source discovery: a fresh Agent observation is announced on
+  // the *existing* backend-scoped live SSE channel, then reconciled through
+  // the regular authenticated GET without a manual scan or page reload.
+  const inventoryStream = sourceStreams[sourceStreams.length - 1];
+  assert(inventoryStream && !inventoryStream.closed,
+    'Media Import subscribes to the shared browser SSE channel');
+  const catalogReads = function () {
+    return requests.filter(function (request) {
+      return request.path.endsWith('/media-import-sources');
+    }).length;
+  };
+  const readsBeforeIrrelevant = catalogReads();
+  inventoryStream.listeners.update({data: JSON.stringify({
+    backendId: 'other-backend', changedDomains: ['mediaImportSources']
+  })});
+  inventoryStream.listeners.update({data: JSON.stringify({
+    backendId: 'backend-a', changedDomains: ['recordings']
+  })});
+  await settle();
+  assert.strictEqual(catalogReads(), readsBeforeIrrelevant,
+    'other backends and unrelated live updates do not rescan Media Import');
+
+  // Keep an already inspected source selected while a new film arrives.
+  const existingSourceRow = findClass(mount, 'media-import-selection')
+    .children.find(function (row) { return row.dataset.sourceId === SOURCE; });
+  findClass(existingSourceRow, 'media-import-episode-open').listeners.click();
+  await settle();
+  const selectedBeforeSse = findClass(mount, 'media-import-source').value;
+  const statusBeforeSse = findClass(mount, 'media-import-preview-state').textContent;
+  const postsBeforeSse = submits;
+  batchSources = [SOURCE, SOURCE_B];
+  sourceDisplayLabels[SOURCE_B] = 'Neuer Film aus dem Importordner';
+  const readsBeforeSse = catalogReads();
+  inventoryStream.listeners.update({data: JSON.stringify({
+    backendId: 'backend-a', changedDomains: ['mediaImportSources']
+  })});
+  await settle();
+  assert.strictEqual(catalogReads(), readsBeforeSse + 1,
+    'one confirmed inventory SSE event performs one canonical GET');
+  assert(findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.dataset.sourceId === SOURCE_B;
+  }), 'a newly copied source appears without F5 or a manual rescan');
+  assert.strictEqual(findClass(mount, 'media-import-source').value,
+    selectedBeforeSse, 'passive catalog updates preserve the current selection');
+  assert.strictEqual(findClass(mount, 'media-import-preview-state').textContent,
+    statusBeforeSse, 'unchanged technical preview stays visible');
+  assert.strictEqual(submits, postsBeforeSse,
+    'source SSE cannot trigger a video import or mutation');
+  const readsBeforeSame = catalogReads();
+  inventoryStream.listeners.update({data: JSON.stringify({
+    backendId: 'backend-a', changedDomains: ['mediaImportSources']
+  })});
+  await settle();
+  assert.strictEqual(catalogReads(), readsBeforeSame + 1,
+    'a duplicate hint performs only a harmless readback');
+  assert.strictEqual(findClass(mount, 'media-import-source').value,
+    selectedBeforeSse, 'unchanged catalog does not reset current metadata');
+  batchSources = null;
+  delete sourceDisplayLabels[SOURCE_B];
+  inventoryStream.listeners.resync();
+  await settle();
+  assert(!findClass(mount, 'media-import-selection').children.some(function (row) {
+    return row.dataset.sourceId === SOURCE_B;
+  }), 'resync removes vanished files using the canonical source inventory');
+  assert.strictEqual(submits, postsBeforeSse);
+  // Reconnect catches changes missed while EventSource was disconnected.
+  const readsBeforeReconnect = catalogReads();
+  inventoryStream.onopen(); // first connection; activate already did initial GET
+  inventoryStream.onopen(); // reconnect; one canonical readback
+  await settle();
+  assert.strictEqual(catalogReads(), readsBeforeReconnect + 1);
+  assert.strictEqual(submits, postsBeforeSse);
+
   // A checked film must not lose its result merely because Media Import was
   // left and reopened. The unchanged source ID comes from the Agent inventory,
   // and clicking the film must not invoke another FFprobe preview.
@@ -890,8 +997,39 @@ function publishHomeResume() {}
   const resumedRow = findClass(mount, 'media-import-selection').children.find(
     function (row) { return row.dataset.sourceId === SOURCE; });
   assert(resumedRow, 'the unchanged source is visible after returning');
+  // MT.META7.2: the known source is immediately ready from Core's
+  // persisted preview, while the optional refresh is intentionally held.
+  // The auto movie resolver must run from that *visible* ready state and
+  // must not wait for the Agent preview callback to finish.
+  previewMode = 'defer-source';
+  const metadataBeforeCached = onlineRequests.length;
   findClass(resumedRow, 'media-import-episode-open').listeners.click();
   await settle();
+  assert.strictEqual(typeof resolveDelayedPreview, 'function',
+    'a technical metadata refresh remains pending behind a cached ready preview');
+  assert.strictEqual(onlineRequests.length, metadataBeforeCached + 1,
+    'cached ready preview initiates exactly one automatic Core movie lookup');
+  assert(onlineRequests[onlineRequests.length - 1].route.endsWith('/metadata/resolve'),
+    'the cached preview uses the shared metadata resolver');
+  const cachedOnlineStatus = findClass(mount, 'media-import-online-status');
+  assert(cachedOnlineStatus && cachedOnlineStatus.textContent.includes(
+    'Kein eindeutiger TMDb-Film'),
+    'read-only not_found outcome remains visible while technical refresh is pending');
+  resolveDelayedPreview(reply(200, {
+    backendId: 'backend-a', sourceId: SOURCE,
+    state: 'ready', status: 'ready', title: 'Backend geprüfter Film',
+    targetFolder: 'Die Herrschaft des Feuers', videoCodec: 'h264',
+    sourceBytes: 2500000000, availableBytes: previewAvailableBytes,
+    requiredBytes: 7600000000, videoReencodeRequired: false,
+    nfoOutline: 'Ein lokaler NFO-Text', nfoPlot: previewNfoPlot,
+    nfoYear: '2024', nfoGenre: 'Drama', durationSeconds: 3210,
+    posterDataUri: previewArtworkMode === 'none' ? '' :
+      'data:image/jpeg;base64,/9j/2Q==', fanartDataUri: ''
+  }));
+  resolveDelayedPreview = null;
+  await settle();
+  assert.strictEqual(onlineRequests.length, metadataBeforeCached + 1,
+    'a later successful technical preview cannot repeat movie metadata lookup');
   assert.strictEqual(findClass(mount, 'media-import-preview-state').textContent,
     'Direktimport möglich',
     'a verified source must display its result immediately after tab remount');
@@ -1040,7 +1178,7 @@ function publishHomeResume() {}
   assert(findClass(artwork, 'media-import-artwork-image').src ===
     'data:image/jpeg;base64,/9j/2Q==');
   assert(findClass(artwork, 'media-import-artwork-empty').textContent ===
-    'Keine lokale Fanart');
+    'Keine lokale oder TMDb-Fanart');
   // Malformed MIME cannot become a live image src or a second network URL.
   previewArtworkMode = 'bad';
   await findClass(mount, 'media-import-preview-retry').listeners.click();
@@ -1131,7 +1269,7 @@ function publishHomeResume() {}
   await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
   assert.strictEqual(onlineRequests.length, movieOnlineBefore + 1,
-    'missing movie poster triggers one existing TMDb search');
+    'movie preview triggers one central Public-v1 metadata resolution');
   const movieCover = findClass(findClass(mount, 'media-import-artwork-poster'),
     'media-import-artwork-image');
   assert(movieCover && movieCover.src.includes('externalNamespace=movie') &&
@@ -1152,11 +1290,11 @@ function publishHomeResume() {}
   sherlockSelect.listeners.change();
   await settle();
   const sherlockSearch = onlineRequests.slice(sherlockRequestsBefore)
-    .find(function (entry) { return entry.route.endsWith('/search'); });
+    .find(function (entry) { return entry.route.endsWith('/metadata/resolve'); });
   assert(sherlockSearch &&
-    JSON.parse(sherlockSearch.options.body).query ===
+    JSON.parse(sherlockSearch.options.body).title ===
       'Sherlock Holmes A Game of Shadows',
-    'TMDb search strips filename separators without changing the real title');
+    'central resolver receives the normalized movie title, not filename separators');
   const sherlockPoster = findClass(
     findClass(mount, 'media-import-artwork-poster'),
     'media-import-artwork-image');
@@ -3098,6 +3236,8 @@ function publishHomeResume() {}
   assert(autoRequests[0].route.endsWith('/metadata/resolve'),
     'automatic matching never repeats search, seasons and episodes in UI');
   assert.strictEqual(JSON.parse(autoRequests[0].options.body).seasonNumber, 1);
+  assert.strictEqual(JSON.parse(autoRequests[0].options.body).episodeTitle, 'Pilot',
+    'single preview passes the source episode name through Public-v1');
   const automaticOnline = findClass(mount, 'media-import-online-confirmed');
   assert(automaticOnline && automaticOnline.children[0].textContent.includes('Pilot'),
     'exact S01E01 is automatically identified from provider results');
@@ -3199,9 +3339,13 @@ function publishHomeResume() {}
     'identified Andor series supplies the main cover');
   assert(autoStill && autoStill.src.includes('externalNamespace=tv-episode'),
     'episode photo appears only in a separate slot');
-  assert(findClass(findClass(mount, 'media-import-artwork-fanart'),
-    'media-import-artwork-empty').textContent === 'Keine lokale Fanart',
-    'missing fanart stays independent of the episode image');
+  const autoFanart = findClass(findClass(mount, 'media-import-artwork-fanart'),
+    'media-import-artwork-image');
+  assert(autoFanart &&
+    autoFanart.src.includes('posterReference=%2Fandor-backdrop.jpg') &&
+    autoFanart.src.includes('externalNamespace=tv') &&
+    !autoFanart.src.includes('externalNamespace=tv-episode'),
+    'confirmed series backdrop uses the established TMDb image route, not a poster or episode still');
   previewArtworkMode = 'poster';
   await findClass(mount, 'media-import-preview-retry').listeners.click();
   await settle();
@@ -3275,15 +3419,19 @@ function publishHomeResume() {}
     'manual TMDb selection must not reset the result scroll position');
   let confirmedOnline = findClass(mount, 'media-import-online-confirmed');
   assert(confirmedOnline && confirmedOnline.children[0].textContent.includes('Film mit belegter TMDb-ID'));
-  const onlinePoster = findClass(confirmedOnline, 'media-import-online-poster');
-  assert(onlinePoster && onlinePoster.src.includes('/settings/series-artwork/candidate-image?') &&
-    onlinePoster.src.includes('externalNamespace=movie'),
-    'poster URL is served by the existing authenticated Suite image route');
-  onlinePoster.listeners.error();
-  assert(confirmedOnline.children[0].textContent.includes('Film mit belegter TMDb-ID') &&
-    confirmedOnline.children.some(function (child) {
-      return child.textContent.includes('Online-Poster nicht verfügbar');
-    }), 'missing TMDb artwork leaves the selected title and plot intact');
+  const selectedResult = findClass(mount, 'media-import-online-results').children[0];
+  assert(selectedResult && !selectedResult.children.some(function (child) {
+    return child.textContent.includes('Echte Provider-Vorschau Film mit belegter TMDb-ID');
+  }), 'the selected TMDb synopsis must not be duplicated in its result row');
+  assert(confirmedOnline.children.some(function (child) {
+    return child.textContent.includes('Echte Provider-Vorschau Film mit belegter TMDb-ID');
+  }), 'the selected TMDb synopsis stays visible once in its confirmation');
+  assert.strictEqual(findClass(confirmedOnline, 'media-import-online-poster'), null,
+    'the confirmed TMDb poster must not repeat the full-size preview artwork');
+  const previewArtwork = findClass(findClass(mount, 'media-import-artwork-poster'),
+    'media-import-artwork-image');
+  assert(previewArtwork && previewArtwork.src === 'data:image/jpeg;base64,/9j/2Q==',
+    'local poster stays in the main preview instead of being replaced');
   assert(findClass(mount, 'media-import-local-metadata') &&
     findClass(mount, 'media-import-nfo-plot'),
     'confirmed online metadata must not replace or suppress NFO text');
@@ -3329,7 +3477,8 @@ function publishHomeResume() {}
   findClass(onlineResults.children[1], 'media-import-online-choose').listeners.click();
   confirmedOnline = findClass(mount, 'media-import-online-confirmed');
   assert(confirmedOnline && confirmedOnline.children[0].textContent.includes('Pilot'));
-  assert(findClass(confirmedOnline, 'media-import-online-poster').src.includes('externalNamespace=tv-episode'));
+  assert.strictEqual(findClass(confirmedOnline, 'media-import-online-poster'), null,
+    'the selected episode poster must not be repeated inside confirmation');
   const manualCover = findClass(findClass(mount, 'media-import-artwork-poster'),
     'media-import-artwork-image');
   const manualStill = findClass(findClass(mount, 'media-import-artwork-episode'),
@@ -4134,9 +4283,20 @@ function publishHomeResume() {}
     return row.textContent.includes('TMDb-Metadaten vorbereitet');
   }), 'both Andor episodes receive automatic metadata in read-only batch review');
   const providerReads = onlineRequests.slice(providerReadsBefore);
-  assert.strictEqual(providerReads.filter(function (req) {
+  const batchResolveBodies = providerReads.filter(function (req) {
     return req.route.endsWith('/metadata/resolve');
-  }).length, 2, 'each selected episode uses the central Public-v1 resolver once');
+  }).map(function (req) { return JSON.parse(req.options.body); });
+  assert.strictEqual(batchResolveBodies.length, 1,
+    'only the first grouped episode resolves the shared series identity');
+  assert.strictEqual(batchResolveBodies[0].episodeTitle,
+    'Wer weiss noch davon',
+    'initial Core resolver receives the first source episode title');
+  const batchEpisodeReads = providerReads.filter(function (req) {
+    return req.route.endsWith('/recordings/metadata/episodes');
+  }).map(function (req) { return JSON.parse(req.options.body); });
+  assert.deepStrictEqual(batchEpisodeReads, [{
+    seriesExternalId: '1399', seasonNumber: 2, limit: 100
+  }], 'second grouped episode is checked against the confirmed series ID');
   await findClass(mount, 'media-import-batch-confirm').listeners.click();
   await settle();
   const metadataPost = requests.filter(function (req) {

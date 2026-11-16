@@ -79,7 +79,8 @@ public:
         RecordingMetadataCandidateKind kind,
         int seasonNumber,
         int episodeNumber,
-        int releaseYear = 0);
+        int releaseYear = 0,
+        const std::string& episodeTitle = "");
 
     ApiResponse getRecordingMetadataTrailer(
         const std::string& backendId,

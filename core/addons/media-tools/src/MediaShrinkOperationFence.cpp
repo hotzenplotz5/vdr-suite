@@ -9,6 +9,7 @@
 #include "BackendAgentLifecycle.h"
 #include "BackendRegistryService.h"
 #include "MediaShrinkAgentCommand.h"
+#include "MediaShrinkAgentExecutor.h"
 #include "MediaShrinkCommandFence.h"
 #include "MediaShrinkReviewRepository.h"
 #include "MutationOperationRepository.h"
@@ -158,12 +159,20 @@ bool MediaShrinkOperationFence::applyResult(
     }
     if (op.state == State::succeeded &&
         target == State::outcomeUnknown &&
-        result.dispatchState == "accepted_by_executor" &&
-        (stage ? op.resultReference == result.resultEvidence :
-                 vdrsuite::mediatools::shrinkOpaqueId(
-                     op.resultReference, "rec_"))) {
-        // An ACK lost after independent reconciliation cannot roll a
-        // verified operation backward or strand the Agent on result replay.
+        (stage
+            ? (vdrsuite::mediatools::shrinkOpaqueId(
+                   op.resultReference, "shk_") &&
+               ((result.dispatchState == "accepted_by_executor" &&
+                 op.resultReference == result.resultEvidence) ||
+                vdrsuite::mediatools::shrinkUnknownStageAllowsPrivateReadback(
+                    result)))
+            : (result.dispatchState == "accepted_by_executor" &&
+               vdrsuite::mediatools::shrinkOpaqueId(
+                   op.resultReference, "rec_")))) {
+        // An ACK lost after independently verified readback cannot roll a
+        // recovered Stage backward or strand the Agent on immutable replay.
+        // In particular, a starting/unknown Stage is acknowledged only when
+        // the ORIGINAL Operation already carries a verified shk_ identity.
         reason = "media_shrink_result_already_reconciled";
         return true;
     }
@@ -359,7 +368,7 @@ bool MediaShrinkOperationFence::check(
                                          operation.operation.resourceId);
         if (!stored.ok() || stored.review.state != "publishing" ||
             stored.review.publishOperationId != operation.operation.operationId ||
-            stored.review.backendGeneration != assignment.backendGeneration ||
+            stored.review.backendGeneration > assignment.backendGeneration ||
             stored.review.sourceFingerprint !=
                 operation.operation.expectedResourceFingerprint ||
             stored.review.revision != 2 ||

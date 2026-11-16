@@ -110,12 +110,47 @@ class PackagingProfileTests(unittest.TestCase):
 
     def test_control_declares_profile_and_abi_dependency(self):
         data = (ROOT / "debian/control").read_text(encoding="utf-8")
-        self.assertEqual(data.count("Build-Profiles: <!plugin-only>"), 2)
+        self.assertEqual(data.count("Build-Profiles: <!plugin-only>"), 3)
         self.assertIn("libsqlite3-dev <!plugin-only>", data)
         for name in ("libcurl4-openssl-dev", "libssl-dev", "libcrypt-dev"):
             with self.subTest(dependency=name):
                 self.assertIn(name + " <!plugin-only>", data)
         self.assertIn("${vdr:Depends}", data)
+
+    @unittest.skipUnless(shutil.which("make"), "GNU make unavailable")
+    def test_media_tools_makefile_is_parseable(self):
+        run = subprocess.run(
+            ["make", "-n", "test-addon-media-tools-package", "MAKE=/bin/echo"],
+            cwd=ROOT, text=True, capture_output=True, check=True)
+        self.assertIn("test_debian_media_tools_lifecycle.py", run.stdout)
+
+    def test_media_tools_uses_existing_sealed_stage_and_is_not_in_plugin_only(self):
+        control = (ROOT / "debian/control").read_text(encoding="utf-8")
+        self.assertIn("Package: vdr-suite-addon-media-tools", control)
+        rules = (ROOT / "debian/rules").read_text(encoding="utf-8")
+        self.assertIn("stage-install-runtime", rules)
+        self.assertIn("debian_media_tools.py", rules)
+        self.assertIn("dh_strip -Nvdr-suite-addon-media-tools", rules)
+        self.assertIn("dh_dwz -Nvdr-suite-addon-media-tools", rules)
+        self.assertIn("override_dh_installdeb:", rules)
+        helper = (ROOT / "tools/addons/debian_media_tools.py").read_text(encoding="utf-8")
+        self.assertIn("from build_media_tools_cpp_deb import collision_preinst, stage_package_paths", helper)
+        self.assertIn("from stage_media_tools_runtime import INVENTORY_REL, WORKERS, compose", helper)
+        daemon = (ROOT / "debian/vdr-suite-daemon.install").read_text(encoding="utf-8")
+        self.assertIn("usr/share/vdr-suite/", daemon)
+        self.assertNotIn("media-tools-install-inventory.json", daemon)
+
+    @unittest.skipUnless(shutil.which("make"), "GNU make unavailable")
+    def test_plugin_only_never_stages_media_tools(self):
+        for target in ("override_dh_auto_build", "override_dh_install", "override_dh_installdeb"):
+            with self.subTest(target=target):
+                done = subprocess.run(
+                    ["make", "-n", "-f", "debian/rules", target,
+                     "DEB_BUILD_PROFILES=plugin-only", "MAKE=/bin/echo"],
+                    cwd=ROOT, text=True, capture_output=True, check=True)
+                self.assertNotIn("debian_media_tools.py", done.stdout)
+                self.assertNotIn("addon-media-import", done.stdout)
+                self.assertNotIn("stage-install-runtime", done.stdout)
 
     @unittest.skipUnless(shutil.which("git"), "Git unavailable")
     def test_build_artifacts_ignored_but_metadata_tracked(self):

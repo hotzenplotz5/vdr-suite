@@ -398,12 +398,36 @@ public:
             if (persistentPreview(backendId, id, remembered))
                 checked[id] = {now, std::move(remembered)};
         }
+        // Agent heartbeats renew the observation timestamp but must NOT
+        // flood the browser with refresh events. Only an actual change in
+        // source identity/label/folder/import status causes one invalidation.
+        const bool inventoryChanged = previous == snapshots_.end() ||
+            previous->second.agentId != live.agentId ||
+            previous->second.instanceId != instanceId ||
+            previous->second.generation != generation ||
+            previous->second.ids != sorted ||
+            previous->second.labels != byId ||
+            previous->second.folders != byFolder ||
+            previous->second.statuses != byStatus ||
+            previous->second.partial != partial;
         snapshots_[backendId] = Snapshot{
             live.agentId, live.actorId, instanceId, generation, now,
             std::move(sorted), handlerOrigin, handlerVersion, handlerSha256,
             std::move(byId), std::move(byFolder), partial,
             std::move(byStatus)};
+        if (inventoryChanged) changedSourceBackends_.insert(backendId);
         return true;
+    }
+
+    // One-shot invalidations consumed by the existing daemon/SSE tick.
+    // Entries are backend identifiers only, never filenames or source IDs.
+    std::vector<std::string> takeChangedSourceBackends()
+    {
+        std::lock_guard<std::mutex> guard(mutex_);
+        std::vector<std::string> result(
+            changedSourceBackends_.begin(), changedSourceBackends_.end());
+        changedSourceBackends_.clear();
+        return result;
     }
 
     bool list(const BackendAgentRecord& live,
@@ -764,6 +788,7 @@ private:
     bool persistent_ = false;
     mutable std::mutex mutex_;
     std::map<std::string, Snapshot> snapshots_;
+    std::set<std::string> changedSourceBackends_;
     std::map<std::string, PreviewSlot> previews_;
     // Successfully checked file content survives without an expiry.
     // Failures, capacity observations and duplicates may become outdated;

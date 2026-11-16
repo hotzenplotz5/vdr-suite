@@ -210,6 +210,19 @@ int main() {
         ++checks;
     }
     {
+        // A legacy filename suffix may select a media file for inspection,
+        // but never invokes PHP. Real FFprobe will still check the content
+        // when an import is actually executed.
+        Fixture f;
+        const auto renamed = f.input / "Sample.php";
+        fs::rename(f.source, renamed);
+        const auto plan = inspectImport({f.input, f.video, renamed});
+        assert(plan.sourceFile == renamed);
+        assert(plan.title == "Sample");
+        assert(plan.titleDirectory == f.video / "Sample");
+        ++checks;
+    }
+    {
         // A relocated executable still produces the original fixed agent
         // error category; do not classify failures by an absolute path.
         Fixture f;
@@ -280,6 +293,8 @@ int main() {
     }
     {
         assert(parseProbedVideoCodec("h264\nh264\n") == "h264");
+        // Exact FFprobe output observed from published VDR MPEG-TS recordings.
+        assert(parseProbedVideoCodec("hevc\nhevc\n") == "hevc");
         assert(parseProbedVideoCodec("hevc\r\n\r\nhevc\n") == "hevc");
         mustFail([] { parseProbedVideoCodec("h264\nhevc\n"); });
         mustFail([] { parseProbedVideoCodec(""); });
@@ -308,6 +323,22 @@ int main() {
         NativeProcessRunner runner(std::chrono::seconds(1));
         const auto result = runner.run({"/bin/sleep", "5"}, false);
         assert(result.exitCode != 0 && result.timedOut);
+        ++checks;
+    }
+    {
+        // HEVC uses the existing Agent heartbeat during long-running child
+        // processes. A temporary renewal failure must not kill the child,
+        // poll a second command or turn an encoder success into failure.
+        int renewals = 0;
+        NativeProcessRunner leaseRunner(
+            std::chrono::seconds(2), {},
+            [&] {
+                ++renewals;
+                throw std::runtime_error("synthetic transient heartbeat loss");
+            },
+            std::chrono::milliseconds(20));
+        assert(leaseRunner.run({"/bin/sleep", "0.15"}, false).exitCode == 0);
+        assert(renewals >= 1);
         ++checks;
     }
     {
@@ -775,6 +806,13 @@ int main() {
             "T Legacy source name\n"
             "S Local outline\n"
             "D Local plot | Year: 2022 | Genre: Drama\n");
+        // A confirmed feature film has no episode subtitle. Never emit the
+        // generic importer marker when there is no genuine local short text.
+        movie.overview = "Caligula plot";
+        assert(renderNativeVdrRecordingInfo(
+            plan, ImportLocalMetadata{}, &movie) ==
+            "T Der Film\n"
+            "D Caligula plot\n");
         ++checks;
     }
     {
@@ -855,6 +893,57 @@ int main() {
         movie.overview = "Confirmed description";
         assert(mergeConfirmedMetadataIntoNativeVdrInfo(previous, movie) ==
             "T New Movie\nS Old Summary\nD Confirmed description\nF 25\n");
+        // A previous Suite movie import left this technical marker in S.
+        // Remove just that marker; preserve every independent info record,
+        // including a CRLF-encoded channel/extension and genuine subtitles.
+        const std::string legacy =
+            "C Local Channel\r\nT Caligola\r\n"
+            "S Imported via VDR-Suite Media Tools\r\n"
+            "D Alte Beschreibung\r\nF 25\r\nX 1 03 deu\r\n";
+        const std::string corrected =
+            "C Local Channel\r\nT New Movie\r\n"
+            "D Confirmed description\r\nF 25\r\nX 1 03 deu\r\n";
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(legacy, movie) ==
+               corrected);
+        assert(mergeConfirmedMetadataIntoNativeVdrInfo(corrected, movie) ==
+               corrected);
+        ++checks;
+    }
+    {
+        // Real Caligola regression: a confirmed TMDb movie should lose only
+        // its importer-owned S placeholder. The exact legacy source identity
+        // must remain usable for duplicate detection after the native rewrite.
+        Fixture f;
+        const fs::path rec = f.video / "Sample" /
+            "2026-11-11.17.28.1-0.rec";
+        fs::create_directories(rec);
+        std::ofstream(rec / "info", std::ios::binary)
+            << "T Sample\n"
+               "S Imported via VDR-Suite Media Tools\n"
+               "D Lokaler Alttext\nF 25\n";
+        std::ofstream(rec / "index", std::ios::binary) << "index";
+        std::ofstream(rec / "00001.ts", std::ios::binary) << "video";
+        ImportConfirmedMetadata movie;
+        movie.mediaType = "movie";
+        movie.title = "Caligula - Aufstieg und Fall eines Tyrannen";
+        movie.overview = "TMDb-Filmbeschreibung";
+        const auto before = inspectImportPreview(f.request());
+        assert(before.duplicateTarget &&
+               confirmedMediaImportDuplicate(before));
+        assert(updateConfirmedNativeVdrInfo(f.video, rec, movie));
+        std::ifstream info(rec / "info", std::ios::binary);
+        const std::string actual(
+            (std::istreambuf_iterator<char>(info)),
+            std::istreambuf_iterator<char>());
+        assert(actual ==
+            "T Caligula - Aufstieg und Fall eines Tyrannen\n"
+            "D TMDb-Filmbeschreibung\nF 25\n");
+        assert(fs::is_regular_file(rec / ".vdr-suite-import-origin"));
+        assert(confirmedMediaImportDuplicate(inspectImportPreview(f.request())));
+        assert(!updateConfirmedNativeVdrInfo(f.video, rec, movie));
+        assert(fs::file_size(rec / "00001.ts") == 5 &&
+               fs::file_size(rec / "index") == 5 &&
+               fs::exists(f.source) && fs::exists(f.video / ".update"));
         ++checks;
     }
     {
@@ -1200,6 +1289,41 @@ int main() {
             plan, runner, [](const ImportPlan&) {}); });
         assert(runner.indices == 0 && fs::exists(f.source) &&
                !fs::exists(f.video / "Sample"));
+        ++checks;
+    }
+    {
+        // MT.ENC3.2: the running job retains its frozen encoder profile.
+        int refreshes = 0;
+        NativeProcessRunner runner(
+            std::chrono::seconds(60), MediaToolExecutables{}, {},
+            std::chrono::seconds(10), [&]() {
+                MediaEncodingSettings current;
+                current.importH264Crf = refreshes++ == 0 ? 19 : 27;
+                current.shrinkH265Crf = refreshes == 1 ? 23 : 30;
+                current.importH264Preset = "slow";
+                current.shrinkH265Preset = "fast";
+                return current;
+            });
+        assert(runner.encodingSettings().importH264Crf == 23);
+        assert(runner.refreshForNextJob());
+        assert(runner.encodingSettings().importH264Crf == 19);
+        assert(runner.encodingSettings().shrinkH265Crf == 23);
+        assert(runner.refreshForNextJob());
+        assert(runner.encodingSettings().importH264Crf == 27);
+        assert(runner.encodingSettings().shrinkH265Crf == 30);
+        ++checks;
+    }
+    {
+        // Rejected configuration does not replace the last valid snapshot.
+        NativeProcessRunner runner(
+            std::chrono::seconds(60), MediaToolExecutables{}, {},
+            std::chrono::seconds(10), []() {
+                MediaEncodingSettings invalid;
+                invalid.shrinkH265Crf = 75;
+                return invalid;
+            });
+        assert(!runner.refreshForNextJob());
+        assert(runner.encodingSettings().shrinkH265Crf == 27);
         ++checks;
     }
     std::cout << "MEDIA_IMPORT_CPP_TEST=PASS checks=" << checks << "\n";

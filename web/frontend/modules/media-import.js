@@ -50,7 +50,7 @@
         .replace(/_+/g, ' ')
         .replace(/\s+/g, ' ').trim();
     };
-    const raw = value.trim().replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v)$/i, '');
+    const raw = value.trim().replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v|php)$/i, '');
     // An opaque backend token is NOT a filename; never prettify it into a
     // fictional movie title. Keep source identity readable in diagnostics.
     if (/(?:^|\s)(?:source|scan)_[A-Za-z0-9_-]{8,}(?=$|\s)/.test(raw)) return raw;
@@ -150,6 +150,73 @@
       global.clearTimeout(view.timer);
       view.timer = null;
     }
+  }
+
+  function closeSourceEvents(view) {
+    if (view.sourceEventSource &&
+        typeof view.sourceEventSource.close === 'function')
+      view.sourceEventSource.close();
+    view.sourceEventSource = null;
+    view.sourceRefreshPending = false;
+  }
+
+  // Agent inventory changes already flow through the existing Core/SSE
+  // transport. One event invalidates this backend's read-only source list;
+  // the event contains no filenames, paths or untrusted selectable IDs.
+  // On resync/reconnect read the canonical list once, never poll for it.
+  function queueSourceRefresh(view) {
+    if (!isCurrent(view)) return;
+    if (global.document && global.document.visibilityState === 'hidden') {
+      view.sourceRefreshPending = true;
+      return;
+    }
+    if (view.sourceRefreshBusy) {
+      view.sourceRefreshPending = true;
+      return;
+    }
+    if (view.batch || view.submitting ||
+        (view.attempt && !mayBrowseDuringOperation(view))) {
+      view.sourceRefreshPending = true;
+      return;
+    }
+    view.sourceRefreshBusy = true;
+    view.sourceRefreshPending = false;
+    Promise.resolve(loadSources(view, true)).catch(function () {
+      // A failed read leaves the last valid inventory visible. Reconnect or
+      // another genuine change can retry without any scheduled GET.
+    }).finally(function () {
+      if (!isCurrent(view)) return;
+      view.sourceRefreshBusy = false;
+      if (view.sourceRefreshPending) queueSourceRefresh(view);
+    });
+  }
+
+  function ensureSourceEvents(view) {
+    if (!isCurrent(view) || view.sourceEventSource) return;
+    const api = global.VdrSuiteClientApi;
+    const source = api &&
+      typeof api.createClientLiveUpdateSource === 'function'
+      ? api.createClientLiveUpdateSource() : null;
+    if (!source) return;
+    view.sourceEventSource = source;
+    source.onopen = function () {
+      if (!isCurrent(view) || view.sourceEventSource !== source) return;
+      if (view.sourceEventsOpened) queueSourceRefresh(view);
+      view.sourceEventsOpened = true;
+    };
+    source.addEventListener('update', function (event) {
+      if (!isCurrent(view) || view.sourceEventSource !== source) return;
+      let data;
+      try { data = JSON.parse(event.data); } catch (_) { return; }
+      if (data && data.backendId === view.backendId &&
+          Array.isArray(data.changedDomains) &&
+          data.changedDomains.includes('mediaImportSources'))
+        queueSourceRefresh(view);
+    });
+    source.addEventListener('resync', function () {
+      if (isCurrent(view) && view.sourceEventSource === source)
+        queueSourceRefresh(view);
+    });
   }
 
   function closeOperationEvents(view) {
@@ -392,6 +459,7 @@
     ++owner;
     if (current) {
       clearPolling(current);
+      closeSourceEvents(current);
       closeOperationEvents(current);
       if (current.previewTimer !== null) global.clearTimeout(current.previewTimer);
       current.previewTimer = null;
@@ -1149,9 +1217,7 @@
   // The franchise name is a lookup hint; the year is a distinct, source-
   // derived identity hint (e.g. Foundation (2021)), not episode air date.
   function seriesPremiereYearFromSource(source) {
-    const label = String(source && source.label || '');
-    const match = /\(((?:19|20)\d{2})\)/.exec(label);
-    return match ? Number(match[1]) : 0;
+    return sourceMetadataIdentity(source).year;
   }
 
   function batchMetadataSnapshot(view, source, plan, cache) {
@@ -1163,10 +1229,13 @@
     const session = global.VdrSuiteBrowserSession;
     const csrf = session && typeof session.csrfHeaders === 'function'
       ? session.csrfHeaders() : {};
-    const resolve = function (title, kind, season, episode, year) {
+    const resolve = function (title, kind, season, episode, year, episodeTitle) {
+      // The candidate identity includes the optional episode-title evidence:
+      // two sources with identical SxxExx but different descriptive titles
+      // must not reuse an unrelated resolution result during batch review.
       const key = 'v1-resolve:' + kind + ':' +
         normalizedSeriesName(title) + ':' + season + ':' + episode +
-        ':' + (year || 0);
+        ':' + (year || 0) + ':' + normalizedSeriesName(episodeTitle);
       if (!cache.has(key)) cache.set(key, Promise.resolve().then(function () {
         return api.requestJson(
           '/api/v1/backends/' + encodeURIComponent(view.backendId) +
@@ -1178,6 +1247,7 @@
               title: title, kind: kind,
               ...(kind === 'series'
                 ? {seasonNumber: season, episodeNumber: episode,
+                    ...(episodeTitle ? {episodeTitle: episodeTitle} : {}),
                     ...(year ? {year: year} : {})}
                 : year ? {year: year} : {})
             }),
@@ -1186,40 +1256,100 @@
       }).catch(function () { return null; }));
       return cache.get(key);
     };
-    const coords = episodeCoordinates(source);
+    const identity = sourceMetadataIdentity(source, plan);
+    const coords = identity;
     if (coords.episode !== null) {
-      const year = seriesPremiereYearFromSource(source);
-      const titles = [batchSeriesTitleFromLabel(source),
-        onlineSeriesSearchTitle(source)].filter(function (title, index, all) {
-        return title.length >= 2 && title.length <= 160 &&
-          all.findIndex(function (other) {
-            return normalizedSeriesName(other) === normalizedSeriesName(title);
-          }) === index;
+      const year = identity.year;
+      const titles = identity.titleHints.map(function (hint) {
+        return hint.title;
       });
+      // MT.META7.3: a named series directory is stronger than a generic
+      // import root. Reuse a Core-confirmed series identity ONLY inside this
+      // one batch review and only for the same named folder/title/year.
+      // Every subsequent episode must still be read and verified by the
+      // existing Core metadata episodes endpoint before snapshot freezing.
+      const seriesFolder = episodeCoordinates(source).seriesPath || '';
+      const folderTail = seriesFolder.split('/').filter(Boolean).pop() || '';
+      const namedFolder = folderTail &&
+        !/^(?:Doku|Dokumentation|Horror|Oskar|SciFi|Serien|Series|TV|Shows|Filme|Movies|Import|Eingang|Unsortiert|Medien|Downloads|Video)$/i.test(folderTail) &&
+        !/^(?:Staffel|Season)[ ._-]*\d{1,2}$/i.test(folderTail);
+      const groupTitle = normalizedSeriesName(titles[0] || '');
+      // A named folder alone cannot disambiguate same-titled productions
+      // without a year; keep those on the full per-episode resolver path.
+      const seriesKey = namedFolder && groupTitle && year > 0
+        ? 'v1-series:' + view.backendId + ':' +
+          normalizedSeriesName(seriesFolder) + ':' + groupTitle + ':' +
+          (year || 0) : '';
+      const cachedSeries = seriesKey ? cache.get(seriesKey) : null;
       const tryTitle = function (index) {
         if (index >= titles.length) return Promise.resolve('');
         return resolve(titles[index], 'series', coords.season,
-          coords.episode, year).then(function (data) {
-            if (!isCurrent(view) || !data || data.status !== 'matched' ||
-                data.mediaType !== 'episode' || !data.series ||
-                !data.episode || data.series.kind !== 'series' ||
-                data.episode.kind !== 'episode' ||
-                data.episode.parentExternalId !== data.series.externalId ||
-                data.episode.seasonNumber !== coords.season ||
-                data.episode.episodeNumber !== coords.episode)
+          coords.episode, year, identity.episodeTitle).then(function (data) {
+            if (!isCurrent(view) || !data) return '';
+          if (data.status === 'not_found')
               return tryTitle(index + 1);
+          // A provider error, ambiguous result or malformed matched payload
+          // cannot authorize searching another identity as a silent fallback.
+          if (data.status !== 'matched' ||
+              data.mediaType !== 'episode' || !data.series ||
+              !data.episode || data.series.kind !== 'series' ||
+              data.episode.kind !== 'episode' ||
+              data.episode.parentExternalId !== data.series.externalId ||
+              data.episode.seasonNumber !== coords.season ||
+              data.episode.episodeNumber !== coords.episode)
+              return '';
+            if (seriesKey && onlineValid(data.series, 'series') &&
+                !cache.has(seriesKey))
+              cache.set(seriesKey, data.series);
             return frozenImportMetadata(view, {candidate:
               Object.assign({}, data.episode, {mediaType: 'episode'})
             }, data.series);
           });
       };
+      if (cachedSeries) {
+        return Promise.resolve(api.requestJson(
+          '/api/backends/' + encodeURIComponent(view.backendId) +
+          '/recordings/metadata/episodes', {
+            method: 'POST',
+            headers: Object.assign({'Content-Type':'application/json'},
+              csrf && typeof csrf === 'object' ? csrf : {}),
+            body: JSON.stringify({
+              seriesExternalId: cachedSeries.externalId,
+              seasonNumber: coords.season, limit: 100
+            }),
+            cache: 'no-store', credentials: 'same-origin'
+          })).then(function (page) {
+            if (!isCurrent(view) || !page || !page.providerAvailable ||
+                page.truncated || !Array.isArray(page.candidates)) return '';
+            const matches = page.candidates.filter(function (episode) {
+              return onlineValid(episode, 'episode', cachedSeries,
+                {seasonNumber: coords.season}) &&
+                episode.episodeNumber === coords.episode;
+            });
+            if (matches.length !== 1) return '';
+            const episode = matches[0];
+            // If the source supplies a descriptive episode title, a bare
+            // coordinate is not enough to reuse a same-titled show's ID.
+            // Different localized names go through the original Core
+            // resolver rather than becoming a guessed metadata assignment.
+            if (identity.episodeTitle &&
+                normalizedSeriesName(identity.episodeTitle) !==
+                  normalizedSeriesName(episode.title) &&
+                normalizedSeriesName(identity.episodeTitle) !==
+                  normalizedSeriesName(episode.originalTitle)) return '';
+            return frozenImportMetadata(view, {candidate:
+              Object.assign({}, episode, {mediaType: 'episode'})
+            }, cachedSeries);
+          }).catch(function () { return ''; }).then(function (snapshot) {
+            return snapshot || tryTitle(0);
+          });
+      }
       return tryTitle(0).catch(function () { return ''; });
     }
-    const title = String(source.label || plan.title || '').trim()
-      .replace(/[_:]+/g, ' ').replace(/\s+/g, ' ');
+    const title = identity.fileTitle ||
+      (identity.titleHints[0] && identity.titleHints[0].title) || '';
     if (title.length < 2 || title.length > 160) return Promise.resolve('');
-    const year = /^\d{4}$/.test(plan.nfoYear || '')
-      ? Number(plan.nfoYear) : 0;
+    const year = identity.year;
     return resolve(title, 'movie', 0, 0, year).then(function (data) {
       return data && data.status === 'matched' &&
         data.mediaType === 'movie' && data.movie &&
@@ -2392,9 +2522,11 @@
           'bereits entfernt oder noch vorhanden sein. Kein erneuter Löschauftrag ' +
           'für diese Quelle! Über „Diesen Vorgang prüfen“ nur den bestehenden ' +
           'Auftrag lesen. Der genaue Dateisystemfehler steht bisher nur im Agent-Journal.'
-        : 'Core meldet outcome_unknown: Die Ausführung ist nicht bestätigt. ' +
-          'Die öffentliche Statusantwort enthält keinen Agent-Fehlergrund. ' +
-          'Bitte denselben Vorgang prüfen; technische Einzelheiten stehen unter „Technische Details“.'
+        : 'Die Ausführung ist noch nicht durch einen frischen VDR-Aufnahmeabgleich bestätigt. ' +
+          'Der Import kann bereits abgeschlossen sein: Core kann denselben Auftrag ' +
+          'nach dem VDR-Readback auf erfolgreich setzen. Keinen zweiten Import starten. ' +
+          'Über „Vorgang prüfen“ den vorhandenen Auftrag beobachten; ' +
+          'technische Einzelheiten stehen unter „Technische Details“.'
     };
     view.importFeedbackTitle.textContent = !attempt
       ? 'Aktion wird vorbereitet'
@@ -2644,29 +2776,14 @@
       .replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\s+/g, ' ').trim();
   }
 
-  // Match an exact unique movie title even when German numerals are spelled
-  // out instead of digits. No fuzzy/partial provider assignment.
-  function normalizedMovieMatchTitle(value) {
-    const numerals = {
-      null: '0', eins: '1', zwei: '2', drei: '3', vier: '4',
-      fuenf: '5', fünf: '5', sechs: '6', sieben: '7',
-      acht: '8', neun: '9', zehn: '10', elf: '11',
-      zwoelf: '12', zwölf: '12'
-    };
-    return normalizedSeriesName(value).split(' ').map(function (word) {
-      return Object.prototype.hasOwnProperty.call(numerals, word)
-        ? numerals[word] : word;
-    }).join(' ');
-  }
-
   function autoIdentifyEpisode(view, source) {
     if (view.onlineUserControlled) return;
-    const coords = episodeCoordinates(source);
-    const title = batchSeriesTitleFromLabel(source) ||
-      onlineSeriesSearchTitle(source);
-    const year = seriesPremiereYearFromSource(source);
-    if (coords.episode === null || title.length < 2 ||
-        title.length > 160 || !view.sources.includes(source.sourceId)) return;
+    const identity = sourceMetadataIdentity(source);
+    const coords = identity;
+    const hints = identity.titleHints;
+    const year = identity.year;
+    if (coords.episode === null || !hints.length ||
+        !view.sources.includes(source.sourceId)) return;
     const sourceId = source.sourceId;
     const generation = view.previewGeneration;
     const active = function () {
@@ -2680,28 +2797,42 @@
       ? session.csrfHeaders() : {};
     view.onlineAuto = true;
     view.onlineKind = 'series';
-    view.onlineQuery = title;
+    view.onlineQuery = hints[0].title;
     view.onlinePending = true;
     view.onlineStatus = 'TMDb-Folge wird vom Metadata Core zugeordnet …';
     updatePreview(view);
-    Promise.resolve().then(function () {
-      if (!active()) return null;
-      return api.requestJson(
+    // Both title hints go through the SAME Public-v1 Core resolver, not
+    // separate frontend TMDb matchers. Only an explicit not_found may try
+    // the next source-derived hint. Ambiguous/provider errors never turn
+    // into a guessed match or an implicit import.
+    function resolveHint(index) {
+      if (index >= hints.length)
+        return Promise.resolve({matched: {status: 'not_found'}, hint: null});
+      return Promise.resolve(api.requestJson(
         '/api/v1/backends/' + encodeURIComponent(view.backendId) +
         '/metadata/resolve', {
           method: 'POST',
           headers: Object.assign({'Content-Type':'application/json'},
             csrf && typeof csrf === 'object' ? csrf : {}),
           body: JSON.stringify({
-            title: title, kind: 'series',
+            title: hints[index].title, kind: 'series',
             seasonNumber: coords.season, episodeNumber: coords.episode,
+            ...(identity.episodeTitle ? {episodeTitle: identity.episodeTitle} : {}),
             ...(year ? {year: year} : {})
           }),
           cache: 'no-store', credentials: 'same-origin'
+        })).then(function (matched) {
+          if (active() && matched && matched.status === 'not_found' &&
+              index + 1 < hints.length) return resolveHint(index + 1);
+          return {matched: matched, hint: hints[index]};
         });
-    }).then(function (matched) {
-      if (!active()) return;
+    }
+    Promise.resolve().then(function () {
+      return active() ? resolveHint(0) : null;
+    }).then(function (resolved) {
+      if (!active() || !resolved) return;
       view.onlinePending = false;
+      const matched = resolved.matched;
       if (!matched || matched.status !== 'matched' ||
           matched.mediaType !== 'episode' ||
           !matched.series || !matched.episode ||
@@ -2718,6 +2849,7 @@
         updatePreview(view);
         return;
       }
+      view.onlineQuery = resolved.hint.title;
       view.onlineSeries = matched.series;
       view.onlineSeason = {seasonNumber: coords.season};
       view.onlineMode = 'episodes';
@@ -2740,13 +2872,16 @@
   // A standalone film without a local poster should not require a manual
   // TMDb search just to display its cover. The same existing metadata API is
   // used; only one unambiguous exact title match is accepted.
+  // Movies and episodes share the single Public-v1 Metadata Core resolver.
+  // Browser lookup never guesses from TMDb search order, writes metadata or
+  // performs a video import. Manual TMDb search remains a separate UI action.
   function autoIdentifyMovie(view, source, plan) {
     if (!source || !plan || plan.status !== 'ready' ||
         view.onlineKind !== 'movie' || view.onlineAuto ||
-        view.onlineUserControlled || validLocalArtwork(plan.posterDataUri)) return;
-    // The inventory label is the recognizable filename/title; a probe may
-    // derive a generic title when no NFO exists.
-    const title = String(source.label || plan.title || '').trim();
+        view.onlineUserControlled) return;
+    const identity = sourceMetadataIdentity(source, plan);
+    const title = identity.fileTitle ||
+      (identity.titleHints[0] && identity.titleHints[0].title) || '';
     if (title.length < 2 || title.length > 160) return;
     const sourceId = source.sourceId;
     const generation = view.previewGeneration;
@@ -2755,41 +2890,63 @@
         !view.onlineUserControlled && generation === view.previewGeneration &&
         view.select.value === sourceId;
     };
-    // File-system separators are not search terms. TMDb should receive
-    // "Sherlock Holmes A Game of Shadows", not the literal underscore.
-    const query = title.replace(/[_:]+/g, ' ').replace(/\s+/g, ' ').trim();
+    const api = global.VdrSuiteClientApi;
+    if (!api || typeof api.requestJson !== 'function') return;
+    const session = global.VdrSuiteBrowserSession;
+    const csrf = session && typeof session.csrfHeaders === 'function'
+      ? session.csrfHeaders() : {};
     view.onlineAuto = true;
-    view.onlineQuery = query;
-    onlineLookup(view, 'search', {query: query, kind: 'movie', limit: 12}, 'movie')
-      .then(function (candidates) {
-        if (!active() || !Array.isArray(candidates)) return;
-        const normalized = normalizedMovieMatchTitle(title);
-        let matches = candidates.filter(function (item) {
-          // TMDb may return a German display title for an English source
-          // filename (or vice versa). originalTitle is part of the existing
-          // metadata response; accept either as an exact normalized match.
-          return normalizedMovieMatchTitle(item.title) === normalized ||
-            normalizedMovieMatchTitle(item.originalTitle) === normalized;
+    view.onlineQuery = title;
+    view.onlinePending = true;
+    view.onlineStatus = 'TMDb-Film wird vom Metadata Core zugeordnet …';
+    updatePreview(view);
+    Promise.resolve().then(function () {
+      if (!active()) return null;
+      return api.requestJson(
+        '/api/v1/backends/' + encodeURIComponent(view.backendId) +
+        '/metadata/resolve', {
+          method: 'POST',
+          headers: Object.assign({'Content-Type': 'application/json'},
+            csrf && typeof csrf === 'object' ? csrf : {}),
+          body: JSON.stringify({
+            title: title, kind: 'movie',
+            ...(identity.year ? {year: identity.year} : {})
+          }),
+          cache: 'no-store', credentials: 'same-origin'
         });
-        // Prefer an exact NFO year when remakes share the same title.
-        if (matches.length > 1 && /^\d{4}$/.test(plan.nfoYear || '')) {
-          matches = matches.filter(function (item) {
-            return String(item.releaseDate || '').slice(0, 4) === plan.nfoYear;
-          });
-        }
-        if (matches.length === 1) {
-          view.onlineSelected = matches[0];
-          view.onlineAutoSelected = true;
-          view.onlineStatus = 'TMDb-Film automatisch erkannt: ' +
-            matches[0].title + '. Poster und bereits gefundene Metadaten ' +
-            'werden für den Import übernommen.';
-        } else {
-          view.onlineStatus = matches.length
-            ? 'Mehrdeutiger TMDb-Film. Eine manuelle Auswahl ist möglich.'
-            : 'Kein eindeutiger TMDb-Film gefunden. Die lokale Vorschau bleibt erhalten.';
-        }
-        updatePreview(view);
-      });
+    }).then(function (result) {
+      if (!active() || !result) return;
+      view.onlinePending = false;
+      if (result.status === 'matched' && result.mediaType === 'movie' &&
+          onlineValid(result.movie, 'movie')) {
+        view.onlineSelected = result.movie;
+        view.onlineAutoSelected = true;
+        view.onlineStatus = 'TMDb-Film automatisch erkannt: ' +
+          result.movie.title + '. Poster und bereits gefundene Metadaten ' +
+          'werden für den Import übernommen.';
+      } else {
+        view.onlineStatus = result.status === 'ambiguous'
+          ? 'Mehrdeutiger TMDb-Film. Eine manuelle Auswahl ist möglich.'
+          : 'Kein eindeutiger TMDb-Film gefunden. Die lokale Vorschau bleibt erhalten.';
+      }
+      updatePreview(view);
+    }).catch(function (error) {
+      if (!active()) return;
+      view.onlinePending = false;
+      view.onlineStatus = error && (error.status === 401 || error.status === 403)
+        ? 'Keine Berechtigung zur TMDb-Suche; lokale Daten bleiben verfügbar.'
+        : 'TMDb nicht erreichbar oder nicht eingerichtet; lokale Daten bleiben verfügbar.';
+      updatePreview(view);
+    });
+  }
+
+  // One owner for read-only automatic film lookup. A cached ready preview
+  // and an asynchronously completed technical preview must behave alike.
+  function identifyVisibleReadyMovie(view, source, plan) {
+    if (source && plan && plan.status === 'ready' &&
+        view.onlineKind === 'movie' && !view.onlineAuto &&
+        !view.onlineUserControlled)
+      autoIdentifyMovie(view, source, plan);
   }
 
   function renderOnline(view, card, plan, source) {
@@ -2800,7 +2957,9 @@
       'Eindeutige TMDb-Daten werden nach bestätigtem Import über die bestehende Aufnahme-Metadatenzuordnung gespeichert. Das originale Video bleibt unverändert.'));
     const tools = element('div', 'media-import-online-tools');
     const coordinates = episodeCoordinates(source);
-    const seriesTitle = onlineSeriesSearchTitle(source);
+    const identity = sourceMetadataIdentity(source, plan);
+    const seriesTitle = identity.titleHints.length
+      ? identity.titleHints[0].title : '';
     // The currently browsed TMDb series is the primary context while choosing
     // a season/episode. Keep recognized local coordinates visible beneath it.
     if (view.onlineSeries && view.onlineMode !== 'search')
@@ -2877,7 +3036,9 @@
       result.appendChild(element('small', '',
         candidate.kind + ' · TMDb #' + candidate.externalId +
         (candidate.releaseDate ? ' · ' + candidate.releaseDate : '')));
-      if (candidate.overview)
+      // The selected synopsis is shown once in the confirmation below.
+      // Keep other candidates' text for comparison without repeating it.
+      if (candidate.overview && candidate !== view.onlineSelected)
         result.appendChild(element('p', '', candidate.overview));
       const choose = element('button', 'media-import-online-choose',
         candidate.kind === 'movie' ? 'Film auswählen' :
@@ -2941,20 +3102,10 @@
           : 'Bestätigte TMDb-Vorschau: ') + selected.title));
       if (selected.overview)
         confirmed.appendChild(element('p', '', selected.overview));
-      const url = onlineImageUrl(view.backendId, selected);
-      if (url && !view.onlineAutoSelected) {
-        const poster = element('img', 'media-import-online-poster');
-        poster.alt = 'TMDb-Poster für ' + selected.title;
-        poster.loading = 'lazy';
-        poster.src = url;
-        poster.addEventListener('error', function () {
-          // Missing provider artwork must not erase the confirmed title/plot.
-          if (typeof poster.remove === 'function') poster.remove();
-          confirmed.appendChild(element('p', '',
-            'Online-Poster nicht verfügbar; lokale Bilder bleiben erhalten.'));
-        });
-        confirmed.appendChild(poster);
-      }
+      // renderPreviewCard() already presents the local or provider poster
+      // (and any separate episode still) above the technical facts. A
+      // second full-size image here produced a duplicate, oversized panel.
+      // The selected title/plot remain visible even if its image fails.
       box.appendChild(confirmed);
     }
     card.appendChild(box);
@@ -3112,27 +3263,105 @@
   // an episode-named subfolder. The source filename still contains the
   // series identity ahead of SxxExx. This is only a TMDb search hint; the
   // exact provider series and episode must still be uniquely confirmed.
+
+  // MT.META7.1: one side-effect-free observation of file and folder hints.
+  // This is NOT a TMDb identity or an authorization decision. A confirmed
+  // provider match still comes exclusively from the existing Metadata Core.
+  function sourceMetadataIdentity(source, plan) {
+    const label = String(source && source.label || plan && plan.title || '').trim();
+    const folder = String(source && source.folder || '');
+    const coordinates = episodeCoordinates(source || {});
+    const isEpisode = coordinates.episode !== null;
+    const filename = label.replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v|php)$/i, '');
+    const yearMatch = /\(((?:19|20)\d{2})\)/.exec(filename) ||
+      /\(((?:19|20)\d{2})\)/.exec(folder);
+    const nfoYear = plan && /^(?:19|20)\d{2}$/.test(String(plan.nfoYear || ''))
+      ? Number(plan.nfoYear) : 0;
+    const year = yearMatch ? Number(yearMatch[1]) : nfoYear;
+    // External feeds use several vertical-stroke glyphs as language tags,
+    // including the actual source label "┃DE┃" (U+2503), not just ASCII
+    // "| DE |". Match a leading recognized language code only; an
+    // unrelated vertical bar within a film or episode title is preserved.
+    const languagePrefix = /^(?:\s*(?:[|│┃║¦｜▎]\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[|│┃║¦｜▎]|\[\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\]|\(\s*(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*\)|(DE|EN|GER|ENG|FR|ES|IT|PT|NL)\s*[-_:|│┃║¦｜▎])\s*)+/i;
+    const languageMatch = languagePrefix.exec(filename);
+    const language = languageMatch
+      ? languageMatch.slice(1).find(Boolean).toUpperCase() : '';
+    const countries = [];
+    const regionPattern = /\((US|UK|GB|DE|GER|FR|CA|AU|NL|IT|ES)\)/ig;
+    let region;
+    while ((region = regionPattern.exec(filename)) !== null)
+      if (!countries.includes(region[1].toUpperCase()))
+        countries.push(region[1].toUpperCase());
+
+    function cleanTitle(value) {
+      return String(value || '')
+        .replace(/\.(?:mkv|mp4|ts|avi|mov|webm|m4v|php)$/i, '')
+        .replace(languagePrefix, '')
+        .replace(/\((?:19|20)\d{2}\)/g, ' ')
+        .replace(/\((?:US|UK|GB|DE|GER|FR|CA|AU|NL|IT|ES)\)/gi, ' ')
+        .replace(/[_]+/g, ' ')
+        .replace(/\s+/g, ' ').replace(/^[\s._:-]+|[\s._:-]+$/g, '').trim();
+    }
+    const episodeMarker = isEpisode
+      ? /(?:^|[\s._-])(?:S\d{1,2}E\d{1,3}|(?:Staffel|Season)[\s._-]*\d{1,2}[\s._-]+(?:Folge|Episode)[\s._-]*\d{1,3}|(?:Folge|Episode)[\s._-]*\d{1,3})(?=$|[\s._-])/i.exec(filename)
+      : null;
+    const filePart = episodeMarker
+      ? filename.slice(0, episodeMarker.index) : isEpisode ? '' : filename;
+    const fileTitle = cleanTitle(filePart);
+    const parsedEpisodeTitle = episodeMarker
+      ? cleanTitle(filename.slice(episodeMarker.index + episodeMarker[0].length))
+      : '';
+    // Some source labels append their original dotted filename after SxxExx.
+    // That is not an episode title and must not be supplied as matching
+    // evidence to the Metadata Core (e.g. Series.S01E06).
+    const episodeTitleWithoutCoordinates = parsedEpisodeTitle.replace(
+      /(?:^|[\s._-])S\d{1,2}E\d{1,3}(?=$|[\s._-])/gi, ' ');
+    const episodeTitle = normalizedSeriesName(
+      episodeTitleWithoutCoordinates) === normalizedSeriesName(fileTitle)
+      ? '' : parsedEpisodeTitle;
+
+    // A season folder is a coordinate, not a show name. Generic library,
+    // genre/import roots also cannot become an automatic series title.
+    const directories = folder.split('/').filter(Boolean);
+    let folderTitle = '';
+    for (let i = directories.length - 1; i >= 0; --i) {
+      const name = directories[i];
+      if (/^(?:Staffel|Season)[ ._-]*\d{1,2}$/i.test(name)) continue;
+      if (/^(?:Serien|Series|TV|Shows|Filme|Movies|Eingang|Unsortiert|Import|Medien|Downloads|Video)$/i.test(name))
+        break;
+      folderTitle = cleanTitle(name);
+      break;
+    }
+    const titleHints = [];
+    const normalized = new Set();
+    function addHint(title, origin) {
+      const key = normalizedSeriesName(title);
+      if (title.length < 2 || title.length > 160 || !key ||
+          normalized.has(key)) return;
+      normalized.add(key);
+      titleHints.push({title: title, origin: origin});
+    }
+    addHint(fileTitle, 'filename');
+    addHint(folderTitle, 'folder');
+    return {
+      kind: isEpisode ? 'series' : 'movie',
+      fileTitle: fileTitle, folderTitle: folderTitle,
+      titleHints: titleHints, year: year, language: language,
+      countries: countries, season: coordinates.season,
+      episode: coordinates.episode, episodeTitle: episodeTitle
+    };
+  }
+
+  // Compatibility adapters for existing UI call sites. They cannot apply a
+  // different title-cleaning rule than the single/batch metadata path.
   function batchSeriesTitleFromLabel(source) {
-    const label = String(source && source.label || '');
-    const marker = /(?:^|[\s._-])S(0?[1-9]|[1-9][0-9])E(0?[1-9]|[1-9][0-9]{1,2})(?=$|[\s._-])/i.exec(label);
-    if (!marker || marker.index < 3) return '';
-    return label.slice(0, marker.index)
-      .replace(/^(?:(?:DE|EN|GER|ENG)[\s._-]+)+/i, '')
-      .replace(/[\s._-]+$/, '')
-      .replace(/\s*\((?:19|20)\d{2}\)$/, '')
-      .replace(/[_-]+/g, ' ')
-      .replace(/\s+/g, ' ').trim();
+    return sourceMetadataIdentity(source).fileTitle;
   }
 
   function onlineSeriesSearchTitle(source) {
-    const coords = episodeCoordinates(source);
-    if (coords.episode === null) return '';
-    const folders = coords.seriesPath.split('/').filter(Boolean);
-    const raw = folders.length ? folders[folders.length - 1] : '';
-    if (/^(serien|series|tv|shows)$/i.test(raw)) return '';
-    return raw.replace(/[_-]+/g, ' ')
-      .replace(/\s*\((?:19|20)\d{2}\)\s*$/, '')
-      .replace(/\s+/g, ' ').trim();
+    const identity = sourceMetadataIdentity(source);
+    return identity.folderTitle || (identity.titleHints[0] &&
+      identity.titleHints[0].title) || '';
   }
 
   function renderSeasonChoices(view, searching) {
@@ -3411,21 +3640,27 @@
 
   // UX3 step 1: search/filter only the already authenticated, bounded
   // Agent/Core snapshot. No path guesses, filesystem requests or new grants.
-  function filterVisibleSources(view) {
+  function filterVisibleSources(view, preserveSelection) {
     if (!isCurrent(view) || view.batch ||
         (view.attempt && !mayBrowseDuringOperation(view))) return;
-    // A filter or folder change clears the selection and invalidates every
-    // outstanding preview, including a late reply for a reselected source.
-    if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
-    view.previewTimer = null;
-    ++view.previewGeneration;
-    resetOnline(view);
-    view.previewResult = null;
-    view.previewStatus = '';
-    view.previewFailed = false;
-    // A filter change or rescan clears selection; do not leave an inert retry visible.
-    view.previewRetryButton.hidden = true;
-    resetBatchReview(view);
+    // An SSE inventory invalidation is presentation-only. Retain the live
+    // selected preview/metadata when the exact source ID is still present.
+    // Deliberate folder/filter changes and manual rescans still clear it.
+    const retainedId = preserveSelection && view.select.value &&
+      view.allOrdinary.some(function (source) {
+        return source.sourceId === view.select.value;
+      }) ? view.select.value : '';
+    if (!retainedId) {
+      if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
+      view.previewTimer = null;
+      ++view.previewGeneration;
+      resetOnline(view);
+      view.previewResult = null;
+      view.previewStatus = '';
+      view.previewFailed = false;
+      view.previewRetryButton.hidden = true;
+      resetBatchReview(view);
+    }
     const query = String(view.searchInput.value || '').trim().toLowerCase();
     const mode = view.statusFilter.value;
     renderSourceFolders(view, Boolean(query));
@@ -3465,22 +3700,26 @@
       option.value = item.sourceId;
       view.select.appendChild(option);
     });
-    view.select.value = '';
+    view.select.value = retainedId && normal.some(function (item) {
+      return item.sourceId === retainedId;
+    }) ? retainedId : '';
     view.select.disabled = normal.length === 0;
-    view.startButton.disabled = true;
-    view.sourceDetails.textContent = '';
-    view.preview.textContent = normal.length
-      ? 'Folge in der Episodenliste anklicken. Die technische Vorschau startet automatisch.'
-      : 'In diesem Ordner wurden keine passenden Filme gefunden. Anderen Ordner wählen oder Suche zurücksetzen.';
-    renderPreviewCard(view, null, null);
-    view.localReencode.checked = false;
-    view.localReencode.disabled = true;
-    view.decision.value = 'import';
-    view.decision.disabled = true;
-    view.choiceLabel.hidden = true;
-    view.skipButton.hidden = true;
-    view.skipButton.disabled = true;
-    view.startButton.textContent = 'Import starten';
+    if (!view.select.value) {
+      view.startButton.disabled = true;
+      view.sourceDetails.textContent = '';
+      view.preview.textContent = normal.length
+        ? 'Folge in der Episodenliste anklicken. Die technische Vorschau startet automatisch.'
+        : 'In diesem Ordner wurden keine passenden Filme gefunden. Anderen Ordner wählen oder Suche zurücksetzen.';
+      renderPreviewCard(view, null, null);
+      view.localReencode.checked = false;
+      view.localReencode.disabled = true;
+      view.decision.value = 'import';
+      view.decision.disabled = true;
+      view.choiceLabel.hidden = true;
+      view.skipButton.hidden = true;
+      view.skipButton.disabled = true;
+      view.startButton.textContent = 'Import starten';
+    }
     const eligibleCount = normal.filter(function (item) {
       return !item.recordingPresent;
     }).length;
@@ -3736,17 +3975,21 @@
     filterVisibleSources(view);
   }
 
-  function loadSources(view) {
+  function loadSources(view, passive) {
     if (!isCurrent(view) ||
         (view.attempt && !mayBrowseDuringOperation(view)))
       return Promise.resolve(false);
     // A failed refresh must not destroy an already browsable, authenticated
     // inventory. Only commit a fresh scan after the complete response validates.
     const generation = ++view.sourcesGeneration;
-    const keepSelection = view.attempt && view.select.value !== view.attempt.sourceId
-      ? view.select.value : '';
-    view.scanNotice.textContent = 'Quellen werden aktualisiert. Die letzte geladene Liste bleibt sichtbar …';
-    report(view, 'Quellenaktualisierung läuft; vorhandene Liste bleibt benutzbar.');
+    const keepSelection = passive ? view.select.value :
+      view.attempt && view.select.value !== view.attempt.sourceId
+        ? view.select.value : '';
+    if (!passive) {
+      view.scanNotice.textContent =
+        'Quellen werden aktualisiert. Die letzte geladene Liste bleibt sichtbar …';
+      report(view, 'Quellenaktualisierung läuft; vorhandene Liste bleibt benutzbar.');
+    }
     return readSourcePages(view.backendId)
       .then(function (response) {
         if (!isCurrent(view) || generation !== view.sourcesGeneration) return;
@@ -3794,6 +4037,24 @@
             'Import/Löschen wird beim Ausführen vom Backend geprüft.');
           return false;
         }
+        // A heartbeat/resync must not reset a valid active preview when the
+        // authenticated inventory is unchanged. Comparing source metadata
+        // instead of merely counting entries also catches file replacements.
+        if (passive) {
+          const old = view.allOrdinary.concat(view.allMarked);
+          const byId = new Map(old.map(function (item) {
+            return [item.sourceId, item];
+          }));
+          const changed = old.length !== items.length || items.some(function (item) {
+            const previous = byId.get(item.sourceId);
+            return !previous || previous.label !== item.label ||
+              (previous.folder || '') !== (item.folder || '') ||
+              Boolean(previous.recordingPresent ||
+                previous.recordingStatus === 'recording_present') !==
+                (item.recordingStatus === 'recording_present');
+          });
+          if (!changed) return true;
+        }
         // Commit a new validated inventory only now. A partial/failed GET
         // must never blank the source list or throw away an existing selection.
         // A catalog refresh does not invalidate a completed technical check
@@ -3802,6 +4063,15 @@
         const oldSources = new Map(view.allOrdinary.map(function (source) {
           return [source.sourceId, source];
         }));
+        const selectedBefore = oldSources.get(keepSelection);
+        const preserveSelected = Boolean(passive && selectedBefore &&
+          items.some(function (item) {
+            return item.sourceId === keepSelection &&
+              item.label === selectedBefore.label &&
+              (item.folder || '') === selectedBefore.folder &&
+              (item.recordingStatus === 'recording_present') ===
+                selectedBefore.recordingPresent;
+          }));
         const retainedPreviews = new Map();
         items.forEach(function (item) {
           const previous = oldSources.get(item.sourceId);
@@ -3815,17 +4085,28 @@
         });
         view.previewCache = retainedPreviews;
         checkedPreviewsByBackend[view.backendId] = retainedPreviews;
-        if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
-        view.previewTimer = null;
-        ++view.previewGeneration;
-        resetOnline(view);
-        view.previewResult = null;
-        view.previewStatus = '';
-        view.previewFailed = false;
-        view.previewRetryButton.hidden = true;
-        resetBatchReview(view);
-        view.checkedSourceIds.clear();
-        view.sourceDetails.textContent = '';
+        if (!preserveSelected) {
+          if (view.previewTimer !== null) global.clearTimeout(view.previewTimer);
+          view.previewTimer = null;
+          ++view.previewGeneration;
+          resetOnline(view);
+          view.previewResult = null;
+          view.previewStatus = '';
+          view.previewFailed = false;
+          view.previewRetryButton.hidden = true;
+          resetBatchReview(view);
+          view.sourceDetails.textContent = '';
+        }
+        if (!passive) view.checkedSourceIds.clear();
+        else {
+          const present = new Set(items.map(function (item) {
+            return item.sourceId;
+          }));
+          for (const id of view.checkedSourceIds)
+            if (!present.has(id)) view.checkedSourceIds.delete(id);
+          for (const id of view.checkedDuplicateIds)
+            if (!present.has(id)) view.checkedDuplicateIds.delete(id);
+        }
         view.allOrdinary = [];
         view.allMarked = [];
         view.selectionRows.replaceChildren();
@@ -3875,14 +4156,15 @@
         // of a source instead of reusing a potentially expired 422 token.
         // On transient failure, no inventory is committed and the previous
         // selection and its visible details remain untouched.
-        filterVisibleSources(view);
+        filterVisibleSources(view, preserveSelected);
         renderRecentImportResults(view);
         // The recovery collection can arrive before the source inventory:
         // render a verified human-readable title as soon as one is available.
         renderUnresolvedAttempts(view);
         if (keepSelection && view.sources.includes(keepSelection)) {
           view.select.value = keepSelection;
-          refreshSelectedPreview(view);
+          if (!preserveSelected) refreshSelectedPreview(view);
+          else updatePreview(view);
         }
         startBackgroundChecks(view);
         view.searchInput.disabled = false;
@@ -4072,9 +4354,9 @@
         // operation and may change the source inventory immediately.
         if (data.status === 'ready' || data.status === 'insufficient')
           view.previewCache.set(id, data);
+        // A ready cached preview also goes through updatePreview(), which
+        // owns the single automatic read-only movie identity lookup.
         updatePreview(view);
-        if (source && view.onlineKind === 'movie' && !view.onlineAuto)
-          autoIdentifyMovie(view, source, data);
         updateBackgroundDisplay(view);
         scheduleBackgroundCheck(view, 100);
         // The first successful response after a hard page reload can be a
@@ -4163,8 +4445,20 @@
     const episodeStill = view.onlineSelected && view.onlineSelected.kind === 'episode'
       ? selectedPoster : '';
     const poster = localPoster || seriesPoster || selectedPoster;
-    const fanart = plan && validLocalArtwork(plan.fanartDataUri)
+    const localFanart = plan && validLocalArtwork(plan.fanartDataUri)
       ? plan.fanartDataUri : '';
+    // Prefer source-owned artwork. Use an actual TMDb backdrop only when
+    // the confirmed movie/series carries a separate backdrop_path; never
+    // stretch the poster or episode still into the fanart slot.
+    const onlineBackdrop = view.onlineSeries && view.onlineSeries.backdropReference
+      ? onlineImageUrl(view.backendId, Object.assign({}, view.onlineSeries, {
+          posterReference: view.onlineSeries.backdropReference
+        }))
+      : view.onlineSelected && view.onlineSelected.backdropReference
+        ? onlineImageUrl(view.backendId, Object.assign({}, view.onlineSelected, {
+            posterReference: view.onlineSelected.backdropReference
+          })) : '';
+    const fanart = localFanart || onlineBackdrop;
     const showEpisodeStill = Boolean(episodeStill && episodeStill !== poster);
     if (showEpisodeStill) artwork.className += ' has-episode';
     const picture = function (kind, uri, alt) {
@@ -4172,7 +4466,8 @@
       const label = kind === 'poster'
         ? (seriesPoster || selectedPoster) && !localPoster
           ? 'Online-Poster nicht verfügbar' : 'Kein lokales Poster'
-        : kind === 'episode' ? 'Kein Episodenbild' : 'Keine lokale Fanart';
+        : kind === 'episode' ? 'Kein Episodenbild'
+          : onlineBackdrop ? 'TMDb-Fanart nicht verfügbar' : 'Keine lokale oder TMDb-Fanart';
       if (uri) {
         const img = element('img', 'media-import-artwork-image');
         img.src = uri;
@@ -4194,7 +4489,8 @@
     if (showEpisodeStill)
       artwork.appendChild(picture('episode', episodeStill,
         'Episodenbild für ' + title));
-    artwork.appendChild(picture('fanart', fanart, 'Lokale Fanart für ' + title));
+    artwork.appendChild(picture('fanart', fanart,
+      localFanart ? 'Lokale Fanart für ' + title : 'TMDb-Fanart für ' + title));
     card.appendChild(artwork);
     // A technical preview describes the state BEFORE import. Once the user
     // starts this source's operation the operation card owns the status.
@@ -4576,6 +4872,12 @@
       ' ' + details + ' ' + nextStep +
       ' Der Backend-Agent prüft Quelle und Ziel bei Auftragsannahme erneut.';
     renderPreviewCard(view, plan, item);
+    // The preview may be immediately available from the existing Core/SQLite
+    // cache without a new successful Agent poll. Start metadata discovery
+    // from the *visible ready state*, not only from one poll callback.
+    // autoIdentifyMovie sets onlineAuto before its own updatePreview(), so
+    // there is no loop or duplicate request for this source generation.
+    identifyVisibleReadyMovie(view, item, plan);
     view.startButton.textContent = needsEncode
       ? decision === 'desktop' ? 'Für PC markieren'
         : decision === 'import' ? 'Auf VDR umkodieren'
@@ -5294,15 +5596,20 @@
       reads: 0, timer: null, manualCheckQueued: false, lastManualCheck: '',
       operationEventSource: null, operationEventId: '', operationReadQueued: false,
       operationBrowsingEnabled: false,
+      sourceEventSource: null, sourceEventsOpened: false,
+      sourceRefreshBusy: false, sourceRefreshPending: false,
       attempt: activeAttempts[backendId] || null};
     current = view;
+    ensureSourceEvents(view);
     // Mobile browsers can suspend an SSE connection without navigating away.
     // One foreground return performs a single read of the existing operation;
     // no polling timer, mutation request or automatic replay.
     if (typeof global.document.addEventListener === 'function') {
       view.resumeStatusOnVisibility = function () {
-        if (!isCurrent(view) || global.document.visibilityState !== 'visible' ||
-            !view.attempt || !view.attempt.operationId ||
+        if (!isCurrent(view) || global.document.visibilityState !== 'visible')
+          return;
+        if (view.sourceRefreshPending) queueSourceRefresh(view);
+        if (!view.attempt || !view.attempt.operationId ||
             view.submitting || view.reading) return;
         void readOperation(view);
       };
