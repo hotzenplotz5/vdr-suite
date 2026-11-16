@@ -181,7 +181,8 @@ class InstallerTests(unittest.TestCase):
             service="vdr-suite-daemon.service", legacy_live_sha256=old_hash,
             db_review="no-backup", db_review_reason="never skip a required legacy backup",
             database=None)
-        with mock.patch.object(mod, "LIVE_PATH", self.live.resolve()):
+        with (mock.patch.object(mod.os, "geteuid", return_value=0),
+              mock.patch.object(mod, "LIVE_PATH", self.live.resolve())):
             with mock.patch.object(mod, "verified_candidate", return_value=self.live):
                 with mock.patch.object(mod, "service_bin_identity",
                                        side_effect=AssertionError("service must not be accessed")):
@@ -206,7 +207,8 @@ class InstallerTests(unittest.TestCase):
             db_review="backup",
             db_review_reason="The original unversioned build has unknown database provenance",
             database=database)
-        with (mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
+        with (mock.patch.object(mod.os, "geteuid", return_value=0),
+              mock.patch.object(mod, "LIVE_PATH", self.live.resolve()),
               mock.patch.object(mod, "INSTALL_LOCK", Path(self.tmp.name) / "lock"),
               mock.patch.object(mod, "service_bin_identity"),
               mock.patch.object(mod, "run", return_value=""),
