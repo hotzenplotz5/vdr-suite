@@ -301,13 +301,11 @@ root, selected immutable SHA (or explicitly verified tracking policy), real
 commands/targets and necessary non-storage compatibility facts **before**
 mutating anything. On head drift, verify the corrected candidate first.
 Do not hand over a background build that can silently run stale code.
-**Reuse verified evidence across steps and chat continuations:** Preserve
-the already established source/build SHA, artifact seal/hash, test result,
-host observation and its provenance. Do not request or run the *same* check
-again when its relevant inputs have not changed and no contradictory
-observation exists. Recheck genuinely volatile host state before a risky
-action and verify the exact new candidate when inputs differ; never promote
-an inferred source identity or old observation to proven fact.
+**Reuse verified evidence:** Keep source/build SHAs, hashes/seals, tests and
+host observations with their provenance; do not repeat checks for unchanged
+inputs without contradictory evidence. Revalidate volatile live state before
+risky actions and new candidates when inputs change. Inferred source
+provenance remains unverified; never relabel it as proof.
 
 **Detached-process evidence:** A `nohup` command, PID or missing output
 file alone is not proof of a running or successful build. Record exact SHA,
@@ -328,24 +326,20 @@ include a harmless read-only check instead of claiming verification.
 
 ## Non-negotiable scope, simplicity, and verification gates
 
-**Priority – the maintainer's goal stays authoritative:** Identify the
-one authorized outcome, its observable acceptance criterion and the shortest
-remaining path. Keep that outcome in view before every further diagnosis,
-code change or follow-up task. "Continue working" means **finish this bounded
-goal**, not invent adjacent work. No speed, autonomy or non-stop mandate
-overrides this scope.
+**Priority – stay on the maintainer's goal:** Keep the authorized outcome and
+its observable acceptance criterion in view throughout the slice. Every next
+action must advance that goal; "continue" does not authorize adjacent work.
+These scope limits outrank autonomy, speed and the non-stop mandate.
 
 1. **One task, one verifiable outcome.** Before changing product code, identify
    the concrete bug or authorized feature, its observable acceptance criterion
    and the smallest affected surface. Stay inside that boundary. Do not
    interpret "keep going" as permission to extend the project scope.
-2. **Prove the need; diagnose to make a decision.** Reproduce or trace the
-   concrete failure and inspect existing safeguards. Before another diagnostic
-   probe, identify the *specific unresolved question* and which next action
-   would change based on its result. If no decision changes, stop probing
-   and use existing evidence. Hypothetical risks and speculative hardening
-   do not authorize implementation; record unrelated findings without fixing
-   them silently.
+2. **Diagnose to decide.** Trace the concrete failure and inspect existing
+   safeguards. Before another probe identify the open question and which
+   next decision its result changes. If none, reuse evidence and act.
+   Hypothetical risks do not authorize speculative hardening; record
+   unrelated findings without fixing them.
 3. **Reuse existing architecture.** Prefer a small change in the current
    implementation. New database tables, services, persistent state fields,
    protocols, cross-cutting abstractions and broad refactors require BOTH
@@ -361,14 +355,11 @@ overrides this scope.
    and test each candidate when tooling is available. Do not claim that an
    assistant-authored sequencing preference is a user requirement. Docs-only
    edits need proportionate documentation checks.
-5. **Isolate real blockers; no chain reaction of adjacent work.** A warning,
-   list of files to review or missing metadata is not itself proof that every
-   listed component is broken. Establish whether the finding actually
-   prevents the *current acceptance step*. Stop only the affected unsafe
-   action when an essential fact, approval or compatibility check is missing;
-   keep independent authorized work moving. Limit necessary side fixes to
-   their proven cause, then return directly to the original goal. Broader
-   architecture changes still require explicit user authorization.
+5. **No side quests.** A review list or warning is not proof of a defect.
+   Verify whether a finding blocks *the agreed acceptance*. Stop only the
+   affected unsafe action, continue authorized independent work, limit
+   necessary side fixes to proven causes, and return immediately to
+   the original goal. Broader architecture changes need explicit approval.
 6. **Finish and stop at the agreed gate.** Once the bounded acceptance
    criterion and its required checks pass, report the result and stop. Do not
    invent follow-up implementation, additional hardening, refactoring,
@@ -385,12 +376,10 @@ unverified commit batching.
 
 ## Top-level non-stop execution mandate
 
-Once the user has authorized a bounded workstream, continue without an
-artificial handoff while a **necessary, authorized action toward its agreed
-acceptance** can still be completed. Do the next relevant step, not an
-unrelated task discovered during investigation. The non-stop mandate does
-not authorize new scope, repeated diagnostics without decision value, or
-bypassing genuinely required safety and approval boundaries.
+Continue without an artificial handoff while necessary, authorized steps
+toward the agreed acceptance remain. This mandate neither expands scope
+nor justifies redundant diagnostics; existing safety and approval
+boundaries remain fully effective.
 
 Status updates are progress reports, not stopping points. A completed analysis,
 intermediate commit, pushed head, running or queued CI job, available next
@@ -409,15 +398,11 @@ still has a *known* implementation, runtime-wiring, packaging, deployment or
 validation gap preventing the requested real acceptance scenario. Continue
 the authorized stabilization until that scenario can truthfully be tested.
 
-**Actual blockers only, and only for the affected action:** A proven remote
-conflict, unavailable source, unresolved data-loss/runtime compatibility
-risk, irreparable required check or genuinely missing approval may stop the
-unsafe step. Identify the specific fact that blocks the *original goal*,
-not a list of unrelated warnings. Do not confuse a conservative review
-signal with a demonstrated defect; review the relevant evidence before
-deciding. Never override existing authorization, migration or data-protection
-requirements. Complete independent authorized steps and report the actual
-blocker precisely instead of inventing new gates.
+**Actual blockers affect only the unsafe step.** Verify concrete conflicts,
+missing essential source, real compatibility/data-loss risks, failed required
+checks or approval gaps before stopping. A review warning is not a defect
+by itself. Never bypass existing protections; finish independent authorized
+work and state the exact blocker to the original goal, not unrelated findings.
 
 **Verbindlicher sofort nutzbarer Test- oder Diagnoseblock:**
 Bei VDR-Suite-Fixes, Updates, Installationsvorbereitung und Fehlersuche
@@ -437,14 +422,12 @@ als Ersatz für handhabbare Operator-Anweisungen.
    Installation und ersetzt keine tatsächlich erforderliche Freigabe.
 2. **Fehlersuche / noch kein verifizierter Fix:** Statt eines erfundenen
    Installationsrezepts **sofort** `## Diagnoseblock` liefern:
-   kurze, relevante, direkt ausführbare **lesende** Abfragen zu der
-   konkreten offenen Frage, deren Antwort die nächste Entscheidung
-   beeinflusst. Bereits bestätigte Fakten nicht erneut abfragen.
-   Das Ergebnis unmittelbar für den nächsten sicheren Schritt auswerten,
-   statt eine neue allgemeine Diagnosekette anzustoßen. Keine spekulativen
-   Eingriffe, pauschalen Cleanup-/Rechteänderungen oder ungeprüften
-   Installationsfreigaben. Notwendige fehlende Hostdaten mit der kleinsten
-   gefahrlosen Ermittlung im selben Block abfragen.
+   kurze, direkt ausführbare **lesende** Abfragen für die eine Frage,
+   deren Antwort die nächste Entscheidung ändert. Bekannte Fakten
+   wiederverwenden; Ergebnisse unmittelbar auswerten und danach sicher
+   weiterarbeiten statt neue allgemeine Diagnosen anzustoßen. Fehlende
+   Hostdaten mit der kleinsten gefahrlosen Abfrage im selben Block ermitteln;
+   keine spekulativen Reparaturen oder ungeprüften Installationsfreigaben.
 3. **Reine Doku-/Regeländerung:** `## Testblock` für den kleinsten
    tatsächlich sinnvollen **lesenden** Commit-/Datei-/Diff-Nachweis.
    Keine Installations- oder Kompilierungsbefehle ohne Produktänderung.
@@ -945,15 +928,12 @@ Branch protection always takes precedence over a request for a direct
 
 ## Reporting
 
-**Short, action-oriented status by default:** Tell the maintainer
-(1) **Erledigt** – the actual change and evidence, including commit/SHA;
-(2) **Offen zum Ziel** – only the remaining necessary acceptance step or
-verified blocker; (3) **Nächste Handlung** – the concrete step being taken
-or the directly usable final Test-/Diagnoseblock. Avoid repeating earlier
-logs, histories, unchanged checks and long checklists. A status report is
-not a pause or a substitute for performing the next authorized step.
-When CI is intentionally batched, only the exact final head matters for
-its required gate.
+**Brief, actionable status by default:** (1) **Erledigt** (change,
+evidence, commit/SHA); (2) **Offen zum Ziel** (remaining acceptance or
+real blocker); (3) **Nächste Handlung** (execute the next step or give the
+required Test-/Diagnoseblock). Do not repeat old logs, unchanged checks
+or histories; a status report is not a pause. Batch CI to the required
+final head.
 
 Whenever a GitHub Actions run exists for the relevant head, every CI status
 report must include a directly clickable link to that exact run. Also state the
