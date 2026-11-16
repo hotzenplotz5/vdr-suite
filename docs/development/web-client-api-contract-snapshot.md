@@ -157,7 +157,8 @@ SearchTimer:
 - `fetchClientSearchTimerExecute`
 - `fetchClientSearchTimerRealTest`
 - `fetchClientSearchTimerCreateAction`
-- `fetchClientSearchTimerCreateStaged` — Browser administrator, CSRF + Idempotency-Key, Public-v1 inactive-only SearchTimer CREATE (no legacy mutation fallback)
+- `fetchClientSearchTimerCreateStaged` — Browser administrator, CSRF + Idempotency-Key, Public-v1 SearchTimer CREATE (active or inactive, explicitly confirmed; no legacy mutation fallback)
+- `fetchClientSearchTimerOperation` — actor-bound, read-only Public-v1 Operation GET to inspect the admitted CREATE result; no blind retry
 - `fetchClientSearchTimerUpdateAction`
 - `fetchClientSearchTimerDeleteAction`
 
