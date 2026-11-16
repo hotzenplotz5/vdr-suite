@@ -1108,11 +1108,13 @@
     checkOperationButton.addEventListener('click', checkOperation);
 
     function subscribeOperation() {
-      if (!operationId || typeof global.EventSource !== 'function') return;
-      // Reuse the existing Public-v1 operation SSE resource. No polling loop.
-      operationEvents = new global.EventSource(
-        '/api/v1/operations/' + encodeURIComponent(operationId) + '/events',
-        {withCredentials: true});
+      const api = clientApi();
+      if (!operationId || !api ||
+          typeof api.createClientOperationUpdateSource !== 'function') return;
+      // The Client API owns the authenticated Public-v1 Operation SSE.
+      // The editor observes its change hints, never polls or dispatches again.
+      operationEvents = api.createClientOperationUpdateSource(operationId);
+      if (!operationEvents) return;
       // Operation SSE carries a scoped change hint (operationId), NOT a
       // trusted state object. Read the existing actor-owned Public-v1 GET.
       const handle = event => {

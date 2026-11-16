@@ -508,7 +508,6 @@ async function checkEditorFullWrites() {
   let rejectCreate = false;
   let keyCounter = 0;
   const browser = {
-    EventSource: FakeEventSource,
     setTimeout() {},
     confirm() { return true; },
     crypto: {
@@ -520,6 +519,12 @@ async function checkEditorFullWrites() {
     }
   };
   const client = {
+    createClientOperationUpdateSource(operationId) {
+      assert(/^op_[0-9a-f]{32}$/.test(operationId));
+      return new FakeEventSource(
+        '/api/v1/operations/' + encodeURIComponent(operationId) + '/events',
+        {withCredentials: true});
+    },
     fetchClientSearchTimerCreateStaged(options) {
       writes.push(options);
       if (rejectCreate === 'validation') {
@@ -628,6 +633,8 @@ async function checkEditorFullWrites() {
   const stream = eventStreams[0];
   assert.strictEqual(stream.url,
     '/api/v1/operations/op_00000000000000000000000000000002/events');
+  assert.strictEqual(stream.options.withCredentials, true,
+    'Client API SSE must preserve Browser session credentials');
   stream.emit('operation', {operationId: 'op_00000000000000000000000000000001'});
   assert.strictEqual(operationReads.length, 0,
     'unrelated operation hints must not read this operation');
