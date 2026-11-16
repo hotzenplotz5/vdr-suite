@@ -1,6 +1,12 @@
 name: Published PPA Resolute 26.04 readiness and runtime acceptance
 
 on:
+  # Run once when this acceptance workflow is updated on main. GitHub
+  # runners only: never the maintainer's manually managed yaVDR host.
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ppa-resolute-install-smoke.yml"
   workflow_dispatch:
     inputs:
       verify_media_tools:
@@ -192,12 +198,12 @@ jobs:
       # Explicitly selected only after the fourth package is published.
       # Keep the existing three-package smoke and readiness check unaffected.
       - name: Check out Media Tools package verification helper
-        if: ${{ inputs.verify_media_tools && steps.availability.outputs.ready == 'true' }}
+        if: ${{ (github.event_name == 'push' || inputs.verify_media_tools) && steps.availability.outputs.ready == 'true' }}
         uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Verify actual fourth Media Tools package from published Resolute PPA
-        if: ${{ inputs.verify_media_tools && steps.availability.outputs.ready == 'true' }}
+        if: ${{ (github.event_name == 'push' || inputs.verify_media_tools) && steps.availability.outputs.ready == 'true' }}
         shell: bash
         run: |
           bash tools/addons/check_published_media_tools_ppa.sh resolute
