@@ -71,7 +71,15 @@ def verify_source(root: Path, expected: str) -> None:
     require(root.is_dir() and not root.is_symlink(), "SOURCE_DIRECTORY_UNSAFE")
     require(run("git", "rev-parse", "--show-toplevel", cwd=root) == str(root.resolve()),
             "SOURCE_NOT_GIT_ROOT")
-    require(run("git", "rev-parse", "HEAD", cwd=root) == expected, "SOURCE_SHA_MISMATCH")
+    head = run("git", "rev-parse", "HEAD", cwd=root)
+    if head != expected:
+        # A sealed daemon may be installed after an installer-only fix.
+        # Never reuse a candidate when product/build inputs changed.
+        run("git", "merge-base", "--is-ancestor", expected, head, cwd=root)
+        changed = run("git", "diff", "--name-only", expected, head, cwd=root)
+        require(set(changed.splitlines()) <= {
+            "tools/install_daemon.py", "tools/test_install_daemon.py"},
+            "SOURCE_CANDIDATE_CODE_CHANGED")
     require(not run("git", "status", "--porcelain", "--untracked-files=no", cwd=root),
             "SOURCE_TRACKED_DIRTY")
     installer = root / "tools" / "install_daemon.py"
