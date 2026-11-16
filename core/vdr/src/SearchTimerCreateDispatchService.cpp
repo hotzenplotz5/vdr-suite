@@ -71,7 +71,8 @@ bool matchesRequested(
         timer.state() == (request.active
             ? SearchTimerState::Active : SearchTimerState::Inactive) &&
         (timer.matchOptions().mode() == request.matchMode) &&
-        (timer.matchOptions().tolerance() == request.matchTolerance) &&
+        (request.matchMode != 5 ||
+            timer.matchOptions().tolerance() == request.matchTolerance) &&
         (timer.matchOptions().matchCase() == request.matchCase) &&
         (timer.matchOptions().summaryMatch() == request.summaryMatch) &&
         (timer.comparisonOptions().compareTitle() == request.compareTitle) &&
