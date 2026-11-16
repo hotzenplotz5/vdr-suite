@@ -116,8 +116,7 @@ searchtimer_contracts = (
     ("fetchClientSearchTimerPlan","fetchClientSearchTimerValidate","/api/vdr/searchtimers/plan","/api/searchtimers/plan"),
     ("fetchClientSearchTimerValidate","fetchClientSearchTimerExecute","/api/vdr/searchtimers/validate","/api/searchtimers/validate"),
     ("fetchClientSearchTimerExecute","fetchClientSearchTimerRealTest","/api/vdr/searchtimers/execute","/api/searchtimers/execute"),
-    ("fetchClientSearchTimerRealTest","fetchClientSearchTimerCreateAction","/api/vdr/searchtimers/real-test","/api/searchtimers/real-test"),
-    ("fetchClientSearchTimerCreateAction","fetchClientSearchTimerUpdateAction","/api/vdr/searchtimers","/api/searchtimers"),
+    ("fetchClientSearchTimerRealTest","fetchClientSearchTimerCreateStaged","/api/vdr/searchtimers/real-test","/api/searchtimers/real-test"),
     ("fetchClientSearchTimerUpdateAction","fetchClientSearchTimerDeleteAction","/api/vdr/searchtimers/update","/api/searchtimers/update"),
 )
 for function_name, next_name, primary_route, alternate_route in searchtimer_contracts:
@@ -125,6 +124,26 @@ for function_name, next_name, primary_route, alternate_route in searchtimer_cont
     require("requestJson(" in body and primary_route in body, f"{function_name} primary SearchTimer route drifted")
     require("requestJsonWithFallback" not in body, f"{function_name} must not restore SearchTimer fallback probing")
     require(alternate_route not in body, f"{function_name} must not probe the alternate SearchTimer alias")
+
+# Public-v1 SearchTimer CREATE is an intentional newer contract. Legacy
+# same-handler aliases remain only for the separate pre-v1 read/update/delete.
+staged_create = function_body(client_api,
+    "fetchClientSearchTimerCreateStaged", "fetchClientSearchTimerCreateAction")
+require(
+    "requestJson(" in staged_create
+    and "'/api/v1/search-timers'" in staged_create
+    and "queryMutationOptions(jsonPostOptions(" in staged_create
+    and "'Idempotency-Key'" in staged_create,
+    "new SearchTimer CREATE must preserve Public-v1 admission and idempotency",
+)
+create_action = function_body(client_api,
+    "fetchClientSearchTimerCreateAction", "fetchClientSearchTimerOperation")
+require(
+    "return fetchClientSearchTimerCreateStaged(options)" in create_action
+    and "requestJson(" not in create_action
+    and "requestJsonWithFallback" not in create_action,
+    "Browser CREATE must delegate to one Public-v1 route",
+)
 
 delete_start = client_api.find("function fetchClientSearchTimerDeleteAction(options)")
 delete_end = client_api.find("window.VdrSuiteClientApi", delete_start)
