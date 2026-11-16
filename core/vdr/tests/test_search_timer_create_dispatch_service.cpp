@@ -188,7 +188,8 @@ struct Rig
     Executor executor;
     Source source;
     std::string id;
-    explicit Rig(bool historicalActive = false)
+    explicit Rig(bool historicalActive = false,
+        int matchMode = 1, int matchTolerance = 0)
         : storage(database), admission(storage), dispatch(storage, generation)
     {
         assert(database.open(":memory:"));
@@ -197,6 +198,8 @@ struct Rig
         // Exercise the same durable create path for active and inactive rules.
         auto admissionRequest = input();
         admissionRequest.payload.active = historicalActive;
+        admissionRequest.payload.matchMode = matchMode;
+        admissionRequest.payload.matchTolerance = matchTolerance;
         const auto made = admission.admit(admissionRequest);
         assert(made.status == SearchTimerCreateAdmissionStatus::prepared);
         id = made.operation.operationId;
@@ -389,6 +392,29 @@ void assertActiveCreateUsesSameOneShotPath()
     assert(active.executor.creates == 1);
 }
 
+void assertNonFuzzyToleranceNormalization()
+{
+    // Real epgsearch may persist tolerance=1 for mode=0 (phrase),
+    // even when the browser submitted 0. The unused fuzzy field must
+    // not turn one uniquely verified native CREATE into outcome_unknown.
+    Rig phrase(false, 0, 0);
+    phrase.source.finalItems.front().matchOptions().setTolerance(1);
+    const auto result = phrase.dispatch.dispatchOnce(
+        phrase.request(), phrase.executor, phrase.source);
+    assert(result.status == SearchTimerCreateDispatchStatus::verified);
+    assert(result.operation.state == MutationOperationState::succeeded);
+    assert(phrase.executor.creates == 1);
+
+    // In fuzzy mode the same change is material and must fail closed.
+    Rig fuzzy(false, 5, 0);
+    fuzzy.source.finalItems.front().matchOptions().setTolerance(1);
+    const auto mismatch = fuzzy.dispatch.dispatchOnce(
+        fuzzy.request(), fuzzy.executor, fuzzy.source);
+    assert(mismatch.status == SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(mismatch.operation.state == MutationOperationState::outcomeUnknown);
+    assert(fuzzy.executor.creates == 1);
+}
+
 void assertAmbiguousOutcomeNeverRetries()
 {
     Rig r;
@@ -538,6 +564,7 @@ int main()
     assertBackendRestartCannotDispatch();
     assertLeaseExpiryCannotBeMaskedByRequestTimestamp();
     assertActiveCreateUsesSameOneShotPath();
+    assertNonFuzzyToleranceNormalization();
     assertAmbiguousOutcomeNeverRetries();
     assertReadbackAndPreexistingIdentity();
     std::cout << "SearchTimer CREATE one-shot dispatch: PASS (mock only)\n";
