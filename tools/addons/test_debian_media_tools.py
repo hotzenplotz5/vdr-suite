@@ -93,6 +93,18 @@ class DebianMediaToolsTests(unittest.TestCase):
                                       self.preinst)
         self.assertEqual(existing.read_bytes(), b"operator owned")
 
+    def test_source_commit_from_git_archive_needs_no_git_in_sbuild(self):
+        # Reconstruct an extracted source package, with no .git or git in PATH.
+        # The package helper must read the true Git-exported marker.
+        from debian_media_tools import source_commit
+        with tempfile.TemporaryDirectory(prefix="mt-i43-sbuild-export-") as name:
+            source = Path(name)
+            (source / ".vdr-suite-source-commit").write_text("a" * 40 + "\n")
+            with patch("debian_media_tools.ROOT", source), patch(
+                    "debian_media_tools.subprocess.check_output",
+                    side_effect=FileNotFoundError("git unavailable")):
+                self.assertEqual(source_commit(), "a" * 40)
+
     def test_source_commit_export_substitution(self):
         # Existing sourcepackager uses git archive, so verify the archive
         # contains the true commit, not the literal $Format placeholder.

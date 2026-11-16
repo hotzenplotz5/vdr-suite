@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Build an isolated source package, optionally signing an Ubuntu preview.
+"""Build isolated source packages, including explicitly selected signed PPA sources.
 
 Never installs packages, uploads to Launchpad, or touches running services.
+The release mode uses git archive export-subst for exact Git source provenance;
+a Launchpad source recipe's unexpanded marker cannot provide that identity.
 Signing requires an explicit fingerprint and a local matching secret key.
 """
 import argparse
@@ -19,7 +21,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWED_ROOT = Path("/home/yavdr/vdr-suite-packaging-test")
 BASE = Path("/home/yavdr")
-BRANCH = "work/packaging-debian-ubuntu-install"
+BRANCH = "main"
 BUDGET = 2 * 1024**3
 UBUNTU_TEST_SERIES = {"noble": "24.04", "resolute": "26.04"}
 SIGNING_IDENTITY = "Holger Schvestka <hotzenplotz5@gmx.de>"
@@ -119,26 +121,42 @@ def verify_signature(filename, fingerprint):
         stop("source metadata signature missing or does not match: " + str(filename))
 
 
-def prepare_ubuntu_preview(original, version, epoch, series, changed_by=None):
-    """Return distro-specific changelog only; never mutate the original checkout."""
+def prepare_ubuntu_preview(original, version, epoch, series, changed_by=None,
+                           ppa_revision=None):
+    """Return distro-specific changelog only; never mutate the original checkout.
+
+    ppa_revision is only for an explicit signed experimental source candidate.
+    The operator must separately verify the new version against the live PPA.
+    """
     if series not in UBUNTU_TEST_SERIES:
         stop("unsupported Ubuntu target series")
     header = original.splitlines()[0]
     match = re.fullmatch(r"vdr-suite \(([^)]+)\) unstable; urgency=(\w+)", header)
     if not match or not match.group(1).startswith(version + "-"):
         stop("unrecognized Debian changelog version/distribution")
-    revision = match.group(1) + "~ubuntu" + UBUNTU_TEST_SERIES[series] + ".1"
+    if ppa_revision is None:
+        revision = match.group(1) + "~ubuntu" + UBUNTU_TEST_SERIES[series] + ".1"
+        details = "  * OFFLINE preview: target Ubuntu " + series + "; not approved for PPA."
+    else:
+        if not isinstance(ppa_revision, int) or not 3 <= ppa_revision <= 999:
+            stop("experimental PPA revision must be an integer from 3 to 999")
+        timestamp = datetime.fromtimestamp(int(epoch), tz=timezone.utc).strftime(
+            "%Y%m%d%H%M")
+        revision = (match.group(1) + "~ppa" + str(ppa_revision) + "+" +
+                    timestamp + "~ubuntu" + UBUNTU_TEST_SERIES[series] + ".1")
+        details = ("  * Experimental PPA source build from Git archive with "
+                   "exact commit provenance; no production migration.")
     date = format_datetime(datetime.fromtimestamp(int(epoch), tz=timezone.utc))
     identity = changed_by or "VDR-Suite contributors <noreply@github.com>"
     entry = ("vdr-suite (" + revision + ") " + series + "; urgency=low\n\n"
-             "  * OFFLINE preview: target Ubuntu " + series
-             + "; not approved for PPA.\n\n"
+             + details + "\n\n"
              " -- " + identity + "  " + date
              + "\n\n")
     return entry + original, revision
 
 
-def build_source(expected, version, epoch, reserve, series=None, signing_fingerprint=None):
+def build_source(expected, version, epoch, reserve, series=None,
+                 signing_fingerprint=None, ppa_revision=None):
     area = Path(tempfile.mkdtemp(prefix="vdr-suite-sourcepkg-", dir=BASE))
     print("SOURCE_BUILD_AREA=" + str(area), flush=True)
     project = "vdr-suite-" + version
@@ -150,6 +168,13 @@ def build_source(expected, version, epoch, reserve, series=None, signing_fingerp
         command(["tar", "-xf", str(archive), "-C", str(source)])
         if not (source / "debian/rules").is_file():
             stop("source snapshot is missing debian/rules")
+        # Git archive expands the tracked export-subst marker before a .dsc
+        # is created. Launchpad's git-build-recipe source export may leave a
+        # literal $Format:%H$, and an sbuild chroot has no Git checkout.
+        # Keep the existing exact-Git-commit MT.I1 inventory contract.
+        if (source / ".vdr-suite-source-commit").read_text(
+                encoding="ascii").strip() != expected:
+            stop("Git source commit marker was not exported into source archive")
         upstream = area / ("vdr-suite_" + version + ".orig.tar.xz")
         command(["tar", "--sort=name", "--mtime=@" + epoch,
                  "--owner=0", "--group=0", "--numeric-owner",
@@ -164,9 +189,14 @@ def build_source(expected, version, epoch, reserve, series=None, signing_fingerp
             change = source / "debian/changelog"
             prepared, revision = prepare_ubuntu_preview(
                 change.read_text(encoding="utf-8"), version, epoch, series,
-                SIGNING_IDENTITY if signing_fingerprint else None)
+                SIGNING_IDENTITY if signing_fingerprint else None,
+                ppa_revision=ppa_revision)
             change.write_text(prepared, encoding="utf-8")
-            print("UBUNTU_SOURCE_PREVIEW=" + series + " " + revision, flush=True)
+            if ppa_revision is None:
+                print("UBUNTU_SOURCE_PREVIEW=" + series + " " + revision, flush=True)
+            else:
+                print("EXPERIMENTAL_PPA_SOURCE_CANDIDATE=" +
+                      series + " " + revision, flush=True)
         log = area / "source-build.log"
         env = os.environ.copy()
         env["SOURCE_DATE_EPOCH"] = epoch
@@ -194,6 +224,9 @@ def build_source(expected, version, epoch, reserve, series=None, signing_fingerp
         command(["dpkg-source", "-x", str(dsc[0]), str(extracted)])
         if (extracted / "VERSION").read_bytes() != (ROOT / "VERSION").read_bytes():
             stop("source roundtrip changed project version")
+        if (extracted / ".vdr-suite-source-commit").read_text(
+                encoding="ascii").strip() != expected:
+            stop("source roundtrip lost exact exported Git source commit")
         extracted_distro = output(["dpkg-parsechangelog", "-l",
                                    "debian/changelog", "-S", "Distribution"], cwd=extracted)
         if extracted_distro != (series or "unstable"):
@@ -205,11 +238,16 @@ def build_source(expected, version, epoch, reserve, series=None, signing_fingerp
         print("RESOURCE_POSTCHECK=PASS", flush=True)
         print("SOURCE_CHANGESET=" + str(changes[0]), flush=True)
         print("SOURCE_ONLY_PACKAGE=PASS", flush=True)
-        print("PPA_UPLOAD_READY=NO", flush=True)
-        if signing_fingerprint:
-            print("UPLOAD=NOT_PERFORMED (signed preview, no release authorization)", flush=True)
+        if ppa_revision is not None:
+            print("PPA_SOURCE_CANDIDATE=SIGNED_NOT_PUBLISHED", flush=True)
+            print("PPA_UPLOAD_READY=MANUAL_RELEASE_REVIEW_REQUIRED", flush=True)
+            print("UPLOAD=NOT_PERFORMED (verify existing archive version; dput separately)", flush=True)
         else:
-            print("UPLOAD=NOT_PERFORMED (unsigned, offline preview; PPA release gates remain)", flush=True)
+            print("PPA_UPLOAD_READY=NO", flush=True)
+            if signing_fingerprint:
+                print("UPLOAD=NOT_PERFORMED (signed preview, no release authorization)", flush=True)
+            else:
+                print("UPLOAD=NOT_PERFORMED (unsigned, offline preview; PPA release gates remain)", flush=True)
     except Exception:
         print("SOURCE_BUILD_FAILED_AREA=" + str(area), file=sys.stderr, flush=True)
         raise
@@ -222,19 +260,28 @@ def main(argv=None):
     parser.add_argument("--ubuntu-preview", choices=sorted(UBUNTU_TEST_SERIES),
                         help="set target distro only inside the isolated source archive")
     parser.add_argument("--sign-with", metavar="40_HEX_FINGERPRINT",
-                        help="explicitly sign an isolated Ubuntu source preview; NEVER upload")
+                        help="explicitly sign isolated Ubuntu source metadata; NEVER upload")
+    parser.add_argument("--experimental-ppa-revision", type=int, metavar="N",
+                        help="explicit signed PPA source candidate (N>=3); no upload")
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[0-9a-f]{40}", args.expected_sha):
         parser.error("expected SHA must contain exactly 40 lowercase hex characters")
     if args.sign_with and not args.ubuntu_preview:
         parser.error("--sign-with requires --ubuntu-preview noble|resolute")
+    if args.experimental_ppa_revision is not None and (
+            not args.ubuntu_preview or not args.sign_with):
+        parser.error("--experimental-ppa-revision requires --ubuntu-preview and --sign-with")
+    if args.experimental_ppa_revision is not None and not (
+            3 <= args.experimental_ppa_revision <= 999):
+        parser.error("--experimental-ppa-revision requires 3..999")
     try:
         version, epoch, reserve = preflight(args.expected_sha)
         if args.sign_with:
             signing_preflight(args.sign_with)
         if not args.preflight_only:
             build_source(args.expected_sha, version, epoch, reserve,
-                         args.ubuntu_preview, args.sign_with)
+                         args.ubuntu_preview, args.sign_with,
+                         args.experimental_ppa_revision)
     except (OSError, RuntimeError, subprocess.CalledProcessError) as exc:
         print("SOURCE_PACKAGE_STOP=" + str(exc), file=sys.stderr)
         return 1
