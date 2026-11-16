@@ -132,6 +132,54 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(risk, "REVIEW_REQUIRED")
         self.assertEqual(paths, ["core/sqlite/src/Database.cpp"])
 
+    def test_unversioned_legacy_requires_exact_hash_and_reports_backup(self):
+        import hashlib
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// changed\\n")
+        self.live.write_bytes(b"unversioned old daemon fixture")
+        old_hash = hashlib.sha256(self.live.read_bytes()).hexdigest()
+        args = ["check", "--source", str(self.root), "--sha", new,
+                "--live", str(self.live), "--legacy-live-sha256", old_hash]
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(mod.main(args), 0)
+        self.assertIn("INSTALLED_SOURCE_SHA=legacy-unversioned", output.getvalue())
+        self.assertIn("DB_BACKUP_DECISION=REVIEW_REQUIRED", output.getvalue())
+        self.assertIn("DATABASE_BACKUP_REQUIRED=YES", output.getvalue())
+        self.assertFalse((self.root / ".build").exists())
+
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(mod.main(args[:-1] + ["0" * 64]), 1)
+        self.assertIn("LEGACY_LIVE_HASH_MISMATCH", stderr.getvalue())
+
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(mod.main(args[:-2]), 1)
+        self.assertIn("INSTALLED_SOURCE_ID_UNKNOWN", stderr.getvalue())
+
+        self.live.write_bytes(b"versioned git-" + self.old[:12].encode())
+        versioned_hash = hashlib.sha256(self.live.read_bytes()).hexdigest()
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            self.assertEqual(mod.main(args[:-1] + [versioned_hash]), 1)
+        self.assertIn("LEGACY_FLAG_REFUSES_VERSIONED_BINARY", stderr.getvalue())
+
+    def test_unversioned_legacy_apply_refuses_no_backup_before_service_actions(self):
+        import hashlib
+        new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// changed\\n")
+        self.live.write_bytes(b"unversioned old daemon fixture")
+        old_hash = hashlib.sha256(self.live.read_bytes()).hexdigest()
+        args = argparse.Namespace(confirm_apply=True, live=self.live,
+            service="vdr-suite-daemon.service", legacy_live_sha256=old_hash,
+            db_review="no-backup", db_review_reason="never skip a required legacy backup",
+            database=None)
+        with mock.patch.object(mod, "LIVE_PATH", self.live.resolve()):
+            with mock.patch.object(mod, "verified_candidate", return_value=self.live):
+                with mock.patch.object(mod, "service_bin_identity",
+                                       side_effect=AssertionError("service must not be accessed")):
+                    with self.assertRaisesRegex(mod.Rejected, "LEGACY_DATABASE_BACKUP_REQUIRED"):
+                        mod.apply(self.root, new, args, mod.LEGACY_SOURCE, "REVIEW_REQUIRED")
+
     def test_unknown_binary_provenance_fails_closed_without_backup(self):
         new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// no schema\n")
         self.live.write_bytes(b"no embedded git version")
