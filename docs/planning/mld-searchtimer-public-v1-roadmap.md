@@ -1,6 +1,6 @@
 # ST.V1 – Einheitlicher epgsearch-Suchtimer-CREATE über Public API v1
 
-Arbeitsbranch: `MLD-Suchtimer` (kein Merge nach `main`). Start-HEAD: `037e0545a89e5c86670563b6ce046f24947704e1`.
+Arbeitsbranch seit PR #558: `main`. Merge-Commit: `ccbd27de197e6e515d8cd7e322b6a9084f92350c` (16.11.2026). Historischer Start-HEAD auf `MLD-Suchtimer`: `037e0545a89e5c86670563b6ce046f24947704e1`.
 Diese Roadmap ist ein Arbeitsplan, keine Behauptung bestandener Tests oder einer erfolgten Installation.
 
 ## Ziel und verbindliche Architektur
@@ -315,3 +315,15 @@ installierten oder am TV ausgeführten Versionen.
 die produktive Runtime-Integration und MLD-/yaVDR-/TV-Hardwareabnahmen.
 Kein Merge nach `main`, kein CI-Warten, keine neue Branch-/Worktree-
 Anlage, keine DB-Sicherung und kein Deployment durch diesen Dokumentationsschritt.
+
+---
+
+## ST.V1 – Post-Merge-Nachweis auf `main` (16.11.2026)
+
+- **GitHub:** PR [#558](https://github.com/hotzenplotz5/vdr-suite/pull/558) ist `MERGED/CLOSED`; Merge-Commit und bestätigter `main`-HEAD vor dieser Dokumentationsaktualisierung: `ccbd27de197e6e515d8cd7e322b6a9084f92350c`.
+- **CI auf diesem Merge-Commit:** [VDR-Suite CI Run 43928972818](https://github.com/hotzenplotz5/vdr-suite/actions/runs/43928972818) mit `frontend-regression-test`, `packaging-regression-test`, `fast-regression-test`, `docs-check`, `architecture-check` und `make-test-audit`: alle `success`. Fünf weitere auf dem Merge-Commit gestartete Workflows wurden ebenfalls als `success` gemeldet.
+- **ST.V1.6:** GitHub-Regressionen auf dem Merge-Commit sind nachgewiesen. Der genaue Umfang produktspezifischer Integrationsprüfungen ist anhand der Job-Schritte abzugrenzen; CI ist kein Beweis für ein laufendes Backend auf echtem VDR.
+- **ST.V1.7 weiterhin offen:** Verifizierte Installation und Produkt-HTTP-/RESTfulAPI-/epgsearch-Readbacks auf yaVDR und MLD 6.6 einschließlich ausdrücklich autorisierter aktiver/inaktiver CREATE-Tests, persistenter Operation und SSE.
+- **ST.V1.8 nicht abgeschlossen:** Abschließende Feldmatrix, Hardware-/Paketnachweise und Definition of Done erst nach tatsächlich bestandener Real-VDR-Abnahme aktualisieren.
+
+Ältere Abschnitte dieser Roadmap dokumentieren den jeweiligen historischen Stand auf `MLD-Suchtimer` und sind **nicht** als aktueller Branch- oder CI-Status zu lesen. Keine neue Public API oder Feature-Branch erforderlich.
