@@ -24,6 +24,8 @@ import tempfile
 import time
 
 SHA40 = re.compile(r"[0-9a-f]{40}\Z")
+SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+LEGACY_SOURCE = "legacy-unversioned"
 VERSION = re.compile(rb"git-([0-9a-f]{12})(?![0-9a-f])")
 SCHEMA = re.compile(
     r"\b(?:ensureSchema|schemaVersion|schema_version|migrat\w*|"
@@ -267,7 +269,15 @@ def apply(root: Path, sha: str, args: argparse.Namespace,
     else:
         require(args.db_review is None, "DB_BACKUP_NOT_NEEDED_REVIEW_FLAG_REFUSED")
     service_bin_identity(args.service, args.live)
-    require(embedded_source(args.live, root) == prior, "LIVE_SOURCE_CHANGED")
+    if prior == LEGACY_SOURCE:
+        require(args.legacy_live_sha256 and
+                digest(args.live) == args.legacy_live_sha256 and
+                not VERSION.findall(args.live.read_bytes()),
+                "LEGACY_LIVE_IDENTITY_CHANGED")
+        require(args.db_review == "backup" and args.database is not None,
+                "LEGACY_DATABASE_BACKUP_REQUIRED")
+    else:
+        require(embedded_source(args.live, root) == prior, "LIVE_SOURCE_CHANGED")
     require(digest(args.live) != digest(built), "CANDIDATE_ALREADY_INSTALLED")
     directory, _, _ = candidate(root, sha)
     backup_binary = directory / "previous-daemon"
@@ -359,19 +369,31 @@ def rollback(root: Path, sha: str, args: argparse.Namespace,
             and receipt.is_file() and not receipt.is_symlink(),
             "ROLLBACK_BACKUP_NOT_VERIFIED")
     record = json.loads(receipt.read_text())
+    old_source = record.get("previous_source")
+    if old_source == LEGACY_SOURCE:
+        require(not VERSION.findall(old.read_bytes()),
+                "ROLLBACK_LEGACY_BINARY_MISMATCH")
+        require(record.get("db_risk") == "REVIEW_REQUIRED" and
+                record.get("db_review") == "backup",
+                "ROLLBACK_LEGACY_RECEIPT_INVALID")
+    else:
+        require(old_source == embedded_source(old, root),
+                "ROLLBACK_SOURCE_MISMATCH")
     require(record == {"schema": 1,
-                       "previous_source": embedded_source(old, root),
+                       "previous_source": old_source,
                        "target_source": sha,
                        "previous_sha256": digest(old),
                        "candidate_sha256": digest(built),
                        "db_risk": record.get("db_risk"),
                        "db_review": record.get("db_review")},
             "ROLLBACK_RECEIPT_MISMATCH")
-    original_risk, original_paths = database_risk(
-        root, record["previous_source"], sha)
+    if old_source == LEGACY_SOURCE:
+        original_risk, original_paths = "REVIEW_REQUIRED", []
+    else:
+        original_risk, original_paths = database_risk(root, old_source, sha)
     require(record["db_risk"] == original_risk, "ROLLBACK_DB_RISK_MISMATCH")
     if original_risk == "REVIEW_REQUIRED":
-        require(record["db_review"] == "no-backup" and
+        require(record["db_review"] in (("backup",) if old_source == LEGACY_SOURCE else ("no-backup",)) and
                 args.db_review == "no-backup" and
                 args.db_review_reason and
                 len(args.db_review_reason.strip()) >= 20,
@@ -424,6 +446,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--confirm-apply", action="store_true")
     parser.add_argument("--confirm-rollback", action="store_true")
     parser.add_argument("--db-review", choices=("backup", "no-backup"))
+    parser.add_argument("--legacy-live-sha256",
+                        help="SHA-256 pin for unversioned previous daemon; requires explicit database backup")
     parser.add_argument("--db-review-reason")
     parser.add_argument("--database", type=Path)
     args = parser.parse_args(argv)
@@ -442,12 +466,26 @@ def main(argv: list[str] | None = None) -> int:
             build(root, args.sha)
             return 0
         require(args.live.is_file(), "LIVE_BINARY_MISSING")
-        current = embedded_source(args.live, root)
-        risk, flagged = database_risk(root, current, args.sha)
+        if args.legacy_live_sha256 is not None:
+            require(args.action != "rollback", "LEGACY_FLAG_NOT_FOR_ROLLBACK")
+            require(SHA256.fullmatch(args.legacy_live_sha256) is not None,
+                    "LEGACY_HASH_INVALID")
+            require(digest(args.live) == args.legacy_live_sha256,
+                    "LEGACY_LIVE_HASH_MISMATCH")
+            require(not VERSION.findall(args.live.read_bytes()),
+                    "LEGACY_FLAG_REFUSES_VERSIONED_BINARY")
+            current = LEGACY_SOURCE
+            risk, flagged = "REVIEW_REQUIRED", []
+        else:
+            current = embedded_source(args.live, root)
+            risk, flagged = database_risk(root, current, args.sha)
         print(f"INSTALLED_SOURCE_SHA={current}", flush=True)
         print(f"TARGET_SOURCE_SHA={args.sha}", flush=True)
         print(f"DB_RISK_SCOPE={'current-to-target' if args.action != 'rollback' else 'target-to-target; original risk rechecked from receipt'}", flush=True)
         print(f"DB_BACKUP_DECISION={risk}", flush=True)
+        if current == LEGACY_SOURCE:
+            print("LEGACY_SOURCE_ID=UNKNOWN; DATABASE_BACKUP_REQUIRED=YES", flush=True)
+            print("LEGACY_SOURCE_SHA256=" + args.legacy_live_sha256, flush=True)
         for entry in flagged:
             print(f"DB_REVIEW_PATH={entry}", flush=True)
         directory, binary, seal = candidate(root, args.sha)
