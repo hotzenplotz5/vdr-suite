@@ -4,7 +4,8 @@
 from pathlib import Path
 
 init = Path("core/daemon/src/DaemonRuntimeInitialization.cpp").read_text()
-worker = Path("core/daemon/src/DaemonRuntime.cpp").read_text()
+worker = Path("core/daemon/src/DaemonRuntimeMediaTools.cpp").read_text()
+lifecycle = Path("core/daemon/src/DaemonRuntime.cpp").read_text()
 hero = Path("web/frontend/recordings2-hero-detail.js").read_text()
 
 anchor = '503, "HEVC operation readback unavailable."'
@@ -117,7 +118,7 @@ for production in (
     assert '"Recordings_on_yavdr(nfs)"' not in production
 assert 'selection.autoPublish' in worker
 assert 'MediaShrinkPublishAdmission request;' in worker
-assert 'progressDurableMediaShrinkAutoPublish();' in worker
+assert 'progressDurableMediaShrinkAutoPublish();' in lifecycle
 assert 'deviceLiveEventHub_->publishOperation(stage.operationId)' in worker
 assert 'review.review.stageOperationId' in reconciliation
 assert 'autoPublish: true' in hero

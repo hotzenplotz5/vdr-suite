@@ -155,6 +155,35 @@ MediaShrinkReviewRepository::MediaShrinkReviewRepository(
     vdrsuite::operations::MutationOperationRepository& operations)
     : database_(database), operations_(operations) {}
 
+std::vector<std::string>
+MediaShrinkReviewRepository::listAutoPublishStageOperationIds(
+    std::size_t limit) const {
+    if (limit == 0 || limit > 128) return {};
+    auto lease = database_.acquireTransactionLease();
+    Statement statement(database_.handle(),
+        "SELECT m.operation_id FROM mutation_operations m "
+        "JOIN addon_media_shrink_reviews r "
+        "ON r.stage_operation_id=m.operation_id "
+        "AND r.actor_id=m.actor_id AND r.backend_id=m.backend_id "
+        "WHERE m.action_family='media.shrink.stage' "
+        "AND m.state='succeeded' "
+        "AND r.state IN ('staged','publishing') "
+        "ORDER BY m.updated_at DESC LIMIT ?;");
+    if (!statement.get() ||
+        sqlite3_bind_int64(statement.get(), 1,
+            static_cast<sqlite3_int64>(limit)) != SQLITE_OK)
+        return {};
+    std::vector<std::string> stageIds;
+    for (;;) {
+        const int step = sqlite3_step(statement.get());
+        if (step == SQLITE_DONE) break;
+        if (step != SQLITE_ROW) return {};
+        const std::string stageId = field(statement.get(), 0);
+        if (!stageId.empty()) stageIds.push_back(stageId);
+    }
+    return stageIds;
+}
+
 bool MediaShrinkReviewRepository::ensureSchema() {
     auto lease = database_.acquireTransactionLease();
     if (operations_.databaseIdentity() != &database_) return false;
