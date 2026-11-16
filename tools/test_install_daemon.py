@@ -132,6 +132,14 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(risk, "REVIEW_REQUIRED")
         self.assertEqual(paths, ["core/sqlite/src/Database.cpp"])
 
+    def test_reuses_sealed_source_pin_only_across_installer_changes(self):
+        pinned = commit(self.root, "core/daemon/src/Pinned.cpp", "// pinned\\n")
+        commit(self.root, "tools/test_install_daemon.py", "// installer regression\\n")
+        mod.verify_source(self.root, pinned)
+        commit(self.root, "core/daemon/src/Pinned.cpp", "// changed daemon\\n")
+        with self.assertRaisesRegex(mod.Rejected, "SOURCE_CANDIDATE_CODE_CHANGED"):
+            mod.verify_source(self.root, pinned)
+
     def test_unversioned_legacy_requires_exact_hash_and_reports_backup(self):
         import hashlib
         new = commit(self.root, "core/daemon/src/DeviceTrack.cpp", "// changed\\n")
