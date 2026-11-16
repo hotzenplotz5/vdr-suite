@@ -2416,15 +2416,9 @@ def check_client_api_contract():
             "jsonPostOptions(options)",
         ),
         "fetchClientSearchTimerRealTest": (
-            "fetchClientSearchTimerCreateAction",
+            "fetchClientSearchTimerCreateStaged",
             "/api/vdr/searchtimers/real-test",
             "/api/searchtimers/real-test",
-            "jsonPostOptions(options)",
-        ),
-        "fetchClientSearchTimerCreateAction": (
-            "fetchClientSearchTimerUpdateAction",
-            "/api/vdr/searchtimers",
-            "/api/searchtimers",
             "jsonPostOptions(options)",
         ),
         "fetchClientSearchTimerUpdateAction": (
@@ -2461,6 +2455,38 @@ def check_client_api_contract():
                 option_marker in body,
                 function_name + "() request-option contract drifted",
             )
+
+    # ST.V1: the Browser CREATE wrapper delegates once to Public API v1;
+    # it must never dispatch through the old /api/vdr/searchtimers route.
+    searchtimer_create = client_api_function_body(
+        client_api, "fetchClientSearchTimerCreateStaged",
+        "fetchClientSearchTimerCreateAction",
+    )
+    require(
+        "requestJson(" in searchtimer_create
+        and "'/api/v1/search-timers'" in searchtimer_create
+        and "queryMutationOptions(jsonPostOptions(" in searchtimer_create
+        and "'Idempotency-Key'" in searchtimer_create,
+        "Browser SearchTimer CREATE must use the confirmed, CSRF-bound Public-v1 writer",
+    )
+    create_action = client_api_function_body(
+        client_api, "fetchClientSearchTimerCreateAction",
+        "fetchClientSearchTimerOperation",
+    )
+    require(
+        "return fetchClientSearchTimerCreateStaged(options)" in create_action
+        and "requestJson(" not in create_action
+        and "requestJsonWithFallback" not in create_action,
+        "Browser SearchTimer CREATE action must delegate, never retry an alias",
+    )
+    operation_read = client_api_function_body(
+        client_api, "fetchClientSearchTimerOperation",
+        "fetchClientSearchTimerUpdateAction",
+    )
+    require(
+        "requestJson('/api/v1/operations/' + encodeURIComponent(id)" in operation_read,
+        "Browser SearchTimer Operation must read the Public-v1 resource",
+    )
 
     require(
         "requestJson(" + chr(39) + "/api/epg/cache/status" + chr(39) in client_api,
