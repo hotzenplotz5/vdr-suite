@@ -75,6 +75,11 @@ require(browser_client.count("'/api/v1/search-timers'") == 1,
         "expected one bounded Browser SearchTimer staging route")
 browser_client = browser_client.replace("'/api/v1/search-timers'",
                                         "'reviewed-searchtimer-create'")
+operation_route = "'/api/v1/operations/' + encodeURIComponent(id)"
+require(browser_client.count(operation_route) == 1,
+        "reviewed Browser SearchTimer Operation GET missing or duplicated")
+browser_client = browser_client.replace(operation_route,
+                                        "'reviewed-searchtimer-operation' + encodeURIComponent(id)")
 # Explicitly reviewed EPG Timer API-v1 create, with authoritative event GET.
 for route in ("'/api/v1/epg/event'", "'/api/v1/epg/timer-intents'"):
     require(browser_client.count(route) == 1,
