@@ -241,7 +241,7 @@ def build_source(expected, version, epoch, reserve, series=None,
         if ppa_revision is not None:
             print("PPA_SOURCE_CANDIDATE=SIGNED_NOT_PUBLISHED", flush=True)
             print("PPA_UPLOAD_READY=MANUAL_RELEASE_REVIEW_REQUIRED", flush=True)
-            print("UPLOAD=NOT_PERFORMED (verify existing archive version; dput separately)", flush=True)
+            print("UPLOAD=NOT_PERFORMED (verify existing archive version; upload separately)", flush=True)
         else:
             print("PPA_UPLOAD_READY=NO", flush=True)
             if signing_fingerprint:
