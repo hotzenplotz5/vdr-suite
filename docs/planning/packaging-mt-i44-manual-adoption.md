@@ -38,6 +38,10 @@ The exact package source commit [46e77f6bc2e692ad0e9030953f800518798dc3b5](https
 
 This is a deliberately **synthetic historical predecessor**, not an inspection, backup, checkpoint, or schema read of the user's active `/var/lib/vdr-suite/vdr-suite.db`; no live writer is frozen, no real service state is changed, and no real source/version-to-schema compatibility is asserted. The actual manual daemon SHA, schema provenance, active operations, review of root/agent service/drop-in/nginx behavior, package ABI, and release-version rollback remain separate MT.I4.4c/MT.I4.4d obligations. **Do not derive a live migration command from this test.**
 
+## Maintainer priority change (2026-11-16)
+
+The maintainer has chosen to **defer further MT.I4.4 live-host adoption**; VDR-Suite on the existing yaVDR continues to be managed manually from the `main` source. Current priority is publication and independent disposable PPA acceptance of all four Ubuntu binaries through the [existing experimental recipe](packaging-launchpad-ppa.md), not migration, backup or installation on this host. The synthetic MT.I4.4a/b/c work remains preserved for a later separately commissioned migration. No part of PPA publication authorizes replacing the live manual binaries, services, configuration or SQLite/WAL.
+
 ## Current decision
 
 - The current manual VDR-Suite remains installed, running, and untouched.
