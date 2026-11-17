@@ -152,8 +152,15 @@ struct Wire
     std::string sessionId;
     std::uint64_t frameRevision = 0;
     std::uint64_t observedAt = 0;
+    std::string frameKind;
+    std::uint64_t frameKindCode = 0;
+    std::uint64_t baseRevision = 0;
     std::uint64_t renderWidth = 0;
     std::uint64_t renderHeight = 0;
+    std::uint64_t patchX = 0;
+    std::uint64_t patchY = 0;
+    std::uint64_t patchWidth = 0;
+    std::uint64_t patchHeight = 0;
     std::uint64_t encodedBytes = 0;
     std::uint64_t returnedBytes = 0;
     std::string dataBase64;
@@ -183,7 +190,7 @@ bool parseWire(
             reply.payload,
             "providerSchemaVersion",
             providerSchemaVersion) &&
-        providerSchemaVersion == 1 &&
+        providerSchemaVersion == 2 &&
         stringField(reply.payload, "capability", capability) &&
         capability == "broadcast.hbbtv.presentation" &&
         stringField(reply.payload, "operation", wire.operation) &&
@@ -197,13 +204,23 @@ bool parseWire(
             "frameRevision",
             wire.frameRevision) &&
         unsignedField(reply.payload, "observedAt", wire.observedAt) &&
+        stringField(reply.payload, "frameKind", wire.frameKind) &&
+        unsignedField(reply.payload, "frameKindCode", wire.frameKindCode) &&
+        unsignedField(reply.payload, "baseRevision", wire.baseRevision) &&
         unsignedField(reply.payload, "renderWidth", wire.renderWidth) &&
         unsignedField(reply.payload, "renderHeight", wire.renderHeight) &&
+        unsignedField(reply.payload, "patchX", wire.patchX) &&
+        unsignedField(reply.payload, "patchY", wire.patchY) &&
+        unsignedField(reply.payload, "patchWidth", wire.patchWidth) &&
+        unsignedField(reply.payload, "patchHeight", wire.patchHeight) &&
         unsignedField(reply.payload, "encodedBytes", wire.encodedBytes) &&
         unsignedField(reply.payload, "returnedBytes", wire.returnedBytes) &&
         wire.resultCode <= 7U &&
+        wire.frameKindCode <= 2U &&
         wire.renderWidth <= MaximumRenderWidth &&
         wire.renderHeight <= MaximumRenderHeight &&
+        wire.patchWidth <= MaximumRenderWidth &&
+        wire.patchHeight <= MaximumRenderHeight &&
         wire.encodedBytes <= MaximumEncodedBytes &&
         wire.returnedBytes <= PresentationChunkBytes;
 }
@@ -278,6 +295,7 @@ SuiteBridgeHbbtvPresentationResolver::readPresentation(
     SuiteBridgeHbbtvPresentationRequest metaRequest;
     metaRequest.operation = SuiteBridgeHbbtvPresentationOperation::Meta;
     metaRequest.sessionId = sessionId;
+    metaRequest.frameRevision = knownRevision;
 
     Wire meta;
     const SuiteBridgeHbbtvCommandReply metaReply =
@@ -301,8 +319,7 @@ SuiteBridgeHbbtvPresentationResolver::readPresentation(
 
     if (meta.frameRevision == 0 ||
         meta.renderWidth == 0 ||
-        meta.renderHeight == 0 ||
-        meta.encodedBytes == 0)
+        meta.renderHeight == 0)
     {
         result.error = "hbbtv_presentation_payload_invalid";
         return result;
@@ -315,10 +332,64 @@ SuiteBridgeHbbtvPresentationResolver::readPresentation(
 
     if (knownRevision == meta.frameRevision)
     {
+        if (meta.frameKindCode != 0U ||
+            meta.frameKind != "none" ||
+            meta.encodedBytes != 0U ||
+            meta.returnedBytes != 0U)
+        {
+            result.error = "hbbtv_presentation_payload_invalid";
+            return result;
+        }
         result.available = true;
         result.unchanged = true;
         return result;
     }
+
+    if (meta.frameKindCode == 1U)
+    {
+        if (meta.frameKind != "full" ||
+            meta.baseRevision != 0U ||
+            meta.patchX != 0U ||
+            meta.patchY != 0U ||
+            meta.patchWidth != meta.renderWidth ||
+            meta.patchHeight != meta.renderHeight)
+        {
+            result.error = "hbbtv_presentation_payload_invalid";
+            return result;
+        }
+    }
+    else if (meta.frameKindCode == 2U)
+    {
+        if (meta.frameKind != "patch" ||
+            knownRevision == 0U ||
+            meta.baseRevision != knownRevision ||
+            meta.patchWidth == 0U ||
+            meta.patchHeight == 0U ||
+            meta.patchX > meta.renderWidth - meta.patchWidth ||
+            meta.patchY > meta.renderHeight - meta.patchHeight)
+        {
+            result.error = "hbbtv_presentation_payload_invalid";
+            return result;
+        }
+        result.patch = true;
+        result.baseRevision = meta.baseRevision;
+    }
+    else
+    {
+        result.error = "hbbtv_presentation_payload_invalid";
+        return result;
+    }
+
+    if (meta.encodedBytes == 0U)
+    {
+        result.error = "hbbtv_presentation_payload_invalid";
+        return result;
+    }
+
+    result.patchX = static_cast<std::uint32_t>(meta.patchX);
+    result.patchY = static_cast<std::uint32_t>(meta.patchY);
+    result.patchWidth = static_cast<std::uint32_t>(meta.patchWidth);
+    result.patchHeight = static_cast<std::uint32_t>(meta.patchHeight);
 
     std::string encoded;
     encoded.reserve(static_cast<std::size_t>(meta.encodedBytes));
@@ -350,8 +421,15 @@ SuiteBridgeHbbtvPresentationResolver::readPresentation(
         }
         if (chunk.resultCode != 0U ||
             chunk.frameRevision != meta.frameRevision ||
+            chunk.frameKindCode != meta.frameKindCode ||
+            chunk.frameKind != meta.frameKind ||
+            chunk.baseRevision != meta.baseRevision ||
             chunk.renderWidth != meta.renderWidth ||
             chunk.renderHeight != meta.renderHeight ||
+            chunk.patchX != meta.patchX ||
+            chunk.patchY != meta.patchY ||
+            chunk.patchWidth != meta.patchWidth ||
+            chunk.patchHeight != meta.patchHeight ||
             chunk.encodedBytes != meta.encodedBytes ||
             chunk.returnedBytes == 0)
         {
@@ -391,8 +469,8 @@ SuiteBridgeHbbtvPresentationResolver::readPresentation(
     if (encoded.size() != meta.encodedBytes ||
         !validQoi(
             encoded,
-            result.renderWidth,
-            result.renderHeight))
+            result.patchWidth,
+            result.patchHeight))
     {
         result.error = "hbbtv_presentation_qoi_invalid";
         return result;
@@ -402,3 +480,4 @@ SuiteBridgeHbbtvPresentationResolver::readPresentation(
     result.qoi = std::move(encoded);
     return result;
 }
+
