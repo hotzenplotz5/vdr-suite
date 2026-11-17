@@ -344,7 +344,8 @@
         code === 'hbbtv_backend_not_online' ||
         code === 'hbbtv_backend_generation_mismatch' ||
         code === 'hbbtv_channel_not_in_backend_snapshot' ||
-        code === 'hbbtv_resolver_unavailable';
+        code === 'hbbtv_resolver_unavailable' ||
+        code === 'hbbtv_provider_unavailable';
 
       if (transient && attempt < 4 &&
           typeof global.setTimeout === 'function') {
