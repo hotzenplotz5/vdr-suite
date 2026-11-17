@@ -12,8 +12,14 @@ struct HbbtvPresentationFrame
     std::string error;
     std::uint64_t frameRevision = 0;
     std::uint64_t observedAt = 0;
+    bool patch = false;
+    std::uint64_t baseRevision = 0;
     std::uint32_t renderWidth = 0;
     std::uint32_t renderHeight = 0;
+    std::uint32_t patchX = 0;
+    std::uint32_t patchY = 0;
+    std::uint32_t patchWidth = 0;
+    std::uint32_t patchHeight = 0;
     std::string qoi;
 };
 
