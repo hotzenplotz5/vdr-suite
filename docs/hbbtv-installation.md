@@ -107,7 +107,7 @@ cd remotetranscode
 apt install \
   build-essential devscripts debhelper dpkg-dev \
   cmake meson ninja-build pkg-config xz-utils \
-  libboost-dev libssl-dev libcurl4-openssl-dev \
+  libboost-dev libssl-dev libcurl4-openssl-dev libtinyxml2-dev \
   libavutil-dev libavformat-dev libavfilter-dev libavcodec-dev
 
 ./packaging/prepare-orig.sh
