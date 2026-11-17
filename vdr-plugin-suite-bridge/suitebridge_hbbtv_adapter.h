@@ -20,7 +20,7 @@ public:
       std::string &error) const = 0;
 
   virtual bool Presentation(
-      VdrWebHbbtvPresentationV1 &presentation,
+      VdrWebHbbtvPresentationV2 &presentation,
       std::string &error) const = 0;
 
   virtual bool Media(
@@ -45,7 +45,7 @@ public:
       std::string &error) const override;
 
   bool Presentation(
-      VdrWebHbbtvPresentationV1 &presentation,
+      VdrWebHbbtvPresentationV2 &presentation,
       std::string &error) const override;
 
   bool Media(
