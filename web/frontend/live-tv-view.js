@@ -1503,48 +1503,63 @@
     state.hbbtvFrameRevision = 0;
     updateHbbtvSessionUi();
 
-    // A successful close may coincide with a new AIT/discovery revision.
-    // Never reuse the cached application ref from the previous HbbTV session:
-    // refresh discovery immediately before launch and bind the new session to
-    // exactly the descriptor revision observed by that fresh read.
-    return beginHbbtvAvailability(currentChannel).then(function() {
-      if (!state.active ||
-          sequence !== state.hbbtvSessionSequence ||
-          state.liveChannelId !== channelId(currentChannel)) {
-        return null;
-      }
-
-      const application = launchableHbbtvApplication();
-      if (!application) {
-        throw new Error('hbbtv_application_context_stale');
-      }
-
-      const ref = hbbtvApplicationRef(application);
-      return client.fetchClientHbbtvSessionLaunch({
-        payload: {
-          backendId: state.backendId || selectedBackend(),
-          channelId: state.liveChannelId,
-          applicationId: Number(ref.applicationId),
-          descriptorRevision: Number(ref.descriptorRevision)
-        },
-        cache: 'no-store',
-        credentials: 'same-origin'
-      }).then(function(session) {
-        if (sequence !== state.hbbtvSessionSequence) return null;
-        if (!validateHbbtvSessionIdentity(session, application)) {
-          throw new Error('hbbtv_session_identity_mismatch');
+    // A successful close or ongoing AIT parsing may coincide with a new
+    // discovery revision. Refresh immediately before launch and, only when the
+    // server proves that exact ref stale, refresh once more and retry with the
+    // newly observed descriptor. This is a bounded rebind, not status polling.
+    function launchFreshApplication(staleRetry) {
+      return beginHbbtvAvailability(currentChannel).then(function() {
+        if (!state.active ||
+            sequence !== state.hbbtvSessionSequence ||
+            state.liveChannelId !== channelId(currentChannel)) {
+          return null;
         }
 
-        state.hbbtvSession = session;
-        state.hbbtvSessionBusy = false;
-        state.hbbtvSessionError = '';
-        updateHbbtvSessionUi();
-        startHbbtvPresentationPolling(sequence);
-        startHbbtvMediaPolling(sequence);
-        startHbbtvStatusPolling(sequence);
-        return session;
+        const application = launchableHbbtvApplication();
+        if (!application) {
+          throw new Error('hbbtv_application_context_stale');
+        }
+
+        const ref = hbbtvApplicationRef(application);
+        return client.fetchClientHbbtvSessionLaunch({
+          payload: {
+            backendId: state.backendId || selectedBackend(),
+            channelId: state.liveChannelId,
+            applicationId: Number(ref.applicationId),
+            descriptorRevision: Number(ref.descriptorRevision)
+          },
+          cache: 'no-store',
+          credentials: 'same-origin'
+        }).then(function(session) {
+          if (sequence !== state.hbbtvSessionSequence) return null;
+          if (!validateHbbtvSessionIdentity(session, application)) {
+            throw new Error('hbbtv_session_identity_mismatch');
+          }
+
+          state.hbbtvSession = session;
+          state.hbbtvSessionBusy = false;
+          state.hbbtvSessionError = '';
+          updateHbbtvSessionUi();
+          startHbbtvPresentationPolling(sequence);
+          startHbbtvMediaPolling(sequence);
+          startHbbtvStatusPolling(sequence);
+          return session;
+        }).catch(function(error) {
+          const stale =
+            error && error.status === 409 &&
+            text(error.message) === 'hbbtv_application_context_stale';
+          if (stale && !staleRetry &&
+              state.active &&
+              sequence === state.hbbtvSessionSequence &&
+              state.liveChannelId === channelId(currentChannel)) {
+            return launchFreshApplication(true);
+          }
+          throw error;
+        });
       });
-    }).catch(function(error) {
+    }
+
+    return launchFreshApplication(false).catch(function(error) {
       if (sequence !== state.hbbtvSessionSequence) return null;
       state.hbbtvSessionBusy = false;
       state.hbbtvSession = null;
