@@ -711,7 +711,191 @@ async function checkEditorFullWrites() {
   assert.strictEqual(writes.length, 5,
     'ambiguous transport failure must never dispatch a second CREATE');
 }
-checkEditorFullWrites().then(function() {
+
+async function checkPublicMutations() {
+  const mount = new FormElement('main');
+  const document = {
+    head: new FormElement('head'),
+    createElement(tag) { return new FormElement(tag); },
+    getElementById() { return null; }
+  };
+  const searchTimerId = 'st_' + 'a'.repeat(32);
+  const revision = 'sr_' + 'b'.repeat(32);
+  const backend = 'living-room';
+  const writes = [];
+  const reads = [];
+  const streams = [];
+  let reloads = 0;
+  let keyCounter = 0;
+  let current = null;
+  let mutationState = 'succeeded';
+  let operationState = 'accepted';
+  let rejectVersion = false;
+  let loseResponse = false;
+  const browser = {
+    setTimeout(callback, delay) { if (delay === 300) callback(); },
+    confirm() { return true; },
+    crypto: {getRandomValues(bytes) { bytes.fill(++keyCounter); return bytes; }}
+  };
+  const operationId = 'op_' + 'c'.repeat(32);
+  function operation(state) { return {operationId, backendId: backend, state}; }
+  const client = {
+    async fetchPublicSearchTimerDetail(options) {
+      assert.strictEqual(options.searchTimerId, searchTimerId);
+      assert.strictEqual(options.backend, backend);
+      return current;
+    },
+    async fetchPublicSearchTimerVersion(options) {
+      assert.strictEqual(options.searchTimerId, searchTimerId);
+      assert.strictEqual(options.backend, backend);
+      if (rejectVersion) throw new Error('native CAS unavailable');
+      return {searchTimerId, backendId: backend, revision};
+    },
+    async mutatePublicSearchTimer(options) {
+      writes.push(options);
+      if (loseResponse) throw new Error('response lost');
+      return operation(mutationState);
+    },
+    async fetchClientSearchTimerOperation(options) {
+      assert.strictEqual(options.operationId, operationId);
+      reads.push(options.operationId);
+      return operation(operationState);
+    },
+    createClientOperationUpdateSource(id) {
+      assert.strictEqual(id, operationId);
+      const stream = {
+        listeners: {}, closed: false,
+        addEventListener(name, callback) { this.listeners[name] = callback; },
+        close() { this.closed = true; },
+        emit(name, payload) { return this.listeners[name]({data: JSON.stringify(payload)}); }
+      };
+      streams.push(stream);
+      return stream;
+    },
+    async fetchPublicSearchTimerPreview(options) {
+      assert.strictEqual(options.searchTimerId, searchTimerId);
+      assert.strictEqual(options.backend, backend);
+      return {searchTimerId, backendId: backend, totalCount: 1,
+        items: [{title:'Tatort',channelId:'ARD',startTime:'2026-11-17T20:15:00Z'}],
+        meta:{partial:false,epgInput:'ready'}};
+    }
+  };
+  vm.runInNewContext(source, {
+    window: browser, document, Promise, Object, Array, Boolean, Number,
+    Date, String, Set, Math, JSON, Uint8Array
+  }, {filename: sourcePath});
+  const mod = browser.VdrSuiteSearchTimerBrowser;
+  mod.configureContext({
+    detailDataElement: mount, clientApi: client,
+    getSelectedBackendId() { return backend; }, reload() { reloads++; }
+  });
+
+  function find(node, predicate) {
+    if (predicate(node)) return node;
+    for (const child of node.children) {
+      const matched = find(child, predicate);
+      if (matched) return matched;
+    }
+    return null;
+  }
+  function open(state) {
+    current = {searchTimerId, backendId: backend, query:'Tatort', name:'Tatort', state,
+      settings:{recordingOptions:{directory:'Doku',priority:50},
+        filterOptions:{useChannelMode:2,useTime:true,startTime:930,stopTime:1120},
+        channelOptions:{channels:'ARD'}}};
+    mod.renderList({items:[current]});
+    const normalized = mod.normalizeSearchTimer(current, 0);
+    assert.strictEqual(normalized.directory, 'Doku');
+    assert.strictEqual(normalized.priority, 50);
+    assert.strictEqual(normalized.startTime, 930);
+    assert.strictEqual(normalized.searchTimerId, searchTimerId);
+    assert.strictEqual(normalized.backendNativeId, '');
+    return find(mount, node => node.tagName === 'DETAILS' && node.className.startsWith('searchtimer-card'));
+  }
+  function button(card, label) {
+    const found = find(card, node => node.tagName === 'BUTTON' && node.textContent === label);
+    assert(found, 'missing action: ' + label);
+    return found;
+  }
+
+  for (const action of ['update','activate','deactivate','delete']) {
+    const card = open(action === 'deactivate' ? 'active' : 'inactive');
+    let control;
+    if (action === 'update') {
+      const edit = button(card,'Suchbegriff bearbeiten');
+      assert.strictEqual(edit.disabled, false);
+      edit.listeners.click();
+      const input = find(card,node => node.tagName === 'INPUT');
+      input.value = 'Tatort neu';
+      control = button(card,'Änderung speichern');
+    } else {
+      control = button(card, {activate:'Aktivieren',deactivate:'Deaktivieren',delete:'SearchTimer löschen'}[action]);
+    }
+    assert.strictEqual(control.disabled, false);
+    const count = writes.length;
+    const pending = control.listeners.click();
+    control.listeners.click();
+    await pending;
+    assert.strictEqual(writes.length, count + 1);
+    const request = writes[count];
+    assert.strictEqual(request.searchTimerId, searchTimerId);
+    assert.strictEqual(request.backend, backend);
+    assert.strictEqual(request.revision, revision);
+    assert.strictEqual(request.payload.action, action);
+    assert.strictEqual(request.payload.confirmed, true);
+    assert(/^search-web-[0-9a-f]{32}$/.test(request.idempotencyKey));
+    if (action === 'update') assert.strictEqual(request.payload.query, 'Tatort neu');
+    assert.strictEqual(request.payload.backendNativeId, undefined);
+  }
+  assert.strictEqual(reloads, 4);
+  assert.strictEqual(reads.length, 0);
+
+  // An asynchronous write waits for actor-owned Operation GET, not an
+  // untrusted SSE state object or a repeated POST.
+  mutationState = 'accepted';
+  let card = open('inactive');
+  let activate = button(card,'Aktivieren');
+  await activate.listeners.click();
+  assert.strictEqual(writes.length, 5);
+  assert.strictEqual(activate.disabled, true);
+  const stream = streams[0];
+  assert(stream);
+  stream.emit('operation', {operationId:'op_' + 'd'.repeat(32),state:'succeeded'});
+  assert.strictEqual(reads.length, 0);
+  await stream.emit('hello',{});
+  assert.strictEqual(reads.length, 1);
+  assert.strictEqual(reloads, 4);
+  operationState = 'succeeded';
+  stream.emit('operation',{operationId,state:'accepted'});
+  for (let i=0;i<6;i++) await Promise.resolve();
+  assert.strictEqual(reads.length, 2);
+  assert.strictEqual(reloads, 5);
+  assert.strictEqual(stream.closed, true);
+  assert.strictEqual(writes.length, 5);
+
+  card = open('inactive');
+  rejectVersion = true;
+  let remove = button(card,'SearchTimer löschen');
+  await remove.listeners.click();
+  assert.strictEqual(writes.length, 5, 'missing native version must never write');
+  assert.strictEqual(remove.disabled, false);
+  rejectVersion = false;
+  loseResponse = true;
+  await remove.listeners.click();
+  assert.strictEqual(writes.length, 6);
+  assert.strictEqual(remove.disabled, true);
+  await remove.listeners.click();
+  assert.strictEqual(writes.length, 6, 'ambiguous transport must never write twice');
+  loseResponse = false;
+
+  card = open('active');
+  assert.strictEqual(button(card,'Suchbegriff bearbeiten').disabled, true);
+  await button(card,'Vorschau').listeners.click();
+  assert(find(card,node => node.textContent === 'Tatort'));
+  assert(find(card,node => node.textContent === 'EPG-Treffer, keine verbindliche Aufnahmeprognose.'));
+  assert.strictEqual(writes.length, 6);
+}
+checkEditorFullWrites().then(checkPublicMutations).then(function() {
   console.log('test_searchtimer_workflows_runtime passed');
 }).catch(function(error) {
   console.error(error);
