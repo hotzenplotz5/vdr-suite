@@ -171,6 +171,14 @@ int main()
     assert(json.find("\"query\":\"Bob\\\\Marley\"") != std::string::npos);
     assert(json.find("\"state\":\"inactive\"") != std::string::npos);
 
+    const auto publicSettings = serializer.serializePublicSettings(terraX);
+    assert(publicSettings.find("\"recordingOptions\":{\"directory\":\"Doku\"") != std::string::npos);
+    assert(publicSettings.find("\"filterOptions\":{") != std::string::npos);
+    assert(publicSettings.find("\"startTime\":930") != std::string::npos);
+    assert(publicSettings.find("backendNativeId") == std::string::npos);
+    assert(publicSettings.front() == '{' && publicSettings.back() == '}');
+    assert(json.find(publicSettings.substr(1, publicSettings.size() - 2)) != std::string::npos);
+
     std::cout << "test_search_timer_result_json_serializer passed" << std::endl;
     return 0;
 }

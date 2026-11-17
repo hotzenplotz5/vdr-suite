@@ -305,7 +305,8 @@ public:
         const std::string& authorizedBackendRef = "",
         const std::vector<std::string>& authorizedBackendRefs = {},
         const std::string& pairingToken = "",
-        const std::string& lastEventId = "")
+        const std::string& lastEventId = "",
+        bool browserAuthenticated = false)
     {
         ApiResponse response;
 
@@ -332,7 +333,8 @@ public:
                 ifNoneMatch,
                 authorizedBackendRef,
                 authorizedBackendRefs,
-                pairingToken))
+                pairingToken,
+                browserAuthenticated))
         {
             return response;
         }

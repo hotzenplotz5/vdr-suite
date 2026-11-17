@@ -4661,7 +4661,10 @@ ApiResponse publicSearchTimerCollectionResponse(
             "\",\"backendId\":\"" + jsonEscape(item.backendId) +
             "\",\"name\":\"" + jsonEscape(item.name) +
             "\",\"query\":\"" + jsonEscape(item.query) +
-            "\",\"state\":\"" + jsonEscape(item.state) + "\"}";
+            "\",\"state\":\"" + jsonEscape(item.state) + "\"";
+        if (!item.settingsJson.empty())
+            body += ",\"settings\":" + item.settingsJson;
+        body += "}";
     }
     body += "],\"page\":{\"limit\":" + std::to_string(query.limit) +
         ",\"nextCursor\":";
@@ -6799,7 +6802,8 @@ bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
     const std::string& correlationId,
     const std::string& ifNoneMatch,
     const std::string& authorizedBackendId,
-    ApiResponse& response) const
+    ApiResponse& response,
+    bool browserAuthenticated) const
 {
     const std::string path = requestPath(requestTarget);
     std::string versionSearchId;
@@ -7011,6 +7015,7 @@ bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
         request.backendId = authorizedBackendId;
         request.searchTimerId = detailSearchTimerId;
         request.limit = 1U;
+        request.includeSettings = browserAuthenticated;
         const PublicSearchTimerCollectionResult detail =
             lookupSearchTimerCollection(request);
         if (detail.status == PublicSearchTimerCollectionStatus::invalid)
@@ -7049,8 +7054,10 @@ bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
             jsonEscape(item.backendId) + "\",\"name\":\"" +
             jsonEscape(item.name) + "\",\"query\":\"" +
             jsonEscape(item.query) + "\",\"state\":\"" +
-            jsonEscape(item.state) +
-            "\",\"meta\":{\"partial\":false}}";
+            jsonEscape(item.state) + "\"" +
+            (item.settingsJson.empty() ? "" :
+                ",\"settings\":" + item.settingsJson) +
+            ",\"meta\":{\"partial\":false}}";
         response = jsonResponse(body, requestId, correlationId);
         return true;
     }
@@ -7092,6 +7099,7 @@ bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
         request.backendId = authorizedBackendId;
         request.afterSearchTimerId = afterId;
         request.limit = query.limit;
+        request.includeSettings = browserAuthenticated;
         const PublicSearchTimerCollectionResult page =
             lookupSearchTimerCollection(request);
         switch (page.status)
@@ -9168,7 +9176,8 @@ bool PublicApiRuntime::tryHandleGet(
     const std::string& ifNoneMatch,
     const std::string& authorizedBackendId,
     const std::vector<std::string>& authorizedBackendIds,
-    const std::string& pairingToken) const
+    const std::string& pairingToken,
+    bool browserAuthenticated) const
 {
     const std::string path = requestPath(requestTarget);
 
@@ -9800,7 +9809,7 @@ bool PublicApiRuntime::tryHandleGet(
     {
         if (tryHandleSearchTimerAssignmentReadGet(
                 requestTarget, actorRef, requestId, correlationId,
-                ifNoneMatch, authorizedBackendId, response))
+                ifNoneMatch, authorizedBackendId, response, browserAuthenticated))
             return true;
     }
 
@@ -9808,7 +9817,7 @@ bool PublicApiRuntime::tryHandleGet(
     {
         if (tryHandleSearchTimerAssignmentReadGet(
                 requestTarget, actorRef, requestId, correlationId,
-                ifNoneMatch, authorizedBackendId, response))
+                ifNoneMatch, authorizedBackendId, response, browserAuthenticated))
             return true;
     }
 
@@ -9819,7 +9828,7 @@ bool PublicApiRuntime::tryHandleGet(
     {
         if (tryHandleSearchTimerAssignmentReadGet(
                 requestTarget, actorRef, requestId, correlationId,
-                ifNoneMatch, authorizedBackendId, response))
+                ifNoneMatch, authorizedBackendId, response, browserAuthenticated))
             return true;
     }
 
@@ -9828,7 +9837,7 @@ bool PublicApiRuntime::tryHandleGet(
     {
         if (tryHandleSearchTimerAssignmentReadGet(
                 requestTarget, actorRef, requestId, correlationId,
-                ifNoneMatch, authorizedBackendId, response))
+                ifNoneMatch, authorizedBackendId, response, browserAuthenticated))
             return true;
     }
 
@@ -9836,7 +9845,7 @@ bool PublicApiRuntime::tryHandleGet(
     {
         if (tryHandleSearchTimerAssignmentReadGet(
                 requestTarget, actorRef, requestId, correlationId,
-                ifNoneMatch, authorizedBackendId, response))
+                ifNoneMatch, authorizedBackendId, response, browserAuthenticated))
             return true;
     }
 
@@ -9844,7 +9853,7 @@ bool PublicApiRuntime::tryHandleGet(
     {
         if (tryHandleSearchTimerAssignmentReadGet(
                 requestTarget, actorRef, requestId, correlationId,
-                ifNoneMatch, authorizedBackendId, response))
+                ifNoneMatch, authorizedBackendId, response, browserAuthenticated))
             return true;
     }
 
@@ -9855,7 +9864,7 @@ bool PublicApiRuntime::tryHandleGet(
     {
         if (tryHandleSearchTimerAssignmentReadGet(
                 requestTarget, actorRef, requestId, correlationId,
-                ifNoneMatch, authorizedBackendId, response))
+                ifNoneMatch, authorizedBackendId, response, browserAuthenticated))
             return true;
     }
 

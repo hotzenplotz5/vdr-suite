@@ -284,6 +284,8 @@ int main()
                 item.name = "Terra X";
                 item.query = "Terra X";
                 item.state = "active";
+                if (request.includeSettings)
+                    item.settingsJson = "{\"recordingOptions\":{\"directory\":\"Doku\",\"priority\":50}}";
                 page.items.push_back(std::move(item));
             }
             return page;
@@ -321,6 +323,19 @@ int main()
     assert(savedDetail.body.find("\"name\":\"Terra X\"") !=
         std::string::npos);
     assert(savedDetail.body.find("backendNativeId") == std::string::npos);
+    assert(savedDetail.body.find("\"settings\"") == std::string::npos);
+    ApiResponse browserDetail;
+    assert(runtime.tryHandleGet(savedRule + "?backend=one",
+        "actor:browser", "st-browser-detail", "", browserDetail, "", "one", {}, "", true));
+    assert(browserDetail.statusCode == 200);
+    assert(browserDetail.body.find("\"settings\":{\"recordingOptions\":{\"directory\":\"Doku\",\"priority\":50}}") != std::string::npos);
+    assert(browserDetail.body.find("backendNativeId") == std::string::npos);
+    ApiResponse browserList;
+    assert(runtime.tryHandleGet("/api/v1/search-timers?backend=one&limit=2",
+        "actor:browser", "st-browser-list", "", browserList, "", "one", {}, "", true));
+    assert(browserList.statusCode == 200);
+    assert(browserList.body.find("\"settings\":{\"recordingOptions\":{\"directory\":\"Doku\",\"priority\":50}}") != std::string::npos);
+    assert(browserList.body.find("backendNativeId") == std::string::npos);
     assert(savedDetail.body.find("\"partial\":false") != std::string::npos);
     ApiResponse missingDetail;
     assert(runtime.tryHandleGet(

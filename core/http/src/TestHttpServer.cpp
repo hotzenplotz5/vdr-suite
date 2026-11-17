@@ -2289,7 +2289,8 @@ HttpServerResponse TestHttpServer::handleRequest(
                 requestHeaderValue(
                     request,
                     "X-VDR-Suite-Pairing-Token"),
-                requestHeaderValue(request, "Last-Event-ID"));
+                requestHeaderValue(request, "Last-Event-ID"),
+                gate.browserAuthenticated);
         }
     }
     else if (request.method == "POST")

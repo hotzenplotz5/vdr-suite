@@ -2692,6 +2692,9 @@ bool DaemonRuntime::initialize()
                     ? "active"
                     : (timer.state() == SearchTimerState::Inactive
                         ? "inactive" : "unknown");
+                if (request.includeSettings)
+                    item.settingsJson = SearchTimerResultJsonSerializer{}
+                        .serializePublicSettings(timer);
                 candidates.push_back(std::move(item));
             }
             std::sort(candidates.begin(), candidates.end(),
