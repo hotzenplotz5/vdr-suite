@@ -74,6 +74,21 @@ public:
             return frame;
         }
 
+        if (knownRevision == 8)
+        {
+            frame.patch = true;
+            frame.baseRevision = 8;
+            frame.patchX = 100;
+            frame.patchY = 50;
+            frame.patchWidth = 320;
+            frame.patchHeight = 180;
+        }
+        else
+        {
+            frame.patchWidth = frame.renderWidth;
+            frame.patchHeight = frame.renderHeight;
+        }
+
         frame.qoi = "qoif-test-frame";
         return frame;
     }
@@ -266,6 +281,12 @@ int main()
     assert(response.headers.at("X-Vdr-Suite-Hbbtv-Revision") == "9");
     assert(response.headers.at("X-Vdr-Suite-Hbbtv-Width") == "1280");
     assert(response.headers.at("X-Vdr-Suite-Hbbtv-Height") == "720");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Frame") == "full");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Base-Revision") == "0");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Patch-X") == "0");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Patch-Y") == "0");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Patch-Width") == "1280");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Patch-Height") == "720");
     assert(presentation.lastSessionId == "bas_api_test");
     assert(presentation.lastKnownRevision == 0);
 
@@ -283,6 +304,23 @@ int main()
     assert(response.headers.find("X-Vdr-Suite-Hbbtv-Height") ==
         response.headers.end());
     assert(presentation.lastKnownRevision == 9);
+
+    assert(api.tryHandleGet(
+        "/api/vdr/broadcast/hbbtv/sessions/presentation"
+        "?backend=default&session=bas_api_test&revision=8",
+        response,
+        "user-1",
+        "device-1"));
+    assert(response.statusCode == 200);
+    assert(response.body == "qoif-test-frame");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Revision") == "9");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Frame") == "patch");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Base-Revision") == "8");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Patch-X") == "100");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Patch-Y") == "50");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Patch-Width") == "320");
+    assert(response.headers.at("X-Vdr-Suite-Hbbtv-Patch-Height") == "180");
+    assert(presentation.lastKnownRevision == 8);
 
     assert(api.tryHandleGet(
         "/api/vdr/broadcast/hbbtv/sessions/media"
