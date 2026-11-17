@@ -166,8 +166,9 @@ SuiteBridgeHbbtvCommandReply SuiteBridgeSvdrpTransport::readHbbtvPresentation(
         {
             return rejected;
         }
-        wire << "PLUG suitebridge HBBPRES META 1 "
-             << request.sessionId << "\r\n";
+        wire << "PLUG suitebridge HBBPRES META 2 "
+             << request.sessionId << ' '
+             << request.frameRevision << "\r\n";
     }
     else if (request.operation == SuiteBridgeHbbtvPresentationOperation::Chunk)
     {
