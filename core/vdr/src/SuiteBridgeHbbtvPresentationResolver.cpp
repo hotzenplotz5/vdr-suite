@@ -365,6 +365,8 @@ SuiteBridgeHbbtvPresentationResolver::readPresentation(
             meta.baseRevision != knownRevision ||
             meta.patchWidth == 0U ||
             meta.patchHeight == 0U ||
+            meta.patchWidth > meta.renderWidth ||
+            meta.patchHeight > meta.renderHeight ||
             meta.patchX > meta.renderWidth - meta.patchWidth ||
             meta.patchY > meta.renderHeight - meta.patchHeight)
         {
