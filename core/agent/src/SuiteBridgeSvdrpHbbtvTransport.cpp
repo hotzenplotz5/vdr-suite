@@ -162,7 +162,7 @@ SuiteBridgeHbbtvCommandReply SuiteBridgeSvdrpTransport::readHbbtvPresentation(
     std::ostringstream wire;
     if (request.operation == SuiteBridgeHbbtvPresentationOperation::Meta)
     {
-        if (request.frameRevision != 0 || request.offset != 0)
+        if (request.offset != 0)
         {
             return rejected;
         }
@@ -175,7 +175,7 @@ SuiteBridgeHbbtvCommandReply SuiteBridgeSvdrpTransport::readHbbtvPresentation(
         {
             return rejected;
         }
-        wire << "PLUG suitebridge HBBPRES CHUNK 1 "
+        wire << "PLUG suitebridge HBBPRES CHUNK 2 "
              << request.sessionId << ' '
              << request.frameRevision << ' '
              << request.offset << "\r\n";
