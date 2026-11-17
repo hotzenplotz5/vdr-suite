@@ -140,8 +140,8 @@ int main()
     }
 
     {
-        // A valid Browser session and even an explicit SearchTimer grant
-        // cannot bypass the independent paired-Device credential boundary.
+        // A non-admin Browser session with a SearchTimer grant cannot
+        // impersonate a Device or Browser administrator.
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "searchtimers.view", "backend-one"));
@@ -151,17 +151,17 @@ int main()
         assert(!cookieDenied.allowed);
         assert(cookieDenied.rejection.statusCode == 403);
         // Public-v1 maps internal security reasons to stable Problem Details.
-        // The browser must still be rejected by the paired-Device boundary.
+        // A non-admin Browser must still be rejected.
         assert(cookieDenied.rejection.headers.at("Content-Type") ==
             "application/problem+json");
         assert(cookieDenied.rejection.body.find(
             "\"code\":\"forbidden\"") != std::string::npos);
         assert(cookieDenied.rejection.body.find(
-            "A verified Device credential is required") !=
+            "Verified Device credential or administrator session required") !=
             std::string::npos);
     }
     {
-        // SearchTimer detail is Device-only even with a Browser grant.
+        // A non-admin Browser grant does not authorize SearchTimer detail.
         SecurityHttpGateBrowserTestFixture fixture;
         assert(fixture.grantRepository.ensureGrant(
             fixture.actorId, "searchtimers.view", "backend-one"));
@@ -171,7 +171,7 @@ int main()
         assert(!denied.allowed);
         assert(denied.rejection.statusCode == 403);
         assert(denied.rejection.body.find(
-            "A verified Device credential is required") !=
+            "Verified Device credential or administrator session required") !=
             std::string::npos);
     }
     {
@@ -200,6 +200,36 @@ int main()
             "&compareSummary=0"));
         assert(!denied.allowed);
         assert(denied.rejection.statusCode == 403);
+    }
+    {
+        SecurityHttpGateBrowserTestFixture fixture;
+        assert(fixture.grantRepository.ensureGrant(
+            fixture.actorId, "role.admin", "backend-one"));
+        const char* routes[] = {
+            "/api/v1/search-timers?backend=backend-one",
+            "/api/v1/search-timers/st_00000000000000000000000000000001"
+            "?backend=backend-one",
+            "/api/v1/search-timers/st_00000000000000000000000000000001/"
+            "version?backend=backend-one",
+            "/api/v1/search-timers/st_00000000000000000000000000000001/"
+            "preview?backend=backend-one",
+            "/api/v1/search-timers/draft-preview?backend=backend-one"
+            "&query=Terra&mode=1&compareTitle=1&compareSubtitle=0"
+            "&compareSummary=0"
+        };
+        for (const char* route : routes)
+        {
+            const auto allowed = fixture.gate.evaluate(browserGet(fixture, route));
+            assert(allowed.allowed);
+            assert(allowed.browserAuthenticated);
+            assert(!allowed.deviceAuthenticated);
+            assert(allowed.authorizationDecision.permission == "searchtimers.view");
+            assert(allowed.authorizationDecision.backendId == "backend-one");
+        }
+        const auto wrongScope = fixture.gate.evaluate(browserGet(fixture,
+            "/api/v1/search-timers?backend=backend-two"));
+        assert(!wrongScope.allowed);
+        assert(wrongScope.rejection.statusCode == 403);
     }
     return 0;
 }

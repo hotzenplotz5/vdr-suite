@@ -358,6 +358,16 @@ No separate recurring SearchTimer hardware test slices.
 
 ## Public-v1 guarded native SearchTimer mutations (integration candidate)
 
+**Browser-Administratoren (Source-Kandidat):** Dieselbe vorhandene
+backendgebundene oder globale `role.admin`-Browser-Session wie bei CREATE
+wird am HTTP-Gate für LIST, DETAIL, VERSION, PREVIEW und den kanonischen
+POST `/mutations` zugelassen. POST verwendet die bereits vorhandene
+CSRF-Prüfung und aktionsbezogene Autorisierung; die unabhängigen
+Device-Grants, native CAS und Readback bleiben unverändert. Die vollständige
+Webfrontend-Integration, Kompilierung und Real-VDR-Abnahme sind damit
+noch nicht nachgewiesen. Die Device-spezifischen Anforderungen in diesem
+Dokument gelten weiterhin für Device-Clients.
+
 **Release status:** implemented in PR #514; exact-head native build and complete
 Ubuntu daemon/SuiteBridge package CI plus the one final real-VDR API-v1
 acceptance are required before release. An older build's PASS is not proof of

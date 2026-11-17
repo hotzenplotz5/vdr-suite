@@ -732,6 +732,39 @@ int main()
     assert(searchCreateAllowed.authorizationDecision.permission ==
         "searchtimers.create");
 
+    const std::string searchMutationPath =
+        "/api/v1/search-timers/st_00000000000000000000000000000001"
+        "/mutations?backend=default";
+    const char* searchActions[] = {
+        "update", "activate", "deactivate", "delete"
+    };
+    const char* searchPermissions[] = {
+        "searchtimers.modify", "searchtimers.execute",
+        "searchtimers.modify", "searchtimers.delete"
+    };
+    for (int i = 0; i < 4; ++i)
+    {
+        auto mutation = fixture.mutationRequest(searchMutationPath, "default");
+        mutation.body = std::string("{\"action\":\"") + searchActions[i] +
+            "\",\"confirmed\":true" +
+            (i == 0 ? ",\"query\":\"Tatort\"" : "") + "}";
+        fixture.addBrowserAuthentication(mutation, true);
+        const auto allowed = fixture.gate.evaluate(mutation);
+        assert(allowed.allowed);
+        assert(allowed.browserAuthenticated);
+        assert(!allowed.deviceAuthenticated);
+        assert(allowed.authorizationDecision.permission == searchPermissions[i]);
+        assert(allowed.authorizationDecision.backendId == "default");
+        mutation.headers.erase("X-CSRF-Token");
+        const auto noCsrf = fixture.gate.evaluate(mutation);
+        assert(!noCsrf.allowed);
+        assert(noCsrf.rejection.statusCode == 403);
+    }
+    auto browserSearchMutation = fixture.mutationRequest(searchMutationPath, "default");
+    browserSearchMutation.body = "{\"action\":\"delete\",\"confirmed\":true}";
+    fixture.addBrowserAuthentication(browserSearchMutation, true);
+
+
     HttpServerRequest searchMissingCsrf = fixture.mutationRequest(
         "/api/v1/search-timers?backend=default", "default");
     fixture.addBrowserAuthentication(searchMissingCsrf);
@@ -744,6 +777,9 @@ int main()
     const auto searchReadOnlyRejected = fixture.gate.evaluate(browserSearchCreate);
     assert(!searchReadOnlyRejected.allowed);
     assert(searchReadOnlyRejected.rejection.statusCode == 403);
+    const auto searchMutationReadOnly = fixture.gate.evaluate(browserSearchMutation);
+    assert(!searchMutationReadOnly.allowed);
+    assert(searchMutationReadOnly.rejection.statusCode == 403);
     assert(fixture.grantRepository.revokeGrant(
         fixture.actorId, "role.read-only", "default"));
 
@@ -752,6 +788,11 @@ int main()
     const auto searchNonAdminRejected = fixture.gate.evaluate(browserSearchCreate);
     assert(!searchNonAdminRejected.allowed);
     assert(searchNonAdminRejected.rejection.statusCode == 403);
+    assert(fixture.grantRepository.ensureGrant(
+        fixture.actorId, "searchtimers.delete", "default"));
+    const auto searchMutationNonAdmin = fixture.gate.evaluate(browserSearchMutation);
+    assert(!searchMutationNonAdmin.allowed);
+    assert(searchMutationNonAdmin.rejection.statusCode == 403);
 
     assert(fixture.browserRepository.revokeBySessionId(
         fixture.sessionId));

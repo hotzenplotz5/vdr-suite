@@ -1159,8 +1159,8 @@ public:
             searchMutationActivate ||
             searchMutationAction == "activate" ? "searchtimers.execute" :
             "searchtimers.modify";
-        // Exactly one non-reserved segment: detail GET uses the collection's
-        // independent Device+searchtimers.view permission, never EPG grants.
+        // Detail GET uses the collection's independent SearchTimer view
+        // permission, never EPG grants; Browser administrators use their own session.
         const bool isPublicSearchTimerDetailResource =
             path.size() > publicSearchTimerPreviewPrefix.size() &&
             path.compare(0U, publicSearchTimerPreviewPrefix.size(),
@@ -1177,6 +1177,25 @@ public:
                 searchVersionEndpoint);
         const std::string publicSearchTimerBackendId =
             queryStringValue(request.path, "backend");
+        // Browser administrators use the existing CREATE identity policy
+        // for SearchTimer reads and the canonical native mutation route.
+        const bool searchTimerDeviceClient =
+            gate.deviceAuthenticated &&
+            gate.context.actor.type == ActorType::Service &&
+            gate.context.device.has_value() &&
+            gate.context.credential.has_value() &&
+            !gate.context.session.has_value();
+        const bool searchTimerBrowserAdmin =
+            gate.browserAuthenticated &&
+            gate.context.actor.type == ActorType::User &&
+            gate.context.session.has_value() &&
+            std::any_of(gate.context.grants.begin(),
+                gate.context.grants.end(),
+                [&publicSearchTimerBackendId](const PermissionGrant& grant) {
+                    return grant.permission == "role.admin" &&
+                        (grant.backendId == "*" ||
+                         grant.backendId == publicSearchTimerBackendId);
+                });
         const std::string publicTimerAssignmentCollection =
             "/api/v1/timer-assignments";
         const std::string publicTimerAssignmentPrefix =
@@ -2101,10 +2120,7 @@ public:
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
-            if (!gate.deviceAuthenticated ||
-                gate.context.actor.type != ActorType::Service ||
-                !gate.context.device || !gate.context.credential ||
-                gate.context.session.has_value())
+            if (!searchTimerDeviceClient && !searchTimerBrowserAdmin)
             {
                 AuthorizationDecision denial;
                 denial.permission = "searchtimers.view";
@@ -2112,7 +2128,7 @@ public:
                 denial.action = "searchtimers.view";
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "A verified Device credential is required", "");
+                    "Verified Device credential or administrator session required", "");
             }
             const bool validScope =
                 !publicSearchTimerBackendId.empty() &&
@@ -2789,27 +2805,7 @@ public:
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
-            const bool deviceClient =
-                gate.deviceAuthenticated &&
-                gate.context.actor.type == ActorType::Service &&
-                gate.context.device.has_value() &&
-                gate.context.credential.has_value() &&
-                !gate.context.session.has_value();
-            // Allow the first Human administrator to stage an inactive rule
-            // via the existing durable Public-v1 CREATE. No legacy CRUD
-            // route or additional Browser actor receives this exception.
-            const bool browserAdmin =
-                gate.browserAuthenticated &&
-                gate.context.actor.type == ActorType::User &&
-                gate.context.session.has_value() &&
-                std::any_of(gate.context.grants.begin(),
-                    gate.context.grants.end(),
-                    [&publicSearchTimerBackendId](const PermissionGrant& grant) {
-                        return grant.permission == "role.admin" &&
-                            (grant.backendId == "*" ||
-                             grant.backendId == publicSearchTimerBackendId);
-                    });
-            if (!deviceClient && !browserAdmin)
+            if (!searchTimerDeviceClient && !searchTimerBrowserAdmin)
             {
                 AuthorizationDecision denial;
                 denial.permission = "searchtimers.create";
@@ -2819,7 +2815,7 @@ public:
                 return rejectWithAudit(gate, denial, 403,
                     "Verified Device credential or administrator session required", "");
             }
-            if (browserAdmin &&
+            if (searchTimerBrowserAdmin &&
                 (browserSessionAuthenticator_ == nullptr ||
                  !browserSessionAuthenticator_->verifyCsrf(request.headers)))
             {
@@ -2859,7 +2855,7 @@ public:
                     return grant.permission == "searchtimers.create" &&
                         grant.backendId == publicSearchTimerBackendId;
                 });
-            if (deviceClient && !exactGrant)
+            if (searchTimerDeviceClient && !exactGrant)
             {
                 AuthorizationDecision denial;
                 denial.permission = "searchtimers.create";
@@ -2874,10 +2870,8 @@ public:
         {
             if (!gate.context.authenticated())
                 return rejectAuthentication(gate);
-            if (!gate.deviceAuthenticated ||
-                gate.context.actor.type != ActorType::Service ||
-                !gate.context.device || !gate.context.credential ||
-                gate.context.session.has_value())
+            if (!searchTimerDeviceClient &&
+                !(searchMutationEndpoint && searchTimerBrowserAdmin))
             {
                 AuthorizationDecision denial;
                 denial.permission = searchMutationPermission;
@@ -2885,7 +2879,7 @@ public:
                 denial.action = searchMutationPermission;
                 denial.reasonCode = "device_credential_required";
                 return rejectWithAudit(gate, denial, 403,
-                    "Verified Device credential required", "");
+                    "Verified Device credential or administrator session required", "");
             }
             const bool validBackend =
                 !publicSearchTimerBackendId.empty() &&
@@ -2915,7 +2909,7 @@ public:
                     return grant.permission == searchMutationPermission &&
                         grant.backendId == publicSearchTimerBackendId;
                 });
-            if (!exactGrant)
+            if (searchTimerDeviceClient && !exactGrant)
             {
                 AuthorizationDecision denial;
                 denial.permission = searchMutationPermission;
