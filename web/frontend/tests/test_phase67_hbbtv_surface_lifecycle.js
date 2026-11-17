@@ -72,7 +72,7 @@ function node(tag) {
       return {left: 0, top: 0, width, height};
     },
     getContext() { return {
-      createImageData(w, h) { return {data: new Uint8ClampedArray(w * h * 4)}; },
+      createImageData(w, h) { return {width: w, height: h, data: new Uint8ClampedArray(w * h * 4)}; },
       clearRect(x = 0, y = 0, w = value.width || 0, h = value.height || 0) {
         if (!value.pixels || !(value.width > 0) || !(value.height > 0)) return;
         const left = Math.max(0, Math.trunc(x));
@@ -89,7 +89,23 @@ function node(tag) {
           }
         }
       },
-      putImageData(image) { value.pixels = image.data; }
+      putImageData(image, dx = 0, dy = 0) {
+        if (!value.pixels ||
+            value.pixels.length !== value.width * value.height * 4) {
+          value.pixels = new Uint8ClampedArray(value.width * value.height * 4);
+        }
+        for (let row = 0; row < image.data.length / 4 / image.width; ++row) {
+          for (let column = 0; column < image.width; ++column) {
+            const source = (row * image.width + column) * 4;
+            const target =
+              ((dy + row) * value.width + (dx + column)) * 4;
+            value.pixels[target] = image.data[source];
+            value.pixels[target + 1] = image.data[source + 1];
+            value.pixels[target + 2] = image.data[source + 2];
+            value.pixels[target + 3] = image.data[source + 3];
+          }
+        }
+      }
     }; }
   };
   if (tag === 'video') videos.push(value);
@@ -100,9 +116,9 @@ function matches(value, selector) {
   if (selector === '[data-hbbtv-action]') return Boolean(value.dataset.hbbtvAction);
   return value.tagName.toLowerCase() === selector;
 }
-function qoiFrame() {
-  // The pre-media application frame is opaque on purpose. After input a newer
-  // provider frame contains a transparent video hole plus one opaque control.
+function qoiFullFrame() {
+  // The pre-media application frame is opaque on purpose. Newer full resync
+  // frames contain a transparent video hole plus one opaque control.
   const bytes = [113, 111, 105, 102, 0, 0, 0, 16, 0, 0, 0, 9, 4, 0];
   for (let i = 0; i < 144; ++i) {
     const alpha = frameRevision === 1 ? 255 : (i === 143 ? 255 : 0);
@@ -111,6 +127,18 @@ function qoiFrame() {
   bytes.push(0, 0, 0, 0, 0, 0, 0, 1);
   return new Uint8Array(bytes);
 }
+function qoiControlPatch() {
+  // One opaque 1x1 RGBA pixel at the bottom-right control position.
+  return new Uint8Array([
+    113, 111, 105, 102,
+    0, 0, 0, 1,
+    0, 0, 0, 1,
+    4, 0,
+    255, 255, 255, 255, 255,
+    0, 0, 0, 0, 0, 0, 0, 1
+  ]);
+}
+
 const mount = node('div');
 const document = {
   readyState: 'complete', hidden: false, visibilityState: 'visible',
@@ -146,9 +174,39 @@ const client = {
     return pendingInput || Promise.resolve(session);
   },
   fetchClientHbbtvSessionClose() { mediaActive = false; session = {...session, state: 'closed'}; return Promise.resolve(session); },
-  fetchClientHbbtvPresentation() {
-    if (!frameAvailable) return Promise.resolve({status: 204, revision: frameRevision});
-    return Promise.resolve({status: 200, revision: frameRevision, width: 16, height: 9, bytes: qoiFrame()});
+  fetchClientHbbtvPresentation({query}) {
+    const knownRevision = Number(query && query.revision) || 0;
+    if (!frameAvailable || knownRevision === frameRevision) {
+      return Promise.resolve({status: 204, revision: frameRevision});
+    }
+    if (knownRevision > 0) {
+      return Promise.resolve({
+        status: 200,
+        revision: frameRevision,
+        width: 16,
+        height: 9,
+        frameKind: 'patch',
+        baseRevision: knownRevision,
+        patchX: 15,
+        patchY: 8,
+        patchWidth: 1,
+        patchHeight: 1,
+        bytes: qoiControlPatch()
+      });
+    }
+    return Promise.resolve({
+      status: 200,
+      revision: frameRevision,
+      width: 16,
+      height: 9,
+      frameKind: 'full',
+      baseRevision: 0,
+      patchX: 0,
+      patchY: 0,
+      patchWidth: 16,
+      patchHeight: 9,
+      bytes: qoiFullFrame()
+    });
   },
   fetchClientHbbtvMedia() { return Promise.resolve({sessionId: session.sessionId, backendId: 'default',
     available: mediaActive, state: mediaActive ? 'streaming' : 'none', mediaRevision: 1, fullscreen: true}); },
@@ -211,8 +269,9 @@ async function run() {
   remote('ok').click(); await flush(); await tick();
   assert.deepStrictEqual({...requests.find(v => v.kind === 'input').payload},
     {backendId: 'default', sessionId: 'app_1', action: 'ok'});
-  assert.strictEqual(canvas.pixels[3], 0, 'fresh provider frame keeps the video hole transparent');
-  assert.strictEqual(canvas.pixels[143 * 4 + 3], 255, 'fresh provider frame paints an opaque control pixel above video');
+  assert.strictEqual(canvas.pixels[3], 0, 'fresh provider patch keeps the video hole transparent');
+  assert.strictEqual(canvas.pixels[143 * 4 + 3], 255, 'fresh provider patch paints an opaque control pixel above video');
+  assert.strictEqual(canvas.dataset.hbbtvRevision, '2', 'patch advances the canvas revision without replacing the full surface');
   assert(Number(video.style.getPropertyValue('z-index')) < canvasZ, 'native controls stay above the visible broadband video');
   assert.strictEqual(video.style.getPropertyValue('pointer-events'), 'none');
   for (const key of ['Enter', 'g', 'r', 'ArrowLeft']) {
