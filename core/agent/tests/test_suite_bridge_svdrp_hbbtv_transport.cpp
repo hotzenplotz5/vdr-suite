@@ -211,14 +211,18 @@ int main()
         Server server(
             "250 {\"schemaVersion\":1,"
             "\"provider\":\"vdr-plugin-web\","
-            "\"providerSchemaVersion\":1,"
+            "\"providerSchemaVersion\":2,"
             "\"capability\":\"broadcast.hbbtv.presentation\","
             "\"operation\":\"meta\","
             "\"result\":\"ok\",\"resultCode\":0,"
             "\"sessionId\":\"session-a\","
             "\"frameRevision\":9,"
             "\"observedAt\":1789671111,"
+            "\"frameKind\":\"full\",\"frameKindCode\":1,"
+            "\"baseRevision\":0,"
             "\"renderWidth\":1280,\"renderHeight\":720,"
+            "\"patchX\":0,\"patchY\":0,"
+            "\"patchWidth\":1280,\"patchHeight\":720,"
             "\"encodedBytes\":4,\"returnedBytes\":0}\r\n");
         SuiteBridgeSvdrpTransport transport(configFor(server));
 
@@ -233,21 +237,25 @@ int main()
         server.wait();
         assert(reply.transportSucceeded);
         assert(server.request() ==
-            "PLUG suitebridge HBBPRES META 1 session-a\r\n");
+            "PLUG suitebridge HBBPRES META 2 session-a 7\r\n");
     }
 
     {
         Server server(
             "250 {\"schemaVersion\":1,"
             "\"provider\":\"vdr-plugin-web\","
-            "\"providerSchemaVersion\":1,"
+            "\"providerSchemaVersion\":2,"
             "\"capability\":\"broadcast.hbbtv.presentation\","
             "\"operation\":\"chunk\","
             "\"result\":\"ok\",\"resultCode\":0,"
             "\"sessionId\":\"session-a\","
             "\"frameRevision\":9,"
             "\"observedAt\":1789671111,"
+            "\"frameKind\":\"full\",\"frameKindCode\":1,"
+            "\"baseRevision\":0,"
             "\"renderWidth\":1280,\"renderHeight\":720,"
+            "\"patchX\":0,\"patchY\":0,"
+            "\"patchWidth\":1280,\"patchHeight\":720,"
             "\"encodedBytes\":4,\"returnedBytes\":4,"
             "\"dataBase64\":\"cW9pZg==\"}\r\n");
         SuiteBridgeSvdrpTransport transport(configFor(server));
@@ -264,7 +272,7 @@ int main()
         server.wait();
         assert(reply.transportSucceeded);
         assert(server.request() ==
-            "PLUG suitebridge HBBPRES CHUNK 1 session-a 9 0\r\n");
+            "PLUG suitebridge HBBPRES CHUNK 2 session-a 9 0\r\n");
     }
 
     {
