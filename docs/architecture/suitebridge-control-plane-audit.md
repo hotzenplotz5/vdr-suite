@@ -169,13 +169,21 @@ separate worker.
 | --- | --- | --- |
 | `HBBAPPS 1 <channel>` | discover applications | vdr-plugin-web service |
 | `HBBRUN LAUNCH/STATUS/INPUT/CLOSE 1 ...` | runtime control | vdr-plugin-web service |
-| `HBBPRES META 1 ...` | presentation metadata | vdr-plugin-web service |
-| `HBBPRES CHUNK 1 ...` | bounded presentation chunk | vdr-plugin-web service |
+| `HBBPRES META 2 <session> <known-revision>` | presentation metadata / full-vs-patch selection | vdr-plugin-web service |
+| `HBBPRES CHUNK 2 <session> <revision> <offset>` | bounded full-frame or patch QOI chunk | vdr-plugin-web service |
 | `HBBMEDIA 1 ...` | media source/read data | vdr-plugin-web service |
 
 The adapter invokes the provider synchronously through VDR's plugin Service
 mechanism. The new transport must not assume that arbitrary concurrent Service
 calls are safe without provider-specific proof.
+
+The HbbTV presentation contract was later advanced to private schema v2 for
+incremental browser composition. META carries the consumer's known revision.
+When the provider still has a continuous dirty-rectangle history from that
+revision, it returns a QOI patch with an explicit base revision and geometry;
+otherwise it returns a full-frame resynchronization. CHUNK remains bounded and
+serves the snapshot selected by META. This is an internal transport change and
+does not expose provider commands in the browser API.
 
 The later HbbTV implementation audit proved a narrower execution contract:
 the provider's discovery and media reads are mutex-protected bounded state
