@@ -66,7 +66,7 @@ REQUIRED_CURRENT_STATUS_RULES = [
 
 REQUIRED_AGENT_RULES = [
     "## Top-level non-stop execution mandate",
-    "never voluntarily stop,",
+    "Continue without an artificial handoff while necessary, authorized steps",
     "Status updates are progress reports, not stopping points.",
     "An intermediate finding is never an end state.",
     "Jede solche Arbeitsantwort endet mit **genau einer** passenden Überschrift",
@@ -79,7 +79,7 @@ REQUIRED_AGENT_RULES = [
     "re-read the run before any response termination",
     "## GitHub-first execution",
     "Continue immediately with the next executable step.",
-    "Do not invent permission boundaries or another confirmation pause.",
+    "Existing authorization counts: do not ask again or stop at a PR-state change,",
     "Create small, coherent, scoped commits; push each finished commit promptly",
     "Do not await GitHub Actions after every commit.",
     "During draft development and targeted runtime acceptance, require only surface-relevant tests.",
