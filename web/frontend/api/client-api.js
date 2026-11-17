@@ -743,6 +743,54 @@
     });
   }
 
+  // Public-v1 reads and native compare-and-swap mutations use opaque IDs.
+  function publicSearchTimerPath(options, suffix) {
+    const id = String(options.searchTimerId || '');
+    if (!/^st_[0-9a-f]{32}$/.test(id)) {
+      throw new Error('Ungültige öffentliche Suchtimer-ID.');
+    }
+    return '/api/v1/search-timers/' + encodeURIComponent(id) + (suffix || '');
+  }
+
+  function fetchPublicSearchTimerPage(options) {
+    const normalized = normalizeOptions(options);
+    return requestJson('/api/v1/search-timers', {
+      query: { backend: normalized.backend, cursor: normalized.cursor, limit: normalized.limit },
+      cache: 'no-store', credentials: 'same-origin', signal: normalized.signal
+    });
+  }
+
+  async function fetchPublicSearchTimerDetail(options) {
+    const normalized = normalizeOptions(options);
+    return requestJson(publicSearchTimerPath(normalized), {
+      query: { backend: normalized.backend },
+      cache: 'no-store', credentials: 'same-origin', signal: normalized.signal
+    });
+  }
+
+  async function fetchPublicSearchTimerVersion(options) {
+    const normalized = normalizeOptions(options);
+    return requestJson(publicSearchTimerPath(normalized, '/version'), {
+      query: { backend: normalized.backend },
+      cache: 'no-store', credentials: 'same-origin', signal: normalized.signal
+    });
+  }
+
+  async function mutatePublicSearchTimer(options) {
+    const normalized = normalizeOptions(options);
+    return requestJson(publicSearchTimerPath(normalized, '/mutations'),
+      queryMutationOptions(jsonPostOptions({
+        query: { backend: normalized.backend },
+        payload: normalized.payload,
+        headers: {
+          'Idempotency-Key': normalized.idempotencyKey,
+          'If-Match': '"' + normalized.revision + '"'
+        },
+        cache: 'no-store', credentials: 'same-origin', signal: normalized.signal
+      }))
+    );
+  }
+
   function fetchClientSearchTimerUpdateAction(options) {
     return requestJson(
       '/api/vdr/searchtimers/update',
@@ -819,6 +867,10 @@
     fetchClientSearchTimerCreateAction: fetchClientSearchTimerCreateAction,
     fetchClientSearchTimerCreateStaged: fetchClientSearchTimerCreateStaged,
     fetchClientSearchTimerOperation: fetchClientSearchTimerOperation,
+    fetchPublicSearchTimerPage: fetchPublicSearchTimerPage,
+    fetchPublicSearchTimerDetail: fetchPublicSearchTimerDetail,
+    fetchPublicSearchTimerVersion: fetchPublicSearchTimerVersion,
+    mutatePublicSearchTimer: mutatePublicSearchTimer,
     fetchClientSearchTimerUpdateAction: fetchClientSearchTimerUpdateAction,
     fetchClientSearchTimerDeleteAction: fetchClientSearchTimerDeleteAction
   });

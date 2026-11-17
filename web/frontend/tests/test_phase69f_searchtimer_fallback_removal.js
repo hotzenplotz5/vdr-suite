@@ -127,6 +127,40 @@ async function run() {
     {payload: {query: 'phase69f'}}
   );
 
+  const id = 'st_' + 'a'.repeat(32);
+  const revision = 'sr_' + 'b'.repeat(32);
+  const backend = 'living-room';
+  context.VdrSuiteBrowserSession = {csrfHeaders() {
+    return {'X-CSRF-Token': 'test-csrf'};
+  }};
+  await verifyOneShot('fetchPublicSearchTimerPage', '/api/v1/search-timers',
+    'GET', {backend, limit: 30, cursor: 'cursor-example'});
+  const pageRequest = new URL(requests[requests.length - 1].url, 'https://vdr-suite.test/');
+  assert.strictEqual(pageRequest.searchParams.get('backend'), backend);
+  assert.strictEqual(pageRequest.searchParams.get('limit'), '30');
+  assert.strictEqual(pageRequest.searchParams.get('cursor'), 'cursor-example');
+  await verifyOneShot('fetchPublicSearchTimerDetail', '/api/v1/search-timers/' + id,
+    'GET', {backend, searchTimerId: id});
+  await verifyOneShot('fetchPublicSearchTimerVersion', '/api/v1/search-timers/' + id + '/version',
+    'GET', {backend, searchTimerId: id});
+  for (const action of ['update', 'activate', 'deactivate', 'delete']) {
+    const payload = {action, confirmed: true};
+    if (action === 'update') payload.query = 'Tatort';
+    await verifyOneShot('mutatePublicSearchTimer',
+      '/api/v1/search-timers/' + id + '/mutations', 'POST',
+      {backend, searchTimerId: id, revision, idempotencyKey: 'mutation-' + action, payload});
+    const request = requests[requests.length - 1];
+    assert.strictEqual(new URL(request.url, 'https://vdr-suite.test/').searchParams.get('backend'), backend);
+    assert.strictEqual(request.options.headers['If-Match'], '"' + revision + '"');
+    assert.strictEqual(request.options.headers['Idempotency-Key'], 'mutation-' + action);
+    assert.strictEqual(request.options.headers['X-CSRF-Token'], 'test-csrf');
+    assert.strictEqual(request.options.headers['Content-Type'], 'application/json');
+    assert.deepStrictEqual(JSON.parse(request.options.body), payload);
+  }
+  const previousCount = requests.length;
+  await captureFailure(() => api.mutatePublicSearchTimer({backend, searchTimerId: '0'}));
+  assert.strictEqual(requests.length, previousCount);
+
   console.log('test_phase69f_searchtimer_fallback_removal passed');
 }
 
