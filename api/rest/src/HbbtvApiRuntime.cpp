@@ -1009,6 +1009,18 @@ bool HbbtvApiRuntime::tryHandleGet(
         std::to_string(frame.renderWidth);
     response.headers["X-Vdr-Suite-Hbbtv-Height"] =
         std::to_string(frame.renderHeight);
+    response.headers["X-Vdr-Suite-Hbbtv-Frame"] =
+        frame.patch ? "patch" : "full";
+    response.headers["X-Vdr-Suite-Hbbtv-Base-Revision"] =
+        std::to_string(frame.patch ? frame.baseRevision : 0U);
+    response.headers["X-Vdr-Suite-Hbbtv-Patch-X"] =
+        std::to_string(frame.patch ? frame.patchX : 0U);
+    response.headers["X-Vdr-Suite-Hbbtv-Patch-Y"] =
+        std::to_string(frame.patch ? frame.patchY : 0U);
+    response.headers["X-Vdr-Suite-Hbbtv-Patch-Width"] =
+        std::to_string(frame.patch ? frame.patchWidth : frame.renderWidth);
+    response.headers["X-Vdr-Suite-Hbbtv-Patch-Height"] =
+        std::to_string(frame.patch ? frame.patchHeight : frame.renderHeight);
     response.body = frame.qoi;
     return true;
 }
