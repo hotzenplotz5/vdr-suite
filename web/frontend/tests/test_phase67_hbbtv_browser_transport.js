@@ -62,17 +62,38 @@ assert(openStart >= 0);
 assert(closeStart > openStart);
 
 const openSource = live.slice(openStart, closeStart);
+const refreshFunctionPosition = openSource.indexOf(
+  'function launchFreshApplication(staleRetry) {'
+);
 const refreshPosition = openSource.indexOf(
-  'return beginHbbtvAvailability(currentChannel).then(function() {'
+  'return beginHbbtvAvailability(currentChannel).then(function() {',
+  refreshFunctionPosition
 );
 const freshApplicationPosition = openSource.indexOf(
-  'const application = launchableHbbtvApplication();'
+  'const application = launchableHbbtvApplication();',
+  refreshPosition
 );
 const launchPosition = openSource.indexOf(
   'return client.fetchClientHbbtvSessionLaunch({',
   freshApplicationPosition
 );
+const staleRetryPosition = openSource.indexOf(
+  "text(error.message) === 'hbbtv_application_context_stale'",
+  launchPosition
+);
+const boundedRetryPosition = openSource.indexOf(
+  'return launchFreshApplication(true);',
+  staleRetryPosition
+);
+const initialLaunchPosition = openSource.indexOf(
+  'return launchFreshApplication(false).catch(function(error) {',
+  boundedRetryPosition
+);
 
-assert(refreshPosition >= 0);
+assert(refreshFunctionPosition >= 0);
+assert(refreshPosition > refreshFunctionPosition);
 assert(freshApplicationPosition > refreshPosition);
 assert(launchPosition > freshApplicationPosition);
+assert(staleRetryPosition > launchPosition);
+assert(boundedRetryPosition > staleRetryPosition);
+assert(initialLaunchPosition > boundedRetryPosition);
