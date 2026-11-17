@@ -199,12 +199,12 @@ SuiteBridgeHbbtvCommandReply SuiteBridgeLocalControlTransport::controlHbbtv(cons
 SuiteBridgeHbbtvCommandReply SuiteBridgeLocalControlTransport::readHbbtvPresentation(const SuiteBridgeHbbtvPresentationRequest&r){
  if(!safeToken(r.sessionId)||r.sessionId.size()>=128)return {};
  if(r.operation==SuiteBridgeHbbtvPresentationOperation::Meta){
-  if(r.frameRevision!=0||r.offset!=0)return {};
-  return hbbtvReply(executeOperation(control::Operation::HbbtvPresentation,"META 1 "+r.sessionId));
+  if(r.offset!=0)return {};
+  return hbbtvReply(executeOperation(control::Operation::HbbtvPresentation,"META 2 "+r.sessionId+" "+std::to_string(r.frameRevision)));
  }
  if(r.operation==SuiteBridgeHbbtvPresentationOperation::Chunk){
   if(r.frameRevision==0)return {};
-  return hbbtvReply(executeOperation(control::Operation::HbbtvPresentation,"CHUNK 1 "+r.sessionId+" "+std::to_string(r.frameRevision)+" "+std::to_string(r.offset)));
+  return hbbtvReply(executeOperation(control::Operation::HbbtvPresentation,"CHUNK 2 "+r.sessionId+" "+std::to_string(r.frameRevision)+" "+std::to_string(r.offset)));
  }
  return {};
 }
