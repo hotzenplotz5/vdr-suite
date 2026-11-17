@@ -953,18 +953,16 @@
       lock(true);
       setFeedback(feedback, 'Aktuelle Suchtimer-Version wird geladen …', false);
       try {
-        const current = await api.fetchPublicSearchTimerDetail(scope);
-        if (!attached) return;
-        if (!current || current.searchTimerId !== scope.searchTimerId ||
-            current.backendId !== scope.backend || current.query !== timer.query ||
-            current.state !== timer.state) {
-          throw new Error('Suchtimer wurde geändert. Bitte Liste aktualisieren.');
-        }
+        // The version response binds the current rule to the same revision.
+        // Do not require a separate DETAIL request before a mutation.
         const version = await api.fetchPublicSearchTimerVersion(scope);
         if (!attached) return;
         if (!version || version.searchTimerId !== scope.searchTimerId ||
             version.backendId !== scope.backend || !/^sr_[0-9a-f]{32}$/.test(version.revision)) {
           throw new Error('Keine gültige Suchtimer-Revision erhalten.');
+        }
+        if (version.query !== timer.query || version.state !== timer.state) {
+          throw new Error('Suchtimer wurde geändert. Bitte Liste aktualisieren.');
         }
         submitted = true;
         setFeedback(feedback, 'Suchtimer wird über Public API v1 ' + label + ' …', false);

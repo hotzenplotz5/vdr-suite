@@ -398,6 +398,9 @@ GET /api/v1/search-timers/{searchTimerId}/version?backend=<id> resolves the
 public identity through a fresh RESTfulAPI inventory and obtains the complete
 stock epgsearch rule using LSTS. The opaque sr_ revision hashes the public
 identity and raw rule; the strong quoted ETag is returned with no-store.
+The response also carries query and state from that same observation. The
+Webfrontend checks its displayed card against these values and uses the
+revision directly, without a separate DETAIL request before a mutation.
 No numeric native ID or raw record is exposed.
 
 POST /api/v1/search-timers/{searchTimerId}/mutations?backend=<id> uses the

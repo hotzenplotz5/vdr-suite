@@ -6850,6 +6850,8 @@ bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
                 "{\"searchTimerId\":\"" + jsonEscape(versionSearchId) +
                 "\",\"backendId\":\"" + jsonEscape(authorizedBackendId) +
                 "\",\"revision\":\"" + jsonEscape(observed.revision) +
+                "\",\"query\":\"" + jsonEscape(observed.query) +
+                "\",\"state\":\"" + jsonEscape(observed.state) +
                 "\"}", requestId, correlationId);
             response.headers["ETag"] = "\"" + observed.revision + "\"";
             response.headers["Cache-Control"] = "no-store";

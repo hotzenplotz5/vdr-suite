@@ -330,6 +330,70 @@ int main()
     assert(browserDetail.statusCode == 200);
     assert(browserDetail.body.find("\"settings\":{\"recordingOptions\":{\"directory\":\"Doku\",\"priority\":50}}") != std::string::npos);
     assert(browserDetail.body.find("backendNativeId") == std::string::npos);
+    // A single authoritative VERSION response supplies both the revision
+    // and the current card state; a separate DETAIL is not a prerequisite.
+    const std::string versionRuleId = savedRule.substr(savedRule.rfind('/') + 1U);
+    const std::string versionRevision = "sr_" + std::string(32U, 'b');
+    runtime.registerSearchTimerNativeVersionLookup(
+        [&](const PublicSearchTimerNativeVersionRequest& request)
+        {
+            PublicSearchTimerNativeVersionResult result;
+            assert(request.publicSearchTimerId == versionRuleId);
+            if (request.backendId != "one") return result;
+            result.status = PublicSearchTimerNativeVersionStatus::ok;
+            result.revision = versionRevision;
+            result.query = "Terra X";
+            result.state = "inactive";
+            return result;
+        });
+    ApiResponse versionResponse;
+    assert(runtime.tryHandleGet(savedRule + "/version?backend=one",
+        "actor:browser", "st-version", "", versionResponse, "", "one", {}, "", true));
+    assert(versionResponse.statusCode == 200);
+    assert(versionResponse.headers.at("ETag") == "\"" + versionRevision + "\"");
+    assert(versionResponse.body.find("\"query\":\"Terra X\"") != std::string::npos);
+    assert(versionResponse.body.find("\"state\":\"inactive\"") != std::string::npos);
+    assert(versionResponse.body.find("backendNativeId") == std::string::npos);
+    ApiResponse offlineVersion;
+    assert(runtime.tryHandleGet(savedRule + "/version?backend=offline",
+        "actor:browser", "st-version-offline", "", offlineVersion, "", "offline", {}, "", true));
+    assert(offlineVersion.statusCode == 503);
+    runtime.resetSearchTimerNativeVersionLookup();
+    int managementCalls = 0;
+    runtime.registerSearchTimerNativeMutation(
+        [&](const PublicSearchTimerNativeMutationRequest& request)
+        {
+            assert(request.actorRef == "actor:browser");
+            assert(request.backendId == "one");
+            assert(request.publicSearchTimerId == versionRuleId);
+            assert(request.ifMatch == versionRevision);
+            assert(request.confirmed);
+            assert(request.action == (managementCalls == 0
+                ? PublicSearchTimerNativeAction::activate
+                : PublicSearchTimerNativeAction::remove));
+            ++managementCalls;
+            PublicSearchTimerNativeMutationResult result;
+            result.status = PublicSearchTimerNativeMutationStatus::accepted;
+            result.operation.operationId = "op_" + std::string(32U,
+                managementCalls == 1 ? 'a' : 'b');
+            result.operation.backendId = "one";
+            result.operation.state = "succeeded";
+            result.operation.resourceRevision = "3";
+            return result;
+        });
+    for (const std::string action : {"activate", "delete"})
+    {
+        ApiResponse mutationResponse;
+        assert(runtime.tryHandlePost(savedRule + "/mutations?backend=one",
+            "st-mutation", "", mutationResponse,
+            "{\"action\":\"" + action + "\",\"confirmed\":true}",
+            "actor:browser", "\"" + versionRevision + "\"",
+            "test-st-" + action, "application/json", "one"));
+        assert(mutationResponse.statusCode == 202);
+        assert(mutationResponse.body.find("\"state\":\"succeeded\"") != std::string::npos);
+    }
+    assert(managementCalls == 2);
+    runtime.resetSearchTimerNativeMutation();
     ApiResponse browserList;
     assert(runtime.tryHandleGet("/api/v1/search-timers?backend=one&limit=2",
         "actor:browser", "st-browser-list", "", browserList, "", "one", {}, "", true));

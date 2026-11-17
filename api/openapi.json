@@ -10126,7 +10126,7 @@
         ],
         "operationId": "getSearchTimerNativeVersion",
         "summary": "Read a backend-scoped SearchTimer mutation revision",
-        "description": "Fresh stock epgsearch LSTS observation of an active public binding. Returns a strong opaque ETag derived from the full rule and public identity; no native ID exposed. Requires Browser administrator or Device searchtimers.view@backend.",
+        "description": "Fresh stock epgsearch LSTS observation of an active public binding. Returns a strong opaque ETag derived from the full rule and public identity, together with the query and activation state from that same observation; no native ID exposed. Requires Browser administrator or Device searchtimers.view@backend.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
           "authorization": "Browser administrator or verified Device, exact searchtimers.view@backend"
@@ -10175,7 +10175,9 @@
                   "required": [
                     "searchTimerId",
                     "backendId",
-                    "revision"
+                    "revision",
+                    "query",
+                    "state"
                   ],
                   "properties": {
                     "searchTimerId": {
@@ -10188,6 +10190,16 @@
                     "revision": {
                       "type": "string",
                       "pattern": "^sr_[0-9a-f]{32}$"
+                    },
+                    "query": {
+                      "type": "string"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "inactive"
+                      ]
                     }
                   }
                 }

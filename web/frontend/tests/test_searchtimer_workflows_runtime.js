@@ -740,16 +740,15 @@ async function checkPublicMutations() {
   const operationId = 'op_' + 'c'.repeat(32);
   function operation(state) { return {operationId, backendId: backend, state}; }
   const client = {
-    async fetchPublicSearchTimerDetail(options) {
-      assert.strictEqual(options.searchTimerId, searchTimerId);
-      assert.strictEqual(options.backend, backend);
-      return current;
+    async fetchPublicSearchTimerDetail() {
+      throw new Error('DETAIL returned HTTP 503');
     },
     async fetchPublicSearchTimerVersion(options) {
       assert.strictEqual(options.searchTimerId, searchTimerId);
       assert.strictEqual(options.backend, backend);
-      if (rejectVersion) throw new Error('native CAS unavailable');
-      return {searchTimerId, backendId: backend, revision};
+      if (rejectVersion) throw new Error('SearchTimer version unavailable');
+      return {searchTimerId, backendId: backend, revision,
+        query: current.query, state: current.state};
     },
     async mutatePublicSearchTimer(options) {
       writes.push(options);
@@ -872,6 +871,16 @@ async function checkPublicMutations() {
   assert.strictEqual(reloads, 5);
   assert.strictEqual(stream.closed, true);
   assert.strictEqual(writes.length, 5);
+
+  // A changed state in the exact version observation must not dispatch.
+  card = open('inactive');
+  current = Object.assign({}, current, {state:'active'});
+  await button(card,'Aktivieren').listeners.click();
+  assert.strictEqual(writes.length, 5, 'stale card must never write');
+  card = open('inactive');
+  current = Object.assign({}, current, {query:'Andere Regel'});
+  await button(card,'SearchTimer löschen').listeners.click();
+  assert.strictEqual(writes.length, 5, 'stale query must never delete');
 
   card = open('inactive');
   rejectVersion = true;

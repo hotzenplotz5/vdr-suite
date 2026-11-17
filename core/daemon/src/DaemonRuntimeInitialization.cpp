@@ -2260,6 +2260,8 @@ bool DaemonRuntime::initialize()
                 {
                     result.status = PublicSearchTimerNativeVersionStatus::ok;
                     result.revision = observed.revision;
+                    result.query = observed.rule->query();
+                    result.state = observed.rule->active() ? "active" : "inactive";
                 }
                 break;
             }

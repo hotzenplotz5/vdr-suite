@@ -248,6 +248,8 @@ struct PublicSearchTimerNativeVersionResult
     PublicSearchTimerNativeVersionStatus status =
         PublicSearchTimerNativeVersionStatus::unavailable;
     std::string revision;
+    std::string query;
+    std::string state;
 };
 enum class PublicSearchTimerNativeMutationStatus
 {
