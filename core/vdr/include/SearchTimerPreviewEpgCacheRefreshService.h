@@ -4,9 +4,11 @@
 #include "VdrEventQuery.h"
 
 #include <cstddef>
+#include <functional>
 #include <string>
 
 class VdrSnapshotBuilder;
+class VdrService;
 
 struct SearchTimerPreviewEpgCacheRefreshRequest
 {
@@ -43,6 +45,9 @@ public:
     SearchTimerPreviewEpgCacheRefreshService(
         SearchTimerPreviewEpgCache& cache,
         VdrSnapshotBuilder& snapshotBuilder);
+    SearchTimerPreviewEpgCacheRefreshService(
+        SearchTimerPreviewEpgCache& cache,
+        VdrService& epgService);
 
     SearchTimerPreviewEpgCacheRefreshResult refreshBackend(
         const SearchTimerPreviewEpgCacheRefreshRequest& request);
@@ -51,5 +56,5 @@ private:
     static std::string normalizeBackendId(const std::string& backendId);
 
     SearchTimerPreviewEpgCache& cache_;
-    VdrSnapshotBuilder& snapshotBuilder_;
+    std::function<std::vector<VdrEvent>(const VdrEventQuery&)> loadEvents_;
 };

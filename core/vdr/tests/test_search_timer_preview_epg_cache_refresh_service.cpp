@@ -166,8 +166,32 @@ static void test_refresh_marks_backend_unavailable_when_selective_events_fail()
     assert(adapter.lastQuery.channelEventLimit == 10);
 }
 
+static void test_manual_refresh_uses_dedicated_epg_service()
+{
+    PreviewCacheRefreshCountingAdapter controlAdapter;
+    controlAdapter.throwOnSelectiveEvents = true;
+    PreviewCacheRefreshCountingAdapter epgAdapter;
+    VdrService epgService(epgAdapter);
+    SearchTimerPreviewEpgCache cache;
+    SearchTimerPreviewEpgCacheRefreshService refreshService(cache, epgService);
+
+    SearchTimerPreviewEpgCacheRefreshRequest request;
+    request.backendId = "home-vdr";
+    request.from = 100;
+    request.timespan = 7200;
+    const auto result = refreshService.refreshBackend(request);
+
+    assert(result.available);
+    assert(cache.readyEventCountForBackend("home-vdr") == 2);
+    assert(controlAdapter.selectiveEventsReadCount == 0);
+    assert(epgAdapter.selectiveEventsReadCount == 1);
+    assert(epgAdapter.fullEventsReadCount == 0);
+    assert(epgAdapter.lastQuery.timespan == 7200);
+}
+
 int main()
 {
+    test_manual_refresh_uses_dedicated_epg_service();
     test_refresh_marks_backend_ready_with_selective_events();
     test_default_request_uses_default_backend_and_bounded_channel_events();
     test_refresh_marks_backend_unavailable_when_selective_events_fail();

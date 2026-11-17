@@ -192,7 +192,7 @@ std::unique_ptr<BackendRuntimeContext> DaemonRuntime::createBackendRuntimeContex
         context->searchTimerPreviewEpgCacheRefreshService =
             std::make_unique<SearchTimerPreviewEpgCacheRefreshService>(
                 *searchTimerPreviewEpgCache_,
-                *context->snapshotBuilder);
+                *context->epgService);
     }
 
     context->pollingService = std::make_unique<PollingService>(

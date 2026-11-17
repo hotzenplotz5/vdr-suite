@@ -2,6 +2,7 @@
 
 #include "SearchTimerPreviewEpgCacheChangeInvalidator.h"
 #include "VdrSnapshotBuilder.h"
+#include "VdrService.h"
 
 #include <string>
 #include <vector>
@@ -10,7 +11,20 @@ SearchTimerPreviewEpgCacheRefreshService::SearchTimerPreviewEpgCacheRefreshServi
     SearchTimerPreviewEpgCache& cache,
     VdrSnapshotBuilder& snapshotBuilder)
     : cache_(cache),
-      snapshotBuilder_(snapshotBuilder)
+      loadEvents_([&snapshotBuilder](const VdrEventQuery& query) {
+          return snapshotBuilder.buildEvents(query);
+      })
+{
+    SearchTimerPreviewEpgCacheChangeInvalidator::registerRuntimeCache(cache_);
+}
+
+SearchTimerPreviewEpgCacheRefreshService::SearchTimerPreviewEpgCacheRefreshService(
+    SearchTimerPreviewEpgCache& cache,
+    VdrService& epgService)
+    : cache_(cache),
+      loadEvents_([&epgService](const VdrEventQuery& query) {
+          return epgService.getEvents(query);
+      })
 {
     SearchTimerPreviewEpgCacheChangeInvalidator::registerRuntimeCache(cache_);
 }
@@ -31,7 +45,7 @@ SearchTimerPreviewEpgCacheRefreshService::refreshBackend(
 
     try {
         const std::vector<VdrEvent> events =
-            snapshotBuilder_.buildEvents(request.toEventQuery());
+            loadEvents_(request.toEventQuery());
 
         cache_.updateReady(backendId, events);
 

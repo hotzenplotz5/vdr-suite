@@ -308,6 +308,17 @@ cache recovery.
 
 ---
 
+## Manual refresh transport correction (November 2026)
+
+The explicit manual refresh had still used the general VDR snapshot/control
+service (10-second default HTTP timeout), unlike the established dedicated
+EPG service (60-second timeout). Historical real yaVDR EPG reads took about
+28 seconds. The manual refresh now uses the existing EPG-specific service
+and the same selective query/cache/matcher contract, without creating another
+provider or adding a retry loop. This corrects a concrete source-level
+timeout-path discrepancy; the reported real HTTP 503 has not yet been
+retested on yaVDR. A failed or unavailable fetch remains an error.
+
 ## Back
 
 - [Back to Development Index](index.md)
