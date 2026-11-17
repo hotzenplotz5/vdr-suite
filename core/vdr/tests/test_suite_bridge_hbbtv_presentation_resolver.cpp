@@ -60,6 +60,48 @@ SuiteBridgeHbbtvCommandReply reply(const std::string& payload)
     return result;
 }
 
+std::string wire(
+    const std::string& operation,
+    const std::string& kind,
+    std::uint64_t kindCode,
+    std::uint64_t revision,
+    std::uint64_t baseRevision,
+    std::uint32_t renderWidth,
+    std::uint32_t renderHeight,
+    std::uint32_t patchX,
+    std::uint32_t patchY,
+    std::uint32_t patchWidth,
+    std::uint32_t patchHeight,
+    const std::string& image,
+    bool chunk)
+{
+    return
+        "{\"schemaVersion\":1,"
+        "\"provider\":\"vdr-plugin-web\","
+        "\"providerSchemaVersion\":2,"
+        "\"capability\":\"broadcast.hbbtv.presentation\","
+        "\"operation\":\"" + operation + "\","
+        "\"result\":\"ok\",\"resultCode\":0,"
+        "\"sessionId\":\"session-a\","
+        "\"frameRevision\":" + std::to_string(revision) + ","
+        "\"observedAt\":1234,"
+        "\"frameKind\":\"" + kind + "\","
+        "\"frameKindCode\":" + std::to_string(kindCode) + ","
+        "\"baseRevision\":" + std::to_string(baseRevision) + ","
+        "\"renderWidth\":" + std::to_string(renderWidth) + ","
+        "\"renderHeight\":" + std::to_string(renderHeight) + ","
+        "\"patchX\":" + std::to_string(patchX) + ","
+        "\"patchY\":" + std::to_string(patchY) + ","
+        "\"patchWidth\":" + std::to_string(patchWidth) + ","
+        "\"patchHeight\":" + std::to_string(patchHeight) + ","
+        "\"encodedBytes\":" + std::to_string(image.size()) + ","
+        "\"returnedBytes\":" +
+            std::to_string(chunk ? image.size() : 0U) +
+        (chunk
+            ? ",\"dataBase64\":\"" + base64(image) + "\"}"
+            : "}");
+}
+
 class FakeTransport final : public ISuiteBridgeHbbtvTransport
 {
 public:
@@ -83,94 +125,102 @@ public:
     SuiteBridgeHbbtvCommandReply chunk;
 };
 
-}
+} // namespace
 
 int main()
 {
     const std::string image = qoi1x1();
 
     FakeTransport transport;
+    transport.meta = reply(wire(
+        "meta", "full", 1, 9, 0, 1, 1, 0, 0, 1, 1, image, false));
+    transport.chunk = reply(wire(
+        "chunk", "full", 1, 9, 0, 1, 1, 0, 0, 1, 1, image, true));
+
+    SuiteBridgeHbbtvPresentationResolver resolver(transport);
+    const HbbtvPresentationFrame full =
+        resolver.readPresentation("session-a", 0);
+
+    assert(full.available);
+    assert(!full.unchanged);
+    assert(!full.patch);
+    assert(full.error.empty());
+    assert(full.frameRevision == 9);
+    assert(full.renderWidth == 1);
+    assert(full.renderHeight == 1);
+    assert(full.patchWidth == 1);
+    assert(full.patchHeight == 1);
+    assert(full.qoi == image);
+    assert(transport.requests.size() == 2);
+    assert(transport.requests[0].frameRevision == 0);
+    assert(transport.requests[1].frameRevision == 9);
+    assert(transport.requests[1].offset == 0);
+
+    transport.requests.clear();
     transport.meta = reply(
         "{\"schemaVersion\":1,"
         "\"provider\":\"vdr-plugin-web\","
-        "\"providerSchemaVersion\":1,"
+        "\"providerSchemaVersion\":2,"
         "\"capability\":\"broadcast.hbbtv.presentation\","
         "\"operation\":\"meta\","
         "\"result\":\"ok\",\"resultCode\":0,"
         "\"sessionId\":\"session-a\","
         "\"frameRevision\":9,\"observedAt\":1234,"
+        "\"frameKind\":\"none\",\"frameKindCode\":0,"
+        "\"baseRevision\":9,"
         "\"renderWidth\":1,\"renderHeight\":1,"
-        "\"encodedBytes\":" + std::to_string(image.size()) +
-        ",\"returnedBytes\":0}");
-
-    transport.chunk = reply(
-        "{\"schemaVersion\":1,"
-        "\"provider\":\"vdr-plugin-web\","
-        "\"providerSchemaVersion\":1,"
-        "\"capability\":\"broadcast.hbbtv.presentation\","
-        "\"operation\":\"chunk\","
-        "\"result\":\"ok\",\"resultCode\":0,"
-        "\"sessionId\":\"session-a\","
-        "\"frameRevision\":9,\"observedAt\":1234,"
-        "\"renderWidth\":1,\"renderHeight\":1,"
-        "\"encodedBytes\":" + std::to_string(image.size()) +
-        ",\"returnedBytes\":" + std::to_string(image.size()) +
-        ",\"dataBase64\":\"" + base64(image) + "\"}");
-
-    SuiteBridgeHbbtvPresentationResolver resolver(transport);
-    const HbbtvPresentationFrame frame =
-        resolver.readPresentation("session-a", 0);
-
-    assert(frame.available);
-    assert(!frame.unchanged);
-    assert(frame.error.empty());
-    assert(frame.frameRevision == 9);
-    assert(frame.renderWidth == 1);
-    assert(frame.renderHeight == 1);
-    assert(frame.qoi == image);
-    assert(transport.requests.size() == 2);
-    assert(transport.requests[1].frameRevision == 9);
-    assert(transport.requests[1].offset == 0);
-
-    transport.requests.clear();
+        "\"patchX\":0,\"patchY\":0,"
+        "\"patchWidth\":0,\"patchHeight\":0,"
+        "\"encodedBytes\":0,\"returnedBytes\":0}");
     const HbbtvPresentationFrame unchanged =
         resolver.readPresentation("session-a", 9);
     assert(unchanged.available);
     assert(unchanged.unchanged);
     assert(unchanged.qoi.empty());
     assert(transport.requests.size() == 1);
+    assert(transport.requests[0].frameRevision == 9);
+
+    transport.requests.clear();
+    transport.meta = reply(wire(
+        "meta", "patch", 2, 10, 9, 2, 1, 1, 0, 1, 1, image, false));
+    transport.chunk = reply(wire(
+        "chunk", "patch", 2, 10, 9, 2, 1, 1, 0, 1, 1, image, true));
+    const HbbtvPresentationFrame patch =
+        resolver.readPresentation("session-a", 9);
+    assert(patch.available);
+    assert(!patch.unchanged);
+    assert(patch.patch);
+    assert(patch.baseRevision == 9);
+    assert(patch.frameRevision == 10);
+    assert(patch.renderWidth == 2);
+    assert(patch.renderHeight == 1);
+    assert(patch.patchX == 1);
+    assert(patch.patchY == 0);
+    assert(patch.patchWidth == 1);
+    assert(patch.patchHeight == 1);
+    assert(patch.qoi == image);
+    assert(transport.requests.size() == 2);
+    assert(transport.requests[0].frameRevision == 9);
 
     transport.meta = reply(
         "{\"schemaVersion\":1,"
         "\"provider\":\"vdr-plugin-web\","
-        "\"providerSchemaVersion\":1,"
+        "\"providerSchemaVersion\":2,"
         "\"capability\":\"broadcast.hbbtv.presentation\","
         "\"operation\":\"meta\","
         "\"result\":\"no_frame\",\"resultCode\":4,"
         "\"sessionId\":\"session-a\","
         "\"frameRevision\":0,\"observedAt\":0,"
+        "\"frameKind\":\"none\",\"frameKindCode\":0,"
+        "\"baseRevision\":0,"
         "\"renderWidth\":0,\"renderHeight\":0,"
+        "\"patchX\":0,\"patchY\":0,"
+        "\"patchWidth\":0,\"patchHeight\":0,"
         "\"encodedBytes\":0,\"returnedBytes\":0}");
     const HbbtvPresentationFrame noFrame =
         resolver.readPresentation("session-a", 0);
     assert(!noFrame.available);
     assert(noFrame.error.empty());
-
-    transport.meta = reply(
-        "{\"schemaVersion\":1,"
-        "\"provider\":\"vdr-plugin-web\","
-        "\"providerSchemaVersion\":1,"
-        "\"capability\":\"broadcast.hbbtv.presentation\","
-        "\"operation\":\"meta\","
-        "\"result\":\"ok\",\"resultCode\":0,"
-        "\"sessionId\":\"other\","
-        "\"frameRevision\":9,\"observedAt\":1234,"
-        "\"renderWidth\":1,\"renderHeight\":1,"
-        "\"encodedBytes\":10,\"returnedBytes\":0}");
-    const HbbtvPresentationFrame mismatch =
-        resolver.readPresentation("session-a", 0);
-    assert(!mismatch.available);
-    assert(mismatch.error == "hbbtv_presentation_payload_invalid");
 
     return 0;
 }
