@@ -233,7 +233,7 @@
 
   function hbbtvAvailabilityText() {
     if (state.hbbtvLoading) return 'HbbTV wird geprüft …';
-    if (state.hbbtvError) return 'HbbTV Status unbekannt';
+    if (state.hbbtvError) return 'HbbTV Status unbekannt · ' + state.hbbtvError;
     if (state.hbbtvAvailable) {
       return state.hbbtvApplicationCount > 1
         ? 'HbbTV verfügbar · ' + state.hbbtvApplicationCount + ' Apps'
