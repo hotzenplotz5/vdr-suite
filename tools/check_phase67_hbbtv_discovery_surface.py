@@ -11,6 +11,7 @@ authority = (
     ROOT / "core/daemon/src/EmbeddedBackendHbbtvAuthority.cpp"
 ).read_text()
 runtime = (ROOT / "core/daemon/src/DaemonRuntime.cpp").read_text()
+shutdown = (ROOT / "core/daemon/src/DaemonRuntimeShutdown.cpp").read_text()
 api = (ROOT / "api/rest/src/HbbtvApiRuntime.cpp").read_text()
 router = (ROOT / "api/rest/include/ApiRouter.h").read_text()
 security = (ROOT / "core/security/include/SecurityHttpGate.h").read_text()
@@ -49,7 +50,7 @@ required = {
         (authority, "BackendAgentConnectionState::Online"),
         (authority, "lifecycleService_.statusForBackend(backendId, now)"),
         (runtime, "configureDaemonHbbtvRuntime("),
-        (runtime, "resetDaemonHbbtvRuntime();"),
+        (shutdown, "resetDaemonHbbtvRuntime();"),
     ),
     "http": (
         (api, '"/api/vdr/broadcast/hbbtv/applications"'),
