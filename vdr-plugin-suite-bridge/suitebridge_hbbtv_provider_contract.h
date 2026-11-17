@@ -16,7 +16,7 @@
 // Keep these contracts byte-compatible with the provider-side definitions.
 #define VDRWEB_SERVICE_HBBTV_DISCOVERY_V1 "VdrWeb::HbbtvDiscovery-v1"
 #define VDRWEB_SERVICE_HBBTV_RUNTIME_V1 "VdrWeb::HbbtvRuntime-v1"
-#define VDRWEB_SERVICE_HBBTV_PRESENTATION_V1 "VdrWeb::HbbtvPresentation-v1"
+#define VDRWEB_SERVICE_HBBTV_PRESENTATION_V2 "VdrWeb::HbbtvPresentation-v2"
 #define VDRWEB_SERVICE_HBBTV_MEDIA_V1 "VdrWeb::HbbtvMedia-v1"
 
 #define VDRWEB_HBBTV_SERVICE_SCHEMA_V1 1U
@@ -29,7 +29,7 @@
 
 #define VDRWEB_HBBTV_RUNTIME_SCHEMA_V1 1U
 #define VDRWEB_HBBTV_SESSION_ID_MAX 128U
-#define VDRWEB_HBBTV_PRESENTATION_SCHEMA_V1 1U
+#define VDRWEB_HBBTV_PRESENTATION_SCHEMA_V2 2U
 #define VDRWEB_HBBTV_PRESENTATION_CHUNK_MAX 49152U
 #define VDRWEB_HBBTV_MEDIA_SCHEMA_V1 1U
 #define VDRWEB_HBBTV_MEDIA_SOCKET_PATH_MAX 108U
@@ -145,12 +145,12 @@ struct VdrWebHbbtvRuntimeV1 {
   uint16_t reservedResponse;
 };
 
-enum VdrWebHbbtvPresentationOperationV1 {
+enum VdrWebHbbtvPresentationOperationV2 {
   VDRWEB_HBBTV_PRESENTATION_META = 1,
   VDRWEB_HBBTV_PRESENTATION_CHUNK = 2
 };
 
-enum VdrWebHbbtvPresentationResultV1 {
+enum VdrWebHbbtvPresentationResultV2 {
   VDRWEB_HBBTV_PRESENTATION_RESULT_OK = 0,
   VDRWEB_HBBTV_PRESENTATION_RESULT_INVALID_REQUEST = 1,
   VDRWEB_HBBTV_PRESENTATION_RESULT_NO_SESSION = 2,
@@ -161,16 +161,23 @@ enum VdrWebHbbtvPresentationResultV1 {
   VDRWEB_HBBTV_PRESENTATION_RESULT_FRAME_TOO_LARGE = 7
 };
 
-enum VdrWebHbbtvPresentationVisibilityV1 {
+enum VdrWebHbbtvPresentationVisibilityV2 {
   VDRWEB_HBBTV_PRESENTATION_VISIBILITY_UNKNOWN = 0,
   VDRWEB_HBBTV_PRESENTATION_VISIBILITY_HIDDEN = 1,
   VDRWEB_HBBTV_PRESENTATION_VISIBILITY_VISIBLE = 2
 };
 
-struct VdrWebHbbtvPresentationV1 {
+enum VdrWebHbbtvPresentationFrameKindV2 {
+  VDRWEB_HBBTV_PRESENTATION_FRAME_NONE = 0,
+  VDRWEB_HBBTV_PRESENTATION_FRAME_FULL = 1,
+  VDRWEB_HBBTV_PRESENTATION_FRAME_PATCH = 2
+};
+
+struct VdrWebHbbtvPresentationV2 {
   uint32_t structSize;
 
-  // Request.
+  // Request. META uses frameRevision as the consumer's known revision.
+  // CHUNK uses it as the selected target revision.
   uint8_t operation;
   uint8_t reservedRequest[3];
   uint64_t frameRevision;
@@ -181,10 +188,16 @@ struct VdrWebHbbtvPresentationV1 {
   uint32_t schemaVersion;
   uint8_t result;
   uint8_t visibility;
-  uint8_t reservedResponse[2];
+  uint8_t frameKind;
+  uint8_t reservedResponse;
   uint64_t observedAt;
+  uint64_t baseRevision;
   uint32_t renderWidth;
   uint32_t renderHeight;
+  uint32_t patchX;
+  uint32_t patchY;
+  uint32_t patchWidth;
+  uint32_t patchHeight;
   uint32_t encodedBytes;
   uint32_t returnedBytes;
   uint8_t data[VDRWEB_HBBTV_PRESENTATION_CHUNK_MAX];
