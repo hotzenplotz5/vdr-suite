@@ -68,13 +68,17 @@ require(
 )
 
 browser_client = read("web/frontend/api/client-api.js")
-# One narrowly reviewed Browser-admin mutation may use the stable public
-# SearchTimer CREATE admission. All other Browser route migrations remain
-# prohibited until their semantics are independently reconciled.
-require(browser_client.count("'/api/v1/search-timers'") == 1,
-        "expected one bounded Browser SearchTimer staging route")
-browser_client = browser_client.replace("'/api/v1/search-timers'",
-                                        "'reviewed-searchtimer-create'")
+# Browser SearchTimer CRUD and preview use only these reviewed routes.
+require(browser_client.count("'/api/v1/search-timers'") == 2,
+        "browser SearchTimer CREATE and LIST paths must be exact")
+require(browser_client.count("'/api/v1/search-timers/' + encodeURIComponent(id)") == 1,
+        "browser SearchTimer resource path must use opaque id")
+for suffix in ("'/version'", "'/mutations'", "'/preview'"):
+    require("publicSearchTimerPath(normalized, " + suffix + ")" in browser_client,
+            "browser SearchTimer resource route missing: " + suffix)
+browser_client = browser_client.replace("'/api/v1/search-timers'", "'approved-searchtimer-collection'")
+browser_client = browser_client.replace("'/api/v1/search-timers/' + encodeURIComponent(id)",
+                        "'approved-searchtimer-resource' + encodeURIComponent(id)")
 operation_route = "'/api/v1/operations/' + encodeURIComponent(id)"
 require(browser_client.count(operation_route) == 1,
         "reviewed Browser SearchTimer Operation GET missing or duplicated")

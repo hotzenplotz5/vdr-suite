@@ -925,7 +925,7 @@
         events.addEventListener('hello', readOperation);
         events.addEventListener('resync', readOperation);
       }
-      // Native EventSource reconnects itself; manual GET remains available.
+      // The Client API stream reconnects itself; manual GET remains available.
       events.onerror = () => { if (attached && !inspect.hidden) inspect.disabled = false; };
     }
     async function execute(action, query) {
