@@ -103,7 +103,7 @@ public:
   }
 
   bool Presentation(
-      VdrWebHbbtvPresentationV1 &presentation,
+      VdrWebHbbtvPresentationV2 &presentation,
       std::string &error) const override
   {
     if (!available) {
@@ -112,12 +112,18 @@ public:
     }
 
     ++const_cast<FakeProvider *>(this)->presentationCalls;
-    presentation.schemaVersion = VDRWEB_HBBTV_PRESENTATION_SCHEMA_V1;
+    presentation.schemaVersion = VDRWEB_HBBTV_PRESENTATION_SCHEMA_V2;
     presentation.result = VDRWEB_HBBTV_PRESENTATION_RESULT_OK;
     presentation.frameRevision = 9;
     presentation.observedAt = 1789671111;
+    presentation.frameKind = VDRWEB_HBBTV_PRESENTATION_FRAME_FULL;
+    presentation.baseRevision = 0;
     presentation.renderWidth = 1280;
     presentation.renderHeight = 720;
+    presentation.patchX = 0;
+    presentation.patchY = 0;
+    presentation.patchWidth = 1280;
+    presentation.patchHeight = 720;
     presentation.encodedBytes = 4;
 
     if (presentation.operation == VDRWEB_HBBTV_PRESENTATION_CHUNK) {
@@ -161,7 +167,7 @@ int main()
       std::is_standard_layout<VdrWebHbbtvRuntimeV1>::value,
       "runtime ABI");
   static_assert(
-      std::is_standard_layout<VdrWebHbbtvPresentationV1>::value,
+      std::is_standard_layout<VdrWebHbbtvPresentationV2>::value,
       "presentation ABI");
   static_assert(std::is_standard_layout<VdrWebHbbtvMediaV1>::value, "media ABI");
 
@@ -223,7 +229,7 @@ int main()
       std::string::npos);
 
   const SuiteBridgeCommandResult presentationMeta =
-      service.Handle("HBBPRES", "META 1 session-a");
+      service.Handle("HBBPRES", "META 2 session-a 0");
   assert(presentationMeta.handled);
   assert(presentationMeta.replyCode == 250);
   assert(presentationMeta.payload.find(
@@ -233,10 +239,16 @@ int main()
       "\"frameRevision\":9") != std::string::npos);
   assert(presentationMeta.payload.find(
       "\"renderWidth\":1280") != std::string::npos);
+  assert(presentationMeta.payload.find(
+      "\"frameKind\":\"full\"") != std::string::npos);
+  assert(presentationMeta.payload.find(
+      "\"baseRevision\":0") != std::string::npos);
+  assert(presentationMeta.payload.find(
+      "\"patchWidth\":1280") != std::string::npos);
   assert(presentationMeta.payload.find("dataBase64") == std::string::npos);
 
   const SuiteBridgeCommandResult presentationChunk =
-      service.Handle("HBBPRES", "CHUNK 1 session-a 9 0");
+      service.Handle("HBBPRES", "CHUNK 2 session-a 9 0");
   assert(presentationChunk.handled);
   assert(presentationChunk.replyCode == 250);
   assert(presentationChunk.payload.find(
@@ -257,7 +269,7 @@ int main()
   assert(invalidMedia.handled && invalidMedia.replyCode == 504);
 
   const SuiteBridgeCommandResult invalidPresentation =
-      service.Handle("HBBPRES", "CHUNK 1 session-a 0 0");
+      service.Handle("HBBPRES", "CHUNK 2 session-a 0 0");
   assert(invalidPresentation.handled);
   assert(invalidPresentation.replyCode == 504);
 
