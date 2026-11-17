@@ -299,6 +299,36 @@
           ? response.headers.get('X-Vdr-Suite-Hbbtv-Height')
           : 0
       ) || 0;
+      const frameKind = response.headers &&
+        typeof response.headers.get === 'function'
+          ? String(response.headers.get('X-Vdr-Suite-Hbbtv-Frame') || '')
+              .toLowerCase()
+          : '';
+      const baseRevision = Number(
+        response.headers && typeof response.headers.get === 'function'
+          ? response.headers.get('X-Vdr-Suite-Hbbtv-Base-Revision')
+          : 0
+      ) || 0;
+      const patchX = Number(
+        response.headers && typeof response.headers.get === 'function'
+          ? response.headers.get('X-Vdr-Suite-Hbbtv-Patch-X')
+          : 0
+      ) || 0;
+      const patchY = Number(
+        response.headers && typeof response.headers.get === 'function'
+          ? response.headers.get('X-Vdr-Suite-Hbbtv-Patch-Y')
+          : 0
+      ) || 0;
+      const patchWidth = Number(
+        response.headers && typeof response.headers.get === 'function'
+          ? response.headers.get('X-Vdr-Suite-Hbbtv-Patch-Width')
+          : 0
+      ) || 0;
+      const patchHeight = Number(
+        response.headers && typeof response.headers.get === 'function'
+          ? response.headers.get('X-Vdr-Suite-Hbbtv-Patch-Height')
+          : 0
+      ) || 0;
 
       if (response.status === 204) {
         return {
@@ -306,6 +336,12 @@
           revision: revision,
           width: width,
           height: height,
+          frameKind: frameKind,
+          baseRevision: baseRevision,
+          patchX: patchX,
+          patchY: patchY,
+          patchWidth: patchWidth,
+          patchHeight: patchHeight,
           bytes: new Uint8Array(0)
         };
       }
@@ -339,6 +375,12 @@
           revision: revision,
           width: width,
           height: height,
+          frameKind: frameKind,
+          baseRevision: baseRevision,
+          patchX: patchX,
+          patchY: patchY,
+          patchWidth: patchWidth,
+          patchHeight: patchHeight,
           bytes: new Uint8Array(buffer)
         };
       });
