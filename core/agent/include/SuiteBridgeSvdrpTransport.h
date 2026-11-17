@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BackendAgentNativeProbe.h"
+#include "EpgsearchStockRule.h"
 #include "ISuiteBridgeLocalTransport.h"
 #include "ISuiteBridgeLegacyOsdInputTransport.h"
 #include "ISuiteBridgeArtworkTransport.h"
@@ -220,6 +221,36 @@ public:
         const SuiteBridgeLiveSourceLeaseRequest& request) override
     {
         return executeLiveLeaseRequest("STATUS", request);
+    }
+
+    // Standard epgsearch commands, independent of the SuiteBridge plugin.
+    SuiteBridgeCommandReply readStockSearchTimer(const std::string& nativeId)
+    {
+        if (!EpgsearchStockRule::nativeIdValid(nativeId)) return {};
+        return executeRequest("PLUG epgsearch LSTS " + nativeId + "\r\n");
+    }
+
+    SuiteBridgeCommandReply editStockSearchTimer(
+        const std::string& nativeId, const std::string& settings)
+    {
+        if (!EpgsearchStockRule::parse(nativeId, settings) ||
+            settings.size() > 8192U) return {};
+        return executeRequest("PLUG epgsearch EDIS " + settings + "\r\n");
+    }
+
+    SuiteBridgeCommandReply toggleStockSearchTimer(
+        const std::string& nativeId, bool active)
+    {
+        if (!EpgsearchStockRule::nativeIdValid(nativeId)) return {};
+        return executeRequest("PLUG epgsearch MODS " + nativeId +
+            (active ? " ON\r\n" : " OFF\r\n"));
+    }
+
+    SuiteBridgeCommandReply deleteStockSearchTimer(const std::string& nativeId)
+    {
+        if (!EpgsearchStockRule::nativeIdValid(nativeId)) return {};
+        // No DELT: deleting a rule must not delete its recording timers.
+        return executeRequest("PLUG epgsearch DELS " + nativeId + "\r\n");
     }
 
     SuiteBridgeCommandReply discoverNativeTimerCreateContract();

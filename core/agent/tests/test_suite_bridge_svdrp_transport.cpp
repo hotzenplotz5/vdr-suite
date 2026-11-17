@@ -559,6 +559,61 @@ void testConnectionFailure()
     assert(reply.diagnostic == "SVDRP endpoint connection failed");
 }
 
+void testStockEpgsearchRuleAndCommands()
+{
+    std::string raw = "7:Test:0";
+    for (int index = 3; index < 59; ++index)
+        raw += index == 15 ? ":0" : ":";
+    auto rule = EpgsearchStockRule::parse("7", raw);
+    assert(rule && rule->text() == raw && rule->query() == "Test" && !rule->active());
+    auto updated = rule->withQuery("Neu: A|B");
+    assert(updated && updated->query() == "Neu: A|B");
+    assert(updated->text() == "7:Neu| A!^pipe^!B" + raw.substr(6));
+    assert(!rule->withQuery("bad\nDELS 7"));
+    assert(!EpgsearchStockRule::parse("8", raw));
+    assert(!EpgsearchStockRule::parse("7", "7:incomplete"));
+    assert(rule->withActive(true).active());
+    assert(rule->withActive(true).withActive(false).text() == raw);
+
+    {
+        ScriptedSvdrpServer server("220 ready\r\n", "900 " + raw + "\r\n");
+        SuiteBridgeSvdrpTransport transport(configFor(server.port()));
+        auto reply = transport.readStockSearchTimer("7");
+        server.wait();
+        assert(reply.transportSucceeded() && reply.payload == raw);
+        assert(server.request() == "PLUG epgsearch LSTS 7\r\n");
+    }
+    {
+        ScriptedSvdrpServer server("220 ready\r\n", "900 modified\r\n");
+        SuiteBridgeSvdrpTransport transport(configFor(server.port()));
+        auto reply = transport.editStockSearchTimer("7", updated->text());
+        server.wait();
+        assert(reply.transportSucceeded());
+        assert(server.request() == "PLUG epgsearch EDIS " + updated->text() + "\r\n");
+    }
+    for (bool active : {true, false})
+    {
+        ScriptedSvdrpServer server("220 ready\r\n", "900 modified\r\n");
+        SuiteBridgeSvdrpTransport transport(configFor(server.port()));
+        auto reply = transport.toggleStockSearchTimer("7", active);
+        server.wait();
+        assert(reply.transportSucceeded());
+        assert(server.request() == std::string("PLUG epgsearch MODS 7 ") +
+            (active ? "ON\r\n" : "OFF\r\n"));
+    }
+    {
+        ScriptedSvdrpServer server("220 ready\r\n", "900 deleted\r\n");
+        SuiteBridgeSvdrpTransport transport(configFor(server.port()));
+        auto reply = transport.deleteStockSearchTimer("7");
+        server.wait();
+        assert(reply.transportSucceeded());
+        assert(server.request() == "PLUG epgsearch DELS 7\r\n");
+    }
+    SuiteBridgeSvdrpTransport noNetwork(configFor(unusedLoopbackPort()));
+    assert(!noNetwork.deleteStockSearchTimer("7 DELT").transportSucceeded());
+    assert(!noNetwork.editStockSearchTimer("7", raw + "\r\nDELS 8").transportSucceeded());
+}
+
 }
 
 int main()
@@ -576,6 +631,7 @@ int main()
     testOversizedReply();
     testUnavailableAndInvalidConfiguration();
     testConnectionFailure();
+    testStockEpgsearchRuleAndCommands();
 
     std::cout
         << "test_suite_bridge_svdrp_transport passed"
