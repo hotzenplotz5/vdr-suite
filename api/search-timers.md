@@ -2,11 +2,14 @@
 
 **Historischer Provider-Nachweis 24.10.2026:** Der bestandene [RESTfulAPI-CRUD-Smoke-Test](../docs/development/searchtimer-yavdr-smoke-test-execution-report.md) bleibt gültig und wird nicht wiederholt. Die neue Public-v1-Verwaltung benötigt einen eigenen End-to-End-Nachweis.
 
-**Architekturentscheidung 17.11.2026 (Betreiber):** Reguläres epgsearch ist die produktive Basis. Keine epgsearch-Patches oder gepatchte ABI als Installations- oder Freigabevoraussetzung. CREATE/LIST über RESTfulAPI; VERSION/UPDATE/ACTIVATE/DEACTIVATE/DELETE verwenden die vorhandenen Standard-SVDRP-Befehle intern. SQLite-Operationsreservierung, Idempotenz, ETag, Autorisierung und Readback bleiben; native epgsearch-lock-atomare CAS oder persistierte native Generationen werden nicht versprochen. Externe konkurrierende Änderungen zwischen Lesen und Schreiben sowie identische Löschung/Neuanlage zwischen Beobachtungen sind nicht vollständig erkennbar. Historische native-CAS-Abnahmeforderungen sind damit aufgehoben. Source-Kandidat `eaa8ab6e122fbb8723456df091b6a57a12311653`; C++-Gesamtbuild und realer End-to-End-Nachweis stehen noch aus.
+**Architekturentscheidung 17.11.2026 (Betreiber):** Reguläres epgsearch ist die produktive Basis. Keine epgsearch-Patches oder gepatchte ABI als Installations- oder Freigabevoraussetzung. CREATE/LIST über RESTfulAPI; VERSION/UPDATE/ACTIVATE/DEACTIVATE/DELETE verwenden die vorhandenen Standard-SVDRP-Befehle intern. SQLite-Operationsreservierung, Idempotenz, ETag, Autorisierung und Readback bleiben; native epgsearch-lock-atomare CAS oder persistierte native Generationen werden nicht versprochen. Externe konkurrierende Änderungen zwischen Lesen und Schreiben sowie identische Löschung/Neuanlage zwischen Beobachtungen sind nicht vollständig erkennbar. Historische native-CAS-Abnahmeforderungen sind damit aufgehoben. Ursprünglicher Source-Kandidat `eaa8ab6e122fbb8723456df091b6a57a12311653`; aktueller installierter und im yaVDR-Webfrontend getesteter Code-Kandidat `b5ae3cc27cb25f6950e641781060a1b5a68f510d` (17.11.2026).
 
 The current implemented version is **Public API v1**, not v2.
 
 ## Aktueller ST.V1.7-Integrationsstand (17.11.2026)
+
+**Aktueller yaVDR-Web-Nachweis (17.11.2026):** Code `b5ae3cc27cb25f6950e641781060a1b5a68f510d` installiert und laufend; C++-Build, Installation, Frontend-Dateivergleich und [VDR-Suite CI #12790](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44098825862) PASS. CREATE (inaktiv), LIST, UPDATE (Suchbegriff), ACTIVATE, DEACTIVATE und DELETE sind im Browser vom Betreiber bestätigt. Der vorhandene Test-Suchtimer wurde aktiviert, deaktiviert und gelöscht; die Liste zeigt anschließend 0 SearchTimer. Der HTTP-503-Blocker der getesteten Verwaltung ist beseitigt. Keine Wiederholung dieser bestätigten Aktionen. Aktiver CREATE, vollständiges Feld-UPDATE, separat erfasste neue Operations-/Provider-Evidenz, Preview-503-Abnahme und MLD-/TV-Device-End-to-End bleiben im jeweils unbelegten Umfang offen.
+Siehe [zentrale Abnahme](../docs/development/public-v1-final-hardware-acceptance.md#stv17--yavdr-web-praxisabnahme-17112026).
 
 Der Web-Browser verwendet LIST (alle Cursor-Seiten), DETAIL, VERSION,
 gespeicherte PREVIEW sowie UPDATE, ACTIVATE, DEACTIVATE und DELETE über
@@ -29,8 +32,7 @@ Mock-DOM bestanden (einschließlich vier Mutationen, SSE, abgelehnter
 Version und unklarem POST-Ausgang); C++-Tests hinzugefügt, noch nicht
 ausgeführt. Code-Kandidat `ac3d304671cd27ae304674d6611e5790cfcd5b64`. Die bisherigen vom Betreiber
 bestätigten inaktiven CREATE-/Legacy-Leseergebnisse bleiben gültig.
-C++-Build, aktiver CREATE und die neuen
-Browser-/Device-Mutationen auf yaVDR/MLD sind nicht real abgenommen.
+Dieser frühere Source-Checkpoint ist durch den oben dokumentierten yaVDR-Browser-Nachweis und C++-Build aktualisiert; aktiver CREATE und Device-/MLD-Abnahme bleiben offen.
 Die Device-only-Angaben in historischen Abschnitten beschreiben die
 Device-Bedingungen, nicht mehr die Browser-Administrator-Zulassung.
 
@@ -422,8 +424,9 @@ the Operation, whose status is available through existing GET/SSE.
 The revision check is optimistic concurrency, not epgsearch-lock-atomic CAS.
 External concurrent writers or indistinguishable deletion/recreation between
 observations remain possible; neither native persisted generations nor fsync
-durability is claimed. No patched plugin is required. The source is committed;
-full C++ CI and real VDR acceptance are still outstanding.
+durability is claimed. No patched plugin is required. The installed candidate
+`b5ae3cc` passed CI and the documented real yaVDR Browser management tests;
+separate Device/MLD and remaining evidence are not verified.
 
 ## Browseradministrator: frühere Implementierungen (historisch)
 

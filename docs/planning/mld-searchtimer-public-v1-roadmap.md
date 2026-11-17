@@ -1,11 +1,14 @@
 # ST.V1 – Einheitlicher epgsearch-Suchtimer-CREATE über Public API v1
 
-**Architekturentscheidung 17.11.2026 (Betreiber):** Reguläres epgsearch ist die produktive Basis. Keine epgsearch-Patches oder gepatchte ABI als Installations- oder Freigabevoraussetzung. CREATE/LIST über RESTfulAPI; VERSION/UPDATE/ACTIVATE/DEACTIVATE/DELETE verwenden die vorhandenen Standard-SVDRP-Befehle intern. SQLite-Operationsreservierung, Idempotenz, ETag, Autorisierung und Readback bleiben; native epgsearch-lock-atomare CAS oder persistierte native Generationen werden nicht versprochen. Externe konkurrierende Änderungen zwischen Lesen und Schreiben sowie identische Löschung/Neuanlage zwischen Beobachtungen sind nicht vollständig erkennbar. Historische native-CAS-Abnahmeforderungen sind damit aufgehoben. Source-Kandidat `eaa8ab6e122fbb8723456df091b6a57a12311653`; C++-Gesamtbuild und realer End-to-End-Nachweis stehen noch aus.
+**Architekturentscheidung 17.11.2026 (Betreiber):** Reguläres epgsearch ist die produktive Basis. Keine epgsearch-Patches oder gepatchte ABI als Installations- oder Freigabevoraussetzung. CREATE/LIST über RESTfulAPI; VERSION/UPDATE/ACTIVATE/DEACTIVATE/DELETE verwenden die vorhandenen Standard-SVDRP-Befehle intern. SQLite-Operationsreservierung, Idempotenz, ETag, Autorisierung und Readback bleiben; native epgsearch-lock-atomare CAS oder persistierte native Generationen werden nicht versprochen. Externe konkurrierende Änderungen zwischen Lesen und Schreiben sowie identische Löschung/Neuanlage zwischen Beobachtungen sind nicht vollständig erkennbar. Historische native-CAS-Abnahmeforderungen sind damit aufgehoben. Ursprünglicher Source-Kandidat `eaa8ab6e122fbb8723456df091b6a57a12311653`; aktueller installierter und im yaVDR-Webfrontend getesteter Code-Kandidat `b5ae3cc27cb25f6950e641781060a1b5a68f510d` (17.11.2026).
 
 Arbeitsbranch seit PR #558: `main`. Merge-Commit: `ccbd27de197e6e515d8cd7e322b6a9084f92350c` (16.11.2026). Historischer Start-HEAD auf `MLD-Suchtimer`: `037e0545a89e5c86670563b6ce046f24947704e1`.
-Diese Roadmap ist ein Arbeitsplan, keine Behauptung bestandener Tests oder einer erfolgten Installation.
+Diese Roadmap ist ein Arbeitsplan mit ausdrücklich gekennzeichneten Nachweisen.
 
-**ST.V1.7 – 17.11.2026, Source-Kandidat `ac3d304671cd27ae304674d6611e5790cfcd5b64`:**
+**Aktueller yaVDR-Web-Nachweis (17.11.2026):** Code `b5ae3cc27cb25f6950e641781060a1b5a68f510d` installiert und laufend; C++-Build, Installation, Frontend-Dateivergleich und [VDR-Suite CI #12790](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44098825862) PASS. CREATE (inaktiv), LIST, UPDATE (Suchbegriff), ACTIVATE, DEACTIVATE und DELETE sind im Browser vom Betreiber bestätigt. Der vorhandene Test-Suchtimer wurde aktiviert, deaktiviert und gelöscht; die Liste zeigt anschließend 0 SearchTimer. Der HTTP-503-Blocker der getesteten Verwaltung ist beseitigt. Keine Wiederholung dieser bestätigten Aktionen. Aktiver CREATE, vollständiges Feld-UPDATE, separat erfasste neue Operations-/Provider-Evidenz, Preview-503-Abnahme und MLD-/TV-Device-End-to-End bleiben im jeweils unbelegten Umfang offen.
+Details: [zentrale Hardware-Abnahme](../development/public-v1-final-hardware-acceptance.md#stv17--yavdr-web-praxisabnahme-17112026).
+
+**Historischer ST.V1.7-Source-Checkpoint – 17.11.2026, Source-Kandidat `ac3d304671cd27ae304674d6611e5790cfcd5b64`:**
 Browser-Admin LIST/DETAIL/VERSION/PREVIEW und native UPDATE/ACTIVATE/
 DEACTIVATE/DELETE werden über die gemeinsame Public API v1 verwendet.
 Die Detailprojektion erhält die bekannten Web-Felder, UPDATE ist gemäß
@@ -185,7 +188,7 @@ Die Tabellenzeilen wurden gegen `SearchTimerCreateRequest.h`, `SearchTimerRestfu
 | ST.V1.4 | Vorhandener Browser-Editor sendet v1, bietet aktiv/inaktiv, Operation/SSE und bewahrt alle Felder; Legacy Browser-Writer gesperrt | Browser-Test nicht auf echtem Webserver ausgeführt |
 | ST.V1.5 | OpenAPI und Reference-JS `createSearchTimer`, alte inactive-Wrapper-Methode über denselben API-v1-Weg | VIDAA hat einen vereinfachten aktiven Device-CREATE, Samsung einen read-only Client; beide TV-Hardwaretests offen |
 | ST.V1.6 | C++/JS-Testfälle und zusätzliche Readback-/Negativfälle quellsseitig ergänzt | **Kein C++-Build und keine Node-CLI-Tests auf dem echten Checkout.** Drei JS-Testdateien wurden in isolierter V8 mit Node-Modul-Shims ausgeführt und bestanden |
-| ST.V1.7 | Source-Kandidat vorbereitet; keine Installation/Neustarts/DB-Backups vorgenommen | MLD 6.6 und yaVDR Hardware-Tests **offen** |
+| ST.V1.7 | yaVDR-Browser-Grundfunktionen und Installation auf `b5ae3cc` PASS | MLD 6.6, TV-Device und unbelegte Restnachweise offen; keine erneute yaVDR-Browser-Verwaltung |
 | ST.V1.8 | API-/OpenAPI-Dokumentation und Roadmap aktualisiert | Abschluss erst nach belastbaren Build-/Integrationstests |
 
 **Definition of Done: Noch NICHT erfüllt.** Änderungen sind auf dem Arbeitsbranch; keine produktive Installation und kein Merge nach `main`. Insbesondere bedeutet ein Commit oder ein Mocktest kein REAL-VDR PASS. Ohne Zugriff auf den tatsächlichen Host-Checkout und Build-Cache dürfen keine C++-/Node-/MLD-Testresultate behauptet werden.
@@ -339,7 +342,7 @@ Anlage, keine DB-Sicherung und kein Deployment durch diesen Dokumentationsschrit
 - **GitHub:** PR [#558](https://github.com/hotzenplotz5/vdr-suite/pull/558) ist `MERGED/CLOSED`; Merge-Commit und bestätigter `main`-HEAD vor dieser Dokumentationsaktualisierung: `ccbd27de197e6e515d8cd7e322b6a9084f92350c`.
 - **CI auf diesem Merge-Commit:** [VDR-Suite CI Run 43928972818](https://github.com/hotzenplotz5/vdr-suite/actions/runs/43928972818) mit `frontend-regression-test`, `packaging-regression-test`, `fast-regression-test`, `docs-check`, `architecture-check` und `make-test-audit`: alle `success`. Fünf weitere auf dem Merge-Commit gestartete Workflows wurden ebenfalls als `success` gemeldet.
 - **ST.V1.6:** GitHub-Regressionen auf dem Merge-Commit sind nachgewiesen. Der genaue Umfang produktspezifischer Integrationsprüfungen ist anhand der Job-Schritte abzugrenzen; CI ist kein Beweis für ein laufendes Backend auf echtem VDR.
-- **ST.V1.7 weiterhin offen:** Verifizierte Installation und Produkt-HTTP-/RESTfulAPI-/epgsearch-Readbacks auf yaVDR und MLD 6.6 einschließlich ausdrücklich autorisierter aktiver/inaktiver CREATE-Tests, persistenter Operation und SSE.
+- **ST.V1.7 (Stand 17.11.2026):** yaVDR-Browser-Verwaltung PASS gemäß aktuellem Nachweis oben. MLD 6.6, aktiver CREATE und noch nicht separat belegte Operations-/Provider-/Preview-Nachweise bleiben offen; bestätigte Browser-Aktionen nicht wiederholen.
 - **ST.V1.8 nicht abgeschlossen:** Abschließende Feldmatrix, Hardware-/Paketnachweise und Definition of Done erst nach tatsächlich bestandener Real-VDR-Abnahme aktualisieren.
 
 Ältere Abschnitte dieser Roadmap dokumentieren den jeweiligen historischen Stand auf `MLD-Suchtimer` und sind **nicht** als aktueller Branch- oder CI-Status zu lesen. Keine neue Public API oder Feature-Branch erforderlich.
