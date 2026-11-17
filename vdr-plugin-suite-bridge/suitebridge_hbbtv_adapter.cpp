@@ -129,7 +129,7 @@ bool SuiteBridgeHbbtvAdapter::Runtime(
 }
 
 bool SuiteBridgeHbbtvAdapter::Presentation(
-    VdrWebHbbtvPresentationV1 &presentation,
+    VdrWebHbbtvPresentationV2 &presentation,
     std::string &error) const
 {
   error.clear();
@@ -150,13 +150,13 @@ bool SuiteBridgeHbbtvAdapter::Presentation(
 
   const uint8_t operation = presentation.operation;
   if (!caller_ ||
-      !caller_(VDRWEB_SERVICE_HBBTV_PRESENTATION_V1, &presentation)) {
+      !caller_(VDRWEB_SERVICE_HBBTV_PRESENTATION_V2, &presentation)) {
     error = "provider_unavailable";
     return false;
   }
 
   if (presentation.structSize != sizeof(presentation) ||
-      presentation.schemaVersion != VDRWEB_HBBTV_PRESENTATION_SCHEMA_V1) {
+      presentation.schemaVersion != VDRWEB_HBBTV_PRESENTATION_SCHEMA_V2) {
     error = "provider_schema_incompatible";
     return false;
   }
@@ -170,7 +170,12 @@ bool SuiteBridgeHbbtvAdapter::Presentation(
       presentation.returnedBytes > VDRWEB_HBBTV_PRESENTATION_CHUNK_MAX ||
       presentation.encodedBytes > 16U * 1024U * 1024U ||
       presentation.renderWidth > 3840U ||
-      presentation.renderHeight > 2160U) {
+      presentation.renderHeight > 2160U ||
+      presentation.frameKind > VDRWEB_HBBTV_PRESENTATION_FRAME_PATCH ||
+      presentation.patchWidth > presentation.renderWidth ||
+      presentation.patchHeight > presentation.renderHeight ||
+      presentation.patchX > presentation.renderWidth - presentation.patchWidth ||
+      presentation.patchY > presentation.renderHeight - presentation.patchHeight) {
     error = "provider_presentation_payload_invalid";
     return false;
   }
