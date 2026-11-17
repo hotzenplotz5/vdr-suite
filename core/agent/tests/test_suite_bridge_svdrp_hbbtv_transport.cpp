@@ -225,6 +225,7 @@ int main()
         SuiteBridgeHbbtvPresentationRequest request;
         request.operation = SuiteBridgeHbbtvPresentationOperation::Meta;
         request.sessionId = "session-a";
+        request.frameRevision = 7;
 
         const SuiteBridgeHbbtvCommandReply reply =
             transport.readHbbtvPresentation(request);
