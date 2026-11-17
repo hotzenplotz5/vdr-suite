@@ -36,7 +36,7 @@ base_client = read("web/frontend/api/client-api.js")
 genre_client = read("web/frontend/api/genre-client-api.js")
 remote_client = read("web/frontend/api/live-remote-client-api.js")
 
-base_operations = set(re.findall(r"function\s+(fetchClient[A-Za-z0-9_]+)\s*\(", base_client))
+base_operations = set(re.findall(r"function\s+((?:fetchClient|fetchPublicSearchTimer|mutatePublicSearchTimer)[A-Za-z0-9_]*)\s*\(", base_client))
 genre_operations = set(re.findall(r"function\s+(fetchClient[A-Za-z0-9_]+)\s*\(", genre_client))
 remote_operations = set(re.findall(r"function\s+(fetchClient[A-Za-z0-9_]+)\s*\(", remote_client))
 require("function createClientLiveUpdateSource()" in remote_client, "Live Remote update-source operation disappeared")
@@ -45,12 +45,12 @@ require("function createClientOperationUpdateSource(operationId)" in remote_clie
         "Media-Tools Operation SSE client disappeared")
 remote_operations.add("createClientOperationUpdateSource")
 
-require(len(base_operations) == 59, f"expected 59 base client operations, found {len(base_operations)}")
+require(len(base_operations) == 65, f"expected 65 base client operations, found {len(base_operations)}")
 require(len(genre_operations) == 3, f"expected 3 Genre client operations, found {len(genre_operations)}")
 require(len(remote_operations) == 4, f"expected 4 Live Remote operations, found {len(remote_operations)}")
 
 discovered_operations = base_operations | genre_operations | remote_operations
-require(len(discovered_operations) == 66, f"expected 66 classified browser Client API operations, found {len(discovered_operations)}")
+require(len(discovered_operations) == 72, f"expected 72 classified browser Client API operations, found {len(discovered_operations)}")
 
 classified = []
 groups = matrix.get("browserClientGroups", [])
@@ -76,11 +76,17 @@ for source_name, source in (
     ("live-remote", remote_client),
 ):
     if source_name == "base":
-        # The 2026-10-26 browser administrator CREATE is a reviewed,
-        # inactive-only Public-v1 successor, not a generic API migration.
-        require(source.count("'/api/v1/search-timers'") == 1,
-                "browser SearchTimer staging route must be exact")
-        source = source.replace("'/api/v1/search-timers'", "'approved-searchtimer-create'")
+        # Browser SearchTimer CRUD and preview use only these reviewed routes.
+        require(source.count("'/api/v1/search-timers'") == 2,
+                "browser SearchTimer CREATE and LIST paths must be exact")
+        require(source.count("'/api/v1/search-timers/' + encodeURIComponent(id)") == 1,
+                "browser SearchTimer resource path must use opaque id")
+        for suffix in ("'/version'", "'/mutations'", "'/preview'"):
+            require("publicSearchTimerPath(normalized, " + suffix + ")" in source,
+                    "browser SearchTimer resource route missing: " + suffix)
+        source = source.replace("'/api/v1/search-timers'", "'approved-searchtimer-collection'")
+        source = source.replace("'/api/v1/search-timers/' + encodeURIComponent(id)",
+                                "'approved-searchtimer-resource' + encodeURIComponent(id)")
         operation_route = "'/api/v1/operations/' + encodeURIComponent(id)"
         require(source.count(operation_route) == 1,
                 "browser SearchTimer Operation GET must be exact")
@@ -387,6 +393,6 @@ test_groups = read("mk/test-groups.mk")
 require("test-phase69f-client-contract-matrix" in test_groups, "fast CI must include client-contract matrix")
 
 print("Phase 69.F client-contract matrix guard passed.")
-print("Classified browser Client API operations: 66 exactly once (including guarded SearchTimer and EPG Timer CREATE).")
+print("Classified browser Client API operations: 72 exactly once (including guarded SearchTimer and EPG Timer CREATE).")
 print("Public-v1 method/resource contracts: 9 accepted, 2 scoped read-only candidates (Recording R2 and SearchTimer).")
 print("Nine accepted reference-client contracts retained; Recording R2 and SearchTimer post-69 candidates explicitly inventoried.")

@@ -399,7 +399,7 @@ assert.ok(api.stagedCreateValidation({
 }).length > 0);
 
 assert.ok(
-  source.includes('fetchClientSearchTimerDeleteAction')
+  source.includes('mutatePublicSearchTimer') && !source.includes('fetchClientSearchTimerDeleteAction')
 );
 assert.ok(
   source.includes('fetchClientRecordingFolder')

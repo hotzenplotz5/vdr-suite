@@ -274,9 +274,15 @@
       "publicV1Relation": "scoped-public-v1",
       "exports": [
         "fetchClientSearchTimerCreateStaged",
-        "fetchClientSearchTimerOperation"
+        "fetchClientSearchTimerOperation",
+        "fetchPublicSearchTimerPage",
+        "fetchPublicSearchTimers",
+        "fetchPublicSearchTimerDetail",
+        "fetchPublicSearchTimerVersion",
+        "fetchPublicSearchTimerPreview",
+        "mutatePublicSearchTimer"
       ],
-      "note": "Browser Human administrators use the same authorized, CSRF-bound Public-v1 SearchTimer CREATE for active or inactive rules with durable idempotency, plus the actor-bound read-only Operation GET; the independently guarded native update/delete operations remain separate."
+      "note": "Browser administrators use scoped Public-v1 SearchTimer reads, CREATE, and version-fenced native mutations with existing CSRF, idempotency and actor-owned Operation GET/SSE. Legacy mutation wrappers remain transition-only and are no longer used by the SearchTimer cards."
     },
     {
       "domain": "epg-timer-create",

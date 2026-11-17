@@ -232,7 +232,10 @@
   }
 
   function normalizeSearchTimer(searchTimer, index) {
-    const source = searchTimer && typeof searchTimer === 'object' ? searchTimer : {};
+    const input = searchTimer && typeof searchTimer === 'object' ? searchTimer : {};
+    // The administrator Public-v1 projection uses the original Web field
+    // groups. Top-level identity/state are authoritative, never settings.
+    const source = Object.assign({}, objectValue(input, 'settings'), input);
     const recording = objectValue(source, 'recordingOptions');
     const schedule = objectValue(source, 'scheduleOptions');
     const filters = objectValue(source, 'filterOptions');
@@ -256,6 +259,8 @@
       index: Number(index) || 0,
       backendId: String(firstValue(source, ['backendId', 'backend'], 'default')),
       backendNativeId: String(firstValue(source, ['backendNativeId', 'id', 'timerId'], '')),
+      searchTimerId: String(firstValue(source, ['searchTimerId'], '')),
+      state,
       name: String(firstValue(source, ['name', 'title', 'search', 'query'], 'SearchTimer')),
       query: String(firstValue(source, ['query', 'search', 'pattern'], '')),
       active: state === 'active' || boolValue(firstValue(source, ['active', 'enabled', 'isActive', 'use_as_searchtimer'], false), false),
@@ -308,7 +313,7 @@
       deleteRecordingsAfterDays: numberValue(firstValue(actions, ['deleteRecordingsAfterDays'], firstValue(source, ['del_recs_after_days'], 0)), 0),
       deleteAfterCountRecordings: numberValue(firstValue(actions, ['deleteAfterCountRecordings'], firstValue(source, ['del_after_count_recs'], 0)), 0),
       deleteAfterDaysOfFirstRecording: numberValue(firstValue(actions, ['deleteAfterDaysOfFirstRecording'], firstValue(source, ['del_after_days_of_first_rec'], 0)), 0),
-      updateSafe: false
+      updateSafe: state === 'inactive' && /^st_[0-9a-f]{32}$/.test(String(source.searchTimerId || ''))
     };
   }
 
@@ -762,6 +767,7 @@
   }
 
   function previewMatches(data) {
+    if (data && Array.isArray(data.items)) return data.items;
     return data && data.preview && Array.isArray(data.preview.matches) ? data.preview.matches : [];
   }
 
@@ -779,10 +785,12 @@
     summary.className = 'searchtimer-preview-summary';
     const statistics = data && data.statistics ? data.statistics : {};
     const epgInput = data && data.epgInput ? data.epgInput : {};
-    appendPreviewMetric(summary, 'Engine', String(firstValue(data || {}, ['previewEngine'], '-')));
-    appendPreviewMetric(summary, 'EPG', String(firstValue(epgInput, ['status'], '-')));
-    appendPreviewMetric(summary, 'Treffer', String(firstValue(statistics, ['totalCount'], previewMatches(data).length)));
-    appendPreviewMetric(summary, 'Kanäle', String(firstValue(statistics, ['channelCount'], 0)));
+    const publicPreview = Boolean(data && Array.isArray(data.items));
+    const matchesForCount = previewMatches(data);
+    appendPreviewMetric(summary, 'Engine', publicPreview ? 'EPG-Suche (Public v1)' : String(firstValue(data || {}, ['previewEngine'], '-')));
+    appendPreviewMetric(summary, 'EPG', publicPreview ? String(data.meta && data.meta.epgInput || '-') : String(firstValue(epgInput, ['status'], '-')));
+    appendPreviewMetric(summary, 'Treffer', String(publicPreview ? data.totalCount : firstValue(statistics, ['totalCount'], matchesForCount.length)));
+    if (!publicPreview) appendPreviewMetric(summary, 'Kanäle', String(firstValue(statistics, ['channelCount'], 0)));
     target.appendChild(summary);
 
     const matches = previewMatches(data);
@@ -838,27 +846,182 @@
     }).finally(() => { button.disabled = false; });
   }
 
-  function runDelete(timer, button, target) {
+  // One authoritative versioned write per explicit user action. A
+  // transport failure after submission must not silently write again.
+  const mutationObservers = new Set();
+
+  function createMutationController(timer, controls, feedback, inspect) {
     const api = clientApi();
-    if (!api || typeof api.fetchClientSearchTimerDeleteAction !== 'function') {
-      setFeedback(target, 'SearchTimer-Löschung ist nicht verfügbar.', true);
-      return Promise.resolve(null);
+    const scope = {backend: timer.backendId, searchTimerId: timer.searchTimerId};
+    let busy = false;
+    let submitted = false;
+    let operationId = '';
+    let events = null;
+    let reading = false;
+    let readAgain = false;
+    let attached = true;
+    let currentAction = '';
+    const originalDisabled = controls.map(control => control.disabled);
+    function lock(value) {
+      controls.forEach((control, index) => { control.disabled = value || originalDisabled[index]; });
+    }
+    function closeEvents() {
+      if (events) { events.close(); events = null; }
+    }
+    function detach() { attached = false; closeEvents(); mutationObservers.delete(detach); }
+    mutationObservers.add(detach);
+    function show(record) {
+      if (!record || record.operationId !== operationId ||
+          record.backendId !== scope.backend || typeof record.state !== 'string')
+        throw new Error('Suchtimer-Vorgang entspricht nicht der Anfrage.');
+      if (!attached) return;
+      if (record.state === 'succeeded') {
+        closeEvents();
+        inspect.hidden = true;
+        setFeedback(feedback, 'Änderung durch epgsearch-Readback bestätigt.', false);
+        mutationObservers.delete(detach);
+        if (selectedBackendId() === scope.backend)
+          global.setTimeout(() => { if (attached) reloadSearchTimers(); }, 300);
+      } else if (record.state === 'failed_verified' || record.state === 'failed_before_dispatch') {
+        closeEvents();
+        setFeedback(feedback, 'Änderung abgelehnt (' + record.state + '). Liste aktualisieren.', true);
+        inspect.hidden = false;
+      } else {
+        const uncertain = record.state === 'outcome_unknown' || record.state === 'executed_unverified';
+        setFeedback(feedback, 'Vorgang: ' + record.state +
+          (uncertain ? '. Keine Wiederholung; Vorgang prüfen.' : ' – epgsearch-Bestätigung steht aus.'), uncertain);
+        inspect.hidden = false;
+      }
+    }
+    async function readOperation() {
+      if (!attached || !operationId) return;
+      if (reading) { readAgain = true; return; }
+      reading = true;
+      inspect.disabled = true;
+      try {
+        show(await api.fetchClientSearchTimerOperation({operationId}));
+      } catch (error) {
+        if (attached) setFeedback(feedback, 'Vorgang kann nicht bestätigt werden: ' +
+          String(error && error.message || error) + '. Nicht erneut senden.', true);
+      } finally {
+        reading = false;
+        if (attached && !inspect.hidden) inspect.disabled = false;
+        if (readAgain) { readAgain = false; if (attached && !inspect.hidden) readOperation(); }
+      }
+    }
+    inspect.addEventListener('click', readOperation);
+    function subscribe() {
+      if (!attached || typeof api.createClientOperationUpdateSource !== 'function') return;
+      events = api.createClientOperationUpdateSource(operationId);
+      if (!events) return;
+      const hint = event => {
+        let data;
+        try { data = JSON.parse(String(event.data || '')); } catch (_) { return; }
+        if (data && data.operationId === operationId) readOperation();
+      };
+      events.onmessage = hint;
+      if (typeof events.addEventListener === 'function') {
+        events.addEventListener('operation', hint);
+        events.addEventListener('hello', readOperation);
+        events.addEventListener('resync', readOperation);
+      }
+      // Native EventSource reconnects itself; manual GET remains available.
+      events.onerror = () => { if (attached && !inspect.hidden) inspect.disabled = false; };
+    }
+    async function execute(action, query) {
+      if (!attached || busy || submitted) return;
+      if (!api || typeof api.fetchPublicSearchTimerVersion !== 'function' ||
+          typeof api.mutatePublicSearchTimer !== 'function') {
+        setFeedback(feedback, 'Public API v1 ist nicht verfügbar.', true);
+        return;
+      }
+      const payload = {action, confirmed: true};
+      if (action === 'update') {
+        payload.query = String(query || '').trim();
+        if (!payload.query) {
+          setFeedback(feedback, 'Bitte einen Suchbegriff eingeben.', true);
+          return;
+        }
+      }
+      const label = {update:'ändern', activate:'aktivieren', deactivate:'deaktivieren', delete:'löschen'}[action];
+      if (!global.confirm('SearchTimer „' + timer.name + '“ ' + label + '?' +
+          (action === 'activate' ? ' Die Regel kann sofort Timer erzeugen.' : ''))) return;
+      const key = newStagedIdempotencyKey();
+      if (!key) { setFeedback(feedback, 'Vorgangs-ID konnte nicht erzeugt werden.', true); return; }
+      busy = true;
+      currentAction = action;
+      lock(true);
+      setFeedback(feedback, 'Aktuelle Suchtimer-Version wird geladen …', false);
+      try {
+        const current = await api.fetchPublicSearchTimerDetail(scope);
+        if (!attached) return;
+        if (!current || current.searchTimerId !== scope.searchTimerId ||
+            current.backendId !== scope.backend || current.query !== timer.query ||
+            current.state !== timer.state) {
+          throw new Error('Suchtimer wurde geändert. Bitte Liste aktualisieren.');
+        }
+        const version = await api.fetchPublicSearchTimerVersion(scope);
+        if (!attached) return;
+        if (!version || version.searchTimerId !== scope.searchTimerId ||
+            version.backendId !== scope.backend || !/^sr_[0-9a-f]{32}$/.test(version.revision)) {
+          throw new Error('Keine gültige Suchtimer-Revision erhalten.');
+        }
+        submitted = true;
+        setFeedback(feedback, 'Suchtimer wird über Public API v1 ' + label + ' …', false);
+        const result = await api.mutatePublicSearchTimer(Object.assign({}, scope, {
+          revision: version.revision, idempotencyKey: key, payload
+        }));
+        if (!attached) return;
+        if (!result || result.backendId !== scope.backend ||
+            !/^op_[0-9a-f]{32}$/.test(String(result.operationId || '')))
+          throw new Error('Vorgangsbestätigung fehlt.');
+        operationId = result.operationId;
+        inspect.hidden = false;
+        inspect.disabled = false;
+        show(result);
+        if (!['succeeded','failed_verified','failed_before_dispatch'].includes(result.state)) subscribe();
+      } catch (error) {
+        if (!attached) return;
+        const rejected = !operationId && error && [400,401,403,404,409,415,422].includes(error.status);
+        if (rejected) submitted = false;
+        if (!submitted) {
+          lock(false);
+          setFeedback(feedback, String(error && error.message || error), true);
+        } else {
+          setFeedback(feedback, 'Ausgang der Aktion ' + currentAction + ' unklar: ' +
+            String(error && error.message || error) + '. Nicht erneut senden; Liste/Vorgang prüfen.', true);
+        }
+      } finally {
+        busy = false;
+        if (attached && !submitted) lock(false);
+      }
+    }
+    return {execute};
+  }
+
+  async function runSavedPreview(timer, button, target) {
+    const api = clientApi();
+    if (!api || typeof api.fetchPublicSearchTimerPreview !== 'function') {
+      setFeedback(target, 'Suchtimer-Vorschau ist nicht verfügbar.', true);
+      return;
     }
     button.disabled = true;
-    setFeedback(target, 'SearchTimer wird gelöscht …', false);
-    return api.fetchClientSearchTimerDeleteAction({
-      payload: {backendId: timer.backendId || selectedBackendId(), backendNativeId: timer.backendNativeId},
-      cache: 'no-store',
-      credentials: 'same-origin'
-    }).then(result => {
-      if (!result || result.success !== true) throw new Error(resultMessage(result, 'Backend hat die Löschung abgelehnt.'));
-      setFeedback(target, resultMessage(result, 'SearchTimer gelöscht.'), false);
-      global.setTimeout(reloadSearchTimers, 300);
-      return result;
-    }).catch(error => {
-      setFeedback(target, String(error && error.message ? error.message : error), true);
-      return null;
-    }).finally(() => { button.disabled = false; });
+    setFeedback(target, 'Vorschau wird geladen …', false);
+    try {
+      const result = await api.fetchPublicSearchTimerPreview({
+        backend: timer.backendId, searchTimerId: timer.searchTimerId, limit: 30
+      });
+      if (!result || !Array.isArray(result.items) || !result.meta ||
+          result.meta.partial !== false || result.backendId !== timer.backendId ||
+          result.searchTimerId !== timer.searchTimerId)
+        throw new Error('Keine vollständige Vorschau erhalten.');
+      target.className = 'searchtimer-feedback success';
+      renderPreview(target, result);
+      target.appendChild(addText(document.createElement('p'),
+        'EPG-Treffer, keine verbindliche Aufnahmeprognose.'));
+    } catch (error) {
+      setFeedback(target, String(error && error.message || error), true);
+    } finally { button.disabled = false; }
   }
 
   // Draft preview is EPG text-only; full CREATE settings are transported
@@ -1282,7 +1445,7 @@
     summaryGrid.appendChild(title);
     const badges = document.createElement('div');
     badges.className = 'searchtimer-badges';
-    const status = addText(document.createElement('span'), timer.active ? 'aktiv' : 'inaktiv');
+    const status = addText(document.createElement('span'), timer.state === 'unknown' ? 'unbekannt' : (timer.active ? 'aktiv' : 'inaktiv'));
     status.className = 'searchtimer-badge ' + (timer.active ? 'active' : '');
     badges.appendChild(status);
     if (timer.useVps) {
@@ -1304,7 +1467,8 @@
     const meta = document.createElement('div');
     meta.className = 'searchtimer-meta-grid';
     appendMeta(meta, 'Backend-ID', timer.backendId);
-    appendMeta(meta, 'Native ID', timer.backendNativeId);
+    if (timer.searchTimerId) appendMeta(meta, 'Suchtimer-ID', timer.searchTimerId);
+    else if (timer.backendNativeId) appendMeta(meta, 'Native ID', timer.backendNativeId);
     appendMeta(meta, 'Verzeichnis', directoryOptionLabel(timer.directory));
     appendMeta(meta, 'Priorität / Lebensdauer', String(timer.priority) + ' / ' + String(timer.lifetime));
     appendMeta(meta, 'Marge Start / Stop', String(timer.marginStartMinutes) + ' / ' + String(timer.marginStopMinutes) + ' Min.');
@@ -1317,36 +1481,62 @@
     appendMeta(meta, 'Duplikate', timer.avoidRepeats ? 'vermeiden' : 'zulassen');
     body.appendChild(meta);
 
-    const safety = document.createElement('p');
-    safety.className = 'searchtimer-safety-note';
-    safety.textContent = 'Die vollständigen Zeit- und Kanalfilter werden angezeigt. Bearbeitung und Aktivierung bestehender SearchTimer bleiben bis zur passenden bestätigten Update-API deaktiviert. „Als Vorlage“ erstellt weiterhin zunächst einen inaktiven neuen SearchTimer.';
-    body.appendChild(safety);
-
     const actions = document.createElement('div');
     actions.className = 'searchtimer-actions';
+    const publicId = /^st_[0-9a-f]{32}$/.test(timer.searchTimerId);
     const copy = addText(document.createElement('button'), 'Als Vorlage öffnen');
     copy.type = 'button';
     copy.addEventListener('click', () => populateCreateForm(timer));
     actions.appendChild(copy);
+
+    const edit = addText(document.createElement('button'), 'Suchbegriff bearbeiten');
+    edit.type = 'button';
+    edit.disabled = !timer.updateSafe;
+    if (timer.active) edit.title = 'Suchbegriff kann bei einer inaktiven Regel geändert werden.';
+    actions.appendChild(edit);
     const toggle = addText(document.createElement('button'), timer.active ? 'Deaktivieren' : 'Aktivieren');
     toggle.type = 'button';
-    toggle.disabled = true;
-    toggle.title = 'Sicheres Ändern wird erst freigegeben, wenn der vollständige Leservertrag verfügbar ist.';
+    toggle.disabled = !publicId || timer.state === 'unknown';
     actions.appendChild(toggle);
+    const preview = addText(document.createElement('button'), 'Vorschau');
+    preview.type = 'button';
+    preview.disabled = !publicId;
+    actions.appendChild(preview);
     const remove = addText(document.createElement('button'), 'SearchTimer löschen');
     remove.type = 'button';
     remove.className = 'danger';
+    remove.disabled = !publicId;
     actions.appendChild(remove);
+    const inspect = addText(document.createElement('button'), 'Änderungsvorgang prüfen');
+    inspect.type = 'button';
+    inspect.hidden = true;
+    inspect.disabled = true;
+    actions.appendChild(inspect);
     body.appendChild(actions);
+
+    const editor = document.createElement('div');
+    editor.hidden = true;
+    const query = document.createElement('input');
+    query.type = 'text';
+    query.value = timer.query;
+    query.setAttribute('aria-label', 'Suchbegriff');
+    editor.appendChild(query);
+    const save = addText(document.createElement('button'), 'Änderung speichern');
+    save.type = 'button';
+    save.disabled = !timer.updateSafe;
+    editor.appendChild(save);
+    body.appendChild(editor);
 
     const feedback = document.createElement('div');
     feedback.className = 'searchtimer-feedback';
     feedback.setAttribute('role', 'status');
     body.appendChild(feedback);
-    remove.addEventListener('click', () => {
-      if (!global.confirm('SearchTimer „' + timer.name + '“ wirklich löschen?')) return;
-      runDelete(timer, remove, feedback);
-    });
+    const mutation = createMutationController(timer, [edit, toggle, remove, save], feedback, inspect);
+    edit.addEventListener('click', () => { editor.hidden = !editor.hidden; });
+    save.addEventListener('click', () => mutation.execute('update', query.value));
+    toggle.addEventListener('click', () => mutation.execute(timer.active ? 'deactivate' : 'activate'));
+    remove.addEventListener('click', () => mutation.execute('delete'));
+    preview.addEventListener('click', () => runSavedPreview(timer, preview, feedback));
 
     const technical = document.createElement('details');
     technical.className = 'searchtimer-preview-technical';
@@ -1360,6 +1550,7 @@
   }
 
   function renderList(data) {
+    Array.from(mutationObservers).forEach(detach => detach());
     installStyles();
     lastSearchTimerData = data;
     const mountTarget = searchTimerBrowserContext.detailDataElement;

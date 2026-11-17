@@ -3371,7 +3371,9 @@ function configureSearchTimerBrowserContextBoundary() {
 
   searchTimerBrowser.configureContext({
     detailDataElement: frontendPlatformMountTarget('searchtimers', detailDataElement),
-    helpers: window.VdrSuiteFrontendHelpers || null
+    helpers: window.VdrSuiteFrontendHelpers || null,
+    getSelectedBackendId: selectedEpgBackendId,
+    reload: function() { if (selectedModule === 'searchtimers') loadSearchTimers(); }
   });
 }
 
@@ -3387,12 +3389,15 @@ function renderSearchTimersThroughModule(data) {
   return searchTimerBrowser.renderList(data);
 }
 
+let searchTimerLoadSequence = 0;
 function loadSearchTimers() {
+  const sequence = ++searchTimerLoadSequence;
+  const backend = selectedEpgBackendId();
   renderModuleLoading('SearchTimer', 'Lade SearchTimer...');
 
   const clientApi = frontendPlatformClientApi();
 
-  if (!clientApi || typeof clientApi.fetchClientSearchTimers !== 'function') {
+  if (!clientApi || typeof clientApi.fetchPublicSearchTimers !== 'function') {
     currentSearchTimers = null;
     renderModuleError(
       'SearchTimer konnten nicht geladen werden',
@@ -3401,12 +3406,16 @@ function loadSearchTimers() {
     return;
   }
 
-  clientApi.fetchClientSearchTimers()
+  clientApi.fetchPublicSearchTimers({backend})
     .then(data => {
+      if (sequence !== searchTimerLoadSequence || selectedModule !== 'searchtimers' ||
+          backend !== selectedEpgBackendId()) return;
       currentSearchTimers = data;
       renderSearchTimersThroughModule(data);
     })
     .catch(error => {
+      if (sequence !== searchTimerLoadSequence || selectedModule !== 'searchtimers' ||
+          backend !== selectedEpgBackendId()) return;
       currentSearchTimers = null;
       renderModuleError('SearchTimer konnten nicht geladen werden', error);
     });

@@ -760,6 +760,46 @@
     });
   }
 
+  async function fetchPublicSearchTimers(options) {
+    const normalized = normalizeOptions(options);
+    const items = [];
+    const cursors = new Set();
+    const ids = new Set();
+    let cursor = '';
+    do {
+      const page = await fetchPublicSearchTimerPage({
+        backend: normalized.backend, cursor, limit: 30, signal: normalized.signal
+      });
+      if (!page || !Array.isArray(page.items) || !page.page ||
+          !page.meta || page.meta.partial !== false) {
+        throw new Error('Unvollständige Suchtimer-Liste.');
+      }
+      for (const item of page.items) {
+        if (!item || item.backendId !== normalized.backend ||
+            !/^st_[0-9a-f]{32}$/.test(item.searchTimerId) || ids.has(item.searchTimerId)) {
+          throw new Error('Ungültige Suchtimer-Identität in der Liste.');
+        }
+        ids.add(item.searchTimerId);
+        items.push(item);
+      }
+      cursor = page.page.hasMore ? page.page.nextCursor : '';
+      if (page.page.hasMore &&
+          (typeof cursor !== 'string' || !cursor || cursors.has(cursor))) {
+        throw new Error('Ungültige Suchtimer-Folgeseite.');
+      }
+      if (cursor) cursors.add(cursor);
+    } while (cursor);
+    return {items, totalCount: items.length, meta: {partial: false}};
+  }
+
+  async function fetchPublicSearchTimerPreview(options) {
+    const normalized = normalizeOptions(options);
+    return requestJson(publicSearchTimerPath(normalized, '/preview'), {
+      query: { backend: normalized.backend, limit: normalized.limit || 30 },
+      cache: 'no-store', credentials: 'same-origin', signal: normalized.signal
+    });
+  }
+
   async function fetchPublicSearchTimerDetail(options) {
     const normalized = normalizeOptions(options);
     return requestJson(publicSearchTimerPath(normalized), {
@@ -868,6 +908,8 @@
     fetchClientSearchTimerCreateStaged: fetchClientSearchTimerCreateStaged,
     fetchClientSearchTimerOperation: fetchClientSearchTimerOperation,
     fetchPublicSearchTimerPage: fetchPublicSearchTimerPage,
+    fetchPublicSearchTimers: fetchPublicSearchTimers,
+    fetchPublicSearchTimerPreview: fetchPublicSearchTimerPreview,
     fetchPublicSearchTimerDetail: fetchPublicSearchTimerDetail,
     fetchPublicSearchTimerVersion: fetchPublicSearchTimerVersion,
     mutatePublicSearchTimer: mutatePublicSearchTimer,
