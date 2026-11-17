@@ -785,10 +785,11 @@
     }
 
     const decoded = decoder.decode(frame.bytes);
-    if ((frame.width && frame.width !== decoded.width) ||
-        (frame.height && frame.height !== decoded.height)) {
-      throw new Error('hbbtv_overlay_dimension_mismatch');
-    }
+    const frameKind = text(frame.frameKind).toLowerCase() === 'patch'
+      ? 'patch'
+      : 'full';
+    const renderWidth = Math.trunc(Number(frame.width) || 0);
+    const renderHeight = Math.trunc(Number(frame.height) || 0);
 
     if (typeof canvas.getContext !== 'function') {
       throw new Error('hbbtv_overlay_canvas_unavailable');
@@ -800,12 +801,53 @@
       throw new Error('hbbtv_overlay_canvas_unavailable');
     }
 
-    canvas.width = decoded.width;
-    canvas.height = decoded.height;
+    let destinationX = 0;
+    let destinationY = 0;
+
+    if (frameKind === 'patch') {
+      const baseRevision = Number(frame.baseRevision) || 0;
+      const patchX = Math.trunc(Number(frame.patchX));
+      const patchY = Math.trunc(Number(frame.patchY));
+      const patchWidth = Math.trunc(Number(frame.patchWidth));
+      const patchHeight = Math.trunc(Number(frame.patchHeight));
+      const currentRevision = Number(state.hbbtvFrameRevision) || 0;
+
+      if (!(renderWidth > 0) || !(renderHeight > 0) ||
+          baseRevision !== currentRevision ||
+          Number(canvas.width) !== renderWidth ||
+          Number(canvas.height) !== renderHeight ||
+          !Number.isFinite(patchX) || !Number.isFinite(patchY) ||
+          !Number.isFinite(patchWidth) || !Number.isFinite(patchHeight) ||
+          patchX < 0 || patchY < 0 ||
+          patchWidth <= 0 || patchHeight <= 0 ||
+          patchX + patchWidth > renderWidth ||
+          patchY + patchHeight > renderHeight ||
+          decoded.width !== patchWidth ||
+          decoded.height !== patchHeight) {
+        // The consumer missed the patch base or lost its canvas state.
+        // Force the next request to revision 0 so the provider returns a full
+        // resync frame rather than applying a delta to the wrong image.
+        state.hbbtvFrameRevision = 0;
+        state.hbbtvPresentationKickPending = true;
+        return false;
+      }
+
+      destinationX = patchX;
+      destinationY = patchY;
+    } else {
+      if ((renderWidth && renderWidth !== decoded.width) ||
+          (renderHeight && renderHeight !== decoded.height)) {
+        throw new Error('hbbtv_overlay_dimension_mismatch');
+      }
+
+      canvas.width = decoded.width;
+      canvas.height = decoded.height;
+      context.clearRect(0, 0, decoded.width, decoded.height);
+    }
+
     const image = context.createImageData(decoded.width, decoded.height);
     image.data.set(decoded.pixels);
-    context.clearRect(0, 0, decoded.width, decoded.height);
-    context.putImageData(image, 0, 0);
+    context.putImageData(image, destinationX, destinationY);
     canvas.hidden = false;
     if (canvas.dataset) {
       canvas.dataset.hbbtvRevision = String(frame.revision || 0);
@@ -885,7 +927,11 @@
       if (!state.active || sequence !== state.hbbtvSessionSequence) return null;
 
       if (frame && frame.status === 200) {
-        drawHbbtvPresentation(frame);
+        if (!drawHbbtvPresentation(frame) &&
+            state.hbbtvPresentationKickPending) {
+          inputKickPending = true;
+          state.hbbtvPresentationKickPending = false;
+        }
       } else if (frame && frame.status === 204 && Number(frame.revision) > 0) {
         const revision = Number(frame.revision);
         if (!(state.hbbtvMediaAttached &&
