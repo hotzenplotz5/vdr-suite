@@ -10,11 +10,13 @@ for token in (
     "cPluginManager::CallFirstService",
     "VDRWEB_SERVICE_HBBTV_DISCOVERY_V1",
     "VDRWEB_SERVICE_HBBTV_RUNTIME_V1",
+    "VDRWEB_SERVICE_HBBTV_PRESENTATION_V2",
     "VDRWEB_SERVICE_HBBTV_MEDIA_V1",
     "provider_schema_incompatible",
     "provider_application_count_invalid",
     "provider_runtime_payload_invalid",
     "provider_runtime_identity_mismatch",
+    "provider_presentation_payload_invalid",
     "provider_media_payload_invalid",
 ):
     if token not in adapter:
@@ -23,10 +25,11 @@ for token in (
 for token in (
     '"VdrWeb::HbbtvDiscovery-v1"',
     '"VdrWeb::HbbtvRuntime-v1"',
-    '"VdrWeb::HbbtvPresentation-v1"',
+    '"VdrWeb::HbbtvPresentation-v2"',
     '"VdrWeb::HbbtvMedia-v1"',
     "VDRWEB_HBBTV_SERVICE_SCHEMA_V1 1U",
     "VDRWEB_HBBTV_RUNTIME_SCHEMA_V1 1U",
+    "VDRWEB_HBBTV_PRESENTATION_SCHEMA_V2 2U",
     "VDRWEB_HBBTV_MAX_APPLICATIONS 16U",
     "9ee1697a435e01058df6890323bf979a1ad2fd87",
     "1b3d2e785a1caf2d9f991fafa9752a433c5a86ae",
