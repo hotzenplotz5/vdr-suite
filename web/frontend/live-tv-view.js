@@ -335,12 +335,34 @@
     }).catch(function(error) {
       if (!state.active || state.liveChannelId !== id ||
           sequence !== state.hbbtvRequestSequence) return null;
+
+      const code =
+        error && error.message ? text(error.message) : 'hbbtv_discovery_failed';
+      const transient =
+        code === 'hbbtv_backend_snapshot_unavailable' ||
+        code === 'hbbtv_backend_generation_unavailable' ||
+        code === 'hbbtv_backend_not_online' ||
+        code === 'hbbtv_backend_generation_mismatch' ||
+        code === 'hbbtv_channel_not_in_backend_snapshot' ||
+        code === 'hbbtv_resolver_unavailable';
+
+      if (transient && attempt < 4 &&
+          typeof global.setTimeout === 'function') {
+        state.hbbtvLoading = true;
+        state.hbbtvError = '';
+        updateHbbtvIndicator();
+        return new Promise(function(resolve) {
+          global.setTimeout(function() {
+            resolve(loadHbbtvAttempt(channel, sequence, attempt + 1));
+          }, 1000);
+        });
+      }
+
       state.hbbtvLoading = false;
       state.hbbtvAvailable = false;
       state.hbbtvApplicationCount = 0;
       state.hbbtvApplications = [];
-      state.hbbtvError =
-        error && error.message ? error.message : 'hbbtv_discovery_failed';
+      state.hbbtvError = code;
       updateHbbtvIndicator();
       return null;
     });
