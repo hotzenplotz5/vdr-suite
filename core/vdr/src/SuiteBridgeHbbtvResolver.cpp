@@ -13,6 +13,33 @@ namespace
 
 constexpr std::size_t kMaximumApplications = 16;
 
+std::string rejectedReason(const SuiteBridgeHbbtvCommandReply& reply)
+{
+    const std::string marker = "\"reason\":\"";
+    const std::size_t begin = reply.payload.find(marker);
+    if (begin == std::string::npos)
+        return {};
+    const std::size_t valueBegin = begin + marker.size();
+    const std::size_t end = reply.payload.find('"', valueBegin);
+    if (end == std::string::npos || end == valueBegin)
+        return {};
+
+    const std::string reason = reply.payload.substr(valueBegin, end - valueBegin);
+    if (!std::all_of(
+            reason.begin(),
+            reason.end(),
+            [](unsigned char character) {
+                return std::isalnum(character) != 0 ||
+                    character == '_' ||
+                    character == '-';
+            }))
+        return {};
+
+    if (reason.rfind("hbbtv_", 0) == 0)
+        return reason;
+    return "hbbtv_" + reason;
+}
+
 bool safeIdentity(const std::string& value, std::size_t maximumLength)
 {
     return !value.empty() && value.size() <= maximumLength &&
@@ -445,7 +472,10 @@ SuiteBridgeHbbtvResolver::discoverApplications(
         transport_.discoverHbbtv(channelId);
     if (!reply.transportSucceeded || reply.replyCode != 250)
     {
-        snapshot.error = "hbbtv_provider_unreachable";
+        const std::string reason = rejectedReason(reply);
+        snapshot.error = reason.empty()
+            ? "hbbtv_provider_unreachable"
+            : reason;
         return snapshot;
     }
 
