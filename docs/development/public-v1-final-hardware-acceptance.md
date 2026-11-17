@@ -6,6 +6,21 @@
 
 Diese Checkliste ist der **einzige operative Hardware-Abnahmeplan** für API v1. Bestehende fachliche ADRs, OpenAPI und `docs/CURRENT.md` bleiben Vertrags- bzw. Statusquellen; bei Abweichung den offenen Punkt hier notieren, keine zweite parallele Checkliste anlegen.
 
+## ST.V1.7 – 17.11.2026 (Source, keine neue Hardwareabnahme)
+
+Code-Kandidat `ac3d304671cd27ae304674d6611e5790cfcd5b64`: vorhandene Browser-Administrator-Session,
+Public-v1-LIST/DETAIL/VERSION, gespeicherte PREVIEW, alle vier native
+CAS-Mutationsaktionen und Operations-SSE im Webfrontend integriert.
+Mock-DOM-Regression bestätigt diese JS-Flows, C++- und Hardware-Nachweis
+offen. Der explizite SearchTimer-EPG-Refresh wechselt auf den bestehenden
+60-Sekunden-EPG-Transport; echter 503-Fix noch nicht abgenommen.
+Bereits bestätigter inaktiver Browser-CREATE mit Operation
+`op_b7855877623c100f3402381d245ab4d2` (`succeeded`) und die zwei
+vorhandenen inaktiven Testregeln bleiben Ausgangspunkt der noch fehlenden
+kontrollierten UPDATE/ACTIVATE/DEACTIVATE/DELETE- und Preview-Prüfung.
+Kein erneuter CREATE der beiden Regeln und keine Wiederholung bestätigter
+Provider-/Geräte-Tests. Aktiver CREATE und Device-Endabnahme bleiben offen.
+
 ## Integration-Checkpoint auf `main` (23.10.2026; keine Endabnahme)
 
 | Prüfebene | Nachweis / Status | Grenze und nächste Prüfung |

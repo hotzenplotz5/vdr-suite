@@ -158,6 +158,12 @@ SearchTimer:
 - `fetchClientSearchTimerRealTest`
 - `fetchClientSearchTimerCreateAction`
 - `fetchClientSearchTimerCreateStaged` — Browser administrator, CSRF + Idempotency-Key, Public-v1 SearchTimer CREATE (active or inactive, explicitly confirmed; no legacy mutation fallback)
+- `fetchPublicSearchTimerPage` — scoped Public-v1 page
+- `fetchPublicSearchTimers` — all pages for current backend
+- `fetchPublicSearchTimerDetail` — opaque id and backend
+- `fetchPublicSearchTimerVersion` — native revision
+- `fetchPublicSearchTimerPreview` — saved-rule preview
+- `mutatePublicSearchTimer` — confirmed version-fenced Public-v1 mutation, existing CSRF and idempotency; no fallback
 - `fetchClientSearchTimerOperation` — actor-bound, read-only Public-v1 Operation GET to inspect the admitted CREATE result; no blind retry
 - `fetchClientSearchTimerUpdateAction`
 - `fetchClientSearchTimerDeleteAction`

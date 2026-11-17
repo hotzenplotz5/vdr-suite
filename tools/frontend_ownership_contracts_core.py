@@ -392,8 +392,8 @@ def check_searchtimer_loading_client_api_contract(app_js: str) -> None:
     )
 
     require(
-        "fetchClientSearchTimers" in body,
-        "loadSearchTimers() must use fetchClientSearchTimers()"
+        "fetchPublicSearchTimers" in body and "fetchClientSearchTimers" not in body,
+        "loadSearchTimers() must use scoped Public-v1 SearchTimer reads"
     )
 
     forbidden_tokens = [

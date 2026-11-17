@@ -3,6 +3,20 @@
 Arbeitsbranch seit PR #558: `main`. Merge-Commit: `ccbd27de197e6e515d8cd7e322b6a9084f92350c` (16.11.2026). Historischer Start-HEAD auf `MLD-Suchtimer`: `037e0545a89e5c86670563b6ce046f24947704e1`.
 Diese Roadmap ist ein Arbeitsplan, keine Behauptung bestandener Tests oder einer erfolgten Installation.
 
+**ST.V1.7 – 17.11.2026, Source-Kandidat `ac3d304671cd27ae304674d6611e5790cfcd5b64`:**
+Browser-Admin LIST/DETAIL/VERSION/PREVIEW und native UPDATE/ACTIVATE/
+DEACTIVATE/DELETE werden über die gemeinsame Public API v1 verwendet.
+Die Detailprojektion erhält die bekannten Web-Felder, UPDATE ist gemäß
+bestehendem CAS-Vertrag zunächst auf den Suchtext inaktiver Regeln
+beschränkt. Operationsstatus per SSE und GET, kein Legacy-Write.
+Gezielte V8-Mock-DOM-Regression bestanden; C++-Tests ergänzt, nicht
+ausgeführt. Der manuelle EPG-Refresh verwendet den dedizierten vorhandenen
+EPG-Transport. Keine neue Phase oder zweite Abnahmematrix: bisher
+bestätigtes Browser-CREATE/Readback und Legacy-Lesen werden nicht
+wiederholt, neue native CAS-Kette und Preview-503-Fix sind real offen.
+Siehe [API-Vertrag](../../api/search-timers.md) und
+[zentrale Abnahme](../development/public-v1-final-hardware-acceptance.md).
+
 ## Ziel und verbindliche Architektur
 
 Ein Benutzer erstellt aktiv oder inaktiv dieselbe vollständige epgsearch-Regel über

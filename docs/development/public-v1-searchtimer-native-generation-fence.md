@@ -47,6 +47,18 @@ identity of a native rule that was removed and recreated identically
   Agent generation. No legacy RESTfulAPI or SVDRP mutation fallback exists
   for this versioned management path.
 
+## Browser-Administrator-Integration (17.11.2026)
+
+Der vorhandene Admin-Session-/CSRF-Vertrag des CREATE wird auch für
+Public-v1-Lese- und kanonische Mutationsrouten verwendet. Device-Grants
+bleiben unverändert. Das Webfrontend verwendet öffentliche IDs, den
+bestehenden VERSION-/If-Match-Pfad und dieselbe native CAS-Operation;
+alle vier Aktionen sind in den Karten angebunden, UPDATE zunächst nur
+Suchtext einer inaktiven Regel. Die Operation wird per vorhandenem
+SSE-Hinweis und actor-owned GET beobachtet, nie erneut blind gesendet.
+Source-Kandidat `ac3d304671cd27ae304674d6611e5790cfcd5b64`, JS Mock-DOM getestet; native C++- und
+Real-VDR-Abnahme weiterhin offen.
+
 ## Native generation, exactly-once and readback contract
 
 The pinned epgsearch patch series provides persisted per-rule generation and
