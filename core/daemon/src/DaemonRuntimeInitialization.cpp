@@ -67,9 +67,9 @@
 #include "SearchTimerPreviewService.h"
 #include "SearchTimerCreateAdmissionService.h"
 #include "SearchTimerCreateDispatchService.h"
-#include "SearchTimerNativeCasAdmissionService.h"
-#include "SearchTimerNativeCasDispatchService.h"
-#include "SearchTimerNativeCasLocalProvider.h"
+#include "EpgsearchStockRule.h"
+#include <openssl/sha.h>
+#include <mutex>
 #include "SearchTimerCreateDeviceAdmissionService.h"
 #include "SearchTimerDiscoveryStaticProvider.h"
 #include "SimpleHttpListener.h"
@@ -135,6 +135,106 @@ bool searchCasReplayMatches(
     const auto second = fields[6].find(':', first + 1U);
     return second != std::string::npos &&
         fields[6].substr(first + 1U, second - first - 1U) == query;
+}
+
+// Serialize Suite's own SearchTimer management. External epgsearch writers
+// are not covered: stock epgsearch has no atomic generation/revision CAS.
+std::mutex stockSearchTimerMutex;
+
+std::int64_t stockSearchTimerNow()
+{
+    return std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+std::string stockSearchTimerDigest(const std::string& value)
+{
+    std::array<unsigned char, SHA256_DIGEST_LENGTH> digest{};
+    if (!SHA256(reinterpret_cast<const unsigned char*>(value.data()),
+                value.size(), digest.data())) return {};
+    constexpr char hex[] = "0123456789abcdef";
+    std::string out;
+    for (const auto byte : digest)
+    {
+        out += hex[byte >> 4U];
+        out += hex[byte & 15U];
+    }
+    return out;
+}
+
+std::string stockSearchTimerRevision(const std::string& publicId,
+    const std::string& raw)
+{
+    const auto hash = stockSearchTimerDigest(
+        "searchtimer-stock-revision-v1|" + publicId + "|" + raw);
+    return hash.empty() ? std::string{} : "sr_" + hash.substr(0U, 32U);
+}
+
+enum class StockSearchTimerObservationStatus { unavailable, notFound, ok };
+struct StockSearchTimerObservation
+{
+    StockSearchTimerObservationStatus status =
+        StockSearchTimerObservationStatus::unavailable;
+    std::string nativeId;
+    std::optional<vdrsuite::agent::EpgsearchStockRule> rule;
+    std::string revision;
+};
+
+bool stockSearchTimerMissing(const vdrsuite::agent::SuiteBridgeCommandReply& reply,
+    const std::string& nativeId)
+{
+    return reply.transportSucceeded() && reply.replyCode == 901 &&
+        reply.payload == "search id " + nativeId + " not defined";
+}
+
+StockSearchTimerObservation observeStockSearchTimer(
+    BackendRuntimeContext& runtime, PublicSearchTimerIdentityRepository& identities,
+    const std::string& publicId)
+{
+    StockSearchTimerObservation out;
+    if (!runtime.searchTimerAdapter || !runtime.suiteBridgeTransport) return out;
+    // Reconcile the complete RESTfulAPI catalogue before resolving any
+    // numeric ID. The stock observation then covers all native settings.
+    const auto catalogue = runtime.searchTimerAdapter->list(
+        SearchTimerQuery::byBackend(runtime.backendId));
+    if (!catalogue.available() ||
+        catalogue.totalCount() != catalogue.returnedCount()) return out;
+    const auto ids = identities.reconcileAuthoritativeSnapshot(
+        runtime.backendId, catalogue.items());
+    if (!ids || ids->size() != catalogue.items().size()) return out;
+    const auto pos = std::find(ids->begin(), ids->end(), publicId);
+    if (pos == ids->end())
+    {
+        out.status = StockSearchTimerObservationStatus::notFound;
+        return out;
+    }
+    const auto& timer = catalogue.items()[static_cast<std::size_t>(
+        std::distance(ids->begin(), pos))];
+    out.nativeId = timer.backendNativeId();
+    const auto reply = runtime.suiteBridgeTransport->readStockSearchTimer(out.nativeId);
+    if (stockSearchTimerMissing(reply, out.nativeId))
+    {
+        out.status = StockSearchTimerObservationStatus::notFound;
+        return out;
+    }
+    if (!reply.transportSucceeded() || reply.replyCode != 900) return out;
+    out.rule = vdrsuite::agent::EpgsearchStockRule::parse(out.nativeId, reply.payload);
+    if (!out.rule || out.rule->query() != timer.query() ||
+        timer.state() == SearchTimerState::Unknown ||
+        out.rule->active() != timer.isActive()) return out;
+    out.revision = stockSearchTimerRevision(publicId, out.rule->text());
+    if (!out.revision.empty()) out.status = StockSearchTimerObservationStatus::ok;
+    return out;
+}
+
+std::string stockSearchTimerRequestPayload(
+    const PublicSearchTimerNativeMutationRequest& request, const std::string& action)
+{
+    std::string data = "searchtimer-stock-operation/1|";
+    for (const auto* value : {&action, &request.backendId,
+            &request.publicSearchTimerId, &request.ifMatch, &request.query})
+        data += std::to_string(value->size()) + ":" + *value + "|";
+    return data;
 }
 
 class SearchTimerCurrentBackendGeneration final :
@@ -2145,55 +2245,23 @@ bool DaemonRuntime::initialize()
         [this](const PublicSearchTimerNativeVersionRequest& request)
         {
             PublicSearchTimerNativeVersionResult result;
-            if (!config_.suiteBridge().enabled ||
-                request.backendId != config_.suiteBridge().backendId ||
-                !publicSearchTimerIdentities_ || !backendRegistryService_)
-                return result;
-
-            const auto backend =
-                backendRegistryService_->getBackend(request.backendId);
-            if (!backend || !backend->online) return result;
-
-            const auto native = publicSearchTimerIdentities_->
-                resolveActiveNativeId(
-                    request.backendId, request.publicSearchTimerId);
-            if (!native)
+            std::lock_guard<std::mutex> lock(stockSearchTimerMutex);
+            if (!publicSearchTimerIdentities_ || !backendRegistryService_) return result;
+            const auto backend = backendRegistryService_->getBackend(request.backendId);
+            if (!backend || !backend->enabled || !backend->online) return result;
+            for (const auto& runtime : backendRuntimeContexts_)
             {
-                result.status = PublicSearchTimerNativeVersionStatus::notFound;
-                return result;
-            }
-            int numericId = -1;
-            try
-            {
-                const unsigned long raw = std::stoul(*native);
-                if (raw > static_cast<unsigned long>(2147483647L) ||
-                    std::to_string(raw) != *native)
-                    return result;
-                numericId = static_cast<int>(raw);
-            }
-            catch (...) { return result; }
-            for (const auto& candidate : backendRuntimeContexts_)
-            {
-                if (!candidate || candidate->backendId != request.backendId ||
-                    !candidate->providerLocalControlTransport ||
-                    !candidate->suiteBridgeAgentRuntime)
-                    continue;
-                SearchTimerNativeCasLocalProvider provider(
-                    candidate->backendId,
-                    *candidate->providerLocalControlTransport);
-                const auto seen = provider.observeRule(
-                    request.backendId, numericId);
-                if (!seen.available) return result;
-                if (!seen.found)
+                if (!runtime || runtime->backendId != request.backendId) continue;
+                const auto observed = observeStockSearchTimer(
+                    *runtime, *publicSearchTimerIdentities_, request.publicSearchTimerId);
+                if (observed.status == StockSearchTimerObservationStatus::notFound)
+                    result.status = PublicSearchTimerNativeVersionStatus::notFound;
+                else if (observed.status == StockSearchTimerObservationStatus::ok)
                 {
-                    result.status =
-                        PublicSearchTimerNativeVersionStatus::notFound;
-                    return result;
+                    result.status = PublicSearchTimerNativeVersionStatus::ok;
+                    result.revision = observed.revision;
                 }
-                if (!seen.durable) return result;
-                result.status = PublicSearchTimerNativeVersionStatus::ok;
-                result.revision = seen.revision;
-                return result;
+                break;
             }
             return result;
         });
@@ -2201,245 +2269,243 @@ bool DaemonRuntime::initialize()
     PublicApiRuntime::instance().registerSearchTimerNativeMutation(
         [this](const PublicSearchTimerNativeMutationRequest& request)
         {
+            using namespace vdrsuite::operations;
             PublicSearchTimerNativeMutationResult result;
+            std::lock_guard<std::mutex> lock(stockSearchTimerMutex);
             if (request.actorRef.empty() || request.backendId.empty() ||
                 request.publicSearchTimerId.empty() || !request.confirmed ||
                 request.ifMatch.size() != 35U ||
                 request.ifMatch.compare(0U, 3U, "sr_") != 0 ||
-                !config_.suiteBridge().enabled ||
-                request.backendId != config_.suiteBridge().backendId ||
                 !mutationOperationRepository_ || !publicSearchTimerIdentities_ ||
                 !backendRegistryService_ || !backendAccessPolicy_ ||
-                !backendAgentRepository_)
-                return result;
+                !backendAgentRepository_) return result;
 
-            const auto backend =
-                backendRegistryService_->getBackend(request.backendId);
+            const auto backend = backendRegistryService_->getBackend(request.backendId);
             const auto access = backendAccessPolicy_->canWriteToBackend(
                 *backendRegistryService_, request.backendId);
-            if (!access.allowed || !backend || !backend->online)
+            if (!access.allowed || !backend || !backend->enabled || !backend->online)
                 return result;
-
-            // Idempotent replay MUST be evaluated against the ORIGINAL
-            // immutable request before observing a potentially changed
-            // native revision. Never claim a second CAS because the first
-            // request rotated sr_ or deleted its public identity.
-            std::string family = "searchtimer.native-cas.";
+            std::string action;
             switch (request.action)
             {
-                case PublicSearchTimerNativeAction::update:
-                    family += "update"; break;
-                case PublicSearchTimerNativeAction::activate:
-                    family += "activate"; break;
-                case PublicSearchTimerNativeAction::deactivate:
-                    family += "deactivate"; break;
-                case PublicSearchTimerNativeAction::remove:
-                    family += "delete"; break;
+                case PublicSearchTimerNativeAction::update: action = "update"; break;
+                case PublicSearchTimerNativeAction::activate: action = "activate"; break;
+                case PublicSearchTimerNativeAction::deactivate: action = "deactivate"; break;
+                case PublicSearchTimerNativeAction::remove: action = "delete"; break;
             }
-            const auto existing =
-                mutationOperationRepository_->findByIdempotencyScope(
-                    request.actorRef, request.backendId, "SearchTimer",
-                    request.publicSearchTimerId, family,
-                    request.idempotencyKey);
-            if (existing.status ==
-                    vdrsuite::operations::MutationOperationRepositoryStatus::ok)
+            if (action.empty()) return result;
+            const std::string family = "searchtimer.stock." + action;
+            const auto canonical = stockSearchTimerRequestPayload(request, action);
+            const auto digest = stockSearchTimerDigest(canonical);
+            if (digest.empty()) return result;
+            const std::string fingerprint = "sha256:" + digest;
+
+            const auto publish = [&result](const MutationOperation& op,
+                PublicSearchTimerNativeMutationStatus status)
             {
-                const auto payload =
-                    mutationOperationRepository_->findPayloadByOperationId(
-                        existing.operation.operationId);
-                const bool identical =
+                result.status = status;
+                result.operation.operationId = op.operationId;
+                result.operation.backendId = op.backendId;
+                result.operation.state = mutationOperationStateName(op.state);
+                result.operation.resourceRevision = op.operationRevision;
+                return result;
+            };
+
+            // Preserve old native-CAS idempotency scopes. A replay after
+            // migration must never turn into a fresh stock-provider write.
+            for (const auto& scope : {family, "searchtimer.native-cas." + action})
+            {
+                const auto existing = mutationOperationRepository_->findByIdempotencyScope(
+                    request.actorRef, request.backendId, "SearchTimer",
+                    request.publicSearchTimerId, scope, request.idempotencyKey);
+                if (existing.status == MutationOperationRepositoryStatus::notFound)
+                    continue;
+                if (!existing.ok()) return result;
+                const auto stored = mutationOperationRepository_->findPayloadByOperationId(
+                    existing.operation.operationId);
+                const bool identical = stored.ok() &&
+                    stored.payload.payloadVersion == 1U &&
                     existing.operation.expectedRevision == request.ifMatch &&
-                    existing.operation.actionFamily == family &&
-                    existing.operation.actorId == request.actorRef &&
-                    existing.operation.backendId == request.backendId &&
-                    payload.ok() &&
-                    payload.payload.payloadType == "searchtimer.native-cas" &&
-                    payload.payload.payloadVersion == 1U &&
-                    payload.payload.payloadFingerprint ==
-                        existing.operation.requestFingerprint &&
-                    searchCasReplayMatches(
-                        payload.payload.payload,
-                        family.substr(std::string(
-                            "searchtimer.native-cas.").size()),
-                        request.backendId, request.publicSearchTimerId,
-                        request.ifMatch, request.query);
+                    stored.payload.payloadFingerprint == existing.operation.requestFingerprint &&
+                    (scope == family
+                        ? stored.payload.payloadType == "searchtimer.stock" &&
+                          stored.payload.payload == canonical &&
+                          existing.operation.requestFingerprint == fingerprint
+                        : stored.payload.payloadType == "searchtimer.native-cas" &&
+                          searchCasReplayMatches(stored.payload.payload, action,
+                              request.backendId, request.publicSearchTimerId,
+                              request.ifMatch, request.query));
                 if (!identical)
                 {
-                    result.status =
-                        PublicSearchTimerNativeMutationStatus::conflict;
+                    result.status = PublicSearchTimerNativeMutationStatus::conflict;
                     return result;
                 }
-                result.status = PublicSearchTimerNativeMutationStatus::replayed;
-                result.operation.operationId =
-                    existing.operation.operationId;
-                result.operation.state =
-                    vdrsuite::operations::mutationOperationStateName(
-                        existing.operation.state);
-                result.operation.backendId =
-                    existing.operation.backendId;
-                result.operation.resourceRevision =
-                    existing.operation.operationRevision;
-                return result;
+                return publish(existing.operation, PublicSearchTimerNativeMutationStatus::replayed);
             }
-            if (existing.status !=
-                    vdrsuite::operations::MutationOperationRepositoryStatus::notFound)
-                return result;
 
-            const std::int64_t now =
-                std::chrono::duration_cast<std::chrono::seconds>(
-                    std::chrono::system_clock::now().time_since_epoch())
-                    .count();
-            SearchTimerCurrentBackendGeneration generations(
-                *backendAgentRepository_);
-            const auto liveGeneration =
-                generations.currentGeneration(request.backendId);
-            if (!liveGeneration.has_value()) return result;
-
-            const auto nativeId = publicSearchTimerIdentities_->
-                resolveActiveNativeId(
-                    request.backendId, request.publicSearchTimerId);
-            if (!nativeId)
-            {
-                result.status = PublicSearchTimerNativeMutationStatus::notFound;
-                return result;
-            }
-            int numericId = -1;
-            try
-            {
-                const unsigned long value = std::stoul(*nativeId);
-                if (value > static_cast<unsigned long>(2147483647L) ||
-                    std::to_string(value) != *nativeId)
-                    return result;
-                numericId = static_cast<int>(value);
-            }
-            catch (...) { return result; }
-
+            SearchTimerCurrentBackendGeneration generations(*backendAgentRepository_);
+            const auto generation = generations.currentGeneration(request.backendId);
+            if (!generation) return result;
             BackendRuntimeContext* runtime = nullptr;
             for (const auto& candidate : backendRuntimeContexts_)
-            {
                 if (candidate && candidate->backendId == request.backendId &&
-                    candidate->providerLocalControlTransport &&
-                    candidate->suiteBridgeAgentRuntime)
+                    candidate->searchTimerAdapter && candidate->suiteBridgeTransport)
                 {
                     runtime = candidate.get();
                     break;
                 }
-            }
             if (!runtime) return result;
 
-            SearchTimerNativeCasLocalProvider provider(
-                runtime->backendId, *runtime->providerLocalControlTransport);
-            const auto seen = provider.observeRule(
-                request.backendId, numericId);
-            if (!seen.available) return result;
-            if (!seen.found)
+            const auto observed = observeStockSearchTimer(
+                *runtime, *publicSearchTimerIdentities_, request.publicSearchTimerId);
+            if (observed.status == StockSearchTimerObservationStatus::notFound)
             {
                 result.status = PublicSearchTimerNativeMutationStatus::notFound;
                 return result;
             }
-            if (!seen.durable) return result;
-            if (seen.revision != request.ifMatch)
+            if (observed.status != StockSearchTimerObservationStatus::ok ||
+                !observed.rule) return result;
+            if (observed.revision != request.ifMatch)
             {
                 result.status = PublicSearchTimerNativeMutationStatus::conflict;
                 return result;
             }
 
-            SearchTimerNativeCasAdmissionRequest admissionInput;
-            admissionInput.actorId = request.actorRef;
-            admissionInput.backendGeneration = *liveGeneration;
-            admissionInput.idempotencyKey = request.idempotencyKey;
-            admissionInput.requestedAt = now;
-            admissionInput.native.backendId = request.backendId;
-            admissionInput.native.publicSearchTimerId =
-                request.publicSearchTimerId;
-            admissionInput.native.nativeId = *nativeId;
-            admissionInput.native.expectedGeneration = seen.generation;
-            admissionInput.native.expectedRevision = seen.revision;
-            switch (request.action)
+            const auto original = observed.rule->text();
+            auto desired = observed.rule;
+            if (request.action == PublicSearchTimerNativeAction::update)
             {
-                case PublicSearchTimerNativeAction::update:
-                    admissionInput.native.action =
-                        SearchTimerNativeCasAction::update;
-                    if (!SearchTimerNativeCasLocalProvider::
-                        buildInactiveQueryUpdate(seen, numericId,
-                            request.query, admissionInput.native.changePayload))
+                // Keep the existing query-only inactive UPDATE contract.
+                // EDIS takes the complete native record, never a lossy
+                // RESTfulAPI projection reconstructed with default values.
+                desired = observed.rule->withQuery(request.query);
+                if (observed.rule->active() || !desired ||
+                    desired->text().size() > 8192U)
+                {
+                    result.status = PublicSearchTimerNativeMutationStatus::invalid;
+                    return result;
+                }
+            }
+            else if (request.action == PublicSearchTimerNativeAction::activate &&
+                !observed.rule->active())
+                desired = observed.rule->withActive(true);
+            else if (request.action == PublicSearchTimerNativeAction::deactivate)
+                desired = observed.rule->withActive(false);
+
+            MutationOperation op;
+            op.operationId = generateMutationOperationId();
+            op.actorId = request.actorRef;
+            op.backendId = request.backendId;
+            op.backendGeneration = *generation;
+            op.resourceType = "SearchTimer";
+            op.resourceId = request.publicSearchTimerId;
+            op.expectedRevision = request.ifMatch;
+            op.expectedResourceFingerprint = observed.revision;
+            op.actionFamily = family;
+            op.requestFingerprint = fingerprint;
+            op.idempotencyKey = request.idempotencyKey;
+            op.requestedAt = op.updatedAt = stockSearchTimerNow();
+            op.verificationPolicy = MutationOperationVerificationPolicy::readbackRequired;
+            MutationOperationPayload stored;
+            stored.operationId = op.operationId;
+            stored.payloadType = "searchtimer.stock";
+            stored.payloadVersion = 1U;
+            stored.payload = canonical;
+            stored.payloadFingerprint = fingerprint;
+            const auto reserved = mutationOperationRepository_->reserveWithPayload(op, stored);
+            if (reserved.status == MutationOperationRepositoryStatus::idempotentReplay)
+                return publish(reserved.operation, PublicSearchTimerNativeMutationStatus::replayed);
+            if (reserved.status == MutationOperationRepositoryStatus::idempotencyConflict ||
+                reserved.status == MutationOperationRepositoryStatus::operationConflict)
+            {
+                result.status = PublicSearchTimerNativeMutationStatus::conflict;
+                return result;
+            }
+            if (!reserved.ok()) return result;
+            op = reserved.operation;
+
+            // Re-read immediately before the one-shot claim/write. This is
+            // optimistic concurrency, not epgsearch-native atomic CAS.
+            const auto still = runtime->suiteBridgeTransport->readStockSearchTimer(observed.nativeId);
+            const auto currentGeneration = generations.currentGeneration(request.backendId);
+            if (!currentGeneration || *currentGeneration != *generation ||
+                !still.transportSucceeded() || still.replyCode != 900 ||
+                still.payload != original)
+            {
+                const auto stopped = mutationOperationRepository_->transition(
+                    op.operationId, op.operationRevision, MutationOperationState::accepted,
+                    MutationOperationState::failedBeforeDispatch, "", stockSearchTimerNow());
+                return publish(stopped.ok() ? stopped.operation : op,
+                    PublicSearchTimerNativeMutationStatus::accepted);
+            }
+            const auto claim = mutationOperationRepository_->transition(
+                op.operationId, op.operationRevision, MutationOperationState::accepted,
+                MutationOperationState::dispatching, "", stockSearchTimerNow());
+            if (!claim.ok()) return publish(op, PublicSearchTimerNativeMutationStatus::accepted);
+            op = claim.operation;
+            const auto advance = [this, &op](MutationOperationState next)
+            {
+                const auto changed = mutationOperationRepository_->transition(
+                    op.operationId, op.operationRevision, op.state, next, "",
+                    stockSearchTimerNow());
+                if (changed.ok()) op = changed.operation;
+                return changed.ok();
+            };
+
+            const bool deletion = request.action == PublicSearchTimerNativeAction::remove;
+            bool verified = false;
+            try
+            {
+                vdrsuite::agent::SuiteBridgeCommandReply reply;
+                const bool noChange = !deletion && desired && desired->text() == original;
+                if (!noChange)
+                {
+                    switch (request.action)
                     {
-                        result.status =
-                            PublicSearchTimerNativeMutationStatus::invalid;
-                        return result;
+                        case PublicSearchTimerNativeAction::update:
+                            reply = runtime->suiteBridgeTransport->editStockSearchTimer(
+                                observed.nativeId, desired->text());
+                            break;
+                        case PublicSearchTimerNativeAction::activate:
+                        case PublicSearchTimerNativeAction::deactivate:
+                            reply = runtime->suiteBridgeTransport->toggleStockSearchTimer(
+                                observed.nativeId, request.action == PublicSearchTimerNativeAction::activate);
+                            break;
+                        case PublicSearchTimerNativeAction::remove:
+                            reply = runtime->suiteBridgeTransport->deleteStockSearchTimer(observed.nativeId);
+                            break;
                     }
-                    break;
-                case PublicSearchTimerNativeAction::activate:
-                    admissionInput.native.action =
-                        SearchTimerNativeCasAction::activate;
-                    break;
-                case PublicSearchTimerNativeAction::deactivate:
-                    admissionInput.native.action =
-                        SearchTimerNativeCasAction::deactivate;
-                    break;
-                case PublicSearchTimerNativeAction::remove:
-                    admissionInput.native.action =
-                        SearchTimerNativeCasAction::remove;
-                    break;
+                }
+                // Never repeat after an ambiguous command reply. Only an
+                // acknowledged command (or no-op) and exact independent
+                // stock readback prove the requested observable state.
+                if (noChange || (reply.transportSucceeded() && reply.replyCode == 900))
+                {
+                    const auto after = runtime->suiteBridgeTransport->readStockSearchTimer(observed.nativeId);
+                    const auto afterGeneration = generations.currentGeneration(request.backendId);
+                    verified = afterGeneration && *afterGeneration == *generation &&
+                        (deletion ? stockSearchTimerMissing(after, observed.nativeId)
+                            : after.transportSucceeded() && after.replyCode == 900 &&
+                              desired && after.payload == desired->text());
+                }
             }
+            catch (...) { verified = false; }
 
-            SearchTimerNativeCasAdmissionService admission(
-                *mutationOperationRepository_);
-            const auto admitted = admission.admit(admissionInput);
-            switch (admitted.status)
+            if (verified)
             {
-                case SearchTimerNativeCasAdmissionStatus::invalid:
-                    result.status =
-                        PublicSearchTimerNativeMutationStatus::invalid;
-                    return result;
-                case SearchTimerNativeCasAdmissionStatus::idempotencyConflict:
-                case SearchTimerNativeCasAdmissionStatus::operationConflict:
-                    result.status =
-                        PublicSearchTimerNativeMutationStatus::conflict;
-                    return result;
-                case SearchTimerNativeCasAdmissionStatus::prepared:
-                case SearchTimerNativeCasAdmissionStatus::replayed:
-                    break;
-                default:
-                    return result;
+                if (advance(MutationOperationState::executedUnverified))
+                    advance(MutationOperationState::succeeded);
             }
-
-            auto operation = admitted.operation;
-            if (operation.state ==
-                    vdrsuite::operations::MutationOperationState::accepted &&
-                operation.backendGeneration == *liveGeneration)
-            {
-                SearchTimerNativeCasDispatchService dispatch(
-                    *mutationOperationRepository_, generations);
-                SearchTimerNativeCasDispatchRequest command;
-                command.operationId = operation.operationId;
-                command.actorId = request.actorRef;
-                command.backendGeneration = operation.backendGeneration;
-                command.now = now;
-                command.backendWriteAuthorized = access.allowed;
-                command.operatorConfirmed = request.confirmed;
-                command.native = admissionInput.native;
-                const auto invoked = dispatch.dispatchOnce(command, provider);
-                if (!invoked.operation.operationId.empty())
-                    operation = invoked.operation;
-            }
-            result.status = admitted.status ==
-                    SearchTimerNativeCasAdmissionStatus::prepared
-                ? PublicSearchTimerNativeMutationStatus::accepted
-                : PublicSearchTimerNativeMutationStatus::replayed;
-            result.operation.operationId = operation.operationId;
-            result.operation.state =
-                vdrsuite::operations::mutationOperationStateName(
-                    operation.state);
-            result.operation.backendId = operation.backendId;
-            result.operation.resourceRevision = operation.operationRevision;
-            return result;
+            else
+                advance(MutationOperationState::outcomeUnknown);
+            return publish(op, PublicSearchTimerNativeMutationStatus::accepted);
         });
 
     PublicApiRuntime::instance().registerSearchTimerCreate(
         [this](const PublicSearchTimerCreateRequest& request)
         {
             PublicSearchTimerCreateResult result;
+            std::lock_guard<std::mutex> lock(stockSearchTimerMutex);
             if (!mutationOperationRepository_ || !backendRegistryService_ ||
                 !backendAccessPolicy_ || !backendAgentRepository_)
                 return result;
@@ -2632,6 +2698,7 @@ bool DaemonRuntime::initialize()
         [this](const PublicSearchTimerCollectionRequest& request)
         {
             PublicSearchTimerCollectionResult result;
+            std::lock_guard<std::mutex> lock(stockSearchTimerMutex);
             if (!backendRegistryService_ || !publicSearchTimerIdentities_ ||
                 request.backendId.empty() ||
                 request.limit == 0U || request.limit > 30U)
