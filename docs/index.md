@@ -21,6 +21,7 @@ Architecture, ADRs, phase plans and original acceptance evidence are **optional 
 | Your question | Read this first | Go deeper |
 | --- | --- | --- |
 | How do I install the Ubuntu test packages and set up the first admin? | **[Erste Schritte nach der Installation (Deutsch)](erste-schritte-nach-installation.md)** | [Packaging status](../packaging/README.md), [staged deployment contract](development/install-runtime-deployment-reliability.md) |
+| How do I install the HbbTV browser/transcoder stack? | **[HbbTV installation](hbbtv-installation.md)** | [ADR-0054 Broadcast Companion Services](adr/ADR-0054-broadcast-companion-teletext-hbbtv.md) |
 | How can I try VDR-Suite, and is there a packaged installer? | [Getting started](getting-started.md) | [Experimental PPA](https://launchpad.net/~hotzenplotz5/+archive/ubuntu/vdr-suite) |
 | What is VDR-Suite meant to do? | [Project Overview](project-overview.md) | [Project Principles](project-principles.md) |
 | What works, and what is *actually* accepted? | [Project Status Dashboard](project-status-dashboard.md) | [CURRENT — verified project status](CURRENT.md) |
