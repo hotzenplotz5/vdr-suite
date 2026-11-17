@@ -126,8 +126,8 @@ The supported Device grants are the following reviewed permissions:
 - `timers.modify` (modify/toggle one authorized native Timer)
 - `timers.delete` (delete one authorized native Timer)
 - `searchtimers.view` (SearchTimer list and preview, independently of EPG read)
-- `searchtimers.create` (inactive SearchTimer CREATE; RESTfulAPI one-shot, not epgsearch-native atomic CAS)
-- `searchtimers.modify` (native generation-fenced SearchTimer update/deactivation)
+- `searchtimers.create` (active/inactive SearchTimer CREATE; RESTfulAPI one-shot, not epgsearch-native atomic CAS)
+- `searchtimers.modify` (revision-checked stock epgsearch SearchTimer update/deactivation)
 - `searchtimers.execute` (explicit SearchTimer activation)
 - `searchtimers.delete` (native generation-fenced SearchTimer deletion)
 - `media.live.play`

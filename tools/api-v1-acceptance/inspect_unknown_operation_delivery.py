@@ -33,6 +33,8 @@ ACTION_FAMILIES=(
     "searchtimer.create",
     "searchtimer.native-cas.update","searchtimer.native-cas.activate",
     "searchtimer.native-cas.deactivate","searchtimer.native-cas.delete",
+    "searchtimer.stock.update","searchtimer.stock.activate",
+    "searchtimer.stock.deactivate","searchtimer.stock.delete",
 )
 COMMAND_TYPES=(
     "timer.create","timer.update","timer.toggle","timer.delete",
@@ -183,7 +185,9 @@ def inspect(conn, backend="default"):
                     'searchtimer.create','searchtimer.native-cas.update',
                     'searchtimer.native-cas.activate',
                     'searchtimer.native-cas.deactivate',
-                    'searchtimer.native-cas.delete')
+                    'searchtimer.native-cas.delete',
+                    'searchtimer.stock.update','searchtimer.stock.activate',
+                    'searchtimer.stock.deactivate','searchtimer.stock.delete')
                 THEN o.action_family ELSE 'other' END,
               CASE
                 WHEN c.command_id IS NULL THEN 'no_command'

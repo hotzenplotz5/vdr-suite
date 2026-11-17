@@ -10126,10 +10126,10 @@
         ],
         "operationId": "getSearchTimerNativeVersion",
         "summary": "Read a backend-scoped SearchTimer mutation revision",
-        "description": "Read-only exact active public SearchTimer binding plus in-process native epgsearch observation. Returns opaque version as strong ETag; no numeric native ID or generation is exposed. Requires Browser administrator session or Device searchtimers.view@backend. The underlying generation and revision must be persistently attested.",
+        "description": "Fresh stock epgsearch LSTS observation of an active public binding. Returns a strong opaque ETag derived from the full rule and public identity; no native ID exposed. Requires Browser administrator or Device searchtimers.view@backend.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "verified Device, exact searchtimers.view@backend"
+          "authorization": "Browser administrator or verified Device, exact searchtimers.view@backend"
         },
         "parameters": [
           {
@@ -10153,7 +10153,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Current durable search rule revision",
+            "description": "Current observed search rule revision",
             "headers": {
               "ETag": {
                 "schema": {
@@ -10207,7 +10207,7 @@
             "description": "No active public SearchTimer binding"
           },
           "503": {
-            "description": "Native epgsearch observation unavailable or not durable"
+            "description": "Stock epgsearch observation unavailable"
           }
         }
       }
@@ -10218,11 +10218,11 @@
           "SearchTimers"
         ],
         "operationId": "mutateSearchTimerCAS",
-        "summary": "Durable native CAS UPDATE, ACTIVATE, DEACTIVATE or DELETE of one SearchTimer",
-        "description": "One explicit confirmed Browser administrator (same CSRF as CREATE) or Device action, never a legacy SVDRP/RESTfulAPI write. For Devices requires the unchanged exact backend grant: searchtimers.modify for update/deactivate, searchtimers.execute for activate, searchtimers.delete for delete. If-Match is the quoted opaque revision from GET /version. Numeric native ID and generation are derived only from the server-owned active identity mapping plus native observe-v1.1. The server reserves an immutable Operation and dispatches at most once. Applied results close only after a separate authoritative native readback. No blind retry of outcome_unknown. UPDATE is restricted to an inactive rule and preserves all other epgsearch settings. Operator must review EPG preview before activating.",
+        "summary": "Durable revision-checked UPDATE, ACTIVATE, DEACTIVATE or DELETE of one SearchTimer",
+        "description": "One confirmed Browser administrator (existing CSRF) or Device action with the unchanged action-specific backend grant. If-Match refers to the observed full-rule revision. The server reserves one durable Operation and uses standard epgsearch EDIS/MODS/DELS with independent LSTS readback. No patched plugin or native atomic CAS guarantee. No automatic retry of outcome_unknown. UPDATE changes only the inactive rule query while preserving other native fields. Review EPG preview before activation.",
         "x-vdr-suite-authentication": {
           "actorRequired": true,
-          "authorization": "verified Device plus exact searchtimers.modify/execute/delete@backend grant according to action"
+          "authorization": "Browser administrator with CSRF or verified Device plus exact searchtimers.modify/execute/delete@backend grant according to action"
         },
         "parameters": [
           {
@@ -10291,7 +10291,7 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200,
-                    "description": "Only for update; inactive native rule, colon/control characters refused."
+                    "description": "Only for update; inactive rule, 1–200 bytes, single line and round-trippable stock epgsearch encoding."
                   }
                 }
               }

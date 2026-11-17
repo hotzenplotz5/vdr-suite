@@ -1,6 +1,8 @@
-# Public-v1 VDR SearchTimers: read, preview, complete active/inactive CREATE and native CAS management
+# Public-v1 VDR SearchTimers: read, preview, complete active/inactive CREATE and stock epgsearch management
 
-**Abnahmestand 24.10.2026:** Der bereits erfolgreich auf yaVDR durchgeführte [direkte RESTfulAPI-SearchTimer-CREATE/UPDATE/DELETE-Smoke-Test](../docs/development/searchtimer-yavdr-smoke-test-execution-report.md) bleibt **PASS – PROVIDER** und ist nicht erneut auszuführen. Die nachträglich implementierte Public-v1-Device-/HTTP-/native-epgsearch-CAS-Kette für UPDATE/ACTIVATE/DEACTIVATE/DELETE ist ein **anderer, noch offener REAL-VDR-Ende-zu-Ende-Pfad**. CREATE bleibt ein einmaliger RESTfulAPI-Write ohne native epgsearch-lock-atomare CREATE-CAS-Garantie; diese Garantie muss vor der Releasefreigabe entweder implementiert oder ausdrücklich aus dem Scope ausgeschlossen werden. Die [einzige zentrale Abnahmematrix](../docs/development/public-v1-final-hardware-acceptance.md) und der [Dokumentations-Closeout](../docs/development/public-api-v1-documentation-closeout-20261024.md) sind für den Test-/Release-Status maßgeblich; historische Implementierungsabschnitte darunter sind keine neuen Testaufträge.
+**Historischer Provider-Nachweis 24.10.2026:** Der bestandene [RESTfulAPI-CRUD-Smoke-Test](../docs/development/searchtimer-yavdr-smoke-test-execution-report.md) bleibt gültig und wird nicht wiederholt. Die neue Public-v1-Verwaltung benötigt einen eigenen End-to-End-Nachweis.
+
+**Architekturentscheidung 17.11.2026 (Betreiber):** Reguläres epgsearch ist die produktive Basis. Keine epgsearch-Patches oder gepatchte ABI als Installations- oder Freigabevoraussetzung. CREATE/LIST über RESTfulAPI; VERSION/UPDATE/ACTIVATE/DEACTIVATE/DELETE verwenden die vorhandenen Standard-SVDRP-Befehle intern. SQLite-Operationsreservierung, Idempotenz, ETag, Autorisierung und Readback bleiben; native epgsearch-lock-atomare CAS oder persistierte native Generationen werden nicht versprochen. Externe konkurrierende Änderungen zwischen Lesen und Schreiben sowie identische Löschung/Neuanlage zwischen Beobachtungen sind nicht vollständig erkennbar. Historische native-CAS-Abnahmeforderungen sind damit aufgehoben. Source-Kandidat `eaa8ab6e122fbb8723456df091b6a57a12311653`; C++-Gesamtbuild und realer End-to-End-Nachweis stehen noch aus.
 
 The current implemented version is **Public API v1**, not v2.
 
@@ -27,7 +29,7 @@ Mock-DOM bestanden (einschließlich vier Mutationen, SSE, abgelehnter
 Version und unklarem POST-Ausgang); C++-Tests hinzugefügt, noch nicht
 ausgeführt. Code-Kandidat `ac3d304671cd27ae304674d6611e5790cfcd5b64`. Die bisherigen vom Betreiber
 bestätigten inaktiven CREATE-/Legacy-Leseergebnisse bleiben gültig.
-Native CAS-Verfügbarkeit, C++-Build, aktiver CREATE und die neuen
+C++-Build, aktiver CREATE und die neuen
 Browser-/Device-Mutationen auf yaVDR/MLD sind nicht real abgenommen.
 Die Device-only-Angaben in historischen Abschnitten beschreiben die
 Device-Bedingungen, nicht mehr die Browser-Administrator-Zulassung.
@@ -103,7 +105,7 @@ Siehe [ST.V1-Roadmap](../docs/planning/mld-searchtimer-public-v1-roadmap.md).
 
 - IDs are persisted under `public_search_timer_identity`; the native mapping is internal and does not make these TimerAssignments. A **complete and successful** native SearchTimer catalogue read reconciles the backend's active mappings in one SQLite transaction. Disappeared native IDs are retired, and retired public IDs are permanently reserved. Backend errors or malformed/incomplete provider responses do not retire anything. A reused native ID therefore gets a fresh public ID **once its earlier absence has been observed**.
 - To migrate legacy identity rows that have no verified rule signature, the **first successful catalogue read rotates those legacy public IDs**, even for a still-present rule. Changes in observable rule settings also conservatively rotate the ID; a pure active/inactive toggle does not. An old ID can no longer select another rule through the saved-rule preview. Consumers must refresh cards and discard old IDs after migration/change.
-- **Identity boundary:** the public catalogue's signature-based ID reconciliation alone cannot detect an identically configured native rule deleted and recreated between reads. Public-v1 mutations therefore require the **patched native epgsearch per-rule generation and revision CAS** under the plugin's lock; an ordinary/older provider is rejected. The catalogue heuristic must never authorize a write.
+- **Identity boundary:** Public IDs are reconciled against the observed catalogue; identical deletion/recreation between observations cannot be detected with stock epgsearch. Mutations use full-record optimistic revision checks, not native atomic CAS.
 - A genuinely empty provider list is HTTP 200 with `items: []`. An unavailable provider, unavailable runtime, or identity failure is HTTP 503, not an empty successful response. Missing/invalid Device credentials yield 401 or 403, unauthorized backend 403; all use the Public-v1 Problem model.
 - The collection GET deliberately does not expose the complete epgsearch option set. Guarded native query-only UPDATE of an inactive rule preserves the full existing settings in the provider; separate version and mutation endpoints are documented below. Unrestricted settings editing is not exposed.
 - Public response is `no-store`. On permission revocation a client must clear stale SearchTimer cards, not keep displaying a successful prior list.
@@ -261,7 +263,7 @@ später tatsächlich erstellt werden.
 
 **Nicht betroffen:** Die separat generation-/revisionsgeschützten
 Public-v1-UPDATE-/ACTIVATE-/DEACTIVATE-/DELETE-Mutationen nutzen
-weiterhin ihren eigenen bestehenden native-CAS-Teilpfad.
+den regulären epgsearch-Verwaltungspfad über Public-v1.
 Der frühere `POST /api/vdr/searchtimers`-Browser-CREATE ist durch den
 Runtime-Mutationspolicy-Executor produktiv gesperrt.
 
@@ -378,7 +380,7 @@ native epgsearch backend or invent a second mapping authority.
 
 Do not treat independent GitHub mocks, existing hardware checks of older
 commits, or a drafted native provider as a complete API-v1 release. Finish
-runtime authorization, versioned native CAS transport and exact-generation
+runtime authorization, stock epgsearch revision checks and independent
 readback first. The **single** final, operator-approved real-host acceptance
 session for all Public-v1 domains is specified in
 [`docs/development/public-v1-final-hardware-acceptance.md`](../docs/development/public-v1-final-hardware-acceptance.md).
@@ -386,77 +388,39 @@ No separate recurring SearchTimer hardware test slices.
 
 ## Public-v1 guarded native SearchTimer mutations (integration candidate)
 
-**Browser-Administratoren (Source-Kandidat):** Dieselbe vorhandene
-backendgebundene oder globale `role.admin`-Browser-Session wie bei CREATE
-wird am HTTP-Gate für LIST, DETAIL, VERSION, PREVIEW und den kanonischen
-POST `/mutations` zugelassen. POST verwendet die bereits vorhandene
-CSRF-Prüfung und aktionsbezogene Autorisierung; die unabhängigen
-Device-Grants, native CAS und Readback bleiben unverändert. Die vollständige
-Webfrontend-Integration, Kompilierung und Real-VDR-Abnahme sind damit
-noch nicht nachgewiesen. Die Device-spezifischen Anforderungen in diesem
-Dokument gelten weiterhin für Device-Clients.
+Browser administrators use the existing backend-scoped administrator session
+and CSRF checks. Device authorization still requires the independently granted
+backend permissions: searchtimers.view for reads, searchtimers.modify for
+update/deactivate, searchtimers.execute for activate, searchtimers.delete for
+delete. No grant is added or implied.
 
-**Release status:** implemented in PR #514; exact-head native build and complete
-Ubuntu daemon/SuiteBridge package CI plus the one final real-VDR API-v1
-acceptance are required before release. An older build's PASS is not proof of
-this integration. No legacy RESTfulAPI or SVDRP mutation fallback is permitted.
+GET /api/v1/search-timers/{searchTimerId}/version?backend=<id> resolves the
+public identity through a fresh RESTfulAPI inventory and obtains the complete
+stock epgsearch rule using LSTS. The opaque sr_ revision hashes the public
+identity and raw rule; the strong quoted ETag is returned with no-store.
+No numeric native ID or raw record is exposed.
 
-**Read opaque revision**
+POST /api/v1/search-timers/{searchTimerId}/mutations?backend=<id> uses the
+quoted If-Match, Idempotency-Key and explicit confirmed:true with action
+update, activate, deactivate or delete. Query-only UPDATE of an inactive rule
+uses EDIS with the complete original native record, substituting only the
+encoded query (1–200 bytes). MODS ON/OFF changes only activation; DELS removes
+the rule without DELT. The reference client retains its activation preview.
+All other fields are preserved; full field editing is not yet implemented.
 
-`GET /api/v1/search-timers/{searchTimerId}/version?backend=<id>` requires a
-verified paired Device and exact `searchtimers.view@backend` or an authenticated Browser administrator. The server
-resolves only an active, non-retired public ID and contacts the local native
-epgsearch `observe-v1.1` service. Success returns `searchTimerId`,
-`backendId`, `revision` and a strong quoted `ETag` (format `sr_...`).
-Neither the native numeric ID, its generation nor the 59-field rule settings
-are returned to the client. Native metadata not durably persisted, wrong
-backend, or unavailable plugin yields fail-closed 503; a missing public binding
-yields 404. The result is `Cache-Control: no-store`.
+The daemon serializes its own management requests, validates the observed
+revision and backend, reserves and claims one durable Operation and sends at
+most one stock command. Success requires acknowledgement and independent
+exact native readback (or explicit absence after DELETE). Ambiguous outcomes
+remain outcome_unknown and are never automatically retried. Existing native-CAS
+idempotency records remain replayable without redispatch. HTTP 202 exposes
+the Operation, whose status is available through existing GET/SSE.
 
-**One versioned, action-scoped mutation**
-
-`POST /api/v1/search-timers/{searchTimerId}/mutations?backend=<id>` accepts
-`application/json`, a mandatory `Idempotency-Key`, and an `If-Match` equal
-to the quoted ETag returned by `GET /version`. Body must be
-`{\"action\":\"update|activate|deactivate|delete\",\"confirmed\":true}`;
-`update` additionally requires a `query` string of 1–200 bytes. Unsupported
-fields, duplicate keys, missing confirmation and malformed JSON are rejected.
-The query-only update requires a currently inactive native rule, preserves all
-other native settings and refuses colon/control bytes instead of guessing the
-legacy epgsearch field encoding.
-
-Required *independently assigned* Device grants for the exact backend are
-`searchtimers.modify` (UPDATE/DEACTIVATE), `searchtimers.execute`
-(ACTIVATE), and `searchtimers.delete` (DELETE). The credential and Device
-identity are verified at the HTTP security gate; neither `searchtimers.view`
-nor `searchtimers.create` implies these mutation grants. The reference JS
-client requires explicit fresh EPG-preview acknowledgement before it sends
-ACTIVATE. A preview is a list of EPG matches, **not** a timer/recording forecast.
-
-The daemon rechecks writable backend scope and live Agent generation; resolves
-the public ID against the current SQLite identity binding; obtains an atomic
-native `sg_` generation and `sr_` revision; and compares the observed revision
-with `If-Match`. No client-supplied native ID/generation is accepted. A
-canonical immutable operation+payload is durably reserved and claimed before
-one attempt. The private Unix control-plane transport has no SVDRP writer.
-SuiteBridge calls the native epgsearch CAS service and separately observes the
-result. Only an exact-generation/revision readback or same-generation absence
-can mark the durable operation `succeeded`; ambiguous or failed persistence
-must remain `outcome_unknown` with **no automatic retry**. A replay of the
-same idempotency key returns the **original** operation without attempting
-another native write even if the native revision has since changed.
-
-The HTTP response is 202 with a `Location` referencing an Operation, not a
-statement that a scheduled recording exists. Non-mutating failures produce
-400/401/403/404/409/415/422/503 as documented by the OpenAPI contract.
-
-**Important implementation scope:** This native operation path requires the
-specific patched epgsearch build and matching SuiteBridge ABI; an ordinary
-unpatched epgsearch plugin correctly reports capability unavailable. Native
-plugin packaging, CI and the [single final API-v1 real-VDR acceptance
-checklist](../docs/development/public-v1-final-hardware-acceptance.md) are
-release gates. No production installation, VDR restart or destructive
-hardware exercise has been performed by this PR.
+The revision check is optimistic concurrency, not epgsearch-lock-atomic CAS.
+External concurrent writers or indistinguishable deletion/recreation between
+observations remain possible; neither native persisted generations nor fsync
+durability is claimed. No patched plugin is required. The source is committed;
+full C++ CI and real VDR acceptance are still outstanding.
 
 ## Browseradministrator: frühere Implementierungen (historisch)
 

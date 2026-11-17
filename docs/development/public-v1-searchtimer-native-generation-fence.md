@@ -1,5 +1,9 @@
 # Public-v1 SearchTimer MODIFY / ACTIVATE / DELETE: native generation fence
 
+**HISTORISCH – seit 17.11.2026 nicht mehr produktiver SearchTimer-Vertrag.** Keine Patchinstallation oder native CAS-Abnahme erforderlich. Aktuell: [regulärer epgsearch-Vertrag](../../api/search-timers.md).
+
+**Architekturentscheidung 17.11.2026 (Betreiber):** Reguläres epgsearch ist die produktive Basis. Keine epgsearch-Patches oder gepatchte ABI als Installations- oder Freigabevoraussetzung. CREATE/LIST über RESTfulAPI; VERSION/UPDATE/ACTIVATE/DEACTIVATE/DELETE verwenden die vorhandenen Standard-SVDRP-Befehle intern. SQLite-Operationsreservierung, Idempotenz, ETag, Autorisierung und Readback bleiben; native epgsearch-lock-atomare CAS oder persistierte native Generationen werden nicht versprochen. Externe konkurrierende Änderungen zwischen Lesen und Schreiben sowie identische Löschung/Neuanlage zwischen Beobachtungen sind nicht vollständig erkennbar. Historische native-CAS-Abnahmeforderungen sind damit aufgehoben. Source-Kandidat `eaa8ab6e122fbb8723456df091b6a57a12311653`; C++-Gesamtbuild und realer End-to-End-Nachweis stehen noch aus.
+
 ## Live yaVDR evidence (2026-10-22)
 
 The operator deleted both epgsearch rules after a broad `terra` query

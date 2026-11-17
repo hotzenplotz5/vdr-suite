@@ -1,5 +1,7 @@
 # ST.V1 – Einheitlicher epgsearch-Suchtimer-CREATE über Public API v1
 
+**Architekturentscheidung 17.11.2026 (Betreiber):** Reguläres epgsearch ist die produktive Basis. Keine epgsearch-Patches oder gepatchte ABI als Installations- oder Freigabevoraussetzung. CREATE/LIST über RESTfulAPI; VERSION/UPDATE/ACTIVATE/DEACTIVATE/DELETE verwenden die vorhandenen Standard-SVDRP-Befehle intern. SQLite-Operationsreservierung, Idempotenz, ETag, Autorisierung und Readback bleiben; native epgsearch-lock-atomare CAS oder persistierte native Generationen werden nicht versprochen. Externe konkurrierende Änderungen zwischen Lesen und Schreiben sowie identische Löschung/Neuanlage zwischen Beobachtungen sind nicht vollständig erkennbar. Historische native-CAS-Abnahmeforderungen sind damit aufgehoben. Source-Kandidat `eaa8ab6e122fbb8723456df091b6a57a12311653`; C++-Gesamtbuild und realer End-to-End-Nachweis stehen noch aus.
+
 Arbeitsbranch seit PR #558: `main`. Merge-Commit: `ccbd27de197e6e515d8cd7e322b6a9084f92350c` (16.11.2026). Historischer Start-HEAD auf `MLD-Suchtimer`: `037e0545a89e5c86670563b6ce046f24947704e1`.
 Diese Roadmap ist ein Arbeitsplan, keine Behauptung bestandener Tests oder einer erfolgten Installation.
 
