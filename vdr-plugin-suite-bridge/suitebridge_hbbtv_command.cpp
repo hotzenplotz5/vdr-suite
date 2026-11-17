@@ -435,6 +435,16 @@ const char *PresentationResultName(std::uint8_t result)
   return "unknown";
 }
 
+const char *PresentationFrameKindName(std::uint8_t kind)
+{
+  switch (kind) {
+    case VDRWEB_HBBTV_PRESENTATION_FRAME_NONE: return "none";
+    case VDRWEB_HBBTV_PRESENTATION_FRAME_FULL: return "full";
+    case VDRWEB_HBBTV_PRESENTATION_FRAME_PATCH: return "patch";
+  }
+  return "unknown";
+}
+
 SuiteBridgeCommandResult HandlePresentation(
     const ISuiteBridgeHbbtvProvider *provider,
     const char *option)
@@ -452,7 +462,7 @@ SuiteBridgeCommandResult HandlePresentation(
   std::uint64_t offset = 0;
 
   if (!(input >> operationText >> schema >> sessionId) ||
-      schema != "1" ||
+      schema != "2" ||
       !SafeIdentity(sessionId, VDRWEB_HBBTV_SESSION_ID_MAX)) {
     return Rejected(504, "hbbtv_presentation_request_invalid");
   }
@@ -460,7 +470,7 @@ SuiteBridgeCommandResult HandlePresentation(
   std::uint8_t operation = 0;
   if (strcasecmp(operationText.c_str(), "META") == 0) {
     operation = VDRWEB_HBBTV_PRESENTATION_META;
-    if (input >> extra)
+    if (!(input >> frameRevision) || (input >> extra))
       return Rejected(504, "hbbtv_presentation_request_invalid");
   }
   else if (strcasecmp(operationText.c_str(), "CHUNK") == 0) {
@@ -476,7 +486,7 @@ SuiteBridgeCommandResult HandlePresentation(
     return Rejected(504, "hbbtv_presentation_operation_invalid");
   }
 
-  VdrWebHbbtvPresentationV1 presentation{};
+  VdrWebHbbtvPresentationV2 presentation{};
   presentation.structSize = sizeof(presentation);
   presentation.operation = operation;
   presentation.frameRevision = frameRevision;
@@ -509,8 +519,17 @@ SuiteBridgeCommandResult HandlePresentation(
   AppendJsonString(payload, sessionId);
   payload << ",\"frameRevision\":" << presentation.frameRevision
           << ",\"observedAt\":" << presentation.observedAt
+          << ",\"frameKind\":";
+  AppendJsonString(payload, PresentationFrameKindName(presentation.frameKind));
+  payload << ",\"frameKindCode\":"
+          << static_cast<unsigned int>(presentation.frameKind)
+          << ",\"baseRevision\":" << presentation.baseRevision
           << ",\"renderWidth\":" << presentation.renderWidth
           << ",\"renderHeight\":" << presentation.renderHeight
+          << ",\"patchX\":" << presentation.patchX
+          << ",\"patchY\":" << presentation.patchY
+          << ",\"patchWidth\":" << presentation.patchWidth
+          << ",\"patchHeight\":" << presentation.patchHeight
           << ",\"encodedBytes\":" << presentation.encodedBytes
           << ",\"returnedBytes\":" << presentation.returnedBytes;
 
@@ -531,7 +550,6 @@ SuiteBridgeCommandResult HandlePresentation(
     return Rejected(552, "hbbtv_presentation_payload_too_large");
   return result;
 }
-
 
 const char *MediaResultName(std::uint8_t result)
 {
