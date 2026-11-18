@@ -707,6 +707,17 @@
     global.document.body.appendChild(dialog);
 
     let setupMode = false;
+    let reloadAfterFirstAdmin = false;
+
+    function finishFirstAdminPresentation() {
+      // Claim changes server-wide bootstrap state. Re-enter the normal page
+      // bootstrap once, with the confirmed browser session already installed.
+      if (!reloadAfterFirstAdmin || !isAuthenticated()) return;
+      reloadAfterFirstAdmin = false;
+      if (global.location && typeof global.location.reload === 'function') {
+        global.location.reload();
+      }
+    }
 
     function setSetupMode(value) {
       setupMode = Boolean(value) && !isAuthenticated();
@@ -862,6 +873,7 @@
           displayName: displayName.value.trim()
         });
         claimPromise.then(function () {
+          reloadAfterFirstAdmin = true;
           setSetupMode(false);
           return login(name, submittedPassword);
         }).then(function () {
@@ -870,6 +882,7 @@
           message.textContent = '';
           if (typeof dialog.close === 'function') dialog.close();
           else dialog.removeAttribute('open');
+          finishFirstAdminPresentation();
         }).catch(function (error) {
           message.classList.add('error');
           message.textContent = String(error && error.message || error);
@@ -894,6 +907,7 @@
         } else {
           dialog.removeAttribute('open');
         }
+        finishFirstAdminPresentation();
       }).catch(function (error) {
         password.value = '';
         message.classList.add('error');
