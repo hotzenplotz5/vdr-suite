@@ -10,6 +10,7 @@
 
 #include <vdr/tools.h>
 
+#include <cstring>
 #include <sstream>
 #include <vector>
 
@@ -54,6 +55,33 @@ const char *cPluginSuiteBridge::Version(void)
 const char *cPluginSuiteBridge::Description(void)
 {
   return SuiteBridgePluginIdentity::Description;
+}
+
+bool cPluginSuiteBridge::Service(const char *Id, void *Data)
+{
+  if (Id == nullptr ||
+      std::strcmp(Id, VDRWEB_SERVICE_HBBTV_PRESENTATION_CHANGED_V1) != 0 ||
+      Data == nullptr)
+    return false;
+
+  const auto *event =
+      static_cast<const VdrWebHbbtvPresentationChangedV1 *>(Data);
+  if (event->structSize != sizeof(*event) ||
+      event->schemaVersion != VDRWEB_HBBTV_PRESENTATION_CHANGED_SCHEMA_V1 ||
+      event->frameRevision == 0)
+    return false;
+
+  std::size_t sessionIdLength = 0;
+  while (sessionIdLength < sizeof(event->sessionId) &&
+         event->sessionId[sessionIdLength] != '\0')
+    ++sessionIdLength;
+  if (sessionIdLength == 0 ||
+      sessionIdLength >= sizeof(event->sessionId))
+    return false;
+
+  return controlPlane_.PublishHbbtvPresentationChanged(
+      std::string(event->sessionId, sessionIdLength),
+      event->frameRevision);
 }
 
 bool cPluginSuiteBridge::Initialize(void)

@@ -35,6 +35,18 @@ bool safePath(const std::string &path)
   return !path.empty() && path.size() < sizeof(sockaddr_un::sun_path);
 }
 
+bool safeHbbtvSessionId(const std::string &value)
+{
+  if (value.empty() || value.size() >= 128)
+    return false;
+  return std::all_of(value.begin(), value.end(), [](unsigned char character) {
+    return (character >= 'A' && character <= 'Z') ||
+        (character >= 'a' && character <= 'z') ||
+        (character >= '0' && character <= '9') ||
+        character == '_' || character == '-' || character == '.';
+  });
+}
+
 } // namespace
 
 SuiteBridgeControlPlane::SuiteBridgeControlPlane(
@@ -88,6 +100,13 @@ bool SuiteBridgeControlPlane::Start(Handler handler, Logger logger)
   handler_ = std::move(handler);
   logger_ = std::move(logger);
   stopRequested_.store(false);
+  {
+    std::lock_guard<std::mutex> guard(presentationEventMutex_);
+    presentationEventSubscribers_.clear();
+    latestPresentationSessionId_.clear();
+    latestPresentationFrameRevision_ = 0;
+    presentationEventDirty_ = false;
+  }
 
   listenFd_ = socket(
       AF_UNIX,
@@ -131,6 +150,9 @@ bool SuiteBridgeControlPlane::Start(Handler handler, Logger logger)
       &SuiteBridgeControlPlane::workerLoop,
       this,
       ServiceClass::BackgroundProvider);
+  presentationEventThread_ = std::thread(
+      &SuiteBridgeControlPlane::presentationEventLoop,
+      this);
   acceptThread_ = std::thread(
       &SuiteBridgeControlPlane::acceptLoop,
       this);
@@ -155,6 +177,10 @@ void SuiteBridgeControlPlane::Stop()
   if (acceptThread_.joinable())
     acceptThread_.join();
 
+  presentationEventChanged_.notify_all();
+  if (presentationEventThread_.joinable())
+    presentationEventThread_.join();
+
   closeQueued(Result::ProviderUnavailable, "shutdown");
 
   for (auto &changed : queueChanged_)
@@ -170,6 +196,30 @@ void SuiteBridgeControlPlane::Stop()
 bool SuiteBridgeControlPlane::Running() const
 {
   return running_.load();
+}
+
+bool SuiteBridgeControlPlane::PublishHbbtvPresentationChanged(
+    const std::string &sessionId,
+    std::uint64_t frameRevision)
+{
+  if (!running_.load() ||
+      !safeHbbtvSessionId(sessionId) ||
+      frameRevision == 0)
+    return false;
+
+  {
+    std::lock_guard<std::mutex> guard(presentationEventMutex_);
+    if (sessionId == latestPresentationSessionId_ &&
+        frameRevision <= latestPresentationFrameRevision_)
+      return false;
+
+    latestPresentationSessionId_ = sessionId;
+    latestPresentationFrameRevision_ = frameRevision;
+    presentationEventDirty_ = true;
+  }
+
+  presentationEventChanged_.notify_one();
+  return true;
 }
 
 SuiteBridgeControlPlane::Metrics
@@ -389,6 +439,32 @@ void SuiteBridgeControlPlane::acceptLoop()
       continue;
     }
 
+    if (request.operation == Operation::HbbtvPresentationSubscribe) {
+      ++admittedByOperation_[operationIndex(request.operation)];
+      {
+        std::lock_guard<std::mutex> guard(presentationEventMutex_);
+        presentationEventSubscribers_.push_back(
+            PresentationEventSubscriber{client, request.requestId});
+        const std::string payload =
+            latestPresentationSessionId_.empty() ||
+                    latestPresentationFrameRevision_ == 0
+                ? std::string()
+                : latestPresentationSessionId_ + "\n" +
+                    std::to_string(latestPresentationFrameRevision_);
+        // Register and acknowledge under the same lock so a new frame cannot
+        // be published between the initial state and the live subscription.
+        sendResult(
+            client,
+            request,
+            Result::Success,
+            900,
+            payload,
+            "hbbtv_presentation_subscribed");
+      }
+      ++executedByOperation_[operationIndex(request.operation)];
+      continue;
+    }
+
     const ServiceClass service =
         serviceClass(request.operation);
     const std::size_t lane = classIndex(service);
@@ -431,6 +507,79 @@ void SuiteBridgeControlPlane::acceptLoop()
 
     queueChanged_[lane].notify_one();
   }
+}
+
+void SuiteBridgeControlPlane::presentationEventLoop()
+{
+  while (true) {
+    std::vector<PresentationEventSubscriber> subscribers;
+    std::string payload;
+    {
+      std::unique_lock<std::mutex> lock(presentationEventMutex_);
+      presentationEventChanged_.wait(lock, [this] {
+        return stopRequested_.load() || presentationEventDirty_;
+      });
+
+      if (stopRequested_.load())
+        break;
+
+      presentationEventDirty_ = false;
+      if (latestPresentationSessionId_.empty() ||
+          latestPresentationFrameRevision_ == 0)
+        continue;
+
+      payload = latestPresentationSessionId_ + "\n" +
+          std::to_string(latestPresentationFrameRevision_);
+      subscribers = presentationEventSubscribers_;
+    }
+
+    if (subscribers.empty())
+      continue;
+
+    std::vector<int> failedDescriptors;
+    for (const auto &subscriber : subscribers) {
+      Response response;
+      response.result = Result::Success;
+      response.requestId = subscriber.requestId;
+      response.replyCode = 900;
+      response.payload = payload;
+
+      std::vector<std::uint8_t> frame;
+      if (!encodeResponse(response, frame)) {
+        failedDescriptors.push_back(subscriber.fd);
+        continue;
+      }
+
+      const ssize_t sent = send(
+          subscriber.fd,
+          frame.data(),
+          frame.size(),
+          MSG_NOSIGNAL | MSG_DONTWAIT);
+      if (sent != static_cast<ssize_t>(frame.size()))
+        failedDescriptors.push_back(subscriber.fd);
+    }
+
+    if (!failedDescriptors.empty()) {
+      std::lock_guard<std::mutex> guard(presentationEventMutex_);
+      for (const int fd : failedDescriptors) {
+        const auto subscriber = std::find_if(
+            presentationEventSubscribers_.begin(),
+            presentationEventSubscribers_.end(),
+            [fd](const PresentationEventSubscriber &entry) {
+              return entry.fd == fd;
+            });
+        if (subscriber != presentationEventSubscribers_.end()) {
+          close(subscriber->fd);
+          presentationEventSubscribers_.erase(subscriber);
+        }
+      }
+    }
+  }
+
+  std::lock_guard<std::mutex> guard(presentationEventMutex_);
+  for (const auto &subscriber : presentationEventSubscribers_)
+    close(subscriber.fd);
+  presentationEventSubscribers_.clear();
 }
 
 void SuiteBridgeControlPlane::workerLoop(

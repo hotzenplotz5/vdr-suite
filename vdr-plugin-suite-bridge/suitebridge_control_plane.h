@@ -14,6 +14,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 class SuiteBridgeControlPlane final
 {
@@ -24,7 +25,7 @@ public:
       Operation, const std::string &)>;
   using Logger = std::function<void(const std::string &)>;
 
-  static constexpr std::size_t OperationCount = 23;
+  static constexpr std::size_t OperationCount = 24;
   static constexpr std::size_t ServiceClassCount = 4;
 
   struct Metrics final {
@@ -55,6 +56,9 @@ public:
   bool Start(Handler handler, Logger logger = {});
   void Stop();
   bool Running() const;
+  bool PublishHbbtvPresentationChanged(
+      const std::string &sessionId,
+      std::uint64_t frameRevision);
   Metrics SnapshotMetrics() const;
   const std::string &SocketPath() const { return socketPath_; }
 
@@ -65,10 +69,16 @@ private:
     std::uint64_t admittedAtNanoseconds = 0;
   };
 
+  struct PresentationEventSubscriber final {
+    int fd = -1;
+    std::uint64_t requestId = 0;
+  };
+
   static std::size_t operationIndex(Operation operation);
   static std::size_t classIndex(ServiceClass serviceClass);
 
   void acceptLoop();
+  void presentationEventLoop();
   void workerLoop(ServiceClass serviceClass);
   bool validatePeer(int fd);
   bool receiveRequest(
@@ -99,6 +109,13 @@ private:
   std::atomic<bool> stopRequested_{false};
   std::thread acceptThread_;
   std::array<std::thread, ServiceClassCount> workerThreads_;
+  std::thread presentationEventThread_;
+  std::mutex presentationEventMutex_;
+  std::condition_variable presentationEventChanged_;
+  std::vector<PresentationEventSubscriber> presentationEventSubscribers_;
+  std::string latestPresentationSessionId_;
+  std::uint64_t latestPresentationFrameRevision_ = 0;
+  bool presentationEventDirty_ = false;
   mutable std::mutex queueMutex_;
   std::array<std::condition_variable, ServiceClassCount> queueChanged_;
   std::array<std::deque<Pending>, ServiceClassCount> queues_;

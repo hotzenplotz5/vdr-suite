@@ -49,6 +49,7 @@ enum class Operation : std::uint16_t
     SearchTimerCasCapability = 21,
     SearchTimerCasObserve = 22,
     SearchTimerCasExecute = 23,
+    HbbtvPresentationSubscribe = 24,
 };
 
 enum class ServiceClass : std::uint16_t
@@ -119,6 +120,7 @@ inline const char* operationName(Operation operation)
         case Operation::SearchTimerCasCapability: return "searchtimer-cas-capability";
         case Operation::SearchTimerCasObserve: return "searchtimer-cas-observe";
         case Operation::SearchTimerCasExecute: return "searchtimer-cas-execute";
+        case Operation::HbbtvPresentationSubscribe: return "hbbtv-presentation-subscribe";
     }
     return "unknown";
 }
@@ -126,7 +128,7 @@ inline const char* operationName(Operation operation)
 inline bool knownOperation(Operation operation)
 {
     const auto value = static_cast<std::uint16_t>(operation);
-    return value >= 1 && value <= 23;
+    return value >= 1 && value <= 24;
 }
 
 inline ServiceClass serviceClass(Operation operation)
@@ -142,6 +144,7 @@ inline ServiceClass serviceClass(Operation operation)
         case Operation::HbbtvDiscovery:
         case Operation::HbbtvRuntime:
         case Operation::HbbtvPresentation:
+        case Operation::HbbtvPresentationSubscribe:
         case Operation::HbbtvMedia:
         case Operation::TeletextCapability:
         case Operation::TeletextPage:
@@ -158,6 +161,8 @@ inline ServiceClass serviceClass(Operation operation)
 
 inline std::size_t requestPayloadLimit(Operation operation)
 {
+    if (operation == Operation::HbbtvPresentationSubscribe)
+        return 0;
     return operation == Operation::SearchTimerCasExecute
         ? MaximumRequestPayloadBytes
         : LegacyMaximumRequestPayloadBytes;

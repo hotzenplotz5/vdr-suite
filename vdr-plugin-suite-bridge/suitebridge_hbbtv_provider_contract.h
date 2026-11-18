@@ -17,6 +17,8 @@
 #define VDRWEB_SERVICE_HBBTV_DISCOVERY_V1 "VdrWeb::HbbtvDiscovery-v1"
 #define VDRWEB_SERVICE_HBBTV_RUNTIME_V1 "VdrWeb::HbbtvRuntime-v1"
 #define VDRWEB_SERVICE_HBBTV_PRESENTATION_V2 "VdrWeb::HbbtvPresentation-v2"
+#define VDRWEB_SERVICE_HBBTV_PRESENTATION_CHANGED_V1 "VdrWeb::HbbtvPresentationChanged-v1"
+#define VDRWEB_HBBTV_PRESENTATION_CHANGED_SCHEMA_V1 1U
 #define VDRWEB_SERVICE_HBBTV_MEDIA_V1 "VdrWeb::HbbtvMedia-v1"
 
 #define VDRWEB_HBBTV_SERVICE_SCHEMA_V1 1U
@@ -216,6 +218,13 @@ enum VdrWebHbbtvMediaStateV1 {
   VDRWEB_HBBTV_MEDIA_STATE_PAUSED = 2,
   VDRWEB_HBBTV_MEDIA_STATE_STOPPED = 3,
   VDRWEB_HBBTV_MEDIA_STATE_FAILED = 4
+};
+
+struct VdrWebHbbtvPresentationChangedV1 {
+  uint32_t structSize;
+  uint32_t schemaVersion;
+  uint64_t frameRevision;
+  char sessionId[VDRWEB_HBBTV_SESSION_ID_MAX];
 };
 
 struct VdrWebHbbtvMediaV1 {

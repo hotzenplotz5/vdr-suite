@@ -41,6 +41,7 @@ public:
   bool Start(void) override;
   void Stop(void) override;
   void MainThreadHook(void) override;
+  bool Service(const char *Id, void *Data = nullptr) override;
 
   const char *MainMenuEntry(void) override;
   const char **SVDRPHelpPages(void) override;
