@@ -12,6 +12,9 @@ SOURCE_OWNERS = {
         "DaemonRuntime::DaemonRuntime()",
         "DaemonRuntime::run()",
     ),
+    "DaemonRuntimeHbbtvEvents.cpp": (
+        "DaemonRuntime::publishPendingHbbtvPresentationChanges()",
+    ),
     "DaemonRuntimeShutdown.cpp": (
         "DaemonRuntime::shutdown()",
     ),

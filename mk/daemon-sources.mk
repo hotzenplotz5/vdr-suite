@@ -240,6 +240,7 @@ DAEMON_SRC := \
         core/daemon/src/DaemonHbbtvRuntime.cpp \
         core/daemon/src/DaemonLegacyOsdRuntime.cpp \
         core/daemon/src/DaemonRuntimeBackendContext.cpp \
+        core/daemon/src/DaemonRuntimeHbbtvEvents.cpp \
         core/daemon/src/DaemonRuntimeInitialization.cpp \
         core/daemon/src/DaemonRuntimePolling.cpp \
         core/daemon/src/DaemonRuntimeEpgCache.cpp \
