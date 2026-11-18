@@ -15,9 +15,16 @@ const renderStart = source.indexOf('function render()');
 const renderEnd = source.indexOf('\n  function applyChannels', renderStart);
 assert.ok(renderStart >= 0 && renderEnd > renderStart, 'Live-TV render function must exist');
 const renderSource = source.slice(renderStart, renderEnd);
-const guardPosition = renderSource.indexOf('if (playbackMountedIn(mount)) return;');
+const guardPosition = renderSource.indexOf('if (playbackMountedIn(mount)) {');
+const guardEnd = renderSource.indexOf('\n    }', guardPosition);
 const replacePosition = renderSource.indexOf('mount.replaceChildren();');
+const mountedGuard = renderSource.slice(guardPosition, guardEnd);
 assert.ok(guardPosition >= 0, 'mounted playback must short-circuit ordinary full renders');
+assert.ok(
+  mountedGuard.includes('createHbbtvOverlay(slot)') &&
+    mountedGuard.includes('return;'),
+  'mounted-player guard must recover a missing HbbTV surface and preserve the media owner'
+);
 assert.ok(replacePosition > guardPosition, 'mounted-player guard must run before replaceChildren');
 assert.ok(source.includes('mount.contains(element)'), 'stability guard must verify the exact playback element is already mounted');
 
