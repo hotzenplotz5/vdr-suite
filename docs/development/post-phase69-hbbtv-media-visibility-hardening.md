@@ -95,3 +95,42 @@ Focused coverage must prove:
 A local headless Chromium experiment loaded the same production view/owner with controlled Suite responses. It remains valid evidence for the startup geometry fix: before metadata, the base produced a 614 x 150 canvas while the candidate produced 614 x 345.375, and a later container resize reached 874 x 491.625 without another HTTP tick. Its synthetic alpha/control composition is not accepted as evidence for real ZDF layering; real yaVDR acceptance remains authoritative for video/control composition.
 
 Real ZDF/yaVDR acceptance was performed against head `384f5315be2b5368bebd987f5024ee02e0fc91bd` and failed: broadband audio ran, the external video became hidden after placing media below an uncleared stale canvas, and OK still did not expose native player controls. Head `f5dc0b7ae428ff821c88235f4a78ea47abd62860` restored real video visibility and startup geometry, but all HbbTV keys still had no application effect. Head `8703e21f1971e543931730e3ba1797dd36e600f5` added a SuiteBridge MainThreadHook INPUT handoff and restored application-over-video composition, but real ZDF acceptance still showed no application effect: even PAUSE left the broadband video running. The final input candidate therefore restores exactly the typed SVDRP INPUT path that worked before PR #355, without moving discovery, presentation, media, LAUNCH, STATUS or CLOSE back to SVDRP. The composition fix remains. Real ZDF acceptance must now prove video visibility, PAUSE/OK/navigation effect and native controls together before this work is accepted.
+
+## 2026-11-18 — Presentation pipeline performance and real browser acceptance (PR #559)
+
+**Status: real Desktop and smartphone responsiveness accepted by the maintainer; merge preparation only.** This is a post-Phase-69 hardening milestone, not a new numbered phase. The earlier September evidence above remains historical; in the November candidate, input acknowledgement no longer triggers an early presentation read.
+
+### Frozen product-code reference and deployment evidence
+
+| Component | Source reference / evidence |
+| --- | --- |
+| VDR-Suite daemon, backend agent, staged web frontend and SuiteBridge | [PR #559](https://github.com/hotzenplotz5/vdr-suite/pull/559), branch `fix/hbbtv-presentation-pipeline`, tested code SHA [`9f61f8d993c129ebc62a714721662543b9c49654`](https://github.com/hotzenplotz5/vdr-suite/commit/9f61f8d993c129ebc62a714721662543b9c49654) |
+| vdr-plugin-web HbbTV provider | `hotzenplotz5/vdr-plugin-web:work/vdr-suite-hbbtv-runtime-v1`, [`260be139bfea402ff4192657e9c6713534df5cd3`](https://github.com/hotzenplotz5/vdr-plugin-web/commit/260be139bfea402ff4192657e9c6713534df5cd3), includes presentation-change notification |
+| Source deployment on yaVDR | `RUNTIME_DEPLOYMENT_MATCH=YES`, `INSTALLATION=PASS`; VDR, daemon and backend agent active |
+| Provider deployment | Fast-forward from `afd060b` to `260be13`, plugin built and installed, event-service marker present, VDR active, `SSE_PROVIDER_INSTALL=PASS` |
+
+The provider checkout had pre-existing local tracked modifications (including `web.cpp`, `status.cpp`, the discovery/runtime service headers and tests, and `po/web.pot`). They were preserved by the fast-forward. The provider SHA is therefore the verified Git base, not a claim that the installed binary was built from a pristine tree. The contents of those local changes and exact cefbrowser/remotetranscode binary provenance were not captured; retain the working checkout and binaries. No package rebuild or Launchpad publication was performed.
+
+### Why this combination matters
+
+The browser sends normalized INPUT through the existing typed input path. Presentation is independent of input acknowledgement: the provider publishes `VdrWeb::HbbtvPresentationChanged-v1` after committing its frame, SuiteBridge forwards the change hint through the local control-plane subscriber, and the daemon publishes the existing `hbbtvPresentation` SSE domain. The browser coalesces frame reads and paints via its existing canvas; the optional QOI worker offloads decoding. The bounded binary `HBBPRES BATCH` transport combines up to two 49,152-byte provider chunks per response and retains compatibility with older batch-unsupported SuiteBridge builds. The existing canonical Live-TV owner remains in place.
+
+Installing Suite alone initially left the provider without the notification marker. On the mobile test (Das Erste HD), RED was acknowledged (queue 1 ms, request 331 ms) while the image latency remained pending and the UI did not visibly respond. Updating the provider to the notification-capable source and restarting VDR restored responsiveness on both clients. A successfully acknowledged INPUT alone is not proof of a painted frame. Do not treat a legacy provider without the notification service as equivalent for the SSE-only presentation path.
+
+### Acceptance and CI
+
+- Desktop browser: maintainer reports a major responsiveness improvement after the provider update.
+- Smartphone browser: maintainer confirms the same fast responsiveness after the provider update.
+- Real acceptance is reported by the operator on 2026-11-18. No numeric post-fix latency benchmark, independent per-key result, explicit separate Back/freeze result, or comprehensive broadcaster/media matrix was recorded. Do not invent those measurements or require a repeat of the accepted responsiveness test just because this documentation changes.
+- Exact product-code SHA `9f61f8d993c129ebc62a714721662543b9c49654`: six hosted PR workflows completed successfully:
+  - [VDR-Suite CI #12865](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44311417349)
+  - [Recording R2 Candidate #2388](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44311417345)
+  - [Experimental SuiteBridge package #1264](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44311417442)
+  - [Native Timer Preview #431](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44311417376)
+  - [VIDAA focused CI #2410](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44311417356)
+  - [R2 Public-v1 Recording + Genre #2429](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44311417367)
+- This CI result applies to the tested Suite code, not to a clean independent provider package or every later PR head.
+
+### Merge and preservation
+
+Keep the accepted product code unchanged. No further experimental optimization, periodic presentation polling, second playback owner, or unrelated refactoring. Preserve the provider branch and dependency; do not delete it after the Suite PR merges. The documentation-only follow-up must not trigger a local rebuild or redeployment of the accepted candidate. Check the required final-head CI at the review/merge boundary, then merge only on explicit maintainer approval. A Suite merge does not itself publish the notification-capable provider in Debian/Ubuntu packages; package provenance and release acceptance remain separate.

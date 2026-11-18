@@ -53,6 +53,18 @@ remain separate.
 
 ## Tests and safeguards
 
+### HbbTV presentation batch read
+
+The local SuiteBridge control-plane HBBPRES command supports an optional
+`BATCH 2 <session> <revision> <offset> <maximum-bytes>` read. It reuses the
+existing vdr-plugin-web Presentation-v2 provider ABI and combines at most two
+49,152-byte provider chunks into one binary `HBP1` response. The response
+remains below the existing 128 KiB local-control payload limit and avoids
+base64 expansion. META/CHUNK remain unchanged for older plugin builds and the
+SVDRP compatibility path. The daemon falls back to the existing CHUNK reads
+only when the optional BATCH verb is explicitly unsupported.
+
+
 ## Live VDR recording margins (read-only)
 
 `PLUG suitebridge NTCREATE MARGINS 1` reads the running VDR's

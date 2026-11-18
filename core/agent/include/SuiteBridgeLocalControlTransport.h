@@ -85,6 +85,9 @@ public:
         const SuiteBridgeHbbtvRuntimeRequest& request) override;
     SuiteBridgeHbbtvCommandReply readHbbtvPresentation(
         const SuiteBridgeHbbtvPresentationRequest& request) override;
+    SuiteBridgeHbbtvCommandReply readHbbtvPresentationBatch(
+        const SuiteBridgeHbbtvPresentationRequest& request,
+        std::uint32_t maximumBytes) override;
     SuiteBridgeHbbtvCommandReply readHbbtvMedia(
         const SuiteBridgeHbbtvMediaRequest& request) override;
 
@@ -194,6 +197,9 @@ public:
         const SuiteBridgeHbbtvRuntimeRequest& request) override;
     SuiteBridgeHbbtvCommandReply readHbbtvPresentation(
         const SuiteBridgeHbbtvPresentationRequest& request) override;
+    SuiteBridgeHbbtvCommandReply readHbbtvPresentationBatch(
+        const SuiteBridgeHbbtvPresentationRequest& request,
+        std::uint32_t maximumBytes) override;
     SuiteBridgeHbbtvCommandReply readHbbtvMedia(
         const SuiteBridgeHbbtvMediaRequest& request) override;
 

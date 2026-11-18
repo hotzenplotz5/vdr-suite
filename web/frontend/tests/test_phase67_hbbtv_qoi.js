@@ -59,3 +59,36 @@ assert.throws(
 );
 
 console.log('Phase 67 HbbTV QOI decoder ok');
+
+const workerMessages = [];
+const worker = {
+  postMessage(message, transfers) {
+    workerMessages.push({message, transfers});
+  }
+};
+const workerScript = fs.readFileSync('web/frontend/hbbtv-qoi-worker.js', 'utf8');
+const workerContext = {
+  self: worker, Uint8Array, Uint8ClampedArray, ArrayBuffer, Number, Error, Object,
+  importScripts(path) {
+    assert.strictEqual(path, 'hbbtv-qoi.js');
+    vm.runInNewContext(source, {
+      window: worker, Uint8Array, Uint8ClampedArray,
+      ArrayBuffer, Number, Error, Object
+    }, {filename: 'hbbtv-qoi.js'});
+  }
+};
+vm.runInNewContext(workerScript, workerContext, {filename: 'hbbtv-qoi-worker.js'});
+assert.strictEqual(typeof worker.onmessage, 'function');
+
+worker.onmessage({data: {id: 17, bytes}});
+assert.strictEqual(workerMessages[0].message.id, 17);
+assert.strictEqual(workerMessages[0].message.width, 2);
+assert.deepStrictEqual(Array.from(workerMessages[0].message.pixels),
+  [255, 0, 0, 255, 0, 255, 0, 128]);
+assert.strictEqual(workerMessages[0].transfers.length, 1,
+  'decoded pixels are transferred rather than cloned');
+
+worker.onmessage({data: {id: 18, bytes: new Uint8Array([1, 2, 3])}});
+assert.strictEqual(workerMessages[1].message.id, 18);
+assert.match(workerMessages[1].message.error, /hbbtv_qoi_truncated/);
+console.log('Phase 67 HbbTV QOI worker ok');
