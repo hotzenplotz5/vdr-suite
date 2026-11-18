@@ -9,6 +9,7 @@ server=read("vdr-plugin-suite-bridge/suitebridge_control_plane.cpp")
 plugin=read("vdr-plugin-suite-bridge/suitebridge.cpp")
 provider_contract=read("vdr-plugin-suite-bridge/suitebridge_hbbtv_provider_contract.h")
 daemon_runtime=read("core/daemon/src/DaemonRuntime.cpp")
+daemon_hbbtv_events=read("core/daemon/src/DaemonRuntimeHbbtvEvents.cpp")
 daemon_init=read("core/daemon/src/DaemonRuntimeInitialization.cpp")
 daemon_shutdown=read("core/daemon/src/DaemonRuntimeShutdown.cpp")
 change_feed=read("core/vdr/src/SnapshotChangeFeedService.cpp")
@@ -102,7 +103,7 @@ for marker in ("VdrWebHbbtvPresentationChangedV1", "VDRWEB_SERVICE_HBBTV_PRESENT
     if marker not in provider_contract:
         raise SystemExit(f"HbbTV provider event contract missing {marker}")
 for marker in ("publishPendingHbbtvPresentationChanges", "HbbtvPresentationChanged"):
-    if marker not in daemon_runtime:
+    if marker not in daemon_hbbtv_events:
         raise SystemExit(f"HbbTV SSE change publication missing {marker}")
 if "startHbbtvPresentationEvents" not in daemon_init or "stopHbbtvPresentationEvents" not in daemon_shutdown:
     raise SystemExit("HbbTV presentation event client lifecycle wiring missing")
