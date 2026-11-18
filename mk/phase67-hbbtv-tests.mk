@@ -3,6 +3,7 @@
 	test-phase67-hbbtv-resolver \
 	test-phase67-hbbtv-runtime-resolver \
 	test-phase67-hbbtv-presentation-resolver \
+	test-phase67-hbbtv-presentation-batch \
 	test-phase67-hbbtv-media-resolver \
 	test-phase67-hbbtv-session-service \
 	test-phase67-hbbtv-session-foundation \
@@ -51,6 +52,9 @@ test-phase67-hbbtv-presentation-resolver:
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_suite_bridge_hbbtv_presentation_resolver
 	$(BUILD_DIR)/test_suite_bridge_hbbtv_presentation_resolver
+test-phase67-hbbtv-presentation-batch: test-phase67-hbbtv-presentation-resolver
+	$(MAKE) -C vdr-plugin-suite-bridge test-hbbtv
+
 
 test-phase67-hbbtv-media-resolver:
 	$(BUILD_CXX) $(CXXFLAGS) \
@@ -148,3 +152,9 @@ test-phase67-hbbtv-session-http-foundation: \
 	test-phase67-hbbtv-security \
 	test-phase67-hbbtv-public-surface \
 	test-phase67-hbbtv-daemon-build
+
+
+# Keep the HbbTV presentation resolver and SuiteBridge provider contract in
+# the fast CI graph; both are changed together by the bounded batch read.
+test-fast: test-phase67-hbbtv-presentation-batch
+test-ci-fast: test-phase67-hbbtv-presentation-batch

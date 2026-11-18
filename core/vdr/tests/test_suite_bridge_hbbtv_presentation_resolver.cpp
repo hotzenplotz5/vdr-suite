@@ -1,5 +1,6 @@
 #include "SuiteBridgeHbbtvPresentationResolver.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <string>
@@ -102,6 +103,46 @@ std::string wire(
             : "}");
 }
 
+void append32(std::string& output, std::uint32_t value)
+{
+    output.push_back(static_cast<char>((value >> 24U) & 0xffU));
+    output.push_back(static_cast<char>((value >> 16U) & 0xffU));
+    output.push_back(static_cast<char>((value >> 8U) & 0xffU));
+    output.push_back(static_cast<char>(value & 0xffU));
+}
+void append64(std::string& output, std::uint64_t value)
+{
+    append32(output, static_cast<std::uint32_t>(value >> 32U));
+    append32(output, static_cast<std::uint32_t>(value));
+}
+std::string batchPayload(const std::string& image, std::uint64_t revision,
+    std::uint32_t offset, std::uint8_t frameKind, std::uint64_t baseRevision,
+    std::uint32_t renderWidth, std::uint32_t renderHeight,
+    std::uint32_t patchX, std::uint32_t patchY, std::uint32_t patchWidth,
+    std::uint32_t patchHeight, std::uint32_t maximumBytes)
+{
+    const std::size_t count = std::min<std::size_t>(maximumBytes, image.size() - offset);
+    std::string payload("HBP1", 4U);
+    append64(payload, revision); append32(payload, offset);
+    append32(payload, static_cast<std::uint32_t>(image.size()));
+    append32(payload, static_cast<std::uint32_t>(count));
+    payload.push_back(static_cast<char>(frameKind)); append64(payload, baseRevision);
+    append32(payload, renderWidth); append32(payload, renderHeight);
+    append32(payload, patchX); append32(payload, patchY);
+    append32(payload, patchWidth); append32(payload, patchHeight);
+    payload.append(image.data() + offset, count);
+    return payload;
+}
+std::string largeQoi(std::size_t bytes)
+{
+    std::string image(bytes, static_cast<char>(0x5a));
+    image.replace(0U, 4U, "qoif");
+    image[4]=0; image[5]=0; image[6]=0; image[7]=1;
+    image[8]=0; image[9]=0; image[10]=0; image[11]=1;
+    image[12]=4; image[13]=0;
+    return image;
+}
+
 class FakeTransport final : public ISuiteBridgeHbbtvTransport
 {
 public:
@@ -115,14 +156,40 @@ public:
         const SuiteBridgeHbbtvPresentationRequest& request) override
     {
         requests.push_back(request);
-        if (request.operation == SuiteBridgeHbbtvPresentationOperation::Meta)
-            return meta;
+        if (request.operation == SuiteBridgeHbbtvPresentationOperation::Meta) return meta;
         return chunk;
+    }
+    SuiteBridgeHbbtvCommandReply readHbbtvPresentationBatch(
+        const SuiteBridgeHbbtvPresentationRequest& request, std::uint32_t maximumBytes) override
+    {
+        ++batchCalls; batchOffsets.push_back(request.offset);
+        if (!batchSupported) {
+            SuiteBridgeHbbtvCommandReply unsupported;
+            unsupported.transportStatus = SuiteBridgeHbbtvTransportStatus::Unavailable;
+            return unsupported;
+        }
+        SuiteBridgeHbbtvCommandReply result;
+        result.transportSucceeded = true;
+        result.transportStatus = SuiteBridgeHbbtvTransportStatus::Success;
+        result.replyCode = 250;
+        result.payload = batchPayload(batchImage, batchRevision, request.offset,
+            batchFrameKind, batchBaseRevision, batchRenderWidth, batchRenderHeight,
+            batchPatchX, batchPatchY, batchPatchWidth, batchPatchHeight, maximumBytes);
+        return result;
     }
 
     std::vector<SuiteBridgeHbbtvPresentationRequest> requests;
+    std::vector<std::uint32_t> batchOffsets;
     SuiteBridgeHbbtvCommandReply meta;
     SuiteBridgeHbbtvCommandReply chunk;
+    std::string batchImage;
+    std::uint64_t batchRevision = 9;
+    std::uint8_t batchFrameKind = 1;
+    std::uint64_t batchBaseRevision = 0;
+    std::uint32_t batchRenderWidth = 1, batchRenderHeight = 1;
+    std::uint32_t batchPatchX = 0, batchPatchY = 0, batchPatchWidth = 1, batchPatchHeight = 1;
+    bool batchSupported = false;
+    std::size_t batchCalls = 0;
 };
 
 } // namespace
@@ -136,6 +203,8 @@ int main()
         "meta", "full", 1, 9, 0, 1, 1, 0, 0, 1, 1, image, false));
     transport.chunk = reply(wire(
         "chunk", "full", 1, 9, 0, 1, 1, 0, 0, 1, 1, image, true));
+    transport.batchSupported = true;
+    transport.batchImage = image;
 
     SuiteBridgeHbbtvPresentationResolver resolver(transport);
     const HbbtvPresentationFrame full =
@@ -151,12 +220,29 @@ int main()
     assert(full.patchWidth == 1);
     assert(full.patchHeight == 1);
     assert(full.qoi == image);
-    assert(transport.requests.size() == 2);
+    assert(transport.requests.size() == 1);
     assert(transport.requests[0].frameRevision == 0);
-    assert(transport.requests[1].frameRevision == 9);
-    assert(transport.requests[1].offset == 0);
+    assert(transport.batchCalls == 1);
+    assert((transport.batchOffsets == std::vector<std::uint32_t>{0}));
+    transport.batchSupported = false;
 
     transport.requests.clear();
+
+    // A 200 KiB frame is delivered in three bounded local-control batches.
+    FakeTransport largeTransport;
+    const std::string largeImage = largeQoi(200000U);
+    largeTransport.meta = reply(wire("meta", "full", 1, 11, 0, 1, 1, 0, 0, 1, 1, largeImage, false));
+    largeTransport.batchSupported = true;
+    largeTransport.batchImage = largeImage;
+    largeTransport.batchRevision = 11;
+    SuiteBridgeHbbtvPresentationResolver largeResolver(largeTransport);
+    const HbbtvPresentationFrame large = largeResolver.readPresentation("session-a", 0);
+    assert(large.available && large.error.empty());
+    assert(large.frameRevision == 11 && large.qoi == largeImage);
+    assert(largeTransport.requests.size() == 1);
+    assert(largeTransport.batchCalls == 3);
+    assert((largeTransport.batchOffsets == std::vector<std::uint32_t>{0U, 98304U, 196608U}));
+
     transport.meta = reply(
         "{\"schemaVersion\":1,"
         "\"provider\":\"vdr-plugin-web\","

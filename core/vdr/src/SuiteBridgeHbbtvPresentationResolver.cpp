@@ -260,6 +260,52 @@ std::uint32_t bigEndian32(const std::string& bytes, std::size_t offset)
             static_cast<unsigned char>(bytes[offset + 3U]));
 }
 
+std::uint64_t bigEndian64(const std::string& bytes, std::size_t offset)
+{
+    return (static_cast<std::uint64_t>(bigEndian32(bytes, offset)) << 32U) |
+        static_cast<std::uint64_t>(bigEndian32(bytes, offset + 4U));
+}
+
+bool parseBatchReply(
+    const SuiteBridgeHbbtvCommandReply& reply, const Wire& meta,
+    std::uint32_t expectedOffset, std::uint32_t maximumBytes,
+    std::string& data)
+{
+    constexpr std::size_t HeaderBytes = 57U;
+    data.clear();
+    if (!reply.transportSucceeded || reply.replyCode != 250 ||
+        reply.payload.size() < HeaderBytes ||
+        reply.payload.compare(0U, 4U, "HBP1") != 0)
+        return false;
+
+    const std::uint64_t frameRevision = bigEndian64(reply.payload, 4U);
+    const std::uint32_t offset = bigEndian32(reply.payload, 12U);
+    const std::uint32_t encodedBytes = bigEndian32(reply.payload, 16U);
+    const std::uint32_t returnedBytes = bigEndian32(reply.payload, 20U);
+    const std::uint8_t frameKind = static_cast<std::uint8_t>(reply.payload[24U]);
+    const std::uint64_t baseRevision = bigEndian64(reply.payload, 25U);
+    const std::uint32_t renderWidth = bigEndian32(reply.payload, 33U);
+    const std::uint32_t renderHeight = bigEndian32(reply.payload, 37U);
+    const std::uint32_t patchX = bigEndian32(reply.payload, 41U);
+    const std::uint32_t patchY = bigEndian32(reply.payload, 45U);
+    const std::uint32_t patchWidth = bigEndian32(reply.payload, 49U);
+    const std::uint32_t patchHeight = bigEndian32(reply.payload, 53U);
+
+    if (frameRevision != meta.frameRevision || offset != expectedOffset ||
+        encodedBytes != meta.encodedBytes || frameKind != meta.frameKindCode ||
+        baseRevision != meta.baseRevision || renderWidth != meta.renderWidth ||
+        renderHeight != meta.renderHeight || patchX != meta.patchX ||
+        patchY != meta.patchY || patchWidth != meta.patchWidth ||
+        patchHeight != meta.patchHeight || returnedBytes == 0U ||
+        returnedBytes > maximumBytes || offset > encodedBytes ||
+        returnedBytes > encodedBytes - offset ||
+        returnedBytes != reply.payload.size() - HeaderBytes)
+        return false;
+
+    data.assign(reply.payload.data() + HeaderBytes, returnedBytes);
+    return true;
+}
+
 bool validQoi(
     const std::string& bytes,
     std::uint32_t width,
@@ -397,70 +443,85 @@ SuiteBridgeHbbtvPresentationResolver::readPresentation(
     encoded.reserve(static_cast<std::size_t>(meta.encodedBytes));
 
     std::uint32_t offset = 0;
+    bool batchSupported = true;
+    bool batchAttempted = false;
     while (encoded.size() < meta.encodedBytes)
     {
+        if (batchSupported)
+        {
+            SuiteBridgeHbbtvPresentationRequest batchRequest;
+            batchRequest.operation = SuiteBridgeHbbtvPresentationOperation::Chunk;
+            batchRequest.sessionId = sessionId;
+            batchRequest.frameRevision = meta.frameRevision;
+            batchRequest.offset = offset;
+            const std::uint32_t remaining = static_cast<std::uint32_t>(meta.encodedBytes - encoded.size());
+            const std::uint32_t maximumBatchBytes = std::min<std::uint32_t>(PresentationChunkBytes * 2U, remaining);
+            const SuiteBridgeHbbtvCommandReply batchReply =
+                transport_.readHbbtvPresentationBatch(batchRequest, maximumBatchBytes);
+
+            if (!batchAttempted &&
+                (batchReply.transportStatus == SuiteBridgeHbbtvTransportStatus::Unavailable ||
+                 (batchReply.transportStatus == SuiteBridgeHbbtvTransportStatus::Success && batchReply.replyCode == 504)))
+            {
+                batchSupported = false;
+                batchAttempted = true;
+                continue;
+            }
+            batchAttempted = true;
+            std::string decoded;
+            if (!parseBatchReply(batchReply, meta, offset, maximumBatchBytes, decoded) ||
+                decoded.empty() || encoded.size() + decoded.size() > meta.encodedBytes)
+            {
+                result.error = "hbbtv_presentation_payload_invalid";
+                return result;
+            }
+            encoded.append(decoded);
+            offset = static_cast<std::uint32_t>(encoded.size());
+            continue;
+        }
+
         SuiteBridgeHbbtvPresentationRequest chunkRequest;
-        chunkRequest.operation =
-            SuiteBridgeHbbtvPresentationOperation::Chunk;
+        chunkRequest.operation = SuiteBridgeHbbtvPresentationOperation::Chunk;
         chunkRequest.sessionId = sessionId;
         chunkRequest.frameRevision = meta.frameRevision;
         chunkRequest.offset = offset;
-
         Wire chunk;
-        const SuiteBridgeHbbtvCommandReply chunkReply =
-            transport_.readHbbtvPresentation(chunkRequest);
-        if (!parseWire(chunkReply, "chunk", sessionId, chunk) ||
-            !resultConsistent(chunk))
+        const SuiteBridgeHbbtvCommandReply chunkReply = transport_.readHbbtvPresentation(chunkRequest);
+        if (!parseWire(chunkReply, "chunk", sessionId, chunk) || !resultConsistent(chunk))
         {
             result.error = "hbbtv_presentation_payload_invalid";
             return result;
         }
-
         if (chunk.resultCode == 5U)
         {
             result.error = "hbbtv_presentation_changed";
             return result;
         }
-        if (chunk.resultCode != 0U ||
-            chunk.frameRevision != meta.frameRevision ||
-            chunk.frameKindCode != meta.frameKindCode ||
-            chunk.frameKind != meta.frameKind ||
-            chunk.baseRevision != meta.baseRevision ||
-            chunk.renderWidth != meta.renderWidth ||
-            chunk.renderHeight != meta.renderHeight ||
-            chunk.patchX != meta.patchX ||
-            chunk.patchY != meta.patchY ||
-            chunk.patchWidth != meta.patchWidth ||
-            chunk.patchHeight != meta.patchHeight ||
-            chunk.encodedBytes != meta.encodedBytes ||
+        if (chunk.resultCode != 0U || chunk.frameRevision != meta.frameRevision ||
+            chunk.frameKindCode != meta.frameKindCode || chunk.frameKind != meta.frameKind ||
+            chunk.baseRevision != meta.baseRevision || chunk.renderWidth != meta.renderWidth ||
+            chunk.renderHeight != meta.renderHeight || chunk.patchX != meta.patchX ||
+            chunk.patchY != meta.patchY || chunk.patchWidth != meta.patchWidth ||
+            chunk.patchHeight != meta.patchHeight || chunk.encodedBytes != meta.encodedBytes ||
             chunk.returnedBytes == 0)
         {
             result.error = "hbbtv_presentation_payload_invalid";
             return result;
         }
-
-        if (!stringField(
-                chunkReply.payload,
-                "dataBase64",
-                chunk.dataBase64) ||
-            chunk.dataBase64.empty())
+        if (!stringField(chunkReply.payload, "dataBase64", chunk.dataBase64) || chunk.dataBase64.empty())
         {
             result.error = "hbbtv_presentation_payload_invalid";
             return result;
         }
-
         std::string decoded;
-        if (!decodeBase64(chunk.dataBase64, decoded) ||
-            decoded.size() != chunk.returnedBytes ||
+        if (!decodeBase64(chunk.dataBase64, decoded) || decoded.size() != chunk.returnedBytes ||
             encoded.size() + decoded.size() > meta.encodedBytes)
         {
             result.error = "hbbtv_presentation_payload_invalid";
             return result;
         }
-
         encoded.append(decoded);
-        if (encoded.size() >
-            std::numeric_limits<std::uint32_t>::max())
+        if (encoded.size() > std::numeric_limits<std::uint32_t>::max())
         {
             result.error = "hbbtv_presentation_payload_invalid";
             return result;

@@ -8,6 +8,7 @@ const index = fs.readFileSync('web/frontend/index.html', 'utf8');
 const paths = fs.readFileSync('core/http/src/TestHttpServerPaths.inc', 'utf8');
 const install = fs.readFileSync('mk/install.mk', 'utf8');
 const live = fs.readFileSync('web/frontend/live-tv-view.js', 'utf8');
+const worker = fs.readFileSync('web/frontend/hbbtv-qoi-worker.js', 'utf8');
 
 for (const token of [
   'function fetchClientHbbtvSessionLaunch(options)',
@@ -42,6 +43,17 @@ assert(install.includes(
 assert(install.includes(
   'node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/hbbtv-qoi.js'
 ));
+assert(paths.includes(
+  '{"/frontend/hbbtv-qoi-worker.js", "hbbtv-qoi-worker.js", "application/javascript; charset=utf-8", nullptr}'
+));
+assert(install.includes(
+  'web/frontend/hbbtv-qoi-worker.js $(DESTDIR)$(DATADIR)/web/frontend/hbbtv-qoi-worker.js'
+));
+assert(install.includes(
+  'node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/hbbtv-qoi-worker.js'
+));
+assert(worker.includes("importScripts('hbbtv-qoi.js')"));
+assert(live.includes("new global.Worker('../frontend/hbbtv-qoi-worker.js')"));
 
 for (const forbidden of [
   'RedButton',

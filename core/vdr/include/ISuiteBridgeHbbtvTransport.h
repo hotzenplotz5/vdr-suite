@@ -110,6 +110,15 @@ public:
         return {};
     }
 
+    virtual SuiteBridgeHbbtvCommandReply readHbbtvPresentationBatch(
+        const SuiteBridgeHbbtvPresentationRequest&,
+        std::uint32_t)
+    {
+        SuiteBridgeHbbtvCommandReply reply;
+        reply.transportStatus = SuiteBridgeHbbtvTransportStatus::Unavailable;
+        return reply;
+    }
+
     virtual SuiteBridgeHbbtvCommandReply readHbbtvMedia(
         const SuiteBridgeHbbtvMediaRequest&)
     {

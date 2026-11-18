@@ -475,6 +475,32 @@ SuiteBridgeHbbtvCommandReply SuiteBridgeLocalControlTransport::readHbbtvPresenta
  }
  return {};
 }
+SuiteBridgeHbbtvCommandReply SuiteBridgeLocalControlTransport::readHbbtvPresentationBatch(
+    const SuiteBridgeHbbtvPresentationRequest& request,
+    std::uint32_t maximumBytes)
+{
+    constexpr std::uint32_t MaximumBatchBytes = 2U * 49152U;
+    if (!safeToken(request.sessionId) || request.sessionId.size() >= 128U ||
+        request.operation != SuiteBridgeHbbtvPresentationOperation::Chunk ||
+        request.frameRevision == 0U || maximumBytes == 0U ||
+        maximumBytes > MaximumBatchBytes)
+        return {};
+
+    const std::string payload =
+        "BATCH 2 " + request.sessionId + " " +
+        std::to_string(request.frameRevision) + " " +
+        std::to_string(request.offset) + " " +
+        std::to_string(maximumBytes);
+    SuiteBridgeHbbtvCommandReply reply =
+        hbbtvReply(executeOperation(control::Operation::HbbtvPresentation, payload));
+    if (reply.transportStatus == SuiteBridgeHbbtvTransportStatus::Success &&
+        reply.replyCode == 504)
+    {
+        reply.transportStatus = SuiteBridgeHbbtvTransportStatus::Unavailable;
+        reply.transportSucceeded = false;
+    }
+    return reply;
+}
 SuiteBridgeHbbtvCommandReply SuiteBridgeLocalControlTransport::readHbbtvMedia(const SuiteBridgeHbbtvMediaRequest&r){
  if(!safeToken(r.sessionId)||r.sessionId.size()>=128)return {};
  return hbbtvReply(executeOperation(control::Operation::HbbtvMedia,"1 "+r.sessionId));
@@ -625,6 +651,13 @@ SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::controlHbbtv(
  return select([&](auto&t){return t.controlHbbtv(r);});
 }
 SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::readHbbtvPresentation(const SuiteBridgeHbbtvPresentationRequest&r){return select([&](auto&t){return t.readHbbtvPresentation(r);});}
+SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::readHbbtvPresentationBatch(
+    const SuiteBridgeHbbtvPresentationRequest& request, std::uint32_t maximumBytes)
+{
+ auto reply=dedicated_.readHbbtvPresentationBatch(request,maximumBytes);
+ if(reply.transportStatus!=SuiteBridgeHbbtvTransportStatus::Unavailable) return reply;
+ return compatibility_.readHbbtvPresentationBatch(request,maximumBytes);
+}
 SuiteBridgeHbbtvCommandReply SuiteBridgePrioritizedHbbtvTransport::readHbbtvMedia(const SuiteBridgeHbbtvMediaRequest&r){return select([&](auto&t){return t.readHbbtvMedia(r);});}
 SuiteBridgeTeletextCommandReply SuiteBridgePrioritizedTeletextTransport::discoverTeletext(){return select([](auto&t){return t.discoverTeletext();});}
 SuiteBridgeTeletextCommandReply SuiteBridgePrioritizedTeletextTransport::requestTeletextPage(const SuiteBridgeTeletextPageRequest&r){return select([&](auto&t){return t.requestTeletextPage(r);});}

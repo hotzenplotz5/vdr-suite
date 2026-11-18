@@ -41,6 +41,10 @@
     hbbtvPresentationLastEventSequence: 0,
     hbbtvPresentationInFlight: false,
     hbbtvPresentationKickPending: false,
+    hbbtvQoiWorker: null,
+    hbbtvQoiDecodeId: 0,
+    hbbtvQoiPending: null,
+    hbbtvPresentationResyncEpoch: 0,
     hbbtvStatusTimer: null,
     hbbtvMediaTimer: null,
     hbbtvFrameRevision: 0,
@@ -450,7 +454,8 @@
   }
 
   function hbbtvTimingValue(value) {
-    return Number.isFinite(Number(value))
+    return value !== null && value !== undefined && value !== '' &&
+      Number.isFinite(Number(value))
       ? Math.max(0, Math.round(Number(value)))
       : null;
   }
@@ -734,6 +739,11 @@
     state.hbbtvPresentationInFlight = false;
     state.hbbtvPresentationKickPending = false;
     state.hbbtvSessionSequence += 1;
+    if (state.hbbtvQoiPending) {
+      const pending = state.hbbtvQoiPending;
+      state.hbbtvQoiPending = null;
+      pending.reject(new Error('hbbtv_qoi_session_cancelled'));
+    }
     state.hbbtvSession = null;
     state.hbbtvSessionBusy = false;
     state.hbbtvFrameRevision = 0;
@@ -769,7 +779,84 @@
     );
   }
 
-  function drawHbbtvPresentation(frame) {
+
+  function releaseHbbtvQoiWorker() {
+    const pending = state.hbbtvQoiPending;
+    state.hbbtvQoiPending = null;
+    if (pending) pending.reject(new Error('hbbtv_qoi_view_closed'));
+    const worker = state.hbbtvQoiWorker;
+    state.hbbtvQoiWorker = null;
+    if (worker && typeof worker.terminate === 'function') worker.terminate();
+  }
+
+  // The worker is an optional decode accelerator. Browsers without Worker
+  // support retain the existing, synchronous QOI decoder.
+  function decodeHbbtvPixels(bytes) {
+    const decoder = global.VdrSuiteQoi;
+    if (!decoder || typeof decoder.decode !== 'function') {
+      return Promise.reject(new Error('hbbtv_qoi_decoder_unavailable'));
+    }
+    if (typeof global.Worker !== 'function') {
+      return Promise.resolve(decoder.decode(bytes));
+    }
+
+    let worker = state.hbbtvQoiWorker;
+    if (!worker) {
+      try {
+        worker = new global.Worker('../frontend/hbbtv-qoi-worker.js');
+      } catch (_) {
+        return Promise.resolve(decoder.decode(bytes));
+      }
+      state.hbbtvQoiWorker = worker;
+      worker.onmessage = function(event) {
+        if (state.hbbtvQoiWorker !== worker) return;
+        const data = event && event.data ? event.data : {};
+        const pending = state.hbbtvQoiPending;
+        if (!pending || data.id !== pending.id) return;
+        state.hbbtvQoiPending = null;
+        if (data.error) pending.reject(new Error(String(data.error)));
+        else pending.resolve(data);
+      };
+      worker.onerror = function() {
+        if (state.hbbtvQoiWorker !== worker) return;
+        state.hbbtvQoiWorker = null;
+        if (typeof worker.terminate === 'function') worker.terminate();
+        const pending = state.hbbtvQoiPending;
+        state.hbbtvQoiPending = null;
+        if (pending) {
+          try {
+            pending.resolve(decoder.decode(pending.bytes));
+          } catch (error) {
+            pending.reject(error);
+          }
+        }
+      };
+    }
+
+    return new Promise(function(resolve, reject) {
+      const pending = {
+        id: ++state.hbbtvQoiDecodeId,
+        bytes: bytes,
+        resolve: resolve,
+        reject: reject
+      };
+      state.hbbtvQoiPending = pending;
+      try {
+        worker.postMessage({id: pending.id, bytes: bytes});
+      } catch (_) {
+        state.hbbtvQoiPending = null;
+        state.hbbtvQoiWorker = null;
+        if (typeof worker.terminate === 'function') worker.terminate();
+        try {
+          resolve(decoder.decode(bytes));
+        } catch (error) {
+          reject(error);
+        }
+      }
+    });
+  }
+
+  function drawHbbtvPresentation(frame, decoded) {
     const canvas = hbbtvCanvas();
     const decoder = global.VdrSuiteQoi;
     if (!canvas || !frame || frame.status !== 200 ||
@@ -785,7 +872,7 @@
       return false;
     }
 
-    const decoded = decoder.decode(frame.bytes);
+    if (!decoded) decoded = decoder.decode(frame.bytes);
     const frameKind = text(frame.frameKind).toLowerCase() === 'patch'
       ? 'patch'
       : 'full';
@@ -896,6 +983,8 @@
     };
     const forceReadback = function() {
       if (!isCurrent()) return;
+      // An older in-flight read must not overwrite the fresh full-frame baseline.
+      state.hbbtvPresentationResyncEpoch += 1;
       state.hbbtvFrameRevision = 0;
       state.hbbtvPresentationLastEventSequence = 0;
       kickHbbtvPresentation(sequence);
@@ -965,6 +1054,7 @@
     }
 
     state.hbbtvPresentationInFlight = true;
+    const resyncEpoch = state.hbbtvPresentationResyncEpoch;
 
     return client.fetchClientHbbtvPresentation({
       query: {
@@ -975,6 +1065,19 @@
       cache: 'no-store',
       credentials: 'same-origin'
     }).then(function(frame) {
+      if (!state.active || sequence !== state.hbbtvSessionSequence) return null;
+      if (frame && frame.status === 200) {
+        // Keep the read in-flight through decoding and canvas painting, so
+        // bursts of SSE events coalesce instead of queueing stale frames.
+        return decodeHbbtvPixels(frame.bytes).then(function(decoded) {
+          if (!state.active || sequence !== state.hbbtvSessionSequence ||
+              resyncEpoch !== state.hbbtvPresentationResyncEpoch) return null;
+          drawHbbtvPresentation(frame, decoded);
+          return frame;
+        });
+      }
+      return frame;
+    }).then(function(frame) {
       let eventKickPending = false;
 
       if (sequence === state.hbbtvSessionSequence) {
@@ -984,19 +1087,23 @@
       }
 
       if (!state.active || sequence !== state.hbbtvSessionSequence) return null;
+      if (resyncEpoch !== state.hbbtvPresentationResyncEpoch) {
+        // A reconnect invalidated this in-flight frame, including its pixels.
+        // Re-read from revision zero after releasing the single-flight slot.
+        kickHbbtvPresentation(sequence);
+        return null;
+      }
 
-      if (frame && frame.status === 200) {
-        if (!drawHbbtvPresentation(frame) &&
-            state.hbbtvPresentationKickPending) {
-          eventKickPending = true;
-          state.hbbtvPresentationKickPending = false;
-        }
-      } else if (frame && frame.status === 204 && Number(frame.revision) > 0) {
+      if (frame && frame.status === 204 && Number(frame.revision) > 0) {
+        // A revision-only response cannot establish the pixel baseline.
+        const canvas = hbbtvCanvas();
         const revision = Number(frame.revision);
-        if (!(state.hbbtvMediaAttached &&
-              !state.hbbtvMediaPresentationReady &&
-              revision > state.hbbtvMediaPresentationBaselineRevision)) {
+        if (canvas && !canvas.hidden &&
+            Number(canvas.dataset && canvas.dataset.hbbtvRevision) === revision &&
+            state.hbbtvFrameRevision === revision) {
           state.hbbtvFrameRevision = revision;
+        } else {
+          state.hbbtvFrameRevision = 0;
         }
       }
 
@@ -1015,6 +1122,12 @@
       }
 
       if (!state.active || sequence !== state.hbbtvSessionSequence) return null;
+      if (resyncEpoch !== state.hbbtvPresentationResyncEpoch) {
+        // Drop a stale response from before SSE reconnect/resync, then read
+        // a complete revision-0 frame from the current provider state.
+        kickHbbtvPresentation(sequence);
+        return null;
+      }
       state.hbbtvPresentationError =
         error && error.message
           ? error.message
@@ -2495,6 +2608,7 @@
 
   function stop() {
     releaseHbbtvSessionBestEffort();
+    releaseHbbtvQoiWorker();
     const current = state.playback;
     state.playback = null;
     state.liveChannelId = '';
@@ -2514,6 +2628,7 @@
   function deactivate() {
     if (!state.active) return false;
     state.active = false;
+    releaseHbbtvQoiWorker();
     disconnectHbbtvSurfaceObserver();
     restoreHbbtvMediaVideoComposition();
     restoreHbbtvSurface();

@@ -238,8 +238,25 @@ const client = {
       mediaPath: '/api/media/sessions/hbbtv_media_test/live/stream.mp4'}});
   }
 };
+const workerInstances = [];
 const window = {
   document, console, VdrSuiteClientApi: client,
+  Worker: class {
+    constructor(url) {
+      assert.strictEqual(url, '../frontend/hbbtv-qoi-worker.js');
+      this.decodeCount = 0;
+      workerInstances.push(this);
+    }
+    postMessage(message) {
+      this.decodeCount += 1;
+      Promise.resolve().then(() => {
+        if (!this.onmessage) return;
+        const decoded = window.VdrSuiteQoi.decode(message.bytes);
+        this.onmessage({data: {...decoded, id: message.id}});
+      });
+    }
+    terminate() { this.onmessage = null; }
+  },
   VdrSuiteBrowserSession: {restore: () => Promise.resolve({authenticated: true}), csrfHeaders: () => ({}), subscribe() {}},
   addEventListener() {}, removeEventListener() {},
   setTimeout(fn) { const id = ++nextTimer; timers.set(id, fn); return id; },
@@ -280,6 +297,8 @@ async function run() {
   assert.strictEqual(canvas.style.width, '640px');
 
   assert.strictEqual(canvas.pixels[3], 255, 'pre-media application frame is deliberately opaque');
+  assert.strictEqual(workerInstances.length, 1, 'QOI worker is created once for the active Live-TV view');
+  assert(workerInstances[0].decodeCount > 0, 'first frame is decoded through the worker');
   mediaActive = true; await tick();
   assert(video.src.includes('hbbtv_media_test'), 'actual canonical owner attached the external stream');
   assert.strictEqual(video.videoWidth, 0, 'external attach reset intrinsic metadata again');
@@ -293,6 +312,8 @@ async function run() {
     {backendId: 'default', sessionId: 'app_1', action: 'ok'});
   assert.strictEqual(presentationRequests.length, readsBeforeInput,
     'input acknowledgement is not a frame signal; no premature readback');
+  assert(find('.vdr-suite-hbbtv-input-diagnostics').textContent.includes('Bild …'),
+    'missing frame latency must remain pending rather than being shown as 0 ms');
   const firstEventSource = liveUpdateSource;
   firstEventSource.emit('update', {
     backendId: 'default', sequenceNumber: 1,
@@ -327,6 +348,41 @@ async function run() {
   assert.strictEqual(canvas.dataset.hbbtvRevision, '6',
     'one push readback coalesces rapid input-driven frame revisions');
 
+  // A reconnect while a patch request is pending invalidates that request.
+  // Its late success must not replace the revision-0 full-frame resync.
+  const originalRead = client.fetchClientHbbtvPresentation;
+  let finishOldRead;
+  client.fetchClientHbbtvPresentation = function({query}) {
+    presentationRequests.push({query: {...query}});
+    return new Promise(resolve => {
+      finishOldRead = () => resolve({
+        status: 200, revision: 7, width: 16, height: 9,
+        frameKind: 'patch', baseRevision: 6,
+        patchX: 15, patchY: 8, patchWidth: 1, patchHeight: 1,
+        bytes: qoiControlPatch()
+      });
+    });
+  };
+  firstEventSource.emit('update', {
+    backendId: 'default', sequenceNumber: 3,
+    changedDomains: ['hbbtvPresentation']
+  });
+  await flush();
+  assert.strictEqual(typeof finishOldRead, 'function',
+    'an incremental frame read must be in flight before SSE reconnect');
+  assert.strictEqual(presentationRequests.at(-1).query.revision, '6');
+  firstEventSource.emit('resync', {reason: 'reconnect'});
+  client.fetchClientHbbtvPresentation = originalRead;
+  frameRevision = 8;
+  finishOldRead();
+  await flush();
+  assert.strictEqual(presentationRequests.at(-1).query.revision, '0',
+    'SSE resync must force a complete read after discarding the stale patch');
+  assert.strictEqual(canvas.dataset.hbbtvRevision, '8',
+    'a late pre-reconnect patch must never overwrite the resynchronized canvas');
+  assert.strictEqual(canvas.pixels[3], 0,
+    'resynchronized full frame must preserve the broadband video hole');
+
   // A final container layout arrives independently of frame events and input.
   width = 960;
   const observer = observers.find(v => v.targets.includes(video));
@@ -350,7 +406,7 @@ async function run() {
     'unrelated presentation refresh must not stop/restart Live');
   canvas = find('.vdr-suite-hbbtv-overlay');
   assert(canvas && canvas !== previousCanvas, 'missing HbbTV canvas is recreated without replacing the player');
-  assert.strictEqual(canvas.dataset.hbbtvRevision, '6',
+  assert.strictEqual(canvas.dataset.hbbtvRevision, '8',
     'recreated canvas is synchronized from a complete current frame');
   assert.strictEqual(canvas.pixels[143 * 4 + 3], 255,
     'full readback restores the opaque application control');
@@ -362,9 +418,13 @@ async function run() {
   assert.strictEqual(video.style.getPropertyValue('aspect-ratio'), originalRatio, 'close restores the broadcast layout');
   assert.strictEqual(video.style.getPropertyValue('z-index'), '');
   assert(video.src.includes('live_session_test'), 'close restores broadcast through the same owner');
+  // Browsers without Worker must keep the same UI and revision semantics.
+  window.Worker = undefined;
   frameRevision = 1; mediaActive = false; frameAvailable = false;
   find('.vdr-suite-hbbtv-session-toggle').click(); await flush(); await tick();
   assert.strictEqual(live.snapshot().hbbtvSessionId, 'app_2');
+  assert.strictEqual(live.snapshot().hbbtvFrameRevision, 0,
+    'revision-only response before a rendered frame must not advance the consumer');
   assert.strictEqual(video.style.getPropertyValue('aspect-ratio'), originalRatio, 'revision-only response cannot reuse old or default canvas geometry');
   const secondEventSource = liveUpdateSource;
   const readsBeforeLateFrame = presentationRequests.length;
@@ -373,6 +433,10 @@ async function run() {
     'no presentation retry timer runs while waiting for the next provider event');
   secondEventSource.emit('resync', {reason: 'reconnect'});
   await flush();
+  assert.strictEqual(Number(presentationRequests.at(-1).query.revision), 0,
+    'SSE resync must request complete pixels after an invalid revision-only response');
+  assert.strictEqual(live.snapshot().hbbtvFrameRevision, 1,
+    'full-frame SSE recovery restores the painted revision');
   assert.strictEqual(find('video'), video);
   assert.strictEqual(canvas.style.height, '540px', 'SSE resync fetches a fresh full frame after reconnect');
   remote('ok').click(); await flush();
@@ -393,6 +457,7 @@ async function run() {
   width = 320; observer.fn();
   assert.strictEqual(canvas.style.width, oldWidth, 'late observer callback cannot revive a detached surface');
   assert.strictEqual(videos.length, 1, 'HbbTV never constructs a second video owner');
+  assert.strictEqual(workerInstances.length, 1, 'reconnect and resync reuse the decoder worker');
   console.log('HbbTV production input, media visibility, early layout, final resize and teardown ok');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

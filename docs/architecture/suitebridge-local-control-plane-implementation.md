@@ -55,7 +55,7 @@ The initial registry is deliberately small:
 | HBBAPPS | External Plugin Interactive | migrated |
 | HBBRUN LAUNCH/STATUS/CLOSE | External Plugin Interactive | migrated |
 | HBBRUN INPUT | typed SVDRP | direct per-operation selection; no local dispatch/replay |
-| HBBPRES META/CHUNK | External Plugin Interactive | migrated |
+| HBBPRES META/CHUNK/BATCH | External Plugin Interactive | migrated; BATCH coalesces two existing provider chunks into one bounded binary response |
 | HBBMEDIA | External Plugin Interactive | migrated |
 | TTXC | External Plugin Interactive | migrated |
 | TTXP | External Plugin Interactive | migrated |
@@ -170,6 +170,13 @@ that work from blocking either Critical Live/native-probe control or Legacy OSD.
 
 The lane regression deliberately blocks HbbTV presentation and requires both
 Live capability and OSD snapshot to complete inside the bounded test budget.
+
+The optional HBBPRES BATCH read keeps the existing v2 provider ABI and local
+control-plane operation id. It performs at most two sequential provider CHUNK
+service calls inside one External Plugin Interactive dispatch, returning raw
+QOI bytes in a bounded binary envelope. Older plugin builds continue through
+the original META/CHUNK compatibility path.
+
 The transport regression separately proves that a local HbbTV timeout is not
 replayed through SVDRP. The HbbTV transport regression proves that normal runtime STATUS remains local-first, a local timeout is not replayed, and INPUT bypasses even a timeout-capable local transport to select typed SVDRP exactly once.
 
