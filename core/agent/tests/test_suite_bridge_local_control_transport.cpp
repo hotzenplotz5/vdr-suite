@@ -339,7 +339,8 @@ void serveOperation(
     Operation expectedOperation,
     int replyCode,
     std::string payload,
-    std::size_t expectedNewlines = 0)
+    std::size_t expectedNewlines = 0,
+    const std::string& expectedPayload = {})
 {
     const int listener =
         socket(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0);
@@ -370,6 +371,8 @@ void serveOperation(
     std::string reason;
     assert(decodeRequest(bytes, request, reason));
     assert(request.operation == expectedOperation);
+    if (!expectedPayload.empty())
+        assert(request.payload == expectedPayload);
     assert(std::count(
         request.payload.begin(),
         request.payload.end(),
@@ -799,6 +802,52 @@ int main()
         SuiteBridgeHbbtvTransportStatus::Success);
     assert(hbbtvInputReply.replyCode == 250);
     assert(hbbtvCompatibility.runtimeCalls.load() == 2);
+
+
+    const std::string teletextPath =    assert(hbbtvCompatibility.runtimeCalls.load() == 2);
+
+    const std::string hbbtvBatchPath =
+        "/tmp/vdr-suite-hbbtv-batch-control-" +
+        std::to_string(getpid()) + ".sock";
+    std::string binaryBatch("HBP1", 4U);
+    binaryBatch.append(53U, static_cast<char>(0));
+    binaryBatch.append("qoi", 3U);
+    std::thread hbbtvBatchServer([&] {
+        serveOperation(
+            hbbtvBatchPath, Operation::HbbtvPresentation, 250,
+            binaryBatch, 0, "BATCH 2 session-a 9 0 98304");
+    });
+    waitForSocket(hbbtvBatchPath);
+    SuiteBridgeLocalControlTransportConfig hbbtvBatchConfig;
+    hbbtvBatchConfig.socketPath = hbbtvBatchPath;
+    SuiteBridgeLocalControlTransport hbbtvBatchTransport(hbbtvBatchConfig);
+    SuiteBridgeHbbtvPresentationRequest presentationRequest;
+    presentationRequest.operation = SuiteBridgeHbbtvPresentationOperation::Chunk;
+    presentationRequest.sessionId = "session-a";
+    presentationRequest.frameRevision = 9;
+    presentationRequest.offset = 0;
+    const auto batchReply =
+        hbbtvBatchTransport.readHbbtvPresentationBatch(presentationRequest, 98304);
+    assert(batchReply.transportSucceeded && batchReply.replyCode == 250);
+    assert(batchReply.payload == binaryBatch);
+    hbbtvBatchServer.join();
+
+    const std::string hbbtvOldPluginPath = hbbtvBatchPath + ".old";
+    std::thread hbbtvOldPluginServer([&] {
+        serveOperation(
+            hbbtvOldPluginPath, Operation::HbbtvPresentation, 504,
+            "hbbtv_presentation_operation_invalid", 0,
+            "BATCH 2 session-a 9 0 98304");
+    });
+    waitForSocket(hbbtvOldPluginPath);
+    SuiteBridgeLocalControlTransportConfig hbbtvOldPluginConfig;
+    hbbtvOldPluginConfig.socketPath = hbbtvOldPluginPath;
+    SuiteBridgeLocalControlTransport hbbtvOldPluginTransport(hbbtvOldPluginConfig);
+    const auto unsupportedBatch =
+        hbbtvOldPluginTransport.readHbbtvPresentationBatch(presentationRequest, 98304);
+    assert(!unsupportedBatch.transportSucceeded);
+    assert(unsupportedBatch.transportStatus == SuiteBridgeHbbtvTransportStatus::Unavailable);
+    hbbtvOldPluginServer.join();
 
 
     const std::string teletextPath =

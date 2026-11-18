@@ -255,6 +255,24 @@ int main()
       "\"dataBase64\":\"cW9pZg==\"") != std::string::npos);
   assert(provider.presentationCalls == 2);
 
+  const SuiteBridgeCommandResult media =  assert(provider.presentationCalls == 2);
+
+  const SuiteBridgeCommandResult presentationBatch =
+      service.Handle("HBBPRES", "BATCH 2 session-a 9 0 98304");
+  assert(presentationBatch.handled && presentationBatch.replyCode == 250);
+  assert(presentationBatch.payload.compare(0U, 4U, "HBP1") == 0);
+  assert(presentationBatch.payload.size() == 57U + 4U);
+  assert(presentationBatch.payload.compare(57U, 4U, "qoif") == 0);
+  assert(presentationBatch.payload.find("dataBase64") == std::string::npos);
+  assert(provider.presentationCalls == 3);
+
+  const SuiteBridgeCommandResult invalidPresentationBatch =
+      service.Handle("HBBPRES", "BATCH 2 session-a 9 4 98304");
+  assert(invalidPresentationBatch.handled && invalidPresentationBatch.replyCode == 552);
+  const SuiteBridgeCommandResult oversizedPresentationBatch =
+      service.Handle("HBBPRES", "BATCH 2 session-a 9 0 98305");
+  assert(oversizedPresentationBatch.handled && oversizedPresentationBatch.replyCode == 504);
+
   const SuiteBridgeCommandResult media =
       service.Handle("HBBMEDIA", "1 session-a");
   assert(media.handled && media.replyCode == 250);

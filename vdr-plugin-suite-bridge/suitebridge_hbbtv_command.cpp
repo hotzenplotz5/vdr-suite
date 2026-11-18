@@ -445,6 +445,122 @@ const char *PresentationFrameKindName(std::uint8_t kind)
   return "unknown";
 }
 
+void AppendBigEndian32(std::string &output, std::uint32_t value)
+{
+  output.push_back(static_cast<char>((value >> 24U) & 0xffU));
+  output.push_back(static_cast<char>((value >> 16U) & 0xffU));
+  output.push_back(static_cast<char>((value >> 8U) & 0xffU));
+  output.push_back(static_cast<char>(value & 0xffU));
+}
+
+void AppendBigEndian64(std::string &output, std::uint64_t value)
+{
+  AppendBigEndian32(output, static_cast<std::uint32_t>(value >> 32U));
+  AppendBigEndian32(output, static_cast<std::uint32_t>(value));
+}
+
+bool SamePresentationFrame(
+    const VdrWebHbbtvPresentationV2 &left,
+    const VdrWebHbbtvPresentationV2 &right)
+{
+  return left.schemaVersion == right.schemaVersion &&
+      left.frameRevision == right.frameRevision &&
+      left.frameKind == right.frameKind &&
+      left.baseRevision == right.baseRevision &&
+      left.renderWidth == right.renderWidth &&
+      left.renderHeight == right.renderHeight &&
+      left.patchX == right.patchX &&
+      left.patchY == right.patchY &&
+      left.patchWidth == right.patchWidth &&
+      left.patchHeight == right.patchHeight &&
+      left.encodedBytes == right.encodedBytes;
+}
+
+SuiteBridgeCommandResult HandlePresentationBatch(
+    const ISuiteBridgeHbbtvProvider *provider,
+    const std::string &sessionId,
+    std::uint64_t frameRevision,
+    std::uint32_t offset,
+    std::uint32_t maximumBytes)
+{
+  constexpr std::uint32_t kMaximumEncodedBytes = 16U * 1024U * 1024U;
+  constexpr std::uint32_t kMaximumBatchBytes =
+      2U * VDRWEB_HBBTV_PRESENTATION_CHUNK_MAX;
+  if (frameRevision == 0 || maximumBytes == 0 ||
+      maximumBytes > kMaximumBatchBytes)
+    return Rejected(504, "hbbtv_presentation_batch_request_invalid");
+
+  VdrWebHbbtvPresentationV2 first{};
+  std::string data;
+  data.reserve(maximumBytes);
+  std::uint32_t collected = 0;
+  while (collected < maximumBytes)
+  {
+    const std::uint64_t absoluteOffset =
+        static_cast<std::uint64_t>(offset) + collected;
+    if (absoluteOffset > std::numeric_limits<std::uint32_t>::max())
+      return Rejected(504, "hbbtv_presentation_batch_range_invalid");
+
+    VdrWebHbbtvPresentationV2 chunk{};
+    chunk.structSize = sizeof(chunk);
+    chunk.operation = VDRWEB_HBBTV_PRESENTATION_CHUNK;
+    chunk.frameRevision = frameRevision;
+    chunk.offset = static_cast<std::uint32_t>(absoluteOffset);
+    CopyText(chunk.sessionId, sessionId);
+
+    std::string error;
+    if (!provider->Presentation(chunk, error))
+      return Rejected(550, error.c_str());
+
+    if (chunk.schemaVersion != VDRWEB_HBBTV_PRESENTATION_SCHEMA_V2 ||
+        chunk.result != VDRWEB_HBBTV_PRESENTATION_RESULT_OK ||
+        chunk.frameRevision != frameRevision ||
+        chunk.encodedBytes == 0 ||
+        chunk.encodedBytes > kMaximumEncodedBytes ||
+        absoluteOffset >= chunk.encodedBytes ||
+        chunk.returnedBytes == 0 ||
+        chunk.returnedBytes > VDRWEB_HBBTV_PRESENTATION_CHUNK_MAX ||
+        chunk.returnedBytes > chunk.encodedBytes - absoluteOffset ||
+        chunk.returnedBytes > maximumBytes - collected)
+      return Rejected(552, "hbbtv_presentation_batch_payload_invalid");
+
+    if (collected == 0)
+      first = chunk;
+    else if (!SamePresentationFrame(first, chunk))
+      return Rejected(552, "hbbtv_presentation_batch_revision_changed");
+
+    data.append(reinterpret_cast<const char *>(chunk.data), chunk.returnedBytes);
+    collected += chunk.returnedBytes;
+    if (absoluteOffset + chunk.returnedBytes >= chunk.encodedBytes)
+      break;
+  }
+
+  if (collected == 0)
+    return Rejected(552, "hbbtv_presentation_batch_empty");
+
+  // HBP1 header (57 bytes) plus raw QOI. The existing local control-plane
+  // response limit remains unchanged; two V2 provider chunks fit comfortably.
+  SuiteBridgeCommandResult result;
+  result.handled = true;
+  result.replyCode = 250;
+  result.payload.reserve(57U + data.size());
+  result.payload.append("HBP1", 4U);
+  AppendBigEndian64(result.payload, first.frameRevision);
+  AppendBigEndian32(result.payload, offset);
+  AppendBigEndian32(result.payload, first.encodedBytes);
+  AppendBigEndian32(result.payload, collected);
+  result.payload.push_back(static_cast<char>(first.frameKind));
+  AppendBigEndian64(result.payload, first.baseRevision);
+  AppendBigEndian32(result.payload, first.renderWidth);
+  AppendBigEndian32(result.payload, first.renderHeight);
+  AppendBigEndian32(result.payload, first.patchX);
+  AppendBigEndian32(result.payload, first.patchY);
+  AppendBigEndian32(result.payload, first.patchWidth);
+  AppendBigEndian32(result.payload, first.patchHeight);
+  result.payload.append(data);
+  return result;
+}
+
 SuiteBridgeCommandResult HandlePresentation(
     const ISuiteBridgeHbbtvProvider *provider,
     const char *option)
@@ -465,6 +581,21 @@ SuiteBridgeCommandResult HandlePresentation(
       schema != "2" ||
       !SafeIdentity(sessionId, VDRWEB_HBBTV_SESSION_ID_MAX)) {
     return Rejected(504, "hbbtv_presentation_request_invalid");
+  }
+
+  if (strcasecmp(operationText.c_str(), "BATCH") == 0) {
+    std::uint64_t maximumBytes = 0;
+    if (!(input >> frameRevision >> offset >> maximumBytes) ||
+        frameRevision == 0 ||
+        offset > std::numeric_limits<std::uint32_t>::max() ||
+        maximumBytes == 0 ||
+        maximumBytes > 2U * VDRWEB_HBBTV_PRESENTATION_CHUNK_MAX ||
+        (input >> extra))
+      return Rejected(504, "hbbtv_presentation_request_invalid");
+    return HandlePresentationBatch(
+        provider, sessionId, frameRevision,
+        static_cast<std::uint32_t>(offset),
+        static_cast<std::uint32_t>(maximumBytes));
   }
 
   std::uint8_t operation = 0;
