@@ -10,7 +10,9 @@ const liveSource = fs.readFileSync('web/frontend/live-tv-view.js', 'utf8');
 const timers = new Map();
 const observers = [];
 const requests = [];
+const presentationRequests = [];
 const videos = [];
+let liveUpdateSource = null;
 let nextTimer = 0;
 let width = 640;
 let frameRevision = 1;
@@ -147,6 +149,24 @@ const document = {
   querySelector() { return null; }, querySelectorAll() { return []; }
 };
 const client = {
+  createClientLiveUpdateSource() {
+    const listeners = Object.create(null);
+    const source = {
+      closed: false,
+      onopen: null,
+      addEventListener(type, handler) {
+        (listeners[type] ||= []).push(handler);
+      },
+      close() { this.closed = true; },
+      emit(type, value = {}) {
+        const event = {data: JSON.stringify(value)};
+        if (type === 'open' && typeof this.onopen === 'function') this.onopen(event);
+        (listeners[type] || []).forEach(handler => handler(event));
+      }
+    };
+    liveUpdateSource = source;
+    return source;
+  },
   requestJson(path, options) {
     const body = JSON.parse(options.body);
     requests.push({kind: 'media', body});
@@ -175,6 +195,7 @@ const client = {
   },
   fetchClientHbbtvSessionClose() { mediaActive = false; session = {...session, state: 'closed'}; return Promise.resolve(session); },
   fetchClientHbbtvPresentation({query}) {
+    presentationRequests.push({query: {...query}});
     const knownRevision = Number(query && query.revision) || 0;
     if (!frameAvailable || knownRevision === frameRevision) {
       return Promise.resolve({status: 204, revision: frameRevision});
@@ -266,12 +287,29 @@ async function run() {
   assert.strictEqual(canvas.pixels[3], 0, 'media attach clears stale application pixels over the video rectangle');
   const canvasZ = Number(liveSource.match(/\.vdr-suite-hbbtv-overlay\{[^}]*z-index:(\d+)/)[1]);
   assert(Number(video.style.getPropertyValue('z-index')) < canvasZ, 'broadband video must remain BELOW the HbbTV application plane');
-  remote('ok').click(); await flush(); await tick();
+  const readsBeforeInput = presentationRequests.length;
+  remote('ok').click(); await flush();
   assert.deepStrictEqual({...requests.find(v => v.kind === 'input').payload},
     {backendId: 'default', sessionId: 'app_1', action: 'ok'});
+  assert.strictEqual(presentationRequests.length, readsBeforeInput,
+    'input acknowledgement is not a frame signal; no premature readback');
+  const firstEventSource = liveUpdateSource;
+  firstEventSource.emit('update', {
+    backendId: 'default', sequenceNumber: 1,
+    changedDomains: ['hbbtvPresentation']
+  });
+  await flush();
   assert.strictEqual(canvas.pixels[3], 0, 'fresh provider patch keeps the video hole transparent');
   assert.strictEqual(canvas.pixels[143 * 4 + 3], 255, 'fresh provider patch paints an opaque control pixel above video');
   assert.strictEqual(canvas.dataset.hbbtvRevision, '2', 'patch advances the canvas revision without replacing the full surface');
+  const readsAfterFirstEvent = presentationRequests.length;
+  firstEventSource.emit('update', {
+    backendId: 'default', sequenceNumber: 1,
+    changedDomains: ['hbbtvPresentation']
+  });
+  await flush();
+  assert.strictEqual(presentationRequests.length, readsAfterFirstEvent,
+    'duplicate SSE sequence is ignored');
   assert(Number(video.style.getPropertyValue('z-index')) < canvasZ, 'native controls stay above the visible broadband video');
   assert.strictEqual(video.style.getPropertyValue('pointer-events'), 'none');
   for (const key of ['Enter', 'g', 'r', 'ArrowLeft']) {
@@ -281,21 +319,34 @@ async function run() {
   }
   assert.deepStrictEqual(requests.filter(v => v.kind === 'input').map(v => v.payload.action),
     ['ok', 'ok', 'green', 'red', 'left']);
+  firstEventSource.emit('update', {
+    backendId: 'default', sequenceNumber: 2,
+    changedDomains: ['hbbtvPresentation']
+  });
+  await flush();
+  assert.strictEqual(canvas.dataset.hbbtvRevision, '6',
+    'one push readback coalesces rapid input-driven frame revisions');
 
-  // A final container layout arrives independently of HTTP polling and input.
+  // A final container layout arrives independently of frame events and input.
   width = 960;
   const observer = observers.find(v => v.targets.includes(video));
   assert(observer, 'the canonical video/container layout must be observed');
   observer.fn();
   assert.strictEqual(canvas.style.width, '960px');
   assert.strictEqual(canvas.style.height, '540px');
-  const beforeRefresh = requests.length;
+  const mediaRequestsBeforeRefresh = requests.filter(v => v.kind === 'media').length;
+  const frameReadsBeforeRefresh = presentationRequests.length;
   live.__test.applyPrograms({}); live.__test.render();
+  await flush();
   assert.strictEqual(find('video'), video);
   assert.strictEqual(video.parentNode, owner);
-  assert.strictEqual(requests.length, beforeRefresh, 'unrelated presentation refresh must not stop/restart Live');
+  assert.strictEqual(requests.filter(v => v.kind === 'media').length, mediaRequestsBeforeRefresh,
+    'unrelated presentation refresh must not stop/restart Live');
+  assert(presentationRequests.length > frameReadsBeforeRefresh,
+    'recreated canvas performs one full frame readback');
 
   find('.vdr-suite-hbbtv-session-toggle').click(); await flush(); await tick();
+  assert.strictEqual(firstEventSource.closed, true, 'confirmed session close releases the SSE rail');
   assert.strictEqual(video.style.getPropertyValue('aspect-ratio'), originalRatio, 'close restores the broadcast layout');
   assert.strictEqual(video.style.getPropertyValue('z-index'), '');
   assert(video.src.includes('live_session_test'), 'close restores broadcast through the same owner');
@@ -303,9 +354,15 @@ async function run() {
   find('.vdr-suite-hbbtv-session-toggle').click(); await flush(); await tick();
   assert.strictEqual(live.snapshot().hbbtvSessionId, 'app_2');
   assert.strictEqual(video.style.getPropertyValue('aspect-ratio'), originalRatio, 'revision-only response cannot reuse old or default canvas geometry');
+  const secondEventSource = liveUpdateSource;
+  const readsBeforeLateFrame = presentationRequests.length;
   frameAvailable = true; await tick();
+  assert.strictEqual(presentationRequests.length, readsBeforeLateFrame,
+    'no presentation retry timer runs while waiting for the next provider event');
+  secondEventSource.emit('resync', {reason: 'reconnect'});
+  await flush();
   assert.strictEqual(find('video'), video);
-  assert.strictEqual(canvas.style.height, '540px', 'immediate relaunch derives fresh layout');
+  assert.strictEqual(canvas.style.height, '540px', 'SSE resync fetches a fresh full frame after reconnect');
   remote('ok').click(); await flush();
   assert.strictEqual(requests.filter(v => v.kind === 'input').at(-1).payload.sessionId, 'app_2');
 
@@ -314,6 +371,7 @@ async function run() {
   remote('ok').click(); await flush(); remote('green').click();
   const inputCount = requests.filter(v => v.kind === 'input').length;
   live.stop(); await flush();
+  assert.strictEqual(secondEventSource.closed, true, 'view teardown releases its SSE rail');
   finishInput(session); pendingInput = null; await flush();
   assert.strictEqual(requests.filter(v => v.kind === 'input').length, inputCount, 'queued stale input never reaches another session');
   assert.strictEqual(video.style.getPropertyValue('aspect-ratio'), originalRatio);
