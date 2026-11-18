@@ -2094,6 +2094,25 @@
     return Boolean(element && mount && typeof mount.contains === 'function' && mount.contains(element));
   }
 
+  function createHbbtvOverlay(slot) {
+    const overlay = doc.createElement('canvas');
+    overlay.className = 'vdr-suite-hbbtv-overlay';
+    overlay.hidden = true;
+    overlay.tabIndex = 0;
+    overlay.setAttribute('role', 'application');
+    overlay.setAttribute(
+      'aria-label',
+      'HbbTV Anwendung · Pfeiltasten, Enter, Escape und Farbtasten verwenden'
+    );
+    overlay.dataset.hbbtvInteractive = 'false';
+    overlay.addEventListener('click', function() {
+      if (typeof overlay.focus === 'function') overlay.focus();
+    });
+    overlay.addEventListener('keydown', handleHbbtvOverlayKey);
+    slot.appendChild(overlay);
+    return overlay;
+  }
+
   function renderPlayer(root) {
     synchronizePlaybackState();
     if (!state.playback || !state.liveChannelId) return;
@@ -2179,21 +2198,7 @@
     });
     slot.appendChild(state.playback.element);
 
-    const hbbtvOverlay = doc.createElement('canvas');
-    hbbtvOverlay.className = 'vdr-suite-hbbtv-overlay';
-    hbbtvOverlay.hidden = true;
-    hbbtvOverlay.tabIndex = 0;
-    hbbtvOverlay.setAttribute('role', 'application');
-    hbbtvOverlay.setAttribute(
-      'aria-label',
-      'HbbTV Anwendung · Pfeiltasten, Enter, Escape und Farbtasten verwenden'
-    );
-    hbbtvOverlay.dataset.hbbtvInteractive = 'false';
-    hbbtvOverlay.addEventListener('click', function() {
-      if (typeof hbbtvOverlay.focus === 'function') hbbtvOverlay.focus();
-    });
-    hbbtvOverlay.addEventListener('keydown', handleHbbtvOverlayKey);
-    slot.appendChild(hbbtvOverlay);
+    createHbbtvOverlay(slot);
 
     const hbbtvRemote = createHbbtvRemote();
 
@@ -2220,7 +2225,22 @@
     // Do not tear down/reinsert a loading or playing HTMLMediaElement merely to
     // refresh EPG/status data. Chromium may abort the media resource when the
     // element is disconnected, which violates the persistent-player contract.
-    if (playbackMountedIn(mount)) return;
+    if (playbackMountedIn(mount)) {
+      // Keep the persistent media owner attached, but recover the independently
+      // replaceable HbbTV presentation surface if the surrounding view removed it.
+      const slot = hbbtvPlayerSlot();
+      if (slot && !hbbtvCanvas()) {
+        createHbbtvOverlay(slot);
+        if (hbbtvSessionId() &&
+            text(state.hbbtvSession && state.hbbtvSession.channelId) === state.liveChannelId) {
+          state.hbbtvFrameRevision = 0;
+          const sequence = state.hbbtvSessionSequence;
+          kickHbbtvPresentation(sequence);
+          alignHbbtvCanvas();
+        }
+      }
+      return;
+    }
 
     disconnectHbbtvSurfaceObserver();
     mount.replaceChildren();

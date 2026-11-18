@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <charconv>
 #include <cctype>
+#include <cstring>
 #include <cerrno>
 #include <climits>
 #include <fcntl.h>
@@ -308,8 +309,7 @@ void SuiteBridgeLocalControlTransport::runHbbtvPresentationEventLoop()
                     config_.operationTimeout).count());
 
         std::vector<std::uint8_t> requestFrame;
-        std::string encodeError;
-        if (!control::encodeRequest(request, requestFrame, encodeError) ||
+        if (!control::encodeRequest(request, requestFrame) ||
             !waitFor(
                 socketFd.get(),
                 POLLOUT,

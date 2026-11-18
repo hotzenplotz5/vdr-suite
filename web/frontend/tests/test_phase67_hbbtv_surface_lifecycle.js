@@ -275,7 +275,7 @@ async function run() {
   find('.vdr-suite-hbbtv-session-toggle').click();
   await flush(); await tick();
   assert.strictEqual(requests.filter(v => v.kind === 'launch').length, 1, 'rapid launch is single-flight');
-  const canvas = find('.vdr-suite-hbbtv-overlay');
+  let canvas = find('.vdr-suite-hbbtv-overlay');
   assert.strictEqual(canvas.style.height, '360px', 'application viewport must not inherit the 150px metadata-less video height');
   assert.strictEqual(canvas.style.width, '640px');
 
@@ -336,12 +336,24 @@ async function run() {
   assert.strictEqual(canvas.style.height, '540px');
   const mediaRequestsBeforeRefresh = requests.filter(v => v.kind === 'media').length;
   const frameReadsBeforeRefresh = presentationRequests.length;
+  // Simulate an outer view refresh removing only the replaceable HbbTV canvas.
+  // The canonical video/media owner must stay mounted while the overlay recovers.
+  const previousCanvas = canvas;
+  previousCanvas.parentNode.children =
+    previousCanvas.parentNode.children.filter(value => value !== previousCanvas);
+  previousCanvas.parentNode = null;
   live.__test.applyPrograms({}); live.__test.render();
   await flush();
   assert.strictEqual(find('video'), video);
   assert.strictEqual(video.parentNode, owner);
   assert.strictEqual(requests.filter(v => v.kind === 'media').length, mediaRequestsBeforeRefresh,
     'unrelated presentation refresh must not stop/restart Live');
+  canvas = find('.vdr-suite-hbbtv-overlay');
+  assert(canvas && canvas !== previousCanvas, 'missing HbbTV canvas is recreated without replacing the player');
+  assert.strictEqual(canvas.dataset.hbbtvRevision, '6',
+    'recreated canvas is synchronized from a complete current frame');
+  assert.strictEqual(canvas.pixels[143 * 4 + 3], 255,
+    'full readback restores the opaque application control');
   assert(presentationRequests.length > frameReadsBeforeRefresh,
     'recreated canvas performs one full frame readback');
 

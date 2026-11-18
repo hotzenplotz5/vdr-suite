@@ -55,8 +55,10 @@ for marker in ("SuiteBridgePrioritizedLocalTransport","SuiteBridgePrioritizedLeg
     if marker not in agent_main: raise SystemExit(f"Legacy OSD local-control wiring missing {marker}")
 for marker in ("Operation::CapabilityDiscovery","Operation::OsdSnapshot","Operation::OsdInput","SuiteBridgeOsdSnapshotPayload","osdInput_.Handle"):
     if marker not in plugin: raise SystemExit(f"Legacy OSD plugin local-control wiring missing {marker}")
-for marker in ("Operation::HbbtvDiscovery","Operation::HbbtvRuntime","Operation::HbbtvPresentation","Operation::HbbtvMedia","Operation::HbbtvPresentationSubscribe","hbbtvCommand_.Handle","VDRWEB_SERVICE_HBBTV_PRESENTATION_CHANGED_V1","PublishHbbtvPresentationChanged"):
+for marker in ("Operation::HbbtvDiscovery","Operation::HbbtvRuntime","Operation::HbbtvPresentation","Operation::HbbtvMedia","hbbtvCommand_.Handle","VDRWEB_SERVICE_HBBTV_PRESENTATION_CHANGED_V1","PublishHbbtvPresentationChanged"):
     if marker not in plugin: raise SystemExit(f"HbbTV plugin local-control wiring missing {marker}")
+for marker in ("request.operation == Operation::HbbtvPresentationSubscribe", "presentationEventSubscribers_.push_back", "hbbtv_presentation_subscribed"):
+    if marker not in server: raise SystemExit(f"HbbTV presentation SSE subscription missing {marker}")
 for marker in (
     "r.operation==SuiteBridgeHbbtvRuntimeOperation::Input",
     "return compatibility_.controlHbbtv(r);",
