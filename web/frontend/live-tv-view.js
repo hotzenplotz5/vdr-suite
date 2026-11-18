@@ -37,7 +37,8 @@
     hbbtvSessionBusy: false,
     hbbtvSessionError: '',
     hbbtvSessionSequence: 0,
-    hbbtvPresentationTimer: null,
+    hbbtvPresentationEventSource: null,
+    hbbtvPresentationLastEventSequence: 0,
     hbbtvPresentationInFlight: false,
     hbbtvPresentationKickPending: false,
     hbbtvStatusTimer: null,
@@ -521,7 +522,6 @@
   }
 
   function pauseHbbtvPolling() {
-    clearHbbtvTimer('hbbtvPresentationTimer');
     clearHbbtvTimer('hbbtvStatusTimer');
     clearHbbtvTimer('hbbtvMediaTimer');
   }
@@ -729,6 +729,7 @@
 
   function resetHbbtvSessionState(options) {
     const settings = options && typeof options === 'object' ? options : {};
+    stopHbbtvPresentationEvents();
     pauseHbbtvPolling();
     state.hbbtvPresentationInFlight = false;
     state.hbbtvPresentationKickPending = false;
@@ -863,16 +864,74 @@
     return true;
   }
 
-  function scheduleHbbtvPresentation(sequence, delay) {
-    clearHbbtvTimer('hbbtvPresentationTimer');
-    if (!state.active || sequence !== state.hbbtvSessionSequence ||
-        !hbbtvSessionId() || typeof global.setTimeout !== 'function') return;
-
-    state.hbbtvPresentationTimer = global.setTimeout(function() {
-      pollHbbtvPresentation(sequence);
-    }, Math.max(0, Number(delay) || 0));
+  function stopHbbtvPresentationEvents() {
+    const source = state.hbbtvPresentationEventSource;
+    state.hbbtvPresentationEventSource = null;
+    state.hbbtvPresentationLastEventSequence = 0;
+    if (source && typeof source.close === 'function') source.close();
   }
 
+  function startHbbtvPresentationEvents(sequence) {
+    stopHbbtvPresentationEvents();
+    const client = clientApi();
+    if (!client || typeof client.createClientLiveUpdateSource !== 'function') {
+      state.hbbtvPresentationError = 'HbbTV Live-Updates sind nicht verfügbar.';
+      updateHbbtvSessionUi();
+      return false;
+    }
+
+    const source = client.createClientLiveUpdateSource();
+    if (!source || typeof source.addEventListener !== 'function') {
+      state.hbbtvPresentationError = 'HbbTV Live-Updates konnten nicht verbunden werden.';
+      updateHbbtvSessionUi();
+      return false;
+    }
+
+    state.hbbtvPresentationEventSource = source;
+    const isCurrent = function() {
+      return state.active &&
+        sequence === state.hbbtvSessionSequence &&
+        state.hbbtvPresentationEventSource === source &&
+        Boolean(hbbtvSessionId());
+    };
+    const forceReadback = function() {
+      if (!isCurrent()) return;
+      state.hbbtvFrameRevision = 0;
+      state.hbbtvPresentationLastEventSequence = 0;
+      kickHbbtvPresentation(sequence);
+    };
+
+    // EventSource reconnect is itself the resynchronization boundary.
+    source.onopen = forceReadback;
+    source.addEventListener('resync', forceReadback);
+    source.addEventListener('update', function(event) {
+      if (!isCurrent()) return;
+
+      let update = null;
+      try {
+        update = JSON.parse(event && event.data ? event.data : '{}');
+      } catch (_) {
+        return;
+      }
+      if (!update || typeof update !== 'object') return;
+
+      const backendId = text(update.backendId);
+      if (backendId && backendId !== hbbtvSessionBackendId()) return;
+      const domains = Array.isArray(update.changedDomains)
+        ? update.changedDomains
+        : [];
+      if (!domains.includes('hbbtvPresentation')) return;
+
+      const eventSequence = Number(update.sequenceNumber);
+      if (Number.isSafeInteger(eventSequence) && eventSequence > 0) {
+        if (eventSequence <= state.hbbtvPresentationLastEventSequence) return;
+        state.hbbtvPresentationLastEventSequence = eventSequence;
+      }
+
+      kickHbbtvPresentation(sequence);
+    });
+    return true;
+  }
 
   function kickHbbtvPresentation(sequence) {
     if (!state.active ||
@@ -886,11 +945,10 @@
       return;
     }
 
-    clearHbbtvTimer('hbbtvPresentationTimer');
-    scheduleHbbtvPresentation(sequence, 0);
+    readHbbtvPresentation(sequence);
   }
 
-  function pollHbbtvPresentation(sequence) {
+  function readHbbtvPresentation(sequence) {
     if (!state.active || sequence !== state.hbbtvSessionSequence ||
         !hbbtvSessionId()) return Promise.resolve(null);
 
@@ -902,6 +960,7 @@
     }
 
     if (state.hbbtvPresentationInFlight) {
+      state.hbbtvPresentationKickPending = true;
       return Promise.resolve(null);
     }
 
@@ -916,11 +975,11 @@
       cache: 'no-store',
       credentials: 'same-origin'
     }).then(function(frame) {
-      let inputKickPending = false;
+      let eventKickPending = false;
 
       if (sequence === state.hbbtvSessionSequence) {
         state.hbbtvPresentationInFlight = false;
-        inputKickPending = state.hbbtvPresentationKickPending;
+        eventKickPending = state.hbbtvPresentationKickPending;
         state.hbbtvPresentationKickPending = false;
       }
 
@@ -929,7 +988,7 @@
       if (frame && frame.status === 200) {
         if (!drawHbbtvPresentation(frame) &&
             state.hbbtvPresentationKickPending) {
-          inputKickPending = true;
+          eventKickPending = true;
           state.hbbtvPresentationKickPending = false;
         }
       } else if (frame && frame.status === 204 && Number(frame.revision) > 0) {
@@ -944,19 +1003,14 @@
       state.hbbtvPresentationError = '';
       alignHbbtvCanvas();
       updateHbbtvSessionUi();
-      scheduleHbbtvPresentation(
-        sequence,
-        inputKickPending
-          ? 0
-          : (doc && doc.hidden ? 1000 : 250)
-      );
+      if (eventKickPending) kickHbbtvPresentation(sequence);
       return frame;
     }).catch(function(error) {
-      let inputKickPending = false;
+      let eventKickPending = false;
 
       if (sequence === state.hbbtvSessionSequence) {
         state.hbbtvPresentationInFlight = false;
-        inputKickPending = state.hbbtvPresentationKickPending;
+        eventKickPending = state.hbbtvPresentationKickPending;
         state.hbbtvPresentationKickPending = false;
       }
 
@@ -970,27 +1024,17 @@
       if (error && (error.status === 403 ||
                     error.status === 404 ||
                     error.status === 409)) {
+        stopHbbtvPresentationEvents();
         clearHbbtvOverlay();
         return null;
       }
 
-      scheduleHbbtvPresentation(
-        sequence,
-        inputKickPending ? 0 : 1000
-      );
+      // No timer retry: the next provider event or SSE resync requests the
+      // current frame. If an event arrived during this read, coalesce once.
+      if (eventKickPending) kickHbbtvPresentation(sequence);
       return null;
     });
   }
-
-  function startHbbtvPresentationPolling(sequence) {
-    clearHbbtvTimer('hbbtvPresentationTimer');
-    if (!hbbtvSessionId()) return;
-    scheduleHbbtvPresentation(
-      sequence === undefined ? state.hbbtvSessionSequence : sequence,
-      0
-    );
-  }
-
 
   function hbbtvPlaybackController() {
     const playback = state.playback;
@@ -1497,7 +1541,7 @@
       if (currentState === 'failed' ||
           currentState === 'expired' ||
           currentState === 'suspended') {
-        clearHbbtvTimer('hbbtvPresentationTimer');
+        stopHbbtvPresentationEvents();
         clearHbbtvOverlay();
         return stopHbbtvMediaPlayback(sequence, false, true).then(function() {
           return session;
@@ -1505,7 +1549,6 @@
       }
 
       if (currentState === 'active') {
-        startHbbtvPresentationPolling(sequence);
         startHbbtvMediaPolling(sequence);
       }
       scheduleHbbtvStatus(
@@ -1523,7 +1566,7 @@
       if (error && (error.status === 403 ||
                     error.status === 404 ||
                     error.status === 409)) {
-        clearHbbtvTimer('hbbtvPresentationTimer');
+        stopHbbtvPresentationEvents();
         clearHbbtvOverlay();
         return null;
       }
@@ -1562,6 +1605,7 @@
       enabled: true
     };
 
+    stopHbbtvPresentationEvents();
     pauseHbbtvPolling();
     clearHbbtvOverlay();
     state.hbbtvSessionSequence += 1;
@@ -1609,7 +1653,8 @@
           state.hbbtvSessionBusy = false;
           state.hbbtvSessionError = '';
           updateHbbtvSessionUi();
-          startHbbtvPresentationPolling(sequence);
+          startHbbtvPresentationEvents(sequence);
+          kickHbbtvPresentation(sequence);
           startHbbtvMediaPolling(sequence);
           startHbbtvStatusPolling(sequence);
           return session;
@@ -1655,7 +1700,6 @@
     const backendId = hbbtvSessionBackendId();
     state.hbbtvSessionBusy = true;
     state.hbbtvSessionError = '';
-    clearHbbtvTimer('hbbtvPresentationTimer');
     clearHbbtvOverlay();
     updateHbbtvSessionUi();
 
@@ -1676,6 +1720,7 @@
       state.hbbtvSession = session;
       state.hbbtvSessionBusy = false;
       state.hbbtvSessionError = '';
+      stopHbbtvPresentationEvents();
       updateHbbtvSessionUi();
       return stopHbbtvMediaPlayback(sequence, false, true).then(function() {
         startHbbtvStatusPolling(sequence);
@@ -1794,7 +1839,6 @@
           }
 
           state.hbbtvSessionError = '';
-          kickHbbtvPresentation(sessionSequence);
           updateHbbtvSessionUi();
           return true;
         });
@@ -2236,7 +2280,7 @@
         text(state.hbbtvSession && state.hbbtvSession.channelId) === state.liveChannelId) {
       state.hbbtvFrameRevision = 0;
       const sequence = state.hbbtvSessionSequence;
-      startHbbtvPresentationPolling(sequence);
+      kickHbbtvPresentation(sequence);
       startHbbtvMediaPolling(sequence);
       startHbbtvStatusPolling(sequence);
       alignHbbtvCanvas();
@@ -2492,7 +2536,8 @@
     if (!state.hbbtvSurfaceObserver) observeHbbtvSurface();
     if (hbbtvSessionId() &&
         text(state.hbbtvSession && state.hbbtvSession.channelId) === state.liveChannelId) {
-      startHbbtvPresentationPolling(state.hbbtvSessionSequence);
+      startHbbtvPresentationEvents(state.hbbtvSessionSequence);
+      kickHbbtvPresentation(state.hbbtvSessionSequence);
       startHbbtvMediaPolling(state.hbbtvSessionSequence);
       startHbbtvStatusPolling(state.hbbtvSessionSequence);
     }
