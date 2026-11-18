@@ -1056,7 +1056,8 @@
         // Keep the read in-flight through decoding and canvas painting, so
         // bursts of SSE events coalesce instead of queueing stale frames.
         return decodeHbbtvPixels(frame.bytes).then(function(decoded) {
-          if (!state.active || sequence !== state.hbbtvSessionSequence) return null;
+          if (!state.active || sequence !== state.hbbtvSessionSequence ||
+              resyncEpoch !== state.hbbtvPresentationResyncEpoch) return null;
           drawHbbtvPresentation(frame, decoded);
           return frame;
         });
@@ -1072,6 +1073,12 @@
       }
 
       if (!state.active || sequence !== state.hbbtvSessionSequence) return null;
+      if (resyncEpoch !== state.hbbtvPresentationResyncEpoch) {
+        // A reconnect invalidated this in-flight frame, including its pixels.
+        // Re-read from revision zero after releasing the single-flight slot.
+        kickHbbtvPresentation(sequence);
+        return null;
+      }
 
       if (frame && frame.status === 204 && Number(frame.revision) > 0) {
         // A revision-only response cannot establish the pixel baseline.
