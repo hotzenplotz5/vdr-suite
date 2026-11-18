@@ -285,6 +285,9 @@
       compareTitle: boolValue(firstValue(comparison, ['compareTitle'], firstValue(source, ['compare_title', 'use_title'], true)), true),
       compareSubtitle: boolValue(firstValue(comparison, ['compareSubtitle'], firstValue(source, ['compare_subtitle', 'use_subtitle'], false)), false),
       compareSummary: boolValue(firstValue(comparison, ['compareSummary'], firstValue(source, ['compare_summary', 'use_description'], false)), false),
+      repeatCompareTitle: boolValue(firstValue(comparison, ['repeatCompareTitle'], firstValue(source, ['compare_title'], false)), false),
+      repeatCompareSubtitle: boolValue(firstValue(comparison, ['repeatCompareSubtitle'], firstValue(source, ['compare_subtitle'], false)), false),
+      repeatCompareSummary: boolValue(firstValue(comparison, ['repeatCompareSummary'], firstValue(source, ['compare_summary'], false)), false),
       compareCategories: boolValue(firstValue(comparison, ['compareCategories'], firstValue(source, ['compare_categories'], false)), false),
       compareTime: boolValue(firstValue(comparison, ['compareTime'], firstValue(source, ['compare_time'], false)), false),
       avoidRepeats: boolValue(firstValue(repeats, ['avoidRepeats'], firstValue(source, ['avoid_repeats'], false)), false),
@@ -313,7 +316,7 @@
       deleteRecordingsAfterDays: numberValue(firstValue(actions, ['deleteRecordingsAfterDays'], firstValue(source, ['del_recs_after_days'], 0)), 0),
       deleteAfterCountRecordings: numberValue(firstValue(actions, ['deleteAfterCountRecordings'], firstValue(source, ['del_after_count_recs'], 0)), 0),
       deleteAfterDaysOfFirstRecording: numberValue(firstValue(actions, ['deleteAfterDaysOfFirstRecording'], firstValue(source, ['del_after_days_of_first_rec'], 0)), 0),
-      updateSafe: state === 'inactive' && /^st_[0-9a-f]{32}$/.test(String(source.searchTimerId || ''))
+      updateSafe: ['active', 'inactive'].includes(state) && /^st_[0-9a-f]{32}$/.test(String(source.searchTimerId || ''))
     };
   }
 
@@ -476,6 +479,9 @@
       compareTitle: boolValue(formValue(form, 'compareTitle', source.compareTitle), true),
       compareSubtitle: boolValue(formValue(form, 'compareSubtitle', source.compareSubtitle), false),
       compareSummary: boolValue(formValue(form, 'compareSummary', source.compareSummary), false),
+      repeatCompareTitle: boolValue(formValue(form, 'repeatCompareTitle', source.repeatCompareTitle), false),
+      repeatCompareSubtitle: boolValue(formValue(form, 'repeatCompareSubtitle', source.repeatCompareSubtitle), false),
+      repeatCompareSummary: boolValue(formValue(form, 'repeatCompareSummary', source.repeatCompareSummary), false),
       compareCategories: boolValue(formValue(form, 'compareCategories', source.compareCategories), false),
       compareTime: boolValue(formValue(form, 'compareTime', source.compareTime), false),
       useSeriesRecording: boolValue(formValue(form, 'useSeriesRecording', source.useSeriesRecording), false),
@@ -583,7 +589,8 @@
   function populateChannelSelect(selectElement, channels, selectedId) {
     selectElement.replaceChildren();
     if (channels.length === 0) {
-      selectElement.appendChild(option('', 'Keine Kanäle verfügbar', true));
+      selectElement.appendChild(option(selectedId || '', selectedId ? 'Aktueller Kanal · ' + selectedId : 'Keine Kanäle verfügbar', true));
+      selectElement.value = selectedId || '';
       selectElement.disabled = true;
       return;
     }
@@ -595,12 +602,14 @@
     if (selectedId && !channels.some(channel => channel.id === selectedId)) {
       selectElement.appendChild(option(selectedId, 'Aktueller Kanal · ' + selectedId, true));
     }
+    selectElement.value = selectedId || '';
   }
 
   function configureDirectorySelector(selectElement, manualInput, status, source) {
     status.textContent = 'Aufnahmeverzeichnisse werden geladen …';
     selectElement.disabled = true;
-    selectElement.replaceChildren(option('', 'Verzeichnisse werden geladen …', true));
+    selectElement.replaceChildren(option(source.directory, directoryOptionLabel(source.directory), true));
+    selectElement.value = source.directory;
 
     fetchDirectoryData().then(folderData => {
       const directories = directoryOptions(folderData, lastSearchTimerData || {}, source.directory);
@@ -618,6 +627,7 @@
       status.textContent = String(directories.length) + ' Verzeichnisziele verfügbar.';
     }).catch(error => {
       selectElement.replaceChildren(option(source.directory, directoryOptionLabel(source.directory), true));
+      selectElement.value = source.directory;
       selectElement.disabled = source.directory === '';
       manualInput.value = source.directory;
       status.textContent = 'Verzeichnisliste konnte nicht geladen werden. Bitte Expertenoption verwenden: ' +
@@ -626,7 +636,7 @@
   }
 
   function createDirectoryFields(grid, source) {
-    const directorySelect = select('directory', source.directory, []);
+    const directorySelect = select('directory', source.directory, [[source.directory, directoryOptionLabel(source.directory)]]);
     const directoryField = field('Aufnahmeverzeichnis auswählen', directorySelect, true);
     const status = document.createElement('p');
     status.className = 'searchtimer-selector-status';
@@ -693,7 +703,10 @@
       }
 
       if (currentChannel && selectorGroups.length > 0) groupSelect.value = channelGroupKey(currentChannel);
-      if (source.useChannel === 2 && realGroups.includes(source.channels)) channelGroupSelect.value = source.channels;
+      if (source.useChannel === 2 && source.channels) {
+        if (!realGroups.includes(source.channels)) channelGroupSelect.appendChild(option(source.channels, source.channels, true));
+        channelGroupSelect.value = source.channels;
+      }
 
       modeSelect.addEventListener('change', () => {
         clearManualChannelFilter();
@@ -735,15 +748,18 @@
     const groupField = field('Kanalgruppe zur Auswahl', groupSelect, true);
     groupField.hidden = true;
 
-    const channelSelect = select('channelId', '', []);
+    const initialChannel = source.useChannel === 1 ? (source.channelMin || source.channelMax) : '';
+    const channelSelect = select('channelId', initialChannel, [[initialChannel, initialChannel || 'Kanal auswählen …']]);
     const channelField = document.createElement('div');
     channelField.className = 'searchtimer-field wide';
     channelField.appendChild(field('Von Sender', channelSelect, true));
-    const channelEndSelect = select('channelEndId', '', []);
+    const initialEnd = source.useChannel === 1 ? (source.channelMax || initialChannel) : '';
+    const channelEndSelect = select('channelEndId', initialEnd, [[initialEnd, initialEnd || 'Gleicher Sender']]);
     channelField.appendChild(field('Bis Sender (leer = gleicher Sender)', channelEndSelect, true));
     channelField.hidden = true;
 
-    const channelGroupSelect = select('channelFilterGroup', source.useChannel === 2 ? source.channels : '', []);
+    const initialGroup = source.useChannel === 2 ? source.channels : '';
+    const channelGroupSelect = select('channelFilterGroup', initialGroup, [[initialGroup, initialGroup || 'Kanalgruppe auswählen …']]);
     const channelGroupField = field('Kanalgruppe filtern', channelGroupSelect, true);
     channelGroupField.hidden = true;
 
@@ -946,7 +962,7 @@
       // The Client API stream reconnects itself; manual GET remains available.
       events.onerror = () => { if (attached && !inspect.hidden) inspect.disabled = false; };
     }
-    async function execute(action, query) {
+    async function execute(action, changes, editorVersion) {
       if (!attached || busy || submitted) return;
       if (!api || typeof api.fetchPublicSearchTimerVersion !== 'function' ||
           typeof api.mutatePublicSearchTimer !== 'function') {
@@ -955,9 +971,9 @@
       }
       const payload = {action, confirmed: true};
       if (action === 'update') {
-        payload.query = String(query || '').trim();
-        if (!payload.query) {
-          setFeedback(feedback, 'Bitte einen Suchbegriff eingeben.', true);
+        Object.assign(payload, changes);
+        if (!changes || Object.keys(changes).length === 0) {
+          setFeedback(feedback, 'Keine Einstellungen geändert.', false);
           return;
         }
       }
@@ -973,7 +989,7 @@
       try {
         // The version response binds the current rule to the same revision.
         // Do not require a separate DETAIL request before a mutation.
-        const version = await api.fetchPublicSearchTimerVersion(scope);
+        const version = editorVersion || await api.fetchPublicSearchTimerVersion(scope);
         if (!attached) return;
         if (!version || version.searchTimerId !== scope.searchTimerId ||
             version.backendId !== scope.backend || !/^sr_[0-9a-f]{32}$/.test(version.revision)) {
@@ -1012,7 +1028,7 @@
         if (attached && !submitted) lock(false);
       }
     }
-    return {execute};
+    return {execute, lock, addControl(control) { controls.push(control); originalDisabled.push(control.disabled); }};
   }
 
   async function runSavedPreview(timer, button, target) {
@@ -1072,13 +1088,16 @@
       Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
   }
 
-  function createForm(template) {
+  function createForm(template, editContext) {
+    const editing = Boolean(editContext);
     const source = template || normalizeSearchTimer({}, 0);
     const form = document.createElement('form');
     form.className = 'searchtimer-form';
-    form.dataset.searchtimerEditorForm = 'create';
+    form.dataset.searchtimerEditorForm = editing ? 'update' : 'create';
 
     const notice = addText(document.createElement('p'),
+      editing ? 'Suchtimer bearbeiten – nur geänderte Einstellungen werden gespeichert. ' +
+        'Aktivieren und Deaktivieren erfolgen weiterhin separat.' :
       'VDR-Suite: Suchtimer können mit den vorhandenen epgsearch-Optionen ' +
       'direkt inaktiv oder aktiv angelegt werden. Die Vorschau zeigt nur EPG-' +
       'Texttreffer, keine tatsächliche Aufnahmeprognose. Der Browser benutzt ' +
@@ -1088,7 +1107,7 @@
     const grid = document.createElement('div');
     grid.className = 'searchtimer-form-grid';
     grid.appendChild(field('Suchbegriff / Name', input('query', source.query), true));
-    grid.appendChild(check('active', 'Nach dem Speichern sofort aktiv', false));
+    if (!editing) grid.appendChild(check('active', 'Nach dem Speichern sofort aktiv', false));
     grid.appendChild(check('compareTitle', 'Titel durchsuchen', template ? source.compareTitle : true));
     grid.appendChild(check('compareSubtitle', 'Untertitel durchsuchen', source.compareSubtitle));
     grid.appendChild(check('compareSummary', 'Beschreibung durchsuchen', source.compareSummary));
@@ -1097,11 +1116,12 @@
       [[0, 'Phrase'], [1, 'Alle Wörter'], [2, 'Ein Wort'],
        [3, 'Exakt'], [4, 'Regulärer Ausdruck'], [5, 'Unscharf']])));
     grid.appendChild(field('Toleranz (nur Unscharf)', input('tolerance',
-      source.mode === 5 ? source.tolerance : 0, 'number')));
+      editing || source.mode === 5 ? source.tolerance : 0, 'number')));
     form.appendChild(grid);
 
     const advanced = document.createElement('details');
     advanced.className = 'searchtimer-expert';
+    if (editing) advanced.open = true;
     advanced.appendChild(addText(document.createElement('summary'),
       'Weitere Einstellungen'));
     const advancedGrid = document.createElement('div');
@@ -1121,15 +1141,25 @@
     durationGroup.appendChild(addText(document.createElement('legend'), 'Aufnahmedauer'));
     advancedGrid.appendChild(durationGroup);
     durationGroup.appendChild(check('useDuration', 'Dauerfilter aktivieren', source.useDuration));
-    durationGroup.appendChild(field('Mindestdauer (Min.)',
+    durationGroup.appendChild(field('Mindestdauer (HHMM)',
       input('durationMinMinutes', source.durationMinMinutes, 'number')));
-    durationGroup.appendChild(field('Höchstdauer (Min.)',
+    durationGroup.appendChild(field('Höchstdauer (HHMM)',
       input('durationMaxMinutes', source.durationMaxMinutes, 'number')));
     const repeatGroup = document.createElement('fieldset');
     repeatGroup.className = 'searchtimer-option-group searchtimer-form-grid';
     repeatGroup.appendChild(addText(document.createElement('legend'), 'Wiederholungen'));
     advancedGrid.appendChild(repeatGroup);
     repeatGroup.appendChild(check('avoidRepeats', 'Wiederholungen vermeiden', source.avoidRepeats));
+    repeatGroup.appendChild(check('repeatCompareTitle', 'Titel auf Wiederholung prüfen', template ? source.repeatCompareTitle : true));
+    if (!editing) repeatGroup.appendChild(check('repeatCompareSubtitle', 'Untertitel auf Wiederholung prüfen', source.repeatCompareSubtitle));
+    repeatGroup.appendChild(check('repeatCompareSummary', 'Beschreibung auf Wiederholung prüfen', source.repeatCompareSummary));
+    if (editing) {
+      repeatGroup.appendChild(field('Untertitelvergleich', select('repeatCompareSubtitleMode', '', [
+        ['', 'Unverändert'], [0, 'Aus'], [1, 'Ja'], [2, 'Wenn vorhanden']])));
+      repeatGroup.appendChild(field('Zeitvergleich (nativer Modus)', select('repeatCompareTimeMode', '', [
+        ['', 'Unverändert'], [0, 'Aus'], [1, 'Modus 1'], [2, 'Modus 2'], [3, 'Modus 3']])));
+      repeatGroup.appendChild(field('EPG-Kategorien (Bitmaske)', input('repeatCompareCategoriesMask', '')));
+    }
     repeatGroup.appendChild(field('Erlaubte Wiederholungen',
       input('allowedRepeats', source.allowedRepeats, 'number')));
     repeatGroup.appendChild(field('Wiederholungen innerhalb (Tage)',
@@ -1175,10 +1205,17 @@
       ['deleteAfterDaysOfFirstRecording','Aufnahmen löschen nach erster Aufnahme','number']
     ];
     extras.forEach(([name, title, type]) => {
+      if (editing && ['compareCategories', 'compareTime', 'pauseOnRecordings'].includes(name)) return;
       extraGrid.appendChild(type === 'bool'
         ? check(name, title, source[name])
         : field(title, input(name, source[name], type)));
     });
+    if (editing) {
+      extraGrid.appendChild(field('Pausieren ab Anzahl Aufnahmen (leer = unverändert)', input('pauseOnRecordingsCount', '', 'number')));
+      extraGrid.appendChild(field('Aktivierungsmodus', select('activeMode', '', source.active
+        ? [['', 'Unverändert'], [1, 'Aktiv'], [2, 'Zeitlich begrenzt']]
+        : [['', 'Unverändert'], [0, 'Inaktiv']])));
+    }
     extra.appendChild(extraGrid);
     advancedGrid.appendChild(extra);
     advanced.appendChild(advancedGrid);
@@ -1189,8 +1226,8 @@
     const previewButton = addText(document.createElement('button'), 'Vorschau');
     previewButton.type = 'button';
     previewButton.className = 'primary';
-    const saveButton = addText(document.createElement('button'), 'Suchtimer speichern');
-    saveButton.type = 'submit';
+    const saveButton = addText(document.createElement('button'), editing ? 'Änderung speichern' : 'Suchtimer speichern');
+    saveButton.type = editing ? 'button' : 'submit';
     saveButton.dataset.searchtimerAction = 'save';
     actions.appendChild(previewButton);
     actions.appendChild(saveButton);
@@ -1199,10 +1236,11 @@
     checkOperationButton.type = 'button';
     checkOperationButton.hidden = true;
     checkOperationButton.disabled = true;
-    actions.appendChild(checkOperationButton);
+    if (!editing) actions.appendChild(checkOperationButton);
     const cancelButton = addText(document.createElement('button'), 'Abbrechen / Zurück');
     cancelButton.type = 'button';
     cancelButton.addEventListener('click', () => {
+      if (editing) { editContext.close(); return; }
       // Preserve admitted operation and duplicate protection when collapsing.
       let panel = form.parentElement;
       while (panel && panel.className !== 'searchtimer-create-panel') panel = panel.parentElement;
@@ -1215,6 +1253,61 @@
     feedback.setAttribute('role', 'status');
     feedback.setAttribute('aria-live', 'polite');
     form.appendChild(feedback);
+
+    if (editing) {
+      const baseline = buildCreatePayload(form, source);
+      const nativeBaseline = {};
+      const nativeKeys = ['activeMode', 'repeatCompareSubtitleMode', 'repeatCompareTimeMode', 'repeatCompareCategoriesMask'];
+      let editorVersion = null;
+      editContext.mutation.addControl(saveButton);
+      // Load exact native modes from the existing revision observation.
+      const api = clientApi();
+      if (api && typeof api.fetchPublicSearchTimerVersion === 'function') {
+        Promise.resolve(api.fetchPublicSearchTimerVersion({backend: source.backendId, searchTimerId: source.searchTimerId})).then(version => {
+          if (!version || version.searchTimerId !== source.searchTimerId ||
+              version.backendId !== source.backendId || version.query !== source.query ||
+              version.state !== source.state) return;
+          editorVersion = version;
+          nativeKeys.forEach(key => {
+            const control = form.elements[key];
+            if (!control || version[key] === undefined || version[key] === null) return;
+            nativeBaseline[key] = String(version[key]);
+            if (String(control.value || '') === '') control.value = nativeBaseline[key];
+          });
+        }).catch(() => {
+          // Ordinary fields remain editable; save obtains a fresh revision.
+        });
+      }
+      function changes() {
+        const current = buildCreatePayload(form, source);
+        const edited = {};
+        Object.keys(current).forEach(key => {
+          if (['backendId', 'name', 'active', 'pauseOnRecordings', 'compareCategories', 'compareTime', 'repeatCompareSubtitle'].includes(key)) return;
+          if (current[key] !== baseline[key]) edited[key] = current[key];
+        });
+        // Channel representations have shared dependencies: send the complete
+        // selected channel filter only when that selection changed.
+        const channelKeys = ['useChannel', 'channels', 'channelMin', 'channelMax'];
+        if (channelKeys.some(key => Object.prototype.hasOwnProperty.call(edited, key)))
+          channelKeys.forEach(key => { edited[key] = current[key]; });
+        nativeKeys.forEach(key => {
+          const value = formValue(form, key, '');
+          if (value !== '' && value !== nativeBaseline[key])
+            edited[key] = key === 'repeatCompareCategoriesMask' ? value : Number(value);
+        });
+        const pause = formValue(form, 'pauseOnRecordingsCount', '');
+        if (pause !== '') edited.pauseOnRecordings = Number(pause);
+        return edited;
+      }
+      previewButton.addEventListener('click', () => {
+        const current = buildCreatePayload(form, source);
+        if (String(current.query || '').trim()) runPreview(current, previewButton, feedback);
+      });
+      const save = () => editContext.mutation.execute('update', changes(), editorVersion);
+      saveButton.addEventListener('click', save);
+      form.addEventListener('submit', event => { event.preventDefault(); return save(); });
+      return form;
+    }
 
     let pending = false;
     let submitted = false;
@@ -1553,10 +1646,9 @@
     copy.addEventListener('click', () => populateCreateForm(timer));
     actions.appendChild(copy);
 
-    const edit = addText(document.createElement('button'), 'Suchbegriff bearbeiten');
+    const edit = addText(document.createElement('button'), 'Suchtimer bearbeiten');
     edit.type = 'button';
     edit.disabled = !timer.updateSafe;
-    if (timer.active) edit.title = 'Suchbegriff kann bei einer inaktiven Regel geändert werden.';
     actions.appendChild(edit);
     const toggle = addText(document.createElement('button'), timer.active ? 'Deaktivieren' : 'Aktivieren');
     toggle.type = 'button';
@@ -1580,24 +1672,21 @@
 
     const editor = document.createElement('div');
     editor.hidden = true;
-    const query = document.createElement('input');
-    query.type = 'text';
-    query.value = timer.query;
-    query.setAttribute('aria-label', 'Suchbegriff');
-    editor.appendChild(query);
-    const save = addText(document.createElement('button'), 'Änderung speichern');
-    save.type = 'button';
-    save.disabled = !timer.updateSafe;
-    editor.appendChild(save);
     body.appendChild(editor);
 
     const feedback = document.createElement('div');
     feedback.className = 'searchtimer-feedback';
     feedback.setAttribute('role', 'status');
     body.appendChild(feedback);
-    const mutation = createMutationController(timer, [edit, toggle, remove, save], feedback, inspect);
-    edit.addEventListener('click', () => { editor.hidden = !editor.hidden; });
-    save.addEventListener('click', () => mutation.execute('update', query.value));
+    const mutation = createMutationController(timer, [edit, toggle, remove], feedback, inspect);
+    let editorForm = null;
+    edit.addEventListener('click', () => {
+      if (!editorForm) {
+        editorForm = createForm(timer, {mutation, close() { editor.hidden = true; }});
+        editor.appendChild(editorForm);
+      }
+      editor.hidden = !editor.hidden;
+    });
     toggle.addEventListener('click', () => mutation.execute(timer.active ? 'deactivate' : 'activate'));
     remove.addEventListener('click', () => mutation.execute('delete'));
     preview.addEventListener('click', () => runSavedPreview(timer, preview, feedback));

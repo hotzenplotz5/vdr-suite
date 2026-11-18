@@ -187,8 +187,15 @@ Werte separat in `comparisonOptions` aus, sofern das jeweilige native Feld
 vorliegt. Die CREATE-Operation speichert neue explizite Optionen dauerhaft
 als internes Payload-Format 4; unveränderte alte Anfragen verwenden weiterhin
 Format 3 mit identischem Fingerprint. Die Public API bleibt v1.
-Die vollständige UPDATE-Maske folgt separat; MLD.F3 erweitert unten den
-bestehenden öffentlichen UPDATE-Vertrag.
+MLD.F4 verwendet dieselbe Web-Maske zum Anlegen und Bearbeiten aktiver
+oder inaktiver Regeln. UPDATE überträgt nur geänderte Felder, einschließlich
+explizitem false bzw. 0. Exakte native Wiederholungsmodi und Aktivierungsmodus
+werden aus VERSION übernommen; nicht gelieferte Werte werden nicht als
+Standardwert gespeichert. Die Anzahl für Pause-on-recordings kann manuell
+gesetzt werden, der bestehende Readback liefert dafür noch keinen exakten
+Zählwert. Die vorhandene reine Lesevorschau bleibt unverändert.
+Speichern nutzt ausschließlich die bestehende Public-v1-Mutationsroute,
+die beobachtete Revision und die bestehende Operation/SSE-Kette.
 
 ### Vollständige unterstützte epgsearch-Optionen
 

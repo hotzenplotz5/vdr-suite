@@ -420,3 +420,28 @@ vollständige Transporttest und Daemon wurden nicht gebaut. Der vollständige
 Reference-JS-Test lief in isolierter V8 mit Node-Modul-Shims (72 Assertions,
 PASS); OpenAPI und Parser-Feldinventar (59 Keys) abgeglichen. Kein Node-CLI-
 oder Full-CI-Nachweis. Der Checkout scheitert lokal an DNS (github.com).
+
+## MLD.F4 – Gemeinsame grafische Web-Maske für CREATE und UPDATE
+
+Die bestehende CREATE-Maske wird für die Bearbeitung aktiver und inaktiver
+Regeln wiederverwendet. Der bisherige reine Suchbegriff-Editor entfällt.
+Suchfelder und Wiederholungsfelder werden getrennt angeboten. UPDATE sendet
+nur die Differenz zum ursprünglichen Formular, einschließlich explizitem
+false/0 und zusammengehörigen Senderfilterwerten. VERSION liefert die
+exakten Untertitel-/Zeitvergleichsmodi, Kategorienmaske und Aktivierungsmodus.
+Fehlende exakte Werte werden nicht als Standardwert geschrieben. Pause-on-
+recordings-Anzahl ist editierbar, aber nicht exakt vorausgefüllt (die vorhandene
+Settings-Projektion liefert nur ein Flag). Die bisherigen CREATE-/UPDATE-
+Operationen und SSE-Rückmeldungen bleiben bestehen; kein Polling und keine
+neue Mutation oder Berechtigung. Die existierende Lesevorschau ist nicht
+Gegenstand dieses Slices. Sender- und Verzeichnisauswahl erhalten die aktuell
+bekannten Werte auch vor bzw. bei fehlgeschlagenem Laden der Auswahlkataloge.
+
+Nachweis: vollständiger vorhandener `test_searchtimer_workflows_runtime.js`
+in isolierter V8 mit dessen Mock-DOM und Node-Modul-Shims: 302 Assertions PASS
+(CREATE und UPDATE, aktive Regeln, nur geänderte Felder, native Modi, Abbrechen/
+Wiederöffnen, kein zweiter Schreibvorgang und SSE). Kein echter Browser- oder
+Node-CLI-Nachweis. Realtest auf MLD/yaVDR und vollständiger Daemon-Build bleiben
+offen. Der Betreiber meldete für den F3-Testblock einen erfolgreichen
+TimerAssignment-Collection-/Security-Test und Phase-69.D-Guard; die gezeigte
+Ausgabe enthält keine genaue HEAD-SHA und keinen vollständigen Daemon-Build.

@@ -582,6 +582,9 @@ async function checkEditorFullWrites() {
   form.elements.durationMinMinutes.value = '35';
   form.elements.durationMaxMinutes.value = '100';
   form.elements.avoidRepeats.checked = true;
+  form.elements.repeatCompareTitle.checked = false;
+  form.elements.repeatCompareSubtitle.checked = true;
+  form.elements.repeatCompareSummary.checked = true;
   form.elements.allowedRepeats.value = '1';
   form.elements.blacklistMode.value = '2';
   form.elements.blacklistIds.value = '4, 5';
@@ -609,6 +612,10 @@ async function checkEditorFullWrites() {
   assert.strictEqual(request.payload.useChannel, 2);
   assert.strictEqual(request.payload.channels, 'ARD');
   assert.strictEqual(request.payload.durationMinMinutes, 35);
+  assert.strictEqual(request.payload.compareTitle, true);
+  assert.strictEqual(request.payload.repeatCompareTitle, false);
+  assert.strictEqual(request.payload.repeatCompareSubtitle, true);
+  assert.strictEqual(request.payload.repeatCompareSummary, true);
   assert.strictEqual(request.payload.blacklistIds, '4, 5');
   assert.strictEqual(request.payload.extendedEpgInfo,
     'category=movie; actor=Jane');
@@ -766,7 +773,8 @@ async function checkPublicMutations() {
       assert.strictEqual(options.backend, backend);
       if (rejectVersion) throw new Error('SearchTimer version unavailable');
       return {searchTimerId, backendId: backend, revision,
-        query: current.query, state: current.state};
+        query: current.query, state: current.state, repeatCompareSubtitleMode:2,
+        repeatCompareTimeMode:3, repeatCompareCategoriesMask:'17', activeMode:current.state === 'active' ? 1 : 0};
     },
     async mutatePublicSearchTimer(options) {
       writes.push(options);
@@ -819,7 +827,7 @@ async function checkPublicMutations() {
     current = {searchTimerId, backendId: backend, query:'Tatort', name:'Tatort', state,
       settings:{recordingOptions:{directory:'Doku',priority:50},
         filterOptions:{useChannelMode:2,useTime:true,startTime:930,stopTime:1120},
-        channelOptions:{channels:'ARD'}}};
+        channelOptions:{channels:'ARD'}, comparisonOptions:{compareTitle:true,repeatCompareTitle:true,repeatCompareSubtitle:true,repeatCompareSummary:false}}};
     mod.renderList({items:[current]});
     const normalized = mod.normalizeSearchTimer(current, 0);
     assert.strictEqual(normalized.directory, 'Doku');
@@ -839,11 +847,20 @@ async function checkPublicMutations() {
     const card = open(action === 'deactivate' ? 'active' : 'inactive');
     let control;
     if (action === 'update') {
-      const edit = button(card,'Suchbegriff bearbeiten');
+      const edit = button(card,'Suchtimer bearbeiten');
       assert.strictEqual(edit.disabled, false);
       edit.listeners.click();
-      const input = find(card,node => node.tagName === 'INPUT');
-      input.value = 'Tatort neu';
+      const editor = findForm(card);
+      assert(editor && editor.dataset.searchtimerEditorForm === 'update');
+      assert.strictEqual(editor.elements.query.value,'Tatort');
+      assert.strictEqual(editor.elements.priority.value,'50');
+      assert.strictEqual(editor.elements.repeatCompareTitle.checked,true);
+      editor.elements.query.value = 'Tatort neu';
+      editor.elements.priority.value = '70';
+      editor.elements.repeatCompareTitle.checked = false;
+      editor.elements.repeatCompareSubtitleMode.value = '1';
+      await Promise.resolve();
+      assert.strictEqual(editor.elements.repeatCompareTimeMode.value,'3');
       control = button(card,'Änderung speichern');
     } else {
       control = button(card, {activate:'Aktivieren',deactivate:'Deaktivieren',delete:'Suchtimer löschen'}[action]);
@@ -861,7 +878,17 @@ async function checkPublicMutations() {
     assert.strictEqual(request.payload.action, action);
     assert.strictEqual(request.payload.confirmed, true);
     assert(/^search-web-[0-9a-f]{32}$/.test(request.idempotencyKey));
-    if (action === 'update') assert.strictEqual(request.payload.query, 'Tatort neu');
+    if (action === 'update') {
+      assert.strictEqual(request.payload.query, 'Tatort neu');
+      assert.strictEqual(request.payload.priority,70);
+      assert.strictEqual(request.payload.repeatCompareTitle,false);
+      assert.strictEqual(request.payload.repeatCompareSubtitleMode,1);
+      assert.strictEqual(request.payload.channels,undefined);
+      assert.strictEqual(request.payload.directory,undefined);
+      assert.strictEqual(request.payload.repeatCompareTimeMode,undefined);
+      assert.strictEqual(request.payload.repeatCompareCategoriesMask,undefined);
+      assert.strictEqual(request.payload.active,undefined);
+    }
     assert.strictEqual(request.payload.backendNativeId, undefined);
   }
   assert.strictEqual(reloads, 4);
@@ -916,11 +943,29 @@ async function checkPublicMutations() {
   loseResponse = false;
 
   card = open('active');
-  assert.strictEqual(button(card,'Suchbegriff bearbeiten').disabled, true);
+  const activeEdit = button(card,'Suchtimer bearbeiten');
+  assert.strictEqual(activeEdit.disabled, false);
   await button(card,'Vorschau').listeners.click();
   assert(find(card,node => node.textContent === 'Tatort'));
   assert(find(card,node => node.textContent === 'EPG-Treffer, keine verbindliche Aufnahmeprognose.'));
   assert.strictEqual(writes.length, 6);
+  // An active rule uses the same full editor and unchanged saves never write.
+  activeEdit.listeners.click();
+  const activeForm = findForm(card);
+  await Promise.resolve();
+  const activeSave = button(card,'Änderung speichern');
+  await activeSave.listeners.click();
+  assert.strictEqual(writes.length, 6);
+  activeForm.elements.lifetime.value = '99';
+  const cancel = button(card,'Abbrechen / Zurück');
+  cancel.listeners.click();
+  assert.strictEqual(activeForm.parentElement.hidden,true);
+  activeEdit.listeners.click();
+  assert.strictEqual(activeForm.elements.lifetime.value,'99');
+  await activeSave.listeners.click();
+  assert.strictEqual(writes.length,7);
+  assert.strictEqual(writes[6].payload.lifetime,99);
+  assert.strictEqual(writes[6].payload.activeMode,undefined);
 }
 async function checkNamedSelectors() {
   const mount = new FormElement('main'), tasks = [];
