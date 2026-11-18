@@ -293,6 +293,8 @@ async function run() {
     {backendId: 'default', sessionId: 'app_1', action: 'ok'});
   assert.strictEqual(presentationRequests.length, readsBeforeInput,
     'input acknowledgement is not a frame signal; no premature readback');
+  assert(find('.vdr-suite-hbbtv-input-diagnostics').textContent.includes('Bild …'),
+    'missing frame latency must remain pending rather than being shown as 0 ms');
   const firstEventSource = liveUpdateSource;
   firstEventSource.emit('update', {
     backendId: 'default', sequenceNumber: 1,
@@ -326,6 +328,41 @@ async function run() {
   await flush();
   assert.strictEqual(canvas.dataset.hbbtvRevision, '6',
     'one push readback coalesces rapid input-driven frame revisions');
+
+  // A reconnect while a patch request is pending invalidates that request.
+  // Its late success must not replace the revision-0 full-frame resync.
+  const originalRead = client.fetchClientHbbtvPresentation;
+  let finishOldRead;
+  client.fetchClientHbbtvPresentation = function({query}) {
+    presentationRequests.push({query: {...query}});
+    return new Promise(resolve => {
+      finishOldRead = () => resolve({
+        status: 200, revision: 7, width: 16, height: 9,
+        frameKind: 'patch', baseRevision: 6,
+        patchX: 15, patchY: 8, patchWidth: 1, patchHeight: 1,
+        bytes: qoiControlPatch()
+      });
+    });
+  };
+  firstEventSource.emit('update', {
+    backendId: 'default', sequenceNumber: 3,
+    changedDomains: ['hbbtvPresentation']
+  });
+  await flush();
+  assert.strictEqual(typeof finishOldRead, 'function',
+    'an incremental frame read must be in flight before SSE reconnect');
+  assert.strictEqual(presentationRequests.at(-1).query.revision, '6');
+  firstEventSource.emit('resync', {reason: 'reconnect'});
+  client.fetchClientHbbtvPresentation = originalRead;
+  frameRevision = 8;
+  finishOldRead();
+  await flush();
+  assert.strictEqual(presentationRequests.at(-1).query.revision, '0',
+    'SSE resync must force a complete read after discarding the stale patch');
+  assert.strictEqual(canvas.dataset.hbbtvRevision, '8',
+    'a late pre-reconnect patch must never overwrite the resynchronized canvas');
+  assert.strictEqual(canvas.pixels[3], 0,
+    'resynchronized full frame must preserve the broadband video hole');
 
   // A final container layout arrives independently of frame events and input.
   width = 960;
