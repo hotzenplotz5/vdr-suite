@@ -158,6 +158,7 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/teletext-view.js $(DESTDIR)$(DATADIR)/web/frontend/teletext-view.js
 	$(INSTALL) -m 0644 web/frontend/hbbtv-qoi.js $(DESTDIR)$(DATADIR)/web/frontend/hbbtv-qoi.js
 	$(INSTALL) -m 0644 web/frontend/hbbtv-qoi-worker.js $(DESTDIR)$(DATADIR)/web/frontend/hbbtv-qoi-worker.js
+	$(INSTALL) -m 0644 web/frontend/hbbtv-qoi-worker.js $(DESTDIR)$(DATADIR)/web/frontend/hbbtv-qoi-worker.js
 	$(INSTALL) -m 0644 web/frontend/live-tv-view.js $(DESTDIR)$(DATADIR)/web/frontend/live-tv-view.js
 	$(INSTALL) -m 0644 web/frontend/channel-day-program-compat.js $(DESTDIR)$(DATADIR)/web/frontend/channel-day-program-compat.js
 	cat \
@@ -297,6 +298,7 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/teletext-view.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/hbbtv-qoi.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/hbbtv-qoi-worker.js
+	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/hbbtv-qoi-worker.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/live-tv-view.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/channel-day-program-compat.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js
@@ -307,6 +309,7 @@ test-install-staging:
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/home-live-preview.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/teletext-view.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/hbbtv-qoi.js
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/hbbtv-qoi-worker.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/hbbtv-qoi-worker.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/live-tv-view.js
 	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-searchtimer-actions.js
