@@ -2199,7 +2199,7 @@
 
   function createHbbtvOverlay(slot) {
     const hbbtvOverlay = doc.createElement('canvas');
-    hbbtvOverlay.className = 'vdr-suite-hbbtv-hbbtvOverlay';
+    hbbtvOverlay.className = 'vdr-suite-hbbtv-overlay';
     hbbtvOverlay.hidden = true;
     hbbtvOverlay.tabIndex = 0;
     hbbtvOverlay.setAttribute('role', 'application');
