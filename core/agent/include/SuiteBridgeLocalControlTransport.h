@@ -15,7 +15,10 @@
 
 #include <atomic>
 #include <chrono>
+#include <functional>
+#include <mutex>
 #include <string>
+#include <thread>
 
 namespace vdrsuite::agent
 {
@@ -43,6 +46,12 @@ class SuiteBridgeLocalControlTransport final :
 public:
     explicit SuiteBridgeLocalControlTransport(
         SuiteBridgeLocalControlTransportConfig config = {});
+    ~SuiteBridgeLocalControlTransport();
+
+    using HbbtvPresentationEventHandler =
+        std::function<void(const std::string&, std::uint64_t)>;
+    bool startHbbtvPresentationEvents(HbbtvPresentationEventHandler handler);
+    void stopHbbtvPresentationEvents();
 
     SuiteBridgeCommandReply execute(
         SuiteBridgeLocalCommand command) override;
@@ -110,9 +119,15 @@ private:
     SuiteBridgeCommandReply executeOperation(
         control::Operation,
         const std::string&);
+    void runHbbtvPresentationEventLoop();
 
     SuiteBridgeLocalControlTransportConfig config_;
     std::atomic<std::uint64_t> nextRequestId_{1};
+    std::atomic<bool> hbbtvPresentationEventsRunning_{false};
+    std::mutex hbbtvPresentationEventSocketMutex_;
+    int hbbtvPresentationEventSocketFd_ = -1;
+    std::thread hbbtvPresentationEventThread_;
+    HbbtvPresentationEventHandler hbbtvPresentationEventHandler_;
 };
 
 class SuiteBridgePrioritizedLocalTransport final :

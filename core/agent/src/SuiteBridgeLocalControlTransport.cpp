@@ -3,6 +3,7 @@
 #include "SuiteBridgeHandshakeService.h"
 #include "VdrRecordingNativeIdentity.h"
 #include <algorithm>
+#include <charconv>
 #include <cctype>
 #include <cerrno>
 #include <climits>
@@ -129,6 +130,271 @@ Reply readReply(const SuiteBridgeCommandReply& reply)
 }
 }
 SuiteBridgeLocalControlTransport::SuiteBridgeLocalControlTransport(SuiteBridgeLocalControlTransportConfig c):config_(std::move(c)){}
+
+SuiteBridgeLocalControlTransport::~SuiteBridgeLocalControlTransport()
+{
+    stopHbbtvPresentationEvents();
+}
+
+bool SuiteBridgeLocalControlTransport::startHbbtvPresentationEvents(
+    HbbtvPresentationEventHandler handler)
+{
+    if (!handler || config_.socketPath.empty() ||
+        config_.socketPath.size() >= sizeof(sockaddr_un{}.sun_path))
+        return false;
+
+    bool expected = false;
+    if (!hbbtvPresentationEventsRunning_.compare_exchange_strong(
+            expected, true))
+        return false;
+
+    hbbtvPresentationEventHandler_ = std::move(handler);
+    try {
+        hbbtvPresentationEventThread_ = std::thread(
+            &SuiteBridgeLocalControlTransport::runHbbtvPresentationEventLoop,
+            this);
+    }
+    catch (...) {
+        hbbtvPresentationEventsRunning_.store(false);
+        hbbtvPresentationEventHandler_ = {};
+        throw;
+    }
+    return true;
+}
+
+void SuiteBridgeLocalControlTransport::stopHbbtvPresentationEvents()
+{
+    hbbtvPresentationEventsRunning_.store(false);
+    {
+        std::lock_guard<std::mutex> guard(
+            hbbtvPresentationEventSocketMutex_);
+        if (hbbtvPresentationEventSocketFd_ >= 0)
+            shutdown(hbbtvPresentationEventSocketFd_, SHUT_RDWR);
+    }
+
+    if (hbbtvPresentationEventThread_.joinable())
+        hbbtvPresentationEventThread_.join();
+    hbbtvPresentationEventHandler_ = {};
+}
+
+void SuiteBridgeLocalControlTransport::runHbbtvPresentationEventLoop()
+{
+    std::string lastSessionId;
+    std::uint64_t lastFrameRevision = 0;
+
+    const auto deliverPayload = [this, &lastSessionId, &lastFrameRevision](
+        const std::string& payload) -> bool {
+        if (payload.empty())
+            return true;
+
+        const std::size_t separator = payload.find('\n');
+        if (separator == std::string::npos ||
+            separator == 0 ||
+            separator + 1 >= payload.size() ||
+            payload.find('\n', separator + 1) != std::string::npos)
+            return false;
+
+        const std::string sessionId = payload.substr(0, separator);
+        if (!safeToken(sessionId))
+            return false;
+
+        std::uint64_t frameRevision = 0;
+        const char* first = payload.data() + separator + 1;
+        const char* last = payload.data() + payload.size();
+        const auto parsed = std::from_chars(first, last, frameRevision);
+        if (parsed.ec != std::errc() ||
+            parsed.ptr != last ||
+            frameRevision == 0)
+            return false;
+
+        if (sessionId == lastSessionId &&
+            frameRevision <= lastFrameRevision)
+            return true;
+
+        lastSessionId = sessionId;
+        lastFrameRevision = frameRevision;
+        if (hbbtvPresentationEventHandler_) {
+            try {
+                hbbtvPresentationEventHandler_(sessionId, frameRevision);
+            }
+            catch (...) {
+                // Event hints are best-effort; the next frame/reconnect
+                // remains an independent opportunity to resynchronize.
+            }
+        }
+        return true;
+    };
+
+    const auto clearEventSocket = [this](int fd) {
+        std::lock_guard<std::mutex> guard(
+            hbbtvPresentationEventSocketMutex_);
+        if (hbbtvPresentationEventSocketFd_ == fd)
+            hbbtvPresentationEventSocketFd_ = -1;
+    };
+
+    while (hbbtvPresentationEventsRunning_.load()) {
+        ScopedFd socketFd(::socket(
+            AF_UNIX,
+            SOCK_SEQPACKET | SOCK_CLOEXEC,
+            0));
+        if (socketFd.get() < 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            continue;
+        }
+
+        const int flags = fcntl(socketFd.get(), F_GETFL, 0);
+        if (flags < 0 ||
+            fcntl(socketFd.get(), F_SETFL, flags | O_NONBLOCK) < 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            continue;
+        }
+
+        sockaddr_un address{};
+        address.sun_family = AF_UNIX;
+        std::memcpy(
+            address.sun_path,
+            config_.socketPath.c_str(),
+            config_.socketPath.size() + 1);
+
+        int connected = ::connect(
+            socketFd.get(),
+            reinterpret_cast<sockaddr*>(&address),
+            sizeof(address));
+        if (connected != 0) {
+            if (errno != EINPROGRESS &&
+                errno != EAGAIN &&
+                errno != EWOULDBLOCK) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(250));
+                continue;
+            }
+            if (!waitFor(
+                    socketFd.get(),
+                    POLLOUT,
+                    Clock::now() + config_.connectTimeout)) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(250));
+                continue;
+            }
+            int socketError = 0;
+            socklen_t socketErrorLength = sizeof(socketError);
+            if (getsockopt(
+                    socketFd.get(),
+                    SOL_SOCKET,
+                    SO_ERROR,
+                    &socketError,
+                    &socketErrorLength) != 0 ||
+                socketError != 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(250));
+                continue;
+            }
+        }
+
+        {
+            std::lock_guard<std::mutex> guard(
+                hbbtvPresentationEventSocketMutex_);
+            if (!hbbtvPresentationEventsRunning_.load())
+                break;
+            hbbtvPresentationEventSocketFd_ = socketFd.get();
+        }
+
+        control::Request request;
+        request.requestId = nextRequestId_.fetch_add(1);
+        if (request.requestId == 0)
+            request.requestId = nextRequestId_.fetch_add(1);
+        request.operation = control::Operation::HbbtvPresentationSubscribe;
+        request.deadlineNanoseconds =
+            control::monotonicNowNanoseconds() +
+            static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    config_.operationTimeout).count());
+
+        std::vector<std::uint8_t> requestFrame;
+        std::string encodeError;
+        if (!control::encodeRequest(request, requestFrame, encodeError) ||
+            !waitFor(
+                socketFd.get(),
+                POLLOUT,
+                Clock::now() + config_.ioTimeout)) {
+            clearEventSocket(socketFd.get());
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            continue;
+        }
+
+        const ssize_t sent = ::send(
+            socketFd.get(),
+            requestFrame.data(),
+            requestFrame.size(),
+            MSG_NOSIGNAL);
+        if (sent != static_cast<ssize_t>(requestFrame.size()) ||
+            !waitFor(
+                socketFd.get(),
+                POLLIN,
+                Clock::now() + config_.operationTimeout)) {
+            clearEventSocket(socketFd.get());
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            continue;
+        }
+
+        const auto receiveResponse = [this, &request](
+            int fd,
+            control::Response& response) -> bool {
+            std::vector<std::uint8_t> frame(
+                control::MaximumResponsePayloadBytes + 128U);
+            const ssize_t received = ::recv(
+                fd,
+                frame.data(),
+                frame.size(),
+                MSG_TRUNC);
+            if (received <= 0 ||
+                static_cast<std::size_t>(received) > frame.size())
+                return false;
+            frame.resize(static_cast<std::size_t>(received));
+            std::string decodeError;
+            return control::decodeResponse(frame, response, decodeError) &&
+                response.requestId == request.requestId;
+        };
+
+        control::Response response;
+        if (!receiveResponse(socketFd.get(), response)) {
+            clearEventSocket(socketFd.get());
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            continue;
+        }
+
+        if (response.result == control::Result::ProtocolMismatch) {
+            hbbtvPresentationEventsRunning_.store(false);
+        }
+        else if (response.result == control::Result::Success &&
+                 response.replyCode == 900 &&
+                 deliverPayload(response.payload)) {
+            while (hbbtvPresentationEventsRunning_.load()) {
+                pollfd descriptor{};
+                descriptor.fd = socketFd.get();
+                descriptor.events = POLLIN;
+                const int ready = ::poll(&descriptor, 1, -1);
+                if (ready < 0 && errno == EINTR)
+                    continue;
+                if (ready <= 0 || !(descriptor.revents & POLLIN))
+                    break;
+
+                control::Response event;
+                if (!receiveResponse(socketFd.get(), event))
+                    break;
+                if (event.result == control::Result::ProtocolMismatch) {
+                    hbbtvPresentationEventsRunning_.store(false);
+                    break;
+                }
+                if (event.result != control::Result::Success ||
+                    event.replyCode != 900 ||
+                    !deliverPayload(event.payload))
+                    break;
+            }
+        }
+
+        clearEventSocket(socketFd.get());
+        if (hbbtvPresentationEventsRunning_.load())
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    }
+}
 bool SuiteBridgeLocalControlTransport::safeToken(const std::string&v){return !v.empty()&&v.size()<=128&&std::all_of(v.begin(),v.end(),[](unsigned char c){return std::isalnum(c)!=0||c=='-'||c=='_'||c=='.'||c==':';});}
 SuiteBridgeCommandReply
 SuiteBridgeLocalControlTransport::discoverSearchTimerCas()
