@@ -402,6 +402,8 @@ async function run() {
   frameRevision = 1; mediaActive = false; frameAvailable = false;
   find('.vdr-suite-hbbtv-session-toggle').click(); await flush(); await tick();
   assert.strictEqual(live.snapshot().hbbtvSessionId, 'app_2');
+  assert.strictEqual(live.snapshot().hbbtvFrameRevision, 0,
+    'revision-only response before a rendered frame must not advance the consumer');
   assert.strictEqual(video.style.getPropertyValue('aspect-ratio'), originalRatio, 'revision-only response cannot reuse old or default canvas geometry');
   const secondEventSource = liveUpdateSource;
   const readsBeforeLateFrame = presentationRequests.length;
@@ -410,6 +412,10 @@ async function run() {
     'no presentation retry timer runs while waiting for the next provider event');
   secondEventSource.emit('resync', {reason: 'reconnect'});
   await flush();
+  assert.strictEqual(Number(presentationRequests.at(-1).query.revision), 0,
+    'SSE resync must request complete pixels after an invalid revision-only response');
+  assert.strictEqual(live.snapshot().hbbtvFrameRevision, 1,
+    'full-frame SSE recovery restores the painted revision');
   assert.strictEqual(find('video'), video);
   assert.strictEqual(canvas.style.height, '540px', 'SSE resync fetches a fresh full frame after reconnect');
   remote('ok').click(); await flush();
