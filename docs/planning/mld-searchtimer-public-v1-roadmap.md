@@ -507,3 +507,9 @@ Der Seiten-Regressionsharness verwendet den produktiven Offset-Helper
 und sichtbaren Senderdatenabruf mit simuliertem Renderer. Kein echter
 Browser-, Node-CLI-, CI- oder MLD-Realtest. Nur JavaScript, CSS, Test und
 Dokumentation geändert; kein zusätzlicher C++-Build für F6.
+
+## MLD.F7 – Live-TV-Status der Web-Fernbedienung
+
+Der gemeinsame Browser-SSE-Client liefert benannte `update`- und `resync`-Ereignisse, nicht `onmessage`. Die Fernbedienung abonniert nun diese Ereignisse für das gewählte Backend und die Domäne `liveOverlay`; nach Wiederverbindung bzw. Resync liest sie den bestehenden Overlay-Status erneut. Veraltete Antworten, geschlossene Dialoge und abgemeldete Sitzungen werden nicht übernommen. Ein Transportfehler zeigt die Ursache am Overlay und kennzeichnet vorhandene gleichbackendbezogene Daten als zuletzt geladen; eine erfolgreiche Antwort ohne Live-Kanal zeigt die vorhandene Provider-Meldung. Kein Polling, keine neue Route oder Berechtigung. Die getrennte VDR-/Browser-Wiedergabe und Remote-Aktionsausführung bleiben unverändert.
+
+Fokussierter Test: Produktionsmodule mit simuliertem Dialog, gemeinsamer SSE-Verbindung und Browser-Sitzung in isolierter V8: 33 Assertions PASS, inklusive Backendfilter, Duplikaten, Resync, Wiederverbindung, Fehler, verspäteten Antworten, Abmeldung und Wiederöffnen. Die Regression ist in `test_remote_runtime.js` integriert. Node-CLI, echter Browser, CI und MLD-Realtest noch offen. Die Ursache einer bereits initial fehlenden nativen Kanal-ID ist ohne MLD-Providerantwort nicht nachgewiesen; die native RESTfulAPI liefert bei Replay bewusst keinen Live-Kanal. F7 führt keinen zusätzlichen C++-Build ein. Keine Aussage über konkrete MLD-Streamingfehler.

@@ -65,8 +65,8 @@ assert(source.includes('function signInMessage()'));
 assert(source.includes('function refreshControl()'));
 assert(source.includes("if(!signedIn())return Promise.reject(Error(signInMessage()))"));
 assert(source.includes("if(!signedIn()){enabled(false);status(signInMessage(),'warning');release(x);return}"));
-assert(source.includes("if(signedIn()){refresh();subscribe()}else stop()"));
-assert(source.includes("auth.subscribe(v=>{if(!d)return;refreshControl()"));
+assert(source.includes("if(signedIn()){subscribe();refresh()}else"));
+assert(source.includes("auth.subscribe(v=>{if(!d||!d.open)return;refreshControl()"));
 assert(!source.includes('lockControls(true)'));
 assert(!source.includes('button.disabled = locked'));
 assert(source.includes('.rpk.down::before'));
@@ -273,3 +273,63 @@ assert.strictEqual(requests.length, 1);
 assert.strictEqual(requests[0].url, '/api/vdr/live/overlay');
 
 console.log('remote frontend contract ok');
+async function exerciseRemoteOverlay(clientSource, source, assert, load, log) {
+ const sockets=[], reads=[]; let dialog, selected='default', token='a'.repeat(40);
+ function node(tag) {
+  const listeners={};
+  const x={tagName:tag.toUpperCase(),dataset:{},style:{},attrs:{},children:[],
+   classList:{add(){},remove(){},toggle(){}},
+   setAttribute(k,v){this.attrs[k]=v},getAttribute(k){return this.attrs[k]||null},removeAttribute(k){delete this.attrs[k]},
+   append(...children){this.children.push(...children)},appendChild(child){this.append(child)},replaceChildren(...children){this.children=children},
+   addEventListener(k,fn){(listeners[k]||=[]).push(fn)},
+   querySelector(s){return this.querySelectorAll(s)[0]||null},
+   querySelectorAll(s){const out=[];for(const c of this.children){if(s==='[data-overlay]'&&c.dataset.overlay||s==='[data-status]'&&c.dataset.status||s==='[data-action]'&&c.dataset.action)out.push(c);out.push(...c.querySelectorAll(s))}return out},
+   showModal(){this.open=true},close(){this.open=false;(listeners.close||[]).forEach(fn=>fn())}
+  };
+  if(tag==='dialog')dialog=x;
+  return x;
+ }
+ const document={head:node('head'),body:node('body'),documentElement:{lang:'de',style:{}},createElement:node,querySelector(){return null},querySelectorAll(){return[]},getElementById(){return null},addEventListener(){}};
+ class EventSource {
+  constructor(){this.listeners={};sockets.push(this)}
+  addEventListener(k,fn){(this.listeners[k]||=[]).push(fn)}
+  emit(k,data){const event={data:JSON.stringify(data||{})};(this.listeners[k]||[]).forEach(fn=>fn(event));if(k==='open'&&this.onopen)this.onopen(event);if(k==='error'&&this.onerror)this.onerror(event)}
+  close(){this.closed=true}
+ }
+ const window={document,EventSource,console:log,setTimeout(){return 1},clearTimeout(){},fetch:async()=>({ok:true,status:200,text:async()=>JSON.stringify({csrfToken:token,expiresAt:'2099-01-01T00:00:00Z'})}),
+  VdrSuiteClientApi:{requestJson(url,opts){assert.strictEqual(url,'/api/vdr/live/overlay');return new Promise((resolve,reject)=>reads.push({backend:opts.query.backend,resolve,reject}))},
+   fetchClientBackends(){return Promise.resolve({backends:[{backendId:selected,canRemoteControl:true}]})}},
+  VdrSuitePlatform:{getSelectedBackendId(){return selected},getClientApi(){return window.VdrSuiteClientApi}}
+ };
+ window.window=window;load(clientSource,window);load(source,window);
+ const flush=async()=>{for(let i=0;i<12;i++)await Promise.resolve()};
+ const payload=name=>({channel:{available:true,id:name,number:1,name},present:{available:true,title:'Programm'}});
+ const overlay=()=>dialog.querySelector('[data-overlay]').children.map(x=>x.textContent).join(' | ');
+ await window.VdrSuiteBrowserSession.restore();
+ window.VdrSuiteRemote.open();await flush();
+ assert.strictEqual(reads.length,1);assert.strictEqual(reads[0].backend,'default');
+ reads[0].resolve({channel:{available:false},message:'RESTfulAPI info response contains no live channel'});await flush();
+ assert(overlay().includes('RESTfulAPI info response contains no live channel'));
+ const s=sockets[0];s.emit('open');assert.strictEqual(reads.length,1);
+ s.emit('update',{sequenceNumber:1,backendId:'other',changedDomains:['liveOverlay']});
+ s.emit('update',{sequenceNumber:2,backendId:'default',changedDomains:['recordings']});assert.strictEqual(reads.length,1);
+ s.emit('update',{sequenceNumber:3,backendId:'default',changedDomains:['liveOverlay']});
+ s.emit('update',{sequenceNumber:3,backendId:'default',changedDomains:['liveOverlay']});assert.strictEqual(reads.length,2);
+ reads[1].resolve(payload('ZDF HD'));await flush();assert(overlay().includes('ZDF HD'));
+ s.emit('error');s.emit('open');assert.strictEqual(reads.length,3);
+ reads[2].reject(new Error('HTTP 503'));await flush();assert(overlay().includes('ZDF HD'));assert(overlay().includes('HTTP 503'));
+ s.emit('resync');assert.strictEqual(reads.length,4);
+ s.emit('update',{sequenceNumber:1,backendId:'default',changedDomains:['liveOverlay']});assert.strictEqual(reads.length,5);
+ reads[4].resolve(payload('Das Erste HD'));reads[3].resolve(payload('veraltet'));await flush();assert(overlay().includes('Das Erste HD'));assert(!overlay().includes('veraltet'));
+ selected='secondary';s.emit('update',{sequenceNumber:2,backendId:'secondary',changedDomains:['liveOverlay']});
+ assert.strictEqual(reads[5].backend,'secondary');assert(!overlay().includes('Das Erste HD'));
+ reads[5].resolve(payload('WDR'));await flush();assert(overlay().includes('WDR'));
+ s.emit('update',{sequenceNumber:3,backendId:'secondary',changedDomains:['liveOverlay']});
+ window.VdrSuiteBrowserSession.clear('session_revoked');reads[6].resolve(payload('Geheim'));await flush();assert(!overlay().includes('Geheim'));assert(!overlay().includes('WDR'));
+ await window.VdrSuiteBrowserSession.restore();await flush();assert.strictEqual(reads.length,8);
+ dialog.close();reads[7].resolve(payload('geschlossen'));await flush();assert(!overlay().includes('geschlossen'));assert(sockets[sockets.length-1].closed);
+ window.VdrSuiteRemote.open();await flush();assert.strictEqual(reads.length,9);
+ reads[8].resolve(payload('Arte'));await flush();assert(overlay().includes('Arte'));dialog.close();
+}
+
+exerciseRemoteOverlay(clientSource, source, assert, (code, window) => vm.runInNewContext(code, {window, document:window.document, console, Date, Promise, JSON, Object, Set, URLSearchParams, setTimeout, clearTimeout}),console).then(()=>console.log('remote overlay SSE lifecycle passed')).catch(error=>{console.error(error);process.exitCode=1});
