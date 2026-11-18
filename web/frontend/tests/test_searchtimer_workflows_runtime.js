@@ -138,7 +138,8 @@ assert.deepStrictEqual(
   Array.from(api.directoryOptions(
     {
       folders: [
-        {name: 'Movies', path: 'Movies'},
+        {name: 'Movies', path: 'Movies', singleRecordingLeaf: false},
+        {name: 'Tatort', path: 'Tatort', singleRecordingLeaf: true},
         {name: 'Series', path: '/Series'}
       ]
     },
@@ -664,15 +665,32 @@ async function checkEditorFullWrites() {
     }
     return null;
   }
+  const createFeedback = second.children.find(child => String(child.className).startsWith('searchtimer-feedback'));
+  const cancel = second.children.flatMap(child => child.children).find(child => child.textContent === 'Abbrechen / Zurück');
+  assert(cancel && cancel.type === 'button');
+  const panel = second.parentElement.parentElement;
+  panel.open = true;
+  cancel.listeners.click();
+  assert.strictEqual(panel.open, false);
+  assert.strictEqual(second.elements.query.value, 'Tatort');
+  panel.open = true;
+  second.listeners.submit({preventDefault() {}});
+  assert.strictEqual(writes.length, 2, 'back/reopen cannot resend an uncertain CREATE');
+  assert.notStrictEqual(second.elements.useDuration.parentElement.parentElement,
+    second.elements.avoidRepeats.parentElement.parentElement, 'duration and repeats have separate groups');
   const inspect = findOperationButton(second);
   assert(inspect && !inspect.hidden);
   inspect.listeners.click();
+  assert.strictEqual(createFeedback.textContent, 'Anlagevorgang wird geprüft …');
   await Promise.resolve();
   await Promise.resolve();
   assert.strictEqual(operationReads.length, 4);
+  assert(createFeedback.textContent.startsWith('Status geprüft: '));
+  assert(createFeedback.textContent.includes('outcome_unknown'));
   assert.strictEqual(writes.length, 2);
 
   mod.renderList({searchTimers: []});
+  assert.strictEqual(stream.closed, true, 'replacing the editor closes its SSE subscription');
   const rejected = findForm(mount);
   rejectCreate = 'validation';
   rejected.elements.query.value = 'Tatort';
@@ -828,7 +846,7 @@ async function checkPublicMutations() {
       input.value = 'Tatort neu';
       control = button(card,'Änderung speichern');
     } else {
-      control = button(card, {activate:'Aktivieren',deactivate:'Deaktivieren',delete:'SearchTimer löschen'}[action]);
+      control = button(card, {activate:'Aktivieren',deactivate:'Deaktivieren',delete:'Suchtimer löschen'}[action]);
     }
     assert.strictEqual(control.disabled, false);
     const count = writes.length;
@@ -879,12 +897,12 @@ async function checkPublicMutations() {
   assert.strictEqual(writes.length, 5, 'stale card must never write');
   card = open('inactive');
   current = Object.assign({}, current, {query:'Andere Regel'});
-  await button(card,'SearchTimer löschen').listeners.click();
+  await button(card,'Suchtimer löschen').listeners.click();
   assert.strictEqual(writes.length, 5, 'stale query must never delete');
 
   card = open('inactive');
   rejectVersion = true;
-  let remove = button(card,'SearchTimer löschen');
+  let remove = button(card,'Suchtimer löschen');
   await remove.listeners.click();
   assert.strictEqual(writes.length, 5, 'missing native version must never write');
   assert.strictEqual(remove.disabled, false);
@@ -904,7 +922,40 @@ async function checkPublicMutations() {
   assert(find(card,node => node.textContent === 'EPG-Treffer, keine verbindliche Aufnahmeprognose.'));
   assert.strictEqual(writes.length, 6);
 }
-checkEditorFullWrites().then(checkPublicMutations).then(function() {
+async function checkNamedSelectors() {
+  const mount = new FormElement('main'), tasks = [];
+  const document = {head:new FormElement('head'),createElement:tag=>new FormElement(tag),getElementById:()=>null};
+  const browser = {setTimeout:fn=>tasks.push(fn)};
+  vm.runInNewContext(source, {window:browser,document,Promise,Object,Array,Boolean,Number,Date,String,Set,Math,JSON,Uint8Array});
+  const mod=browser.VdrSuiteSearchTimerBrowser;
+  mod.configureContext({detailDataElement:mount,getSelectedBackendId:()=>'living-room',clientApi:{
+    fetchClientChannels:async()=>({channels:[
+      {id:'ARD',name:'Das Erste HD',number:1,group:'Public'},
+      {id:'ZDF',name:'ZDF HD',number:2,group:'Public'}
+    ]}),
+    fetchClientRecordingFolder:async()=>({folders:[
+      {path:'Filme',singleRecordingLeaf:false},
+      {path:'Tatort',singleRecordingLeaf:true}
+    ]})
+  }});
+  mod.renderList({searchTimers:[]});
+  tasks.splice(0).forEach(fn=>fn());
+  for(let i=0;i<8;i++) await Promise.resolve();
+  const form=findForm(mount);
+  assert.deepStrictEqual(form.elements.directory.children.map(o=>o.value),['','Filme']);
+  form.elements.channelFilterMode.value='1';
+  form.elements.channelFilterMode.listeners.change();
+  assert(form.elements.channelId.children.some(o=>o.textContent==='1 · Das Erste HD'));
+  assert(form.elements.channelEndId.children.some(o=>o.textContent==='2 · ZDF HD'));
+  assert.strictEqual(form.elements.channelId.disabled,false,'sender selection works without a group prerequisite');
+  form.elements.channelId.value='ARD';
+  form.elements.channelEndId.value='ZDF';
+  const payload=mod.buildCreatePayload(form);
+  assert.strictEqual(payload.channelMin,'ARD');
+  assert.strictEqual(payload.channelMax,'ZDF');
+  assert.strictEqual(payload.useChannel,1);
+}
+checkEditorFullWrites().then(checkPublicMutations).then(checkNamedSelectors).then(function() {
   console.log('test_searchtimer_workflows_runtime passed');
 }).catch(function(error) {
   console.error(error);

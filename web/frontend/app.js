@@ -263,7 +263,7 @@ const moduleLabels = {
   epg: frontendTranslate('module.epg', 'EPG Zeitleiste'),
   timers: frontendTranslate('module.timers', 'Timer'),
   recordings: frontendTranslate('module.recordings', 'Aufnahmen'),
-  searchtimers: frontendTranslate('module.searchTimers', 'SearchTimer'),
+  searchtimers: frontendTranslate('module.searchTimers', 'Suchtimer'),
   'media-import': 'Media Import'
 };
 
@@ -1528,7 +1528,7 @@ function createEpgEventDetailCard(event, channel) {
     'Timerdaten aus dieser EPG-Sendung berechnen und anzeigen.',
     () => showEpgTimerPayloadPreview(detail, event, channel)
   ));
-  actions.appendChild(createEpgDetailAction('Suchtimer', 'Aktion vorbereitet. Echte SearchTimer-Anbindung folgt später.'));
+  actions.appendChild(createEpgDetailAction('Suchtimer', 'Aktion vorbereitet. Echte Suchtimer-Anbindung folgt später.'));
   actions.appendChild(createEpgDetailAction('Mehr …', 'Weitere EPG-Aktionen werden später angebunden.'));
 
   detail.appendChild(actions);
@@ -3383,7 +3383,7 @@ function renderSearchTimersThroughModule(data) {
   const searchTimerBrowser = frontendPlatformModule('searchtimers', window.VdrSuiteSearchTimerBrowser);
 
   if (!searchTimerBrowser || typeof searchTimerBrowser.renderList !== 'function') {
-    throw new Error('SearchTimer browser module render API is not available');
+    throw new Error('Suchtimer browser module render API is not available');
   }
 
   return searchTimerBrowser.renderList(data);
@@ -3393,14 +3393,14 @@ let searchTimerLoadSequence = 0;
 function loadSearchTimers() {
   const sequence = ++searchTimerLoadSequence;
   const backend = selectedEpgBackendId();
-  renderModuleLoading('SearchTimer', 'Lade SearchTimer...');
+  renderModuleLoading('Suchtimer', 'Lade Suchtimer...');
 
   const clientApi = frontendPlatformClientApi();
 
   if (!clientApi || typeof clientApi.fetchPublicSearchTimers !== 'function') {
     currentSearchTimers = null;
     renderModuleError(
-      'SearchTimer konnten nicht geladen werden',
+      'Suchtimer konnten nicht geladen werden',
       new Error('Client API wrapper is not available')
     );
     return;
@@ -3417,7 +3417,7 @@ function loadSearchTimers() {
       if (sequence !== searchTimerLoadSequence || selectedModule !== 'searchtimers' ||
           backend !== selectedEpgBackendId()) return;
       currentSearchTimers = null;
-      renderModuleError('SearchTimer konnten nicht geladen werden', error);
+      renderModuleError('Suchtimer konnten nicht geladen werden', error);
     });
 }
 
@@ -3785,7 +3785,7 @@ function renderSettingsView(data) {
   appendSettingsLine(backendCard, frontendTranslate('settings.write', 'Schreiben'), settingsBoolean(Boolean(selector.canWrite)));
   appendSettingsLine(backendCard, frontendTranslate('settings.recordings', 'Aufnahmen'), settingsBoolean(Boolean(selector.canWriteRecordings)));
   appendSettingsLine(backendCard, frontendTranslate('settings.timers', 'Timer'), settingsBoolean(Boolean(selector.canWriteTimers)));
-  appendSettingsLine(backendCard, frontendTranslate('settings.searchTimers', 'SearchTimer'), settingsBoolean(Boolean(selector.canWriteSearchTimers)));
+  appendSettingsLine(backendCard, frontendTranslate('settings.searchTimers', 'Suchtimer'), settingsBoolean(Boolean(selector.canWriteSearchTimers)));
 
   panel.appendChild(backendCard);
 
@@ -4282,7 +4282,7 @@ function renderBackend(backend) {
   badges.appendChild(createBadge('Schreiben', Boolean(selector.canWrite)));
   badges.appendChild(createBadge('Aufnahmen', Boolean(selector.canWriteRecordings)));
   badges.appendChild(createBadge('Timer', Boolean(selector.canWriteTimers)));
-  badges.appendChild(createBadge('SearchTimer', Boolean(selector.canWriteSearchTimers)));
+  badges.appendChild(createBadge('Suchtimer', Boolean(selector.canWriteSearchTimers)));
   card.appendChild(badges);
 
   card.addEventListener('click', () => loadBackendDetails(backend));
