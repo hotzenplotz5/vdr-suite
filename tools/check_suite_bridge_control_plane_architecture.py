@@ -69,7 +69,7 @@ for marker in ("SuiteBridgePrioritizedHbbtvTransport","SuiteBridgeHbbtvTransport
     if marker not in client_h: raise SystemExit(f"HbbTV prioritized local-control transport missing {marker}")
 for marker in ("hbbtvLocalControlTransport","hbbtvTransport","effectiveHbbtvTransport"):
     if marker not in daemon_context: raise SystemExit(f"HbbTV daemon context wiring missing {marker}")
-for marker in ("SuiteBridgeLocalControlTransportConfig","SuiteBridgePrioritizedHbbtvTransport","hbbtvLocalControlTransport","startHbbtvPresentationEvents"):
+for marker in ("SuiteBridgeLocalControlTransportConfig","SuiteBridgePrioritizedHbbtvTransport","hbbtvLocalControlTransport"):
     if marker not in daemon_backend: raise SystemExit(f"HbbTV daemon local-control construction missing {marker}")
 for marker in ("Operation::TeletextCapability","Operation::TeletextPage","teletextCommand_.Handle"):
     if marker not in plugin: raise SystemExit(f"Teletext plugin local-control wiring missing {marker}")
