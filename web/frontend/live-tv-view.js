@@ -41,6 +41,9 @@
     hbbtvPresentationLastEventSequence: 0,
     hbbtvPresentationInFlight: false,
     hbbtvPresentationKickPending: false,
+    hbbtvQoiWorker: null,
+    hbbtvQoiDecodeId: 0,
+    hbbtvQoiPending: null,
     hbbtvPresentationResyncEpoch: 0,
     hbbtvStatusTimer: null,
     hbbtvMediaTimer: null,
@@ -771,7 +774,75 @@
     );
   }
 
-  function drawHbbtvPresentation(frame) {
+
+  // The worker is an optional decode accelerator. Browsers without Worker
+  // support retain the existing, synchronous QOI decoder.
+  function decodeHbbtvPixels(bytes) {
+    const decoder = global.VdrSuiteQoi;
+    if (!decoder || typeof decoder.decode !== 'function') {
+      return Promise.reject(new Error('hbbtv_qoi_decoder_unavailable'));
+    }
+    if (typeof global.Worker !== 'function') {
+      return Promise.resolve(decoder.decode(bytes));
+    }
+
+    let worker = state.hbbtvQoiWorker;
+    if (!worker) {
+      try {
+        worker = new global.Worker('../frontend/hbbtv-qoi-worker.js');
+      } catch (_) {
+        return Promise.resolve(decoder.decode(bytes));
+      }
+      state.hbbtvQoiWorker = worker;
+      worker.onmessage = function(event) {
+        if (state.hbbtvQoiWorker !== worker) return;
+        const data = event && event.data ? event.data : {};
+        const pending = state.hbbtvQoiPending;
+        if (!pending || data.id !== pending.id) return;
+        state.hbbtvQoiPending = null;
+        if (data.error) pending.reject(new Error(String(data.error)));
+        else pending.resolve(data);
+      };
+      worker.onerror = function() {
+        if (state.hbbtvQoiWorker !== worker) return;
+        state.hbbtvQoiWorker = null;
+        if (typeof worker.terminate === 'function') worker.terminate();
+        const pending = state.hbbtvQoiPending;
+        state.hbbtvQoiPending = null;
+        if (pending) {
+          try {
+            pending.resolve(decoder.decode(pending.bytes));
+          } catch (error) {
+            pending.reject(error);
+          }
+        }
+      };
+    }
+
+    return new Promise(function(resolve, reject) {
+      const pending = {
+        id: ++state.hbbtvQoiDecodeId,
+        bytes: bytes,
+        resolve: resolve,
+        reject: reject
+      };
+      state.hbbtvQoiPending = pending;
+      try {
+        worker.postMessage({id: pending.id, bytes: bytes});
+      } catch (_) {
+        state.hbbtvQoiPending = null;
+        state.hbbtvQoiWorker = null;
+        if (typeof worker.terminate === 'function') worker.terminate();
+        try {
+          resolve(decoder.decode(bytes));
+        } catch (error) {
+          reject(error);
+        }
+      }
+    });
+  }
+
+  function drawHbbtvPresentation(frame, decoded) {
     const canvas = hbbtvCanvas();
     const decoder = global.VdrSuiteQoi;
     if (!canvas || !frame || frame.status !== 200 ||
@@ -787,7 +858,7 @@
       return false;
     }
 
-    const decoded = decoder.decode(frame.bytes);
+    if (!decoded) decoded = decoder.decode(frame.bytes);
     const frameKind = text(frame.frameKind).toLowerCase() === 'patch'
       ? 'patch'
       : 'full';
@@ -980,6 +1051,18 @@
       cache: 'no-store',
       credentials: 'same-origin'
     }).then(function(frame) {
+      if (!state.active || sequence !== state.hbbtvSessionSequence) return null;
+      if (frame && frame.status === 200) {
+        // Keep the read in-flight through decoding and canvas painting, so
+        // bursts of SSE events coalesce instead of queueing stale frames.
+        return decodeHbbtvPixels(frame.bytes).then(function(decoded) {
+          if (!state.active || sequence !== state.hbbtvSessionSequence) return null;
+          drawHbbtvPresentation(frame, decoded);
+          return frame;
+        });
+      }
+      return frame;
+    }).then(function(frame) {
       let eventKickPending = false;
 
       if (sequence === state.hbbtvSessionSequence) {
@@ -989,24 +1072,9 @@
       }
 
       if (!state.active || sequence !== state.hbbtvSessionSequence) return null;
-      if (resyncEpoch !== state.hbbtvPresentationResyncEpoch) {
-        // Drop a stale response from before SSE reconnect/resync, then read
-        // a complete revision-0 frame from the current provider state.
-        kickHbbtvPresentation(sequence);
-        return null;
-      }
 
-      if (frame && frame.status === 200) {
-        if (!drawHbbtvPresentation(frame) &&
-            state.hbbtvPresentationKickPending) {
-          eventKickPending = true;
-          state.hbbtvPresentationKickPending = false;
-        }
-      } else if (frame && frame.status === 204 && Number(frame.revision) > 0) {
-        // A 204 cannot establish a canvas baseline: it only confirms that
-        // the provider revision matches the revision we already rendered.
-        // Never acknowledge a revision without its pixels, especially after
-        // an overlay was removed or a media composition reset.
+      if (frame && frame.status === 204 && Number(frame.revision) > 0) {
+        // A revision-only response cannot establish the pixel baseline.
         const canvas = hbbtvCanvas();
         const revision = Number(frame.revision);
         if (canvas && !canvas.hidden &&
@@ -1014,9 +1082,6 @@
             state.hbbtvFrameRevision === revision) {
           state.hbbtvFrameRevision = revision;
         } else {
-          // Keep revision 0 until a real full frame arrives. A broken or
-          // stale 204 response is not a reason to retry in a tight loop;
-          // the next SSE event or reconnect will request a full baseline.
           state.hbbtvFrameRevision = 0;
         }
       }
