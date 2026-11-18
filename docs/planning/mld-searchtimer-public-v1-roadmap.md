@@ -475,3 +475,35 @@ Katalogpopulation nach Vorlagenwahl. Kein echter Browser-/Node-CLI-/CI-
 oder MLD-Realtest. Nur JavaScript und Dokumentation geändert; F5 selbst
 erfordert keinen neuen C++-Build. Der bestehende Lesevorschautransport und
 die noch ausstehenden EPG-/Live-TV-/Admin-Arbeiten bleiben unverändert.
+
+## MLD.F6 – EPG-Zeitleiste und Sendernamen
+
+Die bestehende 15-Sender-Seitengrenze bleibt als Seitengröße bestehen,
+nicht als Beschränkung der verfügbaren Sender. Datenabruf und Renderer
+verwenden dieselbe Seitenoffsetberechnung. Auch die kurze letzte Seite
+enthält ausschließlich ihre eigenen Sender; Vor/Zurück lädt den jeweiligen
+EPG-Batch und entfernt die Detailauswahl der vorherigen Seite.
+Die Gruppenauswahl startet pro Backend mit „Alle Kanäle“ statt automatisch
+mit der ersten Gruppe; die explizite Gruppenauswahl bleibt verfügbar und
+wechselt auf deren erste Seite. Die Sendernavigation zeigt die Richtung
+verständlich an und erscheint bei mehr als einer Seite.
+
+Der gemeinsame EPG-Detailrenderer (auch seine Timerdatenvorschau) zeigt
+den Sendernamen und das vorhandene Kanallogo, wenn der Name aufgelöst
+werden kann. Details mit ausschließlich Channel-ID nutzen vorhandene
+Senderinformationen oder einen einmaligen katalogbasierten Lookup über
+den bestehenden, backendbezogenen Client-API-Pfad. Fehlende Namen sind
+als solche sichtbar; die interne Channel-ID und Event-ID bleiben für
+Aktionen erhalten und sind in ausklappbaren technischen Details einsehbar.
+Keine neue API, kein Polling und keine Änderung der Timer-/Live-TV-Aktionen.
+
+Nachweis: drei gezielte vorhandene Tests in isolierter V8 mit Mock-DOM
+und Node-/vm-Shims bestanden (103 Assertions):
+`test_epg_timeline_enhancements.js` (60; 32 Sender: 15/15/2,
+Vor/Zurück, einheitliche Fetch-/Render-Seitenoffsets, Sendername/Logo),
+`test_epg_timeline_deferred_install.js` (7),
+`test_post_phase69_epg_current_context_live_action.js` (36).
+Der Seiten-Regressionsharness verwendet den produktiven Offset-Helper
+und sichtbaren Senderdatenabruf mit simuliertem Renderer. Kein echter
+Browser-, Node-CLI-, CI- oder MLD-Realtest. Nur JavaScript, CSS, Test und
+Dokumentation geändert; kein zusätzlicher C++-Build für F6.

@@ -253,11 +253,13 @@
 
     if (selectedTimelineBackendId !== backendId) {
       selectedTimelineBackendId = backendId;
-      selectedTimelineGroup = '';
+      selectedTimelineGroup = TIMELINE_GROUP_ALL;
+      if (typeof epgChannelOffset !== 'undefined') epgChannelOffset = 0;
     }
 
     if (selectedTimelineGroup !== TIMELINE_GROUP_ALL && names.indexOf(selectedTimelineGroup) < 0) {
-      selectedTimelineGroup = names.length ? names[0] : TIMELINE_GROUP_ALL;
+      selectedTimelineGroup = TIMELINE_GROUP_ALL;
+      if (typeof epgChannelOffset !== 'undefined') epgChannelOffset = 0;
     }
 
     return options;
@@ -402,13 +404,10 @@
       ? Math.max(1, EPG_VISIBLE_CHANNEL_LIMIT)
       : 15;
     if (pager) {
-      if (selectedChannels.length <= limit) {
-        pager.hidden = true;
-      } else {
-        const pagerButtons = pager.querySelectorAll('button');
-        if (pagerButtons[0]) pagerButtons[0].textContent = 'Vorherige Sender';
-        if (pagerButtons[1]) pagerButtons[1].textContent = 'Nächste Sender';
-      }
+      pager.hidden = selectedChannels.length <= limit;
+      const pagerButtons = pager.querySelectorAll('button');
+      if (pagerButtons[0]) pagerButtons[0].textContent = '← Vorherige Sender';
+      if (pagerButtons[1]) pagerButtons[1].textContent = 'Nächste Sender →';
     }
   }
 

@@ -934,6 +934,54 @@ function appendEpgDetailMeta(parent, label, value) {
   parent.appendChild(item);
 }
 
+function epgDetailChannelName(event, channel, catalog) {
+  const channelId = frontendEventChannelId(event) || frontendChannelId(channel);
+  const nameOf = candidate => String(firstValue(candidate,
+    ['name', 'channelName', 'title', 'displayName'], '')).trim();
+  const channelName = frontendChannelId(channel) === channelId ? nameOf(channel) : '';
+  const eventName = String(firstValue(event, ['channelName', 'channelTitle'], '')).trim();
+  const match = listFromResponse(catalog, 'channels').find(entry => frontendChannelId(entry) === channelId);
+  return [channelName, eventName, nameOf(match)].find(name => name && name !== channelId) || '';
+}
+
+function appendEpgDetailChannelMeta(parent, event, channel) {
+  const channelId = frontendEventChannelId(event) || frontendChannelId(channel);
+  const backendId = String(firstValue(event, ['backendId', 'backend'], selectedEpgBackendId()));
+  const catalog = epgLoadedBackendId === backendId ? currentChannels : null;
+  const item = document.createElement('div');
+  item.className = 'epg-detail-meta-item';
+  const key = addText(document.createElement('span'), 'Sender');
+  key.className = 'epg-detail-meta-label';
+  const value = document.createElement('strong');
+  value.className = 'epg-detail-meta-value epg-detail-channel-brand';
+  item.appendChild(key);
+  item.appendChild(value);
+  parent.appendChild(item);
+
+  function paint(name) {
+    const label = name || 'Sendername nicht verfügbar';
+    value.replaceChildren();
+    if (name && typeof createChannelLogoElement === 'function') {
+      const logo = createChannelLogoElement(name, channelId);
+      logo.classList.add('epg-channel-logo');
+      value.appendChild(logo);
+    }
+    value.appendChild(addText(document.createElement('span'), label));
+  }
+
+  const name = epgDetailChannelName(event, channel, catalog);
+  paint(name);
+  if (name || !channelId) return;
+  // Details opened from a search/genre can contain only a channel ID.
+  // Resolve it from the existing backend-scoped channel catalogue once.
+  const api = frontendPlatformClientApi();
+  if (api && typeof api.fetchClientChannels === 'function') {
+    api.fetchClientChannels({query: {backend: backendId}, cache: 'no-store'})
+      .then(data => paint(epgDetailChannelName(event, channel, data)))
+      .catch(() => {});
+  }
+}
+
 function formatEpgTimerDay(epochSeconds) {
   const date = new Date(epochSeconds * 1000);
   const year = String(date.getFullYear());
@@ -1181,7 +1229,7 @@ function showEpgTimerPayloadPreview(container, event, channel) {
   summary.className = 'epg-timer-preview-summary';
 
   appendEpgDetailMeta(summary, 'Backend', payload.backendId);
-  appendEpgDetailMeta(summary, 'Kanal', payload.channelId || '-');
+  appendEpgDetailChannelMeta(summary, event, channel);
   appendEpgDetailMeta(summary, 'Titel', epgEventTitle(event));
   appendEpgDetailMeta(summary, 'Ereignis-ID', payload.eventId || '-');
   const eventStart = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
@@ -1446,7 +1494,6 @@ function openEpgChannelLive(detail, channel, button) {
 function createEpgEventDetailCard(event, channel) {
   const start = parseFrontendEventEpoch(firstValue(event, ['startTime', 'start', 'beginTime'], ''));
   const end = frontendEventEnd(event, start);
-  const channelTitle = epgChannelTitle(channel, 0);
   const detail = document.createElement('article');
   detail.className = 'module-placeholder epg-event-detail epg-event-detail-action-panel';
 
@@ -1485,7 +1532,7 @@ function createEpgEventDetailCard(event, channel) {
   const metaGrid = document.createElement('div');
   metaGrid.className = 'epg-detail-meta-grid';
 
-  appendEpgDetailMeta(metaGrid, 'Kanal', channelTitle);
+  appendEpgDetailChannelMeta(metaGrid, event, channel);
   appendEpgDetailMeta(metaGrid, 'Zeit', formatEpgClockFromEpoch(start) + '–' + formatEpgClockFromEpoch(end));
   appendEpgDetailMeta(metaGrid, 'Dauer', formatEpgDuration(start, end));
   appendEpgDetailMeta(metaGrid, 'Backend', selectedEpgBackendId());
@@ -1553,9 +1600,12 @@ function createEpgEventDetailCard(event, channel) {
   }
 
   if (technical.length > 0) {
+    const technicalDetails = document.createElement('details');
+    technicalDetails.appendChild(addText(document.createElement('summary'), 'Technische Details'));
     const technicalLine = addText(document.createElement('p'), technical.join(' · '));
     technicalLine.className = 'epg-event-technical';
-    detail.appendChild(technicalLine);
+    technicalDetails.appendChild(technicalLine);
+    detail.appendChild(technicalDetails);
   }
 
   syncEpgTimerDetailStatesSoon();
@@ -2541,12 +2591,7 @@ function renderEpgTimeView(channelData, eventData) {
   }
 
   const limit = Math.max(1, EPG_VISIBLE_CHANNEL_LIMIT);
-  const maxChannelOffset = Math.max(0, Math.floor(Math.max(0, channels.length - 1) / limit) * limit);
-
-  if (epgChannelOffset < 0 || epgChannelOffset > maxChannelOffset) {
-    epgChannelOffset = maxChannelOffset;
-  }
-
+  epgChannelOffset = epgChannelPageOffset(channels.length, epgChannelOffset, limit);
   const visibleChannels = channels.slice(epgChannelOffset, epgChannelOffset + limit);
   const bounds = epgTimelineDisplayBounds(nowSeconds, visibleChannels, events);
   const visibleEvents = epgTimelineCurrentWindowEvents(events, nowSeconds);
@@ -2635,7 +2680,8 @@ function renderEpgTimeView(channelData, eventData) {
   };
 
   const moveEpgChannelWindow = (delta) => {
-    epgChannelOffset = Math.max(0, epgChannelOffset + delta);
+    epgChannelOffset = epgChannelPageOffset(channels.length, epgChannelOffset + delta, limit);
+    selectedEpgDetail = null;
     loadEpgTimeline();
   };
 
@@ -2701,7 +2747,7 @@ function renderEpgTimeView(channelData, eventData) {
 
   const previous = document.createElement('button');
   previous.type = 'button';
-  previous.textContent = 'Vorherige ' + String(limit);
+  previous.textContent = '← Vorherige Sender';
   previous.disabled = epgChannelOffset <= 0;
   previous.addEventListener('click', () => {
     moveEpgChannelWindow(-limit);
@@ -2709,7 +2755,7 @@ function renderEpgTimeView(channelData, eventData) {
 
   const next = document.createElement('button');
   next.type = 'button';
-  next.textContent = 'Nächste ' + String(limit);
+  next.textContent = 'Nächste Sender →';
   next.disabled = epgChannelOffset + limit >= channels.length;
   next.addEventListener('click', () => {
     moveEpgChannelWindow(limit);
@@ -3144,19 +3190,18 @@ function fetchCachedOrLiveEpgWindow(channelData) {
     });
 }
 
+function epgChannelPageOffset(channelCount, requestedOffset, limit) {
+  const size = Math.max(1, limit);
+  const lastPage = Math.floor(Math.max(0, channelCount - 1) / size) * size;
+  const requestedPage = Math.floor(Math.max(0, Number(requestedOffset) || 0) / size) * size;
+  return Math.min(lastPage, requestedPage);
+}
+
 function visibleEpgChannelsFromData(channelData) {
   const channels = listFromResponse(channelData, 'channels');
-  const limit = EPG_VISIBLE_CHANNEL_LIMIT;
-  const maxOffset = Math.max(0, channels.length - limit);
-
-  if (epgChannelOffset > maxOffset) {
-    epgChannelOffset = maxOffset;
-  }
-
-  if (epgChannelOffset < 0) {
-    epgChannelOffset = 0;
-  }
-
+  const limit = Math.max(1, EPG_VISIBLE_CHANNEL_LIMIT);
+  // Fetch exactly the same page as the renderer, including a short last page.
+  epgChannelOffset = epgChannelPageOffset(channels.length, epgChannelOffset, limit);
   return channels.slice(epgChannelOffset, epgChannelOffset + limit);
 }
 

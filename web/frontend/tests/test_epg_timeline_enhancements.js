@@ -10,6 +10,16 @@ const source = fs.readFileSync(
   'utf8'
 );
 
+const appSource = fs.readFileSync(path.resolve(__dirname, '..', 'app.js'), 'utf8');
+function functionSlice(name, nextName) {
+  const start = appSource.indexOf('function ' + name + '(');
+  const end = appSource.indexOf('function ' + nextName + '(', start + 1);
+  assert(start >= 0 && end > start, 'production function ' + name);
+  return appSource.slice(start, end);
+}
+const pageSource = functionSlice('epgChannelPageOffset', 'loadEpgTimeline');
+const detailSource = functionSlice('epgDetailChannelName', 'formatEpgTimerDay');
+
 class MockStyle {
   constructor() {
     this.values = {};
@@ -53,6 +63,11 @@ class MockElement {
     this.children.push(child);
     if (child && typeof child === 'object') child.parentNode = this;
     return child;
+  }
+
+  replaceChildren(...children) {
+    this.children = [];
+    children.forEach(child => this.appendChild(child));
   }
 
   insertBefore(child, reference) {
@@ -173,9 +188,37 @@ vm.runInContext(`
   let loadCount = 0;
   let lastRenderedChannels = [];
 
-  function visibleEpgChannelsFromData(data) {
-    return data.channels.slice(epgChannelOffset, epgChannelOffset + EPG_VISIBLE_CHANNEL_LIMIT);
+  function firstValue(object, keys, fallback) {
+    for (const key of keys) if (object && object[key] !== undefined && object[key] !== null && object[key] !== '') return object[key];
+    return fallback;
   }
+  function listFromResponse(data, key) {
+    return Array.isArray(data) ? data :
+      data && Array.isArray(data[key]) ? data[key] :
+      data && Array.isArray(data.items) ? data.items : [];
+  }
+  function frontendChannelId(channel) { return String(firstValue(channel, ['id','channelId','nativeId'], '')).trim(); }
+  function frontendEventChannelId(event) { return String(firstValue(event, ['channelId','channel','channel_id'], '')).trim(); }
+  function addText(element, text) { element.textContent = String(text); return element; }
+  let epgLoadedBackendId = '';
+  let currentChannels = null;
+  const catalogRequests = [];
+  function selectedEpgBackendId() { return 'default'; }
+  function frontendPlatformClientApi() {
+    return {fetchClientChannels(options) {
+      catalogRequests.push(options.query.backend);
+      return Promise.resolve({channels:[{id:'C-1', name:'Das Erste HD'}]});
+    }};
+  }
+  function createChannelLogoElement(title, channelId) {
+    const logo = document.createElement('div');
+    logo.dataset.title = title;
+    logo.dataset.channelId = channelId;
+    return logo;
+  }
+
+  ${pageSource}
+  ${detailSource}
 
   function createEpgEventDetailCard() {
     const detail = document.createElement('article');
@@ -196,7 +239,9 @@ vm.runInContext(`
   }
 
   function renderEpgTimeView(channelData) {
-    lastRenderedChannels = channelData.channels.slice();
+    // The production renderer and fetch both call the production page helper.
+    epgChannelOffset = epgChannelPageOffset(channelData.channels.length, epgChannelOffset, EPG_VISIBLE_CHANNEL_LIMIT);
+    lastRenderedChannels = channelData.channels.slice(epgChannelOffset, epgChannelOffset + EPG_VISIBLE_CHANNEL_LIMIT);
     detailDataElement.children = [];
 
     const intro = document.createElement('article');
@@ -212,8 +257,20 @@ vm.runInContext(`
 
     const pager = document.createElement('div');
     pager.className = 'epg-pager';
-    pager.appendChild(document.createElement('button'));
-    pager.appendChild(document.createElement('button'));
+    const previous = document.createElement('button');
+    const next = document.createElement('button');
+    previous.disabled = epgChannelOffset <= 0;
+    next.disabled = epgChannelOffset + EPG_VISIBLE_CHANNEL_LIMIT >= channelData.channels.length;
+    previous.addEventListener('click', () => {
+      epgChannelOffset = epgChannelPageOffset(channelData.channels.length, epgChannelOffset - EPG_VISIBLE_CHANNEL_LIMIT, EPG_VISIBLE_CHANNEL_LIMIT);
+      loadEpgTimeline();
+    });
+    next.addEventListener('click', () => {
+      epgChannelOffset = epgChannelPageOffset(channelData.channels.length, epgChannelOffset + EPG_VISIBLE_CHANNEL_LIMIT, EPG_VISIBLE_CHANNEL_LIMIT);
+      loadEpgTimeline();
+    });
+    pager.appendChild(previous);
+    pager.appendChild(next);
     intro.appendChild(pager);
     detailDataElement.appendChild(intro);
   }
@@ -243,21 +300,21 @@ const visible = vm.runInContext(
   `visibleEpgChannelsFromData(${JSON.stringify({channels})})`,
   context
 );
-assert.deepStrictEqual(Array.from(visible, channel => channel.id), ['a1', 'a2']);
+assert.deepStrictEqual(Array.from(visible, channel => channel.id), ['a1', 'a2', 'b1', 'c1']);
 
 vm.runInContext(
   `renderEpgTimeView(${JSON.stringify({channels})}, {events: []})`,
   context
 );
 const renderedIds = vm.runInContext('lastRenderedChannels.map(channel => channel.id)', context);
-assert.deepStrictEqual(Array.from(renderedIds), ['a1', 'a2']);
+assert.deepStrictEqual(Array.from(renderedIds), ['a1', 'a2', 'b1', 'c1']);
 
 const detailData = vm.runInContext('detailDataElement', context);
 const groupControl = detailData.querySelector('.epg-group-control');
 assert.ok(groupControl);
 const select = groupControl.querySelector('.epg-group-select');
 assert.ok(select);
-assert.strictEqual(select.value, 'Öffentlich');
+assert.strictEqual(select.value, '__all__');
 assert.deepStrictEqual(
   select.children.map(option => option.textContent),
   ['Alle Kanäle (4)', 'Öffentlich (2)', 'Private (1)', 'Weitere Sender (1)']
@@ -268,6 +325,61 @@ select.value = 'Private';
 select.dispatch('change');
 assert.strictEqual(vm.runInContext('epgChannelOffset', context), 0);
 assert.strictEqual(vm.runInContext('loadCount', context), 1);
+
+// 32 channels: every page is reachable exactly once; the final page must
+// not be clamped back to 17 (which previously overlapped earlier channels).
+context.largeCatalog = {channels:Array.from({length:32}, (_, index) => ({
+  id:'sender-' + String(index + 1), group:'Öffentlich'
+}))};
+select.value = '__all__';
+select.dispatch('change');
+function renderPage() {
+  return vm.runInContext(`
+    const batch = visibleEpgChannelsFromData(largeCatalog);
+    renderEpgTimeView(largeCatalog, {events:[]});
+    ({fetch: batch.map(channel=>channel.id), render:lastRenderedChannels.map(channel=>channel.id), offset:epgChannelOffset})
+  `.replace('const batch', 'var batch'), context);
+}
+let page = renderPage();
+assert.deepStrictEqual(Array.from(page.fetch), Array.from(page.render));
+assert.strictEqual(page.offset, 0);
+assert.strictEqual(page.fetch.length, 15);
+let pager = detailData.querySelector('.epg-pager');
+assert.strictEqual(pager.hidden, false);
+assert.strictEqual(pager.children[0].disabled, true);
+assert.strictEqual(pager.children[1].disabled, false);
+pager.children[1].dispatch('click');
+page = renderPage();
+assert.strictEqual(page.offset, 15);
+assert.strictEqual(page.fetch[0], 'sender-16');
+assert.deepStrictEqual(Array.from(page.fetch), Array.from(page.render));
+detailData.querySelector('.epg-pager').children[1].dispatch('click');
+page = renderPage();
+assert.strictEqual(page.offset,30);
+assert.deepStrictEqual(Array.from(page.fetch), ['sender-31','sender-32']);
+assert.deepStrictEqual(Array.from(page.fetch), Array.from(page.render));
+pager = detailData.querySelector('.epg-pager');
+assert.strictEqual(pager.children[1].disabled,true);
+pager.children[0].dispatch('click');
+assert.strictEqual(renderPage().offset,15);
+assert.strictEqual(vm.runInContext('epgChannelPageOffset(16, 15, 15)',context),15);
+assert.strictEqual(vm.runInContext('epgChannelPageOffset(0, 30, 15)',context),0);
+assert.strictEqual(vm.runInContext('epgChannelPageOffset(32, -15, 15)',context),0);
+assert(appSource.includes('epgChannelOffset = epgChannelPageOffset(channels.length, epgChannelOffset, limit);'));
+
+// A search/genre event may contain only native ID. Resolve actual sender
+// names without using the ID as visible title, and retain ID for logo/actions.
+assert.strictEqual(vm.runInContext("epgDetailChannelName({channelId:'C-1'},{id:'C-1',name:'C-1'},{channels:[{id:'C-1',name:'Das Erste HD'}]})",context),'Das Erste HD');
+assert.strictEqual(vm.runInContext("epgDetailChannelName({channelId:'C-1',channelName:'ZDF HD'},{id:'C-1'},null)",context),'ZDF HD');
+assert.strictEqual(vm.runInContext("epgDetailChannelName({channelId:'C-1'},{id:'other',name:'Wrong'},null)",context),'');
+const detailMeta = vm.runInContext(`
+  const meta = document.createElement('div');
+  appendEpgDetailChannelMeta(meta, {channelId:'C-1',backendId:'mld'}, {id:'C-1',name:'C-1'});
+  meta
+`,context);
+const channelBrand = detailMeta.querySelector('.epg-detail-channel-brand');
+assert.strictEqual(channelBrand.children[0].textContent,'Sendername nicht verfügbar');
+assert.deepStrictEqual(Array.from(vm.runInContext('catalogRequests',context)),['mld']);
 
 const publicArtworkUrl = '/api/epg/cache/artwork?backend=default&channelId=C-1&eventId=17';
 const detail = vm.runInContext(
@@ -300,4 +412,9 @@ assert.ok(!source.includes('appendEpgVerticalTimelineTicks = function'));
 assert.ok(!source.includes('TIMELINE_QUARTER_SECONDS'));
 assert.ok(!source.includes('MutationObserver'));
 
-console.log('test_epg_timeline_enhancements passed');
+Promise.resolve().then(() => {
+  assert.strictEqual(channelBrand.children[0].dataset.channelId,'C-1');
+  assert.strictEqual(channelBrand.children[0].dataset.title,'Das Erste HD');
+  assert.strictEqual(channelBrand.children[1].textContent,'Das Erste HD');
+  console.log('test_epg_timeline_enhancements passed');
+}).catch(error => { console.error(error); process.exitCode = 1; });
