@@ -2094,24 +2094,6 @@
     return Boolean(element && mount && typeof mount.contains === 'function' && mount.contains(element));
   }
 
-  function createHbbtvOverlay(slot) {
-    const overlay = doc.createElement('canvas');
-    overlay.className = 'vdr-suite-hbbtv-overlay';
-    overlay.hidden = true;
-    overlay.tabIndex = 0;
-    overlay.setAttribute('role', 'application');
-    overlay.setAttribute(
-      'aria-label',
-      'HbbTV Anwendung · Pfeiltasten, Enter, Escape und Farbtasten verwenden'
-    );
-    overlay.dataset.hbbtvInteractive = 'false';
-    overlay.addEventListener('click', function() {
-      if (typeof overlay.focus === 'function') overlay.focus();
-    });
-    overlay.addEventListener('keydown', handleHbbtvOverlayKey);
-    slot.appendChild(overlay);
-    return overlay;
-  }
 
   function renderPlayer(root) {
     synchronizePlaybackState();
@@ -2214,6 +2196,26 @@
       hbbtvOverlay
     );
   }
+
+  function createHbbtvOverlay(slot) {
+    const hbbtvOverlay = doc.createElement('canvas');
+    hbbtvOverlay.className = 'vdr-suite-hbbtv-hbbtvOverlay';
+    hbbtvOverlay.hidden = true;
+    hbbtvOverlay.tabIndex = 0;
+    hbbtvOverlay.setAttribute('role', 'application');
+    hbbtvOverlay.setAttribute(
+      'aria-label',
+      'HbbTV Anwendung · Pfeiltasten, Enter, Escape und Farbtasten verwenden'
+    );
+    hbbtvOverlay.dataset.hbbtvInteractive = 'false';
+    hbbtvOverlay.addEventListener('click', function() {
+      if (typeof hbbtvOverlay.focus === 'function') hbbtvOverlay.focus();
+    });
+    hbbtvOverlay.addEventListener('keydown', handleHbbtvOverlayKey);
+    slot.appendChild(hbbtvOverlay);
+    return hbbtvOverlay;
+  }
+
 
   function render() {
     if (!state.active || !doc) return;
