@@ -992,11 +992,19 @@
           state.hbbtvPresentationKickPending = false;
         }
       } else if (frame && frame.status === 204 && Number(frame.revision) > 0) {
+        // A 204 cannot establish a canvas baseline: it only confirms that
+        // the provider revision matches the revision we already rendered.
+        // Never acknowledge a revision without its pixels, especially after
+        // an overlay was removed or a media composition reset.
+        const canvas = hbbtvCanvas();
         const revision = Number(frame.revision);
-        if (!(state.hbbtvMediaAttached &&
-              !state.hbbtvMediaPresentationReady &&
-              revision > state.hbbtvMediaPresentationBaselineRevision)) {
+        if (canvas && !canvas.hidden &&
+            Number(canvas.dataset && canvas.dataset.hbbtvRevision) === revision &&
+            state.hbbtvFrameRevision === revision) {
           state.hbbtvFrameRevision = revision;
+        } else {
+          state.hbbtvFrameRevision = 0;
+          eventKickPending = true;
         }
       }
 
