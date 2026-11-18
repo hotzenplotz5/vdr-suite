@@ -13,7 +13,11 @@ install = (ROOT / "mk/install.mk").read_text()
 required = (
     (live, "function openHbbtvSession()"),
     (live, "function closeHbbtvSession()"),
-    (live, "function pollHbbtvPresentation(sequence)"),
+    (live, "function readHbbtvPresentation(sequence)"),
+    (live, "function kickHbbtvPresentation(sequence)"),
+    (live, "function startHbbtvPresentationEvents(sequence)"),
+    (live, "source.addEventListener('update'"),
+    (live, "source.addEventListener('resync'"),
     (live, "function pollHbbtvMedia(sequence)"),
     (live, "function startHbbtvMediaPlayback(media, sequence)"),
     (live, "function stopHbbtvMediaPlayback(sequence, notifyServer, restoreBroadcast)"),
@@ -72,6 +76,14 @@ if index.index('<script src="../frontend/hbbtv-qoi.js"></script>') > index.index
     '<script src="../frontend/live-tv-view.js"></script>'
 ):
     errors.append("QOI decoder must load before Live-TV overlay")
+
+for forbidden in (
+    "function pollHbbtvPresentation(",
+    "function startHbbtvPresentationPolling(",
+    "hbbtvPresentationTimer",
+):
+    if forbidden in live:
+        errors.append(f"HbbTV presentation must be SSE-driven, not polled: {forbidden}")
 
 for forbidden in (
     "HBBAPPS",
