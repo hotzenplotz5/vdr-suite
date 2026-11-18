@@ -1003,8 +1003,10 @@
             state.hbbtvFrameRevision === revision) {
           state.hbbtvFrameRevision = revision;
         } else {
+          // Keep revision 0 until a real full frame arrives. A broken or
+          // stale 204 response is not a reason to retry in a tight loop;
+          // the next SSE event or reconnect will request a full baseline.
           state.hbbtvFrameRevision = 0;
-          eventKickPending = true;
         }
       }
 
