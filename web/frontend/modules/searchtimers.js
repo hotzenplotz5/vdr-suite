@@ -1749,7 +1749,7 @@
     activeCreateTemplate = null;
     lastSearchTimerData = data;
     const mountTarget = searchTimerBrowserContext.detailDataElement;
-    if (!mountTarget) throw new Error('Suchtimer browser mount target is not configured');
+    if (!mountTarget) throw new Error('SearchTimer browser mount target is not configured');
 
     const searchTimers = listFromResponse(data, 'searchTimers').map(normalizeSearchTimer);
     mountTarget.replaceChildren();
