@@ -739,6 +739,11 @@
     state.hbbtvPresentationInFlight = false;
     state.hbbtvPresentationKickPending = false;
     state.hbbtvSessionSequence += 1;
+    if (state.hbbtvQoiPending) {
+      const pending = state.hbbtvQoiPending;
+      state.hbbtvQoiPending = null;
+      pending.reject(new Error('hbbtv_qoi_session_cancelled'));
+    }
     state.hbbtvSession = null;
     state.hbbtvSessionBusy = false;
     state.hbbtvFrameRevision = 0;
@@ -774,6 +779,15 @@
     );
   }
 
+
+  function releaseHbbtvQoiWorker() {
+    const pending = state.hbbtvQoiPending;
+    state.hbbtvQoiPending = null;
+    if (pending) pending.reject(new Error('hbbtv_qoi_view_closed'));
+    const worker = state.hbbtvQoiWorker;
+    state.hbbtvQoiWorker = null;
+    if (worker && typeof worker.terminate === 'function') worker.terminate();
+  }
 
   // The worker is an optional decode accelerator. Browsers without Worker
   // support retain the existing, synchronous QOI decoder.
@@ -2594,6 +2608,7 @@
 
   function stop() {
     releaseHbbtvSessionBestEffort();
+    releaseHbbtvQoiWorker();
     const current = state.playback;
     state.playback = null;
     state.liveChannelId = '';
@@ -2613,6 +2628,7 @@
   function deactivate() {
     if (!state.active) return false;
     state.active = false;
+    releaseHbbtvQoiWorker();
     disconnectHbbtvSurfaceObserver();
     restoreHbbtvMediaVideoComposition();
     restoreHbbtvSurface();
