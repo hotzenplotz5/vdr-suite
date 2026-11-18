@@ -7,6 +7,11 @@ client_h=read("core/agent/include/SuiteBridgeLocalControlTransport.h")
 client_cpp=read("core/agent/src/SuiteBridgeLocalControlTransport.cpp")
 server=read("vdr-plugin-suite-bridge/suitebridge_control_plane.cpp")
 plugin=read("vdr-plugin-suite-bridge/suitebridge.cpp")
+provider_contract=read("vdr-plugin-suite-bridge/suitebridge_hbbtv_provider_contract.h")
+daemon_runtime=read("core/daemon/src/DaemonRuntime.cpp")
+daemon_init=read("core/daemon/src/DaemonRuntimeInitialization.cpp")
+daemon_shutdown=read("core/daemon/src/DaemonRuntimeShutdown.cpp")
+change_feed=read("core/vdr/src/SnapshotChangeFeedService.cpp")
 runtime=read("core/daemon/src/RecordingMediaHttpRuntime.cpp")
 agent_main=read("apps/agent/main.cpp")
 daemon_context=read("core/daemon/include/BackendRuntimeContext.h")
@@ -22,9 +27,9 @@ marks_modify=read("core/agent/src/SuiteBridgeSvdrpRecordingMarksModifyTransport.
 cut_read=read("core/agent/src/SuiteBridgeSvdrpRecordingCutStateTransport.cpp")
 cut_mutation=read("core/agent/src/SuiteBridgeSvdrpRecordingCutTransport.cpp")
 tmpfiles=read("packaging/systemd/vdr-suite-live.conf")
-for marker in ("ProtocolMajor = 1","MaximumRequestPayloadBytes","MaximumResponsePayloadBytes","LiveCapability = 1","LiveOpen = 2","LiveStatus = 3","LiveClose = 4","NativeProbeCapability = 5","NativeProbeExecute = 6","NativeProbeReadback = 7","CapabilityDiscovery = 8","OsdSnapshot = 9","OsdInput = 10","HbbtvDiscovery = 11","HbbtvRuntime = 12","HbbtvPresentation = 13","HbbtvMedia = 14","TeletextCapability = 15","TeletextPage = 16","EpgMetadata = 17","EpgArtwork = 18","RecordingMetadata = 19","EpgTypeSnapshot = 20","SearchTimerCasCapability = 21","SearchTimerCasObserve = 22","SearchTimerCasExecute = 23","CriticalControl = 1","InteractiveControlRead = 2","ExternalPluginInteractive = 3","BackgroundProvider = 4","DeadlineExpired","Overloaded"):
+for marker in ("ProtocolMajor = 1","MaximumRequestPayloadBytes","MaximumResponsePayloadBytes","LiveCapability = 1","LiveOpen = 2","LiveStatus = 3","LiveClose = 4","NativeProbeCapability = 5","NativeProbeExecute = 6","NativeProbeReadback = 7","CapabilityDiscovery = 8","OsdSnapshot = 9","OsdInput = 10","HbbtvDiscovery = 11","HbbtvRuntime = 12","HbbtvPresentation = 13","HbbtvMedia = 14","TeletextCapability = 15","TeletextPage = 16","EpgMetadata = 17","EpgArtwork = 18","RecordingMetadata = 19","EpgTypeSnapshot = 20","SearchTimerCasCapability = 21","SearchTimerCasObserve = 22","SearchTimerCasExecute = 23","HbbtvPresentationSubscribe = 24","CriticalControl = 1","InteractiveControlRead = 2","ExternalPluginInteractive = 3","BackgroundProvider = 4","DeadlineExpired","Overloaded"):
     if marker not in protocol: raise SystemExit(f"control-plane protocol missing {marker}")
-for marker in ("AF_UNIX","SOCK_SEQPACKET","SO_PEERCRED","queues_[lane].size() < queueCapacity_[lane]","ServiceClass::CriticalControl","ServiceClass::InteractiveControlRead","ServiceClass::ExternalPluginInteractive","ServiceClass::BackgroundProvider","deadline_expired_at_admission","deadline_expired_before_execution","queue_full"):
+for marker in ("AF_UNIX","SOCK_SEQPACKET","SO_PEERCRED","queues_[lane].size() < queueCapacity_[lane]","ServiceClass::CriticalControl","ServiceClass::InteractiveControlRead","ServiceClass::ExternalPluginInteractive","ServiceClass::BackgroundProvider","deadline_expired_at_admission","deadline_expired_before_execution","queue_full","presentationEventLoop","PublishHbbtvPresentationChanged","MSG_DONTWAIT"):
     if marker not in server: raise SystemExit(f"control-plane server missing {marker}")
 for forbidden in ("AF_INET","SOCK_STREAM","runSvdrp","callPlugin","executeNative"):
     if forbidden in server: raise SystemExit(f"control-plane server contains forbidden marker {forbidden}")
@@ -50,7 +55,7 @@ for marker in ("SuiteBridgePrioritizedLocalTransport","SuiteBridgePrioritizedLeg
     if marker not in agent_main: raise SystemExit(f"Legacy OSD local-control wiring missing {marker}")
 for marker in ("Operation::CapabilityDiscovery","Operation::OsdSnapshot","Operation::OsdInput","SuiteBridgeOsdSnapshotPayload","osdInput_.Handle"):
     if marker not in plugin: raise SystemExit(f"Legacy OSD plugin local-control wiring missing {marker}")
-for marker in ("Operation::HbbtvDiscovery","Operation::HbbtvRuntime","Operation::HbbtvPresentation","Operation::HbbtvMedia","hbbtvCommand_.Handle"):
+for marker in ("Operation::HbbtvDiscovery","Operation::HbbtvRuntime","Operation::HbbtvPresentation","Operation::HbbtvMedia","Operation::HbbtvPresentationSubscribe","hbbtvCommand_.Handle","VDRWEB_SERVICE_HBBTV_PRESENTATION_CHANGED_V1","PublishHbbtvPresentationChanged"):
     if marker not in plugin: raise SystemExit(f"HbbTV plugin local-control wiring missing {marker}")
 for marker in (
     "r.operation==SuiteBridgeHbbtvRuntimeOperation::Input",
@@ -62,7 +67,7 @@ for marker in ("SuiteBridgePrioritizedHbbtvTransport","SuiteBridgeHbbtvTransport
     if marker not in client_h: raise SystemExit(f"HbbTV prioritized local-control transport missing {marker}")
 for marker in ("hbbtvLocalControlTransport","hbbtvTransport","effectiveHbbtvTransport"):
     if marker not in daemon_context: raise SystemExit(f"HbbTV daemon context wiring missing {marker}")
-for marker in ("SuiteBridgeLocalControlTransportConfig","SuiteBridgePrioritizedHbbtvTransport","hbbtvLocalControlTransport"):
+for marker in ("SuiteBridgeLocalControlTransportConfig","SuiteBridgePrioritizedHbbtvTransport","hbbtvLocalControlTransport","startHbbtvPresentationEvents"):
     if marker not in daemon_backend: raise SystemExit(f"HbbTV daemon local-control construction missing {marker}")
 for marker in ("Operation::TeletextCapability","Operation::TeletextPage","teletextCommand_.Handle"):
     if marker not in plugin: raise SystemExit(f"Teletext plugin local-control wiring missing {marker}")
@@ -86,8 +91,21 @@ for marker in ("providerLocalControlTransport","epgArtworkTransport","epgMetadat
     if marker not in daemon_context: raise SystemExit(f"background provider daemon context wiring missing {marker}")
 for marker in ("SuiteBridgePrioritizedArtworkTransport","SuiteBridgePrioritizedMetadataTransport","SuiteBridgePrioritizedRecordingMetadataTransport","SuiteBridgePrioritizedEpgTypeSnapshotTransport","providerLocalControlTransport"):
     if marker not in daemon_backend: raise SystemExit(f"background provider daemon construction missing {marker}")
-if "OperationCount = 23" not in server_h:
-    raise SystemExit("control-plane metrics must cover the 23 registered operations")
+if "OperationCount = 24" not in server_h:
+    raise SystemExit("control-plane metrics must cover the 24 registered operations")
+for marker in ("startHbbtvPresentationEvents", "stopHbbtvPresentationEvents", "HbbtvPresentationSubscribe"):
+    if marker not in client_h and marker not in client_cpp:
+        raise SystemExit(f"HbbTV presentation event client missing {marker}")
+for marker in ("VdrWebHbbtvPresentationChangedV1", "VDRWEB_SERVICE_HBBTV_PRESENTATION_CHANGED_V1"):
+    if marker not in provider_contract:
+        raise SystemExit(f"HbbTV provider event contract missing {marker}")
+for marker in ("publishPendingHbbtvPresentationChanges", "HbbtvPresentationChanged"):
+    if marker not in daemon_runtime:
+        raise SystemExit(f"HbbTV SSE change publication missing {marker}")
+if "startHbbtvPresentationEvents" not in daemon_init or "stopHbbtvPresentationEvents" not in daemon_shutdown:
+    raise SystemExit("HbbTV presentation event client lifecycle wiring missing")
+if '"hbbtvPresentation"' not in change_feed:
+    raise SystemExit("HbbTV presentation SSE domain missing")
 if "epgTypeSnapshotTransport->requestEpgTypeSnapshot" not in epg_worker:
     raise SystemExit("productive ETYPES worker must use prioritized local control transport")
 if "suiteBridgeTransport->requestEpgTypeSnapshot" in epg_worker:
