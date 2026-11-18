@@ -1,5 +1,6 @@
 #include "SuiteBridgeHbbtvPresentationResolver.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <string>

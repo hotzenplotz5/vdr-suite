@@ -1,5 +1,6 @@
 #include "../suitebridge_hbbtv_command.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <string>
@@ -21,6 +22,7 @@ public:
   bool available = true;
   int runtimeCalls = 0;
   int presentationCalls = 0;
+  std::uint32_t presentationEncodedBytes = 4;
   int mediaCalls = 0;
 
   bool Discover(
@@ -124,14 +126,20 @@ public:
     presentation.patchY = 0;
     presentation.patchWidth = 1280;
     presentation.patchHeight = 720;
-    presentation.encodedBytes = 4;
+    presentation.encodedBytes = presentationEncodedBytes;
 
     if (presentation.operation == VDRWEB_HBBTV_PRESENTATION_CHUNK) {
-      presentation.returnedBytes = 4;
-      presentation.data[0] = 'q';
-      presentation.data[1] = 'o';
-      presentation.data[2] = 'i';
-      presentation.data[3] = 'f';
+      if (presentation.offset >= presentation.encodedBytes) {
+        presentation.result = VDRWEB_HBBTV_PRESENTATION_RESULT_RANGE_INVALID;
+        return true;
+      }
+      const std::uint32_t remaining =
+          presentation.encodedBytes - presentation.offset;
+      presentation.returnedBytes = std::min<std::uint32_t>(
+          VDRWEB_HBBTV_PRESENTATION_CHUNK_MAX, remaining);
+      std::memset(presentation.data, 'x', presentation.returnedBytes);
+      if (presentation.offset == 0 && presentation.returnedBytes >= 4U)
+        std::memcpy(presentation.data, "qoif", 4U);
     }
     return true;
   }
@@ -255,15 +263,17 @@ int main()
       "\"dataBase64\":\"cW9pZg==\"") != std::string::npos);
   assert(provider.presentationCalls == 2);
 
+  provider.presentationEncodedBytes = 90000;
   const SuiteBridgeCommandResult presentationBatch =
       service.Handle("HBBPRES", "BATCH 2 session-a 9 0 98304");
   assert(presentationBatch.handled && presentationBatch.replyCode == 250);
   assert(presentationBatch.payload.compare(0U, 4U, "HBP1") == 0);
-  assert(presentationBatch.payload.size() == 57U + 4U);
+  assert(presentationBatch.payload.size() == 57U + 90000U);
   assert(presentationBatch.payload.compare(57U, 4U, "qoif") == 0);
   assert(presentationBatch.payload.find("dataBase64") == std::string::npos);
-  assert(provider.presentationCalls == 3);
+  assert(provider.presentationCalls == 4);
 
+  provider.presentationEncodedBytes = 4;
   const SuiteBridgeCommandResult invalidPresentationBatch =
       service.Handle("HBBPRES", "BATCH 2 session-a 9 4 98304");
   assert(invalidPresentationBatch.handled && invalidPresentationBatch.replyCode == 552);

@@ -803,9 +803,6 @@ int main()
     assert(hbbtvInputReply.replyCode == 250);
     assert(hbbtvCompatibility.runtimeCalls.load() == 2);
 
-
-    assert(hbbtvCompatibility.runtimeCalls.load() == 2);
-
     const std::string hbbtvBatchPath =
         "/tmp/vdr-suite-hbbtv-batch-control-" +
         std::to_string(getpid()) + ".sock";

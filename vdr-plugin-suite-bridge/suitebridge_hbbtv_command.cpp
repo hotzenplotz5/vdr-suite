@@ -465,6 +465,7 @@ bool SamePresentationFrame(
 {
   return left.schemaVersion == right.schemaVersion &&
       left.frameRevision == right.frameRevision &&
+      left.visibility == right.visibility &&
       left.frameKind == right.frameKind &&
       left.baseRevision == right.baseRevision &&
       left.renderWidth == right.renderWidth &&
