@@ -18,8 +18,9 @@ CSRF-Prüfung werden wie bei CREATE wiederverwendet. Die Device-Grants
 bleiben unverändert. Browser-LIST/DETAIL enthalten zusätzlich `settings`
 mit denselben bekannten Feldgruppen wie die frühere Web-Liste; die
 Device-Projektion bleibt kompakt und kein nativer Regel-ID-Wert wird
-öffentlich. UPDATE ändert den Suchbegriff einer inaktiven Regel und erhält
-alle anderen nativen Einstellungen (noch keine vollständige Feldänderung).
+öffentlich. Der bisherige installierte Nachweis umfasst den Suchbegriff einer
+inaktiven Regel. MLD.F3 erweitert den bestehenden UPDATE-Pfad für aktive und
+inaktive Regeln um die übrigen Einstellungen (Quellstand; Realtest offen).
 Aktive Regeln können deaktiviert, inaktive aktiviert und Regeln gelöscht
 werden. Die UI sendet keinen Legacy-DELETE mehr, liest die Revision und
 zeigt den Status der unveränderlichen Operation über die bestehende
@@ -109,7 +110,7 @@ Siehe [ST.V1-Roadmap](../docs/planning/mld-searchtimer-public-v1-roadmap.md).
 - To migrate legacy identity rows that have no verified rule signature, the **first successful catalogue read rotates those legacy public IDs**, even for a still-present rule. Changes in observable rule settings also conservatively rotate the ID; a pure active/inactive toggle does not. An old ID can no longer select another rule through the saved-rule preview. Consumers must refresh cards and discard old IDs after migration/change.
 - **Identity boundary:** Public IDs are reconciled against the observed catalogue; identical deletion/recreation between observations cannot be detected with stock epgsearch. Mutations use full-record optimistic revision checks, not native atomic CAS.
 - A genuinely empty provider list is HTTP 200 with `items: []`. An unavailable provider, unavailable runtime, or identity failure is HTTP 503, not an empty successful response. Missing/invalid Device credentials yield 401 or 403, unauthorized backend 403; all use the Public-v1 Problem model.
-- The collection GET deliberately does not expose the complete epgsearch option set. Guarded native query-only UPDATE of an inactive rule preserves the full existing settings in the provider; separate version and mutation endpoints are documented below. Unrestricted settings editing is not exposed.
+- The device collection GET remains compact. Browser administrators receive the existing settings projection; the version endpoint also carries exact native repeat and activation modes. See the mutation contract below.
 - Public response is `no-store`. On permission revocation a client must clear stale SearchTimer cards, not keep displaying a successful prior list.
 
 See `api/openapi.json`, `docs/planning/timer-searchtimer-parity.md` (VIDAA repository), and `docs/client-integration-playbook.md` (VIDAA repository).
@@ -186,7 +187,8 @@ Werte separat in `comparisonOptions` aus, sofern das jeweilige native Feld
 vorliegt. Die CREATE-Operation speichert neue explizite Optionen dauerhaft
 als internes Payload-Format 4; unveränderte alte Anfragen verwenden weiterhin
 Format 3 mit identischem Fingerprint. Die Public API bleibt v1.
-Die vollständige UPDATE-Maske und öffentliche UPDATE-Erweiterung folgen separat.
+Die vollständige UPDATE-Maske folgt separat; MLD.F3 erweitert unten den
+bestehenden öffentlichen UPDATE-Vertrag.
 
 ### Vollständige unterstützte epgsearch-Optionen
 
@@ -423,11 +425,22 @@ No numeric native ID or raw record is exposed.
 
 POST /api/v1/search-timers/{searchTimerId}/mutations?backend=<id> uses the
 quoted If-Match, Idempotency-Key and explicit confirmed:true with action
-update, activate, deactivate or delete. Query-only UPDATE of an inactive rule
-uses EDIS with the complete original native record, substituting only the
-encoded query (1–200 bytes). MODS ON/OFF changes only activation; DELS removes
-the rule without DELT. The reference client retains its activation preview.
-All other fields are preserved; full field editing is not yet implemented.
+update, activate, deactivate or delete. UPDATE accepts optional query and/or
+the settings in the OpenAPI mutation request; active and inactive rules are
+editable. EDIS starts from the original native record and replaces only the
+supplied fields (plus dependent native representations such as disabled
+time-filter endpoints). MODS ON/OFF and DELS retain their previous behavior.
+The reference client retains its activation preview. Omission preserves values;
+false and zero are explicit. For duration fields the existing RESTfulAPI
+HHMM integer representation is retained despite the historical Minutes suffix.
+Extended EPG data uses CSV provider entries of the form id#value. Native
+category mask is a decimal string; exact comparison/activation enums can
+be read from VERSION and supplied as repeatCompareSubtitleMode,
+repeatCompareTimeMode, repeatCompareCategoriesMask, activeMode. UPDATE may change activeMode within the existing active/inactive state; state
+changes remain separate actions with their existing authorization. Boolean
+compatibility fields retain existing enabled native modes where possible.
+Explicit exact modes take precedence. No public raw record or ID is exposed.
+This source change still requires real provider normalization/roundtrip tests.
 
 The daemon serializes its own management requests, validates the observed
 revision and backend, reserves and claims one durable Operation and sends at

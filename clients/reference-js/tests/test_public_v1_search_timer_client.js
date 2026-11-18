@@ -149,6 +149,18 @@ async function run() {
   ]) assert.throws(()=>client.createSearchTimer(
     Object.assign({},advanced,delta)));
   assert.equal(calls.length,beforeInvalid);
+  const edit = {backendId:'home',searchTimerId:detailId,action:'update',
+    confirmed:true,ifMatch:'"sr_'+'a'.repeat(32)+'"',idempotencyKey:'edit-full-1',
+    priority:70,repeatCompareSubtitleMode:2,repeatCompareTitle:false,
+    directory:'Doku:Archiv',useTime:true,startTime:930,stopTime:1130};
+  const edited = await client.mutateSearchTimer(edit);
+  assert.equal(edited.status,202);
+  assert.deepEqual(JSON.parse(calls.at(-1).options.body),{
+    action:'update',confirmed:true,priority:70,repeatCompareSubtitleMode:2,
+    repeatCompareTitle:false,directory:'Doku:Archiv',useTime:true,startTime:930,stopTime:1130
+  });
+  assert.throws(()=>client.mutateSearchTimer({...edit,action:'delete'}));
+  assert.throws(()=>client.mutateSearchTimer({...edit,priority:'70'}));
   status=503;
   const beforeError = calls.length;
   await assert.rejects(client.getSearchTimers({query:{backendId:'home'}}),

@@ -393,3 +393,30 @@ Readback-Matrix, v3/v4-Payload-Roundtrip und Replay, explizites false,
 abweichender Wiederholungswert bleibt UNKNOWN ohne zweite Anlage, Public-v1
 CREATE-Parsing und Reference-JS-Client. Build, CI, tatsächlicher
 MLD-Provider-Roundtrip und Benutzeroberflächen-Abnahme sind noch nicht verifiziert.
+
+## MLD.F3 – vollständige Feldbearbeitung über den bestehenden UPDATE-Pfad
+
+Public-v1-Mutationsroute nimmt optionale explizite Such-, Sender-, Zeit-,
+Wiederholungs-, Aufnahme-, Aktions-, Serien-, Gültigkeits- und EPG-Einstellungen
+an. Die vorhandene stock-epgsearch EDIS-Komposition übernimmt die Originalregel
+und ersetzt nur angegebene Optionen; native spätere Felder bleiben erhalten.
+Aktive Regeln sind editierbar. Der native Aktivierungsmodus wird nur bei
+explizitem activeMode innerhalb des bestehenden Aktivierungszustands verändert;
+ACTIVATE/DEACTIVATE bleiben separat autorisiert. Neue exakte Moduswerte sind im VERSION-Readback
+und im OpenAPI-Vertrag dokumentiert. Keine neue API-Route, kein Patch des
+epgsearch-Plugins, keine zusätzlichen Grants, keine neue Tabelle, kein Retry.
+Die alte query-only Idempotenz bleibt bytegleich; veränderte Einstellungen
+gehören zum dauerhaften Fingerprint. Der Reference-JS-Client nutzt dieselbe
+Route. Regressionen für native Felder, aktive Regeln, unveränderte Felder,
+Public-v1-Parser und Request-Body sind ergänzt. Vollständiger Daemon-Build,
+CI, Real-MLD-/yaVDR-Provider-Normalisierung und -Readback bleiben offen.
+Die vollständige Web-Bearbeitungsmaske ist MLD.F4.
+
+Fokussierter Nachweis: Git-Blob `f289ef3ab81930fa66fdd3dc87a370971fd8b89b`
+(EpgsearchStockRule.h) wurde byteidentisch in einem isolierten C++17-Harness
+mit GCC 14.2, -Wall -Wextra -Werror -pedantic kompiliert; die aus der
+Transport-Regression übernommene Settings-/Preserve-Matrix ist PASS. Der
+vollständige Transporttest und Daemon wurden nicht gebaut. Der vollständige
+Reference-JS-Test lief in isolierter V8 mit Node-Modul-Shims (72 Assertions,
+PASS); OpenAPI und Parser-Feldinventar (59 Keys) abgeglichen. Kein Node-CLI-
+oder Full-CI-Nachweis. Der Checkout scheitert lokal an DNS (github.com).

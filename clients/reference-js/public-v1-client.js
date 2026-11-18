@@ -1028,9 +1028,13 @@
 
     function nativeSearchTimerMutation(options) {
       const o = options && typeof options === 'object' ? options : {};
+      const booleans = ['matchCase','compareTitle','compareSubtitle','compareSummary','useDayOfWeek','useSeriesRecording','useVps','useExtendedEpgInfo','avoidRepeats','repeatCompareTitle','repeatCompareSummary','useInFavorites','unmuteSoundOnSwitch','repeatCompareSubtitle','compareTime','useTime','useDuration','compareCategories','ignoreMissingEpgCategories'];
+      const integers = ['mode','dayOfWeek','priority','lifetime','marginStartMinutes','marginStopMinutes','searchTimerAction','allowedRepeats','repeatsWithinDays','deleteRecordingsAfterDays','keepRecordings','switchMinutesBefore','pauseOnRecordings','tolerance','deleteMode','deleteAfterCountRecordings','deleteAfterDaysOfFirstRecording','summaryMatch','repeatCompareSubtitleMode','repeatCompareTimeMode','useChannel','startTime','stopTime','durationMinMinutes','durationMaxMinutes','blacklistMode','activeMode'];
+      const strings = ['directory','channels','channelMin','channelMax','blacklistIds','extendedEpgInfo','contentDescriptors','activeFrom','activeUntil','repeatCompareCategoriesMask'];
+      const settingFields = [...booleans,...integers,...strings];
       const allowed = new Set(['backendId','searchTimerId','action','query',
         'confirmed','previewAcknowledged','ifMatch','idempotencyKey',
-        'headers','credentials','signal']);
+        'headers','credentials','signal',...settingFields]);
       Object.keys(o).forEach(function (key) {
         if (!allowed.has(key))
           throw new Error('unsupported native SearchTimer mutation option: ' + key);
@@ -1045,12 +1049,21 @@
         throw new Error('guarded SearchTimer mutation confirmation, revision and idempotency key required');
       if (o.action === 'activate' && o.previewAcknowledged !== true)
         throw new Error('activation requires explicit fresh EPG preview acknowledgement');
+      const suppliedSettings = settingFields.filter(key => o[key] !== undefined);
       if (o.action === 'update') {
-        if (typeof o.query !== 'string' || o.query.length === 0 ||
-            o.query.length > 200 || /[:\x00-\x1f\x7f]/.test(o.query))
-          throw new Error('unsupported inactive SearchTimer update query');
-      } else if (o.query !== undefined) {
-        throw new Error('query is allowed only for an inactive update');
+        if (o.query !== undefined && (typeof o.query !== 'string' || o.query.length === 0 ||
+            o.query.length > 200 || /[\x00-\x1f\x7f]/.test(o.query)))
+          throw new Error('invalid SearchTimer update query');
+        if (o.query === undefined && !suppliedSettings.length)
+          throw new Error('SearchTimer update needs a query or settings');
+        for (const key of suppliedSettings) {
+          if ((booleans.includes(key) && typeof o[key] !== 'boolean') ||
+              (integers.includes(key) && (!Number.isInteger(o[key]) || o[key] < -2147483648 || o[key] > 2147483647)) ||
+              (strings.includes(key) && typeof o[key] !== 'string'))
+            throw new Error('invalid SearchTimer update setting: ' + key);
+        }
+      } else if (o.query !== undefined || suppliedSettings.length) {
+        throw new Error('query and settings are allowed only for update');
       }
       const headers = Object.assign({Accept:'application/json'},
         defaultHeaders,copyHeaders(o.headers));
@@ -1058,7 +1071,10 @@
       headers['If-Match'] = o.ifMatch;
       headers['Idempotency-Key'] = o.idempotencyKey;
       const payload = {action:o.action,confirmed:true};
-      if (o.action === 'update') payload.query = o.query;
+      if (o.action === 'update') {
+        if (o.query !== undefined) payload.query = o.query;
+        suppliedSettings.forEach(key => { payload[key] = o[key]; });
+      }
       return fetchImpl(buildUrl(baseUrl,path), {
         method:'POST',headers,
         credentials:o.credentials !== undefined ? o.credentials : normalized.credentials,
