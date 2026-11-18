@@ -255,8 +255,6 @@ int main()
       "\"dataBase64\":\"cW9pZg==\"") != std::string::npos);
   assert(provider.presentationCalls == 2);
 
-  const SuiteBridgeCommandResult media =  assert(provider.presentationCalls == 2);
-
   const SuiteBridgeCommandResult presentationBatch =
       service.Handle("HBBPRES", "BATCH 2 session-a 9 0 98304");
   assert(presentationBatch.handled && presentationBatch.replyCode == 250);

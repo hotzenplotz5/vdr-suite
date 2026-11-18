@@ -169,7 +169,9 @@ OSD input/snapshot. The dedicated External Plugin Interactive worker prevents
 that work from blocking either Critical Live/native-probe control or Legacy OSD.
 
 The lane regression deliberately blocks HbbTV presentation and requires both
-Live capability and OSD snapshot to complete inside the bounded test budget.The optional HBBPRES BATCH read keeps the existing v2 provider ABI and local
+Live capability and OSD snapshot to complete inside the bounded test budget.
+
+The optional HBBPRES BATCH read keeps the existing v2 provider ABI and local
 control-plane operation id. It performs at most two sequential provider CHUNK
 service calls inside one External Plugin Interactive dispatch, returning raw
 QOI bytes in a bounded binary envelope. Older plugin builds continue through
