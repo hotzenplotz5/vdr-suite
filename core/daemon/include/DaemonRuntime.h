@@ -236,11 +236,14 @@ private:
         const std::string& reason, const std::string& backendId = "");
     void publishCompletedRecordingRefreshes();
     void publishRecordingPresentationChanges();
+    void publishPendingHbbtvPresentationChanges();
     std::unique_ptr<BackendRuntimeContext> createBackendRuntimeContext(
         const BackendNode& backend);
 
     bool initialized_;
     std::atomic<bool> externalVdrChangeHint_;
+    std::atomic<bool> hbbtvPresentationChangedHint_{false};
+    std::string hbbtvPresentationChangedBackendId_;
     std::atomic<bool> epgCacheWarmupStopRequested_;
     std::atomic<bool> epgCacheDirtyHint_;
     std::atomic<bool> recordingCacheWarmupStopRequested_;

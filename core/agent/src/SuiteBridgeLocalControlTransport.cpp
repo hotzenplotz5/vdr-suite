@@ -350,7 +350,8 @@ void SuiteBridgeLocalControlTransport::runHbbtvPresentationEventLoop()
             frame.resize(static_cast<std::size_t>(received));
             std::string decodeError;
             return control::decodeResponse(frame, response, decodeError) &&
-                response.requestId == request.requestId;
+                (response.requestId == request.requestId ||
+                 response.result == control::Result::ProtocolMismatch);
         };
 
         control::Response response;

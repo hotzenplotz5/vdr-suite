@@ -6471,6 +6471,16 @@ bool DaemonRuntime::initialize()
         if (backendRuntimeContext->eventStreamClient) {
             backendRuntimeContext->eventStreamClient->start();
         }
+
+        if (backendRuntimeContext->hbbtvLocalControlTransport) {
+            hbbtvPresentationChangedBackendId_ =
+                backendRuntimeContext->backendId;
+            backendRuntimeContext->hbbtvLocalControlTransport
+                ->startHbbtvPresentationEvents(
+                    [this](const std::string&, std::uint64_t) {
+                        hbbtvPresentationChangedHint_.store(true);
+                    });
+        }
     }
 
     startEpgCacheWarmupWorker();

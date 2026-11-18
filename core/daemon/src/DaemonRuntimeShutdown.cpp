@@ -35,6 +35,11 @@ void DaemonRuntime::shutdown()
             continue;
         }
 
+        if (backendRuntimeContext->hbbtvLocalControlTransport) {
+            backendRuntimeContext->hbbtvLocalControlTransport
+                ->stopHbbtvPresentationEvents();
+        }
+
         if (backendRuntimeContext->eventStreamClient) {
             backendRuntimeContext->eventStreamClient->stop();
         }
