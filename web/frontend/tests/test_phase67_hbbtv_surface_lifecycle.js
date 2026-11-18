@@ -387,7 +387,7 @@ async function run() {
     'unrelated presentation refresh must not stop/restart Live');
   canvas = find('.vdr-suite-hbbtv-overlay');
   assert(canvas && canvas !== previousCanvas, 'missing HbbTV canvas is recreated without replacing the player');
-  assert.strictEqual(canvas.dataset.hbbtvRevision, '6',
+  assert.strictEqual(canvas.dataset.hbbtvRevision, '8',
     'recreated canvas is synchronized from a complete current frame');
   assert.strictEqual(canvas.pixels[143 * 4 + 3], 255,
     'full readback restores the opaque application control');
