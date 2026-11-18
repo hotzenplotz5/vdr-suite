@@ -82,6 +82,12 @@ SearchTimer createdTimer(const SearchTimerCreateRequest& request,
     timer.comparisonOptions().setCompareTitle(request.compareTitle);
     timer.comparisonOptions().setCompareSubtitle(request.compareSubtitle);
     timer.comparisonOptions().setCompareSummary(request.compareSummary);
+    if (request.repeatCompareTitle.has_value())
+        timer.comparisonOptions().setRepeatCompareTitle(*request.repeatCompareTitle);
+    if (request.repeatCompareSubtitle.has_value())
+        timer.comparisonOptions().setRepeatCompareSubtitle(*request.repeatCompareSubtitle);
+    if (request.repeatCompareSummary.has_value())
+        timer.comparisonOptions().setRepeatCompareSummary(*request.repeatCompareSummary);
     timer.comparisonOptions().setCompareCategories(request.compareCategories);
     timer.comparisonOptions().setCompareTime(request.compareTime);
     timer.seriesOptions().setUseSeriesRecording(request.useSeriesRecording);
@@ -190,7 +196,7 @@ struct Rig
     Source source;
     std::string id;
     explicit Rig(bool historicalActive = false,
-        int matchMode = 1, int matchTolerance = 0)
+        int matchMode = 1, int matchTolerance = 0, bool independentRepeat = false)
         : storage(database), admission(storage), dispatch(storage, generation)
     {
         assert(database.open(":memory:"));
@@ -201,6 +207,12 @@ struct Rig
         admissionRequest.payload.active = historicalActive;
         admissionRequest.payload.matchMode = matchMode;
         admissionRequest.payload.matchTolerance = matchTolerance;
+        if (independentRepeat)
+        {
+            admissionRequest.payload.repeatCompareTitle = false;
+            admissionRequest.payload.repeatCompareSubtitle = true;
+            admissionRequest.payload.repeatCompareSummary = false;
+        }
         const auto made = admission.admit(admissionRequest);
         assert(made.status == SearchTimerCreateAdmissionStatus::prepared);
         id = made.operation.operationId;
@@ -295,6 +307,32 @@ void assertRestfulApiBooleanReadback()
     assert(r.dispatch.dispatchOnce(r.request(), r.executor, r.source).status ==
         SearchTimerCreateDispatchStatus::conflict);
     assert(r.executor.creates == 1);
+
+    // v4 settings are read back from the independent native fields.
+    auto independentJson = json;
+    const std::string marker = "\"use_description\":true,";
+    const auto separatePosition = independentJson.find(marker);
+    assert(separatePosition != std::string::npos);
+    independentJson.insert(separatePosition + marker.size(),
+        "\"compare_title\":false,\"compare_subtitle\":true,\"compare_summary\":false,");
+    Rig independent(false, 1, 0, true);
+    independent.source.finalItems =
+        RestfulApiSearchTimerMapper::parseSearchTimers("default", independentJson);
+    const auto independentResult = independent.dispatch.dispatchOnce(
+        independent.request(), independent.executor, independent.source);
+    assert(independentResult.status == SearchTimerCreateDispatchStatus::verified);
+    assert(independent.executor.last.repeatCompareTitle == false);
+    assert(independent.executor.last.repeatCompareSubtitle == true);
+    assert(independent.executor.last.repeatCompareSummary == false);
+    assert(independent.executor.creates == 1);
+    Rig repeatMismatch(false, 1, 0, true);
+    repeatMismatch.source.finalItems =
+        RestfulApiSearchTimerMapper::parseSearchTimers("default", independentJson);
+    repeatMismatch.source.finalItems.front().comparisonOptions().setRepeatCompareTitle(true);
+    assert(repeatMismatch.dispatch.dispatchOnce(repeatMismatch.request(),
+        repeatMismatch.executor, repeatMismatch.source).status ==
+        SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(repeatMismatch.executor.creates == 1);
 
     // A genuinely different enabled repeat option still cannot be certified.
     Rig mismatch;

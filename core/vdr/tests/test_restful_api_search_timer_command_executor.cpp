@@ -177,6 +177,44 @@ void createMapsTitleOnlySearchFieldsToRestfulApiBody()
     assert(body.find("\"compare_summary\":0") != std::string::npos);
 }
 
+void independentRepeatFieldsAreWrittenSeparately()
+{
+    HttpResponse response;
+    response.statusCode = 200;
+    response.body = "Id: 79";
+    SequencedHttpClient httpClient({response, response});
+    RestfulApiSearchTimerCommandExecutor executor(httpClient);
+    auto request = makeCreateRequest("Amerika");
+    request.compareTitle = true;
+    request.compareSubtitle = false;
+    request.compareSummary = true;
+    request.repeatCompareTitle = false;
+    request.repeatCompareSubtitle = true;
+    request.repeatCompareSummary = false;
+    assert(executor.create(request).success);
+    SearchTimerUpdateRequest update;
+    update.backendNativeId = "79";
+    update.name = "Amerika";
+    update.query = "Amerika";
+    update.compareTitle = true;
+    update.compareSubtitle = false;
+    update.compareSummary = true;
+    update.repeatCompareTitle = false;
+    update.repeatCompareSubtitle = true;
+    update.repeatCompareSummary = false;
+    assert(executor.update(update).success);
+    assert(httpClient.requests().size() == 2);
+    for (const auto& write : httpClient.requests())
+    {
+        assert(write.body.find("\"use_title\":1") != std::string::npos);
+        assert(write.body.find("\"use_subtitle\":0") != std::string::npos);
+        assert(write.body.find("\"use_description\":1") != std::string::npos);
+        assert(write.body.find("\"compare_title\":0") != std::string::npos);
+        assert(write.body.find("\"compare_subtitle\":1") != std::string::npos);
+        assert(write.body.find("\"compare_summary\":0") != std::string::npos);
+    }
+}
+
 void createMapsSubtitleAndSummarySearchFieldsToRestfulApiBody()
 {
     HttpResponse createResponse;
@@ -336,6 +374,7 @@ int main()
     createDefersMissingNativeIdToDurableDispatcher();
     createInactiveStagingNeverEnablesNativeEpgsearchAutomation();
     createMapsTitleOnlySearchFieldsToRestfulApiBody();
+    independentRepeatFieldsAreWrittenSeparately();
     createMapsSubtitleAndSummarySearchFieldsToRestfulApiBody();
     createSerializesStructuredSearchTimerOptionListsAsJsonArrays();
     updateSerializesLegacySearchTimerOptionListsAsJsonArrays();

@@ -2570,6 +2570,9 @@ bool DaemonRuntime::initialize()
             input.payload.compareTitle = request.compareTitle;
             input.payload.compareSubtitle = request.compareSubtitle;
             input.payload.compareSummary = request.compareSummary;
+            input.payload.repeatCompareTitle = request.repeatCompareTitle;
+            input.payload.repeatCompareSubtitle = request.repeatCompareSubtitle;
+            input.payload.repeatCompareSummary = request.repeatCompareSummary;
             input.payload.directory = request.directory;
             input.payload.priority = request.priority;
             input.payload.lifetime = request.lifetime;

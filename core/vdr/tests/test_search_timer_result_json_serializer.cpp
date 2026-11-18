@@ -45,6 +45,9 @@ int main()
     terraX.comparisonOptions().setCompareTitle(true);
     terraX.comparisonOptions().setCompareSubtitle(true);
     terraX.comparisonOptions().setCompareSummary(true);
+    terraX.comparisonOptions().setRepeatCompareTitle(false);
+    terraX.comparisonOptions().setRepeatCompareSubtitle(true);
+    terraX.comparisonOptions().setRepeatCompareSummary(false);
     terraX.comparisonOptions().setCompareCategories(true);
     terraX.comparisonOptions().setCompareTime(true);
     terraX.repeatOptions().setAvoidRepeats(true);
@@ -127,6 +130,9 @@ int main()
     assert(json.find("\"compareTitle\":true") != std::string::npos);
     assert(json.find("\"compareSubtitle\":true") != std::string::npos);
     assert(json.find("\"compareSummary\":true") != std::string::npos);
+    assert(json.find("\"repeatCompareTitle\":false") != std::string::npos);
+    assert(json.find("\"repeatCompareSubtitle\":true") != std::string::npos);
+    assert(json.find("\"repeatCompareSummary\":false") != std::string::npos);
     assert(json.find("\"compareCategories\":true") != std::string::npos);
     assert(json.find("\"compareTime\":true") != std::string::npos);
     assert(json.find("\"repeatOptions\":{") != std::string::npos);

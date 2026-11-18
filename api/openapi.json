@@ -1372,6 +1372,18 @@
                   "compareSummary": {
                     "type": "boolean"
                   },
+                  "repeatCompareTitle": {
+                    "type": "boolean",
+                    "description": "Independent repeat comparison; omitting this retains the legacy compareTitle search-field value."
+                  },
+                  "repeatCompareSubtitle": {
+                    "type": "boolean",
+                    "description": "Independent repeat comparison; omitting this retains the legacy compareSubtitle search-field value."
+                  },
+                  "repeatCompareSummary": {
+                    "type": "boolean",
+                    "description": "Independent repeat comparison; omitting this retains the legacy compareSummary search-field value."
+                  },
                   "directory": {
                     "type": "string",
                     "maxLength": 4096

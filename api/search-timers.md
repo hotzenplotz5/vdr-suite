@@ -172,6 +172,22 @@ Controller, die gemeinsame Admission/Operation, den einmaligen
 RESTfulAPI-Provider-Writer und die native Readback-Verifikation. MLD,
 yaVDR und die späteren Samsung-/VIDAA-Clients benötigen keinen Backend-Fork.
 
+### Unabhängige Such- und Wiederholungsfelder (MLD.F2)
+
+Die bisherigen Pflichtfelder `compareTitle`, `compareSubtitle` und
+`compareSummary` bleiben die **Suchfelder** (`use_title`, `use_subtitle`,
+`use_description`). Drei optionale Boolean-Felder `repeatCompareTitle`,
+`repeatCompareSubtitle`, `repeatCompareSummary` setzen unabhängig davon
+`compare_title`, `compare_subtitle`, `compare_summary` beim Provider.
+Fehlt ein neues Feld, bleibt die bisherige Zuordnung des entsprechenden
+Suchfeldes erhalten. Explizites `false` wird nicht als fehlend behandelt.
+Die Administrator-Readback-Einstellungen geben die vom Provider gemeldeten
+Werte separat in `comparisonOptions` aus, sofern das jeweilige native Feld
+vorliegt. Die CREATE-Operation speichert neue explizite Optionen dauerhaft
+als internes Payload-Format 4; unveränderte alte Anfragen verwenden weiterhin
+Format 3 mit identischem Fingerprint. Die Public API bleibt v1.
+Die vollständige UPDATE-Maske und öffentliche UPDATE-Erweiterung folgen separat.
+
 ### Vollständige unterstützte epgsearch-Optionen
 
 | Bereich | Zusätzliche JSON-Felder (CamelCase) |

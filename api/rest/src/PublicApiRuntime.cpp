@@ -3218,6 +3218,8 @@ bool parsePublicSearchTimerCreateBody(
         }
         else if (key == "active" || key == "compareTitle" ||
                  key == "compareSubtitle" || key == "compareSummary" ||
+                 key == "repeatCompareTitle" || key == "repeatCompareSubtitle" ||
+                 key == "repeatCompareSummary" ||
                  key == "confirmed" ||
                  key == "useVps" ||
                  key == "useTime" ||
@@ -3243,6 +3245,9 @@ bool parsePublicSearchTimerCreateBody(
             else if (key == "compareTitle") out.compareTitle = value;
             else if (key == "compareSubtitle") out.compareSubtitle = value;
             else if (key == "compareSummary") out.compareSummary = value;
+            else if (key == "repeatCompareTitle") out.repeatCompareTitle = value;
+            else if (key == "repeatCompareSubtitle") out.repeatCompareSubtitle = value;
+            else if (key == "repeatCompareSummary") out.repeatCompareSummary = value;
             else if (key == "confirmed" && !value) return false;
             else if (key == "useVps") out.useVps = value;
             else if (key == "useTime") out.useTime = value;

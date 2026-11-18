@@ -417,6 +417,15 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
                 objectText,
                 "use_description",
                 getBoolField(objectText, "compare_summary", false)));
+        if (objectText.find("\"compare_title\"") != std::string::npos)
+            timer.comparisonOptions().setRepeatCompareTitle(
+                getBoolField(objectText, "compare_title", false));
+        if (objectText.find("\"compare_subtitle\"") != std::string::npos)
+            timer.comparisonOptions().setRepeatCompareSubtitle(
+                getBoolField(objectText, "compare_subtitle", false));
+        if (objectText.find("\"compare_summary\"") != std::string::npos)
+            timer.comparisonOptions().setRepeatCompareSummary(
+                getBoolField(objectText, "compare_summary", false));
         timer.comparisonOptions().setCompareCategories(
             getBoolField(objectText, "compare_categories", false));
         timer.comparisonOptions().setCompareTime(

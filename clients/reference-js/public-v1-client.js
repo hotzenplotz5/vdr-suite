@@ -1104,6 +1104,9 @@
         'compareTitle',
         'compareSubtitle',
         'compareSummary',
+        'repeatCompareTitle',
+        'repeatCompareSubtitle',
+        'repeatCompareSummary',
         'compareCategories',
         'compareTime',
         'useSeriesRecording',
@@ -1182,6 +1185,9 @@
         'avoidRepeats',
         'allowedRepeats',
         'repeatsWithinDays',
+        'repeatCompareTitle',
+        'repeatCompareSubtitle',
+        'repeatCompareSummary',
         'compareCategories',
         'compareTime',
         'useSeriesRecording',
@@ -1210,7 +1216,7 @@
         if (o[key] !== undefined) payload[key] = o[key];
       });
       const strings = new Set(['name','query','directory','channels','channelMin','channelMax','blacklistIds','extendedEpgInfo','contentDescriptors','activeFrom','activeUntil']);
-      const booleans = new Set(['active','useVps','useTime','useDuration','useDayOfWeek','avoidRepeats','compareTitle','compareSubtitle','compareSummary','compareCategories','compareTime','useSeriesRecording','matchCase','useExtendedEpgInfo','ignoreMissingEpgCategories','useInFavorites','pauseOnRecordings','unmuteSoundOnSwitch','confirmed']);
+      const booleans = new Set(['active','useVps','useTime','useDuration','useDayOfWeek','avoidRepeats','compareTitle','compareSubtitle','compareSummary','repeatCompareTitle','repeatCompareSubtitle','repeatCompareSummary','compareCategories','compareTime','useSeriesRecording','matchCase','useExtendedEpgInfo','ignoreMissingEpgCategories','useInFavorites','pauseOnRecordings','unmuteSoundOnSwitch','confirmed']);
       const integers = new Set(['priority','lifetime','marginStartMinutes','marginStopMinutes','useChannel','startTime','stopTime','durationMinMinutes','durationMaxMinutes','dayOfWeek','allowedRepeats','repeatsWithinDays','keepRecordings','deleteMode','searchTimerAction','blacklistMode','summaryMatch','switchMinutesBefore','deleteRecordingsAfterDays','deleteAfterCountRecordings','deleteAfterDaysOfFirstRecording','mode','tolerance']);
       Object.keys(payload).forEach(function (key) {
         const value = payload[key];

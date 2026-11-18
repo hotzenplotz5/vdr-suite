@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <functional>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -220,6 +221,10 @@ struct PublicSearchTimerCreateRequest
     int deleteRecordingsAfterDays = 0;
     int deleteAfterCountRecordings = 0;
     int deleteAfterDaysOfFirstRecording = 0;
+    // Absent preserves historical coupling for existing callers.
+    std::optional<bool> repeatCompareTitle;
+    std::optional<bool> repeatCompareSubtitle;
+    std::optional<bool> repeatCompareSummary;
     bool hasMarginStartMinutes = false;
     bool hasMarginStopMinutes = false;
 };

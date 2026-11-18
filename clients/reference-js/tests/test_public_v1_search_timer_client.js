@@ -118,6 +118,7 @@ async function run() {
     active:true,mode:4,priority:50,useChannel:2,channels:'Öffentlich',
     useTime:true,startTime:930,stopTime:1130,
     avoidRepeats:true,allowedRepeats:2,blacklistIds:'4,5',
+    repeatCompareTitle:false,repeatCompareSubtitle:true,repeatCompareSummary:false,
     useExtendedEpgInfo:true,extendedEpgInfo:'genre=movie',
     marginStartMinutes:0
   });
@@ -135,6 +136,9 @@ async function run() {
   assert.equal(body.channels,'Öffentlich');
   assert.equal(body.startTime,930);
   assert.equal(body.avoidRepeats,true);
+  assert.equal(body.repeatCompareTitle,false);
+  assert.equal(body.repeatCompareSubtitle,true);
+  assert.equal(body.repeatCompareSummary,false);
   assert.equal(body.blacklistIds,'4,5');
   assert.equal(body.extendedEpgInfo,'genre=movie');
   assert.equal(body.marginStartMinutes,0);

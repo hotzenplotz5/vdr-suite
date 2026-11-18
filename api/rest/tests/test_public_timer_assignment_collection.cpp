@@ -487,6 +487,7 @@ int main()
                 assert(request.compareTitle);
                 assert(!request.compareSubtitle);
                 assert(request.compareSummary);
+                assert(!request.repeatCompareTitle.has_value());
             }
             else
             {
@@ -503,6 +504,9 @@ int main()
                 assert(request.stopTime == 1130);
                 assert(request.avoidRepeats);
                 assert(request.allowedRepeats == 2);
+                assert(request.repeatCompareTitle == false);
+                assert(request.repeatCompareSubtitle == true);
+                assert(request.repeatCompareSummary == false);
                 assert(request.useVps);
                 assert(request.useSeriesRecording);
                 assert(request.blacklistIds == "4,5");
@@ -542,6 +546,8 @@ int main()
         "\"useChannel\":2,\"channels\":\"Öffentlich\","
         "\"useTime\":true,\"startTime\":930,\"stopTime\":1130,"
         "\"avoidRepeats\":true,\"allowedRepeats\":2,"
+        "\"repeatCompareTitle\":false,\"repeatCompareSubtitle\":true,"
+        "\"repeatCompareSummary\":false,"
         "\"useVps\":true,\"useSeriesRecording\":true,"
         "\"blacklistIds\":\"4,5\","
         "\"extendedEpgInfo\":\"genre=movie\","

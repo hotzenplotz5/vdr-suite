@@ -369,3 +369,27 @@ Kompilierung, CI und Real-MLD-Nachweis noch offen. Ohne den tatsächlich zur
 fehlgeschlagenen MLD-Operation gehörenden Provider-Readback ist nicht bewiesen,
 dass diese Ursache allein alle gemeldeten UNKNOWN-Fälle erklärt. MLD.F1 bleibt
 bis zum relevanten Nachweis offen.
+
+## MLD.F2 – Unabhängige Suchfelder und Wiederholungsvergleich (18.11.2026)
+
+Der gemeinsame RESTfulAPI-Writer hatte die drei Suchfeldwerte auch als
+Wiederholungsvergleich geschrieben. Public v1 behält die bisherigen
+Suchfeldnamen und ergänzt optional `repeatCompareTitle`,
+`repeatCompareSubtitle`, `repeatCompareSummary`. Native Readback-Felder
+werden separat abgebildet und in der bestehenden Settings-Projektion
+sichtbar. Explizite Wiederholungswerte müssen bei CREATE im Provider-Readback
+übereinstimmen; der Einmal-Dispatch und seine Idempotenz bleiben bestehen.
+Legacy-Anfragen und dauerhafte v3-Payloads behalten ihren bisherigen
+Fingerprint und die alte Fallback-Zuordnung; explizite neue Werte werden
+versioniert als v4 gespeichert (keine Public API v4, keine neue Tabelle).
+Der Reference-JS-Client und OpenAPI akzeptieren die zusätzlichen Felder.
+Die Bearbeitungsmaske und die vollständige Public-v1-UPDATE-Operation
+bleiben in den nachfolgenden Slices. Die bisherige native öffentliche
+Versionsprüfung verwendet den vollständigen nativen Regeltext; öffentliche
+Identitätszuordnung bleibt unverändert.
+
+Quellcode-Regressionen: getrennte POST-Felder bei CREATE/UPDATE, native
+Readback-Matrix, v3/v4-Payload-Roundtrip und Replay, explizites false,
+abweichender Wiederholungswert bleibt UNKNOWN ohne zweite Anlage, Public-v1
+CREATE-Parsing und Reference-JS-Client. Build, CI, tatsächlicher
+MLD-Provider-Roundtrip und Benutzeroberflächen-Abnahme sind noch nicht verifiziert.
