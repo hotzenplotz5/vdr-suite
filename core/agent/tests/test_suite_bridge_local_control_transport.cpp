@@ -5,6 +5,8 @@
 #include <cassert>
 #include <cstdlib>
 #include <chrono>
+#include <condition_variable>
+#include <utility>
 #include <cstdio>
 #include <ctime>
 #include <mutex>
@@ -397,6 +399,68 @@ void waitForSocket(const std::string& path)
 {
     while (access(path.c_str(), F_OK) != 0)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
+}
+
+void sendPresentationEventResponse(
+    int fd,
+    std::uint64_t requestId,
+    const std::string& payload)
+{
+    Response response;
+    response.result = Result::Success;
+    response.requestId = requestId;
+    response.replyCode = 900;
+    response.payload = payload;
+    std::vector<std::uint8_t> bytes;
+    assert(encodeResponse(response, bytes));
+    assert(send(fd, bytes.data(), bytes.size(), MSG_NOSIGNAL) ==
+        static_cast<ssize_t>(bytes.size()));
+}
+
+void servePresentationEventStream(const std::string& path)
+{
+    const int listener = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0);
+    assert(listener >= 0);
+    sockaddr_un address{};
+    address.sun_family = AF_UNIX;
+    std::copy(path.begin(), path.end(), address.sun_path);
+    address.sun_path[path.size()] = '\0';
+    unlink(path.c_str());
+    assert(bind(listener, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0);
+    assert(listen(listener, 4) == 0);
+
+    for (int connection = 0; connection < 2; ++connection) {
+        const int client = accept(listener, nullptr, nullptr);
+        assert(client >= 0);
+        std::vector<std::uint8_t> bytes(MaximumRequestFrameBytes + 1);
+        const ssize_t received = recv(client, bytes.data(), bytes.size(), MSG_TRUNC);
+        assert(received > 0);
+        assert(static_cast<std::size_t>(received) <= bytes.size());
+        bytes.resize(static_cast<std::size_t>(received));
+        Request request;
+        std::string reason;
+        assert(decodeRequest(bytes, request, reason));
+        assert(request.operation == Operation::HbbtvPresentationSubscribe);
+        assert(request.payload.empty());
+
+        if (connection == 0) {
+            sendPresentationEventResponse(client, request.requestId, "session-a\n1");
+            close(client);
+            continue;
+        }
+
+        // Reconnect starts with the current revision; the duplicate is ignored.
+        sendPresentationEventResponse(client, request.requestId, "session-a\n3");
+        sendPresentationEventResponse(client, request.requestId, "session-a\n3");
+        sendPresentationEventResponse(client, request.requestId, "session-a\n4");
+        sendPresentationEventResponse(client, request.requestId, "session-b\n1");
+        char byte = 0;
+        (void)recv(client, &byte, sizeof(byte), 0);
+        close(client);
+    }
+
+    close(listener);
+    unlink(path.c_str());
 }
 
 LegacyOsdInputCommand validOsdInput()
@@ -907,6 +971,47 @@ int main()
     assert(recordingMetadataFallback.requestRecordingMetadata(
         recordingKey).transportSucceeded);
     assert(recordingMetadataCompatibility.calls.load() == 1);
+
+    const std::string hbbtvEventPath =
+        "/tmp/vdr-suite-hbbtv-presentation-events-" +
+        std::to_string(getpid()) + ".sock";
+    std::thread hbbtvEventServer([&] {
+        servePresentationEventStream(hbbtvEventPath);
+    });
+    waitForSocket(hbbtvEventPath);
+
+    SuiteBridgeLocalControlTransportConfig hbbtvEventConfig;
+    hbbtvEventConfig.socketPath = hbbtvEventPath;
+    hbbtvEventConfig.connectTimeout = std::chrono::milliseconds(100);
+    hbbtvEventConfig.ioTimeout = std::chrono::milliseconds(200);
+    hbbtvEventConfig.operationTimeout = std::chrono::milliseconds(300);
+    SuiteBridgeLocalControlTransport hbbtvEventTransport(hbbtvEventConfig);
+
+    std::mutex hbbtvEventMutex;
+    std::condition_variable hbbtvEventChanged;
+    std::vector<std::pair<std::string, std::uint64_t>> hbbtvEvents;
+    assert(hbbtvEventTransport.startHbbtvPresentationEvents(
+        [&](const std::string& sessionId, std::uint64_t revision) {
+            std::lock_guard<std::mutex> guard(hbbtvEventMutex);
+            hbbtvEvents.emplace_back(sessionId, revision);
+            hbbtvEventChanged.notify_all();
+        }));
+
+    {
+        std::unique_lock<std::mutex> lock(hbbtvEventMutex);
+        assert(hbbtvEventChanged.wait_for(
+            lock,
+            std::chrono::seconds(3),
+            [&] { return hbbtvEvents.size() >= 4; }));
+    }
+
+    assert((hbbtvEvents == std::vector<std::pair<std::string, std::uint64_t>>{
+        {"session-a", 1},
+        {"session-a", 3},
+        {"session-a", 4},
+        {"session-b", 1}}));
+    hbbtvEventTransport.stopHbbtvPresentationEvents();
+    hbbtvEventServer.join();
 
     RecordingMetadataTimeoutTransport recordingMetadataTimeout;
     SuiteBridgePrioritizedRecordingMetadataTransport

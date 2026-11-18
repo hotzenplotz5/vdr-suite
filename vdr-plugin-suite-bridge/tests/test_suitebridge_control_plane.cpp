@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <future>
 #include <mutex>
+#include <poll.h>
 #include <string>
 #include <thread>
 #include <sys/socket.h>
@@ -59,6 +60,64 @@ Response transact(
   Response response;
   std::string reason;
   assert(decodeResponse(bytes, response, reason));
+  return response;
+}
+
+int openPresentationSubscription(
+    const std::string& path,
+    std::uint64_t requestId,
+    std::uint64_t deadline,
+    Response& initialResponse)
+{
+  const int fd = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0);
+  assert(fd >= 0);
+  sockaddr_un address{};
+  address.sun_family = AF_UNIX;
+  std::copy(path.begin(), path.end(), address.sun_path);
+  address.sun_path[path.size()] = '\0';
+  assert(connect(fd, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) == 0);
+
+  Request request;
+  request.operation = Operation::HbbtvPresentationSubscribe;
+  request.requestId = requestId;
+  request.deadlineNanoseconds = deadline;
+  std::vector<std::uint8_t> bytes;
+  std::string reason;
+  assert(encodeRequest(request, bytes, reason));
+  assert(send(fd, bytes.data(), bytes.size(), MSG_NOSIGNAL) == static_cast<ssize_t>(bytes.size()));
+
+  pollfd descriptor{};
+  descriptor.fd = fd;
+  descriptor.events = POLLIN;
+  assert(poll(&descriptor, 1, 1000) == 1);
+  bytes.resize(MaximumResponseFrameBytes + 1);
+  const ssize_t received = recv(fd, bytes.data(), bytes.size(), MSG_TRUNC);
+  assert(received > 0);
+  assert(static_cast<std::size_t>(received) <= bytes.size());
+  bytes.resize(static_cast<std::size_t>(received));
+  assert(decodeResponse(bytes, initialResponse, reason));
+  assert(initialResponse.requestId == requestId);
+  assert(initialResponse.result == Result::Success);
+  assert(initialResponse.replyCode == 900);
+  return fd;
+}
+
+Response receivePresentationEvent(int fd)
+{
+  pollfd descriptor{};
+  descriptor.fd = fd;
+  descriptor.events = POLLIN;
+  assert(poll(&descriptor, 1, 1000) == 1);
+  std::vector<std::uint8_t> bytes(MaximumResponseFrameBytes + 1);
+  const ssize_t received = recv(fd, bytes.data(), bytes.size(), MSG_TRUNC);
+  assert(received > 0);
+  assert(static_cast<std::size_t>(received) <= bytes.size());
+  bytes.resize(static_cast<std::size_t>(received));
+  Response response;
+  std::string reason;
+  assert(decodeResponse(bytes, response, reason));
+  assert(response.result == Result::Success);
+  assert(response.replyCode == 900);
   return response;
 }
 
@@ -336,6 +395,39 @@ int main()
   assert(blockedBackgroundProvider.get().result == Result::Success);
   assert(queuedEpgTypeSnapshot.get().result == Result::Success);
 
+  assert(serviceClass(Operation::HbbtvPresentationSubscribe) ==
+      ServiceClass::ExternalPluginInteractive);
+  Response initialPresentationEvent;
+  const int presentationEventsFd = openPresentationSubscription(
+      path, 14, longDeadline, initialPresentationEvent);
+  assert(initialPresentationEvent.payload.empty());
+
+  assert(server.PublishHbbtvPresentationChanged("session-a", 1));
+  auto presentationEvent = receivePresentationEvent(presentationEventsFd);
+  assert(presentationEvent.payload == "session-a\n1");
+  assert(!server.PublishHbbtvPresentationChanged("session-a", 1));
+  assert(server.PublishHbbtvPresentationChanged("session-a", 2));
+  assert(server.PublishHbbtvPresentationChanged("session-a", 3));
+
+  std::string latestPresentationPayload = presentationEvent.payload;
+  for (int attempt = 0;
+       attempt < 3 && latestPresentationPayload != "session-a\n3";
+       ++attempt) {
+    latestPresentationPayload =
+        receivePresentationEvent(presentationEventsFd).payload;
+  }
+  assert(latestPresentationPayload == "session-a\n3");
+  close(presentationEventsFd);
+
+  Response reconnectPresentationEvent;
+  const int reconnectPresentationEventsFd = openPresentationSubscription(
+      path, 15, longDeadline, reconnectPresentationEvent);
+  assert(reconnectPresentationEvent.payload == "session-a\n3");
+  assert(server.PublishHbbtvPresentationChanged("session-b", 1));
+  assert(receivePresentationEvent(reconnectPresentationEventsFd).payload ==
+      "session-b\n1");
+  close(reconnectPresentationEventsFd);
+
   const auto metrics = server.SnapshotMetrics();
   assert(metrics.overloaded >= 1);
   assert(metrics.deadlineExpiredBeforeExecution >= 2);
@@ -348,6 +440,7 @@ int main()
   assert(metrics.executedByOperation[12] == 1);
   assert(metrics.executedByOperation[18] == 1);
   assert(metrics.executedByOperation[19] == 1);
+  assert(metrics.executedByOperation[23] == 2);
 
   server.Stop();
   assert(!server.Running());
