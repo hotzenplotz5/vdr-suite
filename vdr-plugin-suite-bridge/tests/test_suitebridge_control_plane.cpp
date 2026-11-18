@@ -83,7 +83,7 @@ int openPresentationSubscription(
   request.deadlineNanoseconds = deadline;
   std::vector<std::uint8_t> bytes;
   std::string reason;
-  assert(encodeRequest(request, bytes, reason));
+  assert(encodeRequest(request, bytes));
   assert(send(fd, bytes.data(), bytes.size(), MSG_NOSIGNAL) == static_cast<ssize_t>(bytes.size()));
 
   pollfd descriptor{};
