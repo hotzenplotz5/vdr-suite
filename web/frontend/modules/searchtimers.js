@@ -550,8 +550,7 @@
     return fallback;
   }
 
-  function fetchChannels() {
-    const backendId = selectedBackendId();
+  function fetchChannels(backendId = selectedBackendId()) {
     if (channelCache[backendId]) return channelCache[backendId];
     const api = clientApi();
     if (!api || typeof api.fetchClientChannels !== 'function') {
@@ -568,8 +567,7 @@
     return channelCache[backendId];
   }
 
-  function fetchDirectoryData() {
-    const backendId = selectedBackendId();
+  function fetchDirectoryData(backendId = selectedBackendId()) {
     if (directoryCache[backendId]) return directoryCache[backendId];
     const api = clientApi();
     if (!api || typeof api.fetchClientRecordingFolder !== 'function') {
@@ -608,28 +606,26 @@
   function configureDirectorySelector(selectElement, manualInput, status, source) {
     status.textContent = 'Aufnahmeverzeichnisse werden geladen …';
     selectElement.disabled = true;
-    selectElement.replaceChildren(option(source.directory, directoryOptionLabel(source.directory), true));
-    selectElement.value = source.directory;
-
-    fetchDirectoryData().then(folderData => {
-      const directories = directoryOptions(folderData, lastSearchTimerData || {}, source.directory);
+    // Never overwrite edits or a template chosen while the catalogue loads.
+    selectElement.addEventListener('change', () => { manualInput.value = ''; });
+    manualInput.addEventListener('input', () => {
+      if (manualInput.value.trim() !== '') selectElement.value = '';
+    });
+    fetchDirectoryData(source.backendId).then(folderData => {
+      const current = selectElement.value;
+      const directories = directoryOptions(folderData, lastSearchTimerData || {}, current);
       selectElement.replaceChildren();
       directories.forEach(directory => {
-        selectElement.appendChild(option(directory, directoryOptionLabel(directory), directory === source.directory));
+        selectElement.appendChild(option(directory, directoryOptionLabel(directory), directory === current));
       });
       selectElement.disabled = false;
-      selectElement.value = source.directory;
-      manualInput.value = '';
-      selectElement.addEventListener('change', () => { manualInput.value = ''; });
-      manualInput.addEventListener('input', () => {
-        if (manualInput.value.trim() !== '') selectElement.value = '';
-      });
+      selectElement.value = current;
       status.textContent = String(directories.length) + ' Verzeichnisziele verfügbar.';
     }).catch(error => {
-      selectElement.replaceChildren(option(source.directory, directoryOptionLabel(source.directory), true));
-      selectElement.value = source.directory;
-      selectElement.disabled = source.directory === '';
-      manualInput.value = source.directory;
+      const current = selectElement.value;
+      selectElement.replaceChildren(option(current, directoryOptionLabel(current), true));
+      selectElement.value = current;
+      selectElement.disabled = current === '';
       status.textContent = 'Verzeichnisliste konnte nicht geladen werden. Bitte Expertenoption verwenden: ' +
         String(error && error.message ? error.message : error);
     });
@@ -660,24 +656,24 @@
     channelGroupField.hidden = true;
     channelField.hidden = true;
 
-    fetchChannels().then(channels => {
+    fetchChannels(source.backendId).then(channels => {
       const selectorGroups = channelGroups(channels, true);
       const realGroups = channelGroups(channels, false);
-      const currentSingleId = source.useChannel === 1 ? (source.channelMin || source.channelMax) : '';
-      populateChannelSelect(channelEndSelect, channels, source.channelMax || currentSingleId);
+      const currentSingleId = channelSelect.value;
+      const currentGroup = channelGroupSelect.value;
+      populateChannelSelect(channelEndSelect, channels, channelEndSelect.value);
       channelEndSelect.addEventListener('change', clearManualChannelFilter);
       const currentChannel = channels.find(channel => channel.id === currentSingleId) || null;
 
       modeSelect.disabled = false;
-      modeSelect.value = String([0, 1, 2, 3].includes(source.useChannel) ? source.useChannel : 0);
-
+ 
       groupSelect.replaceChildren(option('', 'Kanalgruppe auswählen …', true));
       selectorGroups.forEach(group => {
         groupSelect.appendChild(option(group, group === UNGROUPED_CHANNEL_KEY ? 'Ohne Kanalgruppe' : group, false));
       });
 
       channelGroupSelect.replaceChildren(option('', 'Kanalgruppe auswählen …', true));
-      realGroups.forEach(group => channelGroupSelect.appendChild(option(group, group, group === source.channels)));
+      realGroups.forEach(group => channelGroupSelect.appendChild(option(group, group, group === currentGroup)));
 
       function clearManualChannelFilter() {
         ['manualUseChannel', 'manualChannels', 'manualChannelMin', 'manualChannelMax'].forEach(name => {
@@ -693,20 +689,19 @@
 
         if (mode === 1) {
           if (selectorGroups.length === 0) {
-            populateChannelSelect(channelSelect, channels, currentSingleId);
+            populateChannelSelect(channelSelect, channels, channelSelect.value);
           } else if (groupSelect.value !== '') {
-            populateChannelSelect(channelSelect, channelsForGroup(channels, groupSelect.value), currentSingleId);
+            populateChannelSelect(channelSelect, channelsForGroup(channels, groupSelect.value), channelSelect.value);
           } else {
-            populateChannelSelect(channelSelect, channels, currentSingleId);
+            populateChannelSelect(channelSelect, channels, channelSelect.value);
           }
         }
       }
 
       if (currentChannel && selectorGroups.length > 0) groupSelect.value = channelGroupKey(currentChannel);
-      if (source.useChannel === 2 && source.channels) {
-        if (!realGroups.includes(source.channels)) channelGroupSelect.appendChild(option(source.channels, source.channels, true));
-        channelGroupSelect.value = source.channels;
-      }
+      if (currentGroup && !realGroups.includes(currentGroup))
+        channelGroupSelect.appendChild(option(currentGroup, currentGroup, true));
+      channelGroupSelect.value = currentGroup;
 
       modeSelect.addEventListener('change', () => {
         clearManualChannelFilter();
@@ -714,10 +709,16 @@
       });
       groupSelect.addEventListener('change', () => {
         clearManualChannelFilter();
-        populateChannelSelect(channelSelect, channelsForGroup(channels, groupSelect.value), '');
+        populateChannelSelect(channelSelect, groupSelect.value
+          ? channelsForGroup(channels, groupSelect.value) : channels, '');
+        channelEndSelect.value = '';
       });
-      channelSelect.addEventListener('change', clearManualChannelFilter);
+      channelSelect.addEventListener('change', () => {
+        clearManualChannelFilter();
+        channelEndSelect.value = '';
+      });
       channelGroupSelect.addEventListener('change', clearManualChannelFilter);
+      modeSelect.refreshSearchTimerFilter = renderMode;
       renderMode();
 
       status.textContent = String(realGroups.length) + ' Kanalgruppen · ' + String(channels.length) + ' Kanäle.';
@@ -726,6 +727,8 @@
       }
     }).catch(error => {
       modeSelect.disabled = false;
+      channelField.hidden = modeSelect.value !== '1';
+      channelGroupField.hidden = modeSelect.value !== '2';
       expert.open = true;
       status.textContent = 'Kanalliste konnte nicht geladen werden. Bitte Expertenoption verwenden: ' +
         String(error && error.message ? error.message : error);
@@ -767,7 +770,7 @@
     expert.className = 'searchtimer-expert';
     expert.appendChild(addText(document.createElement('summary'), 'Expertenoption: Kanalfilter manuell eingeben'));
     expert.appendChild(field('use_channel (0–3)', input('manualUseChannel', source.useChannel > 3 ? source.useChannel : ''), true));
-    expert.appendChild(field('channels / Kanalgruppenname', input('manualChannels', source.useChannel === 2 && source.channels ? source.channels : ''), true));
+    expert.appendChild(field('channels / Kanalgruppenname', input('manualChannels', ''), true));
     expert.appendChild(field('channel_min / Startkanal-ID', input('manualChannelMin', ''), true));
     expert.appendChild(field('channel_max / Endkanal-ID', input('manualChannelMax', ''), true));
 
@@ -932,8 +935,10 @@
       if (reading) { readAgain = true; return; }
       reading = true;
       inspect.disabled = true;
+      setFeedback(feedback, 'Änderungsvorgang wird geprüft …', false);
       try {
         show(await api.fetchClientSearchTimerOperation({operationId}));
+        if (attached && !inspect.hidden) feedback.textContent = 'Status geprüft: ' + feedback.textContent;
       } catch (error) {
         if (attached) setFeedback(feedback, 'Vorgang kann nicht bestätigt werden: ' +
           String(error && error.message || error) + '. Nicht erneut senden.', true);
@@ -1090,7 +1095,7 @@
 
   function createForm(template, editContext) {
     const editing = Boolean(editContext);
-    const source = template || normalizeSearchTimer({}, 0);
+    const source = template || normalizeSearchTimer({backendId: selectedBackendId()}, 0);
     const form = document.createElement('form');
     form.className = 'searchtimer-form';
     form.dataset.searchtimerEditorForm = editing ? 'update' : 'create';
@@ -1143,6 +1148,7 @@
     durationGroup.appendChild(check('useDuration', 'Dauerfilter aktivieren', source.useDuration));
     durationGroup.appendChild(field('Mindestdauer (HHMM)',
       input('durationMinMinutes', source.durationMinMinutes, 'number')));
+    durationGroup.appendChild(addText(document.createElement('p'), 'Beispiel: 0130 = 1 Stunde 30 Minuten.'));
     durationGroup.appendChild(field('Höchstdauer (HHMM)',
       input('durationMaxMinutes', source.durationMaxMinutes, 'number')));
     const repeatGroup = document.createElement('fieldset');
@@ -1164,8 +1170,14 @@
       input('allowedRepeats', source.allowedRepeats, 'number')));
     repeatGroup.appendChild(field('Wiederholungen innerhalb (Tage)',
       input('repeatsWithinDays', source.repeatsWithinDays, 'number')));
-    advancedGrid.appendChild(field('Blacklist-Modus',
-      input('blacklistMode', source.blacklistMode, 'number')));
+    if (!editing) {
+      repeatGroup.appendChild(check('compareCategories', 'EPG-Kategorien vergleichen', source.compareCategories));
+      repeatGroup.appendChild(check('compareTime', 'Zeit vergleichen', source.compareTime));
+    }
+    repeatGroup.appendChild(field('Ähnlichkeit der Beschreibung (%)',
+      input('summaryMatch', source.summaryMatch, 'number')));
+    advancedGrid.appendChild(field('Blacklist-Modus', select('blacklistMode', source.blacklistMode,
+      [[0, 'Globale Blacklists'], [1, 'Ausgewählte Blacklists'], [2, 'Alle Blacklists'], [3, 'Keine Blacklist']])));
     advancedGrid.appendChild(field('Blacklist-IDs',
       input('blacklistIds', source.blacklistIds)));
     advancedGrid.appendChild(check('matchCase',
@@ -1183,13 +1195,10 @@
       ['stopTime','Ende HHMM','number'],
       ['useDayOfWeek','Wochentage filtern','bool'],
       ['dayOfWeek','Wochentagsmaske','number'],
-      ['compareCategories','EPG-Kategorien vergleichen','bool'],
-      ['compareTime','Uhrzeit vergleichen','bool'],
       ['useSeriesRecording','Serienaufnahme','bool'],
       ['keepRecordings','Aufnahmen behalten','number'],
       ['deleteMode','Löschmodus','number'],
       ['searchTimerAction','Suchtimer-Aktion','number'],
-      ['summaryMatch','Zusammenfassung: Übereinstimmung','number'],
       ['useExtendedEpgInfo','Erweiterte EPG-Daten','bool'],
       ['extendedEpgInfo','Erweiterte EPG-Filter','text'],
       ['ignoreMissingEpgCategories','Fehlende EPG-Kategorien ignorieren','bool'],
@@ -1253,6 +1262,10 @@
     feedback.setAttribute('role', 'status');
     feedback.setAttribute('aria-live', 'polite');
     form.appendChild(feedback);
+    const previewOutput = document.createElement('div');
+    previewOutput.className = 'searchtimer-preview-output';
+    previewOutput.setAttribute('aria-live', 'polite');
+    form.appendChild(previewOutput);
 
     if (editing) {
       const baseline = buildCreatePayload(form, source);
@@ -1301,7 +1314,7 @@
       }
       previewButton.addEventListener('click', () => {
         const current = buildCreatePayload(form, source);
-        if (String(current.query || '').trim()) runPreview(current, previewButton, feedback);
+        if (String(current.query || '').trim()) runPreview(current, previewButton, previewOutput);
       });
       const save = () => editContext.mutation.execute('update', changes(), editorVersion);
       saveButton.addEventListener('click', save);
@@ -1326,7 +1339,7 @@
     }
     previewButton.addEventListener('click', () => {
       const result = payload();
-      if (result) runPreview(result, previewButton, feedback);
+      if (result) runPreview(result, previewButton, previewOutput);
     });
     let operationId = '';
     let operationEvents = null;
@@ -1542,18 +1555,32 @@
     if (activeCreateForm.elements.tolerance && timer.mode !== 5)
       activeCreateForm.elements.tolerance.value = '0';
 
-    if (activeCreateForm.elements.directory) activeCreateForm.elements.directory.value = timer.directory;
+    if (activeCreateForm.elements.directory) {
+      const control = activeCreateForm.elements.directory;
+      if (!Array.from(control.children).some(item => item.value === timer.directory))
+        control.appendChild(option(timer.directory, directoryOptionLabel(timer.directory), true));
+      control.value = timer.directory;
+    }
     if (activeCreateForm.elements.manualDirectory) {
       activeCreateForm.elements.manualDirectory.value = activeCreateForm.elements.directory && activeCreateForm.elements.directory.value === timer.directory ? '' : timer.directory;
     }
     if (activeCreateForm.elements.channelFilterMode) activeCreateForm.elements.channelFilterMode.value = String(timer.useChannel);
-    if (activeCreateForm.elements.channelFilterGroup && timer.useChannel === 2) activeCreateForm.elements.channelFilterGroup.value = timer.channels;
-    if (activeCreateForm.elements.channelId && timer.useChannel === 1) activeCreateForm.elements.channelId.value = timer.channelMin || timer.channelMax;
-    if (activeCreateForm.elements.channelEndId && timer.useChannel === 1) activeCreateForm.elements.channelEndId.value = timer.channelMax || timer.channelMin;
+    function preserveSelection(name, value) {
+      const control = activeCreateForm.elements[name];
+      if (!control) return;
+      if (!Array.from(control.children).some(item => item.value === value))
+        control.appendChild(option(value, value, true));
+      control.value = value;
+    }
+    preserveSelection('channelFilterGroup', timer.useChannel === 2 ? timer.channels : '');
+    preserveSelection('channelId', timer.useChannel === 1 ? timer.channelMin || timer.channelMax : '');
+    preserveSelection('channelEndId', timer.useChannel === 1 ? timer.channelMax || timer.channelMin : '');
+    const modeControl = activeCreateForm.elements.channelFilterMode;
+    if (modeControl && modeControl.refreshSearchTimerFilter) modeControl.refreshSearchTimerFilter();
     if (activeCreateForm.elements.manualUseChannel) activeCreateForm.elements.manualUseChannel.value = '';
-    if (activeCreateForm.elements.manualChannels) activeCreateForm.elements.manualChannels.value = timer.useChannel === 2 ? timer.channels : '';
-    if (activeCreateForm.elements.manualChannelMin) activeCreateForm.elements.manualChannelMin.value = timer.useChannel === 1 ? timer.channelMin : '';
-    if (activeCreateForm.elements.manualChannelMax) activeCreateForm.elements.manualChannelMax.value = timer.useChannel === 1 ? timer.channelMax : '';
+    if (activeCreateForm.elements.manualChannels) activeCreateForm.elements.manualChannels.value = '';
+    if (activeCreateForm.elements.manualChannelMin) activeCreateForm.elements.manualChannelMin.value = '';
+    if (activeCreateForm.elements.manualChannelMax) activeCreateForm.elements.manualChannelMax.value = '';
 
     const panel = activeCreateForm.closest('.searchtimer-create-panel');
     if (panel) panel.open = true;
@@ -1626,7 +1653,7 @@
     const channelLabel = addText(document.createElement('strong'), channelFilterLabel(timer));
     channelMeta.appendChild(channelLabel);
     meta.appendChild(channelMeta);
-    if (timer.useChannel === 1) fetchChannels().then(channels => {
+    if (timer.useChannel === 1) fetchChannels(timer.backendId).then(channels => {
       const label = id => { const channel = channels.find(item => item.id === id); return channel ? channelOptionLabel(channel) : id; };
       channelLabel.textContent = label(timer.channelMin) +
         (timer.channelMax && timer.channelMax !== timer.channelMin ? ' bis ' + label(timer.channelMax) : '');
@@ -1635,7 +1662,16 @@
       ? String(timer.startTime).padStart(4, '0') + '–' + String(timer.stopTime).padStart(4, '0')
       : 'alle Zeiten');
     if (timer.useDayOfWeek) appendMeta(meta, 'Wochentage (VDR-Maske)', String(timer.dayOfWeek));
-    appendMeta(meta, 'Duplikate', timer.avoidRepeats ? 'vermeiden' : 'zulassen');
+    appendMeta(meta, 'Wiederholungen', timer.avoidRepeats ? 'vermeiden' : 'zulassen');
+    if (timer.avoidRepeats) {
+      appendMeta(meta, 'Wiederholungsvergleich', [
+        timer.repeatCompareTitle ? 'Titel' : '', timer.repeatCompareSubtitle ? 'Untertitel' : '',
+        timer.repeatCompareSummary ? 'Beschreibung' : '', timer.compareCategories ? 'EPG-Kategorien' : '',
+        timer.compareTime ? 'Zeit' : ''
+      ].filter(Boolean).join(', ') || 'Keine Vergleichsfelder gemeldet');
+      appendMeta(meta, 'Erlaubt / Zeitraum', String(timer.allowedRepeats) + ' / ' +
+        (timer.repeatsWithinDays ? String(timer.repeatsWithinDays) + ' Tage' : 'unbegrenzt'));
+    }
     body.appendChild(meta);
 
     const actions = document.createElement('div');
@@ -1677,7 +1713,12 @@
     const feedback = document.createElement('div');
     feedback.className = 'searchtimer-feedback';
     feedback.setAttribute('role', 'status');
+    feedback.setAttribute('aria-live', 'polite');
     body.appendChild(feedback);
+    const previewOutput = document.createElement('div');
+    previewOutput.className = 'searchtimer-preview-output';
+    previewOutput.setAttribute('aria-live', 'polite');
+    body.appendChild(previewOutput);
     const mutation = createMutationController(timer, [edit, toggle, remove], feedback, inspect);
     let editorForm = null;
     edit.addEventListener('click', () => {
@@ -1689,7 +1730,7 @@
     });
     toggle.addEventListener('click', () => mutation.execute(timer.active ? 'deactivate' : 'activate'));
     remove.addEventListener('click', () => mutation.execute('delete'));
-    preview.addEventListener('click', () => runSavedPreview(timer, preview, feedback));
+    preview.addEventListener('click', () => runSavedPreview(timer, preview, previewOutput));
 
     const technical = document.createElement('details');
     technical.className = 'searchtimer-preview-technical';

@@ -445,3 +445,33 @@ Node-CLI-Nachweis. Realtest auf MLD/yaVDR und vollständiger Daemon-Build bleibe
 offen. Der Betreiber meldete für den F3-Testblock einen erfolgreichen
 TimerAssignment-Collection-/Security-Test und Phase-69.D-Guard; die gezeigte
 Ausgabe enthält keine genaue HEAD-SHA und keinen vollständigen Daemon-Build.
+
+## MLD.F5 – Verbleibende Bedienkorrekturen im Suchtimer-Webfrontend
+
+Wiederholungsoptionen einschließlich Zeit-/Kategorienvergleich und
+Beschreibungsähnlichkeit gehören in die gemeinsame Wiederholungsgruppe.
+Karten zeigen die Vergleichsfelder und erlaubten Wiederholungen/Zeitraum.
+Der Blacklist-Modus ist als beschriftete Auswahl statt Rohzahl dargestellt;
+die native HHMM-Dauer erhält ein verständliches Beispiel.
+
+Vorschau und Operationsstatus besitzen separate Ausgabebereiche, sodass eine
+Lesevorschau einen laufenden oder unklaren Schreibvorgang nicht überschreibt.
+Die manuelle UPDATE-Statusprüfung meldet Beginn und Readback sichtbar.
+SSE, bisherige CREATE-/UPDATE- und Abbrechen-/Zurück-Verträge bleiben
+unverändert. Keine zusätzliche Schreibroute, kein Polling, kein neues Gate.
+
+Sender- und Verzeichniskataloge verwenden das Backend der jeweiligen Regel
+oder des neuen Formulars. Verzögerte Katalogantworten überschreiben keine
+bereits ausgewählten Verzeichnisse, manuellen Eingaben oder kopierten
+Senderbereiche. Vorlagen behalten ihre Auswahl; ein neuer Startsender
+setzt den bisherigen Endsender zurück (leer bedeutet gleicher Sender).
+Die bekannte native Regel und unbekannte Katalogeinträge bleiben auswählbar.
+
+Nachweis: vollständiger `test_searchtimer_workflows_runtime.js` mit
+315 Assertions PASS in isolierter V8 (bestehender Mock-DOM, Node-Modul-Shims).
+Zusätzliche Regressionen: Gruppierung der Wiederholungsoptionen,
+Vorschau bei laufender Mutation, neuer Startsender und verspätete
+Katalogpopulation nach Vorlagenwahl. Kein echter Browser-/Node-CLI-/CI-
+oder MLD-Realtest. Nur JavaScript und Dokumentation geändert; F5 selbst
+erfordert keinen neuen C++-Build. Der bestehende Lesevorschautransport und
+die noch ausstehenden EPG-/Live-TV-/Admin-Arbeiten bleiben unverändert.

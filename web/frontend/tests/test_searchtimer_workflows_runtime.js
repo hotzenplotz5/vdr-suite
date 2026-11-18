@@ -685,6 +685,10 @@ async function checkEditorFullWrites() {
   assert.strictEqual(writes.length, 2, 'back/reopen cannot resend an uncertain CREATE');
   assert.notStrictEqual(second.elements.useDuration.parentElement.parentElement,
     second.elements.avoidRepeats.parentElement.parentElement, 'duration and repeats have separate groups');
+  assert.strictEqual(second.elements.summaryMatch.parentElement.parentElement,
+    second.elements.avoidRepeats.parentElement.parentElement, 'summary similarity belongs to repeats');
+  assert.strictEqual(second.elements.compareTime.parentElement.parentElement,
+    second.elements.avoidRepeats.parentElement.parentElement, 'time comparison belongs to repeats');
   const inspect = findOperationButton(second);
   assert(inspect && !inspect.hidden);
   inspect.listeners.click();
@@ -904,6 +908,10 @@ async function checkPublicMutations() {
   assert.strictEqual(activate.disabled, true);
   const stream = streams[0];
   assert(stream);
+  const mutationFeedback = find(card,node => node.className.startsWith('searchtimer-feedback'));
+  const beforePreview = mutationFeedback.textContent;
+  await button(card,'Vorschau').listeners.click();
+  assert.strictEqual(mutationFeedback.textContent,beforePreview,'preview must not erase operation feedback');
   stream.emit('operation', {operationId:'op_' + 'd'.repeat(32),state:'succeeded'});
   assert.strictEqual(reads.length, 0);
   await stream.emit('hello',{});
@@ -995,10 +1003,40 @@ async function checkNamedSelectors() {
   assert.strictEqual(form.elements.channelId.disabled,false,'sender selection works without a group prerequisite');
   form.elements.channelId.value='ARD';
   form.elements.channelEndId.value='ZDF';
+  form.elements.channelId.listeners.change();
+  assert.strictEqual(form.elements.channelEndId.value,'','new start sender clears old endpoint');
+  form.elements.channelEndId.value='ZDF';
   const payload=mod.buildCreatePayload(form);
   assert.strictEqual(payload.channelMin,'ARD');
   assert.strictEqual(payload.channelMax,'ZDF');
   assert.strictEqual(payload.useChannel,1);
+
+  // A template may be selected before the deferred catalogue population.
+  mod.renderList({items:[{backendId:'living-room',searchTimerId:'st_'+'a'.repeat(32),
+    query:'Vorlage',state:'inactive',settings:{recordingOptions:{directory:'Archiv'},
+      filterOptions:{useChannelMode:1},channelOptions:{channelMinId:'ARD',channelMaxId:'ZDF'}}}]});
+  const copied=findForm(mount);
+  copied.closest=()=>copied.parentElement.parentElement;
+  copied.scrollIntoView=()=>{};
+  function findCopy(node) {
+    if (node.tagName==='BUTTON' && node.textContent==='Als Vorlage öffnen') return node;
+    for (const child of node.children) {
+      const match=findCopy(child);
+      if(match) return match;
+    }
+    return null;
+  }
+  findCopy(mount).listeners.click();
+  copied.elements.manualDirectory.value='Mein~Archiv';
+  tasks.splice(0).forEach(fn=>fn());
+  for(let i=0;i<8;i++) await Promise.resolve();
+  const copiedPayload=mod.buildCreatePayload(copied);
+  assert.strictEqual(copied.elements.directory.value,'Archiv');
+  assert.strictEqual(copiedPayload.directory,'Mein~Archiv','late catalogue must not erase manual input');
+  assert.strictEqual(copiedPayload.useChannel,1);
+  assert.strictEqual(copiedPayload.channelMin,'ARD');
+  assert.strictEqual(copiedPayload.channelMax,'ZDF');
+  assert(copied.elements.channelId.children.some(o=>o.textContent==='1 · Das Erste HD'));
 }
 checkEditorFullWrites().then(checkPublicMutations).then(checkNamedSelectors).then(function() {
   console.log('test_searchtimer_workflows_runtime passed');
