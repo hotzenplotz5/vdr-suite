@@ -33,6 +33,8 @@ std::string VdrChangeEvent::typeName() const
         return "EventsChanged";
     case VdrChangeType::LiveOverlayChanged:
         return "LiveOverlayChanged";
+    case VdrChangeType::HbbtvPresentationChanged:
+        return "HbbtvPresentationChanged";
     }
 
     return "Unknown";

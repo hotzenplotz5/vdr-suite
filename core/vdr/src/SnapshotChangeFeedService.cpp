@@ -27,6 +27,8 @@ static std::string domainNameForChangeType(VdrChangeType type)
         return "events";
     case VdrChangeType::LiveOverlayChanged:
         return "liveOverlay";
+    case VdrChangeType::HbbtvPresentationChanged:
+        return "hbbtvPresentation";
     }
 
     return "";
