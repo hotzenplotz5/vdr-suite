@@ -35,6 +35,7 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/teletext-view.js", "teletext-view.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/hbbtv-qoi.js", "hbbtv-qoi.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/hbbtv-qoi-worker.js", "hbbtv-qoi-worker.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/hbbtv-qoi-worker.js", "hbbtv-qoi-worker.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/live-tv-view.js", "live-tv-view.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/channel-day-program-compat.js", "channel-day-program-compat.js", "application/javascript; charset=utf-8", "home-live-preview.js"},
     {"/frontend/recordings2-shared.js", "recordings2-shared.js", "application/javascript; charset=utf-8", nullptr},
