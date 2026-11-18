@@ -41,6 +41,7 @@
     hbbtvPresentationLastEventSequence: 0,
     hbbtvPresentationInFlight: false,
     hbbtvPresentationKickPending: false,
+    hbbtvPresentationResyncEpoch: 0,
     hbbtvStatusTimer: null,
     hbbtvMediaTimer: null,
     hbbtvFrameRevision: 0,
@@ -450,7 +451,8 @@
   }
 
   function hbbtvTimingValue(value) {
-    return Number.isFinite(Number(value))
+    return value !== null && value !== undefined && value !== '' &&
+      Number.isFinite(Number(value))
       ? Math.max(0, Math.round(Number(value)))
       : null;
   }
@@ -896,6 +898,8 @@
     };
     const forceReadback = function() {
       if (!isCurrent()) return;
+      // An older in-flight read must not overwrite the fresh full-frame baseline.
+      state.hbbtvPresentationResyncEpoch += 1;
       state.hbbtvFrameRevision = 0;
       state.hbbtvPresentationLastEventSequence = 0;
       kickHbbtvPresentation(sequence);
@@ -965,6 +969,7 @@
     }
 
     state.hbbtvPresentationInFlight = true;
+    const resyncEpoch = state.hbbtvPresentationResyncEpoch;
 
     return client.fetchClientHbbtvPresentation({
       query: {
@@ -984,6 +989,12 @@
       }
 
       if (!state.active || sequence !== state.hbbtvSessionSequence) return null;
+      if (resyncEpoch !== state.hbbtvPresentationResyncEpoch) {
+        // Drop a stale response from before SSE reconnect/resync, then read
+        // a complete revision-0 frame from the current provider state.
+        kickHbbtvPresentation(sequence);
+        return null;
+      }
 
       if (frame && frame.status === 200) {
         if (!drawHbbtvPresentation(frame) &&
@@ -1025,6 +1036,12 @@
       }
 
       if (!state.active || sequence !== state.hbbtvSessionSequence) return null;
+      if (resyncEpoch !== state.hbbtvPresentationResyncEpoch) {
+        // Drop a stale response from before SSE reconnect/resync, then read
+        // a complete revision-0 frame from the current provider state.
+        kickHbbtvPresentation(sequence);
+        return null;
+      }
       state.hbbtvPresentationError =
         error && error.message
           ? error.message
