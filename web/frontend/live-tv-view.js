@@ -2180,7 +2180,7 @@
     });
     slot.appendChild(state.playback.element);
 
-    createHbbtvOverlay(slot);
+    const hbbtvOverlay = createHbbtvOverlay(slot);
 
     const hbbtvRemote = createHbbtvRemote();
 
