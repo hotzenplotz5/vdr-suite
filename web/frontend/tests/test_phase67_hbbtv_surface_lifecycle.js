@@ -418,6 +418,8 @@ async function run() {
   assert.strictEqual(video.style.getPropertyValue('aspect-ratio'), originalRatio, 'close restores the broadcast layout');
   assert.strictEqual(video.style.getPropertyValue('z-index'), '');
   assert(video.src.includes('live_session_test'), 'close restores broadcast through the same owner');
+  // Browsers without Worker must keep the same UI and revision semantics.
+  window.Worker = undefined;
   frameRevision = 1; mediaActive = false; frameAvailable = false;
   find('.vdr-suite-hbbtv-session-toggle').click(); await flush(); await tick();
   assert.strictEqual(live.snapshot().hbbtvSessionId, 'app_2');
