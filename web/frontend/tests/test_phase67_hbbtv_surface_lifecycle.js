@@ -238,8 +238,25 @@ const client = {
       mediaPath: '/api/media/sessions/hbbtv_media_test/live/stream.mp4'}});
   }
 };
+const workerInstances = [];
 const window = {
   document, console, VdrSuiteClientApi: client,
+  Worker: class {
+    constructor(url) {
+      assert.strictEqual(url, '../frontend/hbbtv-qoi-worker.js');
+      this.decodeCount = 0;
+      workerInstances.push(this);
+    }
+    postMessage(message) {
+      this.decodeCount += 1;
+      Promise.resolve().then(() => {
+        if (!this.onmessage) return;
+        const decoded = window.VdrSuiteQoi.decode(message.bytes);
+        this.onmessage({data: {...decoded, id: message.id}});
+      });
+    }
+    terminate() { this.onmessage = null; }
+  },
   VdrSuiteBrowserSession: {restore: () => Promise.resolve({authenticated: true}), csrfHeaders: () => ({}), subscribe() {}},
   addEventListener() {}, removeEventListener() {},
   setTimeout(fn) { const id = ++nextTimer; timers.set(id, fn); return id; },
@@ -280,6 +297,8 @@ async function run() {
   assert.strictEqual(canvas.style.width, '640px');
 
   assert.strictEqual(canvas.pixels[3], 255, 'pre-media application frame is deliberately opaque');
+  assert.strictEqual(workerInstances.length, 1, 'QOI worker is created once for the active Live-TV view');
+  assert(workerInstances[0].decodeCount > 0, 'first frame is decoded through the worker');
   mediaActive = true; await tick();
   assert(video.src.includes('hbbtv_media_test'), 'actual canonical owner attached the external stream');
   assert.strictEqual(video.videoWidth, 0, 'external attach reset intrinsic metadata again');
@@ -436,6 +455,7 @@ async function run() {
   width = 320; observer.fn();
   assert.strictEqual(canvas.style.width, oldWidth, 'late observer callback cannot revive a detached surface');
   assert.strictEqual(videos.length, 1, 'HbbTV never constructs a second video owner');
+  assert.strictEqual(workerInstances.length, 1, 'reconnect and resync reuse the decoder worker');
   console.log('HbbTV production input, media visibility, early layout, final resize and teardown ok');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });
