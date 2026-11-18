@@ -715,6 +715,7 @@ test-searchtimer-create-one-shot-dispatch:
 		core/vdr/src/SearchTimerCreateOperationPayload.cpp \
 		core/vdr/src/SearchTimerCreateAdmissionService.cpp \
 		core/vdr/src/SearchTimerCreateDispatchService.cpp \
+		core/vdr/src/RestfulApiSearchTimerMapper.cpp \
 		core/vdr/tests/test_search_timer_create_dispatch_service.cpp \
 		$(LDFLAGS) \
 		-o $(BUILD_DIR)/test_search_timer_create_dispatch_service

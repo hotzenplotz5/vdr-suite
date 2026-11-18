@@ -2,6 +2,7 @@
 #include "ISearchTimerCommandExecutor.h"
 #include "ISearchTimerDataSource.h"
 #include "MutationOperationRepository.h"
+#include "RestfulApiSearchTimerMapper.h"
 #include "SearchTimerCreateAdmissionService.h"
 #include "SearchTimerCreateDispatchService.h"
 #include "SearchTimerCreateDeviceAdmissionService.h"
@@ -267,6 +268,49 @@ void assertHttpAcceptedWithoutIdUsesSingleInventory()
     assert(r.dispatch.dispatchOnce(r.request(), r.executor, r.source).status ==
         SearchTimerCreateDispatchStatus::conflict);
     assert(r.executor.creates == 1);
+}
+
+void assertRestfulApiBooleanReadback()
+{
+    // Exercise the production mapper plus the existing durable dispatch and
+    // verification path with the same provider JSON types as real epgsearch.
+    const std::string json = R"({"searchtimers":[{"id":31,"search":"Terra X",
+        "use_as_searchtimer":0,"mode":1,"use_title":true,"use_subtitle":false,
+        "use_description":true,"margin_start":2,"margin_stop":10,"priority":50,
+        "use_channel":2,"channels":"ARD","use_time":true,"start_time":930,
+        "stop_time":1130,"avoid_repeats":true,"allowed_repeats":2,
+        "use_series_recording":true,"blacklist_ids":["4","5"],
+        "use_ext_epg_info":true,"ext_epg_info":["genre=movie"]}],
+        "count":1,"total":1})";
+    Rig r;
+    r.source.finalItems =
+        RestfulApiSearchTimerMapper::parseSearchTimers("default", json);
+    assert(r.source.finalItems.size() == 1);
+    const auto accepted = r.dispatch.dispatchOnce(
+        r.request(), r.executor, r.source);
+    assert(accepted.status == SearchTimerCreateDispatchStatus::verified);
+    assert(accepted.operation.state == MutationOperationState::succeeded);
+    assert(r.executor.creates == 1);
+    assert(r.source.reads == 2);
+    assert(r.dispatch.dispatchOnce(r.request(), r.executor, r.source).status ==
+        SearchTimerCreateDispatchStatus::conflict);
+    assert(r.executor.creates == 1);
+
+    // A genuinely different enabled repeat option still cannot be certified.
+    Rig mismatch;
+    auto wrong = json;
+    const std::string expected = "\"avoid_repeats\":true";
+    const auto position = wrong.find(expected);
+    assert(position != std::string::npos);
+    wrong.replace(position, expected.size(), "\"avoid_repeats\":false");
+    mismatch.source.finalItems =
+        RestfulApiSearchTimerMapper::parseSearchTimers("default", wrong);
+    assert(mismatch.source.finalItems.size() == 1);
+    const auto uncertain = mismatch.dispatch.dispatchOnce(
+        mismatch.request(), mismatch.executor, mismatch.source);
+    assert(uncertain.status == SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(uncertain.operation.state == MutationOperationState::outcomeUnknown);
+    assert(mismatch.executor.creates == 1);
 }
 
 void assertGuards()
@@ -560,6 +604,7 @@ int main()
 {
     assertHappyPathAndNoRetry();
     assertHttpAcceptedWithoutIdUsesSingleInventory();
+    assertRestfulApiBooleanReadback();
     assertGuards();
     assertBackendRestartCannotDispatch();
     assertLeaseExpiryCannotBeMaskedByRequestTimestamp();

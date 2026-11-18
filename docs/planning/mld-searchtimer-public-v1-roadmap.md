@@ -346,3 +346,26 @@ Anlage, keine DB-Sicherung und kein Deployment durch diesen Dokumentationsschrit
 - **ST.V1.8 nicht abgeschlossen:** Abschließende Feldmatrix, Hardware-/Paketnachweise und Definition of Done erst nach tatsächlich bestandener Real-VDR-Abnahme aktualisieren.
 
 Ältere Abschnitte dieser Roadmap dokumentieren den jeweiligen historischen Stand auf `MLD-Suchtimer` und sind **nicht** als aktueller Branch- oder CI-Status zu lesen. Keine neue Public API oder Feature-Branch erforderlich.
+
+
+## MLD.F1 – CREATE-Readback: RESTfulAPI-Boolean-Abbildung (18.11.2026)
+
+MLD meldet erfolgreich angelegte Regeln mit `outcome_unknown`. Ein konkreter
+Quellcodefehler betrifft die Readback-Abbildung: numerisch ausgewertete
+Boolean-Felder wurden bei JSON `true` fälschlich zu `false`. Das historische
+reale Provider-Fixture dokumentiert bereits native JSON-Booleans. Die betroffenen
+Schalter werden jetzt mit dem bestehenden Boolean-Parser gelesen. Numerische
+0/1-Werte bleiben kompatibel. Die einmalige CREATE-Ausführung, Baseline- und
+Readback-Verifikation, Idempotenz und SSE bleiben unverändert.
+
+Regressionen: `test-restful-api-search-timer-mapper` (true/false und vorhandene
+numerische Werte) und `test-searchtimer-create-one-shot-dispatch` (produktiver
+Mapper plus dauerhafter Dispatch, Erfolg bei passenden Flags, weiterhin UNKNOWN
+bei materiellem Unterschied, keine zweite Provider-Anlage). Kein neuer Vertrag,
+keine zusätzliche Sperre und kein Workaround durch vorgetäuschten Erfolg.
+
+Nachweisstand dieses Quellcode-Slices: gezielte Regressionen ergänzt;
+Kompilierung, CI und Real-MLD-Nachweis noch offen. Ohne den tatsächlich zur
+fehlgeschlagenen MLD-Operation gehörenden Provider-Readback ist nicht bewiesen,
+dass diese Ursache allein alle gemeldeten UNKNOWN-Fälle erklärt. MLD.F1 bleibt
+bis zum relevanten Nachweis offen.
