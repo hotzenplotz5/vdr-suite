@@ -6,12 +6,15 @@ const vm = require('vm');
 
 const live = fs.readFileSync('web/frontend/live-tv-view.js', 'utf8');
 const client = fs.readFileSync('web/frontend/api/client-api.js', 'utf8');
+const liveApi = fs.readFileSync('web/frontend/api/live-remote-client-api.js', 'utf8');
 const qoi = fs.readFileSync('web/frontend/hbbtv-qoi.js', 'utf8');
 
 for (const token of [
   'function openHbbtvSession()',
   'function closeHbbtvSession()',
-  'function pollHbbtvPresentation(sequence)',
+  'function readHbbtvPresentation(sequence)',
+  'function startHbbtvPresentationEvents(sequence)',
+  'function stopHbbtvPresentationEvents()',
   'function pollHbbtvMedia(sequence)',
   'function startHbbtvMediaPlayback(media, sequence)',
   'function stopHbbtvMediaPlayback(sequence, notifyServer, restoreBroadcast)',
@@ -190,20 +193,34 @@ assert(
 );
 
 for (const token of [
+  'hbbtvPresentationEventSource: null',
+  'hbbtvPresentationLastEventSequence: 0',
   'hbbtvPresentationInFlight: false',
   'hbbtvPresentationKickPending: false',
   'function kickHbbtvPresentation(sequence)',
   'state.hbbtvPresentationKickPending = true;',
-  "scheduleHbbtvPresentation(sequence, 0);",
-  'kickHbbtvPresentation(sessionSequence);',
-  'inputKickPending'
+  "source.addEventListener('update'",
+  "source.addEventListener('resync'",
+  "domains.includes('hbbtvPresentation')",
+  'eventKickPending'
 ]) {
   assert(live.includes(token), token);
 }
-
+for (const forbidden of [
+  'hbbtvPresentationTimer',
+  'scheduleHbbtvPresentation',
+  'pollHbbtvPresentation',
+  'startHbbtvPresentationPolling'
+]) {
+  assert(!live.includes(forbidden), forbidden);
+}
+assert(liveApi.includes('createClientLiveUpdateSource: createClientLiveUpdateSource'));
+const inputStart = live.indexOf('function sendHbbtvInput(action)');
+const inputEnd = live.indexOf('\n  function ', inputStart + 1);
+assert(inputStart >= 0 && inputEnd > inputStart);
 assert(
-  live.indexOf('state.hbbtvInputDiagnostic.responseAt = responseAt;') <
-  live.indexOf('kickHbbtvPresentation(sessionSequence);')
+  !live.slice(inputStart, inputEnd).includes('kickHbbtvPresentation'),
+  'an input response must not trigger an early presentation read; wait for provider SSE'
 );
 
 console.log('Phase 67 HbbTV Live-TV overlay contract ok');
