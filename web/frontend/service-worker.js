@@ -1,7 +1,7 @@
 'use strict';
 
 // PWA.1/PWA.3: public fallback shell and server-revalidated Home previews.
-// HTML, composed runtime bundles, API/SSE and writes remain network-owned.
+// The installer may embed a verified public static shell; private API/SSE and writes stay network-owned.
 const scope = new URL(self.registration.scope);
 const cachePrefix = 'vdr-suite-pwa-shell:' + encodeURIComponent(scope.href) + ':';
 const cacheName = cachePrefix + 'v2';
@@ -195,6 +195,7 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   if (artworkRequest(request)) { event.respondWith(handleArtwork(event)); return; }
   if (artworkSessionMutation(request)) { event.respondWith(handleArtworkSessionMutation(request)); return; }
+  if (typeof handleLocalShell === 'function' && handleLocalShell(event)) return;
   if (request.method !== 'GET' || request.mode !== 'navigate') return;
   const url = new URL(request.url);
   if (url.origin !== scope.origin || url.search ||

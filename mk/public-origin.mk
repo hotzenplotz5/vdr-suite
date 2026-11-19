@@ -39,6 +39,8 @@ test-pwa-shell:
 	node --check web/frontend/service-worker.js
 	node --check web/frontend/pwa-register.js
 	node web/frontend/tests/test_pwa_shell.js
+	node --check web/frontend/pwa-local-shell.js
+	node web/frontend/tests/test_pwa_local_shell.js
 	node web/frontend/tests/test_pwa_connection.js
 	node web/frontend/tests/test_pwa_install.js
 	node --check web/frontend/platform/home-persistence.js

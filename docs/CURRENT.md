@@ -2,7 +2,7 @@
 
 ## PWA / Home performance — next frontend priority (19.11.2026)
 
-**PWA.8 = source candidate; optional Android/desktop browser-native installation, maskable 192/512 PNG icons, and standalone presentation wired. Focused install-event contract PASS in a simulated DOM/event harness; exact icon bytes and scoped manifest/asset paths checked. PWA.7 hosted CI passed all six jobs. PWA.8 hosted CI, actual device installation/update/playback and real Home performance acceptance remain open.**
+**PWA.10 = source candidate; versioned public cache-first app shell, deterministically composed at runtime staging. Focused Node shell/generator contract PASS; hosted CI and installed/browser validation open. PWA.8 CI 6/6 PASS and yaVDR runtime installation PASS at `d4ce4f7`; PWA.9 warm performance FAILED / OPEN (operator reports little improvement and slow cover delivery). Actual Android/desktop standalone acceptance remains open.**
 The maintainer prioritizes local client caching and optional PWA installation
 for the existing Webfrontend, including ordinary browser use. See
 [PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.

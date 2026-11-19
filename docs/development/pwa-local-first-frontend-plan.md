@@ -563,3 +563,55 @@ account/backend scope (non-identifying), scenario, timing, errors and result.
 Do not record tokens or private content. Report unavailable cases explicitly.
 PWA.9 remains OPEN until the actual runtime/device results are available;
 no measured speedup, merge, or phase acceptance is claimed here.
+
+## PWA.9 — operator runtime evidence and remaining performance deficit
+
+On 2026-11-19 the operator built and installed PWA.8 product source
+`d4ce4f7011da4995d40da9990180acbae8a50661` on yaVDR.
+`DAEMON_INSTALL=PASS`, `FRONTEND_DEPLOYMENT_MATCH=YES`,
+`RUNTIME_DEPLOYMENT_MATCH=YES`, and active daemon were reported.
+Running binary SHA-256:
+`84b8dd45ff1b2aac0c9f1de3931273592ff2c5c1c82b6f10fa419c9a84dbd0a7`.
+The operator reported that warm reload and browser restart were not noticeably
+faster, and some covers took many seconds to appear. PWA.9 performance
+acceptance FAILED / OPEN; the video is an observed sequence, not a
+controlled navigation-timing benchmark. Native Android/desktop installation
+and the remaining real-browser cases are still open.
+
+## PWA.10 — versioned, cache-first public app shell (2026-11-19)
+
+Maintainer approved PWA.10 only. Existing branch and public static route
+owner retained. The runtime installer generates the worker from the source
+worker, its static-shell helper and SHA-256 of the actual staged public
+index, CSS and eligible JavaScript routes, including the daemon's exact
+two-file composition (separator and addon bytes). Any staged shell change
+changes the generated worker identity. Source/uncomposed use retains the
+existing network-first worker. No new HTTP path, daemon code or API contract.
+
+The worker anonymously prefetches the exact static release with four
+concurrent fetchers. Only successful non-redirected responses with expected
+MIME, exact byte digest and non-private cache policy are admitted. The release
+is usable only after complete prefetch; partial, rejected or unavailable
+storage falls back to the ordinary network path. This is optional cache
+eligibility, not an authorization gate. A canonical controlled navigation
+and its static script/style/worker requests use the completed release locally;
+diagnostic and legacy paths stay network-owned. Browser registration,
+waiting and activation remain normal (no claim, forced reload or skipWaiting).
+An update becomes usable after the normal worker lifecycle; prior active
+clients retain their release. A failed prefetch remains optional/network-first
+until a new worker installation; loss/eviction mid-page can require network
+fallback. No private HTML, API response, cookie, artwork policy change,
+polling, stream or queued mutation. Current session/bootstrap and SSE
+remain authoritative; no private offline entitlement.
+
+Local focused Node harness passed generator identity/bundle bytes, exact
+public prefetch policy, zero warm network fetches for fixture shell resources,
+direct and prefixed scope, unrelated cache retention, diagnostic isolation,
+and storage/401/private/digest-mismatch fallback. The new helper, generator
+and focused test blobs are byte-identical to the locally tested files.
+The real production composition uses the existing install-runtime hook and
+packaging compare is replaced by deterministic generated-worker verification.
+Hosted integration, actual installed worker activation, security-header
+behavior through the reverse proxy and browser timings remain NOT VERIFIED.
+PWA.11 and beyond are not part of this implementation; artwork still uses
+the existing PWA.3 revalidation path. No measured speedup claimed.

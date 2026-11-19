@@ -130,7 +130,6 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/manifest.webmanifest $(DESTDIR)$(DATADIR)/web/frontend/manifest.webmanifest
 	$(INSTALL) -m 0644 web/frontend/pwa-icon-192.png $(DESTDIR)$(DATADIR)/web/frontend/pwa-icon-192.png
 	$(INSTALL) -m 0644 web/frontend/pwa-icon-512.png $(DESTDIR)$(DATADIR)/web/frontend/pwa-icon-512.png
-	$(INSTALL) -m 0644 web/frontend/service-worker.js $(DESTDIR)$(DATADIR)/web/frontend/service-worker.js
 	$(INSTALL) -m 0644 web/frontend/pwa-register.js $(DESTDIR)$(DATADIR)/web/frontend/pwa-register.js
 	$(INSTALL) -m 0644 web/frontend/app.js $(DESTDIR)$(DATADIR)/web/frontend/app.js
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/api
@@ -202,6 +201,8 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-doku.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-doku.svg
 	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-action.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-action.svg
 	$(INSTALL) -m 0644 web/frontend/assets/recording-genre-musical.svg $(DESTDIR)$(CACHEDIR)/channel-logos/vdr-suite-brand/recording-genre-musical.svg
+	# Version the actual staged public assets after all composition hooks.
+	node tools/build_pwa_shell.js "$(DESTDIR)$(DATADIR)/web/frontend"
 
 install-cli:
 	test -x $(BUILD_DIR)/vdr-suite-dashboard
@@ -351,7 +352,8 @@ test-install-staging:
 	cmp web/frontend/manifest.webmanifest /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/manifest.webmanifest
 	cmp web/frontend/pwa-icon-192.png /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/pwa-icon-192.png
 	cmp web/frontend/pwa-icon-512.png /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/pwa-icon-512.png
-	cmp web/frontend/service-worker.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/service-worker.js
+	node tools/build_pwa_shell.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend --check
+	node --check /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/service-worker.js
 	cmp web/frontend/pwa-register.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/pwa-register.js
 	cmp web/frontend/platform/home-persistence.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/home-persistence.js
 	cmp web/frontend/platform/home-cache-runtime.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/home-cache-runtime.js
