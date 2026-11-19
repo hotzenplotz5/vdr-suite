@@ -232,6 +232,28 @@ async function run(prefix) {
   listeners.message({data:{type:'vdr-suite-artwork-proof-reset'}});
   assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
   await proof();
+  const selected = 'https://suite.test'+prefix+'/api/backends/default/settings/series-artwork/image?seriesKey=folder%3Aseries&revision=7&variant=home';
+  await image(selected);
+  const selectedReads = imageReads;
+  assert.equal((await image(selected,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal(imageReads,selectedReads,'selected cover uses the existing scoped cache');
+  assert.notEqual((await image(selected,'other-tab')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  for (const bad of [selected.replace('/image?','/candidate-image?'),
+    selected.replace('&variant=home',''), selected.replace('revision=7','revision=0'),
+    selected+'&revision=8',selected+'&token=secret',
+    selected.replace('/default/','/default/nested/'),selected.replace('suite.test','other.test')]) {
+    const req = new Request(bad); Object.defineProperty(req,'destination',{value:'image'});
+    assert.equal(invoke('artworkRequest',[req]),false);
+  }
+  const changed = new Request('https://suite.test'+prefix+'/api/backends/default/settings/series-artwork',{method:'POST'});
+  listeners.fetch({request:changed,respondWith:p=>{result=p;}}); await result;
+  await proof();
+  const afterChange = imageReads;
+  assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local','ordinary covers survive a series mutation');
+  assert.equal(imageReads,afterChange);
+  assert.notEqual((await image(selected,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local','same revision cannot reuse pre-mutation bytes');
+  assert.equal(imageReads,afterChange+1);
+  await proof();
   listeners.fetch({request:logout,respondWith:p=>{result=p;}}); await result;
   assert.equal(stores.size,0);
   assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');

@@ -761,7 +761,7 @@ async function proveNewlyRecordedUsesCorrectedArtwork(harness) {
   const andorCard = findRecordingCard(newly, andor.recordingId);
   assert(foundationCard && andorCard);
   assert.strictEqual(typeof finishFoundationMetadata, 'function');
-  assert.strictEqual(findImage(foundationCard).src, selectedSeriesCover,
+  assert.strictEqual(findImage(foundationCard).src, selectedSeriesCover + '&variant=home',
     'the saved Series cover must appear before enrichment completes');
   const unrelatedImage = findImage(andorCard);
   const unrelatedCard = andorCard;
@@ -770,7 +770,7 @@ async function proveNewlyRecordedUsesCorrectedArtwork(harness) {
   assert.strictEqual(andorCard, unrelatedCard);
   assert.strictEqual(findImage(andorCard), unrelatedImage,
     'one Recording metadata event must not rebuild an unrelated tile');
-  assert.strictEqual(findImage(foundationCard).src, selectedSeriesCover,
+  assert.strictEqual(findImage(foundationCard).src, selectedSeriesCover + '&variant=home',
     'late metadata must never revert the selected Series cover after it appeared');
   assert.strictEqual(findImage(andorCard).src,
     selectedEpisodePoster + '&variant=home',

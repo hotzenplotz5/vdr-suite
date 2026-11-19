@@ -133,8 +133,19 @@ function directArtworkBackend(url) {
   return match && match[1] !== '.' && match[1] !== '..' ? match[1] : '';
 }
 
+// Selected TMDB covers are scoped recording artwork. Candidate images,
+// full-size views and noncanonical URLs retain their original online path.
+function seriesArtworkBackend(url) {
+  if (url.origin !== scope.origin || url.href.length > 4096 ||
+      !url.pathname.startsWith(installationPath + '/api/backends/')) return '';
+  const match = /^\/api\/backends\/([A-Za-z0-9_.-]{1,128})\/settings\/series-artwork\/image$/.exec(
+    url.pathname.slice(installationPath.length));
+  return match && match[1] !== '.' && match[1] !== '..' &&
+    /^\?seriesKey=[^&]+&revision=[1-9][0-9]{0,18}&variant=home$/.test(url.search) ? match[1] : '';
+}
+
 function recordingArtworkBackend(url) {
-  return directArtworkBackend(url) ||
+  return directArtworkBackend(url) || seriesArtworkBackend(url) ||
     (url.origin === scope.origin && url.pathname.startsWith(installationPath + '/api/') &&
       recordingArtworkRoutes.has(url.pathname.slice(installationPath.length))
       ? url.searchParams.get('backend') : '');
@@ -190,7 +201,7 @@ function currentArtworkProof(event) {
 function artworkRequest(request) {
   if (request.method !== 'GET' || request.destination !== 'image' || request.credentials === 'omit' || request.headers.has('Range') || request.headers.has('Authorization')) return false;
   const url = new URL(request.url);
-  if (directArtworkBackend(url)) return true;
+  if (directArtworkBackend(url) || seriesArtworkBackend(url)) return true;
   if (url.origin !== scope.origin || !artworkRoutes.has(url.pathname.slice(installationPath.length)) || !url.pathname.startsWith(installationPath + '/api/')) return false;
   if (url.searchParams.get('variant') !== 'home' || !url.searchParams.get('backend') || url.href.length > 4096) return false;
   const seen = new Set();
@@ -219,6 +230,48 @@ function clearArtwork() {
     artworkWriteKeys = null;
     await caches.delete(artworkName);
   });
+}
+
+// A set/clear may reuse a revision after deletion. Invalidate selected
+// series covers (not unrelated posters) across every controlled tab, before
+// and after the original mutation, including ambiguous/failed outcomes.
+function clearSeriesArtwork(backend) {
+  artworkGeneration++;
+  forgetArtworkProofs();
+  return serializeArtwork(async () => {
+    const cache = await caches.open(artworkName);
+    const prefix = new URL('pwa-artwork/', scope).pathname;
+    for (const key of await cache.keys()) {
+      const path = new URL(key.url).pathname;
+      if (!path.startsWith(prefix)) continue;
+      let original;
+      try { original = new URL(decodeURIComponent(path.slice(prefix.length)), scope.origin); }
+      catch (_) { continue; }
+      if (seriesArtworkBackend(original) !== backend) continue;
+      await cache.delete(key);
+      if (artworkWriteKeys) artworkWriteKeys.delete(key.url);
+    }
+  });
+}
+
+function seriesArtworkMutationBackend(request) {
+  if (request.method !== 'POST') return '';
+  const url = new URL(request.url);
+  if (url.origin !== scope.origin || !url.pathname.startsWith(installationPath + '/api/backends/')) return '';
+  const match = /^\/api\/backends\/([A-Za-z0-9_.-]{1,128})\/settings\/series-artwork$/.exec(
+    url.pathname.slice(installationPath.length));
+  return match && match[1] !== '.' && match[1] !== '..' ? match[1] : '';
+}
+
+async function handleSeriesArtworkMutation(request, backend) {
+  artworkSessionMutations++;
+  const clearing = clearSeriesArtwork(backend);
+  try { return await fetch(request); }
+  finally {
+    await clearing;
+    await clearSeriesArtwork(backend);
+    artworkSessionMutations--;
+  }
 }
 
 function validatedArtwork(response, expectedPartition) {
@@ -431,6 +484,8 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   if (artworkRequest(request)) { event.respondWith(handleArtwork(event)); return; }
   if (artworkSessionMutation(request)) { event.respondWith(handleArtworkSessionMutation(request)); return; }
+  const changedSeriesBackend = seriesArtworkMutationBackend(request);
+  if (changedSeriesBackend) { event.respondWith(handleSeriesArtworkMutation(request, changedSeriesBackend)); return; }
   const backend = event.clientId && proofBackend(request);
   if (backend) { event.respondWith(observeArtworkProof(event, backend)); return; }
   if (typeof handleLocalShell === 'function' && handleLocalShell(event)) return;
