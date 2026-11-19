@@ -142,6 +142,7 @@ install-runtime:
 	$(INSTALL) -m 0644 web/frontend/api/genre-client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/genre-client-api.js
 	$(INSTALL) -m 0644 web/frontend/platform/bootstrap.js $(DESTDIR)$(DATADIR)/web/frontend/platform/bootstrap.js
 	$(INSTALL) -m 0644 web/frontend/platform/home-persistence.js $(DESTDIR)$(DATADIR)/web/frontend/platform/home-persistence.js
+	$(INSTALL) -m 0644 web/frontend/platform/home-cache-runtime.js $(DESTDIR)$(DATADIR)/web/frontend/platform/home-cache-runtime.js
 	$(INSTALL) -m 0644 web/frontend/platform/public-url.js $(DESTDIR)$(DATADIR)/web/frontend/platform/public-url.js
 	$(INSTALL) -m 0644 web/frontend/platform/i18n.js $(DESTDIR)$(DATADIR)/web/frontend/platform/i18n.js
 	$(INSTALL) -m 0644 web/frontend/platform/helpers.js $(DESTDIR)$(DATADIR)/web/frontend/platform/helpers.js
@@ -349,6 +350,7 @@ test-install-staging:
 	cmp web/frontend/service-worker.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/service-worker.js
 	cmp web/frontend/pwa-register.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/pwa-register.js
 	cmp web/frontend/platform/home-persistence.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/home-persistence.js
+	cmp web/frontend/platform/home-cache-runtime.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/home-cache-runtime.js
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite-dark.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/icon-vdr-suite.svg

@@ -267,8 +267,15 @@
     const query = queryOptions(normalized);
     const url = path + buildQueryString(query);
 
+    const homeCache = window.VdrSuiteHomeCache;
+    const snapshot = path.match(/^\/api\/backends\/([A-Za-z0-9_.-]+)\/snapshot$/);
+    const stamp = homeCache && (normalized.method || 'GET') === 'GET' &&
+      (path !== '/api/metadata/genres' || query.scope === 'recordings')
+        ? homeCache.requestStamp(path, snapshot ? snapshot[1] : query.backend || query.backendId)
+        : null;
     return fetch(url, requestOptions(normalized)).then(function (response) {
       return parseJsonResponse(path, response).then(function (payload) {
+        if (stamp) homeCache.observe(stamp, response, payload);
         if (!response.ok) {
           throw createClientError(path, response.status, payload);
         }

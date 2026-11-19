@@ -542,7 +542,7 @@
     return fallback;
   }
 
-  function fetchAllRecordings(client, backendId, generation, currentYear) {
+  function fetchAllRecordings(client, backendId, generation, currentYear, cache) {
     const owner = discoveryTestApi();
     if (!owner || typeof owner.canonicalRecordings !== 'function') {
       return Promise.resolve([]);
@@ -566,6 +566,7 @@
             generation !== state.generation ||
             backendId !== selectedBackendId() ||
             !homeIsActive()) return [];
+        if (cache) cache.accept(payload);
         const rawPage = list(payload, 'recordings');
         owner.canonicalRecordings(payload, backendId).forEach(function (recording) {
           const id = recordingId(recording);
@@ -575,6 +576,7 @@
         });
         const nextOffset = offset + rawPage.length;
         const total = pageTotal(payload, nextOffset);
+        if (cache && nextOffset < total && (!rawPage.length || nextOffset <= offset)) cache.cancel();
         if (!rawPage.length || nextOffset >= total || nextOffset <= offset) return recordings;
         return requestPage(nextOffset);
       });
@@ -776,13 +778,22 @@
     }
     state.backendId = backendId;
     state.completedAt = 0;
-    const load = fetchAllRecordings(client, backendId, generation, currentYear).then(function (recordings) {
+    const cacheOwner = global.VdrSuiteHomeCache;
+    const cache = cacheOwner ? cacheOwner.begin('recent-movies', backendId, TITLE, function () {
+      return browserSessionAuthenticated() && generation === state.generation &&
+        backendId === selectedBackendId() && homeIsActive();
+    }) : null;
+    const load = fetchAllRecordings(client, backendId, generation, currentYear, cache).then(function (recordings) {
       if (!browserSessionAuthenticated() ||
           generation !== state.generation ||
           backendId !== selectedBackendId() ||
-          !homeIsActive()) return false;
+          !homeIsActive()) { if (cache) cache.cancel(); return false; }
       const movies = sortMovies(recordings.filter(function (recording) {
         return recentMovie(recording, currentYear);
+      }));
+      if (cache) cache.finish(movies.slice(0, 24).map(function (recording) {
+        return {id: recordingId(recording), title: recordingTitle(recording),
+          subtitle: String(releaseYear(recording)), posterUrl: posterUrl(recording)};
       }));
       state.movies = movies;
       state.backendId = backendId;
@@ -790,6 +801,7 @@
       state.visibleLimit = Math.min(LIMIT, movies.length);
       return render(movies, backendId, state.visibleLimit);
     }).catch(function () {
+      if (cache) cache.cancel();
       if (!browserSessionAuthenticated() || generation !== state.generation) return false;
       state.completedAt = 0;
       return config.retainVisible === true

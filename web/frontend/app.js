@@ -4243,6 +4243,7 @@ function selectModule(moduleName) {
 }
 
 function markSelected(backendId) {
+  if (window.VdrSuiteHomeCache) window.VdrSuiteHomeCache.selectBackend(backendId);
   selectedBackendId = backendId;
   document.querySelectorAll('.backend-card').forEach(card => {
     card.classList.toggle('selected', card.dataset.backendId === backendId);

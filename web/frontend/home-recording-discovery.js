@@ -4223,7 +4223,7 @@
     });
   }
 
-  function fetchAllSeriesRecordings(client, backendId, genreId, generation, onProgress, isRevisionCurrent) {
+  function fetchAllSeriesRecordings(client, backendId, genreId, generation, onProgress, isRevisionCurrent, cache) {
     const recordings = [];
     const scanCurrent = function () {
       return current(generation, backendId) &&
@@ -4241,6 +4241,7 @@
         credentials: 'same-origin'
       })).then(function (payload) {
         if (!scanCurrent()) return null;
+        if (cache) cache.accept(payload);
         return {
           offset: offset,
           payload: payload,
@@ -4340,7 +4341,7 @@
     });
   }
 
-  function fetchRootFolderProjection(client, backendId, generation) {
+  function fetchRootFolderProjection(client, backendId, generation, cache) {
     const folders = [];
     const rootRecordings = [];
 
@@ -4356,6 +4357,7 @@
         credentials: 'same-origin'
       })).then(function (payload) {
         if (!current(generation, backendId)) return {folders: [], rootRecordings: []};
+        if (cache) cache.accept(payload);
         const rawPage = list(payload, 'recordings');
         if (offset === 0) {
           const firstProjection = projectRootFolderPayload(payload, backendId);
@@ -4480,6 +4482,33 @@
     return true;
   }
 
+  function beginCachedRail(rail, title, backendId, generation, extraCurrent) {
+    const cache = global.VdrSuiteHomeCache;
+    return cache ? cache.begin(rail, backendId, title, function () {
+      return current(generation, backendId) &&
+        (!extraCurrent || extraCurrent());
+    }) : null;
+  }
+
+  function cachedRecordingCards(recordings) {
+    return recordings.slice(0, 24).map(function (recording) {
+      return {id: recordingId(recording), title: recordingTitle(recording),
+        subtitle: recordingSubtitle(recording), posterUrl: recordingPosterUrl(recording)};
+    });
+  }
+
+  function cachedFolderCards(projection) {
+    const cards = projection.folders.slice(0, 24).map(function (folder) {
+      const path = text(folder.path || folder.folderPath || folder.name);
+      const label = text(folder.name || folder.title) || path.split('/').filter(Boolean).pop() || path;
+      const count = folderEntryCount(folder);
+      return {id: 'folder:' + path, title: label, subtitle: count > 0 ? String(count) + ' Aufnahmen' : path};
+    });
+    if (projection.rootRecordings.length) cards.unshift({id: 'root-recordings', title: 'Hauptverzeichnis',
+      subtitle: String(projection.rootRecordings.length) + ' Aufnahmen'});
+    return cards;
+  }
+
   function loadNewly(client, backendId, generation, options) {
     const config = options && typeof options === 'object' ? options : {};
     const retainVisible = config.retainVisible === true &&
@@ -4487,6 +4516,7 @@
     if (!retainVisible) {
       renderState('newly-recorded', 'Neu aufgenommen', 'Aufnahmen werden geladen …', false);
     }
+    const cache = beginCachedRail('newly-recorded', 'Neu aufgenommen', backendId, generation);
     return Promise.resolve(client.fetchClientRecordings({
       query: {
         backend: backendId,
@@ -4498,8 +4528,9 @@
       cache: 'no-store',
       credentials: 'same-origin'
     })).then(function (payload) {
-      if (!current(generation, backendId)) return false;
+      if (!current(generation, backendId)) { if (cache) cache.cancel(); return false; }
       const recordings = canonicalRecordings(payload, backendId).slice(0, NEW_LIMIT);
+      if (cache) { cache.accept(payload); cache.finish(cachedRecordingCards(recordings)); }
       const richMetadata = new Map();
       const initialRevisions = new Map();
       recordings.forEach(function (recording) {
@@ -4548,6 +4579,7 @@
       }
       return rendered;
     }).catch(function () {
+      if (cache) cache.cancel();
       if (!current(generation, backendId)) return false;
       if (retainVisible) return false;
       return renderState(
@@ -4721,6 +4753,7 @@
       );
     }
 
+    const cache = beginCachedRail('series', 'Serien', backendId, generation, seriesCurrent);
     return fetchAllSeriesRecordings(
       client,
       backendId,
@@ -4731,17 +4764,21 @@
         if (!recordings.length) return;
 
         if (!retainProjection) {
+          if (cache) cache.dismiss();
           applySeriesProjection(
             recordings,
             backendId
           );
         }
       },
-      seriesCurrent
+      seriesCurrent,
+      cache
     ).then(function (recordings) {
-      if (!seriesCurrent()) return false;
+      if (!seriesCurrent()) { if (cache) cache.cancel(); return false; }
+      if (cache) cache.dismiss();
 
       if (!recordings.length) {
+        if (cache) cache.finish([]);
         clearSeriesMetadataRetry();
         clearSeriesWarm();
         state.seriesProjection = [];
@@ -4779,6 +4816,10 @@
         resolvedSeriesMetadata(generation, backendId)
       );
 
+      if (cache) cache.finish(state.seriesProjection.slice(0, 24).map(function (series) {
+        return {id: series.key, title: series.title, subtitle: seriesCountLabel(series),
+          posterUrl: series.posterUrl};
+      }));
       if (rendered && seriesCurrent()) markSeriesWarm(backendId);
 
       if (client && typeof client.requestJson === 'function') {
@@ -4835,6 +4876,7 @@
       }
       return rendered;
     }).catch(function () {
+      if (cache) cache.cancel();
       if (!seriesCurrent()) return false;
 
       clearSeriesMetadataRetry();
@@ -4865,6 +4907,7 @@
     if (!retainVisible) {
       renderState('genres', 'Genres', 'Genres werden geladen …', false);
     }
+    const cache = beginCachedRail('genres', 'Genres', backendId, generation);
     return Promise.resolve(client.fetchClientGenres({
       backendId: backendId,
       scope: 'recordings',
@@ -4872,8 +4915,14 @@
       cache: 'no-store',
       credentials: 'same-origin'
     })).then(function (payload) {
-      if (!current(generation, backendId)) return false;
+      if (!current(generation, backendId)) { if (cache) cache.cancel(); return false; }
       const entries = canonicalGenres(payload);
+      if (cache) {
+        cache.accept(payload);
+        cache.finish(entries.slice(0, GENRE_LIMIT).map(function (entry) {
+          return {id: text(entry.id), title: genreLabel(entry), subtitle: String(Number(entry.count || 0)) + ' Aufnahmen'};
+        }));
+      }
       renderGenreRail(entries.slice(0, GENRE_LIMIT), backendId);
       const randomGenre = selectRandomGenre(entries, generation, Math.random());
       if (!randomGenre) clearRail('random-genre');
@@ -4885,6 +4934,7 @@
           : Promise.resolve(false)
       ]).then(function () { return true; });
     }).catch(function () {
+      if (cache) cache.cancel();
       if (!current(generation, backendId)) return false;
       if (retainVisible) return false;
       state.randomGenreGeneration = generation;
@@ -4942,8 +4992,10 @@
     if (!retainVisible) {
       renderState('folders', 'Aufnahmeordner', 'Aufnahmeordner werden geladen …', false);
     }
-    return fetchRootFolderProjection(client, backendId, generation).then(function (projection) {
-      if (!current(generation, backendId)) return false;
+    const cache = beginCachedRail('folders', 'Aufnahmeordner', backendId, generation);
+    return fetchRootFolderProjection(client, backendId, generation, cache).then(function (projection) {
+      if (!current(generation, backendId)) { if (cache) cache.cancel(); return false; }
+      if (cache) cache.finish(cachedFolderCards(projection));
       state.folderProjection = projection;
       state.folderBackendId = backendId;
       const rendered = renderFolderRail(
@@ -4961,6 +5013,7 @@
       }
       return rendered;
     }).catch(function () {
+      if (cache) cache.cancel();
       if (!current(generation, backendId)) return false;
       if (retainVisible) return false;
       state.folderProjection = {folders: [], rootRecordings: []};

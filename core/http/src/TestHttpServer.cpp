@@ -12,6 +12,7 @@
 #include "RestQueryParameters.h"
 #include "PublicResourcePreconditions.h"
 #include "ArtworkCacheValidation.h"
+#include "HomeCacheScope.h"
 #include <openssl/sha.h>
 #include "SeriesArtworkSettingsSecurityRequest.h"
 
@@ -2402,6 +2403,8 @@ HttpServerResponse TestHttpServer::handleRequest(
         apiResponse.contentType,
         apiResponse.body,
         apiResponse.headers);
+    vdrsuite::http::addHomeCacheScope(request, response, gate.context,
+        gate.browserAuthenticated, gate.authorizationDecision.backendId);
     // A successful browser-authorized canonical Home preview may be revalidated
     // after the decorator has selected the exact served representation.
     // No cache admission is based on browser hints about identity or grants.

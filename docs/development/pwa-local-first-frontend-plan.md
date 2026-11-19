@@ -236,6 +236,53 @@ jobs; this does not close real-browser IndexedDB acceptance.
   computation or RTT. No measured speed improvement is claimed. PWA.4 still
   needs the production Home snapshot/authorization binding.
 
+## PWA.4 — scoped Home previews and authoritative readback (2026-11-19)
+
+Base `cf18b04058528bd02f93408e4b3c0d6411736877` (PWA.3).
+PWA.3 frontend regression, architecture, docs and inventory passed at
+the initial PWA.4 checkpoint; full C++/packaging CI remains separate.
+
+- Bind the existing Newly Recorded, Series, Genres, Folders, Recent Movies
+  and Continue Watching owners to one runtime on top of PWA.2 IndexedDB.
+  Each owner keeps its existing full online loading and rendering path.
+  The cached first window (up to 24 cards) is a visibly labelled,
+  noninteractive preview only. Fresh results win; no cached actions,
+  recording details, playback positions, timer data or write responses.
+  EPG/Live remain online-owned because current programme data is volatile.
+- No new network request, endpoint, polling or authorization gate.
+  The existing successful browser-authenticated backend snapshot and exact
+  recording/history read routes return non-credential cache eligibility
+  metadata derived from the actual actor, exact backend and current sorted
+  grants. The existing AuthorizationService evaluates cache eligibility
+  for recordings.view and media.recording.play; it cannot change the
+  original request admission, status or body. Cache proof headers are
+  private/no-store. Continue Watching only accepts its canonical list POST.
+- The runtime accepts server proofs only for current generation and selected
+  backend. Every page of a scan must carry matching proof before persisting
+  its complete ordered preview window. Read proof expires after five
+  seconds; transient previews expire after fifteen seconds at most and
+  disappear when current results arrive, on error, scope mismatch, logout,
+  backend change, offline or page hide. Browser-session changes purge local
+  caches and notify sibling tabs with BroadcastChannel where supported.
+  Persistent data never authorizes access, and known-offline presentation
+  of private cached data remains disabled. Older servers/disabled storage
+  simply use the online UI. Actual cross-tab/revocation latency still
+  needs native-browser verification.
+- Snapshot fields remain bounded: stable ID/title/subtitle and optional
+  allowlisted canonical backend artwork URL, excluding unknown/external/
+  credential-bearing URLs. The legacy list APIs do not provide a shared
+  revision: the marker unversioned-preview-v1 denotes the preview contract,
+  not a server revision. Rich late metadata and additional offscreen cards
+  are not guaranteed to be in the persisted first window. PWA.5 owns
+  incremental SSE invalidation/revision and gap reconciliation.
+- Locally executed Node contract with IndexedDB double and exact source
+  hashes: reload after fresh proof, live result wins, account isolation,
+  mixed/missing proof, backend transition, logout, proof expiry and
+  URL/credential exclusion; PWA.2 regression passed. Added HTTP scope
+  contract and asset/staging assertions to existing CI. Production C++
+  build, full rail regression, browser IndexedDB/worker and timings remain
+  unverified until corresponding CI/real VDR evidence. No deployment yet.
+
 ## Measurable acceptance (provisional targets, not guarantees)
 
 Compare baseline and candidate with the same authenticated account, backend,

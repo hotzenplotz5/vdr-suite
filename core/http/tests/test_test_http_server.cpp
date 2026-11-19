@@ -57,6 +57,7 @@
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
 #include "TestHttpServer.h"
+#include "HomeCacheScope.h"
 #include "VdrController.h"
 #include "VdrOverviewJsonSerializer.h"
 #include "VdrOverviewService.h"
@@ -142,6 +143,48 @@ static void assertEmptyDiscoveryResponse(
 
 int main()
 {
+    {
+        RequestSecurityContext context;
+        context.authenticationState = AuthenticationState::Authenticated;
+        context.actor = {"home-a", ActorType::User, "Home A", true};
+        context.session = SessionIdentity{"session-a"};
+        context.permissionGrantResolution = PermissionGrantResolutionState::Resolved;
+        context.grants = {{"recordings.view", "default"}, {"media.recording.play", "default"}};
+        HttpServerRequest request;
+        request.method = "GET";
+        request.path = "/api/backends/default/snapshot";
+        HttpServerResponse response;
+        response.body = "{}";
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
+        const auto original = response.headers.at("X-VDR-Suite-Home-Recording-Scope");
+        assert(original == response.headers.at("X-VDR-Suite-Home-History-Scope"));
+        assert(response.headers.at("X-VDR-Suite-Home-Backend") == "default");
+        assert(response.body == "{}" && response.statusCode == 200);
+        response = HttpServerResponse{};
+        context.actor.actorId = "home-b";
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
+        assert(original != response.headers.at("X-VDR-Suite-Home-Recording-Scope"));
+        response = HttpServerResponse{};
+        request.path = "/api/vdr/recordings/query?backend=default&backend=other";
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
+        assert(response.headers.empty());
+        request.path = "/api/vdr/recordings/query?backend=other";
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
+        assert(response.headers.empty());
+        request.path = "/api/vdr/recordings/query?backend=default";
+        vdrsuite::http::addHomeCacheScope(request, response, context, false, {});
+        assert(response.headers.empty());
+        context.grants = {{"media.recording.play", "default"}};
+        request.method = "POST";
+        request.path = "/api/media/continue-watching";
+        request.body = R"({"operation":"clear","backendId":"default"})";
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, "default");
+        assert(response.headers.empty());
+        request.body = R"({"operation":"list","backendId":"default"})";
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, "default");
+        assert(response.headers.count("X-VDR-Suite-Home-History-Scope") == 1);
+        assert(response.headers.count("X-VDR-Suite-Home-Recording-Scope") == 0);
+    }
     Database db;
     if (!db.open(vdrSuiteTestDatabasePath()))
     {
@@ -488,6 +531,10 @@ int main()
     assert(persistenceResponse.statusCode == 200);
     assert(persistenceResponse.headers.at("Content-Type") == "application/javascript; charset=utf-8");
     assert(persistenceResponse.body.find("VdrSuiteHomePersistence") != std::string::npos);
+    anonymousFrontendAssetRequest.path = "/frontend/platform/home-cache-runtime.js";
+    const auto homeCacheResponse = server.handleRequest(anonymousFrontendAssetRequest);
+    assert(homeCacheResponse.statusCode == 200);
+    assert(homeCacheResponse.body.find("VdrSuiteHomeCache") != std::string::npos);
 
     HttpServerRequest anonymousApiRequest;
     anonymousApiRequest.method = "GET";

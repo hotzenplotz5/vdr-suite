@@ -2,7 +2,7 @@
 
 ## PWA / Home performance — next frontend priority (19.11.2026)
 
-**PWA.3 = source candidate; focused Worker contract PASS; server/hosted CI and real browser acceptance pending. PWA.1 and PWA.2 hosted CI passed; native browser/IndexedDB and Home integration remain open.**
+**PWA.4 = source candidate; scoped Home preview contract PASS locally (IndexedDB double); six production rail bindings added, full hosted CI and real browser acceptance pending. PWA.1/PWA.2 hosted CI passed; PWA.3 frontend regression passed, remaining integration evidence open.**
 The maintainer prioritizes local client caching and optional PWA installation
 for the existing Webfrontend, including ordinary browser use. See
 [PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.

@@ -114,6 +114,7 @@
   }
 
   function clear(reason) {
+    if (authenticated && global.VdrSuiteHomeCache) global.VdrSuiteHomeCache.sessionBoundary();
     sessionRevision += 1;
     cancelExpiryTimer();
     csrfToken = '';
@@ -377,6 +378,7 @@
       )));
     }
 
+    if (global.VdrSuiteHomeCache) global.VdrSuiteHomeCache.sessionBoundary();
     const revision = sessionRevision + 1;
     sessionRevision = revision;
     let authorization;
@@ -410,6 +412,7 @@
           return snapshot();
         }
 
+        if (global.VdrSuiteHomeCache) global.VdrSuiteHomeCache.sessionBoundary();
         return acceptSessionPayload(
           payload,
           translated(
@@ -472,6 +475,7 @@
       return Promise.resolve(null);
     }
 
+    if (global.VdrSuiteHomeCache) global.VdrSuiteHomeCache.sessionBoundary();
     sessionRevision += 1;
     const submittedCsrf = csrfToken;
     return global.fetch(LOGOUT_PATH, {
