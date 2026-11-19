@@ -122,3 +122,33 @@ Frontend installation requires passing focused tests and hosted
 No production mutation is part of this workstream. Full CI and explicit user
 approval remain required for Ready/merge. Finish runtime acceptance before
 claiming that a browser-performance slice is accepted.
+
+## HOME.P follow-up — 2026-11-19
+
+The real initial-Home Resource Timing capture collected 640 observed resource
+entries, including 384 Recording metadata reads, 47 script entries and zero
+observed long tasks. The approximately 59.6-second capture interval is not a
+measured time-to-complete-Home; exact request-to-rail attribution and startup
+latencies remain unverified. The large metadata count motivates eliminating
+avoidable HTTP reads before tuning DOM or adding infrastructure.
+
+- HOME.P1 (code/test head `cd588c5301615f0c44bc164e0c133f1b7a51aa56`): reuse a
+  cached canonical Series poster from another member of the same Series group;
+  avoid an extra initial representative read while retaining detail enrichment.
+- HOME.P2 (code head `389163f895966ab9d24a3242f704913043e4f1f0`): extend the existing
+  page-scoped Genre index native summary with compact `nativeCardMetadata` for
+  found non-manually-locked recordings, including movies. Reuse the existing
+  portrait-first/preferred image rules and canonical image URL boundary. No
+  filesystem paths, cast, full gallery or detailed metadata payload are exposed.
+  Random Genre and inline Genre cards use this projection; only records without
+  it use existing bounded metadata reads. The compact object does not populate
+  the full-detail or Series metadata cache. Locked manual assignments, older
+  schemas and missing native metadata retain the existing lookup path. No new
+  endpoint, polling, artwork authority, or HbbTV change is introduced.
+
+Regression coverage: compact native film/Series cards, backend scope, manual
+precedence and older schema fallback in the Genre controller; mixed embedded and
+non-embedded card lists in both Home Genre rendering paths. CI and real yaVDR
+acceptance must be recorded separately. Newly Recorded and missing Series
+metadata still have independent read paths. No claim is made that this slice
+alone removes all 384 observed requests or meets the overall Home latency target.
