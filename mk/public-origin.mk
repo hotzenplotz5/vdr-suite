@@ -41,6 +41,8 @@ test-pwa-shell:
 	node web/frontend/tests/test_pwa_shell.js
 	node --check web/frontend/platform/home-persistence.js
 	node web/frontend/tests/test_home_persistence.js
+	node web/frontend/tests/test_pwa_artwork_cache.js
+	node web/frontend/tests/test_home_artwork_priority.js
 
 test-frontend-contracts: test-public-url-runtime test-pwa-shell
 test-ci-frontend: test-pwa-shell

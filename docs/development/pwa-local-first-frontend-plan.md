@@ -193,6 +193,49 @@ passed all six jobs for that PWA.1 source, not real-browser acceptance.
   Source integrates the regression into the existing PWA/frontend target and
   adds static routing and install assertions. No live deployment or rebuild.
 
+## PWA.3 — persistent artwork checkpoint (2026-11-19)
+
+PWA.2 base `5b508cd116bec78097e6c10477b415d18bbf5854` passed all six
+[VDR-Suite CI #12884](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44510409988)
+jobs; this does not close real-browser IndexedDB acceptance.
+
+- Reuse the canonical Home preview URLs, existing authenticated HTTP route
+  and ArtworkPreviewCache. Successful browser-authorized canonical
+  Recording/EPG metadata previews are tagged with a non-credential partition
+  derived from the actual actor, backend and sorted current permission tuples.
+  The decorator computes a validator from that partition, exact request path,
+  content type and final served bytes (including preview fallback). Conditions
+  are evaluated only after the existing authorized read; no authorization or
+  new endpoint is introduced. Unsupported legacy artwork paths remain online.
+- The existing worker owns a Cache Storage namespace per installation and
+  partitioned entries per canonical URL and server-proved actor/backend/grants.
+  It conditionally requests the current server on every reuse; a matching 304
+  with the exact tag and partition can use persistent bytes. No offline private
+  image fallback, no arbitrary URLs, tokens, detail originals, live media,
+  failed or oversized responses. A 404/403/410 invalidates that URL; 401,
+  observed logout and successful login/logout clear the artwork namespace.
+  Serialized writes and a local generation fence prevent delayed persistence
+  across a clear. Storage failure keeps the existing online response usable.
+  Limits: 192 entries, 256 KiB each (48 MiB payload upper bound), FIFO by save.
+- The existing discovery owner promotes up to 12 initially visible connected
+  posters per animation-frame batch; offscreen posters retain native lazy
+  loading. Inline genre/folder rendering reuses this owner. No polling.
+- Node syntax and actual Worker fetch-handler contract with simulated Cache
+  Storage/network passed locally for root/prefix, conditional reuse, version
+  replacement, two partitions, 401/403/404, logout, storage failure, offline
+  denial, unknown URL exclusion and eviction. Added focused visible-first and
+  C++ decorator regressions. Production build, actual browser Cache Storage,
+  native HTTP validators, grants/parallel tabs and cold/warm timing are not
+  yet verified. The local Git checkout/network is unavailable in this session;
+  hosted CI must establish integration. The HTTP changes require a single
+  necessary incremental daemon build for eventual runtime acceptance.
+- The three earlier 404s and slow first poster delivery remain open; their
+  exact request-level causes cannot be determined from the prior aggregate
+  samples. The worker never substitutes a stale image for a failed response.
+  304 conserves transferred image bytes, not the server lookup/preview
+  computation or RTT. No measured speed improvement is claimed. PWA.4 still
+  needs the production Home snapshot/authorization binding.
+
 ## Measurable acceptance (provisional targets, not guarantees)
 
 Compare baseline and candidate with the same authenticated account, backend,

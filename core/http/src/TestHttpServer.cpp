@@ -11,6 +11,7 @@
 #include "SecurityConfiguration.h"
 #include "RestQueryParameters.h"
 #include "PublicResourcePreconditions.h"
+#include "ArtworkCacheValidation.h"
 #include <openssl/sha.h>
 #include "SeriesArtworkSettingsSecurityRequest.h"
 
@@ -2401,6 +2402,36 @@ HttpServerResponse TestHttpServer::handleRequest(
         apiResponse.contentType,
         apiResponse.body,
         apiResponse.headers);
+    // A successful browser-authorized canonical Home preview may be revalidated
+    // after the decorator has selected the exact served representation.
+    // No cache admission is based on browser hints about identity or grants.
+    const std::string artworkPath = pathWithoutQuery(request.path);
+    if (request.method == "GET" && gate.browserAuthenticated &&
+        gate.context.authenticated() && response.statusCode == 200 &&
+        (artworkPath == "/api/vdr/recordings/metadata/image" ||
+         artworkPath == "/api/recordings/metadata/image" ||
+         artworkPath == "/api/epg/cache/artwork" ||
+         artworkPath == "/api/epg/cache/metadata/image")) {
+        const auto at = request.path.find('?');
+        const auto query = RestQueryParameters::parse(at == std::string::npos
+            ? std::string{} : request.path.substr(at + 1));
+        if (query.get("variant") == "home") {
+            std::vector<std::string> grants;
+            for (const auto& grant : gate.context.grants) {
+                std::string tuple;
+                vdrsuite::http::appendArtworkField(tuple, grant.permission);
+                vdrsuite::http::appendArtworkField(tuple, grant.backendId);
+                grants.push_back(std::move(tuple));
+            }
+            const auto partition = vdrsuite::http::artworkCacheScope(
+                gate.context.actor.actorId, query.get("backend"), std::move(grants));
+            if (!partition.empty()) {
+                response.headers["X-VDR-Suite-Artwork-Scope"] = partition;
+                response.headers["Cache-Control"] = "private, no-cache";
+                response.headers["Vary"] = "Cookie, Authorization";
+            }
+        }
+    }
     // Browser MediaSessions are issued with Secure cookies by default, but
     // direct HTTP on a verified local LAN must use the same cookie transport
     // exception as Browser-session login. Never apply it to Public-v1 Device

@@ -1,6 +1,7 @@
 #include "Database.h"
 #include "MediaProcessRunner.h"
 #include "RecordingArtworkHttpServer.h"
+#include "ArtworkCacheValidation.h"
 #include "VdrRecordingArtworkIdentity.h"
 #include "VdrRecordingCacheRepository.h"
 
@@ -19,6 +20,7 @@ class AuthenticationBoundaryServer : public IHttpServer, public IEpgArtworkHttpP
 {
 public:
     std::string metadataImage;
+    std::string cacheScope;
     HttpServerResponse getEpgArtwork(const std::string& backend,
         const std::string& channel, const std::string& event) const override
     {
@@ -76,6 +78,7 @@ public:
             response.headers["Content-Length"] = std::to_string(metadataImage.size());
             response.headers["ETag"] = "original-tag";
             response.headers["Last-Modified"] = "original-date";
+            if (!cacheScope.empty()) response.headers["X-VDR-Suite-Artwork-Scope"] = cacheScope;
             response.body = metadataImage;
             return response;
         }
@@ -244,6 +247,31 @@ int main()
             assert(server.handleRequest(authorized).statusCode == 400);
         }
     }
+    // Both the scoped tag and the final representation must match. Authorization
+    // still runs every time through the original delegate.
+    using vdrsuite::http::artworkCacheScope;
+    metadataDelegate->cacheScope = artworkCacheScope("actor-a", "default", {"recordings.view"});
+    const auto scopeA = metadataDelegate->cacheScope;
+    assert(scopeA != artworkCacheScope("actor-b", "default", {"recordings.view"}));
+    assert(scopeA != artworkCacheScope("actor-a", "other", {"recordings.view"}));
+    assert(scopeA != artworkCacheScope("actor-a", "default", {"role.admin"}));
+    authorized.path = "/api/vdr/recordings/metadata/image?backend=default&recordingId=7&kind=preferred&variant=home";
+    const auto scoped = server.handleRequest(authorized);
+    assert(scoped.statusCode == 200 && scoped.headers.at("Cache-Control") == "private, no-cache");
+    const auto scopedTag = scoped.headers.at("ETag");
+    authorized.headers["if-none-match"] = scopedTag;
+    const auto notModified = server.handleRequest(authorized);
+    assert(notModified.statusCode == 304 && notModified.body.empty());
+    assert(notModified.headers.at("ETag") == scopedTag);
+    metadataDelegate->cacheScope = artworkCacheScope("actor-b", "default", {"recordings.view"});
+    assert(server.handleRequest(authorized).statusCode == 200);
+    metadataDelegate->cacheScope = scopeA;
+    unauthorized.path = authorized.path;
+    unauthorized.headers["If-None-Match"] = scopedTag;
+    assert(server.handleRequest(unauthorized).statusCode == 401);
+    authorized.headers.erase("if-none-match");
+    metadataDelegate->cacheScope.clear();
+
     for (const auto* route : {"/api/epg/cache/artwork", "/api/epg/cache/metadata/image"})
     {
         authorized.path = std::string(route) + "?backend=forbidden&channelId=C1&eventId=42&variant=home";

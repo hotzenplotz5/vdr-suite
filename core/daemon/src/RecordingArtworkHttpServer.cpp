@@ -1,6 +1,7 @@
 #include "RecordingArtworkHttpServer.h"
 
 #include "RestQueryParameters.h"
+#include "ArtworkCacheValidation.h"
 #include "VdrRecordingCacheRepository.h"
 
 #include <map>
@@ -49,13 +50,15 @@ void applyPreview(const ArtworkPreviewCache& cache, const HttpServerRequest& req
     const auto type = response.headers.find("Content-Type");
     if (type == response.headers.end()) return;
     const std::string preview = cache.home(request.path, type->second, response.body);
-    if (preview.empty()) return;
-    response.body = preview;
-    response.headers["Content-Type"] = "image/jpeg";
-    response.headers.erase("Content-Length");
-    response.headers.erase("Content-Encoding");
-    response.headers.erase("ETag");
-    response.headers.erase("Last-Modified");
+    if (!preview.empty()) {
+        response.body = preview;
+        response.headers["Content-Type"] = "image/jpeg";
+        response.headers.erase("Content-Length");
+        response.headers.erase("Content-Encoding");
+        response.headers.erase("ETag");
+        response.headers.erase("Last-Modified");
+    }
+    vdrsuite::http::revalidateScopedArtwork(request, response);
 }
 }
 

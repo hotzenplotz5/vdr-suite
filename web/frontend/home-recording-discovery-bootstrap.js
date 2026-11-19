@@ -500,6 +500,8 @@
       artwork.textContent = title.slice(0, 1).toUpperCase() || '▶';
     });
     artwork.appendChild(image);
+    const discovery = global.VdrSuiteHomeRecordingDiscovery;
+    if (discovery && typeof discovery.prioritizeVisibleArtwork === 'function') discovery.prioritizeVisibleArtwork(image);
     return artwork;
   }
 

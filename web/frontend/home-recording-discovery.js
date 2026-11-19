@@ -888,6 +888,36 @@
     return true;
   }
 
+
+  // One initial-layout pass per batch: promote only connected, visible posters.
+  // Native lazy loading continues to own images outside the viewport.
+  const pendingArtworkPriority = new Set();
+  let artworkPriorityFrame = false;
+
+  function prioritizeVisibleArtwork(image) {
+    if (typeof global.requestAnimationFrame !== 'function' || !image ||
+        typeof image.getBoundingClientRect !== 'function') return;
+    pendingArtworkPriority.add(image);
+    if (artworkPriorityFrame) return;
+    artworkPriorityFrame = true;
+    global.requestAnimationFrame(function () {
+      artworkPriorityFrame = false;
+      const images = Array.from(pendingArtworkPriority);
+      pendingArtworkPriority.clear();
+      let remaining = 12;
+      for (const candidate of images) {
+        if (remaining <= 0) break;
+        if (!candidate.isConnected || candidate.complete) continue;
+        const r = candidate.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0 || r.right <= 0 || r.bottom <= 0 ||
+            r.left >= global.innerWidth || r.top >= global.innerHeight) continue;
+        candidate.fetchPriority = 'high';
+        candidate.loading = 'eager';
+        remaining--;
+      }
+    });
+  }
+
   function createPosterArtwork(title, url, fallbackText) {
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-discovery-artwork';
@@ -907,6 +937,7 @@
       artwork.textContent = fallback;
     });
     artwork.appendChild(image);
+    prioritizeVisibleArtwork(image);
     return artwork;
   }
 
@@ -5392,6 +5423,7 @@
   global.VdrSuiteHomeRecordingDiscovery = Object.freeze({
     install: install,
     refresh: refresh,
+    prioritizeVisibleArtwork: prioritizeVisibleArtwork,
     _test: Object.freeze({
       selectedBackendId: selectedBackendId,
       canonicalRecordings: canonicalRecordings,
