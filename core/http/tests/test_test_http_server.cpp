@@ -224,6 +224,36 @@ int main()
         context.grants = {{"media.recording.play", "default"}};
         vdrsuite::http::addDirectHomeArtworkFallbackScope(request, response, context, true);
         assert(response.headers.empty());
+
+        const std::string seriesTarget =
+            "/api/backends/default/settings/series-artwork/image?seriesKey=folder%3Aseries&revision=7&variant=home";
+        context.grants = {{"recordings.view", "default"}};
+        request.path = seriesTarget;
+        response = HttpServerResponse{};
+        response.headers["X-VDR-Suite-Series-Cover-Revision"] = "7";
+        vdrsuite::http::addSeriesHomeArtworkScope(request, response, context, true);
+        assert(response.headers.at("X-VDR-Suite-Artwork-Scope") ==
+            vdrsuite::http::browserHomeCacheScope(context, "default"));
+        assert(response.headers.count("X-VDR-Suite-Series-Cover-Revision") == 0);
+        for (const auto& target : {seriesTarget + "&token=bad",
+            std::string("/api/backends/other/settings/series-artwork/image?seriesKey=x&revision=7&variant=home"),
+            std::string("/api/backends/default/settings/series-artwork/image?seriesKey=x&revision=8&variant=home"),
+            std::string("/api/backends/default/settings/series-artwork/candidate-image?seriesKey=x&revision=7&variant=home")}) {
+            request.path = target;
+            response = HttpServerResponse{};
+            response.headers["X-VDR-Suite-Series-Cover-Revision"] = "7";
+            vdrsuite::http::addSeriesHomeArtworkScope(request, response, context, true);
+            assert(response.headers.empty());
+        }
+        request.path = seriesTarget;
+        response = HttpServerResponse{};
+        response.headers["X-VDR-Suite-Series-Cover-Revision"] = "7";
+        vdrsuite::http::addSeriesHomeArtworkScope(request, response, context, false);
+        assert(response.headers.empty());
+        context.grants = {{"media.recording.play", "default"}};
+        response.headers["X-VDR-Suite-Series-Cover-Revision"] = "7";
+        vdrsuite::http::addSeriesHomeArtworkScope(request, response, context, true);
+        assert(response.headers.empty());
         response = HttpServerResponse{};
         request.method = "POST";
         request.path = "/api/media/continue-watching";

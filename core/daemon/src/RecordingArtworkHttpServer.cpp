@@ -37,6 +37,15 @@ bool metadataImagePath(const std::string& path)
         path == "/api/recordings/metadata/image";
 }
 
+bool seriesImagePath(const std::string& path)
+{
+    const std::string prefix = "/api/backends/";
+    const std::string suffix = "/settings/series-artwork/image";
+    return path.size() > prefix.size() + suffix.size() &&
+        path.compare(0, prefix.size(), prefix) == 0 &&
+        path.compare(path.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
 bool epgImagePath(const std::string& path)
 {
     return path == "/api/epg/cache/artwork" ||
@@ -109,6 +118,16 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
         invalid.headers["Cache-Control"] = "no-store";
         invalid.body = "{\"error\":\"unsupported artwork variant\"}";
         return invalid;
+    }
+
+    // The selected series-cover route is already owned by the settings API.
+    // Resize only explicit Home requests, preserving detail/candidate images
+    // and original statuses; use the existing final-byte scoped validator.
+    if (request.method == "GET" && seriesImagePath(path) &&
+        delegated.statusCode == 200 && query.get("variant") == "home")
+    {
+        applyPreview(previews_, request, query, delegated);
+        return delegated;
     }
 
     // Only transform the response of the existing authenticated EPG owner.

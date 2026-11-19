@@ -1093,6 +1093,7 @@ SeriesArtworkBackendSettingsService::coverImage(
     }
 
     std::string path;
+    std::string revision;
 
     {
         std::lock_guard<std::mutex> lock(
@@ -1106,7 +1107,7 @@ SeriesArtworkBackendSettingsService::coverImage(
         sqlite3_stmt* statement = nullptr;
 
         const char* sql =
-            "SELECT poster_path "
+            "SELECT poster_path,revision "
             "FROM backend_series_artwork_overrides "
             "WHERE backend_id=? AND series_key=? "
             "AND provider_id='tmdb' "
@@ -1136,6 +1137,7 @@ SeriesArtworkBackendSettingsService::coverImage(
             path = columnText(
                 statement,
                 0);
+            revision = std::to_string(sqlite3_column_int64(statement, 1));
         }
 
         sqlite3_finalize(statement);
@@ -1146,9 +1148,9 @@ SeriesArtworkBackendSettingsService::coverImage(
         return missing;
     }
 
-    return readSeriesArtworkImage(
-        path,
-        config_.seriesCoverCacheRoot);
+    auto result = readSeriesArtworkImage(path, config_.seriesCoverCacheRoot);
+    if (result.success) result.coverRevision = revision;
+    return result;
 }
 
 std::string SeriesArtworkBackendSettingsService::readManagedTokenLocked(

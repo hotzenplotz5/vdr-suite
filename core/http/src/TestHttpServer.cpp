@@ -2407,6 +2407,8 @@ HttpServerResponse TestHttpServer::handleRequest(
         gate.browserAuthenticated, gate.authorizationDecision.backendId);
     vdrsuite::http::addDirectHomeArtworkFallbackScope(request, response,
         gate.context, gate.browserAuthenticated);
+    vdrsuite::http::addSeriesHomeArtworkScope(request, response,
+        gate.context, gate.browserAuthenticated);
     // A successful browser-authorized canonical Home preview may be revalidated
     // after the decorator has selected the exact served representation.
     // No cache admission is based on browser hints about identity or grants.

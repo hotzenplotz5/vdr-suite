@@ -71,7 +71,9 @@ public:
         if (request.path.find("/api/vdr/recordings/metadata/image?") == 0 ||
             request.path.find("/api/recordings/metadata/image?") == 0 ||
             request.path.find("/api/epg/cache/metadata/image?backend=default") == 0 ||
-            request.path.find("/api/epg/cache/artwork?backend=default&channelId=C2") == 0)
+            request.path.find("/api/epg/cache/artwork?backend=default&channelId=C2") == 0 ||
+            request.path.find("/api/backends/default/settings/series-artwork/image?") == 0 ||
+            request.path.find("/api/backends/default/settings/series-artwork/candidate-image?") == 0)
         {
             response.statusCode = 200;
             response.headers["Content-Type"] = "image/png";
@@ -305,6 +307,32 @@ int main()
     assert(unscoped.statusCode == 200 && unscoped.headers.at("Cache-Control") == "no-store");
     assert(unscoped.headers.count("X-VDR-Suite-Artwork-Scope") == 0);
     authorized.headers.erase("If-None-Match");
+
+    // The existing selected series route uses the same final-byte
+    // decorator. Candidate images remain full-size and are not revalidated.
+    metadataDelegate->cacheScope = scopeA;
+    authorized.path = "/api/backends/default/settings/series-artwork/image?seriesKey=folder%3Aseries&revision=7&variant=home";
+    const auto seriesPreview = server.handleRequest(authorized);
+    assert(seriesPreview.statusCode == 200);
+    assert(seriesPreview.body.size() < large.output.size());
+    assert(seriesPreview.headers.at("X-VDR-Suite-Artwork-Scope") == scopeA);
+    const auto seriesTag = seriesPreview.headers.at("ETag");
+    authorized.headers["If-None-Match"] = seriesTag;
+    assert(server.handleRequest(authorized).statusCode == 304);
+    metadataDelegate->cacheScope = artworkCacheScope("actor-b", "default", {"recordings.view"});
+    assert(server.handleRequest(authorized).statusCode == 200);
+    unauthorized.path = authorized.path;
+    unauthorized.headers["If-None-Match"] = seriesTag;
+    assert(server.handleRequest(unauthorized).statusCode == 401);
+    metadataDelegate->cacheScope.clear();
+    const auto seriesUnscoped = server.handleRequest(authorized);
+    assert(seriesUnscoped.statusCode == 200);
+    assert(seriesUnscoped.headers.at("Cache-Control") == "no-store");
+    authorized.headers.erase("If-None-Match");
+    authorized.path = "/api/backends/default/settings/series-artwork/candidate-image?externalId=123&posterReference=%2Fposter.jpg&variant=home";
+    assert(server.handleRequest(authorized).body == large.output);
+    authorized.path = "/api/backends/default/settings/series-artwork/image?seriesKey=folder%3Aseries&revision=7";
+    assert(server.handleRequest(authorized).body == large.output);
 
     for (const auto* route : {"/api/epg/cache/artwork", "/api/epg/cache/metadata/image"})
     {
