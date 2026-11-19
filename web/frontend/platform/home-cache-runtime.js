@@ -13,6 +13,7 @@
   const VALID_SCOPE = /^vsr-[0-9a-f]{64}$/;
   const PROOF_MS = 5000;
   const PREVIEW_MS = 15000;
+  const STARTUP_PREVIEW_MAX_AGE_MS = 24 * 60 * 60 * 1000;
   const domain = rail => rail === 'continue-watching' ? 'history' : 'recordings';
 
   function cursor(value) {
@@ -37,10 +38,14 @@
     let partition = '';
     const proofs = new Map();
     const payloads = new WeakMap();
+    const observedHeaders = new WeakMap();
     const tickets = new Map();
     let channel = null;
     const requireCursor = config.requireCursor !== false;
     let currentCursor = null, baseline = null, connected = false;
+    // Only the first connection may display a bounded, explicitly stale
+    // projection before its cursor is known. Never use this after a gap/error.
+    let awaitingInitialCursor = true;
     let storageBarrier = Promise.resolve(true);
     const railVersions = new Map(), minimums = new Map();
     const version = rail => railVersions.get(rail) || 0;
@@ -57,6 +62,7 @@
       storageBarrier = storageBarrier.then(() => owner.discard(target, rails, at.id)).catch(() => false);
     }
     function closeCursor() {
+      awaitingInitialCursor = false;
       connected = false;
       currentCursor = null;
       baseline = null;
@@ -66,6 +72,7 @@
     function liveEvent(type, event) {
       if (type === 'close') { closeCursor(); return false; }
       if (type === 'error') {
+        awaitingInitialCursor = false;
         connected = false;
         for (const ticket of tickets.values()) ticket.dismiss();
         return false;
@@ -83,6 +90,7 @@
         return false;
       }
       const prior = currentCursor;
+      awaitingInitialCursor = false;
       if (type === 'update' && prior && at.epoch === prior.epoch && at.sequence <= prior.sequence) return false;
       const gap = type === 'update' && (!prior || at.epoch !== prior.epoch || at.sequence !== prior.sequence + 1);
       currentCursor = at;
@@ -112,6 +120,7 @@
     function canPreview(rail, snapshot) {
       if (!requireCursor) return true;
       const saved = cursor(snapshot.revision), minimum = minimums.get(rail) || baseline;
+      if (awaitingInitialCursor && !currentCursor) return Boolean(saved);
       return Boolean(connected && currentCursor && minimum && saved &&
         saved.epoch === currentCursor.epoch && saved.sequence >= minimum.sequence && saved.sequence <= currentCursor.sequence);
     }
@@ -128,7 +137,8 @@
 
     function currentProof(rail) {
       const proof = proofs.get(domain(rail));
-      return active() && proof && proof.generation === generation && now() - proof.at <= PROOF_MS ? proof : null;
+      const age = proof && now() - proof.at;
+      return active() && proof && proof.generation === generation && age >= 0 && age <= PROOF_MS ? proof : null;
     }
     function scopeOf(proof) {
       return {accountId: proof.partition, backendId: backend, permissionRevision: proof.partition, sessionEpoch: proof.sessionEpoch};
@@ -172,7 +182,17 @@
     }
     function observe(stamp, response, payload) {
       if (!stamp || stamp.generation !== generation || stamp.backend !== backend || !active()) return;
-      if (!response || !response.ok) {
+      // Authorization headers arrive before potentially large JSON bodies.
+      // Record the exact response proof once; only parsed payloads can later
+      // establish provenance for a durable replacement.
+      if (observedHeaders.has(stamp)) {
+        const observed = observedHeaders.get(stamp);
+        if (observed && observed.partition === partition && payload && typeof payload === 'object')
+          payloads.set(payload, observed);
+        return;
+      }
+      observedHeaders.set(stamp, null);
+      if (!response || !response.ok || response.redirected) {
         if (response && (response.status === 401 || response.status === 403)) reset(true);
         return;
       }
@@ -202,9 +222,9 @@
       }
       partition = next;
       for (const [key, value] of scopes) proofs.set(key, {partition: value, generation, at: now(), sessionEpoch: stamp.sessionEpoch});
-      if (payload && typeof payload === 'object') {
-        payloads.set(payload, {stamp, partition: next, domains: scopes.map(entry => entry[0])});
-      }
+      const observed = {stamp, partition: next, domains: scopes.map(entry => entry[0])};
+      observedHeaders.set(stamp, observed);
+      if (payload && typeof payload === 'object') payloads.set(payload, observed);
       for (const ticket of tickets.values()) ticket.preview();
     }
 
@@ -214,12 +234,14 @@
       if (previous) previous.cancel();
       const local = generation, railVersion = version(rail);
       let done = false, dismissed = !show, accepted = 0, invalid = false;
-      let proven = '', attempted = '', remove = null, expiry = null;
+      let proven = '', remove = null, expiry = null, displayed = null;
+      let attemptedProof = null, attemptedCursor = '', reading = false;
       const acceptedEpochs = [];
       const live = () => !done && local === generation && railVersion === version(rail) && backend === requestedBackend && active() && isCurrent();
       function dismiss() {
         dismissed = true;
         if (remove) { remove(); remove = null; }
+        displayed = null;
         if (expiry !== null && typeof global.clearTimeout === 'function') global.clearTimeout(expiry);
         expiry = null;
       }
@@ -228,21 +250,45 @@
         dismiss();
         if (tickets.get(rail) === ticket) tickets.delete(rail);
       }
+      function previewCursor() {
+        if (!requireCursor) return 'unversioned';
+        if (awaitingInitialCursor && !currentCursor) return 'startup';
+        return connected && currentCursor ? currentCursor.id : '';
+      }
       async function preview() {
         if (dismissed || !live()) return;
-        const proof = currentProof(rail);
-        if (!proof || (requireCursor && (!connected || !currentCursor)) || attempted === proof.partition) return;
-        attempted = proof.partition;
+        // A provisional rail must be removed immediately if the first
+        // authoritative cursor shows an epoch/sequence mismatch.
+        if (displayed) {
+          if (!canPreview(rail, displayed)) dismiss();
+          return;
+        }
+        const proof = currentProof(rail), phase = previewCursor();
+        if (!proof || !phase || reading || (attemptedProof === proof && attemptedCursor === phase)) return;
+        attemptedProof = proof;
+        attemptedCursor = phase;
+        reading = true;
         try {
-          if (!await storageBarrier || !live()) return;
-          const snapshot = await owner.read(scopeOf(proof), rail);
+          if (!await storageBarrier || !live() || dismissed) return;
+          const snapshot = await owner.read(scopeOf(proof), rail,
+            phase === 'startup' ? STARTUP_PREVIEW_MAX_AGE_MS : undefined);
           const still = currentProof(rail);
           if (dismissed || !live() || !still || still.partition !== proof.partition || !snapshot || !snapshot.items.length || !canPreview(rail, snapshot)) return;
           const remaining = PROOF_MS - (now() - still.at);
-          if (remaining <= 0 || await still.sessionEpoch !== await proof.sessionEpoch || !live() || dismissed || currentProof(rail) !== still) return;
+          if (remaining <= 0 || await still.sessionEpoch !== await proof.sessionEpoch || !live() || dismissed || currentProof(rail) !== still || !canPreview(rail, snapshot)) return;
           remove = paint(rail, title, snapshot.items, requestedBackend) || null;
-          if (remove && typeof global.setTimeout === 'function') expiry = global.setTimeout(dismiss, Math.min(PREVIEW_MS, remaining));
+          if (remove) {
+            displayed = snapshot;
+            if (typeof global.setTimeout === 'function') expiry = global.setTimeout(dismiss, Math.min(PREVIEW_MS, remaining));
+          }
         } catch (error) { /* Optional storage/presentation. */ }
+        finally {
+          reading = false;
+          // A cursor or proof may arrive while an IndexedDB transaction
+          // is in progress. Retry only on new existing evidence, never poll.
+          if (!displayed && !dismissed && live() &&
+              (currentProof(rail) !== attemptedProof || previewCursor() !== attemptedCursor)) preview();
+        }
       }
       function accept(payload) {
         const observed = payload && typeof payload === 'object' ? payloads.get(payload) : null;
@@ -318,7 +364,7 @@
     const name = doc.createElement('h3');
     name.textContent = title;
     const label = doc.createElement('small');
-    label.textContent = 'Lokale Vorschau – wird aktualisiert';
+    label.textContent = 'Zuletzt geladen – wird aktualisiert';
     heading.append(name, label);
     node.appendChild(heading);
     const row = doc.createElement('div');

@@ -274,6 +274,7 @@
         ? homeCache.requestStamp(path, snapshot ? snapshot[1] : query.backend || query.backendId)
         : null;
     return fetch(url, requestOptions(normalized)).then(function (response) {
+      if (stamp) homeCache.observe(stamp, response, null);
       return parseJsonResponse(path, response).then(function (payload) {
         if (stamp) homeCache.observe(stamp, response, payload);
         if (!response.ok) {

@@ -35,7 +35,13 @@
       if (url.origin !== 'https://vdr-suite.invalid' || url.hash || url.username || url.password) return '';
       const routes = ['/api/vdr/recordings/metadata/image', '/api/recordings/metadata/image'];
       const direct = url.pathname.match(/^\/recording-artwork\/([^/]+)\/[0-9a-fA-F]{32}$/);
-      if (!routes.includes(url.pathname) && !direct) return '';
+      const series = url.pathname.match(/^\/api\/backends\/([A-Za-z0-9_.-]{1,128})\/settings\/series-artwork\/image$/);
+      if (!routes.includes(url.pathname) && !direct && !series) return '';
+      if (series) {
+        // PWA.12 selected-cover URLs only, never candidate or arbitrary URLs.
+        if (series[1] !== backend || !/^\?seriesKey=[^&]+&revision=[1-9][0-9]{0,18}(?:&variant=home)?$/.test(url.search)) return '';
+        return url.pathname + url.search;
+      }
       if (direct ? decodeURIComponent(direct[1]) !== backend : url.searchParams.get('backend') !== backend) return '';
       const allowed = direct ? ['variant'] : ['backend', 'backendNativeId', 'recordingId', 'kind', 'index', 'assignmentRevision', 'variant'];
       const seen = new Set();
@@ -130,7 +136,7 @@
       }, null);
     }
 
-    async function access(scope, rail, action, fallback) {
+    async function access(scope, rail, action, fallback, mode = 'readwrite') {
       const key = scopeKey(scope);
       if (!key || !RAILS.has(rail) || typeof authorize !== 'function') return fallback;
       const local = generation;
@@ -144,7 +150,7 @@
       let proof;
       try { proof = await authorize(Object.freeze({...scope}), rail); } catch (error) { return fallback; }
       if (!proof || proof.authorized !== true || scopeKey(proof) !== key || local !== generation) return fallback;
-      const result = await transaction('readwrite', (store, meta, set) => {
+      const result = await transaction(mode, (store, meta, set) => {
         const r = meta.get('epoch');
         r.onsuccess = () => {
           if ((r.result === undefined ? 0 : r.result) !== before || local !== generation) return;
@@ -160,15 +166,17 @@
       return local === generation ? result : fallback;
     }
 
-    function read(scope, rail) {
+    function read(scope, rail, maxAgeMs) {
       return access(scope, rail, (store, key, set) => {
         const request = store.get(key);
         request.onsuccess = () => {
           const row = request.result;
           if (!row || row.schema !== SCHEMA || row.key !== key || !Number.isFinite(row.savedAt)) return;
+          const age = Date.now() - row.savedAt;
+          if (maxAgeMs !== undefined && (age < 0 || age > maxAgeMs)) return;
           set(projection(row.value, scope.backendId));
         };
-      }, null);
+      }, null, 'readonly');
     }
 
     function write(scope, rail, value) {

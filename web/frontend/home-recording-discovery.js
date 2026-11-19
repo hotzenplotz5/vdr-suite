@@ -4818,7 +4818,7 @@
 
       if (cache) cache.finish(state.seriesProjection.slice(0, 24).map(function (series) {
         return {id: series.key, title: series.title, subtitle: seriesCountLabel(series),
-          posterUrl: series.posterUrl};
+          posterUrl: seriesCoverPosterUrl(series, backendId)};
       }));
       if (rendered && seriesCurrent()) markSeriesWarm(backendId);
 
