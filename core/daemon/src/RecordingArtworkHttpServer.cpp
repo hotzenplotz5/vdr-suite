@@ -130,12 +130,15 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
         return delegated;
     }
 
-    // Only transform the response of the existing authenticated EPG owner.
-    // The direct artwork compatibility fallback below still owns its 404 path.
+    // Preserve the original Hero/detail bytes; resize only Home variants.
+    // The existing compatibility fallback still owns its 404 path.
     if (request.method == "GET" && epgImagePath(path) &&
         delegated.statusCode == 200)
     {
-        applyPreview(previews_, request, query, delegated);
+        if (query.get("variant") == "home")
+            applyPreview(previews_, request, query, delegated);
+        else
+            vdrsuite::http::revalidateScopedArtwork(request, delegated);
         return delegated;
     }
 
@@ -182,7 +185,13 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
             response.statusCode == 200
                 ? "private, max-age=300"
                 : "no-store";
-        applyPreview(previews_, request, query, response);
+        const auto scope = delegated.headers.find("X-VDR-Suite-Artwork-Scope");
+        if (response.statusCode == 200 && scope != delegated.headers.end())
+            response.headers["X-VDR-Suite-Artwork-Scope"] = scope->second;
+        if (query.get("variant") == "home")
+            applyPreview(previews_, request, query, response);
+        else
+            vdrsuite::http::revalidateScopedArtwork(request, response);
         return response;
     }
 

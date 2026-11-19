@@ -54,6 +54,7 @@ const artworkPrefix = 'vdr-suite-pwa-artwork:' + encodeURIComponent(scope.href) 
 const artworkName = artworkPrefix + 'v2';
 const artworkLimit = 1024;
 const artworkBytes = 256 * 1024;
+const epgArtworkBytes = 1024 * 1024;
 let artworkGeneration = 0;
 let artworkSessionMutations = 0;
 let artworkWrites = Promise.resolve();
@@ -61,7 +62,8 @@ let artworkWriteKeys = null;
 const artworkTag = /^"vsr-[0-9a-f]{64}"$/;
 const artworkScope = /^vsr-[0-9a-f]{64}$/;
 const artworkTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const artworkRoutes = new Set(['/api/vdr/recordings/metadata/image', '/api/recordings/metadata/image', '/api/epg/cache/artwork', '/api/epg/cache/metadata/image']);
+const artworkRoutes = new Set(['/api/vdr/recordings/metadata/image', '/api/recordings/metadata/image']);
+const epgArtworkRoutes = new Set(['/api/epg/cache/artwork', '/api/epg/cache/metadata/image']);
 const artworkParams = new Set(['backend', 'backendNativeId', 'recordingId', 'kind', 'index', 'assignmentRevision', 'channelId', 'eventId', 'variant']);
 const installationPath = scope.pathname.slice(0, -'/frontend/'.length);
 
@@ -161,6 +163,7 @@ async function handleLogo(event) {
 }
 const recordingArtworkRoutes = new Set(['/api/vdr/recordings/metadata/image', '/api/recordings/metadata/image']);
 const recordingProofRoutes = new Set(['/api/vdr/recordings/query', '/api/vdr/recordings/folder', '/api/metadata/genres', '/api/metadata/genres/recordings']);
+const epgProofRoutes = new Set(['/api/epg/cache/now-next-artwork', '/api/epg/cache/now-next', '/api/epg/cache/window', '/api/epg/cache/metadata']);
 // Artwork-only window starts on receipt of existing server authorization.
 // Expiry falls back to the original network path, not a new UI gate.
 const artworkProofMs = 30000;
@@ -207,7 +210,7 @@ function proofBackend(request) {
   const path = url.pathname.slice(installationPath.length);
   const snapshot = /^\/api\/backends\/([A-Za-z0-9_.-]{1,128})\/snapshot$/.exec(path);
   if (snapshot && !url.search) return snapshot[1];
-  if (!recordingProofRoutes.has(path) ||
+  if ((!recordingProofRoutes.has(path) && !epgProofRoutes.has(path)) ||
       (path === '/api/metadata/genres' && url.searchParams.get('scope') !== 'recordings')) return '';
   const backend = url.searchParams.get('backend') || '';
   const ids = url.searchParams.getAll('backendId');
@@ -217,7 +220,12 @@ function proofBackend(request) {
     !url.search.slice(1).split('&').some(part => part.split('=')[0].includes('%')) ? backend : '';
 }
 
-function proofKey(clientId, backend) { return JSON.stringify([clientId, backend]); }
+function proofKey(clientId, backend, kind = 'recording') { return JSON.stringify([clientId, backend, kind]); }
+function proofKinds(request) {
+  const path = new URL(request.url).pathname.slice(installationPath.length);
+  if (/^\/api\/backends\/[^/]+\/snapshot$/.test(path)) return ['recording', 'epg'];
+  return epgProofRoutes.has(path) ? ['epg'] : ['recording'];
+}
 
 // The direct artwork route embeds its backend in the path, not the query.
 // Cache only canonical Home previews; all other requests stay online.
@@ -240,6 +248,32 @@ function seriesArtworkBackend(url) {
     /^\?seriesKey=[^&]+&revision=[1-9][0-9]{0,18}&variant=home$/.test(url.search) ? match[1] : '';
 }
 
+// Canonical original CSS Hero and EPG detail URLs, as well as Home variants.
+function epgArtworkBackend(url) {
+  if (url.origin !== scope.origin || url.href.length > 4096 ||
+      !url.pathname.startsWith(installationPath + '/api/')) return '';
+  const path = url.pathname.slice(installationPath.length);
+  if (!epgArtworkRoutes.has(path)) return '';
+  const metadata = path === '/api/epg/cache/metadata/image';
+  const params = new Set(['backend', 'channelId', 'eventId', 'variant']);
+  if (metadata) { params.add('kind'); params.add('index'); }
+  const seen = new Set();
+  for (const part of url.search.slice(1).split('&')) {
+    const at = part.indexOf('='), key = part.slice(0, at);
+    if (at < 1 || at === part.length - 1 || !params.has(key) || seen.has(key)) return '';
+    seen.add(key);
+  }
+  const q = url.searchParams, backend = q.get('backend') || '';
+  if (!/^[A-Za-z0-9_.-]{1,128}$/.test(backend) || backend === '.' || backend === '..' ||
+      !q.get('channelId') || !q.get('eventId') ||
+      (q.has('variant') && q.get('variant') !== 'home') ||
+      (metadata && (!q.get('kind') || !/^[0-9]{1,9}$/.test(q.get('index') || '')))) return '';
+  return backend;
+}
+function artworkByteLimit(request) {
+  return epgArtworkBackend(new URL(request.url)) ? epgArtworkBytes : artworkBytes;
+}
+
 function recordingArtworkBackend(url) {
   return directArtworkBackend(url) || seriesArtworkBackend(url) ||
     (url.origin === scope.origin && url.pathname.startsWith(installationPath + '/api/') &&
@@ -257,29 +291,42 @@ function artworkProofExpired(proof) {
 
 async function observeArtworkProof(event, backend) {
   const epoch = artworkProofEpoch, sequence = ++artworkProofSequence;
-  const key = proofKey(event.clientId, backend);
+  const kinds = proofKinds(event.request);
+  const key = kind => proofKey(event.clientId, backend, kind);
   const started = Date.now();
   countArtwork(event, 'proofReads');
   let response;
   try { response = await fetch(new Request(event.request, {cache: 'no-store'})); }
   catch (error) { forgetArtworkProofs(); throw error; }
   if (epoch !== artworkProofEpoch || artworkSessionMutations) return response;
-  const prior = artworkProofs.get(key);
-  if (prior && prior.sequence > sequence) return response;
-  const partition = response.headers.get('X-VDR-Suite-Home-Recording-Scope');
+  const prior = ['recording', 'epg'].map(kind => artworkProofs.get(key(kind))).filter(Boolean);
+  if (prior.some(proof => proof.sequence > sequence)) return response;
   if (response.status !== 200 || response.redirected ||
       response.headers.get('X-VDR-Suite-Home-Backend') !== backend ||
-      !artworkScope.test(partition || '') ||
       !/no-store/i.test(response.headers.get('Cache-Control') || '')) {
     forgetArtworkProofs();
     if (response.status === 401 || response.status === 403) event.waitUntil(clearArtwork());
     return response;
   }
-  if (prior && prior.partition !== partition) forgetArtworkProofs();
-  artworkProofs.delete(key);
+  const admitted = kinds.map(kind => [kind, response.headers.get(kind === 'epg'
+    ? 'X-VDR-Suite-Home-Epg-Scope' : 'X-VDR-Suite-Home-Recording-Scope')])
+    .filter(([, partition]) => artworkScope.test(partition || ''));
+  const partition = admitted.length ? admitted[0][1] : '';
+  if (!partition || admitted.some(([, value]) => value !== partition)) {
+    forgetArtworkProofs();
+    return response;
+  }
+  // The scoped hash includes every existing grant. Drift observed by either
+  // read kind fences both kinds, including an in-flight earlier response.
+  if (prior.some(proof => proof.partition !== partition) ||
+      (kinds.includes('recording') && !admitted.some(([kind]) => kind === 'recording')) ||
+      (kinds.includes('epg') && artworkProofs.has(key('epg')) &&
+       !admitted.some(([kind]) => kind === 'epg'))) forgetArtworkProofs();
+  for (const kind of kinds) artworkProofs.delete(key(kind));
   const confirmedAt = Date.now();
   if (confirmedAt < started || confirmedAt - started > artworkProofMaxRoundTripAgeMs) return response;
-  artworkProofs.set(key, {partition, sequence, started, confirmedAt});
+  for (const [kind, value] of admitted)
+    artworkProofs.set(key(kind), {partition:value, sequence, started, confirmedAt});
   countArtwork(event, 'acceptedProofs');
   while (artworkProofs.size > 128) artworkProofs.delete(artworkProofs.keys().next().value);
   return response;
@@ -288,16 +335,17 @@ async function observeArtworkProof(event, backend) {
 function currentArtworkProof(event) {
   if (!event.clientId || artworkSessionMutations || (self.navigator && self.navigator.onLine === false)) return null;
   const url = new URL(event.request.url);
-  const backend = recordingArtworkBackend(url);
+  const epg = epgArtworkBackend(url);
+  const backend = epg || recordingArtworkBackend(url);
   if (!backend) return null;
-  const proof = artworkProofs.get(proofKey(event.clientId, backend));
+  const proof = artworkProofs.get(proofKey(event.clientId, backend, epg ? 'epg' : 'recording'));
   return proof && !artworkProofExpired(proof) ? proof : null;
 }
 
 function artworkRequest(request) {
   if (request.method !== 'GET' || request.destination !== 'image' || request.credentials === 'omit' || request.headers.has('Range') || request.headers.has('Authorization')) return false;
   const url = new URL(request.url);
-  if (directArtworkBackend(url) || seriesArtworkBackend(url)) return true;
+  if (directArtworkBackend(url) || seriesArtworkBackend(url) || epgArtworkBackend(url)) return true;
   if (url.origin !== scope.origin || !artworkRoutes.has(url.pathname.slice(installationPath.length)) || !url.pathname.startsWith(installationPath + '/api/')) return false;
   if (url.searchParams.get('variant') !== 'home' || !url.searchParams.get('backend') || url.href.length > 4096) return false;
   const seen = new Set();
@@ -370,7 +418,7 @@ async function handleSeriesArtworkMutation(request, backend) {
   }
 }
 
-function validatedArtwork(response, expectedPartition) {
+function validatedArtwork(response, expectedPartition, maxBytes = artworkBytes) {
   if (!response) return null;
   const tag = response.headers.get('ETag');
   const partition = response.headers.get('X-VDR-Suite-Artwork-Scope');
@@ -378,19 +426,19 @@ function validatedArtwork(response, expectedPartition) {
   const type = response.headers.get('Content-Type');
   const validatedAt = Number(response.headers.get('X-VDR-Suite-Artwork-Validated-At') || 0);
   if (response.status !== 200 || !artworkTypes.has(type) || !Number.isSafeInteger(size) ||
-      size <= 0 || size > artworkBytes || !artworkTag.test(tag || '') || !artworkScope.test(partition || '') ||
+      size <= 0 || size > maxBytes || !artworkTag.test(tag || '') || !artworkScope.test(partition || '') ||
       expectedPartition !== partition) return null;
   return {response, tag, partition, size, type, validatedAt};
 }
 
-async function scopedArtwork(base, partition) {
+async function scopedArtwork(base, partition, maxBytes) {
   try {
     const cache = await caches.open(artworkName);
-    return validatedArtwork(await cache.match(base + '?scope=' + partition), partition);
+    return validatedArtwork(await cache.match(base + '?scope=' + partition), partition, maxBytes);
   } catch (error) { return null; }
 }
 
-async function artworkCandidates(base) {
+async function artworkCandidates(base, maxBytes) {
   try {
     const cache = await caches.open(artworkName);
     const keys = await cache.keys(base, {ignoreSearch: true});
@@ -398,7 +446,7 @@ async function artworkCandidates(base) {
     for (const key of keys.slice(-4)) {
       const response = await cache.match(key);
       if (!response) continue;
-      const candidate = validatedArtwork(response, new URL(key.url).searchParams.get('scope'));
+      const candidate = validatedArtwork(response, new URL(key.url).searchParams.get('scope'), maxBytes);
       if (candidate) candidates.push(candidate);
     }
     return candidates;
@@ -420,7 +468,7 @@ function storeArtwork(base, response, generation, event) {
   const partition = response.headers.get('X-VDR-Suite-Artwork-Scope');
   const size = Number(response.headers.get('X-VDR-Suite-Artwork-Bytes'));
   const type = response.headers.get('Content-Type');
-  if (response.status !== 200 || response.redirected || !artworkTag.test(tag || '') || !artworkScope.test(partition || '') || !artworkTypes.has(type) || !Number.isSafeInteger(size) || size <= 0 || size > artworkBytes || /no-store/i.test(response.headers.get('Cache-Control') || '')) return Promise.resolve();
+  if (response.status !== 200 || response.redirected || !artworkTag.test(tag || '') || !artworkScope.test(partition || '') || !artworkTypes.has(type) || !Number.isSafeInteger(size) || size <= 0 || size > artworkByteLimit(event.request) || /no-store/i.test(response.headers.get('Cache-Control') || '')) return Promise.resolve();
   const copy = response.clone();
   const validatedAt = Date.now();
   return serializeArtwork(async () => {
@@ -460,16 +508,17 @@ async function handleArtwork(event) {
   const proof = currentArtworkProof(event);
   if (!proof) {
     const url = new URL(event.request.url);
-    const backend = recordingArtworkBackend(url);
+    const epg = epgArtworkBackend(url);
+    const backend = epg || recordingArtworkBackend(url);
     if (!backend) countArtwork(event, 'otherArtworkRoute');
     else {
-      const previous = artworkProofs.get(proofKey(event.clientId, backend));
+      const previous = artworkProofs.get(proofKey(event.clientId, backend, epg ? 'epg' : 'recording'));
       countArtwork(event, previous && artworkProofExpired(previous) ? 'expiredProof' : 'missingProof');
     }
   }
   if (proof) {
     const base = artworkBase(event.request);
-    const candidate = await scopedArtwork(base, proof.partition);
+    const candidate = await scopedArtwork(base, proof.partition, artworkByteLimit(event.request));
     if (!candidate) countArtwork(event, 'cacheMiss');
     // Recheck after asynchronous storage access; logout or grant drift may
     // have happened while the cache was being read.
@@ -508,7 +557,7 @@ async function revalidateArtwork(event) {
   if (artworkSessionMutations) return artworkFetch(event, []);
   const generation = artworkGeneration;
   const base = artworkBase(request);
-  const candidates = await artworkCandidates(base);
+  const candidates = await artworkCandidates(base, artworkByteLimit(request));
   let response;
   try {
     response = await artworkFetch(event, generation === artworkGeneration && !artworkSessionMutations ? candidates.map(c => c.tag) : []);
@@ -551,7 +600,7 @@ self.addEventListener('message', event => {
   if (event.data && event.data.type === 'vdr-suite-artwork-measurement' &&
       event.source && event.source.id && event.ports && event.ports[0]) {
     const measurement = artworkMeasurements.get(event.source.id);
-    event.ports[0].postMessage({schema: 1, capacity: artworkLimit, maxPreviewBytes: artworkBytes,
+    event.ports[0].postMessage({schema: 1, capacity: artworkLimit, maxPreviewBytes: artworkBytes, maxEpgArtworkBytes: epgArtworkBytes,
       counters: measurement ? {...measurement} : null});
   }
 });

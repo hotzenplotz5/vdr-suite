@@ -225,6 +225,48 @@ int main()
         vdrsuite::http::addDirectHomeArtworkFallbackScope(request, response, context, true);
         assert(response.headers.empty());
 
+        const std::string epgTarget =
+            "/api/epg/cache/artwork?backend=default&channelId=C-1&eventId=42";
+        context.grants = {{"recordings.view", "default"}};
+        request.path = epgTarget;
+        response = HttpServerResponse{};
+        vdrsuite::http::addEpgArtworkScope(request, response, context, true);
+        assert(response.headers.empty());
+        context.grants = {{"epg.view", "default"}};
+        vdrsuite::http::addEpgArtworkScope(request, response, context, true);
+        const auto epgScope = vdrsuite::http::browserHomeCacheScope(context, "default");
+        assert(response.headers.at("X-VDR-Suite-Artwork-Scope") == epgScope);
+        response = HttpServerResponse{};
+        response.statusCode = 404;
+        vdrsuite::http::addEpgArtworkScope(request, response, context, true);
+        assert(response.statusCode == 404 && response.headers.at("Cache-Control") == "private, no-store");
+        const std::string epgMetadata = "/api/epg/cache/metadata/image?backend=default&channelId=C-1&eventId=42&kind=preferred&index=0";
+        request.path = epgMetadata;
+        response = HttpServerResponse{};
+        vdrsuite::http::addEpgArtworkScope(request, response, context, true);
+        assert(response.headers.at("X-VDR-Suite-Artwork-Scope") == epgScope);
+        for (const auto& target : {epgTarget + "&eventId=43", epgTarget + "&token=bad",
+                epgTarget + "&variant=full", epgMetadata + "&index=1",
+                std::string("/api/epg/cache/artwork?backend=other&channelId=C-1&eventId=42"),
+                std::string("/api/epg/cache/artwork?%62ackend=default&channelId=C-1&eventId=42")}) {
+            request.path = target;
+            response = HttpServerResponse{};
+            vdrsuite::http::addEpgArtworkScope(request, response, context, true);
+            assert(response.headers.empty());
+        }
+        request.path = epgTarget;
+        response = HttpServerResponse{};
+        vdrsuite::http::addEpgArtworkScope(request, response, context, false);
+        assert(response.headers.empty());
+        for (const auto* read : {"/api/backends/default/snapshot",
+            "/api/epg/cache/now-next-artwork?backend=default&channelIds=C-1"}) {
+            request.path = read;
+            response = HttpServerResponse{};
+            vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
+            assert(response.headers.at("X-VDR-Suite-Home-Epg-Scope") == epgScope);
+            assert(response.headers.count("X-VDR-Suite-Home-Recording-Scope") == 0);
+        }
+
         const std::string seriesTarget =
             "/api/backends/default/settings/series-artwork/image?seriesKey=folder%3Aseries&revision=7&variant=home";
         context.grants = {{"recordings.view", "default"}};

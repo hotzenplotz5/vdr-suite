@@ -2409,6 +2409,8 @@ HttpServerResponse TestHttpServer::handleRequest(
         gate.context, gate.browserAuthenticated);
     vdrsuite::http::addSeriesHomeArtworkScope(request, response,
         gate.context, gate.browserAuthenticated);
+    vdrsuite::http::addEpgArtworkScope(request, response,
+        gate.context, gate.browserAuthenticated);
     // A successful browser-authorized canonical Home preview may be revalidated
     // after the decorator has selected the exact served representation.
     // No cache admission is based on browser hints about identity or grants.
@@ -2416,18 +2418,14 @@ HttpServerResponse TestHttpServer::handleRequest(
     if (request.method == "GET" && gate.browserAuthenticated &&
         gate.context.authenticated() && response.statusCode == 200 &&
         (artworkPath == "/api/vdr/recordings/metadata/image" ||
-         artworkPath == "/api/recordings/metadata/image" ||
-         artworkPath == "/api/epg/cache/artwork" ||
-         artworkPath == "/api/epg/cache/metadata/image")) {
+         artworkPath == "/api/recordings/metadata/image")) {
         const auto at = request.path.find('?');
         const auto query = RestQueryParameters::parse(at == std::string::npos
             ? std::string{} : request.path.substr(at + 1));
         if (query.get("variant") == "home") {
             const std::string backend = vdrsuite::http::canonicalHomeCacheBackend(
                 at == std::string::npos ? std::string{} : request.path.substr(at + 1));
-            const bool recording = artworkPath == "/api/vdr/recordings/metadata/image" ||
-                artworkPath == "/api/recordings/metadata/image";
-            const std::string permission = recording ? "recordings.view" : "epg.view";
+            const std::string permission = "recordings.view";
             // Eligibility only; never change the existing route's admission.
             const AuthorizationService authorization;
             const auto partition = (!backend.empty() &&

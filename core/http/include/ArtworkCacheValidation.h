@@ -44,9 +44,14 @@ inline void revalidateScopedArtwork(const HttpServerRequest& request, HttpServer
     response.headers["Cache-Control"] = "private, no-cache";
     response.headers["Vary"] = "Cookie, Authorization";
     const auto type = response.headers.find("Content-Type");
+    // Preserve the original CSS Hero bytes; leave the recording cap alone.
+    const std::size_t maxBytes =
+        request.path.rfind("/api/epg/cache/artwork?", 0) == 0 ||
+        request.path.rfind("/api/epg/cache/metadata/image?", 0) == 0
+            ? 1024U * 1024U : 256U * 1024U;
     if (response.statusCode != 200 || type == response.headers.end() ||
         (type->second != "image/jpeg" && type->second != "image/png" && type->second != "image/webp") ||
-        response.body.empty() || response.body.size() > 256U * 1024U) {
+        response.body.empty() || response.body.size() > maxBytes) {
         response.headers.erase(partition);
         response.headers["Cache-Control"] = "no-store";
         return;

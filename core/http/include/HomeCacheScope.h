@@ -3,6 +3,7 @@
 #include "ArtworkCacheValidation.h"
 #include "AuthorizationService.h"
 #include "RestQueryParameters.h"
+#include <set>
 
 namespace vdrsuite::http
 {
@@ -92,6 +93,65 @@ inline void addDirectHomeArtworkFallbackScope(const HttpServerRequest& request,
     response.headers["Vary"] = "Cookie, Authorization";
 }
 
+// Cache eligibility only; never change the existing EPG route admission.
+inline std::string canonicalEpgArtworkBackend(const std::string& target)
+{
+    const auto at = target.find('?');
+    if (at == std::string::npos || target.size() > 4096U) return {};
+    const auto path = target.substr(0, at);
+    const bool metadata = path == "/api/epg/cache/metadata/image";
+    if (!metadata && path != "/api/epg/cache/artwork") return {};
+    const auto raw = target.substr(at + 1);
+    const auto query = RestQueryParameters::parse(raw);
+    std::set<std::string> keys;
+    if (raw.empty() || raw.back() == '&') return {};
+    for (std::size_t start = 0; start < raw.size();) {
+        const auto end = raw.find('&', start);
+        const auto item = raw.substr(start, end == std::string::npos ? end : end - start);
+        const auto eq = item.find('=');
+        const auto key = item.substr(0, eq);
+        if (eq == std::string::npos || eq + 1 == item.size() ||
+            (key != "backend" && key != "channelId" && key != "eventId" && key != "variant" &&
+             (!metadata || (key != "kind" && key != "index"))) || !keys.insert(key).second) return {};
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+    const auto backend = canonicalHomeCacheBackend(raw);
+    if (backend.empty() || backend.size() > 128U || backend == "." || backend == ".." ||
+        !std::all_of(backend.begin(), backend.end(), [](unsigned char c) {
+            return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.';
+        }) || query.get("channelId").empty() || query.get("eventId").empty() ||
+        (query.has("variant") && query.get("variant") != "home")) return {};
+    if (metadata) {
+        const auto index = query.get("index");
+        if (query.get("kind").empty() || index.empty() || index.size() > 9U ||
+            !std::all_of(index.begin(), index.end(), [](unsigned char c) {
+                return c >= '0' && c <= '9';
+            })) return {};
+    }
+    return backend;
+}
+
+inline void addEpgArtworkScope(const HttpServerRequest& request,
+    HttpServerResponse& response, const RequestSecurityContext& context, bool browserAuthenticated)
+{
+    if (request.method != "GET" || !browserAuthenticated ||
+        (response.statusCode != 200 && !(response.statusCode == 404 &&
+          request.path.rfind("/api/epg/cache/artwork?", 0) == 0))) return;
+    const auto backend = canonicalEpgArtworkBackend(request.path);
+    if (backend.empty() || !AuthorizationService{}.authorize(context,
+        {"epg.view", backend, "epg.view"}).allowed) return;
+    const auto partition = browserHomeCacheScope(context, backend);
+    if (partition.empty()) return;
+    response.headers["X-VDR-Suite-Artwork-Scope"] = partition;
+    // A 404 may reach the existing authorized compatibility owner; the
+    // error itself is never a cacheable image.
+    response.headers["Cache-Control"] = response.statusCode == 200
+        ? "private, no-cache" : "private, no-store";
+    response.headers["Vary"] = "Cookie, Authorization";
+}
+
 // Cache-only grammar matching the selected cover URL emitted by the series
 // service and the Home preview helper. Never change legacy route admission.
 inline std::string seriesHomeArtworkBackend(const std::string& target,
@@ -155,14 +215,14 @@ inline void addHomeCacheScope(const HttpServerRequest& request, HttpServerRespon
     const auto at = request.path.find('?');
     const auto path = request.path.substr(0, at);
     std::string backend;
-    bool recording = false, history = false;
+    bool recording = false, history = false, epg = false;
     const std::string prefix = "/api/backends/", suffix = "/snapshot";
     if (request.method == "GET" && at == std::string::npos &&
         path.size() > prefix.size() + suffix.size() &&
         path.compare(0, prefix.size(), prefix) == 0 &&
         path.compare(path.size() - suffix.size(), suffix.size(), suffix) == 0) {
         backend = path.substr(prefix.size(), path.size() - prefix.size() - suffix.size());
-        recording = history = true;
+        recording = history = epg = true;
     } else if (request.method == "GET" && at != std::string::npos &&
         (path == "/api/vdr/recordings/query" || path == "/api/vdr/recordings/folder" ||
          path == "/api/metadata/genres" || path == "/api/metadata/genres/recordings")) {
@@ -172,6 +232,12 @@ inline void addHomeCacheScope(const HttpServerRequest& request, HttpServerRespon
         backend = canonicalHomeCacheBackend(raw);
         if (backend.empty()) return;
         recording = true;
+    } else if (request.method == "GET" && at != std::string::npos &&
+        (path == "/api/epg/cache/now-next-artwork" || path == "/api/epg/cache/now-next" ||
+         path == "/api/epg/cache/window" || path == "/api/epg/cache/metadata")) {
+        backend = canonicalHomeCacheBackend(request.path.substr(at + 1));
+        if (backend.empty()) return;
+        epg = true;
     } else if (request.method == "POST" && path == "/api/media/continue-watching" &&
                at == std::string::npos) {
         backend = authorizedBackend;
@@ -190,12 +256,15 @@ inline void addHomeCacheScope(const HttpServerRequest& request, HttpServerRespon
         {"recordings.view", backend, "recordings.view"}).allowed;
     history = history && authorization.authorize(context,
         {"media.recording.play", backend, "media.recording.play"}).allowed;
-    if (!recording && !history) return;
+    epg = epg && authorization.authorize(context,
+        {"epg.view", backend, "epg.view"}).allowed;
+    if (!recording && !history && !epg) return;
     const auto scope = browserHomeCacheScope(context, backend);
     if (scope.empty()) return;
     response.headers["X-VDR-Suite-Home-Backend"] = backend;
     if (recording) response.headers["X-VDR-Suite-Home-Recording-Scope"] = scope;
     if (history) response.headers["X-VDR-Suite-Home-History-Scope"] = scope;
+    if (epg) response.headers["X-VDR-Suite-Home-Epg-Scope"] = scope;
     response.headers["Cache-Control"] = "private, no-store";
 }
 }

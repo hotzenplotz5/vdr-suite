@@ -1350,4 +1350,4 @@ No public C++ ABI or `-dev` package is implied.
 
 Eigene Settings-Karte für H.264-Import und HEVC-Shrink; persistiert ausschließlich in der vorhandenen Backend-Agent-Konfiguration. Die vier typisierten Werte werden vor einem neuen Auftrag erneut eingelesen und eingefroren. Software-CRF/Presets nicht mit VAAPI-/QSV-/NVENC-Qualitätssteuerungen gleichsetzen. Implementierung im Quellstand; isolierte und reale yaVDR-/SSE-/VDR-/Playback-Abnahmen bleiben getrennt offen. BAS erst nach Media Tools.
 
-PWA performance follow-up before PWA.14: PWA.13.1 public logo/negative cache (source candidate); PWA.13.2 scoped EPG artwork including Hero; PWA.13.3 critical startup path and time-to-visible/interactive evidence. Real warm performance acceptance remains open.
+PWA performance follow-up before PWA.14: PWA.13.1 public logo/negative cache (operator-installed PASS); PWA.13.2 scoped EPG artwork including Hero (source candidate, runtime acceptance open); PWA.13.3 critical startup path and time-to-visible/interactive evidence. Real warm performance acceptance remains open.

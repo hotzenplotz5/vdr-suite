@@ -872,3 +872,37 @@ the actual public headers and unchanged lookup. Exact test execution
 and incremental daemon installation remain unverified. PWA.13.2
 (EPG artwork), PWA.13.3 (critical path and timing), and PWA.14 (real
 performance acceptance) remain open.
+
+## PWA.13.2 — persistent scoped EPG artwork (2026-11-19)
+
+Operator reports PWA.13.1 installation PASS at `c125d6cdfa9047e750879bd71a2d528025ee1b48`.
+The observed 413,542-byte CSS-initiated EPG image exceeded the existing
+variant=home / 256 KiB worker policy. The two existing EPG image routes now
+admit canonical original URLs as well as explicit Home previews, using the
+same final-byte validator and optional persistent artwork cache. Original
+Hero/detail bytes are unchanged; explicit Home variants use the existing
+preview owner. The 1 MiB EPG allowance covers the observed resource;
+larger images retain ordinary online delivery. Recording limits stay
+unchanged. The shared 1024-entry FIFO and cache version are retained; the
+theoretical payload ceiling is 1 GiB if all entries are maximum-size EPG
+images (actual browser quota may be lower).
+
+Existing successful browser snapshot and EPG now-next/artwork-manifest,
+window and metadata reads convey independent epg.view eligibility proof
+for the authenticated account/session/backend/grant partition. No recording
+proof authorizes EPG and no EPG proof authorizes recordings. Reuse the
+existing 30-second receipt/60-second round-trip proof bound, five-minute
+image freshness, 24-hour maximum stale age, deduplicated background
+validation, online fallback, generation fences and logout/denial cleanup.
+Existing route admission is unchanged. No new request, polling, API,
+permission rule, storage namespace or cache purge. The existing authorized
+404 compatibility fallback may convey the opaque eligibility marker only
+to the actual successful EPG image owner; the 404 itself is not cached.
+
+Extended existing worker and HTTP/decorator regressions for original Hero
+and metadata images, independent grants, cross-tab, expiry, manifest proof,
+background refresh, oversized/ambiguous requests and fallback delivery.
+JavaScript syntax and a simulated request-grammar test are separate from
+full Node, C++, native browser and yaVDR acceptance, which remain open.
+IPTVnator remains the perceived-speed benchmark, not a verified comparison
+of equivalent EPG workloads. PWA.13.3 and controlled PWA.14 timing remain open.

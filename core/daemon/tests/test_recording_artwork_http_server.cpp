@@ -87,8 +87,10 @@ public:
         response.statusCode = 404;
         response.headers["Content-Type"] =
             "application/json";
-        if (!cacheScope.empty() && request.path.find("/recording-artwork/default/") == 0 &&
-            request.path.find("?variant=home") != std::string::npos)
+        if (!cacheScope.empty() &&
+            ((request.path.find("/recording-artwork/default/") == 0 &&
+              request.path.find("?variant=home") != std::string::npos) ||
+             request.path.find("/api/epg/cache/artwork?backend=default&channelId=C1") == 0))
             response.headers["X-VDR-Suite-Artwork-Scope"] = cacheScope;
         response.body = "{\"error\":\"route not found\"}";
         return response;
@@ -333,6 +335,34 @@ int main()
     assert(server.handleRequest(authorized).body == large.output);
     authorized.path = "/api/backends/default/settings/series-artwork/image?seriesKey=folder%3Aseries&revision=7";
     assert(server.handleRequest(authorized).body == large.output);
+
+    // Synthetic final bytes exercise the validator without resizing, both
+    // delegated and compatibility routes, above the recording preview cap.
+    metadataDelegate->cacheScope = artworkCacheScope("actor-a", "default", {"epg.view"});
+    metadataDelegate->metadataImage = std::string(414U * 1024U, 'x');
+    for (const auto* url : {
+        "/api/epg/cache/artwork?backend=default&channelId=C1&eventId=42",
+        "/api/epg/cache/artwork?backend=default&channelId=C2&eventId=42",
+        "/api/epg/cache/metadata/image?backend=default&channelId=C1&eventId=42&kind=preferred&index=0"}) {
+        authorized.path = url;
+        const auto hero = server.handleRequest(authorized);
+        assert(hero.statusCode == 200 && hero.body == metadataDelegate->metadataImage);
+        assert(hero.headers.at("X-VDR-Suite-Artwork-Bytes") == std::to_string(hero.body.size()));
+        assert(hero.headers.at("Cache-Control") == "private, no-cache");
+        authorized.headers["If-None-Match"] = hero.headers.at("ETag");
+        const auto reused = server.handleRequest(authorized);
+        assert(reused.statusCode == 304 && reused.body.empty());
+        unauthorized.path = url;
+        unauthorized.headers["If-None-Match"] = hero.headers.at("ETag");
+        assert(server.handleRequest(unauthorized).statusCode == 401);
+        authorized.headers.erase("If-None-Match");
+    }
+    metadataDelegate->metadataImage = std::string(1024U * 1024U + 1U, 'x');
+    const auto oversizedHero = server.handleRequest(authorized);
+    assert(oversizedHero.statusCode == 200 && oversizedHero.body == metadataDelegate->metadataImage);
+    assert(oversizedHero.headers.count("X-VDR-Suite-Artwork-Scope") == 0);
+    metadataDelegate->metadataImage = large.output;
+    metadataDelegate->cacheScope.clear();
 
     for (const auto* route : {"/api/epg/cache/artwork", "/api/epg/cache/metadata/image"})
     {

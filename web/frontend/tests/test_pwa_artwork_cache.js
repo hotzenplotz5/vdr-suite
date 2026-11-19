@@ -13,7 +13,7 @@ async function run(prefix) {
   let partition = scopeA, tag = tagA, status = 200, content = 'poster-a', offline = false, fail = false, last;
   let holdImage = null, holdMutation = null;
   let clock = 1700000000000, imageReads = 0, proofReads = 0, fullKeyReads = 0;
-  let proofDelay = 0;
+  let proofDelay = 0, epgAuthorized = false, recordingAuthorized = true;
   const deferred = () => {
     let resolve;
     const promise = new Promise(done => { resolve = done; });
@@ -34,12 +34,13 @@ async function run(prefix) {
       if (holdMutation) { const waiting = holdMutation; await waiting.promise; }
       return new Response(null, {status:204});
     }
-    if (new URL(request.url).pathname.endsWith('/snapshot')) {
+    if (new URL(request.url).pathname.endsWith('/snapshot') || new URL(request.url).pathname.endsWith('/now-next-artwork')) {
       proofReads++;
       clock += proofDelay;
       return new Response('{}', {status, headers: {
         'Cache-Control':'private, no-store', 'X-VDR-Suite-Home-Backend':'default',
-        'X-VDR-Suite-Home-Recording-Scope':partition
+        ...(recordingAuthorized ? {'X-VDR-Suite-Home-Recording-Scope':partition} : {}),
+        ...(epgAuthorized ? {'X-VDR-Suite-Home-Epg-Scope':partition} : {})
       }});
     }
     imageReads++;
@@ -144,8 +145,8 @@ async function run(prefix) {
   await assert.rejects(result,/offline/); offline=false;
   assert.equal(stores.size,0,'failed session mutation still removes optional cached bytes');
 
-  async function proof(clientId = 'tab-a') {
-    const request = new Request('https://suite.test'+prefix+'/api/backends/default/snapshot',{credentials:'same-origin'});
+  async function proof(clientId = 'tab-a', address = 'https://suite.test'+prefix+'/api/backends/default/snapshot') {
+    const request = new Request(address,{credentials:'same-origin'});
     Object.defineProperty(request,'destination',{value:''});
     let result;
     const pending=[];
@@ -222,9 +223,46 @@ async function run(prefix) {
   await proof();
   assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local', 'over-age artwork must use online validation');
   assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
-  const epg = url.replace('/api/vdr/recordings/metadata/image','/api/epg/cache/artwork');
+  const epg = 'https://suite.test'+prefix+'/api/epg/cache/artwork?backend=default&channelId=C-1&eventId=17';
+  const epgDetail = epg.replace('/artwork?', '/metadata/image?')+'&kind=preferred&index=0';
+  const originalTag = tag, originalContent = content;
+  const epgTag = '"vsr-'+'4'.repeat(64)+'"';
+  tag=epgTag; content='x'.repeat(414*1024);
   await image(epg,'tab-a');
   assert.notEqual((await image(epg,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local', 'recording proof is not EPG authorization');
+  await image(epgDetail);
+  epgAuthorized=true; recordingAuthorized=false;
+  await proof();
+  const epgReads = imageReads;
+  assert.equal((await image(epg,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local','canonical CSS Hero image uses current EPG proof');
+  const detail = await image(epgDetail,'tab-a');
+  assert.equal(detail.headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal((await detail.text()).length,414*1024);
+  assert.equal(imageReads,epgReads);
+  assert.notEqual((await image(epg,'other-tab')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  tag=originalTag; content=originalContent;
+  assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local','EPG proof is not recording authorization');
+  tag=epgTag; content='x'.repeat(414*1024);
+  clock+=30001;
+  assert.notEqual((await image(epg,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  await proof('tab-a','https://suite.test'+prefix+'/api/epg/cache/now-next-artwork?backend=default&channelIds=C-1');
+  assert.equal((await image(epg,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  clock+=5*60*1000+1;
+  await proof();
+  const beforeRefresh=imageReads;
+  assert.equal((await image(epg,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal(imageReads,beforeRefresh+1,'stale EPG image refreshes in background');
+  const oversized=epg.replace('eventId=17','eventId=18'); content='x'.repeat(1024*1024+1);
+  tag='"vsr-'+'5'.repeat(64)+'"';
+  await image(oversized);
+  assert.notEqual((await image(oversized,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  for (const bad of [epg+'&token=bad',epg+'&eventId=18',epg.replace('backend=','%62ackend='),
+    epg.replace('C-1',''),epg+'&variant=full',epgDetail.replace('index=0','index=-1'),epg.replace('suite.test','other.test')]) {
+    const req=new Request(bad); Object.defineProperty(req,'destination',{value:'image'});
+    assert.equal(invoke('artworkRequest',[req]),false);
+  }
+  tag=originalTag; content=originalContent; epgAuthorized=false; recordingAuthorized=true;
+  await proof();
   status=403;
   await proof(); status=200;
   assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
