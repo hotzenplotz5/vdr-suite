@@ -17,6 +17,8 @@
   const DRAG_CLASS = 'media-home-mouse-dragging';
   const INLINE_PAGE_LIMIT = 100;
   const INLINE_METADATA_CONCURRENCY = 4;
+  const INLINE_FOLDER_ARTWORK_CONCURRENCY = 3;
+  const INLINE_FOLDER_ARTWORK_READS = 2;
   const START_THRESHOLD = 8;
   const HERO_SWITCH_THRESHOLD = 48;
   const HORIZONTAL_DOMINANCE = 1.15;
@@ -284,6 +286,7 @@
 
   function removeExpansion(section) {
     const existing = findExpansion(section);
+    if (existing && typeof existing.__stopFolderArtwork === 'function') existing.__stopFolderArtwork();
     if (existing && typeof existing.remove === 'function') existing.remove();
   }
 
@@ -478,8 +481,9 @@
     return {folders: folders, recordings: recordings};
   }
 
-  function createInlineArtwork(recording) {
-    const artwork = doc.createElement('div');
+  function createInlineArtwork(recording, target) {
+    const artwork = target || doc.createElement('div');
+    artwork.textContent = '';
     artwork.className = 'media-home-discovery-artwork';
     const title = recordingTitle(recording);
     const poster = recordingPosterUrl(recording);
@@ -576,9 +580,11 @@
 
   function folderLabel(entry) {
     const path = folderPath(entry);
-    return text(entry && (entry.name || entry.title)) ||
-      path.split('/').filter(Boolean).pop() ||
-      path;
+    const label = text(entry && (entry.name || entry.title)) ||
+      path.split('/').filter(Boolean).pop() || path;
+    const shared = global.VdrSuiteRecordings2Shared;
+    return shared && typeof shared.decodeDisplayText === 'function'
+      ? shared.decodeDisplayText(label) : label.replace(/_/g, ' ');
   }
 
   function createInlineFolderCard(entry, onOpen) {
@@ -587,6 +593,8 @@
     card.type = 'button';
     card.className = 'media-home-discovery-card media-home-inline-folder';
     card.dataset.inlineFolderPath = path;
+    const artwork = createInlineArtwork({title: folderLabel(entry)});
+    card.appendChild(artwork);
 
     const copy = doc.createElement('span');
     copy.className = 'media-home-discovery-copy';
@@ -598,7 +606,103 @@
     copy.append(label, detail);
     card.appendChild(copy);
     card.addEventListener('click', function () { onOpen(path); });
-    return card;
+    return {card: card, artwork: artwork, entry: entry};
+  }
+
+  // The same canonical representative traversal as Recordings2, but only
+  // for visible inline folder cards, with a small read budget per card.
+  function hydrateInlineFolderArtwork(expansion, cards, backendId, isCurrent) {
+    const client = clientApi();
+    if (!client || typeof client.fetchClientRecordingFolder !== 'function') return;
+    let stopped = false, active = 0, observer = null;
+    const pending = [];
+    const live = () => !stopped && isCurrent() && expansion.isConnected !== false;
+    const paint = (item, recording) => {
+      if (!live() || !recording || !recordingId(recording) ||
+          recordingBackendId(recording, backendId) !== backendId) return false;
+      const projected = recordingMetadataProjection(recording, recording.nativeMetadata);
+      if (!recordingPosterUrl(projected)) return false;
+      createInlineArtwork(projected, item.artwork);
+      return true;
+    };
+    expansion.__stopFolderArtwork = function () {
+      stopped = true;
+      pending.length = 0;
+      if (observer) observer.disconnect();
+    };
+
+    function owner() {
+      const existing = global.VdrSuiteRecordings2FolderArtwork;
+      if (existing && typeof existing.findRepresentative === 'function') return Promise.resolve(existing);
+      const runtime = global.VdrSuiteDeferredFrontendRuntimes;
+      return runtime && typeof runtime.loadRecordings2 === 'function'
+        ? Promise.resolve(runtime.loadRecordings2()).then(() => global.VdrSuiteRecordings2FolderArtwork)
+        : Promise.resolve(null);
+    }
+
+    function resolve(item) {
+      if (paint(item, item.entry.representativeRecording)) return Promise.resolve();
+      const root = folderPath(item.entry);
+      let remaining = INLINE_FOLDER_ARTWORK_READS;
+      const load = function (path) {
+        if (!live() || remaining <= 0 || (path !== root && !path.startsWith(root + '/'))) return Promise.resolve(null);
+        remaining--;
+        return Promise.resolve(client.fetchClientRecordingFolder({
+          backendId: backendId,
+          query: {path: path, limit: 1, offset: 0},
+          cache: 'no-store',
+          credentials: 'same-origin'
+        })).then(function (payload) {
+          if (!live()) return null;
+          const projected = projectFolderEntries(payload, backendId);
+          const recordings = canonicalRecordings(payload, backendId).concat(projected.recordings);
+          // Prefer an already available poster, not a metadata request.
+          const withPoster = recordings.filter(recording =>
+            recordingPosterUrl(recordingMetadataProjection(recording, recording.nativeMetadata)));
+          return {recordings: withPoster.length ? withPoster : recordings, folders: projected.folders};
+        });
+      };
+      return owner().then(function (api) {
+        if (!live() || !api || typeof api.findRepresentative !== 'function') return null;
+        return load(root).then(page => live()
+          ? api.findRepresentative(page, load, 1, new Set([root])) : null);
+      }).then(recording => paint(item, recording));
+    }
+
+    function pump() {
+      while (live() && active < INLINE_FOLDER_ARTWORK_CONCURRENCY && pending.length) {
+        const item = pending.shift();
+        active++;
+        Promise.resolve().then(() => live() && resolve(item)).catch(() => {}).then(() => {
+          active--;
+          pump();
+        });
+      }
+    }
+
+    function enqueueVisible(item) {
+      if (!live() || item.queued) return;
+      item.queued = true;
+      pending.push(item);
+      pump();
+    }
+
+    if (typeof global.IntersectionObserver === 'function') {
+      const items = new Map(cards.map(item => [item.card, item]));
+      observer = new global.IntersectionObserver(function (entries) {
+        if (!live()) { observer.disconnect(); return; }
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          observer.unobserve(entry.target);
+          const item = items.get(entry.target);
+          if (item) enqueueVisible(item);
+        });
+      }, {rootMargin: '160px'});
+      cards.forEach(item => observer.observe(item.card));
+    } else {
+      // Older runtimes: limit initial work rather than walking the entire tree.
+      cards.slice(0, 10).forEach(enqueueVisible);
+    }
   }
 
   function pageHasMore(payload, nextOffset, returnedCount) {
@@ -834,8 +938,10 @@
 
     const rail = doc.createElement('div');
     rail.className = 'media-home-discovery-rail media-home-inline-rail';
-    result.folders.forEach(function (entry) {
-      rail.appendChild(createInlineFolderCard(entry, openFolderPathInline));
+    const folderCards = result.folders.map(function (entry) {
+      const item = createInlineFolderCard(entry, openFolderPathInline);
+      rail.appendChild(item.card);
+      return item;
     });
     result.recordings.forEach(function (recording) {
       const projected = recordingMetadataProjection(
@@ -847,6 +953,10 @@
       );
     });
     expansion.appendChild(rail);
+    hydrateInlineFolderArtwork(expansion, folderCards, backendId, function () {
+      return state.request === request && state.key === rootPath && state.path === path &&
+        selectedBackendId() === backendId && findExpansion(section) === expansion;
+    });
     return true;
   }
 
@@ -944,7 +1054,7 @@
       '.media-home-inline-expansion{min-width:0;margin:.1rem 0 .65rem;padding-top:.45rem;border-top:1px solid rgba(148,163,184,.16)}',
       '.media-home-inline-heading{display:flex;align-items:center;gap:.65rem;margin:0 1rem .65rem}.media-home-inline-heading h4{margin:0;color:#f8fafc;font-size:1rem}',
       '.media-home-inline-back{border:1px solid rgba(148,163,184,.25);border-radius:.7rem;background:rgba(15,23,42,.78);color:#e2e8f0;padding:.45rem .62rem;cursor:pointer}',
-      '.media-home-inline-folder{min-height:7rem;padding:.35rem;background:linear-gradient(145deg,rgba(30,41,59,.88),rgba(2,6,23,.94))}',
+      '.media-home-inline-folder{min-height:7rem;padding:0;background:linear-gradient(145deg,rgba(30,41,59,.88),rgba(2,6,23,.94))}',
       '.media-home-inline-state{margin:0 1rem 1rem;padding:.8rem 1rem;border:1px solid rgba(148,163,184,.16);border-radius:.8rem;color:#94a3b8;background:rgba(15,23,42,.5)}',
       '.media-home-inline-state.error{border-color:rgba(239,68,68,.48);color:#fecaca}',
       '@media(max-width:46rem){.media-home-inline-heading,.media-home-inline-state{margin-left:.78rem;margin-right:.78rem}}'

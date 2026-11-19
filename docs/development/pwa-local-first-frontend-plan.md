@@ -615,3 +615,27 @@ Hosted integration, actual installed worker activation, security-header
 behavior through the reverse proxy and browser timings remain NOT VERIFIED.
 PWA.11 and beyond are not part of this implementation; artwork still uses
 the existing PWA.3 revalidation path. No measured speedup claimed.
+
+## PWA.10.1 — Random Folder Rail artwork correction (2026-11-19)
+
+The operator identified the automatically selected Aufnahmeordner rail, not
+the canonical Series overview: a Doku expansion displayed large text-only
+child-folder cards. The existing inline folder renderer never created an
+image; this is independent of PWA cache effectiveness.
+
+The Home inline renderer now uses the established Recordings2 representative
+traversal, the existing authorized folder API and the existing Home preview
+URL/metadata projection. Embedded representative data is preferred; otherwise
+visible folder cards request at most two one-recording folder pages each,
+with three active lookups per expansion and no extra native metadata calls.
+No recursive enumeration of an entire folder tree, no new service or polling.
+A missing poster or failed lookup leaves a stable navigable fallback.
+Folder labels are presentation-only; raw paths and click/back behavior remain
+unchanged. Old expansion results are fenced by the current request/backend
+and expansion identity. This is a frontend-only fix; the generated PWA
+release must be rebuilt through the existing staging composition.
+
+Extended the existing inline discovery contract to verify a representative
+poster, the bounded folder read, raw path preservation and zero new metadata
+reads. Execution of this exact candidate and real-browser validation remain
+open at commit time; no measured performance improvement claimed.

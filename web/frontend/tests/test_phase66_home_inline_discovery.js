@@ -351,7 +351,7 @@ const client = {
           },
           {
             path: 'Action/Marvel',
-            name: 'Marvel',
+            name: 'Marvel_Collection',
             recordingCount: 2,
             singleRecordingLeaf: false
           }
@@ -413,6 +413,17 @@ const context = vm.createContext({
   Array,
   setTimeout
 });
+// Exercise the production representative traversal, using the fixture's
+// canonical folder and recording projections.
+window.VdrSuiteRecordings2Shared = {
+  recordingList: value => value && value.recordings || [],
+  folderList: value => value && value.folders || [],
+  normalizePath: value => String(value || ''),
+  first: (value, keys, fallback) => keys.map(key => value && value[key]).find(Boolean) || fallback,
+  decodeDisplayText: value => String(value || '').replace(/_/g, ' ')
+};
+vm.runInContext(fs.readFileSync(path.join(frontendRoot, 'recordings2-folder-artwork.js'), 'utf8'),
+  context, {filename: 'web/frontend/recordings2-folder-artwork.js'});
 // Exercise the production helper rather than a stub: this includes the
 // automatically expanded folder's exact Home image URL transformation.
 vm.runInContext(fs.readFileSync(path.join(frontendRoot, 'platform', 'helpers.js'), 'utf8'),
@@ -504,7 +515,7 @@ function wait(milliseconds) {
 
   let folderExpansion = folderSection.querySelector('.media-home-inline-expansion');
   assert(folderExpansion, 'folder contents must appear directly below the folder rail');
-  assert.strictEqual(folderCalls.length, 1, 'folder totalCount must not trigger bogus recording pagination when recordingCount is zero');
+  assert.strictEqual(folderCalls.filter(call => call.query.limit === 100).length, 1, 'folder totalCount must not trigger bogus recording pagination when recordingCount is zero');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-inline-folder').length, 1, 'non-leaf subfolders must stay inline');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-discovery-card.recording').length, 1, 'embedded single-recording leaves must project as recordings');
   const leafRecording =
@@ -528,12 +539,18 @@ function wait(milliseconds) {
   assert.strictEqual(folderCalls[0].query.path, 'Action');
 
   const nestedFolder = folderExpansion.querySelector('.media-home-inline-folder');
+  assert.strictEqual(nestedFolder.querySelector('strong').textContent, 'Marvel Collection');
+  assert.strictEqual(nestedFolder.dataset.inlineFolderPath, 'Action/Marvel');
+  assert.strictEqual(nestedFolder.querySelector('img').src, nativeImageUrl('f2', 'gallery', 1) + '&variant=home',
+    'visible subfolder must show the existing canonical representative cover');
+  assert.deepStrictEqual(folderCalls.filter(call => call.query.limit === 1).map(call => call.query.path), ['Action/Marvel'],
+    'representative lookup must use a bounded folder read, not metadata fan-out');
   clickElement(nestedFolder);
   await settle();
   await settle();
 
   folderExpansion = folderSection.querySelector('.media-home-inline-expansion');
-  assert.strictEqual(folderCalls[1].query.path, 'Action/Marvel');
+  assert.strictEqual(folderCalls.filter(call => call.query.limit === 100)[1].query.path, 'Action/Marvel');
   assert(folderExpansion.querySelector('.media-home-inline-back'), 'nested folder projection must expose inline back navigation');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-discovery-card.recording').length, 1);
   const nestedRecording =
@@ -556,7 +573,7 @@ function wait(milliseconds) {
   clickElement(folderExpansion.querySelector('.media-home-inline-back'));
   await settle();
   await settle();
-  assert.strictEqual(folderCalls[2].query.path, 'Action', 'inline back navigation must return to the selected root folder');
+  assert.strictEqual(folderCalls.filter(call => call.query.limit === 100)[2].query.path, 'Action', 'inline back navigation must return to the selected root folder');
 
   console.log('phase66 Home inline genre native metadata and folder discovery contract ok');
 }()).catch(error => {
