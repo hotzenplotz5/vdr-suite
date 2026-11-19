@@ -2,7 +2,7 @@
 
 ## PWA / Home performance — next frontend priority (19.11.2026)
 
-**PWA.10 = source candidate; versioned public cache-first app shell, deterministically composed at runtime staging. Focused Node shell/generator contract PASS; hosted CI and installed/browser validation open. PWA.8 CI 6/6 PASS and yaVDR runtime installation PASS at `d4ce4f7`; PWA.9 warm performance FAILED / OPEN (operator reports little improvement and slow cover delivery). Actual Android/desktop standalone acceptance remains open.**
+**PWA.11 = source candidate; locally served recording artwork after existing server scope proof, with bounded background refresh. Focused test extended; exact candidate execution and installed browser acceptance open. PWA.10/10.1 focused tests and yaVDR runtime deployment PASS at `ca576eb`; PWA.9 warm performance FAILED / OPEN. Actual Android/desktop standalone acceptance remains open.**
 The maintainer prioritizes local client caching and optional PWA installation
 for the existing Webfrontend, including ordinary browser use. See
 [PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.

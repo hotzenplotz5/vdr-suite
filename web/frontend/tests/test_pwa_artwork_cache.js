@@ -12,6 +12,7 @@ async function run(prefix) {
   const url = 'https://suite.test' + prefix + '/api/vdr/recordings/metadata/image?backend=default&recordingId=7&variant=home';
   let partition = scopeA, tag = tagA, status = 200, content = 'poster-a', offline = false, fail = false, last;
   let holdImage = null, holdMutation = null;
+  let clock = 1700000000000, imageReads = 0, proofReads = 0;
   const deferred = () => {
     let resolve;
     const promise = new Promise(done => { resolve = done; });
@@ -25,13 +26,21 @@ async function run(prefix) {
     return {async keys(key, options) {return [...rows.keys()].filter(k => key === undefined || (options?.ignoreSearch ? k.split('?')[0] === keyUrl(key).split('?')[0] : k === keyUrl(key))).map(url => ({url}));}, async put(key, response) {rows.set(keyUrl(key), response.clone());}, async match(key) {return rows.get(keyUrl(key))?.clone();}, async delete(key) {return rows.delete(keyUrl(key));}};
   }, async delete(name) {return stores.delete(name);}};
   const responseHeaders = () => ({'Content-Type':'image/jpeg', ETag:tag, 'X-VDR-Suite-Artwork-Scope':partition, 'X-VDR-Suite-Artwork-Bytes':String(Buffer.byteLength(content)), 'Cache-Control':'private, no-cache'});
-  const context = {scope, URL, Response, Request, Headers, caches, self:{registration:{scope:scope.href},addEventListener:(name, cb)=>{listeners[name]=cb;}}, fetch:async request=>{
+  const context = {scope, URL, Response, Request, Headers, caches, Date:{now:()=>clock}, self:{registration:{scope:scope.href},addEventListener:(name, cb)=>{listeners[name]=cb;}}, fetch:async request=>{
     last = request;
     if (offline) throw Error('offline');
     if (request.method === 'POST') {
       if (holdMutation) { const waiting = holdMutation; await waiting.promise; }
       return new Response(null, {status:204});
     }
+    if (new URL(request.url).pathname.endsWith('/snapshot')) {
+      proofReads++;
+      return new Response('{}', {status, headers: {
+        'Cache-Control':'private, no-store', 'X-VDR-Suite-Home-Backend':'default',
+        'X-VDR-Suite-Home-Recording-Scope':partition
+      }});
+    }
+    imageReads++;
     if (status !== 200) return new Response('failure', {status});
     const response = (request.headers.get('If-None-Match') || '').split(', ').includes(tag)
       ? new Response(null,{status:304,headers:responseHeaders()})
@@ -44,15 +53,19 @@ async function run(prefix) {
   }};
   vm.createContext(context); vm.runInContext(code, context);
   const invoke = (name, args) => {context.args = args; return vm.runInContext(name+'(...args)',context);};
-  async function image(address = url) {
+  async function image(address = url, clientId) {
     const request = new Request(address,{credentials:'same-origin'});
     Object.defineProperty(request,'destination',{value:'image'});
     assert.equal(invoke('artworkRequest',[request]),true);
     const pending = [];
-    let result; listeners.fetch({request, waitUntil:p=>pending.push(p), respondWith:p=>{result=p;}});
+    let result; listeners.fetch({request, clientId, waitUntil:p=>pending.push(p), respondWith:p=>{result=p;}});
     assert(result, 'production fetch handler must intercept Home previews');
     const response = await result;
-    await Promise.all(pending); return response;
+    // Background validation can attach a cache write to the same extendable event.
+    for (let offset = 0; offset < pending.length;) {
+      const batch = pending.slice(offset); offset += batch.length; await Promise.all(batch);
+    }
+    return response;
   }
   assert.equal(await (await image()).text(),'poster-a');
   assert.equal(last.cache,'no-store');
@@ -111,5 +124,66 @@ async function run(prefix) {
   listeners.fetch({request:logout,respondWith:p=>{result=p;}});
   await assert.rejects(result,/offline/); offline=false;
   assert.equal(stores.size,0,'failed session mutation still removes optional cached bytes');
+
+  async function proof(clientId = 'tab-a') {
+    const request = new Request('https://suite.test'+prefix+'/api/backends/default/snapshot',{credentials:'same-origin'});
+    Object.defineProperty(request,'destination',{value:''});
+    let result;
+    const pending=[];
+    listeners.fetch({request, clientId, waitUntil:p=>pending.push(p), respondWith:p=>{result=p;}});
+    assert(result,'the normal server proof must pass through the production fetch handler');
+    const response=await result; await Promise.all(pending); return response;
+  }
+  partition=scopeA; tag=tagA; content='warm-poster';
+  await image(url);
+  await proof();
+  const before=imageReads;
+  const local=await image(url,'tab-a');
+  assert.equal(await local.text(),'warm-poster');
+  assert.equal(local.headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal(imageReads,before,'a fresh scoped cached image must not make an image HTTP request');
+  assert.equal(proofReads,1);
+
+  await image(url,'other-tab');
+  assert.equal(imageReads,before+1,'another tab needs its own fresh proof');
+  clock+=5001;
+  await image(url,'tab-a');
+  assert.equal(imageReads,before+2,'expired proof uses original revalidation');
+  await proof();
+  partition=scopeB; tag=tagB; content='different-account';
+  await proof();
+  const different=await image(url,'tab-a');
+  assert.equal(await different.text(),'different-account');
+  assert.notEqual(different.headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  await image(url,'tab-a');
+  const warmB=imageReads;
+  assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal(imageReads,warmB);
+  clock+=5*60*1000+1;
+  await proof();
+  const stale=await image(url,'tab-a');
+  assert.equal(await stale.text(),'different-account');
+  assert.equal(stale.headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal(imageReads,warmB+1,'stale visible poster is refreshed in the background');
+  const refreshed=imageReads;
+  assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal(imageReads,refreshed,'successful 304 refresh renews local freshness');
+  clock+=24*60*60*1000+1;
+  await proof();
+  assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local', 'over-age artwork must use online validation');
+  assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  const epg = url.replace('/api/vdr/recordings/metadata/image','/api/epg/cache/artwork');
+  await image(epg,'tab-a');
+  assert.notEqual((await image(epg,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local', 'recording proof is not EPG authorization');
+  status=403;
+  await proof(); status=200;
+  assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  await proof();
+  listeners.message({data:{type:'vdr-suite-artwork-proof-reset'}});
+  assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  await proof();
+  listeners.fetch({request:logout,respondWith:p=>{result=p;}}); await result;
+  assert.equal(stores.size,0);
+  assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
 }
 (async()=>{await run('');await run('/vdr-suite');console.log('PWA.3 artwork cache contract PASS');})().catch(e=>{console.error(e);process.exitCode=1;});

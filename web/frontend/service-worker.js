@@ -47,7 +47,8 @@ async function offlineShell() {
   return publicShell();
 }
 
-// PWA.3: persistent previews are reused only after a fresh, scoped server 304.
+// PWA.3/PWA.11: scoped recording previews can use fresh server authorization
+// from an existing Home read; other artwork retains per-image revalidation.
 const artworkPrefix = 'vdr-suite-pwa-artwork:' + encodeURIComponent(scope.href) + ':';
 const artworkName = artworkPrefix + 'v2';
 const artworkLimit = 192;
@@ -61,6 +62,78 @@ const artworkTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const artworkRoutes = new Set(['/api/vdr/recordings/metadata/image', '/api/recordings/metadata/image', '/api/epg/cache/artwork', '/api/epg/cache/metadata/image']);
 const artworkParams = new Set(['backend', 'backendNativeId', 'recordingId', 'kind', 'index', 'assignmentRevision', 'channelId', 'eventId', 'variant']);
 const installationPath = scope.pathname.slice(0, -'/frontend/'.length);
+const recordingArtworkRoutes = new Set(['/api/vdr/recordings/metadata/image', '/api/recordings/metadata/image']);
+const recordingProofRoutes = new Set(['/api/vdr/recordings/query', '/api/vdr/recordings/folder', '/api/metadata/genres', '/api/metadata/genres/recordings']);
+// Match the existing Home authorization proof lifetime. This is not a new
+// permission, login lease, or UI gate; a miss simply uses the original path.
+const artworkProofMs = 5000;
+const artworkFreshMs = 5 * 60 * 1000;
+const artworkStaleMs = 24 * 60 * 60 * 1000;
+const artworkProofs = new Map();
+let artworkProofEpoch = 0, artworkProofSequence = 0;
+const artworkRefreshing = new Set();
+
+function forgetArtworkProofs() {
+  artworkProofEpoch++;
+  artworkProofs.clear();
+}
+
+function proofBackend(request) {
+  if (request.method !== 'GET' || request.destination !== '' ||
+      !request.headers || !['same-origin', 'include'].includes(request.credentials) ||
+      request.headers.has('Authorization') || request.headers.has('Range')) return '';
+  const url = new URL(request.url);
+  if (url.origin !== scope.origin || !url.pathname.startsWith(installationPath + '/api/')) return '';
+  const path = url.pathname.slice(installationPath.length);
+  const snapshot = /^\/api\/backends\/([A-Za-z0-9_.-]{1,128})\/snapshot$/.exec(path);
+  if (snapshot && !url.search) return snapshot[1];
+  if (!recordingProofRoutes.has(path) ||
+      (path === '/api/metadata/genres' && url.searchParams.get('scope') !== 'recordings')) return '';
+  const backend = url.searchParams.get('backend') || '';
+  const ids = url.searchParams.getAll('backendId');
+  return /^[A-Za-z0-9_.-]{1,128}$/.test(backend) &&
+    url.searchParams.getAll('backend').length === 1 &&
+    (ids.length === 0 || (ids.length === 1 && ids[0] === backend)) &&
+    !url.search.slice(1).split('&').some(part => part.split('=')[0].includes('%')) ? backend : '';
+}
+
+function proofKey(clientId, backend) { return JSON.stringify([clientId, backend]); }
+
+async function observeArtworkProof(event, backend) {
+  const epoch = artworkProofEpoch, sequence = ++artworkProofSequence;
+  const key = proofKey(event.clientId, backend);
+  const started = Date.now();
+  let response;
+  try { response = await fetch(new Request(event.request, {cache: 'no-store'})); }
+  catch (error) { forgetArtworkProofs(); throw error; }
+  if (epoch !== artworkProofEpoch || artworkSessionMutations) return response;
+  const prior = artworkProofs.get(key);
+  if (prior && prior.sequence > sequence) return response;
+  const partition = response.headers.get('X-VDR-Suite-Home-Recording-Scope');
+  if (response.status !== 200 || response.redirected ||
+      response.headers.get('X-VDR-Suite-Home-Backend') !== backend ||
+      !artworkScope.test(partition || '') ||
+      !/no-store/i.test(response.headers.get('Cache-Control') || '')) {
+    forgetArtworkProofs();
+    if (response.status === 401 || response.status === 403) event.waitUntil(clearArtwork());
+    return response;
+  }
+  if (prior && prior.partition !== partition) forgetArtworkProofs();
+  artworkProofs.delete(key);
+  artworkProofs.set(key, {partition, sequence, started});
+  while (artworkProofs.size > 128) artworkProofs.delete(artworkProofs.keys().next().value);
+  return response;
+}
+
+function currentArtworkProof(event) {
+  if (!event.clientId || artworkSessionMutations || (self.navigator && self.navigator.onLine === false)) return null;
+  const url = new URL(event.request.url);
+  if (!recordingArtworkRoutes.has(url.pathname.slice(installationPath.length))) return null;
+  const proof = artworkProofs.get(proofKey(event.clientId, url.searchParams.get('backend')));
+  if (!proof) return null;
+  const age = Date.now() - proof.started;
+  return age >= 0 && age <= artworkProofMs ? proof : null;
+}
 
 function artworkRequest(request) {
   if (request.method !== 'GET' || request.destination !== 'image' || request.credentials === 'omit' || request.headers.has('Range') || request.headers.has('Authorization')) return false;
@@ -88,7 +161,28 @@ function serializeArtwork(action) {
 
 function clearArtwork() {
   artworkGeneration++;
+  forgetArtworkProofs();
   return serializeArtwork(async () => { await caches.delete(artworkName); });
+}
+
+function validatedArtwork(response, expectedPartition) {
+  if (!response) return null;
+  const tag = response.headers.get('ETag');
+  const partition = response.headers.get('X-VDR-Suite-Artwork-Scope');
+  const size = Number(response.headers.get('X-VDR-Suite-Artwork-Bytes'));
+  const type = response.headers.get('Content-Type');
+  const validatedAt = Number(response.headers.get('X-VDR-Suite-Artwork-Validated-At') || 0);
+  if (response.status !== 200 || !artworkTypes.has(type) || !Number.isSafeInteger(size) ||
+      size <= 0 || size > artworkBytes || !artworkTag.test(tag || '') || !artworkScope.test(partition || '') ||
+      expectedPartition !== partition) return null;
+  return {response, tag, partition, size, type, validatedAt};
+}
+
+async function scopedArtwork(base, partition) {
+  try {
+    const cache = await caches.open(artworkName);
+    return validatedArtwork(await cache.match(base + '?scope=' + partition), partition);
+  } catch (error) { return null; }
 }
 
 async function artworkCandidates(base) {
@@ -99,13 +193,8 @@ async function artworkCandidates(base) {
     for (const key of keys.slice(-4)) {
       const response = await cache.match(key);
       if (!response) continue;
-      const tag = response.headers.get('ETag');
-      const partition = response.headers.get('X-VDR-Suite-Artwork-Scope');
-      const size = Number(response.headers.get('X-VDR-Suite-Artwork-Bytes'));
-      const type = response.headers.get('Content-Type');
-      if (response.status === 200 && artworkTypes.has(type) && Number.isSafeInteger(size) &&
-          size > 0 && size <= artworkBytes && artworkTag.test(tag || '') && artworkScope.test(partition || '') &&
-          new URL(key.url).searchParams.get('scope') === partition) candidates.push({response, tag, partition, size, type});
+      const candidate = validatedArtwork(response, new URL(key.url).searchParams.get('scope'));
+      if (candidate) candidates.push(candidate);
     }
     return candidates;
   } catch (error) { return []; }
@@ -126,6 +215,7 @@ function storeArtwork(base, response, generation) {
   const type = response.headers.get('Content-Type');
   if (response.status !== 200 || response.redirected || !artworkTag.test(tag || '') || !artworkScope.test(partition || '') || !artworkTypes.has(type) || !Number.isSafeInteger(size) || size <= 0 || size > artworkBytes || /no-store/i.test(response.headers.get('Cache-Control') || '')) return Promise.resolve();
   const copy = response.clone();
+  const validatedAt = Date.now();
   return serializeArtwork(async () => {
     if (generation !== artworkGeneration || artworkSessionMutations) return;
     const bytes = await copy.arrayBuffer();
@@ -134,41 +224,87 @@ function storeArtwork(base, response, generation) {
     const key = base + '?scope=' + partition;
     // Only the image and explicit non-secret metadata are stored; never request headers.
     await cache.delete(key);
-    await cache.put(key, new Response(bytes, {headers: {'Content-Type': type, ETag: tag, 'X-VDR-Suite-Artwork-Scope': partition, 'X-VDR-Suite-Artwork-Bytes': String(size), 'Cache-Control': 'private, no-cache', 'X-VDR-Suite-Artwork-Cache': 'revalidated'}}));
+    await cache.put(key, new Response(bytes, {headers: {'Content-Type': type, ETag: tag, 'X-VDR-Suite-Artwork-Scope': partition, 'X-VDR-Suite-Artwork-Bytes': String(size), 'Cache-Control': 'private, no-cache', 'X-VDR-Suite-Artwork-Cache': 'revalidated', 'X-VDR-Suite-Artwork-Validated-At': String(validatedAt)}}));
     const keys = await cache.keys();
     for (const old of keys.slice(0, Math.max(0, keys.length - artworkLimit))) await cache.delete(old);
   });
 }
 
 async function handleArtwork(event) {
+  const generation = artworkGeneration;
+  const proof = currentArtworkProof(event);
+  if (proof) {
+    const base = artworkBase(event.request);
+    const candidate = await scopedArtwork(base, proof.partition);
+    // Recheck after asynchronous storage access; logout or grant drift may
+    // have happened while the cache was being read.
+    const current = currentArtworkProof(event);
+    if (candidate && generation === artworkGeneration && current && current.partition === proof.partition) {
+      const age = Date.now() - candidate.validatedAt;
+      if (candidate.validatedAt > 0 && age >= 0 && age <= artworkStaleMs) {
+        if (age > artworkFreshMs) {
+          const key = base + '?scope=' + proof.partition;
+          // A stale image can paint now; keep network refresh optional,
+          // deduplicated and bounded, never a barrier to visible covers.
+          if (artworkRefreshing.size < 4 && !artworkRefreshing.has(key)) {
+            artworkRefreshing.add(key);
+            // Independently read the cached candidate for background validation:
+            // its body must never share the foreground response's readable stream.
+            const refresh = revalidateArtwork(event).then(response => {
+              if (response.body) response.body.cancel().catch(() => {});
+            }).catch(() => {}).finally(() => artworkRefreshing.delete(key));
+            event.waitUntil(refresh);
+          }
+        }
+        const headers = new Headers(candidate.response.headers);
+        headers.set('X-VDR-Suite-Artwork-Cache', 'local');
+        return new Response(candidate.response.body, {headers});
+      }
+    }
+  }
+  return revalidateArtwork(event);
+}
+
+async function revalidateArtwork(event) {
   const request = event.request;
   if (artworkSessionMutations) return artworkFetch(request, []);
   const generation = artworkGeneration;
   const base = artworkBase(request);
   const candidates = await artworkCandidates(base);
-  let response = await artworkFetch(request, generation === artworkGeneration && !artworkSessionMutations ? candidates.map(c => c.tag) : []);
+  let response;
+  try {
+    response = await artworkFetch(request, generation === artworkGeneration && !artworkSessionMutations ? candidates.map(c => c.tag) : []);
+  } catch (error) { forgetArtworkProofs(); throw error; }
   if (generation !== artworkGeneration || artworkSessionMutations) return artworkFetch(request, []);
   if (response.status === 304) {
     const match = candidates.find(c => c.tag === response.headers.get('ETag') &&
       c.partition === response.headers.get('X-VDR-Suite-Artwork-Scope') &&
       c.size === Number(response.headers.get('X-VDR-Suite-Artwork-Bytes')) &&
       (!response.headers.get('Content-Type') || c.type === response.headers.get('Content-Type')));
-    if (match) return match.response;
+    if (match) {
+      const age = Date.now() - match.validatedAt;
+      if (!match.validatedAt || age < 0 || age > artworkFreshMs) event.waitUntil(storeArtwork(base, match.response, generation));
+      return match.response;
+    }
     response = await artworkFetch(request, []);
   }
   if (generation !== artworkGeneration || artworkSessionMutations) return response;
   if (response.status === 401) event.waitUntil(clearArtwork());
-  else if (response.status === 403 || response.status === 404 || response.status === 410) event.waitUntil(serializeArtwork(async () => {
+  else if (response.status === 403 || response.status === 404 || response.status === 410) {
+    if (response.status === 403) forgetArtworkProofs();
+    event.waitUntil(serializeArtwork(async () => {
     if (generation !== artworkGeneration) return;
     const cache = await caches.open(artworkName);
     for (const key of await cache.keys(base, {ignoreSearch: true})) await cache.delete(key);
-  }));
+    }));
+  }
   else if (response.status === 200) event.waitUntil(storeArtwork(base, response, generation));
   return response;
 }
 
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'vdr-suite-artwork-clear') event.waitUntil(clearArtwork());
+  if (event.data && event.data.type === 'vdr-suite-artwork-proof-reset') forgetArtworkProofs();
 });
 
 function artworkSessionMutation(request) {
@@ -195,6 +331,8 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   if (artworkRequest(request)) { event.respondWith(handleArtwork(event)); return; }
   if (artworkSessionMutation(request)) { event.respondWith(handleArtworkSessionMutation(request)); return; }
+  const backend = event.clientId && proofBackend(request);
+  if (backend) { event.respondWith(observeArtworkProof(event, backend)); return; }
   if (typeof handleLocalShell === 'function' && handleLocalShell(event)) return;
   if (request.method !== 'GET' || request.mode !== 'navigate') return;
   const url = new URL(request.url);

@@ -639,3 +639,42 @@ Extended the existing inline discovery contract to verify a representative
 poster, the bounded folder read, raw path preservation and zero new metadata
 reads. Execution of this exact candidate and real-browser validation remain
 open at commit time; no measured performance improvement claimed.
+
+## PWA.11 — locally served recording artwork after existing Home authorization
+
+PWA.10 and PWA.10.1 were installed on yaVDR with the complete focused
+PWA suite, inline discovery contract, generated worker release and runtime
+deployment checks passing (operator output for `ca576eb`). Screenshot
+shows recording posters in the random Oskar folder rail; the remaining
+Klassiker child folder is not yet verified to have representative artwork.
+
+PWA.11 reuses the existing successful, network-owned Home recording-scope
+header in the service worker. The worker observes normal snapshot and
+canonical recording-list/folder/genre GET responses, without a new API or
+extra authorization request. A proof is in memory only, scoped to the
+origin/installation, controlled client, backend, actual browser session and
+grant-derived opaque partition. Its existing five-second Home proof window
+is measured from request start. No EPG or Series settings artwork is admitted
+to this fast path. No server or permission contract is changed.
+
+After a matching fresh proof, a valid recording preview can be looked up
+by the exact scope key in Cache Storage. A preview validated within five
+minutes paints without another image HTTP request. Older validated bytes
+(up to 24 hours) can paint immediately and refresh in the background
+(maximum four deduplicated concurrent refreshes; saturated refreshes are
+left for a subsequent use). Older/unstamped entries use the original online
+conditional path; a successful 304 refresh records the validation time.
+Revisionless artwork can temporarily show a previous picture during this
+freshness interval. This is a bounded online presentation optimization,
+not authorization for private offline access, and does not promise
+instant server-side revocation detection between server checks. Logout/login,
+grant/partition drift, denied scope reads, explicit offline and observed
+network failure invalidate proofs; existing session-mutation cache clearing
+remains. API bodies, streams and actions are never persisted. Missing proof,
+storage, unsupported routes or outdated bytes retain the normal image path.
+
+The existing worker test now exercises the production fetch handler for
+fresh proof, exact scope and tab, expired proof, partition changes, background
+refresh including 304, denial, offline reset and logout. Exact candidate test
+execution, installed activation and real performance acceptance remain open
+at commit time. PWA.12–14 are not implemented here.

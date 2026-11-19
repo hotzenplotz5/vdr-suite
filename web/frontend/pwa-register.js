@@ -171,6 +171,14 @@
     global.navigator.serviceWorker.register(worker, { scope, updateViaCache: 'none' })
       .catch(function () { /* Normal browser operation remains available. */ });
   } catch (error) { /* Unsupported or restricted browser. */ }
+  if (typeof global.addEventListener === 'function') {
+    global.addEventListener('offline', function () {
+      const controller = global.navigator.serviceWorker.controller;
+      if (controller) {
+        try { controller.postMessage({type: 'vdr-suite-artwork-proof-reset'}); } catch (error) {}
+      }
+    });
+  }
   function bindSession() {
     const session = global.VdrSuiteBrowserSession;
     if (!session || typeof session.subscribe !== 'function') return;
