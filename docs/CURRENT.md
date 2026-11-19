@@ -2,7 +2,7 @@
 
 ## PWA / Home performance — next frontend priority (19.11.2026)
 
-**PWA.1 = SOURCE CANDIDATE; unit shell contract passed; integration/CI/real browser pending.**
+**PWA.2 = source candidate / focused test-double contract PASS; native browser and production Home integration pending. PWA.1 hosted CI PASS; real browser acceptance open.**
 The maintainer prioritizes local client caching and optional PWA installation
 for the existing Webfrontend, including ordinary browser use. See
 [PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.

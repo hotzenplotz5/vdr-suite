@@ -19,6 +19,7 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/api/session-frontend-sync.js", "api/session-frontend-sync.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/public-url.js", "platform/public-url.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/bootstrap.js", "platform/bootstrap.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/platform/home-persistence.js", "platform/home-persistence.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/i18n.js", "platform/i18n.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/helpers.js", "platform/helpers.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/deferred-runtime-loader.js", "platform/deferred-runtime-loader.js", "application/javascript; charset=utf-8", "home-recording-discovery-bootstrap.js"},

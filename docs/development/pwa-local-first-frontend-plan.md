@@ -152,6 +152,47 @@ zero behind then-current main. Keep all Home fixes; no rebase or new branch.
   parity. PWA.2 IndexedDB and PWA.3 persistent artwork are intentionally not
   included; cold artwork errors and visible-first performance remain open.
 
+## PWA.2 — IndexedDB owner checkpoint (2026-11-19)
+
+Based on PWA.1 commit `c8d0d11b37f3d5af44f93aeee499147e99fa1c9e`.
+VDR-Suite CI [#12883](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44503089731)
+passed all six jobs for that PWA.1 source, not real-browser acceptance.
+
+- One asynchronous frontend platform owner (`platform/home-persistence.js`)
+  with version 1 IndexedDB schema and disposable card projections. Origin
+  isolation is native to IndexedDB; database name includes the public URL
+  installation prefix, key includes account, backend, permission revision and
+  rail. Store only complete snapshots with opaque revision, stable unique IDs,
+  title and subtitle. No arbitrary response objects, passwords, CSRF, media
+  URLs or artwork. Limits: 500 items, 256 KiB estimated serialized UTF-16 per
+  snapshot, 32 snapshots per installation; oldest saved entries evicted.
+  These are cache eligibility limits, not UI/API restrictions.
+- API: create({authorize}), read(scope, rail), write(scope, rail, snapshot),
+  invalidate(), clear(). Read/write expect a fresh current server-authorized
+  exact-scope proof from the caller; local authentication boolean alone is
+  insufficient. No proof means cache miss; no new server grant or access gate.
+  A local generation fences account/backend transitions. Explicit clear
+  purges this installation's snapshots and advances a shared transaction
+  epoch, preventing a delayed operation admitted before clear from restoring
+  old data. Clear failure is reported as false; no claim of physical deletion
+  when storage is unavailable. Caller must still respect current server scope.
+- The existing browser session snapshot exposes authentication status but
+  not an account identity or permission revision; no guessed identity or
+  new API assumed. The owner is loaded/registered but not yet instantiated or
+  connected to private data. PWA.4 must bind existing authoritative session,
+  backend and rail authorization/read paths and logout/invalidation before
+  enabling persistence or cached presentation. PWA.5 owns SSE revision/gap
+  reconciliation; opaque revisions are not ordered here. No polling.
+- Node syntax and asynchronous test-double contract PASS locally: unavailable
+  storage, denied opening, complete vs partial, credential field exclusion,
+  scope separation, logout epoch fence across two owners, corrupt schema,
+  eviction and newer database version fallback. Native Chromium navigation
+  to the local test fixture was blocked by the execution environment
+  (ERR_BLOCKED_BY_ADMINISTRATOR). Native quota/transaction/upgrade and two
+  real tabs, production authorization and installed route remain unverified.
+  Source integrates the regression into the existing PWA/frontend target and
+  adds static routing and install assertions. No live deployment or rebuild.
+
 ## Measurable acceptance (provisional targets, not guarantees)
 
 Compare baseline and candidate with the same authenticated account, backend,

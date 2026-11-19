@@ -482,6 +482,13 @@ int main()
     assert(registrationResponse.statusCode == 200);
     assert(registrationResponse.body.find("serviceWorker.register") != std::string::npos);
 
+    assert(anonymousFrontendResponse.body.find("../frontend/platform/home-persistence.js") != std::string::npos);
+    anonymousFrontendAssetRequest.path = "/frontend/platform/home-persistence.js";
+    const auto persistenceResponse = server.handleRequest(anonymousFrontendAssetRequest);
+    assert(persistenceResponse.statusCode == 200);
+    assert(persistenceResponse.headers.at("Content-Type") == "application/javascript; charset=utf-8");
+    assert(persistenceResponse.body.find("VdrSuiteHomePersistence") != std::string::npos);
+
     HttpServerRequest anonymousApiRequest;
     anonymousApiRequest.method = "GET";
     anonymousApiRequest.path = "/api/backends";
