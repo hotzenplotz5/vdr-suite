@@ -193,6 +193,11 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
     response.headers["Cache-Control"] =
         "private, max-age=300";
     response.body = asset.content;
+    // Only the router may attach the already-authorized cache scope.
+    // The fallback cannot synthesize scope from a URL or a missing asset.
+    const auto scope = delegated.headers.find("X-VDR-Suite-Artwork-Scope");
+    if (query.get("variant") == "home" && scope != delegated.headers.end())
+        response.headers["X-VDR-Suite-Artwork-Scope"] = scope->second;
     applyPreview(previews_, request, query, response);
     return response;
 }

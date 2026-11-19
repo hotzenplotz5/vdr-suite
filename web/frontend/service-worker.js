@@ -123,6 +123,23 @@ function proofBackend(request) {
 
 function proofKey(clientId, backend) { return JSON.stringify([clientId, backend]); }
 
+// The direct artwork route embeds its backend in the path, not the query.
+// Cache only canonical Home previews; all other requests stay online.
+function directArtworkBackend(url) {
+  if (url.origin !== scope.origin || url.search !== '?variant=home' ||
+      !url.pathname.startsWith(installationPath + '/recording-artwork/')) return '';
+  const match = /^\/recording-artwork\/([A-Za-z0-9_.-]{1,128})\/[a-fA-F0-9]{32}$/.exec(
+    url.pathname.slice(installationPath.length));
+  return match && match[1] !== '.' && match[1] !== '..' ? match[1] : '';
+}
+
+function recordingArtworkBackend(url) {
+  return directArtworkBackend(url) ||
+    (url.origin === scope.origin && url.pathname.startsWith(installationPath + '/api/') &&
+      recordingArtworkRoutes.has(url.pathname.slice(installationPath.length))
+      ? url.searchParams.get('backend') : '');
+}
+
 function artworkProofExpired(proof) {
   const now = Date.now();
   const age = now - proof.confirmedAt;
@@ -164,14 +181,16 @@ async function observeArtworkProof(event, backend) {
 function currentArtworkProof(event) {
   if (!event.clientId || artworkSessionMutations || (self.navigator && self.navigator.onLine === false)) return null;
   const url = new URL(event.request.url);
-  if (!recordingArtworkRoutes.has(url.pathname.slice(installationPath.length))) return null;
-  const proof = artworkProofs.get(proofKey(event.clientId, url.searchParams.get('backend')));
+  const backend = recordingArtworkBackend(url);
+  if (!backend) return null;
+  const proof = artworkProofs.get(proofKey(event.clientId, backend));
   return proof && !artworkProofExpired(proof) ? proof : null;
 }
 
 function artworkRequest(request) {
   if (request.method !== 'GET' || request.destination !== 'image' || request.credentials === 'omit' || request.headers.has('Range') || request.headers.has('Authorization')) return false;
   const url = new URL(request.url);
+  if (directArtworkBackend(url)) return true;
   if (url.origin !== scope.origin || !artworkRoutes.has(url.pathname.slice(installationPath.length)) || !url.pathname.startsWith(installationPath + '/api/')) return false;
   if (url.searchParams.get('variant') !== 'home' || !url.searchParams.get('backend') || url.href.length > 4096) return false;
   const seen = new Set();
@@ -292,9 +311,10 @@ async function handleArtwork(event) {
   const proof = currentArtworkProof(event);
   if (!proof) {
     const url = new URL(event.request.url);
-    if (!recordingArtworkRoutes.has(url.pathname.slice(installationPath.length))) countArtwork(event, 'otherArtworkRoute');
+    const backend = recordingArtworkBackend(url);
+    if (!backend) countArtwork(event, 'otherArtworkRoute');
     else {
-      const previous = artworkProofs.get(proofKey(event.clientId, url.searchParams.get('backend')));
+      const previous = artworkProofs.get(proofKey(event.clientId, backend));
       countArtwork(event, previous && artworkProofExpired(previous) ? 'expiredProof' : 'missingProof');
     }
   }

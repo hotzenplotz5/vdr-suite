@@ -85,6 +85,9 @@ public:
         response.statusCode = 404;
         response.headers["Content-Type"] =
             "application/json";
+        if (!cacheScope.empty() && request.path.find("/recording-artwork/default/") == 0 &&
+            request.path.find("?variant=home") != std::string::npos)
+            response.headers["X-VDR-Suite-Artwork-Scope"] = cacheScope;
         response.body = "{\"error\":\"route not found\"}";
         return response;
     }
@@ -270,7 +273,33 @@ int main()
     unauthorized.headers["If-None-Match"] = scopedTag;
     assert(server.handleRequest(unauthorized).statusCode == 401);
     authorized.headers.erase("if-none-match");
+    authorized.path = artworkUrl + "?variant=home";
+    const auto directScoped = server.handleRequest(authorized);
+    assert(directScoped.statusCode == 200);
+    assert(directScoped.headers.at("X-VDR-Suite-Artwork-Scope") == scopeA);
+    assert(directScoped.headers.at("Cache-Control") == "private, no-cache");
+    const auto directTag = directScoped.headers.at("ETag");
+    authorized.headers["If-None-Match"] = directTag;
+    assert(server.handleRequest(authorized).statusCode == 304);
+    metadataDelegate->cacheScope = artworkCacheScope("actor-b", "default", {"recordings.view"});
+    assert(server.handleRequest(authorized).statusCode == 200);
+    metadataDelegate->cacheScope = scopeA;
+    unauthorized.path = authorized.path;
+    unauthorized.headers["If-None-Match"] = directTag;
+    assert(server.handleRequest(unauthorized).statusCode == 401);
+    authorized.path = artworkUrl;
+    assert(server.handleRequest(authorized).headers.count("X-VDR-Suite-Artwork-Scope") == 0);
+    authorized.path = missing.path + "?variant=home";
+    const auto directMissing = server.handleRequest(authorized);
+    assert(directMissing.statusCode == 404);
+    assert(directMissing.headers.count("X-VDR-Suite-Artwork-Scope") == 0);
+    authorized.path = artworkUrl + "?variant=home";
     metadataDelegate->cacheScope.clear();
+    const auto directUnscoped = server.handleRequest(authorized);
+    assert(directUnscoped.statusCode == 200);
+    assert(directUnscoped.headers.at("Cache-Control") == "no-store");
+    assert(directUnscoped.headers.count("X-VDR-Suite-Artwork-Scope") == 0);
+    authorized.path = "/api/vdr/recordings/metadata/image?backend=default&recordingId=7&kind=preferred&variant=home";
     authorized.headers["If-None-Match"] = scopedTag;
     const auto unscoped = server.handleRequest(authorized);
     assert(unscoped.statusCode == 200 && unscoped.headers.at("Cache-Control") == "no-store");

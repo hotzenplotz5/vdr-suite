@@ -48,6 +48,50 @@ inline std::string canonicalHomeCacheBackend(const std::string& raw)
     return backend;
 }
 
+// The direct artwork service owns the bytes after the HTTP router's
+// 404 fallback. Only canonical Home previews may carry a cache partition
+// across that existing boundary.
+inline std::string directHomeArtworkBackend(const std::string& target)
+{
+    const std::string prefix = "/recording-artwork/";
+    const std::string suffix = "?variant=home";
+    if (target.compare(0, prefix.size(), prefix) != 0 ||
+        target.size() <= prefix.size() + suffix.size() ||
+        target.compare(target.size() - suffix.size(), suffix.size(), suffix) != 0) return {};
+    const auto end = target.find('/', prefix.size());
+    const auto query = target.find('?');
+    if (end == std::string::npos || query == std::string::npos || end >= query ||
+        query - end - 1 != 32U || target.substr(query) != suffix) return {};
+    const auto backend = target.substr(prefix.size(), end - prefix.size());
+    const auto asset = target.substr(end + 1, query - end - 1);
+    if (backend.empty() || backend.size() > 128U || backend == "." || backend == ".." ||
+        !std::all_of(backend.begin(), backend.end(), [](unsigned char c) {
+            return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.';
+        }) ||
+        !std::all_of(asset.begin(), asset.end(), [](unsigned char c) {
+            return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
+                (c >= 'A' && c <= 'F');
+        })) return {};
+    return backend;
+}
+
+inline void addDirectHomeArtworkFallbackScope(const HttpServerRequest& request,
+    HttpServerResponse& response, const RequestSecurityContext& context, bool browserAuthenticated)
+{
+    if (request.method != "GET" || response.statusCode != 404 || !browserAuthenticated) return;
+    const auto backend = directHomeArtworkBackend(request.path);
+    if (backend.empty() || !AuthorizationService{}.authorize(context,
+        {"recordings.view", backend, "recordings.view"}).allowed) return;
+    const auto partition = browserHomeCacheScope(context, backend);
+    if (partition.empty()) return;
+    // Opaque cache eligibility only. The decorator must resolve the actual
+    // asset and generate a validator for the final representation.
+    response.headers["X-VDR-Suite-Artwork-Scope"] = partition;
+    response.headers["Cache-Control"] = "private, no-store";
+    response.headers["Vary"] = "Cookie, Authorization";
+}
+
 // Cache eligibility only: the original HTTP status/body and authorization
 // decision remain untouched. The opaque scope is not an access credential.
 inline void addHomeCacheScope(const HttpServerRequest& request, HttpServerResponse& response,

@@ -195,7 +195,36 @@ int main()
         request.path = "/api/vdr/recordings/query?backend=default";
         vdrsuite::http::addHomeCacheScope(request, response, context, false, {});
         assert(response.headers.empty());
+        context.grants = {{"recordings.view", "default"}};
+        request.path = "/recording-artwork/default/0123456789abcdef0123456789abcdef?variant=home";
+        response = HttpServerResponse{};
+        response.statusCode = 404;
+        vdrsuite::http::addDirectHomeArtworkFallbackScope(request, response, context, true);
+        assert(response.statusCode == 404);
+        assert(response.headers.at("X-VDR-Suite-Artwork-Scope") ==
+            vdrsuite::http::browserHomeCacheScope(context, "default"));
+        assert(response.headers.at("Cache-Control") == "private, no-store");
+        for (const auto& target : {
+            "/recording-artwork/other/0123456789abcdef0123456789abcdef?variant=home",
+            "/recording-artwork/default/short?variant=home",
+            "/recording-artwork/%64efault/0123456789abcdef0123456789abcdef?variant=home",
+            "/recording-artwork/default/0123456789abcdef0123456789abcdef?variant=home&backend=other",
+            "/recording-artwork/default/0123456789abcdef0123456789abcdef"}) {
+            request.path = target;
+            response = HttpServerResponse{};
+            response.statusCode = 404;
+            vdrsuite::http::addDirectHomeArtworkFallbackScope(request, response, context, true);
+            assert(response.headers.empty());
+        }
+        request.path = "/recording-artwork/default/0123456789abcdef0123456789abcdef?variant=home";
+        response = HttpServerResponse{};
+        response.statusCode = 404;
+        vdrsuite::http::addDirectHomeArtworkFallbackScope(request, response, context, false);
+        assert(response.headers.empty());
         context.grants = {{"media.recording.play", "default"}};
+        vdrsuite::http::addDirectHomeArtworkFallbackScope(request, response, context, true);
+        assert(response.headers.empty());
+        response = HttpServerResponse{};
         request.method = "POST";
         request.path = "/api/media/continue-watching";
         request.body = R"({"operation":"clear","backendId":"default"})";

@@ -179,8 +179,22 @@ async function run(prefix) {
   proofDelay=0;
   clock+=15000;
   assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  const direct = 'https://suite.test'+prefix+'/recording-artwork/default/'+'a'.repeat(32)+'?variant=home';
+  await image(direct);
+  const directReads=imageReads;
+  assert.equal((await image(direct,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal(imageReads,directReads);
+  const otherDirect=direct.replace('/default/','/other/');
+  await image(otherDirect);
+  assert.notEqual((await image(otherDirect,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  for (const bad of [direct.replace('?variant=home',''), direct+'&token=bad', direct+'&backend=other',
+      direct.replace('a'.repeat(32),'not-an-id'), direct.replace('/default/','/%64efault/'),
+      direct.replace('suite.test','outside.test')]) {
+    const req=new Request(bad); Object.defineProperty(req,'destination',{value:'image'});
+    assert.equal(invoke('artworkRequest',[req]),false);
+  }
   clock+=16000;
-  assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.notEqual((await image(direct,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
   proofDelay=60001;
   await proof();
   proofDelay=0;
