@@ -35,6 +35,27 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   {id:'3',title:'No token',posterUrl:'/api/vdr/recordings/metadata/image?backend=alpha&recordingId=3&token=secret'},
   {id:'4',title:'No foreign',posterUrl:'/api/vdr/recordings/metadata/image?backend=other&recordingId=4'}];
 (async()=>{
+  const folders = create();
+  const path = '/api/vdr/recordings/folder';
+  const firstFolder = folders.beginFolder('Serien','alpha',()=>true,()=>null);
+  assert(firstFolder.accept(observe(folders,path,scopeA,response(scopeA),
+    {path:'Serien',homeCardPage:true,cacheReady:true,offset:0})));
+  assert(await firstFolder.finish(cards));
+  let paints = 0, removes = 0;
+  const reopened = folders.beginFolder('Serien','alpha',()=>true,items=>{
+    assert.equal(items[0].title,'Old poster'); paints++; return ()=>{removes++;};
+  });
+  await drain(); assert.equal(paints,1);
+  const other = folders.beginFolder('Action','alpha',()=>true,()=>{throw Error('wrong path');});
+  await drain(); assert.equal(paints,1);
+  assert(!other.accept(observe(folders,path,scopeA,response(scopeA),
+    {path:'Serien',homeCardPage:true,cacheReady:true,offset:0})));
+  assert.equal(await other.finish(cards),false);
+  folders.sessionBoundary(); assert.equal(removes,1);
+  reopened.cancel();
+  // Session boundary purges the test installation. Existing tests below
+  // establish their own proof and entries again.
+  await drain();
   const a=create();
   const first=a.begin('newly-recorded','alpha','Neu',()=>true);
   assert.equal(first.accept(observe(a,pathA)),true);

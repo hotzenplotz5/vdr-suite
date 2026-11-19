@@ -360,6 +360,7 @@
 
   function removeExpansion(section) {
     const existing = findExpansion(section);
+    if (existing && typeof existing.__cancelFolderPreview === 'function') existing.__cancelFolderPreview();
     if (existing && typeof existing.__stopFolderArtwork === 'function') existing.__stopFolderArtwork();
     if (existing && typeof existing.remove === 'function') existing.remove();
   }
@@ -1059,8 +1060,8 @@
     return true;
   }
 
-  // The auto-opened Home folder uses the opt-in combined card page. Normal
-  // explicit folder browsing retains its established complete-query contract.
+  // All inline Home folder navigation uses the opt-in combined card page.
+  // Legacy servers continue through the existing complete-query fallback.
   function folderPageCurrent(paging) {
     const state = inline.folder;
     const session = global.VdrSuiteBrowserSession;
@@ -1082,11 +1083,14 @@
       credentials: 'same-origin'
     })).then(function (payload) {
       if (!folderPageCurrent(paging)) return null;
+      if (payload && payload.homeCardPage !== true && offset === 0)
+        return {legacy: true};
       const returned = list(payload, 'folders').length + list(payload, 'recordings').length;
       if (!payload || payload.homeCardPage !== true || Number(payload.offset) !== offset ||
           Number(payload.returnedCards) !== returned || returned > limit ||
           typeof payload.hasMore !== 'boolean' || (!returned && payload.hasMore))
         throw new Error('invalid Home folder card page');
+      if (offset === 0 && paging.ticket) paging.ticket.accept(payload);
       const projected = projectFolderEntries(payload, paging.backendId);
       return {folders: projected.folders,
         recordings: projected.recordings.concat(canonicalRecordings(payload, paging.backendId)),
@@ -1120,8 +1124,60 @@
     }, 'folder');
   }
 
+  function folderPreviewCards(page) {
+    return page.folders.map(entry => ({
+      id:'f:' + folderPath(entry), title:folderLabel(entry),
+      subtitle: Number(entry.recordingCount || 0) > 0 ? entry.recordingCount + ' Aufnahmen' : 'Ordner',
+      posterUrl: text(entry.representativePosterUrl) ||
+        (entry.representativeRecording ? recordingPosterUrl(recordingMetadataProjection(
+          entry.representativeRecording, entry.representativeRecording.nativeMetadata)) : '')
+    })).concat(page.recordings.map(recording => {
+      const projected = recordingMetadataProjection(recording, recording.nativeMetadata);
+      return {id:'r:' + recordingId(recording), title:recordingTitle(projected),
+        subtitle:recordingSubtitle(projected), posterUrl:recordingPosterUrl(projected)};
+    }));
+  }
+
+  function paintFolderPreview(paging, items) {
+    if (!folderPageCurrent(paging) || !items.length || paging.offset !== 0) return null;
+    const preview = doc.createElement('div');
+    preview.className = 'media-home-discovery-rail media-home-inline-rail';
+    preview.setAttribute('aria-busy', 'true');
+    for (const item of items) {
+      const card = doc.createElement('div');
+      card.className = 'media-home-discovery-card recording';
+      card.appendChild(createInlineArtwork({title:item.title,
+        metadata:{presentation:{posterUrl:item.posterUrl}}}));
+      const copy = doc.createElement('span');
+      copy.className = 'media-home-discovery-copy';
+      const title = doc.createElement('strong');
+      title.textContent = item.title;
+      const detail = doc.createElement('span');
+      detail.textContent = item.subtitle;
+      copy.append(title, detail);
+      card.appendChild(copy);
+      preview.appendChild(card);
+    }
+    paging.rail.hidden = true;
+    paging.more.hidden = true;
+    paging.notice.textContent = 'Zuletzt geladen – wird aktualisiert';
+    paging.expansion.appendChild(preview);
+    releaseFolderHeight(paging.expansion);
+    prioritizeFolderRail(preview);
+    return () => {
+      preview.remove();
+      paging.rail.hidden = false;
+      if (paging.more) paging.more.hidden = false;
+      if (paging.notice) paging.notice.textContent = 'Ordnerinhalt wird geladen …';
+    };
+  }
+
   function publishFolderPage(paging, page) {
     if (!page || !folderPageCurrent(paging)) return false;
+    if (paging.offset === 0 && paging.ticket) {
+      paging.ticket.finish(folderPreviewCards(page));
+      paging.ticket = null;
+    }
     if (paging.notice) { paging.notice.remove(); paging.notice = null; }
     const addedFolders = [];
     page.folders.forEach(function (entry) {
@@ -1164,9 +1220,19 @@
       return fresh() ? buffered.promise.then(page => page && fresh() ? page : demand()) : demand();
     }).then(function (page) {
       if (paging.prefetch === buffered) paging.prefetch = null;
+      if (page && page.legacy && folderPageCurrent(paging)) {
+        const state = inline.folder;
+        if (paging.ticket) paging.ticket.cancel();
+        paging.ticket = null;
+        return fetchFolderContents(paging.client, paging.backendId, paging.path).then(result =>
+          renderFolderContents(state.card, state.section, paging.backendId, state.rootPath,
+            paging.path, result, paging.request));
+      }
       return publishFolderPage(paging, page);
     }).catch(function () {
       if (folderPageCurrent(paging)) {
+        if (paging.ticket) paging.ticket.cancel();
+        paging.ticket = null;
         releaseFolderHeight(paging.expansion);
         if (paging.notice) paging.notice.remove();
         const notice = doc.createElement('p');
@@ -1203,6 +1269,14 @@
     const paging = {client, backendId, path, request, expansion, rail, more,
       offset: 0, hasMore: true, loading: null, prefetch: null, seen: new Set(), notice};
     inline.folder.paging = paging;
+    const cache = global.VdrSuiteHomeCache;
+    paging.ticket = cache && typeof cache.beginFolder === 'function'
+      ? cache.beginFolder(path, backendId, () => folderPageCurrent(paging),
+          items => paintFolderPreview(paging, items)) : null;
+    expansion.__cancelFolderPreview = () => {
+      if (paging.ticket) paging.ticket.cancel();
+      paging.ticket = null;
+    };
     more.addEventListener('click', () => loadMoreFolderCards(paging));
     return loadMoreFolderCards(paging);
   }
@@ -1252,7 +1326,7 @@
     });
   }
 
-  function openFolderInline(card, paged = false) {
+  function openFolderInline(card, paged = true) {
     const section = categorySection(card, 'folder');
     const path = categoryKey(card, 'folder');
     const backendId = selectedBackendId();
@@ -1344,7 +1418,7 @@
     if (session && typeof session.subscribe === 'function') {
       session.subscribe(function (value) {
         if (value && value.authenticated) return;
-        if (inline.folder.paged) resetInline('folder', inline.folder.section);
+        if (inline.folder.section) resetInline('folder', inline.folder.section);
       });
     }
     doc.addEventListener('click', handleClickCapture, true);

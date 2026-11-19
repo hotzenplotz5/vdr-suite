@@ -14,7 +14,8 @@
   const PROOF_MS = 5000;
   const PREVIEW_MS = 15000;
   const STARTUP_PREVIEW_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-  const domain = rail => rail === 'continue-watching' ? 'history' : 'recordings';
+  const baseRail = rail => typeof rail === 'string' && rail.startsWith('folders:') ? 'folders' : rail;
+  const domain = rail => baseRail(rail) === 'continue-watching' ? 'history' : 'recordings';
 
   function cursor(value) {
     const match = /^sse_([0-9a-f]{32}):(0|[1-9][0-9]*)$/.exec(value || '');
@@ -54,8 +55,8 @@
       for (const rail of rails) {
         railVersions.set(rail, version(rail) + 1);
         if (at) minimums.set(rail, at);
-        const ticket = tickets.get(rail);
-        if (ticket) ticket.cancel();
+        for (const [key, ticket] of tickets)
+          if (baseRail(key) === rail) ticket.cancel();
       }
     }
     function discard(target, rails, at) {
@@ -240,9 +241,10 @@
       for (const ticket of tickets.values()) ticket.preview();
     }
 
-    function begin(rail, requestedBackend, title, isCurrent, show = true) {
+    function begin(rail, requestedBackend, title, isCurrent, show = true, folder = null) {
       if (!RAIL_ROUTES[rail] || !backend || backend !== requestedBackend || !active() || typeof isCurrent !== 'function') return null;
-      const previous = tickets.get(rail);
+      const key = folder ? 'folders:' + folder.path : rail;
+      const previous = tickets.get(key);
       if (previous) previous.cancel();
       const local = generation, railVersion = version(rail);
       let done = false, dismissed = !show, accepted = 0, invalid = false;
@@ -260,7 +262,7 @@
       function cancel() {
         done = true;
         dismiss();
-        if (tickets.get(rail) === ticket) tickets.delete(rail);
+        if (tickets.get(key) === ticket) tickets.delete(key);
       }
       function previewCursor() {
         if (!requireCursor) return 'unversioned';
@@ -282,13 +284,13 @@
         reading = true;
         try {
           if (!await storageBarrier || !live() || dismissed) return;
-          const snapshot = await owner.read(scopeOf(proof), rail,
+          const snapshot = await owner.read(scopeOf(proof), key,
             phase === 'startup' ? STARTUP_PREVIEW_MAX_AGE_MS : undefined);
           const still = currentProof(rail);
           if (dismissed || !live() || !still || still.partition !== proof.partition || !snapshot || !snapshot.items.length || !canPreview(rail, snapshot)) return;
           const remaining = PROOF_MS - (now() - still.at);
           if (remaining <= 0 || await still.sessionEpoch !== await proof.sessionEpoch || !live() || dismissed || currentProof(rail) !== still || !canPreview(rail, snapshot)) return;
-          remove = paint(rail, title, snapshot.items, requestedBackend) || null;
+          remove = (folder ? folder.paint(snapshot.items) : paint(rail, title, snapshot.items, requestedBackend)) || null;
           if (remove) {
             displayed = snapshot;
             if (typeof global.setTimeout === 'function') expiry = global.setTimeout(dismiss, Math.min(PREVIEW_MS, remaining));
@@ -304,7 +306,9 @@
       }
       function accept(payload) {
         const observed = payload && typeof payload === 'object' ? payloads.get(payload) : null;
-        if (!live() || !observed || observed.stamp.generation !== local || observed.stamp.path !== RAIL_ROUTES[rail] ||
+        if ((folder && (!payload || payload.path !== folder.path || payload.homeCardPage !== true ||
+            payload.offset !== 0 || payload.cacheReady !== true)) ||
+            !live() || !observed || observed.stamp.generation !== local || observed.stamp.path !== RAIL_ROUTES[rail] ||
             !observed.domains.includes(domain(rail)) ||
             (requireCursor && (!connected || !observed.stamp.cursor || observed.stamp.versions[ALL_RAILS.indexOf(rail)] !== railVersion)) || (proven && observed.partition !== proven)) {
           invalid = true;
@@ -328,12 +332,17 @@
         if (!Number.isSafeInteger(session) || epochs.some(value => value !== session)) return false;
         if (!await storageBarrier || local !== generation || railVersion !== version(rail) ||
             !active() || (requireCursor && !connected)) return false;
-        return owner.write(scope, rail, {complete: true, revision, items: cards.slice(0, 24)}).catch(() => false);
+        return owner.write(scope, key, {complete: true, revision, items: cards.slice(0, 24)}).catch(() => false);
       }
       const ticket = Object.freeze({preview, accept, dismiss, cancel, finish});
-      tickets.set(rail, ticket);
+      tickets.set(key, ticket);
       preview();
       return ticket;
+    }
+    function beginFolder(path, requestedBackend, isCurrent, paintFolder) {
+      if (typeof path !== 'string' || !path || path.length > 4096 ||
+          /[\u0000-\u001f\u007f]/.test(path) || typeof paintFolder !== 'function') return null;
+      return begin('folders', requestedBackend, '', isCurrent, true, {path, paint:paintFolder});
     }
     if (config.bindEvents !== false) {
       try {
@@ -355,7 +364,7 @@
         });
       }
     }
-    return Object.freeze({selectBackend, sessionBoundary, requestStamp, observe, begin, liveEvent, suspend, captureRailFence});
+    return Object.freeze({selectBackend, sessionBoundary, requestStamp, observe, begin, beginFolder, liveEvent, suspend, captureRailFence});
   }
 
   // The preview uses the same rail classes but no canonical data attributes,
@@ -433,6 +442,7 @@
     liveEvent: (type, event) => { const r = get(); return r ? r.liveEvent(type, event) : false; },
     suspend: () => { const r = get(); if (r) r.suspend(); },
     begin: (...args) => { const r = get(); return r ? r.begin(...args) : null; },
+    beginFolder: (...args) => { const r = get(); return r ? r.beginFolder(...args) : null; },
     captureRailFence: (...args) => { const r = get(); return r ? r.captureRailFence(...args) : null; }
   });
 }(window));

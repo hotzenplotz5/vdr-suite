@@ -6,6 +6,9 @@
   const MAX_BYTES = 256 * 1024;
   const MAX_SNAPSHOTS = 32;
   const RAILS = new Set(['newly-recorded', 'series', 'genres', 'folders', 'recent-movies', 'continue-watching', 'epg', 'live']);
+  const folderKey = rail => typeof rail === 'string' && rail.startsWith('folders:') &&
+    rail.length > 8 && rail.length <= 4104 && !/[\u0000-\u001f\u007f]/.test(rail);
+  const validRail = rail => RAILS.has(rail) || folderKey(rail);
   const text = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max;
   const id = value => text(value, 256) && !/[\u0000-\u001f\u007f]/.test(value);
 
@@ -138,7 +141,7 @@
 
     async function access(scope, rail, action, fallback, mode = 'readwrite') {
       const key = scopeKey(scope);
-      if (!key || !RAILS.has(rail) || typeof authorize !== 'function') return fallback;
+      if (!key || !validRail(rail) || typeof authorize !== 'function') return fallback;
       const local = generation;
       const fenced = scope.sessionEpoch !== undefined;
       const expectedSession = fenced ? await scope.sessionEpoch : null;
@@ -266,7 +269,7 @@
                 try {
                   const [key, rail] = JSON.parse(row.value.key);
                   const [, rowBackend] = JSON.parse(key);
-                  if ((!backend || rowBackend === backend) && rails.includes(rail) &&
+                  if ((!backend || rowBackend === backend) && (rails.includes(rail) || (folderKey(rail) && rails.includes('folders'))) &&
                       !atLeast(row.value.value && row.value.value.revision, revision)) row.delete();
                 } catch (error) { row.delete(); }
                 row.continue();

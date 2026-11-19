@@ -332,9 +332,11 @@ const client = {
   fetchClientRecordingFolder(options) {
     folderCalls.push(options);
     const currentPath = options.query.path;
+    const combined = options.query.homeCards === 1;
     if (currentPath === 'Action') {
       return Promise.resolve({
         recordingFolder: true,
+        ...(combined ? {homeCardPage:true,offset:0,returnedCards:2,hasMore:false,cacheReady:true} : {}),
         path: currentPath,
         totalCount: 2,
         folderCount: 2,
@@ -364,6 +366,7 @@ const client = {
     }
     return Promise.resolve({
       recordingFolder: true,
+      ...(combined ? {homeCardPage:true,offset:0,returnedCards:1,hasMore:false,cacheReady:true} : {}),
       path: currentPath,
       totalCount: 1,
       folderCount: 0,
@@ -527,7 +530,7 @@ function wait(milliseconds) {
   assert.strictEqual(prioritizedRails.at(-1), folderExpansion.querySelector('.media-home-discovery-rail'));
   bootstrapScroll(folderExpansion.querySelector('.media-home-discovery-rail'));
   assert.strictEqual(prioritizedRails.length, 2, 'horizontal scrolling must reprioritize the actual inline rail');
-  assert.strictEqual(folderCalls.filter(call => call.query.limit === 100).length, 1, 'folder totalCount must not trigger bogus recording pagination when recordingCount is zero');
+  assert.strictEqual(folderCalls.filter(call => call.query.limit === 12).length, 1, 'manual folder demand uses one bounded combined page');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-inline-folder').length, 1, 'non-leaf subfolders must stay inline');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-discovery-card.recording').length, 1, 'embedded single-recording leaves must project as recordings');
   const leafRecording =
@@ -564,7 +567,7 @@ function wait(milliseconds) {
   await settle();
 
   folderExpansion = folderSection.querySelector('.media-home-inline-expansion');
-  assert.strictEqual(folderCalls.filter(call => call.query.limit === 100)[1].query.path, 'Action/Marvel');
+  assert.strictEqual(folderCalls.filter(call => call.query.limit === 12)[1].query.path, 'Action/Marvel');
   assert(folderExpansion.querySelector('.media-home-inline-back'), 'nested folder projection must expose inline back navigation');
   assert.strictEqual(folderExpansion.style.minHeight, '', 'successful folder render releases reservation');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-discovery-card.recording').length, 1);
@@ -588,7 +591,7 @@ function wait(milliseconds) {
   clickElement(folderExpansion.querySelector('.media-home-inline-back'));
   await settle();
   await settle();
-  assert.strictEqual(folderCalls.filter(call => call.query.limit === 100)[2].query.path, 'Action', 'inline back navigation must return to the selected root folder');
+  assert.strictEqual(folderCalls.filter(call => call.query.limit === 12)[2].query.path, 'Action', 'inline back navigation must return to the selected root folder');
 
   // Automatic expansion must request a genuine combined card page: hold
   // the 24-card lookahead and verify the initial twelve already exist.

@@ -1113,3 +1113,20 @@ The cache/HTTP regressions exercise prewarmed bytes, aliases, changed inputs,
 legacy entry compatibility, separate foreground/background cache instances
 and existing authorization. Native C++ tests, build and actual yaVDR cold
 browser timings are open. No new frontend installation is required.
+
+### PWA.14.5 — all Home folder opens use combined pages and scoped previews
+
+Operator confirmed PWA144_INSTALLATION=PASS on `a13c3a2cdf961dd935c5dc389e6eae18e50c0db7`.
+A repeat video/operator report identified several seconds before manual folder
+cards appear, plus staggered series subfolder covers. The manual branch still
+awaited all legacy folder pages; now automatic, manual, nested and Back use
+the existing 12-card initial / 24-card lookahead path. Older non-combined
+responses fall back to the established legacy reader. The existing persistent
+Home owner can store a sanitized first-page presentation under a bounded
+folder-specific key (same database, scope, 32-row cap, SSE generation and
+account/grant fences). It is deliberately a noninteractive preview, not a
+cached canonical Playback/Recording object. Current server proof is required;
+authoritative demand fetch replaces it and enables actions. No offline private
+access, new endpoint, polling, schema migration or generic response storage.
+A recording-domain invalidation discards dependent folder previews. Real
+browser latency and native test execution remain to be verified.
