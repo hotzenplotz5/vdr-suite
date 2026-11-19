@@ -40,6 +40,8 @@ class FakeElement {
     this.textContent = '';
     this.id = '';
     this.scrollLeft = 0;
+    this.style = {};
+    this.getBoundingClientRect = () => ({height: Number.parseFloat(this.style.minHeight) || 320});
     this.listeners = Object.create(null);
     this.classList = {
       contains: name => this._classes.has(name),
@@ -102,6 +104,7 @@ class FakeElement {
     if (value === 'img') return this.tagName === 'IMG';
     if (value === '.media-home-discovery-rail') return this.classList.contains('media-home-discovery-rail');
     if (value === '.media-home-series-season-rail') return this.classList.contains('media-home-series-season-rail');
+    if (value === '[data-home-inline-kind="folder"]') return this.attributes['data-home-inline-kind'] === 'folder';
     if (value === '.media-home-inline-expansion') return this.classList.contains('media-home-inline-expansion');
     if (value === '.media-home-inline-back') return this.classList.contains('media-home-inline-back');
     if (value === '.media-home-discovery-card.recording') {
@@ -430,6 +433,10 @@ vm.runInContext(fs.readFileSync(path.join(frontendRoot, 'platform', 'helpers.js'
   context, {filename: 'web/frontend/platform/helpers.js'});
 vm.runInContext(source, context, {filename: 'web/frontend/home-recording-discovery-bootstrap.js'});
 
+function bootstrapScroll(rail) {
+  window.VdrSuiteHomeRecordingDiscoveryBootstrap.__test.handleRailScroll({target:rail});
+}
+
 function settle() {
   return new Promise(resolve => setTimeout(resolve, 0));
 }
@@ -508,6 +515,8 @@ function wait(milliseconds) {
   const metadataReadsBeforeFolder = metadataCalls.length;
   const folderCard = makeCard('folder', 'Action', 'Action');
   const folderSection = makeSection('folders', folderCard);
+  const prioritizedRails = [];
+  window.VdrSuiteHomeRecordingDiscovery.prioritizeInlineRailArtwork = rail => prioritizedRails.push(rail);
   const folderClick = clickElement(folderCard);
   assert.strictEqual(folderClick.defaultPrevented, true);
   await settle();
@@ -515,6 +524,9 @@ function wait(milliseconds) {
 
   let folderExpansion = folderSection.querySelector('.media-home-inline-expansion');
   assert(folderExpansion, 'folder contents must appear directly below the folder rail');
+  assert.strictEqual(prioritizedRails.at(-1), folderExpansion.querySelector('.media-home-discovery-rail'));
+  bootstrapScroll(folderExpansion.querySelector('.media-home-discovery-rail'));
+  assert.strictEqual(prioritizedRails.length, 2, 'horizontal scrolling must reprioritize the actual inline rail');
   assert.strictEqual(folderCalls.filter(call => call.query.limit === 100).length, 1, 'folder totalCount must not trigger bogus recording pagination when recordingCount is zero');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-inline-folder').length, 1, 'non-leaf subfolders must stay inline');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-discovery-card.recording').length, 1, 'embedded single-recording leaves must project as recordings');
@@ -546,12 +558,15 @@ function wait(milliseconds) {
   assert.deepStrictEqual(folderCalls.filter(call => call.query.limit === 1).map(call => call.query.path), ['Action/Marvel'],
     'representative lookup must use a bounded folder read, not metadata fan-out');
   clickElement(nestedFolder);
+  assert.strictEqual(folderSection.querySelector('.media-home-inline-expansion').style.minHeight, '320px',
+    'switch must reserve previous folder height while loading');
   await settle();
   await settle();
 
   folderExpansion = folderSection.querySelector('.media-home-inline-expansion');
   assert.strictEqual(folderCalls.filter(call => call.query.limit === 100)[1].query.path, 'Action/Marvel');
   assert(folderExpansion.querySelector('.media-home-inline-back'), 'nested folder projection must expose inline back navigation');
+  assert.strictEqual(folderExpansion.style.minHeight, '', 'successful folder render releases reservation');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-discovery-card.recording').length, 1);
   const nestedRecording =
     folderExpansion.querySelector('.media-home-discovery-card.recording');

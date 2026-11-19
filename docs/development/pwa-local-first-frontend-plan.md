@@ -1043,3 +1043,32 @@ The paged expansion also keeps its loading/error notice separate from the
 already mounted rail, uses the existing single bounded artwork coordinator
 across appends, and drops speculative responses after collapse or session
 logout. Automatic selection never displaces an already expanded folder.
+
+## PWA.14.1–14.3 — inline folder artwork and layout (2026-11-19)
+
+Operator confirmed PWA137_INSTALLATION=PASS at
+`2528ef3e5fece361a7c17c7f4729b31c103af4ac`. The 29.6-second
+screen recording shows existing Home rails already painted, followed by
+recording-card artwork arriving visibly over several seconds after folder
+changes and horizontal scrolling. The exact cold-image HTTP, preview
+generation and decode timings are unverified. IPTVnator/Plex/Netflix are
+perceived-speed targets, not equivalent measured workloads.
+
+Reuse the actual Home artwork owner: one animation-frame batch prioritizes
+visible inline-folder images (up to twelve promotions), accounting for
+the scroll rail's visible clipping rectangle, before other newly created
+posters. Up to four already-rendered nearby images per pass, within one
+visible rail width (max 1200 px), become eager with low fetch priority;
+previously speculative images are promoted when visible. Native browser
+request concurrency remains authoritative. Data Saver, 2G, offline and
+hidden documents suppress speculative promotion, not demand. No extra
+metadata calls, detached poster requests, custom cache, authorization
+change or changed 12/24 card paging. Other manual folder queries retain
+their contract. Folder switching reserves the preceding expansion's
+height until success or error; closing intentionally removes it.
+Existing focused tests cover priority, rail clipping, scroll promotion,
+bounded lookahead, constrained connections, detached owners, actual
+folder-scroll wiring and loading-height release. Actual full native
+frontend regression and real browser performance remain open; no
+daemon rebuild is required by these changes. No measured speedup or
+final PWA.14 acceptance claimed before the operator's repeat test.

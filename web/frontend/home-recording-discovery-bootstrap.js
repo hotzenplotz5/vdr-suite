@@ -159,8 +159,16 @@
     return scrollWidth - scrollLeft - clientWidth <= threshold;
   }
 
+  function prioritizeFolderRail(rail) {
+    const discovery = global.VdrSuiteHomeRecordingDiscovery;
+    if (rail && rail.closest && rail.closest('[data-home-inline-kind="folder"]') &&
+        discovery && typeof discovery.prioritizeInlineRailArtwork === 'function')
+      discovery.prioritizeInlineRailArtwork(rail);
+  }
+
   function handleRailScroll(event) {
     const rail = closestTarget(event && event.target, RAIL_SELECTOR);
+    prioritizeFolderRail(rail);
     if (!rail || !railNearEnd(rail) || !doc ||
         typeof doc.dispatchEvent !== 'function' ||
         typeof global.CustomEvent !== 'function') return false;
@@ -376,9 +384,16 @@
   }
 
   function makeInlineShell(section, kind, card, label, backLabel, onBack) {
+    const previous = kind === 'folder' ? findExpansion(section) : null;
+    const previousHeight = previous && typeof previous.getBoundingClientRect === 'function'
+      ? previous.getBoundingClientRect().height : 0;
     removeExpansion(section);
     setCategoryExpanded(section, card, true);
     const expansion = doc.createElement('div');
+    if (previousHeight > 0 && expansion.style) {
+      expansion.style.boxSizing = 'border-box';
+      expansion.style.minHeight = Math.ceil(previousHeight) + 'px';
+    }
     expansion.id = inlineId(kind);
     expansion.className = 'media-home-inline-expansion';
     expansion.setAttribute('data-home-inline-kind', kind);
@@ -399,6 +414,10 @@
     expansion.appendChild(heading);
     section.appendChild(expansion);
     return expansion;
+  }
+
+  function releaseFolderHeight(expansion) {
+    if (expansion && expansion.style) expansion.style.minHeight = '';
   }
 
   function renderInlineState(expansion, message, error) {
@@ -1009,6 +1028,7 @@
       nested ? '← ' + pathLeaf(parentPath(path) || rootPath) : '',
       nested ? function () { openFolderPathInline(parentPath(path) || rootPath); } : null
     );
+    releaseFolderHeight(expansion);
     if (!result.folders.length && !result.recordings.length) {
       renderInlineState(expansion, 'Dieser Aufnahmeordner ist leer.', false);
       return true;
@@ -1031,6 +1051,7 @@
       );
     });
     expansion.appendChild(rail);
+    prioritizeFolderRail(rail);
     hydrateInlineFolderArtwork(expansion, folderCards, backendId, function () {
       return state.request === request && state.key === rootPath && state.path === path &&
         selectedBackendId() === backendId && findExpansion(section) === expansion;
@@ -1119,6 +1140,8 @@
       const projected = recordingMetadataProjection(recording, recording.nativeMetadata);
       paging.rail.appendChild(createInlineRecordingCard(projected, backendId, recording));
     });
+    releaseFolderHeight(paging.expansion);
+    prioritizeFolderRail(paging.rail);
     paging.offset = page.offset;
     paging.hasMore = page.hasMore;
     if (addedFolders.length)
@@ -1144,6 +1167,7 @@
       return publishFolderPage(paging, page);
     }).catch(function () {
       if (folderPageCurrent(paging)) {
+        releaseFolderHeight(paging.expansion);
         if (paging.notice) paging.notice.remove();
         const notice = doc.createElement('p');
         notice.className = 'media-home-inline-state error';
@@ -1222,6 +1246,7 @@
     }).catch(function () {
       if (state.request !== request || state.path !== nextPath) return false;
       const current = makeInlineShell(section, 'folder', card, pathLeaf(nextPath));
+      releaseFolderHeight(current);
       renderInlineState(current, 'Der Aufnahmeordner ist vorübergehend nicht verfügbar.', true);
       return false;
     });

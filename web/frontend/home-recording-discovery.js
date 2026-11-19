@@ -889,33 +889,93 @@
   }
 
 
-  // One initial-layout pass per batch: promote only connected, visible posters.
-  // Native lazy loading continues to own images outside the viewport.
+  // One layout pass per frame. Inline folder demand takes precedence over
+  // other new artwork; a small adjacent window warms the existing image path.
   const pendingArtworkPriority = new Set();
+  const pendingArtworkRails = new Set();
   let artworkPriorityFrame = false;
+
+  function artworkBounds(rail) {
+    const viewport = {left: 0, top: 0, right: global.innerWidth, bottom: global.innerHeight};
+    if (!rail || typeof rail.getBoundingClientRect !== 'function') return viewport;
+    const r = rail.getBoundingClientRect();
+    return {left: Math.max(0, r.left), top: Math.max(0, r.top),
+      right: Math.min(viewport.right, r.right), bottom: Math.min(viewport.bottom, r.bottom)};
+  }
+
+  function artworkDistance(image, bounds) {
+    if (!image.isConnected || image.complete || typeof image.getBoundingClientRect !== 'function') return Infinity;
+    const r = image.getBoundingClientRect();
+    if (bounds.right <= bounds.left || bounds.bottom <= bounds.top ||
+        r.width <= 0 || r.height <= 0 || r.bottom <= bounds.top || r.top >= bounds.bottom) return Infinity;
+    if (r.right > bounds.left && r.left < bounds.right) return 0;
+    return Math.max(bounds.left - r.right, r.left - bounds.right, 1);
+  }
+
+  function armArtworkPriority() {
+    if (artworkPriorityFrame || typeof global.requestAnimationFrame !== 'function') return;
+    artworkPriorityFrame = true;
+    global.requestAnimationFrame(function () {
+      artworkPriorityFrame = false;
+      const images = Array.from(pendingArtworkPriority);
+      const rails = Array.from(pendingArtworkRails);
+      pendingArtworkPriority.clear();
+      pendingArtworkRails.clear();
+      const visible = new Set();
+      const adjacent = new Map();
+      const handled = new Set();
+      for (const rail of rails) {
+        if (!rail.isConnected || typeof rail.querySelectorAll !== 'function') continue;
+        const bounds = artworkBounds(rail);
+        const lookahead = Math.min(1200, Math.max(0, bounds.right - bounds.left));
+        for (const image of rail.querySelectorAll('img')) {
+          handled.add(image);
+          const distance = artworkDistance(image, bounds);
+          if (distance === 0) visible.add(image);
+          else if (distance <= lookahead && image.loading === 'lazy')
+            adjacent.set(image, distance);
+        }
+      }
+      for (const image of images) {
+        if (handled.has(image)) continue;
+        const rail = typeof image.closest === 'function' ? image.closest('.media-home-discovery-rail') : null;
+        if (artworkDistance(image, artworkBounds(rail)) === 0) visible.add(image);
+      }
+      let remaining = 12;
+      for (const image of visible) {
+        if (remaining <= 0) break;
+        if (image.loading === 'eager' && image.fetchPriority === 'high') continue;
+        image.fetchPriority = 'high';
+        image.loading = 'eager';
+        remaining--;
+      }
+      // Demand is always allowed. Speculation stays bounded and respects
+      // the existing Home policy for constrained connections.
+      const net = global.navigator && global.navigator.connection;
+      if ((doc && doc.hidden) || (global.navigator && global.navigator.onLine === false) ||
+          (net && (net.saveData || ['slow-2g', '2g'].includes(net.effectiveType)))) return;
+      let nearby = 4;
+      for (const [image] of Array.from(adjacent).sort((a,b) => a[1] - b[1])) {
+        if (nearby <= 0) break;
+        if (image.loading !== 'lazy') continue;
+        image.fetchPriority = 'low';
+        image.loading = 'eager';
+        nearby--;
+      }
+    });
+  }
 
   function prioritizeVisibleArtwork(image) {
     if (typeof global.requestAnimationFrame !== 'function' || !image ||
         typeof image.getBoundingClientRect !== 'function') return;
     pendingArtworkPriority.add(image);
-    if (artworkPriorityFrame) return;
-    artworkPriorityFrame = true;
-    global.requestAnimationFrame(function () {
-      artworkPriorityFrame = false;
-      const images = Array.from(pendingArtworkPriority);
-      pendingArtworkPriority.clear();
-      let remaining = 12;
-      for (const candidate of images) {
-        if (remaining <= 0) break;
-        if (!candidate.isConnected || candidate.complete) continue;
-        const r = candidate.getBoundingClientRect();
-        if (r.width <= 0 || r.height <= 0 || r.right <= 0 || r.bottom <= 0 ||
-            r.left >= global.innerWidth || r.top >= global.innerHeight) continue;
-        candidate.fetchPriority = 'high';
-        candidate.loading = 'eager';
-        remaining--;
-      }
-    });
+    armArtworkPriority();
+  }
+
+  function prioritizeInlineRailArtwork(rail) {
+    if (!rail || typeof global.requestAnimationFrame !== 'function') return;
+    pendingArtworkRails.add(rail);
+    armArtworkPriority();
   }
 
   function createPosterArtwork(title, url, fallbackText) {
@@ -5507,6 +5567,7 @@
     install: install,
     refresh: refresh,
     prioritizeVisibleArtwork: prioritizeVisibleArtwork,
+    prioritizeInlineRailArtwork: prioritizeInlineRailArtwork,
     _test: Object.freeze({
       selectedBackendId: selectedBackendId,
       canonicalRecordings: canonicalRecordings,

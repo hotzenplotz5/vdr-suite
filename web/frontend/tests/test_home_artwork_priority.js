@@ -19,3 +19,29 @@ assert.equal(offscreen.loading,'lazy');
 assert.equal(detached.loading,'lazy');
 assert.equal(extras.filter(i=>i.fetchPriority==='high').length,11);
 console.log('PWA.3 visible-first artwork contract PASS');
+
+const prioritizeRail = window.VdrSuiteHomeRecordingDiscovery.prioritizeInlineRailArtwork;
+const visibleRailImage = image(120, 40);
+const next = [image(510,40), image(620,40), image(730,40), image(840,40), image(900,40)];
+const far = image(1300,40);
+const hidden = image(200,610);
+const rail = {isConnected:true, getBoundingClientRect:()=>({left:100,top:0,right:500,bottom:300}),
+  querySelectorAll:()=>[visibleRailImage,...next,far,hidden]};
+prioritizeRail(rail); prioritizeRail(rail);
+assert.equal(frames.length,1);
+frames.shift()();
+assert.equal(visibleRailImage.fetchPriority,'high');
+assert.equal(next.filter(i=>i.fetchPriority==='low').length,4);
+assert.equal(next[4].loading,'lazy');
+assert.equal(far.loading,'lazy');
+assert.equal(hidden.loading,'lazy');
+// A formerly speculative image becomes visible on scrolling: promote it.
+next[0].getBoundingClientRect=()=>({left:120,top:20,right:220,bottom:170,width:100,height:150});
+window.navigator={connection:{saveData:true}};
+prioritizeRail(rail); frames.shift()();
+assert.equal(next[0].fetchPriority,'high');
+assert.equal(next[4].loading,'lazy');
+const removed = image(120,20);
+prioritizeRail({isConnected:false,querySelectorAll:()=>[removed]}); frames.shift()();
+assert.equal(removed.loading,'lazy');
+console.log('PWA.14 inline rail visible and bounded lookahead artwork contract PASS');
