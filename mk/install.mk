@@ -128,6 +128,8 @@ install-runtime:
 		$(DESTDIR)$(DATADIR)/web/frontend/modules/recordings.js
 	$(INSTALL) -m 0644 web/frontend/index.html $(DESTDIR)$(DATADIR)/web/frontend/index.html
 	$(INSTALL) -m 0644 web/frontend/manifest.webmanifest $(DESTDIR)$(DATADIR)/web/frontend/manifest.webmanifest
+	$(INSTALL) -m 0644 web/frontend/pwa-icon-192.png $(DESTDIR)$(DATADIR)/web/frontend/pwa-icon-192.png
+	$(INSTALL) -m 0644 web/frontend/pwa-icon-512.png $(DESTDIR)$(DATADIR)/web/frontend/pwa-icon-512.png
 	$(INSTALL) -m 0644 web/frontend/service-worker.js $(DESTDIR)$(DATADIR)/web/frontend/service-worker.js
 	$(INSTALL) -m 0644 web/frontend/pwa-register.js $(DESTDIR)$(DATADIR)/web/frontend/pwa-register.js
 	$(INSTALL) -m 0644 web/frontend/app.js $(DESTDIR)$(DATADIR)/web/frontend/app.js
@@ -347,6 +349,8 @@ test-install-staging:
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-cache.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/style.css
 	cmp web/frontend/manifest.webmanifest /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/manifest.webmanifest
+	cmp web/frontend/pwa-icon-192.png /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/pwa-icon-192.png
+	cmp web/frontend/pwa-icon-512.png /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/pwa-icon-512.png
 	cmp web/frontend/service-worker.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/service-worker.js
 	cmp web/frontend/pwa-register.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/pwa-register.js
 	cmp web/frontend/platform/home-persistence.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/platform/home-persistence.js

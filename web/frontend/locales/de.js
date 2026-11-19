@@ -270,6 +270,7 @@
   "shell.epgFeature": "EPG Zeitleiste",
   "shell.epgFeatureDescription": "Zeitachse & Programm",
   "shell.features": "VDR-Suite Merkmale",
+  "shell.installApp": "VDR-Suite installieren",
   "shell.liveTv": "Live TV",
   "shell.liveTvDescription": "Echtzeit & Streaming",
   "shell.loadBackendSelection": "Lade Backend-Auswahl...",

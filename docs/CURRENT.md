@@ -2,7 +2,7 @@
 
 ## PWA / Home performance — next frontend priority (19.11.2026)
 
-**PWA.7 = source candidate; scoped cache isolation and delayed-response regressions PASS in a focused JavaScript harness with simulated IndexedDB/Cache Storage/network. Browser-session scope, shared durable logout epoch, and artwork session-transition cleanup hardened. PWA.6 five hosted CI jobs passed; fast regression failed during Ubuntu dependency downloads (before tests). Native browser/yaVDR multi-tab/revocation, C++ integration for this candidate, and performance acceptance remain open.**
+**PWA.8 = source candidate; optional Android/desktop browser-native installation, maskable 192/512 PNG icons, and standalone presentation wired. Focused install-event contract PASS in a simulated DOM/event harness; exact icon bytes and scoped manifest/asset paths checked. PWA.7 hosted CI passed all six jobs. PWA.8 hosted CI, actual device installation/update/playback and real Home performance acceptance remain open.**
 The maintainer prioritizes local client caching and optional PWA installation
 for the existing Webfrontend, including ordinary browser use. See
 [PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.

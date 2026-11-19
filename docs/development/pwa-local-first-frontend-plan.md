@@ -426,6 +426,73 @@ not in a VDR-Suite test. Do not call the entire run green.
   The server cache metadata changes will need a normal incremental
   build at eventual runtime acceptance, not a routine daemon rebuild now.
 
+## PWA.8 — optional installed Android and desktop frontend (2026-11-19)
+
+Base `21d2d78657acc97253a1a3eb52241959b03a0520`. PWA.7
+[VDR-Suite CI #12889](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44538762520)
+passed all six hosted jobs. That does not constitute native browser acceptance.
+
+- Same Webfrontend and server, not a separate native APK, Electron app,
+  Play Store package or second UI. Manifest retains the relative installation
+  identity/start URL/scope and standalone display mode. Add checked-in 192
+  and 512 PNG icons, opaque and padded inside the maskable safe zone, raster
+  adaptations of the existing icon-vdr-suite.svg (light background, no new
+  brand). Preserve the regular browser favicon/logo. Serve exact PNG assets
+  on the existing public frontend static asset owner; packaging installs
+  and compares the exact files. No new API route or authorization rule.
+- Optional localized install button below the header, only after the
+  browser's beforeinstallprompt event in a secure context. A real user
+  click invokes the browser's own prompt synchronously, at most once for
+  that offer. Dismissed/rejected offers are not replayed. appinstalled and
+  display-mode detection hide the control appropriately. Unsupported
+  browsers retain normal operation and their own browser-menu options.
+  No user-agent requirements, polling, confirmation gates, new storage
+  or permission handling. Installation grants no access and does not
+  alter account/session or cache-isolation logic.
+- Retain the established network-first shell, scoped worker registration
+  and normal browser worker activation/update schedule. Do not force
+  skipWaiting, claim, reload or interrupt a playing recording when a
+  deployment is detected. No additional worker or cached private shell.
+- Actual-source focused JavaScript contract passed in a simulated DOM/
+  install-event harness (button visibility, user activation, dismissal,
+  failure, appinstalled, standalone, insecure/unsupported context and
+  double click). Checked manifest identity and exact icon Git blobs/
+  static paths; locally rendered and inspected PNGs. New Node manifest
+  URL/PNG signature/dimension assertions and C++ HTTP asset regressions
+  join existing test targets; full hosted CI/integration still pending.
+  No deployment performed. Existing static asset route additions require
+  an incremental daemon build for runtime acceptance, not a fresh rebuild
+  now.
+
+### Installation and device acceptance
+
+Use the actual VDR-Suite HTTPS URL with a trusted certificate, either
+direct or the configured reverse-proxy path (e.g. /vdr-suite/frontend/).
+The same-origin prefix is part of installation identity. Do not move
+an installed app to another origin or proxy prefix by changing id;
+install there separately if desired.
+
+On Android (Chrome) open that URL, sign in normally, select the available
+"VDR-Suite installieren" control or the browser menu's install/add-to-home-
+screen option. On desktop Chromium/Edge use the same control or the
+browser's native install item; browser/platform support varies. Launch
+from OS launcher, check standalone display and fresh normal authorization.
+A regular bookmark/shortcut on an unsupported browser is not evidence
+of installed standalone PWA acceptance. Direct untrusted HTTP normally
+does not support this install flow; ordinary HTTP browser use remains
+available subject to the existing transport contract.
+
+Before PWA acceptance verify both browser and installed mode: identical
+Home rails, Live TV/recording playback, search/EPG/timer navigation,
+login/logout and backend switch; offline public fallback/reconnect.
+Check manifest and both PNGs return 200 with correct types using the
+actual deployment path; no root leakage through the reverse proxy.
+Install direct and prefixed identities as appropriate, reopen warm,
+deploy a changed frontend, close/reopen installed app and check the
+normal worker update lifecycle without disrupting active playback.
+Record device/browser/version and actual results in PWA.9. Neither
+native installability nor performance has yet been proven on a device.
+
 ## Measurable acceptance (provisional targets, not guarantees)
 
 Compare baseline and candidate with the same authenticated account, backend,

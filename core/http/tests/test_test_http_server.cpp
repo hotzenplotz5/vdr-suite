@@ -535,6 +535,16 @@ int main()
     assert(manifestResponse.statusCode == 200);
     assert(manifestResponse.headers.at("Content-Type") == "application/manifest+json; charset=utf-8");
     assert(manifestResponse.body.find("\"start_url\": \"./\"") != std::string::npos);
+    assert(anonymousFrontendResponse.body.find("vdr-suite-pwa-install-button") != std::string::npos);
+    for (const auto* iconPath : {"/frontend/pwa-icon-192.png", "/frontend/pwa-icon-512.png"})
+    {
+        anonymousFrontendAssetRequest.path = iconPath;
+        const auto icon = server.handleRequest(anonymousFrontendAssetRequest);
+        assert(icon.statusCode == 200);
+        assert(icon.headers.at("Content-Type") == "image/png");
+        assert(icon.body.size() > 24 && icon.body.compare(0, 8, "\x89PNG\r\n\x1a\n", 8) == 0);
+        assert(manifestResponse.body.find(std::string(iconPath).substr(10)) != std::string::npos);
+    }
     anonymousFrontendAssetRequest.path = "/frontend/service-worker.js";
     const auto workerResponse = server.handleRequest(anonymousFrontendAssetRequest);
     assert(workerResponse.statusCode == 200);

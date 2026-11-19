@@ -100,8 +100,68 @@
     button.addEventListener('click', connection.retry);
   }
 
+  // Optional browser-native installation. The browser alone decides whether
+  // the app is installable; standalone mode never changes auth or API access.
+  function mountInstall() {
+    const doc = global.document;
+    if (!doc || !doc.body || typeof global.addEventListener !== 'function') return;
+    const row = doc.getElementById('vdr-suite-pwa-install');
+    const button = doc.getElementById('vdr-suite-pwa-install-button');
+    if (!row || !button) return;
+    let display = null;
+    try {
+      if (typeof global.matchMedia === 'function') display = global.matchMedia('(display-mode: standalone)');
+    } catch (error) { /* Browser without media-query support. */ }
+    let offer = null, busy = false, installed = false;
+    const standalone = () => Boolean((display && display.matches) ||
+      (global.navigator && global.navigator.standalone === true));
+    function render() {
+      const appMode = standalone();
+      doc.body.classList.toggle('vss-pwa-standalone', appMode);
+      if (appMode || installed) offer = null;
+      row.hidden = !global.isSecureContext || appMode || installed || busy || !offer;
+    }
+    function receive(event) {
+      if (!global.isSecureContext || standalone() || installed ||
+          !event || typeof event.prompt !== 'function') return;
+      if (typeof event.preventDefault === 'function') event.preventDefault();
+      offer = event;
+      render();
+    }
+    async function install() {
+      if (!offer || busy || installed || standalone() || !global.isSecureContext) return;
+      const selected = offer;
+      offer = null;
+      busy = true;
+      render();
+      try {
+        // Invoke directly within the actual click's user activation.
+        // A consumed offer is never retried automatically, even on dismissal.
+        const choice = await selected.prompt();
+        if ((!choice || !choice.outcome) && selected.userChoice) await selected.userChoice;
+      } catch (error) { /* Browser declined/unavailable; ordinary UI remains. */ }
+      finally {
+        busy = false;
+        render();
+      }
+    }
+    global.addEventListener('beforeinstallprompt', receive);
+    global.addEventListener('appinstalled', () => {
+      installed = true;
+      offer = null;
+      render();
+    });
+    if (display) {
+      if (typeof display.addEventListener === 'function') display.addEventListener('change', render);
+      else if (typeof display.addListener === 'function') display.addListener(render);
+    }
+    button.addEventListener('click', install);
+    render();
+  }
+
   global.VdrSuiteConnectionRuntime = Object.freeze({create: createConnection});
   mountConnection();
+  mountInstall();
 
   // Optional enhancement, also in an ordinary browser without SW support.
   if (!global.isSecureContext || !global.navigator || !global.navigator.serviceWorker || !global.VdrSuitePublicUrl) return;

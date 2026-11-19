@@ -78,6 +78,32 @@
       background: transparent;
     }
 
+    .pwa-install-row {
+      display: flex;
+      justify-content: flex-end;
+      padding: .35rem 1rem;
+    }
+
+    .pwa-install-row[hidden] { display: none !important; }
+
+    .pwa-install-button {
+      font: inherit;
+      font-size: .82rem;
+      font-weight: 700;
+      min-height: 2.5rem;
+      padding: .45rem .9rem;
+      border: 1px solid rgba(96, 165, 250, .5);
+      color: #e0f2fe;
+      background: #0f2742;
+      border-radius: .65rem;
+      cursor: pointer;
+    }
+
+    .pwa-install-button:focus-visible {
+      outline: 2px solid #7dd3fc;
+      outline-offset: 3px;
+    }
+
     .app-logo {
       width: min(18rem, 58vw);
       max-height: 3.25rem;
@@ -657,6 +683,9 @@
             <p>Media Home</p>
           </div>
         </header>
+        <div id="vdr-suite-pwa-install" class="pwa-install-row" hidden>
+          <button id="vdr-suite-pwa-install-button" class="pwa-install-button" type="button" data-i18n="shell.installApp">VDR-Suite installieren</button>
+        </div>
         <nav class="brand-feature-strip" aria-label="Primäre VDR-Suite Navigation">
           <article class="brand-feature brand-feature-backends">
             <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
