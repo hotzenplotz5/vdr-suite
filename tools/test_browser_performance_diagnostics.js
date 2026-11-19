@@ -8,7 +8,7 @@ const { spawnSync } = require('node:child_process');
 const frontend = path.resolve(__dirname, '../web/frontend');
 const read = name => fs.readFileSync(path.join(frontend, name), 'utf8');
 const run = (name, env) => vm.runInNewContext(read(name), env, { filename: name });
-const { createProbe, summarizeResources } = require('../web/frontend/browser-artwork-probe');
+const { createProbe, summarizeResources, startupTiming } = require('../web/frontend/browser-artwork-probe');
 
 async function main() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'vdr-suite-diagnostics-'));
@@ -146,6 +146,24 @@ async function main() {
     assert.equal(result.metrics.mutations, 1);
     assert.equal(result.observerSupport.mutation, true);
     assert.equal(result.bufferedStartup, true);
+    assert.equal(result.startupTiming.homeControlsReadyMs, null);
+    const timeEntries = {
+      'first-paint': 11, 'first-contentful-paint': 25,
+      'vdr-suite:startup:session-ready': 50,
+      'vdr-suite:startup:backend-selected': 70,
+      'vdr-suite:startup:snapshot-ready': 100,
+      'vdr-suite:startup:home-controls-ready': 120,
+      'vdr-suite:startup:home-frame': 145,
+      'vdr-suite:startup:recording-count-settled': 500
+    };
+    const timing = startupTiming({getEntriesByName(name) {
+      return Object.hasOwn(timeEntries, name) ? [{startTime: timeEntries[name]}] : [];
+    }});
+    assert.equal(timing.firstContentfulPaintMs, 25);
+    assert.equal(timing.homeControlsReadyMs, 120);
+    assert.equal(timing.homeFrameMs, 145);
+    assert.equal(timing.recordingCountSettledMs, 500);
+    assert.equal(timing.homeControlsAfterSessionMs, 70);
     assert.equal(result.metrics.resourceDiagnostics.observedEntries, 1);
     assert.ok(observers.every(observer => observer.disconnected));
     assert.ok(!JSON.stringify(result).includes('secret'));

@@ -114,6 +114,7 @@ function refreshMediaImportVisibility(backendId) {
 
 let homeResumeBackendId = '';
 let currentSnapshot = null;
+let backendDetailSequence = 0;
 let currentChannels = null;
 let currentEvents = null;
 let currentTimers = null;
@@ -581,7 +582,10 @@ function renderSnapshotMetrics(data) {
   detailDataElement.appendChild(createMetric('Kanäle', valueOrZero(data.channelCount)));
   detailDataElement.appendChild(createMetric('Events', valueOrZero(data.eventCount)));
   detailDataElement.appendChild(createMetric('Timer', valueOrZero(data.timerCount)));
-  detailDataElement.appendChild(createMetric('Aufnahmen', valueOrZero(data.recordingCount)));
+  const recordingMetric = createMetric('Aufnahmen',
+    data.recordingCountPending ? '…' : valueOrZero(data.recordingCount));
+  recordingMetric.id = 'home-recording-count';
+  detailDataElement.appendChild(recordingMetric);
 }
 
 
@@ -4255,12 +4259,26 @@ function reportConnectionUnavailable() {
   if (connection && typeof connection.unavailable === 'function') connection.unavailable();
 }
 
+// First authenticated startup landmarks, relative to document navigation.
+function markHomeStartup(stage) {
+  try {
+    const perf = window.performance;
+    const name = 'vdr-suite:startup:' + stage;
+    if (perf && typeof perf.mark === 'function' &&
+        typeof perf.getEntriesByName === 'function' && !perf.getEntriesByName(name).length)
+      perf.mark(name);
+  } catch (_) { /* optional measurement must not block the UI */ }
+}
+
 function loadBackendDetails(backend) {
+  const sequence = ++backendDetailSequence;
   resetMediaImportVisibility(false);
   selectedBackend = backend;
   const selector = backend.frontendSelector || backend;
   const backendId = selector.id || backend.backendId || 'default';
+  currentSnapshot = null;
   markSelected(backendId);
+  markHomeStartup('backend-selected');
   selectModule('overview');
   refreshMediaImportVisibility(backendId);
   refreshDetailButton.disabled = true;
@@ -4279,16 +4297,49 @@ function loadBackendDetails(backend) {
     return;
   }
 
-  clientApi.fetchClientBackendSnapshot(backendId, {
+  const current = () => sequence === backendDetailSequence &&
+    browserSessionFrontendActive && selectedBackend === backend && selectedBackendId === backendId;
+  let rendered = false;
+  function renderReady(data) {
+    if (!current()) return;
+    markHomeStartup('snapshot-ready');
+    currentSnapshot = data;
+    detailMetaElement.textContent = 'Details für ' + (selector.label || backend.backendName || backendId);
+    renderSelectedModule(data);
+    refreshDetailButton.disabled = false;
+    rendered = true;
+    if (selectedModule === 'overview') {
+      markHomeStartup('home-controls-ready');
+      // Two frames give a paint opportunity, not a compositor timestamp.
+      if (typeof window.requestAnimationFrame === 'function')
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+          if (current() && selectedModule === 'overview' &&
+              document.visibilityState !== 'hidden' &&
+              detailDataElement.getClientRects && detailDataElement.getClientRects().length)
+            markHomeStartup('home-frame');
+        }));
+    }
+  }
+  return clientApi.fetchClientBackendSnapshot(backendId, {
     cache: 'no-store'
+  }, snapshot => {
+    // The lightweight snapshot's provisional total is not the inventory.
+    if (snapshot && typeof snapshot === 'object')
+      renderReady(Object.assign({}, snapshot, {recordingCountPending: true}));
   })
     .then(data => {
-      currentSnapshot = data;
-      detailMetaElement.textContent = 'Details für ' + (selector.label || backend.backendName || backendId);
-      renderSelectedModule(data);
-      refreshDetailButton.disabled = false;
+      if (!current()) return;
+      if (!rendered) renderReady(data);
+      else {
+        currentSnapshot = data;
+        const metric = selectedModule === 'overview' && document.getElementById('home-recording-count');
+        if (metric && metric.firstElementChild)
+          metric.firstElementChild.textContent = String(valueOrZero(data.recordingCount));
+      }
+      markHomeStartup('recording-count-settled');
     })
     .catch(error => {
+      if (!current()) return;
       if (error && error.name === 'TypeError') reportConnectionUnavailable();
       currentSnapshot = null;
       detailMetaElement.className = 'detail-meta error';
@@ -4539,6 +4590,7 @@ function synchronizeBrowserSessionFrontend(sessionState) {
   }
 
   browserSessionFrontendActive = true;
+  if (typeof markHomeStartup === 'function') markHomeStartup('session-ready');
   loadBackendSelection();
   return true;
 }

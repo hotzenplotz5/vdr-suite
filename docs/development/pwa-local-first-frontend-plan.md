@@ -906,3 +906,33 @@ JavaScript syntax and a simulated request-grammar test are separate from
 full Node, C++, native browser and yaVDR acceptance, which remain open.
 IPTVnator remains the perceived-speed benchmark, not a verified comparison
 of equivalent EPG workloads. PWA.13.3 and controlled PWA.14 timing remain open.
+
+## PWA.13.3 — critical startup path and measured landmarks (2026-11-19)
+
+PWA.13.2 source candidate `14b2f64e256374b18f2fb0ef23ad195801c14b6e`;
+last operator-confirmed installation PWA.13.1. No new daemon changes here.
+The existing Client API starts the canonical backend snapshot and matching
+Recording-cache status in parallel, but previously awaited both before the
+App could render and enable controls. Preserve both reads, count authority
+and fallback; add an optional early callback for the authenticated snapshot.
+The App renders once, shows a pending count rather than a misleading zero,
+and patches only that metric after status settles. Backend/session changes
+fence delayed results; a late count does not remount another module or Home.
+The lightweight snapshot, Home cache, SSE and API routes remain unchanged.
+No extra request, cache purge, new permission or poll. This removes one
+response from the render barrier, not from total request volume.
+
+Navigation-relative User Timing marks record session readiness, backend
+selection, snapshot readiness, Home controls readiness, a two-frame render
+opportunity in a visible document and count settlement. The existing opt-in
+buffered diagnostic exports these and browser first paint/FCP where supported;
+missing evidence is null. Controls-ready does not mean all rails/images are
+loaded or Lighthouse TTI. The frame marker is not a compositor timestamp.
+Compare fresh navigations with the same authenticated starting state; do not
+mix session transitions or substitute capture duration for startup timing.
+No identifiers are exported. Existing App/Client API and diagnostics tests
+are extended for pending/failed count, module/backend changes, logout and
+reported landmarks. Real browser performance and native test execution
+remain open. Further metadata/request reductions require attributable traces;
+no speculative request deletion. PWA.14 compares cold/warm browser/PWA
+startup and functional parity against the perceived-speed goal (IPTVnator).

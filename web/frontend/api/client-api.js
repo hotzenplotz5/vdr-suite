@@ -579,12 +579,16 @@
     return requestJson('/api/backends/default', options);
   }
 
-  function fetchClientBackendSnapshot(backendId, options) {
+  function fetchClientBackendSnapshot(backendId, options, onSnapshot) {
     const id = backendId ? String(backendId) : 'default';
     const snapshotRequest = requestJson(
       '/api/backends/' + encodeURIComponent(id) + '/snapshot',
       options
-    );
+    ).then(function (snapshot) {
+      // Optional early delivery; the returned Promise retains count composition.
+      if (typeof onSnapshot === 'function') onSnapshot(snapshot);
+      return snapshot;
+    });
     const recordingStatusRequest = fetchClientRecordingCacheStatus(
       Object.assign({}, normalizeOptions(options), {backendId: id})
     ).catch(function () {

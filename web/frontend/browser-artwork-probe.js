@@ -161,6 +161,30 @@
       resourceDiagnostics: summarizeResources(entries, baseUrl)
     };
   }
+  function startupTiming(perf) {
+    const result = { basis: 'document navigation start', firstPaintMs: null,
+      firstContentfulPaintMs: null, sessionReadyMs: null, backendSelectedMs: null,
+      snapshotReadyMs: null, homeControlsReadyMs: null, homeFrameMs: null,
+      recordingCountSettledMs: null, homeControlsAfterSessionMs: null };
+    if (!perf || typeof perf.getEntriesByName !== 'function') return result;
+    function value(name, type) {
+      const entries = perf.getEntriesByName(name, type);
+      const start = entries && entries[0] && entries[0].startTime;
+      return Number.isFinite(start) && start >= 0 ? Math.round(start * 10) / 10 : null;
+    }
+    result.firstPaintMs = value('first-paint', 'paint');
+    result.firstContentfulPaintMs = value('first-contentful-paint', 'paint');
+    for (const [stage, field] of [
+      ['session-ready', 'sessionReadyMs'], ['backend-selected', 'backendSelectedMs'],
+      ['snapshot-ready', 'snapshotReadyMs'], ['home-controls-ready', 'homeControlsReadyMs'],
+      ['home-frame', 'homeFrameMs'], ['recording-count-settled', 'recordingCountSettledMs']
+    ]) result[field] = value('vdr-suite:startup:' + stage, 'mark');
+    if (result.sessionReadyMs !== null && result.homeControlsReadyMs !== null &&
+        result.homeControlsReadyMs >= result.sessionReadyMs)
+      result.homeControlsAfterSessionMs = Math.round((result.homeControlsReadyMs - result.sessionReadyMs) * 10) / 10;
+    return result;
+  }
+
   function createProbe(env) {
     const win = env || root;
     const doc = win.document;
@@ -223,6 +247,7 @@
         metrics: summarize(session.resources, current, session.getMutations(), session.tasks, win.location.href),
         completeImages: current.filter(function (image) { return image.complete && image.width > 0; }).length,
         lazyImages: current.filter(function (image) { return image.loading === 'lazy'; }).length,
+        ...(session.buffered ? {startupTiming: startupTiming(perf)} : {}),
         railScrollBefore: session.initialScroll,
         railScrollAfter: railScroll()
       };
@@ -250,6 +275,6 @@
     function report() { return JSON.parse(JSON.stringify(captures)); }
     return { start: start, stop: stop, report: report, inspectHeaders: inspectHeaders };
   }
-  if (typeof module === 'object' && module.exports) module.exports = { summarize: summarize, summarizeResources: summarizeResources, createProbe: createProbe };
+  if (typeof module === 'object' && module.exports) module.exports = { summarize: summarize, summarizeResources: summarizeResources, createProbe: createProbe, startupTiming: startupTiming };
   else root.VdrSuiteArtworkProbe = createProbe(root);
 })(typeof window !== 'undefined' ? window : globalThis);

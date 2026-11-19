@@ -98,7 +98,7 @@ Backend selection:
 
 - `fetchClientBackends`
 - `fetchClientDefaultBackend`
-- `fetchClientBackendSnapshot`
+- `fetchClientBackendSnapshot` — returns the existing count-composed snapshot with raw-snapshot fallback on status failure. An optional third argument callback receives the authorized raw snapshot before count completion; the Home owner renders a pending count and updates only that metric after settlement. No additional request.
 
 EPG:
 

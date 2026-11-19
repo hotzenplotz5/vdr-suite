@@ -2,7 +2,7 @@
 
 ## PWA / Home performance — next frontend priority (19.11.2026)
 
-**PWA.13.2 = source candidate; scoped persistent EPG Hero and metadata artwork, independent epg.view proof and bounded original-byte caching. PWA.13.1 installed on yaVDR at `c125d6c` (operator reports PWA131_INSTALLATION=PASS). PWA.13.2 exact regression/build/deployment and real browser acceptance open; PWA.13.3 critical path and PWA.14 remain open. PWA.9 / real warm performance remains FAILED / OPEN.**
+**PWA.13.3 = source candidate; authorized snapshot renders before Recording-cache status, count patched in place, navigation-relative startup timing. PWA.13.2 candidate `14b2f64` (native build/deployment open); PWA.13.1 operator-installed PASS. PWA.14 real cold/warm browser/PWA acceptance remains OPEN.**
 The maintainer prioritizes local client caching and optional PWA installation
 for the existing Webfrontend, including ordinary browser use. See
 [PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.
