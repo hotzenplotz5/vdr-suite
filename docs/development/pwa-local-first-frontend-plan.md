@@ -995,3 +995,9 @@ two-argument snapshot signature. Updated the actual wrapper assertion to
 recognize the optional callback and check the canonical request inside that
 wrapper; no product code, route, ownership or permission changes. Native
 full guard/installation still require confirmation.
+
+Operator confirmed the corrected ownership and platform guards passed; the next
+Home shell test still required the old synchronous count expression. Replaced
+those string assertions with execution of the actual metric rendering owner
+(pending snapshot, pending count, confirmed zero), and exercised canonical
+module navigation before a snapshot and after logout. Product code unchanged.
