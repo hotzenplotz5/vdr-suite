@@ -36,6 +36,12 @@ bool metadataImagePath(const std::string& path)
         path == "/api/recordings/metadata/image";
 }
 
+bool epgImagePath(const std::string& path)
+{
+    return path == "/api/epg/cache/artwork" ||
+        path == "/api/epg/cache/metadata/image";
+}
+
 void applyPreview(const ArtworkPreviewCache& cache, const HttpServerRequest& request,
                   const RestQueryParameters& query, HttpServerResponse& response)
 {
@@ -49,6 +55,7 @@ void applyPreview(const ArtworkPreviewCache& cache, const HttpServerRequest& req
     response.headers.erase("Content-Length");
     response.headers.erase("Content-Encoding");
     response.headers.erase("ETag");
+    response.headers.erase("Last-Modified");
 }
 }
 
@@ -86,7 +93,7 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
     const std::string path = requestPath(request.path);
     const RestQueryParameters query = RestQueryParameters::parse(requestQueryString(request.path));
     if (request.method == "GET" && delegated.statusCode != 401 && delegated.statusCode != 403 &&
-        (metadataImagePath(path) || artworkService_->handlesPath(path)) &&
+        (metadataImagePath(path) || epgImagePath(path) || artworkService_->handlesPath(path)) &&
         query.has("variant") && query.get("variant") != "home")
     {
         HttpServerResponse invalid;
@@ -95,6 +102,15 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
         invalid.headers["Cache-Control"] = "no-store";
         invalid.body = "{\"error\":\"unsupported artwork variant\"}";
         return invalid;
+    }
+
+    // Only transform the response of the existing authenticated EPG owner.
+    // The direct artwork compatibility fallback below still owns its 404 path.
+    if (request.method == "GET" && epgImagePath(path) &&
+        delegated.statusCode == 200)
+    {
+        applyPreview(previews_, request, query, delegated);
+        return delegated;
     }
 
     if (request.method == "GET" &&
@@ -140,6 +156,7 @@ HttpServerResponse RecordingArtworkHttpServer::handleRequest(
             response.statusCode == 200
                 ? "private, max-age=300"
                 : "no-store";
+        applyPreview(previews_, request, query, response);
         return response;
     }
 

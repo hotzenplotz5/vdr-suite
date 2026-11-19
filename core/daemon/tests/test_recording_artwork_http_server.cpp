@@ -15,10 +15,24 @@
 namespace
 {
 
-class AuthenticationBoundaryServer : public IHttpServer
+class AuthenticationBoundaryServer : public IHttpServer, public IEpgArtworkHttpProvider
 {
 public:
     std::string metadataImage;
+    HttpServerResponse getEpgArtwork(const std::string& backend,
+        const std::string& channel, const std::string& event) const override
+    {
+        HttpServerResponse response;
+        if (backend != "default" || channel != "C1" || event != "42")
+        {
+            response.statusCode = 404;
+            return response;
+        }
+        response.statusCode = 200;
+        response.headers["Content-Type"] = "image/png";
+        response.body = metadataImage;
+        return response;
+    }
     HttpServerResponse handleRequest(
         const HttpServerRequest& request) const override
     {
@@ -46,13 +60,22 @@ public:
             return response;
         }
 
+        if (request.path.find("backend=forbidden") != std::string::npos)
+        {
+            response.statusCode = 403;
+            response.body = "forbidden";
+            return response;
+        }
         if (request.path.find("/api/vdr/recordings/metadata/image?") == 0 ||
-            request.path.find("/api/recordings/metadata/image?") == 0)
+            request.path.find("/api/recordings/metadata/image?") == 0 ||
+            request.path.find("/api/epg/cache/metadata/image?backend=default") == 0 ||
+            request.path.find("/api/epg/cache/artwork?backend=default&channelId=C2") == 0)
         {
             response.statusCode = 200;
             response.headers["Content-Type"] = "image/png";
             response.headers["Content-Length"] = std::to_string(metadataImage.size());
             response.headers["ETag"] = "original-tag";
+            response.headers["Last-Modified"] = "original-date";
             response.body = metadataImage;
             return response;
         }
@@ -195,7 +218,10 @@ int main()
     metadataDelegate->metadataImage = large.output;
     for (const std::string& url : {artworkUrl,
             std::string("/api/vdr/recordings/metadata/image?recordingId=7&kind=preferred"),
-            std::string("/api/recordings/metadata/image?recordingId=7&kind=preferred&assignmentRevision=9")}) {
+            std::string("/api/recordings/metadata/image?recordingId=7&kind=preferred&assignmentRevision=9"),
+            std::string("/api/epg/cache/metadata/image?backend=default&channelId=C1&eventId=42&kind=gallery&index=0"),
+            std::string("/api/epg/cache/artwork?backend=default&channelId=C1&eventId=42"),
+            std::string("/api/epg/cache/artwork?backend=default&channelId=C2&eventId=42")}) {
         authorized.path = url;
         const auto original = server.handleRequest(authorized);
         assert(original.statusCode == 200 && original.body == large.output);
@@ -206,7 +232,10 @@ int main()
         assert(resized.statusCode == 200 && resized.body.size() < original.body.size());
         assert(resized.headers.at("Content-Type") == "image/jpeg");
         assert(resized.headers.count("Content-Length") == 0 && resized.headers.count("ETag") == 0);
-        assert(resized.headers.at("Cache-Control") == original.headers.at("Cache-Control"));
+        assert(resized.headers.count("Last-Modified") == 0);
+        assert(resized.headers.count("Cache-Control") == original.headers.count("Cache-Control"));
+        if (original.headers.count("Cache-Control"))
+            assert(resized.headers.at("Cache-Control") == original.headers.at("Cache-Control"));
         assert(server.handleRequest(authorized).body == resized.body);
         unauthorized.path = authorized.path;
         assert(server.handleRequest(unauthorized).statusCode == 401);
@@ -214,6 +243,13 @@ int main()
             authorized.path = variantPrefix + "variant=" + invalid;
             assert(server.handleRequest(authorized).statusCode == 400);
         }
+    }
+    for (const auto* route : {"/api/epg/cache/artwork", "/api/epg/cache/metadata/image"})
+    {
+        authorized.path = std::string(route) + "?backend=forbidden&channelId=C1&eventId=42&variant=home";
+        assert(server.handleRequest(authorized).statusCode == 403);
+        authorized.path = std::string(route) + "?backend=missing&channelId=C1&eventId=42&variant=home";
+        assert(server.handleRequest(authorized).statusCode == 404);
     }
     authorized.path = "/recording-artwork/default/..%2fsecret?variant=home";
     assert(server.handleRequest(authorized).statusCode == 404);

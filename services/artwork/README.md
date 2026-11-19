@@ -1,7 +1,9 @@
 # Home artwork previews
 
-Home recording cards opt into `variant=home` on the existing recording-artwork
-and recording metadata image routes. The existing HTTP boundary first performs
+Home recording cards and Now/Next programme rail cards opt into `variant=home`
+on the existing recording-artwork, recording metadata image and legacy EPG cache
+artwork/metadata image routes. The large Live Hero, EPG detail and Public-v1
+artwork requests remain unchanged. The existing HTTP boundary first performs
 authentication, identity selection and allowed-root checks, then supplies the
 validated original bytes to its preview cache. No client path is passed to a
 decoder. Requests without the variant, including recording details, retain the
@@ -28,7 +30,7 @@ assignment revision), MIME type and actual source bytes. Every cache lookup
 therefore still validates and reads the source. Source replacement invalidates
 previews even with unchanged size or timestamps. Existing browser cache lifetimes
 and assignment revision semantics are retained; transformed responses discard
-the original content length and ETag.
+the original content length, ETag and Last-Modified.
 
 Resource limits: 16 MiB input, 40 million source pixels, 16384 pixels per source
 dimension, 512 KiB output, 768 MiB decoder address space, two CPU seconds and three
