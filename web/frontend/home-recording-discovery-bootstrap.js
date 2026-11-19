@@ -12,6 +12,12 @@
   const RAIL_SELECTOR = '.media-home-discovery-rail, .media-home-series-season-rail, .media-home-live-guide-rail';
   const RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';
   const RAIL_NEAR_END_THRESHOLD = 320;
+  const PREFETCH_START_DELAY_MS = 500;
+  // Optional speculative reads only; initial and user-driven reads keep
+  // their existing independent owners.
+  let pendingRailPrefetch = null;
+  let railPrefetchScheduled = false;
+  let railPrefetchRunning = false;
   const HERO_SELECTOR = '.media-home-hero.media-home-live-hero-active[data-home-zone="hero"]';
   const CATEGORY_SELECTOR = '.media-home-discovery-card.genre, .media-home-discovery-card.folder';
   const DRAG_CLASS = 'media-home-mouse-dragging';
@@ -84,13 +90,62 @@
     return target && typeof target.closest === 'function' ? target.closest(selector) : null;
   }
 
+  function railPrefetchAllowed() {
+    const session = global.VdrSuiteBrowserSession;
+    const owner = platform();
+    const net = global.navigator && global.navigator.connection;
+    return Boolean(session && typeof session.isAuthenticated === 'function' &&
+      session.isAuthenticated() && owner && typeof owner.getSelectedModule === 'function' &&
+      owner.getSelectedModule() === 'overview' && !(doc && doc.hidden) &&
+      (!global.navigator || global.navigator.onLine !== false) &&
+      (!net || (!net.saveData && !['slow-2g', '2g'].includes(net.effectiveType))));
+  }
+
+  function drainRailPrefetch() {
+    railPrefetchScheduled = false;
+    if (railPrefetchRunning) return;
+    const entry = pendingRailPrefetch;
+    pendingRailPrefetch = null;
+    if (!entry || !railPrefetchAllowed() || !entry.isCurrent()) return;
+    railPrefetchRunning = true;
+    Promise.resolve().then(function () {
+      if (railPrefetchAllowed() && entry.isCurrent()) return entry.run();
+      return false;
+    }).catch(function () { return false; }).then(function () {
+      railPrefetchRunning = false;
+      armRailPrefetch();
+    });
+  }
+
+  function armRailPrefetch() {
+    if (!pendingRailPrefetch || railPrefetchScheduled || railPrefetchRunning ||
+        typeof global.setTimeout !== 'function') return;
+    railPrefetchScheduled = true;
+    global.setTimeout(function () {
+      if (typeof global.requestIdleCallback === 'function')
+        global.requestIdleCallback(drainRailPrefetch, {timeout: 2000});
+      else drainRailPrefetch();
+    }, PREFETCH_START_DELAY_MS);
+  }
+
+  function scheduleRailPrefetch(isCurrent, run) {
+    if (!railPrefetchAllowed() || typeof isCurrent !== 'function' ||
+        typeof run !== 'function' || !isCurrent()) return false;
+    pendingRailPrefetch = {isCurrent, run};
+    armRailPrefetch();
+    return true;
+  }
+
   function railNearEnd(rail) {
     if (!rail) return false;
     const scrollWidth = Number(rail.scrollWidth) || 0;
     const clientWidth = Number(rail.clientWidth) || 0;
     const scrollLeft = Math.max(0, Number(rail.scrollLeft) || 0);
     if (clientWidth <= 0 || scrollWidth <= clientWidth) return false;
-    return scrollWidth - scrollLeft - clientWidth <= RAIL_NEAR_END_THRESHOLD;
+    const classes = String(rail.className || '').split(/\s+/);
+    const networkPaged = classes.includes('recent-movies') || classes.includes('media-home-live-guide-rail');
+    const threshold = networkPaged ? Math.max(RAIL_NEAR_END_THRESHOLD, Math.min(1200, clientWidth)) : RAIL_NEAR_END_THRESHOLD;
+    return scrollWidth - scrollLeft - clientWidth <= threshold;
   }
 
   function handleRailScroll(event) {
@@ -1129,6 +1184,7 @@
     loadWhenBackendReady: loadWhenBackendReady,
     installMouseDrag: installMouseDrag,
     nearEndEventName: RAIL_NEAR_END_EVENT,
+    scheduleRailPrefetch: scheduleRailPrefetch,
     __test: Object.freeze({
       canonicalSelectedBackendId: canonicalSelectedBackendId,
       railNearEnd: railNearEnd,

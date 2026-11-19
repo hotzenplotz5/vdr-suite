@@ -399,6 +399,8 @@
   const doc = global.document;
   const TITLE = 'Filme der letzten 5 Jahre';
   const LIMIT = 12;
+  const PREFETCH_LIMIT = 24;
+  const PREFETCH_MAX_AGE_MS = 30000;
   const WARM_RETURN_MS = 60000;
   const HOME_RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';
   const HOME_RESUME_EVENT = 'vdr-suite:home-resume';
@@ -415,6 +417,7 @@
     nextOffset: 0,
     total: 0,
     loadingMore: null,
+    prefetch: null,
     currentYear: 0,
     moreButton: null,
     nearEndBound: false
@@ -765,6 +768,7 @@
     state.backendId = backendId;
     state.completedAt = 0;
     state.loadingMore = null;
+    state.prefetch = null;
     const cacheOwner = global.VdrSuiteHomeCache;
     const cache = cacheOwner ? cacheOwner.begin('recent-movies', backendId, TITLE, function () {
       return browserSessionAuthenticated() && generation === state.generation &&
@@ -799,6 +803,7 @@
       if (state.loadingPromise === load) {
         state.loadingPromise = null;
         state.loadingBackendId = '';
+        if (result && currentLoad(backendId, generation)) scheduleMoviePrefetch();
       }
       return result;
     });
@@ -822,6 +827,37 @@
     return String(rail.className || '').split(/\s+/).includes(className);
   }
 
+  function scheduleMoviePrefetch() {
+    const bootstrap = global.VdrSuiteHomeRecordingDiscoveryBootstrap;
+    const cache = global.VdrSuiteHomeCache;
+    const backendId = state.backendId, generation = state.generation, offset = state.nextOffset;
+    if (!bootstrap || typeof bootstrap.scheduleRailPrefetch !== 'function' ||
+        !cache || typeof cache.captureRailFence !== 'function' || !state.completedAt ||
+        state.loadingPromise || state.loadingMore || state.prefetch ||
+        offset >= state.total || !currentLoad(backendId, generation)) return false;
+    const fence = cache.captureRailFence('recent-movies', backendId);
+    if (!fence) return false;
+    const valid = () => currentLoad(backendId, generation) && fence() &&
+      state.nextOffset === offset && !state.loadingPromise && !state.loadingMore && !state.prefetch;
+    return bootstrap.scheduleRailPrefetch(valid, function () {
+      const client = clientApi();
+      if (!valid() || !client) return false;
+      const entry = {offset, fence, receivedAt: 0, promise: null};
+      state.prefetch = entry;
+      entry.promise = fetchMoviePage(client, backendId, generation, state.currentYear,
+        offset, PREFETCH_LIMIT, null).then(function (page) {
+        if (!page || !currentLoad(backendId, generation) || !fence() ||
+            state.prefetch !== entry) return null;
+        entry.receivedAt = Date.now();
+        return page;
+      }).catch(function () { return null; }).then(function (page) {
+        if (!page && state.prefetch === entry) state.prefetch = null;
+        return page;
+      });
+      return entry.promise;
+    });
+  }
+
   function loadMoreMovies() {
     const backendId = state.backendId;
     const generation = state.generation;
@@ -833,8 +869,20 @@
     const sectionNode = target && target.querySelector('[data-home-discovery-rail="recent-movies"]');
     const rail = sectionNode && sectionNode.querySelector('.media-home-discovery-rail.recent-movies');
     if (!rail) return false;
-    const load = fetchMoviePage(client, backendId, generation, state.currentYear,
-      state.nextOffset, LIMIT, null).then(function (page) {
+    const offset = state.nextOffset;
+    const buffered = state.prefetch;
+    const fresh = () => buffered && buffered.offset === offset && buffered.fence() &&
+      (!buffered.receivedAt || Date.now() - buffered.receivedAt <= PREFETCH_MAX_AGE_MS);
+    const direct = () => currentLoad(backendId, generation)
+      ? fetchMoviePage(client, backendId, generation, state.currentYear, offset, LIMIT, null)
+      : Promise.resolve(null);
+    const request = fresh() ? buffered.promise.then(function (page) {
+      return page && fresh() && state.prefetch === buffered
+        ? page : direct();
+    }) : direct();
+    if (!fresh()) state.prefetch = null;
+    const load = request.then(function (page) {
+      if (state.prefetch === buffered) state.prefetch = null;
       if (!page || !currentLoad(backendId, generation) ||
           sectionNode.querySelector('.media-home-discovery-rail.recent-movies') !== rail) return false;
       const seen = new Set(state.movies.map(recordingId));
@@ -862,7 +910,11 @@
       return false;
     });
     state.loadingMore = load;
-    load.then(function () { if (state.loadingMore === load) state.loadingMore = null; });
+    load.then(function (result) {
+      if (state.loadingMore !== load) return;
+      state.loadingMore = null;
+      if (result) scheduleMoviePrefetch();
+    });
     return load;
   }
 
@@ -931,6 +983,7 @@
         state.loadingBackendId = '';
         state.loadingPromise = null;
         state.loadingMore = null;
+        state.prefetch = null;
         state.moreButton = null;
         state.nextOffset = state.total = 0;
         clear();
@@ -960,6 +1013,7 @@
       refreshForHome: refreshForHome,
       warmForBackend: warmForBackend,
       loadMoreMovies: loadMoreMovies,
+      scheduleMoviePrefetch: scheduleMoviePrefetch,
       handleRailNearEnd: handleRailNearEnd,
       positionBeforeSeries: positionBeforeSeries,
       openRecording: openRecording

@@ -236,7 +236,22 @@ function createHarness() {
     }
   };
   const folderClient = harness.folderClient(folderPages);
-  assert.strictEqual(await api.loadFolders(folderClient, 'default', 0), true);
+  const originalFetch = folderClient.fetchClientRecordingFolder;
+  let resolveTail;
+  folderClient.fetchClientRecordingFolder = function (request) {
+    if (request.query.offset !== 2) return originalFetch(request);
+    harness.folderCalls.push(request);
+    return new Promise(resolve => { resolveTail = resolve; });
+  };
+  const pendingFolders = api.loadFolders(folderClient, 'default', 0);
+  await Promise.resolve();
+  const earlySection = harness.host.querySelector('[data-home-discovery-rail="folders"]');
+  assert(earlySection, 'category rail renders before the root-recording tail');
+  assert.strictEqual(findElements(earlySection, el => el.dataset && el.dataset.folderPath).length, 2);
+  assert.strictEqual(findElements(earlySection, el => el.dataset && el.dataset.rootRecordingGroup === 'true').length, 0);
+  assert.strictEqual(typeof resolveTail, 'function');
+  resolveTail(folderPages[2]);
+  assert.strictEqual(await pendingFolders, true);
   assert.deepStrictEqual(harness.folderCalls.map((call) => call.query.offset), [0, 2]);
   assert(harness.folderCalls.every((call) => call.query.path === ''));
   assert(harness.folderCalls.every((call) => call.query.limit === 100));

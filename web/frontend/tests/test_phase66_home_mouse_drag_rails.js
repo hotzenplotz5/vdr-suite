@@ -230,7 +230,7 @@ liveGuideRail.clientWidth = 400;
 liveGuideRail.scrollLeft = 300;
 dispatch('scroll', liveGuideRail);
 assert.strictEqual(dispatchedEvents.length, 0);
-liveGuideRail.scrollLeft = 500;
+liveGuideRail.scrollLeft = 400;
 dispatch('scroll', liveGuideRail);
 assert.strictEqual(dispatchedEvents.length, 1);
 assert.strictEqual(dispatchedEvents[0].type, 'vdr-suite-home-rail-near-end');

@@ -373,6 +373,67 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
   assert.strictEqual(opened[0].recording.recordingId, 'newest');
   assert.strictEqual(opened[0].backendId, 'default');
 
+  // Composed production bootstrap and movie owner: only one speculative
+  // page, no premature poster DOM, demand consumes the same response.
+  const timers = [];
+  window.setTimeout = fn => { timers.push(fn); return timers.length; };
+  let fenceVersion = 1;
+  window.VdrSuiteHomeCache = {
+    begin() { return null; },
+    captureRailFence() { const v = fenceVersion; return () => v === fenceVersion; }
+  };
+  vm.runInContext(bootstrapSource, context);
+  const beforePrefetch = calls.length;
+  await api.refresh();
+  assert.strictEqual(calls.length, beforePrefetch + 1);
+  assert.strictEqual(calls.at(-1).query.limit, 12);
+  await timers.shift()();
+  for (let i = 0; i < 12; ++i) await Promise.resolve();
+  assert.strictEqual(calls.length, beforePrefetch + 2);
+  assert.strictEqual(calls.at(-1).query.limit, 24);
+  assert.strictEqual(calls.at(-1).query.offset, 12);
+  assert.strictEqual(findElements(movieSection, el => Boolean(el.dataset && el.dataset.recordingId)).length, 12);
+  assert.strictEqual(await api._test.loadMoreMovies(), true);
+  assert.strictEqual(calls.length, beforePrefetch + 2, 'scroll consumes buffered response without another HTTP request');
+  assert.strictEqual(findElements(movieSection, el => Boolean(el.dataset && el.dataset.recordingId)).length, 14);
+  await api.refresh();
+  await timers.shift()();
+  for (let i = 0; i < 12; ++i) await Promise.resolve();
+  ++fenceVersion;
+  const beforeInvalidated = calls.length;
+  assert.strictEqual(await api._test.loadMoreMovies(), true);
+  assert.strictEqual(calls.length, beforeInvalidated + 1, 'invalidated prefetch requires an authorized demand read');
+  // A demand arriving while lookahead is still in flight joins that read.
+  await api.refresh();
+  const originalFetch = client.fetchClientRecordings;
+  let releasePrefetch;
+  client.fetchClientRecordings = function (request) {
+    if (request.query.limit !== 24) return originalFetch(request);
+    calls.push(request);
+    return new Promise(resolve => {
+      releasePrefetch = () => resolve({recordings: allRecordings.slice(12), totalCount: allRecordings.length});
+    });
+  };
+  await timers.shift()();
+  for (let i = 0; i < 8; ++i) await Promise.resolve();
+  assert.strictEqual(typeof releasePrefetch, 'function');
+  const beforeJoin = calls.length;
+  const joined = api._test.loadMoreMovies();
+  assert.strictEqual(calls.length, beforeJoin);
+  releasePrefetch();
+  assert.strictEqual(await joined, true);
+  assert.strictEqual(calls.length, beforeJoin);
+  client.fetchClientRecordings = originalFetch;
+  for (let i = 0; i < 12; ++i) await Promise.resolve();
+  // Data Saver must never stop ordinary paging; it only suppresses lookahead.
+  window.navigator = {onLine: true, connection: {saveData: true}};
+  const beforeSaver = calls.length;
+  await api.refresh();
+  assert.strictEqual(calls.length, beforeSaver + 1);
+  assert.strictEqual(timers.length, 0);
+  assert.strictEqual(await api._test.loadMoreMovies(), true);
+  assert.strictEqual(calls.length, beforeSaver + 2);
+  assert.strictEqual(timers.length, 0);
   console.log('phase66 recent movies rail contract ok');
 }()).catch(function (error) {
   console.error(error);

@@ -1001,3 +1001,29 @@ Home shell test still required the old synchronous count expression. Replaced
 those string assertions with execution of the actual metric rendering owner
 (pending snapshot, pending count, confirmed zero), and exercised canonical
 module navigation before a snapshot and after logout. Product code unchanged.
+
+## PWA.13.6 — intelligent rail loading (2026-11-19)
+
+Operator confirmed PWA135_INSTALLATION=PASS at
+`6ca56e8bdbb0524d8689ca5d4339a1baf9f5fb0c`: native remaining Home tests,
+daemon build/install, staged frontend and runtime match, active service.
+Frontend-only. Newly-recorded, history, genres and Series already render
+independently; Series has bounded continuation after its first page. Keep
+those semantics. The existing shared rail bootstrap schedules one optional
+speculative read after 500 ms and a browser idle opportunity where supported
+(not a network-idle guarantee). Skip hidden, offline, data-saving/2G and
+unauthenticated contexts. Movies retain 12 initial cards and prefetch the
+next 24 into a 30-second memory buffer, not extra DOM or poster reads. A scroll
+or click coalesces with an in-flight prefetch or consumes the buffered response;
+failed, expired or invalidated buffers fall back to authorized demand reads.
+Use the existing Home-cache generation, scope and recording-domain fence;
+no new durable data or SSE. Subsequent demand schedules one bounded lookahead.
+Movie and EPG paging trigger up to one viewport before the edge (max 1200 px);
+time-sensitive EPG does not speculatively load at startup. Folder categories
+render from the first root page before remaining root recordings settle; only
+full completion exposes the root group/count and persists a complete cache.
+Keep valid categories if the tail fails. Artwork lazy loading remains intact.
+No daemon rebuild. Actual browser performance and PWA.14 remain open.
+
+The speculative fence also retires buffered reads permanently across an SSE
+transport error/reconnect. Data Saver disables prefetch, not demand reads.

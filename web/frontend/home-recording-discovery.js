@@ -1329,6 +1329,8 @@
     }
     const section = sectionFor('folders');
     if (!section) return false;
+    const previousNotice = directChildWithClass(section, 'media-home-root-tail-notice');
+    if (previousNotice) previousNotice.remove();
     const rail = ensureDiscoveryRail(
       section,
       'Aufnahmeordner',
@@ -4341,7 +4343,7 @@
     });
   }
 
-  function fetchRootFolderProjection(client, backendId, generation, cache) {
+  function fetchRootFolderProjection(client, backendId, generation, cache, onCategories) {
     const folders = [];
     const rootRecordings = [];
 
@@ -4378,6 +4380,8 @@
         if (!rawPage.length || nextOffset <= offset) {
           throw new Error('root folder pagination made no progress');
         }
+        if (offset === 0 && folders.length && typeof onCategories === 'function')
+          onCategories(folders.slice());
         return requestPage(nextOffset);
       });
     }
@@ -4993,7 +4997,16 @@
       renderState('folders', 'Aufnahmeordner', 'Aufnahmeordner werden geladen …', false);
     }
     const cache = beginCachedRail('folders', 'Aufnahmeordner', backendId, generation);
-    return fetchRootFolderProjection(client, backendId, generation, cache).then(function (projection) {
+    let partial = false;
+    return fetchRootFolderProjection(client, backendId, generation, cache, function (folders) {
+      if (retainVisible || !current(generation, backendId)) return;
+      // The first root page owns category entries. Never expose a partial
+      // root-recording group or persist an incomplete projection.
+      if (cache) cache.dismiss();
+      state.folderProjection = {folders: folders, rootRecordings: []};
+      state.folderBackendId = backendId;
+      partial = renderFolderRail(folders, [], backendId);
+    }).then(function (projection) {
       if (!current(generation, backendId)) { if (cache) cache.cancel(); return false; }
       if (cache) cache.finish(cachedFolderCards(projection));
       state.folderProjection = projection;
@@ -5016,6 +5029,17 @@
       if (cache) cache.cancel();
       if (!current(generation, backendId)) return false;
       if (retainVisible) return false;
+      if (partial) {
+        const target = sectionFor('folders');
+        if (target) {
+          const notice = doc.createElement('p');
+          notice.className = 'media-home-discovery-state media-home-root-tail-notice error';
+          notice.setAttribute('role', 'status');
+          notice.textContent = 'Hauptverzeichnis ist vorübergehend nicht vollständig verfügbar.';
+          target.appendChild(notice);
+        }
+        return false;
+      }
       state.folderProjection = {folders: [], rootRecordings: []};
       state.folderBackendId = '';
       state.randomFolderGeneration = generation;

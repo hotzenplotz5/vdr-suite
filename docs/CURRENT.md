@@ -2,7 +2,7 @@
 
 ## PWA / Home performance — next frontend priority (19.11.2026)
 
-**PWA.13.5 = source candidate; release-date ordered movie pagination with twelve initial cards and scroll-driven loading. PWA.13.4 operator-installed PASS; snapshot dispatch precedes Home resume, authenticated module navigation no longer waits for snapshot, pending metrics update independently; snapshot Resource Timing breakdown. PWA.13.2/.13.3 operator-installed PASS at `26149a168`; warm image caching works, startup remains above target. PWA.14 real cold/warm browser/PWA acceptance remains OPEN.**
+**PWA.13.6 = source candidate; bounded idle movie prefetch, viewport-ahead EPG/movie paging trigger, progressive folder categories. PWA.13.5 installation PASS at `6ca56e8b`; release-date ordered movie pagination with twelve initial cards and scroll-driven loading. PWA.13.4 operator-installed PASS; snapshot dispatch precedes Home resume, authenticated module navigation no longer waits for snapshot, pending metrics update independently; snapshot Resource Timing breakdown. PWA.13.2/.13.3 operator-installed PASS at `26149a168`; warm image caching works, startup remains above target. PWA.14 real cold/warm browser/PWA acceptance remains OPEN.**
 The maintainer prioritizes local client caching and optional PWA installation
 for the existing Webfrontend, including ordinary browser use. See
 [PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.

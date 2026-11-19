@@ -35,6 +35,7 @@
     const paint = config.paint || paintPreview;
     let backend = '';
     let generation = 0;
+    let prefetchEpoch = 0;
     let partition = '';
     const proofs = new Map();
     const payloads = new WeakMap();
@@ -72,6 +73,7 @@
     function liveEvent(type, event) {
       if (type === 'close') { closeCursor(); return false; }
       if (type === 'error') {
+        ++prefetchEpoch;
         awaitingInitialCursor = false;
         connected = false;
         for (const ticket of tickets.values()) ticket.dismiss();
@@ -172,6 +174,15 @@
     function sessionBoundary() {
       reset(true, 'session-boundary');
       closeCursor();
+    }
+    // Optional short-lived memory prefetch must remain in the same
+    // backend/session/grant and domain-change generation.
+    function captureRailFence(rail, requestedBackend) {
+      if (!active() || !partition || !RAIL_ROUTES[rail] || backend !== requestedBackend)
+        return null;
+      const local = generation, localPrefetch = prefetchEpoch, railVersion = version(rail), scope = partition;
+      return () => active() && generation === local && prefetchEpoch === localPrefetch &&
+        version(rail) === railVersion && backend === requestedBackend && partition === scope;
     }
     function requestStamp(path, requestedBackend) {
       if (!backend || !active() || backend !== requestedBackend) return null;
@@ -344,7 +355,7 @@
         });
       }
     }
-    return Object.freeze({selectBackend, sessionBoundary, requestStamp, observe, begin, liveEvent, suspend});
+    return Object.freeze({selectBackend, sessionBoundary, requestStamp, observe, begin, liveEvent, suspend, captureRailFence});
   }
 
   // The preview uses the same rail classes but no canonical data attributes,
@@ -421,6 +432,7 @@
     observe: (stamp, response, payload) => { const r = get(); if (r) r.observe(stamp, response, payload); },
     liveEvent: (type, event) => { const r = get(); return r ? r.liveEvent(type, event) : false; },
     suspend: () => { const r = get(); if (r) r.suspend(); },
-    begin: (...args) => { const r = get(); return r ? r.begin(...args) : null; }
+    begin: (...args) => { const r = get(); return r ? r.begin(...args) : null; },
+    captureRailFence: (...args) => { const r = get(); return r ? r.captureRailFence(...args) : null; }
   });
 }(window));
