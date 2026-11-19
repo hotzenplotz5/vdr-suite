@@ -401,6 +401,7 @@ int main()
   const int presentationEventsFd = openPresentationSubscription(
       path, 14, longDeadline, initialPresentationEvent);
   assert(initialPresentationEvent.payload.empty());
+  assert(server.SnapshotMetrics().executedByOperation[23] == 1);
 
   assert(server.PublishHbbtvPresentationChanged("session-a", 1));
   auto presentationEvent = receivePresentationEvent(presentationEventsFd);
@@ -423,6 +424,7 @@ int main()
   const int reconnectPresentationEventsFd = openPresentationSubscription(
       path, 15, longDeadline, reconnectPresentationEvent);
   assert(reconnectPresentationEvent.payload == "session-a\n3");
+  assert(server.SnapshotMetrics().executedByOperation[23] == 2);
   assert(server.PublishHbbtvPresentationChanged("session-b", 1));
   assert(receivePresentationEvent(reconnectPresentationEventsFd).payload ==
       "session-b\n1");

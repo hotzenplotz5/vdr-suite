@@ -451,6 +451,10 @@ void SuiteBridgeControlPlane::acceptLoop()
                 ? std::string()
                 : latestPresentationSessionId_ + "\n" +
                     std::to_string(latestPresentationFrameRevision_);
+        // The subscription is executed once registered. Publish its metric
+        // before acknowledging, just as the ordinary worker does, so a client
+        // receiving success cannot observe a missing execution.
+        ++executedByOperation_[operationIndex(request.operation)];
         // Register and acknowledge under the same lock so a new frame cannot
         // be published between the initial state and the live subscription.
         sendResult(
@@ -461,7 +465,6 @@ void SuiteBridgeControlPlane::acceptLoop()
             payload,
             "hbbtv_presentation_subscribed");
       }
-      ++executedByOperation_[operationIndex(request.operation)];
       continue;
     }
 
