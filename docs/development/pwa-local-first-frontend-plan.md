@@ -1154,3 +1154,24 @@ IPTVnator/Plex remain perceived-speed targets, not measured equivalents.
 The focused preview integration test now uses the actual category-click path,
 holds the demand response, verifies the visual-only preview, then verifies
 its replacement by the canonical recording card and teardown on collapse.
+
+### PWA.14.7 — reuse the canonical Series presentation in recording folders
+
+Operator confirmed PWA1456_INSTALLATION=PASS and supplied three actual UI
+photos: upper Home Series covers, selected Battlestar Galactica with six
+season/special groups, and selected season with episode cards. The Series
+recording folder used different representative images and slower generic
+navigation. The same canonical Series model, cover selection, hierarchy,
+season buttons and episode card renderer now support a separate mounted
+folder surface with its own selection/scroll state. Scope by real recording
+path and backend; compare unique member count to the authoritative folder
+entry before replacing generic folder browsing. Unmatched or incomplete
+catalogs retain the existing combined-page path; individually matched
+non-leaf series subfolders can use the shared detail even with incomplete
+root coverage. No new API, storage, grant or series model. Cover/hierarchy
+writes stay in their existing owner. Both episode rails use the existing
+visible-first/adjacent-artwork priority pass on render and scroll. No image
+substitution or speculative offscreen requests detached from rendered cards.
+Actual first cold folder HTTP latency and cover latency have not been
+measured separately; those remain real-browser acceptance questions.
+Native frontend regression and real-browser acceptance pending.

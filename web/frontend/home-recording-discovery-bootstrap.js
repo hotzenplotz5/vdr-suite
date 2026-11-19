@@ -161,7 +161,9 @@
 
   function prioritizeFolderRail(rail) {
     const discovery = global.VdrSuiteHomeRecordingDiscovery;
-    if (rail && rail.closest && rail.closest('[data-home-inline-kind="folder"]') &&
+    const classes = String(rail && rail.className || '').split(/\s+/);
+    if (rail && ((rail.closest && rail.closest('[data-home-inline-kind="folder"]')) ||
+        classes.includes('series-episodes') || classes.includes('series')) &&
         discovery && typeof discovery.prioritizeInlineRailArtwork === 'function')
       discovery.prioritizeInlineRailArtwork(rail);
   }
@@ -360,6 +362,7 @@
 
   function removeExpansion(section) {
     const existing = findExpansion(section);
+    if (existing && typeof existing.__stopFolderSeries === 'function') existing.__stopFolderSeries();
     if (existing && typeof existing.__cancelFolderPreview === 'function') existing.__cancelFolderPreview();
     if (existing && typeof existing.__stopFolderArtwork === 'function') existing.__stopFolderArtwork();
     if (existing && typeof existing.remove === 'function') existing.remove();
@@ -675,27 +678,30 @@
       ? shared.decodeDisplayText(label) : label.replace(/_/g, ' ');
   }
 
-  function createInlineFolderCard(entry, onOpen) {
+  function createInlineFolderCard(entry, onOpen, backendId) {
     const path = folderPath(entry);
     const card = doc.createElement('button');
     card.type = 'button';
     card.className = 'media-home-discovery-card media-home-inline-folder';
     card.dataset.inlineFolderPath = path;
-    const artwork = createInlineArtwork({title: folderLabel(entry),
-      metadata:{presentation:{posterUrl:text(entry.representativePosterUrl)}}});
+    const discovery = global.VdrSuiteHomeRecordingDiscovery;
+    const series = discovery && typeof discovery.folderSeriesCard === 'function'
+      ? discovery.folderSeriesCard(entry, backendId) : null;
+    const artwork = createInlineArtwork({title: series ? series.title : folderLabel(entry),
+      metadata:{presentation:{posterUrl: series ? series.posterUrl : text(entry.representativePosterUrl)}}});
     card.appendChild(artwork);
 
     const copy = doc.createElement('span');
     copy.className = 'media-home-discovery-copy';
     const label = doc.createElement('strong');
-    label.textContent = folderLabel(entry);
+    label.textContent = series ? series.title : folderLabel(entry);
     const detail = doc.createElement('span');
     const total = Number(entry.totalCount || entry.count || entry.recordingCount || 0);
-    detail.textContent = total > 0 ? String(total) + ' Aufnahmen' : 'Ordner';
+    detail.textContent = series ? series.subtitle : total > 0 ? String(total) + ' Aufnahmen' : 'Ordner';
     copy.append(label, detail);
     card.appendChild(copy);
-    card.addEventListener('click', function () { onOpen(path); });
-    return {card: card, artwork: artwork, entry: entry};
+    card.addEventListener('click', function () { onOpen(path, entry); });
+    return {card: card, artwork: artwork, entry: entry, sharedSeries:Boolean(series)};
   }
 
   // The same canonical representative traversal as Recordings2, but only
@@ -797,7 +803,7 @@
     }
     expansion.__appendFolderArtwork = function (added) {
       if (!live()) return;
-      added = added.filter(item => typeof item.entry.representativePosterUrl !== 'string');
+      added = added.filter(item => !item.sharedSeries && typeof item.entry.representativePosterUrl !== 'string');
       if (observer) {
         added.forEach(item => { items.set(item.card, item); observer.observe(item.card); });
       } else {
@@ -1042,7 +1048,7 @@
     const rail = doc.createElement('div');
     rail.className = 'media-home-discovery-rail media-home-inline-rail';
     const folderCards = result.folders.map(function (entry) {
-      const item = createInlineFolderCard(entry, openFolderPathInline);
+      const item = createInlineFolderCard(entry, openFolderPathInline, backendId);
       rail.appendChild(item.card);
       return item;
     });
@@ -1184,15 +1190,15 @@
     }
     if (paging.notice) { paging.notice.remove(); paging.notice = null; }
     const addedFolders = [];
+    const backendId = paging.backendId;
     page.folders.forEach(function (entry) {
       const key = 'f:' + folderPath(entry);
       if (paging.seen.has(key)) return;
       paging.seen.add(key);
-      const item = createInlineFolderCard(entry, openFolderPathInline);
+      const item = createInlineFolderCard(entry, openFolderPathInline, backendId);
       paging.rail.appendChild(item.card);
       addedFolders.push(item);
     });
-    const backendId = paging.backendId;
     page.recordings.forEach(function (recording) {
       const key = 'r:' + recordingId(recording);
       if (paging.seen.has(key)) return;
@@ -1291,7 +1297,7 @@
     return loadMoreFolderCards(paging);
   }
 
-  function openFolderPathInline(path) {
+  function openFolderPathInline(path, entry, generic = false) {
     const state = inline.folder;
     const client = clientApi();
     const backendId = state.backendId || selectedBackendId();
@@ -1316,6 +1322,26 @@
       nextPath !== rootPath ? '← ' + pathLeaf(parentPath(nextPath) || rootPath) : '',
       nextPath !== rootPath ? function () { openFolderPathInline(parentPath(nextPath) || rootPath); } : null
     );
+    const discovery = global.VdrSuiteHomeRecordingDiscovery;
+    const currentEntry = nextPath === rootPath ? () => card.__vdrSuiteFolderEntry : () => entry;
+    const count = () => {
+      const value = currentEntry();
+      return Number(value && (value.totalCount || value.count || value.recordingCount) || 0);
+    };
+    const stillCurrent = () => state.request === request && state.path === nextPath &&
+      selectedBackendId() === backendId && findExpansion(section) === expansion &&
+      expansion.isConnected !== false &&
+      (!global.VdrSuiteBrowserSession || global.VdrSuiteBrowserSession.isAuthenticated()) &&
+      (!platform() || typeof platform().getSelectedModule !== 'function' || platform().getSelectedModule() === 'overview');
+    if (!generic && discovery && typeof discovery.mountFolderSeries === 'function' &&
+        discovery.mountFolderSeries(expansion, nextPath, backendId, {
+          count, current:stillCurrent, direct:nextPath !== rootPath,
+          back:() => openFolderPathInline(parentPath(nextPath) || rootPath),
+          fallback:() => { if (stillCurrent()) openFolderPathInline(nextPath, entry, true); }
+        })) {
+      releaseFolderHeight(expansion);
+      return Promise.resolve(true);
+    }
     if (state.paged) return openPagedFolder(client, backendId, nextPath, request, expansion);
     renderInlineState(expansion, 'Ordnerinhalt wird geladen …', false);
 

@@ -714,6 +714,22 @@ function wait(milliseconds) {
   clickElement(warmCard);
   assert.strictEqual(currentWarm(),false);
   client.fetchClientRecordingFolder = originalFolderFetch;
+  const seriesCard=makeCard('folder','Serien','Serien');
+  seriesCard.__vdrSuiteFolderEntry={path:'Serien',recordingCount:464};
+  const seriesSection=makeSection('folders',seriesCard);
+  let mounted=0, stopped=0;
+  window.VdrSuiteHomeRecordingDiscovery={mountFolderSeries(expansion,path,backend,config) {
+    assert.strictEqual(path,'Serien'); assert.strictEqual(backend,'backend-a');
+    assert.strictEqual(config.count(),464); assert(config.current());
+    expansion.__stopFolderSeries=()=>{stopped++;}; mounted++; return true;
+  }};
+  const beforeSeries=folderCalls.length;
+  clickElement(seriesCard); await settle();
+  assert.strictEqual(mounted,1);
+  assert.strictEqual(folderCalls.length,beforeSeries,'complete series model needs no duplicate folder HTTP read');
+  clickElement(seriesCard);
+  assert.strictEqual(stopped,1);
+  assert.strictEqual(seriesSection.querySelector('.media-home-inline-expansion'),null);
   console.log('phase66 Home inline genre native metadata, paginated folder and preview contract ok');
 }()).catch(error => {
   console.error(error);
