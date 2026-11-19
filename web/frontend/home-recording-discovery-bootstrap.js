@@ -696,6 +696,10 @@
     }
 
     const settled = new Array(recordings.length);
+    recordings.forEach(function (recording, index) {
+      const cardMetadata = recording.nativeCardMetadata;
+      if (cardMetadata && cardMetadata.available === true) settled[index] = cardMetadata;
+    });
     let cursor = 0;
     let published = 0;
 
@@ -719,6 +723,7 @@
 
     function worker() {
       if (!stillCurrent()) return Promise.resolve();
+      while (cursor < recordings.length && settled[cursor] !== undefined) cursor += 1;
       const index = cursor;
       cursor += 1;
       if (index >= recordings.length) return Promise.resolve();
@@ -746,6 +751,7 @@
       });
     }
 
+    publishReady();
     const workers = [];
     const workerCount = Math.min(INLINE_METADATA_CONCURRENCY, recordings.length);
     for (let index = 0; index < workerCount; index += 1) workers.push(worker());

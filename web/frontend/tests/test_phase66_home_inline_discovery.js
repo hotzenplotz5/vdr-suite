@@ -292,7 +292,7 @@ const genreRecordings = [
   recording('r3', 'Action Drei'),
   recording('r4', 'Action Vier'),
   recording('r5', 'Action Fünf'),
-  recording('r6', 'Action Sechs')
+  Object.assign(recording('r6', 'Action Sechs'), {nativeCardMetadata: richMetadata('native-r6')})
 ];
 
 const client = {
@@ -470,14 +470,16 @@ function wait(milliseconds) {
   genreExpansion = genreSection.querySelector('.media-home-inline-expansion');
   const genreCards = genreExpansion.querySelectorAll('.media-home-discovery-card.recording');
   assert.strictEqual(genreCards.length, genreRecordings.length);
-  assert.strictEqual(metadataCalls.length, genreRecordings.length);
+  assert.strictEqual(metadataCalls.length, genreRecordings.length - 1);
   assert.strictEqual(maximumActiveMetadata, 4, 'inline native metadata reads must stay bounded to four concurrent requests');
   assert.deepStrictEqual(
     metadataCalls.map(call => call.query.backendNativeId),
-    genreRecordings.map(item => item.backendNativeId),
+    genreRecordings.slice(0, -1).map(item => item.backendNativeId),
     'native metadata must be resolved in canonical genre order'
   );
 
+  assert.strictEqual(genreCards[5].querySelector('strong').textContent, 'Kanonisch R6');
+  assert.strictEqual(genreCards[5].querySelector('img').src, nativeImageUrl('r6', 'gallery', 1));
   const firstRecording = genreCards[0];
   assert.strictEqual(firstRecording.dataset.recordingId, 'r1');
   assert.strictEqual(firstRecording.querySelector('strong').textContent, 'Kanonisch R1');

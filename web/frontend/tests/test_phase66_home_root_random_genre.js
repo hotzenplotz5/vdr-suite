@@ -297,6 +297,7 @@ function createHarness() {
     backendNativeId: 'native-drama-' + String(index + 1),
     title: 'Drama ' + String(index + 1)
   }));
+  dramaRecordings[0].nativeCardMetadata = {available: true, title: 'Cached Drama 1'};
   const genreClient = harness.genreClient(dramaRecordings);
   assert.strictEqual(await api.loadRandomGenre(
     genreClient,
@@ -315,8 +316,8 @@ function createHarness() {
   assert.strictEqual(harness.genreCalls[0].offset, 0);
   assert.strictEqual(
     harness.metadataCalls.length,
-    12,
-    'random-genre artwork enrichment must stay bounded to the 12 visible recordings'
+    11,
+    'random-genre artwork enrichment must skip embedded card metadata and remain bounded'
   );
   const randomSection = harness.host.querySelector('[data-home-discovery-rail="random-genre"]');
   assert(randomSection);
@@ -329,6 +330,7 @@ function createHarness() {
   const firstRandomCard = findElement(randomRail, (element) =>
     element.dataset && element.dataset.recordingId === 'drama-1');
   assert(firstRandomCard);
+  assert.strictEqual(textNodes(firstRandomCard, 'Cached Drama 1').length, 1);
   const firstArtwork = findElement(firstRandomCard, (element) =>
     String(element.className).split(/\s+/).includes('media-home-discovery-artwork'));
   assert(firstArtwork);

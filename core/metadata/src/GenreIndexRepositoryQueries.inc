@@ -300,9 +300,13 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
         "n.preferred_artwork_path<>'',"
         "(SELECT a.ordinal FROM vdr_recording_native_artwork a "
         "WHERE a.backend_id=n.backend_id AND a.recording_key=n.recording_key "
-        "AND a.orientation='portrait' AND a.path<>'' ORDER BY a.ordinal LIMIT 1) "
+        "AND a.orientation='portrait' AND a.path<>'' ORDER BY a.ordinal LIMIT 1),n.media_type,"
+        "NOT EXISTS (SELECT 1 FROM suite_metadata_target_bindings b "
+        "JOIN suite_metadata_assignments ma ON ma.metadata_target_id=b.metadata_target_id "
+        "WHERE b.backend_id=n.backend_id AND b.target_type='recording' AND b.resource_key=n.recording_key "
+        "AND ma.assignment_state='selected' AND ma.manual_assignment=1 AND ma.relationship_locked=1) "
         "FROM vdr_recording_native_metadata n WHERE n.backend_id=? "
-        "AND n.content_state='found' AND n.media_type IN ('series','episode') "
+        "AND n.content_state='found' "
         "AND n.backend_native_id IN (";
     for (std::size_t index = 0; index < page.recordings.size(); ++index)
         summarySql += index == 0 ? "?" : ",?";
@@ -319,7 +323,10 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
             for (auto& item : page.recordings)
             {
                 if (item.backendNativeId != nativeId) continue;
-                item.seriesMetadataAvailable = true;
+                const std::string mediaType = columnText(summary, 9);
+                item.nativeCardMetadataAvailable = sqlite3_column_int(summary, 10) != 0;
+                item.nativeCardMediaType = mediaType;
+                item.seriesMetadataAvailable = mediaType == "series" || mediaType == "episode";
                 item.seriesTitle = columnText(summary, 1);
                 item.seriesProvider = columnText(summary, 2);
                 item.seriesProviderId = sqlite3_column_int64(summary, 3);
@@ -354,6 +361,7 @@ GenreRecordingPage GenreIndexRepository::recordingsByGenre(
             {
                 if (item.backendNativeId != columnText(manual, 0)) continue;
                 const std::string mediaType = columnText(manual, 4);
+                item.nativeCardMetadataAvailable = false;
                 item.seriesMetadataAvailable = mediaType == "series" || mediaType == "episode";
                 item.seriesTitle = columnText(manual, 1);
                 item.seriesProvider = "manual";

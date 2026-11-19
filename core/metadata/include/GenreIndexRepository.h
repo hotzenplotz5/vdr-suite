@@ -82,6 +82,10 @@ struct GenreRecordingItem
     int durationSeconds = 0;
     std::int64_t sizeMb = 0;
     std::string metadataPayload;
+    // Compact native card presentation from the same page-scoped cache read.
+    // Locked manual assignments must continue to use their canonical owner.
+    bool nativeCardMetadataAvailable = false;
+    std::string nativeCardMediaType;
     // Cached native Series summary; no resolver or per-recording HTTP reads.
     bool seriesMetadataAvailable = false;
     std::string seriesTitle;

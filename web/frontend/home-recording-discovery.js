@@ -1189,7 +1189,8 @@
       const nativeId = recordingBackendNativeId(recording);
       const projected = recordingMetadataProjection(
         recording,
-        rich && nativeId ? rich.get(nativeId) || null : null,
+        (rich && nativeId ? rich.get(nativeId) : null) ||
+          (key === 'random-genre' ? recording.nativeCardMetadata : null),
         recordingBackendId(recording, backendId),
         key === 'newly-recorded'
       );
@@ -4538,10 +4539,13 @@
         );
         positionRandomGenreRail();
 
-        if (client && typeof client.requestJson === 'function') {
+        const pendingRecordings = recordings.filter(function (recording) {
+          return !recording.nativeCardMetadata || recording.nativeCardMetadata.available !== true;
+        });
+        if (pendingRecordings.length && client && typeof client.requestJson === 'function') {
           fetchSeriesRecordingMetadata(
             client,
-            recordings,
+            pendingRecordings,
             backendId,
             generation,
             function (rich) {
