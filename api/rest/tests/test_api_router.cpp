@@ -1613,7 +1613,7 @@ int main()
            == std::string::npos);
 
     const ApiResponse recentMovieQueryResponse = router.handleGet(
-        "/api/vdr/recordings/query?movieReleaseYearFrom=2022&movieReleaseYearTo=2026&limit=100");
+        "/api/vdr/recordings/query?movieReleaseYearFrom=2022&movieReleaseYearTo=2026&sort=movieReleaseDate&order=desc&limit=12");
     assert(recentMovieQueryResponse.statusCode == 200);
     assert(recentMovieQueryResponse.body.find("\"totalCount\":0") != std::string::npos);
 

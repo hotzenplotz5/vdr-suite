@@ -196,29 +196,22 @@ const currentYearMovies = Array.from({length: 12}, (_, index) => {
   const day = String(index + 1).padStart(2, '0');
   return movie('current-' + day, String(currentYear) + '-05-' + day, '2026-05-' + day + 'T20:00:00', 'Aktuell ' + day);
 });
-const pageOne = [
-  movie('outside', String(currentYear - 5) + '-12-31', '2026-08-01T20:00:00', 'Zu alt'),
-  nonMovie('series', 'series-episode', String(currentYear) + '-02-02'),
+const allRecordings = [
   movie('newest', String(currentYear) + '-06-01', '2026-07-01T20:00:00', 'Neu'),
-  nonMovie('unknown', 'unknown', String(currentYear) + '-01-01'),
-  movie('invalid-date', String(currentYear) + '-02-30', '2026-06-01T20:00:00', 'Ungültig')
-].concat(currentYearMovies);
-const pageTwo = [
-  movie('boundary', String(currentYear - 4), '2025-04-01T20:00:00', 'Grenze'),
-  movie('future', String(currentYear + 1) + '-01-01', '2026-05-01T20:00:00', 'Zukunft'),
-  movie('no-year', '', '2026-04-01T20:00:00', 'Ohne Jahr')
+  ...currentYearMovies.slice().reverse(),
+  movie('boundary', String(currentYear - 4), '2025-04-01T20:00:00', 'Grenze')
 ];
-const allRecordings = pageOne.concat(pageTwo);
-
+let failNext = false;
 const client = {
   fetchClientRecordings(request) {
     calls.push(request);
     const offset = Number(request.query.offset || 0);
-    const recordings = offset === 0 ? pageOne : (offset === pageOne.length ? pageTwo : []);
+    if (failNext) { failNext = false; return Promise.reject(new Error('unavailable')); }
+    const recordings = allRecordings.slice(offset, offset + request.query.limit);
     return Promise.resolve({
       recordings,
       totalCount: allRecordings.length,
-      limit: recordings.length,
+      limit: request.query.limit,
       offset
     });
   }
@@ -302,8 +295,9 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
   );
   await Promise.all([initialLoad, duplicateDirectLoad, coalescedLoad]);
 
-  assert.deepStrictEqual(calls.map((call) => call.query.offset), [0, pageOne.length]);
-  assert(calls.every((call) => call.query.limit === 100));
+  assert.deepStrictEqual(calls.map((call) => call.query.offset), [0]);
+  assert(calls.every((call) => call.query.limit === 12));
+  assert(calls.every((call) => call.query.sort === 'movieReleaseDate' && call.query.order === 'desc'));
   assert(calls.every((call) => call.query.backend === 'default'));
   assert(calls.every((call) => call.query.movieReleaseYearFrom === new Date().getFullYear() - 4));
   assert(calls.every((call) => call.query.movieReleaseYearTo === new Date().getFullYear()));
@@ -337,7 +331,17 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
     String(element.className || '').split(/\s+/).includes('recent-movies'));
   assert(initialRail);
   initialRail.scrollLeft = 777;
-  assert.strictEqual(api._test.handleRailNearEnd({detail: {rail: initialRail}}), true);
+  failNext = true;
+  assert.strictEqual(await api._test.loadMoreMovies(), false);
+  assert.strictEqual(initialRail.scrollLeft, 777);
+  const moreButton = findElement(movieSection, element => element.tagName === 'BUTTON' && element.textContent === 'Weitere Filme');
+  assert(moreButton, 'paging remains available when the rail cannot scroll');
+  const more = moreButton.listeners.click[0]();
+  assert.strictEqual(api._test.loadMoreMovies(), false, 'coalesce scrolling while a page is pending');
+  assert.strictEqual(await more, true);
+  assert.deepStrictEqual(calls.map(call => call.query.offset), [0, 12, 12]);
+  assert.strictEqual(api._test.handleRailNearEnd({detail: {rail: initialRail}}), false);
+  assert.strictEqual(moreButton.parentNode, null);
   cards = findElements(movieSection, (element) =>
     element.dataset && Boolean(element.dataset.recordingId));
   assert.strictEqual(cards.length, 14);

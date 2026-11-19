@@ -132,7 +132,7 @@ Global search:
 
 Recordings:
 
-- `fetchClientRecordings`
+- `fetchClientRecordings` — Recent Movies requests `sort=movieReleaseDate&order=desc` with the existing movie release-year bounds and limit/offset; matching server orders effective metadata before paging, first 12 items then near-end pages.
 - `fetchClientRecordingCacheStatus`
 - `fetchClientRecordingFolder`
 - `fetchClientRecordingTrailer`

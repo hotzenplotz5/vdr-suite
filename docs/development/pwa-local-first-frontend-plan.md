@@ -966,3 +966,25 @@ entire result before rendering twelve cards. PWA.13.5 targets ordered server
 pagination while preserving exact movie-year and release-date semantics;
 PWA.13.6 targets progressive independent rails. Neither is implemented here.
 No daemon rebuild for PWA.13.4. Native browser timings and PWA.14 remain open.
+
+## PWA.13.5 — ordered Recent Movies pages (2026-11-19)
+
+PWA.13.4 installed at `60c92fe13066d850dd3455fd1f2490ab5fcd75d2`;
+operator-confirmed focused native Node tests, frontend and runtime checks PASS.
+The existing Recent Movies owner used serial 100-item queries and only rendered
+after the last response. The canonical recording query now accepts the optional
+sort=movieReleaseDate order=desc on the existing authorized route. Its owner
+retains the existing native year filter, applies locked manual metadata to the
+same final eligibility and ordering before slicing, and serializes only the
+requested page. Date and recording-start descending are preserved; exact ties
+use deterministic bytewise title/id rather than browser-dependent German collation.
+The frontend requests twelve items first and appends the next ordered page on
+near-end scroll or a More Films button (also for non-overflowing wide rails),
+with deduplication, same-rail DOM/scroll preservation, stale
+response fencing and retry on subsequent scroll. Retained visible results are
+not emptied on failed refresh. The existing authorized cache ticket persists
+only the first complete requested projection (up to 24 cards), not arbitrary
+API data. No new route, schema, polling or cache namespace. Server still reads
+its existing catalog; no measured server CPU or latency reduction is claimed.
+Install matching daemon before the new frontend; native C++/Node and real Home
+acceptance remain open. PWA.13.6 and PWA.14 remain separate.
