@@ -732,3 +732,28 @@ offline behavior remain. Longer revocation observation latency between
 confirmed reads is a presentation tradeoff, not instant revocation.
 Expiry restores network delivery. Focused tests extended for delay and
 expiry; execution and real browser acceptance remain open.
+
+## PWA.11.3 — direct recording artwork preview cache (2026-11-19)
+
+Both PWA.11.1 captures reported 45 direct recording-artwork resources and
+1,885,683 transfer bytes on that route outside the old worker allowlist.
+PWA.11.3 extends existing worker and router/decorator ownership to canonical
+`/recording-artwork/<backend>/<32-hex-id>?variant=home` previews. Existing
+admission and fallback stay intact: the router conveys the same opaque
+session/backend/grants partition on its fallback only for an authenticated
+browser with existing recordings.view on the exact backend. The artwork
+owner resolves the asset and generates the scoped final-byte ETag and size
+as for metadata previews. The request URL never supplies authorization.
+Missing assets, unscoped or noncanonical previews, and full-size artwork
+retain their original delivery. No additional permission, API, cache
+version, provider, service or polling.
+
+Product commits: PWA.11.2 `0072de3a1d24a7523670617cf8cb70badc547786`;
+PWA.11.3 `62e37b8f7f4a9366916b837c928c2443f9e4ce30`.
+The existing worker, HTTP cache-scope and artwork-decorator tests cover
+delayed proof, exact canonical path, backend isolation, retained admission,
+conditional responses, missing assets and unauthenticated cases.
+These tests were extended, not yet executed on the exact candidate.
+The C++ change requires a matching incremental daemon candidate and the
+canonical generated frontend stage. Real browser performance still open.
+PWA.12–14 remain separate.

@@ -2,7 +2,7 @@
 
 ## PWA / Home performance — next frontend priority (19.11.2026)
 
-**PWA.11.1 = source candidate; 1024 scoped artwork entries, reduced cache-key enumeration, and opt-in worker cache measurements. Focused tests extended; execution and browser evidence open. PWA.11 focused contracts and yaVDR runtime deployment PASS at `662810c`; operator still observes slow cover loading. PWA.9 / real warm performance remains FAILED / OPEN.**
+**PWA.11.2/11.3 = source candidate; receipt-based artwork proof window and scoped direct recording-artwork previews. PWA.11.1 focused contracts and yaVDR deployment PASS at `5f00d76`; real diagnostics show expired proofs and an uncovered direct route. Exact candidate tests, incremental daemon build and runtime performance evidence open. PWA.9 / real warm performance remains FAILED / OPEN.**
 The maintainer prioritizes local client caching and optional PWA installation
 for the existing Webfrontend, including ordinary browser use. See
 [PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.
