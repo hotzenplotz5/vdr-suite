@@ -516,7 +516,7 @@ function wait(milliseconds) {
   const folderCard = makeCard('folder', 'Action', 'Action');
   const folderSection = makeSection('folders', folderCard);
   const prioritizedRails = [];
-  window.VdrSuiteHomeRecordingDiscovery.prioritizeInlineRailArtwork = rail => prioritizedRails.push(rail);
+  window.VdrSuiteHomeRecordingDiscovery = {prioritizeInlineRailArtwork: rail => prioritizedRails.push(rail)};
   const folderClick = clickElement(folderCard);
   assert.strictEqual(folderClick.defaultPrevented, true);
   await settle();
