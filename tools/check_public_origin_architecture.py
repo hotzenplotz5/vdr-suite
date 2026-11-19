@@ -180,7 +180,7 @@ def check_nginx(nginx: str) -> None:
     require(root_api_location is None, "Nginx snippet must never claim the public root /api namespace")
 
     require(
-        nginx.count("location ^~ /vdr-suite/") == 1,
+        len(re.findall(r"^\s*location\s+\^~\s+/vdr-suite/\s*\{", nginx, re.M)) == 1,
         "Nginx snippet must contain exactly one Suite prefix proxy location",
     )
     require(
