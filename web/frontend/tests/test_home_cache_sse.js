@@ -41,8 +41,11 @@ async function save(r,rail) {const ticket=begin(r,rail); assert(ticket.accept(ob
   await save(r,'newly-recorded'); await save(r,'series'); await save(r,'continue-watching');
   assert(await disk.write(scope('beta'),'newly-recorded',snap(epoch+10)));
   const restart=make(); const warm=begin(restart,'newly-recorded');
-  observe(restart,'/api/backends/alpha/snapshot'); await drain(); assert.equal(paints.length,0);
-  resync(restart,10); await drain(); assert.equal(paints.length,1,'matching fresh cursor permits warm preview');
+  await drain(); assert.equal(paints.length,0,'no saved private data before fresh authorization');
+  observe(restart,'/api/backends/alpha/snapshot'); await drain();
+  assert.equal(paints.length,1,'fresh scope paints before first SSE cursor');
+  resync(restart,10); await drain(); assert.equal(paints.length,1,'matching cursor preserves the already painted rail');
+  assert.equal(paints[0].removed,false);
   update(restart,11,['continueWatching']); await drain();
   assert.equal(paints[0].removed,false,'history update preserves recording preview');
   assert(await disk.read(scope('alpha'),'newly-recorded'));
@@ -75,5 +78,29 @@ async function save(r,rail) {const ticket=begin(r,rail); assert(ticket.accept(ob
   assert.equal(await disk.discard('alpha',['series'],epoch+19),false,'retired epoch cannot delete a newer row');
   assert.equal((await disk.read(scope('alpha'),'series')).revision,epoch2+0);
   restart.sessionBoundary(); await drain(); assert.equal(await disk.read(scope('alpha'),'series'),null);
-  console.log('PWA.5 SSE cursor and persistent invalidation contract PASS');
+
+  // Separate startup trials to preserve the earlier cursor/epoch assertions.
+  assert(await disk.write(scope('alpha'),'newly-recorded',snap(epoch2+0)));
+  const mismatch=make(); begin(mismatch,'newly-recorded');
+  const count=paints.length;
+  observe(mismatch,'/api/backends/alpha/snapshot'); await drain();
+  assert.equal(paints.length,count+1);
+  resync(mismatch,1,'initial',epoch2); await drain();
+  assert.equal(paints[count].removed,true,'initial cursor ahead of persisted row removes provisional rail');
+  const error=make(); begin(error,'newly-recorded'); const beforeError=paints.length;
+  error.liveEvent('error',{}); observe(error,'/api/backends/alpha/snapshot'); await drain();
+  assert.equal(paints.length,beforeError,'SSE error does not enable startup preview');
+  assert(await disk.write(scope('alpha'),'series',snap(epoch2+1)));
+  const changedEpoch=make(); begin(changedEpoch,'series'); const beforeEpoch=paints.length;
+  observe(changedEpoch,'/api/backends/alpha/snapshot'); await drain();
+  assert.equal(paints.length,beforeEpoch+1);
+  resync(changedEpoch,0,'initial','sse_'+'3'.repeat(32)+':'); await drain();
+  assert(paints[beforeEpoch].removed,'initial epoch mismatch removes provisional rail');
+  const denied=make(); begin(denied,'newly-recorded'); const beforeDenied=paints.length;
+  denied.observe(denied.requestStamp(paths['newly-recorded'],'alpha'),{ok:false,status:403},null);
+  await drain(); assert.equal(paints.length,beforeDenied,'denied response never paints');
+  const noCursor=make(); const pending=begin(noCursor,'series');
+  assert.equal(pending.accept(observe(noCursor,paths.series)),false,'provisional view never relaxes durable write cursor');
+  assert.equal(await pending.finish(cards),false);
+  console.log('PWA.5/PWA.13 SSE cursor, early preview and persistent invalidation contract PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;});

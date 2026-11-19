@@ -68,5 +68,34 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   authenticated=false; assert.equal(h.begin('newly-recorded','alpha','Neu',()=>true),null);
   authenticated=true;
   const i=create(); const expired=i.begin('newly-recorded','alpha','Neu',()=>true); assert(expired.accept(observe(i,pathA))); clock+=6000; assert.equal(await expired.finish(cards),false,'stale proof cannot write');
-  console.log('PWA.4 scoped Home preview contract PASS');
+  // Use the actual JSON client to hold response body parsing while the
+  // header-authorized preview is rendered. The payload remains online-owned.
+  const j=create(); const seed=j.begin('series','alpha','Series',()=>true,false);
+  const seriesCards=[
+    {id:'selected',title:'Selected',posterUrl:'/api/backends/alpha/settings/series-artwork/image?seriesKey=folder%3Aseries&revision=7'},
+    {id:'other',title:'Other backend',posterUrl:'/api/backends/beta/settings/series-artwork/image?seriesKey=folder%3Aseries&revision=7'},
+    {id:'candidate',title:'Candidate',posterUrl:'/api/backends/alpha/settings/series-artwork/candidate-image?seriesKey=x&revision=1'},
+    {id:'token',title:'Token',posterUrl:'/api/backends/alpha/settings/series-artwork/image?seriesKey=x&revision=7&token=private'}];
+  assert(seed.accept(observe(j,seriesPath))); assert(await seed.finish(seriesCards));
+  const k=create(); const startup=k.begin('series','alpha','Series',()=>true);
+  const n=painted.length;
+  let releaseBody;
+  const reply=response(scopeA);
+  reply.text=()=>new Promise(resolve=>{releaseBody=resolve;});
+  const wrapper=fs.readFileSync(path.join(__dirname,'../api/client-api.js'),'utf8');
+  window.VdrSuiteHomeCache=k;
+  vm.runInNewContext(wrapper,{window,URLSearchParams,fetch:()=>Promise.resolve(reply)});
+  const fetchPromise=window.VdrSuiteClientApi.requestJson(seriesPath,{query:{backend:'alpha'}});
+  await drain();
+  assert.equal(painted.length,n+1,'headers authorize local paint while JSON is still pending');
+  assert.equal(painted[n].items[0].posterUrl,seriesCards[0].posterUrl);
+  assert(painted[n].items.slice(1).every(item=>!item.posterUrl));
+  releaseBody('{}'); const parsed=await fetchPromise;
+  assert(startup.accept(parsed),'parsed payload retains exact response provenance');
+  assert(await startup.finish(seriesCards));
+  assert(painted[n].removed);
+  const staleDisk=window.VdrSuiteHomePersistence.create({authorize:async scope=>({...scope,authorized:true})});
+  const oldScope={accountId:scopeA,backendId:'alpha',permissionRevision:scopeA};
+  assert.equal(await staleDisk.read(oldScope,'series',-1),null,'age-bound read rejects stale row');
+  console.log('PWA.4/PWA.13 scoped Home preview and early headers contract PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;});

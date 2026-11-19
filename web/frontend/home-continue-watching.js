@@ -171,8 +171,8 @@
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify(body)
     }).then(function (response) {
+      if (stamp) cache.observe(stamp, response, null);
       if (!response || !response.ok) {
-        if (stamp) cache.observe(stamp, response, null);
         throw new Error('Continue Watching unavailable');
       }
       return response.json().then(function (payload) {

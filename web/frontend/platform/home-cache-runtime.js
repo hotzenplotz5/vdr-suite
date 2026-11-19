@@ -194,6 +194,7 @@
       observedHeaders.set(stamp, null);
       if (!response || !response.ok || response.redirected) {
         if (response && (response.status === 401 || response.status === 403)) reset(true);
+        else if (response && response.redirected && partition) reset(false);
         return;
       }
       if (!response.headers || typeof response.headers.get !== 'function') return;

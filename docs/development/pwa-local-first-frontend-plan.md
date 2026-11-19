@@ -799,3 +799,37 @@ diagnostic/documentation changes. Existing worker, Home rail, API owner,
 HTTP scope, preview decorator and diagnostic regressions are extended.
 Exact test execution, incremental daemon compilation and installed browser
 acceptance are not yet verified. PWA.13/14 remain separate.
+
+## PWA.13 — authorized Local-first startup (2026-11-19)
+
+PWA.12 installed at `79d4dcaa32ebbd8b5db5f29ea36c02d7e4d0fae3`.
+Operator reported focused test block, daemon build, installation and
+runtime verification PASS (`PWA12_INSTALLATION=PASS`). Browser performance
+and selected-cover behavior are still pending real acceptance.
+
+During initial document startup only, the optional compact persisted Home
+projection may paint immediately after the existing authenticated, scoped
+response headers arrive, without waiting for JSON parsing or the first
+SSE cursor. Backend selection and online authorization remain mandatory.
+The preview uses the current account/session/grant partition, durable
+session fence and a saved cursor, is at most 24 hours old when read before
+the initial cursor, and is explicitly marked as last-loaded/updating.
+It is non-interactive, never a playback or mutation authority.
+The existing five-second proof/preview expiry is retained. An incompatible
+first SSE cursor, connection error, logout, scope drift or owner
+replacement removes it; no offline display and no speculative replay
+after connection error. Normal authoritative network and SSE owners
+continue in parallel. Durable replacement writes still require the
+existing connected cursor/complete provenance; no new polling or API.
+Read transactions are readonly instead of readwrite. Evidence arriving
+during a pending read can trigger a bounded event-driven retry, not a
+timer. Selected, revisioned PWA.12 series-cover addresses are eligible
+for the bounded persisted card projection; candidate/foreign/unapproved
+URLs are rejected.
+
+Tests extend the actual cache runtime, IndexedDB test double and JSON client
+for early authorized paint, pending body, scope rejection, initial cursor/
+epoch mismatch, error, expiry, and selected-cover filtering. The startup
+preview is still temporary and not a replacement for the live interactive
+rail. No C++ or schema change. Candidate tests and real native browser
+acceptance remain open until executed. PWA.14 remains separate.

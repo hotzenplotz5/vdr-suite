@@ -2,7 +2,7 @@
 
 ## PWA / Home performance — next frontend priority (19.11.2026)
 
-**PWA.12 = source candidate; selected TMDB Series Home artwork uses existing scoped persistent preview cache, with actual assignment revision and selective mutation invalidation. PWA.11.2/11.3 installed on yaVDR at `62e37b8`; operator reports improved but insufficient real startup. PWA.12 tests, daemon build and runtime acceptance open. PWA.9 / real warm performance remains FAILED / OPEN.**
+**PWA.13 = source candidate; authorized bounded startup preview before JSON/SSE initialization, readonly IndexedDB reads and selected series cover projection. PWA.12 installed on yaVDR at `79d4dca`; focused test block, build and deployment PASS. PWA.13 exact tests and real browser performance acceptance open. PWA.9 / real warm performance remains FAILED / OPEN.**
 The maintainer prioritizes local client caching and optional PWA installation
 for the existing Webfrontend, including ordinary browser use. See
 [PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.
