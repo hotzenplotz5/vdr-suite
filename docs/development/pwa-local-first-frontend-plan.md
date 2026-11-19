@@ -1027,3 +1027,10 @@ No daemon rebuild. Actual browser performance and PWA.14 remain open.
 
 The speculative fence also retires buffered reads permanently across an SSE
 transport error/reconnect. Data Saver disables prefetch, not demand reads.
+
+Operator PWA.13.6 run passed preceding recording discovery, Series, SSE,
+metadata and navigation tests. The new early-folder assertion sampled after
+one host microtask, before Node vm's cross-realm Promise adoption settled.
+Wait for the event-loop turn with the second response still held pending;
+assert the second request has started and only category tiles exist before
+releasing it. No runtime or permission changes. Native rerun remains open.
