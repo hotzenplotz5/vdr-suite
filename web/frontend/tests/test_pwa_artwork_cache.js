@@ -13,6 +13,7 @@ async function run(prefix) {
   let partition = scopeA, tag = tagA, status = 200, content = 'poster-a', offline = false, fail = false, last;
   let holdImage = null, holdMutation = null;
   let clock = 1700000000000, imageReads = 0, proofReads = 0, fullKeyReads = 0;
+  let proofDelay = 0;
   const deferred = () => {
     let resolve;
     const promise = new Promise(done => { resolve = done; });
@@ -35,6 +36,7 @@ async function run(prefix) {
     }
     if (new URL(request.url).pathname.endsWith('/snapshot')) {
       proofReads++;
+      clock += proofDelay;
       return new Response('{}', {status, headers: {
         'Cache-Control':'private, no-store', 'X-VDR-Suite-Home-Backend':'default',
         'X-VDR-Suite-Home-Recording-Scope':partition
@@ -166,11 +168,23 @@ async function run(prefix) {
 
   await image(url,'other-tab');
   assert.equal(imageReads,before+1,'another tab needs its own fresh proof');
-  clock+=5001;
+  clock+=30001;
   await image(url,'tab-a');
   assert.equal(imageReads,before+2,'expired proof uses original revalidation');
   assert.equal(measurement('tab-a').counters.expiredProof,1);
   assert.equal(measurement('other-tab').counters.missingProof,1);
+  // Delay must not consume the post-response artwork window.
+  proofDelay=9000;
+  await proof();
+  proofDelay=0;
+  clock+=15000;
+  assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  clock+=16000;
+  assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  proofDelay=60001;
+  await proof();
+  proofDelay=0;
+  assert.notEqual((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
   await proof();
   partition=scopeB; tag=tagB; content='different-account';
   await proof();

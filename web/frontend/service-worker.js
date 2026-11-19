@@ -65,9 +65,10 @@ const artworkParams = new Set(['backend', 'backendNativeId', 'recordingId', 'kin
 const installationPath = scope.pathname.slice(0, -'/frontend/'.length);
 const recordingArtworkRoutes = new Set(['/api/vdr/recordings/metadata/image', '/api/recordings/metadata/image']);
 const recordingProofRoutes = new Set(['/api/vdr/recordings/query', '/api/vdr/recordings/folder', '/api/metadata/genres', '/api/metadata/genres/recordings']);
-// Match the existing Home authorization proof lifetime. This is not a new
-// permission, login lease, or UI gate; a miss simply uses the original path.
-const artworkProofMs = 5000;
+// Artwork-only window starts on receipt of existing server authorization.
+// Expiry falls back to the original network path, not a new UI gate.
+const artworkProofMs = 30000;
+const artworkProofMaxRoundTripAgeMs = 60000;
 const artworkFreshMs = 5 * 60 * 1000;
 const artworkStaleMs = 24 * 60 * 60 * 1000;
 const artworkProofs = new Map();
@@ -122,6 +123,14 @@ function proofBackend(request) {
 
 function proofKey(clientId, backend) { return JSON.stringify([clientId, backend]); }
 
+function artworkProofExpired(proof) {
+  const now = Date.now();
+  const age = now - proof.confirmedAt;
+  const totalAge = now - proof.started;
+  return age < 0 || age > artworkProofMs ||
+    totalAge < 0 || totalAge > artworkProofMaxRoundTripAgeMs;
+}
+
 async function observeArtworkProof(event, backend) {
   const epoch = artworkProofEpoch, sequence = ++artworkProofSequence;
   const key = proofKey(event.clientId, backend);
@@ -144,7 +153,9 @@ async function observeArtworkProof(event, backend) {
   }
   if (prior && prior.partition !== partition) forgetArtworkProofs();
   artworkProofs.delete(key);
-  artworkProofs.set(key, {partition, sequence, started});
+  const confirmedAt = Date.now();
+  if (confirmedAt < started || confirmedAt - started > artworkProofMaxRoundTripAgeMs) return response;
+  artworkProofs.set(key, {partition, sequence, started, confirmedAt});
   countArtwork(event, 'acceptedProofs');
   while (artworkProofs.size > 128) artworkProofs.delete(artworkProofs.keys().next().value);
   return response;
@@ -155,9 +166,7 @@ function currentArtworkProof(event) {
   const url = new URL(event.request.url);
   if (!recordingArtworkRoutes.has(url.pathname.slice(installationPath.length))) return null;
   const proof = artworkProofs.get(proofKey(event.clientId, url.searchParams.get('backend')));
-  if (!proof) return null;
-  const age = Date.now() - proof.started;
-  return age >= 0 && age <= artworkProofMs ? proof : null;
+  return proof && !artworkProofExpired(proof) ? proof : null;
 }
 
 function artworkRequest(request) {
@@ -286,8 +295,7 @@ async function handleArtwork(event) {
     if (!recordingArtworkRoutes.has(url.pathname.slice(installationPath.length))) countArtwork(event, 'otherArtworkRoute');
     else {
       const previous = artworkProofs.get(proofKey(event.clientId, url.searchParams.get('backend')));
-      const age = previous && Date.now() - previous.started;
-      countArtwork(event, previous && (age < 0 || age > artworkProofMs) ? 'expiredProof' : 'missingProof');
+      countArtwork(event, previous && artworkProofExpired(previous) ? 'expiredProof' : 'missingProof');
     }
   }
   if (proof) {

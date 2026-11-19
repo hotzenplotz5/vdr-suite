@@ -713,3 +713,22 @@ shell caching. No periodic polling or ordinary production UI change.
 Tests extended for strict cache capacity, avoided full key scans, eviction
 and the real worker/diagnostic message flow. Actual candidate execution and
 real browser performance evidence remain open at commit time.
+
+## PWA.11.2 — measured artwork proof expiry (2026-11-19)
+
+PWA.11.1 installed at `5f00d76`; operator reports focused contracts and
+runtime deployment PASS. Two diagnostic captures show 128/60 worker
+requests, 26/6 local hits, 64/38 expired proofs, 106/55 image HTTP requests
+and zero evictions or storage write errors. Capture duration is not
+time-to-render; different image sets and cumulative counts cannot establish
+a speedup.
+
+The artwork-only optimization window is now 30 seconds from receipt of the
+existing successful server proof, absolutely bounded to 60 seconds from
+request start. The Home read-model proof remains unchanged. No additional
+server query, polling, UI gate or permission. Existing account/session,
+backend, grant and client scope, sequence/epoch fences, logout, denial and
+offline behavior remain. Longer revocation observation latency between
+confirmed reads is a presentation tradeoff, not instant revocation.
+Expiry restores network delivery. Focused tests extended for delay and
+expiry; execution and real browser acceptance remain open.
