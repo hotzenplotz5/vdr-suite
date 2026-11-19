@@ -706,6 +706,10 @@ img[src*="/channel-logos/"]:not([src*="vdr-suite-brand"]) {
   margin-top: 0.7rem;
 }
 
+.epg-pager[hidden] {
+  display: none;
+}
+
 .epg-pager button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -5452,4 +5456,18 @@ body.channel-sorter-dragging * {
 @media (max-width: 700px) {
   .media-import-online-tools { display: grid; grid-template-columns: 1fr; }
   .media-import-online-result button { width: 100%; justify-self: stretch; }
+}
+
+/* MLD.F6: human-readable sender identity in the shared EPG detail. */
+.epg-detail-channel-brand {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.epg-detail-channel-brand .epg-channel-logo {
+  width: 3rem;
+  height: 2rem;
+  flex: 0 0 auto;
 }

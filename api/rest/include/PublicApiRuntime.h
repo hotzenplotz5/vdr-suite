@@ -8,7 +8,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -220,6 +222,10 @@ struct PublicSearchTimerCreateRequest
     int deleteRecordingsAfterDays = 0;
     int deleteAfterCountRecordings = 0;
     int deleteAfterDaysOfFirstRecording = 0;
+    // Absent preserves historical coupling for existing callers.
+    std::optional<bool> repeatCompareTitle;
+    std::optional<bool> repeatCompareSubtitle;
+    std::optional<bool> repeatCompareSummary;
     bool hasMarginStartMinutes = false;
     bool hasMarginStopMinutes = false;
 };
@@ -250,6 +256,10 @@ struct PublicSearchTimerNativeVersionResult
     std::string revision;
     std::string query;
     std::string state;
+    int activeMode = -1;
+    int repeatCompareSubtitleMode = -1;
+    int repeatCompareTimeMode = -1;
+    std::string repeatCompareCategoriesMask;
 };
 enum class PublicSearchTimerNativeMutationStatus
 {
@@ -266,6 +276,7 @@ struct PublicSearchTimerNativeMutationRequest
     std::string idempotencyKey;
     std::string query;
     bool confirmed = false;
+    std::map<std::string, std::string> settings;
 };
 struct PublicSearchTimerNativeMutationResult
 {

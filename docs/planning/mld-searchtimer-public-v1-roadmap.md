@@ -346,3 +346,182 @@ Anlage, keine DB-Sicherung und kein Deployment durch diesen Dokumentationsschrit
 - **ST.V1.8 nicht abgeschlossen:** Abschließende Feldmatrix, Hardware-/Paketnachweise und Definition of Done erst nach tatsächlich bestandener Real-VDR-Abnahme aktualisieren.
 
 Ältere Abschnitte dieser Roadmap dokumentieren den jeweiligen historischen Stand auf `MLD-Suchtimer` und sind **nicht** als aktueller Branch- oder CI-Status zu lesen. Keine neue Public API oder Feature-Branch erforderlich.
+
+
+## MLD.F1 – CREATE-Readback: RESTfulAPI-Boolean-Abbildung (18.11.2026)
+
+MLD meldet erfolgreich angelegte Regeln mit `outcome_unknown`. Ein konkreter
+Quellcodefehler betrifft die Readback-Abbildung: numerisch ausgewertete
+Boolean-Felder wurden bei JSON `true` fälschlich zu `false`. Das historische
+reale Provider-Fixture dokumentiert bereits native JSON-Booleans. Die betroffenen
+Schalter werden jetzt mit dem bestehenden Boolean-Parser gelesen. Numerische
+0/1-Werte bleiben kompatibel. Die einmalige CREATE-Ausführung, Baseline- und
+Readback-Verifikation, Idempotenz und SSE bleiben unverändert.
+
+Regressionen: `test-restful-api-search-timer-mapper` (true/false und vorhandene
+numerische Werte) und `test-searchtimer-create-one-shot-dispatch` (produktiver
+Mapper plus dauerhafter Dispatch, Erfolg bei passenden Flags, weiterhin UNKNOWN
+bei materiellem Unterschied, keine zweite Provider-Anlage). Kein neuer Vertrag,
+keine zusätzliche Sperre und kein Workaround durch vorgetäuschten Erfolg.
+
+Nachweisstand dieses Quellcode-Slices: gezielte Regressionen ergänzt;
+Kompilierung, CI und Real-MLD-Nachweis noch offen. Ohne den tatsächlich zur
+fehlgeschlagenen MLD-Operation gehörenden Provider-Readback ist nicht bewiesen,
+dass diese Ursache allein alle gemeldeten UNKNOWN-Fälle erklärt. MLD.F1 bleibt
+bis zum relevanten Nachweis offen.
+
+## MLD.F2 – Unabhängige Suchfelder und Wiederholungsvergleich (18.11.2026)
+
+Der gemeinsame RESTfulAPI-Writer hatte die drei Suchfeldwerte auch als
+Wiederholungsvergleich geschrieben. Public v1 behält die bisherigen
+Suchfeldnamen und ergänzt optional `repeatCompareTitle`,
+`repeatCompareSubtitle`, `repeatCompareSummary`. Native Readback-Felder
+werden separat abgebildet und in der bestehenden Settings-Projektion
+sichtbar. Explizite Wiederholungswerte müssen bei CREATE im Provider-Readback
+übereinstimmen; der Einmal-Dispatch und seine Idempotenz bleiben bestehen.
+Legacy-Anfragen und dauerhafte v3-Payloads behalten ihren bisherigen
+Fingerprint und die alte Fallback-Zuordnung; explizite neue Werte werden
+versioniert als v4 gespeichert (keine Public API v4, keine neue Tabelle).
+Der Reference-JS-Client und OpenAPI akzeptieren die zusätzlichen Felder.
+Die Bearbeitungsmaske und die vollständige Public-v1-UPDATE-Operation
+bleiben in den nachfolgenden Slices. Die bisherige native öffentliche
+Versionsprüfung verwendet den vollständigen nativen Regeltext; öffentliche
+Identitätszuordnung bleibt unverändert.
+
+Quellcode-Regressionen: getrennte POST-Felder bei CREATE/UPDATE, native
+Readback-Matrix, v3/v4-Payload-Roundtrip und Replay, explizites false,
+abweichender Wiederholungswert bleibt UNKNOWN ohne zweite Anlage, Public-v1
+CREATE-Parsing und Reference-JS-Client. Build, CI, tatsächlicher
+MLD-Provider-Roundtrip und Benutzeroberflächen-Abnahme sind noch nicht verifiziert.
+
+## MLD.F3 – vollständige Feldbearbeitung über den bestehenden UPDATE-Pfad
+
+Public-v1-Mutationsroute nimmt optionale explizite Such-, Sender-, Zeit-,
+Wiederholungs-, Aufnahme-, Aktions-, Serien-, Gültigkeits- und EPG-Einstellungen
+an. Die vorhandene stock-epgsearch EDIS-Komposition übernimmt die Originalregel
+und ersetzt nur angegebene Optionen; native spätere Felder bleiben erhalten.
+Aktive Regeln sind editierbar. Der native Aktivierungsmodus wird nur bei
+explizitem activeMode innerhalb des bestehenden Aktivierungszustands verändert;
+ACTIVATE/DEACTIVATE bleiben separat autorisiert. Neue exakte Moduswerte sind im VERSION-Readback
+und im OpenAPI-Vertrag dokumentiert. Keine neue API-Route, kein Patch des
+epgsearch-Plugins, keine zusätzlichen Grants, keine neue Tabelle, kein Retry.
+Die alte query-only Idempotenz bleibt bytegleich; veränderte Einstellungen
+gehören zum dauerhaften Fingerprint. Der Reference-JS-Client nutzt dieselbe
+Route. Regressionen für native Felder, aktive Regeln, unveränderte Felder,
+Public-v1-Parser und Request-Body sind ergänzt. Vollständiger Daemon-Build,
+CI, Real-MLD-/yaVDR-Provider-Normalisierung und -Readback bleiben offen.
+Die vollständige Web-Bearbeitungsmaske ist MLD.F4.
+
+Fokussierter Nachweis: Git-Blob `f289ef3ab81930fa66fdd3dc87a370971fd8b89b`
+(EpgsearchStockRule.h) wurde byteidentisch in einem isolierten C++17-Harness
+mit GCC 14.2, -Wall -Wextra -Werror -pedantic kompiliert; die aus der
+Transport-Regression übernommene Settings-/Preserve-Matrix ist PASS. Der
+vollständige Transporttest und Daemon wurden nicht gebaut. Der vollständige
+Reference-JS-Test lief in isolierter V8 mit Node-Modul-Shims (72 Assertions,
+PASS); OpenAPI und Parser-Feldinventar (59 Keys) abgeglichen. Kein Node-CLI-
+oder Full-CI-Nachweis. Der Checkout scheitert lokal an DNS (github.com).
+
+## MLD.F4 – Gemeinsame grafische Web-Maske für CREATE und UPDATE
+
+Die bestehende CREATE-Maske wird für die Bearbeitung aktiver und inaktiver
+Regeln wiederverwendet. Der bisherige reine Suchbegriff-Editor entfällt.
+Suchfelder und Wiederholungsfelder werden getrennt angeboten. UPDATE sendet
+nur die Differenz zum ursprünglichen Formular, einschließlich explizitem
+false/0 und zusammengehörigen Senderfilterwerten. VERSION liefert die
+exakten Untertitel-/Zeitvergleichsmodi, Kategorienmaske und Aktivierungsmodus.
+Fehlende exakte Werte werden nicht als Standardwert geschrieben. Pause-on-
+recordings-Anzahl ist editierbar, aber nicht exakt vorausgefüllt (die vorhandene
+Settings-Projektion liefert nur ein Flag). Die bisherigen CREATE-/UPDATE-
+Operationen und SSE-Rückmeldungen bleiben bestehen; kein Polling und keine
+neue Mutation oder Berechtigung. Die existierende Lesevorschau ist nicht
+Gegenstand dieses Slices. Sender- und Verzeichnisauswahl erhalten die aktuell
+bekannten Werte auch vor bzw. bei fehlgeschlagenem Laden der Auswahlkataloge.
+
+Nachweis: vollständiger vorhandener `test_searchtimer_workflows_runtime.js`
+in isolierter V8 mit dessen Mock-DOM und Node-Modul-Shims: 302 Assertions PASS
+(CREATE und UPDATE, aktive Regeln, nur geänderte Felder, native Modi, Abbrechen/
+Wiederöffnen, kein zweiter Schreibvorgang und SSE). Kein echter Browser- oder
+Node-CLI-Nachweis. Realtest auf MLD/yaVDR und vollständiger Daemon-Build bleiben
+offen. Der Betreiber meldete für den F3-Testblock einen erfolgreichen
+TimerAssignment-Collection-/Security-Test und Phase-69.D-Guard; die gezeigte
+Ausgabe enthält keine genaue HEAD-SHA und keinen vollständigen Daemon-Build.
+
+## MLD.F5 – Verbleibende Bedienkorrekturen im Suchtimer-Webfrontend
+
+Wiederholungsoptionen einschließlich Zeit-/Kategorienvergleich und
+Beschreibungsähnlichkeit gehören in die gemeinsame Wiederholungsgruppe.
+Karten zeigen die Vergleichsfelder und erlaubten Wiederholungen/Zeitraum.
+Der Blacklist-Modus ist als beschriftete Auswahl statt Rohzahl dargestellt;
+die native HHMM-Dauer erhält ein verständliches Beispiel.
+
+Vorschau und Operationsstatus besitzen separate Ausgabebereiche, sodass eine
+Lesevorschau einen laufenden oder unklaren Schreibvorgang nicht überschreibt.
+Die manuelle UPDATE-Statusprüfung meldet Beginn und Readback sichtbar.
+SSE, bisherige CREATE-/UPDATE- und Abbrechen-/Zurück-Verträge bleiben
+unverändert. Keine zusätzliche Schreibroute, kein Polling, kein neues Gate.
+
+Sender- und Verzeichniskataloge verwenden das Backend der jeweiligen Regel
+oder des neuen Formulars. Verzögerte Katalogantworten überschreiben keine
+bereits ausgewählten Verzeichnisse, manuellen Eingaben oder kopierten
+Senderbereiche. Vorlagen behalten ihre Auswahl; ein neuer Startsender
+setzt den bisherigen Endsender zurück (leer bedeutet gleicher Sender).
+Die bekannte native Regel und unbekannte Katalogeinträge bleiben auswählbar.
+
+Nachweis: vollständiger `test_searchtimer_workflows_runtime.js` mit
+315 Assertions PASS in isolierter V8 (bestehender Mock-DOM, Node-Modul-Shims).
+Zusätzliche Regressionen: Gruppierung der Wiederholungsoptionen,
+Vorschau bei laufender Mutation, neuer Startsender und verspätete
+Katalogpopulation nach Vorlagenwahl. Kein echter Browser-/Node-CLI-/CI-
+oder MLD-Realtest. Nur JavaScript und Dokumentation geändert; F5 selbst
+erfordert keinen neuen C++-Build. Der bestehende Lesevorschautransport und
+die noch ausstehenden EPG-/Live-TV-/Admin-Arbeiten bleiben unverändert.
+
+## MLD.F6 – EPG-Zeitleiste und Sendernamen
+
+Die bestehende 15-Sender-Seitengrenze bleibt als Seitengröße bestehen,
+nicht als Beschränkung der verfügbaren Sender. Datenabruf und Renderer
+verwenden dieselbe Seitenoffsetberechnung. Auch die kurze letzte Seite
+enthält ausschließlich ihre eigenen Sender; Vor/Zurück lädt den jeweiligen
+EPG-Batch und entfernt die Detailauswahl der vorherigen Seite.
+Die Gruppenauswahl startet pro Backend mit „Alle Kanäle“ statt automatisch
+mit der ersten Gruppe; die explizite Gruppenauswahl bleibt verfügbar und
+wechselt auf deren erste Seite. Die Sendernavigation zeigt die Richtung
+verständlich an und erscheint bei mehr als einer Seite.
+
+Der gemeinsame EPG-Detailrenderer (auch seine Timerdatenvorschau) zeigt
+den Sendernamen und das vorhandene Kanallogo, wenn der Name aufgelöst
+werden kann. Details mit ausschließlich Channel-ID nutzen vorhandene
+Senderinformationen oder einen einmaligen katalogbasierten Lookup über
+den bestehenden, backendbezogenen Client-API-Pfad. Fehlende Namen sind
+als solche sichtbar; die interne Channel-ID und Event-ID bleiben für
+Aktionen erhalten und sind in ausklappbaren technischen Details einsehbar.
+Keine neue API, kein Polling und keine Änderung der Timer-/Live-TV-Aktionen.
+
+Nachweis: drei gezielte vorhandene Tests in isolierter V8 mit Mock-DOM
+und Node-/vm-Shims bestanden (103 Assertions):
+`test_epg_timeline_enhancements.js` (60; 32 Sender: 15/15/2,
+Vor/Zurück, einheitliche Fetch-/Render-Seitenoffsets, Sendername/Logo),
+`test_epg_timeline_deferred_install.js` (7),
+`test_post_phase69_epg_current_context_live_action.js` (36).
+Der Seiten-Regressionsharness verwendet den produktiven Offset-Helper
+und sichtbaren Senderdatenabruf mit simuliertem Renderer. Kein echter
+Browser-, Node-CLI-, CI- oder MLD-Realtest. Nur JavaScript, CSS, Test und
+Dokumentation geändert; kein zusätzlicher C++-Build für F6.
+
+## MLD.F7 – Live-TV-Status der Web-Fernbedienung
+
+Der gemeinsame Browser-SSE-Client liefert benannte `update`- und `resync`-Ereignisse, nicht `onmessage`. Die Fernbedienung abonniert nun diese Ereignisse für das gewählte Backend und die Domäne `liveOverlay`; nach Wiederverbindung bzw. Resync liest sie den bestehenden Overlay-Status erneut. Veraltete Antworten, geschlossene Dialoge und abgemeldete Sitzungen werden nicht übernommen. Ein Transportfehler zeigt die Ursache am Overlay und kennzeichnet vorhandene gleichbackendbezogene Daten als zuletzt geladen; eine erfolgreiche Antwort ohne Live-Kanal zeigt die vorhandene Provider-Meldung. Kein Polling, keine neue Route oder Berechtigung. Die getrennte VDR-/Browser-Wiedergabe und Remote-Aktionsausführung bleiben unverändert.
+
+Fokussierter Test: Produktionsmodule mit simuliertem Dialog, gemeinsamer SSE-Verbindung und Browser-Sitzung in isolierter V8: 33 Assertions PASS, inklusive Backendfilter, Duplikaten, Resync, Wiederverbindung, Fehler, verspäteten Antworten, Abmeldung und Wiederöffnen. Die Regression ist in `test_remote_runtime.js` integriert. Node-CLI, echter Browser, CI und MLD-Realtest noch offen. Die Ursache einer bereits initial fehlenden nativen Kanal-ID ist ohne MLD-Providerantwort nicht nachgewiesen; die native RESTfulAPI liefert bei Replay bewusst keinen Live-Kanal. F7 führt keinen zusätzlichen C++-Build ein. Keine Aussage über konkrete MLD-Streamingfehler.
+
+## MLD.F8 – Automatischer Übergang nach First-Admin-Ersteinrichtung
+
+Nach erfolgreicher erstmaliger Administratoranlage und bestätigter normaler Browser-Anmeldung wird die Seite einmal via `location.reload()` in den regulären Bootstrap zurückgeführt. Der bestehende Claim bleibt ein einmaliger Vorgang; fehlgeschlagener Claim oder fehlgeschlagene Anmeldung lösen keinen Reload aus. Nach bereits erfolgreichem Claim und abgelehnter automatischer Anmeldung führt eine anschließend erfolgreiche manuelle Anmeldung denselben einmaligen Übergang aus, ohne erneuten Claim. Normale Logins eines bereits eingerichteten Servers bleiben unverändert. Keine neue Berechtigung, kein Polling, keine Änderung am Backend, kein C++-Build für F8.
+
+Regression `test_first_admin_web_setup.js`: neuer Test schlägt am vorherigen Quellstand erwartungsgemäß fehl; vollständige Testdatei am Kandidaten in isolierter V8 mit Node-Modul-Shims: 148 Assertions PASS. Die Reload-Prüfung verlangt eine bestätigte Sitzung, sichtbare authentifizierte Shell und geschlossenen Dialog. Die tatsächliche Browser-/MLD-/yaVDR-Ersteinrichtung und CI bleiben offen; eine genaue Ursache des ursprünglichen dunklen Bildschirms ist nicht mit einem echten Browsertrace belegt. Der einmalige Reload übernimmt den berichteten wirksamen manuellen Wiederherstellungsweg.
+
+## MLD.F9 – Gemeinsamer Integrationskandidat MLD / yaVDR
+
+Die MLD.F1–F8-Änderungen werden auf dem bestehenden Branch `MLD-Suchtimer` mit dem HbbTV-optimierten `main` (647a571bdb95dd89cc9591b0b6c26a14989192d9) vereinigt. Vorintegration: MLD-HEAD 33f9914cf1cfeb3a7b1e689037303a531e9afd84, gemeinsame Basis 83f729330b2d0f1ce2fac6ace9f7dfad85fcc5c5. Vollständiger Git-Leaf-Tree-Vergleich: 40 geänderte MLD-Pfade und 21 geänderte main-Pfade, keine Überschneidung. Der Integrationsbaum übernimmt beide Stände; HbbTV-Provider-Abhängigkeit und bestehende Installation bleiben unberührt.
+
+Abnahmeumfang: die vorhandenen SearchTimer-Mapper-, Admission-, Dispatch-, nativen EDIS- und Public-v1-Vertragstests, gemeinsamer Webeditor/EPG/Remote/First-Admin-Regressionen, HbbTV- und Packaging-Regressionen auf dem exakten Integrationskandidaten. Hosted CI, kompletter Daemon-Build, realer MLD-/yaVDR-Provider-Readback, First-Admin-Realtest und Paketveröffentlichung sind getrennte Nachweise und zum Zeitpunkt dieser Quellintegration noch nicht belegt. F7/F8 wurden laut Maintainer-Ausgabe einzeln auf yaVDR installiert und per Dateivergleich/Syntaxprüfung bestätigt; das ist keine funktionale Abnahme. Keine neue Public API, kein neuer Branch, kein automatisches Deployment und kein neuer Provider-Build. HbbTV bleibt auf der bereits dokumentierten notify-fähigen Provider-Version.

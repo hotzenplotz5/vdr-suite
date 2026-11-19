@@ -1372,6 +1372,18 @@
                   "compareSummary": {
                     "type": "boolean"
                   },
+                  "repeatCompareTitle": {
+                    "type": "boolean",
+                    "description": "Independent repeat comparison; omitting this retains the legacy compareTitle search-field value."
+                  },
+                  "repeatCompareSubtitle": {
+                    "type": "boolean",
+                    "description": "Independent repeat comparison; omitting this retains the legacy compareSubtitle search-field value."
+                  },
+                  "repeatCompareSummary": {
+                    "type": "boolean",
+                    "description": "Independent repeat comparison; omitting this retains the legacy compareSummary search-field value."
+                  },
                   "directory": {
                     "type": "string",
                     "maxLength": 4096
@@ -10200,6 +10212,29 @@
                         "active",
                         "inactive"
                       ]
+                    },
+                    "activeMode": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2,
+                      "description": "0 inactive, 1 active, 2 time-limited active. UPDATE may change the mode without changing active/inactive state; use the separate activation actions for state changes."
+                    },
+                    "repeatCompareSubtitleMode": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2,
+                      "description": "0 off, 1 yes, 2 if present."
+                    },
+                    "repeatCompareTimeMode": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 3,
+                      "description": "0 off, 1 day, 2 week, 3 month."
+                    },
+                    "repeatCompareCategoriesMask": {
+                      "type": "string",
+                      "pattern": "^[0-9]+$",
+                      "description": "Exact native category bit mask, represented as a decimal string."
                     }
                   }
                 }
@@ -10303,9 +10338,241 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 200,
-                    "description": "Only for update; inactive rule, 1–200 bytes, single line and round-trippable stock epgsearch encoding."
+                    "description": "Optional for update; 1–200 bytes, single line and round-trippable stock epgsearch encoding."
+                  },
+                  "matchCase": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "compareTitle": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "compareSubtitle": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "compareSummary": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "useDayOfWeek": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "useSeriesRecording": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "useVps": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "useExtendedEpgInfo": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "avoidRepeats": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "repeatCompareTitle": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "repeatCompareSummary": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "useInFavorites": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "unmuteSoundOnSwitch": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "repeatCompareSubtitle": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "compareTime": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "useTime": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "useDuration": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "compareCategories": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "ignoreMissingEpgCategories": {
+                    "type": "boolean",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "mode": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "dayOfWeek": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "lifetime": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "marginStartMinutes": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "marginStopMinutes": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "searchTimerAction": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "allowedRepeats": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "repeatsWithinDays": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "deleteRecordingsAfterDays": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "keepRecordings": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "switchMinutesBefore": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "pauseOnRecordings": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "tolerance": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "deleteMode": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "deleteAfterCountRecordings": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "deleteAfterDaysOfFirstRecording": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "summaryMatch": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "repeatCompareSubtitleMode": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2,
+                    "description": "0 off, 1 yes, 2 if present."
+                  },
+                  "repeatCompareTimeMode": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 3,
+                    "description": "0 off, 1 day, 2 week, 3 month."
+                  },
+                  "useChannel": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "startTime": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "stopTime": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "durationMinMinutes": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "durationMaxMinutes": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "blacklistMode": {
+                    "type": "integer",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "activeMode": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2,
+                    "description": "0 inactive, 1 active, 2 time-limited active. UPDATE may change the mode without changing active/inactive state; use the separate activation actions for state changes."
+                  },
+                  "directory": {
+                    "type": "string",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "channels": {
+                    "type": "string",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "channelMin": {
+                    "type": "string",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "channelMax": {
+                    "type": "string",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "blacklistIds": {
+                    "type": "string",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "extendedEpgInfo": {
+                    "type": "string",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "contentDescriptors": {
+                    "type": "string",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "activeFrom": {
+                    "type": "string",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "activeUntil": {
+                    "type": "string",
+                    "description": "Optional UPDATE field; omitted values are preserved."
+                  },
+                  "repeatCompareCategoriesMask": {
+                    "type": "string",
+                    "pattern": "^[0-9]+$",
+                    "description": "Exact native category bit mask, represented as a decimal string."
                   }
-                }
+                },
+                "description": "For action update send query and/or supported setting fields. Other actions do not accept update fields. Existing native options not included in the request are retained."
               }
             }
           }

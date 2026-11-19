@@ -13,6 +13,7 @@
 namespace
 {
 constexpr const char* kPrefix = "searchtimer-create-payload/3|";
+constexpr const char* kIndependentRepeatPrefix = "searchtimer-create-payload/4|";
 constexpr const char* kLegacyPrefix = "searchtimer-create-payload/2|";
 constexpr std::size_t kMaxText = 240U;
 
@@ -108,6 +109,15 @@ bool parseFlag(const std::string& field, bool& value)
 {
     if (field != "0" && field != "1") return false;
     value = field == "1";
+    return true;
+}
+
+bool parseOptionalFlag(const std::string& field, std::optional<bool>& value)
+{
+    if (field.empty()) { value.reset(); return true; }
+    bool parsed = false;
+    if (!parseFlag(field, parsed)) return false;
+    value = parsed;
     return true;
 }
 
@@ -216,11 +226,20 @@ bool searchTimerCreateOperationPayloadValid(
         true;
 }
 
+unsigned searchTimerCreateOperationPayloadVersion(
+    const SearchTimerCreateOperationPayload& payload)
+{
+    return payload.repeatCompareTitle.has_value() ||
+        payload.repeatCompareSubtitle.has_value() ||
+        payload.repeatCompareSummary.has_value() ? 4U : 3U;
+}
+
 std::string serializeSearchTimerCreateOperationPayload(
     const SearchTimerCreateOperationPayload& payload)
 {
     if (!searchTimerCreateOperationPayloadValid(payload)) return {};
-    std::string output(kPrefix);
+    const bool independent = searchTimerCreateOperationPayloadVersion(payload) == 4U;
+    std::string output(independent ? kIndependentRepeatPrefix : kPrefix);
     appendField(output, payload.name);
     appendField(output, payload.query);
     appendField(output, payload.active ? "1" : "0");
@@ -273,6 +292,15 @@ std::string serializeSearchTimerCreateOperationPayload(
     appendField(output, std::to_string(payload.deleteRecordingsAfterDays));
     appendField(output, std::to_string(payload.deleteAfterCountRecordings));
     appendField(output, std::to_string(payload.deleteAfterDaysOfFirstRecording));
+    if (independent)
+    {
+        appendField(output, payload.repeatCompareTitle.has_value()
+            ? (*payload.repeatCompareTitle ? "1" : "0") : "");
+        appendField(output, payload.repeatCompareSubtitle.has_value()
+            ? (*payload.repeatCompareSubtitle ? "1" : "0") : "");
+        appendField(output, payload.repeatCompareSummary.has_value()
+            ? (*payload.repeatCompareSummary ? "1" : "0") : "");
+    }
     return output;
 }
 
@@ -280,16 +308,18 @@ bool parseSearchTimerCreateOperationPayload(
     const std::string& serialized,
     SearchTimerCreateOperationPayload& payload)
 {
+    const bool v4 = serialized.compare(0U, std::string(kIndependentRepeatPrefix).size(),
+        kIndependentRepeatPrefix) == 0;
     const bool v3 = serialized.compare(0U, std::string(kPrefix).size(),
         kPrefix) == 0;
-    const bool v2 = !v3 &&
+    const bool v2 = !v4 && !v3 &&
         serialized.compare(0U, std::string(kLegacyPrefix).size(),
             kLegacyPrefix) == 0;
-    if (!v3 && !v2) return false;
-    std::size_t offset = v3 ? std::string(kPrefix).size() :
-        std::string(kLegacyPrefix).size();
+    if (!v4 && !v3 && !v2) return false;
+    std::size_t offset = v4 ? std::string(kIndependentRepeatPrefix).size() :
+        (v3 ? std::string(kPrefix).size() : std::string(kLegacyPrefix).size());
     std::vector<std::string> fields;
-    const std::size_t count = v3 ? 52U : 10U;
+    const std::size_t count = v4 ? 55U : (v3 ? 52U : 10U);
     fields.reserve(count);
     for (std::size_t i = 0U; i < count; ++i)
     {
@@ -310,7 +340,7 @@ bool parseSearchTimerCreateOperationPayload(
         !parseMargin(fields[8], decoded.marginStartMinutes) ||
         !parseMargin(fields[9], decoded.marginStopMinutes))
         return false;
-    if (v3)
+    if (v3 || v4)
     {
         decoded.directory = fields[10];
         if (!parseIntField(fields[11], decoded.priority)) return false;
@@ -355,8 +385,12 @@ bool parseSearchTimerCreateOperationPayload(
         if (!parseIntField(fields[50], decoded.deleteAfterCountRecordings)) return false;
         if (!parseIntField(fields[51], decoded.deleteAfterDaysOfFirstRecording)) return false;
     }
+    if (v4 && (!parseOptionalFlag(fields[52], decoded.repeatCompareTitle) ||
+        !parseOptionalFlag(fields[53], decoded.repeatCompareSubtitle) ||
+        !parseOptionalFlag(fields[54], decoded.repeatCompareSummary)))
+        return false;
     if (!searchTimerCreateOperationPayloadValid(decoded) ||
-        (v3 ? serializeSearchTimerCreateOperationPayload(decoded) :
+        ((v3 || v4) ? serializeSearchTimerCreateOperationPayload(decoded) :
             serializeLegacyV2(decoded)) != serialized)
         return false;
     payload = std::move(decoded);

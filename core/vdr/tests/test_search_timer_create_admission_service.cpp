@@ -66,6 +66,20 @@ void assertPayloadCodec()
         searchTimerCreateOperationPayloadFingerprint(p));
     const std::string fingerprint =
         searchTimerCreateOperationPayloadFingerprint(p);
+    assert(searchTimerCreateOperationPayloadVersion(p) == 3U);
+    assert(!decoded.repeatCompareTitle.has_value());
+    auto independentRepeat = p;
+    independentRepeat.repeatCompareTitle = false;
+    independentRepeat.repeatCompareSubtitle = true;
+    const auto independentEncoded = serializeSearchTimerCreateOperationPayload(independentRepeat);
+    assert(independentEncoded.rfind("searchtimer-create-payload/4|", 0U) == 0U);
+    assert(parseSearchTimerCreateOperationPayload(independentEncoded, decoded));
+    assert(decoded.compareTitle && !decoded.compareSubtitle);
+    assert(decoded.repeatCompareTitle == false && decoded.repeatCompareSubtitle == true);
+    assert(!decoded.repeatCompareSummary.has_value());
+    assert(searchTimerCreateOperationPayloadFingerprint(independentRepeat) != fingerprint);
+    assert(parseSearchTimerCreateOperationPayload(full, decoded));
+    assert(!decoded.repeatCompareTitle.has_value() && !decoded.repeatCompareSubtitle.has_value());
     assert(fingerprint.size() == 71U);
     assert(fingerprint.rfind("sha256:", 0U) == 0U);
     assert(!parseSearchTimerCreateOperationPayload(
@@ -159,9 +173,16 @@ void assertDurableAdmissionAndReplay()
 
     auto independent = request();
     independent.idempotencyKey = "searchtimer-create-unique-2";
+    independent.payload.repeatCompareTitle = false;
     const auto second = service.admit(independent);
     assert(second.status == SearchTimerCreateAdmissionStatus::prepared);
     assert(second.operation.operationId != first.operation.operationId);
+    const auto independentStored = store.findPayloadByOperationId(second.operation.operationId);
+    assert(independentStored.status == MutationOperationRepositoryStatus::ok);
+    assert(independentStored.payload.payloadVersion == 4U);
+    assert(restarted.admit(independent).status == SearchTimerCreateAdmissionStatus::replayed);
+    independent.payload.repeatCompareTitle = true;
+    assert(restarted.admit(independent).status == SearchTimerCreateAdmissionStatus::idempotencyConflict);
 
     auto anotherActor = request();
     anotherActor.actorId = "actor:device-2";

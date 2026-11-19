@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -61,6 +62,10 @@ struct SearchTimerUpdateRequest
     int deleteRecordingsAfterDays = 0;
     int deleteAfterCountRecordings = 0;
     int deleteAfterDaysOfFirstRecording = 0;
+    // Absent preserves historical coupling for existing callers.
+    std::optional<bool> repeatCompareTitle;
+    std::optional<bool> repeatCompareSubtitle;
+    std::optional<bool> repeatCompareSummary;
 
     bool hasBackendId() const
     {

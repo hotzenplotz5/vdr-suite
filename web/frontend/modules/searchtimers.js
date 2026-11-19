@@ -261,7 +261,7 @@
       backendNativeId: String(firstValue(source, ['backendNativeId', 'id', 'timerId'], '')),
       searchTimerId: String(firstValue(source, ['searchTimerId'], '')),
       state,
-      name: String(firstValue(source, ['name', 'title', 'search', 'query'], 'SearchTimer')),
+      name: String(firstValue(source, ['name', 'title', 'search', 'query'], 'Suchtimer')),
       query: String(firstValue(source, ['query', 'search', 'pattern'], '')),
       active: state === 'active' || boolValue(firstValue(source, ['active', 'enabled', 'isActive', 'use_as_searchtimer'], false), false),
       directory: normalizeDirectory(firstValue(recording, ['directory'], firstValue(source, ['directory'], ''))),
@@ -285,6 +285,9 @@
       compareTitle: boolValue(firstValue(comparison, ['compareTitle'], firstValue(source, ['compare_title', 'use_title'], true)), true),
       compareSubtitle: boolValue(firstValue(comparison, ['compareSubtitle'], firstValue(source, ['compare_subtitle', 'use_subtitle'], false)), false),
       compareSummary: boolValue(firstValue(comparison, ['compareSummary'], firstValue(source, ['compare_summary', 'use_description'], false)), false),
+      repeatCompareTitle: boolValue(firstValue(comparison, ['repeatCompareTitle'], firstValue(source, ['compare_title'], false)), false),
+      repeatCompareSubtitle: boolValue(firstValue(comparison, ['repeatCompareSubtitle'], firstValue(source, ['compare_subtitle'], false)), false),
+      repeatCompareSummary: boolValue(firstValue(comparison, ['repeatCompareSummary'], firstValue(source, ['compare_summary'], false)), false),
       compareCategories: boolValue(firstValue(comparison, ['compareCategories'], firstValue(source, ['compare_categories'], false)), false),
       compareTime: boolValue(firstValue(comparison, ['compareTime'], firstValue(source, ['compare_time'], false)), false),
       avoidRepeats: boolValue(firstValue(repeats, ['avoidRepeats'], firstValue(source, ['avoid_repeats'], false)), false),
@@ -313,7 +316,7 @@
       deleteRecordingsAfterDays: numberValue(firstValue(actions, ['deleteRecordingsAfterDays'], firstValue(source, ['del_recs_after_days'], 0)), 0),
       deleteAfterCountRecordings: numberValue(firstValue(actions, ['deleteAfterCountRecordings'], firstValue(source, ['del_after_count_recs'], 0)), 0),
       deleteAfterDaysOfFirstRecording: numberValue(firstValue(actions, ['deleteAfterDaysOfFirstRecording'], firstValue(source, ['del_after_days_of_first_rec'], 0)), 0),
-      updateSafe: state === 'inactive' && /^st_[0-9a-f]{32}$/.test(String(source.searchTimerId || ''))
+      updateSafe: ['active', 'inactive'].includes(state) && /^st_[0-9a-f]{32}$/.test(String(source.searchTimerId || ''))
     };
   }
 
@@ -321,6 +324,8 @@
     const values = new Set();
 
     listFromResponse(folderData, 'folders').forEach(folder => {
+      // Exclude recording-title leaves identified by the browse API.
+      if (folder.singleRecordingLeaf === true) return;
       const directory = recordingFolderPathToDirectory(firstValue(folder, ['path', 'name'], ''));
       if (directory !== '') values.add(directory);
     });
@@ -345,7 +350,7 @@
     const style = document.createElement('style');
     style.id = 'vdr-suite-searchtimer-workflow-styles';
     style.textContent = `
-.searchtimer-module{display:grid;gap:.8rem}.searchtimer-summary{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.6rem}.searchtimer-summary h3,.searchtimer-card h3{margin:0}.searchtimer-create-panel,.searchtimer-card{border:1px solid rgba(96,165,250,.24);border-radius:.95rem;background:rgba(15,23,42,.72)}.searchtimer-create-panel>summary,.searchtimer-card>summary{cursor:pointer;padding:.82rem .9rem;color:#f8fafc;font-weight:850}.searchtimer-create-panel[open]>summary,.searchtimer-card[open]>summary{border-bottom:1px solid rgba(148,163,184,.18)}.searchtimer-card.inactive{opacity:.8}.searchtimer-card-summary{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.6rem}.searchtimer-card-title strong{display:block;overflow:hidden;text-overflow:ellipsis}.searchtimer-card-title span{display:block;margin-top:.15rem;color:#94a3b8;font-size:.86rem;font-weight:500;overflow:hidden;text-overflow:ellipsis}.searchtimer-badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.32rem}.searchtimer-badge{padding:.22rem .48rem;border:1px solid rgba(148,163,184,.28);border-radius:999px;background:rgba(2,6,23,.72);color:#cbd5e1;font-size:.74rem;font-weight:800}.searchtimer-badge.active{border-color:rgba(74,222,128,.5);color:#bbf7d0}.searchtimer-badge.vps,.searchtimer-badge.filter{border-color:rgba(56,189,248,.48);color:#bae6fd}.searchtimer-create-body,.searchtimer-card-body{display:grid;gap:.72rem;padding:.82rem .9rem .9rem}.searchtimer-form{display:grid;gap:.72rem}.searchtimer-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.62rem}.searchtimer-field{display:grid;gap:.28rem;min-width:0}.searchtimer-field.wide{grid-column:1/-1}.searchtimer-field>span{color:#cbd5e1;font-size:.78rem;font-weight:750}.searchtimer-field input,.searchtimer-field select{box-sizing:border-box;width:100%;min-width:0;min-height:2.55rem;padding:.5rem .62rem;border:1px solid #475569;border-radius:.62rem;background:#111827;color:#f8fafc;font:inherit}.searchtimer-field select:disabled{opacity:.62}.searchtimer-check{display:flex;align-items:center;gap:.45rem;min-height:2.55rem}.searchtimer-check input{width:1.15rem;height:1.15rem}.searchtimer-selector-status{margin:.15rem 0 0;color:#94a3b8;font-size:.78rem}.searchtimer-expert{grid-column:1/-1;border:1px solid rgba(148,163,184,.18);border-radius:.65rem;background:rgba(2,6,23,.36)}.searchtimer-expert>summary{cursor:pointer;padding:.55rem .65rem;color:#94a3b8;font-size:.78rem;font-weight:750}.searchtimer-expert>.searchtimer-field{padding:0 .65rem .65rem}.searchtimer-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:.5rem}.searchtimer-meta{padding:.52rem .6rem;border:1px solid rgba(148,163,184,.16);border-radius:.64rem;background:rgba(15,23,42,.64)}.searchtimer-meta span{display:block;color:#94a3b8;font-size:.72rem;font-weight:750;text-transform:uppercase}.searchtimer-meta strong{display:block;margin-top:.14rem;color:#f8fafc;overflow-wrap:anywhere}.searchtimer-actions{display:flex;flex-wrap:wrap;gap:.5rem}.searchtimer-actions button{min-height:2.55rem;padding:.55rem .78rem;border-radius:.65rem}.searchtimer-actions .danger{border-color:rgba(248,113,113,.55);color:#fecaca}.searchtimer-actions .primary{border-color:rgba(56,189,248,.55)}.searchtimer-feedback{min-height:1.2rem;padding:.58rem .65rem;border-radius:.62rem;background:rgba(2,6,23,.5);color:#cbd5e1}.searchtimer-feedback.success{border:1px solid rgba(74,222,128,.4);color:#bbf7d0}.searchtimer-feedback.error{border:1px solid rgba(248,113,113,.45);color:#fecaca}.searchtimer-preview-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:.45rem}.searchtimer-preview-metric{padding:.5rem;border:1px solid rgba(56,189,248,.2);border-radius:.62rem;background:rgba(15,23,42,.7)}.searchtimer-preview-metric span{display:block;color:#94a3b8;font-size:.7rem}.searchtimer-preview-metric strong{display:block;margin-top:.12rem}.searchtimer-preview-match{margin-top:.55rem;padding:.62rem;border:1px solid rgba(148,163,184,.18);border-radius:.68rem;background:rgba(15,23,42,.68)}.searchtimer-preview-match h5{margin:0}.searchtimer-preview-badges{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem}.searchtimer-preview-badge{padding:.18rem .4rem;border-radius:999px;background:rgba(2,6,23,.7);color:#bae6fd;font-size:.72rem}.searchtimer-preview-technical{margin-top:.6rem}.searchtimer-preview-technical pre{max-height:22rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.searchtimer-safety-note{padding:.62rem;border:1px solid rgba(251,191,36,.3);border-radius:.68rem;background:rgba(120,53,15,.18);color:#fde68a}
+.searchtimer-module{display:grid;gap:.8rem}.searchtimer-summary{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.6rem}.searchtimer-summary h3,.searchtimer-card h3{margin:0}.searchtimer-create-panel,.searchtimer-card{border:1px solid rgba(96,165,250,.24);border-radius:.95rem;background:rgba(15,23,42,.72)}.searchtimer-create-panel>summary,.searchtimer-card>summary{cursor:pointer;padding:.82rem .9rem;color:#f8fafc;font-weight:850}.searchtimer-create-panel[open]>summary,.searchtimer-card[open]>summary{border-bottom:1px solid rgba(148,163,184,.18)}.searchtimer-card.inactive{opacity:.8}.searchtimer-card-summary{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:.6rem}.searchtimer-card-title strong{display:block;overflow:hidden;text-overflow:ellipsis}.searchtimer-card-title span{display:block;margin-top:.15rem;color:#94a3b8;font-size:.86rem;font-weight:500;overflow:hidden;text-overflow:ellipsis}.searchtimer-badges{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.32rem}.searchtimer-badge{padding:.22rem .48rem;border:1px solid rgba(148,163,184,.28);border-radius:999px;background:rgba(2,6,23,.72);color:#cbd5e1;font-size:.74rem;font-weight:800}.searchtimer-badge.active{border-color:rgba(74,222,128,.5);color:#bbf7d0}.searchtimer-badge.vps,.searchtimer-badge.filter{border-color:rgba(56,189,248,.48);color:#bae6fd}.searchtimer-create-body,.searchtimer-card-body{display:grid;gap:.72rem;padding:.82rem .9rem .9rem}.searchtimer-form{display:grid;gap:.72rem}.searchtimer-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.62rem}.searchtimer-field{display:grid;gap:.28rem;min-width:0}.searchtimer-field.wide{grid-column:1/-1}.searchtimer-field>span{color:#cbd5e1;font-size:.78rem;font-weight:750}.searchtimer-field input,.searchtimer-field select{box-sizing:border-box;width:100%;min-width:0;min-height:2.55rem;padding:.5rem .62rem;border:1px solid #475569;border-radius:.62rem;background:#111827;color:#f8fafc;font:inherit}.searchtimer-field select:disabled{opacity:.62}.searchtimer-check{display:flex;align-items:center;gap:.45rem;min-height:2.55rem}.searchtimer-check input{width:1.15rem;height:1.15rem}.searchtimer-selector-status{margin:.15rem 0 0;color:#94a3b8;font-size:.78rem}.searchtimer-expert{grid-column:1/-1;border:1px solid rgba(148,163,184,.18);border-radius:.65rem;background:rgba(2,6,23,.36)}.searchtimer-expert>summary{cursor:pointer;padding:.75rem;color:#e2e8f0;font-size:1rem;font-weight:750}.searchtimer-option-group{grid-column:1/-1;border:1px solid #475569;border-radius:.65rem;padding:.65rem}.searchtimer-option-group legend{font-weight:750;padding:0 .4rem}.searchtimer-expert>.searchtimer-field{padding:0 .65rem .65rem}.searchtimer-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:.5rem}.searchtimer-meta{padding:.52rem .6rem;border:1px solid rgba(148,163,184,.16);border-radius:.64rem;background:rgba(15,23,42,.64)}.searchtimer-meta span{display:block;color:#94a3b8;font-size:.72rem;font-weight:750;text-transform:uppercase}.searchtimer-meta strong{display:block;margin-top:.14rem;color:#f8fafc;overflow-wrap:anywhere}.searchtimer-actions{display:flex;flex-wrap:wrap;gap:.5rem}.searchtimer-actions button{min-height:2.55rem;padding:.55rem .78rem;border-radius:.65rem}.searchtimer-actions .danger{border-color:rgba(248,113,113,.55);color:#fecaca}.searchtimer-actions .primary{border-color:rgba(56,189,248,.55)}.searchtimer-feedback{min-height:1.2rem;padding:.58rem .65rem;border-radius:.62rem;background:rgba(2,6,23,.5);color:#cbd5e1}.searchtimer-feedback.success{border:1px solid rgba(74,222,128,.4);color:#bbf7d0}.searchtimer-feedback.error{border:1px solid rgba(248,113,113,.45);color:#fecaca}.searchtimer-preview-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:.45rem}.searchtimer-preview-metric{padding:.5rem;border:1px solid rgba(56,189,248,.2);border-radius:.62rem;background:rgba(15,23,42,.7)}.searchtimer-preview-metric span{display:block;color:#94a3b8;font-size:.7rem}.searchtimer-preview-metric strong{display:block;margin-top:.12rem}.searchtimer-preview-match{margin-top:.55rem;padding:.62rem;border:1px solid rgba(148,163,184,.18);border-radius:.68rem;background:rgba(15,23,42,.68)}.searchtimer-preview-match h5{margin:0}.searchtimer-preview-badges{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem}.searchtimer-preview-badge{padding:.18rem .4rem;border-radius:999px;background:rgba(2,6,23,.7);color:#bae6fd;font-size:.72rem}.searchtimer-preview-technical{margin-top:.6rem}.searchtimer-preview-technical pre{max-height:22rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.searchtimer-safety-note{padding:.62rem;border:1px solid rgba(251,191,36,.3);border-radius:.68rem;background:rgba(120,53,15,.18);color:#fde68a}
 @media(max-width:760px){.searchtimer-card-summary{grid-template-columns:minmax(0,1fr)}.searchtimer-badges{justify-content:flex-start}.searchtimer-form-grid{grid-template-columns:minmax(0,1fr)}.searchtimer-field.wide,.searchtimer-expert{grid-column:auto}.searchtimer-actions{display:grid;grid-template-columns:minmax(0,1fr)}.searchtimer-actions button{width:100%}.searchtimer-meta-grid{grid-template-columns:minmax(0,1fr)}}`;
     document.head.appendChild(style);
   }
@@ -430,7 +435,8 @@
     const mode = numberValue(formValue(form, 'channelFilterMode', source.useChannel), 0);
     if (mode === 1) {
       const channelId = String(formValue(form, 'channelId', '')).trim();
-      return {useChannel: channelId === '' ? 0 : 1, channels: '', channelMin: channelId, channelMax: channelId};
+      const endId = String(formValue(form, 'channelEndId', channelId)).trim() || channelId;
+      return {useChannel: channelId === '' ? 0 : 1, channels: '', channelMin: channelId, channelMax: endId};
     }
     if (mode === 2) {
       const group = String(formValue(form, 'channelFilterGroup', '')).trim();
@@ -473,6 +479,9 @@
       compareTitle: boolValue(formValue(form, 'compareTitle', source.compareTitle), true),
       compareSubtitle: boolValue(formValue(form, 'compareSubtitle', source.compareSubtitle), false),
       compareSummary: boolValue(formValue(form, 'compareSummary', source.compareSummary), false),
+      repeatCompareTitle: boolValue(formValue(form, 'repeatCompareTitle', source.repeatCompareTitle), false),
+      repeatCompareSubtitle: boolValue(formValue(form, 'repeatCompareSubtitle', source.repeatCompareSubtitle), false),
+      repeatCompareSummary: boolValue(formValue(form, 'repeatCompareSummary', source.repeatCompareSummary), false),
       compareCategories: boolValue(formValue(form, 'compareCategories', source.compareCategories), false),
       compareTime: boolValue(formValue(form, 'compareTime', source.compareTime), false),
       useSeriesRecording: boolValue(formValue(form, 'useSeriesRecording', source.useSeriesRecording), false),
@@ -541,8 +550,7 @@
     return fallback;
   }
 
-  function fetchChannels() {
-    const backendId = selectedBackendId();
+  function fetchChannels(backendId = selectedBackendId()) {
     if (channelCache[backendId]) return channelCache[backendId];
     const api = clientApi();
     if (!api || typeof api.fetchClientChannels !== 'function') {
@@ -559,8 +567,7 @@
     return channelCache[backendId];
   }
 
-  function fetchDirectoryData() {
-    const backendId = selectedBackendId();
+  function fetchDirectoryData(backendId = selectedBackendId()) {
     if (directoryCache[backendId]) return directoryCache[backendId];
     const api = clientApi();
     if (!api || typeof api.fetchClientRecordingFolder !== 'function') {
@@ -580,7 +587,8 @@
   function populateChannelSelect(selectElement, channels, selectedId) {
     selectElement.replaceChildren();
     if (channels.length === 0) {
-      selectElement.appendChild(option('', 'Keine Kanäle verfügbar', true));
+      selectElement.appendChild(option(selectedId || '', selectedId ? 'Aktueller Kanal · ' + selectedId : 'Keine Kanäle verfügbar', true));
+      selectElement.value = selectedId || '';
       selectElement.disabled = true;
       return;
     }
@@ -592,38 +600,39 @@
     if (selectedId && !channels.some(channel => channel.id === selectedId)) {
       selectElement.appendChild(option(selectedId, 'Aktueller Kanal · ' + selectedId, true));
     }
+    selectElement.value = selectedId || '';
   }
 
   function configureDirectorySelector(selectElement, manualInput, status, source) {
     status.textContent = 'Aufnahmeverzeichnisse werden geladen …';
     selectElement.disabled = true;
-    selectElement.replaceChildren(option('', 'Verzeichnisse werden geladen …', true));
-
-    fetchDirectoryData().then(folderData => {
-      const directories = directoryOptions(folderData, lastSearchTimerData || {}, source.directory);
+    // Never overwrite edits or a template chosen while the catalogue loads.
+    selectElement.addEventListener('change', () => { manualInput.value = ''; });
+    manualInput.addEventListener('input', () => {
+      if (manualInput.value.trim() !== '') selectElement.value = '';
+    });
+    fetchDirectoryData(source.backendId).then(folderData => {
+      const current = selectElement.value;
+      const directories = directoryOptions(folderData, lastSearchTimerData || {}, current);
       selectElement.replaceChildren();
       directories.forEach(directory => {
-        selectElement.appendChild(option(directory, directoryOptionLabel(directory), directory === source.directory));
+        selectElement.appendChild(option(directory, directoryOptionLabel(directory), directory === current));
       });
       selectElement.disabled = false;
-      selectElement.value = source.directory;
-      manualInput.value = '';
-      selectElement.addEventListener('change', () => { manualInput.value = ''; });
-      manualInput.addEventListener('input', () => {
-        if (manualInput.value.trim() !== '') selectElement.value = '';
-      });
+      selectElement.value = current;
       status.textContent = String(directories.length) + ' Verzeichnisziele verfügbar.';
     }).catch(error => {
-      selectElement.replaceChildren(option(source.directory, directoryOptionLabel(source.directory), true));
-      selectElement.disabled = source.directory === '';
-      manualInput.value = source.directory;
+      const current = selectElement.value;
+      selectElement.replaceChildren(option(current, directoryOptionLabel(current), true));
+      selectElement.value = current;
+      selectElement.disabled = current === '';
       status.textContent = 'Verzeichnisliste konnte nicht geladen werden. Bitte Expertenoption verwenden: ' +
         String(error && error.message ? error.message : error);
     });
   }
 
   function createDirectoryFields(grid, source) {
-    const directorySelect = select('directory', source.directory, []);
+    const directorySelect = select('directory', source.directory, [[source.directory, directoryOptionLabel(source.directory)]]);
     const directoryField = field('Aufnahmeverzeichnis auswählen', directorySelect, true);
     const status = document.createElement('p');
     status.className = 'searchtimer-selector-status';
@@ -640,29 +649,31 @@
     global.setTimeout(() => configureDirectorySelector(directorySelect, manualInput, status, source), 0);
   }
 
-  function configureChannelFilter(modeSelect, groupField, groupSelect, channelGroupField, channelGroupSelect, channelField, channelSelect, expert, status, source) {
+  function configureChannelFilter(modeSelect, groupField, groupSelect, channelGroupField, channelGroupSelect, channelField, channelSelect, channelEndSelect, expert, status, source) {
     status.textContent = 'Kanalfilter werden geladen …';
     modeSelect.disabled = true;
     groupField.hidden = true;
     channelGroupField.hidden = true;
     channelField.hidden = true;
 
-    fetchChannels().then(channels => {
+    fetchChannels(source.backendId).then(channels => {
       const selectorGroups = channelGroups(channels, true);
       const realGroups = channelGroups(channels, false);
-      const currentSingleId = source.useChannel === 1 ? (source.channelMin || source.channelMax) : '';
+      const currentSingleId = channelSelect.value;
+      const currentGroup = channelGroupSelect.value;
+      populateChannelSelect(channelEndSelect, channels, channelEndSelect.value);
+      channelEndSelect.addEventListener('change', clearManualChannelFilter);
       const currentChannel = channels.find(channel => channel.id === currentSingleId) || null;
 
       modeSelect.disabled = false;
-      modeSelect.value = String([0, 1, 2, 3].includes(source.useChannel) ? source.useChannel : 0);
-
+ 
       groupSelect.replaceChildren(option('', 'Kanalgruppe auswählen …', true));
       selectorGroups.forEach(group => {
         groupSelect.appendChild(option(group, group === UNGROUPED_CHANNEL_KEY ? 'Ohne Kanalgruppe' : group, false));
       });
 
       channelGroupSelect.replaceChildren(option('', 'Kanalgruppe auswählen …', true));
-      realGroups.forEach(group => channelGroupSelect.appendChild(option(group, group, group === source.channels)));
+      realGroups.forEach(group => channelGroupSelect.appendChild(option(group, group, group === currentGroup)));
 
       function clearManualChannelFilter() {
         ['manualUseChannel', 'manualChannels', 'manualChannelMin', 'manualChannelMax'].forEach(name => {
@@ -678,18 +689,19 @@
 
         if (mode === 1) {
           if (selectorGroups.length === 0) {
-            populateChannelSelect(channelSelect, channels, currentSingleId);
+            populateChannelSelect(channelSelect, channels, channelSelect.value);
           } else if (groupSelect.value !== '') {
-            populateChannelSelect(channelSelect, channelsForGroup(channels, groupSelect.value), currentSingleId);
+            populateChannelSelect(channelSelect, channelsForGroup(channels, groupSelect.value), channelSelect.value);
           } else {
-            channelSelect.replaceChildren(option('', 'Zuerst Kanalgruppe auswählen …', true));
-            channelSelect.disabled = true;
+            populateChannelSelect(channelSelect, channels, channelSelect.value);
           }
         }
       }
 
       if (currentChannel && selectorGroups.length > 0) groupSelect.value = channelGroupKey(currentChannel);
-      if (source.useChannel === 2 && realGroups.includes(source.channels)) channelGroupSelect.value = source.channels;
+      if (currentGroup && !realGroups.includes(currentGroup))
+        channelGroupSelect.appendChild(option(currentGroup, currentGroup, true));
+      channelGroupSelect.value = currentGroup;
 
       modeSelect.addEventListener('change', () => {
         clearManualChannelFilter();
@@ -697,19 +709,26 @@
       });
       groupSelect.addEventListener('change', () => {
         clearManualChannelFilter();
-        populateChannelSelect(channelSelect, channelsForGroup(channels, groupSelect.value), '');
+        populateChannelSelect(channelSelect, groupSelect.value
+          ? channelsForGroup(channels, groupSelect.value) : channels, '');
+        channelEndSelect.value = '';
       });
-      channelSelect.addEventListener('change', clearManualChannelFilter);
+      channelSelect.addEventListener('change', () => {
+        clearManualChannelFilter();
+        channelEndSelect.value = '';
+      });
       channelGroupSelect.addEventListener('change', clearManualChannelFilter);
+      modeSelect.refreshSearchTimerFilter = renderMode;
       renderMode();
 
       status.textContent = String(realGroups.length) + ' Kanalgruppen · ' + String(channels.length) + ' Kanäle.';
       if (source.useChannel === 1 && source.channelMin && source.channelMax && source.channelMin !== source.channelMax) {
-        expert.open = true;
-        status.textContent += ' Ein vorhandener Kanalbereich bleibt in der Expertenoption erhalten.';
+        status.textContent += ' Senderbereich von/bis ist ausgewählt.';
       }
     }).catch(error => {
       modeSelect.disabled = false;
+      channelField.hidden = modeSelect.value !== '1';
+      channelGroupField.hidden = modeSelect.value !== '2';
       expert.open = true;
       status.textContent = 'Kanalliste konnte nicht geladen werden. Bitte Expertenoption verwenden: ' +
         String(error && error.message ? error.message : error);
@@ -719,7 +738,7 @@
   function createChannelFilterFields(grid, source) {
     const modeSelect = select('channelFilterMode', source.useChannel, [
       [0, 'Alle Kanäle'],
-      [1, 'Einzelner Kanal'],
+      [1, 'Kanal / Kanalbereich'],
       [2, 'Kanalgruppe'],
       [3, 'Nur frei empfangbare Kanäle (FTA)']
     ]);
@@ -732,11 +751,18 @@
     const groupField = field('Kanalgruppe zur Auswahl', groupSelect, true);
     groupField.hidden = true;
 
-    const channelSelect = select('channelId', '', []);
-    const channelField = field('Kanal auswählen', channelSelect, true);
+    const initialChannel = source.useChannel === 1 ? (source.channelMin || source.channelMax) : '';
+    const channelSelect = select('channelId', initialChannel, [[initialChannel, initialChannel || 'Kanal auswählen …']]);
+    const channelField = document.createElement('div');
+    channelField.className = 'searchtimer-field wide';
+    channelField.appendChild(field('Von Sender', channelSelect, true));
+    const initialEnd = source.useChannel === 1 ? (source.channelMax || initialChannel) : '';
+    const channelEndSelect = select('channelEndId', initialEnd, [[initialEnd, initialEnd || 'Gleicher Sender']]);
+    channelField.appendChild(field('Bis Sender (leer = gleicher Sender)', channelEndSelect, true));
     channelField.hidden = true;
 
-    const channelGroupSelect = select('channelFilterGroup', source.useChannel === 2 ? source.channels : '', []);
+    const initialGroup = source.useChannel === 2 ? source.channels : '';
+    const channelGroupSelect = select('channelFilterGroup', initialGroup, [[initialGroup, initialGroup || 'Kanalgruppe auswählen …']]);
     const channelGroupField = field('Kanalgruppe filtern', channelGroupSelect, true);
     channelGroupField.hidden = true;
 
@@ -744,9 +770,9 @@
     expert.className = 'searchtimer-expert';
     expert.appendChild(addText(document.createElement('summary'), 'Expertenoption: Kanalfilter manuell eingeben'));
     expert.appendChild(field('use_channel (0–3)', input('manualUseChannel', source.useChannel > 3 ? source.useChannel : ''), true));
-    expert.appendChild(field('channels / Kanalgruppenname', input('manualChannels', source.useChannel === 2 && source.channels ? source.channels : ''), true));
-    expert.appendChild(field('channel_min / Startkanal-ID', input('manualChannelMin', source.useChannel === 1 ? source.channelMin : ''), true));
-    expert.appendChild(field('channel_max / Endkanal-ID', input('manualChannelMax', source.useChannel === 1 ? source.channelMax : ''), true));
+    expert.appendChild(field('channels / Kanalgruppenname', input('manualChannels', ''), true));
+    expert.appendChild(field('channel_min / Startkanal-ID', input('manualChannelMin', ''), true));
+    expert.appendChild(field('channel_max / Endkanal-ID', input('manualChannelMax', ''), true));
 
     grid.appendChild(modeField);
     grid.appendChild(groupField);
@@ -755,7 +781,7 @@
     grid.appendChild(expert);
 
     global.setTimeout(() => {
-      configureChannelFilter(modeSelect, groupField, groupSelect, channelGroupField, channelGroupSelect, channelField, channelSelect, expert, status, source);
+      configureChannelFilter(modeSelect, groupField, groupSelect, channelGroupField, channelGroupSelect, channelField, channelSelect, channelEndSelect, expert, status, source);
     }, 0);
   }
 
@@ -777,6 +803,15 @@
     item.appendChild(addText(document.createElement('span'), label));
     item.appendChild(addText(document.createElement('strong'), value));
     parent.appendChild(item);
+  }
+
+  function namedChannelLabel(element, channelId, prefix) {
+    const id = String(channelId || '');
+    fetchChannels().then(channels => {
+      const channel = channels.find(item => item.id === id);
+      if (channel) element.textContent = (prefix || '') + channelOptionLabel(channel);
+    }).catch(() => {}); // Keep the original ID visible when lookup fails.
+    return element;
   }
 
   function renderPreview(target, data) {
@@ -808,6 +843,8 @@
           const badge = addText(document.createElement('span'), text);
           badge.className = 'searchtimer-preview-badge';
           badges.appendChild(badge);
+          if (text.startsWith('Kanal: ') && !event.channelName)
+            namedChannelLabel(badge, firstValue(event, ['channelId', 'channel'], ''), 'Kanal: ');
         });
         card.appendChild(badges);
         target.appendChild(card);
@@ -826,11 +863,11 @@
   function runPreview(payload, button, target) {
     const api = clientApi();
     if (!api || typeof api.fetchClientSearchTimerPreview !== 'function') {
-      setFeedback(target, 'SearchTimer-Vorschau ist nicht verfügbar.', true);
+      setFeedback(target, 'Suchtimer-Vorschau ist nicht verfügbar.', true);
       return Promise.resolve(null);
     }
     button.disabled = true;
-    setFeedback(target, 'SearchTimer-Vorschau wird geladen …', false);
+    setFeedback(target, 'Suchtimer-Vorschau wird geladen …', false);
     return api.fetchClientSearchTimerPreview({
       backendId: selectedBackendId(),
       query: Object.assign({}, payload, {text: payload.query, query: payload.query}),
@@ -898,8 +935,10 @@
       if (reading) { readAgain = true; return; }
       reading = true;
       inspect.disabled = true;
+      setFeedback(feedback, 'Änderungsvorgang wird geprüft …', false);
       try {
         show(await api.fetchClientSearchTimerOperation({operationId}));
+        if (attached && !inspect.hidden) feedback.textContent = 'Status geprüft: ' + feedback.textContent;
       } catch (error) {
         if (attached) setFeedback(feedback, 'Vorgang kann nicht bestätigt werden: ' +
           String(error && error.message || error) + '. Nicht erneut senden.', true);
@@ -928,7 +967,7 @@
       // The Client API stream reconnects itself; manual GET remains available.
       events.onerror = () => { if (attached && !inspect.hidden) inspect.disabled = false; };
     }
-    async function execute(action, query) {
+    async function execute(action, changes, editorVersion) {
       if (!attached || busy || submitted) return;
       if (!api || typeof api.fetchPublicSearchTimerVersion !== 'function' ||
           typeof api.mutatePublicSearchTimer !== 'function') {
@@ -937,14 +976,14 @@
       }
       const payload = {action, confirmed: true};
       if (action === 'update') {
-        payload.query = String(query || '').trim();
-        if (!payload.query) {
-          setFeedback(feedback, 'Bitte einen Suchbegriff eingeben.', true);
+        Object.assign(payload, changes);
+        if (!changes || Object.keys(changes).length === 0) {
+          setFeedback(feedback, 'Keine Einstellungen geändert.', false);
           return;
         }
       }
       const label = {update:'ändern', activate:'aktivieren', deactivate:'deaktivieren', delete:'löschen'}[action];
-      if (!global.confirm('SearchTimer „' + timer.name + '“ ' + label + '?' +
+      if (!global.confirm('Suchtimer „' + timer.name + '“ ' + label + '?' +
           (action === 'activate' ? ' Die Regel kann sofort Timer erzeugen.' : ''))) return;
       const key = newStagedIdempotencyKey();
       if (!key) { setFeedback(feedback, 'Vorgangs-ID konnte nicht erzeugt werden.', true); return; }
@@ -955,7 +994,7 @@
       try {
         // The version response binds the current rule to the same revision.
         // Do not require a separate DETAIL request before a mutation.
-        const version = await api.fetchPublicSearchTimerVersion(scope);
+        const version = editorVersion || await api.fetchPublicSearchTimerVersion(scope);
         if (!attached) return;
         if (!version || version.searchTimerId !== scope.searchTimerId ||
             version.backendId !== scope.backend || !/^sr_[0-9a-f]{32}$/.test(version.revision)) {
@@ -994,7 +1033,7 @@
         if (attached && !submitted) lock(false);
       }
     }
-    return {execute};
+    return {execute, lock, addControl(control) { controls.push(control); originalDisabled.push(control.disabled); }};
   }
 
   async function runSavedPreview(timer, button, target) {
@@ -1054,13 +1093,16 @@
       Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
   }
 
-  function createForm(template) {
-    const source = template || normalizeSearchTimer({}, 0);
+  function createForm(template, editContext) {
+    const editing = Boolean(editContext);
+    const source = template || normalizeSearchTimer({backendId: selectedBackendId()}, 0);
     const form = document.createElement('form');
     form.className = 'searchtimer-form';
-    form.dataset.searchtimerEditorForm = 'create';
+    form.dataset.searchtimerEditorForm = editing ? 'update' : 'create';
 
     const notice = addText(document.createElement('p'),
+      editing ? 'Suchtimer bearbeiten – nur geänderte Einstellungen werden gespeichert. ' +
+        'Aktivieren und Deaktivieren erfolgen weiterhin separat.' :
       'VDR-Suite: Suchtimer können mit den vorhandenen epgsearch-Optionen ' +
       'direkt inaktiv oder aktiv angelegt werden. Die Vorschau zeigt nur EPG-' +
       'Texttreffer, keine tatsächliche Aufnahmeprognose. Der Browser benutzt ' +
@@ -1070,7 +1112,7 @@
     const grid = document.createElement('div');
     grid.className = 'searchtimer-form-grid';
     grid.appendChild(field('Suchbegriff / Name', input('query', source.query), true));
-    grid.appendChild(check('active', 'Nach dem Speichern sofort aktiv', false));
+    if (!editing) grid.appendChild(check('active', 'Nach dem Speichern sofort aktiv', false));
     grid.appendChild(check('compareTitle', 'Titel durchsuchen', template ? source.compareTitle : true));
     grid.appendChild(check('compareSubtitle', 'Untertitel durchsuchen', source.compareSubtitle));
     grid.appendChild(check('compareSummary', 'Beschreibung durchsuchen', source.compareSummary));
@@ -1079,13 +1121,14 @@
       [[0, 'Phrase'], [1, 'Alle Wörter'], [2, 'Ein Wort'],
        [3, 'Exakt'], [4, 'Regulärer Ausdruck'], [5, 'Unscharf']])));
     grid.appendChild(field('Toleranz (nur Unscharf)', input('tolerance',
-      source.mode === 5 ? source.tolerance : 0, 'number')));
+      editing || source.mode === 5 ? source.tolerance : 0, 'number')));
     form.appendChild(grid);
 
     const advanced = document.createElement('details');
     advanced.className = 'searchtimer-expert';
+    if (editing) advanced.open = true;
     advanced.appendChild(addText(document.createElement('summary'),
-      'Weitere epgsearch-Einstellungen'));
+      'Weitere Einstellungen'));
     const advancedGrid = document.createElement('div');
     advancedGrid.className = 'searchtimer-form-grid';
     advancedGrid.style.padding = '.65rem';
@@ -1098,18 +1141,43 @@
       input('marginStopMinutes', template ? source.marginStopMinutes : '', 'number')));
     createDirectoryFields(advancedGrid, source);
     createChannelFilterFields(advancedGrid, source);
-    advancedGrid.appendChild(check('useDuration', 'Dauerfilter aktivieren', source.useDuration));
-    advancedGrid.appendChild(field('Mindestdauer (Min.)',
+    const durationGroup = document.createElement('fieldset');
+    durationGroup.className = 'searchtimer-option-group searchtimer-form-grid';
+    durationGroup.appendChild(addText(document.createElement('legend'), 'Aufnahmedauer'));
+    advancedGrid.appendChild(durationGroup);
+    durationGroup.appendChild(check('useDuration', 'Dauerfilter aktivieren', source.useDuration));
+    durationGroup.appendChild(field('Mindestdauer (HHMM)',
       input('durationMinMinutes', source.durationMinMinutes, 'number')));
-    advancedGrid.appendChild(field('Höchstdauer (Min.)',
+    durationGroup.appendChild(addText(document.createElement('p'), 'Beispiel: 0130 = 1 Stunde 30 Minuten.'));
+    durationGroup.appendChild(field('Höchstdauer (HHMM)',
       input('durationMaxMinutes', source.durationMaxMinutes, 'number')));
-    advancedGrid.appendChild(check('avoidRepeats', 'Wiederholungen vermeiden', source.avoidRepeats));
-    advancedGrid.appendChild(field('Erlaubte Wiederholungen',
+    const repeatGroup = document.createElement('fieldset');
+    repeatGroup.className = 'searchtimer-option-group searchtimer-form-grid';
+    repeatGroup.appendChild(addText(document.createElement('legend'), 'Wiederholungen'));
+    advancedGrid.appendChild(repeatGroup);
+    repeatGroup.appendChild(check('avoidRepeats', 'Wiederholungen vermeiden', source.avoidRepeats));
+    repeatGroup.appendChild(check('repeatCompareTitle', 'Titel auf Wiederholung prüfen', template ? source.repeatCompareTitle : true));
+    if (!editing) repeatGroup.appendChild(check('repeatCompareSubtitle', 'Untertitel auf Wiederholung prüfen', source.repeatCompareSubtitle));
+    repeatGroup.appendChild(check('repeatCompareSummary', 'Beschreibung auf Wiederholung prüfen', source.repeatCompareSummary));
+    if (editing) {
+      repeatGroup.appendChild(field('Untertitelvergleich', select('repeatCompareSubtitleMode', '', [
+        ['', 'Unverändert'], [0, 'Aus'], [1, 'Ja'], [2, 'Wenn vorhanden']])));
+      repeatGroup.appendChild(field('Zeitvergleich (nativer Modus)', select('repeatCompareTimeMode', '', [
+        ['', 'Unverändert'], [0, 'Aus'], [1, 'Modus 1'], [2, 'Modus 2'], [3, 'Modus 3']])));
+      repeatGroup.appendChild(field('EPG-Kategorien (Bitmaske)', input('repeatCompareCategoriesMask', '')));
+    }
+    repeatGroup.appendChild(field('Erlaubte Wiederholungen',
       input('allowedRepeats', source.allowedRepeats, 'number')));
-    advancedGrid.appendChild(field('Wiederholungen innerhalb (Tage)',
+    repeatGroup.appendChild(field('Wiederholungen innerhalb (Tage)',
       input('repeatsWithinDays', source.repeatsWithinDays, 'number')));
-    advancedGrid.appendChild(field('Blacklist-Modus',
-      input('blacklistMode', source.blacklistMode, 'number')));
+    if (!editing) {
+      repeatGroup.appendChild(check('compareCategories', 'EPG-Kategorien vergleichen', source.compareCategories));
+      repeatGroup.appendChild(check('compareTime', 'Zeit vergleichen', source.compareTime));
+    }
+    repeatGroup.appendChild(field('Ähnlichkeit der Beschreibung (%)',
+      input('summaryMatch', source.summaryMatch, 'number')));
+    advancedGrid.appendChild(field('Blacklist-Modus', select('blacklistMode', source.blacklistMode,
+      [[0, 'Globale Blacklists'], [1, 'Ausgewählte Blacklists'], [2, 'Alle Blacklists'], [3, 'Keine Blacklist']])));
     advancedGrid.appendChild(field('Blacklist-IDs',
       input('blacklistIds', source.blacklistIds)));
     advancedGrid.appendChild(check('matchCase',
@@ -1127,13 +1195,10 @@
       ['stopTime','Ende HHMM','number'],
       ['useDayOfWeek','Wochentage filtern','bool'],
       ['dayOfWeek','Wochentagsmaske','number'],
-      ['compareCategories','EPG-Kategorien vergleichen','bool'],
-      ['compareTime','Uhrzeit vergleichen','bool'],
       ['useSeriesRecording','Serienaufnahme','bool'],
       ['keepRecordings','Aufnahmen behalten','number'],
       ['deleteMode','Löschmodus','number'],
       ['searchTimerAction','Suchtimer-Aktion','number'],
-      ['summaryMatch','Zusammenfassung: Übereinstimmung','number'],
       ['useExtendedEpgInfo','Erweiterte EPG-Daten','bool'],
       ['extendedEpgInfo','Erweiterte EPG-Filter','text'],
       ['ignoreMissingEpgCategories','Fehlende EPG-Kategorien ignorieren','bool'],
@@ -1149,10 +1214,17 @@
       ['deleteAfterDaysOfFirstRecording','Aufnahmen löschen nach erster Aufnahme','number']
     ];
     extras.forEach(([name, title, type]) => {
+      if (editing && ['compareCategories', 'compareTime', 'pauseOnRecordings'].includes(name)) return;
       extraGrid.appendChild(type === 'bool'
         ? check(name, title, source[name])
         : field(title, input(name, source[name], type)));
     });
+    if (editing) {
+      extraGrid.appendChild(field('Pausieren ab Anzahl Aufnahmen (leer = unverändert)', input('pauseOnRecordingsCount', '', 'number')));
+      extraGrid.appendChild(field('Aktivierungsmodus', select('activeMode', '', source.active
+        ? [['', 'Unverändert'], [1, 'Aktiv'], [2, 'Zeitlich begrenzt']]
+        : [['', 'Unverändert'], [0, 'Inaktiv']])));
+    }
     extra.appendChild(extraGrid);
     advancedGrid.appendChild(extra);
     advanced.appendChild(advancedGrid);
@@ -1163,8 +1235,8 @@
     const previewButton = addText(document.createElement('button'), 'Vorschau');
     previewButton.type = 'button';
     previewButton.className = 'primary';
-    const saveButton = addText(document.createElement('button'), 'SearchTimer speichern');
-    saveButton.type = 'submit';
+    const saveButton = addText(document.createElement('button'), editing ? 'Änderung speichern' : 'Suchtimer speichern');
+    saveButton.type = editing ? 'button' : 'submit';
     saveButton.dataset.searchtimerAction = 'save';
     actions.appendChild(previewButton);
     actions.appendChild(saveButton);
@@ -1173,13 +1245,82 @@
     checkOperationButton.type = 'button';
     checkOperationButton.hidden = true;
     checkOperationButton.disabled = true;
-    actions.appendChild(checkOperationButton);
+    if (!editing) actions.appendChild(checkOperationButton);
+    const cancelButton = addText(document.createElement('button'), 'Abbrechen / Zurück');
+    cancelButton.type = 'button';
+    cancelButton.addEventListener('click', () => {
+      if (editing) { editContext.close(); return; }
+      // Preserve admitted operation and duplicate protection when collapsing.
+      let panel = form.parentElement;
+      while (panel && panel.className !== 'searchtimer-create-panel') panel = panel.parentElement;
+      if (panel) panel.open = false;
+    });
+    actions.appendChild(cancelButton);
     form.appendChild(actions);
     const feedback = document.createElement('div');
     feedback.className = 'searchtimer-feedback';
     feedback.setAttribute('role', 'status');
     feedback.setAttribute('aria-live', 'polite');
     form.appendChild(feedback);
+    const previewOutput = document.createElement('div');
+    previewOutput.className = 'searchtimer-preview-output';
+    previewOutput.setAttribute('aria-live', 'polite');
+    form.appendChild(previewOutput);
+
+    if (editing) {
+      const baseline = buildCreatePayload(form, source);
+      const nativeBaseline = {};
+      const nativeKeys = ['activeMode', 'repeatCompareSubtitleMode', 'repeatCompareTimeMode', 'repeatCompareCategoriesMask'];
+      let editorVersion = null;
+      editContext.mutation.addControl(saveButton);
+      // Load exact native modes from the existing revision observation.
+      const api = clientApi();
+      if (api && typeof api.fetchPublicSearchTimerVersion === 'function') {
+        Promise.resolve(api.fetchPublicSearchTimerVersion({backend: source.backendId, searchTimerId: source.searchTimerId})).then(version => {
+          if (!version || version.searchTimerId !== source.searchTimerId ||
+              version.backendId !== source.backendId || version.query !== source.query ||
+              version.state !== source.state) return;
+          editorVersion = version;
+          nativeKeys.forEach(key => {
+            const control = form.elements[key];
+            if (!control || version[key] === undefined || version[key] === null) return;
+            nativeBaseline[key] = String(version[key]);
+            if (String(control.value || '') === '') control.value = nativeBaseline[key];
+          });
+        }).catch(() => {
+          // Ordinary fields remain editable; save obtains a fresh revision.
+        });
+      }
+      function changes() {
+        const current = buildCreatePayload(form, source);
+        const edited = {};
+        Object.keys(current).forEach(key => {
+          if (['backendId', 'name', 'active', 'pauseOnRecordings', 'compareCategories', 'compareTime', 'repeatCompareSubtitle'].includes(key)) return;
+          if (current[key] !== baseline[key]) edited[key] = current[key];
+        });
+        // Channel representations have shared dependencies: send the complete
+        // selected channel filter only when that selection changed.
+        const channelKeys = ['useChannel', 'channels', 'channelMin', 'channelMax'];
+        if (channelKeys.some(key => Object.prototype.hasOwnProperty.call(edited, key)))
+          channelKeys.forEach(key => { edited[key] = current[key]; });
+        nativeKeys.forEach(key => {
+          const value = formValue(form, key, '');
+          if (value !== '' && value !== nativeBaseline[key])
+            edited[key] = key === 'repeatCompareCategoriesMask' ? value : Number(value);
+        });
+        const pause = formValue(form, 'pauseOnRecordingsCount', '');
+        if (pause !== '') edited.pauseOnRecordings = Number(pause);
+        return edited;
+      }
+      previewButton.addEventListener('click', () => {
+        const current = buildCreatePayload(form, source);
+        if (String(current.query || '').trim()) runPreview(current, previewButton, previewOutput);
+      });
+      const save = () => editContext.mutation.execute('update', changes(), editorVersion);
+      saveButton.addEventListener('click', save);
+      form.addEventListener('submit', event => { event.preventDefault(); return save(); });
+      return form;
+    }
 
     let pending = false;
     let submitted = false;
@@ -1198,30 +1339,41 @@
     }
     previewButton.addEventListener('click', () => {
       const result = payload();
-      if (result) runPreview(result, previewButton, feedback);
+      if (result) runPreview(result, previewButton, previewOutput);
     });
     let operationId = '';
     let operationEvents = null;
     let operationReadPending = false;
     let operationReadAgain = false;
+    let operationBackend = '';
+    let attached = true;
+    function detachCreate() {
+      attached = false;
+      if (operationEvents) { operationEvents.close(); operationEvents = null; }
+      mutationObservers.delete(detachCreate);
+    }
+    mutationObservers.add(detachCreate);
     function showOperation(record, expectedBackend) {
       if (!record || record.operationId !== operationId ||
           record.backendId !== expectedBackend ||
           typeof record.state !== 'string') {
         throw new Error('Vorgang entspricht nicht der angefragten Anlage.');
       }
+      if (!attached) return record;
       const state = record.state;
       if (state === 'succeeded') {
         setFeedback(feedback,
-          'SearchTimer erfolgreich angelegt und durch epgsearch-Readback bestätigt.', false);
+          'Suchtimer erfolgreich angelegt und durch epgsearch-Readback bestätigt.', false);
         checkOperationButton.hidden = true;
         checkOperationButton.disabled = true;
         if (operationEvents) { operationEvents.close(); operationEvents = null; }
-        global.setTimeout(reloadSearchTimers, 300);
+        global.setTimeout(() => {
+          if (attached && selectedBackendId() === operationBackend) reloadSearchTimers();
+        }, 300);
       } else if (state === 'outcome_unknown' ||
                  state === 'executed_unverified' || state === 'dispatching') {
         setFeedback(feedback, 'CREATE-Ausgang nicht zweifelsfrei bestätigt (' +
-          state + '). Keine zweite Anlage durchführen. Vorgang erneut prüfen.', true);
+          state + '). Keine zweite Anlage durchführen. Die Statusabfrage liest den gespeicherten Vorgang; sie führt keine neue Anlage aus.', true);
       } else if (state === 'failed_before_dispatch') {
         setFeedback(feedback,
           'Anlage vom Backend vor dem Schreiben abgelehnt. Vorgang prüfen.', true);
@@ -1235,6 +1387,7 @@
     }
     function checkOperation() {
       const api = clientApi();
+      if (!attached) return Promise.resolve(null);
       if (!operationId ||
           !api || typeof api.fetchClientSearchTimerOperation !== 'function') {
         setFeedback(feedback, 'Vorgangsabfrage derzeit nicht verfügbar.', true);
@@ -1247,8 +1400,13 @@
       }
       operationReadPending = true;
       checkOperationButton.disabled = true;
+      setFeedback(feedback, 'Anlagevorgang wird geprüft …', false);
       return api.fetchClientSearchTimerOperation({operationId})
-        .then(record => showOperation(record, selectedBackendId()))
+        .then(record => {
+          showOperation(record, operationBackend);
+          if (attached && !checkOperationButton.hidden) feedback.textContent = 'Status geprüft: ' + feedback.textContent;
+          return record;
+        })
         .catch(error => {
           setFeedback(feedback,
             'Vorgang kann nicht bestätigt werden: ' +
@@ -1293,7 +1451,8 @@
         operationEvents.addEventListener('resync', checkOperation);
       }
       operationEvents.onerror = () => {
-        if (operationEvents) { operationEvents.close(); operationEvents = null; }
+        // Keep the shared client's automatic reconnect behavior.
+        if (!attached) return;
         checkOperationButton.hidden = false;
         checkOperationButton.disabled = false;
       };
@@ -1320,7 +1479,7 @@
           'Sichere Vorgangs-ID kann nicht erzeugt werden. Keine Anlage gesendet.', true);
         return;
       }
-      if (!global.confirm('SearchTimer „' + requested.query +
+      if (!global.confirm('Suchtimer „' + requested.query +
           '“ auf Backend „' + requested.backendId + '“ ' +
           (requested.active ? 'AKTIV anlegen? Die Regel kann sofort Timer erzeugen.'
             : 'inaktiv anlegen?'))) return;
@@ -1332,16 +1491,18 @@
       if (form.elements.marginStopMinutes &&
           String(form.elements.marginStopMinutes.value).trim() === '')
         delete body.marginStopMinutes;
+      operationBackend = requested.backendId;
       pending = true;
       submitted = true;
       saveButton.disabled = true;
       setFeedback(feedback,
-        'SearchTimer wird über Public API v1 einmalig angelegt …', false);
+        'Suchtimer wird über Public API v1 einmalig angelegt …', false);
       api.fetchClientSearchTimerCreateStaged({
         backend: requested.backendId,
         idempotencyKey,
         payload: body
       }).then(result => {
+        if (!attached) return;
         if (!result || !/^op_[0-9a-f]{32}$/.test(
               String(result.operationId || '')) ||
             result.backendId !== requested.backendId)
@@ -1394,17 +1555,32 @@
     if (activeCreateForm.elements.tolerance && timer.mode !== 5)
       activeCreateForm.elements.tolerance.value = '0';
 
-    if (activeCreateForm.elements.directory) activeCreateForm.elements.directory.value = timer.directory;
+    if (activeCreateForm.elements.directory) {
+      const control = activeCreateForm.elements.directory;
+      if (!Array.from(control.children).some(item => item.value === timer.directory))
+        control.appendChild(option(timer.directory, directoryOptionLabel(timer.directory), true));
+      control.value = timer.directory;
+    }
     if (activeCreateForm.elements.manualDirectory) {
       activeCreateForm.elements.manualDirectory.value = activeCreateForm.elements.directory && activeCreateForm.elements.directory.value === timer.directory ? '' : timer.directory;
     }
     if (activeCreateForm.elements.channelFilterMode) activeCreateForm.elements.channelFilterMode.value = String(timer.useChannel);
-    if (activeCreateForm.elements.channelFilterGroup && timer.useChannel === 2) activeCreateForm.elements.channelFilterGroup.value = timer.channels;
-    if (activeCreateForm.elements.channelId && timer.useChannel === 1) activeCreateForm.elements.channelId.value = timer.channelMin || timer.channelMax;
+    function preserveSelection(name, value) {
+      const control = activeCreateForm.elements[name];
+      if (!control) return;
+      if (!Array.from(control.children).some(item => item.value === value))
+        control.appendChild(option(value, value, true));
+      control.value = value;
+    }
+    preserveSelection('channelFilterGroup', timer.useChannel === 2 ? timer.channels : '');
+    preserveSelection('channelId', timer.useChannel === 1 ? timer.channelMin || timer.channelMax : '');
+    preserveSelection('channelEndId', timer.useChannel === 1 ? timer.channelMax || timer.channelMin : '');
+    const modeControl = activeCreateForm.elements.channelFilterMode;
+    if (modeControl && modeControl.refreshSearchTimerFilter) modeControl.refreshSearchTimerFilter();
     if (activeCreateForm.elements.manualUseChannel) activeCreateForm.elements.manualUseChannel.value = '';
-    if (activeCreateForm.elements.manualChannels) activeCreateForm.elements.manualChannels.value = timer.useChannel === 2 ? timer.channels : '';
-    if (activeCreateForm.elements.manualChannelMin) activeCreateForm.elements.manualChannelMin.value = timer.useChannel === 1 ? timer.channelMin : '';
-    if (activeCreateForm.elements.manualChannelMax) activeCreateForm.elements.manualChannelMax.value = timer.useChannel === 1 ? timer.channelMax : '';
+    if (activeCreateForm.elements.manualChannels) activeCreateForm.elements.manualChannels.value = '';
+    if (activeCreateForm.elements.manualChannelMin) activeCreateForm.elements.manualChannelMin.value = '';
+    if (activeCreateForm.elements.manualChannelMax) activeCreateForm.elements.manualChannelMax.value = '';
 
     const panel = activeCreateForm.closest('.searchtimer-create-panel');
     if (panel) panel.open = true;
@@ -1471,12 +1647,31 @@
     appendMeta(meta, 'Priorität / Lebensdauer', String(timer.priority) + ' / ' + String(timer.lifetime));
     appendMeta(meta, 'Marge Start / Stop', String(timer.marginStartMinutes) + ' / ' + String(timer.marginStopMinutes) + ' Min.');
     appendMeta(meta, 'Suchfelder', [timer.compareTitle ? 'Titel' : '', timer.compareSubtitle ? 'Untertitel' : '', timer.compareSummary ? 'Beschreibung' : ''].filter(Boolean).join(', ') || '-');
-    appendMeta(meta, 'Kanalfilter', channelFilterLabel(timer));
+    const channelMeta = document.createElement('div');
+    channelMeta.className = 'searchtimer-meta';
+    channelMeta.appendChild(addText(document.createElement('span'), 'Kanalfilter'));
+    const channelLabel = addText(document.createElement('strong'), channelFilterLabel(timer));
+    channelMeta.appendChild(channelLabel);
+    meta.appendChild(channelMeta);
+    if (timer.useChannel === 1) fetchChannels(timer.backendId).then(channels => {
+      const label = id => { const channel = channels.find(item => item.id === id); return channel ? channelOptionLabel(channel) : id; };
+      channelLabel.textContent = label(timer.channelMin) +
+        (timer.channelMax && timer.channelMax !== timer.channelMin ? ' bis ' + label(timer.channelMax) : '');
+    }).catch(() => {});
     appendMeta(meta, 'Zeitfenster', timer.useTime
       ? String(timer.startTime).padStart(4, '0') + '–' + String(timer.stopTime).padStart(4, '0')
       : 'alle Zeiten');
     if (timer.useDayOfWeek) appendMeta(meta, 'Wochentage (VDR-Maske)', String(timer.dayOfWeek));
-    appendMeta(meta, 'Duplikate', timer.avoidRepeats ? 'vermeiden' : 'zulassen');
+    appendMeta(meta, 'Wiederholungen', timer.avoidRepeats ? 'vermeiden' : 'zulassen');
+    if (timer.avoidRepeats) {
+      appendMeta(meta, 'Wiederholungsvergleich', [
+        timer.repeatCompareTitle ? 'Titel' : '', timer.repeatCompareSubtitle ? 'Untertitel' : '',
+        timer.repeatCompareSummary ? 'Beschreibung' : '', timer.compareCategories ? 'EPG-Kategorien' : '',
+        timer.compareTime ? 'Zeit' : ''
+      ].filter(Boolean).join(', ') || 'Keine Vergleichsfelder gemeldet');
+      appendMeta(meta, 'Erlaubt / Zeitraum', String(timer.allowedRepeats) + ' / ' +
+        (timer.repeatsWithinDays ? String(timer.repeatsWithinDays) + ' Tage' : 'unbegrenzt'));
+    }
     body.appendChild(meta);
 
     const actions = document.createElement('div');
@@ -1487,10 +1682,9 @@
     copy.addEventListener('click', () => populateCreateForm(timer));
     actions.appendChild(copy);
 
-    const edit = addText(document.createElement('button'), 'Suchbegriff bearbeiten');
+    const edit = addText(document.createElement('button'), 'Suchtimer bearbeiten');
     edit.type = 'button';
     edit.disabled = !timer.updateSafe;
-    if (timer.active) edit.title = 'Suchbegriff kann bei einer inaktiven Regel geändert werden.';
     actions.appendChild(edit);
     const toggle = addText(document.createElement('button'), timer.active ? 'Deaktivieren' : 'Aktivieren');
     toggle.type = 'button';
@@ -1500,7 +1694,7 @@
     preview.type = 'button';
     preview.disabled = !publicId;
     actions.appendChild(preview);
-    const remove = addText(document.createElement('button'), 'SearchTimer löschen');
+    const remove = addText(document.createElement('button'), 'Suchtimer löschen');
     remove.type = 'button';
     remove.className = 'danger';
     remove.disabled = !publicId;
@@ -1514,27 +1708,29 @@
 
     const editor = document.createElement('div');
     editor.hidden = true;
-    const query = document.createElement('input');
-    query.type = 'text';
-    query.value = timer.query;
-    query.setAttribute('aria-label', 'Suchbegriff');
-    editor.appendChild(query);
-    const save = addText(document.createElement('button'), 'Änderung speichern');
-    save.type = 'button';
-    save.disabled = !timer.updateSafe;
-    editor.appendChild(save);
     body.appendChild(editor);
 
     const feedback = document.createElement('div');
     feedback.className = 'searchtimer-feedback';
     feedback.setAttribute('role', 'status');
+    feedback.setAttribute('aria-live', 'polite');
     body.appendChild(feedback);
-    const mutation = createMutationController(timer, [edit, toggle, remove, save], feedback, inspect);
-    edit.addEventListener('click', () => { editor.hidden = !editor.hidden; });
-    save.addEventListener('click', () => mutation.execute('update', query.value));
+    const previewOutput = document.createElement('div');
+    previewOutput.className = 'searchtimer-preview-output';
+    previewOutput.setAttribute('aria-live', 'polite');
+    body.appendChild(previewOutput);
+    const mutation = createMutationController(timer, [edit, toggle, remove], feedback, inspect);
+    let editorForm = null;
+    edit.addEventListener('click', () => {
+      if (!editorForm) {
+        editorForm = createForm(timer, {mutation, close() { editor.hidden = true; }});
+        editor.appendChild(editorForm);
+      }
+      editor.hidden = !editor.hidden;
+    });
     toggle.addEventListener('click', () => mutation.execute(timer.active ? 'deactivate' : 'activate'));
     remove.addEventListener('click', () => mutation.execute('delete'));
-    preview.addEventListener('click', () => runSavedPreview(timer, preview, feedback));
+    preview.addEventListener('click', () => runSavedPreview(timer, preview, previewOutput));
 
     const technical = document.createElement('details');
     technical.className = 'searchtimer-preview-technical';
@@ -1550,6 +1746,7 @@
   function renderList(data) {
     Array.from(mutationObservers).forEach(detach => detach());
     installStyles();
+    activeCreateTemplate = null;
     lastSearchTimerData = data;
     const mountTarget = searchTimerBrowserContext.detailDataElement;
     if (!mountTarget) throw new Error('SearchTimer browser mount target is not configured');
@@ -1560,14 +1757,14 @@
     list.className = 'list searchtimer-module';
     const summary = document.createElement('article');
     summary.className = 'module-placeholder searchtimer-summary';
-    summary.appendChild(addText(document.createElement('h3'), 'SearchTimer'));
-    summary.appendChild(addText(document.createElement('p'), String(searchTimers.length) + ' SearchTimer geladen.'));
+    summary.appendChild(addText(document.createElement('h3'), 'Suchtimer'));
+    summary.appendChild(addText(document.createElement('p'), String(searchTimers.length) + ' Suchtimer geladen.'));
     list.appendChild(summary);
 
     const createPanel = document.createElement('details');
     createPanel.className = 'searchtimer-create-panel';
     createPanel.dataset.searchtimerEditor = 'create';
-    createPanel.appendChild(addText(document.createElement('summary'), 'Neuen SearchTimer erstellen'));
+    createPanel.appendChild(addText(document.createElement('summary'), 'Neuen Suchtimer erstellen'));
     const createBody = document.createElement('div');
     createBody.className = 'searchtimer-create-body';
     createBody.appendChild(createForm(null));
@@ -1577,8 +1774,8 @@
     if (searchTimers.length === 0) {
       const empty = document.createElement('article');
       empty.className = 'module-placeholder';
-      empty.appendChild(addText(document.createElement('h3'), 'Keine SearchTimer'));
-      empty.appendChild(addText(document.createElement('p'), 'Der Backend-Endpunkt hat keine SearchTimer geliefert.'));
+      empty.appendChild(addText(document.createElement('h3'), 'Keine Suchtimer'));
+      empty.appendChild(addText(document.createElement('p'), 'Der Backend-Endpunkt hat keine Suchtimer geliefert.'));
       list.appendChild(empty);
     } else {
       searchTimers.forEach(timer => list.appendChild(createCard(timer)));

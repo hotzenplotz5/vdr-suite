@@ -47,6 +47,9 @@ async function scenario(options) {
   const head = element('head', nodes);
   const body = element('body', nodes);
   const requests = [];
+  let reloads = 0;
+  const bodyClasses = new Set(['vss-auth-required']);
+  body.classList.toggle = (name, active) => active ? bodyClasses.add(name) : bodyClasses.delete(name);
   const document = {
     readyState: 'complete',
     documentElement: {lang: 'de'},
@@ -60,7 +63,14 @@ async function scenario(options) {
     window: null, document, Date, Error, JSON, Math, Number,
     Object, Array, Promise, String, TextEncoder,
     setTimeout() { return 1; }, clearTimeout() {}, console,
-    location: {protocol: 'http:', hostname: options.hostname || '192.168.178.20'},
+    location: {protocol: 'http:', hostname: options.hostname || '192.168.178.20',
+      reload() {
+        assert.equal(context.VdrSuiteBrowserSession.isAuthenticated(), true);
+        assert.equal(bodyClasses.has('vss-auth-required'), false);
+        assert.equal(bodyClasses.has('vss-authenticated'), true);
+        assert.equal(document.getElementById('vdr-suite-session-dialog').open, false);
+        reloads++;
+      }},
     btoa(value) { return Buffer.from(value, 'binary').toString('base64'); },
     addEventListener() {},
     fetch(input, config) {
@@ -122,6 +132,13 @@ async function scenario(options) {
   if (!options.unclaimed) {
     assert.match(title.textContent, /anmelden/);
     assert(!requests.some(r => r.input === '/api/security/first-admin/claim'));
+    input('username').value = 'admin';
+    input('password').value = 'meaningful-local-password';
+    form.fire('submit');
+    await settle();
+    assert.equal(context.VdrSuiteBrowserSession.isAuthenticated(), true);
+    assert.equal(dialog.open, false);
+    assert.equal(reloads, 0, 'ordinary login must not reload');
     return;
   }
   assert.match(title.textContent, /erstmalig einrichten/);
@@ -152,6 +169,8 @@ async function scenario(options) {
     assert(requests.some(r => r.input === '/api/security/first-admin/claim'));
     assert.equal(context.VdrSuiteBrowserSession.isAuthenticated(), false);
     assert.equal(dialog.open, true);
+    assert.equal(reloads, 0, 'denied claim must not reload');
+    assert.equal(requests.filter(r => r.input === '/api/security/browser-sessions').length, 0);
     return;
   }
 
@@ -176,10 +195,22 @@ async function scenario(options) {
     assert.match(message.textContent, /Benutzername oder Passwort ist falsch/);
     assert(!message.textContent.includes('Invalid credentials'));
     assert.equal(context.VdrSuiteBrowserSession.isAuthenticated(), false);
-    return;
+    assert.equal(reloads, 0, 'failed automatic login must not reload');
+    assert.equal(dialog.open, true);
+    assert.match(title.textContent, /anmelden/);
+    options.badLogin = false;
+    input('password').value = 'meaningful-local-password';
+    form.fire('submit');
+    await settle();
+    assert.equal(requests.filter(r => r.input === '/api/security/first-admin/claim').length, 1,
+      'manual login after a successful claim must never repeat the claim');
+    assert.equal(requests.filter(r => r.input === '/api/security/browser-sessions').length, 2);
   }
   assert.equal(context.VdrSuiteBrowserSession.isAuthenticated(), true);
   assert.equal(dialog.open, false);
+  assert.equal(reloads, 1, 'first-admin completion must reload once after authenticated login');
+  await settle();
+  assert.equal(reloads, 1);
 }
 
 (async () => {

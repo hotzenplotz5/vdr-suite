@@ -234,6 +234,10 @@ std::string stockSearchTimerRequestPayload(
     for (const auto* value : {&action, &request.backendId,
             &request.publicSearchTimerId, &request.ifMatch, &request.query})
         data += std::to_string(value->size()) + ":" + *value + "|";
+    // No suffix for historic query-only requests: preserve their fingerprints.
+    for (const auto& [key, value] : request.settings)
+        data += std::to_string(key.size()) + ":" + key + "|" +
+            std::to_string(value.size()) + ":" + value + "|";
     return data;
 }
 
@@ -2262,6 +2266,10 @@ bool DaemonRuntime::initialize()
                     result.revision = observed.revision;
                     result.query = observed.rule->query();
                     result.state = observed.rule->active() ? "active" : "inactive";
+                    result.activeMode = observed.rule->activeMode();
+                    result.repeatCompareSubtitleMode = observed.rule->repeatCompareSubtitleMode();
+                    result.repeatCompareTimeMode = observed.rule->repeatCompareTimeMode();
+                    result.repeatCompareCategoriesMask = observed.rule->repeatCompareCategoriesMask();
                 }
                 break;
             }
@@ -2333,7 +2341,8 @@ bool DaemonRuntime::initialize()
                         ? stored.payload.payloadType == "searchtimer.stock" &&
                           stored.payload.payload == canonical &&
                           existing.operation.requestFingerprint == fingerprint
-                        : stored.payload.payloadType == "searchtimer.native-cas" &&
+                        : request.settings.empty() &&
+                          stored.payload.payloadType == "searchtimer.native-cas" &&
                           searchCasReplayMatches(stored.payload.payload, action,
                               request.backendId, request.publicSearchTimerId,
                               request.ifMatch, request.query));
@@ -2377,12 +2386,12 @@ bool DaemonRuntime::initialize()
             auto desired = observed.rule;
             if (request.action == PublicSearchTimerNativeAction::update)
             {
-                // Keep the existing query-only inactive UPDATE contract.
-                // EDIS takes the complete native record, never a lossy
-                // RESTfulAPI projection reconstructed with default values.
-                desired = observed.rule->withQuery(request.query);
-                if (observed.rule->active() || !desired ||
-                    desired->text().size() > 8192U)
+                // EDIS edits the original native record, not a lossy projection.
+                // Preserve the active state and every setting omitted by the caller.
+                if (!request.query.empty()) desired = observed.rule->withQuery(request.query);
+                if (desired && !request.settings.empty())
+                    desired = desired->withSettings(request.settings);
+                if (!desired || desired->text().size() > 8192U)
                 {
                     result.status = PublicSearchTimerNativeMutationStatus::invalid;
                     return result;
@@ -2570,6 +2579,9 @@ bool DaemonRuntime::initialize()
             input.payload.compareTitle = request.compareTitle;
             input.payload.compareSubtitle = request.compareSubtitle;
             input.payload.compareSummary = request.compareSummary;
+            input.payload.repeatCompareTitle = request.repeatCompareTitle;
+            input.payload.repeatCompareSubtitle = request.repeatCompareSubtitle;
+            input.payload.repeatCompareSummary = request.repeatCompareSummary;
             input.payload.directory = request.directory;
             input.payload.priority = request.priority;
             input.payload.lifetime = request.lifetime;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 
 class SearchTimerId {
@@ -237,6 +238,36 @@ public:
         return compareSummary_;
     }
 
+    std::optional<bool> repeatCompareTitle() const
+    {
+        return repeatCompareTitle_;
+    }
+
+    void setRepeatCompareTitle(bool value)
+    {
+        repeatCompareTitle_ = value;
+    }
+
+    std::optional<bool> repeatCompareSubtitle() const
+    {
+        return repeatCompareSubtitle_;
+    }
+
+    void setRepeatCompareSubtitle(bool value)
+    {
+        repeatCompareSubtitle_ = value;
+    }
+
+    std::optional<bool> repeatCompareSummary() const
+    {
+        return repeatCompareSummary_;
+    }
+
+    void setRepeatCompareSummary(bool value)
+    {
+        repeatCompareSummary_ = value;
+    }
+
     bool compareCategories() const
     {
         return compareCategories_;
@@ -276,6 +307,9 @@ private:
     bool compareTitle_ = false;
     bool compareSubtitle_ = false;
     bool compareSummary_ = false;
+    std::optional<bool> repeatCompareTitle_;
+    std::optional<bool> repeatCompareSubtitle_;
+    std::optional<bool> repeatCompareSummary_;
     bool compareCategories_ = false;
     bool compareTime_ = false;
 };

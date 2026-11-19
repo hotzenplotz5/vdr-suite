@@ -3037,6 +3037,9 @@ bool publicSearchTimerNativeSubresourcePath(
     return validPublicSearchTimerId(id);
 }
 
+bool parseSearchTimerJsonInteger(
+    const std::string& text, std::size_t& offset, int& result);
+
 bool parsePublicSearchTimerNativeMutationBody(
     const std::string& input, PublicSearchTimerNativeMutationRequest& out)
 {
@@ -3070,6 +3073,87 @@ bool parsePublicSearchTimerNativeMutationBody(
             pos += 4U;
             out.confirmed = true;
         }
+        else if (key == "matchCase" ||
+                 key == "compareTitle" ||
+                 key == "compareSubtitle" ||
+                 key == "compareSummary" ||
+                 key == "useDayOfWeek" ||
+                 key == "useSeriesRecording" ||
+                 key == "useVps" ||
+                 key == "useExtendedEpgInfo" ||
+                 key == "avoidRepeats" ||
+                 key == "repeatCompareTitle" ||
+                 key == "repeatCompareSummary" ||
+                 key == "useInFavorites" ||
+                 key == "unmuteSoundOnSwitch" ||
+                 key == "repeatCompareSubtitle" ||
+                 key == "compareTime" ||
+                 key == "useTime" || key == "useDuration" ||
+                 key == "compareCategories" || key == "ignoreMissingEpgCategories")
+        {
+            if (input.compare(pos, 4U, "true") == 0)
+            {
+                out.settings[key] = "1";
+                pos += 4U;
+            }
+            else if (input.compare(pos, 5U, "false") == 0)
+            {
+                out.settings[key] = "0";
+                pos += 5U;
+            }
+            else return false;
+        }
+        else if (key == "mode" ||
+                 key == "dayOfWeek" ||
+                 key == "priority" ||
+                 key == "lifetime" ||
+                 key == "marginStartMinutes" ||
+                 key == "marginStopMinutes" ||
+                 key == "searchTimerAction" ||
+                 key == "allowedRepeats" ||
+                 key == "repeatsWithinDays" ||
+                 key == "deleteRecordingsAfterDays" ||
+                 key == "keepRecordings" ||
+                 key == "switchMinutesBefore" ||
+                 key == "pauseOnRecordings" ||
+                 key == "tolerance" ||
+                 key == "deleteMode" ||
+                 key == "deleteAfterCountRecordings" ||
+                 key == "deleteAfterDaysOfFirstRecording" ||
+                 key == "summaryMatch" ||
+                 key == "repeatCompareSubtitleMode" ||
+                 key == "repeatCompareTimeMode" ||
+                 key == "useChannel" || key == "startTime" || key == "stopTime" ||
+                 key == "durationMinMinutes" || key == "durationMaxMinutes" ||
+                 key == "blacklistMode" || key == "activeMode")
+        {
+            int value = 0;
+            if (!parseSearchTimerJsonInteger(input, pos, value)) return false;
+            if ((key == "mode" && (value < 0 || value > 5)) ||
+                (key == "tolerance" && (value < 0 || value > 3)) ||
+                ((key == "repeatCompareSubtitleMode" || key == "activeMode") &&
+                    (value < 0 || value > 2)) ||
+                (key == "repeatCompareTimeMode" && (value < 0 || value > 3)) ||
+                ((key == "useChannel" || key == "blacklistMode") && (value < 0 || value > 3)) ||
+                (key == "dayOfWeek" && (value < -127 || value > 6)) ||
+                (key == "summaryMatch" && (value < 0 || value > 100)) ||
+                ((key == "startTime" || key == "stopTime" ||
+                  key == "durationMinMinutes" || key == "durationMaxMinutes") &&
+                    (value < 0 || value > 2359 || value % 100 >= 60)) ||
+                ((key == "marginStartMinutes" || key == "marginStopMinutes") &&
+                    (value < 0 || value > 1440))) return false;
+            out.settings[key] = std::to_string(value);
+        }
+        else if (key == "directory" || key == "channels" ||
+                 key == "channelMin" || key == "channelMax" ||
+                 key == "blacklistIds" || key == "extendedEpgInfo" ||
+                 key == "contentDescriptors" || key == "activeFrom" ||
+                 key == "activeUntil" || key == "repeatCompareCategoriesMask")
+        {
+            std::string value;
+            if (!parseAccountMutationJsonString(input, pos, value)) return false;
+            out.settings[key] = std::move(value);
+        }
         else return false;
         skipAccountMutationWhitespace(input, pos);
         if (pos >= input.size()) return false;
@@ -3089,9 +3173,11 @@ bool parsePublicSearchTimerNativeMutationBody(
     else if (action == "delete")
         out.action = PublicSearchTimerNativeAction::remove;
     else return false;
+    const bool hasQuery = std::find(seen.begin(), seen.end(), "query") != seen.end();
     return out.action == PublicSearchTimerNativeAction::update
-        ? !out.query.empty() && out.query.size() <= 200U
-        : out.query.empty();
+        ? (!hasQuery || (!out.query.empty() && out.query.size() <= 200U)) &&
+          (hasQuery || !out.settings.empty())
+        : !hasQuery && out.settings.empty();
 }
 
 bool parseSearchTimerJsonInteger(
@@ -3218,6 +3304,8 @@ bool parsePublicSearchTimerCreateBody(
         }
         else if (key == "active" || key == "compareTitle" ||
                  key == "compareSubtitle" || key == "compareSummary" ||
+                 key == "repeatCompareTitle" || key == "repeatCompareSubtitle" ||
+                 key == "repeatCompareSummary" ||
                  key == "confirmed" ||
                  key == "useVps" ||
                  key == "useTime" ||
@@ -3243,6 +3331,9 @@ bool parsePublicSearchTimerCreateBody(
             else if (key == "compareTitle") out.compareTitle = value;
             else if (key == "compareSubtitle") out.compareSubtitle = value;
             else if (key == "compareSummary") out.compareSummary = value;
+            else if (key == "repeatCompareTitle") out.repeatCompareTitle = value;
+            else if (key == "repeatCompareSubtitle") out.repeatCompareSubtitle = value;
+            else if (key == "repeatCompareSummary") out.repeatCompareSummary = value;
             else if (key == "confirmed" && !value) return false;
             else if (key == "useVps") out.useVps = value;
             else if (key == "useTime") out.useTime = value;
@@ -6852,7 +6943,17 @@ bool PublicApiRuntime::tryHandleSearchTimerAssignmentReadGet(
                 "\",\"revision\":\"" + jsonEscape(observed.revision) +
                 "\",\"query\":\"" + jsonEscape(observed.query) +
                 "\",\"state\":\"" + jsonEscape(observed.state) +
-                "\"}", requestId, correlationId);
+                "\"" +
+                (observed.activeMode >= 0
+                    ? ",\"activeMode\":" + std::to_string(observed.activeMode) : "") +
+                (observed.repeatCompareSubtitleMode >= 0
+                    ? ",\"repeatCompareSubtitleMode\":" + std::to_string(observed.repeatCompareSubtitleMode) : "") +
+                (observed.repeatCompareTimeMode >= 0
+                    ? ",\"repeatCompareTimeMode\":" + std::to_string(observed.repeatCompareTimeMode) : "") +
+                (!observed.repeatCompareCategoriesMask.empty()
+                    ? ",\"repeatCompareCategoriesMask\":\"" +
+                        jsonEscape(observed.repeatCompareCategoriesMask) + "\"" : "") +
+                "}", requestId, correlationId);
             response.headers["ETag"] = "\"" + observed.revision + "\"";
             response.headers["Cache-Control"] = "no-store";
         }
@@ -12073,7 +12174,7 @@ bool PublicApiRuntime::tryHandleTimerWorkflowPost(
                 path, requestId, correlationId);
             return true;
         }
-        if (body.empty() || body.size() > 1024U ||
+        if (body.empty() || body.size() > 8192U ||
             !JsonSyntaxValidator(body).valid())
         {
             response = invalidRequestProblem(path,

@@ -17,7 +17,6 @@ constexpr const char* kPayloadType = "searchtimer.create";
 constexpr const char* kExpectedRevision = "new";
 // Version 1 lacked backend-owned margins; never dispatch an old
 // accepted rule with a silently assumed zero-minute margin.
-constexpr std::uint32_t kPayloadVersion = 3U;
 
 bool boundedPrintableAscii(const std::string& value, std::size_t max)
 {
@@ -104,7 +103,7 @@ SearchTimerCreateAdmissionService::replayIfPresent(
     const auto payload = repository_.findPayloadByOperationId(
         operation.operationId);
     if (!payload.ok() || payload.payload.payloadType != kPayloadType ||
-        payload.payload.payloadVersion != kPayloadVersion ||
+        payload.payload.payloadVersion != searchTimerCreateOperationPayloadVersion(request.payload) ||
         payload.payload.payloadFingerprint != fingerprint ||
         payload.payload.payload !=
             serializeSearchTimerCreateOperationPayload(request.payload))
@@ -156,7 +155,7 @@ SearchTimerCreateAdmissionResult SearchTimerCreateAdmissionService::admit(
     MutationOperationPayload payload;
     payload.operationId = operationId;
     payload.payloadType = kPayloadType;
-    payload.payloadVersion = kPayloadVersion;
+    payload.payloadVersion = searchTimerCreateOperationPayloadVersion(request.payload);
     payload.payload = serialized;
     payload.payloadFingerprint = fingerprint;
 

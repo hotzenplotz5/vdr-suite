@@ -2,6 +2,7 @@
 #include "ISearchTimerCommandExecutor.h"
 #include "ISearchTimerDataSource.h"
 #include "MutationOperationRepository.h"
+#include "RestfulApiSearchTimerMapper.h"
 #include "SearchTimerCreateAdmissionService.h"
 #include "SearchTimerCreateDispatchService.h"
 #include "SearchTimerCreateDeviceAdmissionService.h"
@@ -81,6 +82,12 @@ SearchTimer createdTimer(const SearchTimerCreateRequest& request,
     timer.comparisonOptions().setCompareTitle(request.compareTitle);
     timer.comparisonOptions().setCompareSubtitle(request.compareSubtitle);
     timer.comparisonOptions().setCompareSummary(request.compareSummary);
+    if (request.repeatCompareTitle.has_value())
+        timer.comparisonOptions().setRepeatCompareTitle(*request.repeatCompareTitle);
+    if (request.repeatCompareSubtitle.has_value())
+        timer.comparisonOptions().setRepeatCompareSubtitle(*request.repeatCompareSubtitle);
+    if (request.repeatCompareSummary.has_value())
+        timer.comparisonOptions().setRepeatCompareSummary(*request.repeatCompareSummary);
     timer.comparisonOptions().setCompareCategories(request.compareCategories);
     timer.comparisonOptions().setCompareTime(request.compareTime);
     timer.seriesOptions().setUseSeriesRecording(request.useSeriesRecording);
@@ -189,7 +196,7 @@ struct Rig
     Source source;
     std::string id;
     explicit Rig(bool historicalActive = false,
-        int matchMode = 1, int matchTolerance = 0)
+        int matchMode = 1, int matchTolerance = 0, bool independentRepeat = false)
         : storage(database), admission(storage), dispatch(storage, generation)
     {
         assert(database.open(":memory:"));
@@ -200,6 +207,12 @@ struct Rig
         admissionRequest.payload.active = historicalActive;
         admissionRequest.payload.matchMode = matchMode;
         admissionRequest.payload.matchTolerance = matchTolerance;
+        if (independentRepeat)
+        {
+            admissionRequest.payload.repeatCompareTitle = false;
+            admissionRequest.payload.repeatCompareSubtitle = true;
+            admissionRequest.payload.repeatCompareSummary = false;
+        }
         const auto made = admission.admit(admissionRequest);
         assert(made.status == SearchTimerCreateAdmissionStatus::prepared);
         id = made.operation.operationId;
@@ -267,6 +280,75 @@ void assertHttpAcceptedWithoutIdUsesSingleInventory()
     assert(r.dispatch.dispatchOnce(r.request(), r.executor, r.source).status ==
         SearchTimerCreateDispatchStatus::conflict);
     assert(r.executor.creates == 1);
+}
+
+void assertRestfulApiBooleanReadback()
+{
+    // Exercise the production mapper plus the existing durable dispatch and
+    // verification path with the same provider JSON types as real epgsearch.
+    const std::string json = R"({"searchtimers":[{"id":31,"search":"Terra X",
+        "use_as_searchtimer":0,"mode":1,"use_title":true,"use_subtitle":false,
+        "use_description":true,"margin_start":2,"margin_stop":10,"priority":50,
+        "use_channel":2,"channels":"ARD","use_time":true,"start_time":930,
+        "stop_time":1130,"avoid_repeats":true,"allowed_repeats":2,
+        "use_series_recording":true,"blacklist_ids":["4","5"],
+        "use_ext_epg_info":true,"ext_epg_info":["genre=movie"]}],
+        "count":1,"total":1})";
+    Rig r;
+    r.source.finalItems =
+        RestfulApiSearchTimerMapper::parseSearchTimers("default", json);
+    assert(r.source.finalItems.size() == 1);
+    const auto accepted = r.dispatch.dispatchOnce(
+        r.request(), r.executor, r.source);
+    assert(accepted.status == SearchTimerCreateDispatchStatus::verified);
+    assert(accepted.operation.state == MutationOperationState::succeeded);
+    assert(r.executor.creates == 1);
+    assert(r.source.reads == 2);
+    assert(r.dispatch.dispatchOnce(r.request(), r.executor, r.source).status ==
+        SearchTimerCreateDispatchStatus::conflict);
+    assert(r.executor.creates == 1);
+
+    // v4 settings are read back from the independent native fields.
+    auto independentJson = json;
+    const std::string marker = "\"use_description\":true,";
+    const auto separatePosition = independentJson.find(marker);
+    assert(separatePosition != std::string::npos);
+    independentJson.insert(separatePosition + marker.size(),
+        "\"compare_title\":false,\"compare_subtitle\":true,\"compare_summary\":false,");
+    Rig independent(false, 1, 0, true);
+    independent.source.finalItems =
+        RestfulApiSearchTimerMapper::parseSearchTimers("default", independentJson);
+    const auto independentResult = independent.dispatch.dispatchOnce(
+        independent.request(), independent.executor, independent.source);
+    assert(independentResult.status == SearchTimerCreateDispatchStatus::verified);
+    assert(independent.executor.last.repeatCompareTitle == false);
+    assert(independent.executor.last.repeatCompareSubtitle == true);
+    assert(independent.executor.last.repeatCompareSummary == false);
+    assert(independent.executor.creates == 1);
+    Rig repeatMismatch(false, 1, 0, true);
+    repeatMismatch.source.finalItems =
+        RestfulApiSearchTimerMapper::parseSearchTimers("default", independentJson);
+    repeatMismatch.source.finalItems.front().comparisonOptions().setRepeatCompareTitle(true);
+    assert(repeatMismatch.dispatch.dispatchOnce(repeatMismatch.request(),
+        repeatMismatch.executor, repeatMismatch.source).status ==
+        SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(repeatMismatch.executor.creates == 1);
+
+    // A genuinely different enabled repeat option still cannot be certified.
+    Rig mismatch;
+    auto wrong = json;
+    const std::string expected = "\"avoid_repeats\":true";
+    const auto position = wrong.find(expected);
+    assert(position != std::string::npos);
+    wrong.replace(position, expected.size(), "\"avoid_repeats\":false");
+    mismatch.source.finalItems =
+        RestfulApiSearchTimerMapper::parseSearchTimers("default", wrong);
+    assert(mismatch.source.finalItems.size() == 1);
+    const auto uncertain = mismatch.dispatch.dispatchOnce(
+        mismatch.request(), mismatch.executor, mismatch.source);
+    assert(uncertain.status == SearchTimerCreateDispatchStatus::outcomeUnknown);
+    assert(uncertain.operation.state == MutationOperationState::outcomeUnknown);
+    assert(mismatch.executor.creates == 1);
 }
 
 void assertGuards()
@@ -560,6 +642,7 @@ int main()
 {
     assertHappyPathAndNoRetry();
     assertHttpAcceptedWithoutIdUsesSingleInventory();
+    assertRestfulApiBooleanReadback();
     assertGuards();
     assertBackendRestartCannotDispatch();
     assertLeaseExpiryCannotBeMaskedByRequestTimestamp();

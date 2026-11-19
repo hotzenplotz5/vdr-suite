@@ -65,9 +65,12 @@ std::string buildSearchTimerBody(
     addBool(body, "avoid_repeats", request.avoidRepeats);
     addInt(body, "allowed_repeats", request.allowedRepeats);
     addInt(body, "repeats_within_days", request.repeatsWithinDays);
-    addBool(body, "compare_title", request.compareTitle);
-    addBool(body, "compare_subtitle", request.compareSubtitle);
-    addBool(body, "compare_summary", request.compareSummary);
+    addBool(body, "compare_title",
+        request.repeatCompareTitle.value_or(request.compareTitle));
+    addBool(body, "compare_subtitle",
+        request.repeatCompareSubtitle.value_or(request.compareSubtitle));
+    addBool(body, "compare_summary",
+        request.repeatCompareSummary.value_or(request.compareSummary));
     addBool(body, "compare_categories", request.compareCategories);
     addBool(body, "compare_time", request.compareTime);
     addBool(body, "use_series_recording", request.useSeriesRecording);

@@ -180,6 +180,9 @@ int main()
     assert(realRestfulApiTimers.at(0).isActive());
     assert(realRestfulApiTimers.at(0).channelOptions().channels() == "alle");
     assert(realRestfulApiTimers.at(0).comparisonOptions().compareTitle());
+    assert(realRestfulApiTimers.at(0).comparisonOptions().repeatCompareTitle() == false);
+    assert(realRestfulApiTimers.at(0).comparisonOptions().repeatCompareSubtitle() == false);
+    assert(realRestfulApiTimers.at(0).comparisonOptions().repeatCompareSummary() == false);
     assert(!realRestfulApiTimers.at(0).comparisonOptions().compareSubtitle());
     assert(!realRestfulApiTimers.at(0).comparisonOptions().compareSummary());
     assert(realRestfulApiTimers.at(0).blacklistOptions().blacklistMode() == 3);
@@ -220,6 +223,38 @@ int main()
     assert(full[0].blacklistOptions().blacklistIds() == "4,5");
     assert(full[0].extendedEpgOptions().extendedEpgInfo() ==
         "category=movie,actor=Jane");
+
+    // RESTfulAPI emits JSON Booleans as well as numeric 0/1 flags.
+    // A true flag must not become false in the authoritative CREATE readback.
+    const auto booleanTimers = RestfulApiSearchTimerMapper::parseSearchTimers(
+        "mld-vdr", R"({"searchtimers":[{"id":21,"search":"Bool rule",
+        "use_as_searchtimer":1,"use_vps":true,"use_dayofweek":true,
+        "use_duration":true,"avoid_repeats":true,"use_series_recording":true,
+        "match_case":true,"use_ext_epg_info":true,"ignore_missing_epg_cats":true,
+        "use_in_favorites":true,"pause_on_recs":true,"unmute_sound_on_switch":true},
+        {"id":22,"search":"False rule","use_as_searchtimer":0,
+        "use_vps":false,"use_dayofweek":false,"use_duration":false,
+        "avoid_repeats":false,"use_series_recording":false,"match_case":false,
+        "use_ext_epg_info":false,"ignore_missing_epg_cats":false,
+        "use_in_favorites":false,"pause_on_recs":false,"unmute_sound_on_switch":false}],
+        "count":2,"total":2})");
+    assert(booleanTimers.size() == 2);
+    for (std::size_t i = 0; i < booleanTimers.size(); ++i)
+    {
+        const bool expected = i == 0;
+        const auto& rule = booleanTimers[i];
+        assert(rule.scheduleOptions().useVps() == expected);
+        assert(rule.filterOptions().useDayOfWeek() == expected);
+        assert(rule.filterOptions().useDuration() == expected);
+        assert(rule.repeatOptions().avoidRepeats() == expected);
+        assert(rule.seriesOptions().useSeriesRecording() == expected);
+        assert(rule.matchOptions().matchCase() == expected);
+        assert(rule.extendedEpgOptions().useExtendedEpgInfo() == expected);
+        assert(rule.extendedEpgOptions().ignoreMissingEpgCategories() == expected);
+        assert(rule.validityOptions().useInFavorites() == expected);
+        assert(rule.actionOptions().pauseOnRecordings() == expected);
+        assert(rule.actionOptions().unmuteSoundOnSwitch() == expected);
+    }
 
     std::vector<SearchTimer> emptyTimers =
         RestfulApiSearchTimerMapper::parseSearchTimers(

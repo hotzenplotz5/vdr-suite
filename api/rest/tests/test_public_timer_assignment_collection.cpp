@@ -344,6 +344,10 @@ int main()
             result.revision = versionRevision;
             result.query = "Terra X";
             result.state = "inactive";
+            result.activeMode = 0;
+            result.repeatCompareSubtitleMode = 2;
+            result.repeatCompareTimeMode = 3;
+            result.repeatCompareCategoriesMask = "17";
             return result;
         });
     ApiResponse versionResponse;
@@ -354,6 +358,8 @@ int main()
     assert(versionResponse.body.find("\"query\":\"Terra X\"") != std::string::npos);
     assert(versionResponse.body.find("\"state\":\"inactive\"") != std::string::npos);
     assert(versionResponse.body.find("backendNativeId") == std::string::npos);
+    assert(versionResponse.body.find("\"repeatCompareSubtitleMode\":2") != std::string::npos);
+    assert(versionResponse.body.find("\"repeatCompareCategoriesMask\":\"17\"") != std::string::npos);
     ApiResponse offlineVersion;
     assert(runtime.tryHandleGet(savedRule + "/version?backend=offline",
         "actor:browser", "st-version-offline", "", offlineVersion, "", "offline", {}, "", true));
@@ -368,9 +374,22 @@ int main()
             assert(request.publicSearchTimerId == versionRuleId);
             assert(request.ifMatch == versionRevision);
             assert(request.confirmed);
-            assert(request.action == (managementCalls == 0
-                ? PublicSearchTimerNativeAction::activate
-                : PublicSearchTimerNativeAction::remove));
+            if (managementCalls < 2)
+            {
+                assert(request.action == (managementCalls == 0
+                    ? PublicSearchTimerNativeAction::activate
+                    : PublicSearchTimerNativeAction::remove));
+                assert(request.settings.empty());
+            }
+            else
+            {
+                assert(request.action == PublicSearchTimerNativeAction::update);
+                assert(request.query.empty());
+                assert(request.settings.at("priority") == "70");
+                assert(request.settings.at("repeatCompareSubtitleMode") == "2");
+                assert(request.settings.at("repeatCompareTitle") == "0");
+                assert(request.settings.at("directory") == "Doku:Archiv");
+            }
             ++managementCalls;
             PublicSearchTimerNativeMutationResult result;
             result.status = PublicSearchTimerNativeMutationStatus::accepted;
@@ -393,6 +412,21 @@ int main()
         assert(mutationResponse.body.find("\"state\":\"succeeded\"") != std::string::npos);
     }
     assert(managementCalls == 2);
+    ApiResponse settingsUpdate;
+    assert(runtime.tryHandlePost(savedRule + "/mutations?backend=one",
+        "st-settings", "", settingsUpdate,
+        "{\"action\":\"update\",\"confirmed\":true,\"priority\":70,"
+        "\"repeatCompareSubtitleMode\":2,\"repeatCompareTitle\":false,\"directory\":\"Doku:Archiv\"}",
+        "actor:browser", "\"" + versionRevision + "\"",
+        "test-st-settings", "application/json", "one"));
+    assert(settingsUpdate.statusCode == 202 && managementCalls == 3);
+    ApiResponse mixedAction;
+    assert(runtime.tryHandlePost(savedRule + "/mutations?backend=one",
+        "st-invalid-settings", "", mixedAction,
+        "{\"action\":\"delete\",\"confirmed\":true,\"priority\":70}",
+        "actor:browser", "\"" + versionRevision + "\"",
+        "test-st-invalid-settings", "application/json", "one"));
+    assert(mixedAction.statusCode == 422 && managementCalls == 3);
     runtime.resetSearchTimerNativeMutation();
     ApiResponse browserList;
     assert(runtime.tryHandleGet("/api/v1/search-timers?backend=one&limit=2",
@@ -487,6 +521,7 @@ int main()
                 assert(request.compareTitle);
                 assert(!request.compareSubtitle);
                 assert(request.compareSummary);
+                assert(!request.repeatCompareTitle.has_value());
             }
             else
             {
@@ -503,6 +538,9 @@ int main()
                 assert(request.stopTime == 1130);
                 assert(request.avoidRepeats);
                 assert(request.allowedRepeats == 2);
+                assert(request.repeatCompareTitle == false);
+                assert(request.repeatCompareSubtitle == true);
+                assert(request.repeatCompareSummary == false);
                 assert(request.useVps);
                 assert(request.useSeriesRecording);
                 assert(request.blacklistIds == "4,5");
@@ -542,6 +580,8 @@ int main()
         "\"useChannel\":2,\"channels\":\"Öffentlich\","
         "\"useTime\":true,\"startTime\":930,\"stopTime\":1130,"
         "\"avoidRepeats\":true,\"allowedRepeats\":2,"
+        "\"repeatCompareTitle\":false,\"repeatCompareSubtitle\":true,"
+        "\"repeatCompareSummary\":false,"
         "\"useVps\":true,\"useSeriesRecording\":true,"
         "\"blacklistIds\":\"4,5\","
         "\"extendedEpgInfo\":\"genre=movie\","

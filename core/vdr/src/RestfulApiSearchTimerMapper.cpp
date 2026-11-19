@@ -381,7 +381,7 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.scheduleOptions().setMarginStopMinutes(
             getIntField(objectText, "margin_stop", 0));
         timer.scheduleOptions().setUseVps(
-            getIntField(objectText, "use_vps", 0) != 0);
+            getBoolField(objectText, "use_vps", false));
         const int channelMode = getIntField(objectText, "use_channel", 0);
         timer.filterOptions().setUseChannel(channelMode != 0);
         timer.filterOptions().setChannelMode(channelMode);
@@ -394,9 +394,9 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.filterOptions().setDayOfWeek(
             getIntField(objectText, "dayofweek", 0));
         timer.filterOptions().setUseDayOfWeek(
-            getIntField(objectText, "use_dayofweek", 0) != 0);
+            getBoolField(objectText, "use_dayofweek", false));
         timer.filterOptions().setUseDuration(
-            getIntField(objectText, "use_duration", 0) != 0);
+            getBoolField(objectText, "use_duration", false));
         timer.filterOptions().setDurationMinMinutes(
             getIntField(objectText, "duration_min", 0));
         timer.filterOptions().setDurationMaxMinutes(
@@ -417,13 +417,22 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
                 objectText,
                 "use_description",
                 getBoolField(objectText, "compare_summary", false)));
+        if (objectText.find("\"compare_title\"") != std::string::npos)
+            timer.comparisonOptions().setRepeatCompareTitle(
+                getBoolField(objectText, "compare_title", false));
+        if (objectText.find("\"compare_subtitle\"") != std::string::npos)
+            timer.comparisonOptions().setRepeatCompareSubtitle(
+                getBoolField(objectText, "compare_subtitle", false));
+        if (objectText.find("\"compare_summary\"") != std::string::npos)
+            timer.comparisonOptions().setRepeatCompareSummary(
+                getBoolField(objectText, "compare_summary", false));
         timer.comparisonOptions().setCompareCategories(
             getBoolField(objectText, "compare_categories", false));
         timer.comparisonOptions().setCompareTime(
             getBoolField(objectText, "compare_time", false));
 
         timer.repeatOptions().setAvoidRepeats(
-            getIntField(objectText, "avoid_repeats", 0) != 0);
+            getBoolField(objectText, "avoid_repeats", false));
         timer.repeatOptions().setAllowedRepeats(
             getIntField(objectText, "allowed_repeats", 0));
         timer.repeatOptions().setRepeatsWithinDays(
@@ -443,7 +452,7 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
             getIntField(objectText, "channel_max", 0));
 
         timer.seriesOptions().setUseSeriesRecording(
-            getIntField(objectText, "use_series_recording", 0) != 0);
+            getBoolField(objectText, "use_series_recording", false));
         timer.seriesOptions().setKeepRecordings(
             getIntField(objectText, "keep_recs", 0));
         timer.seriesOptions().setDeleteMode(
@@ -459,34 +468,34 @@ std::vector<SearchTimer> RestfulApiSearchTimerMapper::parseSearchTimers(
         timer.matchOptions().setMode(
             getIntField(objectText, "mode", 0));
         timer.matchOptions().setMatchCase(
-            getIntField(objectText, "match_case", 0) != 0);
+            getBoolField(objectText, "match_case", false));
         timer.matchOptions().setTolerance(
             getIntField(objectText, "tolerance", 0));
         timer.matchOptions().setSummaryMatch(
             getIntField(objectText, "summary_match", 0));
 
         timer.extendedEpgOptions().setUseExtendedEpgInfo(
-            getIntField(objectText, "use_ext_epg_info", 0) != 0);
+            getBoolField(objectText, "use_ext_epg_info", false));
         timer.extendedEpgOptions().setExtendedEpgInfo(
             getListField(objectText, "ext_epg_info"));
         timer.extendedEpgOptions().setIgnoreMissingEpgCategories(
-            getIntField(objectText, "ignore_missing_epg_cats", 0) != 0);
+            getBoolField(objectText, "ignore_missing_epg_cats", false));
         timer.extendedEpgOptions().setContentDescriptors(
             getStringField(objectText, "content_descriptors"));
 
         timer.validityOptions().setUseInFavorites(
-            getIntField(objectText, "use_in_favorites", 0) != 0);
+            getBoolField(objectText, "use_in_favorites", false));
         timer.validityOptions().setActiveFrom(
             getStringField(objectText, "use_as_searchtimer_from"));
         timer.validityOptions().setActiveUntil(
             getStringField(objectText, "use_as_searchtimer_til"));
 
         timer.actionOptions().setPauseOnRecordings(
-            getIntField(objectText, "pause_on_recs", 0) != 0);
+            getBoolField(objectText, "pause_on_recs", false));
         timer.actionOptions().setSwitchMinutesBefore(
             getIntField(objectText, "switch_min_before", 0));
         timer.actionOptions().setUnmuteSoundOnSwitch(
-            getIntField(objectText, "unmute_sound_on_switch", 0) != 0);
+            getBoolField(objectText, "unmute_sound_on_switch", false));
         timer.actionOptions().setDeleteRecordingsAfterDays(
             getIntField(objectText, "del_recs_after_days", 0));
         timer.actionOptions().setDeleteAfterCountRecordings(

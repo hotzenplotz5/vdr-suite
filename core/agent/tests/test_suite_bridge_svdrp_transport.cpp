@@ -575,6 +575,53 @@ void testStockEpgsearchRuleAndCommands()
     assert(rule->withActive(true).active());
     assert(rule->withActive(true).withActive(false).text() == raw);
 
+    // Full settings edit keeps unrelated native fields and activation intact.
+    std::vector<std::string> settingsFields(59U, "0");
+    settingsFields[0] = "8";
+    settingsFields[1] = "Terra X";
+    settingsFields[9] = "1";
+    settingsFields[15] = "1";
+    settingsFields[31] = "2";
+    settingsFields[33] = "17";
+    settingsFields[53] = "3";
+    settingsFields[58] = "future";
+    const auto joinFields = [](const std::vector<std::string>& fields) {
+        std::string record;
+        for (std::size_t i = 0; i < fields.size(); ++i) {
+            if (i) record += ':';
+            record += fields[i];
+        }
+        return record;
+    };
+    const auto originalSettings = EpgsearchStockRule::parse("8", joinFields(settingsFields));
+    assert(originalSettings);
+    const auto changedSettings = originalSettings->withSettings({
+        {"priority","70"},{"repeatCompareTitle","0"},{"repeatCompareSubtitle","1"},
+        {"compareTime","1"},{"useTime","1"},{"startTime","930"},{"stopTime","1130"},
+        {"useChannel","1"},{"channelMin","S19.2E-1-2-3"},{"channelMax","S19.2E-1-2-3"},
+        {"directory","Doku:Archiv|A"},{"avoidRepeats","1"},{"allowedRepeats","2"}});
+    assert(changedSettings && changedSettings->active());
+    settingsFields[2] = "1";
+    settingsFields[3] = "0930";
+    settingsFields[4] = "1130";
+    settingsFields[5] = "1";
+    settingsFields[6] = "S19.2E-1-2-3";
+    settingsFields[19] = "Doku|Archiv!^pipe^!A";
+    settingsFields[20] = "70";
+    settingsFields[28] = "1";
+    settingsFields[29] = "2";
+    assert(changedSettings->text() == joinFields(settingsFields));
+    assert(changedSettings->repeatCompareSubtitleMode() == 2);
+    assert(changedSettings->repeatCompareTimeMode() == 3);
+    assert(changedSettings->repeatCompareCategoriesMask() == "17");
+    assert(!changedSettings->withSettings({{"compareTitle","0"},{"compareSubtitle","0"},{"compareSummary","0"}}));
+    assert(!changedSettings->withSettings({{"directory","bad\nDELS 8"}}));
+    const auto limited = changedSettings->withSettings({
+        {"activeMode","2"},{"activeFrom","1795046400"},{"repeatCompareSubtitleMode","0"}});
+    assert(limited && limited->activeMode() == 2 && limited->repeatCompareSubtitleMode() == 0);
+    assert(!changedSettings->withSettings({{"activeMode","0"}}));
+    assert(!changedSettings->withActive(false).withSettings({{"activeMode","1"}}));
+
     {
         ScriptedSvdrpServer server("220 ready\r\n", "900 " + raw + "\r\n");
         SuiteBridgeSvdrpTransport transport(configFor(server.port()));

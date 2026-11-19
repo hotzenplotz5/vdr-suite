@@ -134,11 +134,11 @@
     const navigationButton = searchTimerNavigationButton();
 
     if (!title || !navigationButton || typeof navigationButton.click !== 'function') {
-      showStatus(statusTarget, 'Der SearchTimer-Editor ist derzeit nicht erreichbar.', true);
-      return Promise.reject(new Error('SearchTimer editor is not available'));
+      showStatus(statusTarget, 'Der Suchtimer-Editor ist derzeit nicht erreichbar.', true);
+      return Promise.reject(new Error('Suchtimer editor is not available'));
     }
 
-    showStatus(statusTarget, 'SearchTimer-Editor für „' + title + '“ wird geöffnet …', false);
+    showStatus(statusTarget, 'Suchtimer-Editor für „' + title + '“ wird geöffnet …', false);
     navigationButton.click();
 
     return new Promise(function (resolve, reject) {
@@ -151,8 +151,8 @@
             global.setTimeout(fill, 100);
             return;
           }
-          showStatus(statusTarget, 'Der SearchTimer-Editor konnte nicht geöffnet werden.', true);
-          reject(new Error('SearchTimer editor form did not appear'));
+          showStatus(statusTarget, 'Der Suchtimer-Editor konnte nicht geöffnet werden.', true);
+          reject(new Error('Suchtimer editor form did not appear'));
           return;
         }
 
@@ -253,11 +253,13 @@
 
     if (selectedTimelineBackendId !== backendId) {
       selectedTimelineBackendId = backendId;
-      selectedTimelineGroup = '';
+      selectedTimelineGroup = TIMELINE_GROUP_ALL;
+      if (typeof epgChannelOffset !== 'undefined') epgChannelOffset = 0;
     }
 
     if (selectedTimelineGroup !== TIMELINE_GROUP_ALL && names.indexOf(selectedTimelineGroup) < 0) {
-      selectedTimelineGroup = names.length ? names[0] : TIMELINE_GROUP_ALL;
+      selectedTimelineGroup = TIMELINE_GROUP_ALL;
+      if (typeof epgChannelOffset !== 'undefined') epgChannelOffset = 0;
     }
 
     return options;
@@ -309,7 +311,7 @@
 
     button.disabled = false;
     button.textContent = 'Suchtimer erstellen';
-    button.title = 'SearchTimer-Editor mit Titel und Kanal dieser Sendung öffnen.';
+    button.title = 'Suchtimer-Editor mit Titel und Kanal dieser Sendung öffnen.';
     button.addEventListener('click', function () {
       openSearchTimerEditor({
         title: timelineEventTitle(event),
@@ -402,13 +404,10 @@
       ? Math.max(1, EPG_VISIBLE_CHANNEL_LIMIT)
       : 15;
     if (pager) {
-      if (selectedChannels.length <= limit) {
-        pager.hidden = true;
-      } else {
-        const pagerButtons = pager.querySelectorAll('button');
-        if (pagerButtons[0]) pagerButtons[0].textContent = 'Vorherige Sender';
-        if (pagerButtons[1]) pagerButtons[1].textContent = 'Nächste Sender';
-      }
+      pager.hidden = selectedChannels.length <= limit;
+      const pagerButtons = pager.querySelectorAll('button');
+      if (pagerButtons[0]) pagerButtons[0].textContent = '← Vorherige Sender';
+      if (pagerButtons[1]) pagerButtons[1].textContent = 'Nächste Sender →';
     }
   }
 

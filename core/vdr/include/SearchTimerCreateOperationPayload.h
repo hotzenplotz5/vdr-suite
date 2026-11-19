@@ -15,6 +15,9 @@ struct SearchTimerCreateOperationPayload : SearchTimerCreateRequest
 bool searchTimerCreateOperationPayloadValid(
     const SearchTimerCreateOperationPayload& payload);
 
+unsigned searchTimerCreateOperationPayloadVersion(
+    const SearchTimerCreateOperationPayload& payload);
+
 std::string serializeSearchTimerCreateOperationPayload(
     const SearchTimerCreateOperationPayload& payload);
 

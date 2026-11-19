@@ -6,6 +6,12 @@
 
 namespace {
 
+std::string optionalBoolField(const char* name, const std::optional<bool>& value)
+{
+    if (!value.has_value()) return {};
+    return "\"" + std::string(name) + "\":" + (*value ? "true," : "false,");
+}
+
 std::string escapeJsonString(
     const std::string& value)
 {
@@ -86,6 +92,9 @@ void appendSearchTimerSettings(std::ostringstream& json, const SearchTimer& time
         << "\"compareTitle\":" << (timer.comparisonOptions().compareTitle() ? "true" : "false") << ","
         << "\"compareSubtitle\":" << (timer.comparisonOptions().compareSubtitle() ? "true" : "false") << ","
         << "\"compareSummary\":" << (timer.comparisonOptions().compareSummary() ? "true" : "false") << ","
+        << optionalBoolField("repeatCompareTitle", timer.comparisonOptions().repeatCompareTitle())
+        << optionalBoolField("repeatCompareSubtitle", timer.comparisonOptions().repeatCompareSubtitle())
+        << optionalBoolField("repeatCompareSummary", timer.comparisonOptions().repeatCompareSummary())
         << "\"compareCategories\":" << (timer.comparisonOptions().compareCategories() ? "true" : "false") << ","
         << "\"compareTime\":" << (timer.comparisonOptions().compareTime() ? "true" : "false")
         << "},"
