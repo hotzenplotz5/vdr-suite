@@ -464,6 +464,24 @@ int main()
     assert(anonymousFrontendAssetResponse.headers.find("WWW-Authenticate") ==
         anonymousFrontendAssetResponse.headers.end());
 
+    assert(anonymousFrontendResponse.body.find("../frontend/manifest.webmanifest") != std::string::npos);
+    assert(anonymousFrontendResponse.body.find("../frontend/pwa-register.js") != std::string::npos);
+    anonymousFrontendAssetRequest.path = "/frontend/manifest.webmanifest";
+    const auto manifestResponse = server.handleRequest(anonymousFrontendAssetRequest);
+    assert(manifestResponse.statusCode == 200);
+    assert(manifestResponse.headers.at("Content-Type") == "application/manifest+json; charset=utf-8");
+    assert(manifestResponse.body.find("\"start_url\": \"./\"") != std::string::npos);
+    anonymousFrontendAssetRequest.path = "/frontend/service-worker.js";
+    const auto workerResponse = server.handleRequest(anonymousFrontendAssetRequest);
+    assert(workerResponse.statusCode == 200);
+    assert(workerResponse.headers.at("Content-Type") == "application/javascript; charset=utf-8");
+    assert(workerResponse.headers.at("Cache-Control") == "no-cache");
+    assert(workerResponse.body.find("vdr-suite-pwa-shell:") != std::string::npos);
+    anonymousFrontendAssetRequest.path = "/frontend/pwa-register.js";
+    const auto registrationResponse = server.handleRequest(anonymousFrontendAssetRequest);
+    assert(registrationResponse.statusCode == 200);
+    assert(registrationResponse.body.find("serviceWorker.register") != std::string::npos);
+
     HttpServerRequest anonymousApiRequest;
     anonymousApiRequest.method = "GET";
     anonymousApiRequest.path = "/api/backends";

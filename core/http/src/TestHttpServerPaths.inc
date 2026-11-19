@@ -7,6 +7,9 @@ struct FrontendAsset
 };
 
 const FrontendAsset FRONTEND_ASSETS[] = {
+    {"/frontend/manifest.webmanifest", "manifest.webmanifest", "application/manifest+json; charset=utf-8", nullptr},
+    {"/frontend/service-worker.js", "service-worker.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/pwa-register.js", "pwa-register.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/app.js", "app.js", "application/javascript; charset=utf-8", "modules/remote.js"},
     {"/frontend/api/client-api.js", "api/client-api.js", "application/javascript; charset=utf-8", "api/live-remote-client-api.js"},
     {"/frontend/api/public-v1-client.js", "api/public-v1-client.js", "application/javascript; charset=utf-8", nullptr},

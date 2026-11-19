@@ -116,6 +116,42 @@ Home branch contains the unmerged optimization dependency, so explicitly
 resolve integration rather than rebase, force-push or discard it. The
 maintainer's kickoff is for PWA.1; no speculative feature expansion.
 
+## PWA.1 — implementation checkpoint (2026-11-19)
+
+The maintainer explicitly selected the existing `work/home-performance`
+branch. The verified starting head was
+`f54febbcba8419148e09ea216d2a76a8587c18f7`, 12 commits ahead of and
+zero behind then-current main. Keep all Home fixes; no rebase or new branch.
+
+- Manifest start URL and worker scope resolve relative to the existing
+  public `/frontend/` route, including proxy prefixes. Registration
+  is optional, asynchronous, secure-context only and uses the existing
+  public URL owner. The legacy root URL remains online-compatible;
+  PWA control is limited to the canonical frontend directory.
+- A versioned Cache Storage entry contains only a generated account-neutral
+  offline document. No fetched HTML, scripts, styles, session, API, SSE,
+  artwork or media responses are persisted in this slice. The normal app
+  shell and composed/deferred bundles keep the existing HTTP revalidation,
+  preventing mixed cached bundle versions. This is the minimal public
+  fallback shell, not a warm-start implementation or private offline access.
+- Only a GET navigation to the canonical frontend or index can receive the
+  fallback, and only on network rejection; HTTP errors and redirects stay
+  server-owned. The worker does not claim running tabs or force updates.
+  Old versions of this installation's shell cache are removed on normal
+  activation. Bump the shell cache version when changing the fallback body.
+- Existing HTTP static allowlist and install-runtime are extended; no new
+  auth rule or SSE connection. Direct daemon delivery needs a new binary
+  because the allowlist is compiled. The existing Nginx proxy path is unchanged.
+- UNIT/CONTRACT: Node syntax and focused VM worker/registration test passed
+  for root and prefixed deployments, rejected registration, storage failure,
+  unauthorized response passthrough, isolated cache cleanup and exclusion of
+  private routes. This is not a real browser. HTTP route regression and
+  staging assertions are added; production C++/installation, hosted CI,
+  production browser scope/update/offline/installability remain NOT VERIFIED.
+- IPTVnator remains a motivating pattern, not verified feature or timing
+  parity. PWA.2 IndexedDB and PWA.3 persistent artwork are intentionally not
+  included; cold artwork errors and visible-first performance remain open.
+
 ## Measurable acceptance (provisional targets, not guarantees)
 
 Compare baseline and candidate with the same authenticated account, backend,

@@ -2,14 +2,14 @@
 
 ## PWA / Home performance — next frontend priority (19.11.2026)
 
-**PWA = PLANNED / NOT STARTED; next implementation slice PWA.1.**
+**PWA.1 = SOURCE CANDIDATE; unit shell contract passed; integration/CI/real browser pending.**
 The maintainer prioritizes local client caching and optional PWA installation
 for the existing Webfrontend, including ordinary browser use. See
 [PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.
 HOME.P7.1 installation and focused test passed; real Home artwork latency
 acceptance remains **FAILED / OPEN** (visible posters missing after minutes,
 three metadata-image HTTP 404 observations in the later capture).
-No PWA runtime changes, merge, new branch, or Phase 70 kickoff are implied.
+PWA.1 adds the public offline shell, manifest, worker registration and static route/install wiring on the existing Home branch. See the PWA plan for remaining evidence. No merge, new branch, or Phase 70 kickoff.
 Other existing workstream acceptance states remain unchanged.
 
 **Architekturentscheidung 17.11.2026 (Betreiber):** Reguläres epgsearch ist die produktive Basis. Keine epgsearch-Patches oder gepatchte ABI als Installations- oder Freigabevoraussetzung. CREATE/LIST über RESTfulAPI; VERSION/UPDATE/ACTIVATE/DEACTIVATE/DELETE verwenden die vorhandenen Standard-SVDRP-Befehle intern. SQLite-Operationsreservierung, Idempotenz, ETag, Autorisierung und Readback bleiben; native epgsearch-lock-atomare CAS oder persistierte native Generationen werden nicht versprochen. Externe konkurrierende Änderungen zwischen Lesen und Schreiben sowie identische Löschung/Neuanlage zwischen Beobachtungen sind nicht vollständig erkennbar. Historische native-CAS-Abnahmeforderungen sind damit aufgehoben. Ursprünglicher Source-Kandidat `eaa8ab6e122fbb8723456df091b6a57a12311653`; aktueller installierter und im yaVDR-Webfrontend getesteter Code-Kandidat `b5ae3cc27cb25f6950e641781060a1b5a68f510d` (17.11.2026).

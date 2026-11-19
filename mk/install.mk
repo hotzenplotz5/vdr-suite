@@ -127,6 +127,9 @@ install-runtime:
 		$(DESTDIR)$(DATADIR)/web/frontend/recording-trash-ux.js \
 		$(DESTDIR)$(DATADIR)/web/frontend/modules/recordings.js
 	$(INSTALL) -m 0644 web/frontend/index.html $(DESTDIR)$(DATADIR)/web/frontend/index.html
+	$(INSTALL) -m 0644 web/frontend/manifest.webmanifest $(DESTDIR)$(DATADIR)/web/frontend/manifest.webmanifest
+	$(INSTALL) -m 0644 web/frontend/service-worker.js $(DESTDIR)$(DATADIR)/web/frontend/service-worker.js
+	$(INSTALL) -m 0644 web/frontend/pwa-register.js $(DESTDIR)$(DATADIR)/web/frontend/pwa-register.js
 	$(INSTALL) -m 0644 web/frontend/app.js $(DESTDIR)$(DATADIR)/web/frontend/app.js
 	$(INSTALL) -d $(DESTDIR)$(DATADIR)/web/frontend/api
 	$(INSTALL) -m 0644 web/frontend/api/client-api.js $(DESTDIR)$(DATADIR)/web/frontend/api/client-api.js
@@ -341,6 +344,9 @@ test-install-staging:
 	! test -e /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/recording-artwork.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/epg-cache.js
 	test -f /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/style.css
+	cmp web/frontend/manifest.webmanifest /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/manifest.webmanifest
+	cmp web/frontend/service-worker.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/service-worker.js
+	cmp web/frontend/pwa-register.js /tmp/vdr-suite-pkgroot/usr/share/vdr-suite/web/frontend/pwa-register.js
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/logo-vdr-suite-dark.svg
 	test -f /tmp/vdr-suite-pkgroot/var/cache/vdr-suite/channel-logos/vdr-suite-brand/icon-vdr-suite.svg

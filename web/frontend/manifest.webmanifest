@@ -1,0 +1,13 @@
+{
+  "id": "./",
+  "name": "VDR-Suite",
+  "short_name": "VDR-Suite",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101827",
+  "theme_color": "#101827",
+  "icons": [
+    { "src": "../channel-logos/vdr-suite-brand/icon-vdr-suite.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
