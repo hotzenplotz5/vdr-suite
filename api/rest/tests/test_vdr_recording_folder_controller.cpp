@@ -441,6 +441,30 @@ int main()
         cachedMetadata.body,
         "var/cache/vdr/plugins/tvscraper"));
 
+    // Deep multi-recording subfolders: one canonical portrait address per
+    // combined card, no recursive HTTP requests or complete episode payload.
+    assert(repository.replaceRecordingsForBackend("default", {
+        makeRecording("ep-b", "B Episode", "/Series/Movie Show/Season 2/2.rec"),
+        makeRecording("ep-a", "A Episode", "/Series/Movie Show/Season 1/1.rec"),
+        makeRecording("another", "Other Episode", "/Series/Z Show/Season 1/3.rec"),
+        makeRecording("another-b", "Other Two", "/Series/Z Show/Season 2/4.rec")
+    }));
+    assert(repository.markRefreshFinished("default", 4));
+    const auto beforeRepresentative = nativeLookupCalls;
+    const auto representativePage = controller.getFolder("default", "Series", 1, 0, true);
+    assert(contains(representativePage.body, "\"returnedCards\":1"));
+    assert(contains(representativePage.body, "\"hasMore\":true"));
+    assert(contains(representativePage.body, "\"singleRecordingLeaf\":false"));
+    assert(contains(representativePage.body, "\"representativePosterUrl\":\"/api/vdr/recordings/metadata/image?backend=default&backendNativeId=%2Fsrv%2Fvdr%2Fvideo%2FSeries%2FMovie%20Show%2FSeason%201%2F1.rec&kind=gallery&index=0\""));
+    assert(!contains(representativePage.body, "\"name\":\"Z Show\""));
+    assert(!contains(representativePage.body, "\"nativeMetadata\""));
+    assert(!contains(representativePage.body, "/tmp/vdr-suite-movie-poster.jpg"));
+    assert(nativeLookupCalls == beforeRepresentative + 1);
+    const auto legacySeries = controller.getFolder("default", "Series", 1, 0);
+    assert(!contains(legacySeries.body, "representativePosterUrl"));
+    const auto otherPage = controller.getFolder("other", "Series", 1, 0, true);
+    assert(!contains(otherPage.body, "representativePosterUrl"));
+
     std::remove("/tmp/vdr-suite-movie-landscape.jpg");
     std::remove("/tmp/vdr-suite-movie-poster.jpg");
 

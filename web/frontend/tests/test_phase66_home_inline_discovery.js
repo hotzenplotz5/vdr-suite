@@ -358,7 +358,8 @@ const client = {
             path: 'Action/Marvel',
             name: 'Marvel_Collection',
             recordingCount: 2,
-            singleRecordingLeaf: false
+            singleRecordingLeaf: false,
+            ...(combined ? {representativePosterUrl:nativeImageUrl('f2','gallery',1)} : {})
           }
         ],
         recordings: []
@@ -558,8 +559,8 @@ function wait(milliseconds) {
   assert.strictEqual(nestedFolder.dataset.inlineFolderPath, 'Action/Marvel');
   assert.strictEqual(nestedFolder.querySelector('img').src, nativeImageUrl('f2', 'gallery', 1) + '&variant=home',
     'visible subfolder must show the existing canonical representative cover');
-  assert.deepStrictEqual(folderCalls.filter(call => call.query.limit === 1).map(call => call.query.path), ['Action/Marvel'],
-    'representative lookup must use a bounded folder read, not metadata fan-out');
+  assert.deepStrictEqual(folderCalls.filter(call => call.query.limit === 1).map(call => call.query.path), [],
+    'server representative must not require a per-folder HTTP read');
   clickElement(nestedFolder);
   assert.strictEqual(folderSection.querySelector('.media-home-inline-expansion').style.minHeight, '320px',
     'switch must reserve previous folder height while loading');

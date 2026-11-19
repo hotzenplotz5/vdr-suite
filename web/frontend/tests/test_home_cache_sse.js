@@ -39,6 +39,11 @@ async function save(r,rail) {const ticket=begin(r,rail); assert(ticket.accept(ob
 (async()=>{
   const r=make(); resync(r,10); await drain();
   await save(r,'newly-recorded'); await save(r,'series'); await save(r,'continue-watching');
+  assert(await disk.write(scope('alpha'),'folders:Serien',snap(epoch+10)));
+  assert(await disk.write(scope('beta'),'folders:Serien',snap(epoch+10)));
+  let folderPainted=0, folderRemoved=0;
+  const folderTicket=r.beginFolder('Serien','alpha',()=>true,()=>{folderPainted++;return ()=>{folderRemoved++;};});
+  await drain(); assert.equal(folderPainted,1);
   assert(await disk.write(scope('beta'),'newly-recorded',snap(epoch+10)));
   const restart=make(); const warm=begin(restart,'newly-recorded');
   await drain(); assert.equal(paints.length,0,'no saved private data before fresh authorization');
@@ -58,6 +63,11 @@ async function save(r,rail) {const ticket=begin(r,rail); assert(ticket.accept(ob
   const staleStamp=restart.requestStamp(paths.series,'alpha'); const stale=begin(restart,'series');
   assert(stale.accept(observe(restart,paths.series,staleStamp)));
   update(restart,13,['recordings']); update(restart,14,['recordings']); await drain();
+  assert.equal(await disk.read(scope('alpha'),'folders:Serien'),null);
+  assert.equal(await disk.read(scope('beta'),'folders:Serien'),null);
+  // The same tab's active folder preview is canceled on its own event.
+  update(r,11,['recordings']); await drain(); assert.equal(folderRemoved,1);
+  folderTicket.cancel();
   assert(paints[0].removed); assert.equal(await stale.finish(cards),false);
   assert.equal(await warm.finish(cards),false);
   assert.equal(await disk.read(scope('alpha'),'series'),null);

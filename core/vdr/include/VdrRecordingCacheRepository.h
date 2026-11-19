@@ -26,6 +26,9 @@ struct VdrRecordingFolderEntry
     int recordingCount = 0;
     bool singleRecordingLeaf = false;
     VdrRecording singleRecording;
+    // Home-only representative, never a navigable recording leaf.
+    bool hasRepresentativeRecording = false;
+    VdrRecording representativeRecording;
 };
 
 struct VdrRecordingFolderPage
@@ -113,6 +116,9 @@ private:
     {
         std::vector<VdrRecordingFolderEntry> folders;
         std::vector<VdrRecording> recordings;
+        // Path of the first direct recording in this subtree, computed once.
+        std::string representativeFolderPath;
+        bool hasRepresentative = false;
     };
 
     struct BrowseBackendSnapshot

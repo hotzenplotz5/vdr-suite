@@ -681,7 +681,8 @@
     card.type = 'button';
     card.className = 'media-home-discovery-card media-home-inline-folder';
     card.dataset.inlineFolderPath = path;
-    const artwork = createInlineArtwork({title: folderLabel(entry)});
+    const artwork = createInlineArtwork({title: folderLabel(entry),
+      metadata:{presentation:{posterUrl:text(entry.representativePosterUrl)}}});
     card.appendChild(artwork);
 
     const copy = doc.createElement('span');
@@ -773,7 +774,9 @@
     }
 
     function enqueueVisible(item) {
-      if (!live() || item.queued) return;
+      // The paginated server projection already contains the selected cover;
+      // only older servers need the previous bounded representative traversal.
+      if (!live() || item.queued || typeof item.entry.representativePosterUrl === 'string') return;
       item.queued = true;
       pending.push(item);
       pump();
@@ -794,6 +797,7 @@
     }
     expansion.__appendFolderArtwork = function (added) {
       if (!live()) return;
+      added = added.filter(item => typeof item.entry.representativePosterUrl !== 'string');
       if (observer) {
         added.forEach(item => { items.set(item.card, item); observer.observe(item.card); });
       } else {

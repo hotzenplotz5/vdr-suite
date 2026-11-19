@@ -1130,3 +1130,23 @@ authoritative demand fetch replaces it and enables actions. No offline private
 access, new endpoint, polling, schema migration or generic response storage.
 A recording-domain invalidation discards dependent folder previews. Real
 browser latency and native test execution remain to be verified.
+
+### PWA.14.6 — Home subfolder cover projection
+
+The inline folder owner already had a visible-only bounded fallback, but each
+real subfolder could still require up to two additional folder HTTP reads.
+Reuse the existing per-backend browse snapshot: compute a representative's
+owning folder bottom-up once per inventory replacement, preserving direct
+recordings first and alphabetical child order. Only non-leaf cards in the
+requested non-root combined Home page get a representative; legacy and
+Public-v1 folder responses, leaves, counts and paging are unchanged.
+The existing controller resolves the current manual/native/cached cover
+precedence and returns only its canonical image URL, not episode payloads or
+private filesystem paths. No added metadata HTTP calls for these subfolders;
+the existing validated/authenticated artwork routes still deliver bytes.
+The browser renders the supplied poster at card creation and only runs the
+old bounded traversal for older responses without the field. Missing artwork
+uses the existing fallback. The first page's scoped persistent projection
+also includes these URLs. No new schema, endpoint, polling or permission.
+Actual server/current-browser latency and native C++ validation are pending.
+IPTVnator/Plex remain perceived-speed targets, not measured equivalents.

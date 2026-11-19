@@ -326,6 +326,34 @@ std::string serializeManualFolderMetadata(
     return json.str();
 }
 
+// Match the Home recording-card poster precedence without serializing an
+// entire episode (description, people, gallery) for a non-recording tile.
+std::string representativePosterUrl(
+    const VdrRecording& recording,
+    const ManualRecordingMetadataAssignment& manual,
+    const VdrRecordingNativeMetadataRecord& native)
+{
+    if (manual.found && manual.relationshipLocked)
+        return localManualImage(manual.posterReference)
+            ? manualImageUrl(manual.backendId, recording.backendNativeId,
+                             "preferred", 0, manual.revision)
+            : std::string{};
+    if (native.exists() && native.metadata.found)
+    {
+        for (std::size_t i = 0; i < native.metadata.images.size(); ++i)
+        {
+            const auto& image = native.metadata.images[i];
+            if (image.orientation == "portrait" && image.available && !image.path.empty())
+                return VdrRecordingNativeMetadataPublicJsonSerializer::imageUrl(
+                    native, "gallery", static_cast<int>(i));
+        }
+        const auto& preferred = native.metadata.preferredArtwork;
+        if (preferred.available && !preferred.path.empty())
+            return VdrRecordingNativeMetadataPublicJsonSerializer::imageUrl(native, "preferred", 0);
+    }
+    return VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(recording);
+}
+
 void appendRecordingJson(
     std::ostringstream& json,
     const VdrRecording& recording,
@@ -816,6 +844,15 @@ ApiResponse VdrRecordingFolderController::getFolder(
                 folder.singleRecording,
                 manual,
                 nativeMetadata);
+        }
+        else if (homeCards && folder.hasRepresentativeRecording)
+        {
+            const auto& representative = folder.representativeRecording;
+            const auto manual = manualFor(representative);
+            const auto native = manual.found && manual.relationshipLocked
+                ? VdrRecordingNativeMetadataRecord{} : nativeFor(representative);
+            json << ",\"representativePosterUrl\":";
+            appendJsonString(json, representativePosterUrl(representative, manual, native));
         }
         json << "}";
     }
