@@ -9,10 +9,17 @@
     'recent-movies': '/api/vdr/recordings/query',
     'continue-watching': '/api/media/continue-watching'
   });
+  const ALL_RAILS = Object.keys(RAIL_ROUTES);
   const VALID_SCOPE = /^vsr-[0-9a-f]{64}$/;
   const PROOF_MS = 5000;
   const PREVIEW_MS = 15000;
   const domain = rail => rail === 'continue-watching' ? 'history' : 'recordings';
+
+  function cursor(value) {
+    const match = /^sse_([0-9a-f]{32}):(0|[1-9][0-9]*)$/.exec(value || '');
+    if (!match || !Number.isSafeInteger(Number(match[2]))) return null;
+    return {id: value, epoch: match[1], sequence: Number(match[2])};
+  }
 
   function createRuntime(options) {
     const config = options || {};
@@ -29,6 +36,82 @@
     const payloads = new WeakMap();
     const tickets = new Map();
     let channel = null;
+    const requireCursor = config.requireCursor !== false;
+    let currentCursor = null, baseline = null, connected = false;
+    let storageBarrier = Promise.resolve(true);
+    const railVersions = new Map(), minimums = new Map();
+    const version = rail => railVersions.get(rail) || 0;
+    function advance(rails, at) {
+      for (const rail of rails) {
+        railVersions.set(rail, version(rail) + 1);
+        if (at) minimums.set(rail, at);
+        const ticket = tickets.get(rail);
+        if (ticket) ticket.cancel();
+      }
+    }
+    function discard(target, rails, at) {
+      // Serialize cache mutations before new reads/writes use this cursor.
+      storageBarrier = storageBarrier.then(() => owner.discard(target, rails, at.id)).catch(() => false);
+    }
+    function closeCursor() {
+      connected = false;
+      currentCursor = null;
+      baseline = null;
+      minimums.clear();
+      advance(ALL_RAILS, null);
+    }
+    function liveEvent(type, event) {
+      if (type === 'close') { closeCursor(); return false; }
+      if (type === 'error') {
+        connected = false;
+        for (const ticket of tickets.values()) ticket.dismiss();
+        return false;
+      }
+      if (type === 'open') { connected = Boolean(currentCursor); return false; }
+      if (type !== 'update' && type !== 'resync') return false;
+      let data;
+      try { data = JSON.parse(event.data); } catch (error) { closeCursor(); return false; }
+      const at = cursor(event.lastEventId);
+      const sequence = type === 'resync' ? data && data.latestSequenceNumber : data && data.sequenceNumber;
+      if (!at || sequence !== at.sequence || (type === 'update' &&
+          (!data || !Array.isArray(data.changedDomains) || typeof data.backendId !== 'string' || !data.backendId))) {
+        // Legacy/malformed feed: disable persistent reuse rather than guess.
+        closeCursor();
+        return false;
+      }
+      const prior = currentCursor;
+      if (type === 'update' && prior && at.epoch === prior.epoch && at.sequence <= prior.sequence) return false;
+      const gap = type === 'update' && (!prior || at.epoch !== prior.epoch || at.sequence !== prior.sequence + 1);
+      currentCursor = at;
+      connected = true;
+      if (type === 'resync' || gap) {
+        const initial = type === 'resync' && data.reason === 'initial' && !prior;
+        baseline = at;
+        minimums.clear();
+        if (!initial && (!prior || prior.id !== at.id || data.reason !== 'initial')) {
+          advance(ALL_RAILS, at);
+          discard(null, ALL_RAILS, at);
+        } else {
+          // First connection: equal durable cursor can still use a warm preview.
+          discard(null, [], at);
+        }
+        for (const ticket of tickets.values()) ticket.preview();
+        return gap;
+      }
+      const rails = data.changedDomains.includes('recordings') ? ALL_RAILS :
+        data.changedDomains.includes('continueWatching') ? ['continue-watching'] : [];
+      if (rails.length) {
+        if (backend === data.backendId) advance(rails, at);
+        discard(data.backendId, rails, at);
+      }
+      return false;
+    }
+    function canPreview(rail, snapshot) {
+      if (!requireCursor) return true;
+      const saved = cursor(snapshot.revision), minimum = minimums.get(rail) || baseline;
+      return Boolean(connected && currentCursor && minimum && saved &&
+        saved.epoch === currentCursor.epoch && saved.sequence >= minimum.sequence && saved.sequence <= currentCursor.sequence);
+    }
     const makeOwner = config.makeOwner || (opts => global.VdrSuiteHomePersistence.create(opts));
     const owner = makeOwner({authorize: async (scope, rail) => {
       const proof = currentProof(rail);
@@ -50,21 +133,24 @@
       for (const ticket of tickets.values()) ticket.cancel();
       tickets.clear();
       owner.invalidate();
-      if (purge) Promise.resolve(owner.clear()).catch(() => {});
+      if (purge) storageBarrier = storageBarrier.then(() => owner.clear()).catch(() => false);
     }
     function selectBackend(value) {
       reset(false);
       backend = typeof value === 'string' ? value : '';
+      baseline = currentCursor;
+      minimums.clear();
     }
     function sessionBoundary() {
       reset(true);
+      closeCursor();
       if (channel) { try { channel.postMessage('session-boundary'); } catch (error) {} }
     }
     function requestStamp(path, requestedBackend) {
       if (!backend || !active() || backend !== requestedBackend) return null;
       const snapshot = path === '/api/backends/' + encodeURIComponent(backend) + '/snapshot';
       if (!snapshot && !Object.values(RAIL_ROUTES).includes(path)) return null;
-      return {path, backend, generation, snapshot};
+      return {path, backend, generation, snapshot, cursor: currentCursor && currentCursor.id, versions: ALL_RAILS.map(version)};
     }
     function observe(stamp, response, payload) {
       if (!stamp || stamp.generation !== generation || stamp.backend !== backend || !active()) return;
@@ -108,10 +194,10 @@
       if (!RAIL_ROUTES[rail] || !backend || backend !== requestedBackend || !active() || typeof isCurrent !== 'function') return null;
       const previous = tickets.get(rail);
       if (previous) previous.cancel();
-      const local = generation;
+      const local = generation, railVersion = version(rail);
       let done = false, dismissed = !show, accepted = 0, invalid = false;
       let proven = '', attempted = '', remove = null, expiry = null;
-      const live = () => !done && local === generation && backend === requestedBackend && active() && isCurrent();
+      const live = () => !done && local === generation && railVersion === version(rail) && backend === requestedBackend && active() && isCurrent();
       function dismiss() {
         dismissed = true;
         if (remove) { remove(); remove = null; }
@@ -126,12 +212,13 @@
       async function preview() {
         if (dismissed || !live()) return;
         const proof = currentProof(rail);
-        if (!proof || attempted === proof.partition) return;
+        if (!proof || (requireCursor && (!connected || !currentCursor)) || attempted === proof.partition) return;
         attempted = proof.partition;
         try {
+          if (!await storageBarrier || !live()) return;
           const snapshot = await owner.read(scopeOf(proof), rail);
           const still = currentProof(rail);
-          if (dismissed || !live() || !still || still.partition !== proof.partition || !snapshot || !snapshot.items.length) return;
+          if (dismissed || !live() || !still || still.partition !== proof.partition || !snapshot || !snapshot.items.length || !canPreview(rail, snapshot)) return;
           remove = paint(rail, title, snapshot.items, requestedBackend) || null;
           if (remove && typeof global.setTimeout === 'function') expiry = global.setTimeout(dismiss, PREVIEW_MS);
         } catch (error) { /* Optional storage/presentation. */ }
@@ -139,7 +226,8 @@
       function accept(payload) {
         const observed = payload && typeof payload === 'object' ? payloads.get(payload) : null;
         if (!live() || !observed || observed.stamp.generation !== local || observed.stamp.path !== RAIL_ROUTES[rail] ||
-            !observed.domains.includes(domain(rail)) || (proven && observed.partition !== proven)) {
+            !observed.domains.includes(domain(rail)) ||
+            (requireCursor && (!connected || !observed.stamp.cursor || observed.stamp.versions[ALL_RAILS.indexOf(rail)] !== railVersion)) || (proven && observed.partition !== proven)) {
           invalid = true;
           return false;
         }
@@ -147,15 +235,17 @@
         accepted++;
         return true;
       }
-      function finish(cards) {
+      async function finish(cards) {
         const proof = currentProof(rail);
-        const eligible = live() && !invalid && accepted > 0 && proof && proof.partition === proven && Array.isArray(cards);
+        const eligible = live() && !invalid && accepted > 0 && proof && proof.partition === proven && Array.isArray(cards) && (!requireCursor || (connected && currentCursor));
         const scope = eligible ? scopeOf(proof) : null;
+        const revision = requireCursor && currentCursor ? currentCursor.id : 'unversioned-preview-v1';
         cancel();
         if (!eligible) return Promise.resolve(false);
-        // These legacy reads do not expose a shared server revision. This is
-        // a bounded complete preview window, never an authoritative inventory.
-        return owner.write(scope, rail, {complete: true, revision: 'unversioned-preview-v1', items: cards.slice(0, 24)}).catch(() => false);
+        // Cursor is a causal fence, not a server-side resource revision.
+        if (!await storageBarrier || local !== generation || railVersion !== version(rail) ||
+            !active() || (requireCursor && !connected)) return false;
+        return owner.write(scope, rail, {complete: true, revision, items: cards.slice(0, 24)}).catch(() => false);
       }
       const ticket = Object.freeze({preview, accept, dismiss, cancel, finish});
       tickets.set(rail, ticket);
@@ -166,7 +256,7 @@
       try {
         if (typeof global.BroadcastChannel === 'function' && global.VdrSuitePublicUrl) {
           channel = new global.BroadcastChannel('vdr-suite-home:' + global.VdrSuitePublicUrl.basePath);
-          channel.onmessage = event => { if (event.data === 'session-boundary') reset(false); };
+          channel.onmessage = event => { if (event.data === 'session-boundary') { reset(false); closeCursor(); } };
         }
       } catch (error) { /* The next server proof remains mandatory. */ }
       if (typeof global.addEventListener === 'function') {
@@ -179,7 +269,7 @@
         });
       }
     }
-    return Object.freeze({selectBackend, sessionBoundary, requestStamp, observe, begin});
+    return Object.freeze({selectBackend, sessionBoundary, requestStamp, observe, begin, liveEvent});
   }
 
   // The preview uses the same rail classes but no canonical data attributes,
@@ -254,6 +344,7 @@
     sessionBoundary: () => { const r = get(); if (r) r.sessionBoundary(); },
     requestStamp: (path, backend) => { const r = get(); return r ? r.requestStamp(path, backend) : null; },
     observe: (stamp, response, payload) => { const r = get(); if (r) r.observe(stamp, response, payload); },
+    liveEvent: (type, event) => { const r = get(); return r ? r.liveEvent(type, event) : false; },
     begin: (...args) => { const r = get(); return r ? r.begin(...args) : null; }
   });
 }(window));

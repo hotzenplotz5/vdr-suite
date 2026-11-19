@@ -283,6 +283,55 @@ the initial PWA.4 checkpoint; full C++/packaging CI remains separate.
   build, full rail regression, browser IndexedDB/worker and timings remain
   unverified until corresponding CI/real VDR evidence. No deployment yet.
 
+## PWA.5 — persistent SSE synchronization (2026-11-19)
+
+Base `3b3f083568eba82e330ea9b407d555df1f748074` (PWA.4).
+PWA.3 frontend/packaging/docs/architecture/inventory passed; its fast regression
+was cancelled, not a PASS. PWA.4 same five jobs passed; fast regression was
+still running when checked. Browser timing acceptance remains open.
+
+- One observer in the established shared /api/vdr/live EventSource, before
+  the existing per-rail handlers. No extra transport, endpoint, polling,
+  authorization rule, server change or new HTTP read. Parse the existing
+  daemon epoch/sequence `lastEventId` and validate payload sequence.
+  Ignore duplicate/older updates in the cache; an unexpected gap or changed
+  epoch on an update reuses the owners' existing resync path. Explicit
+  resync invalidates the affected baseline; ordinary transport errors dismiss
+  cached previews and do not schedule polling. The browser's EventSource
+  reconnect/replay remains the transport owner.
+- Recording changes invalidate the six recording-dependent previews for
+  that backend (including Continue Watching); Continue Watching-only
+  changes invalidate only its rail, unrelated domains do not invalidate
+  Home snapshots. A gap without a proven scope discards older snapshots
+  across backends. Preserve newer same-epoch rows. Retire up to eight old
+  daemon epochs in the bounded metadata store. One shared write floor and
+  transaction epoch reject stale writes even from another owner; this
+  conservatively fences in-flight writes for unrelated rails too.
+- Canonical newly-recorded reconciliation now republishes its preview from
+  the very same existing list read; Series and Continue Watching keep their
+  PWA.4 readback bindings. A specific metadata-only event that does not
+  cause a complete list read invalidates the old preview, rather than
+  inventing membership or writing a partial snapshot. Genres, Folders and
+  Recent Movies are invalidated and repopulate on the next normal owner read,
+  not a new full Home refresh. Existing live tile updates remain unchanged.
+- The stored revision is the observed SSE cursor, a causal cache fence,
+  not a server resource revision. Initial resync requires a compatible
+  cursor before a persistent preview may paint. A cold document uses its
+  initial cursor as a conservative lower bound; unrelated missed events
+  can therefore produce a cache miss. Requests sent before the first
+  valid cursor are not persisted, and older unversioned PWA.4 previews
+  are not reused. Network rendering never waits for this optional cache.
+- Node contracts actually executed locally: PWA.2 persistence, PWA.4
+  preview compatibility mode, and PWA.5 production cursor mode with an
+  asynchronous IndexedDB test double. New cases: equal-cursor warm reload,
+  backend and domain isolation, rapid/duplicate events, stale read/write,
+  gap, disconnect/reopen, epoch change, retired epoch and logout.
+  Added shared physical SSE dispatch regression to existing test.
+  Exact locally tested blobs verified. Native IndexedDB transaction
+  scheduling, real multi-tab delivery/reconnect and production composition
+  are still to be verified; new hosted CI pending. No daemon rebuild or
+  deployment performed for this frontend-only slice.
+
 ## Measurable acceptance (provisional targets, not guarantees)
 
 Compare baseline and candidate with the same authenticated account, backend,

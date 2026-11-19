@@ -8,6 +8,7 @@ const vm = require('vm');
 const code = fs.readFileSync(path.join(__dirname, '..', 'api',
   'live-remote-client-api.js'), 'utf8');
 const physical = [];
+const cacheEvents = [];
 let token = 'a'.repeat(40);
 class FakeEventSource {
   constructor(url, options) {
@@ -29,6 +30,10 @@ class FakeEventSource {
 }
 const window = {
   EventSource: FakeEventSource,
+  VdrSuiteHomeCache: {sessionBoundary() {}, liveEvent(type, event) {
+    cacheEvents.push(type);
+    return type === 'update' && event.data === 'gap-test';
+  }},
   VdrSuiteClientApi: {requestJson() { return Promise.resolve({}); }},
   fetch: async function (url) {
     if (url === '/api/security/browser-sessions/current') {
@@ -64,6 +69,7 @@ const session = window.VdrSuiteBrowserSession;
   physical[0].emit('update');
   physical[0].emit('open');
   assert.deepStrictEqual([first, second, reconnect], [1, 1, 1]);
+  assert.deepStrictEqual(cacheEvents, ['update', 'open'], 'one observer, not one per rail');
 
   one.close();
   assert.strictEqual(physical[0].closed, false,
@@ -97,7 +103,11 @@ const session = window.VdrSuiteBrowserSession;
   physical[2].emit('resync');
   assert.strictEqual(fourth, 1);
   assert.strictEqual(resync, 2);
+  physical[2].emit('update', {data:'gap-test', lastEventId:'sse_test:9'});
+  assert.strictEqual(resync, 3, 'client gap reuses existing resync handler');
+  assert.strictEqual(fourth, 2);
   await session.logout();
+  assert(cacheEvents.includes('close'));
   assert(physical[2].closed);
   three.close();
   four.close();

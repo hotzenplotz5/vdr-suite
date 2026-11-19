@@ -9,6 +9,17 @@
   const text = (value, max) => typeof value === 'string' && value.length > 0 && value.length <= max;
   const id = value => text(value, 256) && !/[\u0000-\u001f\u007f]/.test(value);
 
+  function cursor(value) {
+    const match = /^sse_([0-9a-f]{32}):(0|[1-9][0-9]*)$/.exec(value || '');
+    if (!match || !Number.isSafeInteger(Number(match[2]))) return null;
+    return {epoch: match[1], sequence: Number(match[2])};
+  }
+
+  function atLeast(value, minimum) {
+    const a = cursor(value), b = cursor(minimum);
+    return Boolean(a && b && a.epoch === b.epoch && a.sequence >= b.sequence);
+  }
+
   function scopeKey(scope) {
     if (!scope || !id(scope.accountId) || !id(scope.backendId) || !id(scope.permissionRevision)) return null;
     return JSON.stringify([scope.accountId, scope.backendId, scope.permissionRevision]);
@@ -125,7 +136,7 @@
         const r = meta.get('epoch');
         r.onsuccess = () => {
           if ((r.result === undefined ? 0 : r.result) !== before || local !== generation) return;
-          action(store, JSON.stringify([key, rail]), set);
+          action(store, JSON.stringify([key, rail]), set, meta);
         };
       }, fallback);
       return local === generation ? result : fallback;
@@ -145,21 +156,33 @@
     function write(scope, rail, value) {
       const safe = projection(value, scope && scope.backendId);
       if (!safe) return Promise.resolve(false);
-      return access(scope, rail, (store, key, set) => {
-        store.put({key, schema: SCHEMA, savedAt: Date.now(), value: safe});
-        const count = store.count();
-        count.onsuccess = () => {
-          let excess = count.result - MAX_SNAPSHOTS;
-          if (excess <= 0) { set(true); return; }
-          const oldest = store.index('savedAt').openCursor();
-          oldest.onsuccess = () => {
-            const cursor = oldest.result;
-            if (!cursor || excess <= 0) { set(true); return; }
-            cursor.delete();
-            excess--;
-            cursor.continue();
+      return access(scope, rail, (store, key, set, meta) => {
+        const floor = meta.get('liveFloor');
+        floor.onsuccess = () => {
+          if (floor.result && !atLeast(safe.revision, floor.result)) return;
+          const previous = store.get(key);
+          previous.onsuccess = () => {
+            const old = previous.result && previous.result.value && previous.result.value.revision;
+            if (cursor(old) && atLeast(old, safe.revision) && old !== safe.revision) return;
+            persist();
           };
         };
+        function persist() {
+          store.put({key, schema: SCHEMA, savedAt: Date.now(), value: safe});
+          const count = store.count();
+          count.onsuccess = () => {
+            let excess = count.result - MAX_SNAPSHOTS;
+            if (excess <= 0) { set(true); return; }
+            const oldest = store.index('savedAt').openCursor();
+            oldest.onsuccess = () => {
+              const cursor = oldest.result;
+              if (!cursor || excess <= 0) { set(true); return; }
+              cursor.delete();
+              excess--;
+              cursor.continue();
+            };
+          };
+        }
       }, false);
     }
 
@@ -179,7 +202,51 @@
       }, false);
     }
 
-    return Object.freeze({read, write, invalidate, clear});
+    // One bounded transaction for the shared write fence and affected rows.
+    // A newer tab's rows must not be removed by replay of an older event.
+    function discard(backend, rails, revision) {
+      if (!cursor(revision) || !Array.isArray(rails) || rails.some(rail => !RAILS.has(rail))) return Promise.resolve(false);
+      invalidate();
+      return transaction('readwrite', (store, meta, set) => {
+        const floor = meta.get('liveFloor');
+        floor.onsuccess = () => {
+          const previous = cursor(floor.result), next = cursor(revision);
+          if (atLeast(floor.result, revision) && !rails.length) { set(true); return; }
+          if (previous && previous.epoch !== next.epoch) {
+            const retired = meta.get('retiredLiveEpochs');
+            retired.onsuccess = () => {
+              const epochs = Array.isArray(retired.result) ? retired.result : [];
+              if (epochs.includes(next.epoch)) return;
+              meta.put([...epochs, previous.epoch].slice(-8), 'retiredLiveEpochs');
+              proceed();
+            };
+          } else proceed();
+          function proceed() {
+            if (!atLeast(floor.result, revision)) meta.put(revision, 'liveFloor');
+            const epochRequest = meta.get('epoch');
+            epochRequest.onsuccess = () => {
+              const old = Number.isSafeInteger(epochRequest.result) ? epochRequest.result : 0;
+              meta.put(old + 1, 'epoch');
+              if (!rails.length) { set(true); return; }
+              const request = store.index('savedAt').openCursor();
+              request.onsuccess = () => {
+                const row = request.result;
+                if (!row) { set(true); return; }
+                try {
+                  const [key, rail] = JSON.parse(row.value.key);
+                  const [, rowBackend] = JSON.parse(key);
+                  if ((!backend || rowBackend === backend) && rails.includes(rail) &&
+                      !atLeast(row.value.value && row.value.value.revision, revision)) row.delete();
+                } catch (error) { row.delete(); }
+                row.continue();
+              };
+            };
+          }
+        };
+      }, false);
+    }
+
+    return Object.freeze({read, write, invalidate, clear, discard});
   }
 
   const api = Object.freeze({create});

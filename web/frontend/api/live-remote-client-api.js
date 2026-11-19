@@ -1035,6 +1035,17 @@
   const browserLiveClients = new Set();
 
   function dispatchBrowserLive(type, event) {
+    // One cache observer per physical connection, before the existing owners
+    // schedule their authoritative readbacks. No additional EventSource.
+    const cache = global.VdrSuiteHomeCache;
+    if (cache && typeof cache.liveEvent === 'function') {
+      try {
+        if (cache.liveEvent(type, event) && type === 'update') {
+          type = 'resync';
+          event = {lastEventId: event.lastEventId, data: '{"reason":"client_cursor_gap"}'};
+        }
+      } catch (error) { /* Cache failure cannot interrupt online subscribers. */ }
+    }
     Array.from(browserLiveClients).forEach(function (client) {
       if (client.closed) return;
       const handlers = (client.listeners[type] || []).slice();
@@ -1057,6 +1068,10 @@
     if (browserLiveConnection) {
       browserLiveConnection.close();
       browserLiveConnection = null;
+      const cache = global.VdrSuiteHomeCache;
+      if (cache && typeof cache.liveEvent === 'function') {
+        try { cache.liveEvent('close', {}); } catch (error) {}
+      }
     }
   }
 

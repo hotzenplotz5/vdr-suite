@@ -51,7 +51,7 @@ module.exports = function makeIndexedDB() {
                   function next() {
                     return operation(() => {
                       const entry = entries[i++];
-                      return entry ? {delete: () => operation(() => rows.delete(entry[0])), continue: next} : null;
+                      return entry ? {value: clone(entry[1]), delete: () => operation(() => rows.delete(entry[0])), continue: next} : null;
                     }, request);
                   }
                   return next();

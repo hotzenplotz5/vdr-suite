@@ -16,7 +16,7 @@ async function drain() { for (let i = 0; i < 30; i++) await tick(); }
 let authenticated = true, clock = 1000;
 const painted = [];
 function create() {
-  const r = window.VdrSuiteHomeCache.createRuntime({bindEvents:false, active:()=>authenticated, now:()=>clock,
+  const r = window.VdrSuiteHomeCache.createRuntime({bindEvents:false, requireCursor:false, active:()=>authenticated, now:()=>clock,
     paint(rail, title, items) { const entry = {rail, title, items, removed:false}; painted.push(entry); return ()=>{entry.removed=true;}; }});
   r.selectBackend('alpha');
   return r;

@@ -5207,6 +5207,9 @@
     const client = clientApi();
     if (!client || typeof client.fetchClientRecordings !== 'function')
       return Promise.resolve(false);
+    const cacheOwner = global.VdrSuiteHomeCache;
+    const cache = cacheOwner ? cacheOwner.begin('newly-recorded', backendId, 'Neu aufgenommen',
+      function () { return current(generation, backendId) && revision === recordingRefreshRevision; }, false) : null;
     return Promise.resolve(client.fetchClientRecordings({
       query: {backend: backendId, sort: 'startTime', order: 'desc',
         limit: NEW_LIMIT, offset: 0},
@@ -5214,8 +5217,9 @@
       credentials: 'same-origin'
     })).then(function (payload) {
       if (!current(generation, backendId) ||
-          revision !== recordingRefreshRevision) return false;
+          revision !== recordingRefreshRevision) { if (cache) cache.cancel(); return false; }
       const recordings = canonicalRecordings(payload, backendId).slice(0, NEW_LIMIT);
+      if (cache) { cache.accept(payload); cache.finish(cachedRecordingCards(recordings)); }
       const rail = newlyRecordingRail();
       if (!rail) return renderRecordingRail(
         'newly-recorded', 'Neu aufgenommen', recordings, backendId
@@ -5252,7 +5256,7 @@
         refreshSpecificRecording(nativeId, backendId, generation);
       });
       return true;
-    }).catch(function () { return false; });
+    }).catch(function () { if (cache) cache.cancel(); return false; });
   }
 
   function scheduleRecordingChangeRefresh() {
