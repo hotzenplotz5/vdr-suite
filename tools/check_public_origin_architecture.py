@@ -160,6 +160,19 @@ def check_nginx(nginx: str) -> None:
     for token in forbidden_tokens:
         require(token not in nginx, f"Nginx snippet contains forbidden ownership/rewrite token: {token}")
 
+    # Compression must be scoped to the nested frontend path, not the outer
+    # API/SSE/stream proxy. Its upstream URI preserves prefix stripping.
+    compression = re.search(
+        r"location\s+\^~\s+/vdr-suite/frontend/\s*\{([^{}]*)\}", nginx
+    )
+    require(compression is not None, "frontend-only gzip location missing")
+    for token in ("gzip on;", "gzip_types application/javascript text/css;",
+                  "gzip_vary on;", "proxy_pass http://127.0.0.1:18080/frontend/;"):
+        require(token in compression.group(1), f"frontend compression missing: {token}")
+    outside = nginx[:compression.start()] + nginx[compression.end():]
+    require(re.search(r"^\s*gzip\s+on;", outside, re.M) is None,
+            "gzip must not be enabled for the API/SSE proxy by this snippet")
+
     root_api_location = re.search(
         r"location\s+(?:=|\^~|~\*?|@)?\s*/api(?:/|\s|\{)",
         nginx,

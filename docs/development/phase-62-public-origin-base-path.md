@@ -97,6 +97,19 @@ this runtime.
 Cookie-path rewriting prevents a Suite browser-session cookie from being sent
 to the unrelated yaVDR root `/api` namespace.
 
+### HOME.P4: frontend transport and revalidation
+
+The nested `/vdr-suite/frontend/` location preserves the parent proxy headers,
+cookie path and disabled proxy cache/buffering. It enables gzip for compressible
+HTML, JavaScript and CSS above 1024 bytes only in that location. The outer API,
+SSE and streaming configuration is unchanged. The daemon keeps `no-cache` on
+static assets; JavaScript/CSS carry weak SHA-256 validators for the actual served
+bytes (including bundled addon scripts). A matching `If-None-Match` yields an
+empty 304; changed content yields 200 with a new validator even after an in-place
+update. HTML continues to be retrieved normally. No deployment or active Nginx
+reload is implied; verify negotiated encoding and revalidation on the installed
+origin before claiming production bandwidth savings.
+
 ## Packaging and activation boundary
 
 `mk/public-origin.mk` installs the frontend runtime as part of

@@ -1,4 +1,6 @@
 #include "HttpServerResponse.h"
+#include "PublicResourcePreconditions.h"
+#include <openssl/sha.h>
 
 #include <array>
 #include <cassert>
@@ -66,6 +68,56 @@ int main()
         assert(response.body == body);
         assert(response.streamBodyPath.empty());
     }
+
+    const std::string script = "/frontend/browser-artwork-probe.js";
+    const auto initial = revalidateFrontendAsset(serveFrontendPath(script), "");
+    assert(initial.statusCode == 200 && !initial.body.empty());
+    const auto etag = initial.headers.at("ETag");
+    assert(etag.compare(0, 2, "W/") == 0);
+    assert(initial.headers.at("Vary") == "Accept-Encoding");
+    for (const std::string& condition : {etag, etag.substr(2),
+            std::string("\"other\", ") + etag, std::string("*")})
+    {
+        const auto unchanged = revalidateFrontendAsset(serveFrontendPath(script), condition);
+        assert(unchanged.statusCode == 304 && unchanged.body.empty());
+        assert(unchanged.headers.at("ETag") == etag);
+        assert(unchanged.headers.at("Cache-Control") == "no-cache");
+        assert(unchanged.headers.at("Vary") == "Accept-Encoding");
+    }
+    assert(revalidateFrontendAsset(serveFrontendPath(script), "malformed").statusCode == 200);
+    {
+        std::ofstream file(rootPath + "/browser-artwork-probe.js", std::ios::binary);
+        file << "updated";
+    }
+    const auto updated = revalidateFrontendAsset(serveFrontendPath(script), etag);
+    assert(updated.statusCode == 200 && updated.body == "updated");
+    assert(updated.headers.at("ETag") != etag);
+    const auto html = revalidateFrontendAsset(
+        serveFrontendPath("/frontend/browser-performance-home.html"), "*");
+    assert(html.statusCode == 200 && html.headers.count("ETag") == 0);
+    assert(revalidateFrontendAsset(
+        serveFrontendPath("/frontend/browser-performance-missing.html"), "*").statusCode == 404);
+
+    // Revalidate the effective bundle, not just the primary script file.
+    std::filesystem::create_directory(rootPath + "/modules");
+    { std::ofstream file(rootPath + "/app.js"); file << "primary"; }
+    { std::ofstream file(rootPath + "/modules/remote.js"); file << "addon-v1"; }
+    const auto bundle = revalidateFrontendAsset(serveFrontendPath("/frontend/app.js"), "");
+    assert(bundle.body == "primary\n\naddon-v1");
+    { std::ofstream file(rootPath + "/modules/remote.js"); file << "addon-v2"; }
+    const auto changedBundle = revalidateFrontendAsset(
+        serveFrontendPath("/frontend/app.js"), bundle.headers.at("ETag"));
+    assert(changedBundle.statusCode == 200 && changedBundle.body == "primary\n\naddon-v2");
+    assert(changedBundle.headers.at("ETag") != bundle.headers.at("ETag"));
+    assert(unlink((rootPath + "/modules/remote.js").c_str()) == 0);
+    assert(rmdir((rootPath + "/modules").c_str()) == 0);
+    assert(unlink((rootPath + "/app.js").c_str()) == 0);
+    { std::ofstream file(rootPath + "/style.css"); file << "body{}"; }
+    const auto css = revalidateFrontendAsset(serveFrontendPath("/frontend/style.css"), "");
+    assert(css.statusCode == 200 && css.body == "body{}");
+    assert(revalidateFrontendAsset(serveFrontendPath("/frontend/style.css"),
+        css.headers.at("ETag")).statusCode == 304);
+    assert(unlink((rootPath + "/style.css").c_str()) == 0);
 
     assert(!isFrontendPath("/frontend/browser-performance-missing.html"));
     assert(serveFrontendPath("/frontend/browser-performance-missing.html").statusCode == 404);

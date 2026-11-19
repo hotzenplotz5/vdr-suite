@@ -10,6 +10,8 @@
 #include "MediaAccessCredentialHttp.h"
 #include "SecurityConfiguration.h"
 #include "RestQueryParameters.h"
+#include "PublicResourcePreconditions.h"
+#include <openssl/sha.h>
 #include "SeriesArtworkSettingsSecurityRequest.h"
 
 #include <algorithm>
@@ -1945,7 +1947,8 @@ HttpServerResponse TestHttpServer::handleRequest(
     if (request.method == "GET" &&
         isFrontendPath(request.path))
     {
-        return serveFrontendPath(request.path);
+        return revalidateFrontendAsset(serveFrontendPath(request.path),
+            requestHeaderValue(request, "If-None-Match"));
     }
 
     if (request.method == "GET" &&
