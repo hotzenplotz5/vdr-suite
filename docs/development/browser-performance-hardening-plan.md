@@ -208,3 +208,18 @@ production helper and asserts Home previews for embedded and queried artwork.
 The preview cache still offers best-effort conversion with original fallback
 on contention or unsupported input. Do not claim all images are resized or
 Home ready until a new real-browser acceptance capture verifies it.
+
+### HOME.P7.1 — subsequent real-browser capture and PWA priority
+
+The operator confirmed installation and regression PASS but rejected real
+Home performance: visible Series posters were still missing after minutes.
+The later initial-home sample (75,526.9 ms observation interval) observed
+255 resources, 15 metadata reads, 4,374,719 image transfer bytes, 178 image
+elements, 135 complete, 123 lazy and three metadata-image 404 entries.
+Zero long tasks were observed. All classified artwork rows requested
+variant=home; this does not guarantee successful resizing or image completion.
+The samples are not controlled timing benchmarks and do not isolate the
+browser or server. Keep real Home acceptance open. The maintainer now
+prioritizes [PWA/local-first Webfrontend](pwa-local-first-frontend-plan.md)
+as the next frontend workstream; caching is not a substitute for cold
+artwork and missing-image correctness.
