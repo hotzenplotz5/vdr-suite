@@ -151,6 +151,8 @@ async function main() {
       'first-paint': 11, 'first-contentful-paint': 25,
       'vdr-suite:startup:session-ready': 50,
       'vdr-suite:startup:backend-selected': 70,
+      'vdr-suite:startup:snapshot-requested': 71,
+      'vdr-suite:startup:home-navigation-ready': 73,
       'vdr-suite:startup:snapshot-ready': 100,
       'vdr-suite:startup:home-controls-ready': 120,
       'vdr-suite:startup:home-frame': 145,
@@ -158,7 +160,17 @@ async function main() {
     };
     const timing = startupTiming({getEntriesByName(name) {
       return Object.hasOwn(timeEntries, name) ? [{startTime: timeEntries[name]}] : [];
-    }});
+    }}, [
+      {name:'https://example.test/vdr-suite/api/backends/private-backend/snapshot',
+        startTime:72, requestStart:75, responseStart:92, responseEnd:97},
+      {name:'https://other.test/api/backends/private-backend/snapshot',
+        startTime:72, requestStart:75, responseStart:92, responseEnd:97}
+    ], 'https://example.test/vdr-suite/frontend/');
+    assert.equal(timing.homeNavigationReadyMs, 73);
+    assert.deepStrictEqual(timing.snapshotResource, {
+      dispatchToFetchMs:1, fetchToRequestMs:3, requestToFirstByteMs:17, bodyMs:5, responseToReadyMs:3
+    });
+    assert.ok(!JSON.stringify(timing).includes('private-backend'));
     assert.equal(timing.firstContentfulPaintMs, 25);
     assert.equal(timing.homeControlsReadyMs, 120);
     assert.equal(timing.homeFrameMs, 145);

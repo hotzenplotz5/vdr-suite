@@ -936,3 +936,33 @@ reported landmarks. Real browser performance and native test execution
 remain open. Further metadata/request reductions require attributable traces;
 no speculative request deletion. PWA.14 compares cold/warm browser/PWA
 startup and functional parity against the perceived-speed goal (IPTVnator).
+
+## PWA.13.4 — independent startup navigation and snapshot timing (2026-11-19)
+
+Operator confirmed PWA.13.3 native JS tests and combined PWA.13.2/.13.3
+installation `26149a16859fec25fd12c41ce889a7ee6cf59d67`: daemon build,
+frontend and complete runtime verification PASS. First warm capture: first
+contentful paint 292 ms, session ready 280 ms, backend selected 320.1 ms,
+snapshot ready 5786 ms, controls ready 5786.3 ms; 39/40 worker-local artwork
+hits and zero reported image transfer bytes. Capture duration is not startup
+time; the precise HTTP/server source of the remaining wait is unverified.
+
+The App selects a backend from the authenticated collection, dispatches the
+existing snapshot/count reads before Home-resume discovery, and mounts Home
+and enables ordinary module navigation without waiting for a metrics response.
+Pending numeric metrics show ellipses, not invented zeros. Snapshot completion
+updates just the snapshot metrics (or the snapshot fields of Settings);
+a late or failed snapshot does not remount or clear an independent module.
+Existing backend/session generation fences, server route authorization,
+Home cache proof and SSE contracts remain unchanged. No extra read, new cache
+or polling. Startup timing adds navigation-ready and snapshot-dispatch marks,
+and exports a same-origin unambiguous Resource Timing breakdown where
+available; request-to-first-byte includes network/server wait, not pure server
+execution. Previous snapshot/controls timing retains its metrics-ready meaning.
+
+Operator also observed that Recent Movies is slower. The existing owner in
+home-recently-watched.js serially reads 100-item pages, filters and sorts the
+entire result before rendering twelve cards. PWA.13.5 targets ordered server
+pagination while preserving exact movie-year and release-date semantics;
+PWA.13.6 targets progressive independent rails. Neither is implemented here.
+No daemon rebuild for PWA.13.4. Native browser timings and PWA.14 remain open.

@@ -98,7 +98,7 @@ Backend selection:
 
 - `fetchClientBackends`
 - `fetchClientDefaultBackend`
-- `fetchClientBackendSnapshot` — returns the existing count-composed snapshot with raw-snapshot fallback on status failure. An optional third argument callback receives the authorized raw snapshot before count completion; the Home owner renders a pending count and updates only that metric after settlement. No additional request.
+- `fetchClientBackendSnapshot` — returns the existing count-composed snapshot with raw-snapshot fallback on status failure. An optional third argument callback receives the authorized raw snapshot before count completion; the Home owner renders a pending count and updates only that metric after settlement. No additional request. PWA.13.4 dispatches this read before Home resume; the authenticated backend selection enables independent module reads before the response. A late snapshot updates only its owned metrics/settings fields.
 
 EPG:
 

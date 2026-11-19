@@ -578,12 +578,13 @@ function formatRecordingStart(value) {
 
 function renderSnapshotMetrics(data) {
   detailDataElement.replaceChildren();
-  detailDataElement.appendChild(createMetric('Snapshot', data.snapshotAvailable ? 'ja' : 'nein'));
-  detailDataElement.appendChild(createMetric('Kanäle', valueOrZero(data.channelCount)));
-  detailDataElement.appendChild(createMetric('Events', valueOrZero(data.eventCount)));
-  detailDataElement.appendChild(createMetric('Timer', valueOrZero(data.timerCount)));
+  const count = key => data ? valueOrZero(data[key]) : '…';
+  detailDataElement.appendChild(createMetric('Snapshot', data ? (data.snapshotAvailable ? 'ja' : 'nein') : '…'));
+  detailDataElement.appendChild(createMetric('Kanäle', count('channelCount')));
+  detailDataElement.appendChild(createMetric('Events', count('eventCount')));
+  detailDataElement.appendChild(createMetric('Timer', count('timerCount')));
   const recordingMetric = createMetric('Aufnahmen',
-    data.recordingCountPending ? '…' : valueOrZero(data.recordingCount));
+    !data || data.recordingCountPending ? '…' : count('recordingCount'));
   recordingMetric.id = 'home-recording-count';
   detailDataElement.appendChild(recordingMetric);
 }
@@ -3656,6 +3657,7 @@ function appendSettingsLine(parent, label, value) {
   row.appendChild(labelElement);
   row.appendChild(valueElement);
   parent.appendChild(row);
+  return valueElement;
 }
 
 function settingsBoolean(value) {
@@ -3866,18 +3868,16 @@ function renderSettingsView(data) {
       : frontendTranslate('settings.next24Hours', 'nächste 24h')
   );
 
-  if (data && typeof data === 'object') {
-    appendSettingsLine(
-      runtimeCard,
-      frontendTranslate('settings.snapshotSequence', 'Snapshot-Sequenz'),
-      firstValue(data, ['sequence', 'snapshotSequence', 'snapshotId'], '-')
-    );
-    appendSettingsLine(
-      runtimeCard,
-      frontendTranslate('settings.liveStatus', 'Live-Status'),
-      firstValue(data, ['liveStatus', 'status'], '-')
-    );
-  }
+  appendSettingsLine(
+    runtimeCard,
+    frontendTranslate('settings.snapshotSequence', 'Snapshot-Sequenz'),
+    data ? firstValue(data, ['sequence', 'snapshotSequence', 'snapshotId'], '-') : '…'
+  ).id = 'settings-snapshot-sequence';
+  appendSettingsLine(
+    runtimeCard,
+    frontendTranslate('settings.liveStatus', 'Live-Status'),
+    data ? firstValue(data, ['liveStatus', 'status'], '-') : '…'
+  ).id = 'settings-snapshot-live-status';
 
   panel.appendChild(runtimeCard);
   detailDataElement.appendChild(panel);
@@ -4237,7 +4237,9 @@ function selectModule(moduleName) {
     return;
   }
 
-  if (currentSnapshot) {
+  // Backend selection already comes from the authenticated backend collection.
+  // Independent module owners perform their own authorized reads.
+  if (currentSnapshot || (browserSessionFrontendActive && selectedBackend)) {
     renderSelectedModule(currentSnapshot);
   }
 
@@ -4279,21 +4281,21 @@ function loadBackendDetails(backend) {
   currentSnapshot = null;
   markSelected(backendId);
   markHomeStartup('backend-selected');
-  selectModule('overview');
-  refreshMediaImportVisibility(backendId);
-  refreshDetailButton.disabled = true;
   detailMetaElement.className = 'detail-meta';
   detailMetaElement.textContent = 'Lade Details für ' + (selector.label || backend.backendName || backendId) + '...';
-  detailDataElement.replaceChildren();
-
   const clientApi = frontendPlatformClientApi();
 
+  function openHome() {
+    selectModule('overview');
+    refreshDetailButton.disabled = false;
+    markHomeStartup('home-navigation-ready');
+    refreshMediaImportVisibility(backendId);
+  }
+
   if (!clientApi || typeof clientApi.fetchClientBackendSnapshot !== 'function') {
-    currentSnapshot = null;
+    openHome();
     detailMetaElement.className = 'detail-meta error';
     detailMetaElement.textContent = 'Details konnten nicht geladen werden: Client API wrapper is not available';
-    detailDataElement.replaceChildren();
-    refreshDetailButton.disabled = false;
     return;
   }
 
@@ -4305,10 +4307,16 @@ function loadBackendDetails(backend) {
     markHomeStartup('snapshot-ready');
     currentSnapshot = data;
     detailMetaElement.textContent = 'Details für ' + (selector.label || backend.backendName || backendId);
-    renderSelectedModule(data);
-    refreshDetailButton.disabled = false;
     rendered = true;
+    if (selectedModule === 'settings') {
+      const sequenceValue = document.getElementById('settings-snapshot-sequence');
+      const liveValue = document.getElementById('settings-snapshot-live-status');
+      if (sequenceValue) sequenceValue.textContent = String(firstValue(data, ['sequence', 'snapshotSequence', 'snapshotId'], '-'));
+      if (liveValue) liveValue.textContent = String(firstValue(data, ['liveStatus', 'status'], '-'));
+    }
     if (selectedModule === 'overview') {
+      // Only the snapshot metrics need updating, not the independently mounted Home.
+      renderSnapshotMetrics(data);
       markHomeStartup('home-controls-ready');
       // Two frames give a paint opportunity, not a compositor timestamp.
       if (typeof window.requestAnimationFrame === 'function')
@@ -4320,13 +4328,17 @@ function loadBackendDetails(backend) {
         }));
     }
   }
-  return clientApi.fetchClientBackendSnapshot(backendId, {
+  // Dispatch the small snapshot before Home-resume listeners launch discovery reads.
+  markHomeStartup('snapshot-requested');
+  const request = clientApi.fetchClientBackendSnapshot(backendId, {
     cache: 'no-store'
   }, snapshot => {
     // The lightweight snapshot's provisional total is not the inventory.
     if (snapshot && typeof snapshot === 'object')
       renderReady(Object.assign({}, snapshot, {recordingCountPending: true}));
-  })
+  });
+  openHome();
+  return request
     .then(data => {
       if (!current()) return;
       if (!rendered) renderReady(data);
@@ -4344,7 +4356,7 @@ function loadBackendDetails(backend) {
       currentSnapshot = null;
       detailMetaElement.className = 'detail-meta error';
       detailMetaElement.textContent = 'Details konnten nicht geladen werden: ' + error.message;
-      detailDataElement.replaceChildren();
+      // Do not wipe the active module on an unrelated snapshot failure.
       refreshDetailButton.disabled = false;
     });
 }

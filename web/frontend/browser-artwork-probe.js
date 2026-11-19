@@ -161,11 +161,13 @@
       resourceDiagnostics: summarizeResources(entries, baseUrl)
     };
   }
-  function startupTiming(perf) {
+  function startupTiming(perf, resources, baseUrl) {
     const result = { basis: 'document navigation start', firstPaintMs: null,
       firstContentfulPaintMs: null, sessionReadyMs: null, backendSelectedMs: null,
       snapshotReadyMs: null, homeControlsReadyMs: null, homeFrameMs: null,
-      recordingCountSettledMs: null, homeControlsAfterSessionMs: null };
+      recordingCountSettledMs: null, homeControlsAfterSessionMs: null,
+      homeNavigationReadyMs: null, snapshotRequestedMs: null,
+      snapshotResource: null };
     if (!perf || typeof perf.getEntriesByName !== 'function') return result;
     function value(name, type) {
       const entries = perf.getEntriesByName(name, type);
@@ -176,12 +178,39 @@
     result.firstContentfulPaintMs = value('first-contentful-paint', 'paint');
     for (const [stage, field] of [
       ['session-ready', 'sessionReadyMs'], ['backend-selected', 'backendSelectedMs'],
+      ['snapshot-requested', 'snapshotRequestedMs'], ['home-navigation-ready', 'homeNavigationReadyMs'],
       ['snapshot-ready', 'snapshotReadyMs'], ['home-controls-ready', 'homeControlsReadyMs'],
       ['home-frame', 'homeFrameMs'], ['recording-count-settled', 'recordingCountSettledMs']
     ]) result[field] = value('vdr-suite:startup:' + stage, 'mark');
     if (result.sessionReadyMs !== null && result.homeControlsReadyMs !== null &&
         result.homeControlsReadyMs >= result.sessionReadyMs)
       result.homeControlsAfterSessionMs = Math.round((result.homeControlsReadyMs - result.sessionReadyMs) * 10) / 10;
+    // Match only the initial same-origin snapshot in its measured interval.
+    // The request-to-first-byte duration includes network/server, not pure server time.
+    if (baseUrl && result.snapshotRequestedMs !== null && result.snapshotReadyMs !== null) {
+      const base = new URL(baseUrl);
+      const match = (resources || []).filter(function (entry) {
+        try {
+          const url = new URL(entry.name, base);
+          return url.origin === base.origin &&
+            /^\/api\/backends\/[^/]+\/snapshot$/.test(url.pathname.replace(/^\/vdr-suite(?=\/)/, '')) &&
+            entry.startTime >= result.snapshotRequestedMs - 0.1 &&
+            entry.responseEnd <= result.snapshotReadyMs + 0.1;
+        } catch (_) { return false; }
+      });
+      if (match.length === 1) {
+        const entry = match[0];
+        const delta = (end, start) => Number.isFinite(end) && Number.isFinite(start) && start > 0 && end >= start
+          ? Math.round((end - start) * 10) / 10 : null;
+        result.snapshotResource = {
+          dispatchToFetchMs: delta(entry.startTime, result.snapshotRequestedMs),
+          fetchToRequestMs: delta(entry.requestStart, entry.startTime),
+          requestToFirstByteMs: delta(entry.responseStart, entry.requestStart),
+          bodyMs: delta(entry.responseEnd, entry.responseStart),
+          responseToReadyMs: delta(result.snapshotReadyMs, entry.responseEnd)
+        };
+      }
+    }
     return result;
   }
 
@@ -247,7 +276,7 @@
         metrics: summarize(session.resources, current, session.getMutations(), session.tasks, win.location.href),
         completeImages: current.filter(function (image) { return image.complete && image.width > 0; }).length,
         lazyImages: current.filter(function (image) { return image.loading === 'lazy'; }).length,
-        ...(session.buffered ? {startupTiming: startupTiming(perf)} : {}),
+        ...(session.buffered ? {startupTiming: startupTiming(perf, session.resources, win.location.href)} : {}),
         railScrollBefore: session.initialScroll,
         railScrollAfter: railScroll()
       };

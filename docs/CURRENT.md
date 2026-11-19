@@ -2,7 +2,7 @@
 
 ## PWA / Home performance — next frontend priority (19.11.2026)
 
-**PWA.13.3 = source candidate; authorized snapshot renders before Recording-cache status, count patched in place, navigation-relative startup timing. PWA.13.2 candidate `14b2f64` (native build/deployment open); PWA.13.1 operator-installed PASS. PWA.14 real cold/warm browser/PWA acceptance remains OPEN.**
+**PWA.13.4 = source candidate; snapshot dispatch precedes Home resume, authenticated module navigation no longer waits for snapshot, pending metrics update independently; snapshot Resource Timing breakdown. PWA.13.2/.13.3 operator-installed PASS at `26149a168`; warm image caching works, startup remains above target. PWA.14 real cold/warm browser/PWA acceptance remains OPEN.**
 The maintainer prioritizes local client caching and optional PWA installation
 for the existing Webfrontend, including ordinary browser use. See
 [PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.

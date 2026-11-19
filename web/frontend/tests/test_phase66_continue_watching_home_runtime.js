@@ -307,7 +307,7 @@ const item = {
     const begin = appSource.indexOf('function markHomeStartup(');
     const end = appSource.indexOf('function renderBackend(', begin);
     assert(begin >= 0 && end > begin);
-    const statusReplies = [], snapshots = [], renders = [], frames = [];
+    const statusReplies = [], snapshots = [], renders = [], frames = [], events = [];
     const marks = new Map();
     const metric = {firstElementChild: {textContent: ''}};
     const slow = clientApiRuntime(async url => {
@@ -324,11 +324,11 @@ const item = {
       backendDetailSequence: 0, selectedBackend: null, selectedBackendId: '',
       selectedModule: 'overview', currentSnapshot: null,
       resetMediaImportVisibility() {}, markSelected(id) {ctx.selectedBackendId = id;},
-      selectModule(name) {ctx.selectedModule = name;}, refreshMediaImportVisibility() {},
+      selectModule(name) {ctx.selectedModule = name; events.push(['home', snapshots.length]);}, refreshMediaImportVisibility() {},
       refreshDetailButton: {disabled: false}, detailMetaElement: {},
       detailDataElement: {replaceChildren() {}, getClientRects() {return [{}];}},
       frontendPlatformClientApi() {return slow.api;},
-      renderSelectedModule(data) {renders.push(data);},
+      renderSnapshotMetrics(data) {renders.push(data);},
       valueOrZero(value) {return Number(value) || 0;}, reportConnectionUnavailable() {}
     };
     vm.createContext(ctx);
@@ -336,6 +336,10 @@ const item = {
     const flush = () => new Promise(resolve => setImmediate(resolve));
     const first = ctx.loadBackendDetails({backendId:'default'});
     assert.equal(statusReplies.length, 1);
+    assert.deepStrictEqual(events[0], ['home', 1], 'snapshot starts before Home-resume discovery');
+    assert.equal(ctx.refreshDetailButton.disabled, false);
+    assert.ok(marks.has('vdr-suite:startup:home-navigation-ready'));
+    assert.ok(!marks.has('vdr-suite:startup:snapshot-ready'));
     snapshots.shift()(jsonResponse(200, {recordingCount:0, snapshotAvailable:true}));
     await flush();
     assert.equal(renders.length, 1);
@@ -373,6 +377,41 @@ const item = {
     statusReplies.shift().resolve(jsonResponse(200, {totalCount:999}));
     await newest;
     assert.equal(ctx.currentSnapshot, null);
+    ctx.browserSessionFrontendActive = true;
+    const fail = ctx.loadBackendDetails({backendId:'failed'});
+    ctx.selectedModule = 'recordings';
+    snapshots.shift()(jsonResponse(503, {error:'snapshot unavailable'}));
+    statusReplies.shift().resolve(jsonResponse(200, {totalCount:5}));
+    await fail;
+    assert.equal(ctx.selectedModule, 'recordings');
+    assert.equal(ctx.refreshDetailButton.disabled, false);
+    assert.equal(renders.length, 3);
+    const late = ctx.loadBackendDetails({backendId:'late'});
+    ctx.selectedModule = 'channels';
+    snapshots.shift()(jsonResponse(200, {recordingCount:8}));
+    statusReplies.shift().resolve(jsonResponse(200, {totalCount:19}));
+    await late;
+    assert.equal(ctx.currentSnapshot.recordingCount, 19);
+    assert.equal(renders.length, 3, 'late snapshot must not rebuild another module');
+
+    // Exercise the real module selection owner independently of the network.
+    const selectStart = appSource.indexOf('function selectModule(');
+    const selectEnd = appSource.indexOf('function markSelected(', selectStart);
+    const modules = [];
+    Object.assign(ctx, {
+      document:{querySelectorAll(){return [];}},
+      placeMediaImportTab(){}, closeHomeHevcStream(){},
+      renderSelectedModule(data){modules.push([ctx.selectedModule, data]);},
+      shouldPublishHomeResume(){return false;}
+    });
+    vm.runInContext(appSource.slice(selectStart, selectEnd),ctx);
+    ctx.currentSnapshot = null;
+    ctx.selectModule('recordings');
+    assert.deepStrictEqual(modules[0], ['recordings', null]);
+    ctx.browserSessionFrontendActive = false;
+    ctx.selectedBackend = null;
+    ctx.selectModule('timers');
+    assert.equal(modules.length, 1, 'no new pre-auth module read');
   }
   console.log('phase66 continue watching Home runtime composition ok');
 }()).catch(error => {
