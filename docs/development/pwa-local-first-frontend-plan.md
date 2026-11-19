@@ -519,3 +519,47 @@ Record UNIT/CONTRACT, production integration, relevant CI and real-browser
 evidence separately. Preserve existing AGENTS.md rules; no CI wait after
 each tiny commit, no main merge/Ready transition without explicit approval,
 no unnecessary daemon rebuild or runtime restart for frontend-only code.
+
+## PWA.9 — controlled acceptance run sheet (2026-11-19)
+
+Product candidate: `d4ce4f7011da4995d40da9990180acbae8a50661` (PWA.8).
+[VDR-Suite CI #12890](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44550156488)
+completed successfully for that candidate: frontend regression, fast
+regression, packaging regression, architecture, docs and make-test-audit.
+This is hosted regression evidence, not live installation or native browser
+acceptance. The last product-code SHA remains the PWA.8 candidate for this
+documentation-only update.
+
+Use the existing `test-pwa-shell` target for focused reproduction when needed.
+No new test runner, polling, or install prerequisite. Before runtime acceptance,
+establish the actual installed daemon/source and reusable artifacts; the
+candidate includes compiled HTTP route and cache-scope changes, so it is
+not a frontend-only deployment. See the canonical runtime deployment contract.
+Preserve the current installation, browser data and recordings.
+
+| Case | Procedure and observable result | Live evidence |
+| --- | --- | --- |
+| Baseline | If the old installation is still available, record its source and Home timings before upgrading; otherwise mark the controlled baseline unavailable. | OPEN |
+| Cold | Use a separate browser profile per candidate; authenticate normally, record shell usable, first meaningful rail, first visible decoded poster and last eligible visible poster. Record whether login is included. | OPEN |
+| Warm | Same account, backend, viewport, network and profile; repeat normal reload, new tab, browser restart and Home return. Note first-window cache eligibility, cache misses and fresh-result replacement. | OPEN |
+| Artwork | Separate visible successful decoding from lazy offscreen images, true missing artwork, HTTP errors, 304 revalidation and cache reads. | OPEN |
+| Connection/SSE | Verify ordinary reconnect without document reload, public outage presentation, verified recovery and scoped updates; no new polling or write replay. | OPEN |
+| Storage | With optional local storage unavailable, normal online Home still loads and remains usable. | OPEN |
+| Isolation | With authorized test accounts/backends only, check logout, re-login, backend switch and two tabs; no foreign/private cached preview or artwork. | OPEN |
+| Device and parity | Direct browser, Android and desktop installed mode where supported; check trusted HTTPS, actual proxy path, launch, update, search/EPG/timers, recordings and Live TV playback. | OPEN |
+
+Repeat cold and warm observations three times where practical; report individual
+runs and median, and preserve the original samples. Do not label a reload
+as a cold cache. The existing optional `browser-performance-diagnostics.html`
+can export supplemental JSON from its embedded diagnostic frame (Home neu
+laden & messen; Messung stoppen; JSON exportieren). Its reload does not clear
+storage, and its iframe/diagnostic shell is not equivalent to the normal
+top-level or installed frontend. Verify those separately; zero reported
+transfer bytes alone do not prove a Cache Storage hit. Do not clear the
+operator's regular browser profile merely to obtain a cold sample.
+
+Keep evidence by product SHA, device/browser version, viewport, network,
+account/backend scope (non-identifying), scenario, timing, errors and result.
+Do not record tokens or private content. Report unavailable cases explicitly.
+PWA.9 remains OPEN until the actual runtime/device results are available;
+no measured speedup, merge, or phase acceptance is claimed here.
