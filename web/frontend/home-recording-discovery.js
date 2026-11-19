@@ -3959,6 +3959,7 @@
     if (!client || typeof client.requestJson !== 'function') return [];
     const cache = seriesMetadataCache(generation, backendId);
     const pending = [];
+    const embeddedArtworkSeriesKeys = new Set();
     (recordings || []).forEach(function (recording) {
       if (recordingBackendId(recording, backendId) !== backendId) return;
       const embedded = recording.seriesMetadata;
@@ -3966,7 +3967,8 @@
       const nativeId = recordingBackendNativeId(recording);
       const key = seriesMetadataPriorityKey(recording, backendId);
       if (nativeId && !cache.resolved.has(nativeId)) cache.resolved.set(nativeId, embedded);
-      if (recordingMetadataPosterUrl(embedded)) {
+      if (nativeId && key && recordingMetadataPosterUrl(embedded)) {
+        embeddedArtworkSeriesKeys.add(key);
         cache.scheduledSeriesKeys.add(key);
         cache.readySeriesKeys.add(key);
       }
@@ -3981,6 +3983,9 @@
       if (!nativeId || !seriesKey || seenSeriesKeys.has(seriesKey)) return;
 
       seenSeriesKeys.add(seriesKey);
+      // Another episode may already carry the canonical Series poster.
+      // Resolve missing episode detail only when the Series is opened.
+      if (embeddedArtworkSeriesKeys.has(seriesKey)) return;
       cache.scheduledSeriesKeys.add(seriesKey);
       pending.push(requestSeriesRecordingMetadata(
         client,
