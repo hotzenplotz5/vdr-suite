@@ -4192,10 +4192,15 @@
     });
   }
 
-  function fetchAllSeriesRecordings(client, backendId, genreId, generation, onProgress) {
+  function fetchAllSeriesRecordings(client, backendId, genreId, generation, onProgress, isRevisionCurrent) {
     const recordings = [];
+    const scanCurrent = function () {
+      return current(generation, backendId) &&
+        (typeof isRevisionCurrent !== 'function' || isRevisionCurrent());
+    };
 
     function requestPage(offset) {
+      if (!scanCurrent()) return Promise.resolve(null);
       return Promise.resolve(client.fetchClientGenreRecordings({
         backendId: backendId,
         genreId: genreId,
@@ -4204,7 +4209,7 @@
         cache: 'no-store',
         credentials: 'same-origin'
       })).then(function (payload) {
-        if (!current(generation, backendId)) return null;
+        if (!scanCurrent()) return null;
         return {
           offset: offset,
           payload: payload,
@@ -4215,7 +4220,7 @@
     }
 
     function appendPage(page) {
-      if (!page || !current(generation, backendId)) return false;
+      if (!page || !scanCurrent()) return false;
       Array.prototype.push.apply(recordings, page.recordings);
       return true;
     }
@@ -4266,7 +4271,7 @@
       }
 
       function requestTailBatch(index) {
-        if (!current(generation, backendId)) return Promise.resolve([]);
+        if (!scanCurrent()) return Promise.resolve([]);
         if (index >= offsets.length) {
           if (typeof onProgress === 'function') onProgress(recordings.slice());
           return Promise.resolve(recordings);
@@ -4275,7 +4280,7 @@
         // can use the transport while the large Series scan completes.
         const batch = offsets.slice(index, index + SERIES_TAIL_PAGE_CONCURRENCY);
         return Promise.all(batch.map(requestPage)).then(function (pages) {
-          if (!current(generation, backendId)) return [];
+          if (!scanCurrent()) return [];
           // Promise.all preserves offset order even when replies arrive out of order.
           pages.forEach(function (page) {
             if (!page || (!page.rawPage.length && page.offset < explicitTotal)) {
@@ -4700,7 +4705,8 @@
             backendId
           );
         }
-      }
+      },
+      seriesCurrent
     ).then(function (recordings) {
       if (!seriesCurrent()) return false;
 
@@ -4745,8 +4751,15 @@
       if (rendered && seriesCurrent()) markSeriesWarm(backendId);
 
       if (client && typeof client.requestJson === 'function') {
+        // Scoped corrections already have an authoritative fresh read below.
+        // Do not schedule a second representative read for the same native ID.
+        const representativeRecordings = explicitNativeIds.size
+          ? recordings.filter(function (recording) {
+              return !explicitNativeIds.has(recordingBackendNativeId(recording));
+            })
+          : recordings;
         prefetchSeriesRepresentativeMetadata(
-          client, recordings, backendId, generation,
+          client, representativeRecordings, backendId, generation,
           function () {
             if (!seriesCurrent()) return;
             applySeriesProjection(
@@ -4768,13 +4781,10 @@
               );
             }
             // Known metadata mutation: bypass cached native presentation.
-            return Promise.resolve().then(function () {
-              return client.requestJson('/api/vdr/recordings/metadata', {
-                query: {backend: backendId, backendNativeId: nativeId},
-                cache: 'no-store',
-                credentials: 'same-origin'
-              });
-            }).then(function (metadata) {
+            const readChangedMetadata = typeof config.readChangedMetadata === 'function'
+              ? config.readChangedMetadata
+              : function (id) { return readFreshRecordingMetadata(client, backendId, id); };
+            return readChangedMetadata(nativeId).then(function (metadata) {
               if (!seriesCurrent() || !metadata || metadata.available !== true) return false;
               const cache = seriesMetadataCache(generation, backendId);
               cache.resolved.set(nativeId, metadata);
@@ -5034,10 +5044,25 @@
       if (!client || typeof client.fetchClientGenreRecordings !== 'function') return;
       const changedNativeIds = Array.from(seriesChangedNativeIds);
       seriesChangedNativeIds.clear();
+      const backendId = selectedBackendId();
+      const generation = state.generation;
+      // Share only this SSE batch's fresh read promises. A later event gets a
+      // new batch, never a cached result from an earlier metadata correction.
+      const reads = new Map();
+      function readChangedMetadata(nativeId) {
+        if (!reads.has(nativeId)) {
+          reads.set(nativeId, readFreshRecordingMetadata(client, backendId, nativeId));
+        }
+        return reads.get(nativeId);
+      }
+      changedNativeIds.forEach(function (id) {
+        refreshSpecificRecording(id, backendId, generation, readChangedMetadata);
+      });
       clearSeriesWarm();
-      loadSeries(client, selectedBackendId(), state.generation, [{id: 'series'}], {
+      loadSeries(client, backendId, generation, [{id: 'series'}], {
         sse: true,
-        changedNativeIds: changedNativeIds
+        changedNativeIds: changedNativeIds,
+        readChangedMetadata: readChangedMetadata
       });
     });
   }
@@ -5054,7 +5079,18 @@
     return directChildWithClass(section, 'media-home-discovery-rail');
   }
 
-  function refreshSpecificRecording(nativeId, backendId, expectedGeneration) {
+  function readFreshRecordingMetadata(client, backendId, nativeId) {
+    if (!client || typeof client.requestJson !== 'function') return Promise.resolve(null);
+    return Promise.resolve().then(function () {
+      return client.requestJson('/api/vdr/recordings/metadata', {
+        query: {backend: backendId, backendNativeId: nativeId},
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
+    });
+  }
+
+  function refreshSpecificRecording(nativeId, backendId, expectedGeneration, readChangedMetadata) {
     const client = clientApi();
     const rail = newlyRecordingRail();
     const card = rail && Array.from(rail.children || []).find(function (entry) {
@@ -5067,11 +5103,10 @@
     const revisionKey = recordingTileRevisionKey(backendId, nativeId);
     const revision = (recordingTileRevisions.get(revisionKey) || 0) + 1;
     recordingTileRevisions.set(revisionKey, revision);
-    return Promise.resolve(client.requestJson('/api/vdr/recordings/metadata', {
-      query: {backend: backendId, backendNativeId: nativeId},
-      cache: 'no-store',
-      credentials: 'same-origin'
-    })).then(function (rich) {
+    const read = typeof readChangedMetadata === 'function'
+      ? readChangedMetadata(nativeId)
+      : readFreshRecordingMetadata(client, backendId, nativeId);
+    return read.then(function (rich) {
       if (!current(expectedGeneration, backendId) ||
           recordingTileRevisions.get(revisionKey) !== revision ||
           !rich || rich.available !== true) return false;
@@ -5187,12 +5222,7 @@
             return typeof value === 'string' && value.length > 0;
           })
         : [];
-      if (ids.length) {
-        const generation = state.generation;
-        new Set(ids).forEach(function (id) {
-          refreshSpecificRecording(id, selectedBackendId(), generation);
-        });
-      } else {
+      if (!ids.length) {
         recordingRefreshPending = true;
         scheduleRecordingChangeRefresh();
       }

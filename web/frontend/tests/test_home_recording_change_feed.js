@@ -480,5 +480,39 @@ function navigate(next) {
     node.textContent.includes('Fünfte Folge via Native')),
     'native metadata enriches the already visible episode without Home reload');
 
+  // One batch can affect both the Recently Recorded and Series owners.
+  queuedRecordingResponses.push(() => Promise.resolve({recordings: [{
+    recordingId: 'andor-1', backendId: 'B', backendNativeId: '/recordings/andor-1',
+    title: 'Serien/Andor/S01E01 Pilot'
+  }]}));
+  third.emit(110, 'B', ['recordings']);
+  await tick();
+  const sharedReads = [];
+  client.requestJson = (route, options) => {
+    const id = options.query && options.query.backendNativeId;
+    if (route === '/api/vdr/recordings/metadata' && id === '/recordings/andor-1') {
+      sharedReads.push(id);
+      return Promise.resolve({
+        available: true, provider: 'manual', providerId: 12345,
+        mediaType: 'episode', title: 'Andor', episodeName: 'Gemeinsame Korrektur',
+        seasonNumber: 1, episodeNumber: 1,
+        preferredArtwork: {available: true, url: '/shared-correction.webp'},
+        images: []
+      });
+    }
+    return Promise.resolve({available: false});
+  };
+  const beforeShared = seriesReads;
+  third.emit(111, 'B', ['recordings'], ['/recordings/andor-1']);
+  third.emit(112, 'B', ['recordings'], ['/recordings/andor-1']);
+  await tick();
+  await tick();
+  assert.strictEqual(sharedReads.length, 1, 'one exact read shared by both rails for a burst');
+  assert.strictEqual(seriesReads, beforeShared + 1, 'one canonical Series membership check');
+  const newly = host.querySelector('[data-home-discovery-rail="newly-recorded"]');
+  assert(flatten(newly).some(node => node.src === '/shared-correction.webp'));
+  assert(flatten(episodeRail).some(node =>
+    typeof node.textContent === 'string' && node.textContent.includes('Gemeinsame Korrektur')));
+
   console.log('Home recording and Series SSE lifecycle: PASS');
 })().catch(error => { console.error(error); process.exitCode = 1; });

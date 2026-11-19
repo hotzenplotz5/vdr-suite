@@ -654,6 +654,20 @@ async function proveBoundedSeriesTail(api) {
   assert.deepStrictEqual(Array.from(recordings, item => item.recordingId),
     Array.from({length: 501}, (_, index) => String(index)));
   assert.deepStrictEqual(projections, [100, 501]);
+
+  // A newer SSE revision stops an older inventory before the next tail batch.
+  calls.length = 0;
+  pending.clear();
+  let revisionCurrent = true;
+  const obsolete = api.fetchAllSeriesRecordings(client, 'default', 'series', 0,
+    () => {}, () => revisionCurrent);
+  await flush();
+  assert.deepStrictEqual(calls, [0, 100, 200]);
+  revisionCurrent = false;
+  pending.get(100)();
+  pending.get(200)();
+  assert.strictEqual((await obsolete).length, 0);
+  assert.deepStrictEqual(calls, [0, 100, 200], 'obsolete revision launches no more pages');
 }
 
 async function proveNewlyRecordedUsesCorrectedArtwork(harness) {

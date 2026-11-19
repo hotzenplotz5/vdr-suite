@@ -170,3 +170,21 @@ Regression coverage: a 501-recording fixture observes only two concurrent tail
 pages, out-of-order replies preserve canonical order, and a queued detail read
 preempts queued background and representative reads without duplicate requests.
 Actual transport and Home latency improvements still require browser acceptance.
+
+### HOME.P6 — scoped SSE invalidation work
+
+The existing backend-scoped recording feed remains authoritative. Coalesce exact
+native IDs within the already scheduled microtask and share the fresh metadata
+read promise between Newly Recorded and Series within that batch only. Subsequent
+SSE batches never reuse the previous batch's fresh result. Skip duplicate
+representative reads for those explicit IDs; retain full canonical membership
+revalidation, because changed metadata may change the Series classification.
+The Series pagination revision fence now prevents superseded inventory scans
+from starting additional pages. Layout, keyed cards, sequence/resync behavior,
+backend scope and broad inventory reconciliation are preserved. No additional
+SSE connection, polling, timer or persistent cache. The shared reads still use
+the existing direct exact-ID lookup; this slice does not eliminate the canonical
+Series inventory scan or establish production latency gains.
+
+Tests cover shared exact-ID metadata correction across both rails, same-tick
+bursts, and cancellation of future pages after a newer revision.
