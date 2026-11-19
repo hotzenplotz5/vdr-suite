@@ -236,9 +236,9 @@ int main()
         assert(resized.headers.at("Content-Type") == "image/jpeg");
         assert(resized.headers.count("Content-Length") == 0 && resized.headers.count("ETag") == 0);
         assert(resized.headers.count("Last-Modified") == 0);
-        assert(resized.headers.count("Cache-Control") == original.headers.count("Cache-Control"));
-        if (original.headers.count("Cache-Control"))
-            assert(resized.headers.at("Cache-Control") == original.headers.at("Cache-Control"));
+        // Compatibility previews are still delivered, but never persisted
+        // by an HTTP cache without an authenticated current scope.
+        assert(resized.headers.at("Cache-Control") == "no-store");
         assert(server.handleRequest(authorized).body == resized.body);
         unauthorized.path = authorized.path;
         assert(server.handleRequest(unauthorized).statusCode == 401);
@@ -271,6 +271,11 @@ int main()
     assert(server.handleRequest(unauthorized).statusCode == 401);
     authorized.headers.erase("if-none-match");
     metadataDelegate->cacheScope.clear();
+    authorized.headers["If-None-Match"] = scopedTag;
+    const auto unscoped = server.handleRequest(authorized);
+    assert(unscoped.statusCode == 200 && unscoped.headers.at("Cache-Control") == "no-store");
+    assert(unscoped.headers.count("X-VDR-Suite-Artwork-Scope") == 0);
+    authorized.headers.erase("If-None-Match");
 
     for (const auto* route : {"/api/epg/cache/artwork", "/api/epg/cache/metadata/image"})
     {

@@ -45,6 +45,7 @@ test-pwa-shell:
 	node --check web/frontend/platform/home-cache-runtime.js
 	node web/frontend/tests/test_home_cache_runtime.js
 	node web/frontend/tests/test_home_cache_sse.js
+	node web/frontend/tests/test_home_cache_isolation.js
 	node web/frontend/tests/test_pwa_artwork_cache.js
 	node web/frontend/tests/test_home_artwork_priority.js
 

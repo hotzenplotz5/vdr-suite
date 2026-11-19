@@ -161,6 +161,27 @@ int main()
         assert(response.headers.at("X-VDR-Suite-Home-Backend") == "default");
         assert(response.body == "{}" && response.statusCode == 200);
         response = HttpServerResponse{};
+        context.session = SessionIdentity{"session-b"};
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
+        assert(original != response.headers.at("X-VDR-Suite-Home-Recording-Scope"));
+        context.session = SessionIdentity{"session-a"};
+        std::reverse(context.grants.begin(), context.grants.end());
+        assert(original == vdrsuite::http::browserHomeCacheScope(context, "default"));
+        assert(original != vdrsuite::http::browserHomeCacheScope(context, "other"));
+        context.grants.push_back({"timers.view", "default"});
+        assert(original != vdrsuite::http::browserHomeCacheScope(context, "default"));
+        context.grants.pop_back();
+        context.session->revoked = true;
+        assert(vdrsuite::http::browserHomeCacheScope(context, "default").empty());
+        context.session->revoked = false;
+        context.permissionGrantResolution = PermissionGrantResolutionState::Unavailable;
+        assert(vdrsuite::http::browserHomeCacheScope(context, "default").empty());
+        context.permissionGrantResolution = PermissionGrantResolutionState::Resolved;
+        for (const auto& query : {"backend=default&backend=other",
+                "backend=default&backendId=other", "backend=default&%62ackend=other"})
+            assert(vdrsuite::http::canonicalHomeCacheBackend(query).empty());
+        assert(vdrsuite::http::canonicalHomeCacheBackend("backend=default&variant=home") == "default");
+        response = HttpServerResponse{};
         context.actor.actorId = "home-b";
         vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
         assert(original != response.headers.at("X-VDR-Suite-Home-Recording-Scope"));

@@ -47,6 +47,10 @@ void applyPreview(const ArtworkPreviewCache& cache, const HttpServerRequest& req
                   const RestQueryParameters& query, HttpServerResponse& response)
 {
     if (response.statusCode != 200 || query.get("variant") != "home") return;
+    // An unscoped preview (including legacy compatibility paths) is still
+    // served normally, but must not create an unvalidated HTTP cache hit.
+    if (response.headers.find("X-VDR-Suite-Artwork-Scope") == response.headers.end())
+        response.headers["Cache-Control"] = "no-store";
     const auto type = response.headers.find("Content-Type");
     if (type == response.headers.end()) return;
     const std::string preview = cache.home(request.path, type->second, response.body);

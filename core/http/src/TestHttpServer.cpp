@@ -2419,15 +2419,16 @@ HttpServerResponse TestHttpServer::handleRequest(
         const auto query = RestQueryParameters::parse(at == std::string::npos
             ? std::string{} : request.path.substr(at + 1));
         if (query.get("variant") == "home") {
-            std::vector<std::string> grants;
-            for (const auto& grant : gate.context.grants) {
-                std::string tuple;
-                vdrsuite::http::appendArtworkField(tuple, grant.permission);
-                vdrsuite::http::appendArtworkField(tuple, grant.backendId);
-                grants.push_back(std::move(tuple));
-            }
-            const auto partition = vdrsuite::http::artworkCacheScope(
-                gate.context.actor.actorId, query.get("backend"), std::move(grants));
+            const std::string backend = vdrsuite::http::canonicalHomeCacheBackend(
+                at == std::string::npos ? std::string{} : request.path.substr(at + 1));
+            const bool recording = artworkPath == "/api/vdr/recordings/metadata/image" ||
+                artworkPath == "/api/recordings/metadata/image";
+            const std::string permission = recording ? "recordings.view" : "epg.view";
+            // Eligibility only; never change the existing route's admission.
+            const AuthorizationService authorization;
+            const auto partition = (!backend.empty() &&
+                authorization.authorize(gate.context, {permission, backend, permission}).allowed)
+                ? vdrsuite::http::browserHomeCacheScope(gate.context, backend) : std::string{};
             if (!partition.empty()) {
                 response.headers["X-VDR-Suite-Artwork-Scope"] = partition;
                 response.headers["Cache-Control"] = "private, no-cache";

@@ -16,6 +16,10 @@ async function run(prefix) {
   stores.set(own + 'other-installation:v0', new Map()); // not a production cache name
   const foreign = 'vdr-suite-pwa-shell:' + encodeURIComponent('https://suite.test/other/frontend/') + ':v0';
   stores.set(foreign, new Map());
+  const oldArtwork = 'vdr-suite-pwa-artwork:' + encodeURIComponent(scope) + ':v1';
+  const foreignArtwork = 'vdr-suite-pwa-artwork:' + encodeURIComponent('https://suite.test/other/frontend/') + ':v1';
+  stores.set(oldArtwork, new Map());
+  stores.set(foreignArtwork, new Map());
   let failStorage = false;
   let network = async () => new Response('private online data');
   const caches = {
@@ -44,6 +48,8 @@ async function run(prefix) {
   assert(!stores.has(own + 'v0'));
   assert(stores.has(foreign));
   assert(stores.has('unrelated-cache'));
+  assert(!stores.has(oldArtwork));
+  assert(stores.has(foreignArtwork));
   assert.equal(await (await request(scope)).text(), 'private online data');
   network = async () => new Response('unauthorized', { status: 401 });
   assert.equal((await request(scope)).status, 401);

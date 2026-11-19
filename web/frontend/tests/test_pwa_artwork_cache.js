@@ -11,6 +11,12 @@ async function run(prefix) {
   const tagA = '"vsr-' + '1'.repeat(64) + '"', tagB = '"vsr-' + '2'.repeat(64) + '"';
   const url = 'https://suite.test' + prefix + '/api/vdr/recordings/metadata/image?backend=default&recordingId=7&variant=home';
   let partition = scopeA, tag = tagA, status = 200, content = 'poster-a', offline = false, fail = false, last;
+  let holdImage = null, holdMutation = null;
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise(done => { resolve = done; });
+    return {promise, resolve};
+  };
   const keyUrl = key => typeof key === 'string' ? key : key.url;
   const caches = {async open(name) {
     if (fail) throw Error('quota');
@@ -22,9 +28,19 @@ async function run(prefix) {
   const context = {scope, URL, Response, Request, Headers, caches, self:{registration:{scope:scope.href},addEventListener:(name, cb)=>{listeners[name]=cb;}}, fetch:async request=>{
     last = request;
     if (offline) throw Error('offline');
+    if (request.method === 'POST') {
+      if (holdMutation) { const waiting = holdMutation; await waiting.promise; }
+      return new Response(null, {status:204});
+    }
     if (status !== 200) return new Response('failure', {status});
-    if ((request.headers.get('If-None-Match') || '').split(', ').includes(tag)) return new Response(null,{status:304,headers:responseHeaders()});
-    return new Response(content,{headers:responseHeaders()});
+    const response = (request.headers.get('If-None-Match') || '').split(', ').includes(tag)
+      ? new Response(null,{status:304,headers:responseHeaders()})
+      : new Response(content,{headers:responseHeaders()});
+    if (holdImage) {
+      const waiting = holdImage; holdImage = null;
+      waiting.entered.resolve(); await waiting.release.promise;
+    }
+    return response;
   }};
   vm.createContext(context); vm.runInContext(code, context);
   const invoke = (name, args) => {context.args = args; return vm.runInContext(name+'(...args)',context);};
@@ -64,9 +80,36 @@ async function run(prefix) {
     const request=new Request(address); Object.defineProperty(request,'destination',{value:'image'});
     assert.equal(invoke('artworkRequest',[request]),false);
   }
+  // A delayed old 304 must not reanimate stored bytes after a cookie change.
+  tag=tagA; partition=scopeA; content='old-session';
+  await image();
+  const waiting = {entered:deferred(), release:deferred()};
+  holdImage = waiting;
+  const delayed = image();
+  await waiting.entered.promise;
+  assert.equal(last.headers.get('If-None-Match'),tagA);
   const logout = new Request('https://suite.test'+prefix+'/api/security/browser-sessions/logout',{method:'POST'});
+  holdMutation = deferred();
   let result; listeners.fetch({request:logout,respondWith:p=>{result=p;}});
-  assert(result); await result;
+  assert(result);
+  partition=scopeB; tag=tagB; content='new-session';
+  waiting.release.resolve();
+  const newImage = await delayed;
+  assert.equal(await newImage.text(),'new-session');
+  assert.equal(newImage.headers.get('X-VDR-Suite-Artwork-Cache'),null);
+  assert.equal(last.headers.get('If-None-Match'),null);
+  assert.equal(await (await image()).text(),'new-session');
+  assert.equal(last.headers.get('If-None-Match'),null);
+  holdMutation.resolve(); await result; holdMutation = null;
   assert.equal(stores.size,0);
+  await image();
+  const claim = new Request('https://suite.test'+prefix+'/api/security/first-admin/claim',{method:'POST'});
+  listeners.fetch({request:claim,respondWith:p=>{result=p;}}); await result;
+  assert.equal(stores.size,0);
+  await image();
+  offline=true;
+  listeners.fetch({request:logout,respondWith:p=>{result=p;}});
+  await assert.rejects(result,/offline/); offline=false;
+  assert.equal(stores.size,0,'failed session mutation still removes optional cached bytes');
 }
 (async()=>{await run('');await run('/vdr-suite');console.log('PWA.3 artwork cache contract PASS');})().catch(e=>{console.error(e);process.exitCode=1;});

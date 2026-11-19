@@ -121,10 +121,22 @@
       }, null);
     }
 
+    // Separate session epoch: SSE invalidation must not invalidate a fresh
+    // authorization proof for an unrelated rail. Capture before network reads.
+    function captureSession() {
+      return transaction('readonly', (_, meta, set) => {
+        const r = meta.get('sessionEpoch');
+        r.onsuccess = () => set(r.result === undefined ? 0 : r.result);
+      }, null);
+    }
+
     async function access(scope, rail, action, fallback) {
       const key = scopeKey(scope);
       if (!key || !RAILS.has(rail) || typeof authorize !== 'function') return fallback;
       const local = generation;
+      const fenced = scope.sessionEpoch !== undefined;
+      const expectedSession = fenced ? await scope.sessionEpoch : null;
+      if (fenced && (!Number.isSafeInteger(expectedSession) || expectedSession < 0)) return fallback;
       const before = await epoch();
       if (!Number.isSafeInteger(before) || before < 0 || local !== generation) return fallback;
       // The caller must obtain current server authorization for this exact rail;
@@ -136,9 +148,15 @@
         const r = meta.get('epoch');
         r.onsuccess = () => {
           if ((r.result === undefined ? 0 : r.result) !== before || local !== generation) return;
-          action(store, JSON.stringify([key, rail]), set, meta);
+          if (!fenced) { action(store, JSON.stringify([key, rail]), set, meta); return; }
+          const session = meta.get('sessionEpoch');
+          session.onsuccess = () => {
+            if ((session.result === undefined ? 0 : session.result) !== expectedSession || local !== generation) return;
+            action(store, JSON.stringify([key, rail]), set, meta);
+          };
         };
       }, fallback);
+      if (fenced && await captureSession() !== expectedSession) return fallback;
       return local === generation ? result : fallback;
     }
 
@@ -196,8 +214,13 @@
         r.onsuccess = () => {
           const old = Number.isSafeInteger(r.result) && r.result >= 0 ? r.result : 0;
           meta.put(old + 1, 'epoch');
-          store.clear();
-          set(true);
+          const session = meta.get('sessionEpoch');
+          session.onsuccess = () => {
+            const previous = Number.isSafeInteger(session.result) && session.result >= 0 ? session.result : 0;
+            meta.put(previous + 1, 'sessionEpoch');
+            store.clear();
+            set(true);
+          };
         };
       }, false);
     }
@@ -246,7 +269,7 @@
       }, false);
     }
 
-    return Object.freeze({read, write, invalidate, clear, discard});
+    return Object.freeze({read, write, invalidate, clear, discard, captureSession});
   }
 
   const api = Object.freeze({create});

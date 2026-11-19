@@ -2,7 +2,7 @@
 
 ## PWA / Home performance — next frontend priority (19.11.2026)
 
-**PWA.6 = source candidate; connection-state contract PASS locally; production session/SSE and public offline fallback wiring added. PWA.4 hosted CI passed all six jobs; PWA.5 frontend/docs/architecture/inventory passed at the initial PWA.6 check, remaining CI open. Native browser/yaVDR recovery, storage and timing acceptance remain open.**
+**PWA.7 = source candidate; scoped cache isolation and delayed-response regressions PASS in a focused JavaScript harness with simulated IndexedDB/Cache Storage/network. Browser-session scope, shared durable logout epoch, and artwork session-transition cleanup hardened. PWA.6 five hosted CI jobs passed; fast regression failed during Ubuntu dependency downloads (before tests). Native browser/yaVDR multi-tab/revocation, C++ integration for this candidate, and performance acceptance remain open.**
 The maintainer prioritizes local client caching and optional PWA installation
 for the existing Webfrontend, including ordinary browser use. See
 [PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.

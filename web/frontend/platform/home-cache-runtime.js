@@ -118,8 +118,12 @@
     const makeOwner = config.makeOwner || (opts => global.VdrSuiteHomePersistence.create(opts));
     const owner = makeOwner({authorize: async (scope, rail) => {
       const proof = currentProof(rail);
-      return proof && scope.backendId === backend && scope.accountId === proof.partition &&
-        scope.permissionRevision === proof.partition ? {...scope, authorized: true} : null;
+      if (!proof || scope.backendId !== backend || scope.accountId !== proof.partition ||
+          scope.permissionRevision !== proof.partition) return null;
+      const expected = await scope.sessionEpoch;
+      if (!Number.isSafeInteger(expected) || expected !== await proof.sessionEpoch ||
+          currentProof(rail) !== proof) return null;
+      return {...scope, authorized: true};
     }});
 
     function currentProof(rail) {
@@ -127,16 +131,26 @@
       return active() && proof && proof.generation === generation && now() - proof.at <= PROOF_MS ? proof : null;
     }
     function scopeOf(proof) {
-      return {accountId: proof.partition, backendId: backend, permissionRevision: proof.partition};
+      return {accountId: proof.partition, backendId: backend, permissionRevision: proof.partition, sessionEpoch: proof.sessionEpoch};
     }
-    function reset(purge) {
+    function reset(purge, notice = 'cache-invalidated') {
       generation++;
       partition = '';
       proofs.clear();
       for (const ticket of tickets.values()) ticket.cancel();
       tickets.clear();
       owner.invalidate();
-      if (purge) storageBarrier = storageBarrier.then(() => owner.clear()).catch(() => false);
+      if (purge) {
+        // Start the durable fence now, rather than behind queued SSE work.
+        const clearing = owner.clear();
+        storageBarrier = Promise.all([storageBarrier, clearing]).then(results => results[1]).catch(() => false);
+        if (channel) { try { channel.postMessage(notice); } catch (error) {} }
+        // Grant drift/401/403 also invalidates the optional artwork cache.
+        try {
+          const controller = global.navigator && global.navigator.serviceWorker && global.navigator.serviceWorker.controller;
+          if (controller) controller.postMessage({type: 'vdr-suite-artwork-clear'});
+        } catch (error) {}
+      }
     }
     function suspend() { reset(false); closeCursor(); }
     function selectBackend(value) {
@@ -146,15 +160,15 @@
       minimums.clear();
     }
     function sessionBoundary() {
-      reset(true);
+      reset(true, 'session-boundary');
       closeCursor();
-      if (channel) { try { channel.postMessage('session-boundary'); } catch (error) {} }
     }
     function requestStamp(path, requestedBackend) {
       if (!backend || !active() || backend !== requestedBackend) return null;
       const snapshot = path === '/api/backends/' + encodeURIComponent(backend) + '/snapshot';
       if (!snapshot && !Object.values(RAIL_ROUTES).includes(path)) return null;
-      return {path, backend, generation, snapshot, cursor: currentCursor && currentCursor.id, versions: ALL_RAILS.map(version)};
+      return {path, backend, generation, snapshot, cursor: currentCursor && currentCursor.id,
+        versions: ALL_RAILS.map(version), sessionEpoch: owner.captureSession()};
     }
     function observe(stamp, response, payload) {
       if (!stamp || stamp.generation !== generation || stamp.backend !== backend || !active()) return;
@@ -187,7 +201,7 @@
         return;
       }
       partition = next;
-      for (const [key, value] of scopes) proofs.set(key, {partition: value, generation, at: now()});
+      for (const [key, value] of scopes) proofs.set(key, {partition: value, generation, at: now(), sessionEpoch: stamp.sessionEpoch});
       if (payload && typeof payload === 'object') {
         payloads.set(payload, {stamp, partition: next, domains: scopes.map(entry => entry[0])});
       }
@@ -201,6 +215,7 @@
       const local = generation, railVersion = version(rail);
       let done = false, dismissed = !show, accepted = 0, invalid = false;
       let proven = '', attempted = '', remove = null, expiry = null;
+      const acceptedEpochs = [];
       const live = () => !done && local === generation && railVersion === version(rail) && backend === requestedBackend && active() && isCurrent();
       function dismiss() {
         dismissed = true;
@@ -223,8 +238,10 @@
           const snapshot = await owner.read(scopeOf(proof), rail);
           const still = currentProof(rail);
           if (dismissed || !live() || !still || still.partition !== proof.partition || !snapshot || !snapshot.items.length || !canPreview(rail, snapshot)) return;
+          const remaining = PROOF_MS - (now() - still.at);
+          if (remaining <= 0 || await still.sessionEpoch !== await proof.sessionEpoch || !live() || dismissed || currentProof(rail) !== still) return;
           remove = paint(rail, title, snapshot.items, requestedBackend) || null;
-          if (remove && typeof global.setTimeout === 'function') expiry = global.setTimeout(dismiss, PREVIEW_MS);
+          if (remove && typeof global.setTimeout === 'function') expiry = global.setTimeout(dismiss, Math.min(PREVIEW_MS, remaining));
         } catch (error) { /* Optional storage/presentation. */ }
       }
       function accept(payload) {
@@ -237,6 +254,7 @@
         }
         proven = observed.partition;
         accepted++;
+        acceptedEpochs.push(observed.stamp.sessionEpoch);
         return true;
       }
       async function finish(cards) {
@@ -247,6 +265,9 @@
         cancel();
         if (!eligible) return Promise.resolve(false);
         // Cursor is a causal fence, not a server-side resource revision.
+        const session = await scope.sessionEpoch;
+        const epochs = await Promise.all(acceptedEpochs);
+        if (!Number.isSafeInteger(session) || epochs.some(value => value !== session)) return false;
         if (!await storageBarrier || local !== generation || railVersion !== version(rail) ||
             !active() || (requireCursor && !connected)) return false;
         return owner.write(scope, rail, {complete: true, revision, items: cards.slice(0, 24)}).catch(() => false);
@@ -260,7 +281,10 @@
       try {
         if (typeof global.BroadcastChannel === 'function' && global.VdrSuitePublicUrl) {
           channel = new global.BroadcastChannel('vdr-suite-home:' + global.VdrSuitePublicUrl.basePath);
-          channel.onmessage = event => { if (event.data === 'session-boundary') { reset(false); closeCursor(); } };
+          channel.onmessage = event => {
+            if (event.data === 'session-boundary') { reset(false); closeCursor(); }
+            else if (event.data === 'cache-invalidated') reset(false);
+          };
         }
       } catch (error) { /* The next server proof remains mandatory. */ }
       if (typeof global.addEventListener === 'function') {

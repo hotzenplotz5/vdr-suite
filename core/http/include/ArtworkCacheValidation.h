@@ -48,6 +48,7 @@ inline void revalidateScopedArtwork(const HttpServerRequest& request, HttpServer
         (type->second != "image/jpeg" && type->second != "image/png" && type->second != "image/webp") ||
         response.body.empty() || response.body.size() > 256U * 1024U) {
         response.headers.erase(partition);
+        response.headers["Cache-Control"] = "no-store";
         return;
     }
     std::string bytes;
@@ -56,7 +57,11 @@ inline void revalidateScopedArtwork(const HttpServerRequest& request, HttpServer
     appendArtworkField(bytes, type->second);
     bytes += response.body;
     const std::string tag = artworkDigestTag(bytes);
-    if (tag.empty()) { response.headers.erase(partition); return; }
+    if (tag.empty()) {
+        response.headers.erase(partition);
+        response.headers["Cache-Control"] = "no-store";
+        return;
+    }
     response.headers["ETag"] = tag;
     response.headers["X-VDR-Suite-Artwork-Bytes"] = std::to_string(response.body.size());
     response.headers.erase("Last-Modified");

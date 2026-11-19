@@ -49,10 +49,11 @@ async function offlineShell() {
 
 // PWA.3: persistent previews are reused only after a fresh, scoped server 304.
 const artworkPrefix = 'vdr-suite-pwa-artwork:' + encodeURIComponent(scope.href) + ':';
-const artworkName = artworkPrefix + 'v1';
+const artworkName = artworkPrefix + 'v2';
 const artworkLimit = 192;
 const artworkBytes = 256 * 1024;
 let artworkGeneration = 0;
+let artworkSessionMutations = 0;
 let artworkWrites = Promise.resolve();
 const artworkTag = /^"vsr-[0-9a-f]{64}"$/;
 const artworkScope = /^vsr-[0-9a-f]{64}$/;
@@ -100,7 +101,11 @@ async function artworkCandidates(base) {
       if (!response) continue;
       const tag = response.headers.get('ETag');
       const partition = response.headers.get('X-VDR-Suite-Artwork-Scope');
-      if (artworkTag.test(tag || '') && artworkScope.test(partition || '') && new URL(key.url).searchParams.get('scope') === partition) candidates.push({response, tag, partition});
+      const size = Number(response.headers.get('X-VDR-Suite-Artwork-Bytes'));
+      const type = response.headers.get('Content-Type');
+      if (response.status === 200 && artworkTypes.has(type) && Number.isSafeInteger(size) &&
+          size > 0 && size <= artworkBytes && artworkTag.test(tag || '') && artworkScope.test(partition || '') &&
+          new URL(key.url).searchParams.get('scope') === partition) candidates.push({response, tag, partition, size, type});
     }
     return candidates;
   } catch (error) { return []; }
@@ -122,7 +127,7 @@ function storeArtwork(base, response, generation) {
   if (response.status !== 200 || response.redirected || !artworkTag.test(tag || '') || !artworkScope.test(partition || '') || !artworkTypes.has(type) || !Number.isSafeInteger(size) || size <= 0 || size > artworkBytes || /no-store/i.test(response.headers.get('Cache-Control') || '')) return Promise.resolve();
   const copy = response.clone();
   return serializeArtwork(async () => {
-    if (generation !== artworkGeneration) return;
+    if (generation !== artworkGeneration || artworkSessionMutations) return;
     const bytes = await copy.arrayBuffer();
     if (bytes.byteLength !== size || generation !== artworkGeneration) return;
     const cache = await caches.open(artworkName);
@@ -137,16 +142,21 @@ function storeArtwork(base, response, generation) {
 
 async function handleArtwork(event) {
   const request = event.request;
+  if (artworkSessionMutations) return artworkFetch(request, []);
   const generation = artworkGeneration;
   const base = artworkBase(request);
   const candidates = await artworkCandidates(base);
-  let response = await artworkFetch(request, generation === artworkGeneration ? candidates.map(c => c.tag) : []);
+  let response = await artworkFetch(request, generation === artworkGeneration && !artworkSessionMutations ? candidates.map(c => c.tag) : []);
+  if (generation !== artworkGeneration || artworkSessionMutations) return artworkFetch(request, []);
   if (response.status === 304) {
-    const match = candidates.find(c => c.tag === response.headers.get('ETag') && c.partition === response.headers.get('X-VDR-Suite-Artwork-Scope'));
-    if (match && generation === artworkGeneration) return match.response;
+    const match = candidates.find(c => c.tag === response.headers.get('ETag') &&
+      c.partition === response.headers.get('X-VDR-Suite-Artwork-Scope') &&
+      c.size === Number(response.headers.get('X-VDR-Suite-Artwork-Bytes')) &&
+      (!response.headers.get('Content-Type') || c.type === response.headers.get('Content-Type')));
+    if (match) return match.response;
     response = await artworkFetch(request, []);
   }
-  if (generation !== artworkGeneration) return artworkFetch(request, []);
+  if (generation !== artworkGeneration || artworkSessionMutations) return response;
   if (response.status === 401) event.waitUntil(clearArtwork());
   else if (response.status === 403 || response.status === 404 || response.status === 410) event.waitUntil(serializeArtwork(async () => {
     if (generation !== artworkGeneration) return;
@@ -164,13 +174,21 @@ self.addEventListener('message', event => {
 function artworkSessionMutation(request) {
   if (request.method !== 'POST') return false;
   const url = new URL(request.url);
-  return url.origin === scope.origin && (url.pathname === installationPath + '/api/security/browser-sessions/logout' || url.pathname === installationPath + '/api/security/browser-sessions');
+  return url.origin === scope.origin && (url.pathname === installationPath + '/api/security/browser-sessions/logout' || url.pathname === installationPath + '/api/security/browser-sessions' ||
+    url.pathname === installationPath + '/api/security/first-admin/claim');
 }
 
 async function handleArtworkSessionMutation(request) {
-  const response = await fetch(request);
-  if (response.ok || response.status === 401) await clearArtwork();
-  return response;
+  // Fence both ends, including overlapping or failed session mutations;
+  // neither an old 304 nor a delayed image write may survive the boundary.
+  artworkSessionMutations++;
+  const clearing = clearArtwork();
+  try { return await fetch(request); }
+  finally {
+    await clearing;
+    await clearArtwork();
+    artworkSessionMutations--;
+  }
 }
 
 self.addEventListener('fetch', event => {

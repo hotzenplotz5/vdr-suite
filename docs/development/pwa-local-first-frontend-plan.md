@@ -372,6 +372,60 @@ passed at the initial check, fast/packaging still running.
   recovery, multi-tab and installed worker activation remain unverified;
   PWA.7 includes the end-to-end isolation audit. No daemon rebuild or deploy.
 
+## PWA.7 — multiuser/cache isolation audit (2026-11-19)
+
+Base `52bfe950633403a5bbfd9c037f77b6b1081e07b5`. The PWA.6 CI
+[#12888](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44522007568)
+frontend, architecture, packaging, docs and make-test-audit jobs passed.
+The fast job failed during Ubuntu dependency download (apt exit 100),
+not in a VDR-Suite test. Do not call the entire run green.
+
+- Audit found a late-response window: the previous IndexedDB fence was
+  captured at storage access, not at the start of the HTTP request. An
+  independent tab without the broadcast notification could acquire the
+  post-clear epoch while still holding old authorization evidence.
+  Capture a separate durable session epoch at request dispatch and carry
+  it through the actual response proof, every accepted page, read and
+  write transaction. Logout/grant invalidation advances that epoch in
+  the same transaction as deleting snapshots. SSE-only invalidation still
+  owns its separate epoch and cursor. Late or failed local storage work
+  remains optional. Broadcast invalidation also dismisses sibling cached
+  previews; a preview expires at most at its current proof's expiry.
+- Server eligibility metadata for both Home and artwork now hashes the
+  actual authenticated user, current browser session identity, selected
+  backend and sorted resolved grants into an opaque cache partition.
+  A prior login's partition is no longer reusable even for the same user
+  and same grants. Ambiguous backend query identity stays outside the
+  optional cache. The existing read grant is checked only for cache
+  eligibility; the original route response/admission is unchanged. No
+  credential or raw session identifier is exposed by the new partition.
+- Worker artwork namespace v2 discards old v1 entries at normal activation,
+  scoped to this installation. Suspend optional artwork reuse/writes
+  around both ends of an existing login/logout/first-admin claim,
+  including a failed request; an in-flight old 304 cannot serve the old
+  persistent bytes after that transition. Require matching size/type
+  metadata in addition to scoped server tag; unscoped Home previews
+  still load normally but are no-store. Existing non-Home paths unchanged.
+  Ineligible old IndexedDB partitions are inaccessible through the
+  new scope, bounded and evicted normally or cleared on session cleanup;
+  no claim of forensic erasure of browser storage.
+- Focused actual-source JavaScript test harness (asynchronous repository
+  IndexedDB double, simulated browser HTTP/Cache Storage APIs) passed
+  new isolation and extended artwork contracts, including cross-owner
+  late request after logout, new scope, backend/grant mismatch, expired
+  proof, delayed 304 during logout, first-admin cleanup and failed
+  mutation. PWA.4/PWA.5 focused source contracts also passed in that
+  harness. Extended existing C++ scope/decorator and worker activation
+  regressions; hosted Node and C++ integration still need CI evidence.
+- Limits of this audit: no native browser transaction/worker scheduling
+  or actual parallel browser session/revocation run yet. Broadcast
+  arrival, already-rendered online content and a server grant change
+  not yet observed by a client remain governed by the existing session
+  and read lifecycle; instantaneous remote erasure is not promised.
+  No additional permissions, polling, API route, merge or deployment.
+  The server cache metadata changes will need a normal incremental
+  build at eventual runtime acceptance, not a routine daemon rebuild now.
+
 ## Measurable acceptance (provisional targets, not guarantees)
 
 Compare baseline and candidate with the same authenticated account, backend,
