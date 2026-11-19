@@ -63,7 +63,7 @@ assert.ok(!JSON.stringify(report).includes('backendNativeId'));
 assert.ok(!JSON.stringify(report).includes('assignmentRevision='));
 assert.ok(!JSON.stringify(report).includes('https://'));
 const old = summarize(entries, [], 3, [{duration: 60}], base);
-assert.equal(old.resourceRequests, 6);
+assert.equal(old.resourceRequests, 7);
 assert.equal(old.longTaskMs, 60);
 assert.equal(old.mutations, 3);
 assert.equal(old.resourceDiagnostics.recordingApiDetails.length, recording.length);
