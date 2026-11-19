@@ -39,7 +39,7 @@ async function run(prefix) {
     return response;
   };
   await lifecycle('install');
-  assert.equal(stores.get(own + 'v1').size, 1);
+  assert.equal(stores.get(own + 'v2').size, 1);
   await lifecycle('activate');
   assert(!stores.has(own + 'v0'));
   assert(stores.has(foreign));
@@ -48,12 +48,14 @@ async function run(prefix) {
   network = async () => new Response('unauthorized', { status: 401 });
   assert.equal((await request(scope)).status, 401);
   network = async () => { throw Error('offline'); };
-  assert.match(await (await request(scope)).text(), /Server unavailable/);
+  const shell = await (await request(scope)).text();
+  assert.match(shell, /Server unavailable/);
+  assert.match(shell, /addEventListener\("online"/);
   assert.match(await (await request(scope + 'index.html')).text(), /Protected content/);
   for (const url of [scope + '?token=x', scope + 'app.js', scope + 'style.css', scope + 'browser-performance-diagnostics.html', 'https://suite.test' + prefix + '/api/v1/recordings', 'https://suite.test' + prefix + '/recording-artwork/a', 'https://other.test/frontend/']) assert.equal(request(url), undefined);
   assert.equal(request(scope, 'cors'), undefined);
   assert.equal(request(scope, 'navigate', 'POST'), undefined);
-  assert.equal(stores.get(own + 'v1').size, 1);
+  assert.equal(stores.get(own + 'v2').size, 1);
   failStorage = true;
   await lifecycle('install');
   assert.match(await (await request(scope)).text(), /Server unavailable/);

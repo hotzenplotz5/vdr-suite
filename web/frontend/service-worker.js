@@ -4,7 +4,7 @@
 // HTML, composed runtime bundles, API/SSE and writes remain network-owned.
 const scope = new URL(self.registration.scope);
 const cachePrefix = 'vdr-suite-pwa-shell:' + encodeURIComponent(scope.href) + ':';
-const cacheName = cachePrefix + 'v1';
+const cacheName = cachePrefix + 'v2';
 const shellKey = new URL('pwa-offline-shell', scope).href;
 
 function publicShell() {
@@ -13,7 +13,8 @@ function publicShell() {
 <style>body{font:1rem system-ui,sans-serif;background:#101827;color:#f1f5f9;margin:12vh auto;padding:1.5rem;max-width:32rem}a{color:#7dd3fc}</style>
 <h1>VDR-Suite</h1><p>Keine Verbindung zum Server. / Server unavailable.</p>
 <p>Geschützte Inhalte benötigen eine aktuelle Anmeldung. / Protected content requires a current session.</p>
-<p><a href="./">Erneut verbinden / Reconnect</a></p></html>`, {
+<p><a href="./">Erneut verbinden / Reconnect</a></p>
+<script>window.addEventListener("online",function(){window.location.replace("./");},{once:true});</script></html>`, {
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }
   });
 }

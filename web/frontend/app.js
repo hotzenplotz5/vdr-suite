@@ -4250,6 +4250,11 @@ function markSelected(backendId) {
   });
 }
 
+function reportConnectionUnavailable() {
+  const connection = window.VdrSuiteConnection;
+  if (connection && typeof connection.unavailable === 'function') connection.unavailable();
+}
+
 function loadBackendDetails(backend) {
   resetMediaImportVisibility(false);
   selectedBackend = backend;
@@ -4284,6 +4289,7 @@ function loadBackendDetails(backend) {
       refreshDetailButton.disabled = false;
     })
     .catch(error => {
+      if (error && error.name === 'TypeError') reportConnectionUnavailable();
       currentSnapshot = null;
       detailMetaElement.className = 'detail-meta error';
       detailMetaElement.textContent = 'Details konnten nicht geladen werden: ' + error.message;
@@ -4475,6 +4481,7 @@ function loadBackendSelection() {
       }
     })
     .catch(error => {
+      if (error && error.name === 'TypeError') reportConnectionUnavailable();
       statusElement.hidden = false;
       statusElement.className = 'status error';
       statusElement.textContent = 'Backend-Auswahl konnte nicht geladen werden: ' + error.message;
@@ -4556,6 +4563,7 @@ function installBrowserSessionFrontendGate() {
   browserSessionFrontendBound = true;
   session.subscribe(synchronizeBrowserSessionFrontend);
   session.restore().catch(error => {
+    reportConnectionUnavailable();
     browserSessionFrontendActive = false;
     renderAuthenticationRequiredFrontend();
     statusElement.hidden = false;

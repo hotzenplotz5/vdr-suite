@@ -332,6 +332,46 @@ still running when checked. Browser timing acceptance remains open.
   are still to be verified; new hosted CI pending. No daemon rebuild or
   deployment performed for this frontend-only slice.
 
+## PWA.6 — offline and verified recovery (2026-11-19)
+
+Base `84124c9536707c1ac2a8a56fc2d079c34d9d0c78`.
+PWA.4 hosted CI passed all six jobs; PWA.5 frontend/docs/architecture/inventory
+passed at the initial check, fast/packaging still running.
+
+- One connection-state owner in the existing pwa-register asset, available
+  before app bootstrap also in ordinary browsers without a Service Worker.
+  Bilingual, accessible connection status and manual retry. Real browser
+  offline or failed current-session/bootstrap transport selects the public
+  outage presentation and dismisses private cached preview work without
+  granting offline access. Main content is concealed during that known
+  outage; optional cache operations are suspended, not online API admission.
+  Existing security rules, media and mutation contracts remain unchanged.
+- A shared SSE error alone only indicates live-transport interruption; no
+  private offline cache is thereby authorized, no extra probe, no reload.
+  Existing EventSource reconnects as before. Online event, a recovered SSE
+  open during a known outage, or explicit retry coalesce one fresh GET of
+  the existing browser-session current endpoint (no-store, same-origin).
+  Valid current response or canonical authentication-required/revoked
+  response confirms server reachability, not access to private data.
+  A failed/invalid response stays in outage presentation; stale completion
+  after another offline event is discarded. One normal document bootstrap
+  after verified genuine outage restores current account/backend/grants.
+  This deliberately trades preservation of the selected view for a clean
+  authoritative boot only after such an outage, not ordinary SSE churn.
+  With no native online event/active SSE, manual retry remains available.
+- Public fallback Shell v2: existing server-first canonical navigation,
+  account-neutral message/link, one automatic navigation attempt on the
+  native online event. Non-GET/live/media responses and HTTP errors retain
+  the existing network contracts. No polling, background sync, queued
+  writes, new server endpoint or credential persistence.
+- Focused Node connection-state contract passed locally: no probe/reload on
+  normal SSE churn, known offline, rejected verification, coalesced retry,
+  loss during an in-flight check and one verified navigation. Added actual
+  shared SSE/session API and worker shell assertions to the existing test
+  targets. Native browser UI, modal/focus lifecycle, actual server outage/
+  recovery, multi-tab and installed worker activation remain unverified;
+  PWA.7 includes the end-to-end isolation audit. No daemon rebuild or deploy.
+
 ## Measurable acceptance (provisional targets, not guarantees)
 
 Compare baseline and candidate with the same authenticated account, backend,

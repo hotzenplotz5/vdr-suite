@@ -26,7 +26,10 @@
     const now = config.now || Date.now;
     const active = config.active || (() => {
       const session = global.VdrSuiteBrowserSession;
-      return Boolean(session && session.isAuthenticated() && (!global.navigator || global.navigator.onLine !== false));
+      const connection = global.VdrSuiteConnection;
+      const state = connection && typeof connection.state === 'function' ? connection.state() : 'ready';
+      return Boolean(session && session.isAuthenticated() && (!global.navigator || global.navigator.onLine !== false) &&
+        (state === 'ready' || state === 'reconnecting'));
     });
     const paint = config.paint || paintPreview;
     let backend = '';
@@ -135,6 +138,7 @@
       owner.invalidate();
       if (purge) storageBarrier = storageBarrier.then(() => owner.clear()).catch(() => false);
     }
+    function suspend() { reset(false); closeCursor(); }
     function selectBackend(value) {
       reset(false);
       backend = typeof value === 'string' ? value : '';
@@ -269,7 +273,7 @@
         });
       }
     }
-    return Object.freeze({selectBackend, sessionBoundary, requestStamp, observe, begin, liveEvent});
+    return Object.freeze({selectBackend, sessionBoundary, requestStamp, observe, begin, liveEvent, suspend});
   }
 
   // The preview uses the same rail classes but no canonical data attributes,
@@ -345,6 +349,7 @@
     requestStamp: (path, backend) => { const r = get(); return r ? r.requestStamp(path, backend) : null; },
     observe: (stamp, response, payload) => { const r = get(); if (r) r.observe(stamp, response, payload); },
     liveEvent: (type, event) => { const r = get(); return r ? r.liveEvent(type, event) : false; },
+    suspend: () => { const r = get(); if (r) r.suspend(); },
     begin: (...args) => { const r = get(); return r ? r.begin(...args) : null; }
   });
 }(window));

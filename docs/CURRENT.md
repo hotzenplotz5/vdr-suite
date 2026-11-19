@@ -2,7 +2,7 @@
 
 ## PWA / Home performance — next frontend priority (19.11.2026)
 
-**PWA.5 = source candidate; focused cursor/invalidation contract PASS locally (IndexedDB double); shared SSE and existing readback wiring added. PWA.1/PWA.2 hosted CI passed; PWA.3 fast regression cancelled and remaining five jobs passed; PWA.4 frontend/packaging/docs/architecture/inventory passed, fast regression still open. Actual browser/yaVDR timing and native storage acceptance remain open.**
+**PWA.6 = source candidate; connection-state contract PASS locally; production session/SSE and public offline fallback wiring added. PWA.4 hosted CI passed all six jobs; PWA.5 frontend/docs/architecture/inventory passed at the initial PWA.6 check, remaining CI open. Native browser/yaVDR recovery, storage and timing acceptance remain open.**
 The maintainer prioritizes local client caching and optional PWA installation
 for the existing Webfrontend, including ordinary browser use. See
 [PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.

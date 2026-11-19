@@ -311,6 +311,26 @@
     global.fetch = observedFetch;
   }
 
+  // Recovery must actually contact the server, rather than take restore()'s
+  // authenticated-in-memory shortcut. Read-only; never install a new token
+  // or replay a mutation here. Normal bootstrap owns the resulting session.
+  function verifyConnection() {
+    return global.fetch(RESTORE_PATH, {
+      method: 'GET',
+      headers: {Accept: 'application/json'},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function (response) {
+      return parseResponse(response).then(function (payload) {
+        if (response.status === 401) return Boolean(securityReason(payload));
+        const token = payload && payload.csrfToken;
+        return Boolean(response.ok && typeof token === 'string' &&
+          token.length >= 32 && token.length <= 256 &&
+          typeof payload.expiresAt === 'string' && payload.expiresAt);
+      });
+    }).catch(function () { return false; });
+  }
+
   function restore() {
     if (authenticated && csrfToken) {
       return Promise.resolve(snapshot());
@@ -930,6 +950,7 @@
     login: login,
     logout: logout,
     restore: restore,
+    verifyConnection: verifyConnection,
     clear: clear,
     subscribe: subscribe,
     snapshot: snapshot,
@@ -1035,6 +1056,10 @@
   const browserLiveClients = new Set();
 
   function dispatchBrowserLive(type, event) {
+    const connection = global.VdrSuiteConnection;
+    if (connection && (type === 'open' || type === 'error')) {
+      try { connection.live(type); } catch (error) {}
+    }
     // One cache observer per physical connection, before the existing owners
     // schedule their authoritative readbacks. No additional EventSource.
     const cache = global.VdrSuiteHomeCache;
