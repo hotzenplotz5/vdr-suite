@@ -45,7 +45,7 @@ A roadmap entry is never automatic permission to implement the next possible dif
 
 ## PWA — Local-first Webfrontend modernization (decision 2026-11-19)
 
-**Next prioritized frontend workstream:** PWA.1–PWA.13 (local artwork, measured cache behavior, selected series covers and authorized Local-first startup), extending the existing
+**Next prioritized frontend workstream:** PWA.1–PWA.13.1 (local artwork, selected series covers, authorized Local-first startup and public logos), extending the existing
 Webfrontend for both ordinary browser use and optional PWA installation.
 Reuse the server read models, Client API, artwork previews and SSE feed;
 add a versioned app shell, scoped IndexedDB read-model persistence and
@@ -1349,3 +1349,5 @@ No public C++ ABI or `-dev` package is implied.
 ### Media Tools MT.ENC3.2 – Software-Encoding-Einstellungen (14.11.2026)
 
 Eigene Settings-Karte für H.264-Import und HEVC-Shrink; persistiert ausschließlich in der vorhandenen Backend-Agent-Konfiguration. Die vier typisierten Werte werden vor einem neuen Auftrag erneut eingelesen und eingefroren. Software-CRF/Presets nicht mit VAAPI-/QSV-/NVENC-Qualitätssteuerungen gleichsetzen. Implementierung im Quellstand; isolierte und reale yaVDR-/SSE-/VDR-/Playback-Abnahmen bleiben getrennt offen. BAS erst nach Media Tools.
+
+PWA performance follow-up before PWA.14: PWA.13.1 public logo/negative cache (source candidate); PWA.13.2 scoped EPG artwork including Hero; PWA.13.3 critical startup path and time-to-visible/interactive evidence. Real warm performance acceptance remains open.

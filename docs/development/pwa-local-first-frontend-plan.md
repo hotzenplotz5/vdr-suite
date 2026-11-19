@@ -833,3 +833,42 @@ epoch mismatch, error, expiry, and selected-cover filtering. The startup
 preview is still temporary and not a replacement for the live interactive
 rail. No C++ or schema change. Candidate tests and real native browser
 acceptance remain open until executed. PWA.14 remains separate.
+
+## PWA.13.1 — persistent public logo resources (2026-11-19)
+
+PWA.13 installed at `6187ae7b39a38c07cddeaaf641f8dc5332307bd7`;
+operator reports scoped Home, SSE, isolation, artwork, frontend tests and
+runtime deployment PASS (`PWA13_INSTALLATION=PASS`). Two subsequent
+diagnostic captures reported 1,044,345/411,590 image transfer bytes;
+the latter had 230 image elements rather than 159. Both observed 25
+successful logo images (393,590 transfer bytes), a logo-route link
+resource (392,424 bytes), and 32 normal missing-logo 204 replies
+(9,600 bytes). Both also observed a 413,542-byte CSS-initiated EPG
+resource; that is PWA.13.2, not this slice. Resource Timing aggregates
+are not a network trace or a time-to-interactive measurement.
+
+The existing HTTP logo route already serves anonymous public PNG/SVG
+files before the security gate. Its unchanged successful lookup now
+advertises public freshness for one hour, and its existing missing
+204 result for five minutes (not 404/error responses). Existing root
+priority, filename validation, image formats, alias lookup/fallback and
+status remain unchanged. The worker caches these explicitly public
+responses in a separate per-installation Cache Storage namespace, max
+512 entries and 1 MiB per positive entry. It serves fresh entries,
+including empty 204 status, locally without revalidation. It honors
+remaining freshness/Age, bypasses explicit reload/range/auth/query
+requests and refuses private, unapproved, redirected or other-status
+responses. Expiry causes the original network lookup, so newly added
+logos appear after the short negative window; normal browser hard
+reload can bypass the worker policy. Public brand/genre PNG/SVG paths
+share the same policy. No change to private artwork/session purge,
+authorization, API, database schema, polling or logo sync workflow.
+Older server and storage failure retain ordinary online delivery.
+
+Extended existing shell tests for positive and negative cache reuse,
+worker restart, both public base paths, expiry, sprite fetch, old server,
+foreign paths, unsafe requests and storage failure; HTTP tests verify
+the actual public headers and unchanged lookup. Exact test execution
+and incremental daemon installation remain unverified. PWA.13.2
+(EPG artwork), PWA.13.3 (critical path and timing), and PWA.14 (real
+performance acceptance) remain open.
