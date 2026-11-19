@@ -302,3 +302,7 @@ This snapshot remains the handoff point for frontend work:
 
 - [Development Index](index.md)
 - [Documentation Index](../index.md)
+
+### PWA.13.7 optional Home folder card view
+
+The established `fetchClientRecordingFolder` route accepts `homeCards=1` for the auto-expanded Home folder. Limit/offset apply across child folders (including single-recording leaves) followed by direct recordings, rather than only direct recordings. Response adds `homeCardPage:true`, `cardCount`, `returnedCards`, `hasMore`; existing folderCount/recordingCount/totalCount retain their meanings. Legacy callers omit the option and are unchanged. No new route or permission.

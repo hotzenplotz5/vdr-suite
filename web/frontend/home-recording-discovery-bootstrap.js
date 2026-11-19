@@ -15,13 +15,17 @@
   const PREFETCH_START_DELAY_MS = 500;
   // Optional speculative reads only; initial and user-driven reads keep
   // their existing independent owners.
-  let pendingRailPrefetch = null;
+  // Two bounded owner slots, one speculative HTTP request in flight.
+  const pendingRailPrefetch = new Map();
   let railPrefetchScheduled = false;
   let railPrefetchRunning = false;
   const HERO_SELECTOR = '.media-home-hero.media-home-live-hero-active[data-home-zone="hero"]';
   const CATEGORY_SELECTOR = '.media-home-discovery-card.genre, .media-home-discovery-card.folder';
   const DRAG_CLASS = 'media-home-mouse-dragging';
   const INLINE_PAGE_LIMIT = 100;
+  const HOME_FOLDER_INITIAL = 12;
+  const HOME_FOLDER_PREFETCH = 24;
+  const HOME_FOLDER_PREFETCH_MS = 30000;
   const INLINE_METADATA_CONCURRENCY = 4;
   const INLINE_FOLDER_ARTWORK_CONCURRENCY = 3;
   const INLINE_FOLDER_ARTWORK_READS = 2;
@@ -104,9 +108,14 @@
   function drainRailPrefetch() {
     railPrefetchScheduled = false;
     if (railPrefetchRunning) return;
-    const entry = pendingRailPrefetch;
-    pendingRailPrefetch = null;
-    if (!entry || !railPrefetchAllowed() || !entry.isCurrent()) return;
+    const next = pendingRailPrefetch.entries().next();
+    if (next.done) return;
+    const [key, entry] = next.value;
+    pendingRailPrefetch.delete(key);
+    if (!railPrefetchAllowed() || !entry.isCurrent()) {
+      armRailPrefetch();
+      return;
+    }
     railPrefetchRunning = true;
     Promise.resolve().then(function () {
       if (railPrefetchAllowed() && entry.isCurrent()) return entry.run();
@@ -118,7 +127,7 @@
   }
 
   function armRailPrefetch() {
-    if (!pendingRailPrefetch || railPrefetchScheduled || railPrefetchRunning ||
+    if (!pendingRailPrefetch.size || railPrefetchScheduled || railPrefetchRunning ||
         typeof global.setTimeout !== 'function') return;
     railPrefetchScheduled = true;
     global.setTimeout(function () {
@@ -128,10 +137,11 @@
     }, PREFETCH_START_DELAY_MS);
   }
 
-  function scheduleRailPrefetch(isCurrent, run) {
+  function scheduleRailPrefetch(isCurrent, run, key = 'movies') {
     if (!railPrefetchAllowed() || typeof isCurrent !== 'function' ||
         typeof run !== 'function' || !isCurrent()) return false;
-    pendingRailPrefetch = {isCurrent, run};
+    if (key !== 'movies' && key !== 'folder') return false;
+    pendingRailPrefetch.set(key, {isCurrent, run});
     armRailPrefetch();
     return true;
   }
@@ -143,7 +153,8 @@
     const scrollLeft = Math.max(0, Number(rail.scrollLeft) || 0);
     if (clientWidth <= 0 || scrollWidth <= clientWidth) return false;
     const classes = String(rail.className || '').split(/\s+/);
-    const networkPaged = classes.includes('recent-movies') || classes.includes('media-home-live-guide-rail');
+    const networkPaged = classes.includes('recent-movies') || classes.includes('media-home-live-guide-rail') ||
+      classes.includes('media-home-inline-folder-paged');
     const threshold = networkPaged ? Math.max(RAIL_NEAR_END_THRESHOLD, Math.min(1200, clientWidth)) : RAIL_NEAR_END_THRESHOLD;
     return scrollWidth - scrollLeft - clientWidth <= threshold;
   }
@@ -355,6 +366,8 @@
     if (kind === 'folder') {
       state.rootPath = '';
       state.path = '';
+      state.paged = false;
+      state.paging = null;
     }
     if (section) {
       removeExpansion(section);
@@ -669,6 +682,10 @@
   function hydrateInlineFolderArtwork(expansion, cards, backendId, isCurrent) {
     const client = clientApi();
     if (!client || typeof client.fetchClientRecordingFolder !== 'function') return;
+    if (typeof expansion.__appendFolderArtwork === 'function') {
+      expansion.__appendFolderArtwork(cards);
+      return;
+    }
     let stopped = false, active = 0, observer = null;
     const pending = [];
     const live = () => !stopped && isCurrent() && expansion.isConnected !== false;
@@ -742,22 +759,28 @@
       pump();
     }
 
+    const items = new Map();
     if (typeof global.IntersectionObserver === 'function') {
-      const items = new Map(cards.map(item => [item.card, item]));
       observer = new global.IntersectionObserver(function (entries) {
         if (!live()) { observer.disconnect(); return; }
         entries.forEach(function (entry) {
           if (!entry.isIntersecting) return;
           observer.unobserve(entry.target);
           const item = items.get(entry.target);
+          items.delete(entry.target);
           if (item) enqueueVisible(item);
         });
       }, {rootMargin: '160px'});
-      cards.forEach(item => observer.observe(item.card));
-    } else {
-      // Older runtimes: limit initial work rather than walking the entire tree.
-      cards.slice(0, 10).forEach(enqueueVisible);
     }
+    expansion.__appendFolderArtwork = function (added) {
+      if (!live()) return;
+      if (observer) {
+        added.forEach(item => { items.set(item.card, item); observer.observe(item.card); });
+      } else {
+        added.slice(0, 10).forEach(enqueueVisible);
+      }
+    };
+    expansion.__appendFolderArtwork(cards);
   }
 
   function pageHasMore(payload, nextOffset, returnedCount) {
@@ -1015,6 +1038,157 @@
     return true;
   }
 
+  // The auto-opened Home folder uses the opt-in combined card page. Normal
+  // explicit folder browsing retains its established complete-query contract.
+  function folderPageCurrent(paging) {
+    const state = inline.folder;
+    const session = global.VdrSuiteBrowserSession;
+    const owner = platform();
+    return state.paging === paging && state.request === paging.request &&
+      state.backendId === paging.backendId && selectedBackendId() === paging.backendId &&
+      state.path === paging.path && findExpansion(state.section) === paging.expansion &&
+      paging.expansion.isConnected !== false &&
+      (!session || (typeof session.isAuthenticated === 'function' && session.isAuthenticated())) &&
+      (!owner || typeof owner.getSelectedModule !== 'function' || owner.getSelectedModule() === 'overview');
+  }
+
+  function fetchHomeFolderPage(paging, limit) {
+    const offset = paging.offset;
+    return Promise.resolve(paging.client.fetchClientRecordingFolder({
+      backendId: paging.backendId,
+      query: {path: paging.path, limit: limit, offset: offset, homeCards: 1},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    })).then(function (payload) {
+      if (!folderPageCurrent(paging)) return null;
+      const returned = list(payload, 'folders').length + list(payload, 'recordings').length;
+      if (!payload || payload.homeCardPage !== true || Number(payload.offset) !== offset ||
+          Number(payload.returnedCards) !== returned || returned > limit ||
+          typeof payload.hasMore !== 'boolean' || (!returned && payload.hasMore))
+        throw new Error('invalid Home folder card page');
+      const projected = projectFolderEntries(payload, paging.backendId);
+      return {folders: projected.folders,
+        recordings: projected.recordings.concat(canonicalRecordings(payload, paging.backendId)),
+        offset: offset + returned, hasMore: payload.hasMore};
+    });
+  }
+
+  function scheduleFolderPrefetch(paging) {
+    const cache = global.VdrSuiteHomeCache;
+    if (!folderPageCurrent(paging) || !paging.hasMore || paging.loading || paging.prefetch ||
+        !cache || typeof cache.captureRailFence !== 'function') return;
+    const fence = cache.captureRailFence('folders', paging.backendId);
+    if (!fence) return;
+    const offset = paging.offset;
+    const valid = () => folderPageCurrent(paging) && fence() && paging.offset === offset &&
+      !paging.loading && !paging.prefetch && paging.hasMore;
+    scheduleRailPrefetch(valid, function () {
+      if (!valid()) return false;
+      const entry = {offset, fence, receivedAt: 0, promise: null};
+      paging.prefetch = entry;
+      entry.promise = Promise.resolve().then(() => fetchHomeFolderPage(paging, HOME_FOLDER_PREFETCH))
+        .then(function (page) {
+          if (!page || !folderPageCurrent(paging) || !fence() || paging.prefetch !== entry) return null;
+          entry.receivedAt = Date.now();
+          return page;
+        }).catch(() => null).then(function (page) {
+          if (!page && paging.prefetch === entry) paging.prefetch = null;
+          return page;
+        });
+      return entry.promise;
+    }, 'folder');
+  }
+
+  function publishFolderPage(paging, page) {
+    if (!page || !folderPageCurrent(paging)) return false;
+    if (paging.notice) { paging.notice.remove(); paging.notice = null; }
+    const addedFolders = [];
+    page.folders.forEach(function (entry) {
+      const key = 'f:' + folderPath(entry);
+      if (paging.seen.has(key)) return;
+      paging.seen.add(key);
+      const item = createInlineFolderCard(entry, openFolderPathInline);
+      paging.rail.appendChild(item.card);
+      addedFolders.push(item);
+    });
+    const backendId = paging.backendId;
+    page.recordings.forEach(function (recording) {
+      const key = 'r:' + recordingId(recording);
+      if (paging.seen.has(key)) return;
+      paging.seen.add(key);
+      const projected = recordingMetadataProjection(recording, recording.nativeMetadata);
+      paging.rail.appendChild(createInlineRecordingCard(projected, backendId, recording));
+    });
+    paging.offset = page.offset;
+    paging.hasMore = page.hasMore;
+    if (addedFolders.length)
+      hydrateInlineFolderArtwork(paging.expansion, addedFolders, backendId, () => folderPageCurrent(paging));
+    if (!paging.hasMore && paging.more) { paging.more.remove(); paging.more = null; }
+    if (!paging.seen.size && !paging.hasMore)
+      renderInlineState(paging.expansion, 'Dieser Aufnahmeordner ist leer.', false);
+    return true;
+  }
+
+  function loadMoreFolderCards(paging) {
+    if (!folderPageCurrent(paging) || paging.loading || !paging.hasMore) return Promise.resolve(false);
+    const buffered = paging.prefetch;
+    const fresh = () => buffered && paging.prefetch === buffered && buffered.offset === paging.offset &&
+      buffered.fence() && (!buffered.receivedAt || Date.now() - buffered.receivedAt <= HOME_FOLDER_PREFETCH_MS);
+    const demand = () => folderPageCurrent(paging)
+      ? fetchHomeFolderPage(paging, HOME_FOLDER_INITIAL) : Promise.resolve(null);
+    if (!fresh()) paging.prefetch = null;
+    const load = Promise.resolve().then(function () {
+      return fresh() ? buffered.promise.then(page => page && fresh() ? page : demand()) : demand();
+    }).then(function (page) {
+      if (paging.prefetch === buffered) paging.prefetch = null;
+      return publishFolderPage(paging, page);
+    }).catch(function () {
+      if (folderPageCurrent(paging)) {
+        if (paging.notice) paging.notice.remove();
+        const notice = doc.createElement('p');
+        notice.className = 'media-home-inline-state error';
+        notice.setAttribute('role', 'status');
+        notice.textContent = 'Ordnerinhalt vorübergehend nicht verfügbar. Erneut versuchen.';
+        paging.expansion.appendChild(notice);
+        paging.notice = notice;
+      }
+      return false;
+    });
+    paging.loading = load;
+    return load.then(function (result) {
+      if (paging.loading === load) paging.loading = null;
+      if (result) scheduleFolderPrefetch(paging);
+      return result;
+    });
+  }
+
+  function openPagedFolder(client, backendId, path, request, expansion) {
+    const rail = doc.createElement('div');
+    rail.className = 'media-home-discovery-rail media-home-inline-rail media-home-inline-folder-paged';
+    expansion.appendChild(rail);
+    const more = doc.createElement('button');
+    more.type = 'button';
+    more.className = 'media-home-inline-back';
+    more.textContent = 'Weitere Aufnahmen';
+    expansion.appendChild(more);
+    const notice = doc.createElement('p');
+    notice.className = 'media-home-inline-state';
+    notice.setAttribute('role', 'status');
+    notice.textContent = 'Ordnerinhalt wird geladen …';
+    expansion.appendChild(notice);
+    const paging = {client, backendId, path, request, expansion, rail, more,
+      offset: 0, hasMore: true, loading: null, prefetch: null, seen: new Set(), notice};
+    inline.folder.paging = paging;
+    more.addEventListener('click', () => loadMoreFolderCards(paging));
+    return loadMoreFolderCards(paging);
+  }
+
+  function handleFolderRailNearEnd(event) {
+    const paging = inline.folder.paging;
+    if (!paging || !event || !event.detail || event.detail.rail !== paging.rail) return false;
+    return loadMoreFolderCards(paging);
+  }
+
   function openFolderPathInline(path) {
     const state = inline.folder;
     const client = clientApi();
@@ -1031,6 +1205,7 @@
     state.request += 1;
     const request = state.request;
     state.path = nextPath;
+    state.paging = null;
     const expansion = makeInlineShell(
       section,
       'folder',
@@ -1039,6 +1214,7 @@
       nextPath !== rootPath ? '← ' + pathLeaf(parentPath(nextPath) || rootPath) : '',
       nextPath !== rootPath ? function () { openFolderPathInline(parentPath(nextPath) || rootPath); } : null
     );
+    if (state.paged) return openPagedFolder(client, backendId, nextPath, request, expansion);
     renderInlineState(expansion, 'Ordnerinhalt wird geladen …', false);
 
     return fetchFolderContents(client, backendId, nextPath).then(function (result) {
@@ -1051,7 +1227,7 @@
     });
   }
 
-  function openFolderInline(card) {
+  function openFolderInline(card, paged = false) {
     const section = categorySection(card, 'folder');
     const path = categoryKey(card, 'folder');
     const backendId = selectedBackendId();
@@ -1071,7 +1247,17 @@
     state.backendId = backendId;
     state.section = section;
     state.card = card;
+    state.paged = paged;
     return openFolderPathInline(path);
+  }
+
+  function openRandomFolderInline(card) {
+    const section = categorySection(card, 'folder');
+    // The scheduled automatic selection must not replace user navigation.
+    if (!section || findExpansion(section)) return Promise.resolve(false);
+    const session = global.VdrSuiteBrowserSession;
+    if (session && (!session.isAuthenticated || !session.isAuthenticated())) return Promise.resolve(false);
+    return openFolderInline(card, true);
   }
 
   function handleInlineCategoryClick(event) {
@@ -1128,6 +1314,14 @@
     doc.addEventListener('pointercancel', handlePointerCancel);
     doc.addEventListener('dragstart', handleNativeDragStart, true);
     doc.addEventListener('scroll', handleRailScroll, true);
+    doc.addEventListener(RAIL_NEAR_END_EVENT, handleFolderRailNearEnd);
+    const session = global.VdrSuiteBrowserSession;
+    if (session && typeof session.subscribe === 'function') {
+      session.subscribe(function (value) {
+        if (value && value.authenticated) return;
+        if (inline.folder.paged) resetInline('folder', inline.folder.section);
+      });
+    }
     doc.addEventListener('click', handleClickCapture, true);
     return true;
   }
@@ -1185,6 +1379,7 @@
     installMouseDrag: installMouseDrag,
     nearEndEventName: RAIL_NEAR_END_EVENT,
     scheduleRailPrefetch: scheduleRailPrefetch,
+    openRandomFolderInline: openRandomFolderInline,
     __test: Object.freeze({
       canonicalSelectedBackendId: canonicalSelectedBackendId,
       railNearEnd: railNearEnd,

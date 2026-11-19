@@ -714,10 +714,11 @@ ApiResponse VdrRecordingFolderController::getFolder(
     const std::string& backendId,
     const std::string& path,
     int limit,
-    int offset)
+    int offset,
+    bool homeCards)
 {
     const VdrRecordingFolderPage page = repository_.folderPageForBackend(
-        backendId, path, limit, offset);
+        backendId, path, limit, offset, homeCards);
     const std::map<std::string, ManualRecordingMetadataAssignment>
         manualAssignments = manualMetadataBatchLookup_
             ? manualMetadataBatchLookup_(page.backendId)
@@ -776,8 +777,19 @@ ApiResponse VdrRecordingFolderController::getFolder(
          << ",\"recordingCount\":" << page.recordingCount
          << ",\"returnedCount\":" << page.recordings.size()
          << ",\"limit\":" << page.limit
-         << ",\"offset\":" << page.offset
-         << ",\"folders\":[";
+         << ",\"offset\":" << page.offset;
+    if (homeCards)
+    {
+        const auto cardCount = static_cast<long long>(page.folderCount) + page.recordingCount;
+        const auto returned = page.folders.size() + page.recordings.size();
+        json << ",\"homeCardPage\":true"
+             << ",\"cardCount\":" << cardCount
+             << ",\"returnedCards\":" << returned
+             << ",\"hasMore\":"
+             << (static_cast<long long>(page.offset) + static_cast<long long>(returned) < cardCount
+                 ? "true" : "false");
+    }
+    json << ",\"folders\":[";
     for (std::size_t index = 0; index < page.folders.size(); ++index)
     {
         if (index > 0) json << ",";

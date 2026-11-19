@@ -1068,7 +1068,8 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
     const std::string& backendId,
     const std::string& folderPath,
     int limit,
-    int offset) const
+    int offset,
+    bool homeCards) const
 {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
@@ -1130,8 +1131,16 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
         return page;
     }
 
-    page.folders = folder->second.folders;
+    page.folderCount = static_cast<int>(folder->second.folders.size());
+    page.recordingCount = static_cast<int>(folder->second.recordings.size());
+    const int folderStart = homeCards ? std::min(page.offset, page.folderCount) : 0;
+    const int folderTake = homeCards
+        ? std::min(page.limit, page.folderCount - folderStart)
+        : page.folderCount;
+    page.folders.assign(folder->second.folders.begin() + folderStart,
+                        folder->second.folders.begin() + folderStart + folderTake);
 
+    // Only resolve embedded recording leaves within the requested card page.
     for (auto& child : page.folders)
     {
         const auto childFolder =
@@ -1149,20 +1158,16 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
             childFolder->second.recordings.front();
     }
 
-    page.folderCount =
-        static_cast<int>(page.folders.size());
+    const int recordingStart = homeCards
+        ? std::max(0, page.offset - page.folderCount) : page.offset;
+    const int recordingLimit = homeCards ? page.limit - folderTake : page.limit;
+    const int end = recordingStart < page.recordingCount
+        ? recordingStart + std::min(recordingLimit, page.recordingCount - recordingStart)
+        : recordingStart;
 
-    page.recordingCount =
-        static_cast<int>(folder->second.recordings.size());
-
-    const int end =
-        std::min(
-            page.recordingCount,
-            page.offset + page.limit);
-
-    if (page.offset < page.recordingCount)
+    if (recordingStart < page.recordingCount)
     {
-        for (int index = page.offset; index < end; ++index)
+        for (int index = recordingStart; index < end; ++index)
         {
             page.recordings.push_back(
                 folder->second.recordings.at(

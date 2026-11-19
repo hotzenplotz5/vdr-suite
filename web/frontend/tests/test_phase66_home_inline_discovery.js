@@ -575,6 +575,87 @@ function wait(milliseconds) {
   await settle();
   assert.strictEqual(folderCalls.filter(call => call.query.limit === 100)[2].query.path, 'Action', 'inline back navigation must return to the selected root folder');
 
+  // Automatic expansion must request a genuine combined card page: hold
+  // the 24-card lookahead and verify the initial twelve already exist.
+  const bootstrap = window.VdrSuiteHomeRecordingDiscoveryBootstrap;
+  const randomCard = makeCard('folder', 'Doku', 'Doku');
+  const randomSection = makeSection('folders', randomCard);
+  const totalCards = Array.from({length: 40}, (_, i) => recording('d' + i, 'Doku ' + i));
+  const timers = [];
+  window.setTimeout = callback => { timers.push(callback); return timers.length; };
+  window.VdrSuiteBrowserSession = {isAuthenticated: () => true};
+  window.VdrSuitePlatform.getSelectedModule = () => 'overview';
+  let fenceEpoch = 1;
+  window.VdrSuiteHomeCache = {captureRailFence() {
+    const epoch = fenceEpoch; return () => epoch === fenceEpoch;
+  }};
+  let releaseLookahead;
+  const originalFolderFetch = client.fetchClientRecordingFolder;
+  client.fetchClientRecordingFolder = function (options) {
+    if (options.query.path !== 'Doku') return originalFolderFetch(options);
+    folderCalls.push(options);
+    const {offset, limit, homeCards} = options.query;
+    assert.strictEqual(homeCards, 1);
+    const items = totalCards.slice(offset, offset + limit);
+    // Include embedded leaves in the combined count; the renderer must
+    // project those as recordings, retaining native metadata and identity.
+    const response = {homeCardPage: true, offset, returnedCards: items.length,
+      hasMore: offset + items.length < totalCards.length,
+      folders: items.map(item => ({path:'Doku/' + item.recordingId, name:item.title,
+        singleRecordingLeaf:true, singleRecording:item})), recordings: []};
+    if (limit === 24) return new Promise(resolve => { releaseLookahead = () => resolve(response); });
+    return Promise.resolve(response);
+  };
+  const beforeRandom = folderCalls.length;
+  assert.strictEqual(await bootstrap.openRandomFolderInline(randomCard), true);
+  const randomExpansion = randomSection.querySelector('.media-home-inline-expansion');
+  const randomRail = randomExpansion.querySelector('.media-home-discovery-rail');
+  assert.strictEqual(randomRail.children.length, 12);
+  assert.strictEqual(folderCalls.length, beforeRandom + 1);
+  assert.strictEqual(folderCalls.at(-1).query.limit, 12);
+  assert.strictEqual(timers.length, 1);
+  timers.shift()();
+  await settle();
+  assert.strictEqual(folderCalls.at(-1).query.limit, 24);
+  assert.strictEqual(folderCalls.at(-1).query.offset, 12);
+  assert.strictEqual(randomRail.children.length, 12);
+  const more = randomExpansion.children.find(node => node.textContent === 'Weitere Aufnahmen');
+  assert(more);
+  clickElement(more);
+  await settle();
+  assert.strictEqual(folderCalls.length, beforeRandom + 2, 'demand joins pending lookahead');
+  releaseLookahead();
+  await settle();
+  assert.strictEqual(randomRail.children.length, 36);
+  assert.strictEqual(randomExpansion.querySelector('.media-home-discovery-rail'), randomRail);
+  assert.strictEqual(new Set(randomRail.children.map(node => node.dataset.recordingId)).size, 36);
+  timers.shift()();
+  await settle();
+  ++fenceEpoch;
+  releaseLookahead();
+  await settle();
+  clickElement(more);
+  await settle();
+  assert.strictEqual(randomRail.children.length, 40);
+  assert.strictEqual(folderCalls.at(-1).query.limit, 12, 'invalidated speculative page requires demand read');
+  assert.strictEqual(more.parentNode, null);
+  // Do not replace a manually/automatically opened folder with a later
+  // scheduled auto-selection, and reject responses after collapse.
+  assert.strictEqual(await bootstrap.openRandomFolderInline(randomCard), false);
+  clickElement(randomCard);
+  assert.strictEqual(randomSection.querySelector('.media-home-inline-expansion'), null);
+  const initialAgain = bootstrap.openRandomFolderInline(randomCard);
+  await initialAgain;
+  const staleExpansion = randomSection.querySelector('.media-home-inline-expansion');
+  const staleRail = staleExpansion.querySelector('.media-home-discovery-rail');
+  timers.shift()();
+  await settle();
+  clickElement(randomCard);
+  releaseLookahead();
+  await settle();
+  assert.strictEqual(randomSection.querySelector('.media-home-inline-expansion'), null);
+  assert.strictEqual(staleRail.children.length, 12);
+  client.fetchClientRecordingFolder = originalFolderFetch;
   console.log('phase66 Home inline genre native metadata and folder discovery contract ok');
 }()).catch(error => {
   console.error(error);

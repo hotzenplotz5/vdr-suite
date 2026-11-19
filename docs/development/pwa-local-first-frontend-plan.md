@@ -1034,3 +1034,12 @@ one host microtask, before Node vm's cross-realm Promise adoption settled.
 Wait for the event-loop turn with the second response still held pending;
 assert the second request has started and only category tiles exist before
 releasing it. No runtime or permission changes. Native rerun remains open.
+
+## PWA.13.7 — random folder performance (2026-11-19)
+
+Operator confirmed PWA136_INSTALLATION=PASS at `b3925f80a058e8f2b2cdf28e6f1ad6962f833f96` and reported responsive Home except the automatically expanded random recording folder. The legacy folder query limits direct recordings only; every child folder, including embedded single-recording leaves, was serialized and enriched, then the browser awaited all direct-recording pages. The optional existing route query `homeCards=1` slices child folders followed by direct recordings in the same catalog snapshot before embedding leaf metadata/serialization; total folder and recording counts retain their meaning. Home receives `homeCardPage`, `cardCount`, `returnedCards`, and `hasMore`; legacy requests remain unchanged. The random auto-open starts from the first authoritative root category page, requests 12 combined cards first, then optionally buffers 24 using the existing 30-second scope/SSE fence and shared one-in-flight speculative scheduler (two keyed pending owners). Scroll/click joins pending prefetch or uses a normal demand page; no speculative poster DOM, no new polling or durable cache. Existing manual non-auto folder navigation retains the legacy contract, nested browsing within the auto-opened rail uses the same combined pagination. Page-local display groups genuine folders before recording cards. Same rail stays mounted during append. No schema migration. Matching daemon and frontend required; runtime and actual performance acceptance remain open.
+
+The paged expansion also keeps its loading/error notice separate from the
+already mounted rail, uses the existing single bounded artwork coordinator
+across appends, and drops speculative responses after collapse or session
+logout. Automatic selection never displaces an already expanded folder.

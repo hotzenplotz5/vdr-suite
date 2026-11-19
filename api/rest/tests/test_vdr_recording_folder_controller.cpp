@@ -342,6 +342,41 @@ int main()
     assert(manualLookupCalls == 0);
     assert(traceState.recordingInventoryReads == 0);
 
+    // Combined card paging includes embedded leaves in the budget, not
+    // merely the direct-recording slice. Legacy callers remain unchanged.
+    const int beforeHomeNative = nativeLookupCalls;
+    const auto homeFirst = controller.getFolder("default", "", 1, 0, true);
+    assert(homeFirst.statusCode == 200);
+    assert(contains(homeFirst.body, "\"homeCardPage\":true"));
+    assert(contains(homeFirst.body, "\"cardCount\":4"));
+    assert(contains(homeFirst.body, "\"returnedCards\":1"));
+    assert(contains(homeFirst.body, "\"hasMore\":true"));
+    assert(contains(homeFirst.body, "\"singleRecording\":{\"id\":\"drama-1\""));
+    assert(!contains(homeFirst.body, "\"name\":\"Movies\""));
+    assert(!contains(homeFirst.body, "\"id\":\"root-1\""));
+    assert(nativeLookupCalls - beforeHomeNative <= 1);
+    const auto homeMiddle = controller.getFolder("default", "", 2, 1, true);
+    assert(contains(homeMiddle.body, "\"returnedCards\":2"));
+    assert(contains(homeMiddle.body, "\"name\":\"Movies\""));
+    assert(contains(homeMiddle.body, "\"name\":\"Series\""));
+    assert(!contains(homeMiddle.body, "\"id\":\"root-1\""));
+    const auto homeMixed = controller.getFolder("default", "", 2, 2, true);
+    assert(contains(homeMixed.body, "\"returnedCards\":2"));
+    assert(contains(homeMixed.body, "\"name\":\"Series\""));
+    assert(contains(homeMixed.body, "\"id\":\"root-1\""));
+    assert(contains(homeMixed.body, "\"hasMore\":false"));
+    const auto homeLast = controller.getFolder("default", "", 2, 3, true);
+    assert(contains(homeLast.body, "\"returnedCards\":1"));
+    assert(contains(homeLast.body, "\"hasMore\":false"));
+    assert(contains(homeLast.body, "\"id\":\"root-1\""));
+    assert(contains(homeLast.body, "\"manualAssignment\":{\"active\":true"));
+    assert(contains(homeLast.body, "\"folders\":[]"));
+    const auto homePastEnd = controller.getFolder("default", "", 12, 999, true);
+    assert(contains(homePastEnd.body, "\"returnedCards\":0"));
+    assert(contains(homePastEnd.body, "\"hasMore\":false"));
+    assert(!contains(root.body, "\"homeCardPage\""));
+    assert(traceState.recordingInventoryReads == 0);
+
     sqlite3_trace_v2(
         database.handle(),
         0,

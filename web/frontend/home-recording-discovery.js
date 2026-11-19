@@ -4961,7 +4961,8 @@
     function openSelectedFolder() {
       if (!current(generation, backendId)) return false;
       const bootstrap = global.VdrSuiteHomeRecordingDiscoveryBootstrap;
-      if (!bootstrap || typeof bootstrap.installMouseDrag !== 'function') return false;
+      if (!bootstrap || typeof bootstrap.installMouseDrag !== 'function' ||
+          typeof bootstrap.openRandomFolderInline !== 'function') return false;
       bootstrap.installMouseDrag();
       const section = sectionFor('folders');
       if (!section || typeof section.querySelectorAll !== 'function') return false;
@@ -4972,13 +4973,13 @@
         selectedCard = card;
         return true;
       });
-      if (!selectedCard || typeof selectedCard.click !== 'function') return false;
+      if (!selectedCard) return false;
       if (selectedCard.classList &&
           typeof selectedCard.classList.contains === 'function' &&
           selectedCard.classList.contains('inline-selected')) return true;
       if (typeof selectedCard.getAttribute === 'function' &&
           selectedCard.getAttribute('aria-expanded') === 'true') return true;
-      selectedCard.click();
+      bootstrap.openRandomFolderInline(selectedCard);
       return true;
     }
 
@@ -5006,6 +5007,7 @@
       state.folderProjection = {folders: folders, rootRecordings: []};
       state.folderBackendId = backendId;
       partial = renderFolderRail(folders, [], backendId);
+      if (partial) scheduleRandomFolderInline(folders, backendId, generation, Math.random());
     }).then(function (projection) {
       if (!current(generation, backendId)) { if (cache) cache.cancel(); return false; }
       if (cache) cache.finish(cachedFolderCards(projection));
@@ -5016,7 +5018,7 @@
         projection.rootRecordings,
         backendId
       );
-      if (rendered) {
+      if (rendered && !partial) {
         scheduleRandomFolderInline(
           projection.folders,
           backendId,
