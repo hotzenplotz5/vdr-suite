@@ -131,7 +131,7 @@ assert(
 
 assert(
   source.includes(
-    'simplifySeriesHierarchyEditor();'
+    'simplifySeriesHierarchyEditor(surface && surface.section);'
   )
 );
 

@@ -1175,3 +1175,8 @@ substitution or speculative offscreen requests detached from rendered cards.
 Actual first cold folder HTTP latency and cover latency have not been
 measured separately; those remain real-browser acceptance questions.
 Native frontend regression and real-browser acceptance pending.
+
+CI #12918 confirmed the native Series return/scroll, native grouping, SSE,
+progressive projection and hierarchy tests; the older simple-UI source-string
+contract still expected the single-surface call signature. Adjust that contract
+and the matching production-composition signature, retaining mutation/UI checks.

@@ -85,7 +85,7 @@ assert(source.includes("backLabel: config.backLabel || '← Zurück zu Home'"));
 assert(source.includes("onClose: typeof config.onClose === 'function' ? config.onClose : returnHome"));
 assert(source.includes("backLabel: '← Zurück zur Staffel'"));
 assert(source.includes(
-  'function renderSeriesDetail(series, selectedSeason, backendId, options)'
+  'function renderSeriesDetail(series, selectedSeason, backendId, options, surface)'
 ));
 assert(source.includes(
   'function seriesMetadataPendingForDetail(series, backendId)'
@@ -106,6 +106,10 @@ assert(source.includes(
   'canEnrich && hierarchyIncomplete'
 ));
 assert(!source.includes('homeRecordingId'));
+assert(source.includes('mountFolderSeries: mountFolderSeries'));
+assert(source.includes('members.length !== expected'));
+assert(bootstrap.includes('discovery.mountFolderSeries(expansion, nextPath, backendId'));
+assert(source.includes('prioritizeInlineRailArtwork(view.episodeRail)'));
 
 // Existing metadata/artwork projection is reused with browser-native lazy image loading and fallback.
 assert(source.includes('presentation(recording).posterUrl || artwork.preferredUrl'));

@@ -3032,10 +3032,14 @@
       }
 
       refreshFolderSeries(backendId);
+      if (!seriesMetadataComplete(recordings, generation, backendId)) {
+        scheduleSeriesMetadataRetry(client, recordings, backendId, generation,
+          SERIES_DETAIL_METADATA_RETRY_MS);
+      }
       if (surface) {
         // The shared projection refresh only updates the still-mounted view.
-        // Do not reopen a folder/series that the user has left.
-        return true;
+        // Update the upper view only if it already displays this series.
+        if (state.seriesViewKey !== series.key) return true;
       }
       if (state.seriesViewKey !== series.key) return true;
       const selectedSeason = state.seriesSeasonNumber === null
@@ -3049,20 +3053,6 @@
         selectedSeason,
         backendId
       );
-
-      if (!seriesMetadataComplete(
-            recordings,
-            generation,
-            backendId
-          )) {
-        scheduleSeriesMetadataRetry(
-          client,
-          recordings,
-          backendId,
-          generation,
-          SERIES_DETAIL_METADATA_RETRY_MS
-        );
-      }
 
       return renderedDetail;
     }).catch(function () {
