@@ -401,6 +401,16 @@ async function proveInitialHomeDefersNativeMetadata() {
   assert.strictEqual(card.__vdrSuiteSeries.episodes[2].episodeTitle, 'Richtiger Folgentitel 2');
   assert.strictEqual(seriesImage(cached).src, embedded[0].seriesMetadata.preferredArtwork.url,
     'first rendered card must use the cached portrait without a representative round trip');
+  const mixed = embedded.map((recording, index) => index === 0
+    ? Object.assign({}, recording, {seriesMetadata: undefined})
+    : recording);
+  const mixedHarness = createHarness(null, mixed);
+  assert.strictEqual(await mixedHarness.api.refreshForHome(), true);
+  await flush();
+  assert.strictEqual(mixedHarness.metadataCalls(), 0,
+    'a later canonical member with a cached poster must satisfy Home Series artwork');
+  assert.strictEqual(seriesImage(mixedHarness).src, embedded[1].seriesMetadata.preferredArtwork.url);
+
   console.log('post-Phase-66 initial Home metadata deferral contract passed');
 }()).catch((error) => {
   console.error(error);
