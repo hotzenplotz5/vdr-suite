@@ -1451,7 +1451,7 @@
         operationEvents.addEventListener('resync', checkOperation);
       }
       operationEvents.onerror = () => {
-        // Keep the existing EventSource reconnect behavior.
+        // Keep the shared client's automatic reconnect behavior.
         if (!attached) return;
         checkOperationButton.hidden = false;
         checkOperationButton.disabled = false;
