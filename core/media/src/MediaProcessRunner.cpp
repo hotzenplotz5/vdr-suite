@@ -138,6 +138,8 @@ MediaProcessCaptureResult MediaProcessRunner::runAndCapture(
     if (pid == 0) {
         ::setpgid(0, 0);
         ::close(pipeFds[0]);
+        // Best effort only; lack of permission must not break a media read.
+        if (limits.niceAdjustment > 0) (void)::nice(limits.niceAdjustment);
         const rlimit memoryLimit{limits.addressSpaceBytes, limits.addressSpaceBytes};
         const rlimit cpuLimit{limits.cpuSeconds, limits.cpuSeconds};
         if ((limits.addressSpaceBytes && ::setrlimit(RLIMIT_AS, &memoryLimit) != 0) ||

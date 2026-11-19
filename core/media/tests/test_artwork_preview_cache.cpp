@@ -37,6 +37,17 @@ int main() {
     ArtworkPreviewCache restarted(cacheRoot.string(), "/missing/ffmpeg");
     assert(restarted.home("recording-1?assignmentRevision=1", "image/png", png) == preview);
 
+    // Exact byte identity is independent of URL aliases and revisions after
+    // the authorized source has been resolved; changed originals still miss.
+    assert(restarted.home("different-gallery-url", "image/png", png) == preview);
+    const auto prewarmSource = fixture("png", "1000x700");
+    assert(cache.prewarmHome("image/png", prewarmSource));
+    const auto warmed = restarted.home("/api/vdr/recordings/metadata/image?kind=gallery&index=1&variant=home",
+                                       "image/png", prewarmSource);
+    assert(!warmed.empty() && warmed.size() < prewarmSource.size());
+    assert(restarted.home("another-url", "image/png", prewarmSource) == warmed);
+    assert(restarted.prewarmHome("image/png", prewarmSource));
+
     // A cached preview must remain readable while an unrelated conversion owns
     // both the in-process converter mutex and the cache-directory flock.
     // A second cache miss must still fail fast instead of creating a queue.
@@ -49,9 +60,10 @@ int main() {
     ::chmod(busyScript.c_str(), 0700);
 
     ArtworkPreviewCache busy(cacheRoot.string(), busyScript.string());
+    const auto busySource = fixture("png", "900x1100");
     std::string busyResult;
     std::thread busyWorker([&] {
-        busyResult = busy.home("busy-miss", "image/png", png);
+        busyResult = busy.home("busy-miss", "image/png", busySource);
     });
 
     for (unsigned i = 0; i < 200 && !fs::exists(busyMarker); ++i)
@@ -63,13 +75,13 @@ int main() {
     assert(std::chrono::steady_clock::now() - hitStart < std::chrono::seconds(1));
 
     auto missStart = std::chrono::steady_clock::now();
-    assert(busy.home("busy-second-miss", "image/png", png).empty());
+    assert(busy.home("busy-second-miss", "image/png", busySource).empty());
     assert(std::chrono::steady_clock::now() - missStart < std::chrono::seconds(1));
 
     busyWorker.join();
     assert(busyResult.empty());
-    assert(restarted.home("recording-1?assignmentRevision=2", "image/png", png).empty());
-    const auto changed = fixture("png", "1000x700");
+    assert(restarted.home("recording-1?assignmentRevision=2", "image/png", png) == preview);
+    const auto changed = fixture("png", "1100x700");
     assert(restarted.home("recording-1?assignmentRevision=1", "image/png", changed).empty());
     assert(cache.home("small", "image/png", fixture("png", "200x300")).empty());
     assert(cache.home("wrong-type", "image/jpeg", png).empty());

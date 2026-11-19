@@ -1072,3 +1072,40 @@ folder-scroll wiring and loading-height release. Actual full native
 frontend regression and real browser performance remain open; no
 daemon rebuild is required by these changes. No measured speedup or
 final PWA.14 acceptance claimed before the operator's repeat test.
+
+### PWA.14.4 — bounded server-side recording artwork preparation
+
+Operator confirmed PWA14_INSTALLATION=PASS for `aee493c7cf63c0e714f15418603ce8cb21b85671`
+including the native frontend regression and PWA shell verification. The repeat
+smartphone test reports very fast warm browsing but several seconds for
+some cold covers; browser vs server cache, original image reads and decoder
+latency remain distinct and are not yet measured independently.
+
+The inspected request path previously ran FFmpeg on a cold preview miss
+(up to three seconds wall time); concurrent misses fall back to original
+bytes instead of queuing. The existing private preview cache now keys new
+derivatives by exact source content and MIME, independent of HTTP URL.
+Previous route-bound entries remain readable. Only the existing authorized
+image read can supply original bytes; no HTTP access, account partition,
+validator, grant, source-path validation or browser cache semantics change.
+Different original content must miss even when a URL is unchanged.
+
+The existing Recording cache warmup worker schedules up to 64 newest
+recordings per backend on startup and newly discovered recording identities
+after its existing refresh events, plus committed native metadata identities
+from the existing metadata cycle. It owns a memory-only deduplicated
+128-candidate queue and attempts one item after ordinary refresh work per
+existing iteration, outside the shared refresh lease. Use the canonical
+validated metadata poster reader, with the existing legacy artwork reader
+for compatibility when no poster response exists; no external acquisition,
+new HTTP route, polling loop, worker thread, persistent queue or schema.
+Background FFmpeg runs at a best-effort lower CPU priority; the same
+nonblocking conversion lock, byte/pixel/time limits and 32 MiB / 256-entry
+disk capacity remain. Cached/small/missing images do not require conversion.
+This is bounded preparation, not a promise to pre-render the entire library.
+Content is re-read/validated at demand, so the original read cost remains.
+Server-Timing separates authorized read from preview work for Home responses;
+the read interval includes routing and authorization, not solely file I/O.
+The cache/HTTP regressions exercise prewarmed bytes, aliases, changed inputs
+and existing authorization. Native C++ tests, build and actual yaVDR cold
+browser timings are open. No new frontend installation is required.

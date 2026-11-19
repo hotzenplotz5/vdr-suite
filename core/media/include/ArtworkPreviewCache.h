@@ -18,7 +18,13 @@ public:
     std::string home(const std::string& identity, const std::string& contentType,
                      const std::string& source) const;
 
+    // Best-effort preparation from the same validated local image readers,
+    // without an HTTP identity. No access to original bytes is granted here.
+    bool prewarmHome(const std::string& contentType, const std::string& source) const;
+
 private:
+    std::string renderHome(const std::string& identity, const std::string& contentType,
+                           const std::string& source, bool background) const;
     std::string directory_;
     std::string executable_;
     mutable std::mutex mutex_;

@@ -23,6 +23,7 @@ struct MediaProcessLimits
 {
     std::size_t addressSpaceBytes = 0;
     unsigned cpuSeconds = 0;
+    int niceAdjustment = 0; // Optional lower CPU priority for speculative work.
 };
 
 class MediaProcessRunner

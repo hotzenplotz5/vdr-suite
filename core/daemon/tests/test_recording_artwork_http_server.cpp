@@ -226,6 +226,12 @@ int main()
     assert(large.success);
     { std::ofstream file(root / "movies/7/poster.png", std::ios::binary); file << large.output; }
     metadataDelegate->metadataImage = large.output;
+    // Prepare the exact private derivative before any HTTP Home request.
+    ArtworkPreviewCache warmer((root / "previews").string());
+    assert(warmer.prewarmHome("image/png", large.output));
+    ArtworkPreviewCache noDecoder((root / "previews").string(), "/missing/ffmpeg");
+    const auto prewarmed = noDecoder.home("not-a-real-route", "image/png", large.output);
+    assert(!prewarmed.empty());
     for (const std::string& url : {artworkUrl,
             std::string("/api/vdr/recordings/metadata/image?recordingId=7&kind=preferred"),
             std::string("/api/recordings/metadata/image?recordingId=7&kind=preferred&assignmentRevision=9"),
@@ -241,6 +247,8 @@ int main()
         const auto resized = server.handleRequest(authorized);
         assert(resized.statusCode == 200 && resized.body.size() < original.body.size());
         assert(resized.headers.at("Content-Type") == "image/jpeg");
+        assert(resized.body == prewarmed);
+        assert(resized.headers.at("Server-Timing").find("artwork-preview;dur=") != std::string::npos);
         assert(resized.headers.count("Content-Length") == 0 && resized.headers.count("ETag") == 0);
         assert(resized.headers.count("Last-Modified") == 0);
         // Compatibility previews are still delivered, but never persisted
