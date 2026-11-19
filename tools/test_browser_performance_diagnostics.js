@@ -57,6 +57,24 @@ async function main() {
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(sent.at(-1).message.type, 'headers');
     assert.equal(calls.at(-1)[0], 'headers');
+    child.navigator = {serviceWorker:{controller:{postMessage(data, ports) {
+      assert.equal(data.type,'vdr-suite-artwork-measurement');
+      ports[0].send({schema:1,capacity:1024,maxPreviewBytes:262144,counters:{localHits:7,imageHttpRequests:2}});
+    }}}};
+    child.MessageChannel = class {
+      constructor() {
+        this.port1 = {close() {}};
+        this.port2 = {send: value => this.port1.onmessage({data:value})};
+      }
+    };
+    child.setTimeout = setTimeout;
+    child.clearTimeout = clearTimeout;
+    message('start',{label:'measurement'});
+    message('stop');
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(sent.at(-1).message.type,'result');
+    assert.equal(sent.at(-1).message.value.metrics.artworkWorker.counters.localHits,7);
+    assert.equal(sent.at(-1).message.value.metrics.artworkWorker.capacity,1024);
 
     const handlers = {};
     const elements = {};

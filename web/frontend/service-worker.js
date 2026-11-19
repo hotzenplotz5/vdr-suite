@@ -51,11 +51,12 @@ async function offlineShell() {
 // from an existing Home read; other artwork retains per-image revalidation.
 const artworkPrefix = 'vdr-suite-pwa-artwork:' + encodeURIComponent(scope.href) + ':';
 const artworkName = artworkPrefix + 'v2';
-const artworkLimit = 192;
+const artworkLimit = 1024;
 const artworkBytes = 256 * 1024;
 let artworkGeneration = 0;
 let artworkSessionMutations = 0;
 let artworkWrites = Promise.resolve();
+let artworkWriteKeys = null;
 const artworkTag = /^"vsr-[0-9a-f]{64}"$/;
 const artworkScope = /^vsr-[0-9a-f]{64}$/;
 const artworkTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -72,6 +73,28 @@ const artworkStaleMs = 24 * 60 * 60 * 1000;
 const artworkProofs = new Map();
 let artworkProofEpoch = 0, artworkProofSequence = 0;
 const artworkRefreshing = new Set();
+
+// Diagnostic counters are deliberately per controlled document and in memory.
+// No recording identifiers, URL, account, scope or credential is exported.
+const artworkMeasurements = new Map();
+function artworkMeasurement(event) {
+  if (!event.clientId) return null;
+  let value = artworkMeasurements.get(event.clientId);
+  if (!value) {
+    value = {requests: 0, localHits: 0, revalidatedHits: 0, imageHttpRequests: 0,
+      serverImages: 0, serverOther: 0, networkErrors: 0, missingProof: 0,
+      expiredProof: 0, otherArtworkRoute: 0, cacheMiss: 0, outdatedEntry: 0,
+      backgroundRefreshes: 0, writes: 0, evictions: 0, storageWriteErrors: 0,
+      proofReads: 0, acceptedProofs: 0};
+    artworkMeasurements.set(event.clientId, value);
+    while (artworkMeasurements.size > 128) artworkMeasurements.delete(artworkMeasurements.keys().next().value);
+  }
+  return value;
+}
+function countArtwork(event, field) {
+  const measurement = artworkMeasurement(event);
+  if (measurement) measurement[field]++;
+}
 
 function forgetArtworkProofs() {
   artworkProofEpoch++;
@@ -103,6 +126,7 @@ async function observeArtworkProof(event, backend) {
   const epoch = artworkProofEpoch, sequence = ++artworkProofSequence;
   const key = proofKey(event.clientId, backend);
   const started = Date.now();
+  countArtwork(event, 'proofReads');
   let response;
   try { response = await fetch(new Request(event.request, {cache: 'no-store'})); }
   catch (error) { forgetArtworkProofs(); throw error; }
@@ -121,6 +145,7 @@ async function observeArtworkProof(event, backend) {
   if (prior && prior.partition !== partition) forgetArtworkProofs();
   artworkProofs.delete(key);
   artworkProofs.set(key, {partition, sequence, started});
+  countArtwork(event, 'acceptedProofs');
   while (artworkProofs.size > 128) artworkProofs.delete(artworkProofs.keys().next().value);
   return response;
 }
@@ -162,7 +187,10 @@ function serializeArtwork(action) {
 function clearArtwork() {
   artworkGeneration++;
   forgetArtworkProofs();
-  return serializeArtwork(async () => { await caches.delete(artworkName); });
+  return serializeArtwork(async () => {
+    artworkWriteKeys = null;
+    await caches.delete(artworkName);
+  });
 }
 
 function validatedArtwork(response, expectedPartition) {
@@ -200,7 +228,9 @@ async function artworkCandidates(base) {
   } catch (error) { return []; }
 }
 
-function artworkFetch(request, tags) {
+function artworkFetch(event, tags) {
+  const request = event.request;
+  countArtwork(event, 'imageHttpRequests');
   const headers = new Headers(request.headers);
   headers.delete('If-None-Match');
   headers.delete('If-Modified-Since');
@@ -208,7 +238,7 @@ function artworkFetch(request, tags) {
   return fetch(new Request(request, {headers, mode: 'same-origin', cache: 'no-store'}));
 }
 
-function storeArtwork(base, response, generation) {
+function storeArtwork(base, response, generation, event) {
   const tag = response.headers.get('ETag');
   const partition = response.headers.get('X-VDR-Suite-Artwork-Scope');
   const size = Number(response.headers.get('X-VDR-Suite-Artwork-Bytes'));
@@ -220,22 +250,50 @@ function storeArtwork(base, response, generation) {
     if (generation !== artworkGeneration || artworkSessionMutations) return;
     const bytes = await copy.arrayBuffer();
     if (bytes.byteLength !== size || generation !== artworkGeneration) return;
-    const cache = await caches.open(artworkName);
-    const key = base + '?scope=' + partition;
-    // Only the image and explicit non-secret metadata are stored; never request headers.
-    await cache.delete(key);
-    await cache.put(key, new Response(bytes, {headers: {'Content-Type': type, ETag: tag, 'X-VDR-Suite-Artwork-Scope': partition, 'X-VDR-Suite-Artwork-Bytes': String(size), 'Cache-Control': 'private, no-cache', 'X-VDR-Suite-Artwork-Cache': 'revalidated', 'X-VDR-Suite-Artwork-Validated-At': String(validatedAt)}}));
-    const keys = await cache.keys();
-    for (const old of keys.slice(0, Math.max(0, keys.length - artworkLimit))) await cache.delete(old);
+    try {
+      const cache = await caches.open(artworkName);
+      const key = base + '?scope=' + partition;
+      // Reconstruct insertion order once per worker/storage failure, not
+      // once for every poster. All mutations use the existing serial queue.
+      if (!artworkWriteKeys) artworkWriteKeys = new Set((await cache.keys()).map(entry => entry.url));
+      await cache.delete(key);
+      artworkWriteKeys.delete(key);
+      // Make room before writing; replacing an existing key does not evict
+      // an unrelated poster. Quota failure remains an optional-cache miss.
+      while (artworkWriteKeys.size >= artworkLimit) {
+        const oldest = artworkWriteKeys.values().next().value;
+        const removed = await cache.delete(oldest);
+        artworkWriteKeys.delete(oldest);
+        if (removed) countArtwork(event, 'evictions');
+      }
+      // Only the image and explicit non-secret metadata are stored; never request headers.
+      await cache.put(key, new Response(bytes, {headers: {'Content-Type': type, ETag: tag, 'X-VDR-Suite-Artwork-Scope': partition, 'X-VDR-Suite-Artwork-Bytes': String(size), 'Cache-Control': 'private, no-cache', 'X-VDR-Suite-Artwork-Cache': 'revalidated', 'X-VDR-Suite-Artwork-Validated-At': String(validatedAt)}}));
+      artworkWriteKeys.add(key);
+      countArtwork(event, 'writes');
+    } catch (error) {
+      artworkWriteKeys = null;
+      countArtwork(event, 'storageWriteErrors');
+    }
   });
 }
 
 async function handleArtwork(event) {
+  countArtwork(event, 'requests');
   const generation = artworkGeneration;
   const proof = currentArtworkProof(event);
+  if (!proof) {
+    const url = new URL(event.request.url);
+    if (!recordingArtworkRoutes.has(url.pathname.slice(installationPath.length))) countArtwork(event, 'otherArtworkRoute');
+    else {
+      const previous = artworkProofs.get(proofKey(event.clientId, url.searchParams.get('backend')));
+      const age = previous && Date.now() - previous.started;
+      countArtwork(event, previous && (age < 0 || age > artworkProofMs) ? 'expiredProof' : 'missingProof');
+    }
+  }
   if (proof) {
     const base = artworkBase(event.request);
     const candidate = await scopedArtwork(base, proof.partition);
+    if (!candidate) countArtwork(event, 'cacheMiss');
     // Recheck after asynchronous storage access; logout or grant drift may
     // have happened while the cache was being read.
     const current = currentArtworkProof(event);
@@ -248,6 +306,7 @@ async function handleArtwork(event) {
           // deduplicated and bounded, never a barrier to visible covers.
           if (artworkRefreshing.size < 4 && !artworkRefreshing.has(key)) {
             artworkRefreshing.add(key);
+            countArtwork(event, 'backgroundRefreshes');
             // Independently read the cached candidate for background validation:
             // its body must never share the foreground response's readable stream.
             const refresh = revalidateArtwork(event).then(response => {
@@ -258,8 +317,10 @@ async function handleArtwork(event) {
         }
         const headers = new Headers(candidate.response.headers);
         headers.set('X-VDR-Suite-Artwork-Cache', 'local');
+        countArtwork(event, 'localHits');
         return new Response(candidate.response.body, {headers});
       }
+      countArtwork(event, 'outdatedEntry');
     }
   }
   return revalidateArtwork(event);
@@ -267,44 +328,55 @@ async function handleArtwork(event) {
 
 async function revalidateArtwork(event) {
   const request = event.request;
-  if (artworkSessionMutations) return artworkFetch(request, []);
+  if (artworkSessionMutations) return artworkFetch(event, []);
   const generation = artworkGeneration;
   const base = artworkBase(request);
   const candidates = await artworkCandidates(base);
   let response;
   try {
-    response = await artworkFetch(request, generation === artworkGeneration && !artworkSessionMutations ? candidates.map(c => c.tag) : []);
-  } catch (error) { forgetArtworkProofs(); throw error; }
-  if (generation !== artworkGeneration || artworkSessionMutations) return artworkFetch(request, []);
+    response = await artworkFetch(event, generation === artworkGeneration && !artworkSessionMutations ? candidates.map(c => c.tag) : []);
+  } catch (error) { forgetArtworkProofs(); countArtwork(event, 'networkErrors'); throw error; }
+  if (generation !== artworkGeneration || artworkSessionMutations) return artworkFetch(event, []);
   if (response.status === 304) {
     const match = candidates.find(c => c.tag === response.headers.get('ETag') &&
       c.partition === response.headers.get('X-VDR-Suite-Artwork-Scope') &&
       c.size === Number(response.headers.get('X-VDR-Suite-Artwork-Bytes')) &&
       (!response.headers.get('Content-Type') || c.type === response.headers.get('Content-Type')));
     if (match) {
+      countArtwork(event, 'revalidatedHits');
       const age = Date.now() - match.validatedAt;
-      if (!match.validatedAt || age < 0 || age > artworkFreshMs) event.waitUntil(storeArtwork(base, match.response, generation));
+      if (!match.validatedAt || age < 0 || age > artworkFreshMs) event.waitUntil(storeArtwork(base, match.response, generation, event));
       return match.response;
     }
-    response = await artworkFetch(request, []);
+    response = await artworkFetch(event, []);
   }
   if (generation !== artworkGeneration || artworkSessionMutations) return response;
+  countArtwork(event, response.status === 200 ? 'serverImages' : 'serverOther');
   if (response.status === 401) event.waitUntil(clearArtwork());
   else if (response.status === 403 || response.status === 404 || response.status === 410) {
     if (response.status === 403) forgetArtworkProofs();
     event.waitUntil(serializeArtwork(async () => {
     if (generation !== artworkGeneration) return;
     const cache = await caches.open(artworkName);
-    for (const key of await cache.keys(base, {ignoreSearch: true})) await cache.delete(key);
+    for (const key of await cache.keys(base, {ignoreSearch: true})) {
+      await cache.delete(key);
+      if (artworkWriteKeys) artworkWriteKeys.delete(key.url);
+    }
     }));
   }
-  else if (response.status === 200) event.waitUntil(storeArtwork(base, response, generation));
+  else if (response.status === 200) event.waitUntil(storeArtwork(base, response, generation, event));
   return response;
 }
 
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'vdr-suite-artwork-clear') event.waitUntil(clearArtwork());
   if (event.data && event.data.type === 'vdr-suite-artwork-proof-reset') forgetArtworkProofs();
+  if (event.data && event.data.type === 'vdr-suite-artwork-measurement' &&
+      event.source && event.source.id && event.ports && event.ports[0]) {
+    const measurement = artworkMeasurements.get(event.source.id);
+    event.ports[0].postMessage({schema: 1, capacity: artworkLimit, maxPreviewBytes: artworkBytes,
+      counters: measurement ? {...measurement} : null});
+  }
 });
 
 function artworkSessionMutation(request) {

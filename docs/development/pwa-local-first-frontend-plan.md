@@ -678,3 +678,38 @@ fresh proof, exact scope and tab, expired proof, partition changes, background
 refresh including 304, denial, offline reset and logout. Exact candidate test
 execution, installed activation and real performance acceptance remain open
 at commit time. PWA.12–14 are not implemented here.
+
+## PWA.11.1 — artwork capacity and observable cache behavior (2026-11-19)
+
+Operator installed PWA.11 at `662810c`: focused PWA contracts including
+the extended artwork test, generated shell and runtime check all PASS.
+The subsequent video and operator report still show slow poster population.
+The live performance gate remains FAILED / OPEN.
+
+The persistent preview cache now retains up to 1024 scoped entries instead
+of 192 (at most 256 KiB each, i.e. 256 MiB of image payload at the configured
+ceiling; actual browser quota and overhead vary). No cache version bump or
+deliberate loss of existing entries. Insertion-order eviction uses a
+worker-local key inventory reconstructed on first write, clear or storage
+write failure, rather than enumerating all keys after every poster. The
+existing serialized mutation queue, session clearing, scoped cache keys and
+per-image eligibility remain. This is FIFO by successful storage/refresh,
+not a new persistent LRU index. External browser eviction can reduce actual
+occupancy until the worker reconstructs its inventory. No new server query,
+permission change or cache-proof lifetime change.
+
+The opt-in browser performance diagnostic now appends actual Service Worker
+counts to its existing JSON capture: local hits, conditional hits, image HTTP
+requests, proof reads/accepts, missing/expired proof, other artwork routes,
+cache misses, old entries, server results, background refreshes, writes,
+evictions and write failures. Counts are cumulative for that controlled
+document since worker start, not exact timed deltas; a worker restart can
+reset them. The diagnostic requests its own counters via a one-shot message
+port, without identifiers, URLs, scopes or credentials. A missing worker or
+old/unavailable diagnostics channel reports unavailable instead of blocking
+normal operation. The embedded diagnostic does not measure top-level static
+shell caching. No periodic polling or ordinary production UI change.
+
+Tests extended for strict cache capacity, avoided full key scans, eviction
+and the real worker/diagnostic message flow. Actual candidate execution and
+real browser performance evidence remain open at commit time.

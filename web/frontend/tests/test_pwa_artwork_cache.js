@@ -12,7 +12,7 @@ async function run(prefix) {
   const url = 'https://suite.test' + prefix + '/api/vdr/recordings/metadata/image?backend=default&recordingId=7&variant=home';
   let partition = scopeA, tag = tagA, status = 200, content = 'poster-a', offline = false, fail = false, last;
   let holdImage = null, holdMutation = null;
-  let clock = 1700000000000, imageReads = 0, proofReads = 0;
+  let clock = 1700000000000, imageReads = 0, proofReads = 0, fullKeyReads = 0;
   const deferred = () => {
     let resolve;
     const promise = new Promise(done => { resolve = done; });
@@ -23,7 +23,7 @@ async function run(prefix) {
     if (fail) throw Error('quota');
     if (!stores.has(name)) stores.set(name, new Map());
     const rows = stores.get(name);
-    return {async keys(key, options) {return [...rows.keys()].filter(k => key === undefined || (options?.ignoreSearch ? k.split('?')[0] === keyUrl(key).split('?')[0] : k === keyUrl(key))).map(url => ({url}));}, async put(key, response) {rows.set(keyUrl(key), response.clone());}, async match(key) {return rows.get(keyUrl(key))?.clone();}, async delete(key) {return rows.delete(keyUrl(key));}};
+    return {async keys(key, options) {if (key === undefined) fullKeyReads++; return [...rows.keys()].filter(k => key === undefined || (options?.ignoreSearch ? k.split('?')[0] === keyUrl(key).split('?')[0] : k === keyUrl(key))).map(url => ({url}));}, async put(key, response) {rows.set(keyUrl(key), response.clone());}, async match(key) {return rows.get(keyUrl(key))?.clone();}, async delete(key) {return rows.delete(keyUrl(key));}};
   }, async delete(name) {return stores.delete(name);}};
   const responseHeaders = () => ({'Content-Type':'image/jpeg', ETag:tag, 'X-VDR-Suite-Artwork-Scope':partition, 'X-VDR-Suite-Artwork-Bytes':String(Buffer.byteLength(content)), 'Cache-Control':'private, no-cache'});
   const context = {scope, URL, Response, Request, Headers, caches, Date:{now:()=>clock}, self:{registration:{scope:scope.href},addEventListener:(name, cb)=>{listeners[name]=cb;}}, fetch:async request=>{
@@ -87,8 +87,25 @@ async function run(prefix) {
   status=401; assert.equal((await image()).status,401); status=200;
   fail=true; assert.equal(await (await image()).text(),'new poster'); fail=false;
   content='x'.repeat(256*1024+1); await image(); assert.equal([...stores.values()].reduce((n,m)=>n+m.size,0),0);
-  content='body'; for(let i=0;i<193;i++) await image(url.replace('recordingId=7','recordingId='+i));
-  assert.equal([...stores.values()][0].size,192);
+  content='body';
+  const scansBefore = fullKeyReads;
+  for(let i=0;i<1025;i++) await image(url.replace('recordingId=7','recordingId='+i), 'capacity-tab');
+  assert.equal([...stores.values()][0].size,1024);
+  assert.ok(fullKeyReads - scansBefore <= 1, 'no full cache-key scan per image write');
+  const keys = [...stores.values()][0];
+  assert(![...keys.keys()].some(key => key.includes(encodeURIComponent('recordingId=0&'))), 'oldest entry is evicted');
+  function measurement(id) {
+    let value;
+    listeners.message({data:{type:'vdr-suite-artwork-measurement',clientId:'forged'},
+      source:{id},ports:[{postMessage:report=>{value=report;}}]});
+    return value;
+  }
+  const capacity = measurement('capacity-tab');
+  assert.equal(capacity.capacity,1024);
+  assert.equal(capacity.counters.writes,1025);
+  assert.equal(capacity.counters.evictions,1);
+  assert.equal(measurement('unseen-tab').counters,null);
+  assert(!JSON.stringify(capacity).includes('recordingId'));
   for (const address of [url.replace('variant=home','variant=full'),url+'&token=secret',url+'&backend=other',url.replace('suite.test','else.test')]) {
     const request=new Request(address); Object.defineProperty(request,'destination',{value:'image'});
     assert.equal(invoke('artworkRequest',[request]),false);
@@ -143,12 +160,17 @@ async function run(prefix) {
   assert.equal(local.headers.get('X-VDR-Suite-Artwork-Cache'),'local');
   assert.equal(imageReads,before,'a fresh scoped cached image must not make an image HTTP request');
   assert.equal(proofReads,1);
+  assert.equal(measurement('tab-a').counters.localHits,1);
+  assert.equal(measurement('tab-a').counters.imageHttpRequests,0);
+  assert.equal(measurement('tab-a').counters.acceptedProofs,1);
 
   await image(url,'other-tab');
   assert.equal(imageReads,before+1,'another tab needs its own fresh proof');
   clock+=5001;
   await image(url,'tab-a');
   assert.equal(imageReads,before+2,'expired proof uses original revalidation');
+  assert.equal(measurement('tab-a').counters.expiredProof,1);
+  assert.equal(measurement('other-tab').counters.missingProof,1);
   await proof();
   partition=scopeB; tag=tagB; content='different-account';
   await proof();
