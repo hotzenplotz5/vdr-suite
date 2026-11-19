@@ -674,8 +674,47 @@ function wait(milliseconds) {
   await settle();
   assert.strictEqual(randomSection.querySelector('.media-home-inline-expansion'), null);
   assert.strictEqual(staleRail.children.length, 12);
+  // Real click enters the same owner with a first-page preview while
+  // the authoritative response is held. Preview cards cannot open recordings.
+  const warmCard = makeCard('folder', 'Warm', 'Warm');
+  const warmSection = makeSection('folders', warmCard);
+  let releaseWarm, paintWarm, currentWarm, removeWarm, savedWarm, acceptedWarm;
+  const warmResponse = {homeCardPage:true, path:'Warm', cacheReady:true,
+    offset:0, returnedCards:1, hasMore:false, folders:[],
+    recordings:[recording('warm-new','Fresh recording')]};
+  client.fetchClientRecordingFolder = options => {
+    assert.strictEqual(options.query.homeCards,1);
+    assert.strictEqual(options.query.limit,12);
+    return new Promise(resolve => { releaseWarm = () => resolve(warmResponse); });
+  };
+  window.VdrSuiteHomeCache = {beginFolder(path,backend,current,paint) {
+    assert.strictEqual(path,'Warm'); assert.strictEqual(backend,'backend-a');
+    paintWarm=paint; currentWarm=current;
+    return {accept(payload){acceptedWarm=payload;},
+      finish(cards){savedWarm=cards;if(removeWarm)removeWarm();},
+      cancel(){if(removeWarm)removeWarm();}};
+  }};
+  clickElement(warmCard);
+  await settle();
+  assert(currentWarm());
+  removeWarm=paintWarm([{id:'r:old',title:'Cached recording',subtitle:'',posterUrl:''}]);
+  assert.strictEqual(typeof removeWarm,'function');
+  const warmExpansion=warmSection.querySelector('.media-home-inline-expansion');
+  const warmRails=warmExpansion.querySelectorAll('.media-home-discovery-rail');
+  assert.strictEqual(warmRails.length,2);
+  assert.strictEqual(warmRails[0].hidden,true);
+  assert.strictEqual(warmRails[1].children[0].tagName,'DIV');
+  assert.strictEqual(warmRails[1].children[0].querySelector('strong').textContent,'Cached recording');
+  releaseWarm(); await settle(); await settle();
+  assert.strictEqual(acceptedWarm,warmResponse);
+  assert.strictEqual(savedWarm[0].id,'r:warm-new');
+  assert.strictEqual(warmExpansion.querySelectorAll('.media-home-discovery-rail').length,1);
+  assert.strictEqual(warmRails[0].hidden,false);
+  assert.strictEqual(warmRails[0].children[0].dataset.recordingId,'warm-new');
+  clickElement(warmCard);
+  assert.strictEqual(currentWarm(),false);
   client.fetchClientRecordingFolder = originalFolderFetch;
-  console.log('phase66 Home inline genre native metadata and folder discovery contract ok');
+  console.log('phase66 Home inline genre native metadata, paginated folder and preview contract ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;

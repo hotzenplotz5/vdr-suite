@@ -36,9 +36,9 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   {id:'4',title:'No foreign',posterUrl:'/api/vdr/recordings/metadata/image?backend=other&recordingId=4'}];
 (async()=>{
   const folders = create();
-  const path = '/api/vdr/recordings/folder';
+  const folderRoute = '/api/vdr/recordings/folder';
   const firstFolder = folders.beginFolder('Serien','alpha',()=>true,()=>null);
-  assert(firstFolder.accept(observe(folders,path,scopeA,response(scopeA),
+  assert(firstFolder.accept(observe(folders,folderRoute,scopeA,response(scopeA),
     {path:'Serien',homeCardPage:true,cacheReady:true,offset:0})));
   assert(await firstFolder.finish(cards));
   let paints = 0, removes = 0;
@@ -48,7 +48,7 @@ const cards = [{id:'1',title:'Old poster',subtitle:'Episode',posterUrl:'/api/vdr
   await drain(); assert.equal(paints,1);
   const other = folders.beginFolder('Action','alpha',()=>true,()=>{throw Error('wrong path');});
   await drain(); assert.equal(paints,1);
-  assert(!other.accept(observe(folders,path,scopeA,response(scopeA),
+  assert(!other.accept(observe(folders,folderRoute,scopeA,response(scopeA),
     {path:'Serien',homeCardPage:true,cacheReady:true,offset:0})));
   assert.equal(await other.finish(cards),false);
   folders.sessionBoundary(); assert.equal(removes,1);

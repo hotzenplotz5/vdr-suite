@@ -1087,7 +1087,7 @@
       credentials: 'same-origin'
     })).then(function (payload) {
       if (!folderPageCurrent(paging)) return null;
-      if (payload && payload.homeCardPage !== true && offset === 0)
+      if (payload && payload.recordingFolder === true && payload.homeCardPage !== true && offset === 0)
         return {legacy: true};
       const returned = list(payload, 'folders').length + list(payload, 'recordings').length;
       if (!payload || payload.homeCardPage !== true || Number(payload.offset) !== offset ||

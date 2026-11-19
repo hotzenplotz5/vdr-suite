@@ -1150,3 +1150,7 @@ uses the existing fallback. The first page's scoped persistent projection
 also includes these URLs. No new schema, endpoint, polling or permission.
 Actual server/current-browser latency and native C++ validation are pending.
 IPTVnator/Plex remain perceived-speed targets, not measured equivalents.
+
+The focused preview integration test now uses the actual category-click path,
+holds the demand response, verifies the visual-only preview, then verifies
+its replacement by the canonical recording card and teardown on collapse.
