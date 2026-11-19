@@ -1180,3 +1180,23 @@ CI #12918 confirmed the native Series return/scroll, native grouping, SSE,
 progressive projection and hierarchy tests; the older simple-UI source-string
 contract still expected the single-surface call signature. Adjust that contract
 and the matching production-composition signature, retaining mutation/UI checks.
+
+### PWA.14.7 correction — do not discard the shared Series rail on count mismatch
+
+Operator confirmed PWA147_INSTALLATION=PASS, but the supplied screenshot
+showed the lower physical Series folder still had generic folder tiles
+(different covers, recording counts, missing Battlestar cover). The previous
+all-or-nothing exact-count guard and early auto-open could select the generic
+path permanently. The Series root now uses the scoped canonical groups even
+when genre membership differs from physical inventory; the original full
+folder navigation is explicitly reachable with “Alle Aufnahmen im Ordner”.
+A root opened before the existing Series query finishes stays mounted and
+receives its projection; if the settled query yields no matching members
+the existing generic browser remains available. Direct subfolder replacement
+still requires complete membership. Reuse the actual canonical series title
+and cover (including overrides) even when the episode list is filtered by
+physical location. No cross-backend membership or new query/API/cache owner.
+Regression covers a 464-recording folder with partial canonical membership,
+early opening, identical cover/title/card class, scoped seasons and original
+folder access. The exact live count/path mismatch is not measured from the
+screenshot alone. Browser verification still required.

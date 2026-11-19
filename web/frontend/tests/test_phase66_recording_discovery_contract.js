@@ -107,7 +107,9 @@ assert(source.includes(
 ));
 assert(!source.includes('homeRecordingId'));
 assert(source.includes('mountFolderSeries: mountFolderSeries'));
-assert(source.includes('members.length !== expected'));
+assert(source.includes('!allowPartial && members.length !== expected'));
+assert(source.includes('appendOriginalFolderButton(surface)'));
+assert(source.includes('Alle Aufnahmen im Ordner'));
 assert(bootstrap.includes('discovery.mountFolderSeries(expansion, nextPath, backendId'));
 assert(source.includes('prioritizeInlineRailArtwork(view.episodeRail)'));
 

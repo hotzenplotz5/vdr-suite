@@ -238,19 +238,31 @@ Promise.resolve().then(function () {
     {recordingId:'outside',backendId:'default',path:'/Elsewhere/Alpha/ep3.rec',
       title:'Alpha S01E03 Outside',metadata:{provider:{seriesId:'111'}}}
   ];
-  api._test.applySeriesProjection(members,'default');
-  assert.strictEqual(api._test.folderSeriesEntries('Serien',3,'default'),null);
-  assert.strictEqual(api._test.folderSeriesEntries('Serien',2,'other'),null);
+  members[0].metadata.presentation={posterUrl:'/alpha-series-poster.jpg'};
   const folderView = new FakeElement('div');
   host.appendChild(folderView);
   const upper = host.querySelector('[data-home-discovery-rail="series"]');
   let alive = true, fallback = 0;
+  // Physical inventory has 464 recordings, the canonical genre is still
+  // loading, and some physical recordings are not in that genre.
   assert(api.mountFolderSeries(folderView,'Serien','default',{
-    count:()=>2,current:()=>alive,back:()=>{},fallback:()=>{fallback++;}
+    count:()=>464,current:()=>alive,back:()=>{},fallback:()=>{fallback++;}
   }));
+  assert(findElement(folderView, element=>element.textContent==='Serien werden gruppiert …'));
+  api._test.applySeriesProjection(members,'default');
+  assert.strictEqual(api._test.folderSeriesEntries('Serien',464,'default'),null);
+  assert.strictEqual(api._test.folderSeriesEntries('Serien',464,'other',true),null);
+  assert.strictEqual(api._test.folderSeriesEntries('Serien',464,'default',true).length,1);
+  assert.strictEqual(fallback,0,'missing genre members must not replace the whole Series rail');
   const lowerRail = findElement(folderView, element=>element.className==='media-home-discovery-rail series');
   assert.strictEqual(lowerRail.children.length,1);
+  const sharedUpperRail = findElement(upper, element=>element.className==='media-home-discovery-rail series');
+  assert.strictEqual(lowerRail.children[0].className,sharedUpperRail.children[0].className);
+  assert.strictEqual(lowerRail.children[0].children[0].children[0].src,sharedUpperRail.children[0].children[0].children[0].src);
+  assert.strictEqual(lowerRail.children[0].children[0].children[0].src,'/alpha-series-poster.jpg');
+  assert.strictEqual(lowerRail.children[0].children[1].children[0].textContent,sharedUpperRail.children[0].children[1].children[0].textContent);
   assert.strictEqual(lowerRail.children[0].children[1].children[1].textContent,'1 Staffel · 2 Folgen');
+  assert(findElement(folderView, element=>element.textContent==='Alle Aufnahmen im Ordner'));
   lowerRail.scrollLeft=123;
   lowerRail.children[0].listeners.click[0]();
   const lowerSeason = findElement(folderView, element=>element.className==='media-home-series-season-rail');
@@ -264,8 +276,10 @@ Promise.resolve().then(function () {
   assert.strictEqual(lowerRail.parentNode,folderView);
   assert.strictEqual(lowerRail.scrollLeft,123);
   assert.deepStrictEqual(upper.children,upperBefore,'lower navigation leaves upper rail unchanged');
+  const originals = findElement(folderView, element=>element.textContent==='Alle Aufnahmen im Ordner');
+  originals.listeners.click[0]();
+  assert.strictEqual(fallback,1,'unclassified recordings remain reachable by explicit folder navigation');
   alive=false; folderView.__stopFolderSeries();
-  assert.strictEqual(fallback,0);
   console.log('phase66 shared scoped series presentation and return-scroll contract ok');
 }).catch(function (error) {
   console.error(error);

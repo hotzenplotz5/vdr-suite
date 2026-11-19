@@ -28,6 +28,7 @@
     seriesInvalidatedGeneration: -1,
     seriesProjection: [],
     seriesBackendId: '',
+    seriesFolderSettledBackendId: '',
     seriesViewKey: '',
     seriesSeasonNumber: null,
     seriesWarmBackendId: '',
@@ -3039,6 +3040,7 @@
       if (surface) {
         // The shared projection refresh only updates the still-mounted view.
         // Update the upper view only if it already displays this series.
+        if (!state.seriesViewKey) return renderSeriesRail(state.seriesProjection, backendId);
         if (state.seriesViewKey !== series.key) return true;
       }
       if (state.seriesViewKey !== series.key) return true;
@@ -3143,6 +3145,7 @@
     });
     reconcileSeriesChildren(rail, nextCards);
     prioritizeInlineRailArtwork(rail);
+    if (surface && !surface.direct) appendOriginalFolderButton(surface);
     if (restore) {
       if (restore.focused && nextCards.indexOf(restore.focused) >= 0 &&
           typeof restore.focused.focus === 'function') restore.focused.focus({preventScroll: true});
@@ -3690,13 +3693,18 @@
 
   let folderSeriesSurface = null;
   function folderSeriesPath(value) {
-    return text(value).split('/').filter(Boolean).join('/');
+    // Same separator and leading-slash normalization as the browse repository.
+    return text(value).replace(/\\/g, '/').split('/').filter(Boolean).join('/');
   }
 
-  function folderSeriesEntries(path, count, backendId) {
+  function isSeriesRootFolder(path) {
+    return /^(?:serien|serie|series)$/i.test(folderSeriesPath(path));
+  }
+
+  function folderSeriesEntries(path, count, backendId, allowPartial = false) {
     const root = folderSeriesPath(path);
     const expected = Number(count);
-    if (!root || !/^(?:serien|serie|series)$/i.test(root.split('/')[0]) ||
+    if (!root || !isSeriesRootFolder(root.split('/')[0]) ||
         !Number.isSafeInteger(expected) || expected <= 0 ||
         state.seriesBackendId !== backendId || selectedBackendId() !== backendId) return null;
 
@@ -3707,17 +3715,46 @@
       for (const member of series.episodes || []) {
         const recording = member.recording;
         const id = recordingId(recording);
+        const path = recordingPath(recording) || recordingBackendNativeId(recording);
         if (!id || recordingBackendId(recording, backendId) !== backendId ||
-            !folderSeriesPath(recordingPath(recording)).startsWith(prefix) || seen.has(id)) continue;
+            !folderSeriesPath(path).startsWith(prefix) || seen.has(id)) continue;
         seen.add(id);
         members.push(member);
       }
     }
-    if (members.length !== expected) return null;
-    return buildSeriesProjection(members);
+    // The genre index and physical recording folder need not have identical
+    // membership. Never let that disable a useful canonical Series overview.
+    // A direct subfolder replacement still needs complete coverage.
+    if (!members.length || (!allowPartial && members.length !== expected)) return null;
+    const scoped = buildSeriesProjection(members);
+    const canonical = new Map(state.seriesProjection.map(series => [series.key, series]));
+    return scoped.map(series => {
+      const shared = canonical.get(series.key);
+      if (!shared) return series;
+      if (shared.episodes.length === series.episodes.length) return shared;
+      // Keep the exact same series title and selected image as the upper
+      // rail, but retain only in-folder episodes and their season counts.
+      return Object.assign({}, shared, {episodes:series.episodes, seasons:series.seasons});
+    }).sort((a,b) => a.title.localeCompare(b.title, 'de'));
   }
 
-  function refreshFolderSeries(backendId) {
+  function appendOriginalFolderButton(surface) {
+    const section = surface.section;
+    let button = surface.originalFolderButton;
+    if (!button) {
+      button = doc.createElement('button');
+      button.type = 'button';
+      button.className = 'media-home-series-back media-home-series-original-folder';
+      button.textContent = 'Alle Aufnahmen im Ordner';
+      button.addEventListener('click', function () {
+        if (surface.current()) surface.fallback();
+      });
+      surface.originalFolderButton = button;
+    }
+    if (button.parentNode !== section) section.appendChild(button);
+  }
+
+  function refreshFolderSeries(backendId, settled = false) {
     const surface = folderSeriesSurface;
     if (!surface) return false;
     if (!surface.current()) {
@@ -3726,8 +3763,11 @@
       return false;
     }
     if (surface.backendId !== backendId) return false;
-    const entries = folderSeriesEntries(surface.path, surface.count(), backendId);
+    const entries = folderSeriesEntries(surface.path, surface.count(), backendId, !surface.direct);
     if (!entries || (surface.direct && entries.length !== 1)) {
+      // An early auto-open may precede the first genre page. Keep the
+      // same explicit Series surface until that existing request finishes.
+      if (!surface.direct && !settled && state.seriesFolderSettledBackendId !== backendId) return false;
       folderSeriesSurface = null;
       surface.fallback();
       return false;
@@ -3747,17 +3787,28 @@
     if (!section || typeof config.current !== 'function' || !config.current() ||
         typeof config.count !== 'function' || typeof config.fallback !== 'function' ||
         typeof config.back !== 'function') return false;
-    const entries = folderSeriesEntries(path, config.count(), backendId);
-    if (!entries || (config.direct && entries.length !== 1)) return false;
-    const surface = {section, path, backendId, entries, direct:config.direct === true,
+    const root = !config.direct && isSeriesRootFolder(path);
+    if (!root && !config.direct) return false;
+    const entries = folderSeriesEntries(path, config.count(), backendId, root);
+    if (!entries && (!root || state.seriesFolderSettledBackendId === backendId)) return false;
+    if (config.direct && (!entries || entries.length !== 1)) return false;
+    const surface = {section, path, backendId, entries:entries || [], direct:config.direct === true,
       count:config.count, current:config.current, fallback:config.fallback, back:config.back,
       seriesViewKey:'', seriesSeasonNumber:null};
     folderSeriesSurface = surface;
     section.__stopFolderSeries = () => {
       if (folderSeriesSurface === surface) folderSeriesSurface = null;
     };
-    return surface.direct ? openSeriesDetail(entries[0], backendId, surface)
-      : renderSeriesRail(entries, backendId, surface);
+    if (surface.direct) return openSeriesDetail(entries[0], backendId, surface);
+    if (entries) return renderSeriesRail(entries, backendId, surface);
+    section.replaceChildren();
+    appendSectionHeading(section, 'Serien');
+    const notice = doc.createElement('div');
+    notice.className = 'media-home-discovery-state';
+    notice.textContent = 'Serien werden gruppiert …';
+    section.appendChild(notice);
+    appendOriginalFolderButton(surface);
+    return true;
   }
 
   function folderSeriesCard(entry, backendId) {
@@ -4895,12 +4946,14 @@
     });
 
     if (!seriesGenre) {
+      state.seriesFolderSettledBackendId = backendId;
       clearSeriesMetadataRetry();
       clearSeriesWarm();
       state.seriesProjection = [];
       state.seriesBackendId = '';
       state.seriesViewKey = '';
       state.seriesSeasonNumber = null;
+      refreshFolderSeries(backendId, true);
       clearRail('series');
       return Promise.resolve(false);
     }
@@ -4921,6 +4974,7 @@
     }
 
     clearSeriesWarm();
+    state.seriesFolderSettledBackendId = '';
 
     const retainProjection =
       state.seriesBackendId === backendId &&
@@ -4961,6 +5015,7 @@
       if (!seriesCurrent()) { if (cache) cache.cancel(); return false; }
       if (cache) cache.dismiss();
 
+      state.seriesFolderSettledBackendId = backendId;
       if (!recordings.length) {
         if (cache) cache.finish([]);
         clearSeriesMetadataRetry();
@@ -4969,6 +5024,7 @@
         state.seriesBackendId = '';
         state.seriesViewKey = '';
         state.seriesSeasonNumber = null;
+        refreshFolderSeries(backendId, true);
         clearRail('series');
         return false;
       }
@@ -5065,13 +5121,18 @@
 
       clearSeriesMetadataRetry();
       clearSeriesWarm();
+      state.seriesFolderSettledBackendId = backendId;
 
-      if (retainProjection) return false;
+      if (retainProjection) {
+        refreshFolderSeries(backendId, true);
+        return false;
+      }
 
       state.seriesProjection = [];
       state.seriesBackendId = '';
       state.seriesViewKey = '';
       state.seriesSeasonNumber = null;
+      refreshFolderSeries(backendId, true);
 
       return renderState(
         'series',
@@ -5597,6 +5658,7 @@
       state.seriesBackendId = '';
       state.seriesViewKey = '';
       state.seriesSeasonNumber = null;
+      state.seriesFolderSettledBackendId = '';
       state.seriesCoverBackendId = '';
       state.seriesCoverSettingsLoaded = false;
       state.seriesCoverOverrides = new Map();

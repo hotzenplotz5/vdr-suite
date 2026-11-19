@@ -1331,7 +1331,8 @@
     const stillCurrent = () => state.request === request && state.path === nextPath &&
       selectedBackendId() === backendId && findExpansion(section) === expansion &&
       expansion.isConnected !== false &&
-      (!global.VdrSuiteBrowserSession || global.VdrSuiteBrowserSession.isAuthenticated()) &&
+      (!global.VdrSuiteBrowserSession || (typeof global.VdrSuiteBrowserSession.isAuthenticated === 'function' &&
+        global.VdrSuiteBrowserSession.isAuthenticated())) &&
       (!platform() || typeof platform().getSelectedModule !== 'function' || platform().getSelectedModule() === 'overview');
     if (!generic && discovery && typeof discovery.mountFolderSeries === 'function' &&
         discovery.mountFolderSeries(expansion, nextPath, backendId, {
@@ -1341,6 +1342,16 @@
         })) {
       releaseFolderHeight(expansion);
       return Promise.resolve(true);
+    }
+    if (generic && nextPath === rootPath && /^(?:serien|serie|series)$/i.test(nextPath)) {
+      const seriesButton = doc.createElement('button');
+      seriesButton.type = 'button';
+      seriesButton.className = 'media-home-inline-back';
+      seriesButton.textContent = 'Serienansicht';
+      seriesButton.addEventListener('click', () => {
+        if (stillCurrent()) openFolderPathInline(nextPath, entry);
+      });
+      expansion.appendChild(seriesButton);
     }
     if (state.paged) return openPagedFolder(client, backendId, nextPath, request, expansion);
     renderInlineState(expansion, 'Ordnerinhalt wird geladen …', false);
