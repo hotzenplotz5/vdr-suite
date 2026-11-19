@@ -842,6 +842,7 @@ int main()
         server.handleRequest(missingLogoRequest);
     assert(missingLogoResponse.statusCode == 204);
     assert(missingLogoResponse.headers.at("Content-Type") == "image/png");
+    assert(missingLogoResponse.headers.at("Cache-Control") == "public, max-age=300");
     assert(missingLogoResponse.headers.find("WWW-Authenticate") ==
         missingLogoResponse.headers.end());
     assert(missingLogoResponse.body.empty());
@@ -880,11 +881,13 @@ int main()
     assert(foundLogoResponse.statusCode == 200);
     assert(foundLogoResponse.body == "configured-root-logo");
     assert(foundLogoResponse.headers.at("Content-Type") == "image/png");
+    assert(foundLogoResponse.headers.at("Cache-Control") == "public, max-age=3600");
 
     foundLogo.path = "/channel-logos/zdf_neo.svg";
     const auto svgLogoResponse = server.handleRequest(foundLogo);
     assert(svgLogoResponse.statusCode == 200);
     assert(svgLogoResponse.headers.at("Content-Type") == "image/svg+xml");
+    assert(svgLogoResponse.headers.at("Cache-Control") == "public, max-age=3600");
 
     foundLogo.path = "/channel-logos/%2e%2e/hidden.png";
     assert(server.handleRequest(foundLogo).statusCode == 404);

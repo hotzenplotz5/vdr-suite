@@ -221,7 +221,8 @@ HttpServerResponse makeMissingChannelLogoResponse(
 
     response.statusCode = 204;
     response.headers["Content-Type"] = logoContentType(relativePath);
-    response.headers["Cache-Control"] = "no-cache";
+    // A missing public logo is a normal lookup result, not a permanent error.
+    response.headers["Cache-Control"] = "public, max-age=300";
     response.body = "";
 
     return response;
@@ -251,7 +252,9 @@ HttpServerResponse makeChannelLogoResponse(
 
     response.statusCode = 200;
     response.headers["Content-Type"] = logoContentType(relativePath);
-    response.headers["Cache-Control"] = "no-cache";
+    // This route is already anonymous and installation-scoped. Keep mutable
+    // logo files fresh within a bounded window, including bundled brand art.
+    response.headers["Cache-Control"] = "public, max-age=3600";
     response.body = content;
 
     return response;

@@ -32,7 +32,8 @@ self.addEventListener('activate', event => {
     try {
       for (const name of await caches.keys()) {
         if ((name.startsWith(cachePrefix) && name !== cacheName) ||
-            (name.startsWith(artworkPrefix) && name !== artworkName)) await caches.delete(name);
+            (name.startsWith(artworkPrefix) && name !== artworkName) ||
+            (name.startsWith(logoPrefix) && name !== logoName)) await caches.delete(name);
       }
     } catch (error) { /* Never block network access on storage failure. */ }
   })());
@@ -63,6 +64,101 @@ const artworkTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const artworkRoutes = new Set(['/api/vdr/recordings/metadata/image', '/api/recordings/metadata/image', '/api/epg/cache/artwork', '/api/epg/cache/metadata/image']);
 const artworkParams = new Set(['backend', 'backendNativeId', 'recordingId', 'kind', 'index', 'assignmentRevision', 'channelId', 'eventId', 'variant']);
 const installationPath = scope.pathname.slice(0, -'/frontend/'.length);
+
+// PWA.13.1: the existing anonymous /channel-logos owner explicitly
+// advertises public freshness. Never apply this policy to private artwork.
+const logoPrefix = 'vdr-suite-pwa-logos:' + encodeURIComponent(scope.href) + ':';
+const logoName = logoPrefix + 'v1';
+const logoLimit = 512;
+const logoBytes = 1024 * 1024;
+let logoWrites = Promise.resolve();
+let logoKeys = null;
+
+function logoRequest(request) {
+  if (request.method !== 'GET' || !['image', ''].includes(request.destination) ||
+      !request.headers || request.headers.has('Range') || request.headers.has('Authorization') ||
+      !['default', 'force-cache'].includes(request.cache || 'default')) return false;
+  const url = new URL(request.url);
+  if (url.origin !== scope.origin || url.search || url.hash ||
+      !url.pathname.startsWith(installationPath + '/channel-logos/') || url.href.length > 4096) return false;
+  const path = url.pathname.slice((installationPath + '/channel-logos/').length);
+  try {
+    const decoded = decodeURIComponent(path);
+    return /\.(png|svg)$/i.test(decoded) && !/[\\\u0000-\u001f\u007f]/.test(decoded) &&
+      decoded.split('/').every(part => part && part !== '.' && part !== '..');
+  } catch (_) { return false; }
+}
+
+function logoFreshness(response) {
+  const policy = response.headers.get('Cache-Control') || '';
+  // Exact opt-in from the serving owner. Older daemons and proxies with
+  // private/no-cache/no-store or unexpected Vary retain online semantics.
+  const match = /^public,\s*max-age=(\d+)$/i.exec(policy);
+  const type = (response.headers.get('Content-Type') || '').toLowerCase();
+  const vary = (response.headers.get('Vary') || '').trim().toLowerCase();
+  if (!match || !['image/png', 'image/svg+xml'].includes(type) ||
+      (vary && vary !== 'accept-encoding') || response.redirected ||
+      ![200, 204].includes(response.status)) return 0;
+  const max = response.status === 204 ? 300 : 3600;
+  const age = Number(response.headers.get('Age') || 0);
+  const ttl = Number(match[1]);
+  if (!Number.isSafeInteger(ttl) || !Number.isFinite(age) || age < 0) return 0;
+  return Math.max(0, Math.min(max, ttl) - age) * 1000;
+}
+
+function saveLogo(key, response) {
+  const ttl = logoFreshness(response);
+  const length = Number(response.headers.get('Content-Length') || 0);
+  if (!ttl || length > logoBytes) return Promise.resolve();
+  const expiry = Date.now() + ttl;
+  const copy = response.clone();
+  const result = logoWrites.then(async () => {
+    if (Date.now() >= expiry) return;
+    const bytes = response.status === 204 ? null : await copy.arrayBuffer();
+    if (bytes && (!bytes.byteLength || bytes.byteLength > logoBytes)) return;
+    const cache = await caches.open(logoName);
+    if (!logoKeys) logoKeys = new Set((await cache.keys()).map(entry => entry.url));
+    await cache.delete(key);
+    logoKeys.delete(key);
+    while (logoKeys.size >= logoLimit) {
+      const oldest = logoKeys.values().next().value;
+      await cache.delete(oldest);
+      logoKeys.delete(oldest);
+    }
+    // Store only public bytes and their bounded freshness, not request
+    // credentials or arbitrary response headers. A 204 has no body.
+    await cache.put(key, new Response(bytes, {status: response.status, headers: {
+      'Content-Type': response.headers.get('Content-Type'),
+      'Cache-Control': response.headers.get('Cache-Control'),
+      'X-VDR-Suite-Logo-Expires-At': String(expiry)
+    }}));
+    logoKeys.add(key);
+  }).catch(() => { logoKeys = null; });
+  logoWrites = result;
+  return result;
+}
+
+async function handleLogo(event) {
+  const request = event.request;
+  const key = request.url;
+  try {
+    const cache = await caches.open(logoName);
+    const cached = await cache.match(key);
+    const expiry = cached && Number(cached.headers.get('X-VDR-Suite-Logo-Expires-At'));
+    const now = Date.now();
+    if (cached && logoFreshness(cached) && expiry > now && expiry - now <= logoFreshness(cached)) {
+      const headers = new Headers(cached.headers);
+      headers.delete('X-VDR-Suite-Logo-Expires-At');
+      headers.set('Cache-Control', 'public, max-age=' + Math.floor((expiry - now) / 1000));
+      return new Response(cached.body, {status: cached.status, headers});
+    }
+  } catch (_) { /* Optional storage must not prevent ordinary logo delivery. */ }
+  // Do not bypass any reverse-proxy credentials or redirects. The actual
+  // owner decides whether the final response is explicitly public.
+  const response = await fetch(new Request(request, {cache: 'no-store'}));
+  event.waitUntil(saveLogo(key, response));
+  return response;
+}
 const recordingArtworkRoutes = new Set(['/api/vdr/recordings/metadata/image', '/api/recordings/metadata/image']);
 const recordingProofRoutes = new Set(['/api/vdr/recordings/query', '/api/vdr/recordings/folder', '/api/metadata/genres', '/api/metadata/genres/recordings']);
 // Artwork-only window starts on receipt of existing server authorization.
@@ -482,6 +578,7 @@ async function handleArtworkSessionMutation(request) {
 
 self.addEventListener('fetch', event => {
   const request = event.request;
+  if (logoRequest(request)) { event.respondWith(handleLogo(event)); return; }
   if (artworkRequest(request)) { event.respondWith(handleArtwork(event)); return; }
   if (artworkSessionMutation(request)) { event.respondWith(handleArtworkSessionMutation(request)); return; }
   const changedSeriesBackend = seriesArtworkMutationBackend(request);
