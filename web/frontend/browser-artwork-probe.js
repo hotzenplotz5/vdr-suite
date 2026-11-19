@@ -19,6 +19,7 @@
       if (/^\/api\/epg\/cache\/metadata\/image(?:\/|$)/.test(path)) return 'epg-metadata-image';
       if (/^\/channel-logos(?:\/|$)/.test(path)) return 'channel-logo';
       if (/^\/recording-artwork(?:\/|$)/.test(path)) return 'recording-artwork';
+      if (/^\/api\/backends\/[^/]+\/settings\/series-artwork\/image$/.test(path)) return 'series-artwork';
       if (/^\/api\/epg\/cache(?:\/|$)/.test(path)) return 'epg-cache-api';
       if (/^\/api\/(?:vdr\/)?recordings(?:\/|$)/.test(path)) return 'recordings-api';
       if (/^\/api\/(?:vdr\/)?channels(?:\/|$)/.test(path)) return 'channels-api';
@@ -106,8 +107,8 @@
       const path = url.pathname.replace(/^\/vdr-suite(?=\/)/, '');
       const recording = recordingCategory(path);
       if (recording) addRow(recordingRows, [recording, status, initiator], entry, entry.name);
-      if (route === 'recording-metadata-image' || route === 'recording-artwork' || route === 'epg-metadata-image') {
-        const revision = url.searchParams.has('assignmentRevision') ? 'revisioned' : 'unversioned';
+      if (route === 'recording-metadata-image' || route === 'recording-artwork' || route === 'epg-metadata-image' || route === 'series-artwork') {
+        const revision = url.searchParams.has(route === 'series-artwork' ? 'revision' : 'assignmentRevision') ? 'revisioned' : 'unversioned';
         addRow(
           artworkRows,
           [route, status, initiator, artworkVariant(url), previewVariant(url), revision],

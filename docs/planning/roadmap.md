@@ -45,7 +45,7 @@ A roadmap entry is never automatic permission to implement the next possible dif
 
 ## PWA — Local-first Webfrontend modernization (decision 2026-11-19)
 
-**Next prioritized frontend workstream:** PWA.1–PWA.11.3 (local recording artwork, measured cache behavior, proof expiry and direct preview path), extending the existing
+**Next prioritized frontend workstream:** PWA.1–PWA.12 (local recording artwork, measured cache behavior, proof expiry, direct previews and selected series covers), extending the existing
 Webfrontend for both ordinary browser use and optional PWA installation.
 Reuse the server read models, Client API, artwork previews and SSE feed;
 add a versioned app shell, scoped IndexedDB read-model persistence and

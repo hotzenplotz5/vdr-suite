@@ -757,3 +757,45 @@ These tests were extended, not yet executed on the exact candidate.
 The C++ change requires a matching incremental daemon candidate and the
 canonical generated frontend stage. Real browser performance still open.
 PWA.12–14 remain separate.
+
+## PWA.12 — persistent selected TMDB Series covers (2026-11-19)
+
+PWA.11.2/11.3 were built and installed on yaVDR at
+`62e37b8f7f4a9366916b837c928c2443f9e4ce30`. Operator reported
+`test_test_http_server passed`, `BUILD=PASS`, `DAEMON_INSTALL=PASS`,
+`FRONTEND_DEPLOYMENT_MATCH=YES`, `RUNTIME_DEPLOYMENT_MATCH=YES` and
+`PWA113_INSTALLATION=PASS`. Subsequent subjective report: substantially
+faster, still not comparable to IPTVnator. The second diagnostic capture
+reported approximately 1.03 MB vs 2.95 MB previously, for different image
+sets and capture durations; this is not a controlled loading-time result.
+Real warm-start acceptance remains open.
+
+The existing Home preview helper now opts selected TMDB series covers into
+`variant=home`. Only the canonical selected cover image route, with
+`seriesKey`, its positive persisted `revision` and the Home variant,
+is eligible. The existing series cover owner reads its actual revision
+with the selected local image path (no schema change). A successful
+authorized browser response with matching revision can receive the existing
+recordings.view session/backend/grant partition. Internal revision evidence
+is consumed at the HTTP boundary; a stale or ambiguous revision retains
+existing online behavior without cache admission. The shared preview
+decorator resizes and computes the final-byte scoped ETag, and the existing
+worker uses its scoped cache and current recording authorization proof.
+Candidate search images, original/detail images and series identity,
+season/episode hierarchy and provider selection remain unchanged.
+
+The existing series settings POST is passed unchanged to its owner. The
+worker fences old writes/proofs and selectively invalidates selected series
+cover cache entries for that backend before and after that mutation, even
+on ambiguous or failed outcomes. Ordinary artwork bytes are retained.
+Remote/unobserved changes remain subject to the existing bounded cache
+freshness and revalidation window; local cache is not an instant revocation
+or invalidation channel. No new permission, API, polling, database, service
+or cache version. Diagnostic resource details now classify selected series
+artwork separately without exporting series keys, URLs or revision values.
+
+Product candidate comprises the backend and frontend commits plus
+diagnostic/documentation changes. Existing worker, Home rail, API owner,
+HTTP scope, preview decorator and diagnostic regressions are extended.
+Exact test execution, incremental daemon compilation and installed browser
+acceptance are not yet verified. PWA.13/14 remain separate.
