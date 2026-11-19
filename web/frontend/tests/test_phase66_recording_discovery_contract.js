@@ -148,11 +148,13 @@ assert(!initialSeries.includes('waitForSeriesRepresentatives('));
 assert(!initialSeries.includes('startSeriesCompletion('));
 assert(!seriesScan.includes('prefetchSeriesRepresentativeMetadata('));
 assert(seriesScan.includes('const explicitTotal = Number(rawTotal);'));
-assert(seriesScan.includes('Promise.all(offsets.map(requestPage))'));
+assert(source.includes('const SERIES_TAIL_PAGE_CONCURRENCY = 2')); 
+assert(seriesScan.includes('offsets.slice(index, index + SERIES_TAIL_PAGE_CONCURRENCY)'));
+assert(seriesScan.includes('Promise.all(batch.map(requestPage))'));
 assert(seriesScan.includes('return requestSequential(nextOffset);'));
 assert(
   seriesScan.indexOf('onProgress(recordings.slice())') <
-    seriesScan.indexOf('Promise.all(offsets.map(requestPage))'),
+    seriesScan.indexOf('Promise.all(batch.map(requestPage))'),
   'Series must publish the first cache page before parallel tail completion'
 );
 assert(initialRandomGenre.includes("renderRecordingRail("));

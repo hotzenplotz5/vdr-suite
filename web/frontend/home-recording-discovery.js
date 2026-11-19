@@ -8,6 +8,7 @@
   const GENRE_LIMIT = 12;
   const RANDOM_GENRE_LIMIT = 12;
   const SERIES_PAGE_LIMIT = 100;
+  const SERIES_TAIL_PAGE_CONCURRENCY = 2;
   const SERIES_METADATA_CONCURRENCY = 4;
   const SERIES_METADATA_TOTAL_CONCURRENCY = SERIES_METADATA_CONCURRENCY;
   const SERIES_WARM_TTL_MS = 60000;
@@ -897,9 +898,10 @@
       return artwork;
     }
     const image = doc.createElement('img');
-    image.src = publicPath(homePreview(resolved));
     image.alt = 'Poster zu ' + text(title);
     image.loading = 'lazy';
+    image.decoding = 'async';
+    image.src = publicPath(homePreview(resolved));
     image.addEventListener('error', function () {
       image.remove();
       artwork.textContent = fallback;
@@ -2892,6 +2894,8 @@
       generation,
       null,
       {
+        priority: true,
+        foreground: true,
         refreshUnsettled: true,
         refreshIncompleteHierarchy: true
       }
@@ -3734,13 +3738,29 @@
     return text(member && member.seriesKey);
   }
 
-  function promoteSeriesMetadataTask(cache, nativeId, seriesKey) {
+  function enqueuePrioritySeriesMetadataTask(cache, task) {
+    // Preserve FIFO within each class; explicit detail interaction outranks
+    // queued Home representative/rail work without interrupting active reads.
+    const index = task.foreground
+      ? cache.priorityQueue.findIndex(function (entry) { return !entry.foreground; })
+      : -1;
+    if (index < 0) cache.priorityQueue.push(task);
+    else cache.priorityQueue.splice(index, 0, task);
+  }
+
+  function promoteSeriesMetadataTask(cache, nativeId, seriesKey, foreground) {
     if (!cache || !nativeId) return false;
     let index = cache.priorityQueue.findIndex(function (task) {
       return task.nativeId === nativeId;
     });
     if (index >= 0) {
-      if (seriesKey) cache.priorityQueue[index].seriesKey = seriesKey;
+      const task = cache.priorityQueue[index];
+      if (seriesKey) task.seriesKey = seriesKey;
+      if (foreground && !task.foreground) {
+        cache.priorityQueue.splice(index, 1);
+        task.foreground = true;
+        enqueuePrioritySeriesMetadataTask(cache, task);
+      }
       return true;
     }
     index = cache.queue.findIndex(function (task) {
@@ -3749,7 +3769,8 @@
     if (index < 0) return false;
     const task = cache.queue.splice(index, 1)[0];
     if (seriesKey) task.seriesKey = seriesKey;
-    cache.priorityQueue.push(task);
+    task.foreground = foreground;
+    enqueuePrioritySeriesMetadataTask(cache, task);
     return true;
   }
 
@@ -3923,9 +3944,9 @@
     }
     if (cache.inflight.has(nativeId)) {
       const existing = cache.inflight.get(nativeId);
-      if (config.priority === true && seriesKey) {
-        cache.representativePromises.set(seriesKey, existing);
-        if (!promoteSeriesMetadataTask(cache, nativeId, seriesKey)) {
+      if (config.priority === true) {
+        if (seriesKey) cache.representativePromises.set(seriesKey, existing);
+        if (!promoteSeriesMetadataTask(cache, nativeId, seriesKey, config.foreground === true) && seriesKey) {
           existing.then(function () {
             if (state.seriesMetadataCache === cache) cache.readySeriesKeys.add(seriesKey);
           });
@@ -3942,13 +3963,14 @@
       client: client,
       nativeId: nativeId,
       seriesKey: config.priority === true ? seriesKey : '',
+      foreground: config.foreground === true,
       seriesRevision: seriesRefreshRevision,
       resolve: resolveTask
     };
     cache.inflight.set(nativeId, promise);
     if (config.priority === true) {
       if (seriesKey) cache.representativePromises.set(seriesKey, promise);
-      cache.priorityQueue.push(task);
+      enqueuePrioritySeriesMetadataTask(cache, task);
     } else {
       cache.queue.push(task);
     }
@@ -4243,21 +4265,28 @@
         offsets.push(offset);
       }
 
-      return Promise.all(offsets.map(requestPage)).then(function (pages) {
-        if (!current(generation, backendId)) return [];
-        pages.filter(Boolean).sort(function (left, right) {
-          return left.offset - right.offset;
-        }).forEach(function (page) {
-          if (!page.rawPage.length && page.offset < explicitTotal) {
-            throw new Error('series pagination made no progress');
-          }
-          appendPage(page);
-        });
-        if (typeof onProgress === 'function') {
-          onProgress(recordings.slice());
+      function requestTailBatch(index) {
+        if (!current(generation, backendId)) return Promise.resolve([]);
+        if (index >= offsets.length) {
+          if (typeof onProgress === 'function') onProgress(recordings.slice());
+          return Promise.resolve(recordings);
         }
-        return recordings;
-      });
+        // Bound inventory fan-out so other Home rails and interaction requests
+        // can use the transport while the large Series scan completes.
+        const batch = offsets.slice(index, index + SERIES_TAIL_PAGE_CONCURRENCY);
+        return Promise.all(batch.map(requestPage)).then(function (pages) {
+          if (!current(generation, backendId)) return [];
+          // Promise.all preserves offset order even when replies arrive out of order.
+          pages.forEach(function (page) {
+            if (!page || (!page.rawPage.length && page.offset < explicitTotal)) {
+              throw new Error('series pagination made no progress');
+            }
+            appendPage(page);
+          });
+          return requestTailBatch(index + batch.length);
+        });
+      }
+      return requestTailBatch(0);
     });
   }
 
@@ -4462,7 +4491,7 @@
                   updateNewlyRecordedTile(recording, backendId, rich);
               });
             });
-          }
+          }, {priority: true}
         ).catch(function () { return false; });
         // Once persisted cover settings arrive, touch only tiles whose
         // effective Series presentation actually has an override.

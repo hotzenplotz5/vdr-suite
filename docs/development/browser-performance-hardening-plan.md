@@ -152,3 +152,21 @@ non-embedded card lists in both Home Genre rendering paths. CI and real yaVDR
 acceptance must be recorded separately. Newly Recorded and missing Series
 metadata still have independent read paths. No claim is made that this slice
 alone removes all 384 observed requests or meets the overall Home latency target.
+
+### HOME.P5 — bounded inventory and foreground metadata priority
+
+Retain immediate startup of the existing recording rails and progressive first
+Series page. Fetch the remaining known-size inventory in ordered batches of at
+most two parallel pages rather than issuing an unbounded Promise.all. Preserve
+canonical order, complete-inventory publication and backend/generation fences;
+unknown totals keep sequential pagination. The existing four-read metadata queue
+prioritizes Newly Recorded over ordinary queued episode enrichment and explicit
+Series detail interaction over queued representative work. Promotion reuses the
+existing native-ID promise; active reads are not cancelled. Native lazy loading
+and asynchronous decoding are set before assigning the recording poster URL.
+No added timer, polling, viewport gate, API, cache or navigation owner.
+
+Regression coverage: a 501-recording fixture observes only two concurrent tail
+pages, out-of-order replies preserve canonical order, and a queued detail read
+preempts queued background and representative reads without duplicate requests.
+Actual transport and Home latency improvements still require browser acceptance.
