@@ -441,12 +441,12 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
             pendingArtwork.push_front(std::move(candidate));
             if (pendingArtwork.size() > MaxWarmCandidates) pendingArtwork.pop_back();
         };
-        const auto scheduleInventory = [&](const std::string& backend) {
-            if (!vdrRecordingCacheRepository_ || recordingCacheWarmupStopRequested_.load() ||
-                vdrRecordingCacheRepository_->statusForBackend(backend).state != "ready") return;
+        const RecordingArtworkWarmHints scheduleInventory = [&](
+            const std::string& backend, const std::vector<VdrRecording>& recordings,
+            const std::vector<std::string>& committedMetadataIds) {
+            if (recordingCacheWarmupStopRequested_.load()) return;
             const bool initial = knownInventory.find(backend) == knownInventory.end();
             auto& known = knownInventory[backend];
-            const auto recordings = vdrRecordingCacheRepository_->findAllForBackend(backend);
             std::set<std::string> current;
             std::vector<const VdrRecording*> added;
             for (const auto& recording : recordings) {
@@ -462,6 +462,9 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
             // push_front reverses insertion order; newest should be processed first.
             for (std::size_t i = limit; i > 0; --i)
                 enqueueArtwork(backend, added[i - 1]->backendNativeId);
+            // Include metadata that became available in this very refresh.
+            for (const auto& nativeId : committedMetadataIds)
+                if (known.count(nativeId)) enqueueArtwork(backend, nativeId);
         };
         const auto warmOneArtwork = [&]() {
             if (pendingArtwork.empty() || recordingCacheWarmupStopRequested_.load() ||
@@ -501,9 +504,7 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
             }
         };
 
-        refreshRecordingCacheForAllBackends("startup");
-        for (const auto& context : backendRuntimeContexts_)
-            if (context) scheduleInventory(context->backendId);
+        refreshRecordingCacheForAllBackends("startup", "", scheduleInventory);
 
         auto lastMetadataRefresh = std::chrono::steady_clock::now();
 
@@ -555,8 +556,12 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
 
                     // Committed metadata may make a previously missing cover
                     // available. Schedule its current bytes, not old references.
-                    for (const auto& nativeId : committedMetadataIds)
-                        enqueueArtwork(backendRuntimeContext->backendId, nativeId);
+                    try {
+                        for (const auto& nativeId : committedMetadataIds)
+                            enqueueArtwork(backendRuntimeContext->backendId, nativeId);
+                    } catch (...) {
+                        std::cerr << "ARTWORK_PREWARM skipped optional metadata scheduling" << std::endl;
+                    }
 
                     GenreBrowserApiRuntime::instance()
                         .refreshRecordingIndex(
@@ -568,8 +573,7 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
 
             for (const auto& backendId : recordingCacheRefreshQueue_.takePending()) {
                 refreshRecordingCacheForAllBackends(
-                    "event-stream-dirty-hint", backendId);
-                scheduleInventory(backendId);
+                    "event-stream-dirty-hint", backendId, scheduleInventory);
             }
 
             // One optional conversion per existing worker iteration, after
@@ -591,7 +595,8 @@ void DaemonRuntime::runRecordingCacheWarmupWorker()
 }
 
 void DaemonRuntime::refreshRecordingCacheForAllBackends(
-    const std::string& reason, const std::string& backendId)
+    const std::string& reason, const std::string& backendId,
+    const RecordingArtworkWarmHints& artworkWarmHints)
 {
     auto refreshLease = DaemonCacheRefreshExecutionGate::acquire();
     if (recordingCacheWarmupStopRequested_.load()) {
@@ -963,6 +968,17 @@ void DaemonRuntime::refreshRecordingCacheForAllBackends(
                 genreIndexed = GenreBrowserApiRuntime::instance()
                     .refreshRecordingIndex(
                         backendRuntimeContext->backendId);
+                // The actual committed inventory and enrichment IDs already
+                // exist here. Hand off only bounded hints: never reread the
+                // whole catalog or decode while holding this refresh lease.
+                if (ready && artworkWarmHints) {
+                    try {
+                        artworkWarmHints(backendRuntimeContext->backendId,
+                            recordings, committedMetadataIds);
+                    } catch (...) {
+                        std::cerr << "ARTWORK_PREWARM skipped optional inventory scheduling" << std::endl;
+                    }
+                }
             }
             else {
                 recordingCacheRefreshQueue_.failed(backendRuntimeContext->backendId);

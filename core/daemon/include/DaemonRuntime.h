@@ -180,6 +180,7 @@
 #include "SecurityPermissionGrantRepository.h"
 
 #include <atomic>
+#include <functional>
 #include <thread>
 #include <memory>
 #include <string>
@@ -232,8 +233,12 @@ private:
         const BackendAgentCommandResult& result,
         std::int64_t now, std::string* diagnostic = nullptr);
 
+    using RecordingArtworkWarmHints = std::function<void(
+        const std::string&, const std::vector<VdrRecording>&,
+        const std::vector<std::string>&)>;
     void refreshRecordingCacheForAllBackends(
-        const std::string& reason, const std::string& backendId = "");
+        const std::string& reason, const std::string& backendId,
+        const RecordingArtworkWarmHints& artworkWarmHints);
     void publishCompletedRecordingRefreshes();
     void publishRecordingPresentationChanges();
     void publishPendingHbbtvPresentationChanges();

@@ -1093,7 +1093,10 @@ Different original content must miss even when a URL is unchanged.
 The existing Recording cache warmup worker schedules up to 64 newest
 recordings per backend on startup and newly discovered recording identities
 after its existing refresh events, plus committed native metadata identities
-from the existing metadata cycle. It owns a memory-only deduplicated
+from each successful refresh and the existing metadata cycle. Scheduling
+uses the already committed inventory in that path, not another catalog read;
+optional scheduling failures do not invalidate the inventory. It owns a
+memory-only deduplicated
 128-candidate queue and attempts one item after ordinary refresh work per
 existing iteration, outside the shared refresh lease. Use the canonical
 validated metadata poster reader, with the existing legacy artwork reader
@@ -1106,6 +1109,7 @@ This is bounded preparation, not a promise to pre-render the entire library.
 Content is re-read/validated at demand, so the original read cost remains.
 Server-Timing separates authorized read from preview work for Home responses;
 the read interval includes routing and authorization, not solely file I/O.
-The cache/HTTP regressions exercise prewarmed bytes, aliases, changed inputs
+The cache/HTTP regressions exercise prewarmed bytes, aliases, changed inputs,
+legacy entry compatibility, separate foreground/background cache instances
 and existing authorization. Native C++ tests, build and actual yaVDR cold
 browser timings are open. No new frontend installation is required.
