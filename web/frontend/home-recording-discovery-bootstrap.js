@@ -488,9 +488,13 @@
       return artwork;
     }
     const image = doc.createElement('img');
-    image.src = publicPath(poster);
+    const helpers = global.VdrSuiteFrontendHelpers;
+    const preview = helpers && typeof helpers.homeArtworkPreviewUrl === 'function'
+      ? helpers.homeArtworkPreviewUrl(poster) : poster;
     image.alt = 'Poster zu ' + title;
     image.loading = 'lazy';
+    image.decoding = 'async';
+    image.src = publicPath(preview);
     image.addEventListener('error', function () {
       image.remove();
       artwork.textContent = title.slice(0, 1).toUpperCase() || '▶';

@@ -385,28 +385,6 @@ const window = {
     getSelectedBackendId() { return 'backend-a'; },
     getClientApi() { return client; }
   },
-  VdrSuiteFrontendHelpers: {
-    recordingMetadataPosterUrl(value) {
-      const images = value && Array.isArray(value.images)
-        ? value.images
-        : [];
-      for (let index = 0; index < images.length; index += 1) {
-        const entry = images[index];
-        if (!entry ||
-            entry.orientation !== 'portrait' ||
-            !entry.image ||
-            entry.image.available !== true) {
-          continue;
-        }
-        return String(entry.image.url || '');
-      }
-
-      const preferred = value && value.preferredArtwork;
-      return preferred && preferred.available === true
-        ? String(preferred.url || '')
-        : '';
-    }
-  },
   VdrSuiteRecordings2: {
     openRecording(recordingValue, options) {
       openRecordingCalls.push({recording: recordingValue, options});
@@ -435,6 +413,10 @@ const context = vm.createContext({
   Array,
   setTimeout
 });
+// Exercise the production helper rather than a stub: this includes the
+// automatically expanded folder's exact Home image URL transformation.
+vm.runInContext(fs.readFileSync(path.join(frontendRoot, 'platform', 'helpers.js'), 'utf8'),
+  context, {filename: 'web/frontend/platform/helpers.js'});
 vm.runInContext(source, context, {filename: 'web/frontend/home-recording-discovery-bootstrap.js'});
 
 function settle() {
@@ -479,13 +461,15 @@ function wait(milliseconds) {
   );
 
   assert.strictEqual(genreCards[5].querySelector('strong').textContent, 'Kanonisch R6');
-  assert.strictEqual(genreCards[5].querySelector('img').src, nativeImageUrl('r6', 'gallery', 1));
+  assert.strictEqual(genreCards[5].querySelector('img').src, nativeImageUrl('r6', 'gallery', 1) + '&variant=home');
   const firstRecording = genreCards[0];
   assert.strictEqual(firstRecording.dataset.recordingId, 'r1');
   assert.strictEqual(firstRecording.querySelector('strong').textContent, 'Kanonisch R1');
+  assert.strictEqual(firstRecording.querySelector('img').loading, 'lazy');
+  assert.strictEqual(firstRecording.querySelector('img').decoding, 'async');
   assert.strictEqual(
     firstRecording.querySelector('img').src,
-    nativeImageUrl('r1', 'gallery', 1)
+    nativeImageUrl('r1', 'gallery', 1) + '&variant=home'
   );
 
   const notFoundRecording = genreCards[1];
@@ -533,7 +517,7 @@ function wait(milliseconds) {
   );
   assert.strictEqual(
     leafRecording.querySelector('img').src,
-    nativeImageUrl('f1', 'gallery', 1),
+    nativeImageUrl('f1', 'gallery', 1) + '&variant=home',
     'TVScraper portrait must beat the weak recording frame'
   );
   assert.strictEqual(
@@ -560,7 +544,7 @@ function wait(milliseconds) {
   );
   assert.strictEqual(
     nestedRecording.querySelector('img').src,
-    nativeImageUrl('f2', 'gallery', 1)
+    nativeImageUrl('f2', 'gallery', 1) + '&variant=home'
   );
   assert.strictEqual(
     metadataCalls.length,

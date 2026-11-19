@@ -188,3 +188,23 @@ Series inventory scan or establish production latency gains.
 
 Tests cover shared exact-ID metadata correction across both rails, same-tick
 bursts, and cancellation of future pages after a newer revision.
+
+### HOME.P7.1 — runtime follow-up: inline Home artwork
+
+Real-browser acceptance on 2026-11-19 remains open. The diagnostic capture
+(initial-home, elapsed 105724.5 ms, warm/mixed cache) observed 250 resources
+and 15 Recording metadata reads, compared with 640 and 384 in the earlier
+capture. These are observed entry counts, not controlled load-time results.
+15 successful Recording metadata image requests without the Home preview
+parameter transferred 6,962,005 bytes; the operator reports that visible Home
+artwork is still incomplete after one minute. The automatic random folder
+expansion uses the same bootstrap inline card renderer as explicit folder and
+genre navigation; it had been assigning original poster URLs without applying
+the existing Home preview helper. Apply it before prefix resolution and before
+assigning src; set native lazy loading and async decoding first. Keep canonical
+Recording identity, external/unknown URL behavior and detail artwork unchanged.
+The existing inline genre/folder integration regression now uses the actual
+production helper and asserts Home previews for embedded and queried artwork.
+The preview cache still offers best-effort conversion with original fallback
+on contention or unsupported input. Do not claim all images are resized or
+Home ready until a new real-browser acceptance capture verifies it.
