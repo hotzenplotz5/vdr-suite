@@ -2321,11 +2321,20 @@ def check_client_api_contract():
         "requestJson(" + chr(39) + "/api/backends/default" + chr(39) in client_api,
         "fetchClientDefaultBackend() must own /api/backends/default access"
     )
+    # PWA.13.3 added an optional early snapshot callback without moving
+    # HTTP ownership. Scope the route assertion to the actual wrapper.
+    snapshot_wrapper = re.search(
+        r"(?ms)^  function fetchClientBackendSnapshot\(backendId, options, onSnapshot\) \{"
+        r"(.*?)^  \}",
+        client_api,
+    )
     require(
-        "function fetchClientBackendSnapshot(backendId, options)" in client_api
-        and "/api/backends/" in client_api
-        and "encodeURIComponent(id)" in client_api
-        and "/snapshot" in client_api,
+        snapshot_wrapper is not None
+        and re.search(
+            r"requestJson\(\s*'/api/backends/'\s*\+\s*encodeURIComponent\(id\)"
+            r"\s*\+\s*'/snapshot'\s*,\s*options\s*\)",
+            snapshot_wrapper.group(1),
+        ) is not None,
         "fetchClientBackendSnapshot() must own /api/backends/<id>/snapshot access"
     )
     check_recording_loading_client_api_contract(client_api)

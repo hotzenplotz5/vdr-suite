@@ -988,3 +988,10 @@ API data. No new route, schema, polling or cache namespace. Server still reads
 its existing catalog; no measured server CPU or latency reduction is claimed.
 Install matching daemon before the new frontend; native C++/Node and real Home
 acceptance remain open. PWA.13.6 and PWA.14 remain separate.
+
+PWA.13.5 operator frontend run reached the ownership guard after the recent
+movies runtime test passed. The guard still required the pre-PWA.13.3
+two-argument snapshot signature. Updated the actual wrapper assertion to
+recognize the optional callback and check the canonical request inside that
+wrapper; no product code, route, ownership or permission changes. Native
+full guard/installation still require confirmation.
