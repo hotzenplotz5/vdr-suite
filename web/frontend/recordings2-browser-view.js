@@ -25,6 +25,46 @@
         })
       : null;
     let activePlayback = null; let detailStartRevealed = false;
+    // Only keep a few same-backend, already rendered folder DOM trees.
+    // The canonical API still authorizes and refreshes every navigation.
+    const folderDomCache = new Map();
+    const MAX_CACHED_FOLDER_DOM = 3;
+    let folderDomBackendId = null;
+
+    function folderDomKey(currentState) {
+      return JSON.stringify([
+        String(currentState.backendId || shared.selectedBackendId()),
+        shared.normalizePath(currentState.path)
+      ]);
+    }
+
+    function folderDomSignature(currentState) {
+      // Compare the *presented* folder, including enriched leaves and actions.
+      // Changed metadata/recordings must rebuild rather than reuse stale cards.
+      return JSON.stringify([
+        currentState.data, currentState.recordings,
+        Boolean(currentState.loadingMore)
+      ]);
+    }
+
+    function retainFolderDom(target) {
+      const backendId = String(state().backendId || shared.selectedBackendId());
+      if (folderDomBackendId !== backendId) {
+        folderDomCache.clear();
+        folderDomBackendId = backendId;
+      }
+      const previous = target && target.children && target.children[0];
+      const marker = previous && previous.__vdrSuiteFolderDom;
+      if (!marker || marker.backendId !== backendId) return;
+      folderDomCache.delete(marker.key);
+      folderDomCache.set(marker.key, {
+        root: previous,
+        signature: marker.signature
+      });
+      if (folderDomCache.size > MAX_CACHED_FOLDER_DOM) {
+        folderDomCache.delete(folderDomCache.keys().next().value);
+      }
+    }
 
     function destroyPlayback() {
       const playback = activePlayback;
@@ -118,6 +158,7 @@
       if (!target) return null;
       shared.installStyles();
       cards.installStyles();
+      retainFolderDom(target);
       target.classList.add('recordings2-mount');
       target.replaceChildren();
       return target;
@@ -151,6 +192,7 @@
     function renderError() { detailStartRevealed = false;
       const currentState = state();
       const target = prepareTarget();
+      folderDomCache.clear(); // Do not preserve presentation after failed authorization.
       if (!target) return;
       const root = createRoot('recordings2');
       const message = currentState.error && currentState.error.message
@@ -211,9 +253,23 @@
 
     function renderFolder() { detailStartRevealed = false;
       const currentState = state();
+      const key = folderDomKey(currentState);
+      const signature = folderDomSignature(currentState);
       const target = prepareTarget();
       if (!target) return;
+      const retained = folderDomCache.get(key);
+      folderDomCache.delete(key);
+      if (retained && retained.signature === signature) {
+        // Reattach the *same* decoded image elements: no placeholder/reset,
+        // no new src assignment and no duplicated card event handlers.
+        target.appendChild(retained.root);
+        return;
+      }
       const root = createRoot('recordings2');
+      root.__vdrSuiteFolderDom = {
+        backendId: String(currentState.backendId || shared.selectedBackendId()),
+        key: key, signature: signature
+      };
       const data = currentState.data || {};
       const folders = shared.folderList(data);
       const recordings = currentState.recordings;
@@ -369,7 +425,12 @@
       renderError: renderError,
       renderFolder: renderFolder,
       renderDetail: renderDetail,
-      destroy: function () { destroyPlayback(); detailStartRevealed = false; }
+      destroy: function () {
+        destroyPlayback();
+        detailStartRevealed = false;
+        folderDomCache.clear();
+        folderDomBackendId = null;
+      }
     });
   }
 
