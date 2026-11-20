@@ -172,3 +172,63 @@ assert.equal(firstVisible.src, '/art/visible?variant=home');
 assert.equal(demandObserver.options.rootMargin, '120px 0px');
 console.log('PWA.15.8 cold Home request-time artwork priority contract PASS');
 
+// PWA.15.10.1: deferred near-rail artwork has no src. When visible covers
+// complete, the existing rAF rail owner must actually start low-priority
+// image requests ahead of a horizontal swipe, not merely set loading=eager.
+const aheadFrames = [];
+let aheadObserver;
+const aheadWindow = {innerWidth:800,innerHeight:600,
+  requestAnimationFrame: fn => aheadFrames.push(fn),
+  IntersectionObserver:class {
+    constructor(callback,options){this.callback=callback;this.options=options;this.targets=new Set();aheadObserver=this;}
+    observe(node){this.targets.add(node);}
+    unobserve(node){this.targets.delete(node);}
+    notify(entries){this.callback(entries);}
+  }};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..','home-recording-discovery.js'),'utf8'),{window:aheadWindow});
+const aheadDiscovery=aheadWindow.VdrSuiteHomeRecordingDiscovery;
+const aheadStarts=[];
+const aheadRail={isConnected:true,
+  getBoundingClientRect(){return {left:100,right:500,top:0,bottom:300};},
+  querySelectorAll(){return [aheadVisible,aheadNearOne,aheadNearTwo,aheadFar];}};
+function aheadImage(id,left){
+  const callbacks={};let src='';
+  const node={isConnected:true,complete:false,naturalWidth:0,loading:'lazy',
+    closest(){return aheadRail;},
+    addEventListener(type,callback){callbacks[type]=callback;},
+    getBoundingClientRect(){return {left,right:left+100,top:20,bottom:170,width:100,height:150};},
+    triggerLoad(){if(callbacks.load)callbacks.load();}};
+  Object.defineProperty(node,'src',{get(){return src;},set(value){
+    src=value; aheadStarts.push({id,priority:this.fetchPriority,loading:this.loading});
+  }});
+  aheadDiscovery.deferHomeArtworkImage(node,'/art/'+id+'?variant=home');
+  return node;
+}
+const aheadVisible=aheadImage('visible',140);
+const aheadNearOne=aheadImage('near-1',510);
+const aheadNearTwo=aheadImage('near-2',650);
+const aheadFar=aheadImage('far',1400);
+aheadObserver.notify([{target:aheadVisible,isIntersecting:true}]);
+while(aheadFrames.length)aheadFrames.shift()();
+assert.deepEqual(aheadStarts.map(x=>x.id),['visible']);
+aheadDiscovery.prioritizeInlineRailArtwork(aheadRail);
+aheadFrames.shift()();
+assert.equal(aheadNearOne.src,'',
+  'not-yet-loaded viewport poster must prevent extra speculative requests');
+aheadVisible.complete=true;aheadVisible.naturalWidth=100;
+aheadVisible.triggerLoad(); // no scroll event needed for initial preload
+assert.equal(aheadFrames.length,1);
+aheadFrames.shift()();
+assert.deepEqual(aheadStarts.map(x=>x.id),['visible','near-1','near-2'],
+  'two near-rail deferred src values are assigned after visible load');
+assert.deepEqual(aheadStarts.slice(1).map(x=>x.priority),['low','low']);
+assert(aheadStarts.slice(1).every(x=>x.loading==='eager'),
+  'warmup really requests adjacent posters, rather than only setting priority');
+assert.equal(aheadFar.src,'','far unseen poster is still deferred');
+assert.equal(aheadObserver.targets.has(aheadNearOne),false,
+  'prefetched node is unobserved, preventing duplicate src assignment');
+aheadObserver.notify([{target:aheadNearOne,isIntersecting:true}]);
+assert.equal(aheadStarts.filter(x=>x.id==='near-1').length,1);
+console.log('PWA.15.10.1 bounded near-rail src prewarm after visible load contract PASS');
+
+

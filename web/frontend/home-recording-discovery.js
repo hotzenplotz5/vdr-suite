@@ -1015,6 +1015,15 @@
         if (image.loading !== 'lazy') continue;
         image.fetchPriority = 'low';
         image.loading = 'eager';
+        // Deferred cards have deliberately no src. Promoting loading alone
+        // never starts a request: give only these adjacent cards their src
+        // after the current viewport has settled. Far cards stay deferred.
+        const pending = image.__vdrSuiteDeferredArtworkUrl;
+        if (pending) {
+          if (deferredArtworkObserver) deferredArtworkObserver.unobserve(image);
+          image.__vdrSuiteDeferredArtworkUrl = '';
+          image.src = pending;
+        }
         nearby--;
       }
     });
@@ -1096,6 +1105,19 @@
     }
     image.__vdrSuiteDeferredArtworkUrl = url;
     deferredArtworkObserver.observe(image);
+    // Re-arm bounded adjacent warmup when a visible image actually finishes.
+    // PWA.15.10 suspended prefetch during visible loads, but did not resume
+    // it until another rail interaction. Use the existing rail/rAF owner,
+    // without polling or new background HTTP work.
+    if (typeof image.addEventListener === 'function') {
+      const resumeRailWarmup = function () {
+        const rail = typeof image.closest === 'function'
+          ? image.closest('.media-home-discovery-rail') : null;
+        if (rail) prioritizeInlineRailArtwork(rail);
+      };
+      image.addEventListener('load', resumeRailWarmup, {once: true});
+      image.addEventListener('error', resumeRailWarmup, {once: true});
+    }
     return image;
   }
 

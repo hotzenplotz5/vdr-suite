@@ -1557,3 +1557,35 @@ probe, relevant focused regression contracts and this documentation
 only. No daemon/service worker change, playback change, security policy
 change, FFmpeg increase or cache-storage mutation. Real yaVDR
 performance improvement is **not** asserted until a comparable capture.
+
+
+## PWA.15.10.1 — restore bounded offscreen rail warmup (2026-11-20)
+
+The maintainer noticed that quickly swiping Home rails after PWA.15.10
+exposes gray, unloaded cards even though the first visible posters are
+prioritized. The analysis found that deferred images carry their URL only
+in `__vdrSuiteDeferredArtworkUrl`; the old adjacent warmup changed their
+native `loading` attribute to `eager` but never assigned `src`,
+so no HTTP request actually started. In addition, PWA.15.10 deferred
+warmup while visible images were pending but did not schedule a rerun
+after the final visible load.
+
+The existing per-frame rail priority owner now gives at most four nearby
+clipped images their deferred URLs at low fetch priority **after the
+visible image requests have settled**. A one-shot image-load listener
+rearms this bounded scheduling when images actually complete, without
+a timer, perpetual scan, extra data owner or polling. Normal Home
+horizontal rail scroll events rearm the same bounded mechanism, not
+only inline folder/series scrolling. The lookahead geometry remains
+limited to at most one rail width (and 1200px); all farther artwork
+continues to use the existing IntersectionObserver demand-first path.
+User-visible demand still has immediate high priority; auth/cache and
+server code are unchanged.
+
+A focused regression covers deferred URL assignment only after the
+visible poster finishes, low priority before setting src, no requests
+for far cards, and user scroll lookahead beyond the first cohort. The
+22:19 diagnostics showed a confirmed cold PWA artwork reset, six
+initial visible images ready by 3284.3ms and server artwork queue
+maximum 5.4ms; the gray-card issue was a missing prefetch trigger,
+not proven server image-worker saturation.

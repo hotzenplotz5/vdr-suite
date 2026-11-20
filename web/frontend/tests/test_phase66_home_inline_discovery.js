@@ -531,6 +531,10 @@ function wait(milliseconds) {
   assert.strictEqual(prioritizedRails.at(-1), folderExpansion.querySelector('.media-home-discovery-rail'));
   bootstrapScroll(folderExpansion.querySelector('.media-home-discovery-rail'));
   assert.strictEqual(prioritizedRails.length, 2, 'horizontal scrolling must reprioritize the actual inline rail');
+  const ordinaryMovieRail = new FakeElement('div','media-home-discovery-rail recent-movies');
+  bootstrapScroll(ordinaryMovieRail);
+  assert.strictEqual(prioritizedRails.at(-1), ordinaryMovieRail,
+    'horizontal scrolling in ordinary Home movie rails must also prewarm their adjacent posters');
   assert.strictEqual(folderCalls.filter(call => call.query.limit === 12).length, 1, 'manual folder demand uses one bounded combined page');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-inline-folder').length, 1, 'non-leaf subfolders must stay inline');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-discovery-card.recording').length, 1, 'embedded single-recording leaves must project as recordings');

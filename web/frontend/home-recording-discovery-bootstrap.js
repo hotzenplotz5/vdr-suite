@@ -162,7 +162,11 @@
   function prioritizeFolderRail(rail) {
     const discovery = global.VdrSuiteHomeRecordingDiscovery;
     const classes = String(rail && rail.className || '').split(/\s+/);
-    if (rail && ((rail.closest && rail.closest('[data-home-inline-kind="folder"]')) ||
+    // The same bounded lookahead must follow user scrolling in ordinary
+    // movie/genre rails, not only inline folders and series episodes.
+    // Live-guide images are handled by their own owner.
+    if (rail && (classes.includes('media-home-discovery-rail') ||
+        (rail.closest && rail.closest('[data-home-inline-kind="folder"]')) ||
         classes.includes('series-episodes') || classes.includes('series')) &&
         discovery && typeof discovery.prioritizeInlineRailArtwork === 'function')
       discovery.prioritizeInlineRailArtwork(rail);
