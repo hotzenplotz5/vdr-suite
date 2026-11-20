@@ -366,7 +366,7 @@
 
   // Display native, localized clock controls while preserving epgsearch's
   // integer HHMM wire contract (e.g. 20:00 in the UI -> 2000 in the API).
-  function clockInput(name, hhmm) {
+  function clockValue(hhmm) {
     const value = Number(hhmm);
     const valid = Number.isInteger(value) && value >= 0 &&
       value <= 2359 && value % 100 < 60;
@@ -374,7 +374,11 @@
       ? String(Math.floor(value / 100)).padStart(2, '0') + ':' +
         String(value % 100).padStart(2, '0')
       : '';
-    const control = input(name, clock, 'time');
+    return clock;
+  }
+
+  function clockInput(name, hhmm) {
+    const control = input(name, clockValue(hhmm), 'time');
     control.step = '60'; // Minutes only; no seconds.
     return control;
   }
@@ -1618,6 +1622,7 @@
       const control = activeCreateForm.elements[name];
       if (!control || timer[name] === undefined || timer[name] === null) return;
       if (control.type === 'checkbox') control.checked = Boolean(timer[name]);
+      else if (control.type === 'time') control.value = clockValue(timer[name]);
       else control.value = String(timer[name]);
     });
     if (activeCreateForm.elements.query)
