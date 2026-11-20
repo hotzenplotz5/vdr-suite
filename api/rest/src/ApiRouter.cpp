@@ -739,7 +739,8 @@ ApiResponse ApiRouter::handleGet(
             normalizeBackendId(queryParameters.get("backend")),
             queryParameters.get("path"),
             queryParameters.getInt("limit", 50),
-            queryParameters.getInt("offset", 0));
+            queryParameters.getInt("offset", 0),
+            queryParameters.get("homeCards") == "1");
     }
 
     if (path == "/api/recordings/metadata/image" ||

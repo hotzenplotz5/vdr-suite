@@ -10,6 +10,10 @@
 #include "MediaAccessCredentialHttp.h"
 #include "SecurityConfiguration.h"
 #include "RestQueryParameters.h"
+#include "PublicResourcePreconditions.h"
+#include "ArtworkCacheValidation.h"
+#include "HomeCacheScope.h"
+#include <openssl/sha.h>
 #include "SeriesArtworkSettingsSecurityRequest.h"
 
 #include <algorithm>
@@ -1945,7 +1949,8 @@ HttpServerResponse TestHttpServer::handleRequest(
     if (request.method == "GET" &&
         isFrontendPath(request.path))
     {
-        return serveFrontendPath(request.path);
+        return revalidateFrontendAsset(serveFrontendPath(request.path),
+            requestHeaderValue(request, "If-None-Match"));
     }
 
     if (request.method == "GET" &&
@@ -2398,6 +2403,41 @@ HttpServerResponse TestHttpServer::handleRequest(
         apiResponse.contentType,
         apiResponse.body,
         apiResponse.headers);
+    vdrsuite::http::addHomeCacheScope(request, response, gate.context,
+        gate.browserAuthenticated, gate.authorizationDecision.backendId);
+    vdrsuite::http::addDirectHomeArtworkFallbackScope(request, response,
+        gate.context, gate.browserAuthenticated);
+    vdrsuite::http::addSeriesHomeArtworkScope(request, response,
+        gate.context, gate.browserAuthenticated);
+    vdrsuite::http::addEpgArtworkScope(request, response,
+        gate.context, gate.browserAuthenticated);
+    // A successful browser-authorized canonical Home preview may be revalidated
+    // after the decorator has selected the exact served representation.
+    // No cache admission is based on browser hints about identity or grants.
+    const std::string artworkPath = pathWithoutQuery(request.path);
+    if (request.method == "GET" && gate.browserAuthenticated &&
+        gate.context.authenticated() && response.statusCode == 200 &&
+        (artworkPath == "/api/vdr/recordings/metadata/image" ||
+         artworkPath == "/api/recordings/metadata/image")) {
+        const auto at = request.path.find('?');
+        const auto query = RestQueryParameters::parse(at == std::string::npos
+            ? std::string{} : request.path.substr(at + 1));
+        if (query.get("variant") == "home") {
+            const std::string backend = vdrsuite::http::canonicalHomeCacheBackend(
+                at == std::string::npos ? std::string{} : request.path.substr(at + 1));
+            const std::string permission = "recordings.view";
+            // Eligibility only; never change the existing route's admission.
+            const AuthorizationService authorization;
+            const auto partition = (!backend.empty() &&
+                authorization.authorize(gate.context, {permission, backend, permission}).allowed)
+                ? vdrsuite::http::browserHomeCacheScope(gate.context, backend) : std::string{};
+            if (!partition.empty()) {
+                response.headers["X-VDR-Suite-Artwork-Scope"] = partition;
+                response.headers["Cache-Control"] = "private, no-cache";
+                response.headers["Vary"] = "Cookie, Authorization";
+            }
+        }
+    }
     // Browser MediaSessions are issued with Secure cookies by default, but
     // direct HTTP on a verified local LAN must use the same cookie transport
     // exception as Browser-session login. Never apply it to Public-v1 Device

@@ -8,6 +8,7 @@
   const GENRE_LIMIT = 12;
   const RANDOM_GENRE_LIMIT = 12;
   const SERIES_PAGE_LIMIT = 100;
+  const SERIES_TAIL_PAGE_CONCURRENCY = 2;
   const SERIES_METADATA_CONCURRENCY = 4;
   const SERIES_METADATA_TOTAL_CONCURRENCY = SERIES_METADATA_CONCURRENCY;
   const SERIES_WARM_TTL_MS = 60000;
@@ -27,6 +28,7 @@
     seriesInvalidatedGeneration: -1,
     seriesProjection: [],
     seriesBackendId: '',
+    seriesFolderSettledBackendId: '',
     seriesViewKey: '',
     seriesSeasonNumber: null,
     seriesWarmBackendId: '',
@@ -431,6 +433,7 @@
   }
 
   function rerenderSeriesCoverPresentation(backendId) {
+    refreshFolderSeries(backendId);
     const id = text(backendId) || 'default';
 
     if (state.seriesBackendId !== id ||
@@ -887,6 +890,96 @@
     return true;
   }
 
+
+  // One layout pass per frame. Inline folder demand takes precedence over
+  // other new artwork; a small adjacent window warms the existing image path.
+  const pendingArtworkPriority = new Set();
+  const pendingArtworkRails = new Set();
+  let artworkPriorityFrame = false;
+
+  function artworkBounds(rail) {
+    const viewport = {left: 0, top: 0, right: global.innerWidth, bottom: global.innerHeight};
+    if (!rail || typeof rail.getBoundingClientRect !== 'function') return viewport;
+    const r = rail.getBoundingClientRect();
+    return {left: Math.max(0, r.left), top: Math.max(0, r.top),
+      right: Math.min(viewport.right, r.right), bottom: Math.min(viewport.bottom, r.bottom)};
+  }
+
+  function artworkDistance(image, bounds) {
+    if (!image.isConnected || image.complete || typeof image.getBoundingClientRect !== 'function') return Infinity;
+    const r = image.getBoundingClientRect();
+    if (bounds.right <= bounds.left || bounds.bottom <= bounds.top ||
+        r.width <= 0 || r.height <= 0 || r.bottom <= bounds.top || r.top >= bounds.bottom) return Infinity;
+    if (r.right > bounds.left && r.left < bounds.right) return 0;
+    return Math.max(bounds.left - r.right, r.left - bounds.right, 1);
+  }
+
+  function armArtworkPriority() {
+    if (artworkPriorityFrame || typeof global.requestAnimationFrame !== 'function') return;
+    artworkPriorityFrame = true;
+    global.requestAnimationFrame(function () {
+      artworkPriorityFrame = false;
+      const images = Array.from(pendingArtworkPriority);
+      const rails = Array.from(pendingArtworkRails);
+      pendingArtworkPriority.clear();
+      pendingArtworkRails.clear();
+      const visible = new Set();
+      const adjacent = new Map();
+      const handled = new Set();
+      for (const rail of rails) {
+        if (!rail.isConnected || typeof rail.querySelectorAll !== 'function') continue;
+        const bounds = artworkBounds(rail);
+        const lookahead = Math.min(1200, Math.max(0, bounds.right - bounds.left));
+        for (const image of rail.querySelectorAll('img')) {
+          handled.add(image);
+          const distance = artworkDistance(image, bounds);
+          if (distance === 0) visible.add(image);
+          else if (distance <= lookahead && image.loading === 'lazy')
+            adjacent.set(image, distance);
+        }
+      }
+      for (const image of images) {
+        if (handled.has(image)) continue;
+        const rail = typeof image.closest === 'function' ? image.closest('.media-home-discovery-rail') : null;
+        if (artworkDistance(image, artworkBounds(rail)) === 0) visible.add(image);
+      }
+      let remaining = 12;
+      for (const image of visible) {
+        if (remaining <= 0) break;
+        if (image.loading === 'eager' && image.fetchPriority === 'high') continue;
+        image.fetchPriority = 'high';
+        image.loading = 'eager';
+        remaining--;
+      }
+      // Demand is always allowed. Speculation stays bounded and respects
+      // the existing Home policy for constrained connections.
+      const net = global.navigator && global.navigator.connection;
+      if ((doc && doc.hidden) || (global.navigator && global.navigator.onLine === false) ||
+          (net && (net.saveData || ['slow-2g', '2g'].includes(net.effectiveType)))) return;
+      let nearby = 4;
+      for (const [image] of Array.from(adjacent).sort((a,b) => a[1] - b[1])) {
+        if (nearby <= 0) break;
+        if (image.loading !== 'lazy') continue;
+        image.fetchPriority = 'low';
+        image.loading = 'eager';
+        nearby--;
+      }
+    });
+  }
+
+  function prioritizeVisibleArtwork(image) {
+    if (typeof global.requestAnimationFrame !== 'function' || !image ||
+        typeof image.getBoundingClientRect !== 'function') return;
+    pendingArtworkPriority.add(image);
+    armArtworkPriority();
+  }
+
+  function prioritizeInlineRailArtwork(rail) {
+    if (!rail || typeof global.requestAnimationFrame !== 'function') return;
+    pendingArtworkRails.add(rail);
+    armArtworkPriority();
+  }
+
   function createPosterArtwork(title, url, fallbackText) {
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-discovery-artwork';
@@ -897,14 +990,16 @@
       return artwork;
     }
     const image = doc.createElement('img');
-    image.src = publicPath(homePreview(resolved));
     image.alt = 'Poster zu ' + text(title);
     image.loading = 'lazy';
+    image.decoding = 'async';
+    image.src = publicPath(homePreview(resolved));
     image.addEventListener('error', function () {
       image.remove();
       artwork.textContent = fallback;
     });
     artwork.appendChild(image);
+    prioritizeVisibleArtwork(image);
     return artwork;
   }
 
@@ -1189,7 +1284,8 @@
       const nativeId = recordingBackendNativeId(recording);
       const projected = recordingMetadataProjection(
         recording,
-        rich && nativeId ? rich.get(nativeId) || null : null,
+        (rich && nativeId ? rich.get(nativeId) : null) ||
+          (key === 'random-genre' ? recording.nativeCardMetadata : null),
         recordingBackendId(recording, backendId),
         key === 'newly-recorded'
       );
@@ -1295,6 +1391,8 @@
     }
     const section = sectionFor('folders');
     if (!section) return false;
+    const previousNotice = directChildWithClass(section, 'media-home-root-tail-notice');
+    if (previousNotice) previousNotice.remove();
     const rail = ensureDiscoveryRail(
       section,
       'Aufnahmeordner',
@@ -1734,7 +1832,7 @@
     return true;
   }
 
-  function updateSeriesHierarchyProjection(member, response, backendId) {
+  function updateSeriesHierarchyProjection(member, response, backendId, surface) {
     if (!member || !member.recording || !response || typeof response !== 'object') {
       return false;
     }
@@ -1779,9 +1877,16 @@
         }) || null
       : null;
 
-    const section = sectionFor('series');
+    const section = surface ? surface.section : sectionFor('series');
     closeSeriesHierarchyEditor(section);
 
+    if (surface) {
+      surface.seriesViewKey = rebuilt.key;
+      surface.seriesSeasonNumber = selectedSeason ? selectedSeason.number : null;
+      rerenderSeriesCoverPresentation(backendId);
+      return true;
+    }
+    refreshFolderSeries(backendId);
     return renderSeriesDetail(
       rebuilt,
       selectedSeason,
@@ -1876,7 +1981,7 @@
     doc.head.appendChild(style);
   }
 
-  function simplifySeriesHierarchyEditor() {
+  function simplifySeriesHierarchyEditor(section) {
     ensureSeriesHierarchySimpleUiStyle();
 
     if (!doc ||
@@ -1884,7 +1989,7 @@
       return;
     }
 
-    const editor = doc.querySelector(
+    const editor = section ? section.__vdrSuiteSeriesHierarchyEditor : doc.querySelector(
       '.media-home-series-hierarchy-modal'
     );
 
@@ -2032,10 +2137,10 @@
     }
   }
 
-  function openSeriesHierarchyEditor(member, series, backendId) {
+  function openSeriesHierarchyEditor(member, series, backendId, surface) {
     if (!seriesHierarchyCanEdit(member)) return false;
 
-    const section = sectionFor('series');
+    const section = surface ? surface.section : sectionFor('series');
     if (!section) return false;
 
     ensureSeriesHierarchyStyles();
@@ -2131,7 +2236,7 @@
         if (!response || typeof response !== 'object') {
           throw new Error('Ungültige Antwort der Serienzuordnung.');
         }
-        if (!updateSeriesHierarchyProjection(member, response, backendId)) {
+        if (!updateSeriesHierarchyProjection(member, response, backendId, surface)) {
           throw new Error('Serienansicht konnte nicht aktualisiert werden.');
         }
         return true;
@@ -2851,13 +2956,16 @@
     );
   }
 
-  function openSeriesDetail(series, backendId) {
+  function openSeriesDetail(series, backendId, surface) {
     if (!series) return false;
 
     const client = clientApi();
     const generation = state.generation;
     const seriesRevision = seriesRefreshRevision;
-    const recordings = (series.episodes || []).map(function (member) {
+    // Enrich the whole canonical group, even when the folder only shows a
+    // subset. Never replace global membership with the folder projection.
+    const canonical = surface && state.seriesProjection.find(item => item.key === series.key) || series;
+    const recordings = (canonical.episodes || []).map(function (member) {
       return member && member.recording;
     }).filter(Boolean);
     const canEnrich = Boolean(
@@ -2879,7 +2987,8 @@
       backendId,
       canEnrich && hierarchyIncomplete
         ? {metadataLoading: true}
-        : null
+        : null,
+      surface
     );
 
     if (!canEnrich) return rendered;
@@ -2891,6 +3000,8 @@
       generation,
       null,
       {
+        priority: true,
+        foreground: true,
         refreshUnsettled: true,
         refreshIncompleteHierarchy: true
       }
@@ -2921,6 +3032,18 @@
         state.seriesProjection[index] = enriched;
       }
 
+      refreshFolderSeries(backendId);
+      if (!seriesMetadataComplete(recordings, generation, backendId)) {
+        scheduleSeriesMetadataRetry(client, recordings, backendId, generation,
+          SERIES_DETAIL_METADATA_RETRY_MS);
+      }
+      if (surface) {
+        // The shared projection refresh only updates the still-mounted view.
+        // Update the upper view only if it already displays this series.
+        if (!state.seriesViewKey) return renderSeriesRail(state.seriesProjection, backendId);
+        if (state.seriesViewKey !== series.key) return true;
+      }
+      if (state.seriesViewKey !== series.key) return true;
       const selectedSeason = state.seriesSeasonNumber === null
         ? null
         : enriched.seasons.find(function (season) {
@@ -2933,37 +3056,30 @@
         backendId
       );
 
-      if (!seriesMetadataComplete(
-            recordings,
-            generation,
-            backendId
-          )) {
-        scheduleSeriesMetadataRetry(
-          client,
-          recordings,
-          backendId,
-          generation,
-          SERIES_DETAIL_METADATA_RETRY_MS
-        );
-      }
-
       return renderedDetail;
     }).catch(function () {
       if (!current(generation, backendId) || seriesRevision !== seriesRefreshRevision) return false;
-      return renderSeriesDetail(series, null, backendId);
+      if (surface) {
+        if (surface.current() && surface.seriesViewKey === series.key)
+          return renderSeriesDetail(series, null, backendId, null, surface);
+        return false;
+      }
+      return state.seriesViewKey === series.key && renderSeriesDetail(series, null, backendId);
     });
 
     return rendered;
   }
 
-  function renderSeriesRail(seriesEntries, backendId) {
+  function renderSeriesRail(seriesEntries, backendId, surface) {
+    const navigation = surface || state;
     if (!seriesEntries.length) {
-      clearRail('series');
+      if (surface) surface.section.replaceChildren();
+      else clearRail('series');
       return true;
     }
-    state.seriesViewKey = '';
-    state.seriesSeasonNumber = null;
-    const section = sectionFor('series');
+    navigation.seriesViewKey = '';
+    navigation.seriesSeasonNumber = null;
+    const section = surface ? surface.section : sectionFor('series');
     if (!section) return false;
     let rail = Array.from(section.children).find(function (child) {
       return child.className === 'media-home-discovery-rail series';
@@ -2999,7 +3115,7 @@
         if (!card) {
           card = doc.createElement('button');
           card.addEventListener('click', function () {
-            openSeriesDetail(card.__vdrSuiteSeries, card.dataset.backendId);
+            openSeriesDetail(card.__vdrSuiteSeries, card.dataset.backendId, surface);
           });
         }
         card.dataset.presentation = signature;
@@ -3028,6 +3144,8 @@
       nextCards.push(card);
     });
     reconcileSeriesChildren(rail, nextCards);
+    prioritizeInlineRailArtwork(rail);
+    if (surface && !surface.direct) appendOriginalFolderButton(surface);
     if (restore) {
       if (restore.focused && nextCards.indexOf(restore.focused) >= 0 &&
           typeof restore.focused.focus === 'function') restore.focused.focus({preventScroll: true});
@@ -3251,14 +3369,15 @@
     });
   }
 
-  function renderSeriesDetail(series, selectedSeason, backendId, options) {
+  function renderSeriesDetail(series, selectedSeason, backendId, options, surface) {
     const config = options && typeof options === 'object' ? options : {};
     const metadataLoading =
       config.metadataLoading === true ||
       seriesMetadataPendingForDetail(series, backendId);
-    state.seriesViewKey = series.key;
-    state.seriesSeasonNumber = selectedSeason ? selectedSeason.number : null;
-    const section = sectionFor('series');
+    const navigation = surface || state;
+    navigation.seriesViewKey = series.key;
+    navigation.seriesSeasonNumber = selectedSeason ? selectedSeason.number : null;
+    const section = surface ? surface.section : sectionFor('series');
     if (!section) return false;
     let view = section.__vdrSuiteSeriesDetail;
     if (!view || view.key !== series.key || view.backendId !== backendId ||
@@ -3270,7 +3389,10 @@
       }
       section.replaceChildren();
       appendSectionHeading(section, series.title, '← Serien', function () {
-        renderSeriesRail(state.seriesProjection, state.seriesBackendId || backendId);
+        if (surface) {
+          if (surface.direct) surface.back();
+          else renderSeriesRail(surface.entries, backendId, surface);
+        } else renderSeriesRail(state.seriesProjection, state.seriesBackendId || backendId);
       });
       const summary = doc.createElement('div');
       summary.className = 'media-home-series-summary';
@@ -3427,7 +3549,7 @@
           const currentSeason = view.series.seasons.find(function (item) {
             return String(item.number) === button.dataset.seasonNumber;
           });
-          renderSeriesDetail(view.series, currentSeason || null, backendId);
+          renderSeriesDetail(view.series, currentSeason || null, backendId, null, surface);
         });
       }
       const className = 'media-home-series-season' +
@@ -3467,6 +3589,19 @@
             backLabel: '← Zurück zur Staffel',
             onClose: function () {
               if (selectedBackendId() !== backendId || !selectShellModule('overview')) return;
+              if (surface) {
+                if (surface.current()) {
+                  const returnedSeries = surface.entries.find(item => item.key === view.key);
+                  if (returnedSeries) {
+                    const returnedSeason = returnedSeries.seasons.find(item =>
+                      view.selectedSeason && item.number === view.selectedSeason.number) || null;
+                    renderSeriesDetail(returnedSeries, returnedSeason, backendId, null, surface);
+                    if (typeof section.scrollIntoView === 'function')
+                      section.scrollIntoView({block:'start', behavior:'auto'});
+                  }
+                }
+                return;
+              }
               const currentSeries = state.seriesProjection.find(function (item) {
                 return item.key === view.key;
               });
@@ -3530,9 +3665,10 @@
             openSeriesHierarchyEditor(
               card.__vdrSuiteSeriesMember,
               view.series,
-              backendId
+              backendId,
+              surface
             );
-            simplifySeriesHierarchyEditor();
+            simplifySeriesHierarchyEditor(surface && surface.section);
           }
 
           hierarchyAction.addEventListener('click', openHierarchyEditor);
@@ -3549,7 +3685,139 @@
       return card;
     });
     reconcileSeriesChildren(view.episodeRail, nextEpisodes);
+    // Newly opened seasons and horizontal scrolling use the same
+    // visible-first/adjacent-image coordinator as the folder rails.
+    prioritizeInlineRailArtwork(view.episodeRail);
     return true;
+  }
+
+  let folderSeriesSurface = null;
+  function folderSeriesPath(value) {
+    // Same separator and leading-slash normalization as the browse repository.
+    return text(value).replace(/\\/g, '/').split('/').filter(Boolean).join('/');
+  }
+
+  function isSeriesRootFolder(path) {
+    return /^(?:serien|serie|series)$/i.test(folderSeriesPath(path));
+  }
+
+  function folderSeriesEntries(path, count, backendId, allowPartial = false) {
+    const root = folderSeriesPath(path);
+    const expected = Number(count);
+    if (!root || !isSeriesRootFolder(root.split('/')[0]) ||
+        !Number.isSafeInteger(expected) || expected <= 0 ||
+        state.seriesBackendId !== backendId || selectedBackendId() !== backendId) return null;
+
+    const members = [];
+    const seen = new Set();
+    const prefix = root + '/';
+    for (const series of state.seriesProjection) {
+      for (const member of series.episodes || []) {
+        const recording = member.recording;
+        const id = recordingId(recording);
+        const path = recordingPath(recording) || recordingBackendNativeId(recording);
+        if (!id || recordingBackendId(recording, backendId) !== backendId ||
+            !folderSeriesPath(path).startsWith(prefix) || seen.has(id)) continue;
+        seen.add(id);
+        members.push(member);
+      }
+    }
+    // The genre index and physical recording folder need not have identical
+    // membership. Never let that disable a useful canonical Series overview.
+    // A direct subfolder replacement still needs complete coverage.
+    if (!members.length || (!allowPartial && members.length !== expected)) return null;
+    const scoped = buildSeriesProjection(members);
+    const canonical = new Map(state.seriesProjection.map(series => [series.key, series]));
+    return scoped.map(series => {
+      const shared = canonical.get(series.key);
+      if (!shared) return series;
+      if (shared.episodes.length === series.episodes.length) return shared;
+      // Keep the exact same series title and selected image as the upper
+      // rail, but retain only in-folder episodes and their season counts.
+      return Object.assign({}, shared, {episodes:series.episodes, seasons:series.seasons});
+    }).sort((a,b) => a.title.localeCompare(b.title, 'de'));
+  }
+
+  function appendOriginalFolderButton(surface) {
+    const section = surface.section;
+    let button = surface.originalFolderButton;
+    if (!button) {
+      button = doc.createElement('button');
+      button.type = 'button';
+      button.className = 'media-home-series-back media-home-series-original-folder';
+      button.textContent = 'Alle Aufnahmen im Ordner';
+      button.addEventListener('click', function () {
+        if (surface.current()) surface.fallback();
+      });
+      surface.originalFolderButton = button;
+    }
+    if (button.parentNode !== section) section.appendChild(button);
+  }
+
+  function refreshFolderSeries(backendId, settled = false) {
+    const surface = folderSeriesSurface;
+    if (!surface) return false;
+    if (!surface.current()) {
+      if (surface.section.isConnected === false || selectedBackendId() !== surface.backendId)
+        folderSeriesSurface = null;
+      return false;
+    }
+    if (surface.backendId !== backendId) return false;
+    const entries = folderSeriesEntries(surface.path, surface.count(), backendId, !surface.direct);
+    if (!entries || (surface.direct && entries.length !== 1)) {
+      // An early auto-open may precede the first genre page. Keep the
+      // same explicit Series surface until that existing request finishes.
+      if (!surface.direct && !settled && state.seriesFolderSettledBackendId !== backendId) return false;
+      folderSeriesSurface = null;
+      surface.fallback();
+      return false;
+    }
+    surface.entries = entries;
+    const series = entries.find(item => item.key === surface.seriesViewKey);
+    if (!series && surface.direct) {
+      return renderSeriesDetail(entries[0], null, backendId, null, surface);
+    }
+    if (!series) return renderSeriesRail(entries, backendId, surface);
+    const season = series.seasons.find(item => item.number === surface.seriesSeasonNumber) || null;
+    return renderSeriesDetail(series, season, backendId, null, surface);
+  }
+
+  function mountFolderSeries(section, path, backendId, options) {
+    const config = options || {};
+    if (!section || typeof config.current !== 'function' || !config.current() ||
+        typeof config.count !== 'function' || typeof config.fallback !== 'function' ||
+        typeof config.back !== 'function') return false;
+    const root = !config.direct && isSeriesRootFolder(path);
+    if (!root && !config.direct) return false;
+    const entries = folderSeriesEntries(path, config.count(), backendId, root);
+    if (!entries && (!root || state.seriesFolderSettledBackendId === backendId)) return false;
+    if (config.direct && (!entries || entries.length !== 1)) return false;
+    const surface = {section, path, backendId, entries:entries || [], direct:config.direct === true,
+      count:config.count, current:config.current, fallback:config.fallback, back:config.back,
+      seriesViewKey:'', seriesSeasonNumber:null};
+    folderSeriesSurface = surface;
+    section.__stopFolderSeries = () => {
+      if (folderSeriesSurface === surface) folderSeriesSurface = null;
+    };
+    if (surface.direct) return openSeriesDetail(entries[0], backendId, surface);
+    if (entries) return renderSeriesRail(entries, backendId, surface);
+    section.replaceChildren();
+    appendSectionHeading(section, 'Serien');
+    const notice = doc.createElement('div');
+    notice.className = 'media-home-discovery-state';
+    notice.textContent = 'Serien werden gruppiert …';
+    section.appendChild(notice);
+    appendOriginalFolderButton(surface);
+    return true;
+  }
+
+  function folderSeriesCard(entry, backendId) {
+    const path = text(entry && (entry.path || entry.folderPath));
+    const entries = folderSeriesEntries(path, folderEntryCount(entry), backendId);
+    if (!entries || entries.length !== 1) return null;
+    const series = entries[0];
+    return {title: series.title, posterUrl:seriesCoverPosterUrl(series, backendId),
+      subtitle:seriesCountLabel(series)};
   }
 
   function applySeriesProjection(recordings, backendId, richMetadataByNativeId, options) {
@@ -3576,6 +3844,7 @@
 
     state.seriesProjection = projection;
     state.seriesBackendId = backendId;
+    refreshFolderSeries(backendId);
     if (!projection.length) {
       state.seriesViewKey = '';
       state.seriesSeasonNumber = null;
@@ -3733,13 +4002,29 @@
     return text(member && member.seriesKey);
   }
 
-  function promoteSeriesMetadataTask(cache, nativeId, seriesKey) {
+  function enqueuePrioritySeriesMetadataTask(cache, task) {
+    // Preserve FIFO within each class; explicit detail interaction outranks
+    // queued Home representative/rail work without interrupting active reads.
+    const index = task.foreground
+      ? cache.priorityQueue.findIndex(function (entry) { return !entry.foreground; })
+      : -1;
+    if (index < 0) cache.priorityQueue.push(task);
+    else cache.priorityQueue.splice(index, 0, task);
+  }
+
+  function promoteSeriesMetadataTask(cache, nativeId, seriesKey, foreground) {
     if (!cache || !nativeId) return false;
     let index = cache.priorityQueue.findIndex(function (task) {
       return task.nativeId === nativeId;
     });
     if (index >= 0) {
-      if (seriesKey) cache.priorityQueue[index].seriesKey = seriesKey;
+      const task = cache.priorityQueue[index];
+      if (seriesKey) task.seriesKey = seriesKey;
+      if (foreground && !task.foreground) {
+        cache.priorityQueue.splice(index, 1);
+        task.foreground = true;
+        enqueuePrioritySeriesMetadataTask(cache, task);
+      }
       return true;
     }
     index = cache.queue.findIndex(function (task) {
@@ -3748,7 +4033,8 @@
     if (index < 0) return false;
     const task = cache.queue.splice(index, 1)[0];
     if (seriesKey) task.seriesKey = seriesKey;
-    cache.priorityQueue.push(task);
+    task.foreground = foreground;
+    enqueuePrioritySeriesMetadataTask(cache, task);
     return true;
   }
 
@@ -3922,9 +4208,9 @@
     }
     if (cache.inflight.has(nativeId)) {
       const existing = cache.inflight.get(nativeId);
-      if (config.priority === true && seriesKey) {
-        cache.representativePromises.set(seriesKey, existing);
-        if (!promoteSeriesMetadataTask(cache, nativeId, seriesKey)) {
+      if (config.priority === true) {
+        if (seriesKey) cache.representativePromises.set(seriesKey, existing);
+        if (!promoteSeriesMetadataTask(cache, nativeId, seriesKey, config.foreground === true) && seriesKey) {
           existing.then(function () {
             if (state.seriesMetadataCache === cache) cache.readySeriesKeys.add(seriesKey);
           });
@@ -3941,13 +4227,14 @@
       client: client,
       nativeId: nativeId,
       seriesKey: config.priority === true ? seriesKey : '',
+      foreground: config.foreground === true,
       seriesRevision: seriesRefreshRevision,
       resolve: resolveTask
     };
     cache.inflight.set(nativeId, promise);
     if (config.priority === true) {
       if (seriesKey) cache.representativePromises.set(seriesKey, promise);
-      cache.priorityQueue.push(task);
+      enqueuePrioritySeriesMetadataTask(cache, task);
     } else {
       cache.queue.push(task);
     }
@@ -3959,6 +4246,7 @@
     if (!client || typeof client.requestJson !== 'function') return [];
     const cache = seriesMetadataCache(generation, backendId);
     const pending = [];
+    const embeddedArtworkSeriesKeys = new Set();
     (recordings || []).forEach(function (recording) {
       if (recordingBackendId(recording, backendId) !== backendId) return;
       const embedded = recording.seriesMetadata;
@@ -3966,7 +4254,8 @@
       const nativeId = recordingBackendNativeId(recording);
       const key = seriesMetadataPriorityKey(recording, backendId);
       if (nativeId && !cache.resolved.has(nativeId)) cache.resolved.set(nativeId, embedded);
-      if (recordingMetadataPosterUrl(embedded)) {
+      if (nativeId && key && recordingMetadataPosterUrl(embedded)) {
+        embeddedArtworkSeriesKeys.add(key);
         cache.scheduledSeriesKeys.add(key);
         cache.readySeriesKeys.add(key);
       }
@@ -3981,6 +4270,9 @@
       if (!nativeId || !seriesKey || seenSeriesKeys.has(seriesKey)) return;
 
       seenSeriesKeys.add(seriesKey);
+      // Another episode may already carry the canonical Series poster.
+      // Resolve missing episode detail only when the Series is opened.
+      if (embeddedArtworkSeriesKeys.has(seriesKey)) return;
       cache.scheduledSeriesKeys.add(seriesKey);
       pending.push(requestSeriesRecordingMetadata(
         client,
@@ -4164,10 +4456,15 @@
     });
   }
 
-  function fetchAllSeriesRecordings(client, backendId, genreId, generation, onProgress) {
+  function fetchAllSeriesRecordings(client, backendId, genreId, generation, onProgress, isRevisionCurrent, cache) {
     const recordings = [];
+    const scanCurrent = function () {
+      return current(generation, backendId) &&
+        (typeof isRevisionCurrent !== 'function' || isRevisionCurrent());
+    };
 
     function requestPage(offset) {
+      if (!scanCurrent()) return Promise.resolve(null);
       return Promise.resolve(client.fetchClientGenreRecordings({
         backendId: backendId,
         genreId: genreId,
@@ -4176,7 +4473,8 @@
         cache: 'no-store',
         credentials: 'same-origin'
       })).then(function (payload) {
-        if (!current(generation, backendId)) return null;
+        if (!scanCurrent()) return null;
+        if (cache) cache.accept(payload);
         return {
           offset: offset,
           payload: payload,
@@ -4187,7 +4485,7 @@
     }
 
     function appendPage(page) {
-      if (!page || !current(generation, backendId)) return false;
+      if (!page || !scanCurrent()) return false;
       Array.prototype.push.apply(recordings, page.recordings);
       return true;
     }
@@ -4237,21 +4535,28 @@
         offsets.push(offset);
       }
 
-      return Promise.all(offsets.map(requestPage)).then(function (pages) {
-        if (!current(generation, backendId)) return [];
-        pages.filter(Boolean).sort(function (left, right) {
-          return left.offset - right.offset;
-        }).forEach(function (page) {
-          if (!page.rawPage.length && page.offset < explicitTotal) {
-            throw new Error('series pagination made no progress');
-          }
-          appendPage(page);
-        });
-        if (typeof onProgress === 'function') {
-          onProgress(recordings.slice());
+      function requestTailBatch(index) {
+        if (!scanCurrent()) return Promise.resolve([]);
+        if (index >= offsets.length) {
+          if (typeof onProgress === 'function') onProgress(recordings.slice());
+          return Promise.resolve(recordings);
         }
-        return recordings;
-      });
+        // Bound inventory fan-out so other Home rails and interaction requests
+        // can use the transport while the large Series scan completes.
+        const batch = offsets.slice(index, index + SERIES_TAIL_PAGE_CONCURRENCY);
+        return Promise.all(batch.map(requestPage)).then(function (pages) {
+          if (!scanCurrent()) return [];
+          // Promise.all preserves offset order even when replies arrive out of order.
+          pages.forEach(function (page) {
+            if (!page || (!page.rawPage.length && page.offset < explicitTotal)) {
+              throw new Error('series pagination made no progress');
+            }
+            appendPage(page);
+          });
+          return requestTailBatch(index + batch.length);
+        });
+      }
+      return requestTailBatch(0);
     });
   }
 
@@ -4269,7 +4574,7 @@
     });
   }
 
-  function fetchRootFolderProjection(client, backendId, generation) {
+  function fetchRootFolderProjection(client, backendId, generation, cache, onCategories) {
     const folders = [];
     const rootRecordings = [];
 
@@ -4285,6 +4590,7 @@
         credentials: 'same-origin'
       })).then(function (payload) {
         if (!current(generation, backendId)) return {folders: [], rootRecordings: []};
+        if (cache) cache.accept(payload);
         const rawPage = list(payload, 'recordings');
         if (offset === 0) {
           const firstProjection = projectRootFolderPayload(payload, backendId);
@@ -4305,6 +4611,8 @@
         if (!rawPage.length || nextOffset <= offset) {
           throw new Error('root folder pagination made no progress');
         }
+        if (offset === 0 && folders.length && typeof onCategories === 'function')
+          onCategories(folders.slice());
         return requestPage(nextOffset);
       });
     }
@@ -4409,6 +4717,33 @@
     return true;
   }
 
+  function beginCachedRail(rail, title, backendId, generation, extraCurrent) {
+    const cache = global.VdrSuiteHomeCache;
+    return cache ? cache.begin(rail, backendId, title, function () {
+      return current(generation, backendId) &&
+        (!extraCurrent || extraCurrent());
+    }) : null;
+  }
+
+  function cachedRecordingCards(recordings) {
+    return recordings.slice(0, 24).map(function (recording) {
+      return {id: recordingId(recording), title: recordingTitle(recording),
+        subtitle: recordingSubtitle(recording), posterUrl: recordingPosterUrl(recording)};
+    });
+  }
+
+  function cachedFolderCards(projection) {
+    const cards = projection.folders.slice(0, 24).map(function (folder) {
+      const path = text(folder.path || folder.folderPath || folder.name);
+      const label = text(folder.name || folder.title) || path.split('/').filter(Boolean).pop() || path;
+      const count = folderEntryCount(folder);
+      return {id: 'folder:' + path, title: label, subtitle: count > 0 ? String(count) + ' Aufnahmen' : path};
+    });
+    if (projection.rootRecordings.length) cards.unshift({id: 'root-recordings', title: 'Hauptverzeichnis',
+      subtitle: String(projection.rootRecordings.length) + ' Aufnahmen'});
+    return cards;
+  }
+
   function loadNewly(client, backendId, generation, options) {
     const config = options && typeof options === 'object' ? options : {};
     const retainVisible = config.retainVisible === true &&
@@ -4416,6 +4751,7 @@
     if (!retainVisible) {
       renderState('newly-recorded', 'Neu aufgenommen', 'Aufnahmen werden geladen …', false);
     }
+    const cache = beginCachedRail('newly-recorded', 'Neu aufgenommen', backendId, generation);
     return Promise.resolve(client.fetchClientRecordings({
       query: {
         backend: backendId,
@@ -4427,8 +4763,9 @@
       cache: 'no-store',
       credentials: 'same-origin'
     })).then(function (payload) {
-      if (!current(generation, backendId)) return false;
+      if (!current(generation, backendId)) { if (cache) cache.cancel(); return false; }
       const recordings = canonicalRecordings(payload, backendId).slice(0, NEW_LIMIT);
+      if (cache) { cache.accept(payload); cache.finish(cachedRecordingCards(recordings)); }
       const richMetadata = new Map();
       const initialRevisions = new Map();
       recordings.forEach(function (recording) {
@@ -4456,7 +4793,7 @@
                   updateNewlyRecordedTile(recording, backendId, rich);
               });
             });
-          }
+          }, {priority: true}
         ).catch(function () { return false; });
         // Once persisted cover settings arrive, touch only tiles whose
         // effective Series presentation actually has an override.
@@ -4477,6 +4814,7 @@
       }
       return rendered;
     }).catch(function () {
+      if (cache) cache.cancel();
       if (!current(generation, backendId)) return false;
       if (retainVisible) return false;
       return renderState(
@@ -4533,10 +4871,13 @@
         );
         positionRandomGenreRail();
 
-        if (client && typeof client.requestJson === 'function') {
+        const pendingRecordings = recordings.filter(function (recording) {
+          return !recording.nativeCardMetadata || recording.nativeCardMetadata.available !== true;
+        });
+        if (pendingRecordings.length && client && typeof client.requestJson === 'function') {
           fetchSeriesRecordingMetadata(
             client,
-            recordings,
+            pendingRecordings,
             backendId,
             generation,
             function (rich) {
@@ -4605,12 +4946,14 @@
     });
 
     if (!seriesGenre) {
+      state.seriesFolderSettledBackendId = backendId;
       clearSeriesMetadataRetry();
       clearSeriesWarm();
       state.seriesProjection = [];
       state.seriesBackendId = '';
       state.seriesViewKey = '';
       state.seriesSeasonNumber = null;
+      refreshFolderSeries(backendId, true);
       clearRail('series');
       return Promise.resolve(false);
     }
@@ -4631,6 +4974,7 @@
     }
 
     clearSeriesWarm();
+    state.seriesFolderSettledBackendId = '';
 
     const retainProjection =
       state.seriesBackendId === backendId &&
@@ -4647,6 +4991,7 @@
       );
     }
 
+    const cache = beginCachedRail('series', 'Serien', backendId, generation, seriesCurrent);
     return fetchAllSeriesRecordings(
       client,
       backendId,
@@ -4657,22 +5002,29 @@
         if (!recordings.length) return;
 
         if (!retainProjection) {
+          if (cache) cache.dismiss();
           applySeriesProjection(
             recordings,
             backendId
           );
         }
-      }
+      },
+      seriesCurrent,
+      cache
     ).then(function (recordings) {
-      if (!seriesCurrent()) return false;
+      if (!seriesCurrent()) { if (cache) cache.cancel(); return false; }
+      if (cache) cache.dismiss();
 
+      state.seriesFolderSettledBackendId = backendId;
       if (!recordings.length) {
+        if (cache) cache.finish([]);
         clearSeriesMetadataRetry();
         clearSeriesWarm();
         state.seriesProjection = [];
         state.seriesBackendId = '';
         state.seriesViewKey = '';
         state.seriesSeasonNumber = null;
+        refreshFolderSeries(backendId, true);
         clearRail('series');
         return false;
       }
@@ -4704,11 +5056,22 @@
         resolvedSeriesMetadata(generation, backendId)
       );
 
+      if (cache) cache.finish(state.seriesProjection.slice(0, 24).map(function (series) {
+        return {id: series.key, title: series.title, subtitle: seriesCountLabel(series),
+          posterUrl: seriesCoverPosterUrl(series, backendId)};
+      }));
       if (rendered && seriesCurrent()) markSeriesWarm(backendId);
 
       if (client && typeof client.requestJson === 'function') {
+        // Scoped corrections already have an authoritative fresh read below.
+        // Do not schedule a second representative read for the same native ID.
+        const representativeRecordings = explicitNativeIds.size
+          ? recordings.filter(function (recording) {
+              return !explicitNativeIds.has(recordingBackendNativeId(recording));
+            })
+          : recordings;
         prefetchSeriesRepresentativeMetadata(
-          client, recordings, backendId, generation,
+          client, representativeRecordings, backendId, generation,
           function () {
             if (!seriesCurrent()) return;
             applySeriesProjection(
@@ -4730,13 +5093,10 @@
               );
             }
             // Known metadata mutation: bypass cached native presentation.
-            return Promise.resolve().then(function () {
-              return client.requestJson('/api/vdr/recordings/metadata', {
-                query: {backend: backendId, backendNativeId: nativeId},
-                cache: 'no-store',
-                credentials: 'same-origin'
-              });
-            }).then(function (metadata) {
+            const readChangedMetadata = typeof config.readChangedMetadata === 'function'
+              ? config.readChangedMetadata
+              : function (id) { return readFreshRecordingMetadata(client, backendId, id); };
+            return readChangedMetadata(nativeId).then(function (metadata) {
               if (!seriesCurrent() || !metadata || metadata.available !== true) return false;
               const cache = seriesMetadataCache(generation, backendId);
               cache.resolved.set(nativeId, metadata);
@@ -4756,17 +5116,23 @@
       }
       return rendered;
     }).catch(function () {
+      if (cache) cache.cancel();
       if (!seriesCurrent()) return false;
 
       clearSeriesMetadataRetry();
       clearSeriesWarm();
+      state.seriesFolderSettledBackendId = backendId;
 
-      if (retainProjection) return false;
+      if (retainProjection) {
+        refreshFolderSeries(backendId, true);
+        return false;
+      }
 
       state.seriesProjection = [];
       state.seriesBackendId = '';
       state.seriesViewKey = '';
       state.seriesSeasonNumber = null;
+      refreshFolderSeries(backendId, true);
 
       return renderState(
         'series',
@@ -4786,6 +5152,7 @@
     if (!retainVisible) {
       renderState('genres', 'Genres', 'Genres werden geladen …', false);
     }
+    const cache = beginCachedRail('genres', 'Genres', backendId, generation);
     return Promise.resolve(client.fetchClientGenres({
       backendId: backendId,
       scope: 'recordings',
@@ -4793,8 +5160,14 @@
       cache: 'no-store',
       credentials: 'same-origin'
     })).then(function (payload) {
-      if (!current(generation, backendId)) return false;
+      if (!current(generation, backendId)) { if (cache) cache.cancel(); return false; }
       const entries = canonicalGenres(payload);
+      if (cache) {
+        cache.accept(payload);
+        cache.finish(entries.slice(0, GENRE_LIMIT).map(function (entry) {
+          return {id: text(entry.id), title: genreLabel(entry), subtitle: String(Number(entry.count || 0)) + ' Aufnahmen'};
+        }));
+      }
       renderGenreRail(entries.slice(0, GENRE_LIMIT), backendId);
       const randomGenre = selectRandomGenre(entries, generation, Math.random());
       if (!randomGenre) clearRail('random-genre');
@@ -4806,6 +5179,7 @@
           : Promise.resolve(false)
       ]).then(function () { return true; });
     }).catch(function () {
+      if (cache) cache.cancel();
       if (!current(generation, backendId)) return false;
       if (retainVisible) return false;
       state.randomGenreGeneration = generation;
@@ -4828,7 +5202,8 @@
     function openSelectedFolder() {
       if (!current(generation, backendId)) return false;
       const bootstrap = global.VdrSuiteHomeRecordingDiscoveryBootstrap;
-      if (!bootstrap || typeof bootstrap.installMouseDrag !== 'function') return false;
+      if (!bootstrap || typeof bootstrap.installMouseDrag !== 'function' ||
+          typeof bootstrap.openRandomFolderInline !== 'function') return false;
       bootstrap.installMouseDrag();
       const section = sectionFor('folders');
       if (!section || typeof section.querySelectorAll !== 'function') return false;
@@ -4839,13 +5214,13 @@
         selectedCard = card;
         return true;
       });
-      if (!selectedCard || typeof selectedCard.click !== 'function') return false;
+      if (!selectedCard) return false;
       if (selectedCard.classList &&
           typeof selectedCard.classList.contains === 'function' &&
           selectedCard.classList.contains('inline-selected')) return true;
       if (typeof selectedCard.getAttribute === 'function' &&
           selectedCard.getAttribute('aria-expanded') === 'true') return true;
-      selectedCard.click();
+      bootstrap.openRandomFolderInline(selectedCard);
       return true;
     }
 
@@ -4863,8 +5238,20 @@
     if (!retainVisible) {
       renderState('folders', 'Aufnahmeordner', 'Aufnahmeordner werden geladen …', false);
     }
-    return fetchRootFolderProjection(client, backendId, generation).then(function (projection) {
-      if (!current(generation, backendId)) return false;
+    const cache = beginCachedRail('folders', 'Aufnahmeordner', backendId, generation);
+    let partial = false;
+    return fetchRootFolderProjection(client, backendId, generation, cache, function (folders) {
+      if (retainVisible || !current(generation, backendId)) return;
+      // The first root page owns category entries. Never expose a partial
+      // root-recording group or persist an incomplete projection.
+      if (cache) cache.dismiss();
+      state.folderProjection = {folders: folders, rootRecordings: []};
+      state.folderBackendId = backendId;
+      partial = renderFolderRail(folders, [], backendId);
+      if (partial) scheduleRandomFolderInline(folders, backendId, generation, Math.random());
+    }).then(function (projection) {
+      if (!current(generation, backendId)) { if (cache) cache.cancel(); return false; }
+      if (cache) cache.finish(cachedFolderCards(projection));
       state.folderProjection = projection;
       state.folderBackendId = backendId;
       const rendered = renderFolderRail(
@@ -4872,7 +5259,7 @@
         projection.rootRecordings,
         backendId
       );
-      if (rendered) {
+      if (rendered && !partial) {
         scheduleRandomFolderInline(
           projection.folders,
           backendId,
@@ -4882,8 +5269,20 @@
       }
       return rendered;
     }).catch(function () {
+      if (cache) cache.cancel();
       if (!current(generation, backendId)) return false;
       if (retainVisible) return false;
+      if (partial) {
+        const target = sectionFor('folders');
+        if (target) {
+          const notice = doc.createElement('p');
+          notice.className = 'media-home-discovery-state media-home-root-tail-notice error';
+          notice.setAttribute('role', 'status');
+          notice.textContent = 'Hauptverzeichnis ist vorübergehend nicht vollständig verfügbar.';
+          target.appendChild(notice);
+        }
+        return false;
+      }
       state.folderProjection = {folders: [], rootRecordings: []};
       state.folderBackendId = '';
       state.randomFolderGeneration = generation;
@@ -4996,10 +5395,25 @@
       if (!client || typeof client.fetchClientGenreRecordings !== 'function') return;
       const changedNativeIds = Array.from(seriesChangedNativeIds);
       seriesChangedNativeIds.clear();
+      const backendId = selectedBackendId();
+      const generation = state.generation;
+      // Share only this SSE batch's fresh read promises. A later event gets a
+      // new batch, never a cached result from an earlier metadata correction.
+      const reads = new Map();
+      function readChangedMetadata(nativeId) {
+        if (!reads.has(nativeId)) {
+          reads.set(nativeId, readFreshRecordingMetadata(client, backendId, nativeId));
+        }
+        return reads.get(nativeId);
+      }
+      changedNativeIds.forEach(function (id) {
+        refreshSpecificRecording(id, backendId, generation, readChangedMetadata);
+      });
       clearSeriesWarm();
-      loadSeries(client, selectedBackendId(), state.generation, [{id: 'series'}], {
+      loadSeries(client, backendId, generation, [{id: 'series'}], {
         sse: true,
-        changedNativeIds: changedNativeIds
+        changedNativeIds: changedNativeIds,
+        readChangedMetadata: readChangedMetadata
       });
     });
   }
@@ -5016,7 +5430,18 @@
     return directChildWithClass(section, 'media-home-discovery-rail');
   }
 
-  function refreshSpecificRecording(nativeId, backendId, expectedGeneration) {
+  function readFreshRecordingMetadata(client, backendId, nativeId) {
+    if (!client || typeof client.requestJson !== 'function') return Promise.resolve(null);
+    return Promise.resolve().then(function () {
+      return client.requestJson('/api/vdr/recordings/metadata', {
+        query: {backend: backendId, backendNativeId: nativeId},
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
+    });
+  }
+
+  function refreshSpecificRecording(nativeId, backendId, expectedGeneration, readChangedMetadata) {
     const client = clientApi();
     const rail = newlyRecordingRail();
     const card = rail && Array.from(rail.children || []).find(function (entry) {
@@ -5029,11 +5454,10 @@
     const revisionKey = recordingTileRevisionKey(backendId, nativeId);
     const revision = (recordingTileRevisions.get(revisionKey) || 0) + 1;
     recordingTileRevisions.set(revisionKey, revision);
-    return Promise.resolve(client.requestJson('/api/vdr/recordings/metadata', {
-      query: {backend: backendId, backendNativeId: nativeId},
-      cache: 'no-store',
-      credentials: 'same-origin'
-    })).then(function (rich) {
+    const read = typeof readChangedMetadata === 'function'
+      ? readChangedMetadata(nativeId)
+      : readFreshRecordingMetadata(client, backendId, nativeId);
+    return read.then(function (rich) {
       if (!current(expectedGeneration, backendId) ||
           recordingTileRevisions.get(revisionKey) !== revision ||
           !rich || rich.available !== true) return false;
@@ -5050,6 +5474,9 @@
     const client = clientApi();
     if (!client || typeof client.fetchClientRecordings !== 'function')
       return Promise.resolve(false);
+    const cacheOwner = global.VdrSuiteHomeCache;
+    const cache = cacheOwner ? cacheOwner.begin('newly-recorded', backendId, 'Neu aufgenommen',
+      function () { return current(generation, backendId) && revision === recordingRefreshRevision; }, false) : null;
     return Promise.resolve(client.fetchClientRecordings({
       query: {backend: backendId, sort: 'startTime', order: 'desc',
         limit: NEW_LIMIT, offset: 0},
@@ -5057,8 +5484,9 @@
       credentials: 'same-origin'
     })).then(function (payload) {
       if (!current(generation, backendId) ||
-          revision !== recordingRefreshRevision) return false;
+          revision !== recordingRefreshRevision) { if (cache) cache.cancel(); return false; }
       const recordings = canonicalRecordings(payload, backendId).slice(0, NEW_LIMIT);
+      if (cache) { cache.accept(payload); cache.finish(cachedRecordingCards(recordings)); }
       const rail = newlyRecordingRail();
       if (!rail) return renderRecordingRail(
         'newly-recorded', 'Neu aufgenommen', recordings, backendId
@@ -5095,7 +5523,7 @@
         refreshSpecificRecording(nativeId, backendId, generation);
       });
       return true;
-    }).catch(function () { return false; });
+    }).catch(function () { if (cache) cache.cancel(); return false; });
   }
 
   function scheduleRecordingChangeRefresh() {
@@ -5149,12 +5577,7 @@
             return typeof value === 'string' && value.length > 0;
           })
         : [];
-      if (ids.length) {
-        const generation = state.generation;
-        new Set(ids).forEach(function (id) {
-          refreshSpecificRecording(id, selectedBackendId(), generation);
-        });
-      } else {
+      if (!ids.length) {
         recordingRefreshPending = true;
         scheduleRecordingChangeRefresh();
       }
@@ -5235,6 +5658,7 @@
       state.seriesBackendId = '';
       state.seriesViewKey = '';
       state.seriesSeasonNumber = null;
+      state.seriesFolderSettledBackendId = '';
       state.seriesCoverBackendId = '';
       state.seriesCoverSettingsLoaded = false;
       state.seriesCoverOverrides = new Map();
@@ -5324,6 +5748,10 @@
   global.VdrSuiteHomeRecordingDiscovery = Object.freeze({
     install: install,
     refresh: refresh,
+    prioritizeVisibleArtwork: prioritizeVisibleArtwork,
+    prioritizeInlineRailArtwork: prioritizeInlineRailArtwork,
+    mountFolderSeries: mountFolderSeries,
+    folderSeriesCard: folderSeriesCard,
     _test: Object.freeze({
       selectedBackendId: selectedBackendId,
       canonicalRecordings: canonicalRecordings,
@@ -5373,6 +5801,7 @@
       renderFolderRail: renderFolderRail,
       renderSeriesRail: renderSeriesRail,
       renderSeriesDetail: renderSeriesDetail,
+      folderSeriesEntries: folderSeriesEntries,
       positionRandomGenreRail: positionRandomGenreRail,
       scheduleRandomFolderInline: scheduleRandomFolderInline,
       openRecording: openRecording,

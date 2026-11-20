@@ -228,7 +228,59 @@ Promise.resolve().then(function () {
   assert.strictEqual(returnedSection.scrollIntoViewCalls[0].block, 'start');
   assert.strictEqual(returnedSection.scrollIntoViewCalls[0].behavior, 'auto');
 
-  console.log('phase66 series season return reveals canonical Home series section');
+  // Reuse the production model for a second surface; membership must match
+  // the real folder, not the global series title or provider grouping.
+  const members = [
+    {recordingId:'s1',backendId:'default',path:'/Serien/Alpha/ep1.rec',
+      title:'Serien/Alpha/S01E01 Pilot',metadata:{provider:{seriesId:'111'}}},
+    {recordingId:'s2',backendId:'default',path:'/Serien/Alpha/ep2.rec',
+      title:'Serien/Alpha/S01E02 Next',metadata:{provider:{seriesId:'111'}}},
+    {recordingId:'outside',backendId:'default',path:'/Elsewhere/Alpha/ep3.rec',
+      title:'Alpha S01E03 Outside',metadata:{provider:{seriesId:'111'}}}
+  ];
+  members[0].metadata.presentation={posterUrl:'/alpha-series-poster.jpg'};
+  const folderView = new FakeElement('div');
+  host.appendChild(folderView);
+  const upper = host.querySelector('[data-home-discovery-rail="series"]');
+  let alive = true, fallback = 0;
+  // Physical inventory has 464 recordings, the canonical genre is still
+  // loading, and some physical recordings are not in that genre.
+  assert(api.mountFolderSeries(folderView,'Serien','default',{
+    count:()=>464,current:()=>alive,back:()=>{},fallback:()=>{fallback++;}
+  }));
+  assert(findElement(folderView, element=>element.textContent==='Serien werden gruppiert …'));
+  api._test.applySeriesProjection(members,'default');
+  assert.strictEqual(api._test.folderSeriesEntries('Serien',464,'default'),null);
+  assert.strictEqual(api._test.folderSeriesEntries('Serien',464,'other',true),null);
+  assert.strictEqual(api._test.folderSeriesEntries('Serien',464,'default',true).length,1);
+  assert.strictEqual(fallback,0,'missing genre members must not replace the whole Series rail');
+  const lowerRail = findElement(folderView, element=>element.className==='media-home-discovery-rail series');
+  assert.strictEqual(lowerRail.children.length,1);
+  const sharedUpperRail = findElement(upper, element=>element.className==='media-home-discovery-rail series');
+  assert.strictEqual(lowerRail.children[0].className,sharedUpperRail.children[0].className);
+  assert.strictEqual(lowerRail.children[0].children[0].children[0].src,sharedUpperRail.children[0].children[0].children[0].src);
+  assert.strictEqual(lowerRail.children[0].children[0].children[0].src,'/alpha-series-poster.jpg');
+  assert.strictEqual(lowerRail.children[0].children[1].children[0].textContent,sharedUpperRail.children[0].children[1].children[0].textContent);
+  assert.strictEqual(lowerRail.children[0].children[1].children[1].textContent,'1 Staffel · 2 Folgen');
+  assert(findElement(folderView, element=>element.textContent==='Alle Aufnahmen im Ordner'));
+  lowerRail.scrollLeft=123;
+  lowerRail.children[0].listeners.click[0]();
+  const lowerSeason = findElement(folderView, element=>element.className==='media-home-series-season-rail');
+  assert.strictEqual(lowerSeason.children.length,1);
+  lowerSeason.children[0].listeners.click[0]();
+  const lowerEpisodes = findElement(folderView, element=>element.className==='media-home-discovery-rail series-episodes');
+  assert.deepStrictEqual(lowerEpisodes.children.map(card=>card.dataset.recordingId),['s1','s2']);
+  const upperBefore=upper.children.slice();
+  const back=findElement(folderView, element=>element.className==='media-home-series-back');
+  back.listeners.click[0]();
+  assert.strictEqual(lowerRail.parentNode,folderView);
+  assert.strictEqual(lowerRail.scrollLeft,123);
+  assert.deepStrictEqual(upper.children,upperBefore,'lower navigation leaves upper rail unchanged');
+  const originals = findElement(folderView, element=>element.textContent==='Alle Aufnahmen im Ordner');
+  originals.listeners.click[0]();
+  assert.strictEqual(fallback,1,'unclassified recordings remain reachable by explicit folder navigation');
+  alive=false; folderView.__stopFolderSeries();
+  console.log('phase66 shared scoped series presentation and return-scroll contract ok');
 }).catch(function (error) {
   console.error(error);
   process.exitCode = 1;

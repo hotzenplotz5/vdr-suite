@@ -1,5 +1,17 @@
 # VDR-Suite Current State
 
+## PWA / Home performance — next frontend priority (19.11.2026)
+
+**PWA.13.7 = source candidate; combined Home folder card pagination and scoped bounded lookahead for automatic folder expansion. PWA.13.6 operator-installed PASS at `b3925f80`; bounded idle movie prefetch, viewport-ahead EPG/movie paging trigger, progressive folder categories. PWA.13.5 installation PASS at `6ca56e8b`; release-date ordered movie pagination with twelve initial cards and scroll-driven loading. PWA.13.4 operator-installed PASS; snapshot dispatch precedes Home resume, authenticated module navigation no longer waits for snapshot, pending metrics update independently; snapshot Resource Timing breakdown. PWA.13.2/.13.3 operator-installed PASS at `26149a168`; warm image caching works, startup remains above target. PWA.14 real cold/warm browser/PWA acceptance remains OPEN.**
+The maintainer prioritizes local client caching and optional PWA installation
+for the existing Webfrontend, including ordinary browser use. See
+[PWA plan](development/pwa-local-first-frontend-plan.md) and the strict roadmap.
+HOME.P7.1 installation and focused test passed; real Home artwork latency
+acceptance remains **FAILED / OPEN** (visible posters missing after minutes,
+three metadata-image HTTP 404 observations in the later capture).
+PWA.1 adds the public offline shell, manifest, worker registration and static route/install wiring on the existing Home branch. See the PWA plan for remaining evidence. No merge, new branch, or Phase 70 kickoff.
+Other existing workstream acceptance states remain unchanged.
+
 **Architekturentscheidung 17.11.2026 (Betreiber):** Reguläres epgsearch ist die produktive Basis. Keine epgsearch-Patches oder gepatchte ABI als Installations- oder Freigabevoraussetzung. CREATE/LIST über RESTfulAPI; VERSION/UPDATE/ACTIVATE/DEACTIVATE/DELETE verwenden die vorhandenen Standard-SVDRP-Befehle intern. SQLite-Operationsreservierung, Idempotenz, ETag, Autorisierung und Readback bleiben; native epgsearch-lock-atomare CAS oder persistierte native Generationen werden nicht versprochen. Externe konkurrierende Änderungen zwischen Lesen und Schreiben sowie identische Löschung/Neuanlage zwischen Beobachtungen sind nicht vollständig erkennbar. Historische native-CAS-Abnahmeforderungen sind damit aufgehoben. Ursprünglicher Source-Kandidat `eaa8ab6e122fbb8723456df091b6a57a12311653`; aktueller installierter und im yaVDR-Webfrontend getesteter Code-Kandidat `b5ae3cc27cb25f6950e641781060a1b5a68f510d` (17.11.2026).
 
 ## Public API v1 – SearchTimer yaVDR-Web-Praxisabnahme (17.11.2026)

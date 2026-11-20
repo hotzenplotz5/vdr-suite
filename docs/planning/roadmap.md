@@ -43,6 +43,20 @@ A roadmap entry is never automatic permission to implement the next possible dif
 - Completed phase history is not renumbered. Only not-yet-started future phases may be reordered when architecture/product sequencing is explicitly updated.
 
 
+## PWA — Local-first Webfrontend modernization (decision 2026-11-19)
+
+**Next prioritized frontend workstream:** PWA.1–PWA.13.1 (local artwork, selected series covers, authorized Local-first startup and public logos), extending the existing
+Webfrontend for both ordinary browser use and optional PWA installation.
+Reuse the server read models, Client API, artwork previews and SSE feed;
+add a versioned app shell, scoped IndexedDB read-model persistence and
+bounded client artwork caching. Account/backend isolation starts with the
+first slice. No framework migration, new polling, separate native app or
+numbered Phase 70 kickoff. HOME.P real-browser acceptance remains open;
+the PWA work does not waive cold-delivery or missing-artwork correctness.
+Implementation order and acceptance: [PWA plan](../development/pwa-local-first-frontend-plan.md).
+
+---
+
 ## SSE.H — Live-Update transport hardening (funktionale yaVDR-Abnahme PASS; 06.11.2026)
 
 **SSE.H1/H2 und CW.H2 im realen yaVDR-Betrieb funktional abgenommen.** Der Operator installierte den verifizierten Daemon `b45c0cfe4a4` (`DAEMON_INSTALL=PASS`, aktiver Service, kein DB-Backup) und bestätigte direkte Wiedergabefortsetzung, Von-vorn-Start, Tonstopp beim Zurückgehen und browserübergreifende SSE-Home-Aktualisierung ohne Seiten-Neuladen. Getrennte Langzeitlast-, Cursor-Reconnect- und Mehrbenutzermessungen sind weiterhin nicht nachgewiesen. [ADR-0019 SSE strategy](../adr/ADR-0019-sse-event-stream-transport-strategy.md) bleibt gültig; Details im [SSE/Continue-Watching-Befund](../development/sse-continue-watching-hardening-2026-11-04.md).
@@ -1335,3 +1349,5 @@ No public C++ ABI or `-dev` package is implied.
 ### Media Tools MT.ENC3.2 – Software-Encoding-Einstellungen (14.11.2026)
 
 Eigene Settings-Karte für H.264-Import und HEVC-Shrink; persistiert ausschließlich in der vorhandenen Backend-Agent-Konfiguration. Die vier typisierten Werte werden vor einem neuen Auftrag erneut eingelesen und eingefroren. Software-CRF/Presets nicht mit VAAPI-/QSV-/NVENC-Qualitätssteuerungen gleichsetzen. Implementierung im Quellstand; isolierte und reale yaVDR-/SSE-/VDR-/Playback-Abnahmen bleiben getrennt offen. BAS erst nach Media Tools.
+
+PWA performance follow-up before PWA.14: PWA.13.1 public logo/negative cache (operator-installed PASS); PWA.13.2 scoped EPG artwork including Hero and PWA.13.3 non-blocking snapshot/count startup (operator-installed PASS at `26149a168`); PWA.13.4 decouple navigation and snapshot, measure HTTP phase (operator-installed PASS at `60c92fe13`); PWA.13.5 recent-movie rail ordering/pagination optimization (operator-installed PASS at `6ca56e8b`); PWA.13.6 progressive independent Home rails and bounded lookahead (operator-installed PASS at `b3925f80`); PWA.13.7 bounded random folder cards (source candidate); PWA.14 controlled browser/PWA acceptance. Real warm performance acceptance remains open.

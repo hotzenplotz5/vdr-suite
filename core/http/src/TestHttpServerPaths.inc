@@ -7,6 +7,11 @@ struct FrontendAsset
 };
 
 const FrontendAsset FRONTEND_ASSETS[] = {
+    {"/frontend/manifest.webmanifest", "manifest.webmanifest", "application/manifest+json; charset=utf-8", nullptr},
+    {"/frontend/pwa-icon-192.png", "pwa-icon-192.png", "image/png", nullptr},
+    {"/frontend/pwa-icon-512.png", "pwa-icon-512.png", "image/png", nullptr},
+    {"/frontend/service-worker.js", "service-worker.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/pwa-register.js", "pwa-register.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/app.js", "app.js", "application/javascript; charset=utf-8", "modules/remote.js"},
     {"/frontend/api/client-api.js", "api/client-api.js", "application/javascript; charset=utf-8", "api/live-remote-client-api.js"},
     {"/frontend/api/public-v1-client.js", "api/public-v1-client.js", "application/javascript; charset=utf-8", nullptr},
@@ -16,6 +21,8 @@ const FrontendAsset FRONTEND_ASSETS[] = {
     {"/frontend/api/session-frontend-sync.js", "api/session-frontend-sync.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/public-url.js", "platform/public-url.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/bootstrap.js", "platform/bootstrap.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/platform/home-persistence.js", "platform/home-persistence.js", "application/javascript; charset=utf-8", nullptr},
+    {"/frontend/platform/home-cache-runtime.js", "platform/home-cache-runtime.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/i18n.js", "platform/i18n.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/helpers.js", "platform/helpers.js", "application/javascript; charset=utf-8", nullptr},
     {"/frontend/platform/deferred-runtime-loader.js", "platform/deferred-runtime-loader.js", "application/javascript; charset=utf-8", "home-recording-discovery-bootstrap.js"},

@@ -87,7 +87,15 @@ assert.strictEqual(previewUrl(revisionUrl), revisionUrl + '&variant=home');
 assert.strictEqual(previewUrl(previewUrl(revisionUrl)), previewUrl(revisionUrl));
 assert.strictEqual(previewUrl('/api/recordings/metadata/image?kind=gallery&index=2'),
   '/api/recordings/metadata/image?kind=gallery&index=2&variant=home');
-for (const unchanged of ['https://example.org/a.jpg', '/channel-logos/a.svg', '/api/epg/cache/artwork?eventId=1']) {
+for (const epg of ['/api/epg/cache/artwork?eventId=1', '/api/epg/cache/metadata/image?eventId=1&kind=gallery&index=2']) {
+  assert.strictEqual(previewUrl(epg), epg + '&variant=home');
+  assert.strictEqual(previewUrl(previewUrl(epg)), previewUrl(epg));
+}
+const seriesCover = '/api/backends/default/settings/series-artwork/image?seriesKey=folder%3Aserien%2Ftest&revision=7';
+assert.strictEqual(previewUrl(seriesCover), seriesCover + '&variant=home');
+assert.strictEqual(previewUrl(previewUrl(seriesCover)), previewUrl(seriesCover));
+for (const unchanged of ['https://example.org/a.jpg', '/channel-logos/a.svg', '/api/v1/epg/artwork?eventId=1',
+  '/api/backends/default/settings/series-artwork/candidate-image?externalId=123']) {
   assert.strictEqual(previewUrl(unchanged), unchanged);
 }
 assert.strictEqual(context.window.VdrSuiteFrontendHelpers.recordingMetadataPosterUrl({

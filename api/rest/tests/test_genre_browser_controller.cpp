@@ -264,6 +264,7 @@ int main()
     assert(contains(legacyRecordings, "&kind=poster&index=0"));
     assert(!contains(legacyRecordings, "&kind=preferred&index=0"));
     assert(!contains(legacyRecordings, "seriesMetadata"));
+    assert(!contains(legacyRecordings, "nativeCardMetadata"));
     assert(database.execute(
         "ALTER TABLE vdr_recording_native_metadata ADD COLUMN title TEXT DEFAULT '';"
         "ALTER TABLE vdr_recording_native_metadata ADD COLUMN provider_id INTEGER DEFAULT 0;"
@@ -283,8 +284,22 @@ int main()
     assert(contains(seriesSummary, "\"title\":\"Testserie\""));
     assert(contains(seriesSummary, "&kind=gallery&index=3"));
     assert(!contains(seriesSummary, "/private/poster.jpg"));
+    assert(contains(seriesSummary, "\"nativeCardMetadata\":{\"available\":true,\"mediaType\":\"series\",\"title\":\"Testserie\""));
+    assert(database.execute(
+        "UPDATE vdr_recording_native_metadata SET media_type='movie',title='Film aus Cache',"
+        "preferred_artwork_path='/private/preferred.jpg' WHERE backend_id='default' AND recording_key='recording-1';"
+        "DELETE FROM vdr_recording_native_artwork WHERE backend_id='default' AND recording_key='recording-1';"));
+    const ApiResponse movieCard = controller.getRecordings("default", "science-fiction", 10, 0);
+    assert(contains(movieCard, "\"nativeCardMetadata\":{\"available\":true,\"mediaType\":\"movie\",\"title\":\"Film aus Cache\""));
+    assert(contains(movieCard, "&kind=preferred&index=0"));
+    assert(!contains(movieCard, "seriesMetadata"));
+    assert(!contains(movieCard, "/private/preferred.jpg"));
+    assert(database.execute(
+        "UPDATE vdr_recording_native_metadata SET media_type='series',title='Testserie',preferred_artwork_path='' WHERE backend_id='default' AND recording_key='recording-1';"
+        "INSERT INTO vdr_recording_native_artwork VALUES('default','recording-1',3,'portrait','/private/poster.jpg');"));
     const ApiResponse remoteSummary = controller.getRecordings("remote", "science-fiction", 10, 0);
     assert(!contains(remoteSummary, "seriesMetadata"));
+    assert(!contains(remoteSummary, "nativeCardMetadata"));
 
     assert(repository.replaceEvidence(recordingFolderEvidence(
         "default", "recording-1", "native/one")));
@@ -334,6 +349,7 @@ int main()
     assert(contains(manualSummary, "\"genreIds\":[\"action\"]"));
     assert(contains(manualSummary, "&assignmentRevision=7"));
     assert(!contains(manualSummary, "&kind=gallery"));
+    assert(!contains(manualSummary, "nativeCardMetadata"));
 
     assert(database.execute(
         "UPDATE suite_metadata_manual_assignment_values SET "

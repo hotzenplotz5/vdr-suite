@@ -301,6 +301,118 @@ const item = {
     'recording-cache status failure must not make the existing backend snapshot unreadable'
   );
 
+  // Exercise the actual App snapshot owner with the actual Client API wrapper.
+  {
+    const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+    const begin = appSource.indexOf('function markHomeStartup(');
+    const end = appSource.indexOf('function renderBackend(', begin);
+    assert(begin >= 0 && end > begin);
+    const statusReplies = [], snapshots = [], renders = [], frames = [], events = [];
+    const marks = new Map();
+    const metric = {firstElementChild: {textContent: ''}};
+    const slow = clientApiRuntime(async url => {
+      if (url.includes('/snapshot')) return new Promise(resolve => snapshots.push(resolve));
+      if (url.includes('/recordings/cache/status')) return new Promise((resolve, reject) => statusReplies.push({resolve, reject}));
+      throw Error('unexpected request');
+    });
+    const ctx = {
+      window: {performance: {getEntriesByName(name) {return marks.has(name) ? [marks.get(name)] : [];},
+        mark(name) {marks.set(name, {startTime: marks.size + 1});}},
+        requestAnimationFrame(fn) {frames.push(fn);}},
+      document: {visibilityState:'visible', getElementById(id) {return id === 'home-recording-count' ? metric : null;}},
+      browserSessionFrontendActive: true,
+      backendDetailSequence: 0, selectedBackend: null, selectedBackendId: '',
+      selectedModule: 'overview', currentSnapshot: null,
+      resetMediaImportVisibility() {}, markSelected(id) {ctx.selectedBackendId = id;},
+      selectModule(name) {ctx.selectedModule = name; events.push(['home', snapshots.length]);}, refreshMediaImportVisibility() {},
+      refreshDetailButton: {disabled: false}, detailMetaElement: {},
+      detailDataElement: {replaceChildren() {}, getClientRects() {return [{}];}},
+      frontendPlatformClientApi() {return slow.api;},
+      renderSnapshotMetrics(data) {renders.push(data);},
+      valueOrZero(value) {return Number(value) || 0;}, reportConnectionUnavailable() {}
+    };
+    vm.createContext(ctx);
+    vm.runInContext(appSource.slice(begin, end), ctx);
+    const flush = () => new Promise(resolve => setImmediate(resolve));
+    const first = ctx.loadBackendDetails({backendId:'default'});
+    assert.equal(statusReplies.length, 1);
+    assert.deepStrictEqual(events[0], ['home', 1], 'snapshot starts before Home-resume discovery');
+    assert.equal(ctx.refreshDetailButton.disabled, false);
+    assert.ok(marks.has('vdr-suite:startup:home-navigation-ready'));
+    assert.ok(!marks.has('vdr-suite:startup:snapshot-ready'));
+    snapshots.shift()(jsonResponse(200, {recordingCount:0, snapshotAvailable:true}));
+    await flush();
+    assert.equal(renders.length, 1);
+    assert.equal(renders[0].recordingCountPending, true);
+    assert.equal(ctx.refreshDetailButton.disabled, false);
+    assert.ok(marks.has('vdr-suite:startup:home-controls-ready'));
+    assert.ok(!marks.has('vdr-suite:startup:recording-count-settled'));
+    frames.shift()(); frames.shift()();
+    assert.ok(marks.has('vdr-suite:startup:home-frame'));
+    statusReplies.shift().resolve(jsonResponse(200, {totalCount:39}));
+    await first;
+    assert.equal(ctx.currentSnapshot.recordingCount, 39);
+    assert.equal(metric.firstElementChild.textContent, '39');
+    assert.equal(renders.length, 1);
+    const second = ctx.loadBackendDetails({backendId:'other'});
+    snapshots.shift()(jsonResponse(200, {recordingCount:7}));
+    await flush();
+    ctx.selectedModule = 'epg';
+    statusReplies.shift().reject(Error('cache unavailable'));
+    await second;
+    assert.equal(ctx.currentSnapshot.recordingCount, 7);
+    assert.equal(renders.length, 2);
+    assert.equal(metric.firstElementChild.textContent, '39');
+    const old = ctx.loadBackendDetails({backendId:'old'});
+    const newest = ctx.loadBackendDetails({backendId:'new'});
+    snapshots.shift()(jsonResponse(200, {recordingCount:123}));
+    statusReplies.shift().resolve(jsonResponse(200, {totalCount:456}));
+    await old;
+    assert.equal(renders.length, 2);
+    snapshots.shift()(jsonResponse(200, {recordingCount:9}));
+    await flush();
+    assert.equal(renders.length, 3);
+    ctx.browserSessionFrontendActive = false;
+    ctx.currentSnapshot = null;
+    statusReplies.shift().resolve(jsonResponse(200, {totalCount:999}));
+    await newest;
+    assert.equal(ctx.currentSnapshot, null);
+    ctx.browserSessionFrontendActive = true;
+    const fail = ctx.loadBackendDetails({backendId:'failed'});
+    ctx.selectedModule = 'recordings';
+    snapshots.shift()(jsonResponse(503, {error:'snapshot unavailable'}));
+    statusReplies.shift().resolve(jsonResponse(200, {totalCount:5}));
+    await fail;
+    assert.equal(ctx.selectedModule, 'recordings');
+    assert.equal(ctx.refreshDetailButton.disabled, false);
+    assert.equal(renders.length, 3);
+    const late = ctx.loadBackendDetails({backendId:'late'});
+    ctx.selectedModule = 'channels';
+    snapshots.shift()(jsonResponse(200, {recordingCount:8}));
+    statusReplies.shift().resolve(jsonResponse(200, {totalCount:19}));
+    await late;
+    assert.equal(ctx.currentSnapshot.recordingCount, 19);
+    assert.equal(renders.length, 3, 'late snapshot must not rebuild another module');
+
+    // Exercise the real module selection owner independently of the network.
+    const selectStart = appSource.indexOf('function selectModule(');
+    const selectEnd = appSource.indexOf('function markSelected(', selectStart);
+    const modules = [];
+    Object.assign(ctx, {
+      document:{querySelectorAll(){return [];}},
+      placeMediaImportTab(){}, closeHomeHevcStream(){},
+      renderSelectedModule(data){modules.push([ctx.selectedModule, data]);},
+      shouldPublishHomeResume(){return false;}
+    });
+    vm.runInContext(appSource.slice(selectStart, selectEnd),ctx);
+    ctx.currentSnapshot = null;
+    ctx.selectModule('recordings');
+    assert.deepStrictEqual(modules[0], ['recordings', null]);
+    ctx.browserSessionFrontendActive = false;
+    ctx.selectedBackend = null;
+    ctx.selectModule('timers');
+    assert.equal(modules.length, 1, 'no new pre-auth module read');
+  }
   console.log('phase66 continue watching Home runtime composition ok');
 }()).catch(error => {
   console.error(error);

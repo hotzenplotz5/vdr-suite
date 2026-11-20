@@ -342,6 +342,41 @@ int main()
     assert(manualLookupCalls == 0);
     assert(traceState.recordingInventoryReads == 0);
 
+    // Combined card paging includes embedded leaves in the budget, not
+    // merely the direct-recording slice. Legacy callers remain unchanged.
+    const int beforeHomeNative = nativeLookupCalls;
+    const auto homeFirst = controller.getFolder("default", "", 1, 0, true);
+    assert(homeFirst.statusCode == 200);
+    assert(contains(homeFirst.body, "\"homeCardPage\":true"));
+    assert(contains(homeFirst.body, "\"cardCount\":4"));
+    assert(contains(homeFirst.body, "\"returnedCards\":1"));
+    assert(contains(homeFirst.body, "\"hasMore\":true"));
+    assert(contains(homeFirst.body, "\"singleRecording\":{\"id\":\"drama-1\""));
+    assert(!contains(homeFirst.body, "\"name\":\"Movies\""));
+    assert(!contains(homeFirst.body, "\"id\":\"root-1\""));
+    assert(nativeLookupCalls - beforeHomeNative <= 1);
+    const auto homeMiddle = controller.getFolder("default", "", 2, 1, true);
+    assert(contains(homeMiddle.body, "\"returnedCards\":2"));
+    assert(contains(homeMiddle.body, "\"name\":\"Movies\""));
+    assert(contains(homeMiddle.body, "\"name\":\"Series\""));
+    assert(!contains(homeMiddle.body, "\"id\":\"root-1\""));
+    const auto homeMixed = controller.getFolder("default", "", 2, 2, true);
+    assert(contains(homeMixed.body, "\"returnedCards\":2"));
+    assert(contains(homeMixed.body, "\"name\":\"Series\""));
+    assert(contains(homeMixed.body, "\"id\":\"root-1\""));
+    assert(contains(homeMixed.body, "\"hasMore\":false"));
+    const auto homeLast = controller.getFolder("default", "", 2, 3, true);
+    assert(contains(homeLast.body, "\"returnedCards\":1"));
+    assert(contains(homeLast.body, "\"hasMore\":false"));
+    assert(contains(homeLast.body, "\"id\":\"root-1\""));
+    assert(contains(homeLast.body, "\"manualAssignment\":{\"active\":true"));
+    assert(contains(homeLast.body, "\"folders\":[]"));
+    const auto homePastEnd = controller.getFolder("default", "", 12, 999, true);
+    assert(contains(homePastEnd.body, "\"returnedCards\":0"));
+    assert(contains(homePastEnd.body, "\"hasMore\":false"));
+    assert(!contains(root.body, "\"homeCardPage\""));
+    assert(traceState.recordingInventoryReads == 0);
+
     sqlite3_trace_v2(
         database.handle(),
         0,
@@ -405,6 +440,30 @@ int main()
     assert(!contains(
         cachedMetadata.body,
         "var/cache/vdr/plugins/tvscraper"));
+
+    // Deep multi-recording subfolders: one canonical portrait address per
+    // combined card, no recursive HTTP requests or complete episode payload.
+    assert(repository.replaceRecordingsForBackend("default", {
+        makeRecording("ep-b", "B Episode", "/Series/Movie Show/Season 2/2.rec"),
+        makeRecording("ep-a", "A Episode", "/Series/Movie Show/Season 1/1.rec"),
+        makeRecording("another", "Other Episode", "/Series/Z Show/Season 1/3.rec"),
+        makeRecording("another-b", "Other Two", "/Series/Z Show/Season 2/4.rec")
+    }));
+    assert(repository.markRefreshFinished("default", 4));
+    const auto beforeRepresentative = nativeLookupCalls;
+    const auto representativePage = controller.getFolder("default", "Series", 1, 0, true);
+    assert(contains(representativePage.body, "\"returnedCards\":1"));
+    assert(contains(representativePage.body, "\"hasMore\":true"));
+    assert(contains(representativePage.body, "\"singleRecordingLeaf\":false"));
+    assert(contains(representativePage.body, "\"representativePosterUrl\":\"/api/vdr/recordings/metadata/image?backend=default&backendNativeId=%2Fsrv%2Fvdr%2Fvideo%2FSeries%2FMovie%20Show%2FSeason%201%2F1.rec&kind=gallery&index=0\""));
+    assert(!contains(representativePage.body, "\"name\":\"Z Show\""));
+    assert(!contains(representativePage.body, "\"nativeMetadata\""));
+    assert(!contains(representativePage.body, "/tmp/vdr-suite-movie-poster.jpg"));
+    assert(nativeLookupCalls == beforeRepresentative + 1);
+    const auto legacySeries = controller.getFolder("default", "Series", 1, 0);
+    assert(!contains(legacySeries.body, "representativePosterUrl"));
+    const auto otherPage = controller.getFolder("other", "Series", 1, 0, true);
+    assert(!contains(otherPage.body, "representativePosterUrl"));
 
     std::remove("/tmp/vdr-suite-movie-landscape.jpg");
     std::remove("/tmp/vdr-suite-movie-poster.jpg");

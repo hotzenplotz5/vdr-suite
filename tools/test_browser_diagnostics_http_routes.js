@@ -39,7 +39,8 @@ assert.ok(routes.includes('return isIndexPath(path) || findFrontendAsset(path) !
 assert.ok(routes.includes('return makeFrontendAssetResponse('));
 assert.ok(server.includes('request.method == "GET" &&'));
 assert.ok(server.includes('isFrontendPath(request.path)'));
-assert.ok(server.includes('return serveFrontendPath(request.path);'));
+assert.ok(server.includes('return revalidateFrontendAsset(serveFrontendPath(request.path),'));
+assert.ok(server.includes('requestHeaderValue(request, "If-None-Match")'));
 assert.ok(assets.includes('response.headers["Cache-Control"] = "no-cache";'));
 assert.ok(assets.includes('return makeStaticNotFoundResponse();'));
 assert.ok(!ordinaryIndex.includes('browser-performance-bridge.js'));

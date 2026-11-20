@@ -13,6 +13,8 @@ const source = fs.readFileSync(
 );
 
 assert(source.includes('loadArtworkPage'));
+assert(source.includes('const url = eventArtwork(event, true);'));
+assert(source.includes('const artworkUrl = eventArtwork(currentEvent);'));
 assert(source.includes('artworkForEvent'));
 assert(source.includes('void loadProgrammeArtworkPage('));
 assert(source.includes('media-home-live-guide-logo-badge'));
@@ -133,7 +135,7 @@ const owner = {
       return {
         available: true,
         provider: 'tvscraper',
-        url: '/artwork/event-1.jpg'
+        url: '/api/epg/cache/artwork?backend=backend-a&channelId=C1&eventId=event-1'
       };
     }
 
@@ -146,6 +148,7 @@ const window = {
   Date,
   Promise,
   VdrSuiteHomeNowNext: owner,
+  VdrSuitePublicUrl: {resolvePath(value) { return '/vdr-suite' + value; }},
   VdrSuitePlatform: {
     getClientApi() {
       return {
@@ -176,6 +179,7 @@ const context = vm.createContext({
   Error
 });
 
+vm.runInContext(fs.readFileSync(path.join(frontendRoot, 'platform/helpers.js'), 'utf8'), context);
 vm.runInContext(
   source,
   context,
@@ -255,8 +259,18 @@ assert.ok(window.VdrSuiteHomeLiveHero);
       id: 'event-1',
       channelId: 'C1'
     }),
-    '/artwork/event-1.jpg'
+    '/vdr-suite/api/epg/cache/artwork?backend=backend-a&channelId=C1&eventId=event-1'
   );
+  assert.strictEqual(
+    hero.__test.eventArtwork({id: 'event-1', channelId: 'C1'}, true),
+    '/vdr-suite/api/epg/cache/artwork?backend=backend-a&channelId=C1&eventId=event-1&variant=home'
+  );
+  const metadataUrl = '/api/epg/cache/metadata/image?kind=gallery&index=1';
+  const event = {id: 'other', channelId: 'C2', artwork: {available: true, url: metadataUrl}};
+  assert.strictEqual(hero.__test.eventArtwork(event, true), '/vdr-suite' + metadataUrl + '&variant=home');
+  assert.strictEqual(hero.__test.eventArtwork(event), '/vdr-suite' + metadataUrl);
+  assert.strictEqual(hero.__test.eventArtwork({imageUrl: 'https://example.org/image.jpg'}, true),
+    'https://example.org/image.jpg');
 
   manifestControls[0].resolve({
     artworkCount: 1

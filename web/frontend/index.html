@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>vdr-suite</title>
+  <meta name="theme-color" content="#101827">
+  <link rel="manifest" href="../frontend/manifest.webmanifest">
   <script src="../frontend/platform/public-url.js"></script>
   <link rel="icon" type="image/svg+xml" href="../channel-logos/vdr-suite-brand/favicon.svg">
   <link rel="stylesheet" href="../frontend/style.css">
@@ -11,6 +13,18 @@
     body.vss-auth-required > main {
       display: none !important;
     }
+
+    #vdr-suite-connection-status {
+      margin: 1rem auto;
+      padding: .85rem 1rem;
+      max-width: 42rem;
+      border: 1px solid #475569;
+      border-radius: .7rem;
+      background: #101827;
+      color: #e2e8f0;
+    }
+    #vdr-suite-connection-status[hidden] { display: none !important; }
+    body.vss-connection-unavailable > main { display: none !important; }
 
     .media-app-shell {
       min-width: 0;
@@ -62,6 +76,32 @@
       padding: 0.74rem 1rem 0.62rem;
       border-bottom: 1px solid rgba(148, 163, 184, 0.12);
       background: transparent;
+    }
+
+    .pwa-install-row {
+      display: flex;
+      justify-content: flex-end;
+      padding: .35rem 1rem;
+    }
+
+    .pwa-install-row[hidden] { display: none !important; }
+
+    .pwa-install-button {
+      font: inherit;
+      font-size: .82rem;
+      font-weight: 700;
+      min-height: 2.5rem;
+      padding: .45rem .9rem;
+      border: 1px solid rgba(96, 165, 250, .5);
+      color: #e0f2fe;
+      background: #0f2742;
+      border-radius: .65rem;
+      cursor: pointer;
+    }
+
+    .pwa-install-button:focus-visible {
+      outline: 2px solid #7dd3fc;
+      outline-offset: 3px;
     }
 
     .app-logo {
@@ -629,6 +669,10 @@
   </style>
 </head>
 <body class="media-app-shell vss-auth-required">
+  <aside id="vdr-suite-connection-status" hidden aria-label="Connection / Verbindung">
+    <p id="vdr-suite-connection-message" role="status" aria-live="polite"></p>
+    <button id="vdr-suite-connection-retry" type="button">Erneut verbinden</button>
+  </aside>
   <main>
     <section class="layout">
       <section class="brand-shell" aria-label="VDR-Suite Navigation">
@@ -639,6 +683,9 @@
             <p>Media Home</p>
           </div>
         </header>
+        <div id="vdr-suite-pwa-install" class="pwa-install-row" hidden>
+          <button id="vdr-suite-pwa-install-button" class="pwa-install-button" type="button" data-i18n="shell.installApp">VDR-Suite installieren</button>
+        </div>
         <nav class="brand-feature-strip" aria-label="Primäre VDR-Suite Navigation">
           <article class="brand-feature brand-feature-backends">
             <svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
@@ -761,6 +808,8 @@
     </section>
   </main>
   <script src="../frontend/platform/bootstrap.js"></script>
+  <script src="../frontend/platform/home-persistence.js"></script>
+  <script src="../frontend/platform/home-cache-runtime.js"></script>
   <script src="../frontend/locales/de.js"></script>
   <script src="../frontend/locales/en.js"></script>
   <script src="../frontend/platform/i18n.js"></script>
@@ -787,6 +836,7 @@
   <script src="../frontend/settings-account-admin.js"></script>
   <script src="../frontend/settings-device-admin.js"></script>
   <script src="../frontend/settings-addons.js"></script>
+  <script src="../frontend/pwa-register.js"></script>
   <script src="../frontend/app.js"></script>
   <script src="../frontend/channel-logos.js"></script>
 </body>

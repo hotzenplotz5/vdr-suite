@@ -399,7 +399,8 @@
   const doc = global.document;
   const TITLE = 'Filme der letzten 5 Jahre';
   const LIMIT = 12;
-  const PAGE_LIMIT = 100;
+  const PREFETCH_LIMIT = 24;
+  const PREFETCH_MAX_AGE_MS = 30000;
   const WARM_RETURN_MS = 60000;
   const HOME_RAIL_NEAR_END_EVENT = 'vdr-suite-home-rail-near-end';
   const HOME_RESUME_EVENT = 'vdr-suite:home-resume';
@@ -413,6 +414,12 @@
     loadingBackendId: '',
     loadingPromise: null,
     visibleLimit: LIMIT,
+    nextOffset: 0,
+    total: 0,
+    loadingMore: null,
+    prefetch: null,
+    currentYear: 0,
+    moreButton: null,
     nearEndBound: false
   };
 
@@ -503,29 +510,6 @@
     return text(presentation.title || provider(recording).title || (recording && recording.title)) || 'Aufnahme';
   }
 
-  function releaseDate(recording) {
-    return text(provider(recording).releaseDate);
-  }
-
-  function recordingStartTime(recording) {
-    return text(recording && recording.startTime);
-  }
-
-  function sortMovies(recordings) {
-    return (recordings || []).slice().sort(function (left, right) {
-      const leftDate = releaseDate(left);
-      const rightDate = releaseDate(right);
-      if (leftDate !== rightDate) return rightDate.localeCompare(leftDate, 'de');
-      const leftStart = recordingStartTime(left);
-      const rightStart = recordingStartTime(right);
-      if (leftStart !== rightStart) return rightStart.localeCompare(leftStart, 'de');
-      const leftTitle = recordingTitle(left);
-      const rightTitle = recordingTitle(right);
-      if (leftTitle !== rightTitle) return leftTitle.localeCompare(rightTitle, 'de');
-      return recordingId(left).localeCompare(recordingId(right), 'de');
-    });
-  }
-
   function list(value, key) {
     if (Array.isArray(value)) return value;
     if (value && Array.isArray(value[key])) return value[key];
@@ -542,45 +526,41 @@
     return fallback;
   }
 
-  function fetchAllRecordings(client, backendId, generation, currentYear) {
+  function currentLoad(backendId, generation) {
+    return browserSessionAuthenticated() && generation === state.generation &&
+      backendId === selectedBackendId() && homeIsActive();
+  }
+
+  function fetchMoviePage(client, backendId, generation, currentYear, offset, limit, cache) {
     const owner = discoveryTestApi();
-    if (!owner || typeof owner.canonicalRecordings !== 'function') {
-      return Promise.resolve([]);
-    }
-    const recordings = [];
-    const seen = new Set();
-
-    function requestPage(offset) {
-      return Promise.resolve(client.fetchClientRecordings({
-        query: {
-          backend: backendId,
-          limit: PAGE_LIMIT,
-          offset: offset,
-          movieReleaseYearFrom: currentYear - 4,
-          movieReleaseYearTo: currentYear
-        },
-        cache: 'no-store',
-        credentials: 'same-origin'
-      })).then(function (payload) {
-        if (!browserSessionAuthenticated() ||
-            generation !== state.generation ||
-            backendId !== selectedBackendId() ||
-            !homeIsActive()) return [];
-        const rawPage = list(payload, 'recordings');
-        owner.canonicalRecordings(payload, backendId).forEach(function (recording) {
-          const id = recordingId(recording);
-          if (!id || seen.has(id)) return;
-          seen.add(id);
-          recordings.push(recording);
-        });
-        const nextOffset = offset + rawPage.length;
-        const total = pageTotal(payload, nextOffset);
-        if (!rawPage.length || nextOffset >= total || nextOffset <= offset) return recordings;
-        return requestPage(nextOffset);
+    return Promise.resolve(client.fetchClientRecordings({
+      query: {
+        backend: backendId,
+        limit: limit,
+        offset: offset,
+        sort: 'movieReleaseDate',
+        order: 'desc',
+        movieReleaseYearFrom: currentYear - 4,
+        movieReleaseYearTo: currentYear
+      },
+      cache: 'no-store',
+      credentials: 'same-origin'
+    })).then(function (payload) {
+      if (!currentLoad(backendId, generation)) return null;
+      const rawPage = list(payload, 'recordings');
+      const nextOffset = offset + rawPage.length;
+      const total = pageTotal(payload, nextOffset);
+      if (!rawPage.length && nextOffset < total) throw new Error('Incomplete movie page');
+      if (cache) cache.accept(payload);
+      const seen = new Set();
+      const movies = owner.canonicalRecordings(payload, backendId).filter(function (recording) {
+        const id = recordingId(recording);
+        if (!id || seen.has(id) || !recentMovie(recording, currentYear)) return false;
+        seen.add(id);
+        return true;
       });
-    }
-
-    return requestPage(0);
+      return {movies, nextOffset, total};
+    });
   }
 
   function section() {
@@ -721,6 +701,16 @@
     });
     target.appendChild(rail);
     rail.scrollLeft = previousScrollLeft;
+    // Also allow paging when the first twelve cards fit the entire viewport.
+    state.moreButton = null;
+    if (state.nextOffset < state.total) {
+      const more = doc.createElement('button');
+      more.type = 'button';
+      more.textContent = 'Weitere Filme';
+      more.addEventListener('click', loadMoreMovies);
+      heading.appendChild(more);
+      state.moreButton = more;
+    }
     positionBeforeSeries();
     return true;
   }
@@ -774,25 +764,36 @@
       state.visibleLimit = LIMIT;
       renderState('Filme werden geladen …', false);
     }
+    const initialLimit = retainVisible ? Math.max(LIMIT, state.visibleLimit) : LIMIT;
     state.backendId = backendId;
     state.completedAt = 0;
-    const load = fetchAllRecordings(client, backendId, generation, currentYear).then(function (recordings) {
-      if (!browserSessionAuthenticated() ||
-          generation !== state.generation ||
-          backendId !== selectedBackendId() ||
-          !homeIsActive()) return false;
-      const movies = sortMovies(recordings.filter(function (recording) {
-        return recentMovie(recording, currentYear);
+    state.loadingMore = null;
+    state.prefetch = null;
+    const cacheOwner = global.VdrSuiteHomeCache;
+    const cache = cacheOwner ? cacheOwner.begin('recent-movies', backendId, TITLE, function () {
+      return browserSessionAuthenticated() && generation === state.generation &&
+        backendId === selectedBackendId() && homeIsActive();
+    }) : null;
+    const load = fetchMoviePage(client, backendId, generation, currentYear, 0, initialLimit, cache).then(function (page) {
+      if (!page || !currentLoad(backendId, generation)) { if (cache) cache.cancel(); return false; }
+      const movies = page.movies;
+      if (cache) cache.finish(movies.slice(0, 24).map(function (recording) {
+        return {id: recordingId(recording), title: recordingTitle(recording),
+          subtitle: String(releaseYear(recording)), posterUrl: posterUrl(recording)};
       }));
       state.movies = movies;
+      state.nextOffset = page.nextOffset;
+      state.total = page.total;
+      state.currentYear = currentYear;
       state.backendId = backendId;
       state.completedAt = Date.now();
-      state.visibleLimit = Math.min(LIMIT, movies.length);
+      state.visibleLimit = movies.length;
       return render(movies, backendId, state.visibleLimit);
     }).catch(function () {
-      if (!browserSessionAuthenticated() || generation !== state.generation) return false;
+      if (cache) cache.cancel();
+      if (!currentLoad(backendId, generation)) return false;
       state.completedAt = 0;
-      return config.retainVisible === true
+      return retainVisible
         ? false
         : renderState('Filme sind vorübergehend nicht verfügbar.', true);
     });
@@ -802,6 +803,7 @@
       if (state.loadingPromise === load) {
         state.loadingPromise = null;
         state.loadingBackendId = '';
+        if (result && currentLoad(backendId, generation)) scheduleMoviePrefetch();
       }
       return result;
     });
@@ -825,35 +827,102 @@
     return String(rail.className || '').split(/\s+/).includes(className);
   }
 
-  function loadMoreMovies() {
-    if (!homeIsActive() || state.backendId !== selectedBackendId() ||
-        state.visibleLimit >= state.movies.length) return false;
-
-    const target = section();
-    const rail = target && typeof target.querySelector === 'function'
-      ? target.querySelector('.media-home-discovery-rail.recent-movies')
-      : null;
-    const previousLimit = state.visibleLimit;
-    const nextLimit = Math.min(previousLimit + LIMIT, state.movies.length);
-
-    if (!rail) {
-      state.visibleLimit = nextLimit;
-      return render(state.movies, state.backendId, state.visibleLimit);
-    }
-
-    state.movies.slice(previousLimit, nextLimit).forEach(function (recording) {
-      rail.appendChild(createMovieCard(recording, state.backendId));
+  function scheduleMoviePrefetch() {
+    const bootstrap = global.VdrSuiteHomeRecordingDiscoveryBootstrap;
+    const cache = global.VdrSuiteHomeCache;
+    const backendId = state.backendId, generation = state.generation, offset = state.nextOffset;
+    if (!bootstrap || typeof bootstrap.scheduleRailPrefetch !== 'function' ||
+        !cache || typeof cache.captureRailFence !== 'function' || !state.completedAt ||
+        state.loadingPromise || state.loadingMore || state.prefetch ||
+        offset >= state.total || !currentLoad(backendId, generation)) return false;
+    const fence = cache.captureRailFence('recent-movies', backendId);
+    if (!fence) return false;
+    const valid = () => currentLoad(backendId, generation) && fence() &&
+      state.nextOffset === offset && !state.loadingPromise && !state.loadingMore && !state.prefetch;
+    return bootstrap.scheduleRailPrefetch(valid, function () {
+      const client = clientApi();
+      if (!valid() || !client) return false;
+      const entry = {offset, fence, receivedAt: 0, promise: null};
+      state.prefetch = entry;
+      entry.promise = fetchMoviePage(client, backendId, generation, state.currentYear,
+        offset, PREFETCH_LIMIT, null).then(function (page) {
+        if (!page || !currentLoad(backendId, generation) || !fence() ||
+            state.prefetch !== entry) return null;
+        entry.receivedAt = Date.now();
+        return page;
+      }).catch(function () { return null; }).then(function (page) {
+        if (!page && state.prefetch === entry) state.prefetch = null;
+        return page;
+      });
+      return entry.promise;
     });
-    state.visibleLimit = nextLimit;
-    positionBeforeSeries();
-    return true;
+  }
+
+  function loadMoreMovies() {
+    const backendId = state.backendId;
+    const generation = state.generation;
+    if (!currentLoad(backendId, generation) || state.loadingPromise ||
+        state.loadingMore || state.nextOffset >= state.total) return false;
+    const client = clientApi();
+    if (!client || typeof client.fetchClientRecordings !== 'function') return false;
+    const target = host();
+    const sectionNode = target && target.querySelector('[data-home-discovery-rail="recent-movies"]');
+    const rail = sectionNode && sectionNode.querySelector('.media-home-discovery-rail.recent-movies');
+    if (!rail) return false;
+    const offset = state.nextOffset;
+    const buffered = state.prefetch;
+    const fresh = () => buffered && buffered.offset === offset && buffered.fence() &&
+      (!buffered.receivedAt || Date.now() - buffered.receivedAt <= PREFETCH_MAX_AGE_MS);
+    const direct = () => currentLoad(backendId, generation)
+      ? fetchMoviePage(client, backendId, generation, state.currentYear, offset, LIMIT, null)
+      : Promise.resolve(null);
+    const request = fresh() ? buffered.promise.then(function (page) {
+      return page && fresh() && state.prefetch === buffered
+        ? page : direct();
+    }) : direct();
+    if (!fresh()) state.prefetch = null;
+    const load = request.then(function (page) {
+      if (state.prefetch === buffered) state.prefetch = null;
+      if (!page || !currentLoad(backendId, generation) ||
+          sectionNode.querySelector('.media-home-discovery-rail.recent-movies') !== rail) return false;
+      const seen = new Set(state.movies.map(recordingId));
+      const additions = page.movies.filter(function (recording) {
+        const id = recordingId(recording);
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+      state.nextOffset = page.nextOffset;
+      state.total = page.total;
+      if (state.moreButton && state.nextOffset >= state.total) {
+        state.moreButton.remove();
+        state.moreButton = null;
+      }
+      state.movies.push.apply(state.movies, additions);
+      state.visibleLimit = state.movies.length;
+      additions.forEach(function (recording) {
+        rail.appendChild(createMovieCard(recording, state.backendId));
+      });
+      positionBeforeSeries();
+      return true;
+    }).catch(function () {
+      // Preserve the visible rail and offset. A subsequent scroll can retry.
+      return false;
+    });
+    state.loadingMore = load;
+    load.then(function (result) {
+      if (state.loadingMore !== load) return;
+      state.loadingMore = null;
+      if (result) scheduleMoviePrefetch();
+    });
+    return load;
   }
 
   function handleRailNearEnd(event) {
     const rail = event && event.detail && event.detail.rail;
     if (!railHasClass(rail, 'media-home-discovery-rail') ||
         !railHasClass(rail, 'recent-movies')) return false;
-    return loadMoreMovies();
+    return Boolean(loadMoreMovies());
   }
 
   function bindNearEnd() {
@@ -903,6 +972,23 @@
     installPlacementObserver();
     installModuleObserver();
     bindNearEnd();
+    const session = global.VdrSuiteBrowserSession;
+    if (session && typeof session.subscribe === 'function') {
+      session.subscribe(function (value) {
+        if (value && value.authenticated) return;
+        ++state.generation;
+        state.movies = [];
+        state.backendId = '';
+        state.completedAt = 0;
+        state.loadingBackendId = '';
+        state.loadingPromise = null;
+        state.loadingMore = null;
+        state.prefetch = null;
+        state.moreButton = null;
+        state.nextOffset = state.total = 0;
+        clear();
+      });
+    }
     if (typeof doc.addEventListener === 'function') {
       doc.addEventListener(HOME_RESUME_EVENT, function () {
         refresh({retainVisible: true});
@@ -922,12 +1008,12 @@
     _test: Object.freeze({
       releaseYear: releaseYear,
       recentMovie: recentMovie,
-      sortMovies: sortMovies,
-      fetchAllRecordings: fetchAllRecordings,
+      fetchMoviePage: fetchMoviePage,
       render: render,
       refreshForHome: refreshForHome,
       warmForBackend: warmForBackend,
       loadMoreMovies: loadMoreMovies,
+      scheduleMoviePrefetch: scheduleMoviePrefetch,
       handleRailNearEnd: handleRailNearEnd,
       positionBeforeSeries: positionBeforeSeries,
       openRecording: openRecording

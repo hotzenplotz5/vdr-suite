@@ -1068,7 +1068,8 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
     const std::string& backendId,
     const std::string& folderPath,
     int limit,
-    int offset) const
+    int offset,
+    bool homeCards) const
 {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
@@ -1130,39 +1131,52 @@ VdrRecordingFolderPage VdrRecordingCacheRepository::folderPageForBackend(
         return page;
     }
 
-    page.folders = folder->second.folders;
+    page.folderCount = static_cast<int>(folder->second.folders.size());
+    page.recordingCount = static_cast<int>(folder->second.recordings.size());
+    const int folderStart = homeCards ? std::min(page.offset, page.folderCount) : 0;
+    const int folderTake = homeCards
+        ? std::min(page.limit, page.folderCount - folderStart)
+        : page.folderCount;
+    page.folders.assign(folder->second.folders.begin() + folderStart,
+                        folder->second.folders.begin() + folderStart + folderTake);
 
+    // Only resolve embedded recording leaves within the requested card page.
     for (auto& child : page.folders)
     {
         const auto childFolder =
             snapshot->second.folders.find(child.path);
 
-        if (childFolder == snapshot->second.folders.end() ||
-            !childFolder->second.folders.empty() ||
-            childFolder->second.recordings.size() != 1)
+        if (childFolder == snapshot->second.folders.end()) continue;
+        if (childFolder->second.folders.empty() &&
+            childFolder->second.recordings.size() == 1)
         {
-            continue;
+            child.singleRecordingLeaf = true;
+            child.singleRecording = childFolder->second.recordings.front();
         }
-
-        child.singleRecordingLeaf = true;
-        child.singleRecording =
-            childFolder->second.recordings.front();
+        else if (homeCards && !normalizedFolderPath.empty() &&
+                 childFolder->second.hasRepresentative)
+        {
+            const auto representative = snapshot->second.folders.find(
+                childFolder->second.representativeFolderPath);
+            if (representative != snapshot->second.folders.end() &&
+                !representative->second.recordings.empty())
+            {
+                child.hasRepresentativeRecording = true;
+                child.representativeRecording = representative->second.recordings.front();
+            }
+        }
     }
 
-    page.folderCount =
-        static_cast<int>(page.folders.size());
+    const int recordingStart = homeCards
+        ? std::max(0, page.offset - page.folderCount) : page.offset;
+    const int recordingLimit = homeCards ? page.limit - folderTake : page.limit;
+    const int end = recordingStart < page.recordingCount
+        ? recordingStart + std::min(recordingLimit, page.recordingCount - recordingStart)
+        : recordingStart;
 
-    page.recordingCount =
-        static_cast<int>(folder->second.recordings.size());
-
-    const int end =
-        std::min(
-            page.recordingCount,
-            page.offset + page.limit);
-
-    if (page.offset < page.recordingCount)
+    if (recordingStart < page.recordingCount)
     {
-        for (int index = page.offset; index < end; ++index)
+        for (int index = recordingStart; index < end; ++index)
         {
             page.recordings.push_back(
                 folder->second.recordings.at(
@@ -1252,6 +1266,28 @@ void VdrRecordingCacheRepository::storeBrowseSnapshotLocked(
 
                 return left.path < right.path;
             });
+    }
+
+    // Descendants sort after their prefix, so reverse order computes the
+    // existing direct-first, alphabetically ordered representative once.
+    // Store only the owning folder path, not copies of episode metadata.
+    for (auto it = snapshot.folders.rbegin(); it != snapshot.folders.rend(); ++it)
+    {
+        auto& folder = it->second;
+        if (!folder.recordings.empty())
+        {
+            folder.hasRepresentative = true;
+            folder.representativeFolderPath = it->first;
+            continue;
+        }
+        for (const auto& child : folder.folders)
+        {
+            const auto found = snapshot.folders.find(child.path);
+            if (found == snapshot.folders.end() || !found->second.hasRepresentative) continue;
+            folder.hasRepresentative = true;
+            folder.representativeFolderPath = found->second.representativeFolderPath;
+            break;
+        }
     }
 
     browseSnapshots_[normalizedBackendId] =

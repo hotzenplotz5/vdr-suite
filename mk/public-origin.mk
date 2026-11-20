@@ -33,5 +33,25 @@ test-public-origin-install-staging:
 test-public-origin: test-public-url-runtime test-public-origin-install-staging
 	python3 tools/check_public_origin_architecture.py
 
-test-frontend-contracts: test-public-url-runtime
+.PHONY: test-pwa-shell
+
+test-pwa-shell:
+	node --check web/frontend/service-worker.js
+	node --check web/frontend/pwa-register.js
+	node web/frontend/tests/test_pwa_shell.js
+	node --check web/frontend/pwa-local-shell.js
+	node web/frontend/tests/test_pwa_local_shell.js
+	node web/frontend/tests/test_pwa_connection.js
+	node web/frontend/tests/test_pwa_install.js
+	node --check web/frontend/platform/home-persistence.js
+	node web/frontend/tests/test_home_persistence.js
+	node --check web/frontend/platform/home-cache-runtime.js
+	node web/frontend/tests/test_home_cache_runtime.js
+	node web/frontend/tests/test_home_cache_sse.js
+	node web/frontend/tests/test_home_cache_isolation.js
+	node web/frontend/tests/test_pwa_artwork_cache.js
+	node web/frontend/tests/test_home_artwork_priority.js
+
+test-frontend-contracts: test-public-url-runtime test-pwa-shell
+test-ci-frontend: test-pwa-shell
 test-architecture: test-public-origin

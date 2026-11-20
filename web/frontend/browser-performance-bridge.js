@@ -20,10 +20,40 @@
     active = true;
     send('started', label);
   }
-  function stop() {
+  function readArtworkMeasurement() {
+    const worker = root.navigator && root.navigator.serviceWorker && root.navigator.serviceWorker.controller;
+    if (!worker || typeof root.MessageChannel !== 'function') return null;
+    return new Promise(function (resolve) {
+      const channel = new root.MessageChannel();
+      let timer;
+      function finish(value) {
+        if (timer !== undefined) root.clearTimeout(timer);
+        channel.port1.close();
+        resolve(value);
+      }
+      channel.port1.onmessage = function (event) { finish(event.data || null); };
+      timer = root.setTimeout(function () { finish(null); }, 900);
+      try { worker.postMessage({type:'vdr-suite-artwork-measurement'}, [channel.port2]); }
+      catch (_) { finish(null); }
+    });
+  }
+  function stop(includeCache) {
     if (!active) return;
     active = false;
-    send('result', probe.stop());
+    const report = probe.stop();
+    const measurement = includeCache !== false && readArtworkMeasurement();
+    if (!measurement) {
+      report.metrics.artworkWorker = {available:false};
+      send('result', report);
+      return;
+    }
+    checking = true;
+    measurement.then(function (value) {
+      report.metrics.artworkWorker = value && value.schema === 1
+        ? {available:true, ...value, interval:'controlled document since worker start; cumulative'}
+        : {available:false};
+      send('result', report);
+    }).finally(function () { checking = false; });
   }
   root.addEventListener('message', function (event) {
     const data = event.data;
@@ -42,6 +72,6 @@
       }
     } catch (_) { send('error', 'Diagnoseaktion fehlgeschlagen.'); }
   });
-  root.addEventListener('pagehide', function () { if (active) stop(); });
+  root.addEventListener('pagehide', function () { if (active) stop(false); });
   start('initial-home', true);
 })(typeof window !== 'undefined' ? window : globalThis);

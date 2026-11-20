@@ -80,7 +80,8 @@ public:
         const std::string& backendId,
         const std::string& path,
         int limit,
-        int offset);
+        int offset,
+        bool homeCards = false);
 
     ApiResponse getMetadata(
         const std::string& backendId,

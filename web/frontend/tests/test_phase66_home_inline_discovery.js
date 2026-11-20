@@ -40,6 +40,8 @@ class FakeElement {
     this.textContent = '';
     this.id = '';
     this.scrollLeft = 0;
+    this.style = {};
+    this.getBoundingClientRect = () => ({height: Number.parseFloat(this.style.minHeight) || 320});
     this.listeners = Object.create(null);
     this.classList = {
       contains: name => this._classes.has(name),
@@ -102,6 +104,7 @@ class FakeElement {
     if (value === 'img') return this.tagName === 'IMG';
     if (value === '.media-home-discovery-rail') return this.classList.contains('media-home-discovery-rail');
     if (value === '.media-home-series-season-rail') return this.classList.contains('media-home-series-season-rail');
+    if (value === '[data-home-inline-kind="folder"]') return this.attributes['data-home-inline-kind'] === 'folder';
     if (value === '.media-home-inline-expansion') return this.classList.contains('media-home-inline-expansion');
     if (value === '.media-home-inline-back') return this.classList.contains('media-home-inline-back');
     if (value === '.media-home-discovery-card.recording') {
@@ -292,7 +295,7 @@ const genreRecordings = [
   recording('r3', 'Action Drei'),
   recording('r4', 'Action Vier'),
   recording('r5', 'Action Fünf'),
-  recording('r6', 'Action Sechs')
+  Object.assign(recording('r6', 'Action Sechs'), {nativeCardMetadata: richMetadata('native-r6')})
 ];
 
 const client = {
@@ -329,9 +332,11 @@ const client = {
   fetchClientRecordingFolder(options) {
     folderCalls.push(options);
     const currentPath = options.query.path;
+    const combined = options.query.homeCards === 1;
     if (currentPath === 'Action') {
       return Promise.resolve({
         recordingFolder: true,
+        ...(combined ? {homeCardPage:true,offset:0,returnedCards:2,hasMore:false,cacheReady:true} : {}),
         path: currentPath,
         totalCount: 2,
         folderCount: 2,
@@ -351,9 +356,10 @@ const client = {
           },
           {
             path: 'Action/Marvel',
-            name: 'Marvel',
+            name: 'Marvel_Collection',
             recordingCount: 2,
-            singleRecordingLeaf: false
+            singleRecordingLeaf: false,
+            ...(combined ? {representativePosterUrl:nativeImageUrl('f2','gallery',1)} : {})
           }
         ],
         recordings: []
@@ -361,6 +367,7 @@ const client = {
     }
     return Promise.resolve({
       recordingFolder: true,
+      ...(combined ? {homeCardPage:true,offset:0,returnedCards:1,hasMore:false,cacheReady:true} : {}),
       path: currentPath,
       totalCount: 1,
       folderCount: 0,
@@ -384,28 +391,6 @@ const window = {
   VdrSuitePlatform: {
     getSelectedBackendId() { return 'backend-a'; },
     getClientApi() { return client; }
-  },
-  VdrSuiteFrontendHelpers: {
-    recordingMetadataPosterUrl(value) {
-      const images = value && Array.isArray(value.images)
-        ? value.images
-        : [];
-      for (let index = 0; index < images.length; index += 1) {
-        const entry = images[index];
-        if (!entry ||
-            entry.orientation !== 'portrait' ||
-            !entry.image ||
-            entry.image.available !== true) {
-          continue;
-        }
-        return String(entry.image.url || '');
-      }
-
-      const preferred = value && value.preferredArtwork;
-      return preferred && preferred.available === true
-        ? String(preferred.url || '')
-        : '';
-    }
   },
   VdrSuiteRecordings2: {
     openRecording(recordingValue, options) {
@@ -435,7 +420,26 @@ const context = vm.createContext({
   Array,
   setTimeout
 });
+// Exercise the production representative traversal, using the fixture's
+// canonical folder and recording projections.
+window.VdrSuiteRecordings2Shared = {
+  recordingList: value => value && value.recordings || [],
+  folderList: value => value && value.folders || [],
+  normalizePath: value => String(value || ''),
+  first: (value, keys, fallback) => keys.map(key => value && value[key]).find(Boolean) || fallback,
+  decodeDisplayText: value => String(value || '').replace(/_/g, ' ')
+};
+vm.runInContext(fs.readFileSync(path.join(frontendRoot, 'recordings2-folder-artwork.js'), 'utf8'),
+  context, {filename: 'web/frontend/recordings2-folder-artwork.js'});
+// Exercise the production helper rather than a stub: this includes the
+// automatically expanded folder's exact Home image URL transformation.
+vm.runInContext(fs.readFileSync(path.join(frontendRoot, 'platform', 'helpers.js'), 'utf8'),
+  context, {filename: 'web/frontend/platform/helpers.js'});
 vm.runInContext(source, context, {filename: 'web/frontend/home-recording-discovery-bootstrap.js'});
+
+function bootstrapScroll(rail) {
+  window.VdrSuiteHomeRecordingDiscoveryBootstrap.__test.handleRailScroll({target:rail});
+}
 
 function settle() {
   return new Promise(resolve => setTimeout(resolve, 0));
@@ -470,20 +474,24 @@ function wait(milliseconds) {
   genreExpansion = genreSection.querySelector('.media-home-inline-expansion');
   const genreCards = genreExpansion.querySelectorAll('.media-home-discovery-card.recording');
   assert.strictEqual(genreCards.length, genreRecordings.length);
-  assert.strictEqual(metadataCalls.length, genreRecordings.length);
+  assert.strictEqual(metadataCalls.length, genreRecordings.length - 1);
   assert.strictEqual(maximumActiveMetadata, 4, 'inline native metadata reads must stay bounded to four concurrent requests');
   assert.deepStrictEqual(
     metadataCalls.map(call => call.query.backendNativeId),
-    genreRecordings.map(item => item.backendNativeId),
+    genreRecordings.slice(0, -1).map(item => item.backendNativeId),
     'native metadata must be resolved in canonical genre order'
   );
 
+  assert.strictEqual(genreCards[5].querySelector('strong').textContent, 'Kanonisch R6');
+  assert.strictEqual(genreCards[5].querySelector('img').src, nativeImageUrl('r6', 'gallery', 1) + '&variant=home');
   const firstRecording = genreCards[0];
   assert.strictEqual(firstRecording.dataset.recordingId, 'r1');
   assert.strictEqual(firstRecording.querySelector('strong').textContent, 'Kanonisch R1');
+  assert.strictEqual(firstRecording.querySelector('img').loading, 'lazy');
+  assert.strictEqual(firstRecording.querySelector('img').decoding, 'async');
   assert.strictEqual(
     firstRecording.querySelector('img').src,
-    nativeImageUrl('r1', 'gallery', 1)
+    nativeImageUrl('r1', 'gallery', 1) + '&variant=home'
   );
 
   const notFoundRecording = genreCards[1];
@@ -511,6 +519,8 @@ function wait(milliseconds) {
   const metadataReadsBeforeFolder = metadataCalls.length;
   const folderCard = makeCard('folder', 'Action', 'Action');
   const folderSection = makeSection('folders', folderCard);
+  const prioritizedRails = [];
+  window.VdrSuiteHomeRecordingDiscovery = {prioritizeInlineRailArtwork: rail => prioritizedRails.push(rail)};
   const folderClick = clickElement(folderCard);
   assert.strictEqual(folderClick.defaultPrevented, true);
   await settle();
@@ -518,7 +528,10 @@ function wait(milliseconds) {
 
   let folderExpansion = folderSection.querySelector('.media-home-inline-expansion');
   assert(folderExpansion, 'folder contents must appear directly below the folder rail');
-  assert.strictEqual(folderCalls.length, 1, 'folder totalCount must not trigger bogus recording pagination when recordingCount is zero');
+  assert.strictEqual(prioritizedRails.at(-1), folderExpansion.querySelector('.media-home-discovery-rail'));
+  bootstrapScroll(folderExpansion.querySelector('.media-home-discovery-rail'));
+  assert.strictEqual(prioritizedRails.length, 2, 'horizontal scrolling must reprioritize the actual inline rail');
+  assert.strictEqual(folderCalls.filter(call => call.query.limit === 12).length, 1, 'manual folder demand uses one bounded combined page');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-inline-folder').length, 1, 'non-leaf subfolders must stay inline');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-discovery-card.recording').length, 1, 'embedded single-recording leaves must project as recordings');
   const leafRecording =
@@ -531,7 +544,7 @@ function wait(milliseconds) {
   );
   assert.strictEqual(
     leafRecording.querySelector('img').src,
-    nativeImageUrl('f1', 'gallery', 1),
+    nativeImageUrl('f1', 'gallery', 1) + '&variant=home',
     'TVScraper portrait must beat the weak recording frame'
   );
   assert.strictEqual(
@@ -542,13 +555,22 @@ function wait(milliseconds) {
   assert.strictEqual(folderCalls[0].query.path, 'Action');
 
   const nestedFolder = folderExpansion.querySelector('.media-home-inline-folder');
+  assert.strictEqual(nestedFolder.querySelector('strong').textContent, 'Marvel Collection');
+  assert.strictEqual(nestedFolder.dataset.inlineFolderPath, 'Action/Marvel');
+  assert.strictEqual(nestedFolder.querySelector('img').src, nativeImageUrl('f2', 'gallery', 1) + '&variant=home',
+    'visible subfolder must show the existing canonical representative cover');
+  assert.deepStrictEqual(folderCalls.filter(call => call.query.limit === 1).map(call => call.query.path), [],
+    'server representative must not require a per-folder HTTP read');
   clickElement(nestedFolder);
+  assert.strictEqual(folderSection.querySelector('.media-home-inline-expansion').style.minHeight, '320px',
+    'switch must reserve previous folder height while loading');
   await settle();
   await settle();
 
   folderExpansion = folderSection.querySelector('.media-home-inline-expansion');
-  assert.strictEqual(folderCalls[1].query.path, 'Action/Marvel');
+  assert.strictEqual(folderCalls.filter(call => call.query.limit === 12)[1].query.path, 'Action/Marvel');
   assert(folderExpansion.querySelector('.media-home-inline-back'), 'nested folder projection must expose inline back navigation');
+  assert.strictEqual(folderExpansion.style.minHeight, '', 'successful folder render releases reservation');
   assert.strictEqual(folderExpansion.querySelectorAll('.media-home-discovery-card.recording').length, 1);
   const nestedRecording =
     folderExpansion.querySelector('.media-home-discovery-card.recording');
@@ -558,7 +580,7 @@ function wait(milliseconds) {
   );
   assert.strictEqual(
     nestedRecording.querySelector('img').src,
-    nativeImageUrl('f2', 'gallery', 1)
+    nativeImageUrl('f2', 'gallery', 1) + '&variant=home'
   );
   assert.strictEqual(
     metadataCalls.length,
@@ -570,9 +592,145 @@ function wait(milliseconds) {
   clickElement(folderExpansion.querySelector('.media-home-inline-back'));
   await settle();
   await settle();
-  assert.strictEqual(folderCalls[2].query.path, 'Action', 'inline back navigation must return to the selected root folder');
+  assert.strictEqual(folderCalls.filter(call => call.query.limit === 12)[2].query.path, 'Action', 'inline back navigation must return to the selected root folder');
 
-  console.log('phase66 Home inline genre native metadata and folder discovery contract ok');
+  // Automatic expansion must request a genuine combined card page: hold
+  // the 24-card lookahead and verify the initial twelve already exist.
+  const bootstrap = window.VdrSuiteHomeRecordingDiscoveryBootstrap;
+  const randomCard = makeCard('folder', 'Doku', 'Doku');
+  const randomSection = makeSection('folders', randomCard);
+  const totalCards = Array.from({length: 40}, (_, i) => recording('d' + i, 'Doku ' + i));
+  const timers = [];
+  window.setTimeout = callback => { timers.push(callback); return timers.length; };
+  window.VdrSuiteBrowserSession = {isAuthenticated: () => true};
+  window.VdrSuitePlatform.getSelectedModule = () => 'overview';
+  let fenceEpoch = 1;
+  window.VdrSuiteHomeCache = {captureRailFence() {
+    const epoch = fenceEpoch; return () => epoch === fenceEpoch;
+  }};
+  let releaseLookahead;
+  const originalFolderFetch = client.fetchClientRecordingFolder;
+  client.fetchClientRecordingFolder = function (options) {
+    if (options.query.path !== 'Doku') return originalFolderFetch(options);
+    folderCalls.push(options);
+    const {offset, limit, homeCards} = options.query;
+    assert.strictEqual(homeCards, 1);
+    const items = totalCards.slice(offset, offset + limit);
+    // Include embedded leaves in the combined count; the renderer must
+    // project those as recordings, retaining native metadata and identity.
+    const response = {homeCardPage: true, offset, returnedCards: items.length,
+      hasMore: offset + items.length < totalCards.length,
+      folders: items.map(item => ({path:'Doku/' + item.recordingId, name:item.title,
+        singleRecordingLeaf:true, singleRecording:item})), recordings: []};
+    if (limit === 24) return new Promise(resolve => { releaseLookahead = () => resolve(response); });
+    return Promise.resolve(response);
+  };
+  const beforeRandom = folderCalls.length;
+  assert.strictEqual(await bootstrap.openRandomFolderInline(randomCard), true);
+  const randomExpansion = randomSection.querySelector('.media-home-inline-expansion');
+  const randomRail = randomExpansion.querySelector('.media-home-discovery-rail');
+  assert.strictEqual(randomRail.children.length, 12);
+  assert.strictEqual(folderCalls.length, beforeRandom + 1);
+  assert.strictEqual(folderCalls.at(-1).query.limit, 12);
+  assert.strictEqual(timers.length, 1);
+  timers.shift()();
+  await settle();
+  assert.strictEqual(folderCalls.at(-1).query.limit, 24);
+  assert.strictEqual(folderCalls.at(-1).query.offset, 12);
+  assert.strictEqual(randomRail.children.length, 12);
+  const more = randomExpansion.children.find(node => node.textContent === 'Weitere Aufnahmen');
+  assert(more);
+  clickElement(more);
+  await settle();
+  assert.strictEqual(folderCalls.length, beforeRandom + 2, 'demand joins pending lookahead');
+  releaseLookahead();
+  await settle();
+  assert.strictEqual(randomRail.children.length, 36);
+  assert.strictEqual(randomExpansion.querySelector('.media-home-discovery-rail'), randomRail);
+  assert.strictEqual(new Set(randomRail.children.map(node => node.dataset.recordingId)).size, 36);
+  timers.shift()();
+  await settle();
+  ++fenceEpoch;
+  releaseLookahead();
+  await settle();
+  clickElement(more);
+  await settle();
+  assert.strictEqual(randomRail.children.length, 40);
+  assert.strictEqual(folderCalls.at(-1).query.limit, 12, 'invalidated speculative page requires demand read');
+  assert.strictEqual(more.parentNode, null);
+  // Do not replace a manually/automatically opened folder with a later
+  // scheduled auto-selection, and reject responses after collapse.
+  assert.strictEqual(await bootstrap.openRandomFolderInline(randomCard), false);
+  clickElement(randomCard);
+  assert.strictEqual(randomSection.querySelector('.media-home-inline-expansion'), null);
+  const initialAgain = bootstrap.openRandomFolderInline(randomCard);
+  await initialAgain;
+  const staleExpansion = randomSection.querySelector('.media-home-inline-expansion');
+  const staleRail = staleExpansion.querySelector('.media-home-discovery-rail');
+  timers.shift()();
+  await settle();
+  clickElement(randomCard);
+  releaseLookahead();
+  await settle();
+  assert.strictEqual(randomSection.querySelector('.media-home-inline-expansion'), null);
+  assert.strictEqual(staleRail.children.length, 12);
+  // Real click enters the same owner with a first-page preview while
+  // the authoritative response is held. Preview cards cannot open recordings.
+  const warmCard = makeCard('folder', 'Warm', 'Warm');
+  const warmSection = makeSection('folders', warmCard);
+  let releaseWarm, paintWarm, currentWarm, removeWarm, savedWarm, acceptedWarm;
+  const warmResponse = {homeCardPage:true, path:'Warm', cacheReady:true,
+    offset:0, returnedCards:1, hasMore:false, folders:[],
+    recordings:[recording('warm-new','Fresh recording')]};
+  client.fetchClientRecordingFolder = options => {
+    assert.strictEqual(options.query.homeCards,1);
+    assert.strictEqual(options.query.limit,12);
+    return new Promise(resolve => { releaseWarm = () => resolve(warmResponse); });
+  };
+  window.VdrSuiteHomeCache = {beginFolder(path,backend,current,paint) {
+    assert.strictEqual(path,'Warm'); assert.strictEqual(backend,'backend-a');
+    paintWarm=paint; currentWarm=current;
+    return {accept(payload){acceptedWarm=payload;},
+      finish(cards){savedWarm=cards;if(removeWarm)removeWarm();},
+      cancel(){if(removeWarm)removeWarm();}};
+  }};
+  clickElement(warmCard);
+  await settle();
+  assert(currentWarm());
+  removeWarm=paintWarm([{id:'r:old',title:'Cached recording',subtitle:'',posterUrl:''}]);
+  assert.strictEqual(typeof removeWarm,'function');
+  const warmExpansion=warmSection.querySelector('.media-home-inline-expansion');
+  const warmRails=warmExpansion.querySelectorAll('.media-home-discovery-rail');
+  assert.strictEqual(warmRails.length,2);
+  assert.strictEqual(warmRails[0].hidden,true);
+  assert.strictEqual(warmRails[1].children[0].tagName,'DIV');
+  assert.strictEqual(warmRails[1].children[0].querySelector('strong').textContent,'Cached recording');
+  releaseWarm(); await settle(); await settle();
+  assert.strictEqual(acceptedWarm,warmResponse);
+  assert.strictEqual(savedWarm[0].id,'r:warm-new');
+  assert.strictEqual(warmExpansion.querySelectorAll('.media-home-discovery-rail').length,1);
+  assert.strictEqual(warmRails[0].hidden,false);
+  assert.strictEqual(warmRails[0].children[0].dataset.recordingId,'warm-new');
+  clickElement(warmCard);
+  assert.strictEqual(currentWarm(),false);
+  client.fetchClientRecordingFolder = originalFolderFetch;
+  const seriesCard=makeCard('folder','Serien','Serien');
+  seriesCard.__vdrSuiteFolderEntry={path:'Serien',recordingCount:464};
+  const seriesSection=makeSection('folders',seriesCard);
+  let mounted=0, stopped=0;
+  window.VdrSuiteHomeRecordingDiscovery={mountFolderSeries(expansion,path,backend,config) {
+    assert.strictEqual(path,'Serien'); assert.strictEqual(backend,'backend-a');
+    assert.strictEqual(config.count(),464); assert(config.current());
+    expansion.__stopFolderSeries=()=>{stopped++;}; mounted++; return true;
+  }};
+  const beforeSeries=folderCalls.length;
+  clickElement(seriesCard); await settle();
+  assert.strictEqual(mounted,1);
+  assert.strictEqual(folderCalls.length,beforeSeries,'complete series model needs no duplicate folder HTTP read');
+  clickElement(seriesCard);
+  assert.strictEqual(stopped,1);
+  assert.strictEqual(seriesSection.querySelector('.media-home-inline-expansion'),null);
+  console.log('phase66 Home inline genre native metadata, paginated folder and preview contract ok');
 }()).catch(error => {
   console.error(error);
   process.exitCode = 1;

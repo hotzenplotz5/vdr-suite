@@ -8,7 +8,7 @@ const { spawnSync } = require('node:child_process');
 const frontend = path.resolve(__dirname, '../web/frontend');
 const read = name => fs.readFileSync(path.join(frontend, name), 'utf8');
 const run = (name, env) => vm.runInNewContext(read(name), env, { filename: name });
-const { createProbe, summarizeResources } = require('../web/frontend/browser-artwork-probe');
+const { createProbe, summarizeResources, startupTiming } = require('../web/frontend/browser-artwork-probe');
 
 async function main() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'vdr-suite-diagnostics-'));
@@ -57,6 +57,24 @@ async function main() {
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(sent.at(-1).message.type, 'headers');
     assert.equal(calls.at(-1)[0], 'headers');
+    child.navigator = {serviceWorker:{controller:{postMessage(data, ports) {
+      assert.equal(data.type,'vdr-suite-artwork-measurement');
+      ports[0].send({schema:1,capacity:1024,maxPreviewBytes:262144,counters:{localHits:7,imageHttpRequests:2}});
+    }}}};
+    child.MessageChannel = class {
+      constructor() {
+        this.port1 = {close() {}};
+        this.port2 = {send: value => this.port1.onmessage({data:value})};
+      }
+    };
+    child.setTimeout = setTimeout;
+    child.clearTimeout = clearTimeout;
+    message('start',{label:'measurement'});
+    message('stop');
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(sent.at(-1).message.type,'result');
+    assert.equal(sent.at(-1).message.value.metrics.artworkWorker.counters.localHits,7);
+    assert.equal(sent.at(-1).message.value.metrics.artworkWorker.capacity,1024);
 
     const handlers = {};
     const elements = {};
@@ -128,6 +146,36 @@ async function main() {
     assert.equal(result.metrics.mutations, 1);
     assert.equal(result.observerSupport.mutation, true);
     assert.equal(result.bufferedStartup, true);
+    assert.equal(result.startupTiming.homeControlsReadyMs, null);
+    const timeEntries = {
+      'first-paint': 11, 'first-contentful-paint': 25,
+      'vdr-suite:startup:session-ready': 50,
+      'vdr-suite:startup:backend-selected': 70,
+      'vdr-suite:startup:snapshot-requested': 71,
+      'vdr-suite:startup:home-navigation-ready': 73,
+      'vdr-suite:startup:snapshot-ready': 100,
+      'vdr-suite:startup:home-controls-ready': 120,
+      'vdr-suite:startup:home-frame': 145,
+      'vdr-suite:startup:recording-count-settled': 500
+    };
+    const timing = startupTiming({getEntriesByName(name) {
+      return Object.hasOwn(timeEntries, name) ? [{startTime: timeEntries[name]}] : [];
+    }}, [
+      {name:'https://example.test/vdr-suite/api/backends/private-backend/snapshot',
+        startTime:72, requestStart:75, responseStart:92, responseEnd:97},
+      {name:'https://other.test/api/backends/private-backend/snapshot',
+        startTime:72, requestStart:75, responseStart:92, responseEnd:97}
+    ], 'https://example.test/vdr-suite/frontend/');
+    assert.equal(timing.homeNavigationReadyMs, 73);
+    assert.deepStrictEqual(timing.snapshotResource, {
+      dispatchToFetchMs:1, fetchToRequestMs:3, requestToFirstByteMs:17, bodyMs:5, responseToReadyMs:3
+    });
+    assert.ok(!JSON.stringify(timing).includes('private-backend'));
+    assert.equal(timing.firstContentfulPaintMs, 25);
+    assert.equal(timing.homeControlsReadyMs, 120);
+    assert.equal(timing.homeFrameMs, 145);
+    assert.equal(timing.recordingCountSettledMs, 500);
+    assert.equal(timing.homeControlsAfterSessionMs, 70);
     assert.equal(result.metrics.resourceDiagnostics.observedEntries, 1);
     assert.ok(observers.every(observer => observer.disconnected));
     assert.ok(!JSON.stringify(result).includes('secret'));

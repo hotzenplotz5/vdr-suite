@@ -270,6 +270,7 @@
   "shell.epgFeature": "EPG timeline",
   "shell.epgFeatureDescription": "Timeline & programme",
   "shell.features": "VDR-Suite features",
+  "shell.installApp": "Install VDR-Suite",
   "shell.liveTv": "Live TV",
   "shell.liveTvDescription": "Realtime & streaming",
   "shell.loadBackendSelection": "Loading backend selection...",

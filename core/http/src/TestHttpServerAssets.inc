@@ -181,6 +181,39 @@ HttpServerResponse makeFrontendScriptBundleResponse(
     return response;
 }
 
+// Validate the exact served bytes (including any bundled addon). A weak
+// validator is valid for both the identity and proxy-gzipped representation.
+// Never retain client-specific API or HTML responses in this static policy.
+HttpServerResponse revalidateFrontendAsset(
+    HttpServerResponse response,
+    const std::string& ifNoneMatch)
+{
+    const auto type = response.headers.find("Content-Type");
+    if (response.statusCode != 200 || type == response.headers.end() ||
+        (type->second != "application/javascript; charset=utf-8" &&
+         type->second != "text/css; charset=utf-8"))
+    {
+        return response;
+    }
+    unsigned char digest[SHA256_DIGEST_LENGTH];
+    if (SHA256(reinterpret_cast<const unsigned char*>(response.body.data()),
+            response.body.size(), digest) == nullptr)
+    {
+        return response;
+    }
+    const std::string tag = "W/" + vdrsuite::http::publicStrongEntityTag(
+        std::string(reinterpret_cast<const char*>(digest), sizeof(digest)));
+    response.headers["ETag"] = tag;
+    response.headers["Vary"] = "Accept-Encoding";
+    if (vdrsuite::http::publicEvaluateIfNoneMatch(ifNoneMatch, tag) ==
+        vdrsuite::http::PublicEntityTagConditionResult::matched)
+    {
+        response.statusCode = 304;
+        response.body.clear();
+    }
+    return response;
+}
+
 HttpServerResponse makeMissingChannelLogoResponse(
     const std::string& relativePath)
 {
@@ -188,7 +221,8 @@ HttpServerResponse makeMissingChannelLogoResponse(
 
     response.statusCode = 204;
     response.headers["Content-Type"] = logoContentType(relativePath);
-    response.headers["Cache-Control"] = "no-cache";
+    // A missing public logo is a normal lookup result, not a permanent error.
+    response.headers["Cache-Control"] = "public, max-age=300";
     response.body = "";
 
     return response;
@@ -218,7 +252,9 @@ HttpServerResponse makeChannelLogoResponse(
 
     response.statusCode = 200;
     response.headers["Content-Type"] = logoContentType(relativePath);
-    response.headers["Cache-Control"] = "no-cache";
+    // This route is already anonymous and installation-scoped. Keep mutable
+    // logo files fresh within a bounded window, including bundled brand art.
+    response.headers["Cache-Control"] = "public, max-age=3600";
     response.body = content;
 
     return response;

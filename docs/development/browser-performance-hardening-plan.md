@@ -122,3 +122,104 @@ Frontend installation requires passing focused tests and hosted
 No production mutation is part of this workstream. Full CI and explicit user
 approval remain required for Ready/merge. Finish runtime acceptance before
 claiming that a browser-performance slice is accepted.
+
+## HOME.P follow-up — 2026-11-19
+
+The real initial-Home Resource Timing capture collected 640 observed resource
+entries, including 384 Recording metadata reads, 47 script entries and zero
+observed long tasks. The approximately 59.6-second capture interval is not a
+measured time-to-complete-Home; exact request-to-rail attribution and startup
+latencies remain unverified. The large metadata count motivates eliminating
+avoidable HTTP reads before tuning DOM or adding infrastructure.
+
+- HOME.P1 (code/test head `cd588c5301615f0c44bc164e0c133f1b7a51aa56`): reuse a
+  cached canonical Series poster from another member of the same Series group;
+  avoid an extra initial representative read while retaining detail enrichment.
+- HOME.P2 (code head `389163f895966ab9d24a3242f704913043e4f1f0`): extend the existing
+  page-scoped Genre index native summary with compact `nativeCardMetadata` for
+  found non-manually-locked recordings, including movies. Reuse the existing
+  portrait-first/preferred image rules and canonical image URL boundary. No
+  filesystem paths, cast, full gallery or detailed metadata payload are exposed.
+  Random Genre and inline Genre cards use this projection; only records without
+  it use existing bounded metadata reads. The compact object does not populate
+  the full-detail or Series metadata cache. Locked manual assignments, older
+  schemas and missing native metadata retain the existing lookup path. No new
+  endpoint, polling, artwork authority, or HbbTV change is introduced.
+
+Regression coverage: compact native film/Series cards, backend scope, manual
+precedence and older schema fallback in the Genre controller; mixed embedded and
+non-embedded card lists in both Home Genre rendering paths. CI and real yaVDR
+acceptance must be recorded separately. Newly Recorded and missing Series
+metadata still have independent read paths. No claim is made that this slice
+alone removes all 384 observed requests or meets the overall Home latency target.
+
+### HOME.P5 — bounded inventory and foreground metadata priority
+
+Retain immediate startup of the existing recording rails and progressive first
+Series page. Fetch the remaining known-size inventory in ordered batches of at
+most two parallel pages rather than issuing an unbounded Promise.all. Preserve
+canonical order, complete-inventory publication and backend/generation fences;
+unknown totals keep sequential pagination. The existing four-read metadata queue
+prioritizes Newly Recorded over ordinary queued episode enrichment and explicit
+Series detail interaction over queued representative work. Promotion reuses the
+existing native-ID promise; active reads are not cancelled. Native lazy loading
+and asynchronous decoding are set before assigning the recording poster URL.
+No added timer, polling, viewport gate, API, cache or navigation owner.
+
+Regression coverage: a 501-recording fixture observes only two concurrent tail
+pages, out-of-order replies preserve canonical order, and a queued detail read
+preempts queued background and representative reads without duplicate requests.
+Actual transport and Home latency improvements still require browser acceptance.
+
+### HOME.P6 — scoped SSE invalidation work
+
+The existing backend-scoped recording feed remains authoritative. Coalesce exact
+native IDs within the already scheduled microtask and share the fresh metadata
+read promise between Newly Recorded and Series within that batch only. Subsequent
+SSE batches never reuse the previous batch's fresh result. Skip duplicate
+representative reads for those explicit IDs; retain full canonical membership
+revalidation, because changed metadata may change the Series classification.
+The Series pagination revision fence now prevents superseded inventory scans
+from starting additional pages. Layout, keyed cards, sequence/resync behavior,
+backend scope and broad inventory reconciliation are preserved. No additional
+SSE connection, polling, timer or persistent cache. The shared reads still use
+the existing direct exact-ID lookup; this slice does not eliminate the canonical
+Series inventory scan or establish production latency gains.
+
+Tests cover shared exact-ID metadata correction across both rails, same-tick
+bursts, and cancellation of future pages after a newer revision.
+
+### HOME.P7.1 — runtime follow-up: inline Home artwork
+
+Real-browser acceptance on 2026-11-19 remains open. The diagnostic capture
+(initial-home, elapsed 105724.5 ms, warm/mixed cache) observed 250 resources
+and 15 Recording metadata reads, compared with 640 and 384 in the earlier
+capture. These are observed entry counts, not controlled load-time results.
+15 successful Recording metadata image requests without the Home preview
+parameter transferred 6,962,005 bytes; the operator reports that visible Home
+artwork is still incomplete after one minute. The automatic random folder
+expansion uses the same bootstrap inline card renderer as explicit folder and
+genre navigation; it had been assigning original poster URLs without applying
+the existing Home preview helper. Apply it before prefix resolution and before
+assigning src; set native lazy loading and async decoding first. Keep canonical
+Recording identity, external/unknown URL behavior and detail artwork unchanged.
+The existing inline genre/folder integration regression now uses the actual
+production helper and asserts Home previews for embedded and queried artwork.
+The preview cache still offers best-effort conversion with original fallback
+on contention or unsupported input. Do not claim all images are resized or
+Home ready until a new real-browser acceptance capture verifies it.
+
+### HOME.P7.1 — subsequent real-browser capture and PWA priority
+
+The operator confirmed installation and regression PASS but rejected real
+Home performance: visible Series posters were still missing after minutes.
+The later initial-home sample (75,526.9 ms observation interval) observed
+255 resources, 15 metadata reads, 4,374,719 image transfer bytes, 178 image
+elements, 135 complete, 123 lazy and three metadata-image 404 entries.
+Zero long tasks were observed. All classified artwork rows requested
+variant=home; this does not guarantee successful resizing or image completion.
+The samples are not controlled timing benchmarks and do not isolate the
+browser or server. Keep real Home acceptance open. The maintainer now
+prioritizes [PWA/local-first Webfrontend](pwa-local-first-frontend-plan.md)
+as the next frontend workstream; caching is not a substitute for cold
+artwork and missing-image correctness.

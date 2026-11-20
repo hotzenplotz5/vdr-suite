@@ -163,14 +163,22 @@
   }
   function post(body) {
     const fetcher = global.fetch || fetch;
+    const cache = global.VdrSuiteHomeCache;
+    const stamp = cache && body.operation === 'list' ? cache.requestStamp(ENDPOINT, body.backendId) : null;
     return fetcher(ENDPOINT, {
       method: 'POST',
       credentials: 'same-origin',
       headers: Object.assign({'Content-Type': 'application/json'}, csrfHeaders()),
       body: JSON.stringify(body)
     }).then(function (response) {
-      if (!response || !response.ok) throw new Error('Continue Watching unavailable');
-      return response.json();
+      if (stamp) cache.observe(stamp, response, null);
+      if (!response || !response.ok) {
+        throw new Error('Continue Watching unavailable');
+      }
+      return response.json().then(function (payload) {
+        if (stamp) cache.observe(stamp, response, payload);
+        return payload;
+      });
     });
   }
   function releasePreview() {
@@ -585,12 +593,28 @@
     const config = options && typeof options === 'object' ? options : {};
     const backendId = selectedBackendId();
     const generation = ++refreshGeneration;
+    const cacheOwner = global.VdrSuiteHomeCache;
+    const cache = cacheOwner ? cacheOwner.begin('continue-watching', backendId, 'Weiterschauen', function () {
+      return liveReady() && generation === refreshGeneration && selectedBackendId() === backendId;
+    }) : null;
     return post({operation: 'list', backendId}).then(function (payload) {
       if (!browserSessionAuthenticated() ||
-          generation !== refreshGeneration || selectedBackendId() !== backendId) return false;
+          generation !== refreshGeneration || selectedBackendId() !== backendId) { if (cache) cache.cancel(); return false; }
+      if (cache) {
+        const valid = (Array.isArray(payload && payload.items) ? payload.items : [])
+          .map(normalizeItem).filter(Boolean);
+        if (valid.some(item => item.backendId !== backendId)) cache.cancel();
+        else {
+          cache.accept(payload);
+          cache.finish(valid.slice(0, 24).map(function (item) {
+            return {id: item.recordingId, title: item.title, subtitle: item.subtitle, posterUrl: item.posterUrl};
+          }));
+        }
+      }
       render(payload && payload.items);
       return true;
     }).catch(function () {
+      if (cache) cache.cancel();
       if (!browserSessionAuthenticated() ||
           generation !== refreshGeneration || selectedBackendId() !== backendId) return false;
       if (config.retainVisible !== true) render([]);

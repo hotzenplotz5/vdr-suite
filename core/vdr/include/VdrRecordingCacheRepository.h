@@ -26,6 +26,9 @@ struct VdrRecordingFolderEntry
     int recordingCount = 0;
     bool singleRecordingLeaf = false;
     VdrRecording singleRecording;
+    // Home-only representative, never a navigable recording leaf.
+    bool hasRepresentativeRecording = false;
+    VdrRecording representativeRecording;
 };
 
 struct VdrRecordingFolderPage
@@ -92,11 +95,14 @@ public:
     bool warmBrowseSnapshotForBackend(
         const std::string& backendId) const;
 
+    // Home cards page across child folders (including embedded leaves)
+    // followed by direct recordings. Existing callers keep legacy semantics.
     VdrRecordingFolderPage folderPageForBackend(
         const std::string& backendId,
         const std::string& folderPath,
         int limit,
-        int offset) const;
+        int offset,
+        bool homeCards = false) const;
     // Opaque, non-secret presentation IDs. Authorization is enforced by the
     // Public API SecurityHttpGate, not by knowing an ID.
     static std::string publicFolderId(
@@ -110,6 +116,9 @@ private:
     {
         std::vector<VdrRecordingFolderEntry> folders;
         std::vector<VdrRecording> recordings;
+        // Path of the first direct recording in this subtree, computed once.
+        std::string representativeFolderPath;
+        bool hasRepresentative = false;
     };
 
     struct BrowseBackendSnapshot

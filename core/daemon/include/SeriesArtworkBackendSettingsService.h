@@ -67,6 +67,8 @@ struct SeriesArtworkImageResult
     std::string message;
     std::string contentType;
     std::string body;
+    // Only selected cover reads carry the actual persisted assignment revision.
+    std::string coverRevision;
 };
 
 struct SeriesArtworkBackendSettingsUpdateResult

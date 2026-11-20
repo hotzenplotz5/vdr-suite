@@ -85,7 +85,7 @@ assert(source.includes("backLabel: config.backLabel || '← Zurück zu Home'"));
 assert(source.includes("onClose: typeof config.onClose === 'function' ? config.onClose : returnHome"));
 assert(source.includes("backLabel: '← Zurück zur Staffel'"));
 assert(source.includes(
-  'function renderSeriesDetail(series, selectedSeason, backendId, options)'
+  'function renderSeriesDetail(series, selectedSeason, backendId, options, surface)'
 ));
 assert(source.includes(
   'function seriesMetadataPendingForDetail(series, backendId)'
@@ -106,6 +106,12 @@ assert(source.includes(
   'canEnrich && hierarchyIncomplete'
 ));
 assert(!source.includes('homeRecordingId'));
+assert(source.includes('mountFolderSeries: mountFolderSeries'));
+assert(source.includes('!allowPartial && members.length !== expected'));
+assert(source.includes('appendOriginalFolderButton(surface)'));
+assert(source.includes('Alle Aufnahmen im Ordner'));
+assert(bootstrap.includes('discovery.mountFolderSeries(expansion, nextPath, backendId'));
+assert(source.includes('prioritizeInlineRailArtwork(view.episodeRail)'));
 
 // Existing metadata/artwork projection is reused with browser-native lazy image loading and fallback.
 assert(source.includes('presentation(recording).posterUrl || artwork.preferredUrl'));
@@ -148,11 +154,13 @@ assert(!initialSeries.includes('waitForSeriesRepresentatives('));
 assert(!initialSeries.includes('startSeriesCompletion('));
 assert(!seriesScan.includes('prefetchSeriesRepresentativeMetadata('));
 assert(seriesScan.includes('const explicitTotal = Number(rawTotal);'));
-assert(seriesScan.includes('Promise.all(offsets.map(requestPage))'));
+assert(source.includes('const SERIES_TAIL_PAGE_CONCURRENCY = 2')); 
+assert(seriesScan.includes('offsets.slice(index, index + SERIES_TAIL_PAGE_CONCURRENCY)'));
+assert(seriesScan.includes('Promise.all(batch.map(requestPage))'));
 assert(seriesScan.includes('return requestSequential(nextOffset);'));
 assert(
   seriesScan.indexOf('onProgress(recordings.slice())') <
-    seriesScan.indexOf('Promise.all(offsets.map(requestPage))'),
+    seriesScan.indexOf('Promise.all(batch.map(requestPage))'),
   'Series must publish the first cache page before parallel tail completion'
 );
 assert(initialRandomGenre.includes("renderRecordingRail("));

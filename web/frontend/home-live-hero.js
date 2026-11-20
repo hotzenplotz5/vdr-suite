@@ -135,16 +135,23 @@
     );
   }
 
-  function eventArtwork(event) {
+  function eventArtwork(event, preview) {
+    function resolveArtwork(value) {
+      const helpers = global.VdrSuiteFrontendHelpers;
+      const url = preview === true && helpers &&
+        typeof helpers.homeArtworkPreviewUrl === 'function'
+        ? helpers.homeArtworkPreviewUrl(value) : value;
+      return resolvePublicUrl(url);
+    }
     const cached = cachedEventArtwork(event);
     if (cached &&
         cached.available === true &&
         text(cached.url)) {
-      return resolvePublicUrl(cached.url);
+      return resolveArtwork(cached.url);
     }
     const artwork = event && event.artwork;
-    if (artwork && artwork.available === true && text(artwork.url)) return resolvePublicUrl(artwork.url);
-    return resolvePublicUrl(pick(event, ['bannerUrl', 'imageUrl', 'posterUrl', 'artworkUrl', 'image', 'poster', 'banner'], ''));
+    if (artwork && artwork.available === true && text(artwork.url)) return resolveArtwork(artwork.url);
+    return resolveArtwork(pick(event, ['bannerUrl', 'imageUrl', 'posterUrl', 'artworkUrl', 'image', 'poster', 'banner'], ''));
   }
 
   function eventIdentity(event) {
@@ -403,7 +410,7 @@
       artwork.replaceChildren();
       appendChannelLogo(artwork, channel, 'media-home-live-guide-logo');
     };
-    const url = eventArtwork(event);
+    const url = eventArtwork(event, true);
     if (!url) {
       fallback();
       return artwork;

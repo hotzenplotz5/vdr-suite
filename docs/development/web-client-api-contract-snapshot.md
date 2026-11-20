@@ -98,7 +98,7 @@ Backend selection:
 
 - `fetchClientBackends`
 - `fetchClientDefaultBackend`
-- `fetchClientBackendSnapshot`
+- `fetchClientBackendSnapshot` — returns the existing count-composed snapshot with raw-snapshot fallback on status failure. An optional third argument callback receives the authorized raw snapshot before count completion; the Home owner renders a pending count and updates only that metric after settlement. No additional request. PWA.13.4 dispatches this read before Home resume; the authenticated backend selection enables independent module reads before the response. A late snapshot updates only its owned metrics/settings fields.
 
 EPG:
 
@@ -132,7 +132,7 @@ Global search:
 
 Recordings:
 
-- `fetchClientRecordings`
+- `fetchClientRecordings` — Recent Movies requests `sort=movieReleaseDate&order=desc` with the existing movie release-year bounds and limit/offset; matching server orders effective metadata before paging, first 12 items then near-end pages.
 - `fetchClientRecordingCacheStatus`
 - `fetchClientRecordingFolder`
 - `fetchClientRecordingTrailer`
@@ -302,3 +302,7 @@ This snapshot remains the handoff point for frontend work:
 
 - [Development Index](index.md)
 - [Documentation Index](../index.md)
+
+### PWA.13.7 optional Home folder card view
+
+The established `fetchClientRecordingFolder` route accepts `homeCards=1` for the auto-expanded Home folder. Limit/offset apply across child folders (including single-recording leaves) followed by direct recordings, rather than only direct recordings. Response adds `homeCardPage:true`, `cardCount`, `returnedCards`, `hasMore`; existing folderCount/recordingCount/totalCount retain their meanings. Legacy callers omit the option and are unchanged. No new route or permission.

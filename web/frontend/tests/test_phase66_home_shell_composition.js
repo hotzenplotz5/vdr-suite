@@ -57,8 +57,34 @@ assert(appSource.includes('selectModule(moduleName);'));
 assert(appSource.includes("button.classList.toggle('active', button.dataset.module === moduleName);"));
 assert(appSource.includes("if (selectedModule === 'overview')"));
 assert(appSource.includes('renderSnapshotMetrics(data);'));
-assert(appSource.includes("createMetric('Kanäle', valueOrZero(data.channelCount))"));
-assert(appSource.includes("createMetric('Aufnahmen', valueOrZero(data.recordingCount))"));
+// Execute the production metric owner: unknown data is pending, not zero.
+const metricsStart = appSource.indexOf('function renderSnapshotMetrics(data)');
+const metricsEnd = appSource.indexOf('let renderChannelList', metricsStart);
+assert(metricsStart >= 0 && metricsEnd > metricsStart);
+const metrics = [];
+const metricContext = vm.createContext({
+  detailDataElement: {
+    replaceChildren() { metrics.length = 0; },
+    appendChild(metric) { metrics.push(metric); }
+  },
+  createMetric(label, value) { return {label, value}; },
+  valueOrZero(value) { return Number.isFinite(Number(value)) ? Number(value) : 0; }
+});
+function checkMetrics(data, expected) {
+  metricContext.input = data;
+  vm.runInContext(appSource.slice(metricsStart, metricsEnd) +
+    '\nrenderSnapshotMetrics(input);', metricContext);
+  assert.deepStrictEqual(metrics.map(metric => [metric.label, metric.value]), expected);
+  assert.strictEqual(metrics[4].id, 'home-recording-count');
+}
+checkMetrics(null, [['Snapshot', '…'], ['Kanäle', '…'], ['Events', '…'],
+  ['Timer', '…'], ['Aufnahmen', '…']]);
+checkMetrics({snapshotAvailable: true, channelCount: 42, eventCount: 100,
+  timerCount: 3, recordingCountPending: true}, [['Snapshot', 'ja'],
+  ['Kanäle', 42], ['Events', 100], ['Timer', 3], ['Aufnahmen', '…']]);
+checkMetrics({snapshotAvailable: true, channelCount: 42, eventCount: 100,
+  timerCount: 3, recordingCount: 0}, [['Snapshot', 'ja'], ['Kanäle', 42],
+  ['Events', 100], ['Timer', 3], ['Aufnahmen', 0]]);
 
 // Home composition is driven only by that existing UI state. The primary
 // content shell reuses real snapshot data as a horizontal rail rather than
@@ -166,7 +192,9 @@ const context = {
   },
   document,
   detailDataElement,
-  currentSnapshot: {backendId: 'default'},
+  currentSnapshot: null,
+  browserSessionFrontendActive: true,
+  selectedBackend: {backendId: 'default'},
   selectedBackendId: 'default',
   selectedModule: 'overview',
   homeResumeBackendId: '',
@@ -190,6 +218,8 @@ function brandButton(name) {
 }
 
 brandButton('recordings2').dispatch('click');
+assert.strictEqual(renderSelectedModuleCalls, 1,
+  'authenticated navigation must work before the backend snapshot arrives');
 assert.strictEqual(homeHevcCloseCalls, 1,
   'leaving Home must stop the Home HEVC stream');
 assert(moduleTab('recordings2').classList.contains('active'));
@@ -245,6 +275,12 @@ assert.strictEqual(
 brandButton('settings').dispatch('keydown', {key: ' '});
 assert(!moduleTab('overview').classList.contains('active'));
 assert(moduleTabs.every(node => !node.classList.contains('active')));
+const rendersBeforeLogout = renderSelectedModuleCalls;
+context.browserSessionFrontendActive = false;
+context.selectedBackend = null;
+moduleTab('timers').dispatch('click');
+assert.strictEqual(renderSelectedModuleCalls, rendersBeforeLogout,
+  'no independent module request without an authenticated backend');
 
 console.log('phase66 home shell production composition ok');
 

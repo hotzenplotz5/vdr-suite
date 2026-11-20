@@ -267,8 +267,16 @@
     const query = queryOptions(normalized);
     const url = path + buildQueryString(query);
 
+    const homeCache = window.VdrSuiteHomeCache;
+    const snapshot = path.match(/^\/api\/backends\/([A-Za-z0-9_.-]+)\/snapshot$/);
+    const stamp = homeCache && (normalized.method || 'GET') === 'GET' &&
+      (path !== '/api/metadata/genres' || query.scope === 'recordings')
+        ? homeCache.requestStamp(path, snapshot ? snapshot[1] : query.backend || query.backendId)
+        : null;
     return fetch(url, requestOptions(normalized)).then(function (response) {
+      if (stamp) homeCache.observe(stamp, response, null);
       return parseJsonResponse(path, response).then(function (payload) {
+        if (stamp) homeCache.observe(stamp, response, payload);
         if (!response.ok) {
           throw createClientError(path, response.status, payload);
         }
@@ -571,12 +579,16 @@
     return requestJson('/api/backends/default', options);
   }
 
-  function fetchClientBackendSnapshot(backendId, options) {
+  function fetchClientBackendSnapshot(backendId, options, onSnapshot) {
     const id = backendId ? String(backendId) : 'default';
     const snapshotRequest = requestJson(
       '/api/backends/' + encodeURIComponent(id) + '/snapshot',
       options
-    );
+    ).then(function (snapshot) {
+      // Optional early delivery; the returned Promise retains count composition.
+      if (typeof onSnapshot === 'function') onSnapshot(snapshot);
+      return snapshot;
+    });
     const recordingStatusRequest = fetchClientRecordingCacheStatus(
       Object.assign({}, normalizeOptions(options), {backendId: id})
     ).catch(function () {

@@ -114,6 +114,7 @@
   }
 
   function clear(reason) {
+    if (authenticated && global.VdrSuiteHomeCache) global.VdrSuiteHomeCache.sessionBoundary();
     sessionRevision += 1;
     cancelExpiryTimer();
     csrfToken = '';
@@ -310,6 +311,26 @@
     global.fetch = observedFetch;
   }
 
+  // Recovery must actually contact the server, rather than take restore()'s
+  // authenticated-in-memory shortcut. Read-only; never install a new token
+  // or replay a mutation here. Normal bootstrap owns the resulting session.
+  function verifyConnection() {
+    return global.fetch(RESTORE_PATH, {
+      method: 'GET',
+      headers: {Accept: 'application/json'},
+      cache: 'no-store',
+      credentials: 'same-origin'
+    }).then(function (response) {
+      return parseResponse(response).then(function (payload) {
+        if (response.status === 401) return Boolean(securityReason(payload));
+        const token = payload && payload.csrfToken;
+        return Boolean(response.ok && typeof token === 'string' &&
+          token.length >= 32 && token.length <= 256 &&
+          typeof payload.expiresAt === 'string' && payload.expiresAt);
+      });
+    }).catch(function () { return false; });
+  }
+
   function restore() {
     if (authenticated && csrfToken) {
       return Promise.resolve(snapshot());
@@ -377,6 +398,7 @@
       )));
     }
 
+    if (global.VdrSuiteHomeCache) global.VdrSuiteHomeCache.sessionBoundary();
     const revision = sessionRevision + 1;
     sessionRevision = revision;
     let authorization;
@@ -410,6 +432,7 @@
           return snapshot();
         }
 
+        if (global.VdrSuiteHomeCache) global.VdrSuiteHomeCache.sessionBoundary();
         return acceptSessionPayload(
           payload,
           translated(
@@ -472,6 +495,7 @@
       return Promise.resolve(null);
     }
 
+    if (global.VdrSuiteHomeCache) global.VdrSuiteHomeCache.sessionBoundary();
     sessionRevision += 1;
     const submittedCsrf = csrfToken;
     return global.fetch(LOGOUT_PATH, {
@@ -926,6 +950,7 @@
     login: login,
     logout: logout,
     restore: restore,
+    verifyConnection: verifyConnection,
     clear: clear,
     subscribe: subscribe,
     snapshot: snapshot,
@@ -1031,6 +1056,21 @@
   const browserLiveClients = new Set();
 
   function dispatchBrowserLive(type, event) {
+    const connection = global.VdrSuiteConnection;
+    if (connection && (type === 'open' || type === 'error')) {
+      try { connection.live(type); } catch (error) {}
+    }
+    // One cache observer per physical connection, before the existing owners
+    // schedule their authoritative readbacks. No additional EventSource.
+    const cache = global.VdrSuiteHomeCache;
+    if (cache && typeof cache.liveEvent === 'function') {
+      try {
+        if (cache.liveEvent(type, event) && type === 'update') {
+          type = 'resync';
+          event = {lastEventId: event.lastEventId, data: '{"reason":"client_cursor_gap"}'};
+        }
+      } catch (error) { /* Cache failure cannot interrupt online subscribers. */ }
+    }
     Array.from(browserLiveClients).forEach(function (client) {
       if (client.closed) return;
       const handlers = (client.listeners[type] || []).slice();
@@ -1053,6 +1093,10 @@
     if (browserLiveConnection) {
       browserLiveConnection.close();
       browserLiveConnection = null;
+      const cache = global.VdrSuiteHomeCache;
+      if (cache && typeof cache.liveEvent === 'function') {
+        try { cache.liveEvent('close', {}); } catch (error) {}
+      }
     }
   }
 

@@ -618,6 +618,10 @@ bool SeriesArtworkSettingsApiRuntime::tryHandleGet(
             service->coverImage(
                 backendId,
                 seriesKey);
+        // Internal response evidence for the HTTP cache boundary. A stale
+        // requested revision keeps its original online behavior, but must
+        // not populate a persistent cache under the wrong URL.
+        response.headers.erase("X-VDR-Suite-Series-Cover-Revision");
 
         if (!image.success)
         {
@@ -632,6 +636,10 @@ bool SeriesArtworkSettingsApiRuntime::tryHandleGet(
         response.contentType =
             image.contentType;
         response.body = image.body;
+        if (!image.coverRevision.empty() &&
+            queryValue(requestTarget, "revision") == image.coverRevision &&
+            queryValue(requestTarget, "variant") == "home")
+            response.headers["X-VDR-Suite-Series-Cover-Revision"] = image.coverRevision;
 
         return true;
     }

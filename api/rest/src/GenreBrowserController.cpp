@@ -409,6 +409,31 @@ ApiResponse GenreBrowserController::getRecordings(
         json << "},\"provider\":{},\"native\":{},\"artwork\":{\"preferredUrl\":";
         appendJsonString(json, posterUrl);
         json << "}}";
+        // A card only needs title, subtitle and the canonical portrait/preferred
+        // image. Do not include the full people/gallery/detail payload.
+        if (recording.nativeCardMetadataAvailable)
+        {
+            json << ",\"nativeCardMetadata\":{\"available\":true,\"mediaType\":";
+            appendJsonString(json, recording.nativeCardMediaType);
+            json << ",\"title\":";
+            appendJsonString(json, recording.seriesTitle);
+            json << ",\"episodeName\":";
+            appendJsonString(json, recording.episodeName);
+            json << ",\"preferredArtwork\":{\"available\":"
+                 << (recording.seriesArtworkAvailable ? "true" : "false");
+            if (recording.seriesArtworkAvailable)
+            {
+                json << ",\"url\":";
+                appendJsonString(json,
+                    "/api/vdr/recordings/metadata/image?backend=" +
+                    percentEncode(recording.backendId) +
+                    "&backendNativeId=" + percentEncode(recording.backendNativeId) +
+                    (recording.seriesArtworkIndex < 0
+                        ? "&kind=preferred&index=0"
+                        : "&kind=gallery&index=" + std::to_string(recording.seriesArtworkIndex)));
+            }
+            json << "}}";
+        }
         if (recording.seriesMetadataAvailable)
         {
             json << ",\"seriesMetadata\":{\"available\":true,\"mediaType\":\"series\",\"title\":";

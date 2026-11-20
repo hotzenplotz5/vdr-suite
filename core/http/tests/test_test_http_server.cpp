@@ -57,6 +57,7 @@
 #include "SnapshotCache.h"
 #include "SnapshotCacheService.h"
 #include "TestHttpServer.h"
+#include "HomeCacheScope.h"
 #include "VdrController.h"
 #include "VdrOverviewJsonSerializer.h"
 #include "VdrOverviewService.h"
@@ -142,6 +143,170 @@ static void assertEmptyDiscoveryResponse(
 
 int main()
 {
+    {
+        RequestSecurityContext context;
+        context.authenticationState = AuthenticationState::Authenticated;
+        context.actor = {"home-a", ActorType::User, "Home A", true};
+        context.session = SessionIdentity{"session-a"};
+        context.permissionGrantResolution = PermissionGrantResolutionState::Resolved;
+        context.grants = {{"recordings.view", "default"}, {"media.recording.play", "default"}};
+        HttpServerRequest request;
+        request.method = "GET";
+        request.path = "/api/backends/default/snapshot";
+        HttpServerResponse response;
+        response.body = "{}";
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
+        const auto original = response.headers.at("X-VDR-Suite-Home-Recording-Scope");
+        assert(original == response.headers.at("X-VDR-Suite-Home-History-Scope"));
+        assert(response.headers.at("X-VDR-Suite-Home-Backend") == "default");
+        assert(response.body == "{}" && response.statusCode == 200);
+        response = HttpServerResponse{};
+        context.session = SessionIdentity{"session-b"};
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
+        assert(original != response.headers.at("X-VDR-Suite-Home-Recording-Scope"));
+        context.session = SessionIdentity{"session-a"};
+        std::reverse(context.grants.begin(), context.grants.end());
+        assert(original == vdrsuite::http::browserHomeCacheScope(context, "default"));
+        assert(original != vdrsuite::http::browserHomeCacheScope(context, "other"));
+        context.grants.push_back({"timers.view", "default"});
+        assert(original != vdrsuite::http::browserHomeCacheScope(context, "default"));
+        context.grants.pop_back();
+        context.session->revoked = true;
+        assert(vdrsuite::http::browserHomeCacheScope(context, "default").empty());
+        context.session->revoked = false;
+        context.permissionGrantResolution = PermissionGrantResolutionState::Unavailable;
+        assert(vdrsuite::http::browserHomeCacheScope(context, "default").empty());
+        context.permissionGrantResolution = PermissionGrantResolutionState::Resolved;
+        for (const auto& query : {"backend=default&backend=other",
+                "backend=default&backendId=other", "backend=default&%62ackend=other"})
+            assert(vdrsuite::http::canonicalHomeCacheBackend(query).empty());
+        assert(vdrsuite::http::canonicalHomeCacheBackend("backend=default&variant=home") == "default");
+        response = HttpServerResponse{};
+        context.actor.actorId = "home-b";
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
+        assert(original != response.headers.at("X-VDR-Suite-Home-Recording-Scope"));
+        response = HttpServerResponse{};
+        request.path = "/api/vdr/recordings/query?backend=default&backend=other";
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
+        assert(response.headers.empty());
+        request.path = "/api/vdr/recordings/query?backend=other";
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
+        assert(response.headers.empty());
+        request.path = "/api/vdr/recordings/query?backend=default";
+        vdrsuite::http::addHomeCacheScope(request, response, context, false, {});
+        assert(response.headers.empty());
+        context.grants = {{"recordings.view", "default"}};
+        request.path = "/recording-artwork/default/0123456789abcdef0123456789abcdef?variant=home";
+        response = HttpServerResponse{};
+        response.statusCode = 404;
+        vdrsuite::http::addDirectHomeArtworkFallbackScope(request, response, context, true);
+        assert(response.statusCode == 404);
+        assert(response.headers.at("X-VDR-Suite-Artwork-Scope") ==
+            vdrsuite::http::browserHomeCacheScope(context, "default"));
+        assert(response.headers.at("Cache-Control") == "private, no-store");
+        for (const auto& target : {
+            "/recording-artwork/other/0123456789abcdef0123456789abcdef?variant=home",
+            "/recording-artwork/default/short?variant=home",
+            "/recording-artwork/%64efault/0123456789abcdef0123456789abcdef?variant=home",
+            "/recording-artwork/default/0123456789abcdef0123456789abcdef?variant=home&backend=other",
+            "/recording-artwork/default/0123456789abcdef0123456789abcdef"}) {
+            request.path = target;
+            response = HttpServerResponse{};
+            response.statusCode = 404;
+            vdrsuite::http::addDirectHomeArtworkFallbackScope(request, response, context, true);
+            assert(response.headers.empty());
+        }
+        request.path = "/recording-artwork/default/0123456789abcdef0123456789abcdef?variant=home";
+        response = HttpServerResponse{};
+        response.statusCode = 404;
+        vdrsuite::http::addDirectHomeArtworkFallbackScope(request, response, context, false);
+        assert(response.headers.empty());
+        context.grants = {{"media.recording.play", "default"}};
+        vdrsuite::http::addDirectHomeArtworkFallbackScope(request, response, context, true);
+        assert(response.headers.empty());
+
+        const std::string epgTarget =
+            "/api/epg/cache/artwork?backend=default&channelId=C-1&eventId=42";
+        context.grants = {{"recordings.view", "default"}};
+        request.path = epgTarget;
+        response = HttpServerResponse{};
+        vdrsuite::http::addEpgArtworkScope(request, response, context, true);
+        assert(response.headers.empty());
+        context.grants = {{"epg.view", "default"}};
+        vdrsuite::http::addEpgArtworkScope(request, response, context, true);
+        const auto epgScope = vdrsuite::http::browserHomeCacheScope(context, "default");
+        assert(response.headers.at("X-VDR-Suite-Artwork-Scope") == epgScope);
+        response = HttpServerResponse{};
+        response.statusCode = 404;
+        vdrsuite::http::addEpgArtworkScope(request, response, context, true);
+        assert(response.statusCode == 404 && response.headers.at("Cache-Control") == "private, no-store");
+        const std::string epgMetadata = "/api/epg/cache/metadata/image?backend=default&channelId=C-1&eventId=42&kind=preferred&index=0";
+        request.path = epgMetadata;
+        response = HttpServerResponse{};
+        vdrsuite::http::addEpgArtworkScope(request, response, context, true);
+        assert(response.headers.at("X-VDR-Suite-Artwork-Scope") == epgScope);
+        for (const auto& target : {epgTarget + "&eventId=43", epgTarget + "&token=bad",
+                epgTarget + "&variant=full", epgMetadata + "&index=1",
+                std::string("/api/epg/cache/artwork?backend=other&channelId=C-1&eventId=42"),
+                std::string("/api/epg/cache/artwork?%62ackend=default&channelId=C-1&eventId=42")}) {
+            request.path = target;
+            response = HttpServerResponse{};
+            vdrsuite::http::addEpgArtworkScope(request, response, context, true);
+            assert(response.headers.empty());
+        }
+        request.path = epgTarget;
+        response = HttpServerResponse{};
+        vdrsuite::http::addEpgArtworkScope(request, response, context, false);
+        assert(response.headers.empty());
+        for (const auto* read : {"/api/backends/default/snapshot",
+            "/api/epg/cache/now-next-artwork?backend=default&channelIds=C-1"}) {
+            request.path = read;
+            response = HttpServerResponse{};
+            vdrsuite::http::addHomeCacheScope(request, response, context, true, {});
+            assert(response.headers.at("X-VDR-Suite-Home-Epg-Scope") == epgScope);
+            assert(response.headers.count("X-VDR-Suite-Home-Recording-Scope") == 0);
+        }
+
+        const std::string seriesTarget =
+            "/api/backends/default/settings/series-artwork/image?seriesKey=folder%3Aseries&revision=7&variant=home";
+        context.grants = {{"recordings.view", "default"}};
+        request.path = seriesTarget;
+        response = HttpServerResponse{};
+        response.headers["X-VDR-Suite-Series-Cover-Revision"] = "7";
+        vdrsuite::http::addSeriesHomeArtworkScope(request, response, context, true);
+        assert(response.headers.at("X-VDR-Suite-Artwork-Scope") ==
+            vdrsuite::http::browserHomeCacheScope(context, "default"));
+        assert(response.headers.count("X-VDR-Suite-Series-Cover-Revision") == 0);
+        for (const auto& target : {seriesTarget + "&token=bad",
+            std::string("/api/backends/other/settings/series-artwork/image?seriesKey=x&revision=7&variant=home"),
+            std::string("/api/backends/default/settings/series-artwork/image?seriesKey=x&revision=8&variant=home"),
+            std::string("/api/backends/default/settings/series-artwork/candidate-image?seriesKey=x&revision=7&variant=home")}) {
+            request.path = target;
+            response = HttpServerResponse{};
+            response.headers["X-VDR-Suite-Series-Cover-Revision"] = "7";
+            vdrsuite::http::addSeriesHomeArtworkScope(request, response, context, true);
+            assert(response.headers.empty());
+        }
+        request.path = seriesTarget;
+        response = HttpServerResponse{};
+        response.headers["X-VDR-Suite-Series-Cover-Revision"] = "7";
+        vdrsuite::http::addSeriesHomeArtworkScope(request, response, context, false);
+        assert(response.headers.empty());
+        context.grants = {{"media.recording.play", "default"}};
+        response.headers["X-VDR-Suite-Series-Cover-Revision"] = "7";
+        vdrsuite::http::addSeriesHomeArtworkScope(request, response, context, true);
+        assert(response.headers.empty());
+        response = HttpServerResponse{};
+        request.method = "POST";
+        request.path = "/api/media/continue-watching";
+        request.body = R"({"operation":"clear","backendId":"default"})";
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, "default");
+        assert(response.headers.empty());
+        request.body = R"({"operation":"list","backendId":"default"})";
+        vdrsuite::http::addHomeCacheScope(request, response, context, true, "default");
+        assert(response.headers.count("X-VDR-Suite-Home-History-Scope") == 1);
+        assert(response.headers.count("X-VDR-Suite-Home-Recording-Scope") == 0);
+    }
     Database db;
     if (!db.open(vdrSuiteTestDatabasePath()))
     {
@@ -464,6 +629,45 @@ int main()
     assert(anonymousFrontendAssetResponse.headers.find("WWW-Authenticate") ==
         anonymousFrontendAssetResponse.headers.end());
 
+    assert(anonymousFrontendResponse.body.find("../frontend/manifest.webmanifest") != std::string::npos);
+    assert(anonymousFrontendResponse.body.find("../frontend/pwa-register.js") != std::string::npos);
+    anonymousFrontendAssetRequest.path = "/frontend/manifest.webmanifest";
+    const auto manifestResponse = server.handleRequest(anonymousFrontendAssetRequest);
+    assert(manifestResponse.statusCode == 200);
+    assert(manifestResponse.headers.at("Content-Type") == "application/manifest+json; charset=utf-8");
+    assert(manifestResponse.body.find("\"start_url\": \"./\"") != std::string::npos);
+    assert(anonymousFrontendResponse.body.find("vdr-suite-pwa-install-button") != std::string::npos);
+    for (const auto* iconPath : {"/frontend/pwa-icon-192.png", "/frontend/pwa-icon-512.png"})
+    {
+        anonymousFrontendAssetRequest.path = iconPath;
+        const auto icon = server.handleRequest(anonymousFrontendAssetRequest);
+        assert(icon.statusCode == 200);
+        assert(icon.headers.at("Content-Type") == "image/png");
+        assert(icon.body.size() > 24 && icon.body.compare(0, 8, "\x89PNG\r\n\x1a\n", 8) == 0);
+        assert(manifestResponse.body.find(std::string(iconPath).substr(10)) != std::string::npos);
+    }
+    anonymousFrontendAssetRequest.path = "/frontend/service-worker.js";
+    const auto workerResponse = server.handleRequest(anonymousFrontendAssetRequest);
+    assert(workerResponse.statusCode == 200);
+    assert(workerResponse.headers.at("Content-Type") == "application/javascript; charset=utf-8");
+    assert(workerResponse.headers.at("Cache-Control") == "no-cache");
+    assert(workerResponse.body.find("vdr-suite-pwa-shell:") != std::string::npos);
+    anonymousFrontendAssetRequest.path = "/frontend/pwa-register.js";
+    const auto registrationResponse = server.handleRequest(anonymousFrontendAssetRequest);
+    assert(registrationResponse.statusCode == 200);
+    assert(registrationResponse.body.find("serviceWorker.register") != std::string::npos);
+
+    assert(anonymousFrontendResponse.body.find("../frontend/platform/home-persistence.js") != std::string::npos);
+    anonymousFrontendAssetRequest.path = "/frontend/platform/home-persistence.js";
+    const auto persistenceResponse = server.handleRequest(anonymousFrontendAssetRequest);
+    assert(persistenceResponse.statusCode == 200);
+    assert(persistenceResponse.headers.at("Content-Type") == "application/javascript; charset=utf-8");
+    assert(persistenceResponse.body.find("VdrSuiteHomePersistence") != std::string::npos);
+    anonymousFrontendAssetRequest.path = "/frontend/platform/home-cache-runtime.js";
+    const auto homeCacheResponse = server.handleRequest(anonymousFrontendAssetRequest);
+    assert(homeCacheResponse.statusCode == 200);
+    assert(homeCacheResponse.body.find("VdrSuiteHomeCache") != std::string::npos);
+
     HttpServerRequest anonymousApiRequest;
     anonymousApiRequest.method = "GET";
     anonymousApiRequest.path = "/api/backends";
@@ -680,6 +884,7 @@ int main()
         server.handleRequest(missingLogoRequest);
     assert(missingLogoResponse.statusCode == 204);
     assert(missingLogoResponse.headers.at("Content-Type") == "image/png");
+    assert(missingLogoResponse.headers.at("Cache-Control") == "public, max-age=300");
     assert(missingLogoResponse.headers.find("WWW-Authenticate") ==
         missingLogoResponse.headers.end());
     assert(missingLogoResponse.body.empty());
@@ -718,11 +923,13 @@ int main()
     assert(foundLogoResponse.statusCode == 200);
     assert(foundLogoResponse.body == "configured-root-logo");
     assert(foundLogoResponse.headers.at("Content-Type") == "image/png");
+    assert(foundLogoResponse.headers.at("Cache-Control") == "public, max-age=3600");
 
     foundLogo.path = "/channel-logos/zdf_neo.svg";
     const auto svgLogoResponse = server.handleRequest(foundLogo);
     assert(svgLogoResponse.statusCode == 200);
     assert(svgLogoResponse.headers.at("Content-Type") == "image/svg+xml");
+    assert(svgLogoResponse.headers.at("Cache-Control") == "public, max-age=3600");
 
     foundLogo.path = "/channel-logos/%2e%2e/hidden.png";
     assert(server.handleRequest(foundLogo).statusCode == 404);

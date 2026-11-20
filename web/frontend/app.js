@@ -114,6 +114,7 @@ function refreshMediaImportVisibility(backendId) {
 
 let homeResumeBackendId = '';
 let currentSnapshot = null;
+let backendDetailSequence = 0;
 let currentChannels = null;
 let currentEvents = null;
 let currentTimers = null;
@@ -577,11 +578,15 @@ function formatRecordingStart(value) {
 
 function renderSnapshotMetrics(data) {
   detailDataElement.replaceChildren();
-  detailDataElement.appendChild(createMetric('Snapshot', data.snapshotAvailable ? 'ja' : 'nein'));
-  detailDataElement.appendChild(createMetric('Kanäle', valueOrZero(data.channelCount)));
-  detailDataElement.appendChild(createMetric('Events', valueOrZero(data.eventCount)));
-  detailDataElement.appendChild(createMetric('Timer', valueOrZero(data.timerCount)));
-  detailDataElement.appendChild(createMetric('Aufnahmen', valueOrZero(data.recordingCount)));
+  const count = key => data ? valueOrZero(data[key]) : '…';
+  detailDataElement.appendChild(createMetric('Snapshot', data ? (data.snapshotAvailable ? 'ja' : 'nein') : '…'));
+  detailDataElement.appendChild(createMetric('Kanäle', count('channelCount')));
+  detailDataElement.appendChild(createMetric('Events', count('eventCount')));
+  detailDataElement.appendChild(createMetric('Timer', count('timerCount')));
+  const recordingMetric = createMetric('Aufnahmen',
+    !data || data.recordingCountPending ? '…' : count('recordingCount'));
+  recordingMetric.id = 'home-recording-count';
+  detailDataElement.appendChild(recordingMetric);
 }
 
 
@@ -3652,6 +3657,7 @@ function appendSettingsLine(parent, label, value) {
   row.appendChild(labelElement);
   row.appendChild(valueElement);
   parent.appendChild(row);
+  return valueElement;
 }
 
 function settingsBoolean(value) {
@@ -3862,18 +3868,16 @@ function renderSettingsView(data) {
       : frontendTranslate('settings.next24Hours', 'nächste 24h')
   );
 
-  if (data && typeof data === 'object') {
-    appendSettingsLine(
-      runtimeCard,
-      frontendTranslate('settings.snapshotSequence', 'Snapshot-Sequenz'),
-      firstValue(data, ['sequence', 'snapshotSequence', 'snapshotId'], '-')
-    );
-    appendSettingsLine(
-      runtimeCard,
-      frontendTranslate('settings.liveStatus', 'Live-Status'),
-      firstValue(data, ['liveStatus', 'status'], '-')
-    );
-  }
+  appendSettingsLine(
+    runtimeCard,
+    frontendTranslate('settings.snapshotSequence', 'Snapshot-Sequenz'),
+    data ? firstValue(data, ['sequence', 'snapshotSequence', 'snapshotId'], '-') : '…'
+  ).id = 'settings-snapshot-sequence';
+  appendSettingsLine(
+    runtimeCard,
+    frontendTranslate('settings.liveStatus', 'Live-Status'),
+    data ? firstValue(data, ['liveStatus', 'status'], '-') : '…'
+  ).id = 'settings-snapshot-live-status';
 
   panel.appendChild(runtimeCard);
   detailDataElement.appendChild(panel);
@@ -4233,7 +4237,9 @@ function selectModule(moduleName) {
     return;
   }
 
-  if (currentSnapshot) {
+  // Backend selection already comes from the authenticated backend collection.
+  // Independent module owners perform their own authorized reads.
+  if (currentSnapshot || (browserSessionFrontendActive && selectedBackend)) {
     renderSelectedModule(currentSnapshot);
   }
 
@@ -4243,50 +4249,114 @@ function selectModule(moduleName) {
 }
 
 function markSelected(backendId) {
+  if (window.VdrSuiteHomeCache) window.VdrSuiteHomeCache.selectBackend(backendId);
   selectedBackendId = backendId;
   document.querySelectorAll('.backend-card').forEach(card => {
     card.classList.toggle('selected', card.dataset.backendId === backendId);
   });
 }
 
+function reportConnectionUnavailable() {
+  const connection = window.VdrSuiteConnection;
+  if (connection && typeof connection.unavailable === 'function') connection.unavailable();
+}
+
+// First authenticated startup landmarks, relative to document navigation.
+function markHomeStartup(stage) {
+  try {
+    const perf = window.performance;
+    const name = 'vdr-suite:startup:' + stage;
+    if (perf && typeof perf.mark === 'function' &&
+        typeof perf.getEntriesByName === 'function' && !perf.getEntriesByName(name).length)
+      perf.mark(name);
+  } catch (_) { /* optional measurement must not block the UI */ }
+}
+
 function loadBackendDetails(backend) {
+  const sequence = ++backendDetailSequence;
   resetMediaImportVisibility(false);
   selectedBackend = backend;
   const selector = backend.frontendSelector || backend;
   const backendId = selector.id || backend.backendId || 'default';
+  currentSnapshot = null;
   markSelected(backendId);
-  selectModule('overview');
-  refreshMediaImportVisibility(backendId);
-  refreshDetailButton.disabled = true;
+  markHomeStartup('backend-selected');
   detailMetaElement.className = 'detail-meta';
   detailMetaElement.textContent = 'Lade Details für ' + (selector.label || backend.backendName || backendId) + '...';
-  detailDataElement.replaceChildren();
-
   const clientApi = frontendPlatformClientApi();
 
+  function openHome() {
+    selectModule('overview');
+    refreshDetailButton.disabled = false;
+    markHomeStartup('home-navigation-ready');
+    refreshMediaImportVisibility(backendId);
+  }
+
   if (!clientApi || typeof clientApi.fetchClientBackendSnapshot !== 'function') {
-    currentSnapshot = null;
+    openHome();
     detailMetaElement.className = 'detail-meta error';
     detailMetaElement.textContent = 'Details konnten nicht geladen werden: Client API wrapper is not available';
-    detailDataElement.replaceChildren();
-    refreshDetailButton.disabled = false;
     return;
   }
 
-  clientApi.fetchClientBackendSnapshot(backendId, {
+  const current = () => sequence === backendDetailSequence &&
+    browserSessionFrontendActive && selectedBackend === backend && selectedBackendId === backendId;
+  let rendered = false;
+  function renderReady(data) {
+    if (!current()) return;
+    markHomeStartup('snapshot-ready');
+    currentSnapshot = data;
+    detailMetaElement.textContent = 'Details für ' + (selector.label || backend.backendName || backendId);
+    rendered = true;
+    if (selectedModule === 'settings') {
+      const sequenceValue = document.getElementById('settings-snapshot-sequence');
+      const liveValue = document.getElementById('settings-snapshot-live-status');
+      if (sequenceValue) sequenceValue.textContent = String(firstValue(data, ['sequence', 'snapshotSequence', 'snapshotId'], '-'));
+      if (liveValue) liveValue.textContent = String(firstValue(data, ['liveStatus', 'status'], '-'));
+    }
+    if (selectedModule === 'overview') {
+      // Only the snapshot metrics need updating, not the independently mounted Home.
+      renderSnapshotMetrics(data);
+      markHomeStartup('home-controls-ready');
+      // Two frames give a paint opportunity, not a compositor timestamp.
+      if (typeof window.requestAnimationFrame === 'function')
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+          if (current() && selectedModule === 'overview' &&
+              document.visibilityState !== 'hidden' &&
+              detailDataElement.getClientRects && detailDataElement.getClientRects().length)
+            markHomeStartup('home-frame');
+        }));
+    }
+  }
+  // Dispatch the small snapshot before Home-resume listeners launch discovery reads.
+  markHomeStartup('snapshot-requested');
+  const request = clientApi.fetchClientBackendSnapshot(backendId, {
     cache: 'no-store'
-  })
+  }, snapshot => {
+    // The lightweight snapshot's provisional total is not the inventory.
+    if (snapshot && typeof snapshot === 'object')
+      renderReady(Object.assign({}, snapshot, {recordingCountPending: true}));
+  });
+  openHome();
+  return request
     .then(data => {
-      currentSnapshot = data;
-      detailMetaElement.textContent = 'Details für ' + (selector.label || backend.backendName || backendId);
-      renderSelectedModule(data);
-      refreshDetailButton.disabled = false;
+      if (!current()) return;
+      if (!rendered) renderReady(data);
+      else {
+        currentSnapshot = data;
+        const metric = selectedModule === 'overview' && document.getElementById('home-recording-count');
+        if (metric && metric.firstElementChild)
+          metric.firstElementChild.textContent = String(valueOrZero(data.recordingCount));
+      }
+      markHomeStartup('recording-count-settled');
     })
     .catch(error => {
+      if (!current()) return;
+      if (error && error.name === 'TypeError') reportConnectionUnavailable();
       currentSnapshot = null;
       detailMetaElement.className = 'detail-meta error';
       detailMetaElement.textContent = 'Details konnten nicht geladen werden: ' + error.message;
-      detailDataElement.replaceChildren();
+      // Do not wipe the active module on an unrelated snapshot failure.
       refreshDetailButton.disabled = false;
     });
 }
@@ -4474,6 +4544,7 @@ function loadBackendSelection() {
       }
     })
     .catch(error => {
+      if (error && error.name === 'TypeError') reportConnectionUnavailable();
       statusElement.hidden = false;
       statusElement.className = 'status error';
       statusElement.textContent = 'Backend-Auswahl konnte nicht geladen werden: ' + error.message;
@@ -4531,6 +4602,7 @@ function synchronizeBrowserSessionFrontend(sessionState) {
   }
 
   browserSessionFrontendActive = true;
+  if (typeof markHomeStartup === 'function') markHomeStartup('session-ready');
   loadBackendSelection();
   return true;
 }
@@ -4555,6 +4627,7 @@ function installBrowserSessionFrontendGate() {
   browserSessionFrontendBound = true;
   session.subscribe(synchronizeBrowserSessionFrontend);
   session.restore().catch(error => {
+    reportConnectionUnavailable();
     browserSessionFrontendActive = false;
     renderAuthenticationRequiredFrontend();
     statusElement.hidden = false;

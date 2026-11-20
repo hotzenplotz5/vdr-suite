@@ -12,10 +12,13 @@ const bootstrapSource = fs.readFileSync(path.join(frontendRoot, 'home-recording-
 assert(source.includes('function selectRandomFolder(entries, generation, randomValue)'));
 assert(source.includes('folderEntryCount(entry) > 0'));
 assert(source.includes('bootstrap.installMouseDrag();'));
-assert(source.includes('selectedCard.click();'));
+assert(source.includes('bootstrap.openRandomFolderInline(selectedCard);'));
+assert(bootstrapSource.includes('function openRandomFolderInline(card)'));
 assert(!source.includes('FOLDER_VISIBLE_LIMIT'), 'Home recording folders must not be display-capped');
 assert(source.includes('renderFolderRail(\n        projection.folders,'), 'Home must render the complete canonical folder projection');
-assert(source.includes('scheduleRandomFolderInline(\n          projection.folders,'), 'random folder auto-open must use the same complete projection');
+assert(source.includes('scheduleRandomFolderInline(\n          projection.folders,'), 'single-page folders open from the canonical complete projection');
+assert(source.includes('if (partial) scheduleRandomFolderInline(folders, backendId, generation, Math.random());'),
+  'multi-page root categories may open the random folder before the root tail settles');
 assert(bootstrapSource.includes("doc.addEventListener('click', handleClickCapture, true)"));
 assert(bootstrapSource.includes('handleInlineCategoryClick(event)'));
 assert(bootstrapSource.includes('openFolderInline(card)'));
@@ -142,7 +145,8 @@ const window = {
     installMouseDrag() {
       bootstrapInstalls += 1;
       return true;
-    }
+    },
+    openRandomFolderInline(card) { card.click(); return Promise.resolve(true); }
   }
 };
 window.window = window;
@@ -202,8 +206,8 @@ const actionCard = cards.find((card) => card.dataset.folderPath === 'Action');
 const fantasyCard = cards.find((card) => card.dataset.folderPath === 'Fantasy');
 const emptyCard = cards.find((card) => card.dataset.folderPath === 'Leer');
 assert(actionCard && fantasyCard && emptyCard);
-assert.strictEqual(bootstrapInstalls, 1, 'canonical bootstrap capture owner must be ensured before the synthetic click');
-assert.strictEqual(fantasyCard.clickCount, 1, 'selected non-empty folder must receive the canonical click');
+assert.strictEqual(bootstrapInstalls, 1, 'canonical bootstrap interaction owner must be ensured before automatic opening');
+assert.strictEqual(fantasyCard.clickCount, 1, 'selected non-empty folder must reach the canonical auto-open owner');
 assert.strictEqual(actionCard.clickCount, 0);
 assert.strictEqual(emptyCard.clickCount, 0);
 assert.strictEqual(rootTile.clickCount, 0, 'Hauptverzeichnis must never be selected as the random folder expansion');

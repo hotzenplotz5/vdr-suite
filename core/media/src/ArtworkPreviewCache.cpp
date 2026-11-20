@@ -169,12 +169,26 @@ ArtworkPreviewCache::ArtworkPreviewCache(std::string directory, std::string exec
 
 std::string ArtworkPreviewCache::home(const std::string& identity, const std::string& type,
                                      const std::string& source) const {
-    if (identity.empty() || identity.size() > 8192 || source.empty() || source.size() > MaxInput) return {};
+    if (identity.empty() || identity.size() > 8192) return {};
+    return renderHome(identity, type, source, false);
+}
+
+bool ArtworkPreviewCache::prewarmHome(const std::string& type, const std::string& source) const {
+    return !renderHome({}, type, source, true).empty();
+}
+
+std::string ArtworkPreviewCache::renderHome(const std::string& identity, const std::string& type,
+                                           const std::string& source, bool background) const {
+    if (source.empty() || source.size() > MaxInput) return {};
     const Dimensions size = dimensions(source, type);
     if (!size.width || !size.height || size.width > 16384 || size.height > 16384 ||
         static_cast<std::uint64_t>(size.width) * size.height > 40000000 ||
         (size.width <= 400 && size.height <= 600)) return {};
-    const std::string key = cacheKey(identity, type, source);
+    // The transform is a pure function of format and exact original bytes.
+    // Only this private derivative is shared; the HTTP boundary must still
+    // resolve/authorize the original and derive its own scoped validator.
+    // Empty identity is reserved for this internal content-addressed key.
+    const std::string key = cacheKey({}, type, source);
     if (key.empty()) return {};
     if (directory_.empty() || directory_.front() != '/') return {};
     if (::mkdir(directory_.c_str(), 0700) != 0 && errno != EEXIST) return {};
@@ -188,6 +202,14 @@ std::string ArtworkPreviewCache::home(const std::string& identity, const std::st
     // in-flight conversion.
     std::string cached = readCache(directory.value, key);
     if (!cached.empty()) return cached;
+    // Keep previous versions' route-bound cache entries usable after upgrade.
+    if (!identity.empty()) {
+        const auto legacyKey = cacheKey(identity, type, source);
+        if (!legacyKey.empty()) {
+            cached = readCache(directory.value, legacyKey);
+            if (!cached.empty()) return cached;
+        }
+    }
 
     std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
     if (!lock.owns_lock()) return {}; // No request queue or parallel decoder storm.
@@ -226,7 +248,7 @@ std::string ArtworkPreviewCache::home(const std::string& identity, const std::st
         "-vf", "scale=" + std::to_string(width) + ":" + std::to_string(height) + ",setsar=1",
         "-threads", "1", "-c:v", "mjpeg", "-q:v", "4", "-pix_fmt", "yuvj420p",
         "-f", "image2pipe", "pipe:1"}, "/", std::chrono::seconds(3), MaxOutput,
-        {768 * 1024 * 1024, 2});
+        {768 * 1024 * 1024, 2, background ? 10 : 0});
     const auto outputSize = dimensions(result.output, "image/jpeg");
     if (!result.success || outputSize.width != width || outputSize.height != height ||
         result.output.size() >= source.size()) return fail();

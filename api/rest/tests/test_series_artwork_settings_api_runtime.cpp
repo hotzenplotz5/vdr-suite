@@ -269,6 +269,19 @@ int main()
     assert(response.contentType == "image/jpeg");
     assert(response.body == "fake-series-cover-jpeg");
 
+    const std::string coverRequest =
+        "/api/backends/default/settings/series-artwork/image?"
+        "seriesKey=folder%3Aserien%2Ftestserie&revision=";
+    assert(runtime.tryHandleGet(coverRequest + "1&variant=home", response));
+    assert(response.statusCode == 200);
+    assert(response.headers.at("X-VDR-Suite-Series-Cover-Revision") == "1");
+    assert(runtime.tryHandleGet(coverRequest + "999&variant=home", response));
+    assert(response.statusCode == 200); // Existing online compatibility.
+    assert(response.headers.count("X-VDR-Suite-Series-Cover-Revision") == 0);
+    assert(runtime.tryHandleGet(coverRequest + "1", response));
+    assert(response.statusCode == 200);
+    assert(response.headers.count("X-VDR-Suite-Series-Cover-Revision") == 0);
+
     const std::string externalBody =
         "{"
         "\"backendId\":\"default\","

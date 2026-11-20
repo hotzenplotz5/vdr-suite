@@ -22,7 +22,7 @@ public:
             recording.id = "movie-" + std::to_string(i);
             recording.title = recording.id;
             recording.metadata.provider.contentKind = VdrRecordingContentKind::Movie;
-            recording.metadata.provider.releaseDate = i < 18 ? "2000" : "2024";
+            recording.metadata.provider.releaseDate = i < 18 ? "2000" : (i == 18 ? "2024" : "2025");
             recordings.push_back(recording);
         }
         return recordings;
@@ -274,6 +274,25 @@ int main()
     assert(moviesPage.body.find("\"totalCount\":2") != std::string::npos);
     assert(moviesPage.body.find("\"id\":\"movie-19\"") != std::string::npos);
     assert(moviesPage.body.find("\"id\":\"movie-0\"") == std::string::npos);
+    const auto firstOrdered = moviesController.getRecordings(
+        "", "", "", "movieReleaseDate", "desc", "", "", 0, 0, 1, 0, 2022, 2026);
+    const auto nextOrdered = moviesController.getRecordings(
+        "", "", "", "movieReleaseDate", "desc", "", "", 0, 0, 1, 1, 2022, 2026);
+    assert(firstOrdered.body.find("\"totalCount\":2") != std::string::npos);
+    assert(firstOrdered.body.find("\"id\":\"movie-19\"") != std::string::npos);
+    assert(nextOrdered.body.find("\"id\":\"movie-18\"") != std::string::npos);
+    VdrRecordingQueryController manualMovies(moviesQuery, jsonSerializer,
+        [](const std::string&) {
+            ManualRecordingMetadataAssignment assignment;
+            assignment.found = true;
+            assignment.relationshipLocked = true;
+            assignment.mediaType = "movie";
+            assignment.releaseDate = "2023";
+            return std::map<std::string, ManualRecordingMetadataAssignment>{{"movie-19", assignment}};
+        });
+    const auto manualOrdered = manualMovies.getRecordings(
+        "", "", "", "movieReleaseDate", "desc", "", "", 0, 0, 1, 0, 2022, 2026);
+    assert(manualOrdered.body.find("\"id\":\"movie-18\"") != std::string::npos);
     const auto unchangedPage = moviesController.getRecordings();
     assert(unchangedPage.body.find("\"totalCount\":20") != std::string::npos);
 

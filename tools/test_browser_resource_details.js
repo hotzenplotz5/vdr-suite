@@ -26,6 +26,7 @@ const entries = [
   entry('/vdr-suite/api/recordings/metadata/image?kind=' + secret + '&backendNativeId=' + secret + '&variant=full', 404, 0, 'img'),
   entry('/vdr-suite/recording-artwork/' + secret + '?kind=poster&variant=home', 200, 1000, 'img'),
   entry('/vdr-suite/api/epg/cache/metadata/image?kind=banner&eventId=' + secret, 200, 2000, 'img'),
+  entry('/vdr-suite/api/backends/default/settings/series-artwork/image?seriesKey=' + secret + '&revision=7&variant=home', 200, 40000, 'img'),
   entry('https://outside.test/' + secret, 0, 0, 'img')
 ];
 const report = summarizeResources(entries, base);
@@ -52,14 +53,17 @@ assert.equal(artwork.find(row => row.status === '404').previewVariant, 'other');
 assert.equal(find(artwork, 'recording-artwork')[0].previewVariant, 'home');
 assert.equal(find(artwork, 'recording-artwork')[0].revision, 'unversioned');
 assert.equal(find(artwork, 'epg-metadata-image')[0].previewVariant, 'unspecified');
-assert.equal(artwork.reduce((n, row) => n + row.count, 0), 5);
+assert.equal(find(artwork, 'series-artwork')[0].previewVariant, 'home');
+assert.equal(find(artwork, 'series-artwork')[0].revision, 'revisioned');
+assert.equal(artwork.reduce((n, row) => n + row.count, 0), 6);
+assert.equal(find(report.rows, 'series-artwork')[0].count, 1);
 assert.ok(!JSON.stringify(report).includes(secret));
 assert.ok(!JSON.stringify(report).includes('example.test'));
 assert.ok(!JSON.stringify(report).includes('backendNativeId'));
 assert.ok(!JSON.stringify(report).includes('assignmentRevision='));
 assert.ok(!JSON.stringify(report).includes('https://'));
 const old = summarize(entries, [], 3, [{duration: 60}], base);
-assert.equal(old.resourceRequests, 6);
+assert.equal(old.resourceRequests, 7);
 assert.equal(old.longTaskMs, 60);
 assert.equal(old.mutations, 3);
 assert.equal(old.resourceDiagnostics.recordingApiDetails.length, recording.length);

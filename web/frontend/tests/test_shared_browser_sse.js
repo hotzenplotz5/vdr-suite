@@ -8,6 +8,9 @@ const vm = require('vm');
 const code = fs.readFileSync(path.join(__dirname, '..', 'api',
   'live-remote-client-api.js'), 'utf8');
 const physical = [];
+const cacheEvents = [];
+const connectionEvents = [];
+let checks = 0, verificationStatus = 200, malformed = false;
 let token = 'a'.repeat(40);
 class FakeEventSource {
   constructor(url, options) {
@@ -29,11 +32,19 @@ class FakeEventSource {
 }
 const window = {
   EventSource: FakeEventSource,
+  VdrSuiteConnection: {live: type => connectionEvents.push(type)},
+  VdrSuiteHomeCache: {sessionBoundary() {}, liveEvent(type, event) {
+    cacheEvents.push(type);
+    return type === 'update' && event.data === 'gap-test';
+  }},
   VdrSuiteClientApi: {requestJson() { return Promise.resolve({}); }},
-  fetch: async function (url) {
+  fetch: async function (url, options) {
     if (url === '/api/security/browser-sessions/current') {
-      return {ok: true, status: 200, text: async () =>
-        JSON.stringify({csrfToken: token, expiresAt: '2099-01-01T00:00:00Z'})};
+      checks++;
+      assert.strictEqual(options.method, 'GET');
+      assert.strictEqual(options.cache, 'no-store');
+      return {ok: verificationStatus === 200, status: verificationStatus, text: async () =>
+        JSON.stringify(malformed ? {} : verificationStatus === 401 ? {error:{code:'session_revoked'}} : {csrfToken: token, expiresAt: '2099-01-01T00:00:00Z'})};
     }
     if (url === '/api/security/browser-sessions/logout') {
       return {ok: true, status: 204, text: async () => ''};
@@ -51,6 +62,16 @@ const session = window.VdrSuiteBrowserSession;
 
 (async function () {
   await session.restore();
+  const before = checks;
+  assert.strictEqual(await session.verifyConnection(), true);
+  assert.strictEqual(checks, before + 1, 'recovery reads the actual server even while authenticated');
+  verificationStatus = 503;
+  assert.strictEqual(await session.verifyConnection(), false);
+  verificationStatus = 401;
+  assert.strictEqual(await session.verifyConnection(), true, 'canonical revoked session permits normal login bootstrap');
+  verificationStatus = 200; malformed = true;
+  assert.strictEqual(await session.verifyConnection(), false);
+  malformed = false;
   const one = client.createClientLiveUpdateSource();
   const two = client.createClientLiveUpdateSource();
   assert(one && two);
@@ -64,6 +85,8 @@ const session = window.VdrSuiteBrowserSession;
   physical[0].emit('update');
   physical[0].emit('open');
   assert.deepStrictEqual([first, second, reconnect], [1, 1, 1]);
+  assert.deepStrictEqual(cacheEvents, ['update', 'open'], 'one observer, not one per rail');
+  assert.deepStrictEqual(connectionEvents, ['open']);
 
   one.close();
   assert.strictEqual(physical[0].closed, false,
@@ -97,7 +120,11 @@ const session = window.VdrSuiteBrowserSession;
   physical[2].emit('resync');
   assert.strictEqual(fourth, 1);
   assert.strictEqual(resync, 2);
+  physical[2].emit('update', {data:'gap-test', lastEventId:'sse_test:9'});
+  assert.strictEqual(resync, 3, 'client gap reuses existing resync handler');
+  assert.strictEqual(fourth, 2);
   await session.logout();
+  assert(cacheEvents.includes('close'));
   assert(physical[2].closed);
   three.close();
   four.close();

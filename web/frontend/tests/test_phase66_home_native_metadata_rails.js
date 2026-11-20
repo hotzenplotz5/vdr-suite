@@ -581,6 +581,95 @@ async function proveSeriesRepresentativeMetadataPreemptsEpisodeBacklog(api) {
   );
 }
 
+async function proveForegroundMetadataPriority(api) {
+  const calls = [];
+  const pending = new Map();
+  const client = {
+    requestJson(route, request) {
+      const id = request.query.backendNativeId;
+      calls.push(id);
+      return new Promise(resolve => pending.set(id, resolve));
+    }
+  };
+  const ask = (id, options) =>
+    api.requestSeriesRecordingMetadata(client, 'default', id, 0, options);
+  const background = Array.from({length: 6}, (_, index) => ask('background-' + index));
+  const representative = ask('representative', {priority: true, seriesKey: 'test-series'});
+  const detail = ask('background-5', {priority: true, foreground: true});
+  const nextDetail = ask('detail-2', {priority: true, foreground: true});
+  const promotedRepresentative = ask('representative', {priority: true, foreground: true});
+  assert.strictEqual(calls.length, 4);
+  assert.strictEqual(detail, background[5], 'promote the existing promise, do not duplicate it');
+  assert.strictEqual(promotedRepresentative, representative);
+  for (const [index, expected] of ['background-5', 'detail-2', 'representative', 'background-4'].entries()) {
+    pending.get('background-' + index)({available: false});
+    await new Promise(resolve => setImmediate(resolve));
+    assert.strictEqual(calls[index + 4], expected);
+  }
+  assert.strictEqual(new Set(calls).size, calls.length);
+  for (const resolve of pending.values()) resolve({available: false});
+  await Promise.all(background.concat([representative, detail, nextDetail]));
+}
+
+async function proveBoundedSeriesTail(api) {
+  const calls = [];
+  const pending = new Map();
+  const projections = [];
+  function page(offset) {
+    const count = Math.min(100, 501 - offset);
+    return {
+      recordings: Array.from({length: count}, (_, index) => {
+        const id = String(offset + index);
+        return makeRecording(id, 'native-' + id, 'Serien/Tail/' + id, id, '');
+      }),
+      total: 501,
+      hasMore: offset + count < 501
+    };
+  }
+  const client = {
+    fetchClientGenreRecordings(request) {
+      calls.push(request.offset);
+      if (request.offset === 0) return Promise.resolve(page(0));
+      return new Promise(resolve => pending.set(request.offset, () => resolve(page(request.offset))));
+    }
+  };
+  const result = api.fetchAllSeriesRecordings(client, 'default', 'series', 0,
+    recordings => projections.push(recordings.length));
+  const flush = () => new Promise(resolve => setImmediate(resolve));
+  await flush();
+  assert.deepStrictEqual(calls, [0, 100, 200]);
+  assert.deepStrictEqual(projections, [100]);
+  pending.get(200)();
+  await flush();
+  assert.deepStrictEqual(calls, [0, 100, 200], 'no next batch while a previous page remains in flight');
+  pending.get(100)();
+  await flush();
+  assert.deepStrictEqual(calls, [0, 100, 200, 300, 400]);
+  pending.get(400)();
+  pending.get(300)();
+  await flush();
+  assert.deepStrictEqual(calls, [0, 100, 200, 300, 400, 500]);
+  pending.get(500)();
+  const recordings = await result;
+  assert.deepStrictEqual(Array.from(recordings, item => item.recordingId),
+    Array.from({length: 501}, (_, index) => String(index)));
+  assert.deepStrictEqual(projections, [100, 501]);
+
+  // A newer SSE revision stops an older inventory before the next tail batch.
+  calls.length = 0;
+  pending.clear();
+  let revisionCurrent = true;
+  const obsolete = api.fetchAllSeriesRecordings(client, 'default', 'series', 0,
+    () => {}, () => revisionCurrent);
+  await flush();
+  assert.deepStrictEqual(calls, [0, 100, 200]);
+  revisionCurrent = false;
+  pending.get(100)();
+  pending.get(200)();
+  assert.strictEqual((await obsolete).length, 0);
+  assert.deepStrictEqual(calls, [0, 100, 200], 'obsolete revision launches no more pages');
+}
+
 async function proveNewlyRecordedUsesCorrectedArtwork(harness) {
   const foundation = makeRecording(
     'foundation-s01e05', 'native-foundation-s01e05',
@@ -672,7 +761,7 @@ async function proveNewlyRecordedUsesCorrectedArtwork(harness) {
   const andorCard = findRecordingCard(newly, andor.recordingId);
   assert(foundationCard && andorCard);
   assert.strictEqual(typeof finishFoundationMetadata, 'function');
-  assert.strictEqual(findImage(foundationCard).src, selectedSeriesCover,
+  assert.strictEqual(findImage(foundationCard).src, selectedSeriesCover + '&variant=home',
     'the saved Series cover must appear before enrichment completes');
   const unrelatedImage = findImage(andorCard);
   const unrelatedCard = andorCard;
@@ -681,7 +770,7 @@ async function proveNewlyRecordedUsesCorrectedArtwork(harness) {
   assert.strictEqual(andorCard, unrelatedCard);
   assert.strictEqual(findImage(andorCard), unrelatedImage,
     'one Recording metadata event must not rebuild an unrelated tile');
-  assert.strictEqual(findImage(foundationCard).src, selectedSeriesCover,
+  assert.strictEqual(findImage(foundationCard).src, selectedSeriesCover + '&variant=home',
     'late metadata must never revert the selected Series cover after it appeared');
   assert.strictEqual(findImage(andorCard).src,
     selectedEpisodePoster + '&variant=home',
@@ -705,6 +794,12 @@ async function proveNewlyRecordedUsesCorrectedArtwork(harness) {
 
   const priorityHarness = createHarness();
   await proveSeriesRepresentativeMetadataPreemptsEpisodeBacklog(priorityHarness.api);
+
+  const foregroundHarness = createHarness();
+  await proveForegroundMetadataPriority(foregroundHarness.api);
+
+  const tailHarness = createHarness();
+  await proveBoundedSeriesTail(tailHarness.api);
 
   const progressHarness = createHarness();
   await proveMetadataPublishesPerResponse(progressHarness.api);

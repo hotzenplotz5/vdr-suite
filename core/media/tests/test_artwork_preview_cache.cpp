@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <openssl/sha.h>
 #include <thread>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -37,6 +38,38 @@ int main() {
     ArtworkPreviewCache restarted(cacheRoot.string(), "/missing/ffmpeg");
     assert(restarted.home("recording-1?assignmentRevision=1", "image/png", png) == preview);
 
+    // Existing route-bound entries remain usable with the old key format.
+    const fs::path legacyRoot = root / "legacy-cache";
+    fs::create_directory(legacyRoot);
+    ::chmod(legacyRoot.c_str(), 0700);
+    std::string legacyMaterial = "home-400x600-jpeg-v1recording-1?assignmentRevision=1";
+    legacyMaterial.push_back('\0');
+    legacyMaterial += "image/png";
+    legacyMaterial.push_back('\0');
+    legacyMaterial += png;
+    unsigned char digest[SHA256_DIGEST_LENGTH];
+    assert(SHA256(reinterpret_cast<const unsigned char*>(legacyMaterial.data()),
+                  legacyMaterial.size(), digest));
+    std::string legacyName;
+    for (unsigned char b : digest) {
+        legacyName += "0123456789abcdef"[b >> 4];
+        legacyName += "0123456789abcdef"[b & 15];
+    }
+    write(legacyRoot / (legacyName + ".jpg"), preview);
+    ArtworkPreviewCache legacy(legacyRoot.string(), "/missing/ffmpeg");
+    assert(legacy.home("recording-1?assignmentRevision=1", "image/png", png) == preview);
+
+    // Exact byte identity is independent of URL aliases and revisions after
+    // the authorized source has been resolved; changed originals still miss.
+    assert(restarted.home("different-gallery-url", "image/png", png) == preview);
+    const auto prewarmSource = fixture("png", "1000x700");
+    assert(cache.prewarmHome("image/png", prewarmSource));
+    const auto warmed = restarted.home("/api/vdr/recordings/metadata/image?kind=gallery&index=1&variant=home",
+                                       "image/png", prewarmSource);
+    assert(!warmed.empty() && warmed.size() < prewarmSource.size());
+    assert(restarted.home("another-url", "image/png", prewarmSource) == warmed);
+    assert(restarted.prewarmHome("image/png", prewarmSource));
+
     // A cached preview must remain readable while an unrelated conversion owns
     // both the in-process converter mutex and the cache-directory flock.
     // A second cache miss must still fail fast instead of creating a queue.
@@ -49,9 +82,10 @@ int main() {
     ::chmod(busyScript.c_str(), 0700);
 
     ArtworkPreviewCache busy(cacheRoot.string(), busyScript.string());
-    std::string busyResult;
+    const auto busySource = fixture("png", "900x1100");
+    bool busyPrepared = true;
     std::thread busyWorker([&] {
-        busyResult = busy.home("busy-miss", "image/png", png);
+        busyPrepared = busy.prewarmHome("image/png", busySource);
     });
 
     for (unsigned i = 0; i < 200 && !fs::exists(busyMarker); ++i)
@@ -60,16 +94,19 @@ int main() {
 
     auto hitStart = std::chrono::steady_clock::now();
     assert(busy.home("recording-1?assignmentRevision=1", "image/png", png) == preview);
+    assert(restarted.home("another-request", "image/png", png) == preview);
     assert(std::chrono::steady_clock::now() - hitStart < std::chrono::seconds(1));
 
     auto missStart = std::chrono::steady_clock::now();
-    assert(busy.home("busy-second-miss", "image/png", png).empty());
+    assert(busy.home("busy-second-miss", "image/png", busySource).empty());
+    // A separate HTTP cache owner shares the existing directory lock.
+    assert(cache.home("concurrent-request", "image/png", busySource).empty());
     assert(std::chrono::steady_clock::now() - missStart < std::chrono::seconds(1));
 
     busyWorker.join();
-    assert(busyResult.empty());
-    assert(restarted.home("recording-1?assignmentRevision=2", "image/png", png).empty());
-    const auto changed = fixture("png", "1000x700");
+    assert(!busyPrepared);
+    assert(restarted.home("recording-1?assignmentRevision=2", "image/png", png) == preview);
+    const auto changed = fixture("png", "1100x700");
     assert(restarted.home("recording-1?assignmentRevision=1", "image/png", changed).empty());
     assert(cache.home("small", "image/png", fixture("png", "200x300")).empty());
     assert(cache.home("wrong-type", "image/jpeg", png).empty());

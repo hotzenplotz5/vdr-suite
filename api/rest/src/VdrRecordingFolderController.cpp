@@ -326,6 +326,34 @@ std::string serializeManualFolderMetadata(
     return json.str();
 }
 
+// Match the Home recording-card poster precedence without serializing an
+// entire episode (description, people, gallery) for a non-recording tile.
+std::string representativePosterUrl(
+    const VdrRecording& recording,
+    const ManualRecordingMetadataAssignment& manual,
+    const VdrRecordingNativeMetadataRecord& native)
+{
+    if (manual.found && manual.relationshipLocked)
+        return localManualImage(manual.posterReference)
+            ? manualImageUrl(manual.backendId, recording.backendNativeId,
+                             "preferred", 0, manual.revision)
+            : std::string{};
+    if (native.exists() && native.metadata.found)
+    {
+        for (std::size_t i = 0; i < native.metadata.images.size(); ++i)
+        {
+            const auto& image = native.metadata.images[i];
+            if (image.orientation == "portrait" && image.available && !image.path.empty())
+                return VdrRecordingNativeMetadataPublicJsonSerializer::imageUrl(
+                    native, "gallery", static_cast<int>(i));
+        }
+        const auto& preferred = native.metadata.preferredArtwork;
+        if (preferred.available && !preferred.path.empty())
+            return VdrRecordingNativeMetadataPublicJsonSerializer::imageUrl(native, "preferred", 0);
+    }
+    return VdrRecordingMetadataJsonSerializer::preferredArtworkUrl(recording);
+}
+
 void appendRecordingJson(
     std::ostringstream& json,
     const VdrRecording& recording,
@@ -714,10 +742,11 @@ ApiResponse VdrRecordingFolderController::getFolder(
     const std::string& backendId,
     const std::string& path,
     int limit,
-    int offset)
+    int offset,
+    bool homeCards)
 {
     const VdrRecordingFolderPage page = repository_.folderPageForBackend(
-        backendId, path, limit, offset);
+        backendId, path, limit, offset, homeCards);
     const std::map<std::string, ManualRecordingMetadataAssignment>
         manualAssignments = manualMetadataBatchLookup_
             ? manualMetadataBatchLookup_(page.backendId)
@@ -776,8 +805,19 @@ ApiResponse VdrRecordingFolderController::getFolder(
          << ",\"recordingCount\":" << page.recordingCount
          << ",\"returnedCount\":" << page.recordings.size()
          << ",\"limit\":" << page.limit
-         << ",\"offset\":" << page.offset
-         << ",\"folders\":[";
+         << ",\"offset\":" << page.offset;
+    if (homeCards)
+    {
+        const auto cardCount = static_cast<long long>(page.folderCount) + page.recordingCount;
+        const auto returned = page.folders.size() + page.recordings.size();
+        json << ",\"homeCardPage\":true"
+             << ",\"cardCount\":" << cardCount
+             << ",\"returnedCards\":" << returned
+             << ",\"hasMore\":"
+             << (static_cast<long long>(page.offset) + static_cast<long long>(returned) < cardCount
+                 ? "true" : "false");
+    }
+    json << ",\"folders\":[";
     for (std::size_t index = 0; index < page.folders.size(); ++index)
     {
         if (index > 0) json << ",";
@@ -804,6 +844,15 @@ ApiResponse VdrRecordingFolderController::getFolder(
                 folder.singleRecording,
                 manual,
                 nativeMetadata);
+        }
+        else if (homeCards && folder.hasRepresentativeRecording)
+        {
+            const auto& representative = folder.representativeRecording;
+            const auto manual = manualFor(representative);
+            const auto native = manual.found && manual.relationshipLocked
+                ? VdrRecordingNativeMetadataRecord{} : nativeFor(representative);
+            json << ",\"representativePosterUrl\":";
+            appendJsonString(json, representativePosterUrl(representative, manual, native));
         }
         json << "}";
     }
