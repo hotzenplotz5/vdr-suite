@@ -54,6 +54,7 @@ private:
         int clientSocket,
         std::string& rawResponse,
         bool& imageResponse,
+        std::function<std::string()>& deferredImageResponse,
         std::string& streamBodyPath,
         std::shared_ptr<DeviceLiveEventSubscription>& deviceEvents,
         std::shared_ptr<BrowserLiveEventSubscription>& browserEvents) const;
