@@ -1031,6 +1031,13 @@ async function checkNamedSelectors() {
   assert.strictEqual(form.elements.stopTime.parentElement.hidden,false);
   assert.strictEqual(form.elements.startTime.type,'time',
     'clock fields must use native browser time controls');
+  assert.strictEqual(form.elements.useTime.parentElement.style.gridColumn,'1 / -1',
+    'Uhrzeitfilter toggle occupies its own row; Beginn and Ende share the next row');
+  const timeRows=form.elements.useTime.parentElement.parentElement.children;
+  assert.strictEqual(timeRows.indexOf(form.elements.startTime.parentElement),
+    timeRows.indexOf(form.elements.useTime.parentElement)+1);
+  assert.strictEqual(timeRows.indexOf(form.elements.stopTime.parentElement),
+    timeRows.indexOf(form.elements.startTime.parentElement)+1);
   form.elements.startTime.value='20:00';
   form.elements.stopTime.value='22:00';
   form.elements.query.value='Tatort';

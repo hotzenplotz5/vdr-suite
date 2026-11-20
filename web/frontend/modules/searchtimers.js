@@ -1206,6 +1206,9 @@
     timeGroup.appendChild(addText(document.createElement('legend'), 'Uhrzeitfilter'));
     advancedGrid.appendChild(timeGroup);
     const timeToggle = check('useTime', 'Aktivieren', source.useTime);
+    // Reserve the first grid row for the toggle so Beginn and Ende
+    // are adjacent in the next row, including when responsive.
+    timeToggle.style.gridColumn = '1 / -1';
     timeGroup.appendChild(timeToggle);
     const startTimeField = field('Beginn', clockInput('startTime', source.startTime));
     const stopTimeField = field('Ende', clockInput('stopTime', source.stopTime));

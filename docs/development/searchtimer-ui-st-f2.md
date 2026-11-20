@@ -118,3 +118,14 @@ aktualisieren und den vorhandenen PWA-Service-Worker mit
 `tools/build_pwa_shell.js` für das neue statische Release neu
 zusammensetzen. Kein Daemon-/VDR-Neustart oder C++-Build.
 Realer Browser-Readback nach Installation separat.
+
+
+## ST.F4.1 – Uhrzeitfilter-Layout
+
+Bei der echten Browserabnahme stand `Beginn` neben dem Toggle,
+während `Ende` in die nächste Zeile fiel. Der Toggle belegt jetzt
+die gesamte erste Rasterzeile; darunter liegen `Beginn` und
+`Ende` nebeneinander (bei schmalen Displays untereinander).
+Nur `searchtimers.js` wurde geändert, ohne Einfluss auf HHMM,
+CREATE/UPDATE/Vorschau, Service/API oder den restlichen Editor.
+Der vorhandene UI-Regressionstest prüft Spanning und DOM-Reihenfolge.
