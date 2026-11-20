@@ -8,6 +8,7 @@
 #include <cassert>
 #include <cstdio>
 #include <filesystem>
+#include <functional>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -274,6 +275,42 @@ int main()
     const auto scoped = server.handleRequest(authorized);
     assert(scoped.statusCode == 200 && scoped.headers.at("Cache-Control") == "private, no-cache");
     const auto scopedTag = scoped.headers.at("ETag");
+
+    // The real listener opts into deferred conversion only after the normal
+    // delegate and security route have produced authorized original bytes.
+    HttpServerRequest deferred = authorized;
+    deferred.deferArtworkPreview = true;
+    HttpServerResponse pending = server.handleRequest(deferred);
+    assert(pending.statusCode == 200);
+    assert(pending.body == large.output);
+    assert(pending.headers.at("Content-Type") == "image/png");
+    assert(static_cast<bool>(pending.deferredArtworkPreview));
+    auto complete = std::move(pending.deferredArtworkPreview);
+    pending.deferredArtworkPreview = {};
+    complete(pending);
+    assert(pending.body == scoped.body);
+    assert(pending.headers.at("Content-Type") == "image/jpeg");
+    assert(pending.headers.at("ETag") == scopedTag);
+    assert(pending.headers.at("Server-Timing").find("artwork-queue;dur=")
+           != std::string::npos);
+
+    deferred.headers["If-None-Match"] = scopedTag;
+    HttpServerResponse pendingConditional = server.handleRequest(deferred);
+    assert(static_cast<bool>(pendingConditional.deferredArtworkPreview));
+    auto completeConditional = std::move(pendingConditional.deferredArtworkPreview);
+    pendingConditional.deferredArtworkPreview = {};
+    completeConditional(pendingConditional);
+    assert(pendingConditional.statusCode == 304);
+    assert(pendingConditional.body.empty());
+    assert(pendingConditional.headers.at("ETag") == scopedTag);
+
+    HttpServerRequest deniedDeferred = unauthorized;
+    deniedDeferred.path = deferred.path;
+    deniedDeferred.deferArtworkPreview = true;
+    const auto deniedResponse = server.handleRequest(deniedDeferred);
+    assert(deniedResponse.statusCode == 401);
+    assert(!deniedResponse.deferredArtworkPreview);
+
     authorized.headers["if-none-match"] = scopedTag;
     const auto notModified = server.handleRequest(authorized);
     assert(notModified.statusCode == 304 && notModified.body.empty());
