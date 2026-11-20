@@ -252,6 +252,9 @@ async function main() {
     const activeToken = elements.home.attributes['data-vdr-suite-diagnostics'];
     handlers['root:message']({source:childWindow, origin:'https://example.test',
       data:{channel:'vdr-suite-browser-diagnostics',token:activeToken,
+        type:'started',value:'initial-home'}});
+    handlers['root:message']({source:childWindow, origin:'https://example.test',
+      data:{channel:'vdr-suite-browser-diagnostics',token:activeToken,
         type:'result',value:{label:'initial-home',metrics:{}}}});
     assert.ok(elements.history.textContent.includes('"pwaArtwork": "cleared"'));
 
