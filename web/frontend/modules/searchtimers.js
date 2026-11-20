@@ -364,6 +364,30 @@
     return element;
   }
 
+  // Display native, localized clock controls while preserving epgsearch's
+  // integer HHMM wire contract (e.g. 20:00 in the UI -> 2000 in the API).
+  function clockInput(name, hhmm) {
+    const value = Number(hhmm);
+    const valid = Number.isInteger(value) && value >= 0 &&
+      value <= 2359 && value % 100 < 60;
+    const clock = valid
+      ? String(Math.floor(value / 100)).padStart(2, '0') + ':' +
+        String(value % 100).padStart(2, '0')
+      : '';
+    const control = input(name, clock, 'time');
+    control.step = '60'; // Minutes only; no seconds.
+    return control;
+  }
+
+  function clockFormValue(form, name, fallback) {
+    const control = form.elements[name];
+    if (!control) return numberValue(fallback, 0);
+    const clock = String(control.value || '').trim();
+    const parts = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(clock);
+    // Never silently treat an empty/invalid active time as midnight.
+    return parts ? Number(parts[1]) * 100 + Number(parts[2]) : NaN;
+  }
+
   function field(label, control, wide) {
     const row = document.createElement('label');
     row.className = 'searchtimer-field' + (wide ? ' wide' : '');
@@ -477,8 +501,8 @@
       channelMin: channelFilter.channelMin,
       channelMax: channelFilter.channelMax,
       useTime: boolValue(formValue(form, 'useTime', source.useTime), false),
-      startTime: numberValue(formValue(form, 'startTime', source.startTime), 0),
-      stopTime: numberValue(formValue(form, 'stopTime', source.stopTime), 0),
+      startTime: clockFormValue(form, 'startTime', source.startTime),
+      stopTime: clockFormValue(form, 'stopTime', source.stopTime),
       useDuration: boolValue(formValue(form, 'useDuration', source.useDuration), false),
       durationMinMinutes: numberValue(formValue(form, 'durationMinMinutes', source.durationMinMinutes), 0),
       durationMaxMinutes: numberValue(formValue(form, 'durationMaxMinutes', source.durationMaxMinutes), 0),
@@ -542,7 +566,7 @@
         payload.startTime > 2359 || payload.stopTime < 0 ||
         payload.stopTime > 2359 || payload.startTime % 100 >= 60 ||
         payload.stopTime % 100 >= 60)) {
-      errors.push('Ungültiger Uhrzeitfilter (HHMM).');
+      errors.push('Ungültiger Uhrzeitfilter: Bitte Beginn und Ende als HH:MM eingeben.');
     }
     if (![0, 1, 2, 3].includes(numberValue(payload.useChannel, -1))) {
       errors.push('Unbekannter Kanalfilter-Modus.');
@@ -1179,8 +1203,8 @@
     advancedGrid.appendChild(timeGroup);
     const timeToggle = check('useTime', 'Aktivieren', source.useTime);
     timeGroup.appendChild(timeToggle);
-    const startTimeField = field('Beginn (HHMM)', input('startTime', source.startTime, 'number'));
-    const stopTimeField = field('Ende (HHMM)', input('stopTime', source.stopTime, 'number'));
+    const startTimeField = field('Beginn', clockInput('startTime', source.startTime));
+    const stopTimeField = field('Ende', clockInput('stopTime', source.stopTime));
     timeGroup.appendChild(startTimeField);
     timeGroup.appendChild(stopTimeField);
     const refreshTime = revealWhenChecked(timeToggle, [startTimeField, stopTimeField]);

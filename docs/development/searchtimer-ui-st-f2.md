@@ -90,3 +90,31 @@ setzt den Worker aus der geprüften Source und dem bereits installierten
 statischen Frontend zusammen; weder Daemon noch Datenbank noch andere
 Frontend-Dateien müssen dabei ersetzt werden. Browser-/yaVDR-Abnahme
 bleibt unabhängig.
+
+
+## ST.F4 – Uhrzeitfilter als native Uhrzeit-Eingabe (20.11.2026)
+
+Der von der yaVDR-Abnahme gemeldete Fehler war eine unverständliche
+HHMM-Zahleneingabe: `20` und `22` wurden technisch zu `00:20`
+und `00:22` statt `20:00` und `22:00`.
+
+Die vorhandenen `Beginn`- und `Ende`-Felder verwenden jetzt
+`<input type="time" step="60">` und zeigen Werte wie `20:00`
+direkt als Uhrzeit an. Die Anzeige wandelt bestehende epgsearch-
+HHMM-Werte einschließlich Vorlagen und UPDATE-Vorbelegungen in die
+Uhrzeitdarstellung um. CREATE/UPDATE/Vorschau behalten ihre **bisherigen**
+numerischen HHMM-Payloads (`20:00` -> `2000`), ohne API- oder
+Datenbankänderung. Fehlt bei eingeschaltetem Zeitfilter ein Wert, zeigt
+die vorhandene Validierung eine eindeutige Eingabemeldung, statt eine
+ungültige Uhrzeit stillschweigend zu Mitternacht umzudeuten.
+Ausgeblendete gültige Felder behalten ihre Werte.
+
+Der bestehende JavaScript-Workflowtest prüft native Control-Typen,
+Minutenschritte, Anlegen mit `09:30–11:30`, den API-Roundtrip
+`20:00–22:00` -> `2000–2200`, leere aktive Werte und Vorlagen-`20:45`.
+Kleinstes Deployment: nur
+`/usr/share/vdr-suite/web/frontend/modules/searchtimers.js`
+aktualisieren und den vorhandenen PWA-Service-Worker mit
+`tools/build_pwa_shell.js` für das neue statische Release neu
+zusammensetzen. Kein Daemon-/VDR-Neustart oder C++-Build.
+Realer Browser-Readback nach Installation separat.

@@ -565,6 +565,11 @@ async function checkEditorFullWrites() {
   assert(form.elements.active);
   assert(form.elements.priority);
   assert(form.elements.useTime);
+  assert.strictEqual(form.elements.startTime.type, 'time');
+  assert.strictEqual(form.elements.stopTime.type, 'time');
+  assert.strictEqual(form.elements.startTime.step, '60');
+  assert.strictEqual(form.elements.startTime.value, '00:00');
+  assert.strictEqual(form.elements.stopTime.value, '00:00');
   assert(form.elements.channelFilterMode);
   assert(form.elements.useExtendedEpgInfo);
   assert(form.elements.deleteMode);
@@ -572,8 +577,8 @@ async function checkEditorFullWrites() {
   form.elements.priority.value = '50';
   form.elements.active.checked = true;
   form.elements.useTime.checked = true;
-  form.elements.startTime.value = '930';
-  form.elements.stopTime.value = '1130';
+  form.elements.startTime.value = '09:30';
+  form.elements.stopTime.value = '11:30';
   form.elements.useDayOfWeek.checked = true;
   form.elements.dayOfWeek.value = '31';
   form.elements.manualUseChannel.value = '2';
@@ -1024,11 +1029,23 @@ async function checkNamedSelectors() {
   form.elements.useTime.listeners.change();
   assert.strictEqual(form.elements.startTime.parentElement.hidden,false);
   assert.strictEqual(form.elements.stopTime.parentElement.hidden,false);
-  form.elements.startTime.value='2200';
+  assert.strictEqual(form.elements.startTime.type,'time',
+    'clock fields must use native browser time controls');
+  form.elements.startTime.value='20:00';
+  form.elements.stopTime.value='22:00';
+  const clockPayload=mod.buildCreatePayload(form);
+  assert.strictEqual(clockPayload.startTime,2000);
+  assert.strictEqual(clockPayload.stopTime,2200);
+  assert.deepStrictEqual(Array.from(mod.validateCreatePayload(clockPayload)),[]);
+  form.elements.startTime.value='';
+  const incompleteClock=mod.buildCreatePayload(form);
+  assert(mod.validateCreatePayload(incompleteClock).some(msg => msg.includes('HH:MM')),
+    'empty active clock is rejected rather than becoming 00:00');
+  form.elements.startTime.value='22:00';
   form.elements.useTime.checked=false;
   form.elements.useTime.listeners.change();
   assert.strictEqual(form.elements.startTime.parentElement.hidden,true);
-  assert.strictEqual(form.elements.startTime.value,'2200',
+  assert.strictEqual(form.elements.startTime.value,'22:00',
     'hidden time values are retained when toggling the control');
   form.elements.useDayOfWeek.checked=true;
   form.elements.useDayOfWeek.listeners.change();
@@ -1108,6 +1125,8 @@ async function checkNamedSelectors() {
   assert.strictEqual(copied.elements.dayOfWeek.parentElement.hidden,false,
     'template populating reopens active weekday options');
   assert.strictEqual(copiedPayload.useTime,true);
+  assert.strictEqual(copied.elements.startTime.value,'20:45',
+    'a native HHMM rule is presented as a human-readable clock');
   assert.strictEqual(copiedPayload.startTime,2045);
   assert(copied.elements.channelId.children.some(o=>o.textContent==='1 · Das Erste HD'));
 }
