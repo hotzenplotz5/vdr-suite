@@ -167,11 +167,32 @@ async function run(prefix) {
   assert.equal(measurement('tab-a').counters.imageHttpRequests,0);
   assert.equal(measurement('tab-a').counters.acceptedProofs,1);
 
+  // Two concurrent cold images of the exact same URL and authorized client
+  // must share one HTTP response, with independent readable response bodies.
+  const concurrentUrl = url.replace('recordingId=7', 'recordingId=998877');
+  const concurrentHold = {entered: deferred(), release: deferred()};
+  holdImage = concurrentHold;
+  const firstConcurrent = image(concurrentUrl, 'tab-a');
+  await concurrentHold.entered.promise;
+  const secondConcurrent = image(concurrentUrl, 'tab-a');
+  for (let turn = 0; turn < 30 && !vm.runInContext(
+    'Array.from(artworkInFlight.values()).some(value => value.followers > 0)', context
+  ); turn++) await Promise.resolve();
+  assert(vm.runInContext('Array.from(artworkInFlight.values()).some(value => value.followers > 0)', context),
+    'the second request must join the first in-flight HTTP request');
+  concurrentHold.release.resolve();
+  const [firstResponse, secondResponse] = await Promise.all([firstConcurrent, secondConcurrent]);
+  assert.equal(await firstResponse.text(), 'warm-poster');
+  assert.equal(await secondResponse.text(), 'warm-poster');
+  assert.equal(imageReads, before + 1, 'exact simultaneous requests use one image HTTP request');
+  assert.equal(measurement('tab-a').counters.coalescedRequests, 1);
+  const afterCoalescing = imageReads;
+
   await image(url,'other-tab');
-  assert.equal(imageReads,before+1,'another tab needs its own fresh proof');
+  assert.equal(imageReads,afterCoalescing+1,'another tab needs its own fresh proof');
   clock+=30001;
   await image(url,'tab-a');
-  assert.equal(imageReads,before+2,'expired proof uses original revalidation');
+  assert.equal(imageReads,afterCoalescing+2,'expired proof uses original revalidation');
   assert.equal(measurement('tab-a').counters.expiredProof,1);
   assert.equal(measurement('other-tab').counters.missingProof,1);
   // Delay must not consume the post-response artwork window.

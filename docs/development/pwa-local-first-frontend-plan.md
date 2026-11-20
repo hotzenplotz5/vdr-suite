@@ -1235,3 +1235,32 @@ image HTTP counts, response and server timing. Only then decide whether
 PWA.15.2 cache sizing, PWA.15.3 prewarming or PWA.15.4 persistent
 presentation needs modification. Keep the existing 32 MiB / 256-preview /
 1024-artwork limits until a measured defect is established.
+
+
+## PWA.15.4.1 — concurrent exact-artwork reuse (2026-11-20)
+
+A real operator capture with an existing browser cache observed 183 worker
+artwork requests, 52 immediate scoped local hits, 16 revalidated hits, 128
+current-scope misses, 150 artwork HTTP requests and 141 successful writes;
+Home frame was ready at 324.4 ms but observed image loads continued through
+55.2 seconds. The 22 repeated resource entries in the same capture are
+**not** proof that all repetitions were artwork or concurrent, nor do 128
+misses prove that those exact images existed in the persistent cache.
+
+The existing visible-first Home artwork coordinator and canonical persistent
+Cache Storage ownership remain in place. For an actual concurrent duplicate
+image URL in the **same controlled client, current recording/EPG authorization
+proof sequence, partition, generation and proof epoch**, the existing worker
+now shares one pending online validation response while producing independent
+Response bodies. It never shares responses between clients, permissions or
+different URLs; absent/expired proofs and non-success responses follow the
+original online path. Session, series-artwork mutation and grant drift retain
+all existing generation/epoch fences. No cache-key rewrite, grant expansion,
+new polling, prewarm burst or server processing change is introduced.
+
+The additive identity-free `coalescedRequests` worker counter distinguishes
+actual coalescing from ordinary cache hits. Regression covers simultaneous
+requests and separately readable bodies, alongside existing cross-client,
+logout, 403, proof-expiry, grant-isolation and installation-path contracts.
+The exact browser improvement and whether remaining misses are previously
+unseen covers still require a repeated controlled warm/cold capture.

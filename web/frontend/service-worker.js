@@ -174,6 +174,7 @@ const artworkStaleMs = 24 * 60 * 60 * 1000;
 const artworkProofs = new Map();
 let artworkProofEpoch = 0, artworkProofSequence = 0;
 const artworkRefreshing = new Set();
+const artworkInFlight = new Map();
 
 // Diagnostic counters are deliberately per controlled document and in memory.
 // No recording identifiers, URL, account, scope or credential is exported.
@@ -182,7 +183,7 @@ function artworkMeasurement(event) {
   if (!event.clientId) return null;
   let value = artworkMeasurements.get(event.clientId);
   if (!value) {
-    value = {requests: 0, localHits: 0, revalidatedHits: 0, imageHttpRequests: 0,
+    value = {requests: 0, localHits: 0, revalidatedHits: 0, imageHttpRequests: 0, coalescedRequests: 0,
       serverImages: 0, serverOther: 0, networkErrors: 0, missingProof: 0,
       expiredProof: 0, otherArtworkRoute: 0, cacheMiss: 0, outdatedEntry: 0,
       backgroundRefreshes: 0, writes: 0, evictions: 0, storageWriteErrors: 0,
@@ -503,6 +504,38 @@ function storeArtwork(base, response, generation, event) {
   });
 }
 
+// Share only genuinely simultaneous, identical image revalidations from one
+// controlled document under the same current authorization proof. Cache
+// Storage keys, grants and all normal response/error paths stay unchanged.
+function revalidateSharedArtwork(event, proof, generation) {
+  if (!proof || !event.clientId || artworkSessionMutations) return revalidateArtwork(event);
+  const key = JSON.stringify([event.clientId, artworkBase(event.request),
+    proof.partition, proof.sequence, generation, artworkProofEpoch]);
+  const existing = artworkInFlight.get(key);
+  if (existing) {
+    existing.followers++;
+    return existing.promise.then(response => {
+      const current = currentArtworkProof(event);
+      if (!response.ok || !existing.shared || generation !== artworkGeneration ||
+          artworkSessionMutations || !current || current.partition !== proof.partition ||
+          current.sequence !== proof.sequence) return revalidateArtwork(event);
+      countArtwork(event, 'coalescedRequests');
+      return existing.shared.clone();
+    });
+  }
+  const entry = {followers: 0, shared: null, promise: null};
+  entry.promise = revalidateArtwork(event).then(response => {
+    // The original body may be consumed as soon as it reaches the first
+    // browser image. Clone before that happens, and only for actual waiters.
+    if (entry.followers && response.ok) entry.shared = response.clone();
+    return response;
+  }).finally(() => {
+    if (artworkInFlight.get(key) === entry) artworkInFlight.delete(key);
+  });
+  artworkInFlight.set(key, entry);
+  return entry.promise;
+}
+
 async function handleArtwork(event) {
   countArtwork(event, 'requests');
   const generation = artworkGeneration;
@@ -550,7 +583,7 @@ async function handleArtwork(event) {
       countArtwork(event, 'outdatedEntry');
     }
   }
-  return revalidateArtwork(event);
+  return revalidateSharedArtwork(event, proof, generation);
 }
 
 async function revalidateArtwork(event) {
