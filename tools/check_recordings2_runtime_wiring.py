@@ -10,6 +10,7 @@ runtime_paths = {
     'move_editor': ROOT / 'web/frontend/recordings2-move-editor.js',
     'folder_refresh': ROOT / 'web/frontend/recordings2-folder-refresh.js',
     'browser_view': ROOT / 'web/frontend/recordings2-browser-view.js',
+    'folder_dom_cache': ROOT / 'web/frontend/recordings2-folder-dom-cache.js',
     'browser_cards': ROOT / 'web/frontend/recordings2-browser-cards.js',
     'marks_detail': ROOT / 'web/frontend/recordings2-marks-detail.js',
     'marks_editor': ROOT / 'web/frontend/recordings2-marks-editor.js',
@@ -99,8 +100,16 @@ required_tokens = {
         'getMediaShrinkCapability',
         'recordings2-card-action-menu',
     ),
+    'folder_dom_cache': (
+        'global.VdrSuiteRecordings2FolderDomCache',
+        'MAX_CACHED_FOLDERS',
+        'MAX_CACHED_RECORDINGS',
+        'VdrSuiteBrowserSession',
+        'recordingPosterUrl',
+    ),
     'browser_view': (
         'global.VdrSuiteRecordings2BrowserView',
+        'VdrSuiteRecordings2FolderDomCache',
         'renderFolder',
         'renderDetail',
         'VdrSuiteRecordings2FolderArtwork',
@@ -220,6 +229,14 @@ if "Number(cutState.handlerUsage)" in runtimes['marks_editor'] and "(cutState.op
 if "cutState.editedDestinationExists === true && cutState.editedRecordingFound !== true" in runtimes['marks_editor']:
     raise SystemExit('native cut UI must not infer operation ownership from edited destination state')
 
+folder_dom_asset = 'web/frontend/recordings2-folder-dom-cache.js'
+if folder_dom_asset not in module_makefile:
+    raise SystemExit('Recordings 2 production bundle is missing folder DOM retention')
+if module_makefile.index(folder_dom_asset) >= module_makefile.index(
+    'web/frontend/recordings2-browser-view.js'
+):
+    raise SystemExit('Recordings 2 folder DOM retention must load before the browser view')
+
 for external_scheme in ('http://', 'https://'):
     if external_scheme in runtimes['folder_artwork']:
         raise SystemExit(
@@ -261,6 +278,7 @@ line_limits = {
     'actions': 620,
     'move_editor': 220,
     'browser_view': 400,
+    'folder_dom_cache': 180,
     'browser_cards': 200,
     'marks_detail': 260,
     'marks_timeline': 200,
@@ -289,6 +307,7 @@ for owner in (
     'actions',
     'move_editor',
     'browser_view',
+    'folder_dom_cache',
     'browser_cards',
     'marks_detail',
     'marks_timeline',

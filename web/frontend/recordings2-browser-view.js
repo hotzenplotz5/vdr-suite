@@ -4,9 +4,10 @@
 
   const shared = global.VdrSuiteRecordings2Shared;
   const cards = global.VdrSuiteRecordings2Cards;
+  const folderDomCache = global.VdrSuiteRecordings2FolderDomCache;
   const folderArtwork = global.VdrSuiteRecordings2FolderArtwork;
   const actions = global.VdrSuiteRecordings2Actions; let restartChoiceRuntimePromise = null;
-  if (!shared || !cards) {
+  if (!shared || !cards || !folderDomCache) {
     console.error('VDR-Suite Recordings 2 shared runtime is unavailable');
     return;
   }
@@ -26,63 +27,7 @@
       : null;
     let activePlayback = null; let detailStartRevealed = false;
 
-    // Keep only a few detached, previously authorized folder DOM trees. This is
-    // a view reuse optimization, not another data or artwork cache authority.
-    const MAX_CACHED_FOLDERS = 3;
-    const MAX_CACHED_RECORDINGS = 200;
-    const folderViews = new Map();
-    let mountedFolderView = null;
-    let cachedBackend = null;
-
-    function folderViewKey(value) {
-      return String(value.backendId || 'default') + '\u0000' + shared.normalizePath(value.path);
-    }
-
-    function recordingIdentity(recording) {
-      const backend = String(recording.backendId || state().backendId || 'default');
-      const native = String(shared.first(recording, ['backendNativeId', 'nativePath', 'path'], ''));
-      if (native) return backend + '\u0000native:' + native;
-      const id = String(shared.first(recording, ['recordingId', 'id', 'nativeId'], ''));
-      return id ? backend + '\u0000id:' + id : '';
-    }
-
-    function rememberMountedFolder(target) {
-      const previous = mountedFolderView;
-      mountedFolderView = null;
-      if (!previous || previous.recordingCount > MAX_CACHED_RECORDINGS ||
-          (typeof target.contains === 'function' && !target.contains(previous.root))) return;
-      previous.scrollTop = Number(target.scrollTop) || 0;
-      previous.scrollY = Number(global.scrollY) || 0;
-      folderViews.delete(previous.key);
-      folderViews.set(previous.key, previous);
-      while (folderViews.size > MAX_CACHED_FOLDERS) {
-        folderViews.delete(folderViews.keys().next().value);
-      }
-    }
-
-    function restoreFolderScroll(target, previous) {
-      if (!previous) return;
-      if (typeof target.scrollTop === 'number') target.scrollTop = previous.scrollTop || 0;
-      if (previous.scrollY > 0 && typeof global.scrollTo === 'function') {
-        global.scrollTo({top: previous.scrollY, left: Number(global.scrollX) || 0, behavior: 'auto'});
-      }
-    }
-
-    function reusePoster(previousPosters, recording) {
-      const identity = recordingIdentity(recording);
-      if (!identity || !previousPosters) return null;
-      const previous = previousPosters.get(identity);
-      previousPosters.delete(identity);
-      const url = shared.publicPath(shared.recordingPosterUrl(recording));
-      if (!previous || !url || previous.url !== url) return null;
-      const image = previous.node && typeof previous.node.querySelector === 'function'
-        ? previous.node.querySelector('img') : null;
-      if (!image) return null;
-      image.alt = 'Poster zu ' + shared.recordingTitle(recording);
-      previous.node.dataset.variant = String(shared.recordingPlaceholderVariant(recording));
-      return previous.node;
-    }
-
+    const folderDom = folderDomCache.create(getState);
 
     function destroyPlayback() {
       const playback = activePlayback;
@@ -108,19 +53,6 @@
 
     function state() {
       return getState();
-    }
-
-    // Invalidate detached private DOM when the canonical browser session
-    // becomes unauthenticated; authorization remains with existing API reads.
-    const session = global.VdrSuiteBrowserSession;
-    if (session && typeof session.subscribe === 'function') {
-      session.subscribe(function (snapshot) {
-        if (!snapshot || snapshot.authenticated !== true) {
-          folderViews.clear();
-          mountedFolderView = null;
-          cachedBackend = null;
-        }
-      });
     }
 
     function createBreadcrumbs() {
@@ -186,14 +118,7 @@
     function prepareTarget() {
       const target = shared.mountTarget();
       if (!target) return null;
-      const backend = String(state().backendId || 'default');
-      if (backend !== cachedBackend) {
-        folderViews.clear();
-        mountedFolderView = null;
-        cachedBackend = backend;
-      } else {
-        rememberMountedFolder(target);
-      }
+      folderDom.prepare(target);
       destroyPlayback();
       shared.installStyles();
       cards.installStyles();
@@ -212,8 +137,7 @@
     function renderLoading() { detailStartRevealed = false;
       const currentState = state();
       // A same-folder reload keeps its visible posters until the server replies.
-      if (mountedFolderView && cachedBackend === String(currentState.backendId || 'default') &&
-          mountedFolderView.key === folderViewKey(currentState)) return;
+      if (folderDom.isMounted(currentState)) return;
       const target = prepareTarget();
       if (!target) return;
       const root = createRoot('recordings2');
@@ -236,8 +160,7 @@
       if (!target) return;
       // A rejected folder read must not leave an authorization-unknown
       // view available for a later reuse.
-      folderViews.clear();
-      mountedFolderView = null;
+      folderDom.clear();
       const root = createRoot('recordings2');
       const message = currentState.error && currentState.error.message
         ? currentState.error.message
@@ -297,15 +220,10 @@
 
     function renderFolder() { detailStartRevealed = false;
       const currentState = state();
-      const key = folderViewKey(currentState);
       const target = prepareTarget();
       if (!target) return;
-      const previous = folderViews.get(key);
-      folderViews.delete(key);
-      // Action menus and click closures must be rebuilt from the current
-      // Recording state. Only their unchanged poster DOM may be recycled.
-      const oldPosters = previous ? new Map(previous.posters) : null;
-      const posters = new Map();
+      // Action menus and clicks always reflect the fresh API snapshot.
+      const snapshot = folderDom.consume(currentState);
       const root = createRoot('recordings2');
       const data = currentState.data || {};
       const folders = shared.folderList(data);
@@ -346,14 +264,7 @@
         recordings.forEach(function (recording) {
           recordingSection.list.appendChild(cards.withActions(recording, {
             getState: getState, selectRecording: options.selectRecording,
-            createPoster: function (entry) {
-              const poster = reusePoster(oldPosters, entry) || shared.createPoster(entry);
-              const identity = recordingIdentity(entry);
-              if (identity) posters.set(identity, {
-                node: poster, url: shared.publicPath(shared.recordingPosterUrl(entry))
-              });
-              return poster;
-            }
+            createPoster: function (entry) { return folderDom.poster(snapshot, entry); }
           }));
         });
         root.appendChild(recordingSection.section);
@@ -377,11 +288,7 @@
         root.appendChild(more);
       }
       target.appendChild(root);
-      mountedFolderView = {
-        key: key, root: root, posters: posters,
-        recordingCount: recordings.length, scrollTop: 0, scrollY: 0
-      };
-      restoreFolderScroll(target, previous);
+      folderDom.attach(target, root, snapshot, recordings.length);
     }
 
     function detailField(label, value) {
@@ -477,9 +384,7 @@
       renderDetail: renderDetail,
       destroy: function () {
         destroyPlayback();
-        folderViews.clear();
-        mountedFolderView = null;
-        cachedBackend = null;
+        folderDom.clear();
         detailStartRevealed = false;
       }
     });

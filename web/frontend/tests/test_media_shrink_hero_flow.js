@@ -190,6 +190,7 @@ context.window = context;
 vm.createContext(context);
 vm.runInContext(hero, context);
 vm.runInContext(fs.readFileSync('web/frontend/recordings2-browser-cards.js', 'utf8'), context);
+vm.runInContext(fs.readFileSync('web/frontend/recordings2-folder-dom-cache.js', 'utf8'), context);
 vm.runInContext(browser, context);
 const listTarget = new Node('section');
 const root = new Node('main');

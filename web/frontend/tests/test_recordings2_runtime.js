@@ -120,6 +120,7 @@ const context = vm.createContext({
   'web/frontend/recordings2-actions.js',
   'web/frontend/recordings2-folder-refresh.js',
   'web/frontend/recordings2-browser-cards.js',
+  'web/frontend/recordings2-folder-dom-cache.js',
   'web/frontend/recordings2-browser-view.js',
   'web/frontend/recordings2.js'
 ].forEach(path => {

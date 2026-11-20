@@ -144,6 +144,11 @@ vm.runInContext(
 );
 
 vm.runInContext(
+  fs.readFileSync('web/frontend/recordings2-folder-dom-cache.js', 'utf8'),
+  context,
+  {filename:'web/frontend/recordings2-folder-dom-cache.js'}
+);
+vm.runInContext(
   fs.readFileSync('web/frontend/recordings2-browser-view.js', 'utf8'),
   context,
   {filename:'web/frontend/recordings2-browser-view.js'}

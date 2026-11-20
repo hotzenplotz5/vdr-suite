@@ -80,6 +80,7 @@ const context = vm.createContext({window, document, console, Promise, Map});
 for (const file of [
   'web/frontend/recordings2-shared.js',
   'web/frontend/recordings2-browser-cards.js',
+  'web/frontend/recordings2-folder-dom-cache.js',
   'web/frontend/recordings2-browser-view.js'
 ]) vm.runInContext(fs.readFileSync(file, 'utf8'), context, {filename: file});
 

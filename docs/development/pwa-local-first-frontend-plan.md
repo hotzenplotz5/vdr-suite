@@ -1372,7 +1372,8 @@ is the Recordings 2 folder lifecycle, not proven repeat network downloads:
 `renderLoading()` and `prepareTarget().replaceChildren()` detached the view,
 and `renderFolder()` always generated fresh Recording cards and `img` nodes.
 
-The existing `recordings2-browser-view.js` DOM owner now retains at most
+The dedicated `recordings2-folder-dom-cache.js` helper, owned by the
+existing `recordings2-browser-view.js` lifecycle, retains at most
 **three detached folder views** with no more than **200 Recording cards per
 retained view**. The server's normal authenticated folder read remains
 authoritative. On every successful folder read, Recording cards and action menus are
@@ -1390,7 +1391,9 @@ no second artwork/data cache, new API request, polling, backend change,
 new grant check, C++ build, daemon restart or database migration.
 The production browser-view asset must still be composed in the existing
 `mk/recordings2.mk` source order, including
-`recordings2-browser-cards.js` before `recordings2-browser-view.js`.
+`recordings2-browser-cards.js` and `recordings2-folder-dom-cache.js`
+before `recordings2-browser-view.js`; the browser-view stays within the
+existing 400-line modularity limit.
 
 The production-source DOM regression
 `web/frontend/tests/test_recordings2_folder_dom_reuse.js` checks
