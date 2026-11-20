@@ -51,3 +51,40 @@ Focused validation: `make test-artwork-preview-cache
 test-recording-artwork-http-server test-phase65-media-process-runner
 test-phase66-continue-watching-frontend`. These tests use isolated temporary
 fixtures; they do not require or contact a running VDR.
+
+## PWA.15.6 — bounded Home artwork response preparation
+
+The native HTTP listener still parses requests, calls the existing server,
+and runs every router, authentication, grant, database and source lookup on
+its original serial thread. For a successful `variant=home` image response
+only, it defers the preview and final scoped-byte revalidation until an
+existing image-writer worker processes the already-authorized original bytes.
+No additional request handler, decoder process, or worker pool is introduced.
+The existing four image writers and finite pending queue bound this phase;
+`ArtworkPreviewCache` still limits conversion to one FFmpeg process per
+cache directory, preserves hits/prewarming and falls back to originals on
+conversion failures. Non-image and unsuccessful responses, all other routes,
+and direct `RecordingArtworkHttpServer::handleRequest()` callers keep their
+synchronous behavior.
+
+Deferred work receives only the source response and the original request
+path/conditional ETag; it does not retain credentials or rerun authorization.
+`Server-Timing` now separates `artwork-read` (serial authorized preparation),
+`artwork-queue` (time awaiting an image worker), and `artwork-preview`
+(cache lookup/conversion). The listener's existing
+`HTTP_LISTENER_STALL phase=http-handler` journal entry still reports
+unexpectedly slow serial source retrieval. An exception during deferred
+processing retains the original representation with `no-store`, without
+publishing an unvalidated cache partition.
+
+Focused tests include `make test-http-listener-partial-request-timeout
+test-recording-artwork-http-server test-artwork-preview-cache`. The listener
+regression sends six slow image requests, checks that an unrelated health
+request is served before those conversions finish, verifies bounded workers,
+denial responses and original-byte fallback after a simulated conversion
+failure. The artwork integration test checks deferred previews, scoped ETag
+and 304 revalidation, and denial before deferral. These are deterministic
+test fixtures, **not** a real yaVDR cold-start performance measurement.
+Use new operator browser captures to compare first-byte timings, listener
+stall diagnostics, total artwork time and Service Worker cache-miss causes.
+Session isolation and SW authorization remain unchanged.
