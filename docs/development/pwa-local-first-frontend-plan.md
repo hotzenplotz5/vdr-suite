@@ -1264,3 +1264,28 @@ requests and separately readable bodies, alongside existing cross-client,
 logout, 403, proof-expiry, grant-isolation and installation-path contracts.
 The exact browser improvement and whether remaining misses are previously
 unseen covers still require a repeated controlled warm/cold capture.
+
+
+## PWA.15.4.2 — no unrelated validator scan on a scoped miss (2026-11-20)
+
+The current-scope exact-match lookup in the existing worker runs before
+network validation. If this lookup finds **no validated artwork in the
+current authorization partition**, old cached candidates from other
+partitions cannot satisfy the existing 304 validator matching rules.
+Previously every such known miss still invoked `cache.keys(base,
+{ignoreSearch:true})` and inspected up to four other entries before
+making an image HTTP request. The operator captured 128 such current-scope
+misses in a 61.7-second Home session with a nonempty browser cache.
+
+For that exact known-miss path, skip the obsolete candidate enumeration and
+make the same original unconditional authorized image request. Valid
+current-partition local hits and stale/revalidated entries retain all
+previous behavior. The no-proof, expired-proof, offline, permission,
+logout, mutation and other legacy network paths remain unchanged; no
+new cache namespace or changed cached-image authority is introduced.
+The deterministic worker regression asserts zero old-partition scans on
+known misses and no cross-partition ETag forwarding.
+
+This removes redundant local Cache Storage work; it cannot turn previously
+unseen covers into immediate hits. Browser wall-clock improvement remains
+unverified until the operator repeats the actual capture.

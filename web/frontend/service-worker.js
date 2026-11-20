@@ -507,8 +507,8 @@ function storeArtwork(base, response, generation, event) {
 // Share only genuinely simultaneous, identical image revalidations from one
 // controlled document under the same current authorization proof. Cache
 // Storage keys, grants and all normal response/error paths stay unchanged.
-function revalidateSharedArtwork(event, proof, generation) {
-  if (!proof || !event.clientId || artworkSessionMutations) return revalidateArtwork(event);
+function revalidateSharedArtwork(event, proof, generation, scopedMiss) {
+  if (!proof || !event.clientId || artworkSessionMutations) return revalidateArtwork(event, scopedMiss);
   const key = JSON.stringify([event.clientId, artworkBase(event.request),
     proof.partition, proof.sequence, generation, artworkProofEpoch]);
   const existing = artworkInFlight.get(key);
@@ -518,13 +518,13 @@ function revalidateSharedArtwork(event, proof, generation) {
       const current = currentArtworkProof(event);
       if (!response.ok || !existing.shared || generation !== artworkGeneration ||
           artworkSessionMutations || !current || current.partition !== proof.partition ||
-          current.sequence !== proof.sequence) return revalidateArtwork(event);
+          current.sequence !== proof.sequence) return revalidateArtwork(event, scopedMiss);
       countArtwork(event, 'coalescedRequests');
       return existing.shared.clone();
     });
   }
   const entry = {followers: 0, shared: null, promise: null};
-  entry.promise = revalidateArtwork(event).then(response => {
+  entry.promise = revalidateArtwork(event, scopedMiss).then(response => {
     // The original body may be consumed as soon as it reaches the first
     // browser image. Clone before that happens, and only for actual waiters.
     if (entry.followers && response.ok) entry.shared = response.clone();
@@ -540,6 +540,7 @@ async function handleArtwork(event) {
   countArtwork(event, 'requests');
   const generation = artworkGeneration;
   const proof = currentArtworkProof(event);
+  let scopedMiss = false;
   if (!proof) {
     const url = new URL(event.request.url);
     const epg = epgArtworkBackend(url);
@@ -553,7 +554,7 @@ async function handleArtwork(event) {
   if (proof) {
     const base = artworkBase(event.request);
     const candidate = await scopedArtwork(base, proof.partition, artworkByteLimit(event.request));
-    if (!candidate) countArtwork(event, 'cacheMiss');
+    if (!candidate) { countArtwork(event, 'cacheMiss'); scopedMiss = true; }
     // Recheck after asynchronous storage access; logout or grant drift may
     // have happened while the cache was being read.
     const current = currentArtworkProof(event);
@@ -583,15 +584,17 @@ async function handleArtwork(event) {
       countArtwork(event, 'outdatedEntry');
     }
   }
-  return revalidateSharedArtwork(event, proof, generation);
+  return revalidateSharedArtwork(event, proof, generation, scopedMiss);
 }
 
-async function revalidateArtwork(event) {
+async function revalidateArtwork(event, scopedMiss = false) {
   const request = event.request;
   if (artworkSessionMutations) return artworkFetch(event, []);
   const generation = artworkGeneration;
   const base = artworkBase(request);
-  const candidates = await artworkCandidates(base, artworkByteLimit(request));
+  // An exact current-scope miss cannot reuse validators from a different
+  // authorization partition. Avoid enumerating other cached partitions.
+  const candidates = scopedMiss ? [] : await artworkCandidates(base, artworkByteLimit(request));
   let response;
   try {
     response = await artworkFetch(event, generation === artworkGeneration && !artworkSessionMutations ? candidates.map(c => c.tag) : []);

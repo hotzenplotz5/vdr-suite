@@ -12,7 +12,7 @@ async function run(prefix) {
   const url = 'https://suite.test' + prefix + '/api/vdr/recordings/metadata/image?backend=default&recordingId=7&variant=home';
   let partition = scopeA, tag = tagA, status = 200, content = 'poster-a', offline = false, fail = false, last;
   let holdImage = null, holdMutation = null;
-  let clock = 1700000000000, imageReads = 0, proofReads = 0, fullKeyReads = 0;
+  let clock = 1700000000000, imageReads = 0, proofReads = 0, fullKeyReads = 0, candidateKeyReads = 0;
   let proofDelay = 0, epgAuthorized = false, recordingAuthorized = true;
   const deferred = () => {
     let resolve;
@@ -24,7 +24,7 @@ async function run(prefix) {
     if (fail) throw Error('quota');
     if (!stores.has(name)) stores.set(name, new Map());
     const rows = stores.get(name);
-    return {async keys(key, options) {if (key === undefined) fullKeyReads++; return [...rows.keys()].filter(k => key === undefined || (options?.ignoreSearch ? k.split('?')[0] === keyUrl(key).split('?')[0] : k === keyUrl(key))).map(url => ({url}));}, async put(key, response) {rows.set(keyUrl(key), response.clone());}, async match(key) {return rows.get(keyUrl(key))?.clone();}, async delete(key) {return rows.delete(keyUrl(key));}};
+    return {async keys(key, options) {if (key === undefined) fullKeyReads++; if (options?.ignoreSearch) candidateKeyReads++; return [...rows.keys()].filter(k => key === undefined || (options?.ignoreSearch ? k.split('?')[0] === keyUrl(key).split('?')[0] : k === keyUrl(key))).map(url => ({url}));}, async put(key, response) {rows.set(keyUrl(key), response.clone());}, async match(key) {return rows.get(keyUrl(key))?.clone();}, async delete(key) {return rows.delete(keyUrl(key));}};
   }, async delete(name) {return stores.delete(name);}};
   const responseHeaders = () => ({'Content-Type':'image/jpeg', ETag:tag, 'X-VDR-Suite-Artwork-Scope':partition, 'X-VDR-Suite-Artwork-Bytes':String(Buffer.byteLength(content)), 'Cache-Control':'private, no-cache'});
   const context = {scope, URL, Response, Request, Headers, caches, Date:{now:()=>clock}, self:{registration:{scope:scope.href},addEventListener:(name, cb)=>{listeners[name]=cb;}}, fetch:async request=>{
@@ -169,6 +169,7 @@ async function run(prefix) {
 
   // Two concurrent cold images of the exact same URL and authorized client
   // must share one HTTP response, with independent readable response bodies.
+  const candidateLookupsBefore = candidateKeyReads;
   const concurrentUrl = url.replace('recordingId=7', 'recordingId=998877');
   const concurrentHold = {entered: deferred(), release: deferred()};
   holdImage = concurrentHold;
@@ -186,6 +187,8 @@ async function run(prefix) {
   assert.equal(await secondResponse.text(), 'warm-poster');
   assert.equal(imageReads, before + 1, 'exact simultaneous requests use one image HTTP request');
   assert.equal(measurement('tab-a').counters.coalescedRequests, 1);
+  assert.equal(candidateKeyReads, candidateLookupsBefore,
+    'current-scope misses do not enumerate unrelated old cache partitions');
   const afterCoalescing = imageReads;
 
   await image(url,'other-tab');
@@ -227,6 +230,8 @@ async function run(prefix) {
   const different=await image(url,'tab-a');
   assert.equal(await different.text(),'different-account');
   assert.notEqual(different.headers.get('X-VDR-Suite-Artwork-Cache'),'local');
+  assert.equal(last.headers.get('If-None-Match'), null,
+    'a new partition must not send ETags from another account');
   await image(url,'tab-a');
   const warmB=imageReads;
   assert.equal((await image(url,'tab-a')).headers.get('X-VDR-Suite-Artwork-Cache'),'local');
