@@ -13,6 +13,8 @@ struct HttpServerRequest {
     bool peerIsTrustedLan = false;
     // Kernel-derived direct non-loopback LAN peer, never an HTTP header.
     bool peerIsDirectPrivateLan = false;
+    // Native listener opt-in only; never parsed from client headers.
+    bool deferArtworkPreview = false;
 };
 
 #endif
