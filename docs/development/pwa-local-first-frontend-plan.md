@@ -1362,3 +1362,44 @@ no viewport observer may defer Home Recording API/data rails. Both the Node
 contract and Python architecture guard now scope that check outside the
 explicit image-only `deferHomeArtworkImage()` helper, so artwork request
 scheduling does not weaken the immediate Recording projection contract.
+
+## PWA.15.7 — Recording-folder DOM reuse without poster flicker (2026-11-20)
+
+The remaining browser reproduction is Home → Aufnahmeordner → Komödie
+(Ace Ventura) → Horror or Historienfilm → Komödie: previously painted
+posters were temporarily replaced by placeholders on return. The cause
+is the Recordings 2 folder lifecycle, not proven repeat network downloads:
+`renderLoading()` and `prepareTarget().replaceChildren()` detached the view,
+and `renderFolder()` always generated fresh Recording cards and `img` nodes.
+
+The existing `recordings2-browser-view.js` DOM owner now retains at most
+**three detached folder views** with no more than **200 Recording cards per
+retained view**. The server's normal authenticated folder read remains
+authoritative. When a successfully fetched folder projection is unchanged,
+the complete former folder DOM (including loaded images) is reattached;
+same-folder reloads also leave the painted view mounted during the fetch.
+When recordings, metadata, totals or pagination change, cards are rebuilt
+with current click handlers and Recording objects, but matching canonical
+recording identities with unchanged resolved poster URLs reuse the original
+poster DOM. Changed URLs create a new poster. Folder scroll positions are
+restored on return. Backend transitions, view destruction and unauthenticated
+browser-session notifications clear retained DOM; failed folder reads render
+their existing error state without retaining an authorization-unknown view.
+
+This is **only bounded DOM retention inside the current view owner**:
+no second artwork/data cache, new API request, polling, backend change,
+new grant check, C++ build, daemon restart or database migration.
+The production browser-view asset must still be composed in the existing
+`mk/recordings2.mk` source order, including
+`recordings2-browser-cards.js` before `recordings2-browser-view.js`.
+
+The production-source DOM regression
+`web/frontend/tests/test_recordings2_folder_dom_reuse.js` checks
+Komödie → Horror → Komödie, `img` identity, changed title/current click
+data, additional recordings, changed artwork URLs, unchanged neighbor
+posters, logout/error/backend isolation, scroll restoration and bounded
+eviction. The existing detail Back/playback lifecycle remains untouched.
+Isolated JavaScript regression has passed; full repository/CI
+frontend regression and **real yaVDR browser acceptance** are separate,
+not yet evidenced by that isolated test. The final acceptance is visible
+Ace Ventura artwork without a fresh placeholder when returning to Komödie.

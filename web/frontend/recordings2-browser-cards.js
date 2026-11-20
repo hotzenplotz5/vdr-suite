@@ -5,11 +5,12 @@
   const shared = global.VdrSuiteRecordings2Shared;
   if (!shared) return;
 
-  function createRecordingCard(recording, onSelect) {
+  function createRecordingCard(recording, onSelect, createPoster) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'recordings2-recording';
-    button.appendChild(shared.createPoster(recording));
+    button.appendChild(typeof createPoster === 'function'
+      ? createPoster(recording) : shared.createPoster(recording));
     const copy = document.createElement('span');
     copy.className = 'recordings2-recording-copy';
     copy.appendChild(shared.node('span', 'recordings2-title', shared.recordingTitle(recording)));
@@ -52,7 +53,7 @@
   function recordingCardWithActions(recording, options) {
     const wrapper = document.createElement('div');
     wrapper.className = 'recordings2-card-action';
-    wrapper.appendChild(createRecordingCard(recording, options.selectRecording));
+    wrapper.appendChild(createRecordingCard(recording, options.selectRecording, options.createPoster));
     const menu = document.createElement('details');
     menu.className = 'recordings2-card-action-menu';
     const summary = document.createElement('summary');

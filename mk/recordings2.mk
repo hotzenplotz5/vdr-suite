@@ -75,6 +75,7 @@ test-recordings2-runtime:
 	node web/frontend/tests/test_recordings2_runtime.js
 	node web/frontend/tests/test_recordings2_auto_refresh.js
 	node web/frontend/tests/test_recordings2_detail_back_navigation.js
+	node web/frontend/tests/test_recordings2_folder_dom_reuse.js
 	node web/frontend/tests/test_recordings2_actions_genre.js
 	node web/frontend/tests/test_recordings2_playback.js
 	node web/frontend/tests/test_live_tv_playback.js
