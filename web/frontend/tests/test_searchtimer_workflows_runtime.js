@@ -1033,6 +1033,7 @@ async function checkNamedSelectors() {
     'clock fields must use native browser time controls');
   form.elements.startTime.value='20:00';
   form.elements.stopTime.value='22:00';
+  form.elements.query.value='Tatort';
   const clockPayload=mod.buildCreatePayload(form);
   assert.strictEqual(clockPayload.startTime,2000);
   assert.strictEqual(clockPayload.stopTime,2200);
