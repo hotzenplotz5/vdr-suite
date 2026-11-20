@@ -85,6 +85,17 @@ public:
         return snapshotReadService_.getRecordingsForBackend(backendId);
     }
 
+    std::vector<VdrChannel> getChannels() const
+    {
+        return snapshotReadService_.getChannels();
+    }
+
+    std::vector<VdrChannel> getChannelsForBackend(
+        const std::string& backendId) const
+    {
+        return snapshotReadService_.getChannelsForBackend(backendId);
+    }
+
     std::vector<VdrEvent> getEvents() const
     {
         return getEventsForBackend("default");

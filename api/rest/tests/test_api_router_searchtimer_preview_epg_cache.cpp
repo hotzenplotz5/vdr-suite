@@ -35,6 +35,28 @@ static VdrSnapshot make_snapshot(
     return snapshot;
 }
 
+static void test_channel_catalogue_is_forwarded_for_preview()
+{
+    SnapshotCache snapshotCache;
+    SnapshotCacheService snapshotCacheService(snapshotCache);
+    SnapshotAccessService snapshotAccessService(snapshotCacheService);
+    VdrSnapshotReadService snapshotReadService(snapshotAccessService);
+
+    VdrSnapshot snapshot = make_snapshot("default", "event", "Tatort");
+    VdrChannel channel{};
+    channel.id = "S19.2E-1-1-2";
+    channel.number = 4;
+    channel.group = "Public";
+    snapshot.channels.push_back(channel);
+    snapshotCache.updateForBackend("default", snapshot);
+
+    SearchTimerPreviewSnapshotReadFacade facade(snapshotReadService);
+    const auto channels = facade.getChannelsForBackend("default");
+    assert(channels.size() == 1U);
+    assert(channels.front().id == channel.id);
+    assert(channels.front().number == 4);
+}
+
 static void test_ready_cache_is_used_for_default_backend()
 {
     SearchTimerPreviewEpgInputContext::resetReady();
@@ -302,6 +324,7 @@ static void test_backend_cache_is_backend_scoped()
 
 int main()
 {
+    test_channel_catalogue_is_forwarded_for_preview();
     test_ready_cache_is_used_for_default_backend();
     test_ready_empty_cache_is_authoritative_zero_events();
     test_stale_cache_falls_back_to_snapshot_and_marks_input_not_authoritative();
