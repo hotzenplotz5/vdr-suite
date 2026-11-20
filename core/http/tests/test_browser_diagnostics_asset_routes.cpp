@@ -109,6 +109,43 @@ int main()
         serveFrontendPath("/frontend/app.js"), bundle.headers.at("ETag"));
     assert(changedBundle.statusCode == 200 && changedBundle.body == "primary\n\naddon-v2");
     assert(changedBundle.headers.at("ETag") != bundle.headers.at("ETag"));
+    // The regular F5 HTML navigation must change the SearchTimer script
+    // URL when a frontend-only file is replaced on disk. Other asset
+    // routes and backend authorization remain unchanged.
+    const std::string indexMarkup =
+        "<!doctype html><script src=\"../frontend/modules/searchtimers.js\"></script>";
+    { std::ofstream file(rootPath + "/index.html"); file << indexMarkup; }
+    { std::ofstream file(rootPath + "/modules/searchtimers.js"); file << "st-f2-v1"; }
+
+    const auto indexBefore = serveFrontendPath("/frontend/");
+    const std::string prefix = "searchtimers.js?v=";
+    const std::size_t before = indexBefore.body.find(prefix);
+    assert(indexBefore.statusCode == 200);
+    assert(indexBefore.headers.at("Cache-Control") == "no-cache");
+    assert(before != std::string::npos);
+    const std::string versionBefore =
+        indexBefore.body.substr(before + prefix.size(), 16U);
+    assert(versionBefore.size() == 16U);
+    assert(versionBefore.find_first_not_of("0123456789abcdef") == std::string::npos);
+    const std::string versionedUrl =
+        "/frontend/modules/searchtimers.js?v=" + versionBefore;
+    assert(isFrontendPath(versionedUrl));
+    assert(serveFrontendPath(versionedUrl).body == "st-f2-v1");
+    assert(!isFrontendPath("/frontend/modules/missing.js?v=" + versionBefore));
+
+    { std::ofstream file(rootPath + "/modules/searchtimers.js"); file << "st-f2-v2"; }
+    const auto indexAfter = serveFrontendPath("/frontend/?reload=1");
+    const std::size_t after = indexAfter.body.find(prefix);
+    assert(indexAfter.statusCode == 200);
+    assert(after != std::string::npos);
+    const std::string versionAfter =
+        indexAfter.body.substr(after + prefix.size(), 16U);
+    assert(versionAfter != versionBefore);
+    assert(serveFrontendPath("/frontend/modules/searchtimers.js?v=" + versionAfter).body
+        == "st-f2-v2");
+    assert(unlink((rootPath + "/index.html").c_str()) == 0);
+    assert(unlink((rootPath + "/modules/searchtimers.js").c_str()) == 0);
+
     assert(unlink((rootPath + "/modules/remote.js").c_str()) == 0);
     assert(rmdir((rootPath + "/modules").c_str()) == 0);
     assert(unlink((rootPath + "/app.js").c_str()) == 0);

@@ -19,9 +19,20 @@ const FrontendAsset* findFrontendAsset(const std::string& path)
     return nullptr;
 }
 
+// Versioned static URLs keep the resource identity in the existing
+// exact frontend asset allowlist; only the cache key uses the query.
+std::string frontendAssetRequestPath(const std::string& requestTarget)
+{
+    const auto query = requestTarget.find('?');
+    return query == std::string::npos
+        ? requestTarget
+        : requestTarget.substr(0, query);
+}
+
 bool isFrontendPath(const std::string& path)
 {
-    return isIndexPath(path) || findFrontendAsset(path) != nullptr;
+    const std::string resource = frontendAssetRequestPath(path);
+    return isIndexPath(resource) || findFrontendAsset(resource) != nullptr;
 }
 
 bool isChannelLogoPath(const std::string& path)
@@ -31,14 +42,15 @@ bool isChannelLogoPath(const std::string& path)
 
 HttpServerResponse serveFrontendPath(const std::string& path)
 {
-    if (isIndexPath(path))
+    const std::string resource = frontendAssetRequestPath(path);
+    if (isIndexPath(resource))
     {
         return makeFrontendAssetResponse(
             "index.html",
             "text/html; charset=utf-8");
     }
 
-    const FrontendAsset* asset = findFrontendAsset(path);
+    const FrontendAsset* asset = findFrontendAsset(resource);
 
     if (asset == nullptr)
     {

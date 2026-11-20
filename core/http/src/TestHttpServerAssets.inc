@@ -130,6 +130,38 @@ bool readChannelLogoAsset(
     return false;
 }
 
+// The HTML shell is revalidated on every ordinary navigation. Bind the
+// SearchTimer script URL to the exact currently served script bytes so a
+// frontend-only update cannot reuse an old browser cache entry after F5.
+// Only a fixed, trusted src attribute is rewritten; no user input enters HTML.
+void versionSearchTimerBootstrapScript(std::string& html)
+{
+    const std::string marker = "src=\"../frontend/modules/searchtimers.js\"";
+    const auto position = html.find(marker);
+    if (position == std::string::npos)
+        return;
+
+    std::string script;
+    if (!readFrontendAsset("modules/searchtimers.js", script))
+        return;
+
+    unsigned char digest[SHA256_DIGEST_LENGTH];
+    if (SHA256(reinterpret_cast<const unsigned char*>(script.data()),
+            script.size(), digest) == nullptr)
+        return;
+
+    constexpr char hex[] = "0123456789abcdef";
+    std::string version;
+    version.reserve(16U);
+    for (std::size_t i = 0U; i < 8U; ++i)
+    {
+        version.push_back(hex[digest[i] >> 4U]);
+        version.push_back(hex[digest[i] & 0x0FU]);
+    }
+
+    html.insert(position + marker.size() - 1U, "?v=" + version);
+}
+
 HttpServerResponse makeFrontendAssetResponse(
     const std::string& relativePath,
     const std::string& contentType)
@@ -140,6 +172,9 @@ HttpServerResponse makeFrontendAssetResponse(
     {
         return makeStaticNotFoundResponse();
     }
+
+    if (relativePath == "index.html")
+        versionSearchTimerBootstrapScript(content);
 
     HttpServerResponse response;
 
