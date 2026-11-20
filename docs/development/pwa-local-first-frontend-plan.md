@@ -1289,3 +1289,29 @@ known misses and no cross-partition ETag forwarding.
 This removes redundant local Cache Storage work; it cannot turn previously
 unseen covers into immediate hits. Browser wall-clock improvement remains
 unverified until the operator repeats the actual capture.
+
+
+## PWA.15.4.3 — stable Recent Movies rail DOM during Home refresh (2026-11-20)
+
+The operator verified the installed browser diagnostics, bridge, probe and
+generated Home HTML match repository sources at
+`66304478761a55e97bf2139df3c6545363434cea`: old diagnostic assets
+are not responsible for repeated poster loads. `Home neu laden & messen`
+intentionally creates a fresh embedded Home document, which necessarily
+reconstructs its DOM; this is separate from in-document refresh behavior.
+
+The `Filme der letzten 5 Jahre` rail previously removed all artwork via
+`renderState()` before each same-backend fetch and `target.replaceChildren()`
+on each successful render. The same-backend refresh now retains the already
+painted rail until authoritative data arrives and reconciles cards by
+Recording ID and backend. Unchanged image URLs preserve their original IMG
+nodes; changed poster URLs replace only the affected artwork. Existing
+card clicks follow the newest authoritative Recording object, while
+pagination, scroll position, session/backend change clearing, first-page
+query and bounded prefetch remain unchanged. No extra request, cache purge,
+permission change, polling or server build is introduced.
+
+The production-backed Recent Movies regression covers identical image
+identity, a changed title, updated Recording click behavior and a changed
+poster URL while neighboring card nodes remain stable. A complete iframe
+reload still reloads the UI; browser-visible speedup remains unmeasured.

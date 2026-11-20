@@ -50,8 +50,10 @@ assert(renderStart >= 0 && renderEnd > renderStart);
 const renderSource = source.slice(renderStart, renderEnd);
 assert(
   renderSource.indexOf('target.appendChild(rail);') < renderSource.indexOf('rail.scrollLeft = previousScrollLeft;'),
-  'recent movies scroll position must be restored only after the rebuilt rail is mounted'
+  'recent movies scroll position must be restored after initial mounting'
 );
+assert(!renderSource.includes('target.replaceChildren();'),
+  'same-backend refresh must not unmount the existing rail');
 
 class FakeElement {
   constructor(tagName) {
@@ -372,6 +374,41 @@ assert.strictEqual(api._test.recentMovie(movie('missing-year', ''), currentYear)
   assert.strictEqual(opened.length, 1);
   assert.strictEqual(opened[0].recording.recordingId, 'newest');
   assert.strictEqual(opened[0].backendId, 'default');
+
+  // Same-backend refresh retains the existing rail, card and IMG identity.
+  const retainedCard = cards[0];
+  const otherCard = cards[1];
+  const retainedImage = findElement(retainedCard, element => element.tagName === 'IMG');
+  const revisedTitle = movie('newest', String(currentYear) + '-06-01',
+    '2026-07-01T20:00:00', 'Neu umbenannt');
+  allRecordings[0] = revisedTitle;
+  await api.refresh();
+  assert.strictEqual(findElement(movieSection, element =>
+    String(element.className || '').split(' ').includes('recent-movies')), initialRail);
+  assert.strictEqual(findElement(movieSection, element =>
+    element.dataset.recordingId === 'newest'), retainedCard);
+  assert.strictEqual(findElement(retainedCard, element => element.tagName === 'IMG'), retainedImage,
+    'same cover URL must retain its original IMG node');
+  assert.strictEqual(findElement(movieSection, element =>
+    element.dataset.recordingId === 'current-12'), otherCard,
+    'unmodified neighbors also keep their DOM identity');
+  assert.strictEqual(findElement(retainedCard, element => element.tagName === 'STRONG').textContent,
+    'Neu umbenannt');
+  retainedCard.listeners.click[0]();
+  await Promise.resolve();
+  assert.strictEqual(opened.at(-1).recording, revisedTitle,
+    'retained card opens the latest authoritative Recording object');
+  const revisedArtwork = movie('newest', String(currentYear) + '-06-01',
+    '2026-07-01T20:00:00', 'Neu umbenannt');
+  revisedArtwork.metadata.presentation.posterUrl = '/poster/newest-revised.jpg';
+  allRecordings[0] = revisedArtwork;
+  await api.refresh();
+  const refreshedImage = findElement(retainedCard, element => element.tagName === 'IMG');
+  assert.notStrictEqual(refreshedImage, retainedImage, 'changed URL replaces only the affected artwork');
+  assert.strictEqual(refreshedImage.src, '/poster/newest-revised.jpg');
+  assert.strictEqual(findElement(movieSection, element =>
+    element.dataset.recordingId === 'current-12'), otherCard,
+    'unrelated movie cards are never re-rendered');
 
   // Composed production bootstrap and movie owner: only one speculative
   // page, no premature poster DOM, demand consumes the same response.

@@ -649,6 +649,8 @@
     card.dataset.recordingId = recordingId(recording);
     card.dataset.backendId = backendId;
     card.dataset.movieYear = String(releaseYear(recording));
+    card.__vdrSuiteMovieArtworkUrl = publicPath(homePreview(posterUrl(recording)));
+    card.__vdrSuiteMovieRecording = recording;
     card.appendChild(createArtwork(recording));
 
     const copy = doc.createElement('span');
@@ -660,8 +662,32 @@
     copy.append(label, detail);
     card.appendChild(copy);
     card.addEventListener('click', function () {
-      openRecording(recording, backendId);
+      openRecording(card.__vdrSuiteMovieRecording, card.dataset.backendId);
     });
+    return card;
+  }
+
+  // Keep the actual image element when its canonical URL is unchanged.
+  // A fresh read can update the Recording without requesting its cover again.
+  function updateMovieCard(card, recording) {
+    const title = recordingTitle(recording);
+    const nextUrl = publicPath(homePreview(posterUrl(recording)));
+    const artwork = card.children[0];
+    if (card.__vdrSuiteMovieArtworkUrl !== nextUrl) {
+      const replacement = createArtwork(recording);
+      card.insertBefore(replacement, artwork);
+      artwork.remove();
+      card.__vdrSuiteMovieArtworkUrl = nextUrl;
+    } else if (artwork) {
+      const image = artwork.children[0];
+      if (image && image.tagName === 'IMG') image.alt = 'Poster zu ' + title;
+      else artwork.textContent = title.slice(0, 1).toUpperCase() || '▶';
+    }
+    const copy = card.children[1];
+    if (copy && copy.children[0]) copy.children[0].textContent = title;
+    if (copy && copy.children[1]) copy.children[1].textContent = String(releaseYear(recording));
+    card.dataset.movieYear = String(releaseYear(recording));
+    card.__vdrSuiteMovieRecording = recording;
     return card;
   }
 
@@ -683,34 +709,51 @@
       ? target.querySelector('.media-home-discovery-rail.recent-movies')
       : null;
     const previousScrollLeft = Number(previousRail && previousRail.scrollLeft) || 0;
-    target.replaceChildren();
-
-    const heading = doc.createElement('div');
-    heading.className = 'media-home-section-heading';
-    const name = doc.createElement('h3');
-    name.textContent = TITLE;
-    heading.appendChild(name);
-    target.appendChild(heading);
-
-    const rail = doc.createElement('div');
-    rail.className = 'media-home-discovery-rail recent-movies';
-    rail.setAttribute('aria-label', TITLE);
-    const limit = Math.max(0, Number(visibleLimit) || LIMIT);
-    recordings.slice(0, limit).forEach(function (recording) {
-      rail.appendChild(createMovieCard(recording, backendId));
-    });
-    target.appendChild(rail);
-    rail.scrollLeft = previousScrollLeft;
-    // Also allow paging when the first twelve cards fit the entire viewport.
-    state.moreButton = null;
-    if (state.nextOffset < state.total) {
-      const more = doc.createElement('button');
-      more.type = 'button';
-      more.textContent = 'Weitere Filme';
-      more.addEventListener('click', loadMoreMovies);
-      heading.appendChild(more);
-      state.moreButton = more;
+    const heading = previousRail ? target.children[0] : doc.createElement('div');
+    const rail = previousRail || doc.createElement('div');
+    if (!previousRail) {
+      heading.className = 'media-home-section-heading';
+      const name = doc.createElement('h3');
+      name.textContent = TITLE;
+      heading.appendChild(name);
+      rail.className = 'media-home-discovery-rail recent-movies';
+      rail.setAttribute('aria-label', TITLE);
+      target.replaceChildren(heading);
+      target.appendChild(rail);
     }
+
+    const existing = new Map();
+    for (const card of Array.from(rail.children)) {
+      const id = card.dataset && card.dataset.recordingId;
+      if (id && card.dataset.backendId === backendId && !existing.has(id)) existing.set(id, card);
+    }
+    const shown = recordings.slice(0, Math.max(0, Number(visibleLimit) || LIMIT));
+    shown.forEach(function (recording, index) {
+      const oldCard = existing.get(recordingId(recording));
+      const card = oldCard ? updateMovieCard(oldCard, recording) : createMovieCard(recording, backendId);
+      if (rail.children[index] !== card) {
+        if (rail.children[index]) rail.insertBefore(card, rail.children[index]);
+        else rail.appendChild(card);
+      }
+    });
+    Array.from(rail.children).slice(shown.length).forEach(function (card) { card.remove(); });
+    rail.scrollLeft = previousScrollLeft;
+
+    // Reuse the pagination action; an unchanged rail never detaches.
+    let more = state.moreButton && state.moreButton.parentNode === heading ? state.moreButton : null;
+    if (state.nextOffset < state.total) {
+      if (!more) {
+        more = doc.createElement('button');
+        more.type = 'button';
+        more.textContent = 'Weitere Filme';
+        more.addEventListener('click', loadMoreMovies);
+        heading.appendChild(more);
+      }
+    } else if (more) {
+      more.remove();
+      more = null;
+    }
+    state.moreButton = more;
     positionBeforeSeries();
     return true;
   }
@@ -756,15 +799,17 @@
     }
     const generation = ++state.generation;
     const currentYear = new Date().getFullYear();
-    const retainVisible = config.retainVisible === true &&
-      state.backendId === backendId &&
-      state.movies.length > 0;
+    const retainVisible = state.backendId === backendId && state.movies.length > 0;
     if (!retainVisible) {
       state.movies = [];
       state.visibleLimit = LIMIT;
       renderState('Filme werden geladen …', false);
     }
-    const initialLimit = retainVisible ? Math.max(LIMIT, state.visibleLimit) : LIMIT;
+    // Preserve painted cards while same-backend data is refreshed.
+    // Explicit Home-resume keeps an expanded page; ordinary refresh
+    // retains the original first-page limit.
+    const initialLimit = retainVisible && config.retainVisible === true
+      ? Math.max(LIMIT, state.visibleLimit) : LIMIT;
     state.backendId = backendId;
     state.completedAt = 0;
     state.loadingMore = null;
