@@ -4,6 +4,8 @@
 #include "ArtworkCacheValidation.h"
 #include "VdrRecordingCacheRepository.h"
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <map>
 #include <string>
@@ -55,9 +57,36 @@ bool epgImagePath(const std::string& path)
 
 void applyPreview(const ArtworkPreviewCache& cache, const HttpServerRequest& request,
                   const RestQueryParameters& query, HttpServerResponse& response,
-                  std::chrono::steady_clock::time_point requestStarted)
+                  std::chrono::steady_clock::time_point requestStarted,
+                  std::chrono::steady_clock::time_point preparedAt = {})
 {
     if (response.statusCode != 200 || query.get("variant") != "home") return;
+    const auto mimeType = response.headers.find("Content-Type");
+    if (request.deferArtworkPreview && mimeType != response.headers.end() &&
+        mimeType->second.compare(0, 6, "image/") == 0)
+    {
+        // Finish authorization and source lookup on the existing listener.
+        // The worker receives only validated original bytes and If-None-Match.
+        HttpServerRequest validation;
+        validation.path = request.path;
+        for (const auto& header : request.headers) {
+            std::string name = header.first;
+            std::transform(name.begin(), name.end(), name.begin(),
+                [](unsigned char value) { return static_cast<char>(std::tolower(value)); });
+            if (name == "if-none-match") validation.headers.emplace(header);
+        }
+        const auto* previews = &cache;
+        const auto ready = std::chrono::steady_clock::now();
+        response.deferredArtworkPreview =
+            [previews, validation = std::move(validation), requestStarted, ready](
+                HttpServerResponse& authorized) {
+                const auto query = RestQueryParameters::parse(
+                    requestQueryString(validation.path));
+                applyPreview(*previews, validation, query, authorized,
+                             requestStarted, ready);
+            };
+        return;
+    }
     // An unscoped preview (including legacy compatibility paths) is still
     // served normally, but must not create an unvalidated HTTP cache hit.
     if (response.headers.find("X-VDR-Suite-Artwork-Scope") == response.headers.end())
@@ -70,10 +99,15 @@ void applyPreview(const ArtworkPreviewCache& cache, const HttpServerRequest& req
     using Milliseconds = std::chrono::duration<double, std::milli>;
     // Same-origin timing evidence; read includes authorization, source lookup
     // and original byte delivery, and preview includes cache/decoder work.
-    const std::string timing = "artwork-read;dur=" +
-        std::to_string(Milliseconds(previewStarted - requestStarted).count()) +
+    const auto readFinished = preparedAt == std::chrono::steady_clock::time_point{}
+        ? previewStarted : preparedAt;
+    std::string timing = "artwork-read;dur=" +
+        std::to_string(Milliseconds(readFinished - requestStarted).count()) +
         ", artwork-preview;dur=" +
         std::to_string(Milliseconds(previewFinished - previewStarted).count());
+    if (preparedAt != std::chrono::steady_clock::time_point{})
+        timing += ", artwork-queue;dur=" +
+            std::to_string(Milliseconds(previewStarted - preparedAt).count());
     auto& serverTiming = response.headers["Server-Timing"];
     if (!serverTiming.empty()) serverTiming += ", ";
     serverTiming += timing;
