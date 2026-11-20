@@ -453,7 +453,7 @@ async function main() {
       { name: 'https://example.test/vdr-suite/api/epg/cache/now-next?token=private-token', initiatorType: 'fetch', responseStatus: 204, transferSize: 100 },
       { name: 'https://example.test/vdr-suite/api/epg/cache/changes?token=private-token', initiatorType: 'fetch', responseStatus: 0, transferSize: 0 },
       { name: 'https://outside.test/private-path?token=private-token', initiatorType: 'script', responseStatus: 0, transferSize: 0 },
-      { name: 'https://example.test/vdr-suite/recording-artwork/private-poster.webp', initiatorType: 'img', responseStatus: 200, transferSize: 2000000, encodedBodySize: 1048577, duration: 90, requestStart: 10, responseStart: 65, responseEnd: 90, serverTiming: [{name:'artwork-read',duration:17},{name:'artwork-preview',duration:23}] }
+      { name: 'https://example.test/vdr-suite/recording-artwork/private-poster.webp', initiatorType: 'img', responseStatus: 200, transferSize: 2000000, encodedBodySize: 1048577, duration: 90, requestStart: 10, responseStart: 65, responseEnd: 90, serverTiming: [{name:'artwork-read',duration:17},{name:'artwork-queue',duration:51},{name:'artwork-preview',duration:23}] }
     ];
     const detail = summarizeResources(sample, baseUrl);
     assert.equal(detail.observedEntries, sample.length);
@@ -472,6 +472,7 @@ async function main() {
     assert.deepEqual(artworkTiming.requestToFirstByte, {samples:1,total:55,max:55});
     assert.deepEqual(artworkTiming.responseBody, {samples:1,total:25,max:25});
     assert.deepEqual(artworkTiming.serverArtworkRead, {samples:1,total:17,max:17});
+    assert.deepEqual(artworkTiming.serverArtworkQueue, {samples:1,total:51,max:51});
     assert.deepEqual(artworkTiming.serverArtworkPreview, {samples:1,total:23,max:23});
     const serialized = JSON.stringify(detail);
     for (const secret of ['private-recording', 'another-recording', 'private-event', 'private-channel', 'private-token', 'private-path', 'private-poster', 'outside.test']) assert.ok(!serialized.includes(secret));

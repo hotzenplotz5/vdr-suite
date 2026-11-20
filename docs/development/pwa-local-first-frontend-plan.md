@@ -1517,3 +1517,43 @@ reports observed image readiness (`complete && naturalWidth > 0`), **not**
 decoded-image paint or an exact network start timestamp. Already-cached images
 are attributed to first observation, not an invented load event. This augments,
 rather than replaces, the older `visibleArtwork` at-stop heuristic.
+
+
+## PWA.15.10 — visible-first cold Artwork demand and backend queue evidence (2026-11-20)
+
+A confirmed 22:10:47 cold PWA artwork-cache capture recorded a 329ms Home frame
+and a first viewport cohort of six posters fully loaded at 3268.5ms.
+Across later browsing, 45 direct recording artworks reached up to 10.14s
+request-to-first-byte with a recorded maximum server artwork read of 644ms.
+Four metadata Home images exceeded 1MiB. Those timings describe unlike
+image requests and **do not establish** a 10s preview conversion or a
+failed image resize: original fallback and HTTP scheduling remain possible.
+
+The existing Recording Discovery priority scheduler eagerly started up
+to four *additional* adjacent rail images even while the current visible
+covers were unresolved. The already-demand-driven IntersectionObserver
+is authoritative for actual visibility and its 120px lookahead. PWA.15.10
+suppresses only this rAF-based speculative near-rail eager promotion
+while a visible image is incomplete or has an unassigned deferred URL.
+All visible images still get high/eager priority immediately, and
+bounded adjacent warmup remains available on subsequent rail scheduling
+after the visible images settle. This avoids unnecessary competition
+for the serially prepared image sources, without new timers, queues,
+polling, cache stores, request caps or authorization conditions.
+
+The browser diagnostics now also aggregates the **already emitted**
+`Server-Timing: artwork-queue` metric as `serverArtworkQueue` in
+the existing per-category artwork timing distribution, alongside
+`serverArtworkRead`, `serverArtworkPreview` and first-byte timings.
+No new daemon instrumentation or raw URLs/identities are exported.
+This will separate image-worker queueing from serial authorized source
+read and preview work on the next real cold browser capture. Missing
+or zero queue timings must not be interpreted as proof of no browser-side
+scheduling. Large `variant=home` originals remain an explicitly
+unresolved path, not silently suppressed or reauthorized.
+
+Scope: Home Recording Discovery browser priority owner, opt-in browser
+probe, relevant focused regression contracts and this documentation
+only. No daemon/service worker change, playback change, security policy
+change, FFmpeg increase or cache-storage mutation. Real yaVDR
+performance improvement is **not** asserted until a comparable capture.

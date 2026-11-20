@@ -31,7 +31,14 @@ prioritizeRail(rail); prioritizeRail(rail);
 assert.equal(frames.length,1);
 frames.shift()();
 assert.equal(visibleRailImage.fetchPriority,'high');
-assert.equal(next.filter(i=>i.fetchPriority==='low').length,4);
+assert.equal(next.filter(i=>i.fetchPriority==='low').length,0,
+  'PWA.15.10: do not start speculative rail loads while a visible cover is pending');
+assert(next.every(i=>i.loading==='lazy'),
+  'clipped rail cards remain native lazy until current viewport settles');
+visibleRailImage.complete=true;
+prioritizeRail(rail); frames.shift()();
+assert.equal(next.filter(i=>i.fetchPriority==='low').length,4,
+  'adjacent warmup still runs on later rail demand after visible cover completes');
 assert.equal(next[4].loading,'lazy');
 assert.equal(far.loading,'lazy');
 assert.equal(hidden.loading,'lazy');

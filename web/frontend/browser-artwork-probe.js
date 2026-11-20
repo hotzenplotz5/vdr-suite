@@ -82,6 +82,7 @@
           addTiming('responseBody', entry.responseEnd - entry.responseStart);
         if (Array.isArray(entry.serverTiming)) entry.serverTiming.forEach(function (phase) {
           if (phase.name === 'artwork-read') addTiming('serverArtworkRead', Number(phase.duration));
+          if (phase.name === 'artwork-queue') addTiming('serverArtworkQueue', Number(phase.duration));
           if (phase.name === 'artwork-preview') addTiming('serverArtworkPreview', Number(phase.duration));
         });
       }

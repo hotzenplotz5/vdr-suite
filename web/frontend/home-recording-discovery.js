@@ -995,6 +995,15 @@
         image.loading = 'eager';
         remaining--;
       }
+      // A cold Home may have many visible posters waiting for their first
+      // bytes. Do not issue *extra* speculative eager loads while any of
+      // those real viewport requests is unresolved: the listener prepares
+      // authorized image sources serially before its image writer pool.
+      // Never defer actual visibility/IO demand, and keep the normal
+      // near-rail warmup once the visible images have settled.
+      if (Array.from(visible).some(function (image) {
+        return image.complete === false || Boolean(image.__vdrSuiteDeferredArtworkUrl);
+      })) return;
       // Demand is always allowed. Speculation stays bounded and respects
       // the existing Home policy for constrained connections.
       const net = global.navigator && global.navigator.connection;
