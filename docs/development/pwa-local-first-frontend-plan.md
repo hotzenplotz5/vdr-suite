@@ -1355,3 +1355,10 @@ The first CI frontend run exposed a fake Series test DOM with an
 cannot make viewport decisions; the helper now explicitly falls back to
 native image loading when `getBoundingClientRect` is unavailable. The
 observer contract test checks this fallback as well.
+
+
+The Phase-66 architecture guards remain in force for Recording discovery:
+no viewport observer may defer Home Recording API/data rails. Both the Node
+contract and Python architecture guard now scope that check outside the
+explicit image-only `deferHomeArtworkImage()` helper, so artwork request
+scheduling does not weaken the immediate Recording projection contract.

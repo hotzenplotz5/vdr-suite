@@ -72,7 +72,17 @@ for name, source in (
             name + " must subscribe to canonical Home resume lifecycle")
 require("retainVisible: true", frontend,
         "Recording Discovery Home revalidation must retain visible UI")
-if "new global.IntersectionObserver" in frontend or "rootMargin: '320px 0px'" in frontend:
+# Viewport gating remains forbidden for the Recording API/rail owners. Only
+# the dedicated image loader may observe whether an offscreen poster needs
+# its URL assigned; it must not delay the ordinary Recording projection.
+image_observer_start = frontend.find("  let deferredArtworkObserver = null;")
+image_observer_end = frontend.find("\n  function createPosterArtwork(", image_observer_start)
+if image_observer_start < 0 or image_observer_end <= image_observer_start:
+    raise AssertionError("Home artwork intersection observer must stay in its scoped helper")
+without_image_observer = (frontend[:image_observer_start]
+                          + frontend[image_observer_end:])
+if ("new global.IntersectionObserver" in without_image_observer
+        or "rootMargin: '320px 0px'" in without_image_observer):
     raise AssertionError("Home Recording rails must not be gated by viewport intersection")
 discovery_script = '<script src="../frontend/home-recording-discovery.js"></script>'
 hero_script = '<script src="../frontend/home-live-hero.js"></script>'

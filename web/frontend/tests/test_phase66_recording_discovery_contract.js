@@ -169,9 +169,16 @@ assert(
   'Series must publish an initial Recording-derived projection without Rich Metadata'
 );
 
-// Home-root discovery is immediate: viewport position must not gate Recording rails.
-assert(!source.includes('new global.IntersectionObserver'));
-assert(!source.includes("rootMargin: '320px 0px'"));
+// Home-root Recording data reads stay immediate. The separate image-only
+// observer may defer offscreen HTTP image requests, never the Recording rails.
+const imageObserverStart = source.indexOf('  let deferredArtworkObserver = null;');
+const imageObserverEnd = source.indexOf('\n  function createPosterArtwork(', imageObserverStart);
+assert(imageObserverStart >= 0 && imageObserverEnd > imageObserverStart,
+  'demand-only artwork observer must remain isolated to the image loader');
+const recordingDiscoveryWithoutArtworkObserver =
+  source.slice(0, imageObserverStart) + source.slice(imageObserverEnd);
+assert(!recordingDiscoveryWithoutArtworkObserver.includes('new global.IntersectionObserver'));
+assert(!recordingDiscoveryWithoutArtworkObserver.includes("rootMargin: '320px 0px'"));
 assert(source.includes('global.setTimeout(function () {'));
 assert(source.includes('refreshForHome();'));
 assert(source.includes('Promise.allSettled(loads)'));
