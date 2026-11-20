@@ -1004,6 +1004,16 @@ async function checkNamedSelectors() {
   assert.strictEqual(form.elements.durationMinMinutes.parentElement.hidden,true);
   assert.strictEqual(form.elements.allowedRepeats.parentElement.hidden,true);
   assert.strictEqual(form.elements.startTime.parentElement.hidden,true);
+  assert.strictEqual(form.elements.dayOfWeek.parentElement.hidden,true,
+    'weekday mask is hidden until weekday filtering is enabled');
+  assert.strictEqual(form.elements.useTime.parentElement.parentElement,
+    form.elements.startTime.parentElement.parentElement,
+    'time toggle and dependent fields share a dedicated group');
+  assert.notStrictEqual(form.elements.useTime.parentElement.parentElement,
+    form.elements.useDuration.parentElement.parentElement,
+    'time and duration filters have separate groups');
+  assert.strictEqual(form.elements.manualUseChannel.parentElement.parentElement.hidden,true,
+    'all channels conceals manual channel filter');
   form.elements.useDuration.checked=true;
   form.elements.useDuration.listeners.change();
   assert.strictEqual(form.elements.durationMinMinutes.parentElement.hidden,false);
@@ -1013,6 +1023,19 @@ async function checkNamedSelectors() {
   form.elements.useTime.checked=true;
   form.elements.useTime.listeners.change();
   assert.strictEqual(form.elements.startTime.parentElement.hidden,false);
+  assert.strictEqual(form.elements.stopTime.parentElement.hidden,false);
+  form.elements.startTime.value='2200';
+  form.elements.useTime.checked=false;
+  form.elements.useTime.listeners.change();
+  assert.strictEqual(form.elements.startTime.parentElement.hidden,true);
+  assert.strictEqual(form.elements.startTime.value,'2200',
+    'hidden time values are retained when toggling the control');
+  form.elements.useDayOfWeek.checked=true;
+  form.elements.useDayOfWeek.listeners.change();
+  assert.strictEqual(form.elements.dayOfWeek.parentElement.hidden,false);
+  form.elements.useDayOfWeek.checked=false;
+  form.elements.useDayOfWeek.listeners.change();
+  assert.strictEqual(form.elements.dayOfWeek.parentElement.hidden,true);
   form.elements.useDuration.checked=false;
   form.elements.useDuration.listeners.change();
   assert.strictEqual(form.elements.durationMinMinutes.parentElement.hidden,true,
@@ -1020,6 +1043,10 @@ async function checkNamedSelectors() {
   assert(source.includes('.searchtimer-module [hidden]{display:none!important}'));
   form.elements.channelFilterMode.value='1';
   form.elements.channelFilterMode.listeners.change();
+  assert.strictEqual(form.elements.manualUseChannel.parentElement.parentElement.hidden,false,
+    'manual fallback stays accessible for a channel range');
+  assert.strictEqual(form.elements.channelFilterGroup.parentElement.hidden,true,
+    'channel group filtering is hidden when choosing a channel range');
   assert(form.elements.channelId.children.some(o=>o.textContent==='1 · Das Erste HD'));
   assert(form.elements.channelEndId.children.some(o=>o.textContent==='2 · ZDF HD'));
   assert.strictEqual(form.elements.channelId.disabled,false,'sender selection works without a group prerequisite');
@@ -1032,11 +1059,27 @@ async function checkNamedSelectors() {
   assert.strictEqual(payload.channelMin,'ARD');
   assert.strictEqual(payload.channelMax,'ZDF');
   assert.strictEqual(payload.useChannel,1);
+  form.elements.channelFilterMode.value='2';
+  form.elements.channelFilterMode.listeners.change();
+  assert.strictEqual(form.elements.channelId.parentElement.parentElement.hidden,true);
+  assert.strictEqual(form.elements.channelFilterGroup.parentElement.hidden,false);
+  form.elements.channelFilterMode.value='3';
+  form.elements.channelFilterMode.listeners.change();
+  assert.strictEqual(form.elements.channelFilterGroup.parentElement.hidden,true);
+  assert.strictEqual(form.elements.manualUseChannel.parentElement.parentElement.hidden,true);
+  form.elements.channelFilterMode.value='0';
+  form.elements.channelFilterMode.listeners.change();
+  assert.strictEqual(form.elements.channelId.parentElement.parentElement.hidden,true);
+  assert.strictEqual(form.elements.manualUseChannel.parentElement.parentElement.hidden,true);
+  assert.strictEqual(mod.buildCreatePayload(form).useChannel,0,
+    'hidden selectors do not leak a stale active channel filter');
 
   // A template may be selected before the deferred catalogue population.
   mod.renderList({items:[{backendId:'living-room',searchTimerId:'st_'+'a'.repeat(32),
     query:'Vorlage',state:'inactive',settings:{recordingOptions:{directory:'Archiv'},
-      filterOptions:{useChannelMode:1},channelOptions:{channelMinId:'ARD',channelMaxId:'ZDF'}}}]});
+      filterOptions:{useChannelMode:1,useDuration:true,useTime:true,
+        startTime:2045,useDayOfWeek:true,dayOfWeek:31},
+      channelOptions:{channelMinId:'ARD',channelMaxId:'ZDF'}}}]});
   const copied=findForm(mount);
   copied.closest=()=>copied.parentElement.parentElement;
   copied.scrollIntoView=()=>{};
@@ -1058,6 +1101,14 @@ async function checkNamedSelectors() {
   assert.strictEqual(copiedPayload.useChannel,1);
   assert.strictEqual(copiedPayload.channelMin,'ARD');
   assert.strictEqual(copiedPayload.channelMax,'ZDF');
+  assert.strictEqual(copied.elements.durationMinMinutes.parentElement.hidden,false,
+    'template populating reopens active duration options');
+  assert.strictEqual(copied.elements.startTime.parentElement.hidden,false,
+    'template populating reopens active time options');
+  assert.strictEqual(copied.elements.dayOfWeek.parentElement.hidden,false,
+    'template populating reopens active weekday options');
+  assert.strictEqual(copiedPayload.useTime,true);
+  assert.strictEqual(copiedPayload.startTime,2045);
   assert(copied.elements.channelId.children.some(o=>o.textContent==='1 · Das Erste HD'));
 }
 checkEditorFullWrites().then(checkPublicMutations).then(checkNamedSelectors).then(function() {

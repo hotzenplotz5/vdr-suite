@@ -666,6 +666,8 @@
     groupField.hidden = true;
     channelGroupField.hidden = true;
     channelField.hidden = true;
+    expert.hidden = numberValue(modeSelect.value, 0) === 0 ||
+      numberValue(modeSelect.value, 0) === 3;
 
     fetchChannels(source.backendId).then(channels => {
       const selectorGroups = channelGroups(channels, true);
@@ -698,6 +700,8 @@
         groupField.hidden = mode !== 1 || selectorGroups.length === 0;
         channelField.hidden = mode !== 1;
         channelGroupField.hidden = mode !== 2;
+        expert.hidden = mode === 0 || mode === 3;
+        if (expert.hidden) expert.open = false;
 
         if (mode === 1) {
           if (selectorGroups.length === 0) {
@@ -739,8 +743,10 @@
       }
     }).catch(error => {
       modeSelect.disabled = false;
+      groupField.hidden = true;
       channelField.hidden = modeSelect.value !== '1';
       channelGroupField.hidden = modeSelect.value !== '2';
+      expert.hidden = false;
       expert.open = true;
       status.textContent = 'Kanalliste konnte nicht geladen werden. Bitte Expertenoption verwenden: ' +
         String(error && error.message ? error.message : error);
@@ -1166,6 +1172,19 @@
       input('durationMaxMinutes', source.durationMaxMinutes, 'number'));
     [durationMin, durationHelp, durationMax].forEach(element => durationGroup.appendChild(element));
     const refreshDuration = revealWhenChecked(durationToggle, [durationMin, durationHelp, durationMax]);
+
+    const timeGroup = document.createElement('fieldset');
+    timeGroup.className = 'searchtimer-option-group searchtimer-form-grid';
+    timeGroup.appendChild(addText(document.createElement('legend'), 'Uhrzeitfilter'));
+    advancedGrid.appendChild(timeGroup);
+    const timeToggle = check('useTime', 'Aktivieren', source.useTime);
+    timeGroup.appendChild(timeToggle);
+    const startTimeField = field('Beginn (HHMM)', input('startTime', source.startTime, 'number'));
+    const stopTimeField = field('Ende (HHMM)', input('stopTime', source.stopTime, 'number'));
+    timeGroup.appendChild(startTimeField);
+    timeGroup.appendChild(stopTimeField);
+    const refreshTime = revealWhenChecked(timeToggle, [startTimeField, stopTimeField]);
+
     const repeatGroup = document.createElement('fieldset');
     repeatGroup.className = 'searchtimer-option-group searchtimer-form-grid';
     repeatGroup.appendChild(addText(document.createElement('legend'), 'Wiederholungen'));
@@ -1208,9 +1227,6 @@
     extraGrid.className = 'searchtimer-form-grid';
     extraGrid.style.padding = '.65rem';
     const extras = [
-      ['useTime','Uhrzeitfilter','bool'],
-      ['startTime','Beginn HHMM','number'],
-      ['stopTime','Ende HHMM','number'],
       ['useDayOfWeek','Wochentage filtern','bool'],
       ['dayOfWeek','Wochentagsmaske','number'],
       ['useSeriesRecording','Serienaufnahme','bool'],
@@ -1231,22 +1247,23 @@
       ['deleteAfterCountRecordings','Aufnahmen löschen ab Anzahl','number'],
       ['deleteAfterDaysOfFirstRecording','Aufnahmen löschen nach erster Aufnahme','number']
     ];
-    const timeFields = [];
-    let timeToggle = null;
+    let weekdayToggle = null;
+    let weekdayField = null;
     extras.forEach(([name, title, type]) => {
       if (editing && ['compareCategories', 'compareTime', 'pauseOnRecordings'].includes(name)) return;
       const row = type === 'bool'
-        ? check(name, name === 'useTime' ? 'Aktivieren' : title, source[name])
+        ? check(name, title, source[name])
         : field(title, input(name, source[name], type));
       extraGrid.appendChild(row);
-      if (name === 'useTime') timeToggle = row;
-      if (name === 'startTime' || name === 'stopTime') timeFields.push(row);
+      if (name === 'useDayOfWeek') weekdayToggle = row;
+      if (name === 'dayOfWeek') weekdayField = row;
     });
-    const refreshTime = revealWhenChecked(timeToggle, timeFields);
+    const refreshWeekdays = revealWhenChecked(weekdayToggle, [weekdayField]);
     form.refreshSearchTimerConditionalFields = () => {
       refreshDuration();
-      refreshRepeats();
       refreshTime();
+      refreshRepeats();
+      refreshWeekdays();
     };
     if (editing) {
       extraGrid.appendChild(field('Pausieren ab Anzahl Aufnahmen (leer = unverändert)', input('pauseOnRecordingsCount', '', 'number')));
