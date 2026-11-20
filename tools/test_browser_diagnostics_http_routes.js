@@ -35,7 +35,11 @@ for (const name of names) {
   assert.equal(entry.addon, 'nullptr', 'diagnostics must not be bundled into ordinary assets');
   assert.ok(install.includes('web/frontend/' + name) || name === 'browser-performance-home.html' && install.includes('build_browser_performance_diagnostics.js'));
 }
-assert.ok(routes.includes('return isIndexPath(path) || findFrontendAsset(path) != nullptr;'));
+assert.ok(routes.includes('const std::string resource = frontendAssetRequestPath(path);'));
+assert.ok(routes.includes('return isIndexPath(resource) || findFrontendAsset(resource) != nullptr;'));
+assert.ok(routes.includes('const auto query = requestTarget.find(\'?\');'));
+assert.ok(assets.includes('versionSearchTimerBootstrapScript(content);'));
+assert.ok(assets.includes('html.insert(position + marker.size() - 1U, "?v=" + version);'));
 assert.ok(routes.includes('return makeFrontendAssetResponse('));
 assert.ok(server.includes('request.method == "GET" &&'));
 assert.ok(server.includes('isFrontendPath(request.path)'));
