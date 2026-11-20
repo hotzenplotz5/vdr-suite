@@ -65,8 +65,8 @@ class FakeArtworkIntersectionObserver {
 const deferredWindow = {IntersectionObserver: FakeArtworkIntersectionObserver};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8'), {window:deferredWindow});
 const assignArtwork = deferredWindow.VdrSuiteHomeRecordingDiscovery.deferHomeArtworkImage;
-const deferredFirst = {src:'',loading:'lazy'};
-const deferredSecond = {src:'',loading:'lazy'};
+const deferredFirst = {src:'',loading:'lazy',getBoundingClientRect(){ return {left:0,right:100,top:0,bottom:100}; }};
+const deferredSecond = {src:'',loading:'lazy',getBoundingClientRect(){ return {left:100,right:200,top:0,bottom:100}; }};
 assignArtwork(deferredFirst, '/api/cover-one?variant=home');
 assignArtwork(deferredSecond, '/api/cover-two?variant=home');
 assert.equal(deferred.length, 1, 'one shared IntersectionObserver per Home document');
@@ -82,6 +82,10 @@ assert.equal(observerInstance.targets.has(deferredFirst), false);
 observerInstance.notify(deferredSecond, true);
 assert.equal(deferredSecond.src, '/api/cover-two?variant=home');
 assert.equal(observerInstance.targets.size, 0);
+const withoutGeometry = {src:''};
+assignArtwork(withoutGeometry, '/cover-no-geometry');
+assert.equal(withoutGeometry.src, '/cover-no-geometry',
+  'legacy/render-test image nodes without geometry use the ordinary image path');
 const withoutObserver={};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8'), {window:withoutObserver});
 const fallbackImage={src:''};

@@ -1348,3 +1348,10 @@ that observer instances are shared, and that unsupported browsers fall
 back to ordinary artwork. Real-browser timing still requires new capture;
 this patch does not claim to fix session-bound cache isolation or server
 queueing independently.
+
+
+The first CI frontend run exposed a fake Series test DOM with an
+`IntersectionObserver` but no image geometry method. That environment
+cannot make viewport decisions; the helper now explicitly falls back to
+native image loading when `getBoundingClientRect` is unavailable. The
+observer contract test checks this fallback as well.

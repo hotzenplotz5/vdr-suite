@@ -989,7 +989,8 @@
   let deferredArtworkObserver = null;
   function deferHomeArtworkImage(image, url) {
     if (!image || !url) return image;
-    if (typeof global.IntersectionObserver !== 'function') {
+    if (typeof global.IntersectionObserver !== 'function' ||
+        typeof image.getBoundingClientRect !== 'function') {
       image.src = url;
       return image;
     }
