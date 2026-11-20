@@ -1405,3 +1405,35 @@ Isolated JavaScript regression has passed; full repository/CI
 frontend regression and **real yaVDR browser acceptance** are separate,
 not yet evidenced by that isolated test. The final acceptance is visible
 Ace Ventura artwork without a fresh placeholder when returning to Komödie.
+
+## PWA.15.8 — cold Home visible artwork request priority (2026-11-20)
+
+The controlled Home startup capture at 21:22:55 reports first Home frame
+at 4.17s and the final observed image-load event at 43.47s. The existing
+Service Worker recorded 112 artwork cache misses and only two local hits
+across 118 cumulative worker requests. This is not proof of redundant
+transfers or an authorization/cache defect; first-load source and queue
+latency remain separate from repeat-navigation poster flicker.
+
+The production Recording Discovery owner already defers native `img.src`
+until IntersectionObserver demand, but previously called the existing
+requestAnimationFrame-based priority logic *after* assigning `src`.
+By then an uncached artwork request could already have entered the
+browser queue at normal priority. PWA.15.8 now orders each observer batch
+by actual visible/scroll-clipped distance; the first twelve visible
+images receive high fetch priority and eager loading *before* assigning
+their URLs. Adjacent horizontal and vertical 120px-lookahead images
+remain low-priority native-lazy requests. Further images still follow
+the existing native and rAF behavior without any artificial hold,
+network queue, timeout, polling or new fetch path. Unsupported observers
+retain their existing native image loading path.
+
+This changes only frontend request hints. Canonical preview URLs,
+Service Worker proof/cache semantics, per-account isolation,
+backend ownership, offscreen-demand deferral and existing API projection
+remain unchanged. The production-source test verifies request-time
+priorities (not merely final image attributes), visible-first batch
+ordering, horizontal rail clipping, vertical lookahead, skipped
+nonintersecting images and the original fallback. Faster image paint
+in a real cold browser session is still to be measured; no timing
+reduction is claimed from this static regression.

@@ -1030,6 +1030,23 @@
   // presentation-only: authorization and cache partitioning stay in the
   // existing API and Service Worker. Unsupported observers use native loading.
   let deferredArtworkObserver = null;
+  function deferredArtworkDistance(image) {
+    // IO includes a 120px lookahead. Measure the real clipped viewport
+    // rather than treating near-viewport or horizontally hidden cards as
+    // visible/high-priority requests.
+    if (!image.isConnected) return Infinity;
+    const rail = typeof image.closest === 'function'
+      ? image.closest('.media-home-discovery-rail') : null;
+    const bounds = artworkBounds(rail);
+    const r = image.getBoundingClientRect();
+    if (!Number.isFinite(bounds.right) || !Number.isFinite(bounds.bottom) ||
+        !Number.isFinite(r.left) || !Number.isFinite(r.right) ||
+        !Number.isFinite(r.top) || !Number.isFinite(r.bottom) ||
+        bounds.right <= bounds.left || bounds.bottom <= bounds.top) return Infinity;
+    return Math.max(0, bounds.left - r.right, r.left - bounds.right,
+      bounds.top - r.bottom, r.top - bounds.bottom);
+  }
+
   function deferHomeArtworkImage(image, url) {
     if (!image || !url) return image;
     if (typeof global.IntersectionObserver !== 'function' ||
@@ -1039,12 +1056,29 @@
     }
     if (!deferredArtworkObserver) {
       deferredArtworkObserver = new global.IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) {
-          if (!entry.isIntersecting) return;
-          const target = entry.target;
+        // fetchPriority must be set BEFORE src: rAF promotion after assigning
+        // src cannot reliably reprioritize a cold request already in flight.
+        // Process actual viewport demand before the 120px lookahead, even if
+        // IntersectionObserver reports the adjacent entries first.
+        const demands = entries.filter(function (entry) {
+          return entry.isIntersecting && entry.target &&
+            entry.target.__vdrSuiteDeferredArtworkUrl;
+        }).map(function (entry) {
+          return {image: entry.target, distance: deferredArtworkDistance(entry.target)};
+        }).sort(function (a, b) { return a.distance - b.distance; });
+        let visiblePromotions = 12;
+        demands.forEach(function (demand) {
+          const target = demand.image;
           deferredArtworkObserver.unobserve(target);
           const pending = target.__vdrSuiteDeferredArtworkUrl;
           if (!pending) return;
+          if (demand.distance === 0 && visiblePromotions > 0) {
+            target.fetchPriority = 'high';
+            target.loading = 'eager';
+            visiblePromotions--;
+          } else if (Number.isFinite(demand.distance) && demand.distance > 0) {
+            target.fetchPriority = 'low';
+          }
           target.__vdrSuiteDeferredArtworkUrl = '';
           target.src = pending;
           prioritizeVisibleArtwork(target);

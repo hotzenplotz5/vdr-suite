@@ -97,3 +97,71 @@ for(const sourceFile of sourceFiles){
   assert(code.includes('deferHomeArtworkImage('), sourceFile+' must defer its canonical Home artwork requests');
 }
 console.log('PWA.15 cold Home artwork demand-first contract PASS');
+// PWA.15.8: priority is fixed at the moment src starts the native request.
+// The IO lookahead can report near images before visible ones; clipped
+// images must not compete at high priority with the first visible posters.
+const started = [];
+let demandObserver;
+class DemandObserver {
+  constructor(callback, options) { this.callback = callback; this.options = options; }
+  observe() {}
+  unobserve() {}
+  notify(entries) { this.callback(entries); }
+}
+const priorityWindow = {
+  innerWidth: 800, innerHeight: 600,
+  requestAnimationFrame() {},
+  IntersectionObserver: class extends DemandObserver {
+    constructor(callback, options) {
+      super(callback, options); demandObserver = this;
+    }
+  }
+};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8'),
+  {window: priorityWindow});
+const requestPoster = priorityWindow.VdrSuiteHomeRecordingDiscovery.deferHomeArtworkImage;
+const clippedRail = {
+  getBoundingClientRect() { return {left:100,top:0,right:500,bottom:400}; }
+};
+function pendingPoster(id, left, top, rail) {
+  const node = {
+    isConnected: true, complete: false, loading:'lazy',
+    closest() { return rail || null; },
+    getBoundingClientRect() {
+      return {left,top,right:left+100,bottom:top+150,width:100,height:150};
+    }
+  };
+  let src = '';
+  Object.defineProperty(node, 'src', {
+    get() { return src; },
+    set(value) {
+      src = value;
+      started.push({id,priority:this.fetchPriority,loading:this.loading});
+    }
+  });
+  requestPoster(node, '/art/' + id + '?variant=home');
+  return node;
+}
+const nearFirst = pendingPoster('near', 515, 10, clippedRail);
+const firstVisible = pendingPoster('visible', 150, 10, clippedRail);
+const belowViewport = pendingPoster('below', 180, 625, null);
+const notIntersecting = pendingPoster('offscreen', 1200, 10, clippedRail);
+assert.equal(started.length, 0, 'no speculative artwork network requests before IO demand');
+demandObserver.notify([
+  {target:nearFirst,isIntersecting:true},
+  {target:belowViewport,isIntersecting:true},
+  {target:notIntersecting,isIntersecting:false},
+  {target:firstVisible,isIntersecting:true}
+]);
+assert.deepEqual(started.map(entry => entry.id), ['visible','near','below'],
+  'real viewport request must be initiated before horizontal and vertical lookahead');
+assert.deepEqual(started.map(entry => entry.priority), ['high','low','low'],
+  'clipped and below-viewport artwork must not use high request priority');
+assert.equal(started[0].loading, 'eager',
+  'first visible img must be eager before the browser sees its src');
+assert.equal(started[1].loading, 'lazy', 'lookahead retains normal lazy loading');
+assert.equal(notIntersecting.src, '', 'nonintersecting artwork remains unrequested');
+assert.equal(firstVisible.src, '/art/visible?variant=home');
+assert.equal(demandObserver.options.rootMargin, '120px 0px');
+console.log('PWA.15.8 cold Home request-time artwork priority contract PASS');
+
