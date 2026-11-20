@@ -19,6 +19,7 @@
 #include <thread>
 #include <unistd.h>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -387,6 +388,141 @@ void testStreamingBackpressureSurvivesSocketSendTimeout()
     ::unlink(streamPath.c_str());
 }
 
+
+class DeferredArtworkServer : public IHttpServer {
+public:
+    mutable std::atomic<int> activeConversions{0};
+    mutable std::atomic<int> peakConversions{0};
+
+    HttpServerResponse handleRequest(
+        const HttpServerRequest& request) const override
+    {
+        HttpServerResponse response;
+        if (request.path == "/health") {
+            response.headers["Content-Type"] = "text/plain";
+            response.body = "healthy";
+            return response;
+        }
+        if (request.headers.find("Authorization") == request.headers.end()) {
+            response.statusCode = 401;
+            response.headers["Content-Type"] = "application/json";
+            response.body = "authentication required";
+            return response;
+        }
+        if (request.path == "/artwork/forbidden") {
+            response.statusCode = 403;
+            response.headers["Content-Type"] = "application/json";
+            response.body = "forbidden";
+            return response;
+        }
+        response.headers["Content-Type"] = "image/png";
+        response.headers["X-VDR-Suite-Artwork-Scope"] = "authorized-test-scope";
+        response.body = "original-image";
+        if (request.deferArtworkPreview) {
+            const bool fail = request.path == "/artwork/fail";
+            response.deferredArtworkPreview =
+                [this, fail](HttpServerResponse& image) {
+                    const int active = activeConversions.fetch_add(1) + 1;
+                    int peak = peakConversions.load();
+                    while (active > peak &&
+                           !peakConversions.compare_exchange_weak(peak, active)) {}
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                    activeConversions.fetch_sub(1);
+                    if (fail) throw std::runtime_error("simulated converter failure");
+                    image.body = "converted-image";
+                    image.headers["Content-Type"] = "image/jpeg";
+                    image.headers["Cache-Control"] = "private, no-cache";
+                };
+        }
+        return response;
+    }
+};
+
+void testDeferredArtworkDoesNotStarveOrdinaryRequests()
+{
+    const int port = reserveAvailablePort();
+    std::atomic<bool> stopRequested(false);
+    DeferredArtworkServer server;
+    SimpleHttpListener listener(
+        "127.0.0.1", port, server,
+        [&stopRequested]() { return stopRequested.load(); },
+        []() {}, std::chrono::milliseconds(1000));
+    std::thread listenerThread([&listener]() {
+        assert(listener.runUntilStopped() == 0);
+    });
+
+    std::vector<int> artworkClients;
+    for (int index = 0; index < 6; ++index) {
+        const int fd = connectWithRetry(port);
+        sendAll(fd,
+            "GET /artwork/cover HTTP/1.1\r\n"
+            "Host: 127.0.0.1\r\n"
+            "Authorization: Basic accepted\r\n"
+            "Connection: close\r\n\r\n");
+        artworkClients.push_back(fd);
+    }
+    const auto deadline = std::chrono::steady_clock::now() +
+        std::chrono::seconds(3);
+    while (server.activeConversions.load() == 0 &&
+           std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    assert(server.activeConversions.load() > 0);
+
+    const auto started = std::chrono::steady_clock::now();
+    const int health = connectWithRetry(port);
+    sendAll(health,
+        "GET /health HTTP/1.1\r\nHost: 127.0.0.1\r\n"
+        "Connection: close\r\n\r\n");
+    const auto healthy = receiveAll(health);
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - started).count();
+    close(health);
+    assert(healthy.find("HTTP/1.1 200 OK") == 0);
+    assert(healthy.find("healthy") != std::string::npos);
+    // Six slow conversions would take >=3s if performed on the listener.
+    assert(elapsed < 900);
+    std::cout << "DEFERRED_ARTWORK_HEALTH_MS=" << elapsed << std::endl;
+
+    for (const int fd : artworkClients) {
+        const auto image = receiveAll(fd);
+        assert(image.find("HTTP/1.1 200 OK") == 0);
+        assert(image.find("Content-Type: image/jpeg") != std::string::npos);
+        assert(image.find("\r\n\r\nconverted-image") != std::string::npos);
+        close(fd);
+    }
+    assert(server.peakConversions.load() >= 2);
+    assert(server.peakConversions.load() <= 4);
+
+    const int forbidden = connectWithRetry(port);
+    sendAll(forbidden,
+        "GET /artwork/forbidden HTTP/1.1\r\n"
+        "Host: 127.0.0.1\r\n"
+        "Authorization: Basic accepted\r\n\r\n");
+    assert(receiveAll(forbidden).find("HTTP/1.1 403 Forbidden") == 0);
+    close(forbidden);
+    const int unauthorized = connectWithRetry(port);
+    sendAll(unauthorized,
+        "GET /artwork/cover HTTP/1.1\r\n"
+        "Host: 127.0.0.1\r\n\r\n");
+    assert(receiveAll(unauthorized).find("HTTP/1.1 401 Unauthorized") == 0);
+    close(unauthorized);
+
+    const int failed = connectWithRetry(port);
+    sendAll(failed,
+        "GET /artwork/fail HTTP/1.1\r\n"
+        "Host: 127.0.0.1\r\n"
+        "Authorization: Basic accepted\r\n\r\n");
+    const auto fallback = receiveAll(failed);
+    close(failed);
+    assert(fallback.find("HTTP/1.1 200 OK") == 0);
+    assert(fallback.find("\r\n\r\noriginal-image") != std::string::npos);
+    assert(fallback.find("Cache-Control: no-store") != std::string::npos);
+    assert(fallback.find("X-VDR-Suite-Artwork-Scope") == std::string::npos);
+
+    stopRequested.store(true);
+    listenerThread.join();
+}
+
 } // namespace
 
 int main()
@@ -395,5 +531,6 @@ int main()
     testPartialRequestTimeout();
     testSlowTickIsDiagnosedWithoutChangingHttpResponses();
     testStreamingBackpressureSurvivesSocketSendTimeout();
+    testDeferredArtworkDoesNotStarveOrdinaryRequests();
     return 0;
 }
