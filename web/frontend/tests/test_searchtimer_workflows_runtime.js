@@ -996,6 +996,28 @@ async function checkNamedSelectors() {
   for(let i=0;i<8;i++) await Promise.resolve();
   const form=findForm(mount);
   assert.deepStrictEqual(form.elements.directory.children.map(o=>o.value),['','Filme']);
+  assert.strictEqual(form.elements.channelId.children.length,3,
+    'initially populate von Sender as well as bis Sender');
+  assert.strictEqual(form.elements.channelEndId.children.length,3);
+  assert.strictEqual(form.elements.channelId.parentElement.parentElement.hidden,true,
+    'all channels hides channel range');
+  assert.strictEqual(form.elements.durationMinMinutes.parentElement.hidden,true);
+  assert.strictEqual(form.elements.allowedRepeats.parentElement.hidden,true);
+  assert.strictEqual(form.elements.startTime.parentElement.hidden,true);
+  form.elements.useDuration.checked=true;
+  form.elements.useDuration.listeners.change();
+  assert.strictEqual(form.elements.durationMinMinutes.parentElement.hidden,false);
+  form.elements.avoidRepeats.checked=true;
+  form.elements.avoidRepeats.listeners.change();
+  assert.strictEqual(form.elements.allowedRepeats.parentElement.hidden,false);
+  form.elements.useTime.checked=true;
+  form.elements.useTime.listeners.change();
+  assert.strictEqual(form.elements.startTime.parentElement.hidden,false);
+  form.elements.useDuration.checked=false;
+  form.elements.useDuration.listeners.change();
+  assert.strictEqual(form.elements.durationMinMinutes.parentElement.hidden,true,
+    'toggle hides fields without erasing values');
+  assert(source.includes('.searchtimer-module [hidden]{display:none!important}'));
   form.elements.channelFilterMode.value='1';
   form.elements.channelFilterMode.listeners.change();
   assert(form.elements.channelId.children.some(o=>o.textContent==='1 · Das Erste HD'));
