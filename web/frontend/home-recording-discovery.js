@@ -854,6 +854,45 @@
     return section;
   }
 
+  // PWA.15.7: retain only *loaded* card/image DOM from the rotating Home
+  // genre rail. Reusing the exact img node avoids a new src assignment and
+  // placeholder flash when a previously visited genre returns.
+  const randomGenreCardReuse = new Map();
+  const RANDOM_GENRE_REUSE_LIMIT = 48;
+  let randomGenreReuseBackend = '';
+
+  function clearRandomGenreCardReuse() {
+    randomGenreCardReuse.clear();
+    randomGenreReuseBackend = '';
+  }
+
+  function rememberRandomGenreCards(section, backendId) {
+    const backend = text(backendId) || selectedBackendId();
+    if (randomGenreReuseBackend !== backend) {
+      randomGenreCardReuse.clear();
+      randomGenreReuseBackend = backend;
+    }
+    const rail = directChildWithClass(section, 'media-home-discovery-rail');
+    if (!rail) return;
+    Array.from(rail.children || []).forEach(function (card) {
+      const id = text(card && card.dataset && card.dataset.recordingId);
+      const scoped = text(card && card.dataset && card.dataset.backendId);
+      if (!id || scoped !== backend) return;
+      const artwork = directChildWithClass(card, 'media-home-discovery-artwork');
+      const image = artwork && Array.from(artwork.children || []).find(function (child) {
+        return child && child.tagName === 'IMG';
+      });
+      // Failed or still-pending images may be retried by the normal renderer.
+      if (!image || image.complete !== true || image.naturalWidth <= 0) return;
+      const identity = scoped + '\u001f' + id;
+      randomGenreCardReuse.delete(identity);
+      randomGenreCardReuse.set(identity, card);
+      if (randomGenreCardReuse.size > RANDOM_GENRE_REUSE_LIMIT) {
+        randomGenreCardReuse.delete(randomGenreCardReuse.keys().next().value);
+      }
+    });
+  }
+
   function clearRail(key) {
     const target = host();
     const section = target && target.querySelector
@@ -876,6 +915,10 @@
   function renderState(key, title, message, error) {
     const section = sectionFor(key);
     if (!section) return false;
+    if (key === 'random-genre') {
+      if (error) clearRandomGenreCardReuse();
+      else rememberRandomGenreCards(section, selectedBackendId());
+    }
     section.replaceChildren();
     const heading = doc.createElement('div');
     heading.className = 'media-home-section-heading';
@@ -1296,6 +1339,9 @@
     const rich = config.richMetadataByNativeId instanceof Map
       ? config.richMetadataByNativeId
       : null;
+    if (key === 'random-genre') {
+      rememberRandomGenreCards(section, backendId);
+    }
     const rail = ensureDiscoveryRail(
       section,
       title,
@@ -1312,6 +1358,11 @@
       const scopedBackend = text(card && card.dataset && card.dataset.backendId);
       if (id) existing.set(scopedBackend + '\u001f' + id, card);
     });
+    if (key === 'random-genre') {
+      randomGenreCardReuse.forEach(function (card, identity) {
+        if (!existing.has(identity)) existing.set(identity, card);
+      });
+    }
 
     const cards = recordings.map(function (recording) {
       const nativeId = recordingBackendNativeId(recording);
@@ -5700,6 +5751,7 @@
       state.folderBackendId = '';
       state.randomGenreGeneration = -1;
       state.randomGenreId = '';
+      clearRandomGenreCardReuse();
       state.randomFolderGeneration = -1;
       state.randomFolderPath = '';
     }
@@ -5767,6 +5819,7 @@
         );
         if (requestedModule && requestedModule !== 'overview') {
           stopRecordingChanges();
+          clearRandomGenreCardReuse();
           invalidateSeriesForHomeExit(state.generation);
           return;
         }
