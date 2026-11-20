@@ -31,27 +31,72 @@
   // acknowledgment before opening the measured Home document; never delete
   // browser HTTP cache, other origins, recordings or unrelated Cache Storage.
   function clearPwaArtwork() {
-    const worker = root.navigator && root.navigator.serviceWorker &&
-      root.navigator.serviceWorker.controller;
-    if (!worker || typeof root.MessageChannel !== 'function') return Promise.resolve('unavailable');
+    const service = root.navigator && root.navigator.serviceWorker;
+    if (!service || typeof root.MessageChannel !== 'function') return Promise.resolve('unavailable');
     return new Promise(function (resolve) {
       const channel = new root.MessageChannel();
-      let finished = false;
-      let timer;
+      let finished = false, cancelActivationWatch = null;
       function finish(status) {
         if (finished) return;
         finished = true;
+        if (cancelActivationWatch) cancelActivationWatch();
         root.clearTimeout(timer);
         channel.port1.close();
         resolve(status);
+      }
+      function send(worker) {
+        if (finished) return;
+        if (!worker) { finish('unavailable'); return; }
+        try { worker.postMessage({type:'vdr-suite-artwork-clear'}, [channel.port2]); }
+        catch (_) { finish('failed'); }
+      }
+      function useRegistration(registration) {
+        if (finished) return;
+        // skipWaiting does not claim already-open tabs. Their controller can
+        // be the old worker, which clears the cache but has no ACK protocol.
+        // Prefer the current registration's active worker after any update.
+        const next = registration && (registration.installing || registration.waiting);
+        if (next && next !== registration.active &&
+            next.state !== 'activated' && next.state !== 'redundant' &&
+            typeof next.addEventListener === 'function') {
+          const changed = function () {
+            if (next.state !== 'activated' && next.state !== 'redundant') return;
+            if (cancelActivationWatch) cancelActivationWatch();
+            send(registration.active || service.controller);
+          };
+          next.addEventListener('statechange', changed);
+          cancelActivationWatch = function () {
+            next.removeEventListener('statechange', changed);
+            cancelActivationWatch = null;
+          };
+          changed();
+          return;
+        }
+        send(registration && registration.active || service.controller);
       }
       channel.port1.onmessage = function (event) {
         const value = event.data;
         finish(value && value.schema === 1 && value.cleared === true ? 'cleared' : 'failed');
       };
-      timer = root.setTimeout(function () { finish('timeout'); }, 3000);
-      try { worker.postMessage({type:'vdr-suite-artwork-clear'}, [channel.port2]); }
-      catch (_) { finish('failed'); }
+      // Image writes may still be draining. This is a diagnostic timeout,
+      // not a deadline or cancellation of the Service Worker clear itself.
+      const timer = root.setTimeout(function () { finish('timeout'); }, 15000);
+      if (typeof service.getRegistration !== 'function') {
+        send(service.controller);
+        return;
+      }
+      Promise.resolve().then(function () {
+        return service.getRegistration(root.location.href);
+      }).then(function (registration) {
+        if (!registration || typeof registration.update !== 'function') return registration;
+        return Promise.resolve(registration.update()).then(function () {
+          return registration;
+        }, function () {
+          return registration;
+        });
+      }).then(useRegistration).catch(function () {
+        send(service.controller);
+      });
     });
   }
 

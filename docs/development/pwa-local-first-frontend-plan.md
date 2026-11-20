@@ -1468,3 +1468,30 @@ message/ack sequence, no-clear reload, export labels, unsupported worker
 fallback, and the worker's explicit successful/failed deletion responses.
 A fully cold HTTP cache requires separate browser-level controls and
 remains outside this diagnostic.
+
+
+### Browser diagnostics: stale controlling worker and missing clear acknowledgment (2026-11-20)
+
+The 21:57 real-browser export recorded `cachePreparation.pwaArtwork=timeout`,
+155 worker cache misses, one local hit, and a 0.40s Home frame. The counter
+pattern is consistent with an empty artwork cache but does **not** prove
+that the clear was acknowledged or that browser HTTP cache was empty.
+
+The diagnostic previously posted the clear to
+`navigator.serviceWorker.controller`. With the established
+`skipWaiting`/no-`clients.claim` lifecycle, an already-open diagnostic
+page may still be controlled by the previous worker after the new worker
+has activated. That previous worker understands the artwork-clear message
+but lacks the new optional message-port acknowledgment. This is a plausible,
+not independently proven, explanation for the observed three-second timeout.
+
+The diagnostic now resolves its existing registration (updating it if
+supported), prefers `registration.active` over an old controlling worker,
+and waits for an in-progress installing/waiting release to activate before
+sending the same clear. The bounded diagnostic acknowledgment timeout is
+15 seconds instead of three, allowing prior serialized image writes to
+drain; a timeout still explicitly reports `timeout`, never `cleared`.
+Normal reloads, live VDR, Cache Storage ownership, browser HTTP cache and
+session/grant boundaries are unchanged. The production-controller regression
+covers an old controlling worker with a newer active worker, update calls,
+activation-in-progress, no premature Home navigation and confirmed export.

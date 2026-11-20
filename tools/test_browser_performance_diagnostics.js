@@ -209,6 +209,81 @@ async function main() {
         value:{label:'initial-home',metrics:{}}}});
     assert.ok(elements.history.textContent.includes('"pwaArtwork": "timeout"'));
 
+    // Real SW lifecycle: this open diagnostic tab may still be controlled by
+    // the previous worker (no clients.claim), even after the updated worker
+    // has activated. Send the clear to registration.active, not controller.
+    root.setTimeout = setTimeout;
+    root.clearTimeout = clearTimeout;
+    root.location.href = 'https://example.test/vdr-suite/frontend/browser-performance-diagnostics.html';
+    const previousWorker = {postMessage() {throw Error('old controller should not be used');}};
+    const registeredMessages = [];
+    const updatedWorker = {postMessage(data, ports) {
+      registeredMessages.push({data, port:ports[0]});
+    }};
+    let lookups = 0, updates = 0;
+    const registration = {active:updatedWorker,update() {
+      updates += 1;
+      return Promise.resolve(this);
+    }};
+    root.navigator = {serviceWorker:{controller:previousWorker,
+      getRegistration(url) {
+        lookups += 1;
+        assert.equal(url, root.location.href);
+        return Promise.resolve(registration);
+      }}};
+    // The previous capture already finished; trigger an unrelated new
+    // diagnostic preparation without a second page or manual cache clear.
+    handlers['root:message']({source:childWindow, origin:'https://example.test',
+      data:{channel:'vdr-suite-browser-diagnostics',token:timeoutToken,
+        type:'started',value:'initial-home'}});
+    const beforeActive = navigations;
+    handlers['clean:click']();
+    assert.equal(elements.home.src,'about:blank');
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(lookups,1);
+    assert.equal(updates,1);
+    assert.equal(registeredMessages.length,1);
+    assert.equal(registeredMessages[0].data.type,'vdr-suite-artwork-clear');
+    assert.equal(navigations,beforeActive+1,
+      'Home must not start while current worker clears artwork');
+    registeredMessages[0].port.send({schema:1,cleared:true});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(navigations,beforeActive+2);
+    const activeToken = elements.home.attributes['data-vdr-suite-diagnostics'];
+    handlers['root:message']({source:childWindow, origin:'https://example.test',
+      data:{channel:'vdr-suite-browser-diagnostics',token:activeToken,
+        type:'result',value:{label:'initial-home',metrics:{}}}});
+    assert.ok(elements.history.textContent.includes('"pwaArtwork": "cleared"'));
+
+    // If a new release is still installing, avoid sending to the outdated
+    // active worker until the activation event arrives.
+    let activationListener, activationRemovals = 0;
+    const installing = {state:'installing',
+      addEventListener(type,fn) {
+        assert.equal(type,'statechange'); activationListener=fn;
+      },
+      removeEventListener(type,fn) {
+        assert.equal(type,'statechange'); assert.equal(fn,activationListener);
+        activationRemovals++;
+      }};
+    const queuedRegistration = {active:previousWorker, installing,
+      update() {return Promise.resolve(this);}};
+    root.navigator.serviceWorker.getRegistration = () => Promise.resolve(queuedRegistration);
+    const beforeActivation = navigations;
+    handlers['clean:click']();
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(navigations,beforeActivation+1);
+    assert.equal(registeredMessages.length,1,
+      'do not message the old active worker while the new one installs');
+    queuedRegistration.active = updatedWorker;
+    installing.state='activated';
+    activationListener();
+    assert.equal(registeredMessages.length,2);
+    registeredMessages[1].port.send({schema:1,cleared:true});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(navigations,beforeActivation+2);
+    assert.equal(activationRemovals,1);
+
     let now = 0;
     const observers = [];
     class Observer {
