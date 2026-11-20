@@ -62,6 +62,29 @@
       row.sizeDistribution[labels[index < 0 ? labels.length - 1 : index]]++;
       if (name && row.__seen.has(name)) row.repeatedRequests++;
       else if (name) row.__seen.add(name);
+      // PWA.15.1: aggregate only artwork timing; never export URLs or identities.
+      if (map === artworkRows) {
+        row.timingMs = row.timingMs || {};
+        function addTiming(name, duration) {
+          if (!Number.isFinite(duration) || duration < 0) return;
+          const stat = row.timingMs[name] || {samples:0,total:0,max:0};
+          stat.samples++;
+          stat.total = Math.round((stat.total + duration) * 10) / 10;
+          stat.max = Math.round(Math.max(stat.max, duration) * 10) / 10;
+          row.timingMs[name] = stat;
+        }
+        addTiming('resourceDuration', entry.duration);
+        if (Number.isFinite(entry.requestStart) && entry.requestStart > 0 &&
+            Number.isFinite(entry.responseStart) && entry.responseStart >= entry.requestStart)
+          addTiming('requestToFirstByte', entry.responseStart - entry.requestStart);
+        if (Number.isFinite(entry.responseStart) && entry.responseStart > 0 &&
+            Number.isFinite(entry.responseEnd) && entry.responseEnd >= entry.responseStart)
+          addTiming('responseBody', entry.responseEnd - entry.responseStart);
+        if (Array.isArray(entry.serverTiming)) entry.serverTiming.forEach(function (phase) {
+          if (phase.name === 'artwork-read') addTiming('serverArtworkRead', Number(phase.duration));
+          if (phase.name === 'artwork-preview') addTiming('serverArtworkPreview', Number(phase.duration));
+        });
+      }
     }
     function exportedRows(map) {
       return Array.from(map.values()).map(function (row) {
@@ -228,6 +251,24 @@
     function railScroll() {
       return Array.from(doc.querySelectorAll('.media-home-discovery-rail')).map(function (rail) { return rail.scrollLeft; });
     }
+    function visibleArtwork(image) {
+      if (!image || typeof image.getBoundingClientRect !== 'function') return false;
+      let url;
+      try { url = new URL(image.currentSrc || image.src || '', win.location.href); }
+      catch (_) { return false; }
+      if (url.origin !== win.location.origin) return false;
+      const path = url.pathname.startsWith('/vdr-suite/') ? url.pathname.slice('/vdr-suite'.length) : url.pathname;
+      if (!(path.startsWith('/api/vdr/recordings/metadata/image') ||
+            path.startsWith('/api/recordings/metadata/image') ||
+            path.startsWith('/api/epg/cache/metadata/image') ||
+            path.startsWith('/api/epg/cache/artwork') ||
+            path.startsWith('/recording-artwork/') ||
+            (path.startsWith('/api/backends/') && path.endsWith('/settings/series-artwork/image'))))
+        return false;
+      const rect = image.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0 &&
+        rect.left < win.innerWidth && rect.top < win.innerHeight;
+    }
     function start(label, options) {
       if (active) throw new Error('Finish the current capture first');
       const buffered = Boolean(options && options.buffered);
@@ -251,7 +292,13 @@
       observe(function (list) { resources.push.apply(resources, list.getEntries()); }, 'resource', { type: 'resource', buffered: buffered });
       observe(function (list) { tasks.push.apply(tasks, list.getEntries()); }, 'longtask', { type: 'longtask', buffered: buffered });
       observe(function (records) { mutations += records.length; }, 'mutation', { childList: true, attributes: true, characterData: true, subtree: true });
-      active = { label: String(label || 'capture'), begin: begin, buffered: buffered, supported: supported, observers: observers, resources: resources, tasks: tasks, getMutations: function () { return mutations; }, addMutations: function (count) { mutations += count; }, initialScroll: railScroll() };
+      const imageLoadTimes = [];
+      function imageLoaded(event) {
+        if (visibleArtwork(event.target))
+          imageLoadTimes.push(Math.round((perf.now() - begin) * 10) / 10);
+      }
+      if (typeof doc.addEventListener === 'function') doc.addEventListener('load', imageLoaded, true);
+      active = { label: String(label || 'capture'), begin: begin, buffered: buffered, supported: supported, observers: observers, resources: resources, tasks: tasks, imageLoaded: imageLoaded, imageLoadTimes: imageLoadTimes, getMutations: function () { return mutations; }, addMutations: function (count) { mutations += count; }, initialScroll: railScroll() };
       return 'Capture started';
     }
     function stop() {
@@ -267,7 +314,10 @@
           else if (entry.type === 'longtask') session.tasks.push.apply(session.tasks, pending.filter(function (item) { return item.entryType === 'longtask'; }));
         } finally { observer.disconnect(); }
       });
+      if (typeof doc.removeEventListener === 'function') doc.removeEventListener('load', session.imageLoaded, true);
       const current = images();
+      const visible = Array.from(doc.querySelectorAll('img')).filter(visibleArtwork);
+      const loaded = visible.filter(function (image) { return image.complete && image.naturalWidth > 0; });
       const report = {
         label: session.label,
         elapsedMs: Math.round((perf.now() - session.begin) * 10) / 10,
@@ -276,6 +326,15 @@
         metrics: summarize(session.resources, current, session.getMutations(), session.tasks, win.location.href),
         completeImages: current.filter(function (image) { return image.complete && image.width > 0; }).length,
         lazyImages: current.filter(function (image) { return image.loading === 'lazy'; }).length,
+        visibleArtwork: {
+          visibleAtStop: visible.length,
+          loadedAtStop: loaded.length,
+          pendingAtStop: visible.length - loaded.length,
+          observedLoadEvents: session.imageLoadTimes.length,
+          firstLoadEventMs: session.imageLoadTimes.length ? Math.min.apply(null, session.imageLoadTimes) : null,
+          lastLoadEventMs: session.imageLoadTimes.length ? Math.max.apply(null, session.imageLoadTimes) : null,
+          basis: 'Since capture start; load is not decoded-image paint. Viewport heuristic can include scroll-clipped cards. Missing load event does not imply a cache miss.'
+        },
         ...(session.buffered ? {startupTiming: startupTiming(perf, session.resources, win.location.href)} : {}),
         railScrollBefore: session.initialScroll,
         railScrollAfter: railScroll()

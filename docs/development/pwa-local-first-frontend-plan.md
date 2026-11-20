@@ -1200,3 +1200,38 @@ Regression covers a 464-recording folder with partial canonical membership,
 early opening, identical cover/title/card class, scoped seasons and original
 folder access. The exact live count/path mismatch is not measured from the
 screenshot alone. Browser verification still required.
+
+## PWA.15.1 — Cold-start artwork diagnosis (2026-11-20)
+
+Baseline: merged `main` `574ebebaef8fffff88b841d737aac8d68bfea226`.
+Post-merge [CI #12921](https://github.com/hotzenplotz5/vdr-suite/actions/runs/44679155261)
+passed all six jobs. Existing opt-in browser diagnostics already measure
+buffered Resource Timing, startup marks and per-client Service Worker
+counters for local hits, misses, revalidations, network artwork and evictions.
+
+This slice extends **only** the existing browser diagnostics probe, adding
+identity-free grouped artwork Resource Timing phases: total duration,
+request to first byte, response body and available `Server-Timing`
+`artwork-read` / `artwork-preview` durations. Visible same-origin artwork
+load events record first and last observed load times from measurement
+start; the stop report adds visible, loaded and pending image counts. The
+load listener is removed on stop. No production request, forced image
+decoding, cache, polling, rendering or server behavior changes.
+
+**Limits:** A `load` event is not decoded-image paint, and the viewport
+check may include horizontally clipped rail images. Resource Timing alone
+does not prove a Cache Storage hit; inspect the existing worker counters.
+Server phases may be absent on intermediary/cache responses, and
+`artwork-read` includes authorization and routing. No individual URL,
+recording, backend, user or credential is exported. A diagnostics iframe
+reload does not simulate a power cycle.
+
+**Real-browser acceptance still open:** After an actual PC restart, use
+`/frontend/browser-performance-diagnostics.html` while authenticated.
+Stop/export the initial Home, then compare a warm reopen, Series/season
+changes, recording folders and horizontal scroll. Compare startup marks,
+first/last visible artwork loads, pending covers, worker cache outcomes,
+image HTTP counts, response and server timing. Only then decide whether
+PWA.15.2 cache sizing, PWA.15.3 prewarming or PWA.15.4 persistent
+presentation needs modification. Keep the existing 32 MiB / 256-preview /
+1024-artwork limits until a measured defect is established.

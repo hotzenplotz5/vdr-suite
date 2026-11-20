@@ -129,8 +129,11 @@ async function main() {
         this.options = options;
       }
     }
-    const cover = { currentSrc: 'https://example.test/api/metadata/cover?id=secret', src: '', complete: true, naturalWidth: 100, loading: 'lazy' };
-    const env = { document: { documentElement: {}, querySelectorAll(selector) { return selector === 'img' ? [cover] : selector === '.media-home-discovery-rail' ? [{ scrollLeft: 30 }] : selector.includes(' img') ? [cover] : []; } }, performance: { now() { return now; } }, PerformanceObserver: Observer, MutationObserver: MutationObserverMock, location: { href: 'https://example.test/frontend/', origin: 'https://example.test' }, URL, fetch: async () => { throw new Error('Unexpected network request'); } };
+    const cover = { currentSrc: 'https://example.test/api/vdr/recordings/metadata/image?id=secret', src: '', complete: true, naturalWidth: 100, loading: 'lazy', getBoundingClientRect() { return {width:100,height:120,left:10,right:110,top:10,bottom:130}; } };
+    const imageEvents = {};
+    const env = { document: { documentElement: {}, addEventListener(type, fn) { imageEvents[type] = fn; }, removeEventListener(type, fn) { assert.equal(imageEvents[type], fn); delete imageEvents[type]; }, querySelectorAll(selector) { return selector === 'img' ? [cover] : selector === '.media-home-discovery-rail' ? [{ scrollLeft: 30 }] : selector.includes(' img') ? [cover] : []; } }, performance: { now() { return now; } }, PerformanceObserver: Observer, MutationObserver: MutationObserverMock, location: { href: 'https://example.test/frontend/', origin: 'https://example.test' }, URL, fetch: async () => { throw new Error('Unexpected network request'); } };
+    env.innerWidth = 400;
+    env.innerHeight = 300;
     const measurement = createProbe(env);
     measurement.start('initial-home', { buffered: true });
     assert.equal(observers[0].options.buffered, true);
@@ -139,8 +142,17 @@ async function main() {
     observers[0].pending.push({ entryType: 'resource', name: cover.currentSrc, initiatorType: 'img', transferSize: 120 });
     observers[1].pending.push({ entryType: 'longtask', duration: 70 });
     observers[2].pending.push({});
+    now = 35;
+    imageEvents.load({target:cover});
     now = 80;
     const result = measurement.stop();
+    assert.equal(result.visibleArtwork.visibleAtStop, 1);
+    assert.equal(result.visibleArtwork.loadedAtStop, 1);
+    assert.equal(result.visibleArtwork.pendingAtStop, 0);
+    assert.equal(result.visibleArtwork.firstLoadEventMs, 35);
+    assert.equal(result.visibleArtwork.lastLoadEventMs, 35);
+    assert.equal(result.visibleArtwork.observedLoadEvents, 1);
+    assert.equal(imageEvents.load, undefined);
     assert.equal(result.metrics.resourceRequests, 1);
     assert.equal(result.metrics.longTasks, 1);
     assert.equal(result.metrics.mutations, 1);
@@ -200,7 +212,7 @@ async function main() {
       { name: 'https://example.test/vdr-suite/api/epg/cache/now-next?token=private-token', initiatorType: 'fetch', responseStatus: 204, transferSize: 100 },
       { name: 'https://example.test/vdr-suite/api/epg/cache/changes?token=private-token', initiatorType: 'fetch', responseStatus: 0, transferSize: 0 },
       { name: 'https://outside.test/private-path?token=private-token', initiatorType: 'script', responseStatus: 0, transferSize: 0 },
-      { name: 'https://example.test/vdr-suite/recording-artwork/private-poster.webp', initiatorType: 'img', responseStatus: 200, transferSize: 2000000, encodedBodySize: 1048577 }
+      { name: 'https://example.test/vdr-suite/recording-artwork/private-poster.webp', initiatorType: 'img', responseStatus: 200, transferSize: 2000000, encodedBodySize: 1048577, duration: 90, requestStart: 10, responseStart: 65, responseEnd: 90, serverTiming: [{name:'artwork-read',duration:17},{name:'artwork-preview',duration:23}] }
     ];
     const detail = summarizeResources(sample, baseUrl);
     assert.equal(detail.observedEntries, sample.length);
@@ -214,6 +226,12 @@ async function main() {
     assert.equal(detail.rows.find(row => row.category === 'epg-cache-api' && row.status === 'unavailable').count, 1);
     assert.equal(detail.rows.find(row => row.category === 'cross-origin').count, 1);
     assert.equal(detail.rows.find(row => row.category === 'recording-artwork').sizeDistribution['over-1MiB'], 1);
+    const artworkTiming = detail.artworkVariantDetails.find(row => row.category === 'recording-artwork').timingMs;
+    assert.deepEqual(artworkTiming.resourceDuration, {samples:1,total:90,max:90});
+    assert.deepEqual(artworkTiming.requestToFirstByte, {samples:1,total:55,max:55});
+    assert.deepEqual(artworkTiming.responseBody, {samples:1,total:25,max:25});
+    assert.deepEqual(artworkTiming.serverArtworkRead, {samples:1,total:17,max:17});
+    assert.deepEqual(artworkTiming.serverArtworkPreview, {samples:1,total:23,max:23});
     const serialized = JSON.stringify(detail);
     for (const secret of ['private-recording', 'another-recording', 'private-event', 'private-channel', 'private-token', 'private-path', 'private-poster', 'outside.test']) assert.ok(!serialized.includes(secret));
     assert.ok(!serialized.includes('https://'));
