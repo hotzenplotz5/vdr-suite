@@ -27,7 +27,7 @@ async function main() {
     assert.ok(!html.includes('vdr-suite-diagnostics=1'));
     assert.ok(!read('index.html').includes('browser-performance-bridge.js'));
     const page = read('browser-performance-diagnostics.html');
-    for (const id of ['home', 'cold', 'start', 'stop', 'headers', 'export', 'status', 'metrics', 'history', 'headers-result']) assert.ok(page.includes('id="' + id + '"'));
+    for (const id of ['home', 'cold', 'clean', 'start', 'stop', 'headers', 'export', 'status', 'metrics', 'history', 'headers-result']) assert.ok(page.includes('id="' + id + '"'));
 
     const listeners = {};
     const sent = [];
@@ -81,14 +81,20 @@ async function main() {
     function element(id) {
       return elements[id] = { id, disabled: false, textContent: '', attributes: {}, children: [], addEventListener(type, fn) { handlers[id + ':' + type] = fn; }, setAttribute(name, value) { this.attributes[name] = value; }, replaceChildren() { this.children = []; }, append(...nodes) { this.children.push(...nodes); }, click() { this.clicked = true; } };
     }
-    for (const id of ['home', 'cold', 'start', 'stop', 'headers', 'export', 'status', 'metrics', 'history', 'headers-result']) element(id);
+    for (const id of ['home', 'cold', 'clean', 'start', 'stop', 'headers', 'export', 'status', 'metrics', 'history', 'headers-result']) element(id);
     const outgoing = [];
     const childWindow = { postMessage(data, origin) { outgoing.push({ data, origin }); }, location: { pathname: '/vdr-suite/frontend/browser-performance-home.html' } };
     elements.home.contentWindow = childWindow;
+    let navigations = 0;
+    Object.defineProperty(elements.home, 'src', {
+      get() { return this.currentSrc; },
+      set(value) { this.currentSrc = value; navigations++; }
+    });
     const document = { getElementById(id) { return elements[id]; }, createElement() { return { textContent: '', children: [], append(...nodes) { this.children.push(...nodes); }, click() { this.clicked = true; } }; } };
     const root = { document, location: { origin: 'https://example.test' }, addEventListener(type, fn) { handlers['root:' + type] = fn; }, URL: { createObjectURL() { return 'blob:test'; }, revokeObjectURL() {} }, Blob, setTimeout(fn) { fn(); }, Math, Date };
     run('browser-performance-diagnostics.js', { window: root, Blob, Math, Date, JSON, Object, String });
     assert.equal(elements.home.src, 'browser-performance-home.html');
+    assert.equal(navigations, 1, 'ordinary diagnostic startup is a warm/unchanged-cache measurement');
     const token = elements.home.attributes['data-vdr-suite-diagnostics'];
     function incoming(type, value, override) {
       handlers['root:message']({ source: childWindow, origin: 'https://example.test', data: Object.assign({ channel: 'vdr-suite-browser-diagnostics', token, type, value }, override) });
@@ -108,9 +114,100 @@ async function main() {
     assert.equal(elements.headers.disabled, false);
     handlers['cold:click']();
     assert.equal(elements.home.src, 'browser-performance-home.html');
+    assert.equal(navigations, 2, 'reload never clears artwork implicitly');
     assert.notEqual(elements.home.attributes['data-vdr-suite-diagnostics'], token);
     incoming('result', { label: 'stale', metrics: {} });
     assert.ok(!elements.history.textContent.includes('stale'));
+    const warmToken = elements.home.attributes['data-vdr-suite-diagnostics'];
+    handlers['root:message']({source:childWindow, origin:'https://example.test',
+      data:{channel:'vdr-suite-browser-diagnostics',token:warmToken,type:'started',
+        value:'initial-home'}});
+
+    // Explicit PWA-artwork preparation must finish before the embedded
+    // Home document starts. No browser HTTP cache or unrelated storage is
+    // cleared, and the cache state must be exported on the capture.
+    const workerMessages = [];
+    root.navigator = {serviceWorker:{controller:{postMessage(data, ports) {
+      workerMessages.push({data, port:ports[0]});
+    }}}};
+    root.MessageChannel = class {
+      constructor() {
+        this.port1 = {close() {this.closed=true;}};
+        this.port2 = {send:value=>this.port1.onmessage({data:value})};
+      }
+    };
+    root.setTimeout = setTimeout;
+    root.clearTimeout = clearTimeout;
+    handlers['clean:click']();
+    assert.equal(elements.home.src, 'about:blank',
+      'previous Home must stop requests while clearing artwork');
+    assert.equal(navigations, 3);
+    assert.equal(workerMessages.length, 1);
+    assert.equal(workerMessages[0].data.type, 'vdr-suite-artwork-clear');
+    assert.equal(elements.clean.disabled, true);
+    workerMessages[0].port.send({schema:1,cleared:true});
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(navigations, 4, 'the next measured Home loads only after worker acknowledgment');
+    assert.equal(elements.home.src, 'browser-performance-home.html');
+    const cleanToken = elements.home.attributes['data-vdr-suite-diagnostics'];
+    handlers['root:message']({source:childWindow, origin:'https://example.test',
+      data:{channel:'vdr-suite-browser-diagnostics',token:cleanToken,type:'started',value:'initial-home'}});
+    handlers['root:message']({source:childWindow, origin:'https://example.test',
+      data:{channel:'vdr-suite-browser-diagnostics',token:cleanToken,type:'result',
+        value:{label:'initial-home',metrics:{resourceRequests:2}}}});
+    assert.ok(elements.history.textContent.includes('"pwaArtwork": "cleared"'));
+    assert.ok(elements.history.textContent.includes('"httpCache": "not-cleared"'));
+    let exported;
+    root.URL.createObjectURL = blob => {exported=blob;return 'blob:test';};
+    handlers['export:click']();
+    const exportReport = JSON.parse(await exported.text());
+    assert.equal(exportReport.captures.at(-1).cachePreparation.pwaArtwork,'cleared');
+    assert.equal(exportReport.captures.at(-1).cachePreparation.httpCache,'not-cleared');
+
+    // A missing Service Worker does not masquerade as a cold-cache run.
+    root.navigator = {};
+    handlers['clean:click']();
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(elements.home.src,'browser-performance-home.html');
+    const unsupportedToken = elements.home.attributes['data-vdr-suite-diagnostics'];
+    handlers['root:message']({source:childWindow, origin:'https://example.test',
+      data:{channel:'vdr-suite-browser-diagnostics',token:unsupportedToken,type:'started',
+        value:'initial-home'}});
+    handlers['root:message']({source:childWindow, origin:'https://example.test',
+      data:{channel:'vdr-suite-browser-diagnostics',token:unsupportedToken,type:'result',
+        value:{label:'initial-home',metrics:{}}}});
+    assert.ok(elements.history.textContent.includes('"pwaArtwork": "unavailable"'));
+
+    // Explicit deletion failure and lack of acknowledgment must be visible
+    // in the export; neither may be presented as a confirmed cold cache.
+    root.navigator = {serviceWorker:{controller:{postMessage(data, ports) {
+      workerMessages.push({data, port:ports[0]});
+    }}}};
+    handlers['clean:click']();
+    workerMessages.at(-1).port.send({schema:1,cleared:false});
+    await new Promise(resolve=>setImmediate(resolve));
+    const failedToken = elements.home.attributes['data-vdr-suite-diagnostics'];
+    handlers['root:message']({source:childWindow, origin:'https://example.test',
+      data:{channel:'vdr-suite-browser-diagnostics',token:failedToken,type:'started',
+        value:'initial-home'}});
+    handlers['root:message']({source:childWindow, origin:'https://example.test',
+      data:{channel:'vdr-suite-browser-diagnostics',token:failedToken,type:'result',
+        value:{label:'initial-home',metrics:{}}}});
+    assert.ok(elements.history.textContent.includes('"pwaArtwork": "failed"'));
+
+    let timeoutCallback;
+    root.setTimeout = callback => { timeoutCallback = callback; return 91; };
+    root.clearTimeout = () => {};
+    handlers['clean:click']();
+    assert.equal(elements.home.src,'about:blank');
+    assert.equal(typeof timeoutCallback,'function');
+    timeoutCallback();
+    await new Promise(resolve=>setImmediate(resolve));
+    const timeoutToken = elements.home.attributes['data-vdr-suite-diagnostics'];
+    handlers['root:message']({source:childWindow, origin:'https://example.test',
+      data:{channel:'vdr-suite-browser-diagnostics',token:timeoutToken,type:'result',
+        value:{label:'initial-home',metrics:{}}}});
+    assert.ok(elements.history.textContent.includes('"pwaArtwork": "timeout"'));
 
     let now = 0;
     const observers = [];

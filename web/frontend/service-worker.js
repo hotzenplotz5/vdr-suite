@@ -372,10 +372,12 @@ function serializeArtwork(action) {
 function clearArtwork() {
   artworkGeneration++;
   forgetArtworkProofs();
+  let cleared = false;
   return serializeArtwork(async () => {
     artworkWriteKeys = null;
     await caches.delete(artworkName);
-  });
+    cleared = true;
+  }).then(() => cleared);
 }
 
 // A set/clear may reuse a revision after deletion. Invalidate selected
@@ -632,7 +634,17 @@ async function revalidateArtwork(event, scopedMiss = false) {
 }
 
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'vdr-suite-artwork-clear') event.waitUntil(clearArtwork());
+  if (event.data && event.data.type === 'vdr-suite-artwork-clear') {
+    const clearing = clearArtwork();
+    event.waitUntil(clearing);
+    // Optional diagnostic acknowledgment: no claim of a cold PWA cache until
+    // the serialized deletion has finished, including any earlier writes.
+    if (event.ports && event.ports[0]) {
+      event.waitUntil(clearing.then(function (cleared) {
+        event.ports[0].postMessage({schema:1, cleared:cleared === true});
+      }));
+    }
+  }
   if (event.data && event.data.type === 'vdr-suite-artwork-proof-reset') forgetArtworkProofs();
   if (event.data && event.data.type === 'vdr-suite-artwork-measurement' &&
       event.source && event.source.id && event.ports && event.ports[0]) {

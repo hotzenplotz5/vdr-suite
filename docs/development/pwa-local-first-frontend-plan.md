@@ -1437,3 +1437,34 @@ ordering, horizontal rail clipping, vertical lookahead, skipped
 nonintersecting images and the original fallback. Faster image paint
 in a real cold browser session is still to be measured; no timing
 reduction is claimed from this static regression.
+
+
+## Browser diagnostics — reproducible PWA artwork-cache preparation (2026-11-20)
+
+The maintainer previously cleared artwork manually before each browser
+performance export. This was not recorded in the JSON; repeated captures
+therefore could not be classified reliably by PWA artwork-cache state.
+
+The opt-in diagnostics page now has two distinct commands: **Home neu laden
+& messen** (existing reload, no cache deletion) and **PWA-Artwork-Cache
+leeren & messen** (request the *existing* Service Worker artwork clear,
+wait for an explicit completion acknowledgement, then create the measured
+Home iframe). Each capture exports a `cachePreparation` result:
+`pwaArtwork=cleared|failed|timeout|unavailable|not-cleared` and
+`httpCache=not-cleared`. The diagnostic does not claim a successful clear
+on message timeout, unsupported browsers or storage failure. It still
+permits the ordinary measurement in those cases.
+
+The scope is exclusively the versioned, installation-local PWA artwork
+Cache Storage owned by the current Service Worker; neither normal HTTP
+image cache, decoded memory images, the IndexedDB Home snapshot, the
+public shell, channel logos, recording/EPG data nor any media file is
+removed. The worker's existing serialized generation fence prevents
+earlier in-flight image writes from silently repopulating the deleted
+artwork cache. Existing logout/session cache handling is unchanged.
+
+Regression coverage includes the diagnostic controller's pre-navigation
+message/ack sequence, no-clear reload, export labels, unsupported worker
+fallback, and the worker's explicit successful/failed deletion responses.
+A fully cold HTTP cache requires separate browser-level controls and
+remains outside this diagnostic.

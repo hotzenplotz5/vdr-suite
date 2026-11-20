@@ -11,7 +11,7 @@ async function run(prefix) {
   const tagA = '"vsr-' + '1'.repeat(64) + '"', tagB = '"vsr-' + '2'.repeat(64) + '"';
   const url = 'https://suite.test' + prefix + '/api/vdr/recordings/metadata/image?backend=default&recordingId=7&variant=home';
   let partition = scopeA, tag = tagA, status = 200, content = 'poster-a', offline = false, fail = false, last;
-  let holdImage = null, holdMutation = null;
+  let holdImage = null, holdMutation = null, failDelete = false;
   let clock = 1700000000000, imageReads = 0, proofReads = 0, fullKeyReads = 0, candidateKeyReads = 0;
   let proofDelay = 0, epgAuthorized = false, recordingAuthorized = true;
   const deferred = () => {
@@ -25,7 +25,7 @@ async function run(prefix) {
     if (!stores.has(name)) stores.set(name, new Map());
     const rows = stores.get(name);
     return {async keys(key, options) {if (key === undefined) fullKeyReads++; if (options?.ignoreSearch) candidateKeyReads++; return [...rows.keys()].filter(k => key === undefined || (options?.ignoreSearch ? k.split('?')[0] === keyUrl(key).split('?')[0] : k === keyUrl(key))).map(url => ({url}));}, async put(key, response) {rows.set(keyUrl(key), response.clone());}, async match(key) {return rows.get(keyUrl(key))?.clone();}, async delete(key) {return rows.delete(keyUrl(key));}};
-  }, async delete(name) {return stores.delete(name);}};
+  }, async delete(name) {if (failDelete) throw Error('cache-delete-failed'); return stores.delete(name);}};
   const responseHeaders = () => ({'Content-Type':'image/jpeg', ETag:tag, 'X-VDR-Suite-Artwork-Scope':partition, 'X-VDR-Suite-Artwork-Bytes':String(Buffer.byteLength(content)), 'Cache-Control':'private, no-cache'});
   const context = {scope, URL, Response, Request, Headers, caches, Date:{now:()=>clock}, self:{registration:{scope:scope.href},addEventListener:(name, cb)=>{listeners[name]=cb;}}, fetch:async request=>{
     last = request;
@@ -86,7 +86,28 @@ async function run(prefix) {
   await image(); assert.equal(last.headers.get('If-None-Match'),null);
   status=403; assert.equal((await image()).status,403); status=200;
   await image(); assert.equal(last.headers.get('If-None-Match'),null);
-  { const pending=[]; listeners.message({data:{type:'vdr-suite-artwork-clear'},waitUntil:p=>pending.push(p)}); await Promise.all(pending); } await image(); assert.equal(last.headers.get('If-None-Match'),null);
+  {
+    const pending=[], replies=[];
+    listeners.message({data:{type:'vdr-suite-artwork-clear'},
+      ports:[{postMessage:value=>replies.push(value)}],
+      waitUntil:p=>pending.push(p)});
+    await Promise.all(pending);
+    assert.deepEqual(JSON.parse(JSON.stringify(replies)),[{schema:1,cleared:true}],
+      'diagnostic clear acknowledges only completed worker cache deletion');
+    assert.equal(stores.size,0);
+  }
+  await image(); assert.equal(last.headers.get('If-None-Match'),null);
+  {
+    const pending=[], replies=[];
+    failDelete=true;
+    listeners.message({data:{type:'vdr-suite-artwork-clear'},
+      ports:[{postMessage:value=>replies.push(value)}],
+      waitUntil:p=>pending.push(p)});
+    await Promise.all(pending);
+    failDelete=false;
+    assert.deepEqual(JSON.parse(JSON.stringify(replies)),[{schema:1,cleared:false}],
+      'a failed cache delete cannot be reported as a cold-cache preparation');
+  }
   status=401; assert.equal((await image()).status,401); status=200;
   fail=true; assert.equal(await (await image()).text(),'new poster'); fail=false;
   content='x'.repeat(256*1024+1); await image(); assert.equal([...stores.values()].reduce((n,m)=>n+m.size,0),0);
