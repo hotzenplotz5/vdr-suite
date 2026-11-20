@@ -40,7 +40,13 @@ async function precacheLocalShell() {
   }
 }
 
-self.addEventListener('install', event => event.waitUntil(precacheLocalShell()));
+// Activate a patched shell without requiring users to close every VDR-Suite
+// tab first. No clients.claim or forced reload: active pages keep their DOM
+// and playback; their next ordinary navigation uses the corrected worker.
+self.addEventListener('install', event => event.waitUntil((async () => {
+  await precacheLocalShell();
+  if (typeof self.skipWaiting === 'function') await self.skipWaiting();
+})()));
 self.addEventListener('activate', event => event.waitUntil((async () => {
   try {
     for (const name of await caches.keys()) {
@@ -61,31 +67,50 @@ function completeStaticCache() {
   return staticCachePromise;
 }
 
-async function localShellResponse(event, navigation) {
+// Versioned script URLs must identify only the matching release bytes.
+// Unknown query strings remain network-owned rather than falling back to
+// an older cached script under a different version.
+function cachedStaticAssetKey(url) {
+  if (staticAssets.has(url)) return url;
+  const parsed = new URL(url);
+  const bare = parsed.origin + parsed.pathname;
+  const spec = staticAssets.get(bare);
+  if (!spec || parsed.searchParams.size !== 1 ||
+      parsed.searchParams.get('v') !== spec.sha256.slice(0, 16)) return '';
+  return bare;
+}
+
+async function localShellResponse(event, navigation, assetKey) {
   const request = event.request;
+  // Always re-fetch HTML, scripts and CSS while online. A valid stale local
+  // shell is only an offline fallback, never the authoritative live version.
   try {
-    // Diagnostics, legacy routes and other controlled documents remain network-owned.
-    const client = navigation ? null : await self.clients.get(event.clientId);
-    if (navigation || (client && canonicalShell(client.url))) {
-      const cache = await completeStaticCache();
-      if (cache) {
-        // Only one verified representation exists; Accept-Encoding may differ.
-        const response = await cache.match(navigation ? staticIndex : request.url, {ignoreVary: true});
-        if (response) return response;
-        staticCachePromise = Promise.resolve(null);
+    return await fetch(request, {cache: 'no-store'});
+  } catch (networkError) {
+    try {
+      const client = navigation ? null : await self.clients.get(event.clientId);
+      if (navigation || (client && canonicalShell(client.url))) {
+        const cache = await completeStaticCache();
+        if (cache) {
+          const response = await cache.match(navigation ? staticIndex : assetKey,
+            {ignoreVary: true});
+          if (response) return response;
+        }
       }
-    }
-  } catch (_) { staticCachePromise = Promise.resolve(null); }
-  return navigation ? fetch(request).catch(offlineShell) : fetch(request);
+    } catch (_) { /* Missing storage must not hide the network error. */ }
+    if (navigation) return offlineShell();
+    throw networkError;
+  }
 }
 
 function handleLocalShell(event) {
   const request = event.request;
   if (request.method !== 'GET') return false;
   const navigation = request.mode === 'navigate' && canonicalShell(request.url);
-  const asset = staticAssets.has(request.url) && request.url !== staticIndex &&
+  const assetKey = cachedStaticAssetKey(request.url);
+  const asset = assetKey && assetKey !== staticIndex &&
     ['script', 'style', 'worker'].includes(request.destination);
   if (!navigation && !asset) return false;
-  event.respondWith(localShellResponse(event, navigation));
+  event.respondWith(localShellResponse(event, navigation, assetKey));
   return true;
 }

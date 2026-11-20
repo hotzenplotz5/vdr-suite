@@ -17,7 +17,20 @@ function generate(frontend, routes, worker, helper) {
     }
     assets[name] = {type, sha256: digest(bytes)};
   }
-  add('index.html', 'text/html', 'index.html');
+  // The production daemon adds a content-derived ?v= query to the
+  // SearchTimer script tag when it serves index.html. Hash those same HTML
+  // bytes or the PWA precache will reject every release after ST.F2.1.
+  const indexPath = path.join(frontend, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    let html = fs.readFileSync(indexPath, 'utf8');
+    const scriptPath = path.join(frontend, 'modules/searchtimers.js');
+    const marker = 'src="../frontend/modules/searchtimers.js"';
+    if (html.includes(marker) && fs.existsSync(scriptPath)) {
+      const version = digest(fs.readFileSync(scriptPath)).slice(0, 16);
+      html = html.replace(marker, 'src="../frontend/modules/searchtimers.js?v=' + version + '"');
+    }
+    assets['index.html'] = {type: 'text/html', sha256: digest(Buffer.from(html))};
+  }
   for (const entry of routes.matchAll(/\{"\/frontend\/([^"\n]+)", "([^"\n]+)", "(application\/javascript|text\/css); charset=utf-8", (?:"([^"\n]+)"|nullptr)\}/g)) {
     const [, name, primary, type, addon] = entry;
     if (name === 'service-worker.js' || name.startsWith('browser-')) continue;

@@ -32,8 +32,9 @@ function fixture(prefix, code, fail = '') {
   const context = {URL, Request, Response, Uint8Array, crypto: webcrypto, caches,
     self: {registration: {scope}, clients: {get: async () => ({url: clientUrl})},
       addEventListener(name, fn) {listeners[name] = fn;}},
-    fetch: async request => {
-      calls.push(request);
+    fetch: async (request, init = {}) => {
+      calls.push({url: request.url, credentials: request.credentials,
+        cache: init.cache || request.cache, redirect: request.redirect});
       if (offline) throw Error('offline');
       if (request.credentials !== 'omit') return new Response('network');
       const name = request.url.slice(scope.length);
@@ -60,6 +61,28 @@ async function run() {
     assert.notEqual(make(), code, 'composed addon changes worker release identity');
     fs.writeFileSync(path.join(folder, 'addon.js'), 'addon');
     assert.equal(make(), code);
+
+    // The served HTML differs from its raw staged bytes since the daemon
+    // injects the exact SearchTimer script SHA into the index response.
+    const crypto = require('node:crypto');
+    const marker = 'src="../frontend/modules/searchtimers.js"';
+    const index = '<!doctype html><script ' + marker + '></script>';
+    fs.mkdirSync(path.join(folder, 'modules'));
+    fs.writeFileSync(path.join(folder, 'modules/searchtimers.js'), 'search-v2');
+    fs.writeFileSync(path.join(folder, 'index.html'), index);
+    const manifestText = make();
+    const match = manifestText.match(/const localShellRelease = (\{[^\n]+\});/);
+    assert(match, 'generated worker contains static manifest');
+    const manifest = JSON.parse(match[1]).assets;
+    const version = crypto.createHash('sha256').update('search-v2').digest('hex').slice(0, 16);
+    const servedIndex = index.replace(marker,
+      'src="../frontend/modules/searchtimers.js?v=' + version + '"');
+    assert.equal(manifest['index.html'].sha256,
+      crypto.createHash('sha256').update(servedIndex).digest('hex'),
+      'manifest must hash the actually served versioned HTML');
+    fs.rmSync(path.join(folder, 'modules'), {recursive: true});
+    fs.writeFileSync(path.join(folder, 'index.html'), 'html');
+
     for (const prefix of ['', '/vdr-suite']) {
       const f = fixture(prefix, code);
       await f.lifecycle('install');
@@ -71,15 +94,29 @@ async function run() {
       await f.lifecycle('activate');
       assert(!f.stores.has(own + 'old'));
       assert(f.stores.has('other-installation'));
+      // Warm online sessions must never use the stale precached HTML/JS.
+      assert.equal(await (await f.request(f.scope)).text(), 'network');
+      assert.equal(await (await f.request(f.scope + 'index.html')).text(), 'network');
+      assert.equal(await (await f.request(f.scope + 'app.js', 'cors', 'script')).text(), 'network');
+      assert.equal(await (await f.request(f.scope + 'style.css', 'cors', 'style')).text(), 'network');
+      assert.equal(f.calls.length, 7, 'online HTML and scripts must revalidate via network');
+      assert(f.calls.slice(3).every(call => call.cache === 'no-store'),
+        'ordinary F5 must bypass stale HTTP cache through the worker');
+
+      // Complete, verified static shell remains available if offline.
+      f.offline();
       assert.equal(await (await f.request(f.scope)).text(), 'html');
-      assert.equal(await (await f.request(f.scope + 'index.html')).text(), 'html');
       assert.equal(await (await f.request(f.scope + 'app.js', 'cors', 'script')).text(), 'app\n\naddon');
-      assert.equal(await (await f.request(f.scope + 'style.css', 'cors', 'style')).text(), 'css');
-      assert.equal(f.calls.length, 3, 'warm shell requires no network');
+      const version = require('node:crypto').createHash('sha256').update('app\n\naddon').digest('hex').slice(0, 16);
+      assert.equal(await (await f.request(f.scope + 'app.js?v=' + version, 'cors', 'script')).text(),
+        'app\n\naddon', 'versioned script resolves to exact cached release when offline');
+      assert.equal(f.request(f.scope + 'app.js?v=0000000000000000', 'cors', 'script'), undefined,
+        'mismatched version must not serve stale script');
       for (const url of [f.scope + '?x=1', f.scope + 'browser-performance-diagnostics.html', 'https://suite.test' + prefix + '/api/private']) assert.equal(f.request(url), undefined);
       assert.equal(f.request(f.scope, 'navigate', '', 'POST'), undefined);
       f.client(f.scope + 'browser-performance-home.html');
-      assert.equal(await (await f.request(f.scope + 'app.js', 'cors', 'script')).text(), 'network');
+      await assert.rejects(f.request(f.scope + 'app.js', 'cors', 'script'),
+        /offline/, 'unrelated pages must not receive the cached shell');
       for (const fail of ['storage', '401', 'private', 'changed']) {
         const bad = fixture(prefix, code, fail);
         await bad.lifecycle('install');

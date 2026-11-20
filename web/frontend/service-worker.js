@@ -24,7 +24,8 @@ self.addEventListener('install', event => {
     try { await (await caches.open(cacheName)).put(shellKey, publicShell()); }
     catch (error) { /* Storage is optional; the same public shell can be generated. */ }
   })());
-  // No skipWaiting: existing tabs keep their current worker until normal activation.
+  // The composed local-shell helper may skip waiting after a verified
+  // static release update; it never claims clients or reloads open tabs.
 });
 
 self.addEventListener('activate', event => {

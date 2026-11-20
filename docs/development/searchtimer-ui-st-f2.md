@@ -56,3 +56,37 @@ Der bestehende Produktions-Asset-Routentest prüft die Änderung des
 Versionswerts nach Austausch der JS-Datei, die Auslieferung per versionierter
 URL, den unveränderten `no-cache`-HTML-Vertrag und die Ablehnung
 unbekannter Asset-Pfade. CI-/Build-/yaVDR-Abnahme getrennt durchführen.
+
+
+## ST.F2.2 – PWA-Live-Aktualisierung statt persistent veralteter Scripts
+
+Der vollständig installierte ST.F2.1-Daemon lieferte die korrekte
+`searchtimers.js?v=61a891e9778398d7` sowohl direkt als auch via HTTPS/Nginx.
+Trotzdem zeigte die PWA nach Installation weiterhin die frühere UI.
+Ursache auf dem tatsächlichen PWA-Pfad: Die zusammengesetzte
+`service-worker.js` beantwortete Canonical-HTML-Navigationen und
+JS/CSS-Requests aus ihrem persistenten, unveränderten Static-Shell-Cache
+**vor** jedem Netzwerkzugriff. Damit konnte auch F5 eine ältere
+JavaScript-Version ausführen.
+
+Die Korrektur schaltet ausschließlich für diesen öffentlichen statischen
+Shell-Pfad auf Netzwerk zuerst (`cache: no-store`) um. Bei tatsächlichem
+Netzwerkfehler bleibt der zuvor byteverifizierte Offline-Cache erhalten.
+Versionierte JS-URLs werden bei Offline-Fallback nur dann einem Cache-
+Eintrag zugeordnet, wenn ihre Kennung den Manifestbytes entspricht.
+Unbekannte Versionen und Backend-/API-Requests werden nicht umgeleitet.
+Der Builder hasht das vom Daemon tatsächlich ausgelieferte, versionierte
+Index-HTML, damit Offline-Manifest und HTTP-Response wieder übereinstimmen.
+Der installierte Worker kann beim Update ohne Schließen aller Tabs
+aktivieren; er beansprucht keine laufenden Clients und lädt nicht
+automatisch neu. Beim nächsten normalen Navigieren übernimmt der neue
+Worker.
+
+Regressions: `node web/frontend/tests/test_pwa_local_shell.js` und
+`make test-pwa-shell`. Rollout nur als gezieltes **Service-Worker-Dateiupdate**:
+die bestehende kanonische Composer-Funktion
+`node tools/build_pwa_shell.js /usr/share/vdr-suite/web/frontend`
+setzt den Worker aus der geprüften Source und dem bereits installierten
+statischen Frontend zusammen; weder Daemon noch Datenbank noch andere
+Frontend-Dateien müssen dabei ersetzt werden. Browser-/yaVDR-Abnahme
+bleibt unabhängig.
