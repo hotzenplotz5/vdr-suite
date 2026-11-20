@@ -180,7 +180,11 @@
       return artwork;
     }
     const image = doc.createElement('img');
-    image.src = publicPath(homePreview(url));
+    const resolved = publicPath(homePreview(url));
+    const discovery = global.VdrSuiteHomeRecordingDiscovery;
+    if (discovery && typeof discovery.deferHomeArtworkImage === 'function')
+      discovery.deferHomeArtworkImage(image, resolved);
+    else image.src = resolved;
     image.alt = 'Poster zu ' + title(item);
     image.loading = 'lazy';
     image.addEventListener('error', function () {
@@ -629,7 +633,11 @@
       return artwork;
     }
     const image = doc.createElement('img');
-    image.src = publicPath(homePreview(url));
+    const resolved = publicPath(homePreview(url));
+    const discovery = global.VdrSuiteHomeRecordingDiscovery;
+    if (discovery && typeof discovery.deferHomeArtworkImage === 'function')
+      discovery.deferHomeArtworkImage(image, resolved);
+    else image.src = resolved;
     image.alt = 'Poster zu ' + title;
     image.loading = 'lazy';
     image.decoding = 'async';

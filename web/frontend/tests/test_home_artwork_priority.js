@@ -45,3 +45,51 @@ const removed = image(120,20);
 prioritizeRail({isConnected:false,querySelectorAll:()=>[removed]}); frames.shift()();
 assert.equal(removed.loading,'lazy');
 console.log('PWA.14 inline rail visible and bounded lookahead artwork contract PASS');
+
+
+// Cold Home: do not start image network traffic for horizontally or vertically
+// clipped cards. The real scroll ancestor intersection fires on demand.
+const deferred = [];
+let observerInstance;
+class FakeArtworkIntersectionObserver {
+  constructor(callback, options) {
+    this.callback = callback; this.options = options; this.targets = new Set();
+    observerInstance = this; deferred.push(this);
+  }
+  observe(target) { this.targets.add(target); }
+  unobserve(target) { this.targets.delete(target); }
+  notify(target, isIntersecting) {
+    this.callback([{target, isIntersecting}]);
+  }
+}
+const deferredWindow = {IntersectionObserver: FakeArtworkIntersectionObserver};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8'), {window:deferredWindow});
+const assignArtwork = deferredWindow.VdrSuiteHomeRecordingDiscovery.deferHomeArtworkImage;
+const deferredFirst = {src:'',loading:'lazy'};
+const deferredSecond = {src:'',loading:'lazy'};
+assignArtwork(deferredFirst, '/api/cover-one?variant=home');
+assignArtwork(deferredSecond, '/api/cover-two?variant=home');
+assert.equal(deferred.length, 1, 'one shared IntersectionObserver per Home document');
+assert.equal(observerInstance.options.rootMargin, '120px 0px');
+assert.equal(deferredFirst.src, '', 'offscreen posters have no request URL yet');
+assert.equal(deferredSecond.src, '', 'offscreen posters stay unrequested');
+observerInstance.notify(deferredFirst, false);
+assert.equal(deferredFirst.src, '', 'nonintersecting cards stay deferred');
+observerInstance.notify(deferredFirst, true);
+assert.equal(deferredFirst.src, '/api/cover-one?variant=home');
+assert.equal(deferredSecond.src, '');
+assert.equal(observerInstance.targets.has(deferredFirst), false);
+observerInstance.notify(deferredSecond, true);
+assert.equal(deferredSecond.src, '/api/cover-two?variant=home');
+assert.equal(observerInstance.targets.size, 0);
+const withoutObserver={};
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'home-recording-discovery.js'), 'utf8'), {window:withoutObserver});
+const fallbackImage={src:''};
+withoutObserver.VdrSuiteHomeRecordingDiscovery.deferHomeArtworkImage(fallbackImage, '/cover-fallback');
+assert.equal(fallbackImage.src, '/cover-fallback', 'unsupported browsers retain the ordinary native artwork path');
+const sourceFiles=['home-recording-discovery.js','home-recording-discovery-bootstrap.js','home-recently-watched.js'];
+for(const sourceFile of sourceFiles){
+  const code = fs.readFileSync(path.join(__dirname, '..', sourceFile), 'utf8');
+  assert(code.includes('deferHomeArtworkImage('), sourceFile+' must defer its canonical Home artwork requests');
+}
+console.log('PWA.15 cold Home artwork demand-first contract PASS');

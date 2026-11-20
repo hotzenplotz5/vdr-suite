@@ -906,7 +906,8 @@
   }
 
   function artworkDistance(image, bounds) {
-    if (!image.isConnected || image.complete || typeof image.getBoundingClientRect !== 'function') return Infinity;
+    if (!image.isConnected || (image.complete && !image.__vdrSuiteDeferredArtworkUrl) ||
+        typeof image.getBoundingClientRect !== 'function') return Infinity;
     const r = image.getBoundingClientRect();
     if (bounds.right <= bounds.left || bounds.bottom <= bounds.top ||
         r.width <= 0 || r.height <= 0 || r.bottom <= bounds.top || r.top >= bounds.bottom) return Infinity;
@@ -980,6 +981,37 @@
     armArtworkPriority();
   }
 
+  // Native loading="lazy" alone can request horizontally clipped covers
+  // long before the user scrolls their rail. Leave the URL unassigned until
+  // intersection with the real viewport/scroll-ancestor clipping. This is
+  // presentation-only: authorization and cache partitioning stay in the
+  // existing API and Service Worker. Unsupported observers use native loading.
+  let deferredArtworkObserver = null;
+  function deferHomeArtworkImage(image, url) {
+    if (!image || !url) return image;
+    if (typeof global.IntersectionObserver !== 'function') {
+      image.src = url;
+      return image;
+    }
+    if (!deferredArtworkObserver) {
+      deferredArtworkObserver = new global.IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          const target = entry.target;
+          deferredArtworkObserver.unobserve(target);
+          const pending = target.__vdrSuiteDeferredArtworkUrl;
+          if (!pending) return;
+          target.__vdrSuiteDeferredArtworkUrl = '';
+          target.src = pending;
+          prioritizeVisibleArtwork(target);
+        });
+      }, {rootMargin: '120px 0px'});
+    }
+    image.__vdrSuiteDeferredArtworkUrl = url;
+    deferredArtworkObserver.observe(image);
+    return image;
+  }
+
   function createPosterArtwork(title, url, fallbackText) {
     const artwork = doc.createElement('div');
     artwork.className = 'media-home-discovery-artwork';
@@ -993,7 +1025,7 @@
     image.alt = 'Poster zu ' + text(title);
     image.loading = 'lazy';
     image.decoding = 'async';
-    image.src = publicPath(homePreview(resolved));
+    deferHomeArtworkImage(image, publicPath(homePreview(resolved)));
     image.addEventListener('error', function () {
       image.remove();
       artwork.textContent = fallback;
@@ -5750,6 +5782,7 @@
     refresh: refresh,
     prioritizeVisibleArtwork: prioritizeVisibleArtwork,
     prioritizeInlineRailArtwork: prioritizeInlineRailArtwork,
+    deferHomeArtworkImage: deferHomeArtworkImage,
     mountFolderSeries: mountFolderSeries,
     folderSeriesCard: folderSeriesCard,
     _test: Object.freeze({

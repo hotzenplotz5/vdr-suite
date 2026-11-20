@@ -1315,3 +1315,36 @@ The production-backed Recent Movies regression covers identical image
 identity, a changed title, updated Recording click behavior and a changed
 poster URL while neighboring card nodes remain stable. A complete iframe
 reload still reloads the UI; browser-visible speedup remains unmeasured.
+
+
+## PWA.15.5 — cold Home: delay clipped poster requests until demand (2026-11-20)
+
+A real browser diagnostic export (three captures, 2026-11-20) showed
+Home controls at 1.07s and 7.29s while the final artwork load event
+took 116.3s and 87.9s. Network requests for Home covers ranged up to
+20–21.6s before first byte; server-side read/preview timings were far
+smaller. The cold capture sent 143 artwork HTTP requests and wrote all
+143, with no storage errors or evictions. Another capture requested a
+different mix of artwork and recorded 90 cache misses. The diagnostics
+do not export URLs or prove that these were identical images, and there
+is no evidence that session changes caused these particular misses.
+
+The existing native `loading="lazy"` does not guarantee that art in
+horizontally scrollable, CSS-clipped rails will stay off the network.
+Using the established Recording Discovery owner, image URLs are held
+until a shared browser `IntersectionObserver` sees a card inside the
+visible clipped area or its 120px lookahead. This prevents the first
+Home viewport from competing with unrelated, unvisited poster requests.
+It applies to Recording Discovery cards, its inline folder representatives
+and both Recently Watched/Recent Movies owners. Existing visible-image
+priority and user scroll paths stay available. Without observer support,
+images continue through the original native-lazy path. No private
+storage, identity, authorization, Service Worker behavior, network fetch
+configuration or daemon route changed.
+
+A new DOM-independent observer regression verifies that offscreen images
+have no assigned URL, that intersection starts their normal image load,
+that observer instances are shared, and that unsupported browsers fall
+back to ordinary artwork. Real-browser timing still requires new capture;
+this patch does not claim to fix session-bound cache isolation or server
+queueing independently.

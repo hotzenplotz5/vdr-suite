@@ -589,13 +589,16 @@
     image.alt = 'Poster zu ' + title;
     image.loading = 'lazy';
     image.decoding = 'async';
-    image.src = publicPath(preview);
+    const url = publicPath(preview);
+    const discovery = global.VdrSuiteHomeRecordingDiscovery;
+    if (discovery && typeof discovery.deferHomeArtworkImage === 'function')
+      discovery.deferHomeArtworkImage(image, url);
+    else image.src = url;
     image.addEventListener('error', function () {
       image.remove();
       artwork.textContent = title.slice(0, 1).toUpperCase() || '▶';
     });
     artwork.appendChild(image);
-    const discovery = global.VdrSuiteHomeRecordingDiscovery;
     if (discovery && typeof discovery.prioritizeVisibleArtwork === 'function') discovery.prioritizeVisibleArtwork(image);
     return artwork;
   }
