@@ -39,11 +39,13 @@
     }
 
     function folderDomSignature(currentState) {
-      // Compare the *presented* folder, including enriched leaves and actions.
-      // Changed metadata/recordings must rebuild rather than reuse stale cards.
+      // Compare every displayed count, folder, Recording and card-action input.
+      // Ignore unrelated response metadata that can change on every refetch.
+      const data = currentState.data || {};
       return JSON.stringify([
-        currentState.data, currentState.recordings,
-        Boolean(currentState.loadingMore)
+        data.cacheState, data.cacheReady, data.totalCount,
+        data.folderCount, data.recordingCount, data.returnedCount,
+        data.folders, currentState.recordings, Boolean(currentState.loadingMore)
       ]);
     }
 
@@ -430,6 +432,10 @@
         detailStartRevealed = false;
         folderDomCache.clear();
         folderDomBackendId = null;
+        // Do not re-capture a previously mounted private folder on reactivation.
+        const target = shared.mountTarget();
+        const root = target && target.children && target.children[0];
+        if (root && root.__vdrSuiteFolderDom) delete root.__vdrSuiteFolderDom;
       }
     });
   }
