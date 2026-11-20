@@ -1495,3 +1495,25 @@ Normal reloads, live VDR, Cache Storage ownership, browser HTTP cache and
 session/grant boundaries are unchanged. The production-controller regression
 covers an old controlling worker with a newer active worker, update calls,
 activation-in-progress, no premature Home navigation and confirmed export.
+
+
+## PWA.15.9 — first-viewport artwork cohort in diagnostics (2026-11-20)
+
+A confirmed PWA artwork-cache reset on 2026-11-20 produced a 0.425s Home frame
+and a 5.17s first image load event; however `visibleAtStop=0` after scrolling
+could not tell us when the first visible covers completed.
+
+The opt-in browser probe now records a fixed cohort (maximum 24) of the first
+artwork images actually intersecting the viewport **and** any horizontally
+clipping Home rail. It records time of first observation, image count, already
+complete images, first ready observation, all-ready observation and ready versus
+pending at stop, independent of later scrolling. An existing MutationObserver
+schedules one measurement per animation frame; the normal image-load listener
+updates the same cohort. No extra HTTP requests, synthetic image decoding,
+cache clear, grants, server instrumentation or identity export are introduced.
+
+The new `initialViewportArtwork` capture field is explicitly bounded and
+reports observed image readiness (`complete && naturalWidth > 0`), **not**
+decoded-image paint or an exact network start timestamp. Already-cached images
+are attributed to first observation, not an invented load event. This augments,
+rather than replaces, the older `visibleArtwork` at-stop heuristic.

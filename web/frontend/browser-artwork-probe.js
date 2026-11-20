@@ -266,8 +266,19 @@
             (path.startsWith('/api/backends/') && path.endsWith('/settings/series-artwork/image'))))
         return false;
       const rect = image.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0 &&
-        rect.left < win.innerWidth && rect.top < win.innerHeight;
+      if (!(rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.bottom > 0 &&
+            rect.left < win.innerWidth && rect.top < win.innerHeight)) return false;
+      // Horizontal rails clip cards that still intersect the document viewport.
+      // Do not classify such posters as actually visible first-screen demand.
+      const rail = typeof image.closest === 'function'
+        ? image.closest('.media-home-discovery-rail, .media-home-series-season-rail, .media-home-live-guide-rail')
+        : null;
+      if (rail && typeof rail.getBoundingClientRect === 'function') {
+        const clip = rail.getBoundingClientRect();
+        if (!(rect.right > clip.left && rect.left < clip.right &&
+              rect.bottom > clip.top && rect.top < clip.bottom)) return false;
+      }
+      return true;
     }
     function start(label, options) {
       if (active) throw new Error('Finish the current capture first');
@@ -277,6 +288,45 @@
       const tasks = [];
       let mutations = 0;
       const begin = perf.now();
+      const round = value => Math.round(value * 10) / 10;
+      // A fixed, first-observed viewport cohort survives later scrolling.
+      // This is intentionally independent of visibleAtStop, which can be zero
+      // after navigation even when the first-screen covers were loaded.
+      let viewportImages = null, viewportQueued = false;
+      const viewport = {firstVisibleAtMs:null, initialVisible:0,
+        alreadyLoadedAtFirstObservation:0, readyAtStop:0, pendingAtStop:0,
+        firstReadyObservedMs:null, allReadyObservedMs:null};
+      const viewportReady = new Set();
+      function inspectViewport() {
+        const now = round(perf.now() - begin);
+        if (!viewportImages) {
+          const visible = Array.from(doc.querySelectorAll('img')).filter(visibleArtwork);
+          if (!visible.length) return;
+          viewportImages = visible.slice(0, 24);
+          viewport.firstVisibleAtMs = now;
+          viewport.initialVisible = viewportImages.length;
+          viewport.alreadyLoadedAtFirstObservation = viewportImages.filter(
+            image => image.complete && image.naturalWidth > 0).length;
+        }
+        viewportImages.forEach(function (image) {
+          if (!viewportReady.has(image) && image.complete && image.naturalWidth > 0) {
+            viewportReady.add(image);
+            if (viewport.firstReadyObservedMs === null) viewport.firstReadyObservedMs = now;
+          }
+        });
+        if (viewport.allReadyObservedMs === null &&
+            viewportReady.size === viewportImages.length) viewport.allReadyObservedMs = now;
+      }
+      function queueViewport() {
+        if (viewportQueued) return;
+        viewportQueued = true;
+        function run() {
+          viewportQueued = false;
+          if (active && active.begin === begin) inspectViewport();
+        }
+        if (typeof win.requestAnimationFrame === 'function') win.requestAnimationFrame(run);
+        else run();
+      }
       const supported = { resource: false, longtask: false, mutation: false };
       function observe(callback, type, config) {
         const Constructor = type === 'mutation' ? win.MutationObserver : win.PerformanceObserver;
@@ -291,14 +341,27 @@
       }
       observe(function (list) { resources.push.apply(resources, list.getEntries()); }, 'resource', { type: 'resource', buffered: buffered });
       observe(function (list) { tasks.push.apply(tasks, list.getEntries()); }, 'longtask', { type: 'longtask', buffered: buffered });
-      observe(function (records) { mutations += records.length; }, 'mutation', { childList: true, attributes: true, characterData: true, subtree: true });
+      observe(function (records) {
+        mutations += records.length;
+        queueViewport();
+      }, 'mutation', { childList: true, attributes: true, characterData: true, subtree: true });
       const imageLoadTimes = [];
       function imageLoaded(event) {
         if (visibleArtwork(event.target))
-          imageLoadTimes.push(Math.round((perf.now() - begin) * 10) / 10);
+          imageLoadTimes.push(round(perf.now() - begin));
+        // Update the initial cohort without changing its membership after
+        // scrolling or opening another rail.
+        if (!viewportImages || viewportImages.includes(event.target)) queueViewport();
       }
       if (typeof doc.addEventListener === 'function') doc.addEventListener('load', imageLoaded, true);
-      active = { label: String(label || 'capture'), begin: begin, buffered: buffered, supported: supported, observers: observers, resources: resources, tasks: tasks, imageLoaded: imageLoaded, imageLoadTimes: imageLoadTimes, getMutations: function () { return mutations; }, addMutations: function (count) { mutations += count; }, initialScroll: railScroll() };
+      active = { label: String(label || 'capture'), begin: begin, buffered: buffered, supported: supported, observers: observers, resources: resources, tasks: tasks, imageLoaded: imageLoaded, imageLoadTimes: imageLoadTimes, getMutations: function () { return mutations; }, addMutations: function (count) { mutations += count; }, initialScroll: railScroll(),
+        finalViewport: function () {
+          if (viewportImages) inspectViewport();
+          viewport.readyAtStop = viewportReady.size;
+          viewport.pendingAtStop = viewport.initialVisible - viewportReady.size;
+          return {...viewport, basis: 'Fixed first-observed visible image cohort (max 24), independent of later scrolling; times relative to capture start. Ready means image.complete with naturalWidth > 0, not decoded-image paint. Already-cached images are timed at first observation.'};
+        }};
+      queueViewport();
       return 'Capture started';
     }
     function stop() {
@@ -326,6 +389,7 @@
         metrics: summarize(session.resources, current, session.getMutations(), session.tasks, win.location.href),
         completeImages: current.filter(function (image) { return image.complete && image.width > 0; }).length,
         lazyImages: current.filter(function (image) { return image.loading === 'lazy'; }).length,
+        initialViewportArtwork: session.finalViewport(),
         visibleArtwork: {
           visibleAtStop: visible.length,
           loadedAtStop: loaded.length,

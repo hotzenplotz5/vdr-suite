@@ -327,7 +327,73 @@ async function main() {
     assert.equal(result.visibleArtwork.firstLoadEventMs, 35);
     assert.equal(result.visibleArtwork.lastLoadEventMs, 35);
     assert.equal(result.visibleArtwork.observedLoadEvents, 1);
+    assert.equal(result.initialViewportArtwork.initialVisible, 1);
+    assert.equal(result.initialViewportArtwork.alreadyLoadedAtFirstObservation, 1);
+    assert.equal(result.initialViewportArtwork.readyAtStop, 1);
+    assert.equal(result.initialViewportArtwork.allReadyObservedMs, 0);
     assert.equal(imageEvents.load, undefined);
+
+    // First-viewport cohort is fixed before scrolling. A later stop with
+    // zero visible posters must not lose first-screen readiness timing.
+    let cohortNow = 0, posterLeft = 150;
+    const cohortFrames = [], cohortListeners = {}, cohortObservers = [];
+    const railClip = {getBoundingClientRect() {
+      return {left:100,right:420,top:0,bottom:350};
+    }};
+    const makeCover = (id, x) => ({
+      currentSrc: 'https://example.test/api/vdr/recordings/metadata/image?id=' + id,
+      complete:false, naturalWidth:0, loading:'lazy',
+      closest() { return railClip; },
+      getBoundingClientRect() {
+        const left = id === 'main' ? posterLeft : x;
+        return {left,right:left+120,top:40,bottom:200,width:120,height:160};
+      }
+    });
+    const firstPoster = makeCover('main',150);
+    const clippedPoster = makeCover('clipped',700);
+    class CohortObserver {
+      constructor(callback) {this.callback=callback;this.pending=[];cohortObservers.push(this);}
+      observe() {}
+      takeRecords() {return this.pending.splice(0);}
+      disconnect() {}
+    }
+    const cohortEnv = {
+      innerWidth:800, innerHeight:600,
+      location:{href:'https://example.test/frontend/',origin:'https://example.test'},
+      performance:{now(){return cohortNow;}},
+      requestAnimationFrame(fn){cohortFrames.push(fn);},
+      PerformanceObserver:CohortObserver, MutationObserver:CohortObserver,
+      document:{
+        documentElement:{},
+        addEventListener(type,fn){cohortListeners[type]=fn;},
+        removeEventListener(type){delete cohortListeners[type];},
+        querySelectorAll(selector) {
+          return selector === 'img' ? [firstPoster,clippedPoster] : [];
+        }
+      }
+    };
+    const cohortProbe = createProbe(cohortEnv);
+    cohortProbe.start('first-viewport', {buffered:false});
+    assert.equal(cohortFrames.length,1);
+    cohortNow=120;cohortFrames.shift()();
+    // A rail-clipped poster must not join the initial visible cohort.
+    firstPoster.complete=true;firstPoster.naturalWidth=120;
+    cohortNow=430;cohortListeners.load({target:firstPoster});
+    cohortFrames.shift()();
+    // The user scrolls away before stopping; first-screen timing persists.
+    posterLeft=950;
+    cohortNow=550;
+    const cohortResult=cohortProbe.stop();
+    assert.equal(cohortResult.visibleArtwork.visibleAtStop,0);
+    assert.equal(cohortResult.initialViewportArtwork.firstVisibleAtMs,120);
+    assert.equal(cohortResult.initialViewportArtwork.initialVisible,1);
+    assert.equal(cohortResult.initialViewportArtwork.alreadyLoadedAtFirstObservation,0);
+    assert.equal(cohortResult.initialViewportArtwork.readyAtStop,1);
+    assert.equal(cohortResult.initialViewportArtwork.pendingAtStop,0);
+    assert.equal(cohortResult.initialViewportArtwork.firstReadyObservedMs,430);
+    assert.equal(cohortResult.initialViewportArtwork.allReadyObservedMs,430);
+    assert(!JSON.stringify(cohortResult.initialViewportArtwork).includes('main'));
+    assert(!JSON.stringify(cohortResult.initialViewportArtwork).includes('clipped'));
     assert.equal(result.metrics.resourceRequests, 1);
     assert.equal(result.metrics.longTasks, 1);
     assert.equal(result.metrics.mutations, 1);
