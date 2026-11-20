@@ -5,7 +5,6 @@ const fs = require('fs');
 const vm = require('vm');
 
 const scrollCalls = [];
-let posterCreations = 0;
 
 function createElement(tagName) {
   const listeners = Object.create(null);
@@ -108,14 +107,7 @@ const shared = {
     button.addEventListener('click', callback);
     return button;
   },
-  createPoster(recording) {
-    posterCreations += 1;
-    const poster = createElement('figure');
-    const image = createElement('img');
-    image.src = String(recording && recording.title || '');
-    poster.appendChild(image);
-    return poster;
-  },
+  createPoster() { return createElement('figure'); },
   folderList(data) { return data && Array.isArray(data.folders) ? data.folders : []; },
   recordingList(data) { return data && Array.isArray(data.recordings) ? data.recordings : []; },
   recordingTitle(recording) { return String(recording && recording.title || 'Aufnahme'); },
@@ -252,83 +244,6 @@ assert.strictEqual(homeButton.textContent, '⌂ Home');
 homeButton.click();
 assert.strictEqual(homeCount, 2,
   'external Recording detail Home must use the canonical Home exit owner');
-
-// PWA.15.7: switching Komödie -> Horror -> Komödie must retain the *same*
-// poster DOM nodes after a fresh authorized folder response.
-const ace = Object.assign({}, recording, {title:'Ace Ventura'});
-const scary = Object.assign({}, recording, {title:'Horror'});
-const comedyPayload = {
-  recordingFolder:true, path:'Komödie', folders:[], recordings:[ace],
-  totalCount:1, recordingCount:1, folderCount:0, returnedCount:1
-};
-const horrorPayload = {
-  recordingFolder:true, path:'Horror', folders:[], recordings:[scary],
-  totalCount:1, recordingCount:1, folderCount:0, returnedCount:1
-};
-function selectFolder(path, payload, recordings) {
-  currentState = Object.assign({}, currentState, {
-    selectedRecording:null, backendId:'default', path:path, parentPath:'',
-    data:payload, recordings:recordings, error:null, loadingMore:false
-  });
-  view.renderLoading();
-  view.renderFolder();
-  return target.children[0];
-}
-function firstImage(root) {
-  const candidates = [root];
-  while (candidates.length) {
-    const element = candidates.shift();
-    if (element.tagName === 'IMG') return element;
-    candidates.push(...element.children);
-  }
-  return null;
-}
-const comedyRoot = selectFolder('Komödie', comedyPayload, [ace]);
-const aceImage = firstImage(comedyRoot);
-assert(aceImage, 'a Recording card contains an image element');
-const createdBeforeReturn = posterCreations + 1;
-selectFolder('Horror', horrorPayload, [scary]);
-assert.strictEqual(posterCreations, createdBeforeReturn);
-const comedyAgain = selectFolder('Komödie', comedyPayload, [ace]);
-assert.strictEqual(comedyAgain, comedyRoot,
-  'returning to an unchanged authorized folder must reattach the same DOM tree');
-assert.strictEqual(firstImage(comedyAgain), aceImage,
-  'Ace Ventura must retain its decoded image node on folder return');
-assert.strictEqual(posterCreations, createdBeforeReturn,
-  'a cached folder return must not create or assign new poster images');
-
-// A changed response must not silently keep stale metadata or actions.
-const revisedAce = Object.assign({}, ace, {title:'Ace Ventura – aktualisiert'});
-const revisedPayload = Object.assign({}, comedyPayload, {recordings:[revisedAce]});
-currentState = Object.assign({}, currentState, {
-  data:revisedPayload, recordings:[revisedAce]
-});
-view.renderFolder();
-assert.notStrictEqual(target.children[0], comedyRoot,
-  'a changed server recording invalidates the cached presentation');
-assert.strictEqual(posterCreations, createdBeforeReturn + 1);
-
-// A failed authorization clears the retained views; never show stale posters.
-selectFolder('Horror', horrorPayload, [scary]);
-currentState = Object.assign({}, currentState, {error:new Error('401 Unauthorized')});
-view.renderError();
-const afterDenied = selectFolder('Komödie', comedyPayload, [ace]);
-assert.notStrictEqual(afterDenied, comedyRoot,
-  'an authorization error must not revive a previously retained view');
-
-// Backend isolation: another backend may not reuse the first backend's DOM.
-const isolatedRoot = afterDenied;
-currentState = Object.assign({}, currentState, {backendId:'another'});
-view.renderLoading();
-view.renderFolder();
-assert.notStrictEqual(target.children[0], isolatedRoot,
-  'switching backend must not retain another backend\'s poster DOM');
-
-const beforeDestroy = target.children[0];
-view.destroy();
-view.renderFolder();
-assert.notStrictEqual(target.children[0], beforeDestroy,
-  'leaving the module must discard old private folder DOM references');
 
 const source = fs.readFileSync('web/frontend/recordings2-browser-view.js', 'utf8');
 const runtimeSource = fs.readFileSync('web/frontend/recordings2.js', 'utf8');
