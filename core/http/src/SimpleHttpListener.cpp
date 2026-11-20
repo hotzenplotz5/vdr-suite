@@ -483,11 +483,12 @@ public:
     ImageResponseWriterPool(const ImageResponseWriterPool&) = delete;
     ImageResponseWriterPool& operator=(const ImageResponseWriterPool&) = delete;
 
-    bool enqueue(int socketFd, std::string response)
+    bool enqueue(int socketFd, std::string response,
+                 std::function<std::string()> deferred = {})
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (stopping_ || jobs_.size() >= maximumPending_) return false;
-        jobs_.push_back(Job{socketFd, std::move(response)});
+        jobs_.push_back(Job{socketFd, std::move(response), std::move(deferred)});
         condition_.notify_one();
         return true;
     }
@@ -516,6 +517,7 @@ private:
     {
         int socketFd = -1;
         std::string response;
+        std::function<std::string()> deferred;
     };
 
     void runWorker()
@@ -531,6 +533,7 @@ private:
                 job = std::move(jobs_.front());
                 jobs_.pop_front();
             }
+            if (job.deferred) job.response = job.deferred();
             writeAll(job.socketFd, job.response);
             close(job.socketFd);
         }
@@ -1007,6 +1010,7 @@ int SimpleHttpListener::runUntilStopped()
 
         std::string rawResponse;
         bool imageResponse = false;
+        std::function<std::string()> deferredImageResponse;
         std::string streamBodyPath;
         std::shared_ptr<DeviceLiveEventSubscription> deviceEvents;
         std::shared_ptr<BrowserLiveEventSubscription> browserEvents;
@@ -1015,6 +1019,7 @@ int SimpleHttpListener::runUntilStopped()
                 clientSocket,
                 rawResponse,
                 imageResponse,
+                deferredImageResponse,
                 streamBodyPath,
                 deviceEvents,
                 browserEvents)) {
@@ -1056,7 +1061,8 @@ int SimpleHttpListener::runUntilStopped()
         if (imageResponse) {
             if (imageWriters.enqueue(
                     clientSocket,
-                    std::move(rawResponse))) {
+                    std::move(rawResponse),
+                    std::move(deferredImageResponse))) {
                 continue;
             }
             writeAll(clientSocket, imageQueueBusyResponse());
@@ -1153,6 +1159,7 @@ bool SimpleHttpListener::prepareClientResponse(
     int clientSocket,
     std::string& rawResponse,
     bool& imageResponse,
+    std::function<std::string()>& deferredImageResponse,
     std::string& streamBodyPath,
     std::shared_ptr<DeviceLiveEventSubscription>& deviceEvents,
     std::shared_ptr<BrowserLiveEventSubscription>& browserEvents) const
@@ -1201,12 +1208,34 @@ bool SimpleHttpListener::prepareClientResponse(
             }
         }
     }
+    request.deferArtworkPreview = true;
     const auto handlerStarted = std::chrono::steady_clock::now();
-    const HttpServerResponse response = server_.handleRequest(request);
+    HttpServerResponse response = server_.handleRequest(request);
     reportSlowListenerPhase(
         request.path.rfind("/api/agent/v1/", 0) == 0
             ? "agent-handler" : "http-handler",
         handlerStarted);
+    if (response.deferredArtworkPreview && isImageResponse(response)) {
+        auto transform = std::move(response.deferredArtworkPreview);
+        response.deferredArtworkPreview = {};
+        deferredImageResponse =
+            [authorized = std::move(response), transform = std::move(transform)]()
+                mutable -> std::string {
+                try {
+                    transform(authorized);
+                } catch (...) {
+                    // Preserve the original representation without publishing
+                    // an unvalidated actor-scoped HTTP cache entry.
+                    authorized.headers.erase("X-VDR-Suite-Artwork-Scope");
+                    authorized.headers.erase("ETag");
+                    authorized.headers.erase("Last-Modified");
+                    authorized.headers["Cache-Control"] = "no-store";
+                }
+                return serializeResponse(authorized, false);
+            };
+        imageResponse = true;
+        return true;
+    }
     imageResponse = isImageResponse(response);
     streamBodyPath = response.streamBodyPath;
     deviceEvents = response.deviceEventSubscription;
