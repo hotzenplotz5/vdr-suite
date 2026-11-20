@@ -319,6 +319,22 @@ provider or adding a retry loop. This corrects a concrete source-level
 timeout-path discrepancy; the reported real HTTP 503 has not yet been
 retested on yaVDR. A failed or unavailable fetch remains an error.
 
+## ST.F1: kanal- und dauerbewusste EPG-Vorschau (20.11.2026)
+
+Die bestehende `SearchTimerPreviewService` filtert bei gespeicherten
+Suchtimern anhand der Backend-Kanalliste vor Textmatch, Trefferzählung und
+Paginierung. Unterstützt sind einzelne Sender, Kanalbereiche in numerischer
+VDR-Senderreihenfolge, Kanalgruppen, FTA und HHMM-Dauergrenzen.
+Die Web-Draft-Vorschau übernimmt die vom Formular übertragenen
+Filterparameter. Die Public-v1-Draft-Preview bleibt vertraglich unverändert
+(`epg-match-only`).
+
+Fehlt für einen Senderbereich die Kanalliste, bleiben die Treffer ungefiltert
+und die Web-Vorschau zeigt einen Warnhinweis, statt fälschlich null Treffer
+zu behaupten. Uhrzeit, Wochentage, Blacklists, native Wiederholungserkennung
+und Aufnahmekonflikte sind weiterhin keine vollständig simulierten
+epgsearch-Aufnahmeentscheidungen. CI, MLD- und yaVDR-Abnahme folgen separat.
+
 ## Back
 
 - [Back to Development Index](index.md)

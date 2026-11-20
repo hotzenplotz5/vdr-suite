@@ -7,6 +7,7 @@
 
 #include "SearchTimer.h"
 #include "VdrEvent.h"
+#include "VdrChannel.h"
 
 class ISearchTimerCommandExecutor;
 class ISearchTimerDataSource;
@@ -71,7 +72,8 @@ public:
         const SearchTimer& searchTimer,
         const std::vector<VdrEvent>& events,
         int limit,
-        int offset);
+        int offset,
+        const std::vector<VdrChannel>& channels = {});
 
     ApiResponse createSearchTimer(
         const std::string& body,

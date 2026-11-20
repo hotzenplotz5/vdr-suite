@@ -2917,8 +2917,12 @@ bool DaemonRuntime::initialize()
                 if (publicId != request.searchTimerId) continue;
 
                 SearchTimerPreviewService service;
+                const std::vector<VdrChannel> channels =
+                    vdrSnapshotReadService_
+                        ? vdrSnapshotReadService_->getChannelsForBackend(request.backendId)
+                        : std::vector<VdrChannel>{};
                 const auto preview = service.preview(
-                    timer, *events, static_cast<int>(request.limit), 0);
+                    timer, *events, static_cast<int>(request.limit), 0, channels);
                 result.searchTimerId = publicId;
                 result.backendId = request.backendId;
                 result.totalCount = preview.totalCount();

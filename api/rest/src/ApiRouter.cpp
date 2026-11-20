@@ -1139,17 +1139,47 @@ ApiResponse ApiRouter::handleGet(
             queryBoolOrDefault(queryParameters, "compareSubtitle", true));
         previewSearchTimer.comparisonOptions().setCompareSummary(
             queryBoolOrDefault(queryParameters, "compareSummary", false));
+        previewSearchTimer.matchOptions().setMode(
+            queryParameters.getInt("mode", 0));
+        previewSearchTimer.matchOptions().setTolerance(
+            queryParameters.getInt("tolerance", 0));
+
+        const int channelMode = queryParameters.getInt("useChannel", 0);
+        previewSearchTimer.filterOptions().setUseChannel(channelMode != 0);
+        previewSearchTimer.filterOptions().setChannelMode(channelMode);
+        previewSearchTimer.channelOptions().setChannels(
+            queryParameters.get("channels"));
+        previewSearchTimer.channelOptions().setChannelMinId(
+            queryParameters.get("channelMin"));
+        previewSearchTimer.channelOptions().setChannelMaxId(
+            queryParameters.get("channelMax"));
+        previewSearchTimer.filterOptions().setUseDuration(
+            queryBoolOrDefault(queryParameters, "useDuration", false));
+        previewSearchTimer.filterOptions().setDurationMinMinutes(
+            queryParameters.getInt("durationMinMinutes", 0));
+        previewSearchTimer.filterOptions().setDurationMaxMinutes(
+            queryParameters.getInt("durationMaxMinutes", 0));
+        previewSearchTimer.filterOptions().setUseTime(
+            queryBoolOrDefault(queryParameters, "useTime", false));
+        previewSearchTimer.filterOptions().setUseDayOfWeek(
+            queryBoolOrDefault(queryParameters, "useDayOfWeek", false));
 
         const std::vector<VdrEvent> events =
             queryParameters.get("backend").empty()
                 ? vdrSnapshotReadService_.getEvents()
                 : vdrSnapshotReadService_.getEventsForBackend(backendId);
 
+        const std::vector<VdrChannel> channels =
+            queryParameters.get("backend").empty()
+                ? vdrSnapshotReadService_.getChannels()
+                : vdrSnapshotReadService_.getChannelsForBackend(backendId);
+
         return searchTimerController_->previewSearchTimer(
             previewSearchTimer,
             events,
             queryParameters.getInt("limit", 0),
-            queryParameters.getInt("offset", 0));
+            queryParameters.getInt("offset", 0),
+            channels);
     }
 
     if (path == "/api/searchtimers" ||

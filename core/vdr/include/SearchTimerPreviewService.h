@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SearchTimer.h"
+#include "VdrChannel.h"
 #include "SearchTimerPreviewResult.h"
 #include "VdrEvent.h"
 
@@ -12,5 +13,6 @@ public:
         const SearchTimer& searchTimer,
         const std::vector<VdrEvent>& events,
         int limit = 0,
-        int offset = 0) const;
+        int offset = 0,
+        const std::vector<VdrChannel>& channels = {}) const;
 };

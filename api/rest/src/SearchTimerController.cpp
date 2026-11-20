@@ -490,7 +490,8 @@ ApiResponse SearchTimerController::previewSearchTimer(
     const SearchTimer& searchTimer,
     const std::vector<VdrEvent>& events,
     int limit,
-    int offset)
+    int offset,
+    const std::vector<VdrChannel>& channels)
 {
     SearchTimerPreviewService previewService;
     SearchTimerPreviewResultJsonSerializer serializer;
@@ -500,7 +501,8 @@ ApiResponse SearchTimerController::previewSearchTimer(
             searchTimer,
             events,
             limit,
-            offset);
+            offset,
+            channels);
 
     ApiResponse response;
     response.statusCode = 200;

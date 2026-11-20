@@ -400,8 +400,98 @@ static void test_preview_uses_non_ready_epg_input_context_once()
     assert(secondResult.warnings().empty());
 }
 
+
+static VdrChannel previewChannel(
+    const std::string& id, int number, const std::string& group, bool encrypted)
+{
+    VdrChannel channel{};
+    channel.id = id;
+    channel.number = number;
+    channel.group = group;
+    channel.encrypted = encrypted;
+    channel.enabled = true;
+    return channel;
+}
+
+static void test_channel_range_uses_vdr_numbers_before_pagination()
+{
+    const auto channels = std::vector<VdrChannel>{
+        previewChannel("Z", 1, "A", false),
+        previewChannel("B", 2, "A", false),
+        previewChannel("A", 3, "B", false),
+        previewChannel("Q", 4, "B", false)};
+    const auto events = std::vector<VdrEvent>{
+        makeEvent("1", "Z", "Tatort", "", "", "2026-11-20T18:00:00"),
+        makeEvent("2", "B", "Tatort", "", "", "2026-11-20T19:00:00"),
+        makeEvent("3", "A", "Tatort", "", "", "2026-11-20T20:00:00"),
+        makeEvent("4", "Q", "Tatort", "", "", "2026-11-20T21:00:00")};
+    SearchTimer timer = makeSearchTimer();
+    timer.filterOptions().setChannelMode(1);
+    timer.channelOptions().setChannelMinId("B");
+    timer.channelOptions().setChannelMaxId("A");
+    SearchTimerPreviewService service;
+    const auto result = service.preview(timer, events, 1, 1, channels);
+    assert(result.totalCount() == 2);
+    assert(result.returnedCount() == 1);
+    assert(result.searchResult().matches().at(0).event().channelId == "A");
+    assert(result.warnings().empty());
+}
+
+static void test_group_fta_and_hhmm_duration_filter()
+{
+    const auto channels = std::vector<VdrChannel>{
+        previewChannel("A", 1, "Public", false),
+        previewChannel("B", 2, "Public", true),
+        previewChannel("C", 3, "Private", false)};
+    auto early = makeEvent("1", "A", "Tatort", "", "", "2026-11-20T18:00:00");
+    early.durationSeconds = 45 * 60;
+    auto matching = makeEvent("2", "A", "Tatort", "", "", "2026-11-20T19:00:00");
+    matching.durationSeconds = 90 * 60;
+    auto encrypted = makeEvent("3", "B", "Tatort", "", "", "2026-11-20T20:00:00");
+    encrypted.durationSeconds = 90 * 60;
+    auto wrongGroup = makeEvent("4", "C", "Tatort", "", "", "2026-11-20T21:00:00");
+    wrongGroup.durationSeconds = 90 * 60;
+    const std::vector<VdrEvent> events{early, matching, encrypted, wrongGroup};
+    SearchTimer timer = makeSearchTimer();
+    timer.filterOptions().setChannelMode(2);
+    timer.channelOptions().setChannels("Public");
+    timer.filterOptions().setUseDuration(true);
+    timer.filterOptions().setDurationMinMinutes(130); // HHMM 01:30
+    timer.filterOptions().setDurationMaxMinutes(200); // HHMM 02:00
+    SearchTimerPreviewService service;
+    const auto group = service.preview(timer, events, 0, 0, channels);
+    assert(group.totalCount() == 2);
+    timer.filterOptions().setChannelMode(3);
+    const auto fta = service.preview(timer, events, 0, 0, channels);
+    assert(fta.totalCount() == 2);
+    for (const auto& match : fta.searchResult().matches())
+        assert(match.event().channelId != "B");
+}
+
+static void test_missing_catalogue_warning_and_single_channel()
+{
+    SearchTimer timer = makeSearchTimer();
+    timer.filterOptions().setChannelMode(1);
+    timer.channelOptions().setChannelMinId("B");
+    timer.channelOptions().setChannelMaxId("C");
+    const std::vector<VdrEvent> events{
+        makeEvent("1", "A", "Tatort", "", "", "2026-11-20T18:00:00"),
+        makeEvent("2", "B", "Tatort", "", "", "2026-11-20T19:00:00")};
+    SearchTimerPreviewService service;
+    const auto missing = service.preview(timer, events);
+    assert(missing.totalCount() == 2);
+    assert(!missing.warnings().empty());
+    timer.channelOptions().setChannelMaxId("B");
+    const auto single = service.preview(timer, events);
+    assert(single.totalCount() == 1);
+    assert(single.warnings().empty());
+}
+
 int main()
 {
+    test_channel_range_uses_vdr_numbers_before_pagination();
+    test_group_fta_and_hhmm_duration_filter();
+    test_missing_catalogue_warning_and_single_channel();
     test_preview_matches_events_by_search_timer_query();
     test_preview_applies_typo_fallback_when_exact_preview_has_no_matches();
     test_preview_respects_limit();

@@ -11,6 +11,7 @@
 #include <cctype>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace {
@@ -272,6 +273,102 @@ EpgSearchRequest createPreviewTypoFallbackRequest(
     return request;
 }
 
+
+int hhmmToMinutes(int value)
+{
+    const int positive = std::max(0, value);
+    return (positive / 100) * 60 + (positive % 100);
+}
+
+// EPG/channel constraints apply before match/pagination: never filter a
+// limited first page and then misreport the total or later candidates.
+std::vector<VdrEvent> previewCandidates(
+    const SearchTimer& timer,
+    const std::vector<VdrEvent>& events,
+    const std::vector<VdrChannel>& channels,
+    std::vector<std::string>& warnings)
+{
+    const auto& filters = timer.filterOptions();
+    const auto& options = timer.channelOptions();
+    std::unordered_set<std::string> selectedChannels;
+    bool restrictChannels = false;
+    const int mode = filters.channelMode();
+
+    if (mode == 1)
+    {
+        const std::string first = options.channelMinId();
+        const std::string last = options.channelMaxId().empty()
+            ? first : options.channelMaxId();
+        if (!first.empty() && first == last)
+        {
+            selectedChannels.insert(first);
+            restrictChannels = true;
+        }
+        else if (!first.empty() && !last.empty())
+        {
+            const auto findChannel = [&channels](const std::string& id) {
+                return std::find_if(channels.begin(), channels.end(),
+                    [&id](const VdrChannel& channel) { return channel.id == id; });
+            };
+            const auto lower = findChannel(first);
+            const auto upper = findChannel(last);
+            if (lower != channels.end() && upper != channels.end() &&
+                lower->number > 0 && upper->number > 0)
+            {
+                const int lo = std::min(lower->number, upper->number);
+                const int hi = std::max(lower->number, upper->number);
+                for (const auto& channel : channels)
+                    if (channel.number >= lo && channel.number <= hi)
+                        selectedChannels.insert(channel.id);
+                restrictChannels = true;
+            }
+        }
+    }
+    else if (mode == 2 && !channels.empty() && !options.channels().empty())
+    {
+        for (const auto& channel : channels)
+            if (channel.group == options.channels())
+                selectedChannels.insert(channel.id);
+        restrictChannels = true;
+    }
+    else if (mode == 3 && !channels.empty())
+    {
+        for (const auto& channel : channels)
+            if (!channel.encrypted)
+                selectedChannels.insert(channel.id);
+        restrictChannels = true;
+    }
+
+    if (mode != 0 && !restrictChannels)
+        warnings.push_back(
+            "Kanalfilter konnte ohne vollstaendige Kanalliste nicht ausgewertet werden.");
+    if (filters.useTime() || filters.useDayOfWeek())
+        warnings.push_back(
+            "Uhrzeit- und Wochentagsfilter werden in dieser EPG-Vorschau noch nicht ausgewertet.");
+    if (timer.repeatOptions().avoidRepeats())
+        warnings.push_back(
+            "Wiederholungspruefung ist nicht Bestandteil der EPG-Vorschau.");
+
+    const int minDuration = hhmmToMinutes(filters.durationMinMinutes());
+    const int maxDuration = hhmmToMinutes(filters.durationMaxMinutes());
+    std::vector<VdrEvent> selected;
+    selected.reserve(events.size());
+    for (const auto& event : events)
+    {
+        if (restrictChannels && selectedChannels.count(event.channelId) == 0U)
+            continue;
+        if (filters.useDuration())
+        {
+            const int minutes = event.durationSeconds / 60;
+            if (minutes < minDuration ||
+                (filters.durationMaxMinutes() > 0 && minutes > maxDuration))
+                continue;
+        }
+        selected.push_back(event);
+    }
+    return selected;
+}
+
 EpgSearchResult paginateResult(
     const EpgSearchResult& result,
     int limit,
@@ -316,7 +413,8 @@ SearchTimerPreviewResult SearchTimerPreviewService::preview(
     const SearchTimer& searchTimer,
     const std::vector<VdrEvent>& events,
     int limit,
-    int offset) const
+    int offset,
+    const std::vector<VdrChannel>& channels) const
 {
     const SearchTimerPreviewEpgInputContextState epgInputContext =
         SearchTimerPreviewEpgInputContext::current();
@@ -325,10 +423,13 @@ SearchTimerPreviewResult SearchTimerPreviewService::preview(
 
     EpgSearchService service;
     EpgSearchRequestMapper requestMapper;
+    std::vector<std::string> warnings = epgInputContext.warnings;
+    const std::vector<VdrEvent> candidates =
+        previewCandidates(searchTimer, events, channels, warnings);
 
     const EpgSearchResult initialResult =
         service.search(
-            events,
+            candidates,
             requestMapper.map(createPreviewRequest(searchTimer)));
 
     const EpgSearchResult unpagedResult =
@@ -336,7 +437,7 @@ SearchTimerPreviewResult SearchTimerPreviewService::preview(
             ? rankTypoFallbackResult(
                   searchTimer,
                   service.search(
-                      events,
+                      candidates,
                       requestMapper.map(
                           createPreviewTypoFallbackRequest(searchTimer))))
             : initialResult;
@@ -349,5 +450,5 @@ SearchTimerPreviewResult SearchTimerPreviewService::preview(
             offset),
         epgInputContext.status,
         epgInputContext.available,
-        epgInputContext.warnings);
+        warnings);
 }
