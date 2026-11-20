@@ -1375,13 +1375,12 @@ and `renderFolder()` always generated fresh Recording cards and `img` nodes.
 The existing `recordings2-browser-view.js` DOM owner now retains at most
 **three detached folder views** with no more than **200 Recording cards per
 retained view**. The server's normal authenticated folder read remains
-authoritative. When a successfully fetched folder projection is unchanged,
-the complete former folder DOM (including loaded images) is reattached;
-same-folder reloads also leave the painted view mounted during the fetch.
-When recordings, metadata, totals or pagination change, cards are rebuilt
-with current click handlers and Recording objects, but matching canonical
-recording identities with unchanged resolved poster URLs reuse the original
-poster DOM. Changed URLs create a new poster. Folder scroll positions are
+authoritative. On every successful folder read, Recording cards and action menus are
+reconstructed from current data, while matching canonical Recording identities
+with unchanged resolved poster URLs reuse their original loaded poster DOM.
+This prevents stale per-card capability/menu state from being carried across
+navigation or an explicit refresh. Same-folder reloads leave the painted
+view mounted while the request is pending. Changed URLs create a new poster. Folder scroll positions are
 restored on return. Backend transitions, view destruction and unauthenticated
 browser-session notifications clear retained DOM; failed folder reads render
 their existing error state without retaining an authorization-unknown view.

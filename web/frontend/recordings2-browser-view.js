@@ -46,12 +46,6 @@
       return id ? backend + '\u0000id:' + id : '';
     }
 
-    function folderViewSignature(value) {
-      // Include the rendered projection: new recordings, artwork URLs, metadata,
-      // pagination, folder totals and cache status must all invalidate the view.
-      return JSON.stringify([value.data, value.recordings, value.loadingMore]);
-    }
-
     function rememberMountedFolder(target) {
       const previous = mountedFolderView;
       mountedFolderView = null;
@@ -304,17 +298,12 @@
     function renderFolder() { detailStartRevealed = false;
       const currentState = state();
       const key = folderViewKey(currentState);
-      const signature = folderViewSignature(currentState);
       const target = prepareTarget();
       if (!target) return;
       const previous = folderViews.get(key);
       folderViews.delete(key);
-      if (previous && previous.signature === signature) {
-        target.appendChild(previous.root);
-        mountedFolderView = previous;
-        restoreFolderScroll(target, previous);
-        return;
-      }
+      // Action menus and click closures must be rebuilt from the current
+      // Recording state. Only their unchanged poster DOM may be recycled.
       const oldPosters = previous ? new Map(previous.posters) : null;
       const posters = new Map();
       const root = createRoot('recordings2');
@@ -389,7 +378,7 @@
       }
       target.appendChild(root);
       mountedFolderView = {
-        key: key, signature: signature, root: root, posters: posters,
+        key: key, root: root, posters: posters,
         recordingCount: recordings.length, scrollTop: 0, scrollY: 0
       };
       restoreFolderScroll(target, previous);

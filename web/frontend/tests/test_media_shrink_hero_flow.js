@@ -161,6 +161,10 @@ const context = {console, document: {
     },
     clientApi() {return null;},
     createPoster() {return new Node('span', 'recordings2-poster');},
+    // Match the Shared poster contract required by the Recording DOM-reuse
+    // owner. This HEVC fixture intentionally has no artwork URL.
+    recordingPosterUrl() {return '';},
+    publicPath(url) {return url;},
     createButton(label, callback) {
       const button = new Node('button', '', label);
       button.addEventListener('click', callback);

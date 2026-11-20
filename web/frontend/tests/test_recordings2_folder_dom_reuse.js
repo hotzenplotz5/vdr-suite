@@ -119,7 +119,8 @@ view.renderLoading();
 assert.strictEqual(target.children[0], comedyRoot, 'same-folder reload must retain painted DOM');
 current.loading = false;
 view.renderFolder();
-assert.strictEqual(target.children[0], comedyRoot);
+assert.strictEqual(target.children[0].querySelector('img'), acePoster,
+  'same-folder readback must preserve the previously loaded poster');
 
 window.scrollY = 312;
 current = folder('Horror', [recording('horror', '/art/horror.jpg', 'Horror')]);
@@ -130,7 +131,8 @@ assert.notStrictEqual(target.children[0], comedyRoot);
 current = folder('Komödie', [recording('ace', '/art/ace.jpg', 'Ace Ventura')]);
 view.renderLoading();
 view.renderFolder();
-assert.strictEqual(target.children[0], comedyRoot, 'Komödie -> Horror -> Komödie must reuse the whole folder DOM');
+assert.notStrictEqual(target.children[0], comedyRoot,
+  'returning to a folder rebuilds action controls from current state');
 assert.strictEqual(target.children[0].querySelector('img'), acePoster, 'Ace Ventura poster identity must survive');
 assert.strictEqual(createdImages, imageCount + 1, 'no redundant img for the revisited folder');
 assert.ok(scrollCalls.some(call => call.top === 312), 'returning to the folder restores its scroll position');
