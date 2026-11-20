@@ -386,6 +386,56 @@ function createHarness() {
     'unchanged poster presentation must retain its existing artwork DOM'
   );
 
+  // PWA.15.7: Home Comedy -> Horror -> Comedy must keep Ace Ventura's
+  // *loaded* image node. This is the Home random-genre rail, NOT Recordings 2.
+  const ace = {
+    recordingId:'ace-ventura', backendId:'default',
+    backendNativeId:'native-ace-ventura', title:'Ace Ventura',
+    metadata:{artwork:{preferredUrl:'/api/vdr/recordings/metadata/image?kind=preferred&recordingId=ace'}}
+  };
+  const horror = {
+    recordingId:'the-exorcist', backendId:'default',
+    backendNativeId:'native-the-exorcist', title:'The Exorcist',
+    metadata:{artwork:{preferredUrl:'/api/vdr/recordings/metadata/image?kind=preferred&recordingId=exorcist'}}
+  };
+  function genreCard(id) {
+    const section = harness.host.querySelector('[data-home-discovery-rail="random-genre"]');
+    return findElement(section, (element) =>
+      element.dataset && element.dataset.recordingId === id);
+  }
+  function cardImage(card) {
+    return findElement(card, (element) => element.tagName === 'IMG');
+  }
+  api.renderRecordingRail('random-genre', 'Komödie', [ace], 'default');
+  const aceCard = genreCard('ace-ventura');
+  const aceImage = cardImage(aceCard);
+  assert(aceImage, 'Ace Ventura must have an image to reuse');
+  aceImage.complete = true;
+  aceImage.naturalWidth = 250;
+
+  api.renderRecordingRail('random-genre', 'Horror', [horror], 'default');
+  api.renderRecordingRail('random-genre', 'Komödie', [ace], 'default');
+  assert.strictEqual(genreCard('ace-ventura'), aceCard,
+    'returning to Comedy must reuse the original Ace Ventura card');
+  assert.strictEqual(cardImage(genreCard('ace-ventura')), aceImage,
+    'the loaded Ace Ventura image must not get a second src assignment');
+
+  // A changed canonical poster must invalidate only its own image.
+  const changedAce = Object.assign({}, ace, {
+    metadata:{artwork:{preferredUrl:'/api/vdr/recordings/metadata/image?kind=preferred&recordingId=ace&revision=2'}}
+  });
+  api.renderRecordingRail('random-genre', 'Komödie', [changedAce], 'default');
+  assert.notStrictEqual(cardImage(genreCard('ace-ventura')), aceImage,
+    'a new artwork revision must render the new poster');
+
+  // A backend change cannot revive a cached card from another backend.
+  api.renderRecordingRail('random-genre', 'Horror', [
+    Object.assign({}, horror, {backendId:'other'})
+  ], 'other');
+  api.renderRecordingRail('random-genre', 'Komödie', [ace], 'default');
+  assert.notStrictEqual(genreCard('ace-ventura'), aceCard,
+    'backend changes must invalidate any previous image DOM reuse');
+
   assert(source.includes('const RANDOM_GENRE_LIMIT = 12'));
   assert(source.includes('fetchBoundedRandomGenreRecordings'));
   assert(!source.slice(
